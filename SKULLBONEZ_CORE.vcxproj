@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{92972446-7D18-4AD1-AE43-15671C767306}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>16.0.31025.104</_ProjectFileVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>Debug\</OutDir>
+    <IntDir>Debug\</IntDir>
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>Release\</OutDir>
+    <IntDir>Release\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>./ThirdPtySource/JPEG;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <PrecompiledHeader />
+      <WarningLevel>Level4</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>legacy_stdio_definitions.lib;jpeg.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
+      <AdditionalLibraryDirectories>./ThirdPtySource/JPEG;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <IgnoreSpecificDefaultLibraries>LIBC;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ProgramDatabaseFile>$(OutDir)SKULLBONEZ_CORE.pdb</ProgramDatabaseFile>
+      <SubSystem>Windows</SubSystem>
+      <TargetMachine>MachineX86</TargetMachine>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>./ThirdPtySource/JPEG;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <PrecompiledHeader />
+      <WarningLevel>Level4</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;jpeg.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
+      <AdditionalLibraryDirectories>./ThirdPtySource/JPEG;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <TargetMachine>MachineX86</TargetMachine>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+      <IgnoreSpecificDefaultLibraries>libc.lib</IgnoreSpecificDefaultLibraries>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="SkullbonezSource\SkullbonezBoundingSphere.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezCamera.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezCameraCollection.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezCollisionResponse.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezGameModel.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezGameModelCollection.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezGeometricMath.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezHelper.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezInit.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezInput.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezQuaternion.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRigidBody.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRotationMatrix.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRun.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezSkyBox.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezTerrain.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezText.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezTextureCollection.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezTimer.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezVector3.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezWindow.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezWorldEnvironment.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="SkullbonezSource\SkullbonezBoundingSphere.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezCamera.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezCameraCollection.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezCollisionResponse.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezCommon.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezDynamicsObject.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezGameModel.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezGameModelCollection.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezGeometricMath.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezGeometricStructures.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezHelper.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezInput.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezQuaternion.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezResponseInformation.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezRigidBody.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezRotationMatrix.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezRun.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezSkyBox.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezTerrain.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezText.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezTextureCollection.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezTimer.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezVector3.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezWindow.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezWorldEnvironment.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

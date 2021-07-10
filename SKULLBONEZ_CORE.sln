@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31112.23
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SKULLBONEZ_CORE", "SKULLBONEZ_CORE.vcxproj", "{92972446-7D18-4AD1-AE43-15671C767306}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{92972446-7D18-4AD1-AE43-15671C767306}.Debug|x86.ActiveCfg = Debug|Win32
+		{92972446-7D18-4AD1-AE43-15671C767306}.Debug|x86.Build.0 = Debug|Win32
+		{92972446-7D18-4AD1-AE43-15671C767306}.Release|x86.ActiveCfg = Release|Win32
+		{92972446-7D18-4AD1-AE43-15671C767306}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {02EC0D62-658B-4718-951A-CBDD2D11C6DA}
+	EndGlobalSection
+EndGlobal
