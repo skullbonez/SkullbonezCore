@@ -75,7 +75,11 @@ CameraCollection* CameraCollection::Instance(void)
 /* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
 void CameraCollection::Destroy(void)
 {
-	CameraCollection::pInstance = 0;
+	if(CameraCollection::pInstance)
+	{
+		*CameraCollection::pInstance = CameraCollection();
+		CameraCollection::pInstance = 0;
+	}
 }
 
 
