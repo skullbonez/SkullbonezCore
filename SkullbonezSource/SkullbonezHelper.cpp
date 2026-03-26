@@ -38,40 +38,30 @@ using namespace SkullbonezCore::Basics;
 /* -- DRAW SPHERE -----------------------------------------------------------------*/
 void SkullbonezHelper::DrawSphere(float radius, const bool isTransparent)
 {
-	if(isTransparent)
-	{
-		// turn on blending
-		glEnable(GL_BLEND);
-	}
-
-	// save world matrix
-	glPushMatrix();
-
-	// rotate to get the textures right
-	glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
-
-	// quadric required to build sphere — created once, reused every call
-	static GLUquadricObj* quadric = []() {
+	// unit sphere display list — built once on first call
+	static GLuint sphereList = []() {
 		GLUquadricObj* q = gluNewQuadric();
 		gluQuadricNormals(q, GL_SMOOTH);
 		gluQuadricTexture(q, true);
-		return q;
+
+		GLuint list = glGenLists(1);
+		glNewList(list, GL_COMPILE);
+			gluSphere(q, 1.0, 25, 25);
+		glEndList();
+
+		gluDeleteQuadric(q);
+		return list;
 	}();
 
-	// draw sphere
-	gluSphere(quadric,			// quadric
-			  radius,			// radius
-			  25,				// segments horiz
-			  25);				// segments vert
+	if(isTransparent) glEnable(GL_BLEND);
 
-	// restore world matrix
+	glPushMatrix();
+		glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
+		glScalef(radius, radius, radius);
+		glCallList(sphereList);
 	glPopMatrix();
 
-	if(isTransparent)
-	{
-		// turn off blending
-		glDisable(GL_BLEND);
-	}
+	if(isTransparent) glDisable(GL_BLEND);
 }
 
 

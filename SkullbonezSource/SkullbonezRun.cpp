@@ -134,7 +134,7 @@ void SkullbonezRun::SetUpGameModels(void)
 		// randomly generate the model properties
 		float xPos					 = 400.0f + (float)(rand() % 400);
 		float yPos					 = 100 + (float)(rand() % 250);
-		float zPos					 = 400.0f + (float)(rand() % 400);
+		float zPos					 = 400.0f + (float)(rand() % 400);	
 		float mass					 = 100.0f + (float)(rand() % 1000);
 		float moment				 = 5.0f + (float)(rand() % 15);
 		float coefficientRestitution = 0.5f + ((float)(rand() % 5) / 10.0f);
