@@ -1,0 +1,35 @@
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.vcxproj.user
+
+# Build output
+Debug/
+Release/
+
+# Compiled object files
+*.obj
+*.pdb
+*.ilk
+*.lib
+*.exp
+*.exe
+*.recipe
+
+# MSBuild / tlog
+*.tlog
+*.log
+*.lastbuildstate
+*.FileListAbsolute.txt
+*.CppClean.log
+
+# IntelliSense / Browse DB
+*.db
+*.db-shm
+*.db-wal
+*.opendb
+*.idb
+
+# VS file content index
+*.vsidx
