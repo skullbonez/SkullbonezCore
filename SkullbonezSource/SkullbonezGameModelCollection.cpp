@@ -77,7 +77,7 @@ Vector3 GameModelCollection::GetModelPosition(int index)
 /* -- RUN PHYSICS -------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void GameModelCollection::RunPhysics(float fChangeInTime)
 {
-	std::vector<bool> isTimeStepApplied((int)this->gameModels.size(), false);
+	std::vector<float> timeRemaining((int)this->gameModels.size(), fChangeInTime);
 
 	// update the velocity of all models
 	for(int x=0; x<(int)this->gameModels.size(); ++x)
@@ -86,32 +86,30 @@ void GameModelCollection::RunPhysics(float fChangeInTime)
 	// detect and respond to collisions between game models
 	for(int x=0; x<(int)this->gameModels.size()-1; ++x) 
 	{
-		// if the time step is not applied at this position
-		if(!isTimeStepApplied[x])
+		for(int y=x+1; y<(int)this->gameModels.size(); ++y)
 		{
-			for(int y=x+1; y<(int)this->gameModels.size(); ++y)
+			// skip pairs where either ball has exhausted its frame time
+			if(timeRemaining[x] <= 0.0f || timeRemaining[y] <= 0.0f) continue;
+
+			// use the minimum remaining time window for this pair
+			float availableTime = (std::min)(timeRemaining[x], timeRemaining[y]);
+
+			// check the collision time
+			float colTime = this->gameModels[x].CollisionDetectGameModel(this->gameModels[y], availableTime);
+
+			// if there is a response required, perform it
+			if(this->gameModels[x].IsResponseRequired() && this->gameModels[y].IsResponseRequired())
 			{
-				// if the time step is not applied at this position
-				if(!isTimeStepApplied[y])
-				{
-					// check the collision time
-					float colTime = this->gameModels[x].CollisionDetectGameModel(this->gameModels[y], fChangeInTime);
+				// advance both models to the collision point
+				this->gameModels[x].UpdatePosition(colTime);
+				this->gameModels[y].UpdatePosition(colTime);
 
-					// if there is a response required, perform it
-					if(this->gameModels[x].IsResponseRequired() && this->gameModels[y].IsResponseRequired())
-					{
-						// update the time step before the collision
-						this->gameModels[x].UpdatePosition(colTime);
-						this->gameModels[y].UpdatePosition(colTime);
+				// subtract consumed time
+				timeRemaining[x] -= colTime;
+				timeRemaining[y] -= colTime;
 
-						// calculate response and update the remaining time step
-						this->gameModels[x].CollisionResponseGameModel(this->gameModels[y], fChangeInTime - colTime);
-
-						// note that the timestep has been applied
-						isTimeStepApplied[x] = true;
-						isTimeStepApplied[y] = true;
-					}
-				}
+				// velocity-only response (clears isResponseRequired on both models)
+				this->gameModels[x].CollisionResponseGameModel(this->gameModels[y]);
 			}
 		}
 	}
@@ -119,11 +117,11 @@ void GameModelCollection::RunPhysics(float fChangeInTime)
 	// detect and respond to collisions between game models and the terrain
 	for(int x=0; x<(int)this->gameModels.size(); ++x)
 	{
-		// if the time step is not applied at this position
-		if(!isTimeStepApplied[x])
+		// only check terrain if this model has remaining time
+		if(timeRemaining[x] > 0.0f)
 		{
 			// check the collision time
-			float colTime = this->gameModels[x].CollisionDetectTerrain(fChangeInTime);
+			float colTime = this->gameModels[x].CollisionDetectTerrain(timeRemaining[x]);
 
 			// if a response is required, perform it
 			if(this->gameModels[x].IsResponseRequired())
@@ -131,11 +129,11 @@ void GameModelCollection::RunPhysics(float fChangeInTime)
 				// update the time step before the collision
 				this->gameModels[x].UpdatePosition(colTime);
 
-				// calculate response and update the remaining time step
-				this->gameModels[x].CollisionResponseTerrain(fChangeInTime - colTime);
+				// calculate response and update the remaining time step (terrain response advances position internally)
+				this->gameModels[x].CollisionResponseTerrain(timeRemaining[x] - colTime);
 
-				// note that the timestep has been applied
-				isTimeStepApplied[x] = true;
+				// terrain response already advanced position; zero remaining time
+				timeRemaining[x] = 0.0f;
 			}
 		}
 	}
@@ -143,11 +141,10 @@ void GameModelCollection::RunPhysics(float fChangeInTime)
 	// apply the remaining time steps
 	for(int x=0; x<(int)this->gameModels.size(); ++x)
 	{
-		// if the time step is not applied at this position
-		if(!isTimeStepApplied[x])
+		// advance by whatever time remains
+		if(timeRemaining[x] > 0.0f)
 		{
-			// apply the time step to this model
-			this->gameModels[x].UpdatePosition(fChangeInTime);
+			this->gameModels[x].UpdatePosition(timeRemaining[x]);
 		}
 	}
 

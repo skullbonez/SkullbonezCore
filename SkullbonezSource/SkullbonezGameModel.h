@@ -115,7 +115,7 @@ namespace SkullbonezCore
 			void			SetWorldForce					(const Vector3& vWorldForce, const Vector3& vWorldTorque);			// Sets the worlds forces acting on the model
 			void			AddBoundingSphere				(float fRadius);													// Add a bounding sphere to the game model
 			float			CollisionDetectGameModel		(GameModel&	collisionTarget, float changeInTime);					// Collision detect model against model
-			void			CollisionResponseGameModel		(GameModel&	responseTarget, float remainingTimeStep);				// Collision response model against model
+			void			CollisionResponseGameModel		(GameModel&	responseTarget);										// Collision response model against model (velocity-only)
 		};
 	}
 }

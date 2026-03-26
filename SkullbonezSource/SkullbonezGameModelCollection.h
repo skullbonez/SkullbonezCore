@@ -28,6 +28,7 @@
 /* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include <list>
 #include <vector>
+#include <algorithm>
 #include "SkullbonezCommon.h"
 #include "SkullbonezGameModel.h"
 #include "SkullbonezVector3.h"

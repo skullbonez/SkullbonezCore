@@ -105,6 +105,22 @@ void CollisionResponse::RespondCollisionGameModels(GameModel& gameModel1,
 		gameModel1.physicsInfo.ApplyChangeInAngularVelocity();
 		gameModel2.physicsInfo.ApplyChangeInAngularVelocity();
 
+		// positional correction: push overlapping spheres apart to prevent penetration accumulation
+		Vector3 pos1  = gameModel1.physicsInfo.GetPosition();
+		Vector3 pos2  = gameModel2.physicsInfo.GetPosition();
+		float   r1    = dynamic_cast<BoundingSphere*>(gameModel1.boundingVolume.get())->GetRadius();
+		float   r2    = dynamic_cast<BoundingSphere*>(gameModel2.boundingVolume.get())->GetRadius();
+		Vector3 delta = pos2 - pos1;
+		float   dist  = Vector::VectorMag(delta);
+		float overlap = (r1 + r2) - dist;
+		if(overlap > 0.0f && dist > 0.0f)
+		{
+			Vector3 axis       = delta / dist;
+			float   halfOverlap = overlap * 0.5f;
+			gameModel1.physicsInfo.SetPosition(pos1 - axis * halfOverlap);
+			gameModel2.physicsInfo.SetPosition(pos2 + axis * halfOverlap);
+		}
+
 		return;
 	}
 

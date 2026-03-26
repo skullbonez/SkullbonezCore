@@ -158,8 +158,7 @@ float GameModel::GetModelCollisionTime(GameModel& collisionTarget,
 
 
 /* -- COLLISION RESPONSE GAME MODEL -----------------------------------------------*/
-void GameModel::CollisionResponseGameModel(GameModel&  responseTarget,
-										   float	   remainingTimeStep)
+void GameModel::CollisionResponseGameModel(GameModel& responseTarget)
 {
 	// if there has been no collision, throw an exception!
 	if(!responseTarget.isResponseRequired || !this->isResponseRequired)
@@ -167,14 +166,10 @@ void GameModel::CollisionResponseGameModel(GameModel&  responseTarget,
 		throw std::runtime_error("Cannot perform collision response when no collision has occured!  (GameModel::CollisionResponseGameModel)");
 	}
 
-	// respond to the collision...
+	// respond to the collision (velocity-only — position advancement handled by RunPhysics)
 	CollisionResponse::RespondCollisionGameModels(*this, responseTarget);
 
-	// update the positions based on remaining time step
-	this->UpdatePosition(remainingTimeStep);
-	responseTarget.UpdatePosition(remainingTimeStep);
-
-	// set the collided collision object to null now the reaction has taken place
+	// clear response flags so both models can participate in further collisions this frame
 	this->isResponseRequired		  = false;
 	responseTarget.isResponseRequired = false;
 }
