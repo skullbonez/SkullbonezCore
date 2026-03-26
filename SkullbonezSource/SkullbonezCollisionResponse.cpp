@@ -55,7 +55,7 @@ void CollisionResponse::RespondCollisionTerrain(GameModel& gameModel)
 		gameModel.SetIsGrounded(true);
 	}
 
-	if(typeid(*gameModel.boundingVolume) == typeid(BoundingSphere))
+	if(dynamic_cast<BoundingSphere*>(gameModel.boundingVolume))
 	{
 		if(!gameModel.IsGrounded())
 		{
@@ -86,8 +86,8 @@ void CollisionResponse::RespondCollisionTerrain(GameModel& gameModel)
 void CollisionResponse::RespondCollisionGameModels(GameModel& gameModel1, 
 												   GameModel& gameModel2)
 {
-	if(typeid(*gameModel1.boundingVolume) == typeid(BoundingSphere) &&
-	   typeid(*gameModel2.boundingVolume) == typeid(BoundingSphere))
+	if(dynamic_cast<BoundingSphere*>(gameModel1.boundingVolume) &&
+	   dynamic_cast<BoundingSphere*>(gameModel2.boundingVolume))
 	{
 		// calculate the collision normal once and once only
 		Vector3 collisionNormal = 

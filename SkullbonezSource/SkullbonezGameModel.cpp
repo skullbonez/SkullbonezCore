@@ -401,7 +401,7 @@ float GameModel::GetTerrainCollisionTime(float changeInTime)
 	}
 
 	// the origin will be in a different position based on the geometrical shape of the object
-	if(typeid(*this->boundingVolume) == typeid(BoundingSphere))
+	if(dynamic_cast<BoundingSphere*>(this->boundingVolume))
 	{
 		// offset the origin by the radius of the sphere
 		this->responseInformation.testingRay.origin.y -= dynamic_cast<BoundingSphere*>(this->boundingVolume)->GetRadius();

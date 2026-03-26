@@ -113,9 +113,9 @@ float BoundingSphere::TestCollision(const DynamicsObject&  target,
 									const Ray&			   targetRay,
 									const Ray&			   focusRay)
 {
-	if(typeid(target) == typeid(BoundingSphere))
+	if(dynamic_cast<const BoundingSphere*>(&target))
 	{
-		return(this->CollisionDetect((BoundingSphere&)target, targetRay, focusRay));
+		return(this->CollisionDetect(dynamic_cast<const BoundingSphere&>(target), targetRay, focusRay));
 	}
 
 	throw std::runtime_error("Target dynamics object is of unrecognised type!  (BoundingSphere::TestCollision)");
