@@ -81,8 +81,8 @@
 #define FULLSCREEN_MODE			FALSE					// Specify to run in full screen mode or not
 #define WINDOW_NAME				"SkullbonezWindow"		// Window class name
 #define TITLE_TEXT				"::SKULLBONEZ CORE::"	// Window title text
-#define SCREEN_X				800 					// Screen resolution width
-#define SCREEN_Y				580						// Screen resolution height
+#define SCREEN_X				1800 					// Screen resolution width
+#define SCREEN_Y				1400					// Screen resolution height
 #define BITS_PER_PIXEL			32						// Full screen bits per pixel
 #define REFRESH_RATE			75						// Full screen refresh rate
 #define	MOUSE_MOVEMENT_CONST	0.05f					// Mouse movement scale constant

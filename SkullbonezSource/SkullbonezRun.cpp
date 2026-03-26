@@ -127,7 +127,7 @@ void SkullbonezRun::Initialise(void)
 void SkullbonezRun::SetUpGameModels(void)
 {
 	// randomly generate a number of models for the scene
-	this->modelCount = 10 + (rand() % 150);
+	this->modelCount = 500;// 10 + ( rand() % 150 );
 
 	for(int x=0; x<this->modelCount; ++x)
 	{

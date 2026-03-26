@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -50,23 +50,19 @@ void SkullbonezHelper::DrawSphere(float radius, const bool isTransparent)
 	// rotate to get the textures right
 	glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
 
-	// quadric required to build sphere
-	GLUquadricObj *quadric = gluNewQuadric();
-
-	// generate smooth normals for the sphere
-	gluQuadricNormals(quadric, GL_SMOOTH);
-
-	// generate texture coords for the sphere
-	gluQuadricTexture(quadric, true);
+	// quadric required to build sphere â€” created once, reused every call
+	static GLUquadricObj* quadric = []() {
+		GLUquadricObj* q = gluNewQuadric();
+		gluQuadricNormals(q, GL_SMOOTH);
+		gluQuadricTexture(q, true);
+		return q;
+	}();
 
 	// draw sphere
 	gluSphere(quadric,			// quadric
 			  radius,			// radius
 			  25,				// segments horiz
 			  25);				// segments vert
-
-	// delete the quadric
-	gluDeleteQuadric(quadric);
 
 	// restore world matrix
 	glPopMatrix();
