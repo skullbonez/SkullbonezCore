@@ -495,13 +495,8 @@ float RigidBody::GetFrictionCoefficient(void)
 /* -- SET FRICTION COEFFICIENT ------------------------------------------------------*/
 void RigidBody::SetFrictionCoefficient(float fFriction)
 {
-	if(fFriction > 1.0f || fFriction < 0.0f)
-	{
-		throw std::runtime_error("Friction must be between 0 and 1!  (RigidBody::SetFrictionCoefficient)");
-	}
-
-	// 0.1 is grippy, 0.0f is no grip
-	this->frictionCoefficient = fFriction / 10.0f;
+	// 1 is grippy, 0.0f is no grip
+	this->frictionCoefficient = fFriction;
 }
 
 

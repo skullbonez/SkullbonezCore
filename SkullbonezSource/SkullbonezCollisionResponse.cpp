@@ -146,31 +146,36 @@ void CollisionResponse::SphereVsPlaneRollResponse(GameModel& gameModel)
 /* -- SPHERE VS PLANE LINEAR IMPULSE ------------------------------------------------------------------------------------------------------------------------------------*/
 void CollisionResponse::SphereVsPlaneLinearImpulse(GameModel& gameModel, Vector3 totalVelocity, float projectedVelocity)
 {
-	// variable to calculate the incident velocity vector (normalised)
+	Vector3 normal = gameModel.responseInformation.collidedPlane.normal;
+
+	// reflect the reversed incident velocity about the collision normal
 	Vector3 incidentVector = totalVelocity;
-
-	// perform the normalisation
 	incidentVector.Normalise();
+	Vector3 direction = Vector::VectorReflect(incidentVector, normal);
 
-	// calculate the direction of reflection
-	Vector3 direction = Vector::VectorReflect(incidentVector, gameModel.responseInformation.collidedPlane.normal);
+	// standard bounce velocity (before spin)
+	Vector3 bounceVelocity = direction * (projectedVelocity * gameModel.physicsInfo.GetCoefficientRestitution());
 
-	// calculare the spin and grip
-	float xSpin = gameModel.physicsInfo.GetAngularVelocity().z;
-	float zSpin = gameModel.physicsInfo.GetAngularVelocity().x;
-	float xGrip = xSpin * gameModel.physicsInfo.GetFrictionCoefficient();
-	float zGrip = zSpin * gameModel.physicsInfo.GetFrictionCoefficient();
+	// compute spin's surface velocity at the contact point via cross(omega, r_contact)
+	auto* sphere = dynamic_cast<BoundingSphere*>(gameModel.boundingVolume.get());
+	float radius = sphere->GetRadius();
+	Vector3 contactOffset = normal * (-radius);
+	Vector3 spinSurfaceVel = Vector::CrossProduct(gameModel.physicsInfo.GetAngularVelocity(), contactOffset);
 
-	// factor the spin and grip into the direction
-	direction.x += xGrip;
-	direction.z += zGrip;
-	direction.Normalise();
+	// only the tangential component of spin surface velocity affects the bounce
+	float spinNormalComp = spinSurfaceVel * normal;
+	Vector3 spinTangential = spinSurfaceVel - normal * spinNormalComp;
 
-	// dampen the balls spin as some of its momentum has been converted to linear velocity
+	// friction opposes surface sliding: negate and scale by grip
+	// backspin → surface slides forward → friction pushes ball backward
+	// topspin → surface slides backward → friction pushes ball forward
+	Vector3 spinContribution = spinTangential * (-gameModel.physicsInfo.GetFrictionCoefficient());
+
+	// final velocity = reflected bounce + spin grip transfer
+	gameModel.physicsInfo.SetLinearVelocity(bounceVelocity + spinContribution);
+
+	// dampen spin as angular momentum was transferred to linear velocity
 	gameModel.physicsInfo.DampenAngularVelocity();
-
-	// compute and update the gameModel velocity (compute scalar force magnitude, multiply by incident vector reflected about collision normal)
-	gameModel.physicsInfo.SetLinearVelocity((projectedVelocity * gameModel.physicsInfo.GetCoefficientRestitution()) * direction);
 }
 
 
@@ -231,7 +236,30 @@ void CollisionResponse::SphereVsPlaneAngularImpulse(GameModel& gameModel)
 
 	// factor in the grippiness of the contact surface
 	changeInAngularVelocity								*=  gameModel.physicsInfo.GetFrictionCoefficient() * 10;
-	
+
+	// tangential friction: drive angular velocity toward the no-slip condition at the
+	// contact point (where surface velocity = 0). Compute the angular velocity that would
+	// zero out tangential sliding, then interpolate toward it scaled by friction.
+	Vector3 surfaceVelocity    = gameModel.physicsInfo.GetVelocity() + Vector::CrossProduct(gameModel.physicsInfo.GetAngularVelocity(), collisionPoint);
+	float   normalComponent    = surfaceVelocity * gameModel.responseInformation.collidedPlane.normal;
+	Vector3 tangentialVelocity = surfaceVelocity - gameModel.responseInformation.collidedPlane.normal * normalComponent;
+	float   tangentialSpeed    = Vector::VectorMag(tangentialVelocity);
+
+	if(tangentialSpeed > TOLERANCE)
+	{
+		float contactRadiusSq = Vector::VectorMagSquared(collisionPoint);
+		if(contactRadiusSq > TOLERANCE)
+		{
+			// delta_omega that would achieve no-slip: cross(r, -v_tangential) / |r|^2
+			Vector3 noSlipDelta = Vector::CrossProduct(collisionPoint, tangentialVelocity * (-1.0f)) / contactRadiusSq;
+
+			// scale by friction — 0 = ice, 1 = full grip
+			float grip = gameModel.physicsInfo.GetFrictionCoefficient() * 10.0f;
+			if(grip > 1.0f) grip = 1.0f;
+			changeInAngularVelocity += noSlipDelta * grip;
+		}
+	}
+
 	// finally, set the change in the angular velocity of the game model
 	gameModel.physicsInfo.SetChangeInAngularVelocity(changeInAngularVelocity);
 }
