@@ -4,13 +4,13 @@
 																			 .-"       "-.
 																			/             \
 																		   /               \
-																		   ¦   .--. .--.   ¦
-																		   ¦ )/   ¦ ¦   \( ¦
-																		   ¦/ \__/   \__/ \¦
+																		   ï¿½   .--. .--.   ï¿½
+																		   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+																		   ï¿½/ \__/   \__/ \ï¿½
 																		   /      /^\      \
 																		   \__    '='    __/
-								   											 ¦\         /¦
-																			 ¦\'"VUUUV"'/¦
+								   											 ï¿½\         /ï¿½
+																			 ï¿½\'"VUUUV"'/ï¿½
 																			 \ `"""""""` /
 																			  `-._____.-'
 
@@ -43,9 +43,10 @@ namespace SkullbonezCore
 
 		public:
 
-			static void		StateSetup		(void);									// Assists in setting up initial open gl state
-			static void		DrawSphere		(float radius = MIN_CAMERA_HEIGHT,
-											 bool  isTransparent = false);			// Draws a sphere to the current world space origin
+			static void		StateSetup			(void);								// Assists in setting up initial open gl state
+			static void		DrawSphere			(float radius = MIN_CAMERA_HEIGHT,
+												 bool  isTransparent = false);		// Draws a sphere to the current world space origin
+			static void		ResetGLResources	(void);								// Call after GL context recreated to invalidate cached GL objects
 		};
 	}
 }

@@ -416,7 +416,7 @@ void SkullbonezRun::SetUpCameras(void)
 /* -- SET INITIAL OPEN GL STATE -----------------------------------------------------------*/
 void SkullbonezRun::SetInitialOpenGlState(void)
 {
-	// set up initial open gl state
+	SkullbonezHelper::ResetGLResources();
 	SkullbonezHelper::StateSetup();
 
 	// load textures

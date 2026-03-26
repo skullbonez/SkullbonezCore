@@ -35,30 +35,42 @@ using namespace SkullbonezCore::Basics;
 
 
 
+/* -- FILE-SCOPE GL RESOURCES -----------------------------------------------------*/
+static GLuint s_sphereList = 0;
+
+
+
+/* -- RESET GL RESOURCES ----------------------------------------------------------*/
+void SkullbonezHelper::ResetGLResources(void)
+{
+	s_sphereList = 0;
+}
+
+
+
 /* -- DRAW SPHERE -----------------------------------------------------------------*/
 void SkullbonezHelper::DrawSphere(float radius, const bool isTransparent)
 {
-	// unit sphere display list — built once on first call
-	static GLuint sphereList = []() {
+	if(!s_sphereList)
+	{
 		GLUquadricObj* q = gluNewQuadric();
 		gluQuadricNormals(q, GL_SMOOTH);
 		gluQuadricTexture(q, true);
 
-		GLuint list = glGenLists(1);
-		glNewList(list, GL_COMPILE);
+		s_sphereList = glGenLists(1);
+		glNewList(s_sphereList, GL_COMPILE);
 			gluSphere(q, 1.0, 25, 25);
 		glEndList();
 
 		gluDeleteQuadric(q);
-		return list;
-	}();
+	}
 
 	if(isTransparent) glEnable(GL_BLEND);
 
 	glPushMatrix();
 		glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
 		glScalef(radius, radius, radius);
-		glCallList(sphereList);
+		glCallList(s_sphereList);
 	glPopMatrix();
 
 	if(isTransparent) glDisable(GL_BLEND);
