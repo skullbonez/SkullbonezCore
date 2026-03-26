@@ -191,14 +191,13 @@ void GameModel::StaticOverlapResponseGameModel(GameModel& overlapTarget)
 
 	if(dist >= radii || dist <= 0.0f) return;
 
-	// spheres are overlapping — fire velocity response
-	this->isResponseRequired		   = true;
-	overlapTarget.isResponseRequired   = true;
-	CollisionResponse::RespondCollisionGameModels(*this, overlapTarget);
-	this->isResponseRequired		   = false;
-	overlapTarget.isResponseRequired   = false;
-
-	// positional correction is handled inside RespondCollisionGameModels
+	// spheres are overlapping — positional correction only
+	// (skip full velocity response to avoid division by zero in angular
+	// response when relative velocity is near-zero on grounded balls)
+	Vector3 axis       = delta / dist;
+	float   halfOverlap = (radii - dist) * 0.5f;
+	this->physicsInfo.SetPosition(this->physicsInfo.GetPosition()                   - axis * halfOverlap);
+	overlapTarget.physicsInfo.SetPosition(overlapTarget.physicsInfo.GetPosition() + axis * halfOverlap);
 }
 
 
