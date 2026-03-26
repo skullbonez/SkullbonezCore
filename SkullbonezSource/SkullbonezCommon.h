@@ -121,6 +121,11 @@
 #define GRAVITATIONAL_FORCE		-30.0f					// Gravitational force
 #define BROADPHASE_CELL_SIZE	11.f					// Spatial grid cell size (2 * max sphere radius)
 #define COEFFICIENT_FRICTION    0.1f					// Coefficient of friction for all objects in the world
+#define SHADOW_MAX_HEIGHT		50.0f					// Shadows fade out above this distance from ground
+#define SHADOW_MAX_ALPHA		0.5f					// Maximum shadow darkness (0-1, at ground level)
+#define SHADOW_OFFSET			0.2f					// Y offset above terrain to prevent z-fighting
+#define SHADOW_SEGMENTS			16						// Triangle fan segments for shadow disc
+#define SHADOW_SCALE			1.2f					// Shadow radius multiplier (1.0 = same as ball)
 
 
 

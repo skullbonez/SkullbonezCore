@@ -371,6 +371,9 @@ void SkullbonezRun::DrawPrimitives(void)
 		this->cTextures->SelectTexture(TEXTURE_GROUND);
 		this->cTerrain->Render();
 	glPopMatrix();
+
+	// render ground shadows on top of terrain
+	this->cGameModelCollection.RenderShadows(this->cTerrain.get());
 	
 	// render the fluid ---------------------------
 	glPushMatrix();

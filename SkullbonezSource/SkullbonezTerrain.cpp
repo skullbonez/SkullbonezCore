@@ -147,6 +147,23 @@ float Terrain::GetTerrainHeightAt(float xPosition,
 
 
 
+/* -- GET TERRAIN NORMAL AT -------------------------------------------------------*/
+Vector3 Terrain::GetTerrainNormalAt(float xPosition, float zPosition)
+{
+	Triangle tri = this->LocatePolygon(xPosition, zPosition);
+	Vector3 edge1 = tri.v2 - tri.v1;
+	Vector3 edge2 = tri.v3 - tri.v1;
+	Vector3 normal = Vector::CrossProduct(edge1, edge2);
+	normal.Normalise();
+
+	// ensure the normal points upward
+	if(normal.y < 0.0f) normal = normal * -1.0f;
+
+	return normal;
+}
+
+
+
 /* -- IS IN BOUNDS ----------------------------------------------------------------*/
 bool Terrain::IsInBounds(float xPosition, float zPosition)
 {

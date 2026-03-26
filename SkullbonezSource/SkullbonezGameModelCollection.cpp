@@ -27,6 +27,7 @@
 
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezGameModelCollection.h"
+#include <cmath>
 
 
 
@@ -57,6 +58,78 @@ void GameModelCollection::RenderModels(void)
 	// render the game models
 	for(int x=0; x<(int)this->gameModels.size(); ++x) 
 		this->gameModels[x].RenderCollisionBounds();
+}
+
+
+
+/* -- RENDER SHADOWS --------------------------------------------------------------*/
+void GameModelCollection::RenderShadows(Geometry::Terrain* terrain)
+{
+	if(!terrain) return;
+
+	// save and configure GL state for shadow rendering
+	glPushAttrib(GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_POLYGON_BIT | GL_CURRENT_BIT);
+	glDisable(GL_LIGHTING);
+	glDisable(GL_TEXTURE_2D);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_POLYGON_OFFSET_FILL);
+	glPolygonOffset(-1.0f, -1.0f);
+	glDisable(GL_CULL_FACE);
+
+	for(int i = 0; i < (int)this->gameModels.size(); ++i)
+	{
+		Vector3 pos    = this->gameModels[i].GetPosition();
+		float   radius = this->gameModels[i].GetBoundingRadius();
+
+		if(!terrain->IsInBounds(pos.x, pos.z)) continue;
+
+		float groundY = terrain->GetTerrainHeightAt(pos.x, pos.z);
+		float height  = pos.y - groundY - radius;
+		if(height < 0.0f) height = 0.0f;
+		if(height >= SHADOW_MAX_HEIGHT) continue;
+
+		// alpha fades with distance from ground
+		float alpha       = SHADOW_MAX_ALPHA * (1.0f - height / SHADOW_MAX_HEIGHT);
+		float shadowRadius = radius * SHADOW_SCALE;
+
+		// get terrain normal to orient shadow disc to slope
+		Vector3 N = terrain->GetTerrainNormalAt(pos.x, pos.z);
+
+		glPushMatrix();
+		glTranslatef(pos.x, groundY + SHADOW_OFFSET, pos.z);
+
+		// rotate disc from flat (Y-up) to terrain normal
+		// axis = cross(up, N), angle = acos(dot(up, N))
+		float cosA = N.y;  // dot((0,1,0), N)
+		if(cosA < 0.9999f)
+		{
+			// rotation axis = cross((0,1,0), N) = (N.z, 0, -N.x)
+			float axisX =  N.z;
+			float axisZ = -N.x;
+			float axisMag = sqrtf(axisX * axisX + axisZ * axisZ);
+			axisX /= axisMag;
+			axisZ /= axisMag;
+			float angleDeg = acosf(cosA) * (180.0f / 3.14159265f);
+			glRotatef(angleDeg, axisX, 0.0f, axisZ);
+		}
+
+		glBegin(GL_TRIANGLE_FAN);
+			glColor4f(0.0f, 0.0f, 0.0f, alpha);
+			glVertex3f(0.0f, 0.0f, 0.0f);
+			glColor4f(0.0f, 0.0f, 0.0f, 0.0f);
+			for(int s = 0; s <= SHADOW_SEGMENTS; ++s)
+			{
+				float angle = (_2PI * s) / SHADOW_SEGMENTS;
+				glVertex3f(cosf(angle) * shadowRadius, 0.0f, sinf(angle) * shadowRadius);
+			}
+		glEnd();
+
+		glPopMatrix();
+	}
+
+	// restore all GL state
+	glPopAttrib();
 }
 
 

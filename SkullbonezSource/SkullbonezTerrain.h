@@ -67,6 +67,8 @@ namespace SkullbonezCore
 			float				GetTerrainHeightAt	(float xPosition,
 													 float zPosition,
 													 bool  isFluidMin = false);		// Returns the height of the terrain at the specified coordinates
+			Vector3				GetTerrainNormalAt	(float xPosition,
+													 float zPosition);			// Returns the surface normal of the terrain at the specified coordinates
 
 
 
