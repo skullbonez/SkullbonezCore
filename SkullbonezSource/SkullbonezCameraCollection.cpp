@@ -47,7 +47,7 @@ CameraCollection::CameraCollection(int iCameraCount)
 	// initialise all members requiring it
 	this->maxCameraCount	= iCameraCount;
 	this->cameraArray		= new Camera[iCameraCount];
-	this->cameraNames		= new char*[iCameraCount];
+	this->cameraHashes		= new uint32_t[iCameraCount]();
 	this->arrayPosition		= 0;
 	this->selectedCamera	= 0;
 	this->isTweening		= 0;
@@ -63,15 +63,8 @@ CameraCollection::CameraCollection(int iCameraCount)
 /* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
 CameraCollection::~CameraCollection(void)
 {
-	// delete the camera array
-	if(this->cameraArray) delete [] cameraArray;
-
-	// delete the strings
-	for(int count=0; count<this->maxCameraCount; ++count)
-		if(this->cameraNames[count]) delete [] cameraNames[count];
-
-	// delete the string array
-	if(this->cameraNames) delete [] this->cameraNames;
+	if(this->cameraArray)  delete [] cameraArray;
+	if(this->cameraHashes) delete [] cameraHashes;
 }
 
 
@@ -111,32 +104,21 @@ void CameraCollection::SetLockedMode(const bool fIsLocked)
 void CameraCollection::AddCamera(const Vector3& vPosition,
 							  const Vector3& vView,
 							  const Vector3& vUp,
-							  const char*	 cCameraName)
+							  uint32_t       hash)
 {
-	// check for space in the camera array
 	if(this->arrayPosition == this->maxCameraCount)
 		throw std::runtime_error("Camera array full!  (CameraCollection::AddCamera)");
 
-	// allocate space for camera name
-	this->cameraNames[this->arrayPosition] = new char[strlen(cCameraName) + 1];
+	this->cameraHashes[this->arrayPosition] = hash;
 
-	// deep copy the camera name
-	strcpy_s(this->cameraNames[this->arrayPosition], strlen(cCameraName) + 1, cCameraName);
-
-	// set the member data for the new camera
 	this->cameraArray[this->arrayPosition].SetAll(vPosition, vView, vUp);
 
-	// if this is the first camera added
 	if(!this->arrayPosition) 
 	{	
-		//set the primary store to the index of the first camera
 		this->primaryStore = this->cameraArray[this->arrayPosition];
-
-		// enable view vector preservation
 		this->cameraArray[this->arrayPosition].DoPreserveViewMagnitude = true;
 	}
 
-	// increment array position counter
 	++this->arrayPosition;
 }
 
@@ -186,11 +168,11 @@ void CameraCollection::UpdateTweenPath(void)
 
 
 /* -- SELECT CAMERA ---------------------------------------------------------------*/
-void CameraCollection::SelectCamera(const char* sCameraName,
-									const bool	 fTween)
+void CameraCollection::SelectCamera(uint32_t hash,
+									const bool fTween)
 {
 	// local to store requested camera index
-	int selectionRequest = this->FindIndex(sCameraName);
+	int selectionRequest = this->FindIndex(hash);
 
 	// check to ensure we are not selecting the current camera
 	if(selectionRequest == this->selectedCamera) return;
@@ -232,10 +214,10 @@ void CameraCollection::SelectCamera(const char* sCameraName,
 
 
 
-/* -- GET SELECTED CAMERA NAME ----------------------------------------------------*/
-char* CameraCollection::GetSelectedCameraName(void)
+/* -- GET SELECTED CAMERA HASH ----------------------------------------------------*/
+uint32_t CameraCollection::GetSelectedCameraName(void)
 {
-	return this->cameraNames[this->selectedCamera];
+	return this->cameraHashes[this->selectedCamera];
 }
 
 
@@ -301,9 +283,9 @@ void CameraCollection::TranslateToView(void)
 
 
 /* -- TRANSLATE TO VIEW -----------------------------------------------------------*/
-void CameraCollection::TranslateToView(const char* sCameraName)
+void CameraCollection::TranslateToView(uint32_t hash)
 {
-	int targetIndex = this->FindIndex(sCameraName);
+	int targetIndex = this->FindIndex(hash);
 
 	glTranslatef(this->cameraArray[targetIndex].View.x,
 				 this->cameraArray[targetIndex].View.y,
@@ -334,11 +316,11 @@ void CameraCollection::TranslateToPosition(void)
 
 
 /* -- TRANSLATE TO POSITION -------------------------------------------------------*/
-void CameraCollection::TranslateToPosition(const char* sCameraName)
+void CameraCollection::TranslateToPosition(uint32_t hash)
 {
-	glTranslatef(this->cameraArray[this->FindIndex(sCameraName)].Position.x,
-				 this->cameraArray[this->FindIndex(sCameraName)].Position.y,
-				 this->cameraArray[this->FindIndex(sCameraName)].Position.z);
+	glTranslatef(this->cameraArray[this->FindIndex(hash)].Position.x,
+				 this->cameraArray[this->FindIndex(hash)].Position.y,
+				 this->cameraArray[this->FindIndex(hash)].Position.z);
 }
 
 
@@ -373,20 +355,19 @@ const Vector3& CameraCollection::GetCameraTranslation(void)
 
 
 /* -- GET CAMERA TRANSLATION ------------------------------------------------------*/
-const Vector3&	CameraCollection::GetCameraTranslation(const char* sCameraName)
+const Vector3&	CameraCollection::GetCameraTranslation(uint32_t hash)
 {
-	return(this->cameraArray[this->FindIndex(sCameraName)].Position);
+	return(this->cameraArray[this->FindIndex(hash)].Position);
 }
 
 
 
 /* -- RELATIVE UPDATE -------------------------------------------------------------*/
-void CameraCollection::RelativeUpdate(const char* sCameraName,
+void CameraCollection::RelativeUpdate(uint32_t hash,
 									  float yMin,
 									  float yMax)
 {
-	// find the camera index
-	int cameraIndex = this->FindIndex(sCameraName);
+	int cameraIndex = this->FindIndex(hash);
 
 	// return if an attempt to relative update the current camera is being made
 	if(this->selectedCamera == cameraIndex) return;
@@ -558,23 +539,20 @@ float CameraCollection::DEBUG_GetViewMagTarget(void)
 
 
 /* -- FIND INDEX ------------------------------------------------------------------*/
-int CameraCollection::FindIndex(const char* sCameraName)
+int CameraCollection::FindIndex(uint32_t hash)
 {
-	// iterate through camera array
 	for(int count=0; count<this->arrayPosition; ++count)
-		// if the camera names are identical, return the index
-		if(!strcmp(this->cameraNames[count], sCameraName)) return count;
+		if(this->cameraHashes[count] == hash) return count;
 
-	// throw an exception if the camera name does not exist
 	throw std::runtime_error("Camera does not exist.  (CameraCollection::FindIndex)");
 }
 
 
 
 /* -- IS CAMERA SELECTED ----------------------------------------------------------*/
-bool CameraCollection::IsCameraSelected(const char* sCameraName)
+bool CameraCollection::IsCameraSelected(uint32_t hash)
 {
-	return (this->FindIndex(sCameraName) == this->selectedCamera);
+	return (this->FindIndex(hash) == this->selectedCamera);
 }
 
 
@@ -605,10 +583,10 @@ void CameraCollection::SetCameraXZBounds(const XZBounds bounds)
 
 
 /* -- SET CAMERA XZ BOUNDS --------------------------------------------------------*/
-void CameraCollection::SetCameraXZBounds(const char*	 sCameraName,
+void CameraCollection::SetCameraXZBounds(uint32_t        hash,
 										 const XZBounds  bounds)
 {
-	int targetIndex = this->FindIndex(sCameraName);
+	int targetIndex = this->FindIndex(hash);
 	this->cameraArray[targetIndex].Boundary = bounds;
 }
 

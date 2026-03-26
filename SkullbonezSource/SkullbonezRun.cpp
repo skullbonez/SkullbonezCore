@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -351,12 +351,12 @@ void SkullbonezRun::DrawPrimitives(void)
 	glPopMatrix();
 
 	// render game models -----------------------------
-	this->cTextures->SelectTexture("BoundingSphere");
+	this->cTextures->SelectTexture(TEXTURE_BOUNDING_SPHERE);
 	this->cGameModelCollection->RenderModels();
 
 	// render the deep fluid ----------------------
 	glPushMatrix();
-		this->cTextures->SelectTexture("Water");
+		this->cTextures->SelectTexture(TEXTURE_WATER);
 
 		glPushMatrix();
 			glTranslatef(0.0f, -1.0f, 6300.0f);
@@ -381,13 +381,13 @@ void SkullbonezRun::DrawPrimitives(void)
 
 	// render terrain ------------------------------
 	glPushMatrix();
-		this->cTextures->SelectTexture("Ground");
+		this->cTextures->SelectTexture(TEXTURE_GROUND);
 		this->cTerrain->Render();
 	glPopMatrix();
 	
 	// render the fluid ---------------------------
 	glPushMatrix();
-		this->cTextures->SelectTexture("Water");
+		this->cTextures->SelectTexture(TEXTURE_WATER);
 		this->cWorldEnvironment->RenderFluid();
 	glPopMatrix();
 }
@@ -402,17 +402,17 @@ void SkullbonezRun::SetUpCameras(void)
 	this->cCameras->AddCamera(Vector3(321.0f, 110.0f, 557.0f), // Position
 							  Vector3(581.0f, 40.0f,  633.0f), // View
 						      Vector3(0.0f,   1.0f,   0.0f),   // Up
-							  "GameModel1");				   // Camera name
+							  CAMERA_GAME_MODEL_1);
 
 	this->cCameras->AddCamera(Vector3(730.0f, 100.0f, 380.0f), // Position	
 							  Vector3(709.0f, 92.0f,  482.0f), // View	
 						      Vector3(0.0f,   1.0f,   0.0f),   // Up
-							  "GameModel2");				   // Camera name
+							  CAMERA_GAME_MODEL_2);
 
 	this->cCameras->AddCamera(Vector3(900.0f, 110.0f,  900.0f),		// Position
 							  Vector3(313.0f, 31.0f,   282.0f),		// View	
 						      Vector3(0.0f,	  1.0f,	   0.0f),		// Up	
-							  "Free");								// Camera name
+							  CAMERA_FREE);
 
 	// set the camera boundaries
 	this->cCameras->SetCameraXZBounds(this->cTerrain->GetXZBounds());
@@ -433,9 +433,9 @@ void SkullbonezRun::SetInitialOpenGlState(void)
 	SkullbonezHelper::StateSetup();
 
 	// load textures
-	this->cTextures->CreateJpegTexture(TERRAIN_TEXTURE_PATH, "Ground");
-	this->cTextures->CreateJpegTexture(BOUNDING_SPHERE_PATH, "BoundingSphere");
-	this->cTextures->CreateJpegTexture(WATER_PATH, "Water");
+	this->cTextures->CreateJpegTexture(TERRAIN_TEXTURE_PATH, TEXTURE_GROUND);
+	this->cTextures->CreateJpegTexture(BOUNDING_SPHERE_PATH, TEXTURE_BOUNDING_SPHERE);
+	this->cTextures->CreateJpegTexture(WATER_PATH,           TEXTURE_WATER);
 }
 
 
@@ -506,19 +506,19 @@ void SkullbonezRun::SetViewingOrientation(void)
 	switch(this->selectedCamera)
 	{
 	case 0:
-		this->cCameras->SelectCamera("GameModel1", true);
+		this->cCameras->SelectCamera(CAMERA_GAME_MODEL_1, true);
 		break;
 	case 1:
-		this->cCameras->SelectCamera("GameModel2", true);
+		this->cCameras->SelectCamera(CAMERA_GAME_MODEL_2, true);
 		break;
 	case 2:
-		this->cCameras->SelectCamera("Free", true);
+		this->cCameras->SelectCamera(CAMERA_FREE, true);
 		break;
 	}
 
 	// set the view position of the selected camera based on the game model position
-	if(this->cCameras->IsCameraSelected("GameModel1")) this->cCameras->SetViewCoordinates(this->cGameModelCollection->GetModelPosition(0));
-	if(this->cCameras->IsCameraSelected("GameModel2")) this->cCameras->SetViewCoordinates(this->cGameModelCollection->GetModelPosition(1));
+	if(this->cCameras->IsCameraSelected(CAMERA_GAME_MODEL_1)) this->cCameras->SetViewCoordinates(this->cGameModelCollection->GetModelPosition(0));
+	if(this->cCameras->IsCameraSelected(CAMERA_GAME_MODEL_2)) this->cCameras->SetViewCoordinates(this->cGameModelCollection->GetModelPosition(1));
 
 /*
 	// reset relativity when a new request for synchronisation comes in
@@ -528,9 +528,9 @@ void SkullbonezRun::SetViewingOrientation(void)
 	if(this->sInputState.fAux2) 
 	{
 		// perform the relative update
-		this->RelativeUpdateCamera("GameModel1");
-		this->RelativeUpdateCamera("GameModel2");
-		this->RelativeUpdateCamera("Free");
+		this->RelativeUpdateCamera(CAMERA_GAME_MODEL_1);
+		this->RelativeUpdateCamera(CAMERA_GAME_MODEL_2);
+		this->RelativeUpdateCamera(CAMERA_FREE);
 
 		// reset the relative variable as we have already performed the action on desired cameras
 		this->cCameras->ResetRelativity();
@@ -541,18 +541,13 @@ void SkullbonezRun::SetViewingOrientation(void)
 
 
 /* -- RELATIVE UPDATE CAMERA --------------------------------------------------------------------------------------------------------------------------------------------*/
-void SkullbonezRun::RelativeUpdateCamera(const char* cameraName)
+void SkullbonezRun::RelativeUpdateCamera(uint32_t hash)
 {
-	if(!this->cCameras->IsCameraSelected(cameraName))
+	if(!this->cCameras->IsCameraSelected(hash))
 	{
-		// get the translated camera position
-		Vector3 translatedCameraPosition = this->cCameras->GetCameraTranslation(cameraName);
-
-		// perform calculations to suggest a new y coordinate (add MIN_CAMERA_HEIGHT so clipping will not occur)
+		Vector3 translatedCameraPosition = this->cCameras->GetCameraTranslation(hash);
 		float minY = this->cTerrain->GetTerrainHeightAt(translatedCameraPosition.x, translatedCameraPosition.z, true) + MIN_CAMERA_HEIGHT;
-
-		// perform relative update, use overload to ammend y coordinate if necessary
-		this->cCameras->RelativeUpdate(cameraName, minY, MAX_CAMERA_HEIGHT);
+		this->cCameras->RelativeUpdate(hash, minY, MAX_CAMERA_HEIGHT);
 	}
 }
 
@@ -571,7 +566,7 @@ void SkullbonezRun::MoveCamera(float keyMovementQty, float mouseMovementQty)
 	}
 
 	// ingnore these keys unless free camera is selected
-	if(this->cCameras->IsCameraSelected("Free"))
+	if(this->cCameras->IsCameraSelected(CAMERA_FREE))
 	{
 		// move camera based on key input
 		if(this->sInputState.fUp)    this->cCameras->MovePrimary(Camera::TravelDirection::Forward,  keyMovementQty);

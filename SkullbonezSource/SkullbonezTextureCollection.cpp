@@ -48,12 +48,12 @@ TextureCollection::TextureCollection(int iMaxTextureCount)
 	this->textureCounter = 0;
 
 	this->textureArray = new UINT[iMaxTextureCount];
-	this->textureNames = new char*[iMaxTextureCount];
+	this->textureHashes = new uint32_t[iMaxTextureCount];
 
 	for(int count=0; count<iMaxTextureCount; ++count)
 	{
 		this->textureArray[count] = 0;
-		this->textureNames[count] = 0;
+		this->textureHashes[count] = 0;
 	}
 }
 
@@ -64,8 +64,8 @@ TextureCollection::~TextureCollection(void)
 { 
 	this->DeleteAllTextures();
 
-	if(this->textureArray) delete [] this->textureArray;
-	if(this->textureNames) delete [] this->textureNames;
+	if(this->textureArray)  delete [] this->textureArray;
+	if(this->textureHashes) delete [] this->textureHashes;
 }
 
 
@@ -203,17 +203,11 @@ void TextureCollection::UpdateCounters(void)
 
 
 /* -- FIND INDEX ------------------------------------------------------------------*/
-int TextureCollection::FindIndex(const char* cTextureName)
+int TextureCollection::FindIndex(uint32_t hash)
 {
-	// iterate through texture array
 	for(int count=0; count<this->maxTextureCount; ++count)
-	{
-		// if the texture names are identical, reutrn the index
-		if(!strcmp(this->textureNames[count], cTextureName)) 
-			return count;
-	}
+		if(this->textureHashes[count] == hash) return count;
 
-	// throw an exception if the texture name does not exist
 	throw std::runtime_error("Texture does not exist.  (TextureCollection::FindIndex)");
 }
 
@@ -228,17 +222,10 @@ void TextureCollection::DeleteAllTextures(void)
 	// iterate through texture array
 	for(int count=0; count<this->maxTextureCount; ++count)
 	{
-		// if texture at specified index exists
 		if(this->textureArray[count])
 		{
-			// delete the space allocated for the string
-			if(this->textureNames[count]) delete [] this->textureNames[count];
-
-			// reset texture name to null
-			this->textureNames[count] = 0;
-
-			// reset texture identifier to null
-			this->textureArray[count] = 0;
+			this->textureHashes[count] = 0;
+			this->textureArray[count]  = 0;
 		}
 	}
 
@@ -249,24 +236,15 @@ void TextureCollection::DeleteAllTextures(void)
 
 
 /* -- DELETE TEXTURE --------------------------------------------------------------*/
-void TextureCollection::DeleteTexture(const char* cTextureName)
+void TextureCollection::DeleteTexture(uint32_t hash)
 {
-	// get the index of the specified texture
-	int index = this->FindIndex(cTextureName);
+	int index = this->FindIndex(hash);
 
-	// delete the space allocated for the string
-	if(this->textureNames[index]) delete this->textureNames[index];
+	this->textureHashes[index] = 0;
 
-	// reset texture name to null
-	this->textureNames[index] = NULL;
-
-	// remove OpenGL texture
 	glDeleteTextures(1, &this->textureArray[index]);
-
-	// reset texture identifier to null
 	this->textureArray[index] = NULL;
 
-	// Update capacity and progress counters
 	this->UpdateCounters();
 }
 
@@ -281,28 +259,21 @@ int	TextureCollection::NumFreeTextureSpaces(void)
 
 
 /* -- SELECT TEXTURE --------------------------------------------------------------*/
-void TextureCollection::SelectTexture(const char* cTextureName)
+void TextureCollection::SelectTexture(uint32_t hash)
 {
-	// make specified texture the current opengl target
-	glBindTexture(GL_TEXTURE_2D, this->textureArray[this->FindIndex(cTextureName)]);
+	glBindTexture(GL_TEXTURE_2D, this->textureArray[this->FindIndex(hash)]);
 }
 
 
 
 /* -- CREATE JPEG TEXTURE ---------------------------------------------------------*/
-void TextureCollection::CreateJpegTexture(const char *cFileName, 
-										  const char *cTextureName)
+void TextureCollection::CreateJpegTexture(const char* cFileName, 
+										  uint32_t    hash)
 {
-	// check to ensure there is room in the texture array
 	if(this->textureCounter == this->maxTextureCount)
 		throw std::runtime_error("Texture array full!  (TextureCollection::CreateJpegTexture)");
 
-	// make space for texture name
-	this->textureNames[this->nextAvailableTextureIndex] = 
-												new char[strlen(cTextureName) + 1];
-
-	// deep copy texture name
-	strcpy_s(this->textureNames[this->nextAvailableTextureIndex], strlen(cTextureName) + 1, cTextureName);
+	this->textureHashes[this->nextAvailableTextureIndex] = hash;
 
 	// load the image and store the data
 	tImageJPG *pImage = this->LoadJPEG(cFileName);

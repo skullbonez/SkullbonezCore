@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -61,12 +61,12 @@ SkyBox::SkyBox(int xMin,
 
 	// load textures (with no linear mipmap interpolation to 
 	// avoid lines on skybox edges)
-	this->textures->CreateJpegTexture(SKY_LEFT_PATH,	"SkyLeft");
-	this->textures->CreateJpegTexture(SKY_RIGHT_PATH,	"SkyRight");
-	this->textures->CreateJpegTexture(SKY_FRONT_PATH,	"SkyFront");
-	this->textures->CreateJpegTexture(SKY_BACK_PATH,	"SkyBack");
-	this->textures->CreateJpegTexture(SKY_UP_PATH,		"SkyUp");
-	this->textures->CreateJpegTexture(SKY_DOWN_PATH,	"SkyDown");
+	this->textures->CreateJpegTexture(SKY_LEFT_PATH,	TEXTURE_SKY_LEFT);
+	this->textures->CreateJpegTexture(SKY_RIGHT_PATH,	TEXTURE_SKY_RIGHT);
+	this->textures->CreateJpegTexture(SKY_FRONT_PATH,	TEXTURE_SKY_FRONT);
+	this->textures->CreateJpegTexture(SKY_BACK_PATH,	TEXTURE_SKY_BACK);
+	this->textures->CreateJpegTexture(SKY_UP_PATH,		TEXTURE_SKY_UP);
+	this->textures->CreateJpegTexture(SKY_DOWN_PATH,	TEXTURE_SKY_DOWN);
 }
 
 
@@ -113,7 +113,7 @@ void SkyBox::Render(void)
 	glDisable(GL_LIGHTING);
 
 	// draw roof
-	this->textures->SelectTexture("SkyUp");
+	this->textures->SelectTexture(TEXTURE_SKY_UP);
 
 	glBegin(GL_QUADS);
 		
@@ -141,7 +141,7 @@ void SkyBox::Render(void)
 
 
 	// draw bottom
-	this->textures->SelectTexture("SkyDown");
+	this->textures->SelectTexture(TEXTURE_SKY_DOWN);
 
 	glBegin(GL_QUADS);
 
@@ -169,7 +169,7 @@ void SkyBox::Render(void)
 
 
 	// draw right
-	this->textures->SelectTexture("SkyRight");
+	this->textures->SelectTexture(TEXTURE_SKY_RIGHT);
 
 	glBegin(GL_QUADS);
 
@@ -197,7 +197,7 @@ void SkyBox::Render(void)
 
 
 	// draw left
-	this->textures->SelectTexture("SkyLeft");
+	this->textures->SelectTexture(TEXTURE_SKY_LEFT);
 
 	glBegin(GL_QUADS);
 
@@ -225,7 +225,7 @@ void SkyBox::Render(void)
 
 
 	// draw front
-	this->textures->SelectTexture("SkyFront");
+	this->textures->SelectTexture(TEXTURE_SKY_FRONT);
 
 	glBegin(GL_QUADS);
 
@@ -253,7 +253,7 @@ void SkyBox::Render(void)
 
 
 	// draw back
-	this->textures->SelectTexture("SkyBack");
+	this->textures->SelectTexture(TEXTURE_SKY_BACK);
 
 	glBegin(GL_QUADS);
 

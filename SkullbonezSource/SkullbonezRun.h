@@ -4,13 +4,13 @@
 																			 .-"       "-.
 																			/             \
 																		   /               \
-																		   ¦   .--. .--.   ¦
-																		   ¦ )/   ¦ ¦   \( ¦
-																		   ¦/ \__/   \__/ \¦
+																		   ï¿½   .--. .--.   ï¿½
+																		   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+																		   ï¿½/ \__/   \__/ \ï¿½
 																		   /      /^\      \
 																		   \__    '='    __/
-								   											 ¦\         /¦
-																			 ¦\'"VUUUV"'/¦
+								   											 ï¿½\         /ï¿½
+																			 ï¿½\'"VUUUV"'/ï¿½
 																			 \ `"""""""` /
 																			  `-._____.-'
 
@@ -87,7 +87,7 @@ namespace SkullbonezCore
 
 
 			void					Render					(void);								// Main render method
-			void					RelativeUpdateCamera	(const char* cameraName);			// Relative update specified camera
+			void					RelativeUpdateCamera	(uint32_t hash);					// Relative update specified camera
 			void					UpdateLogic				(float fSecondsPerFrame);			// Update world logic
 			void					TakeInput				(void);								// Take user input
 			void					SetUpCameras			(void);								// Camera init

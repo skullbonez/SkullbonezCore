@@ -4,13 +4,13 @@
 																			 .-"       "-.
 																			/             \
 																		   /               \
-																		   ¦   .--. .--.   ¦
-																		   ¦ )/   ¦ ¦   \( ¦
-																		   ¦/ \__/   \__/ \¦
+																		   ï¿½   .--. .--.   ï¿½
+																		   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+																		   ï¿½/ \__/   \__/ \ï¿½
 																		   /      /^\      \
 																		   \__    '='    __/
-								   											 ¦\         /¦
-																			 ¦\'"VUUUV"'/¦
+								   											 ï¿½\         /ï¿½
+																			 ï¿½\'"VUUUV"'/ï¿½
 																			 \ `"""""""` /
 																			  `-._____.-'
 
@@ -51,10 +51,10 @@ namespace SkullbonezCore
 			int								nextAvailableTextureIndex;					// Tracks the next available index
 			int								maxTextureCount;							// Maximum amount of textures allowed
 			UINT*							textureArray;								// Keeps track of textures created by OpenGL
-			char**							textureNames;								// Gives meaning to texture indexes
+			uint32_t*						textureHashes;								// Stores hashed texture name keys
 
 			tImageJPG* LoadJPEG				(const char* cFileName);					// Loads a jpeg file
-			int		   FindIndex			(const char* cTextureName);					// Returns the index of the specified texture			
+			int		   FindIndex			(uint32_t hash);							// Returns the index of the specified texture			
 			void	   UpdateCounters		(void);										// Updates texture counter members
 			void		DecodeJPEG			(jpeg_decompress_struct* info, 
 											 tImageJPG*				 pImageData);		// Decodes jpeg files			
@@ -63,14 +63,14 @@ namespace SkullbonezCore
 		public:
 
 
-			static TextureCollection*			Instance				(int iMaxTextureCount);			// Call to request a pointer to the singleton instance
-			static void							Destroy					(void);							// Call to destroy the singleton instance
-			void								SelectTexture			(const char* cTextureName);		// Selects the texture as the OpenGL target
-			int									NumFreeTextureSpaces	(void);							// Returns the number of free texture spaces
-			void								DeleteTexture			(const char* cTextureName);		// Deletes the texture from OpenGL
-			void								DeleteAllTextures		(void);							// Deletes all textures from OpenGL
+			static TextureCollection*			Instance				(int iMaxTextureCount);					// Call to request a pointer to the singleton instance
+			static void							Destroy					(void);									// Call to destroy the singleton instance
+			void								SelectTexture			(uint32_t hash);						// Selects the texture as the OpenGL target
+			int									NumFreeTextureSpaces	(void);									// Returns the number of free texture spaces
+			void								DeleteTexture			(uint32_t hash);						// Deletes the texture from OpenGL
+			void								DeleteAllTextures		(void);									// Deletes all textures from OpenGL
 			void								CreateJpegTexture		(const char* cFileName,
-																		 const char* cTextureName);		// Creates a new texture from a jpeg file
+																		 uint32_t    hash);						// Creates a new texture from a jpeg file
 		};
 	}
 }
