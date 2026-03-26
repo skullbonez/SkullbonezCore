@@ -59,6 +59,7 @@
 #include <assert.h>   // Assertions
 #include <stdexcept>  // std::runtime_error
 #include <memory>     // std::unique_ptr
+#include <vector>     // std::vector
 #include <gl\gl.h>    // OpenGL Library
 #include <gl\glu.h>   // OpenGL Utility Library
 

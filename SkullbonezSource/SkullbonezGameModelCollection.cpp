@@ -92,7 +92,7 @@ void GameModelCollection::RenderModels(void)
 /* -- GET MODEL POSITION ----------------------------------------------------------*/
 Vector3 GameModelCollection::GetModelPosition(int index)
 {
-	if(index >= this->curCount)
+	if(index < 0 || index >= this->curCount)
 	{
 		throw std::runtime_error("No game model exists at the specified index.  (GameModelCollection::GetModelPosition)");
 	}
@@ -105,15 +105,12 @@ Vector3 GameModelCollection::GetModelPosition(int index)
 /* -- RUN PHYSICS -------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void GameModelCollection::RunPhysics(float fChangeInTime)
 {
-	// array to keep track of whether time steps have been applied or not
-	bool *isTimeStepApplied = new bool[this->curCount];
+	// vector automatically frees memory on any exit path, including exceptions
+	std::vector<bool> isTimeStepApplied(this->curCount, false);
 
-	// clear the contents of the new array and update the velocity of all models
+	// update the velocity of all models
 	for(int x=0; x<this->curCount; ++x)
-	{
 		this->gameModelArray[x]->ApplyForces(fChangeInTime);
-		isTimeStepApplied[x] = false;
-	}
 
 	// detect and respond to collisions between game models
 	for(int x=0; x<this->curCount-1; ++x) 
@@ -183,6 +180,4 @@ void GameModelCollection::RunPhysics(float fChangeInTime)
 		}
 	}
 
-	// array delete the local array
-	if(isTimeStepApplied) delete [] isTimeStepApplied;
 }
