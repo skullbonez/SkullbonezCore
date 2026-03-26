@@ -119,6 +119,7 @@
 #define GAS_DENSITY				0.0f					// Density of gas
 #define FLUID_DENSITY			1.0f					// Density of fluid
 #define GRAVITATIONAL_FORCE		-30.0f					// Gravitational force
+#define BROADPHASE_CELL_SIZE	22.0f					// Spatial grid cell size (2 * max sphere radius)
 
 
 

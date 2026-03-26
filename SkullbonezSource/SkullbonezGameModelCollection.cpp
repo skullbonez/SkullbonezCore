@@ -36,7 +36,7 @@ using namespace SkullbonezCore::GameObjects;
 
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
-GameModelCollection::GameModelCollection(void)
+GameModelCollection::GameModelCollection(void) : spatialGrid(BROADPHASE_CELL_SIZE)
 {
 	this->gameModels.reserve(200);
 };
@@ -83,40 +83,48 @@ void GameModelCollection::RunPhysics(float fChangeInTime)
 	for(int x=0; x<(int)this->gameModels.size(); ++x)
 		this->gameModels[x].ApplyForces(fChangeInTime);
 
-	// detect and respond to collisions between game models
-	for(int x=0; x<(int)this->gameModels.size()-1; ++x) 
+	// broadphase: populate spatial grid and generate candidate pairs
+	this->spatialGrid.Clear();
+	for(int i = 0; i < (int)this->gameModels.size(); ++i)
+		this->spatialGrid.Insert(i, this->gameModels[i].GetPosition(), this->gameModels[i].GetBoundingRadius());
+
+	std::vector<std::pair<int,int>> candidatePairs;
+	this->spatialGrid.GetCandidatePairs(candidatePairs);
+
+	// detect and respond to collisions between game models (broadphase-culled pairs only)
+	for(const auto& cp : candidatePairs)
 	{
-		for(int y=x+1; y<(int)this->gameModels.size(); ++y)
+		int x = cp.first;
+		int y = cp.second;
+
+		// skip pairs where either ball has exhausted its frame time
+		if(timeRemaining[x] <= 0.0f || timeRemaining[y] <= 0.0f) continue;
+
+		// use the minimum remaining time window for this pair
+		float availableTime = (std::min)(timeRemaining[x], timeRemaining[y]);
+
+		// check the collision time
+		float colTime = this->gameModels[x].CollisionDetectGameModel(this->gameModels[y], availableTime);
+
+		// if there is a response required, perform it
+		if(this->gameModels[x].IsResponseRequired() && this->gameModels[y].IsResponseRequired())
 		{
-			// skip pairs where either ball has exhausted its frame time
-			if(timeRemaining[x] <= 0.0f || timeRemaining[y] <= 0.0f) continue;
+			// advance both models to the collision point
+			this->gameModels[x].UpdatePosition(colTime);
+			this->gameModels[y].UpdatePosition(colTime);
 
-			// use the minimum remaining time window for this pair
-			float availableTime = (std::min)(timeRemaining[x], timeRemaining[y]);
+			// subtract consumed time
+			timeRemaining[x] -= colTime;
+			timeRemaining[y] -= colTime;
 
-			// check the collision time
-			float colTime = this->gameModels[x].CollisionDetectGameModel(this->gameModels[y], availableTime);
-
-			// if there is a response required, perform it
-			if(this->gameModels[x].IsResponseRequired() && this->gameModels[y].IsResponseRequired())
-			{
-				// advance both models to the collision point
-				this->gameModels[x].UpdatePosition(colTime);
-				this->gameModels[y].UpdatePosition(colTime);
-
-				// subtract consumed time
-				timeRemaining[x] -= colTime;
-				timeRemaining[y] -= colTime;
-
-				// velocity-only response (clears isResponseRequired on both models)
-				this->gameModels[x].CollisionResponseGameModel(this->gameModels[y]);
-			}
-			else
-			{
-				// sweep test found no collision — check for static overlap
-				// (handles grounded/slow balls that the sweep test misses)
-				this->gameModels[x].StaticOverlapResponseGameModel(this->gameModels[y]);
-			}
+			// velocity-only response (clears isResponseRequired on both models)
+			this->gameModels[x].CollisionResponseGameModel(this->gameModels[y]);
+		}
+		else
+		{
+			// sweep test found no collision — check for static overlap
+			// (handles grounded/slow balls that the sweep test misses)
+			this->gameModels[x].StaticOverlapResponseGameModel(this->gameModels[y]);
 		}
 	}
 

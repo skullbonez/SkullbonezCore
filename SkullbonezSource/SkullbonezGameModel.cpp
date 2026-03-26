@@ -96,6 +96,16 @@ void GameModel::SetCoefficientRestitution(float fCoefficientRestitution)
 
 
 
+/* -- GET BOUNDING RADIUS ---------------------------------------------------------*/
+float GameModel::GetBoundingRadius(void)
+{
+	auto* sphere = dynamic_cast<BoundingSphere*>(this->boundingVolume.get());
+	if(!sphere) return 0.0f;
+	return sphere->GetRadius();
+}
+
+
+
 /* -- ADD BOUNDING SPHERE ---------------------------------------------------------*/
 void GameModel::AddBoundingSphere(float fRadius)
 {

@@ -127,7 +127,7 @@ void SkullbonezRun::Initialise(void)
 void SkullbonezRun::SetUpGameModels(void)
 {
 	// randomly generate a number of models for the scene
-	this->modelCount = 500;// 10 + ( rand() % 150 );
+	this->modelCount = 3000;// 10 + ( rand() % 150 );
 
 	for(int x=0; x<this->modelCount; ++x)
 	{
@@ -135,10 +135,10 @@ void SkullbonezRun::SetUpGameModels(void)
 		float xPos					 = 400.0f + (float)(rand() % 400);
 		float yPos					 = 100 + (float)(rand() % 250);
 		float zPos					 = 400.0f + (float)(rand() % 400);	
-		float mass					 = 100.0f + (float)(rand() % 1000);
+		float mass					 = 50.0f + (float)(rand() % 50);
 		float moment				 = 5.0f + (float)(rand() % 15);
 		float coefficientRestitution = 0.5f + ((float)(rand() % 5) / 10.0f);
-		float radius				 = 1.0f + (float)(rand() % 10);
+		float radius				 = (1.0f + (float)(rand() % 10)) * 0.5f;
 		float xForce				 = (rand() % 10 > 4) ? 1.0f + (float)(rand() % 10000) : 1.0f - (float)(rand() % 10000);
 		float yForce				 = (rand() % 10 > 4) ? 1.0f + (float)(rand() % 10000) : 1.0f - (float)(rand() % 10000);
 		float zForce				 = (rand() % 10 > 4) ? 1.0f + (float)(rand() % 10000) : 1.0f - (float)(rand() % 10000);

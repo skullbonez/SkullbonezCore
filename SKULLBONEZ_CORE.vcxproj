@@ -116,6 +116,7 @@
     <ClCompile Include="SkullbonezSource\SkullbonezRotationMatrix.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRun.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezSkyBox.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezSpatialGrid.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezTerrain.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezText.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezTextureCollection.cpp" />
@@ -143,6 +144,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezRotationMatrix.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRun.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSkyBox.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezSpatialGrid.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezTerrain.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezText.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezTextureCollection.h" />

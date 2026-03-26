@@ -32,12 +32,14 @@
 #include "SkullbonezCommon.h"
 #include "SkullbonezGameModel.h"
 #include "SkullbonezVector3.h"
+#include "SkullbonezSpatialGrid.h"
 
 
 
 /* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
 using namespace std;
 using namespace SkullbonezCore::Math::Vector;
+using namespace SkullbonezCore::Math::CollisionDetection;
 
 
 
@@ -55,6 +57,7 @@ namespace SkullbonezCore
 		private:
 
 			std::vector<GameModel>			gameModels;																	// Collection of game models
+			SpatialGrid						spatialGrid;																// Broadphase spatial grid for collision culling
 
 
 		public:
