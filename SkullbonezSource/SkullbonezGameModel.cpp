@@ -176,6 +176,33 @@ void GameModel::CollisionResponseGameModel(GameModel& responseTarget)
 
 
 
+/* -- STATIC OVERLAP RESPONSE GAME MODEL ------------------------------------------*/
+void GameModel::StaticOverlapResponseGameModel(GameModel& overlapTarget)
+{
+	// check if the two spheres are currently overlapping (handles grounded/slow balls
+	// where the sweep test returns NO_COLLISION due to near-zero movement)
+	auto* thisSphere   = dynamic_cast<BoundingSphere*>(this->boundingVolume.get());
+	auto* targetSphere = dynamic_cast<BoundingSphere*>(overlapTarget.boundingVolume.get());
+	if(!thisSphere || !targetSphere) return;
+
+	Vector3 delta = overlapTarget.physicsInfo.GetPosition() - this->physicsInfo.GetPosition();
+	float   dist  = Vector::VectorMag(delta);
+	float   radii = thisSphere->GetRadius() + targetSphere->GetRadius();
+
+	if(dist >= radii || dist <= 0.0f) return;
+
+	// spheres are overlapping — fire velocity response
+	this->isResponseRequired		   = true;
+	overlapTarget.isResponseRequired   = true;
+	CollisionResponse::RespondCollisionGameModels(*this, overlapTarget);
+	this->isResponseRequired		   = false;
+	overlapTarget.isResponseRequired   = false;
+
+	// positional correction is handled inside RespondCollisionGameModels
+}
+
+
+
 /* -- COLLISION RESPONSE TERRAIN --------------------------------------------------*/
 void GameModel::CollisionResponseTerrain(float remainingTimeStep)
 {

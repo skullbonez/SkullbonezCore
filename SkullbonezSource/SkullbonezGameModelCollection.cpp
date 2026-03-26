@@ -111,6 +111,12 @@ void GameModelCollection::RunPhysics(float fChangeInTime)
 				// velocity-only response (clears isResponseRequired on both models)
 				this->gameModels[x].CollisionResponseGameModel(this->gameModels[y]);
 			}
+			else
+			{
+				// sweep test found no collision — check for static overlap
+				// (handles grounded/slow balls that the sweep test misses)
+				this->gameModels[x].StaticOverlapResponseGameModel(this->gameModels[y]);
+			}
 		}
 	}
 

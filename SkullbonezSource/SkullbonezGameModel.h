@@ -116,6 +116,7 @@ namespace SkullbonezCore
 			void			AddBoundingSphere				(float fRadius);													// Add a bounding sphere to the game model
 			float			CollisionDetectGameModel		(GameModel&	collisionTarget, float changeInTime);					// Collision detect model against model
 			void			CollisionResponseGameModel		(GameModel&	responseTarget);										// Collision response model against model (velocity-only)
+			void			StaticOverlapResponseGameModel	(GameModel&	overlapTarget);											// Check for static overlap and push apart if overlapping
 		};
 	}
 }
