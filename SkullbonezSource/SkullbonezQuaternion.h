@@ -4,13 +4,13 @@
 																			 .-"       "-.
 																			/             \
 																		   /               \
-																		   ¦   .--. .--.   ¦
-																		   ¦ )/   ¦ ¦   \( ¦
-																		   ¦/ \__/   \__/ \¦
+																		   ï¿½   .--. .--.   ï¿½
+																		   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+																		   ï¿½/ \__/   \__/ \ï¿½
 																		   /      /^\      \
 																		   \__    '='    __/
-								   											 ¦\         /¦
-																			 ¦\'"VUUUV"'/¦
+								   											 ï¿½\         /ï¿½
+																			 ï¿½\'"VUUUV"'/ï¿½
 																			 \ `"""""""` /
 																			  `-._____.-'
 
@@ -58,7 +58,7 @@ namespace SkullbonezCore
 															 float fY,
 															 float fZ,
 															 float fW);							// Overloaded constructor
-									~Quaternion				(void);								// Default destructor
+									~Quaternion				(void) = default;
 				void				Identity				(void);								// Sets the quaternion back to the identity value
 				void				Normalise				(void);								// Normalises the quaternion (do this to combat floating point error creep)
 				void				RotateAboutXYZ			(const Vector3& vRadians);			// Overload taking a Vector3 containing each rotation component in radians

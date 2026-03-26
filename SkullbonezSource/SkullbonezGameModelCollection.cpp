@@ -36,45 +36,17 @@ using namespace SkullbonezCore::GameObjects;
 
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
-GameModelCollection::GameModelCollection(int iMaxCount)
+GameModelCollection::GameModelCollection(void)
 {
-	// init members
-	this->curCount		 = 0;
-	this->maxCount		 = iMaxCount;
-	this->gameModelArray = new GameModel*[iMaxCount];
-	
-	// init array to null
-	for(int x=0; x<iMaxCount; ++x) this->gameModelArray[x] = 0;
-};
-
-
-
-/* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
-GameModelCollection::~GameModelCollection(void)
-{
-	// delete all game models
-	for(int x=0; x<this->maxCount; ++x)	
-		if(this->gameModelArray[x]) 
-			delete this->gameModelArray[x];
-
-	// perform array delete
-	if(this->gameModelArray) delete [] this->gameModelArray;
+	this->gameModels.reserve(200);
 };
 
 
 
 /* -- ADD GAME MODEL --------------------------------------------------------------*/
-void GameModelCollection::AddGameModel(GameModel* gameModel)
+void GameModelCollection::AddGameModel(GameModel gameModel)
 {
-	// check for space
-	if(this->curCount == this->maxCount)
-		throw std::runtime_error("Game model array is full!  (GameModelCollection::AddGameModel)");
-
-	// add the model
-	this->gameModelArray[this->curCount] = gameModel;
-
-	// increment the counter
-	++this->curCount;
+	this->gameModels.push_back(std::move(gameModel));
 }
 
 
@@ -83,8 +55,8 @@ void GameModelCollection::AddGameModel(GameModel* gameModel)
 void GameModelCollection::RenderModels(void)
 {
 	// render the game models
-	for(int x=0; x<this->curCount; ++x) 
-		this->gameModelArray[x]->RenderCollisionBounds();
+	for(int x=0; x<(int)this->gameModels.size(); ++x) 
+		this->gameModels[x].RenderCollisionBounds();
 }
 
 
@@ -92,12 +64,12 @@ void GameModelCollection::RenderModels(void)
 /* -- GET MODEL POSITION ----------------------------------------------------------*/
 Vector3 GameModelCollection::GetModelPosition(int index)
 {
-	if(index < 0 || index >= this->curCount)
+	if(index < 0 || index >= (int)this->gameModels.size())
 	{
 		throw std::runtime_error("No game model exists at the specified index.  (GameModelCollection::GetModelPosition)");
 	}
 
-	return this->gameModelArray[index]->GetPosition();
+	return this->gameModels[index].GetPosition();
 }
 
 
@@ -105,36 +77,35 @@ Vector3 GameModelCollection::GetModelPosition(int index)
 /* -- RUN PHYSICS -------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void GameModelCollection::RunPhysics(float fChangeInTime)
 {
-	// vector automatically frees memory on any exit path, including exceptions
-	std::vector<bool> isTimeStepApplied(this->curCount, false);
+	std::vector<bool> isTimeStepApplied((int)this->gameModels.size(), false);
 
 	// update the velocity of all models
-	for(int x=0; x<this->curCount; ++x)
-		this->gameModelArray[x]->ApplyForces(fChangeInTime);
+	for(int x=0; x<(int)this->gameModels.size(); ++x)
+		this->gameModels[x].ApplyForces(fChangeInTime);
 
 	// detect and respond to collisions between game models
-	for(int x=0; x<this->curCount-1; ++x) 
+	for(int x=0; x<(int)this->gameModels.size()-1; ++x) 
 	{
 		// if the time step is not applied at this position
 		if(!isTimeStepApplied[x])
 		{
-			for(int y=x+1; y<this->curCount; ++y)
+			for(int y=x+1; y<(int)this->gameModels.size(); ++y)
 			{
 				// if the time step is not applied at this position
 				if(!isTimeStepApplied[y])
 				{
 					// check the collision time
-					float colTime = this->gameModelArray[x]->CollisionDetectGameModel(*this->gameModelArray[y], fChangeInTime);
+					float colTime = this->gameModels[x].CollisionDetectGameModel(this->gameModels[y], fChangeInTime);
 
 					// if there is a response required, perform it
-					if(this->gameModelArray[x]->IsResponseRequired() && this->gameModelArray[y]->IsResponseRequired())
+					if(this->gameModels[x].IsResponseRequired() && this->gameModels[y].IsResponseRequired())
 					{
 						// update the time step before the collision
-						this->gameModelArray[x]->UpdatePosition(colTime);
-						this->gameModelArray[y]->UpdatePosition(colTime);
+						this->gameModels[x].UpdatePosition(colTime);
+						this->gameModels[y].UpdatePosition(colTime);
 
 						// calculate response and update the remaining time step
-						this->gameModelArray[x]->CollisionResponseGameModel(*this->gameModelArray[y], fChangeInTime - colTime);
+						this->gameModels[x].CollisionResponseGameModel(this->gameModels[y], fChangeInTime - colTime);
 
 						// note that the timestep has been applied
 						isTimeStepApplied[x] = true;
@@ -146,22 +117,22 @@ void GameModelCollection::RunPhysics(float fChangeInTime)
 	}
 
 	// detect and respond to collisions between game models and the terrain
-	for(int x=0; x<this->curCount; ++x)
+	for(int x=0; x<(int)this->gameModels.size(); ++x)
 	{
 		// if the time step is not applied at this position
 		if(!isTimeStepApplied[x])
 		{
 			// check the collision time
-			float colTime = this->gameModelArray[x]->CollisionDetectTerrain(fChangeInTime);
+			float colTime = this->gameModels[x].CollisionDetectTerrain(fChangeInTime);
 
 			// if a response is required, perform it
-			if(this->gameModelArray[x]->IsResponseRequired())
+			if(this->gameModels[x].IsResponseRequired())
 			{
 				// update the time step before the collision
-				this->gameModelArray[x]->UpdatePosition(colTime);
+				this->gameModels[x].UpdatePosition(colTime);
 
 				// calculate response and update the remaining time step
-				this->gameModelArray[x]->CollisionResponseTerrain(fChangeInTime - colTime);
+				this->gameModels[x].CollisionResponseTerrain(fChangeInTime - colTime);
 
 				// note that the timestep has been applied
 				isTimeStepApplied[x] = true;
@@ -170,13 +141,13 @@ void GameModelCollection::RunPhysics(float fChangeInTime)
 	}
 
 	// apply the remaining time steps
-	for(int x=0; x<this->curCount; ++x)
+	for(int x=0; x<(int)this->gameModels.size(); ++x)
 	{
 		// if the time step is not applied at this position
 		if(!isTimeStepApplied[x])
 		{
 			// apply the time step to this model
-			this->gameModelArray[x]->UpdatePosition(fChangeInTime);
+			this->gameModels[x].UpdatePosition(fChangeInTime);
 		}
 	}
 

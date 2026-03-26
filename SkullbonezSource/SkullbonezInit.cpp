@@ -65,22 +65,15 @@ int WINAPI WinMain(HINSTANCE hInstance,		// Holds info on instance of app
 		cWindow->InitialiseOpenGL();
 
 		// Create the Skullbonez Core instance
-		SkullbonezRun *cRun = new SkullbonezRun();
+		SkullbonezRun cRun;
 
 		try
 		{
 			// Attempt to initialise the Skullbonez Core
-			cRun->Initialise();
+			cRun.Initialise();
 
 			// Attempt to run the Skullbonez Core
-			if(!cRun->Run()) throw std::runtime_error("Thanks for using the Skullbonez Core!");
-
-			// Attempt to delete the Skullbonez Core
-			if(cRun)
-			{
-				delete cRun;
-				cRun = 0;
-			}
+			if(!cRun.Run()) throw std::runtime_error("Thanks for using the Skullbonez Core!");
 
 			// Cleanup rendering context
 			if(cWindow->sRenderContext)
@@ -96,9 +89,6 @@ int WINAPI WinMain(HINSTANCE hInstance,		// Holds info on instance of app
 		{
 			// Display the nasty exception details
 			cWindow->MsgBox(e.what(), "Alert!", MB_OK);
-
-			// Delete the Skullbonez Core if we were interupted earlier
-			if(cRun) delete cRun;
 
 			// exit the loop now
 			break;

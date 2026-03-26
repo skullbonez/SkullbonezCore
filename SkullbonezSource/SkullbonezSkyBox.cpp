@@ -57,7 +57,7 @@ SkyBox::SkyBox(int xMin,
 	this->boundaries.zMax = zMax;
 
 	// request singleton instance
-	this->textures = TextureCollection::Instance(TOTAL_TEXTURE_COUNT);
+	this->textures = TextureCollection::Instance();
 
 	// load textures (with no linear mipmap interpolation to 
 	// avoid lines on skybox edges)
@@ -80,18 +80,13 @@ SkyBox::~SkyBox(void)
 
 
 /* -- SINGLETON CONSTRUCTOR -------------------------------------------------------*/
-SkyBox* SkyBox::Instance(int xMin, 
-						 int xMax,
-						 int yMin,
-						 int yMax,
-						 int zMin,
-						 int zMax)
+SkyBox* SkyBox::Instance(int xMin, int xMax, int yMin, int yMax, int zMin, int zMax)
 {
-	// if no skybox exists, create one
 	if(!SkyBox::pInstance)
-		SkyBox::pInstance = new SkyBox(xMin, xMax, yMin, yMax, zMin, zMax);
-
-	// return the instance pointer
+	{
+		static SkyBox instance(xMin, xMax, yMin, yMax, zMin, zMax);
+		SkyBox::pInstance = &instance;
+	}
 	return SkyBox::pInstance;
 }
 
@@ -100,7 +95,6 @@ SkyBox* SkyBox::Instance(int xMin,
 /* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
 void SkyBox::Destroy(void)
 {
-	if(SkyBox::pInstance) delete SkyBox::pInstance;
 	SkyBox::pInstance = 0;
 }
 

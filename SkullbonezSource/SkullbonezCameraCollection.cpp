@@ -42,40 +42,31 @@ CameraCollection* CameraCollection::pInstance = 0;
 
 
 /* -- CONSTRUCTOR -----------------------------------------------------------------*/
-CameraCollection::CameraCollection(int iCameraCount)
+CameraCollection::CameraCollection(void)
 {
-	// initialise all members requiring it
-	this->maxCameraCount	= iCameraCount;
-	this->cameraArray		= new Camera[iCameraCount];
-	this->cameraHashes		= new uint32_t[iCameraCount]();
 	this->arrayPosition		= 0;
 	this->selectedCamera	= 0;
 	this->isTweening		= 0;
 	this->tweenProgress		= 0;
 	this->tweenSpeed		= 0;
+	this->terrain			= 0;
 
-	// initialise primary store member
+	for(int count=0; count<TOTAL_CAMERA_COUNT; ++count)
+		this->cameraHashes[count] = 0;
+
 	this->primaryStore.ZeroCamera();
 }
 
 
 
-/* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
-CameraCollection::~CameraCollection(void)
-{
-	if(this->cameraArray)  delete [] cameraArray;
-	if(this->cameraHashes) delete [] cameraHashes;
-}
-
-
 /* -- SINGLETON CONSTRUCTOR -------------------------------------------------------*/
-CameraCollection* CameraCollection::Instance(int iCameraCount)
+CameraCollection* CameraCollection::Instance(void)
 {
-	// create an instance if one does not already exist
-	if(!CameraCollection::pInstance) 
-		CameraCollection::pInstance = new CameraCollection(iCameraCount);
-
-	// retrurn the instance pointer
+	if(!CameraCollection::pInstance)
+	{
+		static CameraCollection instance;
+		CameraCollection::pInstance = &instance;
+	}
 	return CameraCollection::pInstance;
 }
 
@@ -84,9 +75,7 @@ CameraCollection* CameraCollection::Instance(int iCameraCount)
 /* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
 void CameraCollection::Destroy(void)
 {
-	CameraCollection* temp = CameraCollection::pInstance;
 	CameraCollection::pInstance = 0;
-	delete temp;
 }
 
 
@@ -106,7 +95,7 @@ void CameraCollection::AddCamera(const Vector3& vPosition,
 							  const Vector3& vUp,
 							  uint32_t       hash)
 {
-	if(this->arrayPosition == this->maxCameraCount)
+	if(this->arrayPosition == TOTAL_CAMERA_COUNT)
 		throw std::runtime_error("Camera array full!  (CameraCollection::AddCamera)");
 
 	this->cameraHashes[this->arrayPosition] = hash;

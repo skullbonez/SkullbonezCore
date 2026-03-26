@@ -43,15 +43,14 @@ namespace SkullbonezCore
 
 		private:
 
-			TextureCollection				(int iMaxTextureCount);						// Constructor
-			~TextureCollection				(void);										// Default destructor
+			TextureCollection				(void);										// Constructor
+			~TextureCollection				(void) = default;
 
 			static TextureCollection* 		pInstance;									// Singleton instance pointer
 			int								textureCounter;								// To keep track of number of textures created
 			int								nextAvailableTextureIndex;					// Tracks the next available index
-			int								maxTextureCount;							// Maximum amount of textures allowed
-			UINT*							textureArray;								// Keeps track of textures created by OpenGL
-			uint32_t*						textureHashes;								// Stores hashed texture name keys
+			UINT							textureArray[TOTAL_TEXTURE_COUNT];			// Keeps track of textures created by OpenGL
+			uint32_t						textureHashes[TOTAL_TEXTURE_COUNT];			// Stores hashed texture name keys
 
 			tImageJPG* LoadJPEG				(const char* cFileName);					// Loads a jpeg file
 			int		   FindIndex			(uint32_t hash);							// Returns the index of the specified texture			
@@ -63,7 +62,7 @@ namespace SkullbonezCore
 		public:
 
 
-			static TextureCollection*			Instance				(int iMaxTextureCount);					// Call to request a pointer to the singleton instance
+			static TextureCollection*			Instance				(void);									// Call to request a pointer to the singleton instance
 			static void							Destroy					(void);									// Call to destroy the singleton instance
 			void								SelectTexture			(uint32_t hash);						// Selects the texture as the OpenGL target
 			int									NumFreeTextureSpaces	(void);									// Returns the number of free texture spaces

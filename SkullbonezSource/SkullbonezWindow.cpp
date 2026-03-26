@@ -58,9 +58,11 @@ SkullbonezWindow::~SkullbonezWindow() {}
 /* -- SINGLETON CONSTRUCTOR -------------------------------------------------------*/
 SkullbonezWindow* SkullbonezWindow::Instance(void)
 {
-	if(!SkullbonezWindow::pInstance) 
-		SkullbonezWindow::pInstance = new SkullbonezWindow();
-
+	if(!SkullbonezWindow::pInstance)
+	{
+		static SkullbonezWindow instance;
+		SkullbonezWindow::pInstance = &instance;
+	}
 	return SkullbonezWindow::pInstance;
 }
 
@@ -69,9 +71,7 @@ SkullbonezWindow* SkullbonezWindow::Instance(void)
 /* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
 void SkullbonezWindow::Destroy(void)
 {
-	SkullbonezWindow* temp = SkullbonezWindow::pInstance;
 	SkullbonezWindow::pInstance = 0;
-	delete temp;
 }
 
 

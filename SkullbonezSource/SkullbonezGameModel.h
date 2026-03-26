@@ -4,13 +4,13 @@
 																			 .-"       "-.
 																			/             \
 																		   /               \
-																		   ¦   .--. .--.   ¦
-																		   ¦ )/   ¦ ¦   \( ¦
-																		   ¦/ \__/   \__/ \¦
+																		   ï¿½   .--. .--.   ï¿½
+																		   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+																		   ï¿½/ \__/   \__/ \ï¿½
 																		   /      /^\      \
 																		   \__    '='    __/
-								   											 ¦\         /¦
-																			 ¦\'"VUUUV"'/¦
+								   											 ï¿½\         /ï¿½
+																			 ï¿½\'"VUUUV"'/ï¿½
 																			 \ `"""""""` /
 																			  `-._____.-'
 
@@ -62,7 +62,7 @@ namespace SkullbonezCore
 
 		private:
 
-			DynamicsObject*									boundingVolume;														// Pointer to the bounding volume
+			std::unique_ptr<DynamicsObject>					boundingVolume;														// Bounding volume (owned)
 			RigidBody										physicsInfo;														// Physics information for the game object
 			Environment::WorldEnvironment*					worldEnvironment;													// Pointer to the world environment settings
 			Geometry::Terrain*								terrain;															// Pointer to the world terrain
@@ -86,7 +86,9 @@ namespace SkullbonezCore
 															 const Vector3& vPosition,
 															 const Vector3& vRotationalInertia,
 															 float fMass);														// Overloaded constructor
-							~GameModel						(void);																// Default destructor
+							~GameModel						(void) = default;
+						GameModel						(GameModel&&) noexcept = default;								// Move constructor
+						GameModel& operator=			(GameModel&&) noexcept = default;								// Move assignment
 
 			void			RenderModel						(void);																// Renders the entire game model
 			void			RenderCollisionBounds			(void);																// Renders the collision bounds

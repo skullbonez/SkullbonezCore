@@ -74,11 +74,6 @@ Timer::Timer(void)
 
 
 
-/* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
-Timer::~Timer(void) {}
-
-
-
 /* -- NO PERFORMACE COUNTER SUPPORT -----------------------------------------------*/
 void Timer::NoPerformanceCounterSupport(void)
 {

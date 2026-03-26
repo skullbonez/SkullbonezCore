@@ -4,13 +4,13 @@
 																			 .-"       "-.
 																			/             \
 																		   /               \
-																		   ¦   .--. .--.   ¦
-																		   ¦ )/   ¦ ¦   \( ¦
-																		   ¦/ \__/   \__/ \¦
+																		   ï¿½   .--. .--.   ï¿½
+																		   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+																		   ï¿½/ \__/   \__/ \ï¿½
 																		   /      /^\      \
 																		   \__    '='    __/
-								   											 ¦\         /¦
-																			 ¦\'"VUUUV"'/¦
+								   											 ï¿½\         /ï¿½
+																			 ï¿½\'"VUUUV"'/ï¿½
 																			 \ `"""""""` /
 																			  `-._____.-'
 
@@ -77,7 +77,7 @@ namespace SkullbonezCore
 
 
 							Camera								(void);									// Default constructor
-							~Camera								(void);									// Default destructor
+							~Camera								(void) = default;
 			void			PrepareTranslation					(void);									// Assists in keeping translations within bounds, should be called before all translations
 			void			FinishTranslation					(void);									// Assists in keeping translations within bounds, should be called after all translations
 			void			ApplyMovementBuffer					(void);									// Applies a camera translation

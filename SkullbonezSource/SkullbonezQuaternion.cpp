@@ -51,11 +51,6 @@ Quaternion::Quaternion(float fX,
 
 
 
-/* -- DEFAULT DESTRUCTOR ---------------------------------------------------------*/
-Quaternion::~Quaternion			(void) {}
-
-
-
 /* -- IDENTITY -------------------------------------------------------------------*/
 void Quaternion::Identity(void)
 {

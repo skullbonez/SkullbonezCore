@@ -37,37 +37,27 @@ using namespace SkullbonezCore::Math;
 
 
 /* -- CONSTRUCTOR -----------------------------------------------------------------*/
-Terrain::Terrain(const char* sFileName,		// path to .raw file
-				 int		 iMapSize,		// size of map (pixels length)
-				 int		 iStepSize,		// steps (pixel steps AND vertex steps)
-				 int		 iTextureWrap)	// number of times to wrap texture
+Terrain::Terrain(const char* sFileName,
+				 int		 iMapSize,
+				 int		 iStepSize,
+				 int		 iTextureWrap)
 {
-	// initialise postData pointer
-	this->postData		= 0;
-
-	// set members
 	this->mapSize		= iMapSize;
 	this->stepSize		= iStepSize;
 	this->textureWrap	= iTextureWrap;
 
-	// calculate length of terrain map
 	this->terrainSizeWorldCoords = ((this->mapSize - this->stepSize) / 
 									 this->stepSize) * this->stepSize;
 
-	// get the number of posts per row or column (per side)
 	this->postsPerSide = this->mapSize / this->stepSize;
 
-	// get reference to terrain data
-	this->pTerrainData = this->LoadTerrainData(sFileName);
-
-	// build the terrain
+	this->LoadTerrainData(sFileName);
 	this->BuildTerrain();
-
-	// build the renderable component of the terrain
 	this->BuildDisplayList();
 
-	// delete terrain data
-	if(this->pTerrainData) delete [] this->pTerrainData;
+	// height map no longer needed after build
+	this->terrainData.clear();
+	this->terrainData.shrink_to_fit();
 }
 
 
@@ -76,7 +66,6 @@ Terrain::Terrain(const char* sFileName,		// path to .raw file
 Terrain::~Terrain(void)
 {
 	glDeleteLists(this->displayListReference, 1);
-	if(this->postData) delete [] this->postData;
 }
 
 
@@ -84,17 +73,12 @@ Terrain::~Terrain(void)
 /* -- BUILD TERRAIN ---------------------------------------------------------------*/
 void Terrain::BuildTerrain(void)
 {
-	// calculate the amount of terrain posts required
 	int terrainPostCount = (this->mapSize / this->stepSize) *
 						   (this->mapSize / this->stepSize);
 
-	// allocate space for the terrain
-	this->postData = new TerrainPost[terrainPostCount];
+	this->postData.resize(terrainPostCount);
 
-	// translate terrain postings
 	this->TranslatePostings();
-
-	// generate normals for the postings
 	this->GenerateNormals();
 }
 
@@ -103,40 +87,31 @@ void Terrain::BuildTerrain(void)
 /* -- GET PIXEL HEIGHT AT ---------------------------------------------------------*/
 int Terrain::GetPixelHeightAt(int xCoord, int yCoord)
 {
-	return this->pTerrainData[xCoord + yCoord * this->mapSize];
+	return this->terrainData[xCoord + yCoord * this->mapSize];
 }
 
 
 
 /* -- LOAD TERRAIN DATA -----------------------------------------------------------*/
-BYTE* Terrain::LoadTerrainData(const char* sFileName)
+void Terrain::LoadTerrainData(const char* sFileName)
 {
-	// initialise pointer to the file
 	FILE* pRawFile = nullptr;
 	fopen_s(&pRawFile, sFileName, "rb");
 
-	// check for failure
 	if(!pRawFile) throw std::runtime_error("Height map file not found.  (Terrain::LoadTerrain)");
 
-	// initialise pointer for our byte array
-	BYTE* pHeightMap = new BYTE[this->mapSize*this->mapSize];
+	this->terrainData.resize(this->mapSize * this->mapSize);
 
-	// read the raw bytes to our height map
-	fread(pHeightMap, 1, this->mapSize * this->mapSize, pRawFile);
+	fread(this->terrainData.data(), 1, this->terrainData.size(), pRawFile);
 
-	// check for errors that occured while reading the data
 	if(ferror(pRawFile)) 
 	{
-		delete[] pHeightMap;
 		fclose(pRawFile);
+		this->terrainData.clear();
 		throw std::runtime_error("Failed to read height map.  (Terrain::LoadTerrain)");
 	}
 
-	// close the file
 	fclose(pRawFile);
-
-	// return a pointer to the data
-	return pHeightMap;
 }
 
 

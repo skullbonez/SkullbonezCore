@@ -4,13 +4,13 @@
 																			 .-"       "-.
 																			/             \
 																		   /               \
-																		   ¦   .--. .--.   ¦
-																		   ¦ )/   ¦ ¦   \( ¦
-																		   ¦/ \__/   \__/ \¦
+																		   ï¿½   .--. .--.   ï¿½
+																		   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+																		   ï¿½/ \__/   \__/ \ï¿½
 																		   /      /^\      \
 																		   \__    '='    __/
-								   											 ¦\         /¦
-																			 ¦\'"VUUUV"'/¦
+								   											 ï¿½\         /ï¿½
+																			 ï¿½\'"VUUUV"'/ï¿½
 																			 \ `"""""""` /
 																			  `-._____.-'
 
@@ -73,17 +73,17 @@ namespace SkullbonezCore
 		private:
 
 			
-			UINT				displayListReference;			// Reference to the display list
-			TerrainPost*		postData;						// Pointer to the vertices that make up the terrain
+			UINT				displayListReference;							// Reference to the display list
+			std::vector<TerrainPost>	postData;							// Vertices that make up the terrain
+			std::vector<BYTE>			terrainData;						// Raw height map byte data (populated during construction, cleared after build)
 			int					mapSize;						// Size of map (pixels length)
 			int					stepSize;						// Steps size between posts
 			int					textureWrap;					// Number of times to wrap texture over terrain
 			int					postsPerSide;					// Terrain postings per side of terrain
 			int					terrainSizeWorldCoords;			// size per side of terrain in world coordinates
-			BYTE*				pTerrainData;					// Pointer to byte data
 
 
-			BYTE*				LoadTerrainData		(const char* sFileName);		// Loads terrain from .RAW file into memory
+			void				LoadTerrainData		(const char* sFileName);		// Loads terrain from .RAW file into terrainData member
 			void				BuildTerrain		(void);							// Builds the terrain
 			void				TranslatePostings	(void);							// Translates terrain posts
 			void				GenerateNormals		(void);							// Generates normals for posts

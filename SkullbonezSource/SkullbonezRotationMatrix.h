@@ -4,13 +4,13 @@
 																			 .-"       "-.
 																			/             \
 																		   /               \
-																		   ¦   .--. .--.   ¦
-																		   ¦ )/   ¦ ¦   \( ¦
-																		   ¦/ \__/   \__/ \¦
+																		   ï¿½   .--. .--.   ï¿½
+																		   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+																		   ï¿½/ \__/   \__/ \ï¿½
 																		   /      /^\      \
 																		   \__    '='    __/
-								   											 ¦\         /¦
-																			 ¦\'"VUUUV"'/¦
+								   											 ï¿½\         /ï¿½
+																			 ï¿½\'"VUUUV"'/ï¿½
 																			 \ `"""""""` /
 																			  `-._____.-'
 
@@ -62,7 +62,7 @@ namespace SkullbonezCore
 															 float f31,
 															 float f32,
 															 float f33);				// Overloaded constructor
-									~RotationMatrix			(void);						// Default destructor
+									~RotationMatrix			(void) = default;
 				void				Identity				(void);						// Sets the matrix back to the identity value
 				Vector3				operator*				(const Vector3& v) const;	// Rotation matrix multiplied by vector
 				Vector3				operator*=				(const Vector3& v) const;	// *= overload

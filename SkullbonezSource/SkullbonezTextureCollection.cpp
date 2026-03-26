@@ -41,16 +41,12 @@ TextureCollection* TextureCollection::pInstance = 0;
 
 
 /* -- CONSTRUCTOR -----------------------------------------------------------------*/
-TextureCollection::TextureCollection(int iMaxTextureCount)
+TextureCollection::TextureCollection(void)
 {
-	this->maxTextureCount = iMaxTextureCount;
 	this->nextAvailableTextureIndex = 0;
 	this->textureCounter = 0;
 
-	this->textureArray = new UINT[iMaxTextureCount];
-	this->textureHashes = new uint32_t[iMaxTextureCount];
-
-	for(int count=0; count<iMaxTextureCount; ++count)
+	for(int count=0; count<TOTAL_TEXTURE_COUNT; ++count)
 	{
 		this->textureArray[count] = 0;
 		this->textureHashes[count] = 0;
@@ -59,23 +55,14 @@ TextureCollection::TextureCollection(int iMaxTextureCount)
 
 
 
-/* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
-TextureCollection::~TextureCollection(void)
-{ 
-	this->DeleteAllTextures();
-
-	if(this->textureArray)  delete [] this->textureArray;
-	if(this->textureHashes) delete [] this->textureHashes;
-}
-
-
-
 /* -- SINGLETON CONSTRUCTOR -------------------------------------------------------*/
-TextureCollection* TextureCollection::Instance(int iMaxTextureCount)
+TextureCollection* TextureCollection::Instance(void)
 {
-	if(!TextureCollection::pInstance) 
-		TextureCollection::pInstance = new TextureCollection(iMaxTextureCount);
-
+	if(!TextureCollection::pInstance)
+	{
+		static TextureCollection instance;
+		TextureCollection::pInstance = &instance;
+	}
 	return TextureCollection::pInstance;
 }
 
@@ -84,9 +71,11 @@ TextureCollection* TextureCollection::Instance(int iMaxTextureCount)
 /* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
 void TextureCollection::Destroy(void)
 {
-	TextureCollection* temp = TextureCollection::pInstance;
-	TextureCollection::pInstance = 0;
-	delete temp;
+	if(TextureCollection::pInstance)
+	{
+		TextureCollection::pInstance->DeleteAllTextures();
+		TextureCollection::pInstance = 0;
+	}
 }
 
 
@@ -113,7 +102,7 @@ void TextureCollection::DecodeJPEG(jpeg_decompress_struct* info,
 	// loop counter, so that we don't have to keep track ourselves.
 	
 	// Create an array of row pointers
-	unsigned char** rowPtr = new unsigned char*[pImageData->sizeY];
+	std::vector<unsigned char*> rowPtr(pImageData->sizeY);
 	for (int i=0; i<pImageData->sizeY; i++)
 		rowPtr[i] = &(pImageData->data[i*pImageData->rowSpan]);
 
@@ -121,14 +110,10 @@ void TextureCollection::DecodeJPEG(jpeg_decompress_struct* info,
 	int rowsRead = 0;
 	while (info->output_scanline < info->output_height) 
 	{
-		// Read in the current row of pixels and increase the rowsRead count
 		rowsRead += jpeg_read_scanlines(info, 
 										&rowPtr[rowsRead], 
 										info->output_height - rowsRead);
 	}
-	
-	// Delete the temporary row pointers
-	delete [] rowPtr;
 
 	// Finish decompressing the data
 	jpeg_finish_decompress(info);
@@ -151,7 +136,7 @@ tImageJPG* TextureCollection::LoadJPEG(const char* cFileName)
 	jpeg_create_decompress(&cinfo);
 	jpeg_stdio_src(&cinfo, pFile);
 
-	pImageData = (tImageJPG*)malloc(sizeof(tImageJPG));
+	pImageData = new tImageJPG();
 
 	try
 	{
@@ -159,7 +144,7 @@ tImageJPG* TextureCollection::LoadJPEG(const char* cFileName)
 	}
 	catch (...)
 	{
-		free(pImageData);
+		delete pImageData;
 		jpeg_destroy_decompress(&cinfo);
 		fclose(pFile);
 		throw;
@@ -180,7 +165,7 @@ void TextureCollection::UpdateCounters(void)
 	bool isNextAvailIndexSet = false;
 
 	// iterate through all textures
-	for(int count=0; count<this->maxTextureCount; ++count)
+	for(int count=0; count<TOTAL_TEXTURE_COUNT; ++count)
 	{
 		// find the first empty spot
 		if(!this->textureArray[count])
@@ -205,7 +190,7 @@ void TextureCollection::UpdateCounters(void)
 /* -- FIND INDEX ------------------------------------------------------------------*/
 int TextureCollection::FindIndex(uint32_t hash)
 {
-	for(int count=0; count<this->maxTextureCount; ++count)
+	for(int count=0; count<TOTAL_TEXTURE_COUNT; ++count)
 		if(this->textureHashes[count] == hash) return count;
 
 	throw std::runtime_error("Texture does not exist.  (TextureCollection::FindIndex)");
@@ -220,7 +205,7 @@ void TextureCollection::DeleteAllTextures(void)
 	glDeleteTextures(this->nextAvailableTextureIndex, this->textureArray);
 
 	// iterate through texture array
-	for(int count=0; count<this->maxTextureCount; ++count)
+	for(int count=0; count<TOTAL_TEXTURE_COUNT; ++count)
 	{
 		if(this->textureArray[count])
 		{
@@ -253,7 +238,7 @@ void TextureCollection::DeleteTexture(uint32_t hash)
 /* -- NUM FREE TEXTURE SPACES -----------------------------------------------------*/
 int	TextureCollection::NumFreeTextureSpaces(void)
 {
-	return this->maxTextureCount - this->textureCounter;
+	return TOTAL_TEXTURE_COUNT - this->textureCounter;
 }
 
 
@@ -270,7 +255,7 @@ void TextureCollection::SelectTexture(uint32_t hash)
 void TextureCollection::CreateJpegTexture(const char* cFileName, 
 										  uint32_t    hash)
 {
-	if(this->textureCounter == this->maxTextureCount)
+	if(this->textureCounter == TOTAL_TEXTURE_COUNT)
 		throw std::runtime_error("Texture array full!  (TextureCollection::CreateJpegTexture)");
 
 	this->textureHashes[this->nextAvailableTextureIndex] = hash;
@@ -314,7 +299,7 @@ void TextureCollection::CreateJpegTexture(const char* cFileName,
 	{
 		// hmmm
 		if(pImage->data) delete [] pImage->data;
-		free(pImage);
+		delete pImage;
 	}
 
 	// Update capacity and progress counters

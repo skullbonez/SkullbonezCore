@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -33,6 +33,14 @@
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::GameObjects;
+
+
+
+/* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
+WorldEnvironment::WorldEnvironment(void) : fluidSurfaceHeight(0.0f),
+										   fluidDensity(0.0f),
+										   gasDensity(0.0f),
+										   gravity(0.0f) {}
 
 
 

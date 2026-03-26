@@ -52,13 +52,12 @@ namespace SkullbonezCore
 		private:
 
 			static CameraCollection*	pInstance;				// Singleton instance pointer
-			Camera*						cameraArray;			// Holds the cameras
+			Camera						cameraArray[TOTAL_CAMERA_COUNT];// Holds the cameras
 			Camera						primaryStore;			// Holds initial position of primary camera after selection as primary (helps calculate how much to update the other cameras when the current primary loses its focus)
 			Camera						tweenPath;				// Holds the current tweening path
 			Camera						tweenCamera;			// Holds the state of the current tween
 			Camera						tweenStart;				// Holds the tweens starting camera
-			uint32_t*					cameraHashes;			// Holds the hashed camera name keys
-			int							maxCameraCount;			// Maximum number of cameras
+			uint32_t					cameraHashes[TOTAL_CAMERA_COUNT];// Holds the hashed camera name keys
 			int							arrayPosition;			// Current array position
 			int							selectedCamera;			// Current selected camera			
 			float						tweenSpeed;				// Camera tweening speed
@@ -67,8 +66,8 @@ namespace SkullbonezCore
 			Terrain*					terrain;				// Stores a pointer to the terrain for tweening collision purposes
 
 	
-										CameraCollection		(int iCameraCount);			// Constructor
-										~CameraCollection		(void);						// Default destructor
+										CameraCollection		(void);				// Constructor
+										~CameraCollection		(void) = default;
 			void						SetGluLookAt			(Camera& cCameraData);		// Sets glu look at with the supplied camera data
 			int							FindIndex				(uint32_t hash);			// Returns the index of the specified camera
 			Camera						GetUpdateCamera			(void);						// Returns the current update camera for relative updates
@@ -82,7 +81,7 @@ namespace SkullbonezCore
 
 
 
-			static CameraCollection*	Instance						(int iCameraCount);					// Returns a pointer to the sole class instance
+			static CameraCollection*	Instance						(void);						// Returns a pointer to the sole class instance
 			static void					Destroy							(void);								// Deletes the sole class instance
 			const Vector3&				GetCameraView					(void);								// Returns the current view of the primary camera
 			const Vector3&				GetCameraTranslation			(void);								// Returns the current translation of the primary camera

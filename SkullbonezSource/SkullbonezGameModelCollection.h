@@ -4,13 +4,13 @@
 																			 .-"       "-.
 																			/             \
 																		   /               \
-																		   ¦   .--. .--.   ¦
-																		   ¦ )/   ¦ ¦   \( ¦
-																		   ¦/ \__/   \__/ \¦
+																		   ï¿½   .--. .--.   ï¿½
+																		   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+																		   ï¿½/ \__/   \__/ \ï¿½
 																		   /      /^\      \
 																		   \__    '='    __/
-								   											 ¦\         /¦
-																			 ¦\'"VUUUV"'/¦
+								   											 ï¿½\         /ï¿½
+																			 ï¿½\'"VUUUV"'/ï¿½
 																			 \ `"""""""` /
 																			  `-._____.-'
 
@@ -27,6 +27,7 @@
 
 /* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include <list>
+#include <vector>
 #include "SkullbonezCommon.h"
 #include "SkullbonezGameModel.h"
 #include "SkullbonezVector3.h"
@@ -52,17 +53,15 @@ namespace SkullbonezCore
 
 		private:
 
-			GameModel**						gameModelArray;																// Collection of game models
-			int								maxCount;																	// Max number of game models to create
-			int								curCount;																	// Current quantity of game models created
+			std::vector<GameModel>			gameModels;																	// Collection of game models
 
 
 		public:
 
-											GameModelCollection					(int iMaxCount);						// Overloaded constructor
-											~GameModelCollection				(void);									// Default destructor
+											GameModelCollection					(void);									// Default constructor
+											~GameModelCollection				(void) = default;
 			
-			void							AddGameModel						(GameModel* gameModel);					// Adds a game model to the collection
+			void							AddGameModel						(GameModel gameModel);					// Moves a game model into the collection
 			void							RunPhysics							(float fChangeInTime);					// Runs the physics for the specified time step
 			void							RenderModels						(void);									// Renders the game models
 			Vector3							GetModelPosition					(int index);							// Returns the position of the specified game model

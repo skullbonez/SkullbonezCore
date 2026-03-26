@@ -60,7 +60,6 @@ GameModel::GameModel(WorldEnvironment* pWorldEnv,
 	this->physicsInfo.SetMass(fMass);
 
 	// initialise pointers
-	this->boundingVolume				= 0;
 	this->terrain						= 0;
 
 	// initialise other members
@@ -68,14 +67,6 @@ GameModel::GameModel(WorldEnvironment* pWorldEnv,
 	this->dragCoefficient				= 0.0f;
 	this->isGrounded					= false;
 	this->isResponseRequired			= false;
-}
-
-
-
-/* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
-GameModel::~GameModel()
-{
-	if(this->boundingVolume) delete this->boundingVolume;
 }
 
 
@@ -108,13 +99,7 @@ void GameModel::SetCoefficientRestitution(float fCoefficientRestitution)
 /* -- ADD BOUNDING SPHERE ---------------------------------------------------------*/
 void GameModel::AddBoundingSphere(float fRadius)
 {
-	// clear the previous bounding sphere if there was one
-	if(this->boundingVolume) delete this->boundingVolume;
-
-	// add the new bounding sphere
-	this->boundingVolume = new BoundingSphere(fRadius, Vector::ZERO_VECTOR);
-
-	// recalculate model info now the model has changed
+	this->boundingVolume = std::make_unique<BoundingSphere>(fRadius, Vector::ZERO_VECTOR);
 	this->UpdateModelInfo();
 }
 
@@ -401,10 +386,10 @@ float GameModel::GetTerrainCollisionTime(float changeInTime)
 	}
 
 	// the origin will be in a different position based on the geometrical shape of the object
-	if(dynamic_cast<BoundingSphere*>(this->boundingVolume))
+	if(dynamic_cast<BoundingSphere*>(this->boundingVolume.get()))
 	{
 		// offset the origin by the radius of the sphere
-		this->responseInformation.testingRay.origin.y -= dynamic_cast<BoundingSphere*>(this->boundingVolume)->GetRadius();
+		this->responseInformation.testingRay.origin.y -= dynamic_cast<BoundingSphere*>(this->boundingVolume.get())->GetRadius();
 	}
 	else
 	{
@@ -532,7 +517,7 @@ void GameModel::DEBUG_SetSphereToTerrain(void)
 	}
 
 	// get the total radius
-	float rad = dynamic_cast<BoundingSphere*>(this->boundingVolume)->GetRadius();
+	float rad = dynamic_cast<BoundingSphere*>(this->boundingVolume.get())->GetRadius();
 
 	// get the height of the terrain at the current XZ position
 	float height = this->terrain->GetTerrainHeightAt(this->physicsInfo.GetPosition().x, this->physicsInfo.GetPosition().z);

@@ -55,7 +55,7 @@ void CollisionResponse::RespondCollisionTerrain(GameModel& gameModel)
 		gameModel.SetIsGrounded(true);
 	}
 
-	if(dynamic_cast<BoundingSphere*>(gameModel.boundingVolume))
+	if(dynamic_cast<BoundingSphere*>(gameModel.boundingVolume.get()))
 	{
 		if(!gameModel.IsGrounded())
 		{
@@ -86,8 +86,8 @@ void CollisionResponse::RespondCollisionTerrain(GameModel& gameModel)
 void CollisionResponse::RespondCollisionGameModels(GameModel& gameModel1, 
 												   GameModel& gameModel2)
 {
-	if(dynamic_cast<BoundingSphere*>(gameModel1.boundingVolume) &&
-	   dynamic_cast<BoundingSphere*>(gameModel2.boundingVolume))
+	if(dynamic_cast<BoundingSphere*>(gameModel1.boundingVolume.get()) &&
+	   dynamic_cast<BoundingSphere*>(gameModel2.boundingVolume.get()))
 	{
 		// calculate the collision normal once and once only
 		Vector3 collisionNormal = 
@@ -286,8 +286,8 @@ void CollisionResponse::SphereVsSphereAngular(GameModel& gameModel1,
 											  const Vector3& collisionNormal)
 {
 	// compute the object space points of collision
-	Vector3 objectSpaceCollisionPoint1 =  collisionNormal * dynamic_cast<BoundingSphere*>(gameModel1.boundingVolume)->GetRadius();
-	Vector3 objectSpaceCollisionPoint2 = -collisionNormal * dynamic_cast<BoundingSphere*>(gameModel2.boundingVolume)->GetRadius();
+	Vector3 objectSpaceCollisionPoint1 =  collisionNormal * dynamic_cast<BoundingSphere*>(gameModel1.boundingVolume.get())->GetRadius();
+	Vector3 objectSpaceCollisionPoint2 = -collisionNormal * dynamic_cast<BoundingSphere*>(gameModel2.boundingVolume.get())->GetRadius();
 
 	// compute the linear velocities of the game models
 	Vector3 linearVelocity1 = gameModel1.physicsInfo.GetVelocity();
@@ -389,7 +389,7 @@ Ray CollisionResponse::CalculateRay(GameModel& gameModel,
 /* -- GET COLLIDED OBJECT WORLD POSITION --------------------------------------------------------------------------------------------------------------------------------*/
 Vector3 CollisionResponse::GetCollidedObjectWorldPosition(GameModel& gameModel)
 {
-	return gameModel.physicsInfo.GetPosition() + (gameModel.physicsInfo.GetOrientationMatrix() * gameModel.boundingVolume->GetPosition());
+	return gameModel.physicsInfo.GetPosition() + (gameModel.physicsInfo.GetOrientationMatrix() * gameModel.boundingVolume.get()->GetPosition());
 }
 
 

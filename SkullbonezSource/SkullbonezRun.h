@@ -26,6 +26,7 @@
 
 
 /* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#include <memory>
 #include "SkullbonezCommon.h"
 #include "SkullbonezCameraCollection.h"
 #include "SkullbonezTimer.h"
@@ -79,10 +80,10 @@ namespace SkullbonezCore
 			Timer					cSimulationTimer;			// SkullbonezCore::Environment::Timer class
 			TextureCollection*		cTextures;					// SkullbonezCore::Textures::TextureCollection class
 			SkullbonezWindow*		cWindow;					// SkullbonezCore::Basics::SkullbonezWindow class
-			Terrain*				cTerrain;					// SkullbonezCore::Geometry::Terrain class
+			std::unique_ptr<Terrain>	cTerrain;				// SkullbonezCore::Geometry::Terrain class
 			SkyBox*					cSkyBox;					// SkullbonezCore::Geometry::SkyBox class
-			WorldEnvironment*		cWorldEnvironment;			// SkullbonezCore::Environment::WorldEnvironment class
-			GameModelCollection*	cGameModelCollection;		// SkullbonezCore::GameObjects::GameModelCollection class
+			WorldEnvironment		cWorldEnvironment;			// SkullbonezCore::Environment::WorldEnvironment class
+			GameModelCollection		cGameModelCollection;		// SkullbonezCore::GameObjects::GameModelCollection class
 			
 
 

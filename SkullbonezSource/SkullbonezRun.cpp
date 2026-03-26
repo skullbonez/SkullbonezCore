@@ -45,12 +45,9 @@ SkullbonezRun::SkullbonezRun(void)
 {
 	// init members
 	this->cCameras				= 0;
-	this->cTerrain				= 0;
 	this->cTextures				= 0;
 	this->cSkyBox				= 0;
-	this->cWorldEnvironment 	= 0;
 	this->selectedCamera		= 0;
-	this->cGameModelCollection	= 0;
 	this->timeSinceLastRender	= 0.0f;
 	this->renderTime			= 0.0f;
 	this->cameraTime			= 0.0f;
@@ -68,18 +65,11 @@ SkullbonezRun::SkullbonezRun(void)
 /* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
 SkullbonezRun::~SkullbonezRun(void)
 {
-	// kill statics
 	Text2d::DeleteFont();
 
-	// kill singletons
 	this->cTextures->Destroy();
 	this->cCameras->Destroy();
 	this->cSkyBox->Destroy();
-
-	// kill objects
-	if(this->cTerrain)				delete this->cTerrain;
-	if(this->cWorldEnvironment)		delete this->cWorldEnvironment;
-	if(this->cGameModelCollection)  delete this->cGameModelCollection;
 }
 
 
@@ -94,24 +84,24 @@ void SkullbonezRun::Initialise(void)
 	this->cWindow->SetTitleText("::SKULLBONEZ CORE:: -- LOADING!!!");
 
 	// Init textures
-	this->cTextures = TextureCollection::Instance(TOTAL_TEXTURE_COUNT);
+	this->cTextures = TextureCollection::Instance();
 
 	// Init OpenGL
 	this->SetInitialOpenGlState();
 
 	// Init terrain 
 	// path to height map | map size pixels | step size | times to wrap texture
-	this->cTerrain = new Terrain(TERRAIN_RAW_PATH, 256, 8, 15);
+	this->cTerrain = std::make_unique<Terrain>(TERRAIN_RAW_PATH, 256, 8, 15);
 
 
 	// Init SkyBox (xMin, xMax, yMin, yMax, zMin, zMax)
 	this->cSkyBox = SkyBox::Instance(-250, 300, -300, 300, -250, 300);
 
 	// Init world environment
-	this->cWorldEnvironment = new WorldEnvironment(FLUID_HEIGHT,
-												   FLUID_DENSITY,
-												   GAS_DENSITY,
-												   GRAVITATIONAL_FORCE);
+	this->cWorldEnvironment = WorldEnvironment(FLUID_HEIGHT,
+											   FLUID_DENSITY,
+											   GAS_DENSITY,
+											   GRAVITATIONAL_FORCE);
 
 	// Init camera
 	this->SetUpCameras();
@@ -139,9 +129,6 @@ void SkullbonezRun::SetUpGameModels(void)
 	// randomly generate a number of models for the scene
 	this->modelCount = 10 + (rand() % 150);
 
-	// create the game model collection
-	this->cGameModelCollection = new GameModelCollection(this->modelCount);
-
 	for(int x=0; x<this->modelCount; ++x)
 	{
 		// randomly generate the model properties
@@ -159,15 +146,15 @@ void SkullbonezRun::SetUpGameModels(void)
 		float yForcePos				 = (rand() % 10 > 4) ? 1.0f : -1.0f;
 		float zForcePos				 = (rand() % 10 > 4) ? 1.0f : -1.0f;
 
-		// game model
-		GameModel* gameModel = new GameModel(this->cWorldEnvironment, Vector3(xPos, yPos, zPos), Vector3(moment, moment, moment), mass);
-		gameModel->SetCoefficientRestitution(coefficientRestitution);
-		gameModel->SetTerrain(this->cTerrain);
-		gameModel->AddBoundingSphere(radius);
-		gameModel->SetImpulseForce(Vector3(xForce, yForce, zForce), Vector3(xForcePos, yForcePos, zForcePos));
+		// stack-allocate game model and configure it
+		GameModel gameModel(&this->cWorldEnvironment, Vector3(xPos, yPos, zPos), Vector3(moment, moment, moment), mass);
+		gameModel.SetCoefficientRestitution(coefficientRestitution);
+		gameModel.SetTerrain(this->cTerrain.get());
+		gameModel.AddBoundingSphere(radius);
+		gameModel.SetImpulseForce(Vector3(xForce, yForce, zForce), Vector3(xForcePos, yForcePos, zForcePos));
 
-		// add the game model
-		this->cGameModelCollection->AddGameModel(gameModel);
+		// move the game model into the collection
+		this->cGameModelCollection.AddGameModel(std::move(gameModel));
 	}
 }
 
@@ -294,7 +281,7 @@ void SkullbonezRun::UpdateLogic(float fSecondsPerFrame)
 	this->cWorkTimer.StartTimer();
 
 	// update the game models
-	this->cGameModelCollection->RunPhysics(fSecondsPerFrame);
+	this->cGameModelCollection.RunPhysics(fSecondsPerFrame);
 
 	// stop the timer
 	this->cWorkTimer.StopTimer();
@@ -352,7 +339,7 @@ void SkullbonezRun::DrawPrimitives(void)
 
 	// render game models -----------------------------
 	this->cTextures->SelectTexture(TEXTURE_BOUNDING_SPHERE);
-	this->cGameModelCollection->RenderModels();
+	this->cGameModelCollection.RenderModels();
 
 	// render the deep fluid ----------------------
 	glPushMatrix();
@@ -360,22 +347,22 @@ void SkullbonezRun::DrawPrimitives(void)
 
 		glPushMatrix();
 			glTranslatef(0.0f, -1.0f, 6300.0f);
-			this->cWorldEnvironment->RenderFluid();
+			this->cWorldEnvironment.RenderFluid();
 		glPopMatrix();
 
 		glPushMatrix();
 			glTranslatef(0.0f, -1.0f, -5000.0f);
-			this->cWorldEnvironment->RenderFluid();
+			this->cWorldEnvironment.RenderFluid();
 		glPopMatrix();
 
 		glPushMatrix();
 			glTranslatef(6300.0f, -1.0f, 0.0f);
-			this->cWorldEnvironment->RenderFluid();
+			this->cWorldEnvironment.RenderFluid();
 		glPopMatrix();
 
 		glPushMatrix();
 			glTranslatef(-5000.0f, -1.0f, 0.0f);
-			this->cWorldEnvironment->RenderFluid();
+			this->cWorldEnvironment.RenderFluid();
 		glPopMatrix();
 	glPopMatrix();
 
@@ -388,7 +375,7 @@ void SkullbonezRun::DrawPrimitives(void)
 	// render the fluid ---------------------------
 	glPushMatrix();
 		this->cTextures->SelectTexture(TEXTURE_WATER);
-		this->cWorldEnvironment->RenderFluid();
+		this->cWorldEnvironment.RenderFluid();
 	glPopMatrix();
 }
 
@@ -397,7 +384,7 @@ void SkullbonezRun::DrawPrimitives(void)
 /* -- SET UP CAMERAS ----------------------------------------------------------------------*/
 void SkullbonezRun::SetUpCameras(void)
 {
-	this->cCameras = CameraCollection::Instance(TOTAL_CAMERA_COUNT);
+	this->cCameras = CameraCollection::Instance();
 
 	this->cCameras->AddCamera(Vector3(321.0f, 110.0f, 557.0f), // Position
 							  Vector3(581.0f, 40.0f,  633.0f), // View
@@ -418,7 +405,7 @@ void SkullbonezRun::SetUpCameras(void)
 	this->cCameras->SetCameraXZBounds(this->cTerrain->GetXZBounds());
 
 	// set the terrain
-	this->cCameras->SetTerrain(this->cTerrain);
+	this->cCameras->SetTerrain(this->cTerrain.get());
 
 	// lock the cameras
 	this->cCameras->SetLockedMode(true);
@@ -517,8 +504,8 @@ void SkullbonezRun::SetViewingOrientation(void)
 	}
 
 	// set the view position of the selected camera based on the game model position
-	if(this->cCameras->IsCameraSelected(CAMERA_GAME_MODEL_1)) this->cCameras->SetViewCoordinates(this->cGameModelCollection->GetModelPosition(0));
-	if(this->cCameras->IsCameraSelected(CAMERA_GAME_MODEL_2)) this->cCameras->SetViewCoordinates(this->cGameModelCollection->GetModelPosition(1));
+	if(this->cCameras->IsCameraSelected(CAMERA_GAME_MODEL_1)) this->cCameras->SetViewCoordinates(this->cGameModelCollection.GetModelPosition(0));
+	if(this->cCameras->IsCameraSelected(CAMERA_GAME_MODEL_2)) this->cCameras->SetViewCoordinates(this->cGameModelCollection.GetModelPosition(1));
 
 /*
 	// reset relativity when a new request for synchronisation comes in

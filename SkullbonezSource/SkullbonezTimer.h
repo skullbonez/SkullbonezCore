@@ -4,13 +4,13 @@
 																			 .-"       "-.
 																			/             \
 																		   /               \
-																		   ¦   .--. .--.   ¦
-																		   ¦ )/   ¦ ¦   \( ¦
-																		   ¦/ \__/   \__/ \¦
+																		   ï¿½   .--. .--.   ï¿½
+																		   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+																		   ï¿½/ \__/   \__/ \ï¿½
 																		   /      /^\      \
 																		   \__    '='    __/
-								   											 ¦\         /¦
-																			 ¦\'"VUUUV"'/¦
+								   											 ï¿½\         /ï¿½
+																			 ï¿½\'"VUUUV"'/ï¿½
 																			 \ `"""""""` /
 																			  `-._____.-'
 
@@ -60,7 +60,7 @@ namespace SkullbonezCore
 		public:
 
 						Timer								(void);			// Default constructor
-						~Timer								(void);			// Default destructor			
+						~Timer								(void) = default;			
 			void		StartTimer							(void);			// Begins timing
 			void		StopTimer							(void);			// Ends timing
 			double		GetElapsedTime						(void);			// Returns the amount of time between StartTimer and StopTimer in seconds
