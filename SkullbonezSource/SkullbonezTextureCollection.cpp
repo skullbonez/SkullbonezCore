@@ -141,39 +141,31 @@ tImageJPG* TextureCollection::LoadJPEG(const char* cFileName)
 {
 	struct jpeg_decompress_struct cinfo;
 	tImageJPG *pImageData = 0;
-	FILE *pFile;
-	
-	// Open a file pointer to the jpeg file
-	pFile = fopen(cFileName, "rb");
 
-	// Check for failure
-	if(!(pFile)) throw std::runtime_error("JPEG file not found (TextureCollection::LoadJPEG)");
-	
-	// Create an error handler
+	FILE *pFile = fopen(cFileName, "rb");
+	if(!pFile) throw std::runtime_error("JPEG file not found (TextureCollection::LoadJPEG)");
+
 	jpeg_error_mgr jerr;
-
-	// Have our compression info object point to the error handler address
 	cinfo.err = jpeg_std_error(&jerr);
-	
-	// Initialize the decompression object
 	jpeg_create_decompress(&cinfo);
-	
-	// Specify the data source (Our file pointer)	
 	jpeg_stdio_src(&cinfo, pFile);
-	
-	// Allocate the structure that will hold our eventual jpeg data (must free it!)
+
 	pImageData = (tImageJPG*)malloc(sizeof(tImageJPG));
 
-	// Decode the jpeg file and fill in the image data structure to pass back
-	DecodeJPEG(&cinfo, pImageData);
-	
-	// This releases all the stored memory for reading and decoding the jpeg
-	jpeg_destroy_decompress(&cinfo);
-	
-	// Close the file pointer that opened the file
-	fclose(pFile);
+	try
+	{
+		DecodeJPEG(&cinfo, pImageData);
+	}
+	catch (...)
+	{
+		free(pImageData);
+		jpeg_destroy_decompress(&cinfo);
+		fclose(pFile);
+		throw;
+	}
 
-	// Return the image data
+	jpeg_destroy_decompress(&cinfo);
+	fclose(pFile);
 	return pImageData;
 }
 

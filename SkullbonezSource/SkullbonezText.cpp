@@ -56,7 +56,7 @@ void Text2d::Render2dText(float xPosition,
 
 	// prepare space for the symbol conversion, add 100 chars for
 	// additional arguments and null termination
-	char* symbolSafeText = new char[strlen(cRawText) + 100];
+	std::unique_ptr<char[]> symbolSafeText(new char[strlen(cRawText) + 100]);
 
 	// pointer to list of arguments
 	va_list	arguments;
@@ -65,7 +65,7 @@ void Text2d::Render2dText(float xPosition,
 	va_start(arguments, cRawText);
 
 	// converts symbols to actual numbers
-	vsprintf(symbolSafeText, cRawText, arguments);
+	vsprintf(symbolSafeText.get(), cRawText, arguments);
 
 	// results are stored in text
 	va_end(arguments);
@@ -77,15 +77,12 @@ void Text2d::Render2dText(float xPosition,
 	glListBase(Text2d::displayList-32);
 
 	// draws the display list text
-	glCallLists((GLsizei)strlen(symbolSafeText), // cull null space
-				GL_UNSIGNED_BYTE,				 // display list element type
-				symbolSafeText);				 // string to rasterise
+	glCallLists((GLsizei)strlen(symbolSafeText.get()), // cull null space
+				GL_UNSIGNED_BYTE,				       // display list element type
+				symbolSafeText.get());				   // string to rasterise
 
 	// pops the display list bits
 	glPopAttrib();
-
-	// cleanup allocated memory
-	if(symbolSafeText) delete [] symbolSafeText;
 
 	// restore environment
 	Text2d::RestoreEnvironment();

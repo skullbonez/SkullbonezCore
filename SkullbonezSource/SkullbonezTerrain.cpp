@@ -128,7 +128,11 @@ BYTE* Terrain::LoadTerrainData(const char* sFileName)
 
 	// check for errors that occured while reading the data
 	if(ferror(pRawFile)) 
+	{
+		delete[] pHeightMap;
+		fclose(pRawFile);
 		throw std::runtime_error("Failed to read height map.  (Terrain::LoadTerrain)");
+	}
 
 	// close the file
 	fclose(pRawFile);
