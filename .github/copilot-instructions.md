@@ -2,6 +2,11 @@
 
 A Windows 3D graphics and physics simulation engine written in C++ using OpenGL, originally authored in 2005 and modernized through a series of cleanup phases.
 
+## Workflow Rules
+
+- **After every change**, run the `build-skullbonez-core` skill and verify the solution builds to **0 errors and 0 warnings** before considering the task done.
+- **Never commit or push to GitHub** unless the user explicitly asks.
+
 ## Build
 
 Open `SKULLBONEZ_CORE.sln` in Visual Studio 2019+ and build, or use MSBuild:
