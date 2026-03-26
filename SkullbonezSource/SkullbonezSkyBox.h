@@ -4,13 +4,13 @@
 																			 .-"       "-.
 																			/             \
 																		   /               \
-																		   ¦   .--. .--.   ¦
-																		   ¦ )/   ¦ ¦   \( ¦
-																		   ¦/ \__/   \__/ \¦
+																		   ï¿½   .--. .--.   ï¿½
+																		   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+																		   ï¿½/ \__/   \__/ \ï¿½
 																		   /      /^\      \
 																		   \__    '='    __/
-								   											 ¦\         /¦
-																			 ¦\'"VUUUV"'/¦
+								   											 ï¿½\         /ï¿½
+																			 ï¿½\'"VUUUV"'/ï¿½
 																			 \ `"""""""` /
 																			  `-._____.-'
 
@@ -62,7 +62,8 @@ namespace SkullbonezCore
 									 int yMax,
 									 int zMin,
 									 int zMax);					// Overloaded constructor
-			~SkyBox					(void);						// Destructor
+			~SkyBox					(void) = default;			// Destructor
+			void					LoadTextures			(void);	// Load sky textures into TextureCollection
 
 
 		public:

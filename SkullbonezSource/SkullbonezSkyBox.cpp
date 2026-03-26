@@ -48,19 +48,21 @@ SkyBox::SkyBox(int xMin,
 			   int zMin,
 			   int zMax)
 {
-	// set boundaries
 	this->boundaries.xMin = xMin;
 	this->boundaries.xMax = xMax;
 	this->boundaries.yMin = yMin;
 	this->boundaries.yMax = yMax;
 	this->boundaries.zMin = zMin;
 	this->boundaries.zMax = zMax;
+	this->textures = 0;
+}
 
-	// request singleton instance
+
+
+/* -- LOAD TEXTURES ---------------------------------------------------------------*/
+void SkyBox::LoadTextures(void)
+{
 	this->textures = TextureCollection::Instance();
-
-	// load textures (with no linear mipmap interpolation to 
-	// avoid lines on skybox edges)
 	this->textures->CreateJpegTexture(SKY_LEFT_PATH,	TEXTURE_SKY_LEFT);
 	this->textures->CreateJpegTexture(SKY_RIGHT_PATH,	TEXTURE_SKY_RIGHT);
 	this->textures->CreateJpegTexture(SKY_FRONT_PATH,	TEXTURE_SKY_FRONT);
@@ -71,20 +73,13 @@ SkyBox::SkyBox(int xMin,
 
 
 
-/* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
-SkyBox::~SkyBox(void)
-{
-	this->textures  = 0;
-}
-
-
-
 /* -- SINGLETON CONSTRUCTOR -------------------------------------------------------*/
 SkyBox* SkyBox::Instance(int xMin, int xMax, int yMin, int yMax, int zMin, int zMax)
 {
 	if(!SkyBox::pInstance)
 	{
 		static SkyBox instance(xMin, xMax, yMin, yMax, zMin, zMax);
+		instance.LoadTextures();
 		SkyBox::pInstance = &instance;
 	}
 	return SkyBox::pInstance;
