@@ -69,8 +69,9 @@ SkullbonezWindow* SkullbonezWindow::Instance(void)
 /* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
 void SkullbonezWindow::Destroy(void)
 {
-	if(SkullbonezWindow::pInstance) delete SkullbonezWindow::pInstance;
+	SkullbonezWindow* temp = SkullbonezWindow::pInstance;
 	SkullbonezWindow::pInstance = 0;
+	delete temp;
 }
 
 

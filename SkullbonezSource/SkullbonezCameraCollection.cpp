@@ -91,11 +91,9 @@ CameraCollection* CameraCollection::Instance(int iCameraCount)
 /* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
 void CameraCollection::Destroy(void)
 {
-	// call the destructor
-	if(CameraCollection::pInstance) delete CameraCollection::pInstance;
-
-	// reset instance pointer to null
+	CameraCollection* temp = CameraCollection::pInstance;
 	CameraCollection::pInstance = 0;
+	delete temp;
 }
 
 

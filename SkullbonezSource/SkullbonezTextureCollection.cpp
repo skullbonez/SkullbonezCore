@@ -84,9 +84,9 @@ TextureCollection* TextureCollection::Instance(int iMaxTextureCount)
 /* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
 void TextureCollection::Destroy(void)
 {
-	if(TextureCollection::pInstance) delete TextureCollection::pInstance;
-
+	TextureCollection* temp = TextureCollection::pInstance;
 	TextureCollection::pInstance = 0;
+	delete temp;
 }
 
 
