@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -67,7 +67,7 @@ void Vector3::Normalise(void)
 				  this->y*this->y + 
 				  this->z*this->z;
 
-	if(!magSq) throw "Division by zero.  (Vector3::Normalise)";
+	if(!magSq) throw std::runtime_error("Division by zero.  (Vector3::Normalise)");
 	float oneOverMag = 1.0f / sqrtf(magSq);
 
 	this->x *= oneOverMag;
@@ -183,7 +183,7 @@ Vector3 Vector3::operator *(float f) const
 /* -- OPERATOR / ------------------------------------------------------------------*/
 Vector3 Vector3::operator /(float f) const
 {
-	if(!f) throw "Division by zero.  (Vector3::Operator/)";
+	if(!f) throw std::runtime_error("Division by zero.  (Vector3::Operator/)");
 	float oneOverA = 1.0f / f;
 	return Vector3(this->x * oneOverA, 
 				   this->y * oneOverA, 
@@ -195,7 +195,7 @@ Vector3 Vector3::operator /(float f) const
 /* -- OPERATOR / ------------------------------------------------------------------*/
 Vector3 Vector3::operator /(const Vector3& v) const
 {
-	if(!v.x || !v.y || !v.z) throw "Division by zero.  (Vector3::Operator/)";
+	if(!v.x || !v.y || !v.z) throw std::runtime_error("Division by zero.  (Vector3::Operator/)");
 
 	return Vector3(this->x / v.x,
 				   this->y / v.y,
@@ -250,7 +250,7 @@ Vector3& Vector3::operator *=(float f)
 /* -- OPERATOR /= -----------------------------------------------------------------*/
 Vector3& Vector3::operator /=(float f)
 {
-	if(!f) throw "Division by zero.  (Vector3::Operator/=)";
+	if(!f) throw std::runtime_error("Division by zero.  (Vector3::Operator/=)");
 	float oneOverA = 1.0f / f;
 	this->x *= oneOverA; 
 	this->y *= oneOverA; 
@@ -263,7 +263,7 @@ Vector3& Vector3::operator /=(float f)
 /* -- OPERATOR /= -----------------------------------------------------------------*/
 Vector3& Vector3::operator /=(const Vector3& v)
 {
-	if(!v.x || !v.y || !v.z) throw "Division by zero.  (Vector3::Operator/=)";
+	if(!v.x || !v.y || !v.z) throw std::runtime_error("Division by zero.  (Vector3::Operator/=)");
 	this->x /= v.x; 
 	this->y /= v.y; 
 	this->z /= v.z;

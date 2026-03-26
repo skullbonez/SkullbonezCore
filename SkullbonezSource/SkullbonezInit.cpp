@@ -4,13 +4,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -73,7 +73,7 @@ int WINAPI WinMain(HINSTANCE hInstance,		// Holds info on instance of app
 			cRun->Initialise();
 
 			// Attempt to run the Skullbonez Core
-			if(!cRun->Run()) throw "Thanks for using the Skullbonez Core!";
+			if(!cRun->Run()) throw std::runtime_error("Thanks for using the Skullbonez Core!");
 
 			// Attempt to delete the Skullbonez Core
 			if(cRun)
@@ -92,10 +92,10 @@ int WINAPI WinMain(HINSTANCE hInstance,		// Holds info on instance of app
 				wglDeleteContext(cWindow->sRenderContext);
 			}
 		}
-		catch (char* Exception)  // Catch all exceptions thrown by the Skullbonez Core
+		catch (const std::exception& e)  // Catch all exceptions thrown by the Skullbonez Core
 		{
 			// Display the nasty exception details
-			cWindow->MsgBox(Exception, "Alert!", MB_OK);
+			cWindow->MsgBox(e.what(), "Alert!", MB_OK);
 
 			// Delete the Skullbonez Core if we were interupted earlier
 			if(cRun) delete cRun;

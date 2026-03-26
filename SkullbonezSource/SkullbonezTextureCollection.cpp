@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -147,7 +147,7 @@ tImageJPG* TextureCollection::LoadJPEG(const char* cFileName)
 	pFile = fopen(cFileName, "rb");
 
 	// Check for failure
-	if(!(pFile)) throw "JPEG file not found (TextureCollection::LoadJPEG)";
+	if(!(pFile)) throw std::runtime_error("JPEG file not found (TextureCollection::LoadJPEG)");
 	
 	// Create an error handler
 	jpeg_error_mgr jerr;
@@ -221,7 +221,7 @@ int TextureCollection::FindIndex(const char* cTextureName)
 	}
 
 	// throw an exception if the texture name does not exist
-	throw "Texture does not exist.  (TextureCollection::FindIndex)";
+	throw std::runtime_error("Texture does not exist.  (TextureCollection::FindIndex)");
 }
 
 
@@ -302,7 +302,7 @@ void TextureCollection::CreateJpegTexture(const char *cFileName,
 {
 	// check to ensure there is room in the texture array
 	if(this->textureCounter == this->maxTextureCount)
-		throw "Texture array full!  (TextureCollection::CreateJpegTexture)";
+		throw std::runtime_error("Texture array full!  (TextureCollection::CreateJpegTexture)");
 
 	// make space for texture name
 	this->textureNames[this->nextAvailableTextureIndex] = 
@@ -315,7 +315,7 @@ void TextureCollection::CreateJpegTexture(const char *cFileName,
 	tImageJPG *pImage = this->LoadJPEG(cFileName);
 
 	// check for data
-	if(!pImage) throw "Jpeg load failed!  (TextureCollection::CreateJpegTexture)";
+	if(!pImage) throw std::runtime_error("Jpeg load failed!  (TextureCollection::CreateJpegTexture)");
 	
 	// specify textureArray @ index to Text2dureId @ index
 	glGenTextures(1,								// num texture objects to create

@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -168,7 +168,7 @@ void Text2d::BuildFont(const HDC hDC, const char* cFontName)
 					  cFontName);					// font name
 
 	// check for success
-	if(!font) throw "Font creation failed. (Text2d::BuildFont)";
+	if(!font) throw std::runtime_error("Font creation failed. (Text2d::BuildFont)");
 
 	// selects the font we want
 	oldfont = (HFONT)SelectObject(hDC, font);

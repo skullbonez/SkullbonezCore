@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -135,7 +135,7 @@ float GeometricMath::CalculateIntersectionTime(const Plane&	 plane,
 {
 	// ensure data is valid
 	if(plane.normal == ZERO_VECTOR) 
-		throw "Division by zero!  (GeometricMath::CalculateIntersectionTime)";
+		throw std::runtime_error("Division by zero!  (GeometricMath::CalculateIntersectionTime)");
 
 	// if the ray doesnt go anywhere then no collision will occur
 	if(ray.vector3.IsCloseToZero()) return NO_COLLISION;
@@ -175,8 +175,7 @@ Vector3	GeometricMath::ComputeIntersectionPoint(const Plane&   plane,
 	// ensure the ray intersects with the plane
 	if(collisionTime > 1.0f || collisionTime < 0.0f)
 	{
-		throw "Supplied ray will not intersect with this plane!  "
-			  "(GeometricMath::ComputeIntersectionPoint)";
+		throw std::runtime_error("Supplied ray will not intersect with this plane!  (GeometricMath::ComputeIntersectionPoint)");
 	}
 
 	// translate from the origin of the ray along the ray until the collision
@@ -363,8 +362,7 @@ Vector3	GeometricMath::ComputeBarycentricCoordinates(const Triangle& triangle,
 	// was co-linear)
 	if(!denominator)
 	{
-		throw "Division by zero due to co-linear triangle.  "
-			  "GeometricMath::ComputeBarycentricCoordinates)";
+		throw std::runtime_error("Division by zero due to co-linear triangle.  (GeometricMath::ComputeBarycentricCoordinates)");
 	}
 
 	// compute the X and Y barycentric coordinates

@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -68,7 +68,7 @@ void GameModelCollection::AddGameModel(GameModel* gameModel)
 {
 	// check for space
 	if(this->curCount == this->maxCount)
-		throw "Game model array is full!  (GameModelCollection::AddGameModel)";
+		throw std::runtime_error("Game model array is full!  (GameModelCollection::AddGameModel)");
 
 	// add the model
 	this->gameModelArray[this->curCount] = gameModel;
@@ -94,8 +94,7 @@ Vector3 GameModelCollection::GetModelPosition(int index)
 {
 	if(index >= this->curCount)
 	{
-		throw "No game model exists at the specified index.  "
-			  "(GameModelCollection::GetModelPosition)";
+		throw std::runtime_error("No game model exists at the specified index.  (GameModelCollection::GetModelPosition)");
 	}
 
 	return this->gameModelArray[index]->GetPosition();

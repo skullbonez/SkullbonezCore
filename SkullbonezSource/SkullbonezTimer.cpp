@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -82,7 +82,7 @@ Timer::~Timer(void) {}
 /* -- NO PERFORMACE COUNTER SUPPORT -----------------------------------------------*/
 void Timer::NoPerformanceCounterSupport(void)
 {
-	throw "This system does not support high resolution counters (Timer::Timer).";
+	throw std::runtime_error("This system does not support high resolution counters (Timer::Timer).");
 }
 
 

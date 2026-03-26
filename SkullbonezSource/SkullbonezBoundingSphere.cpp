@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -118,8 +118,7 @@ float BoundingSphere::TestCollision(const DynamicsObject&  target,
 		return(this->CollisionDetect((BoundingSphere&)target, targetRay, focusRay));
 	}
 
-	throw "Target dynamics object is of unrecognised type!  "
-		  "(BoundingSphere::TestCollision)";
+	throw std::runtime_error("Target dynamics object is of unrecognised type!  (BoundingSphere::TestCollision)");
 }
 
 

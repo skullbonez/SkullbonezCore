@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -118,7 +118,7 @@ BYTE* Terrain::LoadTerrainData(const char* sFileName)
 	pRawFile = fopen(sFileName, "rb");
 
 	// check for failure
-	if(!pRawFile) throw "Height map file not found.  (Terrain::LoadTerrain)";
+	if(!pRawFile) throw std::runtime_error("Height map file not found.  (Terrain::LoadTerrain)");
 
 	// initialise pointer for our byte array
 	BYTE* pHeightMap = new BYTE[this->mapSize*this->mapSize];
@@ -128,7 +128,7 @@ BYTE* Terrain::LoadTerrainData(const char* sFileName)
 
 	// check for errors that occured while reading the data
 	if(ferror(pRawFile)) 
-		throw "Failed to read height map.  (Terrain::LoadTerrain)";
+		throw std::runtime_error("Failed to read height map.  (Terrain::LoadTerrain)");
 
 	// close the file
 	fclose(pRawFile);
@@ -221,8 +221,7 @@ Triangle Terrain::LocatePolygon(float xPosition, float zPosition)
 	// check to ensure specified co-ordinates are inside the terrain map bounds
 	if(!this->IsInBounds(xPosition, zPosition))
 	{
-		throw "Specified co-ordinates are out of terrain bounds.  "
-			  "(Terrain::GetTerrainHeightAt)";
+		throw std::runtime_error("Specified co-ordinates are out of terrain bounds.  (Terrain::GetTerrainHeightAt)");
 	}
 
 	// NOTE:  X and Z params are switched in this method to account for world 

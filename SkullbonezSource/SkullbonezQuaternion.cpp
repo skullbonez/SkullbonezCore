@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -75,7 +75,7 @@ void Quaternion::Normalise(void)
 				  this->y*this->y +
 				  this->z*this->z;
 
-	if(!magSq) throw "Division by zero.  (Quaternion::Normalise)";
+	if(!magSq) throw std::runtime_error("Division by zero.  (Quaternion::Normalise)");
 
 	float oneOverMag = 1.0f / sqrtf(magSq);
 

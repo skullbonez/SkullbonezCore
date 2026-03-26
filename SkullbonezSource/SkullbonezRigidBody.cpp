@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -332,8 +332,7 @@ void RigidBody::SetRotationalInertia(const Vector3& vRotationalInertia)
 	   !vRotationalInertia.y || 
 	   !vRotationalInertia.z)
 	{
-		throw "Rotational inertia cannot contain any components equal to zero!  "
-			  "(RigidBody::SetRotationalInertia)";
+		throw std::runtime_error("Rotational inertia cannot contain any components equal to zero!  (RigidBody::SetRotationalInertia)");
 	}
 
 	this->rotationalInertia = vRotationalInertia;
@@ -374,7 +373,7 @@ void RigidBody::SetMass(float fMass)
 {
 	if(fMass <= 0.0f) 
 	{
-		throw "Mass must be greater than zero!  (RigidBody::SetMass)";
+		throw std::runtime_error("Mass must be greater than zero!  (RigidBody::SetMass)");
 	}
 
 	this->mass = fMass;
@@ -460,7 +459,7 @@ void RigidBody::SetVolume(float fVolume)
 {
 	if(fVolume <= 0.0f)
 	{
-		throw "Volume must be greater than zero!  (RigidBody::SetVolume)";
+		throw std::runtime_error("Volume must be greater than zero!  (RigidBody::SetVolume)");
 	}
 
 	this->volume = fVolume;
@@ -498,7 +497,7 @@ void RigidBody::SetFrictionCoefficient(float fFriction)
 {
 	if(fFriction > 1.0f || fFriction < 0.0f)
 	{
-		throw "Friction must be between 0 and 1!  (RigidBody::SetFrictionCoefficient)";
+		throw std::runtime_error("Friction must be between 0 and 1!  (RigidBody::SetFrictionCoefficient)");
 	}
 
 	// 0.1 is grippy, 0.0f is no grip

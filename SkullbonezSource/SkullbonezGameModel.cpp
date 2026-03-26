@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -50,7 +50,7 @@ GameModel::GameModel(WorldEnvironment* pWorldEnv,
 	// check for valid world environment pointer
 	if(!pWorldEnv) 
 	{
-		throw "Invalid world environment pointer supplied.  (GameModel::GameModel)";
+		throw std::runtime_error("Invalid world environment pointer supplied.  (GameModel::GameModel)");
 	}
 
 	// set the important members
@@ -179,8 +179,7 @@ void GameModel::CollisionResponseGameModel(GameModel&  responseTarget,
 	// if there has been no collision, throw an exception!
 	if(!responseTarget.isResponseRequired || !this->isResponseRequired)
 	{
-		throw "Cannot perform collision response when no collision has occured!  "
-			  "(GameModel::CollisionResponseGameModel)";
+		throw std::runtime_error("Cannot perform collision response when no collision has occured!  (GameModel::CollisionResponseGameModel)");
 	}
 
 	// respond to the collision...
@@ -203,8 +202,7 @@ void GameModel::CollisionResponseTerrain(float remainingTimeStep)
 	// if there has been no collision, throw an exception!
 	if(!this->isResponseRequired)
 	{
-		throw "Cannot perform collision response when no collision has occured!  "
-			  "(GameModel::CollisionResponseTerrain)";
+		throw std::runtime_error("Cannot perform collision response when no collision has occured!  (GameModel::CollisionResponseTerrain)");
 	}
 
 	// respond to the collision...
@@ -411,7 +409,7 @@ float GameModel::GetTerrainCollisionTime(float changeInTime)
 	else
 	{
 		// if we cant recognise the bounding object, something is wrong...
-		throw "A supplied dynamics object is of unrecognised type!  (GameModel::GetTerrainCollisionTime)";
+		throw std::runtime_error("A supplied dynamics object is of unrecognised type!  (GameModel::GetTerrainCollisionTime)");
 	}
 
 	// if out of bounds, no collision has occured
@@ -446,14 +444,13 @@ float GameModel::CollisionDetectTerrain(float changeInTime)
 	// ensure terrain pointer is valid
 	if(!this->terrain)
 	{
-		throw "Terrain pointer not valid!  (GameModel::CollisionDetectTerrain)";
+		throw std::runtime_error("Terrain pointer not valid!  (GameModel::CollisionDetectTerrain)");
 	}
 
 	// check to ensure pending responses have been responded to
 	if(this->isResponseRequired)
 	{
-		throw "Cannot detect collision when a response is required first!  "
-			  "(GameModel::CollisionDetectTerrain)";
+		throw std::runtime_error("Cannot detect collision when a response is required first!  (GameModel::CollisionDetectTerrain)");
 	}
 
 	float collisionTime = this->GetTerrainCollisionTime(changeInTime);
@@ -491,7 +488,7 @@ float GameModel::CollisionDetectGameModel(GameModel& collisionTarget,
 	if(this->isResponseRequired || collisionTarget.isResponseRequired)
 	{
 		// throw an exception!
-		throw "Cannot detect collision when a response is required first!  (GameModel::CollisionDetectGameModel)";
+		throw std::runtime_error("Cannot detect collision when a response is required first!  (GameModel::CollisionDetectGameModel)");
 	}
 
 	// get the time of collision

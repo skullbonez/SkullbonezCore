@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -92,7 +92,7 @@ POINT Input::GetMouseCoordinates(void)
 {
 	POINT mousePos;
 	if(!GetCursorPos(&mousePos))	// attempt to get the mouse position
-		throw "Getting mouse coordinates failed (Input::GetMouseCoordinates).";
+		throw std::runtime_error("Getting mouse coordinates failed (Input::GetMouseCoordinates).");
 
 	return mousePos;
 }
@@ -104,7 +104,7 @@ void Input::SetMouseCoordinates(const POINT &pNewCoordinates)
 {
 	// attempt to set the mouse position
 	if(!SetCursorPos(pNewCoordinates.x, pNewCoordinates.y))
-		throw "Setting mouse position failed (Input::SetMouseCoordinates).";
+		throw std::runtime_error("Setting mouse position failed (Input::SetMouseCoordinates).");
 }
 
 

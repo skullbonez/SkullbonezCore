@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -117,7 +117,7 @@ void CameraCollection::AddCamera(const Vector3& vPosition,
 {
 	// check for space in the camera array
 	if(this->arrayPosition == this->maxCameraCount)
-		throw "Camera array full!  (CameraCollection::AddCamera)";
+		throw std::runtime_error("Camera array full!  (CameraCollection::AddCamera)");
 
 	// allocate space for camera name
 	this->cameraNames[this->arrayPosition] = new char[strlen(cCameraName) + 1];
@@ -199,8 +199,7 @@ void CameraCollection::SelectCamera(const char* sCameraName,
 
 	// it is not possible to tween if there is only one camera in the scene
 	if(fTween && this->arrayPosition == 1) 
-		throw "Cannot tween when only one camera exists.  "
-			  "(CameraCollection::SelectCamera)";
+		throw std::runtime_error("Cannot tween when only one camera exists.  (CameraCollection::SelectCamera)");
 
 	// where should the tween camera be referenced FROM?
 	if(this->isTweening && fTween)
@@ -248,7 +247,7 @@ void CameraCollection::RotatePrimary(float xMove,
 								     float yMove)
 {
 	// make sure a camera exists to update
-	if(!this->arrayPosition) throw "No camera defined.  (CameraCollection::RotatePrimary)";
+	if(!this->arrayPosition) throw std::runtime_error("No camera defined.  (CameraCollection::RotatePrimary)");
 
 	// rotate the primary camera
 	this->cameraArray[this->selectedCamera].RotateCamera(xMove, yMove);
@@ -269,7 +268,7 @@ void CameraCollection::MovePrimary(Camera::TravelDirection enumDir,
 								   float fQuantity)
 {
 	// make sure a camera exists to update
-	if(!this->arrayPosition) throw "No camera defined.  (CameraCollection::MovePrimary)";
+	if(!this->arrayPosition) throw std::runtime_error("No camera defined.  (CameraCollection::MovePrimary)");
 
 	// move the primary camera
 	this->cameraArray[this->selectedCamera].MoveCamera(enumDir, fQuantity);
@@ -452,7 +451,7 @@ void CameraCollection::ResetRelativity(void)
 void CameraCollection::SetCamera(void)
 {
 	// make sure a camera exists
-	if(!this->arrayPosition) throw "No camera defined.  (CameraCollection::SetGluLookAt)";
+	if(!this->arrayPosition) throw std::runtime_error("No camera defined.  (CameraCollection::SetGluLookAt)");
 
 	// if we are not in tween mode
 	if(!this->isTweening)
@@ -495,7 +494,7 @@ void CameraCollection::SetCamera(void)
 		}
 		else
 		{
-			throw "No terrain mesh set!  (CameraCollection::SetCamera)";
+			throw std::runtime_error("No terrain mesh set!  (CameraCollection::SetCamera)");
 		}
 
 		// finally set the open gl api to the new camera settings
@@ -569,7 +568,7 @@ int CameraCollection::FindIndex(const char* sCameraName)
 		if(!strcmp(this->cameraNames[count], sCameraName)) return count;
 
 	// throw an exception if the camera name does not exist
-	throw "Camera does not exist.  (CameraCollection::FindIndex)";
+	throw std::runtime_error("Camera does not exist.  (CameraCollection::FindIndex)");
 }
 
 

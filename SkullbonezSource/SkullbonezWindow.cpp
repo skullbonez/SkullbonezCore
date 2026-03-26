@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -261,9 +261,9 @@ LRESULT CALLBACK WndProc (HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 				break;
 		}
 	}
-	catch (char* Exception)	// Catch all exceptions thrown by the Skullbonez Core
+	catch (const std::exception& e)	// Catch all exceptions thrown by the Skullbonez Core
 	{
-		cWindow->MsgBox(Exception, "FATAL ERROR", MB_OK);
+		cWindow->MsgBox(e.what(), "FATAL ERROR", MB_OK);
 	}
 
 	// Now we have done whatever we wanted to do, let windows do anything else it
@@ -352,7 +352,7 @@ void SkullbonezWindow::CreateAppWindow(HINSTANCE hInstance, bool isFullScreenMod
 						hInstance,					// Application instance
 						NULL);						// Data to pass to WndProc
 
-	if(!hWnd) throw "Window creation failed";		// Throw exception on failure
+	if(!hWnd) throw std::runtime_error("Window creation failed");		// Throw exception on failure
 	ShowWindow(hWnd, SW_SHOWNORMAL);				// Show window
     UpdateWindow(hWnd);								// Draw window
 	SetFocus(hWnd);									// Set keyboard focus

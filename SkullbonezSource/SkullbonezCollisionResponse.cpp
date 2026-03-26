@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -77,8 +77,7 @@ void CollisionResponse::RespondCollisionTerrain(GameModel& gameModel)
 		return;
 	}
 
-	throw "A supplied dynamics object is of unrecognised type!  "
-		  "(CollisionResponse::RespondCollisionTerrain)";
+	throw std::runtime_error("A supplied dynamics object is of unrecognised type!  (CollisionResponse::RespondCollisionTerrain)");
 }
 
 
@@ -109,8 +108,7 @@ void CollisionResponse::RespondCollisionGameModels(GameModel& gameModel1,
 		return;
 	}
 
-	throw "A supplied dynamics object is of unrecognised type!  "
-		  "(CollisionResponse::RespondCollisionGameModels)";
+	throw std::runtime_error("A supplied dynamics object is of unrecognised type!  (CollisionResponse::RespondCollisionGameModels)");
 }
 
 

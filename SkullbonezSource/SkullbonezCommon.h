@@ -4,13 +4,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   ¦   .--. .--.   ¦
-								   ¦ )/   ¦ ¦   \( ¦
-								   ¦/ \__/   \__/ \¦
+								   ï¿½   .--. .--.   ï¿½
+								   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+								   ï¿½/ \__/   \__/ \ï¿½
 								   /      /^\      \
 								   \__    '='    __/
-								   	 ¦\         /¦
-									 ¦\'"VUUUV"'/¦
+								   	 ï¿½\         /ï¿½
+									 ï¿½\'"VUUUV"'/ï¿½
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -57,6 +57,7 @@
 #include <stdarg.h>	  // Arguments
 #include <math.h>	  // Standard Math Functions
 #include <assert.h>   // Assertions
+#include <stdexcept>  // std::runtime_error
 #include <gl\gl.h>    // OpenGL Library
 #include <gl\glu.h>   // OpenGL Utility Library
 
