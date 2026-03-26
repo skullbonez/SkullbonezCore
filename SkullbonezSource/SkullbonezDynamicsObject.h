@@ -4,13 +4,13 @@
 																			 .-"       "-.
 																			/             \
 																		   /               \
-																		   ¦   .--. .--.   ¦
-																		   ¦ )/   ¦ ¦   \( ¦
-																		   ¦/ \__/   \__/ \¦
+																		   ï¿½   .--. .--.   ï¿½
+																		   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+																		   ï¿½/ \__/   \__/ \ï¿½
 																		   /      /^\      \
 																		   \__    '='    __/
-								   											 ¦\         /¦
-																			 ¦\'"VUUUV"'/¦
+								   											 ï¿½\         /ï¿½
+																			 ï¿½\'"VUUUV"'/ï¿½
 																			 \ `"""""""` /
 																			  `-._____.-'
 
@@ -69,6 +69,7 @@ namespace SkullbonezCore
 																	 const Ray&			   focusRay)		= 0;	// Sweep test to be performed by all children, for all children (all children should be testable against each other)
 				
 				const Vector3&		GetPosition				(void)			   { return this->position; }			// Get reference to position of centre of object
+				virtual				~DynamicsObject			(void)			   {}										// Virtual destructor to ensure correct deletion of derived objects
 			};
 		}
 	}

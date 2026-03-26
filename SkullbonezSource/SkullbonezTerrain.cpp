@@ -112,10 +112,8 @@ int Terrain::GetPixelHeightAt(int xCoord, int yCoord)
 BYTE* Terrain::LoadTerrainData(const char* sFileName)
 {
 	// initialise pointer to the file
-	FILE* pRawFile = 0;
-
-	// open a file pointer to the .raw file
-	pRawFile = fopen(sFileName, "rb");
+	FILE* pRawFile = nullptr;
+	fopen_s(&pRawFile, sFileName, "rb");
 
 	// check for failure
 	if(!pRawFile) throw std::runtime_error("Height map file not found.  (Terrain::LoadTerrain)");

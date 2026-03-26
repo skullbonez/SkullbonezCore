@@ -121,7 +121,7 @@ void CameraCollection::AddCamera(const Vector3& vPosition,
 	this->cameraNames[this->arrayPosition] = new char[strlen(cCameraName) + 1];
 
 	// deep copy the camera name
-	strcpy(this->cameraNames[this->arrayPosition], cCameraName);
+	strcpy_s(this->cameraNames[this->arrayPosition], strlen(cCameraName) + 1, cCameraName);
 
 	// set the member data for the new camera
 	this->cameraArray[this->arrayPosition].SetAll(vPosition, vView, vUp);

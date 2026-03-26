@@ -65,7 +65,7 @@ void Text2d::Render2dText(float xPosition,
 	va_start(arguments, cRawText);
 
 	// converts symbols to actual numbers
-	vsprintf(symbolSafeText.get(), cRawText, arguments);
+	vsprintf_s(symbolSafeText.get(), strlen(cRawText) + 100, cRawText, arguments);
 
 	// results are stored in text
 	va_end(arguments);

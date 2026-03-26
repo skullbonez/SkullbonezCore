@@ -142,7 +142,8 @@ tImageJPG* TextureCollection::LoadJPEG(const char* cFileName)
 	struct jpeg_decompress_struct cinfo;
 	tImageJPG *pImageData = 0;
 
-	FILE *pFile = fopen(cFileName, "rb");
+	FILE *pFile = nullptr;
+	fopen_s(&pFile, cFileName, "rb");
 	if(!pFile) throw std::runtime_error("JPEG file not found (TextureCollection::LoadJPEG)");
 
 	jpeg_error_mgr jerr;
@@ -301,7 +302,7 @@ void TextureCollection::CreateJpegTexture(const char *cFileName,
 												new char[strlen(cTextureName) + 1];
 
 	// deep copy texture name
-	strcpy(this->textureNames[this->nextAvailableTextureIndex], cTextureName);
+	strcpy_s(this->textureNames[this->nextAvailableTextureIndex], strlen(cTextureName) + 1, cTextureName);
 
 	// load the image and store the data
 	tImageJPG *pImage = this->LoadJPEG(cFileName);
