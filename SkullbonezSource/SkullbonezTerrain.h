@@ -28,13 +28,18 @@
 /* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "SkullbonezCommon.h"
 #include "SkullbonezVector3.h"
+#include "SkullbonezMatrix4.h"
 #include "SkullbonezGeometricStructures.h"
 #include "SkullbonezGeometricMath.h"
+#include "SkullbonezMesh.h"
+#include "SkullbonezShader.h"
 
 
 
 /* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
 using namespace SkullbonezCore::Math::Vector;
+using namespace SkullbonezCore::Math::Transformation;
+using namespace SkullbonezCore::Rendering;
 
 
 
@@ -58,7 +63,9 @@ namespace SkullbonezCore
 								~Terrain			(void);							// Default destructor
 
 
-			void				Render				(void);							// Renders the terrain
+			void				Render				(const Matrix4& view,
+													 const Matrix4& projection,
+													 const float* lightPosition);	// Renders the terrain with shader
 			XZBounds			GetXZBounds			(void);							// Returns the XZ bounds of the terrain
 			Triangle			LocatePolygon		(float xPosition,
 													 float zPosition);				// Locates the polygon surrounding the specified X and Z co-ordinates based on an orthagonal XZ projection.  Detailed math reference at http://www.simoneschbach.com/images/FindingArbitraryPolygon.gif
@@ -75,7 +82,9 @@ namespace SkullbonezCore
 		private:
 
 			
-			UINT				displayListReference;							// Reference to the display list
+			UINT				displayListReference;							// Reference to the display list (retained for fallback)
+			std::unique_ptr<Mesh>	terrainMesh;								// VBO mesh for shader rendering
+			std::unique_ptr<Shader>	terrainShader;								// Lit+textured shader program
 			std::vector<TerrainPost>	postData;							// Vertices that make up the terrain
 			std::vector<BYTE>			terrainData;						// Raw height map byte data (populated during construction, cleared after build)
 			int					mapSize;						// Size of map (pixels length)
@@ -89,7 +98,7 @@ namespace SkullbonezCore
 			void				BuildTerrain		(void);							// Builds the terrain
 			void				TranslatePostings	(void);							// Translates terrain posts
 			void				GenerateNormals		(void);							// Generates normals for posts
-			void				BuildDisplayList	(void);							// Builds the renderable component of the terrain
+			void				BuildMesh			(void);							// Builds VBO mesh from post data
 			int					GetPixelHeightAt	(int xCoord,
 													 int yCoord);					// Returns the .raw height at the specified pixel coordinates
 		};

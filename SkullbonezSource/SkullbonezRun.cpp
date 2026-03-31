@@ -133,8 +133,17 @@ void SkullbonezRun::Initialise(void)
 		if (scene.GetScreenshotPath()[0] != '\0')
 			strcpy_s(this->screenshotPath, sizeof(this->screenshotPath), scene.GetScreenshotPath());
 
+		// Override RNG seed for deterministic scenes
+		if (scene.GetSeed() > 0)
+			srand(scene.GetSeed());
+
 		this->SetUpCamerasFromScene(scene);
-		this->SetUpGameModelsFromScene(scene);
+
+		// Use legacy random ball generation or explicit ball list
+		if (scene.GetLegacyBallCount() > 0)
+			this->SetUpGameModels(scene.GetLegacyBallCount());
+		else
+			this->SetUpGameModelsFromScene(scene);
 	}
 	else
 	{
@@ -160,10 +169,9 @@ void SkullbonezRun::Initialise(void)
 
 
 /* -- SET UP GAME MODELS ----------------------------------------------------------*/
-void SkullbonezRun::SetUpGameModels(void)
+void SkullbonezRun::SetUpGameModels(int count)
 {
-	// randomly generate a number of models for the scene
-	this->modelCount = 300;// 10 + ( rand() % 150 );
+	this->modelCount = count;
 
 	for(int x=0; x<this->modelCount; ++x)
 	{
@@ -448,10 +456,17 @@ void SkullbonezRun::DrawPrimitives(void)
 	glPopMatrix();
 
 	// render terrain ------------------------------
-	glPushMatrix();
+	{
+		// Read current matrices from GL state (set by gluLookAt/gluPerspective)
+		float viewMat[16], projMat[16];
+		glGetFloatv(GL_MODELVIEW_MATRIX, viewMat);
+		glGetFloatv(GL_PROJECTION_MATRIX, projMat);
+		Matrix4 view(viewMat);
+		Matrix4 proj(projMat);
+
 		this->cTextures->SelectTexture(TEXTURE_GROUND);
-		this->cTerrain->Render();
-	glPopMatrix();
+		this->cTerrain->Render(view, proj, lightPosition);
+	}
 
 	// render ground shadows on top of terrain
 	this->cGameModelCollection.RenderShadows(this->cTerrain.get());

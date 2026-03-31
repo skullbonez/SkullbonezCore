@@ -45,6 +45,8 @@ TestScene::TestScene(void)
 	this->screenshotPath[0]	= '\0';
 	this->screenshotFrame	= -1;
 	this->screenshotMs		= -1;
+	this->seed				= 0;
+	this->legacyBallCount	= 0;
 }
 
 
@@ -170,6 +172,34 @@ TestScene TestScene::LoadFromFile(const char* path)
 			continue;
 		}
 
+		// parse seed directive
+		if (strncmp(line, "seed ", 5) == 0)
+		{
+			scene.seed = (unsigned int)atoi(line + 5);
+			if (scene.seed == 0)
+			{
+				fclose(file);
+				char msg[256];
+				sprintf_s(msg, sizeof(msg), "Invalid seed at line %d (must be > 0)  (TestScene::LoadFromFile)", lineNumber);
+				throw std::runtime_error(msg);
+			}
+			continue;
+		}
+
+		// parse legacy_balls directive
+		if (strncmp(line, "legacy_balls ", 13) == 0)
+		{
+			scene.legacyBallCount = atoi(line + 13);
+			if (scene.legacyBallCount <= 0)
+			{
+				fclose(file);
+				char msg[256];
+				sprintf_s(msg, sizeof(msg), "Invalid legacy_balls count at line %d (must be > 0)  (TestScene::LoadFromFile)", lineNumber);
+				throw std::runtime_error(msg);
+			}
+			continue;
+		}
+
 		// parse camera line
 		if (strncmp(line, "camera ", 7) == 0)
 		{
@@ -290,6 +320,22 @@ int TestScene::GetScreenshotFrame(void) const
 int TestScene::GetScreenshotMs(void) const
 {
 	return this->screenshotMs;
+}
+
+
+
+/* -- GET SEED --------------------------------------------------------------------*/
+unsigned int TestScene::GetSeed(void) const
+{
+	return this->seed;
+}
+
+
+
+/* -- GET LEGACY BALL COUNT -------------------------------------------------------*/
+int TestScene::GetLegacyBallCount(void) const
+{
+	return this->legacyBallCount;
 }
 
 

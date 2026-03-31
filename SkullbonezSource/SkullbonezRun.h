@@ -104,7 +104,7 @@ namespace SkullbonezCore
 			void					TakeInput				(void);								// Take user input
 			void					SetUpCameras			(void);								// Camera init (legacy mode)
 			void					SetUpCamerasFromScene	(const TestScene& scene);			// Camera init from scene file
-			void					SetUpGameModels			(void);								// Game model init (random legacy mode)
+			void					SetUpGameModels			(int count = 300);				// Game model init (random legacy mode)
 			void					SetUpGameModelsFromScene(const TestScene& scene);			// Game model init from scene file
 			void					DrawPrimitives			(void);								// Draw OpenGL primitives here
 			void					SetInitialOpenGlState	(void);								// Sets the initial state of the OpenGL evironment

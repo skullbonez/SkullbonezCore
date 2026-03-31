@@ -53,7 +53,12 @@ Terrain::Terrain(const char* sFileName,
 
 	this->LoadTerrainData(sFileName);
 	this->BuildTerrain();
-	this->BuildDisplayList();
+	this->BuildMesh();
+
+	// Load the shader
+	this->terrainShader = std::make_unique<Shader>(
+		"SkullbonezData/shaders/lit_textured.vert",
+		"SkullbonezData/shaders/lit_textured.frag");
 
 	// height map no longer needed after build
 	this->terrainData.clear();
@@ -65,7 +70,7 @@ Terrain::Terrain(const char* sFileName,
 /* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
 Terrain::~Terrain(void)
 {
-	glDeleteLists(this->displayListReference, 1);
+	// Mesh and Shader cleaned up by unique_ptr
 }
 
 
@@ -117,9 +122,39 @@ void Terrain::LoadTerrainData(const char* sFileName)
 
 
 /* -- RENDER ----------------------------------------------------------------------*/
-void Terrain::Render(void)
+void Terrain::Render(const Matrix4& view, const Matrix4& projection,
+					 const float* lightPosition)
 {
-	glCallList(this->displayListReference);
+	this->terrainShader->Use();
+
+	// Model matrix is identity (terrain vertices are in world space)
+	Matrix4 model;
+	this->terrainShader->SetMat4("uModel", model);
+	this->terrainShader->SetMat4("uView", view);
+	this->terrainShader->SetMat4("uProjection", projection);
+
+	// Transform light position to view space (matches FFP behavior)
+	float lx = view.m[0] * lightPosition[0] + view.m[4] * lightPosition[1] + view.m[8]  * lightPosition[2] + view.m[12] * lightPosition[3];
+	float ly = view.m[1] * lightPosition[0] + view.m[5] * lightPosition[1] + view.m[9]  * lightPosition[2] + view.m[13] * lightPosition[3];
+	float lz = view.m[2] * lightPosition[0] + view.m[6] * lightPosition[1] + view.m[10] * lightPosition[2] + view.m[14] * lightPosition[3];
+	float lw = lightPosition[3];
+	this->terrainShader->SetVec4("uLightPosition", lx, ly, lz, lw);
+
+	// Light properties (matching FFP StateSetup values)
+	this->terrainShader->SetVec4("uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f);
+	this->terrainShader->SetVec4("uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f);
+
+	// Default GL material properties
+	this->terrainShader->SetVec4("uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f);
+	this->terrainShader->SetVec4("uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f);
+
+	// Texture sampler
+	this->terrainShader->SetInt("uTexture", 0);
+
+	this->terrainMesh->Draw();
+
+	// Restore FFP for other subsystems
+	glUseProgram(0);
 }
 
 
@@ -614,106 +649,62 @@ void Terrain::GenerateNormals(void)
 
 
 
-/* -- BUILD DISPLAY LIST -----------------------------------------------------------------------------------------------------------------------------------------------*/
-void Terrain::BuildDisplayList(void)
+/* -- BUILD MESH ---------------------------------------------------------------------------------------------------------------------------------------------------*/
+void Terrain::BuildMesh(void)
 {
-	// create the display list for the terrain
-	this->displayListReference = glGenLists(1);
+	// 2 triangles per quad, 6 vertices each, 8 floats per vertex (pos3 + normal3 + texcoord2)
+	int quadsPerSide = this->postsPerSide - 1;
+	int totalQuads   = quadsPerSide * quadsPerSide;
+	int totalVerts   = totalQuads * 6;
 
-	// begin the display list compilation
-	glNewList(this->displayListReference, GL_COMPILE);
+	std::vector<float> vertexData;
+	vertexData.reserve(static_cast<size_t>(totalVerts) * 8);
 
-	for(int row=0; row<this->postsPerSide-1; ++row)
+	for (int row = 0; row < quadsPerSide; ++row)
 	{
-		for(int col=0; col<this->postsPerSide-1; ++col)
+		for (int col = 0; col < quadsPerSide; ++col)
 		{
-			float texCoordS   = ((float)col / (float)this->postsPerSide) * this->textureWrap;
-			float texCoordT   = ((float)row / (float)this->postsPerSide) * this->textureWrap;
-			float texCoordSP1 = ((float)(col+1) / (float)this->postsPerSide) * this->textureWrap;
-			float texCoordTP1 = ((float)(row+1) / (float)this->postsPerSide) * this->textureWrap;
+			float texCoordS   = (static_cast<float>(col)     / static_cast<float>(this->postsPerSide)) * this->textureWrap;
+			float texCoordT   = (static_cast<float>(row)     / static_cast<float>(this->postsPerSide)) * this->textureWrap;
+			float texCoordSP1 = (static_cast<float>(col + 1) / static_cast<float>(this->postsPerSide)) * this->textureWrap;
+			float texCoordTP1 = (static_cast<float>(row + 1) / static_cast<float>(this->postsPerSide)) * this->textureWrap;
 
-			// calculate the index we are talking about
-			int postingIndex = row * this->postsPerSide + col;
+			int idx = row * this->postsPerSide + col;
 
-			/*
-			  NOTE: order of vertex plotting to maintain winding order
-			  using GL_TRIANGLE_STRIP primitive:
+			// Post references (matching glVertex3i truncation from original display list)
+			const TerrainPost& p00 = this->postData[idx];
+			const TerrainPost& p10 = this->postData[idx + 1];
+			const TerrainPost& p01 = this->postData[idx + this->postsPerSide];
+			const TerrainPost& p11 = this->postData[idx + this->postsPerSide + 1];
 
-			   1----------- 2,4
-						  /|
-					     / |
-				polyA   /  |
-					   /   |
-				      /    |
-				     /     |
-				    /      |
-				   /       |
-			      /        |
-			     /  polyB  |
-			    /          |
-			   3		   5
-			*/
-			glBegin(GL_TRIANGLE_STRIP);
+			// Helper lambda: push position (int-truncated) + normal + texcoord
+			auto pushVertex = [&](const TerrainPost& p, float s, float t)
+			{
+				vertexData.push_back(static_cast<float>(static_cast<int>(p.vPosition.x)));
+				vertexData.push_back(static_cast<float>(static_cast<int>(p.vPosition.y)));
+				vertexData.push_back(static_cast<float>(static_cast<int>(p.vPosition.z)));
+				vertexData.push_back(p.vNormal.x);
+				vertexData.push_back(p.vNormal.y);
+				vertexData.push_back(p.vNormal.z);
+				vertexData.push_back(s);
+				vertexData.push_back(t);
+			};
 
-				// Vertex 1
-				glNormal3f(this->postData[postingIndex].vNormal.x,
-						   this->postData[postingIndex].vNormal.y,
-						   this->postData[postingIndex].vNormal.z);
+			// Triangle 1 (upper-left): v1, v2, v3
+			pushVertex(p00, texCoordS,   texCoordT);
+			pushVertex(p10, texCoordSP1, texCoordT);
+			pushVertex(p01, texCoordS,   texCoordTP1);
 
-				glTexCoord2f(texCoordS, texCoordT);
-
-				glVertex3i((int)this->postData[postingIndex].vPosition.x,
-						   (int)this->postData[postingIndex].vPosition.y,
-						   (int)this->postData[postingIndex].vPosition.z);
-
-				// Vertex 2
-				glNormal3f(this->postData[postingIndex+1].vNormal.x,
-						   this->postData[postingIndex+1].vNormal.y,
-						   this->postData[postingIndex+1].vNormal.z);
-
-				glTexCoord2f(texCoordSP1, texCoordT);
-
-				glVertex3i((int)this->postData[postingIndex+1].vPosition.x,
-						   (int)this->postData[postingIndex+1].vPosition.y,
-						   (int)this->postData[postingIndex+1].vPosition.z);
-
-				// Vertex 3
-				glNormal3f(this->postData[postingIndex+this->postsPerSide].vNormal.x,
-						   this->postData[postingIndex+this->postsPerSide].vNormal.y,
-						   this->postData[postingIndex+this->postsPerSide].vNormal.z);
-
-				glTexCoord2f(texCoordS, texCoordTP1);
-
-				glVertex3i((int)this->postData[postingIndex+this->postsPerSide].vPosition.x,
-						   (int)this->postData[postingIndex+this->postsPerSide].vPosition.y,
-						   (int)this->postData[postingIndex+this->postsPerSide].vPosition.z);
-
-				// Vertex 4
-				glNormal3f(this->postData[postingIndex+1].vNormal.x,
-						   this->postData[postingIndex+1].vNormal.y,
-						   this->postData[postingIndex+1].vNormal.z);
-
-				glTexCoord2f(texCoordSP1, texCoordT);
-
-				glVertex3i((int)this->postData[postingIndex+1].vPosition.x,
-						   (int)this->postData[postingIndex+1].vPosition.y,
-						   (int)this->postData[postingIndex+1].vPosition.z);
-
-				// Vertex 5
-				glNormal3f(this->postData[postingIndex+this->postsPerSide+1].vNormal.x,
-						   this->postData[postingIndex+this->postsPerSide+1].vNormal.y,
-						   this->postData[postingIndex+this->postsPerSide+1].vNormal.z);
-
-				glTexCoord2f(texCoordSP1, texCoordTP1);
-
-				glVertex3i((int)this->postData[postingIndex+this->postsPerSide+1].vPosition.x,
-						   (int)this->postData[postingIndex+this->postsPerSide+1].vPosition.y,
-						   (int)this->postData[postingIndex+this->postsPerSide+1].vPosition.z);
-
-			glEnd();
+			// Triangle 2 (lower-right): v3, v2, v5
+			pushVertex(p01, texCoordS,   texCoordTP1);
+			pushVertex(p10, texCoordSP1, texCoordT);
+			pushVertex(p11, texCoordSP1, texCoordTP1);
 		}
 	}
 
-	// end the display list compilation
-	glEndList();
+	this->terrainMesh = std::make_unique<Mesh>(
+		vertexData.data(), totalVerts,
+		true,  // hasNormals
+		true,  // hasTexCoords
+		GL_TRIANGLES);
 }

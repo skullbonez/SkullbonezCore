@@ -84,6 +84,8 @@ namespace SkullbonezCore
 			char						screenshotPath[256];// output path for screenshot (empty = none)
 			int							screenshotFrame;	// trigger on frame N (-1 = unused)
 			int							screenshotMs;		// trigger at N ms elapsed (-1 = unused)
+			unsigned int				seed;				// RNG seed (0 = use time-based default)
+			int							legacyBallCount;	// random legacy-style balls (0 = none)
 			std::vector<SceneCamera>	cameras;
 			std::vector<SceneBall>		balls;
 
@@ -99,6 +101,8 @@ namespace SkullbonezCore
 			const char*					GetScreenshotPath		(void) const;
 			int							GetScreenshotFrame		(void) const;
 			int							GetScreenshotMs			(void) const;
+			unsigned int				GetSeed					(void) const;
+			int							GetLegacyBallCount		(void) const;
 			int							GetCameraCount			(void) const;
 			int							GetBallCount			(void) const;
 			const SceneCamera&			GetCamera				(int index) const;

@@ -274,14 +274,18 @@ void TextureCollection::CreateJpegTexture(const char* cFileName,
 	glBindTexture(GL_TEXTURE_2D,
 				  this->textureArray[this->nextAvailableTextureIndex]);
 
-	// build mipmaps
-	gluBuild2DMipmaps(GL_TEXTURE_2D,			// 2d textures (not 1d)
-					  MIP_MAP_COMPONENTS,		// defined in SkullbonezCommon.h
-					  pImage->sizeX,			// x width
-					  pImage->sizeY,			// y width
-					  GL_RGB,					// pixel format
-					  GL_UNSIGNED_BYTE,			// index type
-					  pImage->data);			// image data
+	// upload texture and generate mipmaps
+	glTexImage2D(GL_TEXTURE_2D,				// 2d textures (not 1d)
+				 0,							// base mipmap level
+				 GL_RGB,					// internal format
+				 pImage->sizeX,				// x width
+				 pImage->sizeY,				// y width
+				 0,							// border (must be 0)
+				 GL_RGB,					// pixel format
+				 GL_UNSIGNED_BYTE,			// index type
+				 pImage->data);				// image data
+
+	glGenerateMipmap(GL_TEXTURE_2D);
 
 	// mipmap quality small range
 	glTexParameteri(GL_TEXTURE_2D,				// 2d textures (not 1d)
