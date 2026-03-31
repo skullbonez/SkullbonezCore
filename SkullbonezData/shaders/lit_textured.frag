@@ -39,10 +39,10 @@ void main()
     float diff = max(dot(N, L), 0.0);
     vec3 diffuse = uLightDiffuse.rgb * uMaterialDiffuse.rgb * diff;
 
-    // Specular (Phong reflection)
+    // Specular (Phong reflection) — subtle, view-dependent highlight
     vec3 R = reflect(-L, N);
-    float spec = pow(max(dot(V, R), 0.0), 32.0);
-    vec3 specular = uLightDiffuse.rgb * spec * 0.3;
+    float spec = pow(max(dot(V, R), 0.0), 64.0);
+    vec3 specular = uLightDiffuse.rgb * spec * 0.1;
 
     vec4 texColor = texture(uTexture, vTexCoord);
     FragColor = vec4((ambient + diffuse) * texColor.rgb + specular, 1.0);
