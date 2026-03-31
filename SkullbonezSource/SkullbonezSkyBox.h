@@ -88,6 +88,7 @@ namespace SkullbonezCore
 			static void		Destroy				(void);			// Destroy singleton instance
 			void			Render				(const Matrix4& view,
 												 const Matrix4& proj);	// Render the sky box
+			void			ResetGLResources	(void);			// Rebuild meshes/shader after GL context recreated
 
 		};
 	}

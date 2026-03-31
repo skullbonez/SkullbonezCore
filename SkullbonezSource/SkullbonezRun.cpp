@@ -113,6 +113,7 @@ void SkullbonezRun::Initialise(void)
 
 	// Init SkyBox (xMin, xMax, yMin, yMax, zMin, zMax)
 	this->cSkyBox = SkyBox::Instance(-250, 300, -300, 300, -250, 300);
+	this->cSkyBox->ResetGLResources();
 
 	// Init world environment
 	this->cWorldEnvironment = WorldEnvironment(FLUID_HEIGHT,

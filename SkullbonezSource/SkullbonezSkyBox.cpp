@@ -168,6 +168,17 @@ void SkyBox::Destroy(void)
 
 
 
+/* -- RESET GL RESOURCES ----------------------------------------------------------*/
+void SkyBox::ResetGLResources(void)
+{
+	for (int i = 0; i < 6; ++i)
+		this->faceMeshes[i].reset();
+	this->shader.reset();
+	this->BuildMeshes();
+}
+
+
+
 /* -- RENDER ----------------------------------------------------------------------*/
 void SkyBox::Render(const Matrix4& view, const Matrix4& proj)
 {
