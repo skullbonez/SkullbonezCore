@@ -5,7 +5,7 @@ description: Run a scene file through SkullbonezCore in scene mode, capture a sc
 
 ## Render Test Skill
 
-Launches SkullbonezCore with `.scene` files that have `screenshot` directives. The engine renders the scene, writes a BMP via `glReadPixels`, and exits. Then compares against baselines pixel-by-pixel.
+Launches SkullbonezCore with `.scene` files that have `screenshot` directives. The engine renders the scene, writes a BMP via `glReadPixels`, and exits. Validates output with a three-tier comparison system.
 
 Two test scenes are run:
 1. **water_ball_test** — Single ball, simple scene (verifies terrain, skybox, water rendering)
@@ -46,66 +46,118 @@ if (Test-Path "Y:\SkullbonezCore\Debug\legacy_smoke.bmp") {
 } else { Write-Host "FAIL: No legacy_smoke screenshot" }
 ```
 
-#### 2. Pixel compare against baselines
+#### 2. Convert screenshots to PNG
 
-```pwsh
-powershell.exe -Command {
-    Add-Type -AssemblyName System.Drawing
-
-    function Compare-Baseline($baselinePath, $screenshotPath, $name) {
-        if (!(Test-Path $screenshotPath)) { Write-Host "FAIL [$name]: No screenshot"; return $false }
-        $baseline = New-Object System.Drawing.Bitmap $baselinePath
-        $current  = New-Object System.Drawing.Bitmap $screenshotPath
-
-        if ($baseline.Width -ne $current.Width -or $baseline.Height -ne $current.Height) {
-            Write-Host "FAIL [$name]: Size mismatch $($baseline.Width)x$($baseline.Height) vs $($current.Width)x$($current.Height)"
-            $baseline.Dispose(); $current.Dispose(); return $false
-        }
-
-        $diffCount = 0; $total = $baseline.Width * $baseline.Height
-        for ($y = 0; $y -lt $baseline.Height; $y++) {
-            for ($x = 0; $x -lt $baseline.Width; $x++) {
-                if ($baseline.GetPixel($x, $y).ToArgb() -ne $current.GetPixel($x, $y).ToArgb()) { $diffCount++ }
-            }
-        }
-
-        $pct = [Math]::Round(($diffCount / $total) * 100, 4)
-        Write-Host "[$name] Pixels: $total | Different: $diffCount ($pct%)"
-        if ($diffCount -eq 0) { Write-Host "PASS [$name]: Pixel-perfect match"; return $true }
-        elseif ($pct -lt 0.1) { Write-Host "PASS [$name]: Negligible diff ($pct%)"; return $true }
-        else { Write-Host "FAIL [$name]: $pct% pixels differ - visual regression"; return $false }
-        $baseline.Dispose(); $current.Dispose()
-    }
-
-    $r1 = Compare-Baseline "Y:\SkullbonezCore\Skills\skore-render-test\baseline_water_ball_test.png" "Y:\SkullbonezCore\Debug\screenshot.bmp" "water_ball_test"
-    $r2 = Compare-Baseline "Y:\SkullbonezCore\Skills\skore-render-test\baseline_legacy_smoke.png" "Y:\SkullbonezCore\Debug\legacy_smoke.bmp" "legacy_smoke"
-
-    if ($r1 -and $r2) { Write-Host "`nALL RENDER TESTS PASSED" } else { Write-Host "`nRENDER TESTS FAILED" }
-}
-```
-
-**Pass criteria**: <0.1% pixel difference per scene. Engine-side capture is deterministic so expect pixel-perfect in most cases.
-
-**If render test fails**: Convert to PNG and view (see step 3). Investigate and fix before proceeding.
-
-#### 3. Visual inspection (when needed)
-
-The API cannot display BMP files. Always convert to PNG before viewing:
+The API cannot display BMP files (causes schema validation error). **Always** convert before any comparison or viewing:
 
 ```pwsh
 py -c "
 from PIL import Image
 Image.open(r'Y:\SkullbonezCore\Debug\screenshot.bmp').save(r'Y:\SkullbonezCore\Debug\screenshot_water.png')
 Image.open(r'Y:\SkullbonezCore\Debug\legacy_smoke.bmp').save(r'Y:\SkullbonezCore\Debug\legacy_smoke.png')
-print('Converted to PNG for viewing')
+print('Converted to PNG')
 "
 ```
 
-Then use the `view` tool on the PNG files:
-- `Y:\SkullbonezCore\Debug\screenshot_water.png`
-- `Y:\SkullbonezCore\Debug\legacy_smoke.png`
+**IMPORTANT**: Never send `.bmp` files to the `view` tool — always use the converted `.png` files.
 
-**IMPORTANT**: Never send `.bmp` files to the `view` tool — it will cause an API error. Always convert to PNG first.
+#### 3. Tolerance pixel comparison
+
+Compares each pixel with a per-channel tolerance of ±5 (absorbs minor shading differences from FFP→shader transitions). Reports both exact-match and tolerance-match stats.
+
+```pwsh
+py -c "
+from PIL import Image
+import sys
+
+TOLERANCE = 5  # per-channel (R, G, B) allowed deviation
+
+def compare(baseline_path, current_path, name):
+    baseline = Image.open(baseline_path).convert('RGB')
+    current  = Image.open(current_path).convert('RGB')
+
+    if baseline.size != current.size:
+        print(f'FAIL [{name}]: Size mismatch {baseline.size} vs {current.size}')
+        return False
+
+    bp = baseline.load()
+    cp = current.load()
+    w, h = baseline.size
+    total = w * h
+    exact_diff = 0
+    tolerance_diff = 0
+
+    for y in range(h):
+        for x in range(w):
+            br, bg, bb = bp[x, y]
+            cr, cg, cb = cp[x, y]
+            if (br, bg, bb) != (cr, cg, cb):
+                exact_diff += 1
+                if abs(br-cr) > TOLERANCE or abs(bg-cg) > TOLERANCE or abs(bb-cb) > TOLERANCE:
+                    tolerance_diff += 1
+
+    exact_pct = round(exact_diff / total * 100, 4)
+    tol_pct   = round(tolerance_diff / total * 100, 4)
+    print(f'[{name}] Pixels: {total} | Exact diff: {exact_diff} ({exact_pct}%) | Beyond tolerance: {tolerance_diff} ({tol_pct}%)')
+
+    if tolerance_diff == 0:
+        print(f'PIXEL_PASS [{name}]: All pixels within tolerance (+-{TOLERANCE})')
+        return True
+    elif tol_pct < 0.5:
+        print(f'PIXEL_PASS [{name}]: {tol_pct}% beyond tolerance — acceptable')
+        return True
+    else:
+        print(f'PIXEL_FAIL [{name}]: {tol_pct}% pixels beyond tolerance — needs visual review')
+        return False
+
+r1 = compare(r'Y:\SkullbonezCore\Skills\skore-render-test\baseline_water_ball_test.png',
+             r'Y:\SkullbonezCore\Debug\screenshot_water.png', 'water_ball_test')
+r2 = compare(r'Y:\SkullbonezCore\Skills\skore-render-test\baseline_legacy_smoke.png',
+             r'Y:\SkullbonezCore\Debug\legacy_smoke.png', 'legacy_smoke')
+
+if r1 and r2:
+    print('\nALL PIXEL TESTS PASSED')
+else:
+    print('\nPIXEL TESTS FAILED — proceed to step 4 for LLM visual comparison')
+"
+```
+
+**Pass criteria**: <0.5% of pixels beyond ±5 per-channel tolerance.
+
+If pixel tests pass → **done**, no further steps needed.
+If pixel tests fail → proceed to step 4.
+
+#### 4. LLM visual comparison
+
+For each scene that failed pixel comparison, view the baseline and current screenshot side-by-side and evaluate:
+
+**View the images** (use the `view` tool):
+- Baseline: `Y:\SkullbonezCore\Skills\skore-render-test\baseline_water_ball_test.png`
+- Current: `Y:\SkullbonezCore\Debug\screenshot_water.png`
+- Baseline: `Y:\SkullbonezCore\Skills\skore-render-test\baseline_legacy_smoke.png`
+- Current: `Y:\SkullbonezCore\Debug\legacy_smoke.png`
+
+**Evaluate each pair against this checklist:**
+1. Are all expected objects present? (terrain, skybox, spheres, water, shadows)
+2. Are objects in the same positions?
+3. Is the lighting direction consistent? (highlights on same side)
+4. Are textures applied correctly? (no missing/wrong textures)
+5. Is the overall color palette similar? (no dramatic color shifts)
+6. Are there any rendering artifacts? (black triangles, z-fighting, missing faces)
+
+**Verdict per scene:**
+- If all 6 checks pass → `LLM_PASS` — the scenes are functionally equivalent despite pixel differences (expected during shader migration)
+- If any check fails → `LLM_FAIL` — there is a visual regression
+
+#### 5. Combined verdict
+
+| Pixel Result | LLM Result | Overall | Action |
+|---|---|---|---|
+| PASS | (skip) | **PASS** | No further action |
+| FAIL | PASS | **PASS** | Differences are cosmetic (shading model change). Consider updating baselines. |
+| FAIL | FAIL | **FAIL** | Use `ask_user` to prompt the user to inspect the images. Show them the current screenshots with the `view` tool and report what the LLM checklist flagged. Do not proceed until the user decides. |
+
+**When both fail**: You MUST use the `ask_user` tool to prompt the user. Show them the failing screenshots and explain what the LLM visual comparison flagged. The user decides whether to accept, investigate, or revert.
 
 ### Updating baselines
 
