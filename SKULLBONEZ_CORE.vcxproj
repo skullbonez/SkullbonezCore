@@ -127,6 +127,8 @@
     <ClCompile Include="ThirdPtySource\GLAD\src\gl.c" />
     <ClCompile Include="SkullbonezSource\SkullbonezMatrix4.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezTestScene.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezShader.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezMesh.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingSphere.h" />
@@ -157,6 +159,8 @@
     <ClInclude Include="SkullbonezSource\SkullbonezWorldEnvironment.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezMatrix4.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezTestScene.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezShader.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezMesh.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
