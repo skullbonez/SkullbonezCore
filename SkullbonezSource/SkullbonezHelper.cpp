@@ -42,6 +42,17 @@ using namespace SkullbonezCore::Math::Transformation;
 /* -- STATIC MEMBER INITIALISATION ------------------------------------------------*/
 std::unique_ptr<Mesh>	SkullbonezHelper::sphereMesh;
 std::unique_ptr<Shader>	SkullbonezHelper::sphereShader;
+float					SkullbonezHelper::sBaseView[16] = {
+	1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1
+};
+
+
+
+/* -- SET BASE VIEW ---------------------------------------------------------------*/
+void SkullbonezHelper::SetBaseView(const float mv[16])
+{
+	for (int i = 0; i < 16; ++i) sBaseView[i] = mv[i];
+}
 
 
 
@@ -111,12 +122,11 @@ void SkullbonezHelper::DrawSphere(float radius, const Matrix4& proj,
 
 	if (isTransparent) glEnable(GL_BLEND);
 
-	// Set up FFP transforms: rotate 90° X (texture orientation) + scale by radius
+	// Scale by radius only — no 90° rotation needed (procedural sphere has Y-axis poles)
 	glPushMatrix();
-		glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
 		glScalef(radius, radius, radius);
 
-		// Read the combined modelview after all parent + local transforms
+		// Read the combined modelview after scale for vertex transforms
 		float mv[16];
 		glGetFloatv(GL_MODELVIEW_MATRIX, mv);
 		Matrix4 modelView(mv);
@@ -127,17 +137,13 @@ void SkullbonezHelper::DrawSphere(float radius, const Matrix4& proj,
 		sphereShader->SetMat4("uView", modelView);
 		sphereShader->SetMat4("uProjection", proj);
 
-		// Transform light position to view space
+		// Transform light by cached base camera view (set once per frame in DrawPrimitives)
+		// not the per-sphere modelview which includes ball rotation
 		float viewLightPos[4];
 		for (int i = 0; i < 3; ++i)
-			viewLightPos[i] = mv[i] * lightPos[0] + mv[i+4] * lightPos[1] + mv[i+8] * lightPos[2] + mv[i+12] * lightPos[3];
+			viewLightPos[i] = sBaseView[i] * lightPos[0] + sBaseView[i+4] * lightPos[1] + sBaseView[i+8] * lightPos[2] + sBaseView[i+12] * lightPos[3];
 		viewLightPos[3] = lightPos[3];
 
-		// Actually, light should be in the base view space, not the sphere's local space.
-		// Re-read the base view from before sphere transforms. We'll use the light position as-is
-		// since terrain already passes it pre-transformed. For spheres, just pass world-space light
-		// and let the shader handle it with the modelview that includes the sphere transform.
-		// The shader computes viewPos in modelview space, so light needs to be in that same space.
 		sphereShader->SetVec4("uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3]);
 		sphereShader->SetVec4("uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f);
 		sphereShader->SetVec4("uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f);

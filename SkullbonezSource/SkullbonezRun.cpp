@@ -426,6 +426,9 @@ void SkullbonezRun::DrawPrimitives(void)
 	Matrix4 baseView(viewMat);
 	Matrix4 proj(projMat);
 
+	// Cache base view for sphere light transforms (before any model transforms)
+	SkullbonezHelper::SetBaseView(viewMat);
+
 	// render skybox ------------------------------
 	{
 		glPushMatrix();
