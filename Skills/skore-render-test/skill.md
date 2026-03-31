@@ -86,7 +86,26 @@ powershell.exe -Command {
 
 **Pass criteria**: <0.1% pixel difference per scene. Engine-side capture is deterministic so expect pixel-perfect in most cases.
 
-**If render test fails**: View the screenshot BMP to inspect visually, investigate and fix before proceeding.
+**If render test fails**: Convert to PNG and view (see step 3). Investigate and fix before proceeding.
+
+#### 3. Visual inspection (when needed)
+
+The API cannot display BMP files. Always convert to PNG before viewing:
+
+```pwsh
+py -c "
+from PIL import Image
+Image.open(r'Y:\SkullbonezCore\Debug\screenshot.bmp').save(r'Y:\SkullbonezCore\Debug\screenshot_water.png')
+Image.open(r'Y:\SkullbonezCore\Debug\legacy_smoke.bmp').save(r'Y:\SkullbonezCore\Debug\legacy_smoke.png')
+print('Converted to PNG for viewing')
+"
+```
+
+Then use the `view` tool on the PNG files:
+- `Y:\SkullbonezCore\Debug\screenshot_water.png`
+- `Y:\SkullbonezCore\Debug\legacy_smoke.png`
+
+**IMPORTANT**: Never send `.bmp` files to the `view` tool — it will cause an API error. Always convert to PNG first.
 
 ### Updating baselines
 
