@@ -30,12 +30,19 @@
 #include "SkullbonezTextureCollection.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezGeometricStructures.h"
+#include "SkullbonezShader.h"
+#include "SkullbonezMesh.h"
+#include "SkullbonezMatrix4.h"
+#include <memory>
+#include <array>
 
 
 
 /* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
 using namespace SkullbonezCore::Math::Vector;
+using namespace SkullbonezCore::Math;
 using namespace SkullbonezCore::Textures;
+using namespace SkullbonezCore::Rendering;
 
 
 
@@ -52,9 +59,12 @@ namespace SkullbonezCore
 
 		private:
 
-			static SkyBox*			pInstance;					// Singleton instance pointer
-			Box						boundaries;					// Boundaries of sky box
-			TextureCollection*		textures;					// Textures of the sky box
+			static SkyBox*							pInstance;				// Singleton instance pointer
+			Box										boundaries;				// Boundaries of sky box
+			TextureCollection*						textures;				// Textures of the sky box
+			std::unique_ptr<Shader>					shader;					// Unlit textured shader
+			std::array<std::unique_ptr<Mesh>, 6>	faceMeshes;				// VBO mesh per face
+			std::array<uint32_t, 6>					faceTextures;			// Texture hash per face
 
 			SkyBox					(int xMin, 
 									 int xMax,
@@ -63,7 +73,8 @@ namespace SkullbonezCore
 									 int zMin,
 									 int zMax);					// Overloaded constructor
 			~SkyBox					(void) = default;			// Destructor
-			void					LoadTextures			(void);	// Load sky textures into TextureCollection
+			void					LoadTextures			(void);		// Load sky textures into TextureCollection
+			void					BuildMeshes				(void);		// Build VBO meshes for each face
 
 
 		public:
@@ -75,7 +86,8 @@ namespace SkullbonezCore
 												int zMin,
 												int zMax);		// Request for singleton instance
 			static void		Destroy				(void);			// Destroy singleton instance
-			void			Render				(void);			// Redner the sky box
+			void			Render				(const Matrix4& view,
+												 const Matrix4& proj);	// Render the sky box
 
 		};
 	}

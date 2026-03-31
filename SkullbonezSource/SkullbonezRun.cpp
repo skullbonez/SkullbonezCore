@@ -419,12 +419,24 @@ void SkullbonezRun::DrawPrimitives(void)
 	// set position properties for light 0
 	glLightfv(GL_LIGHT0, GL_POSITION, lightPosition);
 
+	// Read base view and projection matrices from GL state
+	float viewMat[16], projMat[16];
+	glGetFloatv(GL_MODELVIEW_MATRIX, viewMat);
+	glGetFloatv(GL_PROJECTION_MATRIX, projMat);
+	Matrix4 baseView(viewMat);
+	Matrix4 proj(projMat);
+
 	// render skybox ------------------------------
-	glPushMatrix();
-		this->cCameras->TranslateToPosition(SKYBOX_RENDER_HEIGHT);
-		glScalef(SKY_BOX_SCALE, SKY_BOX_SCALE, SKY_BOX_SCALE);
-		this->cSkyBox->Render();
-	glPopMatrix();
+	{
+		glPushMatrix();
+			this->cCameras->TranslateToPosition(SKYBOX_RENDER_HEIGHT);
+			glScalef(SKY_BOX_SCALE, SKY_BOX_SCALE, SKY_BOX_SCALE);
+			float skyMV[16];
+			glGetFloatv(GL_MODELVIEW_MATRIX, skyMV);
+			Matrix4 skyView(skyMV);
+			this->cSkyBox->Render(skyView, proj);
+		glPopMatrix();
+	}
 
 	// render game models -----------------------------
 	this->cTextures->SelectTexture(TEXTURE_BOUNDING_SPHERE);
@@ -457,15 +469,8 @@ void SkullbonezRun::DrawPrimitives(void)
 
 	// render terrain ------------------------------
 	{
-		// Read current matrices from GL state (set by gluLookAt/gluPerspective)
-		float viewMat[16], projMat[16];
-		glGetFloatv(GL_MODELVIEW_MATRIX, viewMat);
-		glGetFloatv(GL_PROJECTION_MATRIX, projMat);
-		Matrix4 view(viewMat);
-		Matrix4 proj(projMat);
-
 		this->cTextures->SelectTexture(TEXTURE_GROUND);
-		this->cTerrain->Render(view, proj, lightPosition);
+		this->cTerrain->Render(baseView, proj, lightPosition);
 	}
 
 	// render ground shadows on top of terrain
