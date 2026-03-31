@@ -1,5 +1,5 @@
 ---
-name: render-test
+name: skore-render-test
 description: Run a scene file through SkullbonezCore in scene mode, capture a screenshot, and output the path. Invoke when the user asks to run a render test, capture a scene screenshot, or verify rendering output.
 ---
 

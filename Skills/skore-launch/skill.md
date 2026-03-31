@@ -1,5 +1,5 @@
 ---
-name: launch-skullbonez-core
+name: skore-launch
 description: Launch the SkullbonezCore executable. Invoke when the user asks to run, launch, or start SkullbonezCore.
 ---
 

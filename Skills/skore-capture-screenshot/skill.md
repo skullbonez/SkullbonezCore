@@ -1,5 +1,5 @@
 ---
-name: capture-screenshot
+name: skore-capture-screenshot
 description: Launch SkullbonezCore, wait for it to render, capture a screenshot of the window, and display it for visual verification. Use when you need to verify rendering output looks correct.
 ---
 

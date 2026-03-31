@@ -1,5 +1,5 @@
 ---
-name: debug-skullbonez-core
+name: skore-debug
 description: Launch SkullbonezCore under the Visual Studio debugger to verify it starts and renders correctly. Invoke when the user asks to debug, test, or verify SkullbonezCore is running without errors.
 ---
 

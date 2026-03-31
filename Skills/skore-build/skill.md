@@ -1,5 +1,5 @@
 ---
-name: build-skullbonez-core
+name: skore-build
 description: Build the SkullbonezCore solution using MSBuild. Invoke when the user asks to build, compile, or rebuild SkullbonezCore.
 ---
 
