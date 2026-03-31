@@ -4,7 +4,9 @@
 # water transparency, shadow, and render order all in one frame.
 
 physics off
+text off
 frames 1
+screenshot Debug/screenshot.bmp frame 1
 
 # Camera pulled back and elevated to see ball, terrain, water, and skybox
 camera main 500 60 650  600 24 600  0 1 0

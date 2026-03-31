@@ -68,9 +68,14 @@ namespace SkullbonezCore
 			
 			bool					isSceneMode;				// Scene file mode (deterministic, data-driven)
 			bool					isScenePhysics;				// Physics enabled in scene mode
+			bool					isSceneText;				// Text overlay enabled in scene mode
+			bool					isScreenshotSaved;			// Screenshot already written this run
 			int						targetFrameCount;			// Frames to render before holding (-1 = unlimited)
 			int						currentFrame;				// Current frame counter for scene mode
+			int						screenshotFrame;			// Save screenshot at this frame (-1 = unused)
+			int						screenshotMs;				// Save screenshot at this elapsed ms (-1 = unused)
 			char					scenePath[256];				// Path to scene file (empty = legacy mode)
+			char					screenshotPath[256];		// Output path for screenshot (empty = none)
 			int						selectedCamera;				// Keeps track of which camera is selected
 			int						modelCount;					// Number of models in the scene
 			float					physicsTime, r_physicsTime;	// Physics time
@@ -105,6 +110,7 @@ namespace SkullbonezCore
 			void					SetInitialOpenGlState	(void);								// Sets the initial state of the OpenGL evironment
 			void					SetViewingOrientation	(void);								// Renders camera views etc			
 			void					DrawWindowText			(const double dSecondsPerFrame);	// Renders text to the window
+			void					SaveScreenshot			(const char* path);					// Saves framebuffer to BMP file via glReadPixels
 			void					MoveCamera				(float keyMovementQty, 
 															 float mouseMovemementQty);			// Moves the camera
 

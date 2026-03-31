@@ -40,7 +40,11 @@ using namespace SkullbonezCore::Basics;
 TestScene::TestScene(void)
 {
 	this->isPhysicsEnabled	= true;
+	this->isTextEnabled		= true;
 	this->frameCount		= -1;
+	this->screenshotPath[0]	= '\0';
+	this->screenshotFrame	= -1;
+	this->screenshotMs		= -1;
 }
 
 
@@ -89,6 +93,21 @@ TestScene TestScene::LoadFromFile(const char* path)
 			continue;
 		}
 
+		// parse text directive
+		if (strncmp(line, "text ", 5) == 0)
+		{
+			if (strcmp(line + 5, "off") == 0)		scene.isTextEnabled = false;
+			else if (strcmp(line + 5, "on") == 0)	scene.isTextEnabled = true;
+			else
+			{
+				fclose(file);
+				char msg[256];
+				sprintf_s(msg, sizeof(msg), "Invalid text value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 5);
+				throw std::runtime_error(msg);
+			}
+			continue;
+		}
+
 		// parse frames directive
 		if (strncmp(line, "frames ", 7) == 0)
 		{
@@ -106,6 +125,47 @@ TestScene TestScene::LoadFromFile(const char* path)
 					sprintf_s(msg, sizeof(msg), "Invalid frame count at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 7);
 					throw std::runtime_error(msg);
 				}
+			}
+			continue;
+		}
+
+		// parse screenshot directive: screenshot <path> frame <N> | screenshot <path> ms <N>
+		if (strncmp(line, "screenshot ", 11) == 0)
+		{
+			char outPath[256] = {};
+			char triggerType[16] = {};
+			int triggerValue = 0;
+			int parsed = sscanf_s(line + 11, "%255s %15s %d",
+				outPath, (unsigned)sizeof(outPath),
+				triggerType, (unsigned)sizeof(triggerType),
+				&triggerValue);
+
+			if (parsed != 3 || triggerValue <= 0)
+			{
+				fclose(file);
+				char msg[256];
+				sprintf_s(msg, sizeof(msg), "Invalid screenshot at line %d (expected: screenshot <path> frame|ms <N>)  (TestScene::LoadFromFile)", lineNumber);
+				throw std::runtime_error(msg);
+			}
+
+			strcpy_s(scene.screenshotPath, sizeof(scene.screenshotPath), outPath);
+
+			if (strcmp(triggerType, "frame") == 0)
+			{
+				scene.screenshotFrame = triggerValue;
+				scene.screenshotMs = -1;
+			}
+			else if (strcmp(triggerType, "ms") == 0)
+			{
+				scene.screenshotMs = triggerValue;
+				scene.screenshotFrame = -1;
+			}
+			else
+			{
+				fclose(file);
+				char msg[256];
+				sprintf_s(msg, sizeof(msg), "Invalid screenshot trigger '%s' at line %d (expected 'frame' or 'ms')  (TestScene::LoadFromFile)", triggerType, lineNumber);
+				throw std::runtime_error(msg);
 			}
 			continue;
 		}
@@ -194,10 +254,42 @@ bool TestScene::IsPhysicsEnabled(void) const
 
 
 
+/* -- IS TEXT ENABLED -------------------------------------------------------------*/
+bool TestScene::IsTextEnabled(void) const
+{
+	return this->isTextEnabled;
+}
+
+
+
 /* -- GET FRAME COUNT -------------------------------------------------------------*/
 int TestScene::GetFrameCount(void) const
 {
 	return this->frameCount;
+}
+
+
+
+/* -- GET SCREENSHOT PATH ---------------------------------------------------------*/
+const char* TestScene::GetScreenshotPath(void) const
+{
+	return this->screenshotPath;
+}
+
+
+
+/* -- GET SCREENSHOT FRAME --------------------------------------------------------*/
+int TestScene::GetScreenshotFrame(void) const
+{
+	return this->screenshotFrame;
+}
+
+
+
+/* -- GET SCREENSHOT MS -----------------------------------------------------------*/
+int TestScene::GetScreenshotMs(void) const
+{
+	return this->screenshotMs;
 }
 
 

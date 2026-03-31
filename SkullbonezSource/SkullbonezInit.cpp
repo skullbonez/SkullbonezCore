@@ -87,7 +87,13 @@ int WINAPI WinMain(HINSTANCE hInstance,		// Holds info on instance of app
 			cRun.Initialise();
 
 			// Attempt to run the Skullbonez Core
-			if(!cRun.Run()) throw std::runtime_error("Thanks for using the Skullbonez Core!");
+			if(!cRun.Run())
+			{
+				if (scenePath)
+					break; // clean exit for test harness — no MessageBox
+				else
+					throw std::runtime_error("Thanks for using the Skullbonez Core!");
+			}
 
 			// Cleanup rendering context
 			if(cWindow->sRenderContext)
@@ -101,8 +107,8 @@ int WINAPI WinMain(HINSTANCE hInstance,		// Holds info on instance of app
 		}
 		catch (const std::exception& e)  // Catch all exceptions thrown by the Skullbonez Core
 		{
-			// Display the nasty exception details
-			cWindow->MsgBox(e.what(), "Alert!", MB_OK);
+			if (!scenePath)
+				cWindow->MsgBox(e.what(), "Alert!", MB_OK);
 
 			// exit the loop now
 			break;

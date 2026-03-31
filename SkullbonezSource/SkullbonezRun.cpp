@@ -47,8 +47,13 @@ SkullbonezRun::SkullbonezRun(const char* pScenePath)
 	// init scene mode
 	this->isSceneMode			= (pScenePath != nullptr);
 	this->isScenePhysics		= true;
+	this->isSceneText			= true;
+	this->isScreenshotSaved		= false;
 	this->targetFrameCount		= -1;
 	this->currentFrame			= 0;
+	this->screenshotFrame		= -1;
+	this->screenshotMs			= -1;
+	this->screenshotPath[0]		= '\0';
 
 	if (pScenePath)
 		strcpy_s(this->scenePath, sizeof(this->scenePath), pScenePath);
@@ -120,7 +125,13 @@ void SkullbonezRun::Initialise(void)
 	{
 		TestScene scene = TestScene::LoadFromFile(this->scenePath);
 		this->isScenePhysics   = scene.IsPhysicsEnabled();
+		this->isSceneText      = scene.IsTextEnabled();
 		this->targetFrameCount = scene.GetFrameCount();
+		this->screenshotFrame  = scene.GetScreenshotFrame();
+		this->screenshotMs     = scene.GetScreenshotMs();
+
+		if (scene.GetScreenshotPath()[0] != '\0')
+			strcpy_s(this->screenshotPath, sizeof(this->screenshotPath), scene.GetScreenshotPath());
 
 		this->SetUpCamerasFromScene(scene);
 		this->SetUpGameModelsFromScene(scene);
@@ -234,7 +245,27 @@ bool SkullbonezRun::Run(void)
 			this->Render();							
 
 			// Render overlay text
-			this->DrawWindowText(secondsPerFrame);
+			if (!this->isSceneMode || this->isSceneText)
+				this->DrawWindowText(secondsPerFrame);
+
+			// Scene mode: check screenshot triggers (read back buffer before swap)
+			if (this->isSceneMode && this->screenshotPath[0] != '\0' && !this->isScreenshotSaved)
+			{
+				bool shouldCapture = false;
+
+				if (this->screenshotFrame > 0 && (this->currentFrame + 1) >= this->screenshotFrame)
+					shouldCapture = true;
+
+				if (this->screenshotMs > 0 && this->cSimulationTimer.GetTimeSinceLastStart() * 1000.0 >= this->screenshotMs)
+					shouldCapture = true;
+
+				if (shouldCapture)
+				{
+					this->SaveScreenshot(this->screenshotPath);
+					this->isScreenshotSaved = true;
+					PostQuitMessage(0);
+				}
+			}
 
 			// Stop render timer
 			this->cWorkTimer.StopTimer();
@@ -248,8 +279,8 @@ bool SkullbonezRun::Run(void)
 			// Stop frame timer
 			this->cFrameTimer.StopTimer();
 
-			// Scene mode: count frames, hold after target reached
-			if (this->isSceneMode && this->targetFrameCount > 0)
+			// Scene mode: count frames, hold after target reached (skip if screenshot auto-exit pending)
+			if (this->isSceneMode && this->targetFrameCount > 0 && !this->isScreenshotSaved)
 			{
 				++this->currentFrame;
 				if (this->currentFrame >= this->targetFrameCount)
@@ -686,4 +717,72 @@ void SkullbonezRun::SetUpGameModelsFromScene(const TestScene& scene)
 
 		this->cGameModelCollection.AddGameModel(std::move(gameModel));
 	}
+}
+
+
+
+/* -- SAVE SCREENSHOT -------------------------------------------------------------*/
+void SkullbonezRun::SaveScreenshot(const char* path)
+{
+	// Read viewport dimensions
+	GLint viewport[4];
+	glGetIntegerv(GL_VIEWPORT, viewport);
+	int width  = viewport[2];
+	int height = viewport[3];
+
+	// Row stride padded to 4-byte boundary (BMP requirement)
+	int rowStride = (width * 3 + 3) & ~3;
+	int imageSize = rowStride * height;
+
+	// Allocate pixel buffer
+	std::vector<unsigned char> pixels(static_cast<size_t>(imageSize));
+
+	// Read the back buffer (bottom-up, BGR — native BMP layout)
+	glPixelStorei(GL_PACK_ALIGNMENT, 4);
+	glReadBuffer(GL_BACK);
+	glReadPixels(0, 0, width, height, GL_BGR, GL_UNSIGNED_BYTE, pixels.data());
+
+	// BMP file header (14 bytes)
+	unsigned char fileHeader[14] = {};
+	int fileSize = 14 + 40 + imageSize;
+	fileHeader[0]  = 'B';
+	fileHeader[1]  = 'M';
+	fileHeader[2]  = (unsigned char)(fileSize);
+	fileHeader[3]  = (unsigned char)(fileSize >> 8);
+	fileHeader[4]  = (unsigned char)(fileSize >> 16);
+	fileHeader[5]  = (unsigned char)(fileSize >> 24);
+	fileHeader[10] = 54; // pixel data offset
+
+	// BMP info header (40 bytes)
+	unsigned char infoHeader[40] = {};
+	infoHeader[0]  = 40; // header size
+	infoHeader[4]  = (unsigned char)(width);
+	infoHeader[5]  = (unsigned char)(width >> 8);
+	infoHeader[6]  = (unsigned char)(width >> 16);
+	infoHeader[7]  = (unsigned char)(width >> 24);
+	infoHeader[8]  = (unsigned char)(height);
+	infoHeader[9]  = (unsigned char)(height >> 8);
+	infoHeader[10] = (unsigned char)(height >> 16);
+	infoHeader[11] = (unsigned char)(height >> 24);
+	infoHeader[12] = 1;  // color planes
+	infoHeader[14] = 24; // bits per pixel
+	infoHeader[20] = (unsigned char)(imageSize);
+	infoHeader[21] = (unsigned char)(imageSize >> 8);
+	infoHeader[22] = (unsigned char)(imageSize >> 16);
+	infoHeader[23] = (unsigned char)(imageSize >> 24);
+
+	// Write to file
+	FILE* file = nullptr;
+	errno_t err = fopen_s(&file, path, "wb");
+	if (err != 0 || !file)
+	{
+		char msg[512];
+		sprintf_s(msg, sizeof(msg), "Failed to open screenshot file: %s  (SkullbonezRun::SaveScreenshot)", path);
+		throw std::runtime_error(msg);
+	}
+
+	fwrite(fileHeader, 1, 14, file);
+	fwrite(infoHeader, 1, 40, file);
+	fwrite(pixels.data(), 1, static_cast<size_t>(imageSize), file);
+	fclose(file);
 }

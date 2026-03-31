@@ -79,7 +79,11 @@ namespace SkullbonezCore
 		private:
 
 			bool						isPhysicsEnabled;
+			bool						isTextEnabled;
 			int							frameCount;			// -1 = unlimited
+			char						screenshotPath[256];// output path for screenshot (empty = none)
+			int							screenshotFrame;	// trigger on frame N (-1 = unused)
+			int							screenshotMs;		// trigger at N ms elapsed (-1 = unused)
 			std::vector<SceneCamera>	cameras;
 			std::vector<SceneBall>		balls;
 
@@ -90,7 +94,11 @@ namespace SkullbonezCore
 			static TestScene			LoadFromFile			(const char* path);
 
 			bool						IsPhysicsEnabled		(void) const;
+			bool						IsTextEnabled			(void) const;
 			int							GetFrameCount			(void) const;
+			const char*					GetScreenshotPath		(void) const;
+			int							GetScreenshotFrame		(void) const;
+			int							GetScreenshotMs			(void) const;
 			int							GetCameraCount			(void) const;
 			int							GetBallCount			(void) const;
 			const SceneCamera&			GetCamera				(int index) const;
