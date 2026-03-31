@@ -41,6 +41,7 @@
 using namespace std;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Math::CollisionDetection;
+using namespace SkullbonezCore::Math::Transformation;
 
 
 
@@ -68,7 +69,8 @@ namespace SkullbonezCore
 			
 			void							AddGameModel						(GameModel gameModel);					// Moves a game model into the collection
 			void							RunPhysics							(float fChangeInTime);					// Runs the physics for the specified time step
-			void							RenderModels						(void);									// Renders the game models
+			void							RenderModels						(const Matrix4& proj,
+																				 const float lightPos[4]);			// Renders the game models
 			void							RenderShadows						(Geometry::Terrain* terrain);			// Renders ground shadows beneath all models
 			Vector3							GetModelPosition					(int index);							// Returns the position of the specified game model
 		};

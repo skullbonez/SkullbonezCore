@@ -33,6 +33,7 @@
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Math::CollisionDetection;
+using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Basics;
 
 
@@ -132,7 +133,9 @@ float BoundingSphere::GetRadius(void)
 
 
 /* -- DEBUG RENDER COLLISION VOLUME -----------------------------------------------*/
-void BoundingSphere::DEBUG_RenderCollisionVolume(const Vector3& worldSpaceCoords)
+void BoundingSphere::DEBUG_RenderCollisionVolume(const Vector3& worldSpaceCoords,
+												 const Matrix4& proj,
+												 const float lightPos[4])
 {
 	glPushMatrix();
 
@@ -140,7 +143,7 @@ void BoundingSphere::DEBUG_RenderCollisionVolume(const Vector3& worldSpaceCoords
 					 worldSpaceCoords.y + this->position.y, 
 					 worldSpaceCoords.z + this->position.z);
 
-		SkullbonezHelper::DrawSphere(this->radius, RENDER_COL_VOL_TRANS);
+		SkullbonezHelper::DrawSphere(this->radius, proj, lightPos, RENDER_COL_VOL_TRANS);
 
 	glPopMatrix();
 }

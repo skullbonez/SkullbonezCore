@@ -39,6 +39,7 @@
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Geometry;
 using namespace SkullbonezCore::Math::CollisionDetection;
+using namespace SkullbonezCore::Math::Transformation;
 
 
 
@@ -91,7 +92,8 @@ namespace SkullbonezCore
 						GameModel& operator=			(GameModel&&) noexcept = default;								// Move assignment
 
 			void			RenderModel						(void);																// Renders the entire game model
-			void			RenderCollisionBounds			(void);																// Renders the collision bounds
+			void			RenderCollisionBounds			(const Matrix4& proj,
+															 const float lightPos[4]);											// Renders the collision bounds
 			bool			IsResponseRequired				(void);																// Indicates whether a collision response is required
 			float			GetSubmergedVolumePercent		(void);																// Returns the percentage of the game model submerged in fluid
 			float			GetMass							(void);																// Returns the mass of the game model

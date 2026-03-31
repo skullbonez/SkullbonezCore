@@ -277,7 +277,7 @@ void GameModel::RenderModel(void)
 
 
 /* -- RENDER COLLISION BOUNDS -----------------------------------------------------*/
-void GameModel::RenderCollisionBounds(void)
+void GameModel::RenderCollisionBounds(const Matrix4& proj, const float lightPos[4])
 {
 	// save the matrix state if we are going to be performing
 	// rotations on the world matrix
@@ -287,7 +287,7 @@ void GameModel::RenderCollisionBounds(void)
 	this->OrientMesh();
 
 	// render
-	this->boundingVolume->DEBUG_RenderCollisionVolume(this->physicsInfo.GetPosition());
+	this->boundingVolume->DEBUG_RenderCollisionVolume(this->physicsInfo.GetPosition(), proj, lightPos);
 
 	// restore the original world matrix state now we are done rendering
 	glPopMatrix();

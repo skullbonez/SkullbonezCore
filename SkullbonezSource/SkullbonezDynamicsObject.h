@@ -29,6 +29,7 @@
 #include "SkullbonezCommon.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezGeometricStructures.h"
+#include "SkullbonezMatrix4.h"
 
 
 
@@ -59,7 +60,9 @@ namespace SkullbonezCore
 
 			public:
 
-				virtual void		DEBUG_RenderCollisionVolume		(const Vector3& worldSpaceCoords)		= 0;  	// Debug routine to render a representation of the collision volume
+				virtual void		DEBUG_RenderCollisionVolume		(const Vector3& worldSpaceCoords,
+																	 const Transformation::Matrix4& proj,
+																	 const float lightPos[4])				= 0;  	// Debug routine to render a representation of the collision volume
 				virtual float		GetSubmergedVolumePercent		(float fluidSurfaceHeight)				= 0;	// Returns the percent of the object submerged in fluid
 				virtual float		GetVolume						(void)									= 0;	// Returns the volume of the object
 				virtual float		GetDragCoefficient				(void)									= 0;	// Returns the drag coefficient for the object

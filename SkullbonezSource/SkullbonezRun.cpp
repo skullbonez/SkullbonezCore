@@ -440,7 +440,7 @@ void SkullbonezRun::DrawPrimitives(void)
 
 	// render game models -----------------------------
 	this->cTextures->SelectTexture(TEXTURE_BOUNDING_SPHERE);
-	this->cGameModelCollection.RenderModels();
+	this->cGameModelCollection.RenderModels(proj, lightPosition);
 
 	// render the deep fluid ----------------------
 	glPushMatrix();

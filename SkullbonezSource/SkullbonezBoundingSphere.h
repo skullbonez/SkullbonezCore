@@ -4,13 +4,13 @@
 																			 .-"       "-.
 																			/             \
 																		   /               \
-																		   ¦   .--. .--.   ¦
-																		   ¦ )/   ¦ ¦   \( ¦
-																		   ¦/ \__/   \__/ \¦
+																		   ï¿½   .--. .--.   ï¿½
+																		   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+																		   ï¿½/ \__/   \__/ \ï¿½
 																		   /      /^\      \
 																		   \__    '='    __/
-								   											 ¦\         /¦
-																			 ¦\'"VUUUV"'/¦
+								   											 ï¿½\         /ï¿½
+																			 ï¿½\'"VUUUV"'/ï¿½
 																			 \ `"""""""` /
 																			  `-._____.-'
 
@@ -67,7 +67,9 @@ namespace SkullbonezCore
 								BoundingSphere					(float			fRadius,
 																 const Vector3& vPosition);				// Overloaded constructor
 								~BoundingSphere					(void);									// Default destructor
-				void			DEBUG_RenderCollisionVolume		(const Vector3& worldSpaceCoords);		// Debug routine to render a representation of the collision volume
+				void			DEBUG_RenderCollisionVolume		(const Vector3& worldSpaceCoords,
+																		 const Transformation::Matrix4& proj,
+																		 const float lightPos[4]);		// Debug routine to render a representation of the collision volume
 				float			GetVolume						(void);									// Returns the volume of the sphere
 				float			GetSubmergedVolumePercent		(float fluidSurfaceHeight);				// Calculates the total volume of the sphere below the fluid surface height
 				float			GetDragCoefficient				(void);									// Returns the drag coefficient of a sphere

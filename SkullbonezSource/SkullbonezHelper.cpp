@@ -27,53 +27,128 @@
 
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezHelper.h"
+#include <vector>
+#include <cmath>
 
 
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Rendering;
+using namespace SkullbonezCore::Math::Transformation;
 
 
 
-/* -- FILE-SCOPE GL RESOURCES -----------------------------------------------------*/
-static GLuint s_sphereList = 0;
+/* -- STATIC MEMBER INITIALISATION ------------------------------------------------*/
+std::unique_ptr<Mesh>	SkullbonezHelper::sphereMesh;
+std::unique_ptr<Shader>	SkullbonezHelper::sphereShader;
 
 
 
 /* -- RESET GL RESOURCES ----------------------------------------------------------*/
 void SkullbonezHelper::ResetGLResources(void)
 {
-	s_sphereList = 0;
+	sphereMesh.reset();
+	sphereShader.reset();
+}
+
+
+
+/* -- BUILD SPHERE MESH -----------------------------------------------------------*/
+void SkullbonezHelper::BuildSphereMesh(int slices, int stacks)
+{
+	// Generate a unit sphere with normals and texcoords (8 floats per vertex)
+	std::vector<float> verts;
+	verts.reserve(slices * stacks * 6 * 8);
+
+	for (int i = 0; i < stacks; ++i)
+	{
+		float phi0 = _PI * (float)i / (float)stacks;
+		float phi1 = _PI * (float)(i + 1) / (float)stacks;
+
+		for (int j = 0; j < slices; ++j)
+		{
+			float theta0 = _2PI * (float)j / (float)slices;
+			float theta1 = _2PI * (float)(j + 1) / (float)slices;
+
+			// 4 corners of the quad
+			float x00 = sinf(phi0) * cosf(theta0), y00 = cosf(phi0), z00 = sinf(phi0) * sinf(theta0);
+			float x01 = sinf(phi0) * cosf(theta1), y01 = cosf(phi0), z01 = sinf(phi0) * sinf(theta1);
+			float x10 = sinf(phi1) * cosf(theta0), y10 = cosf(phi1), z10 = sinf(phi1) * sinf(theta0);
+			float x11 = sinf(phi1) * cosf(theta1), y11 = cosf(phi1), z11 = sinf(phi1) * sinf(theta1);
+
+			float u0 = (float)j / (float)slices,       v0 = (float)i / (float)stacks;
+			float u1 = (float)(j + 1) / (float)slices, v1 = (float)(i + 1) / (float)stacks;
+
+			// Triangle 1: (0,0) → (1,0) → (1,1)
+			verts.insert(verts.end(), { x00,y00,z00, x00,y00,z00, u0,v0 });
+			verts.insert(verts.end(), { x10,y10,z10, x10,y10,z10, u0,v1 });
+			verts.insert(verts.end(), { x11,y11,z11, x11,y11,z11, u1,v1 });
+
+			// Triangle 2: (0,0) → (1,1) → (0,1)
+			verts.insert(verts.end(), { x00,y00,z00, x00,y00,z00, u0,v0 });
+			verts.insert(verts.end(), { x11,y11,z11, x11,y11,z11, u1,v1 });
+			verts.insert(verts.end(), { x01,y01,z01, x01,y01,z01, u1,v0 });
+		}
+	}
+
+	sphereMesh = std::make_unique<Mesh>(verts.data(), (int)verts.size() / 8, true, true);
 }
 
 
 
 /* -- DRAW SPHERE -----------------------------------------------------------------*/
-void SkullbonezHelper::DrawSphere(float radius, const bool isTransparent)
+void SkullbonezHelper::DrawSphere(float radius, const Matrix4& proj,
+								  const float lightPos[4], bool isTransparent)
 {
-	if(!s_sphereList)
+	if (!sphereMesh)
 	{
-		GLUquadricObj* q = gluNewQuadric();
-		gluQuadricNormals(q, GL_SMOOTH);
-		gluQuadricTexture(q, true);
-
-		s_sphereList = glGenLists(1);
-		glNewList(s_sphereList, GL_COMPILE);
-			gluSphere(q, 1.0, 25, 25);
-		glEndList();
-
-		gluDeleteQuadric(q);
+		BuildSphereMesh(25, 25);
+		sphereShader = std::make_unique<Shader>(
+			"SkullbonezData/shaders/lit_textured.vert",
+			"SkullbonezData/shaders/lit_textured.frag");
 	}
 
-	if(isTransparent) glEnable(GL_BLEND);
+	if (isTransparent) glEnable(GL_BLEND);
 
+	// Set up FFP transforms: rotate 90° X (texture orientation) + scale by radius
 	glPushMatrix();
 		glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
 		glScalef(radius, radius, radius);
-		glCallList(s_sphereList);
+
+		// Read the combined modelview after all parent + local transforms
+		float mv[16];
+		glGetFloatv(GL_MODELVIEW_MATRIX, mv);
+		Matrix4 modelView(mv);
+		Matrix4 identity;
+
+		sphereShader->Use();
+		sphereShader->SetMat4("uModel", identity);
+		sphereShader->SetMat4("uView", modelView);
+		sphereShader->SetMat4("uProjection", proj);
+
+		// Transform light position to view space
+		float viewLightPos[4];
+		for (int i = 0; i < 3; ++i)
+			viewLightPos[i] = mv[i] * lightPos[0] + mv[i+4] * lightPos[1] + mv[i+8] * lightPos[2] + mv[i+12] * lightPos[3];
+		viewLightPos[3] = lightPos[3];
+
+		// Actually, light should be in the base view space, not the sphere's local space.
+		// Re-read the base view from before sphere transforms. We'll use the light position as-is
+		// since terrain already passes it pre-transformed. For spheres, just pass world-space light
+		// and let the shader handle it with the modelview that includes the sphere transform.
+		// The shader computes viewPos in modelview space, so light needs to be in that same space.
+		sphereShader->SetVec4("uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3]);
+		sphereShader->SetVec4("uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f);
+		sphereShader->SetVec4("uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f);
+		sphereShader->SetVec4("uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f);
+		sphereShader->SetVec4("uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f);
+
+		sphereMesh->Draw();
+		glUseProgram(0);
 	glPopMatrix();
 
-	if(isTransparent) glDisable(GL_BLEND);
+	if (isTransparent) glDisable(GL_BLEND);
 }
 
 
