@@ -5,97 +5,90 @@ description: Run a scene file through SkullbonezCore in scene mode, capture a sc
 
 ## Render Test Skill
 
-Launches SkullbonezCore with a `.scene` file, waits for it to render, captures a screenshot of the window, and outputs the path to the saved image.
+Launches SkullbonezCore with a `.scene` file that has a `screenshot` directive. The engine renders the scene, writes a BMP via `glReadPixels`, and exits. Then compares against the baseline pixel-by-pixel.
 
 ### Prerequisites
 
-The Debug exe must exist at `Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe`. If not, build first using the `build-skullbonez-core` skill.
+The Debug exe must exist at `Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe`. If not, build first using the `skore-build` skill.
 
 ### Steps
 
-#### 1. Kill any running instance
+#### 1. Run scene with screenshot directive
+
+The scene file must include a `screenshot` directive (e.g. `screenshot Debug/screenshot.bmp frame 1`). The engine saves the framebuffer and exits automatically.
 
 ```pwsh
 $proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
 if ($proc) { Stop-Process -Id $proc.Id -Force; Start-Sleep 1 }
+
+Remove-Item "Y:\SkullbonezCore\Debug\screenshot.bmp" -ErrorAction SilentlyContinue
+
+$proc = Start-Process "Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe" `
+    -ArgumentList "--scene SkullbonezData/scenes/water_ball_test.scene" `
+    -WorkingDirectory "Y:\SkullbonezCore" -PassThru
+$proc.WaitForExit(10000) | Out-Null
+if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force; Write-Host "FAIL: Process didn't exit" }
+
+if (Test-Path "Y:\SkullbonezCore\Debug\screenshot.bmp") {
+    Write-Host "Screenshot saved: $((Get-Item Y:\SkullbonezCore\Debug\screenshot.bmp).Length) bytes"
+} else {
+    Write-Host "FAIL: No screenshot produced"
+}
 ```
 
-#### 2. Launch with scene file
-
-Default scene is `SkullbonezData/scenes/water_ball_test.scene`. Replace with any `.scene` file path.
-
-```pwsh
-Start-Process "Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe" -ArgumentList "--scene SkullbonezData/scenes/water_ball_test.scene" -WorkingDirectory "Y:\SkullbonezCore"
-Start-Sleep 4
-```
-
-#### 3. Capture screenshot and output path
-
-Uses .NET Framework PowerShell to bring window to foreground, capture, save, and output the path:
+#### 2. Pixel compare against baseline
 
 ```pwsh
 powershell.exe -Command {
     Add-Type -AssemblyName System.Drawing
-    Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public class Win32 {
-    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
-    [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
-    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
-    [DllImport("user32.dll")] public static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
-    [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
-    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
-    [StructLayout(LayoutKind.Sequential)]
-    public struct RECT { public int Left, Top, Right, Bottom; }
-}
-"@
-    $targetPid = (Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue).Id
-    if (!$targetPid) { Write-Error "Process not running"; exit 1 }
-    $found = $null
-    [Win32]::EnumWindows({param($h,$l)
-        $p = 0; [Win32]::GetWindowThreadProcessId($h,[ref]$p) | Out-Null
-        if ($p -eq $targetPid -and [Win32]::IsWindowVisible($h)) {
-            $sb = New-Object System.Text.StringBuilder 256
-            [Win32]::GetClassName($h,$sb,256) | Out-Null
-            if ($sb.ToString() -eq "SkullbonezWindow") { $script:found = $h; return $false }
+    $baseline = New-Object System.Drawing.Bitmap "Y:\SkullbonezCore\Skills\skore-render-test\baseline_water_ball_test.png"
+    $current  = New-Object System.Drawing.Bitmap "Y:\SkullbonezCore\Debug\screenshot.bmp"
+
+    if ($baseline.Width -ne $current.Width -or $baseline.Height -ne $current.Height) {
+        Write-Host "FAIL: Size mismatch $($baseline.Width)x$($baseline.Height) vs $($current.Width)x$($current.Height)"
+        $baseline.Dispose(); $current.Dispose()
+        exit 1
+    }
+
+    $diffCount = 0; $total = $baseline.Width * $baseline.Height
+    for ($y = 0; $y -lt $baseline.Height; $y++) {
+        for ($x = 0; $x -lt $baseline.Width; $x++) {
+            if ($baseline.GetPixel($x, $y).ToArgb() -ne $current.GetPixel($x, $y).ToArgb()) { $diffCount++ }
         }
-        return $true
-    }, [IntPtr]::Zero) | Out-Null
-    if (!$found) { Write-Error "Window not found"; exit 1 }
-    [Win32]::SetForegroundWindow($found) | Out-Null
-    Start-Sleep -Milliseconds 500
-    $r = New-Object Win32+RECT
-    [Win32]::GetWindowRect($found,[ref]$r) | Out-Null
-    $w = $r.Right - $r.Left; $h = $r.Bottom - $r.Top
-    $bmp = New-Object System.Drawing.Bitmap $w,$h
-    $g = [System.Drawing.Graphics]::FromImage($bmp)
-    $g.CopyFromScreen($r.Left,$r.Top,0,0,(New-Object System.Drawing.Size $w,$h))
-    $outPath = "Y:\SkullbonezCore\Debug\screenshot.png"
-    $bmp.Save($outPath,[System.Drawing.Imaging.ImageFormat]::Png)
-    $g.Dispose(); $bmp.Dispose()
-    Write-Output $outPath
+    }
+
+    $pct = [Math]::Round(($diffCount / $total) * 100, 4)
+    Write-Host "Pixels: $total | Different: $diffCount ($pct%)"
+    if ($diffCount -eq 0) { Write-Host "PASS: Pixel-perfect match" }
+    elseif ($pct -lt 0.1) { Write-Host "PASS: Negligible diff ($pct%)" }
+    else { Write-Host "FAIL: $pct% pixels differ - visual regression detected" }
+
+    $baseline.Dispose(); $current.Dispose()
 }
 ```
 
-#### 4. Kill the process after capture
+**Pass criteria**: <0.1% pixel difference. Engine-side capture is deterministic so expect pixel-perfect in most cases.
+
+**If render test fails**: View `Debug\screenshot.bmp` to inspect visually, investigate and fix before proceeding.
+
+### Updating the baseline
+
+When a change **intentionally** alters rendering (e.g. migrating a subsystem to shaders), recapture the baseline after visual verification. Run the scene, then convert and copy:
 
 ```pwsh
-$proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
-if ($proc) { Stop-Process -Id $proc.Id -Force }
+powershell.exe -Command {
+    Add-Type -AssemblyName System.Drawing
+    $bmp = New-Object System.Drawing.Bitmap "Y:\SkullbonezCore\Debug\screenshot.bmp"
+    $bmp.Save("Y:\SkullbonezCore\Skills\skore-render-test\baseline_water_ball_test.png", [System.Drawing.Imaging.ImageFormat]::Png)
+    $bmp.Dispose()
+}
 ```
 
-### Output
+Include the updated baseline in the same commit.
 
-The skill outputs the path to the screenshot file (e.g. `Y:\SkullbonezCore\Debug\screenshot.png`). View the image and analyse the rendering output.
+### Scene file screenshot directives
 
-### What to look for
-
-- **Terrain**: Brown heightmap ground visible
-- **Skybox**: Sky visible at top of frame
-- **Ball**: Textured sphere with lighting
-- **Water**: Blue transparent fluid at correct height
-- **Render order**: Ball partially submerged — water covers bottom half
-- **Shadow**: Dark disc on ground/water beneath ball
-- **HUD text**: FPS, physics time, render time, model count
+```
+screenshot <output_path> frame <N>    # capture after frame N
+screenshot <output_path> ms <N>       # capture after N milliseconds
+```
