@@ -25,6 +25,7 @@
 #include "SkullbonezWindow.h"
 #include "SkullbonezTimer.h"
 #include <float.h>
+#include <cstring>
 
 
 
@@ -47,7 +48,20 @@ int WINAPI WinMain(HINSTANCE hInstance,		// Holds info on instance of app
 	// _controlfp(0, _MCW_EM ^ _EM_INEXACT);
 
 	// Supress benign (level 4) warnings
-	hPrevInstance; szCmdLine; iCmdShow;
+	hPrevInstance; iCmdShow;
+
+	// Parse command line for --scene <path>
+	const char* scenePath = nullptr;
+	if (szCmdLine && szCmdLine[0] != '\0')
+	{
+		const char* sceneArg = strstr(szCmdLine, "--scene");
+		if (sceneArg)
+		{
+			sceneArg += 7; // skip "--scene"
+			while (*sceneArg == ' ') ++sceneArg;
+			if (*sceneArg != '\0') scenePath = sceneArg;
+		}
+	}
 
 	// Create an instance of our window class
 	// (holds everything associated with our window)
@@ -65,7 +79,7 @@ int WINAPI WinMain(HINSTANCE hInstance,		// Holds info on instance of app
 		cWindow->InitialiseOpenGL();
 
 		// Create the Skullbonez Core instance
-		SkullbonezRun cRun;
+		SkullbonezRun cRun(scenePath);
 
 		try
 		{

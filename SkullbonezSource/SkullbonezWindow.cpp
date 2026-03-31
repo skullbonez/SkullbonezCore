@@ -97,6 +97,10 @@ void SkullbonezWindow::SetWindowDimensions(const RECT dimensions)
 /* -- HANDLE SCREEN RESIZE --------------------------------------------------------*/
 void SkullbonezWindow::HandleScreenResize(void)
 {
+	// Guard: skip GL calls if GLAD hasn't loaded function pointers yet.
+	// WM_SIZE fires during CreateAppWindow before InitialiseOpenGL.
+	if (!glViewport) return;
+
 	// Create an instance of our window class
 	SkullbonezWindow* cWindow = SkullbonezWindow::Instance();
 
@@ -274,30 +278,87 @@ LRESULT CALLBACK WndProc (HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 
 
 
+/* -- GLAD LOADER CALLBACK --------------------------------------------------------*/
+// GLAD needs a loader that returns GL function pointers.  For core GL 1.1
+// functions Windows exposes them directly from opengl32.dll; everything
+// else comes from wglGetProcAddress.
+static GLADapiproc GladLoadFunc(const char* name)
+{
+	GLADapiproc p = reinterpret_cast<GLADapiproc>(wglGetProcAddress(name));
+	if (p == 0 || p == reinterpret_cast<GLADapiproc>(0x1) ||
+		p == reinterpret_cast<GLADapiproc>(0x2) ||
+		p == reinterpret_cast<GLADapiproc>(0x3) ||
+		p == reinterpret_cast<GLADapiproc>(-1))
+	{
+		static HMODULE gl = GetModuleHandleA("opengl32.dll");
+		p = reinterpret_cast<GLADapiproc>(GetProcAddress(gl, name));
+	}
+	return p;
+}
+
+
+
 /* -- INITIALISE OPEN GL ----------------------------------------------------------*/
 void SkullbonezWindow::InitialiseOpenGL(void)
 {
-	// Get instance of our window class
 	SkullbonezWindow* cWindow = SkullbonezWindow::Instance();
 
-	// See SetupPixelFormat(...) in this file for more explanation
-	if(!SetupPixelFormat())					// If we fail to set the pixel format
-		PostQuitMessage(0);					// Close application
+	if(!SetupPixelFormat())
+		PostQuitMessage(0);
 
-	// This is very important - it is creating our OpenGL rendering context 
-	// from our device context structure
-	cWindow->sRenderContext = wglCreateContext(cWindow->sDevice);
+	// Bootstrap: create a temporary legacy context so we can load
+	// wglCreateContextAttribsARB, then replace it with a 3.3 context.
+	HGLRC tempContext = wglCreateContext(cWindow->sDevice);
+	wglMakeCurrent(cWindow->sDevice, tempContext);
 
-	// Also very important, this line makes the rendering context that was
-	// just created our current rendering context for this window
-	wglMakeCurrent(cWindow->sDevice, cWindow->sRenderContext);
+	// Resolve the modern context creation function
+	typedef HGLRC(WINAPI* PFNWGLCREATECONTEXTATTRIBSARBPROC)(HDC, HGLRC, const int*);
+	auto wglCreateContextAttribsARB = reinterpret_cast<PFNWGLCREATECONTEXTATTRIBSARBPROC>(
+		wglGetProcAddress("wglCreateContextAttribsARB"));
+
+	if (wglCreateContextAttribsARB)
+	{
+		// Request OpenGL 3.3 Compatibility Profile (allows FFP during migration)
+		const int attribs[] = {
+			0x2091, 3,  // WGL_CONTEXT_MAJOR_VERSION_ARB
+			0x2092, 3,  // WGL_CONTEXT_MINOR_VERSION_ARB
+			0x9126, 0x2, // WGL_CONTEXT_PROFILE_MASK_ARB = COMPATIBILITY (0x2)
+			0           // terminator
+		};
+
+		HGLRC modernContext = wglCreateContextAttribsARB(cWindow->sDevice, 0, attribs);
+		if (modernContext)
+		{
+			wglMakeCurrent(NULL, NULL);
+			wglDeleteContext(tempContext);
+			wglMakeCurrent(cWindow->sDevice, modernContext);
+			cWindow->sRenderContext = modernContext;
+		}
+		else
+		{
+			// Fall back to legacy context if 3.3 is not available
+			cWindow->sRenderContext = tempContext;
+		}
+	}
+	else
+	{
+		cWindow->sRenderContext = tempContext;
+	}
+
+	// Load all GL function pointers via GLAD
+	int gladVersion = gladLoadGL(GladLoadFunc);
+	if (!gladVersion)
+	{
+		this->MsgBox("gladLoadGL returned 0 - GL function loading failed", "GLAD Error", MB_OK);
+		PostQuitMessage(0);
+		return;
+	}
 
 	// Set window dimensions
 	RECT windowDimensions;
 	GetClientRect(cWindow->sWindow, &windowDimensions);
 	cWindow->SetWindowDimensions(windowDimensions);
 
-	// See HandleScreenResize(...) in this file for more explanation
 	HandleScreenResize();
 }
 

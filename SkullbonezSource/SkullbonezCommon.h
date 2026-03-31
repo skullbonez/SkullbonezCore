@@ -60,14 +60,14 @@
 #include <stdexcept>  // std::runtime_error
 #include <memory>     // std::unique_ptr
 #include <vector>     // std::vector
-#include <gl\gl.h>    // OpenGL Library
-#include <gl\glu.h>   // OpenGL Utility Library
+#include <glad/gl.h>  // GLAD OpenGL 3.3 Core Loader
+#include <gl\glu.h>   // OpenGL Utility Library (retained during incremental migration)
 
 
 
 /* -- GL/GLU LIBS -----------------------------------------------------------------*/
 #pragma comment(lib, "opengl32.lib")
-#pragma comment(lib, "glu32.lib")
+#pragma comment(lib, "glu32.lib")  // retained during incremental migration
 
 
 
@@ -81,8 +81,8 @@
 #define FULLSCREEN_MODE			FALSE					// Specify to run in full screen mode or not
 #define WINDOW_NAME				"SkullbonezWindow"		// Window class name
 #define TITLE_TEXT				"::SKULLBONEZ CORE::"	// Window title text
-#define SCREEN_X				1800 					// Screen resolution width
-#define SCREEN_Y				1400					// Screen resolution height
+#define SCREEN_X				800 					// Screen resolution width
+#define SCREEN_Y				600						// Screen resolution height
 #define BITS_PER_PIXEL			32						// Full screen bits per pixel
 #define REFRESH_RATE			75						// Full screen refresh rate
 #define	MOUSE_MOVEMENT_CONST	0.05f					// Mouse movement scale constant

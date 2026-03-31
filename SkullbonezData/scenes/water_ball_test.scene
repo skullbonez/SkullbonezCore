@@ -1,0 +1,13 @@
+# water_ball_test.scene
+# Render order regression test: one ball partially submerged in water
+# at the center of the play area. Tests terrain, skybox, sphere,
+# water transparency, shadow, and render order all in one frame.
+
+physics off
+frames 1
+
+# Camera pulled back and elevated to see ball, terrain, water, and skybox
+camera main 500 60 650  600 24 600  0 1 0
+
+# Ball in the play area, partially in water (FLUID_HEIGHT=25, radius=3, y=24)
+ball water_test 600 24 600  3.0 50.0 10.0 0.8

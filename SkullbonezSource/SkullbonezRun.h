@@ -39,6 +39,7 @@
 #include "SkullbonezGeometricMath.h"
 #include "SkullbonezGameModelCollection.h"
 #include "SkullbonezWorldEnvironment.h"
+#include "SkullbonezTestScene.h"
 
 
 /* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -65,6 +66,11 @@ namespace SkullbonezCore
 
 		private:
 			
+			bool					isSceneMode;				// Scene file mode (deterministic, data-driven)
+			bool					isScenePhysics;				// Physics enabled in scene mode
+			int						targetFrameCount;			// Frames to render before holding (-1 = unlimited)
+			int						currentFrame;				// Current frame counter for scene mode
+			char					scenePath[256];				// Path to scene file (empty = legacy mode)
 			int						selectedCamera;				// Keeps track of which camera is selected
 			int						modelCount;					// Number of models in the scene
 			float					physicsTime, r_physicsTime;	// Physics time
@@ -91,8 +97,10 @@ namespace SkullbonezCore
 			void					RelativeUpdateCamera	(uint32_t hash);					// Relative update specified camera
 			void					UpdateLogic				(float fSecondsPerFrame);			// Update world logic
 			void					TakeInput				(void);								// Take user input
-			void					SetUpCameras			(void);								// Camera init
-			void					SetUpGameModels			(void);								// Game model init
+			void					SetUpCameras			(void);								// Camera init (legacy mode)
+			void					SetUpCamerasFromScene	(const TestScene& scene);			// Camera init from scene file
+			void					SetUpGameModels			(void);								// Game model init (random legacy mode)
+			void					SetUpGameModelsFromScene(const TestScene& scene);			// Game model init from scene file
 			void					DrawPrimitives			(void);								// Draw OpenGL primitives here
 			void					SetInitialOpenGlState	(void);								// Sets the initial state of the OpenGL evironment
 			void					SetViewingOrientation	(void);								// Renders camera views etc			
@@ -103,10 +111,10 @@ namespace SkullbonezCore
 
 		public:
 
-									SkullbonezRun			(void);			// Default constructor
-									~SkullbonezRun			(void);			// Default destructor
-			void					Initialise				(void);			// Initialises the SkullbonezRun class
-			bool					Run						(void);			// Runs the application after initialisation - main message loop
+									SkullbonezRun			(const char* pScenePath = nullptr);	// Constructor (nullptr = legacy mode)
+									~SkullbonezRun			(void);								// Default destructor
+			void					Initialise				(void);								// Initialises the SkullbonezRun class
+			bool					Run						(void);								// Runs the application after initialisation - main message loop
 		};
 	}
 }

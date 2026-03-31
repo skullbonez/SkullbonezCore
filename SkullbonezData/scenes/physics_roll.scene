@@ -1,0 +1,15 @@
+# physics_roll.scene
+# Physics regression test: one ball rolling down a hill under force.
+# Two cameras capture different angles of the motion.
+
+physics on
+frames 300
+
+# Camera from above looking down the hill
+camera hilltop 500 120 500  550 60 550  0 1 0
+
+# Camera from the side watching the ball roll
+camera side 560 70 520  550 60 550  0 1 0
+
+# Ball on the hillside with an applied force to start it rolling
+ball roller 550 100 550  2.0 30.0 10.0 0.6  500 0 300  1 1 1

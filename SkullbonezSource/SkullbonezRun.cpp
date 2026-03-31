@@ -31,6 +31,7 @@
 #include "SkullbonezBoundingSphere.h"
 #include "SkullbonezGameModel.h"
 #include <time.h>
+#include <cstring>
 
 
 
@@ -41,8 +42,19 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
-SkullbonezRun::SkullbonezRun(void)
+SkullbonezRun::SkullbonezRun(const char* pScenePath)
 {
+	// init scene mode
+	this->isSceneMode			= (pScenePath != nullptr);
+	this->isScenePhysics		= true;
+	this->targetFrameCount		= -1;
+	this->currentFrame			= 0;
+
+	if (pScenePath)
+		strcpy_s(this->scenePath, sizeof(this->scenePath), pScenePath);
+	else
+		this->scenePath[0] = '\0';
+
 	// init members
 	this->cCameras				= 0;
 	this->cTextures				= 0;
@@ -103,17 +115,30 @@ void SkullbonezRun::Initialise(void)
 											   GAS_DENSITY,
 											   GRAVITATIONAL_FORCE);
 
-	// Init camera
-	this->SetUpCameras();
+	// Branch on scene mode vs legacy mode
+	if (this->isSceneMode)
+	{
+		TestScene scene = TestScene::LoadFromFile(this->scenePath);
+		this->isScenePhysics   = scene.IsPhysicsEnabled();
+		this->targetFrameCount = scene.GetFrameCount();
 
-	// Init game models
-	this->SetUpGameModels();
+		this->SetUpCamerasFromScene(scene);
+		this->SetUpGameModelsFromScene(scene);
+	}
+	else
+	{
+		this->SetUpCameras();
+		this->SetUpGameModels();
+	}
 
 	// Init font (HDC, font)
 	Text2d::BuildFont(this->cWindow->sDevice, "Verdana");
 
 	// Restore initial window text
-	this->cWindow->SetTitleText("::SKULLBONEZ CORE::");
+	if (this->isSceneMode)
+		this->cWindow->SetTitleText("::SKULLBONEZ CORE:: [SCENE MODE]");
+	else
+		this->cWindow->SetTitleText("::SKULLBONEZ CORE::");
 
 	// begin timing
 	this->cUpdateTimer.StartTimer();
@@ -198,8 +223,9 @@ bool SkullbonezRun::Run(void)
 			// Input
 			// this->TakeInput();						
 
-			// Logic
-			this->UpdateLogic((float)secondsPerFrame);
+			// Logic (skip physics in scene mode when disabled)
+			if (!this->isSceneMode || this->isScenePhysics)
+				this->UpdateLogic((float)secondsPerFrame);
 
 			// Begin render timer
 			this->cWorkTimer.StartTimer();
@@ -222,8 +248,32 @@ bool SkullbonezRun::Run(void)
 			// Stop frame timer
 			this->cFrameTimer.StopTimer();
 
-			// End the simulation when required
-			if(this->cSimulationTimer.GetTimeSinceLastStart() > 20.0)
+			// Scene mode: count frames, hold after target reached
+			if (this->isSceneMode && this->targetFrameCount > 0)
+			{
+				++this->currentFrame;
+				if (this->currentFrame >= this->targetFrameCount)
+				{
+					// hold — keep rendering but don't advance logic
+					for (;;)
+					{
+						MSG holdMsg;
+						if (PeekMessage(&holdMsg, NULL, 0, 0, PM_REMOVE))
+						{
+							if (holdMsg.message == WM_QUIT) return false;
+							TranslateMessage(&holdMsg);
+							DispatchMessage(&holdMsg);
+						}
+						else
+						{
+							Sleep(16);
+						}
+					}
+				}
+			}
+
+			// End the simulation when required (legacy mode only)
+			if (!this->isSceneMode && this->cSimulationTimer.GetTimeSinceLastStart() > 20.0)
 			{
 				return true;
 			}
@@ -472,6 +522,9 @@ void SkullbonezRun::DrawWindowText(const double dSecondsPerFrame)
 /* -- SET VIEWING ORIENTATION -------------------------------------------------------------------------------------------------------------------------------------------*/
 void SkullbonezRun::SetViewingOrientation(void)
 {
+	// In scene mode, use the first camera without cycling
+	if (this->isSceneMode) return;
+
 	// set viewing orientation
 /*
 	if(Input::IsKeyDown('1')) this->selectedCamera = 0;
@@ -577,4 +630,60 @@ void SkullbonezRun::MoveCamera(float keyMovementQty, float mouseMovementQty)
 	// amend y coodinate if necessary
 	if(minY > translatedCameraPosition.y)					this->cCameras->AmmendPrimaryY(minY);
 	else if(translatedCameraPosition.y > MAX_CAMERA_HEIGHT) this->cCameras->AmmendPrimaryY(MAX_CAMERA_HEIGHT);
+}
+
+
+
+/* -- SET UP CAMERAS FROM SCENE ---------------------------------------------------*/
+void SkullbonezRun::SetUpCamerasFromScene(const TestScene& scene)
+{
+	this->cCameras = CameraCollection::Instance();
+
+	for (int i = 0; i < scene.GetCameraCount(); ++i)
+	{
+		const SceneCamera& cam = scene.GetCamera(i);
+		uint32_t hash = HashStr(cam.name);
+		this->cCameras->AddCamera(cam.position, cam.view, cam.up, hash);
+	}
+
+	// set the camera boundaries
+	this->cCameras->SetCameraXZBounds(this->cTerrain->GetXZBounds());
+
+	// set the terrain
+	this->cCameras->SetTerrain(this->cTerrain.get());
+
+	// lock the cameras
+	this->cCameras->SetLockedMode(true);
+}
+
+
+
+/* -- SET UP GAME MODELS FROM SCENE -----------------------------------------------*/
+void SkullbonezRun::SetUpGameModelsFromScene(const TestScene& scene)
+{
+	this->modelCount = scene.GetBallCount();
+
+	for (int i = 0; i < scene.GetBallCount(); ++i)
+	{
+		const SceneBall& ball = scene.GetBall(i);
+
+		GameModel gameModel(&this->cWorldEnvironment,
+			Vector3(ball.posX, ball.posY, ball.posZ),
+			Vector3(ball.moment, ball.moment, ball.moment),
+			ball.mass);
+
+		gameModel.SetCoefficientRestitution(ball.restitution);
+		gameModel.SetTerrain(this->cTerrain.get());
+		gameModel.AddBoundingSphere(ball.radius);
+
+		// apply force if any is specified
+		if (ball.forceX != 0.0f || ball.forceY != 0.0f || ball.forceZ != 0.0f)
+		{
+			gameModel.SetImpulseForce(
+				Vector3(ball.forceX, ball.forceY, ball.forceZ),
+				Vector3(ball.forcePosX, ball.forcePosY, ball.forcePosZ));
+		}
+
+		this->cGameModelCollection.AddGameModel(std::move(gameModel));
+	}
 }
