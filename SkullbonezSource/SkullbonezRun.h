@@ -66,9 +66,11 @@ namespace SkullbonezCore
 
 		private:
 			
+			static int				sGlResetPass;				// GL reset test pass counter (persists across instances)
 			bool					isSceneMode;				// Scene file mode (deterministic, data-driven)
 			bool					isScenePhysics;				// Physics enabled in scene mode
 			bool					isSceneText;				// Text overlay enabled in scene mode
+			bool					isGlResetTest;				// Test GL context recreation
 			bool					isScreenshotSaved;			// Screenshot already written this run
 			int						targetFrameCount;			// Frames to render before holding (-1 = unlimited)
 			int						currentFrame;				// Current frame counter for scene mode

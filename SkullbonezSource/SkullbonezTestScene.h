@@ -80,6 +80,7 @@ namespace SkullbonezCore
 
 			bool						isPhysicsEnabled;
 			bool						isTextEnabled;
+			bool						isGlResetTest;		// test GL context recreation
 			int							frameCount;			// -1 = unlimited
 			char						screenshotPath[256];// output path for screenshot (empty = none)
 			int							screenshotFrame;	// trigger on frame N (-1 = unused)
@@ -97,6 +98,7 @@ namespace SkullbonezCore
 
 			bool						IsPhysicsEnabled		(void) const;
 			bool						IsTextEnabled			(void) const;
+			bool						IsGlResetTest			(void) const;
 			int							GetFrameCount			(void) const;
 			const char*					GetScreenshotPath		(void) const;
 			int							GetScreenshotFrame		(void) const;

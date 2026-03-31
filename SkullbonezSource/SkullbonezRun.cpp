@@ -41,6 +41,11 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 
 
 
+/* -- STATIC MEMBER INITIALISATION ------------------------------------------------*/
+int SkullbonezRun::sGlResetPass = 0;
+
+
+
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 SkullbonezRun::SkullbonezRun(const char* pScenePath)
 {
@@ -48,6 +53,7 @@ SkullbonezRun::SkullbonezRun(const char* pScenePath)
 	this->isSceneMode			= (pScenePath != nullptr);
 	this->isScenePhysics		= true;
 	this->isSceneText			= true;
+	this->isGlResetTest			= false;
 	this->isScreenshotSaved		= false;
 	this->targetFrameCount		= -1;
 	this->currentFrame			= 0;
@@ -132,7 +138,24 @@ void SkullbonezRun::Initialise(void)
 		this->screenshotMs     = scene.GetScreenshotMs();
 
 		if (scene.GetScreenshotPath()[0] != '\0')
+		{
 			strcpy_s(this->screenshotPath, sizeof(this->screenshotPath), scene.GetScreenshotPath());
+
+			// On pass 2 of GL reset test, modify screenshot path to add _reset suffix
+			if (scene.IsGlResetTest() && sGlResetPass > 0)
+			{
+				char* dot = strrchr(this->screenshotPath, '.');
+				if (dot)
+				{
+					char ext[32];
+					strcpy_s(ext, sizeof(ext), dot);
+					strcpy_s(dot, sizeof(this->screenshotPath) - (dot - this->screenshotPath), "_reset");
+					strcat_s(this->screenshotPath, sizeof(this->screenshotPath), ext);
+				}
+			}
+		}
+
+		this->isGlResetTest = scene.IsGlResetTest();
 
 		// Override RNG seed for deterministic scenes
 		if (scene.GetSeed() > 0)
@@ -272,6 +295,16 @@ bool SkullbonezRun::Run(void)
 				{
 					this->SaveScreenshot(this->screenshotPath);
 					this->isScreenshotSaved = true;
+
+					// GL reset test pass 1: force context recreation instead of exiting
+					if (this->isGlResetTest && sGlResetPass == 0)
+					{
+						sGlResetPass++;
+						return true;  // triggers GL context destroy/recreate in WinMain loop
+					}
+
+					// Normal exit (or pass 2 of GL reset test)
+					sGlResetPass = 0;  // reset for next test
 					PostQuitMessage(0);
 				}
 			}

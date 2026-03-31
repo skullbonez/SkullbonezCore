@@ -41,6 +41,7 @@ TestScene::TestScene(void)
 {
 	this->isPhysicsEnabled	= true;
 	this->isTextEnabled		= true;
+	this->isGlResetTest		= false;
 	this->frameCount		= -1;
 	this->screenshotPath[0]	= '\0';
 	this->screenshotFrame	= -1;
@@ -200,6 +201,13 @@ TestScene TestScene::LoadFromFile(const char* path)
 			continue;
 		}
 
+		// parse test_gl_reset directive
+		if (strcmp(line, "test_gl_reset") == 0)
+		{
+			scene.isGlResetTest = true;
+			continue;
+		}
+
 		// parse camera line
 		if (strncmp(line, "camera ", 7) == 0)
 		{
@@ -288,6 +296,14 @@ bool TestScene::IsPhysicsEnabled(void) const
 bool TestScene::IsTextEnabled(void) const
 {
 	return this->isTextEnabled;
+}
+
+
+
+/* -- IS GL RESET TEST ------------------------------------------------------------*/
+bool TestScene::IsGlResetTest(void) const
+{
+	return this->isGlResetTest;
 }
 
 

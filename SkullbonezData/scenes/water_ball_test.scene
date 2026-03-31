@@ -6,6 +6,7 @@
 physics off
 text off
 frames 1
+test_gl_reset
 screenshot Debug/screenshot.bmp frame 1
 
 # Camera pulled back and elevated to see ball, terrain, water, and skybox

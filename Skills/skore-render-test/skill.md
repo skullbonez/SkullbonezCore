@@ -19,31 +19,37 @@ The Debug exe must exist at `Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe`. If no
 
 #### 1. Run both scenes
 
+Each scene has `test_gl_reset` enabled, so each run produces **two** screenshots: one before and one after GL context recreation. This verifies VBO/VAO/shader handles survive the reset.
+
 ```pwsh
 $proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
 if ($proc) { Stop-Process -Id $proc.Id -Force; Start-Sleep 1 }
 
-# Scene 1: water_ball_test
+# Clean up old screenshots
 Remove-Item "Y:\SkullbonezCore\Debug\screenshot.bmp" -ErrorAction SilentlyContinue
+Remove-Item "Y:\SkullbonezCore\Debug\screenshot_reset.bmp" -ErrorAction SilentlyContinue
+Remove-Item "Y:\SkullbonezCore\Debug\legacy_smoke.bmp" -ErrorAction SilentlyContinue
+Remove-Item "Y:\SkullbonezCore\Debug\legacy_smoke_reset.bmp" -ErrorAction SilentlyContinue
+
+# Scene 1: water_ball_test (produces screenshot.bmp + screenshot_reset.bmp)
 $proc = Start-Process "Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe" `
     -ArgumentList "--scene SkullbonezData/scenes/water_ball_test.scene" `
     -WorkingDirectory "Y:\SkullbonezCore" -PassThru
-$proc.WaitForExit(10000) | Out-Null
-if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force; Write-Host "FAIL: water_ball_test didn't exit" }
-if (Test-Path "Y:\SkullbonezCore\Debug\screenshot.bmp") {
-    Write-Host "water_ball_test: Screenshot saved"
-} else { Write-Host "FAIL: No water_ball_test screenshot" }
+$proc.WaitForExit(15000) | Out-Null
+if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force; Write-Host "FAIL: water_ball_test timed out" }
+$s1 = Test-Path "Y:\SkullbonezCore\Debug\screenshot.bmp"
+$s2 = Test-Path "Y:\SkullbonezCore\Debug\screenshot_reset.bmp"
+Write-Host "water_ball_test: pass1=$s1 pass2=$s2"
 
-# Scene 2: legacy_smoke
-Remove-Item "Y:\SkullbonezCore\Debug\legacy_smoke.bmp" -ErrorAction SilentlyContinue
+# Scene 2: legacy_smoke (produces legacy_smoke.bmp + legacy_smoke_reset.bmp)
 $proc = Start-Process "Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe" `
     -ArgumentList "--scene SkullbonezData/scenes/legacy_smoke.scene" `
     -WorkingDirectory "Y:\SkullbonezCore" -PassThru
 $proc.WaitForExit(15000) | Out-Null
-if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force; Write-Host "FAIL: legacy_smoke didn't exit" }
-if (Test-Path "Y:\SkullbonezCore\Debug\legacy_smoke.bmp") {
-    Write-Host "legacy_smoke: Screenshot saved"
-} else { Write-Host "FAIL: No legacy_smoke screenshot" }
+if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force; Write-Host "FAIL: legacy_smoke timed out" }
+$s3 = Test-Path "Y:\SkullbonezCore\Debug\legacy_smoke.bmp"
+$s4 = Test-Path "Y:\SkullbonezCore\Debug\legacy_smoke_reset.bmp"
+Write-Host "legacy_smoke: pass1=$s3 pass2=$s4"
 ```
 
 #### 2. Convert screenshots to PNG
@@ -53,9 +59,14 @@ The API cannot display BMP files (causes schema validation error). **Always** co
 ```pwsh
 py -c "
 from PIL import Image
-Image.open(r'Y:\SkullbonezCore\Debug\screenshot.bmp').save(r'Y:\SkullbonezCore\Debug\screenshot_water.png')
-Image.open(r'Y:\SkullbonezCore\Debug\legacy_smoke.bmp').save(r'Y:\SkullbonezCore\Debug\legacy_smoke.png')
-print('Converted to PNG')
+for src, dst in [
+    (r'Y:\SkullbonezCore\Debug\screenshot.bmp', r'Y:\SkullbonezCore\Debug\screenshot_water.png'),
+    (r'Y:\SkullbonezCore\Debug\screenshot_reset.bmp', r'Y:\SkullbonezCore\Debug\screenshot_water_reset.png'),
+    (r'Y:\SkullbonezCore\Debug\legacy_smoke.bmp', r'Y:\SkullbonezCore\Debug\legacy_smoke.png'),
+    (r'Y:\SkullbonezCore\Debug\legacy_smoke_reset.bmp', r'Y:\SkullbonezCore\Debug\legacy_smoke_reset.png'),
+]:
+    Image.open(src).save(dst)
+print('Converted 4 screenshots to PNG')
 "
 ```
 
@@ -63,12 +74,11 @@ print('Converted to PNG')
 
 #### 3. Tolerance pixel comparison
 
-Compares each pixel with a per-channel tolerance of ±5 (absorbs minor shading differences from FFP→shader transitions). Reports both exact-match and tolerance-match stats.
+Compares baseline vs pass1, baseline vs pass2 (after GL reset), and pass1 vs pass2 for each scene. All 6 pairs must pass.
 
 ```pwsh
 py -c "
 from PIL import Image
-import sys
 
 TOLERANCE = 5  # per-channel (R, G, B) allowed deviation
 
@@ -98,31 +108,44 @@ def compare(baseline_path, current_path, name):
 
     exact_pct = round(exact_diff / total * 100, 4)
     tol_pct   = round(tolerance_diff / total * 100, 4)
-    print(f'[{name}] Pixels: {total} | Exact diff: {exact_diff} ({exact_pct}%) | Beyond tolerance: {tolerance_diff} ({tol_pct}%)')
+    print(f'[{name}] Exact diff: {exact_diff} ({exact_pct}%) | Beyond tolerance: {tolerance_diff} ({tol_pct}%)')
 
     if tolerance_diff == 0:
-        print(f'PIXEL_PASS [{name}]: All pixels within tolerance (+-{TOLERANCE})')
+        print(f'PIXEL_PASS [{name}]')
         return True
     elif tol_pct < 0.5:
         print(f'PIXEL_PASS [{name}]: {tol_pct}% beyond tolerance — acceptable')
         return True
     else:
-        print(f'PIXEL_FAIL [{name}]: {tol_pct}% pixels beyond tolerance — needs visual review')
+        print(f'PIXEL_FAIL [{name}]: {tol_pct}% beyond tolerance — needs visual review')
         return False
 
+print('=== water_ball_test ===')
 r1 = compare(r'Y:\SkullbonezCore\Skills\skore-render-test\baseline_water_ball_test.png',
-             r'Y:\SkullbonezCore\Debug\screenshot_water.png', 'water_ball_test')
-r2 = compare(r'Y:\SkullbonezCore\Skills\skore-render-test\baseline_legacy_smoke.png',
-             r'Y:\SkullbonezCore\Debug\legacy_smoke.png', 'legacy_smoke')
+             r'Y:\SkullbonezCore\Debug\screenshot_water.png', 'baseline vs pass1')
+r2 = compare(r'Y:\SkullbonezCore\Skills\skore-render-test\baseline_water_ball_test.png',
+             r'Y:\SkullbonezCore\Debug\screenshot_water_reset.png', 'baseline vs pass2')
+r3 = compare(r'Y:\SkullbonezCore\Debug\screenshot_water.png',
+             r'Y:\SkullbonezCore\Debug\screenshot_water_reset.png', 'pass1 vs pass2')
 
-if r1 and r2:
-    print('\nALL PIXEL TESTS PASSED')
+print()
+print('=== legacy_smoke ===')
+r4 = compare(r'Y:\SkullbonezCore\Skills\skore-render-test\baseline_legacy_smoke.png',
+             r'Y:\SkullbonezCore\Debug\legacy_smoke.png', 'baseline vs pass1')
+r5 = compare(r'Y:\SkullbonezCore\Skills\skore-render-test\baseline_legacy_smoke.png',
+             r'Y:\SkullbonezCore\Debug\legacy_smoke_reset.png', 'baseline vs pass2')
+r6 = compare(r'Y:\SkullbonezCore\Debug\legacy_smoke.png',
+             r'Y:\SkullbonezCore\Debug\legacy_smoke_reset.png', 'pass1 vs pass2')
+
+print()
+if all([r1,r2,r3,r4,r5,r6]):
+    print('ALL PIXEL TESTS PASSED')
 else:
-    print('\nPIXEL TESTS FAILED — proceed to step 4 for LLM visual comparison')
+    print('PIXEL TESTS FAILED - proceed to step 4 for LLM visual comparison')
 "
 ```
 
-**Pass criteria**: <0.5% of pixels beyond ±5 per-channel tolerance.
+**Pass criteria**: <0.5% of pixels beyond ±5 per-channel tolerance for each of the 6 pairs.
 
 If pixel tests pass → **done**, no further steps needed.
 If pixel tests fail → proceed to step 4.
@@ -182,6 +205,7 @@ text off|on                           # default: on
 frames <N>|unlimited                  # default: unlimited
 seed <N>                              # fixed RNG seed (deterministic balls)
 legacy_balls <N>                      # generate N random balls (like legacy mode)
+test_gl_reset                         # test GL context recreation (2-pass screenshot)
 screenshot <path> frame <N>           # capture after frame N
 screenshot <path> ms <N>              # capture after N milliseconds
 camera <name> <px py pz vx vy vz ux uy uz>
