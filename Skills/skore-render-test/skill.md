@@ -206,8 +206,51 @@ frames <N>|unlimited                  # default: unlimited
 seed <N>                              # fixed RNG seed (deterministic balls)
 legacy_balls <N>                      # generate N random balls (like legacy mode)
 test_gl_reset                         # test GL context recreation (2-pass screenshot)
+perf_log <path>                       # enable per-frame timing CSV (triggers 2x5s perf run)
 screenshot <path> frame <N>           # capture after frame N
 screenshot <path> ms <N>              # capture after N milliseconds
 camera <name> <px py pz vx vy vz ux uy uz>
 ball <name> <x y z r mass moment rest> [fx fy fz fpx fpy fpz]
 ```
+
+## Performance Test
+
+Runs SkullbonezCore for 10 seconds (2 passes × 5 seconds) with 300 balls, physics, and text overlay. Logs per-frame physics and render times plus memory checkpoints. After analysis, writes a JSON artifact for regression tracking.
+
+### Running the perf test
+
+```pwsh
+# 1. Run the perf test scene (10 seconds total)
+$proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
+if ($proc) { Stop-Process -Id $proc.Id -Force; Start-Sleep 1 }
+Remove-Item "Y:\SkullbonezCore\Debug\perf_log.csv" -ErrorAction SilentlyContinue
+$proc = Start-Process "Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe" `
+    -ArgumentList "--scene SkullbonezData/scenes/perf_test.scene" `
+    -WorkingDirectory "Y:\SkullbonezCore" -PassThru
+$proc.WaitForExit(30000) | Out-Null
+if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force; Write-Host "FAIL: perf test didn't exit" }
+if (Test-Path "Y:\SkullbonezCore\Debug\perf_log.csv") {
+    Write-Host "PASS: perf_log.csv generated"
+} else { Write-Host "FAIL: No perf_log.csv" }
+
+# 2. Analyze and write artifact
+py "Y:\SkullbonezCore\Skills\skore-render-test\analyze_perf.py"
+```
+
+### Artifact format
+
+Written to `Skills/skore-render-test/perf_history/{commit_hash}.json`:
+
+```json
+{
+  "commit": "ab2729c",
+  "total_frames": 601,
+  "physics_ms": { "min": 0.76, "max": 2.80, "avg": 1.72, "p50": 1.72, "p99": 2.58, "p99_9": 2.80 },
+  "render_ms":  { "min": 0.95, "max": 4.33, "avg": 1.35, "p50": 1.36, "p99": 1.78, "p99_9": 3.99 },
+  "mem_start_mb": 63.62,
+  "mem_restart_mb": 89.86,
+  "mem_end_mb": 90.47
+}
+```
+
+The analysis script automatically compares against the previous artifact and reports deltas.

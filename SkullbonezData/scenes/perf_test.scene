@@ -1,0 +1,10 @@
+# Performance test scene
+# 300 balls with physics and text overlay, 5 seconds per pass, 2 passes
+seed 42
+physics on
+text on
+legacy_balls 300
+camera cam1 321 110 557  581 40 633  0 1 0
+camera cam2 730 100 380  709 92 482  0 1 0
+camera cam3 900 110 900  313 31 282  0 1 0
+perf_log Debug/perf_log.csv

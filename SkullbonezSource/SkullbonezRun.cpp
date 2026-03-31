@@ -32,6 +32,7 @@
 #include "SkullbonezGameModel.h"
 #include <time.h>
 #include <cstring>
+#include <psapi.h>
 
 
 
@@ -43,6 +44,7 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 
 /* -- STATIC MEMBER INITIALISATION ------------------------------------------------*/
 int SkullbonezRun::sGlResetPass = 0;
+int SkullbonezRun::sPerfPass    = 0;
 
 
 
@@ -54,12 +56,15 @@ SkullbonezRun::SkullbonezRun(const char* pScenePath)
 	this->isScenePhysics		= true;
 	this->isSceneText			= true;
 	this->isGlResetTest			= false;
+	this->isPerfTest			= false;
 	this->isScreenshotSaved		= false;
 	this->targetFrameCount		= -1;
 	this->currentFrame			= 0;
 	this->screenshotFrame		= -1;
 	this->screenshotMs			= -1;
 	this->screenshotPath[0]		= '\0';
+	this->perfLogPath[0]		= '\0';
+	this->perfLogFile			= nullptr;
 
 	if (pScenePath)
 		strcpy_s(this->scenePath, sizeof(this->scenePath), pScenePath);
@@ -88,6 +93,12 @@ SkullbonezRun::SkullbonezRun(const char* pScenePath)
 /* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
 SkullbonezRun::~SkullbonezRun(void)
 {
+	if (this->perfLogFile)
+	{
+		fclose(this->perfLogFile);
+		this->perfLogFile = nullptr;
+	}
+
 	Text2d::DeleteFont();
 
 	this->cTextures->Destroy();
@@ -156,6 +167,22 @@ void SkullbonezRun::Initialise(void)
 		}
 
 		this->isGlResetTest = scene.IsGlResetTest();
+
+		// Perf test: open CSV log file
+		const char* pPerfPath = scene.GetPerfLogPath();
+		if (pPerfPath[0] != '\0')
+		{
+			this->isPerfTest = true;
+			strcpy_s(this->perfLogPath, sizeof(this->perfLogPath), pPerfPath);
+			const char* mode = (sPerfPass == 0) ? "w" : "a";
+			fopen_s(&this->perfLogFile, this->perfLogPath, mode);
+			if (this->perfLogFile)
+			{
+				if (sPerfPass == 0)
+					fprintf(this->perfLogFile, "pass,frame,physics_ms,render_ms\n");
+				this->LogPerfMemory("start");
+			}
+		}
 
 		// Override RNG seed for deterministic scenes
 		if (scene.GetSeed() > 0)
@@ -315,16 +342,29 @@ bool SkullbonezRun::Run(void)
 			// Store render time
 			this->renderTime = (float)this->cWorkTimer.GetElapsedTime();
 
+			// Perf test: log per-frame timing
+			if (this->isPerfTest && this->perfLogFile)
+			{
+				fprintf(this->perfLogFile, "%d,%d,%.4f,%.4f\n",
+					sPerfPass + 1,
+					this->currentFrame + 1,
+					this->physicsTime * 1000.0f,
+					this->renderTime * 1000.0f);
+			}
+
 			// Swap back buffer
 			SwapBuffers(this->cWindow->sDevice);
 
 			// Stop frame timer
 			this->cFrameTimer.StopTimer();
 
-			// Scene mode: count frames, hold after target reached (skip if screenshot auto-exit pending)
+			// Scene mode: count frames
+			if (this->isSceneMode)
+				++this->currentFrame;
+
+			// Scene mode: hold after target reached (skip if screenshot auto-exit pending)
 			if (this->isSceneMode && this->targetFrameCount > 0 && !this->isScreenshotSaved)
 			{
-				++this->currentFrame;
 				if (this->currentFrame >= this->targetFrameCount)
 				{
 					// hold — keep rendering but don't advance logic
@@ -349,6 +389,24 @@ bool SkullbonezRun::Run(void)
 			if (!this->isSceneMode && this->cSimulationTimer.GetTimeSinceLastStart() > 20.0)
 			{
 				return true;
+			}
+
+			// Perf test: restart at 5s (pass 1), exit at 5s (pass 2)
+			if (this->isPerfTest && this->cSimulationTimer.GetTimeSinceLastStart() > 5.0)
+			{
+				this->LogPerfMemory("end");
+				if (sPerfPass == 0)
+				{
+					sPerfPass++;
+					if (this->perfLogFile) { fclose(this->perfLogFile); this->perfLogFile = nullptr; }
+					return true;  // force GL context restart
+				}
+				else
+				{
+					sPerfPass = 0;
+					if (this->perfLogFile) { fclose(this->perfLogFile); this->perfLogFile = nullptr; }
+					PostQuitMessage(0);
+				}
 			}
 		}
 	}
@@ -842,4 +900,22 @@ void SkullbonezRun::SaveScreenshot(const char* path)
 	fwrite(infoHeader, 1, 40, file);
 	fwrite(pixels.data(), 1, static_cast<size_t>(imageSize), file);
 	fclose(file);
+}
+
+
+
+/* -- LOG PERF MEMORY -------------------------------------------------------------*/
+void SkullbonezRun::LogPerfMemory(const char* checkpoint)
+{
+	if (!this->perfLogFile) return;
+
+	PROCESS_MEMORY_COUNTERS pmc;
+	pmc.cb = sizeof(pmc);
+	if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc)))
+	{
+		double mb = static_cast<double>(pmc.WorkingSetSize) / (1024.0 * 1024.0);
+		fprintf(this->perfLogFile, "# MEM %s pass=%d working_set_mb=%.2f\n",
+			checkpoint, sPerfPass + 1, mb);
+		fflush(this->perfLogFile);
+	}
 }

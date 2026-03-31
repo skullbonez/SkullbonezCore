@@ -44,6 +44,7 @@ TestScene::TestScene(void)
 	this->isGlResetTest		= false;
 	this->frameCount		= -1;
 	this->screenshotPath[0]	= '\0';
+	this->perfLogPath[0]	= '\0';
 	this->screenshotFrame	= -1;
 	this->screenshotMs		= -1;
 	this->seed				= 0;
@@ -208,6 +209,13 @@ TestScene TestScene::LoadFromFile(const char* path)
 			continue;
 		}
 
+		// parse perf_log directive
+		if (strncmp(line, "perf_log ", 9) == 0)
+		{
+			strcpy_s(scene.perfLogPath, sizeof(scene.perfLogPath), line + 9);
+			continue;
+		}
+
 		// parse camera line
 		if (strncmp(line, "camera ", 7) == 0)
 		{
@@ -352,6 +360,14 @@ unsigned int TestScene::GetSeed(void) const
 int TestScene::GetLegacyBallCount(void) const
 {
 	return this->legacyBallCount;
+}
+
+
+
+/* -- GET PERF LOG PATH -----------------------------------------------------------*/
+const char* TestScene::GetPerfLogPath(void) const
+{
+	return this->perfLogPath;
 }
 
 

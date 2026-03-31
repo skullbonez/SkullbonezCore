@@ -67,10 +67,12 @@ namespace SkullbonezCore
 		private:
 			
 			static int				sGlResetPass;				// GL reset test pass counter (persists across instances)
+			static int				sPerfPass;					// Perf test pass counter (persists across instances)
 			bool					isSceneMode;				// Scene file mode (deterministic, data-driven)
 			bool					isScenePhysics;				// Physics enabled in scene mode
 			bool					isSceneText;				// Text overlay enabled in scene mode
 			bool					isGlResetTest;				// Test GL context recreation
+			bool					isPerfTest;					// Performance logging mode
 			bool					isScreenshotSaved;			// Screenshot already written this run
 			int						targetFrameCount;			// Frames to render before holding (-1 = unlimited)
 			int						currentFrame;				// Current frame counter for scene mode
@@ -78,6 +80,8 @@ namespace SkullbonezCore
 			int						screenshotMs;				// Save screenshot at this elapsed ms (-1 = unused)
 			char					scenePath[256];				// Path to scene file (empty = legacy mode)
 			char					screenshotPath[256];		// Output path for screenshot (empty = none)
+			char					perfLogPath[256];			// Output path for perf CSV (empty = none)
+			FILE*					perfLogFile;				// Open handle for perf CSV
 			int						selectedCamera;				// Keeps track of which camera is selected
 			int						modelCount;					// Number of models in the scene
 			float					physicsTime, r_physicsTime;	// Physics time
@@ -113,6 +117,7 @@ namespace SkullbonezCore
 			void					SetViewingOrientation	(void);								// Renders camera views etc			
 			void					DrawWindowText			(const double dSecondsPerFrame);	// Renders text to the window
 			void					SaveScreenshot			(const char* path);					// Saves framebuffer to BMP file via glReadPixels
+			void					LogPerfMemory			(const char* checkpoint);			// Log memory usage to perf CSV
 			void					MoveCamera				(float keyMovementQty, 
 															 float mouseMovemementQty);			// Moves the camera
 
