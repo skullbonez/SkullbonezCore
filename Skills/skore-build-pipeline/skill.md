@@ -25,7 +25,7 @@ $msbuild = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.e
 
 Run the `skore-render-test` skill. Launches both test scenes, captures 4 screenshots (2 per scene, before and after GL reset), and runs pixel comparison against baselines. All 6 comparison pairs must pass.
 
-**If render test fails**: Proceed to LLM visual comparison per the `skore-render-test` skill. If the change intentionally alters rendering, update baselines in Step 3. If unintentional, investigate and fix before proceeding.
+**If render test fails**: Convert screenshots to PNG and send them to the model via the `view` tool for LLM visual comparison. **Only send PNGs to the model if local pixel comparison fails** — do not waste context on images that pass. Evaluate against the 6-point checklist in the `skore-render-test` skill. If the change intentionally alters rendering, update baselines in Step 3. If unintentional, investigate and fix before proceeding.
 
 ### Step 3: Update Reference Images
 
