@@ -28,6 +28,7 @@
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezMatrix4.h"
 #include "SkullbonezQuaternion.h"
+#include <cmath>
 
 
 
@@ -174,6 +175,43 @@ Matrix4 Matrix4::Scale(float x, float y, float z)
 Matrix4 Matrix4::Scale(float uniform)
 {
 	return Scale(uniform, uniform, uniform);
+}
+
+
+
+/* -- AXIS-ANGLE ROTATION ---------------------------------------------------------*/
+Matrix4 Matrix4::RotateAxis(float angleDeg, float axisX, float axisY, float axisZ)
+{
+	float rad = angleDeg * (3.14159265f / 180.0f);
+	float c   = cosf(rad);
+	float s   = sinf(rad);
+	float t   = 1.0f - c;
+
+	// Normalise axis
+	float mag = sqrtf(axisX * axisX + axisY * axisY + axisZ * axisZ);
+	if (mag > 0.0f) { axisX /= mag; axisY /= mag; axisZ /= mag; }
+
+	Matrix4 result;
+	result.m[0]  = t * axisX * axisX + c;
+	result.m[1]  = t * axisX * axisY + s * axisZ;
+	result.m[2]  = t * axisX * axisZ - s * axisY;
+	result.m[3]  = 0.0f;
+
+	result.m[4]  = t * axisX * axisY - s * axisZ;
+	result.m[5]  = t * axisY * axisY + c;
+	result.m[6]  = t * axisY * axisZ + s * axisX;
+	result.m[7]  = 0.0f;
+
+	result.m[8]  = t * axisX * axisZ + s * axisY;
+	result.m[9]  = t * axisY * axisZ - s * axisX;
+	result.m[10] = t * axisZ * axisZ + c;
+	result.m[11] = 0.0f;
+
+	result.m[12] = 0.0f;
+	result.m[13] = 0.0f;
+	result.m[14] = 0.0f;
+	result.m[15] = 1.0f;
+	return result;
 }
 
 

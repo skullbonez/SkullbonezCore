@@ -62,19 +62,24 @@ void GameModelCollection::RenderModels(const Matrix4& proj, const float lightPos
 
 
 /* -- RENDER SHADOWS --------------------------------------------------------------*/
-void GameModelCollection::RenderShadows(Geometry::Terrain* terrain)
+void GameModelCollection::RenderShadows(Geometry::Terrain* terrain,
+										const Matrix4& view,
+										const Matrix4& proj)
 {
 	if(!terrain) return;
 
-	// save and configure GL state for shadow rendering
-	glPushAttrib(GL_ENABLE_BIT | GL_COLOR_BUFFER_BIT | GL_POLYGON_BIT | GL_CURRENT_BIT);
-	glDisable(GL_LIGHTING);
-	glDisable(GL_TEXTURE_2D);
+	if (!this->shadowMesh)
+		this->BuildShadowMesh();
+
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_POLYGON_OFFSET_FILL);
 	glPolygonOffset(-1.0f, -1.0f);
 	glDisable(GL_CULL_FACE);
+
+	this->shadowShader->Use();
+	this->shadowShader->SetMat4("uView", view);
+	this->shadowShader->SetMat4("uProjection", proj);
 
 	for(int i = 0; i < (int)this->gameModels.size(); ++i)
 	{
@@ -88,47 +93,37 @@ void GameModelCollection::RenderShadows(Geometry::Terrain* terrain)
 		if(height < 0.0f) height = 0.0f;
 		if(height >= SHADOW_MAX_HEIGHT) continue;
 
-		// alpha fades with distance from ground
-		float alpha       = SHADOW_MAX_ALPHA * (1.0f - height / SHADOW_MAX_HEIGHT);
+		float alpha        = SHADOW_MAX_ALPHA * (1.0f - height / SHADOW_MAX_HEIGHT);
 		float shadowRadius = radius * SHADOW_SCALE;
 
-		// get terrain normal to orient shadow disc to slope
 		Vector3 N = terrain->GetTerrainNormalAt(pos.x, pos.z);
 
-		glPushMatrix();
-		glTranslatef(pos.x, groundY + SHADOW_OFFSET, pos.z);
+		// Build model matrix: translate → rotate to terrain normal → scale
+		Matrix4 model = Matrix4::Translate(pos.x, groundY + SHADOW_OFFSET, pos.z);
 
-		// rotate disc from flat (Y-up) to terrain normal
-		// axis = cross(up, N), angle = acos(dot(up, N))
-		float cosA = N.y;  // dot((0,1,0), N)
+		float cosA = N.y;
 		if(cosA < 0.9999f)
 		{
-			// rotation axis = cross((0,1,0), N) = (N.z, 0, -N.x)
 			float axisX =  N.z;
 			float axisZ = -N.x;
 			float axisMag = sqrtf(axisX * axisX + axisZ * axisZ);
 			axisX /= axisMag;
 			axisZ /= axisMag;
 			float angleDeg = acosf(cosA) * (180.0f / 3.14159265f);
-			glRotatef(angleDeg, axisX, 0.0f, axisZ);
+			model = model * Matrix4::RotateAxis(angleDeg, axisX, 0.0f, axisZ);
 		}
 
-		glBegin(GL_TRIANGLE_FAN);
-			glColor4f(0.0f, 0.0f, 0.0f, alpha);
-			glVertex3f(0.0f, 0.0f, 0.0f);
-			glColor4f(0.0f, 0.0f, 0.0f, 0.0f);
-			for(int s = 0; s <= SHADOW_SEGMENTS; ++s)
-			{
-				float angle = (_2PI * s) / SHADOW_SEGMENTS;
-				glVertex3f(cosf(angle) * shadowRadius, 0.0f, sinf(angle) * shadowRadius);
-			}
-		glEnd();
+		model = model * Matrix4::Scale(shadowRadius);
 
-		glPopMatrix();
+		this->shadowShader->SetMat4("uModel", model);
+		this->shadowShader->SetFloat("uAlpha", alpha);
+		this->shadowMesh->Draw();
 	}
 
-	// restore all GL state
-	glPopAttrib();
+	glUseProgram(0);
+	glDisable(GL_POLYGON_OFFSET_FILL);
+	glEnable(GL_CULL_FACE);
+	glDisable(GL_BLEND);
 }
 
 
@@ -234,4 +229,42 @@ void GameModelCollection::RunPhysics(float fChangeInTime)
 		}
 	}
 
+}
+
+
+
+/* -- BUILD SHADOW MESH -----------------------------------------------------------*/
+void GameModelCollection::BuildShadowMesh(void)
+{
+	// Unit-radius disc in XZ plane, converted from triangle fan to triangles.
+	// Center at (0,0,0), ring vertices at unit distance.
+	// The shadow shader uses length(aPosition.xz) for alpha fade.
+	std::vector<float> verts;
+	verts.reserve(SHADOW_SEGMENTS * 3 * 3);
+
+	for(int s = 0; s < SHADOW_SEGMENTS; ++s)
+	{
+		float a0 = (_2PI * s) / SHADOW_SEGMENTS;
+		float a1 = (_2PI * (s + 1)) / SHADOW_SEGMENTS;
+
+		// Center vertex
+		verts.push_back(0.0f); verts.push_back(0.0f); verts.push_back(0.0f);
+		// Ring vertex 0
+		verts.push_back(cosf(a0)); verts.push_back(0.0f); verts.push_back(sinf(a0));
+		// Ring vertex 1
+		verts.push_back(cosf(a1)); verts.push_back(0.0f); verts.push_back(sinf(a1));
+	}
+
+	this->shadowMesh   = std::make_unique<Mesh>(verts.data(), SHADOW_SEGMENTS * 3, false, false);
+	this->shadowShader = std::make_unique<Shader>("SkullbonezData/shaders/shadow.vert",
+												  "SkullbonezData/shaders/shadow.frag");
+}
+
+
+
+/* -- RESET GL RESOURCES ----------------------------------------------------------*/
+void GameModelCollection::ResetGLResources(void)
+{
+	this->shadowMesh.reset();
+	this->shadowShader.reset();
 }

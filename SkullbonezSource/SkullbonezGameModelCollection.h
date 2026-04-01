@@ -29,11 +29,15 @@
 #include <list>
 #include <vector>
 #include <algorithm>
+#include <memory>
 #include "SkullbonezCommon.h"
 #include "SkullbonezGameModel.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezSpatialGrid.h"
 #include "SkullbonezTerrain.h"
+#include "SkullbonezMatrix4.h"
+#include "SkullbonezMesh.h"
+#include "SkullbonezShader.h"
 
 
 
@@ -42,6 +46,7 @@ using namespace std;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
+using namespace SkullbonezCore::Rendering;
 
 
 
@@ -60,6 +65,10 @@ namespace SkullbonezCore
 
 			std::vector<GameModel>			gameModels;																	// Collection of game models
 			SpatialGrid						spatialGrid;																// Broadphase spatial grid for collision culling
+			std::unique_ptr<Mesh>			shadowMesh;																	// Shadow disc mesh (unit radius)
+			std::unique_ptr<Shader>			shadowShader;																// Shadow disc shader
+
+			void							BuildShadowMesh				(void);										// Builds the unit-radius shadow disc mesh
 
 
 		public:
@@ -71,7 +80,10 @@ namespace SkullbonezCore
 			void							RunPhysics							(float fChangeInTime);					// Runs the physics for the specified time step
 			void							RenderModels						(const Matrix4& proj,
 																				 const float lightPos[4]);			// Renders the game models
-			void							RenderShadows						(Geometry::Terrain* terrain);			// Renders ground shadows beneath all models
+			void							RenderShadows						(Geometry::Terrain* terrain,
+																				 const Matrix4& view,
+																				 const Matrix4& proj);				// Renders ground shadows beneath all models
+			void							ResetGLResources					(void);									// Releases GPU resources for GL context reset
 			Vector3							GetModelPosition					(int index);							// Returns the position of the specified game model
 		};
 	}

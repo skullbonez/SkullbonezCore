@@ -81,6 +81,10 @@ namespace SkullbonezCore
 				static Matrix4		Scale					(const Vector3& v);					// Scale matrix
 				static Matrix4		Scale					(float x, float y, float z);		// Scale matrix (component form)
 				static Matrix4		Scale					(float uniform);					// Uniform scale matrix
+				static Matrix4		RotateAxis				(float angleDeg,
+															 float axisX,
+															 float axisY,
+															 float axisZ);					// Axis-angle rotation matrix
 				static Matrix4		FromQuaternion			(const Orientation::Quaternion& q);	// Rotation matrix from quaternion
 
 				Matrix4				operator*				(const Matrix4& rhs) const;			// Matrix multiplication

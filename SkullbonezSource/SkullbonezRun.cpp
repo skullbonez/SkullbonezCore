@@ -102,6 +102,7 @@ SkullbonezRun::~SkullbonezRun(void)
 	// Clean up GL resources while context is still alive
 	SkullbonezHelper::ResetGLResources();
 	this->cWorldEnvironment.ResetGLResources();
+	this->cGameModelCollection.ResetGLResources();
 	Text2d::DeleteFont();
 
 	this->cTextures->Destroy();
@@ -576,7 +577,7 @@ void SkullbonezRun::DrawPrimitives(void)
 	}
 
 	// render ground shadows on top of terrain
-	this->cGameModelCollection.RenderShadows(this->cTerrain.get());
+	this->cGameModelCollection.RenderShadows(this->cTerrain.get(), baseView, proj);
 	
 	// render the fluid ---------------------------
 	glPushMatrix();
