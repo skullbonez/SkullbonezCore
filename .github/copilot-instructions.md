@@ -7,7 +7,7 @@ A Windows 3D graphics and physics simulation engine written in C++ using OpenGL,
 - **At the start of every session**, do the following in order:
   1. Read `Copilot/SessionState.md` to understand current progress, remaining work, and known bugs
   2. Load all skills by invoking each skill file below — ask the user "I've loaded all skills and read the session state. Ready to continue?" before doing any work
-- **After every change**, run the `skore-build-pipeline` skill to build, test, update baselines, run the perf test, and commit. Every commit must include updated reference images and a perf artifact.
+- **After every change**, run the `skore-build-pipeline` skill to build, test, update baselines, and run the perf test. Every commit must include updated reference images and a perf artifact. **DO NOT COMMIT WITHOUT EXPLICIT PERMISSION FROM THE USER.**
 - **Never commit or push to GitHub** unless the user explicitly asks.
 
 ## Skills — Load These at Session Start
