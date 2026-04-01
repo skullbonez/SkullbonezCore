@@ -4,8 +4,30 @@ A Windows 3D graphics and physics simulation engine written in C++ using OpenGL,
 
 ## Workflow Rules
 
-- **After every change**, run the `build-skullbonez-core` skill and verify the solution builds to **0 errors and 0 warnings** before considering the task done.
+- **At the start of every session**, do the following in order:
+  1. Read `Copilot/SessionState.md` to understand current progress, remaining work, and known bugs
+  2. Load all skills by invoking each skill file below — ask the user "I've loaded all skills and read the session state. Ready to continue?" before doing any work
+- **After every change**, run the `skore-build-pipeline` skill to build, test, update baselines, run the perf test, and commit. Every commit must include updated reference images and a perf artifact.
 - **Never commit or push to GitHub** unless the user explicitly asks.
+
+## Skills — Load These at Session Start
+
+| Skill | Path |
+|-------|------|
+| **skore-build-pipeline** (use this for every commit) | `Copilot/Skills/skore-build-pipeline/skill.md` |
+| skore-render-test | `Copilot/Skills/skore-render-test/skill.md` |
+| skore-build | `Copilot/Skills/skore-build/skill.md` |
+| skore-cdb-debug | `Copilot/Skills/skore-cdb-debug/skill.md` |
+| skore-launch | `Copilot/Skills/skore-launch/skill.md` |
+
+## Key Docs
+
+| Doc | Path |
+|-----|------|
+| **Session state / handoff** | `Copilot/SessionState.md` |
+| **Known bugs** | `Copilot/Bugs.md` |
+| Progress tracker | `Copilot/Plans/progress.md` |
+| FFP migration plan | `Copilot/Plans/ffp-to-shader-migration.md` |
 
 ## Build
 
