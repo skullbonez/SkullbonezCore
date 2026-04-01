@@ -78,40 +78,44 @@ int WINAPI WinMain(HINSTANCE hInstance,		// Holds info on instance of app
 		// Init OpenGL
 		cWindow->InitialiseOpenGL();
 
-		// Create the Skullbonez Core instance
-		SkullbonezRun cRun(scenePath);
-
-		try
+		bool shouldRestart = false;
 		{
-			// Attempt to initialise the Skullbonez Core
-			cRun.Initialise();
+			// Create the Skullbonez Core instance (scoped so destructor runs
+			// BEFORE GL context deletion — ensures GL cleanup calls work)
+			SkullbonezRun cRun(scenePath);
 
-			// Attempt to run the Skullbonez Core
-			if(!cRun.Run())
+			try
 			{
-				if (scenePath)
-					break; // clean exit for test harness — no MessageBox
-				else
-					throw std::runtime_error("Thanks for using the Skullbonez Core!");
-			}
+				// Attempt to initialise the Skullbonez Core
+				cRun.Initialise();
 
-			// Cleanup rendering context
-			if(cWindow->sRenderContext)
+				// Attempt to run the Skullbonez Core
+				if(!cRun.Run())
+				{
+					if (scenePath)
+						break; // clean exit for test harness — no MessageBox
+					else
+						throw std::runtime_error("Thanks for using the Skullbonez Core!");
+				}
+
+				shouldRestart = true;
+			}
+			catch (const std::exception& e)  // Catch all exceptions thrown by the Skullbonez Core
 			{
-				// Free rendering memory, rollback all changes
-				wglMakeCurrent(NULL, NULL);
+				if (!scenePath)
+					cWindow->MsgBox(e.what(), "Alert!", MB_OK);
 
-				// Delete the rendering context
-				wglDeleteContext(cWindow->sRenderContext);
+				// exit the loop now
+				break;
 			}
+			// cRun destroyed here — GL context still alive for proper cleanup
 		}
-		catch (const std::exception& e)  // Catch all exceptions thrown by the Skullbonez Core
-		{
-			if (!scenePath)
-				cWindow->MsgBox(e.what(), "Alert!", MB_OK);
 
-			// exit the loop now
-			break;
+		// Cleanup rendering context AFTER cRun is destroyed
+		if (shouldRestart && cWindow->sRenderContext)
+		{
+			wglMakeCurrent(NULL, NULL);
+			wglDeleteContext(cWindow->sRenderContext);
 		}
 	}
 

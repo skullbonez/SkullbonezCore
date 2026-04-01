@@ -84,20 +84,29 @@ def find_previous_artifact(hist_dir, current_hash):
 
 
 def compare_stats(current, previous):
-    """Print comparison between current and previous perf results."""
-    print("\n--- Comparison vs previous ---")
+    """Compare current vs previous, apply thresholds, return pass/fail."""
     prev = json.loads(previous.read_text())
-    print(f"Previous commit: {prev['commit']}")
+    print(f"\n--- Comparison vs {prev['commit']} ---")
+
+    # Thresholds: avg/p50 >10% regression, p99/p99.9 >20%, memory >5 MB
+    TIMING_THRESHOLDS = {"min": 10, "max": 20, "avg": 10, "p50": 10, "p99": 20, "p99_9": 20}
+    MEM_THRESHOLD_MB = 5.0
+
+    failures = []
 
     for metric in ["physics_ms", "render_ms"]:
         print(f"\n  {metric}:")
         for stat in ["min", "max", "avg", "p50", "p99", "p99_9"]:
             cur_val  = current[metric][stat]
             prev_val = prev[metric][stat]
+            threshold = TIMING_THRESHOLDS[stat]
             if prev_val > 0:
                 delta_pct = ((cur_val - prev_val) / prev_val) * 100
                 direction = "SLOWER" if delta_pct > 0 else "FASTER"
-                print(f"    {stat:6s}: {prev_val:.4f} -> {cur_val:.4f}  ({delta_pct:+.1f}% {direction})")
+                flag = " ** REGRESSION **" if delta_pct > threshold else ""
+                print(f"    {stat:6s}: {prev_val:.4f} -> {cur_val:.4f}  ({delta_pct:+.1f}% {direction}){flag}")
+                if delta_pct > threshold:
+                    failures.append(f"{metric}.{stat}: +{delta_pct:.1f}% (threshold: {threshold}%)")
             else:
                 print(f"    {stat:6s}: {prev_val:.4f} -> {cur_val:.4f}")
 
@@ -106,7 +115,12 @@ def compare_stats(current, previous):
         cur_val  = current[key]
         prev_val = prev[key]
         delta = cur_val - prev_val
-        print(f"    {key:18s}: {prev_val:.2f} -> {cur_val:.2f}  ({delta:+.2f} MB)")
+        flag = " ** REGRESSION **" if delta > MEM_THRESHOLD_MB else ""
+        print(f"    {key:18s}: {prev_val:.2f} -> {cur_val:.2f}  ({delta:+.2f} MB){flag}")
+        if delta > MEM_THRESHOLD_MB:
+            failures.append(f"{key}: +{delta:.2f} MB (threshold: {MEM_THRESHOLD_MB} MB)")
+
+    return failures
 
 
 def main():
@@ -161,9 +175,16 @@ def main():
     # Compare against previous
     prev = find_previous_artifact(HIST_DIR, commit)
     if prev:
-        compare_stats(result, prev)
+        failures = compare_stats(result, prev)
+        if failures:
+            print(f"\n** PERF TEST FAILED — {len(failures)} regression(s) **")
+            for f in failures:
+                print(f"  - {f}")
+            return 1
+        else:
+            print("\nPERF TEST PASSED — no regressions")
     else:
-        print("\nNo previous artifact to compare against.")
+        print("\nNo previous artifact to compare against. PASS (baseline).")
 
     return 0
 

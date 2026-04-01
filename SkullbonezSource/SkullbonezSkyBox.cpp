@@ -151,8 +151,6 @@ SkyBox* SkyBox::Instance(int xMin, int xMax, int yMin, int yMax, int zMin, int z
 	if(!SkyBox::pInstance)
 	{
 		static SkyBox instance(xMin, xMax, yMin, yMax, zMin, zMax);
-		instance.LoadTextures();
-		instance.BuildMeshes();
 		SkyBox::pInstance = &instance;
 	}
 	return SkyBox::pInstance;
@@ -163,7 +161,13 @@ SkyBox* SkyBox::Instance(int xMin, int xMax, int yMin, int yMax, int zMin, int z
 /* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
 void SkyBox::Destroy(void)
 {
-	SkyBox::pInstance = 0;
+	if (SkyBox::pInstance)
+	{
+		for (int i = 0; i < 6; ++i)
+			SkyBox::pInstance->faceMeshes[i].reset();
+		SkyBox::pInstance->shader.reset();
+		SkyBox::pInstance = 0;
+	}
 }
 
 
@@ -174,6 +178,7 @@ void SkyBox::ResetGLResources(void)
 	for (int i = 0; i < 6; ++i)
 		this->faceMeshes[i].reset();
 	this->shader.reset();
+	this->LoadTextures();
 	this->BuildMeshes();
 }
 

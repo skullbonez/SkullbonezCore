@@ -99,6 +99,8 @@ SkullbonezRun::~SkullbonezRun(void)
 		this->perfLogFile = nullptr;
 	}
 
+	// Clean up GL resources while context is still alive
+	SkullbonezHelper::ResetGLResources();
 	Text2d::DeleteFont();
 
 	this->cTextures->Destroy();
@@ -342,7 +344,7 @@ bool SkullbonezRun::Run(void)
 			// Store render time
 			this->renderTime = (float)this->cWorkTimer.GetElapsedTime();
 
-			// Perf test: log per-frame timing
+			// Perf test: log per-frame timing + periodic memory
 			if (this->isPerfTest && this->perfLogFile)
 			{
 				fprintf(this->perfLogFile, "%d,%d,%.4f,%.4f\n",
@@ -350,6 +352,10 @@ bool SkullbonezRun::Run(void)
 					this->currentFrame + 1,
 					this->physicsTime * 1000.0f,
 					this->renderTime * 1000.0f);
+
+				// Log memory every 60 frames (~1 second)
+				if ((this->currentFrame + 1) % 60 == 0)
+					this->LogPerfMemory("periodic");
 			}
 
 			// Swap back buffer
