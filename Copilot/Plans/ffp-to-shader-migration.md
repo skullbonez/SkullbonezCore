@@ -187,39 +187,39 @@ public:
 ### Phase 1 — Foundation: GLAD + Core Context + Matrix4
 > Goal: Create a modern OpenGL 3.3 Core context with GLAD, add a 4×4 matrix class, and keep the existing rendering working via the compatibility profile as a bridge. At the end of this phase the engine boots into a 3.3 context and GLAD is loading all GL functions.
 
-- [ ] Task 1.1: Generate GLAD files for OpenGL 3.3 Core + add to `ThirdPtySource\GLAD\` — `ThirdPtySource\GLAD\glad.h`, `ThirdPtySource\GLAD\glad.c`, `ThirdPtySource\GLAD\KHR\khrplatform.h`
-- [ ] Task 1.2: Update `SkullbonezCommon.h` — replace `#include <gl\gl.h>` / `<gl\glu.h>` with `#include "glad.h"`, remove `glu32.lib` pragma — `SkullbonezSource\SkullbonezCommon.h`
-- [ ] Task 1.3: Update `SkullbonezWindow.cpp` — use `wglCreateContextAttribsARB` to request 3.3 Core Profile context, call `gladLoadGL()` after `wglMakeCurrent` — `SkullbonezSource\SkullbonezWindow.cpp`, `SkullbonezSource\SkullbonezWindow.h`
-- [ ] Task 1.4: Implement `SkullbonezMatrix4` class — `Perspective`, `Ortho`, `LookAt`, `Translate`, `Scale`, `FromQuaternion`, `operator*` — `SkullbonezSource\SkullbonezMatrix4.h`, `SkullbonezSource\SkullbonezMatrix4.cpp`
-- [ ] Task 1.5: Add all new source files to `SKULLBONEZ_CORE.vcxproj` and `.vcxproj.filters` — `SKULLBONEZ_CORE.vcxproj`, `SKULLBONEZ_CORE.vcxproj.filters`
-- [ ] Task 1.6: Build and verify — engine must compile with 0 errors/warnings. At this stage the context is 3.3 but we temporarily request a compatibility profile so FFP still works while we migrate.
+- [x] Task 1.1: Generate GLAD files for OpenGL 3.3 Core + add to `ThirdPtySource\GLAD\` — `ThirdPtySource\GLAD\glad.h`, `ThirdPtySource\GLAD\glad.c`, `ThirdPtySource\GLAD\KHR\khrplatform.h`
+- [x] Task 1.2: Update `SkullbonezCommon.h` — replace `#include <gl\gl.h>` / `<gl\glu.h>` with `#include "glad.h"`, remove `glu32.lib` pragma — `SkullbonezSource\SkullbonezCommon.h`
+- [x] Task 1.3: Update `SkullbonezWindow.cpp` — use `wglCreateContextAttribsARB` to request 3.3 Core Profile context, call `gladLoadGL()` after `wglMakeCurrent` — `SkullbonezSource\SkullbonezWindow.cpp`, `SkullbonezSource\SkullbonezWindow.h`
+- [x] Task 1.4: Implement `SkullbonezMatrix4` class — `Perspective`, `Ortho`, `LookAt`, `Translate`, `Scale`, `FromQuaternion`, `RotateAxis`, `operator*` — `SkullbonezSource\SkullbonezMatrix4.h`, `SkullbonezSource\SkullbonezMatrix4.cpp`
+- [x] Task 1.5: Add all new source files to `SKULLBONEZ_CORE.vcxproj` and `.vcxproj.filters` — `SKULLBONEZ_CORE.vcxproj`, `SKULLBONEZ_CORE.vcxproj.filters`
+- [x] Task 1.6: Build and verify — engine must compile with 0 errors/warnings. At this stage the context is 3.3 but we temporarily request a compatibility profile so FFP still works while we migrate.
 
 ### Phase 2 — Shader Infrastructure
 > Goal: Add shader loading/compilation and the Mesh (VAO/VBO) wrapper. No rendering changes yet — these are utilities for subsequent phases.
 
-- [ ] Task 2.1: Implement `SkullbonezShader` — load GLSL from file, compile, link, uniform setters — `SkullbonezSource\SkullbonezShader.h`, `SkullbonezSource\SkullbonezShader.cpp`
-- [ ] Task 2.2: Implement `SkullbonezMesh` — VAO/VBO creation from interleaved float arrays, `Draw()` — `SkullbonezSource\SkullbonezMesh.h`, `SkullbonezSource\SkullbonezMesh.cpp`
-- [ ] Task 2.3: Write the four shader programs (files only, not yet wired in):
+- [x] Task 2.1: Implement `SkullbonezShader` — load GLSL from file, compile, link, uniform setters — `SkullbonezSource\SkullbonezShader.h`, `SkullbonezSource\SkullbonezShader.cpp`
+- [x] Task 2.2: Implement `SkullbonezMesh` — VAO/VBO creation from interleaved float arrays, `Draw()` — `SkullbonezSource\SkullbonezMesh.h`, `SkullbonezSource\SkullbonezMesh.cpp`
+- [x] Task 2.3: Write the four shader programs (files only, not yet wired in):
   - `SkullbonezData\shaders\lit_textured.vert` / `.frag` (Gouraud lighting + texture)
   - `SkullbonezData\shaders\unlit_textured.vert` / `.frag` (texture only, no lighting)
   - `SkullbonezData\shaders\shadow.vert` / `.frag` (flat black + per-vertex alpha)
   - `SkullbonezData\shaders\text.vert` / `.frag` (2D ortho text rendering)
-- [ ] Task 2.4: Add new files to vcxproj, build and verify 0 errors/0 warnings
+- [x] Task 2.4: Add new files to vcxproj, build and verify 0 errors/0 warnings
 
 ### Phase 3 — Migrate Terrain Rendering
 > Goal: Replace the terrain display list with a VBO-backed Mesh drawn by the lit_textured shader. This is the largest single mesh and the best proving ground for the new pipeline.
 
-- [ ] Task 3.1: Modify `SkullbonezTerrain` — in `BuildTerrain()`, build an interleaved float array (pos + normal + texcoord) and create a `Mesh` object instead of a display list. Replace `Render()` to bind the lit shader, set MVP + light uniforms, and call `Mesh::Draw(GL_TRIANGLE_STRIP)` — `SkullbonezSource\SkullbonezTerrain.h`, `SkullbonezSource\SkullbonezTerrain.cpp`
-- [ ] Task 3.2: Update `SkullbonezRun::DrawPrimitives()` — compute model/view/projection Matrix4 objects on the CPU, pass them to terrain's render method instead of relying on the GL matrix stack — `SkullbonezSource\SkullbonezRun.cpp`
-- [ ] Task 3.3: Replace `gluBuild2DMipmaps` in `SkullbonezTextureCollection::CreateJpegTexture()` with `glTexImage2D` + `glGenerateMipmap` — `SkullbonezSource\SkullbonezTextureCollection.cpp`
-- [ ] Task 3.4: Build, run, verify terrain looks identical to FFP version
+- [x] Task 3.1: Modify `SkullbonezTerrain` — in `BuildTerrain()`, build an interleaved float array (pos + normal + texcoord) and create a `Mesh` object instead of a display list. Replace `Render()` to bind the lit shader, set MVP + light uniforms, and call `Mesh::Draw(GL_TRIANGLE_STRIP)` — `SkullbonezSource\SkullbonezTerrain.h`, `SkullbonezSource\SkullbonezTerrain.cpp`
+- [x] Task 3.2: Update `SkullbonezRun::DrawPrimitives()` — compute model/view/projection Matrix4 objects on the CPU, pass them to terrain's render method instead of relying on the GL matrix stack — `SkullbonezSource\SkullbonezRun.cpp`
+- [x] Task 3.3: Replace `gluBuild2DMipmaps` in `SkullbonezTextureCollection::CreateJpegTexture()` with `glTexImage2D` + `glGenerateMipmap` — `SkullbonezSource\SkullbonezTextureCollection.cpp`
+- [x] Task 3.4: Build, run, verify terrain looks identical to FFP version
 
 ### Phase 4 — Migrate Skybox Rendering
 > Goal: Replace skybox immediate mode with a VBO and the unlit_textured shader.
 
-- [ ] Task 4.1: Modify `SkullbonezSkyBox` — build 6-face quad geometry into a `Mesh` (36 vertices, pos + texcoord), replace `Render()` to use the unlit shader with MVP uniforms — `SkullbonezSource\SkullbonezSkyBox.h`, `SkullbonezSource\SkullbonezSkyBox.cpp`
-- [ ] Task 4.2: Update `SkullbonezRun::DrawPrimitives()` — compute skybox model matrix (translate to camera + scale) on CPU, pass to skybox render — `SkullbonezSource\SkullbonezRun.cpp`
-- [ ] Task 4.3: Build, run, verify skybox looks identical
+- [x] Task 4.1: Modify `SkullbonezSkyBox` — build 6-face quad geometry into a `Mesh` (36 vertices, pos + texcoord), replace `Render()` to use the unlit shader with MVP uniforms — `SkullbonezSource\SkullbonezSkyBox.h`, `SkullbonezSource\SkullbonezSkyBox.cpp`
+- [x] Task 4.2: Update `SkullbonezRun::DrawPrimitives()` — compute skybox model matrix (translate to camera + scale) on CPU, pass to skybox render — `SkullbonezSource\SkullbonezRun.cpp`
+- [x] Task 4.3: Build, run, verify skybox looks identical
 
 ### Phase 5 — Migrate Sphere (Game Model) Rendering
 > Goal: Replace gluSphere display list with a procedurally generated sphere Mesh, rendered with the lit_textured shader.
