@@ -101,6 +101,7 @@ SkullbonezRun::~SkullbonezRun(void)
 
 	// Clean up GL resources while context is still alive
 	SkullbonezHelper::ResetGLResources();
+	this->cWorldEnvironment.ResetGLResources();
 	Text2d::DeleteFont();
 
 	this->cTextures->Destroy();
@@ -549,22 +550,22 @@ void SkullbonezRun::DrawPrimitives(void)
 
 		glPushMatrix();
 			glTranslatef(0.0f, -1.0f, 6300.0f);
-			this->cWorldEnvironment.RenderFluid();
+			this->cWorldEnvironment.RenderFluid(proj);
 		glPopMatrix();
 
 		glPushMatrix();
 			glTranslatef(0.0f, -1.0f, -5000.0f);
-			this->cWorldEnvironment.RenderFluid();
+			this->cWorldEnvironment.RenderFluid(proj);
 		glPopMatrix();
 
 		glPushMatrix();
 			glTranslatef(6300.0f, -1.0f, 0.0f);
-			this->cWorldEnvironment.RenderFluid();
+			this->cWorldEnvironment.RenderFluid(proj);
 		glPopMatrix();
 
 		glPushMatrix();
 			glTranslatef(-5000.0f, -1.0f, 0.0f);
-			this->cWorldEnvironment.RenderFluid();
+			this->cWorldEnvironment.RenderFluid(proj);
 		glPopMatrix();
 	glPopMatrix();
 
@@ -580,7 +581,7 @@ void SkullbonezRun::DrawPrimitives(void)
 	// render the fluid ---------------------------
 	glPushMatrix();
 		this->cTextures->SelectTexture(TEXTURE_WATER);
-		this->cWorldEnvironment.RenderFluid();
+		this->cWorldEnvironment.RenderFluid(proj);
 	glPopMatrix();
 }
 

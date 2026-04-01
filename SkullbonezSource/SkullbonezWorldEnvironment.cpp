@@ -61,51 +61,63 @@ WorldEnvironment::~WorldEnvironment() {}
 
 
 /* -- RENDER FLUID ----------------------------------------------------------------*/
-void WorldEnvironment::RenderFluid(void)
+void WorldEnvironment::RenderFluid(const Matrix4& proj)
 {
-	// disable lighting
-	glDisable(GL_LIGHTING);
+	if (!this->fluidMesh)
+		this->BuildFluidMesh();
 
-	// turn on blending
 	glEnable(GL_BLEND);
 
-	glBegin(GL_QUADS);
+	this->fluidShader->Use();
 
-		// Corner 1
-		glNormal3i(0, 1, 0);
-		glTexCoord2i(0, 0);
-		glVertex3f(-FRUSTUM_CLIP_FAR_QTY, 
-				   this->fluidSurfaceHeight, 
-				   -FRUSTUM_CLIP_FAR_QTY);
+	// Read current FFP modelview as model transform (caller pushes translate)
+	float mv[16];
+	glGetFloatv(GL_MODELVIEW_MATRIX, mv);
+	Matrix4 modelView(mv);
+	Matrix4 identity;
 
-		// Corner 2
-		glNormal3i(0, 1, 0);
-		glTexCoord2i(0, 1);
-		glVertex3f(-FRUSTUM_CLIP_FAR_QTY, 
-				   this->fluidSurfaceHeight,  
-				   FRUSTUM_CLIP_FAR_QTY);
+	this->fluidShader->SetMat4("uModel", identity);
+	this->fluidShader->SetMat4("uView", modelView);
+	this->fluidShader->SetMat4("uProjection", proj);
+	this->fluidShader->SetVec4("uColorTint", 1.0f, 1.0f, 1.0f, 0.5f);
 
-		// Corner 3
-		glNormal3i(0, 1, 0);
-		glTexCoord2i(1, 1);
-		glVertex3f(FRUSTUM_CLIP_FAR_QTY, 
-				   this->fluidSurfaceHeight,  
-				   FRUSTUM_CLIP_FAR_QTY);
-		
-		// Corner 4
-		glNormal3i(0, 1, 0);
-		glTexCoord2i(1, 0);
-		glVertex3f(FRUSTUM_CLIP_FAR_QTY, 
-				   this->fluidSurfaceHeight, 
-				   -FRUSTUM_CLIP_FAR_QTY);
+	this->fluidMesh->Draw();
+	glUseProgram(0);
 
-	glEnd();
-
-	// turn off blending
 	glDisable(GL_BLEND);
+}
 
-	// enable lighting
-	glEnable(GL_LIGHTING);
+
+
+/* -- BUILD FLUID MESH ------------------------------------------------------------*/
+void WorldEnvironment::BuildFluidMesh(void)
+{
+	float h = this->fluidSurfaceHeight;
+	float f = FRUSTUM_CLIP_FAR_QTY;
+
+	// 2 triangles = 6 vertices, 5 floats each (pos3 + tex2)
+	float data[] = {
+		-f, h, -f,  0, 0,
+		-f, h,  f,  0, 1,
+		 f, h,  f,  1, 1,
+		-f, h, -f,  0, 0,
+		 f, h,  f,  1, 1,
+		 f, h, -f,  1, 0,
+	};
+
+	this->fluidMesh = std::make_unique<Mesh>(data, 6, false, true);
+	this->fluidShader = std::make_unique<Shader>(
+		"SkullbonezData/shaders/unlit_textured.vert",
+		"SkullbonezData/shaders/unlit_textured.frag");
+}
+
+
+
+/* -- RESET GL RESOURCES ----------------------------------------------------------*/
+void WorldEnvironment::ResetGLResources(void)
+{
+	this->fluidMesh.reset();
+	this->fluidShader.reset();
 }
 
 
