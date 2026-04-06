@@ -399,8 +399,8 @@ bool SkullbonezRun::Run(void)
 				}
 			}
 
-			// End the simulation when required (legacy mode only)
-			if (!this->isSceneMode && this->cSimulationTimer.GetTimeSinceLastStart() > 20.0)
+			// End the simulation when required (legacy mode only, not while user has camera control)
+			if (!this->isSceneMode && !this->isFlyMode && this->cSimulationTimer.GetTimeSinceLastStart() > 20.0)
 			{
 				return true;
 			}
