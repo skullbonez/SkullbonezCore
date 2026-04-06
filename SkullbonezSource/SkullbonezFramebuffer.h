@@ -1,0 +1,69 @@
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+																	  THE SKULLBONEZ CORE
+																			_______
+																		 .-"       "-.
+																		/             \
+																	   /               \
+																	   ?   .--. .--.   ?
+																	   ? )/   ? ?   \( ?
+																	   ?/ \__/   \__/ \?
+																	   /      /^\      \
+																	   \__    '='    __/
+							   											 ?\         /?
+																		 ?\'"VUUUV"'/?
+																		 \ `"""""""` /
+																		  `-._____.-'
+
+																	 www.simoneschbach.com
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+
+
+/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
+#ifndef SKULLBONEZ_FRAMEBUFFER_H
+#define SKULLBONEZ_FRAMEBUFFER_H
+
+
+
+/* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#include "SkullbonezCommon.h"
+
+
+
+namespace SkullbonezCore
+{
+	namespace Rendering
+	{
+		/* -- Framebuffer -----------------------------------------------------------------------------------------------------------------------------------------------
+
+			Offscreen render target: one RGB color texture + depth renderbuffer.
+			Used for the water reflection pre-pass.
+		-----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+		class Framebuffer
+		{
+
+		private:
+
+			GLuint		fbo;							// Framebuffer object
+			GLuint		colorTex;						// Color attachment (RGB texture)
+			GLuint		depthRBO;						// Depth attachment (renderbuffer)
+			int			width;							// Texture width  (pixels)
+			int			height;							// Texture height (pixels)
+
+			void		Build				(void);		// Allocate all GL objects
+
+
+		public:
+
+						Framebuffer			(int width, int height);	// Create FBO at given resolution
+						~Framebuffer		(void);						// Delete all GL objects
+
+			void		Bind				(void) const;				// Bind as render target
+			void		Unbind				(void) const;				// Restore default framebuffer
+			GLuint		GetColorTexture		(void) const;				// Returns color texture handle
+			void		ResetGLResources	(void);						// Rebuild after GL context recreation
+		};
+	}
+}
+
+#endif /*----------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -62,7 +62,8 @@ WorldEnvironment::~WorldEnvironment() {}
 
 
 /* -- RENDER FLUID ----------------------------------------------------------------*/
-void WorldEnvironment::RenderFluid(const Matrix4& view, const Matrix4& proj, float time)
+void WorldEnvironment::RenderFluid(const Matrix4& view, const Matrix4& proj,
+								   float time, GLuint reflectionTex)
 {
 	if (!this->fluidMesh)
 		this->BuildFluidMesh();
@@ -77,6 +78,12 @@ void WorldEnvironment::RenderFluid(const Matrix4& view, const Matrix4& proj, flo
 	this->fluidShader->SetMat4("uProjection", proj);
 	this->fluidShader->SetVec4("uColorTint", 0.05f, 0.15f, 0.42f, 0.65f);
 	this->fluidShader->SetFloat("uTime", time);
+	this->fluidShader->SetFloat("uReflectionStrength", 0.35f);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, reflectionTex);
+	this->fluidShader->SetInt("uReflectionTex", 1);
+	glActiveTexture(GL_TEXTURE0);
 
 	this->fluidMesh->Draw();
 	glUseProgram(0);

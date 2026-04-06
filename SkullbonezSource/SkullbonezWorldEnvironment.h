@@ -69,7 +69,8 @@ namespace SkullbonezCore
 
 			void		RenderFluid				(const Matrix4& view,
 											 const Matrix4& proj,
-											 float          time);				// Renders the water in the scene
+											 float          time,
+											 GLuint         reflectionTex);		// Renders the water in the scene
 			void		ResetGLResources		(void);								// Rebuilds GPU resources after GL context recreation
 			float		GetFluidSurfaceHeight	(void);								// Returns the fluid surface height
 			void		AddWorldForces			(GameObjects::GameModel& target,

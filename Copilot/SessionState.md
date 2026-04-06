@@ -1,8 +1,8 @@
 # SkullbonezCore — Session State
 
 ## Branch & Last Commit
-- Branch: `opus-rendering`
-- Last commit: `5f3c544` — repo restructure into Copilot/ folder
+- Branch: `main`
+- Last commit: `768a567` — New water system: 64x64 grid mesh with vertex-animated ripples
 
 ---
 
@@ -63,7 +63,7 @@ A Windows C++/OpenGL 3D physics engine (2005) being migrated from Fixed Function
 
 ## Known Bugs
 See `Copilot/Bugs.md` for full details.
-1. **Flickering water on the horizon** — deep water quads flicker during camera movement (z-fighting / precision)
+1. ~~**Flickering water on the horizon**~~ — **FIXED** (`768a567`) — replaced with new vertex-animated grid water system
 2. **Lighting mismatch** — water too blue, terrain + skybox too dark vs original FFP output
 
 ---

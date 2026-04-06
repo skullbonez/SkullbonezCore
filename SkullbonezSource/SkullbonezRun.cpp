@@ -103,6 +103,7 @@ SkullbonezRun::~SkullbonezRun(void)
 	SkullbonezHelper::ResetGLResources();
 	this->cWorldEnvironment.ResetGLResources();
 	this->cGameModelCollection.ResetGLResources();
+	if (this->cReflectionFBO) this->cReflectionFBO->ResetGLResources();
 	Text2d::DeleteFont();
 
 	this->cTextures->Destroy();
@@ -141,6 +142,9 @@ void SkullbonezRun::Initialise(void)
 											   FLUID_DENSITY,
 											   GAS_DENSITY,
 											   GRAVITATIONAL_FORCE);
+
+	// Init reflection FBO
+	this->cReflectionFBO = std::make_unique<Framebuffer>(SCREEN_X, SCREEN_Y);
 
 	// Branch on scene mode vs legacy mode
 	if (this->isSceneMode)
@@ -541,6 +545,47 @@ void SkullbonezRun::DrawPrimitives(void)
 		glPopMatrix();
 	}
 
+	// reflection pre-pass: render above-water scene from mirrored camera into FBO
+	{
+		float   waterY = this->cWorldEnvironment.GetFluidSurfaceHeight();
+		Vector3 eye    = this->cCameras->GetCameraTranslation();
+		Vector3 center = this->cCameras->GetCameraView();
+
+		// Mirror eye and look-at target about the water plane; flip up vector
+		Vector3 reflEye   (eye.x,    2.0f * waterY - eye.y,    eye.z);
+		Vector3 reflCenter(center.x, 2.0f * waterY - center.y, center.z);
+		Vector3 reflUp    (0.0f, -1.0f, 0.0f);
+		Matrix4 reflView = Matrix4::LookAt(reflEye, reflCenter, reflUp);
+
+		this->cReflectionFBO->Bind();
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		// Skybox reflected (XZ follows eye; Y anchored at SKYBOX_RENDER_HEIGHT)
+		{
+			Matrix4 skyReflView = reflView
+				* Matrix4::Translate(eye.x, SKYBOX_RENDER_HEIGHT, eye.z)
+				* Matrix4::Scale(SKY_BOX_SCALE);
+			this->cSkyBox->Render(skyReflView, proj);
+		}
+
+		// Game models reflected — clip at water surface (above-water portion only)
+		// To render the underwater portion: negate the plane to (0, -1, 0, +waterY)
+		glEnable(GL_CLIP_DISTANCE0);
+		SkullbonezHelper::SetClipPlane(0.0f, 1.0f, 0.0f, -waterY);
+		glLoadMatrixf(reflView.m);
+		SkullbonezHelper::SetBaseView(reflView.m);
+		this->cTextures->SelectTexture(TEXTURE_BOUNDING_SPHERE);
+		this->cGameModelCollection.RenderModels(proj, lightPosition);
+		glDisable(GL_CLIP_DISTANCE0);
+		SkullbonezHelper::SetClipPlane(0.0f, 1.0f, 0.0f, 1.0e9f);
+
+		this->cReflectionFBO->Unbind();
+
+		// Restore original view matrix and base view cache
+		glLoadMatrixf(baseView.m);
+		SkullbonezHelper::SetBaseView(baseView.m);
+	}
+
 	// render game models -----------------------------
 	this->cTextures->SelectTexture(TEXTURE_BOUNDING_SPHERE);
 	this->cGameModelCollection.RenderModels(proj, lightPosition);
@@ -557,7 +602,8 @@ void SkullbonezRun::DrawPrimitives(void)
 	// render the fluid ---------------------------
 	{
 		float waterTime = static_cast<float>(this->cSimulationTimer.GetTimeSinceLastStart());
-		this->cWorldEnvironment.RenderFluid(baseView, proj, waterTime);
+		this->cWorldEnvironment.RenderFluid(baseView, proj, waterTime,
+											this->cReflectionFBO->GetColorTexture());
 	}
 }
 

@@ -127,6 +127,7 @@
     <ClCompile Include="ThirdPtySource\GLAD\src\gl.c" />
     <ClCompile Include="SkullbonezSource\SkullbonezMatrix4.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezTestScene.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezFramebuffer.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezShader.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezMesh.cpp" />
   </ItemGroup>
@@ -159,6 +160,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezWorldEnvironment.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezMatrix4.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezTestScene.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezFramebuffer.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezShader.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezMesh.h" />
   </ItemGroup>

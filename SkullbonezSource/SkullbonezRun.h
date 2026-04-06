@@ -39,6 +39,7 @@
 #include "SkullbonezGeometricMath.h"
 #include "SkullbonezGameModelCollection.h"
 #include "SkullbonezWorldEnvironment.h"
+#include "SkullbonezFramebuffer.h"
 #include "SkullbonezTestScene.h"
 
 
@@ -101,6 +102,7 @@ namespace SkullbonezCore
 			SkyBox*					cSkyBox;					// SkullbonezCore::Geometry::SkyBox class
 			WorldEnvironment		cWorldEnvironment;			// SkullbonezCore::Environment::WorldEnvironment class
 			GameModelCollection		cGameModelCollection;		// SkullbonezCore::GameObjects::GameModelCollection class
+			std::unique_ptr<Framebuffer> cReflectionFBO;		// Offscreen reflection render target
 			
 
 

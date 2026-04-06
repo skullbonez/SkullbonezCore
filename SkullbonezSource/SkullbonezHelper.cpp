@@ -45,6 +45,9 @@ std::unique_ptr<Shader>	SkullbonezHelper::sphereShader;
 float					SkullbonezHelper::sBaseView[16] = {
 	1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1
 };
+float					SkullbonezHelper::sClipPlane[4] = {
+	0.0f, 1.0f, 0.0f, 1.0e9f			// default: always pass (GL_CLIP_DISTANCE0 disabled)
+};
 
 
 
@@ -52,6 +55,17 @@ float					SkullbonezHelper::sBaseView[16] = {
 void SkullbonezHelper::SetBaseView(const float mv[16])
 {
 	for (int i = 0; i < 16; ++i) sBaseView[i] = mv[i];
+}
+
+
+
+/* -- SET CLIP PLANE --------------------------------------------------------------*/
+void SkullbonezHelper::SetClipPlane(float x, float y, float z, float w)
+{
+	sClipPlane[0] = x;
+	sClipPlane[1] = y;
+	sClipPlane[2] = z;
+	sClipPlane[3] = w;
 }
 
 
@@ -136,6 +150,8 @@ void SkullbonezHelper::DrawSphere(float radius, const Matrix4& proj,
 		sphereShader->SetMat4("uModel", identity);
 		sphereShader->SetMat4("uView", modelView);
 		sphereShader->SetMat4("uProjection", proj);
+		sphereShader->SetVec4("uClipPlane",
+			sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3]);
 
 		// Transform light by cached base camera view (set once per frame in DrawPrimitives)
 		// not the per-sphere modelview which includes ball rotation
