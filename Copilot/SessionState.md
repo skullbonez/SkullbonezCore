@@ -2,7 +2,7 @@
 
 ## Branch & Last Commit
 - Branch: `main`
-- Last commit: `768a567` — New water system: 64x64 grid mesh with vertex-animated ripples
+- Last commit: `08a0e36` — Remove SkullbonezData/water.jpg (missed in previous commit)
 
 ---
 
@@ -65,6 +65,14 @@ A Windows C++/OpenGL 3D physics engine (2005) being migrated from Fixed Function
 See `Copilot/Bugs.md` for full details.
 1. ~~**Flickering water on the horizon**~~ — **FIXED** (`768a567`) — replaced with new vertex-animated grid water system
 2. **Lighting mismatch** — water too blue, terrain + skybox too dark vs original FFP output
+
+## Recent Session Work (this session)
+- `fe5b4e4` — Planar water reflection system (FBO, clip plane, projective UV)
+- `ea84a37` — Free-fly camera mode (F key toggle, WASD + mouse look)
+- `1b52fa8` — Remove unused water texture (WATER_PATH / TEXTURE_WATER)
+- `408b3ce` — Don't reset simulation while fly mode is active
+- `deab1bd` — Fly mode polish: snap camera, Space advances sim, Shift sprints, no bounds
+- `08a0e36` — Remove SkullbonezData/water.jpg
 
 ---
 
@@ -147,6 +155,11 @@ All `ResetGLResources()` calls in destructors depend on this ordering.
 
 ### Water Rendering Note
 Water still reads the FFP modelview matrix via `glGetFloatv(GL_MODELVIEW_MATRIX)` because the 5 call sites use `glPushMatrix/glTranslatef` to position each copy. This will be cleaned up in Phase 8.
+
+### Fly Mode (F key)
+- Toggle with `F` — snaps to free camera, freezes physics + auto-cycle, removes terrain/XZ bounds
+- WASD to move, mouse to look, Shift for 3× speed, Space to step simulation while paused
+- Exit with `F` — restores cursor, bounds, terrain clamp, resumes cycle
 
 ### Perf Test
 - 2×5s passes, 300 balls, seed 42, physics+text enabled
