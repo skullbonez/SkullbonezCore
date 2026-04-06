@@ -103,7 +103,9 @@ namespace SkullbonezCore
 			WorldEnvironment		cWorldEnvironment;			// SkullbonezCore::Environment::WorldEnvironment class
 			GameModelCollection		cGameModelCollection;		// SkullbonezCore::GameObjects::GameModelCollection class
 			std::unique_ptr<Framebuffer> cReflectionFBO;		// Offscreen reflection render target
-			
+			InputState				sInputState;				// Current frame input state
+			bool					isFlyMode;					// Free-fly camera mode active (toggle with F)
+
 
 
 			void					Render					(void);								// Main render method

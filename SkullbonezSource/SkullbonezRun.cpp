@@ -83,6 +83,8 @@ SkullbonezRun::SkullbonezRun(const char* pScenePath)
 	this->physicsTime			= 0.0f;
 	this->r_physicsTime			= 0.0f;
 	this->r_fpsTime				= 0.0f;
+	this->isFlyMode				= false;
+	this->sInputState			= {};
 
 	// seed the random number generator
 	srand((unsigned)time(NULL));
@@ -299,7 +301,7 @@ bool SkullbonezRun::Run(void)
 			this->cFrameTimer.StartTimer();
 
 			// Input
-			// this->TakeInput();						
+			this->TakeInput();
 
 			// Logic (skip physics in scene mode when disabled)
 			if (!this->isSceneMode || this->isScenePhysics)
@@ -431,38 +433,57 @@ bool SkullbonezRun::Run(void)
 /* -- TAKE INPUT ------------------------------------------------------------------*/
 void SkullbonezRun::TakeInput(void)
 {
-/*
-	// Press C to toggle locked mode
-	this->cCameras->SetLockedMode(Input::IsKeyToggled('C'));
+	// Toggle fly mode with F
+	bool prevFlyMode = this->isFlyMode;
+	this->isFlyMode = (Input::IsKeyToggled('F') != 0);
 
-	// Press M to free/enable the mouse in the application
-	if(Input::IsKeyToggled('M'))
+	if (this->isFlyMode != prevFlyMode)
 	{
-		// remove cursor since the mouse is being used
-		SetCursor(0);
+		if (this->isFlyMode)
+		{
+			// Entering fly mode: lock to free camera, hide and centre mouse
+			this->cCameras->SelectCamera(CAMERA_FREE, true);
+			this->cameraTime = 0.0f;
+			SetCursor(nullptr);
+			Input::CentreMouseCoordinates();
+			this->sInputState.xMove = 0;
+			this->sInputState.yMove = 0;
+		}
+		else
+		{
+			// Exiting fly mode: restore cursor, restart camera auto-cycle
+			SetCursor(LoadCursor(nullptr, IDC_ARROW));
+			this->cameraTime = 0.0f;
+		}
+	}
 
-		// get mouse coords and centre the mouse
+	if (this->isFlyMode)
+	{
+		// Keep cursor hidden every frame — Windows restores it on WM_SETCURSOR
+		SetCursor(nullptr);
+
+		// Mouse look: delta from screen centre
 		POINT currentCoords = Input::GetMouseCoordinates();
 		Input::CentreMouseCoordinates();
 		POINT centreCoords = Input::GetMouseCoordinates();
-
-		// get the difference in the centre mouse pos and the moved mouse pos
 		this->sInputState.xMove = currentCoords.x - centreCoords.x;
 		this->sInputState.yMove = currentCoords.y - centreCoords.y;
+
+		// WASD movement
+		this->sInputState.fUp    = Input::IsKeyDown('W');
+		this->sInputState.fLeft  = Input::IsKeyDown('A');
+		this->sInputState.fDown  = Input::IsKeyDown('S');
+		this->sInputState.fRight = Input::IsKeyDown('D');
 	}
-
-	// WASD camera movement
-	this->sInputState.fUp		= Input::IsKeyDown('W');
-	this->sInputState.fLeft		= Input::IsKeyDown('A');
-	this->sInputState.fDown		= Input::IsKeyDown('S');
-	this->sInputState.fRight	= Input::IsKeyDown('D');
-
-	// Set if synchronised camera key just pressed (auxiliary 1)
-	this->sInputState.fAux1		= Input::IsKeyDown('P');
-
-	// Set synchronised cameras (auxiliary 2)
-	this->sInputState.fAux2		= Input::IsKeyToggled('P');
-*/
+	else
+	{
+		this->sInputState.xMove  = 0;
+		this->sInputState.yMove  = 0;
+		this->sInputState.fUp    = false;
+		this->sInputState.fDown  = false;
+		this->sInputState.fLeft  = false;
+		this->sInputState.fRight = false;
+	}
 }
 
 
@@ -470,17 +491,20 @@ void SkullbonezRun::TakeInput(void)
 /* -- UPDATE LOGIC ----------------------------------------------------------------*/
 void SkullbonezRun::UpdateLogic(float fSecondsPerFrame)
 {
-	// start the timer
-	this->cWorkTimer.StartTimer();
+	if (!this->isFlyMode)
+	{
+		// start the timer
+		this->cWorkTimer.StartTimer();
 
-	// update the game models
-	this->cGameModelCollection.RunPhysics(fSecondsPerFrame);
+		// update the game models
+		this->cGameModelCollection.RunPhysics(fSecondsPerFrame);
 
-	// stop the timer
-	this->cWorkTimer.StopTimer();
+		// stop the timer
+		this->cWorkTimer.StopTimer();
 
-	// store physics time
-	this->physicsTime = (float)this->cWorkTimer.GetElapsedTime();
+		// store physics time
+		this->physicsTime = (float)this->cWorkTimer.GetElapsedTime();
+	}
 
 	// move the camera based on input 
 	// (arguments are calculating time based movement quantities)
@@ -700,6 +724,15 @@ void SkullbonezRun::SetViewingOrientation(void)
 	// In scene mode, use the first camera without cycling
 	if (this->isSceneMode) return;
 
+	// In fly mode, freeze the cycle clock and keep the free camera
+	if (this->isFlyMode)
+	{
+		this->cameraTime = 0.0f;
+		this->cCameraTimer.StopTimer();
+		this->cCameraTimer.StartTimer();
+		return;
+	}
+
 	// set viewing orientation
 /*
 	if(Input::IsKeyDown('1')) this->selectedCamera = 0;
@@ -774,37 +807,27 @@ void SkullbonezRun::RelativeUpdateCamera(uint32_t hash)
 /* -- MOVE CAMERA -------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void SkullbonezRun::MoveCamera(float keyMovementQty, float mouseMovementQty)
 {
-	keyMovementQty; mouseMovementQty;
-/*
-	// orient camera based on mouse input if there is mouse movement
-	if(!(!this->sInputState.xMove && !this->sInputState.yMove))
+	if (this->isFlyMode)
 	{
-		// orient the camera
-		this->cCameras->RotatePrimary(this->sInputState.xMove * mouseMovementQty, this->sInputState.yMove * mouseMovementQty);
+		// Mouse look
+		if (this->sInputState.xMove != 0 || this->sInputState.yMove != 0)
+			this->cCameras->RotatePrimary(this->sInputState.xMove * mouseMovementQty,
+										  this->sInputState.yMove * mouseMovementQty);
+
+		// WASD movement
+		if (this->sInputState.fUp)    this->cCameras->MovePrimary(Camera::TravelDirection::Forward,  keyMovementQty);
+		if (this->sInputState.fLeft)  this->cCameras->MovePrimary(Camera::TravelDirection::Left,     keyMovementQty);
+		if (this->sInputState.fDown)  this->cCameras->MovePrimary(Camera::TravelDirection::Backward, keyMovementQty);
+		if (this->sInputState.fRight) this->cCameras->MovePrimary(Camera::TravelDirection::Right,    keyMovementQty);
+
+		this->cCameras->ApplyPrimaryMovementBuffer();
 	}
 
-	// ingnore these keys unless free camera is selected
-	if(this->cCameras->IsCameraSelected(CAMERA_FREE))
-	{
-		// move camera based on key input
-		if(this->sInputState.fUp)    this->cCameras->MovePrimary(Camera::TravelDirection::Forward,  keyMovementQty);
-		if(this->sInputState.fLeft)  this->cCameras->MovePrimary(Camera::TravelDirection::Left,		keyMovementQty);
-		if(this->sInputState.fDown)  this->cCameras->MovePrimary(Camera::TravelDirection::Backward, keyMovementQty);
-		if(this->sInputState.fRight) this->cCameras->MovePrimary(Camera::TravelDirection::Right,	keyMovementQty);
-	}
-
-	// apply the allowed proportion of the camera translation
-	this->cCameras->ApplyPrimaryMovementBuffer();
-*/
-	// get the translated camera position
+	// Clamp camera Y between terrain surface and MAX_CAMERA_HEIGHT
 	Vector3 translatedCameraPosition = this->cCameras->GetCameraTranslation();
-
-	// perform calculations to suggest a new y coordinate (add MIN_CAMERA_HEIGHT to avoid clipping)
 	float minY = this->cTerrain->GetTerrainHeightAt(translatedCameraPosition.x, translatedCameraPosition.z, true) + MIN_CAMERA_HEIGHT;
-
-	// amend y coodinate if necessary
-	if(minY > translatedCameraPosition.y)					this->cCameras->AmmendPrimaryY(minY);
-	else if(translatedCameraPosition.y > MAX_CAMERA_HEIGHT) this->cCameras->AmmendPrimaryY(MAX_CAMERA_HEIGHT);
+	if (minY > translatedCameraPosition.y)                   this->cCameras->AmmendPrimaryY(minY);
+	else if (translatedCameraPosition.y > MAX_CAMERA_HEIGHT) this->cCameras->AmmendPrimaryY(MAX_CAMERA_HEIGHT);
 }
 
 

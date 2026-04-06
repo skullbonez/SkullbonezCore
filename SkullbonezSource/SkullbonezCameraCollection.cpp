@@ -356,6 +356,13 @@ const Vector3&	CameraCollection::GetCameraTranslation(uint32_t hash)
 
 
 /* -- RELATIVE UPDATE -------------------------------------------------------------*/
+void CameraCollection::CancelTween(void)
+{
+	this->isTweening = false;
+}
+
+
+
 void CameraCollection::RelativeUpdate(uint32_t hash,
 									  float yMin,
 									  float yMax)

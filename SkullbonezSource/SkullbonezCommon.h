@@ -85,8 +85,8 @@
 #define SCREEN_Y				600						// Screen resolution height
 #define BITS_PER_PIXEL			32						// Full screen bits per pixel
 #define REFRESH_RATE			75						// Full screen refresh rate
-#define	MOUSE_MOVEMENT_CONST	0.05f					// Mouse movement scale constant
-#define	KEY_MOVEMENT_CONST		20.0f					// Keyboard movement scale constant
+#define	MOUSE_MOVEMENT_CONST	0.2f					// Mouse movement scale constant
+#define	KEY_MOVEMENT_CONST		200.0f					// Keyboard movement scale constant
 #define TWEEN_RATE				3.0f					// Camera tween rate
 #define	COLLISION_THRESHOLD		0.01f					// View/Up collision threshold (radians)
 #define MIP_MAP_COMPONENTS		4						// Number of mipmap images to build per texture
