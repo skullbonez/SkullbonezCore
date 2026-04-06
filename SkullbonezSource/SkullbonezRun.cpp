@@ -441,9 +441,13 @@ void SkullbonezRun::TakeInput(void)
 	{
 		if (this->isFlyMode)
 		{
-			// Entering fly mode: lock to free camera, hide and centre mouse
-			this->cCameras->SelectCamera(CAMERA_FREE, true);
+			// Entering fly mode: snap to free camera (no tween), remove XZ bounds, hide and centre mouse
+			this->cCameras->SelectCamera(CAMERA_FREE, false);
 			this->cameraTime = 0.0f;
+			XZBounds unbounded;
+			unbounded.xMin = -99999.9f; unbounded.xMax = 99999.9f;
+			unbounded.zMin = -99999.9f; unbounded.zMax = 99999.9f;
+			this->cCameras->SetCameraXZBounds(CAMERA_FREE, unbounded);
 			SetCursor(nullptr);
 			Input::CentreMouseCoordinates();
 			this->sInputState.xMove = 0;
@@ -451,7 +455,8 @@ void SkullbonezRun::TakeInput(void)
 		}
 		else
 		{
-			// Exiting fly mode: restore cursor, restart camera auto-cycle
+			// Exiting fly mode: restore terrain XZ bounds, cursor, camera cycle clock
+			this->cCameras->SetCameraXZBounds(CAMERA_FREE, this->cTerrain->GetXZBounds());
 			SetCursor(LoadCursor(nullptr, IDC_ARROW));
 			this->cameraTime = 0.0f;
 		}
@@ -491,7 +496,7 @@ void SkullbonezRun::TakeInput(void)
 /* -- UPDATE LOGIC ----------------------------------------------------------------*/
 void SkullbonezRun::UpdateLogic(float fSecondsPerFrame)
 {
-	if (!this->isFlyMode)
+	if (!this->isFlyMode || Input::IsKeyDown(VK_SPACE))
 	{
 		// start the timer
 		this->cWorkTimer.StartTimer();
@@ -808,25 +813,31 @@ void SkullbonezRun::MoveCamera(float keyMovementQty, float mouseMovementQty)
 {
 	if (this->isFlyMode)
 	{
+		// Shift held = 3x speed
+		float speedMult = Input::IsKeyDown(VK_SHIFT) ? 3.0f : 1.0f;
+
 		// Mouse look
 		if (this->sInputState.xMove != 0 || this->sInputState.yMove != 0)
 			this->cCameras->RotatePrimary(this->sInputState.xMove * mouseMovementQty,
 										  this->sInputState.yMove * mouseMovementQty);
 
 		// WASD movement
-		if (this->sInputState.fUp)    this->cCameras->MovePrimary(Camera::TravelDirection::Forward,  keyMovementQty);
-		if (this->sInputState.fLeft)  this->cCameras->MovePrimary(Camera::TravelDirection::Left,     keyMovementQty);
-		if (this->sInputState.fDown)  this->cCameras->MovePrimary(Camera::TravelDirection::Backward, keyMovementQty);
-		if (this->sInputState.fRight) this->cCameras->MovePrimary(Camera::TravelDirection::Right,    keyMovementQty);
+		if (this->sInputState.fUp)    this->cCameras->MovePrimary(Camera::TravelDirection::Forward,  keyMovementQty * speedMult);
+		if (this->sInputState.fLeft)  this->cCameras->MovePrimary(Camera::TravelDirection::Left,     keyMovementQty * speedMult);
+		if (this->sInputState.fDown)  this->cCameras->MovePrimary(Camera::TravelDirection::Backward, keyMovementQty * speedMult);
+		if (this->sInputState.fRight) this->cCameras->MovePrimary(Camera::TravelDirection::Right,    keyMovementQty * speedMult);
 
 		this->cCameras->ApplyPrimaryMovementBuffer();
 	}
 
-	// Clamp camera Y between terrain surface and MAX_CAMERA_HEIGHT
-	Vector3 translatedCameraPosition = this->cCameras->GetCameraTranslation();
-	float minY = this->cTerrain->GetTerrainHeightAt(translatedCameraPosition.x, translatedCameraPosition.z, true) + MIN_CAMERA_HEIGHT;
-	if (minY > translatedCameraPosition.y)                   this->cCameras->AmmendPrimaryY(minY);
-	else if (translatedCameraPosition.y > MAX_CAMERA_HEIGHT) this->cCameras->AmmendPrimaryY(MAX_CAMERA_HEIGHT);
+	// Clamp camera Y between terrain surface and MAX_CAMERA_HEIGHT (not in fly mode)
+	if (!this->isFlyMode)
+	{
+		Vector3 translatedCameraPosition = this->cCameras->GetCameraTranslation();
+		float minY = this->cTerrain->GetTerrainHeightAt(translatedCameraPosition.x, translatedCameraPosition.z, true) + MIN_CAMERA_HEIGHT;
+		if (minY > translatedCameraPosition.y)                   this->cCameras->AmmendPrimaryY(minY);
+		else if (translatedCameraPosition.y > MAX_CAMERA_HEIGHT) this->cCameras->AmmendPrimaryY(MAX_CAMERA_HEIGHT);
+	}
 }
 
 
