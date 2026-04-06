@@ -1,0 +1,4 @@
+# SkullbonezCore render test suite
+# Run with: SKULLBONEZ_CORE.exe --suite SkullbonezData/scenes/render_tests.suite
+SkullbonezData/scenes/water_ball_test.scene
+SkullbonezData/scenes/legacy_smoke.scene

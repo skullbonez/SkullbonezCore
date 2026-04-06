@@ -26,6 +26,8 @@
 #include "SkullbonezTimer.h"
 #include <float.h>
 #include <cstring>
+#include <vector>
+#include <string>
 
 
 
@@ -50,18 +52,52 @@ int WINAPI WinMain(HINSTANCE hInstance,		// Holds info on instance of app
 	// Supress benign (level 4) warnings
 	hPrevInstance; iCmdShow;
 
-	// Parse command line for --scene <path>
-	const char* scenePath = nullptr;
+	// Build the ordered list of scene paths to run.
+	// Each entry is either a .scene path (scene/suite mode) or "" (legacy mode).
+	std::vector<std::string> sceneList;
+	bool isSuiteOrSceneMode = false;
+
 	if (szCmdLine && szCmdLine[0] != '\0')
 	{
+		const char* suiteArg = strstr(szCmdLine, "--suite");
 		const char* sceneArg = strstr(szCmdLine, "--scene");
-		if (sceneArg)
+
+		if (suiteArg)
 		{
-			sceneArg += 7; // skip "--scene"
+			suiteArg += 7;
+			while (*suiteArg == ' ') ++suiteArg;
+
+			// Read suite file: one scene path per line, # comments ignored
+			FILE* f = nullptr;
+			if (fopen_s(&f, suiteArg, "r") == 0 && f)
+			{
+				char line[512];
+				while (fgets(line, sizeof(line), f))
+				{
+					size_t len = strlen(line);
+					while (len > 0 && (line[len-1] == '\r' || line[len-1] == '\n' || line[len-1] == ' '))
+						line[--len] = '\0';
+					if (len > 0 && line[0] != '#')
+						sceneList.push_back(line);
+				}
+				fclose(f);
+			}
+			isSuiteOrSceneMode = true;
+		}
+		else if (sceneArg)
+		{
+			sceneArg += 7;
 			while (*sceneArg == ' ') ++sceneArg;
-			if (*sceneArg != '\0') scenePath = sceneArg;
+			if (*sceneArg != '\0')
+			{
+				sceneList.push_back(sceneArg);
+				isSuiteOrSceneMode = true;
+			}
 		}
 	}
+
+	if (sceneList.empty())
+		sceneList.push_back("");  // legacy mode — empty string maps to nullptr
 
 	// Create an instance of our window class
 	// (holds everything associated with our window)
@@ -73,46 +109,67 @@ int WINAPI WinMain(HINSTANCE hInstance,		// Holds info on instance of app
 	// Get the device context for our window
 	cWindow->sDevice = GetDC(cWindow->sWindow);
 
-	for(;;)
+	bool abortAll = false;
+	for (size_t sceneIdx = 0; sceneIdx < sceneList.size() && !abortAll; ++sceneIdx)
 	{
-		// Init OpenGL
-		cWindow->InitialiseOpenGL();
+		const char* currentScene = sceneList[sceneIdx].empty() ? nullptr : sceneList[sceneIdx].c_str();
 
-		bool shouldRestart = false;
+		for(;;)
 		{
-			// Create the Skullbonez Core instance (scoped so destructor runs
-			// BEFORE GL context deletion — ensures GL cleanup calls work)
-			SkullbonezRun cRun(scenePath);
+			// Init OpenGL
+			cWindow->InitialiseOpenGL();
 
-			try
+			bool shouldRestart = false;
+			bool sceneCompleted = false;
 			{
-				// Attempt to initialise the Skullbonez Core
-				cRun.Initialise();
+				// Create the Skullbonez Core instance (scoped so destructor runs
+				// BEFORE GL context deletion — ensures GL cleanup calls work)
+				SkullbonezRun cRun(currentScene);
 
-				// Attempt to run the Skullbonez Core
-				if(!cRun.Run())
+				try
 				{
-					if (scenePath)
-						break; // clean exit for test harness — no MessageBox
-					else
-						throw std::runtime_error("Thanks for using the Skullbonez Core!");
+					// Attempt to initialise the Skullbonez Core
+					cRun.Initialise();
+
+					// Attempt to run the Skullbonez Core
+					if(!cRun.Run())
+					{
+						if (currentScene)
+						{
+							sceneCompleted = true;
+							break; // clean scene exit — move to next scene
+						}
+						else
+							throw std::runtime_error("Thanks for using the Skullbonez Core!");
+					}
+
+					shouldRestart = true;
 				}
+				catch (const std::exception& e)  // Catch all exceptions thrown by the Skullbonez Core
+				{
+					if (!isSuiteOrSceneMode)
+						cWindow->MsgBox(e.what(), "Alert!", MB_OK);
 
-				shouldRestart = true;
+					abortAll = true;
+					break;
+				}
+				// cRun destroyed here — GL context still alive for proper cleanup
 			}
-			catch (const std::exception& e)  // Catch all exceptions thrown by the Skullbonez Core
-			{
-				if (!scenePath)
-					cWindow->MsgBox(e.what(), "Alert!", MB_OK);
 
-				// exit the loop now
+			// Cleanup rendering context AFTER cRun is destroyed
+			if (shouldRestart && cWindow->sRenderContext)
+			{
+				wglMakeCurrent(NULL, NULL);
+				wglDeleteContext(cWindow->sRenderContext);
+			}
+			else
+			{
 				break;
 			}
-			// cRun destroyed here — GL context still alive for proper cleanup
 		}
 
-		// Cleanup rendering context AFTER cRun is destroyed
-		if (shouldRestart && cWindow->sRenderContext)
+		// Between scenes: destroy GL context so the next scene gets a fresh one
+		if (!abortAll && sceneIdx + 1 < sceneList.size() && cWindow->sRenderContext)
 		{
 			wglMakeCurrent(NULL, NULL);
 			wglDeleteContext(cWindow->sRenderContext);

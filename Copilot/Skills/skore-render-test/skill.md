@@ -19,7 +19,7 @@ The Debug exe must exist at `Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe`. If no
 
 #### 1. Run both scenes
 
-Each scene has `test_gl_reset` enabled, so each run produces **two** screenshots: one before and one after GL context recreation. This verifies VBO/VAO/shader handles survive the reset.
+Both scenes are run in a single process invocation via the render test suite. Each scene still destroys and recreates the GL context (for `test_gl_reset`), producing two screenshots per scene (before and after reset) — 4 screenshots total.
 
 ```pwsh
 $proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
@@ -31,24 +31,18 @@ Remove-Item "Y:\SkullbonezCore\Debug\screenshot_reset.bmp" -ErrorAction Silently
 Remove-Item "Y:\SkullbonezCore\Debug\legacy_smoke.bmp" -ErrorAction SilentlyContinue
 Remove-Item "Y:\SkullbonezCore\Debug\legacy_smoke_reset.bmp" -ErrorAction SilentlyContinue
 
-# Scene 1: water_ball_test (produces screenshot.bmp + screenshot_reset.bmp)
+# Run all render test scenes in one process via the suite file
 $proc = Start-Process "Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe" `
-    -ArgumentList "--scene SkullbonezData/scenes/water_ball_test.scene" `
+    -ArgumentList "--suite SkullbonezData/scenes/render_tests.suite" `
     -WorkingDirectory "Y:\SkullbonezCore" -PassThru
-$proc.WaitForExit(15000) | Out-Null
-if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force; Write-Host "FAIL: water_ball_test timed out" }
+$proc.WaitForExit(30000) | Out-Null
+if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force; Write-Host "FAIL: suite timed out" }
+
 $s1 = Test-Path "Y:\SkullbonezCore\Debug\screenshot.bmp"
 $s2 = Test-Path "Y:\SkullbonezCore\Debug\screenshot_reset.bmp"
-Write-Host "water_ball_test: pass1=$s1 pass2=$s2"
-
-# Scene 2: legacy_smoke (produces legacy_smoke.bmp + legacy_smoke_reset.bmp)
-$proc = Start-Process "Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe" `
-    -ArgumentList "--scene SkullbonezData/scenes/legacy_smoke.scene" `
-    -WorkingDirectory "Y:\SkullbonezCore" -PassThru
-$proc.WaitForExit(15000) | Out-Null
-if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force; Write-Host "FAIL: legacy_smoke timed out" }
 $s3 = Test-Path "Y:\SkullbonezCore\Debug\legacy_smoke.bmp"
 $s4 = Test-Path "Y:\SkullbonezCore\Debug\legacy_smoke_reset.bmp"
+Write-Host "water_ball_test: pass1=$s1 pass2=$s2"
 Write-Host "legacy_smoke: pass1=$s3 pass2=$s4"
 ```
 
