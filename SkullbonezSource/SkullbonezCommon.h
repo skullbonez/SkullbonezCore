@@ -93,7 +93,7 @@
 #define FRUSTUM_CLIP_SHORT_QTY  1.0f					// Near clipping volume
 #define FRUSTUM_CLIP_FAR_QTY    5500.0f					// Far clipping volume
 #define	TOTAL_CAMERA_COUNT		3						// Total number of cameras
-#define	TOTAL_TEXTURE_COUNT		9						// Total number of textures
+#define	TOTAL_TEXTURE_COUNT		8						// Total number of textures
 #define TERRAIN_SCALING			5.0f					// Amount to scale terrain
 #define _PI						3.14159265f				// PI constant
 #define _2PI					6.2831853f				// 2 x PI constant
@@ -138,7 +138,6 @@
 #define SKY_DOWN_PATH			"SkullbonezData/sky6.jpg"
 #define TERRAIN_TEXTURE_PATH	"SkullbonezData/ground.jpg"
 #define BOUNDING_SPHERE_PATH	"SkullbonezData/boundingSphere.jpg"
-#define WATER_PATH				"SkullbonezData/water.jpg"
 #define TERRAIN_RAW_PATH		"SkullbonezData/terrain.raw"
 
 
@@ -154,7 +153,6 @@ constexpr uint32_t HashStr(const char* s, uint32_t hash = 2166136261u)
 
 /* -- TEXTURE NAME HASHES ---------------------------------------------------------*/
 constexpr uint32_t TEXTURE_GROUND			= HashStr("Ground");
-constexpr uint32_t TEXTURE_WATER			= HashStr("Water");
 constexpr uint32_t TEXTURE_BOUNDING_SPHERE	= HashStr("BoundingSphere");
 constexpr uint32_t TEXTURE_SKY_LEFT		= HashStr("SkyLeft");
 constexpr uint32_t TEXTURE_SKY_RIGHT		= HashStr("SkyRight");

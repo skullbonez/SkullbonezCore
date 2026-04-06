@@ -674,7 +674,6 @@ void SkullbonezRun::SetInitialOpenGlState(void)
 	// load textures
 	this->cTextures->CreateJpegTexture(TERRAIN_TEXTURE_PATH, TEXTURE_GROUND);
 	this->cTextures->CreateJpegTexture(BOUNDING_SPHERE_PATH, TEXTURE_BOUNDING_SPHERE);
-	this->cTextures->CreateJpegTexture(WATER_PATH,           TEXTURE_WATER);
 }
 
 
