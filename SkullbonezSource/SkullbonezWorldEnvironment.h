@@ -67,7 +67,9 @@ namespace SkullbonezCore
 						WorldEnvironment& operator=(WorldEnvironment&&) noexcept = default;	// Move assignment
 
 
-			void		RenderFluid				(const Matrix4& proj);				// Renders the water in the scene
+			void		RenderFluid				(const Matrix4& view,
+											 const Matrix4& proj,
+											 float          time);				// Renders the water in the scene
 			void		ResetGLResources		(void);								// Rebuilds GPU resources after GL context recreation
 			float		GetFluidSurfaceHeight	(void);								// Returns the fluid surface height
 			void		AddWorldForces			(GameObjects::GameModel& target,

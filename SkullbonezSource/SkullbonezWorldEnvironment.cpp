@@ -27,6 +27,7 @@
 
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezWorldEnvironment.h"
+#include <vector>
 
 
 
@@ -61,7 +62,7 @@ WorldEnvironment::~WorldEnvironment() {}
 
 
 /* -- RENDER FLUID ----------------------------------------------------------------*/
-void WorldEnvironment::RenderFluid(const Matrix4& proj)
+void WorldEnvironment::RenderFluid(const Matrix4& view, const Matrix4& proj, float time)
 {
 	if (!this->fluidMesh)
 		this->BuildFluidMesh();
@@ -70,16 +71,12 @@ void WorldEnvironment::RenderFluid(const Matrix4& proj)
 
 	this->fluidShader->Use();
 
-	// Read current FFP modelview as model transform (caller pushes translate)
-	float mv[16];
-	glGetFloatv(GL_MODELVIEW_MATRIX, mv);
-	Matrix4 modelView(mv);
 	Matrix4 identity;
-
 	this->fluidShader->SetMat4("uModel", identity);
-	this->fluidShader->SetMat4("uView", modelView);
+	this->fluidShader->SetMat4("uView", view);
 	this->fluidShader->SetMat4("uProjection", proj);
-	this->fluidShader->SetVec4("uColorTint", 1.0f, 1.0f, 1.0f, 0.5f);
+	this->fluidShader->SetVec4("uColorTint", 0.05f, 0.15f, 0.42f, 0.65f);
+	this->fluidShader->SetFloat("uTime", time);
 
 	this->fluidMesh->Draw();
 	glUseProgram(0);
@@ -95,20 +92,37 @@ void WorldEnvironment::BuildFluidMesh(void)
 	float h = this->fluidSurfaceHeight;
 	float f = FRUSTUM_CLIP_FAR_QTY;
 
-	// 2 triangles = 6 vertices, 5 floats each (pos3 + tex2)
-	float data[] = {
-		-f, h, -f,  0, 0,
-		-f, h,  f,  0, 1,
-		 f, h,  f,  1, 1,
-		-f, h, -f,  0, 0,
-		 f, h,  f,  1, 1,
-		 f, h, -f,  1, 0,
-	};
+	const int   N    = 64;
+	const float step = 2.0f * f / static_cast<float>(N);
 
-	this->fluidMesh = std::make_unique<Mesh>(data, 6, false, true);
+	// N*N quads, 2 triangles each, 6 position-only vertices per quad
+	std::vector<float> verts;
+	verts.reserve(N * N * 6 * 3);
+
+	for (int row = 0; row < N; ++row)
+	{
+		for (int col = 0; col < N; ++col)
+		{
+			float x0 = -f + static_cast<float>(col) * step;
+			float x1 = x0 + step;
+			float z0 = -f + static_cast<float>(row) * step;
+			float z1 = z0 + step;
+
+			// triangle 1
+			verts.push_back(x0); verts.push_back(h); verts.push_back(z0);
+			verts.push_back(x0); verts.push_back(h); verts.push_back(z1);
+			verts.push_back(x1); verts.push_back(h); verts.push_back(z1);
+			// triangle 2
+			verts.push_back(x0); verts.push_back(h); verts.push_back(z0);
+			verts.push_back(x1); verts.push_back(h); verts.push_back(z1);
+			verts.push_back(x1); verts.push_back(h); verts.push_back(z0);
+		}
+	}
+
+	this->fluidMesh = std::make_unique<Mesh>(verts.data(), N * N * 6, false, false);
 	this->fluidShader = std::make_unique<Shader>(
-		"SkullbonezData/shaders/unlit_textured.vert",
-		"SkullbonezData/shaders/unlit_textured.frag");
+		"SkullbonezData/shaders/water.vert",
+		"SkullbonezData/shaders/water.frag");
 }
 
 
@@ -118,6 +132,7 @@ void WorldEnvironment::ResetGLResources(void)
 {
 	this->fluidMesh.reset();
 	this->fluidShader.reset();
+	this->BuildFluidMesh();
 }
 
 

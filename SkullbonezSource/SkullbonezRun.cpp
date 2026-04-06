@@ -545,31 +545,6 @@ void SkullbonezRun::DrawPrimitives(void)
 	this->cTextures->SelectTexture(TEXTURE_BOUNDING_SPHERE);
 	this->cGameModelCollection.RenderModels(proj, lightPosition);
 
-	// render the deep fluid ----------------------
-	glPushMatrix();
-		this->cTextures->SelectTexture(TEXTURE_WATER);
-
-		glPushMatrix();
-			glTranslatef(0.0f, -1.0f, 6300.0f);
-			this->cWorldEnvironment.RenderFluid(proj);
-		glPopMatrix();
-
-		glPushMatrix();
-			glTranslatef(0.0f, -1.0f, -5000.0f);
-			this->cWorldEnvironment.RenderFluid(proj);
-		glPopMatrix();
-
-		glPushMatrix();
-			glTranslatef(6300.0f, -1.0f, 0.0f);
-			this->cWorldEnvironment.RenderFluid(proj);
-		glPopMatrix();
-
-		glPushMatrix();
-			glTranslatef(-5000.0f, -1.0f, 0.0f);
-			this->cWorldEnvironment.RenderFluid(proj);
-		glPopMatrix();
-	glPopMatrix();
-
 	// render terrain ------------------------------
 	{
 		this->cTextures->SelectTexture(TEXTURE_GROUND);
@@ -578,12 +553,12 @@ void SkullbonezRun::DrawPrimitives(void)
 
 	// render ground shadows on top of terrain
 	this->cGameModelCollection.RenderShadows(this->cTerrain.get(), baseView, proj);
-	
+
 	// render the fluid ---------------------------
-	glPushMatrix();
-		this->cTextures->SelectTexture(TEXTURE_WATER);
-		this->cWorldEnvironment.RenderFluid(proj);
-	glPopMatrix();
+	{
+		float waterTime = static_cast<float>(this->cSimulationTimer.GetTimeSinceLastStart());
+		this->cWorldEnvironment.RenderFluid(baseView, proj, waterTime);
+	}
 }
 
 

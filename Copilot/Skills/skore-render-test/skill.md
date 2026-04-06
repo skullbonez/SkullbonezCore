@@ -184,18 +184,38 @@ For each scene that failed pixel comparison, view the baseline and current scree
 
 ### Updating baselines
 
-When a change **intentionally** alters rendering (e.g. migrating a subsystem to shaders), recapture baselines after visual verification:
+When a change **intentionally** alters rendering (e.g. migrating a subsystem to shaders), archive the old baselines first, then recapture.
+
+#### Step 1 — Archive old baselines
+
+```pwsh
+$commit = (git -C "Y:\SkullbonezCore" rev-parse HEAD).Trim()
+$histDir = "Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_history\$commit"
+New-Item -ItemType Directory -Path $histDir -Force | Out-Null
+Get-ChildItem "Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_*.png" | ForEach-Object {
+    Copy-Item $_.FullName -Destination "$histDir\$($_.Name)"
+    Write-Host "Archived: $($_.Name) -> baseline_history\$commit\"
+}
+```
+
+#### Step 2 — Write new baselines
 
 ```pwsh
 py -c "
 from PIL import Image
-Image.open(r'Y:\SkullbonezCore\Debug\screenshot.bmp').save(r'Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_water_ball_test.png')
-Image.open(r'Y:\SkullbonezCore\Debug\legacy_smoke.bmp').save(r'Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_legacy_smoke.png')
-print('Baselines updated')
+pairs = [
+    (r'Y:\SkullbonezCore\Debug\screenshot.bmp',        r'Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_water_ball_test.png'),
+    (r'Y:\SkullbonezCore\Debug\screenshot_reset.bmp',  r'Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_water_ball_test_reset.png'),
+    (r'Y:\SkullbonezCore\Debug\legacy_smoke.bmp',      r'Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_legacy_smoke.png'),
+    (r'Y:\SkullbonezCore\Debug\legacy_smoke_reset.bmp',r'Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_legacy_smoke_reset.png'),
+]
+for src, dst in pairs:
+    Image.open(src).save(dst)
+    print(f'Updated: {dst.split(chr(92))[-1]}')
 "
 ```
 
-Include the updated baselines in the same commit.
+Include both the updated baselines **and** the `baseline_history/` folder in the same commit.
 
 ### Scene file directives
 
