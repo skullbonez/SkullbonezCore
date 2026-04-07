@@ -23,7 +23,7 @@ $msbuild = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.e
 
 ### Step 2: Render Test
 
-Run the `skore-render-test` skill. Launches both test scenes, captures 4 screenshots (2 per scene, before and after GL reset), and runs pixel comparison against baselines. All 6 comparison pairs must pass.
+Run the `skore-render-test` skill. Launches **both test scenes in a single process** via `--suite SkullbonezData/scenes/render_tests.suite`. Produces 4 screenshots (2 per scene — before and after GL reset), then runs pixel comparison against baselines. All 6 comparison pairs must pass.
 
 **If render test fails**: Convert screenshots to PNG and send them to the model via the `view` tool for LLM visual comparison. **Only send PNGs to the model if local pixel comparison fails** — do not waste context on images that pass. Evaluate against the 6-point checklist in the `skore-render-test` skill. If the change intentionally alters rendering, update baselines in Step 3. If unintentional, investigate and fix before proceeding.
 
@@ -46,7 +46,7 @@ This ensures baselines always reflect the latest committed state.
 
 ### Step 4: Performance Test
 
-**Mandatory for every commit.** Run the perf test and generate a JSON artifact:
+**Mandatory for every commit.** Separate from the render test suite — runs via `--scene` (not `--suite`) because it takes 10 seconds and should not block quick render test runs.
 
 ```pwsh
 $proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue

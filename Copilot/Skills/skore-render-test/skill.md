@@ -1,15 +1,17 @@
 ---
 name: skore-render-test
-description: Run a scene file through SkullbonezCore in scene mode, capture a screenshot, and output the path. Invoke when the user asks to run a render test, capture a scene screenshot, or verify rendering output.
+description: Run render test scenes through SkullbonezCore, capture screenshots, and validate against baselines. Invoke when the user asks to run a render test, capture a scene screenshot, or verify rendering output.
 ---
 
 ## Render Test Skill
 
-Launches SkullbonezCore with `.scene` files that have `screenshot` directives. The engine renders the scene, writes a BMP via `glReadPixels`, and exits. Validates output with a three-tier comparison system.
+Launches SkullbonezCore with `--suite SkullbonezData/scenes/render_tests.suite`, which runs both render test scenes **in a single process launch**. Each scene produces 2 screenshots (before and after GL context reset). Validates all 4 outputs against baselines with a three-tier comparison system.
 
-Two test scenes are run:
+Two test scenes are in the suite:
 1. **water_ball_test** — Single ball, simple scene (verifies terrain, skybox, water rendering)
 2. **legacy_smoke** — 300 seeded random balls, full legacy code path (verifies sphere rendering at scale)
+
+The **perf test** (`perf_test.scene`) is run separately via `--scene` — it takes 10 seconds and is intentionally not part of the suite.
 
 ### Prerequisites
 
