@@ -10,7 +10,7 @@ test_gl_reset
 screenshot Debug/screenshot.bmp frame 1
 
 # Camera pulled back and elevated to see ball, terrain, water, and skybox
-camera main 500 60 650  600 24 600  0 1 0
+camera main 500 60 650  600 33 600  0 1 0
 
-# Ball in the play area, partially in water (FLUID_HEIGHT=25, radius=3, y=24)
-ball water_test 600 24 600  3.0 50.0 10.0 0.8
+# Ball sitting half above / half below water (FLUID_HEIGHT=25, radius=12, y=33 => bottom at y=21)
+ball water_test 600 33 600  12.0 50.0 10.0 0.8
