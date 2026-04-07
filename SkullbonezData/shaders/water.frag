@@ -6,7 +6,7 @@
 // perturbed by the same wave functions used in water.vert, so the reflected
 // image shimmers in phase with the surface geometry.
 
-in vec4 vClipPos;
+in vec4 vReflectClipPos;
 in vec2 vWorldXZ;
 
 uniform vec4      uColorTint;
@@ -18,8 +18,9 @@ out vec4 FragColor;
 
 void main()
 {
-    // Projective UV: map clip-space xy to [0,1] screen-space coordinates
-    vec2 reflUV = (vClipPos.xy / vClipPos.w) * 0.5 + 0.5;
+    // Projective UV: sample the reflection FBO using the reflection camera's clip space.
+    // This ensures the UV tracks the reflection camera exactly, with no double-motion.
+    vec2 reflUV = (vReflectClipPos.xy / vReflectClipPos.w) * 0.5 + 0.5;
 
     // Perturb UV with the same wave functions as water.vert — phase-locks
     // the reflected image shimmer to the surface ripple geometry

@@ -69,6 +69,7 @@ namespace SkullbonezCore
 
 			void		RenderFluid				(const Matrix4& view,
 											 const Matrix4& proj,
+											 const Matrix4& reflectVP,
 											 float          time,
 											 GLuint         reflectionTex);		// Renders the water in the scene
 			void		ResetGLResources		(void);								// Rebuilds GPU resources after GL context recreation

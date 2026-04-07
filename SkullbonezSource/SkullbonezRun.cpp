@@ -558,6 +558,7 @@ void SkullbonezRun::DrawPrimitives(void)
 	glGetFloatv(GL_PROJECTION_MATRIX, projMat);
 	Matrix4 baseView(viewMat);
 	Matrix4 proj(projMat);
+	Matrix4 reflVP;   // reflection view-projection — filled in pre-pass, used by RenderFluid
 
 	// Cache base view for sphere light transforms (before any model transforms)
 	SkullbonezHelper::SetBaseView(viewMat);
@@ -585,6 +586,7 @@ void SkullbonezRun::DrawPrimitives(void)
 		Vector3 reflCenter(center.x, 2.0f * waterY - center.y, center.z);
 		Vector3 reflUp    (0.0f, -1.0f, 0.0f);
 		Matrix4 reflView = Matrix4::LookAt(reflEye, reflCenter, reflUp);
+		reflVP           = proj * reflView;
 
 		this->cReflectionFBO->Bind();
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -631,7 +633,7 @@ void SkullbonezRun::DrawPrimitives(void)
 	// render the fluid ---------------------------
 	{
 		float waterTime = static_cast<float>(this->cSimulationTimer.GetTimeSinceLastStart());
-		this->cWorldEnvironment.RenderFluid(baseView, proj, waterTime,
+		this->cWorldEnvironment.RenderFluid(baseView, proj, reflVP, waterTime,
 											this->cReflectionFBO->GetColorTexture());
 	}
 }
