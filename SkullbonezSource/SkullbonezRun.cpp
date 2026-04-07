@@ -145,8 +145,11 @@ void SkullbonezRun::Initialise(void)
 											   GAS_DENSITY,
 											   GRAVITATIONAL_FORCE);
 
-	// Init reflection FBO
-	this->cReflectionFBO = std::make_unique<Framebuffer>(SCREEN_X, SCREEN_Y);
+	// Init reflection FBO at the current viewport size so it matches the main render
+	// regardless of windowed vs fullscreen resolution
+	GLint vp[4];
+	glGetIntegerv(GL_VIEWPORT, vp);
+	this->cReflectionFBO = std::make_unique<Framebuffer>(vp[2], vp[3]);
 
 	// Branch on scene mode vs legacy mode
 	if (this->isSceneMode)
@@ -560,6 +563,10 @@ void SkullbonezRun::DrawPrimitives(void)
 	Matrix4 proj(projMat);
 	Matrix4 reflVP;   // reflection view-projection — filled in pre-pass, used by RenderFluid
 
+	// Current viewport — saved here so the reflection pre-pass can restore it
+	GLint vp[4];
+	glGetIntegerv(GL_VIEWPORT, vp);
+
 	// Cache base view for sphere light transforms (before any model transforms)
 	SkullbonezHelper::SetBaseView(viewMat);
 
@@ -589,6 +596,7 @@ void SkullbonezRun::DrawPrimitives(void)
 		reflVP           = proj * reflView;
 
 		this->cReflectionFBO->Bind();
+		glViewport(0, 0, this->cReflectionFBO->GetWidth(), this->cReflectionFBO->GetHeight());
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// Skybox reflected (XZ follows eye; Y anchored at SKYBOX_RENDER_HEIGHT)
@@ -611,6 +619,7 @@ void SkullbonezRun::DrawPrimitives(void)
 		SkullbonezHelper::SetClipPlane(0.0f, 1.0f, 0.0f, 1.0e9f);
 
 		this->cReflectionFBO->Unbind();
+		glViewport(vp[0], vp[1], vp[2], vp[3]);
 
 		// Restore original view matrix and base view cache
 		glLoadMatrixf(baseView.m);

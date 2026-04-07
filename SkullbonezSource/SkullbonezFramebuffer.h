@@ -61,6 +61,8 @@ namespace SkullbonezCore
 			void		Bind				(void) const;				// Bind as render target
 			void		Unbind				(void) const;				// Restore default framebuffer
 			GLuint		GetColorTexture		(void) const;				// Returns color texture handle
+			int			GetWidth			(void) const;				// Returns FBO width in pixels
+			int			GetHeight			(void) const;				// Returns FBO height in pixels
 			void		ResetGLResources	(void);						// Rebuild after GL context recreation
 		};
 	}

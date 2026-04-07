@@ -116,6 +116,22 @@ GLuint Framebuffer::GetColorTexture(void) const
 
 
 
+/* -- GET WIDTH -------------------------------------------------------------------*/
+int Framebuffer::GetWidth(void) const
+{
+	return this->width;
+}
+
+
+
+/* -- GET HEIGHT ------------------------------------------------------------------*/
+int Framebuffer::GetHeight(void) const
+{
+	return this->height;
+}
+
+
+
 /* -- RESET GL RESOURCES ----------------------------------------------------------*/
 void Framebuffer::ResetGLResources(void)
 {
