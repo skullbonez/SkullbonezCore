@@ -5,7 +5,7 @@ description: Build the SkullbonezCore solution using MSBuild. Invoke when the us
 
 ## Building SkullbonezCore
 
-The solution is at `Y:\SkullbonezCore\SKULLBONEZ_CORE.sln`.
+The solution is at `SKULLBONEZ_CORE.sln` in the repo root.
 
 Available configurations:
 - `Debug|x86`
@@ -16,8 +16,9 @@ Available configurations:
 Use MSBuild via the Visual Studio Developer tools. Find MSBuild with `vswhere`, then invoke it using **`mode="async"`** so the user sees output streaming live as the build progresses. Read output with `read_powershell` after completion.
 
 ```pwsh
-$msbuild = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
-& $msbuild "Y:\SkullbonezCore\SKULLBONEZ_CORE.sln" /p:Configuration=Debug /p:Platform=x86
+$REPO     = (git rev-parse --show-toplevel).Trim()
+$msbuild  = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
+& $msbuild "$REPO\SKULLBONEZ_CORE.sln" /p:Configuration=Debug /p:Platform=x86
 ```
 
 Replace `Debug` with `Release` for a release build.
@@ -25,11 +26,13 @@ Replace `Debug` with `Release` for a release build.
 ### Rebuild (clean + build)
 
 ```pwsh
-& $msbuild "Y:\SkullbonezCore\SKULLBONEZ_CORE.sln" /t:Rebuild /p:Configuration=Debug /p:Platform=x86
+$REPO    = (git rev-parse --show-toplevel).Trim()
+$msbuild = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
+& $msbuild "$REPO\SKULLBONEZ_CORE.sln" /t:Rebuild /p:Configuration=Debug /p:Platform=x86
 ```
 
 ### Output
 
 Build artifacts land in:
-- `Y:\SkullbonezCore\Debug\` for Debug builds
-- `Y:\SkullbonezCore\Release\` for Release builds
+- `{REPO}\Debug\` for Debug builds
+- `{REPO}\Release\` for Release builds

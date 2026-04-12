@@ -12,11 +12,12 @@ The full verify-and-commit pipeline after a code change. **Every step must pass 
 Build using the `skore-build` skill. Must produce **0 errors and 0 warnings**.
 
 ```pwsh
-$proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
+$REPO    = (git rev-parse --show-toplevel).Trim()
+$proc    = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
 if ($proc) { Stop-Process -Id $proc.Id -Force; Start-Sleep 1 }
 
 $msbuild = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
-& $msbuild "Y:\SkullbonezCore\SKULLBONEZ_CORE.sln" /p:Configuration=Debug /p:Platform=x86 /nologo /v:minimal
+& $msbuild "$REPO\SKULLBONEZ_CORE.sln" /p:Configuration=Debug /p:Platform=x86 /nologo /v:minimal
 ```
 
 **If build fails**: Fix errors, rebuild. Do not proceed.
@@ -32,12 +33,17 @@ Run the `skore-render-test` skill. Launches **both test scenes in a single proce
 **Mandatory for every commit.** Capture fresh baselines from the current build:
 
 ```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
+$env:SKORE_REPO = $REPO
 py -c "
+import os
 from PIL import Image
-Image.open(r'Y:\SkullbonezCore\Debug\screenshot.bmp').save(r'Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_water_ball_test.png')
-Image.open(r'Y:\SkullbonezCore\Debug\screenshot_reset.bmp').save(r'Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_water_ball_test_reset.png')
-Image.open(r'Y:\SkullbonezCore\Debug\legacy_smoke.bmp').save(r'Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_legacy_smoke.png')
-Image.open(r'Y:\SkullbonezCore\Debug\legacy_smoke_reset.bmp').save(r'Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_legacy_smoke_reset.png')
+_r = os.environ['SKORE_REPO']
+_s = _r + r'\Copilot\Skills\skore-render-test'
+Image.open(_r + r'\Debug\screenshot.bmp').save(_s        + r'\baseline_water_ball_test.png')
+Image.open(_r + r'\Debug\screenshot_reset.bmp').save(_s  + r'\baseline_water_ball_test_reset.png')
+Image.open(_r + r'\Debug\legacy_smoke.bmp').save(_s      + r'\baseline_legacy_smoke.png')
+Image.open(_r + r'\Debug\legacy_smoke_reset.bmp').save(_s+ r'\baseline_legacy_smoke_reset.png')
 print('Baselines updated')
 "
 ```
@@ -49,19 +55,20 @@ This ensures baselines always reflect the latest committed state.
 **Mandatory for every commit.** Separate from the render test suite — runs via `--scene` (not `--suite`) because it takes 10 seconds and should not block quick render test runs.
 
 ```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
 $proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
 if ($proc) { Stop-Process -Id $proc.Id -Force; Start-Sleep 1 }
-Remove-Item "Y:\SkullbonezCore\Debug\perf_log.csv" -ErrorAction SilentlyContinue
+Remove-Item "$REPO\Debug\perf_log.csv" -ErrorAction SilentlyContinue
 
-$proc = Start-Process "Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe" `
+$proc = Start-Process "$REPO\Debug\SKULLBONEZ_CORE.exe" `
     -ArgumentList "--scene SkullbonezData/scenes/perf_test.scene" `
-    -WorkingDirectory "Y:\SkullbonezCore" -PassThru
+    -WorkingDirectory $REPO -PassThru
 $proc.WaitForExit(30000) | Out-Null
 if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force; Write-Host "FAIL: perf test timed out" }
 
-if (Test-Path "Y:\SkullbonezCore\Debug\perf_log.csv") {
+if (Test-Path "$REPO\Debug\perf_log.csv") {
     Write-Host "PASS: perf_log.csv generated"
-    py "Y:\SkullbonezCore\Copilot\Skills\skore-render-test\analyze_perf.py"
+    py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py"
 } else {
     Write-Host "FAIL: No perf_log.csv"
 }
@@ -76,10 +83,11 @@ Regression thresholds: avg/p50 timing >10%, p99/p99.9 >20%, memory >5 MB.
 Quick check that default mode (no `--scene`) still runs without crashing:
 
 ```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
 $proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
 if ($proc) { Stop-Process -Id $proc.Id -Force; Start-Sleep 1 }
 
-Start-Process "Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe" -WorkingDirectory "Y:\SkullbonezCore"
+Start-Process "$REPO\Debug\SKULLBONEZ_CORE.exe" -WorkingDirectory $REPO
 Start-Sleep 5
 $proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
 if ($proc) {
@@ -100,7 +108,8 @@ Only if **all** previous steps pass. The commit MUST include:
 - Performance test artifact (from Step 4)
 
 ```pwsh
-cd Y:\SkullbonezCore
+$REPO = (git rev-parse --show-toplevel).Trim()
+cd $REPO
 git add -A
 git commit -m "<descriptive message>
 

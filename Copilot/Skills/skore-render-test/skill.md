@@ -15,7 +15,7 @@ The **perf test** (`perf_test.scene`) is run separately via `--scene` — it tak
 
 ### Prerequisites
 
-The Debug exe must exist at `Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe`. If not, build first using the `skore-build` skill.
+The Debug exe must exist at `{REPO}\Debug\SKULLBONEZ_CORE.exe`. If not, build first using the `skore-build` skill.
 
 ### Steps
 
@@ -24,26 +24,27 @@ The Debug exe must exist at `Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe`. If no
 Both scenes are run in a single process invocation via the render test suite. Each scene still destroys and recreates the GL context (for `test_gl_reset`), producing two screenshots per scene (before and after reset) — 4 screenshots total.
 
 ```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
 $proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
 if ($proc) { Stop-Process -Id $proc.Id -Force; Start-Sleep 1 }
 
 # Clean up old screenshots
-Remove-Item "Y:\SkullbonezCore\Debug\screenshot.bmp" -ErrorAction SilentlyContinue
-Remove-Item "Y:\SkullbonezCore\Debug\screenshot_reset.bmp" -ErrorAction SilentlyContinue
-Remove-Item "Y:\SkullbonezCore\Debug\legacy_smoke.bmp" -ErrorAction SilentlyContinue
-Remove-Item "Y:\SkullbonezCore\Debug\legacy_smoke_reset.bmp" -ErrorAction SilentlyContinue
+Remove-Item "$REPO\Debug\screenshot.bmp" -ErrorAction SilentlyContinue
+Remove-Item "$REPO\Debug\screenshot_reset.bmp" -ErrorAction SilentlyContinue
+Remove-Item "$REPO\Debug\legacy_smoke.bmp" -ErrorAction SilentlyContinue
+Remove-Item "$REPO\Debug\legacy_smoke_reset.bmp" -ErrorAction SilentlyContinue
 
 # Run all render test scenes in one process via the suite file
-$proc = Start-Process "Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe" `
+$proc = Start-Process "$REPO\Debug\SKULLBONEZ_CORE.exe" `
     -ArgumentList "--suite SkullbonezData/scenes/render_tests.suite" `
-    -WorkingDirectory "Y:\SkullbonezCore" -PassThru
+    -WorkingDirectory $REPO -PassThru
 $proc.WaitForExit(30000) | Out-Null
 if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force; Write-Host "FAIL: suite timed out" }
 
-$s1 = Test-Path "Y:\SkullbonezCore\Debug\screenshot.bmp"
-$s2 = Test-Path "Y:\SkullbonezCore\Debug\screenshot_reset.bmp"
-$s3 = Test-Path "Y:\SkullbonezCore\Debug\legacy_smoke.bmp"
-$s4 = Test-Path "Y:\SkullbonezCore\Debug\legacy_smoke_reset.bmp"
+$s1 = Test-Path "$REPO\Debug\screenshot.bmp"
+$s2 = Test-Path "$REPO\Debug\screenshot_reset.bmp"
+$s3 = Test-Path "$REPO\Debug\legacy_smoke.bmp"
+$s4 = Test-Path "$REPO\Debug\legacy_smoke_reset.bmp"
 Write-Host "water_ball_test: pass1=$s1 pass2=$s2"
 Write-Host "legacy_smoke: pass1=$s3 pass2=$s4"
 ```
@@ -53,13 +54,17 @@ Write-Host "legacy_smoke: pass1=$s3 pass2=$s4"
 The API cannot display BMP files (causes schema validation error). **Always** convert before any comparison or viewing:
 
 ```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
+$env:SKORE_REPO = $REPO
 py -c "
+import os
 from PIL import Image
+_r = os.environ['SKORE_REPO']
 for src, dst in [
-    (r'Y:\SkullbonezCore\Debug\screenshot.bmp', r'Y:\SkullbonezCore\Debug\screenshot_water.png'),
-    (r'Y:\SkullbonezCore\Debug\screenshot_reset.bmp', r'Y:\SkullbonezCore\Debug\screenshot_water_reset.png'),
-    (r'Y:\SkullbonezCore\Debug\legacy_smoke.bmp', r'Y:\SkullbonezCore\Debug\legacy_smoke.png'),
-    (r'Y:\SkullbonezCore\Debug\legacy_smoke_reset.bmp', r'Y:\SkullbonezCore\Debug\legacy_smoke_reset.png'),
+    (_r + r'\Debug\screenshot.bmp',        _r + r'\Debug\screenshot_water.png'),
+    (_r + r'\Debug\screenshot_reset.bmp',  _r + r'\Debug\screenshot_water_reset.png'),
+    (_r + r'\Debug\legacy_smoke.bmp',      _r + r'\Debug\legacy_smoke.png'),
+    (_r + r'\Debug\legacy_smoke_reset.bmp',_r + r'\Debug\legacy_smoke_reset.png'),
 ]:
     Image.open(src).save(dst)
 print('Converted 4 screenshots to PNG')
@@ -73,10 +78,14 @@ print('Converted 4 screenshots to PNG')
 Compares baseline vs pass1, baseline vs pass2 (after GL reset), and pass1 vs pass2 for each scene. All 6 pairs must pass.
 
 ```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
+$env:SKORE_REPO = $REPO
 py -c "
+import os
 from PIL import Image
 
 TOLERANCE = 5  # per-channel (R, G, B) allowed deviation
+_r = os.environ['SKORE_REPO']
 
 def compare(baseline_path, current_path, name):
     baseline = Image.open(baseline_path).convert('RGB')
@@ -116,22 +125,17 @@ def compare(baseline_path, current_path, name):
         print(f'PIXEL_FAIL [{name}]: {tol_pct}% beyond tolerance — needs visual review')
         return False
 
+_skills = _r + r'\Copilot\Skills\skore-render-test'
 print('=== water_ball_test ===')
-r1 = compare(r'Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_water_ball_test.png',
-             r'Y:\SkullbonezCore\Debug\screenshot_water.png', 'baseline vs pass1')
-r2 = compare(r'Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_water_ball_test.png',
-             r'Y:\SkullbonezCore\Debug\screenshot_water_reset.png', 'baseline vs pass2')
-r3 = compare(r'Y:\SkullbonezCore\Debug\screenshot_water.png',
-             r'Y:\SkullbonezCore\Debug\screenshot_water_reset.png', 'pass1 vs pass2')
+r1 = compare(_skills + r'\baseline_water_ball_test.png',  _r + r'\Debug\screenshot_water.png',       'baseline vs pass1')
+r2 = compare(_skills + r'\baseline_water_ball_test.png',  _r + r'\Debug\screenshot_water_reset.png',  'baseline vs pass2')
+r3 = compare(_r + r'\Debug\screenshot_water.png',          _r + r'\Debug\screenshot_water_reset.png',  'pass1 vs pass2')
 
 print()
 print('=== legacy_smoke ===')
-r4 = compare(r'Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_legacy_smoke.png',
-             r'Y:\SkullbonezCore\Debug\legacy_smoke.png', 'baseline vs pass1')
-r5 = compare(r'Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_legacy_smoke.png',
-             r'Y:\SkullbonezCore\Debug\legacy_smoke_reset.png', 'baseline vs pass2')
-r6 = compare(r'Y:\SkullbonezCore\Debug\legacy_smoke.png',
-             r'Y:\SkullbonezCore\Debug\legacy_smoke_reset.png', 'pass1 vs pass2')
+r4 = compare(_skills + r'\baseline_legacy_smoke.png', _r + r'\Debug\legacy_smoke.png',       'baseline vs pass1')
+r5 = compare(_skills + r'\baseline_legacy_smoke.png', _r + r'\Debug\legacy_smoke_reset.png',  'baseline vs pass2')
+r6 = compare(_r + r'\Debug\legacy_smoke.png',          _r + r'\Debug\legacy_smoke_reset.png',  'pass1 vs pass2')
 
 print()
 if all([r1,r2,r3,r4,r5,r6]):
@@ -151,10 +155,10 @@ If pixel tests fail → proceed to step 4.
 For each scene that failed pixel comparison, view the baseline and current screenshot side-by-side and evaluate:
 
 **View the images** (use the `view` tool):
-- Baseline: `Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_water_ball_test.png`
-- Current: `Y:\SkullbonezCore\Debug\screenshot_water.png`
-- Baseline: `Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_legacy_smoke.png`
-- Current: `Y:\SkullbonezCore\Debug\legacy_smoke.png`
+- Baseline: `{REPO}\Copilot\Skills\skore-render-test\baseline_water_ball_test.png`
+- Current: `{REPO}\Debug\screenshot_water.png`
+- Baseline: `{REPO}\Copilot\Skills\skore-render-test\baseline_legacy_smoke.png`
+- Current: `{REPO}\Debug\legacy_smoke.png`
 
 **Evaluate each pair against this checklist:**
 1. Are all expected objects present? (terrain, skybox, spheres, water, shadows)
@@ -185,10 +189,11 @@ When a change **intentionally** alters rendering (e.g. migrating a subsystem to 
 #### Step 1 — Archive old baselines
 
 ```pwsh
-$commit = (git -C "Y:\SkullbonezCore" rev-parse HEAD).Trim()
-$histDir = "Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_history\$commit"
+$REPO   = (git rev-parse --show-toplevel).Trim()
+$commit = (git -C $REPO rev-parse HEAD).Trim()
+$histDir = "$REPO\Copilot\Skills\skore-render-test\baseline_history\$commit"
 New-Item -ItemType Directory -Path $histDir -Force | Out-Null
-Get-ChildItem "Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_*.png" | ForEach-Object {
+Get-ChildItem "$REPO\Copilot\Skills\skore-render-test\baseline_*.png" | ForEach-Object {
     Copy-Item $_.FullName -Destination "$histDir\$($_.Name)"
     Write-Host "Archived: $($_.Name) -> baseline_history\$commit\"
 }
@@ -197,17 +202,22 @@ Get-ChildItem "Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_*.png
 #### Step 2 — Write new baselines
 
 ```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
+$env:SKORE_REPO = $REPO
 py -c "
+import os
 from PIL import Image
+_r = os.environ['SKORE_REPO']
+_s = _r + r'\Copilot\Skills\skore-render-test'
 pairs = [
-    (r'Y:\SkullbonezCore\Debug\screenshot.bmp',        r'Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_water_ball_test.png'),
-    (r'Y:\SkullbonezCore\Debug\screenshot_reset.bmp',  r'Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_water_ball_test_reset.png'),
-    (r'Y:\SkullbonezCore\Debug\legacy_smoke.bmp',      r'Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_legacy_smoke.png'),
-    (r'Y:\SkullbonezCore\Debug\legacy_smoke_reset.bmp',r'Y:\SkullbonezCore\Copilot\Skills\skore-render-test\baseline_legacy_smoke_reset.png'),
+    (_r + r'\Debug\screenshot.bmp',        _s + r'\baseline_water_ball_test.png'),
+    (_r + r'\Debug\screenshot_reset.bmp',  _s + r'\baseline_water_ball_test_reset.png'),
+    (_r + r'\Debug\legacy_smoke.bmp',      _s + r'\baseline_legacy_smoke.png'),
+    (_r + r'\Debug\legacy_smoke_reset.bmp',_s + r'\baseline_legacy_smoke_reset.png'),
 ]
 for src, dst in pairs:
     Image.open(src).save(dst)
-    print(f'Updated: {dst.split(chr(92))[-1]}')
+    print('Updated: ' + dst.split(chr(92))[-1])
 "
 ```
 
@@ -237,20 +247,21 @@ Runs SkullbonezCore for 10 seconds (2 passes × 5 seconds) with 300 balls, physi
 
 ```pwsh
 # 1. Run the perf test scene (10 seconds total)
+$REPO = (git rev-parse --show-toplevel).Trim()
 $proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
 if ($proc) { Stop-Process -Id $proc.Id -Force; Start-Sleep 1 }
-Remove-Item "Y:\SkullbonezCore\Debug\perf_log.csv" -ErrorAction SilentlyContinue
-$proc = Start-Process "Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe" `
+Remove-Item "$REPO\Debug\perf_log.csv" -ErrorAction SilentlyContinue
+$proc = Start-Process "$REPO\Debug\SKULLBONEZ_CORE.exe" `
     -ArgumentList "--scene SkullbonezData/scenes/perf_test.scene" `
-    -WorkingDirectory "Y:\SkullbonezCore" -PassThru
+    -WorkingDirectory $REPO -PassThru
 $proc.WaitForExit(30000) | Out-Null
 if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force; Write-Host "FAIL: perf test didn't exit" }
-if (Test-Path "Y:\SkullbonezCore\Debug\perf_log.csv") {
+if (Test-Path "$REPO\Debug\perf_log.csv") {
     Write-Host "PASS: perf_log.csv generated"
 } else { Write-Host "FAIL: No perf_log.csv" }
 
 # 2. Analyze and write artifact
-py "Y:\SkullbonezCore\Copilot\Skills\skore-render-test\analyze_perf.py"
+py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py"
 ```
 
 ### Artifact format
@@ -260,6 +271,13 @@ Written to `Skills/skore-render-test/perf_history/{commit_hash}.json`:
 ```json
 {
   "commit": "ab2729c",
+  "machine": {
+    "hostname": "MYPC",
+    "cpu": "Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz",
+    "cores": 8,
+    "ram_gb": 31.9,
+    "os": "10.0.19045"
+  },
   "total_frames": 601,
   "physics_ms": { "min": 0.76, "max": 2.80, "avg": 1.72, "p50": 1.72, "p99": 2.58, "p99_9": 2.80 },
   "render_ms":  { "min": 0.95, "max": 4.33, "avg": 1.35, "p50": 1.36, "p99": 1.78, "p99_9": 3.99 },

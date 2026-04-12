@@ -18,7 +18,8 @@ C:\Program Files (x86)\Windows Kits\10\Debuggers\x86\cdb.exe
 Launch the exe under CDB. It will break on exceptions automatically:
 
 ```pwsh
-& "C:\Program Files (x86)\Windows Kits\10\Debuggers\x86\cdb.exe" -g -G -lines -y "Y:\SkullbonezCore\Debug" -srcpath "Y:\SkullbonezCore\SkullbonezSource" "Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe"
+$REPO = (git rev-parse --show-toplevel).Trim()
+& "C:\Program Files (x86)\Windows Kits\10\Debuggers\x86\cdb.exe" -g -G -lines -y "$REPO\Debug" -srcpath "$REPO\SkullbonezSource" "$REPO\Debug\SKULLBONEZ_CORE.exe"
 ```
 
 Flags:
@@ -31,7 +32,8 @@ Flags:
 ### Launch with scene file
 
 ```pwsh
-& "C:\Program Files (x86)\Windows Kits\10\Debuggers\x86\cdb.exe" -g -G -lines -y "Y:\SkullbonezCore\Debug" -srcpath "Y:\SkullbonezCore\SkullbonezSource" "Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe" "--scene" "SkullbonezData/scenes/water_ball_test.scene"
+$REPO = (git rev-parse --show-toplevel).Trim()
+& "C:\Program Files (x86)\Windows Kits\10\Debuggers\x86\cdb.exe" -g -G -lines -y "$REPO\Debug" -srcpath "$REPO\SkullbonezSource" "$REPO\Debug\SKULLBONEZ_CORE.exe" "--scene" "SkullbonezData/scenes/water_ball_test.scene"
 ```
 
 ### Interactive debugging
@@ -40,8 +42,9 @@ Launch CDB in async mode so you can send commands interactively:
 
 ```pwsh
 # Start CDB in async mode
+$REPO = (git rev-parse --show-toplevel).Trim()
 powershell mode="async" shellId="cdb"
-& "C:\Program Files (x86)\Windows Kits\10\Debuggers\x86\cdb.exe" -lines -y "Y:\SkullbonezCore\Debug" -srcpath "Y:\SkullbonezCore\SkullbonezSource" "Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe"
+& "C:\Program Files (x86)\Windows Kits\10\Debuggers\x86\cdb.exe" -lines -y "$REPO\Debug" -srcpath "$REPO\SkullbonezSource" "$REPO\Debug\SKULLBONEZ_CORE.exe"
 ```
 
 Then use `write_powershell` with the shellId to send CDB commands.
@@ -72,7 +75,8 @@ Then use `write_powershell` with the shellId to send CDB commands.
 
 1. Launch in async mode (without `-g` so it breaks at start):
    ```pwsh
-   & "C:\Program Files (x86)\Windows Kits\10\Debuggers\x86\cdb.exe" -lines -y "Y:\SkullbonezCore\Debug" -srcpath "Y:\SkullbonezCore\SkullbonezSource" "Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe"
+   $REPO = (git rev-parse --show-toplevel).Trim()
+   & "C:\Program Files (x86)\Windows Kits\10\Debuggers\x86\cdb.exe" -lines -y "$REPO\Debug" -srcpath "$REPO\SkullbonezSource" "$REPO\Debug\SKULLBONEZ_CORE.exe"
    ```
 
 2. Set breakpoints if needed:

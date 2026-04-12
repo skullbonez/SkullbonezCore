@@ -3,16 +3,55 @@ Perf test analysis script for SkullbonezCore.
 Reads the perf_log.csv written by the engine, computes statistics,
 and writes a JSON artifact to perf_history/{commit_hash}.json.
 Optionally compares against the previous artifact.
+
+Paths are derived from this script's location — no hardcoded drive letters.
+  analyze_perf.py  lives in  Copilot/Skills/skore-render-test/
+  three levels up  gives the repo root.
 """
-import csv
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
 
-CSV_PATH   = r"Y:\SkullbonezCore\Debug\perf_log.csv"
-HIST_DIR   = Path(r"Y:\SkullbonezCore\Copilot\Skills\skore-render-test\perf_history")
+SCRIPT_DIR = Path(__file__).resolve().parent          # …/Copilot/Skills/skore-render-test
+REPO_ROOT  = SCRIPT_DIR.parent.parent.parent          # repo root
+CSV_PATH   = REPO_ROOT / "Debug" / "perf_log.csv"
+HIST_DIR   = SCRIPT_DIR / "perf_history"
+
+
+def _wmic(resource, field):
+    """Query a single WMIC field value; return empty string on failure."""
+    try:
+        r = subprocess.run(
+            ["wmic", resource, "get", field, "/value"],
+            capture_output=True, text=True
+        )
+        for line in r.stdout.splitlines():
+            if line.startswith(field + "="):
+                return line.split("=", 1)[1].strip()
+    except Exception:
+        pass
+    return ""
+
+
+def get_machine_info():
+    """Collect CPU, RAM, and host info for the current machine."""
+    import platform
+    import socket
+
+    cpu   = _wmic("cpu", "Name") or platform.processor() or "unknown"
+    cores = _wmic("cpu", "NumberOfLogicalProcessors") or str(os.cpu_count() or 0)
+    ram_bytes = _wmic("computersystem", "TotalPhysicalMemory")
+    ram_gb = round(int(ram_bytes) / (1024 ** 3), 1) if ram_bytes.isdigit() else 0.0
+
+    return {
+        "hostname": socket.gethostname(),
+        "cpu":      cpu,
+        "cores":    int(cores) if cores.isdigit() else 0,
+        "ram_gb":   ram_gb,
+        "os":       platform.version(),
+    }
 
 
 def percentile(sorted_vals, p):
@@ -69,7 +108,7 @@ def get_commit_hash():
     """Get current git commit hash."""
     result = subprocess.run(
         ["git", "rev-parse", "--short", "HEAD"],
-        capture_output=True, text=True, cwd=r"Y:\SkullbonezCore"
+        capture_output=True, text=True, cwd=str(REPO_ROOT)
     )
     return result.stdout.strip()
 
@@ -87,6 +126,27 @@ def compare_stats(current, previous):
     """Compare current vs previous, apply thresholds, return pass/fail."""
     prev = json.loads(previous.read_text())
     print(f"\n--- Comparison vs {prev['commit']} ---")
+
+    # Skip regression check if machines differ — results are not comparable.
+    prev_machine = prev.get("machine", {})
+    cur_machine  = current.get("machine", {})
+    prev_cpu = prev_machine.get("cpu") or prev.get("cpu", "")
+    cur_cpu  = cur_machine.get("cpu")  or current.get("cpu", "")
+
+    if not prev_cpu:
+        print(f"\n  WARNING: Previous artifact has no machine info — cannot validate comparison.")
+        print(f"    Current machine: {cur_machine.get('hostname','?')} — {cur_cpu}")
+        print(f"  Skipping regression check.")
+        print(f"  To reset the baseline delete old artifacts from perf_history/ and re-run.")
+        return []
+
+    if prev_cpu != cur_cpu:
+        print(f"\n  WARNING: Machine mismatch — perf comparison is not valid across machines.")
+        print(f"    Previous : {prev_machine.get('hostname','?')} — {prev_cpu}")
+        print(f"    Current  : {cur_machine.get('hostname','?')} — {cur_cpu}")
+        print(f"  Skipping regression check.")
+        print(f"  To reset the baseline delete old artifacts from perf_history/ and re-run.")
+        return []
 
     # Thresholds: avg/p50 >10% regression, p99/p99.9 >20%, memory >5 MB
     TIMING_THRESHOLDS = {"min": 10, "max": 20, "avg": 10, "p50": 10, "p99": 20, "p99_9": 20}
@@ -124,14 +184,17 @@ def compare_stats(current, previous):
 
 
 def main():
-    if not os.path.exists(CSV_PATH):
+    if not CSV_PATH.exists():
         print(f"ERROR: {CSV_PATH} not found")
         sys.exit(1)
 
-    frames, mem = parse_csv(CSV_PATH)
-    commit = get_commit_hash()
+    frames, mem = parse_csv(str(CSV_PATH))
+    commit  = get_commit_hash()
+    machine = get_machine_info()
 
-    print(f"Commit: {commit}")
+    print(f"Commit  : {commit}")
+    print(f"Machine : {machine['hostname']}  {machine['cpu']}  "
+          f"{machine['cores']} cores  {machine['ram_gb']} GB RAM")
     print(f"Total frames: {len(frames)}")
     print(f"Memory checkpoints: {len(mem)}")
 
@@ -149,6 +212,7 @@ def main():
 
     result = {
         "commit":         commit,
+        "machine":        machine,
         "total_frames":   len(frames),
         "physics_ms":     physics_stats,
         "render_ms":      render_stats,

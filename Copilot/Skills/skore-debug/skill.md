@@ -10,7 +10,8 @@ Launch the Debug exe under the VS debugger so exceptions, output logs, and rende
 ### Check the exe exists before launching
 
 ```pwsh
-Test-Path "Y:\SkullbonezCore\Debug\SKULLBONEZ_CORE.exe"
+$REPO = (git rev-parse --show-toplevel).Trim()
+Test-Path "$REPO\Debug\SKULLBONEZ_CORE.exe"
 ```
 
 If it does not exist, build first using the `build-skullbonez-core` skill.
@@ -20,12 +21,13 @@ If it does not exist, build first using the `build-skullbonez-core` skill.
 Prefer using the **existing Visual Studio instance** via DTE COM automation — opens the solution if needed, then starts debugging (equivalent to F5):
 
 ```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
 $dte = try { [System.Runtime.InteropServices.Marshal]::GetActiveObject("VisualStudio.DTE.17.0") } catch { $null }
 
 if ($dte) {
     # Open the solution if not already open
     if (!$dte.Solution.IsOpen -or $dte.Solution.FullName -notlike "*SKULLBONEZ*") {
-        $dte.Solution.Open("Y:\SkullbonezCore\SKULLBONEZ_CORE.sln")
+        $dte.Solution.Open("$REPO\SKULLBONEZ_CORE.sln")
         Start-Sleep 3
     }
     $dte.ExecuteCommand("Debug.Start")
@@ -35,7 +37,7 @@ if ($dte) {
     $devenv = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" `
         -latest -requires Microsoft.VisualStudio.Workload.NativeDesktop `
         -find "Common7\IDE\devenv.exe" | Select-Object -First 1
-    Start-Process $devenv -ArgumentList '"Y:\SkullbonezCore\SKULLBONEZ_CORE.sln"' -WorkingDirectory "Y:\SkullbonezCore"
+    Start-Process $devenv -ArgumentList "`"$REPO\SKULLBONEZ_CORE.sln`"" -WorkingDirectory $REPO
     Write-Host "Opened solution in new VS instance - press F5 to debug"
 }
 ```
@@ -59,5 +61,5 @@ if ($hwnd -ne [IntPtr]::Zero) { Write-Host "Window found - rendering OK" } else 
 
 - Check the Visual Studio Output window and Debug console for exception messages
 - All exceptions use `std::runtime_error` and will be caught and shown in a message box
-- Ensure `SkullbonezData\` assets are present relative to `Y:\SkullbonezCore\`
+- Ensure `SkullbonezData\` assets are present relative to the repo root
 - If the issue is in code, fix it, rebuild using `build-skullbonez-core`, then retry
