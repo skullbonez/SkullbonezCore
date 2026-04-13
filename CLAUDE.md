@@ -233,12 +233,9 @@ Overall: **Phases 1–10 complete (33/46 tasks done)**. Next: Phase 7 — Text R
 
 ## Known Bugs
 
-No open bugs. All previously tracked issues have been resolved:
-
 | # | Bug | Area | Status |
 |---|-----|------|--------|
-| 1 | Flickering water on the horizon | Rendering / Water | ✅ Fixed (`768a567`) |
-| 2 | Lighting mismatch — water too blue, terrain + skybox too dark vs original FFP output | Rendering / Lighting | ✅ Fixed |
+| 1 | Water renders through to the back faces of spheres when they intersect the water surface | Rendering / Water | Open |
 
 ---
 
