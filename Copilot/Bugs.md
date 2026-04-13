@@ -2,13 +2,9 @@
 
 | # | Bug | Area | Status |
 |---|-----|------|--------|
-| 1 | Water on the horizon flickers during camera movement | Rendering / Water | ✅ Fixed (`768a567`) |
-| 2 | Lighting issues: water is too blue; terrain and skybox are too dark compared to original FFP output | Rendering / Lighting | ✅ Fixed |
+| 1 | Water renders through to the back faces of spheres when they intersect the water surface | Rendering / Water | 🐛 Open |
 
 ## Details
 
-### Bug 1: Flickering water on the horizon
-**Fixed** (`768a567`) — replaced horizon quads with a vertex-animated grid water mesh.
-
-### Bug 2: Water colour / scene lighting
-**Fixed** — water colour and scene lighting now match the original FFP output.
+### Bug 1: Water draws through sphere back faces
+When a sphere partially intersects the water surface, the water plane is visible through the back faces of the sphere — i.e. the water is not correctly occluded by the sphere geometry. Likely a depth test / draw-order issue between the water mesh and the sphere meshes (water may be drawn after spheres without depth write, or sphere back-face culling interacts incorrectly with the semi-transparent water pass).
