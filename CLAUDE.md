@@ -233,9 +233,7 @@ Overall: **Phases 1–10 complete (33/46 tasks done)**. Next: Phase 7 — Text R
 
 ## Known Bugs
 
-| # | Bug | Area | Status |
-|---|-----|------|--------|
-| 1 | Water renders through to the back faces of spheres when they intersect the water surface | Rendering / Water | Open |
+No open bugs.
 
 ---
 
