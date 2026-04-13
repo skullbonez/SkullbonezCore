@@ -626,10 +626,6 @@ void SkullbonezRun::DrawPrimitives(void)
 		SkullbonezHelper::SetBaseView(baseView.m);
 	}
 
-	// render game models -----------------------------
-	this->cTextures->SelectTexture(TEXTURE_BOUNDING_SPHERE);
-	this->cGameModelCollection.RenderModels(proj, lightPosition);
-
 	// render terrain ------------------------------
 	{
 		this->cTextures->SelectTexture(TEXTURE_GROUND);
@@ -640,11 +636,22 @@ void SkullbonezRun::DrawPrimitives(void)
 	this->cGameModelCollection.RenderShadows(this->cTerrain.get(), baseView, proj);
 
 	// render the fluid ---------------------------
+	// Water must come before game models so that sphere depth tests run against
+	// the water surface.  Without this ordering the water plane (being closer to
+	// the camera than the curved sphere surface near the waterline) passes the
+	// depth test and blends on top of sphere pixels, making water appear to draw
+	// through to the interior of intersecting spheres.
 	{
 		float waterTime = static_cast<float>(this->cSimulationTimer.GetTimeSinceLastStart());
 		this->cWorldEnvironment.RenderFluid(baseView, proj, reflVP, waterTime,
 											this->cReflectionFBO->GetColorTexture());
 	}
+
+	// render game models (after water — spheres depth-test against the water
+	// surface so only above-water portions are drawn, eliminating the
+	// water-through-sphere artefact at the intersection boundary)
+	this->cTextures->SelectTexture(TEXTURE_BOUNDING_SPHERE);
+	this->cGameModelCollection.RenderModels(proj, lightPosition);
 }
 
 
