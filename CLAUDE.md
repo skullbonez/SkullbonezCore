@@ -233,11 +233,12 @@ Overall: **Phases 1–10 complete (33/46 tasks done)**. Next: Phase 7 — Text R
 
 ## Known Bugs
 
+No open bugs. All previously tracked issues have been resolved:
+
 | # | Bug | Area | Status |
 |---|-----|------|--------|
-| 1 | Lighting mismatch — water too blue, terrain + skybox too dark vs original FFP output | Rendering / Lighting | Open |
-
-Bug 1 (flickering water) was fixed in `768a567` by replacing the horizon quads with a vertex-animated grid water mesh.
+| 1 | Flickering water on the horizon | Rendering / Water | ✅ Fixed (`768a567`) |
+| 2 | Lighting mismatch — water too blue, terrain + skybox too dark vs original FFP output | Rendering / Lighting | ✅ Fixed |
 
 ---
 
