@@ -105,15 +105,15 @@ void SkullbonezHelper::BuildSphereMesh(int slices, int stacks)
 			float u0 = (float)j / (float)slices,       v0 = (float)i / (float)stacks;
 			float u1 = (float)(j + 1) / (float)slices, v1 = (float)(i + 1) / (float)stacks;
 
-			// Triangle 1: (0,0) → (1,0) → (1,1)
+			// Triangle 1: (0,0) → (1,1) → (1,0)  (CCW viewed from outside)
 			verts.insert(verts.end(), { x00,y00,z00, x00,y00,z00, u0,v0 });
+			verts.insert(verts.end(), { x11,y11,z11, x11,y11,z11, u1,v1 });
 			verts.insert(verts.end(), { x10,y10,z10, x10,y10,z10, u0,v1 });
-			verts.insert(verts.end(), { x11,y11,z11, x11,y11,z11, u1,v1 });
 
-			// Triangle 2: (0,0) → (1,1) → (0,1)
+			// Triangle 2: (0,0) → (0,1) → (1,1)  (CCW viewed from outside)
 			verts.insert(verts.end(), { x00,y00,z00, x00,y00,z00, u0,v0 });
-			verts.insert(verts.end(), { x11,y11,z11, x11,y11,z11, u1,v1 });
 			verts.insert(verts.end(), { x01,y01,z01, x01,y01,z01, u1,v0 });
+			verts.insert(verts.end(), { x11,y11,z11, x11,y11,z11, u1,v1 });
 		}
 	}
 
