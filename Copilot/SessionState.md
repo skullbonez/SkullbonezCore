@@ -63,8 +63,7 @@ A Windows C++/OpenGL 3D physics engine (2005) being migrated from Fixed Function
 
 ## Known Bugs
 See `Copilot/Bugs.md` for full details.
-1. ~~**Flickering water on the horizon**~~ — **FIXED** (`768a567`) — replaced with new vertex-animated grid water system
-2. **Lighting mismatch** — water too blue, terrain + skybox too dark vs original FFP output
+1. **Water draws through sphere back faces** — water visible through the back faces of spheres intersecting the water surface; likely a depth test / draw-order issue
 
 ## Recent Session Work (this session)
 - `fe5b4e4` — Planar water reflection system (FBO, clip plane, projective UV)
