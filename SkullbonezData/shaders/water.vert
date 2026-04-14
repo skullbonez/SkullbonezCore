@@ -24,6 +24,10 @@ void main()
            + sin(pos.z * 0.06 + uTime * 0.8) * 1.0;
 
     gl_Position    = uProjection * uView * uModel * vec4(pos, 1.0);
-    vReflectClipPos = uReflectVP * uModel * vec4(pos, 1.0);
+    // Use undisplaced aPosition for the reflection UV projection — the reflection FBO was
+    // captured for the flat water plane, so projecting the wave-displaced pos would shift
+    // the UV and distort the reflection as the surface animates.  The fragment shader's
+    // small UV perturbation (wave * 0.002) handles the shimmer effect separately.
+    vReflectClipPos = uReflectVP * uModel * vec4(aPosition, 1.0);
     vWorldXZ       = aPosition.xz;  // undisplaced so wave phase matches vertex displacement
 }
