@@ -65,7 +65,13 @@ A Windows C++/OpenGL 3D physics engine (2005) being migrated from Fixed Function
 See `Copilot/Bugs.md` for full details.
 1. **Water draws through sphere back faces** — water visible through the back faces of spheres intersecting the water surface; likely a depth test / draw-order issue
 
+## Backlog / Future Tasks
+| ID | Task |
+|----|------|
+| `coding-standards` | Normalise line endings (`.gitattributes`) + add editor hints (`.editorconfig`) + optionally clang-format for enforced C++ style. Discuss scope with user before implementing. |
+
 ## Recent Session Work (this session)
+- `35a6ca1` — Fix sphere water reflection by correctly separating model and view matrices
 - `fe5b4e4` — Planar water reflection system (FBO, clip plane, projective UV)
 - `ea84a37` — Free-fly camera mode (F key toggle, WASD + mouse look)
 - `1b52fa8` — Remove unused water texture (WATER_PATH / TEXTURE_WATER)
