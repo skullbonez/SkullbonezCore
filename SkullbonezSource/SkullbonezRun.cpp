@@ -149,7 +149,7 @@ void SkullbonezRun::Initialise(void)
 	// regardless of windowed vs fullscreen resolution
 	GLint vp[4];
 	glGetIntegerv(GL_VIEWPORT, vp);
-	this->cReflectionFBO = std::make_unique<Framebuffer>(vp[2], vp[3]);
+	this->cReflectionFBO = std::make_unique<Framebuffer>(vp[2] * 2, vp[3] * 2);
 
 	// Branch on scene mode vs legacy mode
 	if (this->isSceneMode)
