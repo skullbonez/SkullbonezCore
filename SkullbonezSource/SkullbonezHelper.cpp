@@ -143,12 +143,34 @@ void SkullbonezHelper::DrawSphere(float radius, const Matrix4& proj,
 		// Read the combined modelview after scale for vertex transforms
 		float mv[16];
 		glGetFloatv(GL_MODELVIEW_MATRIX, mv);
-		Matrix4 modelView(mv);
-		Matrix4 identity;
+		Matrix4 fullMV(mv);
+
+		// Recover the world-space model matrix by inverting the camera view out of the
+		// full modelview.  sBaseView is the pure camera view captured once per frame
+		// before any per-sphere model transforms are pushed onto the GL stack.
+		// Passing uModel=T*R*scale lets the shader compute the correct world-space
+		// position for gl_ClipDistance — critical for the water reflection pre-pass.
+		// Manually invert the rigid-body view matrix: for V=[R|t], V^-1 = [R^T | -R^T*t].
+		// This exploits the orthonormal structure of a camera view matrix (transpose = inverse
+		// for the rotation block, negated rotated translation for the translation column).
+		Matrix4 invCamView;
+		{
+			const float* v = sBaseView;
+			invCamView.m[0]=v[0]; invCamView.m[4]=v[1]; invCamView.m[8] =v[2];  invCamView.m[12]=0;
+			invCamView.m[1]=v[4]; invCamView.m[5]=v[5]; invCamView.m[9] =v[6];  invCamView.m[13]=0;
+			invCamView.m[2]=v[8]; invCamView.m[6]=v[9]; invCamView.m[10]=v[10]; invCamView.m[14]=0;
+			invCamView.m[3]=0;    invCamView.m[7]=0;    invCamView.m[11]=0;     invCamView.m[15]=1;
+			float tx=v[12], ty=v[13], tz=v[14];
+			invCamView.m[12] = -(v[0]*tx + v[1]*ty + v[2]*tz);
+			invCamView.m[13] = -(v[4]*tx + v[5]*ty + v[6]*tz);
+			invCamView.m[14] = -(v[8]*tx + v[9]*ty + v[10]*tz);
+		}
+		Matrix4 cameraView(sBaseView);
+		Matrix4 modelMatrix = invCamView * fullMV;
 
 		sphereShader->Use();
-		sphereShader->SetMat4("uModel", identity);
-		sphereShader->SetMat4("uView", modelView);
+		sphereShader->SetMat4("uModel", modelMatrix);
+		sphereShader->SetMat4("uView", cameraView);
 		sphereShader->SetMat4("uProjection", proj);
 		sphereShader->SetVec4("uClipPlane",
 			sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3]);
