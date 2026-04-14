@@ -33,3 +33,6 @@ Release/
 
 # VS file content index
 *.vsidx
+
+# CMake build directory
+build/
