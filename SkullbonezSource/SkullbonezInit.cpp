@@ -4,13 +4,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   �   .--. .--.   �
-								   � )/   � �   \( �
-								   �/ \__/   \__/ \�
+								   ?   .--. .--.   ?
+								   ? )/   ? ?   \( ?
+								   ?/ \__/   \__/ \?
 								   /      /^\      \
 								   \__    '='    __/
-								   	 �\         /�
-									 �\'"VUUUV"'/�
+								   	 ?\         /?
+									 ?\"VUUUV"/?
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -36,78 +36,56 @@ using namespace SkullbonezCore::Basics;
 
 
 
-/* -- WIN MAIN --------------------------------------------------------------------*/
-// "Windows Main" - this function is the execution entry point for the application
-int WINAPI WinMain(HINSTANCE hInstance,		// Holds info on instance of app
-				   HINSTANCE hPrevInstance, // Some useless Win32 junk
-				   PSTR szCmdLine,			// Params passed from command line
-				   int iCmdShow)			// Window state (maximised, hide etc)
+/* ================================================================================
+   SHARED: command-line argument parsing
+   Populates sceneList; returns isSuiteOrSceneMode.
+   On Windows szCmdLine is a single string; on Linux we have argc/argv.
+   ================================================================================ */
+static bool ParseArgs(std::vector<std::string>& sceneList,
+					  const char*               suiteArg,
+					  const char*               sceneArg)
 {
-	// Heap debug code - breaks program at specified allocation
-	// _CrtSetBreakAlloc(89);
-
-	// floating point check routine
-	// _controlfp(0, _MCW_EM ^ _EM_INEXACT);
-
-	// Supress benign (level 4) warnings
-	hPrevInstance; iCmdShow;
-
-	// Build the ordered list of scene paths to run.
-	// Each entry is either a .scene path (scene/suite mode) or "" (legacy mode).
-	std::vector<std::string> sceneList;
 	bool isSuiteOrSceneMode = false;
 
-	if (szCmdLine && szCmdLine[0] != '\0')
+	if (suiteArg && suiteArg[0] != '\0')
 	{
-		const char* suiteArg = strstr(szCmdLine, "--suite");
-		const char* sceneArg = strstr(szCmdLine, "--scene");
-
-		if (suiteArg)
+		FILE* f = nullptr;
+		if (fopen_s(&f, suiteArg, "r") == 0 && f)
 		{
-			suiteArg += 7;
-			while (*suiteArg == ' ') ++suiteArg;
-
-			// Read suite file: one scene path per line, # comments ignored
-			FILE* f = nullptr;
-			if (fopen_s(&f, suiteArg, "r") == 0 && f)
+			char line[512];
+			while (fgets(line, sizeof(line), f))
 			{
-				char line[512];
-				while (fgets(line, sizeof(line), f))
-				{
-					size_t len = strlen(line);
-					while (len > 0 && (line[len-1] == '\r' || line[len-1] == '\n' || line[len-1] == ' '))
-						line[--len] = '\0';
-					if (len > 0 && line[0] != '#')
-						sceneList.push_back(line);
-				}
-				fclose(f);
+				size_t len = strlen(line);
+				while (len > 0 && (line[len-1] == '\r' || line[len-1] == '\n' || line[len-1] == ' '))
+					line[--len] = '\0';
+				if (len > 0 && line[0] != '#')
+					sceneList.push_back(line);
 			}
-			isSuiteOrSceneMode = true;
+			fclose(f);
 		}
-		else if (sceneArg)
-		{
-			sceneArg += 7;
-			while (*sceneArg == ' ') ++sceneArg;
-			if (*sceneArg != '\0')
-			{
-				sceneList.push_back(sceneArg);
-				isSuiteOrSceneMode = true;
-			}
-		}
+		isSuiteOrSceneMode = true;
+	}
+	else if (sceneArg && sceneArg[0] != '\0')
+	{
+		sceneList.push_back(sceneArg);
+		isSuiteOrSceneMode = true;
 	}
 
 	if (sceneList.empty())
-		sceneList.push_back("");  // legacy mode — empty string maps to nullptr
+		sceneList.push_back("");  // legacy mode
 
-	// Create an instance of our window class
-	// (holds everything associated with our window)
+	return isSuiteOrSceneMode;
+}
+
+
+
+/* ================================================================================
+   SHARED: run the scene list (called by both WinMain and main)
+   ================================================================================ */
+static int RunSceneList(std::vector<std::string>& sceneList,
+						bool isSuiteOrSceneMode)
+{
 	SkullbonezWindow* cWindow = SkullbonezWindow::Instance();
-
-	// Create the application window
-	cWindow->CreateAppWindow(hInstance, FULLSCREEN_MODE);
-
-	// Get the device context for our window
-	cWindow->sDevice = GetDC(cWindow->sWindow);
 
 	bool abortAll = false;
 	for (size_t sceneIdx = 0; sceneIdx < sceneList.size() && !abortAll; ++sceneIdx)
@@ -116,47 +94,38 @@ int WINAPI WinMain(HINSTANCE hInstance,		// Holds info on instance of app
 
 		for(;;)
 		{
-			// Init OpenGL
+			// Init (or re-init) OpenGL context
 			cWindow->InitialiseOpenGL();
 
 			bool shouldRestart = false;
-			bool sceneCompleted = false;
 			{
-				// Create the Skullbonez Core instance (scoped so destructor runs
-				// BEFORE GL context deletion — ensures GL cleanup calls work)
 				SkullbonezRun cRun(currentScene);
-
 				try
 				{
-					// Attempt to initialise the Skullbonez Core
 					cRun.Initialise();
 
-					// Attempt to run the Skullbonez Core
 					if(!cRun.Run())
 					{
 						if (currentScene)
 						{
-							sceneCompleted = true;
-							break; // clean scene exit — move to next scene
+							break;
 						}
 						else
 							throw std::runtime_error("Thanks for using the Skullbonez Core!");
 					}
-
 					shouldRestart = true;
 				}
-				catch (const std::exception& e)  // Catch all exceptions thrown by the Skullbonez Core
+				catch (const std::exception& e)
 				{
 					if (!isSuiteOrSceneMode)
-						cWindow->MsgBox(e.what(), "Alert!", MB_OK);
-
+						cWindow->MsgBox(e.what(), "Alert!", 0 /*MB_OK*/);
 					abortAll = true;
 					break;
 				}
-				// cRun destroyed here — GL context still alive for proper cleanup
 			}
 
-			// Cleanup rendering context AFTER cRun is destroyed
+#ifdef _WIN32
+			// Windows: destroy / recreate GL context between passes
 			if (shouldRestart && cWindow->sRenderContext)
 			{
 				wglMakeCurrent(NULL, NULL);
@@ -166,46 +135,133 @@ int WINAPI WinMain(HINSTANCE hInstance,		// Holds info on instance of app
 			{
 				break;
 			}
+#else
+			// Linux: GLFW context stays alive; just re-run InitialiseOpenGL next pass
+			if (!shouldRestart) break;
+#endif
 		}
 
+#ifdef _WIN32
 		// Between scenes: destroy GL context so the next scene gets a fresh one
 		if (!abortAll && sceneIdx + 1 < sceneList.size() && cWindow->sRenderContext)
 		{
 			wglMakeCurrent(NULL, NULL);
 			wglDeleteContext(cWindow->sRenderContext);
 		}
+#endif
 	}
 
-	// Cleanup rendering context
+	return 0;
+}
+
+
+
+/* ================================================================================
+   WINDOWS ENTRY POINT
+   ================================================================================ */
+#ifdef _WIN32
+
+int WINAPI WinMain(HINSTANCE hInstance,
+				   HINSTANCE hPrevInstance,
+				   PSTR szCmdLine,
+				   int iCmdShow)
+{
+	// Suppress benign (level 4) warnings
+	hPrevInstance; iCmdShow;
+
+	// Parse Windows single-string command line
+	std::vector<std::string> sceneList;
+	const char* suiteArgVal = nullptr;
+	const char* sceneArgVal = nullptr;
+	char suiteArgBuf[512] = {};
+	char sceneArgBuf[512] = {};
+
+	if (szCmdLine && szCmdLine[0] != '\0')
+	{
+		const char* sa = strstr(szCmdLine, "--suite");
+		const char* sc = strstr(szCmdLine, "--scene");
+		if (sa)
+		{
+			sa += 7;
+			while (*sa == ' ') ++sa;
+			strcpy_s(suiteArgBuf, sizeof(suiteArgBuf), sa);
+			suiteArgVal = suiteArgBuf;
+		}
+		else if (sc)
+		{
+			sc += 7;
+			while (*sc == ' ') ++sc;
+			strcpy_s(sceneArgBuf, sizeof(sceneArgBuf), sc);
+			sceneArgVal = sceneArgBuf;
+		}
+	}
+
+	bool isSuiteOrSceneMode = ParseArgs(sceneList, suiteArgVal, sceneArgVal);
+
+	SkullbonezWindow* cWindow = SkullbonezWindow::Instance();
+	cWindow->CreateAppWindow(hInstance, FULLSCREEN_MODE);
+	cWindow->sDevice = GetDC(cWindow->sWindow);
+
+	RunSceneList(sceneList, isSuiteOrSceneMode);
+
+	// Cleanup GL context
 	if(cWindow->sRenderContext)
 	{
-		// Free rendering memory, rollback all changes
 		wglMakeCurrent(NULL, NULL);
-
-		// Delete the rendering context
 		wglDeleteContext(cWindow->sRenderContext);
 	}
 
-	// Cleanup device context (Free device context associated with our window)
-	if(cWindow->sDevice) ReleaseDC(cWindow->sWindow,
-								   cWindow->sDevice);
+	// Cleanup device context
+	if(cWindow->sDevice)
+		ReleaseDC(cWindow->sWindow, cWindow->sDevice);
 
 	// Restore desktop settings
 	if(cWindow->fIsFullScreenMode)
 	{
-		ChangeDisplaySettings(NULL, 0);	// Switch back to desktop mode
-		ShowCursor(true);				// Bring mouse pointer back
+		ChangeDisplaySettings(NULL, 0);
+		ShowCursor(true);
 	}
 
-	// Free up memory associated with the window class
 	UnregisterClass(WINDOW_NAME, hInstance);
-
-	// Delete our window class
 	cWindow->Destroy();
 
-	// Write memory leaks to output window
-	// _CrtDumpMemoryLeaks();
-
-	// Return wParam of our msg struct
 	return 0;
 }
+
+#else
+/* ================================================================================
+   LINUX ENTRY POINT
+   ================================================================================ */
+
+int main(int argc, char* argv[])
+{
+	// Parse argc/argv
+	std::vector<std::string> sceneList;
+	const char* suiteArgVal = nullptr;
+	const char* sceneArgVal = nullptr;
+
+	for (int i = 1; i < argc; ++i)
+	{
+		if (strcmp(argv[i], "--suite") == 0 && i + 1 < argc)
+			suiteArgVal = argv[++i];
+		else if (strcmp(argv[i], "--scene") == 0 && i + 1 < argc)
+			sceneArgVal = argv[++i];
+	}
+
+	bool isSuiteOrSceneMode = ParseArgs(sceneList, suiteArgVal, sceneArgVal);
+
+	SkullbonezWindow* cWindow = SkullbonezWindow::Instance();
+	cWindow->CreateAppWindow(FULLSCREEN_MODE);
+
+	int ret = RunSceneList(sceneList, isSuiteOrSceneMode);
+
+	// GLFW cleanup
+	if (cWindow->sWindow)
+		glfwDestroyWindow(cWindow->sWindow);
+	glfwTerminate();
+
+	cWindow->Destroy();
+	return ret;
+}
+
+#endif // _WIN32

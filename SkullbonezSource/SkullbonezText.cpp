@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   �   .--. .--.   �
-								   � )/   � �   \( �
-								   �/ \__/   \__/ \�
+								   ?   .--. .--.   ?
+								   ? )/   ? ?   \( ?
+								   ?/ \__/   \__/ \?
 								   /      /^\      \
 								   \__    '='    __/
-								   	 �\         /�
-									 �\'"VUUUV"'/�
+								   	 ?\         /?
+									 ?\"VUUUV"/?
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -41,50 +41,36 @@ UINT Text2d::displayList = 0;
 
 
 
+/* ================================================================================
+   WINDOWS IMPLEMENTATION — GDI font → wglUseFontOutlines display list
+   ================================================================================ */
+#ifdef _WIN32
+
 /* -- RENDER 2D TEXT --------------------------------------------------------------*/
 void Text2d::Render2dText(float xPosition,
-						  float yPosition,
-						  float fSize,
-						  const char* cRawText,
-						  ...)
+						   float yPosition,
+						   float fSize,
+						   const char* cRawText,
+						   ...)
 {
-	// return if no text to to print
 	if (!cRawText) return;
 
-	// prepare environment
 	Text2d::PrepareEnvironment(xPosition, yPosition, fSize);
 
-	// prepare space for the symbol conversion, add 100 chars for
-	// additional arguments and null termination
 	std::unique_ptr<char[]> symbolSafeText(new char[strlen(cRawText) + 100]);
 
-	// pointer to list of arguments
-	va_list	arguments;
-
-	// parses the string for variables
+	va_list arguments;
 	va_start(arguments, cRawText);
-
-	// converts symbols to actual numbers
 	vsprintf_s(symbolSafeText.get(), strlen(cRawText) + 100, cRawText, arguments);
-
-	// results are stored in text
 	va_end(arguments);
 
-	// pushes the display list bits
 	glPushAttrib(GL_LIST_BIT);
-
-	// sets the base character to 32
-	glListBase(Text2d::displayList-32);
-
-	// draws the display list text
-	glCallLists((GLsizei)strlen(symbolSafeText.get()), // cull null space
-				GL_UNSIGNED_BYTE,				       // display list element type
-				symbolSafeText.get());				   // string to rasterise
-
-	// pops the display list bits
+	glListBase(Text2d::displayList - 32);
+	glCallLists((GLsizei)strlen(symbolSafeText.get()),
+				GL_UNSIGNED_BYTE,
+				symbolSafeText.get());
 	glPopAttrib();
 
-	// restore environment
 	Text2d::RestoreEnvironment();
 }
 
@@ -93,13 +79,8 @@ void Text2d::Render2dText(float xPosition,
 /* -- RESTORE ENVIRONMENT ---------------------------------------------------------*/
 void Text2d::RestoreEnvironment(void)
 {
-	// restore lighting
 	glEnable(GL_LIGHTING);
-
-	// restore texture mapping
 	glEnable(GL_TEXTURE_2D);
-
-	// restrore matrix state
 	glPopMatrix();
 }
 
@@ -107,25 +88,14 @@ void Text2d::RestoreEnvironment(void)
 
 /* -- PREPARE ENVIRONMENT ---------------------------------------------------------*/
 void Text2d::PrepareEnvironment(float xPosition,
-								float yPosition,
-								float fSize)
+								 float yPosition,
+								 float fSize)
 {
-	// disable lighting
 	glDisable(GL_LIGHTING);
-
-	// disable texture mapping
 	glDisable(GL_TEXTURE_2D);
-
-	// save current matrix state
 	glPushMatrix();
-
-	// reset matrix
 	glLoadIdentity();
-
-	// move into screen (no closer than the clipping volume)
 	glTranslatef(xPosition, yPosition, -FRUSTUM_CLIP_SHORT_QTY);
-
-	// scale to requested size
 	glScalef(fSize, fSize, fSize);
 }
 
@@ -134,58 +104,92 @@ void Text2d::PrepareEnvironment(float xPosition,
 /* -- DELETE FONT -----------------------------------------------------------------*/
 void Text2d::DeleteFont(void)
 {
-	// delete all 96 characters
 	glDeleteLists(Text2d::displayList, 96);
 }
 
 
 
 /* -- BUILD FONT ------------------------------------------------------------------*/
-void Text2d::BuildFont(const HDC hDC, const char* cFontName)
+void Text2d::BuildFont(HDC hDC, const char* cFontName)
 {
-	HFONT	font;			// windows font id
-	HFONT	oldfont;		// used for house keeping
+	HFONT font;
+	HFONT oldfont;
 
-	// get storage for 96 characters
 	Text2d::displayList = glGenLists(96);
 
-	font = CreateFont(0,							// font height		   (null)
-					  0,							// font width		   (null)
-					  0,							// angle of escapement (null)
-					  0,							// orintation angle	   (null)
-					  FW_NORMAL,					// font weight
-					  FALSE,						// italic flag
-					  FALSE,						// underline flag
-					  FALSE,						// strikeout flag
-					  ANSI_CHARSET,					// character set identifier
-					  OUT_TT_PRECIS,				// output precision
-					  CLIP_DEFAULT_PRECIS,			// clipping precision
-					  ANTIALIASED_QUALITY,			// output quality
-					  FF_DONTCARE|DEFAULT_PITCH,	// family and pitch
-					  cFontName);					// font name
+	font = CreateFont(0, 0, 0, 0,
+					  FW_NORMAL,
+					  FALSE, FALSE, FALSE,
+					  ANSI_CHARSET,
+					  OUT_TT_PRECIS,
+					  CLIP_DEFAULT_PRECIS,
+					  ANTIALIASED_QUALITY,
+					  FF_DONTCARE|DEFAULT_PITCH,
+					  cFontName);
 
-	// check for success
 	if(!font) throw std::runtime_error("Font creation failed. (Text2d::BuildFont)");
 
-	// selects the font we want
 	oldfont = (HFONT)SelectObject(hDC, font);
 
-	// allocate structure for character metrics
 	GLYPHMETRICSFLOAT agmf[96];
+	wglUseFontOutlines(hDC, 32, 96, Text2d::displayList,
+					   0.0, 0.0, WGL_FONT_POLYGONS, agmf);
 
-	// builds 96 characters starting at character 32
-	wglUseFontOutlines(hDC,						// device
-					   32,						// starting ascii char
-					   96,						// num ascii chars
-					   Text2d::displayList,	// display list id to use
-					   0.0,						// deviation
-					   0.0,						// extrusion
-					   WGL_FONT_POLYGONS,		// filled polies
-					   agmf);					// storage stuct
-
-	// selects the font we want
 	SelectObject(hDC, oldfont);
-
-	// deletes the font
 	DeleteObject(font);
 }
+
+
+#else
+/* ================================================================================
+   LINUX STUB — text rendering via wglUseFontOutlines is Windows-only.
+   BuildFont creates empty display lists; Render2dText is a no-op.
+   Phase 7 (p7-text-render) will replace this with a proper shader quad path.
+   ================================================================================ */
+
+/* -- RENDER 2D TEXT (stub) -------------------------------------------------------*/
+void Text2d::Render2dText(float /*xPosition*/,
+						   float /*yPosition*/,
+						   float /*fSize*/,
+						   const char* /*cRawText*/,
+						   ...)
+{
+	// No-op on Linux until Phase 7 text rendering is implemented.
+}
+
+
+
+/* -- RESTORE ENVIRONMENT (stub) --------------------------------------------------*/
+void Text2d::RestoreEnvironment(void)
+{
+}
+
+
+
+/* -- PREPARE ENVIRONMENT (stub) --------------------------------------------------*/
+void Text2d::PrepareEnvironment(float /*xPosition*/,
+								 float /*yPosition*/,
+								 float /*fSize*/)
+{
+}
+
+
+
+/* -- DELETE FONT (stub) ----------------------------------------------------------*/
+void Text2d::DeleteFont(void)
+{
+	if (Text2d::displayList)
+		glDeleteLists(Text2d::displayList, 96);
+}
+
+
+
+/* -- BUILD FONT (stub) -----------------------------------------------------------*/
+void Text2d::BuildFont(HDC /*hDC*/, const char* /*cFontName*/)
+{
+	// Allocate 96 empty display lists so glCallLists doesn't fault.
+	Text2d::displayList = glGenLists(96);
+	// Leave them empty — Render2dText is a no-op on Linux.
+}
+
+#endif // _WIN32

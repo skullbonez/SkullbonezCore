@@ -139,10 +139,15 @@ TestScene TestScene::LoadFromFile(const char* path)
 			char outPath[256] = {};
 			char triggerType[16] = {};
 			int triggerValue = 0;
+#ifdef _WIN32
 			int parsed = sscanf_s(line + 11, "%255s %15s %d",
 				outPath, (unsigned)sizeof(outPath),
 				triggerType, (unsigned)sizeof(triggerType),
 				&triggerValue);
+#else
+			int parsed = sscanf(line + 11, "%255s %15s %d",
+				outPath, triggerType, &triggerValue);
+#endif
 
 			if (parsed != 3 || triggerValue <= 0)
 			{
@@ -230,11 +235,19 @@ TestScene TestScene::LoadFromFile(const char* path)
 			SceneCamera cam;
 			memset(&cam, 0, sizeof(cam));
 
+#ifdef _WIN32
 			int parsed = sscanf_s(line + 7, "%63s %f %f %f %f %f %f %f %f %f",
 				cam.name, (unsigned)sizeof(cam.name),
 				&cam.position.x, &cam.position.y, &cam.position.z,
 				&cam.view.x, &cam.view.y, &cam.view.z,
 				&cam.up.x, &cam.up.y, &cam.up.z);
+#else
+			int parsed = sscanf(line + 7, "%63s %f %f %f %f %f %f %f %f %f",
+				cam.name,
+				&cam.position.x, &cam.position.y, &cam.position.z,
+				&cam.view.x, &cam.view.y, &cam.view.z,
+				&cam.up.x, &cam.up.y, &cam.up.z);
+#endif
 
 			if (parsed != 10)
 			{
@@ -255,12 +268,21 @@ TestScene TestScene::LoadFromFile(const char* path)
 			memset(&ball, 0, sizeof(ball));
 
 			// try full line (with force)
+#ifdef _WIN32
 			int parsed = sscanf_s(line + 5, "%63s %f %f %f %f %f %f %f %f %f %f %f %f %f",
 				ball.name, (unsigned)sizeof(ball.name),
 				&ball.posX, &ball.posY, &ball.posZ,
 				&ball.radius, &ball.mass, &ball.moment, &ball.restitution,
 				&ball.forceX, &ball.forceY, &ball.forceZ,
 				&ball.forcePosX, &ball.forcePosY, &ball.forcePosZ);
+#else
+			int parsed = sscanf(line + 5, "%63s %f %f %f %f %f %f %f %f %f %f %f %f %f",
+				ball.name,
+				&ball.posX, &ball.posY, &ball.posZ,
+				&ball.radius, &ball.mass, &ball.moment, &ball.restitution,
+				&ball.forceX, &ball.forceY, &ball.forceZ,
+				&ball.forcePosX, &ball.forcePosY, &ball.forcePosZ);
+#endif
 
 			if (parsed != 14 && parsed != 8)
 			{

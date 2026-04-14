@@ -32,7 +32,11 @@
 #include "SkullbonezGameModel.h"
 #include <time.h>
 #include <cstring>
-#include <psapi.h>
+#ifdef _WIN32
+#  include <psapi.h>
+#else
+#  include <stdio.h>  // for /proc/self/status
+#endif
 
 
 
@@ -279,18 +283,25 @@ bool SkullbonezRun::Run(void)
 				logic and render.
 	*/
 
-	// Variable to hold messages from message queue
-	MSG	  msg;
-
 	for(;;)		// Do until application is closed
 	{
-		if(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))	// Check for msg
+#ifdef _WIN32
+		// Windows: pump the Win32 message queue; skip frame logic while processing messages
 		{
-			if(msg.message == WM_QUIT) break;			// Quit if requested
-			TranslateMessage(&msg);						// Interpret msg
-			DispatchMessage(&msg);						// Execute msg
+			MSG msg;
+			if(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+			{
+				if(msg.message == WM_QUIT) break;
+				TranslateMessage(&msg);
+				DispatchMessage(&msg);
+				continue;	// go back to top of loop without running frame
+			}
 		}
-		else
+#else
+		// Linux: process GLFW events; exit loop if window close was requested
+		glfwPollEvents();
+		if (glfwWindowShouldClose(static_cast<GLFWwindow*>(this->cWindow->sWindow))) break;
+#endif
 		{
 			// find out how many seconds passed during last frame
 			double secondsPerFrame = this->cFrameTimer.GetElapsedTime();
@@ -345,7 +356,11 @@ bool SkullbonezRun::Run(void)
 
 					// Normal exit (or pass 2 of GL reset test)
 					sGlResetPass = 0;  // reset for next test
+#ifdef _WIN32
 					PostQuitMessage(0);
+#else
+					glfwSetWindowShouldClose(static_cast<GLFWwindow*>(this->cWindow->sWindow), GLFW_TRUE);
+#endif
 				}
 			}
 
@@ -370,7 +385,11 @@ bool SkullbonezRun::Run(void)
 			}
 
 			// Swap back buffer
+#ifdef _WIN32
 			SwapBuffers(this->cWindow->sDevice);
+#else
+			glfwSwapBuffers(static_cast<GLFWwindow*>(this->cWindow->sWindow));
+#endif
 
 			// Stop frame timer
 			this->cFrameTimer.StopTimer();
@@ -387,6 +406,7 @@ bool SkullbonezRun::Run(void)
 					// hold — keep rendering but don't advance logic
 					for (;;)
 					{
+#ifdef _WIN32
 						MSG holdMsg;
 						if (PeekMessage(&holdMsg, NULL, 0, 0, PM_REMOVE))
 						{
@@ -398,6 +418,11 @@ bool SkullbonezRun::Run(void)
 						{
 							Sleep(16);
 						}
+#else
+						glfwPollEvents();
+						if (glfwWindowShouldClose(static_cast<GLFWwindow*>(this->cWindow->sWindow))) return false;
+						Sleep(16);
+#endif
 					}
 				}
 			}
@@ -422,7 +447,11 @@ bool SkullbonezRun::Run(void)
 				{
 					sPerfPass = 0;
 					if (this->perfLogFile) { fclose(this->perfLogFile); this->perfLogFile = nullptr; }
+#ifdef _WIN32
 					PostQuitMessage(0);
+#else
+					glfwSetWindowShouldClose(static_cast<GLFWwindow*>(this->cWindow->sWindow), GLFW_TRUE);
+#endif
 				}
 			}
 		}
@@ -451,7 +480,11 @@ void SkullbonezRun::TakeInput(void)
 			unbounded.xMin = -99999.9f; unbounded.xMax = 99999.9f;
 			unbounded.zMin = -99999.9f; unbounded.zMax = 99999.9f;
 			this->cCameras->SetCameraXZBounds(CAMERA_FREE, unbounded);
+#ifdef _WIN32
 			SetCursor(nullptr);
+#else
+			glfwSetInputMode(static_cast<GLFWwindow*>(this->cWindow->sWindow), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+#endif
 			Input::CentreMouseCoordinates();
 			this->sInputState.xMove = 0;
 			this->sInputState.yMove = 0;
@@ -460,7 +493,11 @@ void SkullbonezRun::TakeInput(void)
 		{
 			// Exiting fly mode: restore terrain XZ bounds, cursor, camera cycle clock
 			this->cCameras->SetCameraXZBounds(CAMERA_FREE, this->cTerrain->GetXZBounds());
+#ifdef _WIN32
 			SetCursor(LoadCursor(nullptr, IDC_ARROW));
+#else
+			glfwSetInputMode(static_cast<GLFWwindow*>(this->cWindow->sWindow), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+#endif
 			this->cameraTime = 0.0f;
 		}
 	}
@@ -468,7 +505,9 @@ void SkullbonezRun::TakeInput(void)
 	if (this->isFlyMode)
 	{
 		// Keep cursor hidden every frame — Windows restores it on WM_SETCURSOR
+#ifdef _WIN32
 		SetCursor(nullptr);
+#endif
 
 		// Mouse look: delta from screen centre
 		POINT currentCoords = Input::GetMouseCoordinates();
@@ -982,6 +1021,7 @@ void SkullbonezRun::LogPerfMemory(const char* checkpoint)
 {
 	if (!this->perfLogFile) return;
 
+#ifdef _WIN32
 	PROCESS_MEMORY_COUNTERS pmc;
 	pmc.cb = sizeof(pmc);
 	if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc)))
@@ -991,4 +1031,25 @@ void SkullbonezRun::LogPerfMemory(const char* checkpoint)
 			checkpoint, sPerfPass + 1, mb);
 		fflush(this->perfLogFile);
 	}
+#else
+	// Linux: read VmRSS from /proc/self/status
+	FILE* proc = fopen("/proc/self/status", "r");
+	if (proc)
+	{
+		char line[256];
+		while (fgets(line, sizeof(line), proc))
+		{
+			unsigned long kb = 0;
+			if (sscanf(line, "VmRSS: %lu kB", &kb) == 1)
+			{
+				double mb = static_cast<double>(kb) / 1024.0;
+				fprintf(this->perfLogFile, "# MEM %s pass=%d working_set_mb=%.2f\n",
+					checkpoint, sPerfPass + 1, mb);
+				fflush(this->perfLogFile);
+				break;
+			}
+		}
+		fclose(proc);
+	}
+#endif
 }

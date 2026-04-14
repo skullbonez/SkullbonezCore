@@ -4,13 +4,13 @@
 																			 .-"       "-.
 																			/             \
 																		   /               \
-																		   ¦   .--. .--.   ¦
-																		   ¦ )/   ¦ ¦   \( ¦
-																		   ¦/ \__/   \__/ \¦
+																		   ï¿½   .--. .--.   ï¿½
+																		   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+																		   ï¿½/ \__/   \__/ \ï¿½
 																		   /      /^\      \
 																		   \__    '='    __/
-								   											 ¦\         /¦
-																			 ¦\'"VUUUV"'/¦
+								   											 ï¿½\         /ï¿½
+																			 ï¿½\'"VUUUV"'/ï¿½
 																			 \ `"""""""` /
 																			  `-._____.-'
 
@@ -57,7 +57,7 @@ namespace SkullbonezCore
 												 float fSize,
 												 const char* cRawText,
 												 ...);								// Renders text to the scene
-			static void		BuildFont			(const HDC hDC, 
+			static void		BuildFont			(HDC hDC,
 												 const char* cFontName);			// Builds font into display list
 			static void		DeleteFont			(void);								// Removes font from the display list
 

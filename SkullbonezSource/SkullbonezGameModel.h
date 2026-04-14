@@ -59,7 +59,7 @@ namespace SkullbonezCore
 		-----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 		class GameModel
 		{
-			friend class									CollisionResponse;													// Declare class Collision Response as a friend of class Game Model
+			friend class									Physics::CollisionResponse;											// Declare class Collision Response as a friend of class Game Model
 
 		private:
 

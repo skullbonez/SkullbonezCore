@@ -10,13 +10,13 @@
 								     .-"       "-.
 									/             \
 								   /               \
-								   �   .--. .--.   �
-								   � )/   � �   \( �
-								   �/ \__/   \__/ \�
+								   ?   .--. .--.   ?
+								   ? )/   ? ?   \( ?
+								   ?/ \__/   \__/ \?
 								   /      /^\      \
 								   \__    '='    __/
-								   	 �\         /�
-									 �\'"VUUUV"'/�
+								   	 ?\         /?
+									 ?\"VUUUV"/?
 									 \ `"""""""` /
 									  `-._____.-'
 
@@ -37,82 +37,116 @@ using namespace SkullbonezCore::Basics;
 
 
 
-/* -- DEFINITIONS -----------------------------------------------------------------*/
-/*
-   0x8000 = (16^3)*8 + (16^2)*0 + (16^1)*0 + (16^0)*0
-          = 32,768 (decimal)
-		  = 1000 0000 0000 0000 (binary)
-   This is the highest order bit of a 16 bit piece of data (SHORT)
- */
+/* ================================================================================
+   WINDOWS IMPLEMENTATION
+   ================================================================================ */
+#ifdef _WIN32
+
 #define HIGHEST_ORDER_BIT_16 0x8000
+#define LOWEST_ORDER_BIT_16  0x1
 
-/*
-   0x1 = 0x0001 = (16^3)*0 + (16^2)*0 + (16^1)*0 + (16^0)*1
-       = 1 (decimal)
-       = 1 (binary)
-       = 0000 0000 0000 0001 (binary)
-   This is the lowest order bit of any sized piece of binary data
-   */
-#define LOWEST_ORDER_BIT_16 0x1
-
-
-
-/* -- IS KEY DOWN -----------------------------------------------------------------*/
 bool Input::IsKeyDown(const char cKey)
 {
-	/*
-		recall that HIGHEST_ORDER_BIT_16 = 1000 0000 0000 0000 (binary)
-		recall that a conditional statement in C++ simply checks if the value is
-		nonzero, and if it is nonzero returns true, otherwise false.
-		GetKeyState(cKey) will return a 16 bit SHORT and if the key is pressed,
-		the SHORT returned will have the highest order bit set to 1.
-		the binary AND operator '&' will do the comparision on the two SHORTs
-		1000 0000 0000 0000 & 1000 0000 0000 0000 (if the key is pressed)
-		   = 1000 0000 0000 0000 != 0
-		1000 0000 0000 0000 & 0000 0000 0000 0000 (if the key is not pressed)
-		   = 0000 0000 0000 0000 == 0
-	*/
 	return ((GetKeyState(cKey) & HIGHEST_ORDER_BIT_16) != 0);
 }
 
-
-
-/* -- IS KEY TOGGLED --------------------------------------------------------------*/
 bool Input::IsKeyToggled(const char cKey)
 {
-	// lowest order bit is set to 1 if key is toggled, see Input::IsKeyDown
-	// for an explanation on the conditional statement below
 	return ((GetKeyState(cKey) & LOWEST_ORDER_BIT_16) != 0);
 }
 
-
-
-/* -- GET MOUSE COORDINATES -------------------------------------------------------*/
 POINT Input::GetMouseCoordinates(void)
 {
 	POINT mousePos;
-	if(!GetCursorPos(&mousePos))	// attempt to get the mouse position
+	if(!GetCursorPos(&mousePos))
 		throw std::runtime_error("Getting mouse coordinates failed (Input::GetMouseCoordinates).");
-
 	return mousePos;
 }
 
-
-
-/* -- SET MOUSE COORDINATES -------------------------------------------------------*/
-void Input::SetMouseCoordinates(const POINT &pNewCoordinates)
+void Input::SetMouseCoordinates(const POINT& pNewCoordinates)
 {
-	// attempt to set the mouse position
 	if(!SetCursorPos(pNewCoordinates.x, pNewCoordinates.y))
 		throw std::runtime_error("Setting mouse position failed (Input::SetMouseCoordinates).");
 }
 
-
-
-/* -- CENTRE MOUSE COORDINATES ----------------------------------------------------*/
 void Input::CentreMouseCoordinates(void)
 {
 	SkullbonezWindow* cWindow = SkullbonezWindow::Instance();
 	SetCursorPos(cWindow->sWindowDimensions.x >> 1,
 				 cWindow->sWindowDimensions.y >> 1);
 }
+
+
+#else
+/* ================================================================================
+   LINUX / GLFW IMPLEMENTATION
+   ================================================================================ */
+
+/* -- Declaration of the key-toggle table in SkullbonezWindow.cpp ----------------- */
+bool* SkullbonezWindow_GetKeyToggleTable();
+
+/* -- Map Windows VK codes to GLFW key codes -------------------------------------- */
+static int VkToGlfw(char vkCode)
+{
+	// For uppercase letters A-Z and digits 0-9, GLFW uses the same ASCII values.
+	if (vkCode >= 'A' && vkCode <= 'Z') return vkCode;
+	if (vkCode >= '0' && vkCode <= '9') return vkCode;
+
+	// Special virtual-key codes that differ between Win32 and GLFW
+	switch (static_cast<unsigned char>(vkCode))
+	{
+		case 0x10: return GLFW_KEY_LEFT_SHIFT;   // VK_SHIFT
+		case 0x1B: return GLFW_KEY_ESCAPE;        // VK_ESCAPE
+		case 0x20: return GLFW_KEY_SPACE;         // VK_SPACE (same value, but explicit)
+		default:   return vkCode;
+	}
+}
+
+/* -- IS KEY DOWN -----------------------------------------------------------------*/
+bool Input::IsKeyDown(const char cKey)
+{
+	GLFWwindow* win = static_cast<GLFWwindow*>(SkullbonezWindow::Instance()->sWindow);
+	if (!win) return false;
+	int glfwKey = VkToGlfw(cKey);
+	return glfwGetKey(win, glfwKey) == GLFW_PRESS;
+}
+
+/* -- IS KEY TOGGLED --------------------------------------------------------------*/
+bool Input::IsKeyToggled(const char cKey)
+{
+	int glfwKey = VkToGlfw(cKey);
+	if (glfwKey < 0 || glfwKey > GLFW_KEY_LAST) return false;
+	return SkullbonezWindow_GetKeyToggleTable()[glfwKey];
+}
+
+/* -- GET MOUSE COORDINATES -------------------------------------------------------*/
+POINT Input::GetMouseCoordinates(void)
+{
+	GLFWwindow* win = static_cast<GLFWwindow*>(SkullbonezWindow::Instance()->sWindow);
+	double mx = 0.0, my = 0.0;
+	if (win) glfwGetCursorPos(win, &mx, &my);
+	POINT p;
+	p.x = static_cast<int>(mx);
+	p.y = static_cast<int>(my);
+	return p;
+}
+
+/* -- SET MOUSE COORDINATES -------------------------------------------------------*/
+void Input::SetMouseCoordinates(const POINT& pNewCoordinates)
+{
+	GLFWwindow* win = static_cast<GLFWwindow*>(SkullbonezWindow::Instance()->sWindow);
+	if (win) glfwSetCursorPos(win, pNewCoordinates.x, pNewCoordinates.y);
+}
+
+/* -- CENTRE MOUSE COORDINATES ----------------------------------------------------*/
+void Input::CentreMouseCoordinates(void)
+{
+	SkullbonezWindow* cWindow = SkullbonezWindow::Instance();
+	GLFWwindow* win = static_cast<GLFWwindow*>(cWindow->sWindow);
+	if (win)
+		glfwSetCursorPos(win,
+						 cWindow->sWindowDimensions.x >> 1,
+						 cWindow->sWindowDimensions.y >> 1);
+}
+
+#endif // _WIN32

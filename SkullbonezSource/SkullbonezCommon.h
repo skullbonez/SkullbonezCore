@@ -40,40 +40,85 @@
 
 
 
-/* -- JPEG INCLUDE ----------------------------------------------------------------*/
-#include "jpeglib.h"
-
-
-
-/* -- EXCLUDE RARELY USED HEADERS -------------------------------------------------*/
-#define WIN32_LEAN_AND_MEAN
-
-
-
-/* -- INCLUDES --------------------------------------------------------------------*/
-#include <windows.h>  // Windows
+/* -- STANDARD C/C++ INCLUDES (needed by both platforms, before platform headers) --*/
 #include <stdlib.h>	  // Standard Library
-#include <stdio.h>	  // Standard Input/Output
+#include <stdio.h>	  // Standard Input/Output (FILE, fopen, etc.)
 #include <stdarg.h>	  // Arguments
+#include <string.h>   // strncpy, strncat, strlen, etc.
 #include <math.h>	  // Standard Math Functions
 #include <assert.h>   // Assertions
 #include <stdexcept>  // std::runtime_error
 #include <memory>     // std::unique_ptr
 #include <vector>     // std::vector
+
+/* -- JPEG INCLUDE ----------------------------------------------------------------*/
+#include "jpeglib.h"
+
+/* -- GLAD must be included before any system GL headers --------------------------*/
 #include <glad/gl.h>  // GLAD OpenGL 3.3 Core Loader
-#include <gl\glu.h>   // OpenGL Utility Library (retained during incremental migration)
 
 
 
-/* -- GL/GLU LIBS -----------------------------------------------------------------*/
-#pragma comment(lib, "opengl32.lib")
-#pragma comment(lib, "glu32.lib")  // retained during incremental migration
+/* -- PLATFORM-SPECIFIC INCLUDES AND STUBS ----------------------------------------*/
+#ifdef _WIN32
+  /* Windows */
+# define WIN32_LEAN_AND_MEAN
+# include <windows.h>
+# include <gl/glu.h>   // OpenGL Utility Library (retained during incremental migration)
+# pragma comment(lib, "opengl32.lib")
+# pragma comment(lib, "glu32.lib")  // retained during incremental migration
+# include <crtdbg.h>
+# define CRTDBG_MAP_ALLOC
+#else
+  /* Linux / macOS
+     GLFW_INCLUDE_NONE prevents GLFW from pulling in its own GL headers (GLAD owns that). */
+# define GLFW_INCLUDE_NONE
+# include <GLFW/glfw3.h>
+# include <GL/glu.h>   // OpenGL Utility Library (must come AFTER glad/gl.h)
+# include <unistd.h>   // usleep
 
+  /* Win32 type stubs used in class declarations */
+  typedef void*          HWND;
+  typedef void*          HDC;
+  typedef void*          HGLRC;
+  typedef unsigned int   UINT;
+  typedef unsigned char  BYTE;
+  typedef unsigned long  DWORD;
+  typedef unsigned short WORD;
+  struct POINT { int x; int y; };
+  struct RECT  { int left; int top; int right; int bottom; };
+  typedef void* HINSTANCE;
 
+  /* tImageJPG — defined in the bundled ThirdPtySource/JPEG/jpeglib.h on Windows;
+     redefined here for Linux where the system jpeglib.h is used instead. */
+  struct tImageJPG
+  {
+      int rowSpan;
+      int sizeX;
+      int sizeY;
+      unsigned char* data;
+  };
 
-/* -- ENABLE HEAP DEBUGGING -------------------------------------------------------*/
-#include <crtdbg.h>
-#define CRTDBG_MAP_ALLOC
+  /* ZeroMemory compat (Windows API function → memset) */
+# define ZeroMemory(dst, size) memset((dst), 0, (size))
+
+  /* Secure CRT compatibility */
+  typedef int errno_t;
+  inline errno_t fopen_s_compat(FILE** fp, const char* path, const char* mode)
+  { *fp = fopen(path, mode); return (*fp == nullptr) ? 1 : 0; }
+# define fopen_s(fp, path, mode) fopen_s_compat(fp, path, mode)
+# define strcpy_s(dst, sz, src)  (strncpy((dst), (src), (sz)-1), (dst)[(sz)-1] = '\0')
+# define strcat_s(dst, sz, src)  strncat((dst), (src), (sz) - strlen(dst) - 1)
+# define sprintf_s               snprintf
+# define vsprintf_s              vsnprintf
+# define sscanf_s                sscanf
+  /* Sleep in milliseconds */
+# define Sleep(ms)               usleep(static_cast<useconds_t>((ms) * 1000))
+  /* Suppress unused VK_* references from SkullbonezRun */
+# define VK_SHIFT   0x10
+# define VK_SPACE   0x20
+# define VK_ESCAPE  0x1B
+#endif
 
 
 

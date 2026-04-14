@@ -4,13 +4,13 @@
 																			 .-"       "-.
 																			/             \
 																		   /               \
-																		   ¦   .--. .--.   ¦
-																		   ¦ )/   ¦ ¦   \( ¦
-																		   ¦/ \__/   \__/ \¦
+																		   ï¿½   .--. .--.   ï¿½
+																		   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+																		   ï¿½/ \__/   \__/ \ï¿½
 																		   /      /^\      \
 																		   \__    '='    __/
-								   											 ¦\         /¦
-																			 ¦\'"VUUUV"'/¦
+								   											 ï¿½\         /ï¿½
+																			 ï¿½\'"VUUUV"'/ï¿½
 																			 \ `"""""""` /
 																			  `-._____.-'
 
@@ -57,7 +57,7 @@ namespace SkullbonezCore
 			static bool		IsKeyDown				(const char cKey);				// Returns true if specified key is pressed (use upper case)
 			static bool		IsKeyToggled			(const char cKey);				// Returns true if specified key is toggled (use upper case)
 			static POINT	GetMouseCoordinates		(void);							// Returns the coordinates of the mouse cursor
-			static void		SetMouseCoordinates		(const POINT &pNewCoordinates);	// Sets the mouse coordinates
+			static void		SetMouseCoordinates		(const POINT& pNewCoordinates);	// Sets the mouse coordinates
 			static void		CentreMouseCoordinates	(void);							// Sets the mouse cursor to the centre of the screen
 		};
 	}
