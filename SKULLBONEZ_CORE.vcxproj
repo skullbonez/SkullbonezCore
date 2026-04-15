@@ -164,6 +164,18 @@
     <ClInclude Include="SkullbonezSource\SkullbonezShader.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezMesh.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="SkullbonezData\shaders\lit_textured.frag" />
+    <None Include="SkullbonezData\shaders\lit_textured.vert" />
+    <None Include="SkullbonezData\shaders\shadow.frag" />
+    <None Include="SkullbonezData\shaders\shadow.vert" />
+    <None Include="SkullbonezData\shaders\text.frag" />
+    <None Include="SkullbonezData\shaders\text.vert" />
+    <None Include="SkullbonezData\shaders\unlit_textured.frag" />
+    <None Include="SkullbonezData\shaders\unlit_textured.vert" />
+    <None Include="SkullbonezData\shaders\water.frag" />
+    <None Include="SkullbonezData\shaders\water.vert" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
