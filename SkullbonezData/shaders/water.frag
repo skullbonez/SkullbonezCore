@@ -13,13 +13,14 @@ uniform vec4      uColorTint;
 uniform sampler2D uReflectionTex;
 uniform float     uReflectionStrength;
 uniform float     uTime;
-uniform int       uFlatShading;    // 1 = flat colour only, skip reflection (debug key 2)
+uniform int       uNoReflect;   // 1 = flat colour only, no reflection sample (debug key 2)
+uniform int       uNoPerturb;   // 1 = disable UV wave perturbation (debug key 4)
 
 out vec4 FragColor;
 
 void main()
 {
-    if (uFlatShading != 0)
+    if (uNoReflect != 0)
     {
         FragColor = uColorTint;
         return;
@@ -31,9 +32,12 @@ void main()
 
     // Perturb UV with the same wave functions as water.vert — phase-locks
     // the reflected image shimmer to the surface ripple geometry
-    float wave = sin(vWorldXZ.x * 0.04 + uTime * 1.2) * 1.5
-               + sin(vWorldXZ.y * 0.06 + uTime * 0.8) * 1.0;
-    reflUV += vec2(wave * 0.002, wave * 0.002);
+    if (uNoPerturb == 0)
+    {
+        float wave = sin(vWorldXZ.x * 0.04 + uTime * 1.2) * 1.5
+                   + sin(vWorldXZ.y * 0.06 + uTime * 0.8) * 1.0;
+        reflUV += vec2(wave * 0.002, wave * 0.002);
+    }
 
     vec4 reflection = texture(uReflectionTex, reflUV);
     FragColor = mix(uColorTint, reflection, uReflectionStrength);
