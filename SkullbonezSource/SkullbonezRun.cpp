@@ -472,12 +472,12 @@ void SkullbonezRun::TakeInput(void)
 
 	// Water shader debug toggles
 	bool prevFreeze = this->isWaterFreezeDebug;
-	this->isWaterFreezeDebug = (Input::IsKeyToggled('1') != 0);
+	this->isWaterFreezeDebug = (Input::IsKeyToggled('1') != 0); // default on
 	if (this->isWaterFreezeDebug && !prevFreeze)
 		this->frozenWaterTime = static_cast<float>(this->cSimulationTimer.GetTimeSinceLastStart());
-	this->isWaterNoReflect   = (Input::IsKeyToggled('2') != 0);
-	this->isWaterFlatDebug   = (Input::IsKeyToggled('3') != 0);
-	this->isWaterNoPerturb   = (Input::IsKeyToggled('4') != 0);
+	this->isWaterNoReflect   = (Input::IsKeyToggled('2') != 0); // default on
+	this->isWaterFlatDebug   = (Input::IsKeyToggled('3') == 0); // default OFF
+	this->isWaterNoPerturb   = (Input::IsKeyToggled('4') == 0); // default OFF
 
 	if (this->isFlyMode)
 	{
@@ -597,6 +597,7 @@ void SkullbonezRun::DrawPrimitives(void)
 	}
 
 	// reflection pre-pass: render above-water scene from mirrored camera into FBO
+	// TODO: this needs to run when camera isTweening!!
 	{
 		float   waterY = this->cWorldEnvironment.GetFluidSurfaceHeight();
 		Vector3 eye    = this->cCameras->GetCameraTranslation();
