@@ -13,11 +13,18 @@ uniform vec4      uColorTint;
 uniform sampler2D uReflectionTex;
 uniform float     uReflectionStrength;
 uniform float     uTime;
+uniform int       uFlatShading;    // 1 = flat colour only, skip reflection (debug key 2)
 
 out vec4 FragColor;
 
 void main()
 {
+    if (uFlatShading != 0)
+    {
+        FragColor = uColorTint;
+        return;
+    }
+
     // Projective UV: sample the reflection FBO using the reflection camera's clip space.
     // This ensures the UV tracks the reflection camera exactly, with no double-motion.
     vec2 reflUV = (vReflectClipPos.xy / vReflectClipPos.w) * 0.5 + 0.5;
