@@ -242,55 +242,13 @@ bool GameModel::IsResponseRequired(void)
 
 
 
-/* -- ORIENT MESH ---------------------------------------------------------------*/
-void GameModel::OrientMesh(void)
-{
-	// translate to object space
-	Vector3 position = this->physicsInfo.GetPosition();
-	glTranslatef(position.x, position.y, position.z);
-
-	// orient object space
-	this->physicsInfo.RotateBodyToOrientation();
-
-	// translate back to world space (keeping the orientation)
-	glTranslatef(-position.x, -position.y, -position.z);
-}
-
-
-
-/* -- RENDER MODEL ----------------------------------------------------------------*/
-void GameModel::RenderModel(void)
-{
-	// save the matrix state if we are going to be performing
-	// rotations on the world matrix
-	glPushMatrix();
-
-	// orient the mesh for rendering
-	this->OrientMesh();
-
-	// ******************** render here ********************
-
-	// restore the original world matrix state now we are done rendering
-	glPopMatrix();
-}
-
-
-
 /* -- RENDER COLLISION BOUNDS -----------------------------------------------------*/
-void GameModel::RenderCollisionBounds(const Matrix4& proj, const float lightPos[4])
+void GameModel::RenderCollisionBounds(const Matrix4& view, const Matrix4& proj, const float lightPos[4])
 {
-	// save the matrix state if we are going to be performing
-	// rotations on the world matrix
-	glPushMatrix();
-
-	// orient the bounding volume for rendering
-	this->OrientMesh();
-
-	// render
-	this->boundingVolume->DEBUG_RenderCollisionVolume(this->physicsInfo.GetPosition(), proj, lightPos);
-
-	// restore the original world matrix state now we are done rendering
-	glPopMatrix();
+	const Vector3& pos = this->physicsInfo.GetPosition();
+	Matrix4 model = Matrix4::Translate(pos.x, pos.y, pos.z)
+				  * this->physicsInfo.GetOrientationMatrix4();
+	this->boundingVolume->DEBUG_RenderCollisionVolume(model, view, proj, lightPos);
 }
 
 

@@ -73,7 +73,6 @@ namespace SkullbonezCore
 			bool											isGrounded;															// Flag to indicate whether the model is on the ground or not
 			bool											isResponseRequired;													// Indicates whether a response is required or not
 
-			void			OrientMesh						(void);																// Orients the mesh based on its orientation
 			void			CalculateVolume					(void);																// Calculates the volume of the model
 			void			ApplyWorldForces				(float changeInTime);												// Apply forces on the body from the world environment
 			void			UpdateModelInfo					(void);																// Perform this operation every time the model has objects added or removed from its object list
@@ -91,8 +90,8 @@ namespace SkullbonezCore
 						GameModel						(GameModel&&) noexcept = default;								// Move constructor
 						GameModel& operator=			(GameModel&&) noexcept = default;								// Move assignment
 
-			void			RenderModel						(void);																// Renders the entire game model
-			void			RenderCollisionBounds			(const Matrix4& proj,
+			void			RenderCollisionBounds			(const Matrix4& view,
+															 const Matrix4& proj,
 															 const float lightPos[4]);											// Renders the collision bounds
 			bool			IsResponseRequired				(void);																// Indicates whether a collision response is required
 			float			GetSubmergedVolumePercent		(void);																// Returns the percentage of the game model submerged in fluid

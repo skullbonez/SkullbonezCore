@@ -42,20 +42,9 @@ using namespace SkullbonezCore::Math::Transformation;
 /* -- STATIC MEMBER INITIALISATION ------------------------------------------------*/
 std::unique_ptr<Mesh>	SkullbonezHelper::sphereMesh;
 std::unique_ptr<Shader>	SkullbonezHelper::sphereShader;
-float					SkullbonezHelper::sBaseView[16] = {
-	1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1
-};
 float					SkullbonezHelper::sClipPlane[4] = {
 	0.0f, 1.0f, 0.0f, 1.0e9f			// default: always pass (GL_CLIP_DISTANCE0 disabled)
 };
-
-
-
-/* -- SET BASE VIEW ---------------------------------------------------------------*/
-void SkullbonezHelper::SetBaseView(const float mv[16])
-{
-	for (int i = 0; i < 16; ++i) sBaseView[i] = mv[i];
-}
 
 
 
@@ -123,8 +112,9 @@ void SkullbonezHelper::BuildSphereMesh(int slices, int stacks)
 
 
 /* -- DRAW SPHERE -----------------------------------------------------------------*/
-void SkullbonezHelper::DrawSphere(float radius, const Matrix4& proj,
-								  const float lightPos[4], bool isTransparent)
+void SkullbonezHelper::DrawSphere(const Matrix4& model, const Matrix4& view,
+								  const Matrix4& proj, const float lightPos[4],
+								  bool isTransparent)
 {
 	if (!sphereMesh)
 	{
@@ -136,61 +126,28 @@ void SkullbonezHelper::DrawSphere(float radius, const Matrix4& proj,
 
 	if (isTransparent) glEnable(GL_BLEND);
 
-	// Scale by radius only — no 90° rotation needed (procedural sphere has Y-axis poles)
-	glPushMatrix();
-		glScalef(radius, radius, radius);
+	sphereShader->Use();
+	sphereShader->SetMat4("uModel", model);
+	sphereShader->SetMat4("uView", view);
+	sphereShader->SetMat4("uProjection", proj);
+	sphereShader->SetVec4("uClipPlane",
+		sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3]);
 
-		// Read the combined modelview after scale for vertex transforms
-		float mv[16];
-		glGetFloatv(GL_MODELVIEW_MATRIX, mv);
-		Matrix4 fullMV(mv);
+	// Transform light position into view space
+	float viewLightPos[4];
+	const float* v = view.m;
+	for (int i = 0; i < 3; ++i)
+		viewLightPos[i] = v[i]*lightPos[0] + v[i+4]*lightPos[1] + v[i+8]*lightPos[2] + v[i+12]*lightPos[3];
+	viewLightPos[3] = lightPos[3];
 
-		// Recover the world-space model matrix by inverting the camera view out of the
-		// full modelview.  sBaseView is the pure camera view captured once per frame
-		// before any per-sphere model transforms are pushed onto the GL stack.
-		// Passing uModel=T*R*scale lets the shader compute the correct world-space
-		// position for gl_ClipDistance — critical for the water reflection pre-pass.
-		// Manually invert the rigid-body view matrix: for V=[R|t], V^-1 = [R^T | -R^T*t].
-		// This exploits the orthonormal structure of a camera view matrix (transpose = inverse
-		// for the rotation block, negated rotated translation for the translation column).
-		Matrix4 invCamView;
-		{
-			const float* v = sBaseView;
-			invCamView.m[0]=v[0]; invCamView.m[4]=v[1]; invCamView.m[8] =v[2];  invCamView.m[12]=0;
-			invCamView.m[1]=v[4]; invCamView.m[5]=v[5]; invCamView.m[9] =v[6];  invCamView.m[13]=0;
-			invCamView.m[2]=v[8]; invCamView.m[6]=v[9]; invCamView.m[10]=v[10]; invCamView.m[14]=0;
-			invCamView.m[3]=0;    invCamView.m[7]=0;    invCamView.m[11]=0;     invCamView.m[15]=1;
-			float tx=v[12], ty=v[13], tz=v[14];
-			invCamView.m[12] = -(v[0]*tx + v[1]*ty + v[2]*tz);
-			invCamView.m[13] = -(v[4]*tx + v[5]*ty + v[6]*tz);
-			invCamView.m[14] = -(v[8]*tx + v[9]*ty + v[10]*tz);
-		}
-		Matrix4 cameraView(sBaseView);
-		Matrix4 modelMatrix = invCamView * fullMV;
+	sphereShader->SetVec4("uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3]);
+	sphereShader->SetVec4("uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f);
+	sphereShader->SetVec4("uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f);
+	sphereShader->SetVec4("uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f);
+	sphereShader->SetVec4("uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f);
 
-		sphereShader->Use();
-		sphereShader->SetMat4("uModel", modelMatrix);
-		sphereShader->SetMat4("uView", cameraView);
-		sphereShader->SetMat4("uProjection", proj);
-		sphereShader->SetVec4("uClipPlane",
-			sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3]);
-
-		// Transform light by cached base camera view (set once per frame in DrawPrimitives)
-		// not the per-sphere modelview which includes ball rotation
-		float viewLightPos[4];
-		for (int i = 0; i < 3; ++i)
-			viewLightPos[i] = sBaseView[i] * lightPos[0] + sBaseView[i+4] * lightPos[1] + sBaseView[i+8] * lightPos[2] + sBaseView[i+12] * lightPos[3];
-		viewLightPos[3] = lightPos[3];
-
-		sphereShader->SetVec4("uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3]);
-		sphereShader->SetVec4("uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f);
-		sphereShader->SetVec4("uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f);
-		sphereShader->SetVec4("uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f);
-		sphereShader->SetVec4("uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f);
-
-		sphereMesh->Draw();
-		glUseProgram(0);
-	glPopMatrix();
+	sphereMesh->Draw();
+	glUseProgram(0);
 
 	if (isTransparent) glDisable(GL_BLEND);
 }
@@ -239,42 +196,8 @@ void SkullbonezHelper::StateSetup(void)
 	glEnable(GL_CULL_FACE);		// enable back face culling
 	glFrontFace(GL_CCW);		// specify cull winding order
 
-	// enable smooth shading (interpolation between vertex normals)
-	glShadeModel(GL_SMOOTH);
-
 	// set up alpha blending
-	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-
-	// best perspective calculations
-	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
-
-	// enable lighting
-	glEnable(GL_LIGHTING);
-
-	// ambient light setting
-	float ambientLight[] = {1.0f,	// red
-							0.5f,	// green
-							0.5f,	// blue
-							1.0f};	// alpha
-
-	// diffuse light setting
-	float diffuseLight[] = {1.0f,	// red
-							0.5f,	// green
-							0.5f,	// blue
-							1.0f};	// alpha
-
-	// enable light 0
-	glEnable(GL_LIGHT0);
-
-	// set ambient properties for light 0
-	glLightfv(GL_LIGHT0, GL_AMBIENT, ambientLight);
-
-	// set diffuse properties for light 0
-	glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseLight);
-
-	// normalise normals when calls to glScale are made
-	glEnable(GL_NORMALIZE);
 
 	// enable texture mapping
 	glEnable(GL_TEXTURE_2D);

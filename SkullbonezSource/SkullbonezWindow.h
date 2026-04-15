@@ -4,13 +4,13 @@
 																			 .-"       "-.
 																			/             \
 																		   /               \
-																		   ¦   .--. .--.   ¦
-																		   ¦ )/   ¦ ¦   \( ¦
-																		   ¦/ \__/   \__/ \¦
+																		   ï¿½   .--. .--.   ï¿½
+																		   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+																		   ï¿½/ \__/   \__/ \ï¿½
 																		   /      /^\      \
 																		   \__    '='    __/
-								   											 ¦\         /¦
-																			 ¦\'"VUUUV"'/¦
+								   											 ï¿½\         /ï¿½
+																			 ï¿½\'"VUUUV"'/ï¿½
 																			 \ `"""""""` /
 																			  `-._____.-'
 
@@ -27,6 +27,7 @@
 
 /* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "SkullbonezCommon.h"
+#include "SkullbonezMatrix4.h"
 
 
 
@@ -44,6 +45,7 @@ namespace SkullbonezCore
 		private:
 
 			static	SkullbonezWindow			*pInstance;						// Pointer to singleton instance
+			Math::Transformation::Matrix4		projectionMatrix;				// Cached projection matrix (updated by HandleScreenResize)
 
 			SkullbonezWindow					(void);							// Default constructor
 			~SkullbonezWindow					(void);							// Default destructor
@@ -74,9 +76,10 @@ namespace SkullbonezCore
 																	 bool isFullScreenMode);	// Creates our application window, returns a handle to it
 			void						ChangeToFullScreen			(int xResolution, 
 																	 int yResolution);			// Changes screeen to full screen mode
-			int							MsgBox						(const char* cMsgBoxText, 
-																	 const char* cMsgBoxTitle, 
+			int							MsgBox						(const char* cMsgBoxText,
+																	 const char* cMsgBoxTitle,
 																	 const UINT  iMsgBoxType);	// Draws a message box to the screen
+			const Math::Transformation::Matrix4& GetProjectionMatrix(void) const;				// Returns the cached projection matrix
 		};
 	}
 }

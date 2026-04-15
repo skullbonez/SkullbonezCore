@@ -55,7 +55,6 @@ namespace SkullbonezCore
 
 		static std::unique_ptr<Mesh>	sphereMesh;				// Shared unit sphere VBO
 		static std::unique_ptr<Shader>	sphereShader;			// Shared lit_textured shader
-		static float					sBaseView[16];			// Cached base camera view (no model transforms)
 		static float					sClipPlane[4];			// Active clip plane for sphere shader
 
 			static void		BuildSphereMesh		(int slices, int stacks);	// Generate UV sphere mesh
@@ -64,13 +63,13 @@ namespace SkullbonezCore
 		public:
 
 			static void		StateSetup			(void);								// Assists in setting up initial open gl state
-			static void		SetBaseView			(const float mv[16]);				// Cache base camera view for light transforms
 			static void		SetClipPlane		(float x, float y,
 												 float z, float w);					// Set sphere shader clip plane (default (0,1,0,1e9) = always pass)
-			static void		DrawSphere			(float radius,
+			static void		DrawSphere			(const Matrix4& model,
+												 const Matrix4& view,
 												 const Matrix4& proj,
 												 const float lightPos[4],
-												 bool  isTransparent = false);		// Draws a sphere at current GL matrix position
+												 bool  isTransparent = false);		// Draws a sphere with explicit model, view, projection matrices
 			static void		ResetGLResources	(void);								// Call after GL context recreated to invalidate cached GL objects
 		};
 	}

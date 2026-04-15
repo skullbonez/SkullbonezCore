@@ -33,6 +33,7 @@
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::Math;
+using namespace SkullbonezCore::Math::Transformation;
 
 
 
@@ -486,16 +487,18 @@ void CameraCollection::SetCamera(void)
 /* -- SET GLU LOOK AT -------------------------------------------------------------*/
 void CameraCollection::SetGluLookAt(Camera& cCameraData)
 {
-	// specify camera position, view, and up vector
-	gluLookAt(cCameraData.Position.x,
-			  cCameraData.Position.y,
-			  cCameraData.Position.z,
-			  cCameraData.View.x,
-			  cCameraData.View.y,
-			  cCameraData.View.z,
-			  cCameraData.UpVector.x,
-			  cCameraData.UpVector.y,
-			  cCameraData.UpVector.z);
+	this->currentViewMatrix = Matrix4::LookAt(cCameraData.Position,
+											   cCameraData.View,
+											   cCameraData.UpVector);
+	glLoadMatrixf(this->currentViewMatrix.m);
+}
+
+
+
+/* -- GET VIEW MATRIX -------------------------------------------------------------*/
+const Matrix4& CameraCollection::GetViewMatrix(void) const
+{
+	return this->currentViewMatrix;
 }
 
 

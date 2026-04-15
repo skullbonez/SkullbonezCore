@@ -4,13 +4,13 @@
 																			 .-"       "-.
 																			/             \
 																		   /               \
-																		   ¦   .--. .--.   ¦
-																		   ¦ )/   ¦ ¦   \( ¦
-																		   ¦/ \__/   \__/ \¦
+																		   ï¿½   .--. .--.   ï¿½
+																		   ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+																		   ï¿½/ \__/   \__/ \ï¿½
 																		   /      /^\      \
 																		   \__    '='    __/
-								   											 ¦\         /¦
-																			 ¦\'"VUUUV"'/¦
+								   											 ï¿½\         /ï¿½
+																			 ï¿½\'"VUUUV"'/ï¿½
 																			 \ `"""""""` /
 																			  `-._____.-'
 
@@ -29,6 +29,7 @@
 #include "SkullbonezCommon.h"
 #include "SkullbonezQuaternion.h"
 #include "SkullbonezRotationMatrix.h"
+#include "SkullbonezMatrix4.h"
 
 
 
@@ -90,7 +91,7 @@ namespace SkullbonezCore
 			void				UpdatePosition					(float changeInTime);					// Update the rigid body's position based on its current state
 			void				ApplyImpulseForce				(void);									// Apply the impulse force to the body
 			void				ZeroForce						(void);									// Zero the force vectors
-			void				RotateBodyToOrientation			(void);									// Rotates the orientation of the body into the world matrix
+			Transformation::Matrix4 GetOrientationMatrix4		(void) const;							// Returns the orientation as a Matrix4 (column-major, for shader use)
 			void				SetMass							(float fMass);							// Set the mass of the rigid body
 			void				SetFrictionCoefficient			(float fFriction);						// Set the friction coefficient of the body
 			void				SetVolume						(float fVolume);						// Sets the volume member

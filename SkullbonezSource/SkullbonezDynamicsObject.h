@@ -60,7 +60,8 @@ namespace SkullbonezCore
 
 			public:
 
-				virtual void		DEBUG_RenderCollisionVolume		(const Vector3& worldSpaceCoords,
+				virtual void		DEBUG_RenderCollisionVolume		(const Transformation::Matrix4& model,
+																	 const Transformation::Matrix4& view,
 																	 const Transformation::Matrix4& proj,
 																	 const float lightPos[4])				= 0;  	// Debug routine to render a representation of the collision volume
 				virtual float		GetSubmergedVolumePercent		(float fluidSurfaceHeight)				= 0;	// Returns the percent of the object submerged in fluid

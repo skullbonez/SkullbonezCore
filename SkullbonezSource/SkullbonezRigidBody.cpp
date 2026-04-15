@@ -33,6 +33,7 @@
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Math;
+using namespace SkullbonezCore::Math::Transformation;
 
 
 
@@ -227,10 +228,10 @@ void RigidBody::ApplyImpulseForce(void)
 
 
 
-/* -- ROTATE BODY TO ORIENTATION --------------------------------------------------*/
-void RigidBody::RotateBodyToOrientation(void)
+/* -- GET ORIENTATION MATRIX4 -----------------------------------------------------*/
+Matrix4 RigidBody::GetOrientationMatrix4(void) const
 {
-	this->orientation.GlRotateToOrientation();
+	return Matrix4::FromQuaternion(this->orientation);
 }
 
 

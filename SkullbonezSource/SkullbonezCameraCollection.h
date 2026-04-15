@@ -29,6 +29,7 @@
 #include "SkullbonezCommon.h"
 #include "SkullbonezCamera.h"
 #include "SkullbonezTerrain.h"
+#include "SkullbonezMatrix4.h"
 
 
 
@@ -52,6 +53,7 @@ namespace SkullbonezCore
 		private:
 
 			static CameraCollection*	pInstance;				// Singleton instance pointer
+			Math::Transformation::Matrix4 currentViewMatrix;	// Cached view matrix (updated by SetCamera)
 			Camera						cameraArray[TOTAL_CAMERA_COUNT];// Holds the cameras
 			Camera						primaryStore;			// Holds initial position of primary camera after selection as primary (helps calculate how much to update the other cameras when the current primary loses its focus)
 			Camera						tweenPath;				// Holds the current tweening path
@@ -117,6 +119,7 @@ namespace SkullbonezCore
 			void						CancelTween						(void);															// Immediately stops any in-progress camera tween
 
 			void						AddCamera						(const Vector3& vPosition, const Vector3& vView, const Vector3& vUp, uint32_t hash);			// Add a camera to the camera collection
+			const Math::Transformation::Matrix4& GetViewMatrix			(void) const;																								// Returns the cached view matrix (set by last SetCamera call)
 		};
 	}
 }

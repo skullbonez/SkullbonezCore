@@ -32,6 +32,7 @@
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Math::Transformation;
 
 
 
@@ -110,18 +111,14 @@ void SkullbonezWindow::HandleScreenResize(void)
 
 	if (!height) height = 1;			// Avoid division by zero
 	glViewport(0, 0, width, height);	// Set viewport (screen boundaries)
-	glMatrixMode(GL_PROJECTION);		// Select projection matrix
-	glLoadIdentity();					// Reset projection matrix
 
-	// Sets up out perspective viewport
-	// Don't make the camera clip short param less than 1.  It has issues...
-	gluPerspective(45.0f,							// Field Of View
-				   (float)width/(float)height,		// Aspect ratio
-				   FRUSTUM_CLIP_SHORT_QTY,			// Camera clip short
-				   FRUSTUM_CLIP_FAR_QTY);			// Camera clip far
-
-	glMatrixMode(GL_MODELVIEW);			// Select modelview matrix
-	glLoadIdentity();					// Reset modelview matrix	
+	cWindow->projectionMatrix = Matrix4::Perspective(45.0f,
+													  (float)width / (float)height,
+													  FRUSTUM_CLIP_SHORT_QTY,
+													  FRUSTUM_CLIP_FAR_QTY);
+	glMatrixMode(GL_PROJECTION);
+	glLoadMatrixf(cWindow->projectionMatrix.m);
+	glMatrixMode(GL_MODELVIEW);
 }
 
 
@@ -425,21 +422,27 @@ void SkullbonezWindow::CreateAppWindow(HINSTANCE hInstance, bool isFullScreenMod
 
 
 
+/* -- GET PROJECTION MATRIX -------------------------------------------------------*/
+const Matrix4& SkullbonezWindow::GetProjectionMatrix(void) const
+{
+	return this->projectionMatrix;
+}
+
+
+
 /* -- SWITCH TO ORTHO MODE --------------------------------------------------------*/
 void SkullbonezWindow::SwitchToOrthoMode(void)
 {
 	glMatrixMode(GL_PROJECTION);		// projection mode
 	glPushMatrix();						// save matrix state
-	glLoadIdentity();					// load identity matrix
-	glOrtho(0,							// left
-			this->sWindowDimensions.x,	// right
-			0,							// top
-			this->sWindowDimensions.y,	// bottom
-			-1,							// near
-			1);							// far
+	glLoadMatrixf(Matrix4::Ortho(0.0f,
+								 (float)this->sWindowDimensions.x,
+								 0.0f,
+								 (float)this->sWindowDimensions.y,
+								 -1.0f, 1.0f).m);
 	glMatrixMode(GL_MODELVIEW);			// modelview matrix
 	glPushMatrix();						// save matrix state
-	glLoadIdentity();					// load identity matrix
+	glLoadIdentity();					// load identity matrix (text uses own matrix)
 }
 
 
