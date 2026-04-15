@@ -472,12 +472,12 @@ void SkullbonezRun::TakeInput(void)
 
 	// Water shader debug toggles
 	bool prevFreeze = this->isWaterFreezeDebug;
-	this->isWaterFreezeDebug = (Input::IsKeyToggled('1') != 0); // default on
+	this->isWaterFreezeDebug = (Input::IsKeyToggled('1') != 0); // Water wave timer default ON
 	if (this->isWaterFreezeDebug && !prevFreeze)
 		this->frozenWaterTime = static_cast<float>(this->cSimulationTimer.GetTimeSinceLastStart());
-	this->isWaterNoReflect   = (Input::IsKeyToggled('2') != 0); // default on
-	this->isWaterFlatDebug   = (Input::IsKeyToggled('3') == 0); // default OFF
-	this->isWaterNoPerturb   = (Input::IsKeyToggled('4') == 0); // default OFF
+	this->isWaterNoReflect   = (Input::IsKeyToggled('2') != 0); // Reflection default ON
+	this->isWaterFlatDebug   = (Input::IsKeyToggled('3') == 0); // Wave water default OFF (TODO fix VBO to support this)
+	this->isWaterNoPerturb   = (Input::IsKeyToggled('4') != 0); // Perturb default ON
 
 	if (this->isFlyMode)
 	{
