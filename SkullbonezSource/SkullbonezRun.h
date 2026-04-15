@@ -105,6 +105,11 @@ namespace SkullbonezCore
 			std::unique_ptr<Framebuffer> cReflectionFBO;		// Offscreen reflection render target
 			InputState				sInputState;				// Current frame input state
 			bool					isFlyMode;					// Free-fly camera mode active (toggle with F)
+			bool					isWaterFreezeDebug;			// Freeze water animation at current shape (toggle with 1)
+			bool					isWaterNoReflect;			// Disable reflection, output flat tint (toggle with 2)
+			bool					isWaterFlatDebug;			// Force fully flat mesh, no displacement (toggle with 3)
+			bool					isWaterNoPerturb;			// Disable UV wave perturbation (toggle with 4)
+			float					frozenWaterTime;			// Simulation time captured when freeze was toggled on
 
 
 

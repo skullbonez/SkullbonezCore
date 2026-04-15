@@ -13,20 +13,31 @@ uniform vec4      uColorTint;
 uniform sampler2D uReflectionTex;
 uniform float     uReflectionStrength;
 uniform float     uTime;
+uniform int       uNoReflect;   // 1 = flat colour only, no reflection sample (debug key 2)
+uniform int       uNoPerturb;   // 1 = disable UV wave perturbation (debug key 4)
 
 out vec4 FragColor;
 
 void main()
 {
+    if (uNoReflect != 0)
+    {
+        FragColor = uColorTint;
+        return;
+    }
+
     // Projective UV: sample the reflection FBO using the reflection camera's clip space.
     // This ensures the UV tracks the reflection camera exactly, with no double-motion.
     vec2 reflUV = (vReflectClipPos.xy / vReflectClipPos.w) * 0.5 + 0.5;
 
     // Perturb UV with the same wave functions as water.vert — phase-locks
     // the reflected image shimmer to the surface ripple geometry
-    float wave = sin(vWorldXZ.x * 0.04 + uTime * 1.2) * 1.5
-               + sin(vWorldXZ.y * 0.06 + uTime * 0.8) * 1.0;
-    reflUV += vec2(wave * 0.002, wave * 0.002);
+    if (uNoPerturb == 0)
+    {
+        float wave = sin(vWorldXZ.x * 0.04 + uTime * 1.2) * 1.5
+                   + sin(vWorldXZ.y * 0.06 + uTime * 0.8) * 1.0;
+        reflUV += vec2(wave * 0.002, wave * 0.002);
+    }
 
     vec4 reflection = texture(uReflectionTex, reflUV);
     FragColor = mix(uColorTint, reflection, uReflectionStrength);

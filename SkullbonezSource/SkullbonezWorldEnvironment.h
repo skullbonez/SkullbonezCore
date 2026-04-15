@@ -71,7 +71,10 @@ namespace SkullbonezCore
 											 const Matrix4& proj,
 											 const Matrix4& reflectVP,
 											 float          time,
-											 GLuint         reflectionTex);		// Renders the water in the scene
+											 GLuint         reflectionTex,
+											 bool           flatWater  = false,
+											 bool           noReflect  = false,
+											 bool           noPerturb  = false);	// Renders the water in the scene
 			void		ResetGLResources		(void);								// Rebuilds GPU resources after GL context recreation
 			float		GetFluidSurfaceHeight	(void);								// Returns the fluid surface height
 			void		AddWorldForces			(GameObjects::GameModel& target,
