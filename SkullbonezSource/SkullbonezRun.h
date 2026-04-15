@@ -105,6 +105,8 @@ namespace SkullbonezCore
 			std::unique_ptr<Framebuffer> cReflectionFBO;		// Offscreen reflection render target
 			InputState				sInputState;				// Current frame input state
 			bool					isFlyMode;					// Free-fly camera mode active (toggle with F)
+			bool					isWaterVertexDebug;			// Freeze water vertex animation (toggle with 1)
+			bool					isWaterFragDebug;			// Flat-shade water, no reflection (toggle with 2)
 
 
 

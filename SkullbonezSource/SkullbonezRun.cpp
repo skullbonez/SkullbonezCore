@@ -84,6 +84,8 @@ SkullbonezRun::SkullbonezRun(const char* pScenePath)
 	this->r_physicsTime			= 0.0f;
 	this->r_fpsTime				= 0.0f;
 	this->isFlyMode				= false;
+	this->isWaterVertexDebug	= false;
+	this->isWaterFragDebug		= false;
 	this->sInputState			= {};
 
 	// seed the random number generator
@@ -465,6 +467,10 @@ void SkullbonezRun::TakeInput(void)
 		}
 	}
 
+	// Water shader debug toggles
+	this->isWaterVertexDebug = (Input::IsKeyToggled('1') != 0);
+	this->isWaterFragDebug   = (Input::IsKeyToggled('2') != 0);
+
 	if (this->isFlyMode)
 	{
 		// Keep cursor hidden every frame — Windows restores it on WM_SETCURSOR
@@ -643,7 +649,9 @@ void SkullbonezRun::DrawPrimitives(void)
 	{
 		float waterTime = static_cast<float>(this->cSimulationTimer.GetTimeSinceLastStart());
 		this->cWorldEnvironment.RenderFluid(baseView, proj, reflVP, waterTime,
-											this->cReflectionFBO->GetColorTexture());
+											this->cReflectionFBO->GetColorTexture(),
+											this->isWaterVertexDebug,
+											this->isWaterFragDebug);
 	}
 }
 
