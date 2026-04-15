@@ -72,7 +72,7 @@ namespace SkullbonezCore
 											 const Matrix4& reflectVP,
 											 float          time,
 											 GLuint         reflectionTex,
-											 bool           freezeWave  = false,
+											 bool           flatWater   = false,
 											 bool           flatShading = false);	// Renders the water in the scene
 			void		ResetGLResources		(void);								// Rebuilds GPU resources after GL context recreation
 			float		GetFluidSurfaceHeight	(void);								// Returns the fluid surface height
