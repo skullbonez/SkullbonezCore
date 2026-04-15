@@ -84,8 +84,10 @@ SkullbonezRun::SkullbonezRun(const char* pScenePath)
 	this->r_physicsTime			= 0.0f;
 	this->r_fpsTime				= 0.0f;
 	this->isFlyMode				= false;
-	this->isWaterVertexDebug	= false;
+	this->isWaterFreezeDebug	= false;
 	this->isWaterFragDebug		= false;
+	this->isWaterFlatDebug		= false;
+	this->frozenWaterTime		= 0.0f;
 	this->sInputState			= {};
 
 	// seed the random number generator
@@ -468,8 +470,12 @@ void SkullbonezRun::TakeInput(void)
 	}
 
 	// Water shader debug toggles
-	this->isWaterVertexDebug = (Input::IsKeyToggled('1') != 0);
+	bool prevFreeze = this->isWaterFreezeDebug;
+	this->isWaterFreezeDebug = (Input::IsKeyToggled('1') != 0);
+	if (this->isWaterFreezeDebug && !prevFreeze)
+		this->frozenWaterTime = static_cast<float>(this->cSimulationTimer.GetTimeSinceLastStart());
 	this->isWaterFragDebug   = (Input::IsKeyToggled('2') != 0);
+	this->isWaterFlatDebug   = (Input::IsKeyToggled('3') != 0);
 
 	if (this->isFlyMode)
 	{
@@ -647,10 +653,12 @@ void SkullbonezRun::DrawPrimitives(void)
 
 	// render the fluid ---------------------------
 	{
-		float waterTime = static_cast<float>(this->cSimulationTimer.GetTimeSinceLastStart());
+		float waterTime = this->isWaterFreezeDebug
+			? this->frozenWaterTime
+			: static_cast<float>(this->cSimulationTimer.GetTimeSinceLastStart());
 		this->cWorldEnvironment.RenderFluid(baseView, proj, reflVP, waterTime,
 											this->cReflectionFBO->GetColorTexture(),
-											this->isWaterVertexDebug,
+											this->isWaterFlatDebug,
 											this->isWaterFragDebug);
 	}
 }

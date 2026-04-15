@@ -65,7 +65,7 @@ WorldEnvironment::~WorldEnvironment() {}
 void WorldEnvironment::RenderFluid(const Matrix4& view, const Matrix4& proj,
 								   const Matrix4& reflectVP,
 								   float time, GLuint reflectionTex,
-								   bool freezeWave, bool flatShading)
+								   bool flatWater, bool flatShading)
 {
 	if (!this->fluidMesh)
 		this->BuildFluidMesh();
@@ -82,7 +82,7 @@ void WorldEnvironment::RenderFluid(const Matrix4& view, const Matrix4& proj,
 	this->fluidShader->SetVec4("uColorTint", 0.05f, 0.15f, 0.42f, 0.65f);
 	this->fluidShader->SetFloat("uTime", time);
 	this->fluidShader->SetFloat("uReflectionStrength", 0.35f);
-	this->fluidShader->SetInt("uFreezeWave",  freezeWave  ? 1 : 0);
+	this->fluidShader->SetInt("uFlatWater",   flatWater   ? 1 : 0);
 	this->fluidShader->SetInt("uFlatShading", flatShading ? 1 : 0);
 
 	glActiveTexture(GL_TEXTURE1);

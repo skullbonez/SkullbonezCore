@@ -13,7 +13,7 @@ uniform mat4  uView;
 uniform mat4  uProjection;
 uniform mat4  uReflectVP;   // reflection camera view-projection
 uniform float uTime;
-uniform int   uFreezeWave;  // 1 = freeze vertex wave animation (debug key 1)
+uniform int   uFlatWater;   // 1 = fully flat mesh, no displacement (debug key 3)
 
 out vec4 vReflectClipPos;   // clip-space position from reflection camera
 out vec2 vWorldXZ;          // undisplaced world XZ for wave-phase UV perturbation
@@ -21,7 +21,7 @@ out vec2 vWorldXZ;          // undisplaced world XZ for wave-phase UV perturbati
 void main()
 {
     vec3 pos = aPosition;
-    if (uFreezeWave == 0)
+    if (uFlatWater == 0)
     {
         pos.y += sin(pos.x * 0.04 + uTime * 1.2) * 1.5
                + sin(pos.z * 0.06 + uTime * 0.8) * 1.0;
