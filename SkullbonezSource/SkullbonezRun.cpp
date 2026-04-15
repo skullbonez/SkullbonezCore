@@ -85,8 +85,9 @@ SkullbonezRun::SkullbonezRun(const char* pScenePath)
 	this->r_fpsTime				= 0.0f;
 	this->isFlyMode				= false;
 	this->isWaterFreezeDebug	= false;
-	this->isWaterFragDebug		= false;
+	this->isWaterNoReflect		= false;
 	this->isWaterFlatDebug		= false;
+	this->isWaterNoPerturb		= false;
 	this->frozenWaterTime		= 0.0f;
 	this->sInputState			= {};
 
@@ -474,8 +475,9 @@ void SkullbonezRun::TakeInput(void)
 	this->isWaterFreezeDebug = (Input::IsKeyToggled('1') != 0);
 	if (this->isWaterFreezeDebug && !prevFreeze)
 		this->frozenWaterTime = static_cast<float>(this->cSimulationTimer.GetTimeSinceLastStart());
-	this->isWaterFragDebug   = (Input::IsKeyToggled('2') != 0);
+	this->isWaterNoReflect   = (Input::IsKeyToggled('2') != 0);
 	this->isWaterFlatDebug   = (Input::IsKeyToggled('3') != 0);
+	this->isWaterNoPerturb   = (Input::IsKeyToggled('4') != 0);
 
 	if (this->isFlyMode)
 	{
@@ -659,7 +661,8 @@ void SkullbonezRun::DrawPrimitives(void)
 		this->cWorldEnvironment.RenderFluid(baseView, proj, reflVP, waterTime,
 											this->cReflectionFBO->GetColorTexture(),
 											this->isWaterFlatDebug,
-											this->isWaterFragDebug);
+											this->isWaterNoReflect,
+											this->isWaterNoPerturb);
 	}
 }
 
