@@ -99,6 +99,9 @@
     <ClCompile Include="SkullbonezSource\SkullbonezMesh.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezFramebuffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingSphere.h">
@@ -191,5 +194,40 @@
     <ClInclude Include="SkullbonezSource\SkullbonezMesh.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezFramebuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="SkullbonezData\shaders\lit_textured.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\lit_textured.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\shadow.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\shadow.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\text.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\text.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\unlit_textured.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\unlit_textured.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\water.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\water.vert">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>
