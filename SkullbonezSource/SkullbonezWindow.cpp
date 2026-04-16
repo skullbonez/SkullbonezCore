@@ -110,18 +110,11 @@ void SkullbonezWindow::HandleScreenResize(void)
 
 	if (!height) height = 1;			// Avoid division by zero
 	glViewport(0, 0, width, height);	// Set viewport (screen boundaries)
-	glMatrixMode(GL_PROJECTION);		// Select projection matrix
-	glLoadIdentity();					// Reset projection matrix
 
-	// Sets up out perspective viewport
-	// Don't make the camera clip short param less than 1.  It has issues...
-	gluPerspective(45.0f,							// Field Of View
-				   (float)width/(float)height,		// Aspect ratio
-				   FRUSTUM_CLIP_SHORT_QTY,			// Camera clip short
-				   FRUSTUM_CLIP_FAR_QTY);			// Camera clip far
-
-	glMatrixMode(GL_MODELVIEW);			// Select modelview matrix
-	glLoadIdentity();					// Reset modelview matrix	
+	// Build and store the perspective projection matrix
+	float aspect = (float)width / (float)height;
+	cWindow->projectionMatrix = Math::Transformation::Matrix4::Perspective(
+		45.0f, aspect, FRUSTUM_CLIP_SHORT_QTY, FRUSTUM_CLIP_FAR_QTY);
 }
 
 
@@ -421,36 +414,6 @@ void SkullbonezWindow::CreateAppWindow(HINSTANCE hInstance, bool isFullScreenMod
 													// to our window
 
 	this->sWindow = hWnd;
-}
-
-
-
-/* -- SWITCH TO ORTHO MODE --------------------------------------------------------*/
-void SkullbonezWindow::SwitchToOrthoMode(void)
-{
-	glMatrixMode(GL_PROJECTION);		// projection mode
-	glPushMatrix();						// save matrix state
-	glLoadIdentity();					// load identity matrix
-	glOrtho(0,							// left
-			this->sWindowDimensions.x,	// right
-			0,							// top
-			this->sWindowDimensions.y,	// bottom
-			-1,							// near
-			1);							// far
-	glMatrixMode(GL_MODELVIEW);			// modelview matrix
-	glPushMatrix();						// save matrix state
-	glLoadIdentity();					// load identity matrix
-}
-
-
-
-/* -- SWITCH OUT OF ORTHO MODE ----------------------------------------------------*/
-void SkullbonezWindow::SwitchOutOfOrthoMode(void)
-{
-	glMatrixMode(GL_PROJECTION);		// projection mode
-	glPopMatrix();						// restore old projection matrix
-	glMatrixMode(GL_MODELVIEW);			// modelview matrix
-	glPopMatrix();						// restore old projection matrix
 }
 
 

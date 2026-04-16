@@ -109,45 +109,6 @@ void Quaternion::RotateAboutXYZ(const Vector3& vRadians)
 
 
 
-/* -- GL ROTATE TO ORIENTATION ---------------------------------------------------*/
-void Quaternion::GlRotateToOrientation(void)
-{
-	/*
-		Formula for converting a quaternion to a matrix:
-		Qrtn elements: w, x, y, z
-
-		| 1-2y^2-2z^2     2xy-2wz       2xz+2wy     0 |
-		|   2xy+2wz     1-2x^2-2z^2     2yz-2wx     0 |
-		|   2xz-2wy       2yz+2wx     1-2x^2-2y^2   0 |
-		|      0             0             0        1 |
-
-		NOTE:  THIS IS FLIPPING THE ROTATION TO A LEFT
-			   HANDED COORDINATE SYSTEM FOR OPENGL!
-	*/
-
-	float matrix[16] = 
-	{
-		1 - (2*this->y*this->y) - (2*this->z*this->z),
-			(2*this->x*this->y) - (2*this->w*this->z),
-			(2*this->x*this->z) + (2*this->w*this->y),
-		0											 ,
-			(2*this->x*this->y) + (2*this->w*this->z),
-		1 - (2*this->x*this->x) - (2*this->z*this->z),
-			(2*this->y*this->z) - (2*this->w*this->x),
-		0											 ,
-			(2*this->x*this->z) - (2*this->w*this->y),
-			(2*this->y*this->z) + (2*this->w*this->x),
-		1 - (2*this->x*this->x) - (2*this->y*this->y),
-		0											 ,
-		0											 ,
-		0											 ,
-		0											 ,
-		1
-	};
-
-	// Apply the rotation matrix to the world matrix
-	glMultMatrixf(matrix);
-}
 
 
 

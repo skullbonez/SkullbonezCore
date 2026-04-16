@@ -134,18 +134,21 @@ float BoundingSphere::GetRadius(void)
 
 /* -- DEBUG RENDER COLLISION VOLUME -----------------------------------------------*/
 void BoundingSphere::DEBUG_RenderCollisionVolume(const Vector3& worldSpaceCoords,
+												 const Matrix4& rotation,
+												 const Matrix4& view,
 												 const Matrix4& proj,
 												 const float lightPos[4])
 {
-	glPushMatrix();
+	// Model matrix: T(worldPos) * R * T(localOffset) * S(radius)
+	// Derived from the old GL stack: glTranslate(pos) * glMultMatrix(R) *
+	// glTranslate(-pos) * glTranslate(pos + localOffset) * glScale(radius)
+	// which simplifies to T(pos) * R * T(localOffset) * S(radius).
+	Matrix4 model = Matrix4::Translate(worldSpaceCoords)
+				  * rotation
+				  * Matrix4::Translate(this->position)
+				  * Matrix4::Scale(this->radius, this->radius, this->radius);
 
-		glTranslatef(worldSpaceCoords.x + this->position.x, 
-					 worldSpaceCoords.y + this->position.y, 
-					 worldSpaceCoords.z + this->position.z);
-
-		SkullbonezHelper::DrawSphere(this->radius, proj, lightPos, RENDER_COL_VOL_TRANS);
-
-	glPopMatrix();
+	SkullbonezHelper::DrawSphere(model, view, proj, lightPos, RENDER_COL_VOL_TRANS);
 }
 
 

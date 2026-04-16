@@ -53,10 +53,10 @@ void GameModelCollection::AddGameModel(GameModel gameModel)
 
 
 /* -- RENDER MODELS ---------------------------------------------------------------*/
-void GameModelCollection::RenderModels(const Matrix4& proj, const float lightPos[4])
+void GameModelCollection::RenderModels(const Matrix4& view, const Matrix4& proj, const float lightPos[4])
 {
-	for(int x=0; x<(int)this->gameModels.size(); ++x) 
-		this->gameModels[x].RenderCollisionBounds(proj, lightPos);
+	for(int x=0; x<(int)this->gameModels.size(); ++x)
+		this->gameModels[x].RenderCollisionBounds(view, proj, lightPos);
 }
 
 

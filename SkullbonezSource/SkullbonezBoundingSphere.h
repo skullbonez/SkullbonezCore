@@ -68,6 +68,8 @@ namespace SkullbonezCore
 																 const Vector3& vPosition);				// Overloaded constructor
 								~BoundingSphere					(void);									// Default destructor
 				void			DEBUG_RenderCollisionVolume		(const Vector3& worldSpaceCoords,
+																		 const Transformation::Matrix4& rotation,
+																		 const Transformation::Matrix4& view,
 																		 const Transformation::Matrix4& proj,
 																		 const float lightPos[4]);		// Debug routine to render a representation of the collision volume
 				float			GetVolume						(void);									// Returns the volume of the sphere
