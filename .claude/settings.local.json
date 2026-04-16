@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout:*)",
+      "Bash(taskkill /IM SKULLBONEZ_CORE.exe /F)",
+      "Bash(powershell -Command '& { $msbuild = & '\\\\''C:\\\\Program Files \\(x86\\)\\\\Microsoft Visual Studio\\\\Installer\\\\vswhere.exe'\\\\'' -latest -requires Microsoft.Component.MSBuild -find '\\\\''MSBuild\\\\**\\\\Bin\\\\MSBuild.exe'\\\\'' | Select-Object -First 1; & $msbuild '\\\\''G:\\\\SkullbonezCoreOriginal\\\\SKULLBONEZ_CORE.sln'\\\\'' /p:Configuration=Debug /p:Platform=x86 /nologo /v:minimal }')",
+      "Bash(powershell:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(powershell.exe:*)",
+      "Bash(taskkill //F //IM SKULLBONEZ_CORE.exe)",
+      "Bash(\"/c/Program Files/Microsoft Visual Studio/2022/Enterprise/MSBuild/Current/Bin/MSBuild.exe\" SKULLBONEZ_CORE.sln /p:Configuration=Debug /p:Platform=Win32 /verbosity:minimal)",
+      "Bash(cmd //c '\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Enterprise\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\" SKULLBONEZ_CORE.sln /p:Configuration=Debug /p:Platform=Win32 /verbosity:minimal')",
+      "Bash(cmd //c \"\\\\\"C:\\\\\\\\Program Files\\\\\\\\Microsoft Visual Studio\\\\\\\\2022\\\\\\\\Enterprise\\\\\\\\MSBuild\\\\\\\\Current\\\\\\\\Bin\\\\\\\\MSBuild.exe\\\\\" SKULLBONEZ_CORE.sln /p:Configuration=Debug /p:Platform=Win32 /verbosity:minimal\")",
+      "Bash(cmd:*)",
+      "Bash(py:*)"
+    ]
+  }
+}

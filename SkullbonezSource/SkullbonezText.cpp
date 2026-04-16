@@ -47,12 +47,13 @@ float    Text2d::charAdvance[96] = {};
 
 
 /* -- Font atlas layout constants -------------------------------------------------*/
-static const int FONT_CELL_W  = 40;		// Width of each character cell (wider than any Verdana glyph at -32)
-static const int FONT_CELL_H  = 32;		// Height of each character cell in pixels
+static const int FONT_SIZE    = 32;		// Font rendering height in pixels (CreateFont -nHeight)
+static const int FONT_CELL_W  = 40;		// Width of each character cell (wider than any Verdana glyph)
+static const int FONT_CELL_H  = 48;		// Height of each character cell (FONT_SIZE + descender/AA padding)
 static const int FONT_COLS    = 16;		// Number of columns in the atlas
 static const int FONT_ROWS    = 6;		// Number of rows in the atlas (16*6 = 96 chars)
 static const int FONT_ATLAS_W = FONT_CELL_W * FONT_COLS;	// 640 pixels
-static const int FONT_ATLAS_H = FONT_CELL_H * FONT_ROWS;	// 192 pixels
+static const int FONT_ATLAS_H = FONT_CELL_H * FONT_ROWS;	// 288 pixels
 
 
 
@@ -89,7 +90,7 @@ void Text2d::BuildFont(const HDC hDC, const char* cFontName)
 
 	// Create the requested font at the cell height
 	HFONT hFont = CreateFont(
-		-FONT_CELL_H,					// negative = character height in pixels
+		-FONT_SIZE,						// negative = character height in pixels
 		0, 0, 0,
 		FW_NORMAL,
 		FALSE, FALSE, FALSE,
@@ -114,7 +115,7 @@ void Text2d::BuildFont(const HDC hDC, const char* cFontName)
 	INT advWidths[96] = {};
 	GetCharWidth32(memDC, 32, 127, advWidths);
 	for (int i = 0; i < 96; ++i)
-		Text2d::charAdvance[i] = (float)advWidths[i] / (float)FONT_CELL_H;
+		Text2d::charAdvance[i] = (float)advWidths[i] / (float)FONT_SIZE;
 
 	// Render each character into its atlas cell
 	SetBkMode(memDC, TRANSPARENT);
@@ -141,8 +142,8 @@ void Text2d::BuildFont(const HDC hDC, const char* cFontName)
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_R8,
 		FONT_ATLAS_W, FONT_ATLAS_H,
 		0, GL_RED, GL_UNSIGNED_BYTE, atlasData.get());
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	// Create VAO and dynamic VBO for text quad batches
@@ -228,12 +229,15 @@ void Text2d::Render2dText(float xPosition,
 		int col  = idx % FONT_COLS;
 		int row  = idx / FONT_COLS;
 
-		float u0 = (float)(col * FONT_CELL_W) / (float)FONT_ATLAS_W;
-		float v0 = (float)(row * FONT_CELL_H) / (float)FONT_ATLAS_H;
-		// u1 is advance-based: sample only the glyph's actual advance width, not the full cell.
-		// This ensures UV aspect == quad aspect, giving undistorted character shapes.
-		float u1 = u0 + (Text2d::charAdvance[idx] * (float)FONT_CELL_H) / (float)FONT_ATLAS_W;
-		float v1 = (float)((row + 1) * FONT_CELL_H) / (float)FONT_ATLAS_H;
+		const float halfU = 0.5f / (float)FONT_ATLAS_W;
+		const float halfV = 0.5f / (float)FONT_ATLAS_H;
+
+		float u0 = (float)(col * FONT_CELL_W) / (float)FONT_ATLAS_W + halfU;
+		float v0 = (float)(row * FONT_CELL_H) / (float)FONT_ATLAS_H + halfV;
+		// u1 samples only the glyph's actual advance width within the cell
+		float u1 = u0 + (Text2d::charAdvance[idx] * (float)FONT_SIZE) / (float)FONT_ATLAS_W - halfU;
+		// v1 samples only FONT_SIZE texels (the glyph), not the full FONT_CELL_H (which includes padding)
+		float v1 = (float)(row * FONT_CELL_H + FONT_SIZE) / (float)FONT_ATLAS_H - halfV;
 
 		float charW = Text2d::charAdvance[idx] * fSize;
 		float charH = fSize;

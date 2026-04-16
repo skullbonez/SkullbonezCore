@@ -716,14 +716,14 @@ void SkullbonezRun::DrawWindowText(const double dSecondsPerFrame)
 	}
 
 	// TOP
-	Text2d::Render2dText(-0.53f, 0.39f, 0.02f, "SKULLBONEZ CORE | Simon Eschbach 2005");
-	Text2d::Render2dText(0.39f,  0.39f, 0.02f, "Model Count: %i", this->modelCount);
+	Text2d::Render2dText(-0.53f, 0.39f, 0.015f, "SKULLBONEZ CORE | Simon Eschbach 2005");
+	Text2d::Render2dText(0.39f,  0.39f, 0.015f, "Model Count: %i", this->modelCount);
 
 	// BOTTOM
-	Text2d::Render2dText(-0.53f,  -0.40f, 0.0175f, "FPS: %.1f",						this->r_fpsTime);
-	Text2d::Render2dText(-0.455f, -0.40f, 0.0175f, " | Physics Time: %.5f seconds", this->r_physicsTime);
-	Text2d::Render2dText(-0.2f,   -0.40f, 0.0175f, " | Render Time: %.5f seconds",  this->r_renderTime);
-	Text2d::Render2dText( 0.05f,  -0.40f, 0.0175f, " | Contact:  s.eschbach@gmail.com   | www.simoneschbach.com");
+	Text2d::Render2dText(-0.53f,  -0.40f, 0.01313f, "FPS: %.1f",						this->r_fpsTime);
+	Text2d::Render2dText(-0.455f, -0.40f, 0.01313f, " | Physics Time: %.5f seconds", this->r_physicsTime);
+	Text2d::Render2dText(-0.2f,   -0.40f, 0.01313f, " | Render Time: %.5f seconds",  this->r_renderTime);
+	Text2d::Render2dText( 0.05f,  -0.40f, 0.01313f, " | Contact:  s.eschbach@gmail.com   | www.simoneschbach.com");
 }
 
 
