@@ -1,10 +1,12 @@
-# text_test.scene — capture a frame with text overlay enabled
-physics on
+# text_test.scene
+# Same as water_ball_test but with text overlay enabled.
+# Used to visually verify text rendering quality (UV bleeding, character shapes).
+
+physics off
 text on
-frames 5
-seed 42
-screenshot Debug/text_test.bmp frame 5
+frames 1
+screenshot Debug/text_test.bmp frame 1
 
 camera main 500 60 650  600 33 600  0 1 0
 
-ball text_test 600 33 600  12.0 50.0 10.0 0.8
+ball water_test 600 33 600  12.0 50.0 10.0 0.8
