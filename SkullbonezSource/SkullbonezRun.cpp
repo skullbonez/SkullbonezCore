@@ -728,8 +728,8 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 
     // BOTTOM
     Text2d::Render2dText( -0.53f, -0.40f, 0.01313f, "FPS: %.1f", m_r_fpsTime );
-    Text2d::Render2dText( -0.455f, -0.40f, 0.01313f, " | Physics Time: %.5f seconds", m_r_physicsTime );
-    Text2d::Render2dText( -0.2f, -0.40f, 0.01313f, " | Render Time: %.5f seconds", m_r_renderTime );
+    Text2d::Render2dText( -0.455f, -0.40f, 0.01313f, " | Physics Time: %.2f ms", m_r_physicsTime * 1000.0f );
+    Text2d::Render2dText( -0.2f, -0.40f, 0.01313f, " | Render Time: %.2f ms", m_r_renderTime * 1000.0f );
     Text2d::Render2dText( 0.05f, -0.40f, 0.01313f, " | Contact:  s.eschbach@gmail.com   | www.simoneschbach.com" );
 }
 
