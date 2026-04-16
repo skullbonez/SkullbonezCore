@@ -38,9 +38,9 @@ BoundingSphere::BoundingSphere( void )
 /* -- OVERLOADED CONSTRUCTOR ------------------------------------------------------*/
 BoundingSphere::BoundingSphere( float fRadius,
                                 const Vector3& vPosition )
-    : radius( fRadius )
+    : m_radius( fRadius )
 {
-    this->position = vPosition;
+    m_position = vPosition;
 }
 
 /* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
@@ -72,7 +72,7 @@ float BoundingSphere::CollisionDetect( const BoundingSphere& target,
     float diffDotDiff = difference * difference;
 
     // sum the radii of the bounding spheres
-    float radiusSum = target.radius + this->radius;
+    float radiusSum = target.m_radius + m_radius;
 
     // square the sums of the radii
     float radiusSumSq = radiusSum * radiusSum;
@@ -120,7 +120,7 @@ float BoundingSphere::TestCollision( const DynamicsObject& target,
 /* -- GET RADIUS ------------------------------------------------------------------*/
 float BoundingSphere::GetRadius( void )
 {
-    return this->radius;
+    return m_radius;
 }
 
 /* -- DEBUG RENDER COLLISION VOLUME -----------------------------------------------*/
@@ -130,11 +130,11 @@ void BoundingSphere::DEBUG_RenderCollisionVolume( const Vector3& worldSpaceCoord
                                                   const Matrix4& proj,
                                                   const float lightPos[4] )
 {
-    // Model matrix: T(worldPos) * R * T(localOffset) * S(radius)
+    // Model matrix: T(worldPos) * R * T(localOffset) * S(m_radius)
     // Derived from the old GL stack: glTranslate(pos) * glMultMatrix(R) *
-    // glTranslate(-pos) * glTranslate(pos + localOffset) * glScale(radius)
-    // which simplifies to T(pos) * R * T(localOffset) * S(radius).
-    Matrix4 model = Matrix4::Translate( worldSpaceCoords ) * rotation * Matrix4::Translate( this->position ) * Matrix4::Scale( this->radius, this->radius, this->radius );
+    // glTranslate(-pos) * glTranslate(pos + localOffset) * glScale(m_radius)
+    // which simplifies to T(pos) * R * T(localOffset) * S(m_radius).
+    Matrix4 model = Matrix4::Translate( worldSpaceCoords ) * rotation * Matrix4::Translate( m_position ) * Matrix4::Scale( m_radius, m_radius, m_radius );
 
     SkullbonezHelper::DrawSphere( model, view, proj, lightPos, RENDER_COL_VOL_TRANS );
 }
@@ -142,19 +142,19 @@ void BoundingSphere::DEBUG_RenderCollisionVolume( const Vector3& worldSpaceCoord
 /* -- GET VOLUME ------------------------------------------------------------------*/
 float BoundingSphere::GetVolume( void )
 {
-    // volume of sphere = 4/3 * PI * radius^3
-    return FOUR_OVER_THREE * _PI * this->radius * this->radius * this->radius;
+    // m_volume of sphere = 4/3 * PI * m_radius^3
+    return FOUR_OVER_THREE * _PI * m_radius * m_radius * m_radius;
 }
 
 /* -- GET SUBMERGED VOLUME PERCENT ------------------------------------------------*/
-float BoundingSphere::GetSubmergedVolumePercent( float fluidSurfaceHeight )
+float BoundingSphere::GetSubmergedVolumePercent( float m_fluidSurfaceHeight )
 {
-    if ( this->position.y - this->radius >= fluidSurfaceHeight )
+    if ( m_position.y - m_radius >= m_fluidSurfaceHeight )
     {
         // not touching fluid
         return 0.0f;
     }
-    else if ( this->position.y + this->radius <= fluidSurfaceHeight )
+    else if ( m_position.y + m_radius <= m_fluidSurfaceHeight )
     {
         // totally submerged in fluid
         return 1.0f;
@@ -169,9 +169,9 @@ float BoundingSphere::GetSubmergedVolumePercent( float fluidSurfaceHeight )
 
             Formula from: http://vps.arachnoid.com/calculus/volume1.html
         */
-        float yValue = fluidSurfaceHeight - ( this->position.y - this->radius );
+        float yValue = m_fluidSurfaceHeight - ( m_position.y - m_radius );
         return ( ( ( ONE_OVER_THREE * _PI *
-                     ( ( 3.0f * this->radius ) - yValue ) *
+                     ( ( 3.0f * m_radius ) - yValue ) *
                      yValue * yValue ) ) /
                  this->GetVolume() );
     }
@@ -187,5 +187,5 @@ float BoundingSphere::GetDragCoefficient( void )
 float BoundingSphere::GetProjectedSurfaceArea( void )
 {
     // Area of circle = PI * r^2
-    return _PI * this->radius * this->radius;
+    return _PI * m_radius * m_radius;
 }

@@ -33,13 +33,13 @@ TextureCollection* TextureCollection::pInstance = 0;
 /* -- CONSTRUCTOR -----------------------------------------------------------------*/
 TextureCollection::TextureCollection( void )
 {
-    this->nextAvailableTextureIndex = 0;
-    this->textureCounter = 0;
+    m_nextAvailableTextureIndex = 0;
+    m_textureCounter = 0;
 
     for ( int count = 0; count < TOTAL_TEXTURE_COUNT; ++count )
     {
-        this->textureArray[count] = 0;
-        this->textureHashes[count] = 0;
+        m_textureArray[count] = 0;
+        m_textureHashes[count] = 0;
     }
 }
 
@@ -146,19 +146,19 @@ tImageJPG* TextureCollection::LoadJPEG( const char* cFileName )
 void TextureCollection::UpdateCounters( void )
 {
     // reset the counter
-    this->textureCounter = 0;
+    m_textureCounter = 0;
     bool isNextAvailIndexSet = false;
 
-    // iterate through all textures
+    // iterate through all m_textures
     for ( int count = 0; count < TOTAL_TEXTURE_COUNT; ++count )
     {
         // find the first empty spot
-        if ( !this->textureArray[count] )
+        if ( !m_textureArray[count] )
         {
             if ( !isNextAvailIndexSet )
             {
                 // set the next available index counter
-                this->nextAvailableTextureIndex = count;
+                m_nextAvailableTextureIndex = count;
 
                 // do not set this again
                 isNextAvailIndexSet = true;
@@ -167,7 +167,7 @@ void TextureCollection::UpdateCounters( void )
         else
         {
             // for every texture, increment
-            ++this->textureCounter;
+            ++m_textureCounter;
         }
     }
 }
@@ -177,7 +177,7 @@ int TextureCollection::FindIndex( uint32_t hash )
 {
     for ( int count = 0; count < TOTAL_TEXTURE_COUNT; ++count )
     {
-        if ( this->textureHashes[count] == hash )
+        if ( m_textureHashes[count] == hash )
         {
             return count;
         }
@@ -189,16 +189,16 @@ int TextureCollection::FindIndex( uint32_t hash )
 /* -- DELETE ALL TEXTURES ---------------------------------------------------------*/
 void TextureCollection::DeleteAllTextures( void )
 {
-    // delete all OpenGL textures
-    glDeleteTextures( this->nextAvailableTextureIndex, this->textureArray );
+    // delete all OpenGL m_textures
+    glDeleteTextures( m_nextAvailableTextureIndex, m_textureArray );
 
     // iterate through texture array
     for ( int count = 0; count < TOTAL_TEXTURE_COUNT; ++count )
     {
-        if ( this->textureArray[count] )
+        if ( m_textureArray[count] )
         {
-            this->textureHashes[count] = 0;
-            this->textureArray[count] = 0;
+            m_textureHashes[count] = 0;
+            m_textureArray[count] = 0;
         }
     }
 
@@ -211,10 +211,10 @@ void TextureCollection::DeleteTexture( uint32_t hash )
 {
     int index = this->FindIndex( hash );
 
-    this->textureHashes[index] = 0;
+    m_textureHashes[index] = 0;
 
-    glDeleteTextures( 1, &this->textureArray[index] );
-    this->textureArray[index] = NULL;
+    glDeleteTextures( 1, &m_textureArray[index] );
+    m_textureArray[index] = NULL;
 
     this->UpdateCounters();
 }
@@ -222,25 +222,25 @@ void TextureCollection::DeleteTexture( uint32_t hash )
 /* -- NUM FREE TEXTURE SPACES -----------------------------------------------------*/
 int TextureCollection::NumFreeTextureSpaces( void )
 {
-    return TOTAL_TEXTURE_COUNT - this->textureCounter;
+    return TOTAL_TEXTURE_COUNT - m_textureCounter;
 }
 
 /* -- SELECT TEXTURE --------------------------------------------------------------*/
 void TextureCollection::SelectTexture( uint32_t hash )
 {
-    glBindTexture( GL_TEXTURE_2D, this->textureArray[this->FindIndex( hash )] );
+    glBindTexture( GL_TEXTURE_2D, m_textureArray[this->FindIndex( hash )] );
 }
 
 /* -- CREATE JPEG TEXTURE ---------------------------------------------------------*/
 void TextureCollection::CreateJpegTexture( const char* cFileName,
                                            uint32_t hash )
 {
-    if ( this->textureCounter == TOTAL_TEXTURE_COUNT )
+    if ( m_textureCounter == TOTAL_TEXTURE_COUNT )
     {
         throw std::runtime_error( "Texture array full!  (TextureCollection::CreateJpegTexture)" );
     }
 
-    this->textureHashes[this->nextAvailableTextureIndex] = hash;
+    m_textureHashes[m_nextAvailableTextureIndex] = hash;
 
     // load the image and store the data
     tImageJPG* pImage = this->LoadJPEG( cFileName );
@@ -251,20 +251,20 @@ void TextureCollection::CreateJpegTexture( const char* cFileName,
         throw std::runtime_error( "Jpeg load failed!  (TextureCollection::CreateJpegTexture)" );
     }
 
-    // specify textureArray @ index to Text2dureId @ index
-    glGenTextures( 1,                                                // num texture objects to create
-                   &textureArray[this->nextAvailableTextureIndex] ); // point @ index
+    // specify m_textureArray @ index to Text2dureId @ index
+    glGenTextures( 1,                                              // num texture objects to create
+                   &m_textureArray[m_nextAvailableTextureIndex] ); // point @ index
 
-    // bind and init, 1st param: 2d textures (not 1d), 2nd param: point to location
+    // bind and init, 1st param: 2d m_textures (not 1d), 2nd param: point to location
     glBindTexture( GL_TEXTURE_2D,
-                   this->textureArray[this->nextAvailableTextureIndex] );
+                   m_textureArray[m_nextAvailableTextureIndex] );
 
     // upload texture and generate mipmaps
-    glTexImage2D( GL_TEXTURE_2D,    // 2d textures (not 1d)
+    glTexImage2D( GL_TEXTURE_2D,    // 2d m_textures (not 1d)
                   0,                // base mipmap level
                   GL_RGB,           // internal format
-                  pImage->sizeX,    // x width
-                  pImage->sizeY,    // y width
+                  pImage->sizeX,    // x m_width
+                  pImage->sizeY,    // y m_width
                   0,                // border (must be 0)
                   GL_RGB,           // pixel format
                   GL_UNSIGNED_BYTE, // index type
@@ -273,12 +273,12 @@ void TextureCollection::CreateJpegTexture( const char* cFileName,
     glGenerateMipmap( GL_TEXTURE_2D );
 
     // mipmap quality small range
-    glTexParameteri( GL_TEXTURE_2D,             // 2d textures (not 1d)
+    glTexParameteri( GL_TEXTURE_2D,             // 2d m_textures (not 1d)
                      GL_TEXTURE_MIN_FILTER,     // small range filer
                      GL_LINEAR_MIPMAP_LINEAR ); // linear linear (best quality)
 
     // mipmap quality large range
-    glTexParameteri( GL_TEXTURE_2D,             // 2d textures (not 1d)
+    glTexParameteri( GL_TEXTURE_2D,             // 2d m_textures (not 1d)
                      GL_TEXTURE_MAG_FILTER,     // large range filer
                      GL_LINEAR_MIPMAP_LINEAR ); // linear linear (best quality)
 

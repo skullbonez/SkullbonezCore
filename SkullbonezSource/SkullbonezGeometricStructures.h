@@ -4,13 +4,13 @@
                                                                              .-"       "-.
                                                                             /             \
                                                                            /               \
-                                                                           ¦   .--. .--.   ¦
-                                                                           ¦ )/   ¦ ¦   \( ¦
-                                                                           ¦/ \__/   \__/ \¦
+                                                                           ï¿½   .--. .--.   ï¿½
+                                                                           ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+                                                                           ï¿½/ \__/   \__/ \ï¿½
                                                                            /      /^\      \
                                                                            \__    '='    __/
-                                                                             ¦\         /¦
-                                                                             ¦\'"VUUUV"'/¦
+                                                                             ï¿½\         /ï¿½
+                                                                             ï¿½\'"VUUUV"'/ï¿½
                                                                              \ `"""""""` /
                                                                               `-._____.-'
 
@@ -56,13 +56,13 @@ struct Triangle
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 struct Plane
 {
-    Vector3 normal;
-    float distance;
+    Vector3 m_normal;
+    float m_distance;
 
     Plane& operator=( Plane plane )
     {
-        this->normal = plane.normal;
-        this->distance = plane.distance;
+        m_normal = plane.m_normal;
+        m_distance = plane.m_distance;
 
         return *this;
     }
@@ -74,14 +74,14 @@ struct Plane
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 struct XZBounds
 {
-    float xMin, xMax, zMin, zMax;
+    float m_xMin, m_xMax, m_zMin, m_zMax;
 
     XZBounds& operator=( XZBounds bounds )
     {
-        this->xMin = bounds.xMin;
-        this->xMax = bounds.xMax;
-        this->zMin = bounds.zMin;
-        this->zMax = bounds.zMax;
+        m_xMin = bounds.m_xMin;
+        m_xMax = bounds.m_xMax;
+        m_zMin = bounds.m_zMin;
+        m_zMax = bounds.m_zMax;
 
         return *this;
     }
@@ -93,7 +93,7 @@ struct XZBounds
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 struct Box
 {
-    int xMin, xMax, yMin, yMax, zMin, zMax;
+    int m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax;
 };
 
 /* -- XZ Coords --------------------------------------------------------------------------------------------------------------------------------------------------

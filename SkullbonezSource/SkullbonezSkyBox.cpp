@@ -32,50 +32,50 @@ using namespace SkullbonezCore::Geometry;
 SkyBox* SkyBox::pInstance = 0;
 
 /* -- CONSTRUCTOR -----------------------------------------------------------------*/
-SkyBox::SkyBox( int xMin,
-                int xMax,
+SkyBox::SkyBox( int m_xMin,
+                int m_xMax,
                 int yMin,
                 int yMax,
-                int zMin,
-                int zMax )
+                int m_zMin,
+                int m_zMax )
 {
-    this->boundaries.xMin = xMin;
-    this->boundaries.xMax = xMax;
-    this->boundaries.yMin = yMin;
-    this->boundaries.yMax = yMax;
-    this->boundaries.zMin = zMin;
-    this->boundaries.zMax = zMax;
-    this->textures = 0;
+    m_boundaries.m_xMin = m_xMin;
+    m_boundaries.m_xMax = m_xMax;
+    m_boundaries.yMin = yMin;
+    m_boundaries.yMax = yMax;
+    m_boundaries.m_zMin = m_zMin;
+    m_boundaries.m_zMax = m_zMax;
+    m_textures = 0;
 }
 
 /* -- LOAD TEXTURES ---------------------------------------------------------------*/
 void SkyBox::LoadTextures( void )
 {
-    this->textures = TextureCollection::Instance();
-    this->textures->CreateJpegTexture( SKY_LEFT_PATH, TEXTURE_SKY_LEFT );
-    this->textures->CreateJpegTexture( SKY_RIGHT_PATH, TEXTURE_SKY_RIGHT );
-    this->textures->CreateJpegTexture( SKY_FRONT_PATH, TEXTURE_SKY_FRONT );
-    this->textures->CreateJpegTexture( SKY_BACK_PATH, TEXTURE_SKY_BACK );
-    this->textures->CreateJpegTexture( SKY_UP_PATH, TEXTURE_SKY_UP );
-    this->textures->CreateJpegTexture( SKY_DOWN_PATH, TEXTURE_SKY_DOWN );
+    m_textures = TextureCollection::Instance();
+    m_textures->CreateJpegTexture( SKY_LEFT_PATH, TEXTURE_SKY_LEFT );
+    m_textures->CreateJpegTexture( SKY_RIGHT_PATH, TEXTURE_SKY_RIGHT );
+    m_textures->CreateJpegTexture( SKY_FRONT_PATH, TEXTURE_SKY_FRONT );
+    m_textures->CreateJpegTexture( SKY_BACK_PATH, TEXTURE_SKY_BACK );
+    m_textures->CreateJpegTexture( SKY_UP_PATH, TEXTURE_SKY_UP );
+    m_textures->CreateJpegTexture( SKY_DOWN_PATH, TEXTURE_SKY_DOWN );
 }
 
 /* -- BUILD MESHES ----------------------------------------------------------------*/
 void SkyBox::BuildMeshes( void )
 {
     // Shorthand for boundary values with overflow
-    float xn = (float)( this->boundaries.xMin - SKY_BOX_OVERFLOW );
-    float xp = (float)( this->boundaries.xMax + SKY_BOX_OVERFLOW );
-    float yn = (float)( this->boundaries.yMin - SKY_BOX_OVERFLOW );
-    float yp = (float)( this->boundaries.yMax + SKY_BOX_OVERFLOW );
-    float zn = (float)( this->boundaries.zMin - SKY_BOX_OVERFLOW );
-    float zp = (float)( this->boundaries.zMax + SKY_BOX_OVERFLOW );
-    float yMinF = (float)this->boundaries.yMin;
-    float yMaxF = (float)this->boundaries.yMax;
-    float xMinF = (float)this->boundaries.xMin;
-    float xMaxF = (float)this->boundaries.xMax;
-    float zMinF = (float)this->boundaries.zMin;
-    float zMaxF = (float)this->boundaries.zMax;
+    float xn = (float)( m_boundaries.m_xMin - SKY_BOX_OVERFLOW );
+    float xp = (float)( m_boundaries.m_xMax + SKY_BOX_OVERFLOW );
+    float yn = (float)( m_boundaries.yMin - SKY_BOX_OVERFLOW );
+    float yp = (float)( m_boundaries.yMax + SKY_BOX_OVERFLOW );
+    float zn = (float)( m_boundaries.m_zMin - SKY_BOX_OVERFLOW );
+    float zp = (float)( m_boundaries.m_zMax + SKY_BOX_OVERFLOW );
+    float yMinF = (float)m_boundaries.yMin;
+    float yMaxF = (float)m_boundaries.yMax;
+    float xMinF = (float)m_boundaries.m_xMin;
+    float xMaxF = (float)m_boundaries.m_xMax;
+    float zMinF = (float)m_boundaries.m_zMin;
+    float zMaxF = (float)m_boundaries.m_zMax;
 
     // Each face: 2 triangles = 6 vertices, 5 floats each (pos3 + tex2)
     // Face order: up, down, right(west), left(east), front, back
@@ -148,7 +148,7 @@ void SkyBox::BuildMeshes( void )
         0,
     };
 
-    // RIGHT/WEST face (x = xMin)
+    // RIGHT/WEST face (x = m_xMin)
     float right[] = {
         xMinF,
         yn,
@@ -182,7 +182,7 @@ void SkyBox::BuildMeshes( void )
         0,
     };
 
-    // LEFT/EAST face (x = xMax)
+    // LEFT/EAST face (x = m_xMax)
     float left[] = {
         xMaxF,
         yn,
@@ -216,7 +216,7 @@ void SkyBox::BuildMeshes( void )
         0,
     };
 
-    // FRONT face (z = zMax)
+    // FRONT face (z = m_zMax)
     float front[] = {
         xp,
         yn,
@@ -250,7 +250,7 @@ void SkyBox::BuildMeshes( void )
         0,
     };
 
-    // BACK face (z = zMin)
+    // BACK face (z = m_zMin)
     float back[] = {
         xn,
         yn,
@@ -285,26 +285,25 @@ void SkyBox::BuildMeshes( void )
     };
 
     float* faceData[] = { up, down, right, left, front, back };
-    this->faceTextures = { TEXTURE_SKY_UP, TEXTURE_SKY_DOWN, TEXTURE_SKY_RIGHT,
-                           TEXTURE_SKY_LEFT, TEXTURE_SKY_FRONT, TEXTURE_SKY_BACK };
+    m_faceTextures = { TEXTURE_SKY_UP, TEXTURE_SKY_DOWN, TEXTURE_SKY_RIGHT, TEXTURE_SKY_LEFT, TEXTURE_SKY_FRONT, TEXTURE_SKY_BACK };
 
     for ( int i = 0; i < 6; ++i )
     {
-        this->faceMeshes[i] = std::make_unique<Mesh>( faceData[i], 6, false, true );
+        m_faceMeshes[i] = std::make_unique<Mesh>( faceData[i], 6, false, true );
     }
 
-    // Load shader
-    this->shader = std::make_unique<Shader>(
+    // Load m_shader
+    m_shader = std::make_unique<Shader>(
         "SkullbonezData/shaders/unlit_textured.vert",
         "SkullbonezData/shaders/unlit_textured.frag" );
 }
 
 /* -- SINGLETON CONSTRUCTOR -------------------------------------------------------*/
-SkyBox* SkyBox::Instance( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax )
+SkyBox* SkyBox::Instance( int m_xMin, int m_xMax, int yMin, int yMax, int m_zMin, int m_zMax )
 {
     if ( !SkyBox::pInstance )
     {
-        static SkyBox instance( xMin, xMax, yMin, yMax, zMin, zMax );
+        static SkyBox instance( m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax );
         SkyBox::pInstance = &instance;
     }
     return SkyBox::pInstance;
@@ -317,9 +316,9 @@ void SkyBox::Destroy( void )
     {
         for ( int i = 0; i < 6; ++i )
         {
-            SkyBox::pInstance->faceMeshes[i].reset();
+            SkyBox::pInstance->m_faceMeshes[i].reset();
         }
-        SkyBox::pInstance->shader.reset();
+        SkyBox::pInstance->m_shader.reset();
         SkyBox::pInstance = 0;
     }
 }
@@ -329,9 +328,9 @@ void SkyBox::ResetGLResources( void )
 {
     for ( int i = 0; i < 6; ++i )
     {
-        this->faceMeshes[i].reset();
+        m_faceMeshes[i].reset();
     }
-    this->shader.reset();
+    m_shader.reset();
     this->LoadTextures();
     this->BuildMeshes();
 }
@@ -342,16 +341,16 @@ void SkyBox::Render( const Matrix4& view, const Matrix4& proj )
     // Identity model matrix (transform baked into view via FFP matrix stack)
     Matrix4 identity;
 
-    this->shader->Use();
-    this->shader->SetMat4( "uModel", identity );
-    this->shader->SetMat4( "uView", view );
-    this->shader->SetMat4( "uProjection", proj );
-    this->shader->SetVec4( "uColorTint", 1.0f, 1.0f, 1.0f, 1.0f );
+    m_shader->Use();
+    m_shader->SetMat4( "uModel", identity );
+    m_shader->SetMat4( "uView", view );
+    m_shader->SetMat4( "uProjection", proj );
+    m_shader->SetVec4( "uColorTint", 1.0f, 1.0f, 1.0f, 1.0f );
 
     for ( int i = 0; i < 6; ++i )
     {
-        this->textures->SelectTexture( this->faceTextures[i] );
-        this->faceMeshes[i]->Draw();
+        m_textures->SelectTexture( m_faceTextures[i] );
+        m_faceMeshes[i]->Draw();
     }
 
     glUseProgram( 0 );

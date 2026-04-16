@@ -69,24 +69,19 @@ class Camera
 
     Camera( void ); // Default constructor
     ~Camera( void ) = default;
-    void PrepareTranslation( void );                             // Assists in keeping translations within bounds, should be called before all translations
-    void FinishTranslation( void );                              // Assists in keeping translations within bounds, should be called after all translations
-    void ApplyMovementBuffer( void );                            // Applies a camera translation
-    void ZeroCamera( void );                                     // Sets all vector members to zero vector
-    Vector3 GetViewVectorNormalised( void );                     // Returns the normalised view vector
-    Vector3 GetViewVectorRaw( void );                            // Returns the non-normalised view vector
-    Vector3 GetRightVector( void );                              // Returns the normalised right vector
-    float UpVectorViewVectorRotationCap( float requestRadians ); // Returns a capped value in radians of what is safe to rotate before the view vector hits the up vector
-    void RecoverViewMagnitude( bool isOnBoundX,
-                               bool isOnBoundZ ); // Recovers view magnitude if under quota, indirectly recurses FinishTranslation function
-    void SetAll( const Vector3& vPosition,
-                 const Vector3& vView,
-                 const Vector3& vUpVector ); // Set all by vectors
-    void MoveCamera( const TravelDirection enumDir,
-                     float fQuantity );           // Move the camera specified amount in specified direction
-    void AddCamera( const Camera& updateCamera ); // Adds a camera to the current instance
-    void RotateCamera( float xMove,
-                       float yMove ); // Offers an arbitrary rotation suitable for mouse input
+    void PrepareTranslation( void );                                                         // Assists in keeping translations within bounds, should be called before all translations
+    void FinishTranslation( void );                                                          // Assists in keeping translations within bounds, should be called after all translations
+    void ApplyMovementBuffer( void );                                                        // Applies a camera translation
+    void ZeroCamera( void );                                                                 // Sets all vector members to zero vector
+    Vector3 GetViewVectorNormalised( void );                                                 // Returns the normalised view vector
+    Vector3 GetViewVectorRaw( void );                                                        // Returns the non-normalised view vector
+    Vector3 GetRightVector( void );                                                          // Returns the normalised right vector
+    float UpVectorViewVectorRotationCap( float requestRadians );                             // Returns a capped value in radians of what is safe to rotate before the view vector hits the up vector
+    void RecoverViewMagnitude( bool isOnBoundX, bool isOnBoundZ );                           // Recovers view magnitude if under quota, indirectly recurses FinishTranslation function
+    void SetAll( const Vector3& vPosition, const Vector3& vView, const Vector3& vUpVector ); // Set all by vectors
+    void MoveCamera( const TravelDirection enumDir, float fQuantity );                       // Move the camera specified amount in specified direction
+    void AddCamera( const Camera& updateCamera );                                            // Adds a camera to the current instance
+    void RotateCamera( float xMove, float yMove );                                           // Offers an arbitrary rotation suitable for mouse input
 
     Camera& operator=( const Camera& target );  // Equality operator overload
     Camera& operator+=( const Camera& target ); // += Overload

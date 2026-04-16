@@ -29,8 +29,8 @@
 using namespace SkullbonezCore::Rendering;
 
 /* -- CONSTRUCTOR -----------------------------------------------------------------*/
-Framebuffer::Framebuffer( int width, int height )
-    : fbo( 0 ), colorTex( 0 ), depthRBO( 0 ), width( width ), height( height )
+Framebuffer::Framebuffer( int m_width, int m_height )
+    : m_fbo( 0 ), m_colorTex( 0 ), m_depthRBO( 0 ), m_width( m_width ), m_height( m_height )
 {
     this->Build();
 }
@@ -38,17 +38,17 @@ Framebuffer::Framebuffer( int width, int height )
 /* -- DESTRUCTOR ------------------------------------------------------------------*/
 Framebuffer::~Framebuffer( void )
 {
-    if ( this->fbo )
+    if ( m_fbo )
     {
-        glDeleteFramebuffers( 1, &this->fbo );
+        glDeleteFramebuffers( 1, &m_fbo );
     }
-    if ( this->colorTex )
+    if ( m_colorTex )
     {
-        glDeleteTextures( 1, &this->colorTex );
+        glDeleteTextures( 1, &m_colorTex );
     }
-    if ( this->depthRBO )
+    if ( m_depthRBO )
     {
-        glDeleteRenderbuffers( 1, &this->depthRBO );
+        glDeleteRenderbuffers( 1, &m_depthRBO );
     }
 }
 
@@ -56,10 +56,9 @@ Framebuffer::~Framebuffer( void )
 void Framebuffer::Build( void )
 {
     // Color texture (RGB, no mipmaps, clamped edges)
-    glGenTextures( 1, &this->colorTex );
-    glBindTexture( GL_TEXTURE_2D, this->colorTex );
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, this->width, this->height,
-                  0, GL_RGB, GL_UNSIGNED_BYTE, nullptr );
+    glGenTextures( 1, &m_colorTex );
+    glBindTexture( GL_TEXTURE_2D, m_colorTex );
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, m_width, m_height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
@@ -67,19 +66,16 @@ void Framebuffer::Build( void )
     glBindTexture( GL_TEXTURE_2D, 0 );
 
     // Depth renderbuffer
-    glGenRenderbuffers( 1, &this->depthRBO );
-    glBindRenderbuffer( GL_RENDERBUFFER, this->depthRBO );
-    glRenderbufferStorage( GL_RENDERBUFFER, GL_DEPTH_COMPONENT,
-                           this->width, this->height );
+    glGenRenderbuffers( 1, &m_depthRBO );
+    glBindRenderbuffer( GL_RENDERBUFFER, m_depthRBO );
+    glRenderbufferStorage( GL_RENDERBUFFER, GL_DEPTH_COMPONENT, m_width, m_height );
     glBindRenderbuffer( GL_RENDERBUFFER, 0 );
 
     // Assemble FBO
-    glGenFramebuffers( 1, &this->fbo );
-    glBindFramebuffer( GL_FRAMEBUFFER, this->fbo );
-    glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                            GL_TEXTURE_2D, this->colorTex, 0 );
-    glFramebufferRenderbuffer( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-                               GL_RENDERBUFFER, this->depthRBO );
+    glGenFramebuffers( 1, &m_fbo );
+    glBindFramebuffer( GL_FRAMEBUFFER, m_fbo );
+    glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_colorTex, 0 );
+    glFramebufferRenderbuffer( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthRBO );
 
     if ( glCheckFramebufferStatus( GL_FRAMEBUFFER ) != GL_FRAMEBUFFER_COMPLETE )
     {
@@ -92,7 +88,7 @@ void Framebuffer::Build( void )
 /* -- BIND ------------------------------------------------------------------------*/
 void Framebuffer::Bind( void ) const
 {
-    glBindFramebuffer( GL_FRAMEBUFFER, this->fbo );
+    glBindFramebuffer( GL_FRAMEBUFFER, m_fbo );
 }
 
 /* -- UNBIND ----------------------------------------------------------------------*/
@@ -104,38 +100,38 @@ void Framebuffer::Unbind( void ) const
 /* -- GET COLOR TEXTURE -----------------------------------------------------------*/
 GLuint Framebuffer::GetColorTexture( void ) const
 {
-    return this->colorTex;
+    return m_colorTex;
 }
 
 /* -- GET WIDTH -------------------------------------------------------------------*/
 int Framebuffer::GetWidth( void ) const
 {
-    return this->width;
+    return m_width;
 }
 
 /* -- GET HEIGHT ------------------------------------------------------------------*/
 int Framebuffer::GetHeight( void ) const
 {
-    return this->height;
+    return m_height;
 }
 
 /* -- RESET GL RESOURCES ----------------------------------------------------------*/
 void Framebuffer::ResetGLResources( void )
 {
-    if ( this->fbo )
+    if ( m_fbo )
     {
-        glDeleteFramebuffers( 1, &this->fbo );
-        this->fbo = 0;
+        glDeleteFramebuffers( 1, &m_fbo );
+        m_fbo = 0;
     }
-    if ( this->colorTex )
+    if ( m_colorTex )
     {
-        glDeleteTextures( 1, &this->colorTex );
-        this->colorTex = 0;
+        glDeleteTextures( 1, &m_colorTex );
+        m_colorTex = 0;
     }
-    if ( this->depthRBO )
+    if ( m_depthRBO )
     {
-        glDeleteRenderbuffers( 1, &this->depthRBO );
-        this->depthRBO = 0;
+        glDeleteRenderbuffers( 1, &m_depthRBO );
+        m_depthRBO = 0;
     }
     this->Build();
 }

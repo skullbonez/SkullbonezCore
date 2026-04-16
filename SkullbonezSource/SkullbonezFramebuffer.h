@@ -37,11 +37,11 @@ class Framebuffer
 {
 
   private:
-    GLuint fbo;      // Framebuffer object
-    GLuint colorTex; // Color attachment (RGB texture)
-    GLuint depthRBO; // Depth attachment (renderbuffer)
-    int width;       // Texture width  (pixels)
-    int height;      // Texture height (pixels)
+    GLuint m_fbo;      // Framebuffer object
+    GLuint m_colorTex; // Color attachment (RGB texture)
+    GLuint m_depthRBO; // Depth attachment (renderbuffer)
+    int m_width;       // Texture m_width  (pixels)
+    int m_height;      // Texture m_height (pixels)
 
     void Build( void ); // Allocate all GL objects
 

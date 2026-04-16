@@ -32,25 +32,25 @@ using namespace SkullbonezCore::Math;
 RigidBody::RigidBody( void )
 {
     // set all members to default values
-    this->frictionCoefficient = 0.1f;
-    this->invertedMass = 0.1f;
-    this->coefficientRestitution = 0.9f;
-    this->mass = 1.0f;
-    this->volume = 1.0f;
-    this->isForceApplied = false;
-    this->position = Vector::ZERO_VECTOR;
-    this->linearVelocity = Vector::ZERO_VECTOR;
-    this->linearAcceleration = Vector::ZERO_VECTOR;
-    this->appliedForce = Vector::ZERO_VECTOR;
-    this->forceApplicationPoint = Vector::ZERO_VECTOR;
-    this->angularVelocity = Vector::ZERO_VECTOR;
-    this->angularAcceleration = Vector::ZERO_VECTOR;
-    this->torque = Vector::ZERO_VECTOR;
-    this->worldForce = Vector::ZERO_VECTOR;
-    this->worldTorque = Vector::ZERO_VECTOR;
-    this->changeInAngularVelocity = Vector::ZERO_VECTOR;
-    this->rotationalInertia = Vector3( 1.0f, 1.0f, 1.0f );
-    this->orientation.Identity();
+    m_frictionCoefficient = 0.1f;
+    m_invertedMass = 0.1f;
+    m_coefficientRestitution = 0.9f;
+    m_mass = 1.0f;
+    m_volume = 1.0f;
+    m_isForceApplied = false;
+    m_position = Vector::ZERO_VECTOR;
+    m_linearVelocity = Vector::ZERO_VECTOR;
+    m_linearAcceleration = Vector::ZERO_VECTOR;
+    m_appliedForce = Vector::ZERO_VECTOR;
+    m_forceApplicationPoint = Vector::ZERO_VECTOR;
+    m_angularVelocity = Vector::ZERO_VECTOR;
+    m_angularAcceleration = Vector::ZERO_VECTOR;
+    m_torque = Vector::ZERO_VECTOR;
+    m_worldForce = Vector::ZERO_VECTOR;
+    m_worldTorque = Vector::ZERO_VECTOR;
+    m_changeInAngularVelocity = Vector::ZERO_VECTOR;
+    m_rotationalInertia = Vector3( 1.0f, 1.0f, 1.0f );
+    m_orientation.Identity();
 }
 
 /* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
@@ -62,17 +62,17 @@ RigidBody::~RigidBody()
 void RigidBody::ApplyWorldForce( void )
 {
     // find acceleration (a = F/m)
-    Vector3 worldLinearAcceleration = this->worldForce / this->mass;
+    Vector3 worldLinearAcceleration = m_worldForce / m_mass;
 
     // add to the linear velocity
-    this->linearVelocity += worldLinearAcceleration;
+    m_linearVelocity += worldLinearAcceleration;
 
-    // find acceleration (a = torque/rotationalInertia)
-    Vector3 worldAngularAcceleration = this->worldTorque /
-                                       this->rotationalInertia;
+    // find acceleration (a = m_torque/m_rotationalInertia)
+    Vector3 worldAngularAcceleration = m_worldTorque /
+                                       m_rotationalInertia;
 
     // add to the angular velocity
-    this->angularVelocity += worldAngularAcceleration;
+    m_angularVelocity += worldAngularAcceleration;
 }
 
 /* -- APPLY LINEAR FORCE ----------------------------------------------------------*/
@@ -82,20 +82,20 @@ void RigidBody::ApplyLinearForce( void )
         Calculate linear dynamics...
 
         calculate acceleration:
-        force = mass * acceleration
-        where mass is measured in kg,
+        force = m_mass * acceleration
+        where m_mass is measured in kg,
         acceleration in m/s^2, and force in newtons
 
         eg: 1N = 1kg * 1m/s^2
         (one newton is the force required to accelerate
         one kilogram one metre per second squared)
 
-        based on rearranging the above: acceleration = force / mass
+        based on rearranging the above: acceleration = force / m_mass
     */
-    this->linearAcceleration = this->appliedForce / this->mass;
+    m_linearAcceleration = m_appliedForce / m_mass;
 
     // calculate velocity
-    this->linearVelocity += this->linearAcceleration;
+    m_linearVelocity += m_linearAcceleration;
 }
 
 /* -- APPLY ANGULAR FORCE ---------------------------------------------------------*/
@@ -117,72 +117,72 @@ void RigidBody::ApplyAngularForce( void )
         F = ma   -->  T = Ib
         a = F/m  -->  b = T/I
     */
-    this->torque = Vector::CrossProduct( this->forceApplicationPoint,
-                                         this->appliedForce );
+    m_torque = Vector::CrossProduct( m_forceApplicationPoint,
+                                     m_appliedForce );
 
-    // find acceleration (a = torque/rotationalInertia)
-    this->angularAcceleration = this->torque / this->rotationalInertia;
+    // find acceleration (a = m_torque/m_rotationalInertia)
+    m_angularAcceleration = m_torque / m_rotationalInertia;
 
     // now add the angular velocity accumulated from this impulse
-    this->angularVelocity += this->angularAcceleration;
+    m_angularVelocity += m_angularAcceleration;
 }
 
 /* -- SET CHANGE IN ANGULAR VELOCITY ----------------------------------------------*/
 void RigidBody::SetChangeInAngularVelocity( const Vector3& vAngularVelocity )
 {
-    this->changeInAngularVelocity = vAngularVelocity;
+    m_changeInAngularVelocity = vAngularVelocity;
 }
 
 /* -- APPLY CHANGE IN ANGULAR VELOCITY --------------------------------------------*/
 void RigidBody::ApplyChangeInAngularVelocity( void )
 {
-    this->angularVelocity += this->changeInAngularVelocity;
-    this->changeInAngularVelocity.Zero();
+    m_angularVelocity += m_changeInAngularVelocity;
+    m_changeInAngularVelocity.Zero();
     this->ThrottleAngularVelocity();
 }
 
 /* -- THROTTLE ANGULAR VELOCITY ---------------------------------------------------*/
 void RigidBody::ThrottleAngularVelocity( void )
 {
-    if ( this->angularVelocity.x > VELOCITY_LIMIT )
+    if ( m_angularVelocity.x > VELOCITY_LIMIT )
     {
-        this->angularVelocity.x = VELOCITY_LIMIT;
+        m_angularVelocity.x = VELOCITY_LIMIT;
     }
-    else if ( this->angularVelocity.x < -VELOCITY_LIMIT )
+    else if ( m_angularVelocity.x < -VELOCITY_LIMIT )
     {
-        this->angularVelocity.x = -VELOCITY_LIMIT;
-    }
-
-    if ( this->angularVelocity.y > VELOCITY_LIMIT )
-    {
-        this->angularVelocity.y = VELOCITY_LIMIT;
-    }
-    else if ( this->angularVelocity.y < -VELOCITY_LIMIT )
-    {
-        this->angularVelocity.y = -VELOCITY_LIMIT;
+        m_angularVelocity.x = -VELOCITY_LIMIT;
     }
 
-    if ( this->angularVelocity.z > VELOCITY_LIMIT )
+    if ( m_angularVelocity.y > VELOCITY_LIMIT )
     {
-        this->angularVelocity.z = VELOCITY_LIMIT;
+        m_angularVelocity.y = VELOCITY_LIMIT;
     }
-    else if ( this->angularVelocity.z < -VELOCITY_LIMIT )
+    else if ( m_angularVelocity.y < -VELOCITY_LIMIT )
     {
-        this->angularVelocity.z = -VELOCITY_LIMIT;
+        m_angularVelocity.y = -VELOCITY_LIMIT;
+    }
+
+    if ( m_angularVelocity.z > VELOCITY_LIMIT )
+    {
+        m_angularVelocity.z = VELOCITY_LIMIT;
+    }
+    else if ( m_angularVelocity.z < -VELOCITY_LIMIT )
+    {
+        m_angularVelocity.z = -VELOCITY_LIMIT;
     }
 }
 
 /* -- SET CHANGE IN LINEAR VELOCITY -----------------------------------------------*/
 void RigidBody::SetChangeInLinearVelocity( const Vector3& vLinearVelocity )
 {
-    this->changeInLinearVelocity = vLinearVelocity;
+    m_changeInLinearVelocity = vLinearVelocity;
 }
 
 /* -- APPLY CHANGE IN LINEAR VELOCITY ---------------------------------------------*/
 void RigidBody::ApplyChangeInLinearVelocity( void )
 {
-    this->linearVelocity += this->changeInLinearVelocity;
-    this->changeInLinearVelocity.Zero();
+    m_linearVelocity += m_changeInLinearVelocity;
+    m_changeInLinearVelocity.Zero();
 }
 
 /* -- UPDATE VELOCITY -------------------------------------------------------------*/
@@ -199,13 +199,13 @@ void RigidBody::ApplyForces( void )
 void RigidBody::ApplyImpulseForce( void )
 {
     // only apply an inpulse force once
-    if ( this->isForceApplied )
+    if ( m_isForceApplied )
     {
         return;
     }
     else
     {
-        this->isForceApplied = true;
+        m_isForceApplied = true;
     }
 
     // apply linear impulse
@@ -218,7 +218,7 @@ void RigidBody::ApplyImpulseForce( void )
 /* -- GET ORIENTATION -------------------------------------------------------------*/
 const Quaternion& RigidBody::GetOrientation( void ) const
 {
-    return this->orientation;
+    return m_orientation;
 }
 
 /* -- UPDATE ROLL POSITION --------------------------------------------------------*/
@@ -231,11 +231,11 @@ void RigidBody::UpdateRollPosition( float changeInTime, float circumference )
     // and circumference
     Vector3 positionUpdate = rollRevolutions * changeInTime * circumference;
 
-    // update the position
-    this->position += positionUpdate;
+    // update the m_position
+    m_position += positionUpdate;
 
-    // update the orientation based on current angular velocity
-    this->orientation.RotateAboutXYZ( this->angularVelocity * changeInTime );
+    // update the m_orientation based on current angular velocity
+    m_orientation.RotateAboutXYZ( m_angularVelocity * changeInTime );
 }
 
 /* -- GET ROLL VELOCITY -----------------------------------------------------------*/
@@ -245,13 +245,13 @@ Vector3 RigidBody::GetRollVelocity( void )
     Vector3 rollVelocity;
 
     // x == z
-    rollVelocity.x = this->angularVelocity.z;
+    rollVelocity.x = m_angularVelocity.z;
 
     // y == 0
     rollVelocity.y = 0.0f;
 
     // z == -x
-    rollVelocity.z = -this->angularVelocity.x;
+    rollVelocity.z = -m_angularVelocity.x;
 
     // return the result
     return rollVelocity;
@@ -261,21 +261,21 @@ Vector3 RigidBody::GetRollVelocity( void )
 void RigidBody::UpdatePosition( float changeInTime )
 {
     // get rid of tiny float values
-    this->linearVelocity.Simplify();
-    this->angularVelocity.Simplify();
+    m_linearVelocity.Simplify();
+    m_angularVelocity.Simplify();
 
     // calculate location based on current linear velocity
-    this->position += this->linearVelocity * changeInTime;
+    m_position += m_linearVelocity * changeInTime;
 
-    // update the orientation based on current angular velocity
-    this->orientation.RotateAboutXYZ( this->angularVelocity * changeInTime );
+    // update the m_orientation based on current angular velocity
+    m_orientation.RotateAboutXYZ( m_angularVelocity * changeInTime );
 }
 
 /* -- ZERO FORCE ------------------------------------------------------------------*/
 void RigidBody::ZeroForce( void )
 {
-    this->appliedForce.Zero();
-    this->forceApplicationPoint.Zero();
+    m_appliedForce.Zero();
+    m_forceApplicationPoint.Zero();
 }
 
 /* -- GET ORIENTATION -------------------------------------------------------------*/
@@ -283,12 +283,12 @@ RotationMatrix RigidBody::GetOrientationMatrix( float fTime )
 {
     if ( !fTime )
     {
-        return this->orientation.GetOrientationMatrix();
+        return m_orientation.GetOrientationMatrix();
     }
     else
     {
-        Quaternion initialOrientation = this->orientation;
-        initialOrientation.RotateAboutXYZ( this->angularVelocity * fTime );
+        Quaternion initialOrientation = m_orientation;
+        initialOrientation.RotateAboutXYZ( m_angularVelocity * fTime );
         return initialOrientation.GetOrientationMatrix();
     }
 }
@@ -296,7 +296,7 @@ RotationMatrix RigidBody::GetOrientationMatrix( float fTime )
 /* -- GET ROTATIONAL INERTIA ------------------------------------------------------*/
 const Vector3& RigidBody::GetRotationalInertia( void )
 {
-    return this->rotationalInertia;
+    return m_rotationalInertia;
 }
 
 /* -- SET ROTATIONAL INERTIA ------------------------------------------------------*/
@@ -309,29 +309,29 @@ void RigidBody::SetRotationalInertia( const Vector3& vRotationalInertia )
         throw std::runtime_error( "Rotational inertia cannot contain any components equal to zero!  (RigidBody::SetRotationalInertia)" );
     }
 
-    this->rotationalInertia = vRotationalInertia;
+    m_rotationalInertia = vRotationalInertia;
 }
 
 /* -- SET WORLD FORCE --------------------------------------------------------------*/
 void RigidBody::SetWorldForce( const Vector3& vWorldForce, const Vector3& vWorldTorque )
 {
-    this->worldForce = vWorldForce;
-    this->worldTorque = vWorldTorque;
+    m_worldForce = vWorldForce;
+    m_worldTorque = vWorldTorque;
 }
 
 /* -- APPLY FORCE ------------------------------------------------------------------*/
 void RigidBody::SetImpulseForce( const Vector3& vImpulseForce,
                                  const Vector3& vApplicationPoint )
 {
-    this->appliedForce = vImpulseForce;
-    this->forceApplicationPoint = vApplicationPoint;
-    this->isForceApplied = false;
+    m_appliedForce = vImpulseForce;
+    m_forceApplicationPoint = vApplicationPoint;
+    m_isForceApplied = false;
 }
 
 /* -- GET ANGULAR VELOCITY ---------------------------------------------------------*/
 const Vector3& RigidBody::GetAngularVelocity( void )
 {
-    return this->angularVelocity;
+    return m_angularVelocity;
 }
 
 /* -- SET MASS ---------------------------------------------------------------------*/
@@ -342,62 +342,62 @@ void RigidBody::SetMass( float fMass )
         throw std::runtime_error( "Mass must be greater than zero!  (RigidBody::SetMass)" );
     }
 
-    this->mass = fMass;
-    this->invertedMass = 1.0f / this->mass;
+    m_mass = fMass;
+    m_invertedMass = 1.0f / m_mass;
 }
 
 /* -- GET INVERTED MASS -------------------------------------------------------------*/
 float RigidBody::GetInvertedMass( void )
 {
-    return this->invertedMass;
+    return m_invertedMass;
 }
 
 /* -- SET POSITION ------------------------------------------------------------------*/
 void RigidBody::SetPosition( const Vector3& vPosition )
 {
-    this->position = vPosition;
+    m_position = vPosition;
 }
 
 /* -- SET COEFFICIENT OF RESTITUTION ------------------------------------------------*/
 void RigidBody::SetCoefficientRestitution( float fCoefficientRestitution )
 {
-    this->coefficientRestitution = fCoefficientRestitution;
+    m_coefficientRestitution = fCoefficientRestitution;
 }
 
 /* -- GET COEFFICIENT OF RESTITUTION ------------------------------------------------*/
 float RigidBody::GetCoefficientRestitution( void )
 {
-    return this->coefficientRestitution;
+    return m_coefficientRestitution;
 }
 
 /* -- GET MASS ----------------------------------------------------------------------*/
 float RigidBody::GetMass( void )
 {
-    return this->mass;
+    return m_mass;
 }
 
 /* -- GET POSITION ------------------------------------------------------------------*/
 const Vector3& RigidBody::GetPosition( void )
 {
-    return this->position;
+    return m_position;
 }
 
 /* -- GET VELOCITY ------------------------------------------------------------------*/
 const Vector3& RigidBody::GetVelocity( void )
 {
-    return this->linearVelocity;
+    return m_linearVelocity;
 }
 
 /* -- SET LINEAR VELOCITY -----------------------------------------------------------*/
 void RigidBody::SetLinearVelocity( const Vector3& vLinear )
 {
-    this->linearVelocity = vLinear;
+    m_linearVelocity = vLinear;
 }
 
 /* -- SET ANGULAR VELOCITY ----------------------------------------------------------*/
 void RigidBody::SetAngularVelocity( const Vector3& vAngular )
 {
-    this->angularVelocity = vAngular;
+    m_angularVelocity = vAngular;
 }
 
 /* -- SET VOLUME --------------------------------------------------------------------*/
@@ -408,37 +408,37 @@ void RigidBody::SetVolume( float fVolume )
         throw std::runtime_error( "Volume must be greater than zero!  (RigidBody::SetVolume)" );
     }
 
-    this->volume = fVolume;
+    m_volume = fVolume;
 }
 
 /* -- GET DENSITY -------------------------------------------------------------------*/
 float RigidBody::GetDensity( void )
 {
     // calculate the density
-    return this->mass / this->volume;
+    return m_mass / m_volume;
 }
 
 /* -- GET VOLUME --------------------------------------------------------------------*/
 float RigidBody::GetVolume( void )
 {
-    return this->volume;
+    return m_volume;
 }
 
 /* -- GET FRICTION COEFFICIENT ------------------------------------------------------*/
 float RigidBody::GetFrictionCoefficient( void )
 {
-    return this->frictionCoefficient;
+    return m_frictionCoefficient;
 }
 
 /* -- SET FRICTION COEFFICIENT ------------------------------------------------------*/
 void RigidBody::SetFrictionCoefficient( float fFriction )
 {
     // 1 is grippy, 0.0f is no grip
-    this->frictionCoefficient = fFriction;
+    m_frictionCoefficient = fFriction;
 }
 
 /* -- DAMPEN ANGULAR VELOCITY -------------------------------------------------------*/
 void RigidBody::DampenAngularVelocity( void )
 {
-    this->angularVelocity *= 1.0f - ( this->frictionCoefficient * 5.0f );
+    m_angularVelocity *= 1.0f - ( m_frictionCoefficient * 5.0f );
 }

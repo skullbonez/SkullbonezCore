@@ -42,16 +42,8 @@ class RotationMatrix
 {
 
   public:
-    RotationMatrix( void ); // Default constructor
-    RotationMatrix( float f11,
-                    float f12,
-                    float f13,
-                    float f21,
-                    float f22,
-                    float f23,
-                    float f31,
-                    float f32,
-                    float f33 ); // Overloaded constructor
+    RotationMatrix( void );                                                                                              // Default constructor
+    RotationMatrix( float f11, float f12, float f13, float f21, float f22, float f23, float f31, float f32, float f33 ); // Overloaded constructor
     ~RotationMatrix( void ) = default;
     void Identity( void );                        // Sets the matrix back to the identity value
     Vector3 operator*( const Vector3& v ) const;  // Rotation matrix multiplied by vector
@@ -62,14 +54,10 @@ class RotationMatrix
 };
 /* -- END CLASS ROTATION MATRIX -----------------------------------------------------------------------------------------------------------------------------*/
 
-const RotationMatrix IDENTITY_MATRIX( 1.0f, 0.0f, 0.0f,
-                                      0.0f, 1.0f, 0.0f,
-                                      0.0f, 0.0f, 1.0f ); // Identity matrix
+const RotationMatrix IDENTITY_MATRIX( 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f ); // Identity matrix
 
 // Returns the rotated point (vPoint AFTER rotation) rotated about the arbitrary axis defined by vAxis, by quantity fRadians
-inline Vector3 RotatePointAboutArbitrary( float fRadians,
-                                          const Vector3& vAxis,
-                                          const Vector3& vPoint )
+inline Vector3 RotatePointAboutArbitrary( float fRadians, const Vector3& vAxis, const Vector3& vPoint )
 {
     // temp vector to store rotated view vector
     Vector3 vResult;
@@ -115,15 +103,7 @@ inline Vector3 RotatePointAboutArbitrary( float fRadians,
                         (vAxis.z * vAxis.z * (1 - cosTheta) + cosTheta)				* vPoint.z ;
     */
 
-    RotationMatrix matrix( ( vAxis.x * vAxis.x * ( 1 - cosTheta ) + cosTheta ),
-                           ( vAxis.x * vAxis.y * ( 1 - cosTheta ) + vAxis.z * sinTheta ),
-                           ( vAxis.x * vAxis.z * ( 1 - cosTheta ) - vAxis.y * sinTheta ),
-                           ( vAxis.x * vAxis.y * ( 1 - cosTheta ) - vAxis.z * sinTheta ),
-                           ( vAxis.y * vAxis.y * ( 1 - cosTheta ) + cosTheta ),
-                           ( vAxis.y * vAxis.z * ( 1 - cosTheta ) + vAxis.x * sinTheta ),
-                           ( vAxis.x * vAxis.z * ( 1 - cosTheta ) + vAxis.y * sinTheta ),
-                           ( vAxis.y * vAxis.z * ( 1 - cosTheta ) - vAxis.x * sinTheta ),
-                           ( vAxis.z * vAxis.z * ( 1 - cosTheta ) + cosTheta ) );
+    RotationMatrix matrix( ( vAxis.x * vAxis.x * ( 1 - cosTheta ) + cosTheta ), ( vAxis.x * vAxis.y * ( 1 - cosTheta ) + vAxis.z * sinTheta ), ( vAxis.x * vAxis.z * ( 1 - cosTheta ) - vAxis.y * sinTheta ), ( vAxis.x * vAxis.y * ( 1 - cosTheta ) - vAxis.z * sinTheta ), ( vAxis.y * vAxis.y * ( 1 - cosTheta ) + cosTheta ), ( vAxis.y * vAxis.z * ( 1 - cosTheta ) + vAxis.x * sinTheta ), ( vAxis.x * vAxis.z * ( 1 - cosTheta ) + vAxis.y * sinTheta ), ( vAxis.y * vAxis.z * ( 1 - cosTheta ) - vAxis.x * sinTheta ), ( vAxis.z * vAxis.z * ( 1 - cosTheta ) + cosTheta ) );
 
     return matrix * vPoint;
 }

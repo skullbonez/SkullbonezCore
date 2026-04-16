@@ -4,13 +4,13 @@
                                                                              .-"       "-.
                                                                             /             \
                                                                            /               \
-                                                                           ¦   .--. .--.   ¦
-                                                                           ¦ )/   ¦ ¦   \( ¦
-                                                                           ¦/ \__/   \__/ \¦
+                                                                           ï¿½   .--. .--.   ï¿½
+                                                                           ï¿½ )/   ï¿½ ï¿½   \( ï¿½
+                                                                           ï¿½/ \__/   \__/ \ï¿½
                                                                            /      /^\      \
                                                                            \__    '='    __/
-                                                                             ¦\         /¦
-                                                                             ¦\'"VUUUV"'/¦
+                                                                             ï¿½\         /ï¿½
+                                                                             ï¿½\'"VUUUV"'/ï¿½
                                                                              \ `"""""""` /
                                                                               `-._____.-'
 
@@ -40,19 +40,15 @@ class Vector3
   public:
     float x, y, z; // Vector components
 
-    Vector3( void );             // Default constructor
-    Vector3( const Vector3& v ); // Copy constructor
-    Vector3( float fX,
-             float fY,
-             float fZ );              // Overloaded constructor
-    void Zero( void );                // Set the vector to zero
-    void Normalise( void );           // Normalise the vector
-    void Absolute( void );            // Converts vector to its absolute value
-    bool IsCloseToZero( void ) const; // Returns true if vector is close to zero
-    void Simplify( void );            // Converts tiny float components to zero
-    void SetAll( float nx,
-                 float ny,
-                 float nz );                     // Set all vector components
+    Vector3( void );                             // Default constructor
+    Vector3( const Vector3& v );                 // Copy constructor
+    Vector3( float fX, float fY, float fZ );     // Overloaded constructor
+    void Zero( void );                           // Set the vector to zero
+    void Normalise( void );                      // Normalise the vector
+    void Absolute( void );                       // Converts vector to its absolute value
+    bool IsCloseToZero( void ) const;            // Returns true if vector is close to zero
+    void Simplify( void );                       // Converts tiny float components to zero
+    void SetAll( float nx, float ny, float nz ); // Set all vector components
     Vector3& operator=( const Vector3& v );      // Vector assignment
     Vector3& operator+=( const Vector3& v );     // += Overload
     Vector3& operator-=( const Vector3& v );     // -= Overload
@@ -82,9 +78,7 @@ inline Vector3 VectorReflect( const Vector3& incident, const Vector3& normal )
 // Multiply 2 vectors together, component by component
 inline Vector3 VectorMultiply( const Vector3& v1, const Vector3& v2 )
 {
-    return Vector3( v1.x * v2.x,
-                    v1.y * v2.y,
-                    v1.z * v2.z );
+    return Vector3( v1.x * v2.x, v1.y * v2.y, v1.z * v2.z );
 }
 
 // Compute the magnitude of a vector
@@ -102,9 +96,7 @@ inline float VectorMagSquared( const Vector3& v )
 // Compute the cross product of two vectors
 inline Vector3 CrossProduct( const Vector3& v1, const Vector3& v2 )
 {
-    return Vector3( v1.y * v2.z - v1.z * v2.y,
-                    v1.z * v2.x - v1.x * v2.z,
-                    v1.x * v2.y - v1.y * v2.x );
+    return Vector3( v1.y * v2.z - v1.z * v2.y, v1.z * v2.x - v1.x * v2.z, v1.x * v2.y - v1.y * v2.x );
 }
 
 // Compute the distance between two points

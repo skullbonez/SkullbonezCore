@@ -44,21 +44,16 @@ class Quaternion
 {
 
   public:
-    Quaternion( void ); // Default constructor
-    Quaternion( float fX,
-                float fY,
-                float fZ,
-                float fW ); // Overloaded constructor
+    Quaternion( void );                                   // Default constructor
+    Quaternion( float fX, float fY, float fZ, float fW ); // Overloaded constructor
     ~Quaternion( void ) = default;
-    void Identity( void );                          // Sets the quaternion back to the identity value
-    void Normalise( void );                         // Normalises the quaternion (do this to combat floating point error creep)
-    void RotateAboutXYZ( const Vector3& vRadians ); // Overload taking a Vector3 containing each rotation component in radians
-    RotationMatrix GetOrientationMatrix( void );    // Returns the orientation expressed in matrix form
-    void RotateAboutXYZ( float xRadians,
-                         float yRadians,
-                         float zRadians );             // Rotate the quaternion about the x-axis, y-axis then z-axis
-    Quaternion operator*( const Quaternion& q ) const; // Quaternion dot product, overload * operator for this
-    Quaternion& operator*=( const Quaternion& q );     // *= Overload
+    void Identity( void );                                                 // Sets the quaternion back to the identity value
+    void Normalise( void );                                                // Normalises the quaternion (do this to combat floating point error creep)
+    void RotateAboutXYZ( const Vector3& vRadians );                        // Overload taking a Vector3 containing each rotation component in radians
+    RotationMatrix GetOrientationMatrix( void );                           // Returns the orientation expressed in matrix form
+    void RotateAboutXYZ( float xRadians, float yRadians, float zRadians ); // Rotate the quaternion about the x-axis, y-axis then z-axis
+    Quaternion operator*( const Quaternion& q ) const;                     // Quaternion dot product, overload * operator for this
+    Quaternion& operator*=( const Quaternion& q );                         // *= Overload
 
   private:
     float x, y, z, w; // Quaternion components

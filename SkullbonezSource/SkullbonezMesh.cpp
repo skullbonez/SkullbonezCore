@@ -30,10 +30,10 @@ using namespace SkullbonezCore::Rendering;
 /* -- CONSTRUCTOR -----------------------------------------------------------------*/
 Mesh::Mesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords, GLenum drawMode )
 {
-    this->vertexCount = vertexCount;
-    this->drawMode = drawMode;
+    m_vertexCount = vertexCount;
+    m_drawMode = drawMode;
 
-    // Calculate stride: position(3) + optional normal(3) + optional texcoord(2)
+    // Calculate stride: m_position(3) + optional m_normal(3) + optional texcoord(2)
     int floatsPerVertex = 3;
     if ( hasNormals )
     {
@@ -46,31 +46,30 @@ Mesh::Mesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoor
     int stride = floatsPerVertex * static_cast<int>( sizeof( float ) );
 
     // Create VAO
-    glGenVertexArrays( 1, &this->vao );
-    glBindVertexArray( this->vao );
+    glGenVertexArrays( 1, &m_vao );
+    glBindVertexArray( m_vao );
 
     // Create VBO and upload data
-    glGenBuffers( 1, &this->vbo );
-    glBindBuffer( GL_ARRAY_BUFFER, this->vbo );
+    glGenBuffers( 1, &m_vbo );
+    glBindBuffer( GL_ARRAY_BUFFER, m_vbo );
     glBufferData( GL_ARRAY_BUFFER,
-                  static_cast<GLsizeiptr>( vertexCount ) * stride,
-                  data, GL_STATIC_DRAW );
+                  static_cast<GLsizeiptr>( m_vertexCount ) * stride,
+                  data,
+                  GL_STATIC_DRAW );
 
     // Configure vertex attributes
     int offset = 0;
 
     // location 0 = aPosition (vec3)
     glEnableVertexAttribArray( 0 );
-    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, stride,
-                           reinterpret_cast<void*>( static_cast<intptr_t>( offset ) ) );
+    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( static_cast<intptr_t>( offset ) ) );
     offset += 3 * static_cast<int>( sizeof( float ) );
 
     // location 1 = aNormal (vec3)
     if ( hasNormals )
     {
         glEnableVertexAttribArray( 1 );
-        glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, stride,
-                               reinterpret_cast<void*>( static_cast<intptr_t>( offset ) ) );
+        glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( static_cast<intptr_t>( offset ) ) );
         offset += 3 * static_cast<int>( sizeof( float ) );
     }
 
@@ -78,8 +77,7 @@ Mesh::Mesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoor
     if ( hasTexCoords )
     {
         glEnableVertexAttribArray( 2 );
-        glVertexAttribPointer( 2, 2, GL_FLOAT, GL_FALSE, stride,
-                               reinterpret_cast<void*>( static_cast<intptr_t>( offset ) ) );
+        glVertexAttribPointer( 2, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( static_cast<intptr_t>( offset ) ) );
     }
 
     // Unbind
@@ -90,26 +88,26 @@ Mesh::Mesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoor
 /* -- DESTRUCTOR ------------------------------------------------------------------*/
 Mesh::~Mesh( void )
 {
-    if ( this->vbo )
+    if ( m_vbo )
     {
-        glDeleteBuffers( 1, &this->vbo );
+        glDeleteBuffers( 1, &m_vbo );
     }
-    if ( this->vao )
+    if ( m_vao )
     {
-        glDeleteVertexArrays( 1, &this->vao );
+        glDeleteVertexArrays( 1, &m_vao );
     }
 }
 
 /* -- DRAW ------------------------------------------------------------------------*/
 void Mesh::Draw( void ) const
 {
-    glBindVertexArray( this->vao );
-    glDrawArrays( this->drawMode, 0, this->vertexCount );
+    glBindVertexArray( m_vao );
+    glDrawArrays( m_drawMode, 0, m_vertexCount );
     glBindVertexArray( 0 );
 }
 
 /* -- GET VERTEX COUNT ------------------------------------------------------------*/
 int Mesh::GetVertexCount( void ) const
 {
-    return this->vertexCount;
+    return m_vertexCount;
 }

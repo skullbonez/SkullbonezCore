@@ -35,12 +35,12 @@ Vector3 GeometricMath::ComputeTriangleNormal( const Triangle& triangle )
     Vector3 edge1 = triangle.v2 - triangle.v1;
     Vector3 edge2 = triangle.v3 - triangle.v2;
 
-    // compute the normal to the triangle
-    Vector3 normal = Vector::CrossProduct( edge1, edge2 );
+    // compute the m_normal to the triangle
+    Vector3 m_normal = Vector::CrossProduct( edge1, edge2 );
 
     // normalise and return
-    normal.Normalise();
-    return normal;
+    m_normal.Normalise();
+    return m_normal;
 }
 
 /* -- COMPUTE PLANE ---------------------------------------------------------------*/
@@ -49,12 +49,12 @@ Plane GeometricMath::ComputePlane( const Triangle& triangle )
     Plane plane;
     ZeroMemory( &plane, sizeof( plane ) );
 
-    // compute the normal of the plane Triangle 'triangle' is sitting on
-    plane.normal = GeometricMath::ComputeTriangleNormal( triangle );
+    // compute the m_normal of the plane Triangle 'triangle' is sitting on
+    plane.m_normal = GeometricMath::ComputeTriangleNormal( triangle );
 
-    // compute the distance of the plane from the origin by taking the
-    // dot product of the plane normal and one of the points lying on the plane
-    plane.distance = triangle.v1 * plane.normal;
+    // compute the m_distance of the plane from the origin by taking the
+    // dot product of the plane m_normal and one of the points lying on the plane
+    plane.m_distance = triangle.v1 * plane.m_normal;
 
     // return computed plane
     return plane;
@@ -64,9 +64,9 @@ Plane GeometricMath::ComputePlane( const Triangle& triangle )
 float GeometricMath::DeterminePointDistFromPlane( const Plane& plane,
                                                   const Vector3& point )
 {
-    // dot the normal and point then subtract the planes scalar distance from
+    // dot the m_normal and point then subtract the planes scalar m_distance from
     // the origin
-    return ( plane.normal * point - plane.distance );
+    return ( plane.m_normal * point - plane.m_distance );
 }
 
 /* -- CLASSIFY POINT AGAINST PLANE ------------------------------------------------*/
@@ -74,22 +74,22 @@ GeometricMath::PointPlaneClassification
 GeometricMath::ClassifyPointAgainstPlane( const Plane& plane,
                                           const Vector3& point )
 {
-    // determine the distance the point is to the plane
+    // determine the m_distance the point is to the plane
     float result = GeometricMath::DeterminePointDistFromPlane( plane, point );
 
-    // if the distance is positive the point is on the front side of the plane
+    // if the m_distance is positive the point is on the front side of the plane
     if ( result > 0.0f )
     {
         return PointPlaneClassification::FrontSideOfPlane;
     }
 
-    // if the distance is negative the point is on the back side of the plane
+    // if the m_distance is negative the point is on the back side of the plane
     if ( result < 0.0f )
     {
         return PointPlaneClassification::BackSideOfPlane;
     }
 
-    // if the distance is 0, the point coincides with the plane
+    // if the m_distance is 0, the point coincides with the plane
     return PointPlaneClassification::CoincideWithPlane;
 }
 
@@ -104,14 +104,14 @@ float GeometricMath::GetHeightFromPlane( const Triangle& triangle,
     // compute the traiangle plane
     Plane trianglePlane = GeometricMath::ComputePlane( triangle );
 
-    // compute the distance of the plane to the point along the plane normal
+    // compute the m_distance of the plane to the point along the plane m_normal
     float normalDist = GeometricMath::DeterminePointDistFromPlane( trianglePlane,
                                                                    point );
 
     // use rearranged dot product formula to compute the angle between
-    // the triangle plane normal and vertically upwards (0, 1, 0)
+    // the triangle plane m_normal and vertically upwards (0, 1, 0)
     // remember (let '*' be dot product): (x, y, z)*(0, 1, 0) = y
-    float theta = _HALF_PI - acosf( trianglePlane.normal.y );
+    float theta = _HALF_PI - acosf( trianglePlane.m_normal.y );
 
     // use law of sines to compute result (see math reference)
     return -( normalDist / sinf( theta ) );
@@ -122,7 +122,7 @@ float GeometricMath::CalculateIntersectionTime( const Plane& plane,
                                                 const Ray& ray )
 {
     // ensure data is valid
-    if ( plane.normal == ZERO_VECTOR )
+    if ( plane.m_normal == ZERO_VECTOR )
     {
         throw std::runtime_error( "Division by zero!  (GeometricMath::CalculateIntersectionTime)" );
     }
@@ -133,8 +133,8 @@ float GeometricMath::CalculateIntersectionTime( const Plane& plane,
         return NO_COLLISION;
     }
 
-    // check the normal and ray aren't perpendicular to each other
-    float denominator = plane.normal * ray.vector3;
+    // check the m_normal and ray aren't perpendicular to each other
+    float denominator = plane.m_normal * ray.vector3;
     if ( !denominator )
     {
         return NO_COLLISION;
@@ -143,9 +143,9 @@ float GeometricMath::CalculateIntersectionTime( const Plane& plane,
     // compute the scalar representing the magnitude of the ray that needs to
     // be translated upon from vBegin UNTIL the intersection with the plane
     // takes place.  this magnitude is computed by taking the dot product of
-    // of the plane normal and vBegin plus the planes distance from the origin,
-    // divided by the dot product of the planes normal and the ray
-    return -( ( ( plane.normal * ray.origin ) - plane.distance ) / denominator );
+    // of the plane m_normal and vBegin plus the planes m_distance from the origin,
+    // divided by the dot product of the planes m_normal and the ray
+    return -( ( ( plane.m_normal * ray.origin ) - plane.m_distance ) / denominator );
 }
 
 /* -- CALCULATE INTERSECTION TIME ---------------------------------------------------*/
@@ -204,17 +204,17 @@ bool GeometricMath::IsPointInsideTriangle( const Triangle& triangle,
 Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle,
                                                       const Vector3& point )
 {
-    // compute the normal of the triangle
-    Vector3 normal = GeometricMath::ComputeTriangleNormal( triangle );
+    // compute the m_normal of the triangle
+    Vector3 m_normal = GeometricMath::ComputeTriangleNormal( triangle );
 
-    // convert the normal to an absolute representation
-    normal.Absolute();
+    // convert the m_normal to an absolute representation
+    m_normal.Absolute();
 
     /*
         In order to get the most accurate calculation,  it is optimal to
         project the triangle onto the plane that will give the projected
         triangle the largest possible area.  this is done by taking the
-        largest absolute component of the normal, and discarding this
+        largest absolute component of the m_normal, and discarding this
         component from the supplied point and triangle
 
         Triangle after projection (assume XY projection):
@@ -284,7 +284,7 @@ Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle,
         v2_p_axis1,    // inner edge 2
         v2_p_axis2;    // inner edge 2
 
-    if ( normal.x >= normal.y && normal.x >= normal.z )
+    if ( m_normal.x >= m_normal.y && m_normal.x >= m_normal.z )
     {
         // discard 'x' component, project onto yz plane
         v2_v0_axis1 = triangle.v1.y - triangle.v3.y; // edge 1
@@ -296,7 +296,7 @@ Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle,
         v2_p_axis1 = point.y - triangle.v3.y;        // inner edge 2
         v2_p_axis2 = point.z - triangle.v3.z;        // inner edge 2
     }
-    else if ( normal.y >= normal.z )
+    else if ( m_normal.y >= m_normal.z )
     {
         // discard 'y' component, project onto xz plane
         v2_v0_axis1 = triangle.v1.z - triangle.v3.z; // edge 1

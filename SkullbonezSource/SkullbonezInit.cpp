@@ -108,13 +108,13 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
 
     // Create an instance of our window class
     // (holds everything associated with our window)
-    SkullbonezWindow* cWindow = SkullbonezWindow::Instance();
+    SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
 
     // Create the application window
-    cWindow->CreateAppWindow( hInstance, FULLSCREEN_MODE );
+    m_cWindow->CreateAppWindow( hInstance, FULLSCREEN_MODE );
 
     // Get the device context for our window
-    cWindow->sDevice = GetDC( cWindow->sWindow );
+    m_cWindow->m_sDevice = GetDC( m_cWindow->m_sWindow );
 
     bool abortAll = false;
     for ( size_t sceneIdx = 0; sceneIdx < sceneList.size() && !abortAll; ++sceneIdx )
@@ -124,7 +124,7 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
         for ( ;; )
         {
             // Init OpenGL
-            cWindow->InitialiseOpenGL();
+            m_cWindow->InitialiseOpenGL();
 
             bool shouldRestart = false;
             bool sceneCompleted = false;
@@ -158,7 +158,7 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
                 {
                     if ( !isSuiteOrSceneMode )
                     {
-                        cWindow->MsgBox( e.what(), "Alert!", MB_OK );
+                        m_cWindow->MsgBox( e.what(), "Alert!", MB_OK );
                     }
 
                     abortAll = true;
@@ -168,10 +168,10 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
             }
 
             // Cleanup rendering context AFTER cRun is destroyed
-            if ( shouldRestart && cWindow->sRenderContext )
+            if ( shouldRestart && m_cWindow->m_sRenderContext )
             {
                 wglMakeCurrent( NULL, NULL );
-                wglDeleteContext( cWindow->sRenderContext );
+                wglDeleteContext( m_cWindow->m_sRenderContext );
             }
             else
             {
@@ -180,32 +180,32 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
         }
 
         // Between scenes: destroy GL context so the next scene gets a fresh one
-        if ( !abortAll && sceneIdx + 1 < sceneList.size() && cWindow->sRenderContext )
+        if ( !abortAll && sceneIdx + 1 < sceneList.size() && m_cWindow->m_sRenderContext )
         {
             wglMakeCurrent( NULL, NULL );
-            wglDeleteContext( cWindow->sRenderContext );
+            wglDeleteContext( m_cWindow->m_sRenderContext );
         }
     }
 
     // Cleanup rendering context
-    if ( cWindow->sRenderContext )
+    if ( m_cWindow->m_sRenderContext )
     {
         // Free rendering memory, rollback all changes
         wglMakeCurrent( NULL, NULL );
 
         // Delete the rendering context
-        wglDeleteContext( cWindow->sRenderContext );
+        wglDeleteContext( m_cWindow->m_sRenderContext );
     }
 
     // Cleanup device context (Free device context associated with our window)
-    if ( cWindow->sDevice )
+    if ( m_cWindow->m_sDevice )
     {
-        ReleaseDC( cWindow->sWindow,
-                   cWindow->sDevice );
+        ReleaseDC( m_cWindow->m_sWindow,
+                   m_cWindow->m_sDevice );
     }
 
     // Restore desktop settings
-    if ( cWindow->fIsFullScreenMode )
+    if ( m_cWindow->m_fIsFullScreenMode )
     {
         ChangeDisplaySettings( NULL, 0 ); // Switch back to desktop mode
         ShowCursor( true );               // Bring mouse pointer back
@@ -215,7 +215,7 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     UnregisterClass( WINDOW_NAME, hInstance );
 
     // Delete our window class
-    cWindow->Destroy();
+    m_cWindow->Destroy();
 
     // Write memory leaks to output window
     // _CrtDumpMemoryLeaks();

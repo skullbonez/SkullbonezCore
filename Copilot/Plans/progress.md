@@ -157,3 +157,14 @@ Also added in this session:
 | `p9-dead-code` | Remove dead FFP code | ⏳ Pending |
 | `p9-final-verify` | Final build + visual verification | ⏳ Pending |
 
+### Refactoring — this→ to m_ Prefix (COMPLETE)
+
+| Task | Status |
+|------|--------|
+| `collapse_params.py` — collapse multi-line param lists to single lines | ✅ Done |
+| clang-format applied to entire codebase (Allman, spaces, LF) | ✅ Done — commit `03d2047` |
+| Python rename script — all `this->foo` → `m_foo` instance members | ✅ Done |
+| Fix `"seed "` parser keyword (renamed to `"m_seed "` by script) | ✅ Done |
+| Fix `Mesh` constructor self-assignment (param shadowed member) | ✅ Done |
+| Restore `water_ball_test.scene` to canonical content | ✅ Done |
+
