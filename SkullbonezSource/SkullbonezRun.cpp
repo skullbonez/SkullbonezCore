@@ -545,9 +545,6 @@ void SkullbonezRun::Render(void)
 	// Clear screen pixel and depth into buffers
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	// reset world matrix
-	glLoadIdentity();
-
 	// renders camera views etc
 	this->SetViewingOrientation();
 
@@ -563,44 +560,32 @@ void SkullbonezRun::Render(void)
 /* -- DRAW PRIMITIVES ---------------------------------------------------------------------*/
 void SkullbonezRun::DrawPrimitives(void)
 {
-	// set light position -------------------------
-	float lightPosition[] = { 200.0f, 400.0f, 1200.0f, 1.0f };  // x, y, z, w
+	float lightPosition[] = { 200.0f, 400.0f, 1200.0f, 1.0f };
 
-	// set position properties for light 0
-	glLightfv(GL_LIGHT0, GL_POSITION, lightPosition);
-
-	// Read base view and projection matrices from GL state
-	float viewMat[16], projMat[16];
-	glGetFloatv(GL_MODELVIEW_MATRIX, viewMat);
-	glGetFloatv(GL_PROJECTION_MATRIX, projMat);
-	Matrix4 baseView(viewMat);
-	Matrix4 proj(projMat);
-	Matrix4 reflVP;   // reflection view-projection — filled in pre-pass, used by RenderFluid
+	// Get view and projection matrices from camera/window
+	Matrix4 baseView = this->cCameras->GetViewMatrix();
+	Matrix4 proj     = this->cWindow->GetProjectionMatrix();
+	Matrix4 reflVP;
 
 	// Current viewport — saved here so the reflection pre-pass can restore it
 	GLint vp[4];
 	glGetIntegerv(GL_VIEWPORT, vp);
 
-	// Cache base view for sphere light transforms (before any model transforms)
-	SkullbonezHelper::SetBaseView(viewMat);
+	// Camera position for skybox placement
+	Vector3 eye = this->cCameras->GetCameraTranslation();
 
 	// render skybox ------------------------------
 	{
-		glPushMatrix();
-			this->cCameras->TranslateToPosition(SKYBOX_RENDER_HEIGHT);
-			glScalef(SKY_BOX_SCALE, SKY_BOX_SCALE, SKY_BOX_SCALE);
-			float skyMV[16];
-			glGetFloatv(GL_MODELVIEW_MATRIX, skyMV);
-			Matrix4 skyView(skyMV);
-			this->cSkyBox->Render(skyView, proj);
-		glPopMatrix();
+		Matrix4 skyView = baseView
+			* Matrix4::Translate(eye.x, SKYBOX_RENDER_HEIGHT, eye.z)
+			* Matrix4::Scale(SKY_BOX_SCALE);
+		this->cSkyBox->Render(skyView, proj);
 	}
 
 	// reflection pre-pass: render above-water scene from mirrored camera into FBO
 	// TODO: this needs to run when camera isTweening!!
 	{
 		float   waterY = this->cWorldEnvironment.GetFluidSurfaceHeight();
-		Vector3 eye    = this->cCameras->GetCameraTranslation();
 		Vector3 center = this->cCameras->GetCameraView();
 
 		// Mirror eye and look-at target about the water plane; flip up vector
@@ -623,27 +608,20 @@ void SkullbonezRun::DrawPrimitives(void)
 		}
 
 		// Game models reflected — clip at water surface (above-water portion only)
-		// To render the underwater portion: negate the plane to (0, -1, 0, +waterY)
 		glEnable(GL_CLIP_DISTANCE0);
 		SkullbonezHelper::SetClipPlane(0.0f, 1.0f, 0.0f, -waterY);
-		glLoadMatrixf(reflView.m);
-		SkullbonezHelper::SetBaseView(reflView.m);
 		this->cTextures->SelectTexture(TEXTURE_BOUNDING_SPHERE);
-		this->cGameModelCollection.RenderModels(proj, lightPosition);
+		this->cGameModelCollection.RenderModels(reflView, proj, lightPosition);
 		glDisable(GL_CLIP_DISTANCE0);
 		SkullbonezHelper::SetClipPlane(0.0f, 1.0f, 0.0f, 1.0e9f);
 
 		this->cReflectionFBO->Unbind();
 		glViewport(vp[0], vp[1], vp[2], vp[3]);
-
-		// Restore original view matrix and base view cache
-		glLoadMatrixf(baseView.m);
-		SkullbonezHelper::SetBaseView(baseView.m);
 	}
 
 	// render game models -----------------------------
 	this->cTextures->SelectTexture(TEXTURE_BOUNDING_SPHERE);
-	this->cGameModelCollection.RenderModels(proj, lightPosition);
+	this->cGameModelCollection.RenderModels(baseView, proj, lightPosition);
 
 	// render terrain ------------------------------
 	{
@@ -737,18 +715,15 @@ void SkullbonezRun::DrawWindowText(const double dSecondsPerFrame)
 		this->timeSinceLastRender = 0.0f;
 	}
 
-	// white
-	glColor3ub(255, 255, 255);
-
 	// TOP
-	Text2d::Render2dText(-0.53f, 0.39f, 0.02f, "SKULLBONEZ CORE | Simon Eschbach 2005");
-	Text2d::Render2dText(0.39f,  0.39f, 0.02f, "Model Count: %i", this->modelCount);
+	Text2d::Render2dText(-0.53f, 0.39f, 0.015f, "SKULLBONEZ CORE | Simon Eschbach 2005");
+	Text2d::Render2dText(0.39f,  0.39f, 0.015f, "Model Count: %i", this->modelCount);
 
 	// BOTTOM
-	Text2d::Render2dText(-0.53f,  -0.40f, 0.0175f, "FPS: %.1f",						this->r_fpsTime);
-	Text2d::Render2dText(-0.455f, -0.40f, 0.0175f, " | Physics Time: %.5f seconds", this->r_physicsTime);
-	Text2d::Render2dText(-0.2f,   -0.40f, 0.0175f, " | Render Time: %.5f seconds",  this->r_renderTime);
-	Text2d::Render2dText( 0.05f,  -0.40f, 0.0175f, " | Contact:  s.eschbach@gmail.com   | www.simoneschbach.com");
+	Text2d::Render2dText(-0.53f,  -0.40f, 0.01313f, "FPS: %.1f",						this->r_fpsTime);
+	Text2d::Render2dText(-0.455f, -0.40f, 0.01313f, " | Physics Time: %.5f seconds", this->r_physicsTime);
+	Text2d::Render2dText(-0.2f,   -0.40f, 0.01313f, " | Render Time: %.5f seconds",  this->r_renderTime);
+	Text2d::Render2dText( 0.05f,  -0.40f, 0.01313f, " | Contact:  s.eschbach@gmail.com   | www.simoneschbach.com");
 }
 
 

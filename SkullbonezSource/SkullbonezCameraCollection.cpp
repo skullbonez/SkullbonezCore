@@ -33,6 +33,7 @@
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::Math;
+using namespace SkullbonezCore::Math::Transformation;
 
 
 
@@ -265,80 +266,6 @@ bool CameraCollection::IsPrimaryLocked(void)
 
 
 
-/* -- TRANSLATE TO VIEW -----------------------------------------------------------*/
-void CameraCollection::TranslateToView(void)
-{
-	glTranslatef(this->cameraArray[this->selectedCamera].View.x,
-				 this->cameraArray[this->selectedCamera].View.y,
-				 this->cameraArray[this->selectedCamera].View.z);
-}
-
-
-
-/* -- TRANSLATE TO VIEW -----------------------------------------------------------*/
-void CameraCollection::TranslateToView(uint32_t hash)
-{
-	int targetIndex = this->FindIndex(hash);
-
-	glTranslatef(this->cameraArray[targetIndex].View.x,
-				 this->cameraArray[targetIndex].View.y,
-				 this->cameraArray[targetIndex].View.z);
-}
-
-
-
-/* -- TRANSLATE TO POSITION -------------------------------------------------------*/
-void CameraCollection::TranslateToPosition(void)
-{
-	// if we are in the middle of a tween, translate to the tween position
-	if(this->isTweening)
-	{
-		glTranslatef(this->tweenCamera.Position.x,
-					 this->tweenCamera.Position.y,
-					 this->tweenCamera.Position.z);
-	}
-	// else translate to the primary camera position
-	else
-	{
-		glTranslatef(this->cameraArray[this->selectedCamera].Position.x,
-					 this->cameraArray[this->selectedCamera].Position.y,
-					 this->cameraArray[this->selectedCamera].Position.z);
-	}
-}
-
-
-
-/* -- TRANSLATE TO POSITION -------------------------------------------------------*/
-void CameraCollection::TranslateToPosition(uint32_t hash)
-{
-	glTranslatef(this->cameraArray[this->FindIndex(hash)].Position.x,
-				 this->cameraArray[this->FindIndex(hash)].Position.y,
-				 this->cameraArray[this->FindIndex(hash)].Position.z);
-}
-
-
-
-/* -- TRANSLATE TO POSITION -------------------------------------------------------*/
-void CameraCollection::TranslateToPosition(float yValue)
-{
-	// if we are in the middle of a tween, translate to the tween position
-	if(this->isTweening)
-	{
-		glTranslatef(this->tweenCamera.Position.x,
-					 yValue,
-					 this->tweenCamera.Position.z);
-	}
-	// else translate to the primary camera position
-	else
-	{
-		glTranslatef(this->cameraArray[this->selectedCamera].Position.x,
-					 yValue,
-					 this->cameraArray[this->selectedCamera].Position.z);
-	}
-}
-
-
-
 /* -- GET CAMERA TRANSLATION ------------------------------------------------------*/
 const Vector3& CameraCollection::GetCameraTranslation(void)
 {
@@ -435,8 +362,8 @@ void CameraCollection::SetCamera(void)
 	// if we are not in tween mode
 	if(!this->isTweening)
 	{
-		// set open gl api with the selected camera settings
-		this->SetGluLookAt(this->cameraArray[this->selectedCamera]);
+		// compute view matrix from selected camera
+		this->SetViewMatrix(this->cameraArray[this->selectedCamera]);
 	}
 	else
 	{
@@ -476,47 +403,20 @@ void CameraCollection::SetCamera(void)
 			throw std::runtime_error("No terrain mesh set!  (CameraCollection::SetCamera)");
 		}
 
-		// finally set the open gl api to the new camera settings
-		this->SetGluLookAt(this->tweenCamera);
+		// compute view matrix from tween camera
+		this->SetViewMatrix(this->tweenCamera);
 	}
 }
 
 
 
-/* -- SET GLU LOOK AT -------------------------------------------------------------*/
-void CameraCollection::SetGluLookAt(Camera& cCameraData)
+/* -- SET VIEW MATRIX -------------------------------------------------------------*/
+void CameraCollection::SetViewMatrix(Camera& cCameraData)
 {
-	// specify camera position, view, and up vector
-	gluLookAt(cCameraData.Position.x,
-			  cCameraData.Position.y,
-			  cCameraData.Position.z,
-			  cCameraData.View.x,
-			  cCameraData.View.y,
-			  cCameraData.View.z,
-			  cCameraData.UpVector.x,
-			  cCameraData.UpVector.y,
-			  cCameraData.UpVector.z);
-}
-
-
-
-/* -- DEBUG: PLOT VIEW VECTORS ----------------------------------------------------*/
-void CameraCollection::DEBUG_PlotViewVectors(void)
-{
-	for(int count=0; count<this->arrayPosition; ++count)
-	{
-		glBegin(GL_LINES);
-
-			glVertex3f(this->cameraArray[count].Position.x,
-					   this->cameraArray[count].Position.y,
-					   this->cameraArray[count].Position.z);
-
-			glVertex3f(this->cameraArray[count].View.x,
-					   this->cameraArray[count].View.y,
-					   this->cameraArray[count].View.z);
-
-		glEnd();
-	}
+	this->currentViewMatrix = Matrix4::LookAt(
+		cCameraData.Position,
+		cCameraData.View,
+		cCameraData.UpVector);
 }
 
 

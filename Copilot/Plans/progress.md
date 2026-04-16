@@ -129,24 +129,24 @@ Also added in this session:
 
 ---
 
-### Phase 7 — Text Rendering (PENDING)
+### Phase 7 — Text Rendering (COMPLETE)
 
 | ID | Task | Status |
 |----|------|--------|
-| `p7-font-atlas` | Generate font texture atlas | ⏳ Pending |
-| `p7-text-render` | Replace text display lists with shader quads | ⏳ Pending |
-| `p7-text-verify` | Verify text rendering | ⏳ Pending |
+| `p7-font-atlas` | Generate font texture atlas | ✅ Done |
+| `p7-text-render` | Replace text display lists with shader quads | ✅ Done |
+| `p7-text-verify` | Verify text rendering | ✅ Done |
 
-### Phase 8 — FFP Matrix Elimination (PENDING)
+### Phase 8 — FFP Matrix Elimination (COMPLETE)
 
 | ID | Task | Status |
 |----|------|--------|
-| `p8-camera-matrix` | Replace gluLookAt with Matrix4::LookAt | ⏳ Pending |
-| `p8-projection-matrix` | Replace gluPerspective with Matrix4::Perspective | ⏳ Pending |
-| `p8-run-cleanup` | Remove all FFP matrix calls from SkullbonezRun | ⏳ Pending |
-| `p8-helper-cleanup` | Remove FFP state from SkullbonezHelper | ⏳ Pending |
-| `p8-rigidbody-cleanup` | Remove RotateBodyToOrientation glMultMatrixf | ⏳ Pending |
-| `p8-ffp-verify` | Verify zero remaining FFP calls | ⏳ Pending |
+| `p8-camera-matrix` | Replace gluLookAt with Matrix4::LookAt | ✅ Done |
+| `p8-projection-matrix` | Replace gluPerspective with Matrix4::Perspective | ✅ Done |
+| `p8-run-cleanup` | Remove all FFP matrix calls from SkullbonezRun | ✅ Done |
+| `p8-helper-cleanup` | Remove FFP state from SkullbonezHelper | ✅ Done |
+| `p8-rigidbody-cleanup` | Remove RotateBodyToOrientation/glMultMatrixf | ✅ Done |
+| `p8-ffp-verify` | Verify zero remaining FFP calls | ✅ Done |
 
 ### Phase 9 — Core Profile Switch (PENDING)
 
