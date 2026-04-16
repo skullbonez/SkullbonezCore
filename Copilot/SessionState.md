@@ -2,7 +2,7 @@
 
 ## Branch & Last Commit
 - Branch: `main`
-- Last commit: `2e10bd2` — Rename this-> members to m_ prefix; fix Mesh constructor self-assignment
+- Last commit: `7cd9650` — Phase 9: Switch to OpenGL 3.3 Core Profile; remove GLU
 
 ---
 
@@ -29,22 +29,17 @@ A Windows C++/OpenGL 3D physics engine (2005) being migrated from Fixed Function
 | Text Rendering | Font atlas + shader quads (replaces wglUseFontBitmaps) | ✅ Complete |
 | FFP Matrix Elimination | gluLookAt/Perspective → Matrix4; remove matrix stack | ✅ Complete |
 | **m_ Rename** | All this->member → m_member convention applied | ✅ **Complete** `2e10bd2` |
-| **Core Profile Switch** | True Core Profile, remove GLU | ⏳ **NEXT** |
+| **Core Profile Switch** | True Core Profile, remove GLU | ✅ **Complete** `7cd9650` |
 
 ---
 
 ## Remaining Tasks
 
-### Phase 9 — Core Profile Switch
-| ID | Task |
-|----|------|
-| `p9-core-profile` | Change `wglCreateContextAttribsARB` flags from compat → core profile in `SkullbonezWindow.cpp` |
-| `p9-remove-glu` | Remove `#include <gl\glu.h>` and `#pragma comment(lib, "glu32.lib")` from `SkullbonezCommon.h` |
-| `p9-dead-code` | Remove dead FFP helper functions, unused state constants, display list references |
-| `p9-final-verify` | Final build: 0 errors, 0 warnings. Full visual + perf verification. |
+All planned phases are complete. The engine now runs on OpenGL 3.3 Core Profile with no FFP calls.
 
-### After P9 — DX11 Port Prep
-- Extract render abstraction layer (Option A, as agreed with user)
+### Future / Nice-to-Have
+- Regenerate GLAD for `gl:core=3.3` (currently `gl:compatibility=3.3` — harmless but exposes deprecated API at compile time)
+- DX11 Port Prep: extract render abstraction layer (Option A)
 
 ---
 
