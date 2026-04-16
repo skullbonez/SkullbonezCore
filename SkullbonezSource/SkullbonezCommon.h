@@ -52,11 +52,9 @@
 #include <memory>    // std::unique_ptr
 #include <vector>    // std::vector
 #include <glad/gl.h> // GLAD OpenGL 3.3 Core Loader
-#include <gl\glu.h>  // OpenGL Utility Library (retained during incremental migration)
 
-/* -- GL/GLU LIBS -----------------------------------------------------------------*/
+/* -- GL LIBS ---------------------------------------------------------------------*/
 #pragma comment( lib, "opengl32.lib" )
-#pragma comment( lib, "glu32.lib" ) // retained during incremental migration
 
 /* -- ENABLE HEAP DEBUGGING -------------------------------------------------------*/
 #include <crtdbg.h>
@@ -74,7 +72,6 @@
 #define KEY_MOVEMENT_CONST 200.0f        // Keyboard movement scale constant
 #define TWEEN_RATE 3.0f                  // Camera tween rate
 #define COLLISION_THRESHOLD 0.01f        // View/Up collision threshold (radians)
-#define MIP_MAP_COMPONENTS 4             // Number of mipmap images to build per texture
 #define FRUSTUM_CLIP_SHORT_QTY 1.0f      // Near clipping volume
 #define FRUSTUM_CLIP_FAR_QTY 5500.0f     // Far clipping volume
 #define TOTAL_CAMERA_COUNT 3             // Total number of cameras

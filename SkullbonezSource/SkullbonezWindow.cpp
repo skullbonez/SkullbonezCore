@@ -295,14 +295,14 @@ void SkullbonezWindow::InitialiseOpenGL( void )
 
     if ( wglCreateContextAttribsARB )
     {
-        // Request OpenGL 3.3 Compatibility Profile (allows FFP during migration)
+        // Request OpenGL 3.3 Core Profile
         const int attribs[] = {
             0x2091,
-            3, // WGL_CONTEXT_MAJOR_VERSION_ARB
+            3, // WGL_CONTEXT_MAJOR_VERSION_ARB = 3
             0x2092,
-            3, // WGL_CONTEXT_MINOR_VERSION_ARB
+            3, // WGL_CONTEXT_MINOR_VERSION_ARB = 3
             0x9126,
-            0x2, // WGL_CONTEXT_PROFILE_MASK_ARB = COMPATIBILITY (0x2)
+            0x1, // WGL_CONTEXT_PROFILE_MASK_ARB = CORE (0x1)
             0    // terminator
         };
 
@@ -330,6 +330,16 @@ void SkullbonezWindow::InitialiseOpenGL( void )
     if ( !gladVersion )
     {
         this->MsgBox( "gladLoadGL returned 0 - GL function loading failed", "GLAD Error", MB_OK );
+        PostQuitMessage( 0 );
+        return;
+    }
+
+    // Verify we are on a core profile context (not compatibility)
+    GLint profileMask = 0;
+    glGetIntegerv( GL_CONTEXT_PROFILE_MASK, &profileMask );
+    if ( !( profileMask & GL_CONTEXT_CORE_PROFILE_BIT ) )
+    {
+        this->MsgBox( "OpenGL core profile context required but not active", "GL Context Error", MB_OK );
         PostQuitMessage( 0 );
         return;
     }
