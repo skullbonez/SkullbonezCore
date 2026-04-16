@@ -1,0 +1,30 @@
+{
+  "commit": "f0d19a1",
+  "machine": {
+    "hostname": "SHGAU0176",
+    "cpu": "AMD Ryzen Threadripper 3970X 32-Core Processor",
+    "cores": 64,
+    "ram_gb": 191.9,
+    "os": "10.0.22621"
+  },
+  "total_frames": 602,
+  "physics_ms": {
+    "min": 1.4285,
+    "max": 3.2799,
+    "avg": 2.4773,
+    "p50": 2.4718,
+    "p99": 2.8629,
+    "p99_9": 3.1034
+  },
+  "render_ms": {
+    "min": 2.3482,
+    "max": 11.5769,
+    "avg": 2.6606,
+    "p50": 2.62,
+    "p99": 2.9337,
+    "p99_9": 10.5318
+  },
+  "mem_start_mb": 49.81,
+  "mem_restart_mb": 60.91,
+  "mem_end_mb": 59.96
+}

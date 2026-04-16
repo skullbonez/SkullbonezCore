@@ -2,7 +2,7 @@
 
 ## Branch & Last Commit
 - Branch: `main`
-- Last commit: `f80a83d` — Merge dx11-port-prep: text rendering + FFP matrix elimination
+- Last commit: `2e10bd2` — Rename this-> members to m_ prefix; fix Mesh constructor self-assignment
 
 ---
 
@@ -28,16 +28,12 @@ A Windows C++/OpenGL 3D physics engine (2005) being migrated from Fixed Function
 | P10 Water & Shadows | FBO reflection, vertex-animated water, GL lifecycle fix | ✅ Complete |
 | Text Rendering | Font atlas + shader quads (replaces wglUseFontBitmaps) | ✅ Complete |
 | FFP Matrix Elimination | gluLookAt/Perspective → Matrix4; remove matrix stack | ✅ Complete |
+| **m_ Rename** | All this->member → m_member convention applied | ✅ **Complete** `2e10bd2` |
 | **Core Profile Switch** | True Core Profile, remove GLU | ⏳ **NEXT** |
 
 ---
 
 ## Remaining Tasks
-
-### Text Rendering Bug (fix before P9)
-| ID | Task |
-|----|------|
-| `text-bleed-fix` | **IN PROGRESS** — GL_LINEAR minification bleeds adjacent atlas rows into char tops. Fix applied but not yet verified: `glGenerateMipmap` + `GL_LINEAR_MIPMAP_LINEAR` + 1-texel V inset. Needs screenshot verification and commit. |
 
 ### Phase 9 — Core Profile Switch
 | ID | Task |
@@ -56,7 +52,6 @@ A Windows C++/OpenGL 3D physics engine (2005) being migrated from Fixed Function
 See `Copilot/Bugs.md` for full details.
 
 1. **Water draws through sphere back faces** — water visible through the back faces of spheres intersecting the water surface; likely a depth test / draw-order issue
-2. **Text UV bleeding (IN PROGRESS)** — faint ghost glyphs appear above character tops due to GL_LINEAR minification (text rendered ~20px on screen, atlas is 32px → 1.5× minification bleeds into adjacent atlas rows). Fix: `glGenerateMipmap` + `GL_LINEAR_MIPMAP_LINEAR` + 1-texel V inset. Applied to `SkullbonezText.cpp` but **not yet committed** — needs screenshot verification first.
 
 ---
 
