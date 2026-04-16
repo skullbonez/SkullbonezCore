@@ -1,0 +1,49 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+
+# Indentation — spaces, 4 wide
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+
+# Brace style — Allman (opening brace on its own line, always)
+BreakBeforeBraces: Allman
+InsertBraces: true
+
+# Never allow braceless single-line if/for/while
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortFunctionsOnASingleLine: None
+
+# Pointer/reference alignment — char* name (left, with type)
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# Spaces inside parentheses — if ( x ), func( a, b )
+SpacesInParens: Custom
+SpacesInParensOptions:
+  InConditionalStatements: true
+  InEmptyParentheses: false
+  Other: true
+
+# Space before ( in control flow keywords
+SpaceBeforeParens: ControlStatements
+
+# Line endings — LF
+LineEnding: LF
+
+# No column limit
+ColumnLimit: 0
+
+# Don't reorder #includes (preserve existing grouping)
+SortIncludes: Never
+IncludeBlocks: Preserve
+
+# Misc
+SpaceAfterCStyleCast: false
+SpacesInSquareBrackets: false
+SpaceBeforeSquareBrackets: false
+SpacesInAngles: Never

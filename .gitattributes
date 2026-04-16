@@ -1,0 +1,30 @@
+# Normalize all text files to LF in the repo
+* text=auto eol=lf
+
+# Explicitly mark source files
+*.cpp   text eol=lf
+*.h     text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+*.json  text eol=lf
+*.scene text eol=lf
+*.suite text eol=lf
+*.vert  text eol=lf
+*.frag  text eol=lf
+*.sln   text eol=lf
+*.vcxproj       text eol=lf
+*.vcxproj.filters text eol=lf
+*.props text eol=lf
+*.py    text eol=lf
+
+# Binary — no conversion
+*.png   binary
+*.bmp   binary
+*.jpg   binary
+*.jpeg  binary
+*.raw   binary
+*.exe   binary
+*.lib   binary
+*.dll   binary
+*.obj   binary
+*.pdb   binary

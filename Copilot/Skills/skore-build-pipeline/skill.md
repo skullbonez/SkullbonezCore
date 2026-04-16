@@ -7,6 +7,20 @@ description: Standard development pipeline for SkullbonezCore. Build, render tes
 
 The full verify-and-commit pipeline after a code change. **Every step must pass before proceeding to the next.** Every commit MUST include updated reference images and performance test artifacts.
 
+### Step 0: Format
+
+Run clang-format on all source files before building. This enforces the project code style (Allman braces, spaces, LF line endings).
+
+```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
+$clangFormat = "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\bin\clang-format.exe"
+$files = Get-ChildItem "$REPO\SkullbonezSource" -Include *.cpp,*.h -Recurse
+foreach ($f in $files) { & $clangFormat -i $f.FullName }
+Write-Host "Formatted $($files.Count) files"
+```
+
+**If clang-format is not found**: check VS2022 is installed with C++ LLVM tools.
+
 ### Step 1: Build
 
 Build using the `skore-build` skill. Must produce **0 errors and 0 warnings**.
