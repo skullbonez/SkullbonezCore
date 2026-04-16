@@ -47,11 +47,11 @@ float    Text2d::charAdvance[96] = {};
 
 
 /* -- Font atlas layout constants -------------------------------------------------*/
-static const int FONT_CELL_W  = 24;		// Width of each character cell in pixels
+static const int FONT_CELL_W  = 40;		// Width of each character cell (wider than any Verdana glyph at -32)
 static const int FONT_CELL_H  = 32;		// Height of each character cell in pixels
 static const int FONT_COLS    = 16;		// Number of columns in the atlas
 static const int FONT_ROWS    = 6;		// Number of rows in the atlas (16*6 = 96 chars)
-static const int FONT_ATLAS_W = FONT_CELL_W * FONT_COLS;	// 384 pixels
+static const int FONT_ATLAS_W = FONT_CELL_W * FONT_COLS;	// 640 pixels
 static const int FONT_ATLAS_H = FONT_CELL_H * FONT_ROWS;	// 192 pixels
 
 
@@ -230,7 +230,9 @@ void Text2d::Render2dText(float xPosition,
 
 		float u0 = (float)(col * FONT_CELL_W) / (float)FONT_ATLAS_W;
 		float v0 = (float)(row * FONT_CELL_H) / (float)FONT_ATLAS_H;
-		float u1 = (float)((col + 1) * FONT_CELL_W) / (float)FONT_ATLAS_W;
+		// u1 is advance-based: sample only the glyph's actual advance width, not the full cell.
+		// This ensures UV aspect == quad aspect, giving undistorted character shapes.
+		float u1 = u0 + (Text2d::charAdvance[idx] * (float)FONT_CELL_H) / (float)FONT_ATLAS_W;
 		float v1 = (float)((row + 1) * FONT_CELL_H) / (float)FONT_ATLAS_H;
 
 		float charW = Text2d::charAdvance[idx] * fSize;

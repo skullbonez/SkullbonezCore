@@ -11,7 +11,7 @@ A Windows C++/OpenGL 3D physics engine (2005) being migrated from Fixed Function
 
 ---
 
-## Overall Progress: Phases 1–6 Complete (33/46 tasks done)
+## Overall Progress: Phases P7+P8 Complete (branch: dx11-port-prep)
 
 | Phase | Description | Status |
 |-------|-------------|--------|
@@ -20,15 +20,15 @@ A Windows C++/OpenGL 3D physics engine (2005) being migrated from Fixed Function
 | P3 Compile-Time Hashes | FNV-1a texture/camera keys | ✅ Complete |
 | P4 Eliminate Dynamic Allocation | vectors, unique_ptr, stack singletons | ✅ Complete |
 | TH Test Harness | Scene mode, render tests, perf test, skore-render-test skill | ✅ Complete |
-| P5 (shader) Foundation | GLAD, Matrix4, Shader, Mesh classes | ✅ Complete |
-| P6 (shader) Shader Infra | GLSL shaders written | ✅ Complete |
-| P7 (shader) Terrain | VBO mesh + lit_textured shader | ✅ Complete |
-| P8 (shader) Skybox | VBO mesh + unlit_textured shader | ✅ Complete |
-| P9 (shader) Spheres | Procedural sphere, GameModel Matrix4 | ✅ Complete |
-| P10 (shader) Water & Shadows | Mesh + shaders, GL lifecycle fix | ✅ Complete |
-| **P7 Text** | Font atlas + shader quads | ⏳ **NEXT** |
-| P8 FFP Matrix Elimination | gluLookAt/Perspective, matrix stack | ⏳ Pending |
-| P9 Core Profile Switch | True Core Profile, remove GLU | ⏳ Pending |
+| P5 Foundation | GLAD, Matrix4, Shader, Mesh classes | ✅ Complete |
+| P6 Shader Infra | GLSL shaders written | ✅ Complete |
+| P7 Terrain | VBO mesh + lit_textured shader | ✅ Complete |
+| P8 Skybox | VBO mesh + unlit_textured shader | ✅ Complete |
+| P9 Spheres | Procedural sphere, GameModel Matrix4 | ✅ Complete |
+| P10 Water & Shadows | FBO reflection, vertex-animated water, GL lifecycle fix | ✅ Complete |
+| Text Rendering (P7) | Font atlas + shader quads | ✅ Complete |
+| FFP Matrix Elimination (P8) | gluLookAt/Perspective → Matrix4; remove matrix stack | ✅ Complete |
+| **Core Profile Switch (P9)** | True Core Profile, remove GLU | ⏳ **NEXT** |
 
 ---
 

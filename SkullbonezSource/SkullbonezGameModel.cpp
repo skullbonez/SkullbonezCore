@@ -242,55 +242,13 @@ bool GameModel::IsResponseRequired(void)
 
 
 
-/* -- ORIENT MESH ---------------------------------------------------------------*/
-void GameModel::OrientMesh(void)
-{
-	// translate to object space
-	Vector3 position = this->physicsInfo.GetPosition();
-	glTranslatef(position.x, position.y, position.z);
-
-	// orient object space
-	this->physicsInfo.RotateBodyToOrientation();
-
-	// translate back to world space (keeping the orientation)
-	glTranslatef(-position.x, -position.y, -position.z);
-}
-
-
-
-/* -- RENDER MODEL ----------------------------------------------------------------*/
-void GameModel::RenderModel(void)
-{
-	// save the matrix state if we are going to be performing
-	// rotations on the world matrix
-	glPushMatrix();
-
-	// orient the mesh for rendering
-	this->OrientMesh();
-
-	// ******************** render here ********************
-
-	// restore the original world matrix state now we are done rendering
-	glPopMatrix();
-}
-
-
-
 /* -- RENDER COLLISION BOUNDS -----------------------------------------------------*/
-void GameModel::RenderCollisionBounds(const Matrix4& proj, const float lightPos[4])
+void GameModel::RenderCollisionBounds(const Matrix4& view, const Matrix4& proj, const float lightPos[4])
 {
-	// save the matrix state if we are going to be performing
-	// rotations on the world matrix
-	glPushMatrix();
-
-	// orient the bounding volume for rendering
-	this->OrientMesh();
-
-	// render
-	this->boundingVolume->DEBUG_RenderCollisionVolume(this->physicsInfo.GetPosition(), proj, lightPos);
-
-	// restore the original world matrix state now we are done rendering
-	glPopMatrix();
+	// Build the rotation matrix from the physics orientation quaternion.
+	// The bounding volume renders with: T(pos) * R * T(localOffset) * S(radius).
+	Matrix4 rotation = Matrix4::FromQuaternion(this->physicsInfo.GetOrientation());
+	this->boundingVolume->DEBUG_RenderCollisionVolume(this->physicsInfo.GetPosition(), rotation, view, proj, lightPos);
 }
 
 

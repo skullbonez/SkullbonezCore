@@ -29,11 +29,13 @@
 #include "SkullbonezCommon.h"
 #include "SkullbonezCamera.h"
 #include "SkullbonezTerrain.h"
+#include "SkullbonezMatrix4.h"
 
 
 
 /* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
 using namespace SkullbonezCore::Geometry;
+using namespace SkullbonezCore::Math::Transformation;
 
 
 
@@ -64,11 +66,12 @@ namespace SkullbonezCore
 			bool						isTweening;				// Flag indicating whether the camera is in the middle of a tween or not
 			float						tweenProgress;			// Stores the state of the current tween			
 			Terrain*					terrain;				// Stores a pointer to the terrain for tweening collision purposes
+			Matrix4						currentViewMatrix;		// Current view matrix (updated each frame by SetCamera)
 
-	
+
 										CameraCollection		(void);				// Constructor
 										~CameraCollection		(void) = default;
-			void						SetGluLookAt			(Camera& cCameraData);		// Sets glu look at with the supplied camera data
+			void						SetViewMatrix			(Camera& cCameraData);		// Computes currentViewMatrix from the supplied camera data
 			int							FindIndex				(uint32_t hash);			// Returns the index of the specified camera
 			Camera						GetUpdateCamera			(void);						// Returns the current update camera for relative updates
 			void						UpdateTweenPath			(void);						// Alters the tween path member to end at the required destination (it is important to call this during tweens as the destination can move about the scene during the tween)
@@ -91,18 +94,13 @@ namespace SkullbonezCore
 			void						SetCamera						(void);								// Takes care of setting the camera in the specified position.  Should be called once per frame when the camera has been updated
 			bool						IsPrimaryLocked					(void);								// Returns whether the primary camera is in locked mode or not
 			void						SetLockedMode					(bool fIsLocked);					// Sets the camera to or from locked mode
-			void						TranslateToView					(void);								// Translates to the primary view position
-			void						TranslateToView					(uint32_t hash);					// Translates to the specified view position
 			void						AmmendPrimaryY					(float yCoordinate);				// Translates the primary cameras Y position to the specified world coordinate
-			void						TranslateToPosition				(void);								// Translates to the primary cameras translation
-			void						TranslateToPosition				(uint32_t hash);					// Translates to the specified cameras translation
-			void						TranslateToPosition				(float yValue);						// Translates to the primary cameras XZ translation with supplied Y translation
 			void						SetCameraXZBounds				(const XZBounds	bounds);			// Set a camera boundary for all cameras
 			void						ResetRelativity					(void);								// Resets the difference camera to the current camera (call this after all camera updates have been made)
 			bool						IsCameraTweening				(void);								// Returns a flag indicating if the camera is currently tweening or not
-			void						DEBUG_PlotViewVectors			(void);								// Plots the view vectors using gl line primitves (debug routine)
-			float						DEBUG_GetViewMag				(void);								// Gets the magnitude of the primary view vector (debug routine)			
+			float						DEBUG_GetViewMag				(void);								// Gets the magnitude of the primary view vector (debug routine)
 			float						DEBUG_GetViewMagTarget			(void);								// Returns the target magnitude of the primary view vector (debug routine)
+			const Matrix4&				GetViewMatrix					(void) const { return currentViewMatrix; }	// Returns the current view matrix
 			uint32_t					GetSelectedCameraName			(void);								// Returns the hash of the selected camera
 			bool						IsCameraSelected				(uint32_t hash);			// Returns a flag indicating if the specified camera is selected
 			void						ApplyPrimaryMovementBuffer		(void);								// Applies the movement buffer to the primary camera
