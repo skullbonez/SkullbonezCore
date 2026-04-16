@@ -2,7 +2,7 @@
 
 ## Branch & Last Commit
 - Branch: `main`
-- Last commit: `17f619a` — P8 FFP matrix elimination + fix text UV distortion
+- Last commit: `f80a83d` — Merge dx11-port-prep: text rendering + FFP matrix elimination
 
 ---
 
@@ -26,7 +26,7 @@ A Windows C++/OpenGL 3D physics engine (2005) being migrated from Fixed Function
 | P8 Skybox | VBO mesh + unlit_textured shader | ✅ Complete |
 | P9 Spheres | Procedural sphere, GameModel Matrix4 | ✅ Complete |
 | P10 Water & Shadows | FBO reflection, vertex-animated water, GL lifecycle fix | ✅ Complete |
-| Text Rendering | Font atlas + shader quads (replaces wglUseFontBitmaps) | ✅ Complete (bug WIP) |
+| Text Rendering | Font atlas + shader quads (replaces wglUseFontBitmaps) | ✅ Complete |
 | FFP Matrix Elimination | gluLookAt/Perspective → Matrix4; remove matrix stack | ✅ Complete |
 | **Core Profile Switch** | True Core Profile, remove GLU | ⏳ **NEXT** |
 
@@ -61,22 +61,7 @@ See `Copilot/Bugs.md` for full details.
 ---
 
 ## Uncommitted Changes (DO NOT LOSE)
-`SkullbonezSource/SkullbonezText.cpp` has two uncommitted fixes:
-
-### 1. Mipmap filter fix (BuildFont, texture setup block ~line 174)
-```cpp
-glGenerateMipmap(GL_TEXTURE_2D);
-glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-```
-
-### 2. UV inset values (Render2dText, per-character UV block ~line 267)
-```cpp
-const float halfU = 0.5f / (float)FONT_ATLAS_W;
-const float halfV = 1.0f / (float)FONT_ATLAS_H;  // 1-texel inset; mipmaps need more margin than 0.5
-```
-
-Also still present: **temporary debug BMP dump code** in `BuildFont` (~lines 138-172) that writes `Debug/font_atlas_debug.bmp`. This must be **removed before committing**.
+None.
 
 ---
 
@@ -103,6 +88,7 @@ Also still present: **temporary debug BMP dump code** in `BuildFont` (~lines 138
 ## Backlog / Future Tasks
 | ID | Task |
 |----|------|
+| `member-rename-m_` | Rename all member variables to `m_` prefix convention: `m_pBlah` (pointers), `m_fBlah` (floats), `m_isBlah` (bools), `m_blah` (other). Use clang-tidy `readability-identifier-naming` with `--fix`. Do after Phase 9 when codebase is stable. |
 | `dx11-abstraction` | Extract render abstraction layer for DX11 port (Option A — agreed with user) |
 | `coding-standards` | Normalise line endings (`.gitattributes`) + add editor hints (`.editorconfig`) |
 
