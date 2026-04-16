@@ -50,14 +50,14 @@ void SpatialGrid::Clear( void )
 }
 
 /* -- INSERT ----------------------------------------------------------------------*/
-void SpatialGrid::Insert( int index, const Vector3& position, float radius )
+void SpatialGrid::Insert( int index, const Vector3& m_position, float m_radius )
 {
-    int minX = (int)floorf( ( position.x - radius ) * inverseCellSize );
-    int minY = (int)floorf( ( position.y - radius ) * inverseCellSize );
-    int minZ = (int)floorf( ( position.z - radius ) * inverseCellSize );
-    int maxX = (int)floorf( ( position.x + radius ) * inverseCellSize );
-    int maxY = (int)floorf( ( position.y + radius ) * inverseCellSize );
-    int maxZ = (int)floorf( ( position.z + radius ) * inverseCellSize );
+    int minX = (int)floorf( ( m_position.x - m_radius ) * inverseCellSize );
+    int minY = (int)floorf( ( m_position.y - m_radius ) * inverseCellSize );
+    int minZ = (int)floorf( ( m_position.z - m_radius ) * inverseCellSize );
+    int maxX = (int)floorf( ( m_position.x + m_radius ) * inverseCellSize );
+    int maxY = (int)floorf( ( m_position.y + m_radius ) * inverseCellSize );
+    int maxZ = (int)floorf( ( m_position.z + m_radius ) * inverseCellSize );
 
     for ( int ix = minX; ix <= maxX; ++ix )
     {

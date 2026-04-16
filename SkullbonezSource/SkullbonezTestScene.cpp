@@ -31,16 +31,16 @@ using namespace SkullbonezCore::Basics;
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 TestScene::TestScene( void )
 {
-    this->isPhysicsEnabled = true;
-    this->isTextEnabled = true;
-    this->isGlResetTest = false;
-    this->frameCount = -1;
-    this->screenshotPath[0] = '\0';
-    this->perfLogPath[0] = '\0';
-    this->screenshotFrame = -1;
-    this->screenshotMs = -1;
-    this->seed = 0;
-    this->legacyBallCount = 0;
+    m_isPhysicsEnabled = true;
+    m_isTextEnabled = true;
+    m_isGlResetTest = false;
+    m_frameCount = -1;
+    m_screenshotPath[0] = '\0';
+    m_perfLogPath[0] = '\0';
+    m_screenshotFrame = -1;
+    m_screenshotMs = -1;
+    m_seed = 0;
+    m_legacyBallCount = 0;
 }
 
 /* -- LOAD FROM FILE --------------------------------------------------------------*/
@@ -86,11 +86,11 @@ TestScene TestScene::LoadFromFile( const char* path )
         {
             if ( strcmp( line + 8, "off" ) == 0 )
             {
-                scene.isPhysicsEnabled = false;
+                scene.m_isPhysicsEnabled = false;
             }
             else if ( strcmp( line + 8, "on" ) == 0 )
             {
-                scene.isPhysicsEnabled = true;
+                scene.m_isPhysicsEnabled = true;
             }
             else
             {
@@ -107,11 +107,11 @@ TestScene TestScene::LoadFromFile( const char* path )
         {
             if ( strcmp( line + 5, "off" ) == 0 )
             {
-                scene.isTextEnabled = false;
+                scene.m_isTextEnabled = false;
             }
             else if ( strcmp( line + 5, "on" ) == 0 )
             {
-                scene.isTextEnabled = true;
+                scene.m_isTextEnabled = true;
             }
             else
             {
@@ -128,12 +128,12 @@ TestScene TestScene::LoadFromFile( const char* path )
         {
             if ( strcmp( line + 7, "unlimited" ) == 0 )
             {
-                scene.frameCount = -1;
+                scene.m_frameCount = -1;
             }
             else
             {
-                scene.frameCount = atoi( line + 7 );
-                if ( scene.frameCount <= 0 )
+                scene.m_frameCount = atoi( line + 7 );
+                if ( scene.m_frameCount <= 0 )
                 {
                     fclose( file );
                     char msg[256];
@@ -150,10 +150,7 @@ TestScene TestScene::LoadFromFile( const char* path )
             char outPath[256] = {};
             char triggerType[16] = {};
             int triggerValue = 0;
-            int parsed = sscanf_s( line + 11, "%255s %15s %d",
-                                   outPath, (unsigned)sizeof( outPath ),
-                                   triggerType, (unsigned)sizeof( triggerType ),
-                                   &triggerValue );
+            int parsed = sscanf_s( line + 11, "%255s %15s %d", outPath, (unsigned)sizeof( outPath ), triggerType, (unsigned)sizeof( triggerType ), &triggerValue );
 
             if ( parsed != 3 || triggerValue <= 0 )
             {
@@ -163,17 +160,17 @@ TestScene TestScene::LoadFromFile( const char* path )
                 throw std::runtime_error( msg );
             }
 
-            strcpy_s( scene.screenshotPath, sizeof( scene.screenshotPath ), outPath );
+            strcpy_s( scene.m_screenshotPath, sizeof( scene.m_screenshotPath ), outPath );
 
             if ( strcmp( triggerType, "frame" ) == 0 )
             {
-                scene.screenshotFrame = triggerValue;
-                scene.screenshotMs = -1;
+                scene.m_screenshotFrame = triggerValue;
+                scene.m_screenshotMs = -1;
             }
             else if ( strcmp( triggerType, "ms" ) == 0 )
             {
-                scene.screenshotMs = triggerValue;
-                scene.screenshotFrame = -1;
+                scene.m_screenshotMs = triggerValue;
+                scene.m_screenshotFrame = -1;
             }
             else
             {
@@ -188,8 +185,8 @@ TestScene TestScene::LoadFromFile( const char* path )
         // parse seed directive
         if ( strncmp( line, "seed ", 5 ) == 0 )
         {
-            scene.seed = (unsigned int)atoi( line + 5 );
-            if ( scene.seed == 0 )
+            scene.m_seed = (unsigned int)atoi( line + 5 );
+            if ( scene.m_seed == 0 )
             {
                 fclose( file );
                 char msg[256];
@@ -202,8 +199,8 @@ TestScene TestScene::LoadFromFile( const char* path )
         // parse legacy_balls directive
         if ( strncmp( line, "legacy_balls ", 13 ) == 0 )
         {
-            scene.legacyBallCount = atoi( line + 13 );
-            if ( scene.legacyBallCount <= 0 )
+            scene.m_legacyBallCount = atoi( line + 13 );
+            if ( scene.m_legacyBallCount <= 0 )
             {
                 fclose( file );
                 char msg[256];
@@ -216,21 +213,21 @@ TestScene TestScene::LoadFromFile( const char* path )
         // parse test_gl_reset directive
         if ( strcmp( line, "test_gl_reset" ) == 0 )
         {
-            scene.isGlResetTest = true;
+            scene.m_isGlResetTest = true;
             continue;
         }
 
         // parse perf_log directive
         if ( strncmp( line, "perf_log ", 9 ) == 0 )
         {
-            strcpy_s( scene.perfLogPath, sizeof( scene.perfLogPath ), line + 9 );
+            strcpy_s( scene.m_perfLogPath, sizeof( scene.m_perfLogPath ), line + 9 );
             continue;
         }
 
         // parse camera line
         if ( strncmp( line, "camera ", 7 ) == 0 )
         {
-            if ( (int)scene.cameras.size() >= TOTAL_CAMERA_COUNT )
+            if ( (int)scene.m_cameras.size() >= TOTAL_CAMERA_COUNT )
             {
                 fclose( file );
                 char msg[256];
@@ -241,11 +238,7 @@ TestScene TestScene::LoadFromFile( const char* path )
             SceneCamera cam;
             memset( &cam, 0, sizeof( cam ) );
 
-            int parsed = sscanf_s( line + 7, "%63s %f %f %f %f %f %f %f %f %f",
-                                   cam.name, (unsigned)sizeof( cam.name ),
-                                   &cam.position.x, &cam.position.y, &cam.position.z,
-                                   &cam.view.x, &cam.view.y, &cam.view.z,
-                                   &cam.up.x, &cam.up.y, &cam.up.z );
+            int parsed = sscanf_s( line + 7, "%63s %f %f %f %f %f %f %f %f %f", cam.name, (unsigned)sizeof( cam.name ), &cam.m_position.x, &cam.m_position.y, &cam.m_position.z, &cam.view.x, &cam.view.y, &cam.view.z, &cam.up.x, &cam.up.y, &cam.up.z );
 
             if ( parsed != 10 )
             {
@@ -255,7 +248,7 @@ TestScene TestScene::LoadFromFile( const char* path )
                 throw std::runtime_error( msg );
             }
 
-            scene.cameras.push_back( cam );
+            scene.m_cameras.push_back( cam );
             continue;
         }
 
@@ -266,12 +259,7 @@ TestScene TestScene::LoadFromFile( const char* path )
             memset( &ball, 0, sizeof( ball ) );
 
             // try full line (with force)
-            int parsed = sscanf_s( line + 5, "%63s %f %f %f %f %f %f %f %f %f %f %f %f %f",
-                                   ball.name, (unsigned)sizeof( ball.name ),
-                                   &ball.posX, &ball.posY, &ball.posZ,
-                                   &ball.radius, &ball.mass, &ball.moment, &ball.restitution,
-                                   &ball.forceX, &ball.forceY, &ball.forceZ,
-                                   &ball.forcePosX, &ball.forcePosY, &ball.forcePosZ );
+            int parsed = sscanf_s( line + 5, "%63s %f %f %f %f %f %f %f %f %f %f %f %f %f", ball.name, (unsigned)sizeof( ball.name ), &ball.posX, &ball.posY, &ball.posZ, &ball.m_radius, &ball.m_mass, &ball.moment, &ball.restitution, &ball.forceX, &ball.forceY, &ball.forceZ, &ball.forcePosX, &ball.forcePosY, &ball.forcePosZ );
 
             if ( parsed != 14 && parsed != 8 )
             {
@@ -281,7 +269,7 @@ TestScene TestScene::LoadFromFile( const char* path )
                 throw std::runtime_error( msg );
             }
 
-            scene.balls.push_back( ball );
+            scene.m_balls.push_back( ball );
             continue;
         }
 
@@ -295,7 +283,7 @@ TestScene TestScene::LoadFromFile( const char* path )
     fclose( file );
 
     // validate
-    if ( scene.cameras.empty() )
+    if ( scene.m_cameras.empty() )
     {
         throw std::runtime_error( "Scene file must define at least one camera.  (TestScene::LoadFromFile)" );
     }
@@ -306,93 +294,93 @@ TestScene TestScene::LoadFromFile( const char* path )
 /* -- IS PHYSICS ENABLED ----------------------------------------------------------*/
 bool TestScene::IsPhysicsEnabled( void ) const
 {
-    return this->isPhysicsEnabled;
+    return m_isPhysicsEnabled;
 }
 
 /* -- IS TEXT ENABLED -------------------------------------------------------------*/
 bool TestScene::IsTextEnabled( void ) const
 {
-    return this->isTextEnabled;
+    return m_isTextEnabled;
 }
 
 /* -- IS GL RESET TEST ------------------------------------------------------------*/
 bool TestScene::IsGlResetTest( void ) const
 {
-    return this->isGlResetTest;
+    return m_isGlResetTest;
 }
 
 /* -- GET FRAME COUNT -------------------------------------------------------------*/
 int TestScene::GetFrameCount( void ) const
 {
-    return this->frameCount;
+    return m_frameCount;
 }
 
 /* -- GET SCREENSHOT PATH ---------------------------------------------------------*/
 const char* TestScene::GetScreenshotPath( void ) const
 {
-    return this->screenshotPath;
+    return m_screenshotPath;
 }
 
 /* -- GET SCREENSHOT FRAME --------------------------------------------------------*/
 int TestScene::GetScreenshotFrame( void ) const
 {
-    return this->screenshotFrame;
+    return m_screenshotFrame;
 }
 
 /* -- GET SCREENSHOT MS -----------------------------------------------------------*/
 int TestScene::GetScreenshotMs( void ) const
 {
-    return this->screenshotMs;
+    return m_screenshotMs;
 }
 
 /* -- GET SEED --------------------------------------------------------------------*/
 unsigned int TestScene::GetSeed( void ) const
 {
-    return this->seed;
+    return m_seed;
 }
 
 /* -- GET LEGACY BALL COUNT -------------------------------------------------------*/
 int TestScene::GetLegacyBallCount( void ) const
 {
-    return this->legacyBallCount;
+    return m_legacyBallCount;
 }
 
 /* -- GET PERF LOG PATH -----------------------------------------------------------*/
 const char* TestScene::GetPerfLogPath( void ) const
 {
-    return this->perfLogPath;
+    return m_perfLogPath;
 }
 
 /* -- GET CAMERA COUNT ------------------------------------------------------------*/
 int TestScene::GetCameraCount( void ) const
 {
-    return (int)this->cameras.size();
+    return (int)m_cameras.size();
 }
 
 /* -- GET BALL COUNT --------------------------------------------------------------*/
 int TestScene::GetBallCount( void ) const
 {
-    return (int)this->balls.size();
+    return (int)m_balls.size();
 }
 
 /* -- GET CAMERA ------------------------------------------------------------------*/
 const SceneCamera& TestScene::GetCamera( int index ) const
 {
-    if ( index < 0 || index >= (int)this->cameras.size() )
+    if ( index < 0 || index >= (int)m_cameras.size() )
     {
         throw std::runtime_error( "Camera index out of range.  (TestScene::GetCamera)" );
     }
 
-    return this->cameras[index];
+    return m_cameras[index];
 }
 
 /* -- GET BALL --------------------------------------------------------------------*/
 const SceneBall& TestScene::GetBall( int index ) const
 {
-    if ( index < 0 || index >= (int)this->balls.size() )
+    if ( index < 0 || index >= (int)m_balls.size() )
     {
         throw std::runtime_error( "Ball index out of range.  (TestScene::GetBall)" );
     }
 
-    return this->balls[index];
+    return m_balls[index];
 }

@@ -37,7 +37,7 @@ namespace Basics
 struct SceneCamera
 {
     char name[64];
-    Vector3 position;
+    Vector3 m_position;
     Vector3 view;
     Vector3 up;
 };
@@ -47,8 +47,8 @@ struct SceneBall
 {
     char name[64];
     float posX, posY, posZ;
-    float radius;
-    float mass;
+    float m_radius;
+    float m_mass;
     float moment;
     float restitution;
     float forceX, forceY, forceZ;
@@ -65,18 +65,18 @@ class TestScene
 {
 
   private:
-    bool isPhysicsEnabled;
-    bool isTextEnabled;
-    bool isGlResetTest;       // test GL context recreation
-    int frameCount;           // -1 = unlimited
-    char screenshotPath[256]; // output path for screenshot (empty = none)
-    int screenshotFrame;      // trigger on frame N (-1 = unused)
-    int screenshotMs;         // trigger at N ms elapsed (-1 = unused)
-    unsigned int seed;        // RNG seed (0 = use time-based default)
-    int legacyBallCount;      // random legacy-style balls (0 = none)
-    char perfLogPath[256];    // output path for perf CSV (empty = none)
-    std::vector<SceneCamera> cameras;
-    std::vector<SceneBall> balls;
+    bool m_isPhysicsEnabled;
+    bool m_isTextEnabled;
+    bool m_isGlResetTest;       // test GL context recreation
+    int m_frameCount;           // -1 = unlimited
+    char m_screenshotPath[256]; // output path for screenshot (empty = none)
+    int m_screenshotFrame;      // trigger on frame N (-1 = unused)
+    int m_screenshotMs;         // trigger at N ms elapsed (-1 = unused)
+    unsigned int m_seed;        // RNG m_seed (0 = use time-based default)
+    int m_legacyBallCount;      // random legacy-style m_balls (0 = none)
+    char m_perfLogPath[256];    // output path for perf CSV (empty = none)
+    std::vector<SceneCamera> m_cameras;
+    std::vector<SceneBall> m_balls;
 
   public:
     TestScene( void );

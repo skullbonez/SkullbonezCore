@@ -35,7 +35,10 @@ using namespace SkullbonezCore::Math::Transformation;
 std::unique_ptr<Mesh> SkullbonezHelper::sphereMesh;
 std::unique_ptr<Shader> SkullbonezHelper::sphereShader;
 float SkullbonezHelper::sClipPlane[4] = {
-    0.0f, 1.0f, 0.0f, 1.0e9f // default: always pass (GL_CLIP_DISTANCE0 disabled)
+    0.0f,
+    1.0f,
+    0.0f,
+    1.0e9f // default: always pass (GL_CLIP_DISTANCE0 disabled)
 };
 
 /* -- SET CLIP PLANE --------------------------------------------------------------*/
@@ -99,7 +102,8 @@ void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
 void SkullbonezHelper::DrawSphere( const Matrix4& model,
                                    const Matrix4& view,
                                    const Matrix4& proj,
-                                   const float lightPos[4], bool isTransparent )
+                                   const float lightPos[4],
+                                   bool isTransparent )
 {
     if ( !sphereMesh )
     {
@@ -127,7 +131,10 @@ void SkullbonezHelper::DrawSphere( const Matrix4& model,
     sphereShader->SetMat4( "uView", view );
     sphereShader->SetMat4( "uProjection", proj );
     sphereShader->SetVec4( "uClipPlane",
-                           sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
+                           sClipPlane[0],
+                           sClipPlane[1],
+                           sClipPlane[2],
+                           sClipPlane[3] );
     sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
     sphereShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
     sphereShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );

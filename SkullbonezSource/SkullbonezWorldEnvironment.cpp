@@ -31,10 +31,10 @@ using namespace SkullbonezCore::GameObjects;
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 WorldEnvironment::WorldEnvironment( void )
-    : fluidSurfaceHeight( 0.0f ),
-      fluidDensity( 0.0f ),
-      gasDensity( 0.0f ),
-      gravity( 0.0f )
+    : m_fluidSurfaceHeight( 0.0f ),
+      m_fluidDensity( 0.0f ),
+      m_gasDensity( 0.0f ),
+      m_gravity( 0.0f )
 {
 }
 
@@ -43,10 +43,10 @@ WorldEnvironment::WorldEnvironment( float fFluidSurfaceHeight,
                                     float fFluidDensity,
                                     float fGasDensity,
                                     float fGravity )
-    : fluidSurfaceHeight( fFluidSurfaceHeight ),
-      fluidDensity( fFluidDensity ),
-      gasDensity( fGasDensity ),
-      gravity( fGravity )
+    : m_fluidSurfaceHeight( fFluidSurfaceHeight ),
+      m_fluidDensity( fFluidDensity ),
+      m_gasDensity( fGasDensity ),
+      m_gravity( fGravity )
 {
 }
 
@@ -56,38 +56,35 @@ WorldEnvironment::~WorldEnvironment()
 }
 
 /* -- RENDER FLUID ----------------------------------------------------------------*/
-void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj,
-                                    const Matrix4& reflectVP,
-                                    float time, GLuint reflectionTex,
-                                    bool flatWater, bool noReflect, bool noPerturb )
+void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, const Matrix4& reflectVP, float time, GLuint reflectionTex, bool flatWater, bool noReflect, bool noPerturb )
 {
-    if ( !this->fluidMesh )
+    if ( !m_fluidMesh )
     {
         this->BuildFluidMesh();
     }
 
     glEnable( GL_BLEND );
 
-    this->fluidShader->Use();
+    m_fluidShader->Use();
 
     Matrix4 identity;
-    this->fluidShader->SetMat4( "uModel", identity );
-    this->fluidShader->SetMat4( "uView", view );
-    this->fluidShader->SetMat4( "uProjection", proj );
-    this->fluidShader->SetMat4( "uReflectVP", reflectVP );
-    this->fluidShader->SetVec4( "uColorTint", 0.05f, 0.15f, 0.42f, 0.65f );
-    this->fluidShader->SetFloat( "uTime", time );
-    this->fluidShader->SetFloat( "uReflectionStrength", 0.35f );
-    this->fluidShader->SetInt( "uFlatWater", flatWater ? 1 : 0 );
-    this->fluidShader->SetInt( "uNoReflect", noReflect ? 1 : 0 );
-    this->fluidShader->SetInt( "uNoPerturb", noPerturb ? 1 : 0 );
+    m_fluidShader->SetMat4( "uModel", identity );
+    m_fluidShader->SetMat4( "uView", view );
+    m_fluidShader->SetMat4( "uProjection", proj );
+    m_fluidShader->SetMat4( "uReflectVP", reflectVP );
+    m_fluidShader->SetVec4( "uColorTint", 0.05f, 0.15f, 0.42f, 0.65f );
+    m_fluidShader->SetFloat( "uTime", time );
+    m_fluidShader->SetFloat( "uReflectionStrength", 0.35f );
+    m_fluidShader->SetInt( "uFlatWater", flatWater ? 1 : 0 );
+    m_fluidShader->SetInt( "uNoReflect", noReflect ? 1 : 0 );
+    m_fluidShader->SetInt( "uNoPerturb", noPerturb ? 1 : 0 );
 
     glActiveTexture( GL_TEXTURE1 );
     glBindTexture( GL_TEXTURE_2D, reflectionTex );
-    this->fluidShader->SetInt( "uReflectionTex", 1 );
+    m_fluidShader->SetInt( "uReflectionTex", 1 );
     glActiveTexture( GL_TEXTURE0 );
 
-    this->fluidMesh->Draw();
+    m_fluidMesh->Draw();
     glUseProgram( 0 );
 
     glDisable( GL_BLEND );
@@ -96,13 +93,13 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj,
 /* -- BUILD FLUID MESH ------------------------------------------------------------*/
 void WorldEnvironment::BuildFluidMesh( void )
 {
-    float h = this->fluidSurfaceHeight;
+    float h = m_fluidSurfaceHeight;
     float f = FRUSTUM_CLIP_FAR_QTY;
 
     const int N = 64;
     const float step = 2.0f * f / static_cast<float>( N );
 
-    // N*N quads, 2 triangles each, 6 position-only vertices per quad
+    // N*N quads, 2 triangles each, 6 m_position-only vertices per quad
     std::vector<float> verts;
     verts.reserve( N * N * 6 * 3 );
 
@@ -138,8 +135,8 @@ void WorldEnvironment::BuildFluidMesh( void )
         }
     }
 
-    this->fluidMesh = std::make_unique<Mesh>( verts.data(), N * N * 6, false, false );
-    this->fluidShader = std::make_unique<Shader>(
+    m_fluidMesh = std::make_unique<Mesh>( verts.data(), N * N * 6, false, false );
+    m_fluidShader = std::make_unique<Shader>(
         "SkullbonezData/shaders/water.vert",
         "SkullbonezData/shaders/water.frag" );
 }
@@ -147,77 +144,77 @@ void WorldEnvironment::BuildFluidMesh( void )
 /* -- RESET GL RESOURCES ----------------------------------------------------------*/
 void WorldEnvironment::ResetGLResources( void )
 {
-    this->fluidMesh.reset();
-    this->fluidShader.reset();
+    m_fluidMesh.reset();
+    m_fluidShader.reset();
     this->BuildFluidMesh();
 }
 
 /* -- GET FLUID SURFACE HEIGHT ----------------------------------------------------*/
 float WorldEnvironment::GetFluidSurfaceHeight( void )
 {
-    return this->fluidSurfaceHeight;
+    return m_fluidSurfaceHeight;
 }
 
 /* -- ADD WORLD FORCES ------------------------------------------------------------*/
 void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
 {
     // initialise the world force vector so we can add to it
-    Vector3 worldForce = Math::Vector::ZERO_VECTOR;
-    Vector3 worldTorque = Math::Vector::ZERO_VECTOR;
+    Vector3 m_worldForce = Math::Vector::ZERO_VECTOR;
+    Vector3 m_worldTorque = Math::Vector::ZERO_VECTOR;
 
-    // get the total volume of the target
+    // get the total m_volume of the target
     float totalVolume = target.GetVolume();
 
-    // get the submerged percentage of the volume of the target
+    // get the submerged percentage of the m_volume of the target
     float submergedVolumePercent = target.GetSubmergedVolumePercent();
 
     // get the drag coefficient of the target
-    float dragCoefficient = target.GetDragCoefficient();
+    float m_dragCoefficient = target.GetDragCoefficient();
 
     // get the projected surface area of the target
-    float projectedSurfaceArea = target.GetProjectedSurfaceArea();
+    float m_projectedSurfaceArea = target.GetProjectedSurfaceArea();
 
-    // add the force of gravity to the world force
-    worldForce.y += this->CalculateGravity( target.GetMass() );
+    // add the force of m_gravity to the world force
+    m_worldForce.y += this->CalculateGravity( target.GetMass() );
 
     // add the force of buoyancy to the world force
-    worldForce.y += this->CalculateBuoyancy( totalVolume * submergedVolumePercent );
+    m_worldForce.y += this->CalculateBuoyancy( totalVolume * submergedVolumePercent );
 
     // add the linear viscous drag to the world force
-    worldForce += this->CalculateViscousDrag( target.GetVelocity(),
-                                              submergedVolumePercent,
-                                              dragCoefficient,
-                                              projectedSurfaceArea );
+    m_worldForce += this->CalculateViscousDrag( target.GetVelocity(),
+                                                submergedVolumePercent,
+                                                m_dragCoefficient,
+                                                m_projectedSurfaceArea );
 
     // add the angular viscous drag to the world force
-    worldTorque += this->CalculateViscousDrag( target.GetAngularVelocity(),
-                                               submergedVolumePercent,
-                                               dragCoefficient,
-                                               projectedSurfaceArea );
+    m_worldTorque += this->CalculateViscousDrag( target.GetAngularVelocity(),
+                                                 submergedVolumePercent,
+                                                 m_dragCoefficient,
+                                                 m_projectedSurfaceArea );
 
-    // scale and then set the world force and torque
-    target.SetWorldForce( worldForce * changeInTime, worldTorque * changeInTime );
+    // scale and then set the world force and m_torque
+    target.SetWorldForce( m_worldForce * changeInTime, m_worldTorque * changeInTime );
 }
 
 /* -- CALCULATE GRAVITY -----------------------------------------------------------*/
 float WorldEnvironment::CalculateGravity( float objectMass )
 {
     // Fg = ma
-    return objectMass * this->gravity;
+    return objectMass * m_gravity;
 }
 
 /* -- CALCULATE BUOYANCY ----------------------------------------------------------*/
 float WorldEnvironment::CalculateBuoyancy( float submergedObjectVolume )
 {
-    // Fb = -gravity * mass of displaced fluid
-    return this->gravity * this->fluidDensity * submergedObjectVolume * -1.0f;
+    // Fb = -m_gravity * m_mass of displaced fluid
+    return m_gravity * m_fluidDensity * submergedObjectVolume * -1.0f;
 }
 
 /* -- CALCULATE VISCOUS DRAG ------------------------------------------------------*/
 Vector3 WorldEnvironment::CalculateViscousDrag( Vector3 velocityVector,
                                                 float submergedVolumePercent,
-                                                float dragCoefficient,
-                                                float projectedSurfaceArea )
+                                                float m_dragCoefficient,
+                                                float m_projectedSurfaceArea )
 {
     // if there is no velocity, there will be no viscous drag
     if ( velocityVector.IsCloseToZero() )
@@ -241,7 +238,7 @@ Vector3 WorldEnvironment::CalculateViscousDrag( Vector3 velocityVector,
                            0.5 *
                            density *
                            velocity * velocity *
-                           dragCoefficient *
+                           m_dragCoefficient *
                            surfaceArea
 
         NOTE: Density is averaged based on the amount
@@ -249,9 +246,9 @@ Vector3 WorldEnvironment::CalculateViscousDrag( Vector3 velocityVector,
     */
     return velocityVector *
            0.5f *
-           ( ( this->gasDensity * ( 1.0f - submergedVolumePercent ) ) +
-             ( this->fluidDensity * submergedVolumePercent ) ) *
+           ( ( m_gasDensity * ( 1.0f - submergedVolumePercent ) ) +
+             ( m_fluidDensity * submergedVolumePercent ) ) *
            distanceSquared *
-           dragCoefficient *
-           projectedSurfaceArea;
+           m_dragCoefficient *
+           m_projectedSurfaceArea;
 }

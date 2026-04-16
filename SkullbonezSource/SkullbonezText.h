@@ -45,21 +45,16 @@ class Text2d
     static GLuint fontTexture;                             // Font atlas GL texture
     static GLuint textVAO;                                 // VAO for text quad rendering
     static GLuint textVBO;                                 // VBO for text quad rendering
-    static std::unique_ptr<Rendering::Shader> pTextShader; // Text shader program
-    static float charAdvance[96];                          // Normalised advance width per char (advance_px / cell_height)
+    static std::unique_ptr<Rendering::Shader> pTextShader; // Text m_shader program
+    static float charAdvance[96];                          // Normalised advance m_width per char (advance_px / cell_height)
 
     // NOTES: positioning is relational to centre of client rect
     //		  xPosition and yPosition should be (< 0.5f) and (> - 0.5f)
     //		  fSize should be between 0 and 1
     //		  pass additional arguments to render variables (just like printf)
-    static void Render2dText( float xPosition,
-                              float yPosition,
-                              float fSize,
-                              const char* cRawText,
-                              ... ); // Renders text to the scene
-    static void BuildFont( const HDC hDC,
-                           const char* cFontName ); // Builds font atlas into GL texture
-    static void DeleteFont( void );                 // Releases GL font resources
+    static void Render2dText( float xPosition, float yPosition, float fSize, const char* cRawText, ... ); // Renders text to the scene
+    static void BuildFont( const HDC hDC, const char* cFontName );                                        // Builds font atlas into GL texture
+    static void DeleteFont( void );                                                                       // Releases GL font resources
 };
 } // namespace Text
 } // namespace SkullbonezCore

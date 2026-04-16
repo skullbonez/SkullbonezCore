@@ -37,7 +37,7 @@ std::unique_ptr<Shader> Text2d::pTextShader;
 float Text2d::charAdvance[96] = {};
 
 /* -- Font atlas layout constants -------------------------------------------------*/
-static const int FONT_SIZE = 32;                         // Font rendering height in pixels (CreateFont -nHeight)
+static const int FONT_SIZE = 32;                         // Font rendering m_height in pixels (CreateFont -nHeight)
 static const int FONT_CELL_W = 40;                       // Width of each character cell (wider than any Verdana glyph)
 static const int FONT_CELL_H = 48;                       // Height of each character cell (FONT_SIZE + descender/AA padding)
 static const int FONT_COLS = 16;                         // Number of columns in the atlas
@@ -82,12 +82,16 @@ void Text2d::BuildFont( const HDC hDC, const char* cFontName )
     FillRect( memDC, &fillRect, hBlackBrush );
     DeleteObject( hBlackBrush );
 
-    // Create the requested font at the cell height
+    // Create the requested font at the cell m_height
     HFONT hFont = CreateFont(
-        -FONT_SIZE, // negative = character height in pixels
-        0, 0, 0,
+        -FONT_SIZE, // negative = character m_height in pixels
+        0,
+        0,
+        0,
         FW_NORMAL,
-        FALSE, FALSE, FALSE,
+        FALSE,
+        FALSE,
+        FALSE,
         ANSI_CHARSET,
         OUT_TT_PRECIS,
         CLIP_DEFAULT_PRECIS,
@@ -137,9 +141,7 @@ void Text2d::BuildFont( const HDC hDC, const char* cFontName )
     // Upload atlas to a GL R8 texture
     glGenTextures( 1, &Text2d::fontTexture );
     glBindTexture( GL_TEXTURE_2D, Text2d::fontTexture );
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_R8,
-                  FONT_ATLAS_W, FONT_ATLAS_H,
-                  0, GL_RED, GL_UNSIGNED_BYTE, atlasData.get() );
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_R8, FONT_ATLAS_W, FONT_ATLAS_H, 0, GL_RED, GL_UNSIGNED_BYTE, atlasData.get() );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
     glBindTexture( GL_TEXTURE_2D, 0 );
@@ -159,7 +161,7 @@ void Text2d::BuildFont( const HDC hDC, const char* cFontName )
     glBindVertexArray( 0 );
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
 
-    // Compile the text shader
+    // Compile the text m_shader
     Text2d::pTextShader = std::make_unique<Shader>(
         "SkullbonezData/shaders/text.vert",
         "SkullbonezData/shaders/text.frag" );
@@ -250,7 +252,7 @@ void Text2d::Render2dText( float xPosition,
 
         float u0 = (float)( col * FONT_CELL_W ) / (float)FONT_ATLAS_W + halfU;
         float v0 = (float)( row * FONT_CELL_H ) / (float)FONT_ATLAS_H + halfV;
-        // u1 samples only the glyph's actual advance width within the cell
+        // u1 samples only the glyph's actual advance m_width within the cell
         float u1 = u0 + ( Text2d::charAdvance[idx] * (float)FONT_SIZE ) / (float)FONT_ATLAS_W - halfU;
         // v1 samples only FONT_SIZE texels (the glyph), not the full FONT_CELL_H (which includes padding)
         float v1 = (float)( row * FONT_CELL_H + FONT_SIZE ) / (float)FONT_ATLAS_H - halfV;
@@ -309,7 +311,7 @@ void Text2d::Render2dText( float xPosition,
     glEnable( GL_BLEND );
     glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
-    // Set up shader and uniforms
+    // Set up m_shader and uniforms
     Text2d::pTextShader->Use();
     Text2d::pTextShader->SetMat4( "uProjection", proj );
     Text2d::pTextShader->SetInt( "uFontTexture", 0 );

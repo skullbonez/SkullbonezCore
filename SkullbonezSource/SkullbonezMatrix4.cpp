@@ -83,8 +83,7 @@ Matrix4 Matrix4::Perspective( float fovDegrees, float aspect, float nearPlane, f
 }
 
 /* -- ORTHOGRAPHIC PROJECTION -----------------------------------------------------*/
-Matrix4 Matrix4::Ortho( float left, float right, float bottom, float top,
-                        float nearPlane, float farPlane )
+Matrix4 Matrix4::Ortho( float left, float right, float bottom, float top, float nearPlane, float farPlane )
 {
     Matrix4 result;
     for ( int i = 0; i < 16; ++i )

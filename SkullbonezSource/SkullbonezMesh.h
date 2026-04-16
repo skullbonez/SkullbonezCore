@@ -45,18 +45,14 @@ class Mesh
 {
 
   private:
-    GLuint vao;      // Vertex Array Object
-    GLuint vbo;      // Vertex Buffer Object
-    int vertexCount; // Number of vertices
-    GLenum drawMode; // GL_TRIANGLES, GL_TRIANGLE_STRIP, etc.
+    GLuint m_vao;      // Vertex Array Object
+    GLuint m_vbo;      // Vertex Buffer Object
+    int m_vertexCount; // Number of vertices
+    GLenum m_drawMode; // GL_TRIANGLES, GL_TRIANGLE_STRIP, etc.
 
   public:
-    Mesh( const float* data,
-          int vertexCount,
-          bool hasNormals,
-          bool hasTexCoords,
-          GLenum drawMode = GL_TRIANGLES ); // Upload interleaved vertex data
-    ~Mesh( void );                          // Destructor: delete VAO/VBO
+    Mesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords, GLenum drawMode = GL_TRIANGLES ); // Upload interleaved vertex data
+    ~Mesh( void );                                                                                                  // Destructor: delete VAO/VBO
 
     void Draw( void ) const;          // Bind VAO and draw
     int GetVertexCount( void ) const; // Get vertex count

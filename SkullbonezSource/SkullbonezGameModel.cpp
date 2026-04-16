@@ -46,45 +46,45 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     }
 
     // set the important members
-    this->worldEnvironment = pWorldEnv;
-    this->physicsInfo.SetPosition( vPosition );
-    this->physicsInfo.SetRotationalInertia( vRotationalInertia );
-    this->physicsInfo.SetMass( fMass );
-    this->physicsInfo.SetFrictionCoefficient( COEFFICIENT_FRICTION );
+    m_worldEnvironment = pWorldEnv;
+    m_physicsInfo.SetPosition( vPosition );
+    m_physicsInfo.SetRotationalInertia( vRotationalInertia );
+    m_physicsInfo.SetMass( fMass );
+    m_physicsInfo.SetFrictionCoefficient( COEFFICIENT_FRICTION );
 
     // initialise pointers
-    this->terrain = 0;
+    m_terrain = 0;
 
     // initialise other members
-    this->projectedSurfaceArea = 0.0f;
-    this->dragCoefficient = 0.0f;
-    this->isGrounded = false;
-    this->isResponseRequired = false;
+    m_projectedSurfaceArea = 0.0f;
+    m_dragCoefficient = 0.0f;
+    m_isGrounded = false;
+    m_isResponseRequired = false;
 }
 
 /* -- APPLY FORCE -----------------------------------------------------------------*/
 void GameModel::SetImpulseForce( const Vector3& vForce,
                                  const Vector3& vApplicationPoint )
 {
-    this->physicsInfo.SetImpulseForce( vForce, vApplicationPoint );
+    m_physicsInfo.SetImpulseForce( vForce, vApplicationPoint );
 }
 
 /* -- SET WORLD FORCE -------------------------------------------------------------*/
 void GameModel::SetWorldForce( const Vector3& vWorldForce, const Vector3& vWorldTorque )
 {
-    this->physicsInfo.SetWorldForce( vWorldForce, vWorldTorque );
+    m_physicsInfo.SetWorldForce( vWorldForce, vWorldTorque );
 }
 
 /* -- SET COEFFICIENT RESTITUTION -------------------------------------------------*/
 void GameModel::SetCoefficientRestitution( float fCoefficientRestitution )
 {
-    this->physicsInfo.SetCoefficientRestitution( fCoefficientRestitution );
+    m_physicsInfo.SetCoefficientRestitution( fCoefficientRestitution );
 }
 
 /* -- GET BOUNDING RADIUS ---------------------------------------------------------*/
 float GameModel::GetBoundingRadius( void )
 {
-    auto* sphere = dynamic_cast<BoundingSphere*>( this->boundingVolume.get() );
+    auto* sphere = dynamic_cast<BoundingSphere*>( m_boundingVolume.get() );
     if ( !sphere )
     {
         return 0.0f;
@@ -95,26 +95,26 @@ float GameModel::GetBoundingRadius( void )
 /* -- ADD BOUNDING SPHERE ---------------------------------------------------------*/
 void GameModel::AddBoundingSphere( float fRadius )
 {
-    this->boundingVolume = std::make_unique<BoundingSphere>( fRadius, Vector::ZERO_VECTOR );
+    m_boundingVolume = std::make_unique<BoundingSphere>( fRadius, Vector::ZERO_VECTOR );
     this->UpdateModelInfo();
 }
 
 /* -- GET DRAG COEFFICIENT --------------------------------------------------------*/
 float GameModel::GetDragCoefficient( void )
 {
-    return this->dragCoefficient;
+    return m_dragCoefficient;
 }
 
 /* -- GET PROJECTED SURFACE AREA --------------------------------------------------*/
 float GameModel::GetProjectedSurfaceArea( void )
 {
-    return this->projectedSurfaceArea;
+    return m_projectedSurfaceArea;
 }
 
 /* -- GET VELOCITY ----------------------------------------------------------------*/
 const Vector3& GameModel::GetVelocity( void )
 {
-    return this->physicsInfo.GetVelocity();
+    return m_physicsInfo.GetVelocity();
 }
 
 /* -- UPDATE MODEL INFO -----------------------------------------------------------*/
@@ -136,41 +136,41 @@ float GameModel::GetModelCollisionTime( GameModel& collisionTarget,
     Ray focusRay = CollisionResponse::CalculateRay( *this, changeInTime );
 
     // perform the collision test
-    return boundingVolume->TestCollision( *collisionTarget.boundingVolume,
-                                          targetRay,
-                                          focusRay );
+    return m_boundingVolume->TestCollision( *collisionTarget.m_boundingVolume,
+                                            targetRay,
+                                            focusRay );
 }
 
 /* -- COLLISION RESPONSE GAME MODEL -----------------------------------------------*/
 void GameModel::CollisionResponseGameModel( GameModel& responseTarget )
 {
     // if there has been no collision, throw an exception!
-    if ( !responseTarget.isResponseRequired || !this->isResponseRequired )
+    if ( !responseTarget.m_isResponseRequired || !m_isResponseRequired )
     {
         throw std::runtime_error( "Cannot perform collision response when no collision has occured!  (GameModel::CollisionResponseGameModel)" );
     }
 
-    // respond to the collision (velocity-only — position advancement handled by RunPhysics)
+    // respond to the collision (velocity-only — m_position advancement handled by RunPhysics)
     CollisionResponse::RespondCollisionGameModels( *this, responseTarget );
 
     // clear response flags so both models can participate in further collisions this frame
-    this->isResponseRequired = false;
-    responseTarget.isResponseRequired = false;
+    m_isResponseRequired = false;
+    responseTarget.m_isResponseRequired = false;
 }
 
 /* -- STATIC OVERLAP RESPONSE GAME MODEL ------------------------------------------*/
 void GameModel::StaticOverlapResponseGameModel( GameModel& overlapTarget )
 {
-    // check if the two spheres are currently overlapping (handles grounded/slow balls
+    // check if the two spheres are currently overlapping (handles grounded/slow m_balls
     // where the sweep test returns NO_COLLISION due to near-zero movement)
-    auto* thisSphere = dynamic_cast<BoundingSphere*>( this->boundingVolume.get() );
-    auto* targetSphere = dynamic_cast<BoundingSphere*>( overlapTarget.boundingVolume.get() );
+    auto* thisSphere = dynamic_cast<BoundingSphere*>( m_boundingVolume.get() );
+    auto* targetSphere = dynamic_cast<BoundingSphere*>( overlapTarget.m_boundingVolume.get() );
     if ( !thisSphere || !targetSphere )
     {
         return;
     }
 
-    Vector3 delta = overlapTarget.physicsInfo.GetPosition() - this->physicsInfo.GetPosition();
+    Vector3 delta = overlapTarget.m_physicsInfo.GetPosition() - m_physicsInfo.GetPosition();
     float dist = Vector::VectorMag( delta );
     float radii = thisSphere->GetRadius() + targetSphere->GetRadius();
 
@@ -181,18 +181,18 @@ void GameModel::StaticOverlapResponseGameModel( GameModel& overlapTarget )
 
     // spheres are overlapping — positional correction only
     // (skip full velocity response to avoid division by zero in angular
-    // response when relative velocity is near-zero on grounded balls)
+    // response when relative velocity is near-zero on grounded m_balls)
     Vector3 axis = delta / dist;
     float halfOverlap = ( radii - dist ) * 0.5f;
-    this->physicsInfo.SetPosition( this->physicsInfo.GetPosition() - axis * halfOverlap );
-    overlapTarget.physicsInfo.SetPosition( overlapTarget.physicsInfo.GetPosition() + axis * halfOverlap );
+    m_physicsInfo.SetPosition( m_physicsInfo.GetPosition() - axis * halfOverlap );
+    overlapTarget.m_physicsInfo.SetPosition( overlapTarget.m_physicsInfo.GetPosition() + axis * halfOverlap );
 }
 
 /* -- COLLISION RESPONSE TERRAIN --------------------------------------------------*/
 void GameModel::CollisionResponseTerrain( float remainingTimeStep )
 {
     // if there has been no collision, throw an exception!
-    if ( !this->isResponseRequired )
+    if ( !m_isResponseRequired )
     {
         throw std::runtime_error( "Cannot perform collision response when no collision has occured!  (GameModel::CollisionResponseTerrain)" );
     }
@@ -200,131 +200,131 @@ void GameModel::CollisionResponseTerrain( float remainingTimeStep )
     // respond to the collision...
     CollisionResponse::RespondCollisionTerrain( *this );
 
-    // update the position based on remaining time step
+    // update the m_position based on remaining time step
     this->UpdatePosition( remainingTimeStep );
 
     // set the collided collision object to null now the reaction has taken place
-    this->isResponseRequired = false;
+    m_isResponseRequired = false;
 }
 
 /* -- IS RESPONSE REQUIRED --------------------------------------------------------*/
 bool GameModel::IsResponseRequired( void )
 {
-    return this->isResponseRequired;
+    return m_isResponseRequired;
 }
 
 /* -- RENDER COLLISION BOUNDS -----------------------------------------------------*/
 void GameModel::RenderCollisionBounds( const Matrix4& view, const Matrix4& proj, const float lightPos[4] )
 {
-    // Build the rotation matrix from the physics orientation quaternion.
-    // The bounding volume renders with: T(pos) * R * T(localOffset) * S(radius).
-    Matrix4 rotation = Matrix4::FromQuaternion( this->physicsInfo.GetOrientation() );
-    this->boundingVolume->DEBUG_RenderCollisionVolume( this->physicsInfo.GetPosition(), rotation, view, proj, lightPos );
+    // Build the rotation matrix from the physics m_orientation quaternion.
+    // The bounding m_volume renders with: T(pos) * R * T(localOffset) * S(m_radius).
+    Matrix4 rotation = Matrix4::FromQuaternion( m_physicsInfo.GetOrientation() );
+    m_boundingVolume->DEBUG_RenderCollisionVolume( m_physicsInfo.GetPosition(), rotation, view, proj, lightPos );
 }
 
 /* -- UPDATE VELOCITY -------------------------------------------------------------*/
 void GameModel::ApplyForces( float changeInTime )
 {
     // throttle the angular velocity
-    this->physicsInfo.ThrottleAngularVelocity();
+    m_physicsInfo.ThrottleAngularVelocity();
 
     // apply the world forces
     this->ApplyWorldForces( changeInTime );
 
     // apply the forces to the model
-    this->physicsInfo.ApplyForces();
+    m_physicsInfo.ApplyForces();
 }
 
 /* -- APPLY WORLD FORCES ----------------------------------------------------------*/
 void GameModel::ApplyWorldForces( float changeInTime )
 {
     // apply the world forces now we know the pointer is valid
-    this->worldEnvironment->AddWorldForces( *this, changeInTime );
+    m_worldEnvironment->AddWorldForces( *this, changeInTime );
 }
 
 /* -- CALCULATE PROJECTED SURFACE AREA --------------------------------------------*/
 void GameModel::CalculateProjectedSurfaceArea( void )
 {
     // return the average submerged percentage
-    this->projectedSurfaceArea = this->boundingVolume->GetProjectedSurfaceArea();
+    m_projectedSurfaceArea = m_boundingVolume->GetProjectedSurfaceArea();
 }
 
 /* -- CALCULATE DRAG COEFFICIENT --------------------------------------------------*/
 void GameModel::CalculateDragCoefficient( void )
 {
     // return the average submerged percentage
-    this->dragCoefficient = this->boundingVolume->GetDragCoefficient();
+    m_dragCoefficient = m_boundingVolume->GetDragCoefficient();
 }
 
 /* -- GET VOLUME ------------------------------------------------------------------*/
 float GameModel::GetVolume( void )
 {
-    return this->physicsInfo.GetVolume();
+    return m_physicsInfo.GetVolume();
 }
 
 /* -- UPDATE POSITION -------------------------------------------------------------*/
 void GameModel::UpdatePosition( float changeInTime )
 {
-    // update position based on airbourne model
-    this->physicsInfo.UpdatePosition( changeInTime );
+    // update m_position based on airbourne model
+    m_physicsInfo.UpdatePosition( changeInTime );
 
-    // slam the ball to the terrain height if it has fallen below
+    // slam the ball to the m_terrain m_height if it has fallen below
     this->DEBUG_SetSphereToTerrain();
 }
 
 /* -- UPDATE POSITION -------------------------------------------------------------*/
 void GameModel::CalculateVolume( void )
 {
-    this->physicsInfo.SetVolume( this->boundingVolume->GetVolume() );
+    m_physicsInfo.SetVolume( m_boundingVolume->GetVolume() );
 }
 
 /* -- GET MASS --------------------------------------------------------------------*/
 float GameModel::GetMass( void )
 {
-    return this->physicsInfo.GetMass();
+    return m_physicsInfo.GetMass();
 }
 
 /* -- GET ANGULAR VELOCITY --------------------------------------------------------*/
 const Vector3& GameModel::GetAngularVelocity( void )
 {
-    return this->physicsInfo.GetAngularVelocity();
+    return m_physicsInfo.GetAngularVelocity();
 }
 
 /* -- SET TERRAIN -----------------------------------------------------------------*/
 void GameModel::SetTerrain( Terrain* pTerrain )
 {
-    this->terrain = pTerrain;
+    m_terrain = pTerrain;
 }
 
 /* -- IS GROUNDED -----------------------------------------------------------------*/
 bool GameModel::IsGrounded( void )
 {
-    return this->isGrounded;
+    return m_isGrounded;
 }
 
 /* -- SET IS GROUNDED -------------------------------------------------------------*/
 void GameModel::SetIsGrounded( bool fIsGrounded )
 {
-    this->isGrounded = fIsGrounded;
+    m_isGrounded = fIsGrounded;
 }
 
 /* -- GET TERRAIN COLLISION TIME ---------------------------------------------------------------------------------------------------------------------------------------*/
 float GameModel::GetTerrainCollisionTime( float changeInTime )
 {
     // calculate the ray for the current dynamics object
-    this->responseInformation.testingRay = CollisionResponse::CalculateRay( *this, changeInTime );
+    m_responseInformation.testingRay = CollisionResponse::CalculateRay( *this, changeInTime );
 
     // if the dynamics object is stationary, no collision will occur
-    if ( this->responseInformation.testingRay.vector3.IsCloseToZero() )
+    if ( m_responseInformation.testingRay.vector3.IsCloseToZero() )
     {
         return NO_COLLISION;
     }
 
-    // the origin will be in a different position based on the geometrical shape of the object
-    if ( dynamic_cast<BoundingSphere*>( this->boundingVolume.get() ) )
+    // the origin will be in a different m_position based on the geometrical shape of the object
+    if ( dynamic_cast<BoundingSphere*>( m_boundingVolume.get() ) )
     {
-        // offset the origin by the radius of the sphere
-        this->responseInformation.testingRay.origin.y -= dynamic_cast<BoundingSphere*>( this->boundingVolume.get() )->GetRadius();
+        // offset the origin by the m_radius of the sphere
+        m_responseInformation.testingRay.origin.y -= dynamic_cast<BoundingSphere*>( m_boundingVolume.get() )->GetRadius();
     }
     else
     {
@@ -333,40 +333,40 @@ float GameModel::GetTerrainCollisionTime( float changeInTime )
     }
 
     // if out of bounds, no collision has occured
-    if ( !this->terrain->IsInBounds( this->responseInformation.testingRay.origin.x, this->responseInformation.testingRay.origin.z ) )
+    if ( !m_terrain->IsInBounds( m_responseInformation.testingRay.origin.x, m_responseInformation.testingRay.origin.z ) )
     {
         return NO_COLLISION;
     }
 
     // store the plane vertically aligned with the object...
-    this->responseInformation.testingPlane = GeometricMath::ComputePlane( this->terrain->LocatePolygon( this->responseInformation.testingRay.origin.x,
-                                                                                                        this->responseInformation.testingRay.origin.z ) );
+    m_responseInformation.testingPlane = GeometricMath::ComputePlane( m_terrain->LocatePolygon( m_responseInformation.testingRay.origin.x,
+                                                                                                m_responseInformation.testingRay.origin.z ) );
 
     // if the ball is grounded then it has already hit the ground
-    if ( this->isGrounded )
+    if ( m_isGrounded )
     {
-        this->responseInformation.collisionTime = 0.0f;
+        m_responseInformation.collisionTime = 0.0f;
         return 0.0f;
     }
 
     // save the collision time
-    this->responseInformation.collisionTime = GeometricMath::CalculateIntersectionTime( this->responseInformation.testingPlane, this->responseInformation.testingRay );
+    m_responseInformation.collisionTime = GeometricMath::CalculateIntersectionTime( m_responseInformation.testingPlane, m_responseInformation.testingRay );
 
     // return the point in time where the collision has occured (yes, we do save this to a member but it is more intuitive just to return the value as well)
-    return this->responseInformation.collisionTime;
+    return m_responseInformation.collisionTime;
 }
 
 /* -- COLLISION DETECT TERRAIN -----------------------------------------------------------------------------------------------------------------------------------------*/
 float GameModel::CollisionDetectTerrain( float changeInTime )
 {
-    // ensure terrain pointer is valid
-    if ( !this->terrain )
+    // ensure m_terrain pointer is valid
+    if ( !m_terrain )
     {
         throw std::runtime_error( "Terrain pointer not valid!  (GameModel::CollisionDetectTerrain)" );
     }
 
     // check to ensure pending responses have been responded to
-    if ( this->isResponseRequired )
+    if ( m_isResponseRequired )
     {
         throw std::runtime_error( "Cannot detect collision when a response is required first!  (GameModel::CollisionDetectTerrain)" );
     }
@@ -385,11 +385,11 @@ float GameModel::CollisionDetectTerrain( float changeInTime )
         collisionTime *= changeInTime;
 
         // set response required flag to true
-        this->isResponseRequired = true;
+        m_isResponseRequired = true;
 
         // store the response information
-        this->responseInformation.collidedPlane = this->responseInformation.testingPlane;
-        this->responseInformation.collidedRay = this->responseInformation.testingRay;
+        m_responseInformation.collidedPlane = m_responseInformation.testingPlane;
+        m_responseInformation.collidedRay = m_responseInformation.testingRay;
     }
 
     // return when the collision will occur
@@ -401,7 +401,7 @@ float GameModel::CollisionDetectGameModel( GameModel& collisionTarget,
                                            float changeInTime )
 {
     // if there is a collision pending to be responded to between one of the two models
-    if ( this->isResponseRequired || collisionTarget.isResponseRequired )
+    if ( m_isResponseRequired || collisionTarget.m_isResponseRequired )
     {
         // throw an exception!
         throw std::runtime_error( "Cannot detect collision when a response is required first!  (GameModel::CollisionDetectGameModel)" );
@@ -420,8 +420,8 @@ float GameModel::CollisionDetectGameModel( GameModel& collisionTarget,
     {
         // perform the cap - cap time to be applied by converting collision from time ratio to actual seconds
         collisionTime *= changeInTime;
-        this->isResponseRequired = true;
-        collisionTarget.isResponseRequired = true;
+        m_isResponseRequired = true;
+        collisionTarget.m_isResponseRequired = true;
     }
 
     // return when the collision will occur
@@ -431,42 +431,42 @@ float GameModel::CollisionDetectGameModel( GameModel& collisionTarget,
 /* -- GET POSITION -----------------------------------------------------------------------------------------------------------------------------------------------------*/
 const Vector3& GameModel::GetPosition( void )
 {
-    return this->physicsInfo.GetPosition();
+    return m_physicsInfo.GetPosition();
 }
 
 /* -- DEBUG_SET SPHERE TO TERRAIN --------------------------------------------------------------------------------------------------------------------------------------*/
 void GameModel::DEBUG_SetSphereToTerrain( void )
 {
     // if we are not in bounds then exit now!
-    if ( !this->terrain->IsInBounds( this->physicsInfo.GetPosition().x, this->physicsInfo.GetPosition().z ) )
+    if ( !m_terrain->IsInBounds( m_physicsInfo.GetPosition().x, m_physicsInfo.GetPosition().z ) )
     {
         return;
     }
 
-    // get the total radius
-    float rad = dynamic_cast<BoundingSphere*>( this->boundingVolume.get() )->GetRadius();
+    // get the total m_radius
+    float rad = dynamic_cast<BoundingSphere*>( m_boundingVolume.get() )->GetRadius();
 
-    // get the height of the terrain at the current XZ position
-    float height = this->terrain->GetTerrainHeightAt( this->physicsInfo.GetPosition().x, this->physicsInfo.GetPosition().z );
+    // get the m_height of the m_terrain at the current XZ m_position
+    float m_height = m_terrain->GetTerrainHeightAt( m_physicsInfo.GetPosition().x, m_physicsInfo.GetPosition().z );
 
-    // if we are lower than the terrain
-    if ( this->physicsInfo.GetPosition().y - rad < height )
+    // if we are lower than the m_terrain
+    if ( m_physicsInfo.GetPosition().y - rad < m_height )
     {
-        // work out the position we will update the model to
-        Vector3 updatePos( this->physicsInfo.GetPosition().x,
-                           height + rad,
-                           this->physicsInfo.GetPosition().z );
+        // work out the m_position we will update the model to
+        Vector3 updatePos( m_physicsInfo.GetPosition().x,
+                           m_height + rad,
+                           m_physicsInfo.GetPosition().z );
 
-        // update the position
-        this->physicsInfo.SetPosition( updatePos );
+        // update the m_position
+        m_physicsInfo.SetPosition( updatePos );
     }
 }
 
 /* -- GET SUBMERGED VOLUME PERCENT --------------------------------------------------------------------------------------------------------------------------------------*/
 float GameModel::GetSubmergedVolumePercent( void )
 {
-    float fluidSurfaceHeight = this->worldEnvironment->GetFluidSurfaceHeight();
-    float totalPercentage = this->boundingVolume->GetSubmergedVolumePercent( fluidSurfaceHeight - this->physicsInfo.GetPosition().y );
+    float m_fluidSurfaceHeight = m_worldEnvironment->GetFluidSurfaceHeight();
+    float totalPercentage = m_boundingVolume->GetSubmergedVolumePercent( m_fluidSurfaceHeight - m_physicsInfo.GetPosition().y );
 
     // return the submerged percentage
     return totalPercentage;

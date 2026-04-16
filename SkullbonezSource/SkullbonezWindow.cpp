@@ -33,9 +33,9 @@ SkullbonezWindow* SkullbonezWindow::pInstance = 0;
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 SkullbonezWindow::SkullbonezWindow()
 {
-    this->sWindow = 0;
-    this->sDevice = 0;
-    this->sRenderContext = 0;
+    m_sWindow = 0;
+    m_sDevice = 0;
+    m_sRenderContext = 0;
 }
 
 /* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
@@ -61,17 +61,17 @@ void SkullbonezWindow::Destroy( void )
 }
 
 /* -- SET WINDOW DIMENSIONS -------------------------------------------------------*/
-void SkullbonezWindow::SetWindowDimensions( int width, int height )
+void SkullbonezWindow::SetWindowDimensions( int m_width, int m_height )
 {
-    this->sWindowDimensions.x = width;
-    this->sWindowDimensions.y = height;
+    m_sWindowDimensions.x = m_width;
+    m_sWindowDimensions.y = m_height;
 }
 
 /* -- SET WINDOW DIMENSIONS -------------------------------------------------------*/
 void SkullbonezWindow::SetWindowDimensions( const RECT dimensions )
 {
-    this->sWindowDimensions.x = dimensions.right;
-    this->sWindowDimensions.y = dimensions.bottom;
+    m_sWindowDimensions.x = dimensions.right;
+    m_sWindowDimensions.y = dimensions.bottom;
 }
 
 /* -- HANDLE SCREEN RESIZE --------------------------------------------------------*/
@@ -85,22 +85,25 @@ void SkullbonezWindow::HandleScreenResize( void )
     }
 
     // Create an instance of our window class
-    SkullbonezWindow* cWindow = SkullbonezWindow::Instance();
+    SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
 
-    // Set width and height to local variables
-    int width = cWindow->sWindowDimensions.x;
-    int height = cWindow->sWindowDimensions.y;
+    // Set m_width and m_height to local variables
+    int m_width = m_cWindow->m_sWindowDimensions.x;
+    int m_height = m_cWindow->m_sWindowDimensions.y;
 
-    if ( !height )
+    if ( !m_height )
     {
-        height = 1; // Avoid division by zero
+        m_height = 1; // Avoid division by zero
     }
-    glViewport( 0, 0, width, height ); // Set viewport (screen boundaries)
+    glViewport( 0, 0, m_width, m_height ); // Set viewport (screen m_boundaries)
 
     // Build and store the perspective projection matrix
-    float aspect = (float)width / (float)height;
-    cWindow->projectionMatrix = Math::Transformation::Matrix4::Perspective(
-        45.0f, aspect, FRUSTUM_CLIP_SHORT_QTY, FRUSTUM_CLIP_FAR_QTY );
+    float aspect = (float)m_width / (float)m_height;
+    m_cWindow->projectionMatrix = Math::Transformation::Matrix4::Perspective(
+        45.0f,
+        aspect,
+        FRUSTUM_CLIP_SHORT_QTY,
+        FRUSTUM_CLIP_FAR_QTY );
 }
 
 /* -- CHANGE TO FULLSCREEN --------------------------------------------------------*/
@@ -136,12 +139,12 @@ void SkullbonezWindow::ChangeToFullScreen( int xResolution, int yResolution )
         PostQuitMessage( 0 );
     }
 
-    dmSettings.dmPelsWidth = xResolution;  // Set new width
-    dmSettings.dmPelsHeight = yResolution; // Set new height
+    dmSettings.dmPelsWidth = xResolution;  // Set new m_width
+    dmSettings.dmPelsHeight = yResolution; // Set new m_height
 
     // Specifiy what we have changed
-    dmSettings.dmFields = DM_PELSWIDTH | // We changed width
-                          DM_PELSHEIGHT; // We changed height
+    dmSettings.dmFields = DM_PELSWIDTH | // We changed m_width
+                          DM_PELSHEIGHT; // We changed m_height
 
     // Save result of our change
     int result = ChangeDisplaySettings( &dmSettings,      // Change to this struct
@@ -159,7 +162,7 @@ void SkullbonezWindow::ChangeToFullScreen( int xResolution, int yResolution )
 bool SkullbonezWindow::SetupPixelFormat( void )
 {
     // Create an instance of our window class
-    SkullbonezWindow* cWindow = SkullbonezWindow::Instance();
+    SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
     PIXELFORMATDESCRIPTOR pfd = { 0 }; // Declare struct to describe out pixel format
     int pixelFormat = NULL;            // To hold our bits per pixel information
 
@@ -177,7 +180,7 @@ bool SkullbonezWindow::SetupPixelFormat( void )
     pfd.cStencilBits = 0;                        // No stencil bits
 
     // Gets a pixel format that best matches what we have requested
-    pixelFormat = ChoosePixelFormat( cWindow->sDevice, &pfd );
+    pixelFormat = ChoosePixelFormat( m_cWindow->m_sDevice, &pfd );
 
     // If pixel format was not set from the previous line, fail
     if ( !pixelFormat )
@@ -187,7 +190,7 @@ bool SkullbonezWindow::SetupPixelFormat( void )
     }
 
     // If SetPixelFormat fails, we fail too
-    if ( !SetPixelFormat( cWindow->sDevice, pixelFormat, &pfd ) )
+    if ( !SetPixelFormat( m_cWindow->m_sDevice, pixelFormat, &pfd ) )
     {
         this->MsgBox( "SetPixelFormat failed", "Error", MB_OK );
         return false;
@@ -201,7 +204,7 @@ bool SkullbonezWindow::SetupPixelFormat( void )
 LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 {
     // Create an instance of our window class
-    SkullbonezWindow* cWindow = SkullbonezWindow::Instance();
+    SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
     PAINTSTRUCT ps = { 0 }; // Assists with repainting the client area
 
     try
@@ -215,10 +218,10 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 
         // WM_SIZE fired on a resize
         case WM_SIZE:
-            // LoWord = width, HiWord = height
-            cWindow->SetWindowDimensions( LOWORD( lParam ), HIWORD( lParam ) );
+            // LoWord = m_width, HiWord = m_height
+            m_cWindow->SetWindowDimensions( LOWORD( lParam ), HIWORD( lParam ) );
             // Adjust OpenGL viewport matrix
-            cWindow->HandleScreenResize();
+            m_cWindow->HandleScreenResize();
             break;
 
         // WM_PAINT fired when client area is invalidated
@@ -244,7 +247,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
     }
     catch ( const std::exception& e ) // Catch all exceptions thrown by the Skullbonez Core
     {
-        cWindow->MsgBox( e.what(), "FATAL ERROR", MB_OK );
+        m_cWindow->MsgBox( e.what(), "FATAL ERROR", MB_OK );
     }
 
     // Now we have done whatever we wanted to do, let windows do anything else it
@@ -273,7 +276,7 @@ static GLADapiproc GladLoadFunc( const char* name )
 /* -- INITIALISE OPEN GL ----------------------------------------------------------*/
 void SkullbonezWindow::InitialiseOpenGL( void )
 {
-    SkullbonezWindow* cWindow = SkullbonezWindow::Instance();
+    SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
 
     if ( !SetupPixelFormat() )
     {
@@ -282,8 +285,8 @@ void SkullbonezWindow::InitialiseOpenGL( void )
 
     // Bootstrap: create a temporary legacy context so we can load
     // wglCreateContextAttribsARB, then replace it with a 3.3 context.
-    HGLRC tempContext = wglCreateContext( cWindow->sDevice );
-    wglMakeCurrent( cWindow->sDevice, tempContext );
+    HGLRC tempContext = wglCreateContext( m_cWindow->m_sDevice );
+    wglMakeCurrent( m_cWindow->m_sDevice, tempContext );
 
     // Resolve the modern context creation function
     typedef HGLRC( WINAPI * PFNWGLCREATECONTEXTATTRIBSARBPROC )( HDC, HGLRC, const int* );
@@ -294,29 +297,32 @@ void SkullbonezWindow::InitialiseOpenGL( void )
     {
         // Request OpenGL 3.3 Compatibility Profile (allows FFP during migration)
         const int attribs[] = {
-            0x2091, 3,   // WGL_CONTEXT_MAJOR_VERSION_ARB
-            0x2092, 3,   // WGL_CONTEXT_MINOR_VERSION_ARB
-            0x9126, 0x2, // WGL_CONTEXT_PROFILE_MASK_ARB = COMPATIBILITY (0x2)
-            0            // terminator
+            0x2091,
+            3, // WGL_CONTEXT_MAJOR_VERSION_ARB
+            0x2092,
+            3, // WGL_CONTEXT_MINOR_VERSION_ARB
+            0x9126,
+            0x2, // WGL_CONTEXT_PROFILE_MASK_ARB = COMPATIBILITY (0x2)
+            0    // terminator
         };
 
-        HGLRC modernContext = wglCreateContextAttribsARB( cWindow->sDevice, 0, attribs );
+        HGLRC modernContext = wglCreateContextAttribsARB( m_cWindow->m_sDevice, 0, attribs );
         if ( modernContext )
         {
             wglMakeCurrent( NULL, NULL );
             wglDeleteContext( tempContext );
-            wglMakeCurrent( cWindow->sDevice, modernContext );
-            cWindow->sRenderContext = modernContext;
+            wglMakeCurrent( m_cWindow->m_sDevice, modernContext );
+            m_cWindow->m_sRenderContext = modernContext;
         }
         else
         {
             // Fall back to legacy context if 3.3 is not available
-            cWindow->sRenderContext = tempContext;
+            m_cWindow->m_sRenderContext = tempContext;
         }
     }
     else
     {
-        cWindow->sRenderContext = tempContext;
+        m_cWindow->m_sRenderContext = tempContext;
     }
 
     // Load all GL function pointers via GLAD
@@ -330,8 +336,8 @@ void SkullbonezWindow::InitialiseOpenGL( void )
 
     // Set window dimensions
     RECT windowDimensions;
-    GetClientRect( cWindow->sWindow, &windowDimensions );
-    cWindow->SetWindowDimensions( windowDimensions );
+    GetClientRect( m_cWindow->m_sWindow, &windowDimensions );
+    m_cWindow->SetWindowDimensions( windowDimensions );
 
     HandleScreenResize();
 }
@@ -355,9 +361,9 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
     RegisterClass( &wndclass ); // Register class with OS
 
     // Set full screen mode flag member
-    this->fIsFullScreenMode = isFullScreenMode;
+    m_fIsFullScreenMode = isFullScreenMode;
 
-    if ( this->fIsFullScreenMode )
+    if ( m_fIsFullScreenMode )
     {
         // Set window properties for full screen mode
         dwStyle = WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
@@ -379,8 +385,8 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
                          dwStyle,     // Set defined style
                          0,           // Window xPos
                          0,           // Window yPos
-                         SCREEN_X,    // Screen width
-                         SCREEN_Y,    // Screen height
+                         SCREEN_X,    // Screen m_width
+                         SCREEN_Y,    // Screen m_height
                          NULL,        // Parent window handle
                          NULL,        // Window menu handle
                          hInstance,   // Application instance
@@ -395,14 +401,14 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
     SetFocus( hWnd );                  // Set keyboard focus
                                        // to our window
 
-    this->sWindow = hWnd;
+    m_sWindow = hWnd;
 }
 
 /* -- SET TITLE TEXT --------------------------------------------------------------*/
 void SkullbonezWindow::SetTitleText( const char* cText )
 {
     // set the window title text
-    SetWindowText( this->sWindow, cText );
+    SetWindowText( m_sWindow, cText );
 }
 
 /* -- MSG BOX ---------------------------------------------------------------------*/
@@ -410,5 +416,5 @@ int SkullbonezWindow::MsgBox( const char* cMsgBoxText,
                               const char* cMsgBoxTitle,
                               const UINT iMsgBoxType )
 {
-    return ( MessageBox( this->sWindow, cMsgBoxText, cMsgBoxTitle, iMsgBoxType ) );
+    return ( MessageBox( m_sWindow, cMsgBoxText, cMsgBoxTitle, iMsgBoxType ) );
 }

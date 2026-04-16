@@ -19,8 +19,7 @@
 
     General TODO list:
     --------------------------------------------------------------------------
-    - Add const to method level + check on pointers TO objects (ensure not
-      just const on the pointer itself).
+    - Add const to method level + check on pointers TO objects (ensure not just const on the pointer itself).
     - Inherit across namespace from Geometry::Ray to
       Math::DynamicsObject::CollisionRay
     - Return const references where appropriate, check returned references

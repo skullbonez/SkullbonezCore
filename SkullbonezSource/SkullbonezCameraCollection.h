@@ -44,29 +44,28 @@ class CameraCollection
 {
 
   private:
-    static CameraCollection* pInstance;        // Singleton instance pointer
-    Camera cameraArray[TOTAL_CAMERA_COUNT];    // Holds the cameras
-    Camera primaryStore;                       // Holds initial position of primary camera after selection as primary (helps calculate how much to update the other cameras when the current primary loses its focus)
-    Camera tweenPath;                          // Holds the current tweening path
-    Camera tweenCamera;                        // Holds the state of the current tween
-    Camera tweenStart;                         // Holds the tweens starting camera
-    uint32_t cameraHashes[TOTAL_CAMERA_COUNT]; // Holds the hashed camera name keys
-    int arrayPosition;                         // Current array position
-    int selectedCamera;                        // Current selected camera
-    float tweenSpeed;                          // Camera tweening speed
-    bool isTweening;                           // Flag indicating whether the camera is in the middle of a tween or not
-    float tweenProgress;                       // Stores the state of the current tween
-    Terrain* terrain;                          // Stores a pointer to the terrain for tweening collision purposes
-    Matrix4 currentViewMatrix;                 // Current view matrix (updated each frame by SetCamera)
+    static CameraCollection* pInstance;          // Singleton instance pointer
+    Camera m_cameraArray[TOTAL_CAMERA_COUNT];    // Holds the m_cameras
+    Camera m_primaryStore;                       // Holds initial m_position of primary camera after selection as primary (helps calculate how much to update the other m_cameras when the current primary loses its focus)
+    Camera m_tweenPath;                          // Holds the current tweening path
+    Camera m_tweenCamera;                        // Holds the state of the current tween
+    Camera m_tweenStart;                         // Holds the tweens starting camera
+    uint32_t m_cameraHashes[TOTAL_CAMERA_COUNT]; // Holds the hashed camera name keys
+    int m_arrayPosition;                         // Current array m_position
+    int m_selectedCamera;                        // Current selected camera
+    float m_tweenSpeed;                          // Camera tweening speed
+    bool m_isTweening;                           // Flag indicating whether the camera is in the middle of a tween or not
+    float m_tweenProgress;                       // Stores the state of the current tween
+    Terrain* m_terrain;                          // Stores a pointer to the m_terrain for tweening collision purposes
+    Matrix4 m_currentViewMatrix;                 // Current view matrix (updated each frame by SetCamera)
 
     CameraCollection( void ); // Constructor
     ~CameraCollection( void ) = default;
-    void SetViewMatrix( Camera& cCameraData ); // Computes currentViewMatrix from the supplied camera data
-    int FindIndex( uint32_t hash );            // Returns the index of the specified camera
-    Camera GetUpdateCamera( void );            // Returns the current update camera for relative updates
-    void UpdateTweenPath( void );              // Alters the tween path member to end at the required destination (it is important to call this during tweens as the destination can move about the scene during the tween)
-    void SetTweenPath( int fromIndex,
-                       int toIndex ); // Sets the tween path member to the required tween path (specify fromIndex as -1 to use the tween camera as the from camera)
+    void SetViewMatrix( Camera& cCameraData );       // Computes currentViewMatrix from the supplied camera data
+    int FindIndex( uint32_t hash );                  // Returns the index of the specified camera
+    Camera GetUpdateCamera( void );                  // Returns the current update camera for relative updates
+    void UpdateTweenPath( void );                    // Alters the tween path member to end at the required destination (it is important to call this during tweens as the destination can move about the scene during the tween)
+    void SetTweenPath( int fromIndex, int toIndex ); // Sets the tween path member to the required tween path (specify fromIndex as -1 to use the tween camera as the from camera)
 
   public:
     static CameraCollection* Instance( void );            // Returns a pointer to the sole class instance
@@ -87,8 +86,8 @@ class CameraCollection
     float DEBUG_GetViewMagTarget( void );                 // Returns the target magnitude of the primary view vector (debug routine)
     const Matrix4& GetViewMatrix( void ) const
     {
-        return currentViewMatrix;
-    }                                                // Returns the current view matrix
+        return m_currentViewMatrix;
+    } // Returns the current view matrix
     uint32_t GetSelectedCameraName( void );          // Returns the hash of the selected camera
     bool IsCameraSelected( uint32_t hash );          // Returns a flag indicating if the specified camera is selected
     void ApplyPrimaryMovementBuffer( void );         // Applies the movement buffer to the primary camera

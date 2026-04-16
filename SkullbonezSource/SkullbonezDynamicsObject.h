@@ -45,25 +45,19 @@ class DynamicsObject
 {
 
   protected:
-    Vector3 position; // Position of centre of object
+    Vector3 m_position; // Position of centre of object
 
   public:
-    virtual void DEBUG_RenderCollisionVolume( const Vector3& worldSpaceCoords,
-                                              const Transformation::Matrix4& rotation,
-                                              const Transformation::Matrix4& view,
-                                              const Transformation::Matrix4& proj,
-                                              const float lightPos[4] ) = 0; // Debug routine to render a representation of the collision volume
-    virtual float GetSubmergedVolumePercent( float fluidSurfaceHeight ) = 0; // Returns the percent of the object submerged in fluid
-    virtual float GetVolume( void ) = 0;                                     // Returns the volume of the object
-    virtual float GetDragCoefficient( void ) = 0;                            // Returns the drag coefficient for the object
-    virtual float GetProjectedSurfaceArea( void ) = 0;                       // Returns the surface area of the objects 2d projection based on its current orientation and velocity
-    virtual float TestCollision( const DynamicsObject& target,
-                                 const Ray& targetRay,
-                                 const Ray& focusRay ) = 0; // Sweep test to be performed by all children, for all children (all children should be testable against each other)
+    virtual void DEBUG_RenderCollisionVolume( const Vector3& worldSpaceCoords, const Transformation::Matrix4& rotation, const Transformation::Matrix4& view, const Transformation::Matrix4& proj, const float lightPos[4] ) = 0; // Debug routine to render a representation of the collision volume
+    virtual float GetSubmergedVolumePercent( float fluidSurfaceHeight ) = 0;                                                                                                                                                     // Returns the percent of the object submerged in fluid
+    virtual float GetVolume( void ) = 0;                                                                                                                                                                                         // Returns the volume of the object
+    virtual float GetDragCoefficient( void ) = 0;                                                                                                                                                                                // Returns the drag coefficient for the object
+    virtual float GetProjectedSurfaceArea( void ) = 0;                                                                                                                                                                           // Returns the surface area of the objects 2d projection based on its current orientation and velocity
+    virtual float TestCollision( const DynamicsObject& target, const Ray& targetRay, const Ray& focusRay ) = 0;                                                                                                                  // Sweep test to be performed by all children, for all children (all children should be testable against each other)
 
     const Vector3& GetPosition( void )
     {
-        return this->position;
+        return m_position;
     } // Get reference to position of centre of object
     virtual ~DynamicsObject( void )
     {

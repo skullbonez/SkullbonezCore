@@ -30,37 +30,37 @@ using namespace SkullbonezCore::GameObjects;
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 GameModelCollection::GameModelCollection( void )
-    : spatialGrid( BROADPHASE_CELL_SIZE )
+    : m_spatialGrid( BROADPHASE_CELL_SIZE )
 {
-    this->gameModels.reserve( 200 );
+    m_gameModels.reserve( 200 );
 };
 
 /* -- ADD GAME MODEL --------------------------------------------------------------*/
 void GameModelCollection::AddGameModel( GameModel gameModel )
 {
-    this->gameModels.push_back( std::move( gameModel ) );
+    m_gameModels.push_back( std::move( gameModel ) );
 }
 
 /* -- RENDER MODELS ---------------------------------------------------------------*/
 void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4] )
 {
-    for ( int x = 0; x < (int)this->gameModels.size(); ++x )
+    for ( int x = 0; x < (int)m_gameModels.size(); ++x )
     {
-        this->gameModels[x].RenderCollisionBounds( view, proj, lightPos );
+        m_gameModels[x].RenderCollisionBounds( view, proj, lightPos );
     }
 }
 
 /* -- RENDER SHADOWS --------------------------------------------------------------*/
-void GameModelCollection::RenderShadows( Geometry::Terrain* terrain,
+void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
                                          const Matrix4& view,
                                          const Matrix4& proj )
 {
-    if ( !terrain )
+    if ( !m_terrain )
     {
         return;
     }
 
-    if ( !this->shadowMesh )
+    if ( !m_shadowMesh )
     {
         this->BuildShadowMesh();
     }
@@ -71,37 +71,37 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* terrain,
     glPolygonOffset( -1.0f, -1.0f );
     glDisable( GL_CULL_FACE );
 
-    this->shadowShader->Use();
-    this->shadowShader->SetMat4( "uView", view );
-    this->shadowShader->SetMat4( "uProjection", proj );
+    m_shadowShader->Use();
+    m_shadowShader->SetMat4( "uView", view );
+    m_shadowShader->SetMat4( "uProjection", proj );
 
-    for ( int i = 0; i < (int)this->gameModels.size(); ++i )
+    for ( int i = 0; i < (int)m_gameModels.size(); ++i )
     {
-        Vector3 pos = this->gameModels[i].GetPosition();
-        float radius = this->gameModels[i].GetBoundingRadius();
+        Vector3 pos = m_gameModels[i].GetPosition();
+        float m_radius = m_gameModels[i].GetBoundingRadius();
 
-        if ( !terrain->IsInBounds( pos.x, pos.z ) )
+        if ( !m_terrain->IsInBounds( pos.x, pos.z ) )
         {
             continue;
         }
 
-        float groundY = terrain->GetTerrainHeightAt( pos.x, pos.z );
-        float height = pos.y - groundY - radius;
-        if ( height < 0.0f )
+        float groundY = m_terrain->GetTerrainHeightAt( pos.x, pos.z );
+        float m_height = pos.y - groundY - m_radius;
+        if ( m_height < 0.0f )
         {
-            height = 0.0f;
+            m_height = 0.0f;
         }
-        if ( height >= SHADOW_MAX_HEIGHT )
+        if ( m_height >= SHADOW_MAX_HEIGHT )
         {
             continue;
         }
 
-        float alpha = SHADOW_MAX_ALPHA * ( 1.0f - height / SHADOW_MAX_HEIGHT );
-        float shadowRadius = radius * SHADOW_SCALE;
+        float alpha = SHADOW_MAX_ALPHA * ( 1.0f - m_height / SHADOW_MAX_HEIGHT );
+        float shadowRadius = m_radius * SHADOW_SCALE;
 
-        Vector3 N = terrain->GetTerrainNormalAt( pos.x, pos.z );
+        Vector3 N = m_terrain->GetTerrainNormalAt( pos.x, pos.z );
 
-        // Build model matrix: translate → rotate to terrain normal → scale
+        // Build model matrix: translate → rotate to m_terrain m_normal → scale
         Matrix4 model = Matrix4::Translate( pos.x, groundY + SHADOW_OFFSET, pos.z );
 
         float cosA = N.y;
@@ -118,9 +118,9 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* terrain,
 
         model = model * Matrix4::Scale( shadowRadius );
 
-        this->shadowShader->SetMat4( "uModel", model );
-        this->shadowShader->SetFloat( "uAlpha", alpha );
-        this->shadowMesh->Draw();
+        m_shadowShader->SetMat4( "uModel", model );
+        m_shadowShader->SetFloat( "uAlpha", alpha );
+        m_shadowMesh->Draw();
     }
 
     glUseProgram( 0 );
@@ -132,34 +132,34 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* terrain,
 /* -- GET MODEL POSITION ----------------------------------------------------------*/
 Vector3 GameModelCollection::GetModelPosition( int index )
 {
-    if ( index < 0 || index >= (int)this->gameModels.size() )
+    if ( index < 0 || index >= (int)m_gameModels.size() )
     {
         throw std::runtime_error( "No game model exists at the specified index.  (GameModelCollection::GetModelPosition)" );
     }
 
-    return this->gameModels[index].GetPosition();
+    return m_gameModels[index].GetPosition();
 }
 
 /* -- RUN PHYSICS -------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void GameModelCollection::RunPhysics( float fChangeInTime )
 {
-    std::vector<float> timeRemaining( (int)this->gameModels.size(), fChangeInTime );
+    std::vector<float> timeRemaining( (int)m_gameModels.size(), fChangeInTime );
 
     // update the velocity of all models
-    for ( int x = 0; x < (int)this->gameModels.size(); ++x )
+    for ( int x = 0; x < (int)m_gameModels.size(); ++x )
     {
-        this->gameModels[x].ApplyForces( fChangeInTime );
+        m_gameModels[x].ApplyForces( fChangeInTime );
     }
 
     // broadphase: populate spatial grid and generate candidate pairs
-    this->spatialGrid.Clear();
-    for ( int i = 0; i < (int)this->gameModels.size(); ++i )
+    m_spatialGrid.Clear();
+    for ( int i = 0; i < (int)m_gameModels.size(); ++i )
     {
-        this->spatialGrid.Insert( i, this->gameModels[i].GetPosition(), this->gameModels[i].GetBoundingRadius() );
+        m_spatialGrid.Insert( i, m_gameModels[i].GetPosition(), m_gameModels[i].GetBoundingRadius() );
     }
 
     std::vector<std::pair<int, int>> candidatePairs;
-    this->spatialGrid.GetCandidatePairs( candidatePairs );
+    m_spatialGrid.GetCandidatePairs( candidatePairs );
 
     // detect and respond to collisions between game models (broadphase-culled pairs only)
     for ( const auto& cp : candidatePairs )
@@ -177,61 +177,61 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
         float availableTime = ( std::min )( timeRemaining[x], timeRemaining[y] );
 
         // check the collision time
-        float colTime = this->gameModels[x].CollisionDetectGameModel( this->gameModels[y], availableTime );
+        float colTime = m_gameModels[x].CollisionDetectGameModel( m_gameModels[y], availableTime );
 
         // if there is a response required, perform it
-        if ( this->gameModels[x].IsResponseRequired() && this->gameModels[y].IsResponseRequired() )
+        if ( m_gameModels[x].IsResponseRequired() && m_gameModels[y].IsResponseRequired() )
         {
             // advance both models to the collision point
-            this->gameModels[x].UpdatePosition( colTime );
-            this->gameModels[y].UpdatePosition( colTime );
+            m_gameModels[x].UpdatePosition( colTime );
+            m_gameModels[y].UpdatePosition( colTime );
 
             // subtract consumed time
             timeRemaining[x] -= colTime;
             timeRemaining[y] -= colTime;
 
-            // velocity-only response (clears isResponseRequired on both models)
-            this->gameModels[x].CollisionResponseGameModel( this->gameModels[y] );
+            // velocity-only response (clears m_isResponseRequired on both models)
+            m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
         }
         else
         {
             // sweep test found no collision — check for static overlap
-            // (handles grounded/slow balls that the sweep test misses)
-            this->gameModels[x].StaticOverlapResponseGameModel( this->gameModels[y] );
+            // (handles grounded/slow m_balls that the sweep test misses)
+            m_gameModels[x].StaticOverlapResponseGameModel( m_gameModels[y] );
         }
     }
 
-    // detect and respond to collisions between game models and the terrain
-    for ( int x = 0; x < (int)this->gameModels.size(); ++x )
+    // detect and respond to collisions between game models and the m_terrain
+    for ( int x = 0; x < (int)m_gameModels.size(); ++x )
     {
-        // only check terrain if this model has remaining time
+        // only check m_terrain if this model has remaining time
         if ( timeRemaining[x] > 0.0f )
         {
             // check the collision time
-            float colTime = this->gameModels[x].CollisionDetectTerrain( timeRemaining[x] );
+            float colTime = m_gameModels[x].CollisionDetectTerrain( timeRemaining[x] );
 
             // if a response is required, perform it
-            if ( this->gameModels[x].IsResponseRequired() )
+            if ( m_gameModels[x].IsResponseRequired() )
             {
                 // update the time step before the collision
-                this->gameModels[x].UpdatePosition( colTime );
+                m_gameModels[x].UpdatePosition( colTime );
 
-                // calculate response and update the remaining time step (terrain response advances position internally)
-                this->gameModels[x].CollisionResponseTerrain( timeRemaining[x] - colTime );
+                // calculate response and update the remaining time step (m_terrain response advances m_position internally)
+                m_gameModels[x].CollisionResponseTerrain( timeRemaining[x] - colTime );
 
-                // terrain response already advanced position; zero remaining time
+                // m_terrain response already advanced m_position; zero remaining time
                 timeRemaining[x] = 0.0f;
             }
         }
     }
 
     // apply the remaining time steps
-    for ( int x = 0; x < (int)this->gameModels.size(); ++x )
+    for ( int x = 0; x < (int)m_gameModels.size(); ++x )
     {
         // advance by whatever time remains
         if ( timeRemaining[x] > 0.0f )
         {
-            this->gameModels[x].UpdatePosition( timeRemaining[x] );
+            m_gameModels[x].UpdatePosition( timeRemaining[x] );
         }
     }
 }
@@ -239,9 +239,9 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
 /* -- BUILD SHADOW MESH -----------------------------------------------------------*/
 void GameModelCollection::BuildShadowMesh( void )
 {
-    // Unit-radius disc in XZ plane, converted from triangle fan to triangles.
-    // Center at (0,0,0), ring vertices at unit distance.
-    // The shadow shader uses length(aPosition.xz) for alpha fade.
+    // Unit-m_radius disc in XZ plane, converted from triangle fan to triangles.
+    // Center at (0,0,0), ring vertices at unit m_distance.
+    // The shadow m_shader uses length(aPosition.xz) for alpha fade.
     std::vector<float> verts;
     verts.reserve( SHADOW_SEGMENTS * 3 * 3 );
 
@@ -264,14 +264,14 @@ void GameModelCollection::BuildShadowMesh( void )
         verts.push_back( sinf( a1 ) );
     }
 
-    this->shadowMesh = std::make_unique<Mesh>( verts.data(), SHADOW_SEGMENTS * 3, false, false );
-    this->shadowShader = std::make_unique<Shader>( "SkullbonezData/shaders/shadow.vert",
-                                                   "SkullbonezData/shaders/shadow.frag" );
+    m_shadowMesh = std::make_unique<Mesh>( verts.data(), SHADOW_SEGMENTS * 3, false, false );
+    m_shadowShader = std::make_unique<Shader>( "SkullbonezData/shaders/shadow.vert",
+                                               "SkullbonezData/shaders/shadow.frag" );
 }
 
 /* -- RESET GL RESOURCES ----------------------------------------------------------*/
 void GameModelCollection::ResetGLResources( void )
 {
-    this->shadowMesh.reset();
-    this->shadowShader.reset();
+    m_shadowMesh.reset();
+    m_shadowShader.reset();
 }

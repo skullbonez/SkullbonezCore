@@ -9,10 +9,16 @@ The full verify-and-commit pipeline after a code change. **Every step must pass 
 
 ### Step 0: Format
 
-Run clang-format on all source files before building. This enforces the project code style (Allman braces, spaces, LF line endings).
+First collapse any multi-line parameter lists to single lines, then run clang-format.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
+
+# Collapse multi-line param lists (script strips inline param comments to avoid
+# them being merged into the middle of the collapsed line)
+py "$REPO\Copilot\Skills\collapse_params.py"
+
+# Apply full clang-format style (Allman braces, spaces, LF line endings, etc.)
 $clangFormat = "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\bin\clang-format.exe"
 $files = Get-ChildItem "$REPO\SkullbonezSource" -Include *.cpp,*.h -Recurse
 foreach ($f in $files) { & $clangFormat -i $f.FullName }

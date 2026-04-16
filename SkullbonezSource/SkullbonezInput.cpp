@@ -77,7 +77,7 @@ bool Input::IsKeyToggled( const char cKey )
 POINT Input::GetMouseCoordinates( void )
 {
     POINT mousePos;
-    if ( !GetCursorPos( &mousePos ) ) // attempt to get the mouse position
+    if ( !GetCursorPos( &mousePos ) ) // attempt to get the mouse m_position
     {
         throw std::runtime_error( "Getting mouse coordinates failed (Input::GetMouseCoordinates)." );
     }
@@ -88,17 +88,17 @@ POINT Input::GetMouseCoordinates( void )
 /* -- SET MOUSE COORDINATES -------------------------------------------------------*/
 void Input::SetMouseCoordinates( const POINT& pNewCoordinates )
 {
-    // attempt to set the mouse position
+    // attempt to set the mouse m_position
     if ( !SetCursorPos( pNewCoordinates.x, pNewCoordinates.y ) )
     {
-        throw std::runtime_error( "Setting mouse position failed (Input::SetMouseCoordinates)." );
+        throw std::runtime_error( "Setting mouse m_position failed (Input::SetMouseCoordinates)." );
     }
 }
 
 /* -- CENTRE MOUSE COORDINATES ----------------------------------------------------*/
 void Input::CentreMouseCoordinates( void )
 {
-    SkullbonezWindow* cWindow = SkullbonezWindow::Instance();
-    SetCursorPos( cWindow->sWindowDimensions.x >> 1,
-                  cWindow->sWindowDimensions.y >> 1 );
+    SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
+    SetCursorPos( m_cWindow->m_sWindowDimensions.x >> 1,
+                  m_cWindow->m_sWindowDimensions.y >> 1 );
 }
