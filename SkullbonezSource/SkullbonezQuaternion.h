@@ -62,7 +62,6 @@ namespace SkullbonezCore
 				void				Identity				(void);								// Sets the quaternion back to the identity value
 				void				Normalise				(void);								// Normalises the quaternion (do this to combat floating point error creep)
 				void				RotateAboutXYZ			(const Vector3& vRadians);			// Overload taking a Vector3 containing each rotation component in radians
-				void				GlRotateToOrientation	(void);								// Rotate the world matrix to the orientation expressed by the quaternion
 				RotationMatrix		GetOrientationMatrix	(void);								// Returns the orientation expressed in matrix form
 				void				RotateAboutXYZ			(float xRadians,
 															 float yRadians,

@@ -227,10 +227,10 @@ void RigidBody::ApplyImpulseForce(void)
 
 
 
-/* -- ROTATE BODY TO ORIENTATION --------------------------------------------------*/
-void RigidBody::RotateBodyToOrientation(void)
+/* -- GET ORIENTATION -------------------------------------------------------------*/
+const Quaternion& RigidBody::GetOrientation(void) const
 {
-	this->orientation.GlRotateToOrientation();
+	return this->orientation;
 }
 
 
