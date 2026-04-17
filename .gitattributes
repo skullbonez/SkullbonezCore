@@ -1,6 +1,9 @@
 # Normalize all text files to LF in the repo
 * text=auto eol=lf
 
+# Third-party source — never touch line endings
+ThirdPtySource/**  -text
+
 # Explicitly mark source files
 *.cpp   text eol=lf
 *.h     text eol=lf
@@ -11,9 +14,10 @@
 *.suite text eol=lf
 *.vert  text eol=lf
 *.frag  text eol=lf
-*.sln   text eol=lf
-*.vcxproj       text eol=lf
-*.vcxproj.filters text eol=lf
+*.sln   text eol=crlf
+*.vcxproj       text eol=crlf
+*.vcxproj.filters text eol=crlf
+*.vcproj        text eol=crlf
 *.props text eol=lf
 *.py    text eol=lf
 
