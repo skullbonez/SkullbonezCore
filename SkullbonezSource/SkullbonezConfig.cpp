@@ -134,6 +134,10 @@ void SkullbonezConfig::Load( const char* path )
         else if ( strcmp( k, "sphere_texture" )  == 0 ) sphereTexture  = v;
         else if ( strcmp( k, "terrain_raw" )     == 0 ) terrainRaw     = v;
 
+        // Water
+        else if ( strcmp( k, "ocean_wave_height" )      == 0 ) oceanWaveHeight      = (float)atof( v );
+        else if ( strcmp( k, "ocean_perturb_strength" ) == 0 ) oceanPerturbStrength = (float)atof( v );
+
         // Debug
         else if ( strcmp( k, "render_collision_volumes" ) == 0 ) renderCollisionVolumes = atoi( v ) != 0;
     }
