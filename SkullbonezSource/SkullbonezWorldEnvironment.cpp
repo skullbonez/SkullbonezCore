@@ -17,16 +17,13 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
-
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezWorldEnvironment.h"
 #include <vector>
 
-
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::GameObjects;
-
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 WorldEnvironment::WorldEnvironment( void )
@@ -36,7 +33,6 @@ WorldEnvironment::WorldEnvironment( void )
       m_gravity( 0.0f )
 {
 }
-
 
 /* -- OVERLOADED CONSTRUCTOR ------------------------------------------------------*/
 WorldEnvironment::WorldEnvironment( float fFluidSurfaceHeight,
@@ -50,12 +46,10 @@ WorldEnvironment::WorldEnvironment( float fFluidSurfaceHeight,
 {
 }
 
-
 /* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
 WorldEnvironment::~WorldEnvironment()
 {
 }
-
 
 /* -- SET TERRAIN BOUNDS ----------------------------------------------------------*/
 void WorldEnvironment::SetTerrainBounds( float xMin, float xMax, float zMin, float zMax )
@@ -65,7 +59,6 @@ void WorldEnvironment::SetTerrainBounds( float xMin, float xMax, float zMin, flo
     m_terrainZMin = zMin;
     m_terrainZMax = zMax;
 }
-
 
 /* -- RENDER FLUID ----------------------------------------------------------------*/
 void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, const Matrix4& reflectVP, float time, GLuint reflectionTex, bool flatWater, bool noReflect )
@@ -84,43 +77,42 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
 
     // --- calm (inner) pass: flat, always reflective, no waves ---
     m_calmShader->Use();
-    m_calmShader->SetMat4( "uModel",               identity );
-    m_calmShader->SetMat4( "uView",                view );
-    m_calmShader->SetMat4( "uProjection",          proj );
-    m_calmShader->SetMat4( "uReflectVP",           reflectVP );
-    m_calmShader->SetVec4( "uColorTint",           0.05f, 0.15f, 0.42f, 0.65f );
+    m_calmShader->SetMat4( "uModel", identity );
+    m_calmShader->SetMat4( "uView", view );
+    m_calmShader->SetMat4( "uProjection", proj );
+    m_calmShader->SetMat4( "uReflectVP", reflectVP );
+    m_calmShader->SetVec4( "uColorTint", 0.05f, 0.15f, 0.42f, 0.65f );
     m_calmShader->SetFloat( "uReflectionStrength", 0.35f );
-    m_calmShader->SetInt( "uReflectionTex",        1 );
+    m_calmShader->SetInt( "uReflectionTex", 1 );
     m_calmMesh->Draw();
 
     // --- ocean (outer) pass: vertex displacement + UV perturbation ---
     m_oceanShader->Use();
-    m_oceanShader->SetMat4( "uModel",            identity );
-    m_oceanShader->SetMat4( "uView",             view );
-    m_oceanShader->SetMat4( "uProjection",       proj );
-    m_oceanShader->SetMat4( "uReflectVP",        reflectVP );
-    m_oceanShader->SetVec4( "uColorTint",        0.02f, 0.10f, 0.35f, 0.72f );
-    m_oceanShader->SetFloat( "uTime",            time );
-    m_oceanShader->SetFloat( "uWaveHeight",       Cfg().oceanWaveHeight );
-    m_oceanShader->SetFloat( "uPerturbStrength",  Cfg().oceanPerturbStrength );
+    m_oceanShader->SetMat4( "uModel", identity );
+    m_oceanShader->SetMat4( "uView", view );
+    m_oceanShader->SetMat4( "uProjection", proj );
+    m_oceanShader->SetMat4( "uReflectVP", reflectVP );
+    m_oceanShader->SetVec4( "uColorTint", 0.02f, 0.10f, 0.35f, 0.72f );
+    m_oceanShader->SetFloat( "uTime", time );
+    m_oceanShader->SetFloat( "uWaveHeight", Cfg().oceanWaveHeight );
+    m_oceanShader->SetFloat( "uPerturbStrength", Cfg().oceanPerturbStrength );
     m_oceanShader->SetFloat( "uReflectionStrength", 0.25f );
-    m_oceanShader->SetInt( "uReflectionTex",     1 );
-    m_oceanShader->SetInt( "uNoReflect",         noReflect ? 1 : 0 );
-    m_oceanShader->SetInt( "uFlatWater",         flatWater ? 1 : 0 );
+    m_oceanShader->SetInt( "uReflectionTex", 1 );
+    m_oceanShader->SetInt( "uNoReflect", noReflect ? 1 : 0 );
+    m_oceanShader->SetInt( "uFlatWater", flatWater ? 1 : 0 );
     m_oceanMesh->Draw();
 
     glUseProgram( 0 );
     glDisable( GL_BLEND );
 }
 
-
 /* -- BUILD FLUID MESH ------------------------------------------------------------*/
 void WorldEnvironment::BuildFluidMesh( void )
 {
-    float h  = m_fluidSurfaceHeight;
-    float f  = Cfg().frustumFar;
+    float h = m_fluidSurfaceHeight;
+    float f = Cfg().frustumFar;
 
-    const int   N    = 64;
+    const int N = 64;
     const float step = 2.0f * f / static_cast<float>( N );
 
     // Calm region: half the terrain footprint, centered on the terrain
@@ -135,7 +127,7 @@ void WorldEnvironment::BuildFluidMesh( void )
 
     std::vector<float> calmVerts;
     std::vector<float> oceanVerts;
-    calmVerts.reserve(  N * N * 6 * 3 );
+    calmVerts.reserve( N * N * 6 * 3 );
     oceanVerts.reserve( N * N * 6 * 3 );
 
     for ( int row = 0; row < N; ++row )
@@ -153,26 +145,37 @@ void WorldEnvironment::BuildFluidMesh( void )
 
             std::vector<float>& v = isCalm ? calmVerts : oceanVerts;
 
-            v.push_back( x0 ); v.push_back( h ); v.push_back( z0 );
-            v.push_back( x0 ); v.push_back( h ); v.push_back( z1 );
-            v.push_back( x1 ); v.push_back( h ); v.push_back( z1 );
+            v.push_back( x0 );
+            v.push_back( h );
+            v.push_back( z0 );
+            v.push_back( x0 );
+            v.push_back( h );
+            v.push_back( z1 );
+            v.push_back( x1 );
+            v.push_back( h );
+            v.push_back( z1 );
 
-            v.push_back( x0 ); v.push_back( h ); v.push_back( z0 );
-            v.push_back( x1 ); v.push_back( h ); v.push_back( z1 );
-            v.push_back( x1 ); v.push_back( h ); v.push_back( z0 );
+            v.push_back( x0 );
+            v.push_back( h );
+            v.push_back( z0 );
+            v.push_back( x1 );
+            v.push_back( h );
+            v.push_back( z1 );
+            v.push_back( x1 );
+            v.push_back( h );
+            v.push_back( z0 );
         }
     }
 
-    int calmCount  = static_cast<int>( calmVerts.size()  ) / 3;
+    int calmCount = static_cast<int>( calmVerts.size() ) / 3;
     int oceanCount = static_cast<int>( oceanVerts.size() ) / 3;
 
-    m_calmMesh  = std::make_unique<Mesh>( calmVerts.data(),  calmCount,  false, false );
+    m_calmMesh = std::make_unique<Mesh>( calmVerts.data(), calmCount, false, false );
     m_oceanMesh = std::make_unique<Mesh>( oceanVerts.data(), oceanCount, false, false );
 
-    m_calmShader  = std::make_unique<Shader>( "SkullbonezData/shaders/water_calm.vert",  "SkullbonezData/shaders/water_calm.frag" );
+    m_calmShader = std::make_unique<Shader>( "SkullbonezData/shaders/water_calm.vert", "SkullbonezData/shaders/water_calm.frag" );
     m_oceanShader = std::make_unique<Shader>( "SkullbonezData/shaders/water_ocean.vert", "SkullbonezData/shaders/water_ocean.frag" );
 }
-
 
 /* -- RESET GL RESOURCES ----------------------------------------------------------*/
 void WorldEnvironment::ResetGLResources( void )
@@ -184,13 +187,11 @@ void WorldEnvironment::ResetGLResources( void )
     this->BuildFluidMesh();
 }
 
-
 /* -- GET FLUID SURFACE HEIGHT ----------------------------------------------------*/
 float WorldEnvironment::GetFluidSurfaceHeight( void )
 {
     return m_fluidSurfaceHeight;
 }
-
 
 /* -- ADD WORLD FORCES ------------------------------------------------------------*/
 void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
@@ -233,7 +234,6 @@ void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
     target.SetWorldForce( m_worldForce * changeInTime, m_worldTorque * changeInTime );
 }
 
-
 /* -- CALCULATE GRAVITY -----------------------------------------------------------*/
 float WorldEnvironment::CalculateGravity( float objectMass )
 {
@@ -241,14 +241,12 @@ float WorldEnvironment::CalculateGravity( float objectMass )
     return objectMass * m_gravity;
 }
 
-
 /* -- CALCULATE BUOYANCY ----------------------------------------------------------*/
 float WorldEnvironment::CalculateBuoyancy( float submergedObjectVolume )
 {
     // Fb = -m_gravity * m_mass of displaced fluid
     return m_gravity * m_fluidDensity * submergedObjectVolume * -1.0f;
 }
-
 
 /* -- CALCULATE VISCOUS DRAG ------------------------------------------------------*/
 Vector3 WorldEnvironment::CalculateViscousDrag( Vector3 velocityVector,

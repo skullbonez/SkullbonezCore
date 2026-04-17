@@ -17,18 +17,14 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
-
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezTextureCollection.h"
-
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Textures;
 
-
 /* -- SINGLETON INSTANCE INITIALISATION -------------------------------------------*/
 TextureCollection* TextureCollection::pInstance = 0;
-
 
 /* -- CONSTRUCTOR -----------------------------------------------------------------*/
 TextureCollection::TextureCollection( void )
@@ -43,7 +39,6 @@ TextureCollection::TextureCollection( void )
     }
 }
 
-
 /* -- SINGLETON CONSTRUCTOR -------------------------------------------------------*/
 TextureCollection* TextureCollection::Instance( void )
 {
@@ -55,7 +50,6 @@ TextureCollection* TextureCollection::Instance( void )
     return TextureCollection::pInstance;
 }
 
-
 /* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
 void TextureCollection::Destroy( void )
 {
@@ -65,7 +59,6 @@ void TextureCollection::Destroy( void )
         TextureCollection::pInstance = 0;
     }
 }
-
 
 /* -- DECODE JPEG -----------------------------------------------------------------*/
 void TextureCollection::DecodeJPEG( jpeg_decompress_struct* info,
@@ -108,7 +101,6 @@ void TextureCollection::DecodeJPEG( jpeg_decompress_struct* info,
     jpeg_finish_decompress( info );
 }
 
-
 /* -- LOAD JPEG -------------------------------------------------------------------*/
 tImageJPG* TextureCollection::LoadJPEG( const char* cFileName )
 {
@@ -146,7 +138,6 @@ tImageJPG* TextureCollection::LoadJPEG( const char* cFileName )
     return pImageData;
 }
 
-
 /* -- UPDATE COUNTERS -------------------------------------------------------------*/
 void TextureCollection::UpdateCounters( void )
 {
@@ -177,7 +168,6 @@ void TextureCollection::UpdateCounters( void )
     }
 }
 
-
 /* -- FIND INDEX ------------------------------------------------------------------*/
 int TextureCollection::FindIndex( uint32_t hash )
 {
@@ -191,7 +181,6 @@ int TextureCollection::FindIndex( uint32_t hash )
 
     throw std::runtime_error( "Texture does not exist.  (TextureCollection::FindIndex)" );
 }
-
 
 /* -- DELETE ALL TEXTURES ---------------------------------------------------------*/
 void TextureCollection::DeleteAllTextures( void )
@@ -213,7 +202,6 @@ void TextureCollection::DeleteAllTextures( void )
     this->UpdateCounters();
 }
 
-
 /* -- DELETE TEXTURE --------------------------------------------------------------*/
 void TextureCollection::DeleteTexture( uint32_t hash )
 {
@@ -227,20 +215,17 @@ void TextureCollection::DeleteTexture( uint32_t hash )
     this->UpdateCounters();
 }
 
-
 /* -- NUM FREE TEXTURE SPACES -----------------------------------------------------*/
 int TextureCollection::NumFreeTextureSpaces( void )
 {
     return TOTAL_TEXTURE_COUNT - m_textureCounter;
 }
 
-
 /* -- SELECT TEXTURE --------------------------------------------------------------*/
 void TextureCollection::SelectTexture( uint32_t hash )
 {
     glBindTexture( GL_TEXTURE_2D, m_textureArray[this->FindIndex( hash )] );
 }
-
 
 /* -- CREATE JPEG TEXTURE ---------------------------------------------------------*/
 void TextureCollection::CreateJpegTexture( const char* cFileName,

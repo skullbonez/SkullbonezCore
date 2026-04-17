@@ -17,21 +17,17 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
-
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezRotationMatrix.h"
-
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 
-
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 RotationMatrix::RotationMatrix( void )
 {
 }
-
 
 /* -- OVERLOADED CONSTRUCTOR ------------------------------------------------------*/
 RotationMatrix::RotationMatrix( float f11,
@@ -55,7 +51,6 @@ RotationMatrix::RotationMatrix( float f11,
 {
 }
 
-
 /* -- IDENTITY --------------------------------------------------------------------*/
 void RotationMatrix::Identity( void )
 {
@@ -72,7 +67,6 @@ void RotationMatrix::Identity( void )
     this->m33 = 1.0f;
 }
 
-
 /* -- OPERATOR * ------------------------------------------------------------------*/
 Vector3 RotationMatrix::operator*( const Vector3& v ) const
 {
@@ -80,7 +74,6 @@ Vector3 RotationMatrix::operator*( const Vector3& v ) const
                     this->m21 * v.x + this->m22 * v.y + this->m23 * v.z,
                     this->m31 * v.x + this->m32 * v.y + this->m33 * v.z );
 }
-
 
 /* -- OPERATOR *= -----------------------------------------------------------------*/
 Vector3 RotationMatrix::operator*=( const Vector3& v ) const

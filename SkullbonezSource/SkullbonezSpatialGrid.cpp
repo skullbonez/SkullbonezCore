@@ -17,14 +17,11 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
-
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezSpatialGrid.h"
 
-
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Math::CollisionDetection;
-
 
 /* -- HASH CELL -------------------------------------------------------------------*/
 int64_t SpatialGrid::HashCell( int ix, int iy, int iz )
@@ -32,13 +29,11 @@ int64_t SpatialGrid::HashCell( int ix, int iy, int iz )
     return ( int64_t( ix ) * 73856093 ) ^ ( int64_t( iy ) * 19349663 ) ^ ( int64_t( iz ) * 83492791 );
 }
 
-
 /* -- CONSTRUCTOR -----------------------------------------------------------------*/
 SpatialGrid::SpatialGrid( float fCellSize )
     : cellSize( fCellSize ), inverseCellSize( 1.0f / fCellSize )
 {
 }
-
 
 /* -- CLEAR -----------------------------------------------------------------------*/
 void SpatialGrid::Clear( void )
@@ -49,7 +44,6 @@ void SpatialGrid::Clear( void )
     }
     cells.clear();
 }
-
 
 /* -- INSERT ----------------------------------------------------------------------*/
 void SpatialGrid::Insert( int index, const Vector3& m_position, float m_radius )
@@ -72,7 +66,6 @@ void SpatialGrid::Insert( int index, const Vector3& m_position, float m_radius )
         }
     }
 }
-
 
 /* -- GET CANDIDATE PAIRS ---------------------------------------------------------*/
 void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs )

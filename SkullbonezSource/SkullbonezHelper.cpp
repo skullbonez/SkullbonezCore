@@ -17,18 +17,15 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
-
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezHelper.h"
 #include <vector>
 #include <cmath>
 
-
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
-
 
 /* -- STATIC MEMBER INITIALISATION ------------------------------------------------*/
 std::unique_ptr<Mesh> SkullbonezHelper::sphereMesh;
@@ -40,7 +37,6 @@ float SkullbonezHelper::sClipPlane[4] = {
     1.0e9f // default: always pass (GL_CLIP_DISTANCE0 disabled)
 };
 
-
 /* -- SET CLIP PLANE --------------------------------------------------------------*/
 void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
 {
@@ -50,14 +46,12 @@ void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
     sClipPlane[3] = w;
 }
 
-
 /* -- RESET GL RESOURCES ----------------------------------------------------------*/
 void SkullbonezHelper::ResetGLResources( void )
 {
     sphereMesh.reset();
     sphereShader.reset();
 }
-
 
 /* -- BUILD SPHERE MESH -----------------------------------------------------------*/
 void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
@@ -99,7 +93,6 @@ void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
 
     sphereMesh = std::make_unique<Mesh>( verts.data(), (int)verts.size() / 8, true, true );
 }
-
 
 /* -- DRAW SPHERE -----------------------------------------------------------------*/
 void SkullbonezHelper::DrawSphere( const Matrix4& model,
@@ -152,7 +145,6 @@ void SkullbonezHelper::DrawSphere( const Matrix4& model,
         glDisable( GL_BLEND );
     }
 }
-
 
 /* -- STATE SETUP -----------------------------------------------------------------*/
 void SkullbonezHelper::StateSetup( void )

@@ -17,22 +17,18 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
-
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezCamera.h"
 #include "SkullbonezRotationMatrix.h"
-
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::Math;
 
-
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 Camera::Camera( void )
 {
 }
-
 
 /* -- SET ALL ---------------------------------------------------------------------*/
 void Camera::SetAll( const Vector3& vPosition,  // Set m_position
@@ -72,7 +68,6 @@ void Camera::SetAll( const Vector3& vPosition,  // Set m_position
     this->Boundary.m_zMin = -99999.9f;
     this->Boundary.m_zMax = 99999.9f;
 }
-
 
 /* -- MOVE CAMERA -----------------------------------------------------------------*/
 void Camera::MoveCamera( const TravelDirection enumDir,
@@ -146,7 +141,6 @@ void Camera::MoveCamera( const TravelDirection enumDir,
     this->MovementBuffer += movementResults;
 }
 
-
 /* -- APPLY MOVEMENT BUFFER -------------------------------------------------------*/
 void Camera::ApplyMovementBuffer( void )
 {
@@ -171,7 +165,6 @@ void Camera::ApplyMovementBuffer( void )
     // reset the movement buffer
     this->MovementBuffer.Zero();
 }
-
 
 /* -- ROTATE CAMERA ---------------------------------------------------------------*/
 void Camera::RotateCamera( float xMove, float yMove )
@@ -245,7 +238,6 @@ void Camera::RotateCamera( float xMove, float yMove )
     }
 }
 
-
 /* -- PREPARE TRANSLATION ---------------------------------------------------------*/
 void Camera::PrepareTranslation( void )
 {
@@ -254,7 +246,6 @@ void Camera::PrepareTranslation( void )
     this->XZStore.x = this->Position.x;
     this->XZStore.z = this->Position.z;
 }
-
 
 /* -- FINISH TRANSLATION ----------------------------------------------------------*/
 void Camera::FinishTranslation( void )
@@ -319,7 +310,6 @@ void Camera::FinishTranslation( void )
         this->RecoverViewMagnitude( isOnBoundX, isOnBoundZ );
     }
 }
-
 
 /* -- RECOVER VIEW MAGNITUDE -------------------------------------------------------*/
 void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ )
@@ -449,7 +439,6 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ 
     }
 }
 
-
 /* -- ADD CAMERA ------------------------------------------------------------------*/
 void Camera::AddCamera( const Camera& updateCamera )
 {
@@ -463,7 +452,6 @@ void Camera::AddCamera( const Camera& updateCamera )
 
     this->FinishTranslation();
 }
-
 
 /* -- UP VECTOR VIEW VECTOR ROTATION CAP ------------------------------------------*/
 float Camera::UpVectorViewVectorRotationCap( float requestRadians )
@@ -495,7 +483,6 @@ float Camera::UpVectorViewVectorRotationCap( float requestRadians )
     return requestRadians;
 }
 
-
 /* -- GET RIGHT VECTOR ------------------------------------------------------------*/
 Vector3 Camera::GetRightVector( void )
 {
@@ -510,13 +497,11 @@ Vector3 Camera::GetRightVector( void )
     return vRight;
 }
 
-
 /* -- GET VIEW VECTOR RAW ---------------------------------------------------------*/
 Vector3 Camera::GetViewVectorRaw( void )
 {
     return this->View - this->Position;
 }
-
 
 /* -- GET VIEW VECTOR NORMALISED --------------------------------------------------*/
 Vector3 Camera::GetViewVectorNormalised( void )
@@ -575,7 +560,6 @@ Vector3 Camera::GetViewVectorNormalised( void )
     return vView;
 }
 
-
 /* -- ZERO CAMERA -----------------------------------------------------------------*/
 void Camera::ZeroCamera( void )
 {
@@ -583,7 +567,6 @@ void Camera::ZeroCamera( void )
     this->View.Zero();
     this->UpVector.Zero();
 }
-
 
 /* -- OPERATOR '=' ----------------------------------------------------------------*/
 Camera& Camera::operator=( const Camera& target )
@@ -596,7 +579,6 @@ Camera& Camera::operator=( const Camera& target )
     return *this;
 }
 
-
 /* -- OPERATOR '+=' ---------------------------------------------------------------*/
 Camera& Camera::operator+=( const Camera& target )
 {
@@ -606,7 +588,6 @@ Camera& Camera::operator+=( const Camera& target )
 
     return *this;
 }
-
 
 /* -- OPERATOR '-' ----------------------------------------------------------------*/
 Camera Camera::operator-( const Camera& target )
@@ -618,7 +599,6 @@ Camera Camera::operator-( const Camera& target )
 
     return result;
 }
-
 
 /* -- OPERATOR '*' ----------------------------------------------------------------*/
 Camera Camera::operator*( float f )

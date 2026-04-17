@@ -17,14 +17,11 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
-
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezTimer.h"
 
-
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Environment;
-
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 Timer::Timer( void )
@@ -69,13 +66,11 @@ Timer::Timer( void )
     this->EndTime = 0;
 }
 
-
 /* -- NO PERFORMACE COUNTER SUPPORT -----------------------------------------------*/
 void Timer::NoPerformanceCounterSupport( void )
 {
     throw std::runtime_error( "This system does not support high resolution counters (Timer::Timer)." );
 }
-
 
 /* -- START TIMER -----------------------------------------------------------------*/
 void Timer::StartTimer( void )
@@ -84,14 +79,12 @@ void Timer::StartTimer( void )
     this->StartTime = this->GetCurrentTimeInSeconds();
 }
 
-
 /* -- STOP TIMER ------------------------------------------------------------------*/
 void Timer::StopTimer( void )
 {
     // set member EndTime to current time
     this->EndTime = this->GetCurrentTimeInSeconds();
 }
-
 
 /* -- GET ELAPSED TIME ------------------------------------------------------------*/
 double Timer::GetElapsedTime( void )
@@ -100,7 +93,6 @@ double Timer::GetElapsedTime( void )
     return this->EndTime - this->StartTime;
 }
 
-
 /* -- GET TIME SINCE LAST START ---------------------------------------------------*/
 double Timer::GetTimeSinceLastStart( void )
 {
@@ -108,13 +100,11 @@ double Timer::GetTimeSinceLastStart( void )
     return this->GetCurrentTimeInSeconds() - this->StartTime;
 }
 
-
 /* -- GET TOTAL TIME --------------------------------------------------------------*/
 double Timer::GetTotalTime( void )
 {
     return this->GetCurrentTimeInSeconds() - this->InitialTime;
 }
-
 
 /* -- GET CURRENT TIME IN SECONDS -------------------------------------------------*/
 double Timer::GetCurrentTimeInSeconds( void )
@@ -126,7 +116,6 @@ double Timer::GetCurrentTimeInSeconds( void )
     // return the current time
     return (double)currTimeTmp.QuadPart / this->PerformanceFrequency;
 }
-
 
 /* -- INCREMENT FRAME COUNT -------------------------------------------------------*/
 bool Timer::IncrementFrameCount( void )
@@ -144,7 +133,6 @@ bool Timer::IncrementFrameCount( void )
     return ( this->GetCurrentTimeInSeconds() - this->FrameTimer > 1 );
 }
 
-
 /* -- STORE FPS AND RESET FRAME COUNTER -------------------------------------------*/
 void Timer::StoreFpsAndResetFrameCounter( void )
 {
@@ -154,7 +142,6 @@ void Timer::StoreFpsAndResetFrameCounter( void )
     // reset frame counter
     this->FrameCountCurrentSecond = 0;
 }
-
 
 /* -- GET CURRENT FPS -------------------------------------------------------------*/
 int Timer::GetCurrentFPS( void )

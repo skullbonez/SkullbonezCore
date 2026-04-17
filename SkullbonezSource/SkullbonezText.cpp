@@ -17,16 +17,13 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
-
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezText.h"
-
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Text;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
-
 
 /* -- INITIALISE STATICS ----------------------------------------------------------*/
 GLuint Text2d::fontTexture = 0;
@@ -34,7 +31,6 @@ GLuint Text2d::textVAO = 0;
 GLuint Text2d::textVBO = 0;
 std::unique_ptr<Shader> Text2d::pTextShader;
 float Text2d::charAdvance[96] = {};
-
 
 /* -- Font atlas layout constants -------------------------------------------------*/
 static const int FONT_SIZE = 32;                         // Font rendering m_height in pixels (CreateFont -nHeight)
@@ -44,7 +40,6 @@ static const int FONT_COLS = 16;                         // Number of columns in
 static const int FONT_ROWS = 6;                          // Number of rows in the atlas (16*6 = 96 chars)
 static const int FONT_ATLAS_W = FONT_CELL_W * FONT_COLS; // 640 pixels
 static const int FONT_ATLAS_H = FONT_CELL_H * FONT_ROWS; // 288 pixels
-
 
 /* -- BUILD FONT ------------------------------------------------------------------*/
 void Text2d::BuildFont( const HDC hDC, const char* cFontName )
@@ -175,7 +170,6 @@ void Text2d::BuildFont( const HDC hDC, const char* cFontName )
     DeleteDC( memDC );
 }
 
-
 /* -- DELETE FONT -----------------------------------------------------------------*/
 void Text2d::DeleteFont( void )
 {
@@ -196,7 +190,6 @@ void Text2d::DeleteFont( void )
     }
     Text2d::pTextShader.reset();
 }
-
 
 /* -- RENDER 2D TEXT --------------------------------------------------------------*/
 void Text2d::Render2dText( float xPosition,

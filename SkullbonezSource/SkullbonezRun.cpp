@@ -17,7 +17,6 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
-
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezRun.h"
 #include "SkullbonezHelper.h"
@@ -27,16 +26,13 @@
 #include <cstring>
 #include <psapi.h>
 
-
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 
-
 /* -- STATIC MEMBER INITIALISATION ------------------------------------------------*/
 int SkullbonezRun::sGlResetPass = 0;
 int SkullbonezRun::sPerfPass = 0;
-
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 SkullbonezRun::SkullbonezRun( const char* pScenePath )
@@ -88,7 +84,6 @@ SkullbonezRun::SkullbonezRun( const char* pScenePath )
     srand( (unsigned)time( NULL ) );
 }
 
-
 /* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
 SkullbonezRun::~SkullbonezRun( void )
 {
@@ -112,7 +107,6 @@ SkullbonezRun::~SkullbonezRun( void )
     m_cCameras->Destroy();
     m_cSkyBox->Destroy();
 }
-
 
 /* -- INITIALISE ------------------------------------------------------------------*/
 void SkullbonezRun::Initialise( void )
@@ -242,7 +236,6 @@ void SkullbonezRun::Initialise( void )
     m_cSimulationTimer.StartTimer();
 }
 
-
 /* -- SET UP GAME MODELS ----------------------------------------------------------*/
 void SkullbonezRun::SetUpGameModels( int count )
 {
@@ -250,25 +243,27 @@ void SkullbonezRun::SetUpGameModels( int count )
 
     const SkullbonezConfig& cfg = Cfg();
 
-    auto randFloat = [&]( float base, int range ) { return base + (float)( rand() % range ); };
+    auto randFloat = [&]( float base, int range )
+    { return base + (float)( rand() % range ); };
     auto randSigned = [&]( int range ) -> float
     {
         float mag = 1.0f + (float)( rand() % range );
         return ( rand() % 2 == 0 ) ? mag : -mag;
     };
-    auto randSign = []() -> float { return ( rand() % 2 == 0 ) ? 1.0f : -1.0f; };
+    auto randSign = []() -> float
+    { return ( rand() % 2 == 0 ) ? 1.0f : -1.0f; };
 
     for ( int x = 0; x < m_modelCount; ++x )
     {
-        float posX        = randFloat( cfg.spawnXBase,         cfg.spawnXRange );
-        float posY        = randFloat( cfg.spawnYBase,         cfg.spawnYRange );
-        float posZ        = randFloat( cfg.spawnZBase,         cfg.spawnZRange );
-        float mass        = randFloat( cfg.ballMassMin,        cfg.ballMassRange );
-        float moment      = randFloat( cfg.ballMomentMin,      cfg.ballMomentRange );
+        float posX = randFloat( cfg.spawnXBase, cfg.spawnXRange );
+        float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
+        float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
+        float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
+        float moment = randFloat( cfg.ballMomentMin, cfg.ballMomentRange );
         float restitution = cfg.ballRestitutionMin + (float)( rand() % cfg.ballRestitutionRange ) / 10.0f;
-        float radius      = ( 1.0f + (float)( rand() % cfg.ballRadiusRange ) ) * 0.5f;
-        Vector3 force    ( randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ) );
-        Vector3 forcePos ( randSign(), randSign(), randSign() );
+        float radius = ( 1.0f + (float)( rand() % cfg.ballRadiusRange ) ) * 0.5f;
+        Vector3 force( randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ) );
+        Vector3 forcePos( randSign(), randSign(), randSign() );
 
         GameModel gameModel( &m_cWorldEnvironment, Vector3( posX, posY, posZ ), Vector3( moment, moment, moment ), mass );
         gameModel.SetCoefficientRestitution( restitution );
@@ -279,7 +274,6 @@ void SkullbonezRun::SetUpGameModels( int count )
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
     }
 }
-
 
 /* -- RUN -------------------------------------------------------------------------*/
 bool SkullbonezRun::Run( void )
@@ -469,7 +463,6 @@ bool SkullbonezRun::Run( void )
     return false;
 }
 
-
 /* -- TAKE INPUT ------------------------------------------------------------------*/
 void SkullbonezRun::TakeInput( void )
 {
@@ -543,7 +536,6 @@ void SkullbonezRun::TakeInput( void )
     }
 }
 
-
 /* -- UPDATE LOGIC ----------------------------------------------------------------*/
 void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
 {
@@ -571,7 +563,6 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
     m_cCameras->SetTweenSpeed( Cfg().cameraTweenRate * fSecondsPerFrame );
 }
 
-
 /* -- RENDER ----------------------------------------------------------------------*/
 void SkullbonezRun::Render( void )
 {
@@ -587,7 +578,6 @@ void SkullbonezRun::Render( void )
     // now camera rotation has been done, draw OpenGL primitives
     this->DrawPrimitives();
 }
-
 
 /* -- DRAW PRIMITIVES ---------------------------------------------------------------------*/
 void SkullbonezRun::DrawPrimitives( void )
@@ -669,7 +659,6 @@ void SkullbonezRun::DrawPrimitives( void )
     }
 }
 
-
 /* -- SET UP CAMERAS ----------------------------------------------------------------------*/
 void SkullbonezRun::SetUpCameras( void )
 {
@@ -700,7 +689,6 @@ void SkullbonezRun::SetUpCameras( void )
     m_cCameras->SetLockedMode( true );
 }
 
-
 /* -- SET INITIAL OPEN GL STATE -----------------------------------------------------------*/
 void SkullbonezRun::SetInitialOpenGlState( void )
 {
@@ -710,9 +698,8 @@ void SkullbonezRun::SetInitialOpenGlState( void )
     // load m_textures
     const SkullbonezConfig& cfg = Cfg();
     m_cTextures->CreateJpegTexture( cfg.terrainTexture.c_str(), TEXTURE_GROUND );
-    m_cTextures->CreateJpegTexture( cfg.sphereTexture.c_str(),  TEXTURE_BOUNDING_SPHERE );
+    m_cTextures->CreateJpegTexture( cfg.sphereTexture.c_str(), TEXTURE_BOUNDING_SPHERE );
 }
-
 
 /* -- DRAW WINDOW TEXT --------------------------------------------------------------------------------------------------------------------------------------------------*/
 void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
@@ -747,7 +734,6 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     Text2d::Render2dText( -0.2f, -0.40f, 0.01313f, " | Render Time: %.2f ms", m_r_renderTime * 1000.0f );
     Text2d::Render2dText( 0.05f, -0.40f, 0.01313f, " | Contact:  s.eschbach@gmail.com   | www.simoneschbach.com" );
 }
-
 
 /* -- SET VIEWING ORIENTATION -------------------------------------------------------------------------------------------------------------------------------------------*/
 void SkullbonezRun::SetViewingOrientation( void )
@@ -832,7 +818,6 @@ void SkullbonezRun::SetViewingOrientation( void )
     */
 }
 
-
 /* -- RELATIVE UPDATE CAMERA --------------------------------------------------------------------------------------------------------------------------------------------*/
 void SkullbonezRun::RelativeUpdateCamera( uint32_t hash )
 {
@@ -843,7 +828,6 @@ void SkullbonezRun::RelativeUpdateCamera( uint32_t hash )
         m_cCameras->RelativeUpdate( hash, minY, Cfg().maxCameraHeight );
     }
 }
-
 
 /* -- MOVE CAMERA -------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
@@ -897,7 +881,6 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
     }
 }
 
-
 /* -- SET UP CAMERAS FROM SCENE ---------------------------------------------------*/
 void SkullbonezRun::SetUpCamerasFromScene( const TestScene& scene )
 {
@@ -919,7 +902,6 @@ void SkullbonezRun::SetUpCamerasFromScene( const TestScene& scene )
     // lock the m_cameras
     m_cCameras->SetLockedMode( true );
 }
-
 
 /* -- SET UP GAME MODELS FROM SCENE -----------------------------------------------*/
 void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
@@ -950,7 +932,6 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
     }
 }
-
 
 /* -- SAVE SCREENSHOT -------------------------------------------------------------*/
 void SkullbonezRun::SaveScreenshot( const char* path )
@@ -1017,7 +998,6 @@ void SkullbonezRun::SaveScreenshot( const char* path )
     fwrite( pixels.data(), 1, static_cast<size_t>( imageSize ), file );
     fclose( file );
 }
-
 
 /* -- LOG PERF MEMORY -------------------------------------------------------------*/
 void SkullbonezRun::LogPerfMemory( const char* checkpoint )

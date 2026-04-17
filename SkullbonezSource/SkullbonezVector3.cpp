@@ -17,27 +17,22 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
-
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezVector3.h"
 
-
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Math::Vector;
-
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 Vector3::Vector3( void )
 {
 }
 
-
 /* -- COPY CONSTRUCTOR ------------------------------------------------------------*/
 Vector3::Vector3( const Vector3& v )
     : x( v.x ), y( v.y ), z( v.z )
 {
 }
-
 
 /* -- OVERLOADED CONSTRUCTOR ------------------------------------------------------*/
 Vector3::Vector3( float fX,
@@ -47,13 +42,11 @@ Vector3::Vector3( float fX,
 {
 }
 
-
 /* -- ZERO ------------------------------------------------------------------------*/
 void Vector3::Zero( void )
 {
     this->x = this->y = this->z = 0.0f;
 }
-
 
 /* -- NORMALISE -------------------------------------------------------------------*/
 void Vector3::Normalise( void )
@@ -73,7 +66,6 @@ void Vector3::Normalise( void )
     this->z *= oneOverMag;
 }
 
-
 /* -- ABSOLUTE --------------------------------------------------------------------*/
 bool Vector3::IsCloseToZero( void ) const
 {
@@ -82,7 +74,6 @@ bool Vector3::IsCloseToZero( void ) const
            this->z<TOLERANCE&& this->z> ZERO_TAKE_TOLERANCE;
 }
 
-
 /* -- ABSOLUTE --------------------------------------------------------------------*/
 void Vector3::Absolute( void )
 {
@@ -90,7 +81,6 @@ void Vector3::Absolute( void )
     this->y = fabs( this->y );
     this->z = fabs( this->z );
 }
-
 
 /* -- SET ALL ---------------------------------------------------------------------*/
 void Vector3::SetAll( float nx,
@@ -102,7 +92,6 @@ void Vector3::SetAll( float nx,
     this->z = nz;
 }
 
-
 /* -- OPERATOR = ------------------------------------------------------------------*/
 Vector3& Vector3::operator=( const Vector3& v )
 {
@@ -112,7 +101,6 @@ Vector3& Vector3::operator=( const Vector3& v )
     return *this;
 }
 
-
 /* -- OPERATOR == -----------------------------------------------------------------*/
 bool Vector3::operator==( const Vector3& v ) const
 {
@@ -120,7 +108,6 @@ bool Vector3::operator==( const Vector3& v ) const
              this->y == v.y &&
              this->z == v.z );
 }
-
 
 /* -- OPERATOR != -----------------------------------------------------------------*/
 bool Vector3::operator!=( const Vector3& v ) const
@@ -130,7 +117,6 @@ bool Vector3::operator!=( const Vector3& v ) const
              this->z != v.z );
 }
 
-
 /* -- OPERATOR - ------------------------------------------------------------------*/
 Vector3 Vector3::operator-( void ) const
 {
@@ -138,7 +124,6 @@ Vector3 Vector3::operator-( void ) const
                     -this->y,
                     -this->z );
 }
-
 
 /* -- OPERATOR + ------------------------------------------------------------------*/
 Vector3 Vector3::operator+( const Vector3& v ) const
@@ -148,7 +133,6 @@ Vector3 Vector3::operator+( const Vector3& v ) const
                     this->z + v.z );
 }
 
-
 /* -- OPERATOR - ------------------------------------------------------------------*/
 Vector3 Vector3::operator-( const Vector3& v ) const
 {
@@ -157,7 +141,6 @@ Vector3 Vector3::operator-( const Vector3& v ) const
                     this->z - v.z );
 }
 
-
 /* -- OPERATOR * ------------------------------------------------------------------*/
 Vector3 Vector3::operator*( float f ) const
 {
@@ -165,7 +148,6 @@ Vector3 Vector3::operator*( float f ) const
                     this->y * f,
                     this->z * f );
 }
-
 
 /* -- OPERATOR / ------------------------------------------------------------------*/
 Vector3 Vector3::operator/( float f ) const
@@ -180,7 +162,6 @@ Vector3 Vector3::operator/( float f ) const
                     this->z * oneOverA );
 }
 
-
 /* -- OPERATOR / ------------------------------------------------------------------*/
 Vector3 Vector3::operator/( const Vector3& v ) const
 {
@@ -193,7 +174,6 @@ Vector3 Vector3::operator/( const Vector3& v ) const
                     this->y / v.y,
                     this->z / v.z );
 }
-
 
 /* -- SIMPLIFY --------------------------------------------------------------------*/
 void Vector3::Simplify( void )
@@ -212,7 +192,6 @@ void Vector3::Simplify( void )
     }
 }
 
-
 /* -- OPERATOR += -----------------------------------------------------------------*/
 Vector3& Vector3::operator+=( const Vector3& v )
 {
@@ -221,7 +200,6 @@ Vector3& Vector3::operator+=( const Vector3& v )
     this->z += v.z;
     return *this;
 }
-
 
 /* -- OPERATOR -= -----------------------------------------------------------------*/
 Vector3& Vector3::operator-=( const Vector3& v )
@@ -232,7 +210,6 @@ Vector3& Vector3::operator-=( const Vector3& v )
     return *this;
 }
 
-
 /* -- OPERATOR *= -----------------------------------------------------------------*/
 Vector3& Vector3::operator*=( float f )
 {
@@ -241,7 +218,6 @@ Vector3& Vector3::operator*=( float f )
     this->z *= f;
     return *this;
 }
-
 
 /* -- OPERATOR /= -----------------------------------------------------------------*/
 Vector3& Vector3::operator/=( float f )
@@ -257,7 +233,6 @@ Vector3& Vector3::operator/=( float f )
     return *this;
 }
 
-
 /* -- OPERATOR /= -----------------------------------------------------------------*/
 Vector3& Vector3::operator/=( const Vector3& v )
 {
@@ -270,7 +245,6 @@ Vector3& Vector3::operator/=( const Vector3& v )
     this->z /= v.z;
     return *this;
 }
-
 
 /* -- OPERATOR *= -----------------------------------------------------------------*/
 float Vector3::operator*( const Vector3& v ) const
