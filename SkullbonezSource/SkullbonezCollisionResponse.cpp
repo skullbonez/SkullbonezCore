@@ -24,7 +24,7 @@
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezCollisionResponse.h"
 #include "SkullbonezVector3.h"
-#include "SkullbonezBoundingSphere.h"
+#include "SkullbonezCollisionShape.h"
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Physics;
@@ -47,74 +47,77 @@ void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel )
         gameModel.SetIsGrounded( true );
     }
 
-    if ( dynamic_cast<BoundingSphere*>( gameModel.m_boundingVolume.get() ) )
-    {
-        if ( !gameModel.IsGrounded() )
+    std::visit( [&]( const auto& shape )
+                {
+        using ShapeT = std::decay_t<decltype( shape )>;
+
+        if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
         {
-            // apply the response forces to the model - angular impulse first
-            CollisionResponse::SphereVsPlaneAngularImpulse( gameModel );
+            if ( !gameModel.IsGrounded() )
+            {
+                // apply the response forces to the model - angular impulse first
+                CollisionResponse::SphereVsPlaneAngularImpulse( gameModel );
 
-            // then linear impulse
-            CollisionResponse::SphereVsPlaneLinearImpulse( gameModel, totalVelocity, projectedVelocity );
+                // then linear impulse
+                CollisionResponse::SphereVsPlaneLinearImpulse( gameModel, totalVelocity, projectedVelocity );
 
-            // apply the change in angular velocity now the linear reaction has taken place
-            gameModel.m_physicsInfo.ApplyChangeInAngularVelocity();
-        }
-        else
-        {
-            // perform the rolling physics
-            CollisionResponse::SphereVsPlaneRollResponse( gameModel );
-        }
-
-        return;
-    }
-
-    throw std::runtime_error( "A supplied dynamics object is of unrecognised type!  (CollisionResponse::RespondCollisionTerrain)" );
+                // apply the change in angular velocity now the linear reaction has taken place
+                gameModel.m_physicsInfo.ApplyChangeInAngularVelocity();
+            }
+            else
+            {
+                // perform the rolling physics
+                CollisionResponse::SphereVsPlaneRollResponse( gameModel );
+            }
+        } },
+                gameModel.m_boundingVolume );
 }
 
 /* -- RESPOND COLLISION GAME MODELS -------------------------------------------------------------------------------------------------------------------------------------*/
 void CollisionResponse::RespondCollisionGameModels( GameModel& gameModel1,
                                                     GameModel& gameModel2 )
 {
-    if ( dynamic_cast<BoundingSphere*>( gameModel1.m_boundingVolume.get() ) &&
-         dynamic_cast<BoundingSphere*>( gameModel2.m_boundingVolume.get() ) )
-    {
-        // calculate the collision m_normal once and once only
-        Vector3 collisionNormal =
-            CollisionResponse::GetCollisionNormalSphereVsSphere( gameModel1,
-                                                                 gameModel2 );
+    std::visit( [&]( const auto& shape1, const auto& shape2 )
+                {
+        using Shape1T = std::decay_t<decltype( shape1 )>;
+        using Shape2T = std::decay_t<decltype( shape2 )>;
 
-        // apply the response forces to the models - angular first
-        CollisionResponse::SphereVsSphereAngular( gameModel1, gameModel2, collisionNormal );
-
-        // then linear
-        CollisionResponse::SphereVsSphereLinear( gameModel1, gameModel2, collisionNormal );
-
-        // apply the change in angular velocities now the linear reactions
-        // have taken place
-        gameModel1.m_physicsInfo.ApplyChangeInAngularVelocity();
-        gameModel2.m_physicsInfo.ApplyChangeInAngularVelocity();
-
-        // positional correction: push overlapping spheres apart to prevent penetration accumulation
-        Vector3 pos1 = gameModel1.m_physicsInfo.GetPosition();
-        Vector3 pos2 = gameModel2.m_physicsInfo.GetPosition();
-        float r1 = dynamic_cast<BoundingSphere*>( gameModel1.m_boundingVolume.get() )->GetRadius();
-        float r2 = dynamic_cast<BoundingSphere*>( gameModel2.m_boundingVolume.get() )->GetRadius();
-        Vector3 delta = pos2 - pos1;
-        float dist = Vector::VectorMag( delta );
-        float overlap = ( r1 + r2 ) - dist;
-        if ( overlap > 0.0f && dist > 0.0f )
+        if constexpr ( std::is_same_v<Shape1T, BoundingSphere> && std::is_same_v<Shape2T, BoundingSphere> )
         {
-            Vector3 axis = delta / dist;
-            float halfOverlap = overlap * 0.5f;
-            gameModel1.m_physicsInfo.SetPosition( pos1 - axis * halfOverlap );
-            gameModel2.m_physicsInfo.SetPosition( pos2 + axis * halfOverlap );
-        }
+            // calculate the collision m_normal once and once only
+            Vector3 collisionNormal =
+                CollisionResponse::GetCollisionNormalSphereVsSphere( gameModel1,
+                                                                     gameModel2 );
 
-        return;
-    }
+            // apply the response forces to the models - angular first
+            CollisionResponse::SphereVsSphereAngular( gameModel1, gameModel2, collisionNormal );
 
-    throw std::runtime_error( "A supplied dynamics object is of unrecognised type!  (CollisionResponse::RespondCollisionGameModels)" );
+            // then linear
+            CollisionResponse::SphereVsSphereLinear( gameModel1, gameModel2, collisionNormal );
+
+            // apply the change in angular velocities now the linear reactions
+            // have taken place
+            gameModel1.m_physicsInfo.ApplyChangeInAngularVelocity();
+            gameModel2.m_physicsInfo.ApplyChangeInAngularVelocity();
+
+            // positional correction: push overlapping spheres apart to prevent penetration accumulation
+            Vector3 pos1 = gameModel1.m_physicsInfo.GetPosition();
+            Vector3 pos2 = gameModel2.m_physicsInfo.GetPosition();
+            float r1 = shape1.GetRadius();
+            float r2 = shape2.GetRadius();
+            Vector3 delta = pos2 - pos1;
+            float dist = Vector::VectorMag( delta );
+            float overlap = ( r1 + r2 ) - dist;
+            if ( overlap > 0.0f && dist > 0.0f )
+            {
+                Vector3 axis = delta / dist;
+                float halfOverlap = overlap * 0.5f;
+                gameModel1.m_physicsInfo.SetPosition( pos1 - axis * halfOverlap );
+                gameModel2.m_physicsInfo.SetPosition( pos2 + axis * halfOverlap );
+            }
+        } },
+                gameModel1.m_boundingVolume,
+                gameModel2.m_boundingVolume );
 }
 
 /* -- SPHERE VS PLANE ROLL RESPONSE -------------------------------------------------------------------------------------------------------------------------------------*/
@@ -143,8 +146,7 @@ void CollisionResponse::SphereVsPlaneLinearImpulse( GameModel& gameModel, Vector
     Vector3 bounceVelocity = direction * ( projectedVelocity * gameModel.m_physicsInfo.GetCoefficientRestitution() );
 
     // compute spin's surface velocity at the contact point via cross(omega, r_contact)
-    auto* sphere = dynamic_cast<BoundingSphere*>( gameModel.m_boundingVolume.get() );
-    float m_radius = sphere->GetRadius();
+    float m_radius = GetShapeBoundingRadius( gameModel.m_boundingVolume );
     Vector3 contactOffset = m_normal * ( -m_radius );
     Vector3 spinSurfaceVel = Vector::CrossProduct( gameModel.m_physicsInfo.GetAngularVelocity(), contactOffset );
 
@@ -314,8 +316,8 @@ void CollisionResponse::SphereVsSphereAngular( GameModel& gameModel1,
                                                const Vector3& collisionNormal )
 {
     // compute the object space points of collision
-    Vector3 objectSpaceCollisionPoint1 = collisionNormal * dynamic_cast<BoundingSphere*>( gameModel1.m_boundingVolume.get() )->GetRadius();
-    Vector3 objectSpaceCollisionPoint2 = -collisionNormal * dynamic_cast<BoundingSphere*>( gameModel2.m_boundingVolume.get() )->GetRadius();
+    Vector3 objectSpaceCollisionPoint1 = collisionNormal * GetShapeBoundingRadius( gameModel1.m_boundingVolume );
+    Vector3 objectSpaceCollisionPoint2 = -collisionNormal * GetShapeBoundingRadius( gameModel2.m_boundingVolume );
 
     // compute the linear velocities of the game models
     Vector3 linearVelocity1 = gameModel1.m_physicsInfo.GetVelocity();
@@ -413,7 +415,7 @@ Ray CollisionResponse::CalculateRay( GameModel& gameModel,
 /* -- GET COLLIDED OBJECT WORLD POSITION --------------------------------------------------------------------------------------------------------------------------------*/
 Vector3 CollisionResponse::GetCollidedObjectWorldPosition( GameModel& gameModel )
 {
-    return gameModel.m_physicsInfo.GetPosition() + ( gameModel.m_physicsInfo.GetOrientationMatrix() * gameModel.m_boundingVolume.get()->GetPosition() );
+    return gameModel.m_physicsInfo.GetPosition() + ( gameModel.m_physicsInfo.GetOrientationMatrix() * GetShapePosition( gameModel.m_boundingVolume ) );
 }
 
 /* -- GET COLLISION NORMAL SPHERE VS SPERE ------------------------------------------------------------------------------------------------------------------------------*/

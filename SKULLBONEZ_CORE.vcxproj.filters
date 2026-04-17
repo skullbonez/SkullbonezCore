@@ -116,10 +116,10 @@
     <ClInclude Include="SkullbonezSource\SkullbonezCollisionResponse.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\SkullbonezCommon.h">
+    <ClInclude Include="SkullbonezSource\SkullbonezCollisionShape.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\SkullbonezDynamicsObject.h">
+    <ClInclude Include="SkullbonezSource\SkullbonezCommon.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezGameModel.h">

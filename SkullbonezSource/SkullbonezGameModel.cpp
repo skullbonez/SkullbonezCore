@@ -23,7 +23,7 @@
 
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezGameModel.h"
-#include "SkullbonezBoundingSphere.h"
+#include "SkullbonezCollisionShape.h"
 #include "SkullbonezGeometricStructures.h"
 #include "SkullbonezGeometricMath.h"
 #include "SkullbonezCollisionResponse.h"
@@ -84,18 +84,13 @@ void GameModel::SetCoefficientRestitution( float fCoefficientRestitution )
 /* -- GET BOUNDING RADIUS ---------------------------------------------------------*/
 float GameModel::GetBoundingRadius( void )
 {
-    auto* sphere = dynamic_cast<BoundingSphere*>( m_boundingVolume.get() );
-    if ( !sphere )
-    {
-        return 0.0f;
-    }
-    return sphere->GetRadius();
+    return GetShapeBoundingRadius( m_boundingVolume );
 }
 
 /* -- ADD BOUNDING SPHERE ---------------------------------------------------------*/
 void GameModel::AddBoundingSphere( float fRadius )
 {
-    m_boundingVolume = std::make_unique<BoundingSphere>( fRadius, Vector::ZERO_VECTOR );
+    m_boundingVolume = BoundingSphere( fRadius, Vector::ZERO_VECTOR );
     this->UpdateModelInfo();
 }
 
@@ -136,9 +131,10 @@ float GameModel::GetModelCollisionTime( GameModel& collisionTarget,
     Ray focusRay = CollisionResponse::CalculateRay( *this, changeInTime );
 
     // perform the collision test
-    return m_boundingVolume->TestCollision( *collisionTarget.m_boundingVolume,
-                                            targetRay,
-                                            focusRay );
+    return TestShapeCollision( m_boundingVolume,
+                               collisionTarget.m_boundingVolume,
+                               focusRay,
+                               targetRay );
 }
 
 /* -- COLLISION RESPONSE GAME MODEL -----------------------------------------------*/
@@ -161,18 +157,12 @@ void GameModel::CollisionResponseGameModel( GameModel& responseTarget )
 /* -- STATIC OVERLAP RESPONSE GAME MODEL ------------------------------------------*/
 void GameModel::StaticOverlapResponseGameModel( GameModel& overlapTarget )
 {
-    // check if the two spheres are currently overlapping (handles grounded/slow m_balls
-    // where the sweep test returns NO_COLLISION due to near-zero movement)
-    auto* thisSphere = dynamic_cast<BoundingSphere*>( m_boundingVolume.get() );
-    auto* targetSphere = dynamic_cast<BoundingSphere*>( overlapTarget.m_boundingVolume.get() );
-    if ( !thisSphere || !targetSphere )
-    {
-        return;
-    }
+    float thisRadius = GetShapeBoundingRadius( m_boundingVolume );
+    float targetRadius = GetShapeBoundingRadius( overlapTarget.m_boundingVolume );
 
     Vector3 delta = overlapTarget.m_physicsInfo.GetPosition() - m_physicsInfo.GetPosition();
     float dist = Vector::VectorMag( delta );
-    float radii = thisSphere->GetRadius() + targetSphere->GetRadius();
+    float radii = thisRadius + targetRadius;
 
     if ( dist >= radii || dist <= 0.0f )
     {
@@ -219,7 +209,7 @@ void GameModel::RenderCollisionBounds( const Matrix4& view, const Matrix4& proj,
     // Build the rotation matrix from the physics m_orientation quaternion.
     // The bounding m_volume renders with: T(pos) * R * T(localOffset) * S(m_radius).
     Matrix4 rotation = Matrix4::FromQuaternion( m_physicsInfo.GetOrientation() );
-    m_boundingVolume->DEBUG_RenderCollisionVolume( m_physicsInfo.GetPosition(), rotation, view, proj, lightPos );
+    DEBUG_RenderShapeCollisionVolume( m_boundingVolume, m_physicsInfo.GetPosition(), rotation, view, proj, lightPos );
 }
 
 /* -- UPDATE VELOCITY -------------------------------------------------------------*/
@@ -246,14 +236,14 @@ void GameModel::ApplyWorldForces( float changeInTime )
 void GameModel::CalculateProjectedSurfaceArea( void )
 {
     // return the average submerged percentage
-    m_projectedSurfaceArea = m_boundingVolume->GetProjectedSurfaceArea();
+    m_projectedSurfaceArea = GetShapeProjectedSurfaceArea( m_boundingVolume );
 }
 
 /* -- CALCULATE DRAG COEFFICIENT --------------------------------------------------*/
 void GameModel::CalculateDragCoefficient( void )
 {
     // return the average submerged percentage
-    m_dragCoefficient = m_boundingVolume->GetDragCoefficient();
+    m_dragCoefficient = GetShapeDragCoefficient( m_boundingVolume );
 }
 
 /* -- GET VOLUME ------------------------------------------------------------------*/
@@ -275,7 +265,7 @@ void GameModel::UpdatePosition( float changeInTime )
 /* -- UPDATE POSITION -------------------------------------------------------------*/
 void GameModel::CalculateVolume( void )
 {
-    m_physicsInfo.SetVolume( m_boundingVolume->GetVolume() );
+    m_physicsInfo.SetVolume( GetShapeVolume( m_boundingVolume ) );
 }
 
 /* -- GET MASS --------------------------------------------------------------------*/
@@ -321,16 +311,8 @@ float GameModel::GetTerrainCollisionTime( float changeInTime )
     }
 
     // the origin will be in a different m_position based on the geometrical shape of the object
-    if ( dynamic_cast<BoundingSphere*>( m_boundingVolume.get() ) )
-    {
-        // offset the origin by the m_radius of the sphere
-        m_responseInformation.testingRay.origin.y -= dynamic_cast<BoundingSphere*>( m_boundingVolume.get() )->GetRadius();
-    }
-    else
-    {
-        // if we cant recognise the bounding object, something is wrong...
-        throw std::runtime_error( "A supplied dynamics object is of unrecognised type!  (GameModel::GetTerrainCollisionTime)" );
-    }
+    // offset the origin by the bounding radius (for spheres, this is the sphere radius)
+    m_responseInformation.testingRay.origin.y -= GetShapeTerrainBottomOffset( m_boundingVolume );
 
     // if out of bounds, no collision has occured
     if ( !m_terrain->IsInBounds( m_responseInformation.testingRay.origin.x, m_responseInformation.testingRay.origin.z ) )
@@ -444,7 +426,7 @@ void GameModel::DEBUG_SetSphereToTerrain( void )
     }
 
     // get the total m_radius
-    float rad = dynamic_cast<BoundingSphere*>( m_boundingVolume.get() )->GetRadius();
+    float rad = GetShapeBoundingRadius( m_boundingVolume );
 
     // get the m_height of the m_terrain at the current XZ m_position
     float m_height = m_terrain->GetTerrainHeightAt( m_physicsInfo.GetPosition().x, m_physicsInfo.GetPosition().z );
@@ -466,7 +448,7 @@ void GameModel::DEBUG_SetSphereToTerrain( void )
 float GameModel::GetSubmergedVolumePercent( void )
 {
     float m_fluidSurfaceHeight = m_worldEnvironment->GetFluidSurfaceHeight();
-    float totalPercentage = m_boundingVolume->GetSubmergedVolumePercent( m_fluidSurfaceHeight - m_physicsInfo.GetPosition().y );
+    float totalPercentage = GetShapeSubmergedVolumePercent( m_boundingVolume, m_fluidSurfaceHeight - m_physicsInfo.GetPosition().y );
 
     // return the submerged percentage
     return totalPercentage;
