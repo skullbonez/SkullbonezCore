@@ -229,7 +229,7 @@ void Text2d::Render2dText( float xPosition,
     // With FOV=45 and near=1: halfH = tan(22.5 deg), halfW = halfH * aspect.
     // This exactly reproduces the frustum-unit space used by the old glTranslatef calls.
     const float halfH = tanf( 22.5f * _PI / 180.0f );
-    const float halfW = halfH * (float)SCREEN_X / (float)SCREEN_Y;
+    const float halfW = halfH * (float)Cfg().screenX / (float)Cfg().screenY;
     Matrix4 proj = Matrix4::Ortho( -halfW, halfW, -halfH, halfH, -1.0f, 1.0f );
 
     // Build vertex data: 6 verts per character (2 triangles), 4 floats per vert

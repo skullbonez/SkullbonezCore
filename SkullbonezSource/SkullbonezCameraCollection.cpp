@@ -393,7 +393,7 @@ void CameraCollection::SetCamera( void )
             // update the tween camera if necessary
             if ( m_tweenCamera.Position.y < terrainHeight )
             {
-                m_tweenCamera.Position.y = terrainHeight + MIN_CAMERA_HEIGHT;
+                m_tweenCamera.Position.y = terrainHeight + Cfg().minCameraHeight;
             }
         }
         else

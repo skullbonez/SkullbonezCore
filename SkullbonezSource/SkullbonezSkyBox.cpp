@@ -53,12 +53,13 @@ SkyBox::SkyBox( int m_xMin,
 void SkyBox::LoadTextures( void )
 {
     m_textures = TextureCollection::Instance();
-    m_textures->CreateJpegTexture( SKY_LEFT_PATH, TEXTURE_SKY_LEFT );
-    m_textures->CreateJpegTexture( SKY_RIGHT_PATH, TEXTURE_SKY_RIGHT );
-    m_textures->CreateJpegTexture( SKY_FRONT_PATH, TEXTURE_SKY_FRONT );
-    m_textures->CreateJpegTexture( SKY_BACK_PATH, TEXTURE_SKY_BACK );
-    m_textures->CreateJpegTexture( SKY_UP_PATH, TEXTURE_SKY_UP );
-    m_textures->CreateJpegTexture( SKY_DOWN_PATH, TEXTURE_SKY_DOWN );
+    const SkullbonezCore::Basics::SkullbonezConfig& cfg = Cfg();
+    m_textures->CreateJpegTexture( cfg.skyLeft.c_str(),  TEXTURE_SKY_LEFT );
+    m_textures->CreateJpegTexture( cfg.skyRight.c_str(), TEXTURE_SKY_RIGHT );
+    m_textures->CreateJpegTexture( cfg.skyFront.c_str(), TEXTURE_SKY_FRONT );
+    m_textures->CreateJpegTexture( cfg.skyBack.c_str(),  TEXTURE_SKY_BACK );
+    m_textures->CreateJpegTexture( cfg.skyUp.c_str(),    TEXTURE_SKY_UP );
+    m_textures->CreateJpegTexture( cfg.skyDown.c_str(),  TEXTURE_SKY_DOWN );
 }
 
 
@@ -66,12 +67,13 @@ void SkyBox::LoadTextures( void )
 void SkyBox::BuildMeshes( void )
 {
     // Shorthand for boundary values with overflow
-    float xn = (float)( m_boundaries.m_xMin - SKY_BOX_OVERFLOW );
-    float xp = (float)( m_boundaries.m_xMax + SKY_BOX_OVERFLOW );
-    float yn = (float)( m_boundaries.yMin - SKY_BOX_OVERFLOW );
-    float yp = (float)( m_boundaries.yMax + SKY_BOX_OVERFLOW );
-    float zn = (float)( m_boundaries.m_zMin - SKY_BOX_OVERFLOW );
-    float zp = (float)( m_boundaries.m_zMax + SKY_BOX_OVERFLOW );
+    const int overflow = Cfg().skyboxOverflow;
+    float xn = (float)( m_boundaries.m_xMin - overflow );
+    float xp = (float)( m_boundaries.m_xMax + overflow );
+    float yn = (float)( m_boundaries.yMin - overflow );
+    float yp = (float)( m_boundaries.yMax + overflow );
+    float zn = (float)( m_boundaries.m_zMin - overflow );
+    float zp = (float)( m_boundaries.m_zMax + overflow );
     float yMinF = (float)m_boundaries.yMin;
     float yMaxF = (float)m_boundaries.yMax;
     float xMinF = (float)m_boundaries.m_xMin;

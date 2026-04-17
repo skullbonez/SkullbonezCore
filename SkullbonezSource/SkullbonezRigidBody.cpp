@@ -150,31 +150,31 @@ void RigidBody::ApplyChangeInAngularVelocity( void )
 /* -- THROTTLE ANGULAR VELOCITY ---------------------------------------------------*/
 void RigidBody::ThrottleAngularVelocity( void )
 {
-    if ( m_angularVelocity.x > VELOCITY_LIMIT )
+    if ( m_angularVelocity.x > Cfg().velocityLimit )
     {
-        m_angularVelocity.x = VELOCITY_LIMIT;
+        m_angularVelocity.x = Cfg().velocityLimit;
     }
-    else if ( m_angularVelocity.x < -VELOCITY_LIMIT )
+    else if ( m_angularVelocity.x < -Cfg().velocityLimit )
     {
-        m_angularVelocity.x = -VELOCITY_LIMIT;
-    }
-
-    if ( m_angularVelocity.y > VELOCITY_LIMIT )
-    {
-        m_angularVelocity.y = VELOCITY_LIMIT;
-    }
-    else if ( m_angularVelocity.y < -VELOCITY_LIMIT )
-    {
-        m_angularVelocity.y = -VELOCITY_LIMIT;
+        m_angularVelocity.x = -Cfg().velocityLimit;
     }
 
-    if ( m_angularVelocity.z > VELOCITY_LIMIT )
+    if ( m_angularVelocity.y > Cfg().velocityLimit )
     {
-        m_angularVelocity.z = VELOCITY_LIMIT;
+        m_angularVelocity.y = Cfg().velocityLimit;
     }
-    else if ( m_angularVelocity.z < -VELOCITY_LIMIT )
+    else if ( m_angularVelocity.y < -Cfg().velocityLimit )
     {
-        m_angularVelocity.z = -VELOCITY_LIMIT;
+        m_angularVelocity.y = -Cfg().velocityLimit;
+    }
+
+    if ( m_angularVelocity.z > Cfg().velocityLimit )
+    {
+        m_angularVelocity.z = Cfg().velocityLimit;
+    }
+    else if ( m_angularVelocity.z < -Cfg().velocityLimit )
+    {
+        m_angularVelocity.z = -Cfg().velocityLimit;
     }
 }
 

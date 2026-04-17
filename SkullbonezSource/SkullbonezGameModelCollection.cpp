@@ -29,7 +29,7 @@ using namespace SkullbonezCore::GameObjects;
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 GameModelCollection::GameModelCollection( void )
-    : m_spatialGrid( BROADPHASE_CELL_SIZE )
+    : m_spatialGrid( Cfg().broadphaseCell )
 {
     m_gameModels.reserve( 200 );
 };
@@ -93,18 +93,18 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
         {
             m_height = 0.0f;
         }
-        if ( m_height >= SHADOW_MAX_HEIGHT )
+        if ( m_height >= Cfg().shadowMaxHeight )
         {
             continue;
         }
 
-        float alpha = SHADOW_MAX_ALPHA * ( 1.0f - m_height / SHADOW_MAX_HEIGHT );
-        float shadowRadius = m_radius * SHADOW_SCALE;
+        float alpha = Cfg().shadowMaxAlpha * ( 1.0f - m_height / Cfg().shadowMaxHeight );
+        float shadowRadius = m_radius * Cfg().shadowScale;
 
         Vector3 N = m_terrain->GetTerrainNormalAt( pos.x, pos.z );
 
         // Build model matrix: translate → rotate to m_terrain m_normal → scale
-        Matrix4 model = Matrix4::Translate( pos.x, groundY + SHADOW_OFFSET, pos.z );
+        Matrix4 model = Matrix4::Translate( pos.x, groundY + Cfg().shadowOffset, pos.z );
 
         float cosA = N.y;
         if ( cosA < 0.9999f )
@@ -248,12 +248,12 @@ void GameModelCollection::BuildShadowMesh( void )
     // Center at (0,0,0), ring vertices at unit m_distance.
     // The shadow m_shader uses length(aPosition.xz) for alpha fade.
     std::vector<float> verts;
-    verts.reserve( SHADOW_SEGMENTS * 3 * 3 );
+    verts.reserve( Cfg().shadowSegments * 3 * 3 );
 
-    for ( int s = 0; s < SHADOW_SEGMENTS; ++s )
+    for ( int s = 0; s < Cfg().shadowSegments; ++s )
     {
-        float a0 = ( _2PI * s ) / SHADOW_SEGMENTS;
-        float a1 = ( _2PI * ( s + 1 ) ) / SHADOW_SEGMENTS;
+        float a0 = ( _2PI * s ) / Cfg().shadowSegments;
+        float a1 = ( _2PI * ( s + 1 ) ) / Cfg().shadowSegments;
 
         // Center vertex
         verts.push_back( 0.0f );
@@ -269,7 +269,7 @@ void GameModelCollection::BuildShadowMesh( void )
         verts.push_back( sinf( a1 ) );
     }
 
-    m_shadowMesh = std::make_unique<Mesh>( verts.data(), SHADOW_SEGMENTS * 3, false, false );
+    m_shadowMesh = std::make_unique<Mesh>( verts.data(), Cfg().shadowSegments * 3, false, false );
     m_shadowShader = std::make_unique<Shader>( "SkullbonezData/shaders/shadow.vert",
                                                "SkullbonezData/shaders/shadow.frag" );
 }

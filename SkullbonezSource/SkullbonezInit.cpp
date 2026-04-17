@@ -109,12 +109,14 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
         sceneList.push_back( "" ); // legacy mode — empty string maps to nullptr
     }
 
+    Cfg().Load( "SkullbonezData/engine.cfg" );
+
     // Create an instance of our window class
     // (holds everything associated with our window)
     SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
 
     // Create the application window
-    m_cWindow->CreateAppWindow( hInstance, FULLSCREEN_MODE );
+    m_cWindow->CreateAppWindow( hInstance, Cfg().fullscreen );
 
     // Get the device context for our window
     m_cWindow->m_sDevice = GetDC( m_cWindow->m_sWindow );

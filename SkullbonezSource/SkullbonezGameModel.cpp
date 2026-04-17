@@ -49,7 +49,7 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     m_physicsInfo.SetPosition( vPosition );
     m_physicsInfo.SetRotationalInertia( vRotationalInertia );
     m_physicsInfo.SetMass( fMass );
-    m_physicsInfo.SetFrictionCoefficient( COEFFICIENT_FRICTION );
+    m_physicsInfo.SetFrictionCoefficient( Cfg().frictionCoeff );
 
     // initialise pointers
     m_terrain = 0;

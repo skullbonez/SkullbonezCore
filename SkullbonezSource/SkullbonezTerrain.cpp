@@ -160,7 +160,7 @@ float Terrain::GetTerrainHeightAt( float xPosition,
 
     if ( isFluidMin )
     {
-        return ( terrainHeight < FLUID_HEIGHT ) ? FLUID_HEIGHT : terrainHeight;
+        return ( terrainHeight < Cfg().fluidHeight ) ? Cfg().fluidHeight : terrainHeight;
     }
     else
     {
@@ -195,11 +195,11 @@ bool Terrain::IsInBounds( float xPosition, float zPosition )
         Justification for not allowing coordinates to the absolute outer bound:
         -----------------------------------------------------------------------
         It is arguable that a point would be in bounds of the m_terrain if it was
-        equal to (m_terrainSizeWorldCoords * TERRAIN_SCALING).  This may be true on
+        equal to (m_terrainSizeWorldCoords * Cfg().terrainScale).  This may be true on
         a physical level, however, this can cause major problems for the
         Terrain::LocatePolygon method as it uses:
-        floor(xPosition/(m_stepSize * TERRAIN_SCALING)) and
-        floor(zPosition/(m_stepSize * TERRAIN_SCALING))
+        floor(xPosition/(m_stepSize * Cfg().terrainScale)) and
+        floor(zPosition/(m_stepSize * Cfg().terrainScale))
         to determine which m_terrain quadric the point is in - you can only imagine
         what happens when the xPosition or the zPosition are equal to the upper
         bound of the m_terrain - the quadric is set to something that does not exist
@@ -212,8 +212,8 @@ bool Terrain::IsInBounds( float xPosition, float zPosition )
 
     return ( ( xPosition >= 0.0f ) &&
              ( zPosition >= 0.0f ) &&
-             ( xPosition < m_terrainSizeWorldCoords * TERRAIN_SCALING ) &&
-             ( zPosition < m_terrainSizeWorldCoords * TERRAIN_SCALING ) );
+             ( xPosition < m_terrainSizeWorldCoords * Cfg().terrainScale ) &&
+             ( zPosition < m_terrainSizeWorldCoords * Cfg().terrainScale ) );
 }
 
 
@@ -224,8 +224,8 @@ XZBounds Terrain::GetXZBounds( void )
 
     bounds.m_xMin = 0.0f;
     bounds.m_zMin = 0.0f;
-    bounds.m_xMax = m_terrainSizeWorldCoords * TERRAIN_SCALING;
-    bounds.m_zMax = m_terrainSizeWorldCoords * TERRAIN_SCALING;
+    bounds.m_xMax = m_terrainSizeWorldCoords * Cfg().terrainScale;
+    bounds.m_zMax = m_terrainSizeWorldCoords * Cfg().terrainScale;
 
     return bounds;
 }
@@ -243,8 +243,8 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
     // NOTE:  X and Z params are switched in this method to account for world
     // co-ordinate space find which quadric we are in (treat m_terrain as orthagonal
     // XZ projection to locate the quadric)
-    int xPosting = (int)floorf( zPosition / ( m_stepSize * TERRAIN_SCALING ) );
-    int zPosting = (int)floorf( xPosition / ( m_stepSize * TERRAIN_SCALING ) );
+    int xPosting = (int)floorf( zPosition / ( m_stepSize * Cfg().terrainScale ) );
+    int zPosting = (int)floorf( xPosition / ( m_stepSize * Cfg().terrainScale ) );
 
     // calculate the BOTTOM RIGHT post of the quadric hit - we will call this the
     // 'target quadric'
@@ -253,7 +253,7 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
                         m_postsPerSide;
 
     // scale the step size (m_terrain may be rendered after a glScale)
-    float scaledStepSize = m_stepSize * TERRAIN_SCALING;
+    float scaledStepSize = m_stepSize * Cfg().terrainScale;
 
     // NOTE:  X and Z params are switched in this method to account for world
     // co-ordinate space make our X and Z positions relative to the target quadric
@@ -323,9 +323,9 @@ void Terrain::TranslatePostings( void )
     {
         for ( int Z = 0; Z < m_mapSize; Z += m_stepSize )
         {
-            m_postData[indexCounter].vPosition.SetAll( (float)X * TERRAIN_SCALING,
-                                                       (float)this->GetPixelHeightAt( X, Z ) * TERRAIN_HEIGHT_SCALE * TERRAIN_SCALING,
-                                                       (float)Z * TERRAIN_SCALING );
+            m_postData[indexCounter].vPosition.SetAll( (float)X * Cfg().terrainScale,
+                                                       (float)this->GetPixelHeightAt( X, Z ) * Cfg().terrainHeightScale * Cfg().terrainScale,
+                                                       (float)Z * Cfg().terrainScale );
 
             ++indexCounter;
         }
