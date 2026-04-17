@@ -17,15 +17,12 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
-
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezTerrain.h"
-
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Geometry;
 using namespace SkullbonezCore::Math;
-
 
 /* -- CONSTRUCTOR -----------------------------------------------------------------*/
 Terrain::Terrain( const char* sFileName,
@@ -57,13 +54,11 @@ Terrain::Terrain( const char* sFileName,
     m_terrainData.shrink_to_fit();
 }
 
-
 /* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
 Terrain::~Terrain( void )
 {
     // Mesh and Shader cleaned up by unique_ptr
 }
-
 
 /* -- BUILD TERRAIN ---------------------------------------------------------------*/
 void Terrain::BuildTerrain( void )
@@ -77,13 +72,11 @@ void Terrain::BuildTerrain( void )
     this->GenerateNormals();
 }
 
-
 /* -- GET PIXEL HEIGHT AT ---------------------------------------------------------*/
 int Terrain::GetPixelHeightAt( int xCoord, int yCoord )
 {
     return m_terrainData[xCoord + yCoord * m_mapSize];
 }
-
 
 /* -- LOAD TERRAIN DATA -----------------------------------------------------------*/
 void Terrain::LoadTerrainData( const char* sFileName )
@@ -109,7 +102,6 @@ void Terrain::LoadTerrainData( const char* sFileName )
 
     fclose( pRawFile );
 }
-
 
 /* -- RENDER ----------------------------------------------------------------------*/
 void Terrain::Render( const Matrix4& view, const Matrix4& projection, const float* lightPosition )
@@ -146,7 +138,6 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, const floa
     glUseProgram( 0 );
 }
 
-
 /* -- GET TERRAIN HEIGHT AT -------------------------------------------------------*/
 float Terrain::GetTerrainHeightAt( float xPosition,
                                    float zPosition,
@@ -168,7 +159,6 @@ float Terrain::GetTerrainHeightAt( float xPosition,
     }
 }
 
-
 /* -- GET TERRAIN NORMAL AT -------------------------------------------------------*/
 Vector3 Terrain::GetTerrainNormalAt( float xPosition, float zPosition )
 {
@@ -186,7 +176,6 @@ Vector3 Terrain::GetTerrainNormalAt( float xPosition, float zPosition )
 
     return m_normal;
 }
-
 
 /* -- IS IN BOUNDS ----------------------------------------------------------------*/
 bool Terrain::IsInBounds( float xPosition, float zPosition )
@@ -216,7 +205,6 @@ bool Terrain::IsInBounds( float xPosition, float zPosition )
              ( zPosition < m_terrainSizeWorldCoords * Cfg().terrainScale ) );
 }
 
-
 /* -- GET BOUNDS XZ ---------------------------------------------------------------*/
 XZBounds Terrain::GetXZBounds( void )
 {
@@ -229,7 +217,6 @@ XZBounds Terrain::GetXZBounds( void )
 
     return bounds;
 }
-
 
 /* -- LOCATE POLYGON ---------------------------------------------------------------------------------------------------------------------------------------------------*/
 Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
@@ -313,7 +300,6 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
     return targetPolygon;
 }
 
-
 /* -- TRANSLATE POSTINGS -----------------------------------------------------------------------------------------------------------------------------------------------*/
 void Terrain::TranslatePostings( void )
 {
@@ -331,7 +317,6 @@ void Terrain::TranslatePostings( void )
         }
     }
 }
-
 
 /* -- GENERATE NORMALS -------------------------------------------------------------------------------------------------------------------------------------------------*/
 void Terrain::GenerateNormals( void )
@@ -649,7 +634,6 @@ void Terrain::GenerateNormals( void )
         }
     }
 }
-
 
 /* -- BUILD MESH ---------------------------------------------------------------------------------------------------------------------------------------------------*/
 void Terrain::BuildMesh( void )

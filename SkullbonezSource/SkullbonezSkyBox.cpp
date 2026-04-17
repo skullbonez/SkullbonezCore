@@ -17,19 +17,15 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
-
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezSkyBox.h"
 #include <vector>
 
-
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Geometry;
 
-
 /* -- SINGLETON INSTANCE INITIALISATION -------------------------------------------*/
 SkyBox* SkyBox::pInstance = 0;
-
 
 /* -- CONSTRUCTOR -----------------------------------------------------------------*/
 SkyBox::SkyBox( int m_xMin,
@@ -48,20 +44,18 @@ SkyBox::SkyBox( int m_xMin,
     m_textures = 0;
 }
 
-
 /* -- LOAD TEXTURES ---------------------------------------------------------------*/
 void SkyBox::LoadTextures( void )
 {
     m_textures = TextureCollection::Instance();
     const SkullbonezCore::Basics::SkullbonezConfig& cfg = Cfg();
-    m_textures->CreateJpegTexture( cfg.skyLeft.c_str(),  TEXTURE_SKY_LEFT );
+    m_textures->CreateJpegTexture( cfg.skyLeft.c_str(), TEXTURE_SKY_LEFT );
     m_textures->CreateJpegTexture( cfg.skyRight.c_str(), TEXTURE_SKY_RIGHT );
     m_textures->CreateJpegTexture( cfg.skyFront.c_str(), TEXTURE_SKY_FRONT );
-    m_textures->CreateJpegTexture( cfg.skyBack.c_str(),  TEXTURE_SKY_BACK );
-    m_textures->CreateJpegTexture( cfg.skyUp.c_str(),    TEXTURE_SKY_UP );
-    m_textures->CreateJpegTexture( cfg.skyDown.c_str(),  TEXTURE_SKY_DOWN );
+    m_textures->CreateJpegTexture( cfg.skyBack.c_str(), TEXTURE_SKY_BACK );
+    m_textures->CreateJpegTexture( cfg.skyUp.c_str(), TEXTURE_SKY_UP );
+    m_textures->CreateJpegTexture( cfg.skyDown.c_str(), TEXTURE_SKY_DOWN );
 }
-
 
 /* -- BUILD MESHES ----------------------------------------------------------------*/
 void SkyBox::BuildMeshes( void )
@@ -302,7 +296,6 @@ void SkyBox::BuildMeshes( void )
         "SkullbonezData/shaders/unlit_textured.frag" );
 }
 
-
 /* -- SINGLETON CONSTRUCTOR -------------------------------------------------------*/
 SkyBox* SkyBox::Instance( int m_xMin, int m_xMax, int yMin, int yMax, int m_zMin, int m_zMax )
 {
@@ -313,7 +306,6 @@ SkyBox* SkyBox::Instance( int m_xMin, int m_xMax, int yMin, int yMax, int m_zMin
     }
     return SkyBox::pInstance;
 }
-
 
 /* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
 void SkyBox::Destroy( void )
@@ -329,7 +321,6 @@ void SkyBox::Destroy( void )
     }
 }
 
-
 /* -- RESET GL RESOURCES ----------------------------------------------------------*/
 void SkyBox::ResetGLResources( void )
 {
@@ -341,7 +332,6 @@ void SkyBox::ResetGLResources( void )
     this->LoadTextures();
     this->BuildMeshes();
 }
-
 
 /* -- RENDER ----------------------------------------------------------------------*/
 void SkyBox::Render( const Matrix4& view, const Matrix4& proj )

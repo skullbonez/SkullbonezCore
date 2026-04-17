@@ -62,24 +62,24 @@
 
 /* -- COMPILE-TIME CONSTANTS ------------------------------------------------------*/
 // Array-sizing counts (must remain compile-time)
-#define TOTAL_CAMERA_COUNT  3
+#define TOTAL_CAMERA_COUNT 3
 #define TOTAL_TEXTURE_COUNT 8
 
 // Window labels
 #define WINDOW_NAME "SkullbonezWindow"
-#define TITLE_TEXT  "::SKULLBONEZ CORE::"
+#define TITLE_TEXT "::SKULLBONEZ CORE::"
 
 // Math constants
-constexpr float _PI              = 3.14159265f;
-constexpr float _2PI             = 6.2831853f;
-constexpr float _HALF_PI         = 1.570796325f;
-constexpr float FOUR_OVER_THREE  = 1.33333f;
-constexpr float ONE_OVER_THREE   = 0.33333f;
+constexpr float _PI = 3.14159265f;
+constexpr float _2PI = 6.2831853f;
+constexpr float _HALF_PI = 1.570796325f;
+constexpr float FOUR_OVER_THREE = 1.33333f;
+constexpr float ONE_OVER_THREE = 0.33333f;
 
 // Numeric sentinels / tolerances
-constexpr float NO_COLLISION        = 1e30f;
-constexpr float TOLERANCE           = 0.00005f;
-constexpr float ONE_PLUS_TOLERANCE  = 1.00005f;
+constexpr float NO_COLLISION = 1e30f;
+constexpr float TOLERANCE = 0.00005f;
+constexpr float ONE_PLUS_TOLERANCE = 1.00005f;
 constexpr float ZERO_TAKE_TOLERANCE = -0.00005f;
 
 /* -- RUNTIME CONFIGURATION -------------------------------------------------------*/

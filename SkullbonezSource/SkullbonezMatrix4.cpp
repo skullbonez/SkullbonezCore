@@ -17,18 +17,15 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
-
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezMatrix4.h"
 #include "SkullbonezQuaternion.h"
 #include <cmath>
 
-
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Vector;
-
 
 /* -- DEFAULT CONSTRUCTOR (IDENTITY) ----------------------------------------------*/
 Matrix4::Matrix4( void )
@@ -51,7 +48,6 @@ Matrix4::Matrix4( void )
     m[15] = 1.0f;
 }
 
-
 /* -- CONSTRUCT FROM ARRAY --------------------------------------------------------*/
 Matrix4::Matrix4( const float* values )
 {
@@ -60,7 +56,6 @@ Matrix4::Matrix4( const float* values )
         m[i] = values[i];
     }
 }
-
 
 /* -- PERSPECTIVE PROJECTION ------------------------------------------------------*/
 Matrix4 Matrix4::Perspective( float fovDegrees, float aspect, float nearPlane, float farPlane )
@@ -83,7 +78,6 @@ Matrix4 Matrix4::Perspective( float fovDegrees, float aspect, float nearPlane, f
     return result;
 }
 
-
 /* -- ORTHOGRAPHIC PROJECTION -----------------------------------------------------*/
 Matrix4 Matrix4::Ortho( float left, float right, float bottom, float top, float nearPlane, float farPlane )
 {
@@ -103,7 +97,6 @@ Matrix4 Matrix4::Ortho( float left, float right, float bottom, float top, float 
 
     return result;
 }
-
 
 /* -- LOOK AT (VIEW MATRIX) -------------------------------------------------------*/
 Matrix4 Matrix4::LookAt( const Vector3& eye, const Vector3& center, const Vector3& up )
@@ -136,13 +129,11 @@ Matrix4 Matrix4::LookAt( const Vector3& eye, const Vector3& center, const Vector
     return result;
 }
 
-
 /* -- TRANSLATION MATRIX ----------------------------------------------------------*/
 Matrix4 Matrix4::Translate( const Vector3& v )
 {
     return Translate( v.x, v.y, v.z );
 }
-
 
 /* -- TRANSLATION MATRIX (COMPONENT FORM) ----------------------------------------*/
 Matrix4 Matrix4::Translate( float x, float y, float z )
@@ -154,13 +145,11 @@ Matrix4 Matrix4::Translate( float x, float y, float z )
     return result;
 }
 
-
 /* -- SCALE MATRIX ----------------------------------------------------------------*/
 Matrix4 Matrix4::Scale( const Vector3& v )
 {
     return Scale( v.x, v.y, v.z );
 }
-
 
 /* -- SCALE MATRIX (COMPONENT FORM) ----------------------------------------------*/
 Matrix4 Matrix4::Scale( float x, float y, float z )
@@ -172,13 +161,11 @@ Matrix4 Matrix4::Scale( float x, float y, float z )
     return result;
 }
 
-
 /* -- UNIFORM SCALE MATRIX --------------------------------------------------------*/
 Matrix4 Matrix4::Scale( float uniform )
 {
     return Scale( uniform, uniform, uniform );
 }
-
 
 /* -- AXIS-ANGLE ROTATION ---------------------------------------------------------*/
 Matrix4 Matrix4::RotateAxis( float angleDeg, float axisX, float axisY, float axisZ )
@@ -220,7 +207,6 @@ Matrix4 Matrix4::RotateAxis( float angleDeg, float axisX, float axisY, float axi
     return result;
 }
 
-
 /* -- ROTATION MATRIX FROM QUATERNION ---------------------------------------------*/
 Matrix4 Matrix4::FromQuaternion( const Quaternion& q )
 {
@@ -254,7 +240,6 @@ Matrix4 Matrix4::FromQuaternion( const Quaternion& q )
     return result;
 }
 
-
 /* -- MATRIX MULTIPLICATION -------------------------------------------------------*/
 Matrix4 Matrix4::operator*( const Matrix4& rhs ) const
 {
@@ -273,14 +258,12 @@ Matrix4 Matrix4::operator*( const Matrix4& rhs ) const
     return result;
 }
 
-
 /* -- IN-PLACE MATRIX MULTIPLICATION ----------------------------------------------*/
 Matrix4& Matrix4::operator*=( const Matrix4& rhs )
 {
     *this = *this * rhs;
     return *this;
 }
-
 
 /* -- DATA POINTER ----------------------------------------------------------------*/
 const float* Matrix4::Data( void ) const
