@@ -25,7 +25,7 @@
 #include "SkullbonezWorldEnvironment.h"
 #include "SkullbonezCommon.h"
 #include "SkullbonezRigidBody.h"
-#include "SkullbonezDynamicsObject.h"
+#include "SkullbonezCollisionShape.h"
 #include "SkullbonezTerrain.h"
 #include "SkullbonezResponseInformation.h"
 
@@ -60,7 +60,7 @@ class GameModel
     friend class CollisionResponse; // Declare class Collision Response as a friend of class Game Model
 
   private:
-    std::unique_ptr<DynamicsObject> m_boundingVolume;   // Bounding m_volume (owned)
+    CollisionShape m_boundingVolume;                    // Bounding volume (variant, inline)
     RigidBody m_physicsInfo;                            // Physics information for the game object
     Environment::WorldEnvironment* m_worldEnvironment;  // Pointer to the world environment settings
     Geometry::Terrain* m_terrain;                       // Pointer to the world m_terrain

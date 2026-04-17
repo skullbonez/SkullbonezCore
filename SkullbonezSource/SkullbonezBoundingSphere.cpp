@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------*/
-/*			      SEE HEADER FILE FOR CLASS AND METHOD DESCRIPTIONS				   */
+/*                SEE HEADER FILE FOR CLASS AND METHOD DESCRIPTIONS                */
 /*---------------------------------------------------------------------------------*/
 
 /*-----------------------------------------------------------------------------------
@@ -8,13 +8,13 @@
                                      .-"       "-.
                                     /             \
                                    /               \
-                                   �   .--. .--.   �
-                                   � )/   � �   \( �
-                                   �/ \__/   \__/ \�
+                                   |   .--. .--.   |
+                                   | )/   | |   \( |
+                                   |/ \__/   \__/ \|
                                    /      /^\      \
                                    \__    '='    __/
-                                     �\         /�
-                                     �\'"VUUUV"'/�
+                                     |\         /|
+                                     |\'"VUUUV"'/|
                                      \ `"""""""` /
                                       `-._____.-'
 
@@ -32,26 +32,21 @@ using namespace SkullbonezCore::Basics;
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 BoundingSphere::BoundingSphere( void )
+    : m_radius( 0.0f )
 {
 }
 
 /* -- OVERLOADED CONSTRUCTOR ------------------------------------------------------*/
 BoundingSphere::BoundingSphere( float fRadius,
                                 const Vector3& vPosition )
-    : m_radius( fRadius )
-{
-    m_position = vPosition;
-}
-
-/* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
-BoundingSphere::~BoundingSphere()
+    : m_position( vPosition ), m_radius( fRadius )
 {
 }
 
 /* -- COLLISION DETECT ------------------------------------------------------------*/
 float BoundingSphere::CollisionDetect( const BoundingSphere& target,
                                        const Ray& targetRay,
-                                       const Ray& focusRay )
+                                       const Ray& focusRay ) const
 {
     // calculate the total movement
     Vector3 totalMovement = targetRay.vector3 - focusRay.vector3;
@@ -105,22 +100,29 @@ float BoundingSphere::CollisionDetect( const BoundingSphere& target,
 }
 
 /* -- TEST COLLISION --------------------------------------------------------------*/
-float BoundingSphere::TestCollision( const DynamicsObject& target,
+float BoundingSphere::TestCollision( const BoundingSphere& target,
                                      const Ray& targetRay,
-                                     const Ray& focusRay )
+                                     const Ray& focusRay ) const
 {
-    if ( dynamic_cast<const BoundingSphere*>( &target ) )
-    {
-        return ( this->CollisionDetect( dynamic_cast<const BoundingSphere&>( target ), targetRay, focusRay ) );
-    }
-
-    throw std::runtime_error( "Target dynamics object is of unrecognised type!  (BoundingSphere::TestCollision)" );
+    return CollisionDetect( target, targetRay, focusRay );
 }
 
 /* -- GET RADIUS ------------------------------------------------------------------*/
-float BoundingSphere::GetRadius( void )
+float BoundingSphere::GetRadius( void ) const
 {
     return m_radius;
+}
+
+/* -- GET BOUNDING RADIUS ---------------------------------------------------------*/
+float BoundingSphere::GetBoundingRadius( void ) const
+{
+    return m_radius;
+}
+
+/* -- GET POSITION ----------------------------------------------------------------*/
+const Vector3& BoundingSphere::GetPosition( void ) const
+{
+    return m_position;
 }
 
 /* -- DEBUG RENDER COLLISION VOLUME -----------------------------------------------*/
@@ -128,26 +130,22 @@ void BoundingSphere::DEBUG_RenderCollisionVolume( const Vector3& worldSpaceCoord
                                                   const Matrix4& rotation,
                                                   const Matrix4& view,
                                                   const Matrix4& proj,
-                                                  const float lightPos[4] )
+                                                  const float lightPos[4] ) const
 {
-    // Model matrix: T(worldPos) * R * T(localOffset) * S(m_radius)
-    // Derived from the old GL stack: glTranslate(pos) * glMultMatrix(R) *
-    // glTranslate(-pos) * glTranslate(pos + localOffset) * glScale(m_radius)
-    // which simplifies to T(pos) * R * T(localOffset) * S(m_radius).
     Matrix4 model = Matrix4::Translate( worldSpaceCoords ) * rotation * Matrix4::Translate( m_position ) * Matrix4::Scale( m_radius, m_radius, m_radius );
 
     SkullbonezHelper::DrawSphere( model, view, proj, lightPos, RENDER_COL_VOL_TRANS );
 }
 
 /* -- GET VOLUME ------------------------------------------------------------------*/
-float BoundingSphere::GetVolume( void )
+float BoundingSphere::GetVolume( void ) const
 {
     // m_volume of sphere = 4/3 * PI * m_radius^3
     return FOUR_OVER_THREE * _PI * m_radius * m_radius * m_radius;
 }
 
 /* -- GET SUBMERGED VOLUME PERCENT ------------------------------------------------*/
-float BoundingSphere::GetSubmergedVolumePercent( float m_fluidSurfaceHeight )
+float BoundingSphere::GetSubmergedVolumePercent( float m_fluidSurfaceHeight ) const
 {
     if ( m_position.y - m_radius >= m_fluidSurfaceHeight )
     {
@@ -178,13 +176,13 @@ float BoundingSphere::GetSubmergedVolumePercent( float m_fluidSurfaceHeight )
 }
 
 /* -- GET DRAG COEFFICIENT --------------------------------------------------------*/
-float BoundingSphere::GetDragCoefficient( void )
+float BoundingSphere::GetDragCoefficient( void ) const
 {
     return SPHERE_DRAG_COEFFICIENT;
 }
 
 /* -- GET PROJECTED SURFACE AREA --------------------------------------------------*/
-float BoundingSphere::GetProjectedSurfaceArea( void )
+float BoundingSphere::GetProjectedSurfaceArea( void ) const
 {
     // Area of circle = PI * r^2
     return _PI * m_radius * m_radius;

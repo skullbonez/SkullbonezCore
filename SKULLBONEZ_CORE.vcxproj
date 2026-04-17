@@ -56,11 +56,12 @@
       <MinimalRebuild>false</MinimalRebuild>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <PrecompiledHeader />
       <WarningLevel>Level4</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalDependencies>legacy_stdio_definitions.lib;jpeg.lib;psapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -81,11 +82,12 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <PrecompiledHeader />
       <WarningLevel>Level4</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;jpeg.lib;psapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -136,8 +138,8 @@
     <ClInclude Include="SkullbonezSource\SkullbonezCamera.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCameraCollection.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCollisionResponse.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezCollisionShape.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCommon.h" />
-    <ClInclude Include="SkullbonezSource\SkullbonezDynamicsObject.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezGameModel.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezGameModelCollection.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezGeometricMath.h" />

@@ -4,13 +4,13 @@
                                                                              .-"       "-.
                                                                             /             \
                                                                            /               \
-                                                                           �   .--. .--.   �
-                                                                           � )/   � �   \( �
-                                                                           �/ \__/   \__/ \�
+                                                                           |   .--. .--.   |
+                                                                           | )/   | |   \( |
+                                                                           |/ \__/   \__/ \|
                                                                            /      /^\      \
                                                                            \__    '='    __/
-                                                                             �\         /�
-                                                                             �\'"VUUUV"'/�
+                                                                             |\         /|
+                                                                             |\'"VUUUV"'/|
                                                                              \ `"""""""` /
                                                                               `-._____.-'
 
@@ -23,9 +23,9 @@
 
 /* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "SkullbonezCommon.h"
-#include "SkullbonezDynamicsObject.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezGeometricStructures.h"
+#include "SkullbonezMatrix4.h"
 
 /* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
 using namespace SkullbonezCore::Math::Vector;
@@ -37,29 +37,33 @@ namespace Math
 {
 namespace CollisionDetection
 {
-/* -- BoundingSphere -----------------------------------------------------------------------------------------------------------------------------------------
+/* -- BoundingSphere -------------------------------------------------------------------------------------------------------------------------------------------------
 
-    Represents a sphere for collision tests.
--------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class BoundingSphere : public DynamicsObject
+    Represents a sphere for collision tests. Plain value type - no inheritance,
+    no virtual methods. Dispatched via std::variant<BoundingSphere, ...> in
+    CollisionShape.
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+class BoundingSphere
 {
 
   private:
-    float m_radius; // Radius of sphere
+    Vector3 m_position; // Local-space offset of sphere centre relative to model
+    float m_radius;     // Radius of sphere
 
-    float CollisionDetect( const BoundingSphere& target, const Ray& targetRay, const Ray& focusRay ); // Collision detect against bounding sphere, see pages 288-290 of 3D Math Primer for Games and Graphics Development by Dunn + Parberry
+    float CollisionDetect( const BoundingSphere& target, const Ray& targetRay, const Ray& focusRay ) const; // Collision detect against bounding sphere
 
   public:
-    BoundingSphere( void );                                                                                                                                                                                          // Default constructor
-    BoundingSphere( float fRadius, const Vector3& vPosition );                                                                                                                                                       // Overloaded constructor
-    ~BoundingSphere( void );                                                                                                                                                                                         // Default destructor
-    void DEBUG_RenderCollisionVolume( const Vector3& worldSpaceCoords, const Transformation::Matrix4& rotation, const Transformation::Matrix4& view, const Transformation::Matrix4& proj, const float lightPos[4] ); // Debug routine to render a representation of the collision volume
-    float GetVolume( void );                                                                                                                                                                                         // Returns the volume of the sphere
-    float GetSubmergedVolumePercent( float fluidSurfaceHeight );                                                                                                                                                     // Calculates the total volume of the sphere below the fluid surface height
-    float GetDragCoefficient( void );                                                                                                                                                                                // Returns the drag coefficient of a sphere
-    float GetProjectedSurfaceArea( void );                                                                                                                                                                           // Returns the surface area of a 2d-projected sphere
-    float GetRadius( void );                                                                                                                                                                                         // Returns the radius of the sphere
-    float TestCollision( const DynamicsObject& target, const Ray& targetRay, const Ray& focusRay );                                                                                                                  // Sweep test of bounding sphere with another collision object (target) travelling along vector totalMovement
+    BoundingSphere( void );                                                                                                                                                                                                // Default constructor
+    BoundingSphere( float fRadius, const Vector3& vPosition );                                                                                                                                                             // Overloaded constructor
+    void DEBUG_RenderCollisionVolume( const Vector3& worldSpaceCoords, const Transformation::Matrix4& rotation, const Transformation::Matrix4& view, const Transformation::Matrix4& proj, const float lightPos[4] ) const; // Debug routine to render a representation of the collision volume
+    float GetVolume( void ) const;                                                                                                                                                                                         // Returns the volume of the sphere
+    float GetSubmergedVolumePercent( float fluidSurfaceHeight ) const;                                                                                                                                                     // Calculates the total volume of the sphere below the fluid surface height
+    float GetDragCoefficient( void ) const;                                                                                                                                                                                // Returns the drag coefficient of a sphere
+    float GetProjectedSurfaceArea( void ) const;                                                                                                                                                                           // Returns the surface area of a 2d-projected sphere
+    float GetRadius( void ) const;                                                                                                                                                                                         // Returns the radius of the sphere
+    float GetBoundingRadius( void ) const;                                                                                                                                                                                 // Returns the bounding radius (same as GetRadius for spheres)
+    const Vector3& GetPosition( void ) const;                                                                                                                                                                              // Returns the local-space position offset
+    float TestCollision( const BoundingSphere& target, const Ray& targetRay, const Ray& focusRay ) const;                                                                                                                  // Sweep test against another bounding sphere
 };
 } // namespace CollisionDetection
 } // namespace Math
