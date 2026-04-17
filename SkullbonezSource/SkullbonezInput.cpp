@@ -17,13 +17,16 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
+
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezInput.h"
 #include "SkullbonezWindow.h"
 
+
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Basics;
+
 
 /* -- DEFINITIONS -----------------------------------------------------------------*/
 /*
@@ -43,6 +46,7 @@ using namespace SkullbonezCore::Basics;
    */
 #define LOWEST_ORDER_BIT_16 0x1
 
+
 /* -- IS KEY DOWN -----------------------------------------------------------------*/
 bool Input::IsKeyDown( const char cKey )
 {
@@ -61,6 +65,7 @@ bool Input::IsKeyDown( const char cKey )
     return ( ( GetKeyState( cKey ) & HIGHEST_ORDER_BIT_16 ) != 0 );
 }
 
+
 /* -- IS KEY TOGGLED --------------------------------------------------------------*/
 bool Input::IsKeyToggled( const char cKey )
 {
@@ -68,6 +73,7 @@ bool Input::IsKeyToggled( const char cKey )
     // for an explanation on the conditional statement below
     return ( ( GetKeyState( cKey ) & LOWEST_ORDER_BIT_16 ) != 0 );
 }
+
 
 /* -- GET MOUSE COORDINATES -------------------------------------------------------*/
 POINT Input::GetMouseCoordinates( void )
@@ -81,6 +87,7 @@ POINT Input::GetMouseCoordinates( void )
     return mousePos;
 }
 
+
 /* -- SET MOUSE COORDINATES -------------------------------------------------------*/
 void Input::SetMouseCoordinates( const POINT& pNewCoordinates )
 {
@@ -90,6 +97,7 @@ void Input::SetMouseCoordinates( const POINT& pNewCoordinates )
         throw std::runtime_error( "Setting mouse m_position failed (Input::SetMouseCoordinates)." );
     }
 }
+
 
 /* -- CENTRE MOUSE COORDINATES ----------------------------------------------------*/
 void Input::CentreMouseCoordinates( void )

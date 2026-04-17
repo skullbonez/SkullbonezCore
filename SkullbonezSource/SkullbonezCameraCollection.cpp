@@ -17,16 +17,20 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
+
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezCameraCollection.h"
+
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::Math;
 using namespace SkullbonezCore::Math::Transformation;
 
+
 /* -- SINGLETON INSTANCE INITIALISATION -------------------------------------------*/
 CameraCollection* CameraCollection::pInstance = 0;
+
 
 /* -- CONSTRUCTOR -----------------------------------------------------------------*/
 CameraCollection::CameraCollection( void )
@@ -46,6 +50,7 @@ CameraCollection::CameraCollection( void )
     m_primaryStore.ZeroCamera();
 }
 
+
 /* -- SINGLETON CONSTRUCTOR -------------------------------------------------------*/
 CameraCollection* CameraCollection::Instance( void )
 {
@@ -57,6 +62,7 @@ CameraCollection* CameraCollection::Instance( void )
     return CameraCollection::pInstance;
 }
 
+
 /* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
 void CameraCollection::Destroy( void )
 {
@@ -67,12 +73,14 @@ void CameraCollection::Destroy( void )
     }
 }
 
+
 /* -- SET LOCKED MODE -------------------------------------------------------------*/
 void CameraCollection::SetLockedMode( const bool fIsLocked )
 {
     m_cameraArray[m_selectedCamera].IsLockedMode = fIsLocked;
     m_cameraArray[m_selectedCamera].DoCalculateViewMagnitude = !fIsLocked;
 }
+
 
 /* -- ADD CAMERA ------------------------------------------------------------------*/
 void CameraCollection::AddCamera( const Vector3& vPosition,
@@ -98,11 +106,13 @@ void CameraCollection::AddCamera( const Vector3& vPosition,
     ++m_arrayPosition;
 }
 
+
 /* -- SET TWEEN SPEED -------------------------------------------------------------*/
 void CameraCollection::SetTweenSpeed( float fTweenSpeed )
 {
     m_tweenSpeed = fTweenSpeed;
 }
+
 
 /* -- SET TWEEN PATH --------------------------------------------------------------*/
 void CameraCollection::SetTweenPath( int fromIndex, int toIndex )
@@ -128,12 +138,14 @@ void CameraCollection::SetTweenPath( int fromIndex, int toIndex )
     }
 }
 
+
 /* -- UPDATE TWEEN PATH -----------------------------------------------------------*/
 void CameraCollection::UpdateTweenPath( void )
 {
     // update the destination (use vector difference)
     m_tweenPath = m_cameraArray[m_selectedCamera] - m_tweenStart;
 }
+
 
 /* -- SELECT CAMERA ---------------------------------------------------------------*/
 void CameraCollection::SelectCamera( uint32_t hash,
@@ -185,11 +197,13 @@ void CameraCollection::SelectCamera( uint32_t hash,
     this->ResetRelativity();
 }
 
+
 /* -- GET SELECTED CAMERA HASH ----------------------------------------------------*/
 uint32_t CameraCollection::GetSelectedCameraName( void )
 {
     return m_cameraHashes[m_selectedCamera];
 }
+
 
 /* -- ROTATE PRIMARY --------------------------------------------------------------*/
 void CameraCollection::RotatePrimary( float xMove,
@@ -205,11 +219,13 @@ void CameraCollection::RotatePrimary( float xMove,
     m_cameraArray[m_selectedCamera].RotateCamera( xMove, yMove );
 }
 
+
 /* -- SET VIEW COORDINATES --------------------------------------------------------*/
 void CameraCollection::SetViewCoordinates( const Vector3& vView )
 {
     m_cameraArray[m_selectedCamera].View = vView;
 }
+
 
 /* -- MOVE PRIMARY ----------------------------------------------------------------*/
 void CameraCollection::MovePrimary( Camera::TravelDirection enumDir,
@@ -225,11 +241,13 @@ void CameraCollection::MovePrimary( Camera::TravelDirection enumDir,
     m_cameraArray[m_selectedCamera].MoveCamera( enumDir, fQuantity );
 }
 
+
 /* -- GET PRIMARY MOVEMENT BUFFER -------------------------------------------------*/
 const Vector3& CameraCollection::GetPrimaryMovementBuffer( void )
 {
     return m_cameraArray[m_selectedCamera].MovementBuffer;
 }
+
 
 /* -- IS PRIMARY LOCKED -----------------------------------------------------------*/
 bool CameraCollection::IsPrimaryLocked( void )
@@ -237,17 +255,20 @@ bool CameraCollection::IsPrimaryLocked( void )
     return m_cameraArray[m_selectedCamera].IsLockedMode;
 }
 
+
 /* -- GET CAMERA TRANSLATION ------------------------------------------------------*/
 const Vector3& CameraCollection::GetCameraTranslation( void )
 {
     return ( m_cameraArray[m_selectedCamera].Position );
 }
 
+
 /* -- GET CAMERA TRANSLATION ------------------------------------------------------*/
 const Vector3& CameraCollection::GetCameraTranslation( uint32_t hash )
 {
     return ( m_cameraArray[this->FindIndex( hash )].Position );
 }
+
 
 /* -- RELATIVE UPDATE -------------------------------------------------------------*/
 void CameraCollection::CancelTween( void )
@@ -281,6 +302,7 @@ void CameraCollection::RelativeUpdate( uint32_t hash,
     }
 }
 
+
 /* -- GET UPDATE CAMERA -----------------------------------------------------------*/
 Camera CameraCollection::GetUpdateCamera( void )
 {
@@ -289,12 +311,14 @@ Camera CameraCollection::GetUpdateCamera( void )
     return ( m_cameraArray[m_selectedCamera] - m_primaryStore );
 }
 
+
 /* -- APPLY PRIMARY MOVEMENT BUFFER -----------------------------------------------*/
 void CameraCollection::ApplyPrimaryMovementBuffer( void )
 {
     // apply the translation
     m_cameraArray[m_selectedCamera].ApplyMovementBuffer();
 }
+
 
 /* -- AMMEND PRIMARY Y ------------------------------------------------------------*/
 void CameraCollection::AmmendPrimaryY( float yCoordinate )
@@ -310,12 +334,14 @@ void CameraCollection::AmmendPrimaryY( float yCoordinate )
     }
 }
 
+
 /* -- RESET RELATIVITY ------------------------------------------------------------*/
 void CameraCollection::ResetRelativity( void )
 {
     // set the primary store to the current camera
     m_primaryStore = m_cameraArray[m_selectedCamera];
 }
+
 
 /* -- SET CAMERA ------------------------------------------------------------------*/
 void CameraCollection::SetCamera( void )
@@ -380,6 +406,7 @@ void CameraCollection::SetCamera( void )
     }
 }
 
+
 /* -- SET VIEW MATRIX -------------------------------------------------------------*/
 void CameraCollection::SetViewMatrix( Camera& cCameraData )
 {
@@ -389,6 +416,7 @@ void CameraCollection::SetViewMatrix( Camera& cCameraData )
         cCameraData.UpVector );
 }
 
+
 /* -- DEBUG: GET VIEW MAG ---------------------------------------------------------*/
 float CameraCollection::DEBUG_GetViewMag( void )
 {
@@ -396,11 +424,13 @@ float CameraCollection::DEBUG_GetViewMag( void )
                                m_cameraArray[m_selectedCamera].View ) );
 }
 
+
 /* -- DEBUG: GET VIEW MAG TARGET --------------------------------------------------*/
 float CameraCollection::DEBUG_GetViewMagTarget( void )
 {
     return m_cameraArray[m_selectedCamera].ViewMagnitude;
 }
+
 
 /* -- FIND INDEX ------------------------------------------------------------------*/
 int CameraCollection::FindIndex( uint32_t hash )
@@ -416,11 +446,13 @@ int CameraCollection::FindIndex( uint32_t hash )
     throw std::runtime_error( "Camera does not exist.  (CameraCollection::FindIndex)" );
 }
 
+
 /* -- IS CAMERA SELECTED ----------------------------------------------------------*/
 bool CameraCollection::IsCameraSelected( uint32_t hash )
 {
     return ( this->FindIndex( hash ) == m_selectedCamera );
 }
+
 
 /* -- IS CAMERA TWEENING ----------------------------------------------------------*/
 bool CameraCollection::IsCameraTweening( void )
@@ -428,11 +460,13 @@ bool CameraCollection::IsCameraTweening( void )
     return m_isTweening;
 }
 
+
 /* -- GET CAMERA VIEW -------------------------------------------------------------*/
 const Vector3& CameraCollection::GetCameraView( void )
 {
     return m_cameraArray[m_selectedCamera].View;
 }
+
 
 /* -- SET CAMERA XZ BOUNDS --------------------------------------------------------*/
 void CameraCollection::SetCameraXZBounds( const XZBounds bounds )
@@ -443,6 +477,7 @@ void CameraCollection::SetCameraXZBounds( const XZBounds bounds )
     }
 }
 
+
 /* -- SET CAMERA XZ BOUNDS --------------------------------------------------------*/
 void CameraCollection::SetCameraXZBounds( uint32_t hash,
                                           const XZBounds bounds )
@@ -450,6 +485,7 @@ void CameraCollection::SetCameraXZBounds( uint32_t hash,
     int targetIndex = this->FindIndex( hash );
     m_cameraArray[targetIndex].Boundary = bounds;
 }
+
 
 /* -- SET TERRAIN -----------------------------------------------------------------*/
 void CameraCollection::SetTerrain( Terrain* m_cTerrain )

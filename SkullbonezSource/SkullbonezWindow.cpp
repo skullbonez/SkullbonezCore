@@ -17,14 +17,18 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
+
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezWindow.h"
+
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Basics;
 
+
 /* -- SINGLETON INSTANCE INITIALISATION -------------------------------------------*/
 SkullbonezWindow* SkullbonezWindow::pInstance = 0;
+
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 SkullbonezWindow::SkullbonezWindow()
@@ -34,10 +38,12 @@ SkullbonezWindow::SkullbonezWindow()
     m_sRenderContext = 0;
 }
 
+
 /* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
 SkullbonezWindow::~SkullbonezWindow()
 {
 }
+
 
 /* -- SINGLETON CONSTRUCTOR -------------------------------------------------------*/
 SkullbonezWindow* SkullbonezWindow::Instance( void )
@@ -50,11 +56,13 @@ SkullbonezWindow* SkullbonezWindow::Instance( void )
     return SkullbonezWindow::pInstance;
 }
 
+
 /* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
 void SkullbonezWindow::Destroy( void )
 {
     SkullbonezWindow::pInstance = 0;
 }
+
 
 /* -- SET WINDOW DIMENSIONS -------------------------------------------------------*/
 void SkullbonezWindow::SetWindowDimensions( int m_width, int m_height )
@@ -63,12 +71,14 @@ void SkullbonezWindow::SetWindowDimensions( int m_width, int m_height )
     m_sWindowDimensions.y = m_height;
 }
 
+
 /* -- SET WINDOW DIMENSIONS -------------------------------------------------------*/
 void SkullbonezWindow::SetWindowDimensions( const RECT dimensions )
 {
     m_sWindowDimensions.x = dimensions.right;
     m_sWindowDimensions.y = dimensions.bottom;
 }
+
 
 /* -- HANDLE SCREEN RESIZE --------------------------------------------------------*/
 void SkullbonezWindow::HandleScreenResize( void )
@@ -101,6 +111,7 @@ void SkullbonezWindow::HandleScreenResize( void )
         FRUSTUM_CLIP_SHORT_QTY,
         FRUSTUM_CLIP_FAR_QTY );
 }
+
 
 /* -- CHANGE TO FULLSCREEN --------------------------------------------------------*/
 void SkullbonezWindow::ChangeToFullScreen( int xResolution, int yResolution )
@@ -154,6 +165,7 @@ void SkullbonezWindow::ChangeToFullScreen( int xResolution, int yResolution )
     }
 }
 
+
 /* -- SETUP PIXEL FORMAT ----------------------------------------------------------*/
 bool SkullbonezWindow::SetupPixelFormat( void )
 {
@@ -194,6 +206,7 @@ bool SkullbonezWindow::SetupPixelFormat( void )
 
     return true; // If we have made it down to here we have succeeded
 }
+
 
 /* -- WndProc FUNCTION ------------------------------------------------------------*/
 // "Windows Procedure" - this function handles messages for our window
@@ -251,6 +264,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
     return DefWindowProc( hWnd, iMsg, wParam, lParam );
 }
 
+
 /* -- GLAD LOADER CALLBACK --------------------------------------------------------*/
 // GLAD needs a loader that returns GL function pointers.  For core GL 1.1
 // functions Windows exposes them directly from opengl32.dll; everything
@@ -268,6 +282,7 @@ static GLADapiproc GladLoadFunc( const char* name )
     }
     return p;
 }
+
 
 /* -- INITIALISE OPEN GL ----------------------------------------------------------*/
 void SkullbonezWindow::InitialiseOpenGL( void )
@@ -348,6 +363,7 @@ void SkullbonezWindow::InitialiseOpenGL( void )
     HandleScreenResize();
 }
 
+
 /* -- CREATE APP WINDOW -----------------------------------------------------------*/
 void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
 {
@@ -410,12 +426,14 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
     m_sWindow = hWnd;
 }
 
+
 /* -- SET TITLE TEXT --------------------------------------------------------------*/
 void SkullbonezWindow::SetTitleText( const char* cText )
 {
     // set the window title text
     SetWindowText( m_sWindow, cText );
 }
+
 
 /* -- MSG BOX ---------------------------------------------------------------------*/
 int SkullbonezWindow::MsgBox( const char* cMsgBoxText,

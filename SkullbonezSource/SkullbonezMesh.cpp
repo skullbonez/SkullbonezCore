@@ -17,11 +17,14 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
+
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezMesh.h"
 
+
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Rendering;
+
 
 /* -- CONSTRUCTOR -----------------------------------------------------------------*/
 Mesh::Mesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords, GLenum drawMode )
@@ -81,6 +84,7 @@ Mesh::Mesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoor
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
 }
 
+
 /* -- DESTRUCTOR ------------------------------------------------------------------*/
 Mesh::~Mesh( void )
 {
@@ -94,6 +98,7 @@ Mesh::~Mesh( void )
     }
 }
 
+
 /* -- DRAW ------------------------------------------------------------------------*/
 void Mesh::Draw( void ) const
 {
@@ -101,6 +106,7 @@ void Mesh::Draw( void ) const
     glDrawArrays( m_drawMode, 0, m_vertexCount );
     glBindVertexArray( 0 );
 }
+
 
 /* -- GET VERTEX COUNT ------------------------------------------------------------*/
 int Mesh::GetVertexCount( void ) const

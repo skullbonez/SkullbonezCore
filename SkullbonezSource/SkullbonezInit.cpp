@@ -17,6 +17,7 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
+
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezCommon.h"
 #include "SkullbonezRun.h"
@@ -27,8 +28,10 @@
 #include <vector>
 #include <string>
 
+
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Basics;
+
 
 /* -- WIN MAIN --------------------------------------------------------------------*/
 // "Windows Main" - this function is the execution entry point for the application
