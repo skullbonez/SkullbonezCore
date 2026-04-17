@@ -17,12 +17,15 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
+
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezFramebuffer.h"
 #include <stdexcept>
 
+
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Rendering;
+
 
 /* -- CONSTRUCTOR -----------------------------------------------------------------*/
 Framebuffer::Framebuffer( int m_width, int m_height )
@@ -30,6 +33,7 @@ Framebuffer::Framebuffer( int m_width, int m_height )
 {
     this->Build();
 }
+
 
 /* -- DESTRUCTOR ------------------------------------------------------------------*/
 Framebuffer::~Framebuffer( void )
@@ -47,6 +51,7 @@ Framebuffer::~Framebuffer( void )
         glDeleteRenderbuffers( 1, &m_depthRBO );
     }
 }
+
 
 /* -- BUILD -----------------------------------------------------------------------*/
 void Framebuffer::Build( void )
@@ -81,11 +86,13 @@ void Framebuffer::Build( void )
     glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 }
 
+
 /* -- BIND ------------------------------------------------------------------------*/
 void Framebuffer::Bind( void ) const
 {
     glBindFramebuffer( GL_FRAMEBUFFER, m_fbo );
 }
+
 
 /* -- UNBIND ----------------------------------------------------------------------*/
 void Framebuffer::Unbind( void ) const
@@ -93,11 +100,13 @@ void Framebuffer::Unbind( void ) const
     glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 }
 
+
 /* -- GET COLOR TEXTURE -----------------------------------------------------------*/
 GLuint Framebuffer::GetColorTexture( void ) const
 {
     return m_colorTex;
 }
+
 
 /* -- GET WIDTH -------------------------------------------------------------------*/
 int Framebuffer::GetWidth( void ) const
@@ -105,11 +114,13 @@ int Framebuffer::GetWidth( void ) const
     return m_width;
 }
 
+
 /* -- GET HEIGHT ------------------------------------------------------------------*/
 int Framebuffer::GetHeight( void ) const
 {
     return m_height;
 }
+
 
 /* -- RESET GL RESOURCES ----------------------------------------------------------*/
 void Framebuffer::ResetGLResources( void )

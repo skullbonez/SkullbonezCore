@@ -17,12 +17,15 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
+
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezGameModelCollection.h"
 #include <cmath>
 
+
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::GameObjects;
+
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 GameModelCollection::GameModelCollection( void )
@@ -31,11 +34,13 @@ GameModelCollection::GameModelCollection( void )
     m_gameModels.reserve( 200 );
 };
 
+
 /* -- ADD GAME MODEL --------------------------------------------------------------*/
 void GameModelCollection::AddGameModel( GameModel gameModel )
 {
     m_gameModels.push_back( std::move( gameModel ) );
 }
+
 
 /* -- RENDER MODELS ---------------------------------------------------------------*/
 void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4] )
@@ -45,6 +50,7 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
         m_gameModels[x].RenderCollisionBounds( view, proj, lightPos );
     }
 }
+
 
 /* -- RENDER SHADOWS --------------------------------------------------------------*/
 void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
@@ -125,6 +131,7 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
     glDisable( GL_BLEND );
 }
 
+
 /* -- GET MODEL POSITION ----------------------------------------------------------*/
 Vector3 GameModelCollection::GetModelPosition( int index )
 {
@@ -135,6 +142,7 @@ Vector3 GameModelCollection::GetModelPosition( int index )
 
     return m_gameModels[index].GetPosition();
 }
+
 
 /* -- RUN PHYSICS -------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void GameModelCollection::RunPhysics( float fChangeInTime )
@@ -232,6 +240,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     }
 }
 
+
 /* -- BUILD SHADOW MESH -----------------------------------------------------------*/
 void GameModelCollection::BuildShadowMesh( void )
 {
@@ -264,6 +273,7 @@ void GameModelCollection::BuildShadowMesh( void )
     m_shadowShader = std::make_unique<Shader>( "SkullbonezData/shaders/shadow.vert",
                                                "SkullbonezData/shaders/shadow.frag" );
 }
+
 
 /* -- RESET GL RESOURCES ----------------------------------------------------------*/
 void GameModelCollection::ResetGLResources( void )

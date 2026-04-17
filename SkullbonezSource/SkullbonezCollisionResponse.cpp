@@ -17,16 +17,19 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
+
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezCollisionResponse.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezCollisionShape.h"
+
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Math;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Math::CollisionDetection;
+
 
 /* -- RESPOND COLLISION TERRAIN -----------------------------------------------------------------------------------------------------------------------------------------*/
 void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel )
@@ -68,6 +71,7 @@ void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel )
         } },
                 gameModel.m_boundingVolume );
 }
+
 
 /* -- RESPOND COLLISION GAME MODELS -------------------------------------------------------------------------------------------------------------------------------------*/
 void CollisionResponse::RespondCollisionGameModels( GameModel& gameModel1,
@@ -116,6 +120,7 @@ void CollisionResponse::RespondCollisionGameModels( GameModel& gameModel1,
                 gameModel2.m_boundingVolume );
 }
 
+
 /* -- SPHERE VS PLANE ROLL RESPONSE -------------------------------------------------------------------------------------------------------------------------------------*/
 void CollisionResponse::SphereVsPlaneRollResponse( GameModel& gameModel )
 {
@@ -127,6 +132,7 @@ void CollisionResponse::SphereVsPlaneRollResponse( GameModel& gameModel )
     Vector3 m_angularVelocity = gameModel.m_physicsInfo.GetAngularVelocity() * 0.9f;
     gameModel.m_physicsInfo.SetAngularVelocity( m_angularVelocity );
 }
+
 
 /* -- SPHERE VS PLANE LINEAR IMPULSE ------------------------------------------------------------------------------------------------------------------------------------*/
 void CollisionResponse::SphereVsPlaneLinearImpulse( GameModel& gameModel, Vector3 totalVelocity, float projectedVelocity )
@@ -161,6 +167,7 @@ void CollisionResponse::SphereVsPlaneLinearImpulse( GameModel& gameModel, Vector
     // dampen spin as angular momentum was transferred to linear velocity
     gameModel.m_physicsInfo.DampenAngularVelocity();
 }
+
 
 /* -- SPHERE VS PLANE ANGULAR IMPULSE -----------------------------------------------------------------------------------------------------------------------------------*/
 void CollisionResponse::SphereVsPlaneAngularImpulse( GameModel& gameModel )
@@ -249,6 +256,7 @@ void CollisionResponse::SphereVsPlaneAngularImpulse( GameModel& gameModel )
     gameModel.m_physicsInfo.SetChangeInAngularVelocity( m_changeInAngularVelocity );
 }
 
+
 /* -- SPHERE VS SPHERE LINEAR -------------------------------------------------------------------------------------------------------------------------------------------*/
 void CollisionResponse::SphereVsSphereLinear( GameModel& gameModel1,
                                               GameModel& gameModel2,
@@ -305,6 +313,7 @@ void CollisionResponse::SphereVsSphereLinear( GameModel& gameModel1,
     // update the gameModel2 velocity
     gameModel2.m_physicsInfo.SetLinearVelocity( ( gameModel2FinalVelocity - gameModel2ProjectedVelocity ) * collisionNormal + gameModel2.m_physicsInfo.GetVelocity() );
 }
+
 
 /* -- SPHERE VS SPHERE ANGULAR ------------------------------------------------------------------------------------------------------------------------------------------*/
 void CollisionResponse::SphereVsSphereAngular( GameModel& gameModel1,
@@ -400,6 +409,7 @@ void CollisionResponse::SphereVsSphereAngular( GameModel& gameModel1,
     gameModel2.m_physicsInfo.SetChangeInAngularVelocity( changeInAngularVelocity2 );
 }
 
+
 /* -- CALCULATE RAY -----------------------------------------------------------------------------------------------------------------------------------------------------*/
 Ray CollisionResponse::CalculateRay( GameModel& gameModel,
                                      float changeInTime )
@@ -408,11 +418,13 @@ Ray CollisionResponse::CalculateRay( GameModel& gameModel,
     return Ray( gameModel.m_physicsInfo.GetPosition(), gameModel.m_physicsInfo.GetVelocity() * changeInTime );
 }
 
+
 /* -- GET COLLIDED OBJECT WORLD POSITION --------------------------------------------------------------------------------------------------------------------------------*/
 Vector3 CollisionResponse::GetCollidedObjectWorldPosition( GameModel& gameModel )
 {
     return gameModel.m_physicsInfo.GetPosition() + ( gameModel.m_physicsInfo.GetOrientationMatrix() * GetShapePosition( gameModel.m_boundingVolume ) );
 }
+
 
 /* -- GET COLLISION NORMAL SPHERE VS SPERE ------------------------------------------------------------------------------------------------------------------------------*/
 Vector3 CollisionResponse::GetCollisionNormalSphereVsSphere( GameModel& gameModel1,

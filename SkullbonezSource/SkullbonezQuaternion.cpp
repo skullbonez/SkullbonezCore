@@ -17,16 +17,20 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
+
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezQuaternion.h"
 
+
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Math::Orientation;
+
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 Quaternion::Quaternion( void )
 {
 }
+
 
 /* -- OVERLOADED CONSTRUCTOR ------------------------------------------------------*/
 Quaternion::Quaternion( float fX,
@@ -40,6 +44,7 @@ Quaternion::Quaternion( float fX,
 {
 }
 
+
 /* -- IDENTITY -------------------------------------------------------------------*/
 void Quaternion::Identity( void )
 {
@@ -48,6 +53,7 @@ void Quaternion::Identity( void )
     this->z = 0.0f;
     this->w = 1.0f;
 }
+
 
 /* -- NORMALISE ------------------------------------------------------------------*/
 void Quaternion::Normalise( void )
@@ -70,6 +76,7 @@ void Quaternion::Normalise( void )
     this->z *= oneOverMag;
 }
 
+
 /* -- ROTATE ABOUT XYZ -----------------------------------------------------------*/
 void Quaternion::RotateAboutXYZ( float xRadians,
                                  float yRadians,
@@ -87,11 +94,13 @@ void Quaternion::RotateAboutXYZ( float xRadians,
     this->Normalise();
 }
 
+
 /* -- ROTATE ABOUT XYZ -----------------------------------------------------------*/
 void Quaternion::RotateAboutXYZ( const Vector3& vRadians )
 {
     this->RotateAboutXYZ( vRadians.x, vRadians.y, vRadians.z );
 }
+
 
 /* -- GET ORIENTATION MATRIX -----------------------------------------------------*/
 RotationMatrix Quaternion::GetOrientationMatrix( void )
@@ -107,6 +116,7 @@ RotationMatrix Quaternion::GetOrientationMatrix( void )
                            ( 2 * this->y * this->z ) - ( 2 * this->w * this->x ),
                            1 - ( 2 * this->x * this->x ) - ( 2 * this->y * this->y ) );
 }
+
 
 /* -- OPERATOR * -----------------------------------------------------------------*/
 Quaternion Quaternion::operator*( const Quaternion& q ) const
@@ -136,12 +146,14 @@ Quaternion Quaternion::operator*( const Quaternion& q ) const
     return result;
 }
 
+
 /* -- OPERATOR *= ----------------------------------------------------------------*/
 Quaternion& Quaternion::operator*=( const Quaternion& q )
 {
     *this = *this * q;
     return *this;
 }
+
 
 /* -- GET QTN ROTATED ABOUT X ----------------------------------------------------*/
 Quaternion Quaternion::GetQtnRotatedAboutX( float fRadians )
@@ -154,6 +166,7 @@ Quaternion Quaternion::GetQtnRotatedAboutX( float fRadians )
                        cosf( radiansDiv2 ) );
 }
 
+
 /* -- GET QTN ROTATED ABOUT Y ----------------------------------------------------*/
 Quaternion Quaternion::GetQtnRotatedAboutY( float fRadians )
 {
@@ -164,6 +177,7 @@ Quaternion Quaternion::GetQtnRotatedAboutY( float fRadians )
                        0.0f,
                        cosf( radiansDiv2 ) );
 }
+
 
 /* -- GET QTN ROTATED ABOUT Z ----------------------------------------------------*/
 Quaternion Quaternion::GetQtnRotatedAboutZ( float fRadians )

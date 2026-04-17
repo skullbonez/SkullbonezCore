@@ -17,11 +17,14 @@
                                  www.simoneschbach.com
 -----------------------------------------------------------------------------------*/
 
+
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezGeometricMath.h"
 
+
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Math;
+
 
 /* -- COMPUTE TRIANGLE NORMAL -----------------------------------------------------*/
 Vector3 GeometricMath::ComputeTriangleNormal( const Triangle& triangle )
@@ -38,6 +41,7 @@ Vector3 GeometricMath::ComputeTriangleNormal( const Triangle& triangle )
     m_normal.Normalise();
     return m_normal;
 }
+
 
 /* -- COMPUTE PLANE ---------------------------------------------------------------*/
 Plane GeometricMath::ComputePlane( const Triangle& triangle )
@@ -56,6 +60,7 @@ Plane GeometricMath::ComputePlane( const Triangle& triangle )
     return plane;
 }
 
+
 /* -- DETERMINE POINT DIST FROM PLANE ---------------------------------------------*/
 float GeometricMath::DeterminePointDistFromPlane( const Plane& plane,
                                                   const Vector3& point )
@@ -64,6 +69,7 @@ float GeometricMath::DeterminePointDistFromPlane( const Plane& plane,
     // the origin
     return ( plane.m_normal * point - plane.m_distance );
 }
+
 
 /* -- CLASSIFY POINT AGAINST PLANE ------------------------------------------------*/
 GeometricMath::PointPlaneClassification
@@ -89,6 +95,7 @@ GeometricMath::ClassifyPointAgainstPlane( const Plane& plane,
     return PointPlaneClassification::CoincideWithPlane;
 }
 
+
 /* -- GET HEIGHT FROM PLANE -------------------------------------------------------*/
 float GeometricMath::GetHeightFromPlane( const Triangle& triangle,
                                          float xCoord,
@@ -112,6 +119,7 @@ float GeometricMath::GetHeightFromPlane( const Triangle& triangle,
     // use law of sines to compute result (see math reference)
     return -( normalDist / sinf( theta ) );
 }
+
 
 /* -- CALCULATE INTERSECTION TIME ---------------------------------------------------*/
 float GeometricMath::CalculateIntersectionTime( const Plane& plane,
@@ -144,6 +152,7 @@ float GeometricMath::CalculateIntersectionTime( const Plane& plane,
     return -( ( ( plane.m_normal * ray.origin ) - plane.m_distance ) / denominator );
 }
 
+
 /* -- CALCULATE INTERSECTION TIME ---------------------------------------------------*/
 float GeometricMath::CalculateIntersectionTime( const Triangle& triangle,
                                                 const Ray& ray )
@@ -152,6 +161,7 @@ float GeometricMath::CalculateIntersectionTime( const Triangle& triangle,
         GeometricMath::ComputePlane( triangle ),
         ray );
 }
+
 
 /* -- COMPUTE INTERSECTION POINT -----------------------------------------------------*/
 Vector3 GeometricMath::ComputeIntersectionPoint( const Plane& plane,
@@ -171,6 +181,7 @@ Vector3 GeometricMath::ComputeIntersectionPoint( const Plane& plane,
     return GeometricMath::ComputeIntersectionPoint( ray, collisionTime );
 }
 
+
 /* -- COMPUTE INTERSECTION POINT -----------------------------------------------------*/
 Vector3 GeometricMath::ComputeIntersectionPoint( const Ray& ray,
                                                  float fCollisionTime )
@@ -179,6 +190,7 @@ Vector3 GeometricMath::ComputeIntersectionPoint( const Ray& ray,
     // occurs, and return this vector
     return ray.origin + ( ray.vector3 * fCollisionTime );
 }
+
 
 /* -- IS POINT INSIDE TRIANGLE -------------------------------------------------------*/
 bool GeometricMath::IsPointInsideTriangle( const Triangle& triangle,
@@ -195,6 +207,7 @@ bool GeometricMath::IsPointInsideTriangle( const Triangle& triangle,
              barycentricCoords.y >= 0 &&
              barycentricCoords.z >= 0 );
 }
+
 
 /* -- COMPUTE BARYCENTRIC COORDINATES ------------------------------------------------*/
 Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle,
