@@ -92,6 +92,10 @@ class SkullbonezConfig
     std::string sphereTexture      = "SkullbonezData/boundingSphere.jpg";
     std::string terrainRaw         = "SkullbonezData/terrain.raw";
 
+    // Water
+    float oceanWaveHeight          = 4.0f;
+    float oceanPerturbStrength     = 0.002f;
+
     // Debug / rendering flags
     bool renderCollisionVolumes    = false;
 

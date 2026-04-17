@@ -97,10 +97,9 @@ class SkullbonezRun
     std::unique_ptr<Framebuffer> m_cReflectionFBO; // Offscreen reflection render target
     InputState m_sInputState;                      // Current frame input state
     bool m_isFlyMode;                              // Free-fly camera mode active (toggle with F)
-    bool m_isWaterFreezeDebug;                     // Freeze water animation at current shape (toggle with 1)
-    bool m_isWaterNoReflect;                       // Disable reflection, output flat tint (toggle with 2)
-    bool m_isWaterFlatDebug;                       // Force fully flat mesh, no displacement (toggle with 3)
-    bool m_isWaterNoPerturb;                       // Disable UV wave perturbation (toggle with 4)
+    bool m_isWaterFreezeDebug;                     // Freeze ocean animation at current shape (toggle with 1)
+    bool m_isWaterNoReflect;                       // Disable ocean reflection, output flat tint (toggle with 2)
+    bool m_isWaterFlatDebug;                       // Force ocean mesh fully flat, no displacement (toggle with 3)
     float m_frozenWaterTime;                       // Simulation time captured when freeze was toggled on
 
     void Render( void );                                               // Main render method

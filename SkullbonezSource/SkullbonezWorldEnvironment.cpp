@@ -57,38 +57,59 @@ WorldEnvironment::~WorldEnvironment()
 }
 
 
-/* -- RENDER FLUID ----------------------------------------------------------------*/
-void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, const Matrix4& reflectVP, float time, GLuint reflectionTex, bool flatWater, bool noReflect, bool noPerturb )
+/* -- SET TERRAIN BOUNDS ----------------------------------------------------------*/
+void WorldEnvironment::SetTerrainBounds( float xMin, float xMax, float zMin, float zMax )
 {
-    if ( !m_fluidMesh )
+    m_terrainXMin = xMin;
+    m_terrainXMax = xMax;
+    m_terrainZMin = zMin;
+    m_terrainZMax = zMax;
+}
+
+
+/* -- RENDER FLUID ----------------------------------------------------------------*/
+void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, const Matrix4& reflectVP, float time, GLuint reflectionTex, bool flatWater, bool noReflect )
+{
+    if ( !m_calmMesh )
     {
         this->BuildFluidMesh();
     }
 
-    glEnable( GL_BLEND );
-
-    m_fluidShader->Use();
-
     Matrix4 identity;
-    m_fluidShader->SetMat4( "uModel", identity );
-    m_fluidShader->SetMat4( "uView", view );
-    m_fluidShader->SetMat4( "uProjection", proj );
-    m_fluidShader->SetMat4( "uReflectVP", reflectVP );
-    m_fluidShader->SetVec4( "uColorTint", 0.05f, 0.15f, 0.42f, 0.65f );
-    m_fluidShader->SetFloat( "uTime", time );
-    m_fluidShader->SetFloat( "uReflectionStrength", 0.35f );
-    m_fluidShader->SetInt( "uFlatWater", flatWater ? 1 : 0 );
-    m_fluidShader->SetInt( "uNoReflect", noReflect ? 1 : 0 );
-    m_fluidShader->SetInt( "uNoPerturb", noPerturb ? 1 : 0 );
 
+    glEnable( GL_BLEND );
     glActiveTexture( GL_TEXTURE1 );
     glBindTexture( GL_TEXTURE_2D, reflectionTex );
-    m_fluidShader->SetInt( "uReflectionTex", 1 );
     glActiveTexture( GL_TEXTURE0 );
 
-    m_fluidMesh->Draw();
-    glUseProgram( 0 );
+    // --- calm (inner) pass: flat, always reflective, no waves ---
+    m_calmShader->Use();
+    m_calmShader->SetMat4( "uModel",               identity );
+    m_calmShader->SetMat4( "uView",                view );
+    m_calmShader->SetMat4( "uProjection",          proj );
+    m_calmShader->SetMat4( "uReflectVP",           reflectVP );
+    m_calmShader->SetVec4( "uColorTint",           0.05f, 0.15f, 0.42f, 0.65f );
+    m_calmShader->SetFloat( "uReflectionStrength", 0.35f );
+    m_calmShader->SetInt( "uReflectionTex",        1 );
+    m_calmMesh->Draw();
 
+    // --- ocean (outer) pass: vertex displacement + UV perturbation ---
+    m_oceanShader->Use();
+    m_oceanShader->SetMat4( "uModel",            identity );
+    m_oceanShader->SetMat4( "uView",             view );
+    m_oceanShader->SetMat4( "uProjection",       proj );
+    m_oceanShader->SetMat4( "uReflectVP",        reflectVP );
+    m_oceanShader->SetVec4( "uColorTint",        0.02f, 0.10f, 0.35f, 0.72f );
+    m_oceanShader->SetFloat( "uTime",            time );
+    m_oceanShader->SetFloat( "uWaveHeight",       Cfg().oceanWaveHeight );
+    m_oceanShader->SetFloat( "uPerturbStrength",  Cfg().oceanPerturbStrength );
+    m_oceanShader->SetFloat( "uReflectionStrength", 0.25f );
+    m_oceanShader->SetInt( "uReflectionTex",     1 );
+    m_oceanShader->SetInt( "uNoReflect",         noReflect ? 1 : 0 );
+    m_oceanShader->SetInt( "uFlatWater",         flatWater ? 1 : 0 );
+    m_oceanMesh->Draw();
+
+    glUseProgram( 0 );
     glDisable( GL_BLEND );
 }
 
@@ -96,15 +117,26 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
 /* -- BUILD FLUID MESH ------------------------------------------------------------*/
 void WorldEnvironment::BuildFluidMesh( void )
 {
-    float h = m_fluidSurfaceHeight;
-    float f = Cfg().frustumFar;
+    float h  = m_fluidSurfaceHeight;
+    float f  = Cfg().frustumFar;
 
-    const int N = 64;
+    const int   N    = 64;
     const float step = 2.0f * f / static_cast<float>( N );
 
-    // N*N quads, 2 triangles each, 6 m_position-only vertices per quad
-    std::vector<float> verts;
-    verts.reserve( N * N * 6 * 3 );
+    // Calm region: half the terrain footprint, centered on the terrain
+    float cxMid = ( m_terrainXMin + m_terrainXMax ) * 0.5f;
+    float czMid = ( m_terrainZMin + m_terrainZMax ) * 0.5f;
+    float cxHalf = ( m_terrainXMax - m_terrainXMin ) * 0.25f;
+    float czHalf = ( m_terrainZMax - m_terrainZMin ) * 0.25f;
+    float calmXMin = cxMid - cxHalf;
+    float calmXMax = cxMid + cxHalf;
+    float calmZMin = czMid - czHalf;
+    float calmZMax = czMid + czHalf;
+
+    std::vector<float> calmVerts;
+    std::vector<float> oceanVerts;
+    calmVerts.reserve(  N * N * 6 * 3 );
+    oceanVerts.reserve( N * N * 6 * 3 );
 
     for ( int row = 0; row < N; ++row )
     {
@@ -115,41 +147,40 @@ void WorldEnvironment::BuildFluidMesh( void )
             float z0 = -f + static_cast<float>( row ) * step;
             float z1 = z0 + step;
 
-            // triangle 1
-            verts.push_back( x0 );
-            verts.push_back( h );
-            verts.push_back( z0 );
-            verts.push_back( x0 );
-            verts.push_back( h );
-            verts.push_back( z1 );
-            verts.push_back( x1 );
-            verts.push_back( h );
-            verts.push_back( z1 );
-            // triangle 2
-            verts.push_back( x0 );
-            verts.push_back( h );
-            verts.push_back( z0 );
-            verts.push_back( x1 );
-            verts.push_back( h );
-            verts.push_back( z1 );
-            verts.push_back( x1 );
-            verts.push_back( h );
-            verts.push_back( z0 );
+            // A quad belongs to the calm mesh only if it lies fully inside the calm region
+            bool isCalm = ( x0 >= calmXMin && x1 <= calmXMax &&
+                            z0 >= calmZMin && z1 <= calmZMax );
+
+            std::vector<float>& v = isCalm ? calmVerts : oceanVerts;
+
+            v.push_back( x0 ); v.push_back( h ); v.push_back( z0 );
+            v.push_back( x0 ); v.push_back( h ); v.push_back( z1 );
+            v.push_back( x1 ); v.push_back( h ); v.push_back( z1 );
+
+            v.push_back( x0 ); v.push_back( h ); v.push_back( z0 );
+            v.push_back( x1 ); v.push_back( h ); v.push_back( z1 );
+            v.push_back( x1 ); v.push_back( h ); v.push_back( z0 );
         }
     }
 
-    m_fluidMesh = std::make_unique<Mesh>( verts.data(), N * N * 6, false, false );
-    m_fluidShader = std::make_unique<Shader>(
-        "SkullbonezData/shaders/water.vert",
-        "SkullbonezData/shaders/water.frag" );
+    int calmCount  = static_cast<int>( calmVerts.size()  ) / 3;
+    int oceanCount = static_cast<int>( oceanVerts.size() ) / 3;
+
+    m_calmMesh  = std::make_unique<Mesh>( calmVerts.data(),  calmCount,  false, false );
+    m_oceanMesh = std::make_unique<Mesh>( oceanVerts.data(), oceanCount, false, false );
+
+    m_calmShader  = std::make_unique<Shader>( "SkullbonezData/shaders/water_calm.vert",  "SkullbonezData/shaders/water_calm.frag" );
+    m_oceanShader = std::make_unique<Shader>( "SkullbonezData/shaders/water_ocean.vert", "SkullbonezData/shaders/water_ocean.frag" );
 }
 
 
 /* -- RESET GL RESOURCES ----------------------------------------------------------*/
 void WorldEnvironment::ResetGLResources( void )
 {
-    m_fluidMesh.reset();
-    m_fluidShader.reset();
+    m_calmMesh.reset();
+    m_calmShader.reset();
+    m_oceanMesh.reset();
+    m_oceanShader.reset();
     this->BuildFluidMesh();
 }
 

@@ -81,7 +81,6 @@ SkullbonezRun::SkullbonezRun( const char* pScenePath )
     m_isWaterFreezeDebug = false;
     m_isWaterNoReflect = false;
     m_isWaterFlatDebug = false;
-    m_isWaterNoPerturb = false;
     m_frozenWaterTime = 0.0f;
     m_sInputState = {};
 
@@ -142,6 +141,8 @@ void SkullbonezRun::Initialise( void )
     {
         const SkullbonezConfig& cfg = Cfg();
         m_cWorldEnvironment = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
+        XZBounds tb = m_cTerrain->GetXZBounds();
+        m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
     }
 
     // Init reflection FBO at the current viewport size so it matches the main render
@@ -505,14 +506,13 @@ void SkullbonezRun::TakeInput( void )
 
     // Water m_shader debug toggles
     bool prevFreeze = m_isWaterFreezeDebug;
-    m_isWaterFreezeDebug = ( Input::IsKeyToggled( '1' ) == 0 ); // Water perturbation timer default OFF
+    m_isWaterFreezeDebug = ( Input::IsKeyToggled( '1' ) != 0 ); // Water perturbation ON
     if ( m_isWaterFreezeDebug && !prevFreeze )
     {
         m_frozenWaterTime = static_cast<float>( m_cSimulationTimer.GetTimeSinceLastStart() );
     }
     m_isWaterNoReflect = ( Input::IsKeyToggled( '2' ) != 0 ); // Reflection default ON
-    m_isWaterFlatDebug = ( Input::IsKeyToggled( '3' ) == 0 ); // Wave water default OFF (TODO fix VBO to support this)
-    m_isWaterNoPerturb = ( Input::IsKeyToggled( '4' ) != 0 ); // Perturbation default ON
+    m_isWaterFlatDebug = ( Input::IsKeyToggled( '3' ) != 0 ); // Ocean wave displacement ON
 
     if ( m_isFlyMode )
     {
@@ -665,7 +665,7 @@ void SkullbonezRun::DrawPrimitives( void )
         float waterTime = m_isWaterFreezeDebug
                               ? m_frozenWaterTime
                               : static_cast<float>( m_cSimulationTimer.GetTimeSinceLastStart() );
-        m_cWorldEnvironment.RenderFluid( baseView, proj, reflVP, waterTime, m_cReflectionFBO->GetColorTexture(), m_isWaterFlatDebug, m_isWaterNoReflect, m_isWaterNoPerturb );
+        m_cWorldEnvironment.RenderFluid( baseView, proj, reflVP, waterTime, m_cReflectionFBO->GetColorTexture(), m_isWaterFlatDebug, m_isWaterNoReflect );
     }
 }
 
