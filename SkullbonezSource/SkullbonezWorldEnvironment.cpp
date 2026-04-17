@@ -97,7 +97,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
 void WorldEnvironment::BuildFluidMesh( void )
 {
     float h = m_fluidSurfaceHeight;
-    float f = FRUSTUM_CLIP_FAR_QTY;
+    float f = Cfg().frustumFar;
 
     const int N = 64;
     const float step = 2.0f * f / static_cast<float>( N );

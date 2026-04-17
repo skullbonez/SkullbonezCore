@@ -108,8 +108,8 @@ void SkullbonezWindow::HandleScreenResize( void )
     m_cWindow->projectionMatrix = Math::Transformation::Matrix4::Perspective(
         45.0f,
         aspect,
-        FRUSTUM_CLIP_SHORT_QTY,
-        FRUSTUM_CLIP_FAR_QTY );
+        Cfg().frustumNear,
+        Cfg().frustumFar );
 }
 
 
@@ -182,8 +182,8 @@ bool SkullbonezWindow::SetupPixelFormat( void )
                   PFD_DOUBLEBUFFER;              // support + two buffers
     pfd.dwLayerMask = PFD_MAIN_PLANE;            // Standard mask
     pfd.iPixelType = PFD_TYPE_RGBA;              // Red Green Blue Alpha pixels
-    pfd.cColorBits = BITS_PER_PIXEL;             // BITS_PER_PIXEL is #defined
-    pfd.cDepthBits = BITS_PER_PIXEL;             // BITS_PER_PIXEL is #defined
+    pfd.cColorBits = (BYTE)Cfg().bitsPerPixel;
+    pfd.cDepthBits = (BYTE)Cfg().bitsPerPixel;
     pfd.cAccumBits = 0;                          // No accumulation bits
     pfd.cStencilBits = 0;                        // No stencil bits
 
@@ -391,7 +391,7 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
         dwStyle = WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
 
         // Changes to full screen mode
-        this->ChangeToFullScreen( SCREEN_X, SCREEN_Y );
+        this->ChangeToFullScreen( Cfg().screenX, Cfg().screenY );
 
         // Hide the mouse cursor
         ShowCursor( false );
@@ -407,8 +407,8 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
                          dwStyle,     // Set defined style
                          0,           // Window xPos
                          0,           // Window yPos
-                         SCREEN_X,    // Screen m_width
-                         SCREEN_Y,    // Screen m_height
+                         Cfg().screenX,
+                         Cfg().screenY,
                          NULL,        // Parent window handle
                          NULL,        // Window menu handle
                          hInstance,   // Application instance

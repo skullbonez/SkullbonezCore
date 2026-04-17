@@ -36,7 +36,7 @@ namespace Text
     font atlas. Replaces the legacy wglUseFontOutlines / display list approach.
 
     Coordinate space matches the legacy system: x/y positions are in the frustum-unit space
-    at the near clip plane (FOV=45 degrees, aspect=SCREEN_X/SCREEN_Y).
+    at the near clip plane (FOV=45 degrees, aspect=screen_x/screen_y from engine.cfg).
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Text2d
 {

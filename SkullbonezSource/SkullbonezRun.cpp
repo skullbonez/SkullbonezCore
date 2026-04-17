@@ -132,17 +132,17 @@ void SkullbonezRun::Initialise( void )
 
     // Init m_terrain
     // path to m_height map | map size pixels | step size | times to wrap texture
-    m_cTerrain = std::make_unique<Terrain>( TERRAIN_RAW_PATH, 256, 8, 15 );
+    m_cTerrain = std::make_unique<Terrain>( Cfg().terrainRaw.c_str(), 256, 8, 15 );
 
     // Init SkyBox (m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax)
     m_cSkyBox = SkyBox::Instance( -250, 300, -300, 300, -250, 300 );
     m_cSkyBox->ResetGLResources();
 
     // Init world environment
-    m_cWorldEnvironment = WorldEnvironment( FLUID_HEIGHT,
-                                            FLUID_DENSITY,
-                                            GAS_DENSITY,
-                                            GRAVITATIONAL_FORCE );
+    {
+        const SkullbonezConfig& cfg = Cfg();
+        m_cWorldEnvironment = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
+    }
 
     // Init reflection FBO at the current viewport size so it matches the main render
     // regardless of windowed vs fullscreen resolution
@@ -247,31 +247,34 @@ void SkullbonezRun::SetUpGameModels( int count )
 {
     m_modelCount = count;
 
+    const SkullbonezConfig& cfg = Cfg();
+
+    auto randFloat = [&]( float base, int range ) { return base + (float)( rand() % range ); };
+    auto randSigned = [&]( int range ) -> float
+    {
+        float mag = 1.0f + (float)( rand() % range );
+        return ( rand() % 2 == 0 ) ? mag : -mag;
+    };
+    auto randSign = []() -> float { return ( rand() % 2 == 0 ) ? 1.0f : -1.0f; };
+
     for ( int x = 0; x < m_modelCount; ++x )
     {
-        // randomly generate the model properties
-        float xPos = 400.0f + (float)( rand() % 400 );
-        float yPos = 100 + (float)( rand() % 250 );
-        float zPos = 400.0f + (float)( rand() % 400 );
-        float m_mass = 50.0f + (float)( rand() % 50 );
-        float moment = 5.0f + (float)( rand() % 15 );
-        float m_coefficientRestitution = 0.5f + ( (float)( rand() % 5 ) / 10.0f );
-        float m_radius = ( 1.0f + (float)( rand() % 10 ) ) * 0.5f; // max of 5.5
-        float xForce = ( rand() % 10 > 4 ) ? 1.0f + (float)( rand() % 1000 ) : 1.0f - (float)( rand() % 1000 );
-        float yForce = ( rand() % 10 > 4 ) ? 1.0f + (float)( rand() % 1000 ) : 1.0f - (float)( rand() % 1000 );
-        float zForce = ( rand() % 10 > 4 ) ? 1.0f + (float)( rand() % 1000 ) : 1.0f - (float)( rand() % 1000 );
-        float xForcePos = ( rand() % 10 > 4 ) ? 1.0f : -1.0f;
-        float yForcePos = ( rand() % 10 > 4 ) ? 1.0f : -1.0f;
-        float zForcePos = ( rand() % 10 > 4 ) ? 1.0f : -1.0f;
+        float posX        = randFloat( cfg.spawnXBase,         cfg.spawnXRange );
+        float posY        = randFloat( cfg.spawnYBase,         cfg.spawnYRange );
+        float posZ        = randFloat( cfg.spawnZBase,         cfg.spawnZRange );
+        float mass        = randFloat( cfg.ballMassMin,        cfg.ballMassRange );
+        float moment      = randFloat( cfg.ballMomentMin,      cfg.ballMomentRange );
+        float restitution = cfg.ballRestitutionMin + (float)( rand() % cfg.ballRestitutionRange ) / 10.0f;
+        float radius      = ( 1.0f + (float)( rand() % cfg.ballRadiusRange ) ) * 0.5f;
+        Vector3 force    ( randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ) );
+        Vector3 forcePos ( randSign(), randSign(), randSign() );
 
-        // stack-allocate game model and configure it
-        GameModel gameModel( &m_cWorldEnvironment, Vector3( xPos, yPos, zPos ), Vector3( moment, moment, moment ), m_mass );
-        gameModel.SetCoefficientRestitution( m_coefficientRestitution );
+        GameModel gameModel( &m_cWorldEnvironment, Vector3( posX, posY, posZ ), Vector3( moment, moment, moment ), mass );
+        gameModel.SetCoefficientRestitution( restitution );
         gameModel.SetTerrain( m_cTerrain.get() );
-        gameModel.AddBoundingSphere( m_radius );
-        gameModel.SetImpulseForce( Vector3( xForce, yForce, zForce ), Vector3( xForcePos, yForcePos, zForcePos ) );
+        gameModel.AddBoundingSphere( radius );
+        gameModel.SetImpulseForce( force, forcePos );
 
-        // move the game model into the collection
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
     }
 }
@@ -561,11 +564,11 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
 
     // move the camera based on input
     // (arguments are calculating time based movement quantities)
-    this->MoveCamera( fSecondsPerFrame * KEY_MOVEMENT_CONST,
-                      fSecondsPerFrame * MOUSE_MOVEMENT_CONST );
+    this->MoveCamera( fSecondsPerFrame * Cfg().keySpeed,
+                      fSecondsPerFrame * Cfg().mouseSensitivity );
 
     // update camera tweening speed
-    m_cCameras->SetTweenSpeed( TWEEN_RATE * fSecondsPerFrame );
+    m_cCameras->SetTweenSpeed( Cfg().cameraTweenRate * fSecondsPerFrame );
 }
 
 
@@ -605,7 +608,7 @@ void SkullbonezRun::DrawPrimitives( void )
 
     // render skybox ------------------------------
     {
-        Matrix4 skyView = baseView * Matrix4::Translate( eye.x, SKYBOX_RENDER_HEIGHT, eye.z ) * Matrix4::Scale( SKY_BOX_SCALE );
+        Matrix4 skyView = baseView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
         m_cSkyBox->Render( skyView, proj );
     }
 
@@ -626,9 +629,9 @@ void SkullbonezRun::DrawPrimitives( void )
         glViewport( 0, 0, m_cReflectionFBO->GetWidth(), m_cReflectionFBO->GetHeight() );
         glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-        // Skybox reflected (XZ follows eye; Y anchored at SKYBOX_RENDER_HEIGHT)
+        // Skybox reflected (XZ follows eye; Y anchored at Cfg().skyboxRenderHeight)
         {
-            Matrix4 skyReflView = reflView * Matrix4::Translate( eye.x, SKYBOX_RENDER_HEIGHT, eye.z ) * Matrix4::Scale( SKY_BOX_SCALE );
+            Matrix4 skyReflView = reflView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
             m_cSkyBox->Render( skyReflView, proj );
         }
 
@@ -705,8 +708,9 @@ void SkullbonezRun::SetInitialOpenGlState( void )
     SkullbonezHelper::StateSetup();
 
     // load m_textures
-    m_cTextures->CreateJpegTexture( TERRAIN_TEXTURE_PATH, TEXTURE_GROUND );
-    m_cTextures->CreateJpegTexture( BOUNDING_SPHERE_PATH, TEXTURE_BOUNDING_SPHERE );
+    const SkullbonezConfig& cfg = Cfg();
+    m_cTextures->CreateJpegTexture( cfg.terrainTexture.c_str(), TEXTURE_GROUND );
+    m_cTextures->CreateJpegTexture( cfg.sphereTexture.c_str(),  TEXTURE_BOUNDING_SPHERE );
 }
 
 
@@ -835,8 +839,8 @@ void SkullbonezRun::RelativeUpdateCamera( uint32_t hash )
     if ( !m_cCameras->IsCameraSelected( hash ) )
     {
         Vector3 translatedCameraPosition = m_cCameras->GetCameraTranslation( hash );
-        float minY = m_cTerrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) + MIN_CAMERA_HEIGHT;
-        m_cCameras->RelativeUpdate( hash, minY, MAX_CAMERA_HEIGHT );
+        float minY = m_cTerrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) + Cfg().minCameraHeight;
+        m_cCameras->RelativeUpdate( hash, minY, Cfg().maxCameraHeight );
     }
 }
 
@@ -877,18 +881,18 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
         m_cCameras->ApplyPrimaryMovementBuffer();
     }
 
-    // Clamp camera Y between m_terrain surface and MAX_CAMERA_HEIGHT (not in fly mode)
+    // Clamp camera Y between m_terrain surface and Cfg().maxCameraHeight (not in fly mode)
     if ( !m_isFlyMode )
     {
         Vector3 translatedCameraPosition = m_cCameras->GetCameraTranslation();
-        float minY = m_cTerrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) + MIN_CAMERA_HEIGHT;
+        float minY = m_cTerrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) + Cfg().minCameraHeight;
         if ( minY > translatedCameraPosition.y )
         {
             m_cCameras->AmmendPrimaryY( minY );
         }
-        else if ( translatedCameraPosition.y > MAX_CAMERA_HEIGHT )
+        else if ( translatedCameraPosition.y > Cfg().maxCameraHeight )
         {
-            m_cCameras->AmmendPrimaryY( MAX_CAMERA_HEIGHT );
+            m_cCameras->AmmendPrimaryY( Cfg().maxCameraHeight );
         }
     }
 }

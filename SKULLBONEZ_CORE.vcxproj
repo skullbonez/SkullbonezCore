@@ -116,6 +116,7 @@
     <ClCompile Include="SkullbonezSource\SkullbonezQuaternion.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRigidBody.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRotationMatrix.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezConfig.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRun.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezSkyBox.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezSpatialGrid.cpp" />
@@ -150,6 +151,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezResponseInformation.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRigidBody.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRotationMatrix.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezConfig.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRun.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSkyBox.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSpatialGrid.h" />

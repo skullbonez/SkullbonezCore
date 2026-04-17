@@ -140,7 +140,7 @@ void BoundingSphere::DEBUG_RenderCollisionVolume( const Vector3& worldSpaceCoord
 {
     Matrix4 model = Matrix4::Translate( worldSpaceCoords ) * rotation * Matrix4::Translate( m_position ) * Matrix4::Scale( m_radius, m_radius, m_radius );
 
-    SkullbonezHelper::DrawSphere( model, view, proj, lightPos, RENDER_COL_VOL_TRANS );
+    SkullbonezHelper::DrawSphere( model, view, proj, lightPos, Cfg().renderCollisionVolumes );
 }
 
 
@@ -187,7 +187,7 @@ float BoundingSphere::GetSubmergedVolumePercent( float m_fluidSurfaceHeight ) co
 /* -- GET DRAG COEFFICIENT --------------------------------------------------------*/
 float BoundingSphere::GetDragCoefficient( void ) const
 {
-    return SPHERE_DRAG_COEFFICIENT;
+    return Cfg().sphereDragCoeff;
 }
 
 
