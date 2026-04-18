@@ -77,6 +77,10 @@ void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel )
 void CollisionResponse::RespondCollisionGameModels( GameModel& gameModel1,
                                                     GameModel& gameModel2 )
 {
+    // a ball-to-ball hit should wake both balls so they can leave grounded roll mode
+    gameModel1.SetIsGrounded( false );
+    gameModel2.SetIsGrounded( false );
+
     std::visit( [&]( const auto& shape1, const auto& shape2 )
                 {
         using Shape1T = std::decay_t<decltype( shape1 )>;
