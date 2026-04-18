@@ -114,6 +114,13 @@ constexpr uint32_t CAMERA_GAME_MODEL_1 = HashStr( "GameModel1" );
 constexpr uint32_t CAMERA_GAME_MODEL_2 = HashStr( "GameModel2" );
 constexpr uint32_t CAMERA_FREE = HashStr( "Free" );
 
+/* -- PROFILING CONTROL -----------------------------------------------------------*/
+#if defined(_DEBUG) || defined(SKULLBONEZ_PROFILE)
+#define SKULLBONEZ_PROFILING_ENABLED 1
+#else
+#define SKULLBONEZ_PROFILING_ENABLED 0
+#endif
+
 /*-- LIVE DEBUG CODE ----------------------------------------------------------------
 
     // inlcude this for debug purposes only////////////////

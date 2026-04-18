@@ -102,6 +102,9 @@
     <ClCompile Include="SkullbonezSource\SkullbonezFramebuffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezProfiler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingSphere.h">
@@ -197,6 +200,9 @@
     <ClInclude Include="SkullbonezSource\SkullbonezFramebuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezProfiler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="SkullbonezData\shaders\lit_textured.frag">
@@ -227,6 +233,12 @@
       <Filter>Resource Files</Filter>
     </None>
     <None Include="SkullbonezData\shaders\water.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\hud.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\hud.vert">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

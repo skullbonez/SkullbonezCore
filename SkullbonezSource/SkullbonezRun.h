@@ -37,6 +37,7 @@
 #include "SkullbonezWorldEnvironment.h"
 #include "SkullbonezFramebuffer.h"
 #include "SkullbonezTestScene.h"
+#include "SkullbonezProfiler.h"
 
 /* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
 using namespace SkullbonezCore::Environment;
@@ -46,6 +47,8 @@ using namespace SkullbonezCore::Text;
 using namespace SkullbonezCore::Geometry;
 using namespace SkullbonezCore::Math;
 using namespace SkullbonezCore::GameObjects;
+
+namespace SkullbonezCore::Rendering { class Shader; }
 
 namespace SkullbonezCore
 {
@@ -101,6 +104,9 @@ class SkullbonezRun
     bool m_isWaterNoReflect;                       // Disable ocean reflection, output flat tint (toggle with 2)
     bool m_isWaterFlatDebug;                       // Force ocean mesh fully flat, no displacement (toggle with 3)
     float m_frozenWaterTime;                       // Simulation time captured when freeze was toggled on
+    std::unique_ptr<SkullbonezCore::Rendering::Shader> m_hudBgShader; // HUD background quad shader
+    unsigned int m_hudBgVAO;                       // HUD background vertex array object
+    unsigned int m_hudBgVBO;                       // HUD background vertex buffer object
 
     void Render( void );                                               // Main render method
     void RelativeUpdateCamera( uint32_t hash );                        // Relative update specified camera
@@ -116,6 +122,7 @@ class SkullbonezRun
     void DrawWindowText( const double dSecondsPerFrame );              // Renders text to the window
     void SaveScreenshot( const char* path );                           // Saves framebuffer to BMP file via glReadPixels
     void LogPerfMemory( const char* checkpoint );                      // Log memory usage to perf CSV
+    void DrawProfilerHUD( void );                                      // Draw profiler overlay
     void MoveCamera( float keyMovementQty, float mouseMovemementQty ); // Moves the camera
 
   public:

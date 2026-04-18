@@ -22,6 +22,7 @@
 #include "SkullbonezHelper.h"
 #include "SkullbonezBoundingSphere.h"
 #include "SkullbonezGameModel.h"
+#include "SkullbonezShader.h"
 #include <time.h>
 #include <cstring>
 #include <psapi.h>
@@ -29,6 +30,7 @@
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
+using namespace SkullbonezCore::Rendering;
 
 /* -- STATIC MEMBER INITIALISATION ------------------------------------------------*/
 int SkullbonezRun::sGlResetPass = 0;
@@ -78,6 +80,8 @@ SkullbonezRun::SkullbonezRun( const char* pScenePath )
     m_isWaterNoReflect = false;
     m_isWaterFlatDebug = false;
     m_frozenWaterTime = 0.0f;
+    m_hudBgVAO = 0;
+    m_hudBgVBO = 0;
     m_sInputState = {};
 
     // m_seed the random number generator
@@ -87,11 +91,24 @@ SkullbonezRun::SkullbonezRun( const char* pScenePath )
 /* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
 SkullbonezRun::~SkullbonezRun( void )
 {
+    PROFILE_CLOSE_CSV();
+
     if ( m_perfLogFile )
     {
         fclose( m_perfLogFile );
         m_perfLogFile = nullptr;
     }
+
+    // Clean up HUD resources
+    if ( m_hudBgVAO )
+    {
+        glDeleteVertexArrays( 1, &m_hudBgVAO );
+    }
+    if ( m_hudBgVBO )
+    {
+        glDeleteBuffers( 1, &m_hudBgVBO );
+    }
+    m_hudBgShader.reset();
 
     // Clean up GL resources while context is still alive
     SkullbonezHelper::ResetGLResources();
@@ -220,6 +237,34 @@ void SkullbonezRun::Initialise( void )
     // Init font (HDC, font)
     Text2d::BuildFont( m_cWindow->m_sDevice, "Verdana" );
 
+    // Set up HUD background (profiler overlay)
+    {
+        m_hudBgShader = std::make_unique<Shader>( "SkullbonezData/shaders/hud.vert",
+                                                   "SkullbonezData/shaders/hud.frag" );
+        float left = -0.54f, right = -0.235f, top = 0.37f, bottom = -0.05f;
+        float quadVerts[] = {
+            left, bottom, right, bottom, right, top,
+            left, bottom, right, top, left, top
+        };
+        glGenVertexArrays( 1, &m_hudBgVAO );
+        glGenBuffers( 1, &m_hudBgVBO );
+        glBindVertexArray( m_hudBgVAO );
+        glBindBuffer( GL_ARRAY_BUFFER, m_hudBgVBO );
+        glBufferData( GL_ARRAY_BUFFER, sizeof( quadVerts ), quadVerts, GL_STATIC_DRAW );
+        glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof( float ), (void*)0 );
+        glEnableVertexAttribArray( 0 );
+        glBindVertexArray( 0 );
+        glBindBuffer( GL_ARRAY_BUFFER, 0 );
+    }
+
+    PROFILE_SET_MODELS( m_modelCount );
+
+    // Open profiler CSV for perf test
+    if ( m_isPerfTest )
+    {
+        PROFILE_OPEN_CSV( "Debug/profiler_log.csv", sPerfPass );
+    }
+
     // Restore initial window text
     if ( m_isSceneMode )
     {
@@ -316,6 +361,8 @@ bool SkullbonezRun::Run( void )
             // Begin timer
             m_cFrameTimer.StartTimer();
 
+            PROFILE_FRAME_START();
+
             // Input
             this->TakeInput();
 
@@ -389,7 +436,12 @@ bool SkullbonezRun::Run( void )
             }
 
             // Swap back buffer
-            SwapBuffers( m_cWindow->m_sDevice );
+            {
+                PROFILE_SCOPED( "SwapBuffers" );
+                SwapBuffers( m_cWindow->m_sDevice );
+            }
+
+            PROFILE_FRAME_END();
 
             // Stop frame timer
             m_cFrameTimer.StopTimer();
@@ -507,6 +559,9 @@ void SkullbonezRun::TakeInput( void )
     m_isWaterNoReflect = ( Input::IsKeyToggled( '2' ) != 0 ); // Reflection default ON
     m_isWaterFlatDebug = ( Input::IsKeyToggled( '3' ) != 0 ); // Ocean wave displacement ON
 
+    // Profiler HUD toggle
+    PROFILE_SET_HUD_VISIBLE( Input::IsKeyToggled( '0' ) != 0 );
+
     if ( m_isFlyMode )
     {
         // Keep cursor hidden every frame — Windows restores it on WM_SETCURSOR
@@ -541,6 +596,8 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
 {
     if ( !m_isFlyMode || Input::IsKeyDown( VK_SPACE ) )
     {
+        PROFILE_SCOPED( "PhysicsTotal" );
+
         // start the timer
         m_cWorkTimer.StartTimer();
 
@@ -555,12 +612,14 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
     }
 
     // move the camera based on input
-    // (arguments are calculating time based movement quantities)
-    this->MoveCamera( fSecondsPerFrame * Cfg().keySpeed,
-                      fSecondsPerFrame * Cfg().mouseSensitivity );
+    {
+        PROFILE_SCOPED( "CameraUpdate" );
+        this->MoveCamera( fSecondsPerFrame * Cfg().keySpeed,
+                          fSecondsPerFrame * Cfg().mouseSensitivity );
 
-    // update camera tweening speed
-    m_cCameras->SetTweenSpeed( Cfg().cameraTweenRate * fSecondsPerFrame );
+        // update camera tweening speed
+        m_cCameras->SetTweenSpeed( Cfg().cameraTweenRate * fSecondsPerFrame );
+    }
 }
 
 /* -- RENDER ----------------------------------------------------------------------*/
@@ -596,8 +655,11 @@ void SkullbonezRun::DrawPrimitives( void )
     // Camera m_position for skybox placement
     Vector3 eye = m_cCameras->GetCameraTranslation();
 
+    PROFILE_BEGIN( "RenderTotal" );
+
     // render skybox ------------------------------
     {
+        PROFILE_SCOPED( "RenderSkybox" );
         Matrix4 skyView = baseView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
         m_cSkyBox->Render( skyView, proj );
     }
@@ -605,6 +667,7 @@ void SkullbonezRun::DrawPrimitives( void )
     // reflection pre-pass: render above-water scene from mirrored camera into FBO
     // TODO: this needs to run when camera m_isTweening!!
     {
+        PROFILE_SCOPED( "RenderReflection" );
         float waterY = m_cWorldEnvironment.GetFluidSurfaceHeight();
         Vector3 center = m_cCameras->GetCameraView();
 
@@ -638,25 +701,35 @@ void SkullbonezRun::DrawPrimitives( void )
     }
 
     // render game models -----------------------------
-    m_cTextures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-    m_cGameModelCollection.RenderModels( baseView, proj, lightPosition );
+    {
+        PROFILE_SCOPED( "RenderGameModels" );
+        m_cTextures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+        m_cGameModelCollection.RenderModels( baseView, proj, lightPosition );
+    }
 
     // render m_terrain ------------------------------
     {
+        PROFILE_SCOPED( "RenderTerrain" );
         m_cTextures->SelectTexture( TEXTURE_GROUND );
         m_cTerrain->Render( baseView, proj, lightPosition );
     }
 
     // render ground shadows on top of m_terrain
-    m_cGameModelCollection.RenderShadows( m_cTerrain.get(), baseView, proj );
+    {
+        PROFILE_SCOPED( "RenderShadows" );
+        m_cGameModelCollection.RenderShadows( m_cTerrain.get(), baseView, proj );
+    }
 
     // render the fluid ---------------------------
     {
+        PROFILE_SCOPED( "RenderWater" );
         float waterTime = m_isWaterFreezeDebug
                               ? m_frozenWaterTime
                               : static_cast<float>( m_cSimulationTimer.GetTimeSinceLastStart() );
         m_cWorldEnvironment.RenderFluid( baseView, proj, reflVP, waterTime, m_cReflectionFBO->GetColorTexture(), m_isWaterFlatDebug, m_isWaterNoReflect );
     }
+
+    PROFILE_END( "RenderTotal" );
 }
 
 /* -- SET UP CAMERAS ----------------------------------------------------------------------*/
@@ -704,6 +777,8 @@ void SkullbonezRun::SetInitialOpenGlState( void )
 /* -- DRAW WINDOW TEXT --------------------------------------------------------------------------------------------------------------------------------------------------*/
 void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 {
+    PROFILE_SCOPED( "TextRender" );
+
     // update timers
     m_cUpdateTimer.StopTimer();
     m_timeSinceLastRender += (float)m_cUpdateTimer.GetElapsedTime();
@@ -718,6 +793,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             m_r_fpsTime = 1.0f / (float)dSecondsPerFrame;
             m_r_physicsTime = m_physicsTime;
             m_r_renderTime = m_renderTime;
+            PROFILE_SET_FPS( m_r_fpsTime );
         }
 
         // reset time since last render
@@ -728,11 +804,8 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     Text2d::Render2dText( -0.53f, 0.39f, 0.015f, "SKULLBONEZ CORE | Simon Eschbach 2005" );
     Text2d::Render2dText( 0.39f, 0.39f, 0.015f, "Model Count: %i", m_modelCount );
 
-    // BOTTOM
-    Text2d::Render2dText( -0.53f, -0.40f, 0.01313f, "FPS: %.1f", m_r_fpsTime );
-    Text2d::Render2dText( -0.455f, -0.40f, 0.01313f, " | Physics Time: %.2f ms", m_r_physicsTime * 1000.0f );
-    Text2d::Render2dText( -0.2f, -0.40f, 0.01313f, " | Render Time: %.2f ms", m_r_renderTime * 1000.0f );
-    Text2d::Render2dText( 0.05f, -0.40f, 0.01313f, " | Contact:  s.eschbach@gmail.com   | www.simoneschbach.com" );
+    // Profiler HUD overlay (replaces old bottom text)
+    this->DrawProfilerHUD();
 }
 
 /* -- SET VIEWING ORIENTATION -------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1014,5 +1087,93 @@ void SkullbonezRun::LogPerfMemory( const char* checkpoint )
         double mb = static_cast<double>( pmc.WorkingSetSize ) / ( 1024.0 * 1024.0 );
         fprintf( m_perfLogFile, "# MEM %s pass=%d working_set_mb=%.2f\n", checkpoint, sPerfPass + 1, mb );
         fflush( m_perfLogFile );
+    }
+}
+
+
+/* -- DRAW PROFILER HUD -----------------------------------------------------------*/
+void SkullbonezRun::DrawProfilerHUD( void )
+{
+    if ( !PROFILE_IS_HUD_VISIBLE() )
+    {
+        return;
+    }
+
+    const char* hudText = PROFILE_GET_HUD();
+    if ( !hudText || hudText[0] == '\0' )
+    {
+        return;
+    }
+
+    // Build the same ortho projection used by the text system
+    const float halfH = tanf( 22.5f * _PI / 180.0f );
+    const float halfW = halfH * (float)Cfg().screenX / (float)Cfg().screenY;
+    Matrix4 proj = Matrix4::Ortho( -halfW, halfW, -halfH, halfH, -1.0f, 1.0f );
+
+    // Draw semi-transparent background quad
+    GLboolean depthWas = glIsEnabled( GL_DEPTH_TEST );
+    GLboolean blendWas = glIsEnabled( GL_BLEND );
+
+    glDisable( GL_DEPTH_TEST );
+    glEnable( GL_BLEND );
+    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+
+    m_hudBgShader->Use();
+    m_hudBgShader->SetMat4( "uProjection", proj );
+    m_hudBgShader->SetVec4( "uColor", 0.12f, 0.12f, 0.12f, 0.75f );
+
+    glBindVertexArray( m_hudBgVAO );
+    glDrawArrays( GL_TRIANGLES, 0, 6 );
+    glBindVertexArray( 0 );
+    glUseProgram( 0 );
+
+    // Render profiler text line by line
+    float x = -0.50f;
+    float y = 0.35f;
+    float lineH = 0.019f;
+    float scale = 0.012f;
+
+    const char* p = hudText;
+    while ( *p )
+    {
+        const char* eol = p;
+        while ( *eol && *eol != '\n' )
+        {
+            ++eol;
+        }
+
+        int len = (int)( eol - p );
+        if ( len > 0 )
+        {
+            char line[256];
+            if ( len >= (int)sizeof( line ) )
+            {
+                len = (int)sizeof( line ) - 1;
+            }
+            memcpy( line, p, len );
+            line[len] = '\0';
+            Text2d::Render2dText( x, y, scale, "%s", line );
+        }
+
+        y -= lineH;
+        p = ( *eol == '\n' ) ? eol + 1 : eol;
+    }
+
+    // Restore GL state
+    if ( depthWas )
+    {
+        glEnable( GL_DEPTH_TEST );
+    }
+    else
+    {
+        glDisable( GL_DEPTH_TEST );
+    }
+    if ( blendWas )
+    {
+        glEnable( GL_BLEND );
+    }
+    else
+    {
+        glDisable( GL_BLEND );
     }
 }

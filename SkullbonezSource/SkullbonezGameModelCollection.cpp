@@ -19,6 +19,7 @@
 
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezGameModelCollection.h"
+#include "SkullbonezProfiler.h"
 #include <cmath>
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
@@ -142,12 +143,16 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     std::vector<float> timeRemaining( (int)m_gameModels.size(), fChangeInTime );
 
     // update the velocity of all models
-    for ( int x = 0; x < (int)m_gameModels.size(); ++x )
     {
-        m_gameModels[x].ApplyForces( fChangeInTime );
+        PROFILE_SCOPED( "Gravity" );
+        for ( int x = 0; x < (int)m_gameModels.size(); ++x )
+        {
+            m_gameModels[x].ApplyForces( fChangeInTime );
+        }
     }
 
     // broadphase: populate spatial grid and generate candidate pairs
+    PROFILE_BEGIN( "Broadphase" );
     m_spatialGrid.Clear();
     for ( int i = 0; i < (int)m_gameModels.size(); ++i )
     {
@@ -156,8 +161,10 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
 
     std::vector<std::pair<int, int>> candidatePairs;
     m_spatialGrid.GetCandidatePairs( candidatePairs );
+    PROFILE_END( "Broadphase" );
 
     // detect and respond to collisions between game models (broadphase-culled pairs only)
+    PROFILE_BEGIN( "NarrowPhase" );
     for ( const auto& cp : candidatePairs )
     {
         int x = cp.first;
@@ -196,8 +203,10 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
             m_gameModels[x].StaticOverlapResponseGameModel( m_gameModels[y] );
         }
     }
+    PROFILE_END( "NarrowPhase" );
 
     // detect and respond to collisions between game models and the m_terrain
+    PROFILE_BEGIN( "TerrainCollision" );
     for ( int x = 0; x < (int)m_gameModels.size(); ++x )
     {
         // only check m_terrain if this model has remaining time
@@ -220,6 +229,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
             }
         }
     }
+    PROFILE_END( "TerrainCollision" );
 
     // apply the remaining time steps
     for ( int x = 0; x < (int)m_gameModels.size(); ++x )
