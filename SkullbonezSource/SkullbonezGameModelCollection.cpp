@@ -20,6 +20,7 @@
 
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezGameModelCollection.h"
+#include "SkullbonezProfiler.h"
 #include <cmath>
 
 
@@ -150,81 +151,87 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     std::vector<float> timeRemaining( (int)m_gameModels.size(), fChangeInTime );
 
     // update the velocity of all models
-    for ( int x = 0; x < (int)m_gameModels.size(); ++x )
     {
-        m_gameModels[x].ApplyForces( fChangeInTime );
+        ProfileScope ps( "Gravity" );
+        for ( int x = 0; x < (int)m_gameModels.size(); ++x )
+        {
+            m_gameModels[x].ApplyForces( fChangeInTime );
+        }
     }
 
     // broadphase: populate spatial grid and generate candidate pairs
-    m_spatialGrid.Clear();
-    for ( int i = 0; i < (int)m_gameModels.size(); ++i )
     {
-        m_spatialGrid.Insert( i, m_gameModels[i].GetPosition(), m_gameModels[i].GetBoundingRadius() );
-    }
-
-    std::vector<std::pair<int, int>> candidatePairs;
-    m_spatialGrid.GetCandidatePairs( candidatePairs );
-
-    // detect and respond to collisions between game models (broadphase-culled pairs only)
-    for ( const auto& cp : candidatePairs )
-    {
-        int x = cp.first;
-        int y = cp.second;
-
-        // skip pairs where either ball has exhausted its frame time
-        if ( timeRemaining[x] <= 0.0f || timeRemaining[y] <= 0.0f )
+        ProfileScope ps( "Collision" );
+        m_spatialGrid.Clear();
+        for ( int i = 0; i < (int)m_gameModels.size(); ++i )
         {
-            continue;
+            m_spatialGrid.Insert( i, m_gameModels[i].GetPosition(), m_gameModels[i].GetBoundingRadius() );
         }
 
-        // use the minimum remaining time window for this pair
-        float availableTime = ( std::min )( timeRemaining[x], timeRemaining[y] );
+        std::vector<std::pair<int, int>> candidatePairs;
+        m_spatialGrid.GetCandidatePairs( candidatePairs );
 
-        // check the collision time
-        float colTime = m_gameModels[x].CollisionDetectGameModel( m_gameModels[y], availableTime );
-
-        // if there is a response required, perform it
-        if ( m_gameModels[x].IsResponseRequired() && m_gameModels[y].IsResponseRequired() )
+        // detect and respond to collisions between game models (broadphase-culled pairs only)
+        for ( const auto& cp : candidatePairs )
         {
-            // advance both models to the collision point
-            m_gameModels[x].UpdatePosition( colTime );
-            m_gameModels[y].UpdatePosition( colTime );
+            int x = cp.first;
+            int y = cp.second;
 
-            // subtract consumed time
-            timeRemaining[x] -= colTime;
-            timeRemaining[y] -= colTime;
-
-            // velocity-only response (clears m_isResponseRequired on both models)
-            m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
-        }
-        else
-        {
-            // sweep test found no collision — check for static overlap
-            // (handles grounded/slow m_balls that the sweep test misses)
-            m_gameModels[x].StaticOverlapResponseGameModel( m_gameModels[y] );
-        }
-    }
-
-    // detect and respond to collisions between game models and the m_terrain
-    for ( int x = 0; x < (int)m_gameModels.size(); ++x )
-    {
-        // only check m_terrain if this model has remaining time
-        if ( timeRemaining[x] > 0.0f )
-        {
-            // check the collision time
-            float colTime = m_gameModels[x].CollisionDetectTerrain( timeRemaining[x] );
-
-            // if a response is required, perform it
-            if ( m_gameModels[x].IsResponseRequired() )
+            // skip pairs where either ball has exhausted its frame time
+            if ( timeRemaining[x] <= 0.0f || timeRemaining[y] <= 0.0f )
             {
-                // update the time step before the collision
+                continue;
+            }
+
+            // use the minimum remaining time window for this pair
+            float availableTime = ( std::min )( timeRemaining[x], timeRemaining[y] );
+
+            // check the collision time
+            float colTime = m_gameModels[x].CollisionDetectGameModel( m_gameModels[y], availableTime );
+
+            // if there is a response required, perform it
+            if ( m_gameModels[x].IsResponseRequired() && m_gameModels[y].IsResponseRequired() )
+            {
+                // advance both models to the collision point
                 m_gameModels[x].UpdatePosition( colTime );
+                m_gameModels[y].UpdatePosition( colTime );
 
-                // calculate response and update the remaining time step (m_terrain response advances m_position internally)
-                m_gameModels[x].CollisionResponseTerrain( timeRemaining[x] - colTime );
+                // subtract consumed time
+                timeRemaining[x] -= colTime;
+                timeRemaining[y] -= colTime;
 
-                // m_terrain response already advanced m_position; zero remaining time
-                timeRemaining[x] = 0.0f;
+                // velocity-only response (clears m_isResponseRequired on both models)
+                m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
+            }
+            else
+            {
+                // sweep test found no collision — check for static overlap
+                // (handles grounded/slow m_balls that the sweep test misses)
+                m_gameModels[x].StaticOverlapResponseGameModel( m_gameModels[y] );
+            }
+        }
+
+        // detect and respond to collisions between game models and the m_terrain
+        for ( int x = 0; x < (int)m_gameModels.size(); ++x )
+        {
+            // only check m_terrain if this model has remaining time
+            if ( timeRemaining[x] > 0.0f )
+            {
+                // check the collision time
+                float colTime = m_gameModels[x].CollisionDetectTerrain( timeRemaining[x] );
+
+                // if a response is required, perform it
+                if ( m_gameModels[x].IsResponseRequired() )
+                {
+                    // update the time step before the collision
+                    m_gameModels[x].UpdatePosition( colTime );
+
+                    // calculate response and update the remaining time step (m_terrain response advances m_position internally)
+                    m_gameModels[x].CollisionResponseTerrain( timeRemaining[x] - colTime );
+
+                    // m_terrain response already advanced m_position; zero remaining time
+                    timeRemaining[x] = 0.0f;
+                }
             }
         }
     }

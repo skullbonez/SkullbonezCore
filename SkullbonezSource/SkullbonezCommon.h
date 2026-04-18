@@ -114,6 +114,15 @@ constexpr uint32_t CAMERA_GAME_MODEL_1 = HashStr( "GameModel1" );
 constexpr uint32_t CAMERA_GAME_MODEL_2 = HashStr( "GameModel2" );
 constexpr uint32_t CAMERA_FREE = HashStr( "Free" );
 
+/* -- PERFORMANCE PROFILING SYSTEM --------------------------------------------------*/
+// Master enable: set to 1 to enable profiling, 0 to disable
+// Default: 1 in Debug, 0 in Release (user can override below)
+#if defined( _DEBUG )
+#define SKULLBONEZ_PROFILING_ENABLED 1
+#else
+#define SKULLBONEZ_PROFILING_ENABLED 0
+#endif
+
 /*-- LIVE DEBUG CODE ----------------------------------------------------------------
 
     // inlcude this for debug purposes only////////////////

@@ -37,6 +37,46 @@ A Windows C++/OpenGL 3D physics engine (2005) being migrated from Fixed Function
 
 All planned phases are complete. The engine now runs on OpenGL 3.3 Core Profile with no FFP calls.
 
+### New: Performance Profiling System (In Progress)
+**Goal**: Break down render (2ms) and physics (2ms) costs to identify bottlenecks and track regressions per-commit.
+
+**Status**: ✅ Implementation complete, awaiting Windows build & test
+
+**Components Implemented**:
+1. **`SkullbonezProfiler` singleton** — RAII scope-based timing with QueryPerformanceCounter
+   - `BeginScope(name)` / `EndScope(id)` for hierarchical timing
+   - Automatic timer tick→ms conversion
+   - Per-frame scope accumulation
+
+2. **CSV logging** — Append-mode per-frame breakdown appended to existing perf test CSV
+   - Columns: `frame, physics_total, gravity, collision, response, render_total, reflection, skybox, models, terrain, shadows, water, text_render, input, camera, swap_ms`
+   - Integrated into scene mode perf test pipeline
+
+3. **HUD text overlay** — Real-time per-frame breakdown rendered in top-left corner
+   - Scope names + milliseconds, sorted by time cost
+   - Active only when profiling enabled
+   - Rendered via existing `Text2d::Render2dText()` API
+
+4. **Compile-time control** — `SKULLBONEZ_PROFILING_ENABLED` #define in `SkullbonezCommon.h`
+   - Default: 1 (ON) in Debug, 0 (OFF) in Release
+   - User-overridable before build
+   - All profiler code compiles to no-ops when disabled
+
+**Strategic scopes implemented**:
+- **Physics**: `PhysicsTotal`, `Gravity` (ApplyForces), `Collision` (broadphase + detection/response)
+- **Render**: `RenderReflection`, `RenderSkybox`, `RenderGameModels`, `RenderTerrain`, `RenderShadows`, `RenderWater`, `TextRender`
+- **Overhead**: `CameraUpdate`, `InputProcessing`
+
+**Files Created**:
+- `SkullbonezSource/SkullbonezProfiler.h` — Singleton, RAII guards, API
+- `SkullbonezSource/SkullbonezProfiler.cpp` — Implementation, CSV/HUD logic
+
+**Files Modified**:
+- `SkullbonezCommon.h` — Added `SKULLBONEZ_PROFILING_ENABLED` #define
+- `SkullbonezRun.cpp` — Added FrameStart/FrameEnd calls, ProfileScope guards, HUD rendering
+- `SkullbonezGameModelCollection.cpp` — Added physics scope guards
+- `SKULLBONEZ_CORE.vcxproj` — Registered new profiler source/header files
+
 ### Future / Nice-to-Have
 - Regenerate GLAD for `gl:core=3.3` (currently `gl:compatibility=3.3` — harmless but exposes deprecated API at compile time)
 - DX11 Port Prep: extract render abstraction layer (Option A)

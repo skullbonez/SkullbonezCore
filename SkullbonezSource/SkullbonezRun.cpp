@@ -23,6 +23,7 @@
 #include "SkullbonezHelper.h"
 #include "SkullbonezBoundingSphere.h"
 #include "SkullbonezGameModel.h"
+#include "SkullbonezProfiler.h"
 #include <time.h>
 #include <cstring>
 #include <psapi.h>
@@ -197,6 +198,9 @@ void SkullbonezRun::Initialise( void )
                 }
                 this->LogPerfMemory( "start" );
             }
+
+            // Profiler: set CSV path to same file
+            SkullbonezProfiler::Instance().SetCSVLogPath( m_perfLogPath );
         }
 
         // Override RNG m_seed for deterministic scenes
@@ -319,6 +323,9 @@ bool SkullbonezRun::Run( void )
                 secondsPerFrame = 0.05;
             }
 
+            // Profiler: start frame timing
+            SkullbonezProfiler::Instance().FrameStart();
+
             // Begin timer
             m_cFrameTimer.StartTimer();
 
@@ -393,6 +400,9 @@ bool SkullbonezRun::Run( void )
                     this->LogPerfMemory( "periodic" );
                 }
             }
+
+            // Profiler: end frame and write CSV/HUD
+            SkullbonezProfiler::Instance().FrameEnd();
 
             // Swap back buffer
             SwapBuffers( m_cWindow->m_sDevice );
@@ -553,7 +563,10 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
         m_cWorkTimer.StartTimer();
 
         // update the game models
-        m_cGameModelCollection.RunPhysics( fSecondsPerFrame );
+        {
+            ProfileScope ps( "PhysicsTotal" );
+            m_cGameModelCollection.RunPhysics( fSecondsPerFrame );
+        }
 
         // stop the timer
         m_cWorkTimer.StopTimer();
@@ -563,12 +576,16 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
     }
 
     // move the camera based on input
-    // (arguments are calculating time based movement quantities)
-    this->MoveCamera( fSecondsPerFrame * Cfg().keySpeed,
-                      fSecondsPerFrame * Cfg().mouseSensitivity );
+    {
+        ProfileScope ps( "CameraUpdate" );
 
-    // update camera tweening speed
-    m_cCameras->SetTweenSpeed( Cfg().cameraTweenRate * fSecondsPerFrame );
+        // (arguments are calculating time based movement quantities)
+        this->MoveCamera( fSecondsPerFrame * Cfg().keySpeed,
+                          fSecondsPerFrame * Cfg().mouseSensitivity );
+
+        // update camera tweening speed
+        m_cCameras->SetTweenSpeed( Cfg().cameraTweenRate * fSecondsPerFrame );
+    }
 }
 
 
@@ -608,6 +625,7 @@ void SkullbonezRun::DrawPrimitives( void )
 
     // render skybox ------------------------------
     {
+        ProfileScope ps( "RenderSkybox" );
         Matrix4 skyView = baseView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
         m_cSkyBox->Render( skyView, proj );
     }
@@ -615,6 +633,7 @@ void SkullbonezRun::DrawPrimitives( void )
     // reflection pre-pass: render above-water scene from mirrored camera into FBO
     // TODO: this needs to run when camera m_isTweening!!
     {
+        ProfileScope ps( "RenderReflection" );
         float waterY = m_cWorldEnvironment.GetFluidSurfaceHeight();
         Vector3 center = m_cCameras->GetCameraView();
 
@@ -648,20 +667,28 @@ void SkullbonezRun::DrawPrimitives( void )
     }
 
     // render game models -----------------------------
-    m_cTextures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-    m_cGameModelCollection.RenderModels( baseView, proj, lightPosition );
+    {
+        ProfileScope ps( "RenderGameModels" );
+        m_cTextures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+        m_cGameModelCollection.RenderModels( baseView, proj, lightPosition );
+    }
 
     // render m_terrain ------------------------------
     {
+        ProfileScope ps( "RenderTerrain" );
         m_cTextures->SelectTexture( TEXTURE_GROUND );
         m_cTerrain->Render( baseView, proj, lightPosition );
     }
 
     // render ground shadows on top of m_terrain
-    m_cGameModelCollection.RenderShadows( m_cTerrain.get(), baseView, proj );
+    {
+        ProfileScope ps( "RenderShadows" );
+        m_cGameModelCollection.RenderShadows( m_cTerrain.get(), baseView, proj );
+    }
 
     // render the fluid ---------------------------
     {
+        ProfileScope ps( "RenderWater" );
         float waterTime = m_isWaterFreezeDebug
                               ? m_frozenWaterTime
                               : static_cast<float>( m_cSimulationTimer.GetTimeSinceLastStart() );
@@ -738,14 +765,26 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     }
 
     // TOP
-    Text2d::Render2dText( -0.53f, 0.39f, 0.015f, "SKULLBONEZ CORE | Simon Eschbach 2005" );
-    Text2d::Render2dText( 0.39f, 0.39f, 0.015f, "Model Count: %i", m_modelCount );
+    {
+        ProfileScope ps( "TextRender" );
+        Text2d::Render2dText( -0.53f, 0.39f, 0.015f, "SKULLBONEZ CORE | Simon Eschbach 2005" );
+        Text2d::Render2dText( 0.39f, 0.39f, 0.015f, "Model Count: %i", m_modelCount );
 
-    // BOTTOM
-    Text2d::Render2dText( -0.53f, -0.40f, 0.01313f, "FPS: %.1f", m_r_fpsTime );
-    Text2d::Render2dText( -0.455f, -0.40f, 0.01313f, " | Physics Time: %.2f ms", m_r_physicsTime * 1000.0f );
-    Text2d::Render2dText( -0.2f, -0.40f, 0.01313f, " | Render Time: %.2f ms", m_r_renderTime * 1000.0f );
-    Text2d::Render2dText( 0.05f, -0.40f, 0.01313f, " | Contact:  s.eschbach@gmail.com   | www.simoneschbach.com" );
+        // BOTTOM
+        Text2d::Render2dText( -0.53f, -0.40f, 0.01313f, "FPS: %.1f", m_r_fpsTime );
+        Text2d::Render2dText( -0.455f, -0.40f, 0.01313f, " | Physics Time: %.2f ms", m_r_physicsTime * 1000.0f );
+        Text2d::Render2dText( -0.2f, -0.40f, 0.01313f, " | Render Time: %.2f ms", m_r_renderTime * 1000.0f );
+        Text2d::Render2dText( 0.05f, -0.40f, 0.01313f, " | Contact:  s.eschbach@gmail.com   | www.simoneschbach.com" );
+
+        // Profiler HUD overlay (debug/profiling mode)
+#if SKULLBONEZ_PROFILING_ENABLED
+        const char* profilerText = SkullbonezProfiler::Instance().GetHUDText();
+        if ( profilerText && profilerText[0] != '\0' )
+        {
+            Text2d::Render2dText( -0.48f, 0.45f, 0.012f, profilerText );
+        }
+#endif
+    }
 }
 
 
