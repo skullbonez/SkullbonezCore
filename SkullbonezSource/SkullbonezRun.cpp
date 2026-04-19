@@ -93,6 +93,12 @@ SkullbonezRun::~SkullbonezRun( void )
         m_perfLogFile = nullptr;
     }
 
+    // Clean up scene first (before GL context is destroyed)
+    if ( m_pScene )
+    {
+        m_pScene->Destroy();
+    }
+
     // Clean up GL resources while context is still alive
     SkullbonezHelper::ResetGLResources();
     m_cWorldEnvironment.ResetGLResources();
@@ -215,6 +221,23 @@ void SkullbonezRun::Initialise( void )
     {
         this->SetUpCameras();
         this->SetUpGameModels();
+    }
+
+    // Create scene based on mode
+    if ( m_isSceneMode && strstr( m_scenePath, "pendulum" ) != nullptr )
+    {
+        m_pScene = std::make_unique<PendulumScene>(30.0f, m_cWindow->m_iScreenWidth, m_cWindow->m_iScreenHeight);
+    }
+    else
+    {
+        m_pScene = std::make_unique<PhysicsScene>(-30.0f, 300, 42);
+    }
+
+    if ( m_pScene )
+    {
+        m_pScene->Initialise();
+        // Apply scene gravity to world environment
+        m_cWorldEnvironment.SetGravity( m_pScene->GetGravity() );
     }
 
     // Init font (HDC, font)
@@ -544,8 +567,17 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
         // start the timer
         m_cWorkTimer.StartTimer();
 
-        // update the game models
-        m_cGameModelCollection.RunPhysics( fSecondsPerFrame );
+        // Update current scene
+        if ( m_pScene )
+        {
+            m_pScene->Update( fSecondsPerFrame );
+        }
+
+        // For 3D scenes, also update game model physics
+        if ( m_pScene && m_pScene->GetRendererType() == RendererType::RENDERER_3D )
+        {
+            m_cGameModelCollection.RunPhysics( fSecondsPerFrame );
+        }
 
         // stop the timer
         m_cWorkTimer.StopTimer();
@@ -582,6 +614,16 @@ void SkullbonezRun::Render( void )
 /* -- DRAW PRIMITIVES ---------------------------------------------------------------------*/
 void SkullbonezRun::DrawPrimitives( void )
 {
+    // Delegate rendering to current scene
+    if ( m_pScene )
+    {
+        if ( m_pScene->GetRendererType() == RendererType::RENDERER_2D )
+        {
+            m_pScene->Render();
+            return;
+        }
+    }
+
     float lightPosition[] = { 200.0f, 400.0f, 1200.0f, 1.0f };
 
     // Get view and projection matrices from camera/window
