@@ -37,9 +37,12 @@
 #include "SkullbonezWorldEnvironment.h"
 #include "SkullbonezFramebuffer.h"
 #include "SkullbonezTestScene.h"
+#include "SkullbonezRenderer2D.h"
+#include "SkullbonezDoublePendulum.h"
 
 /* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
 using namespace SkullbonezCore::Environment;
+using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Textures;
 using namespace SkullbonezCore::Text;
@@ -101,6 +104,9 @@ class SkullbonezRun
     bool m_isWaterNoReflect;                       // Disable ocean reflection, output flat tint (toggle with 2)
     bool m_isWaterFlatDebug;                       // Force ocean mesh fully flat, no displacement (toggle with 3)
     float m_frozenWaterTime;                       // Simulation time captured when freeze was toggled on
+    bool m_is2DMode;                               // 2D pendulum rendering mode (scene file override)
+    std::unique_ptr<Renderer2D> m_p2DRenderer;     // 2D line/circle renderer
+    std::unique_ptr<DoublePendulum> m_pPendulum;   // Double pendulum physics
 
     void Render( void );                                               // Main render method
     void RelativeUpdateCamera( uint32_t hash );                        // Relative update specified camera

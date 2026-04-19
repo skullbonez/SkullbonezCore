@@ -78,6 +78,7 @@ SkullbonezRun::SkullbonezRun( const char* pScenePath )
     m_isWaterNoReflect = false;
     m_isWaterFlatDebug = false;
     m_frozenWaterTime = 0.0f;
+    m_is2DMode = false;
     m_sInputState = {};
 
     // m_seed the random number generator
@@ -215,6 +216,16 @@ void SkullbonezRun::Initialise( void )
     {
         this->SetUpCameras();
         this->SetUpGameModels();
+    }
+
+    // Check if this is a 2D pendulum scene
+    if ( m_isSceneMode && strstr( m_scenePath, "pendulum" ) != nullptr )
+    {
+        m_is2DMode = true;
+        m_p2DRenderer = std::make_unique<Renderer2D>();
+        m_p2DRenderer->Initialise( m_cWindow->m_iScreenHeight, m_cWindow->m_iScreenHeight );
+        m_pPendulum = std::make_unique<DoublePendulum>( 0.3f, 0.3f, 1.0f, 1.0f, 30.0f );
+        m_pPendulum->SetInitialAngles( 3.0f, 1.0f );
     }
 
     // Init font (HDC, font)
@@ -544,8 +555,16 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
         // start the timer
         m_cWorkTimer.StartTimer();
 
-        // update the game models
-        m_cGameModelCollection.RunPhysics( fSecondsPerFrame );
+        if ( m_is2DMode && m_pPendulum )
+        {
+            // Update double pendulum physics
+            m_pPendulum->Update( fSecondsPerFrame );
+        }
+        else
+        {
+            // update the game models
+            m_cGameModelCollection.RunPhysics( fSecondsPerFrame );
+        }
 
         // stop the timer
         m_cWorkTimer.StopTimer();
@@ -582,6 +601,40 @@ void SkullbonezRun::Render( void )
 /* -- DRAW PRIMITIVES ---------------------------------------------------------------------*/
 void SkullbonezRun::DrawPrimitives( void )
 {
+    if ( m_is2DMode && m_pPendulum && m_p2DRenderer )
+    {
+        // Clear background to black for 2D mode
+        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+        m_p2DRenderer->BeginFrame( m_cWindow->m_iScreenWidth, m_cWindow->m_iScreenHeight );
+
+        float pivotX = 0.5f;
+        float pivotY = 0.85f;
+
+        float pos1X = m_pPendulum->GetPosition1X( pivotX );
+        float pos1Y = m_pPendulum->GetPosition1Y( pivotY );
+        float pos2X = m_pPendulum->GetPosition2X( pivotX );
+        float pos2Y = m_pPendulum->GetPosition2Y( pivotY );
+
+        // Draw first rod
+        m_p2DRenderer->DrawLine( pivotX, pivotY, pos1X, pos1Y, 1.0f, 0.0f, 0.0f, 1.0f );
+
+        // Draw second rod
+        m_p2DRenderer->DrawLine( pos1X, pos1Y, pos2X, pos2Y, 0.0f, 1.0f, 0.0f, 1.0f );
+
+        // Draw pivot
+        m_p2DRenderer->DrawCircle( pivotX, pivotY, 0.02f, 16, 1.0f, 1.0f, 1.0f );
+
+        // Draw bob 1
+        m_p2DRenderer->DrawCircle( pos1X, pos1Y, 0.02f, 16, 1.0f, 1.0f, 0.0f );
+
+        // Draw bob 2
+        m_p2DRenderer->DrawCircle( pos2X, pos2Y, 0.02f, 16, 1.0f, 0.0f, 1.0f );
+
+        m_p2DRenderer->EndFrame();
+        return;
+    }
+
     float lightPosition[] = { 200.0f, 400.0f, 1200.0f, 1.0f };
 
     // Get view and projection matrices from camera/window
