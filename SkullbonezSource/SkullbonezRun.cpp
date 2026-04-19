@@ -78,7 +78,6 @@ SkullbonezRun::SkullbonezRun( const char* pScenePath )
     m_isWaterNoReflect = false;
     m_isWaterFlatDebug = false;
     m_frozenWaterTime = 0.0f;
-    m_is2DMode = false;
     m_sInputState = {};
 
     // m_seed the random number generator
@@ -92,6 +91,12 @@ SkullbonezRun::~SkullbonezRun( void )
     {
         fclose( m_perfLogFile );
         m_perfLogFile = nullptr;
+    }
+
+    // Clean up scene first (before GL context is destroyed)
+    if ( m_pScene )
+    {
+        m_pScene->Destroy();
     }
 
     // Clean up GL resources while context is still alive
@@ -218,14 +223,21 @@ void SkullbonezRun::Initialise( void )
         this->SetUpGameModels();
     }
 
-    // Check if this is a 2D pendulum scene
+    // Create scene based on mode
     if ( m_isSceneMode && strstr( m_scenePath, "pendulum" ) != nullptr )
     {
-        m_is2DMode = true;
-        m_p2DRenderer = std::make_unique<Renderer2D>();
-        m_p2DRenderer->Initialise( m_cWindow->m_iScreenHeight, m_cWindow->m_iScreenHeight );
-        m_pPendulum = std::make_unique<DoublePendulum>( 0.3f, 0.3f, 1.0f, 1.0f, 30.0f );
-        m_pPendulum->SetInitialAngles( 3.0f, 1.0f );
+        m_pScene = std::make_unique<PendulumScene>(30.0f, m_cWindow->m_iScreenWidth, m_cWindow->m_iScreenHeight);
+    }
+    else
+    {
+        m_pScene = std::make_unique<PhysicsScene>(-30.0f, 300, 42);
+    }
+
+    if ( m_pScene )
+    {
+        m_pScene->Initialise();
+        // Apply scene gravity to world environment
+        m_cWorldEnvironment.SetGravity( m_pScene->GetGravity() );
     }
 
     // Init font (HDC, font)
@@ -555,14 +567,15 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
         // start the timer
         m_cWorkTimer.StartTimer();
 
-        if ( m_is2DMode && m_pPendulum )
+        // Update current scene
+        if ( m_pScene )
         {
-            // Update double pendulum physics
-            m_pPendulum->Update( fSecondsPerFrame );
+            m_pScene->Update( fSecondsPerFrame );
         }
-        else
+
+        // For 3D scenes, also update game model physics
+        if ( m_pScene && m_pScene->GetRendererType() == RendererType::RENDERER_3D )
         {
-            // update the game models
             m_cGameModelCollection.RunPhysics( fSecondsPerFrame );
         }
 
@@ -601,38 +614,14 @@ void SkullbonezRun::Render( void )
 /* -- DRAW PRIMITIVES ---------------------------------------------------------------------*/
 void SkullbonezRun::DrawPrimitives( void )
 {
-    if ( m_is2DMode && m_pPendulum && m_p2DRenderer )
+    // Delegate rendering to current scene
+    if ( m_pScene )
     {
-        // Clear background to black for 2D mode
-        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-
-        m_p2DRenderer->BeginFrame( m_cWindow->m_iScreenWidth, m_cWindow->m_iScreenHeight );
-
-        float pivotX = 0.5f;
-        float pivotY = 0.85f;
-
-        float pos1X = m_pPendulum->GetPosition1X( pivotX );
-        float pos1Y = m_pPendulum->GetPosition1Y( pivotY );
-        float pos2X = m_pPendulum->GetPosition2X( pivotX );
-        float pos2Y = m_pPendulum->GetPosition2Y( pivotY );
-
-        // Draw first rod
-        m_p2DRenderer->DrawLine( pivotX, pivotY, pos1X, pos1Y, 1.0f, 0.0f, 0.0f, 1.0f );
-
-        // Draw second rod
-        m_p2DRenderer->DrawLine( pos1X, pos1Y, pos2X, pos2Y, 0.0f, 1.0f, 0.0f, 1.0f );
-
-        // Draw pivot
-        m_p2DRenderer->DrawCircle( pivotX, pivotY, 0.02f, 16, 1.0f, 1.0f, 1.0f );
-
-        // Draw bob 1
-        m_p2DRenderer->DrawCircle( pos1X, pos1Y, 0.02f, 16, 1.0f, 1.0f, 0.0f );
-
-        // Draw bob 2
-        m_p2DRenderer->DrawCircle( pos2X, pos2Y, 0.02f, 16, 1.0f, 0.0f, 1.0f );
-
-        m_p2DRenderer->EndFrame();
-        return;
+        if ( m_pScene->GetRendererType() == RendererType::RENDERER_2D )
+        {
+            m_pScene->Render();
+            return;
+        }
     }
 
     float lightPosition[] = { 200.0f, 400.0f, 1200.0f, 1.0f };
