@@ -44,7 +44,9 @@ class Profiler
         float avgMs;             // moving average refreshed every 500 ms
         float p50Ms;             // recomputed every frame
         float p99Ms;             // recomputed every frame
-        float p99_9Ms;           // recomputed every frame
+        float p99_9Ms;           // recomputed every frame (for perf CSV)
+        float minMs;             // minimum across ring buffer
+        float maxMs;             // maximum across ring buffer
     };
 
     static Profiler& Instance( void );
