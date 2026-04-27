@@ -23,8 +23,8 @@ namespace SkullbonezCore
 {
 namespace Scenes
 {
-PhysicsScene::PhysicsScene(float gravity, int ballCount, int seed)
-    : m_gravity(gravity), m_ballCount(ballCount), m_randomSeed(seed)
+PhysicsScene::PhysicsScene( float gravity, int ballCount, int seed )
+    : m_gravity( gravity ), m_ballCount( ballCount ), m_randomSeed( seed )
 {
 }
 
@@ -34,23 +34,23 @@ PhysicsScene::~PhysicsScene()
 
 void PhysicsScene::Initialise()
 {
-  // Scene initialization will be delegated to SkullbonezRun
-  // which handles terrain, skybox, cameras, game models, etc.
+    // Scene initialization will be delegated to SkullbonezRun
+    // which handles terrain, skybox, cameras, game models, etc.
 }
 
-void PhysicsScene::Update(float deltaTime)
+void PhysicsScene::Update( float /* deltaTime */ )
 {
-  // Physics update delegated to SkullbonezRun
+    // Physics update delegated to SkullbonezRun
 }
 
 void PhysicsScene::Render()
 {
-  // 3D rendering delegated to SkullbonezRun
+    // 3D rendering delegated to SkullbonezRun
 }
 
 void PhysicsScene::Destroy()
 {
-  // Cleanup delegated to SkullbonezRun
+    // Cleanup delegated to SkullbonezRun
 }
 
 } // namespace Scenes

@@ -95,7 +95,18 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
             }
             if ( *sceneArg != '\0' )
             {
-                sceneList.push_back( sceneArg );
+                std::string scenePath( sceneArg );
+                bool hasPathSep = scenePath.find( '/' ) != std::string::npos || scenePath.find( '\\' ) != std::string::npos;
+                bool hasExt = scenePath.size() > 6 && scenePath.substr( scenePath.size() - 6 ) == ".scene";
+                if ( !hasPathSep && !hasExt )
+                {
+                    scenePath = "SkullbonezData/scenes/" + scenePath + ".scene";
+                }
+                else if ( !hasPathSep )
+                {
+                    scenePath = "SkullbonezData/scenes/" + scenePath;
+                }
+                sceneList.push_back( scenePath );
                 isSuiteOrSceneMode = true;
             }
         }

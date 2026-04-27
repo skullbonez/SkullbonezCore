@@ -1,0 +1,26 @@
+{
+  "FileVersion": 2,
+  "Id": "92972446-7d18-4ad1-ae43-15671c767306",
+  "Items": [
+    {
+      "Id": "1ed65050-4ba5-43ba-9519-e9fba545f366",
+      "Command": "--scene pendulum_test"
+    },
+    {
+      "Id": "78f8d29f-453b-4952-b562-1e28a5eb244e",
+      "Command": "--scene water_ball_test"
+    },
+    {
+      "Id": "f41e5ce6-a2aa-4fd9-ac12-4c0978cdbadf",
+      "Command": "--scene physics_roll"
+    },
+    {
+      "Id": "32c79c52-ce03-4ae2-9fdb-195a7423fea5",
+      "Command": "--scene perf_test"
+    },
+    {
+      "Id": "851fa1c0-254c-4137-a403-a022d94aa86a",
+      "Command": "--scene legacy_smoke"
+    }
+  ]
+}

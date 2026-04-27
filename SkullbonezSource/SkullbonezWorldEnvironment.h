@@ -61,7 +61,11 @@ class WorldEnvironment
     void RenderFluid( const Matrix4& view, const Matrix4& proj, const Matrix4& reflectVP, float time, GLuint reflectionTex, bool flatWater = false, bool noReflect = false ); // Renders the water in the scene
     void ResetGLResources( void );                                                                                                                                            // Rebuilds GPU resources after GL context recreation
     float GetFluidSurfaceHeight( void );                                                                                                                                      // Returns the fluid surface height
-    void AddWorldForces( GameObjects::GameModel& target, float changeInTime );                                                                                                // Adds world forces to the referenced game model
+    void SetGravity( float fGravity )
+    {
+        m_gravity = fGravity;
+    }                                                                          // Sets the gravitational acceleration
+    void AddWorldForces( GameObjects::GameModel& target, float changeInTime ); // Adds world forces to the referenced game model
 
   private:
     float m_fluidSurfaceHeight; // scalar

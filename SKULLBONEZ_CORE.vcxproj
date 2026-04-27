@@ -133,6 +133,10 @@
     <ClCompile Include="SkullbonezSource\SkullbonezFramebuffer.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezShader.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezMesh.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderer2D.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezDoublePendulum.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezPhysicsScene.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezPendulumScene.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingSphere.h" />
@@ -167,6 +171,11 @@
     <ClInclude Include="SkullbonezSource\SkullbonezFramebuffer.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezShader.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezMesh.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezRenderer2D.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezScene.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezDoublePendulum.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezPhysicsScene.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezPendulumScene.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="SkullbonezData\shaders\lit_textured.frag" />

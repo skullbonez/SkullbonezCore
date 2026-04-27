@@ -34,8 +34,8 @@ namespace Scenes
 -------------------------------------------------------------------------------------------------*/
 enum class RendererType
 {
-  RENDERER_2D,
-  RENDERER_3D
+    RENDERER_2D,
+    RENDERER_3D
 };
 
 /* -- Scene Interface -----------------------------------------------------------------
@@ -49,19 +49,19 @@ enum class RendererType
 -------------------------------------------------------------------------------------------------*/
 class Scene
 {
-public:
-  virtual ~Scene() = default;
+  public:
+    virtual ~Scene() = default;
 
-  // Configuration
-  virtual RendererType GetRendererType() const = 0;
-  virtual float GetGravity() const = 0;
-  virtual const char* GetName() const = 0;
+    // Configuration
+    virtual RendererType GetRendererType() const = 0;
+    virtual float GetGravity() const = 0;
+    virtual const char* GetName() const = 0;
 
-  // Lifecycle
-  virtual void Initialise() = 0;
-  virtual void Update(float deltaTime) = 0;
-  virtual void Render() = 0;
-  virtual void Destroy() = 0;
+    // Lifecycle
+    virtual void Initialise() = 0;
+    virtual void Update( float deltaTime ) = 0;
+    virtual void Render() = 0;
+    virtual void Destroy() = 0;
 };
 
 } // namespace Scenes

@@ -226,11 +226,11 @@ void SkullbonezRun::Initialise( void )
     // Create scene based on mode
     if ( m_isSceneMode && strstr( m_scenePath, "pendulum" ) != nullptr )
     {
-        m_pScene = std::make_unique<PendulumScene>(30.0f, m_cWindow->m_iScreenWidth, m_cWindow->m_iScreenHeight);
+        m_pScene = std::make_unique<PendulumScene>( 30.0f, m_cWindow->m_sWindowDimensions.x, m_cWindow->m_sWindowDimensions.y );
     }
     else
     {
-        m_pScene = std::make_unique<PhysicsScene>(-30.0f, 300, 42);
+        m_pScene = std::make_unique<PhysicsScene>( -30.0f, 300, 42 );
     }
 
     if ( m_pScene )
@@ -342,8 +342,10 @@ bool SkullbonezRun::Run( void )
             // Input
             this->TakeInput();
 
-            // Logic (skip physics in scene mode when disabled)
-            if ( !m_isSceneMode || m_isScenePhysics )
+            // Logic
+            // For 2D scenes, always update; for 3D scenes, respect physics flag
+            bool is2DScene = m_pScene && m_pScene->GetRendererType() == RendererType::RENDERER_2D;
+            if ( !m_isSceneMode || m_isScenePhysics || is2DScene )
             {
                 this->UpdateLogic( (float)secondsPerFrame );
             }

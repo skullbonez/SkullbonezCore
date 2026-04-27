@@ -34,28 +34,46 @@ namespace Scenes
 -------------------------------------------------------------------------------------------------*/
 class PhysicsScene : public Scene
 {
-private:
-  float m_gravity;
-  int m_ballCount;
-  int m_randomSeed;
+  private:
+    float m_gravity;
+    int m_ballCount;
+    int m_randomSeed;
 
-public:
-  PhysicsScene(float gravity = -30.0f, int ballCount = 300, int seed = 42);
-  ~PhysicsScene();
+  public:
+    PhysicsScene( float gravity = -30.0f, int ballCount = 300, int seed = 42 );
+    ~PhysicsScene();
 
-  RendererType GetRendererType() const override { return RendererType::RENDERER_3D; }
-  float GetGravity() const override { return m_gravity; }
-  const char* GetName() const override { return "Physics Scene"; }
+    RendererType GetRendererType() const override
+    {
+        return RendererType::RENDERER_3D;
+    }
+    float GetGravity() const override
+    {
+        return m_gravity;
+    }
+    const char* GetName() const override
+    {
+        return "Physics Scene";
+    }
 
-  void Initialise() override;
-  void Update(float deltaTime) override;
-  void Render() override;
-  void Destroy() override;
+    void Initialise() override;
+    void Update( float deltaTime ) override;
+    void Render() override;
+    void Destroy() override;
 
-  // Configuration
-  void SetGravity(float gravity) { m_gravity = gravity; }
-  void SetBallCount(int count) { m_ballCount = count; }
-  void SetRandomSeed(int seed) { m_randomSeed = seed; }
+    // Configuration
+    void SetGravity( float gravity )
+    {
+        m_gravity = gravity;
+    }
+    void SetBallCount( int count )
+    {
+        m_ballCount = count;
+    }
+    void SetRandomSeed( int seed )
+    {
+        m_randomSeed = seed;
+    }
 };
 
 } // namespace Scenes
