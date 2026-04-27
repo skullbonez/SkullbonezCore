@@ -198,36 +198,21 @@ void Text2d::DeleteFont( void )
     Text2d::pSolidShader.reset();
 }
 
-/* -- RENDER 2D TEXT --------------------------------------------------------------*/
-void Text2d::Render2dText( float xPosition,
-                           float yPosition,
-                           float fSize,
-                           const char* cRawText,
-                           ... )
+/* -- RENDER 2D TEXT (internal) ---------------------------------------------------*/
+static void RenderTextInternal( float xPosition, float yPosition, float fSize, float colR, float colG, float colB, const char* formatted )
 {
-    if ( !cRawText || !Text2d::pTextShader )
-    {
-        return;
-    }
+    using SkullbonezCore::Math::Transformation::Matrix4;
+    using SkullbonezCore::Text::Text2d;
 
-    // Format the string into a fixed-size static buffer (no per-frame heap allocation)
-    static char s_textBuf[512];
     static float s_vertBuf[512 * 6 * 4]; // max 512 chars * 6 verts * 4 floats
 
-    va_list args;
-    va_start( args, cRawText );
-    vsprintf_s( s_textBuf, sizeof( s_textBuf ), cRawText, args );
-    va_end( args );
-
-    const int len = (int)strlen( s_textBuf );
+    const int len = (int)strlen( formatted );
     if ( len == 0 )
     {
         return;
     }
 
     // Build orthographic projection matching the legacy FFP coordinate space.
-    // With FOV=45 and near=1: halfH = tan(22.5 deg), halfW = halfH * aspect.
-    // This exactly reproduces the frustum-unit space used by the old glTranslatef calls.
     const float halfH = tanf( 22.5f * _PI / 180.0f );
     const float halfW = halfH * (float)Cfg().screenX / (float)Cfg().screenY;
     Matrix4 proj = Matrix4::Ortho( -halfW, halfW, -halfH, halfH, -1.0f, 1.0f );
@@ -239,7 +224,7 @@ void Text2d::Render2dText( float xPosition,
 
     for ( int i = 0; i < len && ( vertCount + 6 ) <= 512 * 6; ++i )
     {
-        unsigned char c = (unsigned char)s_textBuf[i];
+        unsigned char c = (unsigned char)formatted[i];
         if ( c < 32 || c > 127 )
         {
             penX += fSize * 0.5f;
@@ -255,9 +240,7 @@ void Text2d::Render2dText( float xPosition,
 
         float u0 = (float)( col * FONT_CELL_W ) / (float)FONT_ATLAS_W + halfU;
         float v0 = (float)( row * FONT_CELL_H ) / (float)FONT_ATLAS_H + halfV;
-        // u1 samples only the glyph's actual advance m_width within the cell
         float u1 = u0 + ( Text2d::charAdvance[idx] * (float)FONT_SIZE ) / (float)FONT_ATLAS_W - halfU;
-        // v1 samples only FONT_SIZE texels (the glyph), not the full FONT_CELL_H (which includes padding)
         float v1 = (float)( row * FONT_CELL_H + FONT_SIZE ) / (float)FONT_ATLAS_H - halfV;
 
         float charW = Text2d::charAdvance[idx] * fSize;
@@ -314,11 +297,11 @@ void Text2d::Render2dText( float xPosition,
     glEnable( GL_BLEND );
     glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
-    // Set up m_shader and uniforms
+    // Set up shader and uniforms
     Text2d::pTextShader->Use();
     Text2d::pTextShader->SetMat4( "uProjection", proj );
     Text2d::pTextShader->SetInt( "uFontTexture", 0 );
-    Text2d::pTextShader->SetVec3( "uTextColor", 1.0f, 1.0f, 1.0f );
+    Text2d::pTextShader->SetVec3( "uTextColor", colR, colG, colB );
 
     glActiveTexture( GL_TEXTURE0 );
     glBindTexture( GL_TEXTURE_2D, Text2d::fontTexture );
@@ -350,6 +333,51 @@ void Text2d::Render2dText( float xPosition,
     {
         glDisable( GL_BLEND );
     }
+}
+
+/* -- RENDER 2D TEXT --------------------------------------------------------------*/
+void Text2d::Render2dText( float xPosition,
+                           float yPosition,
+                           float fSize,
+                           const char* cRawText,
+                           ... )
+{
+    if ( !cRawText || !Text2d::pTextShader )
+    {
+        return;
+    }
+
+    static char s_textBuf[512];
+    va_list args;
+    va_start( args, cRawText );
+    vsprintf_s( s_textBuf, sizeof( s_textBuf ), cRawText, args );
+    va_end( args );
+
+    RenderTextInternal( xPosition, yPosition, fSize, 1.0f, 1.0f, 1.0f, s_textBuf );
+}
+
+/* -- RENDER 2D TEXT COLOR --------------------------------------------------------*/
+void Text2d::Render2dTextColor( float xPosition,
+                                float yPosition,
+                                float fSize,
+                                float r,
+                                float g,
+                                float b,
+                                const char* cRawText,
+                                ... )
+{
+    if ( !cRawText || !Text2d::pTextShader )
+    {
+        return;
+    }
+
+    static char s_textBuf[512];
+    va_list args;
+    va_start( args, cRawText );
+    vsprintf_s( s_textBuf, sizeof( s_textBuf ), cRawText, args );
+    va_end( args );
+
+    RenderTextInternal( xPosition, yPosition, fSize, r, g, b, s_textBuf );
 }
 
 /* -- RENDER 2D QUAD --------------------------------------------------------------*/
