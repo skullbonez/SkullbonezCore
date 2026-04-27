@@ -8,6 +8,7 @@
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
 
 #include <algorithm>
+#include <cfloat>
 #include <cstring>
 #include <cstdlib>
 #include "SkullbonezText.h"
@@ -121,7 +122,7 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
     m.p50Ms = 0.0f;
     m.p99Ms = 0.0f;
     m.p99_9Ms = 0.0f;
-    m.minMs = 0.0f;
+    m.minMs = FLT_MAX;
     m.maxMs = 0.0f;
 
     // Resolve parentIndex by stripping last '/' segment and looking up that prefix
@@ -268,6 +269,14 @@ void Profiler::FrameEnd( void )
         Marker& m = m_markers[i];
         float ms = static_cast<float>( m.accumSecondsThisFrame * 1000.0 );
         m.lastFrameMs = ms;
+        if ( ms < m.minMs )
+        {
+            m.minMs = ms;
+        }
+        if ( ms > m.maxMs )
+        {
+            m.maxMs = ms;
+        }
         m.ringMs[m.ringHead] = ms;
         m.ringHead = ( m.ringHead + 1 ) % RING_SIZE;
         if ( m.ringFilled < RING_SIZE )
@@ -297,23 +306,6 @@ void Profiler::FrameEnd( void )
             m.p99Ms = scratch[p99i];
             std::nth_element( scratch, scratch + p999i, scratch + n );
             m.p99_9Ms = scratch[p999i];
-
-            // min/max via simple linear scan
-            float lo = scratch[0];
-            float hi = scratch[0];
-            for ( int k = 1; k < n; ++k )
-            {
-                if ( scratch[k] < lo )
-                {
-                    lo = scratch[k];
-                }
-                if ( scratch[k] > hi )
-                {
-                    hi = scratch[k];
-                }
-            }
-            m.minMs = lo;
-            m.maxMs = hi;
         }
     }
 
