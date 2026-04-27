@@ -30,6 +30,7 @@ GLuint Text2d::fontTexture = 0;
 GLuint Text2d::textVAO = 0;
 GLuint Text2d::textVBO = 0;
 std::unique_ptr<Shader> Text2d::pTextShader;
+std::unique_ptr<Shader> Text2d::pSolidShader;
 float Text2d::charAdvance[96] = {};
 
 /* -- Font atlas layout constants -------------------------------------------------*/
@@ -162,6 +163,11 @@ void Text2d::BuildFont( const HDC hDC, const char* cFontName )
         "SkullbonezData/shaders/text.vert",
         "SkullbonezData/shaders/text.frag" );
 
+    // Compile the solid-colour HUD quad m_shader (used by Render2dQuad)
+    Text2d::pSolidShader = std::make_unique<Shader>(
+        "SkullbonezData/shaders/solid_color.vert",
+        "SkullbonezData/shaders/solid_color.frag" );
+
     // Cleanup GDI resources
     SelectObject( memDC, hOldFont );
     SelectObject( memDC, hOldBitmap );
@@ -189,6 +195,7 @@ void Text2d::DeleteFont( void )
         Text2d::textVAO = 0;
     }
     Text2d::pTextShader.reset();
+    Text2d::pSolidShader.reset();
 }
 
 /* -- RENDER 2D TEXT --------------------------------------------------------------*/
@@ -327,6 +334,83 @@ void Text2d::Render2dText( float xPosition,
     glBindTexture( GL_TEXTURE_2D, 0 );
 
     // Restore saved state
+    if ( depthEnabled )
+    {
+        glEnable( GL_DEPTH_TEST );
+    }
+    else
+    {
+        glDisable( GL_DEPTH_TEST );
+    }
+    if ( blendEnabled )
+    {
+        glEnable( GL_BLEND );
+    }
+    else
+    {
+        glDisable( GL_BLEND );
+    }
+}
+
+/* -- RENDER 2D QUAD --------------------------------------------------------------*/
+void Text2d::Render2dQuad( float x0, float y0, float x1, float y1, float r, float g, float b, float a )
+{
+    if ( !Text2d::pSolidShader || !Text2d::textVAO )
+    {
+        return;
+    }
+
+    // Reuse the text VAO/VBO. Layout is (vec2 pos, vec2 uv); the solid shader only reads
+    // location 0, so the uv slots are dummy zeros.
+    static float s_quadBuf[6 * 4];
+    s_quadBuf[0] = x0;
+    s_quadBuf[1] = y0;
+    s_quadBuf[2] = 0.0f;
+    s_quadBuf[3] = 0.0f;
+    s_quadBuf[4] = x1;
+    s_quadBuf[5] = y0;
+    s_quadBuf[6] = 0.0f;
+    s_quadBuf[7] = 0.0f;
+    s_quadBuf[8] = x1;
+    s_quadBuf[9] = y1;
+    s_quadBuf[10] = 0.0f;
+    s_quadBuf[11] = 0.0f;
+    s_quadBuf[12] = x0;
+    s_quadBuf[13] = y0;
+    s_quadBuf[14] = 0.0f;
+    s_quadBuf[15] = 0.0f;
+    s_quadBuf[16] = x1;
+    s_quadBuf[17] = y1;
+    s_quadBuf[18] = 0.0f;
+    s_quadBuf[19] = 0.0f;
+    s_quadBuf[20] = x0;
+    s_quadBuf[21] = y1;
+    s_quadBuf[22] = 0.0f;
+    s_quadBuf[23] = 0.0f;
+
+    const float halfH = tanf( 22.5f * _PI / 180.0f );
+    const float halfW = halfH * (float)Cfg().screenX / (float)Cfg().screenY;
+    Matrix4 proj = Matrix4::Ortho( -halfW, halfW, -halfH, halfH, -1.0f, 1.0f );
+
+    GLboolean depthEnabled = glIsEnabled( GL_DEPTH_TEST );
+    GLboolean blendEnabled = glIsEnabled( GL_BLEND );
+
+    glDisable( GL_DEPTH_TEST );
+    glEnable( GL_BLEND );
+    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+
+    Text2d::pSolidShader->Use();
+    Text2d::pSolidShader->SetMat4( "uProjection", proj );
+    Text2d::pSolidShader->SetVec4( "uColor", r, g, b, a );
+
+    glBindVertexArray( Text2d::textVAO );
+    glBindBuffer( GL_ARRAY_BUFFER, Text2d::textVBO );
+    glBufferData( GL_ARRAY_BUFFER, sizeof( s_quadBuf ), s_quadBuf, GL_STREAM_DRAW );
+    glDrawArrays( GL_TRIANGLES, 0, 6 );
+
+    glBindBuffer( GL_ARRAY_BUFFER, 0 );
+    glBindVertexArray( 0 );
+
     if ( depthEnabled )
     {
         glEnable( GL_DEPTH_TEST );
