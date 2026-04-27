@@ -19,6 +19,7 @@
 
 /* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezGameModelCollection.h"
+#include "SkullbonezProfiler.h"
 #include <cmath>
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
@@ -142,12 +143,15 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     std::vector<float> timeRemaining( (int)m_gameModels.size(), fChangeInTime );
 
     // update the velocity of all models
+    PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
     for ( int x = 0; x < (int)m_gameModels.size(); ++x )
     {
         m_gameModels[x].ApplyForces( fChangeInTime );
     }
+    PROFILE_END( "Frame/Physics/ApplyForces" );
 
     // broadphase: populate spatial grid and generate candidate pairs
+    PROFILE_BEGIN( "Frame/Physics/Broadphase" );
     m_spatialGrid.Clear();
     for ( int i = 0; i < (int)m_gameModels.size(); ++i )
     {
@@ -156,8 +160,10 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
 
     std::vector<std::pair<int, int>> candidatePairs;
     m_spatialGrid.GetCandidatePairs( candidatePairs );
+    PROFILE_END( "Frame/Physics/Broadphase" );
 
     // detect and respond to collisions between game models (broadphase-culled pairs only)
+    PROFILE_BEGIN( "Frame/Physics/Narrowphase" );
     for ( const auto& cp : candidatePairs )
     {
         int x = cp.first;
@@ -196,8 +202,10 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
             m_gameModels[x].StaticOverlapResponseGameModel( m_gameModels[y] );
         }
     }
+    PROFILE_END( "Frame/Physics/Narrowphase" );
 
     // detect and respond to collisions between game models and the m_terrain
+    PROFILE_BEGIN( "Frame/Physics/Terrain" );
     for ( int x = 0; x < (int)m_gameModels.size(); ++x )
     {
         // only check m_terrain if this model has remaining time
@@ -220,8 +228,10 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
             }
         }
     }
+    PROFILE_END( "Frame/Physics/Terrain" );
 
     // apply the remaining time steps
+    PROFILE_BEGIN( "Frame/Physics/Integrate" );
     for ( int x = 0; x < (int)m_gameModels.size(); ++x )
     {
         // advance by whatever time remains
@@ -230,6 +240,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
             m_gameModels[x].UpdatePosition( timeRemaining[x] );
         }
     }
+    PROFILE_END( "Frame/Physics/Integrate" );
 }
 
 /* -- BUILD SHADOW MESH -----------------------------------------------------------*/

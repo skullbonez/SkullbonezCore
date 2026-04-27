@@ -1,7 +1,7 @@
 """
 Perf test analysis script for SkullbonezCore.
-Reads the perf_log.csv written by the engine, computes statistics,
-and writes a JSON artifact to perf_history/{commit_hash}.json.
+Reads the perf_log.csv written by the engine, computes statistics for every
+profiler marker column, and writes a JSON artifact to perf_history/{commit}.json.
 Optionally compares against the previous artifact.
 
 Paths are derived from this script's location — no hardcoded drive letters.
@@ -36,9 +36,8 @@ def _wmic(resource, field):
 
 
 def get_machine_info():
-    """Collect CPU, RAM, and host info for the current machine."""
+    """Collect CPU and RAM info (no hostname for privacy)."""
     import platform
-    import socket
 
     cpu   = _wmic("cpu", "Name") or platform.processor() or "unknown"
     cores = _wmic("cpu", "NumberOfLogicalProcessors") or str(os.cpu_count() or 0)
@@ -46,11 +45,10 @@ def get_machine_info():
     ram_gb = round(int(ram_bytes) / (1024 ** 3), 1) if ram_bytes.isdigit() else 0.0
 
     return {
-        "hostname": socket.gethostname(),
-        "cpu":      cpu,
-        "cores":    int(cores) if cores.isdigit() else 0,
-        "ram_gb":   ram_gb,
-        "os":       platform.version(),
+        "cpu":    cpu,
+        "cores":  int(cores) if cores.isdigit() else 0,
+        "ram_gb": ram_gb,
+        "os":     platform.version(),
     }
 
 
@@ -66,7 +64,13 @@ def percentile(sorted_vals, p):
 
 
 def parse_csv(path):
-    """Parse perf_log.csv into frame rows and memory checkpoints."""
+    """Parse perf_log.csv into frame rows and memory checkpoints.
+
+    Returns (marker_names, frames, mem) where marker_names is a list of
+    column names (excluding pass/frame), frames is a list of dicts, and
+    mem is a list of memory checkpoint dicts.
+    """
+    marker_names = []
     frames = []
     mem = []
     with open(path, "r") as f:
@@ -78,19 +82,23 @@ def parse_csv(path):
                 pass_num = int(parts[3].split("=")[1])
                 mb = float(parts[4].split("=")[1])
                 mem.append({"checkpoint": checkpoint, "pass": pass_num, "working_set_mb": mb})
-            elif line and not line.startswith("pass,") and not line.startswith("#"):
+            elif line.startswith("pass,frame,"):
+                # Dynamic header — discover marker columns
                 cols = line.split(",")
-                frames.append({
-                    "pass":       int(cols[0]),
-                    "frame":      int(cols[1]),
-                    "physics_ms": float(cols[2]),
-                    "render_ms":  float(cols[3]),
-                })
-    return frames, mem
+                marker_names = cols[2:]  # everything after pass, frame
+            elif line and not line.startswith("#"):
+                cols = line.split(",")
+                if len(cols) < 2:
+                    continue
+                row = {"pass": int(cols[0]), "frame": int(cols[1])}
+                for i, name in enumerate(marker_names):
+                    row[name] = float(cols[2 + i]) if (2 + i) < len(cols) else 0.0
+                frames.append(row)
+    return marker_names, frames, mem
 
 
 def compute_stats(values):
-    """Compute avg, p50, p99, p99.9 for a list of floats."""
+    """Compute min/max/avg/p50/p99/p99.9 for a list of floats."""
     if not values:
         return {"min": 0, "max": 0, "avg": 0, "p50": 0, "p99": 0, "p99_9": 0}
     s = sorted(values)
@@ -123,7 +131,7 @@ def find_previous_artifact(hist_dir, current_hash):
 
 
 def compare_stats(current, previous):
-    """Compare current vs previous, apply thresholds, return pass/fail."""
+    """Compare current vs previous, apply thresholds, return list of failures."""
     prev = json.loads(previous.read_text())
     print(f"\n--- Comparison vs {prev['commit']} ---")
 
@@ -134,16 +142,14 @@ def compare_stats(current, previous):
     cur_cpu  = cur_machine.get("cpu")  or current.get("cpu", "")
 
     if not prev_cpu:
-        print(f"\n  WARNING: Previous artifact has no machine info — cannot validate comparison.")
-        print(f"    Current machine: {cur_machine.get('hostname','?')} — {cur_cpu}")
-        print(f"  Skipping regression check.")
+        print(f"\n  WARNING: Previous artifact has no machine info — skipping regression check.")
         print(f"  To reset the baseline delete old artifacts from perf_history/ and re-run.")
         return []
 
     if prev_cpu != cur_cpu:
         print(f"\n  WARNING: Machine mismatch — perf comparison is not valid across machines.")
-        print(f"    Previous : {prev_machine.get('hostname','?')} — {prev_cpu}")
-        print(f"    Current  : {cur_machine.get('hostname','?')} — {cur_cpu}")
+        print(f"    Previous : {prev_cpu}")
+        print(f"    Current  : {cur_cpu}")
         print(f"  Skipping regression check.")
         print(f"  To reset the baseline delete old artifacts from perf_history/ and re-run.")
         return []
@@ -154,11 +160,16 @@ def compare_stats(current, previous):
 
     failures = []
 
-    for metric in ["physics_ms", "render_ms"]:
-        print(f"\n  {metric}:")
+    # Compare all marker columns present in both artifacts
+    prev_markers = prev.get("markers", {})
+    cur_markers  = current.get("markers", {})
+    shared = [m for m in cur_markers if m in prev_markers]
+
+    for marker in shared:
+        print(f"\n  {marker}:")
         for stat in ["min", "max", "avg", "p50", "p99", "p99_9"]:
-            cur_val  = current[metric][stat]
-            prev_val = prev[metric][stat]
+            cur_val  = cur_markers[marker][stat]
+            prev_val = prev_markers[marker][stat]
             threshold = TIMING_THRESHOLDS[stat]
             if prev_val > 0:
                 delta_pct = ((cur_val - prev_val) / prev_val) * 100
@@ -166,7 +177,7 @@ def compare_stats(current, previous):
                 flag = " ** REGRESSION **" if delta_pct > threshold else ""
                 print(f"    {stat:6s}: {prev_val:.4f} -> {cur_val:.4f}  ({delta_pct:+.1f}% {direction}){flag}")
                 if delta_pct > threshold:
-                    failures.append(f"{metric}.{stat}: +{delta_pct:.1f}% (threshold: {threshold}%)")
+                    failures.append(f"{marker}.{stat}: +{delta_pct:.1f}% (threshold: {threshold}%)")
             else:
                 print(f"    {stat:6s}: {prev_val:.4f} -> {cur_val:.4f}")
 
@@ -188,47 +199,41 @@ def main():
         print(f"ERROR: {CSV_PATH} not found")
         sys.exit(1)
 
-    frames, mem = parse_csv(str(CSV_PATH))
+    marker_names, frames, mem = parse_csv(str(CSV_PATH))
     commit  = get_commit_hash()
     machine = get_machine_info()
 
     print(f"Commit  : {commit}")
-    print(f"Machine : {machine['hostname']}  {machine['cpu']}  "
-          f"{machine['cores']} cores  {machine['ram_gb']} GB RAM")
-    print(f"Total frames: {len(frames)}")
-    print(f"Memory checkpoints: {len(mem)}")
+    print(f"Machine : {machine['cpu']}  {machine['cores']} cores  {machine['ram_gb']} GB RAM")
+    print(f"Frames  : {len(frames)}  |  Markers: {len(marker_names)}")
 
-    # Compute stats across all frames (both passes)
-    physics_vals = [f["physics_ms"] for f in frames]
-    render_vals  = [f["render_ms"]  for f in frames]
+    # Compute stats for every marker column
+    marker_stats = {}
+    for name in marker_names:
+        vals = [f[name] for f in frames if name in f]
+        marker_stats[name] = compute_stats(vals)
 
-    physics_stats = compute_stats(physics_vals)
-    render_stats  = compute_stats(render_vals)
+    # Print summary for top-level markers
+    for name in marker_names:
+        if "/" not in name:  # top-level only for summary
+            s = marker_stats[name]
+            print(f"{name:20s}: avg={s['avg']:.4f}  p50={s['p50']:.4f}  p99={s['p99']:.4f}  p99.9={s['p99_9']:.4f}")
 
     # Extract memory checkpoints
-    mem_start   = next((m["working_set_mb"] for m in mem if m["checkpoint"] == "start" and m["pass"] == 1), 0)
-    mem_restart = next((m["working_set_mb"] for m in mem if m["checkpoint"] == "start" and m["pass"] == 2), 0)
-    mem_end     = next((m["working_set_mb"] for m in mem if m["checkpoint"] == "end"   and m["pass"] == 2), 0)
+    mem_start   = next((m["working_set_mb"] for m in mem if m["checkpoint"] == "start"   and m["pass"] == 1), 0)
+    mem_restart = next((m["working_set_mb"] for m in mem if m["checkpoint"] == "start"   and m["pass"] == 2), 0)
+    mem_end     = next((m["working_set_mb"] for m in mem if m["checkpoint"] == "end"     and m["pass"] == 2), 0)
+    print(f"Memory  (MB): start={mem_start:.2f}  restart={mem_restart:.2f}  end={mem_end:.2f}")
 
     result = {
         "commit":         commit,
         "machine":        machine,
         "total_frames":   len(frames),
-        "physics_ms":     physics_stats,
-        "render_ms":      render_stats,
+        "markers":        marker_stats,
         "mem_start_mb":   round(mem_start, 2),
         "mem_restart_mb": round(mem_restart, 2),
         "mem_end_mb":     round(mem_end, 2),
     }
-
-    # Print summary
-    print(f"\nPhysics (ms): min={physics_stats['min']:.4f}  max={physics_stats['max']:.4f}  "
-          f"avg={physics_stats['avg']:.4f}  p50={physics_stats['p50']:.4f}  "
-          f"p99={physics_stats['p99']:.4f}  p99.9={physics_stats['p99_9']:.4f}")
-    print(f"Render  (ms): min={render_stats['min']:.4f}  max={render_stats['max']:.4f}  "
-          f"avg={render_stats['avg']:.4f}  p50={render_stats['p50']:.4f}  "
-          f"p99={render_stats['p99']:.4f}  p99.9={render_stats['p99_9']:.4f}")
-    print(f"Memory  (MB): start={mem_start:.2f}  restart={mem_restart:.2f}  end={mem_end:.2f}")
 
     # Write artifact
     HIST_DIR.mkdir(parents=True, exist_ok=True)
