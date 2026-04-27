@@ -22,6 +22,7 @@
 #include "SkullbonezHelper.h"
 #include "SkullbonezBoundingSphere.h"
 #include "SkullbonezGameModel.h"
+#include "SkullbonezProfiler.h"
 #include <time.h>
 #include <cstring>
 #include <psapi.h>
@@ -74,6 +75,7 @@ SkullbonezRun::SkullbonezRun( const char* pScenePath )
     m_r_physicsTime = 0.0f;
     m_r_fpsTime = 0.0f;
     m_isFlyMode = false;
+    m_isProfilerOverlay = true;
     m_isWaterFreezeDebug = false;
     m_isWaterNoReflect = false;
     m_isWaterFlatDebug = false;
@@ -316,8 +318,13 @@ bool SkullbonezRun::Run( void )
             // Begin timer
             m_cFrameTimer.StartTimer();
 
+            // Begin profiler frame (implicit "Frame" marker brackets everything below)
+            PROFILE_FRAME_BEGIN();
+
             // Input
+            PROFILE_BEGIN( "Frame/Input" );
             this->TakeInput();
+            PROFILE_END( "Frame/Input" );
 
             // Logic (skip physics in scene mode when disabled)
             if ( !m_isSceneMode || m_isScenePhysics )
@@ -325,16 +332,17 @@ bool SkullbonezRun::Run( void )
                 this->UpdateLogic( (float)secondsPerFrame );
             }
 
-            // Begin render timer
-            m_cWorkTimer.StartTimer();
-
             // Render
+            PROFILE_BEGIN( "Frame/Render" );
             this->Render();
+            PROFILE_END( "Frame/Render" );
 
             // Render overlay text
             if ( !m_isSceneMode || m_isSceneText )
             {
+                PROFILE_BEGIN( "Frame/Text" );
                 this->DrawWindowText( secondsPerFrame );
+                PROFILE_END( "Frame/Text" );
             }
 
             // Scene mode: check screenshot triggers (read back buffer before swap)
@@ -361,6 +369,7 @@ bool SkullbonezRun::Run( void )
                     if ( m_isGlResetTest && sGlResetPass == 0 )
                     {
                         sGlResetPass++;
+                        PROFILE_FRAME_END();
                         return true; // triggers GL context destroy/recreate in WinMain loop
                     }
 
@@ -370,11 +379,25 @@ bool SkullbonezRun::Run( void )
                 }
             }
 
-            // Stop render timer
-            m_cWorkTimer.StopTimer();
+            // Swap back buffer
+            PROFILE_BEGIN( "Frame/VsyncWait" );
+            SwapBuffers( m_cWindow->m_sDevice );
+            PROFILE_END( "Frame/VsyncWait" );
 
-            // Store render time
-            m_renderTime = (float)m_cWorkTimer.GetElapsedTime();
+            // Stop frame timer
+            m_cFrameTimer.StopTimer();
+
+            // Close profiler frame and refresh back-compat timing fields from markers
+            PROFILE_FRAME_END();
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+            {
+                using SkullbonezCore::Basics::Profiler;
+                static constexpr uint32_t kPhysicsHash = ::HashStr( "Frame/Physics" );
+                static constexpr uint32_t kRenderHash = ::HashStr( "Frame/Render" );
+                m_physicsTime = Profiler::Instance().LastFrameMsByHash( kPhysicsHash ) * 0.001f;
+                m_renderTime = Profiler::Instance().LastFrameMsByHash( kRenderHash ) * 0.001f;
+            }
+#endif
 
             // Perf test: log per-frame timing + periodic memory
             if ( m_isPerfTest && m_perfLogFile )
@@ -387,12 +410,6 @@ bool SkullbonezRun::Run( void )
                     this->LogPerfMemory( "periodic" );
                 }
             }
-
-            // Swap back buffer
-            SwapBuffers( m_cWindow->m_sDevice );
-
-            // Stop frame timer
-            m_cFrameTimer.StopTimer();
 
             // Scene mode: count frames
             if ( m_isSceneMode )
@@ -507,6 +524,9 @@ void SkullbonezRun::TakeInput( void )
     m_isWaterNoReflect = ( Input::IsKeyToggled( '2' ) != 0 ); // Reflection default ON
     m_isWaterFlatDebug = ( Input::IsKeyToggled( '3' ) != 0 ); // Ocean wave displacement ON
 
+    // Profiler overlay default ON; pressing '0' toggles the OS-level toggle bit, hiding the overlay.
+    m_isProfilerOverlay = ( Input::IsKeyToggled( '0' ) == 0 );
+
     if ( m_isFlyMode )
     {
         // Keep cursor hidden every frame — Windows restores it on WM_SETCURSOR
@@ -541,17 +561,10 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
 {
     if ( !m_isFlyMode || Input::IsKeyDown( VK_SPACE ) )
     {
-        // start the timer
-        m_cWorkTimer.StartTimer();
-
-        // update the game models
+        // update the game models (sub-markers added inside RunPhysics)
+        PROFILE_BEGIN( "Frame/Physics" );
         m_cGameModelCollection.RunPhysics( fSecondsPerFrame );
-
-        // stop the timer
-        m_cWorkTimer.StopTimer();
-
-        // store physics time
-        m_physicsTime = (float)m_cWorkTimer.GetElapsedTime();
+        PROFILE_END( "Frame/Physics" );
     }
 
     // move the camera based on input
@@ -598,6 +611,7 @@ void SkullbonezRun::DrawPrimitives( void )
 
     // render skybox ------------------------------
     {
+        PROFILE_SCOPED( "Frame/Render/Skybox" );
         Matrix4 skyView = baseView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
         m_cSkyBox->Render( skyView, proj );
     }
@@ -605,6 +619,7 @@ void SkullbonezRun::DrawPrimitives( void )
     // reflection pre-pass: render above-water scene from mirrored camera into FBO
     // TODO: this needs to run when camera m_isTweening!!
     {
+        PROFILE_SCOPED( "Frame/Render/Reflection" );
         float waterY = m_cWorldEnvironment.GetFluidSurfaceHeight();
         Vector3 center = m_cCameras->GetCameraView();
 
@@ -621,37 +636,46 @@ void SkullbonezRun::DrawPrimitives( void )
 
         // Skybox reflected (XZ follows eye; Y anchored at Cfg().skyboxRenderHeight)
         {
+            PROFILE_SCOPED( "Frame/Render/Reflection/Skybox" );
             Matrix4 skyReflView = reflView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
             m_cSkyBox->Render( skyReflView, proj );
         }
 
         // Game models reflected — clip at water surface (above-water portion only)
+        PROFILE_BEGIN( "Frame/Render/Reflection/Balls" );
         glEnable( GL_CLIP_DISTANCE0 );
         SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -waterY );
         m_cTextures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
         m_cGameModelCollection.RenderModels( reflView, proj, lightPosition );
         glDisable( GL_CLIP_DISTANCE0 );
         SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
+        PROFILE_END( "Frame/Render/Reflection/Balls" );
 
         m_cReflectionFBO->Unbind();
         glViewport( vp[0], vp[1], vp[2], vp[3] );
     }
 
     // render game models -----------------------------
+    PROFILE_BEGIN( "Frame/Render/Balls" );
     m_cTextures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
     m_cGameModelCollection.RenderModels( baseView, proj, lightPosition );
+    PROFILE_END( "Frame/Render/Balls" );
 
     // render m_terrain ------------------------------
     {
+        PROFILE_SCOPED( "Frame/Render/Terrain" );
         m_cTextures->SelectTexture( TEXTURE_GROUND );
         m_cTerrain->Render( baseView, proj, lightPosition );
     }
 
     // render ground shadows on top of m_terrain
+    PROFILE_BEGIN( "Frame/Render/Shadows" );
     m_cGameModelCollection.RenderShadows( m_cTerrain.get(), baseView, proj );
+    PROFILE_END( "Frame/Render/Shadows" );
 
     // render the fluid ---------------------------
     {
+        PROFILE_SCOPED( "Frame/Render/Water" );
         float waterTime = m_isWaterFreezeDebug
                               ? m_frozenWaterTime
                               : static_cast<float>( m_cSimulationTimer.GetTimeSinceLastStart() );
@@ -728,11 +752,14 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     Text2d::Render2dText( -0.53f, 0.39f, 0.015f, "SKULLBONEZ CORE | Simon Eschbach 2005" );
     Text2d::Render2dText( 0.39f, 0.39f, 0.015f, "Model Count: %i", m_modelCount );
 
-    // BOTTOM
-    Text2d::Render2dText( -0.53f, -0.40f, 0.01313f, "FPS: %.1f", m_r_fpsTime );
-    Text2d::Render2dText( -0.455f, -0.40f, 0.01313f, " | Physics Time: %.2f ms", m_r_physicsTime * 1000.0f );
-    Text2d::Render2dText( -0.2f, -0.40f, 0.01313f, " | Render Time: %.2f ms", m_r_renderTime * 1000.0f );
-    Text2d::Render2dText( 0.05f, -0.40f, 0.01313f, " | Contact:  s.eschbach@gmail.com   | www.simoneschbach.com" );
+    // Profiler overlay (replaces the legacy bottom FPS/Physics/Render strip).
+    // Compiled out in Release; toggleable with '0' in Debug/Profile.
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    if ( m_isProfilerOverlay )
+    {
+        Profiler::Instance().RenderOverlay( -0.53f, -0.43f, 0.018f, 0.012f, m_r_fpsTime );
+    }
+#endif
 }
 
 /* -- SET VIEWING ORIENTATION -------------------------------------------------------------------------------------------------------------------------------------------*/
