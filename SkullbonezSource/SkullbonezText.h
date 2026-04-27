@@ -53,10 +53,11 @@ class Text2d
     //		  xPosition and yPosition should be (< 0.5f) and (> - 0.5f)
     //		  fSize should be between 0 and 1
     //		  pass additional arguments to render variables (just like printf)
-    static void Render2dText( float xPosition, float yPosition, float fSize, const char* cRawText, ... );   // Renders text to the scene
-    static void Render2dQuad( float x0, float y0, float x1, float y1, float r, float g, float b, float a ); // Renders a flat-coloured 2D HUD quad
-    static void BuildFont( const HDC hDC, const char* cFontName );                                          // Builds font atlas into GL texture
-    static void DeleteFont( void );                                                                         // Releases GL font resources
+    static void Render2dText( float xPosition, float yPosition, float fSize, const char* cRawText, ... );                                 // Renders white text
+    static void Render2dTextColor( float xPosition, float yPosition, float fSize, float r, float g, float b, const char* cRawText, ... ); // Renders colored text
+    static void Render2dQuad( float x0, float y0, float x1, float y1, float r, float g, float b, float a );                               // Renders a flat-coloured 2D HUD quad
+    static void BuildFont( const HDC hDC, const char* cFontName );                                                                        // Builds font atlas into GL texture
+    static void DeleteFont( void );                                                                                                       // Releases GL font resources
 };
 } // namespace Text
 } // namespace SkullbonezCore

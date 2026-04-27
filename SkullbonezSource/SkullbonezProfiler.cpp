@@ -359,27 +359,33 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
 {
     using SkullbonezCore::Text::Text2d;
 
-    // Anchor from the bottom up so the panel sits flush in the bottom-left corner.
-    // padY is the equal margin applied above the topmost line and below the bottom line.
+    // Layout constants — all positions are in frustum-unit space
     const float padX = fSize * 0.6f;
     const float padY = lineHeight * 1.2f;
-    const float panelW = fSize * 28.0f;
-    const float rowsHeight = (float)( m_markerCount + 1 ) * lineHeight;
+    const float panelW = fSize * 42.0f;                                 // wider to fit column headers
+    const float rowsHeight = (float)( m_markerCount + 2 ) * lineHeight; // +2 for header + column labels
 
-    // yBottom is the baseline of the lowest text row; yTop is derived from it.
     const float yBottom = yAnchor + padY;
     const float yTop = yBottom + rowsHeight;
 
-    Text2d::Render2dQuad( xLeft - padX,
-                          yBottom,
-                          xLeft - padX + panelW,
-                          yTop + padY,
-                          0.12f,
-                          0.12f,
-                          0.12f,
-                          0.5f );
+    // Background quad
+    Text2d::Render2dQuad( xLeft - padX, yBottom, xLeft - padX + panelW, yTop + padY, 0.12f, 0.12f, 0.12f, 0.5f );
 
-    // Look up Frame and VsyncWait averages to derive CPU processing time.
+    // Color palette
+    const float hdrR = 1.0f, hdrG = 0.85f, hdrB = 0.2f;   // gold header
+    const float colR = 0.6f, colG = 0.6f, colB = 0.6f;    // grey column headers
+    const float topR = 0.4f, topG = 0.9f, topB = 0.4f;    // green top-level markers
+    const float subR = 0.85f, subG = 0.85f, subB = 0.85f; // light grey sub-markers
+    const float dimR = 0.5f, dimG = 0.5f, dimB = 0.5f;    // dim for VsyncWait
+
+    // Column x-offsets (relative to xLeft)
+    const float colName = 0.0f;
+    const float colAvg = fSize * 11.0f;
+    const float colP50 = fSize * 18.0f;
+    const float colP99 = fSize * 25.0f;
+    const float colP999 = fSize * 32.0f;
+
+    // Look up Frame and VsyncWait for CPU time
     static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
     static constexpr uint32_t kVsyncHash = ::HashStr( "Frame/VsyncWait" );
     float frameAvgMs = 0.0f;
@@ -397,32 +403,69 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     }
     const float cpuMs = frameAvgMs - vsyncAvgMs;
 
-    // Draw header at top, then each marker row stepping downward.
+    // Header line
     float y = yTop;
-    Text2d::Render2dText( xLeft, y, fSize, "CPU: %.2f ms  FPS: %.1f", cpuMs, fps );
+    Text2d::Render2dTextColor( xLeft, y, fSize, hdrR, hdrG, hdrB, "CPU: %.2f ms  FPS: %.1f", cpuMs, fps );
     y -= lineHeight;
 
-    // Walk markers in registration order. Because FrameBegin always registers "Frame"
-    // first and parents are registered before their children (PROFILE_BEGIN must occur
-    // textually inside the parent's Begin/End range), this order yields a sane top-down
-    // tree dump indented by depth.
+    // Column labels
+    Text2d::Render2dTextColor( xLeft + colName, y, fSize, colR, colG, colB, "MARKER" );
+    Text2d::Render2dTextColor( xLeft + colAvg, y, fSize, colR, colG, colB, "AVG" );
+    Text2d::Render2dTextColor( xLeft + colP50, y, fSize, colR, colG, colB, "P50" );
+    Text2d::Render2dTextColor( xLeft + colP99, y, fSize, colR, colG, colB, "P99" );
+    Text2d::Render2dTextColor( xLeft + colP999, y, fSize, colR, colG, colB, "P99.9" );
+    y -= lineHeight;
+
+    // Marker rows
     for ( int i = 0; i < m_markerCount; ++i )
     {
         const Marker& m = m_markers[i];
-        char indent[64] = { 0 };
+
+        // Build indented name
+        char nameBuf[64] = { 0 };
         int spaces = m.depth * 2;
-        if ( spaces > 31 )
+        if ( spaces > 20 )
         {
-            spaces = 31;
+            spaces = 20;
         }
         for ( int k = 0; k < spaces; ++k )
         {
-            indent[k] = ' ';
+            nameBuf[k] = ' ';
         }
-        indent[spaces] = '\0';
+        strcpy_s( nameBuf + spaces, sizeof( nameBuf ) - spaces, m.leafName );
 
-        // Use leaf name in display so deep paths don't push other columns off-screen
-        Text2d::Render2dText( xLeft, y, fSize, "%s%-12s %6.2f ms  [P50:%.2f P99:%.2f P99.9:%.2f]", indent, m.leafName, m.avgMs, m.p50Ms, m.p99Ms, m.p99_9Ms );
+        // Pick color based on depth and marker type
+        float mr, mg, mb;
+        if ( m.hash == kVsyncHash )
+        {
+            mr = dimR;
+            mg = dimG;
+            mb = dimB;
+        }
+        else if ( m.depth == 0 )
+        {
+            mr = topR;
+            mg = topG;
+            mb = topB;
+        }
+        else if ( m.depth == 1 )
+        {
+            mr = topR;
+            mg = topG;
+            mb = topB;
+        }
+        else
+        {
+            mr = subR;
+            mg = subG;
+            mb = subB;
+        }
+
+        Text2d::Render2dTextColor( xLeft + colName, y, fSize, mr, mg, mb, "%-14s", nameBuf );
+        Text2d::Render2dTextColor( xLeft + colAvg, y, fSize, mr, mg, mb, "%6.2f", m.avgMs );
+        Text2d::Render2dTextColor( xLeft + colP50, y, fSize, mr, mg, mb, "%6.2f", m.p50Ms );
+        Text2d::Render2dTextColor( xLeft + colP99, y, fSize, mr, mg, mb, "%6.2f", m.p99Ms );
+        Text2d::Render2dTextColor( xLeft + colP999, y, fSize, mr, mg, mb, "%6.2f", m.p99_9Ms );
         y -= lineHeight;
     }
 }
