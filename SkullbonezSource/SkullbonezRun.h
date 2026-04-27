@@ -66,6 +66,7 @@ class SkullbonezRun
     bool m_isSceneText;                            // Text overlay enabled in scene mode
     bool m_isGlResetTest;                          // Test GL context recreation
     bool m_isPerfTest;                             // Performance logging mode
+    bool m_perfHeaderWritten;                      // CSV header written for current perf run
     bool m_isScreenshotSaved;                      // Screenshot already written this run
     int m_targetFrameCount;                        // Frames to render before holding (-1 = unlimited)
     int m_currentFrame;                            // Current frame counter for scene mode

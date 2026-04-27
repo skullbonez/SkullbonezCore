@@ -44,6 +44,7 @@ class Profiler
         float avgMs;             // moving average refreshed every 500 ms
         float p50Ms;             // recomputed every frame
         float p99Ms;             // recomputed every frame
+        float p99_9Ms;           // recomputed every frame
     };
 
     static Profiler& Instance( void );
@@ -65,6 +66,11 @@ class Profiler
 
     // Accessor for back-compat perf logging (returns last finished-frame total ms; 0 if marker missing)
     float LastFrameMsByHash( uint32_t hash ) const;
+
+    // Perf CSV helpers: write header (once, pass 1) and one row per frame.
+    // Include <cstdio> before calling; FILE* must be open for writing.
+    void WritePerfCSVHeader( FILE* f ) const;
+    void WritePerfCSVRow( FILE* f, int pass, int frame ) const;
 
     // Renders the indented overlay using Text2d::Render2dText. Caller decides toggle state.
     // xLeft / yTop in the same frustum-unit space used elsewhere; lineHeight in same space; fSize for Text2d.

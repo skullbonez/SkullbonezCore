@@ -44,6 +44,7 @@ SkullbonezRun::SkullbonezRun( const char* pScenePath )
     m_isSceneText = true;
     m_isGlResetTest = false;
     m_isPerfTest = false;
+    m_perfHeaderWritten = false;
     m_isScreenshotSaved = false;
     m_targetFrameCount = -1;
     m_currentFrame = 0;
@@ -187,10 +188,6 @@ void SkullbonezRun::Initialise( void )
             fopen_s( &m_perfLogFile, m_perfLogPath, mode );
             if ( m_perfLogFile )
             {
-                if ( sPerfPass == 0 )
-                {
-                    fprintf( m_perfLogFile, "pass,frame,physics_ms,render_ms\n" );
-                }
                 this->LogPerfMemory( "start" );
             }
         }
@@ -402,7 +399,16 @@ bool SkullbonezRun::Run( void )
             // Perf test: log per-frame timing + periodic memory
             if ( m_isPerfTest && m_perfLogFile )
             {
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+                if ( !m_perfHeaderWritten )
+                {
+                    Profiler::Instance().WritePerfCSVHeader( m_perfLogFile );
+                    m_perfHeaderWritten = true;
+                }
+                Profiler::Instance().WritePerfCSVRow( m_perfLogFile, sPerfPass + 1, m_currentFrame + 1 );
+#else
                 fprintf( m_perfLogFile, "%d,%d,%.4f,%.4f\n", sPerfPass + 1, m_currentFrame + 1, m_physicsTime * 1000.0f, m_renderTime * 1000.0f );
+#endif
 
                 // Log memory every 60 frames (~1 second)
                 if ( ( m_currentFrame + 1 ) % 60 == 0 )

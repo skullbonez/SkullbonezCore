@@ -272,21 +272,28 @@ void Profiler::FrameEnd( void )
             ++m.ringFilled;
         }
 
-        // p50 / p99 from ring buffer (frame-accurate)
+        // p50 / p99 / p99.9 from ring buffer (frame-accurate)
         int n = m.ringFilled;
         if ( n > 0 )
         {
             std::memcpy( scratch, m.ringMs, sizeof( float ) * static_cast<size_t>( n ) );
             int p50i = n / 2;
             int p99i = ( n * 99 ) / 100;
+            int p999i = ( n * 999 ) / 1000;
             if ( p99i >= n )
             {
                 p99i = n - 1;
+            }
+            if ( p999i >= n )
+            {
+                p999i = n - 1;
             }
             std::nth_element( scratch, scratch + p50i, scratch + n );
             m.p50Ms = scratch[p50i];
             std::nth_element( scratch, scratch + p99i, scratch + n );
             m.p99Ms = scratch[p99i];
+            std::nth_element( scratch, scratch + p999i, scratch + n );
+            m.p99_9Ms = scratch[p999i];
         }
     }
 
@@ -326,6 +333,26 @@ float Profiler::LastFrameMsByHash( uint32_t hash ) const
         }
     }
     return 0.0f;
+}
+
+void Profiler::WritePerfCSVHeader( FILE* f ) const
+{
+    fprintf( f, "pass,frame" );
+    for ( int i = 0; i < m_markerCount; ++i )
+    {
+        fprintf( f, ",%s", m_markers[i].name );
+    }
+    fprintf( f, "\n" );
+}
+
+void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
+{
+    fprintf( f, "%d,%d", pass, frame );
+    for ( int i = 0; i < m_markerCount; ++i )
+    {
+        fprintf( f, ",%.4f", m_markers[i].lastFrameMs );
+    }
+    fprintf( f, "\n" );
 }
 
 void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, float fSize, float fps ) const
@@ -395,7 +422,7 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
         indent[spaces] = '\0';
 
         // Use leaf name in display so deep paths don't push other columns off-screen
-        Text2d::Render2dText( xLeft, y, fSize, "%s%-12s %6.2f ms  [P50:%.2f P99:%.2f]", indent, m.leafName, m.avgMs, m.p50Ms, m.p99Ms );
+        Text2d::Render2dText( xLeft, y, fSize, "%s%-12s %6.2f ms  [P50:%.2f P99:%.2f P99.9:%.2f]", indent, m.leafName, m.avgMs, m.p50Ms, m.p99Ms, m.p99_9Ms );
         y -= lineHeight;
     }
 }
