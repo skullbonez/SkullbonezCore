@@ -1,0 +1,38 @@
+repos:
+  # Custom header/linting check
+  - repo: local
+    hooks:
+      - id: header-consistency
+        name: Header Consistency Check
+        entry: python3 .githooks/check-headers.py
+        language: system
+        types: [c++]
+        pass_filenames: true
+      
+      - id: no-braceless-multiline
+        name: No Braceless Multi-line Conditionals
+        entry: python3 .githooks/check-braces.py
+        language: system
+        types: [c++]
+        pass_filenames: true
+      
+      - id: clang-format
+        name: clang-format
+        entry: python3 .githooks/run-clang-format.py
+        language: system
+        types: [c++]
+        pass_filenames: true
+      
+      - id: fix-crlf
+        name: Fix CRLF → LF
+        entry: python3 .githooks/fix-line-endings.py
+        language: system
+        types: [c++]
+        pass_filenames: true
+      
+      - id: trim-trailing-whitespace
+        name: Trim trailing whitespace
+        entry: python3 .githooks/trim-whitespace.py
+        language: system
+        types: [c++]
+        pass_filenames: true
