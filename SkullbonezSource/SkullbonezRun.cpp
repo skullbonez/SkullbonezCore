@@ -755,7 +755,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     }
 
     // TOP
-    Text2d::Render2dText( -0.53f, 0.39f, 0.015f, "SKULLBONEZ CORE | Simon Eschbach 2005" );
+    Text2d::Render2dText( -0.53f, 0.39f, 0.015f, "SKULLBONEZ CORE" );
     Text2d::Render2dText( 0.39f, 0.39f, 0.015f, "Model Count: %i", m_modelCount );
 
     // Profiler overlay (replaces the legacy bottom FPS/Physics/Render strip).

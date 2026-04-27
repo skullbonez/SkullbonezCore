@@ -45,8 +45,8 @@ class Profiler
         float p50Ms;             // recomputed every frame
         float p99Ms;             // recomputed every frame
         float p99_9Ms;           // recomputed every frame (for perf CSV)
-        float minMs;             // minimum across ring buffer
-        float maxMs;             // maximum across ring buffer
+        float minMs;             // session-wide minimum
+        float maxMs;             // session-wide maximum
     };
 
     static Profiler& Instance( void );
