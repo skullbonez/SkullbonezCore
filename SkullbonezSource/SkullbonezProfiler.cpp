@@ -120,6 +120,9 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
     m.avgMs = 0.0f;
     m.p50Ms = 0.0f;
     m.p99Ms = 0.0f;
+    m.p99_9Ms = 0.0f;
+    m.minMs = 0.0f;
+    m.maxMs = 0.0f;
 
     // Resolve parentIndex by stripping last '/' segment and looking up that prefix
     if ( m.depth == 0 )
@@ -272,7 +275,7 @@ void Profiler::FrameEnd( void )
             ++m.ringFilled;
         }
 
-        // p50 / p99 / p99.9 from ring buffer (frame-accurate)
+        // p50 / p99 / p99.9 / min / max from ring buffer (frame-accurate)
         int n = m.ringFilled;
         if ( n > 0 )
         {
@@ -294,6 +297,23 @@ void Profiler::FrameEnd( void )
             m.p99Ms = scratch[p99i];
             std::nth_element( scratch, scratch + p999i, scratch + n );
             m.p99_9Ms = scratch[p999i];
+
+            // min/max via simple linear scan
+            float lo = scratch[0];
+            float hi = scratch[0];
+            for ( int k = 1; k < n; ++k )
+            {
+                if ( scratch[k] < lo )
+                {
+                    lo = scratch[k];
+                }
+                if ( scratch[k] > hi )
+                {
+                    hi = scratch[k];
+                }
+            }
+            m.minMs = lo;
+            m.maxMs = hi;
         }
     }
 
@@ -359,10 +379,10 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
 {
     using SkullbonezCore::Text::Text2d;
 
-    // Layout constants — all positions are in frustum-unit space
+    // Layout constants
     const float padX = fSize * 0.6f;
     const float padY = lineHeight * 1.2f;
-    const float panelW = fSize * 42.0f;                                 // wider to fit column headers
+    const float panelW = fSize * 46.0f;
     const float rowsHeight = (float)( m_markerCount + 2 ) * lineHeight; // +2 for header + column labels
 
     const float yBottom = yAnchor + padY;
@@ -372,18 +392,16 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     Text2d::Render2dQuad( xLeft - padX, yBottom, xLeft - padX + panelW, yTop + padY, 0.12f, 0.12f, 0.12f, 0.5f );
 
     // Color palette
-    const float hdrR = 1.0f, hdrG = 0.85f, hdrB = 0.2f;   // gold header
-    const float colR = 0.6f, colG = 0.6f, colB = 0.6f;    // grey column headers
-    const float topR = 0.4f, topG = 0.9f, topB = 0.4f;    // green top-level markers
-    const float subR = 0.85f, subG = 0.85f, subB = 0.85f; // light grey sub-markers
-    const float dimR = 0.5f, dimG = 0.5f, dimB = 0.5f;    // dim for VsyncWait
+    const float hdrR = 1.0f, hdrG = 0.85f, hdrB = 0.2f; // gold header
+    const float colR = 0.6f, colG = 0.6f, colB = 0.6f;  // grey column headers
 
-    // Column x-offsets (relative to xLeft)
+    // Column x-offsets
     const float colName = 0.0f;
     const float colAvg = fSize * 11.0f;
     const float colP50 = fSize * 18.0f;
     const float colP99 = fSize * 25.0f;
-    const float colP999 = fSize * 32.0f;
+    const float colMin = fSize * 32.0f;
+    const float colMax = fSize * 39.0f;
 
     // Look up Frame and VsyncWait for CPU time
     static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
@@ -413,8 +431,12 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     Text2d::Render2dTextColor( xLeft + colAvg, y, fSize, colR, colG, colB, "AVG" );
     Text2d::Render2dTextColor( xLeft + colP50, y, fSize, colR, colG, colB, "P50" );
     Text2d::Render2dTextColor( xLeft + colP99, y, fSize, colR, colG, colB, "P99" );
-    Text2d::Render2dTextColor( xLeft + colP999, y, fSize, colR, colG, colB, "P99.9" );
+    Text2d::Render2dTextColor( xLeft + colMin, y, fSize, colR, colG, colB, "MIN" );
+    Text2d::Render2dTextColor( xLeft + colMax, y, fSize, colR, colG, colB, "MAX" );
     y -= lineHeight;
+
+    // Traffic-light threshold: proportion of CPU budget
+    float budgetMs = ( cpuMs > 0.001f ) ? cpuMs : 1.0f;
 
     // Marker rows
     for ( int i = 0; i < m_markerCount; ++i )
@@ -434,38 +456,43 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
         }
         strcpy_s( nameBuf + spaces, sizeof( nameBuf ) - spaces, m.leafName );
 
-        // Pick color based on depth and marker type
+        // Traffic light color based on proportion of CPU budget
         float mr, mg, mb;
         if ( m.hash == kVsyncHash )
         {
-            mr = dimR;
-            mg = dimG;
-            mb = dimB;
-        }
-        else if ( m.depth == 0 )
-        {
-            mr = topR;
-            mg = topG;
-            mb = topB;
-        }
-        else if ( m.depth == 1 )
-        {
-            mr = topR;
-            mg = topG;
-            mb = topB;
+            mr = 0.5f;
+            mg = 0.5f;
+            mb = 0.5f;
         }
         else
         {
-            mr = subR;
-            mg = subG;
-            mb = subB;
+            float ratio = m.avgMs / budgetMs;
+            if ( ratio < 0.15f )
+            {
+                mr = 0.3f;
+                mg = 0.9f;
+                mb = 0.3f;
+            }
+            else if ( ratio < 0.5f )
+            {
+                mr = 1.0f;
+                mg = 0.7f;
+                mb = 0.2f;
+            }
+            else
+            {
+                mr = 1.0f;
+                mg = 0.3f;
+                mb = 0.3f;
+            }
         }
 
         Text2d::Render2dTextColor( xLeft + colName, y, fSize, mr, mg, mb, "%-14s", nameBuf );
         Text2d::Render2dTextColor( xLeft + colAvg, y, fSize, mr, mg, mb, "%6.2f", m.avgMs );
         Text2d::Render2dTextColor( xLeft + colP50, y, fSize, mr, mg, mb, "%6.2f", m.p50Ms );
         Text2d::Render2dTextColor( xLeft + colP99, y, fSize, mr, mg, mb, "%6.2f", m.p99Ms );
-        Text2d::Render2dTextColor( xLeft + colP999, y, fSize, mr, mg, mb, "%6.2f", m.p99_9Ms );
+        Text2d::Render2dTextColor( xLeft + colMin, y, fSize, mr, mg, mb, "%6.2f", m.minMs );
+        Text2d::Render2dTextColor( xLeft + colMax, y, fSize, mr, mg, mb, "%6.2f", m.maxMs );
         y -= lineHeight;
     }
 }
