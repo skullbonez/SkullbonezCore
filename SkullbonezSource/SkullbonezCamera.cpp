@@ -425,11 +425,8 @@ void Camera::AddCamera( const Camera& updateCamera )
 {
     this->PrepareTranslation();
 
-    // this statement looks ugly but is simple:
-    // 1. Cast the 'this' pointer to type 'Camera' pointer,
-    // 2. Throw parentheses around it, and dereference it
-    // 3. Use the += Camera operator overload to add the passed in Camera
-    *static_cast<Camera*>( this ) += updateCamera;
+    // Apply the camera delta using the existing Camera += overload.
+    *this += updateCamera;
 
     this->FinishTranslation();
 }
