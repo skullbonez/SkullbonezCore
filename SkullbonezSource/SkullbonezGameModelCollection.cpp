@@ -111,7 +111,6 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
         m_shadowMesh->Draw();
     }
 
-    glUseProgram( 0 );
     glDisable( GL_POLYGON_OFFSET_FILL );
     glEnable( GL_CULL_FACE );
     glDisable( GL_BLEND );

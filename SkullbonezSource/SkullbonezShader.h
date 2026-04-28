@@ -25,7 +25,7 @@ class Shader
 {
 
   private:
-    GLuint m_programID; // OpenGL m_shader program handle
+    GLuint m_programID; // OpenGL shader program handle
 
     static GLuint CompileShader( const char* path, GLenum type ); // Compile a single shader stage from file
     static char* LoadShaderSource( const char* path );            // Read shader source from file

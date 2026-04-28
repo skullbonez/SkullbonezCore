@@ -330,5 +330,4 @@ void SkyBox::Render( const Matrix4& view, const Matrix4& proj )
         m_faceMeshes[i]->Draw();
     }
 
-    glUseProgram( 0 );
 }

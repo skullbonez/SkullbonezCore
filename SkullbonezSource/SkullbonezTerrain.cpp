@@ -117,7 +117,6 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, const floa
     m_terrainMesh->Draw();
 
     // Restore FFP for other subsystems
-    glUseProgram( 0 );
 }
 
 
@@ -221,7 +220,6 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
                         xPosting +
                         m_postsPerSide;
 
-    // scale the step size (m_terrain may be rendered after a glScale)
     float scaledStepSize = m_stepSize * Cfg().terrainScale;
 
     // NOTE:  X and Z params are switched in this method to account for world
