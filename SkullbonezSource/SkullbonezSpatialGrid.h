@@ -34,8 +34,7 @@ class SpatialGrid
     static constexpr int TABLE_SIZE = 1024;
     static constexpr int TABLE_MASK = TABLE_SIZE - 1;
     static constexpr int MAX_CELL_ENTRIES = 4096;
-    static constexpr int MAX_OBJECTS = 512;
-    static constexpr int PAIR_WORDS = ( MAX_OBJECTS * ( MAX_OBJECTS - 1 ) / 2 + 63 ) / 64;
+    static constexpr int PAIR_WORDS = ( MAX_GAME_MODELS * ( MAX_GAME_MODELS - 1 ) / 2 + 63 ) / 64;
 
     struct Bucket
     {
