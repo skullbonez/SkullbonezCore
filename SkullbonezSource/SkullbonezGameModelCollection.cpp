@@ -148,7 +148,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
         m_spatialGrid.Insert( i, m_gameModels[i].GetPosition(), m_gameModels[i].GetBoundingRadius() );
     }
 
-    std::vector<std::pair<int, int>> candidatePairs;
+    std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
     m_spatialGrid.GetCandidatePairs( candidatePairs );
     PROFILE_END( "Frame/Physics/Broadphase" );
 
