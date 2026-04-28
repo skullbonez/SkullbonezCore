@@ -2,16 +2,16 @@
 
 ## Branch & Last Commit
 - Branch: `main`
-- Last commit: `7cd9650` — Phase 9: Switch to OpenGL 3.3 Core Profile; remove GLU
+- Last commit: `5dbd21c` — Fix pipeline Step 0: use clang-format --dry-run -Werror for verification
 
 ---
 
 ## Project Summary
-A Windows C++/OpenGL 3D physics engine (2005) being migrated from Fixed Function Pipeline (OpenGL 1.x) to modern OpenGL 3.3 shader-based rendering. Goal is to extract a render abstraction layer for a future DirectX 11 port (Option A).
+A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized). All rendering uses shader-based pipeline. Profiler subsystem with debug overlay. Pre-commit linting framework.
 
 ---
 
-## Overall Progress: Phases P7+P8 Complete
+## Overall Progress: ALL PHASES COMPLETE
 
 | Phase | Description | Status |
 |-------|-------------|--------|
@@ -20,7 +20,7 @@ A Windows C++/OpenGL 3D physics engine (2005) being migrated from Fixed Function
 | P3 Compile-Time Hashes | FNV-1a texture/camera keys | ✅ Complete |
 | P4 Eliminate Dynamic Allocation | vectors, unique_ptr, stack singletons | ✅ Complete |
 | TH Test Harness | Scene mode, render tests, perf test, skore-render-test skill | ✅ Complete |
-| P5 Foundation | GLAD, Matrix4, Shader, Mesh classes | ✅ Complete |
+| P5 Foundation | GLAD (core=3.3), Matrix4, Shader, Mesh classes | ✅ Complete |
 | P6 Shader Infra | GLSL shaders written | ✅ Complete |
 | P7 Terrain | VBO mesh + lit_textured shader | ✅ Complete |
 | P8 Skybox | VBO mesh + unlit_textured shader | ✅ Complete |
@@ -28,25 +28,16 @@ A Windows C++/OpenGL 3D physics engine (2005) being migrated from Fixed Function
 | P10 Water & Shadows | FBO reflection, vertex-animated water, GL lifecycle fix | ✅ Complete |
 | Text Rendering | Font atlas + shader quads (replaces wglUseFontBitmaps) | ✅ Complete |
 | FFP Matrix Elimination | gluLookAt/Perspective → Matrix4; remove matrix stack | ✅ Complete |
-| **m_ Rename** | All this->member → m_member convention applied | ✅ **Complete** `2e10bd2` |
-| **Core Profile Switch** | True Core Profile, remove GLU | ✅ **Complete** `7cd9650` |
+| m_ Rename | All this->member → m_member convention applied | ✅ Complete |
+| Core Profile Switch | True Core Profile, remove GLU | ✅ Complete |
+| Profiler | PROFILE_BEGIN/END/SCOPED, debug overlay, traffic lights | ✅ Complete |
+| Code Quality Infra | Pre-commit hooks, clang-format pipeline verification | ✅ Complete |
 
 ---
 
 ## Remaining Tasks
 
-All planned phases are complete. The engine now runs on OpenGL 3.3 Core Profile with no FFP calls.
-
-### Future / Nice-to-Have
-- Regenerate GLAD for `gl:core=3.3` (currently `gl:compatibility=3.3` — harmless but exposes deprecated API at compile time)
-- DX11 Port Prep: extract render abstraction layer (Option A)
-
----
-
-## Known Bugs
-See `Copilot/Bugs.md` for full details.
-
-1. **Water draws through sphere back faces** — water visible through the back faces of spheres intersecting the water surface; likely a depth test / draw-order issue
+None. All planned work is complete.
 
 ---
 
@@ -78,9 +69,7 @@ None.
 ## Backlog / Future Tasks
 | ID | Task |
 |----|------|
-| `member-rename-m_` | Rename all member variables to `m_` prefix convention: `m_pBlah` (pointers), `m_fBlah` (floats), `m_isBlah` (bools), `m_blah` (other). Use clang-tidy `readability-identifier-naming` with `--fix`. Do after Phase 9 when codebase is stable. |
-| `dx11-abstraction` | Extract render abstraction layer for DX11 port (Option A — agreed with user) |
-| `coding-standards` | Normalise line endings (`.gitattributes`) + add editor hints (`.editorconfig`) |
+| (none) | All planned work complete |
 
 ---
 
