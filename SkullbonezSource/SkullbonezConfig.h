@@ -1,4 +1,4 @@
-#ifndef SKULLBONEZ_CONFIG_H
+﻿#ifndef SKULLBONEZ_CONFIG_H
 #define SKULLBONEZ_CONFIG_H
 
 #include <string>

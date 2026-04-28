@@ -14,21 +14,9 @@
                                      \ `"""""""` /
                                       `-._____.-'
 
-                                 www.simoneschbach.com
-
-
-    General TODO list:
-    --------------------------------------------------------------------------
-    - Add const to method level + check on pointers TO objects (ensure not just const on the pointer itself).
-    - Inherit across namespace from Geometry::Ray to
-      Math::DynamicsObject::CollisionRay
-    - Return const references where appropriate, check returned references
-      are always const
-    - Turn all of the defines into global const variables
-    - Use C++ casts instead of C style casts
-    - Maximum framerate cap?
-    --------------------------------------------------------------------------
-
+                                     SimonEschbach
+                                          is
+                                      SKULLBONEZ
 -----------------------------------------------------------------------------------*/
 
 /* -- INCLUDE GUARDS --------------------------------------------------------------*/
