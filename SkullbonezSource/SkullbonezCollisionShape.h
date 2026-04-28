@@ -78,11 +78,11 @@ inline float GetShapeTerrainBottomOffset( const CollisionShape& shape )
                        shape );
 }
 
-inline void DEBUG_RenderShapeCollisionVolume( const CollisionShape& shape, const Vector3& worldSpaceCoords, const Transformation::Matrix4& rotation, const Transformation::Matrix4& view, const Transformation::Matrix4& proj, const float lightPos[4] )
+inline Transformation::Matrix4 GetShapeModelMatrix( const CollisionShape& shape, const Vector3& worldPos, const Transformation::Matrix4& rotation )
 {
-    std::visit( [&]( const auto& s )
-                { s.DEBUG_RenderCollisionVolume( worldSpaceCoords, rotation, view, proj, lightPos ); },
-                shape );
+    return std::visit( [&]( const auto& s )
+                       { return s.GetModelMatrix( worldPos, rotation ); },
+                       shape );
 }
 
 /* -- Double-dispatch collision test ---------------------------------------------------------------------------------------------------------------------------------

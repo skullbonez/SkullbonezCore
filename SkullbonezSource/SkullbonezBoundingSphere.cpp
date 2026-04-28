@@ -1,11 +1,9 @@
 ﻿/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezBoundingSphere.h"
-#include "SkullbonezHelper.h"
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
-using namespace SkullbonezCore::Basics;
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 BoundingSphere::BoundingSphere( void )
@@ -102,16 +100,10 @@ const Vector3& BoundingSphere::GetPosition( void ) const
     return m_position;
 }
 
-/* -- DEBUG RENDER COLLISION VOLUME -----------------------------------------------*/
-void BoundingSphere::DEBUG_RenderCollisionVolume( const Vector3& worldSpaceCoords,
-                                                  const Matrix4& rotation,
-                                                  const Matrix4& view,
-                                                  const Matrix4& proj,
-                                                  const float lightPos[4] ) const
+/* -- GET MODEL MATRIX ------------------------------------------------------------*/
+Matrix4 BoundingSphere::GetModelMatrix( const Vector3& worldPos, const Matrix4& rotation ) const
 {
-    Matrix4 model = Matrix4::Translate( worldSpaceCoords ) * rotation * Matrix4::Translate( m_position ) * Matrix4::Scale( m_radius, m_radius, m_radius );
-
-    SkullbonezHelper::DrawSphere( model, view, proj, lightPos, Cfg().renderCollisionVolumes );
+    return Matrix4::Translate( worldPos ) * rotation * Matrix4::Translate( m_position ) * Matrix4::Scale( m_radius, m_radius, m_radius );
 }
 
 /* -- GET VOLUME ------------------------------------------------------------------*/

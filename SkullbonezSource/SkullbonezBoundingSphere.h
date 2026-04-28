@@ -34,9 +34,9 @@ class BoundingSphere
     float CollisionDetect( const BoundingSphere& target, const Ray& targetRay, const Ray& focusRay ) const; // Collision detect against bounding sphere
 
   public:
-    BoundingSphere( void );                                                                                                                                                                                                // Default constructor
-    BoundingSphere( float fRadius, const Vector3& vPosition );                                                                                                                                                             // Overloaded constructor
-    void DEBUG_RenderCollisionVolume( const Vector3& worldSpaceCoords, const Transformation::Matrix4& rotation, const Transformation::Matrix4& view, const Transformation::Matrix4& proj, const float lightPos[4] ) const; // Debug routine to render a representation of the collision volume
+    BoundingSphere( void );                                                                                                                           // Default constructor
+    BoundingSphere( float fRadius, const Vector3& vPosition );                                                                                      // Overloaded constructor
+    Transformation::Matrix4 GetModelMatrix( const Vector3& worldPos, const Transformation::Matrix4& rotation ) const;                               // Compute model matrix: T(worldPos) * R * T(localOffset) * S(radius)
     float GetVolume( void ) const;                                                                                                                                                                                         // Returns the volume of the sphere
     float GetSubmergedVolumePercent( float fluidSurfaceHeight ) const;                                                                                                                                                     // Calculates the total volume of the sphere below the fluid surface height
     float GetDragCoefficient( void ) const;                                                                                                                                                                                // Returns the drag coefficient of a sphere

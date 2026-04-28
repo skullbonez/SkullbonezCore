@@ -180,13 +180,11 @@ bool GameModel::IsResponseRequired( void )
     return m_isResponseRequired;
 }
 
-/* -- RENDER COLLISION BOUNDS -----------------------------------------------------*/
-void GameModel::RenderCollisionBounds( const Matrix4& view, const Matrix4& proj, const float lightPos[4] )
+/* -- GET MODEL MATRIX ------------------------------------------------------------*/
+Matrix4 GameModel::GetModelMatrix( void )
 {
-    // Build the rotation matrix from the physics m_orientation quaternion.
-    // The bounding m_volume renders with: T(pos) * R * T(localOffset) * S(m_radius).
     Matrix4 rotation = Matrix4::FromQuaternion( m_physicsInfo.GetOrientation() );
-    DEBUG_RenderShapeCollisionVolume( m_boundingVolume, m_physicsInfo.GetPosition(), rotation, view, proj, lightPos );
+    return GetShapeModelMatrix( m_boundingVolume, m_physicsInfo.GetPosition(), rotation );
 }
 
 /* -- UPDATE VELOCITY -------------------------------------------------------------*/
