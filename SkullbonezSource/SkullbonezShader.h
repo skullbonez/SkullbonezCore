@@ -6,6 +6,8 @@
 #include "SkullbonezCommon.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezMatrix4.h"
+#include <string>
+#include <unordered_map>
 
 /* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
 using namespace SkullbonezCore::Math::Vector;
@@ -25,9 +27,11 @@ class Shader
 
   private:
     GLuint m_programID; // OpenGL m_shader program handle
+    mutable std::unordered_map<std::string, GLint> m_uniformLocationCache;
 
     static GLuint CompileShader( const char* path, GLenum type ); // Compile a single shader stage from file
     static char* LoadShaderSource( const char* path );            // Read shader source from file
+    GLint GetUniformLocation( const char* name ) const;
 
   public:
     Shader( const char* vertPath, const char* fragPath ); // Constructor: compile and link from files

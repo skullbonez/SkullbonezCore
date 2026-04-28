@@ -107,38 +107,52 @@ GLuint Shader::GetProgramID( void ) const
     return m_programID;
 }
 
+/* -- GET UNIFORM LOCATION --------------------------------------------------------*/
+GLint Shader::GetUniformLocation( const char* name ) const
+{
+    const auto existing = m_uniformLocationCache.find( name );
+    if ( existing != m_uniformLocationCache.end() )
+    {
+        return existing->second;
+    }
+
+    const GLint location = glGetUniformLocation( m_programID, name );
+    m_uniformLocationCache.emplace( name, location );
+    return location;
+}
+
 /* -- SET INT ---------------------------------------------------------------------*/
 void Shader::SetInt( const char* name, int value ) const
 {
-    glUniform1i( glGetUniformLocation( m_programID, name ), value );
+    glUniform1i( GetUniformLocation( name ), value );
 }
 
 /* -- SET FLOAT -------------------------------------------------------------------*/
 void Shader::SetFloat( const char* name, float value ) const
 {
-    glUniform1f( glGetUniformLocation( m_programID, name ), value );
+    glUniform1f( GetUniformLocation( name ), value );
 }
 
 /* -- SET VEC3 (Vector3) ----------------------------------------------------------*/
 void Shader::SetVec3( const char* name, const Vector3& v ) const
 {
-    glUniform3f( glGetUniformLocation( m_programID, name ), v.x, v.y, v.z );
+    glUniform3f( GetUniformLocation( name ), v.x, v.y, v.z );
 }
 
 /* -- SET VEC3 (components) -------------------------------------------------------*/
 void Shader::SetVec3( const char* name, float x, float y, float z ) const
 {
-    glUniform3f( glGetUniformLocation( m_programID, name ), x, y, z );
+    glUniform3f( GetUniformLocation( name ), x, y, z );
 }
 
 /* -- SET VEC4 --------------------------------------------------------------------*/
 void Shader::SetVec4( const char* name, float x, float y, float z, float w ) const
 {
-    glUniform4f( glGetUniformLocation( m_programID, name ), x, y, z, w );
+    glUniform4f( GetUniformLocation( name ), x, y, z, w );
 }
 
 /* -- SET MAT4 --------------------------------------------------------------------*/
 void Shader::SetMat4( const char* name, const Matrix4& mat ) const
 {
-    glUniformMatrix4fv( glGetUniformLocation( m_programID, name ), 1, GL_FALSE, mat.Data() );
+    glUniformMatrix4fv( GetUniformLocation( name ), 1, GL_FALSE, mat.Data() );
 }
