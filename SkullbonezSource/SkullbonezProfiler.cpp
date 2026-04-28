@@ -1,3 +1,4 @@
+// --- Includes ---
 #include "SkullbonezProfiler.h"
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
@@ -8,7 +9,10 @@
 #include <cstdlib>
 #include "SkullbonezText.h"
 
+
+// --- Usings ---
 using namespace SkullbonezCore::Basics;
+
 
 namespace
 {
@@ -47,6 +51,7 @@ Profiler& Profiler::Instance()
     return instance;
 }
 
+
 Profiler::Profiler()
     : m_markerCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false )
 {
@@ -62,6 +67,7 @@ Profiler::Profiler()
     std::memset( m_markers, 0, sizeof( m_markers ) );
     std::memset( m_stackIndices, 0, sizeof( m_stackIndices ) );
 }
+
 
 void Profiler::AbortMismatch( const char* msg, const char* details ) const
 {
@@ -81,6 +87,7 @@ void Profiler::AbortMismatch( const char* msg, const char* details ) const
     }
     std::abort();
 }
+
 
 int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
 {
@@ -164,6 +171,7 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
     return m_markerCount++;
 }
 
+
 void Profiler::Begin( const char* fullPath, uint32_t hash )
 {
     if ( !m_inFrame )
@@ -189,6 +197,7 @@ void Profiler::Begin( const char* fullPath, uint32_t hash )
     m.openCount = 1;
     m_stackIndices[m_stackTop++] = idx;
 }
+
 
 void Profiler::End( const char* fullPath, uint32_t hash )
 {
@@ -217,6 +226,7 @@ void Profiler::End( const char* fullPath, uint32_t hash )
     --m_stackTop;
 }
 
+
 void Profiler::FrameBegin()
 {
     if ( m_inFrame )
@@ -239,6 +249,7 @@ void Profiler::FrameBegin()
     static constexpr uint32_t kFrameHash = HashStr( "Frame" );
     Begin( "Frame", kFrameHash );
 }
+
 
 void Profiler::FrameEnd()
 {
@@ -330,6 +341,7 @@ void Profiler::FrameEnd()
     m_inFrame = false;
 }
 
+
 float Profiler::LastFrameMsByHash( uint32_t hash ) const
 {
     for ( int i = 0; i < m_markerCount; ++i )
@@ -342,6 +354,7 @@ float Profiler::LastFrameMsByHash( uint32_t hash ) const
     return 0.0f;
 }
 
+
 void Profiler::WritePerfCSVHeader( FILE* f ) const
 {
     fprintf( f, "pass,frame" );
@@ -352,6 +365,7 @@ void Profiler::WritePerfCSVHeader( FILE* f ) const
     fprintf( f, "\n" );
 }
 
+
 void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
 {
     fprintf( f, "%d,%d", pass, frame );
@@ -361,6 +375,7 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
     }
     fprintf( f, "\n" );
 }
+
 
 void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, float fSize, float fps ) const
 {
@@ -483,5 +498,6 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
         y -= lineHeight;
     }
 }
+
 
 #endif // SKULLBONEZ_PROFILE_ENABLED

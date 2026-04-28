@@ -1,18 +1,19 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezFramebuffer.h"
 #include <stdexcept>
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Rendering;
 
-/* -- CONSTRUCTOR -----------------------------------------------------------------*/
+
 Framebuffer::Framebuffer( int m_width, int m_height )
     : m_fbo( 0 ), m_colorTex( 0 ), m_depthRBO( 0 ), m_width( m_width ), m_height( m_height )
 {
     Build();
 }
 
-/* -- DESTRUCTOR ------------------------------------------------------------------*/
+
 Framebuffer::~Framebuffer()
 {
     if ( m_fbo )
@@ -29,7 +30,7 @@ Framebuffer::~Framebuffer()
     }
 }
 
-/* -- BUILD -----------------------------------------------------------------------*/
+
 void Framebuffer::Build()
 {
     // Color texture (RGB, no mipmaps, clamped edges)
@@ -62,37 +63,37 @@ void Framebuffer::Build()
     glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 }
 
-/* -- BIND ------------------------------------------------------------------------*/
+
 void Framebuffer::Bind() const
 {
     glBindFramebuffer( GL_FRAMEBUFFER, m_fbo );
 }
 
-/* -- UNBIND ----------------------------------------------------------------------*/
+
 void Framebuffer::Unbind() const
 {
     glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 }
 
-/* -- GET COLOR TEXTURE -----------------------------------------------------------*/
+
 GLuint Framebuffer::GetColorTexture() const
 {
     return m_colorTex;
 }
 
-/* -- GET WIDTH -------------------------------------------------------------------*/
+
 int Framebuffer::GetWidth() const
 {
     return m_width;
 }
 
-/* -- GET HEIGHT ------------------------------------------------------------------*/
+
 int Framebuffer::GetHeight() const
 {
     return m_height;
 }
 
-/* -- RESET GL RESOURCES ----------------------------------------------------------*/
+
 void Framebuffer::ResetGLResources()
 {
     if ( m_fbo )

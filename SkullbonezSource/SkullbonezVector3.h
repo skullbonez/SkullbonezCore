@@ -1,8 +1,7 @@
-/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
-#ifndef SKULLBONEZ_VECTOR3_H
-#define SKULLBONEZ_VECTOR3_H
+#pragma once
 
-/* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Includes ---
 #include "SkullbonezCommon.h"
 
 namespace SkullbonezCore
@@ -21,14 +20,14 @@ class Vector3
   public:
     float x, y, z; // Vector components
 
-    Vector3();                             // Default constructor
+    Vector3();                                   // Default constructor
     Vector3( const Vector3& v );                 // Copy constructor
     Vector3( float fX, float fY, float fZ );     // Overloaded constructor
-    void Zero();                           // Set the vector to zero
-    void Normalise();                      // Normalise the vector
-    void Absolute();                       // Converts vector to its absolute value
-    bool IsCloseToZero() const;            // Returns true if vector is close to zero
-    void Simplify();                       // Converts tiny float components to zero
+    void Zero();                                 // Set the vector to zero
+    void Normalise();                            // Normalise the vector
+    void Absolute();                             // Converts vector to its absolute value
+    bool IsCloseToZero() const;                  // Returns true if vector is close to zero
+    void Simplify();                             // Converts tiny float components to zero
     void SetAll( float nx, float ny, float nz ); // Set all vector components
     Vector3& operator=( const Vector3& v );      // Vector assignment
     Vector3& operator+=( const Vector3& v );     // += Overload
@@ -36,7 +35,7 @@ class Vector3
     Vector3& operator*=( float f );              // *= Overload
     Vector3& operator/=( float f );              // /= Overload
     Vector3& operator/=( const Vector3& );       // /= Overload
-    Vector3 operator-() const;             // Unary minus returns the negative of the vector
+    Vector3 operator-() const;                   // Unary minus returns the negative of the vector
     Vector3 operator+( const Vector3& v ) const; // Binary add vectors
     Vector3 operator-( const Vector3& v ) const; // Binary subtract vectors
     Vector3 operator*( float f ) const;          // Multiplication by scalar
@@ -46,7 +45,6 @@ class Vector3
     bool operator!=( const Vector3& v ) const;   // Check for inequality
     float operator*( const Vector3& v ) const;   // Vector dot product
 };
-/* -- END CLASS VECTOR3 -------------------------------------------------------------------------------------------------------------------------------------*/
 
 const Vector3 ZERO_VECTOR = Vector3( 0.0f, 0.0f, 0.0f ); // Zero vector
 
@@ -107,5 +105,3 @@ inline Vector3 operator*( float f, const Vector3& v )
 } // namespace Vector
 } // namespace Math
 } // namespace SkullbonezCore
-
-#endif /*----------------------------------------------------------------------------------------------------------------------------------------------------------------*/

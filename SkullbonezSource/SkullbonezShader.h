@@ -1,15 +1,16 @@
-/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
-#ifndef SKULLBONEZ_SHADER_H
-#define SKULLBONEZ_SHADER_H
+#pragma once
 
-/* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezMatrix4.h"
 
-/* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Math::Transformation;
+
 
 namespace SkullbonezCore
 {
@@ -31,7 +32,7 @@ class Shader
 
   public:
     Shader( const char* vertPath, const char* fragPath ); // Constructor: compile and link from files
-    ~Shader();                                      // Destructor: delete program
+    ~Shader();                                            // Destructor: delete program
 
     void Use() const;            // Bind this shader program
     GLuint GetProgramID() const; // Get the OpenGL program handle
@@ -45,5 +46,3 @@ class Shader
 };
 } // namespace Rendering
 } // namespace SkullbonezCore
-
-#endif /*----------------------------------------------------------------------------------------------------------------------------------------------------------------*/

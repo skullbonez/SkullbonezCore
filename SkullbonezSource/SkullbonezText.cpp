@@ -1,20 +1,13 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezText.h"
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Text;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
 
-/* -- INITIALISE STATICS ----------------------------------------------------------*/
-GLuint Text2d::fontTexture = 0;
-GLuint Text2d::textVAO = 0;
-GLuint Text2d::textVBO = 0;
-std::unique_ptr<Shader> Text2d::pTextShader;
-std::unique_ptr<Shader> Text2d::pSolidShader;
-float Text2d::charAdvance[96] = {};
 
-/* -- Font atlas layout constants -------------------------------------------------*/
 static const int FONT_SIZE = 32;                         // Font rendering m_height in pixels (CreateFont -nHeight)
 static const int FONT_CELL_W = 40;                       // Width of each character cell (wider than any Verdana glyph)
 static const int FONT_CELL_H = 48;                       // Height of each character cell (FONT_SIZE + descender/AA padding)
@@ -23,7 +16,6 @@ static const int FONT_ROWS = 6;                          // Number of rows in th
 static const int FONT_ATLAS_W = FONT_CELL_W * FONT_COLS; // 640 pixels
 static const int FONT_ATLAS_H = FONT_CELL_H * FONT_ROWS; // 288 pixels
 
-/* -- BUILD FONT ------------------------------------------------------------------*/
 void Text2d::BuildFont( const HDC hDC, const char* cFontName )
 {
     // Create a top-down 32bpp DIB section to render the font atlas into
@@ -157,7 +149,7 @@ void Text2d::BuildFont( const HDC hDC, const char* cFontName )
     DeleteDC( memDC );
 }
 
-/* -- DELETE FONT -----------------------------------------------------------------*/
+
 void Text2d::DeleteFont()
 {
     if ( Text2d::fontTexture )
@@ -179,7 +171,7 @@ void Text2d::DeleteFont()
     Text2d::pSolidShader.reset();
 }
 
-/* -- RENDER 2D TEXT (internal) ---------------------------------------------------*/
+
 static void RenderTextInternal( float xPosition, float yPosition, float fSize, float colR, float colG, float colB, const char* formatted )
 {
     using SkullbonezCore::Math::Transformation::Matrix4;
@@ -316,7 +308,7 @@ static void RenderTextInternal( float xPosition, float yPosition, float fSize, f
     }
 }
 
-/* -- RENDER 2D TEXT --------------------------------------------------------------*/
+
 void Text2d::Render2dText( float xPosition,
                            float yPosition,
                            float fSize,
@@ -337,7 +329,7 @@ void Text2d::Render2dText( float xPosition,
     RenderTextInternal( xPosition, yPosition, fSize, 1.0f, 1.0f, 1.0f, s_textBuf );
 }
 
-/* -- RENDER 2D TEXT COLOR --------------------------------------------------------*/
+
 void Text2d::Render2dTextColor( float xPosition,
                                 float yPosition,
                                 float fSize,
@@ -361,7 +353,7 @@ void Text2d::Render2dTextColor( float xPosition,
     RenderTextInternal( xPosition, yPosition, fSize, r, g, b, s_textBuf );
 }
 
-/* -- RENDER 2D QUAD --------------------------------------------------------------*/
+
 void Text2d::Render2dQuad( float x0, float y0, float x1, float y1, float r, float g, float b, float a )
 {
     if ( !Text2d::pSolidShader || !Text2d::textVAO )

@@ -1,8 +1,12 @@
+// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezConfig.h"
 #include <string.h>
 
+
+// --- Usings ---
 using namespace SkullbonezCore::Basics;
+
 
 /* ---------------------------------------------------------------------------------*/
 SkullbonezConfig& SkullbonezConfig::Instance()
@@ -10,6 +14,7 @@ SkullbonezConfig& SkullbonezConfig::Instance()
     static SkullbonezConfig s_instance;
     return s_instance;
 }
+
 
 /* ---------------------------------------------------------------------------------*/
 void SkullbonezConfig::Load( const char* path )

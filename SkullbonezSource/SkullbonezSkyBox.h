@@ -1,8 +1,7 @@
-/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
-#ifndef SKULLBONEZ_SKY_BOX_H
-#define SKULLBONEZ_SKY_BOX_H
+#pragma once
 
-/* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezTextureCollection.h"
 #include "SkullbonezVector3.h"
@@ -13,11 +12,13 @@
 #include <memory>
 #include <array>
 
-/* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Math;
 using namespace SkullbonezCore::Textures;
 using namespace SkullbonezCore::Rendering;
+
 
 namespace SkullbonezCore
 {
@@ -31,7 +32,7 @@ class SkyBox
 {
 
   private:
-    static SkyBox* pInstance;                          // Singleton instance pointer
+    inline static SkyBox* pInstance = nullptr;
     Box m_boundaries;                                  // Boundaries of sky box
     TextureCollection* m_textures;                     // Textures of the sky box
     std::unique_ptr<Shader> m_shader;                  // Unlit textured m_shader
@@ -39,17 +40,15 @@ class SkyBox
     std::array<uint32_t, 6> m_faceTextures;            // Texture hash per face
 
     SkyBox( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax ); // Overloaded constructor
-    ~SkyBox() = default;                                            // Destructor
-    void LoadTextures();                                            // Load sky textures into TextureCollection
-    void BuildMeshes();                                             // Build VBO meshes for each face
+    ~SkyBox() = default;                                                  // Destructor
+    void LoadTextures();                                                  // Load sky textures into TextureCollection
+    void BuildMeshes();                                                   // Build VBO meshes for each face
 
   public:
     static SkyBox* Instance( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax ); // Request for singleton instance
-    static void Destroy();                                                           // Destroy singleton instance
+    static void Destroy();                                                                 // Destroy singleton instance
     void Render( const Matrix4& view, const Matrix4& proj );                               // Render the sky box
-    void ResetGLResources();                                                         // Rebuild meshes/shader after GL context recreated
+    void ResetGLResources();                                                               // Rebuild meshes/shader after GL context recreated
 };
 } // namespace Geometry
 } // namespace SkullbonezCore
-
-#endif /*----------------------------------------------------------------------------------------------------------------------------------------------------------------*/

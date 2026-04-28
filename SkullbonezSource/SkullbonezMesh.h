@@ -1,8 +1,7 @@
-/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
-#ifndef SKULLBONEZ_MESH_H
-#define SKULLBONEZ_MESH_H
+#pragma once
 
-/* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Includes ---
 #include "SkullbonezCommon.h"
 
 namespace SkullbonezCore
@@ -33,12 +32,10 @@ class Mesh
 
   public:
     Mesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords, GLenum drawMode = GL_TRIANGLES ); // Upload interleaved vertex data
-    ~Mesh();                                                                                                  // Destructor: delete VAO/VBO
+    ~Mesh();                                                                                                        // Destructor: delete VAO/VBO
 
     void Draw() const;          // Bind VAO and draw
     int GetVertexCount() const; // Get vertex count
 };
 } // namespace Rendering
 } // namespace SkullbonezCore
-
-#endif /*----------------------------------------------------------------------------------------------------------------------------------------------------------------*/

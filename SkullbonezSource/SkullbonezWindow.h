@@ -1,8 +1,7 @@
-/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
-#ifndef SKULLBONEZ_WINDOW_H
-#define SKULLBONEZ_WINDOW_H
+#pragma once
 
-/* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezMatrix4.h"
 
@@ -18,7 +17,7 @@ class SkullbonezWindow
 {
 
   private:
-    static SkullbonezWindow* pInstance; // Pointer to singleton instance
+    inline static SkullbonezWindow* pInstance = nullptr;
 
     SkullbonezWindow();  // Default constructor
     ~SkullbonezWindow(); // Default destructor
@@ -32,12 +31,12 @@ class SkullbonezWindow
 
     Math::Transformation::Matrix4 projectionMatrix; // Current perspective projection matrix
 
-    static SkullbonezWindow* Instance(); // Call to request a pointer to the singleton instance
-    static void Destroy();               // Call to destroy the singleton instance
-    void HandleScreenResize();           // Reset OpenGL drawing boundaries and aspect ratio when the screen is resized
-    bool SetupPixelFormat();             // Prepares pixel format of back and front buffer
-    void InitialiseOpenGL();             // For all OpenGL API initialisation code (after the window has been created)
-    void SetTitleText( const char* cText );    // Draws text to title bar of window
+    static SkullbonezWindow* Instance();    // Call to request a pointer to the singleton instance
+    static void Destroy();                  // Call to destroy the singleton instance
+    void HandleScreenResize();              // Reset OpenGL drawing boundaries and aspect ratio when the screen is resized
+    bool SetupPixelFormat();                // Prepares pixel format of back and front buffer
+    void InitialiseOpenGL();                // For all OpenGL API initialisation code (after the window has been created)
+    void SetTitleText( const char* cText ); // Draws text to title bar of window
     const Math::Transformation::Matrix4& GetProjectionMatrix() const
     {
         return projectionMatrix;
@@ -50,5 +49,3 @@ class SkullbonezWindow
 };
 } // namespace Basics
 } // namespace SkullbonezCore
-
-#endif /*----------------------------------------------------------------------------------------------------------------------------------------------------------------*/

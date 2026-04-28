@@ -1,4 +1,4 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezRun.h"
 #include "SkullbonezWindow.h"
@@ -8,10 +8,11 @@
 #include <vector>
 #include <string>
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Basics;
 
-/* -- WIN MAIN --------------------------------------------------------------------*/
+
 // "Windows Main" - this function is the execution entry point for the application
 int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
                     HINSTANCE hPrevInstance, // Some useless Win32 junk
@@ -191,7 +192,7 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     if ( m_cWindow->m_fIsFullScreenMode )
     {
         ChangeDisplaySettings( nullptr, 0 ); // Switch back to desktop mode
-        ShowCursor( true );               // Bring mouse pointer back
+        ShowCursor( true );                  // Bring mouse pointer back
     }
 
     // Free up memory associated with the window class

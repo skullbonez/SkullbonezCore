@@ -1,11 +1,12 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezTerrain.h"
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Geometry;
 using namespace SkullbonezCore::Math;
 
-/* -- CONSTRUCTOR -----------------------------------------------------------------*/
+
 Terrain::Terrain( const char* sFileName,
                   int iMapSize,
                   int iStepSize,
@@ -35,13 +36,13 @@ Terrain::Terrain( const char* sFileName,
     m_terrainData.shrink_to_fit();
 }
 
-/* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
+
 Terrain::~Terrain()
 {
     // Mesh and Shader cleaned up by unique_ptr
 }
 
-/* -- BUILD TERRAIN ---------------------------------------------------------------*/
+
 void Terrain::BuildTerrain()
 {
     int terrainPostCount = ( m_mapSize / m_stepSize ) *
@@ -53,13 +54,13 @@ void Terrain::BuildTerrain()
     GenerateNormals();
 }
 
-/* -- GET PIXEL HEIGHT AT ---------------------------------------------------------*/
+
 int Terrain::GetPixelHeightAt( int xCoord, int yCoord )
 {
     return m_terrainData[xCoord + yCoord * m_mapSize];
 }
 
-/* -- LOAD TERRAIN DATA -----------------------------------------------------------*/
+
 void Terrain::LoadTerrainData( const char* sFileName )
 {
     FILE* pRawFile = nullptr;
@@ -84,7 +85,7 @@ void Terrain::LoadTerrainData( const char* sFileName )
     fclose( pRawFile );
 }
 
-/* -- RENDER ----------------------------------------------------------------------*/
+
 void Terrain::Render( const Matrix4& view, const Matrix4& projection, const float* lightPosition )
 {
     m_terrainShader->Use();
@@ -119,14 +120,14 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, const floa
     glUseProgram( 0 );
 }
 
-/* -- GET TERRAIN HEIGHT AT -------------------------------------------------------*/
+
 float Terrain::GetTerrainHeightAt( float xPosition,
                                    float zPosition,
                                    bool isFluidMin )
 {
     float terrainHeight =
         ( GeometricMath::GetHeightFromPlane( LocatePolygon( xPosition,
-                                                                  zPosition ),
+                                                            zPosition ),
                                              xPosition,
                                              zPosition ) );
 
@@ -140,7 +141,7 @@ float Terrain::GetTerrainHeightAt( float xPosition,
     }
 }
 
-/* -- GET TERRAIN NORMAL AT -------------------------------------------------------*/
+
 Vector3 Terrain::GetTerrainNormalAt( float xPosition, float zPosition )
 {
     Triangle tri = LocatePolygon( xPosition, zPosition );
@@ -158,7 +159,7 @@ Vector3 Terrain::GetTerrainNormalAt( float xPosition, float zPosition )
     return m_normal;
 }
 
-/* -- IS IN BOUNDS ----------------------------------------------------------------*/
+
 bool Terrain::IsInBounds( float xPosition, float zPosition )
 {
     /*
@@ -186,7 +187,7 @@ bool Terrain::IsInBounds( float xPosition, float zPosition )
              ( zPosition < m_terrainSizeWorldCoords * Cfg().terrainScale ) );
 }
 
-/* -- GET BOUNDS XZ ---------------------------------------------------------------*/
+
 XZBounds Terrain::GetXZBounds()
 {
     XZBounds bounds;
@@ -199,7 +200,7 @@ XZBounds Terrain::GetXZBounds()
     return bounds;
 }
 
-/* -- LOCATE POLYGON ---------------------------------------------------------------------------------------------------------------------------------------------------*/
+
 Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
 {
     // check to ensure specified co-ordinates are inside the m_terrain map bounds
@@ -281,7 +282,7 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
     return targetPolygon;
 }
 
-/* -- TRANSLATE POSTINGS -----------------------------------------------------------------------------------------------------------------------------------------------*/
+
 void Terrain::TranslatePostings()
 {
     int indexCounter = 0;
@@ -299,7 +300,7 @@ void Terrain::TranslatePostings()
     }
 }
 
-/* -- GENERATE NORMALS -------------------------------------------------------------------------------------------------------------------------------------------------*/
+
 void Terrain::GenerateNormals()
 {
     // flags to indicate special cases
@@ -616,7 +617,7 @@ void Terrain::GenerateNormals()
     }
 }
 
-/* -- BUILD MESH ---------------------------------------------------------------------------------------------------------------------------------------------------*/
+
 void Terrain::BuildMesh()
 {
     // 2 triangles per quad, 6 vertices each, 8 floats per vertex (pos3 + normal3 + texcoord2)

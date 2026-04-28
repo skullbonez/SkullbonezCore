@@ -1,13 +1,14 @@
-﻿/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
-#ifndef SKULLBONEZ_RESPONSE_INFORMATION_H
-#define SKULLBONEZ_RESPONSE_INFORMATION_H
+#pragma once
 
-/* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezGeometricStructures.h"
 
-/* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Geometry;
+
 
 namespace SkullbonezCore
 {
@@ -27,5 +28,3 @@ struct ResponseInformation
 };
 } // namespace Physics
 } // namespace SkullbonezCore
-
-#endif

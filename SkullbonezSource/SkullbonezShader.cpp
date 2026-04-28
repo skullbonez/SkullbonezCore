@@ -1,10 +1,11 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezShader.h"
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Rendering;
 
-/* -- LOAD SHADER SOURCE ----------------------------------------------------------*/
+
 char* Shader::LoadShaderSource( const char* path )
 {
     FILE* file = nullptr;
@@ -28,7 +29,7 @@ char* Shader::LoadShaderSource( const char* path )
     return source;
 }
 
-/* -- COMPILE SHADER --------------------------------------------------------------*/
+
 GLuint Shader::CompileShader( const char* path, GLenum type )
 {
     char* source = LoadShaderSource( path );
@@ -55,7 +56,7 @@ GLuint Shader::CompileShader( const char* path, GLenum type )
     return m_shader;
 }
 
-/* -- CONSTRUCTOR -----------------------------------------------------------------*/
+
 Shader::Shader( const char* vertPath, const char* fragPath )
 {
     GLuint vertShader = CompileShader( vertPath, GL_VERTEX_SHADER );
@@ -86,7 +87,7 @@ Shader::Shader( const char* vertPath, const char* fragPath )
     glDeleteShader( fragShader );
 }
 
-/* -- DESTRUCTOR ------------------------------------------------------------------*/
+
 Shader::~Shader()
 {
     if ( m_programID )
@@ -95,49 +96,49 @@ Shader::~Shader()
     }
 }
 
-/* -- USE -------------------------------------------------------------------------*/
+
 void Shader::Use() const
 {
     glUseProgram( m_programID );
 }
 
-/* -- GET PROGRAM ID --------------------------------------------------------------*/
+
 GLuint Shader::GetProgramID() const
 {
     return m_programID;
 }
 
-/* -- SET INT ---------------------------------------------------------------------*/
+
 void Shader::SetInt( const char* name, int value ) const
 {
     glUniform1i( glGetUniformLocation( m_programID, name ), value );
 }
 
-/* -- SET FLOAT -------------------------------------------------------------------*/
+
 void Shader::SetFloat( const char* name, float value ) const
 {
     glUniform1f( glGetUniformLocation( m_programID, name ), value );
 }
 
-/* -- SET VEC3 (Vector3) ----------------------------------------------------------*/
+
 void Shader::SetVec3( const char* name, const Vector3& v ) const
 {
     glUniform3f( glGetUniformLocation( m_programID, name ), v.x, v.y, v.z );
 }
 
-/* -- SET VEC3 (components) -------------------------------------------------------*/
+
 void Shader::SetVec3( const char* name, float x, float y, float z ) const
 {
     glUniform3f( glGetUniformLocation( m_programID, name ), x, y, z );
 }
 
-/* -- SET VEC4 --------------------------------------------------------------------*/
+
 void Shader::SetVec4( const char* name, float x, float y, float z, float w ) const
 {
     glUniform4f( glGetUniformLocation( m_programID, name ), x, y, z, w );
 }
 
-/* -- SET MAT4 --------------------------------------------------------------------*/
+
 void Shader::SetMat4( const char* name, const Matrix4& mat ) const
 {
     glUniformMatrix4fv( glGetUniformLocation( m_programID, name ), 1, GL_FALSE, mat.Data() );

@@ -1,15 +1,16 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezQuaternion.h"
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Math::Orientation;
 
-/* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
+
 Quaternion::Quaternion()
 {
 }
 
-/* -- OVERLOADED CONSTRUCTOR ------------------------------------------------------*/
+
 Quaternion::Quaternion( float fX,
                         float fY,
                         float fZ,
@@ -21,7 +22,7 @@ Quaternion::Quaternion( float fX,
 {
 }
 
-/* -- IDENTITY -------------------------------------------------------------------*/
+
 void Quaternion::Identity()
 {
     m_x = 0.0f;
@@ -30,7 +31,7 @@ void Quaternion::Identity()
     m_w = 1.0f;
 }
 
-/* -- NORMALISE ------------------------------------------------------------------*/
+
 void Quaternion::Normalise()
 {
     float magSq = m_w * m_w +
@@ -51,7 +52,7 @@ void Quaternion::Normalise()
     m_z *= oneOverMag;
 }
 
-/* -- ROTATE ABOUT XYZ -----------------------------------------------------------*/
+
 void Quaternion::RotateAboutXYZ( float xRadians,
                                  float yRadians,
                                  float zRadians )
@@ -68,13 +69,13 @@ void Quaternion::RotateAboutXYZ( float xRadians,
     Normalise();
 }
 
-/* -- ROTATE ABOUT XYZ -----------------------------------------------------------*/
+
 void Quaternion::RotateAboutXYZ( const Vector3& vRadians )
 {
     RotateAboutXYZ( vRadians.x, vRadians.y, vRadians.z );
 }
 
-/* -- GET ORIENTATION MATRIX -----------------------------------------------------*/
+
 RotationMatrix Quaternion::GetOrientationMatrix()
 {
     // Return the RIGHT HANDED rotation matrix
@@ -89,42 +90,42 @@ RotationMatrix Quaternion::GetOrientationMatrix()
                            1 - ( 2 * m_x * m_x ) - ( 2 * m_y * m_y ) );
 }
 
-/* -- OPERATOR * -----------------------------------------------------------------*/
+
 Quaternion Quaternion::operator*( const Quaternion& q ) const
 {
     Quaternion result;
 
     result.m_w = m_w * q.m_w -
-               m_x * q.m_x -
-               m_y * q.m_y -
-               m_z * q.m_z;
+                 m_x * q.m_x -
+                 m_y * q.m_y -
+                 m_z * q.m_z;
 
     result.m_x = m_w * q.m_x +
-               m_x * q.m_w -
-               m_y * q.m_z +
-               m_z * q.m_y;
+                 m_x * q.m_w -
+                 m_y * q.m_z +
+                 m_z * q.m_y;
 
     result.m_y = m_w * q.m_y +
-               m_x * q.m_z +
-               m_y * q.m_w -
-               m_z * q.m_x;
+                 m_x * q.m_z +
+                 m_y * q.m_w -
+                 m_z * q.m_x;
 
     result.m_z = m_w * q.m_z -
-               m_x * q.m_y +
-               m_y * q.m_x +
-               m_z * q.m_w;
+                 m_x * q.m_y +
+                 m_y * q.m_x +
+                 m_z * q.m_w;
 
     return result;
 }
 
-/* -- OPERATOR *= ----------------------------------------------------------------*/
+
 Quaternion& Quaternion::operator*=( const Quaternion& q )
 {
     *this = *this * q;
     return *this;
 }
 
-/* -- GET QTN ROTATED ABOUT X ----------------------------------------------------*/
+
 Quaternion Quaternion::GetQtnRotatedAboutX( float fRadians )
 {
     float radiansDiv2 = fRadians * 0.5f;
@@ -135,7 +136,7 @@ Quaternion Quaternion::GetQtnRotatedAboutX( float fRadians )
                        cosf( radiansDiv2 ) );
 }
 
-/* -- GET QTN ROTATED ABOUT Y ----------------------------------------------------*/
+
 Quaternion Quaternion::GetQtnRotatedAboutY( float fRadians )
 {
     float radiansDiv2 = fRadians * 0.5f;
@@ -146,7 +147,7 @@ Quaternion Quaternion::GetQtnRotatedAboutY( float fRadians )
                        cosf( radiansDiv2 ) );
 }
 
-/* -- GET QTN ROTATED ABOUT Z ----------------------------------------------------*/
+
 Quaternion Quaternion::GetQtnRotatedAboutZ( float fRadians )
 {
     float radiansDiv2 = fRadians * 0.5f;

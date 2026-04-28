@@ -1,12 +1,13 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezWorldEnvironment.h"
 #include <vector>
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::GameObjects;
 
-/* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
+
 WorldEnvironment::WorldEnvironment()
     : m_fluidSurfaceHeight( 0.0f ),
       m_fluidDensity( 0.0f ),
@@ -15,7 +16,7 @@ WorldEnvironment::WorldEnvironment()
 {
 }
 
-/* -- OVERLOADED CONSTRUCTOR ------------------------------------------------------*/
+
 WorldEnvironment::WorldEnvironment( float fFluidSurfaceHeight,
                                     float fFluidDensity,
                                     float fGasDensity,
@@ -27,12 +28,12 @@ WorldEnvironment::WorldEnvironment( float fFluidSurfaceHeight,
 {
 }
 
-/* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
+
 WorldEnvironment::~WorldEnvironment()
 {
 }
 
-/* -- SET TERRAIN BOUNDS ----------------------------------------------------------*/
+
 void WorldEnvironment::SetTerrainBounds( float xMin, float xMax, float zMin, float zMax )
 {
     m_terrainXMin = xMin;
@@ -41,7 +42,7 @@ void WorldEnvironment::SetTerrainBounds( float xMin, float xMax, float zMin, flo
     m_terrainZMax = zMax;
 }
 
-/* -- RENDER FLUID ----------------------------------------------------------------*/
+
 void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, const Matrix4& reflectVP, float time, GLuint reflectionTex, bool flatWater, bool noReflect )
 {
     if ( !m_calmMesh )
@@ -87,7 +88,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
     glDisable( GL_BLEND );
 }
 
-/* -- BUILD FLUID MESH ------------------------------------------------------------*/
+
 void WorldEnvironment::BuildFluidMesh()
 {
     float h = m_fluidSurfaceHeight;
@@ -158,7 +159,7 @@ void WorldEnvironment::BuildFluidMesh()
     m_oceanShader = std::make_unique<Shader>( "SkullbonezData/shaders/water_ocean.vert", "SkullbonezData/shaders/water_ocean.frag" );
 }
 
-/* -- RESET GL RESOURCES ----------------------------------------------------------*/
+
 void WorldEnvironment::ResetGLResources()
 {
     m_calmMesh.reset();
@@ -168,13 +169,13 @@ void WorldEnvironment::ResetGLResources()
     BuildFluidMesh();
 }
 
-/* -- GET FLUID SURFACE HEIGHT ----------------------------------------------------*/
+
 float WorldEnvironment::GetFluidSurfaceHeight()
 {
     return m_fluidSurfaceHeight;
 }
 
-/* -- ADD WORLD FORCES ------------------------------------------------------------*/
+
 void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
 {
     // initialise the world force vector so we can add to it
@@ -201,35 +202,35 @@ void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
 
     // add the linear viscous drag to the world force
     m_worldForce += CalculateViscousDrag( target.GetVelocity(),
-                                                submergedVolumePercent,
-                                                m_dragCoefficient,
-                                                m_projectedSurfaceArea );
+                                          submergedVolumePercent,
+                                          m_dragCoefficient,
+                                          m_projectedSurfaceArea );
 
     // add the angular viscous drag to the world force
     m_worldTorque += CalculateViscousDrag( target.GetAngularVelocity(),
-                                                 submergedVolumePercent,
-                                                 m_dragCoefficient,
-                                                 m_projectedSurfaceArea );
+                                           submergedVolumePercent,
+                                           m_dragCoefficient,
+                                           m_projectedSurfaceArea );
 
     // scale and then set the world force and m_torque
     target.SetWorldForce( m_worldForce * changeInTime, m_worldTorque * changeInTime );
 }
 
-/* -- CALCULATE GRAVITY -----------------------------------------------------------*/
+
 float WorldEnvironment::CalculateGravity( float objectMass )
 {
     // Fg = ma
     return objectMass * m_gravity;
 }
 
-/* -- CALCULATE BUOYANCY ----------------------------------------------------------*/
+
 float WorldEnvironment::CalculateBuoyancy( float submergedObjectVolume )
 {
     // Fb = -m_gravity * m_mass of displaced fluid
     return m_gravity * m_fluidDensity * submergedObjectVolume * -1.0f;
 }
 
-/* -- CALCULATE VISCOUS DRAG ------------------------------------------------------*/
+
 Vector3 WorldEnvironment::CalculateViscousDrag( Vector3 velocityVector,
                                                 float submergedVolumePercent,
                                                 float m_dragCoefficient,

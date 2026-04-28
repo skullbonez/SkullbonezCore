@@ -1,17 +1,18 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezCamera.h"
 #include "SkullbonezRotationMatrix.h"
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::Math;
 
-/* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
+
 Camera::Camera()
 {
 }
 
-/* -- SET ALL ---------------------------------------------------------------------*/
+
 void Camera::SetAll( const Vector3& vPosition,  // Set m_position
                      const Vector3& vView,      // Set view
                      const Vector3& vUpVector ) // Set up vector
@@ -50,7 +51,7 @@ void Camera::SetAll( const Vector3& vPosition,  // Set m_position
     m_boundary.m_zMax = 99999.9f;
 }
 
-/* -- MOVE CAMERA -----------------------------------------------------------------*/
+
 void Camera::MoveCamera( const TravelDirection enumDir,
                          float fQuantity )
 {
@@ -122,7 +123,7 @@ void Camera::MoveCamera( const TravelDirection enumDir,
     m_movementBuffer += movementResults;
 }
 
-/* -- APPLY MOVEMENT BUFFER -------------------------------------------------------*/
+
 void Camera::ApplyMovementBuffer()
 {
     // store old m_position
@@ -147,7 +148,7 @@ void Camera::ApplyMovementBuffer()
     m_movementBuffer.Zero();
 }
 
-/* -- ROTATE CAMERA ---------------------------------------------------------------*/
+
 void Camera::RotateCamera( float xMove, float yMove )
 {
     // caps the y rotation quantity to avoid view-up collisions
@@ -170,16 +171,16 @@ void Camera::RotateCamera( float xMove, float yMove )
         // the mouses xMove will always represent a pivot on the up vector
         // (repsective to the camera translation)
         m_view = m_position +
-                     Transformation::RotatePointAboutArbitrary( xMove,
-                                                                m_upVector,
-                                                                GetViewVectorRaw() );
+                 Transformation::RotatePointAboutArbitrary( xMove,
+                                                            m_upVector,
+                                                            GetViewVectorRaw() );
 
         // the mouses yMove will always represent a pivot on the right vector
         // (repsective to the camera translation)
         m_view = m_position +
-                     Transformation::RotatePointAboutArbitrary( yMoveCapped,
-                                                                GetRightVector(),
-                                                                GetViewVectorRaw() );
+                 Transformation::RotatePointAboutArbitrary( yMoveCapped,
+                                                            GetRightVector(),
+                                                            GetViewVectorRaw() );
     }
     else
     {
@@ -219,7 +220,7 @@ void Camera::RotateCamera( float xMove, float yMove )
     }
 }
 
-/* -- PREPARE TRANSLATION ---------------------------------------------------------*/
+
 void Camera::PrepareTranslation()
 {
     // store the current X and Z m_position before translation
@@ -228,7 +229,7 @@ void Camera::PrepareTranslation()
     m_xzStore.z = m_position.z;
 }
 
-/* -- FINISH TRANSLATION ----------------------------------------------------------*/
+
 void Camera::FinishTranslation()
 {
     bool isOnBoundX = false;
@@ -292,7 +293,7 @@ void Camera::FinishTranslation()
     }
 }
 
-/* -- RECOVER VIEW MAGNITUDE -------------------------------------------------------*/
+
 void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ )
 {
     // only recover view magnitude if the camera has been set to do so
@@ -321,7 +322,7 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ 
 
             // extend the current view magnitude to its quota
             m_position = m_view +
-                             ( -GetViewVectorNormalised() * m_viewMagnitude );
+                         ( -GetViewVectorNormalised() * m_viewMagnitude );
 
             // restore the y component (we will add to this later)
             m_position.y = positionStore.y;
@@ -415,12 +416,12 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ 
         {
             // cap the magnitude to what it is set to
             m_view = m_position +
-                         ( GetViewVectorNormalised() * m_viewMagnitude );
+                     ( GetViewVectorNormalised() * m_viewMagnitude );
         }
     }
 }
 
-/* -- ADD CAMERA ------------------------------------------------------------------*/
+
 void Camera::ApplyDelta( const Camera& delta )
 {
     PrepareTranslation();
@@ -428,7 +429,7 @@ void Camera::ApplyDelta( const Camera& delta )
     FinishTranslation();
 }
 
-/* -- UP VECTOR VIEW VECTOR ROTATION CAP ------------------------------------------*/
+
 float Camera::UpVectorViewVectorRotationCap( float requestRadians )
 {
     // get the negated view vector (translation minus view)
@@ -458,7 +459,7 @@ float Camera::UpVectorViewVectorRotationCap( float requestRadians )
     return requestRadians;
 }
 
-/* -- GET RIGHT VECTOR ------------------------------------------------------------*/
+
 Vector3 Camera::GetRightVector()
 {
     // Get the right vector (cross of view and up vectors)
@@ -472,13 +473,13 @@ Vector3 Camera::GetRightVector()
     return vRight;
 }
 
-/* -- GET VIEW VECTOR RAW ---------------------------------------------------------*/
+
 Vector3 Camera::GetViewVectorRaw()
 {
     return m_view - m_position;
 }
 
-/* -- GET VIEW VECTOR NORMALISED --------------------------------------------------*/
+
 Vector3 Camera::GetViewVectorNormalised()
 {
     /*
@@ -535,7 +536,7 @@ Vector3 Camera::GetViewVectorNormalised()
     return vView;
 }
 
-/* -- ZERO CAMERA -----------------------------------------------------------------*/
+
 void Camera::ZeroCamera()
 {
     m_position.Zero();
@@ -543,7 +544,7 @@ void Camera::ZeroCamera()
     m_upVector.Zero();
 }
 
-/* -- OPERATOR '=' ----------------------------------------------------------------*/
+
 Camera& Camera::operator=( const Camera& target )
 {
     m_position = target.m_position;
@@ -554,7 +555,7 @@ Camera& Camera::operator=( const Camera& target )
     return *this;
 }
 
-/* -- OPERATOR '+=' ---------------------------------------------------------------*/
+
 Camera& Camera::operator+=( const Camera& target )
 {
     m_position += target.m_position;
@@ -564,7 +565,7 @@ Camera& Camera::operator+=( const Camera& target )
     return *this;
 }
 
-/* -- OPERATOR '-' ----------------------------------------------------------------*/
+
 Camera Camera::operator-( const Camera& target )
 {
     Camera result;
@@ -575,7 +576,7 @@ Camera Camera::operator-( const Camera& target )
     return result;
 }
 
-/* -- OPERATOR '*' ----------------------------------------------------------------*/
+
 Camera Camera::operator*( float f )
 {
     Camera result;

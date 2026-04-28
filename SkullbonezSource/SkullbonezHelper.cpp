@@ -1,24 +1,17 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezHelper.h"
 #include <vector>
 #include <cmath>
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
 
-/* -- STATIC MEMBER INITIALISATION ------------------------------------------------*/
+
 std::unique_ptr<Mesh> SkullbonezHelper::sphereMesh;
 std::unique_ptr<Shader> SkullbonezHelper::sphereShader;
-float SkullbonezHelper::sClipPlane[4] = {
-    0.0f,
-    1.0f,
-    0.0f,
-    1.0e9f // default: always pass (GL_CLIP_DISTANCE0 disabled)
-};
-
-/* -- SET CLIP PLANE --------------------------------------------------------------*/
 void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
 {
     sClipPlane[0] = x;
@@ -27,14 +20,14 @@ void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
     sClipPlane[3] = w;
 }
 
-/* -- RESET GL RESOURCES ----------------------------------------------------------*/
+
 void SkullbonezHelper::ResetGLResources()
 {
     sphereMesh.reset();
     sphereShader.reset();
 }
 
-/* -- BUILD SPHERE MESH -----------------------------------------------------------*/
+
 void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
 {
     // Generate a unit sphere with normals and texcoords (8 floats per vertex)
@@ -75,7 +68,7 @@ void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
     sphereMesh = std::make_unique<Mesh>( verts.data(), static_cast<int>( verts.size() ) / 8, true, true );
 }
 
-/* -- DRAW SPHERE BATCH BEGIN -----------------------------------------------------*/
+
 void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent )
 {
     if ( !sphereMesh )
@@ -109,21 +102,21 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
     sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
 }
 
-/* -- DRAW SPHERE BATCH MODEL -----------------------------------------------------*/
+
 void SkullbonezHelper::DrawSphereBatchModel( const Matrix4& model )
 {
     sphereShader->SetMat4( "uModel", model );
     sphereMesh->Draw();
 }
 
-/* -- DRAW SPHERE BATCH END -------------------------------------------------------*/
+
 void SkullbonezHelper::DrawSphereBatchEnd()
 {
     glUseProgram( 0 );
     glDisable( GL_BLEND );
 }
 
-/* -- STATE SETUP -----------------------------------------------------------------*/
+
 void SkullbonezHelper::StateSetup()
 {
     glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );

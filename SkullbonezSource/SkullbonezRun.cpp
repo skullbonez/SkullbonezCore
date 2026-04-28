@@ -1,4 +1,4 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezRun.h"
 #include "SkullbonezHelper.h"
 #include "SkullbonezBoundingSphere.h"
@@ -8,15 +8,12 @@
 #include <cstring>
 #include <psapi.h>
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 
-/* -- STATIC MEMBER INITIALISATION ------------------------------------------------*/
-int SkullbonezRun::sGlResetPass = 0;
-int SkullbonezRun::sPerfPass = 0;
 
-/* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 SkullbonezRun::SkullbonezRun( const char* pScenePath )
 {
     // init scene mode
@@ -68,7 +65,7 @@ SkullbonezRun::SkullbonezRun( const char* pScenePath )
     srand( static_cast<unsigned>( time( nullptr ) ) );
 }
 
-/* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
+
 SkullbonezRun::~SkullbonezRun()
 {
     if ( m_perfLogFile )
@@ -92,7 +89,7 @@ SkullbonezRun::~SkullbonezRun()
     m_cSkyBox->Destroy();
 }
 
-/* -- INITIALISE ------------------------------------------------------------------*/
+
 void SkullbonezRun::Initialise()
 {
     // Init window
@@ -216,7 +213,7 @@ void SkullbonezRun::Initialise()
     m_cSimulationTimer.StartTimer();
 }
 
-/* -- SET UP GAME MODELS ----------------------------------------------------------*/
+
 void SkullbonezRun::SetUpGameModels( int count )
 {
     m_modelCount = count;
@@ -255,7 +252,7 @@ void SkullbonezRun::SetUpGameModels( int count )
     }
 }
 
-/* -- RUN -------------------------------------------------------------------------*/
+
 bool SkullbonezRun::Run()
 {
     /*
@@ -467,7 +464,7 @@ bool SkullbonezRun::Run()
     return false;
 }
 
-/* -- TAKE INPUT ------------------------------------------------------------------*/
+
 void SkullbonezRun::TakeInput()
 {
     // Toggle fly mode with F
@@ -543,7 +540,7 @@ void SkullbonezRun::TakeInput()
     }
 }
 
-/* -- UPDATE LOGIC ----------------------------------------------------------------*/
+
 void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
 {
     if ( !m_isFlyMode || Input::IsKeyDown( VK_SPACE ) )
@@ -557,13 +554,13 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
     // move the camera based on input
     // (arguments are calculating time based movement quantities)
     MoveCamera( fSecondsPerFrame * Cfg().keySpeed,
-                      fSecondsPerFrame * Cfg().mouseSensitivity );
+                fSecondsPerFrame * Cfg().mouseSensitivity );
 
     // update camera tweening speed
     m_cCameras->SetTweenSpeed( Cfg().cameraTweenRate * fSecondsPerFrame );
 }
 
-/* -- RENDER ----------------------------------------------------------------------*/
+
 void SkullbonezRun::Render()
 {
     // Clear screen pixel and depth into buffers
@@ -579,7 +576,7 @@ void SkullbonezRun::Render()
     DrawPrimitives();
 }
 
-/* -- DRAW PRIMITIVES ---------------------------------------------------------------------*/
+
 void SkullbonezRun::DrawPrimitives()
 {
     float lightPosition[] = { 200.0f, 400.0f, 1200.0f, 1.0f };
@@ -670,7 +667,7 @@ void SkullbonezRun::DrawPrimitives()
     }
 }
 
-/* -- SET UP CAMERAS ----------------------------------------------------------------------*/
+
 void SkullbonezRun::SetUpCameras()
 {
     m_cCameras = CameraCollection::Instance();
@@ -700,7 +697,7 @@ void SkullbonezRun::SetUpCameras()
     m_cCameras->SetLockedMode( true );
 }
 
-/* -- SET INITIAL OPEN GL STATE -----------------------------------------------------------*/
+
 void SkullbonezRun::SetInitialOpenGlState()
 {
     SkullbonezHelper::ResetGLResources();
@@ -712,7 +709,7 @@ void SkullbonezRun::SetInitialOpenGlState()
     m_cTextures->CreateJpegTexture( cfg.sphereTexture.c_str(), TEXTURE_BOUNDING_SPHERE );
 }
 
-/* -- DRAW WINDOW TEXT --------------------------------------------------------------------------------------------------------------------------------------------------*/
+
 void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 {
     // update timers
@@ -749,7 +746,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 #endif
 }
 
-/* -- SET VIEWING ORIENTATION -------------------------------------------------------------------------------------------------------------------------------------------*/
+
 void SkullbonezRun::SetViewingOrientation()
 {
     // In scene mode, use the first camera without cycling
@@ -832,7 +829,7 @@ void SkullbonezRun::SetViewingOrientation()
     */
 }
 
-/* -- RELATIVE UPDATE CAMERA --------------------------------------------------------------------------------------------------------------------------------------------*/
+
 void SkullbonezRun::RelativeUpdateCamera( uint32_t hash )
 {
     if ( !m_cCameras->IsCameraSelected( hash ) )
@@ -843,7 +840,7 @@ void SkullbonezRun::RelativeUpdateCamera( uint32_t hash )
     }
 }
 
-/* -- MOVE CAMERA -------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
 void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
 {
     if ( m_isFlyMode )
@@ -895,7 +892,7 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
     }
 }
 
-/* -- SET UP CAMERAS FROM SCENE ---------------------------------------------------*/
+
 void SkullbonezRun::SetUpCamerasFromScene( const TestScene& scene )
 {
     m_cCameras = CameraCollection::Instance();
@@ -917,7 +914,7 @@ void SkullbonezRun::SetUpCamerasFromScene( const TestScene& scene )
     m_cCameras->SetLockedMode( true );
 }
 
-/* -- SET UP GAME MODELS FROM SCENE -----------------------------------------------*/
+
 void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 {
     m_modelCount = scene.GetBallCount();
@@ -947,7 +944,7 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
     }
 }
 
-/* -- SAVE SCREENSHOT -------------------------------------------------------------*/
+
 void SkullbonezRun::SaveScreenshot( const char* path )
 {
     // Read viewport dimensions
@@ -1013,7 +1010,7 @@ void SkullbonezRun::SaveScreenshot( const char* path )
     fclose( file );
 }
 
-/* -- LOG PERF MEMORY -------------------------------------------------------------*/
+
 void SkullbonezRun::LogPerfMemory( const char* checkpoint )
 {
     if ( !m_perfLogFile )

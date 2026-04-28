@@ -1,12 +1,13 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezInput.h"
 #include "SkullbonezWindow.h"
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Basics;
 
-/* -- DEFINITIONS -----------------------------------------------------------------*/
+
 /*
    0x8000 = (16^3)*8 + (16^2)*0 + (16^1)*0 + (16^0)*0
           = 32,768 (decimal)
@@ -24,7 +25,6 @@ using namespace SkullbonezCore::Basics;
    */
 #define LOWEST_ORDER_BIT_16 0x1
 
-/* -- IS KEY DOWN -----------------------------------------------------------------*/
 bool Input::IsKeyDown( const char cKey )
 {
     /*
@@ -42,7 +42,7 @@ bool Input::IsKeyDown( const char cKey )
     return ( ( GetKeyState( cKey ) & HIGHEST_ORDER_BIT_16 ) != 0 );
 }
 
-/* -- IS KEY TOGGLED --------------------------------------------------------------*/
+
 bool Input::IsKeyToggled( const char cKey )
 {
     // lowest order bit is set to 1 if key is toggled, see Input::IsKeyDown
@@ -50,7 +50,7 @@ bool Input::IsKeyToggled( const char cKey )
     return ( ( GetKeyState( cKey ) & LOWEST_ORDER_BIT_16 ) != 0 );
 }
 
-/* -- GET MOUSE COORDINATES -------------------------------------------------------*/
+
 POINT Input::GetMouseCoordinates()
 {
     POINT mousePos;
@@ -62,7 +62,7 @@ POINT Input::GetMouseCoordinates()
     return mousePos;
 }
 
-/* -- SET MOUSE COORDINATES -------------------------------------------------------*/
+
 void Input::SetMouseCoordinates( const POINT& pNewCoordinates )
 {
     // attempt to set the mouse m_position
@@ -72,7 +72,7 @@ void Input::SetMouseCoordinates( const POINT& pNewCoordinates )
     }
 }
 
-/* -- CENTRE MOUSE COORDINATES ----------------------------------------------------*/
+
 void Input::CentreMouseCoordinates()
 {
     SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();

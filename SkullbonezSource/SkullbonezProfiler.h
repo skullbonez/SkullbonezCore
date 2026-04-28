@@ -1,6 +1,7 @@
-#ifndef SKULLBONEZ_PROFILER_H
-#define SKULLBONEZ_PROFILER_H
+#pragma once
 
+
+// --- Includes ---
 #include "SkullbonezCommon.h"
 
 namespace SkullbonezCore
@@ -92,7 +93,6 @@ class Profiler
     bool m_inFrame;
 };
 
-/* -- Profiler scope helper for PROFILE_SCOPED ----------------------------------------------------------------------*/
 class ProfilerScope
 {
   public:
@@ -116,7 +116,6 @@ class ProfilerScope
 } // namespace Basics
 } // namespace SkullbonezCore
 
-/* -- PROFILER MACROS -----------------------------------------------------------------------------------------------*/
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
 
 #define PROFILE_PASTE_INNER( a, b ) a##b
@@ -152,5 +151,3 @@ class ProfilerScope
 #define PROFILE_FRAME_END() ( (void)0 )
 
 #endif // SKULLBONEZ_PROFILE_ENABLED
-
-#endif // SKULLBONEZ_PROFILER_H

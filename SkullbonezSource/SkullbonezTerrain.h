@@ -1,8 +1,7 @@
-/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
-#ifndef SKULLBONEZ_TERRAIN_H
-#define SKULLBONEZ_TERRAIN_H
+#pragma once
 
-/* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezMatrix4.h"
@@ -11,10 +10,12 @@
 #include "SkullbonezMesh.h"
 #include "SkullbonezShader.h"
 
-/* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
+
 
 namespace SkullbonezCore
 {
@@ -29,10 +30,10 @@ class Terrain
 
   public:
     Terrain( const char* sFileName, int iMapSize, int iStepSize, int iTextureWrap ); // Overloaded constructor: sFileName is path to .raw file, iMapSize is the size of map (pixels length), iStepSize is steps (pixel steps AND vertex steps), iTextureWrap is number of times to wrap texture
-    ~Terrain();                                                                // Default destructor
+    ~Terrain();                                                                      // Default destructor
 
     void Render( const Matrix4& view, const Matrix4& projection, const float* lightPosition ); // Renders the terrain with shader
-    XZBounds GetXZBounds();                                                              // Returns the XZ bounds of the terrain
+    XZBounds GetXZBounds();                                                                    // Returns the XZ bounds of the terrain
     Triangle LocatePolygon( float xPosition, float zPosition );                                // Locates the polygon surrounding the specified X and Z co-ordinates based on an orthagonal XZ projection.  Detailed math reference at http://www.simoneschbach.com/images/FindingArbitraryPolygon.gif
     bool IsInBounds( float xPosition, float zPosition );                                       // Returns a flag indicating if specified co-ordinates are inside the bounds of the terrain map
     float GetTerrainHeightAt( float xPosition, float zPosition, bool isFluidMin = false );     // Returns the height of the terrain at the specified coordinates
@@ -51,13 +52,11 @@ class Terrain
     int m_terrainSizeWorldCoords;            // size per side of m_terrain in world coordinates
 
     void LoadTerrainData( const char* sFileName );  // Loads terrain from .RAW file into terrainData member
-    void BuildTerrain();                      // Builds the terrain
-    void TranslatePostings();                 // Translates terrain posts
-    void GenerateNormals();                   // Generates normals for posts
-    void BuildMesh();                         // Builds VBO mesh from post data
+    void BuildTerrain();                            // Builds the terrain
+    void TranslatePostings();                       // Translates terrain posts
+    void GenerateNormals();                         // Generates normals for posts
+    void BuildMesh();                               // Builds VBO mesh from post data
     int GetPixelHeightAt( int xCoord, int yCoord ); // Returns the .raw height at the specified pixel coordinates
 };
 } // namespace Geometry
 } // namespace SkullbonezCore
-
-#endif /*----------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -1,13 +1,11 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezWindow.h"
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Basics;
 
-/* -- SINGLETON INSTANCE INITIALISATION -------------------------------------------*/
-SkullbonezWindow* SkullbonezWindow::pInstance = 0;
 
-/* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 SkullbonezWindow::SkullbonezWindow()
 {
     m_sWindow = 0;
@@ -15,12 +13,12 @@ SkullbonezWindow::SkullbonezWindow()
     m_sRenderContext = 0;
 }
 
-/* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
+
 SkullbonezWindow::~SkullbonezWindow()
 {
 }
 
-/* -- SINGLETON CONSTRUCTOR -------------------------------------------------------*/
+
 SkullbonezWindow* SkullbonezWindow::Instance()
 {
     if ( !SkullbonezWindow::pInstance )
@@ -31,27 +29,27 @@ SkullbonezWindow* SkullbonezWindow::Instance()
     return SkullbonezWindow::pInstance;
 }
 
-/* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
+
 void SkullbonezWindow::Destroy()
 {
-    SkullbonezWindow::pInstance = 0;
+    SkullbonezWindow::pInstance = nullptr;
 }
 
-/* -- SET WINDOW DIMENSIONS -------------------------------------------------------*/
+
 void SkullbonezWindow::SetWindowDimensions( int m_width, int m_height )
 {
     m_sWindowDimensions.x = m_width;
     m_sWindowDimensions.y = m_height;
 }
 
-/* -- SET WINDOW DIMENSIONS -------------------------------------------------------*/
+
 void SkullbonezWindow::SetWindowDimensions( const RECT dimensions )
 {
     m_sWindowDimensions.x = dimensions.right;
     m_sWindowDimensions.y = dimensions.bottom;
 }
 
-/* -- HANDLE SCREEN RESIZE --------------------------------------------------------*/
+
 void SkullbonezWindow::HandleScreenResize()
 {
     // Guard: skip GL calls if GLAD hasn't loaded function pointers yet.
@@ -83,7 +81,7 @@ void SkullbonezWindow::HandleScreenResize()
         Cfg().frustumFar );
 }
 
-/* -- CHANGE TO FULLSCREEN --------------------------------------------------------*/
+
 void SkullbonezWindow::ChangeToFullScreen( int xResolution, int yResolution )
 {
     /*
@@ -135,13 +133,13 @@ void SkullbonezWindow::ChangeToFullScreen( int xResolution, int yResolution )
     }
 }
 
-/* -- SETUP PIXEL FORMAT ----------------------------------------------------------*/
+
 bool SkullbonezWindow::SetupPixelFormat()
 {
     // Create an instance of our window class
     SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
     PIXELFORMATDESCRIPTOR pfd = { 0 }; // Declare struct to describe out pixel format
-    int pixelFormat = 0;                  // To hold our bits per pixel information
+    int pixelFormat = 0;               // To hold our bits per pixel information
 
     // We now fill the PIXELFORMATDESCRIPTOR struct with what we want
     pfd.nSize = sizeof( PIXELFORMATDESCRIPTOR ); // Set size of struct
@@ -176,7 +174,7 @@ bool SkullbonezWindow::SetupPixelFormat()
     return true; // If we have made it down to here we have succeeded
 }
 
-/* -- WndProc FUNCTION ------------------------------------------------------------*/
+
 // "Windows Procedure" - this function handles messages for our window
 LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 {
@@ -232,7 +230,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
     return DefWindowProc( hWnd, iMsg, wParam, lParam );
 }
 
-/* -- GLAD LOADER CALLBACK --------------------------------------------------------*/
+
 // GLAD needs a loader that returns GL function pointers.  For core GL 1.1
 // functions Windows exposes them directly from opengl32.dll; everything
 // else comes from wglGetProcAddress.
@@ -250,7 +248,7 @@ static GLADapiproc GladLoadFunc( const char* name )
     return p;
 }
 
-/* -- INITIALISE OPEN GL ----------------------------------------------------------*/
+
 void SkullbonezWindow::InitialiseOpenGL()
 {
     SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
@@ -329,21 +327,21 @@ void SkullbonezWindow::InitialiseOpenGL()
     HandleScreenResize();
 }
 
-/* -- CREATE APP WINDOW -----------------------------------------------------------*/
+
 void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
 {
-    HWND hWnd = nullptr;          // Handle to our window
+    HWND hWnd = nullptr;       // Handle to our window
     WNDCLASS wndclass = { 0 }; // Window class struct
-    DWORD dwStyle = 0;            // Window style
+    DWORD dwStyle = 0;         // Window style
 
-    wndclass.style = CS_HREDRAW | CS_VREDRAW;         // Vert and Horiz redraw
-    wndclass.lpfnWndProc = WndProc;                   // Assign callback function
-    wndclass.hInstance = hInstance;                   // Assign hInstance
+    wndclass.style = CS_HREDRAW | CS_VREDRAW;            // Vert and Horiz redraw
+    wndclass.lpfnWndProc = WndProc;                      // Assign callback function
+    wndclass.hInstance = hInstance;                      // Assign hInstance
     wndclass.hIcon = LoadIcon( nullptr, IDI_WINLOGO );   // Default icon
     wndclass.hCursor = LoadCursor( nullptr, IDC_ARROW ); // Arrow cursor
     wndclass.hbrBackground =
         reinterpret_cast<HBRUSH>( GetStockObject( WHITE_BRUSH ) ); // White client background
-    wndclass.lpszClassName = WINDOW_NAME;      // Assign class name
+    wndclass.lpszClassName = WINDOW_NAME;                          // Assign class name
 
     RegisterClass( &wndclass ); // Register class with OS
 
@@ -374,10 +372,10 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
                          0,           // Window yPos
                          Cfg().screenX,
                          Cfg().screenY,
-                         nullptr,      // Parent window handle
-                         nullptr,      // Window menu handle
+                         nullptr,   // Parent window handle
+                         nullptr,   // Window menu handle
                          hInstance, // Application instance
-                         nullptr );    // Data to pass to WndProc
+                         nullptr ); // Data to pass to WndProc
 
     if ( !hWnd )
     {
@@ -391,14 +389,14 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
     m_sWindow = hWnd;
 }
 
-/* -- SET TITLE TEXT --------------------------------------------------------------*/
+
 void SkullbonezWindow::SetTitleText( const char* cText )
 {
     // set the window title text
     SetWindowText( m_sWindow, cText );
 }
 
-/* -- MSG BOX ---------------------------------------------------------------------*/
+
 int SkullbonezWindow::MsgBox( const char* cMsgBoxText,
                               const char* cMsgBoxTitle,
                               const UINT iMsgBoxType )

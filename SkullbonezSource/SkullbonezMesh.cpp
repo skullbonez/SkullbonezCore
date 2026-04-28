@@ -1,10 +1,11 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezMesh.h"
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Rendering;
 
-/* -- CONSTRUCTOR -----------------------------------------------------------------*/
+
 Mesh::Mesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords, GLenum drawMode )
 {
     m_vertexCount = vertexCount;
@@ -62,7 +63,7 @@ Mesh::Mesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoor
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
 }
 
-/* -- DESTRUCTOR ------------------------------------------------------------------*/
+
 Mesh::~Mesh()
 {
     if ( m_vbo )
@@ -75,7 +76,7 @@ Mesh::~Mesh()
     }
 }
 
-/* -- DRAW ------------------------------------------------------------------------*/
+
 void Mesh::Draw() const
 {
     glBindVertexArray( m_vao );
@@ -83,7 +84,7 @@ void Mesh::Draw() const
     glBindVertexArray( 0 );
 }
 
-/* -- GET VERTEX COUNT ------------------------------------------------------------*/
+
 int Mesh::GetVertexCount() const
 {
     return m_vertexCount;
