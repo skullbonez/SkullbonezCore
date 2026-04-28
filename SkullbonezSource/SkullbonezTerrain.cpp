@@ -31,6 +31,13 @@ Terrain::Terrain( const char* sFileName,
         "SkullbonezData/shaders/lit_textured.vert",
         "SkullbonezData/shaders/lit_textured.frag" );
 
+    m_terrainShader->Use();
+    m_terrainShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
+    m_terrainShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
+    m_terrainShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
+    m_terrainShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
+    m_terrainShader->SetInt( "uTexture", 0 );
+
     // m_height map no longer needed after build
     m_terrainData.clear();
     m_terrainData.shrink_to_fit();
@@ -96,27 +103,14 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, const floa
     m_terrainShader->SetMat4( "uView", view );
     m_terrainShader->SetMat4( "uProjection", projection );
 
-    // Transform light m_position to view space (matches FFP behavior)
+    // Transform light position to view space
     float lx = view.m[0] * lightPosition[0] + view.m[4] * lightPosition[1] + view.m[8] * lightPosition[2] + view.m[12] * lightPosition[3];
     float ly = view.m[1] * lightPosition[0] + view.m[5] * lightPosition[1] + view.m[9] * lightPosition[2] + view.m[13] * lightPosition[3];
     float lz = view.m[2] * lightPosition[0] + view.m[6] * lightPosition[1] + view.m[10] * lightPosition[2] + view.m[14] * lightPosition[3];
     float lw = lightPosition[3];
     m_terrainShader->SetVec4( "uLightPosition", lx, ly, lz, lw );
 
-    // Light properties (matching FFP StateSetup values)
-    m_terrainShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
-    m_terrainShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
-
-    // Default GL material properties
-    m_terrainShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
-    m_terrainShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
-
-    // Texture sampler
-    m_terrainShader->SetInt( "uTexture", 0 );
-
     m_terrainMesh->Draw();
-
-    // Restore FFP for other subsystems
 }
 
 

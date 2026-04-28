@@ -77,6 +77,11 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
         sphereShader = std::make_unique<Shader>(
             "SkullbonezData/shaders/lit_textured.vert",
             "SkullbonezData/shaders/lit_textured.frag" );
+        sphereShader->Use();
+        sphereShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
+        sphereShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
+        sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
+        sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
     }
 
     if ( isTransparent )
@@ -96,10 +101,6 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
     sphereShader->SetMat4( "uProjection", proj );
     sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
     sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
-    sphereShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
-    sphereShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
-    sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
-    sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
 }
 
 
