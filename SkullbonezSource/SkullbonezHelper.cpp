@@ -112,7 +112,6 @@ void SkullbonezHelper::DrawSphereBatchModel( const Matrix4& model )
 
 void SkullbonezHelper::DrawSphereBatchEnd()
 {
-    glUseProgram( 0 );
     glDisable( GL_BLEND );
 }
 

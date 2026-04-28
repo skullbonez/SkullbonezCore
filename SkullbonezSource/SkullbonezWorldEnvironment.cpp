@@ -84,7 +84,6 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
     m_oceanShader->SetInt( "uFlatWater", flatWater ? 1 : 0 );
     m_oceanMesh->Draw();
 
-    glUseProgram( 0 );
     glDisable( GL_BLEND );
 }
 
