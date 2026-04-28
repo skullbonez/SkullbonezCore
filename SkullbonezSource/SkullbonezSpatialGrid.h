@@ -47,7 +47,7 @@ class SpatialGrid
     {
         int64_t key;
         uint32_t generation;
-        int head;  // index into entries[], -1 = empty
+        int head; // index into entries[], -1 = empty
         int count;
     };
 

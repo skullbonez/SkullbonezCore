@@ -127,6 +127,19 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
     m.minMs = FLT_MAX;
     m.maxMs = 0.0f;
 
+    // GPU state initialised to inactive
+    m.hasGpu = false;
+    m.gpuAllocated = false;
+    m.gpuWrittenThisFrame = false;
+    m.gpuWriteCursor = 0;
+    m.gpuReadCursor = 0;
+    m.gpuLastFrameMs = 0.0f;
+    m.gpuAvgMs = 0.0f;
+    m.gpuRingFilled = 0;
+    m.gpuRingHead = 0;
+    std::memset( m.gpuQueries, 0, sizeof( m.gpuQueries ) );
+    std::memset( m.gpuRingMs, 0, sizeof( m.gpuRingMs ) );
+
     // Resolve parentIndex by stripping last '/' segment and looking up that prefix
     if ( m.depth == 0 )
     {
@@ -227,6 +240,131 @@ void Profiler::End( const char* fullPath, uint32_t hash )
 }
 
 
+void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
+{
+    int idx = FindOrRegister( fullPath, hash );
+    Marker& m = m_markers[idx];
+    m.hasGpu = true;
+
+    // Lazy-allocate GPU query objects
+    if ( !m.gpuAllocated )
+    {
+        glGenQueries( GPU_QUERY_DEPTH * 2, &m.gpuQueries[0][0] );
+        m.gpuAllocated = true;
+        m.gpuWriteCursor = 0;
+        m.gpuReadCursor = 0;
+    }
+
+    // Check if ring is full (all slots pending) — skip this frame's GPU timing
+    int pending = ( m.gpuWriteCursor - m.gpuReadCursor + GPU_QUERY_DEPTH ) % GPU_QUERY_DEPTH;
+    if ( pending >= GPU_QUERY_DEPTH - 1 )
+    {
+        return; // buffer full, skip GPU timing this frame
+    }
+
+    glQueryCounter( m.gpuQueries[m.gpuWriteCursor][0], GL_TIMESTAMP );
+    m.gpuWrittenThisFrame = true;
+}
+
+
+void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
+{
+    int idx = FindOrRegister( fullPath, hash );
+    Marker& m = m_markers[idx];
+
+    if ( !m.gpuWrittenThisFrame )
+    {
+        return; // GpuBegin was skipped (ring full), skip end too
+    }
+
+    glQueryCounter( m.gpuQueries[m.gpuWriteCursor][1], GL_TIMESTAMP );
+}
+
+
+void Profiler::ReadPendingGpuResults()
+{
+    for ( int i = 0; i < m_markerCount; ++i )
+    {
+        Marker& m = m_markers[i];
+        if ( !m.hasGpu || !m.gpuAllocated )
+        {
+            continue;
+        }
+
+        // Try to read the oldest pending slot (non-blocking)
+        while ( m.gpuReadCursor != m.gpuWriteCursor )
+        {
+            GLuint endQuery = m.gpuQueries[m.gpuReadCursor][1];
+            GLuint available = 0;
+            glGetQueryObjectuiv( endQuery, GL_QUERY_RESULT_AVAILABLE, &available );
+
+            if ( !available )
+            {
+                break; // not ready yet — don't block
+            }
+
+            // Both timestamps are ready (end was issued after begin, so begin is certainly done)
+            GLuint64 beginTs = 0, endTs = 0;
+            glGetQueryObjectui64v( m.gpuQueries[m.gpuReadCursor][0], GL_QUERY_RESULT, &beginTs );
+            glGetQueryObjectui64v( endQuery, GL_QUERY_RESULT, &endTs );
+
+            float gpuMs = 0.0f;
+            if ( endTs > beginTs )
+            {
+                gpuMs = static_cast<float>( static_cast<double>( endTs - beginTs ) / 1000000.0 ); // ns → ms
+            }
+
+            m.gpuLastFrameMs = gpuMs;
+
+            // Commit to GPU ring buffer
+            m.gpuRingMs[m.gpuRingHead] = gpuMs;
+            m.gpuRingHead = ( m.gpuRingHead + 1 ) % RING_SIZE;
+            if ( m.gpuRingFilled < RING_SIZE )
+            {
+                ++m.gpuRingFilled;
+            }
+
+            m.gpuReadCursor = ( m.gpuReadCursor + 1 ) % GPU_QUERY_DEPTH;
+        }
+    }
+}
+
+
+void Profiler::AdvanceGpuWriteCursors()
+{
+    for ( int i = 0; i < m_markerCount; ++i )
+    {
+        Marker& m = m_markers[i];
+        if ( m.gpuWrittenThisFrame )
+        {
+            m.gpuWriteCursor = ( m.gpuWriteCursor + 1 ) % GPU_QUERY_DEPTH;
+            m.gpuWrittenThisFrame = false;
+        }
+    }
+}
+
+
+void Profiler::InvalidateGpuQueries()
+{
+    for ( int i = 0; i < m_markerCount; ++i )
+    {
+        Marker& m = m_markers[i];
+        // Don't call glDeleteQueries — context is already gone
+        m.hasGpu = false;
+        m.gpuAllocated = false;
+        m.gpuWrittenThisFrame = false;
+        m.gpuWriteCursor = 0;
+        m.gpuReadCursor = 0;
+        m.gpuLastFrameMs = 0.0f;
+        m.gpuAvgMs = 0.0f;
+        m.gpuRingFilled = 0;
+        m.gpuRingHead = 0;
+        std::memset( m.gpuQueries, 0, sizeof( m.gpuQueries ) );
+        std::memset( m.gpuRingMs, 0, sizeof( m.gpuRingMs ) );
+    }
+}
+
+
 void Profiler::FrameBegin()
 {
     if ( m_inFrame )
@@ -238,6 +376,9 @@ void Profiler::FrameBegin()
         AbortMismatch( "FrameBegin with non-empty stack", nullptr );
     }
     m_inFrame = true;
+
+    // Read any pending GPU results from previous frames (non-blocking)
+    ReadPendingGpuResults();
 
     // Reset per-frame accumulators
     for ( int i = 0; i < m_markerCount; ++i )
@@ -267,6 +408,9 @@ void Profiler::FrameEnd()
     {
         AbortMismatch( "FrameEnd with open markers (missing PROFILE_END)", m_markers[m_stackIndices[m_stackTop - 1]].name );
     }
+
+    // Advance GPU write cursors for markers that recorded timestamps this frame
+    AdvanceGpuWriteCursors();
 
     // Commit per-frame totals into ring buffer; compute p50 / p99
     static float scratch[RING_SIZE]; // single-threaded — safe to be static
@@ -315,7 +459,7 @@ void Profiler::FrameEnd()
         }
     }
 
-    // Moving average refreshed every 500 ms
+    // Moving average refreshed every 500 ms (CPU and GPU)
     LARGE_INTEGER t;
     QueryPerformanceCounter( &t );
     int64_t elapsedMs = ( t.QuadPart - m_lastAvgTicks ) * 1000 / m_qpcFrequency;
@@ -325,6 +469,8 @@ void Profiler::FrameEnd()
         for ( int i = 0; i < m_markerCount; ++i )
         {
             Marker& m = m_markers[i];
+
+            // CPU average
             int n = m.ringFilled;
             if ( n > 0 )
             {
@@ -334,6 +480,21 @@ void Profiler::FrameEnd()
                     sum += m.ringMs[k];
                 }
                 m.avgMs = static_cast<float>( sum / n );
+            }
+
+            // GPU average
+            if ( m.hasGpu )
+            {
+                int gn = m.gpuRingFilled;
+                if ( gn > 0 )
+                {
+                    double gsum = 0.0;
+                    for ( int k = 0; k < gn; ++k )
+                    {
+                        gsum += m.gpuRingMs[k];
+                    }
+                    m.gpuAvgMs = static_cast<float>( gsum / gn );
+                }
             }
         }
     }
@@ -361,6 +522,10 @@ void Profiler::WritePerfCSVHeader( FILE* f ) const
     for ( int i = 0; i < m_markerCount; ++i )
     {
         fprintf( f, ",%s", m_markers[i].name );
+        if ( m_markers[i].hasGpu )
+        {
+            fprintf( f, ",%s_gpu", m_markers[i].name );
+        }
     }
     fprintf( f, "\n" );
 }
@@ -372,6 +537,10 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
     for ( int i = 0; i < m_markerCount; ++i )
     {
         fprintf( f, ",%.4f", m_markers[i].lastFrameMs );
+        if ( m_markers[i].hasGpu )
+        {
+            fprintf( f, ",%.4f", m_markers[i].gpuLastFrameMs );
+        }
     }
     fprintf( f, "\n" );
 }
@@ -381,10 +550,21 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
 {
     using SkullbonezCore::Text::Text2d;
 
+    // Check if any marker has GPU timing
+    bool anyGpu = false;
+    for ( int i = 0; i < m_markerCount; ++i )
+    {
+        if ( m_markers[i].hasGpu && m_markers[i].gpuRingFilled > 0 )
+        {
+            anyGpu = true;
+            break;
+        }
+    }
+
     // Layout constants
     const float padX = fSize * 0.6f;
     const float padY = lineHeight * 1.2f;
-    const float panelW = fSize * 46.0f;
+    const float panelW = anyGpu ? fSize * 53.0f : fSize * 46.0f;
     const float rowsHeight = static_cast<float>( m_markerCount + 2 ) * lineHeight; // +2 for header + column labels
 
     const float yBottom = yAnchor + padY;
@@ -396,20 +576,24 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     // Color palette
     const float hdrR = 1.0f, hdrG = 0.85f, hdrB = 0.2f; // gold header
     const float colR = 0.6f, colG = 0.6f, colB = 0.6f;  // grey column headers
+    const float gpuR = 0.4f, gpuG = 0.8f, gpuB = 1.0f;  // cyan for GPU values
 
     // Column x-offsets
     const float colName = 0.0f;
     const float colAvg = fSize * 11.0f;
-    const float colP50 = fSize * 18.0f;
-    const float colP99 = fSize * 25.0f;
-    const float colMin = fSize * 32.0f;
-    const float colMax = fSize * 39.0f;
+    const float colGpu = anyGpu ? fSize * 18.0f : -1.0f;
+    const float colP50 = anyGpu ? fSize * 25.0f : fSize * 18.0f;
+    const float colP99 = anyGpu ? fSize * 32.0f : fSize * 25.0f;
+    const float colMin = anyGpu ? fSize * 39.0f : fSize * 32.0f;
+    const float colMax = anyGpu ? fSize * 46.0f : fSize * 39.0f;
 
-    // Look up Frame and VsyncWait for CPU time
+    // Look up Frame, VsyncWait, and PipelineSync for CPU time
     static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
     static constexpr uint32_t kVsyncHash = ::HashStr( "Frame/VsyncWait" );
+    static constexpr uint32_t kPipelineSyncHash = ::HashStr( "Frame/PipelineSync" );
     float frameAvgMs = 0.0f;
     float vsyncAvgMs = 0.0f;
+    float pipelineSyncAvgMs = 0.0f;
     for ( int i = 0; i < m_markerCount; ++i )
     {
         if ( m_markers[i].hash == kFrameHash )
@@ -420,8 +604,12 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
         {
             vsyncAvgMs = m_markers[i].avgMs;
         }
+        else if ( m_markers[i].hash == kPipelineSyncHash )
+        {
+            pipelineSyncAvgMs = m_markers[i].avgMs;
+        }
     }
-    const float cpuMs = frameAvgMs - vsyncAvgMs;
+    const float cpuMs = frameAvgMs - vsyncAvgMs - pipelineSyncAvgMs;
 
     // Header line
     float y = yTop;
@@ -430,7 +618,11 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
 
     // Column labels
     Text2d::Render2dTextColor( xLeft + colName, y, fSize, colR, colG, colB, "MARKER" );
-    Text2d::Render2dTextColor( xLeft + colAvg, y, fSize, colR, colG, colB, "AVG" );
+    Text2d::Render2dTextColor( xLeft + colAvg, y, fSize, colR, colG, colB, "CPU" );
+    if ( anyGpu )
+    {
+        Text2d::Render2dTextColor( xLeft + colGpu, y, fSize, gpuR, gpuG, gpuB, "GPU" );
+    }
     Text2d::Render2dTextColor( xLeft + colP50, y, fSize, colR, colG, colB, "P50" );
     Text2d::Render2dTextColor( xLeft + colP99, y, fSize, colR, colG, colB, "P99" );
     Text2d::Render2dTextColor( xLeft + colMin, y, fSize, colR, colG, colB, "MIN" );
@@ -460,7 +652,7 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
 
         // Traffic light color based on proportion of CPU budget
         float mr, mg, mb;
-        if ( m.hash == kVsyncHash )
+        if ( m.hash == kVsyncHash || m.hash == kPipelineSyncHash )
         {
             mr = 0.5f;
             mg = 0.5f;
@@ -491,6 +683,17 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
 
         Text2d::Render2dTextColor( xLeft + colName, y, fSize, mr, mg, mb, "%-14s", nameBuf );
         Text2d::Render2dTextColor( xLeft + colAvg, y, fSize, mr, mg, mb, "%6.2f", m.avgMs );
+        if ( anyGpu )
+        {
+            if ( m.hasGpu && m.gpuRingFilled > 0 )
+            {
+                Text2d::Render2dTextColor( xLeft + colGpu, y, fSize, gpuR, gpuG, gpuB, "%6.2f", m.gpuAvgMs );
+            }
+            else
+            {
+                Text2d::Render2dTextColor( xLeft + colGpu, y, fSize, colR, colG, colB, "    - " );
+            }
+        }
         Text2d::Render2dTextColor( xLeft + colP50, y, fSize, mr, mg, mb, "%6.2f", m.p50Ms );
         Text2d::Render2dTextColor( xLeft + colP99, y, fSize, mr, mg, mb, "%6.2f", m.p99Ms );
         Text2d::Render2dTextColor( xLeft + colMin, y, fSize, mr, mg, mb, "%6.2f", m.minMs );
