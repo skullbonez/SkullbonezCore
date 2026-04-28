@@ -7,37 +7,36 @@ description: Standard development pipeline for SkullbonezCore. Build, render tes
 
 The full verify-and-commit pipeline after a code change. **Every step must pass before proceeding to the next.** Every commit MUST include updated reference images and performance test artifacts.
 
-### Step 0: Lint & Format
+### Step 0: Verify Formatting
 
-Run pre-commit hooks to validate code quality, headers, braces, line endings, and whitespace:
+Check that all source files are properly formatted. **Any formatting violations must be fixed before proceeding.**
+
+Uses `--dry-run -Werror` which exits non-zero and prints warnings for any file that would be changed. Do NOT compare clang-format stdout against file contents — PowerShell's pipeline mangles the output.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
-cd $REPO
+$clangfmt = "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\x64\bin\clang-format.exe"
+$files = @(Get-ChildItem "$REPO\SkullbonezSource\*.cpp") + @(Get-ChildItem "$REPO\SkullbonezSource\*.h")
+$bad = @()
 
-# Install pre-commit if needed
-py -m pip install pre-commit -q
-py -m pre_commit install -q
+foreach ($f in $files) {
+    & $clangfmt --dry-run -Werror $f.FullName 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { $bad += $f.Name }
+}
 
-# Run all hooks on staged files
-py -m pre_commit run --all-files 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "LINT FAILED: Fix errors reported above (headers, braces, formatting, line endings)"
+if ($bad.Count -gt 0) {
+    Write-Host "FAIL: $($bad.Count) files need formatting:"
+    $bad | ForEach-Object { Write-Host "  $_" }
+    Write-Host "Run Step 1 to auto-fix."
     exit 1
 }
-Write-Host "PASS: All lint checks passed"
+
+Write-Host "PASS: All $($files.Count) files are correctly formatted"
 ```
 
-The hooks check:
-- **header-consistency**: No ASCII art headers (except SkullbonezCommon.h)
-- **no-braceless-multiline**: Multi-line `if/for/while` must use braces
-- **clang-format**: Code formatting (Allman braces, spacing, LF line endings)
-- **fix-crlf**: Normalize line endings to LF
-- **trim-whitespace**: Remove trailing spaces
+If this fails, proceed to Step 1 (Format) to auto-fix, then re-run Step 0.
 
-**If lint fails**: The hooks auto-fix most issues. Re-run the command above. Manual fixes needed only for header or brace violations — see `.githooks/README.md`.
-
-### Step 1: Format (Legacy clang-format fallback)
+### Step 1: Format (auto-fix)
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
@@ -46,10 +45,10 @@ $REPO = (git rev-parse --show-toplevel).Trim()
 # them being merged into the middle of the collapsed line)
 py "$REPO\Copilot\Skills\collapse_params.py"
 
-# Apply full clang-format style (Allman braces, spaces, LF line endings, etc.)
-$clangFormat = "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\bin\clang-format.exe"
-$files = Get-ChildItem "$REPO\SkullbonezSource" -Include *.cpp,*.h -Recurse
-foreach ($f in $files) { & $clangFormat -i $f.FullName }
+# Apply clang-format in-place (Allman braces, spaces, LF line endings, etc.)
+$clangfmt = "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\x64\bin\clang-format.exe"
+$files = @(Get-ChildItem "$REPO\SkullbonezSource\*.cpp") + @(Get-ChildItem "$REPO\SkullbonezSource\*.h")
+foreach ($f in $files) { & $clangfmt -i $f.FullName }
 Write-Host "Formatted $($files.Count) files"
 ```
 
