@@ -36,10 +36,11 @@ class GameModelCollection
 {
 
   private:
-    std::vector<GameModel> m_gameModels;    // Collection of game models
-    SpatialGrid m_spatialGrid;              // Broadphase spatial grid for collision culling
-    std::unique_ptr<Mesh> m_shadowMesh;     // Shadow disc mesh (unit m_radius)
-    std::unique_ptr<Shader> m_shadowShader; // Shadow disc m_shader
+    std::vector<GameModel> m_gameModels;               // Collection of game models
+    SpatialGrid m_spatialGrid;                         // Broadphase spatial grid for collision culling
+    std::vector<std::pair<int, int>> m_candidatePairs; // Retained-capacity pair buffer (avoids per-frame alloc)
+    std::unique_ptr<Mesh> m_shadowMesh;                // Shadow disc mesh (unit m_radius)
+    std::unique_ptr<Shader> m_shadowShader;            // Shadow disc m_shader
 
     void BuildShadowMesh(); // Builds the unit-radius shadow disc mesh
 

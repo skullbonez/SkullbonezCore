@@ -2,11 +2,10 @@
 
 
 // --- Includes ---
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 #include <utility>
 #include <cstdint>
+#include <cstring>
 #include <cmath>
 #include "SkullbonezCommon.h"
 #include "SkullbonezVector3.h"
@@ -24,24 +23,45 @@ namespace CollisionDetection
 {
 /* -- Spatial Grid ------------------------------------------------------------------------------------------------------------------------------------------
 
-    Uniform spatial grid for broadphase collision detection.  Subdivides world space into fixed-size cells and generates
-    candidate collision pairs from objects sharing cells.  Reduces pair testing from O(n^2) to O(n + k).
+    Zero-allocation uniform spatial grid for broadphase collision detection.  Uses open-addressing hash table with
+    generation stamping (no per-frame clearing) and a flat index pool.  Pair deduplication via triangular bit array.
+    Complexity: O(n + k) where n = objects and k = candidate pairs.  No heap allocations after construction.
 -------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class SpatialGrid
 {
 
   private:
-    float cellSize;                                      // Width of each grid cell
-    float inverseCellSize;                               // Precomputed 1/cellSize for fast floor division
-    std::unordered_map<int64_t, std::vector<int>> cells; // Maps hashed cell key to list of model indices
+    static constexpr int TABLE_SIZE = 1024;
+    static constexpr int TABLE_MASK = TABLE_SIZE - 1;
+    static constexpr int MAX_CELL_ENTRIES = 4096;
+    static constexpr int MAX_OBJECTS = 512;
+    static constexpr int PAIR_WORDS = ( MAX_OBJECTS * ( MAX_OBJECTS - 1 ) / 2 + 63 ) / 64;
 
-    int64_t HashCell( int ix, int iy, int iz ); // Combines cell coords into a single hash key
+    struct Bucket
+    {
+        int64_t key;
+        uint32_t generation;
+        uint16_t start;
+        uint16_t count;
+    };
+
+    float cellSize;
+    float inverseCellSize;
+    uint32_t generation;
+    int indexPoolUsed;
+    int objectCount;
+
+    Bucket buckets[TABLE_SIZE];
+    int indexPool[MAX_CELL_ENTRIES];
+    uint64_t pairSeen[PAIR_WORDS];
+
+    int FindOrCreate( int64_t key );
 
   public:
-    SpatialGrid( float fCellSize );                                       // Constructor
-    void Clear();                                                         // Clears all cell contents
-    void Insert( int index, const Vector3& position, float radius );      // Inserts an object into all overlapping cells
-    void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs ); // Generates unique candidate collision pairs
+    SpatialGrid( float fCellSize );
+    void Clear();
+    void Insert( int index, const Vector3& position, float radius );
+    void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs );
 };
 } // namespace CollisionDetection
 } // namespace Math
