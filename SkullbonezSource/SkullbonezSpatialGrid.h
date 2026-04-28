@@ -24,8 +24,9 @@ namespace CollisionDetection
 /* -- Spatial Grid ------------------------------------------------------------------------------------------------------------------------------------------
 
     Zero-allocation uniform spatial grid for broadphase collision detection.  Uses open-addressing hash table with
-    generation stamping (no per-frame clearing) and a flat index pool.  Pair deduplication via triangular bit array.
-    Complexity: O(n + k) where n = objects and k = candidate pairs.  No heap allocations after construction.
+    generation stamping (no per-frame clearing) and a flat index pool with linked lists per cell.  Pair deduplication
+    via triangular bit array.  Complexity: O(n + k) where n = objects and k = candidate pairs.
+    No heap allocations after construction.
 -------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class SpatialGrid
 {
@@ -36,22 +37,28 @@ class SpatialGrid
     static constexpr int MAX_CELL_ENTRIES = 4096;
     static constexpr int PAIR_WORDS = ( MAX_GAME_MODELS * ( MAX_GAME_MODELS - 1 ) / 2 + 63 ) / 64;
 
+    struct Entry
+    {
+        int objectIndex;
+        int next; // index into entries[], -1 = end of list
+    };
+
     struct Bucket
     {
         int64_t key;
         uint32_t generation;
-        uint16_t start;
-        uint16_t count;
+        int head;  // index into entries[], -1 = empty
+        int count;
     };
 
     float cellSize;
     float inverseCellSize;
     uint32_t generation;
-    int indexPoolUsed;
+    int entryPoolUsed;
     int objectCount;
 
     Bucket buckets[TABLE_SIZE];
-    int indexPool[MAX_CELL_ENTRIES];
+    Entry entries[MAX_CELL_ENTRIES];
     uint64_t pairSeen[PAIR_WORDS];
 
     int FindOrCreate( int64_t key );

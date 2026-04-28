@@ -7,7 +7,7 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 
 
 SpatialGrid::SpatialGrid( float fCellSize )
-    : cellSize( fCellSize ), inverseCellSize( 1.0f / fCellSize ), generation( 0 ), indexPoolUsed( 0 ), objectCount( 0 )
+    : cellSize( fCellSize ), inverseCellSize( 1.0f / fCellSize ), generation( 0 ), entryPoolUsed( 0 ), objectCount( 0 )
 {
     memset( buckets, 0, sizeof( buckets ) );
 }
@@ -16,7 +16,7 @@ SpatialGrid::SpatialGrid( float fCellSize )
 void SpatialGrid::Clear()
 {
     ++generation;
-    indexPoolUsed = 0;
+    entryPoolUsed = 0;
     objectCount = 0;
 }
 
@@ -31,10 +31,9 @@ int SpatialGrid::FindOrCreate( int64_t key )
 
         if ( b.generation != generation )
         {
-            // Stale bucket — claim it
             b.key = key;
             b.generation = generation;
-            b.start = static_cast<uint16_t>( indexPoolUsed );
+            b.head = -1;
             b.count = 0;
             return idx;
         }
@@ -47,7 +46,6 @@ int SpatialGrid::FindOrCreate( int64_t key )
         idx = ( idx + 1 ) & TABLE_MASK;
     }
 
-    // Table full — should never happen with TABLE_SIZE >> expected cells
     return 0;
 }
 
@@ -81,14 +79,13 @@ void SpatialGrid::Insert( int index, const Vector3& position, float radius )
                 int bi = FindOrCreate( key );
                 Bucket& b = buckets[bi];
 
-                if ( indexPoolUsed < MAX_CELL_ENTRIES )
+                if ( entryPoolUsed < MAX_CELL_ENTRIES )
                 {
-                    // Entries must be contiguous: only append if this bucket is at the pool tail
-                    if ( b.count == 0 || b.start + b.count == indexPoolUsed )
-                    {
-                        indexPool[indexPoolUsed++] = index;
-                        ++b.count;
-                    }
+                    entries[entryPoolUsed].objectIndex = index;
+                    entries[entryPoolUsed].next = b.head;
+                    b.head = entryPoolUsed;
+                    ++entryPoolUsed;
+                    ++b.count;
                 }
             }
         }
@@ -100,7 +97,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
 {
     outPairs.clear();
 
-    // Clear only the bits we need: n*(n-1)/2 bits for objectCount objects
+    // Clear pair dedup bits
     int pairBits = objectCount * ( objectCount - 1 ) / 2;
     int wordsNeeded = ( pairBits + 63 ) / 64;
     if ( wordsNeeded > PAIR_WORDS )
@@ -117,15 +114,23 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
             continue;
         }
 
-        int end = b.start + b.count;
-        for ( int i = b.start; i < end - 1; ++i )
+        // Collect cell indices into a local buffer for O(c^2) pair generation
+        int cellIndices[64];
+        int cellCount = 0;
+        int cur = b.head;
+        while ( cur != -1 && cellCount < 64 )
         {
-            for ( int j = i + 1; j < end; ++j )
-            {
-                int a = indexPool[i];
-                int bIdx = indexPool[j];
+            cellIndices[cellCount++] = entries[cur].objectIndex;
+            cur = entries[cur].next;
+        }
 
-                // Ensure a < bIdx for canonical pair
+        for ( int i = 0; i < cellCount - 1; ++i )
+        {
+            for ( int j = i + 1; j < cellCount; ++j )
+            {
+                int a = cellIndices[i];
+                int bIdx = cellIndices[j];
+
                 if ( a > bIdx )
                 {
                     int tmp = a;
