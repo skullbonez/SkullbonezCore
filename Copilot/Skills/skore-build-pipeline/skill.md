@@ -7,9 +7,37 @@ description: Standard development pipeline for SkullbonezCore. Build, render tes
 
 The full verify-and-commit pipeline after a code change. **Every step must pass before proceeding to the next.** Every commit MUST include updated reference images and performance test artifacts.
 
-### Step 0: Format
+### Step 0: Lint & Format
 
-First collapse any multi-line parameter lists to single lines, then run clang-format.
+Run pre-commit hooks to validate code quality, headers, braces, line endings, and whitespace:
+
+```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
+cd $REPO
+
+# Install pre-commit if needed
+py -m pip install pre-commit -q
+py -m pre_commit install -q
+
+# Run all hooks on staged files
+py -m pre_commit run --all-files 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "LINT FAILED: Fix errors reported above (headers, braces, formatting, line endings)"
+    exit 1
+}
+Write-Host "PASS: All lint checks passed"
+```
+
+The hooks check:
+- **header-consistency**: No ASCII art headers (except SkullbonezCommon.h)
+- **no-braceless-multiline**: Multi-line `if/for/while` must use braces
+- **clang-format**: Code formatting (Allman braces, spacing, LF line endings)
+- **fix-crlf**: Normalize line endings to LF
+- **trim-whitespace**: Remove trailing spaces
+
+**If lint fails**: The hooks auto-fix most issues. Re-run the command above. Manual fixes needed only for header or brace violations — see `.githooks/README.md`.
+
+### Step 1: Format (Legacy clang-format fallback)
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
@@ -27,7 +55,7 @@ Write-Host "Formatted $($files.Count) files"
 
 **If clang-format is not found**: check VS2022 is installed with C++ LLVM tools.
 
-### Step 1: Build
+### Step 2: Build
 
 Build using the `skore-build` skill. Must produce **0 errors and 0 warnings**.
 
@@ -42,13 +70,13 @@ $msbuild = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.e
 
 **If build fails**: Fix errors, rebuild. Do not proceed.
 
-### Step 2: Render Test
+### Step 3: Render Test
 
 Run the `skore-render-test` skill. Launches **both test scenes in a single process** via `--suite SkullbonezData/scenes/render_tests.suite`. Produces 4 screenshots (2 per scene — before and after GL reset), then runs pixel comparison against baselines. All 6 comparison pairs must pass.
 
-**If render test fails**: Convert screenshots to PNG and send them to the model via the `view` tool for LLM visual comparison. **Only send PNGs to the model if local pixel comparison fails** — do not waste context on images that pass. Evaluate against the 6-point checklist in the `skore-render-test` skill. If the change intentionally alters rendering, update baselines in Step 3. If unintentional, investigate and fix before proceeding.
+**If render test fails**: Convert screenshots to PNG and send them to the model via the `view` tool for LLM visual comparison. **Only send PNGs to the model if local pixel comparison fails** — do not waste context on images that pass. Evaluate against the 6-point checklist in the `skore-render-test` skill. If the change intentionally alters rendering, update baselines in Step 4. If unintentional, investigate and fix before proceeding.
 
-### Step 3: Update Reference Images
+### Step 4: Update Reference Images
 
 **Mandatory for every commit.** Capture fresh baselines from the current build:
 
@@ -98,7 +126,7 @@ The analysis script writes a JSON artifact to `Skills/skore-render-test/perf_his
 
 Regression thresholds: avg/p50 timing >10%, p99/p99.9 >20%, memory >5 MB.
 
-### Step 5: Legacy Smoke Test
+### Step 6: Legacy Smoke Test
 
 Quick check that default mode (no `--scene`) still runs without crashing:
 
@@ -120,7 +148,7 @@ if ($proc) {
 
 **If smoke test fails**: Debug with `skore-cdb-debug` skill.
 
-### Step 6: Commit
+### Step 7: Commit
 
 Only if **all** previous steps pass. The commit MUST include:
 - Code changes
