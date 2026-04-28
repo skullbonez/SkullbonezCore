@@ -1,13 +1,11 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezTextureCollection.h"
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Textures;
 
-/* -- SINGLETON INSTANCE INITIALISATION -------------------------------------------*/
-TextureCollection* TextureCollection::pInstance = 0;
 
-/* -- CONSTRUCTOR -----------------------------------------------------------------*/
 TextureCollection::TextureCollection()
 {
     m_nextAvailableTextureIndex = 0;
@@ -20,7 +18,7 @@ TextureCollection::TextureCollection()
     }
 }
 
-/* -- SINGLETON CONSTRUCTOR -------------------------------------------------------*/
+
 TextureCollection* TextureCollection::Instance()
 {
     if ( !TextureCollection::pInstance )
@@ -31,17 +29,17 @@ TextureCollection* TextureCollection::Instance()
     return TextureCollection::pInstance;
 }
 
-/* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
+
 void TextureCollection::Destroy()
 {
     if ( TextureCollection::pInstance )
     {
         TextureCollection::pInstance->DeleteAllTextures();
-        TextureCollection::pInstance = 0;
+        TextureCollection::pInstance = nullptr;
     }
 }
 
-/* -- DECODE JPEG -----------------------------------------------------------------*/
+
 void TextureCollection::DecodeJPEG( jpeg_decompress_struct* info,
                                     tImageJPG* pImageData )
 {
@@ -82,7 +80,7 @@ void TextureCollection::DecodeJPEG( jpeg_decompress_struct* info,
     jpeg_finish_decompress( info );
 }
 
-/* -- LOAD JPEG -------------------------------------------------------------------*/
+
 tImageJPG* TextureCollection::LoadJPEG( const char* cFileName )
 {
     struct jpeg_decompress_struct cinfo;
@@ -119,7 +117,7 @@ tImageJPG* TextureCollection::LoadJPEG( const char* cFileName )
     return pImageData;
 }
 
-/* -- UPDATE COUNTERS -------------------------------------------------------------*/
+
 void TextureCollection::UpdateCounters()
 {
     // reset the counter
@@ -149,7 +147,7 @@ void TextureCollection::UpdateCounters()
     }
 }
 
-/* -- FIND INDEX ------------------------------------------------------------------*/
+
 int TextureCollection::FindIndex( uint32_t hash )
 {
     for ( int count = 0; count < TOTAL_TEXTURE_COUNT; ++count )
@@ -163,7 +161,7 @@ int TextureCollection::FindIndex( uint32_t hash )
     throw std::runtime_error( "Texture does not exist.  (TextureCollection::FindIndex)" );
 }
 
-/* -- DELETE ALL TEXTURES ---------------------------------------------------------*/
+
 void TextureCollection::DeleteAllTextures()
 {
     // delete all OpenGL m_textures
@@ -183,7 +181,7 @@ void TextureCollection::DeleteAllTextures()
     UpdateCounters();
 }
 
-/* -- DELETE TEXTURE --------------------------------------------------------------*/
+
 void TextureCollection::DeleteTexture( uint32_t hash )
 {
     int index = FindIndex( hash );
@@ -196,19 +194,19 @@ void TextureCollection::DeleteTexture( uint32_t hash )
     UpdateCounters();
 }
 
-/* -- NUM FREE TEXTURE SPACES -----------------------------------------------------*/
+
 int TextureCollection::NumFreeTextureSpaces()
 {
     return TOTAL_TEXTURE_COUNT - m_textureCounter;
 }
 
-/* -- SELECT TEXTURE --------------------------------------------------------------*/
+
 void TextureCollection::SelectTexture( uint32_t hash )
 {
     glBindTexture( GL_TEXTURE_2D, m_textureArray[FindIndex( hash )] );
 }
 
-/* -- CREATE JPEG TEXTURE ---------------------------------------------------------*/
+
 void TextureCollection::CreateJpegTexture( const char* cFileName,
                                            uint32_t hash )
 {

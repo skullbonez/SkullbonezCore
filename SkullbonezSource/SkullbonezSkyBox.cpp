@@ -1,14 +1,12 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezSkyBox.h"
 #include <vector>
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Geometry;
 
-/* -- SINGLETON INSTANCE INITIALISATION -------------------------------------------*/
-SkyBox* SkyBox::pInstance = 0;
 
-/* -- CONSTRUCTOR -----------------------------------------------------------------*/
 SkyBox::SkyBox( int m_xMin,
                 int m_xMax,
                 int yMin,
@@ -25,7 +23,7 @@ SkyBox::SkyBox( int m_xMin,
     m_textures = 0;
 }
 
-/* -- LOAD TEXTURES ---------------------------------------------------------------*/
+
 void SkyBox::LoadTextures()
 {
     m_textures = TextureCollection::Instance();
@@ -38,7 +36,7 @@ void SkyBox::LoadTextures()
     m_textures->CreateJpegTexture( cfg.skyDown.c_str(), TEXTURE_SKY_DOWN );
 }
 
-/* -- BUILD MESHES ----------------------------------------------------------------*/
+
 void SkyBox::BuildMeshes()
 {
     // Shorthand for boundary values with overflow
@@ -277,7 +275,7 @@ void SkyBox::BuildMeshes()
         "SkullbonezData/shaders/unlit_textured.frag" );
 }
 
-/* -- SINGLETON CONSTRUCTOR -------------------------------------------------------*/
+
 SkyBox* SkyBox::Instance( int m_xMin, int m_xMax, int yMin, int yMax, int m_zMin, int m_zMax )
 {
     if ( !SkyBox::pInstance )
@@ -288,7 +286,7 @@ SkyBox* SkyBox::Instance( int m_xMin, int m_xMax, int yMin, int yMax, int m_zMin
     return SkyBox::pInstance;
 }
 
-/* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
+
 void SkyBox::Destroy()
 {
     if ( SkyBox::pInstance )
@@ -298,11 +296,11 @@ void SkyBox::Destroy()
             SkyBox::pInstance->m_faceMeshes[i].reset();
         }
         SkyBox::pInstance->m_shader.reset();
-        SkyBox::pInstance = 0;
+        SkyBox::pInstance = nullptr;
     }
 }
 
-/* -- RESET GL RESOURCES ----------------------------------------------------------*/
+
 void SkyBox::ResetGLResources()
 {
     for ( int i = 0; i < 6; ++i )
@@ -314,7 +312,7 @@ void SkyBox::ResetGLResources()
     BuildMeshes();
 }
 
-/* -- RENDER ----------------------------------------------------------------------*/
+
 void SkyBox::Render( const Matrix4& view, const Matrix4& proj )
 {
     // Identity model matrix (transform baked into view via FFP matrix stack)

@@ -19,17 +19,14 @@
                                       SKULLBONEZ
 -----------------------------------------------------------------------------------*/
 
-/* -- INCLUDE GUARDS --------------------------------------------------------------*/
-#ifndef SKULLBONEZ_COMMON_H
-#define SKULLBONEZ_COMMON_H
+#pragma once
 
-/* -- JPEG INCLUDE ----------------------------------------------------------------*/
+
+// --- Includes ---
 #include "jpeglib.h"
 
-/* -- EXCLUDE RARELY USED HEADERS -------------------------------------------------*/
 #define WIN32_LEAN_AND_MEAN
 
-/* -- INCLUDES --------------------------------------------------------------------*/
 #include <windows.h> // Windows
 #include <stdlib.h>  // Standard Library
 #include <stdio.h>   // Standard Input/Output
@@ -41,14 +38,11 @@
 #include <vector>    // std::vector
 #include <glad/gl.h> // GLAD OpenGL 3.3 Core Loader
 
-/* -- GL LIBS ---------------------------------------------------------------------*/
 #pragma comment( lib, "opengl32.lib" )
 
-/* -- ENABLE HEAP DEBUGGING -------------------------------------------------------*/
 #include <crtdbg.h>
 #define CRTDBG_MAP_ALLOC
 
-/* -- COMPILE-TIME CONSTANTS ------------------------------------------------------*/
 // Array-sizing counts (must remain compile-time)
 constexpr int TOTAL_CAMERA_COUNT = 3;
 constexpr int TOTAL_TEXTURE_COUNT = 8;
@@ -70,7 +64,6 @@ constexpr float TOLERANCE = 0.00005f;
 constexpr float ONE_PLUS_TOLERANCE = 1.00005f;
 constexpr float ZERO_TAKE_TOLERANCE = -0.00005f;
 
-/* -- RUNTIME CONFIGURATION -------------------------------------------------------*/
 // All other engine parameters live in SkullbonezConfig (loaded from engine.cfg).
 #include "SkullbonezConfig.h"
 
@@ -80,14 +73,14 @@ inline SkullbonezCore::Basics::SkullbonezConfig& Cfg()
     return SkullbonezCore::Basics::SkullbonezConfig::Instance();
 }
 
-/* -- HASH FUNCTION ---------------------------------------------------------------*/
+
 // FNV-1a 32-bit compile-time hash for string keys
 constexpr uint32_t HashStr( const char* s, uint32_t hash = 2166136261u )
 {
     return ( *s == '\0' ) ? hash : HashStr( s + 1, ( hash ^ static_cast<uint32_t>( *s ) ) * 16777619u );
 }
 
-/* -- TEXTURE NAME HASHES ---------------------------------------------------------*/
+
 constexpr uint32_t TEXTURE_GROUND = HashStr( "Ground" );
 constexpr uint32_t TEXTURE_BOUNDING_SPHERE = HashStr( "BoundingSphere" );
 constexpr uint32_t TEXTURE_SKY_LEFT = HashStr( "SkyLeft" );
@@ -97,7 +90,6 @@ constexpr uint32_t TEXTURE_SKY_BACK = HashStr( "SkyBack" );
 constexpr uint32_t TEXTURE_SKY_UP = HashStr( "SkyUp" );
 constexpr uint32_t TEXTURE_SKY_DOWN = HashStr( "SkyDown" );
 
-/* -- CAMERA NAME HASHES ----------------------------------------------------------*/
 constexpr uint32_t CAMERA_GAME_MODEL_1 = HashStr( "GameModel1" );
 constexpr uint32_t CAMERA_GAME_MODEL_2 = HashStr( "GameModel2" );
 constexpr uint32_t CAMERA_FREE = HashStr( "Free" );
@@ -114,8 +106,8 @@ constexpr uint32_t CAMERA_FREE = HashStr( "Free" );
     // include this for debug purposes only////
     #include "SkullbonezWindow.h"		     //
     using namespace SkullbonezCore::Basics;  //
+
+
     ///////////////////////////////////////////
 
 -- END LIVE DEBUG CODE ------------------------------------------------------------*/
-
-#endif

@@ -1,6 +1,7 @@
-﻿#ifndef SKULLBONEZ_CONFIG_H
-#define SKULLBONEZ_CONFIG_H
+#pragma once
 
+
+// --- Includes ---
 #include <string>
 
 namespace SkullbonezCore
@@ -107,5 +108,3 @@ class SkullbonezConfig
 
 } // namespace Basics
 } // namespace SkullbonezCore
-
-#endif

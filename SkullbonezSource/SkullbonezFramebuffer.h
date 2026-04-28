@@ -1,8 +1,7 @@
-/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
-#ifndef SKULLBONEZ_FRAMEBUFFER_H
-#define SKULLBONEZ_FRAMEBUFFER_H
+#pragma once
 
-/* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Includes ---
 #include "SkullbonezCommon.h"
 
 namespace SkullbonezCore
@@ -28,7 +27,7 @@ class Framebuffer
 
   public:
     Framebuffer( int width, int height ); // Create FBO at given resolution
-    ~Framebuffer();                 // Delete all GL objects
+    ~Framebuffer();                       // Delete all GL objects
 
     void Bind() const;              // Bind as render target
     void Unbind() const;            // Restore default framebuffer
@@ -39,5 +38,3 @@ class Framebuffer
 };
 } // namespace Rendering
 } // namespace SkullbonezCore
-
-#endif /*----------------------------------------------------------------------------------------------------------------------------------------------------------------*/

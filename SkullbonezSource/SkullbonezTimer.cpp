@@ -1,10 +1,11 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezTimer.h"
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Environment;
 
-/* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
+
 Timer::Timer()
 {
     LARGE_INTEGER tmpPerformanceFreq;
@@ -47,47 +48,47 @@ Timer::Timer()
     m_endTime = 0;
 }
 
-/* -- NO PERFORMACE COUNTER SUPPORT -----------------------------------------------*/
+
 void Timer::NoPerformanceCounterSupport()
 {
     throw std::runtime_error( "This system does not support high resolution counters (Timer::Timer)." );
 }
 
-/* -- START TIMER -----------------------------------------------------------------*/
+
 void Timer::StartTimer()
 {
     // set member m_startTime to current time
     m_startTime = GetCurrentTimeInSeconds();
 }
 
-/* -- STOP TIMER ------------------------------------------------------------------*/
+
 void Timer::StopTimer()
 {
     // set member m_endTime to current time
     m_endTime = GetCurrentTimeInSeconds();
 }
 
-/* -- GET ELAPSED TIME ------------------------------------------------------------*/
+
 double Timer::GetElapsedTime()
 {
     // return the number of seconds passed between StartTimer and EndTimer call
     return m_endTime - m_startTime;
 }
 
-/* -- GET TIME SINCE LAST START ---------------------------------------------------*/
+
 double Timer::GetTimeSinceLastStart()
 {
     // return time passed since last StartTimer call
     return GetCurrentTimeInSeconds() - m_startTime;
 }
 
-/* -- GET TOTAL TIME --------------------------------------------------------------*/
+
 double Timer::GetTotalTime()
 {
     return GetCurrentTimeInSeconds() - m_initialTime;
 }
 
-/* -- GET CURRENT TIME IN SECONDS -------------------------------------------------*/
+
 double Timer::GetCurrentTimeInSeconds()
 {
     // get the current time
@@ -98,7 +99,7 @@ double Timer::GetCurrentTimeInSeconds()
     return static_cast<double>( currTimeTmp.QuadPart ) / m_performanceFrequency;
 }
 
-/* -- INCREMENT FRAME COUNT -------------------------------------------------------*/
+
 bool Timer::IncrementFrameCount()
 {
     // set the frame timer to the current time if the frame counter has been reset
@@ -114,7 +115,7 @@ bool Timer::IncrementFrameCount()
     return ( GetCurrentTimeInSeconds() - m_frameTimer > 1 );
 }
 
-/* -- STORE FPS AND RESET FRAME COUNTER -------------------------------------------*/
+
 void Timer::StoreFpsAndResetFrameCounter()
 {
     // store fps count
@@ -124,7 +125,7 @@ void Timer::StoreFpsAndResetFrameCounter()
     m_frameCountCurrentSecond = 0;
 }
 
-/* -- GET CURRENT FPS -------------------------------------------------------------*/
+
 int Timer::GetCurrentFPS()
 {
     return m_currentFPSValue;

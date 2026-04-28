@@ -1,10 +1,11 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezGeometricMath.h"
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Math;
 
-/* -- COMPUTE TRIANGLE NORMAL -----------------------------------------------------*/
+
 Vector3 GeometricMath::ComputeTriangleNormal( const Triangle& triangle )
 {
     // get the vectors representing the edges of the triangle
@@ -20,7 +21,7 @@ Vector3 GeometricMath::ComputeTriangleNormal( const Triangle& triangle )
     return m_normal;
 }
 
-/* -- COMPUTE PLANE ---------------------------------------------------------------*/
+
 Plane GeometricMath::ComputePlane( const Triangle& triangle )
 {
     Plane plane;
@@ -37,7 +38,7 @@ Plane GeometricMath::ComputePlane( const Triangle& triangle )
     return plane;
 }
 
-/* -- DETERMINE POINT DIST FROM PLANE ---------------------------------------------*/
+
 float GeometricMath::DeterminePointDistFromPlane( const Plane& plane,
                                                   const Vector3& point )
 {
@@ -46,7 +47,7 @@ float GeometricMath::DeterminePointDistFromPlane( const Plane& plane,
     return ( plane.m_normal * point - plane.m_distance );
 }
 
-/* -- CLASSIFY POINT AGAINST PLANE ------------------------------------------------*/
+
 GeometricMath::PointPlaneClassification
 GeometricMath::ClassifyPointAgainstPlane( const Plane& plane,
                                           const Vector3& point )
@@ -70,7 +71,7 @@ GeometricMath::ClassifyPointAgainstPlane( const Plane& plane,
     return PointPlaneClassification::CoincideWithPlane;
 }
 
-/* -- GET HEIGHT FROM PLANE -------------------------------------------------------*/
+
 float GeometricMath::GetHeightFromPlane( const Triangle& triangle,
                                          float xCoord,
                                          float zCoord )
@@ -94,7 +95,7 @@ float GeometricMath::GetHeightFromPlane( const Triangle& triangle,
     return -( normalDist / sinf( theta ) );
 }
 
-/* -- CALCULATE INTERSECTION TIME ---------------------------------------------------*/
+
 float GeometricMath::CalculateIntersectionTime( const Plane& plane,
                                                 const Ray& ray )
 {
@@ -125,7 +126,7 @@ float GeometricMath::CalculateIntersectionTime( const Plane& plane,
     return -( ( ( plane.m_normal * ray.origin ) - plane.m_distance ) / denominator );
 }
 
-/* -- CALCULATE INTERSECTION TIME ---------------------------------------------------*/
+
 float GeometricMath::CalculateIntersectionTime( const Triangle& triangle,
                                                 const Ray& ray )
 {
@@ -134,7 +135,7 @@ float GeometricMath::CalculateIntersectionTime( const Triangle& triangle,
         ray );
 }
 
-/* -- COMPUTE INTERSECTION POINT -----------------------------------------------------*/
+
 Vector3 GeometricMath::ComputeIntersectionPoint( const Plane& plane,
                                                  const Ray& ray )
 {
@@ -152,7 +153,7 @@ Vector3 GeometricMath::ComputeIntersectionPoint( const Plane& plane,
     return GeometricMath::ComputeIntersectionPoint( ray, collisionTime );
 }
 
-/* -- COMPUTE INTERSECTION POINT -----------------------------------------------------*/
+
 Vector3 GeometricMath::ComputeIntersectionPoint( const Ray& ray,
                                                  float fCollisionTime )
 {
@@ -161,7 +162,7 @@ Vector3 GeometricMath::ComputeIntersectionPoint( const Ray& ray,
     return ray.origin + ( ray.vector3 * fCollisionTime );
 }
 
-/* -- IS POINT INSIDE TRIANGLE -------------------------------------------------------*/
+
 bool GeometricMath::IsPointInsideTriangle( const Triangle& triangle,
                                            const Vector3& point )
 {
@@ -177,7 +178,7 @@ bool GeometricMath::IsPointInsideTriangle( const Triangle& triangle,
              barycentricCoords.z >= 0 );
 }
 
-/* -- COMPUTE BARYCENTRIC COORDINATES ------------------------------------------------*/
+
 Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle,
                                                       const Vector3& point )
 {

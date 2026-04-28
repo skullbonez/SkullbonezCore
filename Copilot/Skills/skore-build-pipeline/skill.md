@@ -125,6 +125,15 @@ The analysis script writes a JSON artifact to `Skills/skore-render-test/perf_his
 
 Regression thresholds: avg/p50 timing >10%, p99/p99.9 >20%, memory >5 MB.
 
+### Step 5: Lines of Code
+
+Informational — counts logical LOC (excludes blanks and comments) across all `.h` and `.cpp` files in `SkullbonezSource/`. No pass/fail; just print and note the total in the commit message.
+
+```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
+py "$REPO\Copilot\Skills\loc_count.py"
+```
+
 ### Step 6: Legacy Smoke Test
 
 Quick check that default mode (no `--scene`) still runs without crashing:

@@ -1,8 +1,7 @@
-/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
-#ifndef SKULLBONEZ_SPATIAL_GRID_H
-#define SKULLBONEZ_SPATIAL_GRID_H
+#pragma once
 
-/* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Includes ---
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -12,8 +11,10 @@
 #include "SkullbonezCommon.h"
 #include "SkullbonezVector3.h"
 
-/* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Math::Vector;
+
 
 namespace SkullbonezCore
 {
@@ -38,12 +39,10 @@ class SpatialGrid
 
   public:
     SpatialGrid( float fCellSize );                                       // Constructor
-    void Clear();                                                   // Clears all cell contents
+    void Clear();                                                         // Clears all cell contents
     void Insert( int index, const Vector3& position, float radius );      // Inserts an object into all overlapping cells
     void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs ); // Generates unique candidate collision pairs
 };
 } // namespace CollisionDetection
 } // namespace Math
 } // namespace SkullbonezCore
-
-#endif /*----------------------------------------------------------------------------------------------------------------------------------------------------------------*/

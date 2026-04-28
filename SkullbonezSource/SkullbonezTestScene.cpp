@@ -1,11 +1,12 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezTestScene.h"
 #include <cstring>
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Basics;
 
-/* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
+
 TestScene::TestScene()
 {
     m_isPhysicsEnabled = true;
@@ -20,7 +21,7 @@ TestScene::TestScene()
     m_legacyBallCount = 0;
 }
 
-/* -- LOAD FROM FILE --------------------------------------------------------------*/
+
 TestScene TestScene::LoadFromFile( const char* path )
 {
     TestScene scene;
@@ -268,79 +269,79 @@ TestScene TestScene::LoadFromFile( const char* path )
     return scene;
 }
 
-/* -- IS PHYSICS ENABLED ----------------------------------------------------------*/
+
 bool TestScene::IsPhysicsEnabled() const
 {
     return m_isPhysicsEnabled;
 }
 
-/* -- IS TEXT ENABLED -------------------------------------------------------------*/
+
 bool TestScene::IsTextEnabled() const
 {
     return m_isTextEnabled;
 }
 
-/* -- IS GL RESET TEST ------------------------------------------------------------*/
+
 bool TestScene::IsGlResetTest() const
 {
     return m_isGlResetTest;
 }
 
-/* -- GET FRAME COUNT -------------------------------------------------------------*/
+
 int TestScene::GetFrameCount() const
 {
     return m_frameCount;
 }
 
-/* -- GET SCREENSHOT PATH ---------------------------------------------------------*/
+
 const char* TestScene::GetScreenshotPath() const
 {
     return m_screenshotPath;
 }
 
-/* -- GET SCREENSHOT FRAME --------------------------------------------------------*/
+
 int TestScene::GetScreenshotFrame() const
 {
     return m_screenshotFrame;
 }
 
-/* -- GET SCREENSHOT MS -----------------------------------------------------------*/
+
 int TestScene::GetScreenshotMs() const
 {
     return m_screenshotMs;
 }
 
-/* -- GET SEED --------------------------------------------------------------------*/
+
 unsigned int TestScene::GetSeed() const
 {
     return m_seed;
 }
 
-/* -- GET LEGACY BALL COUNT -------------------------------------------------------*/
+
 int TestScene::GetLegacyBallCount() const
 {
     return m_legacyBallCount;
 }
 
-/* -- GET PERF LOG PATH -----------------------------------------------------------*/
+
 const char* TestScene::GetPerfLogPath() const
 {
     return m_perfLogPath;
 }
 
-/* -- GET CAMERA COUNT ------------------------------------------------------------*/
+
 int TestScene::GetCameraCount() const
 {
     return static_cast<int>( m_cameras.size() );
 }
 
-/* -- GET BALL COUNT --------------------------------------------------------------*/
+
 int TestScene::GetBallCount() const
 {
     return static_cast<int>( m_balls.size() );
 }
 
-/* -- GET CAMERA ------------------------------------------------------------------*/
+
 const SceneCamera& TestScene::GetCamera( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_cameras.size() ) )
@@ -351,7 +352,7 @@ const SceneCamera& TestScene::GetCamera( int index ) const
     return m_cameras[index];
 }
 
-/* -- GET BALL --------------------------------------------------------------------*/
+
 const SceneBall& TestScene::GetBall( int index ) const
 {
     if ( index < 0 || index >= static_cast<int>( m_balls.size() ) )

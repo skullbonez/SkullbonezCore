@@ -46,6 +46,9 @@ AllowAllArgumentsOnNextLine: false
 SortIncludes: Never
 IncludeBlocks: Preserve
 
+# Preserve two blank lines between functions (default MaxEmptyLinesToKeep is 1)
+MaxEmptyLinesToKeep: 2
+
 # Misc
 SpaceAfterCStyleCast: false
 SpacesInSquareBrackets: false

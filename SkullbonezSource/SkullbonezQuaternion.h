@@ -1,15 +1,16 @@
-/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
-#ifndef SKULLBONEZ_QUATERNION_H
-#define SKULLBONEZ_QUATERNION_H
+#pragma once
 
-/* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezRotationMatrix.h"
 
-/* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Math::Transformation;
+
 
 namespace SkullbonezCore
 {
@@ -25,13 +26,13 @@ class Quaternion
 {
 
   public:
-    Quaternion();                                   // Default constructor
+    Quaternion();                                         // Default constructor
     Quaternion( float fX, float fY, float fZ, float fW ); // Overloaded constructor
     ~Quaternion() = default;
-    void Identity();                                                 // Sets the quaternion back to the identity value
-    void Normalise();                                                // Normalises the quaternion (do this to combat floating point error creep)
+    void Identity();                                                       // Sets the quaternion back to the identity value
+    void Normalise();                                                      // Normalises the quaternion (do this to combat floating point error creep)
     void RotateAboutXYZ( const Vector3& vRadians );                        // Overload taking a Vector3 containing each rotation component in radians
-    RotationMatrix GetOrientationMatrix();                           // Returns the orientation expressed in matrix form
+    RotationMatrix GetOrientationMatrix();                                 // Returns the orientation expressed in matrix form
     void RotateAboutXYZ( float xRadians, float yRadians, float zRadians ); // Rotate the quaternion about the x-axis, y-axis then z-axis
     Quaternion operator*( const Quaternion& q ) const;                     // Quaternion dot product, overload * operator for this
     Quaternion& operator*=( const Quaternion& q );                         // *= Overload
@@ -48,5 +49,3 @@ const Quaternion IDENTITY_QUATERNION( 0.0f, 0.0f, 0.0f, 1.0f ); // Identity quat
 } // namespace Orientation
 } // namespace Math
 } // namespace SkullbonezCore
-
-#endif /*----------------------------------------------------------------------------------------------------------------------------------------------------------------*/

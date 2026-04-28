@@ -1,8 +1,7 @@
-/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
-#ifndef SKULLBONEZ_TEXTURE_COLLECTION_H
-#define SKULLBONEZ_TEXTURE_COLLECTION_H
+#pragma once
 
-/* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Includes ---
 #include "SkullbonezCommon.h"
 
 namespace SkullbonezCore
@@ -20,7 +19,7 @@ class TextureCollection
     TextureCollection(); // Constructor
     ~TextureCollection() = default;
 
-    static TextureCollection* pInstance;           // Singleton instance pointer
+    inline static TextureCollection* pInstance = nullptr;
     int m_textureCounter;                          // To keep track of number of m_textures created
     int m_nextAvailableTextureIndex;               // Tracks the next available index
     UINT m_textureArray[TOTAL_TEXTURE_COUNT];      // Keeps track of m_textures created by OpenGL
@@ -28,19 +27,17 @@ class TextureCollection
 
     tImageJPG* LoadJPEG( const char* cFileName );                           // Loads a jpeg file
     int FindIndex( uint32_t hash );                                         // Returns the index of the specified texture
-    void UpdateCounters();                                            // Updates texture counter members
+    void UpdateCounters();                                                  // Updates texture counter members
     void DecodeJPEG( jpeg_decompress_struct* info, tImageJPG* pImageData ); // Decodes jpeg files
 
   public:
-    static TextureCollection* Instance();                     // Call to request a pointer to the singleton instance
-    static void Destroy();                                    // Call to destroy the singleton instance
+    static TextureCollection* Instance();                           // Call to request a pointer to the singleton instance
+    static void Destroy();                                          // Call to destroy the singleton instance
     void SelectTexture( uint32_t hash );                            // Selects the texture as the OpenGL target
-    int NumFreeTextureSpaces();                               // Returns the number of free texture spaces
+    int NumFreeTextureSpaces();                                     // Returns the number of free texture spaces
     void DeleteTexture( uint32_t hash );                            // Deletes the texture from OpenGL
-    void DeleteAllTextures();                                 // Deletes all textures from OpenGL
+    void DeleteAllTextures();                                       // Deletes all textures from OpenGL
     void CreateJpegTexture( const char* cFileName, uint32_t hash ); // Creates a new texture from a jpeg file
 };
 } // namespace Textures
 } // namespace SkullbonezCore
-
-#endif /*----------------------------------------------------------------------------------------------------------------------------------------------------------------*/

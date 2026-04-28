@@ -1,8 +1,7 @@
-/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
-#ifndef SKULLBONEZ_GAME_MODEL_H
-#define SKULLBONEZ_GAME_MODEL_H
+#pragma once
 
-/* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Includes ---
 #include "SkullbonezWorldEnvironment.h"
 #include "SkullbonezCommon.h"
 #include "SkullbonezRigidBody.h"
@@ -10,11 +9,13 @@
 #include "SkullbonezTerrain.h"
 #include "SkullbonezResponseInformation.h"
 
-/* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Geometry;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
+
 
 namespace SkullbonezCore
 {
@@ -51,12 +52,12 @@ class GameModel
     bool m_isGrounded;                                  // Flag to indicate whether the model is on the ground or not
     bool m_isResponseRequired;                          // Indicates whether a response is required or not
 
-    void CalculateVolume();                                                  // Calculates the volume of the model
+    void CalculateVolume();                                                        // Calculates the volume of the model
     void ApplyWorldForces( float changeInTime );                                   // Apply forces on the body from the world environment
-    void UpdateModelInfo();                                                  // Perform this operation every time the model has objects added or removed from its object list
+    void UpdateModelInfo();                                                        // Perform this operation every time the model has objects added or removed from its object list
     float GetTerrainCollisionTime( float changeInTime );                           // Gets the time of collision between the current GameModel instance and the terrain
     float GetModelCollisionTime( GameModel& collisionTarget, float changeInTime ); // Gets the time of collision between the current GameModel instance and collisionTarget
-    void DEBUG_SetSphereToTerrain();                                         // Debug routine - ensure sphere does not go through terrain
+    void DEBUG_SetSphereToTerrain();                                               // Debug routine - ensure sphere does not go through terrain
 
   public:
     GameModel( Environment::WorldEnvironment* pWorldEnv, const Vector3& vPosition, const Vector3& vRotationalInertia, float fMass ); // Overloaded constructor
@@ -64,35 +65,33 @@ class GameModel
     GameModel( GameModel&& ) noexcept = default;            // Move constructor
     GameModel& operator=( GameModel&& ) noexcept = default; // Move assignment
 
-    Matrix4 GetModelMatrix();                                                                  // Returns the model matrix for rendering (T*R*T*S)
-    bool IsResponseRequired();                                                                 // Indicates whether a collision response is required
-    float GetSubmergedVolumePercent();                                                         // Returns the percentage of the game model submerged in fluid
-    float GetMass();                                                                           // Returns the mass of the game model
-    float GetVolume();                                                                         // Returns the volume of the game model
-    void CalculateProjectedSurfaceArea();                                                      // Calculates the sum of the surface area of the game model
-    bool IsGrounded();                                                                         // Gets the isGrounded flag
-    void SetIsGrounded( bool fIsGrounded );                                                          // Sets the isGrounded flag
-    void CalculateDragCoefficient();                                                           // Calculates the drag coefficient of the model
-    float GetProjectedSurfaceArea();                                                           // Returns the projected surface area of the model
-    float GetDragCoefficient();                                                                // Returns the drag coefficient of the model
-    const Vector3& GetPosition();                                                              // Returns the position of the game model
-    const Vector3& GetVelocity();                                                              // Returns the velocity of the model
-    const Vector3& GetAngularVelocity();                                                       // Returns the angular velocity of the model
-    void ApplyForces( float changeInTime );                                                          // Update the models velocity based on its current physicsInfo
-    void UpdatePosition( float changeInTime );                                                       // Update the models position based on its current physicsInfo
-    void SetTerrain( Geometry::Terrain* pTerrain );                                                  // Sets the terrain pointer
-    float CollisionDetectTerrain( float changeInTime );                                              // Collision detect model against terrain
-    void CollisionResponseTerrain( float changeInTime );                                             // Collision response model against terrain
-    void SetImpulseForce( const Vector3& vForce, const Vector3& vApplicationPoint );                 // Sets an impulse force for the model
-    void SetCoefficientRestitution( float fCoefficientRestitution );                                 // Sets the coefficient of restitution for the game model
-    void SetWorldForce( const Vector3& vWorldForce, const Vector3& vWorldTorque );                   // Sets the worlds forces acting on the model
-    void AddBoundingSphere( float fRadius );                                                         // Add a bounding sphere to the game model
-    float CollisionDetectGameModel( GameModel& collisionTarget, float changeInTime );                // Collision detect model against model
-    void CollisionResponseGameModel( GameModel& responseTarget );                                    // Collision response model against model (velocity-only)
-    void StaticOverlapResponseGameModel( GameModel& overlapTarget );                                 // Check for static overlap and push apart if overlapping
-    float GetBoundingRadius();                                                                 // Returns the radius of the bounding sphere
+    Matrix4 GetModelMatrix();                                                         // Returns the model matrix for rendering (T*R*T*S)
+    bool IsResponseRequired();                                                        // Indicates whether a collision response is required
+    float GetSubmergedVolumePercent();                                                // Returns the percentage of the game model submerged in fluid
+    float GetMass();                                                                  // Returns the mass of the game model
+    float GetVolume();                                                                // Returns the volume of the game model
+    void CalculateProjectedSurfaceArea();                                             // Calculates the sum of the surface area of the game model
+    bool IsGrounded();                                                                // Gets the isGrounded flag
+    void SetIsGrounded( bool fIsGrounded );                                           // Sets the isGrounded flag
+    void CalculateDragCoefficient();                                                  // Calculates the drag coefficient of the model
+    float GetProjectedSurfaceArea();                                                  // Returns the projected surface area of the model
+    float GetDragCoefficient();                                                       // Returns the drag coefficient of the model
+    const Vector3& GetPosition();                                                     // Returns the position of the game model
+    const Vector3& GetVelocity();                                                     // Returns the velocity of the model
+    const Vector3& GetAngularVelocity();                                              // Returns the angular velocity of the model
+    void ApplyForces( float changeInTime );                                           // Update the models velocity based on its current physicsInfo
+    void UpdatePosition( float changeInTime );                                        // Update the models position based on its current physicsInfo
+    void SetTerrain( Geometry::Terrain* pTerrain );                                   // Sets the terrain pointer
+    float CollisionDetectTerrain( float changeInTime );                               // Collision detect model against terrain
+    void CollisionResponseTerrain( float changeInTime );                              // Collision response model against terrain
+    void SetImpulseForce( const Vector3& vForce, const Vector3& vApplicationPoint );  // Sets an impulse force for the model
+    void SetCoefficientRestitution( float fCoefficientRestitution );                  // Sets the coefficient of restitution for the game model
+    void SetWorldForce( const Vector3& vWorldForce, const Vector3& vWorldTorque );    // Sets the worlds forces acting on the model
+    void AddBoundingSphere( float fRadius );                                          // Add a bounding sphere to the game model
+    float CollisionDetectGameModel( GameModel& collisionTarget, float changeInTime ); // Collision detect model against model
+    void CollisionResponseGameModel( GameModel& responseTarget );                     // Collision response model against model (velocity-only)
+    void StaticOverlapResponseGameModel( GameModel& overlapTarget );                  // Check for static overlap and push apart if overlapping
+    float GetBoundingRadius();                                                        // Returns the radius of the bounding sphere
 };
 } // namespace GameObjects
 } // namespace SkullbonezCore
-
-#endif /*----------------------------------------------------------------------------------------------------------------------------------------------------------------*/

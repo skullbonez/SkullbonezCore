@@ -1,16 +1,17 @@
-/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
-#ifndef SKULLBONEZ_RIGID_BODY_H
-#define SKULLBONEZ_RIGID_BODY_H
+#pragma once
 
-/* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezQuaternion.h"
 #include "SkullbonezRotationMatrix.h"
 
-/* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
+
 
 namespace SkullbonezCore
 {
@@ -52,13 +53,13 @@ class RigidBody
     Vector3 GetRollVelocity(); // Gets the linear velocity based on rolling angular velocity
 
   public:
-    RigidBody();                                                                      // Default constructor
-    ~RigidBody();                                                                     // Default destructor
-    void ApplyForces();                                                               // Update the rigid body's velocity based on its current state
+    RigidBody();                                                                            // Default constructor
+    ~RigidBody();                                                                           // Default destructor
+    void ApplyForces();                                                                     // Update the rigid body's velocity based on its current state
     void UpdatePosition( float changeInTime );                                              // Update the rigid body's position based on its current state
-    void ApplyImpulseForce();                                                         // Apply the impulse force to the body
-    void ZeroForce();                                                                 // Zero the force vectors
-    const Quaternion& GetOrientation() const;                                         // Returns the orientation quaternion
+    void ApplyImpulseForce();                                                               // Apply the impulse force to the body
+    void ZeroForce();                                                                       // Zero the force vectors
+    const Quaternion& GetOrientation() const;                                               // Returns the orientation quaternion
     void SetMass( float fMass );                                                            // Set the mass of the rigid body
     void SetFrictionCoefficient( float fFriction );                                         // Set the friction coefficient of the body
     void SetVolume( float fVolume );                                                        // Sets the volume member
@@ -67,20 +68,20 @@ class RigidBody
     void SetRotationalInertia( const Vector3& vRotationalInertia );                         // Sets the rotational inertia for the obect
     void SetChangeInAngularVelocity( const Vector3& vAngularVelocity );                     // Sets the change in angular velocity
     void SetChangeInLinearVelocity( const Vector3& vLinearVelocity );                       // Sets the change in linear velocity
-    void DampenAngularVelocity();                                                     // Dampens the angular velocity based on the friction coefficient
-    void ApplyChangeInAngularVelocity();                                              // Applies the change in angular velocity
-    void ThrottleAngularVelocity();                                                   // Slows angular velocity to ensure it does not reach astronomical speeds
-    void ApplyChangeInLinearVelocity();                                               // Applies the change in linear velocity
-    float GetCoefficientRestitution();                                                // Get the coefficient of restitution (bounciness)
-    float GetFrictionCoefficient();                                                   // Get the friction coefficient of the body
-    float GetMass();                                                                  // Returns the mass of the rigid body
-    float GetInvertedMass();                                                          // Returns the inverted mass of the rigid body
-    float GetVolume();                                                                // Returns the volume of the rigid body
-    const Vector3& GetVelocity();                                                     // Returns a const reference to the velocity of the rigid body
-    const Vector3& GetPosition();                                                     // Returns a const reference to the position of the rigid body
-    const Vector3& GetAngularVelocity();                                              // Returns a const reference to the angular velocity of the rigid body
-    const Vector3& GetRotationalInertia();                                            // Returns a const reference to the rotational inertia of the rigid body
-    float GetDensity();                                                               // Calculates and returns the density of the body
+    void DampenAngularVelocity();                                                           // Dampens the angular velocity based on the friction coefficient
+    void ApplyChangeInAngularVelocity();                                                    // Applies the change in angular velocity
+    void ThrottleAngularVelocity();                                                         // Slows angular velocity to ensure it does not reach astronomical speeds
+    void ApplyChangeInLinearVelocity();                                                     // Applies the change in linear velocity
+    float GetCoefficientRestitution();                                                      // Get the coefficient of restitution (bounciness)
+    float GetFrictionCoefficient();                                                         // Get the friction coefficient of the body
+    float GetMass();                                                                        // Returns the mass of the rigid body
+    float GetInvertedMass();                                                                // Returns the inverted mass of the rigid body
+    float GetVolume();                                                                      // Returns the volume of the rigid body
+    const Vector3& GetVelocity();                                                           // Returns a const reference to the velocity of the rigid body
+    const Vector3& GetPosition();                                                           // Returns a const reference to the position of the rigid body
+    const Vector3& GetAngularVelocity();                                                    // Returns a const reference to the angular velocity of the rigid body
+    const Vector3& GetRotationalInertia();                                                  // Returns a const reference to the rotational inertia of the rigid body
+    float GetDensity();                                                                     // Calculates and returns the density of the body
     void SetLinearVelocity( const Vector3& vLinear );                                       // Set the linear velocity of the rigid body
     void SetAngularVelocity( const Vector3& vAngular );                                     // Set the angular velocity of the rigid body
     void SetImpulseForce( const Vector3& vImpulseForce, const Vector3& vApplicationPoint ); // Set an impulse force to the rigid body
@@ -90,5 +91,3 @@ class RigidBody
 };
 } // namespace Physics
 } // namespace SkullbonezCore
-
-#endif /*----------------------------------------------------------------------------------------------------------------------------------------------------------------*/

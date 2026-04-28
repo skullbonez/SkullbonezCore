@@ -1,27 +1,27 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezGameModelCollection.h"
 #include "SkullbonezProfiler.h"
 #include "SkullbonezHelper.h"
 #include <cmath>
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Basics;
 
-/* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
+
 GameModelCollection::GameModelCollection()
     : m_spatialGrid( Cfg().broadphaseCell )
 {
     m_gameModels.reserve( 200 );
 };
 
-/* -- ADD GAME MODEL --------------------------------------------------------------*/
 void GameModelCollection::AddGameModel( GameModel gameModel )
 {
     m_gameModels.push_back( std::move( gameModel ) );
 }
 
-/* -- RENDER MODELS ---------------------------------------------------------------*/
+
 void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4] )
 {
     if ( m_gameModels.empty() )
@@ -38,7 +38,7 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
     SkullbonezHelper::DrawSphereBatchEnd();
 }
 
-/* -- RENDER SHADOWS --------------------------------------------------------------*/
+
 void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
                                          const Matrix4& view,
                                          const Matrix4& proj )
@@ -117,7 +117,7 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
     glDisable( GL_BLEND );
 }
 
-/* -- GET MODEL POSITION ----------------------------------------------------------*/
+
 Vector3 GameModelCollection::GetModelPosition( int index )
 {
     if ( index < 0 || index >= static_cast<int>( m_gameModels.size() ) )
@@ -128,7 +128,7 @@ Vector3 GameModelCollection::GetModelPosition( int index )
     return m_gameModels[index].GetPosition();
 }
 
-/* -- RUN PHYSICS -------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
 void GameModelCollection::RunPhysics( float fChangeInTime )
 {
     std::vector<float> timeRemaining( static_cast<int>( m_gameModels.size() ), fChangeInTime );
@@ -234,7 +234,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     PROFILE_END( "Frame/Physics/Integrate" );
 }
 
-/* -- BUILD SHADOW MESH -----------------------------------------------------------*/
+
 void GameModelCollection::BuildShadowMesh()
 {
     // Unit-m_radius disc in XZ plane, converted from triangle fan to triangles.
@@ -267,7 +267,7 @@ void GameModelCollection::BuildShadowMesh()
                                                "SkullbonezData/shaders/shadow.frag" );
 }
 
-/* -- RESET GL RESOURCES ----------------------------------------------------------*/
+
 void GameModelCollection::ResetGLResources()
 {
     m_shadowMesh.reset();

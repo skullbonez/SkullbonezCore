@@ -1,15 +1,16 @@
-﻿/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
-#ifndef SKULLBONEZ_COLLISION_RESPONSE_H
-#define SKULLBONEZ_COLLISION_RESPONSE_H
+#pragma once
 
-/* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezGameModel.h"
 #include "SkullbonezGeometricStructures.h"
 
-/* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Geometry;
+
 
 namespace SkullbonezCore
 {
@@ -38,5 +39,3 @@ class CollisionResponse
 };
 } // namespace Physics
 } // namespace SkullbonezCore
-
-#endif /*----------------------------------------------------------------------------------------------------------------------------------------------------------------*/

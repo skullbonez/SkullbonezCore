@@ -1,24 +1,25 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezBoundingSphere.h"
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
 
-/* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
+
 BoundingSphere::BoundingSphere()
     : m_radius( 0.0f )
 {
 }
 
-/* -- OVERLOADED CONSTRUCTOR ------------------------------------------------------*/
+
 BoundingSphere::BoundingSphere( float fRadius,
                                 const Vector3& vPosition )
     : m_position( vPosition ), m_radius( fRadius )
 {
 }
 
-/* -- COLLISION DETECT ------------------------------------------------------------*/
+
 float BoundingSphere::CollisionDetect( const BoundingSphere& target,
                                        const Ray& targetRay,
                                        const Ray& focusRay ) const
@@ -74,7 +75,7 @@ float BoundingSphere::CollisionDetect( const BoundingSphere& target,
     return collisionStartDist / displacement;
 }
 
-/* -- TEST COLLISION --------------------------------------------------------------*/
+
 float BoundingSphere::TestCollision( const BoundingSphere& target,
                                      const Ray& targetRay,
                                      const Ray& focusRay ) const
@@ -82,38 +83,38 @@ float BoundingSphere::TestCollision( const BoundingSphere& target,
     return CollisionDetect( target, targetRay, focusRay );
 }
 
-/* -- GET RADIUS ------------------------------------------------------------------*/
+
 float BoundingSphere::GetRadius() const
 {
     return m_radius;
 }
 
-/* -- GET BOUNDING RADIUS ---------------------------------------------------------*/
+
 float BoundingSphere::GetBoundingRadius() const
 {
     return m_radius;
 }
 
-/* -- GET POSITION ----------------------------------------------------------------*/
+
 const Vector3& BoundingSphere::GetPosition() const
 {
     return m_position;
 }
 
-/* -- GET MODEL MATRIX ------------------------------------------------------------*/
+
 Matrix4 BoundingSphere::GetModelMatrix( const Vector3& worldPos, const Matrix4& rotation ) const
 {
     return Matrix4::Translate( worldPos ) * rotation * Matrix4::Translate( m_position ) * Matrix4::Scale( m_radius, m_radius, m_radius );
 }
 
-/* -- GET VOLUME ------------------------------------------------------------------*/
+
 float BoundingSphere::GetVolume() const
 {
     // m_volume of sphere = 4/3 * PI * m_radius^3
     return FOUR_OVER_THREE * _PI * m_radius * m_radius * m_radius;
 }
 
-/* -- GET SUBMERGED VOLUME PERCENT ------------------------------------------------*/
+
 float BoundingSphere::GetSubmergedVolumePercent( float m_fluidSurfaceHeight ) const
 {
     if ( m_position.y - m_radius >= m_fluidSurfaceHeight )
@@ -144,13 +145,13 @@ float BoundingSphere::GetSubmergedVolumePercent( float m_fluidSurfaceHeight ) co
     }
 }
 
-/* -- GET DRAG COEFFICIENT --------------------------------------------------------*/
+
 float BoundingSphere::GetDragCoefficient() const
 {
     return Cfg().sphereDragCoeff;
 }
 
-/* -- GET PROJECTED SURFACE AREA --------------------------------------------------*/
+
 float BoundingSphere::GetProjectedSurfaceArea() const
 {
     // Area of circle = PI * r^2

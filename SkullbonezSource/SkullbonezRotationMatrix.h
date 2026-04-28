@@ -1,13 +1,14 @@
-/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
-#ifndef SKULLBONEZ_ROTATION_MATRIX_H
-#define SKULLBONEZ_ROTATION_MATRIX_H
+#pragma once
 
-/* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezVector3.h"
 
-/* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Math::Vector;
+
 
 namespace SkullbonezCore
 {
@@ -23,17 +24,16 @@ class RotationMatrix
 {
 
   public:
-    RotationMatrix();                                                                                              // Default constructor
+    RotationMatrix();                                                                                                    // Default constructor
     RotationMatrix( float f11, float f12, float f13, float f21, float f22, float f23, float f31, float f32, float f33 ); // Overloaded constructor
     ~RotationMatrix() = default;
-    void Identity();                        // Sets the matrix back to the identity value
+    void Identity();                              // Sets the matrix back to the identity value
     Vector3 operator*( const Vector3& v ) const;  // Rotation matrix multiplied by vector
     Vector3 operator*=( const Vector3& v ) const; // *= overload
 
   private:
     float m11, m12, m13, m21, m22, m23, m31, m32, m33; // Nine float matrix elements
 };
-/* -- END CLASS ROTATION MATRIX -----------------------------------------------------------------------------------------------------------------------------*/
 
 const RotationMatrix IDENTITY_MATRIX( 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f ); // Identity matrix
 
@@ -69,7 +69,6 @@ inline Vector3 RotatePointAboutArbitrary( float fRadians, const Vector3& vAxis, 
           = | (n.x*n.y*(1-cos(a))-n.z*sin(a)) * x   +	   (n.y^2*(1-cos(a))+cos(a))    * y	  +	  (n.y*n.z*(1-cos*a))+n.x*sin(a)) * z |
             | (n.x*n.z*(1-cos(a))+n.y*sin(a)) * x   +	(n.y*n.z*(1-cos(a))-n.x*sin(a)) * y	  +	     (n.x^2*(1-cos(a))+cos(a))    * z |
 
-
             // old code...
             vResult.x = (vAxis.x * vAxis.x * (1 - cosTheta) + cosTheta)				* vPoint.x +
                         (vAxis.x * vAxis.y * (1 - cosTheta) + vAxis.z * sinTheta)	* vPoint.y +
@@ -91,5 +90,3 @@ inline Vector3 RotatePointAboutArbitrary( float fRadians, const Vector3& vAxis, 
 } // namespace Transformation
 } // namespace Math
 } // namespace SkullbonezCore
-
-#endif /*----------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -1,15 +1,16 @@
-/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
-#ifndef SKULLBONEZ_CAMERA_H
-#define SKULLBONEZ_CAMERA_H
+#pragma once
 
-/* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezGeometricStructures.h"
 
-/* -- USING CLAUSES -----------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Geometry;
+
 
 namespace SkullbonezCore
 {
@@ -50,13 +51,13 @@ class Camera
 
     Camera(); // Default constructor
     ~Camera() = default;
-    void PrepareTranslation();                                                         // Assists in keeping translations within bounds, should be called before all translations
-    void FinishTranslation();                                                          // Assists in keeping translations within bounds, should be called after all translations
-    void ApplyMovementBuffer();                                                        // Applies a camera translation
-    void ZeroCamera();                                                                 // Sets all vector members to zero vector
-    Vector3 GetViewVectorNormalised();                                                 // Returns the normalised view vector
-    Vector3 GetViewVectorRaw();                                                        // Returns the non-normalised view vector
-    Vector3 GetRightVector();                                                          // Returns the normalised right vector
+    void PrepareTranslation();                                                               // Assists in keeping translations within bounds, should be called before all translations
+    void FinishTranslation();                                                                // Assists in keeping translations within bounds, should be called after all translations
+    void ApplyMovementBuffer();                                                              // Applies a camera translation
+    void ZeroCamera();                                                                       // Sets all vector members to zero vector
+    Vector3 GetViewVectorNormalised();                                                       // Returns the normalised view vector
+    Vector3 GetViewVectorRaw();                                                              // Returns the non-normalised view vector
+    Vector3 GetRightVector();                                                                // Returns the normalised right vector
     float UpVectorViewVectorRotationCap( float requestRadians );                             // Returns a capped value in radians of what is safe to rotate before the view vector hits the up vector
     void RecoverViewMagnitude( bool isOnBoundX, bool isOnBoundZ );                           // Recovers view magnitude if under quota, indirectly recurses FinishTranslation function
     void SetAll( const Vector3& vPosition, const Vector3& vView, const Vector3& vUpVector ); // Set all by vectors
@@ -71,5 +72,3 @@ class Camera
 };
 } // namespace Environment
 } // namespace SkullbonezCore
-
-#endif /*----------------------------------------------------------------------------------------------------------------------------------------------------------------*/

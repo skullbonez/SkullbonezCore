@@ -1,16 +1,17 @@
-/* -- INCLUDES --------------------------------------------------------------------*/
+// --- Includes ---
 #include "SkullbonezRotationMatrix.h"
 
-/* -- USING CLAUSES ---------------------------------------------------------------*/
+
+// --- Usings ---
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 
-/* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
+
 RotationMatrix::RotationMatrix()
 {
 }
 
-/* -- OVERLOADED CONSTRUCTOR ------------------------------------------------------*/
+
 RotationMatrix::RotationMatrix( float f11,
                                 float f12,
                                 float f13,
@@ -32,7 +33,7 @@ RotationMatrix::RotationMatrix( float f11,
 {
 }
 
-/* -- IDENTITY --------------------------------------------------------------------*/
+
 void RotationMatrix::Identity()
 {
     m11 = 1.0f;
@@ -48,7 +49,7 @@ void RotationMatrix::Identity()
     m33 = 1.0f;
 }
 
-/* -- OPERATOR * ------------------------------------------------------------------*/
+
 Vector3 RotationMatrix::operator*( const Vector3& v ) const
 {
     return Vector3( m11 * v.x + m12 * v.y + m13 * v.z,
@@ -56,7 +57,7 @@ Vector3 RotationMatrix::operator*( const Vector3& v ) const
                     m31 * v.x + m32 * v.y + m33 * v.z );
 }
 
-/* -- OPERATOR *= -----------------------------------------------------------------*/
+
 Vector3 RotationMatrix::operator*=( const Vector3& v ) const
 {
     return *this * v;

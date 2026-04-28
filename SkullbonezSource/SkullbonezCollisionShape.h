@@ -1,8 +1,7 @@
-﻿/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
-#ifndef SKULLBONEZ_COLLISION_SHAPE_H
-#define SKULLBONEZ_COLLISION_SHAPE_H
+#pragma once
 
-/* -- INCLUDES ----------------------------------------------------------------------------------------------------------------------------------------------------------*/
+
+// --- Includes ---
 #include <variant>
 #include "SkullbonezBoundingSphere.h"
 
@@ -102,5 +101,3 @@ inline float TestShapeCollision( const CollisionShape& focus, const CollisionSha
 } // namespace CollisionDetection
 } // namespace Math
 } // namespace SkullbonezCore
-
-#endif /*----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
