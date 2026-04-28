@@ -54,7 +54,7 @@ int SpatialGrid::FindOrCreate( int64_t key )
 
 void SpatialGrid::Insert( int index, const Vector3& position, float radius )
 {
-    if ( index >= MAX_OBJECTS )
+    if ( index >= MAX_GAME_MODELS )
     {
         return;
     }

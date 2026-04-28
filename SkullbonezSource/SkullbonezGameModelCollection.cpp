@@ -13,11 +13,12 @@ using namespace SkullbonezCore::Basics;
 GameModelCollection::GameModelCollection()
     : m_spatialGrid( Cfg().broadphaseCell )
 {
-    m_gameModels.reserve( 200 );
+    m_gameModels.reserve( MAX_GAME_MODELS );
 };
 
 void GameModelCollection::AddGameModel( GameModel gameModel )
 {
+    assert( static_cast<int>( m_gameModels.size() ) < MAX_GAME_MODELS && "Exceeded MAX_GAME_MODELS" );
     m_gameModels.push_back( std::move( gameModel ) );
 }
 
