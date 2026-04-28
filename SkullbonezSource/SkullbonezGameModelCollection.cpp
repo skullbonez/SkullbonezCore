@@ -1,10 +1,12 @@
 ﻿/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezGameModelCollection.h"
 #include "SkullbonezProfiler.h"
+#include "SkullbonezHelper.h"
 #include <cmath>
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::GameObjects;
+using namespace SkullbonezCore::Basics;
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
 GameModelCollection::GameModelCollection( void )
@@ -22,10 +24,18 @@ void GameModelCollection::AddGameModel( GameModel gameModel )
 /* -- RENDER MODELS ---------------------------------------------------------------*/
 void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4] )
 {
+    if ( m_gameModels.empty() )
+    {
+        return;
+    }
+
+    SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, Cfg().renderCollisionVolumes );
     for ( int x = 0; x < (int)m_gameModels.size(); ++x )
     {
-        m_gameModels[x].RenderCollisionBounds( view, proj, lightPos );
+        Matrix4 model = m_gameModels[x].GetModelMatrix();
+        SkullbonezHelper::DrawSphereBatchModel( model );
     }
+    SkullbonezHelper::DrawSphereBatchEnd();
 }
 
 /* -- RENDER SHADOWS --------------------------------------------------------------*/
