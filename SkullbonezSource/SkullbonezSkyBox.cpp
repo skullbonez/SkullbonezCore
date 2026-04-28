@@ -273,6 +273,9 @@ void SkyBox::BuildMeshes()
     m_shader = std::make_unique<Shader>(
         "SkullbonezData/shaders/unlit_textured.vert",
         "SkullbonezData/shaders/unlit_textured.frag" );
+    m_shader->Use();
+    m_shader->SetMat4( "uModel", Matrix4() );
+    m_shader->SetVec4( "uColorTint", 1.0f, 1.0f, 1.0f, 1.0f );
 }
 
 
@@ -315,19 +318,13 @@ void SkyBox::ResetGLResources()
 
 void SkyBox::Render( const Matrix4& view, const Matrix4& proj )
 {
-    // Identity model matrix (transform baked into view via FFP matrix stack)
-    Matrix4 identity;
-
     m_shader->Use();
-    m_shader->SetMat4( "uModel", identity );
     m_shader->SetMat4( "uView", view );
     m_shader->SetMat4( "uProjection", proj );
-    m_shader->SetVec4( "uColorTint", 1.0f, 1.0f, 1.0f, 1.0f );
 
     for ( int i = 0; i < 6; ++i )
     {
         m_textures->SelectTexture( m_faceTextures[i] );
         m_faceMeshes[i]->Draw();
     }
-
 }

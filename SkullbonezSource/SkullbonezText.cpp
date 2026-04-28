@@ -135,6 +135,8 @@ void Text2d::BuildFont( const HDC hDC, const char* cFontName )
     Text2d::pTextShader = std::make_unique<Shader>(
         "SkullbonezData/shaders/text.vert",
         "SkullbonezData/shaders/text.frag" );
+    Text2d::pTextShader->Use();
+    Text2d::pTextShader->SetInt( "uFontTexture", 0 );
 
     // Compile the solid-colour HUD quad m_shader (used by Render2dQuad)
     Text2d::pSolidShader = std::make_unique<Shader>(
@@ -273,7 +275,6 @@ static void RenderTextInternal( float xPosition, float yPosition, float fSize, f
     // Set up shader and uniforms
     Text2d::pTextShader->Use();
     Text2d::pTextShader->SetMat4( "uProjection", proj );
-    Text2d::pTextShader->SetInt( "uFontTexture", 0 );
     Text2d::pTextShader->SetVec3( "uTextColor", colR, colG, colB );
 
     glActiveTexture( GL_TEXTURE0 );
