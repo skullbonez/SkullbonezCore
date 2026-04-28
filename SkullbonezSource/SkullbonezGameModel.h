@@ -64,6 +64,7 @@ class GameModel
     GameModel( GameModel&& ) noexcept = default;            // Move constructor
     GameModel& operator=( GameModel&& ) noexcept = default; // Move assignment
 
+    Matrix4 GetRenderMatrix( void ) const;                                                             // Get model matrix for rendering
     void RenderCollisionBounds( const Matrix4& view, const Matrix4& proj, const float lightPos[4] ); // Renders the collision bounds
     bool IsResponseRequired( void );                                                                 // Indicates whether a collision response is required
     float GetSubmergedVolumePercent( void );                                                         // Returns the percentage of the game model submerged in fluid

@@ -181,6 +181,14 @@ bool GameModel::IsResponseRequired( void )
 }
 
 /* -- RENDER COLLISION BOUNDS -----------------------------------------------------*/
+Matrix4 GameModel::GetRenderMatrix( void ) const
+{
+    Matrix4 rotation = Matrix4::FromQuaternion( m_physicsInfo.GetOrientation() );
+    return std::visit( [&]( const auto& s )
+                       { return s.GetRenderMatrix( m_physicsInfo.GetPosition(), rotation ); },
+                       m_boundingVolume );
+}
+
 void GameModel::RenderCollisionBounds( const Matrix4& view, const Matrix4& proj, const float lightPos[4] )
 {
     // Build the rotation matrix from the physics m_orientation quaternion.
