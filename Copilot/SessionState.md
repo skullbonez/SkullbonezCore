@@ -69,7 +69,7 @@ None.
 ## Backlog / Future Tasks
 | ID | Task | Notes |
 |----|------|-------|
-| narrowphase-pair-regression | Investigate narrowphase 4x slowdown after broadphase rewrite | Went from 0.0105ms → 0.0442ms avg. New flat hash table broadphase appears to generate more candidate pairs than old `unordered_map` version. Need to instrument pair count, compare ordering effects on `timeRemaining` early-outs. Absolute cost still negligible (0.04ms) but should be understood. |
+| narrowphase-pair-regression | Investigate narrowphase 4x slowdown after broadphase rewrite | Went from 0.0105ms → 0.0442ms avg. Old working impl: `40960d1` (unordered_map). New impl: `f07e164` (flat hash table + linked-list pool). New broadphase appears to generate more candidate pairs. Need to instrument pair count, compare ordering effects on `timeRemaining` early-outs. Absolute cost still negligible (0.04ms) but should be understood. |
 | replace-jpeg-lib | Replace ThirdPtySource/JPEG with stb_image | Current JPEG lib is ancient bundled source. stb_image is header-only, modern, supports more formats. |
 
 ---
