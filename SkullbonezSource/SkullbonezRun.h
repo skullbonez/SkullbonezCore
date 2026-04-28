@@ -92,7 +92,7 @@ class SkullbonezRun
     void TakeInput();                                                  // Take user input
     void SetUpCameras();                                               // Camera init (legacy mode)
     void SetUpCamerasFromScene( const TestScene& scene );              // Camera init from scene file
-    void SetUpGameModels( int count = 300 );                           // Game model init (random legacy mode)
+    void SetUpGameModels( int count );                                 // Game model init (random legacy mode)
     void SetUpGameModelsFromScene( const TestScene& scene );           // Game model init from scene file
     void DrawPrimitives();                                             // Draw OpenGL primitives here
     void SetInitialOpenGlState();                                      // Sets the initial state of the OpenGL evironment

@@ -191,7 +191,7 @@ void SkullbonezRun::Initialise()
     else
     {
         SetUpCameras();
-        SetUpGameModels();
+        SetUpGameModels( DEFAULT_GAME_MODELS );
     }
 
     // Init font (HDC, font)
