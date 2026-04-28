@@ -2,16 +2,16 @@
 
 ## Branch & Last Commit
 - Branch: `main`
-- Last commit: `f07e164` — Fix broadphase spatial grid: use linked-list pool for non-contiguous cell entries
+- Last commit: `4db5cf4` — Add commit refs to narrowphase regression todo
 
 ---
 
 ## Project Summary
-A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized). All rendering uses shader-based pipeline. Profiler subsystem with debug overlay. Pre-commit linting framework.
+A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized). All rendering uses shader-based pipeline. Profiler subsystem with debug overlay. Zero-allocation broadphase spatial grid. LOC counter in pipeline.
 
 ---
 
-## Overall Progress: ALL PHASES COMPLETE
+## Overall Progress: ALL PHASES COMPLETE + OPTIMIZATION PASS
 
 | Phase | Description | Status |
 |-------|-------------|--------|
@@ -31,38 +31,25 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 | m_ Rename | All this->member → m_member convention applied | ✅ Complete |
 | Core Profile Switch | True Core Profile, remove GLU | ✅ Complete |
 | Profiler | PROFILE_BEGIN/END/SCOPED, debug overlay, traffic lights | ✅ Complete |
-| Code Quality Infra | Pre-commit hooks, clang-format pipeline verification | ✅ Complete |
+| Code Quality Infra | clang-format pipeline verification | ✅ Complete |
+| Formatting Cleanup | Banner comments removed, `#pragma once`, `inline static`, section comments | ✅ Complete |
+| GL Optimization | Remove `glUseProgram(0)`, hoist constant uniforms to init | ✅ Complete |
+| Broadphase Optimization | Zero-allocation flat hash table spatial grid (83% faster broadphase) | ✅ Complete |
 
 ---
 
-## Remaining Tasks
+## Recent Session Work (this session)
 
-None. All planned work is complete.
+1. **Formatting cleanup** (`50488ac`): Removed 541 banner comments, `#pragma once` on all 33 headers, `inline static` for all out-of-line statics, `// --- Includes ---` / `// --- Usings ---` section comments, `MaxEmptyLinesToKeep: 2` in `.clang-format`, LOC counter added to pipeline.
+2. **GL cleanup** (`40960d1`): Removed all 5 `glUseProgram(0)` calls, removed dead glScale comment. Attempted uniform location cache but reverted (2x regression from `std::string` temporaries in `unordered_map::find`).
+3. **Constant uniform hoisting** (`1a8ba3b`): Moved all never-changing uniforms to shader init time across 6 shaders. Terrain render -17.6%, text -2.7%, water -3.4%.
+4. **Broadphase optimization** (`ab41b60` → broken, fixed in `f07e164`): Replaced `unordered_map<int64_t, vector<int>>` + `unordered_set` with flat open-addressing hash table, generation stamping, linked-list entry pool, triangular bit array dedup. Result: broadphase -83%, total physics -63%.
+5. **MAX_GAME_MODELS** (`7b3c338`, `0db4839`): Global constant in `SkullbonezCommon.h`, assert on exceed, spatial grid derives from it.
 
 ---
 
 ## Uncommitted Changes (DO NOT LOSE)
 None.
-
----
-
-## Text Rendering — Technical Notes
-
-### Font Atlas Layout
-- 96 ASCII chars (32–127), 16×6 grid
-- `FONT_CELL_W=40`, `FONT_CELL_H=32`, atlas = 640×192 pixels
-- GL texture is R8 format, atlas data uploaded top-down → GL v=0 is atlas row 0 (space !)
-
-### UV Orientation (verified correct)
-- Atlas row `r` → GL v = `r*32/192` to `(r+1)*32/192`
-- Glyph visual TOP in atlas = low v in GL (atlas stored top-down, GL v=0 at bottom)
-- Quad: `y0`(screen bottom) → `v1` (high v = glyph bottom), `y1`(screen top) → `v0` (low v = glyph top) → renders right-side-up ✓
-
-### Minification Bleeding (current bug)
-- Text at fSize=0.02/0.0175 renders ~19–22px on screen, atlas chars are 32px → ~1.5–1.7× minification
-- `GL_LINEAR` without mipmaps: each screen pixel samples ~1.5 texels, footprint extends below v0 into the adjacent row
-- Symptom: faint ghost strokes from the row above appear at the top of characters (e.g., macron above 'o', extra stroke above 'S')
-- Fix: `glGenerateMipmap` selects the correct mip level for the minification ratio → no cross-row bleeding
 
 ---
 
@@ -74,12 +61,19 @@ None.
 
 ---
 
+## Known Bugs
+| # | Bug | Area | Status |
+|---|-----|------|--------|
+| 1 | Water renders through to the back faces of spheres when they intersect the water surface | Rendering / Water | Open |
+
+---
+
 ## Pipeline Rules (MANDATORY for every commit)
 Every commit must include:
 1. Updated reference images — run both render test scenes, overwrite `Copilot/Skills/skore-render-test/baseline_*.png`
 2. Performance test artifact — run perf test, write JSON to `Copilot/Skills/skore-render-test/perf_history/{commit}.json`
 3. Only send PNGs to the LLM for visual review **if local pixel comparison fails**
-4. Update `Copilot/Plans/progress.md` to reflect completed work
+4. LOC count (informational, Step 5 of pipeline)
 
 Full pipeline steps in `Copilot/Skills/skore-build-pipeline/skill.md`.
 
@@ -97,6 +91,7 @@ Full pipeline steps in `Copilot/Skills/skore-build-pipeline/skill.md`.
 | Reference baselines (4 PNG) | `Copilot/Skills/skore-render-test/baseline_*.png` |
 | CDB debug skill | `Copilot/Skills/skore-cdb-debug/skill.md` |
 | Launch skill | `Copilot/Skills/skore-launch/skill.md` |
+| LOC counter | `Copilot/Skills/loc_count.py` |
 
 ### Plans & Docs
 | What | Path |
@@ -105,15 +100,18 @@ Full pipeline steps in `Copilot/Skills/skore-build-pipeline/skill.md`.
 | **FFP migration master plan** | `Copilot/Plans/ffp-to-shader-migration.md` |
 | Test harness design | `Copilot/Plans/test-harness.md` |
 
-### Engine Source (key files for current work)
+### Engine Source (key files)
 | What | Path |
 |------|------|
-| Text rendering **(active bug)** | `SkullbonezSource/SkullbonezText.h` / `.cpp` |
-| Global config / hashes | `SkullbonezSource/SkullbonezCommon.h` |
+| Global config / hashes / MAX_GAME_MODELS | `SkullbonezSource/SkullbonezCommon.h` |
+| Spatial grid (broadphase) | `SkullbonezSource/SkullbonezSpatialGrid.h` / `.cpp` |
+| Game model collection (physics loop) | `SkullbonezSource/SkullbonezGameModelCollection.h` / `.cpp` |
 | Main render loop | `SkullbonezSource/SkullbonezRun.h` / `.cpp` |
+| Text rendering | `SkullbonezSource/SkullbonezText.h` / `.cpp` |
 | Window (context creation) | `SkullbonezSource/SkullbonezWindow.h` / `.cpp` |
 | Matrix4 class | `SkullbonezSource/SkullbonezMatrix4.h` / `.cpp` |
 | Shader class | `SkullbonezSource/SkullbonezShader.h` / `.cpp` |
+| Helper (sphere batch render) | `SkullbonezSource/SkullbonezHelper.h` / `.cpp` |
 
 ### Scene & Shader Files
 | What | Path |
@@ -121,10 +119,7 @@ Full pipeline steps in `Copilot/Skills/skore-build-pipeline/skill.md`.
 | Perf test scene | `SkullbonezData/scenes/perf_test.scene` |
 | Render test scene | `SkullbonezData/scenes/water_ball_test.scene` |
 | Legacy smoke scene | `SkullbonezData/scenes/legacy_smoke.scene` |
-| Text test scene | `SkullbonezData/scenes/text_test.scene` |
-| Text debug scene | `SkullbonezData/scenes/text_debug.scene` |
 | All GLSL shaders | `SkullbonezData/shaders/` |
-| Text shaders | `SkullbonezData/shaders/text.vert` / `text.frag` |
 
 ---
 
@@ -140,19 +135,25 @@ wglDeleteContext(...);                // then delete context
 ### Singleton Pattern
 `SkyBox`, `TextureCollection`, `CameraCollection`, `Window` use static local singletons. After `Destroy()`, `ResetGLResources()` must be called before next use.
 
+### Broadphase Spatial Grid
+- Zero-allocation: flat open-addressing hash table (1024 buckets), linked-list entry pool (4096 entries), triangular bit array for pair dedup
+- Generation stamping: no clearing needed, just bump counter each frame
+- `MAX_GAME_MODELS` (512) in `SkullbonezCommon.h` controls max objects and pair bit array size
+- Asserts fire if limit exceeded in `AddGameModel()`
+
+### Constant Uniforms
+All uniforms that never change per-frame are set once at shader creation time (not in the render loop). This includes light/material properties, texture sampler indices, identity model matrices, color tints, reflection strengths. Only view/projection/model matrices and dynamic values (time, clip plane, flags) are set per-frame.
+
 ### Build Environment
-- MSBuild v17 / VS2022 **Professional** (not Enterprise — found at `C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe`)
+- MSBuild v17 / VS2022 **Professional**
 - Win32 x86, /W4 — must be 0 errors 0 warnings
 - Kill `SKULLBONEZ_CORE.exe` before building (locks the exe → LNK1168)
 - Python via `py` command (not `python`), Pillow installed
 - Output: `Debug\SKULLBONEZ_CORE.exe`
-- Screen resolution: 1200×900 (bumped from 800×600 in recent session)
-
-### FFP Matrix Elimination (P8 — COMPLETE)
-- Camera: `CameraCollection::SetViewMatrix()` uses `Matrix4::LookAt`; `GetViewMatrix()` exposed
-- Projection: `Window::projectionMatrix` set via `Matrix4::Perspective` in `HandleScreenResize`; `GetProjectionMatrix()` exposed
-- All `glPushMatrix`, `glTranslatef`, `glScalef`, `glMultMatrixf`, `glLoadIdentity`, `glMatrixMode`, `gluLookAt`, `gluPerspective`, `glGetFloatv(GL_MODELVIEW_MATRIX)`, `glLoadMatrixf`, `glLightfv` removed
-- Skybox matrix: `baseView * Translate(eye.x, SKYBOX_RENDER_HEIGHT, eye.z) * Scale(SKY_BOX_SCALE)`
+- Screen resolution: 1200×900
+- No pre-commit hooks (removed — was broken, referencing Python 3.7 that doesn't exist)
+- clang-format: `C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\x64\bin\clang-format.exe`
+- `.clang-format` has `MaxEmptyLinesToKeep: 2` — preserves double blank lines between functions
 
 ### Fly Mode (F key)
 - Toggle with `F` — snaps to free camera, freezes physics + auto-cycle, removes terrain/XZ bounds
@@ -160,7 +161,8 @@ wglDeleteContext(...);                // then delete context
 - Exit with `F` — restores cursor, bounds, terrain clamp, resumes cycle
 
 ### Perf Test
-- 2×5s passes, 300 balls, seed 42, physics+text enabled
+- 2×5s passes, 300 balls (configurable via `legacy_balls`), seed 42, physics+text enabled
 - Memory sampled every 60 frames via `GetProcessMemoryInfo` (psapi.lib)
 - CSV: `Debug/perf_log.csv` — analysed by `Copilot/Skills/skore-render-test/analyze_perf.py`
 - Regression thresholds: avg/p50 timing >10% = FAIL, p99/p99.9 >20% = FAIL, memory >5 MB growth = FAIL
+- LOC: ~8018 (logical lines, excludes blanks/comments/ThirdPtySource)
