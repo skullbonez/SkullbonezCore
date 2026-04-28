@@ -421,13 +421,10 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ 
 }
 
 /* -- ADD CAMERA ------------------------------------------------------------------*/
-void Camera::AddCamera( const Camera& updateCamera )
+void Camera::ApplyDelta( const Camera& delta )
 {
     PrepareTranslation();
-
-    // Apply the camera delta using the existing Camera += overload.
-    *this += updateCamera;
-
+    *this += delta;
     FinishTranslation();
 }
 

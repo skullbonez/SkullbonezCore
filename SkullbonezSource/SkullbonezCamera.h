@@ -61,7 +61,7 @@ class Camera
     void RecoverViewMagnitude( bool isOnBoundX, bool isOnBoundZ );                           // Recovers view magnitude if under quota, indirectly recurses FinishTranslation function
     void SetAll( const Vector3& vPosition, const Vector3& vView, const Vector3& vUpVector ); // Set all by vectors
     void MoveCamera( const TravelDirection enumDir, float fQuantity );                       // Move the camera specified amount in specified direction
-    void AddCamera( const Camera& updateCamera );                                            // Adds a camera to the current instance
+    void ApplyDelta( const Camera& delta );                                                  // Applies a camera position/view/up delta to this camera
     void RotateCamera( float xMove, float yMove );                                           // Offers an arbitrary rotation suitable for mouse input
 
     Camera& operator=( const Camera& target );  // Equality operator overload
