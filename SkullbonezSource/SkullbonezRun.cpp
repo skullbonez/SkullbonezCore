@@ -105,7 +105,7 @@ void SkullbonezRun::Initialise()
     m_cTextures = TextureCollection::Instance();
 
     // Init OpenGL
-    this->SetInitialOpenGlState();
+    SetInitialOpenGlState();
 
     // Init m_terrain
     // path to m_height map | map size pixels | step size | times to wrap texture
@@ -169,7 +169,7 @@ void SkullbonezRun::Initialise()
             fopen_s( &m_perfLogFile, m_perfLogPath, mode );
             if ( m_perfLogFile )
             {
-                this->LogPerfMemory( "start" );
+                LogPerfMemory( "start" );
             }
         }
 
@@ -179,22 +179,22 @@ void SkullbonezRun::Initialise()
             srand( scene.GetSeed() );
         }
 
-        this->SetUpCamerasFromScene( scene );
+        SetUpCamerasFromScene( scene );
 
         // Use legacy random ball generation or explicit ball list
         if ( scene.GetLegacyBallCount() > 0 )
         {
-            this->SetUpGameModels( scene.GetLegacyBallCount() );
+            SetUpGameModels( scene.GetLegacyBallCount() );
         }
         else
         {
-            this->SetUpGameModelsFromScene( scene );
+            SetUpGameModelsFromScene( scene );
         }
     }
     else
     {
-        this->SetUpCameras();
-        this->SetUpGameModels();
+        SetUpCameras();
+        SetUpGameModels();
     }
 
     // Init font (HDC, font)
@@ -301,25 +301,25 @@ bool SkullbonezRun::Run()
 
             // Input
             PROFILE_BEGIN( "Frame/Input" );
-            this->TakeInput();
+            TakeInput();
             PROFILE_END( "Frame/Input" );
 
             // Logic (skip physics in scene mode when disabled)
             if ( !m_isSceneMode || m_isScenePhysics )
             {
-                this->UpdateLogic( static_cast<float>( secondsPerFrame ) );
+                UpdateLogic( static_cast<float>( secondsPerFrame ) );
             }
 
             // Render
             PROFILE_BEGIN( "Frame/Render" );
-            this->Render();
+            Render();
             PROFILE_END( "Frame/Render" );
 
             // Render overlay text
             if ( !m_isSceneMode || m_isSceneText )
             {
                 PROFILE_BEGIN( "Frame/Text" );
-                this->DrawWindowText( secondsPerFrame );
+                DrawWindowText( secondsPerFrame );
                 PROFILE_END( "Frame/Text" );
             }
 
@@ -340,7 +340,7 @@ bool SkullbonezRun::Run()
 
                 if ( shouldCapture )
                 {
-                    this->SaveScreenshot( m_screenshotPath );
+                    SaveScreenshot( m_screenshotPath );
                     m_isScreenshotSaved = true;
 
                     // GL reset test pass 1: force context recreation instead of exiting
@@ -394,7 +394,7 @@ bool SkullbonezRun::Run()
                 // Log memory every 60 frames (~1 second)
                 if ( ( m_currentFrame + 1 ) % 60 == 0 )
                 {
-                    this->LogPerfMemory( "periodic" );
+                    LogPerfMemory( "periodic" );
                 }
             }
 
@@ -439,7 +439,7 @@ bool SkullbonezRun::Run()
             // Perf test: restart at 5s (pass 1), exit at 5s (pass 2)
             if ( m_isPerfTest && m_cSimulationTimer.GetTimeSinceLastStart() > 5.0 )
             {
-                this->LogPerfMemory( "end" );
+                LogPerfMemory( "end" );
                 if ( sPerfPass == 0 )
                 {
                     sPerfPass++;
@@ -556,7 +556,7 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
 
     // move the camera based on input
     // (arguments are calculating time based movement quantities)
-    this->MoveCamera( fSecondsPerFrame * Cfg().keySpeed,
+    MoveCamera( fSecondsPerFrame * Cfg().keySpeed,
                       fSecondsPerFrame * Cfg().mouseSensitivity );
 
     // update camera tweening speed
@@ -570,13 +570,13 @@ void SkullbonezRun::Render()
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
     // renders camera views etc
-    this->SetViewingOrientation();
+    SetViewingOrientation();
 
     // set the camera into its m_position
     m_cCameras->SetCamera();
 
     // now camera rotation has been done, draw OpenGL primitives
-    this->DrawPrimitives();
+    DrawPrimitives();
 }
 
 /* -- DRAW PRIMITIVES ---------------------------------------------------------------------*/
@@ -822,9 +822,9 @@ void SkullbonezRun::SetViewingOrientation()
         if(m_sInputState.fAux2)
         {
             // perform the relative update
-            this->RelativeUpdateCamera(CAMERA_GAME_MODEL_1);
-            this->RelativeUpdateCamera(CAMERA_GAME_MODEL_2);
-            this->RelativeUpdateCamera(CAMERA_FREE);
+            RelativeUpdateCamera(CAMERA_GAME_MODEL_1);
+            RelativeUpdateCamera(CAMERA_GAME_MODEL_2);
+            RelativeUpdateCamera(CAMERA_FREE);
 
             // reset the relative variable as we have already performed the action on desired m_cameras
             m_cCameras->ResetRelativity();

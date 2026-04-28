@@ -37,7 +37,7 @@ class Quaternion
     Quaternion& operator*=( const Quaternion& q );                         // *= Overload
 
   private:
-    float x, y, z, w; // Quaternion components
+    float m_x, m_y, m_z, m_w; // Quaternion components
 
     Quaternion GetQtnRotatedAboutX( float fRadians ); // Returns a new quaternion that has been rotated about the X axis the quantity specified by fRadians
     Quaternion GetQtnRotatedAboutY( float fRadians ); // Returns a new quaternion that has been rotated about the Y axis the quantity specified by fRadians

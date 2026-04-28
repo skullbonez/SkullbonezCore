@@ -140,7 +140,7 @@ float BoundingSphere::GetSubmergedVolumePercent( float m_fluidSurfaceHeight ) co
         return ( ( ( ONE_OVER_THREE * _PI *
                      ( ( 3.0f * m_radius ) - yValue ) *
                      yValue * yValue ) ) /
-                 this->GetVolume() );
+                 GetVolume() );
     }
 }
 

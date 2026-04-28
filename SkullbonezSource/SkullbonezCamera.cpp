@@ -16,38 +16,38 @@ void Camera::SetAll( const Vector3& vPosition,  // Set m_position
                      const Vector3& vView,      // Set view
                      const Vector3& vUpVector ) // Set up vector
 {
-    this->Position = vPosition;
-    this->View = vView;
-    this->UpVector = vUpVector;
+    m_position = vPosition;
+    m_view = vView;
+    m_upVector = vUpVector;
 
     // set initial view vector magnitude
-    this->ViewMagnitude = Vector::Distance( this->Position, this->View );
+    m_viewMagnitude = Vector::Distance( m_position, m_view );
 
     // init movement buffer
-    this->MovementBuffer.Zero();
+    m_movementBuffer.Zero();
 
     // normalise this in case it was not supplied as a unit vector
     // (do not normalise the zero vector though)
-    if ( this->UpVector != Vector::ZERO_VECTOR )
+    if ( m_upVector != Vector::ZERO_VECTOR )
     {
-        this->UpVector.Normalise();
+        m_upVector.Normalise();
     }
 
     // init is locked mode to false by default
-    this->IsLockedMode = false;
+    m_isLockedMode = false;
 
     // init vars to do with view vector magnitude preservation
-    this->IsFinishedTranslationRecursed = false;
-    this->DoPreserveViewMagnitude = false;
+    m_isFinishedTranslationRecursed = false;
+    m_doPreserveViewMagnitude = false;
 
     // view magnitude must be initially calculated
-    this->DoCalculateViewMagnitude = true;
+    m_doCalculateViewMagnitude = true;
 
     // init the boundary to something massive until the user changes it
-    this->Boundary.m_xMin = -99999.9f;
-    this->Boundary.m_xMax = 99999.9f;
-    this->Boundary.m_zMin = -99999.9f;
-    this->Boundary.m_zMax = 99999.9f;
+    m_boundary.m_xMin = -99999.9f;
+    m_boundary.m_xMax = 99999.9f;
+    m_boundary.m_zMin = -99999.9f;
+    m_boundary.m_zMax = 99999.9f;
 }
 
 /* -- MOVE CAMERA -----------------------------------------------------------------*/
@@ -61,101 +61,101 @@ void Camera::MoveCamera( const TravelDirection enumDir,
     {
     case TravelDirection::Forward:
 
-        if ( this->IsLockedMode )
+        if ( m_isLockedMode )
         {
             // in locked mode we only want to be able to translate the camera
             // within a certain m_distance to the view point, so here we test to
             // ensure this rule is not violated
-            if ( Vector::Distance( this->Position, this->View ) < Cfg().minViewMag )
+            if ( Vector::Distance( m_position, m_view ) < Cfg().minViewMag )
             {
                 return;
             }
 
             // if there has been a change in view magnitude, we need to recalculate
-            this->DoCalculateViewMagnitude = true;
+            m_doCalculateViewMagnitude = true;
         }
 
         // movement result is along the view vector, positive direction
-        movementResults = this->GetViewVectorNormalised() * fQuantity;
+        movementResults = GetViewVectorNormalised() * fQuantity;
         break;
 
     case TravelDirection::Left:
         // left movement does not exist in locked mode
-        if ( !this->IsLockedMode )
+        if ( !m_isLockedMode )
         {
             // movement result is along the right vector, negative direction
-            movementResults = this->GetRightVector() * -fQuantity;
+            movementResults = GetRightVector() * -fQuantity;
         }
 
         break;
 
     case TravelDirection::Right:
         // right movement does not exist in locked mode
-        if ( !this->IsLockedMode )
+        if ( !m_isLockedMode )
         {
             // movement result is along the right vector, positive direction
-            movementResults = this->GetRightVector() * fQuantity;
+            movementResults = GetRightVector() * fQuantity;
         }
 
         break;
 
     case TravelDirection::Backward:
 
-        if ( this->IsLockedMode )
+        if ( m_isLockedMode )
         {
             // in locked mode we only want to be able to translate the camera
             // within a certain m_distance from the view point, so here we test to
             // ensure this rule is not violated
-            if ( Vector::Distance( this->Position, this->View ) > Cfg().maxViewMag )
+            if ( Vector::Distance( m_position, m_view ) > Cfg().maxViewMag )
             {
                 return;
             }
 
             // if there has been a change in view magnitude, we need to recalculate
-            this->DoCalculateViewMagnitude = true;
+            m_doCalculateViewMagnitude = true;
         }
 
         // movement result is along the view vector, negative direction
-        movementResults = this->GetViewVectorNormalised() * -fQuantity;
+        movementResults = GetViewVectorNormalised() * -fQuantity;
     }
 
-    this->MovementBuffer += movementResults;
+    m_movementBuffer += movementResults;
 }
 
 /* -- APPLY MOVEMENT BUFFER -------------------------------------------------------*/
 void Camera::ApplyMovementBuffer()
 {
     // store old m_position
-    Vector3 oldPosition = this->Position;
+    Vector3 oldPosition = m_position;
 
     // apply the movement vector to the camera m_position
-    this->PrepareTranslation();
-    this->Position += this->MovementBuffer;
-    this->FinishTranslation();
+    PrepareTranslation();
+    m_position += m_movementBuffer;
+    FinishTranslation();
 
     // get actual translation (movementBuffer may have been restricted)
-    Vector3 actualTranslation = this->Position - oldPosition;
+    Vector3 actualTranslation = m_position - oldPosition;
 
     // update the view vector with the m_cameras translation, however,
     // if we are in locked mode we do not move the view vector at all
-    if ( !this->IsLockedMode )
+    if ( !m_isLockedMode )
     {
-        this->View += actualTranslation;
+        m_view += actualTranslation;
     }
 
     // reset the movement buffer
-    this->MovementBuffer.Zero();
+    m_movementBuffer.Zero();
 }
 
 /* -- ROTATE CAMERA ---------------------------------------------------------------*/
 void Camera::RotateCamera( float xMove, float yMove )
 {
     // caps the y rotation quantity to avoid view-up collisions
-    float yMoveCapped = this->UpVectorViewVectorRotationCap( yMove );
+    float yMoveCapped = UpVectorViewVectorRotationCap( yMove );
 
     // the following code will move the view vector - this is not allowed
     // in locked mode
-    if ( !this->IsLockedMode )
+    if ( !m_isLockedMode )
     {
         /*
             NOTE: view member is set to original m_position plus our rotation result
@@ -169,17 +169,17 @@ void Camera::RotateCamera( float xMove, float yMove )
 
         // the mouses xMove will always represent a pivot on the up vector
         // (repsective to the camera translation)
-        this->View = this->Position +
+        m_view = m_position +
                      Transformation::RotatePointAboutArbitrary( xMove,
-                                                                this->UpVector,
-                                                                this->GetViewVectorRaw() );
+                                                                m_upVector,
+                                                                GetViewVectorRaw() );
 
         // the mouses yMove will always represent a pivot on the right vector
         // (repsective to the camera translation)
-        this->View = this->Position +
+        m_view = m_position +
                      Transformation::RotatePointAboutArbitrary( yMoveCapped,
-                                                                this->GetRightVector(),
-                                                                this->GetViewVectorRaw() );
+                                                                GetRightVector(),
+                                                                GetViewVectorRaw() );
     }
     else
     {
@@ -199,23 +199,23 @@ void Camera::RotateCamera( float xMove, float yMove )
 
         // the mouses xMove will always represent a pivot on the up vector
         // (repsective to the view point)
-        proposedTranslation = this->View +
+        proposedTranslation = m_view +
                               Transformation::RotatePointAboutArbitrary( xMove,
-                                                                         this->UpVector,
-                                                                         -this->GetViewVectorRaw() );
+                                                                         m_upVector,
+                                                                         -GetViewVectorRaw() );
 
         // store proposed translation into the movement buffer
-        this->MovementBuffer += proposedTranslation - this->Position;
+        m_movementBuffer += proposedTranslation - m_position;
 
         // the mouses yMove will always represent a pivot on the right vector
         // (repsective to the view point)
-        proposedTranslation = this->View +
+        proposedTranslation = m_view +
                               Transformation::RotatePointAboutArbitrary( yMoveCapped,
-                                                                         this->GetRightVector(),
-                                                                         -this->GetViewVectorRaw() );
+                                                                         GetRightVector(),
+                                                                         -GetViewVectorRaw() );
 
         // store proposed translation into the movement buffer
-        this->MovementBuffer += proposedTranslation - this->Position;
+        m_movementBuffer += proposedTranslation - m_position;
     }
 }
 
@@ -224,8 +224,8 @@ void Camera::PrepareTranslation()
 {
     // store the current X and Z m_position before translation
     // (we want to revert the translation if bounds are exceeded)
-    this->XZStore.x = this->Position.x;
-    this->XZStore.z = this->Position.z;
+    m_xzStore.x = m_position.x;
+    m_xzStore.z = m_position.z;
 }
 
 /* -- FINISH TRANSLATION ----------------------------------------------------------*/
@@ -235,60 +235,60 @@ void Camera::FinishTranslation()
     bool isOnBoundZ = false;
 
     // reposition X on a bound violation
-    if ( this->Position.x < this->Boundary.m_xMin + Cfg().minCameraHeight )
+    if ( m_position.x < m_boundary.m_xMin + Cfg().minCameraHeight )
     {
-        this->Position.x = this->Boundary.m_xMin + Cfg().minCameraHeight;
+        m_position.x = m_boundary.m_xMin + Cfg().minCameraHeight;
     }
-    else if ( this->Position.x > this->Boundary.m_xMax - Cfg().minCameraHeight )
+    else if ( m_position.x > m_boundary.m_xMax - Cfg().minCameraHeight )
     {
-        this->Position.x = this->Boundary.m_xMax - Cfg().minCameraHeight;
+        m_position.x = m_boundary.m_xMax - Cfg().minCameraHeight;
     }
 
     // set if X is on a boundary
-    isOnBoundX = ( ( this->Position.x ==
-                     this->Boundary.m_xMin + Cfg().minCameraHeight ) ||
-                   ( this->Position.x ==
-                     this->Boundary.m_xMax - Cfg().minCameraHeight ) );
+    isOnBoundX = ( ( m_position.x ==
+                     m_boundary.m_xMin + Cfg().minCameraHeight ) ||
+                   ( m_position.x ==
+                     m_boundary.m_xMax - Cfg().minCameraHeight ) );
 
     // reposition Z on a bound violation
-    if ( this->Position.z < this->Boundary.m_zMin + Cfg().minCameraHeight )
+    if ( m_position.z < m_boundary.m_zMin + Cfg().minCameraHeight )
     {
-        this->Position.z = this->Boundary.m_zMin + Cfg().minCameraHeight;
+        m_position.z = m_boundary.m_zMin + Cfg().minCameraHeight;
     }
-    else if ( this->Position.z > this->Boundary.m_zMax - Cfg().minCameraHeight )
+    else if ( m_position.z > m_boundary.m_zMax - Cfg().minCameraHeight )
     {
-        this->Position.z = this->Boundary.m_zMax - Cfg().minCameraHeight;
+        m_position.z = m_boundary.m_zMax - Cfg().minCameraHeight;
     }
 
     // set if Z is on a boundary
-    isOnBoundZ = ( ( this->Position.z ==
-                     this->Boundary.m_zMin + Cfg().minCameraHeight ) ||
-                   ( this->Position.z ==
-                     this->Boundary.m_zMax - Cfg().minCameraHeight ) );
+    isOnBoundZ = ( ( m_position.z ==
+                     m_boundary.m_zMin + Cfg().minCameraHeight ) ||
+                   ( m_position.z ==
+                     m_boundary.m_zMax - Cfg().minCameraHeight ) );
 
     // if we have recursed once already
-    if ( this->IsFinishedTranslationRecursed )
+    if ( m_isFinishedTranslationRecursed )
     {
         // reset the flag
-        this->IsFinishedTranslationRecursed = false;
+        m_isFinishedTranslationRecursed = false;
 
         // and exit the function
         return;
     }
 
     // if the flag has been set to recalculate the view magnitude
-    if ( this->DoCalculateViewMagnitude )
+    if ( m_doCalculateViewMagnitude )
     {
         // recalculate it
-        this->ViewMagnitude = Vector::Distance( this->Position, this->View );
+        m_viewMagnitude = Vector::Distance( m_position, m_view );
 
         // reset the flag to false
-        this->DoCalculateViewMagnitude = false;
+        m_doCalculateViewMagnitude = false;
     }
     else
     {
         // test to see if we need to recover lost view magnitude
-        this->RecoverViewMagnitude( isOnBoundX, isOnBoundZ );
+        RecoverViewMagnitude( isOnBoundX, isOnBoundZ );
     }
 }
 
@@ -296,13 +296,13 @@ void Camera::FinishTranslation()
 void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ )
 {
     // only recover view magnitude if the camera has been set to do so
-    if ( !this->DoPreserveViewMagnitude )
+    if ( !m_doPreserveViewMagnitude )
     {
         return;
     }
 
     // only recover view magnitude when in locked mode
-    if ( !this->IsLockedMode )
+    if ( !m_isLockedMode )
     {
         return;
     }
@@ -311,20 +311,20 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ 
     if ( !isOnBoundX || !isOnBoundZ )
     {
         // calculate the current view vector magnitude
-        float viewMagTmp = Vector::Distance( this->Position, this->View );
+        float viewMagTmp = Vector::Distance( m_position, m_view );
 
         // if the current view magnitude is under quota
-        if ( viewMagTmp < this->ViewMagnitude )
+        if ( viewMagTmp < m_viewMagnitude )
         {
             // store the m_cameras m_position
-            Vector3 positionStore = this->Position;
+            Vector3 positionStore = m_position;
 
             // extend the current view magnitude to its quota
-            this->Position = this->View +
-                             ( -this->GetViewVectorNormalised() * this->ViewMagnitude );
+            m_position = m_view +
+                             ( -GetViewVectorNormalised() * m_viewMagnitude );
 
             // restore the y component (we will add to this later)
-            this->Position.y = positionStore.y;
+            m_position.y = positionStore.y;
 
             // keep track of which component gets modified
             bool isModifiedComponentX;
@@ -333,10 +333,10 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ 
             if ( !isOnBoundX && !isOnBoundZ )
             {
                 // determine component distances from m_boundaries
-                float dxMin = positionStore.x - this->Boundary.m_xMin + Cfg().minCameraHeight;
-                float dxMax = this->Boundary.m_xMax - Cfg().minCameraHeight - positionStore.x;
-                float dzMin = positionStore.z - this->Boundary.m_zMin + Cfg().minCameraHeight;
-                float dzMax = this->Boundary.m_zMax - Cfg().minCameraHeight - positionStore.z;
+                float dxMin = positionStore.x - m_boundary.m_xMin + Cfg().minCameraHeight;
+                float dxMax = m_boundary.m_xMax - Cfg().minCameraHeight - positionStore.x;
+                float dzMin = positionStore.z - m_boundary.m_zMin + Cfg().minCameraHeight;
+                float dzMax = m_boundary.m_zMax - Cfg().minCameraHeight - positionStore.z;
 
                 // determine closest boundary per component
                 float dx = ( dxMin < dxMax ) ? dxMin : dxMax;
@@ -346,7 +346,7 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ 
                 if ( dx > dz )
                 {
                     // restore X component
-                    this->Position.x = positionStore.x;
+                    m_position.x = positionStore.x;
 
                     // X component is NOT being modified
                     isModifiedComponentX = false;
@@ -354,7 +354,7 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ 
                 else
                 {
                     // restore Z component
-                    this->Position.z = positionStore.z;
+                    m_position.z = positionStore.z;
 
                     // X component IS being modified
                     isModifiedComponentX = true;
@@ -363,7 +363,7 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ 
             else if ( isOnBoundZ )
             {
                 // restore X if already maxed
-                this->Position.x = positionStore.x;
+                m_position.x = positionStore.x;
 
                 // X component is NOT being modified
                 isModifiedComponentX = false;
@@ -371,51 +371,51 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ 
             else
             {
                 // restore Z if already maxed
-                this->Position.z = positionStore.z;
+                m_position.z = positionStore.z;
 
                 // X component IS being modified
                 isModifiedComponentX = true;
             }
 
             // specify we have recursed this function
-            this->IsFinishedTranslationRecursed = true;
+            m_isFinishedTranslationRecursed = true;
 
             // indirectly recurse this function to cap the vector we have
-            // just applied to this->Position
-            this->FinishTranslation();
+            // just applied to m_position
+            FinishTranslation();
 
             // check to see which component ended up getting modified
             if ( isModifiedComponentX )
             {
                 // if X was the modified component
                 // work out how much it was modified in total
-                float dx = positionStore.x - this->Position.x;
+                float dx = positionStore.x - m_position.x;
 
                 // get the absolute value representing the difference of X
                 dx = abs( dx );
 
                 // add this to the current Y translation component
-                this->Position.y += dx;
+                m_position.y += dx;
             }
             else
             {
                 // if Z was the modified component
                 // work out how much it was modified in total
-                float dz = positionStore.z - this->Position.z;
+                float dz = positionStore.z - m_position.z;
 
                 // get the absolute value representing the difference of Z
                 dz = abs( dz );
 
                 // add this to the current Y translation component
-                this->Position.y += dz;
+                m_position.y += dz;
             }
         }
         // if the current view magnitude is over quota
-        else if ( viewMagTmp > this->ViewMagnitude )
+        else if ( viewMagTmp > m_viewMagnitude )
         {
             // cap the magnitude to what it is set to
-            this->View = this->Position +
-                         ( this->GetViewVectorNormalised() * this->ViewMagnitude );
+            m_view = m_position +
+                         ( GetViewVectorNormalised() * m_viewMagnitude );
         }
     }
 }
@@ -423,25 +423,25 @@ void Camera::RecoverViewMagnitude( const bool isOnBoundX, const bool isOnBoundZ 
 /* -- ADD CAMERA ------------------------------------------------------------------*/
 void Camera::AddCamera( const Camera& updateCamera )
 {
-    this->PrepareTranslation();
+    PrepareTranslation();
 
     // Apply the camera delta using the existing Camera += overload.
     *this += updateCamera;
 
-    this->FinishTranslation();
+    FinishTranslation();
 }
 
 /* -- UP VECTOR VIEW VECTOR ROTATION CAP ------------------------------------------*/
 float Camera::UpVectorViewVectorRotationCap( float requestRadians )
 {
     // get the negated view vector (translation minus view)
-    Vector3 vNegatedView = -this->GetViewVectorNormalised();
+    Vector3 vNegatedView = -GetViewVectorNormalised();
 
     // get the amount of radians the view is to the up vector
-    float currentUpAngle = acosf( vNegatedView * this->UpVector );
+    float currentUpAngle = acosf( vNegatedView * m_upVector );
 
     // get the amount of radians the view is to the 'down vector'
-    float currentDownAngle = acosf( vNegatedView * -this->UpVector );
+    float currentDownAngle = acosf( vNegatedView * -m_upVector );
 
     // pre-detect up-vector view-vector collision, return a capped rotation angle
     if ( currentUpAngle - requestRadians < Cfg().cameraCollisionThreshold )
@@ -465,8 +465,8 @@ float Camera::UpVectorViewVectorRotationCap( float requestRadians )
 Vector3 Camera::GetRightVector()
 {
     // Get the right vector (cross of view and up vectors)
-    Vector3 vRight = Vector::CrossProduct( this->GetViewVectorNormalised(),
-                                           this->UpVector );
+    Vector3 vRight = Vector::CrossProduct( GetViewVectorNormalised(),
+                                           m_upVector );
 
     // Normalise
     vRight.Normalise();
@@ -478,7 +478,7 @@ Vector3 Camera::GetRightVector()
 /* -- GET VIEW VECTOR RAW ---------------------------------------------------------*/
 Vector3 Camera::GetViewVectorRaw()
 {
-    return this->View - this->Position;
+    return m_view - m_position;
 }
 
 /* -- GET VIEW VECTOR NORMALISED --------------------------------------------------*/
@@ -510,26 +510,26 @@ Vector3 Camera::GetViewVectorNormalised()
         The value of c is given by b-a = (1-(-1), 2-2)
         Therefore c = (2, 0)
 
-        As the member this->Position corresponds to a point in 3d space
-        where the camera is sitting, and the member this->View represents
+        As the member m_position corresponds to a point in 3d space
+        where the camera is sitting, and the member m_view represents
         a point (NOT a vector) in 3d space where the camera is looking
         directly at, in order to find the vector representing the direction
         in which we are looking (so, the vector representing the path FROM
-        the point this->Position TO the point this->View) we treat this->View
-        and this->Position as vectors beginning at the origin.  We now have a
+        the point m_position TO the point m_view) we treat m_view
+        and m_position as vectors beginning at the origin.  We now have a
         3d case similar to the 2d image above - two vectors starting at the same
         m_position representing displacement to other points in space.  In order to
         find the vector that joints the two endpoints, we use vector subtraction
         (the triangle rule).
 
         Remember, vector subtraction is NOT COMMUTITIVE, it is important that we
-        have subtracted this->View - this->Position to find the current view, as
-        this->Position - this->View would be looking in exactly the opposite
+        have subtracted m_view - m_position to find the current view, as
+        m_position - m_view would be looking in exactly the opposite
         direction to where we want to be looking (see image).
     */
 
     // Get the view vector
-    Vector3 vView = this->View - this->Position;
+    Vector3 vView = m_view - m_position;
 
     // Normalise
     vView.Normalise();
@@ -541,18 +541,18 @@ Vector3 Camera::GetViewVectorNormalised()
 /* -- ZERO CAMERA -----------------------------------------------------------------*/
 void Camera::ZeroCamera()
 {
-    this->Position.Zero();
-    this->View.Zero();
-    this->UpVector.Zero();
+    m_position.Zero();
+    m_view.Zero();
+    m_upVector.Zero();
 }
 
 /* -- OPERATOR '=' ----------------------------------------------------------------*/
 Camera& Camera::operator=( const Camera& target )
 {
-    this->Position = target.Position;
-    this->View = target.View;
-    this->UpVector = target.UpVector;
-    this->IsLockedMode = target.IsLockedMode;
+    m_position = target.m_position;
+    m_view = target.m_view;
+    m_upVector = target.m_upVector;
+    m_isLockedMode = target.m_isLockedMode;
 
     return *this;
 }
@@ -560,9 +560,9 @@ Camera& Camera::operator=( const Camera& target )
 /* -- OPERATOR '+=' ---------------------------------------------------------------*/
 Camera& Camera::operator+=( const Camera& target )
 {
-    this->Position += target.Position;
-    this->View += target.View;
-    this->UpVector += target.UpVector;
+    m_position += target.m_position;
+    m_view += target.m_view;
+    m_upVector += target.m_upVector;
 
     return *this;
 }
@@ -571,9 +571,9 @@ Camera& Camera::operator+=( const Camera& target )
 Camera Camera::operator-( const Camera& target )
 {
     Camera result;
-    result.SetAll( this->Position - target.Position,
-                   this->View - target.View,
-                   this->UpVector - target.UpVector );
+    result.SetAll( m_position - target.m_position,
+                   m_view - target.m_view,
+                   m_upVector - target.m_upVector );
 
     return result;
 }
@@ -582,9 +582,9 @@ Camera Camera::operator-( const Camera& target )
 Camera Camera::operator*( float f )
 {
     Camera result;
-    result.SetAll( this->Position * f,
-                   this->View * f,
-                   this->UpVector * f );
+    result.SetAll( m_position * f,
+                   m_view * f,
+                   m_upVector * f );
 
     return result;
 }

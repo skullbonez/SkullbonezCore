@@ -112,7 +112,7 @@ void SkullbonezWindow::ChangeToFullScreen( int xResolution, int yResolution )
                                ENUM_CURRENT_SETTINGS,
                                &dmSettings ) )
     {
-        this->MsgBox( "Could Not Enumerate Display Settings", "Error", MB_OK );
+        MsgBox( "Could Not Enumerate Display Settings", "Error", MB_OK );
         PostQuitMessage( 0 );
     }
 
@@ -130,7 +130,7 @@ void SkullbonezWindow::ChangeToFullScreen( int xResolution, int yResolution )
     // If we failed, quit
     if ( result != DISP_CHANGE_SUCCESSFUL )
     {
-        this->MsgBox( "Display Mode Not Compatible", "Error", MB_OK );
+        MsgBox( "Display Mode Not Compatible", "Error", MB_OK );
         PostQuitMessage( 0 );
     }
 }
@@ -162,14 +162,14 @@ bool SkullbonezWindow::SetupPixelFormat()
     // If pixel format was not set from the previous line, fail
     if ( !pixelFormat )
     {
-        this->MsgBox( "ChoosePixelFormat failed", "Error", MB_OK );
+        MsgBox( "ChoosePixelFormat failed", "Error", MB_OK );
         return false;
     }
 
     // If SetPixelFormat fails, we fail too
     if ( !SetPixelFormat( m_cWindow->m_sDevice, pixelFormat, &pfd ) )
     {
-        this->MsgBox( "SetPixelFormat failed", "Error", MB_OK );
+        MsgBox( "SetPixelFormat failed", "Error", MB_OK );
         return false;
     }
 
@@ -306,7 +306,7 @@ void SkullbonezWindow::InitialiseOpenGL()
     int gladVersion = gladLoadGL( GladLoadFunc );
     if ( !gladVersion )
     {
-        this->MsgBox( "gladLoadGL returned 0 - GL function loading failed", "GLAD Error", MB_OK );
+        MsgBox( "gladLoadGL returned 0 - GL function loading failed", "GLAD Error", MB_OK );
         PostQuitMessage( 0 );
         return;
     }
@@ -316,7 +316,7 @@ void SkullbonezWindow::InitialiseOpenGL()
     glGetIntegerv( GL_CONTEXT_PROFILE_MASK, &profileMask );
     if ( !( profileMask & GL_CONTEXT_CORE_PROFILE_BIT ) )
     {
-        this->MsgBox( "OpenGL core profile context required but not active", "GL Context Error", MB_OK );
+        MsgBox( "OpenGL core profile context required but not active", "GL Context Error", MB_OK );
         PostQuitMessage( 0 );
         return;
     }
@@ -356,7 +356,7 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
         dwStyle = WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
 
         // Changes to full screen mode
-        this->ChangeToFullScreen( Cfg().screenX, Cfg().screenY );
+        ChangeToFullScreen( Cfg().screenX, Cfg().screenY );
 
         // Hide the mouse cursor
         ShowCursor( false );

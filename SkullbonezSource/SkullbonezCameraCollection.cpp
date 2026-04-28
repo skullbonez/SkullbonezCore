@@ -51,8 +51,8 @@ void CameraCollection::Destroy()
 /* -- SET LOCKED MODE -------------------------------------------------------------*/
 void CameraCollection::SetLockedMode( const bool fIsLocked )
 {
-    m_cameraArray[m_selectedCamera].IsLockedMode = fIsLocked;
-    m_cameraArray[m_selectedCamera].DoCalculateViewMagnitude = !fIsLocked;
+    m_cameraArray[m_selectedCamera].m_isLockedMode = fIsLocked;
+    m_cameraArray[m_selectedCamera].m_doCalculateViewMagnitude = !fIsLocked;
 }
 
 /* -- ADD CAMERA ------------------------------------------------------------------*/
@@ -73,7 +73,7 @@ void CameraCollection::AddCamera( const Vector3& vPosition,
     if ( !m_arrayPosition )
     {
         m_primaryStore = m_cameraArray[m_arrayPosition];
-        m_cameraArray[m_arrayPosition].DoPreserveViewMagnitude = true;
+        m_cameraArray[m_arrayPosition].m_doPreserveViewMagnitude = true;
     }
 
     ++m_arrayPosition;
@@ -121,7 +121,7 @@ void CameraCollection::SelectCamera( uint32_t hash,
                                      const bool fTween )
 {
     // local to store requested camera index
-    int selectionRequest = this->FindIndex( hash );
+    int selectionRequest = FindIndex( hash );
 
     // check to ensure we are not selecting the current camera
     if ( selectionRequest == m_selectedCamera )
@@ -139,22 +139,22 @@ void CameraCollection::SelectCamera( uint32_t hash,
     if ( m_isTweening && fTween )
     {
         // if currently tweening, reference from the current tween camera m_position
-        this->SetTweenPath( -1, selectionRequest );
+        SetTweenPath( -1, selectionRequest );
     }
     else if ( fTween )
     {
         // if not currently tweening, reference from the current selected camera
-        this->SetTweenPath( m_selectedCamera, selectionRequest );
+        SetTweenPath( m_selectedCamera, selectionRequest );
     }
 
     // turn off view magnitude preservation for the current camera
-    m_cameraArray[m_selectedCamera].DoPreserveViewMagnitude = false;
+    m_cameraArray[m_selectedCamera].m_doPreserveViewMagnitude = false;
 
     // set the requested primary as the primary
     m_selectedCamera = selectionRequest;
 
     // turn on view magnitude preservation for the current camera
-    m_cameraArray[m_selectedCamera].DoPreserveViewMagnitude = true;
+    m_cameraArray[m_selectedCamera].m_doPreserveViewMagnitude = true;
 
     // specify if tweening
     m_isTweening = fTween;
@@ -163,7 +163,7 @@ void CameraCollection::SelectCamera( uint32_t hash,
     m_tweenProgress = 0;
 
     // store the initial primary m_position
-    this->ResetRelativity();
+    ResetRelativity();
 }
 
 /* -- GET SELECTED CAMERA HASH ----------------------------------------------------*/
@@ -189,7 +189,7 @@ void CameraCollection::RotatePrimary( float xMove,
 /* -- SET VIEW COORDINATES --------------------------------------------------------*/
 void CameraCollection::SetViewCoordinates( const Vector3& vView )
 {
-    m_cameraArray[m_selectedCamera].View = vView;
+    m_cameraArray[m_selectedCamera].m_view = vView;
 }
 
 /* -- MOVE PRIMARY ----------------------------------------------------------------*/
@@ -209,25 +209,25 @@ void CameraCollection::MovePrimary( Camera::TravelDirection enumDir,
 /* -- GET PRIMARY MOVEMENT BUFFER -------------------------------------------------*/
 const Vector3& CameraCollection::GetPrimaryMovementBuffer()
 {
-    return m_cameraArray[m_selectedCamera].MovementBuffer;
+    return m_cameraArray[m_selectedCamera].m_movementBuffer;
 }
 
 /* -- IS PRIMARY LOCKED -----------------------------------------------------------*/
 bool CameraCollection::IsPrimaryLocked()
 {
-    return m_cameraArray[m_selectedCamera].IsLockedMode;
+    return m_cameraArray[m_selectedCamera].m_isLockedMode;
 }
 
 /* -- GET CAMERA TRANSLATION ------------------------------------------------------*/
 const Vector3& CameraCollection::GetCameraTranslation()
 {
-    return ( m_cameraArray[m_selectedCamera].Position );
+    return ( m_cameraArray[m_selectedCamera].m_position );
 }
 
 /* -- GET CAMERA TRANSLATION ------------------------------------------------------*/
 const Vector3& CameraCollection::GetCameraTranslation( uint32_t hash )
 {
-    return ( m_cameraArray[this->FindIndex( hash )].Position );
+    return ( m_cameraArray[FindIndex( hash )].m_position );
 }
 
 /* -- RELATIVE UPDATE -------------------------------------------------------------*/
@@ -240,7 +240,7 @@ void CameraCollection::RelativeUpdate( uint32_t hash,
                                        float yMin,
                                        float yMax )
 {
-    int cameraIndex = this->FindIndex( hash );
+    int cameraIndex = FindIndex( hash );
 
     // return if an attempt to relative update the current camera is being made
     if ( m_selectedCamera == cameraIndex )
@@ -249,16 +249,16 @@ void CameraCollection::RelativeUpdate( uint32_t hash,
     }
 
     // use vector addition to apply the updates to the specified camera
-    m_cameraArray[cameraIndex].AddCamera( this->GetUpdateCamera() );
+    m_cameraArray[cameraIndex].AddCamera( GetUpdateCamera() );
 
     // cap the y m_position of the camera to specified value if required
-    if ( m_cameraArray[cameraIndex].Position.y < yMin )
+    if ( m_cameraArray[cameraIndex].m_position.y < yMin )
     {
-        m_cameraArray[cameraIndex].Position.y = yMin;
+        m_cameraArray[cameraIndex].m_position.y = yMin;
     }
-    else if ( m_cameraArray[cameraIndex].Position.y > yMax )
+    else if ( m_cameraArray[cameraIndex].m_position.y > yMax )
     {
-        m_cameraArray[cameraIndex].Position.y = yMax;
+        m_cameraArray[cameraIndex].m_position.y = yMax;
     }
 }
 
@@ -281,13 +281,13 @@ void CameraCollection::ApplyPrimaryMovementBuffer()
 void CameraCollection::AmmendPrimaryY( float yCoordinate )
 {
     float difference = yCoordinate -
-                       m_cameraArray[m_selectedCamera].Position.y;
+                       m_cameraArray[m_selectedCamera].m_position.y;
 
-    m_cameraArray[m_selectedCamera].Position.y = yCoordinate;
+    m_cameraArray[m_selectedCamera].m_position.y = yCoordinate;
 
-    if ( !m_cameraArray[m_selectedCamera].IsLockedMode )
+    if ( !m_cameraArray[m_selectedCamera].m_isLockedMode )
     {
-        m_cameraArray[m_selectedCamera].View.y += difference;
+        m_cameraArray[m_selectedCamera].m_view.y += difference;
     }
 }
 
@@ -311,7 +311,7 @@ void CameraCollection::SetCamera()
     if ( !m_isTweening )
     {
         // compute view matrix from selected camera
-        this->SetViewMatrix( m_cameraArray[m_selectedCamera] );
+        SetViewMatrix( m_cameraArray[m_selectedCamera] );
     }
     else
     {
@@ -326,7 +326,7 @@ void CameraCollection::SetCamera()
 
         // update the tween path
         // (basically account for movement of the camera we are tweening to)
-        this->UpdateTweenPath();
+        UpdateTweenPath();
 
         // get the current tweening start m_position
         m_tweenCamera = m_tweenStart;
@@ -335,20 +335,20 @@ void CameraCollection::SetCamera()
         m_tweenCamera += m_tweenPath * m_tweenProgress;
 
         // normalise the up vector now it has been played around with
-        m_tweenCamera.UpVector.Normalise();
+        m_tweenCamera.m_upVector.Normalise();
 
         // avoid going through the m_terrain during tweens
         if ( m_terrain )
         {
             // check the m_height of the m_terrain
             float terrainHeight =
-                m_terrain->GetTerrainHeightAt( m_tweenCamera.Position.x,
-                                               m_tweenCamera.Position.z );
+                m_terrain->GetTerrainHeightAt( m_tweenCamera.m_position.x,
+                                               m_tweenCamera.m_position.z );
 
             // update the tween camera if necessary
-            if ( m_tweenCamera.Position.y < terrainHeight )
+            if ( m_tweenCamera.m_position.y < terrainHeight )
             {
-                m_tweenCamera.Position.y = terrainHeight + Cfg().minCameraHeight;
+                m_tweenCamera.m_position.y = terrainHeight + Cfg().minCameraHeight;
             }
         }
         else
@@ -357,7 +357,7 @@ void CameraCollection::SetCamera()
         }
 
         // compute view matrix from tween camera
-        this->SetViewMatrix( m_tweenCamera );
+        SetViewMatrix( m_tweenCamera );
     }
 }
 
@@ -365,22 +365,22 @@ void CameraCollection::SetCamera()
 void CameraCollection::SetViewMatrix( Camera& cCameraData )
 {
     m_currentViewMatrix = Matrix4::LookAt(
-        cCameraData.Position,
-        cCameraData.View,
-        cCameraData.UpVector );
+        cCameraData.m_position,
+        cCameraData.m_view,
+        cCameraData.m_upVector );
 }
 
 /* -- DEBUG: GET VIEW MAG ---------------------------------------------------------*/
 float CameraCollection::DEBUG_GetViewMag()
 {
-    return ( Vector::Distance( m_cameraArray[m_selectedCamera].Position,
-                               m_cameraArray[m_selectedCamera].View ) );
+    return ( Vector::Distance( m_cameraArray[m_selectedCamera].m_position,
+                               m_cameraArray[m_selectedCamera].m_view ) );
 }
 
 /* -- DEBUG: GET VIEW MAG TARGET --------------------------------------------------*/
 float CameraCollection::DEBUG_GetViewMagTarget()
 {
-    return m_cameraArray[m_selectedCamera].ViewMagnitude;
+    return m_cameraArray[m_selectedCamera].m_viewMagnitude;
 }
 
 /* -- FIND INDEX ------------------------------------------------------------------*/
@@ -400,7 +400,7 @@ int CameraCollection::FindIndex( uint32_t hash )
 /* -- IS CAMERA SELECTED ----------------------------------------------------------*/
 bool CameraCollection::IsCameraSelected( uint32_t hash )
 {
-    return ( this->FindIndex( hash ) == m_selectedCamera );
+    return ( FindIndex( hash ) == m_selectedCamera );
 }
 
 /* -- IS CAMERA TWEENING ----------------------------------------------------------*/
@@ -412,7 +412,7 @@ bool CameraCollection::IsCameraTweening()
 /* -- GET CAMERA VIEW -------------------------------------------------------------*/
 const Vector3& CameraCollection::GetCameraView()
 {
-    return m_cameraArray[m_selectedCamera].View;
+    return m_cameraArray[m_selectedCamera].m_view;
 }
 
 /* -- SET CAMERA XZ BOUNDS --------------------------------------------------------*/
@@ -420,7 +420,7 @@ void CameraCollection::SetCameraXZBounds( const XZBounds bounds )
 {
     for ( int count = 0; count < m_arrayPosition; ++count )
     {
-        m_cameraArray[count].Boundary = bounds;
+        m_cameraArray[count].m_boundary = bounds;
     }
 }
 
@@ -428,8 +428,8 @@ void CameraCollection::SetCameraXZBounds( const XZBounds bounds )
 void CameraCollection::SetCameraXZBounds( uint32_t hash,
                                           const XZBounds bounds )
 {
-    int targetIndex = this->FindIndex( hash );
-    m_cameraArray[targetIndex].Boundary = bounds;
+    int targetIndex = FindIndex( hash );
+    m_cameraArray[targetIndex].m_boundary = bounds;
 }
 
 /* -- SET TERRAIN -----------------------------------------------------------------*/

@@ -36,17 +36,17 @@ class Camera
     }; // Helps with moving the camera around the scene
 
   private:
-    Vector3 Position;                   // Position
-    Vector3 View;                       // View
-    Vector3 UpVector;                   // Up vector
-    Vector3 MovementBuffer;             // Temporary storage to test a translation before applying it
-    float ViewMagnitude;                // Keeps track of the magnitude of the view vector
-    bool IsFinishedTranslationRecursed; // Makes sure finished translation method is only recursed once (used for view vector magnitude preservation)
-    bool DoCalculateViewMagnitude;      // Specifies whether the view magnitude should be calculated or not (used for view vector magnitude preservation)
-    bool DoPreserveViewMagnitude;       // Specified whether view magnitude preservation should be enforced
-    bool IsLockedMode;                  // Locks the view vector from being moved
-    XZBounds Boundary;                  // Boundary the camera must not translate beyond
-    XZCoords XZStore;                   // Stores XZ coordinates for bounds checking
+    Vector3 m_position;                   // m_position
+    Vector3 m_view;                       // m_view
+    Vector3 m_upVector;                   // Up vector
+    Vector3 m_movementBuffer;             // Temporary storage to test a translation before applying it
+    float m_viewMagnitude;                // Keeps track of the magnitude of the view vector
+    bool m_isFinishedTranslationRecursed; // Makes sure finished translation method is only recursed once (used for view vector magnitude preservation)
+    bool m_doCalculateViewMagnitude;      // Specifies whether the view magnitude should be calculated or not (used for view vector magnitude preservation)
+    bool m_doPreserveViewMagnitude;       // Specified whether view magnitude preservation should be enforced
+    bool m_isLockedMode;                  // Locks the view vector from being moved
+    XZBounds m_boundary;                  // m_boundary the camera must not translate beyond
+    XZCoords m_xzStore;                   // Stores XZ coordinates for bounds checking
 
     Camera(); // Default constructor
     ~Camera() = default;

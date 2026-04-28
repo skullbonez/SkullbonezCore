@@ -68,7 +68,7 @@ float GameModel::GetBoundingRadius()
 void GameModel::AddBoundingSphere( float fRadius )
 {
     m_boundingVolume = BoundingSphere( fRadius, Vector::ZERO_VECTOR );
-    this->UpdateModelInfo();
+    UpdateModelInfo();
 }
 
 /* -- GET DRAG COEFFICIENT --------------------------------------------------------*/
@@ -92,9 +92,9 @@ const Vector3& GameModel::GetVelocity()
 /* -- UPDATE MODEL INFO -----------------------------------------------------------*/
 void GameModel::UpdateModelInfo()
 {
-    this->CalculateVolume();
-    this->CalculateDragCoefficient();
-    this->CalculateProjectedSurfaceArea();
+    CalculateVolume();
+    CalculateDragCoefficient();
+    CalculateProjectedSurfaceArea();
 }
 
 /* -- GET MODEL COLLISION TIME ----------------------------------------------------*/
@@ -168,7 +168,7 @@ void GameModel::CollisionResponseTerrain( float remainingTimeStep )
     CollisionResponse::RespondCollisionTerrain( *this );
 
     // update the m_position based on remaining time step
-    this->UpdatePosition( remainingTimeStep );
+    UpdatePosition( remainingTimeStep );
 
     // set the collided collision object to null now the reaction has taken place
     m_isResponseRequired = false;
@@ -194,7 +194,7 @@ void GameModel::ApplyForces( float changeInTime )
     m_physicsInfo.ThrottleAngularVelocity();
 
     // apply the world forces
-    this->ApplyWorldForces( changeInTime );
+    ApplyWorldForces( changeInTime );
 
     // apply the forces to the model
     m_physicsInfo.ApplyForces();
@@ -234,7 +234,7 @@ void GameModel::UpdatePosition( float changeInTime )
     m_physicsInfo.UpdatePosition( changeInTime );
 
     // slam the ball to the m_terrain m_height if it has fallen below
-    this->DEBUG_SetSphereToTerrain();
+    DEBUG_SetSphereToTerrain();
 }
 
 /* -- UPDATE POSITION -------------------------------------------------------------*/
@@ -328,7 +328,7 @@ float GameModel::CollisionDetectTerrain( float changeInTime )
         throw std::runtime_error( "Cannot detect collision when a response is required first!  (GameModel::CollisionDetectTerrain)" );
     }
 
-    float collisionTime = this->GetTerrainCollisionTime( changeInTime );
+    float collisionTime = GetTerrainCollisionTime( changeInTime );
 
     // if no collision in this time frame
     if ( collisionTime > 1.0f || collisionTime < ZERO_TAKE_TOLERANCE )
@@ -365,7 +365,7 @@ float GameModel::CollisionDetectGameModel( GameModel& collisionTarget,
     }
 
     // get the time of collision
-    float collisionTime = this->GetModelCollisionTime( collisionTarget, changeInTime );
+    float collisionTime = GetModelCollisionTime( collisionTarget, changeInTime );
 
     // if no collision in this time frame
     if ( collisionTime > 1.0f || collisionTime < ZERO_TAKE_TOLERANCE )
