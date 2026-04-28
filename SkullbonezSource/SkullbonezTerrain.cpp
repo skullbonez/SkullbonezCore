@@ -102,13 +102,17 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, const floa
     float lw = lightPosition[3];
     m_terrainShader->SetVec4( "uLightPosition", lx, ly, lz, lw );
 
-    // Light properties (matching FFP StateSetup values)
-    m_terrainShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
-    m_terrainShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
+    // Light properties — low ambient for strong directional contrast
+    m_terrainShader->SetVec4( "uLightAmbient", 0.25f, 0.22f, 0.18f, 1.0f );
+    m_terrainShader->SetVec4( "uLightDiffuse", 1.1f, 1.0f, 0.80f, 1.0f );
 
-    // Default GL material properties
-    m_terrainShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
-    m_terrainShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
+    // Material properties — low ambient so shadowed slopes are visibly dark
+    m_terrainShader->SetVec4( "uMaterialAmbient", 0.18f, 0.20f, 0.14f, 1.0f );
+    m_terrainShader->SetVec4( "uMaterialDiffuse", 0.85f, 0.95f, 0.60f, 1.0f );
+
+    // Fog disabled for this iteration
+    m_terrainShader->SetVec3( "uFogColor", 0.7f, 0.5f, 0.4f );
+    m_terrainShader->SetFloat( "uFogDensity", 0.0f );
 
     // Texture sampler
     m_terrainShader->SetInt( "uTexture", 0 );

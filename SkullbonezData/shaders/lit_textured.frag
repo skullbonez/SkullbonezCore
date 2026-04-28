@@ -1,7 +1,7 @@
 #version 330 core
 
 // Phong lighting + texture: fragment shader
-// Per-pixel ambient + diffuse + specular lighting
+// Per-pixel ambient + diffuse + specular lighting with atmospheric haze
 
 in vec3 vViewPos;
 in vec3 vNormal;
@@ -17,6 +17,10 @@ uniform vec4 uLightDiffuse;
 // Material properties
 uniform vec4 uMaterialAmbient;
 uniform vec4 uMaterialDiffuse;
+
+// Atmospheric haze (exponential distance fog)
+uniform vec3  uFogColor;      // horizon/haze color
+uniform float uFogDensity;    // 0 = no fog, higher = thicker
 
 out vec4 FragColor;
 
@@ -45,5 +49,13 @@ void main()
     vec3 specular = uLightDiffuse.rgb * spec * 0.1;
 
     vec4 texColor = texture(uTexture, vTexCoord);
-    FragColor = vec4((ambient + diffuse) * texColor.rgb + specular, 1.0);
+    vec3 litColor = (ambient + diffuse) * texColor.rgb + specular;
+
+    // Atmospheric haze — exponential falloff blends toward horizon color
+    float dist = length(vViewPos);
+    float fogFactor = exp(-uFogDensity * dist);
+    fogFactor = clamp(fogFactor, 0.0, 1.0);
+    vec3 finalColor = mix(uFogColor, litColor, fogFactor);
+
+    FragColor = vec4(finalColor, 1.0);
 }

@@ -324,7 +324,7 @@ void SkyBox::Render( const Matrix4& view, const Matrix4& proj )
     m_shader->SetMat4( "uModel", identity );
     m_shader->SetMat4( "uView", view );
     m_shader->SetMat4( "uProjection", proj );
-    m_shader->SetVec4( "uColorTint", 1.0f, 1.0f, 1.0f, 1.0f );
+    m_shader->SetVec4( "uColorTint", 1.7f, 1.5f, 1.4f, 1.0f );
 
     for ( int i = 0; i < 6; ++i )
     {

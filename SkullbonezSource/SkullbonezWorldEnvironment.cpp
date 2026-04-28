@@ -62,8 +62,8 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
     m_calmShader->SetMat4( "uView", view );
     m_calmShader->SetMat4( "uProjection", proj );
     m_calmShader->SetMat4( "uReflectVP", reflectVP );
-    m_calmShader->SetVec4( "uColorTint", 0.05f, 0.15f, 0.42f, 0.65f );
-    m_calmShader->SetFloat( "uReflectionStrength", 0.35f );
+    m_calmShader->SetVec4( "uColorTint", 0.10f, 0.22f, 0.45f, 0.65f );
+    m_calmShader->SetFloat( "uReflectionStrength", 0.60f );
     m_calmShader->SetInt( "uReflectionTex", 1 );
     m_calmMesh->Draw();
 
@@ -73,11 +73,11 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
     m_oceanShader->SetMat4( "uView", view );
     m_oceanShader->SetMat4( "uProjection", proj );
     m_oceanShader->SetMat4( "uReflectVP", reflectVP );
-    m_oceanShader->SetVec4( "uColorTint", 0.02f, 0.10f, 0.35f, 0.72f );
+    m_oceanShader->SetVec4( "uColorTint", 0.06f, 0.18f, 0.40f, 0.70f );
     m_oceanShader->SetFloat( "uTime", time );
     m_oceanShader->SetFloat( "uWaveHeight", Cfg().oceanWaveHeight );
     m_oceanShader->SetFloat( "uPerturbStrength", Cfg().oceanPerturbStrength );
-    m_oceanShader->SetFloat( "uReflectionStrength", 0.25f );
+    m_oceanShader->SetFloat( "uReflectionStrength", 0.45f );
     m_oceanShader->SetInt( "uReflectionTex", 1 );
     m_oceanShader->SetInt( "uNoReflect", noReflect ? 1 : 0 );
     m_oceanShader->SetInt( "uFlatWater", flatWater ? 1 : 0 );

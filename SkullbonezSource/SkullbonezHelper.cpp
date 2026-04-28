@@ -113,10 +113,12 @@ void SkullbonezHelper::DrawSphere( const Matrix4& model,
                            sClipPlane[2],
                            sClipPlane[3] );
     sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
-    sphereShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
-    sphereShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
-    sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
-    sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
+    sphereShader->SetVec4( "uLightAmbient", 0.25f, 0.22f, 0.18f, 1.0f );
+    sphereShader->SetVec4( "uLightDiffuse", 0.85f, 0.78f, 0.62f, 1.0f );
+    sphereShader->SetVec4( "uMaterialAmbient", 0.38f, 0.38f, 0.34f, 1.0f );
+    sphereShader->SetVec4( "uMaterialDiffuse", 0.75f, 0.72f, 0.65f, 1.0f );
+    sphereShader->SetVec3( "uFogColor", 0.7f, 0.5f, 0.4f );
+    sphereShader->SetFloat( "uFogDensity", 0.0f );
 
     sphereMesh->Draw();
     glUseProgram( 0 );

@@ -582,7 +582,8 @@ void SkullbonezRun::Render( void )
 /* -- DRAW PRIMITIVES ---------------------------------------------------------------------*/
 void SkullbonezRun::DrawPrimitives( void )
 {
-    float lightPosition[] = { 200.0f, 400.0f, 1200.0f, 1.0f };
+    // Directional sun light (w=0) — golden hour angle
+    float lightPosition[] = { 0.4f, 0.7f, 0.5f, 0.0f };
 
     // Get view and projection matrices from camera/window
     Matrix4 baseView = m_cCameras->GetViewMatrix();
