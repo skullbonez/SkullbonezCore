@@ -249,7 +249,7 @@ void CameraCollection::RelativeUpdate( uint32_t hash,
     }
 
     // use vector addition to apply the updates to the specified camera
-    m_cameraArray[cameraIndex].AddCamera( GetUpdateCamera() );
+    m_cameraArray[cameraIndex].ApplyDelta( GetCameraDelta() );
 
     // cap the y m_position of the camera to specified value if required
     if ( m_cameraArray[cameraIndex].m_position.y < yMin )
@@ -263,7 +263,7 @@ void CameraCollection::RelativeUpdate( uint32_t hash,
 }
 
 /* -- GET UPDATE CAMERA -----------------------------------------------------------*/
-Camera CameraCollection::GetUpdateCamera()
+Camera CameraCollection::GetCameraDelta()
 {
     // get the camera representing the updates the non primaries have been missing out on
     // (vector difference will tell us this)

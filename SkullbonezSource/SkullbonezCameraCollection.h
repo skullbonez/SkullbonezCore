@@ -44,7 +44,7 @@ class CameraCollection
     ~CameraCollection() = default;
     void SetViewMatrix( Camera& cCameraData );       // Computes currentViewMatrix from the supplied camera data
     int FindIndex( uint32_t hash );                  // Returns the index of the specified camera
-    Camera GetUpdateCamera();                  // Returns the current update camera for relative updates
+    Camera GetCameraDelta();                   // Returns the positional delta between the current camera and the stored snapshot
     void UpdateTweenPath();                    // Alters the tween path member to end at the required destination (it is important to call this during tweens as the destination can move about the scene during the tween)
     void SetTweenPath( int fromIndex, int toIndex ); // Sets the tween path member to the required tween path (specify fromIndex as -1 to use the tween camera as the from camera)
 
