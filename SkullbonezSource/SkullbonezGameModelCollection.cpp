@@ -1,6 +1,7 @@
 ﻿/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezGameModelCollection.h"
 #include "SkullbonezProfiler.h"
+#include "SkullbonezHelper.h"
 #include <cmath>
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
@@ -22,10 +23,19 @@ void GameModelCollection::AddGameModel( GameModel gameModel )
 /* -- RENDER MODELS ---------------------------------------------------------------*/
 void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4] )
 {
+    if ( m_gameModels.empty() )
+    {
+        return;
+    }
+
+    bool isTransparent = Cfg().renderCollisionVolumes;
+    SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, isTransparent );
     for ( int x = 0; x < (int)m_gameModels.size(); ++x )
     {
-        m_gameModels[x].RenderCollisionBounds( view, proj, lightPos );
+        Matrix4 model = m_gameModels[x].GetRenderMatrix();
+        SkullbonezHelper::DrawSphereBatchModel( model );
     }
+    SkullbonezHelper::DrawSphereBatchEnd();
 }
 
 /* -- RENDER SHADOWS --------------------------------------------------------------*/

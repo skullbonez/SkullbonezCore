@@ -103,13 +103,18 @@ const Vector3& BoundingSphere::GetPosition( void ) const
 }
 
 /* -- DEBUG RENDER COLLISION VOLUME -----------------------------------------------*/
+Matrix4 BoundingSphere::GetRenderMatrix( const Vector3& worldSpaceCoords, const Matrix4& rotation ) const
+{
+    return Matrix4::Translate( worldSpaceCoords ) * rotation * Matrix4::Translate( m_position ) * Matrix4::Scale( m_radius, m_radius, m_radius );
+}
+
 void BoundingSphere::DEBUG_RenderCollisionVolume( const Vector3& worldSpaceCoords,
                                                   const Matrix4& rotation,
                                                   const Matrix4& view,
                                                   const Matrix4& proj,
                                                   const float lightPos[4] ) const
 {
-    Matrix4 model = Matrix4::Translate( worldSpaceCoords ) * rotation * Matrix4::Translate( m_position ) * Matrix4::Scale( m_radius, m_radius, m_radius );
+    Matrix4 model = this->GetRenderMatrix( worldSpaceCoords, rotation );
 
     SkullbonezHelper::DrawSphere( model, view, proj, lightPos, Cfg().renderCollisionVolumes );
 }

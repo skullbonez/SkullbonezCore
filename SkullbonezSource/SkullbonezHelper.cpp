@@ -127,6 +127,58 @@ void SkullbonezHelper::DrawSphere( const Matrix4& model,
     }
 }
 
+/* -- DRAW SPHERE BATCH BEGIN ---------------------------------------------------------*/
+void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent )
+{
+    if ( !sphereMesh )
+    {
+        BuildSphereMesh( 25, 25 );
+        sphereShader = std::make_unique<Shader>(
+            "SkullbonezData/shaders/lit_textured.vert",
+            "SkullbonezData/shaders/lit_textured.frag" );
+    }
+
+    if ( isTransparent )
+    {
+        glEnable( GL_BLEND );
+    }
+
+    float viewLightPos[4];
+    for ( int i = 0; i < 3; ++i )
+    {
+        viewLightPos[i] = view.m[i] * lightPos[0] + view.m[i + 4] * lightPos[1] + view.m[i + 8] * lightPos[2] + view.m[i + 12] * lightPos[3];
+    }
+    viewLightPos[3] = lightPos[3];
+
+    sphereShader->Use();
+    sphereShader->SetMat4( "uView", view );
+    sphereShader->SetMat4( "uProjection", proj );
+    sphereShader->SetVec4( "uClipPlane",
+                           sClipPlane[0],
+                           sClipPlane[1],
+                           sClipPlane[2],
+                           sClipPlane[3] );
+    sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
+    sphereShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
+    sphereShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
+    sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
+    sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
+}
+
+/* -- DRAW SPHERE BATCH MODEL ---------------------------------------------------------*/
+void SkullbonezHelper::DrawSphereBatchModel( const Matrix4& model )
+{
+    sphereShader->SetMat4( "uModel", model );
+    sphereMesh->Draw();
+}
+
+/* -- DRAW SPHERE BATCH END -----------------------------------------------------------*/
+void SkullbonezHelper::DrawSphereBatchEnd( void )
+{
+    glUseProgram( 0 );
+    glDisable( GL_BLEND );
+}
+
 /* -- STATE SETUP -----------------------------------------------------------------*/
 void SkullbonezHelper::StateSetup( void )
 {
