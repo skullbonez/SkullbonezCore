@@ -1,11 +1,11 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezTimer.h"
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Environment;
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
-Timer::Timer( void )
+Timer::Timer()
 {
     LARGE_INTEGER tmpPerformanceFreq;
 
@@ -25,7 +25,7 @@ Timer::Timer( void )
     }
 
     // set the performace frequency member
-    this->PerformanceFrequency = (double)tmpPerformanceFreq.QuadPart;
+    this->PerformanceFrequency = static_cast<double>( tmpPerformanceFreq.QuadPart );
 
     // we now do one final test to ensure the system supports the performance
     // counter.  If we succeed here, we know the CPU supports the performance
@@ -48,58 +48,58 @@ Timer::Timer( void )
 }
 
 /* -- NO PERFORMACE COUNTER SUPPORT -----------------------------------------------*/
-void Timer::NoPerformanceCounterSupport( void )
+void Timer::NoPerformanceCounterSupport()
 {
     throw std::runtime_error( "This system does not support high resolution counters (Timer::Timer)." );
 }
 
 /* -- START TIMER -----------------------------------------------------------------*/
-void Timer::StartTimer( void )
+void Timer::StartTimer()
 {
     // set member StartTime to current time
     this->StartTime = this->GetCurrentTimeInSeconds();
 }
 
 /* -- STOP TIMER ------------------------------------------------------------------*/
-void Timer::StopTimer( void )
+void Timer::StopTimer()
 {
     // set member EndTime to current time
     this->EndTime = this->GetCurrentTimeInSeconds();
 }
 
 /* -- GET ELAPSED TIME ------------------------------------------------------------*/
-double Timer::GetElapsedTime( void )
+double Timer::GetElapsedTime()
 {
     // return the number of seconds passed between StartTimer and EndTimer call
     return this->EndTime - this->StartTime;
 }
 
 /* -- GET TIME SINCE LAST START ---------------------------------------------------*/
-double Timer::GetTimeSinceLastStart( void )
+double Timer::GetTimeSinceLastStart()
 {
     // return time passed since last StartTimer call
     return this->GetCurrentTimeInSeconds() - this->StartTime;
 }
 
 /* -- GET TOTAL TIME --------------------------------------------------------------*/
-double Timer::GetTotalTime( void )
+double Timer::GetTotalTime()
 {
     return this->GetCurrentTimeInSeconds() - this->InitialTime;
 }
 
 /* -- GET CURRENT TIME IN SECONDS -------------------------------------------------*/
-double Timer::GetCurrentTimeInSeconds( void )
+double Timer::GetCurrentTimeInSeconds()
 {
     // get the current time
     LARGE_INTEGER currTimeTmp;
     QueryPerformanceCounter( &currTimeTmp );
 
     // return the current time
-    return (double)currTimeTmp.QuadPart / this->PerformanceFrequency;
+    return static_cast<double>( currTimeTmp.QuadPart ) / this->PerformanceFrequency;
 }
 
 /* -- INCREMENT FRAME COUNT -------------------------------------------------------*/
-bool Timer::IncrementFrameCount( void )
+bool Timer::IncrementFrameCount()
 {
     // set the frame timer to the current time if the frame counter has been reset
     if ( !this->FrameCountCurrentSecond )
@@ -115,7 +115,7 @@ bool Timer::IncrementFrameCount( void )
 }
 
 /* -- STORE FPS AND RESET FRAME COUNTER -------------------------------------------*/
-void Timer::StoreFpsAndResetFrameCounter( void )
+void Timer::StoreFpsAndResetFrameCounter()
 {
     // store fps count
     this->CurrentFPSValue = this->FrameCountCurrentSecond;
@@ -125,7 +125,7 @@ void Timer::StoreFpsAndResetFrameCounter( void )
 }
 
 /* -- GET CURRENT FPS -------------------------------------------------------------*/
-int Timer::GetCurrentFPS( void )
+int Timer::GetCurrentFPS()
 {
     return this->CurrentFPSValue;
 }

@@ -21,7 +21,7 @@ class GeometricMath
 {
   private:
     // The possible outcomes for testing a point against a plane
-    enum PointPlaneClassification
+    enum class PointPlaneClassification
     {
         FrontSideOfPlane,
         BackSideOfPlane,

@@ -1,4 +1,4 @@
-﻿/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SKULLBONEZ_SHADER_H
 #define SKULLBONEZ_SHADER_H
 
@@ -31,10 +31,10 @@ class Shader
 
   public:
     Shader( const char* vertPath, const char* fragPath ); // Constructor: compile and link from files
-    ~Shader( void );                                      // Destructor: delete program
+    ~Shader();                                      // Destructor: delete program
 
-    void Use( void ) const;            // Bind this shader program
-    GLuint GetProgramID( void ) const; // Get the OpenGL program handle
+    void Use() const;            // Bind this shader program
+    GLuint GetProgramID() const; // Get the OpenGL program handle
 
     void SetInt( const char* name, int value ) const;                           // Set int uniform
     void SetFloat( const char* name, float value ) const;                       // Set float uniform

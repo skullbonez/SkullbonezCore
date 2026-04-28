@@ -1,4 +1,4 @@
-﻿/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SKULLBONEZ_TEXTURE_COLLECTION_H
 #define SKULLBONEZ_TEXTURE_COLLECTION_H
 
@@ -17,8 +17,8 @@ class TextureCollection
 {
 
   private:
-    TextureCollection( void ); // Constructor
-    ~TextureCollection( void ) = default;
+    TextureCollection(); // Constructor
+    ~TextureCollection() = default;
 
     static TextureCollection* pInstance;           // Singleton instance pointer
     int m_textureCounter;                          // To keep track of number of m_textures created
@@ -28,16 +28,16 @@ class TextureCollection
 
     tImageJPG* LoadJPEG( const char* cFileName );                           // Loads a jpeg file
     int FindIndex( uint32_t hash );                                         // Returns the index of the specified texture
-    void UpdateCounters( void );                                            // Updates texture counter members
+    void UpdateCounters();                                            // Updates texture counter members
     void DecodeJPEG( jpeg_decompress_struct* info, tImageJPG* pImageData ); // Decodes jpeg files
 
   public:
-    static TextureCollection* Instance( void );                     // Call to request a pointer to the singleton instance
-    static void Destroy( void );                                    // Call to destroy the singleton instance
+    static TextureCollection* Instance();                     // Call to request a pointer to the singleton instance
+    static void Destroy();                                    // Call to destroy the singleton instance
     void SelectTexture( uint32_t hash );                            // Selects the texture as the OpenGL target
-    int NumFreeTextureSpaces( void );                               // Returns the number of free texture spaces
+    int NumFreeTextureSpaces();                               // Returns the number of free texture spaces
     void DeleteTexture( uint32_t hash );                            // Deletes the texture from OpenGL
-    void DeleteAllTextures( void );                                 // Deletes all textures from OpenGL
+    void DeleteAllTextures();                                 // Deletes all textures from OpenGL
     void CreateJpegTexture( const char* cFileName, uint32_t hash ); // Creates a new texture from a jpeg file
 };
 } // namespace Textures

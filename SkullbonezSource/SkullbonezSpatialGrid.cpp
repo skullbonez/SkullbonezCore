@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezSpatialGrid.h"
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
@@ -17,7 +17,7 @@ SpatialGrid::SpatialGrid( float fCellSize )
 }
 
 /* -- CLEAR -----------------------------------------------------------------------*/
-void SpatialGrid::Clear( void )
+void SpatialGrid::Clear()
 {
     for ( auto& pair : cells )
     {
@@ -29,12 +29,12 @@ void SpatialGrid::Clear( void )
 /* -- INSERT ----------------------------------------------------------------------*/
 void SpatialGrid::Insert( int index, const Vector3& m_position, float m_radius )
 {
-    int minX = (int)floorf( ( m_position.x - m_radius ) * inverseCellSize );
-    int minY = (int)floorf( ( m_position.y - m_radius ) * inverseCellSize );
-    int minZ = (int)floorf( ( m_position.z - m_radius ) * inverseCellSize );
-    int maxX = (int)floorf( ( m_position.x + m_radius ) * inverseCellSize );
-    int maxY = (int)floorf( ( m_position.y + m_radius ) * inverseCellSize );
-    int maxZ = (int)floorf( ( m_position.z + m_radius ) * inverseCellSize );
+    int minX = static_cast<int>( floorf( ( m_position.x - m_radius ) * inverseCellSize ) );
+    int minY = static_cast<int>( floorf( ( m_position.y - m_radius ) * inverseCellSize ) );
+    int minZ = static_cast<int>( floorf( ( m_position.z - m_radius ) * inverseCellSize ) );
+    int maxX = static_cast<int>( floorf( ( m_position.x + m_radius ) * inverseCellSize ) );
+    int maxY = static_cast<int>( floorf( ( m_position.y + m_radius ) * inverseCellSize ) );
+    int maxZ = static_cast<int>( floorf( ( m_position.z + m_radius ) * inverseCellSize ) );
 
     for ( int ix = minX; ix <= maxX; ++ix )
     {
@@ -57,9 +57,9 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
     for ( const auto& cell : cells )
     {
         const std::vector<int>& indices = cell.second;
-        for ( int i = 0; i < (int)indices.size() - 1; ++i )
+        for ( int i = 0; i < static_cast<int>( indices.size() ) - 1; ++i )
         {
-            for ( int j = i + 1; j < (int)indices.size(); ++j )
+            for ( int j = i + 1; j < static_cast<int>( indices.size() ); ++j )
             {
                 int a = ( std::min )( indices[i], indices[j] );
                 int b = ( std::max )( indices[i], indices[j] );

@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezTestScene.h"
 #include <cstring>
 
@@ -6,7 +6,7 @@
 using namespace SkullbonezCore::Basics;
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
-TestScene::TestScene( void )
+TestScene::TestScene()
 {
     m_isPhysicsEnabled = true;
     m_isTextEnabled = true;
@@ -127,7 +127,7 @@ TestScene TestScene::LoadFromFile( const char* path )
             char outPath[256] = {};
             char triggerType[16] = {};
             int triggerValue = 0;
-            int parsed = sscanf_s( line + 11, "%255s %15s %d", outPath, (unsigned)sizeof( outPath ), triggerType, (unsigned)sizeof( triggerType ), &triggerValue );
+            int parsed = sscanf_s( line + 11, "%255s %15s %d", outPath, static_cast<unsigned>( sizeof( outPath ) ), triggerType, static_cast<unsigned>( sizeof( triggerType ) ), &triggerValue );
 
             if ( parsed != 3 || triggerValue <= 0 )
             {
@@ -162,7 +162,7 @@ TestScene TestScene::LoadFromFile( const char* path )
         // parse seed directive
         if ( strncmp( line, "seed ", 5 ) == 0 )
         {
-            scene.m_seed = (unsigned int)atoi( line + 5 );
+            scene.m_seed = static_cast<unsigned int>( atoi( line + 5 ) );
             if ( scene.m_seed == 0 )
             {
                 fclose( file );
@@ -204,7 +204,7 @@ TestScene TestScene::LoadFromFile( const char* path )
         // parse camera line
         if ( strncmp( line, "camera ", 7 ) == 0 )
         {
-            if ( (int)scene.m_cameras.size() >= TOTAL_CAMERA_COUNT )
+            if ( static_cast<int>( scene.m_cameras.size() ) >= TOTAL_CAMERA_COUNT )
             {
                 fclose( file );
                 char msg[256];
@@ -215,7 +215,7 @@ TestScene TestScene::LoadFromFile( const char* path )
             SceneCamera cam;
             memset( &cam, 0, sizeof( cam ) );
 
-            int parsed = sscanf_s( line + 7, "%63s %f %f %f %f %f %f %f %f %f", cam.name, (unsigned)sizeof( cam.name ), &cam.m_position.x, &cam.m_position.y, &cam.m_position.z, &cam.view.x, &cam.view.y, &cam.view.z, &cam.up.x, &cam.up.y, &cam.up.z );
+            int parsed = sscanf_s( line + 7, "%63s %f %f %f %f %f %f %f %f %f", cam.name, static_cast<unsigned>( sizeof( cam.name ) ), &cam.m_position.x, &cam.m_position.y, &cam.m_position.z, &cam.view.x, &cam.view.y, &cam.view.z, &cam.up.x, &cam.up.y, &cam.up.z );
 
             if ( parsed != 10 )
             {
@@ -236,7 +236,7 @@ TestScene TestScene::LoadFromFile( const char* path )
             memset( &ball, 0, sizeof( ball ) );
 
             // try full line (with force)
-            int parsed = sscanf_s( line + 5, "%63s %f %f %f %f %f %f %f %f %f %f %f %f %f", ball.name, (unsigned)sizeof( ball.name ), &ball.posX, &ball.posY, &ball.posZ, &ball.m_radius, &ball.m_mass, &ball.moment, &ball.restitution, &ball.forceX, &ball.forceY, &ball.forceZ, &ball.forcePosX, &ball.forcePosY, &ball.forcePosZ );
+            int parsed = sscanf_s( line + 5, "%63s %f %f %f %f %f %f %f %f %f %f %f %f %f", ball.name, static_cast<unsigned>( sizeof( ball.name ) ), &ball.posX, &ball.posY, &ball.posZ, &ball.m_radius, &ball.m_mass, &ball.moment, &ball.restitution, &ball.forceX, &ball.forceY, &ball.forceZ, &ball.forcePosX, &ball.forcePosY, &ball.forcePosZ );
 
             if ( parsed != 14 && parsed != 8 )
             {
@@ -269,81 +269,81 @@ TestScene TestScene::LoadFromFile( const char* path )
 }
 
 /* -- IS PHYSICS ENABLED ----------------------------------------------------------*/
-bool TestScene::IsPhysicsEnabled( void ) const
+bool TestScene::IsPhysicsEnabled() const
 {
     return m_isPhysicsEnabled;
 }
 
 /* -- IS TEXT ENABLED -------------------------------------------------------------*/
-bool TestScene::IsTextEnabled( void ) const
+bool TestScene::IsTextEnabled() const
 {
     return m_isTextEnabled;
 }
 
 /* -- IS GL RESET TEST ------------------------------------------------------------*/
-bool TestScene::IsGlResetTest( void ) const
+bool TestScene::IsGlResetTest() const
 {
     return m_isGlResetTest;
 }
 
 /* -- GET FRAME COUNT -------------------------------------------------------------*/
-int TestScene::GetFrameCount( void ) const
+int TestScene::GetFrameCount() const
 {
     return m_frameCount;
 }
 
 /* -- GET SCREENSHOT PATH ---------------------------------------------------------*/
-const char* TestScene::GetScreenshotPath( void ) const
+const char* TestScene::GetScreenshotPath() const
 {
     return m_screenshotPath;
 }
 
 /* -- GET SCREENSHOT FRAME --------------------------------------------------------*/
-int TestScene::GetScreenshotFrame( void ) const
+int TestScene::GetScreenshotFrame() const
 {
     return m_screenshotFrame;
 }
 
 /* -- GET SCREENSHOT MS -----------------------------------------------------------*/
-int TestScene::GetScreenshotMs( void ) const
+int TestScene::GetScreenshotMs() const
 {
     return m_screenshotMs;
 }
 
 /* -- GET SEED --------------------------------------------------------------------*/
-unsigned int TestScene::GetSeed( void ) const
+unsigned int TestScene::GetSeed() const
 {
     return m_seed;
 }
 
 /* -- GET LEGACY BALL COUNT -------------------------------------------------------*/
-int TestScene::GetLegacyBallCount( void ) const
+int TestScene::GetLegacyBallCount() const
 {
     return m_legacyBallCount;
 }
 
 /* -- GET PERF LOG PATH -----------------------------------------------------------*/
-const char* TestScene::GetPerfLogPath( void ) const
+const char* TestScene::GetPerfLogPath() const
 {
     return m_perfLogPath;
 }
 
 /* -- GET CAMERA COUNT ------------------------------------------------------------*/
-int TestScene::GetCameraCount( void ) const
+int TestScene::GetCameraCount() const
 {
-    return (int)m_cameras.size();
+    return static_cast<int>( m_cameras.size() );
 }
 
 /* -- GET BALL COUNT --------------------------------------------------------------*/
-int TestScene::GetBallCount( void ) const
+int TestScene::GetBallCount() const
 {
-    return (int)m_balls.size();
+    return static_cast<int>( m_balls.size() );
 }
 
 /* -- GET CAMERA ------------------------------------------------------------------*/
 const SceneCamera& TestScene::GetCamera( int index ) const
 {
-    if ( index < 0 || index >= (int)m_cameras.size() )
+    if ( index < 0 || index >= static_cast<int>( m_cameras.size() ) )
     {
         throw std::runtime_error( "Camera index out of range.  (TestScene::GetCamera)" );
     }
@@ -354,7 +354,7 @@ const SceneCamera& TestScene::GetCamera( int index ) const
 /* -- GET BALL --------------------------------------------------------------------*/
 const SceneBall& TestScene::GetBall( int index ) const
 {
-    if ( index < 0 || index >= (int)m_balls.size() )
+    if ( index < 0 || index >= static_cast<int>( m_balls.size() ) )
     {
         throw std::runtime_error( "Ball index out of range.  (TestScene::GetBall)" );
     }

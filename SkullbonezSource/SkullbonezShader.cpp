@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezShader.h"
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
@@ -34,7 +34,7 @@ GLuint Shader::CompileShader( const char* path, GLenum type )
     char* source = LoadShaderSource( path );
 
     GLuint m_shader = glCreateShader( type );
-    glShaderSource( m_shader, 1, &source, NULL );
+    glShaderSource( m_shader, 1, &source, nullptr );
     glCompileShader( m_shader );
 
     delete[] source;
@@ -44,7 +44,7 @@ GLuint Shader::CompileShader( const char* path, GLenum type )
     if ( !success )
     {
         char infoLog[1024];
-        glGetShaderInfoLog( m_shader, sizeof( infoLog ), NULL, infoLog );
+        glGetShaderInfoLog( m_shader, sizeof( infoLog ), nullptr, infoLog );
         glDeleteShader( m_shader );
 
         char msg[1536];
@@ -71,7 +71,7 @@ Shader::Shader( const char* vertPath, const char* fragPath )
     if ( !success )
     {
         char infoLog[1024];
-        glGetProgramInfoLog( m_programID, sizeof( infoLog ), NULL, infoLog );
+        glGetProgramInfoLog( m_programID, sizeof( infoLog ), nullptr, infoLog );
         glDeleteShader( vertShader );
         glDeleteShader( fragShader );
         glDeleteProgram( m_programID );
@@ -87,7 +87,7 @@ Shader::Shader( const char* vertPath, const char* fragPath )
 }
 
 /* -- DESTRUCTOR ------------------------------------------------------------------*/
-Shader::~Shader( void )
+Shader::~Shader()
 {
     if ( m_programID )
     {
@@ -96,13 +96,13 @@ Shader::~Shader( void )
 }
 
 /* -- USE -------------------------------------------------------------------------*/
-void Shader::Use( void ) const
+void Shader::Use() const
 {
     glUseProgram( m_programID );
 }
 
 /* -- GET PROGRAM ID --------------------------------------------------------------*/
-GLuint Shader::GetProgramID( void ) const
+GLuint Shader::GetProgramID() const
 {
     return m_programID;
 }

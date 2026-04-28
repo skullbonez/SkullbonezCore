@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezWindow.h"
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
@@ -21,7 +21,7 @@ SkullbonezWindow::~SkullbonezWindow()
 }
 
 /* -- SINGLETON CONSTRUCTOR -------------------------------------------------------*/
-SkullbonezWindow* SkullbonezWindow::Instance( void )
+SkullbonezWindow* SkullbonezWindow::Instance()
 {
     if ( !SkullbonezWindow::pInstance )
     {
@@ -32,7 +32,7 @@ SkullbonezWindow* SkullbonezWindow::Instance( void )
 }
 
 /* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
-void SkullbonezWindow::Destroy( void )
+void SkullbonezWindow::Destroy()
 {
     SkullbonezWindow::pInstance = 0;
 }
@@ -52,7 +52,7 @@ void SkullbonezWindow::SetWindowDimensions( const RECT dimensions )
 }
 
 /* -- HANDLE SCREEN RESIZE --------------------------------------------------------*/
-void SkullbonezWindow::HandleScreenResize( void )
+void SkullbonezWindow::HandleScreenResize()
 {
     // Guard: skip GL calls if GLAD hasn't loaded function pointers yet.
     // WM_SIZE fires during CreateAppWindow before InitialiseOpenGL.
@@ -75,7 +75,7 @@ void SkullbonezWindow::HandleScreenResize( void )
     glViewport( 0, 0, m_width, m_height ); // Set viewport (screen m_boundaries)
 
     // Build and store the perspective projection matrix
-    float aspect = (float)m_width / (float)m_height;
+    float aspect = static_cast<float>( m_width ) / static_cast<float>( m_height );
     m_cWindow->projectionMatrix = Math::Transformation::Matrix4::Perspective(
         45.0f,
         aspect,
@@ -108,7 +108,7 @@ void SkullbonezWindow::ChangeToFullScreen( int xResolution, int yResolution )
 
     DEVMODE dmSettings = { 0 }; // Device mode variable - required to change modes
 
-    if ( !EnumDisplaySettings( NULL, // Get current screen settings
+    if ( !EnumDisplaySettings( nullptr, // Get current screen settings
                                ENUM_CURRENT_SETTINGS,
                                &dmSettings ) )
     {
@@ -136,12 +136,12 @@ void SkullbonezWindow::ChangeToFullScreen( int xResolution, int yResolution )
 }
 
 /* -- SETUP PIXEL FORMAT ----------------------------------------------------------*/
-bool SkullbonezWindow::SetupPixelFormat( void )
+bool SkullbonezWindow::SetupPixelFormat()
 {
     // Create an instance of our window class
     SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
     PIXELFORMATDESCRIPTOR pfd = { 0 }; // Declare struct to describe out pixel format
-    int pixelFormat = NULL;            // To hold our bits per pixel information
+    int pixelFormat = 0;                  // To hold our bits per pixel information
 
     // We now fill the PIXELFORMATDESCRIPTOR struct with what we want
     pfd.nSize = sizeof( PIXELFORMATDESCRIPTOR ); // Set size of struct
@@ -151,8 +151,8 @@ bool SkullbonezWindow::SetupPixelFormat( void )
                   PFD_DOUBLEBUFFER;              // support + two buffers
     pfd.dwLayerMask = PFD_MAIN_PLANE;            // Standard mask
     pfd.iPixelType = PFD_TYPE_RGBA;              // Red Green Blue Alpha pixels
-    pfd.cColorBits = (BYTE)Cfg().bitsPerPixel;
-    pfd.cDepthBits = (BYTE)Cfg().bitsPerPixel;
+    pfd.cColorBits = static_cast<BYTE>( Cfg().bitsPerPixel );
+    pfd.cDepthBits = static_cast<BYTE>( Cfg().bitsPerPixel );
     pfd.cAccumBits = 0;   // No accumulation bits
     pfd.cStencilBits = 0; // No stencil bits
 
@@ -251,7 +251,7 @@ static GLADapiproc GladLoadFunc( const char* name )
 }
 
 /* -- INITIALISE OPEN GL ----------------------------------------------------------*/
-void SkullbonezWindow::InitialiseOpenGL( void )
+void SkullbonezWindow::InitialiseOpenGL()
 {
     SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
 
@@ -266,7 +266,7 @@ void SkullbonezWindow::InitialiseOpenGL( void )
     wglMakeCurrent( m_cWindow->m_sDevice, tempContext );
 
     // Resolve the modern context creation function
-    typedef HGLRC( WINAPI * PFNWGLCREATECONTEXTATTRIBSARBPROC )( HDC, HGLRC, const int* );
+    using PFNWGLCREATECONTEXTATTRIBSARBPROC = HGLRC( WINAPI* )( HDC, HGLRC, const int* );
     auto wglCreateContextAttribsARB = reinterpret_cast<PFNWGLCREATECONTEXTATTRIBSARBPROC>(
         wglGetProcAddress( "wglCreateContextAttribsARB" ) );
 
@@ -286,7 +286,7 @@ void SkullbonezWindow::InitialiseOpenGL( void )
         HGLRC modernContext = wglCreateContextAttribsARB( m_cWindow->m_sDevice, 0, attribs );
         if ( modernContext )
         {
-            wglMakeCurrent( NULL, NULL );
+            wglMakeCurrent( nullptr, nullptr );
             wglDeleteContext( tempContext );
             wglMakeCurrent( m_cWindow->m_sDevice, modernContext );
             m_cWindow->m_sRenderContext = modernContext;
@@ -332,17 +332,17 @@ void SkullbonezWindow::InitialiseOpenGL( void )
 /* -- CREATE APP WINDOW -----------------------------------------------------------*/
 void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode )
 {
-    HWND hWnd = NULL;          // Handle to our window
+    HWND hWnd = nullptr;          // Handle to our window
     WNDCLASS wndclass = { 0 }; // Window class struct
-    DWORD dwStyle = NULL;      // Window style
+    DWORD dwStyle = 0;            // Window style
 
     wndclass.style = CS_HREDRAW | CS_VREDRAW;         // Vert and Horiz redraw
     wndclass.lpfnWndProc = WndProc;                   // Assign callback function
     wndclass.hInstance = hInstance;                   // Assign hInstance
-    wndclass.hIcon = LoadIcon( NULL, IDI_WINLOGO );   // Default icon
-    wndclass.hCursor = LoadCursor( NULL, IDC_ARROW ); // Arrow cursor
+    wndclass.hIcon = LoadIcon( nullptr, IDI_WINLOGO );   // Default icon
+    wndclass.hCursor = LoadCursor( nullptr, IDC_ARROW ); // Arrow cursor
     wndclass.hbrBackground =
-        (HBRUSH)GetStockObject( WHITE_BRUSH ); // White client background
+        reinterpret_cast<HBRUSH>( GetStockObject( WHITE_BRUSH ) ); // White client background
     wndclass.lpszClassName = WINDOW_NAME;      // Assign class name
 
     RegisterClass( &wndclass ); // Register class with OS
@@ -374,10 +374,10 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
                          0,           // Window yPos
                          Cfg().screenX,
                          Cfg().screenY,
-                         NULL,      // Parent window handle
-                         NULL,      // Window menu handle
+                         nullptr,      // Parent window handle
+                         nullptr,      // Window menu handle
                          hInstance, // Application instance
-                         NULL );    // Data to pass to WndProc
+                         nullptr );    // Data to pass to WndProc
 
     if ( !hWnd )
     {

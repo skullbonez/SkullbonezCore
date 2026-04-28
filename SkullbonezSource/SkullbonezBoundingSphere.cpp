@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezBoundingSphere.h"
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
@@ -6,7 +6,7 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
-BoundingSphere::BoundingSphere( void )
+BoundingSphere::BoundingSphere()
     : m_radius( 0.0f )
 {
 }
@@ -83,19 +83,19 @@ float BoundingSphere::TestCollision( const BoundingSphere& target,
 }
 
 /* -- GET RADIUS ------------------------------------------------------------------*/
-float BoundingSphere::GetRadius( void ) const
+float BoundingSphere::GetRadius() const
 {
     return m_radius;
 }
 
 /* -- GET BOUNDING RADIUS ---------------------------------------------------------*/
-float BoundingSphere::GetBoundingRadius( void ) const
+float BoundingSphere::GetBoundingRadius() const
 {
     return m_radius;
 }
 
 /* -- GET POSITION ----------------------------------------------------------------*/
-const Vector3& BoundingSphere::GetPosition( void ) const
+const Vector3& BoundingSphere::GetPosition() const
 {
     return m_position;
 }
@@ -107,7 +107,7 @@ Matrix4 BoundingSphere::GetModelMatrix( const Vector3& worldPos, const Matrix4& 
 }
 
 /* -- GET VOLUME ------------------------------------------------------------------*/
-float BoundingSphere::GetVolume( void ) const
+float BoundingSphere::GetVolume() const
 {
     // m_volume of sphere = 4/3 * PI * m_radius^3
     return FOUR_OVER_THREE * _PI * m_radius * m_radius * m_radius;
@@ -145,13 +145,13 @@ float BoundingSphere::GetSubmergedVolumePercent( float m_fluidSurfaceHeight ) co
 }
 
 /* -- GET DRAG COEFFICIENT --------------------------------------------------------*/
-float BoundingSphere::GetDragCoefficient( void ) const
+float BoundingSphere::GetDragCoefficient() const
 {
     return Cfg().sphereDragCoeff;
 }
 
 /* -- GET PROJECTED SURFACE AREA --------------------------------------------------*/
-float BoundingSphere::GetProjectedSurfaceArea( void ) const
+float BoundingSphere::GetProjectedSurfaceArea() const
 {
     // Area of circle = PI * r^2
     return _PI * m_radius * m_radius;

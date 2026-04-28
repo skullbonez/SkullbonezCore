@@ -1,4 +1,4 @@
-﻿/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SKULLBONEZ_ROTATION_MATRIX_H
 #define SKULLBONEZ_ROTATION_MATRIX_H
 
@@ -23,10 +23,10 @@ class RotationMatrix
 {
 
   public:
-    RotationMatrix( void );                                                                                              // Default constructor
+    RotationMatrix();                                                                                              // Default constructor
     RotationMatrix( float f11, float f12, float f13, float f21, float f22, float f23, float f31, float f32, float f33 ); // Overloaded constructor
-    ~RotationMatrix( void ) = default;
-    void Identity( void );                        // Sets the matrix back to the identity value
+    ~RotationMatrix() = default;
+    void Identity();                        // Sets the matrix back to the identity value
     Vector3 operator*( const Vector3& v ) const;  // Rotation matrix multiplied by vector
     Vector3 operator*=( const Vector3& v ) const; // *= overload
 

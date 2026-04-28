@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezCamera.h"
 #include "SkullbonezRotationMatrix.h"
 
@@ -7,7 +7,7 @@ using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::Math;
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
-Camera::Camera( void )
+Camera::Camera()
 {
 }
 
@@ -59,7 +59,7 @@ void Camera::MoveCamera( const TravelDirection enumDir,
 
     switch ( enumDir )
     {
-    case this->Forward:
+    case TravelDirection::Forward:
 
         if ( this->IsLockedMode )
         {
@@ -79,7 +79,7 @@ void Camera::MoveCamera( const TravelDirection enumDir,
         movementResults = this->GetViewVectorNormalised() * fQuantity;
         break;
 
-    case this->Left:
+    case TravelDirection::Left:
         // left movement does not exist in locked mode
         if ( !this->IsLockedMode )
         {
@@ -89,7 +89,7 @@ void Camera::MoveCamera( const TravelDirection enumDir,
 
         break;
 
-    case this->Right:
+    case TravelDirection::Right:
         // right movement does not exist in locked mode
         if ( !this->IsLockedMode )
         {
@@ -99,7 +99,7 @@ void Camera::MoveCamera( const TravelDirection enumDir,
 
         break;
 
-    case this->Backward:
+    case TravelDirection::Backward:
 
         if ( this->IsLockedMode )
         {
@@ -123,7 +123,7 @@ void Camera::MoveCamera( const TravelDirection enumDir,
 }
 
 /* -- APPLY MOVEMENT BUFFER -------------------------------------------------------*/
-void Camera::ApplyMovementBuffer( void )
+void Camera::ApplyMovementBuffer()
 {
     // store old m_position
     Vector3 oldPosition = this->Position;
@@ -220,7 +220,7 @@ void Camera::RotateCamera( float xMove, float yMove )
 }
 
 /* -- PREPARE TRANSLATION ---------------------------------------------------------*/
-void Camera::PrepareTranslation( void )
+void Camera::PrepareTranslation()
 {
     // store the current X and Z m_position before translation
     // (we want to revert the translation if bounds are exceeded)
@@ -229,7 +229,7 @@ void Camera::PrepareTranslation( void )
 }
 
 /* -- FINISH TRANSLATION ----------------------------------------------------------*/
-void Camera::FinishTranslation( void )
+void Camera::FinishTranslation()
 {
     bool isOnBoundX = false;
     bool isOnBoundZ = false;
@@ -429,7 +429,7 @@ void Camera::AddCamera( const Camera& updateCamera )
     // 1. Cast the 'this' pointer to type 'Camera' pointer,
     // 2. Throw parentheses around it, and dereference it
     // 3. Use the += Camera operator overload to add the passed in Camera
-    *( (Camera*)this ) += updateCamera;
+    *static_cast<Camera*>( this ) += updateCamera;
 
     this->FinishTranslation();
 }
@@ -465,7 +465,7 @@ float Camera::UpVectorViewVectorRotationCap( float requestRadians )
 }
 
 /* -- GET RIGHT VECTOR ------------------------------------------------------------*/
-Vector3 Camera::GetRightVector( void )
+Vector3 Camera::GetRightVector()
 {
     // Get the right vector (cross of view and up vectors)
     Vector3 vRight = Vector::CrossProduct( this->GetViewVectorNormalised(),
@@ -479,13 +479,13 @@ Vector3 Camera::GetRightVector( void )
 }
 
 /* -- GET VIEW VECTOR RAW ---------------------------------------------------------*/
-Vector3 Camera::GetViewVectorRaw( void )
+Vector3 Camera::GetViewVectorRaw()
 {
     return this->View - this->Position;
 }
 
 /* -- GET VIEW VECTOR NORMALISED --------------------------------------------------*/
-Vector3 Camera::GetViewVectorNormalised( void )
+Vector3 Camera::GetViewVectorNormalised()
 {
     /*
         Recall that vector subtraction works the following way:
@@ -542,7 +542,7 @@ Vector3 Camera::GetViewVectorNormalised( void )
 }
 
 /* -- ZERO CAMERA -----------------------------------------------------------------*/
-void Camera::ZeroCamera( void )
+void Camera::ZeroCamera()
 {
     this->Position.Zero();
     this->View.Zero();

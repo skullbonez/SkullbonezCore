@@ -1,11 +1,11 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezQuaternion.h"
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Math::Orientation;
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
-Quaternion::Quaternion( void )
+Quaternion::Quaternion()
 {
 }
 
@@ -22,7 +22,7 @@ Quaternion::Quaternion( float fX,
 }
 
 /* -- IDENTITY -------------------------------------------------------------------*/
-void Quaternion::Identity( void )
+void Quaternion::Identity()
 {
     this->x = 0.0f;
     this->y = 0.0f;
@@ -31,7 +31,7 @@ void Quaternion::Identity( void )
 }
 
 /* -- NORMALISE ------------------------------------------------------------------*/
-void Quaternion::Normalise( void )
+void Quaternion::Normalise()
 {
     float magSq = this->w * this->w +
                   this->x * this->x +
@@ -75,7 +75,7 @@ void Quaternion::RotateAboutXYZ( const Vector3& vRadians )
 }
 
 /* -- GET ORIENTATION MATRIX -----------------------------------------------------*/
-RotationMatrix Quaternion::GetOrientationMatrix( void )
+RotationMatrix Quaternion::GetOrientationMatrix()
 {
     // Return the RIGHT HANDED rotation matrix
     return RotationMatrix( 1 - ( 2 * this->y * this->y ) - ( 2 * this->z * this->z ),

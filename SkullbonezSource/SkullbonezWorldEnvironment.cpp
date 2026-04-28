@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezWorldEnvironment.h"
 #include <vector>
 
@@ -7,7 +7,7 @@ using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::GameObjects;
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
-WorldEnvironment::WorldEnvironment( void )
+WorldEnvironment::WorldEnvironment()
     : m_fluidSurfaceHeight( 0.0f ),
       m_fluidDensity( 0.0f ),
       m_gasDensity( 0.0f ),
@@ -88,7 +88,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
 }
 
 /* -- BUILD FLUID MESH ------------------------------------------------------------*/
-void WorldEnvironment::BuildFluidMesh( void )
+void WorldEnvironment::BuildFluidMesh()
 {
     float h = m_fluidSurfaceHeight;
     float f = Cfg().frustumFar;
@@ -159,7 +159,7 @@ void WorldEnvironment::BuildFluidMesh( void )
 }
 
 /* -- RESET GL RESOURCES ----------------------------------------------------------*/
-void WorldEnvironment::ResetGLResources( void )
+void WorldEnvironment::ResetGLResources()
 {
     m_calmMesh.reset();
     m_calmShader.reset();
@@ -169,7 +169,7 @@ void WorldEnvironment::ResetGLResources( void )
 }
 
 /* -- GET FLUID SURFACE HEIGHT ----------------------------------------------------*/
-float WorldEnvironment::GetFluidSurfaceHeight( void )
+float WorldEnvironment::GetFluidSurfaceHeight()
 {
     return m_fluidSurfaceHeight;
 }

@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezFramebuffer.h"
 #include <stdexcept>
 
@@ -13,7 +13,7 @@ Framebuffer::Framebuffer( int m_width, int m_height )
 }
 
 /* -- DESTRUCTOR ------------------------------------------------------------------*/
-Framebuffer::~Framebuffer( void )
+Framebuffer::~Framebuffer()
 {
     if ( m_fbo )
     {
@@ -30,7 +30,7 @@ Framebuffer::~Framebuffer( void )
 }
 
 /* -- BUILD -----------------------------------------------------------------------*/
-void Framebuffer::Build( void )
+void Framebuffer::Build()
 {
     // Color texture (RGB, no mipmaps, clamped edges)
     glGenTextures( 1, &m_colorTex );
@@ -63,37 +63,37 @@ void Framebuffer::Build( void )
 }
 
 /* -- BIND ------------------------------------------------------------------------*/
-void Framebuffer::Bind( void ) const
+void Framebuffer::Bind() const
 {
     glBindFramebuffer( GL_FRAMEBUFFER, m_fbo );
 }
 
 /* -- UNBIND ----------------------------------------------------------------------*/
-void Framebuffer::Unbind( void ) const
+void Framebuffer::Unbind() const
 {
     glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 }
 
 /* -- GET COLOR TEXTURE -----------------------------------------------------------*/
-GLuint Framebuffer::GetColorTexture( void ) const
+GLuint Framebuffer::GetColorTexture() const
 {
     return m_colorTex;
 }
 
 /* -- GET WIDTH -------------------------------------------------------------------*/
-int Framebuffer::GetWidth( void ) const
+int Framebuffer::GetWidth() const
 {
     return m_width;
 }
 
 /* -- GET HEIGHT ------------------------------------------------------------------*/
-int Framebuffer::GetHeight( void ) const
+int Framebuffer::GetHeight() const
 {
     return m_height;
 }
 
 /* -- RESET GL RESOURCES ----------------------------------------------------------*/
-void Framebuffer::ResetGLResources( void )
+void Framebuffer::ResetGLResources()
 {
     if ( m_fbo )
     {

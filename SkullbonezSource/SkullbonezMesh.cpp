@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezMesh.h"
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
@@ -63,7 +63,7 @@ Mesh::Mesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoor
 }
 
 /* -- DESTRUCTOR ------------------------------------------------------------------*/
-Mesh::~Mesh( void )
+Mesh::~Mesh()
 {
     if ( m_vbo )
     {
@@ -76,7 +76,7 @@ Mesh::~Mesh( void )
 }
 
 /* -- DRAW ------------------------------------------------------------------------*/
-void Mesh::Draw( void ) const
+void Mesh::Draw() const
 {
     glBindVertexArray( m_vao );
     glDrawArrays( m_drawMode, 0, m_vertexCount );
@@ -84,7 +84,7 @@ void Mesh::Draw( void ) const
 }
 
 /* -- GET VERTEX COUNT ------------------------------------------------------------*/
-int Mesh::GetVertexCount( void ) const
+int Mesh::GetVertexCount() const
 {
     return m_vertexCount;
 }

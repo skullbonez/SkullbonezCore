@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezHelper.h"
 #include <vector>
 #include <cmath>
@@ -28,7 +28,7 @@ void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
 }
 
 /* -- RESET GL RESOURCES ----------------------------------------------------------*/
-void SkullbonezHelper::ResetGLResources( void )
+void SkullbonezHelper::ResetGLResources()
 {
     sphereMesh.reset();
     sphereShader.reset();
@@ -43,13 +43,13 @@ void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
 
     for ( int i = 0; i < stacks; ++i )
     {
-        float phi0 = _PI * (float)i / (float)stacks;
-        float phi1 = _PI * (float)( i + 1 ) / (float)stacks;
+        float phi0 = _PI * static_cast<float>( i ) / static_cast<float>( stacks );
+        float phi1 = _PI * static_cast<float>( i + 1 ) / static_cast<float>( stacks );
 
         for ( int j = 0; j < slices; ++j )
         {
-            float theta0 = _2PI * (float)j / (float)slices;
-            float theta1 = _2PI * (float)( j + 1 ) / (float)slices;
+            float theta0 = _2PI * static_cast<float>( j ) / static_cast<float>( slices );
+            float theta1 = _2PI * static_cast<float>( j + 1 ) / static_cast<float>( slices );
 
             // 4 corners of the quad
             float x00 = sinf( phi0 ) * cosf( theta0 ), y00 = cosf( phi0 ), z00 = sinf( phi0 ) * sinf( theta0 );
@@ -57,8 +57,8 @@ void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
             float x10 = sinf( phi1 ) * cosf( theta0 ), y10 = cosf( phi1 ), z10 = sinf( phi1 ) * sinf( theta0 );
             float x11 = sinf( phi1 ) * cosf( theta1 ), y11 = cosf( phi1 ), z11 = sinf( phi1 ) * sinf( theta1 );
 
-            float u0 = (float)j / (float)slices, v0 = (float)i / (float)stacks;
-            float u1 = (float)( j + 1 ) / (float)slices, v1 = (float)( i + 1 ) / (float)stacks;
+            float u0 = static_cast<float>( j ) / static_cast<float>( slices ), v0 = static_cast<float>( i ) / static_cast<float>( stacks );
+            float u1 = static_cast<float>( j + 1 ) / static_cast<float>( slices ), v1 = static_cast<float>( i + 1 ) / static_cast<float>( stacks );
 
             // Triangle 1: (0,0) → (1,1) → (1,0)  (CCW viewed from outside)
             verts.insert( verts.end(), { x00, y00, z00, x00, y00, z00, u0, v0 } );
@@ -72,7 +72,7 @@ void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
         }
     }
 
-    sphereMesh = std::make_unique<Mesh>( verts.data(), (int)verts.size() / 8, true, true );
+    sphereMesh = std::make_unique<Mesh>( verts.data(), static_cast<int>( verts.size() ) / 8, true, true );
 }
 
 /* -- DRAW SPHERE BATCH BEGIN -----------------------------------------------------*/
@@ -117,14 +117,14 @@ void SkullbonezHelper::DrawSphereBatchModel( const Matrix4& model )
 }
 
 /* -- DRAW SPHERE BATCH END -------------------------------------------------------*/
-void SkullbonezHelper::DrawSphereBatchEnd( void )
+void SkullbonezHelper::DrawSphereBatchEnd()
 {
     glUseProgram( 0 );
     glDisable( GL_BLEND );
 }
 
 /* -- STATE SETUP -----------------------------------------------------------------*/
-void SkullbonezHelper::StateSetup( void )
+void SkullbonezHelper::StateSetup()
 {
     glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
 

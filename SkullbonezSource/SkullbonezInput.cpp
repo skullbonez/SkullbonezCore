@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezInput.h"
 #include "SkullbonezWindow.h"
 
@@ -51,7 +51,7 @@ bool Input::IsKeyToggled( const char cKey )
 }
 
 /* -- GET MOUSE COORDINATES -------------------------------------------------------*/
-POINT Input::GetMouseCoordinates( void )
+POINT Input::GetMouseCoordinates()
 {
     POINT mousePos;
     if ( !GetCursorPos( &mousePos ) ) // attempt to get the mouse m_position
@@ -73,7 +73,7 @@ void Input::SetMouseCoordinates( const POINT& pNewCoordinates )
 }
 
 /* -- CENTRE MOUSE COORDINATES ----------------------------------------------------*/
-void Input::CentreMouseCoordinates( void )
+void Input::CentreMouseCoordinates()
 {
     SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
     SetCursorPos( m_cWindow->m_sWindowDimensions.x >> 1,
