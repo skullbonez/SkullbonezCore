@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezCommon.h"
 #include "SkullbonezRun.h"
 #include "SkullbonezWindow.h"
@@ -153,7 +153,7 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
             // Cleanup rendering context AFTER cRun is destroyed
             if ( shouldRestart && m_cWindow->m_sRenderContext )
             {
-                wglMakeCurrent( NULL, NULL );
+                wglMakeCurrent( nullptr, nullptr );
                 wglDeleteContext( m_cWindow->m_sRenderContext );
             }
             else
@@ -165,7 +165,7 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
         // Between scenes: destroy GL context so the next scene gets a fresh one
         if ( !abortAll && sceneIdx + 1 < sceneList.size() && m_cWindow->m_sRenderContext )
         {
-            wglMakeCurrent( NULL, NULL );
+            wglMakeCurrent( nullptr, nullptr );
             wglDeleteContext( m_cWindow->m_sRenderContext );
         }
     }
@@ -174,7 +174,7 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     if ( m_cWindow->m_sRenderContext )
     {
         // Free rendering memory, rollback all changes
-        wglMakeCurrent( NULL, NULL );
+        wglMakeCurrent( nullptr, nullptr );
 
         // Delete the rendering context
         wglDeleteContext( m_cWindow->m_sRenderContext );
@@ -190,7 +190,7 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     // Restore desktop settings
     if ( m_cWindow->m_fIsFullScreenMode )
     {
-        ChangeDisplaySettings( NULL, 0 ); // Switch back to desktop mode
+        ChangeDisplaySettings( nullptr, 0 ); // Switch back to desktop mode
         ShowCursor( true );               // Bring mouse pointer back
     }
 

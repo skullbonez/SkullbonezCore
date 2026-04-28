@@ -1,4 +1,4 @@
-﻿/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SKULLBONEZ_RIGID_BODY_H
 #define SKULLBONEZ_RIGID_BODY_H
 
@@ -46,19 +46,19 @@ class RigidBody
     Vector3 m_changeInLinearVelocity;  // A buffer to store an expected change in linear velocity				[Units: m/s]
     Quaternion m_orientation;          // Quaternion representative of the m_orientation of the rigid body		[Units: Qrtn]
 
-    void ApplyWorldForce( void );    // Applies the world force acting on the body
-    void ApplyLinearForce( void );   // Applies the linear force acting on the body
-    void ApplyAngularForce( void );  // Applies the angular force acting on the body
-    Vector3 GetRollVelocity( void ); // Gets the linear velocity based on rolling angular velocity
+    void ApplyWorldForce();    // Applies the world force acting on the body
+    void ApplyLinearForce();   // Applies the linear force acting on the body
+    void ApplyAngularForce();  // Applies the angular force acting on the body
+    Vector3 GetRollVelocity(); // Gets the linear velocity based on rolling angular velocity
 
   public:
-    RigidBody( void );                                                                      // Default constructor
-    ~RigidBody( void );                                                                     // Default destructor
-    void ApplyForces( void );                                                               // Update the rigid body's velocity based on its current state
+    RigidBody();                                                                      // Default constructor
+    ~RigidBody();                                                                     // Default destructor
+    void ApplyForces();                                                               // Update the rigid body's velocity based on its current state
     void UpdatePosition( float changeInTime );                                              // Update the rigid body's position based on its current state
-    void ApplyImpulseForce( void );                                                         // Apply the impulse force to the body
-    void ZeroForce( void );                                                                 // Zero the force vectors
-    const Quaternion& GetOrientation( void ) const;                                         // Returns the orientation quaternion
+    void ApplyImpulseForce();                                                         // Apply the impulse force to the body
+    void ZeroForce();                                                                 // Zero the force vectors
+    const Quaternion& GetOrientation() const;                                         // Returns the orientation quaternion
     void SetMass( float fMass );                                                            // Set the mass of the rigid body
     void SetFrictionCoefficient( float fFriction );                                         // Set the friction coefficient of the body
     void SetVolume( float fVolume );                                                        // Sets the volume member
@@ -67,20 +67,20 @@ class RigidBody
     void SetRotationalInertia( const Vector3& vRotationalInertia );                         // Sets the rotational inertia for the obect
     void SetChangeInAngularVelocity( const Vector3& vAngularVelocity );                     // Sets the change in angular velocity
     void SetChangeInLinearVelocity( const Vector3& vLinearVelocity );                       // Sets the change in linear velocity
-    void DampenAngularVelocity( void );                                                     // Dampens the angular velocity based on the friction coefficient
-    void ApplyChangeInAngularVelocity( void );                                              // Applies the change in angular velocity
-    void ThrottleAngularVelocity( void );                                                   // Slows angular velocity to ensure it does not reach astronomical speeds
-    void ApplyChangeInLinearVelocity( void );                                               // Applies the change in linear velocity
-    float GetCoefficientRestitution( void );                                                // Get the coefficient of restitution (bounciness)
-    float GetFrictionCoefficient( void );                                                   // Get the friction coefficient of the body
-    float GetMass( void );                                                                  // Returns the mass of the rigid body
-    float GetInvertedMass( void );                                                          // Returns the inverted mass of the rigid body
-    float GetVolume( void );                                                                // Returns the volume of the rigid body
-    const Vector3& GetVelocity( void );                                                     // Returns a const reference to the velocity of the rigid body
-    const Vector3& GetPosition( void );                                                     // Returns a const reference to the position of the rigid body
-    const Vector3& GetAngularVelocity( void );                                              // Returns a const reference to the angular velocity of the rigid body
-    const Vector3& GetRotationalInertia( void );                                            // Returns a const reference to the rotational inertia of the rigid body
-    float GetDensity( void );                                                               // Calculates and returns the density of the body
+    void DampenAngularVelocity();                                                     // Dampens the angular velocity based on the friction coefficient
+    void ApplyChangeInAngularVelocity();                                              // Applies the change in angular velocity
+    void ThrottleAngularVelocity();                                                   // Slows angular velocity to ensure it does not reach astronomical speeds
+    void ApplyChangeInLinearVelocity();                                               // Applies the change in linear velocity
+    float GetCoefficientRestitution();                                                // Get the coefficient of restitution (bounciness)
+    float GetFrictionCoefficient();                                                   // Get the friction coefficient of the body
+    float GetMass();                                                                  // Returns the mass of the rigid body
+    float GetInvertedMass();                                                          // Returns the inverted mass of the rigid body
+    float GetVolume();                                                                // Returns the volume of the rigid body
+    const Vector3& GetVelocity();                                                     // Returns a const reference to the velocity of the rigid body
+    const Vector3& GetPosition();                                                     // Returns a const reference to the position of the rigid body
+    const Vector3& GetAngularVelocity();                                              // Returns a const reference to the angular velocity of the rigid body
+    const Vector3& GetRotationalInertia();                                            // Returns a const reference to the rotational inertia of the rigid body
+    float GetDensity();                                                               // Calculates and returns the density of the body
     void SetLinearVelocity( const Vector3& vLinear );                                       // Set the linear velocity of the rigid body
     void SetAngularVelocity( const Vector3& vAngular );                                     // Set the angular velocity of the rigid body
     void SetImpulseForce( const Vector3& vImpulseForce, const Vector3& vApplicationPoint ); // Set an impulse force to the rigid body

@@ -1,4 +1,4 @@
-﻿/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SKULLBONEZ_RUN_H
 #define SKULLBONEZ_RUN_H
 
@@ -85,17 +85,17 @@ class SkullbonezRun
     bool m_isWaterFlatDebug;                       // Force ocean mesh fully flat, no displacement (toggle with 3)
     float m_frozenWaterTime;                       // Simulation time captured when freeze was toggled on
 
-    void Render( void );                                               // Main render method
+    void Render();                                               // Main render method
     void RelativeUpdateCamera( uint32_t hash );                        // Relative update specified camera
     void UpdateLogic( float fSecondsPerFrame );                        // Update world logic
-    void TakeInput( void );                                            // Take user input
-    void SetUpCameras( void );                                         // Camera init (legacy mode)
+    void TakeInput();                                            // Take user input
+    void SetUpCameras();                                         // Camera init (legacy mode)
     void SetUpCamerasFromScene( const TestScene& scene );              // Camera init from scene file
     void SetUpGameModels( int count = 300 );                           // Game model init (random legacy mode)
     void SetUpGameModelsFromScene( const TestScene& scene );           // Game model init from scene file
-    void DrawPrimitives( void );                                       // Draw OpenGL primitives here
-    void SetInitialOpenGlState( void );                                // Sets the initial state of the OpenGL evironment
-    void SetViewingOrientation( void );                                // Renders camera views etc
+    void DrawPrimitives();                                       // Draw OpenGL primitives here
+    void SetInitialOpenGlState();                                // Sets the initial state of the OpenGL evironment
+    void SetViewingOrientation();                                // Renders camera views etc
     void DrawWindowText( const double dSecondsPerFrame );              // Renders text to the window
     void SaveScreenshot( const char* path );                           // Saves framebuffer to BMP file via glReadPixels
     void LogPerfMemory( const char* checkpoint );                      // Log memory usage to perf CSV
@@ -103,9 +103,9 @@ class SkullbonezRun
 
   public:
     SkullbonezRun( const char* pScenePath = nullptr ); // Constructor (nullptr = legacy mode)
-    ~SkullbonezRun( void );                            // Default destructor
-    void Initialise( void );                           // Initialises the SkullbonezRun class
-    bool Run( void );                                  // Runs the application after initialisation - main message loop
+    ~SkullbonezRun();                            // Default destructor
+    void Initialise();                           // Initialises the SkullbonezRun class
+    bool Run();                                  // Runs the application after initialisation - main message loop
 };
 } // namespace Basics
 } // namespace SkullbonezCore

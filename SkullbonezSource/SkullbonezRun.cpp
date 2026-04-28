@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezRun.h"
 #include "SkullbonezHelper.h"
 #include "SkullbonezBoundingSphere.h"
@@ -65,11 +65,11 @@ SkullbonezRun::SkullbonezRun( const char* pScenePath )
     m_sInputState = {};
 
     // m_seed the random number generator
-    srand( (unsigned)time( NULL ) );
+    srand( static_cast<unsigned>( time( nullptr ) ) );
 }
 
 /* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
-SkullbonezRun::~SkullbonezRun( void )
+SkullbonezRun::~SkullbonezRun()
 {
     if ( m_perfLogFile )
     {
@@ -93,7 +93,7 @@ SkullbonezRun::~SkullbonezRun( void )
 }
 
 /* -- INITIALISE ------------------------------------------------------------------*/
-void SkullbonezRun::Initialise( void )
+void SkullbonezRun::Initialise()
 {
     // Init window
     m_cWindow = SkullbonezWindow::Instance();
@@ -224,10 +224,10 @@ void SkullbonezRun::SetUpGameModels( int count )
     const SkullbonezConfig& cfg = Cfg();
 
     auto randFloat = [&]( float base, int range )
-    { return base + (float)( rand() % range ); };
+    { return base + static_cast<float>( rand() % range ); };
     auto randSigned = [&]( int range ) -> float
     {
-        float mag = 1.0f + (float)( rand() % range );
+        float mag = 1.0f + static_cast<float>( rand() % range );
         return ( rand() % 2 == 0 ) ? mag : -mag;
     };
     auto randSign = []() -> float
@@ -240,8 +240,8 @@ void SkullbonezRun::SetUpGameModels( int count )
         float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
         float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
         float moment = randFloat( cfg.ballMomentMin, cfg.ballMomentRange );
-        float restitution = cfg.ballRestitutionMin + (float)( rand() % cfg.ballRestitutionRange ) / 10.0f;
-        float radius = ( 1.0f + (float)( rand() % cfg.ballRadiusRange ) ) * 0.5f;
+        float restitution = cfg.ballRestitutionMin + static_cast<float>( rand() % cfg.ballRestitutionRange ) / 10.0f;
+        float radius = ( 1.0f + static_cast<float>( rand() % cfg.ballRadiusRange ) ) * 0.5f;
         Vector3 force( randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ) );
         Vector3 forcePos( randSign(), randSign(), randSign() );
 
@@ -256,7 +256,7 @@ void SkullbonezRun::SetUpGameModels( int count )
 }
 
 /* -- RUN -------------------------------------------------------------------------*/
-bool SkullbonezRun::Run( void )
+bool SkullbonezRun::Run()
 {
     /*
         Runs the application after initialisation - main message loop.
@@ -271,7 +271,7 @@ bool SkullbonezRun::Run( void )
 
     for ( ;; ) // Do until application is closed
     {
-        if ( PeekMessage( &msg, NULL, 0, 0, PM_REMOVE ) ) // Check for msg
+        if ( PeekMessage( &msg, nullptr, 0, 0, PM_REMOVE ) ) // Check for msg
         {
             if ( msg.message == WM_QUIT )
             {
@@ -307,7 +307,7 @@ bool SkullbonezRun::Run( void )
             // Logic (skip physics in scene mode when disabled)
             if ( !m_isSceneMode || m_isScenePhysics )
             {
-                this->UpdateLogic( (float)secondsPerFrame );
+                this->UpdateLogic( static_cast<float>( secondsPerFrame ) );
             }
 
             // Render
@@ -413,7 +413,7 @@ bool SkullbonezRun::Run( void )
                     for ( ;; )
                     {
                         MSG holdMsg;
-                        if ( PeekMessage( &holdMsg, NULL, 0, 0, PM_REMOVE ) )
+                        if ( PeekMessage( &holdMsg, nullptr, 0, 0, PM_REMOVE ) )
                         {
                             if ( holdMsg.message == WM_QUIT )
                             {
@@ -468,7 +468,7 @@ bool SkullbonezRun::Run( void )
 }
 
 /* -- TAKE INPUT ------------------------------------------------------------------*/
-void SkullbonezRun::TakeInput( void )
+void SkullbonezRun::TakeInput()
 {
     // Toggle fly mode with F
     bool prevFlyMode = m_isFlyMode;
@@ -564,7 +564,7 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
 }
 
 /* -- RENDER ----------------------------------------------------------------------*/
-void SkullbonezRun::Render( void )
+void SkullbonezRun::Render()
 {
     // Clear screen pixel and depth into buffers
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
@@ -580,7 +580,7 @@ void SkullbonezRun::Render( void )
 }
 
 /* -- DRAW PRIMITIVES ---------------------------------------------------------------------*/
-void SkullbonezRun::DrawPrimitives( void )
+void SkullbonezRun::DrawPrimitives()
 {
     float lightPosition[] = { 200.0f, 400.0f, 1200.0f, 1.0f };
 
@@ -671,7 +671,7 @@ void SkullbonezRun::DrawPrimitives( void )
 }
 
 /* -- SET UP CAMERAS ----------------------------------------------------------------------*/
-void SkullbonezRun::SetUpCameras( void )
+void SkullbonezRun::SetUpCameras()
 {
     m_cCameras = CameraCollection::Instance();
 
@@ -701,7 +701,7 @@ void SkullbonezRun::SetUpCameras( void )
 }
 
 /* -- SET INITIAL OPEN GL STATE -----------------------------------------------------------*/
-void SkullbonezRun::SetInitialOpenGlState( void )
+void SkullbonezRun::SetInitialOpenGlState()
 {
     SkullbonezHelper::ResetGLResources();
     SkullbonezHelper::StateSetup();
@@ -717,7 +717,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 {
     // update timers
     m_cUpdateTimer.StopTimer();
-    m_timeSinceLastRender += (float)m_cUpdateTimer.GetElapsedTime();
+    m_timeSinceLastRender += static_cast<float>( m_cUpdateTimer.GetElapsedTime() );
     m_cUpdateTimer.StartTimer();
 
     // if half a second has passed
@@ -726,7 +726,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         if ( dSecondsPerFrame )
         {
             // update the display information
-            m_r_fpsTime = 1.0f / (float)dSecondsPerFrame;
+            m_r_fpsTime = 1.0f / static_cast<float>( dSecondsPerFrame );
             m_r_physicsTime = m_physicsTime;
             m_r_renderTime = m_renderTime;
         }
@@ -750,7 +750,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 }
 
 /* -- SET VIEWING ORIENTATION -------------------------------------------------------------------------------------------------------------------------------------------*/
-void SkullbonezRun::SetViewingOrientation( void )
+void SkullbonezRun::SetViewingOrientation()
 {
     // In scene mode, use the first camera without cycling
     if ( m_isSceneMode )
@@ -776,7 +776,7 @@ void SkullbonezRun::SetViewingOrientation( void )
 
     // maintain the camera timer
     m_cCameraTimer.StopTimer();
-    m_cameraTime += (float)m_cCameraTimer.GetElapsedTime();
+    m_cameraTime += static_cast<float>( m_cCameraTimer.GetElapsedTime() );
     m_cCameraTimer.StartTimer();
 
     // change the viewing camera automatically

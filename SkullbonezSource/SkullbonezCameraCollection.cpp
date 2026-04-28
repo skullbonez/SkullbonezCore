@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezCameraCollection.h"
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
@@ -10,7 +10,7 @@ using namespace SkullbonezCore::Math::Transformation;
 CameraCollection* CameraCollection::pInstance = 0;
 
 /* -- CONSTRUCTOR -----------------------------------------------------------------*/
-CameraCollection::CameraCollection( void )
+CameraCollection::CameraCollection()
 {
     m_arrayPosition = 0;
     m_selectedCamera = 0;
@@ -28,7 +28,7 @@ CameraCollection::CameraCollection( void )
 }
 
 /* -- SINGLETON CONSTRUCTOR -------------------------------------------------------*/
-CameraCollection* CameraCollection::Instance( void )
+CameraCollection* CameraCollection::Instance()
 {
     if ( !CameraCollection::pInstance )
     {
@@ -39,7 +39,7 @@ CameraCollection* CameraCollection::Instance( void )
 }
 
 /* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
-void CameraCollection::Destroy( void )
+void CameraCollection::Destroy()
 {
     if ( CameraCollection::pInstance )
     {
@@ -110,7 +110,7 @@ void CameraCollection::SetTweenPath( int fromIndex, int toIndex )
 }
 
 /* -- UPDATE TWEEN PATH -----------------------------------------------------------*/
-void CameraCollection::UpdateTweenPath( void )
+void CameraCollection::UpdateTweenPath()
 {
     // update the destination (use vector difference)
     m_tweenPath = m_cameraArray[m_selectedCamera] - m_tweenStart;
@@ -167,7 +167,7 @@ void CameraCollection::SelectCamera( uint32_t hash,
 }
 
 /* -- GET SELECTED CAMERA HASH ----------------------------------------------------*/
-uint32_t CameraCollection::GetSelectedCameraName( void )
+uint32_t CameraCollection::GetSelectedCameraName()
 {
     return m_cameraHashes[m_selectedCamera];
 }
@@ -207,19 +207,19 @@ void CameraCollection::MovePrimary( Camera::TravelDirection enumDir,
 }
 
 /* -- GET PRIMARY MOVEMENT BUFFER -------------------------------------------------*/
-const Vector3& CameraCollection::GetPrimaryMovementBuffer( void )
+const Vector3& CameraCollection::GetPrimaryMovementBuffer()
 {
     return m_cameraArray[m_selectedCamera].MovementBuffer;
 }
 
 /* -- IS PRIMARY LOCKED -----------------------------------------------------------*/
-bool CameraCollection::IsPrimaryLocked( void )
+bool CameraCollection::IsPrimaryLocked()
 {
     return m_cameraArray[m_selectedCamera].IsLockedMode;
 }
 
 /* -- GET CAMERA TRANSLATION ------------------------------------------------------*/
-const Vector3& CameraCollection::GetCameraTranslation( void )
+const Vector3& CameraCollection::GetCameraTranslation()
 {
     return ( m_cameraArray[m_selectedCamera].Position );
 }
@@ -231,7 +231,7 @@ const Vector3& CameraCollection::GetCameraTranslation( uint32_t hash )
 }
 
 /* -- RELATIVE UPDATE -------------------------------------------------------------*/
-void CameraCollection::CancelTween( void )
+void CameraCollection::CancelTween()
 {
     m_isTweening = false;
 }
@@ -263,7 +263,7 @@ void CameraCollection::RelativeUpdate( uint32_t hash,
 }
 
 /* -- GET UPDATE CAMERA -----------------------------------------------------------*/
-Camera CameraCollection::GetUpdateCamera( void )
+Camera CameraCollection::GetUpdateCamera()
 {
     // get the camera representing the updates the non primaries have been missing out on
     // (vector difference will tell us this)
@@ -271,7 +271,7 @@ Camera CameraCollection::GetUpdateCamera( void )
 }
 
 /* -- APPLY PRIMARY MOVEMENT BUFFER -----------------------------------------------*/
-void CameraCollection::ApplyPrimaryMovementBuffer( void )
+void CameraCollection::ApplyPrimaryMovementBuffer()
 {
     // apply the translation
     m_cameraArray[m_selectedCamera].ApplyMovementBuffer();
@@ -292,14 +292,14 @@ void CameraCollection::AmmendPrimaryY( float yCoordinate )
 }
 
 /* -- RESET RELATIVITY ------------------------------------------------------------*/
-void CameraCollection::ResetRelativity( void )
+void CameraCollection::ResetRelativity()
 {
     // set the primary store to the current camera
     m_primaryStore = m_cameraArray[m_selectedCamera];
 }
 
 /* -- SET CAMERA ------------------------------------------------------------------*/
-void CameraCollection::SetCamera( void )
+void CameraCollection::SetCamera()
 {
     // make sure a camera exists
     if ( !m_arrayPosition )
@@ -371,14 +371,14 @@ void CameraCollection::SetViewMatrix( Camera& cCameraData )
 }
 
 /* -- DEBUG: GET VIEW MAG ---------------------------------------------------------*/
-float CameraCollection::DEBUG_GetViewMag( void )
+float CameraCollection::DEBUG_GetViewMag()
 {
     return ( Vector::Distance( m_cameraArray[m_selectedCamera].Position,
                                m_cameraArray[m_selectedCamera].View ) );
 }
 
 /* -- DEBUG: GET VIEW MAG TARGET --------------------------------------------------*/
-float CameraCollection::DEBUG_GetViewMagTarget( void )
+float CameraCollection::DEBUG_GetViewMagTarget()
 {
     return m_cameraArray[m_selectedCamera].ViewMagnitude;
 }
@@ -404,13 +404,13 @@ bool CameraCollection::IsCameraSelected( uint32_t hash )
 }
 
 /* -- IS CAMERA TWEENING ----------------------------------------------------------*/
-bool CameraCollection::IsCameraTweening( void )
+bool CameraCollection::IsCameraTweening()
 {
     return m_isTweening;
 }
 
 /* -- GET CAMERA VIEW -------------------------------------------------------------*/
-const Vector3& CameraCollection::GetCameraView( void )
+const Vector3& CameraCollection::GetCameraView()
 {
     return m_cameraArray[m_selectedCamera].View;
 }

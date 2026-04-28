@@ -1,4 +1,4 @@
-﻿/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SKULLBONEZ_WORLD_ENVIRONMENT_H
 #define SKULLBONEZ_WORLD_ENVIRONMENT_H
 
@@ -32,16 +32,16 @@ class WorldEnvironment
 {
 
   public:
-    WorldEnvironment( void );                                                                              // Default constructor
+    WorldEnvironment();                                                                              // Default constructor
     WorldEnvironment( float fFluidSurfaceHeight, float fFluidDensity, float fGasDensity, float fGravity ); // Overloaded constructor
-    ~WorldEnvironment( void );                                                                             // Default destructor
+    ~WorldEnvironment();                                                                             // Default destructor
     WorldEnvironment( WorldEnvironment&& ) noexcept = default;                                             // Move constructor
     WorldEnvironment& operator=( WorldEnvironment&& ) noexcept = default;                                  // Move assignment
 
     void SetTerrainBounds( float xMin, float xMax, float zMin, float zMax );                                                                                                  // Must be called before first render; drives calm/ocean mesh split
     void RenderFluid( const Matrix4& view, const Matrix4& proj, const Matrix4& reflectVP, float time, GLuint reflectionTex, bool flatWater = false, bool noReflect = false ); // Renders the water in the scene
-    void ResetGLResources( void );                                                                                                                                            // Rebuilds GPU resources after GL context recreation
-    float GetFluidSurfaceHeight( void );                                                                                                                                      // Returns the fluid surface height
+    void ResetGLResources();                                                                                                                                            // Rebuilds GPU resources after GL context recreation
+    float GetFluidSurfaceHeight();                                                                                                                                      // Returns the fluid surface height
     void AddWorldForces( GameObjects::GameModel& target, float changeInTime );                                                                                                // Adds world forces to the referenced game model
 
   private:
@@ -58,7 +58,7 @@ class WorldEnvironment
     std::unique_ptr<Mesh> m_oceanMesh; // Outer water: waves + perturbation
     std::unique_ptr<Shader> m_oceanShader;
 
-    void BuildFluidMesh( void ); // Builds calm and ocean meshes
+    void BuildFluidMesh(); // Builds calm and ocean meshes
 
     float CalculateGravity( float objectMass );                                                                                              // returns Y-component representing Newtons of gravity acting on object
     float CalculateBuoyancy( float submergedObjectVolume );                                                                                  // returns Y-component representing Newtons of buoyancy acting on the object

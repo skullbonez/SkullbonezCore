@@ -1,4 +1,4 @@
-﻿#include "SkullbonezProfiler.h"
+#include "SkullbonezProfiler.h"
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
 
@@ -41,13 +41,13 @@ const char* FindLeafName( const char* fullPath )
 }
 } // namespace
 
-Profiler& Profiler::Instance( void )
+Profiler& Profiler::Instance()
 {
     static Profiler instance;
     return instance;
 }
 
-Profiler::Profiler( void )
+Profiler::Profiler()
     : m_markerCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false )
 {
     LARGE_INTEGER f;
@@ -217,7 +217,7 @@ void Profiler::End( const char* fullPath, uint32_t hash )
     --m_stackTop;
 }
 
-void Profiler::FrameBegin( void )
+void Profiler::FrameBegin()
 {
     if ( m_inFrame )
     {
@@ -240,7 +240,7 @@ void Profiler::FrameBegin( void )
     Begin( "Frame", kFrameHash );
 }
 
-void Profiler::FrameEnd( void )
+void Profiler::FrameEnd()
 {
     if ( !m_inFrame )
     {
@@ -370,7 +370,7 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     const float padX = fSize * 0.6f;
     const float padY = lineHeight * 1.2f;
     const float panelW = fSize * 46.0f;
-    const float rowsHeight = (float)( m_markerCount + 2 ) * lineHeight; // +2 for header + column labels
+    const float rowsHeight = static_cast<float>( m_markerCount + 2 ) * lineHeight; // +2 for header + column labels
 
     const float yBottom = yAnchor + padY;
     const float yTop = yBottom + rowsHeight;

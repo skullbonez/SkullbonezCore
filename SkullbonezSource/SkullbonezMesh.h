@@ -1,4 +1,4 @@
-﻿/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SKULLBONEZ_MESH_H
 #define SKULLBONEZ_MESH_H
 
@@ -33,10 +33,10 @@ class Mesh
 
   public:
     Mesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords, GLenum drawMode = GL_TRIANGLES ); // Upload interleaved vertex data
-    ~Mesh( void );                                                                                                  // Destructor: delete VAO/VBO
+    ~Mesh();                                                                                                  // Destructor: delete VAO/VBO
 
-    void Draw( void ) const;          // Bind VAO and draw
-    int GetVertexCount( void ) const; // Get vertex count
+    void Draw() const;          // Bind VAO and draw
+    int GetVertexCount() const; // Get vertex count
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

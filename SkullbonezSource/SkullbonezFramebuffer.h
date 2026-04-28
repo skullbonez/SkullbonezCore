@@ -1,4 +1,4 @@
-﻿/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SKULLBONEZ_FRAMEBUFFER_H
 #define SKULLBONEZ_FRAMEBUFFER_H
 
@@ -24,18 +24,18 @@ class Framebuffer
     int m_width;       // Texture m_width  (pixels)
     int m_height;      // Texture m_height (pixels)
 
-    void Build( void ); // Allocate all GL objects
+    void Build(); // Allocate all GL objects
 
   public:
     Framebuffer( int width, int height ); // Create FBO at given resolution
-    ~Framebuffer( void );                 // Delete all GL objects
+    ~Framebuffer();                 // Delete all GL objects
 
-    void Bind( void ) const;              // Bind as render target
-    void Unbind( void ) const;            // Restore default framebuffer
-    GLuint GetColorTexture( void ) const; // Returns color texture handle
-    int GetWidth( void ) const;           // Returns FBO width in pixels
-    int GetHeight( void ) const;          // Returns FBO height in pixels
-    void ResetGLResources( void );        // Rebuild after GL context recreation
+    void Bind() const;              // Bind as render target
+    void Unbind() const;            // Restore default framebuffer
+    GLuint GetColorTexture() const; // Returns color texture handle
+    int GetWidth() const;           // Returns FBO width in pixels
+    int GetHeight() const;          // Returns FBO height in pixels
+    void ResetGLResources();        // Rebuild after GL context recreation
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

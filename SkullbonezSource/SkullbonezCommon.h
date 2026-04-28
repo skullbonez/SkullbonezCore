@@ -50,12 +50,12 @@
 
 /* -- COMPILE-TIME CONSTANTS ------------------------------------------------------*/
 // Array-sizing counts (must remain compile-time)
-#define TOTAL_CAMERA_COUNT 3
-#define TOTAL_TEXTURE_COUNT 8
+constexpr int TOTAL_CAMERA_COUNT = 3;
+constexpr int TOTAL_TEXTURE_COUNT = 8;
 
 // Window labels
-#define WINDOW_NAME "SkullbonezWindow"
-#define TITLE_TEXT "::SKULLBONEZ CORE::"
+constexpr const char* WINDOW_NAME = "SkullbonezWindow";
+constexpr const char* TITLE_TEXT = "::SKULLBONEZ CORE::";
 
 // Math constants
 constexpr float _PI = 3.14159265f;

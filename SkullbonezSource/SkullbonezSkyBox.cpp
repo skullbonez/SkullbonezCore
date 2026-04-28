@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezSkyBox.h"
 #include <vector>
 
@@ -26,7 +26,7 @@ SkyBox::SkyBox( int m_xMin,
 }
 
 /* -- LOAD TEXTURES ---------------------------------------------------------------*/
-void SkyBox::LoadTextures( void )
+void SkyBox::LoadTextures()
 {
     m_textures = TextureCollection::Instance();
     const SkullbonezCore::Basics::SkullbonezConfig& cfg = Cfg();
@@ -39,22 +39,22 @@ void SkyBox::LoadTextures( void )
 }
 
 /* -- BUILD MESHES ----------------------------------------------------------------*/
-void SkyBox::BuildMeshes( void )
+void SkyBox::BuildMeshes()
 {
     // Shorthand for boundary values with overflow
     const int overflow = Cfg().skyboxOverflow;
-    float xn = (float)( m_boundaries.m_xMin - overflow );
-    float xp = (float)( m_boundaries.m_xMax + overflow );
-    float yn = (float)( m_boundaries.yMin - overflow );
-    float yp = (float)( m_boundaries.yMax + overflow );
-    float zn = (float)( m_boundaries.m_zMin - overflow );
-    float zp = (float)( m_boundaries.m_zMax + overflow );
-    float yMinF = (float)m_boundaries.yMin;
-    float yMaxF = (float)m_boundaries.yMax;
-    float xMinF = (float)m_boundaries.m_xMin;
-    float xMaxF = (float)m_boundaries.m_xMax;
-    float zMinF = (float)m_boundaries.m_zMin;
-    float zMaxF = (float)m_boundaries.m_zMax;
+    float xn = static_cast<float>( m_boundaries.m_xMin - overflow );
+    float xp = static_cast<float>( m_boundaries.m_xMax + overflow );
+    float yn = static_cast<float>( m_boundaries.yMin - overflow );
+    float yp = static_cast<float>( m_boundaries.yMax + overflow );
+    float zn = static_cast<float>( m_boundaries.m_zMin - overflow );
+    float zp = static_cast<float>( m_boundaries.m_zMax + overflow );
+    float yMinF = static_cast<float>( m_boundaries.yMin );
+    float yMaxF = static_cast<float>( m_boundaries.yMax );
+    float xMinF = static_cast<float>( m_boundaries.m_xMin );
+    float xMaxF = static_cast<float>( m_boundaries.m_xMax );
+    float zMinF = static_cast<float>( m_boundaries.m_zMin );
+    float zMaxF = static_cast<float>( m_boundaries.m_zMax );
 
     // Each face: 2 triangles = 6 vertices, 5 floats each (pos3 + tex2)
     // Face order: up, down, right(west), left(east), front, back
@@ -289,7 +289,7 @@ SkyBox* SkyBox::Instance( int m_xMin, int m_xMax, int yMin, int yMax, int m_zMin
 }
 
 /* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
-void SkyBox::Destroy( void )
+void SkyBox::Destroy()
 {
     if ( SkyBox::pInstance )
     {
@@ -303,7 +303,7 @@ void SkyBox::Destroy( void )
 }
 
 /* -- RESET GL RESOURCES ----------------------------------------------------------*/
-void SkyBox::ResetGLResources( void )
+void SkyBox::ResetGLResources()
 {
     for ( int i = 0; i < 6; ++i )
     {

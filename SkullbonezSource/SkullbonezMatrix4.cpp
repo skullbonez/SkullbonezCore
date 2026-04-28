@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezMatrix4.h"
 #include "SkullbonezQuaternion.h"
 #include <cmath>
@@ -9,7 +9,7 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Vector;
 
 /* -- DEFAULT CONSTRUCTOR (IDENTITY) ----------------------------------------------*/
-Matrix4::Matrix4( void )
+Matrix4::Matrix4()
 {
     m[0] = 1.0f;
     m[4] = 0.0f;
@@ -247,7 +247,7 @@ Matrix4& Matrix4::operator*=( const Matrix4& rhs )
 }
 
 /* -- DATA POINTER ----------------------------------------------------------------*/
-const float* Matrix4::Data( void ) const
+const float* Matrix4::Data() const
 {
     return m;
 }

@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezRotationMatrix.h"
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
@@ -6,7 +6,7 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
-RotationMatrix::RotationMatrix( void )
+RotationMatrix::RotationMatrix()
 {
 }
 
@@ -33,7 +33,7 @@ RotationMatrix::RotationMatrix( float f11,
 }
 
 /* -- IDENTITY --------------------------------------------------------------------*/
-void RotationMatrix::Identity( void )
+void RotationMatrix::Identity()
 {
     this->m11 = 1.0f;
     this->m12 = 0.0f;

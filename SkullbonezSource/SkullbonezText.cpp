@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezText.h"
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
@@ -52,7 +52,7 @@ void Text2d::BuildFont( const HDC hDC, const char* cFontName )
         throw std::runtime_error( "DIB section creation failed (Text2d::BuildFont)" );
     }
 
-    HBITMAP hOldBitmap = (HBITMAP)SelectObject( memDC, hBitmap );
+    HBITMAP hOldBitmap = reinterpret_cast<HBITMAP>( SelectObject( memDC, hBitmap ) );
 
     // Fill with black
     RECT fillRect = { 0, 0, FONT_ATLAS_W, FONT_ATLAS_H };
@@ -85,14 +85,14 @@ void Text2d::BuildFont( const HDC hDC, const char* cFontName )
         throw std::runtime_error( "Font creation failed (Text2d::BuildFont)" );
     }
 
-    HFONT hOldFont = (HFONT)SelectObject( memDC, hFont );
+    HFONT hOldFont = reinterpret_cast<HFONT>( SelectObject( memDC, hFont ) );
 
     // Measure advance widths for all 96 printable ASCII chars (32..127)
     INT advWidths[96] = {};
     GetCharWidth32( memDC, 32, 127, advWidths );
     for ( int i = 0; i < 96; ++i )
     {
-        Text2d::charAdvance[i] = (float)advWidths[i] / (float)FONT_SIZE;
+        Text2d::charAdvance[i] = static_cast<float>( advWidths[i] ) / static_cast<float>( FONT_SIZE );
     }
 
     // Render each character into its atlas cell
@@ -102,7 +102,7 @@ void Text2d::BuildFont( const HDC hDC, const char* cFontName )
     char ch[2] = { 0, 0 };
     for ( int i = 0; i < 96; ++i )
     {
-        ch[0] = (char)( i + 32 );
+        ch[0] = static_cast<char>( i + 32 );
         int col = i % FONT_COLS;
         int row = i / FONT_COLS;
         TextOutA( memDC, col * FONT_CELL_W, row * FONT_CELL_H, ch, 1 );
@@ -131,9 +131,9 @@ void Text2d::BuildFont( const HDC hDC, const char* cFontName )
     glBindBuffer( GL_ARRAY_BUFFER, Text2d::textVBO );
 
     // Layout: [x, y, u, v] per vertex, 4 floats stride
-    glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof( float ), (void*)0 );
+    glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof( float ), reinterpret_cast<void*>( 0 ) );
     glEnableVertexAttribArray( 0 );
-    glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof( float ), (void*)( 2 * sizeof( float ) ) );
+    glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof( float ), reinterpret_cast<void*>( 2 * sizeof( float ) ) );
     glEnableVertexAttribArray( 1 );
 
     glBindVertexArray( 0 );
@@ -158,7 +158,7 @@ void Text2d::BuildFont( const HDC hDC, const char* cFontName )
 }
 
 /* -- DELETE FONT -----------------------------------------------------------------*/
-void Text2d::DeleteFont( void )
+void Text2d::DeleteFont()
 {
     if ( Text2d::fontTexture )
     {
@@ -187,7 +187,7 @@ static void RenderTextInternal( float xPosition, float yPosition, float fSize, f
 
     static float s_vertBuf[512 * 6 * 4]; // max 512 chars * 6 verts * 4 floats
 
-    const int len = (int)strlen( formatted );
+    const int len = static_cast<int>( strlen( formatted ) );
     if ( len == 0 )
     {
         return;
@@ -195,7 +195,7 @@ static void RenderTextInternal( float xPosition, float yPosition, float fSize, f
 
     // Build orthographic projection matching the legacy FFP coordinate space.
     const float halfH = tanf( 22.5f * _PI / 180.0f );
-    const float halfW = halfH * (float)Cfg().screenX / (float)Cfg().screenY;
+    const float halfW = halfH * static_cast<float>( Cfg().screenX ) / static_cast<float>( Cfg().screenY );
     Matrix4 proj = Matrix4::Ortho( -halfW, halfW, -halfH, halfH, -1.0f, 1.0f );
 
     // Build vertex data: 6 verts per character (2 triangles), 4 floats per vert
@@ -216,13 +216,13 @@ static void RenderTextInternal( float xPosition, float yPosition, float fSize, f
         int col = idx % FONT_COLS;
         int row = idx / FONT_COLS;
 
-        const float halfU = 0.5f / (float)FONT_ATLAS_W;
-        const float halfV = 0.5f / (float)FONT_ATLAS_H;
+        const float halfU = 0.5f / static_cast<float>( FONT_ATLAS_W );
+        const float halfV = 0.5f / static_cast<float>( FONT_ATLAS_H );
 
-        float u0 = (float)( col * FONT_CELL_W ) / (float)FONT_ATLAS_W + halfU;
-        float v0 = (float)( row * FONT_CELL_H ) / (float)FONT_ATLAS_H + halfV;
-        float u1 = u0 + ( Text2d::charAdvance[idx] * (float)FONT_SIZE ) / (float)FONT_ATLAS_W - halfU;
-        float v1 = (float)( row * FONT_CELL_H + FONT_SIZE ) / (float)FONT_ATLAS_H - halfV;
+        float u0 = static_cast<float>( col * FONT_CELL_W ) / static_cast<float>( FONT_ATLAS_W ) + halfU;
+        float v0 = static_cast<float>( row * FONT_CELL_H ) / static_cast<float>( FONT_ATLAS_H ) + halfV;
+        float u1 = u0 + ( Text2d::charAdvance[idx] * static_cast<float>( FONT_SIZE ) ) / static_cast<float>( FONT_ATLAS_W ) - halfU;
+        float v1 = static_cast<float>( row * FONT_CELL_H + FONT_SIZE ) / static_cast<float>( FONT_ATLAS_H ) - halfV;
 
         float charW = Text2d::charAdvance[idx] * fSize;
         float charH = fSize;
@@ -398,7 +398,7 @@ void Text2d::Render2dQuad( float x0, float y0, float x1, float y1, float r, floa
     s_quadBuf[23] = 0.0f;
 
     const float halfH = tanf( 22.5f * _PI / 180.0f );
-    const float halfW = halfH * (float)Cfg().screenX / (float)Cfg().screenY;
+    const float halfW = halfH * static_cast<float>( Cfg().screenX ) / static_cast<float>( Cfg().screenY );
     Matrix4 proj = Matrix4::Ortho( -halfW, halfW, -halfH, halfH, -1.0f, 1.0f );
 
     GLboolean depthEnabled = glIsEnabled( GL_DEPTH_TEST );

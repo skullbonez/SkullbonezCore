@@ -1,4 +1,4 @@
-﻿/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SKULLBONEZ_MATRIX4_H
 #define SKULLBONEZ_MATRIX4_H
 
@@ -42,7 +42,7 @@ class Matrix4
   public:
     float m[16];
 
-    Matrix4( void );                // Default constructor (identity)
+    Matrix4();                // Default constructor (identity)
     Matrix4( const float* values ); // Construct from 16-element column-major array
 
     static Matrix4 Perspective( float fovDegrees, float aspect, float nearPlane, float farPlane );             // Perspective projection matrix
@@ -58,7 +58,7 @@ class Matrix4
 
     Matrix4 operator*( const Matrix4& rhs ) const; // Matrix multiplication
     Matrix4& operator*=( const Matrix4& rhs );     // In-place matrix multiplication
-    const float* Data( void ) const;               // Pointer to column-major data for glUniformMatrix4fv
+    const float* Data() const;               // Pointer to column-major data for glUniformMatrix4fv
 };
 } // namespace Transformation
 } // namespace Math

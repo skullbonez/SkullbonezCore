@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezTerrain.h"
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
@@ -36,13 +36,13 @@ Terrain::Terrain( const char* sFileName,
 }
 
 /* -- DEFAULT DESTRUCTOR ----------------------------------------------------------*/
-Terrain::~Terrain( void )
+Terrain::~Terrain()
 {
     // Mesh and Shader cleaned up by unique_ptr
 }
 
 /* -- BUILD TERRAIN ---------------------------------------------------------------*/
-void Terrain::BuildTerrain( void )
+void Terrain::BuildTerrain()
 {
     int terrainPostCount = ( m_mapSize / m_stepSize ) *
                            ( m_mapSize / m_stepSize );
@@ -187,7 +187,7 @@ bool Terrain::IsInBounds( float xPosition, float zPosition )
 }
 
 /* -- GET BOUNDS XZ ---------------------------------------------------------------*/
-XZBounds Terrain::GetXZBounds( void )
+XZBounds Terrain::GetXZBounds()
 {
     XZBounds bounds;
 
@@ -211,8 +211,8 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
     // NOTE:  X and Z params are switched in this method to account for world
     // co-ordinate space find which quadric we are in (treat m_terrain as orthagonal
     // XZ projection to locate the quadric)
-    int xPosting = (int)floorf( zPosition / ( m_stepSize * Cfg().terrainScale ) );
-    int zPosting = (int)floorf( xPosition / ( m_stepSize * Cfg().terrainScale ) );
+    int xPosting = static_cast<int>( floorf( zPosition / ( m_stepSize * Cfg().terrainScale ) ) );
+    int zPosting = static_cast<int>( floorf( xPosition / ( m_stepSize * Cfg().terrainScale ) ) );
 
     // calculate the BOTTOM RIGHT post of the quadric hit - we will call this the
     // 'target quadric'
@@ -282,7 +282,7 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
 }
 
 /* -- TRANSLATE POSTINGS -----------------------------------------------------------------------------------------------------------------------------------------------*/
-void Terrain::TranslatePostings( void )
+void Terrain::TranslatePostings()
 {
     int indexCounter = 0;
 
@@ -290,9 +290,9 @@ void Terrain::TranslatePostings( void )
     {
         for ( int Z = 0; Z < m_mapSize; Z += m_stepSize )
         {
-            m_postData[indexCounter].vPosition.SetAll( (float)X * Cfg().terrainScale,
-                                                       (float)this->GetPixelHeightAt( X, Z ) * Cfg().terrainHeightScale * Cfg().terrainScale,
-                                                       (float)Z * Cfg().terrainScale );
+            m_postData[indexCounter].vPosition.SetAll( static_cast<float>( X ) * Cfg().terrainScale,
+                                                       static_cast<float>( this->GetPixelHeightAt( X, Z ) ) * Cfg().terrainHeightScale * Cfg().terrainScale,
+                                                       static_cast<float>( Z ) * Cfg().terrainScale );
 
             ++indexCounter;
         }
@@ -300,7 +300,7 @@ void Terrain::TranslatePostings( void )
 }
 
 /* -- GENERATE NORMALS -------------------------------------------------------------------------------------------------------------------------------------------------*/
-void Terrain::GenerateNormals( void )
+void Terrain::GenerateNormals()
 {
     // flags to indicate special cases
     bool isFirstRow = true;
@@ -617,7 +617,7 @@ void Terrain::GenerateNormals( void )
 }
 
 /* -- BUILD MESH ---------------------------------------------------------------------------------------------------------------------------------------------------*/
-void Terrain::BuildMesh( void )
+void Terrain::BuildMesh()
 {
     // 2 triangles per quad, 6 vertices each, 8 floats per vertex (pos3 + normal3 + texcoord2)
     int quadsPerSide = m_postsPerSide - 1;

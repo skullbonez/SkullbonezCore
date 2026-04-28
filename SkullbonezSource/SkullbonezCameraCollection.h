@@ -1,4 +1,4 @@
-﻿/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SKULLBONEZ_CAMERA_COLLECTION_H
 #define SKULLBONEZ_CAMERA_COLLECTION_H
 
@@ -40,39 +40,39 @@ class CameraCollection
     Terrain* m_terrain;                          // Stores a pointer to the m_terrain for tweening collision purposes
     Matrix4 m_currentViewMatrix;                 // Current view matrix (updated each frame by SetCamera)
 
-    CameraCollection( void ); // Constructor
-    ~CameraCollection( void ) = default;
+    CameraCollection(); // Constructor
+    ~CameraCollection() = default;
     void SetViewMatrix( Camera& cCameraData );       // Computes currentViewMatrix from the supplied camera data
     int FindIndex( uint32_t hash );                  // Returns the index of the specified camera
-    Camera GetUpdateCamera( void );                  // Returns the current update camera for relative updates
-    void UpdateTweenPath( void );                    // Alters the tween path member to end at the required destination (it is important to call this during tweens as the destination can move about the scene during the tween)
+    Camera GetUpdateCamera();                  // Returns the current update camera for relative updates
+    void UpdateTweenPath();                    // Alters the tween path member to end at the required destination (it is important to call this during tweens as the destination can move about the scene during the tween)
     void SetTweenPath( int fromIndex, int toIndex ); // Sets the tween path member to the required tween path (specify fromIndex as -1 to use the tween camera as the from camera)
 
   public:
-    static CameraCollection* Instance( void );            // Returns a pointer to the sole class instance
-    static void Destroy( void );                          // Deletes the sole class instance
-    const Vector3& GetCameraView( void );                 // Returns the current view of the primary camera
-    const Vector3& GetCameraTranslation( void );          // Returns the current translation of the primary camera
+    static CameraCollection* Instance();            // Returns a pointer to the sole class instance
+    static void Destroy();                          // Deletes the sole class instance
+    const Vector3& GetCameraView();                 // Returns the current view of the primary camera
+    const Vector3& GetCameraTranslation();          // Returns the current translation of the primary camera
     const Vector3& GetCameraTranslation( uint32_t hash ); // Returns the current translation of the specified camera
     void SetViewCoordinates( const Vector3& vView );      // Sets the primary camera view position (helpful for keeping focused on an object)
     void SetTweenSpeed( float fTweenSpeed );              // Sets the tween transition speed
-    void SetCamera( void );                               // Takes care of setting the camera in the specified position.  Should be called once per frame when the camera has been updated
-    bool IsPrimaryLocked( void );                         // Returns whether the primary camera is in locked mode or not
+    void SetCamera();                               // Takes care of setting the camera in the specified position.  Should be called once per frame when the camera has been updated
+    bool IsPrimaryLocked();                         // Returns whether the primary camera is in locked mode or not
     void SetLockedMode( bool fIsLocked );                 // Sets the camera to or from locked mode
     void AmmendPrimaryY( float yCoordinate );             // Translates the primary cameras Y position to the specified world coordinate
     void SetCameraXZBounds( const XZBounds bounds );      // Set a camera boundary for all cameras
-    void ResetRelativity( void );                         // Resets the difference camera to the current camera (call this after all camera updates have been made)
-    bool IsCameraTweening( void );                        // Returns a flag indicating if the camera is currently tweening or not
-    float DEBUG_GetViewMag( void );                       // Gets the magnitude of the primary view vector (debug routine)
-    float DEBUG_GetViewMagTarget( void );                 // Returns the target magnitude of the primary view vector (debug routine)
-    const Matrix4& GetViewMatrix( void ) const
+    void ResetRelativity();                         // Resets the difference camera to the current camera (call this after all camera updates have been made)
+    bool IsCameraTweening();                        // Returns a flag indicating if the camera is currently tweening or not
+    float DEBUG_GetViewMag();                       // Gets the magnitude of the primary view vector (debug routine)
+    float DEBUG_GetViewMagTarget();                 // Returns the target magnitude of the primary view vector (debug routine)
+    const Matrix4& GetViewMatrix() const
     {
         return m_currentViewMatrix;
     } // Returns the current view matrix
-    uint32_t GetSelectedCameraName( void );          // Returns the hash of the selected camera
+    uint32_t GetSelectedCameraName();          // Returns the hash of the selected camera
     bool IsCameraSelected( uint32_t hash );          // Returns a flag indicating if the specified camera is selected
-    void ApplyPrimaryMovementBuffer( void );         // Applies the movement buffer to the primary camera
-    const Vector3& GetPrimaryMovementBuffer( void ); // Returns the primary cameras movement buffer
+    void ApplyPrimaryMovementBuffer();         // Applies the movement buffer to the primary camera
+    const Vector3& GetPrimaryMovementBuffer(); // Returns the primary cameras movement buffer
     void SetTerrain( Terrain* cTerrain );            // Sets the terrain pointer
     void RotatePrimary( float xMove, float yMove );  // Rotates the primary camera
 
@@ -80,7 +80,7 @@ class CameraCollection
     void RelativeUpdate( uint32_t hash, float yMin, float yMax );         // Updates specified camera relative to primary, limit to specified y coordinate (minimum)
     void MovePrimary( Camera::TravelDirection enumDir, float fQuantity ); // Moves the primary camera in the specified direction
     void SelectCamera( uint32_t hash, bool fTween );                      // Selects a camera as primary
-    void CancelTween( void );                                             // Immediately stops any in-progress camera tween
+    void CancelTween();                                             // Immediately stops any in-progress camera tween
 
     void AddCamera( const Vector3& vPosition, const Vector3& vView, const Vector3& vUp, uint32_t hash ); // Add a camera to the camera collection
 };

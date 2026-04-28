@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezTextureCollection.h"
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
@@ -8,7 +8,7 @@ using namespace SkullbonezCore::Textures;
 TextureCollection* TextureCollection::pInstance = 0;
 
 /* -- CONSTRUCTOR -----------------------------------------------------------------*/
-TextureCollection::TextureCollection( void )
+TextureCollection::TextureCollection()
 {
     m_nextAvailableTextureIndex = 0;
     m_textureCounter = 0;
@@ -21,7 +21,7 @@ TextureCollection::TextureCollection( void )
 }
 
 /* -- SINGLETON CONSTRUCTOR -------------------------------------------------------*/
-TextureCollection* TextureCollection::Instance( void )
+TextureCollection* TextureCollection::Instance()
 {
     if ( !TextureCollection::pInstance )
     {
@@ -32,7 +32,7 @@ TextureCollection* TextureCollection::Instance( void )
 }
 
 /* -- SINGLETON DESTRUCTOR --------------------------------------------------------*/
-void TextureCollection::Destroy( void )
+void TextureCollection::Destroy()
 {
     if ( TextureCollection::pInstance )
     {
@@ -120,7 +120,7 @@ tImageJPG* TextureCollection::LoadJPEG( const char* cFileName )
 }
 
 /* -- UPDATE COUNTERS -------------------------------------------------------------*/
-void TextureCollection::UpdateCounters( void )
+void TextureCollection::UpdateCounters()
 {
     // reset the counter
     m_textureCounter = 0;
@@ -164,7 +164,7 @@ int TextureCollection::FindIndex( uint32_t hash )
 }
 
 /* -- DELETE ALL TEXTURES ---------------------------------------------------------*/
-void TextureCollection::DeleteAllTextures( void )
+void TextureCollection::DeleteAllTextures()
 {
     // delete all OpenGL m_textures
     glDeleteTextures( m_nextAvailableTextureIndex, m_textureArray );
@@ -191,13 +191,13 @@ void TextureCollection::DeleteTexture( uint32_t hash )
     m_textureHashes[index] = 0;
 
     glDeleteTextures( 1, &m_textureArray[index] );
-    m_textureArray[index] = NULL;
+    m_textureArray[index] = 0;
 
     this->UpdateCounters();
 }
 
 /* -- NUM FREE TEXTURE SPACES -----------------------------------------------------*/
-int TextureCollection::NumFreeTextureSpaces( void )
+int TextureCollection::NumFreeTextureSpaces()
 {
     return TOTAL_TEXTURE_COUNT - m_textureCounter;
 }

@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezGameModelCollection.h"
 #include "SkullbonezProfiler.h"
 #include "SkullbonezHelper.h"
@@ -9,7 +9,7 @@ using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Basics;
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
-GameModelCollection::GameModelCollection( void )
+GameModelCollection::GameModelCollection()
     : m_spatialGrid( Cfg().broadphaseCell )
 {
     m_gameModels.reserve( 200 );
@@ -30,7 +30,7 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
     }
 
     SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, Cfg().renderCollisionVolumes );
-    for ( int x = 0; x < (int)m_gameModels.size(); ++x )
+    for ( int x = 0; x < static_cast<int>( m_gameModels.size() ); ++x )
     {
         Matrix4 model = m_gameModels[x].GetModelMatrix();
         SkullbonezHelper::DrawSphereBatchModel( model );
@@ -63,7 +63,7 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
     m_shadowShader->SetMat4( "uView", view );
     m_shadowShader->SetMat4( "uProjection", proj );
 
-    for ( int i = 0; i < (int)m_gameModels.size(); ++i )
+    for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
     {
         Vector3 pos = m_gameModels[i].GetPosition();
         float m_radius = m_gameModels[i].GetBoundingRadius();
@@ -120,7 +120,7 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
 /* -- GET MODEL POSITION ----------------------------------------------------------*/
 Vector3 GameModelCollection::GetModelPosition( int index )
 {
-    if ( index < 0 || index >= (int)m_gameModels.size() )
+    if ( index < 0 || index >= static_cast<int>( m_gameModels.size() ) )
     {
         throw std::runtime_error( "No game model exists at the specified index.  (GameModelCollection::GetModelPosition)" );
     }
@@ -131,11 +131,11 @@ Vector3 GameModelCollection::GetModelPosition( int index )
 /* -- RUN PHYSICS -------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void GameModelCollection::RunPhysics( float fChangeInTime )
 {
-    std::vector<float> timeRemaining( (int)m_gameModels.size(), fChangeInTime );
+    std::vector<float> timeRemaining( static_cast<int>( m_gameModels.size() ), fChangeInTime );
 
     // update the velocity of all models
     PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
-    for ( int x = 0; x < (int)m_gameModels.size(); ++x )
+    for ( int x = 0; x < static_cast<int>( m_gameModels.size() ); ++x )
     {
         m_gameModels[x].ApplyForces( fChangeInTime );
     }
@@ -144,7 +144,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     // broadphase: populate spatial grid and generate candidate pairs
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );
     m_spatialGrid.Clear();
-    for ( int i = 0; i < (int)m_gameModels.size(); ++i )
+    for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
     {
         m_spatialGrid.Insert( i, m_gameModels[i].GetPosition(), m_gameModels[i].GetBoundingRadius() );
     }
@@ -197,7 +197,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
 
     // detect and respond to collisions between game models and the m_terrain
     PROFILE_BEGIN( "Frame/Physics/Terrain" );
-    for ( int x = 0; x < (int)m_gameModels.size(); ++x )
+    for ( int x = 0; x < static_cast<int>( m_gameModels.size() ); ++x )
     {
         // only check m_terrain if this model has remaining time
         if ( timeRemaining[x] > 0.0f )
@@ -223,7 +223,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
 
     // apply the remaining time steps
     PROFILE_BEGIN( "Frame/Physics/Integrate" );
-    for ( int x = 0; x < (int)m_gameModels.size(); ++x )
+    for ( int x = 0; x < static_cast<int>( m_gameModels.size() ); ++x )
     {
         // advance by whatever time remains
         if ( timeRemaining[x] > 0.0f )
@@ -235,7 +235,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
 }
 
 /* -- BUILD SHADOW MESH -----------------------------------------------------------*/
-void GameModelCollection::BuildShadowMesh( void )
+void GameModelCollection::BuildShadowMesh()
 {
     // Unit-m_radius disc in XZ plane, converted from triangle fan to triangles.
     // Center at (0,0,0), ring vertices at unit m_distance.
@@ -268,7 +268,7 @@ void GameModelCollection::BuildShadowMesh( void )
 }
 
 /* -- RESET GL RESOURCES ----------------------------------------------------------*/
-void GameModelCollection::ResetGLResources( void )
+void GameModelCollection::ResetGLResources()
 {
     m_shadowMesh.reset();
     m_shadowShader.reset();

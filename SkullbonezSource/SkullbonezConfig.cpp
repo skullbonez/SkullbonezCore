@@ -1,4 +1,4 @@
-﻿#include "SkullbonezCommon.h"
+#include "SkullbonezCommon.h"
 #include "SkullbonezConfig.h"
 #include <string.h>
 
@@ -110,61 +110,61 @@ void SkullbonezConfig::Load( const char* path )
         // Frustum
         else if ( strcmp( k, "frustum_near" ) == 0 )
         {
-            frustumNear = (float)atof( v );
+            frustumNear = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "frustum_far" ) == 0 )
         {
-            frustumFar = (float)atof( v );
+            frustumFar = static_cast<float>( atof( v ) );
         }
 
         // Camera controls
         else if ( strcmp( k, "mouse_sensitivity" ) == 0 )
         {
-            mouseSensitivity = (float)atof( v );
+            mouseSensitivity = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "key_speed" ) == 0 )
         {
-            keySpeed = (float)atof( v );
+            keySpeed = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "camera_tween_rate" ) == 0 )
         {
-            cameraTweenRate = (float)atof( v );
+            cameraTweenRate = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "camera_collision_threshold" ) == 0 )
         {
-            cameraCollisionThreshold = (float)atof( v );
+            cameraCollisionThreshold = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "min_camera_height" ) == 0 )
         {
-            minCameraHeight = (float)atof( v );
+            minCameraHeight = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "max_camera_height" ) == 0 )
         {
-            maxCameraHeight = (float)atof( v );
+            maxCameraHeight = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "min_view_mag" ) == 0 )
         {
-            minViewMag = (float)atof( v );
+            minViewMag = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "max_view_mag" ) == 0 )
         {
-            maxViewMag = (float)atof( v );
+            maxViewMag = static_cast<float>( atof( v ) );
         }
 
         // Terrain
         else if ( strcmp( k, "terrain_scale" ) == 0 )
         {
-            terrainScale = (float)atof( v );
+            terrainScale = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "terrain_height_scale" ) == 0 )
         {
-            terrainHeightScale = (float)atof( v );
+            terrainHeightScale = static_cast<float>( atof( v ) );
         }
 
         // Skybox
         else if ( strcmp( k, "skybox_render_height" ) == 0 )
         {
-            skyboxRenderHeight = (float)atof( v );
+            skyboxRenderHeight = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "skybox_overflow" ) == 0 )
         {
@@ -172,55 +172,55 @@ void SkullbonezConfig::Load( const char* path )
         }
         else if ( strcmp( k, "skybox_scale" ) == 0 )
         {
-            skyboxScale = (float)atof( v );
+            skyboxScale = static_cast<float>( atof( v ) );
         }
 
         // Physics
         else if ( strcmp( k, "gravity" ) == 0 )
         {
-            gravity = (float)atof( v );
+            gravity = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "fluid_height" ) == 0 )
         {
-            fluidHeight = (float)atof( v );
+            fluidHeight = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "fluid_density" ) == 0 )
         {
-            fluidDensity = (float)atof( v );
+            fluidDensity = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "gas_density" ) == 0 )
         {
-            gasDensity = (float)atof( v );
+            gasDensity = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "velocity_limit" ) == 0 )
         {
-            velocityLimit = (float)atof( v );
+            velocityLimit = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "sphere_drag_coeff" ) == 0 )
         {
-            sphereDragCoeff = (float)atof( v );
+            sphereDragCoeff = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "friction_coeff" ) == 0 )
         {
-            frictionCoeff = (float)atof( v );
+            frictionCoeff = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "broadphase_cell" ) == 0 )
         {
-            broadphaseCell = (float)atof( v );
+            broadphaseCell = static_cast<float>( atof( v ) );
         }
 
         // Shadows
         else if ( strcmp( k, "shadow_max_height" ) == 0 )
         {
-            shadowMaxHeight = (float)atof( v );
+            shadowMaxHeight = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "shadow_max_alpha" ) == 0 )
         {
-            shadowMaxAlpha = (float)atof( v );
+            shadowMaxAlpha = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "shadow_offset" ) == 0 )
         {
-            shadowOffset = (float)atof( v );
+            shadowOffset = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "shadow_segments" ) == 0 )
         {
@@ -228,13 +228,13 @@ void SkullbonezConfig::Load( const char* path )
         }
         else if ( strcmp( k, "shadow_scale" ) == 0 )
         {
-            shadowScale = (float)atof( v );
+            shadowScale = static_cast<float>( atof( v ) );
         }
 
         // Ball spawn ranges
         else if ( strcmp( k, "spawn_x_base" ) == 0 )
         {
-            spawnXBase = (float)atof( v );
+            spawnXBase = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "spawn_x_range" ) == 0 )
         {
@@ -242,7 +242,7 @@ void SkullbonezConfig::Load( const char* path )
         }
         else if ( strcmp( k, "spawn_y_base" ) == 0 )
         {
-            spawnYBase = (float)atof( v );
+            spawnYBase = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "spawn_y_range" ) == 0 )
         {
@@ -250,7 +250,7 @@ void SkullbonezConfig::Load( const char* path )
         }
         else if ( strcmp( k, "spawn_z_base" ) == 0 )
         {
-            spawnZBase = (float)atof( v );
+            spawnZBase = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "spawn_z_range" ) == 0 )
         {
@@ -258,7 +258,7 @@ void SkullbonezConfig::Load( const char* path )
         }
         else if ( strcmp( k, "ball_mass_min" ) == 0 )
         {
-            ballMassMin = (float)atof( v );
+            ballMassMin = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "ball_mass_range" ) == 0 )
         {
@@ -266,7 +266,7 @@ void SkullbonezConfig::Load( const char* path )
         }
         else if ( strcmp( k, "ball_moment_min" ) == 0 )
         {
-            ballMomentMin = (float)atof( v );
+            ballMomentMin = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "ball_moment_range" ) == 0 )
         {
@@ -274,7 +274,7 @@ void SkullbonezConfig::Load( const char* path )
         }
         else if ( strcmp( k, "ball_restitution_min" ) == 0 )
         {
-            ballRestitutionMin = (float)atof( v );
+            ballRestitutionMin = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "ball_restitution_range" ) == 0 )
         {
@@ -330,11 +330,11 @@ void SkullbonezConfig::Load( const char* path )
         // Water
         else if ( strcmp( k, "ocean_wave_height" ) == 0 )
         {
-            oceanWaveHeight = (float)atof( v );
+            oceanWaveHeight = static_cast<float>( atof( v ) );
         }
         else if ( strcmp( k, "ocean_perturb_strength" ) == 0 )
         {
-            oceanPerturbStrength = (float)atof( v );
+            oceanPerturbStrength = static_cast<float>( atof( v ) );
         }
 
         // Debug

@@ -1,4 +1,4 @@
-﻿#ifndef SKULLBONEZ_PROFILER_H
+#ifndef SKULLBONEZ_PROFILER_H
 #define SKULLBONEZ_PROFILER_H
 
 #include "SkullbonezCommon.h"
@@ -44,15 +44,15 @@ class Profiler
         float maxMs;             // session-wide maximum
     };
 
-    static Profiler& Instance( void );
+    static Profiler& Instance();
 
     void Begin( const char* fullPath, uint32_t hash );
     void End( const char* fullPath, uint32_t hash );
 
-    void FrameBegin( void );
-    void FrameEnd( void ); // commits per-frame totals; recomputes p50/p99; refreshes moving avg every 500 ms
+    void FrameBegin();
+    void FrameEnd(); // commits per-frame totals; recomputes p50/p99; refreshes moving avg every 500 ms
 
-    int MarkerCount( void ) const
+    int MarkerCount() const
     {
         return m_markerCount;
     }
@@ -74,7 +74,7 @@ class Profiler
     void RenderOverlay( float xLeft, float yAnchor, float lineHeight, float fSize, float fps ) const;
 
   private:
-    Profiler( void );
+    Profiler();
     Profiler( const Profiler& ) = delete;
     Profiler& operator=( const Profiler& ) = delete;
 
@@ -101,7 +101,7 @@ class ProfilerScope
     {
         Profiler::Instance().Begin( m_fullPath, m_hash );
     }
-    ~ProfilerScope( void )
+    ~ProfilerScope()
     {
         Profiler::Instance().End( m_fullPath, m_hash );
     }

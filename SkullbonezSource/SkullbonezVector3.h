@@ -1,4 +1,4 @@
-﻿/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SKULLBONEZ_VECTOR3_H
 #define SKULLBONEZ_VECTOR3_H
 
@@ -21,14 +21,14 @@ class Vector3
   public:
     float x, y, z; // Vector components
 
-    Vector3( void );                             // Default constructor
+    Vector3();                             // Default constructor
     Vector3( const Vector3& v );                 // Copy constructor
     Vector3( float fX, float fY, float fZ );     // Overloaded constructor
-    void Zero( void );                           // Set the vector to zero
-    void Normalise( void );                      // Normalise the vector
-    void Absolute( void );                       // Converts vector to its absolute value
-    bool IsCloseToZero( void ) const;            // Returns true if vector is close to zero
-    void Simplify( void );                       // Converts tiny float components to zero
+    void Zero();                           // Set the vector to zero
+    void Normalise();                      // Normalise the vector
+    void Absolute();                       // Converts vector to its absolute value
+    bool IsCloseToZero() const;            // Returns true if vector is close to zero
+    void Simplify();                       // Converts tiny float components to zero
     void SetAll( float nx, float ny, float nz ); // Set all vector components
     Vector3& operator=( const Vector3& v );      // Vector assignment
     Vector3& operator+=( const Vector3& v );     // += Overload
@@ -36,7 +36,7 @@ class Vector3
     Vector3& operator*=( float f );              // *= Overload
     Vector3& operator/=( float f );              // /= Overload
     Vector3& operator/=( const Vector3& );       // /= Overload
-    Vector3 operator-( void ) const;             // Unary minus returns the negative of the vector
+    Vector3 operator-() const;             // Unary minus returns the negative of the vector
     Vector3 operator+( const Vector3& v ) const; // Binary add vectors
     Vector3 operator-( const Vector3& v ) const; // Binary subtract vectors
     Vector3 operator*( float f ) const;          // Multiplication by scalar

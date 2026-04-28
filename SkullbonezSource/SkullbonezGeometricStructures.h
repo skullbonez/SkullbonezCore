@@ -1,4 +1,4 @@
-﻿/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SKULLBONEZ_GEOMETRIC_STRUCTURES_H
 #define SKULLBONEZ_GEOMETRIC_STRUCTURES_H
 
@@ -96,14 +96,14 @@ class Ray
     Vector3 origin;
     Vector3 vector3;
 
-    Ray( void )
+    Ray()
     {
     }
     Ray( const Vector3& vOrigin, const Vector3& vVector3 )
         : origin( vOrigin ), vector3( vVector3 )
     {
     }
-    ~Ray( void )
+    ~Ray()
     {
     }
 

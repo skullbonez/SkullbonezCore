@@ -1,4 +1,4 @@
-﻿/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SKULLBONEZ_GAME_MODEL_COLLECTION_H
 #define SKULLBONEZ_GAME_MODEL_COLLECTION_H
 
@@ -40,17 +40,17 @@ class GameModelCollection
     std::unique_ptr<Mesh> m_shadowMesh;     // Shadow disc mesh (unit m_radius)
     std::unique_ptr<Shader> m_shadowShader; // Shadow disc m_shader
 
-    void BuildShadowMesh( void ); // Builds the unit-radius shadow disc mesh
+    void BuildShadowMesh(); // Builds the unit-radius shadow disc mesh
 
   public:
-    GameModelCollection( void ); // Default constructor
-    ~GameModelCollection( void ) = default;
+    GameModelCollection(); // Default constructor
+    ~GameModelCollection() = default;
 
     void AddGameModel( GameModel gameModel );                                                   // Moves a game model into the collection
     void RunPhysics( float fChangeInTime );                                                     // Runs the physics for the specified time step
     void RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4] );     // Renders the game models
     void RenderShadows( Geometry::Terrain* terrain, const Matrix4& view, const Matrix4& proj ); // Renders ground shadows beneath all models
-    void ResetGLResources( void );                                                              // Releases GPU resources for GL context reset
+    void ResetGLResources();                                                              // Releases GPU resources for GL context reset
     Vector3 GetModelPosition( int index );                                                      // Returns the position of the specified game model
 };
 } // namespace GameObjects

@@ -1,4 +1,4 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezRigidBody.h"
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
@@ -6,7 +6,7 @@ using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Math;
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
-RigidBody::RigidBody( void )
+RigidBody::RigidBody()
 {
     // set all members to default values
     m_frictionCoefficient = 0.1f;
@@ -36,7 +36,7 @@ RigidBody::~RigidBody()
 }
 
 /* -- APPLY WORLD FORCES ----------------------------------------------------------*/
-void RigidBody::ApplyWorldForce( void )
+void RigidBody::ApplyWorldForce()
 {
     // find acceleration (a = F/m)
     Vector3 worldLinearAcceleration = m_worldForce / m_mass;
@@ -53,7 +53,7 @@ void RigidBody::ApplyWorldForce( void )
 }
 
 /* -- APPLY LINEAR FORCE ----------------------------------------------------------*/
-void RigidBody::ApplyLinearForce( void )
+void RigidBody::ApplyLinearForce()
 {
     /*
         Calculate linear dynamics...
@@ -76,7 +76,7 @@ void RigidBody::ApplyLinearForce( void )
 }
 
 /* -- APPLY ANGULAR FORCE ---------------------------------------------------------*/
-void RigidBody::ApplyAngularForce( void )
+void RigidBody::ApplyAngularForce()
 {
     /*
         Translation from linear to rotational terms:
@@ -111,7 +111,7 @@ void RigidBody::SetChangeInAngularVelocity( const Vector3& vAngularVelocity )
 }
 
 /* -- APPLY CHANGE IN ANGULAR VELOCITY --------------------------------------------*/
-void RigidBody::ApplyChangeInAngularVelocity( void )
+void RigidBody::ApplyChangeInAngularVelocity()
 {
     m_angularVelocity += m_changeInAngularVelocity;
     m_changeInAngularVelocity.Zero();
@@ -119,7 +119,7 @@ void RigidBody::ApplyChangeInAngularVelocity( void )
 }
 
 /* -- THROTTLE ANGULAR VELOCITY ---------------------------------------------------*/
-void RigidBody::ThrottleAngularVelocity( void )
+void RigidBody::ThrottleAngularVelocity()
 {
     if ( m_angularVelocity.x > Cfg().velocityLimit )
     {
@@ -156,14 +156,14 @@ void RigidBody::SetChangeInLinearVelocity( const Vector3& vLinearVelocity )
 }
 
 /* -- APPLY CHANGE IN LINEAR VELOCITY ---------------------------------------------*/
-void RigidBody::ApplyChangeInLinearVelocity( void )
+void RigidBody::ApplyChangeInLinearVelocity()
 {
     m_linearVelocity += m_changeInLinearVelocity;
     m_changeInLinearVelocity.Zero();
 }
 
 /* -- UPDATE VELOCITY -------------------------------------------------------------*/
-void RigidBody::ApplyForces( void )
+void RigidBody::ApplyForces()
 {
     // apply the world force
     this->ApplyWorldForce();
@@ -173,7 +173,7 @@ void RigidBody::ApplyForces( void )
 }
 
 /* -- APPLY IMPULSE FORCE ---------------------------------------------------------*/
-void RigidBody::ApplyImpulseForce( void )
+void RigidBody::ApplyImpulseForce()
 {
     // only apply an inpulse force once
     if ( m_isForceApplied )
@@ -193,7 +193,7 @@ void RigidBody::ApplyImpulseForce( void )
 }
 
 /* -- GET ORIENTATION -------------------------------------------------------------*/
-const Quaternion& RigidBody::GetOrientation( void ) const
+const Quaternion& RigidBody::GetOrientation() const
 {
     return m_orientation;
 }
@@ -216,7 +216,7 @@ void RigidBody::UpdateRollPosition( float changeInTime, float circumference )
 }
 
 /* -- GET ROLL VELOCITY -----------------------------------------------------------*/
-Vector3 RigidBody::GetRollVelocity( void )
+Vector3 RigidBody::GetRollVelocity()
 {
     // local for calculation
     Vector3 rollVelocity;
@@ -249,7 +249,7 @@ void RigidBody::UpdatePosition( float changeInTime )
 }
 
 /* -- ZERO FORCE ------------------------------------------------------------------*/
-void RigidBody::ZeroForce( void )
+void RigidBody::ZeroForce()
 {
     m_appliedForce.Zero();
     m_forceApplicationPoint.Zero();
@@ -271,7 +271,7 @@ RotationMatrix RigidBody::GetOrientationMatrix( float fTime )
 }
 
 /* -- GET ROTATIONAL INERTIA ------------------------------------------------------*/
-const Vector3& RigidBody::GetRotationalInertia( void )
+const Vector3& RigidBody::GetRotationalInertia()
 {
     return m_rotationalInertia;
 }
@@ -306,7 +306,7 @@ void RigidBody::SetImpulseForce( const Vector3& vImpulseForce,
 }
 
 /* -- GET ANGULAR VELOCITY ---------------------------------------------------------*/
-const Vector3& RigidBody::GetAngularVelocity( void )
+const Vector3& RigidBody::GetAngularVelocity()
 {
     return m_angularVelocity;
 }
@@ -324,7 +324,7 @@ void RigidBody::SetMass( float fMass )
 }
 
 /* -- GET INVERTED MASS -------------------------------------------------------------*/
-float RigidBody::GetInvertedMass( void )
+float RigidBody::GetInvertedMass()
 {
     return m_invertedMass;
 }
@@ -342,25 +342,25 @@ void RigidBody::SetCoefficientRestitution( float fCoefficientRestitution )
 }
 
 /* -- GET COEFFICIENT OF RESTITUTION ------------------------------------------------*/
-float RigidBody::GetCoefficientRestitution( void )
+float RigidBody::GetCoefficientRestitution()
 {
     return m_coefficientRestitution;
 }
 
 /* -- GET MASS ----------------------------------------------------------------------*/
-float RigidBody::GetMass( void )
+float RigidBody::GetMass()
 {
     return m_mass;
 }
 
 /* -- GET POSITION ------------------------------------------------------------------*/
-const Vector3& RigidBody::GetPosition( void )
+const Vector3& RigidBody::GetPosition()
 {
     return m_position;
 }
 
 /* -- GET VELOCITY ------------------------------------------------------------------*/
-const Vector3& RigidBody::GetVelocity( void )
+const Vector3& RigidBody::GetVelocity()
 {
     return m_linearVelocity;
 }
@@ -389,20 +389,20 @@ void RigidBody::SetVolume( float fVolume )
 }
 
 /* -- GET DENSITY -------------------------------------------------------------------*/
-float RigidBody::GetDensity( void )
+float RigidBody::GetDensity()
 {
     // calculate the density
     return m_mass / m_volume;
 }
 
 /* -- GET VOLUME --------------------------------------------------------------------*/
-float RigidBody::GetVolume( void )
+float RigidBody::GetVolume()
 {
     return m_volume;
 }
 
 /* -- GET FRICTION COEFFICIENT ------------------------------------------------------*/
-float RigidBody::GetFrictionCoefficient( void )
+float RigidBody::GetFrictionCoefficient()
 {
     return m_frictionCoefficient;
 }
@@ -415,7 +415,7 @@ void RigidBody::SetFrictionCoefficient( float fFriction )
 }
 
 /* -- DAMPEN ANGULAR VELOCITY -------------------------------------------------------*/
-void RigidBody::DampenAngularVelocity( void )
+void RigidBody::DampenAngularVelocity()
 {
     m_angularVelocity *= 1.0f - ( m_frictionCoefficient * 5.0f );
 }

@@ -1,4 +1,4 @@
-﻿/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SKULLBONEZ_TEST_SCENE_H
 #define SKULLBONEZ_TEST_SCENE_H
 
@@ -60,21 +60,21 @@ class TestScene
     std::vector<SceneBall> m_balls;
 
   public:
-    TestScene( void );
+    TestScene();
     static TestScene LoadFromFile( const char* path );
 
-    bool IsPhysicsEnabled( void ) const;
-    bool IsTextEnabled( void ) const;
-    bool IsGlResetTest( void ) const;
-    int GetFrameCount( void ) const;
-    const char* GetScreenshotPath( void ) const;
-    int GetScreenshotFrame( void ) const;
-    int GetScreenshotMs( void ) const;
-    unsigned int GetSeed( void ) const;
-    int GetLegacyBallCount( void ) const;
-    const char* GetPerfLogPath( void ) const;
-    int GetCameraCount( void ) const;
-    int GetBallCount( void ) const;
+    bool IsPhysicsEnabled() const;
+    bool IsTextEnabled() const;
+    bool IsGlResetTest() const;
+    int GetFrameCount() const;
+    const char* GetScreenshotPath() const;
+    int GetScreenshotFrame() const;
+    int GetScreenshotMs() const;
+    unsigned int GetSeed() const;
+    int GetLegacyBallCount() const;
+    const char* GetPerfLogPath() const;
+    int GetCameraCount() const;
+    int GetBallCount() const;
     const SceneCamera& GetCamera( int index ) const;
     const SceneBall& GetBall( int index ) const;
 };

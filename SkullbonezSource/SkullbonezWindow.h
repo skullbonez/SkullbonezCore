@@ -1,4 +1,4 @@
-﻿/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SKULLBONEZ_WINDOW_H
 #define SKULLBONEZ_WINDOW_H
 
@@ -20,8 +20,8 @@ class SkullbonezWindow
   private:
     static SkullbonezWindow* pInstance; // Pointer to singleton instance
 
-    SkullbonezWindow( void );  // Default constructor
-    ~SkullbonezWindow( void ); // Default destructor
+    SkullbonezWindow();  // Default constructor
+    ~SkullbonezWindow(); // Default destructor
 
   public:
     HWND m_sWindow;            // Handle to window
@@ -32,13 +32,13 @@ class SkullbonezWindow
 
     Math::Transformation::Matrix4 projectionMatrix; // Current perspective projection matrix
 
-    static SkullbonezWindow* Instance( void ); // Call to request a pointer to the singleton instance
-    static void Destroy( void );               // Call to destroy the singleton instance
-    void HandleScreenResize( void );           // Reset OpenGL drawing boundaries and aspect ratio when the screen is resized
-    bool SetupPixelFormat( void );             // Prepares pixel format of back and front buffer
-    void InitialiseOpenGL( void );             // For all OpenGL API initialisation code (after the window has been created)
+    static SkullbonezWindow* Instance(); // Call to request a pointer to the singleton instance
+    static void Destroy();               // Call to destroy the singleton instance
+    void HandleScreenResize();           // Reset OpenGL drawing boundaries and aspect ratio when the screen is resized
+    bool SetupPixelFormat();             // Prepares pixel format of back and front buffer
+    void InitialiseOpenGL();             // For all OpenGL API initialisation code (after the window has been created)
     void SetTitleText( const char* cText );    // Draws text to title bar of window
-    const Math::Transformation::Matrix4& GetProjectionMatrix( void ) const
+    const Math::Transformation::Matrix4& GetProjectionMatrix() const
     {
         return projectionMatrix;
     } // Returns the current perspective projection matrix

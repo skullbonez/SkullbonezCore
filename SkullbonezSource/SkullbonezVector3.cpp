@@ -1,11 +1,11 @@
-﻿/* -- INCLUDES --------------------------------------------------------------------*/
+/* -- INCLUDES --------------------------------------------------------------------*/
 #include "SkullbonezVector3.h"
 
 /* -- USING CLAUSES ---------------------------------------------------------------*/
 using namespace SkullbonezCore::Math::Vector;
 
 /* -- DEFAULT CONSTRUCTOR ---------------------------------------------------------*/
-Vector3::Vector3( void )
+Vector3::Vector3()
 {
 }
 
@@ -24,13 +24,13 @@ Vector3::Vector3( float fX,
 }
 
 /* -- ZERO ------------------------------------------------------------------------*/
-void Vector3::Zero( void )
+void Vector3::Zero()
 {
     this->x = this->y = this->z = 0.0f;
 }
 
 /* -- NORMALISE -------------------------------------------------------------------*/
-void Vector3::Normalise( void )
+void Vector3::Normalise()
 {
     float magSq = this->x * this->x +
                   this->y * this->y +
@@ -48,7 +48,7 @@ void Vector3::Normalise( void )
 }
 
 /* -- ABSOLUTE --------------------------------------------------------------------*/
-bool Vector3::IsCloseToZero( void ) const
+bool Vector3::IsCloseToZero() const
 {
     return this->x<TOLERANCE&& this->x> ZERO_TAKE_TOLERANCE &&
            this->y<TOLERANCE&& this->y> ZERO_TAKE_TOLERANCE &&
@@ -56,7 +56,7 @@ bool Vector3::IsCloseToZero( void ) const
 }
 
 /* -- ABSOLUTE --------------------------------------------------------------------*/
-void Vector3::Absolute( void )
+void Vector3::Absolute()
 {
     this->x = fabs( this->x );
     this->y = fabs( this->y );
@@ -99,7 +99,7 @@ bool Vector3::operator!=( const Vector3& v ) const
 }
 
 /* -- OPERATOR - ------------------------------------------------------------------*/
-Vector3 Vector3::operator-( void ) const
+Vector3 Vector3::operator-() const
 {
     return Vector3( -this->x,
                     -this->y,
@@ -157,7 +157,7 @@ Vector3 Vector3::operator/( const Vector3& v ) const
 }
 
 /* -- SIMPLIFY --------------------------------------------------------------------*/
-void Vector3::Simplify( void )
+void Vector3::Simplify()
 {
     if ( this->x<TOLERANCE&& this->x> ZERO_TAKE_TOLERANCE )
     {

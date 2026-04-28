@@ -1,4 +1,4 @@
-﻿/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* -- INCLUDE GUARDS ----------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef SKULLBONEZ_TEXT_H
 #define SKULLBONEZ_TEXT_H
 
@@ -38,7 +38,7 @@ class Text2d
     static void Render2dTextColor( float xPosition, float yPosition, float fSize, float r, float g, float b, const char* cRawText, ... ); // Renders colored text
     static void Render2dQuad( float x0, float y0, float x1, float y1, float r, float g, float b, float a );                               // Renders a flat-coloured 2D HUD quad
     static void BuildFont( const HDC hDC, const char* cFontName );                                                                        // Builds font atlas into GL texture
-    static void DeleteFont( void );                                                                                                       // Releases GL font resources
+    static void DeleteFont();                                                                                                       // Releases GL font resources
 };
 } // namespace Text
 } // namespace SkullbonezCore
