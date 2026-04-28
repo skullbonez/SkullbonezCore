@@ -9,7 +9,7 @@ using namespace SkullbonezCore::Rendering;
 Framebuffer::Framebuffer( int m_width, int m_height )
     : m_fbo( 0 ), m_colorTex( 0 ), m_depthRBO( 0 ), m_width( m_width ), m_height( m_height )
 {
-    this->Build();
+    Build();
 }
 
 /* -- DESTRUCTOR ------------------------------------------------------------------*/
@@ -110,5 +110,5 @@ void Framebuffer::ResetGLResources()
         glDeleteRenderbuffers( 1, &m_depthRBO );
         m_depthRBO = 0;
     }
-    this->Build();
+    Build();
 }

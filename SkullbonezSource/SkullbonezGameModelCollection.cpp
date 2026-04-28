@@ -50,7 +50,7 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
 
     if ( !m_shadowMesh )
     {
-        this->BuildShadowMesh();
+        BuildShadowMesh();
     }
 
     glEnable( GL_BLEND );

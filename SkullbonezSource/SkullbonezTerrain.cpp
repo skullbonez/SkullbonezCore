@@ -21,9 +21,9 @@ Terrain::Terrain( const char* sFileName,
 
     m_postsPerSide = m_mapSize / m_stepSize;
 
-    this->LoadTerrainData( sFileName );
-    this->BuildTerrain();
-    this->BuildMesh();
+    LoadTerrainData( sFileName );
+    BuildTerrain();
+    BuildMesh();
 
     // Load the m_shader
     m_terrainShader = std::make_unique<Shader>(
@@ -49,8 +49,8 @@ void Terrain::BuildTerrain()
 
     m_postData.resize( terrainPostCount );
 
-    this->TranslatePostings();
-    this->GenerateNormals();
+    TranslatePostings();
+    GenerateNormals();
 }
 
 /* -- GET PIXEL HEIGHT AT ---------------------------------------------------------*/
@@ -125,7 +125,7 @@ float Terrain::GetTerrainHeightAt( float xPosition,
                                    bool isFluidMin )
 {
     float terrainHeight =
-        ( GeometricMath::GetHeightFromPlane( this->LocatePolygon( xPosition,
+        ( GeometricMath::GetHeightFromPlane( LocatePolygon( xPosition,
                                                                   zPosition ),
                                              xPosition,
                                              zPosition ) );
@@ -143,7 +143,7 @@ float Terrain::GetTerrainHeightAt( float xPosition,
 /* -- GET TERRAIN NORMAL AT -------------------------------------------------------*/
 Vector3 Terrain::GetTerrainNormalAt( float xPosition, float zPosition )
 {
-    Triangle tri = this->LocatePolygon( xPosition, zPosition );
+    Triangle tri = LocatePolygon( xPosition, zPosition );
     Vector3 edge1 = tri.v2 - tri.v1;
     Vector3 edge2 = tri.v3 - tri.v1;
     Vector3 m_normal = Vector::CrossProduct( edge1, edge2 );
@@ -203,7 +203,7 @@ XZBounds Terrain::GetXZBounds()
 Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
 {
     // check to ensure specified co-ordinates are inside the m_terrain map bounds
-    if ( !this->IsInBounds( xPosition, zPosition ) )
+    if ( !IsInBounds( xPosition, zPosition ) )
     {
         throw std::runtime_error( "Specified co-ordinates are out of m_terrain bounds.  (Terrain::GetTerrainHeightAt)" );
     }
@@ -291,7 +291,7 @@ void Terrain::TranslatePostings()
         for ( int Z = 0; Z < m_mapSize; Z += m_stepSize )
         {
             m_postData[indexCounter].vPosition.SetAll( static_cast<float>( X ) * Cfg().terrainScale,
-                                                       static_cast<float>( this->GetPixelHeightAt( X, Z ) ) * Cfg().terrainHeightScale * Cfg().terrainScale,
+                                                       static_cast<float>( GetPixelHeightAt( X, Z ) ) * Cfg().terrainHeightScale * Cfg().terrainScale,
                                                        static_cast<float>( Z ) * Cfg().terrainScale );
 
             ++indexCounter;

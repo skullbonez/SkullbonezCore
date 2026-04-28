@@ -115,7 +115,7 @@ void RigidBody::ApplyChangeInAngularVelocity()
 {
     m_angularVelocity += m_changeInAngularVelocity;
     m_changeInAngularVelocity.Zero();
-    this->ThrottleAngularVelocity();
+    ThrottleAngularVelocity();
 }
 
 /* -- THROTTLE ANGULAR VELOCITY ---------------------------------------------------*/
@@ -166,10 +166,10 @@ void RigidBody::ApplyChangeInLinearVelocity()
 void RigidBody::ApplyForces()
 {
     // apply the world force
-    this->ApplyWorldForce();
+    ApplyWorldForce();
 
     // apply the impulse force
-    this->ApplyImpulseForce();
+    ApplyImpulseForce();
 }
 
 /* -- APPLY IMPULSE FORCE ---------------------------------------------------------*/
@@ -186,10 +186,10 @@ void RigidBody::ApplyImpulseForce()
     }
 
     // apply linear impulse
-    this->ApplyLinearForce();
+    ApplyLinearForce();
 
     // apply angular impulse
-    this->ApplyAngularForce();
+    ApplyAngularForce();
 }
 
 /* -- GET ORIENTATION -------------------------------------------------------------*/
@@ -202,7 +202,7 @@ const Quaternion& RigidBody::GetOrientation() const
 void RigidBody::UpdateRollPosition( float changeInTime, float circumference )
 {
     // get roll velocity in terms of full revolutions (radians/2PI)
-    Vector3 rollRevolutions = this->GetRollVelocity() / _2PI;
+    Vector3 rollRevolutions = GetRollVelocity() / _2PI;
 
     // scale the roll velocity to a displacement based on change in time
     // and circumference

@@ -180,20 +180,20 @@ void TextureCollection::DeleteAllTextures()
     }
 
     // Update capacity and progress counters
-    this->UpdateCounters();
+    UpdateCounters();
 }
 
 /* -- DELETE TEXTURE --------------------------------------------------------------*/
 void TextureCollection::DeleteTexture( uint32_t hash )
 {
-    int index = this->FindIndex( hash );
+    int index = FindIndex( hash );
 
     m_textureHashes[index] = 0;
 
     glDeleteTextures( 1, &m_textureArray[index] );
     m_textureArray[index] = 0;
 
-    this->UpdateCounters();
+    UpdateCounters();
 }
 
 /* -- NUM FREE TEXTURE SPACES -----------------------------------------------------*/
@@ -205,7 +205,7 @@ int TextureCollection::NumFreeTextureSpaces()
 /* -- SELECT TEXTURE --------------------------------------------------------------*/
 void TextureCollection::SelectTexture( uint32_t hash )
 {
-    glBindTexture( GL_TEXTURE_2D, m_textureArray[this->FindIndex( hash )] );
+    glBindTexture( GL_TEXTURE_2D, m_textureArray[FindIndex( hash )] );
 }
 
 /* -- CREATE JPEG TEXTURE ---------------------------------------------------------*/
@@ -220,7 +220,7 @@ void TextureCollection::CreateJpegTexture( const char* cFileName,
     m_textureHashes[m_nextAvailableTextureIndex] = hash;
 
     // load the image and store the data
-    tImageJPG* pImage = this->LoadJPEG( cFileName );
+    tImageJPG* pImage = LoadJPEG( cFileName );
 
     // check for data
     if ( !pImage )
@@ -271,5 +271,5 @@ void TextureCollection::CreateJpegTexture( const char* cFileName,
     }
 
     // Update capacity and progress counters
-    this->UpdateCounters();
+    UpdateCounters();
 }

@@ -46,7 +46,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
 {
     if ( !m_calmMesh )
     {
-        this->BuildFluidMesh();
+        BuildFluidMesh();
     }
 
     Matrix4 identity;
@@ -165,7 +165,7 @@ void WorldEnvironment::ResetGLResources()
     m_calmShader.reset();
     m_oceanMesh.reset();
     m_oceanShader.reset();
-    this->BuildFluidMesh();
+    BuildFluidMesh();
 }
 
 /* -- GET FLUID SURFACE HEIGHT ----------------------------------------------------*/
@@ -194,19 +194,19 @@ void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
     float m_projectedSurfaceArea = target.GetProjectedSurfaceArea();
 
     // add the force of m_gravity to the world force
-    m_worldForce.y += this->CalculateGravity( target.GetMass() );
+    m_worldForce.y += CalculateGravity( target.GetMass() );
 
     // add the force of buoyancy to the world force
-    m_worldForce.y += this->CalculateBuoyancy( totalVolume * submergedVolumePercent );
+    m_worldForce.y += CalculateBuoyancy( totalVolume * submergedVolumePercent );
 
     // add the linear viscous drag to the world force
-    m_worldForce += this->CalculateViscousDrag( target.GetVelocity(),
+    m_worldForce += CalculateViscousDrag( target.GetVelocity(),
                                                 submergedVolumePercent,
                                                 m_dragCoefficient,
                                                 m_projectedSurfaceArea );
 
     // add the angular viscous drag to the world force
-    m_worldTorque += this->CalculateViscousDrag( target.GetAngularVelocity(),
+    m_worldTorque += CalculateViscousDrag( target.GetAngularVelocity(),
                                                  submergedVolumePercent,
                                                  m_dragCoefficient,
                                                  m_projectedSurfaceArea );

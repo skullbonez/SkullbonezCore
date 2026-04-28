@@ -13,7 +13,7 @@ Timer::Timer()
     // throw an exception
     if ( !QueryPerformanceFrequency( &tmpPerformanceFreq ) )
     {
-        this->NoPerformanceCounterSupport();
+        NoPerformanceCounterSupport();
     }
 
     // the platform SDK states that the above function can succeed, but set
@@ -21,11 +21,11 @@ Timer::Timer()
     // the performance counter.  In this case, we also throw an exception
     if ( !tmpPerformanceFreq.QuadPart )
     {
-        this->NoPerformanceCounterSupport();
+        NoPerformanceCounterSupport();
     }
 
     // set the performace frequency member
-    this->PerformanceFrequency = static_cast<double>( tmpPerformanceFreq.QuadPart );
+    m_performanceFrequency = static_cast<double>( tmpPerformanceFreq.QuadPart );
 
     // we now do one final test to ensure the system supports the performance
     // counter.  If we succeed here, we know the CPU supports the performance
@@ -33,18 +33,18 @@ Timer::Timer()
     LARGE_INTEGER currTimeTemp;
     if ( !QueryPerformanceCounter( &currTimeTemp ) )
     {
-        this->NoPerformanceCounterSupport();
+        NoPerformanceCounterSupport();
     }
 
     // set our initial time (time this class was created)
-    this->InitialTime = this->GetCurrentTimeInSeconds();
+    m_initialTime = GetCurrentTimeInSeconds();
 
     // initialise our other variables
-    this->FrameCountCurrentSecond = 0;
-    this->CurrentFPSValue = 0;
-    this->FrameTimer = 0;
-    this->StartTime = 0;
-    this->EndTime = 0;
+    m_frameCountCurrentSecond = 0;
+    m_currentFPSValue = 0;
+    m_frameTimer = 0;
+    m_startTime = 0;
+    m_endTime = 0;
 }
 
 /* -- NO PERFORMACE COUNTER SUPPORT -----------------------------------------------*/
@@ -56,35 +56,35 @@ void Timer::NoPerformanceCounterSupport()
 /* -- START TIMER -----------------------------------------------------------------*/
 void Timer::StartTimer()
 {
-    // set member StartTime to current time
-    this->StartTime = this->GetCurrentTimeInSeconds();
+    // set member m_startTime to current time
+    m_startTime = GetCurrentTimeInSeconds();
 }
 
 /* -- STOP TIMER ------------------------------------------------------------------*/
 void Timer::StopTimer()
 {
-    // set member EndTime to current time
-    this->EndTime = this->GetCurrentTimeInSeconds();
+    // set member m_endTime to current time
+    m_endTime = GetCurrentTimeInSeconds();
 }
 
 /* -- GET ELAPSED TIME ------------------------------------------------------------*/
 double Timer::GetElapsedTime()
 {
     // return the number of seconds passed between StartTimer and EndTimer call
-    return this->EndTime - this->StartTime;
+    return m_endTime - m_startTime;
 }
 
 /* -- GET TIME SINCE LAST START ---------------------------------------------------*/
 double Timer::GetTimeSinceLastStart()
 {
     // return time passed since last StartTimer call
-    return this->GetCurrentTimeInSeconds() - this->StartTime;
+    return GetCurrentTimeInSeconds() - m_startTime;
 }
 
 /* -- GET TOTAL TIME --------------------------------------------------------------*/
 double Timer::GetTotalTime()
 {
-    return this->GetCurrentTimeInSeconds() - this->InitialTime;
+    return GetCurrentTimeInSeconds() - m_initialTime;
 }
 
 /* -- GET CURRENT TIME IN SECONDS -------------------------------------------------*/
@@ -95,37 +95,37 @@ double Timer::GetCurrentTimeInSeconds()
     QueryPerformanceCounter( &currTimeTmp );
 
     // return the current time
-    return static_cast<double>( currTimeTmp.QuadPart ) / this->PerformanceFrequency;
+    return static_cast<double>( currTimeTmp.QuadPart ) / m_performanceFrequency;
 }
 
 /* -- INCREMENT FRAME COUNT -------------------------------------------------------*/
 bool Timer::IncrementFrameCount()
 {
     // set the frame timer to the current time if the frame counter has been reset
-    if ( !this->FrameCountCurrentSecond )
+    if ( !m_frameCountCurrentSecond )
     {
-        this->FrameTimer = this->GetCurrentTimeInSeconds();
+        m_frameTimer = GetCurrentTimeInSeconds();
     }
 
     // increment the fps
-    ++this->FrameCountCurrentSecond;
+    ++m_frameCountCurrentSecond;
 
     // return whether a second has passed
-    return ( this->GetCurrentTimeInSeconds() - this->FrameTimer > 1 );
+    return ( GetCurrentTimeInSeconds() - m_frameTimer > 1 );
 }
 
 /* -- STORE FPS AND RESET FRAME COUNTER -------------------------------------------*/
 void Timer::StoreFpsAndResetFrameCounter()
 {
     // store fps count
-    this->CurrentFPSValue = this->FrameCountCurrentSecond;
+    m_currentFPSValue = m_frameCountCurrentSecond;
 
     // reset frame counter
-    this->FrameCountCurrentSecond = 0;
+    m_frameCountCurrentSecond = 0;
 }
 
 /* -- GET CURRENT FPS -------------------------------------------------------------*/
 int Timer::GetCurrentFPS()
 {
-    return this->CurrentFPSValue;
+    return m_currentFPSValue;
 }

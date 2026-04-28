@@ -26,15 +26,15 @@ Vector3::Vector3( float fX,
 /* -- ZERO ------------------------------------------------------------------------*/
 void Vector3::Zero()
 {
-    this->x = this->y = this->z = 0.0f;
+    x = y = z = 0.0f;
 }
 
 /* -- NORMALISE -------------------------------------------------------------------*/
 void Vector3::Normalise()
 {
-    float magSq = this->x * this->x +
-                  this->y * this->y +
-                  this->z * this->z;
+    float magSq = x * x +
+                  y * y +
+                  z * z;
 
     if ( !magSq )
     {
@@ -42,25 +42,25 @@ void Vector3::Normalise()
     }
     float oneOverMag = 1.0f / sqrtf( magSq );
 
-    this->x *= oneOverMag;
-    this->y *= oneOverMag;
-    this->z *= oneOverMag;
+    x *= oneOverMag;
+    y *= oneOverMag;
+    z *= oneOverMag;
 }
 
 /* -- ABSOLUTE --------------------------------------------------------------------*/
 bool Vector3::IsCloseToZero() const
 {
-    return this->x<TOLERANCE&& this->x> ZERO_TAKE_TOLERANCE &&
-           this->y<TOLERANCE&& this->y> ZERO_TAKE_TOLERANCE &&
-           this->z<TOLERANCE&& this->z> ZERO_TAKE_TOLERANCE;
+    return x<TOLERANCE&& x> ZERO_TAKE_TOLERANCE &&
+           y<TOLERANCE&& y> ZERO_TAKE_TOLERANCE &&
+           z<TOLERANCE&& z> ZERO_TAKE_TOLERANCE;
 }
 
 /* -- ABSOLUTE --------------------------------------------------------------------*/
 void Vector3::Absolute()
 {
-    this->x = fabs( this->x );
-    this->y = fabs( this->y );
-    this->z = fabs( this->z );
+    x = fabs( x );
+    y = fabs( y );
+    z = fabs( z );
 }
 
 /* -- SET ALL ---------------------------------------------------------------------*/
@@ -68,66 +68,66 @@ void Vector3::SetAll( float nx,
                       float ny,
                       float nz )
 {
-    this->x = nx;
-    this->y = ny;
-    this->z = nz;
+    x = nx;
+    y = ny;
+    z = nz;
 }
 
 /* -- OPERATOR = ------------------------------------------------------------------*/
 Vector3& Vector3::operator=( const Vector3& v )
 {
-    this->x = v.x;
-    this->y = v.y;
-    this->z = v.z;
+    x = v.x;
+    y = v.y;
+    z = v.z;
     return *this;
 }
 
 /* -- OPERATOR == -----------------------------------------------------------------*/
 bool Vector3::operator==( const Vector3& v ) const
 {
-    return ( this->x == v.x &&
-             this->y == v.y &&
-             this->z == v.z );
+    return ( x == v.x &&
+             y == v.y &&
+             z == v.z );
 }
 
 /* -- OPERATOR != -----------------------------------------------------------------*/
 bool Vector3::operator!=( const Vector3& v ) const
 {
-    return ( this->x != v.x ||
-             this->y != v.y ||
-             this->z != v.z );
+    return ( x != v.x ||
+             y != v.y ||
+             z != v.z );
 }
 
 /* -- OPERATOR - ------------------------------------------------------------------*/
 Vector3 Vector3::operator-() const
 {
-    return Vector3( -this->x,
-                    -this->y,
-                    -this->z );
+    return Vector3( -x,
+                    -y,
+                    -z );
 }
 
 /* -- OPERATOR + ------------------------------------------------------------------*/
 Vector3 Vector3::operator+( const Vector3& v ) const
 {
-    return Vector3( this->x + v.x,
-                    this->y + v.y,
-                    this->z + v.z );
+    return Vector3( x + v.x,
+                    y + v.y,
+                    z + v.z );
 }
 
 /* -- OPERATOR - ------------------------------------------------------------------*/
 Vector3 Vector3::operator-( const Vector3& v ) const
 {
-    return Vector3( this->x - v.x,
-                    this->y - v.y,
-                    this->z - v.z );
+    return Vector3( x - v.x,
+                    y - v.y,
+                    z - v.z );
 }
 
 /* -- OPERATOR * ------------------------------------------------------------------*/
 Vector3 Vector3::operator*( float f ) const
 {
-    return Vector3( this->x * f,
-                    this->y * f,
-                    this->z * f );
+    return Vector3( x * f,
+                    y * f,
+                    z * f );
 }
 
 /* -- OPERATOR / ------------------------------------------------------------------*/
@@ -138,9 +138,9 @@ Vector3 Vector3::operator/( float f ) const
         throw std::runtime_error( "Division by zero.  (Vector3::Operator/)" );
     }
     float oneOverA = 1.0f / f;
-    return Vector3( this->x * oneOverA,
-                    this->y * oneOverA,
-                    this->z * oneOverA );
+    return Vector3( x * oneOverA,
+                    y * oneOverA,
+                    z * oneOverA );
 }
 
 /* -- OPERATOR / ------------------------------------------------------------------*/
@@ -151,52 +151,52 @@ Vector3 Vector3::operator/( const Vector3& v ) const
         throw std::runtime_error( "Division by zero.  (Vector3::Operator/)" );
     }
 
-    return Vector3( this->x / v.x,
-                    this->y / v.y,
-                    this->z / v.z );
+    return Vector3( x / v.x,
+                    y / v.y,
+                    z / v.z );
 }
 
 /* -- SIMPLIFY --------------------------------------------------------------------*/
 void Vector3::Simplify()
 {
-    if ( this->x<TOLERANCE&& this->x> ZERO_TAKE_TOLERANCE )
+    if ( x<TOLERANCE&& x> ZERO_TAKE_TOLERANCE )
     {
-        this->x = 0.0f;
+        x = 0.0f;
     }
-    if ( this->y<TOLERANCE&& this->y> ZERO_TAKE_TOLERANCE )
+    if ( y<TOLERANCE&& y> ZERO_TAKE_TOLERANCE )
     {
-        this->y = 0.0f;
+        y = 0.0f;
     }
-    if ( this->z<TOLERANCE&& this->z> ZERO_TAKE_TOLERANCE )
+    if ( z<TOLERANCE&& z> ZERO_TAKE_TOLERANCE )
     {
-        this->z = 0.0f;
+        z = 0.0f;
     }
 }
 
 /* -- OPERATOR += -----------------------------------------------------------------*/
 Vector3& Vector3::operator+=( const Vector3& v )
 {
-    this->x += v.x;
-    this->y += v.y;
-    this->z += v.z;
+    x += v.x;
+    y += v.y;
+    z += v.z;
     return *this;
 }
 
 /* -- OPERATOR -= -----------------------------------------------------------------*/
 Vector3& Vector3::operator-=( const Vector3& v )
 {
-    this->x -= v.x;
-    this->y -= v.y;
-    this->z -= v.z;
+    x -= v.x;
+    y -= v.y;
+    z -= v.z;
     return *this;
 }
 
 /* -- OPERATOR *= -----------------------------------------------------------------*/
 Vector3& Vector3::operator*=( float f )
 {
-    this->x *= f;
-    this->y *= f;
-    this->z *= f;
+    x *= f;
+    y *= f;
+    z *= f;
     return *this;
 }
 
@@ -208,9 +208,9 @@ Vector3& Vector3::operator/=( float f )
         throw std::runtime_error( "Division by zero.  (Vector3::Operator/=)" );
     }
     float oneOverA = 1.0f / f;
-    this->x *= oneOverA;
-    this->y *= oneOverA;
-    this->z *= oneOverA;
+    x *= oneOverA;
+    y *= oneOverA;
+    z *= oneOverA;
     return *this;
 }
 
@@ -221,16 +221,16 @@ Vector3& Vector3::operator/=( const Vector3& v )
     {
         throw std::runtime_error( "Division by zero.  (Vector3::Operator/=)" );
     }
-    this->x /= v.x;
-    this->y /= v.y;
-    this->z /= v.z;
+    x /= v.x;
+    y /= v.y;
+    z /= v.z;
     return *this;
 }
 
 /* -- OPERATOR *= -----------------------------------------------------------------*/
 float Vector3::operator*( const Vector3& v ) const
 {
-    return this->x * v.x +
-           this->y * v.y +
-           this->z * v.z;
+    return x * v.x +
+           y * v.y +
+           z * v.z;
 }

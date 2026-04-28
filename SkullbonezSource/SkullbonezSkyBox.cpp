@@ -310,8 +310,8 @@ void SkyBox::ResetGLResources()
         m_faceMeshes[i].reset();
     }
     m_shader.reset();
-    this->LoadTextures();
-    this->BuildMeshes();
+    LoadTextures();
+    BuildMeshes();
 }
 
 /* -- RENDER ----------------------------------------------------------------------*/
