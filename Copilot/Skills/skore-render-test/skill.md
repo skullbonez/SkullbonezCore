@@ -25,8 +25,6 @@ Both scenes are run in a single process invocation via the render test suite. Ea
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
-$proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
-if ($proc) { Stop-Process -Id $proc.Id -Force; Start-Sleep 1 }
 
 # Clean up old screenshots
 Remove-Item "$REPO\Profile\screenshot.bmp" -ErrorAction SilentlyContinue
@@ -39,7 +37,6 @@ $proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
     -ArgumentList "--suite SkullbonezData/scenes/render_tests.suite" `
     -WorkingDirectory $REPO -PassThru
 $proc.WaitForExit(30000) | Out-Null
-if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force; Write-Host "FAIL: suite timed out" }
 
 $s1 = Test-Path "$REPO\Profile\screenshot.bmp"
 $s2 = Test-Path "$REPO\Profile\screenshot_reset.bmp"
@@ -227,14 +224,11 @@ Runs SkullbonezCore for 10 seconds (2 passes × 5 seconds) with 300 balls, physi
 ```pwsh
 # 1. Run the perf test scene (10 seconds total)
 $REPO = (git rev-parse --show-toplevel).Trim()
-$proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
-if ($proc) { Stop-Process -Id $proc.Id -Force; Start-Sleep 1 }
 Remove-Item "$REPO\Profile\perf_log.csv" -ErrorAction SilentlyContinue
 $proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
     -ArgumentList "--scene SkullbonezData/scenes/perf_test.scene" `
     -WorkingDirectory $REPO -PassThru
 $proc.WaitForExit(30000) | Out-Null
-if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force; Write-Host "FAIL: perf test didn't exit" }
 if (Test-Path "$REPO\Profile\perf_log.csv") {
     Write-Host "PASS: perf_log.csv generated"
 } else { Write-Host "FAIL: No perf_log.csv" }

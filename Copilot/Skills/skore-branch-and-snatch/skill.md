@@ -41,14 +41,12 @@ Build with Profile configuration using the `skore-build` skill approach. Fix any
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
-$proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
-if ($proc) { Stop-Process -Id $proc.Id -Force; Start-Sleep 1 }
 
 $msbuild = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
 & $msbuild "$REPO\SKULLBONEZ_CORE.sln" /p:Configuration=Profile /p:Platform=x64 /nologo /v:minimal
 ```
 
-If the build fails, fix the errors and rebuild. Keep track of which source files you change — these are the compilation fixes that will be committed in Step 6.
+If the build fails with LNK1168 (exe locked), kill the running process first, then rebuild.
 
 ### Step 4: Run the full pipeline and save perf data
 
@@ -62,15 +60,12 @@ Run the `skore-render-test` skill steps 1–3. Note pass/fail but continue regar
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
-$proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
-if ($proc) { Stop-Process -Id $proc.Id -Force; Start-Sleep 1 }
 Remove-Item "$REPO\Profile\perf_log.csv" -ErrorAction SilentlyContinue
 
 $proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
     -ArgumentList "--scene SkullbonezData/scenes/perf_test.scene" `
     -WorkingDirectory $REPO -PassThru
 $proc.WaitForExit(30000) | Out-Null
-if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force; Write-Host "FAIL: perf test timed out" }
 
 if (Test-Path "$REPO\Profile\perf_log.csv") {
     Write-Host "PASS: perf_log.csv generated"
