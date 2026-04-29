@@ -319,6 +319,15 @@ void SkullbonezWindow::InitialiseOpenGL()
         return;
     }
 
+    // Enable vsync (force SwapBuffers to block until next vertical retrace)
+    using PFNWGLSWAPINTERVALEXTPROC = BOOL( WINAPI* )( int );
+    auto wglSwapIntervalEXT = reinterpret_cast<PFNWGLSWAPINTERVALEXTPROC>(
+        wglGetProcAddress( "wglSwapIntervalEXT" ) );
+    if ( wglSwapIntervalEXT )
+    {
+        wglSwapIntervalEXT( 1 );
+    }
+
     // Set window dimensions
     RECT windowDimensions;
     GetClientRect( m_cWindow->m_sWindow, &windowDimensions );

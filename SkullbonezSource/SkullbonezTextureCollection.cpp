@@ -1,5 +1,6 @@
 // --- Includes ---
 #include "SkullbonezTextureCollection.h"
+#include "stb_image.h"
 
 
 // --- Usings ---
@@ -37,84 +38,6 @@ void TextureCollection::Destroy()
         TextureCollection::pInstance->DeleteAllTextures();
         TextureCollection::pInstance = nullptr;
     }
-}
-
-
-void TextureCollection::DecodeJPEG( jpeg_decompress_struct* info,
-                                    tImageJPG* pImageData )
-{
-    // Read in the header of the jpeg file
-    jpeg_read_header( info, TRUE );
-
-    // Start to decompress the jpeg file with our compression info
-    jpeg_start_decompress( info );
-
-    // Get the image dimensions and row span to read in the pixel data
-    pImageData->rowSpan = info->image_width * info->num_components;
-    pImageData->sizeX = info->image_width;
-    pImageData->sizeY = info->image_height;
-
-    // Allocate memory for the pixel buffer
-    pImageData->data = new unsigned char[pImageData->rowSpan * pImageData->sizeY];
-
-    // Here we use the library's state variable info.output_scanline as the
-    // loop counter, so that we don't have to keep track ourselves.
-
-    // Create an array of row pointers
-    std::vector<unsigned char*> rowPtr( pImageData->sizeY );
-    for ( int i = 0; i < pImageData->sizeY; i++ )
-    {
-        rowPtr[i] = &( pImageData->data[i * pImageData->rowSpan] );
-    }
-
-    // Now comes the juice of our work, here we extract all the pixel data
-    int rowsRead = 0;
-    while ( info->output_scanline < info->output_height )
-    {
-        rowsRead += jpeg_read_scanlines( info,
-                                         &rowPtr[rowsRead],
-                                         info->output_height - rowsRead );
-    }
-
-    // Finish decompressing the data
-    jpeg_finish_decompress( info );
-}
-
-
-tImageJPG* TextureCollection::LoadJPEG( const char* cFileName )
-{
-    struct jpeg_decompress_struct cinfo;
-    tImageJPG* pImageData = 0;
-
-    FILE* pFile = nullptr;
-    fopen_s( &pFile, cFileName, "rb" );
-    if ( !pFile )
-    {
-        throw std::runtime_error( "JPEG file not found (TextureCollection::LoadJPEG)" );
-    }
-
-    jpeg_error_mgr jerr;
-    cinfo.err = jpeg_std_error( &jerr );
-    jpeg_create_decompress( &cinfo );
-    jpeg_stdio_src( &cinfo, pFile );
-
-    pImageData = new tImageJPG();
-
-    try
-    {
-        DecodeJPEG( &cinfo, pImageData );
-    }
-    catch ( ... )
-    {
-        delete pImageData;
-        jpeg_destroy_decompress( &cinfo );
-        fclose( pFile );
-        throw;
-    }
-
-    jpeg_destroy_decompress( &cinfo );
-    fclose( pFile );
-    return pImageData;
 }
 
 
@@ -217,56 +140,30 @@ void TextureCollection::CreateJpegTexture( const char* cFileName,
 
     m_textureHashes[m_nextAvailableTextureIndex] = hash;
 
-    // load the image and store the data
-    tImageJPG* pImage = LoadJPEG( cFileName );
+    // Load image via stb_image (supports JPEG, PNG, BMP, etc.)
+    int width = 0;
+    int height = 0;
+    int channels = 0;
+    unsigned char* data = stbi_load( cFileName, &width, &height, &channels, 3 );
 
-    // check for data
-    if ( !pImage )
+    if ( !data )
     {
-        throw std::runtime_error( "Jpeg load failed!  (TextureCollection::CreateJpegTexture)" );
+        throw std::runtime_error( "Image load failed!  (TextureCollection::CreateJpegTexture)" );
     }
 
-    // specify m_textureArray @ index to Text2dureId @ index
-    glGenTextures( 1,                                              // num texture objects to create
-                   &m_textureArray[m_nextAvailableTextureIndex] ); // point @ index
+    // Generate and bind GL texture
+    glGenTextures( 1, &m_textureArray[m_nextAvailableTextureIndex] );
+    glBindTexture( GL_TEXTURE_2D, m_textureArray[m_nextAvailableTextureIndex] );
 
-    // bind and init, 1st param: 2d m_textures (not 1d), 2nd param: point to location
-    glBindTexture( GL_TEXTURE_2D,
-                   m_textureArray[m_nextAvailableTextureIndex] );
-
-    // upload texture and generate mipmaps
-    glTexImage2D( GL_TEXTURE_2D,    // 2d m_textures (not 1d)
-                  0,                // base mipmap level
-                  GL_RGB,           // internal format
-                  pImage->sizeX,    // x m_width
-                  pImage->sizeY,    // y m_width
-                  0,                // border (must be 0)
-                  GL_RGB,           // pixel format
-                  GL_UNSIGNED_BYTE, // index type
-                  pImage->data );   // image data
-
+    // Upload texture and generate mipmaps
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data );
     glGenerateMipmap( GL_TEXTURE_2D );
 
-    // mipmap quality small range
-    glTexParameteri( GL_TEXTURE_2D,             // 2d m_textures (not 1d)
-                     GL_TEXTURE_MIN_FILTER,     // small range filer
-                     GL_LINEAR_MIPMAP_LINEAR ); // linear linear (best quality)
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR );
 
-    // mipmap quality large range
-    glTexParameteri( GL_TEXTURE_2D,             // 2d m_textures (not 1d)
-                     GL_TEXTURE_MAG_FILTER,     // large range filer
-                     GL_LINEAR_MIPMAP_LINEAR ); // linear linear (best quality)
-
-    // Cleanup image data (opengl has made a copy)
-    if ( pImage )
-    {
-        // hmmm
-        if ( pImage->data )
-        {
-            delete[] pImage->data;
-        }
-        delete pImage;
-    }
+    // stb_image handles cleanup
+    stbi_image_free( data );
 
     // Update capacity and progress counters
     UpdateCounters();

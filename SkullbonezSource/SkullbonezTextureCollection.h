@@ -25,10 +25,8 @@ class TextureCollection
     UINT m_textureArray[TOTAL_TEXTURE_COUNT];      // Keeps track of m_textures created by OpenGL
     uint32_t m_textureHashes[TOTAL_TEXTURE_COUNT]; // Stores hashed texture name keys
 
-    tImageJPG* LoadJPEG( const char* cFileName );                           // Loads a jpeg file
-    int FindIndex( uint32_t hash );                                         // Returns the index of the specified texture
-    void UpdateCounters();                                                  // Updates texture counter members
-    void DecodeJPEG( jpeg_decompress_struct* info, tImageJPG* pImageData ); // Decodes jpeg files
+    int FindIndex( uint32_t hash ); // Returns the index of the specified texture
+    void UpdateCounters();          // Updates texture counter members
 
   public:
     static TextureCollection* Instance();                           // Call to request a pointer to the singleton instance
@@ -37,7 +35,7 @@ class TextureCollection
     int NumFreeTextureSpaces();                                     // Returns the number of free texture spaces
     void DeleteTexture( uint32_t hash );                            // Deletes the texture from OpenGL
     void DeleteAllTextures();                                       // Deletes all textures from OpenGL
-    void CreateJpegTexture( const char* cFileName, uint32_t hash ); // Creates a new texture from a jpeg file
+    void CreateJpegTexture( const char* cFileName, uint32_t hash ); // Creates a new texture from an image file
 };
 } // namespace Textures
 } // namespace SkullbonezCore
