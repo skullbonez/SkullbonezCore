@@ -187,8 +187,12 @@ $proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
 if ($proc) { Stop-Process -Id $proc.Id -Force; Start-Sleep 1 }
 
 Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" -WorkingDirectory $REPO
-Start-Sleep 5
-$proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
+$proc = $null
+for ($i = 0; $i -lt 15; $i++) {
+    Start-Sleep 1
+    $proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
+    if ($proc) { break }
+}
 if ($proc) {
     Write-Host "PASS: Legacy mode running (PID $($proc.Id))"
     Stop-Process -Id $proc.Id -Force
