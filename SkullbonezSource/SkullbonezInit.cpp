@@ -33,11 +33,18 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     // Each entry is either a .scene path (scene/suite mode) or "" (legacy mode).
     std::vector<std::string> sceneList;
     bool isSuiteOrSceneMode = false;
+    bool enableHotload = false;
 
     if ( szCmdLine && szCmdLine[0] != '\0' )
     {
         const char* suiteArg = strstr( szCmdLine, "--suite" );
         const char* sceneArg = strstr( szCmdLine, "--scene" );
+        const char* hotloadArg = strstr( szCmdLine, "--hotload" );
+
+        if ( hotloadArg )
+        {
+            enableHotload = true;
+        }
 
         if ( suiteArg )
         {
@@ -67,6 +74,7 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
                 fclose( f );
             }
             isSuiteOrSceneMode = true;
+            enableHotload = true; // Enable hotloading by default for suites
         }
         else if ( sceneArg )
         {
@@ -104,11 +112,16 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     for ( size_t sceneIdx = 0; sceneIdx < sceneList.size() && !abortAll; ++sceneIdx )
     {
         const char* currentScene = sceneList[sceneIdx].empty() ? nullptr : sceneList[sceneIdx].c_str();
+        bool glInitialized = false;
 
         for ( ;; )
         {
-            // Init OpenGL
-            m_cWindow->InitialiseOpenGL();
+            // Init OpenGL (once per scene, or skip if hotloading and already initialized)
+            if ( !enableHotload || !glInitialized )
+            {
+                m_cWindow->InitialiseOpenGL();
+                glInitialized = true;
+            }
 
             bool shouldRestart = false;
             bool sceneCompleted = false;
@@ -151,20 +164,21 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
                 // cRun destroyed here — GL context still alive for proper cleanup
             }
 
-            // Cleanup rendering context AFTER cRun is destroyed
-            if ( shouldRestart && m_cWindow->m_sRenderContext )
+            // Cleanup rendering context AFTER cRun is destroyed (unless hotloading)
+            if ( shouldRestart && !enableHotload && m_cWindow->m_sRenderContext )
             {
                 wglMakeCurrent( nullptr, nullptr );
                 wglDeleteContext( m_cWindow->m_sRenderContext );
+                glInitialized = false;
             }
-            else
+            else if ( sceneCompleted || !shouldRestart )
             {
                 break;
             }
         }
 
-        // Between scenes: destroy GL context so the next scene gets a fresh one
-        if ( !abortAll && sceneIdx + 1 < sceneList.size() && m_cWindow->m_sRenderContext )
+        // Between scenes: destroy GL context unless hotloading is enabled
+        if ( !enableHotload && !abortAll && sceneIdx + 1 < sceneList.size() && m_cWindow->m_sRenderContext )
         {
             wglMakeCurrent( nullptr, nullptr );
             wglDeleteContext( m_cWindow->m_sRenderContext );
