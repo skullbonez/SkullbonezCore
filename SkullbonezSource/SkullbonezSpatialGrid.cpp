@@ -52,6 +52,7 @@ int SpatialGrid::FindOrCreate( int64_t key )
 
 void SpatialGrid::Insert( int index, const Vector3& position, float radius )
 {
+    assert( index >= 0 && "Insert: negative object index" );
     if ( index >= MAX_GAME_MODELS )
     {
         return;
@@ -77,6 +78,7 @@ void SpatialGrid::Insert( int index, const Vector3& position, float radius )
             {
                 int64_t key = ( int64_t( ix ) * 73856093 ) ^ ( int64_t( iy ) * 19349663 ) ^ ( int64_t( iz ) * 83492791 );
                 int bi = FindOrCreate( key );
+                assert( bi >= 0 && bi < TABLE_SIZE && "Insert: bucket index OOB" );
                 Bucket& b = buckets[bi];
 
                 if ( entryPoolUsed < MAX_CELL_ENTRIES )
@@ -98,6 +100,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
     outPairs.clear();
 
     // Clear pair dedup bits
+    assert( objectCount >= 0 && objectCount <= MAX_GAME_MODELS && "objectCount OOB" );
     int pairBits = objectCount * ( objectCount - 1 ) / 2;
     int wordsNeeded = ( pairBits + 63 ) / 64;
     if ( wordsNeeded > PAIR_WORDS )
@@ -120,7 +123,10 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
         int cur = b.head;
         while ( cur != -1 && cellCount < 64 )
         {
-            cellIndices[cellCount++] = entries[cur].objectIndex;
+            assert( cur >= 0 && cur < MAX_CELL_ENTRIES && "entry chain index OOB" );
+            int objIdx = entries[cur].objectIndex;
+            assert( objIdx >= 0 && objIdx < MAX_GAME_MODELS && "objectIndex OOB in entry chain" );
+            cellIndices[cellCount++] = objIdx;
             cur = entries[cur].next;
         }
 
@@ -131,6 +137,12 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
                 int a = cellIndices[i];
                 int bIdx = cellIndices[j];
 
+                // Hash collisions can place the same object in a bucket twice — skip self-pairs
+                if ( a == bIdx )
+                {
+                    continue;
+                }
+
                 if ( a > bIdx )
                 {
                     int tmp = a;
@@ -138,9 +150,11 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
                     bIdx = tmp;
                 }
 
-                // Triangular index: bIdx*(bIdx-1)/2 + a
+                // Triangular index: bIdx*(bIdx-1)/2 + a  (requires a < bIdx)
+                assert( a < bIdx && "pair ordering violated: a must be less than bIdx" );
                 int pairIdx = bIdx * ( bIdx - 1 ) / 2 + a;
                 int word = pairIdx >> 6;
+                assert( word >= 0 && word < PAIR_WORDS && "pairSeen word index OOB" );
                 uint64_t bit = uint64_t( 1 ) << ( pairIdx & 63 );
 
                 if ( !( pairSeen[word] & bit ) )
