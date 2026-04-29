@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstring>
 #include <cmath>
+#include <cassert>
 #include "SkullbonezCommon.h"
 #include "SkullbonezVector3.h"
 
