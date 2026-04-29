@@ -537,17 +537,21 @@ float Profiler::LastFrameMsByHash( uint32_t hash ) const
 
 void Profiler::WritePerfCSVHeader( FILE* f ) const
 {
-    static constexpr uint32_t kVsyncHash    = ::HashStr( "Frame/VsyncWait" );
+    static constexpr uint32_t kVsyncHash = ::HashStr( "Frame/VsyncWait" );
     static constexpr uint32_t kPipelineHash = ::HashStr( "Frame/PipelineSync" );
 
     fprintf( f, "pass,frame" );
     for ( int i = 0; i < m_markerCount; ++i )
     {
         if ( m_markers[i].hash == kVsyncHash || m_markers[i].hash == kPipelineHash )
+        {
             continue;
+        }
         fprintf( f, ",%s", m_markers[i].name );
         if ( m_markers[i].hasGpu )
+        {
             fprintf( f, ",%s_gpu", m_markers[i].name );
+        }
     }
     // PipelineSync then VsyncWait at end so they don't skew averages when viewed together
     for ( int pass = 0; pass < 2; ++pass )
@@ -559,7 +563,9 @@ void Profiler::WritePerfCSVHeader( FILE* f ) const
             {
                 fprintf( f, ",%s", m_markers[i].name );
                 if ( m_markers[i].hasGpu )
+                {
                     fprintf( f, ",%s_gpu", m_markers[i].name );
+                }
                 break;
             }
         }
@@ -571,19 +577,25 @@ void Profiler::WritePerfCSVHeader( FILE* f ) const
 void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
 {
     if ( m_warmupFrames > 0 )
+    {
         return;
+    }
 
-    static constexpr uint32_t kVsyncHash    = ::HashStr( "Frame/VsyncWait" );
+    static constexpr uint32_t kVsyncHash = ::HashStr( "Frame/VsyncWait" );
     static constexpr uint32_t kPipelineHash = ::HashStr( "Frame/PipelineSync" );
 
     fprintf( f, "%d,%d", pass, frame );
     for ( int i = 0; i < m_markerCount; ++i )
     {
         if ( m_markers[i].hash == kVsyncHash || m_markers[i].hash == kPipelineHash )
+        {
             continue;
+        }
         fprintf( f, ",%.4f", m_markers[i].lastFrameMs );
         if ( m_markers[i].hasGpu )
+        {
             fprintf( f, ",%.4f", m_markers[i].gpuLastFrameMs );
+        }
     }
     for ( int p = 0; p < 2; ++p )
     {
@@ -594,7 +606,9 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
             {
                 fprintf( f, ",%.4f", m_markers[i].lastFrameMs );
                 if ( m_markers[i].hasGpu )
+                {
                     fprintf( f, ",%.4f", m_markers[i].gpuLastFrameMs );
+                }
                 break;
             }
         }
@@ -690,7 +704,8 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     float budgetMs = ( cpuMs > 0.001f ) ? cpuMs : 1.0f;
 
     // Marker rows — PipelineSync and VsyncWait rendered last (at bottom)
-    auto renderMarkerRow = [&]( const Marker& m ) {
+    auto renderMarkerRow = [&]( const Marker& m )
+    {
         char nameBuf[64] = { 0 };
         int spaces = m.depth * 2;
         if ( spaces > 20 )
@@ -758,7 +773,9 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     for ( int i = 0; i < m_markerCount; ++i )
     {
         if ( m_markers[i].hash == kVsyncHash || m_markers[i].hash == kPipelineSyncHash )
+        {
             continue;
+        }
         renderMarkerRow( m_markers[i] );
     }
     for ( int pass = 0; pass < 2; ++pass )
