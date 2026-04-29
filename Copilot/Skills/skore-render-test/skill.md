@@ -241,6 +241,9 @@ if (Test-Path "$REPO\Profile\perf_log.csv") {
 
 # 2. Analyze and write artifact
 py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py"
+
+# 3. Compare against baseline-001
+py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py"
 ```
 
 ### Artifact format
