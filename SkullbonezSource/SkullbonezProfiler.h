@@ -30,7 +30,8 @@ class Profiler
     static constexpr int MAX_MARKERS = 64;
     static constexpr int MAX_DEPTH = 16;
     static constexpr int RING_SIZE = 600;     // ~10 s @ 60 fps
-    static constexpr int GPU_QUERY_DEPTH = 4; // pending query ring depth (non-blocking readback)
+    static constexpr int GPU_QUERY_DEPTH = 4;  // pending query ring depth (non-blocking readback)
+    static constexpr int WARMUP_FRAMES = 30;   // frames excluded from ring-buffer stats at session/pass start
 
     struct Marker
     {
@@ -121,6 +122,7 @@ class Profiler
     int64_t m_qpcFrequency;
     int64_t m_lastAvgTicks;
     bool m_inFrame;
+    int m_warmupFrames; // frames remaining in warmup window; ring-buffer stats not recorded when > 0
 };
 
 class ProfilerScope

@@ -53,7 +53,8 @@ Profiler& Profiler::Instance()
 
 
 Profiler::Profiler()
-    : m_markerCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false )
+    : m_markerCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
+      m_warmupFrames( WARMUP_FRAMES + 1 )
 {
     LARGE_INTEGER f;
     if ( QueryPerformanceFrequency( &f ) )
@@ -362,6 +363,8 @@ void Profiler::InvalidateGpuQueries()
         std::memset( m.gpuQueries, 0, sizeof( m.gpuQueries ) );
         std::memset( m.gpuRingMs, 0, sizeof( m.gpuRingMs ) );
     }
+    // +1 because FrameBegin decrements before the frame runs
+    m_warmupFrames = WARMUP_FRAMES + 1;
 }
 
 
@@ -376,6 +379,12 @@ void Profiler::FrameBegin()
         AbortMismatch( "FrameBegin with non-empty stack", nullptr );
     }
     m_inFrame = true;
+
+    // Consume warmup budget at frame start so FrameEnd and WritePerfCSVRow see the same value
+    if ( m_warmupFrames > 0 )
+    {
+        --m_warmupFrames;
+    }
 
     // Read any pending GPU results from previous frames (non-blocking)
     ReadPendingGpuResults();
@@ -413,12 +422,19 @@ void Profiler::FrameEnd()
     AdvanceGpuWriteCursors();
 
     // Commit per-frame totals into ring buffer; compute p50 / p99
+    // During warmup (m_warmupFrames > 0) we still update lastFrameMs for the live overlay
+    // but skip ring buffer / min / max / percentile updates to exclude startup noise.
     static float scratch[RING_SIZE]; // single-threaded — safe to be static
     for ( int i = 0; i < m_markerCount; ++i )
     {
         Marker& m = m_markers[i];
         float ms = static_cast<float>( m.accumSecondsThisFrame * 1000.0 );
         m.lastFrameMs = ms;
+        if ( m_warmupFrames > 0 )
+        {
+            continue;
+        }
+
         if ( ms < m.minMs )
         {
             m.minMs = ms;
@@ -459,41 +475,44 @@ void Profiler::FrameEnd()
         }
     }
 
-    // Moving average refreshed every 500 ms (CPU and GPU)
-    LARGE_INTEGER t;
-    QueryPerformanceCounter( &t );
-    int64_t elapsedMs = ( t.QuadPart - m_lastAvgTicks ) * 1000 / m_qpcFrequency;
-    if ( m_lastAvgTicks == 0 || elapsedMs >= TICKS_PER_AVG_REFRESH_MS )
+    // Moving average refreshed every 500 ms (CPU and GPU) — skip during warmup
+    if ( m_warmupFrames == 0 )
     {
-        m_lastAvgTicks = t.QuadPart;
-        for ( int i = 0; i < m_markerCount; ++i )
+        LARGE_INTEGER t;
+        QueryPerformanceCounter( &t );
+        int64_t elapsedMs = ( t.QuadPart - m_lastAvgTicks ) * 1000 / m_qpcFrequency;
+        if ( m_lastAvgTicks == 0 || elapsedMs >= TICKS_PER_AVG_REFRESH_MS )
         {
-            Marker& m = m_markers[i];
-
-            // CPU average
-            int n = m.ringFilled;
-            if ( n > 0 )
+            m_lastAvgTicks = t.QuadPart;
+            for ( int i = 0; i < m_markerCount; ++i )
             {
-                double sum = 0.0;
-                for ( int k = 0; k < n; ++k )
-                {
-                    sum += m.ringMs[k];
-                }
-                m.avgMs = static_cast<float>( sum / n );
-            }
+                Marker& m = m_markers[i];
 
-            // GPU average
-            if ( m.hasGpu )
-            {
-                int gn = m.gpuRingFilled;
-                if ( gn > 0 )
+                // CPU average
+                int n = m.ringFilled;
+                if ( n > 0 )
                 {
-                    double gsum = 0.0;
-                    for ( int k = 0; k < gn; ++k )
+                    double sum = 0.0;
+                    for ( int k = 0; k < n; ++k )
                     {
-                        gsum += m.gpuRingMs[k];
+                        sum += m.ringMs[k];
                     }
-                    m.gpuAvgMs = static_cast<float>( gsum / gn );
+                    m.avgMs = static_cast<float>( sum / n );
+                }
+
+                // GPU average
+                if ( m.hasGpu )
+                {
+                    int gn = m.gpuRingFilled;
+                    if ( gn > 0 )
+                    {
+                        double gsum = 0.0;
+                        for ( int k = 0; k < gn; ++k )
+                        {
+                            gsum += m.gpuRingMs[k];
+                        }
+                        m.gpuAvgMs = static_cast<float>( gsum / gn );
+                    }
                 }
             }
         }
@@ -518,13 +537,31 @@ float Profiler::LastFrameMsByHash( uint32_t hash ) const
 
 void Profiler::WritePerfCSVHeader( FILE* f ) const
 {
+    static constexpr uint32_t kVsyncHash    = ::HashStr( "Frame/VsyncWait" );
+    static constexpr uint32_t kPipelineHash = ::HashStr( "Frame/PipelineSync" );
+
     fprintf( f, "pass,frame" );
     for ( int i = 0; i < m_markerCount; ++i )
     {
+        if ( m_markers[i].hash == kVsyncHash || m_markers[i].hash == kPipelineHash )
+            continue;
         fprintf( f, ",%s", m_markers[i].name );
         if ( m_markers[i].hasGpu )
-        {
             fprintf( f, ",%s_gpu", m_markers[i].name );
+    }
+    // PipelineSync then VsyncWait at end so they don't skew averages when viewed together
+    for ( int pass = 0; pass < 2; ++pass )
+    {
+        uint32_t target = ( pass == 0 ) ? kPipelineHash : kVsyncHash;
+        for ( int i = 0; i < m_markerCount; ++i )
+        {
+            if ( m_markers[i].hash == target )
+            {
+                fprintf( f, ",%s", m_markers[i].name );
+                if ( m_markers[i].hasGpu )
+                    fprintf( f, ",%s_gpu", m_markers[i].name );
+                break;
+            }
         }
     }
     fprintf( f, "\n" );
@@ -533,13 +570,33 @@ void Profiler::WritePerfCSVHeader( FILE* f ) const
 
 void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
 {
+    if ( m_warmupFrames > 0 )
+        return;
+
+    static constexpr uint32_t kVsyncHash    = ::HashStr( "Frame/VsyncWait" );
+    static constexpr uint32_t kPipelineHash = ::HashStr( "Frame/PipelineSync" );
+
     fprintf( f, "%d,%d", pass, frame );
     for ( int i = 0; i < m_markerCount; ++i )
     {
+        if ( m_markers[i].hash == kVsyncHash || m_markers[i].hash == kPipelineHash )
+            continue;
         fprintf( f, ",%.4f", m_markers[i].lastFrameMs );
         if ( m_markers[i].hasGpu )
-        {
             fprintf( f, ",%.4f", m_markers[i].gpuLastFrameMs );
+    }
+    for ( int p = 0; p < 2; ++p )
+    {
+        uint32_t target = ( p == 0 ) ? kPipelineHash : kVsyncHash;
+        for ( int i = 0; i < m_markerCount; ++i )
+        {
+            if ( m_markers[i].hash == target )
+            {
+                fprintf( f, ",%.4f", m_markers[i].lastFrameMs );
+                if ( m_markers[i].hasGpu )
+                    fprintf( f, ",%.4f", m_markers[i].gpuLastFrameMs );
+                break;
+            }
         }
     }
     fprintf( f, "\n" );
@@ -632,12 +689,8 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     // Traffic-light threshold: proportion of CPU budget
     float budgetMs = ( cpuMs > 0.001f ) ? cpuMs : 1.0f;
 
-    // Marker rows
-    for ( int i = 0; i < m_markerCount; ++i )
-    {
-        const Marker& m = m_markers[i];
-
-        // Build indented name
+    // Marker rows — PipelineSync and VsyncWait rendered last (at bottom)
+    auto renderMarkerRow = [&]( const Marker& m ) {
         char nameBuf[64] = { 0 };
         int spaces = m.depth * 2;
         if ( spaces > 20 )
@@ -650,7 +703,6 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
         }
         strcpy_s( nameBuf + spaces, sizeof( nameBuf ) - spaces, m.leafName );
 
-        // Traffic light color based on proportion of CPU budget
         float mr, mg, mb;
         if ( m.hash == kVsyncHash || m.hash == kPipelineSyncHash )
         {
@@ -696,9 +748,30 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
         }
         Text2d::Render2dTextColor( xLeft + colP50, y, fSize, mr, mg, mb, "%6.2f", m.p50Ms );
         Text2d::Render2dTextColor( xLeft + colP99, y, fSize, mr, mg, mb, "%6.2f", m.p99Ms );
-        Text2d::Render2dTextColor( xLeft + colMin, y, fSize, mr, mg, mb, "%6.2f", m.minMs );
-        Text2d::Render2dTextColor( xLeft + colMax, y, fSize, mr, mg, mb, "%6.2f", m.maxMs );
+        float displayMin = ( m.ringFilled > 0 ) ? m.minMs : 0.0f;
+        float displayMax = ( m.ringFilled > 0 ) ? m.maxMs : 0.0f;
+        Text2d::Render2dTextColor( xLeft + colMin, y, fSize, mr, mg, mb, "%6.2f", displayMin );
+        Text2d::Render2dTextColor( xLeft + colMax, y, fSize, mr, mg, mb, "%6.2f", displayMax );
         y -= lineHeight;
+    };
+
+    for ( int i = 0; i < m_markerCount; ++i )
+    {
+        if ( m_markers[i].hash == kVsyncHash || m_markers[i].hash == kPipelineSyncHash )
+            continue;
+        renderMarkerRow( m_markers[i] );
+    }
+    for ( int pass = 0; pass < 2; ++pass )
+    {
+        uint32_t target = ( pass == 0 ) ? kPipelineSyncHash : kVsyncHash;
+        for ( int i = 0; i < m_markerCount; ++i )
+        {
+            if ( m_markers[i].hash == target )
+            {
+                renderMarkerRow( m_markers[i] );
+                break;
+            }
+        }
     }
 }
 

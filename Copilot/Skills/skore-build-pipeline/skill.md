@@ -56,7 +56,7 @@ Write-Host "Formatted $($files.Count) files"
 
 ### Step 2: Build
 
-Build using the `skore-build` skill. Must produce **0 errors and 0 warnings**.
+Build using the `skore-build` skill with **Profile** configuration. Must produce **0 errors and 0 warnings**.
 
 ```pwsh
 $REPO    = (git rev-parse --show-toplevel).Trim()
@@ -64,7 +64,7 @@ $proc    = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
 if ($proc) { Stop-Process -Id $proc.Id -Force; Start-Sleep 1 }
 
 $msbuild = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
-& $msbuild "$REPO\SKULLBONEZ_CORE.sln" /p:Configuration=Debug /p:Platform=x64 /nologo /v:minimal
+& $msbuild "$REPO\SKULLBONEZ_CORE.sln" /p:Configuration=Profile /p:Platform=x64 /nologo /v:minimal
 ```
 
 **If build fails**: Fix errors, rebuild. Do not proceed.
@@ -87,17 +87,17 @@ import os
 from PIL import Image
 _r = os.environ['SKORE_REPO']
 _s = _r + r'\Copilot\Skills\skore-render-test'
-Image.open(_r + r'\Debug\screenshot.bmp').save(_s        + r'\baseline_water_ball_test.png')
-Image.open(_r + r'\Debug\screenshot_reset.bmp').save(_s  + r'\baseline_water_ball_test_reset.png')
-Image.open(_r + r'\Debug\legacy_smoke.bmp').save(_s      + r'\baseline_legacy_smoke.png')
-Image.open(_r + r'\Debug\legacy_smoke_reset.bmp').save(_s+ r'\baseline_legacy_smoke_reset.png')
+Image.open(_r + r'\Profile\screenshot.bmp').save(_s        + r'\baseline_water_ball_test.png')
+Image.open(_r + r'\Profile\screenshot_reset.bmp').save(_s  + r'\baseline_water_ball_test_reset.png')
+Image.open(_r + r'\Profile\legacy_smoke.bmp').save(_s      + r'\baseline_legacy_smoke.png')
+Image.open(_r + r'\Profile\legacy_smoke_reset.bmp').save(_s+ r'\baseline_legacy_smoke_reset.png')
 print('Baselines updated')
 "
 ```
 
 This ensures baselines always reflect the latest committed state.
 
-### Step 4: Performance Test
+### Step 5: Performance Test
 
 **Mandatory for every commit.** Separate from the render test suite — runs via `--scene` (not `--suite`) because it takes 10 seconds and should not block quick render test runs.
 
@@ -105,15 +105,15 @@ This ensures baselines always reflect the latest committed state.
 $REPO = (git rev-parse --show-toplevel).Trim()
 $proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
 if ($proc) { Stop-Process -Id $proc.Id -Force; Start-Sleep 1 }
-Remove-Item "$REPO\Debug\perf_log.csv" -ErrorAction SilentlyContinue
+Remove-Item "$REPO\Profile\perf_log.csv" -ErrorAction SilentlyContinue
 
-$proc = Start-Process "$REPO\Debug\SKULLBONEZ_CORE.exe" `
+$proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
     -ArgumentList "--scene SkullbonezData/scenes/perf_test.scene" `
     -WorkingDirectory $REPO -PassThru
 $proc.WaitForExit(30000) | Out-Null
 if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force; Write-Host "FAIL: perf test timed out" }
 
-if (Test-Path "$REPO\Debug\perf_log.csv") {
+if (Test-Path "$REPO\Profile\perf_log.csv") {
     Write-Host "PASS: perf_log.csv generated"
     py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py"
 } else {
@@ -125,7 +125,54 @@ The analysis script writes a JSON artifact to `Skills/skore-render-test/perf_his
 
 Regression thresholds: avg/p50 timing >10%, p99/p99.9 >20%, memory >5 MB.
 
-### Step 5: Lines of Code
+### Step 6: Archive to TestOutput
+
+**Mandatory for every commit.** Creates a sequentially numbered directory in `TestOutput/` containing PNGs and perf data. This builds a permanent visual + performance timeline in the repo.
+
+```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
+$env:SKORE_REPO = $REPO
+py -c "
+import os, json, shutil, glob as g
+from pathlib import Path
+from PIL import Image
+
+_r = Path(os.environ['SKORE_REPO'])
+_to = _r / 'TestOutput'
+_to.mkdir(exist_ok=True)
+
+# Determine next sequence number
+existing = sorted(g.glob(str(_to / '[0-9][0-9][0-9]_*')))
+seq = len(existing) + 1
+
+# Get commit hash
+import subprocess
+commit = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], capture_output=True, text=True, cwd=str(_r)).stdout.strip()
+
+archive = _to / f'{seq:03d}_{commit}'
+archive.mkdir()
+
+# Convert and copy screenshots
+pairs = [
+    (_r / 'Profile' / 'screenshot.bmp',        archive / 'water_ball_test.png'),
+    (_r / 'Profile' / 'screenshot_reset.bmp',   archive / 'water_ball_test_reset.png'),
+    (_r / 'Profile' / 'legacy_smoke.bmp',       archive / 'legacy_smoke.png'),
+    (_r / 'Profile' / 'legacy_smoke_reset.bmp',  archive / 'legacy_smoke_reset.png'),
+]
+for src, dst in pairs:
+    if src.exists():
+        Image.open(str(src)).save(str(dst))
+
+# Copy perf artifact
+perf_src = _r / 'Copilot' / 'Skills' / 'skore-render-test' / 'perf_history' / f'{commit}.json'
+if perf_src.exists():
+    shutil.copy2(str(perf_src), str(archive / 'perf.json'))
+
+print(f'Archived to {archive.name}')
+"
+```
+
+### Step 7: Lines of Code
 
 Informational — counts logical LOC (excludes blanks and comments) across all `.h` and `.cpp` files in `SkullbonezSource/`. No pass/fail; just print and note the total in the commit message.
 
@@ -134,7 +181,7 @@ $REPO = (git rev-parse --show-toplevel).Trim()
 py "$REPO\Copilot\Skills\loc_count.py"
 ```
 
-### Step 6: Legacy Smoke Test
+### Step 8: Legacy Smoke Test
 
 Quick check that default mode (no `--scene`) still runs without crashing:
 
@@ -143,7 +190,7 @@ $REPO = (git rev-parse --show-toplevel).Trim()
 $proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
 if ($proc) { Stop-Process -Id $proc.Id -Force; Start-Sleep 1 }
 
-Start-Process "$REPO\Debug\SKULLBONEZ_CORE.exe" -WorkingDirectory $REPO
+Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" -WorkingDirectory $REPO
 Start-Sleep 5
 $proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
 if ($proc) {
@@ -156,12 +203,13 @@ if ($proc) {
 
 **If smoke test fails**: Debug with `skore-cdb-debug` skill.
 
-### Step 7: Commit
+### Step 9: Commit
 
 Only if **all** previous steps pass. The commit MUST include:
 - Code changes
-- Updated reference images (from Step 3)
-- Performance test artifact (from Step 4)
+- Updated reference images (from Step 4)
+- Performance test artifact (from Step 5)
+- TestOutput archive (from Step 6)
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()

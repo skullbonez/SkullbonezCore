@@ -82,7 +82,9 @@ SkullbonezRun::~SkullbonezRun()
     {
         m_cReflectionFBO->ResetGLResources();
     }
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
     Profiler::Instance().InvalidateGpuQueries();
+#endif
     Text2d::DeleteFont();
 
     m_cTextures->Destroy();
