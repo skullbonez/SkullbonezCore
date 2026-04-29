@@ -130,10 +130,45 @@ def find_previous_artifact(hist_dir, current_hash):
     return None
 
 
+NOISE_TOLERANCE = 5.0  # ±5% is within noise — shown in blue
+
+
+def _color_pct(pct, threshold):
+    """Return ANSI-colored percentage string.
+    Blue   = within ±5% noise tolerance
+    Green  = clearly faster (beyond tolerance)
+    Yellow = small regression (tolerance < pct <= threshold)
+    Red    = regression exceeds threshold
+    """
+    GREEN  = "\033[32m"
+    YELLOW = "\033[33m"
+    RED    = "\033[31m"
+    BLUE   = "\033[34m"
+    RESET  = "\033[0m"
+    sign = "+" if pct > 0 else ""
+    s = f"{sign}{pct:.1f}%"
+    if abs(pct) <= NOISE_TOLERANCE:
+        return f"{BLUE}{s}{RESET}"
+    elif pct < 0:
+        return f"{GREEN}{s}{RESET}"
+    elif pct <= threshold:
+        return f"{YELLOW}{s}{RESET}"
+    else:
+        return f"{RED}{s}{RESET}"
+
+
+def _color_mem(delta_mb, threshold=5.0):
+    GREEN = "\033[32m"
+    RED   = "\033[31m"
+    RESET = "\033[0m"
+    sign = "+" if delta_mb > 0 else ""
+    s = f"{sign}{delta_mb:.2f} MB"
+    return f"{RED}{s}{RESET}" if delta_mb > threshold else f"{GREEN}{s}{RESET}"
+
+
 def compare_stats(current, previous):
-    """Compare current vs previous, apply thresholds, return list of failures."""
+    """Compare current vs previous, print color table, return list of failures."""
     prev = json.loads(previous.read_text())
-    print(f"\n--- Comparison vs {prev['commit']} ---")
 
     # Skip regression check if machines differ — results are not comparable.
     prev_machine = prev.get("machine", {})
@@ -154,42 +189,53 @@ def compare_stats(current, previous):
         print(f"  To reset the baseline delete old artifacts from perf_history/ and re-run.")
         return []
 
-    # Thresholds: avg/p50 >10% regression, p99/p99.9 >20%, memory >5 MB
-    TIMING_THRESHOLDS = {"min": 10, "max": 20, "avg": 10, "p50": 10, "p99": 20, "p99_9": 20}
     MEM_THRESHOLD_MB = 5.0
-
     failures = []
 
-    # Compare all marker columns present in both artifacts
     prev_markers = prev.get("markers", {})
     cur_markers  = current.get("markers", {})
     shared = [m for m in cur_markers if m in prev_markers]
 
-    for marker in shared:
-        print(f"\n  {marker}:")
-        for stat in ["min", "max", "avg", "p50", "p99", "p99_9"]:
-            cur_val  = cur_markers[marker][stat]
-            prev_val = prev_markers[marker][stat]
-            threshold = TIMING_THRESHOLDS[stat]
-            if prev_val > 0:
-                delta_pct = ((cur_val - prev_val) / prev_val) * 100
-                direction = "SLOWER" if delta_pct > 0 else "FASTER"
-                flag = " ** REGRESSION **" if delta_pct > threshold else ""
-                print(f"    {stat:6s}: {prev_val:.4f} -> {cur_val:.4f}  ({delta_pct:+.1f}% {direction}){flag}")
-                if delta_pct > threshold:
-                    failures.append(f"{marker}.{stat}: +{delta_pct:.1f}% (threshold: {threshold}%)")
-            else:
-                print(f"    {stat:6s}: {prev_val:.4f} -> {cur_val:.4f}")
+    BOLD  = "\033[1m"
+    RESET = "\033[0m"
+    # Each colored value cell: visible text ~6 chars + 9 chars ANSI = pad to 15+9=24
+    CELL = 24
 
-    print(f"\n  Memory (MB):")
+    print(f"\n--- Perf vs {prev['commit']} ---\n")
+    print(f"  {BOLD}{'Marker':<38}{'avg':>15}{'p50':>15}{'p99':>15}{'p99.9':>15}{RESET}")
+    print("  " + "-" * 82)
+
+    for marker in shared:
+        pm = prev_markers[marker]
+        cm = cur_markers[marker]
+        cells = []
+        for stat, threshold in [("avg", 10), ("p50", 10), ("p99", 20), ("p99_9", 20)]:
+            pv, cv = pm[stat], cm[stat]
+            if pv > 0:
+                pct = (cv - pv) / pv * 100
+                cells.append(_color_pct(pct, threshold))
+                if pct > threshold:
+                    failures.append(f"{marker}.{stat}: +{pct:.1f}% (threshold: {threshold}%)")
+            else:
+                cells.append("  N/A")
+        row = f"  {marker:<38}"
+        for cell in cells:
+            row += f"{cell:>{CELL}}"
+        print(row)
+
+    # Memory row
+    print("  " + "-" * 82)
+    mem_labels = ["start", "restart", "end"]
+    mem_cells = []
     for key in ["mem_start_mb", "mem_restart_mb", "mem_end_mb"]:
-        cur_val  = current[key]
-        prev_val = prev[key]
-        delta = cur_val - prev_val
-        flag = " ** REGRESSION **" if delta > MEM_THRESHOLD_MB else ""
-        print(f"    {key:18s}: {prev_val:.2f} -> {cur_val:.2f}  ({delta:+.2f} MB){flag}")
+        delta = current[key] - prev[key]
+        mem_cells.append(_color_mem(delta, MEM_THRESHOLD_MB))
         if delta > MEM_THRESHOLD_MB:
             failures.append(f"{key}: +{delta:.2f} MB (threshold: {MEM_THRESHOLD_MB} MB)")
+    row = f"  {'Memory (start / restart / end)':<38}"
+    for cell in mem_cells:
+        row += f"{cell:>{CELL}}"
+    print(row)
 
     return failures
 
