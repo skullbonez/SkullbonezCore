@@ -159,9 +159,10 @@ The comparison table will show baseline-001 as "bas" and the snatched branch as 
 
 ### Summary output
 
-After Step 8, summarise to the user:
-- Which branch was snatched
-- Whether compilation fixes were needed (and committed)
-- Render test pass/fail (noted in Step 4a)
-- The full colored perf comparison table from Step 8
-- Whether any regressions were flagged
+After Step 8, present the **full results** to the user. Do NOT summarise — print all of the following:
+
+1. Which branch was snatched
+2. Whether compilation fixes were needed (and committed)
+3. Render test pass/fail (noted in Step 4a)
+4. **The COMPLETE perf comparison table** — reproduce the entire `perf_compare.py` output (CPU table, GPU table, Memory table) in your response using emoji dots (🔵🟢🟡🔴) next to every delta cell. Do NOT abbreviate, omit rows, or summarise the table. Print every single row.
+5. Whether any regressions were flagged
