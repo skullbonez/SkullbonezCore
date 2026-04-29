@@ -34,3 +34,10 @@ Profile/
 
 # VS file content index
 *.vsidx
+
+# VS launch args (personal tool preference)
+*.args.json
+
+# Python
+__pycache__/
+*.pyc

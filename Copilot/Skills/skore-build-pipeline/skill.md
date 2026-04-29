@@ -114,12 +114,13 @@ if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force; Write-Host "FAIL: perf
 if (Test-Path "$REPO\Profile\perf_log.csv") {
     Write-Host "PASS: perf_log.csv generated"
     py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py"
+    py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py"
 } else {
     Write-Host "FAIL: No perf_log.csv"
 }
 ```
 
-The analysis script writes a JSON artifact to `TestOutput/perf_history/{commit}.json` and compares against the previous artifact. **If regression thresholds are exceeded**, investigate before proceeding.
+`analyze_perf.py` writes a JSON artifact to `TestOutput/perf_history/{commit}.json` and compares against the previous artifact. `perf_compare.py` prints the colored comparison table against `TestOutput/baseline-001/perf.json`. **If regression thresholds are exceeded**, investigate before proceeding.
 
 Regression thresholds: avg/p50 timing >10%, p99/p99.9 >20%, memory >5 MB.
 
