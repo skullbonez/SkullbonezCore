@@ -10,7 +10,7 @@ CDB is the Windows console debugger — fully scriptable from the terminal. Use 
 ### CDB Path
 
 ```
-C:\Program Files (x86)\Windows Kits\10\Debuggers\x86\cdb.exe
+C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe
 ```
 
 ### Quick crash diagnosis
@@ -19,7 +19,7 @@ Launch the exe under CDB. It will break on exceptions automatically:
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
-& "C:\Program Files (x86)\Windows Kits\10\Debuggers\x86\cdb.exe" -g -G -lines -y "$REPO\Debug" -srcpath "$REPO\SkullbonezSource" "$REPO\Debug\SKULLBONEZ_CORE.exe"
+& "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe" -g -G -lines -y "$REPO\Debug" -srcpath "$REPO\SkullbonezSource" "$REPO\Debug\SKULLBONEZ_CORE.exe"
 ```
 
 Flags:
@@ -33,7 +33,7 @@ Flags:
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
-& "C:\Program Files (x86)\Windows Kits\10\Debuggers\x86\cdb.exe" -g -G -lines -y "$REPO\Debug" -srcpath "$REPO\SkullbonezSource" "$REPO\Debug\SKULLBONEZ_CORE.exe" "--scene" "SkullbonezData/scenes/water_ball_test.scene"
+& "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe" -g -G -lines -y "$REPO\Debug" -srcpath "$REPO\SkullbonezSource" "$REPO\Debug\SKULLBONEZ_CORE.exe" "--scene" "SkullbonezData/scenes/water_ball_test.scene"
 ```
 
 ### Interactive debugging
@@ -44,7 +44,7 @@ Launch CDB in async mode so you can send commands interactively:
 # Start CDB in async mode
 $REPO = (git rev-parse --show-toplevel).Trim()
 powershell mode="async" shellId="cdb"
-& "C:\Program Files (x86)\Windows Kits\10\Debuggers\x86\cdb.exe" -lines -y "$REPO\Debug" -srcpath "$REPO\SkullbonezSource" "$REPO\Debug\SKULLBONEZ_CORE.exe"
+& "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe" -lines -y "$REPO\Debug" -srcpath "$REPO\SkullbonezSource" "$REPO\Debug\SKULLBONEZ_CORE.exe"
 ```
 
 Then use `write_powershell` with the shellId to send CDB commands.
@@ -76,7 +76,7 @@ Then use `write_powershell` with the shellId to send CDB commands.
 1. Launch in async mode (without `-g` so it breaks at start):
    ```pwsh
    $REPO = (git rev-parse --show-toplevel).Trim()
-   & "C:\Program Files (x86)\Windows Kits\10\Debuggers\x86\cdb.exe" -lines -y "$REPO\Debug" -srcpath "$REPO\SkullbonezSource" "$REPO\Debug\SKULLBONEZ_CORE.exe"
+   & "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe" -lines -y "$REPO\Debug" -srcpath "$REPO\SkullbonezSource" "$REPO\Debug\SKULLBONEZ_CORE.exe"
    ```
 
 2. Set breakpoints if needed:
@@ -116,7 +116,7 @@ bp SkullbonezRun::Render ".if (poi(this+0x4) == 0) { k; } .else { gc }"
 
 ### Notes
 
-- The exe is **Win32 (x86)** — always use the x86 CDB, not x64
+- The exe is **x64** — always use the x64 CDB
 - PDB files are in `Debug\` alongside the exe
 - Source files are in `SkullbonezSource\`
 - If the process is already running, attach instead: `cdb -p <PID>`

@@ -6,7 +6,7 @@ physics off
 text off
 frames 1
 test_gl_reset
-screenshot Debug/screenshot.bmp frame 1
+screenshot Profile/screenshot.bmp frame 1
 # Camera pulled back and elevated to see ball, terrain, water, and skybox
 camera main 500 60 650  600 33 600  0 1 0
 # Ball sitting half above / half below water (FLUID_HEIGHT=25, radius=12, y=33 => bottom at y=21)

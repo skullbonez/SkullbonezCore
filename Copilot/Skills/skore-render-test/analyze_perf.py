@@ -16,7 +16,7 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent          # …/Copilot/Skills/skore-render-test
 REPO_ROOT  = SCRIPT_DIR.parent.parent.parent          # repo root
-CSV_PATH   = REPO_ROOT / "Debug" / "perf_log.csv"
+CSV_PATH   = REPO_ROOT / "Profile" / "perf_log.csv"
 HIST_DIR   = SCRIPT_DIR / "perf_history"
 
 

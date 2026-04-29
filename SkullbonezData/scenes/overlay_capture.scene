@@ -3,5 +3,5 @@ text on
 seed 42
 legacy_balls 300
 frames 100
-screenshot Debug/overlay_capture.bmp frame 60
+screenshot Profile/overlay_capture.bmp frame 60
 camera main 500 60 650  600 33 600  0 1 0

@@ -59,9 +59,9 @@ bool Vector3::IsCloseToZero() const
 
 void Vector3::Absolute()
 {
-    x = fabs( x );
-    y = fabs( y );
-    z = fabs( z );
+    x = fabsf( x );
+    y = fabsf( y );
+    z = fabsf( z );
 }
 
 

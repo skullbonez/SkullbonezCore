@@ -15,7 +15,7 @@ The **perf test** (`perf_test.scene`) is run separately via `--scene` — it tak
 
 ### Prerequisites
 
-The Debug exe must exist at `{REPO}\Debug\SKULLBONEZ_CORE.exe`. If not, build first using the `skore-build` skill.
+The Profile exe must exist at `{REPO}\Profile\SKULLBONEZ_CORE.exe`. If not, build first using the `skore-build` skill.
 
 ### Steps
 
@@ -29,22 +29,22 @@ $proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
 if ($proc) { Stop-Process -Id $proc.Id -Force; Start-Sleep 1 }
 
 # Clean up old screenshots
-Remove-Item "$REPO\Debug\screenshot.bmp" -ErrorAction SilentlyContinue
-Remove-Item "$REPO\Debug\screenshot_reset.bmp" -ErrorAction SilentlyContinue
-Remove-Item "$REPO\Debug\legacy_smoke.bmp" -ErrorAction SilentlyContinue
-Remove-Item "$REPO\Debug\legacy_smoke_reset.bmp" -ErrorAction SilentlyContinue
+Remove-Item "$REPO\Profile\screenshot.bmp" -ErrorAction SilentlyContinue
+Remove-Item "$REPO\Profile\screenshot_reset.bmp" -ErrorAction SilentlyContinue
+Remove-Item "$REPO\Profile\legacy_smoke.bmp" -ErrorAction SilentlyContinue
+Remove-Item "$REPO\Profile\legacy_smoke_reset.bmp" -ErrorAction SilentlyContinue
 
 # Run all render test scenes in one process via the suite file
-$proc = Start-Process "$REPO\Debug\SKULLBONEZ_CORE.exe" `
+$proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
     -ArgumentList "--suite SkullbonezData/scenes/render_tests.suite" `
     -WorkingDirectory $REPO -PassThru
 $proc.WaitForExit(30000) | Out-Null
 if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force; Write-Host "FAIL: suite timed out" }
 
-$s1 = Test-Path "$REPO\Debug\screenshot.bmp"
-$s2 = Test-Path "$REPO\Debug\screenshot_reset.bmp"
-$s3 = Test-Path "$REPO\Debug\legacy_smoke.bmp"
-$s4 = Test-Path "$REPO\Debug\legacy_smoke_reset.bmp"
+$s1 = Test-Path "$REPO\Profile\screenshot.bmp"
+$s2 = Test-Path "$REPO\Profile\screenshot_reset.bmp"
+$s3 = Test-Path "$REPO\Profile\legacy_smoke.bmp"
+$s4 = Test-Path "$REPO\Profile\legacy_smoke_reset.bmp"
 Write-Host "water_ball_test: pass1=$s1 pass2=$s2"
 Write-Host "legacy_smoke: pass1=$s3 pass2=$s4"
 ```
@@ -61,10 +61,10 @@ import os
 from PIL import Image
 _r = os.environ['SKORE_REPO']
 for src, dst in [
-    (_r + r'\Debug\screenshot.bmp',        _r + r'\Debug\screenshot_water.png'),
-    (_r + r'\Debug\screenshot_reset.bmp',  _r + r'\Debug\screenshot_water_reset.png'),
-    (_r + r'\Debug\legacy_smoke.bmp',      _r + r'\Debug\legacy_smoke.png'),
-    (_r + r'\Debug\legacy_smoke_reset.bmp',_r + r'\Debug\legacy_smoke_reset.png'),
+    (_r + r'\Profile\screenshot.bmp',        _r + r'\Profile\screenshot_water.png'),
+    (_r + r'\Profile\screenshot_reset.bmp',  _r + r'\Profile\screenshot_water_reset.png'),
+    (_r + r'\Profile\legacy_smoke.bmp',      _r + r'\Profile\legacy_smoke.png'),
+    (_r + r'\Profile\legacy_smoke_reset.bmp',_r + r'\Profile\legacy_smoke_reset.png'),
 ]:
     Image.open(src).save(dst)
 print('Converted 4 screenshots to PNG')
@@ -127,15 +127,15 @@ def compare(baseline_path, current_path, name):
 
 _skills = _r + r'\Copilot\Skills\skore-render-test'
 print('=== water_ball_test ===')
-r1 = compare(_skills + r'\baseline_water_ball_test.png',  _r + r'\Debug\screenshot_water.png',       'baseline vs pass1')
-r2 = compare(_skills + r'\baseline_water_ball_test.png',  _r + r'\Debug\screenshot_water_reset.png',  'baseline vs pass2')
-r3 = compare(_r + r'\Debug\screenshot_water.png',          _r + r'\Debug\screenshot_water_reset.png',  'pass1 vs pass2')
+r1 = compare(_skills + r'\baseline_water_ball_test.png',  _r + r'\Profile\screenshot_water.png',       'baseline vs pass1')
+r2 = compare(_skills + r'\baseline_water_ball_test.png',  _r + r'\Profile\screenshot_water_reset.png',  'baseline vs pass2')
+r3 = compare(_r + r'\Profile\screenshot_water.png',          _r + r'\Profile\screenshot_water_reset.png',  'pass1 vs pass2')
 
 print()
 print('=== legacy_smoke ===')
-r4 = compare(_skills + r'\baseline_legacy_smoke.png', _r + r'\Debug\legacy_smoke.png',       'baseline vs pass1')
-r5 = compare(_skills + r'\baseline_legacy_smoke.png', _r + r'\Debug\legacy_smoke_reset.png',  'baseline vs pass2')
-r6 = compare(_r + r'\Debug\legacy_smoke.png',          _r + r'\Debug\legacy_smoke_reset.png',  'pass1 vs pass2')
+r4 = compare(_skills + r'\baseline_legacy_smoke.png', _r + r'\Profile\legacy_smoke.png',       'baseline vs pass1')
+r5 = compare(_skills + r'\baseline_legacy_smoke.png', _r + r'\Profile\legacy_smoke_reset.png',  'baseline vs pass2')
+r6 = compare(_r + r'\Profile\legacy_smoke.png',          _r + r'\Profile\legacy_smoke_reset.png',  'pass1 vs pass2')
 
 print()
 if all([r1,r2,r3,r4,r5,r6]):
@@ -156,9 +156,9 @@ For each scene that failed pixel comparison, view the baseline and current scree
 
 **View the images** (use the `view` tool):
 - Baseline: `{REPO}\Copilot\Skills\skore-render-test\baseline_water_ball_test.png`
-- Current: `{REPO}\Debug\screenshot_water.png`
+- Current: `{REPO}\Profile\screenshot_water.png`
 - Baseline: `{REPO}\Copilot\Skills\skore-render-test\baseline_legacy_smoke.png`
-- Current: `{REPO}\Debug\legacy_smoke.png`
+- Current: `{REPO}\Profile\legacy_smoke.png`
 
 **Evaluate each pair against this checklist:**
 1. Are all expected objects present? (terrain, skybox, spheres, water, shadows)
@@ -210,10 +210,10 @@ from PIL import Image
 _r = os.environ['SKORE_REPO']
 _s = _r + r'\Copilot\Skills\skore-render-test'
 pairs = [
-    (_r + r'\Debug\screenshot.bmp',        _s + r'\baseline_water_ball_test.png'),
-    (_r + r'\Debug\screenshot_reset.bmp',  _s + r'\baseline_water_ball_test_reset.png'),
-    (_r + r'\Debug\legacy_smoke.bmp',      _s + r'\baseline_legacy_smoke.png'),
-    (_r + r'\Debug\legacy_smoke_reset.bmp',_s + r'\baseline_legacy_smoke_reset.png'),
+    (_r + r'\Profile\screenshot.bmp',        _s + r'\baseline_water_ball_test.png'),
+    (_r + r'\Profile\screenshot_reset.bmp',  _s + r'\baseline_water_ball_test_reset.png'),
+    (_r + r'\Profile\legacy_smoke.bmp',      _s + r'\baseline_legacy_smoke.png'),
+    (_r + r'\Profile\legacy_smoke_reset.bmp',_s + r'\baseline_legacy_smoke_reset.png'),
 ]
 for src, dst in pairs:
     Image.open(src).save(dst)
@@ -250,13 +250,13 @@ Runs SkullbonezCore for 10 seconds (2 passes × 5 seconds) with 300 balls, physi
 $REPO = (git rev-parse --show-toplevel).Trim()
 $proc = Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue
 if ($proc) { Stop-Process -Id $proc.Id -Force; Start-Sleep 1 }
-Remove-Item "$REPO\Debug\perf_log.csv" -ErrorAction SilentlyContinue
-$proc = Start-Process "$REPO\Debug\SKULLBONEZ_CORE.exe" `
+Remove-Item "$REPO\Profile\perf_log.csv" -ErrorAction SilentlyContinue
+$proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
     -ArgumentList "--scene SkullbonezData/scenes/perf_test.scene" `
     -WorkingDirectory $REPO -PassThru
 $proc.WaitForExit(30000) | Out-Null
 if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force; Write-Host "FAIL: perf test didn't exit" }
-if (Test-Path "$REPO\Debug\perf_log.csv") {
+if (Test-Path "$REPO\Profile\perf_log.csv") {
     Write-Host "PASS: perf_log.csv generated"
 } else { Write-Host "FAIL: No perf_log.csv" }
 

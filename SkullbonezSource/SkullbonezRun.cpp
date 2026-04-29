@@ -82,6 +82,9 @@ SkullbonezRun::~SkullbonezRun()
     {
         m_cReflectionFBO->ResetGLResources();
     }
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    Profiler::Instance().InvalidateGpuQueries();
+#endif
     Text2d::DeleteFont();
 
     m_cTextures->Destroy();
@@ -307,17 +310,22 @@ bool SkullbonezRun::Run()
                 UpdateLogic( static_cast<float>( secondsPerFrame ) );
             }
 
+            // Drain GPU pipeline before render so markers aren't polluted by prior-frame stalls
+            PROFILE_BEGIN( "Frame/PipelineSync" );
+            glFinish();
+            PROFILE_END( "Frame/PipelineSync" );
+
             // Render
-            PROFILE_BEGIN( "Frame/Render" );
+            PROFILE_GPU_BEGIN( "Frame/Render" );
             Render();
-            PROFILE_END( "Frame/Render" );
+            PROFILE_GPU_END( "Frame/Render" );
 
             // Render overlay text
             if ( !m_isSceneMode || m_isSceneText )
             {
-                PROFILE_BEGIN( "Frame/Text" );
+                PROFILE_GPU_BEGIN( "Frame/Text" );
                 DrawWindowText( secondsPerFrame );
-                PROFILE_END( "Frame/Text" );
+                PROFILE_GPU_END( "Frame/Text" );
             }
 
             // Scene mode: check screenshot triggers (read back buffer before swap)
@@ -586,16 +594,12 @@ void SkullbonezRun::DrawPrimitives()
     Matrix4 proj = m_cWindow->GetProjectionMatrix();
     Matrix4 reflVP;
 
-    // Current viewport — saved here so the reflection pre-pass can restore it
-    GLint vp[4];
-    glGetIntegerv( GL_VIEWPORT, vp );
-
     // Camera m_position for skybox placement
     Vector3 eye = m_cCameras->GetCameraTranslation();
 
     // render skybox ------------------------------
     {
-        PROFILE_SCOPED( "Frame/Render/Skybox" );
+        PROFILE_GPU_SCOPED( "Frame/Render/Skybox" );
         Matrix4 skyView = baseView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
         m_cSkyBox->Render( skyView, proj );
     }
@@ -603,7 +607,7 @@ void SkullbonezRun::DrawPrimitives()
     // reflection pre-pass: render above-water scene from mirrored camera into FBO
     // TODO: this needs to run when camera m_isTweening!!
     {
-        PROFILE_SCOPED( "Frame/Render/Reflection" );
+        PROFILE_GPU_SCOPED( "Frame/Render/Reflection" );
         float waterY = m_cWorldEnvironment.GetFluidSurfaceHeight();
         Vector3 center = m_cCameras->GetCameraView();
 
@@ -620,46 +624,46 @@ void SkullbonezRun::DrawPrimitives()
 
         // Skybox reflected (XZ follows eye; Y anchored at Cfg().skyboxRenderHeight)
         {
-            PROFILE_SCOPED( "Frame/Render/Reflection/Skybox" );
+            PROFILE_GPU_SCOPED( "Frame/Render/Reflection/Skybox" );
             Matrix4 skyReflView = reflView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
             m_cSkyBox->Render( skyReflView, proj );
         }
 
         // Game models reflected — clip at water surface (above-water portion only)
-        PROFILE_BEGIN( "Frame/Render/Reflection/Balls" );
+        PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
         glEnable( GL_CLIP_DISTANCE0 );
         SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -waterY );
         m_cTextures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
         m_cGameModelCollection.RenderModels( reflView, proj, lightPosition );
         glDisable( GL_CLIP_DISTANCE0 );
         SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
-        PROFILE_END( "Frame/Render/Reflection/Balls" );
+        PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
 
         m_cReflectionFBO->Unbind();
-        glViewport( vp[0], vp[1], vp[2], vp[3] );
+        glViewport( 0, 0, m_cWindow->m_sWindowDimensions.x, m_cWindow->m_sWindowDimensions.y );
     }
 
     // render game models -----------------------------
-    PROFILE_BEGIN( "Frame/Render/Balls" );
+    PROFILE_GPU_BEGIN( "Frame/Render/Balls" );
     m_cTextures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
     m_cGameModelCollection.RenderModels( baseView, proj, lightPosition );
-    PROFILE_END( "Frame/Render/Balls" );
+    PROFILE_GPU_END( "Frame/Render/Balls" );
 
     // render m_terrain ------------------------------
     {
-        PROFILE_SCOPED( "Frame/Render/Terrain" );
+        PROFILE_GPU_SCOPED( "Frame/Render/Terrain" );
         m_cTextures->SelectTexture( TEXTURE_GROUND );
         m_cTerrain->Render( baseView, proj, lightPosition );
     }
 
     // render ground shadows on top of m_terrain
-    PROFILE_BEGIN( "Frame/Render/Shadows" );
+    PROFILE_GPU_BEGIN( "Frame/Render/Shadows" );
     m_cGameModelCollection.RenderShadows( m_cTerrain.get(), baseView, proj );
-    PROFILE_END( "Frame/Render/Shadows" );
+    PROFILE_GPU_END( "Frame/Render/Shadows" );
 
     // render the fluid ---------------------------
     {
-        PROFILE_SCOPED( "Frame/Render/Water" );
+        PROFILE_GPU_SCOPED( "Frame/Render/Water" );
         float waterTime = m_isWaterFreezeDebug
                               ? m_frozenWaterTime
                               : static_cast<float>( m_cSimulationTimer.GetTimeSinceLastStart() );

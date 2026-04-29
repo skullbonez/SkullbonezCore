@@ -5,7 +5,7 @@
 physics off
 text on
 frames 1
-screenshot Debug/text_test.bmp frame 1
+screenshot Profile/text_test.bmp frame 1
 
 camera main 500 60 650  600 33 600  0 1 0
 
