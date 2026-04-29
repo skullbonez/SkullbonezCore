@@ -1,23 +1,29 @@
 #version 330 core
 
-// Shadow disc: vertex shader
-// MVP transform with per-vertex alpha for shadow fade.
+// Shadow quad: vertex shader
+// Instanced — per-instance model matrix (locations 3-6) and alpha (location 7).
+// Passes UV to fragment for soft shadow texture sampling.
 
 layout(location = 0) in vec3 aPosition;
+layout(location = 2) in vec2 aTexCoord;
 
-uniform mat4 uModel;
+// Per-instance attributes
+layout(location = 3) in vec4 aModelCol0;
+layout(location = 4) in vec4 aModelCol1;
+layout(location = 5) in vec4 aModelCol2;
+layout(location = 6) in vec4 aModelCol3;
+layout(location = 7) in float aAlpha;
+
 uniform mat4 uView;
 uniform mat4 uProjection;
-uniform float uAlpha;  // shadow opacity (0-1, fades with height)
 
+out vec2 vTexCoord;
 out float vAlpha;
 
 void main()
 {
-    gl_Position = uProjection * uView * uModel * vec4(aPosition, 1.0);
-
-    // Center vertex (first in fan) gets full alpha, edge vertices fade
-    // Use vertex position to determine: center is at (0,0,0) in model space
-    float distFromCenter = length(aPosition.xz);
-    vAlpha = uAlpha * (1.0 - distFromCenter);
+    mat4 model = mat4(aModelCol0, aModelCol1, aModelCol2, aModelCol3);
+    gl_Position = uProjection * uView * model * vec4(aPosition, 1.0);
+    vTexCoord = aTexCoord;
+    vAlpha = aAlpha;
 }

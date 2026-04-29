@@ -658,7 +658,7 @@ void SkullbonezRun::DrawPrimitives()
 
     // render ground shadows on top of m_terrain
     PROFILE_GPU_BEGIN( "Frame/Render/Shadows" );
-    m_cGameModelCollection.RenderShadows( m_cTerrain.get(), baseView, proj );
+    m_cGameModelCollection.RenderShadows( m_cTerrain.get(), baseView, proj, lightPosition );
     PROFILE_GPU_END( "Frame/Render/Shadows" );
 
     // render the fluid ---------------------------

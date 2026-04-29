@@ -1,0 +1,8 @@
+# shadow_debug.scene — Ball on dry terrain to test shadow rendering
+physics off
+text off
+frames 1
+screenshot Profile/screenshot.bmp frame 1
+# Ball at (400, 90, 400) above terrain (terrain height ~73 here)
+camera main 350 130 340  400 80 400  0 1 0
+ball shadow_test 400 90 400  5.0 50.0 10.0 0.8

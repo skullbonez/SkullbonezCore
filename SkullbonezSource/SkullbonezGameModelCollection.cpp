@@ -40,59 +40,107 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
 }
 
 
-void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
+void GameModelCollection::RenderShadows( Geometry::Terrain* terrain,
                                          const Matrix4& view,
-                                         const Matrix4& proj )
+                                         const Matrix4& proj,
+                                         const float lightPos[4] )
 {
-    if ( !m_terrain )
+    if ( !terrain || m_gameModels.empty() )
     {
         return;
     }
 
     if ( !m_shadowMesh )
     {
-        BuildShadowMesh();
+        BuildShadowResources();
     }
 
-    glEnable( GL_BLEND );
-    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-    glEnable( GL_POLYGON_OFFSET_FILL );
-    glPolygonOffset( -1.0f, -1.0f );
-    glDisable( GL_CULL_FACE );
+    // Per-instance data: mat4 (16 floats) + float alpha = 17 floats per shadow
+    static const int FLOATS_PER_INSTANCE = 17;
+    std::vector<float> instanceData;
+    instanceData.reserve( static_cast<int>( m_gameModels.size() ) * FLOATS_PER_INSTANCE );
 
-    m_shadowShader->Use();
-    m_shadowShader->SetMat4( "uView", view );
-    m_shadowShader->SetMat4( "uProjection", proj );
+    Vector3 lightDir( lightPos[0], lightPos[1], lightPos[2] );
 
     for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
     {
         Vector3 pos = m_gameModels[i].GetPosition();
-        float m_radius = m_gameModels[i].GetBoundingRadius();
+        float radius = m_gameModels[i].GetBoundingRadius();
 
-        if ( !m_terrain->IsInBounds( pos.x, pos.z ) )
+        // Light-directed projection: cast ray from light through ball bottom to terrain
+        Vector3 ballBottom( pos.x, pos.y - radius, pos.z );
+        Vector3 toLight( lightDir.x - ballBottom.x, lightDir.y - ballBottom.y, lightDir.z - ballBottom.z );
+
+        // Guard: light must be above ball bottom
+        if ( toLight.y <= 0.001f )
         {
             continue;
         }
 
-        float groundY = m_terrain->GetTerrainHeightAt( pos.x, pos.z );
-        float m_height = pos.y - groundY - m_radius;
-        if ( m_height < 0.0f )
-        {
-            m_height = 0.0f;
-        }
-        if ( m_height >= Cfg().shadowMaxHeight )
+        // Rough ground height at ball position for initial height check
+        if ( !terrain->IsInBounds( pos.x, pos.z ) )
         {
             continue;
         }
 
-        float alpha = Cfg().shadowMaxAlpha * ( 1.0f - m_height / Cfg().shadowMaxHeight );
-        float shadowRadius = m_radius * Cfg().shadowScale;
+        float groundYAtBall = terrain->GetTerrainHeightAt( pos.x, pos.z );
+        float height = ballBottom.y - groundYAtBall;
+        if ( height < 0.0f )
+        {
+            height = 0.0f;
+        }
+        if ( height >= Cfg().shadowMaxHeight )
+        {
+            continue;
+        }
 
-        Vector3 N = m_terrain->GetTerrainNormalAt( pos.x, pos.z );
+        // Project: find where light ray from ball bottom hits groundY plane
+        float t = ( ballBottom.y - groundYAtBall ) / toLight.y;
+        float projX = ballBottom.x - toLight.x * t;
+        float projZ = ballBottom.z - toLight.z * t;
 
-        // Build model matrix: translate → rotate to m_terrain m_normal → scale
-        Matrix4 model = Matrix4::Translate( pos.x, groundY + Cfg().shadowOffset, pos.z );
+        // Resample terrain at projected point
+        if ( !terrain->IsInBounds( projX, projZ ) )
+        {
+            continue;
+        }
 
+        float groundY = terrain->GetTerrainHeightAt( projX, projZ );
+        Vector3 N = terrain->GetTerrainNormalAt( projX, projZ );
+
+        // Recompute height at projected point for alpha
+        height = ballBottom.y - groundY;
+        if ( height < 0.0f )
+        {
+            height = 0.0f;
+        }
+        if ( height >= Cfg().shadowMaxHeight )
+        {
+            continue;
+        }
+
+        float alpha = Cfg().shadowMaxAlpha * ( 1.0f - height / Cfg().shadowMaxHeight );
+
+        // Penumbra: shadow grows with altitude
+        float penumbraScale = 1.0f + height * Cfg().shadowPenumbraGrowth;
+        float shadowRadius = radius * Cfg().shadowScale * penumbraScale;
+
+        // Light offset direction for ellipse orientation
+        float dx = projX - pos.x;
+        float dz = projZ - pos.z;
+        float offsetDist = sqrtf( dx * dx + dz * dz );
+
+        // Ellipse stretch proportional to height — linear ramp from 1.0 to max
+        float stretchFactor = 1.0f;
+        if ( height > 0.5f && offsetDist > 0.01f )
+        {
+            stretchFactor = 1.0f + ( height / Cfg().shadowMaxHeight ) * ( Cfg().shadowEllipseMaxStretch - 1.0f );
+        }
+
+        // Build model matrix: translate → rotate to terrain normal → rotate to light dir → scale ellipse
+        Matrix4 model = Matrix4::Translate( projX, groundY + Cfg().shadowOffset, projZ );
+
+        // Tilt to terrain normal
         float cosA = N.y;
         if ( cosA < 0.9999f )
         {
@@ -105,12 +153,67 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
             model = model * Matrix4::RotateAxis( angleDeg, axisX, 0.0f, axisZ );
         }
 
-        model = model * Matrix4::Scale( shadowRadius );
+        // Rotate ellipse to align stretch with light offset direction, then scale
+        if ( stretchFactor > 1.01f && offsetDist > 0.01f )
+        {
+            float dirX = dx / offsetDist;
+            float dirZ = dz / offsetDist;
+            float yawDeg = atan2f( dirX, dirZ ) * ( 180.0f / 3.14159265f );
+            model = model * Matrix4::RotateAxis( yawDeg, 0.0f, 1.0f, 0.0f );
+            model = model * Matrix4::Scale( shadowRadius, 1.0f, shadowRadius * stretchFactor );
+        }
+        else
+        {
+            model = model * Matrix4::Scale( shadowRadius );
+        }
 
-        m_shadowShader->SetMat4( "uModel", model );
-        m_shadowShader->SetFloat( "uAlpha", alpha );
-        m_shadowMesh->Draw();
+        // Append instance data: 16 floats for mat4 + 1 float for alpha
+        for ( int c = 0; c < 16; ++c )
+        {
+            instanceData.push_back( model.m[c] );
+        }
+        instanceData.push_back( alpha );
     }
+
+    int visibleCount = static_cast<int>( instanceData.size() ) / FLOATS_PER_INSTANCE;
+
+    if ( visibleCount == 0 )
+    {
+        return;
+    }
+
+    // Upload instance data
+    glBindBuffer( GL_ARRAY_BUFFER, m_shadowInstanceVBO );
+    int requiredBytes = visibleCount * FLOATS_PER_INSTANCE * static_cast<int>( sizeof( float ) );
+    if ( visibleCount > m_shadowInstanceCapacity )
+    {
+        m_shadowInstanceCapacity = visibleCount + 64;
+        glBufferData( GL_ARRAY_BUFFER,
+                      static_cast<GLsizeiptr>( m_shadowInstanceCapacity ) * FLOATS_PER_INSTANCE * static_cast<GLsizeiptr>( sizeof( float ) ),
+                      nullptr,
+                      GL_DYNAMIC_DRAW );
+    }
+    glBufferSubData( GL_ARRAY_BUFFER, 0, requiredBytes, instanceData.data() );
+    glBindBuffer( GL_ARRAY_BUFFER, 0 );
+
+    // Draw all shadows in a single instanced call
+    glEnable( GL_BLEND );
+    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+    glEnable( GL_POLYGON_OFFSET_FILL );
+    glPolygonOffset( -1.0f, -1.0f );
+    glDisable( GL_CULL_FACE );
+
+    m_shadowShader->Use();
+    m_shadowShader->SetMat4( "uView", view );
+    m_shadowShader->SetMat4( "uProjection", proj );
+
+    glActiveTexture( GL_TEXTURE0 );
+    glBindTexture( GL_TEXTURE_2D, m_shadowTexture );
+    m_shadowShader->SetInt( "uShadowTex", 0 );
+
+    glBindVertexArray( m_shadowMesh->GetVAO() );
+    glDrawArraysInstanced( GL_TRIANGLES, 0, m_shadowMesh->GetVertexCount(), visibleCount );
+    glBindVertexArray( 0 );
 
     glDisable( GL_POLYGON_OFFSET_FILL );
     glEnable( GL_CULL_FACE );
@@ -235,36 +338,103 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
 }
 
 
-void GameModelCollection::BuildShadowMesh()
+void GameModelCollection::BuildShadowResources()
 {
-    // Unit-m_radius disc in XZ plane, converted from triangle fan to triangles.
-    // Center at (0,0,0), ring vertices at unit m_distance.
-    // The shadow m_shader uses length(aPosition.xz) for alpha fade.
-    std::vector<float> verts;
-    verts.reserve( Cfg().shadowSegments * 3 * 3 );
+    // Unit XZ quad with UVs: 2 triangles, 6 vertices, position(3) + texcoord(2) = 5 floats each
+    // Quad spans [-1,+1] in XZ so that Scale(radius) sizes it correctly
+    float verts[] = {
+        // pos(x,y,z)    uv(u,v)
+        -1.0f,
+        0.0f,
+        -1.0f,
+        0.0f,
+        0.0f,
+        1.0f,
+        0.0f,
+        -1.0f,
+        1.0f,
+        0.0f,
+        1.0f,
+        0.0f,
+        1.0f,
+        1.0f,
+        1.0f,
+        -1.0f,
+        0.0f,
+        -1.0f,
+        0.0f,
+        0.0f,
+        1.0f,
+        0.0f,
+        1.0f,
+        1.0f,
+        1.0f,
+        -1.0f,
+        0.0f,
+        1.0f,
+        0.0f,
+        1.0f,
+    };
 
-    for ( int s = 0; s < Cfg().shadowSegments; ++s )
-    {
-        float a0 = ( _2PI * s ) / Cfg().shadowSegments;
-        float a1 = ( _2PI * ( s + 1 ) ) / Cfg().shadowSegments;
-
-        // Center vertex
-        verts.push_back( 0.0f );
-        verts.push_back( 0.0f );
-        verts.push_back( 0.0f );
-        // Ring vertex 0
-        verts.push_back( cosf( a0 ) );
-        verts.push_back( 0.0f );
-        verts.push_back( sinf( a0 ) );
-        // Ring vertex 1
-        verts.push_back( cosf( a1 ) );
-        verts.push_back( 0.0f );
-        verts.push_back( sinf( a1 ) );
-    }
-
-    m_shadowMesh = std::make_unique<Mesh>( verts.data(), Cfg().shadowSegments * 3, false, false );
+    m_shadowMesh = std::make_unique<Mesh>( verts, 6, false, true );
     m_shadowShader = std::make_unique<Shader>( "SkullbonezData/shaders/shadow.vert",
                                                "SkullbonezData/shaders/shadow.frag" );
+
+    // Set up instance attributes on the shadow mesh's VAO
+    glGenBuffers( 1, &m_shadowInstanceVBO );
+    glBindVertexArray( m_shadowMesh->GetVAO() );
+    glBindBuffer( GL_ARRAY_BUFFER, m_shadowInstanceVBO );
+
+    // Instance attribute layout: mat4 at locations 3-6, float alpha at location 7
+    int stride = 17 * static_cast<int>( sizeof( float ) );
+
+    for ( int col = 0; col < 4; ++col )
+    {
+        GLuint loc = 3 + static_cast<GLuint>( col );
+        glEnableVertexAttribArray( loc );
+        glVertexAttribPointer( loc, 4, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( static_cast<intptr_t>( col * 4 * sizeof( float ) ) ) );
+        glVertexAttribDivisor( loc, 1 );
+    }
+
+    // Alpha at location 7 (offset = 16 floats = 64 bytes)
+    glEnableVertexAttribArray( 7 );
+    glVertexAttribPointer( 7, 1, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( static_cast<intptr_t>( 16 * sizeof( float ) ) ) );
+    glVertexAttribDivisor( 7, 1 );
+
+    glBindVertexArray( 0 );
+    glBindBuffer( GL_ARRAY_BUFFER, 0 );
+
+    // Generate soft Gaussian shadow texture
+    int texSize = Cfg().shadowTextureSize;
+    std::vector<unsigned char> texData( texSize * texSize );
+    float center = ( texSize - 1 ) * 0.5f;
+
+    for ( int y = 0; y < texSize; ++y )
+    {
+        for ( int x = 0; x < texSize; ++x )
+        {
+            float dx = ( x - center ) / center; // -1 to +1
+            float dy = ( y - center ) / center;
+            float dist = sqrtf( dx * dx + dy * dy );
+            // Smooth Gaussian falloff clamped to circle
+            float val = 0.0f;
+            if ( dist < 1.0f )
+            {
+                float g = expf( -( dist * dist ) / ( 2.0f * 0.28f * 0.28f ) );
+                val = g * ( 1.0f - dist * dist ); // Gaussian × radial fade for clean edge
+            }
+            texData[y * texSize + x] = static_cast<unsigned char>( val * 255.0f );
+        }
+    }
+
+    glGenTextures( 1, &m_shadowTexture );
+    glBindTexture( GL_TEXTURE_2D, m_shadowTexture );
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_R8, texSize, texSize, 0, GL_RED, GL_UNSIGNED_BYTE, texData.data() );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+    glBindTexture( GL_TEXTURE_2D, 0 );
 }
 
 
@@ -272,4 +442,15 @@ void GameModelCollection::ResetGLResources()
 {
     m_shadowMesh.reset();
     m_shadowShader.reset();
+    if ( m_shadowTexture )
+    {
+        glDeleteTextures( 1, &m_shadowTexture );
+        m_shadowTexture = 0;
+    }
+    if ( m_shadowInstanceVBO )
+    {
+        glDeleteBuffers( 1, &m_shadowInstanceVBO );
+        m_shadowInstanceVBO = 0;
+    }
+    m_shadowInstanceCapacity = 0;
 }

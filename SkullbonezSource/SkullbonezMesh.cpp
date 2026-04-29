@@ -89,3 +89,9 @@ int Mesh::GetVertexCount() const
 {
     return m_vertexCount;
 }
+
+
+GLuint Mesh::GetVAO() const
+{
+    return m_vao;
+}

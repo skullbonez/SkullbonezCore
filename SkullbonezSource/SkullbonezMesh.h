@@ -36,6 +36,7 @@ class Mesh
 
     void Draw() const;          // Bind VAO and draw
     int GetVertexCount() const; // Get vertex count
+    GLuint GetVAO() const;      // Get VAO handle (for instanced draw setup)
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

@@ -63,10 +63,12 @@ class SkullbonezConfig
 
     // Shadows
     float shadowMaxHeight = 50.0f;
-    float shadowMaxAlpha = 0.5f;
+    float shadowMaxAlpha = 0.6f;
     float shadowOffset = 0.2f;
-    int shadowSegments = 16;
     float shadowScale = 1.2f;
+    float shadowPenumbraGrowth = 0.04f;   // Shadow grows this much per unit of height
+    float shadowEllipseMaxStretch = 2.5f; // Cap on light-direction elongation
+    int shadowTextureSize = 64;           // Soft shadow texture resolution
 
     // Ball spawn ranges (legacy random mode)
     float spawnXBase = 400.0f;

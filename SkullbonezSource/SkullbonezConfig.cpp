@@ -227,13 +227,21 @@ void SkullbonezConfig::Load( const char* path )
         {
             shadowOffset = static_cast<float>( atof( v ) );
         }
-        else if ( strcmp( k, "shadow_segments" ) == 0 )
-        {
-            shadowSegments = atoi( v );
-        }
         else if ( strcmp( k, "shadow_scale" ) == 0 )
         {
             shadowScale = static_cast<float>( atof( v ) );
+        }
+        else if ( strcmp( k, "shadow_penumbra_growth" ) == 0 )
+        {
+            shadowPenumbraGrowth = static_cast<float>( atof( v ) );
+        }
+        else if ( strcmp( k, "shadow_ellipse_max_stretch" ) == 0 )
+        {
+            shadowEllipseMaxStretch = static_cast<float>( atof( v ) );
+        }
+        else if ( strcmp( k, "shadow_texture_size" ) == 0 )
+        {
+            shadowTextureSize = atoi( v );
         }
 
         // Ball spawn ranges
