@@ -40,81 +40,14 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
 }
 
 
-void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
-                                         const Matrix4& view,
-                                         const Matrix4& proj )
+void GameModelCollection::UpdateTerrainShadowUniforms( Geometry::Terrain* terrain )
 {
-    if ( !m_terrain )
+    if ( !terrain )
     {
         return;
     }
 
-    if ( !m_shadowMesh )
-    {
-        BuildShadowMesh();
-    }
-
-    glEnable( GL_BLEND );
-    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-    glEnable( GL_POLYGON_OFFSET_FILL );
-    glPolygonOffset( -1.0f, -1.0f );
-    glDisable( GL_CULL_FACE );
-
-    m_shadowShader->Use();
-    m_shadowShader->SetMat4( "uView", view );
-    m_shadowShader->SetMat4( "uProjection", proj );
-
-    for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
-    {
-        Vector3 pos = m_gameModels[i].GetPosition();
-        float m_radius = m_gameModels[i].GetBoundingRadius();
-
-        if ( !m_terrain->IsInBounds( pos.x, pos.z ) )
-        {
-            continue;
-        }
-
-        float groundY = m_terrain->GetTerrainHeightAt( pos.x, pos.z );
-        float m_height = pos.y - groundY - m_radius;
-        if ( m_height < 0.0f )
-        {
-            m_height = 0.0f;
-        }
-        if ( m_height >= Cfg().shadowMaxHeight )
-        {
-            continue;
-        }
-
-        float alpha = Cfg().shadowMaxAlpha * ( 1.0f - m_height / Cfg().shadowMaxHeight );
-        float shadowRadius = m_radius * Cfg().shadowScale;
-
-        Vector3 N = m_terrain->GetTerrainNormalAt( pos.x, pos.z );
-
-        // Build model matrix: translate → rotate to m_terrain m_normal → scale
-        Matrix4 model = Matrix4::Translate( pos.x, groundY + Cfg().shadowOffset, pos.z );
-
-        float cosA = N.y;
-        if ( cosA < 0.9999f )
-        {
-            float axisX = N.z;
-            float axisZ = -N.x;
-            float axisMag = sqrtf( axisX * axisX + axisZ * axisZ );
-            axisX /= axisMag;
-            axisZ /= axisMag;
-            float angleDeg = acosf( cosA ) * ( 180.0f / 3.14159265f );
-            model = model * Matrix4::RotateAxis( angleDeg, axisX, 0.0f, axisZ );
-        }
-
-        model = model * Matrix4::Scale( shadowRadius );
-
-        m_shadowShader->SetMat4( "uModel", model );
-        m_shadowShader->SetFloat( "uAlpha", alpha );
-        m_shadowMesh->Draw();
-    }
-
-    glDisable( GL_POLYGON_OFFSET_FILL );
-    glEnable( GL_CULL_FACE );
-    glDisable( GL_BLEND );
+    terrain->SetShadowUniforms( m_gameModels.data(), static_cast<int>( m_gameModels.size() ) );
 }
 
 
@@ -126,6 +59,12 @@ Vector3 GameModelCollection::GetModelPosition( int index )
     }
 
     return m_gameModels[index].GetPosition();
+}
+
+
+const std::vector<GameModel>& GameModelCollection::GetGameModels() const
+{
+    return m_gameModels;
 }
 
 
@@ -235,41 +174,6 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
 }
 
 
-void GameModelCollection::BuildShadowMesh()
-{
-    // Unit-m_radius disc in XZ plane, converted from triangle fan to triangles.
-    // Center at (0,0,0), ring vertices at unit m_distance.
-    // The shadow m_shader uses length(aPosition.xz) for alpha fade.
-    std::vector<float> verts;
-    verts.reserve( Cfg().shadowSegments * 3 * 3 );
-
-    for ( int s = 0; s < Cfg().shadowSegments; ++s )
-    {
-        float a0 = ( _2PI * s ) / Cfg().shadowSegments;
-        float a1 = ( _2PI * ( s + 1 ) ) / Cfg().shadowSegments;
-
-        // Center vertex
-        verts.push_back( 0.0f );
-        verts.push_back( 0.0f );
-        verts.push_back( 0.0f );
-        // Ring vertex 0
-        verts.push_back( cosf( a0 ) );
-        verts.push_back( 0.0f );
-        verts.push_back( sinf( a0 ) );
-        // Ring vertex 1
-        verts.push_back( cosf( a1 ) );
-        verts.push_back( 0.0f );
-        verts.push_back( sinf( a1 ) );
-    }
-
-    m_shadowMesh = std::make_unique<Mesh>( verts.data(), Cfg().shadowSegments * 3, false, false );
-    m_shadowShader = std::make_unique<Shader>( "SkullbonezData/shaders/shadow.vert",
-                                               "SkullbonezData/shaders/shadow.frag" );
-}
-
-
 void GameModelCollection::ResetGLResources()
 {
-    m_shadowMesh.reset();
-    m_shadowShader.reset();
 }

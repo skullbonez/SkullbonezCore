@@ -1,7 +1,7 @@
 #version 330 core
 
 // Phong lighting + texture: vertex shader
-// Passes view-space position, normal, and texcoord to fragment for per-pixel lighting.
+// Passes view-space position, world position, normal, and texcoord to fragment for per-pixel lighting and shadows.
 // uClipPlane is a world-space clip plane (Ax+By+Cz+D >= 0 keeps the fragment).
 // Default (0,1,0,1e9) always passes — enable GL_CLIP_DISTANCE0 only when needed.
 
@@ -15,6 +15,7 @@ uniform mat4 uProjection;
 uniform vec4 uClipPlane;    // world-space clip plane; default (0,1,0,1e9) = always pass
 
 out vec3 vViewPos;
+out vec3 vWorldPos;
 out vec3 vNormal;
 out vec2 vTexCoord;
 
@@ -28,6 +29,7 @@ void main()
     gl_ClipDistance[0] = dot(uModel * vec4(aPosition, 1.0), uClipPlane);
 
     vViewPos  = viewPos.xyz;
+    vWorldPos = (uModel * vec4(aPosition, 1.0)).xyz;
     vNormal   = transpose(inverse(mat3(modelView))) * aNormal;
     vTexCoord = aTexCoord;
 }
