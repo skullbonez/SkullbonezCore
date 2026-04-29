@@ -28,6 +28,12 @@ void GameModelCollection::AddGameModel( GameModel gameModel )
 }
 
 
+void GameModelCollection::Clear()
+{
+    m_gameModels.clear();
+}
+
+
 void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4] )
 {
     if ( m_gameModels.empty() )

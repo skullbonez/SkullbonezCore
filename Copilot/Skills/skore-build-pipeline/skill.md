@@ -1,11 +1,17 @@
 ---
 name: skore-build-pipeline
-description: Standard development pipeline for SkullbonezCore. Build, render test, update baselines, perf test, smoke test, commit. Invoke after completing a code change to verify and commit it.
+description: Standard development pipeline for SkullbonezCore. Build, run full test suite, update baselines, commit. Invoke after completing a code change to verify and commit it.
 ---
 
 ## Standard Build Pipeline
 
 The full verify-and-commit pipeline after a code change. **Every step must pass before proceeding to the next.** Every commit MUST include updated reference images and performance test artifacts.
+
+The engine supports in-process scene sequencing — all tests run in a **single process launch** via `--suite`. The suite file `SkullbonezData/scenes/render_tests.suite` defines the scene order:
+
+1. `water_ball_test.scene` — render regression screenshot
+2. `legacy_smoke.scene` — render regression screenshot (300 balls, deterministic)
+3. `perf_test.scene` — performance regression (300 balls, physics, 2×5s passes)
 
 ### Step 0: Verify Formatting
 
@@ -67,13 +73,89 @@ $msbuild = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.e
 
 **If build fails with LNK1168** (exe locked): kill the running `SKULLBONEZ_CORE.exe` process first, then rebuild.
 
-### Step 3: Render Test
+### Step 3: Run Full Test Suite
 
-Run the `skore-render-test` skill. Launches **both test scenes in a single process** via `--suite SkullbonezData/scenes/render_tests.suite`. Produces 4 screenshots (2 per scene — before and after GL reset), then runs pixel comparison against baselines. All 4 comparison pairs must pass.
+Launches all test scenes in a **single process** via `--suite`. This produces:
+- `Profile/screenshot.bmp` — water_ball_test render capture
+- `Profile/legacy_smoke.bmp` — legacy_smoke render capture (overwritten by final smoke run)
+- `Profile/perf_log.csv` — performance data (2 passes)
 
-**If render test fails**: Convert screenshots to PNG and send them to the model via the `view` tool for LLM visual comparison. **Only send PNGs to the model if local pixel comparison fails** — do not waste context on images that pass. Evaluate against the 6-point checklist in the `skore-render-test` skill. If the change intentionally alters rendering, update baselines in Step 4. If unintentional, investigate and fix before proceeding.
+All artifacts must exist after the run. Timeout is 30 seconds (render scenes are instant, perf test runs 2×5s).
 
-### Step 4: Update Reference Images
+```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
+Remove-Item "$REPO\Profile\screenshot.bmp" -ErrorAction SilentlyContinue
+Remove-Item "$REPO\Profile\legacy_smoke.bmp" -ErrorAction SilentlyContinue
+Remove-Item "$REPO\Profile\perf_log.csv" -ErrorAction SilentlyContinue
+
+$proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
+    -ArgumentList "--suite SkullbonezData/scenes/render_tests.suite" `
+    -WorkingDirectory $REPO -PassThru
+$proc.WaitForExit(30000) | Out-Null
+
+$allOk = $true
+foreach ($f in @("screenshot.bmp", "legacy_smoke.bmp", "perf_log.csv")) {
+    if (Test-Path "$REPO\Profile\$f") {
+        Write-Host "  $f OK"
+    } else {
+        Write-Host "  $f MISSING"
+        $allOk = $false
+    }
+}
+
+if ($allOk) {
+    Write-Host "PASS: All suite artifacts produced"
+} else {
+    Write-Host "FAIL: Missing artifacts — debug with skore-cdb-debug skill"
+}
+```
+
+**If the suite fails or crashes**: Debug with `skore-cdb-debug` skill using the same `--suite` command line.
+
+### Step 4: Validate Render Output
+
+Compare screenshots against baselines. Both must match (or intentionally differ if rendering changed).
+
+```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
+$env:SKORE_REPO = $REPO
+py -c "
+import os
+from PIL import Image
+_r = os.environ['SKORE_REPO']
+pairs = [
+    (_r + r'\Profile\screenshot.bmp', _r + r'\TestOutput\baselines\baseline_water_ball_test.png', 'water_ball_test'),
+    (_r + r'\Profile\legacy_smoke.bmp', _r + r'\TestOutput\baselines\baseline_legacy_smoke.png', 'legacy_smoke'),
+]
+all_pass = True
+for cap, base, name in pairs:
+    if not os.path.exists(base):
+        print(f'  {name}: NO BASELINE (will create in Step 5)')
+        continue
+    a = Image.open(cap).convert('RGB')
+    b = Image.open(base).convert('RGB')
+    if a.size != b.size:
+        print(f'  {name}: SIZE MISMATCH {a.size} vs {b.size}')
+        all_pass = False
+        continue
+    diff = sum(abs(pa-pb) for pa,pb in zip(a.tobytes(), b.tobytes()))
+    if diff == 0:
+        print(f'  {name}: IDENTICAL')
+    else:
+        pixels = a.size[0]*a.size[1]
+        avg = diff / (pixels*3)
+        print(f'  {name}: DIFF avg={avg:.4f} per channel')
+        all_pass = False
+if all_pass:
+    print('PASS: All render tests match baselines')
+else:
+    print('NOTE: Baselines differ — will update in Step 5')
+"
+```
+
+**If render test fails**: Convert screenshots to PNG and send them to the model via the `view` tool for LLM visual comparison. **Only send PNGs to the model if local pixel comparison fails** — do not waste context on images that pass. If the change intentionally alters rendering, update baselines in Step 5. If unintentional, investigate and fix before proceeding.
+
+### Step 5: Update Reference Images
 
 **Mandatory for every commit.** Capture fresh baselines from the current build:
 
@@ -93,26 +175,14 @@ print('Baselines updated')
 
 This ensures baselines always reflect the latest committed state.
 
-### Step 5: Performance Test
+### Step 6: Analyze Performance
 
-**Mandatory for every commit.** Separate from the render test suite — runs via `--scene` (not `--suite`) because it takes 10 seconds and should not block quick render test runs.
+Run analysis scripts on the perf CSV produced by the suite run in Step 3.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
-Remove-Item "$REPO\Profile\perf_log.csv" -ErrorAction SilentlyContinue
-
-$proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
-    -ArgumentList "--scene SkullbonezData/scenes/perf_test.scene" `
-    -WorkingDirectory $REPO -PassThru
-$proc.WaitForExit(30000) | Out-Null
-
-if (Test-Path "$REPO\Profile\perf_log.csv") {
-    Write-Host "PASS: perf_log.csv generated"
-    py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py"
-    py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py"
-} else {
-    Write-Host "FAIL: No perf_log.csv"
-}
+py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py"
+py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py"
 ```
 
 `analyze_perf.py` writes a JSON artifact to `TestOutput/perf_history/{commit}.json` and compares against the previous artifact. `perf_compare.py` prints the colored comparison table against `TestOutput/baseline-001/perf.json`.
@@ -123,7 +193,7 @@ if (Test-Path "$REPO\Profile\perf_log.csv") {
 
 Regression thresholds: avg/p50 timing >10%, p99/p99.9 >20%, memory >5 MB.
 
-### Step 6: Archive to TestOutput
+### Step 7: Archive to TestOutput
 
 **Mandatory for every commit.** Creates a sequentially numbered directory in `TestOutput/` containing PNGs and perf data. This builds a permanent visual + performance timeline in the repo.
 
@@ -168,7 +238,7 @@ print(f'Archived to {archive.name}')
 "
 ```
 
-### Step 7: Lines of Code
+### Step 8: Lines of Code
 
 Informational — counts logical LOC (excludes blanks and comments) across all `.h` and `.cpp` files in `SkullbonezSource/`. No pass/fail; just print and note the total in the commit message.
 
@@ -177,34 +247,13 @@ $REPO = (git rev-parse --show-toplevel).Trim()
 py "$REPO\Copilot\Skills\loc_count.py"
 ```
 
-### Step 8: Legacy Smoke Test
-
-Quick check that default mode (no `--scene`) still runs without crashing. Uses `legacy_smoke.scene` which auto-exits after 2 frames — no process kill needed:
-
-```pwsh
-$REPO = (git rev-parse --show-toplevel).Trim()
-
-$proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
-    -ArgumentList "--scene SkullbonezData/scenes/legacy_smoke.scene" `
-    -WorkingDirectory $REPO -PassThru
-$proc.WaitForExit(15000) | Out-Null
-
-if (Test-Path "$REPO\Profile\legacy_smoke.bmp") {
-    Write-Host "PASS: Legacy smoke test completed"
-} else {
-    Write-Host "FAIL: Legacy smoke test crashed (no screenshot produced)"
-}
-```
-
-**If smoke test fails**: Debug with `skore-cdb-debug` skill.
-
 ### Step 9: Commit
 
 Only if **all** previous steps pass. The commit MUST include:
 - Code changes
-- Updated reference images (from Step 4)
-- Performance test artifact (from Step 5)
-- TestOutput archive (from Step 6)
+- Updated reference images (from Step 5)
+- Performance test artifact (from Step 6)
+- TestOutput archive (from Step 7)
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()

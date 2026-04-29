@@ -91,7 +91,6 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     Cfg().Load( "SkullbonezData/engine.cfg" );
 
     // Create an instance of our window class
-    // (holds everything associated with our window)
     SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
 
     // Create the application window
@@ -100,84 +99,38 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     // Get the device context for our window
     m_cWindow->m_sDevice = GetDC( m_cWindow->m_sWindow );
 
-    bool abortAll = false;
-    for ( size_t sceneIdx = 0; sceneIdx < sceneList.size() && !abortAll; ++sceneIdx )
+    // Init OpenGL (single context for entire lifetime)
+    m_cWindow->InitialiseOpenGL();
+
     {
-        const char* currentScene = sceneList[sceneIdx].empty() ? nullptr : sceneList[sceneIdx].c_str();
+        // Create the Skullbonez Core instance (scoped so destructor runs
+        // BEFORE GL context deletion — ensures GL cleanup calls work)
+        SkullbonezRun cRun( std::move( sceneList ) );
 
-        for ( ;; )
+        try
         {
-            // Init OpenGL
-            m_cWindow->InitialiseOpenGL();
+            cRun.Initialise();
+            cRun.Run();
 
-            bool shouldRestart = false;
-            bool sceneCompleted = false;
+            if ( !isSuiteOrSceneMode )
             {
-                // Create the Skullbonez Core instance (scoped so destructor runs
-                // BEFORE GL context deletion — ensures GL cleanup calls work)
-                SkullbonezRun cRun( currentScene );
-
-                try
-                {
-                    // Attempt to initialise the Skullbonez Core
-                    cRun.Initialise();
-
-                    // Attempt to run the Skullbonez Core
-                    if ( !cRun.Run() )
-                    {
-                        if ( currentScene )
-                        {
-                            sceneCompleted = true;
-                            break; // clean scene exit — move to next scene
-                        }
-                        else
-                        {
-                            throw std::runtime_error( "Thanks for using the Skullbonez Core!" );
-                        }
-                    }
-
-                    shouldRestart = true;
-                }
-                catch ( const std::exception& e ) // Catch all exceptions thrown by the Skullbonez Core
-                {
-                    if ( !isSuiteOrSceneMode )
-                    {
-                        m_cWindow->MsgBox( e.what(), "Alert!", MB_OK );
-                    }
-
-                    abortAll = true;
-                    break;
-                }
-                // cRun destroyed here — GL context still alive for proper cleanup
-            }
-
-            // Cleanup rendering context AFTER cRun is destroyed
-            if ( shouldRestart && m_cWindow->m_sRenderContext )
-            {
-                wglMakeCurrent( nullptr, nullptr );
-                wglDeleteContext( m_cWindow->m_sRenderContext );
-            }
-            else
-            {
-                break;
+                m_cWindow->MsgBox( "Thanks for using the Skullbonez Core!", "Alert!", MB_OK );
             }
         }
-
-        // Between scenes: destroy GL context so the next scene gets a fresh one
-        if ( !abortAll && sceneIdx + 1 < sceneList.size() && m_cWindow->m_sRenderContext )
+        catch ( const std::exception& e )
         {
-            wglMakeCurrent( nullptr, nullptr );
-            wglDeleteContext( m_cWindow->m_sRenderContext );
+            if ( !isSuiteOrSceneMode )
+            {
+                m_cWindow->MsgBox( e.what(), "Alert!", MB_OK );
+            }
         }
+        // cRun destroyed here — GL context still alive for proper cleanup
     }
 
-    // Cleanup rendering context
+    // Cleanup rendering context AFTER cRun is destroyed
     if ( m_cWindow->m_sRenderContext )
     {
-        // Free rendering memory, rollback all changes
         wglMakeCurrent( nullptr, nullptr );
-
-        // Delete the rendering context
         wglDeleteContext( m_cWindow->m_sRenderContext );
     }
 

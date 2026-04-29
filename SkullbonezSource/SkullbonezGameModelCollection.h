@@ -52,6 +52,7 @@ class GameModelCollection
     ~GameModelCollection() = default;
 
     void AddGameModel( GameModel gameModel );                                                   // Moves a game model into the collection
+    void Clear();                                                                               // Clears all game models (retains GPU resources)
     void RunPhysics( float fChangeInTime );                                                     // Runs the physics for the specified time step
     void RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4] );     // Renders the game models
     void RenderShadows( Geometry::Terrain* terrain, const Matrix4& view, const Matrix4& proj ); // Renders ground shadows beneath all models

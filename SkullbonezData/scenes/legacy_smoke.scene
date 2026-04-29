@@ -5,7 +5,6 @@ seed 42
 physics off
 text off
 frames 2
-test_gl_reset
 screenshot Profile/legacy_smoke.bmp frame 1
 
 # Use the same 3 camera positions as legacy mode

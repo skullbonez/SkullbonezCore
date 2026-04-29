@@ -11,7 +11,6 @@ TestScene::TestScene()
 {
     m_isPhysicsEnabled = true;
     m_isTextEnabled = true;
-    m_isGlResetTest = false;
     m_frameCount = -1;
     m_screenshotPath[0] = '\0';
     m_perfLogPath[0] = '\0';
@@ -188,13 +187,6 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
-        // parse test_gl_reset directive
-        if ( strcmp( line, "test_gl_reset" ) == 0 )
-        {
-            scene.m_isGlResetTest = true;
-            continue;
-        }
-
         // parse perf_log directive
         if ( strncmp( line, "perf_log ", 9 ) == 0 )
         {
@@ -279,12 +271,6 @@ bool TestScene::IsPhysicsEnabled() const
 bool TestScene::IsTextEnabled() const
 {
     return m_isTextEnabled;
-}
-
-
-bool TestScene::IsGlResetTest() const
-{
-    return m_isGlResetTest;
 }
 
 

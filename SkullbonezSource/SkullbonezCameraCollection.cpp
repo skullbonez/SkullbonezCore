@@ -47,6 +47,27 @@ void CameraCollection::Destroy()
 }
 
 
+void CameraCollection::Reset()
+{
+    m_arrayPosition = 0;
+    m_selectedCamera = 0;
+    m_isTweening = false;
+    m_tweenProgress = 0.0f;
+    m_tweenSpeed = 0.0f;
+
+    for ( int i = 0; i < TOTAL_CAMERA_COUNT; ++i )
+    {
+        m_cameraHashes[i] = 0;
+        m_cameraArray[i].ZeroCamera();
+    }
+
+    m_primaryStore.ZeroCamera();
+    m_tweenPath.ZeroCamera();
+    m_tweenCamera.ZeroCamera();
+    m_tweenStart.ZeroCamera();
+}
+
+
 void CameraCollection::SetLockedMode( const bool fIsLocked )
 {
     m_cameraArray[m_selectedCamera].m_isLockedMode = fIsLocked;
