@@ -71,7 +71,7 @@ $msbuild = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.e
 
 ### Step 3: Render Test
 
-Run the `skore-render-test` skill. Launches **both test scenes in a single process** via `--suite SkullbonezData/scenes/render_tests.suite`. Produces 4 screenshots (2 per scene — before and after GL reset), then runs pixel comparison against baselines. All 6 comparison pairs must pass.
+Run the `skore-render-test` skill. Launches **both test scenes in a single process** via `--suite SkullbonezData/scenes/render_tests.suite`. Produces 4 screenshots (2 per scene — before and after GL reset), then runs pixel comparison against baselines. All 4 comparison pairs must pass.
 
 **If render test fails**: Convert screenshots to PNG and send them to the model via the `view` tool for LLM visual comparison. **Only send PNGs to the model if local pixel comparison fails** — do not waste context on images that pass. Evaluate against the 6-point checklist in the `skore-render-test` skill. If the change intentionally alters rendering, update baselines in Step 4. If unintentional, investigate and fix before proceeding.
 
@@ -86,11 +86,9 @@ py -c "
 import os
 from PIL import Image
 _r = os.environ['SKORE_REPO']
-_s = _r + r'\Copilot\Skills\skore-render-test'
-Image.open(_r + r'\Profile\screenshot.bmp').save(_s        + r'\baseline_water_ball_test.png')
-Image.open(_r + r'\Profile\screenshot_reset.bmp').save(_s  + r'\baseline_water_ball_test_reset.png')
-Image.open(_r + r'\Profile\legacy_smoke.bmp').save(_s      + r'\baseline_legacy_smoke.png')
-Image.open(_r + r'\Profile\legacy_smoke_reset.bmp').save(_s+ r'\baseline_legacy_smoke_reset.png')
+_b = _r + r'\TestOutput\baselines'
+Image.open(_r + r'\Profile\screenshot.bmp').save(_b + r'\baseline_water_ball_test.png')
+Image.open(_r + r'\Profile\legacy_smoke.bmp').save(_b + r'\baseline_legacy_smoke.png')
 print('Baselines updated')
 "
 ```
@@ -121,7 +119,7 @@ if (Test-Path "$REPO\Profile\perf_log.csv") {
 }
 ```
 
-The analysis script writes a JSON artifact to `Skills/skore-render-test/perf_history/{commit}.json` and compares against the previous artifact. **If regression thresholds are exceeded**, investigate before proceeding.
+The analysis script writes a JSON artifact to `TestOutput/perf_history/{commit}.json` and compares against the previous artifact. **If regression thresholds are exceeded**, investigate before proceeding.
 
 Regression thresholds: avg/p50 timing >10%, p99/p99.9 >20%, memory >5 MB.
 
@@ -152,19 +150,17 @@ commit = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], capture_output=
 archive = _to / f'{seq:03d}_{commit}'
 archive.mkdir()
 
-# Convert and copy screenshots
+# Convert and copy screenshots (one per scene, no reset images)
 pairs = [
-    (_r / 'Profile' / 'screenshot.bmp',        archive / 'water_ball_test.png'),
-    (_r / 'Profile' / 'screenshot_reset.bmp',   archive / 'water_ball_test_reset.png'),
-    (_r / 'Profile' / 'legacy_smoke.bmp',       archive / 'legacy_smoke.png'),
-    (_r / 'Profile' / 'legacy_smoke_reset.bmp',  archive / 'legacy_smoke_reset.png'),
+    (_r / 'Profile' / 'screenshot.bmp', archive / 'water_ball_test.png'),
+    (_r / 'Profile' / 'legacy_smoke.bmp', archive / 'legacy_smoke.png'),
 ]
 for src, dst in pairs:
     if src.exists():
         Image.open(str(src)).save(str(dst))
 
 # Copy perf artifact
-perf_src = _r / 'Copilot' / 'Skills' / 'skore-render-test' / 'perf_history' / f'{commit}.json'
+perf_src = _r / 'TestOutput' / 'perf_history' / f'{commit}.json'
 if perf_src.exists():
     shutil.copy2(str(perf_src), str(archive / 'perf.json'))
 

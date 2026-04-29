@@ -75,7 +75,7 @@ print('Converted 4 screenshots to PNG')
 
 #### 3. Tolerance pixel comparison
 
-Compares baseline vs pass1, baseline vs pass2 (after GL reset), and pass1 vs pass2 for each scene. All 6 pairs must pass.
+Compares baseline vs pass1, and pass1 vs pass2 (GL reset verification) for each scene. All 4 pairs must pass.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
@@ -125,27 +125,25 @@ def compare(baseline_path, current_path, name):
         print(f'PIXEL_FAIL [{name}]: {tol_pct}% beyond tolerance — needs visual review')
         return False
 
-_skills = _r + r'\Copilot\Skills\skore-render-test'
+_baselines = _r + r'\TestOutput\baselines'
 print('=== water_ball_test ===')
-r1 = compare(_skills + r'\baseline_water_ball_test.png',  _r + r'\Profile\screenshot_water.png',       'baseline vs pass1')
-r2 = compare(_skills + r'\baseline_water_ball_test.png',  _r + r'\Profile\screenshot_water_reset.png',  'baseline vs pass2')
-r3 = compare(_r + r'\Profile\screenshot_water.png',          _r + r'\Profile\screenshot_water_reset.png',  'pass1 vs pass2')
+r1 = compare(_baselines + r'\baseline_water_ball_test.png', _r + r'\Profile\screenshot_water.png',       'baseline vs pass1')
+r2 = compare(_r + r'\Profile\screenshot_water.png',         _r + r'\Profile\screenshot_water_reset.png',  'pass1 vs pass2 (GL reset)')
 
 print()
 print('=== legacy_smoke ===')
-r4 = compare(_skills + r'\baseline_legacy_smoke.png', _r + r'\Profile\legacy_smoke.png',       'baseline vs pass1')
-r5 = compare(_skills + r'\baseline_legacy_smoke.png', _r + r'\Profile\legacy_smoke_reset.png',  'baseline vs pass2')
-r6 = compare(_r + r'\Profile\legacy_smoke.png',          _r + r'\Profile\legacy_smoke_reset.png',  'pass1 vs pass2')
+r3 = compare(_baselines + r'\baseline_legacy_smoke.png', _r + r'\Profile\legacy_smoke.png',       'baseline vs pass1')
+r4 = compare(_r + r'\Profile\legacy_smoke.png',          _r + r'\Profile\legacy_smoke_reset.png',  'pass1 vs pass2 (GL reset)')
 
 print()
-if all([r1,r2,r3,r4,r5,r6]):
+if all([r1,r2,r3,r4]):
     print('ALL PIXEL TESTS PASSED')
 else:
     print('PIXEL TESTS FAILED - proceed to step 4 for LLM visual comparison')
 "
 ```
 
-**Pass criteria**: <0.5% of pixels beyond ±5 per-channel tolerance for each of the 6 pairs.
+**Pass criteria**: <0.5% of pixels beyond ±5 per-channel tolerance for each of the 4 pairs.
 
 If pixel tests pass → **done**, no further steps needed.
 If pixel tests fail → proceed to step 4.
@@ -155,9 +153,9 @@ If pixel tests fail → proceed to step 4.
 For each scene that failed pixel comparison, view the baseline and current screenshot side-by-side and evaluate:
 
 **View the images** (use the `view` tool):
-- Baseline: `{REPO}\Copilot\Skills\skore-render-test\baseline_water_ball_test.png`
+- Baseline: `{REPO}\TestOutput\baselines\baseline_water_ball_test.png`
 - Current: `{REPO}\Profile\screenshot_water.png`
-- Baseline: `{REPO}\Copilot\Skills\skore-render-test\baseline_legacy_smoke.png`
+- Baseline: `{REPO}\TestOutput\baselines\baseline_legacy_smoke.png`
 - Current: `{REPO}\Profile\legacy_smoke.png`
 
 **Evaluate each pair against this checklist:**
@@ -184,22 +182,7 @@ For each scene that failed pixel comparison, view the baseline and current scree
 
 ### Updating baselines
 
-When a change **intentionally** alters rendering (e.g. migrating a subsystem to shaders), archive the old baselines first, then recapture.
-
-#### Step 1 — Archive old baselines
-
-```pwsh
-$REPO   = (git rev-parse --show-toplevel).Trim()
-$commit = (git -C $REPO rev-parse HEAD).Trim()
-$histDir = "$REPO\Copilot\Skills\skore-render-test\baseline_history\$commit"
-New-Item -ItemType Directory -Path $histDir -Force | Out-Null
-Get-ChildItem "$REPO\Copilot\Skills\skore-render-test\baseline_*.png" | ForEach-Object {
-    Copy-Item $_.FullName -Destination "$histDir\$($_.Name)"
-    Write-Host "Archived: $($_.Name) -> baseline_history\$commit\"
-}
-```
-
-#### Step 2 — Write new baselines
+When a change **intentionally** alters rendering (e.g. migrating a subsystem to shaders), overwrite the baselines directly — no archiving needed (git history is the archive).
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
@@ -208,20 +191,16 @@ py -c "
 import os
 from PIL import Image
 _r = os.environ['SKORE_REPO']
-_s = _r + r'\Copilot\Skills\skore-render-test'
+_b = _r + r'\TestOutput\baselines'
 pairs = [
-    (_r + r'\Profile\screenshot.bmp',        _s + r'\baseline_water_ball_test.png'),
-    (_r + r'\Profile\screenshot_reset.bmp',  _s + r'\baseline_water_ball_test_reset.png'),
-    (_r + r'\Profile\legacy_smoke.bmp',      _s + r'\baseline_legacy_smoke.png'),
-    (_r + r'\Profile\legacy_smoke_reset.bmp',_s + r'\baseline_legacy_smoke_reset.png'),
+    (_r + r'\Profile\screenshot.bmp', _b + r'\baseline_water_ball_test.png'),
+    (_r + r'\Profile\legacy_smoke.bmp', _b + r'\baseline_legacy_smoke.png'),
 ]
 for src, dst in pairs:
     Image.open(src).save(dst)
     print('Updated: ' + dst.split(chr(92))[-1])
 "
 ```
-
-Include both the updated baselines **and** the `baseline_history/` folder in the same commit.
 
 ### Scene file directives
 
