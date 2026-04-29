@@ -1,10 +1,12 @@
 // --- Includes ---
 #include "SkullbonezTerrain.h"
+#include "SkullbonezGameModel.h"
 
 
 // --- Usings ---
 using namespace SkullbonezCore::Geometry;
 using namespace SkullbonezCore::Math;
+using namespace SkullbonezCore::GameObjects;
 
 
 Terrain::Terrain( const char* sFileName,
@@ -111,6 +113,40 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, const floa
     m_terrainShader->SetVec4( "uLightPosition", lx, ly, lz, lw );
 
     m_terrainMesh->Draw();
+}
+
+
+void Terrain::SetShadowUniforms( const GameModel* models, int count )
+{
+    constexpr int MAX_SHADOW_BALLS = 512;
+    int numShadowBalls = (count > MAX_SHADOW_BALLS) ? MAX_SHADOW_BALLS : count;
+
+    m_terrainShader->Use();
+    m_terrainShader->SetInt( "uNumShadowBalls", numShadowBalls );
+    m_terrainShader->SetFloat( "uShadowMaxHeight", Cfg().shadowMaxHeight );
+    m_terrainShader->SetFloat( "uShadowMaxAlpha", Cfg().shadowMaxAlpha );
+    m_terrainShader->SetFloat( "uShadowScale", Cfg().shadowScale );
+
+    for (int i = 0; i < numShadowBalls; ++i)
+    {
+        const Vector3& pos = models[i].GetPosition();
+        float radius = models[i].GetBoundingRadius();
+        float height = Cfg().shadowMaxHeight + 1.0f;  // Default: out of range (no shadow)
+
+        if (IsInBounds(pos.x, pos.z))
+        {
+            float groundY = GetTerrainHeightAt(pos.x, pos.z);
+            height = pos.y - groundY - radius;
+            if (height < 0.0f)
+            {
+                height = 0.0f;
+            }
+        }
+
+        char uniformName[32];
+        sprintf_s(uniformName, sizeof(uniformName), "uShadowBalls[%d]", i);
+        m_terrainShader->SetVec4(uniformName, pos.x, pos.z, radius, height);
+    }
 }
 
 

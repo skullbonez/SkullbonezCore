@@ -39,10 +39,6 @@ class GameModelCollection
     std::vector<GameModel> m_gameModels;               // Collection of game models
     SpatialGrid m_spatialGrid;                         // Broadphase spatial grid for collision culling
     std::vector<std::pair<int, int>> m_candidatePairs; // Retained-capacity pair buffer (avoids per-frame alloc)
-    std::unique_ptr<Mesh> m_shadowMesh;                // Shadow disc mesh (unit m_radius)
-    std::unique_ptr<Shader> m_shadowShader;            // Shadow disc m_shader
-
-    void BuildShadowMesh(); // Builds the unit-radius shadow disc mesh
 
   public:
     GameModelCollection(); // Default constructor
@@ -51,9 +47,10 @@ class GameModelCollection
     void AddGameModel( GameModel gameModel );                                                   // Moves a game model into the collection
     void RunPhysics( float fChangeInTime );                                                     // Runs the physics for the specified time step
     void RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4] );     // Renders the game models
-    void RenderShadows( Geometry::Terrain* terrain, const Matrix4& view, const Matrix4& proj ); // Renders ground shadows beneath all models
+    void UpdateTerrainShadowUniforms( Geometry::Terrain* terrain );                             // Updates terrain shader uniforms for shader-based ground shadows
     void ResetGLResources();                                                                    // Releases GPU resources for GL context reset
     Vector3 GetModelPosition( int index );                                                      // Returns the position of the specified game model
+    const std::vector<GameModel>& GetGameModels() const;                                       // Returns const reference to game models collection
 };
 } // namespace GameObjects
 } // namespace SkullbonezCore

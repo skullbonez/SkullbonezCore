@@ -33,6 +33,7 @@ class Terrain
     ~Terrain();                                                                      // Default destructor
 
     void Render( const Matrix4& view, const Matrix4& projection, const float* lightPosition ); // Renders the terrain with shader
+    void SetShadowUniforms( const class GameModel* models, int count );              // Sets shadow uniforms for shader-based ground shadows
     XZBounds GetXZBounds();                                                                    // Returns the XZ bounds of the terrain
     Triangle LocatePolygon( float xPosition, float zPosition );                                // Locates the polygon surrounding the specified X and Z co-ordinates based on an orthagonal XZ projection.  Detailed math reference at http://www.simoneschbach.com/images/FindingArbitraryPolygon.gif
     bool IsInBounds( float xPosition, float zPosition );                                       // Returns a flag indicating if specified co-ordinates are inside the bounds of the terrain map

@@ -653,13 +653,12 @@ void SkullbonezRun::DrawPrimitives()
     {
         PROFILE_GPU_SCOPED( "Frame/Render/Terrain" );
         m_cTextures->SelectTexture( TEXTURE_GROUND );
+
+        // Set shader-based shadow uniforms before rendering terrain
+        m_cGameModelCollection.UpdateTerrainShadowUniforms( m_cTerrain.get() );
+
         m_cTerrain->Render( baseView, proj, lightPosition );
     }
-
-    // render ground shadows on top of m_terrain
-    PROFILE_GPU_BEGIN( "Frame/Render/Shadows" );
-    m_cGameModelCollection.RenderShadows( m_cTerrain.get(), baseView, proj );
-    PROFILE_GPU_END( "Frame/Render/Shadows" );
 
     // render the fluid ---------------------------
     {
