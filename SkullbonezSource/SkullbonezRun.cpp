@@ -14,13 +14,13 @@ using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 
 
-SkullbonezRun::SkullbonezRun( const char* pScenePath )
+SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
+    : m_sceneQueue( std::move( sceneQueue ) ), m_currentSceneIndex( -1 )
 {
-    // init scene mode
-    m_isSceneMode = ( pScenePath != nullptr );
+    // Scene config defaults (overwritten by LoadScene)
+    m_isSceneMode = false;
     m_isScenePhysics = true;
     m_isSceneText = true;
-    m_isGlResetTest = false;
     m_isPerfTest = false;
     m_perfHeaderWritten = false;
     m_isScreenshotSaved = false;
@@ -32,16 +32,7 @@ SkullbonezRun::SkullbonezRun( const char* pScenePath )
     m_perfLogPath[0] = '\0';
     m_perfLogFile = nullptr;
 
-    if ( pScenePath )
-    {
-        strcpy_s( m_scenePath, sizeof( m_scenePath ), pScenePath );
-    }
-    else
-    {
-        m_scenePath[0] = '\0';
-    }
-
-    // init members
+    // Engine state
     m_cCameras = 0;
     m_cTextures = 0;
     m_cSkyBox = 0;
@@ -60,9 +51,7 @@ SkullbonezRun::SkullbonezRun( const char* pScenePath )
     m_isWaterFlatDebug = false;
     m_frozenWaterTime = 0.0f;
     m_sInputState = {};
-
-    // m_seed the random number generator
-    srand( static_cast<unsigned>( time( nullptr ) ) );
+    m_modelCount = 0;
 }
 
 
@@ -129,91 +118,14 @@ void SkullbonezRun::Initialise()
     glGetIntegerv( GL_VIEWPORT, vp );
     m_cReflectionFBO = std::make_unique<Framebuffer>( vp[2] * 2, vp[3] * 2 );
 
-    // Branch on scene mode vs legacy mode
-    if ( m_isSceneMode )
-    {
-        TestScene scene = TestScene::LoadFromFile( m_scenePath );
-        m_isScenePhysics = scene.IsPhysicsEnabled();
-        m_isSceneText = scene.IsTextEnabled();
-        m_targetFrameCount = scene.GetFrameCount();
-        m_screenshotFrame = scene.GetScreenshotFrame();
-        m_screenshotMs = scene.GetScreenshotMs();
-
-        if ( scene.GetScreenshotPath()[0] != '\0' )
-        {
-            strcpy_s( m_screenshotPath, sizeof( m_screenshotPath ), scene.GetScreenshotPath() );
-
-            // On pass 2 of GL reset test, modify screenshot path to add _reset suffix
-            if ( scene.IsGlResetTest() && sGlResetPass > 0 )
-            {
-                char* dot = strrchr( m_screenshotPath, '.' );
-                if ( dot )
-                {
-                    char ext[32];
-                    strcpy_s( ext, sizeof( ext ), dot );
-                    strcpy_s( dot, sizeof( m_screenshotPath ) - ( dot - m_screenshotPath ), "_reset" );
-                    strcat_s( m_screenshotPath, sizeof( m_screenshotPath ), ext );
-                }
-            }
-        }
-
-        m_isGlResetTest = scene.IsGlResetTest();
-
-        // Perf test: open CSV log file
-        const char* pPerfPath = scene.GetPerfLogPath();
-        if ( pPerfPath[0] != '\0' )
-        {
-            m_isPerfTest = true;
-            strcpy_s( m_perfLogPath, sizeof( m_perfLogPath ), pPerfPath );
-            const char* mode = ( sPerfPass == 0 ) ? "w" : "a";
-            fopen_s( &m_perfLogFile, m_perfLogPath, mode );
-            if ( m_perfLogFile )
-            {
-                LogPerfMemory( "start" );
-            }
-        }
-
-        // Override RNG m_seed for deterministic scenes
-        if ( scene.GetSeed() > 0 )
-        {
-            srand( scene.GetSeed() );
-        }
-
-        SetUpCamerasFromScene( scene );
-
-        // Use legacy random ball generation or explicit ball list
-        if ( scene.GetLegacyBallCount() > 0 )
-        {
-            SetUpGameModels( scene.GetLegacyBallCount() );
-        }
-        else
-        {
-            SetUpGameModelsFromScene( scene );
-        }
-    }
-    else
-    {
-        SetUpCameras();
-        SetUpGameModels( DEFAULT_GAME_MODELS );
-    }
-
     // Init font (HDC, font)
     Text2d::BuildFont( m_cWindow->m_sDevice, "Verdana" );
 
-    // Restore initial window text
-    if ( m_isSceneMode )
-    {
-        m_cWindow->SetTitleText( "::SKULLBONEZ CORE:: [SCENE MODE]" );
-    }
-    else
-    {
-        m_cWindow->SetTitleText( "::SKULLBONEZ CORE::" );
-    }
+    // Init cameras singleton (shared across scenes, Reset() between loads)
+    m_cCameras = CameraCollection::Instance();
 
-    // begin timing
-    m_cUpdateTimer.StartTimer();
-    m_cCameraTimer.StartTimer();
-    m_cSimulationTimer.StartTimer();
+    // Load the first scene
+    LoadScene( 0 );
 }
 
 
@@ -256,47 +168,39 @@ void SkullbonezRun::SetUpGameModels( int count )
 }
 
 
-bool SkullbonezRun::Run()
+void SkullbonezRun::Run()
 {
-    /*
-        Runs the application after initialisation - main message loop.
-
-        Note:   To make it so the application only invalidates on events
-                (mouse movements etc) place WaitMessage() after input,
-                logic and render.
-    */
-
-    // Variable to hold messages from message queue
     MSG msg;
 
-    for ( ;; ) // Do until application is closed
+    for ( ;; )
     {
-        if ( PeekMessage( &msg, nullptr, 0, 0, PM_REMOVE ) ) // Check for msg
+        if ( PeekMessage( &msg, nullptr, 0, 0, PM_REMOVE ) )
         {
             if ( msg.message == WM_QUIT )
             {
-                break; // Quit if requested
+                break;
             }
-            TranslateMessage( &msg ); // Interpret msg
-            DispatchMessage( &msg );  // Execute msg
+            TranslateMessage( &msg );
+            DispatchMessage( &msg );
         }
         else
         {
             // find out how many seconds passed during last frame
             double secondsPerFrame = m_cFrameTimer.GetElapsedTime();
 
-            // if the last frame took an exceptionally long time,
-            // cap the time step to avoid making the simulation inaccurate
-            // and to avoid numerical instability
+            // Clamp to [0, 0.05] to avoid numerical instability.
+            // The lower bound catches the first frame after a scene load where
+            // StopTimer() has not yet been called (m_endTime is stale/zero).
+            if ( secondsPerFrame < 0.0 )
+            {
+                secondsPerFrame = 0.0;
+            }
             if ( secondsPerFrame > 0.05 )
             {
                 secondsPerFrame = 0.05;
             }
 
-            // Begin timer
             m_cFrameTimer.StartTimer();
-
-            // Begin profiler frame (implicit "Frame" marker brackets everything below)
             PROFILE_FRAME_BEGIN();
 
             // Input
@@ -310,7 +214,7 @@ bool SkullbonezRun::Run()
                 UpdateLogic( static_cast<float>( secondsPerFrame ) );
             }
 
-            // Drain GPU pipeline before render so markers aren't polluted by prior-frame stalls
+            // Drain GPU pipeline before render
             PROFILE_BEGIN( "Frame/PipelineSync" );
             glFinish();
             PROFILE_END( "Frame/PipelineSync" );
@@ -348,17 +252,15 @@ bool SkullbonezRun::Run()
                     SaveScreenshot( m_screenshotPath );
                     m_isScreenshotSaved = true;
 
-                    // GL reset test pass 1: force context recreation instead of exiting
-                    if ( m_isGlResetTest && sGlResetPass == 0 )
-                    {
-                        sGlResetPass++;
-                        PROFILE_FRAME_END();
-                        return true; // triggers GL context destroy/recreate in WinMain loop
-                    }
+                    // Close profiler frame before scene transition
+                    PROFILE_FRAME_END();
 
-                    // Normal exit (or pass 2 of GL reset test)
-                    sGlResetPass = 0; // reset for next test
-                    PostQuitMessage( 0 );
+                    // Advance to next scene (or exit if done)
+                    if ( !AdvanceScene() )
+                    {
+                        PostQuitMessage( 0 );
+                    }
+                    continue;
                 }
             }
 
@@ -367,10 +269,9 @@ bool SkullbonezRun::Run()
             SwapBuffers( m_cWindow->m_sDevice );
             PROFILE_END( "Frame/VsyncWait" );
 
-            // Stop frame timer
             m_cFrameTimer.StopTimer();
 
-            // Close profiler frame and refresh back-compat timing fields from markers
+            // Close profiler frame and refresh timing fields
             PROFILE_FRAME_END();
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
             {
@@ -414,7 +315,6 @@ bool SkullbonezRun::Run()
             {
                 if ( m_currentFrame >= m_targetFrameCount )
                 {
-                    // hold — keep rendering but don't advance logic
                     for ( ;; )
                     {
                         MSG holdMsg;
@@ -422,7 +322,7 @@ bool SkullbonezRun::Run()
                         {
                             if ( holdMsg.message == WM_QUIT )
                             {
-                                return false;
+                                return;
                             }
                             TranslateMessage( &holdMsg );
                             DispatchMessage( &holdMsg );
@@ -435,41 +335,27 @@ bool SkullbonezRun::Run()
                 }
             }
 
-            // End the simulation when required (legacy mode only, not while user has camera control)
+            // Legacy mode: advance scene after 20s (replaces restart loop)
             if ( !m_isSceneMode && !m_isFlyMode && m_cSimulationTimer.GetTimeSinceLastStart() > 20.0 )
             {
-                return true;
-            }
-
-            // Perf test: restart at 5s (pass 1), exit at 5s (pass 2)
-            if ( m_isPerfTest && m_cSimulationTimer.GetTimeSinceLastStart() > 5.0 )
-            {
-                LogPerfMemory( "end" );
-                if ( sPerfPass == 0 )
+                if ( !AdvanceScene() )
                 {
-                    sPerfPass++;
-                    if ( m_perfLogFile )
-                    {
-                        fclose( m_perfLogFile );
-                        m_perfLogFile = nullptr;
-                    }
-                    return true; // force GL context restart
-                }
-                else
-                {
-                    sPerfPass = 0;
-                    if ( m_perfLogFile )
-                    {
-                        fclose( m_perfLogFile );
-                        m_perfLogFile = nullptr;
-                    }
                     PostQuitMessage( 0 );
                 }
+                continue;
+            }
+
+            // Perf test: advance at 5s (pass 1 restarts same scene, pass 2 advances)
+            if ( m_isPerfTest && m_cSimulationTimer.GetTimeSinceLastStart() > 5.0 )
+            {
+                if ( !AdvanceScene() )
+                {
+                    PostQuitMessage( 0 );
+                }
+                continue;
             }
         }
     }
-
-    return false;
 }
 
 
@@ -946,6 +832,148 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
     }
+}
+
+
+void SkullbonezRun::LoadScene( int index )
+{
+    m_currentSceneIndex = index;
+    const std::string& scenePath = m_sceneQueue[index];
+
+    // Close previous perf log if open
+    if ( m_perfLogFile )
+    {
+        LogPerfMemory( "end" );
+        fclose( m_perfLogFile );
+        m_perfLogFile = nullptr;
+    }
+
+    // Reset scene config to defaults
+    m_isScenePhysics = true;
+    m_isSceneText = true;
+    m_isPerfTest = false;
+    m_perfHeaderWritten = false;
+    m_isScreenshotSaved = false;
+    m_targetFrameCount = -1;
+    m_currentFrame = 0;
+    m_screenshotFrame = -1;
+    m_screenshotMs = -1;
+    m_screenshotPath[0] = '\0';
+    m_perfLogPath[0] = '\0';
+
+    // Reset cameras and game models
+    m_cCameras->Reset();
+    m_cGameModelCollection.Clear();
+
+    // Reset input and debug state
+    m_isFlyMode = false;
+    m_isWaterFreezeDebug = false;
+    m_isWaterNoReflect = false;
+    m_isWaterFlatDebug = false;
+    m_frozenWaterTime = 0.0f;
+    m_sInputState = {};
+    m_isProfilerOverlay = true;
+    m_selectedCamera = 0;
+
+    // Reset timing
+    m_timeSinceLastRender = 0.0f;
+    m_renderTime = 0.0f;
+    m_cameraTime = 0.0f;
+    m_r_renderTime = 0.0f;
+    m_physicsTime = 0.0f;
+    m_r_physicsTime = 0.0f;
+    m_r_fpsTime = 0.0f;
+
+    // Reseed RNG
+    srand( static_cast<unsigned>( time( nullptr ) ) );
+
+    // Branch on scene mode vs legacy mode
+    if ( scenePath.empty() )
+    {
+        m_isSceneMode = false;
+        SetUpCameras();
+        SetUpGameModels( DEFAULT_GAME_MODELS );
+        m_cWindow->SetTitleText( "::SKULLBONEZ CORE::" );
+    }
+    else
+    {
+        m_isSceneMode = true;
+        TestScene scene = TestScene::LoadFromFile( scenePath.c_str() );
+        m_isScenePhysics = scene.IsPhysicsEnabled();
+        m_isSceneText = scene.IsTextEnabled();
+        m_targetFrameCount = scene.GetFrameCount();
+        m_screenshotFrame = scene.GetScreenshotFrame();
+        m_screenshotMs = scene.GetScreenshotMs();
+
+        if ( scene.GetScreenshotPath()[0] != '\0' )
+        {
+            strcpy_s( m_screenshotPath, sizeof( m_screenshotPath ), scene.GetScreenshotPath() );
+        }
+
+        // Perf test: open CSV log file
+        const char* pPerfPath = scene.GetPerfLogPath();
+        if ( pPerfPath[0] != '\0' )
+        {
+            m_isPerfTest = true;
+            strcpy_s( m_perfLogPath, sizeof( m_perfLogPath ), pPerfPath );
+            const char* mode = ( sPerfPass == 0 ) ? "w" : "a";
+            fopen_s( &m_perfLogFile, m_perfLogPath, mode );
+            if ( m_perfLogFile )
+            {
+                LogPerfMemory( "start" );
+            }
+        }
+
+        // Override RNG seed for deterministic scenes
+        if ( scene.GetSeed() > 0 )
+        {
+            srand( scene.GetSeed() );
+        }
+
+        SetUpCamerasFromScene( scene );
+
+        if ( scene.GetLegacyBallCount() > 0 )
+        {
+            SetUpGameModels( scene.GetLegacyBallCount() );
+        }
+        else
+        {
+            SetUpGameModelsFromScene( scene );
+        }
+
+        m_cWindow->SetTitleText( "::SKULLBONEZ CORE:: [SCENE MODE]" );
+    }
+
+    // Restart timers
+    m_cFrameTimer.StartTimer();
+    m_cWorkTimer.StartTimer();
+    m_cUpdateTimer.StartTimer();
+    m_cCameraTimer.StartTimer();
+    m_cSimulationTimer.StartTimer();
+}
+
+
+bool SkullbonezRun::AdvanceScene()
+{
+    // For perf tests with 2 passes, the second pass re-runs the same scene
+    if ( m_isPerfTest && sPerfPass == 0 )
+    {
+        sPerfPass = 1;
+        LoadScene( m_currentSceneIndex );
+        return true;
+    }
+
+    // Reset perf pass counter for next scene
+    sPerfPass = 0;
+
+    int nextIndex = m_currentSceneIndex + 1;
+    if ( nextIndex >= static_cast<int>( m_sceneQueue.size() ) )
+    {
+        return false;
+    }
+
+    LoadScene( nextIndex );
+    return true;
 }
 
 

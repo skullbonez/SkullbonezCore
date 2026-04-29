@@ -1,4 +1,10 @@
-# SkullbonezCore render test suite
+# SkullbonezCore full pipeline suite — single process, single GL context
 # Run with: SKULLBONEZ_CORE.exe --suite SkullbonezData/scenes/render_tests.suite
+#
+# Scene order:
+#   1. water_ball_test  — render regression screenshot
+#   2. legacy_smoke     — render regression screenshot (300 balls, deterministic)
+#   3. perf_test        — performance regression (300 balls, physics, 2x5s passes)
 SkullbonezData/scenes/water_ball_test.scene
 SkullbonezData/scenes/legacy_smoke.scene
+SkullbonezData/scenes/perf_test.scene

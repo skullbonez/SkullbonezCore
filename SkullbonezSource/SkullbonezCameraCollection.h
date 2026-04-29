@@ -84,6 +84,7 @@ class CameraCollection
     void CancelTween();                                                   // Immediately stops any in-progress camera tween
 
     void AddCamera( const Vector3& vPosition, const Vector3& vView, const Vector3& vUp, uint32_t hash ); // Add a camera to the camera collection
+    void Reset();                                                                                        // Resets camera state for scene reload (retains singleton)
 };
 } // namespace Environment
 } // namespace SkullbonezCore

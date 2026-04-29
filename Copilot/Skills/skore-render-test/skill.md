@@ -5,13 +5,12 @@ description: Run render test scenes through SkullbonezCore, capture screenshots,
 
 ## Render Test Skill
 
-Launches SkullbonezCore with `--suite SkullbonezData/scenes/render_tests.suite`, which runs both render test scenes **in a single process launch**. Each scene produces 2 screenshots (before and after GL context reset). Validates all 4 outputs against baselines with a three-tier comparison system.
+Launches SkullbonezCore with `--suite SkullbonezData/scenes/render_tests.suite`, which runs all test scenes **in a single process launch** with no GL context restart between scenes. Each render scene produces 1 screenshot. Validates outputs against baselines with a three-tier comparison system.
 
-Two test scenes are in the suite:
+The suite runs these scenes in order:
 1. **water_ball_test** — Single ball, simple scene (verifies terrain, skybox, water rendering)
 2. **legacy_smoke** — 300 seeded random balls, full legacy code path (verifies sphere rendering at scale)
-
-The **perf test** (`perf_test.scene`) is run separately via `--scene` — it takes 10 seconds and is intentionally not part of the suite.
+3. **perf_test** — 300 balls with physics, 2×5s passes, performance CSV (no screenshot)
 
 ### Prerequisites
 
@@ -19,31 +18,30 @@ The Profile exe must exist at `{REPO}\Profile\SKULLBONEZ_CORE.exe`. If not, buil
 
 ### Steps
 
-#### 1. Run both scenes
+#### 1. Run the full suite
 
-Both scenes are run in a single process invocation via the render test suite. Each scene still destroys and recreates the GL context (for `test_gl_reset`), producing two screenshots per scene (before and after reset) — 4 screenshots total.
+All scenes run in a single process invocation. Produces 2 screenshots and 1 perf CSV.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
 
-# Clean up old screenshots
+# Clean up old outputs
 Remove-Item "$REPO\Profile\screenshot.bmp" -ErrorAction SilentlyContinue
-Remove-Item "$REPO\Profile\screenshot_reset.bmp" -ErrorAction SilentlyContinue
 Remove-Item "$REPO\Profile\legacy_smoke.bmp" -ErrorAction SilentlyContinue
-Remove-Item "$REPO\Profile\legacy_smoke_reset.bmp" -ErrorAction SilentlyContinue
+Remove-Item "$REPO\Profile\perf_log.csv" -ErrorAction SilentlyContinue
 
-# Run all render test scenes in one process via the suite file
+# Run all scenes in one process via the suite file
 $proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
     -ArgumentList "--suite SkullbonezData/scenes/render_tests.suite" `
     -WorkingDirectory $REPO -PassThru
 $proc.WaitForExit(30000) | Out-Null
 
 $s1 = Test-Path "$REPO\Profile\screenshot.bmp"
-$s2 = Test-Path "$REPO\Profile\screenshot_reset.bmp"
-$s3 = Test-Path "$REPO\Profile\legacy_smoke.bmp"
-$s4 = Test-Path "$REPO\Profile\legacy_smoke_reset.bmp"
-Write-Host "water_ball_test: pass1=$s1 pass2=$s2"
-Write-Host "legacy_smoke: pass1=$s3 pass2=$s4"
+$s2 = Test-Path "$REPO\Profile\legacy_smoke.bmp"
+$s3 = Test-Path "$REPO\Profile\perf_log.csv"
+Write-Host "water_ball_test: $s1"
+Write-Host "legacy_smoke: $s2"
+Write-Host "perf_log.csv: $s3"
 ```
 
 #### 2. Convert screenshots to PNG
@@ -58,13 +56,11 @@ import os
 from PIL import Image
 _r = os.environ['SKORE_REPO']
 for src, dst in [
-    (_r + r'\Profile\screenshot.bmp',        _r + r'\Profile\screenshot_water.png'),
-    (_r + r'\Profile\screenshot_reset.bmp',  _r + r'\Profile\screenshot_water_reset.png'),
-    (_r + r'\Profile\legacy_smoke.bmp',      _r + r'\Profile\legacy_smoke.png'),
-    (_r + r'\Profile\legacy_smoke_reset.bmp',_r + r'\Profile\legacy_smoke_reset.png'),
+    (_r + r'\Profile\screenshot.bmp',   _r + r'\Profile\screenshot_water.png'),
+    (_r + r'\Profile\legacy_smoke.bmp', _r + r'\Profile\legacy_smoke.png'),
 ]:
     Image.open(src).save(dst)
-print('Converted 4 screenshots to PNG')
+print('Converted 2 screenshots to PNG')
 "
 ```
 
@@ -72,7 +68,7 @@ print('Converted 4 screenshots to PNG')
 
 #### 3. Tolerance pixel comparison
 
-Compares baseline vs pass1, and pass1 vs pass2 (GL reset verification) for each scene. All 4 pairs must pass.
+Compares each screenshot against its baseline. Both pairs must pass.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
@@ -124,23 +120,21 @@ def compare(baseline_path, current_path, name):
 
 _baselines = _r + r'\TestOutput\baselines'
 print('=== water_ball_test ===')
-r1 = compare(_baselines + r'\baseline_water_ball_test.png', _r + r'\Profile\screenshot_water.png',       'baseline vs pass1')
-r2 = compare(_r + r'\Profile\screenshot_water.png',         _r + r'\Profile\screenshot_water_reset.png',  'pass1 vs pass2 (GL reset)')
+r1 = compare(_baselines + r'\baseline_water_ball_test.png', _r + r'\Profile\screenshot_water.png', 'baseline vs current')
 
 print()
 print('=== legacy_smoke ===')
-r3 = compare(_baselines + r'\baseline_legacy_smoke.png', _r + r'\Profile\legacy_smoke.png',       'baseline vs pass1')
-r4 = compare(_r + r'\Profile\legacy_smoke.png',          _r + r'\Profile\legacy_smoke_reset.png',  'pass1 vs pass2 (GL reset)')
+r2 = compare(_baselines + r'\baseline_legacy_smoke.png', _r + r'\Profile\legacy_smoke.png', 'baseline vs current')
 
 print()
-if all([r1,r2,r3,r4]):
+if all([r1,r2]):
     print('ALL PIXEL TESTS PASSED')
 else:
     print('PIXEL TESTS FAILED - proceed to step 4 for LLM visual comparison')
 "
 ```
 
-**Pass criteria**: <0.5% of pixels beyond ±5 per-channel tolerance for each of the 4 pairs.
+**Pass criteria**: <0.5% of pixels beyond ±5 per-channel tolerance for each pair.
 
 If pixel tests pass → **done**, no further steps needed.
 If pixel tests fail → proceed to step 4.
@@ -207,7 +201,6 @@ text off|on                           # default: on
 frames <N>|unlimited                  # default: unlimited
 seed <N>                              # fixed RNG seed (deterministic balls)
 legacy_balls <N>                      # generate N random balls (like legacy mode)
-test_gl_reset                         # test GL context recreation (2-pass screenshot)
 perf_log <path>                       # enable per-frame timing CSV (triggers 2x5s perf run)
 screenshot <path> frame <N>           # capture after frame N
 screenshot <path> ms <N>              # capture after N milliseconds
@@ -217,32 +210,21 @@ ball <name> <x y z r mass moment rest> [fx fy fz fpx fpy fpz]
 
 ## Performance Test
 
-Runs SkullbonezCore for 10 seconds (2 passes × 5 seconds) with 300 balls, physics, and text overlay. Logs per-frame physics and render times plus memory checkpoints. After analysis, writes a JSON artifact for regression tracking.
+Runs as part of the suite (scene 3). 300 balls with physics for 10 seconds (2 passes × 5 seconds). Logs per-frame timing plus memory checkpoints. After analysis, writes a JSON artifact for regression tracking.
 
-### Running the perf test
+### Analyzing perf data
+
+After the suite completes, run the analysis scripts on the CSV:
 
 ```pwsh
-# 1. Run the perf test scene (10 seconds total)
 $REPO = (git rev-parse --show-toplevel).Trim()
-Remove-Item "$REPO\Profile\perf_log.csv" -ErrorAction SilentlyContinue
-$proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
-    -ArgumentList "--scene SkullbonezData/scenes/perf_test.scene" `
-    -WorkingDirectory $REPO -PassThru
-$proc.WaitForExit(30000) | Out-Null
-if (Test-Path "$REPO\Profile\perf_log.csv") {
-    Write-Host "PASS: perf_log.csv generated"
-} else { Write-Host "FAIL: No perf_log.csv" }
-
-# 2. Analyze and write artifact
 py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py"
-
-# 3. Compare against baseline-001
 py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py"
 ```
 
 ### Artifact format
 
-Written to `Skills/skore-render-test/perf_history/{commit_hash}.json`:
+Written to `TestOutput/perf_history/{commit_hash}.json`:
 
 ```json
 {

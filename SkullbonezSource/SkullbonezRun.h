@@ -3,6 +3,8 @@
 
 // --- Includes ---
 #include <memory>
+#include <string>
+#include <vector>
 #include "SkullbonezCommon.h"
 #include "SkullbonezCameraCollection.h"
 #include "SkullbonezTimer.h"
@@ -41,12 +43,12 @@ class SkullbonezRun
 {
 
   private:
-    inline static int sGlResetPass = 0;
     inline static int sPerfPass = 0;
+    std::vector<std::string> m_sceneQueue;         // Ordered list of scene paths ("" = legacy mode)
+    int m_currentSceneIndex;                       // Index into m_sceneQueue (-1 = not yet loaded)
     bool m_isSceneMode;                            // Scene file mode (deterministic, data-driven)
     bool m_isScenePhysics;                         // Physics enabled in scene mode
     bool m_isSceneText;                            // Text overlay enabled in scene mode
-    bool m_isGlResetTest;                          // Test GL context recreation
     bool m_isPerfTest;                             // Performance logging mode
     bool m_perfHeaderWritten;                      // CSV header written for current perf run
     bool m_isScreenshotSaved;                      // Screenshot already written this run
@@ -54,7 +56,6 @@ class SkullbonezRun
     int m_currentFrame;                            // Current frame counter for scene mode
     int m_screenshotFrame;                         // Save screenshot at this frame (-1 = unused)
     int m_screenshotMs;                            // Save screenshot at this elapsed ms (-1 = unused)
-    char m_scenePath[256];                         // Path to scene file (empty = legacy mode)
     char m_screenshotPath[256];                    // Output path for screenshot (empty = none)
     char m_perfLogPath[256];                       // Output path for perf CSV (empty = none)
     FILE* m_perfLogFile;                           // Open handle for perf CSV
@@ -100,13 +101,15 @@ class SkullbonezRun
     void DrawWindowText( const double dSecondsPerFrame );              // Renders text to the window
     void SaveScreenshot( const char* path );                           // Saves framebuffer to BMP file via glReadPixels
     void LogPerfMemory( const char* checkpoint );                      // Log memory usage to perf CSV
+    void LoadScene( int index );                                       // Resets scene-specific state and loads a scene by queue index
+    bool AdvanceScene();                                               // Advances to the next scene in the queue (returns false if done)
     void MoveCamera( float keyMovementQty, float mouseMovemementQty ); // Moves the camera
 
   public:
-    SkullbonezRun( const char* pScenePath = nullptr ); // Constructor (nullptr = legacy mode)
-    ~SkullbonezRun();                                  // Default destructor
-    void Initialise();                                 // Initialises the SkullbonezRun class
-    bool Run();                                        // Runs the application after initialisation - main message loop
+    SkullbonezRun( std::vector<std::string> sceneQueue ); // Constructor (scene queue; empty string = legacy mode)
+    ~SkullbonezRun();                                     // Default destructor
+    void Initialise();                                    // Initialises shared resources and loads first scene
+    void Run();                                           // Runs all scenes in sequence — main message loop
 };
 } // namespace Basics
 } // namespace SkullbonezCore
