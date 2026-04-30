@@ -159,14 +159,17 @@
     <ClCompile Include="SkullbonezSource\SkullbonezTextureCollection.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezTimer.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezVector3.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezWindow.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezWindowGL.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezWindowDX.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezWorldEnvironment.cpp" />
     <ClCompile Include="ThirdPtySource\stb\stb_image.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezMatrix4.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezTestScene.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezFramebuffer.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezShader.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezMesh.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezShaderGL.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezShaderDX.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezMeshGL.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezMeshDX.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezProfiler.cpp" />
   </ItemGroup>
   <ItemGroup>
