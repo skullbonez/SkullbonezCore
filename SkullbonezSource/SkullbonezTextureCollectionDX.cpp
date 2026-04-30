@@ -1,5 +1,6 @@
 // --- Includes ---
-#include "SkullbonezTextureCollection.h"
+#include "SkullbonezTextureCollectionDX.h"
+#include "SkullbonezWindowDX.h"
 #include "stb_image.h"
 
 
@@ -14,7 +15,8 @@ TextureCollection::TextureCollection()
 
     for ( int count = 0; count < TOTAL_TEXTURE_COUNT; ++count )
     {
-        m_textureArray[count] = 0;
+        m_srvArray[count] = nullptr;
+        m_textureData[count] = nullptr;
         m_textureHashes[count] = 0;
     }
 }
@@ -43,28 +45,21 @@ void TextureCollection::Destroy()
 
 void TextureCollection::UpdateCounters()
 {
-    // reset the counter
     m_textureCounter = 0;
     bool isNextAvailIndexSet = false;
 
-    // iterate through all m_textures
     for ( int count = 0; count < TOTAL_TEXTURE_COUNT; ++count )
     {
-        // find the first empty spot
-        if ( !m_textureArray[count] )
+        if ( !m_textureData[count] )
         {
             if ( !isNextAvailIndexSet )
             {
-                // set the next available index counter
                 m_nextAvailableTextureIndex = count;
-
-                // do not set this again
                 isNextAvailIndexSet = true;
             }
         }
         else
         {
-            // for every texture, increment
             ++m_textureCounter;
         }
     }
@@ -87,20 +82,16 @@ int TextureCollection::FindIndex( uint32_t hash )
 
 void TextureCollection::DeleteAllTextures()
 {
-    // delete all OpenGL m_textures
-    glDeleteTextures( m_nextAvailableTextureIndex, m_textureArray );
-
-    // iterate through texture array
     for ( int count = 0; count < TOTAL_TEXTURE_COUNT; ++count )
     {
-        if ( m_textureArray[count] )
+        if ( m_textureData[count] )
         {
+            m_srvArray[count] = nullptr;
+            m_textureData[count] = nullptr;
             m_textureHashes[count] = 0;
-            m_textureArray[count] = 0;
         }
     }
 
-    // Update capacity and progress counters
     UpdateCounters();
 }
 
@@ -109,10 +100,9 @@ void TextureCollection::DeleteTexture( uint32_t hash )
 {
     int index = FindIndex( hash );
 
+    m_srvArray[index] = nullptr;
+    m_textureData[index] = nullptr;
     m_textureHashes[index] = 0;
-
-    glDeleteTextures( 1, &m_textureArray[index] );
-    m_textureArray[index] = 0;
 
     UpdateCounters();
 }
@@ -126,7 +116,9 @@ int TextureCollection::NumFreeTextureSpaces()
 
 void TextureCollection::SelectTexture( uint32_t hash )
 {
-    glBindTexture( GL_TEXTURE_2D, m_textureArray[FindIndex( hash )] );
+    int index = FindIndex( hash );
+    ID3D11DeviceContext* pDeviceContext = SkullbonezCore::Basics::SkullbonezWindow::Instance()->GetDeviceContext();
+    pDeviceContext->PSSetShaderResources( 0, 1, m_srvArray[index].GetAddressOf() );
 }
 
 
@@ -140,7 +132,7 @@ void TextureCollection::CreateJpegTexture( const char* cFileName,
 
     m_textureHashes[m_nextAvailableTextureIndex] = hash;
 
-    // Load image via stb_image (supports JPEG, PNG, BMP, etc.)
+    // Load image via stb_image
     int width = 0;
     int height = 0;
     int channels = 0;
@@ -151,20 +143,63 @@ void TextureCollection::CreateJpegTexture( const char* cFileName,
         throw std::runtime_error( "Image load failed!  (TextureCollection::CreateJpegTexture)" );
     }
 
-    // Generate and bind GL texture
-    glGenTextures( 1, &m_textureArray[m_nextAvailableTextureIndex] );
-    glBindTexture( GL_TEXTURE_2D, m_textureArray[m_nextAvailableTextureIndex] );
+    ID3D11Device* pDevice = SkullbonezCore::Basics::SkullbonezWindow::Instance()->GetDevice();
 
-    // Upload texture and generate mipmaps
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data );
-    glGenerateMipmap( GL_TEXTURE_2D );
+    // Create texture description
+    D3D11_TEXTURE2D_DESC textureDesc = {};
+    textureDesc.Width = width;
+    textureDesc.Height = height;
+    textureDesc.MipLevels = 0;
+    textureDesc.ArraySize = 1;
+    textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    textureDesc.SampleDesc.Count = 1;
+    textureDesc.SampleDesc.Quality = 0;
+    textureDesc.Usage = D3D11_USAGE_DEFAULT;
+    textureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+    textureDesc.CPUAccessFlags = 0;
+    textureDesc.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
 
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR );
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR );
+    // Create initial subresource data
+    D3D11_SUBRESOURCE_DATA initData = {};
+    initData.pSysMem = data;
+    initData.SysMemPitch = width * 3;
+    initData.SysMemSlicePitch = 0;
 
-    // stb_image handles cleanup
+    // Create texture
+    ID3D11Texture2D* pTexture = nullptr;
+    HRESULT hr = pDevice->CreateTexture2D( &textureDesc, &initData, &pTexture );
+
+    if ( FAILED( hr ) )
+    {
+        stbi_image_free( data );
+        throw std::runtime_error( "CreateTexture2D failed!  (TextureCollection::CreateJpegTexture)" );
+    }
+
+    m_textureData[m_nextAvailableTextureIndex].Attach( pTexture );
+
+    // Create shader resource view
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = textureDesc.Format;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    srvDesc.Texture2D.MipLevels = -1;
+
+    ID3D11ShaderResourceView* pSRV = nullptr;
+    hr = pDevice->CreateShaderResourceView( pTexture, &srvDesc, &pSRV );
+
+    if ( FAILED( hr ) )
+    {
+        stbi_image_free( data );
+        throw std::runtime_error( "CreateShaderResourceView failed!  (TextureCollection::CreateJpegTexture)" );
+    }
+
+    m_srvArray[m_nextAvailableTextureIndex].Attach( pSRV );
+
+    // Generate mipmaps
+    ID3D11DeviceContext* pDeviceContext = SkullbonezCore::Basics::SkullbonezWindow::Instance()->GetDeviceContext();
+    pDeviceContext->GenerateMips( pSRV );
+
     stbi_image_free( data );
 
-    // Update capacity and progress counters
     UpdateCounters();
 }

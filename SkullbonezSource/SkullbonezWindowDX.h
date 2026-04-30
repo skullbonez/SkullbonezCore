@@ -55,6 +55,8 @@ class SkullbonezWindow
     void CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMode );                      // Creates our application window, returns a handle to it
     void ChangeToFullScreen( int xResolution, int yResolution );                             // Changes screeen to full screen mode
     int MsgBox( const char* cMsgBoxText, const char* cMsgBoxTitle, const UINT iMsgBoxType ); // Draws a message box to the screen
+    ID3D11Device* GetDevice() { return m_d3dDevice.Get(); }                                   // Returns pointer to D3D device
+    ID3D11DeviceContext* GetDeviceContext() { return m_d3dContext.Get(); }                   // Returns pointer to D3D device context
 };
 } // namespace Basics
 } // namespace SkullbonezCore

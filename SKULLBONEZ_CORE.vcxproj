@@ -156,7 +156,8 @@
     <ClCompile Include="SkullbonezSource\SkullbonezSpatialGrid.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezTerrain.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezText.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezTextureCollection.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezTextureCollectionGL.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezTextureCollectionDX.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezTimer.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezVector3.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezWindowGL.cpp" />
@@ -165,7 +166,8 @@
     <ClCompile Include="ThirdPtySource\stb\stb_image.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezMatrix4.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezTestScene.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezFramebuffer.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezFramebufferGL.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezFramebufferDX.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezShaderGL.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezShaderDX.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezMeshGL.cpp" />
@@ -196,6 +198,8 @@
     <ClInclude Include="SkullbonezSource\SkullbonezTerrain.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezText.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezTextureCollection.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezTextureCollectionGL.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezTextureCollectionDX.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezTimer.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezVector3.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezWindow.h" />
@@ -203,6 +207,8 @@
     <ClInclude Include="SkullbonezSource\SkullbonezMatrix4.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezTestScene.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezFramebuffer.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezFramebufferGL.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezFramebufferDX.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezShader.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezMesh.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezProfiler.h" />
