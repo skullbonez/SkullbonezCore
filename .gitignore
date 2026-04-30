@@ -41,3 +41,6 @@ Profile/
 # Python
 __pycache__/
 *.pyc
+
+# Unused third-party memory manager (causes git autocrlf issues)
+ThirdPtySource/MemMgr/
