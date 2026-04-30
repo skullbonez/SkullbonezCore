@@ -34,6 +34,7 @@
 #include <stdexcept>      // std::runtime_error
 #include <memory>         // std::unique_ptr
 #include <vector>         // std::vector
+#include <string>         // std::string, std::wstring
 #include <d3d11.h>        // DirectX 11
 #include <dxgi.h>         // DXGI
 #include <dxgi1_2.h>      // DXGI 1.2
@@ -84,6 +85,24 @@ inline SkullbonezCore::Basics::SkullbonezConfig& Cfg()
 constexpr uint32_t HashStr( const char* s, uint32_t hash = 2166136261u )
 {
     return ( *s == '\0' ) ? hash : HashStr( s + 1, ( hash ^ static_cast<uint32_t>( *s ) ) * 16777619u );
+}
+
+
+// String utility for DirectX APIs
+inline std::wstring StringToWide( const std::string& str )
+{
+    if ( str.empty() )
+        return std::wstring();
+    int size_needed = MultiByteToWideChar( CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0 );
+    std::wstring wstr( size_needed, 0 );
+    MultiByteToWideChar( CP_UTF8, 0, &str[0], (int)str.size(), &wstr[0], size_needed );
+    return wstr;
+}
+
+
+inline std::wstring StringToWide( const char* str )
+{
+    return StringToWide( std::string( str ) );
 }
 
 
