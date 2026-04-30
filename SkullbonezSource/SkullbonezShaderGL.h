@@ -26,6 +26,7 @@ class Shader
 
   public:
     Shader( const char* vertPath, const char* fragPath );
+    Shader( const char* basePath );
     ~Shader();
 
     void Use() const;

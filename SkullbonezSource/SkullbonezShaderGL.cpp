@@ -57,6 +57,42 @@ GLuint Shader::CompileShader( const char* path, GLenum type )
 }
 
 
+Shader::Shader( const char* basePath )
+{
+    char vertPath[512];
+    char fragPath[512];
+
+    // Derive .vert and .frag filenames from base path
+    sprintf_s( vertPath, sizeof( vertPath ), "%s.vert", basePath );
+    sprintf_s( fragPath, sizeof( fragPath ), "%s.frag", basePath );
+
+    GLuint vertShader = CompileShader( vertPath, GL_VERTEX_SHADER );
+    GLuint fragShader = CompileShader( fragPath, GL_FRAGMENT_SHADER );
+
+    m_programID = glCreateProgram();
+    glAttachShader( m_programID, vertShader );
+    glAttachShader( m_programID, fragShader );
+    glLinkProgram( m_programID );
+
+    GLint success = 0;
+    glGetProgramiv( m_programID, GL_LINK_STATUS, &success );
+    if ( !success )
+    {
+        char infoLog[1024];
+        glGetProgramInfoLog( m_programID, sizeof( infoLog ), nullptr, infoLog );
+        glDeleteShader( vertShader );
+        glDeleteShader( fragShader );
+        glDeleteProgram( m_programID );
+
+        char msg[1536];
+        sprintf_s( msg, sizeof( msg ), "Shader program link failed (%s + %s):\n%s  (Shader::Shader)", vertPath, fragPath, infoLog );
+        throw std::runtime_error( msg );
+    }
+
+    glDeleteShader( vertShader );
+    glDeleteShader( fragShader );
+}
+
 Shader::Shader( const char* vertPath, const char* fragPath )
 {
     GLuint vertShader = CompileShader( vertPath, GL_VERTEX_SHADER );

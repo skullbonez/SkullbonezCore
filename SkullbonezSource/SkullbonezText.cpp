@@ -133,15 +133,13 @@ void Text2d::BuildFont( const HDC hDC, const char* cFontName )
 
     // Compile the text m_shader
     Text2d::pTextShader = std::make_unique<Shader>(
-        "SkullbonezData/shaders/text.vert",
-        "SkullbonezData/shaders/text.frag" );
+        "SkullbonezData/shaders/text" );
     Text2d::pTextShader->Use();
     Text2d::pTextShader->SetInt( "uFontTexture", 0 );
 
     // Compile the solid-colour HUD quad m_shader (used by Render2dQuad)
     Text2d::pSolidShader = std::make_unique<Shader>(
-        "SkullbonezData/shaders/solid_color.vert",
-        "SkullbonezData/shaders/solid_color.frag" );
+        "SkullbonezData/shaders/solid_color" );
 
     // Cleanup GDI resources
     SelectObject( memDC, hOldFont );

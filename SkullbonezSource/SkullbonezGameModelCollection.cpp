@@ -339,8 +339,7 @@ void GameModelCollection::BuildShadowMesh()
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
 
     // Create shader
-    m_shadowShader = std::make_unique<Shader>( "SkullbonezData/shaders/shadow.vert",
-                                               "SkullbonezData/shaders/shadow.frag" );
+    m_shadowShader = std::make_unique<Shader>( "SkullbonezData/shaders/shadow" );
 }
 
 

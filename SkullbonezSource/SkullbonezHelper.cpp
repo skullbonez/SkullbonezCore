@@ -75,8 +75,7 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
     {
         BuildSphereMesh( 25, 25 );
         sphereShader = std::make_unique<Shader>(
-            "SkullbonezData/shaders/lit_textured.vert",
-            "SkullbonezData/shaders/lit_textured.frag" );
+            "SkullbonezData/shaders/lit_textured" );
         sphereShader->Use();
         sphereShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
         sphereShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );

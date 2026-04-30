@@ -271,8 +271,7 @@ void SkyBox::BuildMeshes()
 
     // Load m_shader
     m_shader = std::make_unique<Shader>(
-        "SkullbonezData/shaders/unlit_textured.vert",
-        "SkullbonezData/shaders/unlit_textured.frag" );
+        "SkullbonezData/shaders/unlit_textured" );
     m_shader->Use();
     m_shader->SetMat4( "uModel", Matrix4() );
     m_shader->SetVec4( "uColorTint", 1.0f, 1.0f, 1.0f, 1.0f );
