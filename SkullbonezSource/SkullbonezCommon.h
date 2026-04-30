@@ -25,18 +25,24 @@
 // --- Includes ---
 #define WIN32_LEAN_AND_MEAN
 
-#include <windows.h> // Windows
-#include <stdlib.h>  // Standard Library
-#include <stdio.h>   // Standard Input/Output
-#include <stdarg.h>  // Arguments
-#include <math.h>    // Standard Math Functions
-#include <assert.h>  // Assertions
-#include <stdexcept> // std::runtime_error
-#include <memory>    // std::unique_ptr
-#include <vector>    // std::vector
-#include <glad/gl.h> // GLAD OpenGL 3.3 Core Loader
+#include <windows.h>      // Windows
+#include <stdlib.h>       // Standard Library
+#include <stdio.h>        // Standard Input/Output
+#include <stdarg.h>       // Arguments
+#include <math.h>         // Standard Math Functions
+#include <assert.h>       // Assertions
+#include <stdexcept>      // std::runtime_error
+#include <memory>         // std::unique_ptr
+#include <vector>         // std::vector
+#include <d3d11.h>        // DirectX 11
+#include <dxgi.h>         // DXGI
+#include <dxgi1_2.h>      // DXGI 1.2
+#include <d3dcompiler.h>  // Shader compilation
+#include <wrl/client.h>   // Windows Runtime COM helpers
 
-#pragma comment( lib, "opengl32.lib" )
+#pragma comment( lib, "d3d11.lib" )
+#pragma comment( lib, "dxgi.lib" )
+#pragma comment( lib, "d3dcompiler.lib" )
 
 #include <crtdbg.h>
 #define CRTDBG_MAP_ALLOC

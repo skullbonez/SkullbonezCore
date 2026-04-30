@@ -96,11 +96,8 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     // Create the application window
     m_cWindow->CreateAppWindow( hInstance, Cfg().fullscreen );
 
-    // Get the device context for our window
-    m_cWindow->m_sDevice = GetDC( m_cWindow->m_sWindow );
-
-    // Init OpenGL (single context for entire lifetime)
-    m_cWindow->InitialiseOpenGL();
+    // Init DirectX 11 (single device context for entire lifetime)
+    m_cWindow->InitialiseDirectX();
 
     {
         // Create the Skullbonez Core instance (scoped so destructor runs
