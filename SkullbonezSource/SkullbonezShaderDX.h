@@ -28,9 +28,11 @@ class Shader
     ComPtr<ID3D11VertexShader> m_vertexShader;
     ComPtr<ID3D11PixelShader> m_pixelShader;
     ComPtr<ID3D11InputLayout> m_inputLayout;
+    ComPtr<ID3D11Buffer> m_constantBuffers[4];
 
     static HRESULT CompileShader( const char* hlslPath, const char* entryPoint, const char* target, ID3DBlob** blob );
     static char* LoadShaderSource( const char* path );
+    void CreateConstantBuffer( UINT size, UINT slot );
 
   public:
     Shader( const char* hlslPath );
@@ -44,6 +46,8 @@ class Shader
     void SetVec3( const char* name, float x, float y, float z ) const;
     void SetVec4( const char* name, float x, float y, float z, float w ) const;
     void SetMat4( const char* name, const Matrix4& mat ) const;
+
+    void UpdateConstantBuffer( UINT slot, const void* data, UINT size ) const;
 
     ID3D11InputLayout* GetInputLayout() const { return m_inputLayout.Get(); }
 };

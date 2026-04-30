@@ -69,6 +69,23 @@ HRESULT Shader::CompileShader( const char* hlslPath, const char* entryPoint, con
     return hr;
 }
 
+void Shader::CreateConstantBuffer( UINT size, UINT slot )
+{
+    D3D11_BUFFER_DESC bufferDesc = {};
+    bufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+    bufferDesc.ByteWidth = size;
+    bufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    bufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    bufferDesc.MiscFlags = 0;
+    bufferDesc.StructureByteStride = 0;
+
+    HRESULT hr = m_device->CreateBuffer( &bufferDesc, nullptr, m_constantBuffers[slot].GetAddressOf() );
+    if ( FAILED( hr ) )
+    {
+        throw std::runtime_error( "Failed to create constant buffer" );
+    }
+}
+
 
 Shader::Shader( const char* hlslPath )
 {
@@ -106,12 +123,46 @@ Shader::Shader( const char* hlslPath )
         throw std::runtime_error( "Failed to create pixel shader object" );
     }
 
-    // Create basic input layout (position only for now)
-    D3D11_INPUT_ELEMENT_DESC layout[] = {
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-    };
+    // Determine input layout based on shader filename
+    D3D11_INPUT_ELEMENT_DESC layout[8];
+    UINT layoutCount = 0;
 
-    hr = m_device->CreateInputLayout( layout, ARRAYSIZE( layout ), vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &m_inputLayout );
+    const char* filename = hlslPath;
+    const char* lastSlash = strrchr( hlslPath, '\\' );
+    if ( lastSlash )
+        filename = lastSlash + 1;
+    const char* lastSlash2 = strrchr( filename, '/' );
+    if ( lastSlash2 )
+        filename = lastSlash2 + 1;
+
+    // Position is always present
+    layout[layoutCount++] = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+
+    // Add input elements based on shader type
+    if ( strstr( filename, "lit_textured" ) )
+    {
+        layout[layoutCount++] = { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+        layout[layoutCount++] = { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+    }
+    else if ( strstr( filename, "text" ) )
+    {
+        layout[layoutCount++] = { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+    }
+    else if ( strstr( filename, "shadow" ) )
+    {
+        layout[layoutCount++] = { "TEXCOORD", 1, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+        layout[layoutCount++] = { "TEXCOORD", 2, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+        layout[layoutCount++] = { "TEXCOORD", 3, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+        layout[layoutCount++] = { "TEXCOORD", 4, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+        layout[layoutCount++] = { "TEXCOORD", 5, DXGI_FORMAT_R32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+    }
+    else
+    {
+        // unlit_textured, water - position and texcoord
+        layout[layoutCount++] = { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+    }
+
+    hr = m_device->CreateInputLayout( layout, layoutCount, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &m_inputLayout );
     if ( FAILED( hr ) )
     {
         throw std::runtime_error( "Failed to create input layout" );
@@ -161,4 +212,22 @@ void Shader::SetVec4( const char* name, float x, float y, float z, float w ) con
 void Shader::SetMat4( const char* name, const Matrix4& mat ) const
 {
     // Stub - use constant buffers in real implementation
+}
+
+void Shader::UpdateConstantBuffer( UINT slot, const void* data, UINT size ) const
+{
+    if ( slot >= 4 || !m_constantBuffers[slot] )
+    {
+        return;
+    }
+
+    D3D11_MAPPED_SUBRESOURCE mapped;
+    HRESULT hr = m_context->Map( m_constantBuffers[slot].Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped );
+    if ( SUCCEEDED( hr ) )
+    {
+        memcpy( mapped.pData, data, size );
+        m_context->Unmap( m_constantBuffers[slot].Get(), 0 );
+        m_context->VSSetConstantBuffers( slot, 1, m_constantBuffers[slot].GetAddressOf() );
+        m_context->PSSetConstantBuffers( slot, 1, m_constantBuffers[slot].GetAddressOf() );
+    }
 }
