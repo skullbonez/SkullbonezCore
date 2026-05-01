@@ -4,6 +4,7 @@
 #include "SkullbonezBoundingSphere.h"
 #include "SkullbonezGameModel.h"
 #include "SkullbonezProfiler.h"
+#include "SkullbonezRenderState.h"
 #include <time.h>
 #include <cstring>
 #include <psapi.h>
@@ -458,7 +459,7 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
 void SkullbonezRun::Render()
 {
     // Clear screen pixel and depth into buffers
-    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+    RenderState::ClearFramebuffer();
 
     // renders camera views etc
     SetViewingOrientation();
@@ -506,7 +507,7 @@ void SkullbonezRun::DrawPrimitives()
 
         m_cReflectionFBO->Bind();
         glViewport( 0, 0, m_cReflectionFBO->GetWidth(), m_cReflectionFBO->GetHeight() );
-        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+        RenderState::ClearFramebuffer();
 
         // Skybox reflected (XZ follows eye; Y anchored at Cfg().skyboxRenderHeight)
         {
