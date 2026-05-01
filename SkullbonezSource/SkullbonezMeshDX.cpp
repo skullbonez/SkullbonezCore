@@ -1,6 +1,7 @@
 // --- Includes ---
 #include "SkullbonezMeshDX.h"
 #include "SkullbonezWindow.h"
+#include "SkullbonezShader.h"
 
 
 // --- Usings ---
