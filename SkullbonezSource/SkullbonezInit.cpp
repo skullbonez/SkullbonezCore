@@ -96,11 +96,12 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     // Create the application window
     m_cWindow->CreateAppWindow( hInstance, Cfg().fullscreen );
 
-    // Get the device context for our window
-    m_cWindow->m_sDevice = GetDC( m_cWindow->m_sWindow );
-
-    // Init OpenGL (single context for entire lifetime)
+    // Initialize the graphics API (OpenGL or DirectX based on compile-time selection)
+#ifdef SKULLBONEZ_USE_DIRECTX11
+    m_cWindow->InitialiseDirectX();
+#else
     m_cWindow->InitialiseOpenGL();
+#endif
 
     {
         // Create the Skullbonez Core instance (scoped so destructor runs
@@ -128,6 +129,9 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     }
 
     // Cleanup rendering context AFTER cRun is destroyed
+#ifdef SKULLBONEZ_USE_DIRECTX11
+    // DirectX cleanup is handled by ComPtr destructors in SkullbonezWindow
+#else
     if ( m_cWindow->m_sRenderContext )
     {
         wglMakeCurrent( nullptr, nullptr );
@@ -140,6 +144,7 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
         ReleaseDC( m_cWindow->m_sWindow,
                    m_cWindow->m_sDevice );
     }
+#endif
 
     // Restore desktop settings
     if ( m_cWindow->m_fIsFullScreenMode )

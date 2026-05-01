@@ -1,5 +1,6 @@
 // --- Includes ---
 #include "SkullbonezHelper.h"
+#include "SkullbonezRenderState.h"
 #include <vector>
 #include <cmath>
 
@@ -75,8 +76,7 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
     {
         BuildSphereMesh( 25, 25 );
         sphereShader = std::make_unique<Shader>(
-            "SkullbonezData/shaders/lit_textured.vert",
-            "SkullbonezData/shaders/lit_textured.frag" );
+            "SkullbonezData/shaders/lit_textured" );
         sphereShader->Use();
         sphereShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
         sphereShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
@@ -86,7 +86,7 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
 
     if ( isTransparent )
     {
-        glEnable( GL_BLEND );
+        RenderState::EnableBlending();
     }
 
     float viewLightPos[4];
@@ -113,21 +113,11 @@ void SkullbonezHelper::DrawSphereBatchModel( const Matrix4& model )
 
 void SkullbonezHelper::DrawSphereBatchEnd()
 {
-    glDisable( GL_BLEND );
+    RenderState::DisableBlending();
 }
 
 
 void SkullbonezHelper::StateSetup()
 {
-    glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
-
-    glClearDepth( 1.0f ); // clear depth buffer every frame
-
-    glEnable( GL_DEPTH_TEST ); // enable depth testing
-    glDepthFunc( GL_LEQUAL );  // less than or equal depth testing
-    glEnable( GL_CULL_FACE );  // enable back face culling
-    glFrontFace( GL_CCW );     // counter-clockwise front faces
-
-    // set up alpha blending (used by water and transparent spheres)
-    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+    RenderState::SetupInitial();
 }

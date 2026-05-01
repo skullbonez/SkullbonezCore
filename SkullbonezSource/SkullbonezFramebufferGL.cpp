@@ -1,5 +1,5 @@
 // --- Includes ---
-#include "SkullbonezFramebuffer.h"
+#include "SkullbonezFramebufferGL.h"
 #include <stdexcept>
 
 
