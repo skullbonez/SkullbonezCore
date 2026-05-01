@@ -173,6 +173,8 @@
     <ClCompile Include="SkullbonezSource\SkullbonezMeshGL.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezMeshDX.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezProfiler.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderStateGL.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderStateDX.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingSphere.h" />
@@ -212,6 +214,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezShader.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezMesh.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezProfiler.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezRenderState.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="SkullbonezData\shaders\lit_textured.frag" />
