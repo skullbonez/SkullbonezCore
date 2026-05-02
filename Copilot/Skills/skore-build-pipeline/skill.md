@@ -30,6 +30,18 @@ foreach ($f in $files) {
     if ($LASTEXITCODE -ne 0) { $bad += $f.Name }
 }
 
+# Enforce LF line endings across the source tree. Any CRLF will fail the lint step.
+$crlfFiles = Get-ChildItem $REPO -Recurse -File | Where-Object { $_.Extension -in '.cpp','.c','.h','.hpp','.hlsl','.vert','.frag','.txt','.md','.vcxproj' } | Where-Object {
+    (Get-Content -Raw -Encoding UTF8 $_.FullName) -match "`r`n"
+} | Select-Object -ExpandProperty FullName
+
+if ($crlfFiles -and $crlfFiles.Count -gt 0) {
+    Write-Host "FAIL: Found CRLF line endings in $($crlfFiles.Count) files:"
+    $crlfFiles | ForEach-Object { Write-Host "  $_" }
+    Write-Host "Run 'git add --renormalize .' after adding .gitattributes to normalize line endings."
+    exit 1
+}
+
 if ($bad.Count -gt 0) {
     Write-Host "FAIL: $($bad.Count) files need formatting:"
     $bad | ForEach-Object { Write-Host "  $_" }
@@ -37,8 +49,9 @@ if ($bad.Count -gt 0) {
     exit 1
 }
 
-Write-Host "PASS: All $($files.Count) files are correctly formatted"
+Write-Host "PASS: All $($files.Count) files are correctly formatted and use LF line endings"
 ```
+
 
 If this fails, proceed to Step 1 (Format) to auto-fix, then re-run Step 0.
 
