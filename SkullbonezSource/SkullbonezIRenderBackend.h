@@ -45,6 +45,7 @@ class IRenderBackend
     virtual void Shutdown() = 0;
     virtual void Present() = 0;
     virtual void Finish() = 0;
+    virtual void Resize( int width, int height ) = 0;
 
 
     // --- Viewport & Clear ---
@@ -136,6 +137,7 @@ class IRenderBackend
 // --- Global Render Backend Accessor ---
 
 IRenderBackend& Gfx();
+bool IsGfxReady();
 void SetGfxBackend( std::unique_ptr<IRenderBackend> backend );
 void DestroyGfxBackend();
 
