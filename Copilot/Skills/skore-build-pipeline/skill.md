@@ -7,6 +7,8 @@ description: Standard development pipeline for SkullbonezCore. Build, run full t
 
 The full verify-and-commit pipeline after a code change. **Every step must pass before proceeding to the next.** Every commit MUST include updated reference images and performance test artifacts.
 
+> ⛔ **YOU MUST RUN ALL STEPS (0 through 9) BEFORE COMMITTING.** Fixing a formatting error in Step 0 or a build error in Step 2 does NOT mean you can commit — continue through the full pipeline. The only time you may stop early is if the pipeline crashes or the exe cannot be produced.
+
 The engine supports in-process scene sequencing — all tests run in a **single process launch** via `--suite`. The suite file `SkullbonezData/scenes/render_tests.suite` defines the scene order:
 
 1. `water_ball_test.scene` — render regression screenshot
@@ -20,6 +22,8 @@ Check that all source files are properly formatted. **Any formatting violations 
 Uses `--dry-run -Werror` which exits non-zero and prints warnings for any file that would be changed. Do NOT compare clang-format stdout against file contents — PowerShell's pipeline mangles the output.
 
 Line endings are enforced by `.gitattributes` at commit time — no runtime check needed.
+
+> **If a `.vcxproj`, `.sln`, or `.vcxproj.filters` file ever appears with wrong line endings** (e.g. LF instead of CRLF), the fix is: `Remove-Item <file>; git checkout -- <file>`. `git checkout --` is a no-op when the file exists and matches the index; deleting it forces git to write a fresh copy applying the `eol=` smudge filter.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
@@ -42,7 +46,7 @@ if ($bad.Count -gt 0) {
 Write-Host "PASS: All $($files.Count) files are correctly formatted"
 ```
 
-If this fails, proceed to Step 1 (Format) to auto-fix, then re-run Step 0.
+If this fails, proceed to Step 1 (Format) to auto-fix, then re-run Step 0. **After Step 0 passes, continue through the full pipeline — do NOT commit yet.**
 
 ### Step 1: Format (auto-fix)
 
