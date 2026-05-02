@@ -353,13 +353,12 @@ void SkullbonezRun::Run()
                 }
             }
 
-            // Legacy mode: advance scene after 20s (replaces restart loop)
+            // Legacy mode: restart scene after 20s (keeps app running indefinitely)
             if ( !m_isSceneMode && !m_isFlyMode && m_cSimulationTimer.GetTimeSinceLastStart() > 20.0 )
             {
-                if ( !AdvanceScene() )
-                {
-                    PostQuitMessage( 0 );
-                }
+                // Reload the same scene to restart
+                LoadScene( m_currentSceneIndex );
+                m_cSimulationTimer.StartTimer();
                 continue;
             }
 
