@@ -214,20 +214,35 @@ Runs as part of the suite (scene 3). 300 balls with physics for 10 seconds (2 pa
 
 ### Analyzing perf data
 
-After the suite completes, run the analysis scripts on the CSV:
+After the suite completes, run the analysis scripts with explicit `--renderer` and `--csv` arguments. Specify an `--out-dir` to write the JSON artifact:
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
-py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py"
-py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py"
+$archiveDir = "<path to the TestOutput archive dir for this commit>"
+
+# Analyze each renderer
+py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py" `
+    --renderer gl   --csv "$REPO\Profile\gl_perf_log.csv"   --out-dir $archiveDir
+py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py" `
+    --renderer dx11 --csv "$REPO\Profile\dx11_perf_log.csv" --out-dir $archiveDir
+
+# Compare each renderer against prior commit's matching artifact
+py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py" `
+    --current "$archiveDir\gl_perf.json" --previous "<path to prior gl_perf.json>"
+py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py" `
+    --current "$archiveDir\dx11_perf.json" --previous "<path to prior dx11_perf.json>"
 ```
+
+In the build pipeline (Step 6), archive dir creation and prior-commit lookup are handled automatically. Use the above directly only for ad-hoc analysis.
 
 ### Artifact format
 
-Written to `TestOutput/perf_history/{commit_hash}.json`:
+Written to `{archive_dir}/{renderer}_perf.json` (e.g., `gl_perf.json`, `dx11_perf.json`):
 
 ```json
 {
+  "schema_version": 2,
+  "renderer": "gl",
   "commit": "ab2729c",
   "machine": {
     "hostname": "MYPC",
@@ -245,4 +260,4 @@ Written to `TestOutput/perf_history/{commit_hash}.json`:
 }
 ```
 
-The analysis script automatically compares against the previous artifact and reports deltas.
+`perf_compare.py` validates that `current.renderer == previous.renderer` before comparing. Artifacts are stored in numbered `TestOutput/NNN_{commit}/` dirs — `perf_history/` is no longer used.

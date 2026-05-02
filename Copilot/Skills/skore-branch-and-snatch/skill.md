@@ -5,7 +5,7 @@ description: Checkout another branch, build it (fixing errors), run the full pip
 
 ## Branch-and-Snatch Skill
 
-Checks out another branch, builds it, runs the full pipeline to capture performance data, saves the perf artifacts to Copilot session state, then returns to main and runs a comparison against baseline-001. The branch gets compilation fixes committed but all pipeline output is discarded.
+Checks out another branch, builds it, runs the perf suite (both GL and DX11), saves the perf JSON artifacts to Copilot session state, then returns to main and compares the snatched JSONs against the most recent matching archive on main. The branch gets compilation fixes committed but all pipeline output is discarded.
 
 ### Prerequisites
 
@@ -60,41 +60,60 @@ Run the `skore-render-test` skill steps 1–3. Note pass/fail but continue regar
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
-Remove-Item "$REPO\Profile\perf_log.csv" -ErrorAction SilentlyContinue
+$SESSION_DIR = "<Copilot session files/ directory>"  # Agent: use your session state files/ path
 
+# Clean old CSVs
+Remove-Item "$REPO\Profile\gl_perf_log.csv"   -ErrorAction SilentlyContinue
+Remove-Item "$REPO\Profile\dx11_perf_log.csv" -ErrorAction SilentlyContinue
+
+# GL pass
 $proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
-    -ArgumentList "--scene SkullbonezData/scenes/perf_test.scene" `
+    -ArgumentList "--suite SkullbonezData/scenes/render_tests.suite" `
     -WorkingDirectory $REPO -PassThru
 $proc.WaitForExit(30000) | Out-Null
-
 if (Test-Path "$REPO\Profile\perf_log.csv") {
-    Write-Host "PASS: perf_log.csv generated"
-    py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py"
+    Move-Item "$REPO\Profile\perf_log.csv" "$REPO\Profile\gl_perf_log.csv"
+    Write-Host "PASS: gl_perf_log.csv generated"
 } else {
-    Write-Host "FAIL: No perf_log.csv — cannot snatch perf data"
-    # ABORT: Cannot continue without perf data
+    Write-Host "FAIL: No gl_perf_log.csv — cannot snatch perf data"
+    # ABORT
 }
+
+# DX11 pass
+$proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
+    -ArgumentList "--renderer dx11 --suite SkullbonezData/scenes/render_tests.suite" `
+    -WorkingDirectory $REPO -PassThru
+$proc.WaitForExit(30000) | Out-Null
+if (Test-Path "$REPO\Profile\perf_log.csv") {
+    Move-Item "$REPO\Profile\perf_log.csv" "$REPO\Profile\dx11_perf_log.csv"
+    Write-Host "PASS: dx11_perf_log.csv generated"
+} else {
+    Write-Host "FAIL: No dx11_perf_log.csv — cannot snatch perf data"
+    # ABORT
+}
+
+# Analyze both renderers into a temp dir
+$snatched = "$SESSION_DIR\snatched"
+New-Item -ItemType Directory -Force -Path $snatched | Out-Null
+py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py" `
+    --renderer gl   --csv "$REPO\Profile\gl_perf_log.csv"   --out-dir $snatched
+py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py" `
+    --renderer dx11 --csv "$REPO\Profile\dx11_perf_log.csv" --out-dir $snatched
 ```
 
 #### 4c. Save perf artifacts to Copilot session state
 
-Copy both the raw CSV and the JSON artifact to the session `files/` directory. These survive branch switches and git operations.
+The JSONs are already written to `$SESSION_DIR\snatched\` in step 4b. Save the branch name too.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
 $SESSION_DIR = "<Copilot session files/ directory>"  # Agent: use your session state files/ path
 
-# Save the raw CSV
-Copy-Item "$REPO\Profile\perf_log.csv" "$SESSION_DIR\snatched_perf_log.csv"
-
-# Save the JSON artifact (find the most recent one)
-$json = Get-ChildItem "$REPO\TestOutput\perf_history\*.json" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-if ($json) { Copy-Item $json.FullName "$SESSION_DIR\snatched_perf.json" }
-
 # Note which branch was snatched
 $branch = git branch --show-current
 Set-Content "$SESSION_DIR\snatched_branch.txt" $branch
 Write-Host "Saved perf data from branch: $branch"
+Write-Host "  gl_perf.json and dx11_perf.json are in $SESSION_DIR\snatched\"
 ```
 
 ### Step 5: Smoke test (optional, note result)
@@ -133,24 +152,40 @@ git checkout main
 
 ### Step 8: Compare snatched perf data against main baseline
 
-Copy the snatched CSV from session state back to `Profile/perf_log.csv`, then run `perf_compare.py` which compares it against `TestOutput/baseline-001/perf.json`.
+For each renderer, find the most recent `TestOutput/NNN_{commit}/` archive on main that contains the matching `{renderer}_perf.json`, then compare with `perf_compare.py`.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
 $SESSION_DIR = "<Copilot session files/ directory>"  # Agent: use your session state files/ path
 
-# Restore the snatched CSV so perf_compare.py can read it
-Copy-Item "$SESSION_DIR\snatched_perf_log.csv" "$REPO\Profile\perf_log.csv" -Force
-
-# Read branch name for display
 $branch = Get-Content "$SESSION_DIR\snatched_branch.txt"
-Write-Host "Comparing snatched perf from branch: $branch  vs  baseline-001"
 
-# Run comparison
-py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py"
+foreach ($renderer in @("gl", "dx11")) {
+    $snatched = "$SESSION_DIR\snatched\${renderer}_perf.json"
+    if (-not (Test-Path $snatched)) {
+        Write-Host "${renderer}: snatched JSON not found — skipping"
+        continue
+    }
+
+    # Find latest archive on main with this renderer's artifact
+    $prevJson = Get-ChildItem "$REPO\TestOutput" -Directory |
+        Where-Object { $_.Name -match '^\d+_' } |
+        Sort-Object { [int]($_.Name -split '_',2)[0] } -Descending |
+        ForEach-Object { "$($_.FullName)\${renderer}_perf.json" } |
+        Where-Object { Test-Path $_ } |
+        Select-Object -First 1
+
+    if ($prevJson) {
+        Write-Host "`n=== $($renderer.ToUpper()) — branch '$branch' vs main ==="
+        py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py" `
+            --current $snatched --previous $prevJson
+    } else {
+        Write-Host "${renderer}: No main archive with ${renderer}_perf.json — skipping compare"
+    }
+}
 ```
 
-The comparison table will show baseline-001 as "bas" and the snatched branch as "cur". Report the results to the user.
+The comparison table shows the branch-under-test as "current" and the most recent main commit as "previous". Report the results to the user.
 
 ### Summary output
 

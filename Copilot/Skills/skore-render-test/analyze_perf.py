@@ -1,13 +1,17 @@
 """
 Perf test analysis script for SkullbonezCore.
-Reads the perf_log.csv written by the engine, computes statistics for every
-profiler marker column, and writes a JSON artifact to perf_history/{commit}.json.
-Optionally compares against the previous artifact.
+
+Usage:
+    py analyze_perf.py --renderer <gl|dx11> --csv <path> --out-dir <dir>
+
+Reads a perf_log.csv, computes statistics for every profiler marker column,
+and writes {renderer}_perf.json into the specified output directory.
 
 Paths are derived from this script's location — no hardcoded drive letters.
   analyze_perf.py  lives in  Copilot/Skills/skore-render-test/
   three levels up  gives the repo root.
 """
+import argparse
 import json
 import os
 import subprocess
@@ -16,8 +20,6 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent          # …/Copilot/Skills/skore-render-test
 REPO_ROOT  = SCRIPT_DIR.parent.parent.parent          # repo root
-CSV_PATH   = REPO_ROOT / "Profile" / "perf_log.csv"
-HIST_DIR   = REPO_ROOT / "TestOutput" / "perf_history"
 
 
 def _wmic(resource, field):
@@ -121,15 +123,6 @@ def get_commit_hash():
     return result.stdout.strip()
 
 
-def find_previous_artifact(hist_dir, current_hash):
-    """Find the most recent artifact that isn't the current commit."""
-    artifacts = sorted(hist_dir.glob("*.json"), key=lambda p: p.stat().st_mtime)
-    for a in reversed(artifacts):
-        if a.stem != current_hash:
-            return a
-    return None
-
-
 NOISE_TOLERANCE = 5.0  # ±5% is within noise — shown in blue
 
 
@@ -166,92 +159,33 @@ def _color_mem(delta_mb, threshold=5.0):
     return f"{RED}{s}{RESET}" if delta_mb > threshold else f"{GREEN}{s}{RESET}"
 
 
-def compare_stats(current, previous):
-    """Compare current vs previous, print color table, return list of failures."""
-    prev = json.loads(previous.read_text())
-
-    # Skip regression check if machines differ — results are not comparable.
-    prev_machine = prev.get("machine", {})
-    cur_machine  = current.get("machine", {})
-    prev_cpu = prev_machine.get("cpu") or prev.get("cpu", "")
-    cur_cpu  = cur_machine.get("cpu")  or current.get("cpu", "")
-
-    if not prev_cpu:
-        print(f"\n  WARNING: Previous artifact has no machine info — skipping regression check.")
-        print(f"  To reset the baseline delete old artifacts from perf_history/ and re-run.")
-        return []
-
-    if prev_cpu != cur_cpu:
-        print(f"\n  WARNING: Machine mismatch — perf comparison is not valid across machines.")
-        print(f"    Previous : {prev_cpu}")
-        print(f"    Current  : {cur_cpu}")
-        print(f"  Skipping regression check.")
-        print(f"  To reset the baseline delete old artifacts from perf_history/ and re-run.")
-        return []
-
-    MEM_THRESHOLD_MB = 5.0
-    failures = []
-
-    prev_markers = prev.get("markers", {})
-    cur_markers  = current.get("markers", {})
-    shared = [m for m in cur_markers if m in prev_markers]
-
-    BOLD  = "\033[1m"
-    RESET = "\033[0m"
-    # Each colored value cell: visible text ~6 chars + 9 chars ANSI = pad to 15+9=24
-    CELL = 24
-
-    print(f"\n--- Perf vs {prev['commit']} ---\n")
-    print(f"  {BOLD}{'Marker':<38}{'avg':>15}{'p50':>15}{'p99':>15}{'p99.9':>15}{RESET}")
-    print("  " + "-" * 82)
-
-    for marker in shared:
-        pm = prev_markers[marker]
-        cm = cur_markers[marker]
-        cells = []
-        for stat, threshold in [("avg", 10), ("p50", 10), ("p99", 20), ("p99_9", 20)]:
-            pv, cv = pm[stat], cm[stat]
-            if pv > 0:
-                pct = (cv - pv) / pv * 100
-                cells.append(_color_pct(pct, threshold))
-                if pct > threshold:
-                    failures.append(f"{marker}.{stat}: +{pct:.1f}% (threshold: {threshold}%)")
-            else:
-                cells.append("  N/A")
-        row = f"  {marker:<38}"
-        for cell in cells:
-            row += f"{cell:>{CELL}}"
-        print(row)
-
-    # Memory row
-    print("  " + "-" * 82)
-    mem_labels = ["start", "restart", "end"]
-    mem_cells = []
-    for key in ["mem_start_mb", "mem_restart_mb", "mem_end_mb"]:
-        delta = current[key] - prev[key]
-        mem_cells.append(_color_mem(delta, MEM_THRESHOLD_MB))
-        if delta > MEM_THRESHOLD_MB:
-            failures.append(f"{key}: +{delta:.2f} MB (threshold: {MEM_THRESHOLD_MB} MB)")
-    row = f"  {'Memory (start / restart / end)':<38}"
-    for cell in mem_cells:
-        row += f"{cell:>{CELL}}"
-    print(row)
-
-    return failures
-
-
 def main():
-    if not CSV_PATH.exists():
-        print(f"ERROR: {CSV_PATH} not found")
+    parser = argparse.ArgumentParser(description="Analyze SkullbonezCore perf CSV and write JSON artifact.")
+    parser.add_argument("--renderer", required=True, choices=["gl", "dx11"],
+                        help="Renderer that produced this CSV (gl or dx11)")
+    parser.add_argument("--csv", required=True, type=Path,
+                        help="Path to perf_log.csv")
+    parser.add_argument("--out-dir", required=True, type=Path,
+                        help="Directory to write {renderer}_perf.json into")
+    args = parser.parse_args()
+
+    csv_path = args.csv
+    if not csv_path.exists():
+        print(f"ERROR: CSV not found: {csv_path}")
         sys.exit(1)
 
-    marker_names, frames, mem = parse_csv(str(CSV_PATH))
+    marker_names, frames, mem = parse_csv(str(csv_path))
+    if not frames:
+        print(f"ERROR: No frame rows found in {csv_path}")
+        sys.exit(1)
+
     commit  = get_commit_hash()
     machine = get_machine_info()
 
-    print(f"Commit  : {commit}")
-    print(f"Machine : {machine['cpu']}  {machine['cores']} cores  {machine['ram_gb']} GB RAM")
-    print(f"Frames  : {len(frames)}  |  Markers: {len(marker_names)}")
+    print(f"Commit   : {commit}")
+    print(f"Renderer : {args.renderer.upper()}")
+    print(f"Machine  : {machine['cpu']}  {machine['cores']} cores  {machine['ram_gb']} GB RAM")
+    print(f"Frames   : {len(frames)}  |  Markers: {len(marker_names)}")
 
     # Compute stats for every marker column
     marker_stats = {}
@@ -261,7 +195,7 @@ def main():
 
     # Print summary for top-level markers
     for name in marker_names:
-        if "/" not in name:  # top-level only for summary
+        if "/" not in name:
             s = marker_stats[name]
             print(f"{name:20s}: avg={s['avg']:.4f}  p50={s['p50']:.4f}  p99={s['p99']:.4f}  p99.9={s['p99_9']:.4f}")
 
@@ -269,10 +203,12 @@ def main():
     mem_start   = next((m["working_set_mb"] for m in mem if m["checkpoint"] == "start"   and m["pass"] == 1), 0)
     mem_restart = next((m["working_set_mb"] for m in mem if m["checkpoint"] == "start"   and m["pass"] == 2), 0)
     mem_end     = next((m["working_set_mb"] for m in mem if m["checkpoint"] == "end"     and m["pass"] == 2), 0)
-    print(f"Memory  (MB): start={mem_start:.2f}  restart={mem_restart:.2f}  end={mem_end:.2f}")
+    print(f"Memory   (MB): start={mem_start:.2f}  restart={mem_restart:.2f}  end={mem_end:.2f}")
 
     result = {
+        "schema_version": 2,
         "commit":         commit,
+        "renderer":       args.renderer,
         "machine":        machine,
         "total_frames":   len(frames),
         "markers":        marker_stats,
@@ -282,25 +218,10 @@ def main():
     }
 
     # Write artifact
-    HIST_DIR.mkdir(parents=True, exist_ok=True)
-    artifact_path = HIST_DIR / f"{commit}.json"
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    artifact_path = args.out_dir / f"{args.renderer}_perf.json"
     artifact_path.write_text(json.dumps(result, indent=2))
     print(f"\nArtifact written: {artifact_path}")
-
-    # Compare against previous
-    prev = find_previous_artifact(HIST_DIR, commit)
-    if prev:
-        failures = compare_stats(result, prev)
-        if failures:
-            print(f"\n** PERF TEST FAILED — {len(failures)} regression(s) **")
-            for f in failures:
-                print(f"  - {f}")
-            return 1
-        else:
-            print("\nPERF TEST PASSED — no regressions")
-    else:
-        print("\nNo previous artifact to compare against. PASS (baseline).")
-
     return 0
 
 
