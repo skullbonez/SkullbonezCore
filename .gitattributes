@@ -1,9 +1,6 @@
 # Normalize all text files to LF in the repo
 * text=auto eol=lf
 
-# Third-party source — never touch line endings
-ThirdPtySource/**  -text
-
 # Explicitly mark source files
 *.cpp   text eol=lf
 *.h     text eol=lf
@@ -32,3 +29,8 @@ ThirdPtySource/**  -text
 *.dll   binary
 *.obj   binary
 *.pdb   binary
+
+# Third-party source — never touch line endings
+# Must be last: gitattributes uses last-matching-pattern-wins, so this overrides
+# the *.cpp / *.h / *.txt rules above for everything under ThirdPtySource/.
+ThirdPtySource/**  -text
