@@ -2,6 +2,7 @@
 #include "SkullbonezGameModelCollection.h"
 #include "SkullbonezProfiler.h"
 #include "SkullbonezHelper.h"
+#include "SkullbonezIRenderBackend.h"
 #include <cmath>
 
 
@@ -60,7 +61,7 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
         return;
     }
 
-    if ( !m_shadowVAO )
+    if ( !m_shadowInstMesh )
     {
         BuildShadowMesh();
     }
@@ -123,28 +124,22 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
     }
 
     // Upload instance data
-    glBindBuffer( GL_ARRAY_BUFFER, m_shadowInstanceVBO );
-    glBufferSubData( GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>( m_shadowInstanceData.size() ) * static_cast<GLsizeiptr>( sizeof( float ) ), m_shadowInstanceData.data() );
-    glBindBuffer( GL_ARRAY_BUFFER, 0 );
+    Gfx().UploadInstanceData( m_shadowInstMesh, m_shadowInstanceData.data(), static_cast<int>( m_shadowInstanceData.size() ) );
 
     // Render all shadows in one instanced draw call
-    glEnable( GL_BLEND );
-    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-    glEnable( GL_POLYGON_OFFSET_FILL );
-    glPolygonOffset( -1.0f, -1.0f );
-    glDisable( GL_CULL_FACE );
+    Gfx().SetBlend( true );
+    Gfx().SetPolygonOffset( true, -1.0f, -1.0f );
+    Gfx().SetCullFace( false );
 
     m_shadowShader->Use();
     m_shadowShader->SetMat4( "uView", view );
     m_shadowShader->SetMat4( "uProjection", proj );
 
-    glBindVertexArray( m_shadowVAO );
-    glDrawArraysInstanced( GL_TRIANGLES, 0, m_shadowDiscVertexCount, instanceCount );
-    glBindVertexArray( 0 );
+    Gfx().DrawInstancedMesh( m_shadowInstMesh, m_shadowDiscVertexCount, instanceCount );
 
-    glDisable( GL_POLYGON_OFFSET_FILL );
-    glEnable( GL_CULL_FACE );
-    glDisable( GL_BLEND );
+    Gfx().SetPolygonOffset( false );
+    Gfx().SetCullFace( true );
+    Gfx().SetBlend( false );
 }
 
 
@@ -294,73 +289,23 @@ void GameModelCollection::BuildShadowMesh()
 
     m_shadowDiscVertexCount = Cfg().shadowSegments * 3;
 
-    // Create VAO
-    glGenVertexArrays( 1, &m_shadowVAO );
-    glBindVertexArray( m_shadowVAO );
-
-    // Disc geometry VBO (static)
-    glGenBuffers( 1, &m_shadowDiscVBO );
-    glBindBuffer( GL_ARRAY_BUFFER, m_shadowDiscVBO );
-    glBufferData( GL_ARRAY_BUFFER,
-                  static_cast<GLsizeiptr>( verts.size() ) * static_cast<GLsizeiptr>( sizeof( float ) ),
-                  verts.data(),
-                  GL_STATIC_DRAW );
-
-    // location 0 = aPosition (vec3), per-vertex
-    glEnableVertexAttribArray( 0 );
-    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 3 * static_cast<int>( sizeof( float ) ), nullptr );
-
-    // Instance data VBO (dynamic, updated each frame)
-    glGenBuffers( 1, &m_shadowInstanceVBO );
-    glBindBuffer( GL_ARRAY_BUFFER, m_shadowInstanceVBO );
-    glBufferData( GL_ARRAY_BUFFER,
-                  static_cast<GLsizeiptr>( MAX_GAME_MODELS ) * SHADOW_INSTANCE_FLOATS * static_cast<GLsizeiptr>( sizeof( float ) ),
-                  nullptr,
-                  GL_DYNAMIC_DRAW );
-
-    int stride = SHADOW_INSTANCE_FLOATS * static_cast<int>( sizeof( float ) );
-
-    // locations 3-6 = aModel (mat4), per-instance
-    for ( int i = 0; i < 4; ++i )
-    {
-        GLuint loc = 3 + static_cast<GLuint>( i );
-        glEnableVertexAttribArray( loc );
-        glVertexAttribPointer( loc, 4, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( static_cast<intptr_t>( i * 4 * static_cast<int>( sizeof( float ) ) ) ) );
-        glVertexAttribDivisor( loc, 1 );
-    }
-
-    // location 7 = aAlpha (float), per-instance
-    glEnableVertexAttribArray( 7 );
-    glVertexAttribPointer( 7, 1, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( static_cast<intptr_t>( 16 * static_cast<int>( sizeof( float ) ) ) ) );
-    glVertexAttribDivisor( 7, 1 );
-
-    // Unbind
-    glBindVertexArray( 0 );
-    glBindBuffer( GL_ARRAY_BUFFER, 0 );
+    // Instance layout: 5 attributes (4×vec4 for mat4 + 1×float for alpha), starting at location 3
+    int instanceAttribSizes[] = { 4, 4, 4, 4, 1 };
+    m_shadowInstMesh = Gfx().CreateInstancedMesh( verts.data(), m_shadowDiscVertexCount, 3, MAX_GAME_MODELS, SHADOW_INSTANCE_FLOATS, 3, instanceAttribSizes, 5 );
 
     // Create shader
-    m_shadowShader = std::make_unique<Shader>( "SkullbonezData/shaders/shadow.vert",
-                                               "SkullbonezData/shaders/shadow.frag" );
+    m_shadowShader = Gfx().CreateShader( "SkullbonezData/shaders/shadow.vert",
+                                         "SkullbonezData/shaders/shadow.frag" );
 }
 
 
 void GameModelCollection::ResetGLResources()
 {
     m_shadowShader.reset();
-    if ( m_shadowInstanceVBO )
+    if ( m_shadowInstMesh )
     {
-        glDeleteBuffers( 1, &m_shadowInstanceVBO );
-        m_shadowInstanceVBO = 0;
-    }
-    if ( m_shadowDiscVBO )
-    {
-        glDeleteBuffers( 1, &m_shadowDiscVBO );
-        m_shadowDiscVBO = 0;
-    }
-    if ( m_shadowVAO )
-    {
-        glDeleteVertexArrays( 1, &m_shadowVAO );
-        m_shadowVAO = 0;
+        Gfx().DestroyInstancedMesh( m_shadowInstMesh );
+        m_shadowInstMesh = 0;
     }
     m_shadowDiscVertexCount = 0;
 }

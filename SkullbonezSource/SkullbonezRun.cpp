@@ -4,6 +4,7 @@
 #include "SkullbonezBoundingSphere.h"
 #include "SkullbonezGameModel.h"
 #include "SkullbonezProfiler.h"
+#include "SkullbonezIRenderBackend.h"
 #include <time.h>
 #include <cstring>
 #include <psapi.h>
@@ -29,6 +30,9 @@ SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
     m_screenshotFrame = -1;
     m_screenshotMs = -1;
     m_screenshotPath[0] = '\0';
+    m_screenshotInterval = -1;
+    m_intervalCaptureCount = 0;
+    m_screenshotDir[0] = '\0';
     m_perfLogPath[0] = '\0';
     m_perfLogFile = nullptr;
 
@@ -69,7 +73,7 @@ SkullbonezRun::~SkullbonezRun()
     m_cGameModelCollection.ResetGLResources();
     if ( m_cReflectionFBO )
     {
-        m_cReflectionFBO->ResetGLResources();
+        m_cReflectionFBO->ResetResources();
     }
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     Profiler::Instance().InvalidateGpuQueries();
@@ -112,11 +116,10 @@ void SkullbonezRun::Initialise()
         m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
     }
 
-    // Init reflection FBO at the current viewport size so it matches the main render
-    // regardless of windowed vs fullscreen resolution
-    GLint vp[4];
-    glGetIntegerv( GL_VIEWPORT, vp );
-    m_cReflectionFBO = std::make_unique<Framebuffer>( vp[2] * 2, vp[3] * 2 );
+    // Init reflection FBO at the current viewport size
+    int fboW = Gfx().GetWidth() * 2;
+    int fboH = Gfx().GetHeight() * 2;
+    m_cReflectionFBO = Gfx().CreateFramebuffer( fboW, fboH );
 
     // Init font (HDC, font)
     Text2d::BuildFont( m_cWindow->m_sDevice, "Verdana" );
@@ -216,7 +219,7 @@ void SkullbonezRun::Run()
 
             // Drain GPU pipeline before render
             PROFILE_BEGIN( "Frame/PipelineSync" );
-            glFinish();
+            Gfx().Finish();
             PROFILE_END( "Frame/PipelineSync" );
 
             // Render
@@ -264,9 +267,21 @@ void SkullbonezRun::Run()
                 }
             }
 
+            // Interval capture: save numbered screenshots at regular frame intervals
+            if ( m_isSceneMode && m_screenshotInterval > 0 && m_screenshotDir[0] != '\0' )
+            {
+                if ( ( m_currentFrame + 1 ) % m_screenshotInterval == 0 )
+                {
+                    ++m_intervalCaptureCount;
+                    char intervalPath[512];
+                    sprintf_s( intervalPath, sizeof( intervalPath ), "%s/capture_%04d.bmp", m_screenshotDir, m_intervalCaptureCount );
+                    SaveScreenshot( intervalPath );
+                }
+            }
+
             // Swap back buffer
             PROFILE_BEGIN( "Frame/VsyncWait" );
-            SwapBuffers( m_cWindow->m_sDevice );
+            Gfx().Present();
             PROFILE_END( "Frame/VsyncWait" );
 
             m_cFrameTimer.StopTimer();
@@ -458,7 +473,7 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
 void SkullbonezRun::Render()
 {
     // Clear screen pixel and depth into buffers
-    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+    Gfx().Clear( true, true );
 
     // renders camera views etc
     SetViewingOrientation();
@@ -505,8 +520,8 @@ void SkullbonezRun::DrawPrimitives()
         reflVP = proj * reflView;
 
         m_cReflectionFBO->Bind();
-        glViewport( 0, 0, m_cReflectionFBO->GetWidth(), m_cReflectionFBO->GetHeight() );
-        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+        Gfx().SetViewport( 0, 0, m_cReflectionFBO->GetWidth(), m_cReflectionFBO->GetHeight() );
+        Gfx().Clear( true, true );
 
         // Skybox reflected (XZ follows eye; Y anchored at Cfg().skyboxRenderHeight)
         {
@@ -517,16 +532,16 @@ void SkullbonezRun::DrawPrimitives()
 
         // Game models reflected — clip at water surface (above-water portion only)
         PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
-        glEnable( GL_CLIP_DISTANCE0 );
+        Gfx().SetClipPlane( 0, true );
         SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -waterY );
         m_cTextures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
         m_cGameModelCollection.RenderModels( reflView, proj, lightPosition );
-        glDisable( GL_CLIP_DISTANCE0 );
+        Gfx().SetClipPlane( 0, false );
         SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
 
         m_cReflectionFBO->Unbind();
-        glViewport( 0, 0, m_cWindow->m_sWindowDimensions.x, m_cWindow->m_sWindowDimensions.y );
+        Gfx().SetViewport( 0, 0, m_cWindow->m_sWindowDimensions.x, m_cWindow->m_sWindowDimensions.y );
     }
 
     // render game models -----------------------------
@@ -543,9 +558,13 @@ void SkullbonezRun::DrawPrimitives()
     }
 
     // render ground shadows on top of m_terrain
-    PROFILE_GPU_BEGIN( "Frame/Render/Shadows" );
-    m_cGameModelCollection.RenderShadows( m_cTerrain.get(), baseView, proj );
-    PROFILE_GPU_END( "Frame/Render/Shadows" );
+    // TEMP: skip shadows on DX11 to diagnose stripe artifact
+    if ( !Gfx().UsesZeroToOneDepth() )
+    {
+        PROFILE_GPU_BEGIN( "Frame/Render/Shadows" );
+        m_cGameModelCollection.RenderShadows( m_cTerrain.get(), baseView, proj );
+        PROFILE_GPU_END( "Frame/Render/Shadows" );
+    }
 
     // render the fluid ---------------------------
     {
@@ -553,7 +572,7 @@ void SkullbonezRun::DrawPrimitives()
         float waterTime = m_isWaterFreezeDebug
                               ? m_frozenWaterTime
                               : static_cast<float>( m_cSimulationTimer.GetTimeSinceLastStart() );
-        m_cWorldEnvironment.RenderFluid( baseView, proj, reflVP, waterTime, m_cReflectionFBO->GetColorTexture(), m_isWaterFlatDebug, m_isWaterNoReflect );
+        m_cWorldEnvironment.RenderFluid( baseView, proj, reflVP, waterTime, m_cReflectionFBO->GetColorTextureHandle(), m_isWaterFlatDebug, m_isWaterNoReflect );
     }
 }
 
@@ -591,7 +610,6 @@ void SkullbonezRun::SetUpCameras()
 void SkullbonezRun::SetInitialOpenGlState()
 {
     SkullbonezHelper::ResetGLResources();
-    SkullbonezHelper::StateSetup();
 
     // load m_textures
     const SkullbonezConfig& cfg = Cfg();
@@ -859,6 +877,9 @@ void SkullbonezRun::LoadScene( int index )
     m_screenshotFrame = -1;
     m_screenshotMs = -1;
     m_screenshotPath[0] = '\0';
+    m_screenshotInterval = -1;
+    m_intervalCaptureCount = 0;
+    m_screenshotDir[0] = '\0';
     m_perfLogPath[0] = '\0';
 
     // Reset cameras and game models
@@ -908,6 +929,14 @@ void SkullbonezRun::LoadScene( int index )
         if ( scene.GetScreenshotPath()[0] != '\0' )
         {
             strcpy_s( m_screenshotPath, sizeof( m_screenshotPath ), scene.GetScreenshotPath() );
+        }
+
+        // Interval capture: create output directory
+        m_screenshotInterval = scene.GetScreenshotInterval();
+        if ( scene.GetScreenshotDir()[0] != '\0' )
+        {
+            strcpy_s( m_screenshotDir, sizeof( m_screenshotDir ), scene.GetScreenshotDir() );
+            CreateDirectoryA( m_screenshotDir, nullptr );
         }
 
         // Perf test: open CSV log file
@@ -979,23 +1008,14 @@ bool SkullbonezRun::AdvanceScene()
 
 void SkullbonezRun::SaveScreenshot( const char* path )
 {
-    // Read viewport dimensions
-    GLint viewport[4];
-    glGetIntegerv( GL_VIEWPORT, viewport );
-    int m_width = viewport[2];
-    int m_height = viewport[3];
+    // Capture backbuffer via render backend (returns BGR, bottom-up, 4-byte aligned rows)
+    int m_width = 0;
+    int m_height = 0;
+    std::vector<uint8_t> pixels = Gfx().CaptureBackbuffer( m_width, m_height );
 
     // Row stride padded to 4-byte boundary (BMP requirement)
     int rowStride = ( m_width * 3 + 3 ) & ~3;
     int imageSize = rowStride * m_height;
-
-    // Allocate pixel buffer
-    std::vector<unsigned char> pixels( static_cast<size_t>( imageSize ) );
-
-    // Read the back buffer (bottom-up, BGR — native BMP layout)
-    glPixelStorei( GL_PACK_ALIGNMENT, 4 );
-    glReadBuffer( GL_BACK );
-    glReadPixels( 0, 0, m_width, m_height, GL_BGR, GL_UNSIGNED_BYTE, pixels.data() );
 
     // BMP file header (14 bytes)
     unsigned char fileHeader[14] = {};

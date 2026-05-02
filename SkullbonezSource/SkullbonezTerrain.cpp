@@ -1,5 +1,6 @@
 // --- Includes ---
 #include "SkullbonezTerrain.h"
+#include "SkullbonezIRenderBackend.h"
 
 
 // --- Usings ---
@@ -27,7 +28,7 @@ Terrain::Terrain( const char* sFileName,
     BuildMesh();
 
     // Load the m_shader
-    m_terrainShader = std::make_unique<Shader>(
+    m_terrainShader = Gfx().CreateShader(
         "SkullbonezData/shaders/lit_textured.vert",
         "SkullbonezData/shaders/lit_textured.frag" );
 
@@ -662,10 +663,10 @@ void Terrain::BuildMesh()
         }
     }
 
-    m_terrainMesh = std::make_unique<Mesh>(
+    m_terrainMesh = Gfx().CreateMesh(
         vertexData.data(),
         totalVerts,
         true, // hasNormals
-        true, // hasTexCoords
-        GL_TRIANGLES );
+        true  // hasTexCoords
+    );
 }

@@ -1,5 +1,6 @@
 // --- Includes ---
 #include "SkullbonezText.h"
+#include "SkullbonezIRenderBackend.h"
 
 
 // --- Usings ---
@@ -108,38 +109,22 @@ void Text2d::BuildFont( const HDC hDC, const char* cFontName )
         atlasData[i] = static_cast<unsigned char>( pPixels[i] & 0xFF );
     }
 
-    // Upload atlas to a GL R8 texture
-    glGenTextures( 1, &Text2d::fontTexture );
-    glBindTexture( GL_TEXTURE_2D, Text2d::fontTexture );
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_R8, FONT_ATLAS_W, FONT_ATLAS_H, 0, GL_RED, GL_UNSIGNED_BYTE, atlasData.get() );
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
-    glBindTexture( GL_TEXTURE_2D, 0 );
+    // Upload atlas to a backend texture (single red channel)
+    Text2d::fontTexture = Gfx().CreateTexture2D( atlasData.get(), FONT_ATLAS_W, FONT_ATLAS_H, 1, false, false );
 
-    // Create VAO and dynamic VBO for text quad batches
-    glGenVertexArrays( 1, &Text2d::textVAO );
-    glGenBuffers( 1, &Text2d::textVBO );
-    glBindVertexArray( Text2d::textVAO );
-    glBindBuffer( GL_ARRAY_BUFFER, Text2d::textVBO );
-
-    // Layout: [x, y, u, v] per vertex, 4 floats stride
-    glVertexAttribPointer( 0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof( float ), reinterpret_cast<void*>( 0 ) );
-    glEnableVertexAttribArray( 0 );
-    glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof( float ), reinterpret_cast<void*>( 2 * sizeof( float ) ) );
-    glEnableVertexAttribArray( 1 );
-
-    glBindVertexArray( 0 );
-    glBindBuffer( GL_ARRAY_BUFFER, 0 );
+    // Create dynamic vertex buffer for text quad batches: [x, y, u, v] per vertex
+    int textAttribs[] = { 2, 2 };
+    Text2d::dynamicVB = Gfx().CreateDynamicVB( textAttribs, 2, 512 * 6 );
 
     // Compile the text m_shader
-    Text2d::pTextShader = std::make_unique<Shader>(
+    Text2d::pTextShader = Gfx().CreateShader(
         "SkullbonezData/shaders/text.vert",
         "SkullbonezData/shaders/text.frag" );
     Text2d::pTextShader->Use();
     Text2d::pTextShader->SetInt( "uFontTexture", 0 );
 
     // Compile the solid-colour HUD quad m_shader (used by Render2dQuad)
-    Text2d::pSolidShader = std::make_unique<Shader>(
+    Text2d::pSolidShader = Gfx().CreateShader(
         "SkullbonezData/shaders/solid_color.vert",
         "SkullbonezData/shaders/solid_color.frag" );
 
@@ -156,18 +141,13 @@ void Text2d::DeleteFont()
 {
     if ( Text2d::fontTexture )
     {
-        glDeleteTextures( 1, &Text2d::fontTexture );
+        Gfx().DeleteTexture( Text2d::fontTexture );
         Text2d::fontTexture = 0;
     }
-    if ( Text2d::textVBO )
+    if ( Text2d::dynamicVB )
     {
-        glDeleteBuffers( 1, &Text2d::textVBO );
-        Text2d::textVBO = 0;
-    }
-    if ( Text2d::textVAO )
-    {
-        glDeleteVertexArrays( 1, &Text2d::textVAO );
-        Text2d::textVAO = 0;
+        Gfx().DestroyDynamicVB( Text2d::dynamicVB );
+        Text2d::dynamicVB = 0;
     }
     Text2d::pTextShader.reset();
     Text2d::pSolidShader.reset();
@@ -264,49 +244,27 @@ static void RenderTextInternal( float xPosition, float yPosition, float fSize, f
         return;
     }
 
-    // Save relevant GL state
-    GLboolean depthEnabled = glIsEnabled( GL_DEPTH_TEST );
-    GLboolean blendEnabled = glIsEnabled( GL_BLEND );
+    // Save relevant state
+    bool depthWasEnabled = Gfx().IsDepthTestEnabled();
+    bool blendWasEnabled = Gfx().IsBlendEnabled();
 
-    glDisable( GL_DEPTH_TEST );
-    glEnable( GL_BLEND );
-    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+    Gfx().SetDepthTest( false );
+    Gfx().SetBlend( true );
+    Gfx().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
 
     // Set up shader and uniforms
     Text2d::pTextShader->Use();
     Text2d::pTextShader->SetMat4( "uProjection", proj );
     Text2d::pTextShader->SetVec3( "uTextColor", colR, colG, colB );
 
-    glActiveTexture( GL_TEXTURE0 );
-    glBindTexture( GL_TEXTURE_2D, Text2d::fontTexture );
+    Gfx().BindTexture( Text2d::fontTexture, 0 );
 
-    // Upload quads and draw
-    glBindVertexArray( Text2d::textVAO );
-    glBindBuffer( GL_ARRAY_BUFFER, Text2d::textVBO );
-    glBufferData( GL_ARRAY_BUFFER, vertCount * 4 * sizeof( float ), s_vertBuf, GL_STREAM_DRAW );
-    glDrawArrays( GL_TRIANGLES, 0, vertCount );
-
-    glBindBuffer( GL_ARRAY_BUFFER, 0 );
-    glBindVertexArray( 0 );
-    glBindTexture( GL_TEXTURE_2D, 0 );
+    // Upload quads and draw via dynamic VB
+    Gfx().UploadAndDrawDynamicVB( Text2d::dynamicVB, s_vertBuf, vertCount );
 
     // Restore saved state
-    if ( depthEnabled )
-    {
-        glEnable( GL_DEPTH_TEST );
-    }
-    else
-    {
-        glDisable( GL_DEPTH_TEST );
-    }
-    if ( blendEnabled )
-    {
-        glEnable( GL_BLEND );
-    }
-    else
-    {
-        glDisable( GL_BLEND );
-    }
+    Gfx().SetDepthTest( depthWasEnabled );
+    Gfx().SetBlend( blendWasEnabled );
 }
 
 
@@ -357,7 +315,7 @@ void Text2d::Render2dTextColor( float xPosition,
 
 void Text2d::Render2dQuad( float x0, float y0, float x1, float y1, float r, float g, float b, float a )
 {
-    if ( !Text2d::pSolidShader || !Text2d::textVAO )
+    if ( !Text2d::pSolidShader || !Text2d::dynamicVB )
     {
         return;
     }
@@ -394,39 +352,19 @@ void Text2d::Render2dQuad( float x0, float y0, float x1, float y1, float r, floa
     const float halfW = halfH * static_cast<float>( Cfg().screenX ) / static_cast<float>( Cfg().screenY );
     Matrix4 proj = Matrix4::Ortho( -halfW, halfW, -halfH, halfH, -1.0f, 1.0f );
 
-    GLboolean depthEnabled = glIsEnabled( GL_DEPTH_TEST );
-    GLboolean blendEnabled = glIsEnabled( GL_BLEND );
+    bool depthWasEnabled = Gfx().IsDepthTestEnabled();
+    bool blendWasEnabled = Gfx().IsBlendEnabled();
 
-    glDisable( GL_DEPTH_TEST );
-    glEnable( GL_BLEND );
-    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+    Gfx().SetDepthTest( false );
+    Gfx().SetBlend( true );
+    Gfx().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
 
     Text2d::pSolidShader->Use();
     Text2d::pSolidShader->SetMat4( "uProjection", proj );
     Text2d::pSolidShader->SetVec4( "uColor", r, g, b, a );
 
-    glBindVertexArray( Text2d::textVAO );
-    glBindBuffer( GL_ARRAY_BUFFER, Text2d::textVBO );
-    glBufferData( GL_ARRAY_BUFFER, sizeof( s_quadBuf ), s_quadBuf, GL_STREAM_DRAW );
-    glDrawArrays( GL_TRIANGLES, 0, 6 );
+    Gfx().UploadAndDrawDynamicVB( Text2d::dynamicVB, s_quadBuf, 6 );
 
-    glBindBuffer( GL_ARRAY_BUFFER, 0 );
-    glBindVertexArray( 0 );
-
-    if ( depthEnabled )
-    {
-        glEnable( GL_DEPTH_TEST );
-    }
-    else
-    {
-        glDisable( GL_DEPTH_TEST );
-    }
-    if ( blendEnabled )
-    {
-        glEnable( GL_BLEND );
-    }
-    else
-    {
-        glDisable( GL_BLEND );
-    }
+    Gfx().SetDepthTest( depthWasEnabled );
+    Gfx().SetBlend( blendWasEnabled );
 }
