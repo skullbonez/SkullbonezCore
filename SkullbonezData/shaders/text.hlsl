@@ -38,3 +38,4 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float alpha = uFontTexture.Sample(sSampler0, input.texCoord).r;
     return float4(uTextColor, alpha);
 }
+

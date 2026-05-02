@@ -222,15 +222,29 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="SkullbonezData\shaders\lit_textured.frag" />
+    <None Include="SkullbonezData\shaders\lit_textured.hlsl" />
     <None Include="SkullbonezData\shaders\lit_textured.vert" />
     <None Include="SkullbonezData\shaders\shadow.frag" />
+    <None Include="SkullbonezData\shaders\shadow.hlsl" />
     <None Include="SkullbonezData\shaders\shadow.vert" />
+    <None Include="SkullbonezData\shaders\solid_color.frag" />
+    <None Include="SkullbonezData\shaders\solid_color.hlsl" />
+    <None Include="SkullbonezData\shaders\solid_color.vert" />
     <None Include="SkullbonezData\shaders\text.frag" />
+    <None Include="SkullbonezData\shaders\text.hlsl" />
     <None Include="SkullbonezData\shaders\text.vert" />
     <None Include="SkullbonezData\shaders\unlit_textured.frag" />
+    <None Include="SkullbonezData\shaders\unlit_textured.hlsl" />
     <None Include="SkullbonezData\shaders\unlit_textured.vert" />
     <None Include="SkullbonezData\shaders\water.frag" />
+    <None Include="SkullbonezData\shaders\water.hlsl" />
     <None Include="SkullbonezData\shaders\water.vert" />
+    <None Include="SkullbonezData\shaders\water_calm.frag" />
+    <None Include="SkullbonezData\shaders\water_calm.hlsl" />
+    <None Include="SkullbonezData\shaders\water_calm.vert" />
+    <None Include="SkullbonezData\shaders\water_ocean.frag" />
+    <None Include="SkullbonezData\shaders\water_ocean.hlsl" />
+    <None Include="SkullbonezData\shaders\water_ocean.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
