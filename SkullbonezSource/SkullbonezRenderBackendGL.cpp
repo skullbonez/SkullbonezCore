@@ -54,6 +54,14 @@ void RenderBackendGL::Finish()
 }
 
 
+void RenderBackendGL::Resize( int width, int height )
+{
+    m_width = width;
+    m_height = height;
+    glViewport( 0, 0, width, height );
+}
+
+
 // --- Viewport & Clear ---
 
 

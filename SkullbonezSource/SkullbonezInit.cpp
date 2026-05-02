@@ -137,22 +137,10 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
         auto backend = std::make_unique<RenderBackendDX>();
         backend->Init( m_cWindow->m_sWindow, m_cWindow->m_sDevice, m_cWindow->m_sWindowDimensions.x, m_cWindow->m_sWindowDimensions.y );
         SetGfxBackend( std::move( backend ) );
-
-        // DX11: InitialiseOpenGL was skipped, so HandleScreenResize never ran.
-        // Compute projection matrix here (DX11 uses [0,1] depth range).
-        int w = m_cWindow->m_sWindowDimensions.x;
-        int h = m_cWindow->m_sWindowDimensions.y;
-        if ( !h )
-        {
-            h = 1;
-        }
-        float aspect = static_cast<float>( w ) / static_cast<float>( h );
-        m_cWindow->projectionMatrix = Matrix4::PerspectiveZeroToOne(
-            45.0f,
-            aspect,
-            Cfg().frustumNear,
-            Cfg().frustumFar );
     }
+
+    // Now that the backend is ready, set viewport and projection for the active renderer
+    m_cWindow->HandleScreenResize();
 
     {
         // Create the Skullbonez Core instance (scoped so destructor runs

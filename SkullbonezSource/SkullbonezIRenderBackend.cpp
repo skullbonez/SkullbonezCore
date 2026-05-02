@@ -18,6 +18,12 @@ IRenderBackend& Gfx()
 }
 
 
+bool IsGfxReady()
+{
+    return s_gfxBackend != nullptr;
+}
+
+
 void SetGfxBackend( std::unique_ptr<IRenderBackend> backend )
 {
     s_gfxBackend = std::move( backend );

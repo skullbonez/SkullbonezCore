@@ -560,12 +560,9 @@ void SkullbonezRun::DrawPrimitives()
     }
 
     // render ground shadows on top of m_terrain
-    // TEMP: skip shadows on DX11 to diagnose stripe artifact
-    if ( !Gfx().UsesZeroToOneDepth() )
     {
-        PROFILE_GPU_BEGIN( "Frame/Render/Shadows" );
+        PROFILE_GPU_SCOPED( "Frame/Render/Shadows" );
         m_cGameModelCollection.RenderShadows( m_cTerrain.get(), baseView, proj );
-        PROFILE_GPU_END( "Frame/Render/Shadows" );
     }
 
     // render the fluid ---------------------------

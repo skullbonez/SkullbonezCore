@@ -58,6 +58,7 @@ class RenderBackendGL : public IRenderBackend
     void Shutdown() override;
     void Present() override;
     void Finish() override;
+    void Resize( int width, int height ) override;
 
     void SetViewport( int x, int y, int w, int h ) override;
     void Clear( bool color, bool depth ) override;

@@ -29,7 +29,9 @@ VS_OUT main_vs(VS_IN input)
 {
     VS_OUT output;
 
-    float4x4 model = float4x4(input.model0, input.model1, input.model2, input.model3);
+    // Instance data arrives as columns (matching GL convention) but float4x4()
+    // assembles them as rows — transpose to get the correct orientation.
+    float4x4 model = transpose(float4x4(input.model0, input.model1, input.model2, input.model3));
     float4 worldPos = mul(model, float4(input.position, 1.0));
     output.position = mul(uProjection, mul(uView, worldPos));
 

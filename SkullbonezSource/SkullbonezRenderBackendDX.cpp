@@ -349,6 +349,63 @@ void RenderBackendDX::Finish()
 }
 
 
+void RenderBackendDX::Resize( int width, int height )
+{
+    if ( width <= 0 || height <= 0 )
+    {
+        return;
+    }
+
+    // Release all swap-chain-backed views before resizing
+    m_context->OMSetRenderTargets( 0, nullptr, nullptr );
+    m_backBufferRTV->Release();
+    m_depthStencilView->Release();
+    m_depthStencilTex->Release();
+    m_context->ClearState();
+    m_context->Flush();
+
+    // Resize swap chain buffers
+    HRESULT hr = m_swapChain->ResizeBuffers( 0, (UINT)width, (UINT)height, DXGI_FORMAT_UNKNOWN, 0 );
+    if ( FAILED( hr ) )
+    {
+        throw std::runtime_error( "IDXGISwapChain::ResizeBuffers failed" );
+    }
+
+    // Recreate back buffer RTV
+    ID3D11Texture2D* backBuffer = nullptr;
+    m_swapChain->GetBuffer( 0, __uuidof( ID3D11Texture2D ), (void**)&backBuffer );
+    m_device->CreateRenderTargetView( backBuffer, nullptr, &m_backBufferRTV );
+    backBuffer->Release();
+
+    // Recreate depth stencil at new size
+    D3D11_TEXTURE2D_DESC depthDesc = {};
+    depthDesc.Width = (UINT)width;
+    depthDesc.Height = (UINT)height;
+    depthDesc.MipLevels = 1;
+    depthDesc.ArraySize = 1;
+    depthDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    depthDesc.SampleDesc.Count = 1;
+    depthDesc.Usage = D3D11_USAGE_DEFAULT;
+    depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+    m_device->CreateTexture2D( &depthDesc, nullptr, &m_depthStencilTex );
+    m_device->CreateDepthStencilView( m_depthStencilTex, nullptr, &m_depthStencilView );
+
+    // Rebind render targets
+    m_context->OMSetRenderTargets( 1, &m_backBufferRTV, m_depthStencilView );
+
+    // Reapply tracked state (ClearState reset everything)
+    m_context->OMSetDepthStencilState( m_depthTestEnabled ? m_dsDepthOn : m_dsDepthOff, 0 );
+    float blendFactor[4] = { 0, 0, 0, 0 };
+    m_context->OMSetBlendState( m_blendEnabled ? m_blendOn : m_blendOff, blendFactor, 0xFFFFFFFF );
+    ApplyRasterizerState();
+
+    // Update viewport and dimensions
+    m_width = width;
+    m_height = height;
+    SetViewport( 0, 0, width, height );
+}
+
+
 void RenderBackendDX::SetViewport( int x, int y, int w, int h )
 {
     D3D11_VIEWPORT vp = {};

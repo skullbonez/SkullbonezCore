@@ -1,9 +1,11 @@
 // --- Includes ---
 #include "SkullbonezWindow.h"
+#include "SkullbonezIRenderBackend.h"
 
 
 // --- Usings ---
 using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Rendering;
 
 
 SkullbonezWindow::SkullbonezWindow()
@@ -52,34 +54,36 @@ void SkullbonezWindow::SetWindowDimensions( const RECT dimensions )
 
 void SkullbonezWindow::HandleScreenResize()
 {
-    // Guard: skip GL calls if GLAD hasn't loaded function pointers yet.
-    // WM_SIZE fires during CreateAppWindow before InitialiseOpenGL.
-    // For DX11, glViewport stays null — fall through to the backend path.
-    if ( !glViewport )
+    SkullbonezWindow* cWindow = SkullbonezWindow::Instance();
+    int w = cWindow->m_sWindowDimensions.x;
+    int h = cWindow->m_sWindowDimensions.y;
+
+    // Skip resize when minimized or before backend is initialized
+    if ( w <= 0 || h <= 0 || !IsGfxReady() )
     {
         return;
     }
 
-    // Create an instance of our window class
-    SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
+    Gfx().Resize( w, h );
 
-    // Set m_width and m_height to local variables
-    int m_width = m_cWindow->m_sWindowDimensions.x;
-    int m_height = m_cWindow->m_sWindowDimensions.y;
-
-    if ( !m_height )
+    // Build projection matrix with the correct depth range for the active backend
+    float aspect = static_cast<float>( w ) / static_cast<float>( h );
+    if ( Gfx().UsesZeroToOneDepth() )
     {
-        m_height = 1; // Avoid division by zero
+        cWindow->projectionMatrix = Math::Transformation::Matrix4::PerspectiveZeroToOne(
+            45.0f,
+            aspect,
+            Cfg().frustumNear,
+            Cfg().frustumFar );
     }
-    glViewport( 0, 0, m_width, m_height ); // Set viewport (screen m_boundaries)
-
-    // Build and store the perspective projection matrix
-    float aspect = static_cast<float>( m_width ) / static_cast<float>( m_height );
-    m_cWindow->projectionMatrix = Math::Transformation::Matrix4::Perspective(
-        45.0f,
-        aspect,
-        Cfg().frustumNear,
-        Cfg().frustumFar );
+    else
+    {
+        cWindow->projectionMatrix = Math::Transformation::Matrix4::Perspective(
+            45.0f,
+            aspect,
+            Cfg().frustumNear,
+            Cfg().frustumFar );
+    }
 }
 
 
@@ -329,12 +333,10 @@ void SkullbonezWindow::InitialiseOpenGL()
         wglSwapIntervalEXT( 1 );
     }
 
-    // Set window dimensions
+    // Set window dimensions (HandleScreenResize is called from WinMain after SetGfxBackend)
     RECT windowDimensions;
     GetClientRect( m_cWindow->m_sWindow, &windowDimensions );
     m_cWindow->SetWindowDimensions( windowDimensions );
-
-    HandleScreenResize();
 }
 
 
