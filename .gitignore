@@ -41,3 +41,6 @@ Profile/
 # Python
 __pycache__/
 *.pyc
+
+# Superseded perf history dir (replaced by TestOutput/NNN_{commit}/ archives)
+TestOutput/perf_history/

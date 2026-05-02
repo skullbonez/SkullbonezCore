@@ -159,6 +159,7 @@ if ($allOk) {
     Write-Host "PASS: All dual-renderer artifacts produced"
 } else {
     Write-Host "FAIL: Missing artifacts — debug with skore-cdb-debug skill"
+    exit 1
 }
 ```
 
@@ -294,94 +295,128 @@ print('All baselines updated')
 
 This ensures baselines always reflect the latest committed state for both renderers.
 
-### Step 6: Analyze Performance (Dual Renderer)
+### Step 6: Analyze Performance & Compare Against Prior Commit
 
-Run analysis for **both OpenGL and DirectX** performance data:
+**Mandatory for every commit.** Determines the archive dir, writes renderer-named JSON artifacts, then compares each renderer against the nearest prior archive that has a matching artifact.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
+$commit = (git rev-parse --short HEAD).Trim()
 
-Write-Host "=== OpenGL Performance Analysis ==="
-# Analyze GL perf data (temporarily copy to expected location)
-Copy-Item "$REPO\Profile\gl_perf_log.csv" "$REPO\Profile\perf_log.csv"
-py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py"
-py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py"
+# Determine sequence number (max existing + 1; handle gaps and duplicates safely)
+$allDirs = @(Get-ChildItem "$REPO\TestOutput" -Directory |
+    Where-Object { $_.Name -match '^\d+_' } |
+    Sort-Object { [int]($_.Name -split '_',2)[0] })
+$maxSeq = if ($allDirs.Count -gt 0) { [int](($allDirs[-1].Name -split '_',2)[0]) } else { 0 }
 
-Write-Host ""
-Write-Host "=== DirectX Performance Analysis ==="  
-# Analyze DX11 perf data
-Copy-Item "$REPO\Profile\dx11_perf_log.csv" "$REPO\Profile\perf_log.csv"
-py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py"
-py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py"
+# Re-use archive if this commit already has one (pipeline re-run scenario)
+$existingForCommit = $allDirs | Where-Object { ($_.Name -split '_',2)[1] -eq $commit }
+if ($existingForCommit) {
+    $archiveDir = $existingForCommit[0].FullName
+    Write-Host "Re-using archive: $($existingForCommit[0].Name)"
+} else {
+    $seq = $maxSeq + 1
+    $archiveDir = "$REPO\TestOutput\$("{0:D3}" -f $seq)_$commit"
+    New-Item -ItemType Directory -Path $archiveDir | Out-Null
+    Write-Host "Created archive: $(Split-Path $archiveDir -Leaf)"
+}
 
-# Clean up temp file
-Remove-Item "$REPO\Profile\perf_log.csv" -ErrorAction SilentlyContinue
+# Analyze both renderers — writes {renderer}_perf.json into archive dir
+Write-Host "`n=== GL Perf Analysis ==="
+py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py" `
+    --renderer gl `
+    --csv "$REPO\Profile\gl_perf_log.csv" `
+    --out-dir $archiveDir
+if ($LASTEXITCODE -ne 0) { Write-Host "FAIL: GL perf analysis failed"; exit 1 }
+
+Write-Host "`n=== DX11 Perf Analysis ==="
+py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py" `
+    --renderer dx11 `
+    --csv "$REPO\Profile\dx11_perf_log.csv" `
+    --out-dir $archiveDir
+if ($LASTEXITCODE -ne 0) { Write-Host "FAIL: DX11 perf analysis failed"; exit 1 }
+
+# Compare each renderer against the nearest prior archive that has its JSON
+# Walk backward through sorted archives, skip same-commit entries
+foreach ($renderer in @("gl", "dx11")) {
+    $prevJson = $null
+    foreach ($dir in ($allDirs | Sort-Object { [int]($_.Name -split '_',2)[0] } -Descending)) {
+        $dirCommit = ($dir.Name -split '_',2)[1]
+        if ($dirCommit -eq $commit) { continue }   # skip same-commit archives
+        $candidate = "$($dir.FullName)\${renderer}_perf.json"
+        if (Test-Path $candidate) { $prevJson = $candidate; break }
+    }
+
+    $currentJson = "$archiveDir\${renderer}_perf.json"
+    if ($prevJson) {
+        Write-Host "`n=== $($renderer.ToUpper()) Perf Comparison ==="
+        py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py" `
+            --current $currentJson `
+            --previous $prevJson
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "FAIL: $($renderer.ToUpper()) perf regression detected — investigate before committing"
+            exit 1
+        }
+    } else {
+        Write-Host "`n$($renderer.ToUpper()): No prior archive with ${renderer}_perf.json found — skipping compare (first run for this renderer)"
+    }
+}
 ```
 
-Both renderers use the same JSON artifact file (latest overwrites). The analysis scripts detect renderer type automatically and compare against appropriate history.
-
-**⚠️ MANDATORY: You MUST print the COMPLETE output for BOTH renderers — every row, every emoji dot, the full CPU table, GPU table, and Memory table for GL AND DX11. Do NOT summarize, truncate, or paraphrase.**
+**⚠️ MANDATORY: Print the COMPLETE output for BOTH renderers — every row, every emoji dot, the full CPU table, GPU table, and Memory table. Do NOT summarize, truncate, or paraphrase.**
 
 **If regression thresholds are exceeded**, investigate before proceeding.
 
 Regression thresholds: avg/p50 timing >10%, p99/p99.9 >20%, memory >5 MB.
 
-### Step 7: Archive to TestOutput (Dual Renderer)
+### Step 7: Archive Screenshots to TestOutput
 
-**Mandatory for every commit.** Creates a sequentially numbered directory in `TestOutput/` containing PNGs and perf data from **both renderers**. This builds a permanent visual + performance timeline.
+Screenshots are copied into the same archive dir created in Step 6. Perf JSONs are already there.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
-$env:SKORE_REPO = $REPO
+$commit = (git rev-parse --short HEAD).Trim()
+
+# Find the archive dir for this commit
+$archiveDir = Get-ChildItem "$REPO\TestOutput" -Directory |
+    Where-Object { ($_.Name -split '_',2)[1] -eq $commit } |
+    Sort-Object { [int]($_.Name -split '_',2)[0] } |
+    Select-Object -Last 1 -ExpandProperty FullName
+
+if (-not $archiveDir) { Write-Host "FAIL: Archive dir not found for commit $commit"; exit 1 }
+
+$env:SKORE_ARCHIVE = $archiveDir
+$env:SKORE_REPO    = $REPO
 py -c "
-import os, json, shutil, glob as g
+import os, shutil
 from pathlib import Path
 from PIL import Image
 
 _r = Path(os.environ['SKORE_REPO'])
-_to = _r / 'TestOutput'
-_to.mkdir(exist_ok=True)
+archive = Path(os.environ['SKORE_ARCHIVE'])
 
-# Determine next sequence number
-existing = sorted(g.glob(str(_to / '[0-9][0-9][0-9]_*')))
-seq = len(existing) + 1
-
-# Get commit hash
-import subprocess
-commit = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], capture_output=True, text=True, cwd=str(_r)).stdout.strip()
-
-archive = _to / f'{seq:03d}_{commit}'
-archive.mkdir()
-
-# Convert and copy screenshots from BOTH renderers
-dual_pairs = [
-    # OpenGL captures
-    (_r / 'Profile' / 'gl_screenshot.bmp', archive / 'gl_water_ball_test.png'),
+for src, dst in [
+    (_r / 'Profile' / 'gl_screenshot.bmp',   archive / 'gl_water_ball_test.png'),
     (_r / 'Profile' / 'gl_legacy_smoke.bmp', archive / 'gl_legacy_smoke.png'),
-    # DirectX captures  
-    (_r / 'Profile' / 'dx11_screenshot.bmp', archive / 'dx11_water_ball_test.png'),
+    (_r / 'Profile' / 'dx11_screenshot.bmp',   archive / 'dx11_water_ball_test.png'),
     (_r / 'Profile' / 'dx11_legacy_smoke.bmp', archive / 'dx11_legacy_smoke.png'),
-]
-for src, dst in dual_pairs:
+]:
     if src.exists():
         Image.open(str(src)).save(str(dst))
         print(f'  Archived {dst.name}')
 
-# Copy perf artifacts (both CSV and JSON)
-gl_csv = _r / 'Profile' / 'gl_perf_log.csv'  
-dx11_csv = _r / 'Profile' / 'dx11_perf_log.csv'
-if gl_csv.exists():
-    shutil.copy2(str(gl_csv), str(archive / 'gl_perf_log.csv'))
-if dx11_csv.exists():
-    shutil.copy2(str(dx11_csv), str(archive / 'dx11_perf_log.csv'))
+# Copy perf CSVs alongside the JSONs
+for csv_name in ['gl_perf_log.csv', 'dx11_perf_log.csv']:
+    src = _r / 'Profile' / csv_name
+    if src.exists():
+        shutil.copy2(str(src), str(archive / csv_name))
+        print(f'  Archived {csv_name}')
 
-perf_json = _r / 'TestOutput' / 'perf_history' / f'{commit}.json'
-if perf_json.exists():
-    shutil.copy2(str(perf_json), str(archive / 'perf.json'))
-
-print(f'Archived to {archive.name}')
+print(f'Archive complete: {archive.name}')
 "
+if ($LASTEXITCODE -ne 0) { Write-Host "FAIL: Archive step failed"; exit 1 }
 ```
+
 
 ### Step 8: Lines of Code
 

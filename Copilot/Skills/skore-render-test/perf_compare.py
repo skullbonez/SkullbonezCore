@@ -1,13 +1,11 @@
 """
-perf_compare.py — Compare perf_log.csv against a baseline perf artifact.
+perf_compare.py — Compare two perf JSON artifacts produced by analyze_perf.py.
 
 Usage:
-    py Copilot/Skills/skore-render-test/perf_compare.py
-    py Copilot/Skills/skore-render-test/perf_compare.py  <baseline.json>
+    py perf_compare.py --current <path/to/{renderer}_perf.json> \
+                       --previous <path/to/{renderer}_perf.json>
 
-Defaults:
-    CSV      : Profile/perf_log.csv
-    Baseline : TestOutput/baseline-001/perf.json
+Exits 1 if any regression threshold is exceeded, 0 otherwise.
 
 Delta = (current - baseline) / baseline * 100
   Negative = current is FASTER  → 🟢 green  (>5% improvement)
@@ -17,14 +15,10 @@ Delta = (current - baseline) / baseline * 100
 
 Thresholds: avg/p50 = 10%,  p99/p99.9 = 20%
 """
+import argparse
 import json
 import sys
 from pathlib import Path
-
-SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT   = SCRIPT_DIR.parent.parent.parent
-CSV_PATH    = REPO_ROOT / "Profile" / "perf_log.csv"
-DEFAULT_BASE = REPO_ROOT / "TestOutput" / "baseline-001" / "perf.json"
 
 
 # ── stats ────────────────────────────────────────────────────────────────────
@@ -35,42 +29,8 @@ def percentile(s, p):
     f = int(k); c = min(f + 1, len(s) - 1)
     return s[f] + (k - f) * (s[c] - s[f])
 
-def compute_stats(vals):
-    if not vals: return dict(avg=0, p50=0, p99=0, p99_9=0)
-    s = sorted(vals)
-    return dict(
-        avg=round(sum(s) / len(s), 4),
-        p50=round(percentile(s, 50), 4),
-        p99=round(percentile(s, 99), 4),
-        p99_9=round(percentile(s, 99.9), 4),
-    )
-
-
-# ── CSV parser ───────────────────────────────────────────────────────────────
-
-def parse_csv(path):
-    marker_names, frames, mem = [], [], []
-    with open(path) as f:
-        for line in f:
-            line = line.strip()
-            if line.startswith("# MEM"):
-                parts = line.split()
-                cp = parts[2]; ps = int(parts[3].split("=")[1]); mb = float(parts[4].split("=")[1])
-                mem.append((cp, ps, mb))
-            elif line.startswith("pass,frame,"):
-                marker_names = line.split(",")[2:]
-            elif line and not line.startswith("#"):
-                cols = line.split(",")
-                if len(cols) < 2: continue
-                row = {"pass": int(cols[0]), "frame": int(cols[1])}
-                for i, n in enumerate(marker_names):
-                    row[n] = float(cols[2 + i]) if (2 + i) < len(cols) else 0.0
-                frames.append(row)
-    return marker_names, frames, mem
-
 
 # ── color cell ───────────────────────────────────────────────────────────────
-# delta = (cur - bas) / bas * 100
 
 def color_cell(cur_val, bas_val, thresh):
     if bas_val == 0:
@@ -86,7 +46,6 @@ def color_cell(cur_val, bas_val, thresh):
         dot = "\U0001f7e1"   # 🟡
     else:
         dot = "\U0001f534"   # 🔴
-    # visible width = 2 (emoji) + 1 (space) + len(s); pad to visible 9
     pad = " " * max(0, 9 - (3 + len(s)))
     return f"{dot} {s}{pad}"
 
@@ -101,13 +60,12 @@ BL = "\u2514"; BM = "\u2534"; BR = "\u2518"
 def hline(l, m, r, ws):
     return l + m.join(H * (w + 2) for w in ws) + r
 
-def print_table(title, markers, cur_stats, bas_stats, bas_commit):
-    # measure marker col width
+def print_table(title, markers, cur_stats, bas_stats, prev_commit):
     mw = max((len(m) for m in markers), default=30)
     mw = max(mw, 30)
     ws = [mw, 7, 7, 9, 9, 9, 9]
 
-    print(f"\n  {title} \u2014 vs baseline-001 {bas_commit}")
+    print(f"\n  {title} \u2014 vs {prev_commit}")
     print(f"  avg/p50 threshold 10% \u00b7 p99/p99.9 threshold 20%\n")
     print("  " + hline(TL, TM, TR, ws))
 
@@ -117,7 +75,6 @@ def print_table(title, markers, cur_stats, bas_stats, bas_commit):
             if i < 3:
                 parts.append(f" {cell:<{w}} ")
             else:
-                # delta cell: fixed 9 visible chars already padded in color_cell
                 parts.append(f" {cell} ")
         return "  " + V + V.join(parts) + V
 
@@ -153,9 +110,9 @@ def mem_cell(cur_mb, bas_mb):
     dot = "\U0001f534" if d > 5.0 else ("\U0001f7e2" if d < -5.0 else "\U0001f535")
     return f"{dot} {s}"
 
-def print_memory(cur, bas_json):
-    ms, mr, me = cur
-    bms, bmr, bme = bas_json["mem_start_mb"], bas_json["mem_restart_mb"], bas_json["mem_end_mb"]
+def print_memory(cur_json, bas_json):
+    ms  = cur_json["mem_start_mb"];   mr  = cur_json["mem_restart_mb"]; me  = cur_json["mem_end_mb"]
+    bms = bas_json["mem_start_mb"];   bmr = bas_json["mem_restart_mb"]; bme = bas_json["mem_end_mb"]
     ws = [10, 8, 8, 8]
     print(f"\n  Memory (MB)\n")
     print("  " + hline(TL, TM, TR, ws))
@@ -170,40 +127,96 @@ def print_memory(cur, bas_json):
     print("  " + hline(BL, BM, BR, ws))
 
 
+# ── regression check ─────────────────────────────────────────────────────────
+
+def check_regressions(cur_stats, bas_stats, cur_json, bas_json):
+    failures = []
+    for marker, cm in cur_stats.items():
+        pm = bas_stats.get(marker)
+        if not pm:
+            continue
+        for stat, threshold in [("avg", 10), ("p50", 10), ("p99", 20), ("p99_9", 20)]:
+            pv, cv = pm[stat], cm[stat]
+            if pv > 0:
+                pct = (cv - pv) / pv * 100
+                if pct > threshold:
+                    failures.append(f"{marker}.{stat}: +{pct:.1f}% (threshold: {threshold}%)")
+
+    for key, label, thresh in [
+        ("mem_start_mb", "mem_start", 5.0),
+        ("mem_restart_mb", "mem_restart", 5.0),
+        ("mem_end_mb", "mem_end", 5.0),
+    ]:
+        delta = cur_json[key] - bas_json[key]
+        if delta > thresh:
+            failures.append(f"{label}: +{delta:.2f} MB (threshold: {thresh} MB)")
+
+    return failures
+
+
 # ── main ─────────────────────────────────────────────────────────────────────
 
 def main():
-    base_path = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_BASE
+    parser = argparse.ArgumentParser(description="Compare two SkullbonezCore perf JSON artifacts.")
+    parser.add_argument("--current",  required=True, type=Path, help="Current {renderer}_perf.json")
+    parser.add_argument("--previous", required=True, type=Path, help="Previous {renderer}_perf.json to compare against")
+    args = parser.parse_args()
 
-    if not CSV_PATH.exists():
-        print(f"ERROR: CSV not found: {CSV_PATH}"); return 1
-    if not base_path.exists():
-        print(f"ERROR: Baseline not found: {base_path}"); return 1
+    if not args.current.exists():
+        print(f"ERROR: Current artifact not found: {args.current}"); return 1
+    if not args.previous.exists():
+        print(f"ERROR: Previous artifact not found: {args.previous}"); return 1
 
-    marker_names, frames, mem_data = parse_csv(CSV_PATH)
-    bas_json = json.loads(base_path.read_text())
-    bas_commit = bas_json.get("commit", base_path.stem)
+    cur_json = json.loads(args.current.read_text())
+    bas_json = json.loads(args.previous.read_text())
 
-    cur_stats = {n: compute_stats([r[n] for r in frames if n in r]) for n in marker_names}
-    bas_stats  = bas_json.get("markers", {})
+    cur_renderer = cur_json.get("renderer", "unknown")
+    bas_renderer = bas_json.get("renderer", "unknown")
 
-    cpu_markers = [m for m in marker_names if not m.endswith("_gpu")]
-    gpu_markers = [m for m in marker_names if m.endswith("_gpu")]
+    if cur_renderer != bas_renderer:
+        print(f"ERROR: Renderer mismatch — current={cur_renderer}, previous={bas_renderer}")
+        return 1
 
-    print(f"\n  \U0001f535 = noise (<5%)  \U0001f7e2 = improvement  \U0001f7e1 = minor regression  \U0001f534 = regression")
-    print(f"  CSV: {CSV_PATH.name} ({len(frames)} frames)   Baseline: {base_path.name} / {bas_commit} ({bas_json.get('total_frames','?')} frames)")
+    # Machine check
+    cur_cpu = cur_json.get("machine", {}).get("cpu", "")
+    bas_cpu = bas_json.get("machine", {}).get("cpu", "")
+    if bas_cpu and cur_cpu != bas_cpu:
+        print(f"\n  WARNING: Machine mismatch — perf comparison is not valid across machines.")
+        print(f"    Previous : {bas_cpu}")
+        print(f"    Current  : {cur_cpu}")
+        print(f"  Skipping regression check.")
+        return 0
 
-    print_table("CPU Timing (ms)", cpu_markers, cur_stats, bas_stats, bas_commit)
-    print_table("GPU Timing (ms)", gpu_markers, cur_stats, bas_stats, bas_commit)
+    renderer_label = cur_renderer.upper()
+    prev_commit    = bas_json.get("commit", args.previous.stem)
+    cur_commit     = cur_json.get("commit", args.current.stem)
 
-    cur_mem = (
-        next((mb for cp, ps, mb in mem_data if cp == "start" and ps == 1), 0),
-        next((mb for cp, ps, mb in mem_data if cp == "start" and ps == 2), 0),
-        next((mb for cp, ps, mb in mem_data if cp == "end"   and ps == 2), 0),
-    )
-    print_memory(cur_mem, bas_json)
+    print(f"\n  {renderer_label} Perf: {cur_commit} vs {prev_commit}")
+    print(f"  \U0001f535 = noise (<5%)  \U0001f7e2 = improvement  \U0001f7e1 = minor regression  \U0001f534 = regression")
+    print(f"  Current: {cur_json['total_frames']} frames   Previous: {bas_json['total_frames']} frames")
+
+    cur_stats = cur_json.get("markers", {})
+    bas_stats = bas_json.get("markers", {})
+
+    cpu_markers = [m for m in cur_stats if not m.endswith("_gpu")]
+    gpu_markers = [m for m in cur_stats if m.endswith("_gpu")]
+
+    print_table(f"CPU Timing (ms) [{renderer_label}]", cpu_markers, cur_stats, bas_stats, prev_commit)
+    if gpu_markers:
+        print_table(f"GPU Timing (ms) [{renderer_label}]", gpu_markers, cur_stats, bas_stats, prev_commit)
+    print_memory(cur_json, bas_json)
     print()
+
+    failures = check_regressions(cur_stats, bas_stats, cur_json, bas_json)
+    if failures:
+        print(f"** PERF REGRESSION — {len(failures)} failure(s) [{renderer_label}] **")
+        for f in failures:
+            print(f"  - {f}")
+        return 1
+
+    print(f"PASS: No regressions [{renderer_label}]")
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())
