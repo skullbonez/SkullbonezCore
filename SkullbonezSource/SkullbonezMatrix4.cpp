@@ -61,6 +61,27 @@ Matrix4 Matrix4::Perspective( float fovDegrees, float aspect, float nearPlane, f
 }
 
 
+Matrix4 Matrix4::PerspectiveZeroToOne( float fovDegrees, float aspect, float nearPlane, float farPlane )
+{
+    Matrix4 result;
+    float fovRad = fovDegrees * ( _PI / 180.0f );
+    float tanHalf = tanf( fovRad * 0.5f );
+
+    for ( int i = 0; i < 16; ++i )
+    {
+        result.m[i] = 0.0f;
+    }
+
+    result.m[0] = 1.0f / ( aspect * tanHalf );
+    result.m[5] = 1.0f / tanHalf;
+    result.m[10] = farPlane / ( nearPlane - farPlane );
+    result.m[11] = -1.0f;
+    result.m[14] = ( nearPlane * farPlane ) / ( nearPlane - farPlane );
+
+    return result;
+}
+
+
 Matrix4 Matrix4::Ortho( float left, float right, float bottom, float top, float nearPlane, float farPlane )
 {
     Matrix4 result;

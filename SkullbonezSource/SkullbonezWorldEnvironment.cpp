@@ -1,5 +1,6 @@
 // --- Includes ---
 #include "SkullbonezWorldEnvironment.h"
+#include "SkullbonezIRenderBackend.h"
 #include <vector>
 
 
@@ -43,17 +44,15 @@ void WorldEnvironment::SetTerrainBounds( float xMin, float xMax, float zMin, flo
 }
 
 
-void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, const Matrix4& reflectVP, float time, GLuint reflectionTex, bool flatWater, bool noReflect )
+void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, const Matrix4& reflectVP, float time, uint32_t reflectionTex, bool flatWater, bool noReflect )
 {
     if ( !m_calmMesh )
     {
         BuildFluidMesh();
     }
 
-    glEnable( GL_BLEND );
-    glActiveTexture( GL_TEXTURE1 );
-    glBindTexture( GL_TEXTURE_2D, reflectionTex );
-    glActiveTexture( GL_TEXTURE0 );
+    Gfx().SetBlend( true );
+    Gfx().BindTexture( reflectionTex, 1 );
 
     // --- calm (inner) pass: flat, always reflective, no waves ---
     m_calmShader->Use();
@@ -72,7 +71,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
     m_oceanShader->SetInt( "uFlatWater", flatWater ? 1 : 0 );
     m_oceanMesh->Draw();
 
-    glDisable( GL_BLEND );
+    Gfx().SetBlend( false );
 }
 
 
@@ -139,17 +138,17 @@ void WorldEnvironment::BuildFluidMesh()
     int calmCount = static_cast<int>( calmVerts.size() ) / 3;
     int oceanCount = static_cast<int>( oceanVerts.size() ) / 3;
 
-    m_calmMesh = std::make_unique<Mesh>( calmVerts.data(), calmCount, false, false );
-    m_oceanMesh = std::make_unique<Mesh>( oceanVerts.data(), oceanCount, false, false );
+    m_calmMesh = Gfx().CreateMesh( calmVerts.data(), calmCount, false, false );
+    m_oceanMesh = Gfx().CreateMesh( oceanVerts.data(), oceanCount, false, false );
 
-    m_calmShader = std::make_unique<Shader>( "SkullbonezData/shaders/water_calm.vert", "SkullbonezData/shaders/water_calm.frag" );
+    m_calmShader = Gfx().CreateShader( "SkullbonezData/shaders/water_calm.vert", "SkullbonezData/shaders/water_calm.frag" );
     m_calmShader->Use();
     m_calmShader->SetMat4( "uModel", Matrix4() );
     m_calmShader->SetVec4( "uColorTint", 0.05f, 0.15f, 0.42f, 0.65f );
     m_calmShader->SetFloat( "uReflectionStrength", 0.35f );
     m_calmShader->SetInt( "uReflectionTex", 1 );
 
-    m_oceanShader = std::make_unique<Shader>( "SkullbonezData/shaders/water_ocean.vert", "SkullbonezData/shaders/water_ocean.frag" );
+    m_oceanShader = Gfx().CreateShader( "SkullbonezData/shaders/water_ocean.vert", "SkullbonezData/shaders/water_ocean.frag" );
     m_oceanShader->Use();
     m_oceanShader->SetMat4( "uModel", Matrix4() );
     m_oceanShader->SetVec4( "uColorTint", 0.02f, 0.10f, 0.35f, 0.72f );

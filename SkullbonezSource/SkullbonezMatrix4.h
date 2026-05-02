@@ -44,7 +44,8 @@ class Matrix4
     Matrix4();                      // Default constructor (identity)
     Matrix4( const float* values ); // Construct from 16-element column-major array
 
-    static Matrix4 Perspective( float fovDegrees, float aspect, float nearPlane, float farPlane );             // Perspective projection matrix
+    static Matrix4 Perspective( float fovDegrees, float aspect, float nearPlane, float farPlane );             // Perspective projection matrix (GL depth [-1,1])
+    static Matrix4 PerspectiveZeroToOne( float fovDegrees, float aspect, float nearPlane, float farPlane );    // Perspective projection matrix (DX depth [0,1])
     static Matrix4 Ortho( float left, float right, float bottom, float top, float nearPlane, float farPlane ); // Orthographic projection matrix
     static Matrix4 LookAt( const Vector3& eye, const Vector3& center, const Vector3& up );                     // View matrix
     static Matrix4 Translate( const Vector3& v );                                                              // Translation matrix

@@ -1,0 +1,7 @@
+balls 300
+seed 42
+physics on
+text on
+camera auto
+screenshot_interval Profile/dx11_diag 30
+duration 10

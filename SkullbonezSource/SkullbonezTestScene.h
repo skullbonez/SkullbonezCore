@@ -54,6 +54,8 @@ class TestScene
     unsigned int m_seed;        // RNG m_seed (0 = use time-based default)
     int m_legacyBallCount;      // random legacy-style m_balls (0 = none)
     char m_perfLogPath[256];    // output path for perf CSV (empty = none)
+    int m_screenshotInterval;   // save screenshot every N frames (-1 = disabled)
+    char m_screenshotDir[256];  // output directory for interval captures
     std::vector<SceneCamera> m_cameras;
     std::vector<SceneBall> m_balls;
 
@@ -70,6 +72,8 @@ class TestScene
     unsigned int GetSeed() const;
     int GetLegacyBallCount() const;
     const char* GetPerfLogPath() const;
+    int GetScreenshotInterval() const;
+    const char* GetScreenshotDir() const;
     int GetCameraCount() const;
     int GetBallCount() const;
     const SceneCamera& GetCamera( int index ) const;

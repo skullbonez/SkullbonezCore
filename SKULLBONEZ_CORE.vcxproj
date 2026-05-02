@@ -69,7 +69,7 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>./ThirdPtySource/stb;./ThirdPtySource/GLAD/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_DEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -81,7 +81,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>legacy_stdio_definitions.lib;psapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>legacy_stdio_definitions.lib;psapi.lib;d3d11.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>LIBC;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
@@ -93,7 +93,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>./ThirdPtySource/stb;./ThirdPtySource/GLAD/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -116,7 +116,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>./ThirdPtySource/stb;./ThirdPtySource/GLAD/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -169,6 +169,12 @@
     <ClCompile Include="SkullbonezSource\SkullbonezShader.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezMesh.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezProfiler.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezIRenderBackend.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendGL.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezShaderDX.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezMeshDX.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezFramebufferDX.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingSphere.h" />
@@ -204,6 +210,15 @@
     <ClInclude Include="SkullbonezSource\SkullbonezShader.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezMesh.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezProfiler.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezIShader.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezIMesh.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezIFramebuffer.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezIRenderBackend.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezRenderBackendGL.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezRenderBackendDX.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezShaderDX.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezMeshDX.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezFramebufferDX.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="SkullbonezData\shaders\lit_textured.frag" />

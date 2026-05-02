@@ -18,6 +18,8 @@ TestScene::TestScene()
     m_screenshotMs = -1;
     m_seed = 0;
     m_legacyBallCount = 0;
+    m_screenshotInterval = -1;
+    m_screenshotDir[0] = '\0';
 }
 
 
@@ -194,6 +196,26 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
+        // parse screenshot_interval directive: screenshot_interval <dir> <N>
+        if ( strncmp( line, "screenshot_interval ", 20 ) == 0 )
+        {
+            char outDir[256] = {};
+            int intervalFrames = 0;
+            int parsed = sscanf_s( line + 20, "%255s %d", outDir, static_cast<unsigned>( sizeof( outDir ) ), &intervalFrames );
+
+            if ( parsed != 2 || intervalFrames <= 0 )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid screenshot_interval at line %d (expected: screenshot_interval <dir> <N>)  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+
+            strcpy_s( scene.m_screenshotDir, sizeof( scene.m_screenshotDir ), outDir );
+            scene.m_screenshotInterval = intervalFrames;
+            continue;
+        }
+
         // parse camera line
         if ( strncmp( line, "camera ", 7 ) == 0 )
         {
@@ -313,6 +335,18 @@ int TestScene::GetLegacyBallCount() const
 const char* TestScene::GetPerfLogPath() const
 {
     return m_perfLogPath;
+}
+
+
+int TestScene::GetScreenshotInterval() const
+{
+    return m_screenshotInterval;
+}
+
+
+const char* TestScene::GetScreenshotDir() const
+{
+    return m_screenshotDir;
 }
 
 

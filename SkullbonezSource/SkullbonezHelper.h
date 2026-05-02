@@ -3,8 +3,8 @@
 
 // --- Includes ---
 #include "SkullbonezCommon.h"
-#include "SkullbonezShader.h"
-#include "SkullbonezMesh.h"
+#include "SkullbonezIShader.h"
+#include "SkullbonezIMesh.h"
 #include "SkullbonezMatrix4.h"
 #include <memory>
 
@@ -26,8 +26,8 @@ class SkullbonezHelper
 {
 
   private:
-    static std::unique_ptr<Mesh> sphereMesh;                          // Shared unit sphere VBO
-    static std::unique_ptr<Shader> sphereShader;                      // Shared lit_textured m_shader
+    static std::unique_ptr<IMesh> sphereMesh;                         // Shared unit sphere VBO
+    static std::unique_ptr<IShader> sphereShader;                     // Shared lit_textured m_shader
     inline static float sClipPlane[4] = { 0.0f, 1.0f, 0.0f, 1.0e9f }; // default: always pass (GL_CLIP_DISTANCE0 disabled)
 
     static void BuildSphereMesh( int slices, int stacks ); // Generate UV sphere mesh

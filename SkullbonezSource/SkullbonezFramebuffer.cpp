@@ -76,9 +76,9 @@ void Framebuffer::Unbind() const
 }
 
 
-GLuint Framebuffer::GetColorTexture() const
+uint32_t Framebuffer::GetColorTextureHandle() const
 {
-    return m_colorTex;
+    return static_cast<uint32_t>( m_colorTex );
 }
 
 
@@ -94,7 +94,7 @@ int Framebuffer::GetHeight() const
 }
 
 
-void Framebuffer::ResetGLResources()
+void Framebuffer::ResetResources()
 {
     if ( m_fbo )
     {

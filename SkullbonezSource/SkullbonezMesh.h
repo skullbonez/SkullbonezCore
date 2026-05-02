@@ -3,6 +3,7 @@
 
 // --- Includes ---
 #include "SkullbonezCommon.h"
+#include "SkullbonezIMesh.h"
 
 namespace SkullbonezCore
 {
@@ -10,7 +11,8 @@ namespace Rendering
 {
 /* -- Mesh ------------------------------------------------------------------------------------------------------------------------------------------------------
 
-    VAO/VBO wrapper for interleaved vertex data. Supports flexible vertex formats:
+    OpenGL 3.3 implementation of IMesh. VAO/VBO wrapper for interleaved vertex data.
+    Supports flexible vertex formats:
       - Position only (3 floats)
       - Position + Normal (6 floats)
       - Position + TexCoord (5 floats)
@@ -21,7 +23,7 @@ namespace Rendering
       location 1 = aNormal   (vec3)  [if hasNormals]
       location 2 = aTexCoord (vec2)  [if hasTexCoords]
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class Mesh
+class Mesh : public IMesh
 {
 
   private:
@@ -32,10 +34,11 @@ class Mesh
 
   public:
     Mesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords, GLenum drawMode = GL_TRIANGLES ); // Upload interleaved vertex data
-    ~Mesh();                                                                                                        // Destructor: delete VAO/VBO
+    ~Mesh() override;                                                                                               // Destructor: delete VAO/VBO
 
-    void Draw() const;          // Bind VAO and draw
-    int GetVertexCount() const; // Get vertex count
+    void Draw() const override; // Bind VAO and draw
+    void DrawInstanced( int instanceCount ) const override;
+    int GetVertexCount() const override; // Get vertex count
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

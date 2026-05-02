@@ -3,7 +3,7 @@
 
 // --- Includes ---
 #include "SkullbonezCommon.h"
-#include "SkullbonezShader.h"
+#include "SkullbonezIShader.h"
 #include "SkullbonezMatrix4.h"
 
 namespace SkullbonezCore
@@ -22,11 +22,10 @@ class Text2d
 {
 
   public:
-    inline static GLuint fontTexture = 0;
-    inline static GLuint textVAO = 0;
-    inline static GLuint textVBO = 0;
-    inline static std::unique_ptr<Rendering::Shader> pTextShader;
-    inline static std::unique_ptr<Rendering::Shader> pSolidShader;
+    inline static uint32_t fontTexture = 0;
+    inline static uint32_t dynamicVB = 0;
+    inline static std::unique_ptr<Rendering::IShader> pTextShader;
+    inline static std::unique_ptr<Rendering::IShader> pSolidShader;
     inline static float charAdvance[96] = {};
 
     // NOTES: positioning is relational to centre of client rect

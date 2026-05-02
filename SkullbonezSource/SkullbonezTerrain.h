@@ -7,8 +7,8 @@
 #include "SkullbonezMatrix4.h"
 #include "SkullbonezGeometricStructures.h"
 #include "SkullbonezGeometricMath.h"
-#include "SkullbonezMesh.h"
-#include "SkullbonezShader.h"
+#include "SkullbonezIMesh.h"
+#include "SkullbonezIShader.h"
 
 
 // --- Usings ---
@@ -40,16 +40,16 @@ class Terrain
     Vector3 GetTerrainNormalAt( float xPosition, float zPosition );                            // Returns the surface normal of the terrain at the specified coordinates
 
   private:
-    UINT displayListReference;               // Reference to the display list (retained for fallback)
-    std::unique_ptr<Mesh> m_terrainMesh;     // VBO mesh for m_shader rendering
-    std::unique_ptr<Shader> m_terrainShader; // Lit+textured m_shader program
-    std::vector<TerrainPost> m_postData;     // Vertices that make up the m_terrain
-    std::vector<BYTE> m_terrainData;         // Raw m_height map byte data (populated during construction, cleared after build)
-    int m_mapSize;                           // Size of map (pixels length)
-    int m_stepSize;                          // Steps size between posts
-    int m_textureWrap;                       // Number of times to wrap texture over m_terrain
-    int m_postsPerSide;                      // Terrain postings per side of m_terrain
-    int m_terrainSizeWorldCoords;            // size per side of m_terrain in world coordinates
+    UINT displayListReference;                // Reference to the display list (retained for fallback)
+    std::unique_ptr<IMesh> m_terrainMesh;     // VBO mesh for m_shader rendering
+    std::unique_ptr<IShader> m_terrainShader; // Lit+textured m_shader program
+    std::vector<TerrainPost> m_postData;      // Vertices that make up the m_terrain
+    std::vector<BYTE> m_terrainData;          // Raw m_height map byte data (populated during construction, cleared after build)
+    int m_mapSize;                            // Size of map (pixels length)
+    int m_stepSize;                           // Steps size between posts
+    int m_textureWrap;                        // Number of times to wrap texture over m_terrain
+    int m_postsPerSide;                       // Terrain postings per side of m_terrain
+    int m_terrainSizeWorldCoords;             // size per side of m_terrain in world coordinates
 
     void LoadTerrainData( const char* sFileName );  // Loads terrain from .RAW file into terrainData member
     void BuildTerrain();                            // Builds the terrain
