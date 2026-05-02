@@ -427,9 +427,32 @@ $REPO = (git rev-parse --show-toplevel).Trim()
 py "$REPO\Copilot\Skills\loc_count.py"
 ```
 
-### Step 9: Commit
+### Step 9: Confirm Commit
 
-Only if **all** previous steps pass. The commit MUST include:
+**Unless the user explicitly said "commit after pipeline succeeds" (or equivalent) when invoking the pipeline**, you MUST stop here and show the proposed commit message, then use the `ask_user` tool to ask whether to proceed.
+
+Show the user:
+- The proposed commit message
+- A summary of what changed (files staged, LOC delta)
+
+Then ask:
+
+```
+Use ask_user tool:
+  question: "Pipeline passed. Commit with the message above?"
+  choices: ["Yes, commit and push", "Yes, commit (no push)", "No, hold off"]
+```
+
+Only proceed to Step 10 if the user confirms. If they say no, stop and leave everything staged but uncommitted.
+
+**Skip this step** (go straight to Step 10) **only if** the user's original request contained explicit commit intent, such as:
+- "commit after pipeline succeeds"
+- "run pipeline and commit"
+- "build, test, and push"
+
+### Step 10: Commit
+
+Only if **all** previous steps pass and commit is confirmed. The commit MUST include:
 - Code changes
 - Updated reference images (from Step 5)
 - Performance test artifact (from Step 6)
