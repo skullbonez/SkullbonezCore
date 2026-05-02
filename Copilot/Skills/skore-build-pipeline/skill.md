@@ -19,6 +19,8 @@ Check that all source files are properly formatted. **Any formatting violations 
 
 Uses `--dry-run -Werror` which exits non-zero and prints warnings for any file that would be changed. Do NOT compare clang-format stdout against file contents — PowerShell's pipeline mangles the output.
 
+Line endings are enforced by `.gitattributes` at commit time — no runtime check needed.
+
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
 $clangfmt = "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\x64\bin\clang-format.exe"
@@ -30,18 +32,6 @@ foreach ($f in $files) {
     if ($LASTEXITCODE -ne 0) { $bad += $f.Name }
 }
 
-# Enforce LF line endings across the source tree. Any CRLF will fail the lint step.
-$crlfFiles = Get-ChildItem $REPO -Recurse -File | Where-Object { $_.Extension -in '.cpp','.c','.h','.hpp','.hlsl','.vert','.frag','.txt','.md','.vcxproj' } | Where-Object {
-    (Get-Content -Raw -Encoding UTF8 $_.FullName) -match "`r`n"
-} | Select-Object -ExpandProperty FullName
-
-if ($crlfFiles -and $crlfFiles.Count -gt 0) {
-    Write-Host "FAIL: Found CRLF line endings in $($crlfFiles.Count) files:"
-    $crlfFiles | ForEach-Object { Write-Host "  $_" }
-    Write-Host "Run 'git add --renormalize .' after adding .gitattributes to normalize line endings."
-    exit 1
-}
-
 if ($bad.Count -gt 0) {
     Write-Host "FAIL: $($bad.Count) files need formatting:"
     $bad | ForEach-Object { Write-Host "  $_" }
@@ -49,9 +39,8 @@ if ($bad.Count -gt 0) {
     exit 1
 }
 
-Write-Host "PASS: All $($files.Count) files are correctly formatted and use LF line endings"
+Write-Host "PASS: All $($files.Count) files are correctly formatted"
 ```
-
 
 If this fails, proceed to Step 1 (Format) to auto-fix, then re-run Step 0.
 
