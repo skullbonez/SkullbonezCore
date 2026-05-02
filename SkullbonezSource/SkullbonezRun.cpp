@@ -92,7 +92,10 @@ void SkullbonezRun::Initialise()
     m_cWindow = SkullbonezWindow::Instance();
 
     // Set loading text
-    m_cWindow->SetTitleText( "::SKULLBONEZ CORE:: -- LOADING!!!" );
+    const char* rendererName = Gfx().UsesZeroToOneDepth() ? "DirectX" : "OpenGL";
+    char titleText[256];
+    sprintf_s( titleText, "::SKULLBONEZ CORE:: [%s] -- LOADING!!!", rendererName );
+    m_cWindow->SetTitleText( titleText );
 
     // Init m_textures
     m_cTextures = TextureCollection::Instance();
@@ -640,8 +643,9 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         m_timeSinceLastRender = 0.0f;
     }
 
-    // TOP
-    Text2d::Render2dText( -0.53f, 0.39f, 0.015f, "SKULLBONEZ CORE" );
+    // TOP - show renderer type
+    const char* rendererName = Gfx().UsesZeroToOneDepth() ? "DirectX" : "OpenGL";
+    Text2d::Render2dText( -0.53f, 0.39f, 0.015f, "SKULLBONEZ CORE [%s]", rendererName );
     Text2d::Render2dText( 0.39f, 0.39f, 0.015f, "Model Count: %i", m_modelCount );
 
     // Profiler overlay (replaces the legacy bottom FPS/Physics/Render strip).
@@ -914,7 +918,10 @@ void SkullbonezRun::LoadScene( int index )
         m_isSceneMode = false;
         SetUpCameras();
         SetUpGameModels( DEFAULT_GAME_MODELS );
-        m_cWindow->SetTitleText( "::SKULLBONEZ CORE::" );
+        const char* rendererName = Gfx().UsesZeroToOneDepth() ? "DirectX" : "OpenGL";
+        char titleText[256];
+        sprintf_s( titleText, "::SKULLBONEZ CORE:: [%s]", rendererName );
+        m_cWindow->SetTitleText( titleText );
     }
     else
     {
@@ -970,7 +977,10 @@ void SkullbonezRun::LoadScene( int index )
             SetUpGameModelsFromScene( scene );
         }
 
-        m_cWindow->SetTitleText( "::SKULLBONEZ CORE:: [SCENE MODE]" );
+        const char* rendererName = Gfx().UsesZeroToOneDepth() ? "DirectX" : "OpenGL";
+        char titleText[256];
+        sprintf_s( titleText, "::SKULLBONEZ CORE:: [SCENE MODE] [%s]", rendererName );
+        m_cWindow->SetTitleText( titleText );
     }
 
     // Restart timers
