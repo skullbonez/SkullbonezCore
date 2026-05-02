@@ -43,3 +43,4 @@ float4 main_ps(VS_OUT input) : SV_TARGET
 {
     return float4(0.0, 0.0, 0.0, input.alpha);
 }
+

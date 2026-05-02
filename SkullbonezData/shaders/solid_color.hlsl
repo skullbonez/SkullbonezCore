@@ -30,3 +30,4 @@ float4 main_ps(VS_OUT input) : SV_TARGET
 {
     return uColor;
 }
+

@@ -75,3 +75,4 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float4 texColor = uTexture.Sample(sSampler0, input.texCoord);
     return float4((ambient + diffuse) * texColor.rgb + specular, 1.0);
 }
+
