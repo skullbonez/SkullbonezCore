@@ -85,6 +85,14 @@ void Mesh::Draw() const
 }
 
 
+void Mesh::DrawInstanced( int instanceCount ) const
+{
+    glBindVertexArray( m_vao );
+    glDrawArraysInstanced( m_drawMode, 0, m_vertexCount, instanceCount );
+    glBindVertexArray( 0 );
+}
+
+
 int Mesh::GetVertexCount() const
 {
     return m_vertexCount;

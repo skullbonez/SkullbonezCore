@@ -243,6 +243,12 @@ void Profiler::End( const char* fullPath, uint32_t hash )
 
 void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
 {
+    // GPU profiler requires OpenGL — skip when running DX11
+    if ( !glGenQueries )
+    {
+        return;
+    }
+
     int idx = FindOrRegister( fullPath, hash );
     Marker& m = m_markers[idx];
     m.hasGpu = true;
@@ -270,6 +276,11 @@ void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
 
 void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
 {
+    if ( !glQueryCounter )
+    {
+        return;
+    }
+
     int idx = FindOrRegister( fullPath, hash );
     Marker& m = m_markers[idx];
 
@@ -284,6 +295,11 @@ void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
 
 void Profiler::ReadPendingGpuResults()
 {
+    if ( !glGetQueryObjectuiv )
+    {
+        return;
+    }
+
     for ( int i = 0; i < m_markerCount; ++i )
     {
         Marker& m = m_markers[i];

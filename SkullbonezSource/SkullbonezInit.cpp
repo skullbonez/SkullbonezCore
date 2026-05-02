@@ -3,6 +3,9 @@
 #include "SkullbonezRun.h"
 #include "SkullbonezWindow.h"
 #include "SkullbonezTimer.h"
+#include "SkullbonezIRenderBackend.h"
+#include "SkullbonezRenderBackendGL.h"
+#include "SkullbonezRenderBackendDX.h"
 #include <float.h>
 #include <cstring>
 #include <vector>
@@ -11,6 +14,8 @@
 
 // --- Usings ---
 using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Rendering;
+using namespace SkullbonezCore::Math::Transformation;
 
 
 // "Windows Main" - this function is the execution entry point for the application
@@ -88,6 +93,25 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
         sceneList.push_back( "" ); // legacy mode — empty string maps to nullptr
     }
 
+    // Parse --renderer arg (default: opengl)
+    bool useDX11 = false;
+    if ( szCmdLine )
+    {
+        const char* rendererArg = strstr( szCmdLine, "--renderer" );
+        if ( rendererArg )
+        {
+            rendererArg += 10;
+            while ( *rendererArg == ' ' )
+            {
+                ++rendererArg;
+            }
+            if ( _strnicmp( rendererArg, "dx11", 4 ) == 0 || _strnicmp( rendererArg, "d3d11", 5 ) == 0 )
+            {
+                useDX11 = true;
+            }
+        }
+    }
+
     Cfg().Load( "SkullbonezData/engine.cfg" );
 
     // Create an instance of our window class
@@ -99,8 +123,36 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     // Get the device context for our window
     m_cWindow->m_sDevice = GetDC( m_cWindow->m_sWindow );
 
-    // Init OpenGL (single context for entire lifetime)
-    m_cWindow->InitialiseOpenGL();
+    if ( !useDX11 )
+    {
+        // Init OpenGL (single context for entire lifetime)
+        m_cWindow->InitialiseOpenGL();
+
+        auto backend = std::make_unique<RenderBackendGL>();
+        backend->Init( m_cWindow->m_sWindow, m_cWindow->m_sDevice, m_cWindow->m_sWindowDimensions.x, m_cWindow->m_sWindowDimensions.y );
+        SetGfxBackend( std::move( backend ) );
+    }
+    else
+    {
+        auto backend = std::make_unique<RenderBackendDX>();
+        backend->Init( m_cWindow->m_sWindow, m_cWindow->m_sDevice, m_cWindow->m_sWindowDimensions.x, m_cWindow->m_sWindowDimensions.y );
+        SetGfxBackend( std::move( backend ) );
+
+        // DX11: InitialiseOpenGL was skipped, so HandleScreenResize never ran.
+        // Compute projection matrix here (DX11 uses [0,1] depth range).
+        int w = m_cWindow->m_sWindowDimensions.x;
+        int h = m_cWindow->m_sWindowDimensions.y;
+        if ( !h )
+        {
+            h = 1;
+        }
+        float aspect = static_cast<float>( w ) / static_cast<float>( h );
+        m_cWindow->projectionMatrix = Matrix4::PerspectiveZeroToOne(
+            45.0f,
+            aspect,
+            Cfg().frustumNear,
+            Cfg().frustumFar );
+    }
 
     {
         // Create the Skullbonez Core instance (scoped so destructor runs
@@ -127,8 +179,11 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
         // cRun destroyed here — GL context still alive for proper cleanup
     }
 
-    // Cleanup rendering context AFTER cRun is destroyed
-    if ( m_cWindow->m_sRenderContext )
+    // Destroy render backend before GL context
+    DestroyGfxBackend();
+
+    // Cleanup rendering context AFTER cRun is destroyed (OpenGL only)
+    if ( !useDX11 && m_cWindow->m_sRenderContext )
     {
         wglMakeCurrent( nullptr, nullptr );
         wglDeleteContext( m_cWindow->m_sRenderContext );

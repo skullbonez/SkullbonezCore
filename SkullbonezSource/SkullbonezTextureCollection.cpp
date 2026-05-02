@@ -1,10 +1,12 @@
 // --- Includes ---
 #include "SkullbonezTextureCollection.h"
+#include "SkullbonezIRenderBackend.h"
 #include "stb_image.h"
 
 
 // --- Usings ---
 using namespace SkullbonezCore::Textures;
+using namespace SkullbonezCore::Rendering;
 
 
 TextureCollection::TextureCollection()
@@ -87,20 +89,16 @@ int TextureCollection::FindIndex( uint32_t hash )
 
 void TextureCollection::DeleteAllTextures()
 {
-    // delete all OpenGL m_textures
-    glDeleteTextures( m_nextAvailableTextureIndex, m_textureArray );
-
-    // iterate through texture array
     for ( int count = 0; count < TOTAL_TEXTURE_COUNT; ++count )
     {
         if ( m_textureArray[count] )
         {
+            Gfx().DeleteTexture( m_textureArray[count] );
             m_textureHashes[count] = 0;
             m_textureArray[count] = 0;
         }
     }
 
-    // Update capacity and progress counters
     UpdateCounters();
 }
 
@@ -111,7 +109,7 @@ void TextureCollection::DeleteTexture( uint32_t hash )
 
     m_textureHashes[index] = 0;
 
-    glDeleteTextures( 1, &m_textureArray[index] );
+    Gfx().DeleteTexture( m_textureArray[index] );
     m_textureArray[index] = 0;
 
     UpdateCounters();
@@ -126,7 +124,7 @@ int TextureCollection::NumFreeTextureSpaces()
 
 void TextureCollection::SelectTexture( uint32_t hash )
 {
-    glBindTexture( GL_TEXTURE_2D, m_textureArray[FindIndex( hash )] );
+    Gfx().BindTexture( m_textureArray[FindIndex( hash )], 0 );
 }
 
 
@@ -151,16 +149,7 @@ void TextureCollection::CreateJpegTexture( const char* cFileName,
         throw std::runtime_error( "Image load failed!  (TextureCollection::CreateJpegTexture)" );
     }
 
-    // Generate and bind GL texture
-    glGenTextures( 1, &m_textureArray[m_nextAvailableTextureIndex] );
-    glBindTexture( GL_TEXTURE_2D, m_textureArray[m_nextAvailableTextureIndex] );
-
-    // Upload texture and generate mipmaps
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data );
-    glGenerateMipmap( GL_TEXTURE_2D );
-
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR );
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR );
+    m_textureArray[m_nextAvailableTextureIndex] = Gfx().CreateTexture2D( data, width, height, 3, true, true );
 
     // stb_image handles cleanup
     stbi_image_free( data );

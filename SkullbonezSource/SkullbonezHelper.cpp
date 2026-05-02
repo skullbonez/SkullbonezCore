@@ -1,5 +1,6 @@
 // --- Includes ---
 #include "SkullbonezHelper.h"
+#include "SkullbonezIRenderBackend.h"
 #include <vector>
 #include <cmath>
 
@@ -10,8 +11,8 @@ using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
 
 
-std::unique_ptr<Mesh> SkullbonezHelper::sphereMesh;
-std::unique_ptr<Shader> SkullbonezHelper::sphereShader;
+std::unique_ptr<IMesh> SkullbonezHelper::sphereMesh;
+std::unique_ptr<IShader> SkullbonezHelper::sphereShader;
 void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
 {
     sClipPlane[0] = x;
@@ -65,7 +66,7 @@ void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
         }
     }
 
-    sphereMesh = std::make_unique<Mesh>( verts.data(), static_cast<int>( verts.size() ) / 8, true, true );
+    sphereMesh = Gfx().CreateMesh( verts.data(), static_cast<int>( verts.size() ) / 8, true, true );
 }
 
 
@@ -74,7 +75,7 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
     if ( !sphereMesh )
     {
         BuildSphereMesh( 25, 25 );
-        sphereShader = std::make_unique<Shader>(
+        sphereShader = Gfx().CreateShader(
             "SkullbonezData/shaders/lit_textured.vert",
             "SkullbonezData/shaders/lit_textured.frag" );
         sphereShader->Use();
@@ -86,7 +87,7 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
 
     if ( isTransparent )
     {
-        glEnable( GL_BLEND );
+        Gfx().SetBlend( true );
     }
 
     float viewLightPos[4];
@@ -113,21 +114,12 @@ void SkullbonezHelper::DrawSphereBatchModel( const Matrix4& model )
 
 void SkullbonezHelper::DrawSphereBatchEnd()
 {
-    glDisable( GL_BLEND );
+    Gfx().SetBlend( false );
 }
 
 
 void SkullbonezHelper::StateSetup()
 {
-    glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
-
-    glClearDepth( 1.0f ); // clear depth buffer every frame
-
-    glEnable( GL_DEPTH_TEST ); // enable depth testing
-    glDepthFunc( GL_LEQUAL );  // less than or equal depth testing
-    glEnable( GL_CULL_FACE );  // enable back face culling
-    glFrontFace( GL_CCW );     // counter-clockwise front faces
-
-    // set up alpha blending (used by water and transparent spheres)
-    glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+    // Initial GL state is now set by RenderBackendGL::Init()
+    // This method is retained for any additional state setup needed after backend init
 }

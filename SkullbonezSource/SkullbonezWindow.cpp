@@ -54,6 +54,7 @@ void SkullbonezWindow::HandleScreenResize()
 {
     // Guard: skip GL calls if GLAD hasn't loaded function pointers yet.
     // WM_SIZE fires during CreateAppWindow before InitialiseOpenGL.
+    // For DX11, glViewport stays null — fall through to the backend path.
     if ( !glViewport )
     {
         return;

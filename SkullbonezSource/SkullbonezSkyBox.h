@@ -6,8 +6,8 @@
 #include "SkullbonezTextureCollection.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezGeometricStructures.h"
-#include "SkullbonezShader.h"
-#include "SkullbonezMesh.h"
+#include "SkullbonezIShader.h"
+#include "SkullbonezIMesh.h"
 #include "SkullbonezMatrix4.h"
 #include <memory>
 #include <array>
@@ -33,11 +33,11 @@ class SkyBox
 
   private:
     inline static SkyBox* pInstance = nullptr;
-    Box m_boundaries;                                  // Boundaries of sky box
-    TextureCollection* m_textures;                     // Textures of the sky box
-    std::unique_ptr<Shader> m_shader;                  // Unlit textured m_shader
-    std::array<std::unique_ptr<Mesh>, 6> m_faceMeshes; // VBO mesh per face
-    std::array<uint32_t, 6> m_faceTextures;            // Texture hash per face
+    Box m_boundaries;                                   // Boundaries of sky box
+    TextureCollection* m_textures;                      // Textures of the sky box
+    std::unique_ptr<IShader> m_shader;                  // Unlit textured m_shader
+    std::array<std::unique_ptr<IMesh>, 6> m_faceMeshes; // VBO mesh per face
+    std::array<uint32_t, 6> m_faceTextures;             // Texture hash per face
 
     SkyBox( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax ); // Overloaded constructor
     ~SkyBox() = default;                                                  // Destructor

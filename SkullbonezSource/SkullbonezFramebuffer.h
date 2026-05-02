@@ -3,6 +3,7 @@
 
 // --- Includes ---
 #include "SkullbonezCommon.h"
+#include "SkullbonezIFramebuffer.h"
 
 namespace SkullbonezCore
 {
@@ -10,10 +11,10 @@ namespace Rendering
 {
 /* -- Framebuffer -----------------------------------------------------------------------------------------------------------------------------------------------
 
-    Offscreen render target: one RGB color texture + depth renderbuffer.
+    OpenGL 3.3 implementation of IFramebuffer. Offscreen render target: one RGB color texture + depth renderbuffer.
     Used for the water reflection pre-pass.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class Framebuffer
+class Framebuffer : public IFramebuffer
 {
 
   private:
@@ -27,14 +28,14 @@ class Framebuffer
 
   public:
     Framebuffer( int width, int height ); // Create FBO at given resolution
-    ~Framebuffer();                       // Delete all GL objects
+    ~Framebuffer() override;              // Delete all GL objects
 
-    void Bind() const;              // Bind as render target
-    void Unbind() const;            // Restore default framebuffer
-    GLuint GetColorTexture() const; // Returns color texture handle
-    int GetWidth() const;           // Returns FBO width in pixels
-    int GetHeight() const;          // Returns FBO height in pixels
-    void ResetGLResources();        // Rebuild after GL context recreation
+    void Bind() const override;                      // Bind as render target
+    void Unbind() const override;                    // Restore default framebuffer
+    uint32_t GetColorTextureHandle() const override; // Returns color texture handle
+    int GetWidth() const override;                   // Returns FBO width in pixels
+    int GetHeight() const override;                  // Returns FBO height in pixels
+    void ResetResources() override;                  // Rebuild after GL context recreation
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

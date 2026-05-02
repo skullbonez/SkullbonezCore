@@ -1,5 +1,6 @@
 // --- Includes ---
 #include "SkullbonezSkyBox.h"
+#include "SkullbonezIRenderBackend.h"
 #include <vector>
 
 
@@ -266,11 +267,11 @@ void SkyBox::BuildMeshes()
 
     for ( int i = 0; i < 6; ++i )
     {
-        m_faceMeshes[i] = std::make_unique<Mesh>( faceData[i], 6, false, true );
+        m_faceMeshes[i] = Gfx().CreateMesh( faceData[i], 6, false, true );
     }
 
     // Load m_shader
-    m_shader = std::make_unique<Shader>(
+    m_shader = Gfx().CreateShader(
         "SkullbonezData/shaders/unlit_textured.vert",
         "SkullbonezData/shaders/unlit_textured.frag" );
     m_shader->Use();
