@@ -806,7 +806,7 @@ void RenderBackendDX12::SetPolygonOffset( bool enable, float factor, float units
 
 void RenderBackendDX12::SetClipPlane( int /*index*/, bool /*enable*/ )
 {
-    // Clip planes handled via ShaderGL constants (same as DX11)
+    // Clip planes handled via shader constants (same as DX11)
 }
 
 
@@ -1130,9 +1130,9 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
 }
 
 
-void RenderBackendDX12::SetActiveShader( ShaderDX12* ShaderGL )
+void RenderBackendDX12::SetActiveShader( ShaderDX12* shader )
 {
-    m_activeShader = ShaderGL;
+    m_activeShader = shader;
     m_psoDirty = true;
 }
 
@@ -1197,12 +1197,12 @@ std::unique_ptr<IShader> RenderBackendDX12::CreateShader( const char* vertPath, 
         hlslPath = hlslPath.substr( 0, dotPos ) + ".hlsl";
     }
 
-    auto ShaderGL = std::make_unique<ShaderDX12>();
-    if ( !ShaderGL->Compile( hlslPath.c_str() ) )
+    auto shader = std::make_unique<ShaderDX12>();
+    if ( !shader->Compile( hlslPath.c_str() ) )
     {
         throw std::runtime_error( "ShaderDX12 compilation failed: " + hlslPath );
     }
-    return ShaderGL;
+    return shader;
 }
 
 
@@ -1232,9 +1232,9 @@ std::unique_ptr<IMesh> RenderBackendDX12::CreateMesh( const float* data, int ver
     D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = SubAllocateUpload( dataSize, 4 );
     uint8_t* uploadPtr = GetUploadPtr( uploadAddr );
 
-    auto MeshGL = std::make_unique<MeshDX12>();
-    MeshGL->Create( m_device, m_commandList, data, vertexCount, floatsPerVert, format, uploadAddr, uploadPtr );
-    return MeshGL;
+    auto mesh = std::make_unique<MeshDX12>();
+    mesh->Create( m_device, m_commandList, data, vertexCount, floatsPerVert, format, uploadAddr, uploadPtr );
+    return mesh;
 }
 
 
@@ -1563,7 +1563,7 @@ void RenderBackendDX12::DestroyDynamicVB( uint32_t /*handle*/ )
 }
 
 
-// --- Instanced MeshGL ---
+// --- Instanced mesh ---
 
 
 uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int /*maxInstances*/, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs )

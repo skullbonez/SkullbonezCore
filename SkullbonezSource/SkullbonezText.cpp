@@ -252,7 +252,7 @@ static void RenderTextInternal( float xPosition, float yPosition, float fSize, f
     Gfx().SetBlend( true );
     Gfx().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
 
-    // Set up ShaderGL and uniforms
+    // Set up shader and uniforms
     Text2d::pTextShader->Use();
     Text2d::pTextShader->SetMat4( "uProjection", proj );
     Text2d::pTextShader->SetVec3( "uTextColor", colR, colG, colB );
@@ -320,7 +320,7 @@ void Text2d::Render2dQuad( float x0, float y0, float x1, float y1, float r, floa
         return;
     }
 
-    // Reuse the text VAO/VBO. Layout is (vec2 pos, vec2 uv); the solid ShaderGL only reads
+    // Reuse the text VAO/VBO. Layout is (vec2 pos, vec2 uv); the solid shader only reads
     // location 0, so the uv slots are dummy zeros.
     static float s_quadBuf[6 * 4];
     s_quadBuf[0] = x0;

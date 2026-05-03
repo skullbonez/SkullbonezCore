@@ -546,17 +546,17 @@ std::unique_ptr<IShader> RenderBackendDX11::CreateShader( const char* vertPath, 
         hlslPath = hlslPath.substr( 0, dot ) + ".hlsl";
     }
 
-    auto ShaderGL = std::make_unique<ShaderDX11>( m_device, m_context );
-    ShaderGL->Compile( hlslPath.c_str() );
-    return ShaderGL;
+    auto shader = std::make_unique<ShaderDX11>( m_device, m_context );
+    shader->Compile( hlslPath.c_str() );
+    return shader;
 }
 
 
 std::unique_ptr<IMesh> RenderBackendDX11::CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords )
 {
-    auto MeshGL = std::make_unique<MeshDX11>( m_device, m_context );
-    MeshGL->Create( data, vertexCount, hasNormals, hasTexCoords );
-    return MeshGL;
+    auto mesh = std::make_unique<MeshDX11>( m_device, m_context );
+    mesh->Create( data, vertexCount, hasNormals, hasTexCoords );
+    return mesh;
 }
 
 
@@ -936,7 +936,7 @@ void RenderBackendDX11::DestroyDynamicVB( uint32_t handle )
 }
 
 
-// --- Instanced MeshGL ---
+// --- Instanced mesh ---
 
 
 uint32_t RenderBackendDX11::CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int maxInstances, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs )

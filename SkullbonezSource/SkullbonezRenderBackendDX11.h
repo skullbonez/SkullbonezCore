@@ -40,7 +40,7 @@ struct DynamicVBDX
 };
 
 
-// Instanced MeshGL (shadow decals)
+// Instanced mesh (shadow decals)
 struct InstancedMeshDX
 {
     ID3D11Buffer* staticVB;

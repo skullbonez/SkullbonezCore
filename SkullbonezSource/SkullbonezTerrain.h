@@ -32,7 +32,7 @@ class Terrain
     Terrain( const char* sFileName, int iMapSize, int iStepSize, int iTextureWrap ); // Overloaded constructor: sFileName is path to .raw file, iMapSize is the size of map (pixels length), iStepSize is steps (pixel steps AND vertex steps), iTextureWrap is number of times to wrap texture
     ~Terrain();                                                                      // Default destructor
 
-    void Render( const Matrix4& view, const Matrix4& projection, const float* lightPosition ); // Renders the terrain with ShaderGL
+    void Render( const Matrix4& view, const Matrix4& projection, const float* lightPosition ); // Renders the terrain with shader
     XZBounds GetXZBounds();                                                                    // Returns the XZ bounds of the terrain
     Triangle LocatePolygon( float xPosition, float zPosition );                                // Locates the polygon surrounding the specified X and Z co-ordinates based on an orthagonal XZ projection.  Detailed math reference at http://www.simoneschbach.com/images/FindingArbitraryPolygon.gif
     bool IsInBounds( float xPosition, float zPosition );                                       // Returns a flag indicating if specified co-ordinates are inside the bounds of the terrain map
@@ -41,7 +41,7 @@ class Terrain
 
   private:
     UINT displayListReference;                // Reference to the display list (retained for fallback)
-    std::unique_ptr<IMesh> m_terrainMesh;     // VBO MeshGL for m_shader rendering
+    std::unique_ptr<IMesh> m_terrainMesh;     // VBO mesh for m_shader rendering
     std::unique_ptr<IShader> m_terrainShader; // Lit+textured m_shader program
     std::vector<TerrainPost> m_postData;      // Vertices that make up the m_terrain
     std::vector<BYTE> m_terrainData;          // Raw m_height map byte data (populated during construction, cleared after build)
@@ -55,7 +55,7 @@ class Terrain
     void BuildTerrain();                            // Builds the terrain
     void TranslatePostings();                       // Translates terrain posts
     void GenerateNormals();                         // Generates normals for posts
-    void BuildMesh();                               // Builds VBO MeshGL from post data
+    void BuildMesh();                               // Builds VBO mesh from post data
     int GetPixelHeightAt( int xCoord, int yCoord ); // Returns the .raw height at the specified pixel coordinates
 };
 } // namespace Geometry

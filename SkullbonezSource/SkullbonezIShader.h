@@ -18,8 +18,8 @@ namespace Rendering
 {
 /* -- IShader ----------------------------------------------------------------------------------------------------------------------------------------------------
 
-    Abstract ShaderGL interface. Concrete implementations handle GLSL (OpenGL) or HLSL (DirectX).
-    Uniform setters write ShaderGL constants — the backend handles how they're uploaded.
+    Abstract shader interface. Concrete implementations handle GLSL (OpenGL) or HLSL (DirectX).
+    Uniform setters write shader constants — the backend handles how they're uploaded.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class IShader
 {

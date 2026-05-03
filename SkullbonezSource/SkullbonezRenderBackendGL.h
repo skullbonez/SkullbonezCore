@@ -21,8 +21,8 @@ struct DynamicVBGL
 };
 
 
-// Internal storage for instanced MeshGL setups (shadows)
-struct InstancedMeshGL
+// Internal storage for instanced mesh setups (shadows)
+struct InstancedMesh
 {
     GLuint vao;
     GLuint staticVBO;
@@ -48,7 +48,7 @@ class RenderBackendGL : public IRenderBackend
     bool m_depthTestEnabled;
     bool m_blendEnabled;
     std::vector<DynamicVBGL> m_dynamicVBs;
-    std::vector<InstancedMeshGL> m_instancedMeshes;
+    std::vector<InstancedMesh> m_instancedMeshes;
 
   public:
     RenderBackendGL();

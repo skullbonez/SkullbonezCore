@@ -38,8 +38,8 @@ class GameModelCollection
     std::vector<GameModel> m_gameModels;               // Collection of game models
     SpatialGrid m_spatialGrid;                         // Broadphase spatial grid for collision culling
     std::vector<std::pair<int, int>> m_candidatePairs; // Retained-capacity pair buffer (avoids per-frame alloc)
-    std::unique_ptr<IShader> m_shadowShader;           // Shadow decal ShaderGL (instanced)
-    uint32_t m_shadowInstMesh = 0;                     // Instanced MeshGL handle (via Gfx())
+    std::unique_ptr<IShader> m_shadowShader;           // Shadow decal shader (instanced)
+    uint32_t m_shadowInstMesh = 0;                     // Instanced mesh handle (via Gfx())
     int m_shadowDiscVertexCount = 0;                   // Disc triangle vertex count
     std::vector<float> m_shadowInstanceData;           // Retained-capacity staging buffer (mat4 + alpha per instance)
 

@@ -97,13 +97,13 @@ bool MeshDX11::Create( const float* data, int vertexCount, bool hasNormals, bool
 void MeshDX11::EnsureInputLayout() const
 {
     auto* backend = RenderBackendDX11::Get();
-    auto* ShaderGL = backend->GetActiveShader();
-    if ( !ShaderGL )
+    auto* shader = backend->GetActiveShader();
+    if ( !shader )
     {
         return;
     }
 
-    const void* vsBytecode = ShaderGL->GetVSBytecode();
+    const void* vsBytecode = shader->GetVSBytecode();
     if ( vsBytecode == m_lastVSBytecode && m_inputLayout )
     {
         return;
@@ -144,8 +144,8 @@ void MeshDX11::EnsureInputLayout() const
 
     m_device->CreateInputLayout( elements,
                                  numElements,
-                                 ShaderGL->GetVSBytecode(),
-                                 ShaderGL->GetVSBytecodeSize(),
+                                 shader->GetVSBytecode(),
+                                 shader->GetVSBytecodeSize(),
                                  &m_inputLayout );
     m_lastVSBytecode = vsBytecode;
 }
@@ -156,10 +156,10 @@ void MeshDX11::Draw() const
     EnsureInputLayout();
 
     auto* backend = RenderBackendDX11::Get();
-    auto* ShaderGL = backend->GetActiveShader();
-    if ( ShaderGL )
+    auto* shader = backend->GetActiveShader();
+    if ( shader )
     {
-        ShaderGL->FlushCB();
+        shader->FlushCB();
     }
 
     m_context->IASetInputLayout( m_inputLayout );
@@ -176,10 +176,10 @@ void MeshDX11::DrawInstanced( int instanceCount ) const
     EnsureInputLayout();
 
     auto* backend = RenderBackendDX11::Get();
-    auto* ShaderGL = backend->GetActiveShader();
-    if ( ShaderGL )
+    auto* shader = backend->GetActiveShader();
+    if ( shader )
     {
-        ShaderGL->FlushCB();
+        shader->FlushCB();
     }
 
     m_context->IASetInputLayout( m_inputLayout );

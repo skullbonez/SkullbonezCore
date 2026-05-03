@@ -38,7 +38,7 @@ struct DynamicVBDX12
 };
 
 
-// Instanced MeshGL (shadow decals)
+// Instanced mesh (shadow decals)
 struct InstancedMeshDX12
 {
     ID3D12Resource* staticVB;
@@ -105,7 +105,7 @@ class RenderBackendDX12 : public IRenderBackend
     // Descriptor heaps
     ID3D12DescriptorHeap* m_rtvHeap;
     ID3D12DescriptorHeap* m_dsvHeap;
-    ID3D12DescriptorHeap* m_srvHeap;        // GPU-visible (ShaderGL-visible) for binding
+    ID3D12DescriptorHeap* m_srvHeap;        // GPU-visible (shader-visible) for binding
     ID3D12DescriptorHeap* m_srvStagingHeap; // CPU-only for persistent SRV storage
     UINT m_rtvDescSize;
     UINT m_dsvDescSize;
@@ -153,7 +153,7 @@ class RenderBackendDX12 : public IRenderBackend
     float m_clearDepth;
     bool m_psoDirty;
 
-    // Active ShaderGL
+    // Active shader
     ShaderDX12* m_activeShader;
 
     // Texture registry (1-based, index 0 unused)

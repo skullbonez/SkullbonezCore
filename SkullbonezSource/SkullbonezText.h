@@ -12,7 +12,7 @@ namespace Text
 {
 /* -- Text 2d ----------------------------------------------------------------------------------------------------------------------------------------------------
 
-    Provides a series of static methods to draw 2D text to the screen using a ShaderGL-based
+    Provides a series of static methods to draw 2D text to the screen using a shader-based
     font atlas. Replaces the legacy wglUseFontOutlines / display list approach.
 
     Coordinate space matches the legacy system: x/y positions are in the frustum-unit space

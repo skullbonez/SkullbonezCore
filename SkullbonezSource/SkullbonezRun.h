@@ -87,7 +87,7 @@ class SkullbonezRun
     bool m_isProfilerOverlay;                       // Profiler overlay visible (toggle with 0; default ON in profile builds)
     bool m_isWaterFreezeDebug;                      // Freeze ocean animation at current shape (toggle with 1)
     bool m_isWaterNoReflect;                        // Disable ocean reflection, output flat tint (toggle with 2)
-    bool m_isWaterFlatDebug;                        // Force ocean MeshGL fully flat, no displacement (toggle with 3)
+    bool m_isWaterFlatDebug;                        // Force ocean mesh fully flat, no displacement (toggle with 3)
     float m_frozenWaterTime;                        // Simulation time captured when freeze was toggled on
 
     void Render();                                                     // Main render method
@@ -102,7 +102,7 @@ class SkullbonezRun
     void SetInitialOpenGlState();                                      // Sets the initial state of the OpenGL evironment
     void SetViewingOrientation();                                      // Renders camera views etc
     void DrawWindowText( const double dSecondsPerFrame );              // Renders text to the window
-    void SaveScreenshot( const char* path );                           // Saves FramebufferGL to BMP file via glReadPixels
+    void SaveScreenshot( const char* path );                           // Saves framebuffer to BMP file via glReadPixels
     void LogPerfMemory( const char* checkpoint );                      // Log memory usage to perf CSV
     void LoadScene( int index );                                       // Resets scene-specific state and loads a scene by queue index
     bool AdvanceScene();                                               // Advances to the next scene in the queue (returns false if done)
