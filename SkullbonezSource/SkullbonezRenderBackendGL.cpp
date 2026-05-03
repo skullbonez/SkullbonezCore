@@ -1,8 +1,8 @@
 // --- Includes ---
 #include "SkullbonezRenderBackendGL.h"
-#include "SkullbonezShader.h"
-#include "SkullbonezMesh.h"
-#include "SkullbonezFramebuffer.h"
+#include "SkullbonezShaderGL.h"
+#include "SkullbonezMeshGL.h"
+#include "SkullbonezFramebufferGL.h"
 
 
 namespace SkullbonezCore
@@ -212,19 +212,19 @@ void RenderBackendGL::SetClipPlane( int index, bool enable )
 
 std::unique_ptr<IShader> RenderBackendGL::CreateShader( const char* vertPath, const char* fragPath )
 {
-    return std::make_unique<Shader>( vertPath, fragPath );
+    return std::make_unique<ShaderGL>( vertPath, fragPath );
 }
 
 
 std::unique_ptr<IMesh> RenderBackendGL::CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords )
 {
-    return std::make_unique<Mesh>( data, vertexCount, hasNormals, hasTexCoords );
+    return std::make_unique<MeshGL>( data, vertexCount, hasNormals, hasTexCoords );
 }
 
 
 std::unique_ptr<IFramebuffer> RenderBackendGL::CreateFramebuffer( int width, int height )
 {
-    return std::make_unique<Framebuffer>( width, height );
+    return std::make_unique<FramebufferGL>( width, height );
 }
 
 
@@ -409,12 +409,12 @@ void RenderBackendGL::DestroyDynamicVB( uint32_t handle )
 }
 
 
-// --- Instanced Mesh ---
+// --- Instanced MeshGL ---
 
 
 uint32_t RenderBackendGL::CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int maxInstances, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs )
 {
-    InstancedMeshGL im = {};
+    InstancedMesh im = {};
     im.staticFloatsPerVert = staticFloatsPerVert;
     im.instanceFloats = instanceFloats;
 
@@ -460,7 +460,7 @@ void RenderBackendGL::UploadInstanceData( uint32_t handle, const float* data, in
     {
         return;
     }
-    InstancedMeshGL& im = m_instancedMeshes[handle - 1];
+    InstancedMesh& im = m_instancedMeshes[handle - 1];
 
     glBindBuffer( GL_ARRAY_BUFFER, im.instanceVBO );
     glBufferSubData( GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>( floatCount ) * static_cast<GLsizeiptr>( sizeof( float ) ), data );
@@ -474,7 +474,7 @@ void RenderBackendGL::DrawInstancedMesh( uint32_t handle, int staticVertCount, i
     {
         return;
     }
-    InstancedMeshGL& im = m_instancedMeshes[handle - 1];
+    InstancedMesh& im = m_instancedMeshes[handle - 1];
 
     glBindVertexArray( im.vao );
     glDrawArraysInstanced( GL_TRIANGLES, 0, staticVertCount, instanceCount );
@@ -488,7 +488,7 @@ void RenderBackendGL::DestroyInstancedMesh( uint32_t handle )
     {
         return;
     }
-    InstancedMeshGL& im = m_instancedMeshes[handle - 1];
+    InstancedMesh& im = m_instancedMeshes[handle - 1];
     if ( im.instanceVBO )
     {
         glDeleteBuffers( 1, &im.instanceVBO );

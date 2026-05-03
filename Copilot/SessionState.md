@@ -1,8 +1,9 @@
 # SkullbonezCore — Session State
 
 ## Branch & Last Commit
-- Branch: `main`
-- Last commit: `4db5cf4` — Add commit refs to narrowphase regression todo
+- Branch: `fix/dx12-predraw-overhead` (rename work) / `main` (skill additions)
+- Last commit on fix branch: `4747099` — Rename API-specific source files and classes with GL/DX11/DX12 suffixes
+- Last commit on main: `7a063bc` — Add skore-cpu-profiler skill
 
 ---
 

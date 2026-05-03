@@ -1,12 +1,12 @@
 // --- Includes ---
-#include "SkullbonezMesh.h"
+#include "SkullbonezMeshGL.h"
 
 
 // --- Usings ---
 using namespace SkullbonezCore::Rendering;
 
 
-Mesh::Mesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords, GLenum drawMode )
+MeshGL::MeshGL( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords, GLenum drawMode )
 {
     m_vertexCount = vertexCount;
     m_drawMode = drawMode;
@@ -64,7 +64,7 @@ Mesh::Mesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoor
 }
 
 
-Mesh::~Mesh()
+MeshGL::~MeshGL()
 {
     if ( m_vbo )
     {
@@ -77,7 +77,7 @@ Mesh::~Mesh()
 }
 
 
-void Mesh::Draw() const
+void MeshGL::Draw() const
 {
     glBindVertexArray( m_vao );
     glDrawArrays( m_drawMode, 0, m_vertexCount );
@@ -85,7 +85,7 @@ void Mesh::Draw() const
 }
 
 
-void Mesh::DrawInstanced( int instanceCount ) const
+void MeshGL::DrawInstanced( int instanceCount ) const
 {
     glBindVertexArray( m_vao );
     glDrawArraysInstanced( m_drawMode, 0, m_vertexCount, instanceCount );
@@ -93,7 +93,7 @@ void Mesh::DrawInstanced( int instanceCount ) const
 }
 
 
-int Mesh::GetVertexCount() const
+int MeshGL::GetVertexCount() const
 {
     return m_vertexCount;
 }

@@ -35,7 +35,7 @@ namespace GameObjects
     Represents the highest level object in the library - a renderable mesh
     with collision bounds and physics information.
 
-    TODO: 3DS MODEL MESH BELONGS HERE!
+    TODO: 3DS MODEL mesh BELONGS HERE!
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class GameModel
 {

@@ -15,25 +15,25 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
-/* -- Shader ----------------------------------------------------------------------------------------------------------------------------------------------------
+/* -- ShaderGL ----------------------------------------------------------------------------------------------------------------------------------------------------
 
-    OpenGL 3.3 implementation of IShader. Loads, compiles, and links a GLSL shader program
-    from vertex and fragment shader source files.
+    OpenGL 3.3 implementation of IShader. Loads, compiles, and links a GLSL ShaderGL program
+    from vertex and fragment ShaderGL source files.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class Shader : public IShader
+class ShaderGL : public IShader
 {
 
   private:
-    GLuint m_programID; // OpenGL shader program handle
+    GLuint m_programID; // OpenGL ShaderGL program handle
 
-    static GLuint CompileShader( const char* path, GLenum type ); // Compile a single shader stage from file
-    static char* LoadShaderSource( const char* path );            // Read shader source from file
+    static GLuint CompileShader( const char* path, GLenum type ); // Compile a single ShaderGL stage from file
+    static char* LoadShaderSource( const char* path );            // Read ShaderGL source from file
 
   public:
-    Shader( const char* vertPath, const char* fragPath ); // Constructor: compile and link from files
-    ~Shader() override;                                   // Destructor: delete program
+    ShaderGL( const char* vertPath, const char* fragPath ); // Constructor: compile and link from files
+    ~ShaderGL() override;                                   // Destructor: delete program
 
-    void Use() const override;   // Bind this shader program
+    void Use() const override;   // Bind this ShaderGL program
     GLuint GetProgramID() const; // Get the OpenGL program handle
 
     void SetInt( const char* name, int value ) const override;                           // Set int uniform

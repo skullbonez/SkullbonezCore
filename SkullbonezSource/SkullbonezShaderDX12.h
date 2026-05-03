@@ -20,7 +20,7 @@ class RenderBackendDX12;
 
 /* -- ShaderDX12 -------------------------------------------------------------------------------------------------------------------------------------------------
 
-    DirectX 12 shader implementation. Compiles combined VS+PS from a single HLSL file.
+    DirectX 12 ShaderGL implementation. Compiles combined VS+PS from a single HLSL file.
     Uses D3DReflect for cbuffer layout. Stores VS/PS bytecode for PSO creation.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class ShaderDX12 : public IShader

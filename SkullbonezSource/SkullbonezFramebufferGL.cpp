@@ -1,5 +1,5 @@
 // --- Includes ---
-#include "SkullbonezFramebuffer.h"
+#include "SkullbonezFramebufferGL.h"
 #include <stdexcept>
 
 
@@ -7,14 +7,14 @@
 using namespace SkullbonezCore::Rendering;
 
 
-Framebuffer::Framebuffer( int m_width, int m_height )
+FramebufferGL::FramebufferGL( int m_width, int m_height )
     : m_fbo( 0 ), m_colorTex( 0 ), m_depthRBO( 0 ), m_width( m_width ), m_height( m_height )
 {
     Build();
 }
 
 
-Framebuffer::~Framebuffer()
+FramebufferGL::~FramebufferGL()
 {
     if ( m_fbo )
     {
@@ -31,7 +31,7 @@ Framebuffer::~Framebuffer()
 }
 
 
-void Framebuffer::Build()
+void FramebufferGL::Build()
 {
     // Color texture (RGB, no mipmaps, clamped edges)
     glGenTextures( 1, &m_colorTex );
@@ -57,44 +57,44 @@ void Framebuffer::Build()
 
     if ( glCheckFramebufferStatus( GL_FRAMEBUFFER ) != GL_FRAMEBUFFER_COMPLETE )
     {
-        throw std::runtime_error( "Framebuffer: incomplete framebuffer object" );
+        throw std::runtime_error( "FramebufferGL: incomplete FramebufferGL object" );
     }
 
     glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 }
 
 
-void Framebuffer::Bind() const
+void FramebufferGL::Bind() const
 {
     glBindFramebuffer( GL_FRAMEBUFFER, m_fbo );
 }
 
 
-void Framebuffer::Unbind() const
+void FramebufferGL::Unbind() const
 {
     glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 }
 
 
-uint32_t Framebuffer::GetColorTextureHandle() const
+uint32_t FramebufferGL::GetColorTextureHandle() const
 {
     return static_cast<uint32_t>( m_colorTex );
 }
 
 
-int Framebuffer::GetWidth() const
+int FramebufferGL::GetWidth() const
 {
     return m_width;
 }
 
 
-int Framebuffer::GetHeight() const
+int FramebufferGL::GetHeight() const
 {
     return m_height;
 }
 
 
-void Framebuffer::ResetResources()
+void FramebufferGL::ResetResources()
 {
     if ( m_fbo )
     {

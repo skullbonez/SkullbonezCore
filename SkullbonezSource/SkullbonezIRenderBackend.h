@@ -29,7 +29,7 @@ enum class BlendFactor
 /* -- IRenderBackend ---------------------------------------------------------------------------------------------------------------------------------------------
 
     Abstract render backend interface. Owns GPU state and resource creation.
-    Concrete implementations: RenderBackendGL (OpenGL 3.3), RenderBackendDX (DirectX 11).
+    Concrete implementations: RenderBackendGL (OpenGL 3.3), RenderBackendDX11 (DirectX 11).
     One global instance is set during init and accessed via Gfx().
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class IRenderBackend
@@ -124,7 +124,7 @@ class IRenderBackend
     virtual void DestroyDynamicVB( uint32_t handle ) = 0;
 
 
-    // --- Instanced Mesh (hardware instancing: shadow decals) ---
+    // --- Instanced MeshGL (hardware instancing: shadow decals) ---
     // staticData: per-vertex geometry  |  instance data uploaded per frame
     // instanceAttribSizes: component counts per instance attribute (e.g. {4,4,4,4,1} = mat4+float)
     // instanceStartAttrib: first attribute location for instance data (e.g. 3)

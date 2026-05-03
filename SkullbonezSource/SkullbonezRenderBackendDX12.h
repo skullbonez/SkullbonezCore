@@ -170,6 +170,11 @@ class RenderBackendDX12 : public IRenderBackend
     bool m_renderingToFBO;
     bool m_backBufferIsRT; // True if back buffer is in RENDER_TARGET state
 
+    // Redundant-call elimination: skip PSO/descriptor/state rebinds when unchanged
+    size_t m_lastPSOHash;
+    bool m_texBindingsDirty;
+    bool m_targetsDirty;
+
     // --- Internal helpers ---
     void WaitForGpu();
     void EnsureCommandListOpen();
@@ -250,8 +255,8 @@ class RenderBackendDX12 : public IRenderBackend
     void DrawInstancedMesh( uint32_t handle, int staticVertCount, int instanceCount ) override;
     void DestroyInstancedMesh( uint32_t handle ) override;
 
-    // DX12-specific helpers for mesh/shader/framebuffer classes
-    void SetActiveShader( ShaderDX12* shader );
+    // DX12-specific helpers for MeshGL/ShaderGL/FramebufferGL classes
+    void SetActiveShader( ShaderDX12* ShaderGL );
     ShaderDX12* GetActiveShader() const
     {
         return m_activeShader;

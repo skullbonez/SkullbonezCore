@@ -1,6 +1,6 @@
 // --- Includes ---
-#include "SkullbonezFramebufferDX.h"
-#include "SkullbonezRenderBackendDX.h"
+#include "SkullbonezFramebufferDX11.h"
+#include "SkullbonezRenderBackendDX11.h"
 #include <stdexcept>
 
 
@@ -8,19 +8,19 @@
 using namespace SkullbonezCore::Rendering;
 
 
-FramebufferDX::FramebufferDX( RenderBackendDX* backend, ID3D11Device* device, ID3D11DeviceContext* context )
+FramebufferDX11::FramebufferDX11( RenderBackendDX11* backend, ID3D11Device* device, ID3D11DeviceContext* context )
     : m_backend( backend ), m_device( device ), m_context( context ), m_colorTex( nullptr ), m_rtv( nullptr ), m_srv( nullptr ), m_depthTex( nullptr ), m_dsv( nullptr ), m_textureHandle( 0 ), m_width( 0 ), m_height( 0 ), m_savedRTV( nullptr ), m_savedDSV( nullptr )
 {
 }
 
 
-FramebufferDX::~FramebufferDX()
+FramebufferDX11::~FramebufferDX11()
 {
     ResetResources();
 }
 
 
-bool FramebufferDX::Create( int width, int height )
+bool FramebufferDX11::Create( int width, int height )
 {
     m_width = width;
     m_height = height;
@@ -84,7 +84,7 @@ bool FramebufferDX::Create( int width, int height )
 }
 
 
-void FramebufferDX::Bind() const
+void FramebufferDX11::Bind() const
 {
     // Save current render target
     m_context->OMGetRenderTargets( 1, &m_savedRTV, &m_savedDSV );
@@ -100,7 +100,7 @@ void FramebufferDX::Bind() const
 }
 
 
-void FramebufferDX::Unbind() const
+void FramebufferDX11::Unbind() const
 {
     // Restore previous render target
     if ( m_savedRTV || m_savedDSV )
@@ -120,13 +120,13 @@ void FramebufferDX::Unbind() const
 }
 
 
-uint32_t FramebufferDX::GetColorTextureHandle() const
+uint32_t FramebufferDX11::GetColorTextureHandle() const
 {
     return m_textureHandle;
 }
 
 
-void FramebufferDX::ResetResources()
+void FramebufferDX11::ResetResources()
 {
     if ( m_textureHandle && m_backend )
     {

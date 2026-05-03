@@ -1,6 +1,6 @@
 // --- Includes ---
-#include "SkullbonezShaderDX.h"
-#include "SkullbonezRenderBackendDX.h"
+#include "SkullbonezShaderDX11.h"
+#include "SkullbonezRenderBackendDX11.h"
 #include "SkullbonezVector3.h"
 #include <fstream>
 #include <sstream>
@@ -16,13 +16,13 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 
 
-ShaderDX::ShaderDX( ID3D11Device* device, ID3D11DeviceContext* context )
+ShaderDX11::ShaderDX11( ID3D11Device* device, ID3D11DeviceContext* context )
     : m_device( device ), m_context( context ), m_vs( nullptr ), m_ps( nullptr ), m_cbuffer( nullptr ), m_cbSize( 0 ), m_cbDirty( false )
 {
 }
 
 
-ShaderDX::~ShaderDX()
+ShaderDX11::~ShaderDX11()
 {
     if ( m_cbuffer )
     {
@@ -39,7 +39,7 @@ ShaderDX::~ShaderDX()
 }
 
 
-bool ShaderDX::Compile( const char* hlslPath )
+bool ShaderDX11::Compile( const char* hlslPath )
 {
     // Read HLSL source
     std::ifstream file( hlslPath, std::ios::binary );
@@ -52,7 +52,7 @@ bool ShaderDX::Compile( const char* hlslPath )
     ss << file.rdbuf();
     std::string source = ss.str();
 
-    // Compile vertex shader
+    // Compile vertex ShaderGL
     ID3DBlob* vsBlob = nullptr;
     ID3DBlob* errBlob = nullptr;
     HRESULT hr = D3DCompile( source.c_str(),
@@ -124,7 +124,7 @@ bool ShaderDX::Compile( const char* hlslPath )
     }
     vsBlob->Release();
 
-    // Compile pixel shader
+    // Compile pixel ShaderGL
     ID3DBlob* psBlob = nullptr;
     errBlob = nullptr;
     hr = D3DCompile( source.c_str(),
@@ -216,15 +216,15 @@ bool ShaderDX::Compile( const char* hlslPath )
 }
 
 
-void ShaderDX::Use() const
+void ShaderDX11::Use() const
 {
     m_context->VSSetShader( m_vs, nullptr, 0 );
     m_context->PSSetShader( m_ps, nullptr, 0 );
-    RenderBackendDX::Get()->SetActiveShader( const_cast<ShaderDX*>( this ) );
+    RenderBackendDX11::Get()->SetActiveShader( const_cast<ShaderDX11*>( this ) );
 }
 
 
-void ShaderDX::FlushCB() const
+void ShaderDX11::FlushCB() const
 {
     if ( !m_cbDirty || !m_cbuffer )
     {
@@ -245,7 +245,7 @@ void ShaderDX::FlushCB() const
 }
 
 
-void ShaderDX::SetInt( const char* name, int value ) const
+void ShaderDX11::SetInt( const char* name, int value ) const
 {
     auto it = m_uniformMap.find( name );
     if ( it == m_uniformMap.end() )
@@ -257,7 +257,7 @@ void ShaderDX::SetInt( const char* name, int value ) const
 }
 
 
-void ShaderDX::SetFloat( const char* name, float value ) const
+void ShaderDX11::SetFloat( const char* name, float value ) const
 {
     auto it = m_uniformMap.find( name );
     if ( it == m_uniformMap.end() )
@@ -269,7 +269,7 @@ void ShaderDX::SetFloat( const char* name, float value ) const
 }
 
 
-void ShaderDX::SetVec3( const char* name, float x, float y, float z ) const
+void ShaderDX11::SetVec3( const char* name, float x, float y, float z ) const
 {
     auto it = m_uniformMap.find( name );
     if ( it == m_uniformMap.end() )
@@ -282,7 +282,7 @@ void ShaderDX::SetVec3( const char* name, float x, float y, float z ) const
 }
 
 
-void ShaderDX::SetVec4( const char* name, float x, float y, float z, float w ) const
+void ShaderDX11::SetVec4( const char* name, float x, float y, float z, float w ) const
 {
     auto it = m_uniformMap.find( name );
     if ( it == m_uniformMap.end() )
@@ -295,7 +295,7 @@ void ShaderDX::SetVec4( const char* name, float x, float y, float z, float w ) c
 }
 
 
-void ShaderDX::SetMat4( const char* name, const Matrix4& mat ) const
+void ShaderDX11::SetMat4( const char* name, const Matrix4& mat ) const
 {
     auto it = m_uniformMap.find( name );
     if ( it == m_uniformMap.end() )
@@ -307,19 +307,19 @@ void ShaderDX::SetMat4( const char* name, const Matrix4& mat ) const
 }
 
 
-void ShaderDX::SetVec3( const char* name, const Vector3& v ) const
+void ShaderDX11::SetVec3( const char* name, const Vector3& v ) const
 {
     SetVec3( name, v.x, v.y, v.z );
 }
 
 
-const void* ShaderDX::GetVSBytecode() const
+const void* ShaderDX11::GetVSBytecode() const
 {
     return m_vsBytecode.data();
 }
 
 
-size_t ShaderDX::GetVSBytecodeSize() const
+size_t ShaderDX11::GetVSBytecodeSize() const
 {
     return m_vsBytecode.size();
 }

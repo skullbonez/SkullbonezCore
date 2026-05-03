@@ -25,7 +25,7 @@ RenderBackendDX12::RenderBackendDX12()
       ,
       m_nextDSV( 1 ) // 0 reserved for main depth
       ,
-      m_nextStaticSRV( 0 ), m_nextTransientSRV( 0 ), m_depthStencil( nullptr ), m_uploadBuffer( nullptr ), m_uploadBufferMapped( nullptr ), m_uploadOffset( 0 ), m_rootSignature( nullptr ), m_width( 0 ), m_height( 0 ), m_depthTestEnabled( true ), m_blendEnabled( false ), m_blendSrc( BlendFactor::One ), m_blendDst( BlendFactor::Zero ), m_cullEnabled( true ), m_polyOffsetEnabled( false ), m_polyOffsetFactor( 0.0f ), m_polyOffsetUnits( 0.0f ), m_clearDepth( 1.0f ), m_psoDirty( true ), m_activeShader( nullptr ), m_renderingToFBO( false ), m_backBufferIsRT( false )
+      m_nextStaticSRV( 0 ), m_nextTransientSRV( 0 ), m_depthStencil( nullptr ), m_uploadBuffer( nullptr ), m_uploadBufferMapped( nullptr ), m_uploadOffset( 0 ), m_rootSignature( nullptr ), m_width( 0 ), m_height( 0 ), m_depthTestEnabled( true ), m_blendEnabled( false ), m_blendSrc( BlendFactor::One ), m_blendDst( BlendFactor::Zero ), m_cullEnabled( true ), m_polyOffsetEnabled( false ), m_polyOffsetFactor( 0.0f ), m_polyOffsetUnits( 0.0f ), m_clearDepth( 1.0f ), m_psoDirty( true ), m_activeShader( nullptr ), m_renderingToFBO( false ), m_backBufferIsRT( false ), m_lastPSOHash( 0 ), m_texBindingsDirty( true ), m_targetsDirty( true )
 {
     m_clearColor[0] = 0.0f;
     m_clearColor[1] = 0.0f;
@@ -73,6 +73,11 @@ void RenderBackendDX12::EnsureCommandListOpen()
     m_commandListOpen = true;
     m_uploadOffset = 0;
     m_nextTransientSRV = MAX_STATIC_SRVS;
+
+    // All command list state is reset — force full rebind on next draw
+    m_lastPSOHash = 0;
+    m_texBindingsDirty = true;
+    m_targetsDirty = true;
 }
 
 
@@ -700,6 +705,7 @@ void RenderBackendDX12::SetViewport( int x, int y, int w, int h )
 {
     m_viewport = { (float)x, (float)y, (float)w, (float)h, 0.0f, 1.0f };
     m_scissorRect = { (LONG)x, (LONG)y, (LONG)( x + w ), (LONG)( y + h ) };
+    m_targetsDirty = true;
 }
 
 
@@ -1037,7 +1043,6 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
     key.cullEnabled = m_cullEnabled;
     key.polyOffsetEnabled = m_polyOffsetEnabled;
 
-    // Also incorporate dvb layout hash for custom formats
     size_t psoHash = HashPSOKey( key );
     if ( dvb )
     {
@@ -1047,22 +1052,44 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
         }
     }
 
-    auto it = m_psoCache.find( psoHash );
-    ID3D12PipelineState* pso;
-    if ( it != m_psoCache.end() )
+    // Fast path: if PSO, textures, and targets are all unchanged, only flush the CB
+    bool psoChanged = ( psoHash != m_lastPSOHash );
+
+    if ( !psoChanged && !m_texBindingsDirty && !m_targetsDirty )
     {
-        pso = it->second;
-    }
-    else
-    {
-        pso = CreatePSO( format, instanced, im, dvb );
-        m_psoCache[psoHash] = pso;
+        // Only the constant buffer has changed (e.g. model matrix per ball)
+        if ( m_activeShader )
+        {
+            D3D12_GPU_VIRTUAL_ADDRESS cbAddr = m_activeShader->FlushCB();
+            if ( cbAddr )
+            {
+                m_commandList->SetGraphicsRootConstantBufferView( 0, cbAddr );
+            }
+        }
+        return;
     }
 
-    m_commandList->SetPipelineState( pso );
-    m_commandList->SetGraphicsRootSignature( m_rootSignature );
+    // Full state setup path
+    if ( psoChanged )
+    {
+        auto it = m_psoCache.find( psoHash );
+        ID3D12PipelineState* pso;
+        if ( it != m_psoCache.end() )
+        {
+            pso = it->second;
+        }
+        else
+        {
+            pso = CreatePSO( format, instanced, im, dvb );
+            m_psoCache[psoHash] = pso;
+        }
 
-    // Flush shader CB
+        m_commandList->SetPipelineState( pso );
+        m_commandList->SetGraphicsRootSignature( m_rootSignature );
+        m_lastPSOHash = psoHash;
+    }
+
+    // Flush CB
     if ( m_activeShader )
     {
         D3D12_GPU_VIRTUAL_ADDRESS cbAddr = m_activeShader->FlushCB();
@@ -1072,22 +1099,32 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
         }
     }
 
-    // Bind textures: copy from CPU-only staging heap to GPU-visible transient slots
-    for ( int slot = 0; slot < 2; ++slot )
+    // Bind textures only when bindings have changed
+    if ( m_texBindingsDirty )
     {
-        UINT srcIdx = m_boundTexSlot[slot];
-        if ( srcIdx != UINT_MAX )
+        for ( int slot = 0; slot < 2; ++slot )
         {
-            UINT transient = AllocateTransientSRV();
-            D3D12_CPU_DESCRIPTOR_HANDLE dstHandle = { m_srvHeap->GetCPUDescriptorHandleForHeapStart().ptr + (SIZE_T)transient * m_srvDescSize };
-            m_device->CopyDescriptorsSimple( 1, dstHandle, GetSRVStagingCpuHandle( srcIdx ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-            m_commandList->SetGraphicsRootDescriptorTable( 1 + slot, GetSRVGpuHandle( transient ) );
+            UINT srcIdx = m_boundTexSlot[slot];
+            if ( srcIdx != UINT_MAX )
+            {
+                UINT transient = AllocateTransientSRV();
+                D3D12_CPU_DESCRIPTOR_HANDLE dstHandle = { m_srvHeap->GetCPUDescriptorHandleForHeapStart().ptr + (SIZE_T)transient * m_srvDescSize };
+                m_device->CopyDescriptorsSimple( 1, dstHandle, GetSRVStagingCpuHandle( srcIdx ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+                m_commandList->SetGraphicsRootDescriptorTable( 1 + slot, GetSRVGpuHandle( transient ) );
+            }
         }
+        m_texBindingsDirty = false;
     }
 
-    m_commandList->RSSetViewports( 1, &m_viewport );
-    m_commandList->RSSetScissorRects( 1, &m_scissorRect );
-    m_commandList->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
+    // Set viewport/scissor/render targets only when changed
+    if ( m_targetsDirty )
+    {
+        m_commandList->RSSetViewports( 1, &m_viewport );
+        m_commandList->RSSetScissorRects( 1, &m_scissorRect );
+        m_commandList->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
+        m_targetsDirty = false;
+    }
+
     m_commandList->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
     m_psoDirty = false;
 }
@@ -1104,6 +1141,7 @@ void RenderBackendDX12::SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D1
 {
     m_currentRTV = rtv;
     m_currentDSV = dsv;
+    m_targetsDirty = true;
 }
 
 
@@ -1119,6 +1157,7 @@ void RenderBackendDX12::SetRenderingToFBO( bool rendering, UINT fboSrvIndex )
             if ( m_boundTexSlot[i] == fboSrvIndex )
             {
                 m_boundTexSlot[i] = UINT_MAX;
+                m_texBindingsDirty = true;
             }
         }
     }
@@ -1318,12 +1357,20 @@ void RenderBackendDX12::BindTexture( uint32_t handle, int slot )
     {
         return;
     }
+    UINT newSlot;
     if ( handle == 0 || handle > (uint32_t)m_textures.size() )
     {
-        m_boundTexSlot[slot] = UINT_MAX;
-        return;
+        newSlot = UINT_MAX;
     }
-    m_boundTexSlot[slot] = m_textures[handle - 1].srvIndex;
+    else
+    {
+        newSlot = m_textures[handle - 1].srvIndex;
+    }
+    if ( m_boundTexSlot[slot] != newSlot )
+    {
+        m_boundTexSlot[slot] = newSlot;
+        m_texBindingsDirty = true;
+    }
 }
 
 
@@ -1516,7 +1563,7 @@ void RenderBackendDX12::DestroyDynamicVB( uint32_t /*handle*/ )
 }
 
 
-// --- Instanced Mesh ---
+// --- Instanced mesh ---
 
 
 uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int /*maxInstances*/, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs )
