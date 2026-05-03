@@ -67,6 +67,12 @@ SkullbonezRun::~SkullbonezRun()
         m_perfLogFile = nullptr;
     }
 
+    // Flush GPU before destroying resources to avoid use-after-free
+    if ( IsGfxReady() )
+    {
+        Gfx().FlushGPU();
+    }
+
     // Clean up GL resources while context is still alive
     SkullbonezHelper::ResetGLResources();
     m_cWorldEnvironment.ResetGLResources();
@@ -92,7 +98,7 @@ void SkullbonezRun::Initialise()
     m_cWindow = SkullbonezWindow::Instance();
 
     // Set loading text
-    const char* rendererName = Gfx().UsesZeroToOneDepth() ? "DirectX" : "OpenGL";
+    const char* rendererName = Gfx().GetRendererName();
     char titleText[256];
     sprintf_s( titleText, "::SKULLBONEZ CORE:: [%s] -- LOADING!!!", rendererName );
     m_cWindow->SetTitleText( titleText );
@@ -640,7 +646,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     }
 
     // TOP - show renderer type
-    const char* rendererName = Gfx().UsesZeroToOneDepth() ? "DirectX" : "OpenGL";
+    const char* rendererName = Gfx().GetRendererName();
     Text2d::Render2dText( -0.53f, 0.39f, 0.015f, "SKULLBONEZ CORE [%s]", rendererName );
     Text2d::Render2dText( 0.39f, 0.39f, 0.015f, "Model Count: %i", m_modelCount );
 
@@ -855,6 +861,12 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 
 void SkullbonezRun::LoadScene( int index )
 {
+    // Flush GPU before destroying scene resources to avoid use-after-free
+    if ( IsGfxReady() )
+    {
+        Gfx().FlushGPU();
+    }
+
     m_currentSceneIndex = index;
     const std::string& scenePath = m_sceneQueue[index];
 
@@ -914,7 +926,7 @@ void SkullbonezRun::LoadScene( int index )
         m_isSceneMode = false;
         SetUpCameras();
         SetUpGameModels( DEFAULT_GAME_MODELS );
-        const char* rendererName = Gfx().UsesZeroToOneDepth() ? "DirectX" : "OpenGL";
+        const char* rendererName = Gfx().GetRendererName();
         char titleText[256];
         sprintf_s( titleText, "::SKULLBONEZ CORE:: [%s]", rendererName );
         m_cWindow->SetTitleText( titleText );
@@ -973,7 +985,7 @@ void SkullbonezRun::LoadScene( int index )
             SetUpGameModelsFromScene( scene );
         }
 
-        const char* rendererName = Gfx().UsesZeroToOneDepth() ? "DirectX" : "OpenGL";
+        const char* rendererName = Gfx().GetRendererName();
         char titleText[256];
         sprintf_s( titleText, "::SKULLBONEZ CORE:: [SCENE MODE] [%s]", rendererName );
         m_cWindow->SetTitleText( titleText );

@@ -54,6 +54,12 @@ void RenderBackendGL::Finish()
 }
 
 
+void RenderBackendGL::FlushGPU()
+{
+    glFinish();
+}
+
+
 void RenderBackendGL::Resize( int width, int height )
 {
     m_width = width;
