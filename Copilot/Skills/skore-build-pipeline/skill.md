@@ -79,19 +79,24 @@ $msbuild = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.e
 
 **If build fails with LNK1168** (exe locked): kill the running `SKULLBONEZ_CORE.exe` process first, then rebuild.
 
-### Step 3: Run Dual Renderer Test Suite
+### Step 3: Run Tri-Renderer Test Suite
 
-Runs test suite for **both OpenGL and DirectX** renderers. Each produces separate artifacts:
+Runs test suite for **OpenGL, DirectX 11, and DirectX 12** renderers. Each produces separate artifacts:
 
 **OpenGL artifacts:**
 - `Profile/gl_screenshot.bmp` — water_ball_test GL render
 - `Profile/gl_legacy_smoke.bmp` — legacy_smoke GL render  
 - `Profile/gl_perf_log.csv` — GL performance data (2×5s passes)
 
-**DirectX artifacts:**
+**DirectX 11 artifacts:**
 - `Profile/dx11_screenshot.bmp` — water_ball_test DX11 render
 - `Profile/dx11_legacy_smoke.bmp` — legacy_smoke DX11 render
 - `Profile/dx11_perf_log.csv` — DX11 performance data (2×5s passes)
+
+**DirectX 12 artifacts:**
+- `Profile/dx12_screenshot.bmp` — water_ball_test DX12 render
+- `Profile/dx12_legacy_smoke.bmp` — legacy_smoke DX12 render
+- `Profile/dx12_perf_log.csv` — DX12 performance data (2×5s passes)
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
@@ -100,6 +105,7 @@ $REPO = (git rev-parse --show-toplevel).Trim()
 Remove-Item "$REPO\Profile\*screenshot.bmp" -ErrorAction SilentlyContinue
 Remove-Item "$REPO\Profile\*legacy_smoke.bmp" -ErrorAction SilentlyContinue  
 Remove-Item "$REPO\Profile\*perf_log.csv" -ErrorAction SilentlyContinue
+Remove-Item "$REPO\dx12_validation.txt" -ErrorAction SilentlyContinue
 
 Write-Host "=== Running OpenGL Suite ==="
 $proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
@@ -118,7 +124,7 @@ if (Test-Path "$REPO\Profile\perf_log.csv") {
     Move-Item "$REPO\Profile\perf_log.csv" "$REPO\Profile\gl_perf_log.csv" 
 }
 
-Write-Host "=== Running DirectX Suite ==="
+Write-Host "=== Running DirectX 11 Suite ==="
 $proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
     -ArgumentList "--renderer dx11 --suite SkullbonezData/scenes/render_tests.suite" `
     -WorkingDirectory $REPO -PassThru
@@ -135,10 +141,28 @@ if (Test-Path "$REPO\Profile\perf_log.csv") {
     Move-Item "$REPO\Profile\perf_log.csv" "$REPO\Profile\dx11_perf_log.csv" 
 }
 
+Write-Host "=== Running DirectX 12 Suite ==="
+$proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
+    -ArgumentList "--renderer dx12 --suite SkullbonezData/scenes/render_tests.suite" `
+    -WorkingDirectory $REPO -PassThru
+$proc.WaitForExit(30000) | Out-Null
+
+# Rename DX12 artifacts  
+if (Test-Path "$REPO\Profile\screenshot.bmp") { 
+    Move-Item "$REPO\Profile\screenshot.bmp" "$REPO\Profile\dx12_screenshot.bmp" 
+}
+if (Test-Path "$REPO\Profile\legacy_smoke.bmp") { 
+    Move-Item "$REPO\Profile\legacy_smoke.bmp" "$REPO\Profile\dx12_legacy_smoke.bmp" 
+}
+if (Test-Path "$REPO\Profile\perf_log.csv") { 
+    Move-Item "$REPO\Profile\perf_log.csv" "$REPO\Profile\dx12_perf_log.csv" 
+}
+
 # Verify all artifacts exist
 $allOk = $true
 $artifacts = @("gl_screenshot.bmp", "gl_legacy_smoke.bmp", "gl_perf_log.csv", 
-               "dx11_screenshot.bmp", "dx11_legacy_smoke.bmp", "dx11_perf_log.csv")
+               "dx11_screenshot.bmp", "dx11_legacy_smoke.bmp", "dx11_perf_log.csv",
+               "dx12_screenshot.bmp", "dx12_legacy_smoke.bmp", "dx12_perf_log.csv")
 foreach ($f in $artifacts) {
     if (Test-Path "$REPO\Profile\$f") {
         Write-Host "  $f OK"
@@ -149,7 +173,7 @@ foreach ($f in $artifacts) {
 }
 
 if ($allOk) {
-    Write-Host "PASS: All dual-renderer artifacts produced"
+    Write-Host "PASS: All tri-renderer artifacts produced"
 } else {
     Write-Host "FAIL: Missing artifacts — debug with skore-cdb-debug skill"
     exit 1
@@ -157,6 +181,33 @@ if ($allOk) {
 ```
 
 **If the suite fails or crashes**: Debug with `skore-cdb-debug` skill using the same `--suite` command line.
+
+### Step 3.5: Validate DX12 Clean Debug Log
+
+The DX12 backend writes `dx12_validation.txt` to the working directory at shutdown. The last line contains the error count. **This must be 0.**
+
+```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
+$valFile = "$REPO\dx12_validation.txt"
+
+if (-not (Test-Path $valFile)) {
+    Write-Host "FAIL: dx12_validation.txt not found — DX12 did not run or Shutdown() was not called"
+    exit 1
+}
+
+$lines = Get-Content $valFile
+$lastLine = ($lines | Select-Object -Last 1).Trim()
+
+if ($lastLine -eq "0") {
+    Write-Host "PASS: DX12 debug layer reported 0 errors"
+} else {
+    Write-Host "FAIL: DX12 debug layer reported $lastLine errors:"
+    $lines | Where-Object { $_ -ne "---" -and $_ -ne $lastLine } | ForEach-Object { Write-Host "  $_" }
+    exit 1
+}
+```
+
+**If this step fails**, the DX12 backend has validation errors. Fix them before proceeding — a clean debug layer log is mandatory for every commit.
 
 ### Step 4: Validate Render Output & Cross-Renderer Comparison
 
@@ -174,6 +225,8 @@ pairs = [
     (_r + r'\Profile\gl_legacy_smoke.bmp', _r + r'\TestOutput\baselines\baseline_gl_legacy_smoke.png', 'GL legacy_smoke'),
     (_r + r'\Profile\dx11_screenshot.bmp', _r + r'\TestOutput\baselines\baseline_dx11_water_ball_test.png', 'DX11 water_ball_test'),  
     (_r + r'\Profile\dx11_legacy_smoke.bmp', _r + r'\TestOutput\baselines\baseline_dx11_legacy_smoke.png', 'DX11 legacy_smoke'),
+    (_r + r'\Profile\dx12_screenshot.bmp', _r + r'\TestOutput\baselines\baseline_dx12_water_ball_test.png', 'DX12 water_ball_test'),  
+    (_r + r'\Profile\dx12_legacy_smoke.bmp', _r + r'\TestOutput\baselines\baseline_dx12_legacy_smoke.png', 'DX12 legacy_smoke'),
 ]
 all_pass = True
 for cap, base, name in pairs:
@@ -206,7 +259,7 @@ else:
 "
 ```
 
-**4B: Cross-renderer comparison** — GL vs DX11 visual parity:
+**4B: Cross-renderer comparison** — GL vs DX11 and GL vs DX12 visual parity:
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
@@ -218,6 +271,8 @@ _r = os.environ['SKORE_REPO']
 cross_pairs = [
     (_r + r'\Profile\gl_screenshot.bmp', _r + r'\Profile\dx11_screenshot.bmp', 'water_ball_test GL vs DX11'),
     (_r + r'\Profile\gl_legacy_smoke.bmp', _r + r'\Profile\dx11_legacy_smoke.bmp', 'legacy_smoke GL vs DX11'),
+    (_r + r'\Profile\gl_screenshot.bmp', _r + r'\Profile\dx12_screenshot.bmp', 'water_ball_test GL vs DX12'),
+    (_r + r'\Profile\gl_legacy_smoke.bmp', _r + r'\Profile\dx12_legacy_smoke.bmp', 'legacy_smoke GL vs DX12'),
 ]
 print('\\n=== Cross-Renderer Visual Parity ===')
 parity_ok = True
@@ -252,7 +307,7 @@ else:
 
 ### Step 5: Update Reference Images
 
-**Mandatory for every commit.** Capture fresh baselines from both renderers:
+**Mandatory for every commit.** Capture fresh baselines from all three renderers:
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
@@ -274,7 +329,7 @@ if os.path.exists(_r + r'\Profile\gl_legacy_smoke.bmp'):
     Image.open(_r + r'\Profile\gl_legacy_smoke.bmp').save(_b + r'\baseline_gl_legacy_smoke.png')
     print('Updated baseline_gl_legacy_smoke.png')
 
-# DirectX baselines  
+# DirectX 11 baselines  
 if os.path.exists(_r + r'\Profile\dx11_screenshot.bmp'):
     Image.open(_r + r'\Profile\dx11_screenshot.bmp').save(_b + r'\baseline_dx11_water_ball_test.png')
     print('Updated baseline_dx11_water_ball_test.png')
@@ -282,11 +337,19 @@ if os.path.exists(_r + r'\Profile\dx11_legacy_smoke.bmp'):
     Image.open(_r + r'\Profile\dx11_legacy_smoke.bmp').save(_b + r'\baseline_dx11_legacy_smoke.png')
     print('Updated baseline_dx11_legacy_smoke.png')
 
+# DirectX 12 baselines  
+if os.path.exists(_r + r'\Profile\dx12_screenshot.bmp'):
+    Image.open(_r + r'\Profile\dx12_screenshot.bmp').save(_b + r'\baseline_dx12_water_ball_test.png')
+    print('Updated baseline_dx12_water_ball_test.png')
+if os.path.exists(_r + r'\Profile\dx12_legacy_smoke.bmp'):
+    Image.open(_r + r'\Profile\dx12_legacy_smoke.bmp').save(_b + r'\baseline_dx12_legacy_smoke.png')
+    print('Updated baseline_dx12_legacy_smoke.png')
+
 print('All baselines updated')
 "
 ```
 
-This ensures baselines always reflect the latest committed state for both renderers.
+This ensures baselines always reflect the latest committed state for all three renderers.
 
 ### Step 6: Analyze Performance & Compare Against Prior Commit
 
@@ -314,7 +377,7 @@ if ($existingForCommit) {
     Write-Host "Created archive: $(Split-Path $archiveDir -Leaf)"
 }
 
-# Analyze both renderers — writes {renderer}_perf.json into archive dir
+# Analyze all three renderers — writes {renderer}_perf.json into archive dir
 Write-Host "`n=== GL Perf Analysis ==="
 py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py" `
     --renderer gl `
@@ -329,9 +392,16 @@ py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py" `
     --out-dir $archiveDir
 if ($LASTEXITCODE -ne 0) { Write-Host "FAIL: DX11 perf analysis failed"; exit 1 }
 
+Write-Host "`n=== DX12 Perf Analysis ==="
+py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py" `
+    --renderer dx12 `
+    --csv "$REPO\Profile\dx12_perf_log.csv" `
+    --out-dir $archiveDir
+if ($LASTEXITCODE -ne 0) { Write-Host "FAIL: DX12 perf analysis failed"; exit 1 }
+
 # Compare each renderer against the nearest prior archive that has its JSON
 # Walk backward through sorted archives, skip same-commit entries
-foreach ($renderer in @("gl", "dx11")) {
+foreach ($renderer in @("gl", "dx11", "dx12")) {
     $prevJson = $null
     foreach ($dir in ($allDirs | Sort-Object { [int]($_.Name -split '_',2)[0] } -Descending)) {
         $dirCommit = ($dir.Name -split '_',2)[1]
@@ -356,7 +426,7 @@ foreach ($renderer in @("gl", "dx11")) {
 }
 ```
 
-**⚠️ MANDATORY: Print the COMPLETE output for BOTH renderers — every row, every emoji dot, the full CPU table, GPU table, and Memory table. Do NOT summarize, truncate, or paraphrase.**
+**⚠️ MANDATORY: Print the COMPLETE output for ALL THREE renderers — every row, every emoji dot, the full CPU table, GPU table, and Memory table. Do NOT summarize, truncate, or paraphrase.**
 
 **If regression thresholds are exceeded**, investigate before proceeding.
 
@@ -393,13 +463,15 @@ for src, dst in [
     (_r / 'Profile' / 'gl_legacy_smoke.bmp', archive / 'gl_legacy_smoke.png'),
     (_r / 'Profile' / 'dx11_screenshot.bmp',   archive / 'dx11_water_ball_test.png'),
     (_r / 'Profile' / 'dx11_legacy_smoke.bmp', archive / 'dx11_legacy_smoke.png'),
+    (_r / 'Profile' / 'dx12_screenshot.bmp',   archive / 'dx12_water_ball_test.png'),
+    (_r / 'Profile' / 'dx12_legacy_smoke.bmp', archive / 'dx12_legacy_smoke.png'),
 ]:
     if src.exists():
         Image.open(str(src)).save(str(dst))
         print(f'  Archived {dst.name}')
 
 # Copy perf CSVs alongside the JSONs
-for csv_name in ['gl_perf_log.csv', 'dx11_perf_log.csv']:
+for csv_name in ['gl_perf_log.csv', 'dx11_perf_log.csv', 'dx12_perf_log.csv']:
     src = _r / 'Profile' / csv_name
     if src.exists():
         shutil.copy2(str(src), str(archive / csv_name))

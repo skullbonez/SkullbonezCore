@@ -45,6 +45,7 @@ class IRenderBackend
     virtual void Shutdown() = 0;
     virtual void Present() = 0;
     virtual void Finish() = 0;
+    virtual void FlushGPU() = 0; // Block until all submitted GPU work completes (required before resource destruction)
     virtual void Resize( int width, int height ) = 0;
 
 
@@ -111,7 +112,8 @@ class IRenderBackend
 
     // --- Depth Range Convention ---
 
-    virtual bool UsesZeroToOneDepth() const = 0; // true for DX11 [0,1]; false for GL [-1,1]
+    virtual bool UsesZeroToOneDepth() const = 0; // true for DX11/DX12 [0,1]; false for GL [-1,1]
+    virtual const char* GetRendererName() const = 0;
 
 
     // --- Dynamic Vertex Buffer (per-frame geometry: text quads, HUD overlays) ---
