@@ -19,6 +19,7 @@ A Windows 3D graphics and physics simulation engine written in C++ using OpenGL,
 | skore-build | `Copilot/Skills/skore-build/skill.md` |
 | skore-cdb-debug | `Copilot/Skills/skore-cdb-debug/skill.md` |
 | skore-launch | `Copilot/Skills/skore-launch/skill.md` |
+| skore-cpu-profiler | `Copilot/Skills/skore-cpu-profiler/skill.md` |
 
 ## Key Docs
 

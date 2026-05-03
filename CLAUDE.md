@@ -26,6 +26,7 @@ Do not begin any work until this protocol is complete.
 | skore-cdb-debug | `Copilot/Skills/skore-cdb-debug/skill.md` |
 | skore-launch | `Copilot/Skills/skore-launch/skill.md` |
 | skore-branch-and-snatch | `Copilot/Skills/skore-branch-and-snatch/skill.md` |
+| skore-cpu-profiler | `Copilot/Skills/skore-cpu-profiler/skill.md` |
 
 ---
 
