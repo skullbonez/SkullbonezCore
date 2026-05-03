@@ -170,6 +170,11 @@ class RenderBackendDX12 : public IRenderBackend
     bool m_renderingToFBO;
     bool m_backBufferIsRT; // True if back buffer is in RENDER_TARGET state
 
+    // Redundant-call elimination: skip PSO/descriptor/state rebinds when unchanged
+    size_t m_lastPSOHash;
+    bool m_texBindingsDirty;
+    bool m_targetsDirty;
+
     // --- Internal helpers ---
     void WaitForGpu();
     void EnsureCommandListOpen();
