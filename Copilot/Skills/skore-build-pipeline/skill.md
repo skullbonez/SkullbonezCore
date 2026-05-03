@@ -295,6 +295,15 @@ foreach ($renderer in @("gl", "dx11", "dx12")) {
     if ($LASTEXITCODE -ne 0) { Write-Host "FAIL: $($renderer.ToUpper()) perf analysis failed"; exit 1 }
 }
 
+# JSON artifacts are now written — delete the raw CSVs (large and redundant vs the JSON)
+foreach ($renderer in @("gl", "dx11", "dx12")) {
+    $csv = "$REPO\Profile\${renderer}_perf_log.csv"
+    if (Test-Path $csv) { Remove-Item $csv; Write-Host "Deleted: ${renderer}_perf_log.csv" }
+}
+# Also purge any CSVs previously archived to TestOutput
+Get-ChildItem "$REPO\TestOutput" -Recurse -Filter "*_perf_log.csv" | Remove-Item
+Write-Host "Cleaned up archived CSVs from TestOutput"
+
 foreach ($renderer in @("gl", "dx11", "dx12")) {
     $prevJson = $null
     foreach ($dir in ($allDirs | Sort-Object { [int]($_.Name -split '_',2)[0] } -Descending)) {
@@ -323,7 +332,7 @@ Regression thresholds: avg/p50 timing >10% = FAIL, p99/p99.9 >20% = FAIL, memory
 
 ### Step 7: Archive Screenshots to TestOutput
 
-Screenshots and perf CSVs are copied into the archive dir from Step 6.
+Screenshots are copied into the archive dir from Step 6. CSVs are not archived (deleted in Step 6 after JSON is written).
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
@@ -339,7 +348,7 @@ if (-not $archiveDir) { Write-Host "FAIL: Archive dir not found for $commit"; ex
 $env:SKORE_ARCHIVE = $archiveDir
 $env:SKORE_REPO    = $REPO
 py -c "
-import os, shutil
+import os
 from pathlib import Path
 from PIL import Image
 _r = Path(os.environ['SKORE_REPO'])
@@ -355,11 +364,6 @@ for src, dst in [
     if src.exists():
         Image.open(str(src)).save(str(dst))
         print(f'  {dst.name}')
-for csv in ['gl_perf_log.csv','dx11_perf_log.csv','dx12_perf_log.csv']:
-    src = _r/'Profile'/csv
-    if src.exists():
-        shutil.copy2(str(src), str(archive/csv))
-        print(f'  {csv}')
 print(f'Archive complete: {archive.name}')
 "
 if ($LASTEXITCODE -ne 0) { Write-Host "FAIL: Archive step failed"; exit 1 }

@@ -11,18 +11,18 @@ namespace SkullbonezCore
 namespace Rendering
 {
 
-class RenderBackendDX;
+class RenderBackendDX11;
 
-/* -- FramebufferDX ---------------------------------------------------------------------------------------------------------------------------------------------
+/* -- FramebufferDX11 ---------------------------------------------------------------------------------------------------------------------------------------------
 
     DirectX 11 implementation of the IFramebuffer interface.
     Creates an offscreen render target with a color texture (SRV) and depth stencil view.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class FramebufferDX : public IFramebuffer
+class FramebufferDX11 : public IFramebuffer
 {
 
   private:
-    RenderBackendDX* m_backend;
+    RenderBackendDX11* m_backend;
     ID3D11Device* m_device;
     ID3D11DeviceContext* m_context;
     ID3D11Texture2D* m_colorTex;
@@ -39,8 +39,8 @@ class FramebufferDX : public IFramebuffer
     mutable ID3D11DepthStencilView* m_savedDSV;
 
   public:
-    FramebufferDX( RenderBackendDX* backend, ID3D11Device* device, ID3D11DeviceContext* context );
-    ~FramebufferDX() override;
+    FramebufferDX11( RenderBackendDX11* backend, ID3D11Device* device, ID3D11DeviceContext* context );
+    ~FramebufferDX11() override;
 
     bool Create( int width, int height );
 

@@ -1,8 +1,8 @@
 // --- Includes ---
-#include "SkullbonezRenderBackendDX.h"
-#include "SkullbonezShaderDX.h"
-#include "SkullbonezMeshDX.h"
-#include "SkullbonezFramebufferDX.h"
+#include "SkullbonezRenderBackendDX11.h"
+#include "SkullbonezShaderDX11.h"
+#include "SkullbonezMeshDX11.h"
+#include "SkullbonezFramebufferDX11.h"
 #include <stdexcept>
 #include <string>
 #include <algorithm>
@@ -16,10 +16,10 @@ using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
 
 
-RenderBackendDX* RenderBackendDX::s_instance = nullptr;
+RenderBackendDX11* RenderBackendDX11::s_instance = nullptr;
 
 
-RenderBackendDX::RenderBackendDX()
+RenderBackendDX11::RenderBackendDX11()
     : m_swapChain( nullptr ), m_device( nullptr ), m_context( nullptr ), m_backBufferRTV( nullptr ), m_depthStencilTex( nullptr ), m_depthStencilView( nullptr ), m_width( 0 ), m_height( 0 ), m_depthTestEnabled( true ), m_blendEnabled( false ), m_clearColor{ 0.0f, 0.0f, 0.0f, 1.0f }, m_clearDepth( 1.0f ), m_dsDepthOn( nullptr ), m_dsDepthOff( nullptr ), m_blendOn( nullptr ), m_blendOff( nullptr ), m_rsCullOn( nullptr ), m_rsCullOff( nullptr ), m_rsCullOnPolyOffset( nullptr ), m_rsCullOffPolyOffset( nullptr ), m_samplerLinear( nullptr ), m_samplerNearest( nullptr ), m_cullEnabled( true ), m_polyOffsetEnabled( false ), m_activeShader( nullptr )
 {
 }
@@ -43,7 +43,7 @@ static D3D11_BLEND TranslateBlendFactor( BlendFactor f )
 }
 
 
-void RenderBackendDX::CreateStateObjects()
+void RenderBackendDX11::CreateStateObjects()
 {
     // Depth stencil states
     D3D11_DEPTH_STENCIL_DESC dsDesc = {};
@@ -106,7 +106,7 @@ void RenderBackendDX::CreateStateObjects()
 }
 
 
-void RenderBackendDX::ApplyRasterizerState()
+void RenderBackendDX11::ApplyRasterizerState()
 {
     if ( m_cullEnabled && m_polyOffsetEnabled )
     {
@@ -127,7 +127,7 @@ void RenderBackendDX::ApplyRasterizerState()
 }
 
 
-bool RenderBackendDX::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
+bool RenderBackendDX11::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
 {
     s_instance = this;
     m_width = width;
@@ -211,7 +211,7 @@ bool RenderBackendDX::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
 }
 
 
-void RenderBackendDX::Shutdown()
+void RenderBackendDX11::Shutdown()
 {
     if ( !m_device )
     {
@@ -343,25 +343,25 @@ void RenderBackendDX::Shutdown()
 }
 
 
-void RenderBackendDX::Present()
+void RenderBackendDX11::Present()
 {
     m_swapChain->Present( 1, 0 );
 }
 
 
-void RenderBackendDX::Finish()
+void RenderBackendDX11::Finish()
 {
     m_context->Flush();
 }
 
 
-void RenderBackendDX::FlushGPU()
+void RenderBackendDX11::FlushGPU()
 {
     m_context->Flush();
 }
 
 
-void RenderBackendDX::Resize( int width, int height )
+void RenderBackendDX11::Resize( int width, int height )
 {
     if ( width <= 0 || height <= 0 )
     {
@@ -418,7 +418,7 @@ void RenderBackendDX::Resize( int width, int height )
 }
 
 
-void RenderBackendDX::SetViewport( int x, int y, int w, int h )
+void RenderBackendDX11::SetViewport( int x, int y, int w, int h )
 {
     D3D11_VIEWPORT vp = {};
     vp.TopLeftX = (float)x;
@@ -430,7 +430,7 @@ void RenderBackendDX::SetViewport( int x, int y, int w, int h )
 }
 
 
-void RenderBackendDX::Clear( bool color, bool depth )
+void RenderBackendDX11::Clear( bool color, bool depth )
 {
     // Query the currently bound render target (may be back buffer or FBO)
     ID3D11RenderTargetView* rtv = nullptr;
@@ -457,7 +457,7 @@ void RenderBackendDX::Clear( bool color, bool depth )
 }
 
 
-void RenderBackendDX::SetClearColor( float r, float g, float b, float a )
+void RenderBackendDX11::SetClearColor( float r, float g, float b, float a )
 {
     m_clearColor[0] = r;
     m_clearColor[1] = g;
@@ -466,20 +466,20 @@ void RenderBackendDX::SetClearColor( float r, float g, float b, float a )
 }
 
 
-void RenderBackendDX::SetClearDepth( float depth )
+void RenderBackendDX11::SetClearDepth( float depth )
 {
     m_clearDepth = depth;
 }
 
 
-void RenderBackendDX::SetDepthTest( bool enable )
+void RenderBackendDX11::SetDepthTest( bool enable )
 {
     m_depthTestEnabled = enable;
     m_context->OMSetDepthStencilState( enable ? m_dsDepthOn : m_dsDepthOff, 0 );
 }
 
 
-void RenderBackendDX::SetBlend( bool enable )
+void RenderBackendDX11::SetBlend( bool enable )
 {
     m_blendEnabled = enable;
     float blendFactor[4] = { 0, 0, 0, 0 };
@@ -487,7 +487,7 @@ void RenderBackendDX::SetBlend( bool enable )
 }
 
 
-void RenderBackendDX::SetBlendFunc( BlendFactor src, BlendFactor dst )
+void RenderBackendDX11::SetBlendFunc( BlendFactor src, BlendFactor dst )
 {
     // Recreate blend state with specified factors
     D3D11_BLEND_DESC blendDesc = {};
@@ -514,29 +514,29 @@ void RenderBackendDX::SetBlendFunc( BlendFactor src, BlendFactor dst )
 }
 
 
-void RenderBackendDX::SetCullFace( bool enable )
+void RenderBackendDX11::SetCullFace( bool enable )
 {
     m_cullEnabled = enable;
     ApplyRasterizerState();
 }
 
 
-void RenderBackendDX::SetPolygonOffset( bool enable, float /*factor*/, float /*units*/ )
+void RenderBackendDX11::SetPolygonOffset( bool enable, float /*factor*/, float /*units*/ )
 {
     m_polyOffsetEnabled = enable;
     ApplyRasterizerState();
 }
 
 
-void RenderBackendDX::SetClipPlane( int /*index*/, bool /*enable*/ )
+void RenderBackendDX11::SetClipPlane( int /*index*/, bool /*enable*/ )
 {
-    // DX11 clip planes are handled via SV_ClipDistance in the shader.
+    // DX11 clip planes are handled via SV_ClipDistance in the ShaderGL.
     // The uClipPlane uniform controls the clip distance computation.
     // No DX API state change needed.
 }
 
 
-std::unique_ptr<IShader> RenderBackendDX::CreateShader( const char* vertPath, const char* /*fragPath*/ )
+std::unique_ptr<IShader> RenderBackendDX11::CreateShader( const char* vertPath, const char* /*fragPath*/ )
 {
     // Transform GL path to HLSL path: "shaders/foo.vert" -> "shaders/foo.hlsl"
     std::string hlslPath( vertPath );
@@ -546,29 +546,29 @@ std::unique_ptr<IShader> RenderBackendDX::CreateShader( const char* vertPath, co
         hlslPath = hlslPath.substr( 0, dot ) + ".hlsl";
     }
 
-    auto shader = std::make_unique<ShaderDX>( m_device, m_context );
+    auto shader = std::make_unique<ShaderDX11>( m_device, m_context );
     shader->Compile( hlslPath.c_str() );
     return shader;
 }
 
 
-std::unique_ptr<IMesh> RenderBackendDX::CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords )
+std::unique_ptr<IMesh> RenderBackendDX11::CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords )
 {
-    auto mesh = std::make_unique<MeshDX>( m_device, m_context );
+    auto mesh = std::make_unique<MeshDX11>( m_device, m_context );
     mesh->Create( data, vertexCount, hasNormals, hasTexCoords );
     return mesh;
 }
 
 
-std::unique_ptr<IFramebuffer> RenderBackendDX::CreateFramebuffer( int width, int height )
+std::unique_ptr<IFramebuffer> RenderBackendDX11::CreateFramebuffer( int width, int height )
 {
-    auto fbo = std::make_unique<FramebufferDX>( this, m_device, m_context );
+    auto fbo = std::make_unique<FramebufferDX11>( this, m_device, m_context );
     fbo->Create( width, height );
     return fbo;
 }
 
 
-uint32_t RenderBackendDX::CreateTexture2D( const uint8_t* data, int w, int h, int channels, bool generateMips, bool linearFilter )
+uint32_t RenderBackendDX11::CreateTexture2D( const uint8_t* data, int w, int h, int channels, bool generateMips, bool linearFilter )
 {
     // Convert to RGBA if needed
     std::vector<uint8_t> rgbaData;
@@ -663,7 +663,7 @@ uint32_t RenderBackendDX::CreateTexture2D( const uint8_t* data, int w, int h, in
 }
 
 
-void RenderBackendDX::BindTexture( uint32_t handle, int slot )
+void RenderBackendDX11::BindTexture( uint32_t handle, int slot )
 {
     if ( handle == 0 || handle > (uint32_t)m_textures.size() )
     {
@@ -676,7 +676,7 @@ void RenderBackendDX::BindTexture( uint32_t handle, int slot )
 }
 
 
-void RenderBackendDX::DeleteTexture( uint32_t handle )
+void RenderBackendDX11::DeleteTexture( uint32_t handle )
 {
     if ( handle == 0 || handle > (uint32_t)m_textures.size() )
     {
@@ -705,7 +705,7 @@ void RenderBackendDX::DeleteTexture( uint32_t handle )
 }
 
 
-uint32_t RenderBackendDX::RegisterSRV( ID3D11ShaderResourceView* srv )
+uint32_t RenderBackendDX11::RegisterSRV( ID3D11ShaderResourceView* srv )
 {
     TextureEntryDX entry = {};
     entry.srv = srv;
@@ -716,7 +716,7 @@ uint32_t RenderBackendDX::RegisterSRV( ID3D11ShaderResourceView* srv )
 }
 
 
-void RenderBackendDX::UnregisterSRV( uint32_t handle )
+void RenderBackendDX11::UnregisterSRV( uint32_t handle )
 {
     if ( handle == 0 || handle > (uint32_t)m_textures.size() )
     {
@@ -730,7 +730,7 @@ void RenderBackendDX::UnregisterSRV( uint32_t handle )
 }
 
 
-std::vector<uint8_t> RenderBackendDX::CaptureBackbuffer( int& outWidth, int& outHeight )
+std::vector<uint8_t> RenderBackendDX11::CaptureBackbuffer( int& outWidth, int& outHeight )
 {
     outWidth = m_width;
     outHeight = m_height;
@@ -779,31 +779,31 @@ std::vector<uint8_t> RenderBackendDX::CaptureBackbuffer( int& outWidth, int& out
 }
 
 
-int RenderBackendDX::GetWidth() const
+int RenderBackendDX11::GetWidth() const
 {
     return m_width;
 }
 
 
-int RenderBackendDX::GetHeight() const
+int RenderBackendDX11::GetHeight() const
 {
     return m_height;
 }
 
 
-bool RenderBackendDX::IsDepthTestEnabled() const
+bool RenderBackendDX11::IsDepthTestEnabled() const
 {
     return m_depthTestEnabled;
 }
 
 
-bool RenderBackendDX::IsBlendEnabled() const
+bool RenderBackendDX11::IsBlendEnabled() const
 {
     return m_blendEnabled;
 }
 
 
-bool RenderBackendDX::UsesZeroToOneDepth() const
+bool RenderBackendDX11::UsesZeroToOneDepth() const
 {
     return true;
 }
@@ -812,7 +812,7 @@ bool RenderBackendDX::UsesZeroToOneDepth() const
 // --- Dynamic Vertex Buffer ---
 
 
-uint32_t RenderBackendDX::CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices )
+uint32_t RenderBackendDX11::CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices )
 {
     DynamicVBDX dvb = {};
     dvb.maxVertices = maxVertices;
@@ -840,7 +840,7 @@ uint32_t RenderBackendDX::CreateDynamicVB( const int* attribComponents, int numA
 }
 
 
-void RenderBackendDX::UploadAndDrawDynamicVB( uint32_t handle, const float* data, int vertexCount )
+void RenderBackendDX11::UploadAndDrawDynamicVB( uint32_t handle, const float* data, int vertexCount )
 {
     if ( handle == 0 || handle > (uint32_t)m_dynamicVBs.size() )
     {
@@ -848,7 +848,7 @@ void RenderBackendDX::UploadAndDrawDynamicVB( uint32_t handle, const float* data
     }
     DynamicVBDX& dvb = m_dynamicVBs[handle - 1];
 
-    // Flush active shader CB
+    // Flush active ShaderGL CB
     if ( m_activeShader )
     {
         m_activeShader->FlushCB();
@@ -916,7 +916,7 @@ void RenderBackendDX::UploadAndDrawDynamicVB( uint32_t handle, const float* data
 }
 
 
-void RenderBackendDX::DestroyDynamicVB( uint32_t handle )
+void RenderBackendDX11::DestroyDynamicVB( uint32_t handle )
 {
     if ( handle == 0 || handle > (uint32_t)m_dynamicVBs.size() )
     {
@@ -936,10 +936,10 @@ void RenderBackendDX::DestroyDynamicVB( uint32_t handle )
 }
 
 
-// --- Instanced Mesh ---
+// --- Instanced mesh ---
 
 
-uint32_t RenderBackendDX::CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int maxInstances, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs )
+uint32_t RenderBackendDX11::CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int maxInstances, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs )
 {
     InstancedMeshDX im = {};
     im.staticFloatsPerVert = staticFloatsPerVert;
@@ -974,7 +974,7 @@ uint32_t RenderBackendDX::CreateInstancedMesh( const float* staticData, int stat
 }
 
 
-void RenderBackendDX::UploadInstanceData( uint32_t handle, const float* data, int floatCount )
+void RenderBackendDX11::UploadInstanceData( uint32_t handle, const float* data, int floatCount )
 {
     if ( handle == 0 || handle > (uint32_t)m_instancedMeshes.size() )
     {
@@ -989,7 +989,7 @@ void RenderBackendDX::UploadInstanceData( uint32_t handle, const float* data, in
 }
 
 
-void RenderBackendDX::DrawInstancedMesh( uint32_t handle, int staticVertCount, int instanceCount )
+void RenderBackendDX11::DrawInstancedMesh( uint32_t handle, int staticVertCount, int instanceCount )
 {
     if ( handle == 0 || handle > (uint32_t)m_instancedMeshes.size() )
     {
@@ -997,7 +997,7 @@ void RenderBackendDX::DrawInstancedMesh( uint32_t handle, int staticVertCount, i
     }
     InstancedMeshDX& im = m_instancedMeshes[handle - 1];
 
-    // Flush active shader CB
+    // Flush active ShaderGL CB
     if ( m_activeShader )
     {
         m_activeShader->FlushCB();
@@ -1075,7 +1075,7 @@ void RenderBackendDX::DrawInstancedMesh( uint32_t handle, int staticVertCount, i
 }
 
 
-void RenderBackendDX::DestroyInstancedMesh( uint32_t handle )
+void RenderBackendDX11::DestroyInstancedMesh( uint32_t handle )
 {
     if ( handle == 0 || handle > (uint32_t)m_instancedMeshes.size() )
     {

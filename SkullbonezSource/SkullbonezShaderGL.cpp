@@ -1,19 +1,19 @@
 // --- Includes ---
-#include "SkullbonezShader.h"
+#include "SkullbonezShaderGL.h"
 
 
 // --- Usings ---
 using namespace SkullbonezCore::Rendering;
 
 
-char* Shader::LoadShaderSource( const char* path )
+char* ShaderGL::LoadShaderSource( const char* path )
 {
     FILE* file = nullptr;
     errno_t err = fopen_s( &file, path, "rb" );
     if ( err != 0 || !file )
     {
         char msg[512];
-        sprintf_s( msg, sizeof( msg ), "Failed to open m_shader file: %s  (Shader::LoadShaderSource)", path );
+        sprintf_s( msg, sizeof( msg ), "Failed to open m_shader file: %s  (ShaderGL::LoadShaderSource)", path );
         throw std::runtime_error( msg );
     }
 
@@ -30,7 +30,7 @@ char* Shader::LoadShaderSource( const char* path )
 }
 
 
-GLuint Shader::CompileShader( const char* path, GLenum type )
+GLuint ShaderGL::CompileShader( const char* path, GLenum type )
 {
     char* source = LoadShaderSource( path );
 
@@ -49,7 +49,7 @@ GLuint Shader::CompileShader( const char* path, GLenum type )
         glDeleteShader( m_shader );
 
         char msg[1536];
-        sprintf_s( msg, sizeof( msg ), "Shader compilation failed (%s):\n%s  (Shader::CompileShader)", path, infoLog );
+        sprintf_s( msg, sizeof( msg ), "ShaderGL compilation failed (%s):\n%s  (ShaderGL::CompileShader)", path, infoLog );
         throw std::runtime_error( msg );
     }
 
@@ -57,7 +57,7 @@ GLuint Shader::CompileShader( const char* path, GLenum type )
 }
 
 
-Shader::Shader( const char* vertPath, const char* fragPath )
+ShaderGL::ShaderGL( const char* vertPath, const char* fragPath )
 {
     GLuint vertShader = CompileShader( vertPath, GL_VERTEX_SHADER );
     GLuint fragShader = CompileShader( fragPath, GL_FRAGMENT_SHADER );
@@ -78,7 +78,7 @@ Shader::Shader( const char* vertPath, const char* fragPath )
         glDeleteProgram( m_programID );
 
         char msg[1536];
-        sprintf_s( msg, sizeof( msg ), "Shader program link failed (%s + %s):\n%s  (Shader::Shader)", vertPath, fragPath, infoLog );
+        sprintf_s( msg, sizeof( msg ), "ShaderGL program link failed (%s + %s):\n%s  (ShaderGL::ShaderGL)", vertPath, fragPath, infoLog );
         throw std::runtime_error( msg );
     }
 
@@ -88,7 +88,7 @@ Shader::Shader( const char* vertPath, const char* fragPath )
 }
 
 
-Shader::~Shader()
+ShaderGL::~ShaderGL()
 {
     if ( m_programID )
     {
@@ -97,49 +97,49 @@ Shader::~Shader()
 }
 
 
-void Shader::Use() const
+void ShaderGL::Use() const
 {
     glUseProgram( m_programID );
 }
 
 
-GLuint Shader::GetProgramID() const
+GLuint ShaderGL::GetProgramID() const
 {
     return m_programID;
 }
 
 
-void Shader::SetInt( const char* name, int value ) const
+void ShaderGL::SetInt( const char* name, int value ) const
 {
     glUniform1i( glGetUniformLocation( m_programID, name ), value );
 }
 
 
-void Shader::SetFloat( const char* name, float value ) const
+void ShaderGL::SetFloat( const char* name, float value ) const
 {
     glUniform1f( glGetUniformLocation( m_programID, name ), value );
 }
 
 
-void Shader::SetVec3( const char* name, const Vector3& v ) const
+void ShaderGL::SetVec3( const char* name, const Vector3& v ) const
 {
     glUniform3f( glGetUniformLocation( m_programID, name ), v.x, v.y, v.z );
 }
 
 
-void Shader::SetVec3( const char* name, float x, float y, float z ) const
+void ShaderGL::SetVec3( const char* name, float x, float y, float z ) const
 {
     glUniform3f( glGetUniformLocation( m_programID, name ), x, y, z );
 }
 
 
-void Shader::SetVec4( const char* name, float x, float y, float z, float w ) const
+void ShaderGL::SetVec4( const char* name, float x, float y, float z, float w ) const
 {
     glUniform4f( glGetUniformLocation( m_programID, name ), x, y, z, w );
 }
 
 
-void Shader::SetMat4( const char* name, const Matrix4& mat ) const
+void ShaderGL::SetMat4( const char* name, const Matrix4& mat ) const
 {
     glUniformMatrix4fv( glGetUniformLocation( m_programID, name ), 1, GL_FALSE, mat.Data() );
 }

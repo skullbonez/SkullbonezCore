@@ -5,7 +5,7 @@
 #include "SkullbonezTimer.h"
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezRenderBackendGL.h"
-#include "SkullbonezRenderBackendDX.h"
+#include "SkullbonezRenderBackendDX11.h"
 #include "SkullbonezRenderBackendDX12.h"
 #include <float.h>
 #include <cstring>
@@ -151,7 +151,7 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     }
     else
     {
-        auto backend = std::make_unique<RenderBackendDX>();
+        auto backend = std::make_unique<RenderBackendDX11>();
         backend->Init( m_cWindow->m_sWindow, m_cWindow->m_sDevice, m_cWindow->m_sWindowDimensions.x, m_cWindow->m_sWindowDimensions.y );
         SetGfxBackend( std::move( backend ) );
     }

@@ -14,12 +14,12 @@ namespace SkullbonezCore
 {
 namespace Rendering
 {
-/* -- ShaderDX --------------------------------------------------------------------------------------------------------------------------------------------------
+/* -- ShaderDX11 --------------------------------------------------------------------------------------------------------------------------------------------------
 
     DirectX 11 implementation of the IShader interface.
     Compiles HLSL from combined VS+PS files. Uses D3D11 reflection for constant buffer layout.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class ShaderDX : public IShader
+class ShaderDX11 : public IShader
 {
 
   private:
@@ -42,8 +42,8 @@ class ShaderDX : public IShader
     std::unordered_map<std::string, UniformInfo> m_uniformMap;
 
   public:
-    ShaderDX( ID3D11Device* device, ID3D11DeviceContext* context );
-    ~ShaderDX() override;
+    ShaderDX11( ID3D11Device* device, ID3D11DeviceContext* context );
+    ~ShaderDX11() override;
 
     bool Compile( const char* hlslPath );
 

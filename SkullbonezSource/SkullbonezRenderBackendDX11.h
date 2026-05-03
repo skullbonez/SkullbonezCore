@@ -13,7 +13,7 @@ namespace SkullbonezCore
 namespace Rendering
 {
 
-class ShaderDX;
+class ShaderDX11;
 
 
 // Texture entry for the DX SRV registry
@@ -57,16 +57,16 @@ struct InstancedMeshDX
 };
 
 
-/* -- RenderBackendDX -------------------------------------------------------------------------------------------------------------------------------------------
+/* -- RenderBackendDX11 -------------------------------------------------------------------------------------------------------------------------------------------
 
     DirectX 11 implementation of the render backend interface.
     Manages D3D11 device, immediate context, swap chain, and all rendering state.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class RenderBackendDX : public IRenderBackend
+class RenderBackendDX11 : public IRenderBackend
 {
 
   private:
-    static RenderBackendDX* s_instance;
+    static RenderBackendDX11* s_instance;
 
     IDXGISwapChain* m_swapChain;
     ID3D11Device* m_device;
@@ -105,20 +105,20 @@ class RenderBackendDX : public IRenderBackend
     std::vector<DynamicVBDX> m_dynamicVBs;
     std::vector<InstancedMeshDX> m_instancedMeshes;
 
-    // Active shader
-    ShaderDX* m_activeShader;
+    // Active ShaderGL
+    ShaderDX11* m_activeShader;
 
     void CreateStateObjects();
     void ApplyRasterizerState();
 
   public:
-    RenderBackendDX();
-    ~RenderBackendDX() override
+    RenderBackendDX11();
+    ~RenderBackendDX11() override
     {
         Shutdown();
     }
 
-    static RenderBackendDX* Get()
+    static RenderBackendDX11* Get()
     {
         return s_instance;
     }
@@ -173,11 +173,11 @@ class RenderBackendDX : public IRenderBackend
     void DestroyInstancedMesh( uint32_t handle ) override;
 
     // DX-specific helpers
-    void SetActiveShader( ShaderDX* shader )
+    void SetActiveShader( ShaderDX11* ShaderGL )
     {
-        m_activeShader = shader;
+        m_activeShader = ShaderGL;
     }
-    ShaderDX* GetActiveShader() const
+    ShaderDX11* GetActiveShader() const
     {
         return m_activeShader;
     }

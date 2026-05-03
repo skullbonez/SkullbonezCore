@@ -21,12 +21,12 @@ enum class VertexFormatDX
 };
 
 
-/* -- MeshDX ----------------------------------------------------------------------------------------------------------------------------------------------------
+/* -- MeshDX11 ----------------------------------------------------------------------------------------------------------------------------------------------------
 
     DirectX 11 implementation of the IMesh interface.
     Holds a D3D11 vertex buffer and vertex format metadata. Input layouts are created lazily.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-class MeshDX : public IMesh
+class MeshDX11 : public IMesh
 {
 
   private:
@@ -42,8 +42,8 @@ class MeshDX : public IMesh
     void EnsureInputLayout() const;
 
   public:
-    MeshDX( ID3D11Device* device, ID3D11DeviceContext* context );
-    ~MeshDX() override;
+    MeshDX11( ID3D11Device* device, ID3D11DeviceContext* context );
+    ~MeshDX11() override;
 
     bool Create( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords );
 

@@ -1,7 +1,7 @@
 // --- Includes ---
-#include "SkullbonezMeshDX.h"
-#include "SkullbonezRenderBackendDX.h"
-#include "SkullbonezShaderDX.h"
+#include "SkullbonezMeshDX11.h"
+#include "SkullbonezRenderBackendDX11.h"
+#include "SkullbonezShaderDX11.h"
 #include <stdexcept>
 
 
@@ -34,13 +34,13 @@ static D3D11_INPUT_ELEMENT_DESC s_layoutPos2[] = {
 };
 
 
-MeshDX::MeshDX( ID3D11Device* device, ID3D11DeviceContext* context )
+MeshDX11::MeshDX11( ID3D11Device* device, ID3D11DeviceContext* context )
     : m_device( device ), m_context( context ), m_vb( nullptr ), m_inputLayout( nullptr ), m_vertexCount( 0 ), m_stride( 0 ), m_format( VertexFormatDX::Pos3 ), m_lastVSBytecode( nullptr )
 {
 }
 
 
-MeshDX::~MeshDX()
+MeshDX11::~MeshDX11()
 {
     if ( m_inputLayout )
     {
@@ -53,7 +53,7 @@ MeshDX::~MeshDX()
 }
 
 
-bool MeshDX::Create( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords )
+bool MeshDX11::Create( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords )
 {
     int floatsPerVert = 3;
     if ( hasNormals )
@@ -94,9 +94,9 @@ bool MeshDX::Create( const float* data, int vertexCount, bool hasNormals, bool h
 }
 
 
-void MeshDX::EnsureInputLayout() const
+void MeshDX11::EnsureInputLayout() const
 {
-    auto* backend = RenderBackendDX::Get();
+    auto* backend = RenderBackendDX11::Get();
     auto* shader = backend->GetActiveShader();
     if ( !shader )
     {
@@ -151,11 +151,11 @@ void MeshDX::EnsureInputLayout() const
 }
 
 
-void MeshDX::Draw() const
+void MeshDX11::Draw() const
 {
     EnsureInputLayout();
 
-    auto* backend = RenderBackendDX::Get();
+    auto* backend = RenderBackendDX11::Get();
     auto* shader = backend->GetActiveShader();
     if ( shader )
     {
@@ -171,11 +171,11 @@ void MeshDX::Draw() const
 }
 
 
-void MeshDX::DrawInstanced( int instanceCount ) const
+void MeshDX11::DrawInstanced( int instanceCount ) const
 {
     EnsureInputLayout();
 
-    auto* backend = RenderBackendDX::Get();
+    auto* backend = RenderBackendDX11::Get();
     auto* shader = backend->GetActiveShader();
     if ( shader )
     {

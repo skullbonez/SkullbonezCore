@@ -17,7 +17,7 @@ class RenderBackendDX12;
 
 /* -- FramebufferDX12 -------------------------------------------------------------------------------------------------------------------------------------------
 
-    DirectX 12 offscreen framebuffer. Color texture (RENDER_TARGET + SRV) and depth buffer.
+    DirectX 12 offscreen FramebufferGL. Color texture (RENDER_TARGET + SRV) and depth buffer.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class FramebufferDX12 : public IFramebuffer
 {

@@ -28,7 +28,7 @@ enum class VertexFormat12
 
 /* -- MeshDX12 ---------------------------------------------------------------------------------------------------------------------------------------------------
 
-    DirectX 12 static mesh implementation. Holds a committed vertex buffer resource on the DEFAULT heap.
+    DirectX 12 static MeshGL implementation. Holds a committed vertex buffer resource on the DEFAULT heap.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class MeshDX12 : public IMesh
 {
