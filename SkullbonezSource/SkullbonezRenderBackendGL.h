@@ -21,7 +21,7 @@ struct DynamicVBGL
 };
 
 
-// Internal storage for instanced mesh setups (shadows)
+// Internal storage for instanced MeshGL setups (shadows)
 struct InstancedMeshGL
 {
     GLuint vao;

@@ -264,7 +264,7 @@ void GameModelCollection::BuildShadowMesh()
 {
     // Unit-radius disc in XZ plane, converted from triangle fan to triangles.
     // Center at (0,0,0), ring vertices at unit distance.
-    // The shadow shader uses length(aPosition.xz) for alpha fade.
+    // The shadow ShaderGL uses length(aPosition.xz) for alpha fade.
     std::vector<float> verts;
     verts.reserve( Cfg().shadowSegments * 3 * 3 );
 
@@ -293,7 +293,7 @@ void GameModelCollection::BuildShadowMesh()
     int instanceAttribSizes[] = { 4, 4, 4, 4, 1 };
     m_shadowInstMesh = Gfx().CreateInstancedMesh( verts.data(), m_shadowDiscVertexCount, 3, MAX_GAME_MODELS, SHADOW_INSTANCE_FLOATS, 3, instanceAttribSizes, 5 );
 
-    // Create shader
+    // Create ShaderGL
     m_shadowShader = Gfx().CreateShader( "SkullbonezData/shaders/shadow.vert",
                                          "SkullbonezData/shaders/shadow.frag" );
 }

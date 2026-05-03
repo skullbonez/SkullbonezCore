@@ -10,7 +10,7 @@ namespace Rendering
 {
 /* -- IFramebuffer -----------------------------------------------------------------------------------------------------------------------------------------------
 
-    Abstract framebuffer interface. Concrete implementations handle FBO (OpenGL) or RTV/DSV (DirectX).
+    Abstract FramebufferGL interface. Concrete implementations handle FBO (OpenGL) or RTV/DSV (DirectX).
     GetColorTextureHandle returns an opaque handle — pass it to IRenderBackend::BindTexture().
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class IFramebuffer

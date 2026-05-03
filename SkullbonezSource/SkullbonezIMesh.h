@@ -7,7 +7,7 @@ namespace Rendering
 {
 /* -- IMesh ------------------------------------------------------------------------------------------------------------------------------------------------------
 
-    Abstract mesh interface. Concrete implementations handle VAO/VBO (OpenGL) or ID3D11Buffer (DirectX).
+    Abstract MeshGL interface. Concrete implementations handle VAO/VBO (OpenGL) or ID3D11Buffer (DirectX).
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class IMesh
 {

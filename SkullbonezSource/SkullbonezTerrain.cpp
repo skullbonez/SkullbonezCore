@@ -47,7 +47,7 @@ Terrain::Terrain( const char* sFileName,
 
 Terrain::~Terrain()
 {
-    // Mesh and Shader cleaned up by unique_ptr
+    // MeshGL and ShaderGL cleaned up by unique_ptr
 }
 
 

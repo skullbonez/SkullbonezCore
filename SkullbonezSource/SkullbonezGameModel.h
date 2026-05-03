@@ -32,10 +32,10 @@ namespace GameObjects
 {
 /* -- Game Model -------------------------------------------------------------------------------------------------------------------------------------------------
 
-    Represents the highest level object in the library - a renderable mesh
+    Represents the highest level object in the library - a renderable MeshGL
     with collision bounds and physics information.
 
-    TODO: 3DS MODEL MESH BELONGS HERE!
+    TODO: 3DS MODEL MeshGL BELONGS HERE!
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class GameModel
 {

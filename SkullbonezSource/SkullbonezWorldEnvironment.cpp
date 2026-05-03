@@ -107,7 +107,7 @@ void WorldEnvironment::BuildFluidMesh()
             float z0 = -f + static_cast<float>( row ) * step;
             float z1 = z0 + step;
 
-            // A quad belongs to the calm mesh only if it lies fully inside the calm region
+            // A quad belongs to the calm MeshGL only if it lies fully inside the calm region
             bool isCalm = ( x0 >= calmXMin && x1 <= calmXMax &&
                             z0 >= calmZMin && z1 <= calmZMax );
 

@@ -373,7 +373,7 @@ void CameraCollection::SetCamera()
         }
         else
         {
-            throw std::runtime_error( "No m_terrain mesh set!  (CameraCollection::SetCamera)" );
+            throw std::runtime_error( "No m_terrain MeshGL set!  (CameraCollection::SetCamera)" );
         }
 
         // compute view matrix from tween camera

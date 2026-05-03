@@ -39,7 +39,7 @@ class WorldEnvironment
     WorldEnvironment( WorldEnvironment&& ) noexcept = default;                                             // Move constructor
     WorldEnvironment& operator=( WorldEnvironment&& ) noexcept = default;                                  // Move assignment
 
-    void SetTerrainBounds( float xMin, float xMax, float zMin, float zMax );                                                                                                    // Must be called before first render; drives calm/ocean mesh split
+    void SetTerrainBounds( float xMin, float xMax, float zMin, float zMax );                                                                                                    // Must be called before first render; drives calm/ocean MeshGL split
     void RenderFluid( const Matrix4& view, const Matrix4& proj, const Matrix4& reflectVP, float time, uint32_t reflectionTex, bool flatWater = false, bool noReflect = false ); // Renders the water in the scene
     void ResetGLResources();                                                                                                                                                    // Rebuilds GPU resources after GL context recreation
     float GetFluidSurfaceHeight();                                                                                                                                              // Returns the fluid surface height
@@ -50,7 +50,7 @@ class WorldEnvironment
     float m_fluidDensity;       // kg/m^3
     float m_gasDensity;         // kg/m^3
     float m_gravity;            // m/s^2
-    float m_terrainXMin = 0.0f; // terrain footprint — calm mesh bounds
+    float m_terrainXMin = 0.0f; // terrain footprint — calm MeshGL bounds
     float m_terrainXMax = 0.0f;
     float m_terrainZMin = 0.0f;
     float m_terrainZMax = 0.0f;
