@@ -2,7 +2,7 @@
 Perf test analysis script for SkullbonezCore.
 
 Usage:
-    py analyze_perf.py --renderer <gl|dx11> --csv <path> --out-dir <dir>
+    py analyze_perf.py --renderer <gl|dx11|dx12> --csv <path> --out-dir <dir>
 
 Reads a perf_log.csv, computes statistics for every profiler marker column,
 and writes {renderer}_perf.json into the specified output directory.
@@ -161,7 +161,7 @@ def _color_mem(delta_mb, threshold=5.0):
 
 def main():
     parser = argparse.ArgumentParser(description="Analyze SkullbonezCore perf CSV and write JSON artifact.")
-    parser.add_argument("--renderer", required=True, choices=["gl", "dx11"],
+    parser.add_argument("--renderer", required=True, choices=["gl", "dx11", "dx12"],
                         help="Renderer that produced this CSV (gl or dx11)")
     parser.add_argument("--csv", required=True, type=Path,
                         help="Path to perf_log.csv")

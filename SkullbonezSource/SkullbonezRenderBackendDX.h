@@ -113,7 +113,10 @@ class RenderBackendDX : public IRenderBackend
 
   public:
     RenderBackendDX();
-    ~RenderBackendDX() override = default;
+    ~RenderBackendDX() override
+    {
+        Shutdown();
+    }
 
     static RenderBackendDX* Get()
     {
@@ -124,6 +127,7 @@ class RenderBackendDX : public IRenderBackend
     void Shutdown() override;
     void Present() override;
     void Finish() override;
+    void FlushGPU() override;
     void Resize( int width, int height ) override;
 
     void SetViewport( int x, int y, int w, int h ) override;
@@ -154,6 +158,10 @@ class RenderBackendDX : public IRenderBackend
     bool IsDepthTestEnabled() const override;
     bool IsBlendEnabled() const override;
     bool UsesZeroToOneDepth() const override;
+    const char* GetRendererName() const override
+    {
+        return "DirectX 11";
+    }
 
     uint32_t CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices ) override;
     void UploadAndDrawDynamicVB( uint32_t handle, const float* data, int vertexCount ) override;
