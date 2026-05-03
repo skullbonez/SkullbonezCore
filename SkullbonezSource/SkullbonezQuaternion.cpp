@@ -34,22 +34,17 @@ void Quaternion::Identity()
 
 void Quaternion::Normalise()
 {
-    float magSq = m_w * m_w +
-                  m_x * m_x +
-                  m_y * m_y +
-                  m_z * m_z;
-
+    // q ← q / |q|,   |q|² = w² + x² + y² + z²
+    const float magSq = m_w * m_w + m_x * m_x + m_y * m_y + m_z * m_z;
     if ( !magSq )
     {
         throw std::runtime_error( "Division by zero.  (Quaternion::Normalise)" );
     }
-
-    float oneOverMag = 1.0f / sqrtf( magSq );
-
-    m_w *= oneOverMag;
-    m_x *= oneOverMag;
-    m_y *= oneOverMag;
-    m_z *= oneOverMag;
+    const float invMag = 1.0f / sqrtf( magSq );
+    m_w *= invMag;
+    m_x *= invMag;
+    m_y *= invMag;
+    m_z *= invMag;
 }
 
 
@@ -57,15 +52,10 @@ void Quaternion::RotateAboutXYZ( float xRadians,
                                  float yRadians,
                                  float zRadians )
 {
-    // rotate about m_x, m_y, and m_z respectively
-    Quaternion xRotation = GetQtnRotatedAboutX( xRadians );
-    Quaternion yRotation = GetQtnRotatedAboutY( yRadians );
-    Quaternion zRotation = GetQtnRotatedAboutZ( zRadians );
-
-    // accumulate the rotations
-    *this *= xRotation * yRotation * zRotation;
-
-    // normalise the quaternion
+    // q ← q · (q_x · q_y · q_z),   then re-normalise to combat float drift
+    *this *= GetQtnRotatedAboutX( xRadians ) *
+             GetQtnRotatedAboutY( yRadians ) *
+             GetQtnRotatedAboutZ( zRadians );
     Normalise();
 }
 
@@ -78,44 +68,36 @@ void Quaternion::RotateAboutXYZ( const Vector3& vRadians )
 
 RotationMatrix Quaternion::GetOrientationMatrix()
 {
-    // Return the RIGHT HANDED rotation matrix
-    return RotationMatrix( 1 - ( 2 * m_y * m_y ) - ( 2 * m_z * m_z ),
-                           ( 2 * m_x * m_y ) + ( 2 * m_w * m_z ),
-                           ( 2 * m_x * m_z ) - ( 2 * m_w * m_y ),
-                           ( 2 * m_x * m_y ) - ( 2 * m_w * m_z ),
-                           1 - ( 2 * m_x * m_x ) - ( 2 * m_z * m_z ),
-                           ( 2 * m_y * m_z ) + ( 2 * m_w * m_x ),
-                           ( 2 * m_x * m_z ) + ( 2 * m_w * m_y ),
-                           ( 2 * m_y * m_z ) - ( 2 * m_w * m_x ),
-                           1 - ( 2 * m_x * m_x ) - ( 2 * m_y * m_y ) );
+    // Right-handed quaternion → 3×3 rotation matrix (column-major), passed via 9 floats:
+    //
+    //     | 1-2(y²+z²)   2(xy-wz)    2(xz+wy)  |
+    // R = | 2(xy+wz)     1-2(x²+z²)  2(yz-wx)  |
+    //     | 2(xz-wy)     2(yz+wx)    1-2(x²+y²)|
+    return RotationMatrix( 1 - 2*m_y*m_y - 2*m_z*m_z,
+                               2*m_x*m_y + 2*m_w*m_z,
+                               2*m_x*m_z - 2*m_w*m_y,
+
+                               2*m_x*m_y - 2*m_w*m_z,
+                           1 - 2*m_x*m_x - 2*m_z*m_z,
+                               2*m_y*m_z + 2*m_w*m_x,
+
+                               2*m_x*m_z + 2*m_w*m_y,
+                               2*m_y*m_z - 2*m_w*m_x,
+                           1 - 2*m_x*m_x - 2*m_y*m_y );
 }
 
 
 Quaternion Quaternion::operator*( const Quaternion& q ) const
 {
-    Quaternion result;
-
-    result.m_w = m_w * q.m_w -
-                 m_x * q.m_x -
-                 m_y * q.m_y -
-                 m_z * q.m_z;
-
-    result.m_x = m_w * q.m_x +
-                 m_x * q.m_w -
-                 m_y * q.m_z +
-                 m_z * q.m_y;
-
-    result.m_y = m_w * q.m_y +
-                 m_x * q.m_z +
-                 m_y * q.m_w -
-                 m_z * q.m_x;
-
-    result.m_z = m_w * q.m_z -
-                 m_x * q.m_y +
-                 m_y * q.m_x +
-                 m_z * q.m_w;
-
-    return result;
+    // Hamilton product (q1 · q2):
+    //   w = w1·w2 - v1·v2
+    //   v = w1·v2 + w2·v1 + v1 × v2
+    Quaternion r;
+    r.m_w = m_w * q.m_w - m_x * q.m_x - m_y * q.m_y - m_z * q.m_z;
+    r.m_x = m_w * q.m_x + m_x * q.m_w - m_y * q.m_z + m_z * q.m_y;
+    r.m_y = m_w * q.m_y + m_x * q.m_z + m_y * q.m_w - m_z * q.m_x;
+    r.m_z = m_w * q.m_z - m_x * q.m_y + m_y * q.m_x + m_z * q.m_w;
+    return r;
 }
 
 
@@ -126,34 +108,23 @@ Quaternion& Quaternion::operator*=( const Quaternion& q )
 }
 
 
+// Axis-angle → quaternion:  q = ( axis · sin(θ/2),  cos(θ/2) )
 Quaternion Quaternion::GetQtnRotatedAboutX( float fRadians )
 {
-    float radiansDiv2 = fRadians * 0.5f;
-
-    return Quaternion( sinf( radiansDiv2 ),
-                       0.0f,
-                       0.0f,
-                       cosf( radiansDiv2 ) );
+    const float h = fRadians * 0.5f;
+    return Quaternion( sinf( h ), 0.0f, 0.0f, cosf( h ) );
 }
 
 
 Quaternion Quaternion::GetQtnRotatedAboutY( float fRadians )
 {
-    float radiansDiv2 = fRadians * 0.5f;
-
-    return Quaternion( 0.0f,
-                       sinf( radiansDiv2 ),
-                       0.0f,
-                       cosf( radiansDiv2 ) );
+    const float h = fRadians * 0.5f;
+    return Quaternion( 0.0f, sinf( h ), 0.0f, cosf( h ) );
 }
 
 
 Quaternion Quaternion::GetQtnRotatedAboutZ( float fRadians )
 {
-    float radiansDiv2 = fRadians * 0.5f;
-
-    return Quaternion( 0.0f,
-                       0.0f,
-                       sinf( radiansDiv2 ),
-                       cosf( radiansDiv2 ) );
+    const float h = fRadians * 0.5f;
+    return Quaternion( 0.0f, 0.0f, sinf( h ), cosf( h ) );
 }
