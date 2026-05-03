@@ -177,97 +177,59 @@ float WorldEnvironment::GetFluidSurfaceHeight()
 
 void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
 {
-    // initialise the world force vector so we can add to it
-    Vector3 m_worldForce = Math::Vector::ZERO_VECTOR;
-    Vector3 m_worldTorque = Math::Vector::ZERO_VECTOR;
+    const float V = target.GetVolume();
+    const float subPct = target.GetSubmergedVolumePercent();
+    const float Cd = target.GetDragCoefficient();
+    const float A = target.GetProjectedSurfaceArea();
 
-    // get the total m_volume of the target
-    float totalVolume = target.GetVolume();
+    // F_world = (0, F_g + F_b, 0) + F_drag(v)
+    // T_world = F_drag(omega)             ← engine treats angular drag with the same form
+    Vector3 F = Math::Vector::ZERO_VECTOR;
+    Vector3 T = Math::Vector::ZERO_VECTOR;
 
-    // get the submerged percentage of the m_volume of the target
-    float submergedVolumePercent = target.GetSubmergedVolumePercent();
+    F.y += CalculateGravity( target.GetMass() );
+    F.y += CalculateBuoyancy( V * subPct );
+    F += CalculateViscousDrag( target.GetVelocity(),        subPct, Cd, A );
+    T += CalculateViscousDrag( target.GetAngularVelocity(), subPct, Cd, A );
 
-    // get the drag coefficient of the target
-    float m_dragCoefficient = target.GetDragCoefficient();
-
-    // get the projected surface area of the target
-    float m_projectedSurfaceArea = target.GetProjectedSurfaceArea();
-
-    // add the force of m_gravity to the world force
-    m_worldForce.y += CalculateGravity( target.GetMass() );
-
-    // add the force of buoyancy to the world force
-    m_worldForce.y += CalculateBuoyancy( totalVolume * submergedVolumePercent );
-
-    // add the linear viscous drag to the world force
-    m_worldForce += CalculateViscousDrag( target.GetVelocity(),
-                                          submergedVolumePercent,
-                                          m_dragCoefficient,
-                                          m_projectedSurfaceArea );
-
-    // add the angular viscous drag to the world force
-    m_worldTorque += CalculateViscousDrag( target.GetAngularVelocity(),
-                                           submergedVolumePercent,
-                                           m_dragCoefficient,
-                                           m_projectedSurfaceArea );
-
-    // scale and then set the world force and m_torque
-    target.SetWorldForce( m_worldForce * changeInTime, m_worldTorque * changeInTime );
+    // Pre-multiply by dt so RigidBody::ApplyWorldForce computes dv = (F*dt)/m directly
+    target.SetWorldForce( F * changeInTime, T * changeInTime );
 }
 
 
 float WorldEnvironment::CalculateGravity( float objectMass )
 {
-    // Fg = ma
+    // F_g = m·g          (g is signed; negative = downward)
     return objectMass * m_gravity;
 }
 
 
 float WorldEnvironment::CalculateBuoyancy( float submergedObjectVolume )
 {
-    // Fb = -m_gravity * m_mass of displaced fluid
-    return m_gravity * m_fluidDensity * submergedObjectVolume * -1.0f;
+    // F_b = -ρ_fluid · V_sub · g    (Archimedes — opposes gravity)
+    return -m_gravity * m_fluidDensity * submergedObjectVolume;
 }
 
 
 Vector3 WorldEnvironment::CalculateViscousDrag( Vector3 velocityVector,
                                                 float submergedVolumePercent,
-                                                float m_dragCoefficient,
-                                                float m_projectedSurfaceArea )
+                                                float Cd,
+                                                float A )
 {
-    // if there is no velocity, there will be no viscous drag
     if ( velocityVector.IsCloseToZero() )
     {
         return Math::Vector::ZERO_VECTOR;
     }
 
-    // calculate the squared magnitude of the velocity vector
-    float distanceSquared = Math::Vector::VectorMagSquared( velocityVector );
-
-    // normalise the velocity vector
+    // Quadratic drag:
+    //   F_drag = -0.5 * rho * |v|^2 * Cd * A * v_hat
+    // rho blended by submersion fraction:  rho = (1-s)*rho_gas + s*rho_fluid
+    const float speedSq = Math::Vector::VectorMagSquared( velocityVector );
     velocityVector.Normalise();
+    velocityVector *= -1.0f; // -v_hat
 
-    // negate the velocity vector
-    velocityVector *= -1;
+    const float density = m_gasDensity * ( 1.0f - submergedVolumePercent ) +
+                          m_fluidDensity * submergedVolumePercent;
 
-    /*
-        Formula for viscous drag:
-
-        Viscous Drag (N) = vDir *
-                           0.5 *
-                           density *
-                           velocity * velocity *
-                           m_dragCoefficient *
-                           surfaceArea
-
-        NOTE: Density is averaged based on the amount
-        the body is submerged...
-    */
-    return velocityVector *
-           0.5f *
-           ( ( m_gasDensity * ( 1.0f - submergedVolumePercent ) ) +
-             ( m_fluidDensity * submergedVolumePercent ) ) *
-           distanceSquared *
-           m_dragCoefficient *
-           m_projectedSurfaceArea;
+    return velocityVector * ( 0.5f * density * speedSq * Cd * A );
 }

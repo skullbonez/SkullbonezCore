@@ -8,33 +8,21 @@ using namespace SkullbonezCore::Math;
 
 Vector3 GeometricMath::ComputeTriangleNormal( const Triangle& triangle )
 {
-    // get the vectors representing the edges of the triangle
-    // (counter-clockwise rotation)
-    Vector3 edge1 = triangle.v2 - triangle.v1;
-    Vector3 edge2 = triangle.v3 - triangle.v2;
-
-    // compute the m_normal to the triangle
-    Vector3 m_normal = Vector::CrossProduct( edge1, edge2 );
-
-    // normalise and return
-    m_normal.Normalise();
-    return m_normal;
+    // CCW winding:  n = normalize( (v2 - v1) x (v3 - v2) )
+    Vector3 normal = Vector::CrossProduct( triangle.v2 - triangle.v1,
+                                           triangle.v3 - triangle.v2 );
+    normal.Normalise();
+    return normal;
 }
 
 
 Plane GeometricMath::ComputePlane( const Triangle& triangle )
 {
+    // Plane equation:  n · p = d   with   n from triangle, d = n · v1
     Plane plane;
     ZeroMemory( &plane, sizeof( plane ) );
-
-    // compute the m_normal of the plane Triangle 'triangle' is sitting on
-    plane.m_normal = GeometricMath::ComputeTriangleNormal( triangle );
-
-    // compute the m_distance of the plane from the origin by taking the
-    // dot product of the plane m_normal and one of the points lying on the plane
+    plane.m_normal = ComputeTriangleNormal( triangle );
     plane.m_distance = triangle.v1 * plane.m_normal;
-
-    // return computed plane
     return plane;
 }
 
@@ -42,9 +30,8 @@ Plane GeometricMath::ComputePlane( const Triangle& triangle )
 float GeometricMath::DeterminePointDistFromPlane( const Plane& plane,
                                                   const Vector3& point )
 {
-    // dot the m_normal and point then subtract the planes scalar m_distance from
-    // the origin
-    return ( plane.m_normal * point - plane.m_distance );
+    // Signed distance:  s = n · p - d
+    return plane.m_normal * point - plane.m_distance;
 }
 
 
@@ -52,22 +39,10 @@ GeometricMath::PointPlaneClassification
 GeometricMath::ClassifyPointAgainstPlane( const Plane& plane,
                                           const Vector3& point )
 {
-    // determine the m_distance the point is to the plane
-    float result = GeometricMath::DeterminePointDistFromPlane( plane, point );
-
-    // if the m_distance is positive the point is on the front side of the plane
-    if ( result > 0.0f )
-    {
-        return PointPlaneClassification::FrontSideOfPlane;
-    }
-
-    // if the m_distance is negative the point is on the back side of the plane
-    if ( result < 0.0f )
-    {
-        return PointPlaneClassification::BackSideOfPlane;
-    }
-
-    // if the m_distance is 0, the point coincides with the plane
+    //   s > 0  →  front,   s < 0  →  back,   s = 0  →  on plane
+    const float s = DeterminePointDistFromPlane( plane, point );
+    if ( s > 0.0f ) return PointPlaneClassification::FrontSideOfPlane;
+    if ( s < 0.0f ) return PointPlaneClassification::BackSideOfPlane;
     return PointPlaneClassification::CoincideWithPlane;
 }
 
@@ -76,54 +51,38 @@ float GeometricMath::GetHeightFromPlane( const Triangle& triangle,
                                          float xCoord,
                                          float zCoord )
 {
-    // place the point on the XZ plane at Y = 0
-    Vector3 point = Vector3( xCoord, 0.0f, zCoord );
-
-    // compute the traiangle plane
-    Plane trianglePlane = GeometricMath::ComputePlane( triangle );
-
-    // compute the m_distance of the plane to the point along the plane m_normal
-    float normalDist = GeometricMath::DeterminePointDistFromPlane( trianglePlane,
-                                                                   point );
-
-    // use rearranged dot product formula to compute the angle between
-    // the triangle plane m_normal and vertically upwards (0, 1, 0)
-    // remember (let '*' be dot product): (x, y, z)*(0, 1, 0) = y
-    float theta = _HALF_PI - acosf( trianglePlane.m_normal.y );
-
-    // use law of sines to compute result (see math reference)
-    return -( normalDist / sinf( theta ) );
+    // Drop a vertical line (0,1,0) through (x, 0, z) and find where it meets the plane.
+    // Let s = signed distance to plane, theta = angle between plane normal and vertical.
+    // Since n.(0,1,0) = n.y = cos(angle_to_up), the angle between the plane itself
+    // and vertical is theta = pi/2 - acos(n.y), and:
+    //   y =  -s / sin(theta)
+    const Vector3 point = Vector3( xCoord, 0.0f, zCoord );
+    const Plane trianglePlane = ComputePlane( triangle );
+    const float s = DeterminePointDistFromPlane( trianglePlane, point );
+    const float theta = _HALF_PI - acosf( trianglePlane.m_normal.y );
+    return -( s / sinf( theta ) );
 }
 
 
 float GeometricMath::CalculateIntersectionTime( const Plane& plane,
                                                 const Ray& ray )
 {
-    // ensure data is valid
+    // Ray hits plane n·p = d when n·(o + t·d_ray) = d, so:
+    //   t = -(n·o - d) / (n·d_ray)
     if ( plane.m_normal == ZERO_VECTOR )
     {
         throw std::runtime_error( "Division by zero!  (GeometricMath::CalculateIntersectionTime)" );
     }
-
-    // if the ray doesnt go anywhere then no collision will occur
     if ( ray.vector3.IsCloseToZero() )
     {
         return NO_COLLISION;
     }
-
-    // check the m_normal and ray aren't perpendicular to each other
-    float denominator = plane.m_normal * ray.vector3;
-    if ( !denominator )
+    const float denom = plane.m_normal * ray.vector3;
+    if ( !denom )
     {
-        return NO_COLLISION;
+        return NO_COLLISION; // ray parallel to plane
     }
-
-    // compute the scalar representing the magnitude of the ray that needs to
-    // be translated upon from vBegin UNTIL the intersection with the plane
-    // takes place.  this magnitude is computed by taking the dot product of
-    // of the plane m_normal and vBegin plus the planes m_distance from the origin,
-    // divided by the dot product of the planes m_normal and the ray
-    return -( ( ( plane.m_normal * ray.origin ) - plane.m_distance ) / denominator );
+    return -( ( plane.m_normal * ray.origin ) - plane.m_distance ) / denom;
 }
 
 
@@ -139,26 +98,19 @@ float GeometricMath::CalculateIntersectionTime( const Triangle& triangle,
 Vector3 GeometricMath::ComputeIntersectionPoint( const Plane& plane,
                                                  const Ray& ray )
 {
-    // get the time of intersection
-    float collisionTime = GeometricMath::CalculateIntersectionTime( plane, ray );
-
-    // ensure the ray intersects with the plane
-    if ( collisionTime > 1.0f || collisionTime < 0.0f )
+    const float t = CalculateIntersectionTime( plane, ray );
+    if ( t > 1.0f || t < 0.0f )
     {
         throw std::runtime_error( "Supplied ray will not intersect with this plane!  (GeometricMath::ComputeIntersectionPoint)" );
     }
-
-    // translate from the origin of the ray along the ray until the collision
-    // occurs, and return this vector
-    return GeometricMath::ComputeIntersectionPoint( ray, collisionTime );
+    return ComputeIntersectionPoint( ray, t );
 }
 
 
 Vector3 GeometricMath::ComputeIntersectionPoint( const Ray& ray,
                                                  float fCollisionTime )
 {
-    // translate from the origin of the ray along the ray until the collision
-    // occurs, and return this vector
+    // p(t) = origin + t · direction
     return ray.origin + ( ray.vector3 * fCollisionTime );
 }
 
@@ -166,180 +118,76 @@ Vector3 GeometricMath::ComputeIntersectionPoint( const Ray& ray,
 bool GeometricMath::IsPointInsideTriangle( const Triangle& triangle,
                                            const Vector3& point )
 {
-    // compute the barycentric coordinates for the point on the triangle plane
-    Vector3 barycentricCoords =
-        GeometricMath::ComputeBarycentricCoordinates( triangle, point );
-
-    // if the point lies outside of the triangle, there will be at least one
-    // negative barycentric coordinate.  returning the result of this test will
-    // determine whether the point lies inside or outside of the triangle
-    return ( barycentricCoords.x >= 0 &&
-             barycentricCoords.y >= 0 &&
-             barycentricCoords.z >= 0 );
+    // Inside iff all three barycentric weights are non-negative
+    const Vector3 b = ComputeBarycentricCoordinates( triangle, point );
+    return ( b.x >= 0 && b.y >= 0 && b.z >= 0 );
 }
 
 
 Vector3 GeometricMath::ComputeBarycentricCoordinates( const Triangle& triangle,
                                                       const Vector3& point )
 {
-    // compute the m_normal of the triangle
-    Vector3 m_normal = GeometricMath::ComputeTriangleNormal( triangle );
+    // Project onto the axis-aligned plane perpendicular to the triangle's largest
+    // normal component — that gives the projected triangle the maximum 2D area
+    // (and best numerical conditioning). Drop the dominant axis; keep the other two.
+    //
+    // 2D barycentric weights for projected point p relative to triangle (v1,v2,v3),
+    // using edges measured from v3:
+    //
+    //         (p-v3).a2 · (v2-v3).a1  -  (v2-v3).a2 · (p-v3).a1
+    //   b1 = ───────────────────────────────────────────────────
+    //         (v1-v3).a2 · (v2-v3).a1  -  (v2-v3).a2 · (v1-v3).a1
+    //
+    //         (p-v1).a2 · (v1-v3).a1  -  (v1-v3).a2 · (p-v1).a1
+    //   b2 = ─────────────────────────────────────────────────── × (-1/denom)
+    //
+    //   b3 = 1 - b1 - b2
+    //
+    // (a1, a2) = the two retained axes after projection. See "3D Math Primer
+    // for Games and Graphics Development" by Dunn & Parberry, p.260.
+    Vector3 normal = ComputeTriangleNormal( triangle );
+    normal.Absolute();
 
-    // convert the m_normal to an absolute representation
-    m_normal.Absolute();
+    float e1_a, e1_b; // (v1 - v3) on retained axes
+    float e2_a, e2_b; // (v2 - v3)
+    float p1_a, p1_b; // (p  - v1)
+    float p3_a, p3_b; // (p  - v3)
 
-    /*
-        In order to get the most accurate calculation,  it is optimal to
-        project the triangle onto the plane that will give the projected
-        triangle the largest possible area.  this is done by taking the
-        largest absolute component of the m_normal, and discarding this
-        component from the supplied point and triangle
-
-        Triangle after projection (assume XY projection):
-                v1
-                  /	\
-                 /	 \					Assume:  Positive Y is upwards
-                /	  \						     Positive X is to the right
-               /	   \
-              /			\
-             /			 \
-            /			  \
-           /	. <- point \
-          /					\
-         /					 \
-        /					  \
-     v0 ----------------------- v2
-
-        Assume the triangle has been projected onto the appropriate plane.
-        Let p = point, and assume the v0, v1 and v2 are the coordinates that make
-        up the Triangle 'triangle'
-
-        Eight 2-Dimensional vectors now need to be calculated.  This calculation
-        will assist in determining the relative weights of the vertices to formulate
-        the point 'p' through the barycentric computations
-
-        Assume we are projected onto the XY plane.
-
-        We need to find:
-            (a) the vector represented by v2->v0 for X (edge 1)
-            (b) the vector represented by v2->v0 for Y (edge 1)
-            (c) the vector represented by v2->v1 for X (edge 2)
-            (d) the vector represented by v2->v1 for Y (edge 2)
-            (e) the vector represented by v0->p  for X (inner edge 1)
-            (f) the vector represented by v0->p  for Y (inner edge 1)
-            (g) the vector represented by v2->p  for X (inner edge 2)
-            (h) the vector represented by v2->p  for Y (inner edge 2)
-
-        This can be expressed (irrespective of projection) by:
-            float v2_v0_axis1,  // edge 1
-                  v2_v0_axis2,  // edge 1
-                  v2_v1_axis1,  // edge 2
-                  v2_v1_axis2,  // edge 2
-                  v0_p_axis1,   // inner edge 1
-                  v0_p_axis2,   // inner edge 1
-                  v2_p_axis1,   // inner edge 2
-                  v2_p_axis2;   // inner edge 2
-
-         Now, back to our assumed XY projection:
-            v2_v0_axis1 = v0.x - v2.x;	// edge 1
-            v2_v0_axis2 = v0.y - v2.y;	// edge 1
-            v2_v1_axis1 = v1.x - v2.x;	// edge 2
-            v2_v1_axis2 = v1.y - v2.y;	// edge 2
-            v0_p_axis1	= p.x  - v0.x;	// inner edge 1
-            v0_p_axis2	= p.y  - v0.y;	// inner edge 1
-            v2_p_axis1	= p.x  - v2.x;	// inner edge 2
-            v2_p_axis2	= p.y  - v2.y;	// inner edge 2
-
-         And the same goes for the other projections.
-    */
-
-    float v2_v0_axis1, // edge 1
-        v2_v0_axis2,   // edge 1
-        v2_v1_axis1,   // edge 2
-        v2_v1_axis2,   // edge 2
-        v0_p_axis1,    // inner edge 1
-        v0_p_axis2,    // inner edge 1
-        v2_p_axis1,    // inner edge 2
-        v2_p_axis2;    // inner edge 2
-
-    if ( m_normal.x >= m_normal.y && m_normal.x >= m_normal.z )
+    if ( normal.x >= normal.y && normal.x >= normal.z )
     {
-        // discard 'x' component, project onto yz plane
-        v2_v0_axis1 = triangle.v1.y - triangle.v3.y; // edge 1
-        v2_v0_axis2 = triangle.v1.z - triangle.v3.z; // edge 1
-        v2_v1_axis1 = triangle.v2.y - triangle.v3.y; // edge 2
-        v2_v1_axis2 = triangle.v2.z - triangle.v3.z; // edge 2
-        v0_p_axis1 = point.y - triangle.v1.y;        // inner edge 1
-        v0_p_axis2 = point.z - triangle.v1.z;        // inner edge 1
-        v2_p_axis1 = point.y - triangle.v3.y;        // inner edge 2
-        v2_p_axis2 = point.z - triangle.v3.z;        // inner edge 2
+        // drop X — project to YZ
+        e1_a = triangle.v1.y - triangle.v3.y;  e1_b = triangle.v1.z - triangle.v3.z;
+        e2_a = triangle.v2.y - triangle.v3.y;  e2_b = triangle.v2.z - triangle.v3.z;
+        p1_a = point.y       - triangle.v1.y;  p1_b = point.z       - triangle.v1.z;
+        p3_a = point.y       - triangle.v3.y;  p3_b = point.z       - triangle.v3.z;
     }
-    else if ( m_normal.y >= m_normal.z )
+    else if ( normal.y >= normal.z )
     {
-        // discard 'y' component, project onto xz plane
-        v2_v0_axis1 = triangle.v1.z - triangle.v3.z; // edge 1
-        v2_v0_axis2 = triangle.v1.x - triangle.v3.x; // edge 1
-        v2_v1_axis1 = triangle.v2.z - triangle.v3.z; // edge 2
-        v2_v1_axis2 = triangle.v2.x - triangle.v3.x; // edge 2
-        v0_p_axis1 = point.z - triangle.v1.z;        // inner edge 1
-        v0_p_axis2 = point.x - triangle.v1.x;        // inner edge 1
-        v2_p_axis1 = point.z - triangle.v3.z;        // inner edge 2
-        v2_p_axis2 = point.x - triangle.v3.x;        // inner edge 2
+        // drop Y — project to ZX
+        e1_a = triangle.v1.z - triangle.v3.z;  e1_b = triangle.v1.x - triangle.v3.x;
+        e2_a = triangle.v2.z - triangle.v3.z;  e2_b = triangle.v2.x - triangle.v3.x;
+        p1_a = point.z       - triangle.v1.z;  p1_b = point.x       - triangle.v1.x;
+        p3_a = point.z       - triangle.v3.z;  p3_b = point.x       - triangle.v3.x;
     }
     else
     {
-        // discard 'z' component, project onto xy plane
-        v2_v0_axis1 = triangle.v1.x - triangle.v3.x; // edge 1
-        v2_v0_axis2 = triangle.v1.y - triangle.v3.y; // edge 1
-        v2_v1_axis1 = triangle.v2.x - triangle.v3.x; // edge 2
-        v2_v1_axis2 = triangle.v2.y - triangle.v3.y; // edge 2
-        v0_p_axis1 = point.x - triangle.v1.x;        // inner edge 1
-        v0_p_axis2 = point.y - triangle.v1.y;        // inner edge 1
-        v2_p_axis1 = point.x - triangle.v3.x;        // inner edge 2
-        v2_p_axis2 = point.y - triangle.v3.y;        // inner edge 2
+        // drop Z — project to XY
+        e1_a = triangle.v1.x - triangle.v3.x;  e1_b = triangle.v1.y - triangle.v3.y;
+        e2_a = triangle.v2.x - triangle.v3.x;  e2_b = triangle.v2.y - triangle.v3.y;
+        p1_a = point.x       - triangle.v1.x;  p1_b = point.y       - triangle.v1.y;
+        p3_a = point.x       - triangle.v3.x;  p3_b = point.y       - triangle.v3.y;
     }
 
-    /*
-        Now the computation is complete, it is time to compute the
-        barycentric coordinates.
-
-        Computing barycentric coordinates for a 2d point is defined
-        as follows (following on from above comments)
-
-                v2_p_axis2  * v2_v1_axis1 - v2_v1_axis2 * v2_p_axis1
-        b1 =	-----------------------------------------------------
-                v2_v0_axis2 * v2_v1_axis1 - v2_v1_axis2 * v2_v0_axis1
-
-                v0_p_axis2  * v2_v0_axis1 - v2_v0_axis2 * v0_p_axis1
-        b2 =	-----------------------------------------------------
-                v2_v0_axis2 * v2_v1_axis1 - v2_v1_axis2 * v2_v0_axis1
-
-        b3 also contains its own equation, BUT since b3 can be derrived from
-        b1 and b2 which will already be calculated, it is not necessary to
-        compute it
-    */
-
-    // pre-calculate the denominator
-    float denominator = v2_v0_axis2 * v2_v1_axis1 - v2_v1_axis2 * v2_v0_axis1;
-
-    // check for a division by zero (this would imply the supplied triangle
-    // was co-linear)
-    if ( !denominator )
+    // 2× signed area of projected triangle (zero ⇒ colinear)
+    const float denom = e1_b * e2_a - e2_b * e1_a;
+    if ( !denom )
     {
         throw std::runtime_error( "Division by zero due to co-linear triangle.  (GeometricMath::ComputeBarycentricCoordinates)" );
     }
 
-    // compute the X and Y barycentric coordinates
-    Vector3 barycentricResult = Vector3( ( v2_p_axis2 * v2_v1_axis1 -
-                                           v2_v1_axis2 * v2_p_axis1 ) /
-                                             denominator,
-                                         ( v0_p_axis2 * v2_v0_axis1 -
-                                           v2_v0_axis2 * v0_p_axis1 ) /
-                                             -denominator,
-                                         0.0f );
-
-    // derrive the Z component
-    barycentricResult.z = 1.0f - barycentricResult.x - barycentricResult.y;
-
-    return barycentricResult;
+    Vector3 b;
+    b.x = ( p3_b * e2_a - e2_b * p3_a ) /  denom;
+    b.y = ( p1_b * e1_a - e1_b * p1_a ) / -denom;
+    b.z = 1.0f - b.x - b.y;
+    return b;
 }

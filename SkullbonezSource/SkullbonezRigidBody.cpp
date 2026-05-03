@@ -39,69 +39,31 @@ RigidBody::~RigidBody()
 
 void RigidBody::ApplyWorldForce()
 {
-    // find acceleration (a = F/m)
-    Vector3 worldLinearAcceleration = m_worldForce / m_mass;
-
-    // add to the linear velocity
-    m_linearVelocity += worldLinearAcceleration;
-
-    // find acceleration (a = m_torque/m_rotationalInertia)
-    Vector3 worldAngularAcceleration = m_worldTorque /
-                                       m_rotationalInertia;
-
-    // add to the angular velocity
-    m_angularVelocity += worldAngularAcceleration;
+    // World force/torque are pre-scaled by Δt in WorldEnvironment::AddWorldForces,
+    // so dividing by m / I yields a velocity delta directly:
+    //   Δv = (F·Δt) / m
+    //   Δω = (τ·Δt) / I
+    m_linearVelocity += m_worldForce / m_mass;
+    m_angularVelocity += m_worldTorque / m_rotationalInertia;
 }
 
 
 void RigidBody::ApplyLinearForce()
 {
-    /*
-        Calculate linear dynamics...
-
-        calculate acceleration:
-        force = m_mass * acceleration
-        where m_mass is measured in kg,
-        acceleration in m/s^2, and force in newtons
-
-        eg: 1N = 1kg * 1m/s^2
-        (one newton is the force required to accelerate
-        one kilogram one metre per second squared)
-
-        based on rearranging the above: acceleration = force / m_mass
-    */
+    // Newton's 2nd law in impulse form (m_appliedForce is treated as an impulse J):
+    //   Δv = J / m
     m_linearAcceleration = m_appliedForce / m_mass;
-
-    // calculate velocity
     m_linearVelocity += m_linearAcceleration;
 }
 
 
 void RigidBody::ApplyAngularForce()
 {
-    /*
-        Translation from linear to rotational terms:
-
-        Force			--> Torque (T)
-        Mass			--> Rotational Inertia (I)
-        Acceleration	--> Rotational Acceleration (b)
-
-        Torque is found by taking the perpendicular between the application point
-        and the force applied.  This returns a vector where the direction is the
-        axis the body will rotate on, and the magnitude is the strength of the force.
-
-        The angular acceleration is found based on Newton's 2nd law:
-
-        F = ma   -->  T = Ib
-        a = F/m  -->  b = T/I
-    */
-    m_torque = Vector::CrossProduct( m_forceApplicationPoint,
-                                     m_appliedForce );
-
-    // find acceleration (a = m_torque/m_rotationalInertia)
+    // Rotational analogue of F = ma (applied force is again treated as an impulse):
+    //   τ  = r × F
+    //   Δω = τ / I
+    m_torque = Vector::CrossProduct( m_forceApplicationPoint, m_appliedForce );
     m_angularAcceleration = m_torque / m_rotationalInertia;
-
-    // now add the angular velocity accumulated from this impulse
     m_angularVelocity += m_angularAcceleration;
 }
 
@@ -122,32 +84,12 @@ void RigidBody::ApplyChangeInAngularVelocity()
 
 void RigidBody::ThrottleAngularVelocity()
 {
-    if ( m_angularVelocity.x > Cfg().velocityLimit )
-    {
-        m_angularVelocity.x = Cfg().velocityLimit;
-    }
-    else if ( m_angularVelocity.x < -Cfg().velocityLimit )
-    {
-        m_angularVelocity.x = -Cfg().velocityLimit;
-    }
-
-    if ( m_angularVelocity.y > Cfg().velocityLimit )
-    {
-        m_angularVelocity.y = Cfg().velocityLimit;
-    }
-    else if ( m_angularVelocity.y < -Cfg().velocityLimit )
-    {
-        m_angularVelocity.y = -Cfg().velocityLimit;
-    }
-
-    if ( m_angularVelocity.z > Cfg().velocityLimit )
-    {
-        m_angularVelocity.z = Cfg().velocityLimit;
-    }
-    else if ( m_angularVelocity.z < -Cfg().velocityLimit )
-    {
-        m_angularVelocity.z = -Cfg().velocityLimit;
-    }
+    // Component-wise clamp:  ω_i ← clamp(ω_i, -L, +L)
+    const float L = Cfg().velocityLimit;
+    auto clamp = []( float v, float lim ) { return v > lim ? lim : ( v < -lim ? -lim : v ); };
+    m_angularVelocity.x = clamp( m_angularVelocity.x, L );
+    m_angularVelocity.y = clamp( m_angularVelocity.y, L );
+    m_angularVelocity.z = clamp( m_angularVelocity.z, L );
 }
 
 
@@ -202,50 +144,31 @@ const Quaternion& RigidBody::GetOrientation() const
 
 void RigidBody::UpdateRollPosition( float changeInTime, float circumference )
 {
-    // get roll velocity in terms of full revolutions (radians/2PI)
-    Vector3 rollRevolutions = GetRollVelocity() / _2PI;
-
-    // scale the roll velocity to a displacement based on change in time
-    // and circumference
-    Vector3 positionUpdate = rollRevolutions * changeInTime * circumference;
-
-    // update the m_position
-    m_position += positionUpdate;
-
-    // update the m_orientation based on current angular velocity
+    // No-slip rolling on the XZ plane:
+    //   Δx = (ω̃ / 2π) · C · Δt        where C = 2πr  →   Δx = ω̃·r·Δt
+    // (ω̃ = GetRollVelocity() — ω with X/Z components remapped to ground motion.)
+    m_position += GetRollVelocity() * ( changeInTime * circumference / _2PI );
     m_orientation.RotateAboutXYZ( m_angularVelocity * changeInTime );
 }
 
 
 Vector3 RigidBody::GetRollVelocity()
 {
-    // local for calculation
-    Vector3 rollVelocity;
-
-    // x == z
-    rollVelocity.x = m_angularVelocity.z;
-
-    // y == 0
-    rollVelocity.y = 0.0f;
-
-    // z == -x
-    rollVelocity.z = -m_angularVelocity.x;
-
-    // return the result
-    return rollVelocity;
+    // Map ω → ground-plane direction (Y up; rolling produces no Y component):
+    //   ω̃ = ( ω.z, 0, -ω.x )
+    return Vector3( m_angularVelocity.z, 0.0f, -m_angularVelocity.x );
 }
 
 
 void RigidBody::UpdatePosition( float changeInTime )
 {
-    // get rid of tiny float values
     m_linearVelocity.Simplify();
     m_angularVelocity.Simplify();
 
-    // calculate location based on current linear velocity
+    // Forward-Euler integration:
+    //   x ← x + v·Δt
+    //   q ← q · Δq(ω·Δt)
     m_position += m_linearVelocity * changeInTime;
-
-    // update the m_orientation based on current angular velocity
     m_orientation.RotateAboutXYZ( m_angularVelocity * changeInTime );
 }
 
@@ -392,7 +315,7 @@ void RigidBody::SetVolume( float fVolume )
 
 float RigidBody::GetDensity()
 {
-    // calculate the density
+    // ρ = m / V
     return m_mass / m_volume;
 }
 
@@ -418,5 +341,6 @@ void RigidBody::SetFrictionCoefficient( float fFriction )
 
 void RigidBody::DampenAngularVelocity()
 {
+    // ω ← ω · (1 - 5μ)
     m_angularVelocity *= 1.0f - ( m_frictionCoefficient * 5.0f );
 }
