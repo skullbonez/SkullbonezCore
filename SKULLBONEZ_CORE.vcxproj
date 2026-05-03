@@ -81,7 +81,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>legacy_stdio_definitions.lib;psapi.lib;d3d11.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>legacy_stdio_definitions.lib;psapi.lib;d3d11.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>LIBC;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
@@ -104,7 +104,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d11.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -127,7 +127,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d11.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -175,6 +175,10 @@
     <ClCompile Include="SkullbonezSource\SkullbonezShaderDX.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezMeshDX.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezFramebufferDX.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezShaderDX12.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezMeshDX12.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezFramebufferDX12.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingSphere.h" />
@@ -219,6 +223,10 @@
     <ClInclude Include="SkullbonezSource\SkullbonezShaderDX.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezMeshDX.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezFramebufferDX.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezRenderBackendDX12.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezShaderDX12.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezMeshDX12.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezFramebufferDX12.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="SkullbonezData\shaders\lit_textured.frag" />

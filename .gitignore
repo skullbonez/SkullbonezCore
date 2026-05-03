@@ -44,3 +44,5 @@ __pycache__/
 
 # Superseded perf history dir (replaced by TestOutput/NNN_{commit}/ archives)
 TestOutput/perf_history/
+
+dx12_validation.txt

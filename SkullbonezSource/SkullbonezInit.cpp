@@ -6,6 +6,7 @@
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezRenderBackendGL.h"
 #include "SkullbonezRenderBackendDX.h"
+#include "SkullbonezRenderBackendDX12.h"
 #include <float.h>
 #include <cstring>
 #include <vector>
@@ -94,7 +95,13 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     }
 
     // Parse --renderer arg (default: opengl)
-    bool useDX11 = false;
+    enum class RendererType
+    {
+        OpenGL,
+        DX11,
+        DX12
+    };
+    RendererType renderer = RendererType::OpenGL;
     if ( szCmdLine )
     {
         const char* rendererArg = strstr( szCmdLine, "--renderer" );
@@ -105,9 +112,13 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
             {
                 ++rendererArg;
             }
-            if ( _strnicmp( rendererArg, "dx11", 4 ) == 0 || _strnicmp( rendererArg, "d3d11", 5 ) == 0 )
+            if ( _strnicmp( rendererArg, "dx12", 4 ) == 0 || _strnicmp( rendererArg, "d3d12", 5 ) == 0 )
             {
-                useDX11 = true;
+                renderer = RendererType::DX12;
+            }
+            else if ( _strnicmp( rendererArg, "dx11", 4 ) == 0 || _strnicmp( rendererArg, "d3d11", 5 ) == 0 )
+            {
+                renderer = RendererType::DX11;
             }
         }
     }
@@ -123,12 +134,18 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     // Get the device context for our window
     m_cWindow->m_sDevice = GetDC( m_cWindow->m_sWindow );
 
-    if ( !useDX11 )
+    if ( renderer == RendererType::OpenGL )
     {
         // Init OpenGL (single context for entire lifetime)
         m_cWindow->InitialiseOpenGL();
 
         auto backend = std::make_unique<RenderBackendGL>();
+        backend->Init( m_cWindow->m_sWindow, m_cWindow->m_sDevice, m_cWindow->m_sWindowDimensions.x, m_cWindow->m_sWindowDimensions.y );
+        SetGfxBackend( std::move( backend ) );
+    }
+    else if ( renderer == RendererType::DX12 )
+    {
+        auto backend = std::make_unique<RenderBackendDX12>();
         backend->Init( m_cWindow->m_sWindow, m_cWindow->m_sDevice, m_cWindow->m_sWindowDimensions.x, m_cWindow->m_sWindowDimensions.y );
         SetGfxBackend( std::move( backend ) );
     }
@@ -171,7 +188,7 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     DestroyGfxBackend();
 
     // Cleanup rendering context AFTER cRun is destroyed (OpenGL only)
-    if ( !useDX11 && m_cWindow->m_sRenderContext )
+    if ( renderer == RendererType::OpenGL && m_cWindow->m_sRenderContext )
     {
         wglMakeCurrent( nullptr, nullptr );
         wglDeleteContext( m_cWindow->m_sRenderContext );

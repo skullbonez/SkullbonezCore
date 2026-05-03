@@ -213,6 +213,11 @@ bool RenderBackendDX::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
 
 void RenderBackendDX::Shutdown()
 {
+    if ( !m_device )
+    {
+        return;
+    }
+
     // Destroy dynamic VBs
     for ( auto& dvb : m_dynamicVBs )
     {
@@ -331,6 +336,7 @@ void RenderBackendDX::Shutdown()
     if ( m_device )
     {
         m_device->Release();
+        m_device = nullptr;
     }
 
     s_instance = nullptr;
@@ -344,6 +350,12 @@ void RenderBackendDX::Present()
 
 
 void RenderBackendDX::Finish()
+{
+    m_context->Flush();
+}
+
+
+void RenderBackendDX::FlushGPU()
 {
     m_context->Flush();
 }
