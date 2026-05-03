@@ -91,6 +91,7 @@ Full pipeline steps in `Copilot/Skills/skore-build-pipeline/skill.md`.
 | Reference baselines (4 PNG) | `Copilot/Skills/skore-render-test/baseline_*.png` |
 | CDB debug skill | `Copilot/Skills/skore-cdb-debug/skill.md` |
 | Launch skill | `Copilot/Skills/skore-launch/skill.md` |
+| **CPU profiler skill** | `Copilot/Skills/skore-cpu-profiler/skill.md` |
 | LOC counter | `Copilot/Skills/loc_count.py` |
 
 ### Plans & Docs
