@@ -59,6 +59,7 @@ class SkullbonezConfig
     float velocityLimit = 5.0f;
     float sphereDragCoeff = 0.4f;
     float frictionCoeff = 0.1f;
+    float rollingFrictionCoeff = 0.02f;
     float broadphaseCell = 11.0f;
 
     // Shadows

@@ -418,5 +418,5 @@ void RigidBody::SetFrictionCoefficient( float fFriction )
 
 void RigidBody::DampenAngularVelocity()
 {
-    m_angularVelocity *= 1.0f - ( m_frictionCoefficient * 5.0f );
+    m_angularVelocity *= 1.0f - m_frictionCoefficient;
 }

@@ -209,6 +209,10 @@ void SkullbonezConfig::Load( const char* path )
         {
             frictionCoeff = static_cast<float>( atof( v ) );
         }
+        else if ( strcmp( k, "rolling_friction_coeff" ) == 0 )
+        {
+            rollingFrictionCoeff = static_cast<float>( atof( v ) );
+        }
         else if ( strcmp( k, "broadphase_cell" ) == 0 )
         {
             broadphaseCell = static_cast<float>( atof( v ) );

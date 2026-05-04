@@ -166,7 +166,7 @@ void GameModel::CollisionResponseTerrain( float remainingTimeStep )
     }
 
     // respond to the collision...
-    CollisionResponse::RespondCollisionTerrain( *this );
+    CollisionResponse::RespondCollisionTerrain( *this, remainingTimeStep );
 
     // update the m_position based on remaining time step
     UpdatePosition( remainingTimeStep );
