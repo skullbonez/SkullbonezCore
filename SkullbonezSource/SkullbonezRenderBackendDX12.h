@@ -82,24 +82,27 @@ class RenderBackendDX12 : public IRenderBackend
   private:
     static RenderBackendDX12* s_instance;
 
+    // Frame management
+    static const int FRAME_COUNT = 2;
+
     // Core objects
     IDXGIFactory4* m_factory;
     IDXGISwapChain3* m_swapChain;
     ID3D12Device* m_device;
     ID3D12CommandQueue* m_commandQueue;
     ID3D12GraphicsCommandList* m_commandList;
-    ID3D12CommandAllocator* m_commandAllocator;
+    ID3D12CommandAllocator* m_commandAllocators[FRAME_COUNT];
     bool m_commandListOpen;
-    bool m_gpuIdle;
 
-    // Frame management
-    static const int FRAME_COUNT = 2;
+    // Render targets and frame index
     ID3D12Resource* m_renderTargets[FRAME_COUNT];
     UINT m_frameIndex;
+    UINT m_allocatorIndex; // Which allocator is active (alternates 0/1)
 
-    // Fence
+    // Per-frame fence tracking
     ID3D12Fence* m_fence;
     UINT64 m_fenceValue;
+    UINT64 m_frameFenceValues[FRAME_COUNT]; // Fence value signaled by each frame's submission
     HANDLE m_fenceEvent;
 
     // Descriptor heaps
