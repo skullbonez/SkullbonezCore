@@ -1,0 +1,87 @@
+{
+  "area_path": "Frame/Render/Balls",
+  "commit_at_start": "74c596b",
+  "renderer": "dx12",
+  "pre_authorized": false,
+  "session_id": "profiler-20260504-121748-74c596b",
+  "before_stats": {
+    "Frame/Render/Balls/BatchBegin": {
+      "avg": 0.0014,
+      "p50": 0.0014,
+      "p99": 0.0026,
+      "count": 301
+    },
+    "Frame/Render/Balls/DrawLoop": {
+      "avg": 1.789,
+      "p50": 1.7849,
+      "p99": 1.947,
+      "count": 301
+    },
+    "Frame/Render/Balls/DrawLoop/SetUniform": {
+      "avg": 0.034,
+      "p50": 0.0337,
+      "p99": 0.0386,
+      "count": 301
+    },
+    "Frame/Render/Balls/DrawLoop/Draw": {
+      "avg": 1.6514,
+      "p50": 1.6455,
+      "p99": 1.7929,
+      "count": 301
+    },
+    "Frame/Render/Balls/BatchEnd": {
+      "avg": 0.0002,
+      "p50": 0.0002,
+      "p99": 0.0004,
+      "count": 301
+    },
+    "Frame/Render/Balls": {
+      "avg": 0.8646,
+      "p50": 0.8595,
+      "p99": 0.9408,
+      "count": 301
+    }
+  },
+  "profiling_csv": "Profile\\perf_profiling_dx12_20260504-121748.csv",
+  "concern": "DX12 balls and reflection rendering too slow",
+  "after_fix_csv": null,
+  "after_stats": null,
+  "added_markers": [
+    {
+      "id": "pm001",
+      "inserted_lines": "PROFILE_SCOPED( \"Frame/Render/Balls/BatchBegin\" );",
+      "file": "SkullbonezSource/SkullbonezGameModelCollection.cpp",
+      "marker": "Frame/Render/Balls/BatchBegin",
+      "macro": "PROFILE_SCOPED"
+    },
+    {
+      "id": "pm002",
+      "inserted_lines": "PROFILE_SCOPED( \"Frame/Render/Balls/DrawLoop\" );",
+      "file": "SkullbonezSource/SkullbonezGameModelCollection.cpp",
+      "marker": "Frame/Render/Balls/DrawLoop",
+      "macro": "PROFILE_SCOPED"
+    },
+    {
+      "id": "pm003",
+      "inserted_lines": "PROFILE_SCOPED( \"Frame/Render/Balls/BatchEnd\" );",
+      "file": "SkullbonezSource/SkullbonezGameModelCollection.cpp",
+      "marker": "Frame/Render/Balls/BatchEnd",
+      "macro": "PROFILE_SCOPED"
+    },
+    {
+      "id": "pm004",
+      "inserted_lines": "PROFILE_SCOPED( \"Frame/Render/Balls/DrawLoop/SetUniform\" );",
+      "file": "SkullbonezSource/SkullbonezHelper.cpp",
+      "marker": "Frame/Render/Balls/DrawLoop/SetUniform",
+      "macro": "PROFILE_SCOPED"
+    },
+    {
+      "id": "pm005",
+      "inserted_lines": "PROFILE_SCOPED( \"Frame/Render/Balls/DrawLoop/Draw\" );",
+      "file": "SkullbonezSource/SkullbonezHelper.cpp",
+      "marker": "Frame/Render/Balls/DrawLoop/Draw",
+      "macro": "PROFILE_SCOPED"
+    }
+  ],
+  "fixed": false
+}

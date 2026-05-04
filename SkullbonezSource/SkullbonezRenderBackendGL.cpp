@@ -555,7 +555,7 @@ void RenderBackendGL::DestroyDynamicVB( uint32_t handle )
 // --- Instanced MeshGL ---
 
 
-uint32_t RenderBackendGL::CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int maxInstances, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs )
+uint32_t RenderBackendGL::CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int maxInstances, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs, const int* staticAttribSizes, int numStaticAttribs )
 {
     InstancedMesh im = {};
     im.staticFloatsPerVert = staticFloatsPerVert;
@@ -569,9 +569,25 @@ uint32_t RenderBackendGL::CreateInstancedMesh( const float* staticData, int stat
     glBindBuffer( GL_ARRAY_BUFFER, im.staticVBO );
     glBufferData( GL_ARRAY_BUFFER, static_cast<GLsizeiptr>( staticVertCount ) * staticFloatsPerVert * static_cast<GLsizeiptr>( sizeof( float ) ), staticData, GL_STATIC_DRAW );
 
-    // Static attributes: location 0 = vec(staticFloatsPerVert), per-vertex
-    glEnableVertexAttribArray( 0 );
-    glVertexAttribPointer( 0, staticFloatsPerVert, GL_FLOAT, GL_FALSE, staticFloatsPerVert * static_cast<int>( sizeof( float ) ), nullptr );
+    // Static attributes
+    if ( numStaticAttribs > 0 && staticAttribSizes )
+    {
+        // Multi-attribute layout (e.g. pos3+normal3+uv2)
+        int stride = staticFloatsPerVert * static_cast<int>( sizeof( float ) );
+        int offset = 0;
+        for ( int i = 0; i < numStaticAttribs; ++i )
+        {
+            glEnableVertexAttribArray( static_cast<GLuint>( i ) );
+            glVertexAttribPointer( static_cast<GLuint>( i ), staticAttribSizes[i], GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( static_cast<intptr_t>( offset ) ) );
+            offset += staticAttribSizes[i] * static_cast<int>( sizeof( float ) );
+        }
+    }
+    else
+    {
+        // Legacy: single attribute at location 0 (shadow disc compatibility)
+        glEnableVertexAttribArray( 0 );
+        glVertexAttribPointer( 0, staticFloatsPerVert, GL_FLOAT, GL_FALSE, staticFloatsPerVert * static_cast<int>( sizeof( float ) ), nullptr );
+    }
 
     // Instance data VBO (dynamic, updated each frame)
     glGenBuffers( 1, &im.instanceVBO );

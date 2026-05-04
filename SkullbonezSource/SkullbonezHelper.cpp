@@ -1,5 +1,6 @@
 // --- Includes ---
 #include "SkullbonezHelper.h"
+#include "SkullbonezProfiler.h"
 #include "SkullbonezIRenderBackend.h"
 #include <vector>
 #include <cmath>
@@ -11,8 +12,11 @@ using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
 
 
-std::unique_ptr<IMesh> SkullbonezHelper::sphereMesh;
 std::unique_ptr<IShader> SkullbonezHelper::sphereShader;
+uint32_t SkullbonezHelper::sphereInstMesh = 0;
+int SkullbonezHelper::sphereVertexCount = 0;
+std::vector<float> SkullbonezHelper::sphereInstanceData;
+
 void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
 {
     sClipPlane[0] = x;
@@ -24,8 +28,12 @@ void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
 
 void SkullbonezHelper::ResetGLResources()
 {
-    sphereMesh.reset();
     sphereShader.reset();
+    if ( sphereInstMesh != 0 )
+    {
+        Gfx().DestroyInstancedMesh( sphereInstMesh );
+        sphereInstMesh = 0;
+    }
 }
 
 
@@ -66,18 +74,26 @@ void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
         }
     }
 
-    sphereMesh = Gfx().CreateMesh( verts.data(), static_cast<int>( verts.size() ) / 8, true, true );
+    sphereVertexCount = slices * stacks * 6;
+
+    // Static layout: 3 attributes (pos3, normal3, uv2) at locations 0-2
+    int staticAttribSizes[] = { 3, 3, 2 };
+    // Instance layout: 4 attributes (4×vec4 for mat4 = 16 floats), starting at location 3
+    int instanceAttribSizes[] = { 4, 4, 4, 4 };
+    sphereInstMesh = Gfx().CreateInstancedMesh( verts.data(), sphereVertexCount, 8, MAX_GAME_MODELS, 16, 3, instanceAttribSizes, 4, staticAttribSizes, 3 );
+
+    sphereInstanceData.reserve( MAX_GAME_MODELS * 16 );
 }
 
 
 void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent )
 {
-    if ( !sphereMesh )
+    if ( sphereInstMesh == 0 )
     {
         BuildSphereMesh( 25, 25 );
         sphereShader = Gfx().CreateShader(
-            "SkullbonezData/shaders/lit_textured.vert",
-            "SkullbonezData/shaders/lit_textured.frag" );
+            "SkullbonezData/shaders/lit_textured_instanced.vert",
+            "SkullbonezData/shaders/lit_textured_instanced.frag" );
         sphereShader->Use();
         sphereShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
         sphereShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
@@ -102,18 +118,26 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
     sphereShader->SetMat4( "uProjection", proj );
     sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
     sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
+
+    sphereInstanceData.clear();
 }
 
 
 void SkullbonezHelper::DrawSphereBatchModel( const Matrix4& model )
 {
-    sphereShader->SetMat4( "uModel", model );
-    sphereMesh->Draw();
+    const float* md = model.Data();
+    sphereInstanceData.insert( sphereInstanceData.end(), md, md + 16 );
 }
 
 
 void SkullbonezHelper::DrawSphereBatchEnd()
 {
+    int instanceCount = static_cast<int>( sphereInstanceData.size() ) / 16;
+    if ( instanceCount > 0 )
+    {
+        Gfx().UploadInstanceData( sphereInstMesh, sphereInstanceData.data(), static_cast<int>( sphereInstanceData.size() ) );
+        Gfx().DrawInstancedMesh( sphereInstMesh, sphereVertexCount, instanceCount );
+    }
     Gfx().SetBlend( false );
 }
 

@@ -1032,7 +1032,7 @@ void RenderBackendDX11::DestroyDynamicVB( uint32_t handle )
 // --- Instanced mesh ---
 
 
-uint32_t RenderBackendDX11::CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int maxInstances, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs )
+uint32_t RenderBackendDX11::CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int maxInstances, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs, const int* staticAttribSizes, int numStaticAttribs )
 {
     InstancedMeshDX im = {};
     im.staticFloatsPerVert = staticFloatsPerVert;
@@ -1042,9 +1042,14 @@ uint32_t RenderBackendDX11::CreateInstancedMesh( const float* staticData, int st
     im.instanceStartAttrib = instanceStartAttrib;
     im.numInstanceAttribs = numInstanceAttribs;
     im.lastVSBytecode = nullptr;
+    im.numStaticAttribs = numStaticAttribs;
     for ( int i = 0; i < numInstanceAttribs && i < 8; ++i )
     {
         im.instanceAttribSizes[i] = instanceAttribSizes[i];
+    }
+    for ( int i = 0; i < numStaticAttribs && i < 8; ++i )
+    {
+        im.staticAttribSizes[i] = staticAttribSizes[i];
     }
 
     // Static VB
@@ -1107,18 +1112,50 @@ void RenderBackendDX11::DrawInstancedMesh( uint32_t handle, int staticVertCount,
             im.inputLayout = nullptr;
         }
 
-        // Build: slot 0 = static (POSITION float3), slot 1 = instance data
+        // Build input layout: slot 0 = static geometry, slot 1 = instance data
         D3D11_INPUT_ELEMENT_DESC elements[16] = {};
         int numElements = 0;
 
-        // Static: POSITION
-        elements[0].SemanticName = "POSITION";
-        elements[0].SemanticIndex = 0;
-        elements[0].Format = ( im.staticFloatsPerVert == 3 ) ? DXGI_FORMAT_R32G32B32_FLOAT : DXGI_FORMAT_R32G32_FLOAT;
-        elements[0].InputSlot = 0;
-        elements[0].AlignedByteOffset = 0;
-        elements[0].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
-        numElements = 1;
+        // Static vertex attributes (slot 0)
+        if ( im.numStaticAttribs > 0 )
+        {
+            // Multi-attribute: POSITION, NORMAL, TEXCOORD0 etc.
+            static const char* staticSemantics[] = { "POSITION", "NORMAL", "TEXCOORD" };
+            UINT staticOffset = 0;
+            for ( int i = 0; i < im.numStaticAttribs; ++i )
+            {
+                elements[numElements].SemanticName = staticSemantics[i < 3 ? i : 2];
+                elements[numElements].SemanticIndex = ( i >= 2 ) ? (UINT)( i - 2 ) : 0;
+                elements[numElements].InputSlot = 0;
+                elements[numElements].AlignedByteOffset = staticOffset;
+                elements[numElements].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+                switch ( im.staticAttribSizes[i] )
+                {
+                case 2:
+                    elements[numElements].Format = DXGI_FORMAT_R32G32_FLOAT;
+                    break;
+                case 3:
+                    elements[numElements].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+                    break;
+                case 4:
+                    elements[numElements].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+                    break;
+                }
+                staticOffset += im.staticAttribSizes[i] * (UINT)sizeof( float );
+                numElements++;
+            }
+        }
+        else
+        {
+            // Legacy: single POSITION attribute
+            elements[0].SemanticName = "POSITION";
+            elements[0].SemanticIndex = 0;
+            elements[0].Format = ( im.staticFloatsPerVert == 3 ) ? DXGI_FORMAT_R32G32B32_FLOAT : DXGI_FORMAT_R32G32_FLOAT;
+            elements[0].InputSlot = 0;
+            elements[0].AlignedByteOffset = 0;
+            elements[0].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+            numElements = 1;
+        }
 
         // Instance attributes
         UINT instOffset = 0;

@@ -50,6 +50,8 @@ struct InstancedMeshDX12
     int instanceStartAttrib;
     int numInstanceAttribs;
     int instanceAttribSizes[8];
+    int numStaticAttribs;
+    int staticAttribSizes[8];
     D3D12_GPU_VIRTUAL_ADDRESS instanceDataAddr;
     UINT instanceDataSize;
 };
@@ -253,7 +255,7 @@ class RenderBackendDX12 : public IRenderBackend
     void UploadAndDrawDynamicVB( uint32_t handle, const float* data, int vertexCount ) override;
     void DestroyDynamicVB( uint32_t handle ) override;
 
-    uint32_t CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int maxInstances, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs ) override;
+    uint32_t CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int maxInstances, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs, const int* staticAttribSizes = nullptr, int numStaticAttribs = 0 ) override;
     void UploadInstanceData( uint32_t handle, const float* data, int floatCount ) override;
     void DrawInstancedMesh( uint32_t handle, int staticVertCount, int instanceCount ) override;
     void DestroyInstancedMesh( uint32_t handle ) override;
