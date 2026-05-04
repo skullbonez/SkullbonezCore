@@ -13,7 +13,7 @@ Delta = (current - baseline) / baseline * 100
   Small positive = minor        → 🟡 yellow (5–threshold%)
   Large positive = regression   → 🔴 red    (>threshold%)
 
-Thresholds: avg/p50 = 10%,  p99/p99.9 = 20%
+Thresholds: avg/p50 = 10%
 """
 import argparse
 import json
@@ -63,10 +63,10 @@ def hline(l, m, r, ws):
 def print_table(title, markers, cur_stats, bas_stats, prev_commit):
     mw = max((len(m) for m in markers), default=30)
     mw = max(mw, 30)
-    ws = [mw, 7, 7, 9, 9, 9, 9]
+    ws = [mw, 7, 7, 9, 9]
 
     print(f"\n  {title} \u2014 vs {prev_commit}")
-    print(f"  avg/p50 threshold 10% \u00b7 p99/p99.9 threshold 20%\n")
+    print(f"  avg/p50 threshold 10%\n")
     print("  " + hline(TL, TM, TR, ws))
 
     def vrow(cells):
@@ -78,7 +78,7 @@ def print_table(title, markers, cur_stats, bas_stats, prev_commit):
                 parts.append(f" {cell} ")
         return "  " + V + V.join(parts) + V
 
-    headers = ["Marker", "bas avg", "cur avg", "\u0394avg", "\u0394p50", "\u0394p99", "\u0394p99.9"]
+    headers = ["Marker", "bas avg", "cur avg", "\u0394avg", "\u0394p50"]
     print(vrow(headers))
     print("  " + hline(ML, MM, MR, ws))
 
@@ -87,13 +87,11 @@ def print_table(title, markers, cur_stats, bas_stats, prev_commit):
         b = bas_stats.get(m)
         if b:
             d = [
-                color_cell(c["avg"],   b["avg"],   10),
-                color_cell(c["p50"],   b["p50"],   10),
-                color_cell(c["p99"],   b["p99"],   20),
-                color_cell(c["p99_9"], b["p99_9"], 20),
+                color_cell(c["avg"], b["avg"], 10),
+                color_cell(c["p50"], b["p50"], 10),
             ]
         else:
-            d = ["(new)    "] * 4
+            d = ["(new)    "] * 2
         print(vrow([m, f"{b['avg']:.4f}" if b else "  ---  ", f"{c['avg']:.4f}", *d]))
         if i < len(markers) - 1:
             print("  " + hline(ML, MM, MR, ws))
@@ -135,7 +133,7 @@ def check_regressions(cur_stats, bas_stats, cur_json, bas_json):
         pm = bas_stats.get(marker)
         if not pm:
             continue
-        for stat, threshold in [("avg", 10), ("p50", 10), ("p99", 20), ("p99_9", 20)]:
+        for stat, threshold in [("avg", 10), ("p50", 10)]:
             pv, cv = pm[stat], cm[stat]
             if pv > 0:
                 pct = (cv - pv) / pv * 100

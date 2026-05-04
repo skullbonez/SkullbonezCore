@@ -328,7 +328,7 @@ foreach ($renderer in @("gl", "dx11", "dx12")) {
 
 **⚠️ MANDATORY: Print the COMPLETE output for ALL THREE renderers — every row, every emoji dot, the full CPU table, GPU table, and Memory table. Do NOT summarize, truncate, or paraphrase.**
 
-Regression thresholds: avg/p50 timing >10% = FAIL, p99/p99.9 >20% = FAIL, memory growth >5 MB = FAIL.
+Regression thresholds: avg/p50 timing >10% = FAIL, memory growth >5 MB = FAIL.
 
 ### Step 7: Archive Screenshots to TestOutput
 

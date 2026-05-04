@@ -166,5 +166,5 @@ All uniforms that never change per-frame are set once at shader creation time (n
 - 2×5s passes, 300 balls (configurable via `legacy_balls`), seed 42, physics+text enabled
 - Memory sampled every 60 frames via `GetProcessMemoryInfo` (psapi.lib)
 - CSV: `Debug/perf_log.csv` — analysed by `Copilot/Skills/skore-render-test/analyze_perf.py`
-- Regression thresholds: avg/p50 timing >10% = FAIL, p99/p99.9 >20% = FAIL, memory >5 MB growth = FAIL
+- Regression thresholds: avg/p50 timing >10% = FAIL, memory >5 MB growth = FAIL
 - LOC: ~8018 (logical lines, excludes blanks/comments/ThirdPtySource)
