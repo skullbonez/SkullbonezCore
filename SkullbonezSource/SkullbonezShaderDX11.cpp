@@ -55,6 +55,10 @@ bool ShaderDX11::Compile( const char* hlslPath )
     // Compile vertex ShaderGL
     ID3DBlob* vsBlob = nullptr;
     ID3DBlob* errBlob = nullptr;
+    UINT compileFlags = D3DCOMPILE_ENABLE_STRICTNESS;
+#ifndef _DEBUG
+    compileFlags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
+#endif
     HRESULT hr = D3DCompile( source.c_str(),
                              source.size(),
                              hlslPath,
@@ -62,7 +66,7 @@ bool ShaderDX11::Compile( const char* hlslPath )
                              nullptr,
                              "main_vs",
                              "vs_5_0",
-                             D3DCOMPILE_ENABLE_STRICTNESS,
+                             compileFlags,
                              0,
                              &vsBlob,
                              &errBlob );
@@ -134,7 +138,7 @@ bool ShaderDX11::Compile( const char* hlslPath )
                      nullptr,
                      "main_ps",
                      "ps_5_0",
-                     D3DCOMPILE_ENABLE_STRICTNESS,
+                     compileFlags,
                      0,
                      &psBlob,
                      &errBlob );

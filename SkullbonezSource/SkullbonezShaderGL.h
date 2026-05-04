@@ -4,6 +4,8 @@
 // --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezIShader.h"
+#include <unordered_map>
+#include <string>
 
 
 // --- Usings ---
@@ -25,9 +27,11 @@ class ShaderGL : public IShader
 
   private:
     GLuint m_programID; // OpenGL ShaderGL program handle
+    mutable std::unordered_map<std::string, GLint> m_uniformCache;
 
     static GLuint CompileShader( const char* path, GLenum type ); // Compile a single ShaderGL stage from file
     static char* LoadShaderSource( const char* path );            // Read ShaderGL source from file
+    GLint GetUniformLocation( const char* name ) const;           // Cached uniform location lookup
 
   public:
     ShaderGL( const char* vertPath, const char* fragPath ); // Constructor: compile and link from files

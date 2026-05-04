@@ -16,11 +16,21 @@ using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
 
 
+// --- Helpers ---
+static inline void ThrowIfFailed( HRESULT hr, const char* msg )
+{
+    if ( FAILED( hr ) )
+    {
+        throw std::runtime_error( msg );
+    }
+}
+
+
 RenderBackendDX11* RenderBackendDX11::s_instance = nullptr;
 
 
 RenderBackendDX11::RenderBackendDX11()
-    : m_swapChain( nullptr ), m_device( nullptr ), m_context( nullptr ), m_backBufferRTV( nullptr ), m_depthStencilTex( nullptr ), m_depthStencilView( nullptr ), m_width( 0 ), m_height( 0 ), m_depthTestEnabled( true ), m_blendEnabled( false ), m_clearColor{ 0.0f, 0.0f, 0.0f, 1.0f }, m_clearDepth( 1.0f ), m_dsDepthOn( nullptr ), m_dsDepthOff( nullptr ), m_blendOn( nullptr ), m_blendOff( nullptr ), m_rsCullOn( nullptr ), m_rsCullOff( nullptr ), m_rsCullOnPolyOffset( nullptr ), m_rsCullOffPolyOffset( nullptr ), m_samplerLinear( nullptr ), m_samplerNearest( nullptr ), m_cullEnabled( true ), m_polyOffsetEnabled( false ), m_activeShader( nullptr )
+    : m_swapChain( nullptr ), m_device( nullptr ), m_context( nullptr ), m_backBufferRTV( nullptr ), m_depthStencilTex( nullptr ), m_depthStencilView( nullptr ), m_width( 0 ), m_height( 0 ), m_depthTestEnabled( true ), m_blendEnabled( false ), m_clearColor{ 0.0f, 0.0f, 0.0f, 1.0f }, m_clearDepth( 1.0f ), m_dsDepthOn( nullptr ), m_dsDepthOff( nullptr ), m_blendOff( nullptr ), m_rsCullOn( nullptr ), m_rsCullOff( nullptr ), m_rsCullOnPolyOffset( nullptr ), m_rsCullOffPolyOffset( nullptr ), m_samplerLinear( nullptr ), m_samplerNearest( nullptr ), m_activeBlendState( nullptr ), m_currentBlendSrc( BlendFactor::One ), m_currentBlendDst( BlendFactor::Zero ), m_cullEnabled( true ), m_polyOffsetEnabled( false ), m_currentRTV( nullptr ), m_currentDSV( nullptr ), m_stagingTex( nullptr ), m_stagingWidth( 0 ), m_stagingHeight( 0 ), m_activeShader( nullptr )
 {
 }
 
@@ -45,31 +55,27 @@ static D3D11_BLEND TranslateBlendFactor( BlendFactor f )
 
 void RenderBackendDX11::CreateStateObjects()
 {
+    HRESULT hr;
+
     // Depth stencil states
     D3D11_DEPTH_STENCIL_DESC dsDesc = {};
     dsDesc.DepthEnable = TRUE;
     dsDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
     dsDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
-    m_device->CreateDepthStencilState( &dsDesc, &m_dsDepthOn );
+    hr = m_device->CreateDepthStencilState( &dsDesc, &m_dsDepthOn );
+    ThrowIfFailed( hr, "CreateDepthStencilState (depth on) failed" );
 
     dsDesc.DepthEnable = FALSE;
     dsDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
-    m_device->CreateDepthStencilState( &dsDesc, &m_dsDepthOff );
+    hr = m_device->CreateDepthStencilState( &dsDesc, &m_dsDepthOff );
+    ThrowIfFailed( hr, "CreateDepthStencilState (depth off) failed" );
 
-    // Blend states
+    // Blend-off state (no blending)
     D3D11_BLEND_DESC blendDesc = {};
-    blendDesc.RenderTarget[0].BlendEnable = TRUE;
-    blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
-    blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-    blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-    blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-    blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
-    blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-    blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-    m_device->CreateBlendState( &blendDesc, &m_blendOn );
-
     blendDesc.RenderTarget[0].BlendEnable = FALSE;
-    m_device->CreateBlendState( &blendDesc, &m_blendOff );
+    blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    hr = m_device->CreateBlendState( &blendDesc, &m_blendOff );
+    ThrowIfFailed( hr, "CreateBlendState (off) failed" );
 
     // Rasterizer states
     D3D11_RASTERIZER_DESC rsDesc = {};
@@ -77,18 +83,22 @@ void RenderBackendDX11::CreateStateObjects()
     rsDesc.CullMode = D3D11_CULL_BACK;
     rsDesc.FrontCounterClockwise = TRUE;
     rsDesc.DepthClipEnable = TRUE;
-    m_device->CreateRasterizerState( &rsDesc, &m_rsCullOn );
+    hr = m_device->CreateRasterizerState( &rsDesc, &m_rsCullOn );
+    ThrowIfFailed( hr, "CreateRasterizerState (cull on) failed" );
 
     rsDesc.CullMode = D3D11_CULL_NONE;
-    m_device->CreateRasterizerState( &rsDesc, &m_rsCullOff );
+    hr = m_device->CreateRasterizerState( &rsDesc, &m_rsCullOff );
+    ThrowIfFailed( hr, "CreateRasterizerState (cull off) failed" );
 
     rsDesc.CullMode = D3D11_CULL_BACK;
     rsDesc.DepthBias = -1;
     rsDesc.SlopeScaledDepthBias = -1.0f;
-    m_device->CreateRasterizerState( &rsDesc, &m_rsCullOnPolyOffset );
+    hr = m_device->CreateRasterizerState( &rsDesc, &m_rsCullOnPolyOffset );
+    ThrowIfFailed( hr, "CreateRasterizerState (cull on + poly offset) failed" );
 
     rsDesc.CullMode = D3D11_CULL_NONE;
-    m_device->CreateRasterizerState( &rsDesc, &m_rsCullOffPolyOffset );
+    hr = m_device->CreateRasterizerState( &rsDesc, &m_rsCullOffPolyOffset );
+    ThrowIfFailed( hr, "CreateRasterizerState (cull off + poly offset) failed" );
 
     // Sampler states
     D3D11_SAMPLER_DESC sampDesc = {};
@@ -99,10 +109,12 @@ void RenderBackendDX11::CreateStateObjects()
     sampDesc.MaxAnisotropy = 1;
     sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
     sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-    m_device->CreateSamplerState( &sampDesc, &m_samplerLinear );
+    hr = m_device->CreateSamplerState( &sampDesc, &m_samplerLinear );
+    ThrowIfFailed( hr, "CreateSamplerState (linear) failed" );
 
     sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
-    m_device->CreateSamplerState( &sampDesc, &m_samplerNearest );
+    hr = m_device->CreateSamplerState( &sampDesc, &m_samplerNearest );
+    ThrowIfFailed( hr, "CreateSamplerState (nearest) failed" );
 }
 
 
@@ -133,18 +145,17 @@ bool RenderBackendDX11::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     m_width = width;
     m_height = height;
 
+    // Create device and flip-model swap chain (DXGI 1.2+)
     DXGI_SWAP_CHAIN_DESC scd = {};
-    scd.BufferCount = 1;
+    scd.BufferCount = 2;
     scd.BufferDesc.Width = (UINT)width;
     scd.BufferDesc.Height = (UINT)height;
     scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    scd.BufferDesc.RefreshRate.Numerator = 60;
-    scd.BufferDesc.RefreshRate.Denominator = 1;
     scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     scd.OutputWindow = hwnd;
     scd.SampleDesc.Count = 1;
     scd.Windowed = TRUE;
-    scd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+    scd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 
     D3D_FEATURE_LEVEL featureLevel;
     UINT flags = 0;
@@ -164,16 +175,26 @@ bool RenderBackendDX11::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
                                                 &m_device,
                                                 &featureLevel,
                                                 &m_context );
-    if ( FAILED( hr ) )
+    ThrowIfFailed( hr, "D3D11CreateDeviceAndSwapChain failed" );
+
+#ifdef _DEBUG
+    // Configure ID3D11InfoQueue for debug message filtering
+    ID3D11InfoQueue* infoQueue = nullptr;
+    if ( SUCCEEDED( m_device->QueryInterface( __uuidof( ID3D11InfoQueue ), (void**)&infoQueue ) ) )
     {
-        throw std::runtime_error( "D3D11CreateDeviceAndSwapChain failed" );
+        infoQueue->SetBreakOnSeverity( D3D11_MESSAGE_SEVERITY_CORRUPTION, TRUE );
+        infoQueue->SetBreakOnSeverity( D3D11_MESSAGE_SEVERITY_ERROR, TRUE );
+        infoQueue->Release();
     }
+#endif
 
     // Create back buffer RTV
     ID3D11Texture2D* backBuffer = nullptr;
-    m_swapChain->GetBuffer( 0, __uuidof( ID3D11Texture2D ), (void**)&backBuffer );
-    m_device->CreateRenderTargetView( backBuffer, nullptr, &m_backBufferRTV );
+    hr = m_swapChain->GetBuffer( 0, __uuidof( ID3D11Texture2D ), (void**)&backBuffer );
+    ThrowIfFailed( hr, "SwapChain::GetBuffer failed" );
+    hr = m_device->CreateRenderTargetView( backBuffer, nullptr, &m_backBufferRTV );
     backBuffer->Release();
+    ThrowIfFailed( hr, "CreateRenderTargetView failed" );
 
     // Create depth stencil
     D3D11_TEXTURE2D_DESC depthDesc = {};
@@ -185,10 +206,14 @@ bool RenderBackendDX11::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     depthDesc.SampleDesc.Count = 1;
     depthDesc.Usage = D3D11_USAGE_DEFAULT;
     depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-    m_device->CreateTexture2D( &depthDesc, nullptr, &m_depthStencilTex );
-    m_device->CreateDepthStencilView( m_depthStencilTex, nullptr, &m_depthStencilView );
+    hr = m_device->CreateTexture2D( &depthDesc, nullptr, &m_depthStencilTex );
+    ThrowIfFailed( hr, "CreateTexture2D (depth stencil) failed" );
+    hr = m_device->CreateDepthStencilView( m_depthStencilTex, nullptr, &m_depthStencilView );
+    ThrowIfFailed( hr, "CreateDepthStencilView failed" );
 
-    // Set default render target
+    // Set default render target and cache it
+    m_currentRTV = m_backBufferRTV;
+    m_currentDSV = m_depthStencilView;
     m_context->OMSetRenderTargets( 1, &m_backBufferRTV, m_depthStencilView );
 
     // Create state objects
@@ -271,6 +296,23 @@ void RenderBackendDX11::Shutdown()
     }
     m_textures.clear();
 
+    // Blend cache
+    for ( auto& pair : m_blendCache )
+    {
+        if ( pair.second )
+        {
+            pair.second->Release();
+        }
+    }
+    m_blendCache.clear();
+
+    // Staging texture
+    if ( m_stagingTex )
+    {
+        m_stagingTex->Release();
+        m_stagingTex = nullptr;
+    }
+
     // State objects
     if ( m_samplerNearest )
     {
@@ -299,10 +341,6 @@ void RenderBackendDX11::Shutdown()
     if ( m_blendOff )
     {
         m_blendOff->Release();
-    }
-    if ( m_blendOn )
-    {
-        m_blendOn->Release();
     }
     if ( m_dsDepthOff )
     {
@@ -339,6 +377,8 @@ void RenderBackendDX11::Shutdown()
         m_device = nullptr;
     }
 
+    m_currentRTV = nullptr;
+    m_currentDSV = nullptr;
     s_instance = nullptr;
 }
 
@@ -346,6 +386,12 @@ void RenderBackendDX11::Shutdown()
 void RenderBackendDX11::Present()
 {
     m_swapChain->Present( 1, 0 );
+
+    // FLIP_DISCARD unbinds the back buffer RTV from the output-merger after Present.
+    // Rebind immediately so the next frame's draws have a valid render target.
+    m_context->OMSetRenderTargets( 1, &m_backBufferRTV, m_depthStencilView );
+    m_currentRTV = m_backBufferRTV;
+    m_currentDSV = m_depthStencilView;
 }
 
 
@@ -369,6 +415,8 @@ void RenderBackendDX11::Resize( int width, int height )
     }
 
     // Release all swap-chain-backed views before resizing
+    m_currentRTV = nullptr;
+    m_currentDSV = nullptr;
     m_context->OMSetRenderTargets( 0, nullptr, nullptr );
     m_backBufferRTV->Release();
     m_depthStencilView->Release();
@@ -378,16 +426,15 @@ void RenderBackendDX11::Resize( int width, int height )
 
     // Resize swap chain buffers
     HRESULT hr = m_swapChain->ResizeBuffers( 0, (UINT)width, (UINT)height, DXGI_FORMAT_UNKNOWN, 0 );
-    if ( FAILED( hr ) )
-    {
-        throw std::runtime_error( "IDXGISwapChain::ResizeBuffers failed" );
-    }
+    ThrowIfFailed( hr, "IDXGISwapChain::ResizeBuffers failed" );
 
     // Recreate back buffer RTV
     ID3D11Texture2D* backBuffer = nullptr;
-    m_swapChain->GetBuffer( 0, __uuidof( ID3D11Texture2D ), (void**)&backBuffer );
-    m_device->CreateRenderTargetView( backBuffer, nullptr, &m_backBufferRTV );
+    hr = m_swapChain->GetBuffer( 0, __uuidof( ID3D11Texture2D ), (void**)&backBuffer );
+    ThrowIfFailed( hr, "SwapChain::GetBuffer failed (resize)" );
+    hr = m_device->CreateRenderTargetView( backBuffer, nullptr, &m_backBufferRTV );
     backBuffer->Release();
+    ThrowIfFailed( hr, "CreateRenderTargetView failed (resize)" );
 
     // Recreate depth stencil at new size
     D3D11_TEXTURE2D_DESC depthDesc = {};
@@ -399,17 +446,28 @@ void RenderBackendDX11::Resize( int width, int height )
     depthDesc.SampleDesc.Count = 1;
     depthDesc.Usage = D3D11_USAGE_DEFAULT;
     depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-    m_device->CreateTexture2D( &depthDesc, nullptr, &m_depthStencilTex );
-    m_device->CreateDepthStencilView( m_depthStencilTex, nullptr, &m_depthStencilView );
+    hr = m_device->CreateTexture2D( &depthDesc, nullptr, &m_depthStencilTex );
+    ThrowIfFailed( hr, "CreateTexture2D (depth, resize) failed" );
+    hr = m_device->CreateDepthStencilView( m_depthStencilTex, nullptr, &m_depthStencilView );
+    ThrowIfFailed( hr, "CreateDepthStencilView (resize) failed" );
 
-    // Rebind render targets
+    // Rebind render targets and update cache
+    m_currentRTV = m_backBufferRTV;
+    m_currentDSV = m_depthStencilView;
     m_context->OMSetRenderTargets( 1, &m_backBufferRTV, m_depthStencilView );
 
     // Reapply tracked state (ClearState reset everything)
     m_context->OMSetDepthStencilState( m_depthTestEnabled ? m_dsDepthOn : m_dsDepthOff, 0 );
     float blendFactor[4] = { 0, 0, 0, 0 };
-    m_context->OMSetBlendState( m_blendEnabled ? m_blendOn : m_blendOff, blendFactor, 0xFFFFFFFF );
+    m_context->OMSetBlendState( m_blendEnabled ? m_activeBlendState : m_blendOff, blendFactor, 0xFFFFFFFF );
     ApplyRasterizerState();
+
+    // Invalidate staging texture (wrong size now)
+    if ( m_stagingTex )
+    {
+        m_stagingTex->Release();
+        m_stagingTex = nullptr;
+    }
 
     // Update viewport and dimensions
     m_width = width;
@@ -432,27 +490,13 @@ void RenderBackendDX11::SetViewport( int x, int y, int w, int h )
 
 void RenderBackendDX11::Clear( bool color, bool depth )
 {
-    // Query the currently bound render target (may be back buffer or FBO)
-    ID3D11RenderTargetView* rtv = nullptr;
-    ID3D11DepthStencilView* dsv = nullptr;
-    m_context->OMGetRenderTargets( 1, &rtv, &dsv );
-
-    if ( color && rtv )
+    if ( color && m_currentRTV )
     {
-        m_context->ClearRenderTargetView( rtv, m_clearColor );
+        m_context->ClearRenderTargetView( m_currentRTV, m_clearColor );
     }
-    if ( depth && dsv )
+    if ( depth && m_currentDSV )
     {
-        m_context->ClearDepthStencilView( dsv, D3D11_CLEAR_DEPTH, m_clearDepth, 0 );
-    }
-
-    if ( rtv )
-    {
-        rtv->Release();
-    }
-    if ( dsv )
-    {
-        dsv->Release();
+        m_context->ClearDepthStencilView( m_currentDSV, D3D11_CLEAR_DEPTH, m_clearDepth, 0 );
     }
 }
 
@@ -474,6 +518,10 @@ void RenderBackendDX11::SetClearDepth( float depth )
 
 void RenderBackendDX11::SetDepthTest( bool enable )
 {
+    if ( m_depthTestEnabled == enable )
+    {
+        return;
+    }
     m_depthTestEnabled = enable;
     m_context->OMSetDepthStencilState( enable ? m_dsDepthOn : m_dsDepthOff, 0 );
 }
@@ -481,41 +529,65 @@ void RenderBackendDX11::SetDepthTest( bool enable )
 
 void RenderBackendDX11::SetBlend( bool enable )
 {
+    if ( m_blendEnabled == enable )
+    {
+        return;
+    }
     m_blendEnabled = enable;
     float blendFactor[4] = { 0, 0, 0, 0 };
-    m_context->OMSetBlendState( enable ? m_blendOn : m_blendOff, blendFactor, 0xFFFFFFFF );
+    m_context->OMSetBlendState( enable ? m_activeBlendState : m_blendOff, blendFactor, 0xFFFFFFFF );
 }
 
 
 void RenderBackendDX11::SetBlendFunc( BlendFactor src, BlendFactor dst )
 {
-    // Recreate blend state with specified factors
-    D3D11_BLEND_DESC blendDesc = {};
-    blendDesc.RenderTarget[0].BlendEnable = TRUE;
-    blendDesc.RenderTarget[0].SrcBlend = TranslateBlendFactor( src );
-    blendDesc.RenderTarget[0].DestBlend = TranslateBlendFactor( dst );
-    blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-    blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-    blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
-    blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-    blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-
-    if ( m_blendOn )
+    if ( m_currentBlendSrc == src && m_currentBlendDst == dst && m_activeBlendState )
     {
-        m_blendOn->Release();
+        return;
     }
-    m_device->CreateBlendState( &blendDesc, &m_blendOn );
+    m_currentBlendSrc = src;
+    m_currentBlendDst = dst;
+
+    // Look up or create the blend state for this (src, dst) pair
+    BlendKey key = { src, dst };
+    auto it = m_blendCache.find( key );
+    if ( it == m_blendCache.end() )
+    {
+        D3D11_BLEND_DESC blendDesc = {};
+        blendDesc.RenderTarget[0].BlendEnable = TRUE;
+        blendDesc.RenderTarget[0].SrcBlend = TranslateBlendFactor( src );
+        blendDesc.RenderTarget[0].DestBlend = TranslateBlendFactor( dst );
+        blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+        blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+        blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+        blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+        blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+        ID3D11BlendState* state = nullptr;
+        HRESULT hr = m_device->CreateBlendState( &blendDesc, &state );
+        ThrowIfFailed( hr, "CreateBlendState (cached) failed" );
+        m_blendCache[key] = state;
+        m_activeBlendState = state;
+    }
+    else
+    {
+        m_activeBlendState = it->second;
+    }
 
     if ( m_blendEnabled )
     {
         float blendFactor4[4] = { 0, 0, 0, 0 };
-        m_context->OMSetBlendState( m_blendOn, blendFactor4, 0xFFFFFFFF );
+        m_context->OMSetBlendState( m_activeBlendState, blendFactor4, 0xFFFFFFFF );
     }
 }
 
 
 void RenderBackendDX11::SetCullFace( bool enable )
 {
+    if ( m_cullEnabled == enable )
+    {
+        return;
+    }
     m_cullEnabled = enable;
     ApplyRasterizerState();
 }
@@ -523,6 +595,10 @@ void RenderBackendDX11::SetCullFace( bool enable )
 
 void RenderBackendDX11::SetPolygonOffset( bool enable, float /*factor*/, float /*units*/ )
 {
+    if ( m_polyOffsetEnabled == enable )
+    {
+        return;
+    }
     m_polyOffsetEnabled = enable;
     ApplyRasterizerState();
 }
@@ -737,23 +813,40 @@ std::vector<uint8_t> RenderBackendDX11::CaptureBackbuffer( int& outWidth, int& o
 
     // Get back buffer
     ID3D11Texture2D* backBuffer = nullptr;
-    m_swapChain->GetBuffer( 0, __uuidof( ID3D11Texture2D ), (void**)&backBuffer );
+    HRESULT hr = m_swapChain->GetBuffer( 0, __uuidof( ID3D11Texture2D ), (void**)&backBuffer );
+    ThrowIfFailed( hr, "GetBuffer failed (capture)" );
 
-    // Create staging texture
-    D3D11_TEXTURE2D_DESC desc;
-    backBuffer->GetDesc( &desc );
-    desc.Usage = D3D11_USAGE_STAGING;
-    desc.BindFlags = 0;
-    desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-    desc.MiscFlags = 0;
+    // Create or reuse staging texture
+    if ( !m_stagingTex || m_stagingWidth != m_width || m_stagingHeight != m_height )
+    {
+        if ( m_stagingTex )
+        {
+            m_stagingTex->Release();
+        }
 
-    ID3D11Texture2D* staging = nullptr;
-    m_device->CreateTexture2D( &desc, nullptr, &staging );
-    m_context->CopyResource( staging, backBuffer );
+        D3D11_TEXTURE2D_DESC desc;
+        backBuffer->GetDesc( &desc );
+        desc.Usage = D3D11_USAGE_STAGING;
+        desc.BindFlags = 0;
+        desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+        desc.MiscFlags = 0;
+
+        hr = m_device->CreateTexture2D( &desc, nullptr, &m_stagingTex );
+        if ( FAILED( hr ) )
+        {
+            backBuffer->Release();
+            throw std::runtime_error( "CreateTexture2D (staging) failed" );
+        }
+        m_stagingWidth = m_width;
+        m_stagingHeight = m_height;
+    }
+
+    m_context->CopyResource( m_stagingTex, backBuffer );
     backBuffer->Release();
 
     D3D11_MAPPED_SUBRESOURCE mapped;
-    m_context->Map( staging, 0, D3D11_MAP_READ, 0, &mapped );
+    hr = m_context->Map( m_stagingTex, 0, D3D11_MAP_READ, 0, &mapped );
+    ThrowIfFailed( hr, "Map staging texture failed" );
 
     // Convert RGBA to BGR bottom-up (matches GL's CaptureBackbuffer format for BMP compatibility)
     int rowBytes = m_width * 3;
@@ -772,8 +865,7 @@ std::vector<uint8_t> RenderBackendDX11::CaptureBackbuffer( int& outWidth, int& o
         }
     }
 
-    m_context->Unmap( staging, 0 );
-    staging->Release();
+    m_context->Unmap( m_stagingTex, 0 );
 
     return pixels;
 }
@@ -833,7 +925,8 @@ uint32_t RenderBackendDX11::CreateDynamicVB( const int* attribComponents, int nu
     bd.Usage = D3D11_USAGE_DYNAMIC;
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-    m_device->CreateBuffer( &bd, nullptr, &dvb.vb );
+    HRESULT hr = m_device->CreateBuffer( &bd, nullptr, &dvb.vb );
+    ThrowIfFailed( hr, "CreateBuffer (dynamic VB) failed" );
 
     m_dynamicVBs.push_back( dvb );
     return (uint32_t)m_dynamicVBs.size();
@@ -961,13 +1054,15 @@ uint32_t RenderBackendDX11::CreateInstancedMesh( const float* staticData, int st
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     D3D11_SUBRESOURCE_DATA initData = {};
     initData.pSysMem = staticData;
-    m_device->CreateBuffer( &bd, &initData, &im.staticVB );
+    HRESULT hr = m_device->CreateBuffer( &bd, &initData, &im.staticVB );
+    ThrowIfFailed( hr, "CreateBuffer (static VB, instanced) failed" );
 
     // Instance VB
     bd.ByteWidth = (UINT)( maxInstances * im.instanceStride );
     bd.Usage = D3D11_USAGE_DYNAMIC;
     bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-    m_device->CreateBuffer( &bd, nullptr, &im.instanceVB );
+    hr = m_device->CreateBuffer( &bd, nullptr, &im.instanceVB );
+    ThrowIfFailed( hr, "CreateBuffer (instance VB) failed" );
 
     m_instancedMeshes.push_back( im );
     return (uint32_t)m_instancedMeshes.size();
