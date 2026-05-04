@@ -105,12 +105,22 @@ Matrix4 Matrix4::Ortho( float left, float right, float bottom, float top, float 
 Matrix4 Matrix4::LookAt( const Vector3& eye, const Vector3& center, const Vector3& up )
 {
     Vector3 f = center - eye;
+    if ( VectorMag( f ) < 1e-6f )
+    {
+        return Matrix4();
+    }
     f.Normalise();
 
     Vector3 u = up;
     u.Normalise();
 
     Vector3 s = CrossProduct( f, u );
+    // f and u are parallel (e.g. top-down camera) — pick arbitrary perpendicular
+    if ( VectorMag( s ) < 1e-6f )
+    {
+        u = ( fabsf( f.x ) < 0.9f ) ? Vector3( 1.0f, 0.0f, 0.0f ) : Vector3( 0.0f, 0.0f, 1.0f );
+        s = CrossProduct( f, u );
+    }
     s.Normalise();
 
     u = CrossProduct( s, f );

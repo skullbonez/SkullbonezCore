@@ -1,0 +1,2 @@
+sxe -c "kP 10; g" eh
+g

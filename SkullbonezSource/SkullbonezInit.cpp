@@ -176,6 +176,7 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
         }
         catch ( const std::exception& e )
         {
+            fprintf( stderr, "FATAL: %s\n", e.what() );
             if ( !isSuiteOrSceneMode )
             {
                 m_cWindow->MsgBox( e.what(), "Alert!", MB_OK );
