@@ -14,6 +14,16 @@
 using namespace SkullbonezCore::Rendering;
 
 
+// --- Helpers ---
+static inline void ThrowIfFailed( HRESULT hr, const char* msg )
+{
+    if ( FAILED( hr ) )
+    {
+        throw std::runtime_error( msg );
+    }
+}
+
+
 RenderBackendDX12* RenderBackendDX12::s_instance = nullptr;
 
 
@@ -21,7 +31,7 @@ RenderBackendDX12* RenderBackendDX12::s_instance = nullptr;
 
 
 RenderBackendDX12::RenderBackendDX12()
-    : m_factory( nullptr ), m_swapChain( nullptr ), m_device( nullptr ), m_commandQueue( nullptr ), m_commandList( nullptr ), m_commandAllocator( nullptr ), m_commandListOpen( false ), m_gpuIdle( true ), m_frameIndex( 0 ), m_fence( nullptr ), m_fenceValue( 0 ), m_fenceEvent( nullptr ), m_rtvHeap( nullptr ), m_dsvHeap( nullptr ), m_srvHeap( nullptr ), m_srvStagingHeap( nullptr ), m_rtvDescSize( 0 ), m_dsvDescSize( 0 ), m_srvDescSize( 0 ), m_nextRTV( FRAME_COUNT ) // 0-1 reserved for swap chain
+    : m_factory( nullptr ), m_swapChain( nullptr ), m_device( nullptr ), m_commandQueue( nullptr ), m_commandList( nullptr ), m_commandListOpen( false ), m_frameIndex( 0 ), m_allocatorIndex( 0 ), m_fence( nullptr ), m_fenceValue( 0 ), m_fenceEvent( nullptr ), m_rtvHeap( nullptr ), m_dsvHeap( nullptr ), m_srvHeap( nullptr ), m_srvStagingHeap( nullptr ), m_rtvDescSize( 0 ), m_dsvDescSize( 0 ), m_srvDescSize( 0 ), m_nextRTV( FRAME_COUNT ) // 0-1 reserved for swap chain
       ,
       m_nextDSV( 1 ) // 0 reserved for main depth
       ,
@@ -33,6 +43,10 @@ RenderBackendDX12::RenderBackendDX12()
     m_clearColor[3] = 1.0f;
     m_renderTargets[0] = nullptr;
     m_renderTargets[1] = nullptr;
+    m_commandAllocators[0] = nullptr;
+    m_commandAllocators[1] = nullptr;
+    m_frameFenceValues[0] = 0;
+    m_frameFenceValues[1] = 0;
     m_boundTexSlot[0] = UINT_MAX;
     m_boundTexSlot[1] = UINT_MAX;
     m_currentRTV = {};
@@ -51,7 +65,11 @@ void RenderBackendDX12::WaitForGpu()
         m_fence->SetEventOnCompletion( m_fenceValue, m_fenceEvent );
         WaitForSingleObject( m_fenceEvent, INFINITE );
     }
-    m_gpuIdle = true;
+    // After full GPU wait, all frame fences are implicitly completed
+    for ( int i = 0; i < FRAME_COUNT; ++i )
+    {
+        m_frameFenceValues[i] = 0;
+    }
 }
 
 
@@ -61,12 +79,18 @@ void RenderBackendDX12::EnsureCommandListOpen()
     {
         return;
     }
-    if ( m_gpuIdle )
+
+    // Wait for the GPU to finish with this allocator's previous work
+    UINT64 completedFence = m_fence->GetCompletedValue();
+    if ( m_frameFenceValues[m_allocatorIndex] > completedFence )
     {
-        m_commandAllocator->Reset();
-        m_gpuIdle = false;
+        m_fence->SetEventOnCompletion( m_frameFenceValues[m_allocatorIndex], m_fenceEvent );
+        WaitForSingleObject( m_fenceEvent, INFINITE );
     }
-    m_commandList->Reset( m_commandAllocator, nullptr );
+
+    // Safe to reset this allocator now
+    m_commandAllocators[m_allocatorIndex]->Reset();
+    m_commandList->Reset( m_commandAllocators[m_allocatorIndex], nullptr );
     ID3D12DescriptorHeap* heaps[] = { m_srvHeap };
     m_commandList->SetDescriptorHeaps( 1, heaps );
     m_commandList->SetGraphicsRootSignature( m_rootSignature );
@@ -103,12 +127,25 @@ void RenderBackendDX12::FlushUploadBuffer()
     {
         return;
     }
+    // Submit current work and wait for completion (mid-frame flush for upload exhaustion)
     m_commandList->Close();
     m_commandListOpen = false;
     ID3D12CommandList* ppCLs[] = { m_commandList };
     m_commandQueue->ExecuteCommandLists( 1, ppCLs );
     WaitForGpu();
-    EnsureCommandListOpen();
+
+    // Reopen with same allocator (WaitForGpu completed everything)
+    m_commandAllocators[m_allocatorIndex]->Reset();
+    m_commandList->Reset( m_commandAllocators[m_allocatorIndex], nullptr );
+    ID3D12DescriptorHeap* heaps[] = { m_srvHeap };
+    m_commandList->SetDescriptorHeaps( 1, heaps );
+    m_commandList->SetGraphicsRootSignature( m_rootSignature );
+    m_commandListOpen = true;
+    m_uploadOffset = 0;
+    m_nextTransientSRV = MAX_STATIC_SRVS;
+    m_lastPSOHash = 0;
+    m_texBindingsDirty = true;
+    m_targetsDirty = true;
 }
 
 
@@ -275,14 +312,14 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         D3D12_DESCRIPTOR_HEAP_DESC desc = {};
         desc.NumDescriptors = 16;
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-        m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_rtvHeap ) );
+        ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_rtvHeap ) ), "CreateDescriptorHeap (RTV) failed" );
         m_rtvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_RTV );
     }
     {
         D3D12_DESCRIPTOR_HEAP_DESC desc = {};
         desc.NumDescriptors = 4;
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-        m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_dsvHeap ) );
+        ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_dsvHeap ) ), "CreateDescriptorHeap (DSV) failed" );
         m_dsvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_DSV );
     }
     {
@@ -290,7 +327,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         desc.NumDescriptors = MAX_STATIC_SRVS + MAX_TRANSIENT_SRVS;
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
         desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-        m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvHeap ) );
+        ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvHeap ) ), "CreateDescriptorHeap (SRV) failed" );
         m_srvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
     }
     {
@@ -299,27 +336,31 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         desc.NumDescriptors = MAX_STATIC_SRVS;
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
         desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE; // CPU-only, can be read for copies
-        m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvStagingHeap ) );
+        ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvStagingHeap ) ), "CreateDescriptorHeap (staging) failed" );
     }
 
     // Swap chain RTVs
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
-        m_swapChain->GetBuffer( (UINT)i, IID_PPV_ARGS( &m_renderTargets[i] ) );
+        ThrowIfFailed( m_swapChain->GetBuffer( (UINT)i, IID_PPV_ARGS( &m_renderTargets[i] ) ), "SwapChain GetBuffer failed" );
         m_device->CreateRenderTargetView( m_renderTargets[i], nullptr, GetRTVHandle( (UINT)i ) );
     }
 
     // Depth stencil
     CreateDepthStencil( width, height );
 
-    // Command allocator and list
-    m_device->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS( &m_commandAllocator ) );
-    m_device->CreateCommandList( 0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocator, nullptr, IID_PPV_ARGS( &m_commandList ) );
+    // Command allocators (one per frame) and command list
+    for ( int i = 0; i < FRAME_COUNT; ++i )
+    {
+        ThrowIfFailed( m_device->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS( &m_commandAllocators[i] ) ), "CreateCommandAllocator failed" );
+    }
+    ThrowIfFailed( m_device->CreateCommandList( 0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocators[0], nullptr, IID_PPV_ARGS( &m_commandList ) ), "CreateCommandList failed" );
     m_commandList->Close();
     m_commandListOpen = false;
+    m_allocatorIndex = 0;
 
     // Fence
-    m_device->CreateFence( 0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &m_fence ) );
+    ThrowIfFailed( m_device->CreateFence( 0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &m_fence ) ), "CreateFence failed" );
     m_fenceEvent = CreateEvent( nullptr, FALSE, FALSE, nullptr );
 
     // Upload buffer
@@ -334,7 +375,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         desc.MipLevels = 1;
         desc.SampleDesc.Count = 1;
         desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-        m_device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS( &m_uploadBuffer ) );
+        ThrowIfFailed( m_device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS( &m_uploadBuffer ) ), "CreateCommittedResource (upload) failed" );
         m_uploadBuffer->Map( 0, nullptr, (void**)&m_uploadBufferMapped );
     }
 
@@ -457,6 +498,10 @@ void RenderBackendDX12::CreateDepthStencil( int w, int h )
     clearValue.DepthStencil.Depth = 1.0f;
 
     m_device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &clearValue, IID_PPV_ARGS( &m_depthStencil ) );
+    if ( !m_depthStencil )
+    {
+        throw std::runtime_error( "CreateCommittedResource (depth stencil) failed" );
+    }
 
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
     dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -564,9 +609,12 @@ void RenderBackendDX12::Shutdown()
     {
         m_commandList->Release();
     }
-    if ( m_commandAllocator )
+    for ( int i = 0; i < FRAME_COUNT; ++i )
     {
-        m_commandAllocator->Release();
+        if ( m_commandAllocators[i] )
+        {
+            m_commandAllocators[i]->Release();
+        }
     }
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
@@ -628,8 +676,13 @@ void RenderBackendDX12::Present()
     ID3D12CommandList* ppCLs[] = { m_commandList };
     m_commandQueue->ExecuteCommandLists( 1, ppCLs );
     m_swapChain->Present( 1, 0 );
-    m_commandQueue->Signal( m_fence, ++m_fenceValue );
 
+    // Signal fence for this frame's allocator so we know when GPU is done with it
+    m_frameFenceValues[m_allocatorIndex] = ++m_fenceValue;
+    m_commandQueue->Signal( m_fence, m_fenceValue );
+
+    // Advance to next frame's allocator and swap chain buffer
+    m_allocatorIndex = ( m_allocatorIndex + 1 ) % FRAME_COUNT;
     m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
     m_currentRTV = GetRTVHandle( m_frameIndex );
 }

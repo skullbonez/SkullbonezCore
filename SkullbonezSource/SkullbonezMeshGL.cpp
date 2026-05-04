@@ -81,7 +81,6 @@ void MeshGL::Draw() const
 {
     glBindVertexArray( m_vao );
     glDrawArrays( m_drawMode, 0, m_vertexCount );
-    glBindVertexArray( 0 );
 }
 
 
@@ -89,7 +88,6 @@ void MeshGL::DrawInstanced( int instanceCount ) const
 {
     glBindVertexArray( m_vao );
     glDrawArraysInstanced( m_drawMode, 0, m_vertexCount, instanceCount );
-    glBindVertexArray( 0 );
 }
 
 

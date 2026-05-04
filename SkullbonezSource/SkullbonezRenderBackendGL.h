@@ -47,6 +47,10 @@ class RenderBackendGL : public IRenderBackend
     int m_height;
     bool m_depthTestEnabled;
     bool m_blendEnabled;
+    bool m_cullFaceEnabled;
+    bool m_polygonOffsetEnabled;
+    float m_polygonOffsetFactor;
+    float m_polygonOffsetUnits;
     std::vector<DynamicVBGL> m_dynamicVBs;
     std::vector<InstancedMesh> m_instancedMeshes;
 

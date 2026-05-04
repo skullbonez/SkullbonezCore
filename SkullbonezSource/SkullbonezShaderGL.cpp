@@ -109,37 +109,50 @@ GLuint ShaderGL::GetProgramID() const
 }
 
 
+GLint ShaderGL::GetUniformLocation( const char* name ) const
+{
+    auto it = m_uniformCache.find( name );
+    if ( it != m_uniformCache.end() )
+    {
+        return it->second;
+    }
+    GLint loc = glGetUniformLocation( m_programID, name );
+    m_uniformCache[name] = loc;
+    return loc;
+}
+
+
 void ShaderGL::SetInt( const char* name, int value ) const
 {
-    glUniform1i( glGetUniformLocation( m_programID, name ), value );
+    glUniform1i( GetUniformLocation( name ), value );
 }
 
 
 void ShaderGL::SetFloat( const char* name, float value ) const
 {
-    glUniform1f( glGetUniformLocation( m_programID, name ), value );
+    glUniform1f( GetUniformLocation( name ), value );
 }
 
 
 void ShaderGL::SetVec3( const char* name, const Vector3& v ) const
 {
-    glUniform3f( glGetUniformLocation( m_programID, name ), v.x, v.y, v.z );
+    glUniform3f( GetUniformLocation( name ), v.x, v.y, v.z );
 }
 
 
 void ShaderGL::SetVec3( const char* name, float x, float y, float z ) const
 {
-    glUniform3f( glGetUniformLocation( m_programID, name ), x, y, z );
+    glUniform3f( GetUniformLocation( name ), x, y, z );
 }
 
 
 void ShaderGL::SetVec4( const char* name, float x, float y, float z, float w ) const
 {
-    glUniform4f( glGetUniformLocation( m_programID, name ), x, y, z, w );
+    glUniform4f( GetUniformLocation( name ), x, y, z, w );
 }
 
 
 void ShaderGL::SetMat4( const char* name, const Matrix4& mat ) const
 {
-    glUniformMatrix4fv( glGetUniformLocation( m_programID, name ), 1, GL_FALSE, mat.Data() );
+    glUniformMatrix4fv( GetUniformLocation( name ), 1, GL_FALSE, mat.Data() );
 }

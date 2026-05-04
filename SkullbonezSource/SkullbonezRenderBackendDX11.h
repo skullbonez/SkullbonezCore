@@ -4,8 +4,9 @@
 // --- Includes ---
 #include "SkullbonezIRenderBackend.h"
 #include <d3d11.h>
-#include <dxgi.h>
+#include <dxgi1_2.h>
 #include <vector>
+#include <unordered_map>
 
 
 namespace SkullbonezCore
@@ -86,7 +87,6 @@ class RenderBackendDX11 : public IRenderBackend
     // State objects
     ID3D11DepthStencilState* m_dsDepthOn;
     ID3D11DepthStencilState* m_dsDepthOff;
-    ID3D11BlendState* m_blendOn;
     ID3D11BlendState* m_blendOff;
     ID3D11RasterizerState* m_rsCullOn;
     ID3D11RasterizerState* m_rsCullOff;
@@ -95,8 +95,39 @@ class RenderBackendDX11 : public IRenderBackend
     ID3D11SamplerState* m_samplerLinear;
     ID3D11SamplerState* m_samplerNearest;
 
+    // Blend state cache keyed by (src, dst) factor pair
+    struct BlendKey
+    {
+        BlendFactor src;
+        BlendFactor dst;
+        bool operator==( const BlendKey& o ) const
+        {
+            return src == o.src && dst == o.dst;
+        }
+    };
+    struct BlendKeyHash
+    {
+        size_t operator()( const BlendKey& k ) const
+        {
+            return std::hash<int>()( (int)k.src * 16 + (int)k.dst );
+        }
+    };
+    std::unordered_map<BlendKey, ID3D11BlendState*, BlendKeyHash> m_blendCache;
+    ID3D11BlendState* m_activeBlendState;
+    BlendFactor m_currentBlendSrc;
+    BlendFactor m_currentBlendDst;
+
     bool m_cullEnabled;
     bool m_polyOffsetEnabled;
+
+    // Cached render target (avoids OMGetRenderTargets per Clear)
+    ID3D11RenderTargetView* m_currentRTV;
+    ID3D11DepthStencilView* m_currentDSV;
+
+    // Persistent staging texture for CaptureBackbuffer
+    ID3D11Texture2D* m_stagingTex;
+    int m_stagingWidth;
+    int m_stagingHeight;
 
     // Texture registry
     std::vector<TextureEntryDX> m_textures;
@@ -188,6 +219,21 @@ class RenderBackendDX11 : public IRenderBackend
     ID3D11DeviceContext* GetContext() const
     {
         return m_context;
+    }
+
+    // RT cache update (called by FBO bind/unbind)
+    void SetRenderTargetCache( ID3D11RenderTargetView* rtv, ID3D11DepthStencilView* dsv )
+    {
+        m_currentRTV = rtv;
+        m_currentDSV = dsv;
+    }
+    ID3D11RenderTargetView* GetBackBufferRTV() const
+    {
+        return m_backBufferRTV;
+    }
+    ID3D11DepthStencilView* GetDepthStencilView() const
+    {
+        return m_depthStencilView;
     }
 
     uint32_t RegisterSRV( ID3D11ShaderResourceView* srv );
