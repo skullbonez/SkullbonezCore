@@ -134,6 +134,10 @@ def check_regressions(cur_stats, bas_stats, cur_json, bas_json):
         # thermal transitions) — display them but don't gate commits.
         if marker.endswith("_gpu"):
             continue
+        # PipelineSync measures glFinish/Flush wait time — it is entirely
+        # driven by GPU load and scheduling jitter, not CPU logic.
+        if "PipelineSync" in marker:
+            continue
         pm = bas_stats.get(marker)
         if not pm:
             continue

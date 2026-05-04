@@ -21,6 +21,8 @@ TestScene::TestScene()
     m_legacyBallCount = 0;
     m_screenshotInterval = -1;
     m_screenshotDir[0] = '\0';
+    m_timeScale = 1.0f;
+    m_isDebugVectors = false;
 }
 
 
@@ -273,6 +275,42 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
+        // parse time_scale directive
+        if ( strncmp( line, "time_scale ", 11 ) == 0 )
+        {
+            float val = static_cast<float>( atof( line + 11 ) );
+            if ( val <= 0.0f )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid time_scale at line %d (must be > 0)  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            scene.m_timeScale = val;
+            continue;
+        }
+
+        // parse debug_vectors directive
+        if ( strncmp( line, "debug_vectors ", 14 ) == 0 )
+        {
+            if ( strcmp( line + 14, "on" ) == 0 )
+            {
+                scene.m_isDebugVectors = true;
+            }
+            else if ( strcmp( line + 14, "off" ) == 0 )
+            {
+                scene.m_isDebugVectors = false;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid debug_vectors value at line %d  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
         // unknown directive
         fclose( file );
         char msg[256];
@@ -367,6 +405,18 @@ const char* TestScene::GetScreenshotDir() const
 int TestScene::GetCameraCount() const
 {
     return static_cast<int>( m_cameras.size() );
+}
+
+
+float TestScene::GetTimeScale() const
+{
+    return m_timeScale;
+}
+
+
+bool TestScene::IsDebugVectors() const
+{
+    return m_isDebugVectors;
 }
 
 
