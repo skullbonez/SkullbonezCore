@@ -5,6 +5,7 @@
 #include "SkullbonezGameModel.h"
 #include "SkullbonezProfiler.h"
 #include "SkullbonezIRenderBackend.h"
+#include "SkullbonezCollisionResponse.h"
 #include <time.h>
 #include <cstring>
 #include <psapi.h>
@@ -13,6 +14,7 @@
 // --- Usings ---
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
+using namespace SkullbonezCore::Physics;
 
 
 SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
@@ -35,6 +37,7 @@ SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
     m_screenshotDir[0] = '\0';
     m_perfLogPath[0] = '\0';
     m_perfLogFile = nullptr;
+    m_physicsLogFile = nullptr;
 
     // Engine state
     m_cCameras = 0;
@@ -53,6 +56,7 @@ SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
     m_isWaterFreezeDebug = false;
     m_isWaterNoReflect = false;
     m_isWaterFlatDebug = false;
+    m_isDebugVectors = false;
     m_frozenWaterTime = 0.0f;
     m_sInputState = {};
     m_modelCount = 0;
@@ -65,6 +69,13 @@ SkullbonezRun::~SkullbonezRun()
     {
         fclose( m_perfLogFile );
         m_perfLogFile = nullptr;
+    }
+
+    if ( m_physicsLogFile )
+    {
+        CollisionResponse::SetPhysicsLog( nullptr );
+        fclose( m_physicsLogFile );
+        m_physicsLogFile = nullptr;
     }
 
     // Flush GPU before destroying resources to avoid use-after-free
@@ -424,6 +435,7 @@ void SkullbonezRun::TakeInput()
     }
     m_isWaterNoReflect = ( Input::IsKeyToggled( '2' ) != 0 ); // Reflection default ON
     m_isWaterFlatDebug = ( Input::IsKeyToggled( '3' ) != 0 ); // Ocean wave displacement ON
+    m_isDebugVectors = ( Input::IsKeyToggled( '9' ) != 0 );   // Debug velocity/omega vectors OFF by default
 
     // Profiler overlay default ON; pressing '0' toggles the OS-level toggle bit, hiding the overlay.
     m_isProfilerOverlay = ( Input::IsKeyToggled( '0' ) == 0 );
@@ -464,6 +476,7 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
     {
         // update the game models (sub-markers added inside RunPhysics)
         PROFILE_BEGIN( "Frame/Physics" );
+        CollisionResponse::SetPhysicsFrame( m_currentFrame );
         m_cGameModelCollection.RunPhysics( fSecondsPerFrame );
         PROFILE_END( "Frame/Physics" );
     }
@@ -578,6 +591,28 @@ void SkullbonezRun::DrawPrimitives()
                               ? m_frozenWaterTime
                               : static_cast<float>( m_cSimulationTimer.GetTimeSinceLastStart() );
         m_cWorldEnvironment.RenderFluid( baseView, proj, reflVP, waterTime, m_cReflectionFBO->GetColorTextureHandle(), m_isWaterFlatDebug, m_isWaterNoReflect );
+    }
+
+    // debug vector overlay (velocity=green, angular velocity=red) — GL only, toggled with V
+    if ( m_isDebugVectors )
+    {
+        Matrix4 viewProj = proj * baseView;
+        std::vector<std::pair<Vector3, Vector3>> velLines;
+        std::vector<std::pair<Vector3, Vector3>> omegaLines;
+        int modelCount = m_cGameModelCollection.GetModelCount();
+        for ( int i = 0; i < modelCount; ++i )
+        {
+            GameModel& mdl = m_cGameModelCollection.GetModelAtIndex( i );
+            Vector3 pos = mdl.GetPosition();
+            Vector3 vel = mdl.GetVelocity();
+            Vector3 omega = mdl.GetAngularVelocity();
+            const float velScale = 0.5f;
+            const float omegaScale = 2.0f;
+            velLines.push_back( { pos, pos + vel * velScale } );
+            omegaLines.push_back( { pos, pos + omega * omegaScale } );
+        }
+        SkullbonezHelper::DrawDebugVectors( viewProj, velLines, 0.0f, 1.0f, 0.0f );
+        SkullbonezHelper::DrawDebugVectors( viewProj, omegaLines, 1.0f, 0.0f, 0.0f );
     }
 }
 
@@ -878,6 +913,14 @@ void SkullbonezRun::LoadScene( int index )
         m_perfLogFile = nullptr;
     }
 
+    // Close previous physics log if open
+    if ( m_physicsLogFile )
+    {
+        CollisionResponse::SetPhysicsLog( nullptr );
+        fclose( m_physicsLogFile );
+        m_physicsLogFile = nullptr;
+    }
+
     // Reset scene config to defaults
     m_isScenePhysics = true;
     m_isSceneText = true;
@@ -965,6 +1008,18 @@ void SkullbonezRun::LoadScene( int index )
             if ( m_perfLogFile )
             {
                 LogPerfMemory( "start" );
+            }
+        }
+
+        // Physics log: open CSV for frame-by-frame collision diagnostics
+        const char* pPhysicsPath = scene.GetPhysicsLogPath();
+        if ( pPhysicsPath[0] != '\0' )
+        {
+            fopen_s( &m_physicsLogFile, pPhysicsPath, "w" );
+            if ( m_physicsLogFile )
+            {
+                fprintf( m_physicsLogFile, "event,frame,posX,posY,posZ,velBX,velBY,velBZ,omegaBX,omegaBY,omegaBZ,velAX,velAY,velAZ,omegaAX,omegaAY,omegaAZ\n" );
+                CollisionResponse::SetPhysicsLog( m_physicsLogFile );
             }
         }
 

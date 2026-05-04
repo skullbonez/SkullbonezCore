@@ -229,6 +229,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezFramebufferDX12.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="SkullbonezData\engine.cfg" />
     <None Include="SkullbonezData\shaders\lit_textured.frag" />
     <None Include="SkullbonezData\shaders\lit_textured.hlsl" />
     <None Include="SkullbonezData\shaders\lit_textured.vert" />

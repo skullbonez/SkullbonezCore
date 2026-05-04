@@ -36,7 +36,6 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     // initialise other members
     m_projectedSurfaceArea = 0.0f;
     m_dragCoefficient = 0.0f;
-    m_isGrounded = false;
     m_isResponseRequired = false;
 }
 
@@ -149,7 +148,7 @@ void GameModel::StaticOverlapResponseGameModel( GameModel& overlapTarget )
 
     // spheres are overlapping — positional correction only
     // (skip full velocity response to avoid division by zero in angular
-    // response when relative velocity is near-zero on grounded m_balls)
+    // response when relative velocity is near-zero on slow balls)
     Vector3 axis = delta / dist;
     float halfOverlap = ( radii - dist ) * 0.5f;
     m_physicsInfo.SetPosition( m_physicsInfo.GetPosition() - axis * halfOverlap );
@@ -263,54 +262,50 @@ void GameModel::SetTerrain( Terrain* pTerrain )
 }
 
 
-bool GameModel::IsGrounded()
-{
-    return m_isGrounded;
-}
-
-
-void GameModel::SetIsGrounded( bool fIsGrounded )
-{
-    m_isGrounded = fIsGrounded;
-}
-
-
 float GameModel::GetTerrainCollisionTime( float changeInTime )
 {
     // calculate the ray for the current dynamics object
     m_responseInformation.testingRay = CollisionResponse::CalculateRay( *this, changeInTime );
 
-    // if the dynamics object is stationary, no collision will occur
-    if ( m_responseInformation.testingRay.vector3.IsCloseToZero() )
-    {
-        return NO_COLLISION;
-    }
-
-    // the origin will be in a different m_position based on the geometrical shape of the object
     // offset the origin by the bounding radius (for spheres, this is the sphere radius)
-    m_responseInformation.testingRay.origin.y -= GetShapeTerrainBottomOffset( m_boundingVolume );
+    float bottomOffset = GetShapeTerrainBottomOffset( m_boundingVolume );
 
     // if out of bounds, no collision has occured
-    if ( !m_terrain->IsInBounds( m_responseInformation.testingRay.origin.x, m_responseInformation.testingRay.origin.z ) )
+    if ( !m_terrain->IsInBounds( m_physicsInfo.GetPosition().x, m_physicsInfo.GetPosition().z ) )
     {
         return NO_COLLISION;
     }
 
-    // store the plane vertically aligned with the object...
-    m_responseInformation.testingPlane = GeometricMath::ComputePlane( m_terrain->LocatePolygon( m_responseInformation.testingRay.origin.x,
-                                                                                                m_responseInformation.testingRay.origin.z ) );
+    // store the plane vertically aligned with the object
+    m_responseInformation.testingPlane = GeometricMath::ComputePlane( m_terrain->LocatePolygon( m_physicsInfo.GetPosition().x,
+                                                                                                m_physicsInfo.GetPosition().z ) );
 
-    // if the ball is grounded then it has already hit the ground
-    if ( m_isGrounded )
+    // Proximity-based contact detection: if the bottom of the sphere is within
+    // contactEpsilon of the terrain surface, report immediate contact (t=0).
+    // This replaces the old m_isGrounded flag with a geometric test.
+    // Derive height directly from the plane we already computed (n.p = d → y = (d - n.x*x - n.z*z) / n.y)
+    const Vector3& planeN = m_responseInformation.testingPlane.m_normal;
+    float terrainHeight = ( m_responseInformation.testingPlane.m_distance - planeN.x * m_physicsInfo.GetPosition().x - planeN.z * m_physicsInfo.GetPosition().z ) / planeN.y;
+    float gap = m_physicsInfo.GetPosition().y - bottomOffset - terrainHeight;
+    if ( gap <= Cfg().contactEpsilon )
     {
         m_responseInformation.collisionTime = 0.0f;
         return 0.0f;
     }
 
+    // if the dynamics object is stationary and not in contact, no collision will occur
+    if ( m_responseInformation.testingRay.vector3.IsCloseToZero() )
+    {
+        return NO_COLLISION;
+    }
+
+    // offset the ray origin for swept test
+    m_responseInformation.testingRay.origin.y -= bottomOffset;
+
     // save the collision time
     m_responseInformation.collisionTime = GeometricMath::CalculateIntersectionTime( m_responseInformation.testingPlane, m_responseInformation.testingRay );
 
-    // return the point in time where the collision has occured (yes, we do save this to a member but it is more intuitive just to return the value as well)
+    // return the point in time where the collision has occured
     return m_responseInformation.collisionTime;
 }
 

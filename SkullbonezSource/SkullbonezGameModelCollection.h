@@ -56,6 +56,8 @@ class GameModelCollection
     void RenderShadows( Geometry::Terrain* terrain, const Matrix4& view, const Matrix4& proj ); // Renders ground shadows beneath all models
     void ResetGLResources();                                                                    // Releases GPU resources for GL context reset
     Vector3 GetModelPosition( int index );                                                      // Returns the position of the specified game model
+    int GetModelCount() const;                                                                  // Returns the number of game models
+    GameModel& GetModelAtIndex( int index );                                                    // Returns a reference to the game model at the given index
 };
 } // namespace GameObjects
 } // namespace SkullbonezCore
