@@ -1,0 +1,1 @@
+FATAL: Division by zero.  (Vector3::Normalise)

@@ -1,0 +1,286 @@
+
+************* Preparing the environment for Debugger Extensions Gallery repositories **************
+   ExtensionRepository : Implicit
+   UseExperimentalFeatureForNugetShare : true
+   AllowNugetExeUpdate : true
+   NonInteractiveNuget : true
+   AllowNugetMSCredentialProviderInstall : true
+   AllowParallelInitializationOfLocalRepositories : true
+
+   EnableRedirectToV8JsProvider : false
+
+   -- Configuring repositories
+      ----> Repository : LocalInstalled, Enabled: true
+      ----> Repository : UserExtensions, Enabled: true
+
+>>>>>>>>>>>>> Preparing the environment for Debugger Extensions Gallery repositories completed, duration 0.000 seconds
+
+************* Waiting for Debugger Extensions Gallery to Initialize **************
+
+>>>>>>>>>>>>> Waiting for Debugger Extensions Gallery to Initialize completed, duration 0.031 seconds
+   ----> Repository : UserExtensions, Enabled: true, Packages count: 0
+   ----> Repository : LocalInstalled, Enabled: true, Packages count: 29
+
+Microsoft (R) Windows Debugger Version 10.0.26100.3323 AMD64
+Copyright (c) Microsoft Corporation. All rights reserved.
+
+CommandLine: G:\SkullbonezCoreOriginal\Debug\SKULLBONEZ_CORE.exe --scene SkullbonezData/scenes/cardinal_roll_test.scene
+WARNING: Whitespace at start of path element
+
+************* Path validation summary **************
+Response                         Time (ms)     Location
+OK                                             G:\SkullbonezCoreOriginal\Debug
+Deferred                                       cache*C:\Users\SESCHB~1\AppData\Local\Temp\SymbolCache
+Deferred                                       srv*https://symbols-cache.svc.activision.com/proxy
+WARNING: Whitespace at start of path element
+Symbol search path is: G:\SkullbonezCoreOriginal\Debug;cache*C:\Users\SESCHB~1\AppData\Local\Temp\SymbolCache;srv*https://symbols-cache.svc.activision.com/proxy; 
+Executable search path is: 
+ModLoad: 00007ff6`1cd20000 00007ff6`1d123000   SKULLBONEZ_CORE.exe
+ModLoad: 00007fff`a5b70000 00007fff`a5d89000   ntdll.dll
+ModLoad: 00007fff`a38f0000 00007fff`a39b4000   C:\WINDOWS\System32\KERNEL32.DLL
+ModLoad: 00007fff`a2d10000 00007fff`a30d8000   C:\WINDOWS\System32\KERNELBASE.dll
+ModLoad: 00007fff`a44d0000 00007fff`a4681000   C:\WINDOWS\System32\USER32.dll
+ModLoad: 00007fff`89ec0000 00007fff`89ee6000   C:\WINDOWS\SYSTEM32\d3d12.dll
+ModLoad: 00007fff`a36c0000 00007fff`a36e6000   C:\WINDOWS\System32\win32u.dll
+ModLoad: 00007fff`a0620000 00007fff`a0717000   C:\WINDOWS\SYSTEM32\dxgi.dll
+ModLoad: 00007fff`a03c0000 00007fff`a0617000   C:\WINDOWS\SYSTEM32\d3d11.dll
+ModLoad: 00007fff`a3530000 00007fff`a35ca000   C:\WINDOWS\System32\msvcp_win.dll
+ModLoad: 00007fff`a51a0000 00007fff`a51c9000   C:\WINDOWS\System32\GDI32.dll
+ModLoad: 000001eb`ee3d0000 000001eb`ee46a000   C:\WINDOWS\System32\msvcp_win.dll
+ModLoad: 000001eb`ee470000 000001eb`ee50a000   C:\WINDOWS\System32\msvcp_win.dll
+ModLoad: 00007fff`a36f0000 00007fff`a3801000   C:\WINDOWS\System32\ucrtbase.dll
+ModLoad: 00007fff`a30e0000 00007fff`a31fc000   C:\WINDOWS\System32\gdi32full.dll
+ModLoad: 000001eb`ee4f0000 000001eb`ee601000   C:\WINDOWS\System32\ucrtbase.dll
+ModLoad: 000001eb`ee3d0000 000001eb`ee4e1000   C:\WINDOWS\System32\ucrtbase.dll
+ModLoad: 00007fff`9b6b0000 00007fff`9ba96000   C:\WINDOWS\SYSTEM32\D3DCOMPILER_47.dll
+ModLoad: 00007fff`a3c50000 00007fff`a3d68000   C:\WINDOWS\System32\RPCRT4.dll
+ModLoad: 00007ffe`4f820000 00007ffe`4f920000   C:\WINDOWS\SYSTEM32\OPENGL32.dll
+ModLoad: 00007fff`a3ae0000 00007fff`a3b87000   C:\WINDOWS\System32\msvcrt.dll
+ModLoad: 00007fff`a24d0000 00007fff`a24eb000   C:\WINDOWS\SYSTEM32\CRYPTSP.dll
+ModLoad: 00007fff`a3ea0000 00007fff`a3f51000   C:\WINDOWS\System32\ADVAPI32.dll
+ModLoad: 00007fff`a3b90000 00007fff`a3c38000   C:\WINDOWS\System32\sechost.dll
+ModLoad: 00007fff`a35d0000 00007fff`a35f8000   C:\WINDOWS\System32\bcrypt.dll
+ModLoad: 00007fff`a3f60000 00007fff`a42f2000   C:\WINDOWS\System32\combase.dll
+ModLoad: 00007fff`573c0000 00007fff`573ed000   C:\WINDOWS\SYSTEM32\GLU32.dll
+ModLoad: 00007fff`9f710000 00007fff`9f747000   C:\WINDOWS\SYSTEM32\dxcore.dll
+(af38.d590): Break instruction exception - code 80000003 (first chance)
+ntdll!LdrpDoDebuggerBreak+0x30:
+00007fff`a5c4cc74 cc              int     3
+0:000> sxe -c "kP 20; g" eh
+0:000> g
+ModLoad: 00007fff`a5670000 00007fff`a56a1000   C:\WINDOWS\System32\IMM32.DLL
+ModLoad: 00007fff`9f1a0000 00007fff`9f253000   C:\WINDOWS\system32\uxtheme.dll
+ModLoad: 00007fff`a5510000 00007fff`a5670000   C:\WINDOWS\System32\MSCTF.dll
+ModLoad: 00007fff`a1c90000 00007fff`a1ca8000   C:\WINDOWS\SYSTEM32\kernel.appcore.dll
+ModLoad: 00007fff`a2c90000 00007fff`a2d0b000   C:\WINDOWS\System32\bcryptPrimitives.dll
+ModLoad: 00007fff`a3810000 00007fff`a38e9000   C:\WINDOWS\System32\OLEAUT32.dll
+ModLoad: 00007fff`89cb0000 00007fff`89df4000   C:\WINDOWS\SYSTEM32\textinputframework.dll
+ModLoad: 00007fff`8def0000 00007fff`8df6a000   C:\WINDOWS\system32\Oleacc.dll
+ModLoad: 00007fff`9c120000 00007fff`9c253000   C:\WINDOWS\System32\CoreMessaging.dll
+ModLoad: 00007fff`a51d0000 00007fff`a5371000   C:\WINDOWS\System32\ole32.dll
+ModLoad: 00007fff`a39c0000 00007fff`a3a70000   C:\WINDOWS\System32\clbcatq.dll
+ModLoad: 00007fff`9b1b0000 00007fff`9b2f8000   C:\Windows\System32\AppXDeploymentClient.dll
+ModLoad: 00007ffe`52c60000 00007ffe`555f9000   C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispi.inf_amd64_60daf66a00f2e0b6\nvoglv64.dll
+ModLoad: 00007fff`a4690000 00007fff`a4f2e000   C:\WINDOWS\System32\SHELL32.dll
+ModLoad: 00007fff`a33f0000 00007fff`a352f000   C:\WINDOWS\System32\wintypes.dll
+ModLoad: 00007fff`a56b0000 00007fff`a5b24000   C:\WINDOWS\System32\SETUPAPI.dll
+ModLoad: 00007fff`9c3d0000 00007fff`9c3da000   C:\WINDOWS\SYSTEM32\VERSION.dll
+ModLoad: 00007fff`a1a50000 00007fff`a1a64000   C:\WINDOWS\SYSTEM32\WTSAPI32.dll
+ModLoad: 00007fff`a25e0000 00007fff`a25f2000   C:\WINDOWS\SYSTEM32\msasn1.dll
+ModLoad: 00007fff`9ac10000 00007fff`9ac42000   C:\WINDOWS\SYSTEM32\cryptnet.dll
+ModLoad: 00007fff`a3280000 00007fff`a33e8000   C:\WINDOWS\System32\CRYPT32.dll
+ModLoad: 00007fff`a24f0000 00007fff`a24fc000   C:\WINDOWS\SYSTEM32\cryptbase.dll
+ModLoad: 00007fff`a2950000 00007fff`a297c000   C:\WINDOWS\SYSTEM32\DEVOBJ.dll
+ModLoad: 00007fff`a2980000 00007fff`a29ce000   C:\WINDOWS\SYSTEM32\cfgmgr32.dll
+ModLoad: 000001eb`f15a0000 000001eb`f15ee000   C:\WINDOWS\SYSTEM32\CFGMGR32.dll
+ModLoad: 000001eb`f15f0000 000001eb`f163e000   C:\WINDOWS\SYSTEM32\cfgmgr32.dll
+ModLoad: 00007fff`a3200000 00007fff`a327c000   C:\WINDOWS\System32\WINTRUST.dll
+ModLoad: 00007fff`a1ed0000 00007fff`a1f04000   C:\WINDOWS\SYSTEM32\ntmarta.dll
+ModLoad: 00007fff`a09e0000 00007fff`a12f3000   C:\WINDOWS\SYSTEM32\windows.storage.dll
+ModLoad: 00007fff`a5400000 00007fff`a5504000   C:\WINDOWS\System32\SHCORE.dll
+ModLoad: 00007fff`a3a70000 00007fff`a3ad9000   C:\WINDOWS\System32\shlwapi.dll
+ModLoad: 00007fff`9f490000 00007fff`9f4bd000   C:\WINDOWS\SYSTEM32\dwmapi.dll
+ModLoad: 00007fff`a1a00000 00007fff`a1a4d000   C:\WINDOWS\SYSTEM32\powrprof.dll
+ModLoad: 00007fff`a19e0000 00007fff`a19f3000   C:\WINDOWS\SYSTEM32\UMPDC.dll
+ModLoad: 00007fff`a1580000 00007fff`a15ec000   C:\WINDOWS\SYSTEM32\WINSTA.dll
+ModLoad: 00007fff`85d80000 00007fff`85e41000   C:\WINDOWS\SYSTEM32\TextShaping.dll
+onecore\internal\sdk\inc\wil\opensource/wil/winrt.h(1686)\MSCTF.dll!00007FFFA5567CBA: (caller: 00007FFFA55728CD) Exception(1) tid(d590) 800401F0 CoInitialize has not been called.
+(af38.d590): C++ EH exception - code e06d7363 (first chance)
+Child-SP          RetAddr               Call Site
+0000008f`9ff6a770 00007fff`a3aeb467     KERNELBASE!RaiseException+0x6c
+0000008f`9ff6a850 00007fff`a55ec0ff     msvcrt!CxxThrowException+0xb7
+0000008f`9ff6a8c0 00007fff`a55a2b00     MSCTF!wil::details::ThrowResultExceptionInternal+0x5f
+0000008f`9ff6a9c0 00007fff`a55684a3     MSCTF!wil::ThrowResultException+0x20
+0000008f`9ff6a9f0 00007fff`a5567f7b     MSCTF!wil::details::ReportFailure_NoReturn<0>+0x31b
+0000008f`9ff6bed0 00007fff`a5568180     MSCTF!wil::details::ReportFailure_Base<0,0>+0x23
+0000008f`9ff6bf30 00007fff`a5578aac     MSCTF!wil::details::ReportFailure_Hr<0>+0x48
+0000008f`9ff6bfb0 00007fff`a5567cba     MSCTF!wil::details::in1diag3::_Throw_Hr+0x18
+0000008f`9ff6c000 00007fff`a55728cd     MSCTF!wil::GetActivationFactory<Windows::Internal::ApplicationTargetedFeatureDatabase::IApplicationTargetedFeatureConfigStatics>+0x8a
+0000008f`9ff6c080 00007fff`a5561733     MSCTF!ShellHandwriting::HandwritingClient::Initialize+0x35d
+0000008f`9ff6c4d0 00007fff`a553ce6c     MSCTF!SYSTHREAD::OnShellHandwriting+0x1eb
+0000008f`9ff6c520 00007fff`a553c24f     MSCTF!_GetMsgHook+0x67c
+0000008f`9ff6c6a0 00007fff`a44f68da     MSCTF!TF_Notify+0x71f
+0000008f`9ff6c870 00007fff`a44f573f     USER32!CtfHookProcWorker+0x2a
+0000008f`9ff6c8a0 00007fff`a44f5686     USER32!CallHookWithSEH+0x33
+0000008f`9ff6c8f0 00007fff`a5c14f04     USER32!__fnHkINLPMSG+0x56
+0000008f`9ff6c940 00007fff`a36c1524     ntdll!KiUserCallbackDispatcherContinue
+0000008f`9ff6c9f8 00007fff`a44f293f     win32u!NtUserPeekMessage+0x14
+0000008f`9ff6ca00 00007fff`a44f2659     USER32!_PeekMessage+0x3f
+*** WARNING: Unable to verify checksum for SKULLBONEZ_CORE.exe
+0000008f`9ff6ca70 00007ff6`1cd5f46c     USER32!PeekMessageA+0x69
+0000008f`9ff6cae0 00007ff6`1cd53661     SKULLBONEZ_CORE!SkullbonezCore::Basics::SkullbonezRun::Run(void)+0x3c [G:\SkullbonezCoreOriginal\SkullbonezSource\SkullbonezRun.cpp @ 201]
+0000008f`9ff6ce80 00007ff6`1cebfa12     SKULLBONEZ_CORE!WinMain(
+			struct HINSTANCE__ * hInstance = 0x00007ff6`1cd20000, 
+			struct HINSTANCE__ * hPrevInstance = 0x00000000`00000000, 
+			char * szCmdLine = 0x000001eb`ee151074 "--scene SkullbonezData/scenes/cardinal_roll_test.scene", 
+			int iCmdShow = 0n10)+0x7b1 [G:\SkullbonezCoreOriginal\SkullbonezSource\SkullbonezInit.cpp @ 170]
+0000008f`9ff7f850 00007ff6`1cebf902     SKULLBONEZ_CORE!invoke_main(void)+0x32 [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 107]
+0000008f`9ff7f890 00007ff6`1cebf7be     SKULLBONEZ_CORE!__scrt_common_main_seh(void)+0x132 [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 288]
+0000008f`9ff7f900 00007ff6`1cebfaae     SKULLBONEZ_CORE!__scrt_common_main(void)+0xe [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 331]
+0000008f`9ff7f930 00007fff`a390259d     SKULLBONEZ_CORE!WinMainCRTStartup(
+			void * __formal = 0x0000008f`a0157000)+0xe [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_winmain.cpp @ 17]
+0000008f`9ff7f960 00007fff`a5bcafb8     KERNEL32!BaseThreadInitThunk+0x1d
+0000008f`9ff7f990 00000000`00000000     ntdll!RtlUserThreadStart+0x28
+(af38.d590): C++ EH exception - code e06d7363 (first chance)
+Child-SP          RetAddr               Call Site
+0000008f`9ff672d0 00007fff`a3aeb467     KERNELBASE!RaiseException+0x6c
+0000008f`9ff673b0 00007fff`a55ebb67     msvcrt!CxxThrowException+0xb7
+0000008f`9ff67420 00007fff`a5568086     MSCTF!wil::details::ResultFromCaughtExceptionInternal+0xd7
+0000008f`9ff674b0 00007fff`a5567fd6     MSCTF!wil::details::ReportFailure_CaughtExceptionCommon<2>+0x82
+0000008f`9ff67530 00007fff`a5573e47     MSCTF!wil::details::ReportFailure_CaughtException<2>+0x52
+0000008f`9ff685c0 00007fff`a5572f40     MSCTF!wil::details::in1diag3::Log_CaughtException+0x13
+0000008f`9ff68610 00007fff`a3b57d70     MSCTF!`ShellHandwriting::HandwritingClient::Initialize'::`1'::catch$19+0x25
+0000008f`9ff68650 00007fff`a3af633e     msvcrt!CallSettingFrame_LookupContinuationIndex+0x20
+0000008f`9ff68680 00007fff`a5c157b6     msvcrt!__FrameHandler4::CxxCallCatchBlock+0x16e
+0000008f`9ff68770 00007fff`a55728cd     ntdll!RcConsolidateFrames+0x6
+0000008f`9ff6c080 00007fff`a5561733     MSCTF!ShellHandwriting::HandwritingClient::Initialize+0x35d
+0000008f`9ff6c4d0 00007fff`a553ce6c     MSCTF!SYSTHREAD::OnShellHandwriting+0x1eb
+0000008f`9ff6c520 00007fff`a553c24f     MSCTF!_GetMsgHook+0x67c
+0000008f`9ff6c6a0 00007fff`a44f68da     MSCTF!TF_Notify+0x71f
+0000008f`9ff6c870 00007fff`a44f573f     USER32!CtfHookProcWorker+0x2a
+0000008f`9ff6c8a0 00007fff`a44f5686     USER32!CallHookWithSEH+0x33
+0000008f`9ff6c8f0 00007fff`a5c14f04     USER32!__fnHkINLPMSG+0x56
+0000008f`9ff6c940 00007fff`a36c1524     ntdll!KiUserCallbackDispatcherContinue
+0000008f`9ff6c9f8 00007fff`a44f293f     win32u!NtUserPeekMessage+0x14
+0000008f`9ff6ca00 00007fff`a44f2659     USER32!_PeekMessage+0x3f
+0000008f`9ff6ca70 00007ff6`1cd5f46c     USER32!PeekMessageA+0x69
+0000008f`9ff6cae0 00007ff6`1cd53661     SKULLBONEZ_CORE!SkullbonezCore::Basics::SkullbonezRun::Run(void)+0x3c [G:\SkullbonezCoreOriginal\SkullbonezSource\SkullbonezRun.cpp @ 201]
+0000008f`9ff6ce80 00007ff6`1cebfa12     SKULLBONEZ_CORE!WinMain(
+			struct HINSTANCE__ * hInstance = 0x00007ff6`1cd20000, 
+			struct HINSTANCE__ * hPrevInstance = 0x00000000`00000000, 
+			char * szCmdLine = 0x000001eb`ee151074 "--scene SkullbonezData/scenes/cardinal_roll_test.scene", 
+			int iCmdShow = 0n10)+0x7b1 [G:\SkullbonezCoreOriginal\SkullbonezSource\SkullbonezInit.cpp @ 170]
+0000008f`9ff7f850 00007ff6`1cebf902     SKULLBONEZ_CORE!invoke_main(void)+0x32 [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 107]
+0000008f`9ff7f890 00007ff6`1cebf7be     SKULLBONEZ_CORE!__scrt_common_main_seh(void)+0x132 [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 288]
+0000008f`9ff7f900 00007ff6`1cebfaae     SKULLBONEZ_CORE!__scrt_common_main(void)+0xe [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 331]
+0000008f`9ff7f930 00007fff`a390259d     SKULLBONEZ_CORE!WinMainCRTStartup(
+			void * __formal = 0x0000008f`a0157000)+0xe [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_winmain.cpp @ 17]
+0000008f`9ff7f960 00007fff`a5bcafb8     KERNEL32!BaseThreadInitThunk+0x1d
+0000008f`9ff7f990 00000000`00000000     ntdll!RtlUserThreadStart+0x28
+clientcore\windows\advcore\ctf\shellhandwriting\client\handwritingclient.cpp(328)\MSCTF.dll!00007FFFA5572F40: (caller: 00007FFFA5561733) LogHr(1) tid(d590) 800401F0 CoInitialize has not been called.
+    Msg:[onecore\internal\sdk\inc\wil\opensource/wil/winrt.h(1686)\MSCTF.dll!00007FFFA5567CBA: (caller: 00007FFFA55728CD) Exception(1) tid(d590) 800401F0 CoInitialize has not been called.
+] 
+onecore\internal\sdk\inc\wil\opensource/wil/winrt.h(1686)\MSCTF.dll!00007FFFA5567CBA: (caller: 00007FFFA55728CD) Exception(2) tid(d590) 800401F0 CoInitialize has not been called.
+(af38.d590): C++ EH exception - code e06d7363 (first chance)
+Child-SP          RetAddr               Call Site
+0000008f`9ff6a770 00007fff`a3aeb467     KERNELBASE!RaiseException+0x6c
+0000008f`9ff6a850 00007fff`a55ec0ff     msvcrt!CxxThrowException+0xb7
+0000008f`9ff6a8c0 00007fff`a55a2b00     MSCTF!wil::details::ThrowResultExceptionInternal+0x5f
+0000008f`9ff6a9c0 00007fff`a55684a3     MSCTF!wil::ThrowResultException+0x20
+0000008f`9ff6a9f0 00007fff`a5567f7b     MSCTF!wil::details::ReportFailure_NoReturn<0>+0x31b
+0000008f`9ff6bed0 00007fff`a5568180     MSCTF!wil::details::ReportFailure_Base<0,0>+0x23
+0000008f`9ff6bf30 00007fff`a5578aac     MSCTF!wil::details::ReportFailure_Hr<0>+0x48
+0000008f`9ff6bfb0 00007fff`a5567cba     MSCTF!wil::details::in1diag3::_Throw_Hr+0x18
+0000008f`9ff6c000 00007fff`a55728cd     MSCTF!wil::GetActivationFactory<Windows::Internal::ApplicationTargetedFeatureDatabase::IApplicationTargetedFeatureConfigStatics>+0x8a
+0000008f`9ff6c080 00007fff`a5561733     MSCTF!ShellHandwriting::HandwritingClient::Initialize+0x35d
+0000008f`9ff6c4d0 00007fff`a553ce6c     MSCTF!SYSTHREAD::OnShellHandwriting+0x1eb
+0000008f`9ff6c520 00007fff`a553c24f     MSCTF!_GetMsgHook+0x67c
+0000008f`9ff6c6a0 00007fff`a44f68da     MSCTF!TF_Notify+0x71f
+0000008f`9ff6c870 00007fff`a44f573f     USER32!CtfHookProcWorker+0x2a
+0000008f`9ff6c8a0 00007fff`a44f5686     USER32!CallHookWithSEH+0x33
+0000008f`9ff6c8f0 00007fff`a5c14f04     USER32!__fnHkINLPMSG+0x56
+0000008f`9ff6c940 00007fff`a36c1524     ntdll!KiUserCallbackDispatcherContinue
+0000008f`9ff6c9f8 00007fff`a44f293f     win32u!NtUserPeekMessage+0x14
+0000008f`9ff6ca00 00007fff`a44f2659     USER32!_PeekMessage+0x3f
+0000008f`9ff6ca70 00007ff6`1cd5f46c     USER32!PeekMessageA+0x69
+0000008f`9ff6cae0 00007ff6`1cd53661     SKULLBONEZ_CORE!SkullbonezCore::Basics::SkullbonezRun::Run(void)+0x3c [G:\SkullbonezCoreOriginal\SkullbonezSource\SkullbonezRun.cpp @ 201]
+0000008f`9ff6ce80 00007ff6`1cebfa12     SKULLBONEZ_CORE!WinMain(
+			struct HINSTANCE__ * hInstance = 0x00007ff6`1cd20000, 
+			struct HINSTANCE__ * hPrevInstance = 0x00000000`00000000, 
+			char * szCmdLine = 0x000001eb`ee151074 "--scene SkullbonezData/scenes/cardinal_roll_test.scene", 
+			int iCmdShow = 0n10)+0x7b1 [G:\SkullbonezCoreOriginal\SkullbonezSource\SkullbonezInit.cpp @ 170]
+0000008f`9ff7f850 00007ff6`1cebf902     SKULLBONEZ_CORE!invoke_main(void)+0x32 [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 107]
+0000008f`9ff7f890 00007ff6`1cebf7be     SKULLBONEZ_CORE!__scrt_common_main_seh(void)+0x132 [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 288]
+0000008f`9ff7f900 00007ff6`1cebfaae     SKULLBONEZ_CORE!__scrt_common_main(void)+0xe [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 331]
+0000008f`9ff7f930 00007fff`a390259d     SKULLBONEZ_CORE!WinMainCRTStartup(
+			void * __formal = 0x0000008f`a0157000)+0xe [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_winmain.cpp @ 17]
+0000008f`9ff7f960 00007fff`a5bcafb8     KERNEL32!BaseThreadInitThunk+0x1d
+0000008f`9ff7f990 00000000`00000000     ntdll!RtlUserThreadStart+0x28
+(af38.d590): C++ EH exception - code e06d7363 (first chance)
+Child-SP          RetAddr               Call Site
+0000008f`9ff672d0 00007fff`a3aeb467     KERNELBASE!RaiseException+0x6c
+0000008f`9ff673b0 00007fff`a55ebb67     msvcrt!CxxThrowException+0xb7
+0000008f`9ff67420 00007fff`a5568086     MSCTF!wil::details::ResultFromCaughtExceptionInternal+0xd7
+0000008f`9ff674b0 00007fff`a5567fd6     MSCTF!wil::details::ReportFailure_CaughtExceptionCommon<2>+0x82
+0000008f`9ff67530 00007fff`a5573e47     MSCTF!wil::details::ReportFailure_CaughtException<2>+0x52
+0000008f`9ff685c0 00007fff`a5572f40     MSCTF!wil::details::in1diag3::Log_CaughtException+0x13
+0000008f`9ff68610 00007fff`a3b57d70     MSCTF!`ShellHandwriting::HandwritingClient::Initialize'::`1'::catch$19+0x25
+0000008f`9ff68650 00007fff`a3af633e     msvcrt!CallSettingFrame_LookupContinuationIndex+0x20
+0000008f`9ff68680 00007fff`a5c157b6     msvcrt!__FrameHandler4::CxxCallCatchBlock+0x16e
+0000008f`9ff68770 00007fff`a55728cd     ntdll!RcConsolidateFrames+0x6
+0000008f`9ff6c080 00007fff`a5561733     MSCTF!ShellHandwriting::HandwritingClient::Initialize+0x35d
+0000008f`9ff6c4d0 00007fff`a553ce6c     MSCTF!SYSTHREAD::OnShellHandwriting+0x1eb
+0000008f`9ff6c520 00007fff`a553c24f     MSCTF!_GetMsgHook+0x67c
+0000008f`9ff6c6a0 00007fff`a44f68da     MSCTF!TF_Notify+0x71f
+0000008f`9ff6c870 00007fff`a44f573f     USER32!CtfHookProcWorker+0x2a
+0000008f`9ff6c8a0 00007fff`a44f5686     USER32!CallHookWithSEH+0x33
+0000008f`9ff6c8f0 00007fff`a5c14f04     USER32!__fnHkINLPMSG+0x56
+0000008f`9ff6c940 00007fff`a36c1524     ntdll!KiUserCallbackDispatcherContinue
+0000008f`9ff6c9f8 00007fff`a44f293f     win32u!NtUserPeekMessage+0x14
+0000008f`9ff6ca00 00007fff`a44f2659     USER32!_PeekMessage+0x3f
+0000008f`9ff6ca70 00007ff6`1cd5f46c     USER32!PeekMessageA+0x69
+0000008f`9ff6cae0 00007ff6`1cd53661     SKULLBONEZ_CORE!SkullbonezCore::Basics::SkullbonezRun::Run(void)+0x3c [G:\SkullbonezCoreOriginal\SkullbonezSource\SkullbonezRun.cpp @ 201]
+0000008f`9ff6ce80 00007ff6`1cebfa12     SKULLBONEZ_CORE!WinMain(
+			struct HINSTANCE__ * hInstance = 0x00007ff6`1cd20000, 
+			struct HINSTANCE__ * hPrevInstance = 0x00000000`00000000, 
+			char * szCmdLine = 0x000001eb`ee151074 "--scene SkullbonezData/scenes/cardinal_roll_test.scene", 
+			int iCmdShow = 0n10)+0x7b1 [G:\SkullbonezCoreOriginal\SkullbonezSource\SkullbonezInit.cpp @ 170]
+0000008f`9ff7f850 00007ff6`1cebf902     SKULLBONEZ_CORE!invoke_main(void)+0x32 [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 107]
+0000008f`9ff7f890 00007ff6`1cebf7be     SKULLBONEZ_CORE!__scrt_common_main_seh(void)+0x132 [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 288]
+0000008f`9ff7f900 00007ff6`1cebfaae     SKULLBONEZ_CORE!__scrt_common_main(void)+0xe [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 331]
+0000008f`9ff7f930 00007fff`a390259d     SKULLBONEZ_CORE!WinMainCRTStartup(
+			void * __formal = 0x0000008f`a0157000)+0xe [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_winmain.cpp @ 17]
+0000008f`9ff7f960 00007fff`a5bcafb8     KERNEL32!BaseThreadInitThunk+0x1d
+0000008f`9ff7f990 00000000`00000000     ntdll!RtlUserThreadStart+0x28
+clientcore\windows\advcore\ctf\shellhandwriting\client\handwritingclient.cpp(328)\MSCTF.dll!00007FFFA5572F40: (caller: 00007FFFA5561733) LogHr(2) tid(d590) 800401F0 CoInitialize has not been called.
+    Msg:[onecore\internal\sdk\inc\wil\opensource/wil/winrt.h(1686)\MSCTF.dll!00007FFFA5567CBA: (caller: 00007FFFA55728CD) Exception(2) tid(d590) 800401F0 CoInitialize has not been called.
+] 
+(af38.d590): C++ EH exception - code e06d7363 (first chance)
+Child-SP          RetAddr               Call Site
+0000008f`9ff6c0f0 00007ff6`1cec13b2     KERNELBASE!RaiseException+0x6c
+0000008f`9ff6c1d0 00007ff6`1cd715d4     SKULLBONEZ_CORE!_CxxThrowException(
+			void * pExceptionObject = 0x0000008f`9ff6c288, 
+			struct _s__ThrowInfo * pThrowInfo = 0x00007ff6`1d062ef8)+0x132 [D:\a\_work\1\s\src\vctools\crt\vcruntime\src\eh\throw.cpp @ 79]
+0000008f`9ff6c260 00007ff6`1cdb689d     SKULLBONEZ_CORE!SkullbonezCore::Math::Vector::Vector3::Normalise(void)+0x84 [G:\SkullbonezCoreOriginal\SkullbonezSource\SkullbonezVector3.cpp @ 42]
+0000008f`9ff6c2b0 00007ff6`1cd5c98d     SKULLBONEZ_CORE!SkullbonezCore::Math::Transformation::Matrix4::LookAt(
+			class SkullbonezCore::Math::Vector::Vector3 * eye = 0x0000008f`9ff6c5b0, 
+			class SkullbonezCore::Math::Vector::Vector3 * center = 0x0000008f`9ff6c5a0, 
+			class SkullbonezCore::Math::Vector::Vector3 * up = 0x0000008f`9ff6c590)+0x8d [G:\SkullbonezCoreOriginal\SkullbonezSource\SkullbonezMatrix4.cpp @ 114]
+0000008f`9ff6c380 00007ff6`1cd5b3f7     SKULLBONEZ_CORE!SkullbonezCore::Basics::SkullbonezRun::DrawPrimitives(void)+0x2dd [G:\SkullbonezCoreOriginal\SkullbonezSource\SkullbonezRun.cpp @ 541]
+0000008f`9ff6caa0 00007ff6`1cd5f6c5     SKULLBONEZ_CORE!SkullbonezCore::Basics::SkullbonezRun::Render(void)+0x57 [G:\SkullbonezCoreOriginal\SkullbonezSource\SkullbonezRun.cpp @ 507]
+0000008f`9ff6cae0 00007ff6`1cd53661     SKULLBONEZ_CORE!SkullbonezCore::Basics::SkullbonezRun::Run(void)+0x295 [G:\SkullbonezCoreOriginal\SkullbonezSource\SkullbonezRun.cpp @ 248]
+0000008f`9ff6ce80 00007ff6`1cebfa12     SKULLBONEZ_CORE!WinMain(
+			struct HINSTANCE__ * hInstance = 0x00007ff6`1cd20000, 
+			struct HINSTANCE__ * hPrevInstance = 0x00000000`00000000, 
+			char * szCmdLine = 0x000001eb`ee151074 "--scene SkullbonezData/scenes/cardinal_roll_test.scene", 
+			int iCmdShow = 0n10)+0x7b1 [G:\SkullbonezCoreOriginal\SkullbonezSource\SkullbonezInit.cpp @ 170]
+0000008f`9ff7f850 00007ff6`1cebf902     SKULLBONEZ_CORE!invoke_main(void)+0x32 [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 107]
+0000008f`9ff7f890 00007ff6`1cebf7be     SKULLBONEZ_CORE!__scrt_common_main_seh(void)+0x132 [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 288]
+0000008f`9ff7f900 00007ff6`1cebfaae     SKULLBONEZ_CORE!__scrt_common_main(void)+0xe [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 331]
+0000008f`9ff7f930 00007fff`a390259d     SKULLBONEZ_CORE!WinMainCRTStartup(
+			void * __formal = 0x0000008f`a0157000)+0xe [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_winmain.cpp @ 17]
+0000008f`9ff7f960 00007fff`a5bcafb8     KERNEL32!BaseThreadInitThunk+0x1d
+0000008f`9ff7f990 00000000`00000000     ntdll!RtlUserThreadStart+0x28
+ntdll!NtTerminateProcess+0x14:
+00007fff`a5c11444 c3              ret
+0:000> 
