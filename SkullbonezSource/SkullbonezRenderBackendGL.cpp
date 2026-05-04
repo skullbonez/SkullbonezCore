@@ -3,6 +3,7 @@
 #include "SkullbonezShaderGL.h"
 #include "SkullbonezMeshGL.h"
 #include "SkullbonezFramebufferGL.h"
+#include <cstdio>
 
 
 namespace SkullbonezCore
@@ -11,8 +12,86 @@ namespace Rendering
 {
 
 
+// GL debug message callback — logs errors and warnings from the driver
+static void APIENTRY GLDebugCallback( GLenum source, GLenum type, GLuint /*id*/, GLenum severity, GLsizei /*length*/, const GLchar* message, const void* /*userParam*/ )
+{
+    // Skip notifications (too noisy)
+    if ( severity == GL_DEBUG_SEVERITY_NOTIFICATION )
+    {
+        return;
+    }
+
+    const char* srcStr = "?";
+    switch ( source )
+    {
+    case GL_DEBUG_SOURCE_API:
+        srcStr = "API";
+        break;
+    case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
+        srcStr = "Window";
+        break;
+    case GL_DEBUG_SOURCE_SHADER_COMPILER:
+        srcStr = "Shader";
+        break;
+    case GL_DEBUG_SOURCE_THIRD_PARTY:
+        srcStr = "3rdParty";
+        break;
+    case GL_DEBUG_SOURCE_APPLICATION:
+        srcStr = "App";
+        break;
+    case GL_DEBUG_SOURCE_OTHER:
+        srcStr = "Other";
+        break;
+    }
+
+    const char* typeStr = "?";
+    switch ( type )
+    {
+    case GL_DEBUG_TYPE_ERROR:
+        typeStr = "ERROR";
+        break;
+    case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+        typeStr = "DEPRECATED";
+        break;
+    case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+        typeStr = "UNDEFINED";
+        break;
+    case GL_DEBUG_TYPE_PORTABILITY:
+        typeStr = "PORTABILITY";
+        break;
+    case GL_DEBUG_TYPE_PERFORMANCE:
+        typeStr = "PERF";
+        break;
+    case GL_DEBUG_TYPE_OTHER:
+        typeStr = "OTHER";
+        break;
+    case GL_DEBUG_TYPE_MARKER:
+        typeStr = "MARKER";
+        break;
+    }
+
+    const char* sevStr = "?";
+    switch ( severity )
+    {
+    case GL_DEBUG_SEVERITY_HIGH:
+        sevStr = "HIGH";
+        break;
+    case GL_DEBUG_SEVERITY_MEDIUM:
+        sevStr = "MEDIUM";
+        break;
+    case GL_DEBUG_SEVERITY_LOW:
+        sevStr = "LOW";
+        break;
+    }
+
+    char buf[2048];
+    sprintf_s( buf, sizeof( buf ), "[GL %s] [%s] [%s] %s\n", sevStr, srcStr, typeStr, message );
+    OutputDebugStringA( buf );
+}
+
+
 RenderBackendGL::RenderBackendGL()
-    : m_hdc( nullptr ), m_width( 0 ), m_height( 0 ), m_depthTestEnabled( true ), m_blendEnabled( false )
+    : m_hdc( nullptr ), m_width( 0 ), m_height( 0 ), m_depthTestEnabled( true ), m_blendEnabled( false ), m_cullFaceEnabled( true ), m_polygonOffsetEnabled( false ), m_polygonOffsetFactor( 0.0f ), m_polygonOffsetUnits( 0.0f )
 {
 }
 
@@ -22,6 +101,16 @@ bool RenderBackendGL::Init( HWND /*hwnd*/, HDC hdc, int width, int height )
     m_hdc = hdc;
     m_width = width;
     m_height = height;
+
+    // Register GL debug callback if KHR_debug is available
+    if ( GLAD_GL_KHR_debug )
+    {
+        glEnable( GL_DEBUG_OUTPUT );
+        glEnable( GL_DEBUG_OUTPUT_SYNCHRONOUS );
+        glDebugMessageCallback( GLDebugCallback, nullptr );
+        // Suppress notification-level messages
+        glDebugMessageControl( GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, GL_FALSE );
+    }
 
     // Initial GL state (replaces SkullbonezHelper::StateSetup)
     glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
@@ -38,6 +127,38 @@ bool RenderBackendGL::Init( HWND /*hwnd*/, HDC hdc, int width, int height )
 
 void RenderBackendGL::Shutdown()
 {
+    // Destroy all dynamic vertex buffers
+    for ( auto& dvb : m_dynamicVBs )
+    {
+        if ( dvb.vbo )
+        {
+            glDeleteBuffers( 1, &dvb.vbo );
+        }
+        if ( dvb.vao )
+        {
+            glDeleteVertexArrays( 1, &dvb.vao );
+        }
+    }
+    m_dynamicVBs.clear();
+
+    // Destroy all instanced meshes
+    for ( auto& im : m_instancedMeshes )
+    {
+        if ( im.instanceVBO )
+        {
+            glDeleteBuffers( 1, &im.instanceVBO );
+        }
+        if ( im.staticVBO )
+        {
+            glDeleteBuffers( 1, &im.staticVBO );
+        }
+        if ( im.vao )
+        {
+            glDeleteVertexArrays( 1, &im.vao );
+        }
+    }
+    m_instancedMeshes.clear();
+
     m_hdc = nullptr;
 }
 
@@ -109,6 +230,10 @@ void RenderBackendGL::SetClearDepth( float depth )
 
 void RenderBackendGL::SetDepthTest( bool enable )
 {
+    if ( enable == m_depthTestEnabled )
+    {
+        return;
+    }
     m_depthTestEnabled = enable;
     if ( enable )
     {
@@ -126,6 +251,10 @@ void RenderBackendGL::SetDepthTest( bool enable )
 
 void RenderBackendGL::SetBlend( bool enable )
 {
+    if ( enable == m_blendEnabled )
+    {
+        return;
+    }
     m_blendEnabled = enable;
     if ( enable )
     {
@@ -165,6 +294,11 @@ void RenderBackendGL::SetBlendFunc( BlendFactor src, BlendFactor dst )
 
 void RenderBackendGL::SetCullFace( bool enable )
 {
+    if ( enable == m_cullFaceEnabled )
+    {
+        return;
+    }
+    m_cullFaceEnabled = enable;
     if ( enable )
     {
         glEnable( GL_CULL_FACE );
@@ -178,6 +312,13 @@ void RenderBackendGL::SetCullFace( bool enable )
 
 void RenderBackendGL::SetPolygonOffset( bool enable, float factor, float units )
 {
+    if ( enable == m_polygonOffsetEnabled && factor == m_polygonOffsetFactor && units == m_polygonOffsetUnits )
+    {
+        return;
+    }
+    m_polygonOffsetEnabled = enable;
+    m_polygonOffsetFactor = factor;
+    m_polygonOffsetUnits = units;
     if ( enable )
     {
         glEnable( GL_POLYGON_OFFSET_FILL );
@@ -382,9 +523,11 @@ void RenderBackendGL::UploadAndDrawDynamicVB( uint32_t handle, const float* data
 
     glBindVertexArray( dvb.vao );
     glBindBuffer( GL_ARRAY_BUFFER, dvb.vbo );
-    glBufferData( GL_ARRAY_BUFFER, static_cast<GLsizeiptr>( vertexCount ) * dvb.floatsPerVertex * static_cast<GLsizeiptr>( sizeof( float ) ), data, GL_STREAM_DRAW );
+    // Orphan the old buffer then upload new data (avoids implicit sync)
+    GLsizeiptr bufSize = static_cast<GLsizeiptr>( dvb.maxVertices ) * dvb.floatsPerVertex * static_cast<GLsizeiptr>( sizeof( float ) );
+    glBufferData( GL_ARRAY_BUFFER, bufSize, nullptr, GL_STREAM_DRAW );
+    glBufferSubData( GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>( vertexCount ) * dvb.floatsPerVertex * static_cast<GLsizeiptr>( sizeof( float ) ), data );
     glDrawArrays( GL_TRIANGLES, 0, vertexCount );
-    glBindBuffer( GL_ARRAY_BUFFER, 0 );
     glBindVertexArray( 0 );
 }
 
@@ -464,7 +607,6 @@ void RenderBackendGL::UploadInstanceData( uint32_t handle, const float* data, in
 
     glBindBuffer( GL_ARRAY_BUFFER, im.instanceVBO );
     glBufferSubData( GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>( floatCount ) * static_cast<GLsizeiptr>( sizeof( float ) ), data );
-    glBindBuffer( GL_ARRAY_BUFFER, 0 );
 }
 
 
