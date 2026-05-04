@@ -87,10 +87,12 @@ bool FramebufferDX11::Create( int width, int height )
 void FramebufferDX11::Bind() const
 {
     // Save current render target
-    m_context->OMGetRenderTargets( 1, &m_savedRTV, &m_savedDSV );
+    m_savedRTV = m_backend->GetBackBufferRTV();
+    m_savedDSV = m_backend->GetDepthStencilView();
 
-    // Bind our FBO
+    // Bind our FBO and update the backend cache
     m_context->OMSetRenderTargets( 1, &m_rtv, m_dsv );
+    m_backend->SetRenderTargetCache( m_rtv, m_dsv );
 
     D3D11_VIEWPORT vp = {};
     vp.Width = (float)m_width;
@@ -102,20 +104,13 @@ void FramebufferDX11::Bind() const
 
 void FramebufferDX11::Unbind() const
 {
-    // Restore previous render target
+    // Restore previous render target and update the backend cache
     if ( m_savedRTV || m_savedDSV )
     {
         m_context->OMSetRenderTargets( 1, &m_savedRTV, m_savedDSV );
-        if ( m_savedRTV )
-        {
-            m_savedRTV->Release();
-            m_savedRTV = nullptr;
-        }
-        if ( m_savedDSV )
-        {
-            m_savedDSV->Release();
-            m_savedDSV = nullptr;
-        }
+        m_backend->SetRenderTargetCache( m_savedRTV, m_savedDSV );
+        m_savedRTV = nullptr;
+        m_savedDSV = nullptr;
     }
 }
 
