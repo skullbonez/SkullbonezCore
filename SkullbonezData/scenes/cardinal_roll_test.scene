@@ -5,11 +5,14 @@
 
 physics on
 text on
-frames 600
+frames unlimited
+debug_vectors on
+time_scale 0.1
 physics_log Profile/physics_log.csv
 
-# Overhead camera looking down at the water from a high vantage
-camera cardinal 500 200 300  500 25 500  0 1 0
+# Top-down camera looking straight down at the scene centre
+# Up vector (0,0,-1): north (lower Z) points up on screen
+camera cardinal 500 800 500  500 0 500  0 0 -1
 
 # Force at offset from COM creates torque. force=(500,0,0) at offset=(0,0,10)
 # gives torque.y = 5000, creating strong Y-axis spin (wrong axis for rolling).

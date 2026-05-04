@@ -57,6 +57,8 @@ class TestScene
     char m_physicsLogPath[256]; // output path for physics CSV (empty = none)
     int m_screenshotInterval;   // save screenshot every N frames (-1 = disabled)
     char m_screenshotDir[256];  // output directory for interval captures
+    float m_timeScale;          // Physics time multiplier (1.0 = realtime)
+    bool m_isDebugVectors;      // Draw velocity/omega debug arrows (default false)
     std::vector<SceneCamera> m_cameras;
     std::vector<SceneBall> m_balls;
 
@@ -76,6 +78,8 @@ class TestScene
     const char* GetPhysicsLogPath() const;
     int GetScreenshotInterval() const;
     const char* GetScreenshotDir() const;
+    float GetTimeScale() const;
+    bool IsDebugVectors() const;
     int GetCameraCount() const;
     int GetBallCount() const;
     const SceneCamera& GetCamera( int index ) const;

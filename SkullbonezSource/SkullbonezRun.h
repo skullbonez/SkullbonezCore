@@ -90,6 +90,7 @@ class SkullbonezRun
     bool m_isWaterNoReflect;                        // Disable ocean reflection, output flat tint (toggle with 2)
     bool m_isWaterFlatDebug;                        // Force ocean mesh fully flat, no displacement (toggle with 3)
     bool m_isDebugVectors;                          // Draw velocity (green) and angular velocity (red) vectors (toggle with V)
+    float m_timeScale;                              // Physics time multiplier from scene file (1.0 = realtime)
     float m_frozenWaterTime;                        // Simulation time captured when freeze was toggled on
 
     void Render();                                                     // Main render method

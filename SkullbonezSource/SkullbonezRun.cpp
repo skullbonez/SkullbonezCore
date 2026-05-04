@@ -57,6 +57,7 @@ SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
     m_isWaterNoReflect = false;
     m_isWaterFlatDebug = false;
     m_isDebugVectors = false;
+    m_timeScale = 1.0f;
     m_frozenWaterTime = 0.0f;
     m_sInputState = {};
     m_modelCount = 0;
@@ -234,7 +235,7 @@ void SkullbonezRun::Run()
             // Logic (skip physics in scene mode when disabled)
             if ( !m_isSceneMode || m_isScenePhysics )
             {
-                UpdateLogic( static_cast<float>( secondsPerFrame ) );
+                UpdateLogic( static_cast<float>( secondsPerFrame ) * m_timeScale );
             }
 
             // Drain GPU pipeline before render
@@ -946,6 +947,8 @@ void SkullbonezRun::LoadScene( int index )
     m_isWaterFreezeDebug = false;
     m_isWaterNoReflect = false;
     m_isWaterFlatDebug = false;
+    m_isDebugVectors = false;
+    m_timeScale = 1.0f;
     m_frozenWaterTime = 0.0f;
     m_sInputState = {};
     m_isProfilerOverlay = true;
@@ -980,6 +983,8 @@ void SkullbonezRun::LoadScene( int index )
         TestScene scene = TestScene::LoadFromFile( scenePath.c_str() );
         m_isScenePhysics = scene.IsPhysicsEnabled();
         m_isSceneText = scene.IsTextEnabled();
+        m_isDebugVectors = scene.IsDebugVectors();
+        m_timeScale = scene.GetTimeScale();
         m_targetFrameCount = scene.GetFrameCount();
         m_screenshotFrame = scene.GetScreenshotFrame();
         m_screenshotMs = scene.GetScreenshotMs();
