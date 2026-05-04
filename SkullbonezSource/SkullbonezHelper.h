@@ -7,6 +7,7 @@
 #include "SkullbonezIMesh.h"
 #include "SkullbonezMatrix4.h"
 #include <memory>
+#include <vector>
 
 
 // --- Usings ---
@@ -26,18 +27,20 @@ class SkullbonezHelper
 {
 
   private:
-    static std::unique_ptr<IMesh> sphereMesh;                         // Shared unit sphere VBO
-    static std::unique_ptr<IShader> sphereShader;                     // Shared lit_textured m_shader
+    static std::unique_ptr<IShader> sphereShader;                     // Shared lit_textured_instanced shader
+    static uint32_t sphereInstMesh;                                   // Instanced mesh handle (via Gfx())
+    static int sphereVertexCount;                                     // Per-sphere vertex count
+    static std::vector<float> sphereInstanceData;                     // Staging buffer for model matrices (16 floats per instance)
     inline static float sClipPlane[4] = { 0.0f, 1.0f, 0.0f, 1.0e9f }; // default: always pass (GL_CLIP_DISTANCE0 disabled)
 
-    static void BuildSphereMesh( int slices, int stacks ); // Generate UV sphere mesh
+    static void BuildSphereMesh( int slices, int stacks ); // Generate UV sphere instanced mesh
 
   public:
     static void StateSetup();                                                                                                          // Assists in setting up initial open gl state
     static void SetClipPlane( float x, float y, float z, float w );                                                                    // Set sphere shader clip plane (default (0,1,0,1e9) = always pass)
-    static void DrawSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent = false ); // Bind ShaderGL and set invariant uniforms for batched sphere rendering
-    static void DrawSphereBatchModel( const Matrix4& model );                                                                          // Set model matrix and draw one sphere (call between Begin/End)
-    static void DrawSphereBatchEnd();                                                                                                  // Unbind ShaderGL after batched sphere rendering
+    static void DrawSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent = false ); // Set up instanced shader uniforms and begin collecting instances
+    static void DrawSphereBatchModel( const Matrix4& model );                                                                          // Append model matrix to instance buffer
+    static void DrawSphereBatchEnd();                                                                                                  // Upload instance data and issue single instanced draw
     static void ResetGLResources();                                                                                                    // Call after GL context recreated to invalidate cached GL objects
 };
 } // namespace Basics

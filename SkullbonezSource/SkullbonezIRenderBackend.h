@@ -124,12 +124,14 @@ class IRenderBackend
     virtual void DestroyDynamicVB( uint32_t handle ) = 0;
 
 
-    // --- Instanced MeshGL (hardware instancing: shadow decals) ---
+    // --- Instanced Mesh (hardware instancing: shadow decals, sphere batches) ---
     // staticData: per-vertex geometry  |  instance data uploaded per frame
+    // staticAttribSizes/numStaticAttribs: component counts per static vertex attribute (e.g. {3,3,2} = pos+normal+uv)
+    //   If numStaticAttribs==0, all floats go into a single attribute at location 0.
     // instanceAttribSizes: component counts per instance attribute (e.g. {4,4,4,4,1} = mat4+float)
     // instanceStartAttrib: first attribute location for instance data (e.g. 3)
 
-    virtual uint32_t CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int maxInstances, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs ) = 0;
+    virtual uint32_t CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int maxInstances, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs, const int* staticAttribSizes = nullptr, int numStaticAttribs = 0 ) = 0;
     virtual void UploadInstanceData( uint32_t handle, const float* data, int floatCount ) = 0;
     virtual void DrawInstancedMesh( uint32_t handle, int staticVertCount, int instanceCount ) = 0;
     virtual void DestroyInstancedMesh( uint32_t handle ) = 0;

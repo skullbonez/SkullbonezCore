@@ -941,8 +941,45 @@ void RenderBackendDX12::BuildInputLayout( VertexFormat12 format, D3D12_INPUT_ELE
 void RenderBackendDX12::BuildInstancedInputLayout( const InstancedMeshDX12& im, D3D12_INPUT_ELEMENT_DESC* out, UINT& count )
 {
     count = 0;
-    // Slot 0: static vertex data (position)
-    out[count++] = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+
+    // Slot 0: static vertex data
+    if ( im.numStaticAttribs > 0 )
+    {
+        // Multi-attribute layout (e.g. POSITION + NORMAL + TEXCOORD)
+        static const char* staticSemantics[] = { "POSITION", "NORMAL", "TEXCOORD" };
+        UINT staticOffset = 0;
+        for ( int i = 0; i < im.numStaticAttribs; ++i )
+        {
+            DXGI_FORMAT fmt = DXGI_FORMAT_R32_FLOAT;
+            if ( im.staticAttribSizes[i] == 2 )
+            {
+                fmt = DXGI_FORMAT_R32G32_FLOAT;
+            }
+            else if ( im.staticAttribSizes[i] == 3 )
+            {
+                fmt = DXGI_FORMAT_R32G32B32_FLOAT;
+            }
+            else if ( im.staticAttribSizes[i] == 4 )
+            {
+                fmt = DXGI_FORMAT_R32G32B32A32_FLOAT;
+            }
+
+            out[count].SemanticName = staticSemantics[i < 3 ? i : 2];
+            out[count].SemanticIndex = ( i >= 2 ) ? (UINT)( i - 2 ) : 0;
+            out[count].Format = fmt;
+            out[count].InputSlot = 0;
+            out[count].AlignedByteOffset = staticOffset;
+            out[count].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+            out[count].InstanceDataStepRate = 0;
+            ++count;
+            staticOffset += (UINT)im.staticAttribSizes[i] * sizeof( float );
+        }
+    }
+    else
+    {
+        // Legacy: single POSITION attribute
+        out[count++] = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+    }
 
     // Slot 1: per-instance attributes
     UINT instOffset = 0;
@@ -1619,7 +1656,7 @@ void RenderBackendDX12::DestroyDynamicVB( uint32_t /*handle*/ )
 // --- Instanced mesh ---
 
 
-uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int /*maxInstances*/, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs )
+uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int /*maxInstances*/, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs, const int* staticAttribSizes, int numStaticAttribs )
 {
     EnsureCommandListOpen();
 
@@ -1630,9 +1667,14 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData, int st
     im.instanceStride = instanceFloats * (int)sizeof( float );
     im.instanceStartAttrib = instanceStartAttrib;
     im.numInstanceAttribs = numInstanceAttribs;
+    im.numStaticAttribs = numStaticAttribs;
     for ( int i = 0; i < numInstanceAttribs && i < 8; ++i )
     {
         im.instanceAttribSizes[i] = instanceAttribSizes[i];
+    }
+    for ( int i = 0; i < numStaticAttribs && i < 8; ++i )
+    {
+        im.staticAttribSizes[i] = staticAttribSizes[i];
     }
 
     // Create static VB on default heap
