@@ -46,3 +46,11 @@ __pycache__/
 TestOutput/perf_history/
 
 dx12_validation.txt
+
+# Debug artifacts
+build_out.txt
+build_profile.txt
+build_rel.txt
+cdb_*.txt
+crash_out.txt
+
