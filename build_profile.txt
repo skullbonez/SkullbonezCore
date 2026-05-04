@@ -1,6 +1,0 @@
-
-  SkullbonezInit.cpp
-  SkullbonezMatrix4.cpp
-  SkullbonezRun.cpp
-  Generating Code...
-  SKULLBONEZ_CORE.vcxproj -> G:\SkullbonezCoreOriginal\Profile\SKULLBONEZ_CORE.exe

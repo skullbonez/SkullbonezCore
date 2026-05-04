@@ -1,2 +1,0 @@
-
-  SKULLBONEZ_CORE.vcxproj -> G:\SkullbonezCoreOriginal\Debug\SKULLBONEZ_CORE.exe
