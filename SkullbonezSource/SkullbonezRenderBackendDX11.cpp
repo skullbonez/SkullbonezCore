@@ -386,6 +386,12 @@ void RenderBackendDX11::Shutdown()
 void RenderBackendDX11::Present()
 {
     m_swapChain->Present( 1, 0 );
+
+    // FLIP_DISCARD unbinds the back buffer RTV from the output-merger after Present.
+    // Rebind immediately so the next frame's draws have a valid render target.
+    m_context->OMSetRenderTargets( 1, &m_backBufferRTV, m_depthStencilView );
+    m_currentRTV = m_backBufferRTV;
+    m_currentDSV = m_depthStencilView;
 }
 
 
