@@ -11,7 +11,7 @@ using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Math::CollisionDetection;
 
 
-void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel )
+void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel, float changeInTime )
 {
     // get the total velocity (reverse it so the vector points away from the plane m_normal)
     Vector3 totalVelocity = gameModel.m_physicsInfo.GetVelocity() * -1;
@@ -45,7 +45,7 @@ void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel )
             else
             {
                 // perform the rolling physics
-                CollisionResponse::SphereVsPlaneRollResponse( gameModel );
+                CollisionResponse::SphereVsPlaneRollResponse( gameModel, changeInTime );
             }
         } },
                 gameModel.m_boundingVolume );
@@ -103,15 +103,72 @@ void CollisionResponse::RespondCollisionGameModels( GameModel& gameModel1,
 }
 
 
-void CollisionResponse::SphereVsPlaneRollResponse( GameModel& gameModel )
+void CollisionResponse::SphereVsPlaneRollResponse( GameModel& gameModel, float changeInTime )
 {
-    // kill linear
-    Vector3 m_linearVelocity = gameModel.m_physicsInfo.GetVelocity() * 0.9f;
-    gameModel.m_physicsInfo.SetLinearVelocity( m_linearVelocity );
+    Vector3 pos = gameModel.m_physicsInfo.GetPosition();
+    float radius = GetShapeBoundingRadius( gameModel.m_boundingVolume );
 
-    // kill angular
-    Vector3 m_angularVelocity = gameModel.m_physicsInfo.GetAngularVelocity() * 0.9f;
-    gameModel.m_physicsInfo.SetAngularVelocity( m_angularVelocity );
+    // Un-ground if ball has left the terrain surface (e.g. crested a hill)
+    if ( gameModel.m_terrain->IsInBounds( pos.x, pos.z ) )
+    {
+        float terrainHeight = gameModel.m_terrain->GetTerrainHeightAt( pos.x, pos.z );
+        if ( pos.y - radius > terrainHeight + 0.1f )
+        {
+            gameModel.SetIsGrounded( false );
+            return;
+        }
+    }
+
+    // Terrain normal from the collision plane (already computed for current position)
+    Vector3 normal = gameModel.m_responseInformation.collidedPlane.m_normal;
+
+    Vector3 velocity = gameModel.m_physicsInfo.GetVelocity();
+    Vector3 omega = gameModel.m_physicsInfo.GetAngularVelocity();
+    float mass = gameModel.m_physicsInfo.GetMass();
+
+    // Project velocity onto terrain surface (remove normal component)
+    float vDotN = velocity * normal;
+    Vector3 surfaceVelocity = velocity - normal * vDotN;
+
+    // Rolling friction: F_roll = mu_roll * N, where N = m * |g| * cos(slope)
+    // cos(slope) = normal.y for a normalized upward-pointing normal
+    float normalForce = mass * fabsf( Cfg().gravity ) * normal.y;
+    float speed = Vector::VectorMag( surfaceVelocity );
+
+    if ( speed > TOLERANCE )
+    {
+        Vector3 frictionDir = surfaceVelocity;
+        frictionDir.Normalise();
+
+        float frictionDecel = Cfg().rollingFrictionCoeff * normalForce / mass;
+        float frictionDeltaV = frictionDecel * changeInTime;
+
+        if ( frictionDeltaV > speed )
+        {
+            surfaceVelocity.Zero();
+        }
+        else
+        {
+            surfaceVelocity -= frictionDir * frictionDeltaV;
+        }
+    }
+
+    // Enforce no-slip: target omega = (v x n) / r
+    // Note: the engine's quaternion convention uses a transposed rotation matrix
+    // (passive/world-to-body convention), so the angular velocity must be negated
+    // relative to the standard no-slip formula (n x v) to produce correct visual spin.
+    Vector3 targetOmega = Vector::CrossProduct( surfaceVelocity, normal ) / radius;
+
+    // Blend toward no-slip — higher friction = faster convergence to rolling contact
+    float grip = gameModel.m_physicsInfo.GetFrictionCoefficient() * 10.0f;
+    if ( grip > 1.0f )
+    {
+        grip = 1.0f;
+    }
+    Vector3 newOmega = omega + ( targetOmega - omega ) * grip;
+
+    gameModel.m_physicsInfo.SetLinearVelocity( surfaceVelocity );
+    gameModel.m_physicsInfo.SetAngularVelocity( newOmega );
 }
 
 
