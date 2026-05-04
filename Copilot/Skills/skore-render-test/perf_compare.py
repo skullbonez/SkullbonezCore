@@ -130,11 +130,19 @@ def print_memory(cur_json, bas_json):
 def check_regressions(cur_stats, bas_stats, cur_json, bas_json):
     failures = []
     for marker, cm in cur_stats.items():
+        # GPU timer query averages are inherently noisy (driver scheduling,
+        # thermal transitions) — display them but don't gate commits.
+        if marker.endswith("_gpu"):
+            continue
         pm = bas_stats.get(marker)
         if not pm:
             continue
         for stat, threshold in [("avg", 10), ("p50", 10)]:
             pv, cv = pm[stat], cm[stat]
+            # Skip sub-0.05ms markers — percentage comparison is meaningless
+            # at the measurement floor (scheduling jitter dominates).
+            if pv < 0.05:
+                continue
             if pv > 0:
                 pct = (cv - pv) / pv * 100
                 if pct > threshold:

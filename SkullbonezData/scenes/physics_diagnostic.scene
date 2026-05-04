@@ -1,0 +1,24 @@
+# physics_diagnostic.scene
+# Diagnostic: drop a ball from height with horizontal velocity.
+# Exercises terrain friction and bouncing. Logs frame-by-frame physics state.
+# Also includes a pair of balls that will collide sphere-to-sphere before terrain.
+#
+# Ball format: ball <name> <x> <y> <z> <radius> <mass> <moment> <restitution> [<fX> <fY> <fZ> <fpX> <fpY> <fpZ>]
+
+physics on
+text on
+frames 600
+physics_log Profile/physics_log.csv
+
+# Camera looking across flat-ish terrain area
+camera diag 400 120 400  500 50 500  0 1 0
+
+# Ball 1: Dropped from height=120 with horizontal velocity (+20, 0, 0).
+# Uses force to give initial horizontal velocity (force applied at COM = purely linear)
+ball drop1 420 120 450  10.0 50.0 20.0 0.5  1000 0 0  0 0 0
+
+# Ball 2: Stationary target on terrain for sphere-sphere collision test
+ball target1 500 60 450  10.0 50.0 20.0 0.5
+
+# Ball 3: Pure gravity roll (no initial velocity) on a slope for comparison
+ball roll1 420 100 520  10.0 50.0 20.0 0.3

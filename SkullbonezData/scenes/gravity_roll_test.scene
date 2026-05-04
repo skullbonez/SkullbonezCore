@@ -1,0 +1,23 @@
+# gravity_roll_test.scene
+# Balls dropped onto sloped terrain with zero velocity.
+# They settle, then roll under gravity toward the water (fluid_height=25).
+# Use with friction_coeff=5.0 in engine.cfg to verify no-slip roll direction.
+#
+# Ball format: ball <name> <x> <y> <z>  <radius> <mass> <moment> <restitution>
+
+physics on
+text on
+frames 9999
+
+# Wide elevated camera looking across the terrain toward the water basin
+camera overview 300 180 200  550 30 550  0 1 0
+
+# Six balls scattered on high ground, dropped from above terrain height.
+# Low restitution (0.3) so they settle quickly without bouncing.
+# radius=10, mass=50, moment=20
+ball b1 420 130 380  10.0 50.0 20.0 0.3
+ball b2 480 140 420  10.0 50.0 20.0 0.3
+ball b3 540 120 360  10.0 50.0 20.0 0.3
+ball b4 460 135 460  10.0 50.0 20.0 0.3
+ball b5 510 145 500  10.0 50.0 20.0 0.3
+ball b6 580 125 440  10.0 50.0 20.0 0.3

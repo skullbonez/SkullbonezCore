@@ -212,8 +212,7 @@ void RigidBody::UpdateRollPosition( float changeInTime, float circumference )
     // update the m_position
     m_position += positionUpdate;
 
-    // update the m_orientation based on current angular velocity
-    m_orientation.RotateAboutXYZ( m_angularVelocity * changeInTime );
+    m_orientation.RotateAboutXYZ( -m_angularVelocity * changeInTime );
 }
 
 
@@ -245,8 +244,10 @@ void RigidBody::UpdatePosition( float changeInTime )
     // calculate location based on current linear velocity
     m_position += m_linearVelocity * changeInTime;
 
-    // update the m_orientation based on current angular velocity
-    m_orientation.RotateAboutXYZ( m_angularVelocity * changeInTime );
+    // Negate angular velocity here: the engine's GetOrientationMatrix() returns
+    // the transpose of the standard active-rotation matrix, so the visual spin
+    // direction is the inverse of the physical angular-velocity convention.
+    m_orientation.RotateAboutXYZ( -m_angularVelocity * changeInTime );
 }
 
 
@@ -266,7 +267,7 @@ RotationMatrix RigidBody::GetOrientationMatrix( float fTime )
     else
     {
         Quaternion initialOrientation = m_orientation;
-        initialOrientation.RotateAboutXYZ( m_angularVelocity * fTime );
+        initialOrientation.RotateAboutXYZ( -m_angularVelocity * fTime );
         return initialOrientation.GetOrientationMatrix();
     }
 }
@@ -413,10 +414,4 @@ void RigidBody::SetFrictionCoefficient( float fFriction )
 {
     // 1 is grippy, 0.0f is no grip
     m_frictionCoefficient = fFriction;
-}
-
-
-void RigidBody::DampenAngularVelocity()
-{
-    m_angularVelocity *= 1.0f - m_frictionCoefficient;
 }

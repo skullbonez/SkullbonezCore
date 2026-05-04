@@ -68,7 +68,6 @@ class RigidBody
     void SetRotationalInertia( const Vector3& vRotationalInertia );                         // Sets the rotational inertia for the obect
     void SetChangeInAngularVelocity( const Vector3& vAngularVelocity );                     // Sets the change in angular velocity
     void SetChangeInLinearVelocity( const Vector3& vLinearVelocity );                       // Sets the change in linear velocity
-    void DampenAngularVelocity();                                                           // Dampens the angular velocity based on the friction coefficient
     void ApplyChangeInAngularVelocity();                                                    // Applies the change in angular velocity
     void ThrottleAngularVelocity();                                                         // Slows angular velocity to ensure it does not reach astronomical speeds
     void ApplyChangeInLinearVelocity();                                                     // Applies the change in linear velocity

@@ -154,6 +154,18 @@ Vector3 GameModelCollection::GetModelPosition( int index )
 }
 
 
+int GameModelCollection::GetModelCount() const
+{
+    return static_cast<int>( m_gameModels.size() );
+}
+
+
+GameModel& GameModelCollection::GetModelAtIndex( int index )
+{
+    return m_gameModels[index];
+}
+
+
 void GameModelCollection::RunPhysics( float fChangeInTime )
 {
     std::vector<float> timeRemaining( static_cast<int>( m_gameModels.size() ), fChangeInTime );
@@ -214,7 +226,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
         else
         {
             // sweep test found no collision — check for static overlap
-            // (handles grounded/slow m_balls that the sweep test misses)
+            // (handles slow m_balls that the sweep test misses)
             m_gameModels[x].StaticOverlapResponseGameModel( m_gameModels[y] );
         }
     }

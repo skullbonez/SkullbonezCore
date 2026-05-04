@@ -11,41 +11,163 @@ using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Math::CollisionDetection;
 
 
+// --- Physics logging state ---
+static FILE* s_physicsLog = nullptr;
+static int s_physicsFrame = 0;
+
+
+void CollisionResponse::SetPhysicsLog( FILE* file )
+{
+    s_physicsLog = file;
+}
+
+
+void CollisionResponse::SetPhysicsFrame( int frame )
+{
+    s_physicsFrame = frame;
+}
+
+
 void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel, float changeInTime )
 {
-    // get the total velocity (reverse it so the vector points away from the plane m_normal)
-    Vector3 totalVelocity = gameModel.m_physicsInfo.GetVelocity() * -1;
-
-    // get the scalar magnitude of the velocity projected along the m_normal of the collision
-    float projectedVelocity = totalVelocity * gameModel.m_responseInformation.collidedPlane.m_normal;
-
-    // if the projected velocity is really small
-    if ( projectedVelocity < 1.0f )
-    {
-        gameModel.SetIsGrounded( true );
-    }
-
     std::visit( [&]( const auto& shape )
                 {
         using ShapeT = std::decay_t<decltype( shape )>;
 
         if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
         {
-            if ( !gameModel.IsGrounded() )
+            Vector3 normal = gameModel.m_responseInformation.collidedPlane.m_normal;
+            float radius = shape.GetRadius();
+            float mass = gameModel.m_physicsInfo.GetMass();
+            float invMass = gameModel.m_physicsInfo.GetInvertedMass();
+            Vector3 inertia = gameModel.m_physicsInfo.GetRotationalInertia();
+            Vector3 velocity = gameModel.m_physicsInfo.GetVelocity();
+            Vector3 omega = gameModel.m_physicsInfo.GetAngularVelocity();
+
+            // Log pre-collision state
+            Vector3 velBefore = velocity;
+            Vector3 omegaBefore = omega;
+
+            // Contact point: center to bottom of sphere along surface normal
+            Vector3 rContact = normal * ( -radius );
+
+            // Velocity at the contact point: v_contact = v + omega x r
+            Vector3 vContact = velocity + Vector::CrossProduct( omega, rContact );
+
+            // Normal component of contact velocity (negative = moving into surface)
+            float vn = vContact * normal;
+
+            // Only resolve if moving into the surface
+            if ( vn >= 0.0f )
             {
-                // apply the response forces to the model - angular impulse first
-                CollisionResponse::SphereVsPlaneAngularImpulse( gameModel );
-
-                // then linear impulse
-                CollisionResponse::SphereVsPlaneLinearImpulse( gameModel, totalVelocity, projectedVelocity );
-
-                // apply the change in angular velocity now the linear reaction has taken place
-                gameModel.m_physicsInfo.ApplyChangeInAngularVelocity();
+                return;
             }
-            else
+
+            // --- Normal impulse with velocity-dependent restitution ---
+            float e = gameModel.m_physicsInfo.GetCoefficientRestitution();
+            if ( fabsf( vn ) < Cfg().contactRestitutionThreshold )
             {
-                // perform the rolling physics
-                CollisionResponse::SphereVsPlaneRollResponse( gameModel, changeInTime );
+                e = 0.0f;
+            }
+
+            // Effective mass for normal impulse at the contact point:
+            // 1/m_eff = 1/m + n . ((r x n) / I) x r
+            Vector3 rCrossN = Vector::CrossProduct( rContact, normal );
+            Vector3 iInvRCrossN = rCrossN / inertia;
+            Vector3 iInvRCrossNCrossR = Vector::CrossProduct( iInvRCrossN, rContact );
+            float kNormal = invMass + ( normal * iInvRCrossNCrossR );
+
+            float jn = -( 1.0f + e ) * vn / kNormal;
+
+            // Apply normal impulse to linear and angular velocity
+            velocity += normal * ( jn * invMass );
+            omega += Vector::CrossProduct( rContact, normal * jn ) / inertia;
+
+            // --- Friction impulse (Coulomb model) ---
+            // Recompute contact velocity after normal impulse
+            vContact = velocity + Vector::CrossProduct( omega, rContact );
+            Vector3 vTangent = vContact - normal * ( vContact * normal );
+            float vTangentMag = Vector::VectorMag( vTangent );
+
+            if ( vTangentMag > TOLERANCE )
+            {
+                Vector3 tangentDir = vTangent / vTangentMag;
+
+                // Effective mass for friction direction at contact point
+                Vector3 rCrossT = Vector::CrossProduct( rContact, tangentDir );
+                Vector3 iInvRCrossT = rCrossT / inertia;
+                Vector3 iInvRCrossTCrossR = Vector::CrossProduct( iInvRCrossT, rContact );
+                float kTangent = invMass + ( tangentDir * iInvRCrossTCrossR );
+
+                // Impulse needed to stop tangential sliding
+                float jt = vTangentMag / kTangent;
+
+                // Clamp to Coulomb friction cone
+                float mu = gameModel.m_physicsInfo.GetFrictionCoefficient();
+                float maxFriction = mu * jn;
+                if ( jt > maxFriction )
+                {
+                    jt = maxFriction;
+                }
+
+                // Apply friction impulse (opposes tangential sliding)
+                Vector3 frictionImpulse = tangentDir * ( -jt );
+                velocity += frictionImpulse * invMass;
+                omega += Vector::CrossProduct( rContact, frictionImpulse ) / inertia;
+            }
+
+            // --- Spin damping: damp world-Y (top-spin) angular velocity ---
+            // Coulomb friction is blind to omega.y because (omega×rContact).y == 0
+            // for flat terrain. The previous normal-projected approach also removed
+            // omega.z on steep slopes, which negated rolling omega.
+            // Damping only omega.y, weighted by normal.y², leaves rolling intact
+            // and fades naturally to zero on steep contacts.
+            if ( fabsf( omega.y ) > TOLERANCE )
+            {
+                float mu = gameModel.m_physicsInfo.GetFrictionCoefficient();
+                float maxYDelta = mu * jn * radius * normal.y * normal.y / inertia.y;
+                float yCorrection = fabsf( omega.y ) > maxYDelta
+                                        ? maxYDelta * ( omega.y > 0.0f ? 1.0f : -1.0f )
+                                        : omega.y;
+                omega.y -= yCorrection;
+            }
+
+            // --- Rolling alignment: snap omega to pure-rolling on ground contact ---
+            // Pure rolling for velocity v on surface with normal n:
+            //   omega = (n × v) / r
+            // This forces the spin axis to match the travel direction immediately,
+            // eliminating sideways spin artifacts from bounces/sphere-sphere.
+            float tangentSpeed = Vector::VectorMag( velocity - normal * ( velocity * normal ) );
+            if ( tangentSpeed > TOLERANCE )
+            {
+                Vector3 omegaTarget = Vector::CrossProduct( normal, velocity ) / radius;
+                omega = omegaTarget;
+            }
+
+            // --- Rolling friction (small constant torque opposing spin) ---
+            float normalForce = mass * fabsf( Cfg().gravity ) * normal.y;
+            float rollingDecel = Cfg().rollingFrictionCoeff * normalForce / mass;
+            float speed = Vector::VectorMag( velocity - normal * ( velocity * normal ) );
+            if ( speed > TOLERANCE )
+            {
+                Vector3 moveDir = velocity - normal * ( velocity * normal );
+                moveDir.Normalise();
+                float deltaV = rollingDecel * changeInTime;
+                if ( deltaV > speed )
+                {
+                    deltaV = speed;
+                }
+                velocity -= moveDir * deltaV;
+            }
+
+            gameModel.m_physicsInfo.SetLinearVelocity( velocity );
+            gameModel.m_physicsInfo.SetAngularVelocity( omega );
+
+            // Log post-collision state
+            if ( s_physicsLog )
+            {
+                Vector3 pos = gameModel.m_physicsInfo.GetPosition();
+                fprintf( s_physicsLog, "terrain,%d,%.2f,%.2f,%.2f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n", s_physicsFrame, pos.x, pos.y, pos.z, velBefore.x, velBefore.y, velBefore.z, omegaBefore.x, omegaBefore.y, omegaBefore.z, velocity.x, velocity.y, velocity.z, omega.x, omega.y, omega.z );
             }
         } },
                 gameModel.m_boundingVolume );
@@ -55,10 +177,6 @@ void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel, float cha
 void CollisionResponse::RespondCollisionGameModels( GameModel& gameModel1,
                                                     GameModel& gameModel2 )
 {
-    // a ball-to-ball hit should wake both balls so they can leave grounded roll mode
-    gameModel1.SetIsGrounded( false );
-    gameModel2.SetIsGrounded( false );
-
     std::visit( [&]( const auto& shape1, const auto& shape2 )
                 {
         using Shape1T = std::decay_t<decltype( shape1 )>;
@@ -100,196 +218,6 @@ void CollisionResponse::RespondCollisionGameModels( GameModel& gameModel1,
         } },
                 gameModel1.m_boundingVolume,
                 gameModel2.m_boundingVolume );
-}
-
-
-void CollisionResponse::SphereVsPlaneRollResponse( GameModel& gameModel, float changeInTime )
-{
-    Vector3 pos = gameModel.m_physicsInfo.GetPosition();
-    float radius = GetShapeBoundingRadius( gameModel.m_boundingVolume );
-
-    // Un-ground if ball has left the terrain surface (e.g. crested a hill)
-    if ( gameModel.m_terrain->IsInBounds( pos.x, pos.z ) )
-    {
-        float terrainHeight = gameModel.m_terrain->GetTerrainHeightAt( pos.x, pos.z );
-        if ( pos.y - radius > terrainHeight + 0.1f )
-        {
-            gameModel.SetIsGrounded( false );
-            return;
-        }
-    }
-
-    // Terrain normal from the collision plane (already computed for current position)
-    Vector3 normal = gameModel.m_responseInformation.collidedPlane.m_normal;
-
-    Vector3 velocity = gameModel.m_physicsInfo.GetVelocity();
-    Vector3 omega = gameModel.m_physicsInfo.GetAngularVelocity();
-    float mass = gameModel.m_physicsInfo.GetMass();
-
-    // Project velocity onto terrain surface (remove normal component)
-    float vDotN = velocity * normal;
-    Vector3 surfaceVelocity = velocity - normal * vDotN;
-
-    // Rolling friction: F_roll = mu_roll * N, where N = m * |g| * cos(slope)
-    // cos(slope) = normal.y for a normalized upward-pointing normal
-    float normalForce = mass * fabsf( Cfg().gravity ) * normal.y;
-    float speed = Vector::VectorMag( surfaceVelocity );
-
-    if ( speed > TOLERANCE )
-    {
-        Vector3 frictionDir = surfaceVelocity;
-        frictionDir.Normalise();
-
-        float frictionDecel = Cfg().rollingFrictionCoeff * normalForce / mass;
-        float frictionDeltaV = frictionDecel * changeInTime;
-
-        if ( frictionDeltaV > speed )
-        {
-            surfaceVelocity.Zero();
-        }
-        else
-        {
-            surfaceVelocity -= frictionDir * frictionDeltaV;
-        }
-    }
-
-    // Enforce no-slip: target omega = (v x n) / r
-    // Note: the engine's quaternion convention uses a transposed rotation matrix
-    // (passive/world-to-body convention), so the angular velocity must be negated
-    // relative to the standard no-slip formula (n x v) to produce correct visual spin.
-    Vector3 targetOmega = Vector::CrossProduct( surfaceVelocity, normal ) / radius;
-
-    // Blend toward no-slip — higher friction = faster convergence to rolling contact
-    float grip = gameModel.m_physicsInfo.GetFrictionCoefficient() * 10.0f;
-    if ( grip > 1.0f )
-    {
-        grip = 1.0f;
-    }
-    Vector3 newOmega = omega + ( targetOmega - omega ) * grip;
-
-    gameModel.m_physicsInfo.SetLinearVelocity( surfaceVelocity );
-    gameModel.m_physicsInfo.SetAngularVelocity( newOmega );
-}
-
-
-void CollisionResponse::SphereVsPlaneLinearImpulse( GameModel& gameModel, Vector3 totalVelocity, float projectedVelocity )
-{
-    Vector3 m_normal = gameModel.m_responseInformation.collidedPlane.m_normal;
-
-    // reflect the reversed incident velocity about the collision m_normal
-    Vector3 incidentVector = totalVelocity;
-    incidentVector.Normalise();
-    Vector3 direction = Vector::VectorReflect( incidentVector, m_normal );
-
-    // standard bounce velocity (before spin)
-    Vector3 bounceVelocity = direction * ( projectedVelocity * gameModel.m_physicsInfo.GetCoefficientRestitution() );
-
-    // compute spin's surface velocity at the contact point via cross(omega, r_contact)
-    float m_radius = GetShapeBoundingRadius( gameModel.m_boundingVolume );
-    Vector3 contactOffset = m_normal * ( -m_radius );
-    Vector3 spinSurfaceVel = Vector::CrossProduct( gameModel.m_physicsInfo.GetAngularVelocity(), contactOffset );
-
-    // only the tangential component of spin surface velocity affects the bounce
-    float spinNormalComp = spinSurfaceVel * m_normal;
-    Vector3 spinTangential = spinSurfaceVel - m_normal * spinNormalComp;
-
-    // friction opposes surface sliding: negate and scale by grip
-    // backspin → surface slides forward → friction pushes ball backward
-    // topspin → surface slides backward → friction pushes ball forward
-    Vector3 spinContribution = spinTangential * ( -gameModel.m_physicsInfo.GetFrictionCoefficient() );
-
-    // final velocity = reflected bounce + spin grip transfer
-    gameModel.m_physicsInfo.SetLinearVelocity( bounceVelocity + spinContribution );
-
-    // dampen spin as angular momentum was transferred to linear velocity
-    gameModel.m_physicsInfo.DampenAngularVelocity();
-}
-
-
-void CollisionResponse::SphereVsPlaneAngularImpulse( GameModel& gameModel )
-{
-    // compute the world space coordinate where the collision has occured
-    Vector3 collisionPoint = GeometricMath::ComputeIntersectionPoint( gameModel.m_responseInformation.collidedRay, gameModel.m_responseInformation.collisionTime );
-
-    // convert collisionPoint to object space, take into consideration the m_orientation of the object and the object space m_position of the particular dynamics
-    // object we are dealing with
-    collisionPoint -= gameModel.m_physicsInfo.GetPosition();
-
-    // sum the velocities of the game model [linear + (angular cross applicationPoint)] - remember the cross product here gives the 'wrench' that is perpendicular to the
-    // angular velocity and the point of the collision
-    Vector3 velocitySum = gameModel.m_physicsInfo.GetVelocity() + ( Vector::CrossProduct( gameModel.m_physicsInfo.GetAngularVelocity(), collisionPoint ) );
-
-    // get the scalar magnitude of the velocity projected along the m_normal to the collision
-    float velocitySumProjectedAlongCollisionNormal = gameModel.m_responseInformation.collidedPlane.m_normal * velocitySum;
-
-    /*
-                                                                    -vr(e+1)
-                                            Fi = ---------------------------------------------------
-                                                   1/m1+1/m2+n.[((r1*n)/I1)*r1]+n.[((r2*n)/I2)*r2]
-
-       This is the rigid body response formula used all over the shop.  Keep in mind the rigid body in this case is responding from a collision with a plane - the
-       plane has infinite m_mass and will not move, so this code is simplified based on these assumptions.
-    */
-
-    // calculate the numerator just as the formula above states
-    float numerator = -velocitySumProjectedAlongCollisionNormal * ( 1.0f + gameModel.m_physicsInfo.GetCoefficientRestitution() );
-
-    // get the perpendicular of the collision point with the m_normal to the collision
-    Vector3 collisionPointCrossPlaneNormal = Vector::CrossProduct( collisionPoint, gameModel.m_responseInformation.collidedPlane.m_normal );
-
-    // multiply the inertia tensor from the game model with the perpendicular of the collsiion point and collision m_normal
-    Vector3 scaledRotationalInertia = Vector::VectorMultiply( gameModel.m_physicsInfo.GetRotationalInertia(), collisionPointCrossPlaneNormal );
-
-    // take the perpendicular to the scaled inertia tensor and the point of collision
-    Vector3 scaledRotationalInertiaCrossCollisionPoint = Vector::CrossProduct( scaledRotationalInertia, collisionPoint );
-
-    // project the collsiion m_normal along the inertia tensor/collision point perpendicular
-    float collisionNormalDotInertiaCollisionPointPerp = gameModel.m_responseInformation.collidedPlane.m_normal * scaledRotationalInertiaCrossCollisionPoint;
-
-    // finally compute the denominator to the equation
-    float denominator = gameModel.m_physicsInfo.GetInvertedMass() + collisionNormalDotInertiaCollisionPointPerp;
-
-    // compute the equation result
-    float equationResult = numerator / denominator;
-
-    // the force will be in the direction of the collision m_normal, we now scale it to the magnitude of the equation result
-    Vector3 impulseForce = gameModel.m_responseInformation.collidedPlane.m_normal * equationResult;
-
-    // convert the impulse force to a change in angular velocity via taking the perpendicular with the point of collision - keep in mind rotational inertia
-    // has already been taken into account here (so no need to compute angular acceleration via m_torque/inertiaTensor eqn)
-    Vector3 m_changeInAngularVelocity = Vector::CrossProduct( collisionPoint, impulseForce );
-
-    // factor in the grippiness of the contact surface
-    m_changeInAngularVelocity *= gameModel.m_physicsInfo.GetFrictionCoefficient() * 10;
-
-    // tangential friction: drive angular velocity toward the no-slip condition at the
-    // contact point (where surface velocity = 0). Compute the angular velocity that would
-    // zero out tangential sliding, then interpolate toward it scaled by friction.
-    Vector3 surfaceVelocity = gameModel.m_physicsInfo.GetVelocity() + Vector::CrossProduct( gameModel.m_physicsInfo.GetAngularVelocity(), collisionPoint );
-    float normalComponent = surfaceVelocity * gameModel.m_responseInformation.collidedPlane.m_normal;
-    Vector3 tangentialVelocity = surfaceVelocity - gameModel.m_responseInformation.collidedPlane.m_normal * normalComponent;
-    float tangentialSpeed = Vector::VectorMag( tangentialVelocity );
-
-    if ( tangentialSpeed > TOLERANCE )
-    {
-        float contactRadiusSq = Vector::VectorMagSquared( collisionPoint );
-        if ( contactRadiusSq > TOLERANCE )
-        {
-            // delta_omega that would achieve no-slip: cross(r, -v_tangential) / |r|^2
-            Vector3 noSlipDelta = Vector::CrossProduct( collisionPoint, tangentialVelocity * ( -1.0f ) ) / contactRadiusSq;
-
-            // scale by friction — 0 = ice, 1 = full grip
-            float grip = gameModel.m_physicsInfo.GetFrictionCoefficient() * 10.0f;
-            if ( grip > 1.0f )
-            {
-                grip = 1.0f;
-            }
-            m_changeInAngularVelocity += noSlipDelta * grip;
-        }
-    }
-
-    // finally, set the change in the angular velocity of the game model
-    gameModel.m_physicsInfo.SetChangeInAngularVelocity( m_changeInAngularVelocity );
 }
 
 
@@ -438,9 +366,20 @@ void CollisionResponse::SphereVsSphereAngular( GameModel& gameModel1,
     Vector3 changeInAngularVelocity1 = Vector::CrossProduct( objectSpaceCollisionPoint1, impulseForce );
     Vector3 changeInAngularVelocity2 = Vector::CrossProduct( objectSpaceCollisionPoint2, -impulseForce );
 
-    // finally, set the change in the angular velocity of the game models
-    gameModel1.m_physicsInfo.SetChangeInAngularVelocity( changeInAngularVelocity1 );
-    gameModel2.m_physicsInfo.SetChangeInAngularVelocity( changeInAngularVelocity2 );
+    // Negate: this function was calibrated for the old visual convention where
+    // positive omega displayed as forward spin.  The engine now uses physical
+    // convention (omega negated at display time), so we flip the sign here to
+    // keep sphere-sphere angular response consistent with the terrain solver.
+    gameModel1.m_physicsInfo.SetChangeInAngularVelocity( -changeInAngularVelocity1 );
+    gameModel2.m_physicsInfo.SetChangeInAngularVelocity( -changeInAngularVelocity2 );
+
+    // Log sphere-sphere angular changes
+    if ( s_physicsLog )
+    {
+        Vector3 pos1 = gameModel1.m_physicsInfo.GetPosition();
+        Vector3 pos2 = gameModel2.m_physicsInfo.GetPosition();
+        fprintf( s_physicsLog, "sphere,%d,%.2f,%.2f,%.2f,%.4f,%.4f,%.4f,%.2f,%.2f,%.2f,%.4f,%.4f,%.4f,0,0,0\n", s_physicsFrame, pos1.x, pos1.y, pos1.z, -changeInAngularVelocity1.x, -changeInAngularVelocity1.y, -changeInAngularVelocity1.z, pos2.x, pos2.y, pos2.z, -changeInAngularVelocity2.x, -changeInAngularVelocity2.y, -changeInAngularVelocity2.z );
+    }
 }
 
 

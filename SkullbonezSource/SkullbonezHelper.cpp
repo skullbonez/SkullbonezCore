@@ -4,18 +4,23 @@
 #include "SkullbonezIRenderBackend.h"
 #include <vector>
 #include <cmath>
+#include <cstring>
 
 
 // --- Usings ---
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
+using namespace SkullbonezCore::Math::Vector;
 
 
 std::unique_ptr<IShader> SkullbonezHelper::sphereShader;
 uint32_t SkullbonezHelper::sphereInstMesh = 0;
 int SkullbonezHelper::sphereVertexCount = 0;
 std::vector<float> SkullbonezHelper::sphereInstanceData;
+std::unique_ptr<IShader> SkullbonezHelper::debugLineShader;
+unsigned int SkullbonezHelper::debugLineVAO = 0;
+unsigned int SkullbonezHelper::debugLineVBO = 0;
 
 void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
 {
@@ -33,6 +38,17 @@ void SkullbonezHelper::ResetGLResources()
     {
         Gfx().DestroyInstancedMesh( sphereInstMesh );
         sphereInstMesh = 0;
+    }
+    debugLineShader.reset();
+    if ( debugLineVBO != 0 )
+    {
+        glDeleteBuffers( 1, &debugLineVBO );
+        debugLineVBO = 0;
+    }
+    if ( debugLineVAO != 0 )
+    {
+        glDeleteVertexArrays( 1, &debugLineVAO );
+        debugLineVAO = 0;
     }
 }
 
@@ -118,7 +134,6 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
     sphereShader->SetMat4( "uProjection", proj );
     sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
     sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
-
     sphereInstanceData.clear();
 }
 
@@ -146,4 +161,84 @@ void SkullbonezHelper::StateSetup()
 {
     // Initial GL state is now set by RenderBackendGL::Init()
     // This method is retained for any additional state setup needed after backend init
+}
+
+
+void SkullbonezHelper::DrawDebugVectors(
+    const Matrix4& viewProj,
+    const std::vector<std::pair<Vector3, Vector3>>& lines,
+    float r,
+    float g,
+    float b )
+{
+    // GL-only — skip on DX11/DX12
+    if ( strstr( Gfx().GetRendererName(), "OpenGL" ) == nullptr )
+    {
+        return;
+    }
+    if ( lines.empty() )
+    {
+        return;
+    }
+
+    // Lazy-init VAO/VBO
+    if ( debugLineVAO == 0 )
+    {
+        glGenVertexArrays( 1, &debugLineVAO );
+        glGenBuffers( 1, &debugLineVBO );
+        glBindVertexArray( debugLineVAO );
+        glBindBuffer( GL_ARRAY_BUFFER, debugLineVBO );
+        // Allocate a generous streaming buffer (2048 vec3 endpoints)
+        glBufferData( GL_ARRAY_BUFFER, static_cast<GLsizeiptr>( 2048 * 3 * sizeof( float ) ), nullptr, GL_DYNAMIC_DRAW );
+        glEnableVertexAttribArray( 0 );
+        glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof( float ), reinterpret_cast<void*>( 0 ) );
+        glBindVertexArray( 0 );
+    }
+
+    // Lazy-init shader
+    if ( !debugLineShader )
+    {
+        debugLineShader = Gfx().CreateShader( "SkullbonezData/shaders/debug_line.vert", "SkullbonezData/shaders/debug_line.frag" );
+    }
+
+    // Pack line endpoints: each pair → 2 × vec3 = 6 floats
+    std::vector<float> verts;
+    verts.reserve( lines.size() * 6 );
+    for ( const auto& seg : lines )
+    {
+        verts.push_back( seg.first.x );
+        verts.push_back( seg.first.y );
+        verts.push_back( seg.first.z );
+        verts.push_back( seg.second.x );
+        verts.push_back( seg.second.y );
+        verts.push_back( seg.second.z );
+    }
+
+    int vertCount = static_cast<int>( lines.size() * 2 );
+
+    // Upload
+    glBindBuffer( GL_ARRAY_BUFFER, debugLineVBO );
+    GLsizeiptr needed = static_cast<GLsizeiptr>( verts.size() * sizeof( float ) );
+    GLsizeiptr capacity = static_cast<GLsizeiptr>( 2048 * 3 * sizeof( float ) );
+    if ( needed > capacity )
+    {
+        // Orphan and reallocate
+        glBufferData( GL_ARRAY_BUFFER, needed, nullptr, GL_DYNAMIC_DRAW );
+        capacity = needed;
+    }
+    glBufferSubData( GL_ARRAY_BUFFER, 0, needed, verts.data() );
+    glBindBuffer( GL_ARRAY_BUFFER, 0 );
+
+    // Draw — disable depth test so lines render through opaque ball geometry
+    Gfx().SetDepthTest( false );
+    debugLineShader->Use();
+    debugLineShader->SetMat4( "uViewProj", viewProj );
+    debugLineShader->SetVec4( "uColor", r, g, b, 1.0f );
+
+    glBindVertexArray( debugLineVAO );
+    glLineWidth( 2.0f );
+    glDrawArrays( GL_LINES, 0, vertCount );
+    glLineWidth( 1.0f );
+    glBindVertexArray( 0 );
+    Gfx().SetDepthTest( true );
 }

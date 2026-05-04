@@ -62,6 +62,7 @@ class SkullbonezRun
     char m_screenshotDir[256];                      // Output directory for interval captures
     char m_perfLogPath[256];                        // Output path for perf CSV (empty = none)
     FILE* m_perfLogFile;                            // Open handle for perf CSV
+    FILE* m_physicsLogFile;                         // Open handle for physics CSV (empty = none)
     int m_selectedCamera;                           // Keeps track of which camera is selected
     int m_modelCount;                               // Number of models in the scene
     float m_physicsTime, m_r_physicsTime;           // Physics time
@@ -88,6 +89,7 @@ class SkullbonezRun
     bool m_isWaterFreezeDebug;                      // Freeze ocean animation at current shape (toggle with 1)
     bool m_isWaterNoReflect;                        // Disable ocean reflection, output flat tint (toggle with 2)
     bool m_isWaterFlatDebug;                        // Force ocean mesh fully flat, no displacement (toggle with 3)
+    bool m_isDebugVectors;                          // Draw velocity (green) and angular velocity (red) vectors (toggle with V)
     float m_frozenWaterTime;                        // Simulation time captured when freeze was toggled on
 
     void Render();                                                     // Main render method

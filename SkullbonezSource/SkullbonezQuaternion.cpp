@@ -62,10 +62,8 @@ void Quaternion::RotateAboutXYZ( float xRadians,
     Quaternion yRotation = GetQtnRotatedAboutY( yRadians );
     Quaternion zRotation = GetQtnRotatedAboutZ( zRadians );
 
-    // accumulate the rotations — left-multiply so angular velocity is applied in
-    // world space (q' = R_world * q), matching the world-space vectors used to
-    // compute all angular velocity contributions (torques, impulses, rolling).
-    *this = ( xRotation * yRotation * zRotation ) * ( *this );
+    // accumulate the rotations
+    *this *= xRotation * yRotation * zRotation;
 
     // normalise the quaternion
     Normalise();

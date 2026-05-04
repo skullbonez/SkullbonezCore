@@ -49,7 +49,6 @@ class GameModel
     Physics::ResponseInformation m_responseInformation; // Information regarding a collision response that needs to be reacted to
     float m_projectedSurfaceArea;                       // 2d surface area approximation based on dynamics object list
     float m_dragCoefficient;                            // Calculated based on the average drag coefficient of all dynamics objects
-    bool m_isGrounded;                                  // Flag to indicate whether the model is on the ground or not
     bool m_isResponseRequired;                          // Indicates whether a response is required or not
 
     void CalculateVolume();                                                        // Calculates the volume of the model
@@ -71,8 +70,6 @@ class GameModel
     float GetMass();                                                                  // Returns the mass of the game model
     float GetVolume();                                                                // Returns the volume of the game model
     void CalculateProjectedSurfaceArea();                                             // Calculates the sum of the surface area of the game model
-    bool IsGrounded();                                                                // Gets the isGrounded flag
-    void SetIsGrounded( bool fIsGrounded );                                           // Sets the isGrounded flag
     void CalculateDragCoefficient();                                                  // Calculates the drag coefficient of the model
     float GetProjectedSurfaceArea();                                                  // Returns the projected surface area of the model
     float GetDragCoefficient();                                                       // Returns the drag coefficient of the model
