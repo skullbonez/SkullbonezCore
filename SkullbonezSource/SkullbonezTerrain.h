@@ -30,7 +30,8 @@ class Terrain
 
   public:
     Terrain( const char* sFileName, int iMapSize, int iStepSize, int iTextureWrap ); // Overloaded constructor: sFileName is path to .raw file, iMapSize is the size of map (pixels length), iStepSize is steps (pixel steps AND vertex steps), iTextureWrap is number of times to wrap texture
-    ~Terrain();                                                                      // Default destructor
+    Terrain( float slopeBaseY, float slopeX, float slopeZ );                         // Flat analytic slope constructor: y = slopeBaseY + slopeX*x + slopeZ*z
+    ~Terrain();                                                                       // Default destructor
 
     void Render( const Matrix4& view, const Matrix4& projection, const float* lightPosition ); // Renders the terrain with shader
     XZBounds GetXZBounds();                                                                    // Returns the XZ bounds of the terrain
@@ -51,11 +52,18 @@ class Terrain
     int m_postsPerSide;                       // Terrain postings per side of m_terrain
     int m_terrainSizeWorldCoords;             // size per side of m_terrain in world coordinates
 
+    // Flat slope mode
+    bool  m_isFlatSlope;
+    float m_slopeBaseY;
+    float m_slopeX;
+    float m_slopeZ;
+
     void LoadTerrainData( const char* sFileName );  // Loads terrain from .RAW file into terrainData member
     void BuildTerrain();                            // Builds the terrain
     void TranslatePostings();                       // Translates terrain posts
     void GenerateNormals();                         // Generates normals for posts
     void BuildMesh();                               // Builds VBO mesh from post data
+    void BuildFlatSlopeMesh();                      // Builds VBO mesh for analytic flat slope
     int GetPixelHeightAt( int xCoord, int yCoord ); // Returns the .raw height at the specified pixel coordinates
 };
 } // namespace Geometry

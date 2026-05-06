@@ -15,6 +15,7 @@ TestScene::TestScene()
     m_screenshotPath[0] = '\0';
     m_perfLogPath[0] = '\0';
     m_physicsLogPath[0] = '\0';
+    m_rollLogPath[0] = '\0';
     m_screenshotFrame = -1;
     m_screenshotMs = -1;
     m_seed = 0;
@@ -23,6 +24,12 @@ TestScene::TestScene()
     m_screenshotDir[0] = '\0';
     m_timeScale = 1.0f;
     m_isDebugVectors = false;
+    m_trackHeight = -1.0f;
+    m_autoCycleInterval = -1.0f;
+    m_hasFlatSlope = false;
+    m_flatBaseY = 0.0f;
+    m_flatSlopeX = 0.0f;
+    m_flatSlopeZ = 0.0f;
 }
 
 
@@ -206,6 +213,13 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
+        // parse roll_log directive
+        if ( strncmp( line, "roll_log ", 9 ) == 0 )
+        {
+            strcpy_s( scene.m_rollLogPath, sizeof( scene.m_rollLogPath ), line + 9 );
+            continue;
+        }
+
         // parse screenshot_interval directive: screenshot_interval <dir> <N>
         if ( strncmp( line, "screenshot_interval ", 20 ) == 0 )
         {
@@ -259,16 +273,31 @@ TestScene TestScene::LoadFromFile( const char* path )
         {
             SceneBall ball;
             memset( &ball, 0, sizeof( ball ) );
+            ball.hasInitOrient = false;
 
-            // try full line (with force)
-            int parsed = sscanf_s( line + 5, "%63s %f %f %f %f %f %f %f %f %f %f %f %f %f", ball.name, static_cast<unsigned>( sizeof( ball.name ) ), &ball.posX, &ball.posY, &ball.posZ, &ball.m_radius, &ball.m_mass, &ball.moment, &ball.restitution, &ball.forceX, &ball.forceY, &ball.forceZ, &ball.forcePosX, &ball.forcePosY, &ball.forcePosZ );
+            // try full line (with force + euler orient)
+            int parsed = sscanf_s( line + 5, "%63s %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f", ball.name, static_cast<unsigned>( sizeof( ball.name ) ), &ball.posX, &ball.posY, &ball.posZ, &ball.m_radius, &ball.m_mass, &ball.moment, &ball.restitution, &ball.forceX, &ball.forceY, &ball.forceZ, &ball.forcePosX, &ball.forcePosY, &ball.forcePosZ, &ball.eulerX, &ball.eulerY, &ball.eulerZ );
 
-            if ( parsed != 14 && parsed != 8 )
+            if ( parsed == 17 )
             {
-                fclose( file );
-                char msg[256];
-                sprintf_s( msg, sizeof( msg ), "Invalid ball at line %d (expected 8 or 14 fields, got %d)  (TestScene::LoadFromFile)", lineNumber, parsed );
-                throw std::runtime_error( msg );
+                ball.hasInitOrient = true;
+            }
+            else if ( parsed != 14 )
+            {
+                // Try no-force format (8 base + optional 3 euler)
+                parsed = sscanf_s( line + 5, "%63s %f %f %f %f %f %f %f %f %f %f", ball.name, static_cast<unsigned>( sizeof( ball.name ) ), &ball.posX, &ball.posY, &ball.posZ, &ball.m_radius, &ball.m_mass, &ball.moment, &ball.restitution, &ball.eulerX, &ball.eulerY, &ball.eulerZ );
+
+                if ( parsed == 11 )
+                {
+                    ball.hasInitOrient = true;
+                }
+                else if ( parsed != 8 )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid ball at line %d (expected 8, 11, 14 or 17 fields, got %d)  (TestScene::LoadFromFile)", lineNumber, parsed );
+                    throw std::runtime_error( msg );
+                }
             }
 
             scene.m_balls.push_back( ball );
@@ -308,6 +337,55 @@ TestScene TestScene::LoadFromFile( const char* path )
                 sprintf_s( msg, sizeof( msg ), "Invalid debug_vectors value at line %d  (TestScene::LoadFromFile)", lineNumber );
                 throw std::runtime_error( msg );
             }
+            continue;
+        }
+
+        // parse track_height directive
+        if ( strncmp( line, "track_height ", 13 ) == 0 )
+        {
+            float val = static_cast<float>( atof( line + 13 ) );
+            if ( val <= 0.0f )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid track_height at line %d (must be > 0)  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            scene.m_trackHeight = val;
+            continue;
+        }
+
+        // parse auto_cycle_interval directive
+        if ( strncmp( line, "auto_cycle_interval ", 20 ) == 0 )
+        {
+            float val = static_cast<float>( atof( line + 20 ) );
+            if ( val <= 0.0f )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid auto_cycle_interval at line %d (must be > 0)  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            scene.m_autoCycleInterval = val;
+            continue;
+        }
+
+        // parse flat_slope directive: flat_slope <baseY> <slopeX> <slopeZ>
+        if ( strncmp( line, "flat_slope ", 11 ) == 0 )
+        {
+            float baseY = 0.0f, slopeX = 0.0f, slopeZ = 0.0f;
+            int parsed = sscanf_s( line + 11, "%f %f %f", &baseY, &slopeX, &slopeZ );
+            if ( parsed != 3 )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid flat_slope at line %d (expected: flat_slope <baseY> <slopeX> <slopeZ>)  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            scene.m_hasFlatSlope = true;
+            scene.m_flatBaseY = baseY;
+            scene.m_flatSlopeX = slopeX;
+            scene.m_flatSlopeZ = slopeZ;
             continue;
         }
 
@@ -390,6 +468,12 @@ const char* TestScene::GetPhysicsLogPath() const
 }
 
 
+const char* TestScene::GetRollLogPath() const
+{
+    return m_rollLogPath;
+}
+
+
 int TestScene::GetScreenshotInterval() const
 {
     return m_screenshotInterval;
@@ -417,6 +501,42 @@ float TestScene::GetTimeScale() const
 bool TestScene::IsDebugVectors() const
 {
     return m_isDebugVectors;
+}
+
+
+float TestScene::GetTrackHeight() const
+{
+    return m_trackHeight;
+}
+
+
+float TestScene::GetAutoCycleInterval() const
+{
+    return m_autoCycleInterval;
+}
+
+
+bool TestScene::HasFlatSlope() const
+{
+    return m_hasFlatSlope;
+}
+
+
+float TestScene::GetFlatBaseY() const
+{
+    return m_flatBaseY;
+}
+
+
+float TestScene::GetFlatSlopeX() const
+{
+    return m_flatSlopeX;
+}
+
+
+float TestScene::GetFlatSlopeZ() const
+{
+    return m_flatSlopeZ;
 }
 
 

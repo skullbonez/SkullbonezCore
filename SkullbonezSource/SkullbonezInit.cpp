@@ -11,6 +11,7 @@
 #include <cstring>
 #include <vector>
 #include <string>
+#include <io.h>
 
 
 // --- Usings ---
@@ -34,6 +35,15 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     // Supress benign (level 4) warnings
     hPrevInstance;
     iCmdShow;
+
+    // GUI apps have no console by default — attach to the parent terminal so
+    // fprintf(stderr/stdout) is visible when launched from cmd/PowerShell.
+    if ( AttachConsole( ATTACH_PARENT_PROCESS ) )
+    {
+        FILE* dummy = nullptr;
+        freopen_s( &dummy, "CONOUT$", "w", stdout );
+        freopen_s( &dummy, "CONOUT$", "w", stderr );
+    }
 
     // Build the ordered list of scene paths to run.
     // Each entry is either a .scene path (scene/suite mode) or "" (legacy mode).

@@ -37,6 +37,8 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     m_projectedSurfaceArea = 0.0f;
     m_dragCoefficient = 0.0f;
     m_isResponseRequired = false;
+    m_name[0] = '\0';
+    m_isGrounded = false;
 }
 
 
@@ -59,9 +61,65 @@ void GameModel::SetCoefficientRestitution( float fCoefficientRestitution )
 }
 
 
+void GameModel::SetInitialOrientation( float fEulerXDeg, float fEulerYDeg, float fEulerZDeg )
+{
+    static constexpr float DEG2RAD = 3.14159265f / 180.0f;
+    float x = fEulerXDeg * DEG2RAD;
+    float y = fEulerYDeg * DEG2RAD;
+    float z = fEulerZDeg * DEG2RAD;
+    float xHalf = x * 0.5f;
+    float yHalf = y * 0.5f;
+    float zHalf = z * 0.5f;
+
+    Quaternion xRotation( sinf( xHalf ), 0.0f, 0.0f, cosf( xHalf ) );
+    Quaternion yRotation( 0.0f, sinf( yHalf ), 0.0f, cosf( yHalf ) );
+    Quaternion zRotation( 0.0f, 0.0f, sinf( zHalf ), cosf( zHalf ) );
+
+    Quaternion q;
+    q *= xRotation * yRotation * zRotation;
+    q.Normalise();
+    m_physicsInfo.SetOrientation( q );
+}
+
+
+void GameModel::SetName( const char* name )
+{
+    strncpy_s( m_name, sizeof( m_name ), name, _TRUNCATE );
+}
+
+
+const char* GameModel::GetName() const
+{
+    return m_name;
+}
+
+
+void GameModel::SetGrounded( bool grounded )
+{
+    m_isGrounded = grounded;
+}
+
+
+bool GameModel::IsGrounded() const
+{
+    return m_isGrounded;
+}
+
+
 float GameModel::GetBoundingRadius()
 {
     return GetShapeBoundingRadius( m_boundingVolume );
+}
+
+
+Vector3 GameModel::GetOrientationUp()
+{
+    // Returns local Y axis (0,1,0) rotated into world space using the same
+    // visual rotation applied in GetModelMatrix() — so the vector tracks
+    // exactly what the sphere's "north pole" is doing on screen.
+    Matrix4 rotation = Matrix4::FromQuaternion( m_physicsInfo.GetOrientation() )
+                       * Matrix4::RotateAxis( 90.0f, 0.0f, 1.0f, 0.0f );
+    return Vector3( rotation.m[4], rotation.m[5], rotation.m[6] );
 }
 
 
@@ -183,7 +241,10 @@ bool GameModel::IsResponseRequired()
 
 Matrix4 GameModel::GetModelMatrix()
 {
-    Matrix4 rotation = Matrix4::FromQuaternion( m_physicsInfo.GetOrientation() );
+    // Visual-only 90° Y yaw to align the sphere's texture/poles with its roll axis.
+    // Physics orientation is untouched — this only affects what the shader sees.
+    Matrix4 rotation = Matrix4::FromQuaternion( m_physicsInfo.GetOrientation() )
+                       * Matrix4::RotateAxis( 90.0f, 0.0f, 1.0f, 0.0f );
     return GetShapeModelMatrix( m_boundingVolume, m_physicsInfo.GetPosition(), rotation );
 }
 

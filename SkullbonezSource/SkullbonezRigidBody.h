@@ -83,6 +83,7 @@ class RigidBody
     float GetDensity();                                                                     // Calculates and returns the density of the body
     void SetLinearVelocity( const Vector3& vLinear );                                       // Set the linear velocity of the rigid body
     void SetAngularVelocity( const Vector3& vAngular );                                     // Set the angular velocity of the rigid body
+    void SetOrientation( const Quaternion& q );                                             // Set the initial orientation quaternion directly
     void SetImpulseForce( const Vector3& vImpulseForce, const Vector3& vApplicationPoint ); // Set an impulse force to the rigid body
     void SetWorldForce( const Vector3& vWorldForce, const Vector3& vWorldTorque );          // Sets the forces being acted upon the object by the world environment
     void UpdateRollPosition( float changeInTime, float circumference );                     // Update the rigid body's position when rolling (supply circumference of the body)

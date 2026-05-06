@@ -56,6 +56,7 @@ class CameraCollection
     const Vector3& GetCameraTranslation();                // Returns the current translation of the primary camera
     const Vector3& GetCameraTranslation( uint32_t hash ); // Returns the current translation of the specified camera
     void SetViewCoordinates( const Vector3& vView );      // Sets the primary camera view position (helpful for keeping focused on an object)
+    void SetPrimaryPosition( const Vector3& vPos );       // Directly sets the primary camera world position (used for tracking cameras)
     void SetTweenSpeed( float fTweenSpeed );              // Sets the tween transition speed
     void SetCamera();                                     // Takes care of setting the camera in the specified position.  Should be called once per frame when the camera has been updated
     bool IsPrimaryLocked();                               // Returns whether the primary camera is in locked mode or not

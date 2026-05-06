@@ -9,6 +9,10 @@
 #include <time.h>
 #include <cstring>
 #include <psapi.h>
+#include <cmath>
+
+// Define to enable per-frame omega/velocity angle logging to Debug/vector_log.csv
+#define VECTOR_LOG_ENABLED
 
 
 // --- Usings ---
@@ -38,6 +42,7 @@ SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
     m_perfLogPath[0] = '\0';
     m_perfLogFile = nullptr;
     m_physicsLogFile = nullptr;
+    m_rollLogFile = nullptr;
 
     // Engine state
     m_cCameras = 0;
@@ -59,6 +64,11 @@ SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
     m_isDebugVectors = false;
     m_timeScale = 1.0f;
     m_frozenWaterTime = 0.0f;
+    m_trackBallIndex = -1;
+    m_trackHeight = 300.0f;
+    m_autoCycleInterval = -1.0f;
+    m_autoCycleAccum = 0.0f;
+    m_autoCycleShotsTaken = 0;
     m_sInputState = {};
     m_modelCount = 0;
 }
@@ -77,6 +87,13 @@ SkullbonezRun::~SkullbonezRun()
         CollisionResponse::SetPhysicsLog( nullptr );
         fclose( m_physicsLogFile );
         m_physicsLogFile = nullptr;
+    }
+
+    if ( m_rollLogFile )
+    {
+        m_cGameModelCollection.SetRollLog( nullptr );
+        fclose( m_rollLogFile );
+        m_rollLogFile = nullptr;
     }
 
     // Flush GPU before destroying resources to avoid use-after-free
@@ -300,6 +317,31 @@ void SkullbonezRun::Run()
                 }
             }
 
+            // Auto-cycle screenshots (scene directive: auto_cycle_interval N).
+            // Every N real seconds: screenshot current tracked ball, cycle to next, exit when all done.
+            if ( m_isSceneMode && m_autoCycleInterval > 0.0f && m_autoCycleAccum >= m_autoCycleInterval )
+            {
+                int ballCount = m_cGameModelCollection.GetModelCount();
+                char shotPath[256];
+                sprintf_s( shotPath, sizeof( shotPath ), "Profile/cardinal_ball%d.bmp", m_autoCycleShotsTaken );
+                SaveScreenshot( shotPath );
+                fprintf( stdout, "Auto-shot %d: ball index %d -> %s\n", m_autoCycleShotsTaken, m_trackBallIndex, shotPath );
+                fflush( stdout );
+
+                ++m_autoCycleShotsTaken;
+                m_autoCycleAccum = 0.0f;
+
+                if ( m_autoCycleShotsTaken >= ballCount )
+                {
+                    // All balls captured — done
+                    PostQuitMessage( 0 );
+                }
+                else
+                {
+                    m_trackBallIndex = ( m_trackBallIndex + 1 ) % ballCount;
+                }
+            }
+
             // Swap back buffer
             PROFILE_BEGIN( "Frame/VsyncWait" );
             Gfx().Present();
@@ -404,15 +446,20 @@ void SkullbonezRun::TakeInput()
     {
         if ( m_isFlyMode )
         {
-            // Entering fly mode: snap to free camera (no tween), remove XZ bounds, hide and centre mouse
-            m_cCameras->SelectCamera( CAMERA_FREE, false );
+            // Entering fly mode: in legacy mode snap to free camera; in scene mode stay
+            // on the current camera so fly controls work without requiring CAMERA_FREE
+            if ( !m_isSceneMode )
+            {
+                m_cCameras->SelectCamera( CAMERA_FREE, false );
+            }
             m_cameraTime = 0.0f;
             XZBounds unbounded;
             unbounded.m_xMin = -99999.9f;
             unbounded.m_xMax = 99999.9f;
             unbounded.m_zMin = -99999.9f;
             unbounded.m_zMax = 99999.9f;
-            m_cCameras->SetCameraXZBounds( CAMERA_FREE, unbounded );
+            uint32_t activeCam = m_isSceneMode ? m_cCameras->GetSelectedCameraName() : CAMERA_FREE;
+            m_cCameras->SetCameraXZBounds( activeCam, unbounded );
             SetCursor( nullptr );
             Input::CentreMouseCoordinates();
             m_sInputState.xMove = 0;
@@ -421,7 +468,8 @@ void SkullbonezRun::TakeInput()
         else
         {
             // Exiting fly mode: restore m_terrain XZ bounds, cursor, camera cycle clock
-            m_cCameras->SetCameraXZBounds( CAMERA_FREE, m_cTerrain->GetXZBounds() );
+            uint32_t activeCam = m_isSceneMode ? m_cCameras->GetSelectedCameraName() : CAMERA_FREE;
+            m_cCameras->SetCameraXZBounds( activeCam, m_cTerrain->GetXZBounds() );
             SetCursor( LoadCursor( nullptr, IDC_ARROW ) );
             m_cameraTime = 0.0f;
         }
@@ -436,10 +484,53 @@ void SkullbonezRun::TakeInput()
     }
     m_isWaterNoReflect = ( Input::IsKeyToggled( '2' ) != 0 ); // Reflection default ON
     m_isWaterFlatDebug = ( Input::IsKeyToggled( '3' ) != 0 ); // Ocean wave displacement ON
-    m_isDebugVectors = ( Input::IsKeyToggled( '9' ) != 0 );   // Debug velocity/omega vectors OFF by default
+    // Debug vectors: in scene mode, start from the scene-loaded value and edge-detect '9' toggles.
+    // In legacy mode, mirror the Windows key-toggle state.
+    if ( m_isSceneMode )
+    {
+        if ( Input::IsKeyDown( '9' ) && !m_sInputState.f9WasDown )
+        {
+            m_isDebugVectors = !m_isDebugVectors;
+        }
+        m_sInputState.f9WasDown = Input::IsKeyDown( '9' );
+    }
+    else
+    {
+        m_isDebugVectors = ( Input::IsKeyToggled( '9' ) != 0 );
+    }
 
-    // Profiler overlay default ON; pressing '0' toggles the OS-level toggle bit, hiding the overlay.
-    m_isProfilerOverlay = ( Input::IsKeyToggled( '0' ) == 0 );
+    // G key: cycle the tracked ball index (scene mode with tracking active)
+    if ( m_isSceneMode && m_trackBallIndex >= 0 )
+    {
+        if ( Input::IsKeyDown( 'G' ) && !m_sInputState.fGKeyWasDown )
+        {
+            //
+            // HACK IN A TIMER TO GET HERE EVERY 10 SECONDS AND TAKE A SCREENSHOT FOR THIS TEST.
+            //
+            int count = m_cGameModelCollection.GetModelCount();
+            if ( count > 0 )
+            {
+                m_trackBallIndex = ( m_trackBallIndex + 1 ) % count;
+            }
+        }
+        m_sInputState.fGKeyWasDown = Input::IsKeyDown( 'G' );
+    }
+
+    // Profiler overlay: same edge-detection pattern as debug vectors — starts from scene-loaded
+    // default in scene mode, mirrors Windows key-toggle state in legacy mode.
+    if ( m_isSceneMode )
+    {
+        if ( Input::IsKeyDown( '0' ) && !m_sInputState.f0WasDown )
+        {
+            m_isProfilerOverlay = !m_isProfilerOverlay;
+        }
+        m_sInputState.f0WasDown = Input::IsKeyDown( '0' );
+    }
+    else
+    {
+        // Profiler overlay default ON; pressing '0' toggles the OS-level toggle bit, hiding the overlay.
+        m_isProfilerOverlay = ( Input::IsKeyToggled( '0' ) == 0 );
+    }
 
     if ( m_isFlyMode )
     {
@@ -481,6 +572,59 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
         m_cGameModelCollection.RunPhysics( fSecondsPerFrame );
         PROFILE_END( "Frame/Physics" );
     }
+
+    // Auto-cycle: accumulate real (unscaled) time; fires every m_autoCycleInterval seconds
+    if ( m_isSceneMode && m_autoCycleInterval > 0.0f )
+    {
+        m_autoCycleAccum += fSecondsPerFrame;
+    }
+
+#ifdef VECTOR_LOG_ENABLED
+    // Per-frame log: angle between horizontal velocity and omega, plus magnitude ratio.
+    // Logs every 6 frames to keep file size manageable.
+    // Open once; file stays open until process exits.
+    if ( m_isSceneMode && ( m_currentFrame % 6 == 0 ) )
+    {
+        static FILE* sVectorLog = nullptr;
+        if ( !sVectorLog )
+        {
+            fopen_s( &sVectorLog, "Debug/vector_log.csv", "w" );
+            if ( sVectorLog )
+            {
+                fprintf( sVectorLog, "frame,ball,vx,vz,ox,oz,vmag_xz,omag_xz,ratio_o_over_v,angle_deg\n" );
+            }
+        }
+        if ( sVectorLog )
+        {
+            int count = m_cGameModelCollection.GetModelCount();
+            for ( int i = 0; i < count; ++i )
+            {
+                GameModel& mdl = m_cGameModelCollection.GetModelAtIndex( i );
+                const Vector3& v = mdl.GetVelocity();
+                const Vector3& omega = mdl.GetAngularVelocity();
+
+                float vmag  = sqrtf( v.x * v.x + v.z * v.z );
+                float omag  = sqrtf( omega.x * omega.x + omega.z * omega.z );
+
+                float ratio = ( vmag > 0.001f ) ? omag / vmag : 0.0f;
+
+                float angle = 0.0f;
+                if ( vmag > 0.001f && omag > 0.001f )
+                {
+                    float dot = ( v.x * omega.x + v.z * omega.z ) / ( vmag * omag );
+                    dot = ( dot < -1.0f ) ? -1.0f : ( dot > 1.0f ) ? 1.0f : dot;
+                    angle = acosf( dot ) * ( 180.0f / 3.14159265f );
+                }
+
+                fprintf( sVectorLog, "%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.1f\n",
+                         m_currentFrame, i,
+                         v.x, v.z, omega.x, omega.z,
+                         vmag, omag, ratio, angle );
+            }
+            fflush( sVectorLog );
+        }
+    }
+#endif
 
     // move the camera based on input
     // (arguments are calculating time based movement quantities)
@@ -594,12 +738,19 @@ void SkullbonezRun::DrawPrimitives()
         m_cWorldEnvironment.RenderFluid( baseView, proj, reflVP, waterTime, m_cReflectionFBO->GetColorTextureHandle(), m_isWaterFlatDebug, m_isWaterNoReflect );
     }
 
-    // debug vector overlay (velocity=green, angular velocity=red) — GL only, toggled with V
+    // debug vector overlay — GL only, toggled with V (or debug_vectors in scene)
+    //   green  = Travel Vector (velocity, scaled)
+    //   red    = Roll Axis Vector (angular velocity, scaled)
+    //   white  = Pole Vector outside tolerance
+    //   blue   = Pole Vector within tolerance (perpendicular to red within 5°)
     if ( m_isDebugVectors )
     {
         Matrix4 viewProj = proj * baseView;
         std::vector<std::pair<Vector3, Vector3>> velLines;
         std::vector<std::pair<Vector3, Vector3>> omegaLines;
+        std::vector<std::pair<Vector3, Vector3>> upAlignedLines;
+        std::vector<std::pair<Vector3, Vector3>> upErrorLines;
+        const float axisToleranceRad = 5.0f * _PI / 180.0f;
         int modelCount = m_cGameModelCollection.GetModelCount();
         for ( int i = 0; i < modelCount; ++i )
         {
@@ -611,9 +762,43 @@ void SkullbonezRun::DrawPrimitives()
             const float omegaScale = 2.0f;
             velLines.push_back( { pos, pos + vel * velScale } );
             omegaLines.push_back( { pos, pos + omega * omegaScale } );
+
+            // White spike: starts at sphere centre, points along the visual "up" axis.
+            // Length = 2.5× radius so it clearly protrudes above the ball surface.
+            Vector3 orientUp = mdl.GetOrientationUp();
+            float radius = mdl.GetBoundingRadius();
+            bool isWithinPlaneTolerance = false;
+            float omegaMag = Vector::VectorMag( omega );
+            float orientUpMag = Vector::VectorMag( orientUp );
+            if ( omegaMag > TOLERANCE && orientUpMag > TOLERANCE )
+            {
+                float dotRed = ( orientUp * omega ) / ( orientUpMag * omegaMag );
+                if ( dotRed > 1.0f )
+                {
+                    dotRed = 1.0f;
+                }
+                else if ( dotRed < -1.0f )
+                {
+                    dotRed = -1.0f;
+                }
+                float redPerpDeviationRad = asinf( fabsf( dotRed ) );
+                isWithinPlaneTolerance = ( redPerpDeviationRad <= axisToleranceRad );
+            }
+
+            Vector3 upLineEnd = pos + orientUp * ( radius * 2.5f );
+            if ( isWithinPlaneTolerance )
+            {
+                upAlignedLines.push_back( { pos, upLineEnd } );
+            }
+            else
+            {
+                upErrorLines.push_back( { pos, upLineEnd } );
+            }
         }
         SkullbonezHelper::DrawDebugVectors( viewProj, velLines, 0.0f, 1.0f, 0.0f );
         SkullbonezHelper::DrawDebugVectors( viewProj, omegaLines, 1.0f, 0.0f, 0.0f );
+        SkullbonezHelper::DrawDebugVectors( viewProj, upAlignedLines, 0.0f, 0.0f, 1.0f );
+        SkullbonezHelper::DrawDebugVectors( viewProj, upErrorLines, 1.0f, 1.0f, 1.0f );
     }
 }
 
@@ -699,9 +884,16 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 
 void SkullbonezRun::SetViewingOrientation()
 {
-    // In scene mode, use the first camera without cycling
+    // In scene mode, use the first camera without cycling.
+    // If ball-tracking is active, keep the camera locked onto the selected ball.
     if ( m_isSceneMode )
     {
+        if ( m_trackBallIndex >= 0 && m_trackBallIndex < m_cGameModelCollection.GetModelCount() )
+        {
+            Vector3 ballPos = m_cGameModelCollection.GetModelPosition( m_trackBallIndex );
+            m_cCameras->SetPrimaryPosition( Vector3( ballPos.x, ballPos.y + m_trackHeight, ballPos.z ) );
+            m_cCameras->SetViewCoordinates( ballPos );
+        }
         return;
     }
 
@@ -826,8 +1018,8 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
         m_cCameras->ApplyPrimaryMovementBuffer();
     }
 
-    // Clamp camera Y between m_terrain surface and Cfg().maxCameraHeight (not in fly mode)
-    if ( !m_isFlyMode )
+    // Clamp camera Y between m_terrain surface and Cfg().maxCameraHeight (not in fly mode, not in scene mode)
+    if ( !m_isFlyMode && !m_isSceneMode )
     {
         Vector3 translatedCameraPosition = m_cCameras->GetCameraTranslation();
         float minY = m_cTerrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) + Cfg().minCameraHeight;
@@ -880,7 +1072,12 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 
         gameModel.SetCoefficientRestitution( ball.restitution );
         gameModel.SetTerrain( m_cTerrain.get() );
+        gameModel.SetName( ball.name );
         gameModel.AddBoundingSphere( ball.m_radius );
+
+        // apply initial orientation if specified (euler angles in degrees, XYZ order)
+        if ( ball.hasInitOrient )
+            gameModel.SetInitialOrientation( ball.eulerX, ball.eulerY, ball.eulerZ );
 
         // apply force if any is specified
         if ( ball.forceX != 0.0f || ball.forceY != 0.0f || ball.forceZ != 0.0f )
@@ -950,6 +1147,11 @@ void SkullbonezRun::LoadScene( int index )
     m_isDebugVectors = false;
     m_timeScale = 1.0f;
     m_frozenWaterTime = 0.0f;
+    m_trackBallIndex = -1;
+    m_trackHeight = 300.0f;
+    m_autoCycleInterval = -1.0f;
+    m_autoCycleAccum = 0.0f;
+    m_autoCycleShotsTaken = 0;
     m_sInputState = {};
     m_isProfilerOverlay = true;
     m_selectedCamera = 0;
@@ -988,6 +1190,7 @@ void SkullbonezRun::LoadScene( int index )
         m_targetFrameCount = scene.GetFrameCount();
         m_screenshotFrame = scene.GetScreenshotFrame();
         m_screenshotMs = scene.GetScreenshotMs();
+        m_isProfilerOverlay = false; // Default overlay OFF in scene mode; press '0' to show
 
         if ( scene.GetScreenshotPath()[0] != '\0' )
         {
@@ -1028,10 +1231,34 @@ void SkullbonezRun::LoadScene( int index )
             }
         }
 
+        // Roll log: open text file for per-frame ball orientation diagnostics
+        if ( m_rollLogFile )
+        {
+            m_cGameModelCollection.SetRollLog( nullptr );
+            fclose( m_rollLogFile );
+            m_rollLogFile = nullptr;
+        }
+        const char* pRollPath = scene.GetRollLogPath();
+        if ( pRollPath[0] != '\0' )
+        {
+            fopen_s( &m_rollLogFile, pRollPath, "w" );
+            if ( m_rollLogFile )
+            {
+                m_cGameModelCollection.SetRollLog( m_rollLogFile );
+            }
+        }
+
         // Override RNG seed for deterministic scenes
         if ( scene.GetSeed() > 0 )
         {
             srand( scene.GetSeed() );
+        }
+
+        // Replace terrain with analytic flat slope when the scene requests it
+        if ( scene.HasFlatSlope() )
+        {
+            Gfx().FlushGPU();
+            m_cTerrain = std::make_unique<Terrain>( scene.GetFlatBaseY(), scene.GetFlatSlopeX(), scene.GetFlatSlopeZ() );
         }
 
         SetUpCamerasFromScene( scene );
@@ -1043,6 +1270,14 @@ void SkullbonezRun::LoadScene( int index )
         else
         {
             SetUpGameModelsFromScene( scene );
+        }
+
+        // Ball-tracking camera: enabled when scene specifies a positive track_height
+        if ( scene.GetTrackHeight() > 0.0f )
+        {
+            m_trackHeight = scene.GetTrackHeight();
+            m_trackBallIndex = 0;
+            m_autoCycleInterval = scene.GetAutoCycleInterval(); // -1 if not specified = disabled
         }
 
         const char* rendererName = Gfx().GetRendererName();

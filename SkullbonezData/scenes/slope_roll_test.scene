@@ -1,0 +1,21 @@
+# collision_test: two balls smashing into each other.
+# Close start, high force, no time_scale slowdown.
+
+physics on
+text off
+frames 500
+time_scale 1.0
+physics_log Debug/physics_log.csv
+roll_log Debug/roll_log.txt
+
+# Flat floor at y=90
+flat_slope 90 0.0 0.0
+
+# Top-down camera tracking ballA
+camera top 500 600 500  500 90 500  0 0 -1
+track_height 400
+
+# ballA at x=350, ballB at x=650 — only 300 apart, high force, low restitution
+# 20-unit Z offset for glancing blow
+ball ballA 350 115 490  20.0 50.0 80.0 0.1  4000 0 0  0 0 0
+ball ballB 650 115 510  20.0 50.0 80.0 0.1  -4000 0 0  0 0 0
