@@ -14,7 +14,7 @@ namespace Hardware
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 struct InputState
 {
-    bool fUp, fDown, fLeft, fRight, fAux1, fAux2;
+    bool fUp, fDown, fLeft, fRight, fAux1, fAux2, fGKeyWasDown, f9WasDown, f0WasDown;
     long xMove, yMove;
 };
 

@@ -1,0 +1,8 @@
+seed 42
+physics on
+text off
+frames 200
+time_scale 1.0
+roll_log Debug/legacy_roll_log.txt
+camera free 600 800 600  600 0 600  0 0 -1
+legacy_balls 20

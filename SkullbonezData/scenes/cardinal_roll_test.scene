@@ -1,30 +1,30 @@
 # cardinal_roll_test.scene
-# 4 balls at cardinal directions around the central water area.
-# Each dropped from ~1m above terrain with initial sideways spin.
-# Verifies rolling alignment corrects the spin on ground contact.
+# 4 balls staggered so they NEVER collide - each rolls in isolation outward.
+# Verifies: (1) rolling omega tracks velocity, (2) Y-spin decays, (3) smooth decel to rest.
 
 physics on
 text on
 frames unlimited
 debug_vectors on
-time_scale 0.1
+time_scale 0.2
+track_height 150
+auto_cycle_interval 5
 physics_log Profile/physics_log.csv
 
 # Top-down camera looking straight down at the scene centre
-# Up vector (0,0,-1): north (lower Z) points up on screen
 camera cardinal 500 800 500  500 0 500  0 0 -1
 
-# Force at offset from COM creates torque. force=(500,0,0) at offset=(0,0,10)
-# gives torque.y = 5000, creating strong Y-axis spin (wrong axis for rolling).
+# Each ball rolls AWAY from centre, on completely different X or Z lanes.
+# Force offset (10,0,0) or (0,0,10) gives a small Y-axis torque to watch decay.
 
-# North ball: rolls south, starts with strong Y-spin
-ball north 500 90 350  10.0 50.0 20.0 0.3  500 0 0  0 0 10
+# North ball: at (400,90,350), rolls north (force -Z), unique X lane
+ball north 400 90 380  10.0 50.0 20.0 0.3  0 0 -500  10 0 0
 
-# South ball: rolls north, starts with strong Y-spin
-ball south 500 90 650  10.0 50.0 20.0 0.3  500 0 0  0 0 10
+# South ball: at (600,90,650), rolls south (force +Z), unique X lane
+ball south 600 90 620  10.0 50.0 20.0 0.3  0 0 500  10 0 0
 
-# East ball: rolls west, starts with strong Y-spin
-ball east 650 90 500  10.0 50.0 20.0 0.3  500 0 0  0 0 10
+# East ball: at (650,90,400), rolls east (force +X), unique Z lane
+ball east 620 90 400  10.0 50.0 20.0 0.3  500 0 0  0 0 10
 
-# West ball: rolls east, starts with strong Y-spin
-ball west 350 90 500  10.0 50.0 20.0 0.3  500 0 0  0 0 10
+# West ball: at (350,90,600), rolls west (force -X), unique Z lane
+ball west 380 90 600  10.0 50.0 20.0 0.3  -500 0 0  0 0 10

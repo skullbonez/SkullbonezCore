@@ -16,7 +16,7 @@ static constexpr int SHADOW_INSTANCE_FLOATS = 17;
 
 
 GameModelCollection::GameModelCollection()
-    : m_spatialGrid( Cfg().broadphaseCell )
+    : m_spatialGrid( Cfg().broadphaseCell ), m_rollLog( nullptr )
 {
     m_gameModels.reserve( MAX_GAME_MODELS );
     m_shadowInstanceData.reserve( MAX_GAME_MODELS * SHADOW_INSTANCE_FLOATS );
@@ -26,12 +26,24 @@ void GameModelCollection::AddGameModel( GameModel gameModel )
 {
     assert( static_cast<int>( m_gameModels.size() ) < MAX_GAME_MODELS && "Exceeded MAX_GAME_MODELS" );
     m_gameModels.push_back( std::move( gameModel ) );
+    m_planeSeenGreen.push_back( false );
+    m_planeFailed.push_back( false );
+    m_planeBlueStreak.push_back( 0 );
+}
+
+
+void GameModelCollection::SetRollLog( FILE* file )
+{
+    m_rollLog = file;
 }
 
 
 void GameModelCollection::Clear()
 {
     m_gameModels.clear();
+    m_planeSeenGreen.clear();
+    m_planeFailed.clear();
+    m_planeBlueStreak.clear();
 }
 
 
@@ -169,6 +181,7 @@ GameModel& GameModelCollection::GetModelAtIndex( int index )
 void GameModelCollection::RunPhysics( float fChangeInTime )
 {
     std::vector<float> timeRemaining( static_cast<int>( m_gameModels.size() ), fChangeInTime );
+    std::vector<bool>  groundedThisFrame( static_cast<int>( m_gameModels.size() ), false );
 
     // update the velocity of all models
     PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
@@ -251,6 +264,8 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
                 // calculate response and update the remaining time step (m_terrain response advances m_position internally)
                 m_gameModels[x].CollisionResponseTerrain( timeRemaining[x] - colTime );
 
+                groundedThisFrame[x] = true;
+
                 // m_terrain response already advanced m_position; zero remaining time
                 timeRemaining[x] = 0.0f;
             }
@@ -269,6 +284,89 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
         }
     }
     PROFILE_END( "Frame/Physics/Integrate" );
+
+    // Roll orientation log: one line per named ball per frame
+    if ( m_rollLog )
+    {
+        const float axisToleranceRad = 5.0f * _PI / 180.0f;
+        const int lockBlueFrames = 60;
+
+        if ( static_cast<int>( m_planeSeenGreen.size() ) != static_cast<int>( m_gameModels.size() ) ||
+             static_cast<int>( m_planeBlueStreak.size() ) != static_cast<int>( m_gameModels.size() ) )
+        {
+            m_planeSeenGreen.assign( static_cast<int>( m_gameModels.size() ), false );
+            m_planeFailed.assign( static_cast<int>( m_gameModels.size() ), false );
+            m_planeBlueStreak.assign( static_cast<int>( m_gameModels.size() ), 0 );
+        }
+
+        for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
+        {
+            const char* name = m_gameModels[i].GetName();
+            if ( !name[0] )
+                continue;
+
+            bool isGrounded = groundedThisFrame[i];
+            m_gameModels[i].SetGrounded( isGrounded );
+            const char* state = isGrounded ? "LANDED  " : "AIRBORNE";
+            Vector3 spike = m_gameModels[i].GetOrientationUp();
+            Vector3 omega = m_gameModels[i].GetAngularVelocity();
+            Vector3 pos   = m_gameModels[i].GetPosition();
+
+            bool withinPlaneTolerance = false;
+            float omegaMag = VectorMag( omega );
+            float spikeMag = VectorMag( spike );
+            if ( omegaMag > TOLERANCE && spikeMag > TOLERANCE )
+            {
+                float dotRed = ( spike * omega ) / ( spikeMag * omegaMag );
+                if ( dotRed > 1.0f )
+                {
+                    dotRed = 1.0f;
+                }
+                else if ( dotRed < -1.0f )
+                {
+                    dotRed = -1.0f;
+                }
+                float angleFromPerp = asinf( fabsf( dotRed ) );
+                withinPlaneTolerance = ( angleFromPerp <= axisToleranceRad );
+            }
+
+            if ( isGrounded && withinPlaneTolerance )
+            {
+                if ( !m_planeSeenGreen[i] )
+                {
+                    ++m_planeBlueStreak[i];
+                    if ( m_planeBlueStreak[i] >= lockBlueFrames )
+                    {
+                        m_planeSeenGreen[i] = true;
+                    }
+                }
+            }
+            else if ( isGrounded )
+            {
+                m_planeBlueStreak[i] = 0;
+                if ( m_planeSeenGreen[i] )
+                {
+                    m_planeFailed[i] = true;
+                }
+            }
+            else
+            {
+                m_planeBlueStreak[i] = 0;
+            }
+
+            const char* planeState = withinPlaneTolerance ? "BLUE" : "WHITE";
+            const char* failState = m_planeFailed[i] ? "FAIL" : ( m_planeSeenGreen[i] ? "LOCKED" : "UNLOCKED" );
+
+            fprintf( m_rollLog, "[%s] %s  pos.y=%8.2f  spike=(%6.3f, %6.3f, %6.3f)  omega=(%6.3f, %6.3f, %6.3f)  axis=%s  axis_lock=%s\n",
+                     name, state,
+                     pos.y,
+                     spike.x, spike.y, spike.z,
+                     omega.x, omega.y, omega.z,
+                     planeState,
+                     failState );
+        }
+        fflush( m_rollLog );
+    }
 }
 
 

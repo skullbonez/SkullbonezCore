@@ -212,6 +212,12 @@ void CameraCollection::SetViewCoordinates( const Vector3& vView )
 }
 
 
+void CameraCollection::SetPrimaryPosition( const Vector3& vPos )
+{
+    m_cameraArray[m_selectedCamera].m_position = vPos;
+}
+
+
 void CameraCollection::MovePrimary( Camera::TravelDirection enumDir,
                                     float fQuantity )
 {

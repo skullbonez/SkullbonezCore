@@ -212,7 +212,13 @@ void RigidBody::UpdateRollPosition( float changeInTime, float circumference )
     // update the m_position
     m_position += positionUpdate;
 
-    m_orientation.RotateAboutXYZ( -m_angularVelocity * changeInTime );
+    Vector3 omega = m_angularVelocity;
+    float omegaMag = sqrtf( omega.x * omega.x + omega.y * omega.y + omega.z * omega.z );
+    if ( omegaMag > 0.0001f )
+    {
+        Vector3 axis( omega.x / omegaMag, omega.y / omegaMag, omega.z / omegaMag );
+        m_orientation.RotateAboutAxis( axis, omegaMag * changeInTime );
+    }
 }
 
 
@@ -244,10 +250,16 @@ void RigidBody::UpdatePosition( float changeInTime )
     // calculate location based on current linear velocity
     m_position += m_linearVelocity * changeInTime;
 
-    // Negate angular velocity here: the engine's GetOrientationMatrix() returns
-    // the transpose of the standard active-rotation matrix, so the visual spin
-    // direction is the inverse of the physical angular-velocity convention.
-    m_orientation.RotateAboutXYZ( -m_angularVelocity * changeInTime );
+    // World-frame integration: single rotation about the omega axis.
+    // Avoids Euler decomposition (RotateAboutXYZ) which causes gimbal-lock
+    // artifacts when omega has multiple non-zero components.
+    Vector3 omega = m_angularVelocity;
+    float omegaMag = sqrtf( omega.x * omega.x + omega.y * omega.y + omega.z * omega.z );
+    if ( omegaMag > 0.0001f )
+    {
+        Vector3 axis( omega.x / omegaMag, omega.y / omegaMag, omega.z / omegaMag );
+        m_orientation.RotateAboutAxis( axis, omegaMag * changeInTime );
+    }
 }
 
 
@@ -267,7 +279,13 @@ RotationMatrix RigidBody::GetOrientationMatrix( float fTime )
     else
     {
         Quaternion initialOrientation = m_orientation;
-        initialOrientation.RotateAboutXYZ( -m_angularVelocity * fTime );
+        Vector3 omega = m_angularVelocity;
+        float omegaMag = sqrtf( omega.x * omega.x + omega.y * omega.y + omega.z * omega.z );
+        if ( omegaMag > 0.0001f )
+        {
+            Vector3 axis( omega.x / omegaMag, omega.y / omegaMag, omega.z / omegaMag );
+            initialOrientation.RotateAboutAxis( axis, omegaMag * fTime );
+        }
         return initialOrientation.GetOrientationMatrix();
     }
 }
@@ -377,6 +395,12 @@ void RigidBody::SetLinearVelocity( const Vector3& vLinear )
 void RigidBody::SetAngularVelocity( const Vector3& vAngular )
 {
     m_angularVelocity = vAngular;
+}
+
+
+void RigidBody::SetOrientation( const Quaternion& q )
+{
+    m_orientation = q;
 }
 
 

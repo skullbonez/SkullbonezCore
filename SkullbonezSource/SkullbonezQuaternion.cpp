@@ -57,22 +57,46 @@ void Quaternion::RotateAboutXYZ( float xRadians,
                                  float yRadians,
                                  float zRadians )
 {
-    // rotate about m_x, m_y, and m_z respectively
-    Quaternion xRotation = GetQtnRotatedAboutX( xRadians );
-    Quaternion yRotation = GetQtnRotatedAboutY( yRadians );
-    Quaternion zRotation = GetQtnRotatedAboutZ( zRadians );
+    // Treat XYZ inputs as one angular-displacement vector and integrate
+    // with a single axis-angle update to avoid Euler-order coupling.
+    float angleSq = xRadians * xRadians +
+                    yRadians * yRadians +
+                    zRadians * zRadians;
 
-    // accumulate the rotations
-    *this *= xRotation * yRotation * zRotation;
+    if ( angleSq <= TOLERANCE * TOLERANCE )
+    {
+        return;
+    }
 
-    // normalise the quaternion
-    Normalise();
+    float angle = sqrtf( angleSq );
+    float invAngle = 1.0f / angle;
+    RotateAboutAxis( Vector3( xRadians * invAngle,
+                              yRadians * invAngle,
+                              zRadians * invAngle ),
+                     angle );
 }
 
 
 void Quaternion::RotateAboutXYZ( const Vector3& vRadians )
 {
     RotateAboutXYZ( vRadians.x, vRadians.y, vRadians.z );
+}
+
+
+void Quaternion::RotateAboutAxis( const Vector3& axis, float angle )
+{
+    // Single rotation about an arbitrary WORLD-space axis — no Euler decomposition,
+    // no gimbal lock. This codebase uses "anti-Hamilton" quaternion multiplication
+    // (operator* computes Hamilton(q2*q1) when called as q1*q2), and GetOrientationMatrix
+    // returns the transpose of the Hamilton active-rotation matrix. The combination
+    // means: to apply an ACTIVE world rotation by +angle about world axis to the
+    // existing orientation we must left-multiply by the *inverse* delta in code-space
+    // — i.e. negate the axis (or sin) component of delta and pre-multiply.
+    float halfAngle = angle * 0.5f;
+    float s = -sinf( halfAngle );
+    Quaternion delta( axis.x * s, axis.y * s, axis.z * s, cosf( halfAngle ) );
+    *this = delta * *this;
+    Normalise();
 }
 
 

@@ -50,6 +50,8 @@ class GameModel
     float m_projectedSurfaceArea;                       // 2d surface area approximation based on dynamics object list
     float m_dragCoefficient;                            // Calculated based on the average drag coefficient of all dynamics objects
     bool m_isResponseRequired;                          // Indicates whether a response is required or not
+    char m_name[64];                                    // Optional name for logging (empty = unnamed)
+    bool m_isGrounded;                                  // True if ball had terrain contact this physics frame
 
     void CalculateVolume();                                                        // Calculates the volume of the model
     void ApplyWorldForces( float changeInTime );                                   // Apply forces on the body from the world environment
@@ -84,11 +86,17 @@ class GameModel
     void SetImpulseForce( const Vector3& vForce, const Vector3& vApplicationPoint );  // Sets an impulse force for the model
     void SetCoefficientRestitution( float fCoefficientRestitution );                  // Sets the coefficient of restitution for the game model
     void SetWorldForce( const Vector3& vWorldForce, const Vector3& vWorldTorque );    // Sets the worlds forces acting on the model
+    void SetInitialOrientation( float fEulerXDeg, float fEulerYDeg, float fEulerZDeg ); // Sets the initial orientation from euler angles (degrees)
+    void SetName( const char* name );                                                     // Sets the ball's log name (up to 63 chars)
+    const char* GetName() const;                                                          // Returns the ball's log name
+    void SetGrounded( bool grounded );                                                    // Sets the grounded state for this frame
+    bool IsGrounded() const;                                                              // Returns true if ball had terrain contact this frame
     void AddBoundingSphere( float fRadius );                                          // Add a bounding sphere to the game model
     float CollisionDetectGameModel( GameModel& collisionTarget, float changeInTime ); // Collision detect model against model
     void CollisionResponseGameModel( GameModel& responseTarget );                     // Collision response model against model (velocity-only)
     void StaticOverlapResponseGameModel( GameModel& overlapTarget );                  // Check for static overlap and push apart if overlapping
     float GetBoundingRadius();                                                        // Returns the radius of the bounding sphere
+    Vector3 GetOrientationUp();                                                       // Returns local Y axis (0,1,0) rotated into world space by the visual orientation
 };
 } // namespace GameObjects
 } // namespace SkullbonezCore

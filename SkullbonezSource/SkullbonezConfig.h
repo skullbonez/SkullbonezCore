@@ -60,7 +60,8 @@ class SkullbonezConfig
     float sphereDragCoeff = 0.4f;
     float frictionCoeff = 0.1f;
     float rollingFrictionCoeff = 0.02f;
-    float rollAlignRate = 5.0f;
+    float spinFrictionCoeff = 0.3f;
+    float rollAlignRate = 30.0f;
     float contactRestitutionThreshold = 2.0f;
     float contactEpsilon = 0.05f;
     float broadphaseCell = 11.0f;

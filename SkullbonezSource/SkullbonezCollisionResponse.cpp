@@ -8,6 +8,7 @@
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Math;
 using namespace SkullbonezCore::Math::Vector;
+using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::CollisionDetection;
 
 
@@ -116,36 +117,33 @@ void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel, float cha
                 omega += Vector::CrossProduct( rContact, frictionImpulse ) / inertia;
             }
 
-            // --- Spin damping: damp world-Y (top-spin) angular velocity ---
-            // Coulomb friction is blind to omega.y because (omega×rContact).y == 0
-            // for flat terrain. The previous normal-projected approach also removed
-            // omega.z on steep slopes, which negated rolling omega.
-            // Damping only omega.y, weighted by normal.y², leaves rolling intact
-            // and fades naturally to zero on steep contacts.
-            if ( fabsf( omega.y ) > TOLERANCE )
+            // --- Spin damping (drill friction): damp spin about contact normal ---
+            // On curved terrain, true rolling can require a non-zero world Y component.
+            // Damping world omega.y directly destroys that coupling and causes visual
+            // orientation drift.  Instead, damp only the scalar spin around the contact
+            // normal; keep no-slip rolling in the tangent plane untouched.
+            float normalForce = mass * fabsf( Cfg().gravity ) * fabsf( normal.y );
+            float inertiaNormal =
+                inertia.x * normal.x * normal.x +
+                inertia.y * normal.y * normal.y +
+                inertia.z * normal.z * normal.z;
+            if ( inertiaNormal < TOLERANCE )
             {
-                float mu = gameModel.m_physicsInfo.GetFrictionCoefficient();
-                float maxYDelta = mu * jn * radius * normal.y * normal.y / inertia.y;
-                float yCorrection = fabsf( omega.y ) > maxYDelta
-                                        ? maxYDelta * ( omega.y > 0.0f ? 1.0f : -1.0f )
-                                        : omega.y;
-                omega.y -= yCorrection;
+                inertiaNormal = inertia.y;
             }
-
-            // --- Rolling alignment: snap omega to pure-rolling on ground contact ---
-            // Pure rolling for velocity v on surface with normal n:
-            //   omega = (n × v) / r
-            // This forces the spin axis to match the travel direction immediately,
-            // eliminating sideways spin artifacts from bounces/sphere-sphere.
-            float tangentSpeed = Vector::VectorMag( velocity - normal * ( velocity * normal ) );
-            if ( tangentSpeed > TOLERANCE )
+            float spinOmega = omega * normal;
+            float spinDecel = Cfg().spinFrictionCoeff * normalForce * radius / inertiaNormal;
+            float maxSpinDelta = spinDecel * changeInTime;
+            if ( fabsf( spinOmega ) <= maxSpinDelta )
             {
-                Vector3 omegaTarget = Vector::CrossProduct( normal, velocity ) / radius;
-                omega = omegaTarget;
+                spinOmega = 0.0f;
+            }
+            else
+            {
+                spinOmega -= maxSpinDelta * ( spinOmega > 0.0f ? 1.0f : -1.0f );
             }
 
             // --- Rolling friction (small constant torque opposing spin) ---
-            float normalForce = mass * fabsf( Cfg().gravity ) * normal.y;
             float rollingDecel = Cfg().rollingFrictionCoeff * normalForce / mass;
             float speed = Vector::VectorMag( velocity - normal * ( velocity * normal ) );
             if ( speed > TOLERANCE )
@@ -160,14 +158,96 @@ void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel, float cha
                 velocity -= moveDir * deltaV;
             }
 
+            // Enforce full no-slip rolling on the tangent plane and preserve only
+            // the (damped) drill spin around the contact normal.
+            Vector3 rollingOmega = Vector::CrossProduct( velocity, normal ) / radius;
+            rollingOmega = rollingOmega * -1.0f;
+            omega = rollingOmega + normal * spinOmega;
+
+            // After slip settles, the Pole Vector should rotate about the Roll Axis.
+            // Gradually remove any Pole component along omega so Pole -> perpendicular
+            // to the red axis while preserving smooth motion.
+            float omegaMagSq = omega.x * omega.x +
+                               omega.y * omega.y +
+                               omega.z * omega.z;
+            if ( omegaMagSq > TOLERANCE * TOLERANCE )
+            {
+                float omegaMag = sqrtf( omegaMagSq );
+                Vector3 omegaDir = omega / omegaMag;
+
+                Vector3 pole = gameModel.GetOrientationUp();
+                float poleMag = Vector::VectorMag( pole );
+                if ( poleMag > TOLERANCE )
+                {
+                    pole /= poleMag;
+                    float poleAlongOmega = pole * omegaDir;
+
+                    Vector3 targetPole = pole - omegaDir * poleAlongOmega;
+                    float targetMag = Vector::VectorMag( targetPole );
+                    if ( targetMag <= TOLERANCE )
+                    {
+                        // Degenerate case: pick a stable perpendicular from velocity.
+                        targetPole = velocity - omegaDir * ( velocity * omegaDir );
+                        targetMag = Vector::VectorMag( targetPole );
+                    }
+
+                    if ( targetMag > TOLERANCE )
+                    {
+                        targetPole /= targetMag;
+                        float dotPole = pole * targetPole;
+                        if ( dotPole > 1.0f )
+                        {
+                            dotPole = 1.0f;
+                        }
+                        else if ( dotPole < -1.0f )
+                        {
+                            dotPole = -1.0f;
+                        }
+
+                        float correctionAngle = acosf( dotPole );
+                        if ( correctionAngle > TOLERANCE )
+                        {
+                            Vector3 correctionAxis = Vector::CrossProduct( pole, targetPole );
+                            float correctionAxisMag = Vector::VectorMag( correctionAxis );
+                            if ( correctionAxisMag > TOLERANCE )
+                            {
+                                correctionAxis /= correctionAxisMag;
+                                Quaternion q = gameModel.m_physicsInfo.GetOrientation();
+                                q.RotateAboutAxis( correctionAxis, correctionAngle );
+                                gameModel.m_physicsInfo.SetOrientation( q );
+                            }
+                        }
+                    }
+                }
+            }
+
             gameModel.m_physicsInfo.SetLinearVelocity( velocity );
             gameModel.m_physicsInfo.SetAngularVelocity( omega );
 
-            // Log post-collision state
+            // Log post-collision state (perpDeg is the key rolling-stability metric:
+            // angle between Pole and the perpendicular plane of omega; should stay near 0).
             if ( s_physicsLog )
             {
                 Vector3 pos = gameModel.m_physicsInfo.GetPosition();
-                fprintf( s_physicsLog, "terrain,%d,%.2f,%.2f,%.2f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n", s_physicsFrame, pos.x, pos.y, pos.z, velBefore.x, velBefore.y, velBefore.z, omegaBefore.x, omegaBefore.y, omegaBefore.z, velocity.x, velocity.y, velocity.z, omega.x, omega.y, omega.z );
+                Vector3 polePost = gameModel.GetOrientationUp();
+                float oMag = sqrtf( omega.x * omega.x + omega.y * omega.y + omega.z * omega.z );
+                float pMag = Vector::VectorMag( polePost );
+                float perpDeg = 0.0f;
+                if ( oMag > TOLERANCE && pMag > TOLERANCE )
+                {
+                    float dotN = ( polePost * omega ) / ( pMag * oMag );
+                    if ( dotN > 1.0f ) dotN = 1.0f;
+                    if ( dotN < -1.0f ) dotN = -1.0f;
+                    perpDeg = asinf( fabsf( dotN ) ) * ( 180.0f / _PI );
+                }
+                fprintf( s_physicsLog,
+                         "terrain,%d,%.2f,%.2f,%.2f,vel=(%.3f,%.3f,%.3f),omega=(%.3f,%.3f,%.3f),pole=(%.3f,%.3f,%.3f),perpDeg=%.3f,n=(%.3f,%.3f,%.3f)\n",
+                         s_physicsFrame, pos.x, pos.y, pos.z,
+                         velocity.x, velocity.y, velocity.z,
+                         omega.x, omega.y, omega.z,
+                         polePost.x, polePost.y, polePost.z,
+                         perpDeg,
+                         normal.x, normal.y, normal.z );
             }
         } },
                 gameModel.m_boundingVolume );

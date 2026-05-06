@@ -16,6 +16,10 @@ Terrain::Terrain( const char* sFileName,
     m_mapSize = iMapSize;
     m_stepSize = iStepSize;
     m_textureWrap = iTextureWrap;
+    m_isFlatSlope = false;
+    m_slopeBaseY = 0.0f;
+    m_slopeX = 0.0f;
+    m_slopeZ = 0.0f;
 
     m_terrainSizeWorldCoords = ( ( m_mapSize - m_stepSize ) /
                                  m_stepSize ) *
@@ -42,6 +46,33 @@ Terrain::Terrain( const char* sFileName,
     // m_height map no longer needed after build
     m_terrainData.clear();
     m_terrainData.shrink_to_fit();
+}
+
+
+Terrain::Terrain( float slopeBaseY, float slopeX, float slopeZ )
+{
+    m_mapSize = 0;
+    m_stepSize = 0;
+    m_textureWrap = 0;
+    m_postsPerSide = 0;
+    m_terrainSizeWorldCoords = 0;
+    m_isFlatSlope = true;
+    m_slopeBaseY = slopeBaseY;
+    m_slopeX = slopeX;
+    m_slopeZ = slopeZ;
+
+    BuildFlatSlopeMesh();
+
+    m_terrainShader = Gfx().CreateShader(
+        "SkullbonezData/shaders/lit_textured.vert",
+        "SkullbonezData/shaders/lit_textured.frag" );
+
+    m_terrainShader->Use();
+    m_terrainShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
+    m_terrainShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
+    m_terrainShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
+    m_terrainShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
+    m_terrainShader->SetInt( "uTexture", 0 );
 }
 
 
@@ -156,6 +187,12 @@ Vector3 Terrain::GetTerrainNormalAt( float xPosition, float zPosition )
 
 bool Terrain::IsInBounds( float xPosition, float zPosition )
 {
+    if ( m_isFlatSlope )
+    {
+        return ( xPosition >= 0.0f && xPosition < 1000.0f &&
+                 zPosition >= 0.0f && zPosition < 1000.0f );
+    }
+
     /*
         Justification for not allowing coordinates to the absolute outer bound:
         -----------------------------------------------------------------------
@@ -186,6 +223,15 @@ XZBounds Terrain::GetXZBounds()
 {
     XZBounds bounds;
 
+    if ( m_isFlatSlope )
+    {
+        bounds.m_xMin = 0.0f;
+        bounds.m_zMin = 0.0f;
+        bounds.m_xMax = 1000.0f;
+        bounds.m_zMax = 1000.0f;
+        return bounds;
+    }
+
     bounds.m_xMin = 0.0f;
     bounds.m_zMin = 0.0f;
     bounds.m_xMax = m_terrainSizeWorldCoords * Cfg().terrainScale;
@@ -201,6 +247,20 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
     if ( !IsInBounds( xPosition, zPosition ) )
     {
         throw std::runtime_error( "Specified co-ordinates are out of m_terrain bounds.  (Terrain::GetTerrainHeightAt)" );
+    }
+
+    if ( m_isFlatSlope )
+    {
+        // Return three points on the analytic plane y = m_slopeBaseY + m_slopeX*x + m_slopeZ*z
+        // Winding order: CCW from above so ComputePlane produces an upward-facing normal (n.y > 0)
+        Triangle tri;
+        float y0 = m_slopeBaseY + m_slopeX * xPosition          + m_slopeZ * zPosition;
+        float y2 = m_slopeBaseY + m_slopeX * xPosition          + m_slopeZ * ( zPosition + 100.0f );
+        float y1 = m_slopeBaseY + m_slopeX * ( xPosition + 100.0f ) + m_slopeZ * zPosition;
+        tri.v1 = Vector3( xPosition,          y0, zPosition );
+        tri.v2 = Vector3( xPosition,          y2, zPosition + 100.0f );  // +Z first
+        tri.v3 = Vector3( xPosition + 100.0f, y1, zPosition );            // +X second
+        return tri;
     }
 
     // NOTE:  X and Z params are switched in this method to account for world
@@ -668,5 +728,68 @@ void Terrain::BuildMesh()
         totalVerts,
         true, // hasNormals
         true  // hasTexCoords
+    );
+}
+
+
+void Terrain::BuildFlatSlopeMesh()
+{
+    // Generate a 40x40 quad grid over [0,1000] x [0,1000]
+    // Height at each point: y = m_slopeBaseY + m_slopeX*x + m_slopeZ*z
+    // Constant normal:       normalize(-m_slopeX, 1.0f, -m_slopeZ)
+
+    const int gridN = 40;
+    const float gridMax = 1000.0f;
+    const float step = gridMax / static_cast<float>( gridN );
+    const float textureWrap = 8.0f;
+
+    float nLen = sqrtf( m_slopeX * m_slopeX + 1.0f + m_slopeZ * m_slopeZ );
+    float nx = -m_slopeX / nLen;
+    float ny =  1.0f    / nLen;
+    float nz = -m_slopeZ / nLen;
+
+    int totalVerts = gridN * gridN * 6;
+    std::vector<float> vertexData;
+    vertexData.reserve( static_cast<size_t>( totalVerts ) * 8 );
+
+    auto pushVert = [&]( float x, float z )
+    {
+        float y = m_slopeBaseY + m_slopeX * x + m_slopeZ * z;
+        vertexData.push_back( x );
+        vertexData.push_back( y );
+        vertexData.push_back( z );
+        vertexData.push_back( nx );
+        vertexData.push_back( ny );
+        vertexData.push_back( nz );
+        vertexData.push_back( ( x / gridMax ) * textureWrap );
+        vertexData.push_back( ( z / gridMax ) * textureWrap );
+    };
+
+    for ( int row = 0; row < gridN; ++row )
+    {
+        for ( int col = 0; col < gridN; ++col )
+        {
+            float x0 = col * step;
+            float x1 = x0 + step;
+            float z0 = row * step;
+            float z1 = z0 + step;
+
+            // Triangle 1 — CCW from above (+Y), front face up
+            pushVert( x0, z0 );
+            pushVert( x0, z1 );
+            pushVert( x1, z0 );
+
+            // Triangle 2 — CCW from above (+Y), front face up
+            pushVert( x0, z1 );
+            pushVert( x1, z1 );
+            pushVert( x1, z0 );
+        }
+    }
+
+    m_terrainMesh = Gfx().CreateMesh(
+        vertexData.data(),
+        totalVerts,
+        true,
+        true
     );
 }

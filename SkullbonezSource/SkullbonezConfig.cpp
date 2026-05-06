@@ -213,6 +213,10 @@ void SkullbonezConfig::Load( const char* path )
         {
             rollingFrictionCoeff = static_cast<float>( atof( v ) );
         }
+        else if ( strcmp( k, "spin_friction_coeff" ) == 0 )
+        {
+            spinFrictionCoeff = static_cast<float>( atof( v ) );
+        }
         else if ( strcmp( k, "roll_align_rate" ) == 0 )
         {
             rollAlignRate = static_cast<float>( atof( v ) );

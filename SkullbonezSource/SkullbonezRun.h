@@ -63,6 +63,7 @@ class SkullbonezRun
     char m_perfLogPath[256];                        // Output path for perf CSV (empty = none)
     FILE* m_perfLogFile;                            // Open handle for perf CSV
     FILE* m_physicsLogFile;                         // Open handle for physics CSV (empty = none)
+    FILE* m_rollLogFile;                            // Open handle for roll orientation log (empty = none)
     int m_selectedCamera;                           // Keeps track of which camera is selected
     int m_modelCount;                               // Number of models in the scene
     float m_physicsTime, m_r_physicsTime;           // Physics time
@@ -92,6 +93,11 @@ class SkullbonezRun
     bool m_isDebugVectors;                          // Draw velocity (green) and angular velocity (red) vectors (toggle with V)
     float m_timeScale;                              // Physics time multiplier from scene file (1.0 = realtime)
     float m_frozenWaterTime;                        // Simulation time captured when freeze was toggled on
+    int m_trackBallIndex;                           // Index of ball to track with camera (-1 = no tracking)
+    float m_trackHeight;                            // Camera height above tracked ball
+    float m_autoCycleInterval;                      // Seconds between per-ball auto screenshots (-1 = disabled)
+    float m_autoCycleAccum;                         // Accumulated real-time seconds since last shot
+    int m_autoCycleShotsTaken;                      // Number of per-ball screenshots taken so far
 
     void Render();                                                     // Main render method
     void RelativeUpdateCamera( uint32_t hash );                        // Relative update specified camera
