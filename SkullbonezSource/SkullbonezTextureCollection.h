@@ -32,6 +32,7 @@ class TextureCollection
     static TextureCollection* Instance();                           // Call to request a pointer to the singleton instance
     static void Destroy();                                          // Call to destroy the singleton instance
     void SelectTexture( uint32_t hash );                            // Selects the texture as the OpenGL target
+    uint32_t GetTextureHandle( uint32_t hash );                     // Returns the backend handle for the texture with the given hash key
     int NumFreeTextureSpaces();                                     // Returns the number of free texture spaces
     void DeleteTexture( uint32_t hash );                            // Deletes the texture from OpenGL
     void DeleteAllTextures();                                       // Deletes all textures from OpenGL

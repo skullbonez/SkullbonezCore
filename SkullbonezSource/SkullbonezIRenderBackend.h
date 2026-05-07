@@ -116,6 +116,41 @@ class IRenderBackend
     virtual const char* GetRendererName() const = 0;
 
 
+    // --- DXR Raytracing Support ---
+
+    virtual bool IsDXRSupported() const = 0;
+    virtual void InitDXR( uint64_t terrainVBVA, int terrainVertCount, int terrainStride, uint64_t sphereVBVA, int sphereVertCount, int sphereStride, int maxInstances ) = 0;
+    virtual void DispatchReflectionRays( const float* invViewProj, const float* cameraPos, float waterY, float time, const float* lightPos, int width, int height, uint32_t sphereTexHandle, uint32_t terrainTexHandle, uint32_t skyUpHandle, uint32_t skyDownHandle, uint32_t skyRightHandle, uint32_t skyLeftHandle, uint32_t skyFrontHandle, uint32_t skyBackHandle ) = 0;
+    virtual void BuildTLAS( const float* instanceTransforms, int instanceCount, uint64_t terrainBLAS, uint64_t sphereBLAS ) = 0;
+    virtual uint32_t GetReflectionUAVTexture() const = 0; // Returns texture handle for water shader binding
+    virtual void ShutdownDXR() = 0;
+    virtual uint64_t GetInstancedMeshStaticVBVA( uint32_t handle ) const = 0; // DXR: GPU VA of instanced mesh's static VB
+    virtual int GetInstancedMeshStaticStride( uint32_t handle ) const = 0;
+
+
+    // --- GPU Timers (profiler overlay — DX12 only for now) ---
+
+    virtual bool SupportsGpuTimers() const
+    {
+        return false;
+    }
+    virtual void GpuTimerBegin( int markerIdx )
+    {
+        ( void )markerIdx;
+    }
+    virtual void GpuTimerEnd( int markerIdx )
+    {
+        ( void )markerIdx;
+    }
+    virtual void GpuTimerInvalidate() {}
+    virtual bool GpuTimerRead( int markerIdx, float& outMs )
+    {
+        ( void )markerIdx;
+        ( void )outMs;
+        return false;
+    }
+
+
     // --- Dynamic Vertex Buffer (per-frame geometry: text quads, HUD overlays) ---
     // attribComponents: component count per attribute (e.g. {2,2} = location0:vec2, location1:vec2)
 

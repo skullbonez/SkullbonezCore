@@ -50,6 +50,15 @@ class SkullbonezHelper
     static void DrawSphereBatchEnd();                                                                                                          // Upload instance data and issue single instanced draw
     static void DrawDebugVectors( const Matrix4& viewProj, const std::vector<std::pair<Vector3, Vector3>>& lines, float r, float g, float b ); // Draw a batch of world-space line segments (GL only)
     static void ResetGLResources();                                                                                                            // Call after GL context recreated to invalidate cached GL objects
+    static void EnsureSphereMesh();                                                                                                            // Ensure sphere instanced mesh is created (for DXR BLAS init)
+    static uint32_t GetSphereInstMeshHandle()
+    {
+        return sphereInstMesh;
+    } // DXR: returns instanced mesh handle for sphere VB access
+    static int GetSphereVertexCount()
+    {
+        return sphereVertexCount;
+    } // DXR: returns per-sphere vertex count
 };
 } // namespace Basics
 } // namespace SkullbonezCore

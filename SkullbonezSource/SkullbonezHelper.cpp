@@ -53,6 +53,23 @@ void SkullbonezHelper::ResetGLResources()
 }
 
 
+void SkullbonezHelper::EnsureSphereMesh()
+{
+    if ( sphereInstMesh == 0 )
+    {
+        BuildSphereMesh( 25, 25 );
+        sphereShader = Gfx().CreateShader(
+            "SkullbonezData/shaders/lit_textured_instanced.vert",
+            "SkullbonezData/shaders/lit_textured_instanced.frag" );
+        sphereShader->Use();
+        sphereShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
+        sphereShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
+        sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
+        sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
+    }
+}
+
+
 void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
 {
     // Generate a unit sphere with normals and texcoords (8 floats per vertex)

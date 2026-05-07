@@ -35,7 +35,7 @@ RenderBackendDX12::RenderBackendDX12()
       ,
       m_nextDSV( 1 ) // 0 reserved for main depth
       ,
-      m_nextStaticSRV( 0 ), m_nextTransientSRV( 0 ), m_depthStencil( nullptr ), m_uploadBuffer( nullptr ), m_uploadBufferMapped( nullptr ), m_uploadOffset( 0 ), m_rootSignature( nullptr ), m_width( 0 ), m_height( 0 ), m_depthTestEnabled( true ), m_blendEnabled( false ), m_blendSrc( BlendFactor::One ), m_blendDst( BlendFactor::Zero ), m_cullEnabled( true ), m_polyOffsetEnabled( false ), m_polyOffsetFactor( 0.0f ), m_polyOffsetUnits( 0.0f ), m_clearDepth( 1.0f ), m_psoDirty( true ), m_activeShader( nullptr ), m_renderingToFBO( false ), m_backBufferIsRT( false ), m_lastPSOHash( 0 ), m_texBindingsDirty( true ), m_targetsDirty( true )
+      m_nextStaticSRV( 0 ), m_nextTransientSRV( 0 ), m_depthStencil( nullptr ), m_uploadBuffer( nullptr ), m_uploadBufferMapped( nullptr ), m_uploadOffset( 0 ), m_rootSignature( nullptr ), m_width( 0 ), m_height( 0 ), m_depthTestEnabled( true ), m_blendEnabled( false ), m_blendSrc( BlendFactor::One ), m_blendDst( BlendFactor::Zero ), m_cullEnabled( true ), m_polyOffsetEnabled( false ), m_polyOffsetFactor( 0.0f ), m_polyOffsetUnits( 0.0f ), m_clearDepth( 1.0f ), m_psoDirty( true ), m_activeShader( nullptr ), m_renderingToFBO( false ), m_backBufferIsRT( false ), m_lastPSOHash( 0 ), m_texBindingsDirty( true ), m_targetsDirty( true ), m_dxrSupported( false ), m_device5( nullptr ), m_cmdList4( nullptr ), m_rtPSO( nullptr ), m_rtPSOProps( nullptr ), m_rtRootSignature( nullptr ), m_reflectionUAV( nullptr ), m_reflectionUAVIndex( 0 ), m_reflectionSRVIndex( 0 ), m_reflectionWidth( 0 ), m_reflectionHeight( 0 ), m_reflectionInSRVState( false ), m_rtConstantBuffer( nullptr ), m_rtConstantBufferMapped( nullptr )
 {
     m_clearColor[0] = 0.0f;
     m_clearColor[1] = 0.0f;
@@ -51,6 +51,12 @@ RenderBackendDX12::RenderBackendDX12()
     m_boundTexSlot[1] = UINT_MAX;
     m_currentRTV = {};
     m_currentDSV = {};
+    m_timerQueryHeap = nullptr;
+    m_timerReadbackBuf = nullptr;
+    m_timerFreq = 1;
+    m_timerReadPending = false;
+    std::memset( m_timerResultMs, 0, sizeof( m_timerResultMs ) );
+    std::memset( m_timerResultValid, 0, sizeof( m_timerResultValid ) );
 }
 
 
@@ -262,6 +268,9 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         throw std::runtime_error( "D3D12CreateDevice failed" );
     }
 
+    // Check DXR capability
+    CheckDXRSupport();
+
     // Enable break-on-corruption (severe errors only) — errors are still logged
     {
         ID3D12InfoQueue* infoQueue = nullptr;
@@ -381,6 +390,35 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
 
     // Root signature
     CreateRootSignature();
+
+    // GPU timestamp query heap and readback buffer for profiler overlay
+    {
+        D3D12_QUERY_HEAP_DESC qhDesc = {};
+        qhDesc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
+        qhDesc.Count = (UINT)TIMER_HEAP_SIZE;
+        if ( SUCCEEDED( m_device->CreateQueryHeap( &qhDesc, IID_PPV_ARGS( &m_timerQueryHeap ) ) ) )
+        {
+            D3D12_HEAP_PROPERTIES hp = {};
+            hp.Type = D3D12_HEAP_TYPE_READBACK;
+            D3D12_RESOURCE_DESC rd = {};
+            rd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+            rd.Width = (UINT64)TIMER_HEAP_SIZE * sizeof( uint64_t );
+            rd.Height = 1;
+            rd.DepthOrArraySize = 1;
+            rd.MipLevels = 1;
+            rd.SampleDesc.Count = 1;
+            rd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+            if ( FAILED( m_device->CreateCommittedResource( &hp, D3D12_HEAP_FLAG_NONE, &rd, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS( &m_timerReadbackBuf ) ) ) )
+            {
+                m_timerQueryHeap->Release();
+                m_timerQueryHeap = nullptr;
+            }
+            else
+            {
+                m_commandQueue->GetTimestampFrequency( &m_timerFreq );
+            }
+        }
+    }
 
     // Set initial viewport / scissor
     m_viewport = { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
@@ -518,6 +556,21 @@ void RenderBackendDX12::Shutdown()
     }
 
     WaitForGpu();
+
+    // DXR cleanup
+    ShutdownDXR();
+
+    // GPU timer cleanup
+    if ( m_timerReadbackBuf )
+    {
+        m_timerReadbackBuf->Release();
+        m_timerReadbackBuf = nullptr;
+    }
+    if ( m_timerQueryHeap )
+    {
+        m_timerQueryHeap->Release();
+        m_timerQueryHeap = nullptr;
+    }
 
     // Report any accumulated D3D12 validation errors to dx12_validation.txt
     {
@@ -668,6 +721,14 @@ void RenderBackendDX12::Shutdown()
 void RenderBackendDX12::Present()
 {
     EnsureCommandListOpen();
+
+    // Resolve GPU timer queries for this frame into the readback buffer
+    if ( m_timerQueryHeap )
+    {
+        m_commandList->ResolveQueryData( m_timerQueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, 0, (UINT)TIMER_HEAP_SIZE, m_timerReadbackBuf, 0 );
+        m_timerReadPending = true;
+    }
+
     TransitionBarrier( m_renderTargets[m_frameIndex], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT );
     m_backBufferIsRT = false;
     m_commandList->Close();
@@ -698,6 +759,29 @@ void RenderBackendDX12::Finish()
         m_commandQueue->ExecuteCommandLists( 1, ppCLs );
     }
     WaitForGpu();
+
+    // Read back GPU timer results — safe because WaitForGpu() guarantees completion
+    if ( m_timerQueryHeap && m_timerReadPending )
+    {
+        D3D12_RANGE readRange = { 0, (SIZE_T)TIMER_HEAP_SIZE * sizeof( uint64_t ) };
+        uint64_t* pData = nullptr;
+        if ( SUCCEEDED( m_timerReadbackBuf->Map( 0, &readRange, (void**)&pData ) ) )
+        {
+            for ( int i = 0; i < TIMER_HEAP_MARKERS; ++i )
+            {
+                uint64_t t0 = pData[i * 2 + 0];
+                uint64_t t1 = pData[i * 2 + 1];
+                if ( t1 > t0 && m_timerFreq > 0 )
+                {
+                    m_timerResultMs[i] = static_cast<float>( static_cast<double>( t1 - t0 ) / static_cast<double>( m_timerFreq ) * 1000.0 );
+                    m_timerResultValid[i] = true;
+                }
+            }
+            D3D12_RANGE writeRange = { 0, 0 };
+            m_timerReadbackBuf->Unmap( 0, &writeRange );
+        }
+        m_timerReadPending = false;
+    }
 }
 
 
@@ -1800,4 +1884,671 @@ bool RenderBackendDX12::IsBlendEnabled() const
 bool RenderBackendDX12::UsesZeroToOneDepth() const
 {
     return true; // DX12 uses [0,1] depth range like DX11
+}
+
+
+// --- DXR Raytracing ---
+
+
+void RenderBackendDX12::CheckDXRSupport()
+{
+    m_dxrSupported = false;
+    m_device5 = nullptr;
+    m_cmdList4 = nullptr;
+
+    // Check raytracing tier
+    D3D12_FEATURE_DATA_D3D12_OPTIONS5 opts5 = {};
+    if ( FAILED( m_device->CheckFeatureSupport( D3D12_FEATURE_D3D12_OPTIONS5, &opts5, sizeof( opts5 ) ) ) )
+    {
+        return;
+    }
+    if ( opts5.RaytracingTier < D3D12_RAYTRACING_TIER_1_0 )
+    {
+        return;
+    }
+
+    // QueryInterface for DXR interfaces
+    if ( FAILED( m_device->QueryInterface( IID_PPV_ARGS( &m_device5 ) ) ) )
+    {
+        return;
+    }
+
+    m_dxrSupported = true;
+}
+
+
+void RenderBackendDX12::CreateRTRootSignature()
+{
+    // RT root signature layout:
+    // [0] SRV - TLAS (t0, space1) — inline raw descriptor
+    // [1] UAV - output texture (u0) — descriptor table
+    // [2] CBV - RT constants (b1) — inline raw descriptor
+    // [3] SRV - texture table (t0..t7, space0) — 8-descriptor table:
+    //           t0=sphere, t1=terrain, t2=skyUp, t3=skyDown, t4=skyRight, t5=skyLeft, t6=skyFront, t7=skyBack
+    // [s0] Static linear-wrap sampler
+    D3D12_DESCRIPTOR_RANGE1 uavRange = {};
+    uavRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+    uavRange.NumDescriptors = 1;
+    uavRange.BaseShaderRegister = 0;
+    uavRange.RegisterSpace = 0;
+
+    D3D12_DESCRIPTOR_RANGE1 texRange = {};
+    texRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    texRange.NumDescriptors = 8;
+    texRange.BaseShaderRegister = 0;
+    texRange.RegisterSpace = 0;
+
+    D3D12_ROOT_PARAMETER1 params[4] = {};
+    // Slot 0: TLAS SRV (inline)
+    params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
+    params[0].Descriptor.ShaderRegister = 0;
+    params[0].Descriptor.RegisterSpace = 1;
+    params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+    // Slot 1: UAV descriptor table
+    params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    params[1].DescriptorTable.NumDescriptorRanges = 1;
+    params[1].DescriptorTable.pDescriptorRanges = &uavRange;
+    params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+    // Slot 2: CBV for RT constants
+    params[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    params[2].Descriptor.ShaderRegister = 1;
+    params[2].Descriptor.RegisterSpace = 0;
+    params[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+    // Slot 3: SRV descriptor table for sphere + terrain textures
+    params[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    params[3].DescriptorTable.NumDescriptorRanges = 1;
+    params[3].DescriptorTable.pDescriptorRanges = &texRange;
+    params[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+    // Static linear-wrap sampler at s0
+    D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
+    samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+    samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    samplerDesc.MaxAnisotropy = 1;
+    samplerDesc.MaxLOD = D3D12_FLOAT32_MAX;
+    samplerDesc.ShaderRegister = 0;
+    samplerDesc.RegisterSpace = 0;
+    samplerDesc.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+    D3D12_VERSIONED_ROOT_SIGNATURE_DESC rootSigDesc = {};
+    rootSigDesc.Version = D3D_ROOT_SIGNATURE_VERSION_1_1;
+    rootSigDesc.Desc_1_1.NumParameters = 4;
+    rootSigDesc.Desc_1_1.pParameters = params;
+    rootSigDesc.Desc_1_1.NumStaticSamplers = 1;
+    rootSigDesc.Desc_1_1.pStaticSamplers = &samplerDesc;
+    rootSigDesc.Desc_1_1.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+
+    ID3DBlob* signature = nullptr;
+    ID3DBlob* error = nullptr;
+    if ( FAILED( D3D12SerializeVersionedRootSignature( &rootSigDesc, &signature, &error ) ) )
+    {
+        if ( error )
+        {
+            error->Release();
+        }
+        throw std::runtime_error( "RT root signature serialization failed" );
+    }
+    if ( error )
+    {
+        error->Release();
+    }
+
+    if ( FAILED( m_device->CreateRootSignature( 0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS( &m_rtRootSignature ) ) ) )
+    {
+        signature->Release();
+        throw std::runtime_error( "CreateRootSignature (RT) failed" );
+    }
+    signature->Release();
+}
+
+
+void RenderBackendDX12::CreateRTPipeline()
+{
+    // Only compile HLSL → DXIL when the cached DXIL is absent.
+    // Delete reflect.rt.dxil to force a recompile after editing the shader.
+    FILE* existCheck = nullptr;
+    fopen_s( &existCheck, "SkullbonezData/shaders/reflect.rt.dxil", "rb" );
+    const bool dxilMissing = ( existCheck == nullptr );
+    if ( existCheck )
+    {
+        fclose( existCheck );
+    }
+
+    if ( dxilMissing )
+    {
+        const char* dxcPaths[] = {
+            "dxc.exe -T lib_6_3 -Fo SkullbonezData/shaders/reflect.rt.dxil SkullbonezData/shaders/reflect.rt.hlsl 2>nul",
+            "\"C:/Program Files (x86)/Windows Kits/10/bin/10.0.22621.0/x64/dxc.exe\" -T lib_6_3 -Fo SkullbonezData/shaders/reflect.rt.dxil SkullbonezData/shaders/reflect.rt.hlsl 2>nul",
+            "\"C:/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64/dxc.exe\" -T lib_6_3 -Fo SkullbonezData/shaders/reflect.rt.dxil SkullbonezData/shaders/reflect.rt.hlsl 2>nul" };
+
+        bool compiled = false;
+        for ( const char* cmd : dxcPaths )
+        {
+            if ( system( cmd ) == 0 )
+            {
+                compiled = true;
+                break;
+            }
+        }
+        if ( !compiled )
+        {
+            throw std::runtime_error( "DXC compilation of reflect.rt.hlsl failed — ensure dxc.exe is in PATH or Windows SDK is installed" );
+        }
+    }
+
+    // Load compiled DXIL blob
+    FILE* dxilFile = nullptr;
+    fopen_s( &dxilFile, "SkullbonezData/shaders/reflect.rt.dxil", "rb" );
+    if ( !dxilFile )
+    {
+        throw std::runtime_error( "Failed to open compiled reflect.rt.dxil" );
+    }
+    fseek( dxilFile, 0, SEEK_END );
+    long dxilSize = ftell( dxilFile );
+    fseek( dxilFile, 0, SEEK_SET );
+    std::vector<uint8_t> dxilBlob( (size_t)dxilSize );
+    fread( dxilBlob.data(), 1, (size_t)dxilSize, dxilFile );
+    fclose( dxilFile );
+
+    // Build RTPSO with subobjects
+    // We need: DXIL library, hit groups, shader config, pipeline config, global root signature
+    D3D12_DXIL_LIBRARY_DESC libDesc = {};
+    libDesc.DXILLibrary.pShaderBytecode = dxilBlob.data();
+    libDesc.DXILLibrary.BytecodeLength = dxilBlob.size();
+    libDesc.NumExports = 0; // Export all entry points
+
+    D3D12_HIT_GROUP_DESC terrainHitGroup = {};
+    terrainHitGroup.HitGroupExport = L"TerrainHitGroup";
+    terrainHitGroup.Type = D3D12_HIT_GROUP_TYPE_TRIANGLES;
+    terrainHitGroup.ClosestHitShaderImport = L"ClosestHit";
+
+    D3D12_HIT_GROUP_DESC sphereHitGroup = {};
+    sphereHitGroup.HitGroupExport = L"SphereHitGroup";
+    sphereHitGroup.Type = D3D12_HIT_GROUP_TYPE_TRIANGLES;
+    sphereHitGroup.ClosestHitShaderImport = L"ClosestHit";
+
+    D3D12_RAYTRACING_SHADER_CONFIG shaderConfig = {};
+    shaderConfig.MaxPayloadSizeInBytes = 16;  // float3 color + float hitT
+    shaderConfig.MaxAttributeSizeInBytes = 8; // float2 barycentrics
+
+    D3D12_RAYTRACING_PIPELINE_CONFIG pipelineConfig = {};
+    pipelineConfig.MaxTraceRecursionDepth = 1;
+
+    D3D12_GLOBAL_ROOT_SIGNATURE globalRootSig = {};
+    globalRootSig.pGlobalRootSignature = m_rtRootSignature;
+
+    // Build state object description with subobjects
+    D3D12_STATE_SUBOBJECT subobjects[6] = {};
+
+    subobjects[0].Type = D3D12_STATE_SUBOBJECT_TYPE_DXIL_LIBRARY;
+    subobjects[0].pDesc = &libDesc;
+
+    subobjects[1].Type = D3D12_STATE_SUBOBJECT_TYPE_HIT_GROUP;
+    subobjects[1].pDesc = &terrainHitGroup;
+
+    subobjects[2].Type = D3D12_STATE_SUBOBJECT_TYPE_HIT_GROUP;
+    subobjects[2].pDesc = &sphereHitGroup;
+
+    subobjects[3].Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_SHADER_CONFIG;
+    subobjects[3].pDesc = &shaderConfig;
+
+    subobjects[4].Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_PIPELINE_CONFIG;
+    subobjects[4].pDesc = &pipelineConfig;
+
+    subobjects[5].Type = D3D12_STATE_SUBOBJECT_TYPE_GLOBAL_ROOT_SIGNATURE;
+    subobjects[5].pDesc = &globalRootSig;
+
+    D3D12_STATE_OBJECT_DESC stateObjDesc = {};
+    stateObjDesc.Type = D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE;
+    stateObjDesc.NumSubobjects = 6;
+    stateObjDesc.pSubobjects = subobjects;
+
+    if ( FAILED( m_device5->CreateStateObject( &stateObjDesc, IID_PPV_ARGS( &m_rtPSO ) ) ) )
+    {
+        throw std::runtime_error( "CreateStateObject (RTPSO) failed" );
+    }
+
+    m_rtPSO->QueryInterface( IID_PPV_ARGS( &m_rtPSOProps ) );
+}
+
+
+void RenderBackendDX12::CreateReflectionUAV( int width, int height )
+{
+    m_reflectionWidth = width;
+    m_reflectionHeight = height;
+    m_reflectionInSRVState = false;
+
+    // Create the reflection UAV texture
+    D3D12_HEAP_PROPERTIES heapProps = {};
+    heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+    D3D12_RESOURCE_DESC texDesc = {};
+    texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    texDesc.Width = (UINT64)width;
+    texDesc.Height = (UINT)height;
+    texDesc.DepthOrArraySize = 1;
+    texDesc.MipLevels = 1;
+    texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    texDesc.SampleDesc.Count = 1;
+    texDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+
+    if ( FAILED( m_device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &texDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS( &m_reflectionUAV ) ) ) )
+    {
+        throw std::runtime_error( "Failed to create DXR reflection UAV texture" );
+    }
+
+    // Create UAV descriptor
+    m_reflectionUAVIndex = AllocateStaticSRV();
+    D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+    uavDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+    m_device->CreateUnorderedAccessView( m_reflectionUAV, nullptr, &uavDesc, GetSRVStagingCpuHandle( m_reflectionUAVIndex ) );
+
+    // Also copy to shader-visible heap
+    D3D12_CPU_DESCRIPTOR_HANDLE srvHeapCpu = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
+    srvHeapCpu.ptr += (SIZE_T)m_reflectionUAVIndex * m_srvDescSize;
+    m_device->CopyDescriptorsSimple( 1, srvHeapCpu, GetSRVStagingCpuHandle( m_reflectionUAVIndex ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+
+    // Create SRV for sampling in water shader
+    m_reflectionSRVIndex = AllocateStaticSRV();
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.Texture2D.MipLevels = 1;
+    m_device->CreateShaderResourceView( m_reflectionUAV, &srvDesc, GetSRVStagingCpuHandle( m_reflectionSRVIndex ) );
+
+    // Copy SRV to shader-visible heap
+    srvHeapCpu = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
+    srvHeapCpu.ptr += (SIZE_T)m_reflectionSRVIndex * m_srvDescSize;
+    m_device->CopyDescriptorsSimple( 1, srvHeapCpu, GetSRVStagingCpuHandle( m_reflectionSRVIndex ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+}
+
+
+void RenderBackendDX12::InitDXR( uint64_t terrainVBVA, int terrainVertCount, int terrainStride, uint64_t sphereVBVA, int sphereVertCount, int sphereStride, int maxInstances )
+{
+    if ( !m_dxrSupported )
+    {
+        return;
+    }
+
+    // Get CmdList4 from command list
+    if ( FAILED( m_commandList->QueryInterface( IID_PPV_ARGS( &m_cmdList4 ) ) ) )
+    {
+        m_dxrSupported = false;
+        return;
+    }
+
+    // Create RT root signature and pipeline
+    CreateRTRootSignature();
+    CreateRTPipeline();
+
+    // Create reflection UAV at 2x viewport
+    CreateReflectionUAV( m_width * 2, m_height * 2 );
+
+    // Create RT constant buffer (upload heap, persistently mapped)
+    {
+        D3D12_HEAP_PROPERTIES heapProps = {};
+        heapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
+        D3D12_RESOURCE_DESC bufDesc = {};
+        bufDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+        bufDesc.Width = 256; // Aligned to 256 bytes for CBV
+        bufDesc.Height = 1;
+        bufDesc.DepthOrArraySize = 1;
+        bufDesc.MipLevels = 1;
+        bufDesc.SampleDesc.Count = 1;
+        bufDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+        if ( FAILED( m_device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS( &m_rtConstantBuffer ) ) ) )
+        {
+            throw std::runtime_error( "Failed to create RT constant buffer" );
+        }
+        m_rtConstantBuffer->Map( 0, nullptr, (void**)&m_rtConstantBufferMapped );
+    }
+
+    // Build BLAS for terrain and sphere
+    EnsureCommandListOpen();
+
+    m_terrainBLAS.Build( m_device5, m_cmdList4, (D3D12_GPU_VIRTUAL_ADDRESS)terrainVBVA, terrainVertCount, terrainStride, DXGI_FORMAT_R32G32B32_FLOAT, true );
+    m_sphereBLAS.Build( m_device5, m_cmdList4, (D3D12_GPU_VIRTUAL_ADDRESS)sphereVBVA, sphereVertCount, sphereStride, DXGI_FORMAT_R32G32B32_FLOAT, false );
+
+    // Submit and wait for BLAS builds to complete
+    m_commandList->Close();
+    m_commandListOpen = false;
+    ID3D12CommandList* ppCLs[] = { m_commandList };
+    m_commandQueue->ExecuteCommandLists( 1, ppCLs );
+    WaitForGpu();
+
+    // Free scratch memory
+    m_terrainBLAS.ReleaseAfterBuild();
+    m_sphereBLAS.ReleaseAfterBuild();
+
+    // Init TLAS (sized for maxInstances: terrain + all balls)
+    m_tlas.Init( m_device5, maxInstances + 1 );
+
+    // Build SBT
+    m_sbt.Build( m_device, m_rtPSOProps, L"RayGen", L"Miss", L"TerrainHitGroup", L"SphereHitGroup" );
+}
+
+
+void RenderBackendDX12::BuildTLAS( const float* instanceTransforms, int instanceCount, uint64_t /*terrainBLAS*/, uint64_t /*sphereBLAS*/ )
+{
+    if ( !m_dxrSupported || !m_cmdList4 )
+    {
+        return;
+    }
+
+    // Build instance descriptors
+    // Instance 0: terrain (identity)
+    // Instance 1..N: spheres with their world transforms
+    std::vector<D3D12_RAYTRACING_INSTANCE_DESC> instances( (size_t)instanceCount + 1 );
+
+    // Terrain instance
+    D3D12_RAYTRACING_INSTANCE_DESC& terrainInst = instances[0];
+    memset( &terrainInst, 0, sizeof( terrainInst ) );
+    terrainInst.Transform[0][0] = 1.0f;
+    terrainInst.Transform[1][1] = 1.0f;
+    terrainInst.Transform[2][2] = 1.0f;
+    terrainInst.InstanceMask = 0xFF;
+    terrainInst.InstanceContributionToHitGroupIndex = 0;
+    terrainInst.AccelerationStructure = m_terrainBLAS.GetResultVA();
+    terrainInst.InstanceID = 0;
+
+    // Sphere instances
+    for ( int i = 0; i < instanceCount; ++i )
+    {
+        D3D12_RAYTRACING_INSTANCE_DESC& inst = instances[(size_t)i + 1];
+        memset( &inst, 0, sizeof( inst ) );
+
+        // Copy 3x4 transform from the flat float array (row-major 4x4 → DXR 3x4 row-major)
+        const float* m = instanceTransforms + i * 16;
+        inst.Transform[0][0] = m[0];
+        inst.Transform[0][1] = m[4];
+        inst.Transform[0][2] = m[8];
+        inst.Transform[0][3] = m[12];
+        inst.Transform[1][0] = m[1];
+        inst.Transform[1][1] = m[5];
+        inst.Transform[1][2] = m[9];
+        inst.Transform[1][3] = m[13];
+        inst.Transform[2][0] = m[2];
+        inst.Transform[2][1] = m[6];
+        inst.Transform[2][2] = m[10];
+        inst.Transform[2][3] = m[14];
+
+        inst.InstanceMask = 0xFF;
+        inst.InstanceContributionToHitGroupIndex = 1; // Sphere hit group
+        inst.AccelerationStructure = m_sphereBLAS.GetResultVA();
+        inst.InstanceID = (UINT)( i + 1 );
+    }
+
+    EnsureCommandListOpen();
+    m_tlas.Build( m_device5, m_cmdList4, instances.data(), (int)instances.size() );
+}
+
+
+void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj, const float* cameraPos, float waterY, float time, const float* lightPos, int width, int height, uint32_t sphereTexHandle, uint32_t terrainTexHandle, uint32_t skyUpHandle, uint32_t skyDownHandle, uint32_t skyRightHandle, uint32_t skyLeftHandle, uint32_t skyFrontHandle, uint32_t skyBackHandle )
+{
+    if ( !m_dxrSupported || !m_cmdList4 || !m_rtPSO )
+    {
+        return;
+    }
+
+    (void)width;
+    (void)height;
+
+    EnsureCommandListOpen();
+
+    // Transition reflection UAV back to writable state if it was left as SRV from previous frame
+    if ( m_reflectionInSRVState )
+    {
+        TransitionBarrier( m_reflectionUAV, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS );
+    }
+
+    // Update RT constant buffer
+    // Layout: float4x4 invVP, float3 cameraPos, float waterY, float3 lightPos, float time, float3 skyTop, pad, float3 skyBottom, pad
+    struct RTConstants
+    {
+        float invViewProj[16];
+        float cameraPos[3];
+        float waterY;
+        float lightPos[3];
+        float time;
+        float skyColorTop[3];
+        float pad0;
+        float skyColorBottom[3];
+        float pad1;
+    };
+
+    RTConstants cb = {};
+    memcpy( cb.invViewProj, invViewProj, 16 * sizeof( float ) );
+    cb.cameraPos[0] = cameraPos[0];
+    cb.cameraPos[1] = cameraPos[1];
+    cb.cameraPos[2] = cameraPos[2];
+    cb.waterY = waterY;
+    cb.lightPos[0] = lightPos[0];
+    cb.lightPos[1] = lightPos[1];
+    cb.lightPos[2] = lightPos[2];
+    cb.time = time;
+    cb.skyColorTop[0] = 0.4f;
+    cb.skyColorTop[1] = 0.6f;
+    cb.skyColorTop[2] = 0.9f;
+    cb.skyColorBottom[0] = 0.7f;
+    cb.skyColorBottom[1] = 0.8f;
+    cb.skyColorBottom[2] = 0.95f;
+    memcpy( m_rtConstantBufferMapped, &cb, sizeof( cb ) );
+
+    // Set compute root signature and pipeline
+    m_cmdList4->SetComputeRootSignature( m_rtRootSignature );
+    m_cmdList4->SetPipelineState1( m_rtPSO );
+
+    // Bind descriptor heap
+    ID3D12DescriptorHeap* heaps[] = { m_srvHeap };
+    m_cmdList4->SetDescriptorHeaps( 1, heaps );
+
+    // Root params: [0] TLAS SRV, [1] UAV table, [2] CBV, [3] texture SRV table
+    m_cmdList4->SetComputeRootShaderResourceView( 0, m_tlas.GetResultVA() );
+    m_cmdList4->SetComputeRootDescriptorTable( 1, GetSRVGpuHandle( m_reflectionUAVIndex ) );
+    m_cmdList4->SetComputeRootConstantBufferView( 2, m_rtConstantBuffer->GetGPUVirtualAddress() );
+
+    // Bind sphere + terrain + 6 sky face textures at root param [3] (t0..t7)
+    const uint32_t texHandles[8] = { sphereTexHandle, terrainTexHandle, skyUpHandle, skyDownHandle, skyRightHandle, skyLeftHandle, skyFrontHandle, skyBackHandle };
+    bool allValid = true;
+    for ( int i = 0; i < 8; ++i )
+    {
+        if ( texHandles[i] == 0 || texHandles[i] > (uint32_t)m_textures.size() )
+        {
+            allValid = false;
+            break;
+        }
+    }
+    if ( allValid )
+    {
+        UINT slot0 = AllocateTransientSRV();
+        for ( int i = 1; i < 8; ++i )
+        {
+            AllocateTransientSRV(); // ensure 8 contiguous slots
+        }
+
+        D3D12_CPU_DESCRIPTOR_HANDLE dstBase = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
+        dstBase.ptr += (SIZE_T)slot0 * m_srvDescSize;
+
+        for ( int i = 0; i < 8; ++i )
+        {
+            D3D12_CPU_DESCRIPTOR_HANDLE dst = dstBase;
+            dst.ptr += (SIZE_T)i * m_srvDescSize;
+            UINT srcIdx = m_textures[texHandles[i] - 1].srvIndex;
+            m_device->CopyDescriptorsSimple( 1, dst, GetSRVStagingCpuHandle( srcIdx ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
+        }
+
+        m_cmdList4->SetComputeRootDescriptorTable( 3, GetSRVGpuHandle( slot0 ) );
+    }
+
+    // Dispatch rays
+    D3D12_DISPATCH_RAYS_DESC dispatchDesc = {};
+    dispatchDesc.RayGenerationShaderRecord = m_sbt.RayGenRange();
+    dispatchDesc.MissShaderTable = m_sbt.MissRange();
+    dispatchDesc.HitGroupTable = m_sbt.HitGroupRange();
+    dispatchDesc.Width = (UINT)m_reflectionWidth;
+    dispatchDesc.Height = (UINT)m_reflectionHeight;
+    dispatchDesc.Depth = 1;
+
+    m_cmdList4->DispatchRays( &dispatchDesc );
+
+    // UAV barrier so the water shader can sample the result
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+    barrier.UAV.pResource = m_reflectionUAV;
+    m_cmdList4->ResourceBarrier( 1, &barrier );
+
+    // Transition to SRV state for water shader sampling
+    TransitionBarrier( m_reflectionUAV, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE );
+    m_reflectionInSRVState = true;
+
+    // Force re-bind of raster state after compute dispatch
+    m_lastPSOHash = 0;
+    m_texBindingsDirty = true;
+    m_targetsDirty = true;
+}
+
+
+uint32_t RenderBackendDX12::GetReflectionUAVTexture() const
+{
+    // Return a texture handle that maps to the reflection SRV
+    // The water shader will bind this at t1 instead of the FBO texture
+    // We return a handle into the texture registry — but for DXR we just return the SRV index
+    // encoded as a texture handle. The caller can pass this to BindTexture.
+    // Actually, we need to register the SRV in the texture registry.
+    // This is called once, so we can cast-away const for registration.
+    if ( m_reflectionSRVIndex == 0 )
+    {
+        return 0;
+    }
+    // Find if already registered
+    for ( size_t i = 0; i < m_textures.size(); ++i )
+    {
+        if ( m_textures[i].srvIndex == m_reflectionSRVIndex )
+        {
+            return (uint32_t)( i + 1 );
+        }
+    }
+    // Register it (const_cast justified: lazy one-time registration)
+    auto* self = const_cast<RenderBackendDX12*>( this );
+    return self->RegisterSRV( m_reflectionSRVIndex );
+}
+
+
+uint64_t RenderBackendDX12::GetInstancedMeshStaticVBVA( uint32_t handle ) const
+{
+    if ( handle == 0 || handle > (uint32_t)m_instancedMeshes.size() )
+    {
+        return 0;
+    }
+    const auto& im = m_instancedMeshes[handle - 1];
+    return im.staticVB ? im.staticVB->GetGPUVirtualAddress() : 0;
+}
+
+
+int RenderBackendDX12::GetInstancedMeshStaticStride( uint32_t handle ) const
+{
+    if ( handle == 0 || handle > (uint32_t)m_instancedMeshes.size() )
+    {
+        return 0;
+    }
+    return m_instancedMeshes[handle - 1].staticStride;
+}
+
+
+void RenderBackendDX12::ShutdownDXR()
+{
+    m_sbt.Reset();
+    m_tlas.Reset();
+    m_terrainBLAS.Reset();
+    m_sphereBLAS.Reset();
+
+    if ( m_rtConstantBuffer )
+    {
+        m_rtConstantBuffer->Unmap( 0, nullptr );
+        m_rtConstantBuffer->Release();
+        m_rtConstantBuffer = nullptr;
+        m_rtConstantBufferMapped = nullptr;
+    }
+    if ( m_reflectionUAV )
+    {
+        m_reflectionUAV->Release();
+        m_reflectionUAV = nullptr;
+    }
+    if ( m_rtPSOProps )
+    {
+        m_rtPSOProps->Release();
+        m_rtPSOProps = nullptr;
+    }
+    if ( m_rtPSO )
+    {
+        m_rtPSO->Release();
+        m_rtPSO = nullptr;
+    }
+    if ( m_rtRootSignature )
+    {
+        m_rtRootSignature->Release();
+        m_rtRootSignature = nullptr;
+    }
+    if ( m_cmdList4 )
+    {
+        m_cmdList4->Release();
+        m_cmdList4 = nullptr;
+    }
+    if ( m_device5 )
+    {
+        m_device5->Release();
+        m_device5 = nullptr;
+    }
+    m_dxrSupported = false;
+}
+
+
+// --- GPU Timers ---
+
+
+void RenderBackendDX12::GpuTimerBegin( int markerIdx )
+{
+    if ( !m_timerQueryHeap || markerIdx < 0 || markerIdx >= TIMER_HEAP_MARKERS )
+    {
+        return;
+    }
+    EnsureCommandListOpen();
+    m_commandList->EndQuery( m_timerQueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)( markerIdx * 2 + 0 ) );
+}
+
+
+void RenderBackendDX12::GpuTimerEnd( int markerIdx )
+{
+    if ( !m_timerQueryHeap || !m_commandListOpen || markerIdx < 0 || markerIdx >= TIMER_HEAP_MARKERS )
+    {
+        return;
+    }
+    m_commandList->EndQuery( m_timerQueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)( markerIdx * 2 + 1 ) );
+}
+
+
+void RenderBackendDX12::GpuTimerInvalidate()
+{
+    std::memset( m_timerResultMs, 0, sizeof( m_timerResultMs ) );
+    std::memset( m_timerResultValid, 0, sizeof( m_timerResultValid ) );
+    m_timerReadPending = false;
+}
+
+
+bool RenderBackendDX12::GpuTimerRead( int markerIdx, float& outMs )
+{
+    if ( markerIdx < 0 || markerIdx >= TIMER_HEAP_MARKERS || !m_timerResultValid[markerIdx] )
+    {
+        return false;
+    }
+    outMs = m_timerResultMs[markerIdx];
+    return true;
 }

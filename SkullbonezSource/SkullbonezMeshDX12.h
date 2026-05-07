@@ -52,6 +52,14 @@ class MeshDX12 : public IMesh
     {
         return m_vertexCount;
     }
+    int GetStride() const override
+    {
+        return m_stride;
+    }
+    uint64_t GetVertexBufferGPUVA() const override
+    {
+        return m_vertexBuffer ? m_vertexBuffer->GetGPUVirtualAddress() : 0;
+    }
     VertexFormat12 GetFormat() const
     {
         return m_format;

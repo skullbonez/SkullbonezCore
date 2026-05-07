@@ -67,6 +67,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
     m_oceanShader->SetMat4( "uProjection", proj );
     m_oceanShader->SetMat4( "uReflectVP", reflectVP );
     m_oceanShader->SetFloat( "uTime", time );
+    m_oceanShader->SetFloat( "uPerturbStrength", Cfg().oceanPerturbStrength );
     m_oceanShader->SetInt( "uNoReflect", noReflect ? 1 : 0 );
     m_oceanShader->SetInt( "uFlatWater", flatWater ? 1 : 0 );
     m_oceanMesh->Draw();
