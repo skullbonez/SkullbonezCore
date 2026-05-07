@@ -4,6 +4,9 @@
 // --- Includes ---
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezMeshDX12.h"
+#include "SkullbonezBLAS.h"
+#include "SkullbonezTLAS.h"
+#include "SkullbonezSBT.h"
 #include <d3d12.h>
 #include <dxgi1_4.h>
 #include <unordered_map>
@@ -180,6 +183,36 @@ class RenderBackendDX12 : public IRenderBackend
     bool m_texBindingsDirty;
     bool m_targetsDirty;
 
+    // DXR raytracing state
+    bool m_dxrSupported;
+    ID3D12Device5* m_device5;
+    ID3D12GraphicsCommandList4* m_cmdList4;
+    ID3D12StateObject* m_rtPSO;
+    ID3D12StateObjectProperties* m_rtPSOProps;
+    ID3D12RootSignature* m_rtRootSignature;
+    ID3D12Resource* m_reflectionUAV;
+    UINT m_reflectionUAVIndex; // UAV descriptor index in SRV heap
+    UINT m_reflectionSRVIndex; // SRV for water shader sampling
+    int m_reflectionWidth;
+    int m_reflectionHeight;
+    bool m_reflectionInSRVState; // True after dispatch (SRV), false initially (UAV)
+    ID3D12Resource* m_rtConstantBuffer;
+    uint8_t* m_rtConstantBufferMapped;
+    BLAS m_terrainBLAS;
+    BLAS m_sphereBLAS;
+    TLAS m_tlas;
+    SBT m_sbt;
+
+    // GPU timestamp timers (for profiler overlay)
+    static const int TIMER_HEAP_MARKERS = 64; // must be >= Profiler::MAX_MARKERS
+    static const int TIMER_HEAP_SIZE = TIMER_HEAP_MARKERS * 2; // begin + end per marker
+    ID3D12QueryHeap* m_timerQueryHeap;
+    ID3D12Resource* m_timerReadbackBuf;
+    float m_timerResultMs[TIMER_HEAP_MARKERS];
+    bool m_timerResultValid[TIMER_HEAP_MARKERS];
+    uint64_t m_timerFreq;
+    bool m_timerReadPending;
+
     // --- Internal helpers ---
     void WaitForGpu();
     void EnsureCommandListOpen();
@@ -194,6 +227,10 @@ class RenderBackendDX12 : public IRenderBackend
     void FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment );
     size_t HashPSOKey( const PSOKey12& key );
     ID3D12PipelineState* CreatePSO( VertexFormat12 format, bool instanced, const InstancedMeshDX12* im, const DynamicVBDX12* dvb );
+    void CheckDXRSupport();
+    void CreateRTRootSignature();
+    void CreateRTPipeline();
+    void CreateReflectionUAV( int width, int height );
 
     static void BuildInputLayout( VertexFormat12 format, D3D12_INPUT_ELEMENT_DESC* out, UINT& count );
     static void BuildInstancedInputLayout( const InstancedMeshDX12& im, D3D12_INPUT_ELEMENT_DESC* out, UINT& count );
@@ -250,6 +287,27 @@ class RenderBackendDX12 : public IRenderBackend
     {
         return "DirectX 12";
     }
+
+    bool IsDXRSupported() const override
+    {
+        return m_dxrSupported;
+    }
+    void InitDXR( uint64_t terrainVBVA, int terrainVertCount, int terrainStride, uint64_t sphereVBVA, int sphereVertCount, int sphereStride, int maxInstances ) override;
+    void DispatchReflectionRays( const float* invViewProj, const float* cameraPos, float waterY, float time, const float* lightPos, int width, int height, uint32_t sphereTexHandle, uint32_t terrainTexHandle, uint32_t skyUpHandle, uint32_t skyDownHandle, uint32_t skyRightHandle, uint32_t skyLeftHandle, uint32_t skyFrontHandle, uint32_t skyBackHandle ) override;
+    void BuildTLAS( const float* instanceTransforms, int instanceCount, uint64_t terrainBLAS, uint64_t sphereBLAS ) override;
+    uint32_t GetReflectionUAVTexture() const override;
+    void ShutdownDXR() override;
+    uint64_t GetInstancedMeshStaticVBVA( uint32_t handle ) const override;
+    int GetInstancedMeshStaticStride( uint32_t handle ) const override;
+
+    bool SupportsGpuTimers() const override
+    {
+        return m_timerQueryHeap != nullptr;
+    }
+    void GpuTimerBegin( int markerIdx ) override;
+    void GpuTimerEnd( int markerIdx ) override;
+    void GpuTimerInvalidate() override;
+    bool GpuTimerRead( int markerIdx, float& outMs ) override;
 
     uint32_t CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices ) override;
     void UploadAndDrawDynamicVB( uint32_t handle, const float* data, int vertexCount ) override;

@@ -30,13 +30,12 @@ void main()
     // This ensures the UV tracks the reflection camera exactly, with no double-motion.
     vec2 reflUV = (vReflectClipPos.xy / vReflectClipPos.w) * 0.5 + 0.5;
 
-    // Perturb UV with the same wave functions as water.vert — phase-locks
-    // the reflected image shimmer to the surface ripple geometry
+    // Perturb UV with separate X/Z wave functions for anisotropic shimmer
     if (uNoPerturb == 0)
     {
-        float wave = sin(vWorldXZ.x * 0.04 + uTime * 1.2) * 1.5
-                   + sin(vWorldXZ.y * 0.06 + uTime * 0.8) * 1.0;
-        reflUV += vec2(wave * 0.002, wave * 0.002);
+        float waveX = sin(vWorldXZ.x * 0.04 + uTime * 1.2) * 0.006;
+        float waveZ = sin(vWorldXZ.y * 0.06 + uTime * 0.8) * 0.004;
+        reflUV += vec2(waveX, waveZ);
     }
 
     vec4 reflection = texture(uReflectionTex, reflUV);

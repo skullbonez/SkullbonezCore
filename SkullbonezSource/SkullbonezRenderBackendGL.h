@@ -98,6 +98,35 @@ class RenderBackendGL : public IRenderBackend
         return "OpenGL 3.3";
     }
 
+    bool IsDXRSupported() const override
+    {
+        return false;
+    }
+    void InitDXR( uint64_t, int, int, uint64_t, int, int, int ) override
+    {
+    }
+    void DispatchReflectionRays( const float*, const float*, float, float, const float*, int, int, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t ) override
+    {
+    }
+    void BuildTLAS( const float*, int, uint64_t, uint64_t ) override
+    {
+    }
+    uint32_t GetReflectionUAVTexture() const override
+    {
+        return 0;
+    }
+    void ShutdownDXR() override
+    {
+    }
+    uint64_t GetInstancedMeshStaticVBVA( uint32_t ) const override
+    {
+        return 0;
+    }
+    int GetInstancedMeshStaticStride( uint32_t ) const override
+    {
+        return 0;
+    }
+
     uint32_t CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices ) override;
     void UploadAndDrawDynamicVB( uint32_t handle, const float* data, int vertexCount ) override;
     void DestroyDynamicVB( uint32_t handle ) override;

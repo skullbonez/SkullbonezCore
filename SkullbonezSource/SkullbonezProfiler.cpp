@@ -1,5 +1,6 @@
 // --- Includes ---
 #include "SkullbonezProfiler.h"
+#include "SkullbonezIRenderBackend.h"
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
 
@@ -12,6 +13,7 @@
 
 // --- Usings ---
 using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Rendering;
 
 
 namespace
@@ -243,9 +245,17 @@ void Profiler::End( const char* fullPath, uint32_t hash )
 
 void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
 {
-    // GPU profiler requires OpenGL — skip when running DX11
+    // GPU profiler requires OpenGL — fall back to backend timer on DX12
     if ( !glGenQueries )
     {
+        if ( IsGfxReady() && Gfx().SupportsGpuTimers() )
+        {
+            int idx = FindOrRegister( fullPath, hash );
+            Marker& m = m_markers[idx];
+            m.hasGpu = true;
+            m.gpuWrittenThisFrame = true;
+            Gfx().GpuTimerBegin( idx );
+        }
         return;
     }
 
@@ -278,6 +288,15 @@ void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
 {
     if ( !glQueryCounter )
     {
+        if ( IsGfxReady() && Gfx().SupportsGpuTimers() )
+        {
+            int idx = FindOrRegister( fullPath, hash );
+            Marker& m = m_markers[idx];
+            if ( m.gpuWrittenThisFrame )
+            {
+                Gfx().GpuTimerEnd( idx );
+            }
+        }
         return;
     }
 
@@ -297,6 +316,28 @@ void Profiler::ReadPendingGpuResults()
 {
     if ( !glGetQueryObjectuiv )
     {
+        if ( IsGfxReady() && Gfx().SupportsGpuTimers() )
+        {
+            for ( int i = 0; i < m_markerCount; ++i )
+            {
+                Marker& m = m_markers[i];
+                if ( !m.hasGpu )
+                {
+                    continue;
+                }
+                float ms = 0.0f;
+                if ( Gfx().GpuTimerRead( i, ms ) )
+                {
+                    m.gpuLastFrameMs = ms;
+                    m.gpuRingMs[m.gpuRingHead] = ms;
+                    m.gpuRingHead = ( m.gpuRingHead + 1 ) % RING_SIZE;
+                    if ( m.gpuRingFilled < RING_SIZE )
+                    {
+                        ++m.gpuRingFilled;
+                    }
+                }
+            }
+        }
         return;
     }
 
@@ -381,6 +422,11 @@ void Profiler::InvalidateGpuQueries()
     }
     // +1 because FrameBegin decrements before the frame runs
     m_warmupFrames = WARMUP_FRAMES + 1;
+
+    if ( IsGfxReady() )
+    {
+        Gfx().GpuTimerInvalidate();
+    }
 }
 
 

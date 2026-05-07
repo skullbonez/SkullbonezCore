@@ -30,6 +30,7 @@ class MeshGL : public IMesh
     GLuint m_vao;      // Vertex Array Object
     GLuint m_vbo;      // Vertex Buffer Object
     int m_vertexCount; // Number of vertices
+    int m_stride;      // Bytes per vertex
     GLenum m_drawMode; // GL_TRIANGLES, GL_TRIANGLE_STRIP, etc.
 
   public:
@@ -39,6 +40,11 @@ class MeshGL : public IMesh
     void Draw() const override; // Bind VAO and draw
     void DrawInstanced( int instanceCount ) const override;
     int GetVertexCount() const override; // Get vertex count
+    int GetStride() const override;
+    uint64_t GetVertexBufferGPUVA() const override
+    {
+        return 0;
+    }
 };
 } // namespace Rendering
 } // namespace SkullbonezCore
