@@ -61,6 +61,8 @@ SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
     m_isWaterFreezeDebug = false;
     m_isWaterNoReflect = false;
     m_isWaterFlatDebug = false;
+    m_isTerrainHidden = false;
+    m_isWaterHidden = false;
     m_isDebugVectors = false;
     m_timeScale = 1.0f;
     m_frozenWaterTime = 0.0f;
@@ -491,6 +493,7 @@ void SkullbonezRun::TakeInput()
     m_isWaterNoReflect = ( Input::IsKeyToggled( '2' ) != 0 ); // Reflection default ON
     m_isWaterFlatDebug = ( Input::IsKeyToggled( '3' ) != 0 ); // Ocean wave displacement ON
     m_isTerrainHidden = ( Input::IsKeyToggled( '4' ) != 0 );  // Terrain visibility ON
+    m_isWaterHidden = ( Input::IsKeyToggled( '5' ) != 0 );    // Water visibility ON
     // Debug vectors: in scene mode, start from the scene-loaded value and edge-detect '9' toggles.
     // In legacy mode, mirror the Windows key-toggle state.
     if ( m_isSceneMode )
@@ -816,6 +819,7 @@ void SkullbonezRun::DrawPrimitives()
     }
 
     // render the fluid ---------------------------
+    if ( !m_isWaterHidden )
     {
         PROFILE_GPU_SCOPED( "Frame/Render/Water" );
         float waterTime = m_isWaterFreezeDebug
@@ -1262,6 +1266,7 @@ void SkullbonezRun::LoadScene( int index )
     m_isWaterNoReflect = false;
     m_isWaterFlatDebug = false;
     m_isTerrainHidden = false;
+    m_isWaterHidden = false;
     m_isDebugVectors = false;
     m_timeScale = 1.0f;
     m_frozenWaterTime = 0.0f;

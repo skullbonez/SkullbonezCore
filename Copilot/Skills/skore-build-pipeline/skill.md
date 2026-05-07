@@ -290,9 +290,11 @@ print('All baselines updated')
 "
 ```
 
-### Step 6: Analyze Performance & Compare Against Prior Commit
+### Step 6: Generate & Display Performance Data
 
 **Mandatory for every commit.**
+
+Generate performance JSON artifacts and display the comparison tables without LLM analysis. User decides if regression is acceptable.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
@@ -331,6 +333,7 @@ foreach ($renderer in @("gl", "dx11", "dx12")) {
 Get-ChildItem "$REPO\TestOutput" -Recurse -Filter "*_perf_log.csv" | Remove-Item
 Write-Host "Cleaned up archived CSVs from TestOutput"
 
+# Display comparison tables for all three renderers without analysis
 foreach ($renderer in @("gl", "dx11", "dx12")) {
     $prevJson = $null
     foreach ($dir in ($allDirs | Sort-Object { [int]($_.Name -split '_',2)[0] } -Descending)) {
@@ -343,19 +346,33 @@ foreach ($renderer in @("gl", "dx11", "dx12")) {
         Write-Host "`n=== $($renderer.ToUpper()) Perf Comparison ==="
         py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py" `
             --current $currentJson --previous $prevJson
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "FAIL: $($renderer.ToUpper()) perf regression — investigate before committing"
-            exit 1
-        }
     } else {
-        Write-Host "`n$($renderer.ToUpper()): No prior archive found — skipping compare"
+        Write-Host "`n$($renderer.ToUpper()): No prior archive found — displaying current tables:"
+        py -c "
+import json
+with open(r'$currentJson') as f:
+    data = json.load(f)
+    if 'tables' in data:
+        for table_name, table_data in data['tables'].items():
+            print(f'\n{table_name}:')
+            print(table_data)
+"
     }
 }
+
+# Ask user to confirm performance is acceptable before continuing
+Write-Host "`n" + ("="*60)
+Write-Host "Review the performance tables above."
+Write-Host "="*60
 ```
 
-**⚠️ MANDATORY: Print the COMPLETE output for ALL THREE renderers — every row, every emoji dot, the full CPU table, GPU table, and Memory table. Do NOT summarize, truncate, or paraphrase.**
+After displaying all tables, ask the user via `ask_user` tool:
+```
+question: "Performance tables displayed above. Is the performance acceptable to continue?"
+choices: ["Yes, continue", "No, abort commit"]
+```
 
-Regression thresholds: avg/p50 timing >10% = FAIL, memory growth >5 MB = FAIL.
+If user says "No", exit with code 1 to abort. Otherwise continue to Step 7.
 
 ### Step 7: Archive Screenshots to TestOutput
 

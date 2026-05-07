@@ -94,6 +94,7 @@ Output: `Debug\SKULLBONEZ_CORE.exe`, `Profile\SKULLBONEZ_CORE.exe`, or `Release\
 | **2** | Toggle water reflection | ON |
 | **3** | Toggle ocean wave displacement | ON |
 | **4** | Toggle terrain visibility (hides terrain mesh and shadow decals) | Visible |
+| **5** | Toggle water visibility (hides water mesh) | Visible |
 | **9** | Toggle debug velocity vectors on balls | OFF |
 | **0** | Toggle profiler overlay (frame timing text) | ON in legacy mode; OFF in scene mode |
 | **G** | Cycle tracked ball index (scene mode only, when ball tracking is active) | — |
