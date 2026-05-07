@@ -93,6 +93,7 @@ Output: `Debug\SKULLBONEZ_CORE.exe`, `Profile\SKULLBONEZ_CORE.exe`, or `Release\
 | **1** | Freeze / unfreeze water animation | Animated |
 | **2** | Toggle water reflection | ON |
 | **3** | Toggle ocean wave displacement | ON |
+| **4** | Toggle terrain visibility (hides terrain mesh and shadow decals) | Visible |
 | **9** | Toggle debug velocity vectors on balls | OFF |
 | **0** | Toggle profiler overlay (frame timing text) | ON in legacy mode; OFF in scene mode |
 | **G** | Cycle tracked ball index (scene mode only, when ball tracking is active) | — |
@@ -110,6 +111,35 @@ Debug\SKULLBONEZ_CORE.exe --scene Scenes\snapshot_0000.scene
 ```
 
 The simulation loads **paused in fly mode**. Navigate with WASD/mouse to confirm the reproduction point, then press **F** to resume. This is the primary workflow for handing off a visual bug — save a snapshot at the moment of the bug, load it fresh to reproduce from exactly that state.
+
+---
+
+## Physics
+
+The physics simulation uses rigid body dynamics with quaternion orientation tracking. All sphere-terrain and sphere-sphere collisions are resolved in a single unified contact solver.
+
+### Unified Contact Solver
+
+The original engine used a binary `m_isGrounded` flag to switch between two completely separate code paths — a kinematic "rolling mode" and an impulse-based "bounce mode". The transition between them was discontinuous and produced visible stutter (balls stopping and restarting mid-roll).
+
+This was replaced with a single unified contact impulse solver where bouncing, rolling, and settling all emerge naturally from the same physics:
+
+- **Normal impulse** `jₙ = -(1+e)·vₙ / kₙ` — handles bounce. Restitution `e` drops to zero below a velocity threshold to prevent micro-bouncing at rest.
+- **Coulomb friction impulse** — couples linear and angular velocity. Rolling arises naturally: friction decelerates the ball's surface contact velocity, imparting angular velocity in the correct direction without any special-case rolling code.
+- **Spin friction** — damps Y-axis spin (world-up axis) that Coulomb friction alone cannot remove, weighted by the terrain normal's upward component.
+- `m_isGrounded`, `DampenAngularVelocity()`, and the three old terrain response methods (`SphereVsPlaneRollResponse`, `SphereVsPlaneLinearImpulse`, `SphereVsPlaneAngularImpulse`) were removed entirely.
+
+Contact detection uses a proximity test from the plane equation (`pos.y − radius ≤ terrainHeight + ε`) reusing the polygon already located by the swept intersection — no redundant `GetTerrainHeightAt` call.
+
+### Quaternion / Orientation Fix
+
+The engine's quaternion multiply operator had non-standard signs inherited from the 2005 original, and `GetOrientationMatrix()` returns the transpose of the standard active-rotation matrix (passive/coordinate-transform convention). These two conventions interact: physical angular velocity `ω` is stored in physics space, but feeding it directly to `RotateAboutXYZ` produced visually backwards rotation.
+
+Fix: omega is negated at the point of visual application (`UpdatePosition`, `UpdateRollPosition`, `GetOrientationMatrix`) so the physics solver reads and writes correct physical values while the visual output rotates in the expected direction.
+
+### Sphere-Sphere Angular Convention Fix
+
+`SphereVsSphereAngular` was a 2005 calibration hack with empirically tuned signs. After the terrain solver was rewritten to use proper physical convention, the sphere-sphere output was negated to bring it into alignment — both contact types now use the same sign convention throughout.
 
 ---
 
