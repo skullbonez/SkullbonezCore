@@ -483,3 +483,39 @@ float GameModel::GetSubmergedVolumePercent()
     // return the submerged percentage
     return totalPercentage;
 }
+
+
+const Quaternion& GameModel::GetOrientation() const
+{
+    return m_physicsInfo.GetOrientation();
+}
+
+
+const Vector3& GameModel::GetRotationalInertia()
+{
+    return m_physicsInfo.GetRotationalInertia();
+}
+
+
+float GameModel::GetCoefficientRestitution()
+{
+    return m_physicsInfo.GetCoefficientRestitution();
+}
+
+
+void GameModel::SetLinearVelocity( const Vector3& v )
+{
+    m_physicsInfo.SetLinearVelocity( v );
+}
+
+
+void GameModel::SetAngularVelocity( const Vector3& v )
+{
+    m_physicsInfo.SetAngularVelocity( v );
+}
+
+
+void GameModel::SetOrientation( const Quaternion& q )
+{
+    m_physicsInfo.SetOrientation( q );
+}

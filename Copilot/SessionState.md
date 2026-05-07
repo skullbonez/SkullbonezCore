@@ -1,5 +1,20 @@
 # SkullbonezCore — Session State
 
+> # 🚫 NEVER KILL PROCESSES BY NAME
+> **NEVER use `Stop-Process -Name`, `taskkill /IM SKULLBONEZ_CORE.exe`, or any name-based kill.**
+> Multiple agents run independent copies of SKULLBONEZ_CORE.exe from different repo folders simultaneously.
+> Killing by name will terminate the wrong instance and corrupt another agent's pipeline run.
+>
+> **Always kill by PID only:** `Stop-Process -Id <PID>` — get the PID from `$proc.Id` when you launched it with `Start-Process -PassThru`.
+
+> # ⏱️ ALL LARGE TASKS MUST BE TIMED
+> **Before starting any large task (multi-file refactor, new feature, phase implementation, pipeline run):**
+> 1. Note the wall-clock start time
+> 2. At completion, record: **elapsed time**, **input tokens**, **output tokens**
+> 3. Log it in the session summary so Simon can track cost and velocity
+>
+> *This applies to: pipeline runs, feature implementations, debugging sessions, refactors, any task expected to take >2 minutes or >10 tool calls.*
+
 ## Branch & Last Commit
 - Branch: `fix/dx12-predraw-overhead` (rename work) / `main` (skill additions)
 - Last commit on fix branch: `4747099` — Rename API-specific source files and classes with GL/DX11/DX12 suffixes

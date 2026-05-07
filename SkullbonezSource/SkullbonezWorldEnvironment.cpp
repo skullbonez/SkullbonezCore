@@ -176,6 +176,18 @@ float WorldEnvironment::GetFluidSurfaceHeight()
 }
 
 
+float WorldEnvironment::GetGravity() const
+{
+    return m_gravity;
+}
+
+
+float WorldEnvironment::GetFluidDensity() const
+{
+    return m_fluidDensity;
+}
+
+
 void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
 {
     // initialise the world force vector so we can add to it

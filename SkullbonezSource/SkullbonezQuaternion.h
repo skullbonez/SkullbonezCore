@@ -37,6 +37,7 @@ class Quaternion
     void RotateAboutXYZ( float xRadians, float yRadians, float zRadians ); // Rotate by angular-displacement components without Euler decomposition
     Quaternion operator*( const Quaternion& q ) const;                     // Quaternion dot product, overload * operator for this
     Quaternion& operator*=( const Quaternion& q );                         // *= Overload
+    void GetComponents( float& x, float& y, float& z, float& w ) const;    // Expose components for serialization
 
   private:
     float m_x, m_y, m_z, m_w; // Quaternion components

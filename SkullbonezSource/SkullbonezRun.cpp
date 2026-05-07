@@ -439,9 +439,14 @@ void SkullbonezRun::Run()
 
 void SkullbonezRun::TakeInput()
 {
-    // Toggle fly mode with F
+    // Toggle fly mode with F (edge-detected so snapshot-loaded fly mode survives the next frame)
     bool prevFlyMode = m_isFlyMode;
-    m_isFlyMode = ( Input::IsKeyToggled( 'F' ) != 0 );
+    bool fNow = Input::IsKeyDown( 'F' );
+    if ( fNow && !m_sInputState.fFWasDown )
+    {
+        m_isFlyMode = !m_isFlyMode;
+    }
+    m_sInputState.fFWasDown = fNow;
 
     if ( m_isFlyMode != prevFlyMode )
     {
@@ -531,6 +536,53 @@ void SkullbonezRun::TakeInput()
     {
         // Profiler overlay default ON; pressing '0' toggles the OS-level toggle bit, hiding the overlay.
         m_isProfilerOverlay = ( Input::IsKeyToggled( '0' ) == 0 );
+    }
+
+    // F2: Save scene snapshot to Scenes/
+    {
+        bool f2Now = Input::IsKeyDown( VK_F2 );
+        if ( f2Now && !m_sInputState.fF2WasDown )
+        {
+            CreateDirectoryA( "Scenes", nullptr );
+            static int sSnapshotSeq = 0;
+            bool saved = false;
+            for ( int tries = 0; tries < 100 && !saved; ++tries )
+            {
+                char path[256];
+                sprintf_s( path, sizeof( path ), "Scenes\\snapshot_%04d.scene", sSnapshotSeq++ );
+                saved = m_cGameModelCollection.SaveSceneSnapshot(
+                    path,
+                    m_isScenePhysics,
+                    m_isSceneText,
+                    m_cWorldEnvironment,
+                    m_cCameras->GetCameraTranslation(),
+                    m_cCameras->GetCameraView(),
+                    m_cCameras->GetCameraUp() );
+            }
+        }
+        m_sInputState.fF2WasDown = f2Now;
+    }
+
+    // F3: Save screenshot to Screenshots/
+    {
+        bool f3Now = Input::IsKeyDown( VK_F3 );
+        if ( f3Now && !m_sInputState.fF3WasDown )
+        {
+            CreateDirectoryA( "Screenshots", nullptr );
+            static int sScreenshotSeq = 0;
+            bool saved = false;
+            for ( int tries = 0; tries < 100 && !saved; ++tries )
+            {
+                char path[256];
+                sprintf_s( path, sizeof( path ), "Screenshots\\screenshot_%04d.bmp", sScreenshotSeq++ );
+                if ( GetFileAttributesA( path ) == INVALID_FILE_ATTRIBUTES )
+                {
+                    SaveScreenshot( path );
+                    saved = true;
+                }
+            }
+        }
+        m_sInputState.fF3WasDown = f3Now;
     }
 
     if ( m_isFlyMode )
@@ -1098,7 +1150,7 @@ void SkullbonezRun::SetUpCamerasFromScene( const TestScene& scene )
 
 void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 {
-    m_modelCount = scene.GetBallCount();
+    m_modelCount = scene.GetBallCount() + scene.GetBallStateCount();
 
     for ( int i = 0; i < scene.GetBallCount(); ++i )
     {
@@ -1127,6 +1179,27 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
                 Vector3( ball.forceX, ball.forceY, ball.forceZ ),
                 Vector3( ball.forcePosX, ball.forcePosY, ball.forcePosZ ) );
         }
+
+        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
+    }
+
+    // ball_state entries: full dynamic state from a snapshot
+    for ( int i = 0; i < scene.GetBallStateCount(); ++i )
+    {
+        const SceneBallState& bs = scene.GetBallState( i );
+
+        GameModel gameModel( &m_cWorldEnvironment,
+                             Vector3( bs.posX, bs.posY, bs.posZ ),
+                             Vector3( bs.inertiaX, bs.inertiaY, bs.inertiaZ ),
+                             bs.mass );
+
+        gameModel.SetCoefficientRestitution( bs.restitution );
+        gameModel.SetTerrain( m_cTerrain.get() );
+        gameModel.SetName( bs.name );
+        gameModel.AddBoundingSphere( bs.radius );
+        gameModel.SetLinearVelocity( Vector3( bs.velX, bs.velY, bs.velZ ) );
+        gameModel.SetAngularVelocity( Vector3( bs.angVelX, bs.angVelY, bs.angVelZ ) );
+        gameModel.SetOrientation( Quaternion( bs.orientX, bs.orientY, bs.orientZ, bs.orientW ) );
 
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
     }
@@ -1302,6 +1375,14 @@ void SkullbonezRun::LoadScene( int index )
             m_cTerrain = std::make_unique<Terrain>( scene.GetFlatBaseY(), scene.GetFlatSlopeX(), scene.GetFlatSlopeZ() );
         }
 
+        // Override world environment if scene specifies world values
+        if ( scene.HasWorldOverride() )
+        {
+            m_cWorldEnvironment = WorldEnvironment( scene.GetWorldFluidHeight(), scene.GetWorldFluidDensity(), Cfg().gasDensity, scene.GetWorldGravity() );
+            XZBounds tb = m_cTerrain->GetXZBounds();
+            m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
+        }
+
         SetUpCamerasFromScene( scene );
 
         if ( scene.GetLegacyBallCount() > 0 )
@@ -1325,6 +1406,25 @@ void SkullbonezRun::LoadScene( int index )
         char titleText[256];
         sprintf_s( titleText, "::SKULLBONEZ CORE:: [SCENE MODE] [%s]", rendererName );
         m_cWindow->SetTitleText( titleText );
+
+        // Snapshot scenes (ball_state) start paused in free camera mode —
+        // user presses F to resume simulation and attach to scene camera
+        if ( scene.GetBallStateCount() > 0 )
+        {
+            m_isFlyMode = true;
+            m_cameraTime = 0.0f;
+            XZBounds unbounded;
+            unbounded.m_xMin = -99999.9f;
+            unbounded.m_xMax = 99999.9f;
+            unbounded.m_zMin = -99999.9f;
+            unbounded.m_zMax = 99999.9f;
+            uint32_t activeCam = m_cCameras->GetSelectedCameraName();
+            m_cCameras->SetCameraXZBounds( activeCam, unbounded );
+            SetCursor( nullptr );
+            Input::CentreMouseCoordinates();
+            m_sInputState.xMove = 0;
+            m_sInputState.yMove = 0;
+        }
     }
 
     // Restart timers

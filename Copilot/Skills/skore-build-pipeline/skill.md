@@ -11,6 +11,33 @@ The full verify-and-commit pipeline after a code change. **Every step must pass 
 
 The engine supports in-process scene sequencing — all tests run in a **single process launch** via `--suite`. The suite file `SkullbonezData/scenes/render_tests.suite` runs: `water_ball_test.scene` (render screenshot), `legacy_smoke.scene` (render screenshot, 300 balls), `perf_test.scene` (2×5s passes).
 
+### Step -1: Choose Test Scope
+
+**Always ask this before starting**, unless the user already specified (e.g. "run render tests only").
+
+Use the `ask_user` tool:
+```
+question: "Which tests should the pipeline run?"
+choices:
+  - "Both render + perf (full pipeline) (Recommended)"
+  - "Render tests only (skip perf)"
+  - "Perf tests only (skip render baselines)"
+  - "None — format + build + commit only"
+```
+
+Record the answer as `$testScope` and apply these rules for the remaining steps:
+
+| Scope | Step 3 suite file | Step 4 (baseline check) | Step 5 (update baselines) | Step 6 (perf analysis) |
+|-------|-------------------|-------------------------|---------------------------|------------------------|
+| Both (full) | `render_tests.suite` | ✅ Run | ✅ Run | ✅ Run |
+| Render only | `render_only.suite`* | ✅ Run | ✅ Run | ⏭️ Skip |
+| Perf only | `perf_only.suite`* | ⏭️ Skip | ⏭️ Skip | ✅ Run |
+| None | ⏭️ Skip steps 3–7 | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip |
+
+*If the named suite doesn't exist yet, use `render_tests.suite` for render-only and pass `--scene SkullbonezData/scenes/perf_test.scene` for perf-only.
+
+When scope is **None**, jump directly from Step 2 (build) to Step 8 (LOC) then Step 9 (confirm commit). Steps 3–7 are skipped entirely — no suite run, no baselines, no perf artifacts. The commit message should note "no test artifacts (build-only commit)".
+
 ### Step 0: Verify Formatting
 
 Uses `--dry-run -Werror` which exits non-zero for any file that would be changed. Do NOT compare clang-format stdout against file contents — PowerShell's pipeline mangles the output.
