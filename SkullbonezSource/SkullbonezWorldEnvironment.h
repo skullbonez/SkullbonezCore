@@ -40,7 +40,7 @@ class WorldEnvironment
     WorldEnvironment& operator=( WorldEnvironment&& ) noexcept = default;                                  // Move assignment
 
     void SetTerrainBounds( float xMin, float xMax, float zMin, float zMax );                                                                                                    // Must be called before first render; drives calm/ocean mesh split
-    void RenderFluid( const Matrix4& view, const Matrix4& proj, const Matrix4& reflectVP, float time, uint32_t reflectionTex, bool flatWater = false, bool noReflect = false, bool noPerturb = false ); // Renders the water in the scene
+    void RenderFluid( const Matrix4& view, const Matrix4& proj, const Matrix4& reflectVP, float time, uint32_t reflectionTex, bool flatWater = false, bool noReflect = false ); // Renders the water in the scene
     void ResetGLResources();                                                                                                                                                    // Rebuilds GPU resources after GL context recreation
     float GetFluidSurfaceHeight();                                                                                                                                              // Returns the fluid surface height
     float GetGravity() const;                                                                                                                                                   // Returns the gravity value (m/s^2)

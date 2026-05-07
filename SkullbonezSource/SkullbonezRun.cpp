@@ -826,7 +826,7 @@ void SkullbonezRun::DrawPrimitives()
         Matrix4 waterSampleVP = ( Gfx().IsDXRSupported() && !m_isWaterNoReflect )
                                     ? proj * baseView
                                     : reflVP;
-        m_cWorldEnvironment.RenderFluid( baseView, proj, waterSampleVP, waterTime, reflTex, m_isWaterFlatDebug, m_isWaterNoReflect, Gfx().IsDXRSupported() );
+        m_cWorldEnvironment.RenderFluid( baseView, proj, waterSampleVP, waterTime, reflTex, m_isWaterFlatDebug, m_isWaterNoReflect );
     }
 
     // debug vector overlay — GL only, toggled with V (or debug_vectors in scene)
