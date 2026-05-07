@@ -140,7 +140,7 @@ void SkullbonezRun::Initialise()
 
     // Init m_terrain
     // path to m_height map | map size pixels | step size | times to wrap texture
-    m_cTerrain = std::make_unique<Terrain>( Cfg().terrainRaw.c_str(), 256, 8, 15 );
+    m_cTerrain = std::make_unique<Terrain>( ( std::string( DATA_ROOT ) + Cfg().terrainRaw ).c_str(), 256, 8, 15 );
 
     // Init SkyBox (m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax)
     m_cSkyBox = SkyBox::Instance( -250, 300, -300, 300, -250, 300 );
@@ -933,8 +933,8 @@ void SkullbonezRun::SetInitialOpenGlState()
 
     // load m_textures
     const SkullbonezConfig& cfg = Cfg();
-    m_cTextures->CreateJpegTexture( cfg.terrainTexture.c_str(), TEXTURE_GROUND );
-    m_cTextures->CreateJpegTexture( cfg.sphereTexture.c_str(), TEXTURE_BOUNDING_SPHERE );
+    m_cTextures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.terrainTexture ).c_str(), TEXTURE_GROUND );
+    m_cTextures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.sphereTexture ).c_str(), TEXTURE_BOUNDING_SPHERE );
 }
 
 

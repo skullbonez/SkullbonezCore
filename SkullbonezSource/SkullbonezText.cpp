@@ -117,16 +117,12 @@ void Text2d::BuildFont( const HDC hDC, const char* cFontName )
     Text2d::dynamicVB = Gfx().CreateDynamicVB( textAttribs, 2, 512 * 6 );
 
     // Compile the text m_shader
-    Text2d::pTextShader = Gfx().CreateShader(
-        "SkullbonezData/shaders/text.vert",
-        "SkullbonezData/shaders/text.frag" );
+    Text2d::pTextShader = Gfx().CreateShader( "shaders/text" );
     Text2d::pTextShader->Use();
     Text2d::pTextShader->SetInt( "uFontTexture", 0 );
 
     // Compile the solid-colour HUD quad m_shader (used by Render2dQuad)
-    Text2d::pSolidShader = Gfx().CreateShader(
-        "SkullbonezData/shaders/solid_color.vert",
-        "SkullbonezData/shaders/solid_color.frag" );
+    Text2d::pSolidShader = Gfx().CreateShader( "shaders/solid_color" );
 
     // Cleanup GDI resources
     SelectObject( memDC, hOldFont );

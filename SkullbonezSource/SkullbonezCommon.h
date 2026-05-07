@@ -34,9 +34,6 @@
 #include <stdexcept> // std::runtime_error
 #include <memory>    // std::unique_ptr
 #include <vector>    // std::vector
-#include <glad/gl.h> // GLAD OpenGL 3.3 Core Loader
-
-#pragma comment( lib, "opengl32.lib" )
 
 #include <crtdbg.h>
 #define CRTDBG_MAP_ALLOC
@@ -50,6 +47,7 @@ constexpr int DEFAULT_GAME_MODELS = 300;
 // Window labels
 constexpr const char* WINDOW_NAME = "SkullbonezWindow";
 constexpr const char* TITLE_TEXT = "::SKULLBONEZ CORE::";
+constexpr const char* DATA_ROOT = "SkullbonezData/";
 
 // Math constants
 constexpr float _PI = 3.14159265f;

@@ -16,7 +16,7 @@
 //  then drills down into the BLAS to test against actual triangles. This two-level structure
 //  allows the same geometry (BLAS) to appear multiple times at different positions (instances).
 //
-#include "SkullbonezBLAS.h"
+#include "SkullbonezBLASDX12.h"
 #include <stdexcept>
 
 

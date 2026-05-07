@@ -36,10 +36,6 @@ class SkullbonezHelper
     static std::vector<float> sphereInstanceData;                     // Staging buffer for model matrices (16 floats per instance)
     inline static float sClipPlane[4] = { 0.0f, 1.0f, 0.0f, 1.0e9f }; // default: always pass (GL_CLIP_DISTANCE0 disabled)
 
-    static std::unique_ptr<IShader> debugLineShader; // GL-only debug line shader
-    static unsigned int debugLineVAO;                // VAO for debug lines
-    static unsigned int debugLineVBO;                // VBO for debug lines (streaming)
-
     static void BuildSphereMesh( int slices, int stacks ); // Generate UV sphere instanced mesh
 
   public:

@@ -179,9 +179,9 @@
     <ClCompile Include="SkullbonezSource\SkullbonezShaderDX12.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezMeshDX12.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezFramebufferDX12.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezBLAS.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezTLAS.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezSBT.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezBLASDX12.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezTLASDX12.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezSBTDX12.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingSphere.h" />
@@ -230,9 +230,9 @@
     <ClInclude Include="SkullbonezSource\SkullbonezShaderDX12.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezMeshDX12.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezFramebufferDX12.h" />
-    <ClInclude Include="SkullbonezSource\SkullbonezBLAS.h" />
-    <ClInclude Include="SkullbonezSource\SkullbonezTLAS.h" />
-    <ClInclude Include="SkullbonezSource\SkullbonezSBT.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezBLASDX12.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezTLASDX12.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezSBTDX12.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="SkullbonezData\engine.cfg" />

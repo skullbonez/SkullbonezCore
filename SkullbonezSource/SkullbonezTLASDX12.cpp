@@ -15,7 +15,7 @@
 //
 //  PREFER_FAST_BUILD flag is used because we rebuild every frame (speed > quality tradeoff).
 //
-#include "SkullbonezTLAS.h"
+#include "SkullbonezTLASDX12.h"
 #include <stdexcept>
 #include <cstring>
 

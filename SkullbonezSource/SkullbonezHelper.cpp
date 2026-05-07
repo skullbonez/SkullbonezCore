@@ -4,7 +4,6 @@
 #include "SkullbonezIRenderBackend.h"
 #include <vector>
 #include <cmath>
-#include <cstring>
 
 
 // --- Usings ---
@@ -18,9 +17,6 @@ std::unique_ptr<IShader> SkullbonezHelper::sphereShader;
 uint32_t SkullbonezHelper::sphereInstMesh = 0;
 int SkullbonezHelper::sphereVertexCount = 0;
 std::vector<float> SkullbonezHelper::sphereInstanceData;
-std::unique_ptr<IShader> SkullbonezHelper::debugLineShader;
-unsigned int SkullbonezHelper::debugLineVAO = 0;
-unsigned int SkullbonezHelper::debugLineVBO = 0;
 
 void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
 {
@@ -39,17 +35,6 @@ void SkullbonezHelper::ResetGLResources()
         Gfx().DestroyInstancedMesh( sphereInstMesh );
         sphereInstMesh = 0;
     }
-    debugLineShader.reset();
-    if ( debugLineVBO != 0 )
-    {
-        glDeleteBuffers( 1, &debugLineVBO );
-        debugLineVBO = 0;
-    }
-    if ( debugLineVAO != 0 )
-    {
-        glDeleteVertexArrays( 1, &debugLineVAO );
-        debugLineVAO = 0;
-    }
 }
 
 
@@ -58,9 +43,7 @@ void SkullbonezHelper::EnsureSphereMesh()
     if ( sphereInstMesh == 0 )
     {
         BuildSphereMesh( 25, 25 );
-        sphereShader = Gfx().CreateShader(
-            "SkullbonezData/shaders/lit_textured_instanced.vert",
-            "SkullbonezData/shaders/lit_textured_instanced.frag" );
+        sphereShader = Gfx().CreateShader( "shaders/lit_textured_instanced" );
         sphereShader->Use();
         sphereShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
         sphereShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
@@ -124,9 +107,7 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
     if ( sphereInstMesh == 0 )
     {
         BuildSphereMesh( 25, 25 );
-        sphereShader = Gfx().CreateShader(
-            "SkullbonezData/shaders/lit_textured_instanced.vert",
-            "SkullbonezData/shaders/lit_textured_instanced.frag" );
+        sphereShader = Gfx().CreateShader( "shaders/lit_textured_instanced" );
         sphereShader->Use();
         sphereShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
         sphereShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
@@ -188,37 +169,9 @@ void SkullbonezHelper::DrawDebugVectors(
     float g,
     float b )
 {
-    // GL-only — skip on DX11/DX12
-    if ( strstr( Gfx().GetRendererName(), "OpenGL" ) == nullptr )
-    {
-        return;
-    }
     if ( lines.empty() )
     {
         return;
-    }
-
-    // Lazy-init VAO/VBO for debug line rendering
-    if ( debugLineVAO == 0 )
-    {
-        // Create a VAO+VBO pair specifically for rendering debug lines (collision vectors, etc.)
-        glGenVertexArrays( 1, &debugLineVAO );
-        glGenBuffers( 1, &debugLineVBO );
-        glBindVertexArray( debugLineVAO );
-        glBindBuffer( GL_ARRAY_BUFFER, debugLineVBO );
-        // Pre-allocate a streaming buffer for up to 2048 line endpoints (each is a vec3).
-        // GL_DYNAMIC_DRAW = updated frequently (debug lines change every frame).
-        glBufferData( GL_ARRAY_BUFFER, static_cast<GLsizeiptr>( 2048 * 3 * sizeof( float ) ), nullptr, GL_DYNAMIC_DRAW );
-        // Location 0 = position (vec3), tightly packed (stride = 12 bytes)
-        glEnableVertexAttribArray( 0 );
-        glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof( float ), reinterpret_cast<void*>( 0 ) );
-        glBindVertexArray( 0 );
-    }
-
-    // Lazy-init shader
-    if ( !debugLineShader )
-    {
-        debugLineShader = Gfx().CreateShader( "SkullbonezData/shaders/debug_line.vert", "SkullbonezData/shaders/debug_line.frag" );
     }
 
     // Pack line endpoints: each pair → 2 × vec3 = 6 floats
@@ -235,39 +188,5 @@ void SkullbonezHelper::DrawDebugVectors(
     }
 
     int vertCount = static_cast<int>( lines.size() * 2 );
-
-    // Upload line vertex data to the VBO
-    glBindBuffer( GL_ARRAY_BUFFER, debugLineVBO );
-    GLsizeiptr needed = static_cast<GLsizeiptr>( verts.size() * sizeof( float ) );
-    GLsizeiptr capacity = static_cast<GLsizeiptr>( 2048 * 3 * sizeof( float ) );
-    if ( needed > capacity )
-    {
-        // Buffer too small — orphan and reallocate at the needed size.
-        glBufferData( GL_ARRAY_BUFFER, needed, nullptr, GL_DYNAMIC_DRAW );
-        capacity = needed;
-    }
-    // Upload the actual line vertex positions.
-    // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glBufferSubData.xhtml
-    glBufferSubData( GL_ARRAY_BUFFER, 0, needed, verts.data() );
-    glBindBuffer( GL_ARRAY_BUFFER, 0 );
-
-    // Draw — disable depth test so lines render through opaque ball geometry
-    Gfx().SetDepthTest( false );
-    debugLineShader->Use();
-    debugLineShader->SetMat4( "uViewProj", viewProj );
-    debugLineShader->SetVec4( "uColor", r, g, b, 1.0f );
-
-    glBindVertexArray( debugLineVAO );
-
-    // Set line width to 2 pixels for visibility. Note: line width > 1.0 is deprecated in
-    // Core Profile and may be ignored by some drivers, but works on most desktop GPUs.
-    // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glLineWidth.xhtml
-    glLineWidth( 2.0f );
-
-    // Draw using GL_LINES — every pair of consecutive vertices forms one line segment.
-    // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glDrawArrays.xhtml
-    glDrawArrays( GL_LINES, 0, vertCount );
-    glLineWidth( 1.0f );
-    glBindVertexArray( 0 );
-    Gfx().SetDepthTest( true );
+    Gfx().DrawLines( verts.data(), vertCount, r, g, b, viewProj.Data() );
 }

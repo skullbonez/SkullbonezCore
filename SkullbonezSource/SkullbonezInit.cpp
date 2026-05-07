@@ -134,7 +134,7 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
         }
     }
 
-    Cfg().Load( "SkullbonezData/engine.cfg" );
+    Cfg().Load( ( std::string( DATA_ROOT ) + "engine.cfg" ).c_str() );
 
 
     // Create an instance of our window class

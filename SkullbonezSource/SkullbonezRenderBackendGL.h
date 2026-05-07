@@ -2,6 +2,8 @@
 
 
 // --- Includes ---
+#include <glad/gl.h>
+#pragma comment( lib, "opengl32.lib" )
 #include "SkullbonezIRenderBackend.h"
 #include <vector>
 
@@ -54,6 +56,11 @@ class RenderBackendGL : public IRenderBackend
     std::vector<DynamicVBGL> m_dynamicVBs;
     std::vector<InstancedMesh> m_instancedMeshes;
 
+    // Debug line rendering (lazy-init)
+    GLuint m_debugLineVAO = 0;
+    GLuint m_debugLineVBO = 0;
+    std::unique_ptr<IShader> m_debugLineShader;
+
   public:
     RenderBackendGL();
     ~RenderBackendGL() override = default;
@@ -77,7 +84,7 @@ class RenderBackendGL : public IRenderBackend
     void SetPolygonOffset( bool enable, float factor = 0.0f, float units = 0.0f ) override;
     void SetClipPlane( int index, bool enable ) override;
 
-    std::unique_ptr<IShader> CreateShader( const char* vertPath, const char* fragPath ) override;
+    std::unique_ptr<IShader> CreateShader( const char* baseName ) override;
     std::unique_ptr<IMesh> CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords ) override;
     std::unique_ptr<IFramebuffer> CreateFramebuffer( int width, int height ) override;
 
@@ -130,6 +137,8 @@ class RenderBackendGL : public IRenderBackend
     uint32_t CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices ) override;
     void UploadAndDrawDynamicVB( uint32_t handle, const float* data, int vertexCount ) override;
     void DestroyDynamicVB( uint32_t handle ) override;
+
+    void DrawLines( const float* verts, int vertCount, float r, float g, float b, const float* viewProjMatrix16 ) override;
 
     uint32_t CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int maxInstances, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs, const int* staticAttribSizes = nullptr, int numStaticAttribs = 0 ) override;
     void UploadInstanceData( uint32_t handle, const float* data, int floatCount ) override;

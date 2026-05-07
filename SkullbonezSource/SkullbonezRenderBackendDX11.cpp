@@ -796,16 +796,9 @@ void RenderBackendDX11::SetClipPlane( int /*index*/, bool /*enable*/ )
 }
 
 
-std::unique_ptr<IShader> RenderBackendDX11::CreateShader( const char* vertPath, const char* /*fragPath*/ )
+std::unique_ptr<IShader> RenderBackendDX11::CreateShader( const char* baseName )
 {
-    // Transform GL path to HLSL path: "shaders/foo.vert" -> "shaders/foo.hlsl"
-    std::string hlslPath( vertPath );
-    size_t dot = hlslPath.rfind( '.' );
-    if ( dot != std::string::npos )
-    {
-        hlslPath = hlslPath.substr( 0, dot ) + ".hlsl";
-    }
-
+    std::string hlslPath = std::string( DATA_ROOT ) + baseName + ".hlsl";
     auto shader = std::make_unique<ShaderDX11>( m_device, m_context );
     shader->Compile( hlslPath.c_str() );
     return shader;

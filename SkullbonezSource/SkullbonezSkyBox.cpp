@@ -29,12 +29,12 @@ void SkyBox::LoadTextures()
 {
     m_textures = TextureCollection::Instance();
     const SkullbonezCore::Basics::SkullbonezConfig& cfg = Cfg();
-    m_textures->CreateJpegTexture( cfg.skyLeft.c_str(), TEXTURE_SKY_LEFT );
-    m_textures->CreateJpegTexture( cfg.skyRight.c_str(), TEXTURE_SKY_RIGHT );
-    m_textures->CreateJpegTexture( cfg.skyFront.c_str(), TEXTURE_SKY_FRONT );
-    m_textures->CreateJpegTexture( cfg.skyBack.c_str(), TEXTURE_SKY_BACK );
-    m_textures->CreateJpegTexture( cfg.skyUp.c_str(), TEXTURE_SKY_UP );
-    m_textures->CreateJpegTexture( cfg.skyDown.c_str(), TEXTURE_SKY_DOWN );
+    m_textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyLeft ).c_str(), TEXTURE_SKY_LEFT );
+    m_textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyRight ).c_str(), TEXTURE_SKY_RIGHT );
+    m_textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyFront ).c_str(), TEXTURE_SKY_FRONT );
+    m_textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyBack ).c_str(), TEXTURE_SKY_BACK );
+    m_textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyUp ).c_str(), TEXTURE_SKY_UP );
+    m_textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyDown ).c_str(), TEXTURE_SKY_DOWN );
 }
 
 
@@ -271,9 +271,7 @@ void SkyBox::BuildMeshes()
     }
 
     // Load m_shader
-    m_shader = Gfx().CreateShader(
-        "SkullbonezData/shaders/unlit_textured.vert",
-        "SkullbonezData/shaders/unlit_textured.frag" );
+    m_shader = Gfx().CreateShader( "shaders/unlit_textured" );
     m_shader->Use();
     m_shader->SetMat4( "uModel", Matrix4() );
     m_shader->SetVec4( "uColorTint", 1.0f, 1.0f, 1.0f, 1.0f );

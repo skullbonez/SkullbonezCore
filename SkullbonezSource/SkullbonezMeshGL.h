@@ -2,6 +2,8 @@
 
 
 // --- Includes ---
+#include <glad/gl.h>
+#pragma comment( lib, "opengl32.lib" )
 #include "SkullbonezCommon.h"
 #include "SkullbonezIMesh.h"
 

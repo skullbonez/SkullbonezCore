@@ -81,7 +81,9 @@ class IRenderBackend
 
     // --- Resource Creation ---
 
-    virtual std::unique_ptr<IShader> CreateShader( const char* vertPath, const char* fragPath ) = 0;
+    // baseName is relative to DATA_ROOT with no extension, e.g. "shaders/shadow"
+    // Each backend resolves the full path and appends the appropriate extension(s).
+    virtual std::unique_ptr<IShader> CreateShader( const char* baseName ) = 0;
     virtual std::unique_ptr<IMesh> CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords ) = 0;
     virtual std::unique_ptr<IFramebuffer> CreateFramebuffer( int width, int height ) = 0;
 
@@ -159,6 +161,21 @@ class IRenderBackend
     virtual uint32_t CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices ) = 0;
     virtual void UploadAndDrawDynamicVB( uint32_t handle, const float* data, int vertexCount ) = 0;
     virtual void DestroyDynamicVB( uint32_t handle ) = 0;
+
+
+    // --- Debug Line Rendering ---
+    // Draws world-space line segments. verts is a flat array of vec3 pairs (2 × vec3 per line).
+    // vertCount is the total number of vertices (2 × number of lines).
+    // No-op on backends that do not support it.
+    virtual void DrawLines( const float* verts, int vertCount, float r, float g, float b, const float* viewProjMatrix16 )
+    {
+        (void)verts;
+        (void)vertCount;
+        (void)r;
+        (void)g;
+        (void)b;
+        (void)viewProjMatrix16;
+    }
 
 
     // --- Instanced Mesh (hardware instancing: shadow decals, sphere batches) ---

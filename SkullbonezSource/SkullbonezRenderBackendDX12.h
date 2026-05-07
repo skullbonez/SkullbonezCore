@@ -4,9 +4,9 @@
 // --- Includes ---
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezMeshDX12.h"
-#include "SkullbonezBLAS.h"
-#include "SkullbonezTLAS.h"
-#include "SkullbonezSBT.h"
+#include "SkullbonezBLASDX12.h"
+#include "SkullbonezTLASDX12.h"
+#include "SkullbonezSBTDX12.h"
 #include <d3d12.h>
 #include <dxgi1_4.h>
 #include <unordered_map>
@@ -268,7 +268,7 @@ class RenderBackendDX12 : public IRenderBackend
     void SetPolygonOffset( bool enable, float factor = 0.0f, float units = 0.0f ) override;
     void SetClipPlane( int index, bool enable ) override;
 
-    std::unique_ptr<IShader> CreateShader( const char* vertPath, const char* fragPath ) override;
+    std::unique_ptr<IShader> CreateShader( const char* baseName ) override;
     std::unique_ptr<IMesh> CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords ) override;
     std::unique_ptr<IFramebuffer> CreateFramebuffer( int width, int height ) override;
 

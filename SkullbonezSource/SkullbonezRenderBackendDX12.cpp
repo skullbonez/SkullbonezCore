@@ -1548,16 +1548,9 @@ D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::AllocateDSV()
 // --- Resource Creation ---
 
 
-std::unique_ptr<IShader> RenderBackendDX12::CreateShader( const char* vertPath, const char* /*fragPath*/ )
+std::unique_ptr<IShader> RenderBackendDX12::CreateShader( const char* baseName )
 {
-    // Derive HLSL path from .vert path (same convention as DX11)
-    std::string hlslPath( vertPath );
-    auto dotPos = hlslPath.rfind( '.' );
-    if ( dotPos != std::string::npos )
-    {
-        hlslPath = hlslPath.substr( 0, dotPos ) + ".hlsl";
-    }
-
+    std::string hlslPath = std::string( DATA_ROOT ) + baseName + ".hlsl";
     auto shader = std::make_unique<ShaderDX12>();
     if ( !shader->Compile( hlslPath.c_str() ) )
     {
@@ -2224,8 +2217,11 @@ void RenderBackendDX12::CreateRTPipeline()
 {
     // Only compile HLSL → DXIL when the cached DXIL is absent.
     // Delete reflect.rt.dxil to force a recompile after editing the shader.
+    std::string dxilPath = std::string( DATA_ROOT ) + "shaders/reflect.rt.dxil";
+    std::string rtHlslPath = std::string( DATA_ROOT ) + "shaders/reflect.rt.hlsl";
+
     FILE* existCheck = nullptr;
-    fopen_s( &existCheck, "SkullbonezData/shaders/reflect.rt.dxil", "rb" );
+    fopen_s( &existCheck, dxilPath.c_str(), "rb" );
     const bool dxilMissing = ( existCheck == nullptr );
     if ( existCheck )
     {
@@ -2234,10 +2230,10 @@ void RenderBackendDX12::CreateRTPipeline()
 
     if ( dxilMissing )
     {
-        const char* dxcPaths[] = {
-            "dxc.exe -T lib_6_3 -Fo SkullbonezData/shaders/reflect.rt.dxil SkullbonezData/shaders/reflect.rt.hlsl 2>nul",
-            "\"C:/Program Files (x86)/Windows Kits/10/bin/10.0.22621.0/x64/dxc.exe\" -T lib_6_3 -Fo SkullbonezData/shaders/reflect.rt.dxil SkullbonezData/shaders/reflect.rt.hlsl 2>nul",
-            "\"C:/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64/dxc.exe\" -T lib_6_3 -Fo SkullbonezData/shaders/reflect.rt.dxil SkullbonezData/shaders/reflect.rt.hlsl 2>nul" };
+        std::string cmd1 = "dxc.exe -T lib_6_3 -Fo " + dxilPath + " " + rtHlslPath + " 2>nul";
+        std::string cmd2 = "\"C:/Program Files (x86)/Windows Kits/10/bin/10.0.22621.0/x64/dxc.exe\" -T lib_6_3 -Fo " + dxilPath + " " + rtHlslPath + " 2>nul";
+        std::string cmd3 = "\"C:/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64/dxc.exe\" -T lib_6_3 -Fo " + dxilPath + " " + rtHlslPath + " 2>nul";
+        const char* dxcPaths[] = { cmd1.c_str(), cmd2.c_str(), cmd3.c_str() };
 
         bool compiled = false;
         for ( const char* cmd : dxcPaths )
@@ -2256,7 +2252,7 @@ void RenderBackendDX12::CreateRTPipeline()
 
     // Load compiled DXIL blob
     FILE* dxilFile = nullptr;
-    fopen_s( &dxilFile, "SkullbonezData/shaders/reflect.rt.dxil", "rb" );
+    fopen_s( &dxilFile, dxilPath.c_str(), "rb" );
     if ( !dxilFile )
     {
         throw std::runtime_error( "Failed to open compiled reflect.rt.dxil" );

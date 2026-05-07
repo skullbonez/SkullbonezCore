@@ -214,6 +214,18 @@ void RenderBackendGL::Shutdown()
     }
     m_instancedMeshes.clear();
 
+    if ( m_debugLineVBO != 0 )
+    {
+        glDeleteBuffers( 1, &m_debugLineVBO );
+        m_debugLineVBO = 0;
+    }
+    if ( m_debugLineVAO != 0 )
+    {
+        glDeleteVertexArrays( 1, &m_debugLineVAO );
+        m_debugLineVAO = 0;
+    }
+    m_debugLineShader.reset();
+
     m_hdc = nullptr;
 }
 
@@ -468,9 +480,11 @@ void RenderBackendGL::SetClipPlane( int index, bool enable )
 // --- Resource Creation ---
 
 
-std::unique_ptr<IShader> RenderBackendGL::CreateShader( const char* vertPath, const char* fragPath )
+std::unique_ptr<IShader> RenderBackendGL::CreateShader( const char* baseName )
 {
-    return std::make_unique<ShaderGL>( vertPath, fragPath );
+    std::string vertPath = std::string( DATA_ROOT ) + baseName + ".vert";
+    std::string fragPath = std::string( DATA_ROOT ) + baseName + ".frag";
+    return std::make_unique<ShaderGL>( vertPath.c_str(), fragPath.c_str() );
 }
 
 
@@ -910,6 +924,63 @@ void RenderBackendGL::DestroyInstancedMesh( uint32_t handle )
         glDeleteVertexArrays( 1, &im.vao );
         im.vao = 0;
     }
+}
+
+
+// --- Debug Line Rendering ---
+
+
+void RenderBackendGL::DrawLines( const float* verts, int vertCount, float r, float g, float b, const float* viewProjMatrix16 )
+{
+    if ( vertCount <= 0 )
+    {
+        return;
+    }
+
+    // Lazy-init VAO/VBO for debug line rendering
+    if ( m_debugLineVAO == 0 )
+    {
+        glGenVertexArrays( 1, &m_debugLineVAO );
+        glGenBuffers( 1, &m_debugLineVBO );
+        glBindVertexArray( m_debugLineVAO );
+        glBindBuffer( GL_ARRAY_BUFFER, m_debugLineVBO );
+        glBufferData( GL_ARRAY_BUFFER, static_cast<GLsizeiptr>( 2048 * 3 * sizeof( float ) ), nullptr, GL_DYNAMIC_DRAW );
+        glEnableVertexAttribArray( 0 );
+        glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof( float ), reinterpret_cast<void*>( 0 ) );
+        glBindVertexArray( 0 );
+    }
+
+    // Lazy-init shader
+    if ( !m_debugLineShader )
+    {
+        m_debugLineShader = CreateShader( "shaders/debug_line" );
+    }
+
+    // Upload line vertex data to the VBO
+    glBindBuffer( GL_ARRAY_BUFFER, m_debugLineVBO );
+    GLsizeiptr needed = static_cast<GLsizeiptr>( vertCount * 3 * sizeof( float ) );
+    GLsizeiptr capacity = static_cast<GLsizeiptr>( 2048 * 3 * sizeof( float ) );
+    if ( needed > capacity )
+    {
+        glBufferData( GL_ARRAY_BUFFER, needed, nullptr, GL_DYNAMIC_DRAW );
+    }
+    glBufferSubData( GL_ARRAY_BUFFER, 0, needed, verts );
+    glBindBuffer( GL_ARRAY_BUFFER, 0 );
+
+    SetDepthTest( false );
+    m_debugLineShader->Use();
+
+    using SkullbonezCore::Math::Transformation::Matrix4;
+    Matrix4 vpMat( viewProjMatrix16 );
+    m_debugLineShader->SetMat4( "uViewProj", vpMat );
+    m_debugLineShader->SetVec4( "uColor", r, g, b, 1.0f );
+
+    glBindVertexArray( m_debugLineVAO );
+    glLineWidth( 2.0f );
+    glDrawArrays( GL_LINES, 0, vertCount );
+    glLineWidth( 1.0f );
+    glBindVertexArray( 0 );
+    SetDepthTest( true );
 }
 
 

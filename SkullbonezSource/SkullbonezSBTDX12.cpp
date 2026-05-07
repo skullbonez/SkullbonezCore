@@ -13,7 +13,7 @@
 //  optional local root arguments. The GPU indexes into the hit group section based on the
 //  InstanceContributionToHitGroupIndex set in each TLAS instance descriptor.
 //
-#include "SkullbonezSBT.h"
+#include "SkullbonezSBTDX12.h"
 #include <stdexcept>
 #include <cstring>
 

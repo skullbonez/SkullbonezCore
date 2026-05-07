@@ -89,15 +89,15 @@ class SkullbonezConfig
     int ballForceRange = 1000;
 
     // Asset paths
-    std::string skyFront = "SkullbonezData/sky1.jpg";
-    std::string skyLeft = "SkullbonezData/sky2.jpg";
-    std::string skyBack = "SkullbonezData/sky3.jpg";
-    std::string skyRight = "SkullbonezData/sky4.jpg";
-    std::string skyUp = "SkullbonezData/sky5.jpg";
-    std::string skyDown = "SkullbonezData/sky6.jpg";
-    std::string terrainTexture = "SkullbonezData/ground.jpg";
-    std::string sphereTexture = "SkullbonezData/boundingSphere.jpg";
-    std::string terrainRaw = "SkullbonezData/terrain.raw";
+    std::string skyFront = "sky1.jpg";
+    std::string skyLeft = "sky2.jpg";
+    std::string skyBack = "sky3.jpg";
+    std::string skyRight = "sky4.jpg";
+    std::string skyUp = "sky5.jpg";
+    std::string skyDown = "sky6.jpg";
+    std::string terrainTexture = "ground.jpg";
+    std::string sphereTexture = "boundingSphere.jpg";
+    std::string terrainRaw = "terrain.raw";
 
     // Water
     float oceanWaveHeight = 4.0f;

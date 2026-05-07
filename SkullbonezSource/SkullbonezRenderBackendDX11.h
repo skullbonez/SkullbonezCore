@@ -175,7 +175,7 @@ class RenderBackendDX11 : public IRenderBackend
     void SetPolygonOffset( bool enable, float factor = 0.0f, float units = 0.0f ) override;
     void SetClipPlane( int index, bool enable ) override;
 
-    std::unique_ptr<IShader> CreateShader( const char* vertPath, const char* fragPath ) override;
+    std::unique_ptr<IShader> CreateShader( const char* baseName ) override;
     std::unique_ptr<IMesh> CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords ) override;
     std::unique_ptr<IFramebuffer> CreateFramebuffer( int width, int height ) override;
 

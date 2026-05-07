@@ -413,8 +413,7 @@ void GameModelCollection::BuildShadowMesh()
     m_shadowInstMesh = Gfx().CreateInstancedMesh( verts, m_shadowDiscVertexCount, 3, MAX_GAME_MODELS, SHADOW_INSTANCE_FLOATS, 3, instanceAttribSizes, 5 );
 
     // Create shader
-    m_shadowShader = Gfx().CreateShader( "SkullbonezData/shaders/shadow.vert",
-                                         "SkullbonezData/shaders/shadow.frag" );
+    m_shadowShader = Gfx().CreateShader( "shaders/shadow" );
 }
 
 

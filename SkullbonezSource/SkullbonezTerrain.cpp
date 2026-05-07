@@ -32,9 +32,7 @@ Terrain::Terrain( const char* sFileName,
     BuildMesh();
 
     // Load the m_shader
-    m_terrainShader = Gfx().CreateShader(
-        "SkullbonezData/shaders/lit_textured.vert",
-        "SkullbonezData/shaders/lit_textured.frag" );
+    m_terrainShader = Gfx().CreateShader( "shaders/lit_textured" );
 
     m_terrainShader->Use();
     m_terrainShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
@@ -63,9 +61,7 @@ Terrain::Terrain( float slopeBaseY, float slopeX, float slopeZ )
 
     BuildFlatSlopeMesh();
 
-    m_terrainShader = Gfx().CreateShader(
-        "SkullbonezData/shaders/lit_textured.vert",
-        "SkullbonezData/shaders/lit_textured.frag" );
+    m_terrainShader = Gfx().CreateShader( "shaders/lit_textured" );
 
     m_terrainShader->Use();
     m_terrainShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
