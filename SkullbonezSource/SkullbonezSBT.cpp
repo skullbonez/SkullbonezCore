@@ -1,4 +1,18 @@
 // --- Includes ---
+// --- DXR Ray Tracing: Shader Binding Table (SBT) ---
+//
+//  The SBT maps ray interactions to shader code. When a ray hits geometry, the GPU uses the SBT
+//  to determine which shader to execute. It's laid out as a flat buffer with three sections:
+//
+//  +------------------+------------------+-----------------------------------+
+//  | Ray Generation   | Miss Shader      | Hit Groups (per geometry type)    |
+//  | (starts tracing) | (ray hit nothing)| [0] Terrain  [1] Sphere          |
+//  +------------------+------------------+-----------------------------------+
+//
+//  Each "record" contains a 32-byte shader identifier (opaque handle from the RT pipeline) plus
+//  optional local root arguments. The GPU indexes into the hit group section based on the
+//  InstanceContributionToHitGroupIndex set in each TLAS instance descriptor.
+//
 #include "SkullbonezSBT.h"
 #include <stdexcept>
 #include <cstring>
@@ -66,12 +80,18 @@ void SBT::Build( ID3D12Device* device, ID3D12StateObjectProperties* props, const
     bufDesc.SampleDesc.Count = 1;
     bufDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
+    // Allocate the SBT buffer on the upload heap (CPU-writable) because it's small and only
+    // written once at init. The GPU reads it every DispatchRays call to find shader entry points.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
     if ( FAILED( device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS( &m_buffer ) ) ) )
     {
         throw std::runtime_error( "SBT: Failed to create buffer" );
     }
 
-    // Map and write shader identifiers
+    // Map the SBT buffer and write the shader identifiers into their respective sections.
+    // GetShaderIdentifier retrieves the opaque 32-byte handle that the GPU uses to locate each
+    // shader in the RT pipeline state object. We write raygen, miss, and hit group IDs.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12stateobjectproperties-getshaderidentifier
     uint8_t* mapped = nullptr;
     m_buffer->Map( 0, nullptr, (void**)&mapped );
     memset( mapped, 0, (size_t)totalSize );

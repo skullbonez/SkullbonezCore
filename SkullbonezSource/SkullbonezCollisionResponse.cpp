@@ -1,3 +1,47 @@
+// =============================================================================
+// COLLISION RESPONSE (SkullbonezCollisionResponse.cpp)
+// =============================================================================
+//
+// PURPOSE: Calculate and apply physics impulses when objects collide.
+// Handles sphere-vs-terrain and sphere-vs-sphere collisions.
+//
+// --- What is an Impulse? ---
+//
+//  An impulse is an instantaneous change in momentum (mass × velocity).
+//  Unlike continuous forces (gravity), impulses happen in a single instant
+//  at the moment of collision. They change velocity directly:
+//
+//  Δv = impulse / mass
+//
+// --- Collision Response Pipeline ---
+//
+//  1. DETECT collision (handled elsewhere — bounding sphere overlap)
+//  2. COMPUTE collision normal (direction of impact)
+//  3. COMPUTE normal impulse (how hard to push objects apart)
+//  4. COMPUTE friction impulse (how much to slow sliding/spinning)
+//  5. APPLY velocity changes to both objects
+//
+// --- Key Physics Concepts ---
+//
+//  Coefficient of Restitution (e):
+//  - e = 1.0 → perfectly elastic (no energy lost, ball bounces to same height)
+//  - e = 0.0 → perfectly inelastic (all kinetic energy absorbed, ball doesn't bounce)
+//  - Typical: 0.5-0.9 for bouncy balls
+//
+//  Coulomb Friction Model:
+//  - Friction force ≤ μ × normal force (friction coefficient × how hard surfaces press)
+//  - Below threshold: static friction (objects stick)
+//  - Above threshold: dynamic friction (objects slide)
+//
+//  Contact Velocity:
+//  - v_contact = v_linear + (ω × r)
+//  - The velocity at the contact point includes both translation AND rotation
+//  - A spinning ball touching a surface has velocity at the contact even if its
+//    center isn't moving!
+//
+// =============================================================================
+
+
 // --- Includes ---
 #include "SkullbonezCollisionResponse.h"
 #include "SkullbonezVector3.h"
@@ -29,6 +73,40 @@ void CollisionResponse::SetPhysicsFrame( int frame )
 }
 
 
+// =============================================================================
+// SPHERE-TERRAIN COLLISION RESPONSE
+// =============================================================================
+//
+// Called when a sphere is detected overlapping with the terrain surface.
+// This is the most complex collision handler because it implements:
+//
+//  1. Normal impulse (bounce off surface)
+//  2. Friction impulse (Coulomb model — resist sliding)
+//  3. Spin damping (drill friction — resist spinning like a top)
+//  4. Rolling friction (small resistance to rolling motion)
+//  5. No-slip constraint (enforce v = ω × r at contact)
+//  6. Pole alignment (stabilize visual orientation)
+//
+// --- Normal Impulse Formula ---
+//
+//  The impulse magnitude along the collision normal:
+//
+//           -(1 + e) × v_n
+//  j_n = ───────────────────────
+//         1/m + n · ((r×n)/I) × r
+//
+//  Where:
+//    e = restitution (bounciness)
+//    v_n = velocity at contact projected onto normal (how fast approaching)
+//    m = mass
+//    r = vector from center to contact point
+//    I = rotational inertia
+//    n = collision normal
+//
+//  The denominator accounts for the object's resistance to both linear
+//  AND angular acceleration at the contact point.
+//
+// =============================================================================
 void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel, float changeInTime )
 {
     std::visit( [&]( const auto& shape )
@@ -256,6 +334,27 @@ void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel, float cha
 }
 
 
+// =============================================================================
+// SPHERE-SPHERE COLLISION RESPONSE
+// =============================================================================
+//
+// Called when two spheres are detected overlapping. Handles both the angular
+// (spin transfer) and linear (velocity exchange) components of the collision.
+//
+// --- Collision Pipeline ---
+//
+//  1. Compute collision normal (direction from center1 to center2)
+//  2. Apply angular response (spin transfer based on contact geometry)
+//  3. Apply linear response (velocity exchange using momentum conservation)
+//  4. Positional correction (push overlapping spheres apart)
+//
+// --- Positional Correction ---
+//
+//  After velocity is resolved, spheres may still be overlapping (penetrating).
+//  We push them apart along the collision normal by half the overlap distance
+//  each. This prevents penetration from accumulating over multiple frames.
+//
+// =============================================================================
 void CollisionResponse::RespondCollisionGameModels( GameModel& gameModel1,
                                                     GameModel& gameModel2 )
 {
@@ -303,6 +402,38 @@ void CollisionResponse::RespondCollisionGameModels( GameModel& gameModel1,
 }
 
 
+// =============================================================================
+// SPHERE-SPHERE LINEAR VELOCITY EXCHANGE
+// =============================================================================
+//
+// Uses the 1D elastic collision formula projected along the collision normal.
+// This is conservation of momentum + conservation of kinetic energy combined:
+//
+// --- The Formula ---
+//
+//         (m1 - e·m2)·v1i + (1+e)·m2·v2i
+//  v1f = ──────────────────────────────────
+//                   m1 + m2
+//
+//         (m2 - e·m1)·v2i + (1+e)·m1·v1i
+//  v2f = ──────────────────────────────────
+//                   m1 + m2
+//
+// Where:
+//  m1, m2 = masses of the two objects
+//  v1i, v2i = initial velocities (projected along collision normal)
+//  v1f, v2f = final velocities
+//  e = average coefficient of restitution (bounciness)
+//
+// Special cases:
+//  - Equal masses, e=1: objects exchange velocities (billiard balls)
+//  - One mass infinite, e=1: ball bounces off wall at same speed
+//  - e=0: objects stick together (perfectly inelastic)
+//
+// The formula is applied only to the NORMAL component of velocity.
+// The TANGENTIAL component (perpendicular to collision) is unchanged.
+//
+// =============================================================================
 void CollisionResponse::SphereVsSphereLinear( GameModel& gameModel1,
                                               GameModel& gameModel2,
                                               const Vector3& collisionNormal )
@@ -360,6 +491,32 @@ void CollisionResponse::SphereVsSphereLinear( GameModel& gameModel1,
 }
 
 
+// =============================================================================
+// SPHERE-SPHERE ANGULAR IMPULSE (Spin Transfer)
+// =============================================================================
+//
+// Computes how much each sphere should start spinning after the collision.
+// Uses the rigid body angular impulse formula:
+//
+//                       -v_r × (e+1)
+//  F_impulse = ─────────────────────────────────────────────────
+//               1/m1 + 1/m2 + n·((r1×n)/I1)×r1 + n·((r2×n)/I2)×r2
+//
+// Where:
+//  v_r = relative velocity at contact (includes both linear and angular contributions)
+//  e = average restitution
+//  m1, m2 = masses
+//  r1, r2 = contact points (object space)
+//  I1, I2 = rotational inertias
+//  n = collision normal
+//
+// The denominator represents the EFFECTIVE MASS at the contact point,
+// accounting for both objects' resistance to linear AND rotational acceleration.
+//
+// The resulting impulse is then converted to angular velocity change via:
+//  Δω = (r × F_impulse) / I
+//
+// =============================================================================
 void CollisionResponse::SphereVsSphereAngular( GameModel& gameModel1,
                                                GameModel& gameModel2,
                                                const Vector3& collisionNormal )

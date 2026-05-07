@@ -1,4 +1,20 @@
 // --- Includes ---
+// --- DXR Ray Tracing: Top-Level Acceleration Structure (TLAS) ---
+//
+//  The TLAS represents the entire scene for ray tracing. It contains "instances" — each instance
+//  points to a BLAS (mesh geometry) and has a transform matrix that positions it in the world.
+//  The TLAS is rebuilt every frame because objects move (balls bounce around).
+//
+//  TLAS (rebuilt per frame)
+//  +-----------------------------------------------------+
+//  | Instance 0: Terrain (identity transform) --> BLAS    |
+//  | Instance 1: Ball #1 @ position (x,y,z)  --> BLAS    |
+//  | Instance 2: Ball #2 @ position (x,y,z)  --> BLAS    |
+//  | ...                                                  |
+//  +-----------------------------------------------------+
+//
+//  PREFER_FAST_BUILD flag is used because we rebuild every frame (speed > quality tradeoff).
+//
 #include "SkullbonezTLAS.h"
 #include <stdexcept>
 #include <cstring>
@@ -39,6 +55,10 @@ void TLAS::Init( ID3D12Device5* device, int maxInstances )
     bufDesc.SampleDesc.Count = 1;
     bufDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
+    // Allocate an upload heap buffer for instance descriptors. Each descriptor tells the GPU where
+    // a BLAS is and how to transform it in the scene. This buffer lives in CPU-writable memory
+    // (upload heap) because we rewrite instance positions every frame as balls move.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
     if ( FAILED( device->CreateCommittedResource( &uploadHeap, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS( &m_instanceDescs ) ) ) )
     {
         throw std::runtime_error( "TLAS: Failed to create instance desc buffer" );
@@ -51,6 +71,9 @@ void TLAS::Init( ID3D12Device5* device, int maxInstances )
     inputs.NumDescs = (UINT)maxInstances;
     inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
 
+    // Query the driver for TLAS scratch/result memory requirements (same concept as BLAS prebuild).
+    // We query for the maximum instance count so the allocated buffers can handle any frame.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device5-getraytracingaccelerationstructureprebuildinfo
     D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO prebuild = {};
     device->GetRaytracingAccelerationStructurePrebuildInfo( &inputs, &prebuild );
 
@@ -61,6 +84,8 @@ void TLAS::Init( ID3D12Device5* device, int maxInstances )
     bufDesc.Width = prebuild.ScratchDataSizeInBytes;
     bufDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
+    // Allocate scratch buffer for TLAS build (temporary GPU workspace, same as BLAS).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
     if ( FAILED( device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS( &m_scratch ) ) ) )
     {
         throw std::runtime_error( "TLAS: Failed to create scratch buffer" );
@@ -69,6 +94,8 @@ void TLAS::Init( ID3D12Device5* device, int maxInstances )
     // Allocate result buffer
     bufDesc.Width = prebuild.ResultDataMaxSizeInBytes;
 
+    // Allocate result buffer that holds the final TLAS (persists across frames, rebuilt in-place).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
     if ( FAILED( device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, nullptr, IID_PPV_ARGS( &m_result ) ) ) )
     {
         throw std::runtime_error( "TLAS: Failed to create result buffer" );
@@ -85,7 +112,9 @@ void TLAS::Build( ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, co
         throw std::runtime_error( "TLAS: Instance count exceeds max" );
     }
 
-    // Upload instance descriptors
+    // Map the instance descriptor buffer to CPU memory and write the new instance transforms.
+    // Map/Unmap is the DX12 way of writing CPU data to a GPU-accessible buffer.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12resource-map
     void* mapped = nullptr;
     m_instanceDescs->Map( 0, nullptr, &mapped );
     memcpy( mapped, instances, (size_t)instanceCount * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ) );
@@ -104,9 +133,15 @@ void TLAS::Build( ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, co
     buildDesc.ScratchAccelerationStructureData = m_scratch->GetGPUVirtualAddress();
     buildDesc.DestAccelerationStructureData = m_result->GetGPUVirtualAddress();
 
+    // Record the GPU command to build (or rebuild) the Top-Level Acceleration Structure.
+    // This organizes all instance transforms + BLAS pointers into a spatial hierarchy so the
+    // GPU can quickly find which instances a ray intersects before drilling into BLAS triangles.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist4-buildraytracingaccelerationstructure
     cmdList->BuildRaytracingAccelerationStructure( &buildDesc, 0, nullptr );
 
-    // UAV barrier to ensure TLAS is ready before tracing
+    // UAV barrier — ensures the TLAS build completes before DispatchRays uses it.
+    // Without this, rays could traverse an incomplete or corrupted acceleration structure.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
     barrier.UAV.pResource = m_result;

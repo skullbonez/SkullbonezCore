@@ -1,22 +1,47 @@
-// Ocean (outer) water shader (HLSL 5.0, combined VS+PS)
-// Layered sine-wave Y displacement for open-ocean surface animation.
+// =============================================================================
+// OCEAN WATER SHADER — HLSL 5.0 (Combined VS+PS)
+// =============================================================================
+//
+// PURPOSE: Animate the OUTER water zone with sine waves and shimmering reflection.
+// HLSL equivalent of water_ocean.vert + water_ocean.frag.
+//
+// --- Wave + Shimmer Architecture ---
+//
+//  Vertex Shader:
+//  - Pushes vertices up/down with layered sine waves (ocean swell)
+//  - Passes original (un-displaced) position for reflection coordinates
+//
+//  Pixel Shader:
+//  - Computes reflection UV via projective texture mapping
+//  - Applies DX Y-flip (top-left texture origin)
+//  - Perturbs UV based on the same wave formula (shimmer tracks geometry)
+//  - Blends reflection with base water tint
+//
+// --- uFlatWater / uNoReflect Debug Toggles ---
+//
+//  uFlatWater=1: Suppress wave displacement (flat surface for debugging)
+//  uNoReflect=1: Skip reflection sampling (used during the reflection render pass
+//                to avoid infinite recursion — water reflecting water reflecting...)
+//
+// Docs: https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl
+// =============================================================================
 
 #pragma pack_matrix(column_major)
 
 cbuffer Uniforms : register(b0)
 {
-    float4x4 uModel;
-    float4x4 uView;
-    float4x4 uProjection;
-    float4x4 uReflectVP;
-    float4   uColorTint;
-    float    uTime;
-    float    uWaveHeight;
-    float    uReflectionStrength;
-    float    uPerturbStrength;
-    int      uFlatWater;
-    int      uNoReflect;
-    float2   _pad0;
+    float4x4 uModel;               // Water quad world transform
+    float4x4 uView;                // Camera view
+    float4x4 uProjection;          // Perspective projection
+    float4x4 uReflectVP;           // Reflected camera View×Projection
+    float4   uColorTint;           // Base water color (dark ocean blue)
+    float    uTime;                // Animation time in seconds
+    float    uWaveHeight;          // Wave amplitude (from engine.cfg)
+    float    uReflectionStrength;  // Reflection blend factor (0-1)
+    float    uPerturbStrength;     // UV offset multiplier (controls shimmer intensity)
+    int      uFlatWater;           // 1=no waves (debug)
+    int      uNoReflect;           // 1=flat color output (reflection pass)
+    float2   _pad0;                // Cbuffer alignment padding
 };
 
 Texture2D    uReflectionTex : register(t1);
@@ -24,14 +49,14 @@ SamplerState sSampler1      : register(s1);
 
 struct VS_IN
 {
-    float3 position : POSITION;
+    float3 position : POSITION;  // Water grid vertex (flat XZ plane)
 };
 
 struct VS_OUT
 {
     float4 position       : SV_POSITION;
-    float4 reflectClipPos : TEXCOORD0;
-    float2 worldXZ        : TEXCOORD1;
+    float4 reflectClipPos : TEXCOORD0;  // Original pos in reflection camera space
+    float2 worldXZ        : TEXCOORD1;  // XZ for fragment-shader wave calc
 };
 
 VS_OUT main_vs(VS_IN input)
@@ -39,6 +64,7 @@ VS_OUT main_vs(VS_IN input)
     VS_OUT output;
 
     float3 pos = input.position;
+    // Animate Y with layered sine waves for rolling ocean effect.
     if (uFlatWater == 0)
     {
         pos.y += sin(pos.x * 0.04 + uTime * 1.2) * uWaveHeight
@@ -47,6 +73,7 @@ VS_OUT main_vs(VS_IN input)
 
     float4 worldPos       = mul(uModel, float4(pos, 1.0));
     output.position       = mul(uProjection, mul(uView, worldPos));
+    // Reflection uses un-displaced position (shimmer added in pixel shader).
     output.reflectClipPos = mul(uReflectVP, mul(uModel, float4(input.position, 1.0)));
     output.worldXZ        = input.position.xz;
 
@@ -55,18 +82,22 @@ VS_OUT main_vs(VS_IN input)
 
 float4 main_ps(VS_OUT input) : SV_TARGET
 {
+    // During reflection pass, output flat color (prevents infinite recursion).
     if (uNoReflect != 0)
     {
         return uColorTint;
     }
 
+    // Projective texture mapping: clip space → UV [0,1].
     float2 reflUV = (input.reflectClipPos.xy / input.reflectClipPos.w) * 0.5 + 0.5;
-    reflUV.y = 1.0 - reflUV.y; // DX top-down texture origin
+    reflUV.y = 1.0 - reflUV.y;  // DX Y-flip (texture origin is top-left)
 
+    // UV perturbation: wave function offsets the UV for a shimmering effect.
     float wave = sin(input.worldXZ.x * 0.04 + uTime * 1.2) * uWaveHeight
                + sin(input.worldXZ.y * 0.06 + uTime * 0.8) * (uWaveHeight * 0.667);
     reflUV += float2(wave * uPerturbStrength, wave * uPerturbStrength);
 
+    // Sample perturbed reflection and blend with base tint.
     float4 reflection = uReflectionTex.Sample(sSampler1, reflUV);
     return lerp(uColorTint, reflection, uReflectionStrength);
 }

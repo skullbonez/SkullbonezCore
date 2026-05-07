@@ -1,6 +1,30 @@
-// Phong lighting + texture: instanced shader (HLSL 5.0, combined VS+PS)
-// Per-instance model matrix arrives via vertex attributes.
-// Column-major matrices — uploaded directly from engine Matrix4 without transposing.
+// =============================================================================
+// INSTANCED LIT TEXTURED SHADER — HLSL 5.0 (Combined VS+PS)
+// =============================================================================
+//
+// PURPOSE: Same as lit_textured.hlsl but with INSTANCED rendering for spheres.
+// Instead of a single uModel matrix in the cbuffer, each instance provides its
+// own 4×4 model matrix via per-instance vertex attributes (TEXCOORD1-4).
+//
+// --- Instancing in DirectX ---
+//
+//  DX instancing works similarly to OpenGL:
+//  - Per-vertex data (position, normal, UV) is in one vertex buffer with step rate 0
+//  - Per-instance data (model matrix, etc.) is in another buffer with step rate 1
+//  - The input assembler automatically advances instance data every N vertices
+//
+//  The only difference from GL is the semantic labeling:
+//  GLSL: layout(location = 3) in mat4 aModel;  (locations 3-6, divisor=1)
+//  HLSL: float4 model0-3 : TEXCOORD1-4;        (per-instance step rate in input layout)
+//
+// --- Matrix Transpose Issue ---
+//
+//  Our C++ Matrix4 stores data column-major. When we upload 4 float4s as instance
+//  data (model0=col0, model1=col1, etc.), HLSL's float4x4() constructor treats its
+//  arguments as ROWS. So we must transpose() to fix the orientation.
+//
+// Docs: https://learn.microsoft.com/en-us/windows/win32/direct3d11/overviews-direct3d-11-resources-buffers-intro
+// =============================================================================
 
 #pragma pack_matrix(column_major)
 
@@ -21,13 +45,13 @@ SamplerState sSampler0 : register(s0);
 
 struct VS_IN
 {
-    float3 position : POSITION;
-    float3 normal   : NORMAL;
-    float2 texCoord : TEXCOORD0;
-    float4 model0   : TEXCOORD1;
-    float4 model1   : TEXCOORD2;
-    float4 model2   : TEXCOORD3;
-    float4 model3   : TEXCOORD4;
+    float3 position : POSITION;   // Per-vertex: object-space position
+    float3 normal   : NORMAL;     // Per-vertex: surface normal
+    float2 texCoord : TEXCOORD0;  // Per-vertex: UV
+    float4 model0   : TEXCOORD1;  // Per-instance: model matrix column 0
+    float4 model1   : TEXCOORD2;  // Per-instance: model matrix column 1
+    float4 model2   : TEXCOORD3;  // Per-instance: model matrix column 2
+    float4 model3   : TEXCOORD4;  // Per-instance: model matrix column 3
 };
 
 struct VS_OUT
@@ -43,8 +67,8 @@ VS_OUT main_vs(VS_IN input)
 {
     VS_OUT output;
 
-    // Instance data arrives as columns (matching GL convention) but float4x4()
-    // assembles them as rows — transpose to get the correct orientation.
+    // Reconstruct 4×4 model matrix from per-instance columns.
+    // float4x4() takes ROW arguments, but we pass COLUMNs → transpose fixes it.
     float4x4 model = transpose(float4x4(input.model0, input.model1, input.model2, input.model3));
 
     float4x4 modelView = mul(uView, model);
@@ -60,6 +84,7 @@ VS_OUT main_vs(VS_IN input)
     return output;
 }
 
+// Pixel shader is identical to the non-instanced version (same Phong lighting).
 float4 main_ps(VS_OUT input) : SV_TARGET
 {
     float3 N = normalize(input.normal);
