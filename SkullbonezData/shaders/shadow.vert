@@ -12,38 +12,48 @@
 //  this engine uses simple shadow DISCS — flat dark circles projected onto the ground
 //  beneath each object. Cheap, effective, and physically plausible for overhead lighting.
 //
-//  Each shadow disc is a unit-radius circle in the XZ plane (Y=0), scaled and
-//  positioned by its per-instance model matrix to sit just above the terrain.
+// --- Quad-Based Decal Geometry ---
+//
+//  Each shadow is a single quad (-1..+1 in XZ), not a triangle fan.
+//  The disc shape is cut out entirely in the FRAGMENT shader by testing
+//  whether the pixel's UV coordinate falls inside a unit circle:
+//
+//      if (length(vUV) > 1.0) discard;
+//
+//  This means:
+//   - Only 2 triangles (6 vertices) per shadow regardless of disc quality
+//   - Perfectly smooth circular fade (per-pixel, not per-vertex interpolation)
+//   - No need for a segment count config option
+//
+//  Previously this was a 16-segment triangle fan = 16 triangles per shadow.
+//  At 300 balls: 16 → 2 triangles saves 4,200 triangles per frame.
 //
 // --- Instancing ---
 //
-//  Like the sphere shader, this uses instanced rendering:
-//  - Location 0: disc vertex position (shared static geometry)
-//  - Locations 3-6: per-instance model matrix (positions each shadow on terrain)
+//  - Location 0: quad vertex position (shared static 2-triangle geometry)
+//  - Locations 3-6: per-instance model matrix (positions/scales each shadow on terrain)
 //  - Location 7: per-instance alpha (shadow opacity — fades with height above ground)
 //
-// --- Edge Fade ---
-//
-//  The shadow fades out toward the edges for a soft, natural look:
-//  center (0,0) = full opacity; edge (radius=1) = fully transparent.
+//  The vertex's XZ position is passed through as vUV so the fragment shader
+//  can compute per-pixel radial distance from the disc centre.
 //
 // =============================================================================
 
-layout(location = 0) in vec3 aPosition;      // disc vertex (unit radius, XZ plane)
+layout(location = 0) in vec3 aPosition;      // quad vertex in [-1,1] XZ plane, Y=0
 layout(location = 3) in mat4 aModel;          // per-instance model matrix (locations 3-6)
-layout(location = 7) in float aAlpha;         // per-instance shadow opacity
+layout(location = 7) in float aAlpha;         // per-instance base shadow opacity
 
 uniform mat4 uView;
 uniform mat4 uProjection;
 
-out float vAlpha;
+out vec2 vUV;       // XZ coords in [-1,1] — used by fragment shader for disc test
+out float vAlpha;   // base alpha passed through unchanged; fragment applies radial fade
 
 void main()
 {
     gl_Position = uProjection * uView * aModel * vec4(aPosition, 1.0);
 
-    // Radial fade: vertices at the center (distance=0) get full alpha,
-    // vertices at the edge (distance=1) get zero alpha.
-    float distFromCenter = length(aPosition.xz);
-    vAlpha = aAlpha * (1.0 - distFromCenter);
+    // Pass XZ through so the fragment shader can compute distance from centre per-pixel.
+    vUV    = aPosition.xz;
+    vAlpha = aAlpha;
 }

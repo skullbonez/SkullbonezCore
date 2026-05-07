@@ -136,17 +136,19 @@ class IRenderBackend
     }
     virtual void GpuTimerBegin( int markerIdx )
     {
-        ( void )markerIdx;
+        (void)markerIdx;
     }
     virtual void GpuTimerEnd( int markerIdx )
     {
-        ( void )markerIdx;
+        (void)markerIdx;
     }
-    virtual void GpuTimerInvalidate() {}
+    virtual void GpuTimerInvalidate()
+    {
+    }
     virtual bool GpuTimerRead( int markerIdx, float& outMs )
     {
-        ( void )markerIdx;
-        ( void )outMs;
+        (void)markerIdx;
+        (void)outMs;
         return false;
     }
 

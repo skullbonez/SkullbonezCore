@@ -370,36 +370,47 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
 
 void GameModelCollection::BuildShadowMesh()
 {
-    // Unit-radius disc in XZ plane, converted from triangle fan to triangles.
-    // Center at (0,0,0), ring vertices at unit distance.
-    // The shadow shader uses length(aPosition.xz) for alpha fade.
-    std::vector<float> verts;
-    verts.reserve( Cfg().shadowSegments * 3 * 3 );
-
-    for ( int s = 0; s < Cfg().shadowSegments; ++s )
-    {
-        float a0 = ( _2PI * s ) / Cfg().shadowSegments;
-        float a1 = ( _2PI * ( s + 1 ) ) / Cfg().shadowSegments;
-
-        // Center vertex
-        verts.push_back( 0.0f );
-        verts.push_back( 0.0f );
-        verts.push_back( 0.0f );
-        // Ring vertex 0
-        verts.push_back( cosf( a0 ) );
-        verts.push_back( 0.0f );
-        verts.push_back( sinf( a0 ) );
-        // Ring vertex 1
-        verts.push_back( cosf( a1 ) );
-        verts.push_back( 0.0f );
-        verts.push_back( sinf( a1 ) );
-    }
-
-    m_shadowDiscVertexCount = Cfg().shadowSegments * 3;
+    // Shadow disc rendered as a single quad (-1..+1 in XZ, Y=0).
+    // The fragment shader discards pixels outside the unit circle (length(uv) > 1.0)
+    // and applies a smooth per-pixel radial fade — no triangle fan needed.
+    //
+    // 2 triangles = 6 vertices (vs the old 16-segment fan = 48 vertices).
+    // At 300 balls this saves 4,200 triangles per frame.
+    //
+    //  (-1,0,-1)-------(1,0,-1)
+    //      |          /    |
+    //      |        /      |
+    //      |      /        |
+    //  (-1,0, 1)-------(1,0, 1)
+    //
+    static const float verts[] =
+        {
+            // Triangle 1
+            -1.0f,
+            0.0f,
+            -1.0f,
+            1.0f,
+            0.0f,
+            -1.0f,
+            -1.0f,
+            0.0f,
+            1.0f,
+            // Triangle 2
+            1.0f,
+            0.0f,
+            -1.0f,
+            1.0f,
+            0.0f,
+            1.0f,
+            -1.0f,
+            0.0f,
+            1.0f,
+        };
+    m_shadowDiscVertexCount = 6;
 
     // Instance layout: 5 attributes (4×vec4 for mat4 + 1×float for alpha), starting at location 3
     int instanceAttribSizes[] = { 4, 4, 4, 4, 1 };
-    m_shadowInstMesh = Gfx().CreateInstancedMesh( verts.data(), m_shadowDiscVertexCount, 3, MAX_GAME_MODELS, SHADOW_INSTANCE_FLOATS, 3, instanceAttribSizes, 5 );
+    m_shadowInstMesh = Gfx().CreateInstancedMesh( verts, m_shadowDiscVertexCount, 3, MAX_GAME_MODELS, SHADOW_INSTANCE_FLOATS, 3, instanceAttribSizes, 5 );
 
     // Create shader
     m_shadowShader = Gfx().CreateShader( "SkullbonezData/shaders/shadow.vert",

@@ -204,7 +204,7 @@ class RenderBackendDX12 : public IRenderBackend
     SBT m_sbt;
 
     // GPU timestamp timers (for profiler overlay)
-    static const int TIMER_HEAP_MARKERS = 64; // must be >= Profiler::MAX_MARKERS
+    static const int TIMER_HEAP_MARKERS = 64;                  // must be >= Profiler::MAX_MARKERS
     static const int TIMER_HEAP_SIZE = TIMER_HEAP_MARKERS * 2; // begin + end per marker
     ID3D12QueryHeap* m_timerQueryHeap;
     ID3D12Resource* m_timerReadbackBuf;
@@ -212,6 +212,7 @@ class RenderBackendDX12 : public IRenderBackend
     bool m_timerResultValid[TIMER_HEAP_MARKERS];
     uint64_t m_timerFreq;
     bool m_timerReadPending;
+    bool m_timerSlotWritten[TIMER_HEAP_SIZE]; // true for each timestamp slot that had EndQuery recorded this frame
 
     // --- Internal helpers ---
     void WaitForGpu();

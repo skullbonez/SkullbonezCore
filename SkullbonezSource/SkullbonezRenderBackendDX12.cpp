@@ -89,6 +89,7 @@ RenderBackendDX12::RenderBackendDX12()
     m_timerReadbackBuf = nullptr;
     m_timerFreq = 1;
     m_timerReadPending = false;
+    std::memset( m_timerSlotWritten, 0, sizeof( m_timerSlotWritten ) );
     std::memset( m_timerResultMs, 0, sizeof( m_timerResultMs ) );
     std::memset( m_timerResultValid, 0, sizeof( m_timerResultValid ) );
 }
@@ -844,11 +845,30 @@ void RenderBackendDX12::Present()
 {
     EnsureCommandListOpen();
 
-    // Resolve GPU timer queries for this frame into the readback buffer
+    // Resolve GPU timer queries — only resolve contiguous ranges of slots that actually
+    // had EndQuery recorded this frame. Resolving unwritten slots triggers D3D12 error 1319.
     if ( m_timerQueryHeap )
     {
-        m_commandList->ResolveQueryData( m_timerQueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, 0, (UINT)TIMER_HEAP_SIZE, m_timerReadbackBuf, 0 );
+        int i = 0;
+        while ( i < TIMER_HEAP_SIZE )
+        {
+            // skip unwritten slots
+            if ( !m_timerSlotWritten[i] )
+            {
+                ++i;
+                continue;
+            }
+            // find end of this contiguous written run
+            int start = i;
+            while ( i < TIMER_HEAP_SIZE && m_timerSlotWritten[i] )
+            {
+                ++i;
+            }
+            UINT byteOffset = (UINT)( start * sizeof( uint64_t ) );
+            m_commandList->ResolveQueryData( m_timerQueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)start, (UINT)( i - start ), m_timerReadbackBuf, byteOffset );
+        }
         m_timerReadPending = true;
+        std::memset( m_timerSlotWritten, 0, sizeof( m_timerSlotWritten ) ); // reset for next frame
     }
 
     TransitionBarrier( m_renderTargets[m_frameIndex], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT );
@@ -2741,7 +2761,9 @@ void RenderBackendDX12::GpuTimerBegin( int markerIdx )
         return;
     }
     EnsureCommandListOpen();
-    m_commandList->EndQuery( m_timerQueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)( markerIdx * 2 + 0 ) );
+    int slot = markerIdx * 2 + 0;
+    m_commandList->EndQuery( m_timerQueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)slot );
+    m_timerSlotWritten[slot] = true;
 }
 
 
@@ -2751,7 +2773,9 @@ void RenderBackendDX12::GpuTimerEnd( int markerIdx )
     {
         return;
     }
-    m_commandList->EndQuery( m_timerQueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)( markerIdx * 2 + 1 ) );
+    int slot = markerIdx * 2 + 1;
+    m_commandList->EndQuery( m_timerQueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)slot );
+    m_timerSlotWritten[slot] = true;
 }
 
 
@@ -2759,6 +2783,7 @@ void RenderBackendDX12::GpuTimerInvalidate()
 {
     std::memset( m_timerResultMs, 0, sizeof( m_timerResultMs ) );
     std::memset( m_timerResultValid, 0, sizeof( m_timerResultValid ) );
+    std::memset( m_timerSlotWritten, 0, sizeof( m_timerSlotWritten ) );
     m_timerReadPending = false;
 }
 

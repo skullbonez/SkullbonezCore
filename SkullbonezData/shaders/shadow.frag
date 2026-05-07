@@ -4,26 +4,58 @@
 // SHADOW DISC FRAGMENT SHADER (shadow.frag)
 // =============================================================================
 //
-// PURPOSE: Output a flat black color with variable alpha for soft shadow edges.
+// PURPOSE: Cut a circular disc out of the shadow quad and apply a soft radial fade.
 //
-// The vertex shader calculates per-vertex alpha based on:
-//  - Distance from disc center (edge fade)
-//  - Height of the object above ground (distant objects cast weaker shadows)
+// --- How the Disc Is Formed ---
 //
-// This shader just passes that alpha through as the output opacity.
-// The result is blended with the scene behind it using alpha blending:
-//   Final = Shadow.rgb * Shadow.a + Scene.rgb * (1 - Shadow.a)
-//         = Black * alpha + Scene * (1 - alpha)
-//         = Scene darkened by alpha amount
+//  The geometry is a full square quad. The disc shape is created here by
+//  discarding any fragment whose UV coordinate falls outside the unit circle:
+//
+//      dist = length(vUV)   [vUV is XZ in -1..1 space]
+//      if (dist > 1.0) discard
+//
+//  Everything inside becomes a dark blended shadow; everything outside is gone.
+//
+//       Outside (discard)
+//          ___
+//         /   \
+//        | kept|    <-- disc, radius = 1.0 in quad space
+//         \___/
+//       Outside (discard)
+//
+// --- Radial Fade ---
+//
+//  Alpha falls off linearly from centre to edge:
+//    alpha = vAlpha * (1.0 - dist)
+//  Centre: full vAlpha.  Edge: 0. Produces a soft natural shadow.
+//
+//  The result is blended with the scene:
+//    Final = Black * alpha + Scene * (1 - alpha)
+//           = Scene darkened proportionally
+//
+// Docs: https://www.khronos.org/opengl/wiki/Fragment_Shader
+// Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/discard.xhtml
 //
 // =============================================================================
 
-in float vAlpha;
+in vec2  vUV;    // XZ disc coords in [-1,1]
+in float vAlpha; // base opacity from instance data (height-based)
 
 out vec4 FragColor;
 
 void main()
 {
+    float dist = length( vUV );
+
+    // Discard fragments outside the unit circle — turns the square quad into a disc.
+    if ( dist > 1.0 )
+    {
+        discard;
+    }
+
+    // Linear fade from centre (full opacity) to edge (transparent).
+    float alpha = vAlpha * ( 1.0 - dist );
+
     // Pure black with variable opacity = darkens whatever is underneath.
-    FragColor = vec4(0.0, 0.0, 0.0, vAlpha);
+    FragColor = vec4( 0.0, 0.0, 0.0, alpha );
 }

@@ -239,10 +239,6 @@ void SkullbonezConfig::Load( const char* path )
         {
             shadowOffset = static_cast<float>( atof( v ) );
         }
-        else if ( strcmp( k, "shadow_segments" ) == 0 )
-        {
-            shadowSegments = atoi( v );
-        }
         else if ( strcmp( k, "shadow_scale" ) == 0 )
         {
             shadowScale = static_cast<float>( atof( v ) );

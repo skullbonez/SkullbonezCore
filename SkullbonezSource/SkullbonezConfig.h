@@ -68,9 +68,8 @@ class SkullbonezConfig
 
     // Shadows
     float shadowMaxHeight = 50.0f;
-    float shadowMaxAlpha = 0.5f;
+    float shadowMaxAlpha = 0.8f;
     float shadowOffset = 0.2f;
-    int shadowSegments = 16;
     float shadowScale = 1.2f;
 
     // Ball spawn ranges (legacy random mode)
