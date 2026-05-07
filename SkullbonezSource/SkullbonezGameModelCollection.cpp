@@ -141,6 +141,7 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
 
     // Render all shadows in one instanced draw call
     Gfx().SetBlend( true );
+    Gfx().SetBlendFunc( SkullbonezCore::Rendering::BlendFactor::SrcAlpha, SkullbonezCore::Rendering::BlendFactor::OneMinusSrcAlpha );
     Gfx().SetPolygonOffset( true, -1.0f, -1.0f );
     Gfx().SetCullFace( false );
 
