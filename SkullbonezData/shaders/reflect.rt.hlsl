@@ -197,12 +197,18 @@ void ClosestHit( inout RayPayload payload, in BuiltInTriangleIntersectionAttribu
 
     if ( instID > 0 )
     {
-        // Sphere: normal = direction from instance origin to hit point
+        // Sphere: world-space surface normal
         normal = normalize( hitWorld - objOrigin );
 
-        // Spherical UV mapping: longitude (atan2) for U, latitude (asin) for V
-        float u = atan2( normal.x, normal.z ) * ( 1.0f / ( 2.0f * 3.14159265f ) ) + 0.5f;
-        float v = asin( clamp( normal.y, -1.0f, 1.0f ) ) * ( 1.0f / 3.14159265f ) + 0.5f;
+        // Transform normal to object space so UVs rotate with the ball's physics orientation.
+        // ObjectToWorld3x4 is rotation+translation only (no scale), so inverse = transpose of 3x3.
+        float3x4 o2w = ObjectToWorld3x4();
+        float3x3 rotInv = transpose( float3x3( o2w[0].xyz, o2w[1].xyz, o2w[2].xyz ) );
+        float3 localNormal = normalize( mul( rotInv, normal ) );
+
+        // Spherical UV mapping on object-space normal: longitude for U, latitude for V
+        float u = atan2( localNormal.x, localNormal.z ) * ( 1.0f / ( 2.0f * 3.14159265f ) ) + 0.5f;
+        float v = asin( clamp( localNormal.y, -1.0f, 1.0f ) ) * ( 1.0f / 3.14159265f ) + 0.5f;
         baseColor = gSphereTex.SampleLevel( gSampler, float2( u, v ), 0 ).rgb;
     }
     else
