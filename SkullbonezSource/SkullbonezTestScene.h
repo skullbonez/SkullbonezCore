@@ -37,6 +37,17 @@ struct SceneBall
     bool hasInitOrient;
 };
 
+struct SceneBallState
+{
+    char name[64];
+    float posX, posY, posZ;
+    float velX, velY, velZ;
+    float angVelX, angVelY, angVelZ;
+    float orientX, orientY, orientZ, orientW;
+    float radius, mass, restitution;
+    float inertiaX, inertiaY, inertiaZ;
+};
+
 /* -- Test Scene -------------------------------------------------------------------------------------------------------------------------------------------------
 
     Loads and holds a deterministic scene description from a .scene file.
@@ -70,6 +81,11 @@ class TestScene
     float m_flatSlopeZ;
     std::vector<SceneCamera> m_cameras;
     std::vector<SceneBall> m_balls;
+    std::vector<SceneBallState> m_ballStates;
+    bool m_hasWorldOverride;
+    float m_worldGravity;
+    float m_worldFluidHeight;
+    float m_worldFluidDensity;
 
   public:
     TestScene();
@@ -90,9 +106,9 @@ class TestScene
     const char* GetScreenshotDir() const;
     float GetTimeScale() const;
     bool IsDebugVectors() const;
-    float GetTrackHeight() const;        // Returns tracking camera height above ball (-1 = disabled)
-    float GetAutoCycleInterval() const;  // Returns per-ball screenshot interval in seconds (-1 = disabled)
-    bool HasFlatSlope() const;           // True when scene specifies flat analytic slope terrain
+    float GetTrackHeight() const;       // Returns tracking camera height above ball (-1 = disabled)
+    float GetAutoCycleInterval() const; // Returns per-ball screenshot interval in seconds (-1 = disabled)
+    bool HasFlatSlope() const;          // True when scene specifies flat analytic slope terrain
     float GetFlatBaseY() const;
     float GetFlatSlopeX() const;
     float GetFlatSlopeZ() const;
@@ -100,6 +116,12 @@ class TestScene
     int GetBallCount() const;
     const SceneCamera& GetCamera( int index ) const;
     const SceneBall& GetBall( int index ) const;
+    int GetBallStateCount() const;
+    const SceneBallState& GetBallState( int index ) const;
+    bool HasWorldOverride() const;
+    float GetWorldGravity() const;
+    float GetWorldFluidHeight() const;
+    float GetWorldFluidDensity() const;
 };
 } // namespace Basics
 } // namespace SkullbonezCore

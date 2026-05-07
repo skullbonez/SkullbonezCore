@@ -66,37 +66,43 @@ class GameModel
     GameModel( GameModel&& ) noexcept = default;            // Move constructor
     GameModel& operator=( GameModel&& ) noexcept = default; // Move assignment
 
-    Matrix4 GetModelMatrix();                                                         // Returns the model matrix for rendering (T*R*T*S)
-    bool IsResponseRequired();                                                        // Indicates whether a collision response is required
-    float GetSubmergedVolumePercent();                                                // Returns the percentage of the game model submerged in fluid
-    float GetMass();                                                                  // Returns the mass of the game model
-    float GetVolume();                                                                // Returns the volume of the game model
-    void CalculateProjectedSurfaceArea();                                             // Calculates the sum of the surface area of the game model
-    void CalculateDragCoefficient();                                                  // Calculates the drag coefficient of the model
-    float GetProjectedSurfaceArea();                                                  // Returns the projected surface area of the model
-    float GetDragCoefficient();                                                       // Returns the drag coefficient of the model
-    const Vector3& GetPosition();                                                     // Returns the position of the game model
-    const Vector3& GetVelocity();                                                     // Returns the velocity of the model
-    const Vector3& GetAngularVelocity();                                              // Returns the angular velocity of the model
-    void ApplyForces( float changeInTime );                                           // Update the models velocity based on its current physicsInfo
-    void UpdatePosition( float changeInTime );                                        // Update the models position based on its current physicsInfo
-    void SetTerrain( Geometry::Terrain* pTerrain );                                   // Sets the terrain pointer
-    float CollisionDetectTerrain( float changeInTime );                               // Collision detect model against terrain
-    void CollisionResponseTerrain( float changeInTime );                              // Collision response model against terrain
-    void SetImpulseForce( const Vector3& vForce, const Vector3& vApplicationPoint );  // Sets an impulse force for the model
-    void SetCoefficientRestitution( float fCoefficientRestitution );                  // Sets the coefficient of restitution for the game model
-    void SetWorldForce( const Vector3& vWorldForce, const Vector3& vWorldTorque );    // Sets the worlds forces acting on the model
+    Matrix4 GetModelMatrix();                                                           // Returns the model matrix for rendering (T*R*T*S)
+    bool IsResponseRequired();                                                          // Indicates whether a collision response is required
+    float GetSubmergedVolumePercent();                                                  // Returns the percentage of the game model submerged in fluid
+    float GetMass();                                                                    // Returns the mass of the game model
+    float GetVolume();                                                                  // Returns the volume of the game model
+    void CalculateProjectedSurfaceArea();                                               // Calculates the sum of the surface area of the game model
+    void CalculateDragCoefficient();                                                    // Calculates the drag coefficient of the model
+    float GetProjectedSurfaceArea();                                                    // Returns the projected surface area of the model
+    float GetDragCoefficient();                                                         // Returns the drag coefficient of the model
+    const Vector3& GetPosition();                                                       // Returns the position of the game model
+    const Vector3& GetVelocity();                                                       // Returns the velocity of the model
+    const Vector3& GetAngularVelocity();                                                // Returns the angular velocity of the model
+    void ApplyForces( float changeInTime );                                             // Update the models velocity based on its current physicsInfo
+    void UpdatePosition( float changeInTime );                                          // Update the models position based on its current physicsInfo
+    void SetTerrain( Geometry::Terrain* pTerrain );                                     // Sets the terrain pointer
+    float CollisionDetectTerrain( float changeInTime );                                 // Collision detect model against terrain
+    void CollisionResponseTerrain( float changeInTime );                                // Collision response model against terrain
+    void SetImpulseForce( const Vector3& vForce, const Vector3& vApplicationPoint );    // Sets an impulse force for the model
+    void SetCoefficientRestitution( float fCoefficientRestitution );                    // Sets the coefficient of restitution for the game model
+    void SetWorldForce( const Vector3& vWorldForce, const Vector3& vWorldTorque );      // Sets the worlds forces acting on the model
     void SetInitialOrientation( float fEulerXDeg, float fEulerYDeg, float fEulerZDeg ); // Sets the initial orientation from euler angles (degrees)
-    void SetName( const char* name );                                                     // Sets the ball's log name (up to 63 chars)
-    const char* GetName() const;                                                          // Returns the ball's log name
-    void SetGrounded( bool grounded );                                                    // Sets the grounded state for this frame
-    bool IsGrounded() const;                                                              // Returns true if ball had terrain contact this frame
-    void AddBoundingSphere( float fRadius );                                          // Add a bounding sphere to the game model
-    float CollisionDetectGameModel( GameModel& collisionTarget, float changeInTime ); // Collision detect model against model
-    void CollisionResponseGameModel( GameModel& responseTarget );                     // Collision response model against model (velocity-only)
-    void StaticOverlapResponseGameModel( GameModel& overlapTarget );                  // Check for static overlap and push apart if overlapping
-    float GetBoundingRadius();                                                        // Returns the radius of the bounding sphere
-    Vector3 GetOrientationUp();                                                       // Returns local Y axis (0,1,0) rotated into world space by the visual orientation
+    void SetName( const char* name );                                                   // Sets the ball's log name (up to 63 chars)
+    const char* GetName() const;                                                        // Returns the ball's log name
+    void SetGrounded( bool grounded );                                                  // Sets the grounded state for this frame
+    bool IsGrounded() const;                                                            // Returns true if ball had terrain contact this frame
+    void AddBoundingSphere( float fRadius );                                            // Add a bounding sphere to the game model
+    float CollisionDetectGameModel( GameModel& collisionTarget, float changeInTime );   // Collision detect model against model
+    void CollisionResponseGameModel( GameModel& responseTarget );                       // Collision response model against model (velocity-only)
+    void StaticOverlapResponseGameModel( GameModel& overlapTarget );                    // Check for static overlap and push apart if overlapping
+    float GetBoundingRadius();                                                          // Returns the radius of the bounding sphere
+    Vector3 GetOrientationUp();                                                         // Returns local Y axis (0,1,0) rotated into world space by the visual orientation
+    const Quaternion& GetOrientation() const;                                           // Returns the orientation quaternion (passthrough to RigidBody)
+    const Vector3& GetRotationalInertia();                                              // Returns the rotational inertia (passthrough to RigidBody)
+    float GetCoefficientRestitution();                                                  // Returns the coefficient of restitution (passthrough to RigidBody)
+    void SetLinearVelocity( const Vector3& v );                                         // Sets the linear velocity (passthrough to RigidBody)
+    void SetAngularVelocity( const Vector3& v );                                        // Sets the angular velocity (passthrough to RigidBody)
+    void SetOrientation( const Quaternion& q );                                         // Sets the orientation quaternion (passthrough to RigidBody)
 };
 } // namespace GameObjects
 } // namespace SkullbonezCore

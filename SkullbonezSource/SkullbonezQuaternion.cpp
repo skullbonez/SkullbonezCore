@@ -150,6 +150,15 @@ Quaternion& Quaternion::operator*=( const Quaternion& q )
 }
 
 
+void Quaternion::GetComponents( float& x, float& y, float& z, float& w ) const
+{
+    x = m_x;
+    y = m_y;
+    z = m_z;
+    w = m_w;
+}
+
+
 Quaternion Quaternion::GetQtnRotatedAboutX( float fRadians )
 {
     float radiansDiv2 = fRadians * 0.5f;

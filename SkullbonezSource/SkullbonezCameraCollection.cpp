@@ -442,6 +442,12 @@ const Vector3& CameraCollection::GetCameraView()
 }
 
 
+const Vector3& CameraCollection::GetCameraUp()
+{
+    return m_cameraArray[m_selectedCamera].m_upVector;
+}
+
+
 void CameraCollection::SetCameraXZBounds( const XZBounds bounds )
 {
     for ( int count = 0; count < m_arrayPosition; ++count )

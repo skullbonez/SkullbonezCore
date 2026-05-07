@@ -54,6 +54,7 @@ class CameraCollection
     static void Destroy();                                // Deletes the sole class instance
     const Vector3& GetCameraView();                       // Returns the current view of the primary camera
     const Vector3& GetCameraTranslation();                // Returns the current translation of the primary camera
+    const Vector3& GetCameraUp();                         // Returns the current up vector of the primary camera
     const Vector3& GetCameraTranslation( uint32_t hash ); // Returns the current translation of the specified camera
     void SetViewCoordinates( const Vector3& vView );      // Sets the primary camera view position (helpful for keeping focused on an object)
     void SetPrimaryPosition( const Vector3& vPos );       // Directly sets the primary camera world position (used for tracking cameras)

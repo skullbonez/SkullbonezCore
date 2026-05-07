@@ -1,5 +1,13 @@
 # SkullbonezCore — Session State
 
+> # ⏱️ ALL LARGE TASKS MUST BE TIMED
+> **Before starting any large task (multi-file refactor, new feature, phase implementation, pipeline run):**
+> 1. Note the wall-clock start time
+> 2. At completion, record: **elapsed time**, **input tokens**, **output tokens**
+> 3. Log it in the session summary so Simon can track cost and velocity
+>
+> *This applies to: pipeline runs, feature implementations, debugging sessions, refactors, any task expected to take >2 minutes or >10 tool calls.*
+
 ## Branch & Last Commit
 - Branch: `fix/dx12-predraw-overhead` (rename work) / `main` (skill additions)
 - Last commit on fix branch: `4747099` — Rename API-specific source files and classes with GL/DX11/DX12 suffixes
