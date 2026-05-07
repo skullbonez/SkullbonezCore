@@ -55,6 +55,10 @@ void FramebufferDX12::Create( int width, int height )
     colorClear.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     memcpy( colorClear.Color, clearColor, sizeof( clearColor ) );
 
+    // Allocate GPU memory and create a committed resource for the off-screen color texture.
+    // "Committed" means this texture gets its own dedicated GPU memory allocation. The initial
+    // state is PIXEL_SHADER_RESOURCE because when not actively rendering to it, shaders read it.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
     device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &colorDesc, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &colorClear, IID_PPV_ARGS( &m_colorTexture ) );
 
     // Depth texture
@@ -72,16 +76,27 @@ void FramebufferDX12::Create( int width, int height )
     depthClear.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
     depthClear.DepthStencil.Depth = 1.0f;
 
+    // Allocate GPU memory and create a committed resource for the depth/stencil texture.
+    // This stores per-pixel depth values so the GPU knows which objects are in front of others.
+    // Initial state is DEPTH_WRITE because we clear and write depth whenever this FBO is bound.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
     device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &depthDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &depthClear, IID_PPV_ARGS( &m_depthTexture ) );
 
     // Allocate RTV and DSV from backend's heaps
     m_rtvHandle = backend->AllocateRTV();
+    // Create a Render Target View (RTV) — this is a "descriptor" that tells the GPU how to
+    // interpret the color texture when writing pixels to it during rendering. Without this view,
+    // the GPU cannot use the texture as a render target.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrendertargetview
     device->CreateRenderTargetView( m_colorTexture, nullptr, m_rtvHandle );
 
     m_dsvHandle = backend->AllocateDSV();
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
     dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
     dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+    // Create a Depth Stencil View (DSV) — this descriptor tells the GPU how to read/write
+    // the depth texture during depth testing. Pixels that fail the depth test are discarded.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdepthstencilview
     device->CreateDepthStencilView( m_depthTexture, &dsvDesc, m_dsvHandle );
 
     // Create SRV for color texture
@@ -91,6 +106,10 @@ void FramebufferDX12::Create( int width, int height )
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.Texture2D.MipLevels = 1;
+    // Create a Shader Resource View (SRV) — this descriptor allows shaders to sample/read the
+    // color texture (e.g. the water shader reads the reflection FBO as a texture input).
+    // The same GPU resource can have multiple views: RTV for writing, SRV for reading.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createshaderresourceview
     device->CreateShaderResourceView( m_colorTexture, &srvDesc, backend->GetSRVStagingCpuHandle( m_srvIndex ) );
 
     // Register SRV so GetColorTextureHandle() returns a valid texture handle
@@ -113,7 +132,11 @@ void FramebufferDX12::Bind() const
     // Clear stale texture bindings for the FBO color texture before transition
     backend->SetRenderingToFBO( true, m_srvIndex );
 
-    // Transition color texture from SRV to render target
+    // Transition color texture from SRV to render target.
+    // In DX12, resources must be explicitly transitioned between states. The GPU needs to know
+    // when a texture switches from being read by a shader (SRV) to being written to (RENDER_TARGET).
+    // Failing to do this causes GPU corruption or validation errors — the driver does NOT track this for you.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
     auto* cmdList = backend->GetCommandList();
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
@@ -135,7 +158,10 @@ void FramebufferDX12::Unbind() const
         return;
     }
 
-    // Transition color texture back to SRV
+    // Transition color texture back from RENDER_TARGET to PIXEL_SHADER_RESOURCE.
+    // Now that we're done drawing into this FBO, we transition it back so shaders can read it.
+    // This is the reverse of the Bind() transition — every state change must be paired.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
     auto* cmdList = backend->GetCommandList();
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;

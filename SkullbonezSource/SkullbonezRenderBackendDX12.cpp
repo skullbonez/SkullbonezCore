@@ -1,4 +1,38 @@
 // --- Includes ---
+// --- DX12 vs DX11 Architecture ---
+//
+// DX11 (high-level, driver manages everything):
+//   App -> DeviceContext -> Driver -> GPU
+//   (The driver batches, reorders, and optimizes commands automatically)
+//
+// DX12 (low-level, app manages everything):
+//   App -> CommandList -> CommandQueue -> GPU
+//   (YOU manage memory, synchronization, resource states, and command recording)
+//
+// DX12 Frame Lifecycle:
+//   1. Wait for GPU to finish frame N-2 (via Fence)
+//   2. Reset CommandAllocator (reuse memory from completed frame)
+//   3. Reset CommandList (start recording new commands)
+//   4. Record: barriers -> clear -> bind PSO -> set descriptors -> draw -> barriers
+//   5. Close CommandList
+//   6. ExecuteCommandLists (submit to GPU)
+//   7. Present (flip swap chain)
+//   8. Signal fence (mark this frame as "submitted")
+//
+// Key DX12 concepts used in this file:
+//   Device            = Factory for creating GPU resources and pipeline objects
+//   CommandList       = Records GPU commands (like a to-do list for the GPU)
+//   CommandQueue      = Submits command lists to the GPU for execution
+//   CommandAllocator  = Memory pool backing a command list's recordings
+//   Fence             = CPU/GPU synchronization (like a semaphore)
+//   SwapChain         = Double-buffered presentation (two back buffers alternating)
+//   Descriptor Heaps  = Tables of "views" describing how the GPU sees resources
+//   Root Signature    = Defines what data (textures, constants) shaders can access
+//   PSO               = Pipeline State Object — entire GPU state compiled into one object
+//   Resource Barriers = Explicitly transition resources between states
+//   Upload Heap       = CPU-writable staging memory for sending data to the GPU
+//   Default Heap      = Fast GPU-only memory (not CPU-accessible)
+//
 #include "SkullbonezRenderBackendDX12.h"
 #include "SkullbonezShaderDX12.h"
 #include "SkullbonezMeshDX12.h"
@@ -65,7 +99,13 @@ RenderBackendDX12::RenderBackendDX12()
 
 void RenderBackendDX12::WaitForGpu()
 {
+    // Tell the GPU to signal the fence with an incremented value once all prior work completes.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12commandqueue-signal
     m_commandQueue->Signal( m_fence, ++m_fenceValue );
+
+    // If the GPU hasn't reached our fence value yet, wait. SetEventOnCompletion tells the fence
+    // to fire a Windows event when the value is reached, then we block on it.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12fence-seteventoncompletion
     if ( m_fence->GetCompletedValue() < m_fenceValue )
     {
         m_fence->SetEventOnCompletion( m_fenceValue, m_fenceEvent );
@@ -94,11 +134,25 @@ void RenderBackendDX12::EnsureCommandListOpen()
         WaitForSingleObject( m_fenceEvent, INFINITE );
     }
 
-    // Safe to reset this allocator now
+    // Reset the command allocator — frees all memory from previously recorded commands.
+    // This is only safe because we waited for the GPU to finish with this allocator above.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12commandallocator-reset
     m_commandAllocators[m_allocatorIndex]->Reset();
+
+    // Reset the command list to start recording new commands. The command list is reused
+    // every frame — Reset puts it back into the "recording" state with a fresh allocator.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-reset
     m_commandList->Reset( m_commandAllocators[m_allocatorIndex], nullptr );
+
+    // Bind the shader-visible descriptor heap — required before any draw calls that reference
+    // textures or CBVs. Only ONE CBV/SRV/UAV heap can be bound at a time in DX12.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setdescriptorheaps
     ID3D12DescriptorHeap* heaps[] = { m_srvHeap };
     m_commandList->SetDescriptorHeaps( 1, heaps );
+
+    // Bind the root signature — tells the GPU the layout of shader parameters (where to find
+    // constant buffers, texture descriptors, etc.). Must match what the PSO was created with.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootsignature
     m_commandList->SetGraphicsRootSignature( m_rootSignature );
     m_commandListOpen = true;
     m_uploadOffset = 0;
@@ -117,6 +171,10 @@ void RenderBackendDX12::TransitionBarrier( ID3D12Resource* resource, D3D12_RESOU
     {
         return;
     }
+    // Record a resource state transition barrier. In DX12, YOU must tell the GPU when a resource
+    // changes from one usage to another (e.g. from render target to shader input). The GPU uses
+    // this to flush caches and resolve memory hazards. Forgetting barriers causes corruption.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
     barrier.Transition.pResource = resource;
@@ -248,6 +306,9 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
 
     // DXGI Factory
     UINT factoryFlags = 0;
+    // Enable the DX12 debug layer for development builds. This makes the runtime validate every
+    // API call and report errors/warnings — essential for catching bugs but has a performance cost.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12sdklayers/nf-d3d12sdklayers-id3d12debug-enabledebuglayer
     {
         ID3D12Debug* debugController = nullptr;
         if ( SUCCEEDED( D3D12GetDebugInterface( IID_PPV_ARGS( &debugController ) ) ) )
@@ -257,12 +318,19 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
             factoryFlags = DXGI_CREATE_FACTORY_DEBUG;
         }
     }
+    // Create the DXGI Factory — this is the starting point for all DirectX graphics.
+    // DXGI (DirectX Graphics Infrastructure) manages adapters (GPUs), monitors, and swap chains.
+    // The factory is used to enumerate GPUs and create the swap chain for presenting frames.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi1_3/nf-dxgi1_3-createdxgifactory2
     if ( FAILED( CreateDXGIFactory2( factoryFlags, IID_PPV_ARGS( &m_factory ) ) ) )
     {
         throw std::runtime_error( "CreateDXGIFactory2 failed" );
     }
 
-    // Device
+    // Create the DX12 Device — this is the primary interface for creating ALL GPU resources.
+    // The device represents a virtual GPU adapter. Pass nullptr for the first param to use the
+    // default adapter. D3D_FEATURE_LEVEL_11_0 means we need at least DX11-capable hardware.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-d3d12createdevice
     if ( FAILED( D3D12CreateDevice( nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS( &m_device ) ) ) )
     {
         throw std::runtime_error( "D3D12CreateDevice failed" );
@@ -288,7 +356,10 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         }
     }
 
-    // Command Queue
+    // Create the Command Queue — this is the submission point for GPU work. Command lists are
+    // recorded on the CPU, then submitted here for the GPU to execute. DIRECT type means it can
+    // run graphics, compute, and copy commands (as opposed to COMPUTE-only or COPY-only queues).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommandqueue
     D3D12_COMMAND_QUEUE_DESC queueDesc = {};
     queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
     if ( FAILED( m_device->CreateCommandQueue( &queueDesc, IID_PPV_ARGS( &m_commandQueue ) ) ) )
@@ -296,7 +367,10 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         throw std::runtime_error( "CreateCommandQueue failed" );
     }
 
-    // Swap Chain
+    // Create the Swap Chain — manages the double-buffered back buffers that are presented to the
+    // screen. FLIP_DISCARD means the OS can discard the previous frame's content after presenting
+    // (most efficient mode). BufferCount=2 gives us two alternating back buffers.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi1_2/nf-dxgi1_2-idxgifactory2-createswapchainforhwnd
     DXGI_SWAP_CHAIN_DESC1 scDesc = {};
     scDesc.BufferCount = FRAME_COUNT;
     scDesc.Width = (UINT)width;
@@ -316,7 +390,10 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     m_factory->MakeWindowAssociation( hwnd, DXGI_MWA_NO_ALT_ENTER );
     m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
 
-    // Descriptor Heaps
+    // Create Descriptor Heaps — these are arrays of "descriptors" (small structs that describe
+    // how the GPU should interpret a resource). DX12 requires you to pre-allocate descriptor
+    // storage. RTV heap holds Render Target View descriptors (one per swap chain buffer + FBOs).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdescriptorheap
     {
         D3D12_DESCRIPTOR_HEAP_DESC desc = {};
         desc.NumDescriptors = 16;
@@ -324,6 +401,8 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_rtvHeap ) ), "CreateDescriptorHeap (RTV) failed" );
         m_rtvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_RTV );
     }
+    // DSV heap holds Depth Stencil View descriptors (main depth buffer + FBO depth buffers).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdescriptorheap
     {
         D3D12_DESCRIPTOR_HEAP_DESC desc = {};
         desc.NumDescriptors = 4;
@@ -331,6 +410,10 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_dsvHeap ) ), "CreateDescriptorHeap (DSV) failed" );
         m_dsvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_DSV );
     }
+    // SRV/CBV/UAV heap — SHADER_VISIBLE means the GPU can directly access these descriptors.
+    // This single heap holds all texture views (SRVs) and constant buffer views (CBVs) that
+    // shaders reference at draw time. Must be bound with SetDescriptorHeaps before drawing.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdescriptorheap
     {
         D3D12_DESCRIPTOR_HEAP_DESC desc = {};
         desc.NumDescriptors = MAX_STATIC_SRVS + MAX_TRANSIENT_SRVS;
@@ -340,7 +423,10 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         m_srvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
     }
     {
-        // CPU-only staging heap for persistent SRV storage (source for descriptor copies)
+        // CPU-only staging heap — used as a persistent "source of truth" for descriptor copies.
+        // We create SRVs here once (at texture load), then copy them to the shader-visible heap
+        // each frame as needed. This avoids descriptor management issues with multi-frame flight.
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdescriptorheap
         D3D12_DESCRIPTOR_HEAP_DESC desc = {};
         desc.NumDescriptors = MAX_STATIC_SRVS;
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -348,7 +434,9 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvStagingHeap ) ), "CreateDescriptorHeap (staging) failed" );
     }
 
-    // Swap chain RTVs
+    // Create Render Target Views for each swap chain buffer. This tells the GPU how to write
+    // pixels to the swap chain back buffers during rendering.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrendertargetview
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
         ThrowIfFailed( m_swapChain->GetBuffer( (UINT)i, IID_PPV_ARGS( &m_renderTargets[i] ) ), "SwapChain GetBuffer failed" );
@@ -358,21 +446,36 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     // Depth stencil
     CreateDepthStencil( width, height );
 
-    // Command allocators (one per frame) and command list
+    // Create Command Allocators — one per frame in flight. A command allocator is the backing
+    // memory pool for command list recordings. You can't reuse an allocator until the GPU has
+    // finished executing the commands that were recorded into it (enforced via fence).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommandallocator
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
         ThrowIfFailed( m_device->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS( &m_commandAllocators[i] ) ), "CreateCommandAllocator failed" );
     }
+
+    // Create the Command List — this is the "recording device" for GPU commands. You record draw
+    // calls, resource transitions, and other operations into it, then submit it to the queue.
+    // Only one command list is needed because we close/reset it between frames.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommandlist
     ThrowIfFailed( m_device->CreateCommandList( 0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocators[0], nullptr, IID_PPV_ARGS( &m_commandList ) ), "CreateCommandList failed" );
     m_commandList->Close();
     m_commandListOpen = false;
     m_allocatorIndex = 0;
 
-    // Fence
+    // Create a Fence — the CPU/GPU synchronization primitive. A fence is essentially a counter:
+    // the GPU signals it after completing work, and the CPU can wait until a specific value is
+    // reached. This is how we ensure we don't overwrite command allocator memory that the GPU is
+    // still reading from a previous frame.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createfence
     ThrowIfFailed( m_device->CreateFence( 0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &m_fence ) ), "CreateFence failed" );
     m_fenceEvent = CreateEvent( nullptr, FALSE, FALSE, nullptr );
 
-    // Upload buffer
+    // Create the Upload Buffer — a large chunk of CPU-writable, GPU-readable memory used to stage
+    // data (vertex buffers, textures, constant buffers) before transferring to fast GPU-only memory.
+    // This is persistently mapped (Map called once, never unmapped) for efficient per-frame writes.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
     {
         D3D12_HEAP_PROPERTIES heapProps = {};
         heapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -391,13 +494,19 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     // Root signature
     CreateRootSignature();
 
-    // GPU timestamp query heap and readback buffer for profiler overlay
+    // GPU timestamp query heap — used for GPU-side performance profiling. The GPU writes
+    // timestamps at specific points in the command stream, which we later read back to
+    // calculate elapsed time for specific rendering passes (terrain, spheres, water, etc.).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createqueryheap
     {
         D3D12_QUERY_HEAP_DESC qhDesc = {};
         qhDesc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
         qhDesc.Count = (UINT)TIMER_HEAP_SIZE;
         if ( SUCCEEDED( m_device->CreateQueryHeap( &qhDesc, IID_PPV_ARGS( &m_timerQueryHeap ) ) ) )
         {
+            // Readback buffer — CPU-readable memory where GPU timer results are copied to.
+            // The READBACK heap type means the CPU can read from it (but the GPU cannot render to it).
+            // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
             D3D12_HEAP_PROPERTIES hp = {};
             hp.Type = D3D12_HEAP_TYPE_READBACK;
             D3D12_RESOURCE_DESC rd = {};
@@ -489,6 +598,10 @@ void RenderBackendDX12::CreateRootSignature()
     rootSigDesc.Desc_1_1.pStaticSamplers = samplers;
     rootSigDesc.Desc_1_1.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
+    // Serialize the root signature description into a binary blob. The root signature defines
+    // what data shaders can access: [0] CBV at b0 (constants), [1] SRV table at t0 (texture 0),
+    // [2] SRV table at t1 (texture 1), plus two static samplers (linear wrap + linear clamp).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-d3d12serializeversionedrootsignature
     ID3DBlob* signature = nullptr;
     ID3DBlob* error = nullptr;
     if ( FAILED( D3D12SerializeVersionedRootSignature( &rootSigDesc, &signature, &error ) ) )
@@ -507,6 +620,10 @@ void RenderBackendDX12::CreateRootSignature()
         error->Release();
     }
 
+    // Create the Root Signature object from the serialized blob. This is the "contract" between
+    // the application and shaders — it defines the layout of all shader-visible parameters.
+    // Every PSO must reference a root signature, and every draw call must bind matching data.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrootsignature
     if ( FAILED( m_device->CreateRootSignature( 0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS( &m_rootSignature ) ) ) )
     {
         signature->Release();
@@ -535,6 +652,9 @@ void RenderBackendDX12::CreateDepthStencil( int w, int h )
     clearValue.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
     clearValue.DepthStencil.Depth = 1.0f;
 
+    // Create the main depth/stencil buffer on the default (GPU-only) heap. This texture stores
+    // per-pixel depth values (24-bit depth + 8-bit stencil) for the z-buffer algorithm.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
     m_device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &clearValue, IID_PPV_ARGS( &m_depthStencil ) );
     if ( !m_depthStencil )
     {
@@ -544,6 +664,8 @@ void RenderBackendDX12::CreateDepthStencil( int w, int h )
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
     dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
     dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+    // Create a Depth Stencil View for the main depth buffer so it can be bound as the depth target.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdepthstencilview
     m_device->CreateDepthStencilView( m_depthStencil, &dsvDesc, GetDSVHandle( 0 ) );
 }
 
@@ -731,14 +853,28 @@ void RenderBackendDX12::Present()
 
     TransitionBarrier( m_renderTargets[m_frameIndex], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT );
     m_backBufferIsRT = false;
+
+    // Close the command list — finalizes the recorded commands. A closed command list can be
+    // submitted to the GPU. No more commands can be recorded until Reset is called.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-close
     m_commandList->Close();
     m_commandListOpen = false;
 
+    // Submit the completed command list to the GPU for execution. The GPU processes commands
+    // asynchronously — this call returns immediately while the GPU works in the background.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12commandqueue-executecommandlists
     ID3D12CommandList* ppCLs[] = { m_commandList };
     m_commandQueue->ExecuteCommandLists( 1, ppCLs );
+
+    // Present the frame — flips the swap chain to show the just-rendered back buffer on screen.
+    // First param (1) enables V-Sync (waits for vertical blank). Second param (0) = no flags.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-present
     m_swapChain->Present( 1, 0 );
 
-    // Signal fence for this frame's allocator so we know when GPU is done with it
+    // Signal the fence with the current frame's value. When the GPU reaches this point in its
+    // command stream, it will update the fence to this value — letting the CPU know this frame's
+    // allocator memory is safe to reuse (after we check GetCompletedValue >= this value).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12commandqueue-signal
     m_frameFenceValues[m_allocatorIndex] = ++m_fenceValue;
     m_commandQueue->Signal( m_fence, m_fenceValue );
 
@@ -855,16 +991,29 @@ void RenderBackendDX12::Clear( bool color, bool depth )
         TransitionBarrier( m_renderTargets[m_frameIndex], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET );
         m_backBufferIsRT = true;
     }
+    // Bind the render target and depth buffer to the Output Merger (OM) stage — this tells the
+    // GPU where to write pixel colors and depth values for subsequent draw calls.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-omsetrendertargets
     m_commandList->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
+
+    // Set the viewport (the rectangle on screen where rendering appears) and scissor rect
+    // (pixels outside the scissor are clipped/discarded). Both must be set every time in DX12.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-rssetviewports
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-rssetscissorrects
     m_commandList->RSSetViewports( 1, &m_viewport );
     m_commandList->RSSetScissorRects( 1, &m_scissorRect );
 
     if ( color )
     {
+        // Clear the render target to a solid color (wipes the entire back buffer).
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-clearrendertargetview
         m_commandList->ClearRenderTargetView( m_currentRTV, m_clearColor, 0, nullptr );
     }
     if ( depth )
     {
+        // Clear the depth buffer to 1.0 (maximum distance), so all subsequent draws will pass
+        // the depth test. This is done at the start of each frame or when switching render targets.
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-cleardepthstencilview
         m_commandList->ClearDepthStencilView( m_currentDSV, D3D12_CLEAR_FLAG_DEPTH, m_clearDepth, 0, 0, nullptr );
     }
 }
@@ -1190,6 +1339,11 @@ ID3D12PipelineState* RenderBackendDX12::CreatePSO( VertexFormat12 format, bool i
     psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
     psoDesc.SampleDesc.Count = 1;
 
+    // Create a Graphics Pipeline State Object (PSO). In DX12, ALL render state is compiled into
+    // one monolithic object: shaders, input layout, rasterizer settings, blend mode, depth test,
+    // etc. This is very different from DX11 where you set each state individually. The PSO is
+    // expensive to create but fast to bind — so we cache them by hash and reuse across frames.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-creategraphicspipelinestate
     ID3D12PipelineState* pso = nullptr;
     HRESULT hr = m_device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &pso ) );
     if ( FAILED( hr ) )
@@ -1258,12 +1412,20 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
             m_psoCache[psoHash] = pso;
         }
 
+        // Bind the PSO — sets ALL GPU pipeline state (shaders, blend, depth, rasterizer) in one call.
+        // Unlike DX11 where you set states individually, DX12 switches the entire pipeline at once.
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setpipelinestate
         m_commandList->SetPipelineState( pso );
+
+        // Re-bind root signature after PSO change (required by DX12 spec).
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootsignature
         m_commandList->SetGraphicsRootSignature( m_rootSignature );
         m_lastPSOHash = psoHash;
     }
 
-    // Flush CB
+    // Flush constant buffer data and bind it at root parameter [0] — this is where per-draw
+    // shader uniforms (MVP matrix, colors, time, etc.) are uploaded to the GPU each draw call.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootconstantbufferview
     if ( m_activeShader )
     {
         D3D12_GPU_VIRTUAL_ADDRESS cbAddr = m_activeShader->FlushCB();
@@ -1273,7 +1435,9 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
         }
     }
 
-    // Bind textures only when bindings have changed
+    // Bind textures by copying their SRV descriptors to the shader-visible heap and pointing
+    // the root descriptor table at them. Root param [1]=texture slot 0, [2]=texture slot 1.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootdescriptortable
     if ( m_texBindingsDirty )
     {
         for ( int slot = 0; slot < 2; ++slot )
@@ -1299,6 +1463,9 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
         m_targetsDirty = false;
     }
 
+    // Set the primitive topology — tells the Input Assembler how to interpret vertex data.
+    // TRIANGLELIST means every 3 vertices form an independent triangle.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetprimitivetopology
     m_commandList->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
     m_psoDirty = false;
 }
@@ -1454,6 +1621,9 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
     texDesc.SampleDesc.Count = 1;
     texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 
+    // Create the texture resource on the GPU-only Default Heap. Initial state is COPY_DEST
+    // because we'll upload pixel data from the CPU-visible upload buffer via CopyTextureRegion.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
     ID3D12Resource* texResource = nullptr;
     m_device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &texDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS( &texResource ) );
 
@@ -1492,7 +1662,9 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
         memcpy( uploadDst + row * footprint.Footprint.RowPitch, srcData + row * srcRowPitch, srcRowPitch );
     }
 
-    // Record copy command
+    // Record a GPU texture copy from the upload buffer (CPU staging) to the texture resource.
+    // CopyTextureRegion handles row pitch alignment differences between CPU and GPU memory layouts.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-copytextureregion
     D3D12_TEXTURE_COPY_LOCATION dstLoc = {};
     dstLoc.pResource = texResource;
     dstLoc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
@@ -1506,7 +1678,8 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
     m_commandList->CopyTextureRegion( &dstLoc, 0, 0, 0, &srcLoc, nullptr );
     TransitionBarrier( texResource, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE );
 
-    // Create SRV
+    // Create a Shader Resource View so pixel shaders can sample this texture.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createshaderresourceview
     UINT srvIdx = AllocateStaticSRV();
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Format = fmt;
@@ -1726,7 +1899,12 @@ void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle, const float* da
     vbv.BufferLocation = vbAddr;
     vbv.SizeInBytes = (UINT)dataSize;
     vbv.StrideInBytes = (UINT)dvb.stride;
+    // Bind and draw the dynamic vertex buffer directly from upload heap memory.
+    // Dynamic VBs (e.g. text quads) change every frame so they're drawn from upload memory
+    // without copying to a default heap buffer — simpler but slightly slower for large batches.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
     m_commandList->IASetVertexBuffers( 0, 1, &vbv );
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
     m_commandList->DrawInstanced( (UINT)vertexCount, 1, 0, 0 );
 }
 
@@ -1761,6 +1939,9 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData, int st
         im.staticAttribSizes[i] = staticAttribSizes[i];
     }
 
+    // Create the static (shared) vertex buffer on the GPU-only Default Heap.
+    // This holds geometry that doesn't change (sphere mesh) — it's uploaded once and reused.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
     // Create static VB on default heap
     UINT64 dataSize = (UINT64)staticVertCount * staticFloatsPerVert * sizeof( float );
 
@@ -1777,7 +1958,8 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData, int st
 
     m_device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS( &im.staticVB ) );
 
-    // Upload static data
+    // Upload static vertex data from CPU to GPU via the upload buffer, then transition to VB state.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-copybufferregion
     FlushUploadBufferIfNeeded( dataSize, 4 );
     D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = SubAllocateUpload( dataSize, 4 );
     memcpy( GetUploadPtr( uploadAddr ), staticData, (size_t)dataSize );
@@ -1834,7 +2016,15 @@ void RenderBackendDX12::DrawInstancedMesh( uint32_t handle, int staticVertCount,
     vbvs[1].SizeInBytes = im.instanceDataSize;
     vbvs[1].StrideInBytes = (UINT)im.instanceStride;
 
+    // Bind two vertex buffer slots: slot 0 has the shared geometry (sphere mesh), slot 1 has
+    // per-instance data (position, color for each ball). The GPU reads slot 0 once per vertex
+    // and slot 1 once per instance, combining them in the vertex shader.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
     m_commandList->IASetVertexBuffers( 0, 2, vbvs );
+
+    // Draw all instances in one call — renders staticVertCount vertices × instanceCount copies.
+    // This is the key optimization: 300 balls drawn in a single GPU dispatch.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
     m_commandList->DrawInstanced( (UINT)staticVertCount, (UINT)instanceCount, 0, 0 );
 }
 
@@ -1998,6 +2188,9 @@ void RenderBackendDX12::CreateRTRootSignature()
         error->Release();
     }
 
+    // Create the DXR root signature from the serialized blob. Same concept as the raster root
+    // signature, but this one defines bindings for raytracing shaders (TLAS, UAV output, CBV, textures).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrootsignature
     if ( FAILED( m_device->CreateRootSignature( 0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS( &m_rtRootSignature ) ) ) )
     {
         signature->Release();
@@ -2108,11 +2301,18 @@ void RenderBackendDX12::CreateRTPipeline()
     stateObjDesc.NumSubobjects = 6;
     stateObjDesc.pSubobjects = subobjects;
 
+    // Create the DXR Raytracing Pipeline State Object (RTPSO). Unlike a graphics PSO, an RTPSO is
+    // built from "subobjects" — a DXIL shader library containing all RT shaders, hit groups that
+    // map geometry types to closest-hit shaders, shader config (payload/attribute sizes), pipeline
+    // config (max recursion), and the root signature. This is more flexible than graphics PSOs.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device5-createstateobject
     if ( FAILED( m_device5->CreateStateObject( &stateObjDesc, IID_PPV_ARGS( &m_rtPSO ) ) ) )
     {
         throw std::runtime_error( "CreateStateObject (RTPSO) failed" );
     }
 
+    // Query the state object for shader identifier lookup (used when building the SBT).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nn-d3d12-id3d12stateobjectproperties
     m_rtPSO->QueryInterface( IID_PPV_ARGS( &m_rtPSOProps ) );
 }
 
@@ -2137,6 +2337,10 @@ void RenderBackendDX12::CreateReflectionUAV( int width, int height )
     texDesc.SampleDesc.Count = 1;
     texDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
+    // Create the reflection UAV texture — this is the output target for DXR ray tracing.
+    // Rays are cast from the water surface and the resulting reflections are written here.
+    // The ALLOW_UNORDERED_ACCESS flag lets the ray generation shader write to arbitrary pixels.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
     if ( FAILED( m_device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &texDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS( &m_reflectionUAV ) ) ) )
     {
         throw std::runtime_error( "Failed to create DXR reflection UAV texture" );
@@ -2191,7 +2395,10 @@ void RenderBackendDX12::InitDXR( uint64_t terrainVBVA, int terrainVertCount, int
     // Create reflection UAV at 2x viewport
     CreateReflectionUAV( m_width * 2, m_height * 2 );
 
-    // Create RT constant buffer (upload heap, persistently mapped)
+    // Create RT constant buffer on the upload heap — holds per-frame raytracing parameters
+    // (inverse VP matrix, camera position, water height, light position, etc.). Persistently
+    // mapped so we can update it every frame without Map/Unmap overhead. 256-byte aligned per DX12 CBV rules.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
     {
         D3D12_HEAP_PROPERTIES heapProps = {};
         heapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -2342,11 +2549,18 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj, const 
     cb.skyColorBottom[2] = 0.95f;
     memcpy( m_rtConstantBufferMapped, &cb, sizeof( cb ) );
 
-    // Set compute root signature and pipeline
+    // Set the compute root signature for raytracing. DXR uses the compute pipeline (not graphics)
+    // because ray tracing doesn't use the traditional rasterization pipeline (no vertex/pixel stages).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setcomputerootsignature
     m_cmdList4->SetComputeRootSignature( m_rtRootSignature );
+
+    // Bind the DXR raytracing pipeline state object. SetPipelineState1 is the DXR-specific version
+    // that accepts an ID3D12StateObject (RTPSO) instead of a regular ID3D12PipelineState (graphics PSO).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist4-setpipelinestate1
     m_cmdList4->SetPipelineState1( m_rtPSO );
 
-    // Bind descriptor heap
+    // Bind the shader-visible descriptor heap for DXR (same heap as raster, re-bound after compute).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setdescriptorheaps
     ID3D12DescriptorHeap* heaps[] = { m_srvHeap };
     m_cmdList4->SetDescriptorHeaps( 1, heaps );
 
@@ -2388,7 +2602,12 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj, const 
         m_cmdList4->SetComputeRootDescriptorTable( 3, GetSRVGpuHandle( slot0 ) );
     }
 
-    // Dispatch rays
+    // DispatchRays — the DXR equivalent of a draw call. This launches one ray per pixel of the
+    // reflection texture. The GPU executes the ray generation shader, which casts rays into the
+    // scene. When a ray hits geometry, the closest hit shader runs. If nothing is hit, the miss
+    // shader runs. Results are written to the reflection UAV texture. The SBT tells the GPU which
+    // shader to invoke for each case.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist4-dispatchrays
     D3D12_DISPATCH_RAYS_DESC dispatchDesc = {};
     dispatchDesc.RayGenerationShaderRecord = m_sbt.RayGenRange();
     dispatchDesc.MissShaderTable = m_sbt.MissRange();
@@ -2399,7 +2618,8 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj, const 
 
     m_cmdList4->DispatchRays( &dispatchDesc );
 
-    // UAV barrier so the water shader can sample the result
+    // UAV barrier — ensures all ray tracing writes complete before the water shader reads the texture.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
     barrier.UAV.pResource = m_reflectionUAV;

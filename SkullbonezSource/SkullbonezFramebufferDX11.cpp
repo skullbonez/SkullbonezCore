@@ -36,18 +36,30 @@ bool FramebufferDX11::Create( int width, int height )
     texDesc.Usage = D3D11_USAGE_DEFAULT;
     texDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 
+    // Create a 2D texture on the GPU for the framebuffer's color attachment. The descriptor
+    // specifies RGBA 8-bit format and dual bind flags so it can be both drawn into (render target)
+    // and later sampled from in shaders (shader resource).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createtexture2d
     HRESULT hr = m_device->CreateTexture2D( &texDesc, nullptr, &m_colorTex );
     if ( FAILED( hr ) )
     {
         return false;
     }
 
+    // Create a Render Target View (RTV) that wraps the color texture. An RTV tells the GPU
+    // "you can draw pixels into this texture". Without an RTV, the texture cannot be used as
+    // a render target in the Output Merger stage.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createrendertargetview
     hr = m_device->CreateRenderTargetView( m_colorTex, nullptr, &m_rtv );
     if ( FAILED( hr ) )
     {
         return false;
     }
 
+    // Create a Shader Resource View (SRV) for the same color texture. An SRV makes the texture
+    // readable from shaders (e.g. sampling a reflection map). One texture can have both an RTV
+    // and an SRV, but they cannot be bound simultaneously.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createshaderresourceview
     hr = m_device->CreateShaderResourceView( m_colorTex, nullptr, &m_srv );
     if ( FAILED( hr ) )
     {
@@ -68,12 +80,20 @@ bool FramebufferDX11::Create( int width, int height )
     depthDesc.Usage = D3D11_USAGE_DEFAULT;
     depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
 
+    // Create a 2D texture for the framebuffer's depth/stencil attachment. D24_UNORM_S8_UINT means
+    // 24 bits for depth (z-buffer) and 8 bits for stencil. This is GPU-only memory (USAGE_DEFAULT)
+    // bound exclusively as a depth-stencil target.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createtexture2d
     hr = m_device->CreateTexture2D( &depthDesc, nullptr, &m_depthTex );
     if ( FAILED( hr ) )
     {
         return false;
     }
 
+    // Create a Depth Stencil View (DSV) that wraps the depth texture. A DSV tells the GPU
+    // "use this texture for depth testing and stencil operations during rendering". It is the
+    // depth equivalent of an RTV.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createDepthStencilView
     hr = m_device->CreateDepthStencilView( m_depthTex, nullptr, &m_dsv );
     if ( FAILED( hr ) )
     {
@@ -90,7 +110,10 @@ void FramebufferDX11::Bind() const
     m_savedRTV = m_backend->GetBackBufferRTV();
     m_savedDSV = m_backend->GetDepthStencilView();
 
-    // Bind our FBO and update the backend cache
+    // Bind this framebuffer as the active render target. OMSetRenderTargets (Output Merger stage)
+    // tells the GPU "all subsequent draw calls should write their pixels into these targets"
+    // instead of the main back buffer.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetrendertargets
     m_context->OMSetRenderTargets( 1, &m_rtv, m_dsv );
     m_backend->SetRenderTargetCache( m_rtv, m_dsv );
 
@@ -98,6 +121,11 @@ void FramebufferDX11::Bind() const
     vp.Width = (float)m_width;
     vp.Height = (float)m_height;
     vp.MaxDepth = 1.0f;
+
+    // Set the viewport for the Rasterizer Stage. The viewport defines the rectangular region
+    // of the render target that pixels will be drawn into. Here we match it to the framebuffer
+    // dimensions so rendering fills the entire off-screen texture.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-rssetviewports
     m_context->RSSetViewports( 1, &vp );
 }
 
@@ -107,6 +135,9 @@ void FramebufferDX11::Unbind() const
     // Restore previous render target and update the backend cache
     if ( m_savedRTV || m_savedDSV )
     {
+        // Restore the previously active render target (usually the back buffer). This "unbinds"
+        // our off-screen framebuffer so subsequent draws go to the screen again.
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetrendertargets
         m_context->OMSetRenderTargets( 1, &m_savedRTV, m_savedDSV );
         m_backend->SetRenderTargetCache( m_savedRTV, m_savedDSV );
         m_savedRTV = nullptr;
