@@ -141,42 +141,54 @@ void SkullbonezWindow::ChangeToFullScreen( int xResolution, int yResolution )
 
 bool SkullbonezWindow::SetupPixelFormat()
 {
-    // Create an instance of our window class
-    SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
-    PIXELFORMATDESCRIPTOR pfd = { 0 }; // Declare struct to describe out pixel format
-    int pixelFormat = 0;               // To hold our bits per pixel information
+    // --- Pixel Format Concept ---
+    // Before creating an OpenGL context, we must tell Windows what kind of framebuffer
+    // we want: color depth, double buffering, depth buffer size, etc. This is called the
+    // "pixel format" and it's configured via the PIXELFORMATDESCRIPTOR.
+    //
+    // Think of it as ordering a screen setup:
+    //   "I want RGBA color, 32-bit depth, double buffering, and OpenGL support please."
+    // Windows then finds the closest matching format the GPU supports.
 
-    // We now fill the PIXELFORMATDESCRIPTOR struct with what we want
-    pfd.nSize = sizeof( PIXELFORMATDESCRIPTOR ); // Set size of struct
-    pfd.nVersion = 1;                            // Always should be 1
-    pfd.dwFlags = PFD_DRAW_TO_WINDOW |           // Set flags we want
-                  PFD_SUPPORT_OPENGL |           // being window drawing, openGL
-                  PFD_DOUBLEBUFFER;              // support + two buffers
-    pfd.dwLayerMask = PFD_MAIN_PLANE;            // Standard mask
-    pfd.iPixelType = PFD_TYPE_RGBA;              // Red Green Blue Alpha pixels
+    SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
+    PIXELFORMATDESCRIPTOR pfd = { 0 };
+    int pixelFormat = 0;
+
+    pfd.nSize = sizeof( PIXELFORMATDESCRIPTOR );
+    pfd.nVersion = 1;
+    // PFD_DRAW_TO_WINDOW = render to a window (not a bitmap)
+    // PFD_SUPPORT_OPENGL = this is for OpenGL (not GDI or DirectX)
+    // PFD_DOUBLEBUFFER   = use two buffers (draw to back, display front, swap)
+    pfd.dwFlags = PFD_DRAW_TO_WINDOW |
+                  PFD_SUPPORT_OPENGL |
+                  PFD_DOUBLEBUFFER;
+    pfd.dwLayerMask = PFD_MAIN_PLANE;
+    pfd.iPixelType = PFD_TYPE_RGBA; // RGBA color mode (not palette/indexed)
     pfd.cColorBits = static_cast<BYTE>( Cfg().bitsPerPixel );
     pfd.cDepthBits = static_cast<BYTE>( Cfg().bitsPerPixel );
-    pfd.cAccumBits = 0;   // No accumulation bits
-    pfd.cStencilBits = 0; // No stencil bits
+    pfd.cAccumBits = 0;
+    pfd.cStencilBits = 0;
 
-    // Gets a pixel format that best matches what we have requested
+    // Ask Windows to find a pixel format matching our requirements.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-choosepixelformat
     pixelFormat = ChoosePixelFormat( m_cWindow->m_sDevice, &pfd );
 
-    // If pixel format was not set from the previous line, fail
     if ( !pixelFormat )
     {
         MsgBox( "ChoosePixelFormat failed", "Error", MB_OK );
         return false;
     }
 
-    // If SetPixelFormat fails, we fail too
+    // Apply the chosen pixel format to our window's device context.
+    // This must be done BEFORE creating an OpenGL context.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-setpixelformat
     if ( !SetPixelFormat( m_cWindow->m_sDevice, pixelFormat, &pfd ) )
     {
         MsgBox( "SetPixelFormat failed", "Error", MB_OK );
         return false;
     }
 
-    return true; // If we have made it down to here we have succeeded
+    return true;
 }
 
 
@@ -236,17 +248,26 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 }
 
 
-// GLAD needs a loader that returns GL function pointers.  For core GL 1.1
+// GLAD needs a loader that returns GL function pointers. For core GL 1.1
 // functions Windows exposes them directly from opengl32.dll; everything
-// else comes from wglGetProcAddress.
+// else (modern functions like glCreateShader, glBindFramebuffer, etc.) comes
+// from wglGetProcAddress which queries the GPU driver at runtime.
+//
+// This two-step lookup exists because Windows ships with a minimal opengl32.dll
+// that only implements GL 1.1 — the driver provides everything else via ICD (Installable
+// Client Driver) extensions. wglGetProcAddress returns NULL/0x1/0x2/0x3 for functions
+// it doesn't know, so we fall back to the DLL for those.
 static GLADapiproc GladLoadFunc( const char* name )
 {
+    // Try the driver's extension mechanism first (modern GL 1.2+ functions).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-wglgetprocaddress
     GLADapiproc p = reinterpret_cast<GLADapiproc>( wglGetProcAddress( name ) );
     if ( p == 0 || p == reinterpret_cast<GLADapiproc>( 0x1 ) ||
          p == reinterpret_cast<GLADapiproc>( 0x2 ) ||
          p == reinterpret_cast<GLADapiproc>( 0x3 ) ||
          p == reinterpret_cast<GLADapiproc>( -1 ) )
     {
+        // Fall back to opengl32.dll for base GL 1.1 functions (glGetString, glEnable, etc.).
         static HMODULE gl = GetModuleHandleA( "opengl32.dll" );
         p = reinterpret_cast<GLADapiproc>( GetProcAddress( gl, name ) );
     }
@@ -256,6 +277,19 @@ static GLADapiproc GladLoadFunc( const char* name )
 
 void SkullbonezWindow::InitialiseOpenGL()
 {
+    // --- OpenGL Context Creation ---
+    // Before we can make any OpenGL calls, we need an "OpenGL context" — a connection
+    // between our window and the GPU driver. The process on Windows is a bit convoluted:
+    //
+    //  1. Create a "dummy" legacy OpenGL context (needed to load modern functions)
+    //  2. Use the dummy context to load wglCreateContextAttribsARB
+    //  3. Create the REAL modern OpenGL 3.3 Core context
+    //  4. Delete the dummy context
+    //  5. Load all GL function pointers via GLAD
+    //
+    // This bootstrap dance exists because Windows only natively supports OpenGL 1.1 —
+    // everything modern requires extensions that can only be queried from an existing context.
+
     SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
 
     if ( !SetupPixelFormat() )
@@ -263,19 +297,28 @@ void SkullbonezWindow::InitialiseOpenGL()
         PostQuitMessage( 0 );
     }
 
-    // Bootstrap: create a temporary legacy context so we can load
-    // wglCreateContextAttribsARB, then replace it with a 3.3 context.
+    // Step 1: Create a temporary legacy OpenGL context. This gives us basic GL 1.1 so we
+    // can query for the modern context-creation extension.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-wglcreatecontext
     HGLRC tempContext = wglCreateContext( m_cWindow->m_sDevice );
+
+    // Make the temp context "current" (active) on this thread. OpenGL is thread-local —
+    // only one context per thread can be current at a time.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-wglmakecurrent
     wglMakeCurrent( m_cWindow->m_sDevice, tempContext );
 
-    // Resolve the modern context creation function
+    // Step 2: Load the modern context-creation function from the driver.
+    // wglGetProcAddress only works when a context is current — that's why we needed the temp.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-wglgetprocaddress
     using PFNWGLCREATECONTEXTATTRIBSARBPROC = HGLRC( WINAPI* )( HDC, HGLRC, const int* );
     auto wglCreateContextAttribsARB = reinterpret_cast<PFNWGLCREATECONTEXTATTRIBSARBPROC>(
         wglGetProcAddress( "wglCreateContextAttribsARB" ) );
 
     if ( wglCreateContextAttribsARB )
     {
-        // Request OpenGL 3.3 Core Profile
+        // Step 3: Request an OpenGL 3.3 Core Profile context.
+        // Core Profile = modern OpenGL only, no deprecated functions (immediate mode, etc.)
+        // This is what enables us to use shaders, VAOs, and all modern features.
         const int attribs[] = {
             0x2091,
             3, // WGL_CONTEXT_MAJOR_VERSION_ARB = 3
@@ -286,10 +329,13 @@ void SkullbonezWindow::InitialiseOpenGL()
             0    // terminator
         };
 
+        // Docs: https://registry.khronos.org/OpenGL/extensions/ARB/WGL_ARB_create_context.txt
         HGLRC modernContext = wglCreateContextAttribsARB( m_cWindow->m_sDevice, 0, attribs );
         if ( modernContext )
         {
+            // Step 4: Destroy the temp context and switch to the modern one.
             wglMakeCurrent( nullptr, nullptr );
+            // Docs: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-wgldeletecontext
             wglDeleteContext( tempContext );
             wglMakeCurrent( m_cWindow->m_sDevice, modernContext );
             m_cWindow->m_sRenderContext = modernContext;
@@ -305,7 +351,9 @@ void SkullbonezWindow::InitialiseOpenGL()
         m_cWindow->m_sRenderContext = tempContext;
     }
 
-    // Load all GL function pointers via GLAD
+    // Step 5: Load all GL function pointers via GLAD.
+    // OpenGL functions are not directly linked — they're loaded at runtime from the driver DLL.
+    // GLAD handles this by calling our GladLoadFunc for each of the ~500+ GL functions.
     int gladVersion = gladLoadGL( GladLoadFunc );
     if ( !gladVersion )
     {
@@ -314,7 +362,8 @@ void SkullbonezWindow::InitialiseOpenGL()
         return;
     }
 
-    // Verify we are on a core profile context (not compatibility)
+    // Verify we got a Core Profile context (not Compatibility — which allows deprecated calls).
+    // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glGet.xhtml
     GLint profileMask = 0;
     glGetIntegerv( GL_CONTEXT_PROFILE_MASK, &profileMask );
     if ( !( profileMask & GL_CONTEXT_CORE_PROFILE_BIT ) )
@@ -324,13 +373,16 @@ void SkullbonezWindow::InitialiseOpenGL()
         return;
     }
 
-    // Enable vsync (force SwapBuffers to block until next vertical retrace)
+    // Enable vsync — forces SwapBuffers to wait for the monitor's vertical retrace signal.
+    // This caps the framerate to the monitor's refresh rate (typically 60Hz) and eliminates
+    // screen tearing (where the top half shows one frame and bottom half shows the next).
+    // Docs: https://registry.khronos.org/OpenGL/extensions/EXT/WGL_EXT_swap_control.txt
     using PFNWGLSWAPINTERVALEXTPROC = BOOL( WINAPI* )( int );
     auto wglSwapIntervalEXT = reinterpret_cast<PFNWGLSWAPINTERVALEXTPROC>(
         wglGetProcAddress( "wglSwapIntervalEXT" ) );
     if ( wglSwapIntervalEXT )
     {
-        wglSwapIntervalEXT( 1 );
+        wglSwapIntervalEXT( 1 ); // 1 = sync to every vblank; 0 = no sync (uncapped FPS)
     }
 
     // Set window dimensions (HandleScreenResize is called from WinMain after SetGfxBackend)

@@ -53,7 +53,10 @@ bool ShaderDX12::Compile( const char* hlslPath )
     flags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
 #endif
 
-    // Compile VS
+    // Compile the vertex shader from HLSL source code. D3DCompile takes human-readable HLSL text
+    // and converts it into GPU bytecode. The "vs_5_0" target means Vertex Shader Model 5.0.
+    // D3D_COMPILE_STANDARD_FILE_INCLUDE enables #include directives in the shader source.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompile
     ID3DBlob* errors = nullptr;
     HRESULT hr = D3DCompile( source.c_str(), source.size(), hlslPath, nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "main_vs", "vs_5_0", flags, 0, &m_vsBlob, &errors );
     if ( FAILED( hr ) )
@@ -72,7 +75,9 @@ bool ShaderDX12::Compile( const char* hlslPath )
         errors = nullptr;
     }
 
-    // Compile PS
+    // Compile the pixel shader from the same HLSL file. The "ps_5_0" target means Pixel Shader
+    // Model 5.0. Both VS and PS live in the same .hlsl file with different entry points.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompile
     hr = D3DCompile( source.c_str(), source.size(), hlslPath, nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "main_ps", "ps_5_0", flags, 0, &m_psBlob, &errors );
     if ( FAILED( hr ) )
     {
@@ -98,6 +103,10 @@ bool ShaderDX12::Compile( const char* hlslPath )
 
 void ShaderDX12::ReflectCB( ID3DBlob* blob )
 {
+    // Use D3DReflect to inspect the compiled shader bytecode and discover constant buffer layouts.
+    // Reflection tells us the name, offset, and size of each variable in the shader's cbuffer,
+    // so we can write data at the correct byte offsets when setting uniforms from C++.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dreflect
     ID3D11ShaderReflection* reflect = nullptr;
     D3DReflect( blob->GetBufferPointer(), blob->GetBufferSize(), IID_ID3D11ShaderReflection, (void**)&reflect );
 

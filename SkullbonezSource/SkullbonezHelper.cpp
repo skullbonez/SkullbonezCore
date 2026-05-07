@@ -198,15 +198,18 @@ void SkullbonezHelper::DrawDebugVectors(
         return;
     }
 
-    // Lazy-init VAO/VBO
+    // Lazy-init VAO/VBO for debug line rendering
     if ( debugLineVAO == 0 )
     {
+        // Create a VAO+VBO pair specifically for rendering debug lines (collision vectors, etc.)
         glGenVertexArrays( 1, &debugLineVAO );
         glGenBuffers( 1, &debugLineVBO );
         glBindVertexArray( debugLineVAO );
         glBindBuffer( GL_ARRAY_BUFFER, debugLineVBO );
-        // Allocate a generous streaming buffer (2048 vec3 endpoints)
+        // Pre-allocate a streaming buffer for up to 2048 line endpoints (each is a vec3).
+        // GL_DYNAMIC_DRAW = updated frequently (debug lines change every frame).
         glBufferData( GL_ARRAY_BUFFER, static_cast<GLsizeiptr>( 2048 * 3 * sizeof( float ) ), nullptr, GL_DYNAMIC_DRAW );
+        // Location 0 = position (vec3), tightly packed (stride = 12 bytes)
         glEnableVertexAttribArray( 0 );
         glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof( float ), reinterpret_cast<void*>( 0 ) );
         glBindVertexArray( 0 );
@@ -233,16 +236,18 @@ void SkullbonezHelper::DrawDebugVectors(
 
     int vertCount = static_cast<int>( lines.size() * 2 );
 
-    // Upload
+    // Upload line vertex data to the VBO
     glBindBuffer( GL_ARRAY_BUFFER, debugLineVBO );
     GLsizeiptr needed = static_cast<GLsizeiptr>( verts.size() * sizeof( float ) );
     GLsizeiptr capacity = static_cast<GLsizeiptr>( 2048 * 3 * sizeof( float ) );
     if ( needed > capacity )
     {
-        // Orphan and reallocate
+        // Buffer too small — orphan and reallocate at the needed size.
         glBufferData( GL_ARRAY_BUFFER, needed, nullptr, GL_DYNAMIC_DRAW );
         capacity = needed;
     }
+    // Upload the actual line vertex positions.
+    // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glBufferSubData.xhtml
     glBufferSubData( GL_ARRAY_BUFFER, 0, needed, verts.data() );
     glBindBuffer( GL_ARRAY_BUFFER, 0 );
 
@@ -253,7 +258,14 @@ void SkullbonezHelper::DrawDebugVectors(
     debugLineShader->SetVec4( "uColor", r, g, b, 1.0f );
 
     glBindVertexArray( debugLineVAO );
+
+    // Set line width to 2 pixels for visibility. Note: line width > 1.0 is deprecated in
+    // Core Profile and may be ignored by some drivers, but works on most desktop GPUs.
+    // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glLineWidth.xhtml
     glLineWidth( 2.0f );
+
+    // Draw using GL_LINES — every pair of consecutive vertices forms one line segment.
+    // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glDrawArrays.xhtml
     glDrawArrays( GL_LINES, 0, vertCount );
     glLineWidth( 1.0f );
     glBindVertexArray( 0 );

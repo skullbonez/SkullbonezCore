@@ -11,6 +11,52 @@
 #pragma comment( lib, "dxgi.lib" )
 
 
+// --- DX11 Rendering Pipeline Overview ---
+//
+//  CPU (C++ code)                      GPU
+//  +-----------+                       +------------------+
+//  | Create    | ---(Device)--->       | Resource Memory  |
+//  | Resources |                       | (Textures, VBs)  |
+//  +-----------+                       +------------------+
+//       |
+//       v
+//  +-----------+                       +------------------+
+//  | Record    | ---(Context)--->      | Input Assembler  |
+//  | Commands  |                       |       |          |
+//  +-----------+                       |       v          |
+//                                      | Vertex Shader    |
+//                                      |       |          |
+//                                      |       v          |
+//                                      | Rasterizer       |
+//                                      |       |          |
+//                                      |       v          |
+//                                      | Pixel Shader     |
+//                                      |       |          |
+//                                      |       v          |
+//                                      | Output Merger    |
+//                                      | (Depth+Blend)    |
+//                                      +------------------+
+//                                              |
+//                                              v
+//                                      +------------------+
+//  +-----------+                       | Back Buffer      |
+//  | Present() | <--(SwapChain)---     | (rendered frame) |
+//  +-----------+                       +------------------+
+//
+// Key Concepts:
+//   Device       = GPU abstraction that creates resources (textures, buffers, shaders, states)
+//   Context      = Records rendering commands (draw calls, state changes, resource updates)
+//   SwapChain    = Manages front/back buffer flip (double-buffering for tear-free display)
+//   RTV          = Render Target View -- tells DX11 "draw pixels into this texture"
+//   DSV          = Depth Stencil View -- depth buffer for z-testing (closer objects occlude farther)
+//   SRV          = Shader Resource View -- makes a texture readable/sampleable in shaders
+//   OM (Output Merger)  = Final pipeline stage where depth test + blending happen
+//   RS (Rasterizer)     = Converts triangles to pixel fragments, applies viewport transform
+//   IA (Input Assembler) = Feeds raw vertex data into the vertex shader
+//   Constant Buffers    = DX11's equivalent of OpenGL uniforms (small data blocks sent to shaders)
+//   Pipeline States     = Pre-baked GPU configurations (rasterizer, blend, depth-stencil states)
+
+
 // --- Usings ---
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
@@ -62,11 +108,20 @@ void RenderBackendDX11::CreateStateObjects()
     dsDesc.DepthEnable = TRUE;
     dsDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
     dsDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+
+    // Create a Depth-Stencil State object that enables depth testing. This pre-baked state tells
+    // the Output Merger "compare each pixel's depth against the depth buffer; only write if it's
+    // closer (LESS_EQUAL)". DX11 uses immutable state objects instead of individual glEnable calls.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createdepthstencilstate
     hr = m_device->CreateDepthStencilState( &dsDesc, &m_dsDepthOn );
     ThrowIfFailed( hr, "CreateDepthStencilState (depth on) failed" );
 
     dsDesc.DepthEnable = FALSE;
     dsDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+
+    // Create a depth-off state (no depth testing, no depth writes). Used for UI/overlay rendering
+    // where everything should draw on top regardless of depth.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createdepthstencilstate
     hr = m_device->CreateDepthStencilState( &dsDesc, &m_dsDepthOff );
     ThrowIfFailed( hr, "CreateDepthStencilState (depth off) failed" );
 
@@ -74,6 +129,11 @@ void RenderBackendDX11::CreateStateObjects()
     D3D11_BLEND_DESC blendDesc = {};
     blendDesc.RenderTarget[0].BlendEnable = FALSE;
     blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+    // Create a Blend State with blending disabled. Blend states control how new pixel colors
+    // combine with existing render target colors (e.g. alpha blending for transparency).
+    // This "off" state means new pixels simply overwrite old ones.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createblendstate
     hr = m_device->CreateBlendState( &blendDesc, &m_blendOff );
     ThrowIfFailed( hr, "CreateBlendState (off) failed" );
 
@@ -83,20 +143,35 @@ void RenderBackendDX11::CreateStateObjects()
     rsDesc.CullMode = D3D11_CULL_BACK;
     rsDesc.FrontCounterClockwise = TRUE;
     rsDesc.DepthClipEnable = TRUE;
+
+    // Create a Rasterizer State with back-face culling enabled. The rasterizer converts triangles
+    // into pixel fragments; this state tells it to discard triangles facing away from the camera
+    // (back faces), which halves the pixel shader workload for solid objects.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createrasterizerstate
     hr = m_device->CreateRasterizerState( &rsDesc, &m_rsCullOn );
     ThrowIfFailed( hr, "CreateRasterizerState (cull on) failed" );
 
     rsDesc.CullMode = D3D11_CULL_NONE;
+
+    // Create a rasterizer state with culling disabled. Used for two-sided geometry like water
+    // planes or foliage that should be visible from both sides.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createrasterizerstate
     hr = m_device->CreateRasterizerState( &rsDesc, &m_rsCullOff );
     ThrowIfFailed( hr, "CreateRasterizerState (cull off) failed" );
 
     rsDesc.CullMode = D3D11_CULL_BACK;
     rsDesc.DepthBias = -1;
     rsDesc.SlopeScaledDepthBias = -1.0f;
+
+    // Create a rasterizer state with polygon offset (depth bias). Depth bias nudges depth values
+    // slightly to prevent z-fighting (flickering) when two surfaces are nearly coplanar, such as
+    // decals or shadow projections on terrain.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createrasterizerstate
     hr = m_device->CreateRasterizerState( &rsDesc, &m_rsCullOnPolyOffset );
     ThrowIfFailed( hr, "CreateRasterizerState (cull on + poly offset) failed" );
 
     rsDesc.CullMode = D3D11_CULL_NONE;
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createrasterizerstate
     hr = m_device->CreateRasterizerState( &rsDesc, &m_rsCullOffPolyOffset );
     ThrowIfFailed( hr, "CreateRasterizerState (cull off + poly offset) failed" );
 
@@ -109,10 +184,19 @@ void RenderBackendDX11::CreateStateObjects()
     sampDesc.MaxAnisotropy = 1;
     sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
     sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+    // Create a Sampler State with linear (bilinear) filtering. Samplers control how textures are
+    // read in shaders: filtering (smooth vs pixelated), addressing (wrap vs clamp at edges), and
+    // mipmap selection. LINEAR gives smooth blending between texel neighbors.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createsamplerstate
     hr = m_device->CreateSamplerState( &sampDesc, &m_samplerLinear );
     ThrowIfFailed( hr, "CreateSamplerState (linear) failed" );
 
     sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+
+    // Create a nearest-neighbor (point) sampler. No interpolation between texels -- useful for
+    // pixel-art style rendering or font atlas sampling where crisp edges are desired.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createsamplerstate
     hr = m_device->CreateSamplerState( &sampDesc, &m_samplerNearest );
     ThrowIfFailed( hr, "CreateSamplerState (nearest) failed" );
 }
@@ -120,6 +204,9 @@ void RenderBackendDX11::CreateStateObjects()
 
 void RenderBackendDX11::ApplyRasterizerState()
 {
+    // Bind a pre-created rasterizer state to the Rasterizer Stage. RSSetState switches which
+    // rasterizer configuration (cull mode, polygon offset) is active for subsequent draw calls.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-rssetstate
     if ( m_cullEnabled && m_polyOffsetEnabled )
     {
         m_context->RSSetState( m_rsCullOnPolyOffset );
@@ -163,6 +250,11 @@ bool RenderBackendDX11::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     flags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
 
+    // Create the DX11 Device, DeviceContext, and SwapChain in one call. This is the primary
+    // bootstrap for DirectX 11. The Device is the GPU abstraction (creates resources); the
+    // DeviceContext records rendering commands; the SwapChain manages double-buffered presentation
+    // (flip-discard model for low-latency display). D3D_DRIVER_TYPE_HARDWARE = use the real GPU.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-d3d11createdeviceandswapchain
     HRESULT hr = D3D11CreateDeviceAndSwapChain( nullptr,
                                                 D3D_DRIVER_TYPE_HARDWARE,
                                                 nullptr,
@@ -190,8 +282,16 @@ bool RenderBackendDX11::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
 
     // Create back buffer RTV
     ID3D11Texture2D* backBuffer = nullptr;
+
+    // Retrieve the back buffer texture from the swap chain. GetBuffer(0) returns the current
+    // back buffer that we'll render into. The swap chain owns this texture; we just get a pointer.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-getbuffer
     hr = m_swapChain->GetBuffer( 0, __uuidof( ID3D11Texture2D ), (void**)&backBuffer );
     ThrowIfFailed( hr, "SwapChain::GetBuffer failed" );
+
+    // Create a Render Target View for the back buffer texture. This RTV is what we bind to the
+    // Output Merger so draw calls write their pixels into the back buffer (which gets displayed).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createrendertargetview
     hr = m_device->CreateRenderTargetView( backBuffer, nullptr, &m_backBufferRTV );
     backBuffer->Release();
     ThrowIfFailed( hr, "CreateRenderTargetView failed" );
@@ -206,22 +306,41 @@ bool RenderBackendDX11::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     depthDesc.SampleDesc.Count = 1;
     depthDesc.Usage = D3D11_USAGE_DEFAULT;
     depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+
+    // Create the main depth-stencil texture. This is the z-buffer that stores per-pixel depth
+    // values so the GPU can determine which objects are in front of others. D24 = 24-bit depth
+    // precision, S8 = 8-bit stencil (unused here but required by the format).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createtexture2d
     hr = m_device->CreateTexture2D( &depthDesc, nullptr, &m_depthStencilTex );
     ThrowIfFailed( hr, "CreateTexture2D (depth stencil) failed" );
+
+    // Create a Depth Stencil View to make the depth texture usable by the Output Merger stage.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createdepthstencilview
     hr = m_device->CreateDepthStencilView( m_depthStencilTex, nullptr, &m_depthStencilView );
     ThrowIfFailed( hr, "CreateDepthStencilView failed" );
 
     // Set default render target and cache it
     m_currentRTV = m_backBufferRTV;
     m_currentDSV = m_depthStencilView;
+
+    // Bind the back buffer RTV and depth buffer DSV to the Output Merger. This tells the GPU
+    // "all draw calls should output their pixels here and depth-test against this buffer".
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetrendertargets
     m_context->OMSetRenderTargets( 1, &m_backBufferRTV, m_depthStencilView );
 
     // Create state objects
     CreateStateObjects();
 
     // Apply initial state
+
+    // Activate the depth-on state in the Output Merger so depth testing is enabled from the start.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetdepthstencilstate
     m_context->OMSetDepthStencilState( m_dsDepthOn, 0 );
     float blendFactor[4] = { 0, 0, 0, 0 };
+
+    // Set the initial blend state to "off" (opaque rendering). The blend factor array and sample
+    // mask (0xFFFFFFFF = all samples) are standard defaults.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetblendstate
     m_context->OMSetBlendState( m_blendOff, blendFactor, 0xFFFFFFFF );
     ApplyRasterizerState();
 
@@ -230,6 +349,10 @@ bool RenderBackendDX11::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     vp.Width = (float)width;
     vp.Height = (float)height;
     vp.MaxDepth = 1.0f;
+
+    // Configure the Rasterizer Stage viewport. The viewport maps normalized device coordinates
+    // (-1 to +1) to pixel coordinates on screen. Width/Height define the render area size.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-rssetviewports
     m_context->RSSetViewports( 1, &vp );
 
     return true;
@@ -385,10 +508,15 @@ void RenderBackendDX11::Shutdown()
 
 void RenderBackendDX11::Present()
 {
+    // Present the completed frame to the display. Present() flips the back buffer to the front
+    // buffer so the user sees the rendered image. The first arg (1) = sync to VSync (1 refresh
+    // interval). With FLIP_DISCARD, the old back buffer contents are discarded after present.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-present
     m_swapChain->Present( 1, 0 );
 
     // FLIP_DISCARD unbinds the back buffer RTV from the output-merger after Present.
     // Rebind immediately so the next frame's draws have a valid render target.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetrendertargets
     m_context->OMSetRenderTargets( 1, &m_backBufferRTV, m_depthStencilView );
     m_currentRTV = m_backBufferRTV;
     m_currentDSV = m_depthStencilView;
@@ -397,12 +525,16 @@ void RenderBackendDX11::Present()
 
 void RenderBackendDX11::Finish()
 {
+    // Flush sends all queued GPU commands to the driver immediately rather than waiting for the
+    // command buffer to fill. Used to ensure all work is submitted (e.g. before a frame capture).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-flush
     m_context->Flush();
 }
 
 
 void RenderBackendDX11::FlushGPU()
 {
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-flush
     m_context->Flush();
 }
 
@@ -417,21 +549,38 @@ void RenderBackendDX11::Resize( int width, int height )
     // Release all swap-chain-backed views before resizing
     m_currentRTV = nullptr;
     m_currentDSV = nullptr;
+
+    // Unbind all render targets before resize. Setting nullptr prevents the GPU from holding
+    // references to the back buffer we're about to release.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetrendertargets
     m_context->OMSetRenderTargets( 0, nullptr, nullptr );
     m_backBufferRTV->Release();
     m_depthStencilView->Release();
     m_depthStencilTex->Release();
+
+    // Reset all pipeline state to defaults. ClearState unbinds every shader, resource, and render
+    // target -- a clean slate. Required before ResizeBuffers to ensure no dangling references.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-clearstate
     m_context->ClearState();
+
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-flush
     m_context->Flush();
 
-    // Resize swap chain buffers
+    // Resize the swap chain's internal buffers to match the new window size. Passing 0 for width/
+    // height would auto-detect from the window, but we specify explicitly. DXGI_FORMAT_UNKNOWN
+    // keeps the existing format. All existing back buffer references are now invalid.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-resizebuffers
     HRESULT hr = m_swapChain->ResizeBuffers( 0, (UINT)width, (UINT)height, DXGI_FORMAT_UNKNOWN, 0 );
     ThrowIfFailed( hr, "IDXGISwapChain::ResizeBuffers failed" );
 
     // Recreate back buffer RTV
     ID3D11Texture2D* backBuffer = nullptr;
+
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-getbuffer
     hr = m_swapChain->GetBuffer( 0, __uuidof( ID3D11Texture2D ), (void**)&backBuffer );
     ThrowIfFailed( hr, "SwapChain::GetBuffer failed (resize)" );
+
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createrendertargetview
     hr = m_device->CreateRenderTargetView( backBuffer, nullptr, &m_backBufferRTV );
     backBuffer->Release();
     ThrowIfFailed( hr, "CreateRenderTargetView failed (resize)" );
@@ -446,19 +595,27 @@ void RenderBackendDX11::Resize( int width, int height )
     depthDesc.SampleDesc.Count = 1;
     depthDesc.Usage = D3D11_USAGE_DEFAULT;
     depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createtexture2d
     hr = m_device->CreateTexture2D( &depthDesc, nullptr, &m_depthStencilTex );
     ThrowIfFailed( hr, "CreateTexture2D (depth, resize) failed" );
+
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createdepthstencilview
     hr = m_device->CreateDepthStencilView( m_depthStencilTex, nullptr, &m_depthStencilView );
     ThrowIfFailed( hr, "CreateDepthStencilView (resize) failed" );
 
     // Rebind render targets and update cache
     m_currentRTV = m_backBufferRTV;
     m_currentDSV = m_depthStencilView;
+
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetrendertargets
     m_context->OMSetRenderTargets( 1, &m_backBufferRTV, m_depthStencilView );
 
     // Reapply tracked state (ClearState reset everything)
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetdepthstencilstate
     m_context->OMSetDepthStencilState( m_depthTestEnabled ? m_dsDepthOn : m_dsDepthOff, 0 );
     float blendFactor[4] = { 0, 0, 0, 0 };
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetblendstate
     m_context->OMSetBlendState( m_blendEnabled ? m_activeBlendState : m_blendOff, blendFactor, 0xFFFFFFFF );
     ApplyRasterizerState();
 
@@ -484,6 +641,11 @@ void RenderBackendDX11::SetViewport( int x, int y, int w, int h )
     vp.Width = (float)w;
     vp.Height = (float)h;
     vp.MaxDepth = 1.0f;
+
+    // Update the viewport rectangle in the Rasterizer Stage. Defines which portion of the
+    // render target receives the rendered output. Commonly changed when rendering to sub-regions
+    // or switching between full-screen and off-screen framebuffers.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-rssetviewports
     m_context->RSSetViewports( 1, &vp );
 }
 
@@ -492,10 +654,17 @@ void RenderBackendDX11::Clear( bool color, bool depth )
 {
     if ( color && m_currentRTV )
     {
+        // Fill the entire render target with a solid color (the clear color). This wipes the
+        // previous frame's pixels before drawing new geometry. Much faster than drawing a
+        // full-screen quad.
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-clearrendertargetview
         m_context->ClearRenderTargetView( m_currentRTV, m_clearColor );
     }
     if ( depth && m_currentDSV )
     {
+        // Reset the depth buffer to the maximum depth value (1.0 = infinitely far away). This
+        // ensures all new geometry will pass the depth test at the start of a new frame.
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-cleardepthstencilview
         m_context->ClearDepthStencilView( m_currentDSV, D3D11_CLEAR_DEPTH, m_clearDepth, 0 );
     }
 }
@@ -523,6 +692,10 @@ void RenderBackendDX11::SetDepthTest( bool enable )
         return;
     }
     m_depthTestEnabled = enable;
+
+    // Switch the Output Merger's depth-stencil state between "test and write depth" and "ignore
+    // depth entirely". This is DX11's equivalent of glEnable/glDisable(GL_DEPTH_TEST).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetdepthstencilstate
     m_context->OMSetDepthStencilState( enable ? m_dsDepthOn : m_dsDepthOff, 0 );
 }
 
@@ -535,6 +708,11 @@ void RenderBackendDX11::SetBlend( bool enable )
     }
     m_blendEnabled = enable;
     float blendFactor[4] = { 0, 0, 0, 0 };
+
+    // Toggle alpha blending on/off in the Output Merger. When enabled, new pixel colors are
+    // blended with the existing render target color (e.g. for transparency). When disabled,
+    // new pixels overwrite completely.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetblendstate
     m_context->OMSetBlendState( enable ? m_activeBlendState : m_blendOff, blendFactor, 0xFFFFFFFF );
 }
 
@@ -564,6 +742,11 @@ void RenderBackendDX11::SetBlendFunc( BlendFactor src, BlendFactor dst )
         blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 
         ID3D11BlendState* state = nullptr;
+
+        // Create a new blend state for this (src, dst) factor combination. DX11 requires blend
+        // states to be pre-created objects (unlike OpenGL's per-call glBlendFunc). We cache them
+        // to avoid recreating the same state repeatedly.
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createblendstate
         HRESULT hr = m_device->CreateBlendState( &blendDesc, &state );
         ThrowIfFailed( hr, "CreateBlendState (cached) failed" );
         m_blendCache[key] = state;
@@ -577,6 +760,7 @@ void RenderBackendDX11::SetBlendFunc( BlendFactor src, BlendFactor dst )
     if ( m_blendEnabled )
     {
         float blendFactor4[4] = { 0, 0, 0, 0 };
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetblendstate
         m_context->OMSetBlendState( m_activeBlendState, blendFactor4, 0xFFFFFFFF );
     }
 }
@@ -690,12 +874,19 @@ uint32_t RenderBackendDX11::CreateTexture2D( const uint8_t* data, int w, int h, 
 
     if ( generateMips )
     {
+        // Create a 2D texture with auto-generated mipmaps. MipLevels=0 tells DX11 to create a
+        // full mip chain. GENERATE_MIPS flag + RENDER_TARGET bind flag enable GenerateMips() later.
+        // We create empty then upload separately because DX11 can't init mipped textures directly.
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createtexture2d
         hr = m_device->CreateTexture2D( &texDesc, nullptr, &tex );
         if ( FAILED( hr ) )
         {
             throw std::runtime_error( "CreateTexture2D failed" );
         }
 
+        // Upload pixel data to mip level 0 of the texture. UpdateSubresource copies CPU memory
+        // to GPU texture memory for USAGE_DEFAULT resources (can't use Map on non-dynamic textures).
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-updatesubresource
         m_context->UpdateSubresource( tex, 0, nullptr, srcData, (UINT)( w * bytesPerPixel ), 0 );
     }
     else
@@ -704,6 +895,9 @@ uint32_t RenderBackendDX11::CreateTexture2D( const uint8_t* data, int w, int h, 
         initData.pSysMem = srcData;
         initData.SysMemPitch = (UINT)( w * bytesPerPixel );
 
+        // Create a 2D texture with initial data (no mipmaps). The texture is created and filled
+        // in one call -- more efficient than create-then-upload for single-mip textures.
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createtexture2d
         hr = m_device->CreateTexture2D( &texDesc, &initData, &tex );
         if ( FAILED( hr ) )
         {
@@ -711,6 +905,8 @@ uint32_t RenderBackendDX11::CreateTexture2D( const uint8_t* data, int w, int h, 
         }
     }
 
+    // Create a Shader Resource View so the texture can be sampled in pixel shaders.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createshaderresourceview
     ID3D11ShaderResourceView* srv = nullptr;
     hr = m_device->CreateShaderResourceView( tex, nullptr, &srv );
     if ( FAILED( hr ) )
@@ -721,6 +917,10 @@ uint32_t RenderBackendDX11::CreateTexture2D( const uint8_t* data, int w, int h, 
 
     if ( generateMips )
     {
+        // Auto-generate the full mipmap chain from the base level (level 0) image. The GPU
+        // downsamples each level to half-resolution using the SRV's associated filter. Mipmaps
+        // prevent texture shimmering at distance.
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-generatemips
         m_context->GenerateMips( srv );
     }
 
@@ -747,7 +947,15 @@ void RenderBackendDX11::BindTexture( uint32_t handle, int slot )
     }
 
     TextureEntryDX& entry = m_textures[handle - 1];
+
+    // Bind a texture (SRV) to a pixel shader texture slot. This makes the texture available for
+    // sampling in the pixel shader at register t<slot>.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-pssetshaderresources
     m_context->PSSetShaderResources( (UINT)slot, 1, &entry.srv );
+
+    // Bind a sampler state to the same pixel shader slot. The sampler controls how the texture
+    // is filtered (linear/nearest) and addressed (wrap/clamp) when read in the shader.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-pssetsamplers
     m_context->PSSetSamplers( (UINT)slot, 1, &entry.sampler );
 }
 
@@ -813,6 +1021,8 @@ std::vector<uint8_t> RenderBackendDX11::CaptureBackbuffer( int& outWidth, int& o
 
     // Get back buffer
     ID3D11Texture2D* backBuffer = nullptr;
+
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-getbuffer
     HRESULT hr = m_swapChain->GetBuffer( 0, __uuidof( ID3D11Texture2D ), (void**)&backBuffer );
     ThrowIfFailed( hr, "GetBuffer failed (capture)" );
 
@@ -831,6 +1041,10 @@ std::vector<uint8_t> RenderBackendDX11::CaptureBackbuffer( int& outWidth, int& o
         desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
         desc.MiscFlags = 0;
 
+        // Create a staging texture for CPU readback. USAGE_STAGING + CPU_ACCESS_READ means this
+        // texture lives in CPU-accessible memory. GPU textures can't be read directly by the CPU;
+        // we must copy into a staging resource first, then Map it for reading.
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createtexture2d
         hr = m_device->CreateTexture2D( &desc, nullptr, &m_stagingTex );
         if ( FAILED( hr ) )
         {
@@ -841,9 +1055,17 @@ std::vector<uint8_t> RenderBackendDX11::CaptureBackbuffer( int& outWidth, int& o
         m_stagingHeight = m_height;
     }
 
+    // Copy the back buffer GPU texture into the staging texture. CopyResource is a GPU-side copy
+    // that moves pixel data from one texture to another (here: from VRAM to CPU-readable memory).
+    // This must complete before we can Map the staging texture.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-copyresource
     m_context->CopyResource( m_stagingTex, backBuffer );
     backBuffer->Release();
 
+    // Map the staging texture to get a CPU pointer to the pixel data. D3D11_MAP_READ gives
+    // read-only access to the GPU-copied data. After this call, mapped.pData points to the
+    // raw pixel bytes and mapped.RowPitch tells us the stride between rows.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-map
     D3D11_MAPPED_SUBRESOURCE mapped;
     hr = m_context->Map( m_stagingTex, 0, D3D11_MAP_READ, 0, &mapped );
     ThrowIfFailed( hr, "Map staging texture failed" );
@@ -865,6 +1087,8 @@ std::vector<uint8_t> RenderBackendDX11::CaptureBackbuffer( int& outWidth, int& o
         }
     }
 
+    // Release the CPU mapping. After Unmap, the mapped pointer is invalid.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-unmap
     m_context->Unmap( m_stagingTex, 0 );
 
     return pixels;
@@ -925,6 +1149,11 @@ uint32_t RenderBackendDX11::CreateDynamicVB( const int* attribComponents, int nu
     bd.Usage = D3D11_USAGE_DYNAMIC;
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+    // Create a dynamic vertex buffer. DYNAMIC + CPU_ACCESS_WRITE means the CPU can update this
+    // buffer every frame via Map/Unmap (using WRITE_DISCARD). Used for geometry that changes
+    // per-frame like text quads or particle systems.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createbuffer
     HRESULT hr = m_device->CreateBuffer( &bd, nullptr, &dvb.vb );
     ThrowIfFailed( hr, "CreateBuffer (dynamic VB) failed" );
 
@@ -956,7 +1185,8 @@ void RenderBackendDX11::UploadAndDrawDynamicVB( uint32_t handle, const float* da
             dvb.inputLayout = nullptr;
         }
 
-        // Build input elements from attrib components
+        // Build input elements from attrib components (creates an input layout for the dynamic VB)
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createinputlayout
         D3D11_INPUT_ELEMENT_DESC elements[8] = {};
         UINT offset = 0;
         for ( int i = 0; i < dvb.numAttribs; ++i )
@@ -993,18 +1223,24 @@ void RenderBackendDX11::UploadAndDrawDynamicVB( uint32_t handle, const float* da
         dvb.lastVSBytecode = m_activeShader->GetVSBytecode();
     }
 
-    // Upload data
+    // Upload data -- Map with WRITE_DISCARD to get a fresh pointer (avoids GPU stalls)
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-map
     D3D11_MAPPED_SUBRESOURCE mapped;
     m_context->Map( dvb.vb, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped );
     memcpy( mapped.pData, data, (size_t)vertexCount * dvb.floatsPerVertex * sizeof( float ) );
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-unmap
     m_context->Unmap( dvb.vb, 0 );
 
     // Draw
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-iasetinputlayout
     m_context->IASetInputLayout( dvb.inputLayout );
     UINT stride = (UINT)dvb.stride;
     UINT vbOffset = 0;
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-iasetvertexbuffers
     m_context->IASetVertexBuffers( 0, 1, &dvb.vb, &stride, &vbOffset );
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-iasetprimitivetopology
     m_context->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-draw
     m_context->Draw( (UINT)vertexCount, 0 );
 }
 
@@ -1059,6 +1295,10 @@ uint32_t RenderBackendDX11::CreateInstancedMesh( const float* staticData, int st
     bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     D3D11_SUBRESOURCE_DATA initData = {};
     initData.pSysMem = staticData;
+
+    // Create an immutable vertex buffer for the shared mesh geometry (e.g. a unit sphere). This
+    // data never changes; each instance will reuse these same vertices with different transforms.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createbuffer
     HRESULT hr = m_device->CreateBuffer( &bd, &initData, &im.staticVB );
     ThrowIfFailed( hr, "CreateBuffer (static VB, instanced) failed" );
 
@@ -1066,6 +1306,10 @@ uint32_t RenderBackendDX11::CreateInstancedMesh( const float* staticData, int st
     bd.ByteWidth = (UINT)( maxInstances * im.instanceStride );
     bd.Usage = D3D11_USAGE_DYNAMIC;
     bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+    // Create a dynamic vertex buffer for per-instance data (world matrices, colors, etc.).
+    // Updated every frame via Map/Unmap with the unique data for each instance.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createbuffer
     hr = m_device->CreateBuffer( &bd, nullptr, &im.instanceVB );
     ThrowIfFailed( hr, "CreateBuffer (instance VB) failed" );
 
@@ -1082,9 +1326,12 @@ void RenderBackendDX11::UploadInstanceData( uint32_t handle, const float* data, 
     }
     InstancedMeshDX& im = m_instancedMeshes[handle - 1];
 
+    // Map the instance buffer and upload per-instance data (WRITE_DISCARD for zero-stall update)
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-map
     D3D11_MAPPED_SUBRESOURCE mapped;
     m_context->Map( im.instanceVB, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped );
     memcpy( mapped.pData, data, (size_t)floatCount * sizeof( float ) );
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-unmap
     m_context->Unmap( im.instanceVB, 0 );
 }
 
@@ -1113,6 +1360,10 @@ void RenderBackendDX11::DrawInstancedMesh( uint32_t handle, int staticVertCount,
         }
 
         // Build input layout: slot 0 = static geometry, slot 1 = instance data
+        // An input layout for instanced rendering maps two vertex buffer slots: slot 0 has the
+        // shared mesh geometry (per-vertex data), slot 1 has per-instance data (e.g. world matrix
+        // rows) that advances once per instance rather than once per vertex.
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createinputlayout
         D3D11_INPUT_ELEMENT_DESC elements[16] = {};
         int numElements = 0;
 
@@ -1188,6 +1439,7 @@ void RenderBackendDX11::DrawInstancedMesh( uint32_t handle, int staticVertCount,
             numElements++;
         }
 
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createinputlayout
         m_device->CreateInputLayout( elements,
                                      (UINT)numElements,
                                      m_activeShader->GetVSBytecode(),
@@ -1196,13 +1448,25 @@ void RenderBackendDX11::DrawInstancedMesh( uint32_t handle, int staticVertCount,
         im.lastVSBytecode = m_activeShader->GetVSBytecode();
     }
 
-    // Bind both VBs
+    // Bind both VBs (slot 0 = static geometry, slot 1 = instance data)
     ID3D11Buffer* vbs[2] = { im.staticVB, im.instanceVB };
     UINT strides[2] = { (UINT)im.staticStride, (UINT)im.instanceStride };
     UINT offsets[2] = { 0, 0 };
+
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-iasetinputlayout
     m_context->IASetInputLayout( im.inputLayout );
+
+    // Bind two vertex buffers simultaneously: the shared mesh in slot 0 and per-instance data
+    // in slot 1. The Input Assembler reads per-vertex data from slot 0 and advances slot 1
+    // once per instance (controlled by InstanceDataStepRate in the input layout).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-iasetvertexbuffers
     m_context->IASetVertexBuffers( 0, 2, vbs, strides, offsets );
+
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-iasetprimitivetopology
     m_context->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
+
+    // Draw all instances in one GPU call. Renders staticVertCount vertices × instanceCount copies.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-drawinstanced
     m_context->DrawInstanced( (UINT)staticVertCount, (UINT)instanceCount, 0, 0 );
 }
 
