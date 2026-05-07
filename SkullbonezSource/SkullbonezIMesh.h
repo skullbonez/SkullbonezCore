@@ -1,6 +1,10 @@
 #pragma once
 
 
+// --- Includes ---
+#include <cstdint>
+
+
 namespace SkullbonezCore
 {
 namespace Rendering
@@ -18,6 +22,8 @@ class IMesh
     virtual void Draw() const = 0;
     virtual void DrawInstanced( int instanceCount ) const = 0;
     virtual int GetVertexCount() const = 0;
+    virtual int GetStride() const = 0;
+    virtual uint64_t GetVertexBufferGPUVA() const = 0; // DXR: returns 0 on GL/DX11
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

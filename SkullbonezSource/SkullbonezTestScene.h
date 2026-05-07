@@ -90,9 +90,9 @@ class TestScene
     const char* GetScreenshotDir() const;
     float GetTimeScale() const;
     bool IsDebugVectors() const;
-    float GetTrackHeight() const;        // Returns tracking camera height above ball (-1 = disabled)
-    float GetAutoCycleInterval() const;  // Returns per-ball screenshot interval in seconds (-1 = disabled)
-    bool HasFlatSlope() const;           // True when scene specifies flat analytic slope terrain
+    float GetTrackHeight() const;       // Returns tracking camera height above ball (-1 = disabled)
+    float GetAutoCycleInterval() const; // Returns per-ball screenshot interval in seconds (-1 = disabled)
+    bool HasFlatSlope() const;          // True when scene specifies flat analytic slope terrain
     float GetFlatBaseY() const;
     float GetFlatSlopeX() const;
     float GetFlatSlopeZ() const;

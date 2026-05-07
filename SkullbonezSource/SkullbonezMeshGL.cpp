@@ -21,7 +21,7 @@ MeshGL::MeshGL( const float* data, int vertexCount, bool hasNormals, bool hasTex
     {
         floatsPerVertex += 2;
     }
-    int stride = floatsPerVertex * static_cast<int>( sizeof( float ) );
+    m_stride = floatsPerVertex * static_cast<int>( sizeof( float ) );
 
     // Create VAO
     glGenVertexArrays( 1, &m_vao );
@@ -31,7 +31,7 @@ MeshGL::MeshGL( const float* data, int vertexCount, bool hasNormals, bool hasTex
     glGenBuffers( 1, &m_vbo );
     glBindBuffer( GL_ARRAY_BUFFER, m_vbo );
     glBufferData( GL_ARRAY_BUFFER,
-                  static_cast<GLsizeiptr>( m_vertexCount ) * stride,
+                  static_cast<GLsizeiptr>( m_vertexCount ) * m_stride,
                   data,
                   GL_STATIC_DRAW );
 
@@ -40,14 +40,14 @@ MeshGL::MeshGL( const float* data, int vertexCount, bool hasNormals, bool hasTex
 
     // location 0 = aPosition (vec3)
     glEnableVertexAttribArray( 0 );
-    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( static_cast<intptr_t>( offset ) ) );
+    glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, m_stride, reinterpret_cast<void*>( static_cast<intptr_t>( offset ) ) );
     offset += 3 * static_cast<int>( sizeof( float ) );
 
     // location 1 = aNormal (vec3)
     if ( hasNormals )
     {
         glEnableVertexAttribArray( 1 );
-        glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( static_cast<intptr_t>( offset ) ) );
+        glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, m_stride, reinterpret_cast<void*>( static_cast<intptr_t>( offset ) ) );
         offset += 3 * static_cast<int>( sizeof( float ) );
     }
 
@@ -55,7 +55,7 @@ MeshGL::MeshGL( const float* data, int vertexCount, bool hasNormals, bool hasTex
     if ( hasTexCoords )
     {
         glEnableVertexAttribArray( 2 );
-        glVertexAttribPointer( 2, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>( static_cast<intptr_t>( offset ) ) );
+        glVertexAttribPointer( 2, 2, GL_FLOAT, GL_FALSE, m_stride, reinterpret_cast<void*>( static_cast<intptr_t>( offset ) ) );
     }
 
     // Unbind
@@ -94,4 +94,10 @@ void MeshGL::DrawInstanced( int instanceCount ) const
 int MeshGL::GetVertexCount() const
 {
     return m_vertexCount;
+}
+
+
+int MeshGL::GetStride() const
+{
+    return m_stride;
 }

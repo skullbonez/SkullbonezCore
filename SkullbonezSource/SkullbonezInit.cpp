@@ -29,6 +29,7 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     // Heap debug code - breaks program at specified allocation
     // _CrtSetBreakAlloc(89);
 
+
     // floating point check routine
     // _controlfp(0, _MCW_EM ^ _EM_INEXACT);
 
@@ -135,6 +136,7 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
 
     Cfg().Load( "SkullbonezData/engine.cfg" );
 
+
     // Create an instance of our window class
     SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
 
@@ -168,6 +170,7 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
 
     // Now that the backend is ready, set viewport and projection for the active renderer
     m_cWindow->HandleScreenResize();
+
 
     {
         // Create the Skullbonez Core instance (scoped so destructor runs

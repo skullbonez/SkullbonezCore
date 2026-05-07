@@ -128,6 +128,12 @@ void TextureCollection::SelectTexture( uint32_t hash )
 }
 
 
+uint32_t TextureCollection::GetTextureHandle( uint32_t hash )
+{
+    return m_textureArray[FindIndex( hash )];
+}
+
+
 void TextureCollection::CreateJpegTexture( const char* cFileName,
                                            uint32_t hash )
 {

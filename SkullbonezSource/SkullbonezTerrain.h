@@ -31,14 +31,18 @@ class Terrain
   public:
     Terrain( const char* sFileName, int iMapSize, int iStepSize, int iTextureWrap ); // Overloaded constructor: sFileName is path to .raw file, iMapSize is the size of map (pixels length), iStepSize is steps (pixel steps AND vertex steps), iTextureWrap is number of times to wrap texture
     Terrain( float slopeBaseY, float slopeX, float slopeZ );                         // Flat analytic slope constructor: y = slopeBaseY + slopeX*x + slopeZ*z
-    ~Terrain();                                                                       // Default destructor
+    ~Terrain();                                                                      // Default destructor
 
     void Render( const Matrix4& view, const Matrix4& projection, const float* lightPosition ); // Renders the terrain with shader
-    XZBounds GetXZBounds();                                                                    // Returns the XZ bounds of the terrain
-    Triangle LocatePolygon( float xPosition, float zPosition );                                // Locates the polygon surrounding the specified X and Z co-ordinates based on an orthagonal XZ projection.  Detailed math reference at http://www.simoneschbach.com/images/FindingArbitraryPolygon.gif
-    bool IsInBounds( float xPosition, float zPosition );                                       // Returns a flag indicating if specified co-ordinates are inside the bounds of the terrain map
-    float GetTerrainHeightAt( float xPosition, float zPosition, bool isFluidMin = false );     // Returns the height of the terrain at the specified coordinates
-    Vector3 GetTerrainNormalAt( float xPosition, float zPosition );                            // Returns the surface normal of the terrain at the specified coordinates
+    IMesh* GetMesh() const
+    {
+        return m_terrainMesh.get();
+    } // Returns the internal mesh (for DXR BLAS)
+    XZBounds GetXZBounds();                                                                // Returns the XZ bounds of the terrain
+    Triangle LocatePolygon( float xPosition, float zPosition );                            // Locates the polygon surrounding the specified X and Z co-ordinates based on an orthagonal XZ projection.  Detailed math reference at http://www.simoneschbach.com/images/FindingArbitraryPolygon.gif
+    bool IsInBounds( float xPosition, float zPosition );                                   // Returns a flag indicating if specified co-ordinates are inside the bounds of the terrain map
+    float GetTerrainHeightAt( float xPosition, float zPosition, bool isFluidMin = false ); // Returns the height of the terrain at the specified coordinates
+    Vector3 GetTerrainNormalAt( float xPosition, float zPosition );                        // Returns the surface normal of the terrain at the specified coordinates
 
   private:
     UINT displayListReference;                // Reference to the display list (retained for fallback)
@@ -53,7 +57,7 @@ class Terrain
     int m_terrainSizeWorldCoords;             // size per side of m_terrain in world coordinates
 
     // Flat slope mode
-    bool  m_isFlatSlope;
+    bool m_isFlatSlope;
     float m_slopeBaseY;
     float m_slopeX;
     float m_slopeZ;

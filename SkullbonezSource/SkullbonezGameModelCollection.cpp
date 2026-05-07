@@ -181,7 +181,7 @@ GameModel& GameModelCollection::GetModelAtIndex( int index )
 void GameModelCollection::RunPhysics( float fChangeInTime )
 {
     std::vector<float> timeRemaining( static_cast<int>( m_gameModels.size() ), fChangeInTime );
-    std::vector<bool>  groundedThisFrame( static_cast<int>( m_gameModels.size() ), false );
+    std::vector<bool> groundedThisFrame( static_cast<int>( m_gameModels.size() ), false );
 
     // update the velocity of all models
     PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
@@ -303,14 +303,16 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
         {
             const char* name = m_gameModels[i].GetName();
             if ( !name[0] )
+            {
                 continue;
+            }
 
             bool isGrounded = groundedThisFrame[i];
             m_gameModels[i].SetGrounded( isGrounded );
             const char* state = isGrounded ? "LANDED  " : "AIRBORNE";
             Vector3 spike = m_gameModels[i].GetOrientationUp();
             Vector3 omega = m_gameModels[i].GetAngularVelocity();
-            Vector3 pos   = m_gameModels[i].GetPosition();
+            Vector3 pos = m_gameModels[i].GetPosition();
 
             bool withinPlaneTolerance = false;
             float omegaMag = VectorMag( omega );
@@ -357,13 +359,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
             const char* planeState = withinPlaneTolerance ? "BLUE" : "WHITE";
             const char* failState = m_planeFailed[i] ? "FAIL" : ( m_planeSeenGreen[i] ? "LOCKED" : "UNLOCKED" );
 
-            fprintf( m_rollLog, "[%s] %s  pos.y=%8.2f  spike=(%6.3f, %6.3f, %6.3f)  omega=(%6.3f, %6.3f, %6.3f)  axis=%s  axis_lock=%s\n",
-                     name, state,
-                     pos.y,
-                     spike.x, spike.y, spike.z,
-                     omega.x, omega.y, omega.z,
-                     planeState,
-                     failState );
+            fprintf( m_rollLog, "[%s] %s  pos.y=%8.2f  spike=(%6.3f, %6.3f, %6.3f)  omega=(%6.3f, %6.3f, %6.3f)  axis=%s  axis_lock=%s\n", name, state, pos.y, spike.x, spike.y, spike.z, omega.x, omega.y, omega.z, planeState, failState );
         }
         fflush( m_rollLog );
     }

@@ -278,6 +278,7 @@ void SkullbonezRun::Run()
             {
                 bool shouldCapture = false;
 
+
                 if ( m_screenshotFrame > 0 && ( m_currentFrame + 1 ) >= m_screenshotFrame )
                 {
                     shouldCapture = true;
@@ -603,8 +604,8 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
                 const Vector3& v = mdl.GetVelocity();
                 const Vector3& omega = mdl.GetAngularVelocity();
 
-                float vmag  = sqrtf( v.x * v.x + v.z * v.z );
-                float omag  = sqrtf( omega.x * omega.x + omega.z * omega.z );
+                float vmag = sqrtf( v.x * v.x + v.z * v.z );
+                float omag = sqrtf( omega.x * omega.x + omega.z * omega.z );
 
                 float ratio = ( vmag > 0.001f ) ? omag / vmag : 0.0f;
 
@@ -612,14 +613,12 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
                 if ( vmag > 0.001f && omag > 0.001f )
                 {
                     float dot = ( v.x * omega.x + v.z * omega.z ) / ( vmag * omag );
-                    dot = ( dot < -1.0f ) ? -1.0f : ( dot > 1.0f ) ? 1.0f : dot;
+                    dot = ( dot < -1.0f ) ? -1.0f : ( dot > 1.0f ) ? 1.0f
+                                                                   : dot;
                     angle = acosf( dot ) * ( 180.0f / 3.14159265f );
                 }
 
-                fprintf( sVectorLog, "%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.1f\n",
-                         m_currentFrame, i,
-                         v.x, v.z, omega.x, omega.z,
-                         vmag, omag, ratio, angle );
+                fprintf( sVectorLog, "%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.1f\n", m_currentFrame, i, v.x, v.z, omega.x, omega.z, vmag, omag, ratio, angle );
             }
             fflush( sVectorLog );
         }
@@ -671,8 +670,7 @@ void SkullbonezRun::DrawPrimitives()
         m_cSkyBox->Render( skyView, proj );
     }
 
-    // reflection pre-pass: render above-water scene from mirrored camera into FBO
-    // TODO: this needs to run when camera m_isTweening!!
+    // reflection pre-pass: render above-water scene from mirrored camera into FBO (or DXR dispatch)
     {
         PROFILE_GPU_SCOPED( "Frame/Render/Reflection" );
         float waterY = m_cWorldEnvironment.GetFluidSurfaceHeight();
@@ -685,29 +683,62 @@ void SkullbonezRun::DrawPrimitives()
         Matrix4 reflView = Matrix4::LookAt( reflEye, reflCenter, reflUp );
         reflVP = proj * reflView;
 
-        m_cReflectionFBO->Bind();
-        Gfx().SetViewport( 0, 0, m_cReflectionFBO->GetWidth(), m_cReflectionFBO->GetHeight() );
-        Gfx().Clear( true, true );
-
-        // Skybox reflected (XZ follows eye; Y anchored at Cfg().skyboxRenderHeight)
+        if ( Gfx().IsDXRSupported() && !m_isWaterNoReflect )
         {
-            PROFILE_GPU_SCOPED( "Frame/Render/Reflection/Skybox" );
-            Matrix4 skyReflView = reflView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
-            m_cSkyBox->Render( skyReflView, proj );
+            // DXR path: rebuild TLAS with current ball positions, then dispatch rays
+            int ballCount = m_cGameModelCollection.GetModelCount();
+            std::vector<float> transforms( (size_t)ballCount * 16 );
+            for ( int i = 0; i < ballCount; ++i )
+            {
+                Matrix4 mdlMat = m_cGameModelCollection.GetModelAtIndex( i ).GetModelMatrix();
+                memcpy( transforms.data() + i * 16, mdlMat.Data(), 16 * sizeof( float ) );
+            }
+
+            Gfx().BuildTLAS( transforms.data(), ballCount, 0, 0 ); // BLAS VAs retrieved internally
+
+            // Compute inverse VP matrix for ray reconstruction
+            Matrix4 vp = proj * baseView;
+            Matrix4 invVP = vp.Inverse();
+            float cameraPos[3] = { eye.x, eye.y, eye.z };
+            float simTime = static_cast<float>( m_cSimulationTimer.GetTotalTime() );
+
+            uint32_t sphereHandle = m_cTextures->GetTextureHandle( TEXTURE_BOUNDING_SPHERE );
+            uint32_t terrainHandle = m_cTextures->GetTextureHandle( TEXTURE_GROUND );
+            uint32_t skyUpHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_UP );
+            uint32_t skyDownHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_DOWN );
+            uint32_t skyRightHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_RIGHT );
+            uint32_t skyLeftHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_LEFT );
+            uint32_t skyFrontHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_FRONT );
+            uint32_t skyBackHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_BACK );
+            Gfx().DispatchReflectionRays( invVP.Data(), cameraPos, waterY, simTime, lightPosition, m_cWindow->m_sWindowDimensions.x * 2, m_cWindow->m_sWindowDimensions.y * 2, sphereHandle, terrainHandle, skyUpHandle, skyDownHandle, skyRightHandle, skyLeftHandle, skyFrontHandle, skyBackHandle );
         }
+        else
+        {
+            // FBO mirror-camera path (GL, DX11, or DXR fallback)
+            m_cReflectionFBO->Bind();
+            Gfx().SetViewport( 0, 0, m_cReflectionFBO->GetWidth(), m_cReflectionFBO->GetHeight() );
+            Gfx().Clear( true, true );
 
-        // Game models reflected — clip at water surface (above-water portion only)
-        PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
-        Gfx().SetClipPlane( 0, true );
-        SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -waterY );
-        m_cTextures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-        m_cGameModelCollection.RenderModels( reflView, proj, lightPosition );
-        Gfx().SetClipPlane( 0, false );
-        SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
-        PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
+            // Skybox reflected (XZ follows eye; Y anchored at Cfg().skyboxRenderHeight)
+            {
+                PROFILE_GPU_SCOPED( "Frame/Render/Reflection/Skybox" );
+                Matrix4 skyReflView = reflView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
+                m_cSkyBox->Render( skyReflView, proj );
+            }
 
-        m_cReflectionFBO->Unbind();
-        Gfx().SetViewport( 0, 0, m_cWindow->m_sWindowDimensions.x, m_cWindow->m_sWindowDimensions.y );
+            // Game models reflected — clip at water surface (above-water portion only)
+            PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
+            Gfx().SetClipPlane( 0, true );
+            SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -waterY );
+            m_cTextures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+            m_cGameModelCollection.RenderModels( reflView, proj, lightPosition );
+            Gfx().SetClipPlane( 0, false );
+            SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
+            PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
+
+            m_cReflectionFBO->Unbind();
+            Gfx().SetViewport( 0, 0, m_cWindow->m_sWindowDimensions.x, m_cWindow->m_sWindowDimensions.y );
+        }
     }
 
     // render game models -----------------------------
@@ -735,7 +766,15 @@ void SkullbonezRun::DrawPrimitives()
         float waterTime = m_isWaterFreezeDebug
                               ? m_frozenWaterTime
                               : static_cast<float>( m_cSimulationTimer.GetTimeSinceLastStart() );
-        m_cWorldEnvironment.RenderFluid( baseView, proj, reflVP, waterTime, m_cReflectionFBO->GetColorTextureHandle(), m_isWaterFlatDebug, m_isWaterNoReflect );
+        uint32_t reflTex = ( Gfx().IsDXRSupported() && !m_isWaterNoReflect )
+                               ? Gfx().GetReflectionUAVTexture()
+                               : m_cReflectionFBO->GetColorTextureHandle();
+        // DXR reflection texture is in main-camera screen space, so sample it
+        // using the main VP — not the mirror VP used by the FBO path.
+        Matrix4 waterSampleVP = ( Gfx().IsDXRSupported() && !m_isWaterNoReflect )
+                                    ? proj * baseView
+                                    : reflVP;
+        m_cWorldEnvironment.RenderFluid( baseView, proj, waterSampleVP, waterTime, reflTex, m_isWaterFlatDebug, m_isWaterNoReflect, Gfx().IsDXRSupported() );
     }
 
     // debug vector overlay — GL only, toggled with V (or debug_vectors in scene)
@@ -1077,7 +1116,9 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 
         // apply initial orientation if specified (euler angles in degrees, XYZ order)
         if ( ball.hasInitOrient )
+        {
             gameModel.SetInitialOrientation( ball.eulerX, ball.eulerY, ball.eulerZ );
+        }
 
         // apply force if any is specified
         if ( ball.forceX != 0.0f || ball.forceY != 0.0f || ball.forceZ != 0.0f )
@@ -1292,6 +1333,35 @@ void SkullbonezRun::LoadScene( int index )
     m_cUpdateTimer.StartTimer();
     m_cCameraTimer.StartTimer();
     m_cSimulationTimer.StartTimer();
+
+    // Initialize DXR raytracing on first scene load (requires terrain + sphere meshes to exist)
+    // Force sphere mesh creation (normally lazy-init on first render)
+    if ( Gfx().IsDXRSupported() && SkullbonezHelper::GetSphereInstMeshHandle() == 0 )
+    {
+        SkullbonezHelper::EnsureSphereMesh();
+    }
+    {
+    }
+    if ( Gfx().IsDXRSupported() && m_cTerrain && m_cTerrain->GetMesh() )
+    {
+        IMesh* terrainMesh = m_cTerrain->GetMesh();
+        uint64_t terrainVBVA = terrainMesh->GetVertexBufferGPUVA();
+        int terrainVertCount = terrainMesh->GetVertexCount();
+        int terrainStride = terrainMesh->GetStride();
+
+        uint32_t sphereHandle = SkullbonezHelper::GetSphereInstMeshHandle();
+        uint64_t sphereVBVA = Gfx().GetInstancedMeshStaticVBVA( sphereHandle );
+        int sphereVertCount = SkullbonezHelper::GetSphereVertexCount();
+        int sphereStride = Gfx().GetInstancedMeshStaticStride( sphereHandle );
+
+        {
+        }
+
+        if ( terrainVBVA != 0 && sphereVBVA != 0 )
+        {
+            Gfx().InitDXR( terrainVBVA, terrainVertCount, terrainStride, sphereVBVA, sphereVertCount, sphereStride, MAX_GAME_MODELS );
+        }
+    }
 }
 
 

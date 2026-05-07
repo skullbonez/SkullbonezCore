@@ -53,14 +53,18 @@ class MeshDX11 : public IMesh
     {
         return m_vertexCount;
     }
+    int GetStride() const override
+    {
+        return m_stride;
+    }
+    uint64_t GetVertexBufferGPUVA() const override
+    {
+        return 0;
+    }
 
     VertexFormatDX GetFormat() const
     {
         return m_format;
-    }
-    int GetStride() const
-    {
-        return m_stride;
     }
 };
 } // namespace Rendering

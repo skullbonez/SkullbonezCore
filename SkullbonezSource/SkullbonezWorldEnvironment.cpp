@@ -44,7 +44,7 @@ void WorldEnvironment::SetTerrainBounds( float xMin, float xMax, float zMin, flo
 }
 
 
-void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, const Matrix4& reflectVP, float time, uint32_t reflectionTex, bool flatWater, bool noReflect )
+void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, const Matrix4& reflectVP, float time, uint32_t reflectionTex, bool flatWater, bool noReflect, bool noPerturb )
 {
     if ( !m_calmMesh )
     {
@@ -67,6 +67,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
     m_oceanShader->SetMat4( "uProjection", proj );
     m_oceanShader->SetMat4( "uReflectVP", reflectVP );
     m_oceanShader->SetFloat( "uTime", time );
+    m_oceanShader->SetFloat( "uPerturbStrength", noPerturb ? 0.0f : Cfg().oceanPerturbStrength );
     m_oceanShader->SetInt( "uNoReflect", noReflect ? 1 : 0 );
     m_oceanShader->SetInt( "uFlatWater", flatWater ? 1 : 0 );
     m_oceanMesh->Draw();
@@ -153,7 +154,7 @@ void WorldEnvironment::BuildFluidMesh()
     m_oceanShader->SetMat4( "uModel", Matrix4() );
     m_oceanShader->SetVec4( "uColorTint", 0.02f, 0.10f, 0.35f, 0.72f );
     m_oceanShader->SetFloat( "uWaveHeight", Cfg().oceanWaveHeight );
-    m_oceanShader->SetFloat( "uPerturbStrength", Cfg().oceanPerturbStrength );
+    m_oceanShader->SetFloat( "uPerturbStrength", Gfx().IsDXRSupported() ? 0.0f : Cfg().oceanPerturbStrength );
     m_oceanShader->SetFloat( "uReflectionStrength", 0.25f );
     m_oceanShader->SetInt( "uReflectionTex", 1 );
 }

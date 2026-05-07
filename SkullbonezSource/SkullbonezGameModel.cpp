@@ -117,8 +117,7 @@ Vector3 GameModel::GetOrientationUp()
     // Returns local Y axis (0,1,0) rotated into world space using the same
     // visual rotation applied in GetModelMatrix() — so the vector tracks
     // exactly what the sphere's "north pole" is doing on screen.
-    Matrix4 rotation = Matrix4::FromQuaternion( m_physicsInfo.GetOrientation() )
-                       * Matrix4::RotateAxis( 90.0f, 0.0f, 1.0f, 0.0f );
+    Matrix4 rotation = Matrix4::FromQuaternion( m_physicsInfo.GetOrientation() ) * Matrix4::RotateAxis( 90.0f, 0.0f, 1.0f, 0.0f );
     return Vector3( rotation.m[4], rotation.m[5], rotation.m[6] );
 }
 
@@ -243,8 +242,7 @@ Matrix4 GameModel::GetModelMatrix()
 {
     // Visual-only 90° Y yaw to align the sphere's texture/poles with its roll axis.
     // Physics orientation is untouched — this only affects what the shader sees.
-    Matrix4 rotation = Matrix4::FromQuaternion( m_physicsInfo.GetOrientation() )
-                       * Matrix4::RotateAxis( 90.0f, 0.0f, 1.0f, 0.0f );
+    Matrix4 rotation = Matrix4::FromQuaternion( m_physicsInfo.GetOrientation() ) * Matrix4::RotateAxis( 90.0f, 0.0f, 1.0f, 0.0f );
     return GetShapeModelMatrix( m_boundingVolume, m_physicsInfo.GetPosition(), rotation );
 }
 
