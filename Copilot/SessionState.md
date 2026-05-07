@@ -1,5 +1,12 @@
 # SkullbonezCore — Session State
 
+> # 🚫 NEVER KILL PROCESSES BY NAME
+> **NEVER use `Stop-Process -Name`, `taskkill /IM SKULLBONEZ_CORE.exe`, or any name-based kill.**
+> Multiple agents run independent copies of SKULLBONEZ_CORE.exe from different repo folders simultaneously.
+> Killing by name will terminate the wrong instance and corrupt another agent's pipeline run.
+>
+> **Always kill by PID only:** `Stop-Process -Id <PID>` — get the PID from `$proc.Id` when you launched it with `Start-Process -PassThru`.
+
 > # ⏱️ ALL LARGE TASKS MUST BE TIMED
 > **Before starting any large task (multi-file refactor, new feature, phase implementation, pipeline run):**
 > 1. Note the wall-clock start time

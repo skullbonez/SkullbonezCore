@@ -16,7 +16,11 @@ def collapse_multiline_params(content):
         # Count parens in code (strip // comments first)
         code_part = re.sub(r'//.*$', '', line)
         depth = code_part.count('(') - code_part.count(')')
-        if depth > 0:
+        # Skip collapsing lines that contain a lambda capture [...]() — clang-format
+        # owns lambda body layout and will re-expand any single-line collapse,
+        # creating an oscillation cycle between collapse_params and clang-format.
+        has_lambda = bool(re.search(r'\[.*?\]\s*\(', code_part))
+        if depth > 0 and not has_lambda:
             # Strip trailing comment from the opening line too —
             # if it has one, it would comment-out everything after the join.
             combined = re.sub(r'\s*//.*$', '', line).rstrip()
