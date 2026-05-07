@@ -236,8 +236,10 @@ void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel, float cha
                 if ( oMag > TOLERANCE && pMag > TOLERANCE )
                 {
                     float dotN = ( polePost * omega ) / ( pMag * oMag );
-                    if ( dotN > 1.0f ) dotN = 1.0f;
-                    if ( dotN < -1.0f ) dotN = -1.0f;
+                    if ( dotN > 1.0f ){ dotN = 1.0f;
+}
+                    if ( dotN < -1.0f ){ dotN = -1.0f;
+}
                     perpDeg = asinf( fabsf( dotN ) ) * ( 180.0f / _PI );
                 }
                 fprintf( s_physicsLog,

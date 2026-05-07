@@ -53,16 +53,17 @@ class GameModelCollection
     GameModelCollection(); // Default constructor
     ~GameModelCollection() = default;
 
-    void AddGameModel( GameModel gameModel );                                                   // Moves a game model into the collection
-    void Clear();                                                                               // Clears all game models (retains GPU resources)
-    void RunPhysics( float fChangeInTime );                                                     // Runs the physics for the specified time step
-    void RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4] );     // Renders the game models
-    void RenderShadows( Geometry::Terrain* terrain, const Matrix4& view, const Matrix4& proj ); // Renders ground shadows beneath all models
-    void ResetGLResources();                                                                    // Releases GPU resources for GL context reset
-    void SetRollLog( FILE* file );                                                              // Sets the roll orientation log file (null = disabled)
-    Vector3 GetModelPosition( int index );                                                      // Returns the position of the specified game model
-    int GetModelCount() const;                                                                  // Returns the number of game models
-    GameModel& GetModelAtIndex( int index );                                                    // Returns a reference to the game model at the given index
+    void AddGameModel( GameModel gameModel );                                                                                                                                              // Moves a game model into the collection
+    void Clear();                                                                                                                                                                          // Clears all game models (retains GPU resources)
+    void RunPhysics( float fChangeInTime );                                                                                                                                                // Runs the physics for the specified time step
+    void RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4] );                                                                                                // Renders the game models
+    void RenderShadows( Geometry::Terrain* terrain, const Matrix4& view, const Matrix4& proj );                                                                                            // Renders ground shadows beneath all models
+    void ResetGLResources();                                                                                                                                                               // Releases GPU resources for GL context reset
+    void SetRollLog( FILE* file );                                                                                                                                                         // Sets the roll orientation log file (null = disabled)
+    bool SaveSceneSnapshot( const char* path, bool physicsOn, bool textOn, Environment::WorldEnvironment& worldEnv, const Vector3& camEye, const Vector3& camView, const Vector3& camUp ); // Saves full scene state to a .scene file; returns true on success
+    Vector3 GetModelPosition( int index );                                                                                                                                                 // Returns the position of the specified game model
+    int GetModelCount() const;                                                                                                                                                             // Returns the number of game models
+    GameModel& GetModelAtIndex( int index );                                                                                                                                               // Returns a reference to the game model at the given index
 };
 } // namespace GameObjects
 } // namespace SkullbonezCore

@@ -31,7 +31,7 @@ class Terrain
   public:
     Terrain( const char* sFileName, int iMapSize, int iStepSize, int iTextureWrap ); // Overloaded constructor: sFileName is path to .raw file, iMapSize is the size of map (pixels length), iStepSize is steps (pixel steps AND vertex steps), iTextureWrap is number of times to wrap texture
     Terrain( float slopeBaseY, float slopeX, float slopeZ );                         // Flat analytic slope constructor: y = slopeBaseY + slopeX*x + slopeZ*z
-    ~Terrain();                                                                       // Default destructor
+    ~Terrain();                                                                      // Default destructor
 
     void Render( const Matrix4& view, const Matrix4& projection, const float* lightPosition ); // Renders the terrain with shader
     XZBounds GetXZBounds();                                                                    // Returns the XZ bounds of the terrain
@@ -53,7 +53,7 @@ class Terrain
     int m_terrainSizeWorldCoords;             // size per side of m_terrain in world coordinates
 
     // Flat slope mode
-    bool  m_isFlatSlope;
+    bool m_isFlatSlope;
     float m_slopeBaseY;
     float m_slopeX;
     float m_slopeZ;

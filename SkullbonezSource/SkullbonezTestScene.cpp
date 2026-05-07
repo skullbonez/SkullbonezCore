@@ -30,6 +30,10 @@ TestScene::TestScene()
     m_flatBaseY = 0.0f;
     m_flatSlopeX = 0.0f;
     m_flatSlopeZ = 0.0f;
+    m_hasWorldOverride = false;
+    m_worldGravity = 0.0f;
+    m_worldFluidHeight = 0.0f;
+    m_worldFluidDensity = 0.0f;
 }
 
 
@@ -122,12 +126,16 @@ TestScene TestScene::LoadFromFile( const char* path )
             else
             {
                 scene.m_frameCount = atoi( line + 7 );
-                if ( scene.m_frameCount <= 0 )
+                if ( scene.m_frameCount <= 0 && strcmp( line + 7, "-1" ) != 0 )
                 {
                     fclose( file );
                     char msg[256];
                     sprintf_s( msg, sizeof( msg ), "Invalid frame count at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 7 );
                     throw std::runtime_error( msg );
+                }
+                if ( scene.m_frameCount <= 0 )
+                {
+                    scene.m_frameCount = -1;
                 }
             }
             continue;
@@ -389,6 +397,45 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
+        // parse ball_state line (snapshot with full dynamic state)
+        if ( strncmp( line, "ball_state ", 11 ) == 0 )
+        {
+            SceneBallState bs;
+            memset( &bs, 0, sizeof( bs ) );
+
+            int parsed = sscanf_s( line + 11, "%63s %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f", bs.name, static_cast<unsigned>( sizeof( bs.name ) ), &bs.posX, &bs.posY, &bs.posZ, &bs.velX, &bs.velY, &bs.velZ, &bs.angVelX, &bs.angVelY, &bs.angVelZ, &bs.orientX, &bs.orientY, &bs.orientZ, &bs.orientW, &bs.radius, &bs.mass, &bs.restitution, &bs.inertiaX, &bs.inertiaY, &bs.inertiaZ );
+
+            if ( parsed != 20 )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid ball_state at line %d (expected 20 fields, got %d)  (TestScene::LoadFromFile)", lineNumber, parsed );
+                throw std::runtime_error( msg );
+            }
+
+            scene.m_ballStates.push_back( bs );
+            continue;
+        }
+
+        // parse world directive: world <gravity> <fluidHeight> <fluidDensity>
+        if ( strncmp( line, "world ", 6 ) == 0 )
+        {
+            float gravity = 0.0f, fluidHeight = 0.0f, fluidDensity = 0.0f;
+            int parsed = sscanf_s( line + 6, "%f %f %f", &gravity, &fluidHeight, &fluidDensity );
+            if ( parsed != 3 )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid world at line %d (expected: world <gravity> <fluidHeight> <fluidDensity>)  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            scene.m_hasWorldOverride = true;
+            scene.m_worldGravity = gravity;
+            scene.m_worldFluidHeight = fluidHeight;
+            scene.m_worldFluidDensity = fluidDensity;
+            continue;
+        }
+
         // unknown directive
         fclose( file );
         char msg[256];
@@ -565,4 +612,45 @@ const SceneBall& TestScene::GetBall( int index ) const
     }
 
     return m_balls[index];
+}
+
+
+int TestScene::GetBallStateCount() const
+{
+    return static_cast<int>( m_ballStates.size() );
+}
+
+
+const SceneBallState& TestScene::GetBallState( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_ballStates.size() ) )
+    {
+        throw std::runtime_error( "BallState index out of range.  (TestScene::GetBallState)" );
+    }
+
+    return m_ballStates[index];
+}
+
+
+bool TestScene::HasWorldOverride() const
+{
+    return m_hasWorldOverride;
+}
+
+
+float TestScene::GetWorldGravity() const
+{
+    return m_worldGravity;
+}
+
+
+float TestScene::GetWorldFluidHeight() const
+{
+    return m_worldFluidHeight;
+}
+
+
+float TestScene::GetWorldFluidDensity() const
+{
+    return m_worldFluidDensity;
 }

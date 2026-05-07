@@ -254,12 +254,12 @@ Triangle Terrain::LocatePolygon( float xPosition, float zPosition )
         // Return three points on the analytic plane y = m_slopeBaseY + m_slopeX*x + m_slopeZ*z
         // Winding order: CCW from above so ComputePlane produces an upward-facing normal (n.y > 0)
         Triangle tri;
-        float y0 = m_slopeBaseY + m_slopeX * xPosition          + m_slopeZ * zPosition;
-        float y2 = m_slopeBaseY + m_slopeX * xPosition          + m_slopeZ * ( zPosition + 100.0f );
+        float y0 = m_slopeBaseY + m_slopeX * xPosition + m_slopeZ * zPosition;
+        float y2 = m_slopeBaseY + m_slopeX * xPosition + m_slopeZ * ( zPosition + 100.0f );
         float y1 = m_slopeBaseY + m_slopeX * ( xPosition + 100.0f ) + m_slopeZ * zPosition;
-        tri.v1 = Vector3( xPosition,          y0, zPosition );
-        tri.v2 = Vector3( xPosition,          y2, zPosition + 100.0f );  // +Z first
-        tri.v3 = Vector3( xPosition + 100.0f, y1, zPosition );            // +X second
+        tri.v1 = Vector3( xPosition, y0, zPosition );
+        tri.v2 = Vector3( xPosition, y2, zPosition + 100.0f ); // +Z first
+        tri.v3 = Vector3( xPosition + 100.0f, y1, zPosition ); // +X second
         return tri;
     }
 
@@ -745,7 +745,7 @@ void Terrain::BuildFlatSlopeMesh()
 
     float nLen = sqrtf( m_slopeX * m_slopeX + 1.0f + m_slopeZ * m_slopeZ );
     float nx = -m_slopeX / nLen;
-    float ny =  1.0f    / nLen;
+    float ny = 1.0f / nLen;
     float nz = -m_slopeZ / nLen;
 
     int totalVerts = gridN * gridN * 6;
@@ -790,6 +790,5 @@ void Terrain::BuildFlatSlopeMesh()
         vertexData.data(),
         totalVerts,
         true,
-        true
-    );
+        true );
 }

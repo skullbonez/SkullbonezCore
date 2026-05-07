@@ -8,6 +8,7 @@
 
 // --- Usings ---
 using namespace SkullbonezCore::GameObjects;
+using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::Basics;
 
 
@@ -181,7 +182,7 @@ GameModel& GameModelCollection::GetModelAtIndex( int index )
 void GameModelCollection::RunPhysics( float fChangeInTime )
 {
     std::vector<float> timeRemaining( static_cast<int>( m_gameModels.size() ), fChangeInTime );
-    std::vector<bool>  groundedThisFrame( static_cast<int>( m_gameModels.size() ), false );
+    std::vector<bool> groundedThisFrame( static_cast<int>( m_gameModels.size() ), false );
 
     // update the velocity of all models
     PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
@@ -303,14 +304,16 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
         {
             const char* name = m_gameModels[i].GetName();
             if ( !name[0] )
+            {
                 continue;
+            }
 
             bool isGrounded = groundedThisFrame[i];
             m_gameModels[i].SetGrounded( isGrounded );
             const char* state = isGrounded ? "LANDED  " : "AIRBORNE";
             Vector3 spike = m_gameModels[i].GetOrientationUp();
             Vector3 omega = m_gameModels[i].GetAngularVelocity();
-            Vector3 pos   = m_gameModels[i].GetPosition();
+            Vector3 pos = m_gameModels[i].GetPosition();
 
             bool withinPlaneTolerance = false;
             float omegaMag = VectorMag( omega );
@@ -357,13 +360,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
             const char* planeState = withinPlaneTolerance ? "BLUE" : "WHITE";
             const char* failState = m_planeFailed[i] ? "FAIL" : ( m_planeSeenGreen[i] ? "LOCKED" : "UNLOCKED" );
 
-            fprintf( m_rollLog, "[%s] %s  pos.y=%8.2f  spike=(%6.3f, %6.3f, %6.3f)  omega=(%6.3f, %6.3f, %6.3f)  axis=%s  axis_lock=%s\n",
-                     name, state,
-                     pos.y,
-                     spike.x, spike.y, spike.z,
-                     omega.x, omega.y, omega.z,
-                     planeState,
-                     failState );
+            fprintf( m_rollLog, "[%s] %s  pos.y=%8.2f  spike=(%6.3f, %6.3f, %6.3f)  omega=(%6.3f, %6.3f, %6.3f)  axis=%s  axis_lock=%s\n", name, state, pos.y, spike.x, spike.y, spike.z, omega.x, omega.y, omega.z, planeState, failState );
         }
         fflush( m_rollLog );
     }
@@ -418,4 +415,70 @@ void GameModelCollection::ResetGLResources()
         m_shadowInstMesh = 0;
     }
     m_shadowDiscVertexCount = 0;
+}
+
+
+bool GameModelCollection::SaveSceneSnapshot( const char* path, bool physicsOn, bool textOn, Environment::WorldEnvironment& worldEnv, const Vector3& camEye, const Vector3& camView, const Vector3& camUp )
+{
+    FILE* f = nullptr;
+    if ( fopen_s( &f, path, "w" ) != 0 || !f )
+    {
+        return false;
+    }
+
+    fprintf( f, "# Snapshot — %d balls\n", static_cast<int>( m_gameModels.size() ) );
+    fprintf( f, "physics %s\n", physicsOn ? "on" : "off" );
+    fprintf( f, "text %s\n", textOn ? "on" : "off" );
+    fprintf( f, "frames unlimited\n" );
+    fprintf( f, "world %f %f %f\n", worldEnv.GetGravity(), worldEnv.GetFluidSurfaceHeight(), worldEnv.GetFluidDensity() );
+    fprintf( f, "camera main  %.4f %.4f %.4f  %.4f %.4f %.4f  %.4f %.4f %.4f\n", camEye.x, camEye.y, camEye.z, camView.x, camView.y, camView.z, camUp.x, camUp.y, camUp.z );
+    fprintf( f, "\n" );
+
+    for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
+    {
+        const char* name = m_gameModels[i].GetName();
+        char safeName[64];
+        if ( !name[0] )
+        {
+            sprintf_s( safeName, sizeof( safeName ), "_ball_%d", i );
+            name = safeName;
+        }
+
+        const Vector3& pos = m_gameModels[i].GetPosition();
+        const Vector3& vel = m_gameModels[i].GetVelocity();
+        const Vector3& avel = m_gameModels[i].GetAngularVelocity();
+        const Vector3& ri = m_gameModels[i].GetRotationalInertia();
+        float qx, qy, qz, qw;
+        m_gameModels[i].GetOrientation().GetComponents( qx, qy, qz, qw );
+        float r = m_gameModels[i].GetBoundingRadius();
+        float mass = m_gameModels[i].GetMass();
+        float rest = m_gameModels[i].GetCoefficientRestitution();
+
+        fprintf( f,
+                 "ball_state %s  %.6f %.6f %.6f  %.6f %.6f %.6f  %.6f %.6f %.6f"
+                 "  %.8f %.8f %.8f %.8f  %.4f %.4f %.4f  %.4f %.4f %.4f\n",
+                 name,
+                 pos.x,
+                 pos.y,
+                 pos.z,
+                 vel.x,
+                 vel.y,
+                 vel.z,
+                 avel.x,
+                 avel.y,
+                 avel.z,
+                 qx,
+                 qy,
+                 qz,
+                 qw,
+                 r,
+                 mass,
+                 rest,
+                 ri.x,
+                 ri.y,
+                 ri.z );
+    }
+
+    fclose( f );
+    return true;
 }
