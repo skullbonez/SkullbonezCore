@@ -16,9 +16,8 @@
 > *This applies to: pipeline runs, feature implementations, debugging sessions, refactors, any task expected to take >2 minutes or >10 tool calls.*
 
 ## Branch & Last Commit
-- Branch: `fix/dx12-predraw-overhead` (rename work) / `main` (skill additions)
-- Last commit on fix branch: `4747099` — Rename API-specific source files and classes with GL/DX11/DX12 suffixes
-- Last commit on main: `7a063bc` — Add skore-cpu-profiler skill
+- Branch: `main`
+- Last commit on main: `c455aba` — Add screenshot_and_exit scene flag and decal bug repro
 
 ---
 
@@ -56,16 +55,25 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 
 ## Recent Session Work (this session)
 
-1. **Formatting cleanup** (`50488ac`): Removed 541 banner comments, `#pragma once` on all 33 headers, `inline static` for all out-of-line statics, `// --- Includes ---` / `// --- Usings ---` section comments, `MaxEmptyLinesToKeep: 2` in `.clang-format`, LOC counter added to pipeline.
-2. **GL cleanup** (`40960d1`): Removed all 5 `glUseProgram(0)` calls, removed dead glScale comment. Attempted uniform location cache but reverted (2x regression from `std::string` temporaries in `unordered_map::find`).
-3. **Constant uniform hoisting** (`1a8ba3b`): Moved all never-changing uniforms to shader init time across 6 shaders. Terrain render -17.6%, text -2.7%, water -3.4%.
-4. **Broadphase optimization** (`ab41b60` → broken, fixed in `f07e164`): Replaced `unordered_map<int64_t, vector<int>>` + `unordered_set` with flat open-addressing hash table, generation stamping, linked-list entry pool, triangular bit array dedup. Result: broadphase -83%, total physics -63%.
-5. **MAX_GAME_MODELS** (`7b3c338`, `0db4839`): Global constant in `SkullbonezCommon.h`, assert on exceed, spatial grid derives from it.
+1. **Shadow decal water-bleed fix** (uncommitted): Shadow discs near the shoreline were bleeding over the water surface. Root cause: flat tilted quad geometry sits geometrically above waterY even when extending over underwater terrain, so per-Y or clip-plane approaches fail. Fix: build a GPU R8 heightmap texture from terrain post data during terrain construction, then sample per-fragment in the shadow shader using world XZ. Fragments where terrain height < waterY are discarded, cleanly clipping partial shadow discs at the shoreline regardless of the disc's geometric Y position. Works correctly for both scene configurations.
+
+   Files changed:
+   - `SkullbonezSource/SkullbonezTerrain.h/.cpp`: `BuildHeightmapTexture()`, accessors
+   - `SkullbonezData/shaders/shadow.vert/.frag/.hlsl`: world XZ varying + heightmap discard
+   - `SkullbonezSource/SkullbonezGameModelCollection.cpp`: removed perimeter-skip hack, added heightmap uniforms
+   - `TestOutput/baselines`: updated (shadow fix intentionally changes output)
 
 ---
 
 ## Uncommitted Changes (DO NOT LOSE)
-None.
+Shadow decal water-bleed fix — 10 files changed:
+- `SkullbonezSource/SkullbonezTerrain.h/.cpp`
+- `SkullbonezData/shaders/shadow.vert/.frag/.hlsl`
+- `SkullbonezSource/SkullbonezGameModelCollection.cpp`
+- `SkullbonezSource/SkullbonezGameModelCollection.h`
+- `SkullbonezSource/SkullbonezRun.cpp`
+- `TestOutput/baselines/baseline_water_ball_test.png`
+- `TestOutput/baselines/baseline_legacy_smoke.png`
 
 ---
 

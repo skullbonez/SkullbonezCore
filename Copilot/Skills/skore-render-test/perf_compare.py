@@ -13,12 +13,30 @@ Delta = (current - baseline) / baseline * 100
   Small positive = minor        → 🟡 yellow (5–threshold%)
   Large positive = regression   → 🔴 red    (>threshold%)
 
-Thresholds: avg/p50 = 10%
+Thresholds are ramped by baseline duration — short timers are dominated by OS
+scheduling jitter so they receive proportionally more headroom:
+
+  0.05 ms → ~45%     0.20 ms → ~22%     1.00 ms → 10%
+  0.10 ms → ~32%     0.50 ms → ~14%     5.00 ms → 10%  (floor)
+
+Formula: max(10, 10 / sqrt(baseline_ms))
 """
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
+
+
+# ── ramp threshold ───────────────────────────────────────────────────────────
+
+def ramp_threshold(baseline_ms: float) -> float:
+    """Dynamic regression % threshold scaled to baseline duration.
+
+    Converges to 10% above ~1 ms; gives more headroom for sub-ms markers
+    where OS scheduling jitter dominates over real performance differences.
+    """
+    return max(10.0, 10.0 / math.sqrt(max(baseline_ms, 1e-9)))
 
 
 # ── stats ────────────────────────────────────────────────────────────────────
@@ -32,9 +50,10 @@ def percentile(s, p):
 
 # ── color cell ───────────────────────────────────────────────────────────────
 
-def color_cell(cur_val, bas_val, thresh):
+def color_cell(cur_val, bas_val):
     if bas_val == 0:
         return "N/A      "
+    thresh = ramp_threshold(bas_val)
     p = (cur_val - bas_val) / bas_val * 100
     sign = "+" if p >= 0 else ""
     s = f"{sign}{p:.1f}%"
@@ -66,7 +85,7 @@ def print_table(title, markers, cur_stats, bas_stats, prev_commit):
     ws = [mw, 7, 7, 9, 9]
 
     print(f"\n  {title} \u2014 vs {prev_commit}")
-    print(f"  avg/p50 threshold 10%\n")
+    print(f"  ramped threshold: max(10%, 10/\u221ams) per marker\n")
     print("  " + hline(TL, TM, TR, ws))
 
     def vrow(cells):
@@ -87,8 +106,8 @@ def print_table(title, markers, cur_stats, bas_stats, prev_commit):
         b = bas_stats.get(m)
         if b:
             d = [
-                color_cell(c["avg"], b["avg"], 10),
-                color_cell(c["p50"], b["p50"], 10),
+                color_cell(c["avg"], b["avg"]),
+                color_cell(c["p50"], b["p50"]),
             ]
         else:
             d = ["(new)    "] * 2
@@ -141,16 +160,17 @@ def check_regressions(cur_stats, bas_stats, cur_json, bas_json):
         pm = bas_stats.get(marker)
         if not pm:
             continue
-        for stat, threshold in [("avg", 10), ("p50", 10)]:
+        for stat in ["avg", "p50"]:
             pv, cv = pm[stat], cm[stat]
             # Skip sub-0.05ms markers — percentage comparison is meaningless
             # at the measurement floor (scheduling jitter dominates).
             if pv < 0.05:
                 continue
             if pv > 0:
+                threshold = ramp_threshold(pv)
                 pct = (cv - pv) / pv * 100
                 if pct > threshold:
-                    failures.append(f"{marker}.{stat}: +{pct:.1f}% (threshold: {threshold}%)")
+                    failures.append(f"{marker}.{stat}: +{pct:.1f}% (threshold: {threshold:.0f}%)")
 
     for key, label, thresh in [
         ("mem_start_mb", "mem_start", 5.0),

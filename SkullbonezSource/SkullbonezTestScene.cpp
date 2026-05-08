@@ -237,7 +237,8 @@ TestScene TestScene::LoadFromFile( const char* path )
         }
 
         // parse screenshot_interval directive: screenshot_interval <dir> <N>
-        if ( strncmp( line, "screenshot_interval ", 20 ) == 0 )        {
+        if ( strncmp( line, "screenshot_interval ", 20 ) == 0 )
+        {
             char outDir[256] = {};
             int intervalFrames = 0;
             int parsed = sscanf_s( line + 20, "%255s %d", outDir, static_cast<unsigned>( sizeof( outDir ) ), &intervalFrames );

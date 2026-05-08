@@ -74,7 +74,6 @@ Terrain::Terrain( float slopeBaseY, float slopeX, float slopeZ )
 
 Terrain::~Terrain()
 {
-    // MeshGL and ShaderGL cleaned up by unique_ptr
 }
 
 

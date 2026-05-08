@@ -71,6 +71,7 @@ struct PSOKey12
     BlendFactor blendSrc;
     BlendFactor blendDst;
     bool depthEnabled;
+    bool depthWriteEnabled;
     bool cullEnabled;
     bool polyOffsetEnabled;
 };
@@ -150,6 +151,7 @@ class RenderBackendDX12 : public IRenderBackend
 
     // Tracked render state
     bool m_depthTestEnabled;
+    bool m_depthWriteEnabled;
     bool m_blendEnabled;
     BlendFactor m_blendSrc;
     BlendFactor m_blendDst;
@@ -262,6 +264,7 @@ class RenderBackendDX12 : public IRenderBackend
     void SetClearDepth( float depth ) override;
 
     void SetDepthTest( bool enable ) override;
+    void SetDepthWrite( bool enable ) override;
     void SetBlend( bool enable ) override;
     void SetBlendFunc( BlendFactor src, BlendFactor dst ) override;
     void SetCullFace( bool enable ) override;

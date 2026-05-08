@@ -27,16 +27,22 @@
 //  The vertex XZ is passed through as uv so the pixel shader can
 //  compute per-pixel radial distance from the disc centre.
 //
+// --- Shoreline Behaviour ---
+//
+//  Shadow discs render with depth writes disabled (SetDepthWrite(false)).
+//  This ensures the water surface — rendered after shadows — always passes
+//  the depth test and is never occluded by shadow geometry that sits above
+//  the water plane near shorelines.
+//
 // Docs: https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/discard--sm4---asm-
-// Docs: https://learn.microsoft.com/en-us/windows/win32/direct3d11/overviews-direct3d-11-render-multi-thread-render
 // =============================================================================
 
 #pragma pack_matrix(column_major)
 
 cbuffer Uniforms : register(b0)
 {
-    float4x4 uView;        // Camera view matrix
-    float4x4 uProjection;  // Perspective projection matrix
+    float4x4 uView;       // Camera view matrix
+    float4x4 uProjection; // Perspective projection matrix
 };
 
 struct VS_IN
@@ -51,9 +57,9 @@ struct VS_IN
 
 struct VS_OUT
 {
-    float4 position : SV_POSITION;  // Screen position for rasterizer
-    float2 uv       : TEXCOORD0;    // XZ disc coords [-1,1] for per-pixel disc test
-    float  alpha    : TEXCOORD1;    // Base alpha passed through unchanged
+    float4 position : SV_POSITION; // Screen position for rasterizer
+    float2 uv       : TEXCOORD0;   // XZ disc coords [-1,1] for per-pixel disc test
+    float  alpha    : TEXCOORD1;   // Base alpha passed through unchanged
 };
 
 VS_OUT main_vs(VS_IN input)
