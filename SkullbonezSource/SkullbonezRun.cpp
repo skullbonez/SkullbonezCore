@@ -514,9 +514,6 @@ void SkullbonezRun::TakeInput()
     {
         if ( Input::IsKeyDown( 'G' ) && !m_sInputState.fGKeyWasDown )
         {
-            //
-            // HACK IN A TIMER TO GET HERE EVERY 10 SECONDS AND TAKE A SCREENSHOT FOR THIS TEST.
-            //
             int count = m_cGameModelCollection.GetModelCount();
             if ( count > 0 )
             {
@@ -720,82 +717,79 @@ void SkullbonezRun::DrawPrimitives()
     Vector3 eye = m_cCameras->GetCameraTranslation();
 
     // render skybox ------------------------------
-    {
-        PROFILE_GPU_SCOPED( "Frame/Render/Skybox" );
-        Matrix4 skyView = baseView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
-        m_cSkyBox->Render( skyView, proj );
-    }
+    PROFILE_GPU_BEGIN( "Frame/Render/Skybox" );
+    Matrix4 skyView = baseView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
+    m_cSkyBox->Render( skyView, proj );
+    PROFILE_GPU_END( "Frame/Render/Skybox" );
 
     // reflection pre-pass: render above-water scene from mirrored camera into FBO (or DXR dispatch)
+    PROFILE_GPU_BEGIN( "Frame/Render/Reflection" );
+    float waterY = m_cWorldEnvironment.GetFluidSurfaceHeight();
+    Vector3 center = m_cCameras->GetCameraView();
+
+    // Mirror eye and look-at target about the water plane; flip up vector
+    Vector3 reflEye( eye.x, 2.0f * waterY - eye.y, eye.z );
+    Vector3 reflCenter( center.x, 2.0f * waterY - center.y, center.z );
+    Vector3 reflUp( 0.0f, -1.0f, 0.0f );
+    Matrix4 reflView = Matrix4::LookAt( reflEye, reflCenter, reflUp );
+    reflVP = proj * reflView;
+
+    if ( Gfx().IsDXRSupported() && !m_isWaterNoReflect )
     {
-        PROFILE_GPU_SCOPED( "Frame/Render/Reflection" );
-        float waterY = m_cWorldEnvironment.GetFluidSurfaceHeight();
-        Vector3 center = m_cCameras->GetCameraView();
-
-        // Mirror eye and look-at target about the water plane; flip up vector
-        Vector3 reflEye( eye.x, 2.0f * waterY - eye.y, eye.z );
-        Vector3 reflCenter( center.x, 2.0f * waterY - center.y, center.z );
-        Vector3 reflUp( 0.0f, -1.0f, 0.0f );
-        Matrix4 reflView = Matrix4::LookAt( reflEye, reflCenter, reflUp );
-        reflVP = proj * reflView;
-
-        if ( Gfx().IsDXRSupported() && !m_isWaterNoReflect )
+        // DXR path: rebuild TLAS with current ball positions, then dispatch rays
+        int ballCount = m_cGameModelCollection.GetModelCount();
+        std::vector<float> transforms( (size_t)ballCount * 16 );
+        for ( int i = 0; i < ballCount; ++i )
         {
-            // DXR path: rebuild TLAS with current ball positions, then dispatch rays
-            int ballCount = m_cGameModelCollection.GetModelCount();
-            std::vector<float> transforms( (size_t)ballCount * 16 );
-            for ( int i = 0; i < ballCount; ++i )
-            {
-                Matrix4 mdlMat = m_cGameModelCollection.GetModelAtIndex( i ).GetModelMatrix();
-                memcpy( transforms.data() + i * 16, mdlMat.Data(), 16 * sizeof( float ) );
-            }
-
-            Gfx().BuildTLAS( transforms.data(), ballCount, 0, 0 ); // BLAS VAs retrieved internally
-
-            // Compute inverse VP matrix for ray reconstruction
-            Matrix4 vp = proj * baseView;
-            Matrix4 invVP = vp.Inverse();
-            float cameraPos[3] = { eye.x, eye.y, eye.z };
-            float simTime = static_cast<float>( m_cSimulationTimer.GetTotalTime() );
-
-            uint32_t sphereHandle = m_cTextures->GetTextureHandle( TEXTURE_BOUNDING_SPHERE );
-            uint32_t terrainHandle = m_cTextures->GetTextureHandle( TEXTURE_GROUND );
-            uint32_t skyUpHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_UP );
-            uint32_t skyDownHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_DOWN );
-            uint32_t skyRightHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_RIGHT );
-            uint32_t skyLeftHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_LEFT );
-            uint32_t skyFrontHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_FRONT );
-            uint32_t skyBackHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_BACK );
-            Gfx().DispatchReflectionRays( invVP.Data(), cameraPos, waterY, simTime, lightPosition, m_cWindow->m_sWindowDimensions.x * 2, m_cWindow->m_sWindowDimensions.y * 2, sphereHandle, terrainHandle, skyUpHandle, skyDownHandle, skyRightHandle, skyLeftHandle, skyFrontHandle, skyBackHandle );
+            Matrix4 mdlMat = m_cGameModelCollection.GetModelAtIndex( i ).GetModelMatrix();
+            memcpy( transforms.data() + i * 16, mdlMat.Data(), 16 * sizeof( float ) );
         }
-        else
-        {
-            // FBO mirror-camera path (GL, DX11, or DXR fallback)
-            m_cReflectionFBO->Bind();
-            Gfx().SetViewport( 0, 0, m_cReflectionFBO->GetWidth(), m_cReflectionFBO->GetHeight() );
-            Gfx().Clear( true, true );
 
-            // Skybox reflected (XZ follows eye; Y anchored at Cfg().skyboxRenderHeight)
-            {
-                PROFILE_GPU_SCOPED( "Frame/Render/Reflection/Skybox" );
-                Matrix4 skyReflView = reflView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
-                m_cSkyBox->Render( skyReflView, proj );
-            }
+        Gfx().BuildTLAS( transforms.data(), ballCount, 0, 0 ); // BLAS VAs retrieved internally
 
-            // Game models reflected — clip at water surface (above-water portion only)
-            PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
-            Gfx().SetClipPlane( 0, true );
-            SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -waterY );
-            m_cTextures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-            m_cGameModelCollection.RenderModels( reflView, proj, lightPosition );
-            Gfx().SetClipPlane( 0, false );
-            SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
-            PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
+        // Compute inverse VP matrix for ray reconstruction
+        Matrix4 vp = proj * baseView;
+        Matrix4 invVP = vp.Inverse();
+        float cameraPos[3] = { eye.x, eye.y, eye.z };
+        float simTime = static_cast<float>( m_cSimulationTimer.GetTotalTime() );
 
-            m_cReflectionFBO->Unbind();
-            Gfx().SetViewport( 0, 0, m_cWindow->m_sWindowDimensions.x, m_cWindow->m_sWindowDimensions.y );
-        }
+        uint32_t sphereHandle = m_cTextures->GetTextureHandle( TEXTURE_BOUNDING_SPHERE );
+        uint32_t terrainHandle = m_cTextures->GetTextureHandle( TEXTURE_GROUND );
+        uint32_t skyUpHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_UP );
+        uint32_t skyDownHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_DOWN );
+        uint32_t skyRightHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_RIGHT );
+        uint32_t skyLeftHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_LEFT );
+        uint32_t skyFrontHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_FRONT );
+        uint32_t skyBackHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_BACK );
+        Gfx().DispatchReflectionRays( invVP.Data(), cameraPos, waterY, simTime, lightPosition, m_cWindow->m_sWindowDimensions.x * 2, m_cWindow->m_sWindowDimensions.y * 2, sphereHandle, terrainHandle, skyUpHandle, skyDownHandle, skyRightHandle, skyLeftHandle, skyFrontHandle, skyBackHandle );
     }
+    else
+    {
+        // FBO mirror-camera path (GL, DX11, or DXR fallback)
+        m_cReflectionFBO->Bind();
+        Gfx().SetViewport( 0, 0, m_cReflectionFBO->GetWidth(), m_cReflectionFBO->GetHeight() );
+        Gfx().Clear( true, true );
+
+        // Skybox reflected (XZ follows eye; Y anchored at Cfg().skyboxRenderHeight)
+        PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Skybox" );
+        Matrix4 skyReflView = reflView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
+        m_cSkyBox->Render( skyReflView, proj );
+        PROFILE_GPU_END( "Frame/Render/Reflection/Skybox" );
+
+        // Game models reflected — clip at water surface (above-water portion only)
+        PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
+        Gfx().SetClipPlane( 0, true );
+        SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -waterY );
+        m_cTextures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+        m_cGameModelCollection.RenderModels( reflView, proj, lightPosition );
+        Gfx().SetClipPlane( 0, false );
+        SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
+        PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
+
+        m_cReflectionFBO->Unbind();
+        Gfx().SetViewport( 0, 0, m_cWindow->m_sWindowDimensions.x, m_cWindow->m_sWindowDimensions.y );
+    }
+    PROFILE_GPU_END( "Frame/Render/Reflection" );
 
     // render game models -----------------------------
     PROFILE_GPU_BEGIN( "Frame/Render/Balls" );
@@ -806,22 +800,24 @@ void SkullbonezRun::DrawPrimitives()
     // render m_terrain ------------------------------
     if ( !m_isTerrainHidden )
     {
-        PROFILE_GPU_SCOPED( "Frame/Render/Terrain" );
+        PROFILE_GPU_BEGIN( "Frame/Render/Terrain" );
         m_cTextures->SelectTexture( TEXTURE_GROUND );
         m_cTerrain->Render( baseView, proj, lightPosition );
+        PROFILE_GPU_END( "Frame/Render/Terrain" );
     }
 
     // render ground shadows on top of m_terrain
     if ( !m_isTerrainHidden )
     {
-        PROFILE_GPU_SCOPED( "Frame/Render/Shadows" );
+        PROFILE_GPU_BEGIN( "Frame/Render/Shadows" );
         m_cGameModelCollection.RenderShadows( m_cTerrain.get(), baseView, proj );
+        PROFILE_GPU_END( "Frame/Render/Shadows" );
     }
 
     // render the fluid ---------------------------
     if ( !m_isWaterHidden )
     {
-        PROFILE_GPU_SCOPED( "Frame/Render/Water" );
+        PROFILE_GPU_BEGIN( "Frame/Render/Water" );
         float waterTime = m_isWaterFreezeDebug
                               ? m_frozenWaterTime
                               : static_cast<float>( m_cSimulationTimer.GetTimeSinceLastStart() );
@@ -834,6 +830,7 @@ void SkullbonezRun::DrawPrimitives()
                                     ? proj * baseView
                                     : reflVP;
         m_cWorldEnvironment.RenderFluid( baseView, proj, waterSampleVP, waterTime, reflTex, m_isWaterFlatDebug, m_isWaterNoReflect );
+        PROFILE_GPU_END( "Frame/Render/Water" );
     }
 
     // debug vector overlay — GL only, toggled with V (or debug_vectors in scene)
