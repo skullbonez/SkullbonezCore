@@ -13,11 +13,16 @@
 //  3. Orthographic projection positions quads at exact pixel coordinates
 //  4. Font atlas RED channel = alpha mask (glyph shape)
 //
-// --- _pad0 Field ---
+// --- Per-vertex color ---
 //
-//  HLSL cbuffers must be 16-byte aligned. float3 uTextColor is 12 bytes,
-//  so we add a 4-byte padding float to fill the 16-byte boundary.
-//  This is a common DX pattern — GLSL handles alignment automatically.
+//  Previously uTextColor was a per-draw-call cbuffer uniform, requiring one
+//  draw call per distinct string color.  Color is now baked into the vertex
+//  stream so the entire frame's text (all colors) is uploaded and drawn in a
+//  single call.  The cbuffer therefore only needs the projection matrix.
+//
+//  The dynamic VB layer maps vertex attributes to HLSL semantics as:
+//    attrib[0] → POSITION    attrib[1] → TEXCOORD0    attrib[2] → TEXCOORD1
+//  so the color float3 uses TEXCOORD1 (not COLOR) to match that convention.
 //
 // Docs: https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-packing-rules
 // =============================================================================
@@ -27,8 +32,6 @@
 cbuffer Uniforms : register(b0)
 {
     float4x4 uProjection;  // Orthographic projection (pixel coords → clip space)
-    float3   uTextColor;   // RGB text color (e.g., white, green for FPS)
-    float    _pad0;        // Padding to meet 16-byte cbuffer alignment requirement
 };
 
 Texture2D    uFontTexture : register(t0);  // Font atlas (single-channel RED = glyph alpha)
@@ -36,14 +39,17 @@ SamplerState sSampler0    : register(s0);  // Linear filtering for smooth text e
 
 struct VS_IN
 {
-    float2 position : POSITION;   // 2D screen position (pixel coordinates)
-    float2 texCoord : TEXCOORD0;  // UV into font atlas (points at the character cell)
+    float2 position : POSITION;   // 2D screen position
+    float2 texCoord : TEXCOORD0;  // UV into font atlas
+    float3 color    : TEXCOORD1;  // Per-vertex RGB — baked at batch-build time
+                                  // (DX dynamic VB maps attrib[2] to TEXCOORD1)
 };
 
 struct VS_OUT
 {
     float4 position : SV_POSITION;  // Screen-space output for rasterizer
     float2 texCoord : TEXCOORD0;    // UV for pixel shader to sample
+    float3 color    : TEXCOORD1;    // Forwarded to pixel shader
 };
 
 VS_OUT main_vs(VS_IN input)
@@ -53,6 +59,7 @@ VS_OUT main_vs(VS_IN input)
     // Z=0 (flat on screen), W=1 (no perspective division needed).
     output.position = mul(uProjection, float4(input.position, 0.0, 1.0));
     output.texCoord = input.texCoord;
+    output.color    = input.color;
     return output;
 }
 
@@ -60,7 +67,7 @@ float4 main_ps(VS_OUT input) : SV_TARGET
 {
     // Sample RED channel — this is the glyph's alpha mask (1=ink, 0=empty).
     float alpha = uFontTexture.Sample(sSampler0, input.texCoord).r;
-    // Output user-chosen text color with glyph-shaped transparency.
-    return float4(uTextColor, alpha);
+    // Output per-vertex text color with glyph-shaped transparency.
+    return float4(input.color, alpha);
 }
 

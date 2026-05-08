@@ -16,9 +16,9 @@
 // =============================================================================
 
 in vec2 vTexCoord;
+in vec3 vColor;  // Per-vertex color passed through from the vertex shader.
 
 uniform sampler2D uFontTexture;
-uniform vec3 uTextColor;
 
 out vec4 FragColor;
 
@@ -27,6 +27,6 @@ void main()
     // Sample the RED channel of the font atlas — this gives us the glyph's alpha mask.
     float alpha = texture(uFontTexture, vTexCoord).r;
 
-    // Output: user-chosen text color with glyph-shaped alpha (transparent between letters).
-    FragColor = vec4(uTextColor, alpha);
+    // Output: per-vertex text color with glyph-shaped alpha (transparent between letters).
+    FragColor = vec4(vColor, alpha);
 }

@@ -366,10 +366,17 @@ Write-Host "Review the performance tables above."
 Write-Host "="*60
 ```
 
-After displaying all tables, ask the user via `ask_user` tool:
+After displaying all tables, **summarise notable changes** before asking the user:
+
+1. **Improvements (🟢)** — list every marker with a significant improvement in both avg AND p50 (e.g. `Frame/Text avg -56%  p50 -54%`). Group by renderer. Always include improvements in the report even when there are regressions.
+2. **Regressions (🔴/🟡)** — for each flagged regression, show avg and p50 side-by-side. If avg regresses but p50 is stable/improving, flag it as **avg-only noise (stall)** and explain it is not a real regression.
+3. **Summary sentence** — e.g. *"Text batching saved ~56% CPU text time across all renderers; Water_gpu down 88% from shadow depth-write fix. Three avg-only stall regressions, all p50s clean."*
+
+Then ask the user:
 ```
-question: "Performance tables displayed above. Is the performance acceptable to continue?"
-choices: ["Yes, continue", "No, abort commit"]
+Use ask_user tool:
+  question: "Performance summary above — acceptable to continue?"
+  choices: ["Yes, continue", "No, abort commit"]
 ```
 
 If user says "No", exit with code 1 to abort. Otherwise continue to Step 7.
