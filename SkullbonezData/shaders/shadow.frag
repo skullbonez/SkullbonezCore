@@ -33,13 +33,20 @@
 //    Final = Black * alpha + Scene * (1 - alpha)
 //           = Scene darkened proportionally
 //
+// --- Shoreline Behaviour ---
+//
+//  Shadow discs render with depth writes disabled (SetDepthWrite(false)).
+//  This ensures the water surface — rendered after shadows — always passes
+//  the depth test and is never occluded by shadow geometry that sits above
+//  the water plane near shorelines.
+//
 // Docs: https://www.khronos.org/opengl/wiki/Fragment_Shader
 // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/discard.xhtml
 //
 // =============================================================================
 
-in vec2  vUV;    // XZ disc coords in [-1,1]
-in float vAlpha; // base opacity from instance data (height-based)
+in vec2  vUV;      // XZ disc coords in [-1,1]
+in float vAlpha;   // base opacity from instance data (height-based)
 
 out vec4 FragColor;
 

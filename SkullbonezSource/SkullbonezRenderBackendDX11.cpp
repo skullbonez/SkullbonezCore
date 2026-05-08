@@ -76,7 +76,7 @@ RenderBackendDX11* RenderBackendDX11::s_instance = nullptr;
 
 
 RenderBackendDX11::RenderBackendDX11()
-    : m_swapChain( nullptr ), m_device( nullptr ), m_context( nullptr ), m_backBufferRTV( nullptr ), m_depthStencilTex( nullptr ), m_depthStencilView( nullptr ), m_width( 0 ), m_height( 0 ), m_depthTestEnabled( true ), m_blendEnabled( false ), m_clearColor{ 0.0f, 0.0f, 0.0f, 1.0f }, m_clearDepth( 1.0f ), m_dsDepthOn( nullptr ), m_dsDepthOff( nullptr ), m_blendOff( nullptr ), m_rsCullOn( nullptr ), m_rsCullOff( nullptr ), m_rsCullOnPolyOffset( nullptr ), m_rsCullOffPolyOffset( nullptr ), m_samplerLinear( nullptr ), m_samplerNearest( nullptr ), m_activeBlendState( nullptr ), m_currentBlendSrc( BlendFactor::One ), m_currentBlendDst( BlendFactor::Zero ), m_cullEnabled( true ), m_polyOffsetEnabled( false ), m_currentRTV( nullptr ), m_currentDSV( nullptr ), m_stagingTex( nullptr ), m_stagingWidth( 0 ), m_stagingHeight( 0 ), m_activeShader( nullptr )
+    : m_swapChain( nullptr ), m_device( nullptr ), m_context( nullptr ), m_backBufferRTV( nullptr ), m_depthStencilTex( nullptr ), m_depthStencilView( nullptr ), m_width( 0 ), m_height( 0 ), m_depthTestEnabled( true ), m_depthWriteEnabled( true ), m_blendEnabled( false ), m_clearColor{ 0.0f, 0.0f, 0.0f, 1.0f }, m_clearDepth( 1.0f ), m_dsDepthOn( nullptr ), m_dsDepthOff( nullptr ), m_dsDepthOnWriteOff( nullptr ), m_blendOff( nullptr ), m_rsCullOn( nullptr ), m_rsCullOff( nullptr ), m_rsCullOnPolyOffset( nullptr ), m_rsCullOffPolyOffset( nullptr ), m_samplerLinear( nullptr ), m_samplerNearest( nullptr ), m_activeBlendState( nullptr ), m_currentBlendSrc( BlendFactor::One ), m_currentBlendDst( BlendFactor::Zero ), m_cullEnabled( true ), m_polyOffsetEnabled( false ), m_currentRTV( nullptr ), m_currentDSV( nullptr ), m_stagingTex( nullptr ), m_stagingWidth( 0 ), m_stagingHeight( 0 ), m_activeShader( nullptr )
 {
 }
 
@@ -124,6 +124,18 @@ void RenderBackendDX11::CreateStateObjects()
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createdepthstencilstate
     hr = m_device->CreateDepthStencilState( &dsDesc, &m_dsDepthOff );
     ThrowIfFailed( hr, "CreateDepthStencilState (depth off) failed" );
+
+    dsDesc.DepthEnable = TRUE;
+    dsDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+    dsDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+
+    // Create a depth-test-on, depth-write-off state. Depth testing is still performed (geometry
+    // behind already-drawn closer geometry is correctly occluded), but successful fragments do NOT
+    // update the depth buffer. Used for shadow decals: they respect terrain depth but must not
+    // overwrite it, so the water surface (drawn after) can still pass the depth test.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createdepthstencilstate
+    hr = m_device->CreateDepthStencilState( &dsDesc, &m_dsDepthOnWriteOff );
+    ThrowIfFailed( hr, "CreateDepthStencilState (depth on, write off) failed" );
 
     // Blend-off state (no blending)
     D3D11_BLEND_DESC blendDesc = {};
@@ -469,6 +481,10 @@ void RenderBackendDX11::Shutdown()
     {
         m_dsDepthOff->Release();
     }
+    if ( m_dsDepthOnWriteOff )
+    {
+        m_dsDepthOnWriteOff->Release();
+    }
     if ( m_dsDepthOn )
     {
         m_dsDepthOn->Release();
@@ -692,11 +708,43 @@ void RenderBackendDX11::SetDepthTest( bool enable )
         return;
     }
     m_depthTestEnabled = enable;
+    ApplyDepthState();
+}
 
-    // Switch the Output Merger's depth-stencil state between "test and write depth" and "ignore
-    // depth entirely". This is DX11's equivalent of glEnable/glDisable(GL_DEPTH_TEST).
+
+void RenderBackendDX11::SetDepthWrite( bool enable )
+{
+    if ( m_depthWriteEnabled == enable )
+    {
+        return;
+    }
+    m_depthWriteEnabled = enable;
+    ApplyDepthState();
+}
+
+
+void RenderBackendDX11::ApplyDepthState()
+{
+    // Select the depth-stencil state based on the combination of depth test and depth write flags.
+    // DX11 uses immutable pre-baked state objects, so both flags must be encoded into the chosen object.
+    //   depthTest=ON,  depthWrite=ON  → m_dsDepthOn          (normal opaque geometry)
+    //   depthTest=ON,  depthWrite=OFF → m_dsDepthOnWriteOff   (shadow decals: test but don't overwrite)
+    //   depthTest=OFF                 → m_dsDepthOff          (UI/overlays: ignore depth entirely)
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetdepthstencilstate
-    m_context->OMSetDepthStencilState( enable ? m_dsDepthOn : m_dsDepthOff, 0 );
+    ID3D11DepthStencilState* state;
+    if ( !m_depthTestEnabled )
+    {
+        state = m_dsDepthOff;
+    }
+    else if ( m_depthWriteEnabled )
+    {
+        state = m_dsDepthOn;
+    }
+    else
+    {
+        state = m_dsDepthOnWriteOff;
+    }
+    m_context->OMSetDepthStencilState( state, 0 );
 }
 
 

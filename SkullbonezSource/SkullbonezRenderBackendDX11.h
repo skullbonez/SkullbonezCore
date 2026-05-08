@@ -82,6 +82,7 @@ class RenderBackendDX11 : public IRenderBackend
 
     // State tracking
     bool m_depthTestEnabled;
+    bool m_depthWriteEnabled;
     bool m_blendEnabled;
     float m_clearColor[4];
     float m_clearDepth;
@@ -89,6 +90,7 @@ class RenderBackendDX11 : public IRenderBackend
     // State objects
     ID3D11DepthStencilState* m_dsDepthOn;
     ID3D11DepthStencilState* m_dsDepthOff;
+    ID3D11DepthStencilState* m_dsDepthOnWriteOff;
     ID3D11BlendState* m_blendOff;
     ID3D11RasterizerState* m_rsCullOn;
     ID3D11RasterizerState* m_rsCullOff;
@@ -143,6 +145,7 @@ class RenderBackendDX11 : public IRenderBackend
 
     void CreateStateObjects();
     void ApplyRasterizerState();
+    void ApplyDepthState();
 
   public:
     RenderBackendDX11();
@@ -169,6 +172,7 @@ class RenderBackendDX11 : public IRenderBackend
     void SetClearDepth( float depth ) override;
 
     void SetDepthTest( bool enable ) override;
+    void SetDepthWrite( bool enable ) override;
     void SetBlend( bool enable ) override;
     void SetBlendFunc( BlendFactor src, BlendFactor dst ) override;
     void SetCullFace( bool enable ) override;

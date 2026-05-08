@@ -48,6 +48,7 @@ class RenderBackendGL : public IRenderBackend
     int m_width;
     int m_height;
     bool m_depthTestEnabled;
+    bool m_depthWriteEnabled;
     bool m_blendEnabled;
     bool m_cullFaceEnabled;
     bool m_polygonOffsetEnabled;
@@ -78,6 +79,7 @@ class RenderBackendGL : public IRenderBackend
     void SetClearDepth( float depth ) override;
 
     void SetDepthTest( bool enable ) override;
+    void SetDepthWrite( bool enable ) override;
     void SetBlend( bool enable ) override;
     void SetBlendFunc( BlendFactor src, BlendFactor dst ) override;
     void SetCullFace( bool enable ) override;

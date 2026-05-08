@@ -69,7 +69,7 @@ RenderBackendDX12::RenderBackendDX12()
       ,
       m_nextDSV( 1 ) // 0 reserved for main depth
       ,
-      m_nextStaticSRV( 0 ), m_nextTransientSRV( 0 ), m_depthStencil( nullptr ), m_uploadBuffer( nullptr ), m_uploadBufferMapped( nullptr ), m_uploadOffset( 0 ), m_rootSignature( nullptr ), m_width( 0 ), m_height( 0 ), m_depthTestEnabled( true ), m_blendEnabled( false ), m_blendSrc( BlendFactor::One ), m_blendDst( BlendFactor::Zero ), m_cullEnabled( true ), m_polyOffsetEnabled( false ), m_polyOffsetFactor( 0.0f ), m_polyOffsetUnits( 0.0f ), m_clearDepth( 1.0f ), m_psoDirty( true ), m_activeShader( nullptr ), m_renderingToFBO( false ), m_backBufferIsRT( false ), m_lastPSOHash( 0 ), m_texBindingsDirty( true ), m_targetsDirty( true ), m_dxrSupported( false ), m_device5( nullptr ), m_cmdList4( nullptr ), m_rtPSO( nullptr ), m_rtPSOProps( nullptr ), m_rtRootSignature( nullptr ), m_reflectionUAV( nullptr ), m_reflectionUAVIndex( 0 ), m_reflectionSRVIndex( 0 ), m_reflectionWidth( 0 ), m_reflectionHeight( 0 ), m_reflectionInSRVState( false ), m_rtConstantBuffer( nullptr ), m_rtConstantBufferMapped( nullptr )
+      m_nextStaticSRV( 0 ), m_nextTransientSRV( 0 ), m_depthStencil( nullptr ), m_uploadBuffer( nullptr ), m_uploadBufferMapped( nullptr ), m_uploadOffset( 0 ), m_rootSignature( nullptr ), m_width( 0 ), m_height( 0 ), m_depthTestEnabled( true ), m_depthWriteEnabled( true ), m_blendEnabled( false ), m_blendSrc( BlendFactor::One ), m_blendDst( BlendFactor::Zero ), m_cullEnabled( true ), m_polyOffsetEnabled( false ), m_polyOffsetFactor( 0.0f ), m_polyOffsetUnits( 0.0f ), m_clearDepth( 1.0f ), m_psoDirty( true ), m_activeShader( nullptr ), m_renderingToFBO( false ), m_backBufferIsRT( false ), m_lastPSOHash( 0 ), m_texBindingsDirty( true ), m_targetsDirty( true ), m_dxrSupported( false ), m_device5( nullptr ), m_cmdList4( nullptr ), m_rtPSO( nullptr ), m_rtPSOProps( nullptr ), m_rtRootSignature( nullptr ), m_reflectionUAV( nullptr ), m_reflectionUAVIndex( 0 ), m_reflectionSRVIndex( 0 ), m_reflectionWidth( 0 ), m_reflectionHeight( 0 ), m_reflectionInSRVState( false ), m_rtConstantBuffer( nullptr ), m_rtConstantBufferMapped( nullptr )
 {
     m_clearColor[0] = 0.0f;
     m_clearColor[1] = 0.0f;
@@ -1067,6 +1067,16 @@ void RenderBackendDX12::SetDepthTest( bool enable )
 }
 
 
+void RenderBackendDX12::SetDepthWrite( bool enable )
+{
+    if ( m_depthWriteEnabled != enable )
+    {
+        m_depthWriteEnabled = enable;
+        m_psoDirty = true;
+    }
+}
+
+
 void RenderBackendDX12::SetBlend( bool enable )
 {
     if ( m_blendEnabled != enable )
@@ -1152,6 +1162,7 @@ size_t RenderBackendDX12::HashPSOKey( const PSOKey12& key )
     hashCombine( h, (size_t)key.blendSrc );
     hashCombine( h, (size_t)key.blendDst );
     hashCombine( h, (size_t)key.depthEnabled );
+    hashCombine( h, (size_t)key.depthWriteEnabled );
     hashCombine( h, (size_t)key.cullEnabled );
     hashCombine( h, (size_t)key.polyOffsetEnabled );
     return h;
@@ -1337,7 +1348,7 @@ ID3D12PipelineState* RenderBackendDX12::CreatePSO( VertexFormat12 format, bool i
 
     // Depth stencil
     psoDesc.DepthStencilState.DepthEnable = m_depthTestEnabled ? TRUE : FALSE;
-    psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+    psoDesc.DepthStencilState.DepthWriteMask = m_depthWriteEnabled ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
     psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
 
     // Blend
@@ -1388,6 +1399,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
     key.blendSrc = m_blendSrc;
     key.blendDst = m_blendDst;
     key.depthEnabled = m_depthTestEnabled;
+    key.depthWriteEnabled = m_depthWriteEnabled;
     key.cullEnabled = m_cullEnabled;
     key.polyOffsetEnabled = m_polyOffsetEnabled;
 

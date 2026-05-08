@@ -91,7 +91,7 @@ static void APIENTRY GLDebugCallback( GLenum source, GLenum type, GLuint /*id*/,
 
 
 RenderBackendGL::RenderBackendGL()
-    : m_hdc( nullptr ), m_width( 0 ), m_height( 0 ), m_depthTestEnabled( true ), m_blendEnabled( false ), m_cullFaceEnabled( true ), m_polygonOffsetEnabled( false ), m_polygonOffsetFactor( 0.0f ), m_polygonOffsetUnits( 0.0f )
+    : m_hdc( nullptr ), m_width( 0 ), m_height( 0 ), m_depthTestEnabled( true ), m_depthWriteEnabled( true ), m_blendEnabled( false ), m_cullFaceEnabled( true ), m_polygonOffsetEnabled( false ), m_polygonOffsetFactor( 0.0f ), m_polygonOffsetUnits( 0.0f )
 {
 }
 
@@ -342,6 +342,22 @@ void RenderBackendGL::SetDepthTest( bool enable )
         // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glDisable.xhtml
         glDisable( GL_DEPTH_TEST );
     }
+}
+
+
+void RenderBackendGL::SetDepthWrite( bool enable )
+{
+    if ( enable == m_depthWriteEnabled )
+    {
+        return;
+    }
+    m_depthWriteEnabled = enable;
+    // Control whether depth values are written to the depth buffer during rendering.
+    // When false, depth testing still occurs (closer objects occlude farther ones) but
+    // the depth buffer is not updated. This lets transparent/overlay geometry (like shadow
+    // decals) respect depth without blocking subsequent geometry from passing the depth test.
+    // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glDepthMask.xhtml
+    glDepthMask( enable ? GL_TRUE : GL_FALSE );
 }
 
 

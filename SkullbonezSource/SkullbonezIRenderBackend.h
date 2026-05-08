@@ -60,6 +60,7 @@ class IRenderBackend
     // --- Depth State ---
 
     virtual void SetDepthTest( bool enable ) = 0;
+    virtual void SetDepthWrite( bool enable ) = 0;
 
 
     // --- Blend State ---

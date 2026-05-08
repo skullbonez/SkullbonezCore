@@ -835,7 +835,7 @@ void SkullbonezRun::DrawPrimitives()
     if ( !m_isTerrainHidden )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Shadows" );
-        m_cGameModelCollection.RenderShadows( m_cTerrain.get(), baseView, proj );
+        m_cGameModelCollection.RenderShadows( m_cTerrain.get(), baseView, proj, waterY );
         PROFILE_GPU_END( "Frame/Render/Shadows" );
     }
 

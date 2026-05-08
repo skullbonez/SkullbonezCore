@@ -46,12 +46,13 @@ layout(location = 7) in float aAlpha;         // per-instance base shadow opacit
 uniform mat4 uView;
 uniform mat4 uProjection;
 
-out vec2 vUV;       // XZ coords in [-1,1] — used by fragment shader for disc test
-out float vAlpha;   // base alpha passed through unchanged; fragment applies radial fade
+out vec2  vUV;       // XZ coords in [-1,1] — used by fragment shader for disc test
+out float vAlpha;    // base alpha passed through unchanged; fragment applies radial fade
 
 void main()
 {
-    gl_Position = uProjection * uView * aModel * vec4(aPosition, 1.0);
+    vec4 worldPos = aModel * vec4( aPosition, 1.0 );
+    gl_Position = uProjection * uView * worldPos;
 
     // Pass XZ through so the fragment shader can compute distance from centre per-pixel.
     vUV    = aPosition.xz;

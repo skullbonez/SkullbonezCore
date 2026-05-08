@@ -67,7 +67,8 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
 
 void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
                                          const Matrix4& view,
-                                         const Matrix4& proj )
+                                         const Matrix4& proj,
+                                         float waterSurfaceY )
 {
     if ( !m_terrain )
     {
@@ -92,6 +93,13 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
         }
 
         float groundY = m_terrain->GetTerrainHeightAt( pos.x, pos.z );
+
+        // Fast-out: ball centre is over fully submerged terrain — no visible shadow.
+        if ( groundY <= waterSurfaceY )
+        {
+            continue;
+        }
+
         float height = pos.y - groundY - radius;
         if ( height < 0.0f )
         {
@@ -149,7 +157,14 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
     m_shadowShader->SetMat4( "uView", view );
     m_shadowShader->SetMat4( "uProjection", proj );
 
+    // Disable depth writes for shadow rendering. Shadow discs sit at groundY + offset which can
+    // be above the water plane near shorelines. If they wrote to the depth buffer, the water
+    // (drawn after) would fail the depth test at those pixels and disappear. With depth writes off,
+    // terrain depth values are preserved and water renders correctly over the shoreline.
+    // Depth testing remains ON so shadows still respect terrain occlusion.
+    Gfx().SetDepthWrite( false );
     Gfx().DrawInstancedMesh( m_shadowInstMesh, m_shadowDiscVertexCount, instanceCount );
+    Gfx().SetDepthWrite( true );
 
     Gfx().SetPolygonOffset( false );
     Gfx().SetCullFace( true );
