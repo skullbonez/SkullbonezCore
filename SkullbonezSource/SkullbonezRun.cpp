@@ -1176,7 +1176,7 @@ void SkullbonezRun::SetUpCamerasFromScene( const TestScene& scene )
     m_cCameras->SetTerrain( m_cTerrain.get() );
 
     // lock the m_cameras
-    m_cCameras->SetLockedMode( true );
+    m_cCameras->SetLockedMode( false );
 }
 
 
