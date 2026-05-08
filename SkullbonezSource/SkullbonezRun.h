@@ -52,6 +52,7 @@ class SkullbonezRun
     bool m_isPerfTest;                              // Performance logging mode
     bool m_perfHeaderWritten;                       // CSV header written for current perf run
     bool m_isScreenshotSaved;                       // Screenshot already written this run
+    bool m_isScreenshotAndExit;                     // Capture frame 1 as SCENENAME.bmp then exit
     int m_targetFrameCount;                         // Frames to render before holding (-1 = unlimited)
     int m_currentFrame;                             // Current frame counter for scene mode
     int m_screenshotFrame;                          // Save screenshot at this frame (-1 = unused)

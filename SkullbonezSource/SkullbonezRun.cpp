@@ -31,6 +31,7 @@ SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
     m_isPerfTest = false;
     m_perfHeaderWritten = false;
     m_isScreenshotSaved = false;
+    m_isScreenshotAndExit = false;
     m_targetFrameCount = -1;
     m_currentFrame = 0;
     m_screenshotFrame = -1;
@@ -276,6 +277,30 @@ void SkullbonezRun::Run()
             }
 
             // Scene mode: check screenshot triggers (read back buffer before swap)
+            // screenshot_and_exit: on frame 1, save SCENENAME.bmp to root then quit
+            if ( m_isSceneMode && m_isScreenshotAndExit && m_currentFrame == 0 )
+            {
+                const std::string& scenePath = m_sceneQueue[m_currentSceneIndex];
+                char outPath[256];
+                const char* base = scenePath.c_str();
+                const char* slash = strrchr( base, '/' );
+                const char* backslash = strrchr( base, '\\' );
+                const char* name = slash ? slash + 1 : ( backslash ? backslash + 1 : base );
+                char stem[256];
+                strcpy_s( stem, sizeof( stem ), name );
+                char* dot = strrchr( stem, '.' );
+                if ( dot )
+                {
+                    *dot = '\0';
+                }
+                sprintf_s( outPath, sizeof( outPath ), "%s.bmp", stem );
+                SaveScreenshot( outPath );
+
+                PROFILE_FRAME_END();
+                PostQuitMessage( 0 );
+                continue;
+            }
+
             if ( m_isSceneMode && m_screenshotPath[0] != '\0' && !m_isScreenshotSaved )
             {
                 bool shouldCapture = false;
@@ -1243,6 +1268,7 @@ void SkullbonezRun::LoadScene( int index )
     m_isPerfTest = false;
     m_perfHeaderWritten = false;
     m_isScreenshotSaved = false;
+    m_isScreenshotAndExit = false;
     m_targetFrameCount = -1;
     m_currentFrame = 0;
     m_screenshotFrame = -1;
@@ -1310,6 +1336,7 @@ void SkullbonezRun::LoadScene( int index )
         m_targetFrameCount = scene.GetFrameCount();
         m_screenshotFrame = scene.GetScreenshotFrame();
         m_screenshotMs = scene.GetScreenshotMs();
+        m_isScreenshotAndExit = scene.IsScreenshotAndExit();
         m_isProfilerOverlay = false; // Default overlay OFF in scene mode; press '0' to show
 
         if ( scene.GetScreenshotPath()[0] != '\0' )

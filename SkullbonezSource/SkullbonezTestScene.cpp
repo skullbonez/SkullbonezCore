@@ -26,6 +26,7 @@ TestScene::TestScene()
     m_isDebugVectors = false;
     m_trackHeight = -1.0f;
     m_autoCycleInterval = -1.0f;
+    m_screenshotAndExit = false;
     m_hasFlatSlope = false;
     m_flatBaseY = 0.0f;
     m_flatSlopeX = 0.0f;
@@ -228,9 +229,15 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
-        // parse screenshot_interval directive: screenshot_interval <dir> <N>
-        if ( strncmp( line, "screenshot_interval ", 20 ) == 0 )
+        // parse screenshot_and_exit directive: capture frame 1 as SCENENAME.bmp then quit
+        if ( strcmp( line, "screenshot_and_exit" ) == 0 )
         {
+            scene.m_screenshotAndExit = true;
+            continue;
+        }
+
+        // parse screenshot_interval directive: screenshot_interval <dir> <N>
+        if ( strncmp( line, "screenshot_interval ", 20 ) == 0 )        {
             char outDir[256] = {};
             int intervalFrames = 0;
             int parsed = sscanf_s( line + 20, "%255s %d", outDir, static_cast<unsigned>( sizeof( outDir ) ), &intervalFrames );
@@ -560,6 +567,12 @@ float TestScene::GetTrackHeight() const
 float TestScene::GetAutoCycleInterval() const
 {
     return m_autoCycleInterval;
+}
+
+
+bool TestScene::IsScreenshotAndExit() const
+{
+    return m_screenshotAndExit;
 }
 
 
