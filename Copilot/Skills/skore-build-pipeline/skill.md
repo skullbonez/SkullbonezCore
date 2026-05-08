@@ -366,11 +366,40 @@ Write-Host "Review the performance tables above."
 Write-Host "="*60
 ```
 
-After displaying all tables, **summarise notable changes** before asking the user:
+After displaying all tables, **you MUST print both an improvements section AND a regressions section** before asking the user. Neither section is optional — if there are no entries in a section, write "None".
 
-1. **Improvements (🟢)** — list every marker with a significant improvement in both avg AND p50 (e.g. `Frame/Text avg -56%  p50 -54%`). Group by renderer. Always include improvements in the report even when there are regressions.
-2. **Regressions (🔴/🟡)** — for each flagged regression, show avg and p50 side-by-side. If avg regresses but p50 is stable/improving, flag it as **avg-only noise (stall)** and explain it is not a real regression.
-3. **Summary sentence** — e.g. *"Text batching saved ~56% CPU text time across all renderers; Water_gpu down 88% from shadow depth-write fix. Three avg-only stall regressions, all p50s clean."*
+#### 📈 Improvements (MANDATORY — always shown)
+
+Print every marker where avg OR p50 improved by more than the ramped threshold. Group by renderer. Format:
+
+```
+📈 IMPROVEMENTS
+  GL   Frame/Text            avg -56.6%  p50 -54.8%
+  GL   Frame/Render/Water    avg  -5.5%  p50  -3.4%
+  DX11 Frame/Text            avg -20.5%  p50 -13.9%
+  DX12 Frame/Text            avg  -9.5%  p50 -10.9%
+```
+
+If there are no improvements: print `📈 IMPROVEMENTS  None`
+
+#### 📉 Regressions (MANDATORY — always shown)
+
+Print every 🔴 or 🟡 marker. For each, show avg and p50 side-by-side, then a verdict:
+- If avg regresses but p50 is stable/improving → label **"avg-only noise (stall)"**
+- If both avg and p50 regress → label **"REAL REGRESSION — investigate"**
+
+```
+📉 REGRESSIONS
+  GL   Frame/Input            avg +36.3%  p50  +1.5%  → avg-only noise (stall)
+  DX11 Frame/Input            avg +20.1%  p50  -1.7%  → avg-only noise (stall)
+  DX12 Frame/Input            avg +243.6% p50  -1.6%  → avg-only noise (stall)
+```
+
+If there are no regressions: print `📉 REGRESSIONS  None`
+
+#### Summary sentence
+
+End with one sentence: *"X improvements, Y regressions (Z real, W noise)."*
 
 Then ask the user:
 ```
