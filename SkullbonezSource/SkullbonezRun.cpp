@@ -999,6 +999,9 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         Profiler::Instance().RenderOverlay( -0.53f, -0.43f, 0.018f, 0.012f, m_r_fpsTime );
     }
 #endif
+
+    // Flush all accumulated text quads in a single GPU upload+draw call.
+    Text2d::FlushText();
 }
 
 

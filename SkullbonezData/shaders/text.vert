@@ -38,10 +38,13 @@
 
 layout(location = 0) in vec2 aPosition;
 layout(location = 1) in vec2 aTexCoord;
+layout(location = 2) in vec3 aColor;  // Per-vertex RGB — baked in at batch-build time so the
+                                       // entire frame's text can be drawn in one call.
 
 uniform mat4 uProjection;
 
 out vec2 vTexCoord;
+out vec3 vColor;
 
 void main()
 {
@@ -49,4 +52,5 @@ void main()
     // The Z is 0.0 (flat on the screen), W is 1.0 (homogeneous coordinate).
     gl_Position = uProjection * vec4(aPosition, 0.0, 1.0);
     vTexCoord   = aTexCoord;
+    vColor      = aColor;
 }
