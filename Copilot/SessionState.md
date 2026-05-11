@@ -17,7 +17,7 @@
 
 ## Branch & Last Commit
 - Branch: `main`
-- Last commit on main: `c455aba` — Add screenshot_and_exit scene flag and decal bug repro
+- Last commit on main: `a2728b4` — Implement SDF text rendering with offline atlas generation
 
 ---
 
@@ -55,25 +55,20 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 
 ## Recent Session Work (this session)
 
-1. **Shadow decal water-bleed fix** (uncommitted): Shadow discs near the shoreline were bleeding over the water surface. Root cause: flat tilted quad geometry sits geometrically above waterY even when extending over underwater terrain, so per-Y or clip-plane approaches fail. Fix: build a GPU R8 heightmap texture from terrain post data during terrain construction, then sample per-fragment in the shadow shader using world XZ. Fragments where terrain height < waterY are discarded, cleanly clipping partial shadow discs at the shoreline regardless of the disc's geometric Y position. Works correctly for both scene configurations.
-
-   Files changed:
-   - `SkullbonezSource/SkullbonezTerrain.h/.cpp`: `BuildHeightmapTexture()`, accessors
-   - `SkullbonezData/shaders/shadow.vert/.frag/.hlsl`: world XZ varying + heightmap discard
-   - `SkullbonezSource/SkullbonezGameModelCollection.cpp`: removed perimeter-skip hack, added heightmap uniforms
-   - `TestOutput/baselines`: updated (shadow fix intentionally changes output)
+1. **SDF text rendering** (`a2728b4`):
+   - `text_only` scene mode + `text_test.scene` for diagnosing text at large display sizes
+   - Descender cut-off fix: full 48px cell height sampled in `RenderTextInternal`
+   - Offline SDF atlas generation: GDI renders at 6× → Felzenszwalb-Huttenlocher EDT → 6×6 box-filter → binary `.sdf` file
+   - `--gen-atlas <path>` CLI flag: generates atlas before window/GPU init, then exits
+   - SDF shaders (GL + HLSL): `smoothstep` with `fwidth`/`ddx+ddy` adaptive AA
+   - Font texture upload changed to bilinear filtering (was nearest-neighbour — root cause of jagged edges)
+   - `--scene` / `--suite` argument parsing fixed: both now tokenize correctly so `--renderer dx11` after `--scene path` works
+   - Regenerate atlas: `.\Debug\SKULLBONEZ_CORE.exe --gen-atlas SkullbonezData/font_atlas.sdf`
 
 ---
 
 ## Uncommitted Changes (DO NOT LOSE)
-Shadow decal water-bleed fix — 10 files changed:
-- `SkullbonezSource/SkullbonezTerrain.h/.cpp`
-- `SkullbonezData/shaders/shadow.vert/.frag/.hlsl`
-- `SkullbonezSource/SkullbonezGameModelCollection.cpp`
-- `SkullbonezSource/SkullbonezGameModelCollection.h`
-- `SkullbonezSource/SkullbonezRun.cpp`
-- `TestOutput/baselines/baseline_water_ball_test.png`
-- `TestOutput/baselines/baseline_legacy_smoke.png`
+None — repo is clean.
 
 ---
 
