@@ -40,6 +40,7 @@ class Text2d
     static void BuildFont( const char* cFontName );                                                                                       // Loads (or generates) SDF atlas, builds GPU resources
     static bool GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath );                                                    // Generates SDF atlas to binary file (also usable via --gen-atlas)
     static void DeleteFont();                                                                                                             // Releases GPU font resources
+    static void RebuildProjection( int w, int h );                                                                                        // Recomputes ortho projection after a window resize
 };
 } // namespace Text
 } // namespace SkullbonezCore

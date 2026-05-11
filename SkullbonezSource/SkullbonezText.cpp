@@ -480,10 +480,24 @@ void Text2d::BuildFont( const char* cFontName )
     // Compile the solid-colour HUD quad shader (used by Render2dQuad)
     Text2d::pSolidShader = Gfx().CreateShader( "shaders/solid_color" );
 
-    // Cache the orthographic projection — screen dimensions are fixed after init.
-    // Matches the legacy FFP coordinate space: FOV=45°, aspect=screenX/screenY.
+    // Build the initial orthographic projection from the config dimensions.
+    // RebuildProjection() must be called whenever the window is resized so the
+    // ortho extents stay matched to the actual viewport aspect ratio.
+    Text2d::RebuildProjection( Cfg().screenX, Cfg().screenY );
+}
+
+
+void Text2d::RebuildProjection( int w, int h )
+{
+    if ( w <= 0 || h <= 0 )
+    {
+        return;
+    }
+    // Matches the legacy FFP coordinate space: FOV=45°, aspect=w/h.
+    // halfH is derived from the half-FOV angle and is invariant to resolution;
+    // halfW scales with the aspect ratio so text is never distorted on resize.
     const float halfH = tanf( 22.5f * _PI / 180.0f );
-    const float halfW = halfH * static_cast<float>( Cfg().screenX ) / static_cast<float>( Cfg().screenY );
+    const float halfW = halfH * static_cast<float>( w ) / static_cast<float>( h );
     s_orthoProj = Matrix4::Ortho( -halfW, halfW, -halfH, halfH, -1.0f, 1.0f );
 }
 
@@ -724,7 +738,7 @@ void Text2d::Render2dQuad( float x0, float y0, float x1, float y1, float r, floa
     s_quadBuf[22] = 0.0f;
     s_quadBuf[23] = 0.0f;
 
-    const Matrix4& proj = s_orthoProj; // Cached at init — screen dimensions don't change
+    const Matrix4& proj = s_orthoProj; // Kept current by RebuildProjection() on every resize
 
     bool depthWasEnabled = Gfx().IsDepthTestEnabled();
     bool blendWasEnabled = Gfx().IsBlendEnabled();
