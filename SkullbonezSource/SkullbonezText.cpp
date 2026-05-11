@@ -499,6 +499,31 @@ void Text2d::RebuildProjection( int w, int h )
     const float halfH = tanf( 22.5f * _PI / 180.0f );
     const float halfW = halfH * static_cast<float>( w ) / static_cast<float>( h );
     s_orthoProj = Matrix4::Ortho( -halfW, halfW, -halfH, halfH, -1.0f, 1.0f );
+    s_halfW     = halfW;
+    s_halfH     = halfH;
+}
+
+
+float Text2d::MeasureText( float fSize, const char* text )
+{
+    if ( !text )
+    {
+        return 0.0f;
+    }
+    float width = 0.0f;
+    for ( const char* p = text; *p; ++p )
+    {
+        unsigned char c = static_cast<unsigned char>( *p );
+        if ( c >= 32 && c <= 127 )
+        {
+            width += charAdvance[c - 32] * fSize;
+        }
+        else
+        {
+            width += fSize * 0.5f; // fallback advance for non-printable
+        }
+    }
+    return width;
 }
 
 

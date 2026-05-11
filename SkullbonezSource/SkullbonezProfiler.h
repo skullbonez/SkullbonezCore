@@ -103,7 +103,8 @@ class Profiler
 
     // Renders the indented overlay using Text2d::Render2dText. Caller decides toggle state.
     // xLeft / yTop in the same frustum-unit space used elsewhere; lineHeight in same space; fSize for Text2d.
-    void RenderOverlay( float xLeft, float yAnchor, float lineHeight, float fSize, float fps ) const;
+    // When rightAnchored=true, xLeft is treated as the desired right edge of the panel instead.
+    void RenderOverlay( float xLeft, float yAnchor, float lineHeight, float fSize, float fps, bool rightAnchored = false ) const;
 
   private:
     Profiler();
