@@ -60,6 +60,7 @@ class TestScene
   private:
     bool m_isPhysicsEnabled;
     bool m_isTextEnabled;
+    bool m_isTextOnly;
     int m_frameCount;           // -1 = unlimited
     char m_screenshotPath[256]; // output path for screenshot (empty = none)
     int m_screenshotFrame;      // trigger on frame N (-1 = unused)
@@ -94,6 +95,7 @@ class TestScene
 
     bool IsPhysicsEnabled() const;
     bool IsTextEnabled() const;
+    bool IsTextOnly() const;
     int GetFrameCount() const;
     const char* GetScreenshotPath() const;
     int GetScreenshotFrame() const;

@@ -17,6 +17,10 @@ static const int FONT_ROWS = 6;                          // Number of rows in th
 static const int FONT_ATLAS_W = FONT_CELL_W * FONT_COLS; // 640 pixels
 static const int FONT_ATLAS_H = FONT_CELL_H * FONT_ROWS; // 288 pixels
 
+// SDF generation parameters
+static const int SDF_SCALE = 6;      // hi-res render factor: final × SDF_SCALE = hi-res
+static const int SDF_SPREAD_HI = 36; // max encoded signed distance (hi-res px) = 6 final-atlas px
+
 // --- Text batch accumulation buffers ---
 // Layout per vertex: [x, y, u, v, r, g, b] (7 floats)
 // Batching all Render2dText* calls into one UploadAndDrawDynamicVB per frame
@@ -31,45 +35,237 @@ static int s_batchVerts = 0;
 // change after init, so there is no need to recompute this every frame.
 static Matrix4 s_orthoProj;
 
-void Text2d::BuildFont( const HDC hDC, const char* cFontName )
+// =============================================================================
+// SDF ATLAS — binary file format
+// =============================================================================
+//
+// Header (416 bytes) followed directly by (atlasW × atlasH) R8 pixel bytes.
+//   0   = far outside the glyph
+//   128 = on the glyph edge
+//   255 = deep inside the glyph
+//
+// The SDF is computed at SDF_SCALE × resolution then box-filtered down,
+// preserving sub-pixel gradient information through the downsample.
+// =============================================================================
+struct SdfFileHeader
 {
-    // Create a top-down 32bpp DIB section to render the font atlas into
+    char magic[8];         // "SBSDF001" — format identifier
+    uint32_t version;      // 1
+    uint32_t atlasW;       // FONT_ATLAS_W (640)
+    uint32_t atlasH;       // FONT_ATLAS_H (288)
+    uint32_t fontSize;     // FONT_SIZE (32)
+    uint32_t cellW;        // FONT_CELL_W (40)
+    uint32_t cellH;        // FONT_CELL_H (48)
+    float charAdvance[96]; // per-glyph advance, in FONT_SIZE units
+    // Total: 416 bytes. All members naturally aligned — no padding.
+};
+
+
+// =============================================================================
+// 1D Euclidean Distance Transform  (Felzenszwalb & Huttenlocher, PAMI 2012)
+// =============================================================================
+//
+// Transforms f[0..n-1] in place using caller-supplied scratch arrays.
+//   Before: f[i] = 0 for source pixels, 1e20 for non-source.
+//   After:  f[i] = squared Euclidean distance to the nearest source.
+//
+// scratch_src / scratch_v / scratch_z must have capacity ≥ n, n, n+1 respectively.
+// =============================================================================
+static void ComputeEDT1D( float* f, int n, float* scratch_src, int* scratch_v, float* scratch_z )
+{
+    memcpy( scratch_src, f, static_cast<size_t>( n ) * sizeof( float ) );
+
+    // --- Build phase: lower envelope of upward parabolas g_q(x) = (x−q)² + src[q] ---
+    //
+    // We maintain a stack of non-dominated parabolas, whose pairwise intersection
+    // x-coordinates are strictly increasing left to right.  Each new parabola q
+    // pops any topmost parabola whose region it completely dominates.
+    int k = 0;
+    scratch_v[0] = 0;
+    scratch_z[0] = -1e20f;
+    scratch_z[1] = +1e20f;
+
+    for ( int q = 1; q < n; ++q )
+    {
+        int r = scratch_v[k];
+        // Intersection of parabola at q with the current topmost parabola at r:
+        //   s = [(src[q] + q²) − (src[r] + r²)] / (2q − 2r)
+        float s = ( ( scratch_src[q] + (float)( q * q ) ) - ( scratch_src[r] + (float)( r * r ) ) ) / (float)( 2 * ( q - r ) );
+
+        while ( k > 0 && s <= scratch_z[k] )
+        {
+            --k;
+            r = scratch_v[k];
+            s = ( ( scratch_src[q] + (float)( q * q ) ) - ( scratch_src[r] + (float)( r * r ) ) ) / (float)( 2 * ( q - r ) );
+        }
+
+        ++k;
+        scratch_v[k] = q;
+        scratch_z[k] = s;
+        scratch_z[k + 1] = +1e20f;
+    }
+
+    // --- Query phase: evaluate the lower envelope at each pixel position ---
+    k = 0;
+    for ( int q = 0; q < n; ++q )
+    {
+        while ( scratch_z[k + 1] < (float)q )
+        {
+            ++k;
+        }
+        const int r = scratch_v[k];
+        f[q] = (float)( ( q - r ) * ( q - r ) ) + scratch_src[r];
+    }
+}
+
+
+// Apply ComputeEDT1D to every row then every column.
+// Allocates scratch once and reuses it across all 1D passes.
+static void ComputeEDT2D( float* grid, int w, int h )
+{
+    const int maxN = ( w > h ) ? w : h;
+    std::vector<float> scratch_src( maxN );
+    std::vector<float> scratch_z( maxN + 1 );
+    std::vector<float> col_tmp( h );
+    std::vector<int> scratch_v( maxN );
+
+    // Horizontal pass
+    for ( int y = 0; y < h; ++y )
+    {
+        ComputeEDT1D( grid + y * w, w, scratch_src.data(), scratch_v.data(), scratch_z.data() );
+    }
+
+    // Vertical pass
+    for ( int x = 0; x < w; ++x )
+    {
+        for ( int y = 0; y < h; ++y )
+        {
+            col_tmp[y] = grid[y * w + x];
+        }
+        ComputeEDT1D( col_tmp.data(), h, scratch_src.data(), scratch_v.data(), scratch_z.data() );
+        for ( int y = 0; y < h; ++y )
+        {
+            grid[y * w + x] = col_tmp[y];
+        }
+    }
+}
+
+
+// Load a pre-generated SDF atlas from disk and upload it to the GPU.
+// Returns true on success, false if the file is absent or its header is invalid.
+static bool LoadSdfAtlasFromFile( const char* path )
+{
+    FILE* f = nullptr;
+    if ( fopen_s( &f, path, "rb" ) != 0 || !f )
+    {
+        return false;
+    }
+
+    SdfFileHeader hdr = {};
+    if ( fread( &hdr, sizeof( hdr ), 1, f ) != 1u )
+    {
+        fclose( f );
+        return false;
+    }
+
+    // Reject stale or corrupt files before touching any engine state.
+    if ( memcmp( hdr.magic, "SBSDF001", 8 ) != 0 || hdr.version != 1u || hdr.atlasW != static_cast<uint32_t>( FONT_ATLAS_W ) || hdr.atlasH != static_cast<uint32_t>( FONT_ATLAS_H ) || hdr.fontSize != static_cast<uint32_t>( FONT_SIZE ) || hdr.cellW != static_cast<uint32_t>( FONT_CELL_W ) || hdr.cellH != static_cast<uint32_t>( FONT_CELL_H ) )
+    {
+        fclose( f );
+        return false;
+    }
+
+    memcpy( Text2d::charAdvance, hdr.charAdvance, 96 * sizeof( float ) );
+
+    const size_t dataSize = static_cast<size_t>( FONT_ATLAS_W ) * static_cast<size_t>( FONT_ATLAS_H );
+    std::unique_ptr<uint8_t[]> pixels( new uint8_t[dataSize] );
+    if ( fread( pixels.get(), 1, dataSize, f ) != dataSize )
+    {
+        fclose( f );
+        return false;
+    }
+    fclose( f );
+
+    // Upload as a single-channel R8 texture with bilinear filtering.
+    // SDF rendering REQUIRES linear filtering — nearest-neighbour would staircase
+    // the distance gradient and make glyph edges look aliased.
+    Text2d::fontTexture = Gfx().CreateTexture2D(
+        pixels.get(),
+        FONT_ATLAS_W,
+        FONT_ATLAS_H,
+        1,
+        false,
+        true );
+    return true;
+}
+
+
+// =============================================================================
+// Text2d::GenerateSdfAtlasToFile
+// =============================================================================
+//
+// Renders all 96 printable ASCII glyphs at SDF_SCALE × resolution using GDI,
+// computes a per-cell Signed Distance Field via two 2D Euclidean Distance
+// Transforms, box-filters the result down to the final atlas size, then writes
+// a binary .sdf file that LoadSdfAtlasFromFile / BuildFont can read directly.
+//
+// This function requires no window or GPU context — it can run from --gen-atlas
+// before any graphics initialisation.  Call it when the atlas is absent or
+// when the font or cell dimensions have changed.
+// =============================================================================
+bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath )
+{
+    // Hi-res dimensions — each axis is SDF_SCALE × the final atlas.
+    const int FONT_SIZE_HI = FONT_SIZE * SDF_SCALE;     // 192 px glyph height
+    const int FONT_CELL_W_HI = FONT_CELL_W * SDF_SCALE; // 240 px cell width
+    const int FONT_CELL_H_HI = FONT_CELL_H * SDF_SCALE; // 288 px cell height
+    const int ATLAS_W_HI = FONT_ATLAS_W * SDF_SCALE;    // 3840 px total width
+    const int ATLAS_H_HI = FONT_ATLAS_H * SDF_SCALE;    // 1728 px total height
+    const float INF = 1e20f;
+
+    // =========================================================================
+    // Phase 1 — render glyphs into a hi-res GDI memory bitmap
+    // =========================================================================
+    //
+    // CreateCompatibleDC(NULL) creates a DC compatible with the display without
+    // requiring an existing window, so this runs before any GL/DX context.
+    // Ref: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-createcompatibledc
+    HDC memDC = CreateCompatibleDC( NULL );
+    if ( !memDC )
+    {
+        return false;
+    }
+
+    // Top-down 32bpp DIB: ~25 MB, allocated once for the whole atlas.
+    // Negative biHeight → scan-line 0 is the topmost row (matches GL convention).
     BITMAPINFO bmi = {};
     bmi.bmiHeader.biSize = sizeof( BITMAPINFOHEADER );
-    bmi.bmiHeader.biWidth = FONT_ATLAS_W;
-    bmi.bmiHeader.biHeight = -FONT_ATLAS_H; // negative = top-down
+    bmi.bmiHeader.biWidth = ATLAS_W_HI;
+    bmi.bmiHeader.biHeight = -ATLAS_H_HI;
     bmi.bmiHeader.biPlanes = 1;
     bmi.bmiHeader.biBitCount = 32;
     bmi.bmiHeader.biCompression = BI_RGB;
 
     void* pBits = nullptr;
-    HDC memDC = CreateCompatibleDC( hDC );
-    HBITMAP hBitmap = CreateDIBSection( hDC, &bmi, DIB_RGB_COLORS, &pBits, nullptr, 0 );
-
-    if ( !hBitmap || !memDC )
+    HBITMAP hBitmap = CreateDIBSection( memDC, &bmi, DIB_RGB_COLORS, &pBits, nullptr, 0 );
+    if ( !hBitmap )
     {
-        if ( memDC )
-        {
-            DeleteDC( memDC );
-        }
-        if ( hBitmap )
-        {
-            DeleteObject( hBitmap );
-        }
-        throw std::runtime_error( "DIB section creation failed (Text2d::BuildFont)" );
+        DeleteDC( memDC );
+        return false;
     }
-
     HBITMAP hOldBitmap = reinterpret_cast<HBITMAP>( SelectObject( memDC, hBitmap ) );
 
-    // Fill with black
-    RECT fillRect = { 0, 0, FONT_ATLAS_W, FONT_ATLAS_H };
+    RECT fillRect = { 0, 0, ATLAS_W_HI, ATLAS_H_HI };
     HBRUSH hBlackBrush = CreateSolidBrush( RGB( 0, 0, 0 ) );
     FillRect( memDC, &fillRect, hBlackBrush );
     DeleteObject( hBlackBrush );
 
-    // Create the requested font at the cell m_height
+    // TrueType outline font at 6× size.
+    // OUT_TT_PRECIS requests a vector outline for clean scaling.
+    // ANTIALIASED_QUALITY gives GDI sub-pixel blending for a smooth binary mask.
+    // Ref: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-createfonta
     HFONT hFont = CreateFont(
-        -FONT_SIZE, // negative = character m_height in pixels
+        -FONT_SIZE_HI,
         0,
         0,
         0,
@@ -83,48 +279,189 @@ void Text2d::BuildFont( const HDC hDC, const char* cFontName )
         ANTIALIASED_QUALITY,
         FF_DONTCARE | DEFAULT_PITCH,
         cFontName );
-
     if ( !hFont )
     {
         SelectObject( memDC, hOldBitmap );
         DeleteObject( hBitmap );
         DeleteDC( memDC );
-        throw std::runtime_error( "Font creation failed (Text2d::BuildFont)" );
+        return false;
     }
-
     HFONT hOldFont = reinterpret_cast<HFONT>( SelectObject( memDC, hFont ) );
 
-    // Measure advance widths for all 96 printable ASCII chars (32..127)
+    // Per-glyph advance widths measured at hi-res, then normalised to FONT_SIZE
+    // units so the runtime advance table is resolution-independent.
+    float charAdvBuf[96] = {};
     INT advWidths[96] = {};
     GetCharWidth32( memDC, 32, 127, advWidths );
     for ( int i = 0; i < 96; ++i )
     {
-        Text2d::charAdvance[i] = static_cast<float>( advWidths[i] ) / static_cast<float>( FONT_SIZE );
+        charAdvBuf[i] = static_cast<float>( advWidths[i] ) / static_cast<float>( FONT_SIZE_HI );
     }
 
-    // Render each character into its atlas cell
+    // Render all 96 printable ASCII characters (0x20–0x7F).
+    // Cell layout mirrors the final atlas (FONT_COLS × FONT_ROWS) but scaled up.
     SetBkMode( memDC, TRANSPARENT );
     SetTextColor( memDC, RGB( 255, 255, 255 ) );
-
     char ch[2] = { 0, 0 };
     for ( int i = 0; i < 96; ++i )
     {
         ch[0] = static_cast<char>( i + 32 );
-        int col = i % FONT_COLS;
-        int row = i / FONT_COLS;
-        TextOutA( memDC, col * FONT_CELL_W, row * FONT_CELL_H, ch, 1 );
+        const int col = i % FONT_COLS;
+        const int row = i / FONT_COLS;
+        TextOutA( memDC, col * FONT_CELL_W_HI, row * FONT_CELL_H_HI, ch, 1 );
     }
 
-    // Extract the red channel (white on black, so R=luminance) into a single-channel buffer
-    std::unique_ptr<unsigned char[]> atlasData( new unsigned char[FONT_ATLAS_W * FONT_ATLAS_H] );
+    // Flush GDI drawing queue before reading pBits.
+    // Ref: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-gdiflush
+    GdiFlush();
+
+    // Extract the red channel into a packed byte array.
+    // White-on-black rendering means R = G = B = luminance, so any channel works.
+    const int hiTotalPx = ATLAS_W_HI * ATLAS_H_HI;
+    std::unique_ptr<uint8_t[]> hiAtlas( new uint8_t[hiTotalPx] );
     const DWORD* pPixels = reinterpret_cast<const DWORD*>( pBits );
-    for ( int i = 0; i < FONT_ATLAS_W * FONT_ATLAS_H; ++i )
+    for ( int i = 0; i < hiTotalPx; ++i )
     {
-        atlasData[i] = static_cast<unsigned char>( pPixels[i] & 0xFF );
+        hiAtlas[i] = static_cast<uint8_t>( pPixels[i] & 0xFF );
     }
 
-    // Upload atlas to a backend texture (single red channel)
-    Text2d::fontTexture = Gfx().CreateTexture2D( atlasData.get(), FONT_ATLAS_W, FONT_ATLAS_H, 1, false, false );
+    // Release all GDI resources — the rest is CPU-only.
+    SelectObject( memDC, hOldFont );
+    SelectObject( memDC, hOldBitmap );
+    DeleteObject( hFont );
+    DeleteObject( hBitmap );
+    DeleteDC( memDC );
+
+    // =========================================================================
+    // Phase 2 — signed distance field via two 2D Euclidean Distance Transforms
+    // =========================================================================
+    //
+    // For each hi-res glyph cell:
+    //   edtOut[p] = squared dist from p to the nearest OUTSIDE pixel
+    //   edtIn [p] = squared dist from p to the nearest INSIDE  pixel
+    //
+    // Signed distance: sdf = sqrt(edtOut) − sqrt(edtIn)
+    //   > 0 inside the glyph  |  ≈ 0 on the edge  |  < 0 outside
+    //
+    // Byte encoding: byte = clamp(128 + sdf × 128 / SDF_SPREAD_HI, 0, 255)
+    //   255 = deep inside  |  128 = edge  |  0 = deep outside
+    //
+    // Each SDF_SCALE×SDF_SCALE block is box-averaged to one final-atlas byte,
+    // preserving sub-pixel gradients through the 6× downsample.
+    // =========================================================================
+    const int finalTotalPx = FONT_ATLAS_W * FONT_ATLAS_H;
+    std::unique_ptr<uint8_t[]> finalAtlas( new uint8_t[finalTotalPx] );
+
+    const int cellPx = FONT_CELL_W_HI * FONT_CELL_H_HI;
+    std::vector<float> edtOut( cellPx );
+    std::vector<float> edtIn( cellPx );
+
+    for ( int glyph = 0; glyph < 96; ++glyph )
+    {
+        const int gcol = glyph % FONT_COLS;
+        const int grow = glyph / FONT_COLS;
+
+        // Top-left corner of this glyph's cell in the hi-res atlas
+        const int cx = gcol * FONT_CELL_W_HI;
+        const int cy = grow * FONT_CELL_H_HI;
+
+        // Initialise EDT source grids from the binary glyph mask.
+        // edtOut: source = OUTSIDE pixels  edtIn: source = INSIDE pixels
+        for ( int py = 0; py < FONT_CELL_H_HI; ++py )
+        {
+            for ( int px = 0; px < FONT_CELL_W_HI; ++px )
+            {
+                const uint8_t val = hiAtlas[( cy + py ) * ATLAS_W_HI + ( cx + px )];
+                const bool inside = ( val > 127u );
+                const int idx = py * FONT_CELL_W_HI + px;
+                edtOut[idx] = inside ? INF : 0.0f;
+                edtIn[idx] = inside ? 0.0f : INF;
+            }
+        }
+
+        ComputeEDT2D( edtOut.data(), FONT_CELL_W_HI, FONT_CELL_H_HI );
+        ComputeEDT2D( edtIn.data(), FONT_CELL_W_HI, FONT_CELL_H_HI );
+
+        // Box-filter SDF_SCALE×SDF_SCALE hi-res blocks → one final-atlas byte.
+        const int fcy = grow * FONT_CELL_H;
+        const int fcx = gcol * FONT_CELL_W;
+        for ( int fy = 0; fy < FONT_CELL_H; ++fy )
+        {
+            for ( int fx = 0; fx < FONT_CELL_W; ++fx )
+            {
+                float sum = 0.0f;
+                for ( int sy = 0; sy < SDF_SCALE; ++sy )
+                {
+                    for ( int sx = 0; sx < SDF_SCALE; ++sx )
+                    {
+                        const int hidx = ( fy * SDF_SCALE + sy ) * FONT_CELL_W_HI + ( fx * SDF_SCALE + sx );
+                        const float distOut = sqrtf( edtOut[hidx] );
+                        const float distIn = sqrtf( edtIn[hidx] );
+                        sum += ( distOut - distIn ); // positive inside, negative outside
+                    }
+                }
+                const float avgSdf = sum / static_cast<float>( SDF_SCALE * SDF_SCALE );
+                const float encoded = 128.0f + avgSdf * 128.0f / static_cast<float>( SDF_SPREAD_HI );
+                int byte = static_cast<int>( encoded + 0.5f );
+                if ( byte < 0 )
+                {
+                    byte = 0;
+                }
+                if ( byte > 255 )
+                {
+                    byte = 255;
+                }
+                finalAtlas[( fcy + fy ) * FONT_ATLAS_W + ( fcx + fx )] = static_cast<uint8_t>( byte );
+            }
+        }
+    }
+
+    // =========================================================================
+    // Phase 3 — write binary atlas file
+    // =========================================================================
+    FILE* f = nullptr;
+    if ( fopen_s( &f, cOutPath, "wb" ) != 0 || !f )
+    {
+        return false;
+    }
+
+    SdfFileHeader hdr = {};
+    memcpy( hdr.magic, "SBSDF001", 8 );
+    hdr.version = 1u;
+    hdr.atlasW = static_cast<uint32_t>( FONT_ATLAS_W );
+    hdr.atlasH = static_cast<uint32_t>( FONT_ATLAS_H );
+    hdr.fontSize = static_cast<uint32_t>( FONT_SIZE );
+    hdr.cellW = static_cast<uint32_t>( FONT_CELL_W );
+    hdr.cellH = static_cast<uint32_t>( FONT_CELL_H );
+    memcpy( hdr.charAdvance, charAdvBuf, 96 * sizeof( float ) );
+
+    fwrite( &hdr, sizeof( hdr ), 1, f );
+    fwrite( finalAtlas.get(), 1, static_cast<size_t>( finalTotalPx ), f );
+    fclose( f );
+    return true;
+}
+
+
+void Text2d::BuildFont( const char* cFontName )
+{
+    // Load the pre-generated SDF atlas if available.  To regenerate, run:
+    //   SKULLBONEZ_CORE.exe --gen-atlas
+    // If the file is absent or stale the engine generates it on first run so
+    // it always works without a manual pre-step.
+    const std::string atlasPath = std::string( DATA_ROOT ) + "font_atlas.sdf";
+    if ( !LoadSdfAtlasFromFile( atlasPath.c_str() ) )
+    {
+        fprintf( stderr, "[Text2d] SDF atlas missing or stale — generating (one time)...\n" );
+        if ( !Text2d::GenerateSdfAtlasToFile( cFontName, atlasPath.c_str() ) )
+        {
+            throw std::runtime_error( "SDF atlas generation failed (Text2d::BuildFont)" );
+        }
+        if ( !LoadSdfAtlasFromFile( atlasPath.c_str() ) )
+        {
+            throw std::runtime_error( "SDF atlas load-after-generate failed (Text2d::BuildFont)" );
+        }
+        fprintf( stderr, "[Text2d] SDF atlas saved to %s\n", atlasPath.c_str() );
+    }
 
     // Create the text batch VB: [x, y, u, v, r, g, b] per vertex, large enough for a full HUD frame.
     // All Render2dText* calls accumulate into this; FlushText() does one upload+draw per frame.
@@ -148,13 +485,6 @@ void Text2d::BuildFont( const HDC hDC, const char* cFontName )
     const float halfH = tanf( 22.5f * _PI / 180.0f );
     const float halfW = halfH * static_cast<float>( Cfg().screenX ) / static_cast<float>( Cfg().screenY );
     s_orthoProj = Matrix4::Ortho( -halfW, halfW, -halfH, halfH, -1.0f, 1.0f );
-
-    // Cleanup GDI resources
-    SelectObject( memDC, hOldFont );
-    SelectObject( memDC, hOldBitmap );
-    DeleteObject( hFont );
-    DeleteObject( hBitmap );
-    DeleteDC( memDC );
 }
 
 
@@ -217,15 +547,21 @@ static void RenderTextInternal( float xPosition, float yPosition, float fSize, f
         float u0 = static_cast<float>( col * FONT_CELL_W ) / static_cast<float>( FONT_ATLAS_W ) + halfU;
         float v0 = static_cast<float>( row * FONT_CELL_H ) / static_cast<float>( FONT_ATLAS_H ) + halfV;
         float u1 = u0 + ( Text2d::charAdvance[idx] * static_cast<float>( FONT_SIZE ) ) / static_cast<float>( FONT_ATLAS_W ) - halfU;
-        float v1 = static_cast<float>( row * FONT_CELL_H + FONT_SIZE ) / static_cast<float>( FONT_ATLAS_H ) - halfV;
+        // Sample the full cell height so descenders (g, j, p, q, y) are not clipped.
+        // Previously this was clamped to FONT_SIZE pixels, cutting off the bottom
+        // (FONT_CELL_H - FONT_SIZE) rows that hold descender strokes.
+        float v1 = static_cast<float>( row * FONT_CELL_H + FONT_CELL_H ) / static_cast<float>( FONT_ATLAS_H ) - halfV;
 
         float charW = Text2d::charAdvance[idx] * fSize;
-        float charH = fSize;
+
+        // Extend the quad downward by the descender fraction so the extra atlas rows
+        // map onto screen space without distorting the cap-height region.
+        const float descH = fSize * static_cast<float>( FONT_CELL_H - FONT_SIZE ) / static_cast<float>( FONT_SIZE );
 
         float x0 = penX;
         float x1 = penX + charW;
-        float y0 = penY;
-        float y1 = penY + charH;
+        float y0 = penY - descH; // below yPosition — descender region
+        float y1 = penY + fSize; // above yPosition — cap-height region
 
         // 7 floats per vertex: [x, y, u, v, r, g, b]
         float* v = &s_batchBuf[s_batchVerts * TEXT_BATCH_FLOATS_PER_VERT];

@@ -94,6 +94,7 @@ class SkullbonezRun
     bool m_isTerrainHidden;                         // Hide terrain mesh (toggle with 4)
     bool m_isWaterHidden;                           // Hide water mesh (toggle with 5)
     bool m_isDebugVectors;                          // Draw velocity (green) and angular velocity (red) vectors (toggle with V)
+    bool m_isTextOnly;                              // Suppress all 3D rendering; show solid background with large pangram text
     float m_timeScale;                              // Physics time multiplier from scene file (1.0 = realtime)
     float m_frozenWaterTime;                        // Simulation time captured when freeze was toggled on
     int m_trackBallIndex;                           // Index of ball to track with camera (-1 = no tracking)

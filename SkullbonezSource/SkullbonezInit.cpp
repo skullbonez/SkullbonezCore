@@ -1,6 +1,7 @@
 // --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezRun.h"
+#include "SkullbonezText.h"
 #include "SkullbonezWindow.h"
 #include "SkullbonezTimer.h"
 #include "SkullbonezIRenderBackend.h"
@@ -46,6 +47,41 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
         freopen_s( &dummy, "CONOUT$", "w", stderr );
     }
 
+    // Handle --gen-atlas before any window/GPU init: generates the SDF font atlas
+    // to a file and exits.  No graphics context is needed for this operation.
+    // Usage:  SKULLBONEZ_CORE.exe --gen-atlas [optional/output/path.sdf]
+    if ( szCmdLine && strstr( szCmdLine, "--gen-atlas" ) )
+    {
+        const char* arg = strstr( szCmdLine, "--gen-atlas" ) + 11;
+        while ( *arg == ' ' )
+        {
+            ++arg;
+        }
+        char outPath[MAX_PATH];
+        if ( *arg != '\0' && *arg != '-' )
+        {
+            int len = 0;
+            while ( arg[len] != ' ' && arg[len] != '\0' && len < MAX_PATH - 1 )
+            {
+                outPath[len] = arg[len];
+                ++len;
+            }
+            outPath[len] = '\0';
+        }
+        else
+        {
+            strcpy_s( outPath, "SkullbonezData/font_atlas.sdf" );
+        }
+        fprintf( stdout, "[gen-atlas] Generating SDF font atlas: %s\n", outPath );
+        if ( SkullbonezCore::Text::Text2d::GenerateSdfAtlasToFile( "Verdana", outPath ) )
+        {
+            fprintf( stdout, "[gen-atlas] Done.\n" );
+            return 0;
+        }
+        fprintf( stderr, "[gen-atlas] FAILED.\n" );
+        return 1;
+    }
+
     // Build the ordered list of scene paths to run.
     // Each entry is either a .scene path (scene/suite mode) or "" (legacy mode).
     std::vector<std::string> sceneList;
@@ -64,9 +100,17 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
                 ++suiteArg;
             }
 
+            // Extract just the filename token (stop before any subsequent flags).
+            const char* suiteEnd = suiteArg;
+            while ( *suiteEnd != '\0' && *suiteEnd != ' ' && *suiteEnd != '\t' )
+            {
+                ++suiteEnd;
+            }
+            std::string suitePath( suiteArg, suiteEnd );
+
             // Read suite file: one scene path per line, # comments ignored
             FILE* f = nullptr;
-            if ( fopen_s( &f, suiteArg, "r" ) == 0 && f )
+            if ( fopen_s( &f, suitePath.c_str(), "r" ) == 0 && f )
             {
                 char line[512];
                 while ( fgets( line, sizeof( line ), f ) )
@@ -94,7 +138,14 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
             }
             if ( *sceneArg != '\0' )
             {
-                sceneList.push_back( sceneArg );
+                // Collect only the first token (stop at whitespace so subsequent
+                // flags like --renderer are not accidentally included in the path).
+                const char* end = sceneArg;
+                while ( *end != '\0' && *end != ' ' && *end != '\t' )
+                {
+                    ++end;
+                }
+                sceneList.push_back( std::string( sceneArg, end ) );
                 isSuiteOrSceneMode = true;
             }
         }

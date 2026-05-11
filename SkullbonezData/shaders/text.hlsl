@@ -65,9 +65,15 @@ VS_OUT main_vs(VS_IN input)
 
 float4 main_ps(VS_OUT input) : SV_TARGET
 {
-    // Sample RED channel — this is the glyph's alpha mask (1=ink, 0=empty).
-    float alpha = uFontTexture.Sample(sSampler0, input.texCoord).r;
-    // Output per-vertex text color with glyph-shaped transparency.
+    // The atlas stores a Signed Distance Field: 0 = outside, 0.5 = edge, 1 = inside.
+    // ddx/ddy give the screen-space partial derivatives of the SDF, used to compute
+    // an adaptive AA band width — wide at small sizes (smooth), narrow at large sizes (sharp).
+    //
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-ddx
+    //       https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-ddy
+    float sdf   = uFontTexture.Sample(sSampler0, input.texCoord).r;
+    float fw    = (abs(ddx(sdf)) + abs(ddy(sdf))) * 0.7;
+    float alpha = smoothstep(0.5 - fw, 0.5 + fw, sdf);
     return float4(input.color, alpha);
 }
 

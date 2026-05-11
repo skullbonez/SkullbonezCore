@@ -65,6 +65,7 @@ SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
     m_isTerrainHidden = false;
     m_isWaterHidden = false;
     m_isDebugVectors = false;
+    m_isTextOnly = false;
     m_timeScale = 1.0f;
     m_frozenWaterTime = 0.0f;
     m_trackBallIndex = -1;
@@ -163,7 +164,7 @@ void SkullbonezRun::Initialise()
     m_cReflectionFBO = Gfx().CreateFramebuffer( fboW, fboH );
 
     // Init font (HDC, font)
-    Text2d::BuildFont( m_cWindow->m_sDevice, "Verdana" );
+    Text2d::BuildFont( "Verdana" );
 
     // Init cameras singleton (shared across scenes, Reset() between loads)
     m_cCameras = CameraCollection::Instance();
@@ -718,6 +719,12 @@ void SkullbonezRun::Render()
     // Clear screen pixel and depth into buffers
     Gfx().Clear( true, true );
 
+    // In text_only mode all 3D rendering is skipped — DrawWindowText handles the display
+    if ( m_isTextOnly )
+    {
+        return;
+    }
+
     // renders camera views etc
     SetViewingOrientation();
 
@@ -988,6 +995,27 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 
     // TOP - show renderer type
     const char* rendererName = Gfx().GetRendererName();
+
+    // text_only mode: solid background + full-screen pangram, no HUD/profiler
+    if ( m_isTextOnly )
+    {
+        // Dark background covering the full viewport
+        Text2d::Render2dQuad( -0.55f, -0.45f, 0.55f, 0.45f, 0.08f, 0.08f, 0.12f, 1.0f );
+
+        // Three rows of the pangram — each line uses a slightly different colour
+        // so hue/brightness fringing artefacts are visible on all channel combinations
+        const float sz = 0.09f;
+        Text2d::Render2dTextColor( -0.46f, 0.22f, sz, 1.00f, 1.00f, 1.00f, "The quick brown fox" );
+        Text2d::Render2dTextColor( -0.46f, 0.07f, sz, 1.00f, 0.90f, 0.20f, "jumps over the" );
+        Text2d::Render2dTextColor( -0.46f, -0.08f, sz, 0.40f, 0.90f, 1.00f, "lazy dog" );
+
+        // Renderer name in small text at bottom so we know which backend we're looking at
+        Text2d::Render2dTextColor( -0.46f, -0.38f, 0.015f, 0.60f, 0.60f, 0.60f, "renderer: %s", rendererName );
+
+        Text2d::FlushText();
+        return;
+    }
+
     Text2d::Render2dText( -0.53f, 0.39f, 0.015f, "SKULLBONEZ CORE [%s]", rendererName );
     Text2d::Render2dText( 0.39f, 0.39f, 0.015f, "Model Count: %i", m_modelCount );
 
@@ -1294,6 +1322,7 @@ void SkullbonezRun::LoadScene( int index )
     m_isTerrainHidden = false;
     m_isWaterHidden = false;
     m_isDebugVectors = false;
+    m_isTextOnly = false;
     m_timeScale = 1.0f;
     m_frozenWaterTime = 0.0f;
     m_trackBallIndex = -1;
@@ -1335,6 +1364,7 @@ void SkullbonezRun::LoadScene( int index )
         m_isScenePhysics = scene.IsPhysicsEnabled();
         m_isSceneText = scene.IsTextEnabled();
         m_isDebugVectors = scene.IsDebugVectors();
+        m_isTextOnly = scene.IsTextOnly();
         m_timeScale = scene.GetTimeScale();
         m_targetFrameCount = scene.GetFrameCount();
         m_screenshotFrame = scene.GetScreenshotFrame();

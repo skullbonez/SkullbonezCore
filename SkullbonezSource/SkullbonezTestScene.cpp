@@ -11,6 +11,7 @@ TestScene::TestScene()
 {
     m_isPhysicsEnabled = true;
     m_isTextEnabled = true;
+    m_isTextOnly = false;
     m_frameCount = -1;
     m_screenshotPath[0] = '\0';
     m_perfLogPath[0] = '\0';
@@ -112,6 +113,27 @@ TestScene TestScene::LoadFromFile( const char* path )
                 fclose( file );
                 char msg[256];
                 sprintf_s( msg, sizeof( msg ), "Invalid text value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 5 );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
+        // parse text_only directive: suppress all 3D rendering, show a solid background with large text
+        if ( strncmp( line, "text_only ", 10 ) == 0 )
+        {
+            if ( strcmp( line + 10, "on" ) == 0 )
+            {
+                scene.m_isTextOnly = true;
+            }
+            else if ( strcmp( line + 10, "off" ) == 0 )
+            {
+                scene.m_isTextOnly = false;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid text_only value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 10 );
                 throw std::runtime_error( msg );
             }
             continue;
@@ -472,6 +494,12 @@ bool TestScene::IsPhysicsEnabled() const
 bool TestScene::IsTextEnabled() const
 {
     return m_isTextEnabled;
+}
+
+
+bool TestScene::IsTextOnly() const
+{
+    return m_isTextOnly;
 }
 
 
