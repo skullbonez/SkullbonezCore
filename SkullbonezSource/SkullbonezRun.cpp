@@ -1038,7 +1038,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         const float lineH   = 0.018f;
         const float profFSz = 0.012f;
         const float padY    = lineH * 1.2f;
-        Profiler::Instance().RenderOverlay( hw - mX, -( hh - mY ) - padY, lineH, profFSz, m_r_fpsTime, true );
+        Profiler::Instance().RenderOverlay( -( hw - mX ), -( hh - mY ) - padY, lineH, profFSz, m_r_fpsTime );
     }
 #endif
 
