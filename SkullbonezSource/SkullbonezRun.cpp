@@ -1007,15 +1007,29 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         return;
     }
 
-    Text2d::Render2dText( -0.53f, 0.39f, 0.015f, "SKULLBONEZ CORE [%s]", rendererName );
-    Text2d::Render2dText( 0.39f, 0.39f, 0.015f, "Model Count: %i", m_modelCount );
+    const float hw = Text2d::HalfW();
+    const float hh = Text2d::HalfH();
+    const float mX = 0.022f; // horizontal inset from left/right edge
+    const float mY = 0.015f; // vertical inset from top/bottom edge
+    const float fSz = 0.015f;
 
-    // Profiler overlay (replaces the legacy bottom FPS/Physics/Render strip).
+    // Top-left
+    Text2d::Render2dText( -( hw - mX ), hh - mY - fSz, fSz, "SKULLBONEZ CORE [%s]", rendererName );
+
+    // Top-right: measure the formatted string so it ends just inside the right edge
+    char mcBuf[64];
+    snprintf( mcBuf, sizeof( mcBuf ), "Model Count: %i", m_modelCount );
+    Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, mcBuf ), hh - mY - fSz, fSz, "%s", mcBuf );
+
+    // Profiler overlay — bottom-right anchored.
     // Compiled out in Release; toggleable with '0' in Debug/Profile.
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     if ( m_isProfilerOverlay )
     {
-        Profiler::Instance().RenderOverlay( -0.53f, -0.43f, 0.018f, 0.012f, m_r_fpsTime );
+        const float lineH = 0.018f;
+        const float profFSz = 0.012f;
+        const float padY = lineH * 1.2f;
+        Profiler::Instance().RenderOverlay( -( hw - mX ), -( hh - mY ) - padY, lineH, profFSz, m_r_fpsTime );
     }
 #endif
 
@@ -1348,6 +1362,8 @@ void SkullbonezRun::LoadScene( int index )
         m_isSceneText = scene.IsTextEnabled();
         m_isDebugVectors = scene.IsDebugVectors();
         m_isTextOnly = scene.IsTextOnly();
+        m_isWaterHidden = scene.IsWaterHidden();
+        m_isTerrainHidden = scene.IsTerrainHidden();
         m_timeScale = scene.GetTimeScale();
         m_targetFrameCount = scene.GetFrameCount();
         m_screenshotFrame = scene.GetScreenshotFrame();

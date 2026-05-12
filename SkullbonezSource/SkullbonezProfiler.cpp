@@ -679,7 +679,7 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
 }
 
 
-void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, float fSize, float fps ) const
+void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, float fSize, float fps, bool rightAnchored ) const
 {
     using SkullbonezCore::Text::Text2d;
 
@@ -699,6 +699,12 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     const float padY = lineHeight * 1.2f;
     const float panelW = anyGpu ? fSize * 53.0f : fSize * 46.0f;
     const float rowsHeight = static_cast<float>( m_markerCount + 2 ) * lineHeight; // +2 for header + column labels
+
+    // When right-anchored, xLeft is the desired right edge of the panel; resolve to true xLeft.
+    if ( rightAnchored )
+    {
+        xLeft = xLeft + padX - panelW;
+    }
 
     const float yBottom = yAnchor + padY;
     const float yTop = yBottom + rowsHeight;

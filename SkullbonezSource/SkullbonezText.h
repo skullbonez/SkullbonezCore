@@ -29,6 +29,9 @@ class Text2d
     inline static std::unique_ptr<Rendering::IShader> pSolidShader;
     inline static float charAdvance[96] = {};
 
+    inline static float s_halfW = 0.0f; // current ortho half-width  (right edge X)
+    inline static float s_halfH = 0.0f; // current ortho half-height (top edge Y)
+
     // NOTES: positioning is relational to centre of client rect
     //		  xPosition and yPosition should be (< 0.5f) and (> - 0.5f)
     //		  fSize should be between 0 and 1
@@ -40,6 +43,16 @@ class Text2d
     static void BuildFont( const char* cFontName );                                                                                       // Loads (or generates) SDF atlas, builds GPU resources
     static bool GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath );                                                    // Generates SDF atlas to binary file (also usable via --gen-atlas)
     static void DeleteFont();                                                                                                             // Releases GPU font resources
+    static void RebuildProjection( int w, int h );                                                                                        // Recomputes ortho projection after a window resize
+    static float HalfW()
+    {
+        return s_halfW;
+    } // Right edge X in text space (varies with aspect ratio)
+    static float HalfH()
+    {
+        return s_halfH;
+    } // Top edge Y in text space (fixed; depends only on FOV)
+    static float MeasureText( float fSize, const char* text ); // Returns the rendered width of a pre-formatted string
 };
 } // namespace Text
 } // namespace SkullbonezCore

@@ -22,8 +22,8 @@ class SkullbonezConfig
     void Load( const char* path );
 
     // Window
-    int screenX = 1200;
-    int screenY = 900;
+    int screenX = 1024;
+    int screenY = 768;
     bool fullscreen = false;
     int bitsPerPixel = 32;
     int refreshRate = 75;

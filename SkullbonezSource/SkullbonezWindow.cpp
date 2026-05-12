@@ -1,6 +1,7 @@
 // --- Includes ---
 #include "SkullbonezWindow.h"
 #include "SkullbonezIRenderBackend.h"
+#include "SkullbonezText.h"
 
 
 // --- Usings ---
@@ -65,6 +66,10 @@ void SkullbonezWindow::HandleScreenResize()
     }
 
     Gfx().Resize( w, h );
+
+    // Recompute the 2D text ortho projection to match the new aspect ratio.
+    // Without this, text stretches when the window is resized or maximized.
+    Text::Text2d::RebuildProjection( w, h );
 
     // Build projection matrix with the correct depth range for the active backend
     float aspect = static_cast<float>( w ) / static_cast<float>( h );

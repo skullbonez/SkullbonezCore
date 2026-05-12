@@ -239,6 +239,7 @@
   <ItemGroup>
     <None Include="SkullbonezData\engine.cfg" />
     <None Include="SkullbonezData\shaders\lit_textured.frag" />
+    <None Include="SkullbonezData\shaders\generate_mips.hlsl" />
     <None Include="SkullbonezData\shaders\lit_textured.hlsl" />
     <None Include="SkullbonezData\shaders\lit_textured.vert" />
     <None Include="SkullbonezData\shaders\shadow.frag" />
