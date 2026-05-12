@@ -44,9 +44,15 @@ class Text2d
     static bool GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath );                                                    // Generates SDF atlas to binary file (also usable via --gen-atlas)
     static void DeleteFont();                                                                                                             // Releases GPU font resources
     static void RebuildProjection( int w, int h );                                                                                        // Recomputes ortho projection after a window resize
-    static float HalfW() { return s_halfW; }                                                                                              // Right edge X in text space (varies with aspect ratio)
-    static float HalfH() { return s_halfH; }                                                                                              // Top edge Y in text space (fixed; depends only on FOV)
-    static float MeasureText( float fSize, const char* text );                                                                            // Returns the rendered width of a pre-formatted string
+    static float HalfW()
+    {
+        return s_halfW;
+    } // Right edge X in text space (varies with aspect ratio)
+    static float HalfH()
+    {
+        return s_halfH;
+    } // Top edge Y in text space (fixed; depends only on FOV)
+    static float MeasureText( float fSize, const char* text ); // Returns the rendered width of a pre-formatted string
 };
 } // namespace Text
 } // namespace SkullbonezCore

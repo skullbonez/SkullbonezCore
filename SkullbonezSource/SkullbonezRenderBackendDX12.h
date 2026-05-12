@@ -205,6 +205,11 @@ class RenderBackendDX12 : public IRenderBackend
     TLAS m_tlas;
     SBT m_sbt;
 
+    // GPU mip generation compute pipeline
+    ID3D12PipelineState* m_genMipsPSO; // Compute PSO for generate_mips.hlsl
+    ID3D12RootSignature* m_genMipsRS;  // Root signature: 4 root constants + SRV + 4 UAVs
+    UINT m_genMipsNullUAV;             // Static SRV slot holding a null UAV (padding)
+
     // GPU timestamp timers (for profiler overlay)
     static const int TIMER_HEAP_MARKERS = 64;                  // must be >= Profiler::MAX_MARKERS
     static const int TIMER_HEAP_SIZE = TIMER_HEAP_MARKERS * 2; // begin + end per marker
@@ -234,6 +239,8 @@ class RenderBackendDX12 : public IRenderBackend
     void CreateRTRootSignature();
     void CreateRTPipeline();
     void CreateReflectionUAV( int width, int height );
+    void InitGenMipsPipeline();
+    void GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, UINT w, UINT h, UINT numMips );
 
     static void BuildInputLayout( VertexFormat12 format, D3D12_INPUT_ELEMENT_DESC* out, UINT& count );
     static void BuildInstancedInputLayout( const InstancedMeshDX12& im, D3D12_INPUT_ELEMENT_DESC* out, UINT& count );

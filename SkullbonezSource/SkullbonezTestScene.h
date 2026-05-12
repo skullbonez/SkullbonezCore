@@ -77,6 +77,8 @@ class TestScene
     float m_trackHeight;        // Height above tracked ball for camera (-1 = no tracking)
     float m_autoCycleInterval;  // Seconds between per-ball screenshots (-1 = disabled)
     bool m_screenshotAndExit;   // Capture first frame as SCENENAME.bmp then exit
+    bool m_waterHidden;         // Suppress water rendering (for clean texture comparison)
+    bool m_terrainHidden;       // Suppress terrain rendering
     bool m_hasFlatSlope;        // True when scene overrides terrain with analytic flat slope
     float m_flatBaseY;          // y = m_flatBaseY + m_flatSlopeX*x + m_flatSlopeZ*z
     float m_flatSlopeX;
@@ -112,7 +114,9 @@ class TestScene
     float GetTrackHeight() const;       // Returns tracking camera height above ball (-1 = disabled)
     float GetAutoCycleInterval() const; // Returns per-ball screenshot interval in seconds (-1 = disabled)
     bool IsScreenshotAndExit() const;   // True if scene should capture first frame then exit
-    bool HasFlatSlope() const;          // True when scene specifies flat analytic slope terrain
+    bool IsWaterHidden() const;
+    bool IsTerrainHidden() const;
+    bool HasFlatSlope() const; // True when scene specifies flat analytic slope terrain
     float GetFlatBaseY() const;
     float GetFlatSlopeX() const;
     float GetFlatSlopeZ() const;

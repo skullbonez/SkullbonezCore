@@ -28,6 +28,8 @@ TestScene::TestScene()
     m_trackHeight = -1.0f;
     m_autoCycleInterval = -1.0f;
     m_screenshotAndExit = false;
+    m_waterHidden = false;
+    m_terrainHidden = false;
     m_hasFlatSlope = false;
     m_flatBaseY = 0.0f;
     m_flatSlopeX = 0.0f;
@@ -466,6 +468,48 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
+        // parse water_hidden directive
+        if ( strncmp( line, "water_hidden ", 13 ) == 0 )
+        {
+            if ( strcmp( line + 13, "on" ) == 0 )
+            {
+                scene.m_waterHidden = true;
+            }
+            else if ( strcmp( line + 13, "off" ) == 0 )
+            {
+                scene.m_waterHidden = false;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid water_hidden value at line %d  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
+        // parse terrain_hidden directive
+        if ( strncmp( line, "terrain_hidden ", 15 ) == 0 )
+        {
+            if ( strcmp( line + 15, "on" ) == 0 )
+            {
+                scene.m_terrainHidden = true;
+            }
+            else if ( strcmp( line + 15, "off" ) == 0 )
+            {
+                scene.m_terrainHidden = false;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid terrain_hidden value at line %d  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
         // unknown directive
         fclose( file );
         char msg[256];
@@ -500,6 +544,18 @@ bool TestScene::IsTextEnabled() const
 bool TestScene::IsTextOnly() const
 {
     return m_isTextOnly;
+}
+
+
+bool TestScene::IsWaterHidden() const
+{
+    return m_waterHidden;
+}
+
+
+bool TestScene::IsTerrainHidden() const
+{
+    return m_terrainHidden;
 }
 
 

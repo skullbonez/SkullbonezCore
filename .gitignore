@@ -50,8 +50,8 @@ dx12_validation.txt
 # Runtime-generated user snapshots and screenshots
 # To keep a specific snapshot as a test case, move it to SkullbonezData/scenes/
 # To keep a specific screenshot, move it to TestOutput/ or another tracked folder
-Scenes/
-Screenshots/
+/Scenes/
+/Screenshots/
 
 # Root-level snapshot files saved before Scenes/ folder existed
 /snapshot_*.scene

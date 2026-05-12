@@ -17,7 +17,7 @@
 
 ## Branch & Last Commit
 - Branch: `main`
-- Last commit on main: `a2728b4` — Implement SDF text rendering with offline atlas generation
+- Last commit on main: `TBD` — DX12 GPU compute mip generation + sampler MaxLOD fix
 
 ---
 
@@ -55,7 +55,16 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 
 ## Recent Session Work (this session)
 
-1. **SDF text rendering** (`a2728b4`):
+1. **DX12 GPU compute mip generation** (this commit):
+   - New compute shader `generate_mips.hlsl`: cs_5_0, 8×8 thread groups, up to 4 mips/dispatch, NPOT handling (4 cases via SrcDimension bits), group-shared memory reduction for mips 2-4
+   - `InitGenMipsPipeline()` + `GenerateMipsGPU()` in DX12 backend — replaces CPU-side mip generation
+   - **Critical bug fix**: both DX12 static samplers in the main render root signature had `MaxLOD = 0` (zero-init default of `D3D12_STATIC_SAMPLER_DESC samplers[2] = {}`), silently clamping all sampling to mip 0. Fixed to `D3D12_FLOAT32_MAX`. Also added explicit `MaxAnisotropy = 1`.
+   - New scene directives: `water_hidden on/off`, `terrain_hidden on/off` (SkullbonezTestScene + SkullbonezRun)
+   - New test assets: `SkullbonezData/scenes/terrain_compare.scene`, `TestOutput/compare_terrain.py` (pixel-level DX11 vs DX12 comparison with RMSE, heatmaps)
+   - Window default resolution changed to 960×540 (1/4 of 2560×1440)
+   - Text anchoring fixed: top-left, top-right, bottom-right corners at new aspect ratio
+
+2. **SDF text rendering** (`a2728b4`):
    - `text_only` scene mode + `text_test.scene` for diagnosing text at large display sizes
    - Descender cut-off fix: full 48px cell height sampled in `RenderTextInternal`
    - Offline SDF atlas generation: GDI renders at 6× → Felzenszwalb-Huttenlocher EDT → 6×6 box-filter → binary `.sdf` file
@@ -170,7 +179,7 @@ All uniforms that never change per-frame are set once at shader creation time (n
 - Kill `SKULLBONEZ_CORE.exe` before building (locks the exe → LNK1168)
 - Python via `py` command (not `python`), Pillow installed
 - Output: `Debug\SKULLBONEZ_CORE.exe`
-- Screen resolution: 1200×900
+- Screen resolution: 960×540 (1/4 of 2560×1440)
 - No pre-commit hooks (removed — was broken, referencing Python 3.7 that doesn't exist)
 - clang-format: `C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\x64\bin\clang-format.exe`
 - `.clang-format` has `MaxEmptyLinesToKeep: 2` — preserves double blank lines between functions
@@ -185,4 +194,4 @@ All uniforms that never change per-frame are set once at shader creation time (n
 - Memory sampled every 60 frames via `GetProcessMemoryInfo` (psapi.lib)
 - CSV: `Debug/perf_log.csv` — analysed by `Copilot/Skills/skore-render-test/analyze_perf.py`
 - Regression thresholds: avg/p50 timing >10% = FAIL, memory >5 MB growth = FAIL
-- LOC: ~8018 (logical lines, excludes blanks/comments/ThirdPtySource)
+- LOC: ~16584 (logical lines, excludes blanks/comments/ThirdPtySource)

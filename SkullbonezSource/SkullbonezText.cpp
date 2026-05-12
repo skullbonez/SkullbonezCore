@@ -499,8 +499,8 @@ void Text2d::RebuildProjection( int w, int h )
     const float halfH = tanf( 22.5f * _PI / 180.0f );
     const float halfW = halfH * static_cast<float>( w ) / static_cast<float>( h );
     s_orthoProj = Matrix4::Ortho( -halfW, halfW, -halfH, halfH, -1.0f, 1.0f );
-    s_halfW     = halfW;
-    s_halfH     = halfH;
+    s_halfW = halfW;
+    s_halfH = halfH;
 }
 
 

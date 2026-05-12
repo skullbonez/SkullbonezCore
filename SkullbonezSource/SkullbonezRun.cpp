@@ -1016,10 +1016,10 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         return;
     }
 
-    const float hw  = Text2d::HalfW();
-    const float hh  = Text2d::HalfH();
-    const float mX  = 0.022f; // horizontal inset from left/right edge
-    const float mY  = 0.015f; // vertical inset from top/bottom edge
+    const float hw = Text2d::HalfW();
+    const float hh = Text2d::HalfH();
+    const float mX = 0.022f; // horizontal inset from left/right edge
+    const float mY = 0.015f; // vertical inset from top/bottom edge
     const float fSz = 0.015f;
 
     // Top-left
@@ -1035,9 +1035,9 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     if ( m_isProfilerOverlay )
     {
-        const float lineH   = 0.018f;
+        const float lineH = 0.018f;
         const float profFSz = 0.012f;
-        const float padY    = lineH * 1.2f;
+        const float padY = lineH * 1.2f;
         Profiler::Instance().RenderOverlay( -( hw - mX ), -( hh - mY ) - padY, lineH, profFSz, m_r_fpsTime );
     }
 #endif
@@ -1379,6 +1379,8 @@ void SkullbonezRun::LoadScene( int index )
         m_isSceneText = scene.IsTextEnabled();
         m_isDebugVectors = scene.IsDebugVectors();
         m_isTextOnly = scene.IsTextOnly();
+        m_isWaterHidden = scene.IsWaterHidden();
+        m_isTerrainHidden = scene.IsTerrainHidden();
         m_timeScale = scene.GetTimeScale();
         m_targetFrameCount = scene.GetFrameCount();
         m_screenshotFrame = scene.GetScreenshotFrame();
