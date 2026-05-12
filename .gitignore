@@ -45,6 +45,14 @@ __pycache__/
 # Superseded perf history dir (replaced by TestOutput/NNN_{commit}/ archives)
 TestOutput/perf_history/
 
+# TestOutput pipeline archives (numbered commit snapshots — large, local-only)
+# TestOutput/baselines/ is still tracked (needed for pipeline regression comparisons)
+TestOutput/[0-9]*/
+TestOutput/baseline-*/
+
+# Stale terrain-compare BMPs (large, not needed in source control)
+TestOutput/terrain_*.bmp
+
 dx12_validation.txt
 
 # Runtime-generated user snapshots and screenshots
