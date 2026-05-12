@@ -56,23 +56,6 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::CollisionDetection;
 
 
-// --- Physics logging state ---
-static FILE* s_physicsLog = nullptr;
-static int s_physicsFrame = 0;
-
-
-void CollisionResponse::SetPhysicsLog( FILE* file )
-{
-    s_physicsLog = file;
-}
-
-
-void CollisionResponse::SetPhysicsFrame( int frame )
-{
-    s_physicsFrame = frame;
-}
-
-
 // =============================================================================
 // SPHERE-TERRAIN COLLISION RESPONSE
 // =============================================================================
@@ -245,10 +228,15 @@ void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel, float cha
             // After slip settles, the Pole Vector should rotate about the Roll Axis.
             // Gradually remove any Pole component along omega so Pole -> perpendicular
             // to the red axis while preserving smooth motion.
+            // Skip when the ball is in water: it is floating, not rolling on terrain,
+            // so orientation correction is meaningless and causes visible snaps.
+            // Skip when the ball is in water: it is floating, not rolling on terrain,
+            // so orientation correction is meaningless and causes visible snaps.
+            bool ballInWater = ( gameModel.m_physicsInfo.GetPosition().y - radius ) < Cfg().fluidHeight;
             float omegaMagSq = omega.x * omega.x +
                                omega.y * omega.y +
                                omega.z * omega.z;
-            if ( omegaMagSq > TOLERANCE * TOLERANCE )
+            if ( !ballInWater && omegaMagSq > TOLERANCE * TOLERANCE )
             {
                 float omegaMag = sqrtf( omegaMagSq );
                 Vector3 omegaDir = omega / omegaMag;
@@ -283,6 +271,7 @@ void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel, float cha
                         }
 
                         float correctionAngle = acosf( dotPole );
+
                         if ( correctionAngle > TOLERANCE )
                         {
                             Vector3 correctionAxis = Vector::CrossProduct( pole, targetPole );
@@ -301,34 +290,6 @@ void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel, float cha
 
             gameModel.m_physicsInfo.SetLinearVelocity( velocity );
             gameModel.m_physicsInfo.SetAngularVelocity( omega );
-
-            // Log post-collision state (perpDeg is the key rolling-stability metric:
-            // angle between Pole and the perpendicular plane of omega; should stay near 0).
-            if ( s_physicsLog )
-            {
-                Vector3 pos = gameModel.m_physicsInfo.GetPosition();
-                Vector3 polePost = gameModel.GetOrientationUp();
-                float oMag = sqrtf( omega.x * omega.x + omega.y * omega.y + omega.z * omega.z );
-                float pMag = Vector::VectorMag( polePost );
-                float perpDeg = 0.0f;
-                if ( oMag > TOLERANCE && pMag > TOLERANCE )
-                {
-                    float dotN = ( polePost * omega ) / ( pMag * oMag );
-                    if ( dotN > 1.0f ){ dotN = 1.0f;
-}
-                    if ( dotN < -1.0f ){ dotN = -1.0f;
-}
-                    perpDeg = asinf( fabsf( dotN ) ) * ( 180.0f / _PI );
-                }
-                fprintf( s_physicsLog,
-                         "terrain,%d,%.2f,%.2f,%.2f,vel=(%.3f,%.3f,%.3f),omega=(%.3f,%.3f,%.3f),pole=(%.3f,%.3f,%.3f),perpDeg=%.3f,n=(%.3f,%.3f,%.3f)\n",
-                         s_physicsFrame, pos.x, pos.y, pos.z,
-                         velocity.x, velocity.y, velocity.z,
-                         omega.x, omega.y, omega.z,
-                         polePost.x, polePost.y, polePost.z,
-                         perpDeg,
-                         normal.x, normal.y, normal.z );
-            }
         } },
                 gameModel.m_boundingVolume );
 }
@@ -611,14 +572,6 @@ void CollisionResponse::SphereVsSphereAngular( GameModel& gameModel1,
     // keep sphere-sphere angular response consistent with the terrain solver.
     gameModel1.m_physicsInfo.SetChangeInAngularVelocity( -changeInAngularVelocity1 );
     gameModel2.m_physicsInfo.SetChangeInAngularVelocity( -changeInAngularVelocity2 );
-
-    // Log sphere-sphere angular changes
-    if ( s_physicsLog )
-    {
-        Vector3 pos1 = gameModel1.m_physicsInfo.GetPosition();
-        Vector3 pos2 = gameModel2.m_physicsInfo.GetPosition();
-        fprintf( s_physicsLog, "sphere,%d,%.2f,%.2f,%.2f,%.4f,%.4f,%.4f,%.2f,%.2f,%.2f,%.4f,%.4f,%.4f,0,0,0\n", s_physicsFrame, pos1.x, pos1.y, pos1.z, -changeInAngularVelocity1.x, -changeInAngularVelocity1.y, -changeInAngularVelocity1.z, pos2.x, pos2.y, pos2.z, -changeInAngularVelocity2.x, -changeInAngularVelocity2.y, -changeInAngularVelocity2.z );
-    }
 }
 
 

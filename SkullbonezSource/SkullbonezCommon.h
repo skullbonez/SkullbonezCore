@@ -64,11 +64,18 @@ constexpr float ZERO_TAKE_TOLERANCE = -0.00005f;
 
 // All other engine parameters live in SkullbonezConfig (loaded from engine.cfg).
 #include "SkullbonezConfig.h"
+#include "SkullbonezLog.h"
 
 // Convenience accessor — use Cfg().fieldName anywhere SkullbonezCommon.h is included.
 inline SkullbonezCore::Basics::SkullbonezConfig& Cfg()
 {
     return SkullbonezCore::Basics::SkullbonezConfig::Instance();
+}
+
+// Convenience accessor — use Log().Writef("file.csv", fmt, ...) anywhere (debug no-op in release).
+inline SkullbonezCore::Basics::SkullbonezLog& Log()
+{
+    return SkullbonezCore::Basics::SkullbonezLog::Get();
 }
 
 

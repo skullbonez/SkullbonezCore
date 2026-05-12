@@ -15,7 +15,6 @@ TestScene::TestScene()
     m_frameCount = -1;
     m_screenshotPath[0] = '\0';
     m_perfLogPath[0] = '\0';
-    m_physicsLogPath[0] = '\0';
     m_rollLogPath[0] = '\0';
     m_screenshotFrame = -1;
     m_screenshotMs = -1;
@@ -234,13 +233,6 @@ TestScene TestScene::LoadFromFile( const char* path )
         if ( strncmp( line, "perf_log ", 9 ) == 0 )
         {
             strcpy_s( scene.m_perfLogPath, sizeof( scene.m_perfLogPath ), line + 9 );
-            continue;
-        }
-
-        // parse physics_log directive
-        if ( strncmp( line, "physics_log ", 12 ) == 0 )
-        {
-            strcpy_s( scene.m_physicsLogPath, sizeof( scene.m_physicsLogPath ), line + 12 );
             continue;
         }
 
@@ -542,12 +534,6 @@ int TestScene::GetLegacyBallCount() const
 const char* TestScene::GetPerfLogPath() const
 {
     return m_perfLogPath;
-}
-
-
-const char* TestScene::GetPhysicsLogPath() const
-{
-    return m_physicsLogPath;
 }
 
 

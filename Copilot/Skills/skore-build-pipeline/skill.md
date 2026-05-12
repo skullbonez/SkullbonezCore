@@ -458,6 +458,19 @@ $REPO = (git rev-parse --show-toplevel).Trim()
 py "$REPO\Copilot\Skills\loc_count.py"
 ```
 
+### Step 8.5: Update SessionState.md
+
+**Mandatory before every commit.** `Copilot/SessionState.md` is the handoff document between sessions — it must reflect the commit about to be made.
+
+Update the following fields:
+- **Last commit**: set to the short SHA that will be created (use `git rev-parse --short HEAD` as a placeholder; amend after commit if needed)
+- **Branch**: current branch name
+- **Completed backlog items**: tick off anything finished in this session
+- **Known bugs / notes**: add any new findings, remove resolved items
+- **Uncommitted changes**: clear this section (everything is being committed)
+
+Use the `edit` tool to update `Copilot/SessionState.md` directly. Do not skip this step even for small commits.
+
 ### Step 9: Confirm Commit
 
 Show the proposed commit message and ask the user whether to proceed, **unless** the user explicitly said "commit" or "push" when invoking the pipeline.
@@ -504,5 +517,6 @@ Print the following table with a ✅ for every cell (the pipeline exits on first
 ║ 6: Perf              ║  ✅  ║  ✅   ║  ✅   ║
 ║ 7: Archive           ║  ✅  ║  ✅   ║  ✅   ║
 ║ 8: LOC               ║  ✅  ║  ✅   ║  ✅   ║
+║ 8.5: SessionState    ║  ✅  ║  ✅   ║  ✅   ║
 ╚══════════════════════╩═════╩══════╩══════╝
 ```

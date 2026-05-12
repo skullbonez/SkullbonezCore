@@ -16,8 +16,9 @@
 > *This applies to: pipeline runs, feature implementations, debugging sessions, refactors, any task expected to take >2 minutes or >10 tool calls.*
 
 ## Branch & Last Commit
-- Branch: `main`
-- Last commit on main: `a2728b4` — Implement SDF text rendering with offline atlas generation
+- Branch: `fix/floating-ball-orientation-snap`
+- Last commit: `c626d2e` — Fix floating ball orientation snap; add SkullbonezLog debug infrastructure
+- Parent branch: `main` @ `f0c68fe` — Update SessionState after SDF text commit
 
 ---
 
@@ -55,7 +56,17 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 
 ## Recent Session Work (this session)
 
-1. **SDF text rendering** (`a2728b4`):
+1. **Floating ball orientation snap fix + SkullbonezLog** (`c626d2e`):
+   - Root cause: `pole_align` in `RespondCollisionTerrain` applied uncapped rotation corrections (up to 90°/frame) to submerged balls touching terrain
+   - Fix: skip pole alignment entirely when ball centre is below fluid surface — meaningful only on land
+   - Ablation tested: water guard alone eliminates all snaps across 1800 frames; no-fix baseline reproduced 7 snaps including a 56.1° jump
+   - Added `SkullbonezLog` singleton: `Log().Writef(fileName, fmt, ...)` — lazy file creation per unique filename, `fflush` on every write, auto-close on shutdown; release builds are inline no-ops
+   - `Log().Writef()` documented in `agents.md` as canonical debug logging pattern
+   - Added `float_snap_test.scene` reproducer (8 floating balls, 1800 frames)
+   - Removed `rollAlignRate` config option (rate-limiter approach superseded by fix)
+   - Added Step 8.5 (Update SessionState) to `skore-build-pipeline` skill
+
+2. **SDF text rendering** (`a2728b4`):
    - `text_only` scene mode + `text_test.scene` for diagnosing text at large display sizes
    - Descender cut-off fix: full 48px cell height sampled in `RenderTextInternal`
    - Offline SDF atlas generation: GDI renders at 6× → Felzenszwalb-Huttenlocher EDT → 6×6 box-filter → binary `.sdf` file
@@ -68,7 +79,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 ---
 
 ## Uncommitted Changes (DO NOT LOSE)
-None — repo is clean.
+None — repo is clean. All changes on `fix/floating-ball-orientation-snap`.
 
 ---
 
@@ -185,4 +196,4 @@ All uniforms that never change per-frame are set once at shader creation time (n
 - Memory sampled every 60 frames via `GetProcessMemoryInfo` (psapi.lib)
 - CSV: `Debug/perf_log.csv` — analysed by `Copilot/Skills/skore-render-test/analyze_perf.py`
 - Regression thresholds: avg/p50 timing >10% = FAIL, memory >5 MB growth = FAIL
-- LOC: ~8018 (logical lines, excludes blanks/comments/ThirdPtySource)
+- LOC: ~16191 (logical lines, excludes blanks/comments/ThirdPtySource)

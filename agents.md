@@ -126,6 +126,38 @@ $msbuild = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.e
 
 ---
 
+## Debug Logging
+
+Use `Log().Writef()` to write diagnostic data to a CSV or text file during a debug build. No setup required — the file is created on the first write and closed automatically on exit.
+
+```cpp
+Log().Writef( "Debug/physics.csv", "terrain,%d,%.2f,%.2f,%.2f\n", frame, x, y, z );
+```
+
+- `Log()` is a free function injected by `SkullbonezCommon.h` — available everywhere, no extra includes.
+- Each unique filename gets its own file handle, lazily opened on first write.
+- Same filename in subsequent calls appends to the already-open handle.
+- **Compiled out entirely in Release** (`#ifdef _DEBUG` in `SkullbonezLog.cpp`) — zero overhead.
+- Do not call `fopen` / `fclose` / `fflush` manually; the singleton owns the lifecycle.
+
+To expose logging from a subsystem (e.g. `CollisionResponse`), add a `#ifdef _DEBUG` static path setter so `Run` can route the output path from the scene file:
+
+```cpp
+// In the subsystem header (debug only):
+#ifdef _DEBUG
+    static void SetLogPath( const char* path );
+#endif
+
+// In Run.cpp when loading a scene:
+#ifdef _DEBUG
+    CollisionResponse::SetLogPath( scene.GetPhysicsLogPath() );
+#endif
+```
+
+The scene file opts in with: `physics_log Debug/my_output.csv`
+
+---
+
 ## Key Docs
 
 | Doc | Path |

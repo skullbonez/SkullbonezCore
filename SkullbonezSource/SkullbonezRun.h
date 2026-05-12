@@ -63,7 +63,6 @@ class SkullbonezRun
     char m_screenshotDir[256];                      // Output directory for interval captures
     char m_perfLogPath[256];                        // Output path for perf CSV (empty = none)
     FILE* m_perfLogFile;                            // Open handle for perf CSV
-    FILE* m_physicsLogFile;                         // Open handle for physics CSV (empty = none)
     FILE* m_rollLogFile;                            // Open handle for roll orientation log (empty = none)
     int m_selectedCamera;                           // Keeps track of which camera is selected
     int m_modelCount;                               // Number of models in the scene
