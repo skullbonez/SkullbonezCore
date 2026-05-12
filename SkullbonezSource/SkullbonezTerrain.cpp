@@ -180,6 +180,26 @@ Vector3 Terrain::GetTerrainNormalAt( float xPosition, float zPosition )
 }
 
 
+void Terrain::GetTerrainHeightAndNormalAt( float xPosition, float zPosition, float& outHeight, Vector3& outNormal )
+{
+    // Single LocatePolygon call serves both height and normal — avoids the redundant
+    // polygon walk that occurs when GetTerrainHeightAt and GetTerrainNormalAt are
+    // called back-to-back for the same (x, z) in the shadow render loop.
+    Triangle tri = LocatePolygon( xPosition, zPosition );
+
+    outHeight = GeometricMath::GetHeightFromPlane( tri, xPosition, zPosition );
+
+    Vector3 edge1 = tri.v2 - tri.v1;
+    Vector3 edge2 = tri.v3 - tri.v1;
+    outNormal = Vector::CrossProduct( edge1, edge2 );
+    outNormal.Normalise();
+    if ( outNormal.y < 0.0f )
+    {
+        outNormal = outNormal * -1.0f;
+    }
+}
+
+
 bool Terrain::IsInBounds( float xPosition, float zPosition )
 {
     if ( m_isFlatSlope )

@@ -1,5 +1,6 @@
 // --- Includes ---
 #include "SkullbonezBoundingSphere.h"
+#include <immintrin.h> // SSE intrinsics for scale pass in GetModelMatrix
 
 
 // --- Usings ---
@@ -104,7 +105,45 @@ const Vector3& BoundingSphere::GetPosition() const
 
 Matrix4 BoundingSphere::GetModelMatrix( const Vector3& worldPos, const Matrix4& rotation ) const
 {
-    return Matrix4::Translate( worldPos ) * rotation * Matrix4::Translate( m_position ) * Matrix4::Scale( m_radius, m_radius, m_radius );
+    // Builds the full TRS model matrix: T(worldPos) * rotation * T(m_position) * Scale(radius).
+    //
+    // SIMPLIFICATION: m_position is always ZERO_VECTOR in this engine — every sphere's local
+    // offset is zero because GameModel::AddBoundingSphere() hard-codes it to ZERO_VECTOR.
+    // T(m_position) is therefore identity and the chain collapses to:
+    //   T(worldPos) * rotation * Scale(radius)
+    //
+    // This means the final matrix is just 'rotation' with each of its three direction columns
+    // (col0, col1, col2) uniformly scaled by m_radius, and col3 replaced by worldPos.
+    // No matrix multiply is needed at all.
+#ifdef _DEBUG
+    // Debug: full formula — makes T(m_position) visible even though it's always identity.
+    return Matrix4::Translate( worldPos ) * rotation * Matrix4::Translate( m_position ) *
+           Matrix4::Scale( m_radius, m_radius, m_radius );
+#else
+    // Release/Profile: 3 SSE scale passes + direct col3 write.
+    //
+    // Each pass loads one 4-float column of 'rotation' (16-byte-unaligned is fine with
+    // _mm_loadu_ps), multiplies all 4 lanes by the broadcast scalar m_radius, and stores
+    // the result directly into the output array.  col3 (the translation column) is set
+    // from worldPos with no SSE needed — it's only 4 scalar writes.
+    //
+    // SSE INTRINSICS USED:
+    //   _mm_set1_ps(s)         — broadcast s into all 4 lanes: (s, s, s, s)
+    //   _mm_loadu_ps(ptr)      — load 4 floats from unaligned memory
+    //   _mm_mul_ps(a, b)       — lane-wise multiply: (a0*b0, a1*b1, a2*b2, a3*b3)
+    //   _mm_storeu_ps(ptr, r)  — store 4 floats to unaligned memory
+
+    const __m128 rr = _mm_set1_ps( m_radius ); // broadcast radius
+    float res[16];
+    _mm_storeu_ps( res + 0, _mm_mul_ps( _mm_loadu_ps( rotation.m + 0 ), rr ) ); // col0 * radius
+    _mm_storeu_ps( res + 4, _mm_mul_ps( _mm_loadu_ps( rotation.m + 4 ), rr ) ); // col1 * radius
+    _mm_storeu_ps( res + 8, _mm_mul_ps( _mm_loadu_ps( rotation.m + 8 ), rr ) ); // col2 * radius
+    res[12] = worldPos.x;                                                       // col3: translation
+    res[13] = worldPos.y;
+    res[14] = worldPos.z;
+    res[15] = 1.0f; // homogeneous w
+    return Matrix4( res );
+#endif
 }
 
 

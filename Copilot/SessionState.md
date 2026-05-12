@@ -17,7 +17,7 @@
 
 ## Branch & Last Commit
 - Branch: `main`
-- Last commit on main: `c6027b3` — DX12 GPU compute mip generation + sampler MaxLOD fix
+- Last commit on main: `(pending)` — SIMD/SSE math optimization pass
 
 ---
 
@@ -55,7 +55,19 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 
 ## Recent Session Work (this session)
 
-1. **Floating ball orientation snap fix + SkullbonezLog** (`c626d2e`):
+1. **SIMD/SSE math optimization pass** (`pending`):
+   - `Matrix4::operator*`: SSE column-outer-product (`#ifdef _DEBUG` scalar loop preserved for debuggability)
+   - `Matrix4::FromQuaternion`: replaced RotationMatrix intermediary + 3 basis-vector extractions with direct 9-product formula
+   - `Matrix4::ModelFromQuaternionYaw90`: new fused static — T(worldPos) * FromQuat(q) * RotY90 * Scale(r) in ~40 FP ops vs ~500; `#ifdef _DEBUG` step-by-step compose path preserved
+   - `GameModel::GetModelMatrix`: single `ModelFromQuaternionYaw90` call
+   - `GameModel::GetOrientationUp`: 7-product direct quaternion formula (no matrix build+extract)
+   - `BoundingSphere::GetModelMatrix`: 3 SSE scale passes + direct col3 write; `#ifdef _DEBUG` 3-mul chain preserved
+   - `Matrix4::ShadowFromNormal`: fused T*RotFromUpToN*Scale — Rodrigues direct from N (1 sqrtf, 0 acosf/cosf/sinf); `#ifdef _DEBUG` acosf round-trip path shows what is eliminated
+   - `Terrain::GetTerrainHeightAndNormalAt`: single `LocatePolygon` call returning both height and normal (eliminates double polygon walk in shadow loop)
+   - All optimized code paths given verbose derivation comments with ASCII math
+   - **Result**: `Balls/MatrixBuild` −73.5%, `Render` −9.6%, `Shadows/MatrixBuild` −15.0%, `Reflection/Balls` −34.3% vs pre-SSE baseline
+
+2. **Floating ball orientation snap fix + SkullbonezLog** (`c626d2e`):
    - Root cause: `pole_align` in `RespondCollisionTerrain` applied uncapped rotation corrections (up to 90°/frame) to submerged balls touching terrain
    - Fix: skip pole alignment entirely when ball centre is below fluid surface — meaningful only on land
    - Ablation tested: water guard alone eliminates all snaps across 1800 frames; no-fix baseline reproduced 7 snaps including a 56.1° jump
@@ -64,8 +76,8 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
    - Added `float_snap_test.scene` reproducer (8 floating balls, 1800 frames)
    - Removed `rollAlignRate` config option (rate-limiter approach superseded by fix)
    - Added Step 8.5 (Update SessionState) to `skore-build-pipeline` skill
-   
-2. **DX12 GPU compute mip generation** (this commit):
+    
+3. **DX12 GPU compute mip generation** (`c6027b3`):
    - New compute shader `generate_mips.hlsl`: cs_5_0, 8×8 thread groups, up to 4 mips/dispatch, NPOT handling (4 cases via SrcDimension bits), group-shared memory reduction for mips 2-4
    - `InitGenMipsPipeline()` + `GenerateMipsGPU()` in DX12 backend — replaces CPU-side mip generation
    - **Critical bug fix**: both DX12 static samplers in the main render root signature had `MaxLOD = 0` (zero-init default of `D3D12_STATIC_SAMPLER_DESC samplers[2] = {}`), silently clamping all sampling to mip 0. Fixed to `D3D12_FLOAT32_MAX`. Also added explicit `MaxAnisotropy = 1`.
@@ -73,8 +85,6 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
    - New test assets: `SkullbonezData/scenes/terrain_compare.scene`, `TestOutput/compare_terrain.py` (pixel-level DX11 vs DX12 comparison with RMSE, heatmaps)
    - Window default resolution changed to 960×540 (1/4 of 2560×1440)
    - Text anchoring fixed: top-left, top-right, bottom-right corners at new aspect ratio
-
-3. **SDF text rendering** (`a2728b4`):
    - `text_only` scene mode + `text_test.scene` for diagnosing text at large display sizes
    - Descender cut-off fix: full 48px cell height sampled in `RenderTextInternal`
    - Offline SDF atlas generation: GDI renders at 6× → Felzenszwalb-Huttenlocher EDT → 6×6 box-filter → binary `.sdf` file
@@ -87,7 +97,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 ---
 
 ## Uncommitted Changes (DO NOT LOSE)
-None — repo is clean. All changes on `fix/floating-ball-orientation-snap`.
+None — repo is clean after SIMD optimization commit.
 
 ---
 

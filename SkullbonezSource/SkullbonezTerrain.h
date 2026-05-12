@@ -38,11 +38,12 @@ class Terrain
     {
         return m_terrainMesh.get();
     } // Returns the internal mesh (for DXR BLAS)
-    XZBounds GetXZBounds();                                                                // Returns the XZ bounds of the terrain
-    Triangle LocatePolygon( float xPosition, float zPosition );                            // Locates the polygon surrounding the specified X and Z co-ordinates based on an orthagonal XZ projection.  Detailed math reference at http://www.simoneschbach.com/images/FindingArbitraryPolygon.gif
-    bool IsInBounds( float xPosition, float zPosition );                                   // Returns a flag indicating if specified co-ordinates are inside the bounds of the terrain map
-    float GetTerrainHeightAt( float xPosition, float zPosition, bool isFluidMin = false ); // Returns the height of the terrain at the specified coordinates
-    Vector3 GetTerrainNormalAt( float xPosition, float zPosition );                        // Returns the surface normal of the terrain at the specified coordinates
+    XZBounds GetXZBounds();                                                                                     // Returns the XZ bounds of the terrain
+    Triangle LocatePolygon( float xPosition, float zPosition );                                                 // Locates the polygon surrounding the specified X and Z co-ordinates based on an orthagonal XZ projection.  Detailed math reference at http://www.simoneschbach.com/images/FindingArbitraryPolygon.gif
+    bool IsInBounds( float xPosition, float zPosition );                                                        // Returns a flag indicating if specified co-ordinates are inside the bounds of the terrain map
+    float GetTerrainHeightAt( float xPosition, float zPosition, bool isFluidMin = false );                      // Returns the height of the terrain at the specified coordinates
+    Vector3 GetTerrainNormalAt( float xPosition, float zPosition );                                             // Returns the surface normal of the terrain at the specified coordinates
+    void GetTerrainHeightAndNormalAt( float xPosition, float zPosition, float& outHeight, Vector3& outNormal ); // Combined lookup — single LocatePolygon call vs two separate calls
 
   private:
     UINT displayListReference;                // Reference to the display list (retained for fallback)

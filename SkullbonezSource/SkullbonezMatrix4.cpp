@@ -2,6 +2,7 @@
 #include "SkullbonezMatrix4.h"
 #include "SkullbonezQuaternion.h"
 #include <cmath>
+#include <immintrin.h> // SSE intrinsics (_mm_loadu_ps, _mm_set1_ps, _mm_mul_ps, _mm_add_ps, _mm_storeu_ps)
 
 
 // --- Usings ---
@@ -223,52 +224,319 @@ Matrix4 Matrix4::RotateAxis( float angleDeg, float axisX, float axisY, float axi
 
 Matrix4 Matrix4::FromQuaternion( const Quaternion& q )
 {
-    // Extract the 3x3 rotation via the quaternion's existing method.
-    // GetOrientationMatrix returns a right-handed RotationMatrix.
-    RotationMatrix r = const_cast<Quaternion&>( q ).GetOrientationMatrix();
+    // Converts a unit quaternion q = (qx, qy, qz, qw) to a 4×4 column-major rotation matrix.
+    //
+    // Derivation:
+    //   Applying rotation q to a vector v uses the sandwich product: v' = q * (0,v) * q'
+    //   Expanding that product and collecting terms yields 9 bilinear expressions in the
+    //   quaternion components.  Every term carries a factor of 2 because q encodes half-angles
+    //   (the rotation angle θ is stored as sin(θ/2) and cos(θ/2) in the vector and scalar parts).
+    //
+    //   Pre-computing the 9 products (xx2 = 2·qx·qx, etc.) avoids 9 redundant multiplies in
+    //   the array initialiser below.
+    //
+    // Column-major memory layout:
+    //   col0 = local X axis (right)   = m[0..3]
+    //   col1 = local Y axis (up)      = m[4..7]
+    //   col2 = local Z axis (forward) = m[8..11]
+    //   col3 = translation            = m[12..15]
+    //
+    // Resulting matrix (row-by-row for readability, stored column-major):
+    //   [ 1-(yy2+zz2)   xy2-wz2     xz2+wy2    0 ]
+    //   [   xy2+wz2   1-(xx2+zz2)   yz2-wx2    0 ]
+    //   [   xz2-wy2     yz2+wx2   1-(xx2+yy2)  0 ]
+    //   [      0           0           0        1 ]
+    //
+    // This engine uses an anti-Hamilton quaternion convention — GetOrientationMatrix() returns
+    // the transpose of a standard active rotation.  Do NOT change the sign convention here.
 
-    // Transform basis vectors to extract columns
-    Vector3 col0 = r * Vector3( 1.0f, 0.0f, 0.0f );
-    Vector3 col1 = r * Vector3( 0.0f, 1.0f, 0.0f );
-    Vector3 col2 = r * Vector3( 0.0f, 0.0f, 1.0f );
+    float qx, qy, qz, qw;
+    q.GetComponents( qx, qy, qz, qw );
 
-    Matrix4 result;
-    result.m[0] = col0.x;
-    result.m[4] = col1.x;
-    result.m[8] = col2.x;
-    result.m[12] = 0.0f;
-    result.m[1] = col0.y;
-    result.m[5] = col1.y;
-    result.m[9] = col2.y;
-    result.m[13] = 0.0f;
-    result.m[2] = col0.z;
-    result.m[6] = col1.z;
-    result.m[10] = col2.z;
-    result.m[14] = 0.0f;
-    result.m[3] = 0.0f;
-    result.m[7] = 0.0f;
-    result.m[11] = 0.0f;
-    result.m[15] = 1.0f;
+    const float xx2 = 2.0f * qx * qx, yy2 = 2.0f * qy * qy, zz2 = 2.0f * qz * qz;
+    const float xy2 = 2.0f * qx * qy, xz2 = 2.0f * qx * qz, yz2 = 2.0f * qy * qz;
+    const float wx2 = 2.0f * qw * qx, wy2 = 2.0f * qw * qy, wz2 = 2.0f * qw * qz;
 
-    return result;
+    const float r[16] = {
+        1.0f - ( yy2 + zz2 ),
+        xy2 - wz2,
+        xz2 + wy2,
+        0.0f, // col0: local X (right)
+        xy2 + wz2,
+        1.0f - ( xx2 + zz2 ),
+        yz2 - wx2,
+        0.0f, // col1: local Y (up)
+        xz2 - wy2,
+        yz2 + wx2,
+        1.0f - ( xx2 + yy2 ),
+        0.0f, // col2: local Z (forward)
+        0.0f,
+        0.0f,
+        0.0f,
+        1.0f // col3: translation (identity)
+    };
+    return Matrix4( r );
+}
+
+
+Matrix4 Matrix4::ModelFromQuaternionYaw90( const Quaternion& q, float scale, const Vector3& worldPos )
+{
+    // Fused single-pass evaluation of: T(worldPos) * FromQuaternion(q) * RotateAxis(90°, 0,1,0) * Scale(scale)
+    //
+    // WHY: Previously GetModelMatrix called FromQuaternion (via RotationMatrix + 3 basis-vector
+    // extractions), then RotateAxis (cosf + sinf + sqrtf + 16-element triple-loop), then 4
+    // separate Matrix4 multiplications — roughly 500 FP ops per ball per frame.  This fused
+    // path computes the identical result in ~40 FP ops.
+    //
+    // DERIVATION:
+    //   Let Q = FromQuaternion(q).  Q has columns:
+    //     Q.col0 = (1-(yy2+zz2),  xy2-wz2,   xz2+wy2,  0)  ← local X
+    //     Q.col1 = ( xy2+wz2,   1-(xx2+zz2), yz2-wx2,  0)  ← local Y
+    //     Q.col2 = ( xz2-wy2,    yz2+wx2,  1-(xx2+yy2),0)  ← local Z
+    //
+    //   RotY90 (column-major) has columns:
+    //     RotY90.col0 = ( 0, 0,-1, 0)
+    //     RotY90.col1 = ( 0, 1, 0, 0)
+    //     RotY90.col2 = ( 1, 0, 0, 0)
+    //     RotY90.col3 = ( 0, 0, 0, 1)
+    //
+    //   Matrix product M = Q * RotY90:
+    //     M.col0 = Q * RotY90.col0 = Q*(0,0,-1,0) = -Q.col2
+    //     M.col1 = Q * RotY90.col1 = Q*(0,1, 0,0) =  Q.col1  (unchanged)
+    //     M.col2 = Q * RotY90.col2 = Q*(1,0, 0,0) =  Q.col0
+    //     M.col3 = identity column
+    //
+    //   Scaling M's direction columns by 'scale' and filling col3 with worldPos gives
+    //   the complete TRS matrix with no intermediate storage and no separate multiplications.
+    //
+    // The Debug path below performs each step individually so they can be inspected
+    // in the debugger — it produces numerically identical results.
+#ifdef _DEBUG
+    // Debug: step-by-step compose — each intermediate is visible in the debugger.
+    Matrix4 rotation = FromQuaternion( q ) * RotateAxis( 90.0f, 0.0f, 1.0f, 0.0f );
+    return Translate( worldPos ) * rotation * Scale( scale );
+#else
+    float qx, qy, qz, qw;
+    q.GetComponents( qx, qy, qz, qw );
+
+    // Compute the 9 half-products shared across all three direction columns.
+    const float xx2 = 2.0f * qx * qx, yy2 = 2.0f * qy * qy, zz2 = 2.0f * qz * qz;
+    const float xy2 = 2.0f * qx * qy, xz2 = 2.0f * qx * qz, yz2 = 2.0f * qy * qz;
+    const float wx2 = 2.0f * qw * qx, wy2 = 2.0f * qw * qy, wz2 = 2.0f * qw * qz;
+
+    // col0 = -Q.col2 * scale  →  -(xz2-wy2, yz2+wx2, 1-(xx2+yy2)) * scale
+    // col1 =  Q.col1 * scale  →   (xy2+wz2, 1-(xx2+zz2), yz2-wx2)  * scale  (unchanged by RotY90)
+    // col2 =  Q.col0 * scale  →   (1-(yy2+zz2), xy2-wz2, xz2+wy2)  * scale
+    // col3 =  worldPos (translation, homogeneous row = 1)
+    const float r[16] = {
+        ( wy2 - xz2 ) * scale,        // col0[0] = -Q.col2[0] = -(xz2-wy2)
+        ( -yz2 - wx2 ) * scale,       // col0[1] = -Q.col2[1] = -(yz2+wx2)
+        ( xx2 + yy2 - 1.0f ) * scale, // col0[2] = -Q.col2[2] = -(1-(xx2+yy2))
+        0.0f,                         // col0[3]
+        ( xy2 + wz2 ) * scale,        // col1[0] = Q.col1[0]
+        ( 1.0f - xx2 - zz2 ) * scale, // col1[1] = Q.col1[1]
+        ( yz2 - wx2 ) * scale,        // col1[2] = Q.col1[2]
+        0.0f,                         // col1[3]
+        ( 1.0f - yy2 - zz2 ) * scale, // col2[0] = Q.col0[0]
+        ( xy2 - wz2 ) * scale,        // col2[1] = Q.col0[1]
+        ( xz2 + wy2 ) * scale,        // col2[2] = Q.col0[2]
+        0.0f,                         // col2[3]
+        worldPos.x,
+        worldPos.y,
+        worldPos.z,
+        1.0f // col3: translation
+    };
+    return Matrix4( r );
+#endif
+}
+
+
+Matrix4 Matrix4::ShadowFromNormal( float tx, float ty, float tz, const Vector3& N, float scale )
+{
+    // Fused single-pass evaluation of: T(tx,ty,tz) * RotFromUpToN * Scale(scale)
+    //
+    // WHY: The old shadow path called GetTerrainNormalAt (a second LocatePolygon walk),
+    // then built a rotation from world-up to N by computing acosf(N.y), converting the
+    // result to degrees, passing it into RotateAxis (which called cosf+sinf on the angle
+    // we just computed from acosf — immediately undoing the trig), then performed three
+    // separate Matrix4 multiplications.  This function fuses the entire chain into one
+    // pass with one sqrtf and zero transcendentals.
+    //
+    // ROTATION DERIVATION:
+    //   We need a rotation R such that R * (0,1,0) = N.
+    //   The rotation axis is the cross product of world-up and N:
+    //     axis = (0,1,0) × N = (0*N.z - 1*N.y, 1*N.x - 0*N.z, 0*N.y - 0*N.x)
+    //                        = (-N.y*0... wait: (0,1,0)×(Nx,Ny,Nz) = (1*Nz-0*Ny, 0*Nx-0*Nz, 0*Ny-1*Nx)
+    //                        = (N.z, 0, -N.x)
+    //   Magnitude of axis = sqrt(N.z² + N.x²) = sinA  (since |N|=1 and cosA = N.y)
+    //   Normalised axis:  ax = N.z/sinA,  ay = 0,  az = -N.x/sinA
+    //   cosA = N·up = N.y,  sinA = sqrt(N.x² + N.z²)
+    //
+    // RODRIGUES FORMULA for unit-axis (ax, 0, az), cos=c, sin=s, t=(1-c):
+    //   R = [ t·ax²+c     t·ax·ay - s·az    t·ax·az + s·ay ]
+    //       [ t·ay·ax+s·az   t·ay²+c      t·ay·az - s·ax   ]
+    //       [ t·az·ax - s·ay  t·az·ay+s·ax    t·az²+c      ]
+    //
+    //   With ay = 0, simplify each element:
+    //     R[0][0] = t·ax²+c              R[0][1] = -s·az = N.x/sinA·sinA = N.x   R[0][2] = t·ax·az
+    //     R[1][0] = s·az  = -N.x         R[1][1] =  c = N.y                       R[1][2] = -s·ax = -N.z
+    //     R[2][0] = t·az·ax              R[2][1] =  s·ax = N.z                    R[2][2] = t·az²+c
+    //
+    //   Observation: column 1 of R = (-s·az, c, s·ax) = (N.x, N.y, N.z) = N.
+    //   Column 1 IS the terrain normal — already held in N, no multiply needed.
+    //   s·az and s·ax also simplify to -N.x and N.z respectively (substituted directly).
+    //
+    //   Multiplying each direction column by 'scale' and setting col3 = (tx,ty,tz,1)
+    //   gives the complete TRS matrix in memory layout:
+    //     col0 = (t·ax²+c, -N.x,    t·ax·az) * scale
+    //     col1 = (N.x,      N.y,    N.z    ) * scale   ← the terrain normal itself
+    //     col2 = (t·ax·az, -N.z,   t·az²+c ) * scale
+    //     col3 = (tx, ty, tz, 1)
+    //
+    // COST: 1 sqrtf + ~20 FP ops.  Old path: acosf + 2× (cosf+sinf) + 3× Matrix4 multiply.
+    //
+    // The Debug path below performs each step individually for debugger visibility;
+    // it produces numerically identical results.
+#ifdef _DEBUG
+    // Debug: step-by-step — shows the mathematical composition being fused.
+    // The acosf→degrees→RotateAxis round-trip recovers cosf/sinf from the angle we
+    // derived from acosf — the exact waste the release path eliminates.
+    Matrix4 model = Translate( tx, ty, tz );
+    const float cosA = N.y;
+    if ( cosA < 0.9999f )
+    {
+        float axisX = N.z;
+        float axisZ = -N.x;
+        float axisMag = sqrtf( axisX * axisX + axisZ * axisZ );
+        axisX /= axisMag;
+        axisZ /= axisMag;
+        float angleDeg = acosf( cosA ) * ( 180.0f / 3.14159265f );
+        model = model * RotateAxis( angleDeg, axisX, 0.0f, axisZ );
+    }
+    return model * Scale( scale );
+#else
+    // c = cosA = N·up = N.y (dot product of two unit vectors, one of which is (0,1,0))
+    const float c = N.y;
+    float res[16];
+    if ( c >= 0.9999f )
+    {
+        // Terrain is within ~0.8° of flat — rotation is effectively identity.
+        // R = I, so the TRS result is just a uniform scale placed at (tx,ty,tz).
+        res[0] = scale;
+        res[1] = 0.0f;
+        res[2] = 0.0f;
+        res[3] = 0.0f;
+        res[4] = 0.0f;
+        res[5] = scale;
+        res[6] = 0.0f;
+        res[7] = 0.0f;
+        res[8] = 0.0f;
+        res[9] = 0.0f;
+        res[10] = scale;
+        res[11] = 0.0f;
+    }
+    else
+    {
+        // sinA = |axis| = sqrt(N.x² + N.z²).  With |N|=1 and c=N.y: sinA = sqrt(1-c²).
+        const float sinA = sqrtf( N.x * N.x + N.z * N.z );
+        const float t = 1.0f - c; // Rodrigues (1-cos) factor
+        // Normalised axis components: ax = N.z/sinA,  az = -N.x/sinA
+        const float ax = N.z / sinA;
+        const float az = -N.x / sinA;
+        // Rodrigues diagonal and off-diagonal terms (factored to avoid repeating ax²,az²,ax·az)
+        const float tax2 = t * ax * ax; // t·ax²     → contributes to R[0][0]
+        const float taz2 = t * az * az; // t·az²     → contributes to R[2][2]
+        const float taxz = t * ax * az; // t·ax·az   → off-diagonal shared by R[0][2] and R[2][0]
+
+        // Column-major assignment  (res[col*4 + row]):
+        // col0 = (t·ax²+c,  -N.x,  t·ax·az, 0) * scale
+        res[0] = ( tax2 + c ) * scale; // R[0][0] = t·ax²+c
+        res[1] = -N.x * scale;         // R[1][0] = s·az  = -(N.x/sinA)·sinA = -N.x
+        res[2] = taxz * scale;         // R[2][0] = t·ax·az
+        res[3] = 0.0f;
+        // col1 = N * scale  (the terrain normal IS the rotated-up axis — see derivation above)
+        res[4] = N.x * scale; // R[0][1] = -s·az = N.x
+        res[5] = N.y * scale; // R[1][1] = c     = N.y
+        res[6] = N.z * scale; // R[2][1] = s·ax  = (N.z/sinA)·sinA = N.z
+        res[7] = 0.0f;
+        // col2 = (t·ax·az,  -N.z,  t·az²+c, 0) * scale
+        res[8] = taxz * scale;          // R[0][2] = t·ax·az
+        res[9] = -N.z * scale;          // R[1][2] = -s·ax = -N.z
+        res[10] = ( taz2 + c ) * scale; // R[2][2] = t·az²+c
+        res[11] = 0.0f;
+    }
+    // col3: translation (homogeneous row = 1)
+    res[12] = tx;
+    res[13] = ty;
+    res[14] = tz;
+    res[15] = 1.0f;
+    return Matrix4( res );
+#endif
 }
 
 
 Matrix4 Matrix4::operator*( const Matrix4& rhs ) const
 {
+#ifdef _DEBUG
+    // Debug: scalar triple-loop — each intermediate value is individually inspectable.
+    // result[col][row] = sum_k( lhs[k][row] * rhs[col][k] )
     Matrix4 result;
     for ( int col = 0; col < 4; ++col )
     {
         for ( int row = 0; row < 4; ++row )
         {
-            result.m[col * 4 + row] =
-                m[0 * 4 + row] * rhs.m[col * 4 + 0] +
-                m[1 * 4 + row] * rhs.m[col * 4 + 1] +
-                m[2 * 4 + row] * rhs.m[col * 4 + 2] +
-                m[3 * 4 + row] * rhs.m[col * 4 + 3];
+            result.m[col * 4 + row] = 0.0f;
+            for ( int k = 0; k < 4; ++k )
+            {
+                result.m[col * 4 + row] += m[k * 4 + row] * rhs.m[col * 4 + k];
+            }
         }
     }
     return result;
+#else
+    // Release/Profile: column-major 4×4 × 4×4 using SSE.
+    //
+    // STRATEGY: for each output column c, compute all 4 rows simultaneously using
+    // the column-outer-product sum:
+    //
+    //   out_col_c = LHS.col0 * rhs[c*4+0]
+    //             + LHS.col1 * rhs[c*4+1]
+    //             + LHS.col2 * rhs[c*4+2]
+    //             + LHS.col3 * rhs[c*4+3]
+    //
+    // where each LHS.colN is a __m128 holding all 4 rows of that column, and
+    // rhs[c*4+k] is broadcast (replicated into all 4 lanes) so the multiply
+    // scales every row of that column by the same scalar.
+    //
+    // SSE INTRINSICS USED:
+    //   _mm_loadu_ps(ptr)          — load 4 floats from unaligned memory into a register
+    //   _mm_set1_ps(scalar)        — broadcast a single float into all 4 lanes
+    //   _mm_mul_ps(a, b)           — lane-wise multiply:  (a0*b0, a1*b1, a2*b2, a3*b3)
+    //   _mm_add_ps(a, b)           — lane-wise add:       (a0+b0, a1+b1, a2+b2, a3+b3)
+    //   _mm_storeu_ps(ptr, reg)    — store 4 floats to unaligned memory
+    //
+    // The four LHS columns are loaded once outside the loop so they stay in registers
+    // across all four output-column iterations, avoiding 16 redundant loads.
+
+    const __m128 lhsC0 = _mm_loadu_ps( m + 0 );  // LHS column 0: m[0..3]
+    const __m128 lhsC1 = _mm_loadu_ps( m + 4 );  // LHS column 1: m[4..7]
+    const __m128 lhsC2 = _mm_loadu_ps( m + 8 );  // LHS column 2: m[8..11]
+    const __m128 lhsC3 = _mm_loadu_ps( m + 12 ); // LHS column 3: m[12..15]
+
+    float r[16];
+    for ( int c = 0; c < 4; ++c )
+    {
+        // Broadcast each RHS scalar for output column c, scale the matching LHS column,
+        // accumulate four contributions with two paired adds (avoids a 4-way add chain).
+        _mm_storeu_ps( r + c * 4,
+                       _mm_add_ps(
+                           _mm_add_ps( _mm_mul_ps( lhsC0, _mm_set1_ps( rhs.m[c * 4 + 0] ) ),
+                                       _mm_mul_ps( lhsC1, _mm_set1_ps( rhs.m[c * 4 + 1] ) ) ),
+                           _mm_add_ps( _mm_mul_ps( lhsC2, _mm_set1_ps( rhs.m[c * 4 + 2] ) ),
+                                       _mm_mul_ps( lhsC3, _mm_set1_ps( rhs.m[c * 4 + 3] ) ) ) ) );
+    }
+    return Matrix4( r );
+#endif
 }
 
 

@@ -56,11 +56,17 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
     }
 
     SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, Cfg().renderCollisionVolumes );
+    // [SKORE-PROFILER-BEGIN:pm001]
+    PROFILE_BEGIN( "Frame/Render/Balls/MatrixBuild" );
+    // [SKORE-PROFILER-END:pm001]
     for ( int x = 0; x < static_cast<int>( m_gameModels.size() ); ++x )
     {
         Matrix4 model = m_gameModels[x].GetModelMatrix();
         SkullbonezHelper::DrawSphereBatchModel( model );
     }
+    // [SKORE-PROFILER-BEGIN:pm001e]
+    PROFILE_END( "Frame/Render/Balls/MatrixBuild" );
+    // [SKORE-PROFILER-END:pm001e]
     SkullbonezHelper::DrawSphereBatchEnd();
 }
 
@@ -82,6 +88,9 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
 
     // Build per-instance data: model matrix (16 floats) + alpha (1 float)
     m_shadowInstanceData.clear();
+    // [SKORE-PROFILER-BEGIN:pm002]
+    PROFILE_BEGIN( "Frame/Render/Shadows/MatrixBuild" );
+    // [SKORE-PROFILER-END:pm002]
     for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
     {
         Vector3 pos = m_gameModels[i].GetPosition();
@@ -92,7 +101,9 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
             continue;
         }
 
-        float groundY = m_terrain->GetTerrainHeightAt( pos.x, pos.z );
+        float groundY;
+        Vector3 N;
+        m_terrain->GetTerrainHeightAndNormalAt( pos.x, pos.z, groundY, N );
 
         // Fast-out: ball centre is over fully submerged terrain — no visible shadow.
         if ( groundY <= waterSurfaceY )
@@ -113,30 +124,17 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
         float alpha = Cfg().shadowMaxAlpha * ( 1.0f - height / Cfg().shadowMaxHeight );
         float shadowRadius = radius * Cfg().shadowScale;
 
-        Vector3 N = m_terrain->GetTerrainNormalAt( pos.x, pos.z );
-
-        // Build model matrix: translate → rotate to terrain normal → scale
-        Matrix4 model = Matrix4::Translate( pos.x, groundY + Cfg().shadowOffset, pos.z );
-
-        float cosA = N.y;
-        if ( cosA < 0.9999f )
-        {
-            float axisX = N.z;
-            float axisZ = -N.x;
-            float axisMag = sqrtf( axisX * axisX + axisZ * axisZ );
-            axisX /= axisMag;
-            axisZ /= axisMag;
-            float angleDeg = acosf( cosA ) * ( 180.0f / 3.14159265f );
-            model = model * Matrix4::RotateAxis( angleDeg, axisX, 0.0f, axisZ );
-        }
-
-        model = model * Matrix4::Scale( shadowRadius );
+        // Fused T(pos)*RotFromUpToN*Scale(shadowRadius) — no acosf/cosf/sinf, no Matrix4 products
+        Matrix4 model = Matrix4::ShadowFromNormal( pos.x, groundY + Cfg().shadowOffset, pos.z, N, shadowRadius );
 
         // Append mat4 (16 floats) + alpha (1 float)
         const float* md = model.Data();
         m_shadowInstanceData.insert( m_shadowInstanceData.end(), md, md + 16 );
         m_shadowInstanceData.push_back( alpha );
     }
+    // [SKORE-PROFILER-BEGIN:pm002e]
+    PROFILE_END( "Frame/Render/Shadows/MatrixBuild" );
+    // [SKORE-PROFILER-END:pm002e]
 
     int instanceCount = static_cast<int>( m_shadowInstanceData.size() ) / SHADOW_INSTANCE_FLOATS;
     if ( instanceCount == 0 )

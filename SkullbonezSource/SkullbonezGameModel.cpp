@@ -114,11 +114,30 @@ float GameModel::GetBoundingRadius()
 
 Vector3 GameModel::GetOrientationUp()
 {
-    // Returns local Y axis (0,1,0) rotated into world space using the same
-    // visual rotation applied in GetModelMatrix() — so the vector tracks
-    // exactly what the sphere's "north pole" is doing on screen.
-    Matrix4 rotation = Matrix4::FromQuaternion( m_physicsInfo.GetOrientation() ) * Matrix4::RotateAxis( 90.0f, 0.0f, 1.0f, 0.0f );
-    return Vector3( rotation.m[4], rotation.m[5], rotation.m[6] );
+    // Returns the world-space up vector of the ball — i.e. where the local Y axis points
+    // after applying the physics orientation plus the visual 90° Y yaw.
+    //
+    // DERIVATION:
+    //   GetModelMatrix() applies: T * FromQuaternion(q) * RotY90 * Scale
+    //   The world-space up vector is col1 of the rotation part, i.e. col1 of
+    //   (FromQuaternion(q) * RotY90).
+    //
+    //   RotY90 has col1 = (0, 1, 0, 0), so:
+    //     (FromQuaternion(q) * RotY90).col1 = FromQuaternion(q) * (0,1,0,0) = Q.col1
+    //
+    //   Therefore the RotY90 has NO effect on the up vector — it is identical to col1
+    //   of FromQuaternion(q), which from the standard quaternion formula is:
+    //     col1 = (xy2+wz2,  1-(xx2+zz2),  yz2-wx2)
+    //          = (2(qx·qy + qw·qz),  1 - 2(qx² + qz²),  2(qy·qz - qw·qx))
+    //
+    //   This avoids building the full 4×4 matrix and extracting a column from it.
+
+    float qx, qy, qz, qw;
+    m_physicsInfo.GetOrientation().GetComponents( qx, qy, qz, qw );
+    return Vector3(
+        2.0f * ( qx * qy + qw * qz ),        // col1[0] = xy2+wz2
+        1.0f - 2.0f * ( qx * qx + qz * qz ), // col1[1] = 1-(xx2+zz2)
+        2.0f * ( qy * qz - qw * qx ) );      // col1[2] = yz2-wx2
 }
 
 
@@ -242,8 +261,12 @@ Matrix4 GameModel::GetModelMatrix()
 {
     // Visual-only 90° Y yaw to align the sphere's texture/poles with its roll axis.
     // Physics orientation is untouched — this only affects what the shader sees.
-    Matrix4 rotation = Matrix4::FromQuaternion( m_physicsInfo.GetOrientation() ) * Matrix4::RotateAxis( 90.0f, 0.0f, 1.0f, 0.0f );
-    return GetShapeModelMatrix( m_boundingVolume, m_physicsInfo.GetPosition(), rotation );
+    // Fused TRS: T(worldPos) * FromQuaternion(q) * RotY90 * Scale(radius) in ~40 FP ops.
+    // Assumes a BoundingSphere with zero local offset (see AddBoundingSphere).
+    return Matrix4::ModelFromQuaternionYaw90(
+        m_physicsInfo.GetOrientation(),
+        GetShapeBoundingRadius( m_boundingVolume ),
+        m_physicsInfo.GetPosition() );
 }
 
 

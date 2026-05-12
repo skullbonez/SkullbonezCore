@@ -55,6 +55,9 @@ class Matrix4
     static Matrix4 Scale( float uniform );                                                                     // Uniform scale matrix
     static Matrix4 RotateAxis( float angleDeg, float axisX, float axisY, float axisZ );                        // Axis-angle rotation matrix
     static Matrix4 FromQuaternion( const Orientation::Quaternion& q );                                         // Rotation matrix from quaternion
+    static Matrix4 ModelFromQuaternionYaw90( const Orientation::Quaternion& q, float scale,
+                                             const Vector3& worldPos );                             // Fused T(worldPos)*FromQuat(q)*RotY90*Scale(s) — no intermediate matrix products
+    static Matrix4 ShadowFromNormal( float tx, float ty, float tz, const Vector3& N, float scale ); // Fused T(tx,ty,tz)*RotFromUpToN*Scale(s) — zero acosf/cosf/sinf, zero Matrix4 products
 
     Matrix4 operator*( const Matrix4& rhs ) const; // Matrix multiplication
     Matrix4& operator*=( const Matrix4& rhs );     // In-place matrix multiplication
