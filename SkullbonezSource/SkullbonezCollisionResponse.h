@@ -33,8 +33,6 @@ class CollisionResponse
     static void RespondCollisionTerrain( GameModel& gameModel, float changeInTime );        // Performs a response based on the game model and the terrain
     static void RespondCollisionGameModels( GameModel& gameModel1, GameModel& gameModel2 ); // Performs a response on the game models based on their current state
     static Ray CalculateRay( GameModel& gameModel, float changeInTime );                    // Returns a ray representing the path travelled by the target in the supplied time frame
-    static void SetPhysicsLog( FILE* file );                                                // Enable/disable frame-by-frame physics logging
-    static void SetPhysicsFrame( int frame );                                               // Set current frame for logging context
 };
 } // namespace Physics
 } // namespace SkullbonezCore

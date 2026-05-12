@@ -42,7 +42,6 @@ SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
     m_screenshotDir[0] = '\0';
     m_perfLogPath[0] = '\0';
     m_perfLogFile = nullptr;
-    m_physicsLogFile = nullptr;
     m_rollLogFile = nullptr;
 
     // Engine state
@@ -84,13 +83,6 @@ SkullbonezRun::~SkullbonezRun()
     {
         fclose( m_perfLogFile );
         m_perfLogFile = nullptr;
-    }
-
-    if ( m_physicsLogFile )
-    {
-        CollisionResponse::SetPhysicsLog( nullptr );
-        fclose( m_physicsLogFile );
-        m_physicsLogFile = nullptr;
     }
 
     if ( m_rollLogFile )
@@ -648,7 +640,6 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
     {
         // update the game models (sub-markers added inside RunPhysics)
         PROFILE_BEGIN( "Frame/Physics" );
-        CollisionResponse::SetPhysicsFrame( m_currentFrame );
         m_cGameModelCollection.RunPhysics( fSecondsPerFrame );
         PROFILE_END( "Frame/Physics" );
     }
@@ -1299,14 +1290,6 @@ void SkullbonezRun::LoadScene( int index )
         m_perfLogFile = nullptr;
     }
 
-    // Close previous physics log if open
-    if ( m_physicsLogFile )
-    {
-        CollisionResponse::SetPhysicsLog( nullptr );
-        fclose( m_physicsLogFile );
-        m_physicsLogFile = nullptr;
-    }
-
     // Reset scene config to defaults
     m_isScenePhysics = true;
     m_isSceneText = true;
@@ -1412,18 +1395,6 @@ void SkullbonezRun::LoadScene( int index )
             if ( m_perfLogFile )
             {
                 LogPerfMemory( "start" );
-            }
-        }
-
-        // Physics log: open CSV for frame-by-frame collision diagnostics
-        const char* pPhysicsPath = scene.GetPhysicsLogPath();
-        if ( pPhysicsPath[0] != '\0' )
-        {
-            fopen_s( &m_physicsLogFile, pPhysicsPath, "w" );
-            if ( m_physicsLogFile )
-            {
-                fprintf( m_physicsLogFile, "event,frame,posX,posY,posZ,velBX,velBY,velBZ,omegaBX,omegaBY,omegaBZ,velAX,velAY,velAZ,omegaAX,omegaAY,omegaAZ\n" );
-                CollisionResponse::SetPhysicsLog( m_physicsLogFile );
             }
         }
 

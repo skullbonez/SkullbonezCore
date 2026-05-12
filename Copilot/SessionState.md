@@ -55,7 +55,17 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 
 ## Recent Session Work (this session)
 
-1. **DX12 GPU compute mip generation** (this commit):
+1. **Floating ball orientation snap fix + SkullbonezLog** (`c626d2e`):
+   - Root cause: `pole_align` in `RespondCollisionTerrain` applied uncapped rotation corrections (up to 90°/frame) to submerged balls touching terrain
+   - Fix: skip pole alignment entirely when ball centre is below fluid surface — meaningful only on land
+   - Ablation tested: water guard alone eliminates all snaps across 1800 frames; no-fix baseline reproduced 7 snaps including a 56.1° jump
+   - Added `SkullbonezLog` singleton: `Log().Writef(fileName, fmt, ...)` — lazy file creation per unique filename, `fflush` on every write, auto-close on shutdown; release builds are inline no-ops
+   - `Log().Writef()` documented in `agents.md` as canonical debug logging pattern
+   - Added `float_snap_test.scene` reproducer (8 floating balls, 1800 frames)
+   - Removed `rollAlignRate` config option (rate-limiter approach superseded by fix)
+   - Added Step 8.5 (Update SessionState) to `skore-build-pipeline` skill
+   
+2. **DX12 GPU compute mip generation** (this commit):
    - New compute shader `generate_mips.hlsl`: cs_5_0, 8×8 thread groups, up to 4 mips/dispatch, NPOT handling (4 cases via SrcDimension bits), group-shared memory reduction for mips 2-4
    - `InitGenMipsPipeline()` + `GenerateMipsGPU()` in DX12 backend — replaces CPU-side mip generation
    - **Critical bug fix**: both DX12 static samplers in the main render root signature had `MaxLOD = 0` (zero-init default of `D3D12_STATIC_SAMPLER_DESC samplers[2] = {}`), silently clamping all sampling to mip 0. Fixed to `D3D12_FLOAT32_MAX`. Also added explicit `MaxAnisotropy = 1`.
@@ -64,7 +74,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
    - Window default resolution changed to 960×540 (1/4 of 2560×1440)
    - Text anchoring fixed: top-left, top-right, bottom-right corners at new aspect ratio
 
-2. **SDF text rendering** (`a2728b4`):
+3. **SDF text rendering** (`a2728b4`):
    - `text_only` scene mode + `text_test.scene` for diagnosing text at large display sizes
    - Descender cut-off fix: full 48px cell height sampled in `RenderTextInternal`
    - Offline SDF atlas generation: GDI renders at 6× → Felzenszwalb-Huttenlocher EDT → 6×6 box-filter → binary `.sdf` file
@@ -77,7 +87,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 ---
 
 ## Uncommitted Changes (DO NOT LOSE)
-None — repo is clean.
+None — repo is clean. All changes on `fix/floating-ball-orientation-snap`.
 
 ---
 

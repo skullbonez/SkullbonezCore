@@ -75,6 +75,9 @@
     <ClCompile Include="SkullbonezSource\SkullbonezInput.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezLog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezQuaternion.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -207,6 +210,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezInput.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezLog.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezQuaternion.h">

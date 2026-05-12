@@ -68,7 +68,6 @@ class TestScene
     unsigned int m_seed;        // RNG m_seed (0 = use time-based default)
     int m_legacyBallCount;      // random legacy-style m_balls (0 = none)
     char m_perfLogPath[256];    // output path for perf CSV (empty = none)
-    char m_physicsLogPath[256]; // output path for physics CSV (empty = none)
     char m_rollLogPath[256];    // output path for roll orientation log (empty = none)
     int m_screenshotInterval;   // save screenshot every N frames (-1 = disabled)
     char m_screenshotDir[256];  // output directory for interval captures
@@ -105,7 +104,6 @@ class TestScene
     unsigned int GetSeed() const;
     int GetLegacyBallCount() const;
     const char* GetPerfLogPath() const;
-    const char* GetPhysicsLogPath() const;
     const char* GetRollLogPath() const;
     int GetScreenshotInterval() const;
     const char* GetScreenshotDir() const;
