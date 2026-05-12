@@ -17,7 +17,7 @@
 
 ## Branch & Last Commit
 - Branch: `main`
-- Last commit on main: `TBD` — DX12 GPU compute mip generation + sampler MaxLOD fix
+- Last commit on main: `c6027b3` — DX12 GPU compute mip generation + sampler MaxLOD fix
 
 ---
 
