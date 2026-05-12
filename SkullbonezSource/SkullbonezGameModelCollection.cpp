@@ -56,17 +56,11 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
     }
 
     SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, Cfg().renderCollisionVolumes );
-    // [SKORE-PROFILER-BEGIN:pm001]
-    PROFILE_BEGIN( "Frame/Render/Balls/MatrixBuild" );
-    // [SKORE-PROFILER-END:pm001]
     for ( int x = 0; x < static_cast<int>( m_gameModels.size() ); ++x )
     {
         Matrix4 model = m_gameModels[x].GetModelMatrix();
         SkullbonezHelper::DrawSphereBatchModel( model );
     }
-    // [SKORE-PROFILER-BEGIN:pm001e]
-    PROFILE_END( "Frame/Render/Balls/MatrixBuild" );
-    // [SKORE-PROFILER-END:pm001e]
     SkullbonezHelper::DrawSphereBatchEnd();
 }
 
@@ -88,9 +82,6 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
 
     // Build per-instance data: model matrix (16 floats) + alpha (1 float)
     m_shadowInstanceData.clear();
-    // [SKORE-PROFILER-BEGIN:pm002]
-    PROFILE_BEGIN( "Frame/Render/Shadows/MatrixBuild" );
-    // [SKORE-PROFILER-END:pm002]
     for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
     {
         Vector3 pos = m_gameModels[i].GetPosition();
@@ -132,9 +123,6 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
         m_shadowInstanceData.insert( m_shadowInstanceData.end(), md, md + 16 );
         m_shadowInstanceData.push_back( alpha );
     }
-    // [SKORE-PROFILER-BEGIN:pm002e]
-    PROFILE_END( "Frame/Render/Shadows/MatrixBuild" );
-    // [SKORE-PROFILER-END:pm002e]
 
     int instanceCount = static_cast<int>( m_shadowInstanceData.size() ) / SHADOW_INSTANCE_FLOATS;
     if ( instanceCount == 0 )
