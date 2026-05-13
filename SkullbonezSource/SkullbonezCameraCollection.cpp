@@ -23,6 +23,7 @@ CameraCollection::CameraCollection()
     }
 
     m_primaryStore.ZeroCamera();
+    m_renderCamera.ZeroCamera();
 }
 
 
@@ -65,6 +66,7 @@ void CameraCollection::Reset()
     m_tweenPath.ZeroCamera();
     m_tweenCamera.ZeroCamera();
     m_tweenStart.ZeroCamera();
+    m_renderCamera.ZeroCamera();
 }
 
 
@@ -256,6 +258,24 @@ const Vector3& CameraCollection::GetCameraTranslation( uint32_t hash )
 }
 
 
+const Vector3& CameraCollection::GetRenderCameraTranslation() const
+{
+    return m_renderCamera.m_position;
+}
+
+
+const Vector3& CameraCollection::GetRenderCameraView() const
+{
+    return m_renderCamera.m_view;
+}
+
+
+const Vector3& CameraCollection::GetRenderCameraUp() const
+{
+    return m_renderCamera.m_upVector;
+}
+
+
 void CameraCollection::CancelTween()
 {
     m_isTweening = false;
@@ -388,8 +408,9 @@ void CameraCollection::SetCamera()
 }
 
 
-void CameraCollection::SetViewMatrix( Camera& cCameraData )
+void CameraCollection::SetViewMatrix( const Camera& cCameraData )
 {
+    m_renderCamera = cCameraData;
     m_currentViewMatrix = Matrix4::LookAt(
         cCameraData.m_position,
         cCameraData.m_view,

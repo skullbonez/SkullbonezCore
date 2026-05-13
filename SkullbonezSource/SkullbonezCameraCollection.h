@@ -32,6 +32,7 @@ class CameraCollection
     Camera m_tweenPath;                          // Holds the current tweening path
     Camera m_tweenCamera;                        // Holds the state of the current tween
     Camera m_tweenStart;                         // Holds the tweens starting camera
+    Camera m_renderCamera;                       // Holds the camera state used to build m_currentViewMatrix this frame
     uint32_t m_cameraHashes[TOTAL_CAMERA_COUNT]; // Holds the hashed camera name keys
     int m_arrayPosition;                         // Current array m_position
     int m_selectedCamera;                        // Current selected camera
@@ -43,7 +44,7 @@ class CameraCollection
 
     CameraCollection(); // Constructor
     ~CameraCollection() = default;
-    void SetViewMatrix( Camera& cCameraData );       // Computes currentViewMatrix from the supplied camera data
+    void SetViewMatrix( const Camera& cCameraData ); // Computes currentViewMatrix from the supplied camera data
     int FindIndex( uint32_t hash );                  // Returns the index of the specified camera
     Camera GetCameraDelta();                         // Returns the positional delta between the current camera and the stored snapshot
     void UpdateTweenPath();                          // Alters the tween path member to end at the required destination (it is important to call this during tweens as the destination can move about the scene during the tween)
@@ -55,6 +56,9 @@ class CameraCollection
     const Vector3& GetCameraView();                       // Returns the current view of the primary camera
     const Vector3& GetCameraTranslation();                // Returns the current translation of the primary camera
     const Vector3& GetCameraUp();                         // Returns the current up vector of the primary camera
+    const Vector3& GetRenderCameraView() const;           // Returns the view target currently used for rendering (tween camera while tweening)
+    const Vector3& GetRenderCameraTranslation() const;    // Returns the eye position currently used for rendering (tween camera while tweening)
+    const Vector3& GetRenderCameraUp() const;             // Returns the up vector currently used for rendering (tween camera while tweening)
     const Vector3& GetCameraTranslation( uint32_t hash ); // Returns the current translation of the specified camera
     void SetViewCoordinates( const Vector3& vView );      // Sets the primary camera view position (helpful for keeping focused on an object)
     void SetPrimaryPosition( const Vector3& vPos );       // Directly sets the primary camera world position (used for tracking cameras)

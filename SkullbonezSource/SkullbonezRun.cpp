@@ -736,8 +736,13 @@ void SkullbonezRun::DrawPrimitives()
     Matrix4 proj = m_cWindow->GetProjectionMatrix();
     Matrix4 reflVP;
 
-    // Camera m_position for skybox placement
-    Vector3 eye = m_cCameras->GetCameraTranslation();
+    // Camera m_position for skybox placement.  During camera transitions the
+    // selected camera is already the destination, but SetCamera() renders from
+    // the interpolated tween camera.  Reflection math must use the same render
+    // camera as baseView; otherwise the mirror pass is generated from the
+    // destination camera while the water surface samples it from the in-between
+    // camera, which stretches reflected balls during transitions.
+    Vector3 eye = m_cCameras->GetRenderCameraTranslation();
 
     // render skybox ------------------------------
     PROFILE_GPU_BEGIN( "Frame/Render/Skybox" );
@@ -748,12 +753,13 @@ void SkullbonezRun::DrawPrimitives()
     // reflection pre-pass: render above-water scene from mirrored camera into FBO (or DXR dispatch)
     PROFILE_GPU_BEGIN( "Frame/Render/Reflection" );
     float waterY = m_cWorldEnvironment.GetFluidSurfaceHeight();
-    Vector3 center = m_cCameras->GetCameraView();
+    Vector3 center = m_cCameras->GetRenderCameraView();
 
     // Mirror eye and look-at target about the water plane; flip up vector
     Vector3 reflEye( eye.x, 2.0f * waterY - eye.y, eye.z );
     Vector3 reflCenter( center.x, 2.0f * waterY - center.y, center.z );
-    Vector3 reflUp( 0.0f, -1.0f, 0.0f );
+    Vector3 up = m_cCameras->GetRenderCameraUp();
+    Vector3 reflUp( up.x, -up.y, up.z );
     Matrix4 reflView = Matrix4::LookAt( reflEye, reflCenter, reflUp );
     reflVP = proj * reflView;
 
