@@ -44,6 +44,8 @@ class IRenderBackend
     virtual bool Init( HWND hwnd, HDC hdc, int width, int height ) = 0;
     virtual void Shutdown() = 0;
     virtual void Present() = 0;
+    virtual void SetVsyncEnabled( bool enabled ) = 0;
+    virtual bool IsVsyncEnabled() const = 0;
     virtual void Finish() = 0;
     virtual void FlushGPU() = 0; // Block until all submitted GPU work completes (required before resource destruction)
     virtual void Resize( int width, int height ) = 0;

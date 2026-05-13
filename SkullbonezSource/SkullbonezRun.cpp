@@ -43,6 +43,8 @@ SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
     m_vectorLogInterval = 6;
     m_isVectorLogFlushEnabled = false;
     strcpy_s( m_vectorLogPath, sizeof( m_vectorLogPath ), "Debug/vector_log.csv" );
+    m_isVsyncEnabled = Cfg().vsyncEnabled;
+    m_isPipelineSyncEnabled = Cfg().forcePipelineSync;
     m_vectorLogFile = nullptr;
 
     // Engine state
@@ -260,7 +262,10 @@ void SkullbonezRun::Run()
 
             // Drain GPU pipeline before render
             PROFILE_BEGIN( "Frame/PipelineSync" );
-            Gfx().Finish();
+            if ( m_isPipelineSyncEnabled )
+            {
+                Gfx().Finish();
+            }
             PROFILE_END( "Frame/PipelineSync" );
 
             // Render
@@ -1337,6 +1342,8 @@ void SkullbonezRun::LoadScene( int index )
     m_vectorLogInterval = 6;
     m_isVectorLogFlushEnabled = false;
     strcpy_s( m_vectorLogPath, sizeof( m_vectorLogPath ), "Debug/vector_log.csv" );
+    m_isVsyncEnabled = Cfg().vsyncEnabled;
+    m_isPipelineSyncEnabled = Cfg().forcePipelineSync;
 
     // Reset cameras and game models
     m_cCameras->Reset();
@@ -1395,6 +1402,14 @@ void SkullbonezRun::LoadScene( int index )
         m_isVectorLogEnabled = scene.IsVectorLogEnabled();
         m_vectorLogInterval = scene.GetVectorLogInterval();
         m_isVectorLogFlushEnabled = scene.IsVectorLogFlushEnabled();
+        if ( scene.HasVsyncOverride() )
+        {
+            m_isVsyncEnabled = scene.IsVsyncEnabled();
+        }
+        if ( scene.HasPipelineSyncOverride() )
+        {
+            m_isPipelineSyncEnabled = scene.IsPipelineSyncEnabled();
+        }
         m_isTextOnly = scene.IsTextOnly();
         m_isWaterHidden = scene.IsWaterHidden();
         m_isTerrainHidden = scene.IsTerrainHidden();
@@ -1517,6 +1532,9 @@ void SkullbonezRun::LoadScene( int index )
             m_sInputState.yMove = 0;
         }
     }
+
+    // Apply runtime swap policy after config/scene overrides are resolved.
+    Gfx().SetVsyncEnabled( m_isVsyncEnabled );
 
     // Restart timers
     m_cFrameTimer.StartTimer();

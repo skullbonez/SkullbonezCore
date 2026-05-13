@@ -76,7 +76,7 @@ RenderBackendDX11* RenderBackendDX11::s_instance = nullptr;
 
 
 RenderBackendDX11::RenderBackendDX11()
-    : m_swapChain( nullptr ), m_device( nullptr ), m_context( nullptr ), m_backBufferRTV( nullptr ), m_depthStencilTex( nullptr ), m_depthStencilView( nullptr ), m_width( 0 ), m_height( 0 ), m_depthTestEnabled( true ), m_depthWriteEnabled( true ), m_blendEnabled( false ), m_clearColor{ 0.0f, 0.0f, 0.0f, 1.0f }, m_clearDepth( 1.0f ), m_dsDepthOn( nullptr ), m_dsDepthOff( nullptr ), m_dsDepthOnWriteOff( nullptr ), m_blendOff( nullptr ), m_rsCullOn( nullptr ), m_rsCullOff( nullptr ), m_rsCullOnPolyOffset( nullptr ), m_rsCullOffPolyOffset( nullptr ), m_samplerLinear( nullptr ), m_samplerNearest( nullptr ), m_activeBlendState( nullptr ), m_currentBlendSrc( BlendFactor::One ), m_currentBlendDst( BlendFactor::Zero ), m_cullEnabled( true ), m_polyOffsetEnabled( false ), m_currentRTV( nullptr ), m_currentDSV( nullptr ), m_stagingTex( nullptr ), m_stagingWidth( 0 ), m_stagingHeight( 0 ), m_activeShader( nullptr )
+    : m_swapChain( nullptr ), m_device( nullptr ), m_context( nullptr ), m_backBufferRTV( nullptr ), m_depthStencilTex( nullptr ), m_depthStencilView( nullptr ), m_width( 0 ), m_height( 0 ), m_isVsyncEnabled( true ), m_depthTestEnabled( true ), m_depthWriteEnabled( true ), m_blendEnabled( false ), m_clearColor{ 0.0f, 0.0f, 0.0f, 1.0f }, m_clearDepth( 1.0f ), m_dsDepthOn( nullptr ), m_dsDepthOff( nullptr ), m_dsDepthOnWriteOff( nullptr ), m_blendOff( nullptr ), m_rsCullOn( nullptr ), m_rsCullOff( nullptr ), m_rsCullOnPolyOffset( nullptr ), m_rsCullOffPolyOffset( nullptr ), m_samplerLinear( nullptr ), m_samplerNearest( nullptr ), m_activeBlendState( nullptr ), m_currentBlendSrc( BlendFactor::One ), m_currentBlendDst( BlendFactor::Zero ), m_cullEnabled( true ), m_polyOffsetEnabled( false ), m_currentRTV( nullptr ), m_currentDSV( nullptr ), m_stagingTex( nullptr ), m_stagingWidth( 0 ), m_stagingHeight( 0 ), m_activeShader( nullptr )
 {
 }
 
@@ -525,10 +525,10 @@ void RenderBackendDX11::Shutdown()
 void RenderBackendDX11::Present()
 {
     // Present the completed frame to the display. Present() flips the back buffer to the front
-    // buffer so the user sees the rendered image. The first arg (1) = sync to VSync (1 refresh
-    // interval). With FLIP_DISCARD, the old back buffer contents are discarded after present.
+    // buffer so the user sees the rendered image. Sync interval is configurable so perf scenes
+    // can disable V-Sync without changing backend-specific code.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-present
-    m_swapChain->Present( 1, 0 );
+    m_swapChain->Present( m_isVsyncEnabled ? 1 : 0, 0 );
 
     // FLIP_DISCARD unbinds the back buffer RTV from the output-merger after Present.
     // Rebind immediately so the next frame's draws have a valid render target.
@@ -536,6 +536,18 @@ void RenderBackendDX11::Present()
     m_context->OMSetRenderTargets( 1, &m_backBufferRTV, m_depthStencilView );
     m_currentRTV = m_backBufferRTV;
     m_currentDSV = m_depthStencilView;
+}
+
+
+void RenderBackendDX11::SetVsyncEnabled( bool enabled )
+{
+    m_isVsyncEnabled = enabled;
+}
+
+
+bool RenderBackendDX11::IsVsyncEnabled() const
+{
+    return m_isVsyncEnabled;
 }
 
 

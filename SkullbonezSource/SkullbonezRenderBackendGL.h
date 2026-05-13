@@ -47,6 +47,7 @@ class RenderBackendGL : public IRenderBackend
     HDC m_hdc;
     int m_width;
     int m_height;
+    bool m_isVsyncEnabled;
     bool m_depthTestEnabled;
     bool m_depthWriteEnabled;
     bool m_blendEnabled;
@@ -69,6 +70,8 @@ class RenderBackendGL : public IRenderBackend
     bool Init( HWND hwnd, HDC hdc, int width, int height ) override;
     void Shutdown() override;
     void Present() override;
+    void SetVsyncEnabled( bool enabled ) override;
+    bool IsVsyncEnabled() const override;
     void Finish() override;
     void FlushGPU() override;
     void Resize( int width, int height ) override;

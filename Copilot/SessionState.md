@@ -18,7 +18,7 @@
 ## Branch & Last Commit
 - Branch: `opt/optimizations-pass`
 - Last commit on main: `3ab3e2e` — camera tween reflection fix
-- Working branch HEAD (pre-commit): `2b62d71`
+- Working branch HEAD: `0008eb9` — opt-01 vector log gating
 
 ---
 
@@ -56,7 +56,19 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 
 ## Recent Session Work (this session)
 
-0. **Optimization pass — opt-01 vector log gating** (`pending commit`):
+0. **Optimization pass — opt-02 sync stall + V-Sync control** (`pending commit`):
+   - Added runtime controls for forced pipeline sync and V-Sync:
+     - Engine config keys: `force_pipeline_sync`, `vsync_enabled`
+     - Scene directives: `pipeline_sync on|off`, `vsync on|off`
+   - `SkullbonezRun` now gates `Frame/PipelineSync` (`Gfx().Finish()`) via config/scene policy instead of forcing it every frame.
+   - Added backend-level V-Sync controls in `IRenderBackend` and implemented them for GL/DX11/DX12; removed hardcoded `wglSwapIntervalEXT(1)` from window init.
+   - DX12 descriptor heap handling updated for multi-frame flight safety without full-frame CPU/GPU stalls:
+     - transient SRV slots are now partitioned per frame allocator (`MAX_TRANSIENT_SRVS` per allocator),
+     - shader-visible heap size increased accordingly,
+     - transient allocation now enforces per-allocator bounds.
+   - Full pipeline re-run completed; DX12 InfoQueue validation is back to 0 errors after the descriptor fix.
+
+1. **Optimization pass — opt-01 vector log gating** (`0008eb9`):
    - Removed the unconditional `#define VECTOR_LOG_ENABLED` path from `SkullbonezRun::UpdateLogic`.
    - Added scene directives in `TestScene` for vector diagnostics:
      - `vector_log on|off` (default off)
@@ -126,15 +138,8 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 ---
 
 ## Uncommitted Changes (DO NOT LOSE)
-- `SkullbonezSource/SkullbonezRun.cpp`
-- `SkullbonezSource/SkullbonezRun.h`
-- `SkullbonezSource/SkullbonezTestScene.cpp`
-- `SkullbonezSource/SkullbonezTestScene.h`
-- `TestOutput/baselines/baseline_gl_legacy_smoke.png`
-- `TestOutput/baselines/baseline_dx11_legacy_smoke.png`
-- `TestOutput/baselines/baseline_dx12_water_ball_test.png`
-- `TestOutput/baselines/baseline_dx12_legacy_smoke.png`
-- `TestOutput/002_2b62d71/*` (perf JSON + screenshot archive, currently ignored by git unless force-added)
+- Pending opt-02 code changes (sync/vsync controls + DX12 transient descriptor partition fix) are in the working tree.
+- Pipeline artifacts generated for current HEAD (`0008eb9`) in `TestOutput/003_0008eb9/` (perf JSON + screenshots), plus refreshed `TestOutput/baselines/*.png`.
 
 ---
 

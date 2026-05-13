@@ -103,6 +103,8 @@ class SkullbonezConfig
     float oceanPerturbStrength = 0.002f;
 
     // Debug / rendering flags
+    bool vsyncEnabled = true;
+    bool forcePipelineSync = false;
     bool renderCollisionVolumes = false;
 
   private:

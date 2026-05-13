@@ -20,6 +20,10 @@ TestScene::TestScene()
     m_vectorLogInterval = 6;
     m_vectorLogPath[0] = '\0';
     m_isVectorLogFlush = false;
+    m_hasVsyncOverride = false;
+    m_isVsyncEnabled = true;
+    m_hasPipelineSyncOverride = false;
+    m_isPipelineSyncEnabled = false;
     m_screenshotFrame = -1;
     m_screenshotMs = -1;
     m_seed = 0;
@@ -307,6 +311,50 @@ TestScene TestScene::LoadFromFile( const char* path )
                 fclose( file );
                 char msg[256];
                 sprintf_s( msg, sizeof( msg ), "Invalid vector_log_flush value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 17 );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
+        // parse vsync directive
+        if ( strncmp( line, "vsync ", 6 ) == 0 )
+        {
+            scene.m_hasVsyncOverride = true;
+            if ( strcmp( line + 6, "on" ) == 0 )
+            {
+                scene.m_isVsyncEnabled = true;
+            }
+            else if ( strcmp( line + 6, "off" ) == 0 )
+            {
+                scene.m_isVsyncEnabled = false;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid vsync value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 6 );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
+        // parse pipeline_sync directive
+        if ( strncmp( line, "pipeline_sync ", 14 ) == 0 )
+        {
+            scene.m_hasPipelineSyncOverride = true;
+            if ( strcmp( line + 14, "on" ) == 0 )
+            {
+                scene.m_isPipelineSyncEnabled = true;
+            }
+            else if ( strcmp( line + 14, "off" ) == 0 )
+            {
+                scene.m_isPipelineSyncEnabled = false;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid pipeline_sync value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 14 );
                 throw std::runtime_error( msg );
             }
             continue;
@@ -687,6 +735,30 @@ const char* TestScene::GetVectorLogPath() const
 bool TestScene::IsVectorLogFlushEnabled() const
 {
     return m_isVectorLogFlush;
+}
+
+
+bool TestScene::HasVsyncOverride() const
+{
+    return m_hasVsyncOverride;
+}
+
+
+bool TestScene::IsVsyncEnabled() const
+{
+    return m_isVsyncEnabled;
+}
+
+
+bool TestScene::HasPipelineSyncOverride() const
+{
+    return m_hasPipelineSyncOverride;
+}
+
+
+bool TestScene::IsPipelineSyncEnabled() const
+{
+    return m_isPipelineSyncEnabled;
 }
 
 

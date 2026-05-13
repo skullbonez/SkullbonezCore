@@ -347,6 +347,14 @@ void SkullbonezConfig::Load( const char* path )
         }
 
         // Debug
+        else if ( strcmp( k, "vsync_enabled" ) == 0 )
+        {
+            vsyncEnabled = atoi( v ) != 0;
+        }
+        else if ( strcmp( k, "force_pipeline_sync" ) == 0 )
+        {
+            forcePipelineSync = atoi( v ) != 0;
+        }
         else if ( strcmp( k, "render_collision_volumes" ) == 0 )
         {
             renderCollisionVolumes = atoi( v ) != 0;

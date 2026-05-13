@@ -124,7 +124,7 @@ class RenderBackendDX12 : public IRenderBackend
 
     // SRV allocation
     static const UINT MAX_STATIC_SRVS = 128;
-    static const UINT MAX_TRANSIENT_SRVS = 2048;
+    static const UINT MAX_TRANSIENT_SRVS = 2048; // per frame allocator
     UINT m_nextStaticSRV;
     UINT m_nextTransientSRV;
 
@@ -148,6 +148,7 @@ class RenderBackendDX12 : public IRenderBackend
     D3D12_RECT m_scissorRect;
     int m_width;
     int m_height;
+    bool m_isVsyncEnabled;
 
     // Tracked render state
     bool m_depthTestEnabled;
@@ -261,6 +262,8 @@ class RenderBackendDX12 : public IRenderBackend
     bool Init( HWND hwnd, HDC hdc, int width, int height ) override;
     void Shutdown() override;
     void Present() override;
+    void SetVsyncEnabled( bool enabled ) override;
+    bool IsVsyncEnabled() const override;
     void Finish() override;
     void FlushGPU() override;
     void Resize( int width, int height ) override;

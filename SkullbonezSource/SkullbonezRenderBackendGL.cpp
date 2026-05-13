@@ -91,7 +91,7 @@ static void APIENTRY GLDebugCallback( GLenum source, GLenum type, GLuint /*id*/,
 
 
 RenderBackendGL::RenderBackendGL()
-    : m_hdc( nullptr ), m_width( 0 ), m_height( 0 ), m_depthTestEnabled( true ), m_depthWriteEnabled( true ), m_blendEnabled( false ), m_cullFaceEnabled( true ), m_polygonOffsetEnabled( false ), m_polygonOffsetFactor( 0.0f ), m_polygonOffsetUnits( 0.0f )
+    : m_hdc( nullptr ), m_width( 0 ), m_height( 0 ), m_isVsyncEnabled( true ), m_depthTestEnabled( true ), m_depthWriteEnabled( true ), m_blendEnabled( false ), m_cullFaceEnabled( true ), m_polygonOffsetEnabled( false ), m_polygonOffsetFactor( 0.0f ), m_polygonOffsetUnits( 0.0f )
 {
 }
 
@@ -170,6 +170,10 @@ bool RenderBackendGL::Init( HWND /*hwnd*/, HDC hdc, int width, int height )
     // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glBlendFunc.xhtml
     glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
+    // Keep swap-interval state owned by the backend so scenes/config can toggle V-Sync
+    // consistently across GL/DX backends at runtime.
+    SetVsyncEnabled( m_isVsyncEnabled );
+
     return true;
 }
 
@@ -237,6 +241,26 @@ void RenderBackendGL::Present()
     // instant, giving a smooth tear-free image. This is "double buffering."
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-swapbuffers
     SwapBuffers( m_hdc );
+}
+
+
+void RenderBackendGL::SetVsyncEnabled( bool enabled )
+{
+    m_isVsyncEnabled = enabled;
+
+    using PFNWGLSWAPINTERVALEXTPROC = BOOL( WINAPI* )( int );
+    auto wglSwapIntervalEXT = reinterpret_cast<PFNWGLSWAPINTERVALEXTPROC>(
+        wglGetProcAddress( "wglSwapIntervalEXT" ) );
+    if ( wglSwapIntervalEXT )
+    {
+        wglSwapIntervalEXT( m_isVsyncEnabled ? 1 : 0 );
+    }
+}
+
+
+bool RenderBackendGL::IsVsyncEnabled() const
+{
+    return m_isVsyncEnabled;
 }
 
 
