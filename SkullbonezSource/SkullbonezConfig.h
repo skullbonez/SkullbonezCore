@@ -61,6 +61,12 @@ class SkullbonezConfig
     float frictionCoeff = 0.1f;
     float rollingFrictionCoeff = 0.02f;
     float spinFrictionCoeff = 0.3f;
+    bool rollAlignEnabled = true;
+    int rollAlignInterval = 2;
+    float rollAlignMinSpeed = 0.35f;
+    float rollAlignMinOmega = 0.35f;
+    float rollAlignPerpToleranceDeg = 2.0f;
+    float rollAlignMaxCorrectionDeg = 6.0f;
     float contactRestitutionThreshold = 2.0f;
     float contactEpsilon = 0.05f;
     float broadphaseCell = 24.0f;

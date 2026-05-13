@@ -230,13 +230,29 @@ void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel, float cha
             // to the red axis while preserving smooth motion.
             // Skip when the ball is in water: it is floating, not rolling on terrain,
             // so orientation correction is meaningless and causes visible snaps.
-            // Skip when the ball is in water: it is floating, not rolling on terrain,
-            // so orientation correction is meaningless and causes visible snaps.
             bool ballInWater = ( gameModel.m_physicsInfo.GetPosition().y - radius ) < Cfg().fluidHeight;
             float omegaMagSq = omega.x * omega.x +
                                omega.y * omega.y +
                                omega.z * omega.z;
-            if ( !ballInWater && omegaMagSq > TOLERANCE * TOLERANCE )
+            Vector3 tangentVelocity = velocity - normal * ( velocity * normal );
+            float tangentSpeedSq = tangentVelocity * tangentVelocity;
+            float minSpeedSq = Cfg().rollAlignMinSpeed * Cfg().rollAlignMinSpeed;
+            float minOmegaSq = Cfg().rollAlignMinOmega * Cfg().rollAlignMinOmega;
+            static uint32_t s_rollAlignCounter = 0;
+            ++s_rollAlignCounter;
+            int alignInterval = Cfg().rollAlignInterval;
+            if ( alignInterval < 1 )
+            {
+                alignInterval = 1;
+            }
+
+            bool shouldAlign = Cfg().rollAlignEnabled &&
+                               !ballInWater &&
+                               omegaMagSq > TOLERANCE * TOLERANCE &&
+                               ( tangentSpeedSq > minSpeedSq || omegaMagSq > minOmegaSq ) &&
+                               ( alignInterval <= 1 || ( s_rollAlignCounter % static_cast<uint32_t>( alignInterval ) ) == 0 );
+
+            if ( shouldAlign )
             {
                 float omegaMag = sqrtf( omegaMagSq );
                 Vector3 omegaDir = omega / omegaMag;
@@ -271,9 +287,15 @@ void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel, float cha
                         }
 
                         float correctionAngle = acosf( dotPole );
+                        float correctionTolerance = Cfg().rollAlignPerpToleranceDeg * _PI / 180.0f;
+                        float maxCorrectionAngle = Cfg().rollAlignMaxCorrectionDeg * _PI / 180.0f;
 
-                        if ( correctionAngle > TOLERANCE )
+                        if ( correctionAngle > correctionTolerance )
                         {
+                            if ( maxCorrectionAngle > 0.0f && correctionAngle > maxCorrectionAngle )
+                            {
+                                correctionAngle = maxCorrectionAngle;
+                            }
                             Vector3 correctionAxis = Vector::CrossProduct( pole, targetPole );
                             float correctionAxisMag = Vector::VectorMag( correctionAxis );
                             if ( correctionAxisMag > TOLERANCE )

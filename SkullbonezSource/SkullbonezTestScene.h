@@ -77,17 +77,19 @@ class TestScene
     bool m_isVsyncEnabled;      // V-Sync policy for scene when override is present
     bool m_hasPipelineSyncOverride;
     bool m_isPipelineSyncEnabled;
-    int m_screenshotInterval;  // save screenshot every N frames (-1 = disabled)
-    char m_screenshotDir[256]; // output directory for interval captures
-    float m_timeScale;         // Physics time multiplier (1.0 = realtime)
-    bool m_isDebugVectors;     // Draw velocity/omega debug arrows (default false)
-    float m_trackHeight;       // Height above tracked ball for camera (-1 = no tracking)
-    float m_autoCycleInterval; // Seconds between per-ball screenshots (-1 = disabled)
-    bool m_screenshotAndExit;  // Capture first frame as SCENENAME.bmp then exit
-    bool m_waterHidden;        // Suppress water rendering (for clean texture comparison)
-    bool m_terrainHidden;      // Suppress terrain rendering
-    bool m_hasFlatSlope;       // True when scene overrides terrain with analytic flat slope
-    float m_flatBaseY;         // y = m_flatBaseY + m_flatSlopeX*x + m_flatSlopeZ*z
+    bool m_hasRollAlignOverride; // Scene-level override present for roll orientation correction
+    bool m_isRollAlignEnabled;   // Terrain roll/pole alignment correction policy
+    int m_screenshotInterval;    // save screenshot every N frames (-1 = disabled)
+    char m_screenshotDir[256];   // output directory for interval captures
+    float m_timeScale;           // Physics time multiplier (1.0 = realtime)
+    bool m_isDebugVectors;       // Draw velocity/omega debug arrows (default false)
+    float m_trackHeight;         // Height above tracked ball for camera (-1 = no tracking)
+    float m_autoCycleInterval;   // Seconds between per-ball screenshots (-1 = disabled)
+    bool m_screenshotAndExit;    // Capture first frame as SCENENAME.bmp then exit
+    bool m_waterHidden;          // Suppress water rendering (for clean texture comparison)
+    bool m_terrainHidden;        // Suppress terrain rendering
+    bool m_hasFlatSlope;         // True when scene overrides terrain with analytic flat slope
+    float m_flatBaseY;           // y = m_flatBaseY + m_flatSlopeX*x + m_flatSlopeZ*z
     float m_flatSlopeX;
     float m_flatSlopeZ;
     std::vector<SceneCamera> m_cameras;
@@ -121,6 +123,8 @@ class TestScene
     bool IsVsyncEnabled() const;
     bool HasPipelineSyncOverride() const;
     bool IsPipelineSyncEnabled() const;
+    bool HasRollAlignOverride() const;
+    bool IsRollAlignEnabled() const;
     int GetScreenshotInterval() const;
     const char* GetScreenshotDir() const;
     float GetTimeScale() const;

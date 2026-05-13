@@ -71,6 +71,8 @@ class SkullbonezRun
     FILE* m_vectorLogFile;                          // Open handle for vector CSV
     bool m_isVsyncEnabled;                          // Swap-chain sync interval (true = vsync)
     bool m_isPipelineSyncEnabled;                   // Force CPU/GPU sync via Finish() before render
+    bool m_defaultRollAlignEnabled;                 // Config default for roll orientation correction
+    bool m_isRollAlignEnabled;                      // Active roll orientation correction state for current scene
     int m_selectedCamera;                           // Keeps track of which camera is selected
     int m_modelCount;                               // Number of models in the scene
     float m_physicsTime, m_r_physicsTime;           // Physics time

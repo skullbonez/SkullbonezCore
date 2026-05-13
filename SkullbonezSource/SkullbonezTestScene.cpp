@@ -24,6 +24,8 @@ TestScene::TestScene()
     m_isVsyncEnabled = true;
     m_hasPipelineSyncOverride = false;
     m_isPipelineSyncEnabled = false;
+    m_hasRollAlignOverride = false;
+    m_isRollAlignEnabled = true;
     m_screenshotFrame = -1;
     m_screenshotMs = -1;
     m_seed = 0;
@@ -355,6 +357,28 @@ TestScene TestScene::LoadFromFile( const char* path )
                 fclose( file );
                 char msg[256];
                 sprintf_s( msg, sizeof( msg ), "Invalid pipeline_sync value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 14 );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
+        // parse roll_align directive
+        if ( strncmp( line, "roll_align ", 11 ) == 0 )
+        {
+            scene.m_hasRollAlignOverride = true;
+            if ( strcmp( line + 11, "on" ) == 0 )
+            {
+                scene.m_isRollAlignEnabled = true;
+            }
+            else if ( strcmp( line + 11, "off" ) == 0 )
+            {
+                scene.m_isRollAlignEnabled = false;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid roll_align value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 11 );
                 throw std::runtime_error( msg );
             }
             continue;
@@ -759,6 +783,18 @@ bool TestScene::HasPipelineSyncOverride() const
 bool TestScene::IsPipelineSyncEnabled() const
 {
     return m_isPipelineSyncEnabled;
+}
+
+
+bool TestScene::HasRollAlignOverride() const
+{
+    return m_hasRollAlignOverride;
+}
+
+
+bool TestScene::IsRollAlignEnabled() const
+{
+    return m_isRollAlignEnabled;
 }
 
 

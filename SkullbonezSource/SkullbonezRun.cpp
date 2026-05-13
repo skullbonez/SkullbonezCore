@@ -45,6 +45,8 @@ SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
     strcpy_s( m_vectorLogPath, sizeof( m_vectorLogPath ), "Debug/vector_log.csv" );
     m_isVsyncEnabled = Cfg().vsyncEnabled;
     m_isPipelineSyncEnabled = Cfg().forcePipelineSync;
+    m_defaultRollAlignEnabled = Cfg().rollAlignEnabled;
+    m_isRollAlignEnabled = m_defaultRollAlignEnabled;
     m_vectorLogFile = nullptr;
 
     // Engine state
@@ -1344,6 +1346,8 @@ void SkullbonezRun::LoadScene( int index )
     strcpy_s( m_vectorLogPath, sizeof( m_vectorLogPath ), "Debug/vector_log.csv" );
     m_isVsyncEnabled = Cfg().vsyncEnabled;
     m_isPipelineSyncEnabled = Cfg().forcePipelineSync;
+    m_isRollAlignEnabled = m_defaultRollAlignEnabled;
+    Cfg().rollAlignEnabled = m_isRollAlignEnabled;
 
     // Reset cameras and game models
     m_cCameras->Reset();
@@ -1410,6 +1414,11 @@ void SkullbonezRun::LoadScene( int index )
         {
             m_isPipelineSyncEnabled = scene.IsPipelineSyncEnabled();
         }
+        if ( scene.HasRollAlignOverride() )
+        {
+            m_isRollAlignEnabled = scene.IsRollAlignEnabled();
+        }
+        Cfg().rollAlignEnabled = m_isRollAlignEnabled;
         m_isTextOnly = scene.IsTextOnly();
         m_isWaterHidden = scene.IsWaterHidden();
         m_isTerrainHidden = scene.IsTerrainHidden();
