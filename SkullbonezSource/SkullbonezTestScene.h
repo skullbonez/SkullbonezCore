@@ -69,6 +69,10 @@ class TestScene
     int m_legacyBallCount;      // random legacy-style m_balls (0 = none)
     char m_perfLogPath[256];    // output path for perf CSV (empty = none)
     char m_rollLogPath[256];    // output path for roll orientation log (empty = none)
+    bool m_isVectorLogEnabled;  // Log velocity/omega correlation CSV (default off)
+    int m_vectorLogInterval;    // Write vector log every N frames
+    char m_vectorLogPath[256];  // output path for vector CSV (empty = use default)
+    bool m_isVectorLogFlush;    // Flush vector log after each write batch (debug aid)
     int m_screenshotInterval;   // save screenshot every N frames (-1 = disabled)
     char m_screenshotDir[256];  // output directory for interval captures
     float m_timeScale;          // Physics time multiplier (1.0 = realtime)
@@ -105,6 +109,10 @@ class TestScene
     int GetLegacyBallCount() const;
     const char* GetPerfLogPath() const;
     const char* GetRollLogPath() const;
+    bool IsVectorLogEnabled() const;
+    int GetVectorLogInterval() const;
+    const char* GetVectorLogPath() const;
+    bool IsVectorLogFlushEnabled() const;
     int GetScreenshotInterval() const;
     const char* GetScreenshotDir() const;
     float GetTimeScale() const;

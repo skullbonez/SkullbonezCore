@@ -16,8 +16,9 @@
 > *This applies to: pipeline runs, feature implementations, debugging sessions, refactors, any task expected to take >2 minutes or >10 tool calls.*
 
 ## Branch & Last Commit
-- Branch: `main`
+- Branch: `opt/optimizations-pass`
 - Last commit on main: `3ab3e2e` — camera tween reflection fix
+- Working branch HEAD (pre-commit): `2b62d71`
 
 ---
 
@@ -54,6 +55,20 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 ---
 
 ## Recent Session Work (this session)
+
+0. **Optimization pass — opt-01 vector log gating** (`pending commit`):
+   - Removed the unconditional `#define VECTOR_LOG_ENABLED` path from `SkullbonezRun::UpdateLogic`.
+   - Added scene directives in `TestScene` for vector diagnostics:
+     - `vector_log on|off` (default off)
+     - `vector_log_interval <N>` (default 6)
+     - `vector_log_path <path>` (default `Debug/vector_log.csv`)
+     - `vector_log_flush on|off` (default off)
+   - Added explicit `SkullbonezRun` runtime state and file-handle lifecycle for vector logs (close on scene reload/destructor, throw on open failure).
+   - Pipeline run completed (build + tri-renderer suite + baseline update + perf analysis/archive).
+   - CPU delta vs pre-change baseline:
+     - GL `Frame/Physics` avg **-46.1%**, `Frame/Physics/Broadphase` avg **-60.9%**
+     - DX11 `Frame/Physics` avg **-47.3%**, `Frame/Physics/Broadphase` avg **-61.8%**
+     - DX12 `Frame/Physics` avg **-47.7%**, `Frame/Physics/Broadphase` avg **-61.2%**
 
 <<<<<<< codex/fix-camera-transition-distortion
 1. **Camera tween reflection fix** (`3ab3e2e`):
@@ -111,7 +126,15 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 ---
 
 ## Uncommitted Changes (DO NOT LOSE)
-None — camera tween reflection fix is committed in this session.
+- `SkullbonezSource/SkullbonezRun.cpp`
+- `SkullbonezSource/SkullbonezRun.h`
+- `SkullbonezSource/SkullbonezTestScene.cpp`
+- `SkullbonezSource/SkullbonezTestScene.h`
+- `TestOutput/baselines/baseline_gl_legacy_smoke.png`
+- `TestOutput/baselines/baseline_dx11_legacy_smoke.png`
+- `TestOutput/baselines/baseline_dx12_water_ball_test.png`
+- `TestOutput/baselines/baseline_dx12_legacy_smoke.png`
+- `TestOutput/002_2b62d71/*` (perf JSON + screenshot archive, currently ignored by git unless force-added)
 
 ---
 

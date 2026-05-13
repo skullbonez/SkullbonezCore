@@ -16,6 +16,10 @@ TestScene::TestScene()
     m_screenshotPath[0] = '\0';
     m_perfLogPath[0] = '\0';
     m_rollLogPath[0] = '\0';
+    m_isVectorLogEnabled = false;
+    m_vectorLogInterval = 6;
+    m_vectorLogPath[0] = '\0';
+    m_isVectorLogFlush = false;
     m_screenshotFrame = -1;
     m_screenshotMs = -1;
     m_seed = 0;
@@ -242,6 +246,69 @@ TestScene TestScene::LoadFromFile( const char* path )
         if ( strncmp( line, "roll_log ", 9 ) == 0 )
         {
             strcpy_s( scene.m_rollLogPath, sizeof( scene.m_rollLogPath ), line + 9 );
+            continue;
+        }
+
+        // parse vector_log directive
+        if ( strncmp( line, "vector_log ", 11 ) == 0 )
+        {
+            if ( strcmp( line + 11, "on" ) == 0 )
+            {
+                scene.m_isVectorLogEnabled = true;
+            }
+            else if ( strcmp( line + 11, "off" ) == 0 )
+            {
+                scene.m_isVectorLogEnabled = false;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid vector_log value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 11 );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
+        // parse vector_log_interval directive
+        if ( strncmp( line, "vector_log_interval ", 20 ) == 0 )
+        {
+            scene.m_vectorLogInterval = atoi( line + 20 );
+            if ( scene.m_vectorLogInterval <= 0 )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid vector_log_interval at line %d (must be > 0)  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
+        // parse vector_log_path directive
+        if ( strncmp( line, "vector_log_path ", 16 ) == 0 )
+        {
+            strcpy_s( scene.m_vectorLogPath, sizeof( scene.m_vectorLogPath ), line + 16 );
+            continue;
+        }
+
+        // parse vector_log_flush directive
+        if ( strncmp( line, "vector_log_flush ", 17 ) == 0 )
+        {
+            if ( strcmp( line + 17, "on" ) == 0 )
+            {
+                scene.m_isVectorLogFlush = true;
+            }
+            else if ( strcmp( line + 17, "off" ) == 0 )
+            {
+                scene.m_isVectorLogFlush = false;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid vector_log_flush value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 17 );
+                throw std::runtime_error( msg );
+            }
             continue;
         }
 
@@ -596,6 +663,30 @@ const char* TestScene::GetPerfLogPath() const
 const char* TestScene::GetRollLogPath() const
 {
     return m_rollLogPath;
+}
+
+
+bool TestScene::IsVectorLogEnabled() const
+{
+    return m_isVectorLogEnabled;
+}
+
+
+int TestScene::GetVectorLogInterval() const
+{
+    return m_vectorLogInterval;
+}
+
+
+const char* TestScene::GetVectorLogPath() const
+{
+    return m_vectorLogPath;
+}
+
+
+bool TestScene::IsVectorLogFlushEnabled() const
+{
+    return m_isVectorLogFlush;
 }
 
 

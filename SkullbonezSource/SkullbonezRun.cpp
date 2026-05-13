@@ -11,10 +11,6 @@
 #include <psapi.h>
 #include <cmath>
 
-// Define to enable per-frame omega/velocity angle logging to Debug/vector_log.csv
-#define VECTOR_LOG_ENABLED
-
-
 // --- Usings ---
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -43,6 +39,11 @@ SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
     m_perfLogPath[0] = '\0';
     m_perfLogFile = nullptr;
     m_rollLogFile = nullptr;
+    m_isVectorLogEnabled = false;
+    m_vectorLogInterval = 6;
+    m_isVectorLogFlushEnabled = false;
+    strcpy_s( m_vectorLogPath, sizeof( m_vectorLogPath ), "Debug/vector_log.csv" );
+    m_vectorLogFile = nullptr;
 
     // Engine state
     m_cCameras = 0;
@@ -90,6 +91,12 @@ SkullbonezRun::~SkullbonezRun()
         m_cGameModelCollection.SetRollLog( nullptr );
         fclose( m_rollLogFile );
         m_rollLogFile = nullptr;
+    }
+
+    if ( m_vectorLogFile )
+    {
+        fclose( m_vectorLogFile );
+        m_vectorLogFile = nullptr;
     }
 
     // Flush GPU before destroying resources to avoid use-after-free
@@ -650,22 +657,27 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
         m_autoCycleAccum += fSecondsPerFrame;
     }
 
-#ifdef VECTOR_LOG_ENABLED
-    // Per-frame log: angle between horizontal velocity and omega, plus magnitude ratio.
-    // Logs every 6 frames to keep file size manageable.
-    // Open once; file stays open until process exits.
-    if ( m_isSceneMode && ( m_currentFrame % 6 == 0 ) )
+    // Optional vector diagnostics (scene directive: vector_log on).
+    // Captures velocity/omega alignment for each ball. Disabled by default to keep
+    // perf scenes free of logging overhead unless explicitly requested.
+    if ( m_isSceneMode && m_isVectorLogEnabled && m_vectorLogInterval > 0 && ( m_currentFrame % m_vectorLogInterval == 0 ) )
     {
-        static FILE* sVectorLog = nullptr;
-        if ( !sVectorLog )
+        if ( !m_vectorLogFile )
         {
-            fopen_s( &sVectorLog, "Debug/vector_log.csv", "w" );
-            if ( sVectorLog )
+            errno_t err = fopen_s( &m_vectorLogFile, m_vectorLogPath, "w" );
+            if ( err != 0 || !m_vectorLogFile )
             {
-                fprintf( sVectorLog, "frame,ball,vx,vz,ox,oz,vmag_xz,omag_xz,ratio_o_over_v,angle_deg\n" );
+                char msg[512];
+                sprintf_s( msg, sizeof( msg ), "Failed to open vector log file: %s  (SkullbonezRun::UpdateLogic)", m_vectorLogPath );
+                throw std::runtime_error( msg );
+            }
+            fprintf( m_vectorLogFile, "frame,ball,vx,vz,ox,oz,vmag_xz,omag_xz,ratio_o_over_v,angle_deg\n" );
+            if ( m_isVectorLogFlushEnabled )
+            {
+                fflush( m_vectorLogFile );
             }
         }
-        if ( sVectorLog )
+        if ( m_vectorLogFile )
         {
             int count = m_cGameModelCollection.GetModelCount();
             for ( int i = 0; i < count; ++i )
@@ -688,12 +700,14 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
                     angle = acosf( dot ) * ( 180.0f / 3.14159265f );
                 }
 
-                fprintf( sVectorLog, "%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.1f\n", m_currentFrame, i, v.x, v.z, omega.x, omega.z, vmag, omag, ratio, angle );
+                fprintf( m_vectorLogFile, "%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.1f\n", m_currentFrame, i, v.x, v.z, omega.x, omega.z, vmag, omag, ratio, angle );
             }
-            fflush( sVectorLog );
+            if ( m_isVectorLogFlushEnabled )
+            {
+                fflush( m_vectorLogFile );
+            }
         }
     }
-#endif
 
     // move the camera based on input
     // (arguments are calculating time based movement quantities)
@@ -1296,6 +1310,13 @@ void SkullbonezRun::LoadScene( int index )
         m_perfLogFile = nullptr;
     }
 
+    // Close previous vector log if open
+    if ( m_vectorLogFile )
+    {
+        fclose( m_vectorLogFile );
+        m_vectorLogFile = nullptr;
+    }
+
     // Reset scene config to defaults
     m_isScenePhysics = true;
     m_isSceneText = true;
@@ -1312,6 +1333,10 @@ void SkullbonezRun::LoadScene( int index )
     m_intervalCaptureCount = 0;
     m_screenshotDir[0] = '\0';
     m_perfLogPath[0] = '\0';
+    m_isVectorLogEnabled = false;
+    m_vectorLogInterval = 6;
+    m_isVectorLogFlushEnabled = false;
+    strcpy_s( m_vectorLogPath, sizeof( m_vectorLogPath ), "Debug/vector_log.csv" );
 
     // Reset cameras and game models
     m_cCameras->Reset();
@@ -1367,6 +1392,9 @@ void SkullbonezRun::LoadScene( int index )
         m_isScenePhysics = scene.IsPhysicsEnabled();
         m_isSceneText = scene.IsTextEnabled();
         m_isDebugVectors = scene.IsDebugVectors();
+        m_isVectorLogEnabled = scene.IsVectorLogEnabled();
+        m_vectorLogInterval = scene.GetVectorLogInterval();
+        m_isVectorLogFlushEnabled = scene.IsVectorLogFlushEnabled();
         m_isTextOnly = scene.IsTextOnly();
         m_isWaterHidden = scene.IsWaterHidden();
         m_isTerrainHidden = scene.IsTerrainHidden();
@@ -1380,6 +1408,10 @@ void SkullbonezRun::LoadScene( int index )
         if ( scene.GetScreenshotPath()[0] != '\0' )
         {
             strcpy_s( m_screenshotPath, sizeof( m_screenshotPath ), scene.GetScreenshotPath() );
+        }
+        if ( scene.GetVectorLogPath()[0] != '\0' )
+        {
+            strcpy_s( m_vectorLogPath, sizeof( m_vectorLogPath ), scene.GetVectorLogPath() );
         }
 
         // Interval capture: create output directory

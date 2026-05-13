@@ -64,6 +64,11 @@ class SkullbonezRun
     char m_perfLogPath[256];                        // Output path for perf CSV (empty = none)
     FILE* m_perfLogFile;                            // Open handle for perf CSV
     FILE* m_rollLogFile;                            // Open handle for roll orientation log (empty = none)
+    bool m_isVectorLogEnabled;                      // Per-frame velocity/omega CSV diagnostic
+    int m_vectorLogInterval;                        // Vector log cadence (N frames)
+    bool m_isVectorLogFlushEnabled;                 // Flush each vector log write batch
+    char m_vectorLogPath[256];                      // Output path for vector CSV
+    FILE* m_vectorLogFile;                          // Open handle for vector CSV
     int m_selectedCamera;                           // Keeps track of which camera is selected
     int m_modelCount;                               // Number of models in the scene
     float m_physicsTime, m_r_physicsTime;           // Physics time
