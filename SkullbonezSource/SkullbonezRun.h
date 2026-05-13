@@ -63,6 +63,9 @@ class SkullbonezRun
     char m_screenshotDir[256];                      // Output directory for interval captures
     char m_perfLogPath[256];                        // Output path for perf CSV (empty = none)
     FILE* m_perfLogFile;                            // Open handle for perf CSV
+    bool m_isPerfLogFlushEnabled;                   // Flush perf CSV on each write (diagnostic mode)
+    int m_perfLogFlushInterval;                     // Flush perf CSV every N writes (0 = flush on close only)
+    int m_perfLogWritesSinceFlush;                  // Buffered perf-log write count since last flush
     FILE* m_rollLogFile;                            // Open handle for roll orientation log (empty = none)
     bool m_isVectorLogEnabled;                      // Per-frame velocity/omega CSV diagnostic
     int m_vectorLogInterval;                        // Vector log cadence (N frames)

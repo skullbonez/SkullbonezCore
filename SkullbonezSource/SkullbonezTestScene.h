@@ -68,6 +68,8 @@ class TestScene
     unsigned int m_seed;        // RNG m_seed (0 = use time-based default)
     int m_legacyBallCount;      // random legacy-style m_balls (0 = none)
     char m_perfLogPath[256];    // output path for perf CSV (empty = none)
+    bool m_isPerfLogFlush;      // Force flush after each perf-log write (default off)
+    int m_perfLogFlushInterval; // Flush perf log every N writes (0 = only at close)
     char m_rollLogPath[256];    // output path for roll orientation log (empty = none)
     bool m_isVectorLogEnabled;  // Log velocity/omega correlation CSV (default off)
     int m_vectorLogInterval;    // Write vector log every N frames
@@ -114,6 +116,8 @@ class TestScene
     unsigned int GetSeed() const;
     int GetLegacyBallCount() const;
     const char* GetPerfLogPath() const;
+    bool IsPerfLogFlushEnabled() const;
+    int GetPerfLogFlushInterval() const;
     const char* GetRollLogPath() const;
     bool IsVectorLogEnabled() const;
     int GetVectorLogInterval() const;

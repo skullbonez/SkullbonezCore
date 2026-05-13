@@ -15,6 +15,8 @@ TestScene::TestScene()
     m_frameCount = -1;
     m_screenshotPath[0] = '\0';
     m_perfLogPath[0] = '\0';
+    m_isPerfLogFlush = false;
+    m_perfLogFlushInterval = 0;
     m_rollLogPath[0] = '\0';
     m_isVectorLogEnabled = false;
     m_vectorLogInterval = 6;
@@ -245,6 +247,41 @@ TestScene TestScene::LoadFromFile( const char* path )
         if ( strncmp( line, "perf_log ", 9 ) == 0 )
         {
             strcpy_s( scene.m_perfLogPath, sizeof( scene.m_perfLogPath ), line + 9 );
+            continue;
+        }
+
+        // parse perf_log_flush directive
+        if ( strncmp( line, "perf_log_flush ", 15 ) == 0 )
+        {
+            if ( strcmp( line + 15, "on" ) == 0 )
+            {
+                scene.m_isPerfLogFlush = true;
+            }
+            else if ( strcmp( line + 15, "off" ) == 0 )
+            {
+                scene.m_isPerfLogFlush = false;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid perf_log_flush value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 15 );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
+        // parse perf_log_flush_interval directive
+        if ( strncmp( line, "perf_log_flush_interval ", 24 ) == 0 )
+        {
+            scene.m_perfLogFlushInterval = atoi( line + 24 );
+            if ( scene.m_perfLogFlushInterval < 0 )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid perf_log_flush_interval at line %d (must be >= 0)  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
             continue;
         }
 
@@ -729,6 +766,18 @@ int TestScene::GetLegacyBallCount() const
 const char* TestScene::GetPerfLogPath() const
 {
     return m_perfLogPath;
+}
+
+
+bool TestScene::IsPerfLogFlushEnabled() const
+{
+    return m_isPerfLogFlush;
+}
+
+
+int TestScene::GetPerfLogFlushInterval() const
+{
+    return m_perfLogFlushInterval;
 }
 
 

@@ -38,6 +38,9 @@ SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
     m_screenshotDir[0] = '\0';
     m_perfLogPath[0] = '\0';
     m_perfLogFile = nullptr;
+    m_isPerfLogFlushEnabled = false;
+    m_perfLogFlushInterval = 0;
+    m_perfLogWritesSinceFlush = 0;
     m_rollLogFile = nullptr;
     m_isVectorLogEnabled = false;
     m_vectorLogInterval = 6;
@@ -409,6 +412,13 @@ void SkullbonezRun::Run()
 #else
                 fprintf( m_perfLogFile, "%d,%d,%.4f,%.4f\n", sPerfPass + 1, m_currentFrame + 1, m_physicsTime * 1000.0f, m_renderTime * 1000.0f );
 #endif
+                ++m_perfLogWritesSinceFlush;
+                if ( m_isPerfLogFlushEnabled ||
+                     ( m_perfLogFlushInterval > 0 && m_perfLogWritesSinceFlush >= m_perfLogFlushInterval ) )
+                {
+                    fflush( m_perfLogFile );
+                    m_perfLogWritesSinceFlush = 0;
+                }
 
                 // Log memory every 60 frames (~1 second)
                 if ( ( m_currentFrame + 1 ) % 60 == 0 )
@@ -1313,6 +1323,11 @@ void SkullbonezRun::LoadScene( int index )
     if ( m_perfLogFile )
     {
         LogPerfMemory( "end" );
+        if ( m_perfLogWritesSinceFlush > 0 )
+        {
+            fflush( m_perfLogFile );
+            m_perfLogWritesSinceFlush = 0;
+        }
         fclose( m_perfLogFile );
         m_perfLogFile = nullptr;
     }
@@ -1340,6 +1355,9 @@ void SkullbonezRun::LoadScene( int index )
     m_intervalCaptureCount = 0;
     m_screenshotDir[0] = '\0';
     m_perfLogPath[0] = '\0';
+    m_isPerfLogFlushEnabled = false;
+    m_perfLogFlushInterval = 0;
+    m_perfLogWritesSinceFlush = 0;
     m_isVectorLogEnabled = false;
     m_vectorLogInterval = 6;
     m_isVectorLogFlushEnabled = false;
@@ -1406,6 +1424,8 @@ void SkullbonezRun::LoadScene( int index )
         m_isVectorLogEnabled = scene.IsVectorLogEnabled();
         m_vectorLogInterval = scene.GetVectorLogInterval();
         m_isVectorLogFlushEnabled = scene.IsVectorLogFlushEnabled();
+        m_isPerfLogFlushEnabled = scene.IsPerfLogFlushEnabled();
+        m_perfLogFlushInterval = scene.GetPerfLogFlushInterval();
         if ( scene.HasVsyncOverride() )
         {
             m_isVsyncEnabled = scene.IsVsyncEnabled();
@@ -1456,6 +1476,7 @@ void SkullbonezRun::LoadScene( int index )
             fopen_s( &m_perfLogFile, m_perfLogPath, mode );
             if ( m_perfLogFile )
             {
+                m_perfLogWritesSinceFlush = 0;
                 LogPerfMemory( "start" );
             }
         }
@@ -1677,6 +1698,12 @@ void SkullbonezRun::LogPerfMemory( const char* checkpoint )
     {
         double mb = static_cast<double>( pmc.WorkingSetSize ) / ( 1024.0 * 1024.0 );
         fprintf( m_perfLogFile, "# MEM %s pass=%d working_set_mb=%.2f\n", checkpoint, sPerfPass + 1, mb );
-        fflush( m_perfLogFile );
+        ++m_perfLogWritesSinceFlush;
+        if ( m_isPerfLogFlushEnabled ||
+             ( m_perfLogFlushInterval > 0 && m_perfLogWritesSinceFlush >= m_perfLogFlushInterval ) )
+        {
+            fflush( m_perfLogFile );
+            m_perfLogWritesSinceFlush = 0;
+        }
     }
 }
