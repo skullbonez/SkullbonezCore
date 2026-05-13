@@ -57,8 +57,10 @@ class SpatialGrid
     uint32_t generation;
     int entryPoolUsed;
     int objectCount;
+    int activeBucketCount;
 
     Bucket buckets[TABLE_SIZE];
+    int activeBuckets[TABLE_SIZE];
     Entry entries[MAX_CELL_ENTRIES];
     uint64_t pairSeen[PAIR_WORDS];
 
