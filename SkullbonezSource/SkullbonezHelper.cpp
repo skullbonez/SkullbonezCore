@@ -55,7 +55,9 @@ void SkullbonezHelper::EnsureSphereMesh()
 
 void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
 {
-    // Generate a unit sphere with normals and texcoords (8 floats per vertex)
+    // Generate a unit sphere with normals and texcoords (8 floats per vertex).
+    // Local mesh frame is pre-rotated +90° about Y so it naturally matches the
+    // engine's physics orientation (no per-instance visual yaw shim required).
     std::vector<float> verts;
     verts.reserve( slices * stacks * 6 * 8 );
 
@@ -69,11 +71,16 @@ void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
             float theta0 = _2PI * static_cast<float>( j ) / static_cast<float>( slices );
             float theta1 = _2PI * static_cast<float>( j + 1 ) / static_cast<float>( slices );
 
-            // 4 corners of the quad
-            float x00 = sinf( phi0 ) * cosf( theta0 ), y00 = cosf( phi0 ), z00 = sinf( phi0 ) * sinf( theta0 );
-            float x01 = sinf( phi0 ) * cosf( theta1 ), y01 = cosf( phi0 ), z01 = sinf( phi0 ) * sinf( theta1 );
-            float x10 = sinf( phi1 ) * cosf( theta0 ), y10 = cosf( phi1 ), z10 = sinf( phi1 ) * sinf( theta0 );
-            float x11 = sinf( phi1 ) * cosf( theta1 ), y11 = cosf( phi1 ), z11 = sinf( phi1 ) * sinf( theta1 );
+            // 4 corners of the quad.
+            // Bake +90 yaw in local space: (x, z) -> (z, -x).
+            // This rotates the generated sphere's theta=0 meridian so the texture
+            // seam/pole frame matches the engine's roll/pole convention. With this
+            // baked into the mesh, poles track physics orientation naturally and we
+            // can remove the per-instance runtime RotY90 compatibility shim.
+            float x00 = sinf( phi0 ) * sinf( theta0 ), y00 = cosf( phi0 ), z00 = -sinf( phi0 ) * cosf( theta0 );
+            float x01 = sinf( phi0 ) * sinf( theta1 ), y01 = cosf( phi0 ), z01 = -sinf( phi0 ) * cosf( theta1 );
+            float x10 = sinf( phi1 ) * sinf( theta0 ), y10 = cosf( phi1 ), z10 = -sinf( phi1 ) * cosf( theta0 );
+            float x11 = sinf( phi1 ) * sinf( theta1 ), y11 = cosf( phi1 ), z11 = -sinf( phi1 ) * cosf( theta1 );
 
             float u0 = static_cast<float>( j ) / static_cast<float>( slices ), v0 = static_cast<float>( i ) / static_cast<float>( stacks );
             float u1 = static_cast<float>( j + 1 ) / static_cast<float>( slices ), v1 = static_cast<float>( i + 1 ) / static_cast<float>( stacks );

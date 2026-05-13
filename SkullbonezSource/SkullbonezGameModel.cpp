@@ -114,19 +114,11 @@ float GameModel::GetBoundingRadius()
 
 Vector3 GameModel::GetOrientationUp()
 {
-    // Returns the world-space up vector of the ball — i.e. where the local Y axis points
-    // after applying the physics orientation plus the visual 90° Y yaw.
+    // Returns the world-space up vector of the ball (local +Y after physics orientation).
     //
     // DERIVATION:
-    //   GetModelMatrix() applies: T * FromQuaternion(q) * RotY90 * Scale
-    //   The world-space up vector is col1 of the rotation part, i.e. col1 of
-    //   (FromQuaternion(q) * RotY90).
-    //
-    //   RotY90 has col1 = (0, 1, 0, 0), so:
-    //     (FromQuaternion(q) * RotY90).col1 = FromQuaternion(q) * (0,1,0,0) = Q.col1
-    //
-    //   Therefore the RotY90 has NO effect on the up vector — it is identical to col1
-    //   of FromQuaternion(q), which from the standard quaternion formula is:
+    //   GetModelMatrix() uses T * FromQuaternion(q) * Scale.
+    //   The world-space up vector is col1 of FromQuaternion(q), which is:
     //     col1 = (xy2+wz2,  1-(xx2+zz2),  yz2-wx2)
     //          = (2(qx·qy + qw·qz),  1 - 2(qx² + qz²),  2(qy·qz - qw·qx))
     //
@@ -259,14 +251,11 @@ bool GameModel::IsResponseRequired()
 
 Matrix4 GameModel::GetModelMatrix()
 {
-    // Visual-only 90° Y yaw to align the sphere's texture/poles with its roll axis.
-    // Physics orientation is untouched — this only affects what the shader sees.
-    // Fused TRS: T(worldPos) * FromQuaternion(q) * RotY90 * Scale(radius) in ~40 FP ops.
-    // Assumes a BoundingSphere with zero local offset (see AddBoundingSphere).
-    return Matrix4::ModelFromQuaternionYaw90(
-        m_physicsInfo.GetOrientation(),
-        GetShapeBoundingRadius( m_boundingVolume ),
-        m_physicsInfo.GetPosition() );
+    // Natural model transform: T(worldPos) * FromQuaternion(q) * Scale(radius).
+    // Sphere mesh local frame is pre-rotated at build time, so no runtime visual
+    // yaw compatibility shim is required.
+    Matrix4 rotation = Matrix4::FromQuaternion( m_physicsInfo.GetOrientation() );
+    return GetShapeModelMatrix( m_boundingVolume, m_physicsInfo.GetPosition(), rotation );
 }
 
 
