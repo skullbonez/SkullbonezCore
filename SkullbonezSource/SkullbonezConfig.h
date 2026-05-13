@@ -63,7 +63,7 @@ class SkullbonezConfig
     float spinFrictionCoeff = 0.3f;
     float contactRestitutionThreshold = 2.0f;
     float contactEpsilon = 0.05f;
-    float broadphaseCell = 11.0f;
+    float broadphaseCell = 24.0f;
 
     // Shadows
     float shadowMaxHeight = 50.0f;
