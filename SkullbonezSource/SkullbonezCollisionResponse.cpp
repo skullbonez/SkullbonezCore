@@ -149,11 +149,13 @@ void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel, float cha
             // --- Friction impulse (Coulomb model) ---
             // Recompute contact velocity after normal impulse
             vContact = velocity + Vector::CrossProduct( omega, rContact );
-            Vector3 vTangent = vContact - normal * ( vContact * normal );
-            float vTangentMag = Vector::VectorMag( vTangent );
+            float vContactNormal = vContact * normal;
+            Vector3 vTangent = vContact - normal * vContactNormal;
+            float vTangentSq = vTangent * vTangent;
 
-            if ( vTangentMag > TOLERANCE )
+            if ( vTangentSq > TOLERANCE * TOLERANCE )
             {
+                float vTangentMag = sqrtf( vTangentSq );
                 Vector3 tangentDir = vTangent / vTangentMag;
 
                 // Effective mass for friction direction at contact point
@@ -207,15 +209,17 @@ void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel, float cha
 
             // --- Rolling friction (small constant torque opposing spin) ---
             float rollingDecel = Cfg().rollingFrictionCoeff * normalForce / mass;
-            float speed = Vector::VectorMag( velocity - normal * ( velocity * normal ) );
-            if ( speed > TOLERANCE )
+            float velocityAlongNormal = velocity * normal;
+            Vector3 rollingTangentVelocity = velocity - normal * velocityAlongNormal;
+            float rollingTangentSpeedSq = rollingTangentVelocity * rollingTangentVelocity;
+            if ( rollingTangentSpeedSq > TOLERANCE * TOLERANCE )
             {
-                Vector3 moveDir = velocity - normal * ( velocity * normal );
-                moveDir.Normalise();
+                float rollingTangentSpeed = sqrtf( rollingTangentSpeedSq );
+                Vector3 moveDir = rollingTangentVelocity / rollingTangentSpeed;
                 float deltaV = rollingDecel * changeInTime;
-                if ( deltaV > speed )
+                if ( deltaV > rollingTangentSpeed )
                 {
-                    deltaV = speed;
+                    deltaV = rollingTangentSpeed;
                 }
                 velocity -= moveDir * deltaV;
             }
@@ -235,8 +239,9 @@ void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel, float cha
             float omegaMagSq = omega.x * omega.x +
                                omega.y * omega.y +
                                omega.z * omega.z;
-            Vector3 tangentVelocity = velocity - normal * ( velocity * normal );
-            float tangentSpeedSq = tangentVelocity * tangentVelocity;
+            float velocityAlongNormalPostFriction = velocity * normal;
+            Vector3 alignTangentVelocity = velocity - normal * velocityAlongNormalPostFriction;
+            float tangentSpeedSq = alignTangentVelocity * alignTangentVelocity;
             float minSpeedSq = Cfg().rollAlignMinSpeed * Cfg().rollAlignMinSpeed;
             float minOmegaSq = Cfg().rollAlignMinOmega * Cfg().rollAlignMinOmega;
             static uint32_t s_rollAlignCounter = 0;
