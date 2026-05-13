@@ -53,6 +53,8 @@ class GameModel
     char m_name[64];                                    // Optional name for logging (empty = unnamed)
     bool m_isGrounded;                                  // True if ball had terrain contact this physics frame
 
+    const BoundingSphere& GetBoundingSphere() const;                               // Sphere-only fast path accessor (variant-backed)
+    BoundingSphere& GetBoundingSphere();                                           // Mutable sphere-only fast path accessor (variant-backed)
     void CalculateVolume();                                                        // Calculates the volume of the model
     void ApplyWorldForces( float changeInTime );                                   // Apply forces on the body from the world environment
     void UpdateModelInfo();                                                        // Perform this operation every time the model has objects added or removed from its object list

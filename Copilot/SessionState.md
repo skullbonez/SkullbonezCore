@@ -18,7 +18,7 @@
 ## Branch & Last Commit
 - Branch: `opt/optimizations-pass`
 - Last commit on main: `3ab3e2e` — camera tween reflection fix
-- Working branch HEAD: `74ee3a6` — opt-07 RunPhysics retained buffers
+- Working branch HEAD: `27ebbec` — opt-08 roll alignment gating
 
 ---
 
@@ -56,7 +56,23 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 
 ## Recent Session Work (this session)
 
-0. **Optimization pass — opt-08 roll/orientation correction gating** (`pending commit`):
+0. **Optimization pass — opt-09 sphere-only fast path** (`pending commit`):
+   - Added explicit sphere accessors on `GameModel` (`GetBoundingSphere() const/non-const`) so hot physics code can bypass `std::variant` visitor dispatch in the current sphere-only workload.
+   - Replaced variant-dispatch calls in hot paths with direct `BoundingSphere` calls:
+     - model-model collision test path (`GetModelCollisionTime`)
+     - overlap pushout radii (`StaticOverlapResponseGameModel`)
+     - model matrix path (`GetModelMatrix`)
+     - terrain bottom offset and debug terrain placement
+     - submerged volume percent, projected surface area, drag coefficient, and volume calculations.
+   - Kept abstraction safety by preserving `CollisionShape` ownership as a variant-backed member while using sphere-specialized access only in per-frame/hot loops.
+   - Full pipeline re-run completed with new archive `TestOutput/010_27ebbec/`.
+   - CPU delta vs opt-08 baseline (`009_74ee3a6`):
+     - GL: `Frame` avg **-2.5%**, `Frame/Physics` avg **-4.5%**, `Frame/Physics/ApplyForces` avg **-10.6%**
+     - DX11: `Frame` avg **-0.8%**, `Frame/Physics` avg **-2.9%**, `Frame/Physics/ApplyForces` avg **-9.0%**
+     - DX12: `Frame` avg **-0.5%**, `Frame/Physics` avg **-4.2%**, `Frame/Physics/ApplyForces` avg **-10.8%**
+     - No perf_compare hard regressions flagged.
+
+1. **Optimization pass — opt-08 roll/orientation correction gating** (`27ebbec`):
    - Added configurable roll-alignment gates in terrain collision response (`RespondCollisionTerrain`):
      - `roll_align_enabled`
      - `roll_align_interval`
@@ -70,7 +86,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
    - Full pipeline re-run completed with archive `TestOutput/009_74ee3a6/` refreshed.
    - CPU delta vs opt-07 baseline (`008_84d2ef0`) was mixed/noisy in this run (no perf_compare hard regressions).
 
-1. **Optimization pass — opt-07 remove per-frame RunPhysics allocations** (`74ee3a6`):
+2. **Optimization pass — opt-07 remove per-frame RunPhysics allocations** (`74ee3a6`):
    - Added retained per-model frame buffers as `GameModelCollection` members:
      - `m_timeRemaining` (`std::vector<float>`)
      - `m_groundedThisFrame` (`std::vector<uint8_t>`)
@@ -83,7 +99,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
      - DX11: `Frame/Physics/ApplyForces` avg **+3.5%**, `Frame` avg **+0.3%** (no perf_compare regressions)
      - DX12: `Frame/Physics/ApplyForces` avg **+3.7%**, `Frame` avg **+1.6%** (no perf_compare regressions)
 
-2. **Optimization pass — opt-06 active bucket tracking in spatial grid** (`84d2ef0`):
+3. **Optimization pass — opt-06 active bucket tracking in spatial grid** (`84d2ef0`):
    - `SpatialGrid` now tracks active bucket indices for the current generation:
      - added `activeBuckets[TABLE_SIZE]` and `activeBucketCount`,
      - `FindOrCreate` appends a bucket index when a stale slot is first claimed in the frame.
@@ -95,7 +111,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
      - DX11: `Frame/Physics/Broadphase` avg **-15.8%** (p50 **-16.2%**)
      - DX12: `Frame/Physics/Broadphase` avg **-16.6%** (p50 **-16.6%**)
 
-3. **Optimization pass — opt-05 broadphase cell sweep/tuning** (`6dcfcce`):
+4. **Optimization pass — opt-05 broadphase cell sweep/tuning** (`6dcfcce`):
    - Ran focused `broadphase_cell` sweeps on `perf_test.scene` for `{8, 11, 16, 24, 32}` and measured `Frame/Physics/Broadphase + Frame/Physics/Narrowphase`.
    - `broadphase_cell = 24.0` gave the best combined CPU cost in the sweep and remained best in follow-up tri-renderer checks against nearby values (`16`, `24`, `32`).
    - Updated defaults to use `24.0`:
@@ -107,7 +123,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
      - DX11: `Frame` avg **-31.3%**, `Frame/Physics` avg **-53.7%**, `Frame/Physics/Broadphase` avg **-88.0%**, `Frame/Physics/Narrowphase` avg **-56.5%**
      - DX12: `Frame` avg **-17.1%**, `Frame/Physics` avg **-52.3%**, `Frame/Physics/Broadphase` avg **-87.0%**, `Frame/Physics/Narrowphase` avg **-45.1%**
 
-4. **Optimization pass — opt-04 narrowphase early-outs** (`12f5ac0`):
+5. **Optimization pass — opt-04 narrowphase early-outs** (`12f5ac0`):
    - Reworked `BoundingSphere::CollisionDetect` to use a relative-motion quadratic solve with several low-cost rejects before the discriminant path.
    - Added early-outs for:
      - negligible relative movement,
@@ -121,7 +137,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
      - DX11 `Frame/Physics/Narrowphase` avg **-11.5%** (p50 **-10.2%**)
      - DX12 `Frame/Physics/Narrowphase` avg **-10.5%** (p50 **-11.1%**)
 
-5. **Optimization pass — opt-03 terrain collision cache** (`7893de3`):
+6. **Optimization pass — opt-03 terrain collision cache** (`7893de3`):
    - Added per-quad terrain collision cache in `Terrain`:
      - precomputed plane + upward normal for both triangle A/B in each terrain quad,
      - one-time cache build after terrain postings are translated.
@@ -132,7 +148,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
    - Added analytic flat-slope fast handling in the same query path using a precomputed plane/normal (no fabricated triangles for physics queries).
    - Full pipeline re-run completed for this change with new archive `TestOutput/004_87cc00d/`.
 
-6. **Optimization pass — opt-02 sync stall + V-Sync control** (`87cc00d`):
+7. **Optimization pass — opt-02 sync stall + V-Sync control** (`87cc00d`):
    - Added runtime controls for forced pipeline sync and V-Sync:
      - Engine config keys: `force_pipeline_sync`, `vsync_enabled`
      - Scene directives: `pipeline_sync on|off`, `vsync on|off`
@@ -144,7 +160,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
      - transient allocation now enforces per-allocator bounds.
    - Full pipeline re-run completed; DX12 InfoQueue validation is back to 0 errors after the descriptor fix.
 
-7. **Optimization pass — opt-01 vector log gating** (`0008eb9`):
+8. **Optimization pass — opt-01 vector log gating** (`0008eb9`):
    - Removed the unconditional `#define VECTOR_LOG_ENABLED` path from `SkullbonezRun::UpdateLogic`.
    - Added scene directives in `TestScene` for vector diagnostics:
      - `vector_log on|off` (default off)
@@ -214,14 +230,11 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 ---
 
 ## Uncommitted Changes (DO NOT LOSE)
-- Pending opt-08 roll-alignment gating and scene override changes in:
-  - `SkullbonezSource/SkullbonezCollisionResponse.cpp`
-  - `SkullbonezSource/SkullbonezConfig.h/.cpp`
-  - `SkullbonezSource/SkullbonezTestScene.h/.cpp`
-  - `SkullbonezSource/SkullbonezRun.h/.cpp`
-  - `SkullbonezData/engine.cfg`
-  - `SkullbonezData/scenes/perf_test.scene`
-- Pipeline artifacts refreshed in `TestOutput/009_74ee3a6/` and `TestOutput/baselines/*.png`.
+- Pending opt-09 sphere-fast-path changes in:
+  - `SkullbonezSource/SkullbonezGameModel.h/.cpp`
+- Pipeline artifacts refreshed in:
+  - `TestOutput/010_27ebbec/`
+  - `TestOutput/baselines/baseline_{gl,dx11,dx12}_legacy_smoke.png`
 
 ---
 
