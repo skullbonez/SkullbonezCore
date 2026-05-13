@@ -18,7 +18,7 @@
 ## Branch & Last Commit
 - Branch: `opt/optimizations-pass`
 - Last commit on main: `3ab3e2e` — camera tween reflection fix
-- Working branch HEAD: `0008eb9` — opt-01 vector log gating
+- Working branch HEAD: `87cc00d` — opt-02 sync stall + vsync controls
 
 ---
 
@@ -56,7 +56,18 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 
 ## Recent Session Work (this session)
 
-0. **Optimization pass — opt-02 sync stall + V-Sync control** (`pending commit`):
+0. **Optimization pass — opt-03 terrain collision cache** (`pending commit`):
+   - Added per-quad terrain collision cache in `Terrain`:
+     - precomputed plane + upward normal for both triangle A/B in each terrain quad,
+     - one-time cache build after terrain postings are translated.
+   - Added fast terrain query APIs:
+     - `GetTerrainHeightAndPlaneAt(...)` for physics collision detection,
+     - `GetTerrainHeightAndNormalAt(...)` now also uses cached data.
+   - `GameModel::GetTerrainCollisionTime` now fetches the collision plane and height from the cache instead of calling `LocatePolygon` + `ComputePlane` per frame.
+   - Added analytic flat-slope fast handling in the same query path using a precomputed plane/normal (no fabricated triangles for physics queries).
+   - Full pipeline re-run completed for this change with new archive `TestOutput/004_87cc00d/`.
+
+1. **Optimization pass — opt-02 sync stall + V-Sync control** (`87cc00d`):
    - Added runtime controls for forced pipeline sync and V-Sync:
      - Engine config keys: `force_pipeline_sync`, `vsync_enabled`
      - Scene directives: `pipeline_sync on|off`, `vsync on|off`
@@ -68,7 +79,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
      - transient allocation now enforces per-allocator bounds.
    - Full pipeline re-run completed; DX12 InfoQueue validation is back to 0 errors after the descriptor fix.
 
-1. **Optimization pass — opt-01 vector log gating** (`0008eb9`):
+2. **Optimization pass — opt-01 vector log gating** (`0008eb9`):
    - Removed the unconditional `#define VECTOR_LOG_ENABLED` path from `SkullbonezRun::UpdateLogic`.
    - Added scene directives in `TestScene` for vector diagnostics:
      - `vector_log on|off` (default off)
@@ -138,8 +149,8 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 ---
 
 ## Uncommitted Changes (DO NOT LOSE)
-- Pending opt-02 code changes (sync/vsync controls + DX12 transient descriptor partition fix) are in the working tree.
-- Pipeline artifacts generated for current HEAD (`0008eb9`) in `TestOutput/003_0008eb9/` (perf JSON + screenshots), plus refreshed `TestOutput/baselines/*.png`.
+- Pending opt-03 terrain cache code changes are in the working tree.
+- Pipeline artifacts generated for current HEAD (`87cc00d`) in `TestOutput/004_87cc00d/` (perf JSON + screenshots), plus refreshed `TestOutput/baselines/*.png`.
 
 ---
 

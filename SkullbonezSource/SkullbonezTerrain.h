@@ -44,27 +44,46 @@ class Terrain
     float GetTerrainHeightAt( float xPosition, float zPosition, bool isFluidMin = false );                      // Returns the height of the terrain at the specified coordinates
     Vector3 GetTerrainNormalAt( float xPosition, float zPosition );                                             // Returns the surface normal of the terrain at the specified coordinates
     void GetTerrainHeightAndNormalAt( float xPosition, float zPosition, float& outHeight, Vector3& outNormal ); // Combined lookup — single LocatePolygon call vs two separate calls
+    void GetTerrainHeightAndPlaneAt( float xPosition, float zPosition, float& outHeight, Plane& outPlane );     // Physics fast path — direct cached plane + height lookup
 
   private:
+    struct CachedTriangleData
+    {
+        Plane m_plane;
+        Vector3 m_normal;
+    };
+
+    struct CachedQuadData
+    {
+        CachedTriangleData m_triangleA;
+        CachedTriangleData m_triangleB;
+    };
+
     UINT displayListReference;                // Reference to the display list (retained for fallback)
     std::unique_ptr<IMesh> m_terrainMesh;     // VBO mesh for m_shader rendering
     std::unique_ptr<IShader> m_terrainShader; // Lit+textured m_shader program
     std::vector<TerrainPost> m_postData;      // Vertices that make up the m_terrain
     std::vector<BYTE> m_terrainData;          // Raw m_height map byte data (populated during construction, cleared after build)
-    int m_mapSize;                            // Size of map (pixels length)
-    int m_stepSize;                           // Steps size between posts
-    int m_textureWrap;                        // Number of times to wrap texture over m_terrain
-    int m_postsPerSide;                       // Terrain postings per side of m_terrain
-    int m_terrainSizeWorldCoords;             // size per side of m_terrain in world coordinates
+    std::vector<CachedQuadData> m_cachedCollisionData;
+    int m_mapSize;                // Size of map (pixels length)
+    int m_stepSize;               // Steps size between posts
+    int m_textureWrap;            // Number of times to wrap texture over m_terrain
+    int m_postsPerSide;           // Terrain postings per side of m_terrain
+    int m_terrainSizeWorldCoords; // size per side of m_terrain in world coordinates
 
     // Flat slope mode
     bool m_isFlatSlope;
     float m_slopeBaseY;
     float m_slopeX;
     float m_slopeZ;
+    Plane m_flatSlopePlane;
+    Vector3 m_flatSlopeNormal;
 
-    void LoadTerrainData( const char* sFileName );  // Loads terrain from .RAW file into terrainData member
-    void BuildTerrain();                            // Builds the terrain
+    void LoadTerrainData( const char* sFileName ); // Loads terrain from .RAW file into terrainData member
+    void BuildTerrain();                           // Builds the terrain
+    void BuildCollisionCache();                    // Precomputes per-quad triangle planes + normals for physics queries
+    int GetQuadCacheIndex( float xPosition, float zPosition, bool& isTriangleA );
+    void QueryCollisionData( float xPosition, float zPosition, float& outHeight, Vector3* outNormal, Plane* outPlane );
     void TranslatePostings();                       // Translates terrain posts
     void GenerateNormals();                         // Generates normals for posts
     void BuildMesh();                               // Builds VBO mesh from post data

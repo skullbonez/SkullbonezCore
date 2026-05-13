@@ -20,6 +20,9 @@ Terrain::Terrain( const char* sFileName,
     m_slopeBaseY = 0.0f;
     m_slopeX = 0.0f;
     m_slopeZ = 0.0f;
+    m_flatSlopeNormal = Vector3( 0.0f, 1.0f, 0.0f );
+    m_flatSlopePlane.m_normal = m_flatSlopeNormal;
+    m_flatSlopePlane.m_distance = 0.0f;
 
     m_terrainSizeWorldCoords = ( ( m_mapSize - m_stepSize ) /
                                  m_stepSize ) *
@@ -58,6 +61,14 @@ Terrain::Terrain( float slopeBaseY, float slopeX, float slopeZ )
     m_slopeBaseY = slopeBaseY;
     m_slopeX = slopeX;
     m_slopeZ = slopeZ;
+    m_flatSlopeNormal = Vector3( -m_slopeX, 1.0f, -m_slopeZ );
+    m_flatSlopeNormal.Normalise();
+    if ( m_flatSlopeNormal.y < 0.0f )
+    {
+        m_flatSlopeNormal = m_flatSlopeNormal * -1.0f;
+    }
+    m_flatSlopePlane.m_normal = m_flatSlopeNormal;
+    m_flatSlopePlane.m_distance = m_flatSlopeNormal.y * m_slopeBaseY;
 
     BuildFlatSlopeMesh();
 
@@ -85,7 +96,130 @@ void Terrain::BuildTerrain()
     m_postData.resize( terrainPostCount );
 
     TranslatePostings();
+    BuildCollisionCache();
     GenerateNormals();
+}
+
+
+void Terrain::BuildCollisionCache()
+{
+    if ( m_isFlatSlope )
+    {
+        m_cachedCollisionData.clear();
+        return;
+    }
+
+    int quadsPerSide = m_postsPerSide - 1;
+    if ( quadsPerSide <= 0 )
+    {
+        m_cachedCollisionData.clear();
+        return;
+    }
+
+    m_cachedCollisionData.resize( quadsPerSide * quadsPerSide );
+
+    for ( int zPosting = 0; zPosting < quadsPerSide; ++zPosting )
+    {
+        for ( int xPosting = 0; xPosting < quadsPerSide; ++xPosting )
+        {
+            int targetQuadric = zPosting * m_postsPerSide + xPosting + m_postsPerSide;
+
+            Triangle triA;
+            triA.v1 = m_postData[targetQuadric].vPosition;
+            triA.v2 = m_postData[targetQuadric - m_postsPerSide].vPosition;
+            triA.v3 = m_postData[targetQuadric - m_postsPerSide + 1].vPosition;
+
+            Triangle triB;
+            triB.v1 = m_postData[targetQuadric].vPosition;
+            triB.v2 = m_postData[targetQuadric - m_postsPerSide + 1].vPosition;
+            triB.v3 = m_postData[targetQuadric + 1].vPosition;
+
+            CachedQuadData& cached = m_cachedCollisionData[zPosting * quadsPerSide + xPosting];
+            cached.m_triangleA.m_plane = GeometricMath::ComputePlane( triA );
+            cached.m_triangleB.m_plane = GeometricMath::ComputePlane( triB );
+
+            if ( cached.m_triangleA.m_plane.m_normal.y < 0.0f )
+            {
+                cached.m_triangleA.m_plane.m_normal = cached.m_triangleA.m_plane.m_normal * -1.0f;
+                cached.m_triangleA.m_plane.m_distance *= -1.0f;
+            }
+            if ( cached.m_triangleB.m_plane.m_normal.y < 0.0f )
+            {
+                cached.m_triangleB.m_plane.m_normal = cached.m_triangleB.m_plane.m_normal * -1.0f;
+                cached.m_triangleB.m_plane.m_distance *= -1.0f;
+            }
+
+            cached.m_triangleA.m_normal = cached.m_triangleA.m_plane.m_normal;
+            cached.m_triangleB.m_normal = cached.m_triangleB.m_plane.m_normal;
+        }
+    }
+}
+
+
+int Terrain::GetQuadCacheIndex( float xPosition, float zPosition, bool& isTriangleA )
+{
+    float scaledStepSize = m_stepSize * Cfg().terrainScale;
+    int xPosting = static_cast<int>( floorf( zPosition / scaledStepSize ) );
+    int zPosting = static_cast<int>( floorf( xPosition / scaledStepSize ) );
+    int quadsPerSide = m_postsPerSide - 1;
+
+    if ( xPosting < 0 || zPosting < 0 || xPosting >= quadsPerSide || zPosting >= quadsPerSide )
+    {
+        throw std::runtime_error( "Specified co-ordinates are out of m_terrain bounds.  (Terrain::GetQuadCacheIndex)" );
+    }
+
+    float localZ = zPosition - ( xPosting * scaledStepSize );
+    float localX = xPosition - ( zPosting * scaledStepSize );
+
+    // Same split as LocatePolygon: triangle A when above the quad diagonal, or
+    // exactly on the axis where the old gradient test was infinite.
+    isTriangleA = ( localX <= TOLERANCE ) || ( ( scaledStepSize - localZ ) > localX );
+
+    return zPosting * quadsPerSide + xPosting;
+}
+
+
+void Terrain::QueryCollisionData( float xPosition,
+                                  float zPosition,
+                                  float& outHeight,
+                                  Vector3* outNormal,
+                                  Plane* outPlane )
+{
+    if ( !IsInBounds( xPosition, zPosition ) )
+    {
+        throw std::runtime_error( "Specified co-ordinates are out of m_terrain bounds.  (Terrain::QueryCollisionData)" );
+    }
+
+    if ( m_isFlatSlope )
+    {
+        outHeight = m_slopeBaseY + m_slopeX * xPosition + m_slopeZ * zPosition;
+        if ( outNormal )
+        {
+            *outNormal = m_flatSlopeNormal;
+        }
+        if ( outPlane )
+        {
+            *outPlane = m_flatSlopePlane;
+        }
+        return;
+    }
+
+    bool isTriangleA = false;
+    int cacheIndex = GetQuadCacheIndex( xPosition, zPosition, isTriangleA );
+    const CachedTriangleData& cachedTriangle = isTriangleA ? m_cachedCollisionData[cacheIndex].m_triangleA
+                                                           : m_cachedCollisionData[cacheIndex].m_triangleB;
+
+    const Plane& plane = cachedTriangle.m_plane;
+    outHeight = ( plane.m_distance - plane.m_normal.x * xPosition - plane.m_normal.z * zPosition ) / plane.m_normal.y;
+
+    if ( outNormal )
+    {
+        *outNormal = cachedTriangle.m_normal;
+    }
+    if ( outPlane )
+    {
+        *outPlane = plane;
+    }
 }
 
 
@@ -145,11 +279,8 @@ float Terrain::GetTerrainHeightAt( float xPosition,
                                    float zPosition,
                                    bool isFluidMin )
 {
-    float terrainHeight =
-        ( GeometricMath::GetHeightFromPlane( LocatePolygon( xPosition,
-                                                            zPosition ),
-                                             xPosition,
-                                             zPosition ) );
+    float terrainHeight = 0.0f;
+    QueryCollisionData( xPosition, zPosition, terrainHeight, nullptr, nullptr );
 
     if ( isFluidMin )
     {
@@ -164,39 +295,22 @@ float Terrain::GetTerrainHeightAt( float xPosition,
 
 Vector3 Terrain::GetTerrainNormalAt( float xPosition, float zPosition )
 {
-    Triangle tri = LocatePolygon( xPosition, zPosition );
-    Vector3 edge1 = tri.v2 - tri.v1;
-    Vector3 edge2 = tri.v3 - tri.v1;
-    Vector3 m_normal = Vector::CrossProduct( edge1, edge2 );
-    m_normal.Normalise();
-
-    // ensure the m_normal points upward
-    if ( m_normal.y < 0.0f )
-    {
-        m_normal = m_normal * -1.0f;
-    }
-
-    return m_normal;
+    float terrainHeight = 0.0f;
+    Vector3 normal;
+    QueryCollisionData( xPosition, zPosition, terrainHeight, &normal, nullptr );
+    return normal;
 }
 
 
 void Terrain::GetTerrainHeightAndNormalAt( float xPosition, float zPosition, float& outHeight, Vector3& outNormal )
 {
-    // Single LocatePolygon call serves both height and normal — avoids the redundant
-    // polygon walk that occurs when GetTerrainHeightAt and GetTerrainNormalAt are
-    // called back-to-back for the same (x, z) in the shadow render loop.
-    Triangle tri = LocatePolygon( xPosition, zPosition );
+    QueryCollisionData( xPosition, zPosition, outHeight, &outNormal, nullptr );
+}
 
-    outHeight = GeometricMath::GetHeightFromPlane( tri, xPosition, zPosition );
 
-    Vector3 edge1 = tri.v2 - tri.v1;
-    Vector3 edge2 = tri.v3 - tri.v1;
-    outNormal = Vector::CrossProduct( edge1, edge2 );
-    outNormal.Normalise();
-    if ( outNormal.y < 0.0f )
-    {
-        outNormal = outNormal * -1.0f;
-    }
+void Terrain::GetTerrainHeightAndPlaneAt( float xPosition, float zPosition, float& outHeight, Plane& outPlane )
+{
+    QueryCollisionData( xPosition, zPosition, outHeight, nullptr, &outPlane );
 }
 
 

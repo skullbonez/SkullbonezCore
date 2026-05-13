@@ -347,16 +347,13 @@ float GameModel::GetTerrainCollisionTime( float changeInTime )
         return NO_COLLISION;
     }
 
-    // store the plane vertically aligned with the object
-    m_responseInformation.testingPlane = GeometricMath::ComputePlane( m_terrain->LocatePolygon( m_physicsInfo.GetPosition().x,
-                                                                                                m_physicsInfo.GetPosition().z ) );
-
-    // Proximity-based contact detection: if the bottom of the sphere is within
-    // contactEpsilon of the terrain surface, report immediate contact (t=0).
-    // This replaces the old m_isGrounded flag with a geometric test.
-    // Derive height directly from the plane we already computed (n.p = d → y = (d - n.x*x - n.z*z) / n.y)
-    const Vector3& planeN = m_responseInformation.testingPlane.m_normal;
-    float terrainHeight = ( m_responseInformation.testingPlane.m_distance - planeN.x * m_physicsInfo.GetPosition().x - planeN.z * m_physicsInfo.GetPosition().z ) / planeN.y;
+    // Cache-backed terrain lookup: one query returns the exact collision plane and
+    // height for this XZ position, avoiding per-frame LocatePolygon + ComputePlane.
+    float terrainHeight = 0.0f;
+    m_terrain->GetTerrainHeightAndPlaneAt( m_physicsInfo.GetPosition().x,
+                                           m_physicsInfo.GetPosition().z,
+                                           terrainHeight,
+                                           m_responseInformation.testingPlane );
     float gap = m_physicsInfo.GetPosition().y - bottomOffset - terrainHeight;
     if ( gap <= Cfg().contactEpsilon )
     {
