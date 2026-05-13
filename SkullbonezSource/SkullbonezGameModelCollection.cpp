@@ -20,6 +20,8 @@ GameModelCollection::GameModelCollection()
     : m_spatialGrid( Cfg().broadphaseCell ), m_rollLog( nullptr )
 {
     m_gameModels.reserve( MAX_GAME_MODELS );
+    m_timeRemaining.reserve( MAX_GAME_MODELS );
+    m_groundedThisFrame.reserve( MAX_GAME_MODELS );
     m_shadowInstanceData.reserve( MAX_GAME_MODELS * SHADOW_INSTANCE_FLOATS );
 };
 
@@ -42,6 +44,8 @@ void GameModelCollection::SetRollLog( FILE* file )
 void GameModelCollection::Clear()
 {
     m_gameModels.clear();
+    m_timeRemaining.clear();
+    m_groundedThisFrame.clear();
     m_planeSeenGreen.clear();
     m_planeFailed.clear();
     m_planeBlueStreak.clear();
@@ -183,12 +187,13 @@ GameModel& GameModelCollection::GetModelAtIndex( int index )
 
 void GameModelCollection::RunPhysics( float fChangeInTime )
 {
-    std::vector<float> timeRemaining( static_cast<int>( m_gameModels.size() ), fChangeInTime );
-    std::vector<bool> groundedThisFrame( static_cast<int>( m_gameModels.size() ), false );
+    const int modelCount = static_cast<int>( m_gameModels.size() );
+    m_timeRemaining.assign( modelCount, fChangeInTime );
+    m_groundedThisFrame.assign( modelCount, 0 );
 
     // update the velocity of all models
     PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
-    for ( int x = 0; x < static_cast<int>( m_gameModels.size() ); ++x )
+    for ( int x = 0; x < modelCount; ++x )
     {
         m_gameModels[x].ApplyForces( fChangeInTime );
     }
@@ -197,7 +202,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     // broadphase: populate spatial grid and generate candidate pairs
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );
     m_spatialGrid.Clear();
-    for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
+    for ( int i = 0; i < modelCount; ++i )
     {
         m_spatialGrid.Insert( i, m_gameModels[i].GetPosition(), m_gameModels[i].GetBoundingRadius() );
     }
@@ -214,13 +219,13 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
         int y = cp.second;
 
         // skip pairs where either ball has exhausted its frame time
-        if ( timeRemaining[x] <= 0.0f || timeRemaining[y] <= 0.0f )
+        if ( m_timeRemaining[x] <= 0.0f || m_timeRemaining[y] <= 0.0f )
         {
             continue;
         }
 
         // use the minimum remaining time window for this pair
-        float availableTime = ( std::min )( timeRemaining[x], timeRemaining[y] );
+        float availableTime = ( std::min )( m_timeRemaining[x], m_timeRemaining[y] );
 
         // check the collision time
         float colTime = m_gameModels[x].CollisionDetectGameModel( m_gameModels[y], availableTime );
@@ -233,8 +238,8 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
             m_gameModels[y].UpdatePosition( colTime );
 
             // subtract consumed time
-            timeRemaining[x] -= colTime;
-            timeRemaining[y] -= colTime;
+            m_timeRemaining[x] -= colTime;
+            m_timeRemaining[y] -= colTime;
 
             // velocity-only response (clears m_isResponseRequired on both models)
             m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
@@ -250,13 +255,13 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
 
     // detect and respond to collisions between game models and the m_terrain
     PROFILE_BEGIN( "Frame/Physics/Terrain" );
-    for ( int x = 0; x < static_cast<int>( m_gameModels.size() ); ++x )
+    for ( int x = 0; x < modelCount; ++x )
     {
         // only check m_terrain if this model has remaining time
-        if ( timeRemaining[x] > 0.0f )
+        if ( m_timeRemaining[x] > 0.0f )
         {
             // check the collision time
-            float colTime = m_gameModels[x].CollisionDetectTerrain( timeRemaining[x] );
+            float colTime = m_gameModels[x].CollisionDetectTerrain( m_timeRemaining[x] );
 
             // if a response is required, perform it
             if ( m_gameModels[x].IsResponseRequired() )
@@ -265,12 +270,12 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
                 m_gameModels[x].UpdatePosition( colTime );
 
                 // calculate response and update the remaining time step (m_terrain response advances m_position internally)
-                m_gameModels[x].CollisionResponseTerrain( timeRemaining[x] - colTime );
+                m_gameModels[x].CollisionResponseTerrain( m_timeRemaining[x] - colTime );
 
-                groundedThisFrame[x] = true;
+                m_groundedThisFrame[x] = 1;
 
                 // m_terrain response already advanced m_position; zero remaining time
-                timeRemaining[x] = 0.0f;
+                m_timeRemaining[x] = 0.0f;
             }
         }
     }
@@ -278,12 +283,12 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
 
     // apply the remaining time steps
     PROFILE_BEGIN( "Frame/Physics/Integrate" );
-    for ( int x = 0; x < static_cast<int>( m_gameModels.size() ); ++x )
+    for ( int x = 0; x < modelCount; ++x )
     {
         // advance by whatever time remains
-        if ( timeRemaining[x] > 0.0f )
+        if ( m_timeRemaining[x] > 0.0f )
         {
-            m_gameModels[x].UpdatePosition( timeRemaining[x] );
+            m_gameModels[x].UpdatePosition( m_timeRemaining[x] );
         }
     }
     PROFILE_END( "Frame/Physics/Integrate" );
@@ -294,15 +299,15 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
         const float axisToleranceRad = 5.0f * _PI / 180.0f;
         const int lockBlueFrames = 60;
 
-        if ( static_cast<int>( m_planeSeenGreen.size() ) != static_cast<int>( m_gameModels.size() ) ||
-             static_cast<int>( m_planeBlueStreak.size() ) != static_cast<int>( m_gameModels.size() ) )
+        if ( static_cast<int>( m_planeSeenGreen.size() ) != modelCount ||
+             static_cast<int>( m_planeBlueStreak.size() ) != modelCount )
         {
-            m_planeSeenGreen.assign( static_cast<int>( m_gameModels.size() ), false );
-            m_planeFailed.assign( static_cast<int>( m_gameModels.size() ), false );
-            m_planeBlueStreak.assign( static_cast<int>( m_gameModels.size() ), 0 );
+            m_planeSeenGreen.assign( modelCount, false );
+            m_planeFailed.assign( modelCount, false );
+            m_planeBlueStreak.assign( modelCount, 0 );
         }
 
-        for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
+        for ( int i = 0; i < modelCount; ++i )
         {
             const char* name = m_gameModels[i].GetName();
             if ( !name[0] )
@@ -310,7 +315,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
                 continue;
             }
 
-            bool isGrounded = groundedThisFrame[i];
+            bool isGrounded = ( m_groundedThisFrame[i] != 0 );
             m_gameModels[i].SetGrounded( isGrounded );
             const char* state = isGrounded ? "LANDED  " : "AIRBORNE";
             Vector3 spike = m_gameModels[i].GetOrientationUp();
