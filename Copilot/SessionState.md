@@ -55,12 +55,21 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 
 ## Recent Session Work (this session)
 
+<<<<<<< codex/fix-camera-transition-distortion
 1. **Camera tween reflection fix** (`3ab3e2e`):
    - Root cause: `DrawPrimitives()` used the selected camera endpoint for reflection eye/view/up while `CameraCollection::SetCamera()` rendered the main frame from an interpolated tween camera. During transitions, the water reflection texture and sampling VP therefore disagreed.
    - Fix: `CameraCollection` now records the exact camera state used to build `m_currentViewMatrix` each frame and exposes render-camera getters. Water reflection mirror setup now uses those render-camera vectors for the FBO/DXR reflection pass.
    - Validation in this Linux container: `clang-format` and `git diff --check`; full Windows renderer pipeline unavailable here.
 
 2. **SIMD/SSE math optimization pass** (`pending`):
+=======
+0. **Natural contact solver improvement plan** (`pending`):
+   - Added `Copilot/Plans/physics-natural-contact-solver-plan.md`, a detailed physics rewrite roadmap for replacing the remaining rolling/orientation/sphere-sphere hacks with a unified sequential impulse contact solver.
+   - Plan covers contact-point velocity, effective mass, normal/restitution impulses, Baumgarte/split impulse stabilization, static/dynamic tangent friction, spin friction, rolling resistance, sphere-sphere angular impulse cleanup, fixed timesteps, validation scenes, and phased implementation.
+   - Documentation-only change; no engine behavior changed.
+
+1. **SIMD/SSE math optimization pass** (`pending`):
+>>>>>>> main
    - `Matrix4::operator*`: SSE column-outer-product (`#ifdef _DEBUG` scalar loop preserved for debuggability)
    - `Matrix4::FromQuaternion`: replaced RotationMatrix intermediary + 3 basis-vector extractions with direct 9-product formula
    - `Matrix4::ModelFromQuaternionYaw90`: new fused static — T(worldPos) * FromQuat(q) * RotY90 * Scale(r) in ~40 FP ops vs ~500; `#ifdef _DEBUG` step-by-step compose path preserved
