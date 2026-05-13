@@ -18,7 +18,7 @@
 ## Branch & Last Commit
 - Branch: `opt/optimizations-pass`
 - Last commit on main: `3ab3e2e` — camera tween reflection fix
-- Working branch HEAD: `87cc00d` — opt-02 sync stall + vsync controls
+- Working branch HEAD: `7893de3` — opt-03 terrain collision cache
 
 ---
 
@@ -56,7 +56,21 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 
 ## Recent Session Work (this session)
 
-0. **Optimization pass — opt-03 terrain collision cache** (`pending commit`):
+0. **Optimization pass — opt-04 narrowphase early-outs** (`pending commit`):
+   - Reworked `BoundingSphere::CollisionDetect` to use a relative-motion quadratic solve with several low-cost rejects before the discriminant path.
+   - Added early-outs for:
+     - negligible relative movement,
+     - already-overlapping pairs (defer to static overlap resolution path),
+     - separating relative velocity,
+     - unreachable contact this frame via swept reach-radius cull.
+   - Removed per-call vector normalization and displacement-based solve path; narrowphase now solves directly in `t` over relative movement.
+   - Full pipeline re-run completed with new archive `TestOutput/005_7893de3/`.
+   - CPU delta vs opt-03 baseline (`004_87cc00d`):
+     - GL `Frame/Physics/Narrowphase` avg **-9.1%** (p50 **-9.6%**)
+     - DX11 `Frame/Physics/Narrowphase` avg **-11.5%** (p50 **-10.2%**)
+     - DX12 `Frame/Physics/Narrowphase` avg **-10.5%** (p50 **-11.1%**)
+
+1. **Optimization pass — opt-03 terrain collision cache** (`7893de3`):
    - Added per-quad terrain collision cache in `Terrain`:
      - precomputed plane + upward normal for both triangle A/B in each terrain quad,
      - one-time cache build after terrain postings are translated.
@@ -67,7 +81,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
    - Added analytic flat-slope fast handling in the same query path using a precomputed plane/normal (no fabricated triangles for physics queries).
    - Full pipeline re-run completed for this change with new archive `TestOutput/004_87cc00d/`.
 
-1. **Optimization pass — opt-02 sync stall + V-Sync control** (`87cc00d`):
+2. **Optimization pass — opt-02 sync stall + V-Sync control** (`87cc00d`):
    - Added runtime controls for forced pipeline sync and V-Sync:
      - Engine config keys: `force_pipeline_sync`, `vsync_enabled`
      - Scene directives: `pipeline_sync on|off`, `vsync on|off`
@@ -79,7 +93,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
      - transient allocation now enforces per-allocator bounds.
    - Full pipeline re-run completed; DX12 InfoQueue validation is back to 0 errors after the descriptor fix.
 
-2. **Optimization pass — opt-01 vector log gating** (`0008eb9`):
+3. **Optimization pass — opt-01 vector log gating** (`0008eb9`):
    - Removed the unconditional `#define VECTOR_LOG_ENABLED` path from `SkullbonezRun::UpdateLogic`.
    - Added scene directives in `TestScene` for vector diagnostics:
      - `vector_log on|off` (default off)
@@ -149,8 +163,8 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 ---
 
 ## Uncommitted Changes (DO NOT LOSE)
-- Pending opt-03 terrain cache code changes are in the working tree.
-- Pipeline artifacts generated for current HEAD (`87cc00d`) in `TestOutput/004_87cc00d/` (perf JSON + screenshots), plus refreshed `TestOutput/baselines/*.png`.
+- Pending opt-04 narrowphase collision early-out changes in `SkullbonezSource/SkullbonezBoundingSphere.cpp`.
+- Pipeline artifacts generated for current HEAD (`7893de3`) in `TestOutput/005_7893de3/` (perf JSON + screenshots), with refreshed `TestOutput/baselines/*.png`.
 
 ---
 
