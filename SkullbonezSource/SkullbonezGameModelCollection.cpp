@@ -4,6 +4,7 @@
 #include "SkullbonezHelper.h"
 #include "SkullbonezIRenderBackend.h"
 #include <cmath>
+#include <cstring>
 
 
 // --- Usings ---
@@ -84,8 +85,11 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
         BuildShadowMesh();
     }
 
-    // Build per-instance data: model matrix (16 floats) + alpha (1 float)
-    m_shadowInstanceData.clear();
+    // Build per-instance data: model matrix (16 floats) + alpha (1 float).
+    // Pre-size once and write by index so we avoid repeated end-insert growth work.
+    int modelCount = static_cast<int>( m_gameModels.size() );
+    m_shadowInstanceData.resize( modelCount * SHADOW_INSTANCE_FLOATS );
+    int writeOffset = 0;
     for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
     {
         Vector3 pos = m_gameModels[i].GetPosition();
@@ -122,13 +126,21 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
         // Fused T(pos)*RotFromUpToN*Scale(shadowRadius) — no acosf/cosf/sinf, no Matrix4 products
         Matrix4 model = Matrix4::ShadowFromNormal( pos.x, groundY + Cfg().shadowOffset, pos.z, N, shadowRadius );
 
-        // Append mat4 (16 floats) + alpha (1 float)
+        // Write mat4 (16 floats) + alpha (1 float) at the current packed slot.
         const float* md = model.Data();
-        m_shadowInstanceData.insert( m_shadowInstanceData.end(), md, md + 16 );
-        m_shadowInstanceData.push_back( alpha );
+        memcpy( &m_shadowInstanceData[writeOffset], md, sizeof( float ) * 16 );
+        m_shadowInstanceData[writeOffset + 16] = alpha;
+        writeOffset += SHADOW_INSTANCE_FLOATS;
     }
 
-    int instanceCount = static_cast<int>( m_shadowInstanceData.size() ) / SHADOW_INSTANCE_FLOATS;
+    if ( writeOffset == 0 )
+    {
+        m_shadowInstanceData.clear();
+        return;
+    }
+
+    m_shadowInstanceData.resize( writeOffset );
+    int instanceCount = writeOffset / SHADOW_INSTANCE_FLOATS;
     if ( instanceCount == 0 )
     {
         return;
