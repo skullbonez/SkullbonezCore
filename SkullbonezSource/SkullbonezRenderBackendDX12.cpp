@@ -90,6 +90,7 @@ RenderBackendDX12::RenderBackendDX12()
     m_timerReadbackBuf = nullptr;
     m_timerFreq = 1;
     m_timerReadPending = false;
+    m_timerReadFenceValue = 0;
     std::memset( m_timerSlotWritten, 0, sizeof( m_timerSlotWritten ) );
     std::memset( m_timerResultMs, 0, sizeof( m_timerResultMs ) );
     std::memset( m_timerResultValid, 0, sizeof( m_timerResultValid ) );
@@ -867,8 +868,13 @@ void RenderBackendDX12::Present()
 {
     EnsureCommandListOpen();
 
+    // Opportunistically consume the previous frame's resolved timer buffer before writing
+    // new query results into the same readback resource.
+    TryConsumeGpuTimerReadback( false );
+
     // Resolve GPU timer queries — only resolve contiguous ranges of slots that actually
     // had EndQuery recorded this frame. Resolving unwritten slots triggers D3D12 error 1319.
+    bool resolvedTimerSlotsThisFrame = false;
     if ( m_timerQueryHeap )
     {
         int i = 0;
@@ -888,8 +894,8 @@ void RenderBackendDX12::Present()
             }
             UINT byteOffset = (UINT)( start * sizeof( uint64_t ) );
             m_commandList->ResolveQueryData( m_timerQueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)start, (UINT)( i - start ), m_timerReadbackBuf, byteOffset );
+            resolvedTimerSlotsThisFrame = true;
         }
-        m_timerReadPending = true;
         std::memset( m_timerSlotWritten, 0, sizeof( m_timerSlotWritten ) ); // reset for next frame
     }
 
@@ -920,6 +926,13 @@ void RenderBackendDX12::Present()
     m_frameFenceValues[m_allocatorIndex] = ++m_fenceValue;
     m_commandQueue->Signal( m_fence, m_fenceValue );
 
+    // Timer readback can be mapped once this frame's signal fence is reached.
+    if ( resolvedTimerSlotsThisFrame )
+    {
+        m_timerReadPending = true;
+        m_timerReadFenceValue = m_fenceValue;
+    }
+
     // Advance to next frame's allocator and swap chain buffer
     m_allocatorIndex = ( m_allocatorIndex + 1 ) % FRAME_COUNT;
     m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
@@ -949,29 +962,7 @@ void RenderBackendDX12::Finish()
         m_commandQueue->ExecuteCommandLists( 1, ppCLs );
     }
     WaitForGpu();
-
-    // Read back GPU timer results — safe because WaitForGpu() guarantees completion
-    if ( m_timerQueryHeap && m_timerReadPending )
-    {
-        D3D12_RANGE readRange = { 0, (SIZE_T)TIMER_HEAP_SIZE * sizeof( uint64_t ) };
-        uint64_t* pData = nullptr;
-        if ( SUCCEEDED( m_timerReadbackBuf->Map( 0, &readRange, (void**)&pData ) ) )
-        {
-            for ( int i = 0; i < TIMER_HEAP_MARKERS; ++i )
-            {
-                uint64_t t0 = pData[i * 2 + 0];
-                uint64_t t1 = pData[i * 2 + 1];
-                if ( t1 > t0 && m_timerFreq > 0 )
-                {
-                    m_timerResultMs[i] = static_cast<float>( static_cast<double>( t1 - t0 ) / static_cast<double>( m_timerFreq ) * 1000.0 );
-                    m_timerResultValid[i] = true;
-                }
-            }
-            D3D12_RANGE writeRange = { 0, 0 };
-            m_timerReadbackBuf->Unmap( 0, &writeRange );
-        }
-        m_timerReadPending = false;
-    }
+    TryConsumeGpuTimerReadback( true );
 }
 
 
@@ -3164,6 +3155,54 @@ void RenderBackendDX12::ShutdownDXR()
 // --- GPU Timers ---
 
 
+void RenderBackendDX12::TryConsumeGpuTimerReadback( bool waitForFence )
+{
+    if ( !m_timerQueryHeap || !m_timerReadPending || !m_timerReadbackBuf || !m_fence )
+    {
+        return;
+    }
+
+    // Non-blocking mode is used in the normal frame loop so GPU timers keep working even when
+    // PipelineSync is disabled. Blocking mode is only used by Finish()/FlushGPU().
+    if ( waitForFence )
+    {
+        if ( m_fence->GetCompletedValue() < m_timerReadFenceValue )
+        {
+            m_fence->SetEventOnCompletion( m_timerReadFenceValue, m_fenceEvent );
+            WaitForSingleObject( m_fenceEvent, INFINITE );
+        }
+    }
+    else if ( m_fence->GetCompletedValue() < m_timerReadFenceValue )
+    {
+        return;
+    }
+
+    D3D12_RANGE readRange = { 0, (SIZE_T)TIMER_HEAP_SIZE * sizeof( uint64_t ) };
+    uint64_t* pData = nullptr;
+    if ( SUCCEEDED( m_timerReadbackBuf->Map( 0, &readRange, (void**)&pData ) ) )
+    {
+        std::memset( m_timerResultMs, 0, sizeof( m_timerResultMs ) );
+        std::memset( m_timerResultValid, 0, sizeof( m_timerResultValid ) );
+
+        for ( int i = 0; i < TIMER_HEAP_MARKERS; ++i )
+        {
+            const uint64_t t0 = pData[i * 2 + 0];
+            const uint64_t t1 = pData[i * 2 + 1];
+            if ( t1 > t0 && m_timerFreq > 0 )
+            {
+                m_timerResultMs[i] = static_cast<float>( static_cast<double>( t1 - t0 ) / static_cast<double>( m_timerFreq ) * 1000.0 );
+                m_timerResultValid[i] = true;
+            }
+        }
+
+        D3D12_RANGE writeRange = { 0, 0 };
+        m_timerReadbackBuf->Unmap( 0, &writeRange );
+    }
+
+    m_timerReadPending = false;
+}
+
+
 void RenderBackendDX12::GpuTimerBegin( int markerIdx )
 {
     if ( !m_timerQueryHeap || markerIdx < 0 || markerIdx >= TIMER_HEAP_MARKERS )
@@ -3195,11 +3234,14 @@ void RenderBackendDX12::GpuTimerInvalidate()
     std::memset( m_timerResultValid, 0, sizeof( m_timerResultValid ) );
     std::memset( m_timerSlotWritten, 0, sizeof( m_timerSlotWritten ) );
     m_timerReadPending = false;
+    m_timerReadFenceValue = 0;
 }
 
 
 bool RenderBackendDX12::GpuTimerRead( int markerIdx, float& outMs )
 {
+    TryConsumeGpuTimerReadback( false );
+
     if ( markerIdx < 0 || markerIdx >= TIMER_HEAP_MARKERS || !m_timerResultValid[markerIdx] )
     {
         return false;

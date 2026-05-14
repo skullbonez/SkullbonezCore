@@ -220,11 +220,13 @@ class RenderBackendDX12 : public IRenderBackend
     bool m_timerResultValid[TIMER_HEAP_MARKERS];
     uint64_t m_timerFreq;
     bool m_timerReadPending;
+    UINT64 m_timerReadFenceValue;             // fence value that guarantees the latest ResolveQueryData has completed
     bool m_timerSlotWritten[TIMER_HEAP_SIZE]; // true for each timestamp slot that had EndQuery recorded this frame
 
     // --- Internal helpers ---
     void WaitForGpu();
     void EnsureCommandListOpen();
+    void TryConsumeGpuTimerReadback( bool waitForFence );
     void CreateRootSignature();
     void CreateDepthStencil( int w, int h );
     UINT AllocateTransientSRV();
