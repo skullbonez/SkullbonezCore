@@ -60,7 +60,7 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
         return;
     }
 
-    SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, Cfg().renderCollisionVolumes );
+    SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes );
     for ( int x = 0; x < static_cast<int>( m_gameModels.size() ); ++x )
     {
         Matrix4 model = m_gameModels[x].GetModelMatrix();

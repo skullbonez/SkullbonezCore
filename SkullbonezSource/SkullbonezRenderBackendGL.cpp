@@ -91,7 +91,7 @@ static void APIENTRY GLDebugCallback( GLenum source, GLenum type, GLuint /*id*/,
 
 
 RenderBackendGL::RenderBackendGL()
-    : m_hdc( nullptr ), m_width( 0 ), m_height( 0 ), m_isVsyncEnabled( true ), m_depthTestEnabled( true ), m_depthWriteEnabled( true ), m_blendEnabled( false ), m_cullFaceEnabled( true ), m_polygonOffsetEnabled( false ), m_polygonOffsetFactor( 0.0f ), m_polygonOffsetUnits( 0.0f )
+    : m_hdc( nullptr ), m_width( 0 ), m_height( 0 )
 {
 }
 
@@ -172,7 +172,7 @@ bool RenderBackendGL::Init( HWND /*hwnd*/, HDC hdc, int width, int height )
 
     // Keep swap-interval state owned by the backend so scenes/config can toggle V-Sync
     // consistently across GL/DX backends at runtime.
-    SetVsyncEnabled( m_isVsyncEnabled );
+    SetVsyncEnabled( m_state.isVsyncEnabled );
 
     return true;
 }
@@ -246,21 +246,21 @@ void RenderBackendGL::Present()
 
 void RenderBackendGL::SetVsyncEnabled( bool enabled )
 {
-    m_isVsyncEnabled = enabled;
+    m_state.isVsyncEnabled = enabled;
 
     using PFNWGLSWAPINTERVALEXTPROC = BOOL( WINAPI* )( int );
     auto wglSwapIntervalEXT = reinterpret_cast<PFNWGLSWAPINTERVALEXTPROC>(
         wglGetProcAddress( "wglSwapIntervalEXT" ) );
     if ( wglSwapIntervalEXT )
     {
-        wglSwapIntervalEXT( m_isVsyncEnabled ? 1 : 0 );
+        wglSwapIntervalEXT( m_state.isVsyncEnabled ? 1 : 0 );
     }
 }
 
 
 bool RenderBackendGL::IsVsyncEnabled() const
 {
-    return m_isVsyncEnabled;
+    return m_state.isVsyncEnabled;
 }
 
 
@@ -346,11 +346,11 @@ void RenderBackendGL::SetClearDepth( float depth )
 
 void RenderBackendGL::SetDepthTest( bool enable )
 {
-    if ( enable == m_depthTestEnabled )
+    if ( enable == m_state.depthTestEnabled )
     {
         return;
     }
-    m_depthTestEnabled = enable;
+    m_state.depthTestEnabled = enable;
     if ( enable )
     {
         // Enable depth testing — each pixel's distance from camera is compared against the
@@ -371,11 +371,11 @@ void RenderBackendGL::SetDepthTest( bool enable )
 
 void RenderBackendGL::SetDepthWrite( bool enable )
 {
-    if ( enable == m_depthWriteEnabled )
+    if ( enable == m_state.depthWriteEnabled )
     {
         return;
     }
-    m_depthWriteEnabled = enable;
+    m_state.depthWriteEnabled = enable;
     // Control whether depth values are written to the depth buffer during rendering.
     // When false, depth testing still occurs (closer objects occlude farther ones) but
     // the depth buffer is not updated. This lets transparent/overlay geometry (like shadow
@@ -390,11 +390,11 @@ void RenderBackendGL::SetDepthWrite( bool enable )
 
 void RenderBackendGL::SetBlend( bool enable )
 {
-    if ( enable == m_blendEnabled )
+    if ( enable == m_state.blendEnabled )
     {
         return;
     }
-    m_blendEnabled = enable;
+    m_state.blendEnabled = enable;
     if ( enable )
     {
         // Enable alpha blending — new pixels are mixed with existing pixels based on their
@@ -444,11 +444,11 @@ void RenderBackendGL::SetBlendFunc( BlendFactor src, BlendFactor dst )
 
 void RenderBackendGL::SetCullFace( bool enable )
 {
-    if ( enable == m_cullFaceEnabled )
+    if ( enable == m_state.cullFaceEnabled )
     {
         return;
     }
-    m_cullFaceEnabled = enable;
+    m_state.cullFaceEnabled = enable;
     if ( enable )
     {
         // Enable backface culling — triangles whose vertices appear in clockwise order
@@ -469,13 +469,13 @@ void RenderBackendGL::SetCullFace( bool enable )
 
 void RenderBackendGL::SetPolygonOffset( bool enable, float factor, float units )
 {
-    if ( enable == m_polygonOffsetEnabled && factor == m_polygonOffsetFactor && units == m_polygonOffsetUnits )
+    if ( enable == m_state.polygonOffsetEnabled && factor == m_state.polygonOffsetFactor && units == m_state.polygonOffsetUnits )
     {
         return;
     }
-    m_polygonOffsetEnabled = enable;
-    m_polygonOffsetFactor = factor;
-    m_polygonOffsetUnits = units;
+    m_state.polygonOffsetEnabled = enable;
+    m_state.polygonOffsetFactor = factor;
+    m_state.polygonOffsetUnits = units;
     if ( enable )
     {
         // Enable polygon offset — nudges the depth value of filled triangles by a small amount.
@@ -687,13 +687,13 @@ int RenderBackendGL::GetHeight() const
 
 bool RenderBackendGL::IsDepthTestEnabled() const
 {
-    return m_depthTestEnabled;
+    return m_state.depthTestEnabled;
 }
 
 
 bool RenderBackendGL::IsBlendEnabled() const
 {
-    return m_blendEnabled;
+    return m_state.blendEnabled;
 }
 
 

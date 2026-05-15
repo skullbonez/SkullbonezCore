@@ -16,9 +16,9 @@
 > *This applies to: pipeline runs, feature implementations, debugging sessions, refactors, any task expected to take >2 minutes or >10 tool calls.*
 
 ## Branch & Last Commit
-- Branch: `opt/optimizations-pass`
-- Last commit on main: `2b62d71` — Fix reflection camera during tweens
-- Working branch HEAD: `c9f0e62` — opt-13 diagnostics + perf flush controls
+- Branch: `main`
+- Last commit on main: `17c438d` — Opt/optimizations pass (#28)
+- Working branch HEAD: `17c438d` — Opt/optimizations pass (#28)
 
 ---
 
@@ -56,7 +56,19 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 
 ## Recent Session Work (this session)
 
-0. **DX12 GPU timer readback restored when `pipeline_sync` is off** (`pending commit`):
+0. **State-composition/struct-hoist readability refactor + ordering cleanup** (`pending commit`):
+   - Decomposed long member lists into functional structs across key headers:
+     - `SkullbonezRun` (`Run*State` groups with scene/screenshot/debug split)
+     - `SkullbonezTestScene` (scene/capture/logging/runtime/terrain/world options)
+     - `RenderBackendDX12` / `RenderBackendDX11` / `RenderBackendGL`
+     - `SkullbonezConfig` grouped window/runtime flags
+   - Hoisted struct definitions to namespace scope (class bodies now contain struct members only).
+   - Removed transitional alias members from `SkullbonezRun`; `Run.cpp` now directly uses grouped members (`m_timers.*`, `m_systems.*`, `m_camera.*`, `m_scene.*`, `m_screenshot.*`, `m_debug.*`).
+   - Reordered member declarations to consistent convention in touched headers:
+     - containers first, then struct members, then primitive members (with blank-line separation).
+   - Pipeline rerun produced refreshed artifacts in `TestOutput/017_17c438d/` and updated baseline PNGs.
+
+1. **DX12 GPU timer readback restored when `pipeline_sync` is off** (`pending commit`):
    - Root cause: DX12 timestamp readback was tied to `Finish()`; when perf scenes disabled `pipeline_sync`, `Finish()` no longer ran each frame, so GPU timer columns stayed at `0.0000`.
    - Added fence-aware non-blocking timer readback in `RenderBackendDX12`:
      - new `m_timerReadFenceValue` tracking for resolved query completion,
@@ -71,7 +83,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
      - DX11: pass (no hard regressions).
      - DX12: pass (no hard regressions) with GPU timer markers restored from zero baseline values.
 
-1. **Optimization pass — opt-13 diagnostics + perf flush controls** (`pending commit`):
+2. **Optimization pass — opt-13 diagnostics + perf flush controls** (`pending commit`):
    - Added scene-level perf log flush controls in `TestScene`:
      - `perf_log_flush on|off`
      - `perf_log_flush_interval <N>` (0 = flush only on close)
@@ -89,7 +101,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
      - DX12: `Frame` avg **-0.1%**, `Frame/VsyncWait` avg **-5.6%**, `Frame/Physics` avg **+3.2%**
      - No perf_compare hard regressions flagged.
 
-2. **Optimization pass — opt-12 shadow instance upload path cleanup** (`a1ccf09`):
+3. **Optimization pass — opt-12 shadow instance upload path cleanup** (`a1ccf09`):
    - Refactored `GameModelCollection::RenderShadows` instance-data assembly to eliminate per-instance `insert(...)` / `push_back(...)` growth patterns.
    - Shadow instance buffer now pre-sizes once per frame and writes packed mat4+alpha records by direct index (single contiguous write path).
    - Added compact early-out handling when no visible shadow instances are emitted.
@@ -100,7 +112,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
      - DX12: `Frame` avg **+0.1%** (noise), `Frame/Physics` avg **-1.0%**, `Frame/Render/Shadows` avg **-4.6%**
      - No perf_compare hard regressions flagged on the confirmation run.
 
-3. **Optimization pass — opt-11 reduce duplicate collision vector math** (`05ece8f`):
+4. **Optimization pass — opt-11 reduce duplicate collision vector math** (`05ece8f`):
    - Refactored `CollisionResponse::RespondCollisionTerrain` to remove duplicated tangent/normal vector decomposition work in the hot collision-response path.
    - Friction solve now computes tangent velocity from a single cached contact-normal projection and uses squared-length checks before the one required `sqrtf`.
    - Rolling-friction path now computes tangent velocity/speed once and reuses that normalized direction, avoiding duplicate `velocity - normal*(velocity·normal)` construction and normalisation work.
@@ -112,7 +124,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
      - DX12: `Frame` avg **-2.7%**, `Frame/Physics` avg **-0.4%**, `Frame/Physics/Terrain` avg **-0.5%**
      - No perf_compare hard regressions flagged.
 
-4. **Optimization pass — opt-10 immutable per-ball physics cache** (`988b193`):
+5. **Optimization pass — opt-10 immutable per-ball physics cache** (`988b193`):
    - Added `GameModel::BallPhysicsCache` and now precompute immutable sphere/body values once:
      - radius, radius², volume, inverse volume, projected area, drag coefficient
      - mass, inverse mass, rotational inertia, inverse rotational inertia
@@ -300,11 +312,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 ---
 
 ## Uncommitted Changes (DO NOT LOSE)
-- Pending DX12 timer readback fix in:
-  - `SkullbonezSource/SkullbonezRenderBackendDX12.h/.cpp`
-- Pipeline artifacts refreshed in:
-  - `TestOutput/015_c9f0e62/`
-  - `TestOutput/baselines/baseline_{gl,dx11,dx12}_{water_ball_test,legacy_smoke}.png`
+- None — all current workspace changes are intended to be committed together in the next commit.
 
 ---
 

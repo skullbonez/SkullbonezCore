@@ -59,6 +59,48 @@ struct InstancedMeshDX
     int staticAttribSizes[8];
 };
 
+struct DrawStateTrackingDX11
+{
+    bool depthTestEnabled = true;
+    bool depthWriteEnabled = true;
+    bool blendEnabled = false;
+    float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    float clearDepth = 1.0f;
+    bool cullEnabled = true;
+    bool polyOffsetEnabled = false;
+};
+
+struct RenderTargetCacheDX11
+{
+    ID3D11RenderTargetView* currentRTV = nullptr;
+    ID3D11DepthStencilView* currentDSV = nullptr;
+};
+
+struct CaptureReadbackStateDX11
+{
+    ID3D11Texture2D* stagingTex = nullptr;
+    int stagingWidth = 0;
+    int stagingHeight = 0;
+};
+
+struct BlendKeyDX11
+{
+    BlendFactor src;
+    BlendFactor dst;
+    bool operator==( const BlendKeyDX11& o ) const
+    {
+        return src == o.src && dst == o.dst;
+    }
+};
+
+struct BlendKeyHashDX11
+{
+    size_t operator()( const BlendKeyDX11& k ) const
+    {
+        return std::hash<int>()( (int)k.src * 16 + (int)k.dst );
+    }
+};
+
 
 /* -- RenderBackendDX11 -------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -71,78 +113,44 @@ class RenderBackendDX11 : public IRenderBackend
   private:
     static RenderBackendDX11* s_instance;
 
-    IDXGISwapChain* m_swapChain;
-    ID3D11Device* m_device;
-    ID3D11DeviceContext* m_context;
-    ID3D11RenderTargetView* m_backBufferRTV;
-    ID3D11Texture2D* m_depthStencilTex;
-    ID3D11DepthStencilView* m_depthStencilView;
-    int m_width;
-    int m_height;
-    bool m_isVsyncEnabled;
+    // Containers
+    std::unordered_map<BlendKeyDX11, ID3D11BlendState*, BlendKeyHashDX11> m_blendCache; // Blend state cache keyed by (src, dst) factor pair
+    std::vector<TextureEntryDX> m_textures;                                             // Texture registry
+    std::vector<DynamicVBDX> m_dynamicVBs;                                              // Dynamic VBs
+    std::vector<InstancedMeshDX> m_instancedMeshes;                                     // Instanced meshes
 
-    // State tracking
-    bool m_depthTestEnabled;
-    bool m_depthWriteEnabled;
-    bool m_blendEnabled;
-    float m_clearColor[4];
-    float m_clearDepth;
+    // Struct state
+    DrawStateTrackingDX11 m_drawState;
+    RenderTargetCacheDX11 m_targetCache; // Cached render target (avoids OMGetRenderTargets per Clear)
+    CaptureReadbackStateDX11 m_captureState;
+
+    // Primitives / resource handles
+    IDXGISwapChain* m_swapChain = nullptr;
+    ID3D11Device* m_device = nullptr;
+    ID3D11DeviceContext* m_context = nullptr;
+    ID3D11RenderTargetView* m_backBufferRTV = nullptr;
+    ID3D11Texture2D* m_depthStencilTex = nullptr;
+    ID3D11DepthStencilView* m_depthStencilView = nullptr;
 
     // State objects
-    ID3D11DepthStencilState* m_dsDepthOn;
-    ID3D11DepthStencilState* m_dsDepthOff;
-    ID3D11DepthStencilState* m_dsDepthOnWriteOff;
-    ID3D11BlendState* m_blendOff;
-    ID3D11RasterizerState* m_rsCullOn;
-    ID3D11RasterizerState* m_rsCullOff;
-    ID3D11RasterizerState* m_rsCullOnPolyOffset;
-    ID3D11RasterizerState* m_rsCullOffPolyOffset;
-    ID3D11SamplerState* m_samplerLinear;
-    ID3D11SamplerState* m_samplerNearest;
+    ID3D11DepthStencilState* m_dsDepthOn = nullptr;
+    ID3D11DepthStencilState* m_dsDepthOff = nullptr;
+    ID3D11DepthStencilState* m_dsDepthOnWriteOff = nullptr;
+    ID3D11BlendState* m_blendOff = nullptr;
+    ID3D11RasterizerState* m_rsCullOn = nullptr;
+    ID3D11RasterizerState* m_rsCullOff = nullptr;
+    ID3D11RasterizerState* m_rsCullOnPolyOffset = nullptr;
+    ID3D11RasterizerState* m_rsCullOffPolyOffset = nullptr;
+    ID3D11SamplerState* m_samplerLinear = nullptr;
+    ID3D11SamplerState* m_samplerNearest = nullptr;
 
-    // Blend state cache keyed by (src, dst) factor pair
-    struct BlendKey
-    {
-        BlendFactor src;
-        BlendFactor dst;
-        bool operator==( const BlendKey& o ) const
-        {
-            return src == o.src && dst == o.dst;
-        }
-    };
-    struct BlendKeyHash
-    {
-        size_t operator()( const BlendKey& k ) const
-        {
-            return std::hash<int>()( (int)k.src * 16 + (int)k.dst );
-        }
-    };
-    std::unordered_map<BlendKey, ID3D11BlendState*, BlendKeyHash> m_blendCache;
-    ID3D11BlendState* m_activeBlendState;
-    BlendFactor m_currentBlendSrc;
-    BlendFactor m_currentBlendDst;
-
-    bool m_cullEnabled;
-    bool m_polyOffsetEnabled;
-
-    // Cached render target (avoids OMGetRenderTargets per Clear)
-    ID3D11RenderTargetView* m_currentRTV;
-    ID3D11DepthStencilView* m_currentDSV;
-
-    // Persistent staging texture for CaptureBackbuffer
-    ID3D11Texture2D* m_stagingTex;
-    int m_stagingWidth;
-    int m_stagingHeight;
-
-    // Texture registry
-    std::vector<TextureEntryDX> m_textures;
-
-    // Dynamic VBs and instanced meshes
-    std::vector<DynamicVBDX> m_dynamicVBs;
-    std::vector<InstancedMeshDX> m_instancedMeshes;
-
-    // Active ShaderGL
-    ShaderDX11* m_activeShader;
+    ID3D11BlendState* m_activeBlendState = nullptr;
+    BlendFactor m_currentBlendSrc = BlendFactor::One;
+    BlendFactor m_currentBlendDst = BlendFactor::Zero;
+    ShaderDX11* m_activeShader = nullptr;
+    int m_width = 0;
+    int m_height = 0;
+    bool m_isVsyncEnabled = true;
 
     void CreateStateObjects();
     void ApplyRasterizerState();
@@ -262,8 +270,8 @@ class RenderBackendDX11 : public IRenderBackend
     // RT cache update (called by FBO bind/unbind)
     void SetRenderTargetCache( ID3D11RenderTargetView* rtv, ID3D11DepthStencilView* dsv )
     {
-        m_currentRTV = rtv;
-        m_currentDSV = dsv;
+        m_targetCache.currentRTV = rtv;
+        m_targetCache.currentDSV = dsv;
     }
     ID3D11RenderTargetView* GetBackBufferRTV() const
     {

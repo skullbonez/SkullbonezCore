@@ -9,46 +9,6 @@ using namespace SkullbonezCore::Basics;
 
 TestScene::TestScene()
 {
-    m_isPhysicsEnabled = true;
-    m_isTextEnabled = true;
-    m_isTextOnly = false;
-    m_frameCount = -1;
-    m_screenshotPath[0] = '\0';
-    m_perfLogPath[0] = '\0';
-    m_isPerfLogFlush = false;
-    m_perfLogFlushInterval = 0;
-    m_rollLogPath[0] = '\0';
-    m_isVectorLogEnabled = false;
-    m_vectorLogInterval = 6;
-    m_vectorLogPath[0] = '\0';
-    m_isVectorLogFlush = false;
-    m_hasVsyncOverride = false;
-    m_isVsyncEnabled = true;
-    m_hasPipelineSyncOverride = false;
-    m_isPipelineSyncEnabled = false;
-    m_hasRollAlignOverride = false;
-    m_isRollAlignEnabled = true;
-    m_screenshotFrame = -1;
-    m_screenshotMs = -1;
-    m_seed = 0;
-    m_legacyBallCount = 0;
-    m_screenshotInterval = -1;
-    m_screenshotDir[0] = '\0';
-    m_timeScale = 1.0f;
-    m_isDebugVectors = false;
-    m_trackHeight = -1.0f;
-    m_autoCycleInterval = -1.0f;
-    m_screenshotAndExit = false;
-    m_waterHidden = false;
-    m_terrainHidden = false;
-    m_hasFlatSlope = false;
-    m_flatBaseY = 0.0f;
-    m_flatSlopeX = 0.0f;
-    m_flatSlopeZ = 0.0f;
-    m_hasWorldOverride = false;
-    m_worldGravity = 0.0f;
-    m_worldFluidHeight = 0.0f;
-    m_worldFluidDensity = 0.0f;
 }
 
 
@@ -94,11 +54,11 @@ TestScene TestScene::LoadFromFile( const char* path )
         {
             if ( strcmp( line + 8, "off" ) == 0 )
             {
-                scene.m_isPhysicsEnabled = false;
+                scene.m_sceneOptions.isPhysicsEnabled = false;
             }
             else if ( strcmp( line + 8, "on" ) == 0 )
             {
-                scene.m_isPhysicsEnabled = true;
+                scene.m_sceneOptions.isPhysicsEnabled = true;
             }
             else
             {
@@ -115,11 +75,11 @@ TestScene TestScene::LoadFromFile( const char* path )
         {
             if ( strcmp( line + 5, "off" ) == 0 )
             {
-                scene.m_isTextEnabled = false;
+                scene.m_sceneOptions.isTextEnabled = false;
             }
             else if ( strcmp( line + 5, "on" ) == 0 )
             {
-                scene.m_isTextEnabled = true;
+                scene.m_sceneOptions.isTextEnabled = true;
             }
             else
             {
@@ -136,11 +96,11 @@ TestScene TestScene::LoadFromFile( const char* path )
         {
             if ( strcmp( line + 10, "on" ) == 0 )
             {
-                scene.m_isTextOnly = true;
+                scene.m_sceneOptions.isTextOnly = true;
             }
             else if ( strcmp( line + 10, "off" ) == 0 )
             {
-                scene.m_isTextOnly = false;
+                scene.m_sceneOptions.isTextOnly = false;
             }
             else
             {
@@ -157,21 +117,21 @@ TestScene TestScene::LoadFromFile( const char* path )
         {
             if ( strcmp( line + 7, "unlimited" ) == 0 )
             {
-                scene.m_frameCount = -1;
+                scene.m_sceneOptions.frameCount = -1;
             }
             else
             {
-                scene.m_frameCount = atoi( line + 7 );
-                if ( scene.m_frameCount <= 0 && strcmp( line + 7, "-1" ) != 0 )
+                scene.m_sceneOptions.frameCount = atoi( line + 7 );
+                if ( scene.m_sceneOptions.frameCount <= 0 && strcmp( line + 7, "-1" ) != 0 )
                 {
                     fclose( file );
                     char msg[256];
                     sprintf_s( msg, sizeof( msg ), "Invalid frame count at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 7 );
                     throw std::runtime_error( msg );
                 }
-                if ( scene.m_frameCount <= 0 )
+                if ( scene.m_sceneOptions.frameCount <= 0 )
                 {
-                    scene.m_frameCount = -1;
+                    scene.m_sceneOptions.frameCount = -1;
                 }
             }
             continue;
@@ -193,17 +153,17 @@ TestScene TestScene::LoadFromFile( const char* path )
                 throw std::runtime_error( msg );
             }
 
-            strcpy_s( scene.m_screenshotPath, sizeof( scene.m_screenshotPath ), outPath );
+            strcpy_s( scene.m_captureOptions.screenshotPath, sizeof( scene.m_captureOptions.screenshotPath ), outPath );
 
             if ( strcmp( triggerType, "frame" ) == 0 )
             {
-                scene.m_screenshotFrame = triggerValue;
-                scene.m_screenshotMs = -1;
+                scene.m_captureOptions.screenshotFrame = triggerValue;
+                scene.m_captureOptions.screenshotMs = -1;
             }
             else if ( strcmp( triggerType, "ms" ) == 0 )
             {
-                scene.m_screenshotMs = triggerValue;
-                scene.m_screenshotFrame = -1;
+                scene.m_captureOptions.screenshotMs = triggerValue;
+                scene.m_captureOptions.screenshotFrame = -1;
             }
             else
             {
@@ -218,8 +178,8 @@ TestScene TestScene::LoadFromFile( const char* path )
         // parse seed directive
         if ( strncmp( line, "seed ", 5 ) == 0 )
         {
-            scene.m_seed = static_cast<unsigned int>( atoi( line + 5 ) );
-            if ( scene.m_seed == 0 )
+            scene.m_sceneOptions.seed = static_cast<unsigned int>( atoi( line + 5 ) );
+            if ( scene.m_sceneOptions.seed == 0 )
             {
                 fclose( file );
                 char msg[256];
@@ -232,8 +192,8 @@ TestScene TestScene::LoadFromFile( const char* path )
         // parse legacy_balls directive
         if ( strncmp( line, "legacy_balls ", 13 ) == 0 )
         {
-            scene.m_legacyBallCount = atoi( line + 13 );
-            if ( scene.m_legacyBallCount <= 0 )
+            scene.m_sceneOptions.legacyBallCount = atoi( line + 13 );
+            if ( scene.m_sceneOptions.legacyBallCount <= 0 )
             {
                 fclose( file );
                 char msg[256];
@@ -246,7 +206,7 @@ TestScene TestScene::LoadFromFile( const char* path )
         // parse perf_log directive
         if ( strncmp( line, "perf_log ", 9 ) == 0 )
         {
-            strcpy_s( scene.m_perfLogPath, sizeof( scene.m_perfLogPath ), line + 9 );
+            strcpy_s( scene.m_loggingOptions.perfLogPath, sizeof( scene.m_loggingOptions.perfLogPath ), line + 9 );
             continue;
         }
 
@@ -255,11 +215,11 @@ TestScene TestScene::LoadFromFile( const char* path )
         {
             if ( strcmp( line + 15, "on" ) == 0 )
             {
-                scene.m_isPerfLogFlush = true;
+                scene.m_loggingOptions.isPerfLogFlush = true;
             }
             else if ( strcmp( line + 15, "off" ) == 0 )
             {
-                scene.m_isPerfLogFlush = false;
+                scene.m_loggingOptions.isPerfLogFlush = false;
             }
             else
             {
@@ -274,8 +234,8 @@ TestScene TestScene::LoadFromFile( const char* path )
         // parse perf_log_flush_interval directive
         if ( strncmp( line, "perf_log_flush_interval ", 24 ) == 0 )
         {
-            scene.m_perfLogFlushInterval = atoi( line + 24 );
-            if ( scene.m_perfLogFlushInterval < 0 )
+            scene.m_loggingOptions.perfLogFlushInterval = atoi( line + 24 );
+            if ( scene.m_loggingOptions.perfLogFlushInterval < 0 )
             {
                 fclose( file );
                 char msg[256];
@@ -288,7 +248,7 @@ TestScene TestScene::LoadFromFile( const char* path )
         // parse roll_log directive
         if ( strncmp( line, "roll_log ", 9 ) == 0 )
         {
-            strcpy_s( scene.m_rollLogPath, sizeof( scene.m_rollLogPath ), line + 9 );
+            strcpy_s( scene.m_loggingOptions.rollLogPath, sizeof( scene.m_loggingOptions.rollLogPath ), line + 9 );
             continue;
         }
 
@@ -297,11 +257,11 @@ TestScene TestScene::LoadFromFile( const char* path )
         {
             if ( strcmp( line + 11, "on" ) == 0 )
             {
-                scene.m_isVectorLogEnabled = true;
+                scene.m_loggingOptions.isVectorLogEnabled = true;
             }
             else if ( strcmp( line + 11, "off" ) == 0 )
             {
-                scene.m_isVectorLogEnabled = false;
+                scene.m_loggingOptions.isVectorLogEnabled = false;
             }
             else
             {
@@ -316,8 +276,8 @@ TestScene TestScene::LoadFromFile( const char* path )
         // parse vector_log_interval directive
         if ( strncmp( line, "vector_log_interval ", 20 ) == 0 )
         {
-            scene.m_vectorLogInterval = atoi( line + 20 );
-            if ( scene.m_vectorLogInterval <= 0 )
+            scene.m_loggingOptions.vectorLogInterval = atoi( line + 20 );
+            if ( scene.m_loggingOptions.vectorLogInterval <= 0 )
             {
                 fclose( file );
                 char msg[256];
@@ -330,7 +290,7 @@ TestScene TestScene::LoadFromFile( const char* path )
         // parse vector_log_path directive
         if ( strncmp( line, "vector_log_path ", 16 ) == 0 )
         {
-            strcpy_s( scene.m_vectorLogPath, sizeof( scene.m_vectorLogPath ), line + 16 );
+            strcpy_s( scene.m_loggingOptions.vectorLogPath, sizeof( scene.m_loggingOptions.vectorLogPath ), line + 16 );
             continue;
         }
 
@@ -339,11 +299,11 @@ TestScene TestScene::LoadFromFile( const char* path )
         {
             if ( strcmp( line + 17, "on" ) == 0 )
             {
-                scene.m_isVectorLogFlush = true;
+                scene.m_loggingOptions.isVectorLogFlush = true;
             }
             else if ( strcmp( line + 17, "off" ) == 0 )
             {
-                scene.m_isVectorLogFlush = false;
+                scene.m_loggingOptions.isVectorLogFlush = false;
             }
             else
             {
@@ -358,14 +318,14 @@ TestScene TestScene::LoadFromFile( const char* path )
         // parse vsync directive
         if ( strncmp( line, "vsync ", 6 ) == 0 )
         {
-            scene.m_hasVsyncOverride = true;
+            scene.m_runtimeOverrides.hasVsyncOverride = true;
             if ( strcmp( line + 6, "on" ) == 0 )
             {
-                scene.m_isVsyncEnabled = true;
+                scene.m_runtimeOverrides.isVsyncEnabled = true;
             }
             else if ( strcmp( line + 6, "off" ) == 0 )
             {
-                scene.m_isVsyncEnabled = false;
+                scene.m_runtimeOverrides.isVsyncEnabled = false;
             }
             else
             {
@@ -380,14 +340,14 @@ TestScene TestScene::LoadFromFile( const char* path )
         // parse pipeline_sync directive
         if ( strncmp( line, "pipeline_sync ", 14 ) == 0 )
         {
-            scene.m_hasPipelineSyncOverride = true;
+            scene.m_runtimeOverrides.hasPipelineSyncOverride = true;
             if ( strcmp( line + 14, "on" ) == 0 )
             {
-                scene.m_isPipelineSyncEnabled = true;
+                scene.m_runtimeOverrides.isPipelineSyncEnabled = true;
             }
             else if ( strcmp( line + 14, "off" ) == 0 )
             {
-                scene.m_isPipelineSyncEnabled = false;
+                scene.m_runtimeOverrides.isPipelineSyncEnabled = false;
             }
             else
             {
@@ -402,14 +362,14 @@ TestScene TestScene::LoadFromFile( const char* path )
         // parse roll_align directive
         if ( strncmp( line, "roll_align ", 11 ) == 0 )
         {
-            scene.m_hasRollAlignOverride = true;
+            scene.m_runtimeOverrides.hasRollAlignOverride = true;
             if ( strcmp( line + 11, "on" ) == 0 )
             {
-                scene.m_isRollAlignEnabled = true;
+                scene.m_runtimeOverrides.isRollAlignEnabled = true;
             }
             else if ( strcmp( line + 11, "off" ) == 0 )
             {
-                scene.m_isRollAlignEnabled = false;
+                scene.m_runtimeOverrides.isRollAlignEnabled = false;
             }
             else
             {
@@ -424,7 +384,7 @@ TestScene TestScene::LoadFromFile( const char* path )
         // parse screenshot_and_exit directive: capture frame 1 as SCENENAME.bmp then quit
         if ( strcmp( line, "screenshot_and_exit" ) == 0 )
         {
-            scene.m_screenshotAndExit = true;
+            scene.m_sceneOptions.screenshotAndExit = true;
             continue;
         }
 
@@ -443,8 +403,8 @@ TestScene TestScene::LoadFromFile( const char* path )
                 throw std::runtime_error( msg );
             }
 
-            strcpy_s( scene.m_screenshotDir, sizeof( scene.m_screenshotDir ), outDir );
-            scene.m_screenshotInterval = intervalFrames;
+            strcpy_s( scene.m_captureOptions.screenshotDir, sizeof( scene.m_captureOptions.screenshotDir ), outDir );
+            scene.m_captureOptions.screenshotInterval = intervalFrames;
             continue;
         }
 
@@ -523,7 +483,7 @@ TestScene TestScene::LoadFromFile( const char* path )
                 sprintf_s( msg, sizeof( msg ), "Invalid time_scale at line %d (must be > 0)  (TestScene::LoadFromFile)", lineNumber );
                 throw std::runtime_error( msg );
             }
-            scene.m_timeScale = val;
+            scene.m_sceneOptions.timeScale = val;
             continue;
         }
 
@@ -532,11 +492,11 @@ TestScene TestScene::LoadFromFile( const char* path )
         {
             if ( strcmp( line + 14, "on" ) == 0 )
             {
-                scene.m_isDebugVectors = true;
+                scene.m_sceneOptions.isDebugVectors = true;
             }
             else if ( strcmp( line + 14, "off" ) == 0 )
             {
-                scene.m_isDebugVectors = false;
+                scene.m_sceneOptions.isDebugVectors = false;
             }
             else
             {
@@ -559,7 +519,7 @@ TestScene TestScene::LoadFromFile( const char* path )
                 sprintf_s( msg, sizeof( msg ), "Invalid track_height at line %d (must be > 0)  (TestScene::LoadFromFile)", lineNumber );
                 throw std::runtime_error( msg );
             }
-            scene.m_trackHeight = val;
+            scene.m_sceneOptions.trackHeight = val;
             continue;
         }
 
@@ -574,7 +534,7 @@ TestScene TestScene::LoadFromFile( const char* path )
                 sprintf_s( msg, sizeof( msg ), "Invalid auto_cycle_interval at line %d (must be > 0)  (TestScene::LoadFromFile)", lineNumber );
                 throw std::runtime_error( msg );
             }
-            scene.m_autoCycleInterval = val;
+            scene.m_sceneOptions.autoCycleInterval = val;
             continue;
         }
 
@@ -590,10 +550,10 @@ TestScene TestScene::LoadFromFile( const char* path )
                 sprintf_s( msg, sizeof( msg ), "Invalid flat_slope at line %d (expected: flat_slope <baseY> <slopeX> <slopeZ>)  (TestScene::LoadFromFile)", lineNumber );
                 throw std::runtime_error( msg );
             }
-            scene.m_hasFlatSlope = true;
-            scene.m_flatBaseY = baseY;
-            scene.m_flatSlopeX = slopeX;
-            scene.m_flatSlopeZ = slopeZ;
+            scene.m_terrainOverride.hasFlatSlope = true;
+            scene.m_terrainOverride.flatBaseY = baseY;
+            scene.m_terrainOverride.flatSlopeX = slopeX;
+            scene.m_terrainOverride.flatSlopeZ = slopeZ;
             continue;
         }
 
@@ -629,10 +589,10 @@ TestScene TestScene::LoadFromFile( const char* path )
                 sprintf_s( msg, sizeof( msg ), "Invalid world at line %d (expected: world <gravity> <fluidHeight> <fluidDensity>)  (TestScene::LoadFromFile)", lineNumber );
                 throw std::runtime_error( msg );
             }
-            scene.m_hasWorldOverride = true;
-            scene.m_worldGravity = gravity;
-            scene.m_worldFluidHeight = fluidHeight;
-            scene.m_worldFluidDensity = fluidDensity;
+            scene.m_worldOverride.hasWorldOverride = true;
+            scene.m_worldOverride.worldGravity = gravity;
+            scene.m_worldOverride.worldFluidHeight = fluidHeight;
+            scene.m_worldOverride.worldFluidDensity = fluidDensity;
             continue;
         }
 
@@ -641,11 +601,11 @@ TestScene TestScene::LoadFromFile( const char* path )
         {
             if ( strcmp( line + 13, "on" ) == 0 )
             {
-                scene.m_waterHidden = true;
+                scene.m_sceneOptions.waterHidden = true;
             }
             else if ( strcmp( line + 13, "off" ) == 0 )
             {
-                scene.m_waterHidden = false;
+                scene.m_sceneOptions.waterHidden = false;
             }
             else
             {
@@ -662,11 +622,11 @@ TestScene TestScene::LoadFromFile( const char* path )
         {
             if ( strcmp( line + 15, "on" ) == 0 )
             {
-                scene.m_terrainHidden = true;
+                scene.m_sceneOptions.terrainHidden = true;
             }
             else if ( strcmp( line + 15, "off" ) == 0 )
             {
-                scene.m_terrainHidden = false;
+                scene.m_sceneOptions.terrainHidden = false;
             }
             else
             {
@@ -699,163 +659,163 @@ TestScene TestScene::LoadFromFile( const char* path )
 
 bool TestScene::IsPhysicsEnabled() const
 {
-    return m_isPhysicsEnabled;
+    return m_sceneOptions.isPhysicsEnabled;
 }
 
 
 bool TestScene::IsTextEnabled() const
 {
-    return m_isTextEnabled;
+    return m_sceneOptions.isTextEnabled;
 }
 
 
 bool TestScene::IsTextOnly() const
 {
-    return m_isTextOnly;
+    return m_sceneOptions.isTextOnly;
 }
 
 
 bool TestScene::IsWaterHidden() const
 {
-    return m_waterHidden;
+    return m_sceneOptions.waterHidden;
 }
 
 
 bool TestScene::IsTerrainHidden() const
 {
-    return m_terrainHidden;
+    return m_sceneOptions.terrainHidden;
 }
 
 
 int TestScene::GetFrameCount() const
 {
-    return m_frameCount;
+    return m_sceneOptions.frameCount;
 }
 
 
 const char* TestScene::GetScreenshotPath() const
 {
-    return m_screenshotPath;
+    return m_captureOptions.screenshotPath;
 }
 
 
 int TestScene::GetScreenshotFrame() const
 {
-    return m_screenshotFrame;
+    return m_captureOptions.screenshotFrame;
 }
 
 
 int TestScene::GetScreenshotMs() const
 {
-    return m_screenshotMs;
+    return m_captureOptions.screenshotMs;
 }
 
 
 unsigned int TestScene::GetSeed() const
 {
-    return m_seed;
+    return m_sceneOptions.seed;
 }
 
 
 int TestScene::GetLegacyBallCount() const
 {
-    return m_legacyBallCount;
+    return m_sceneOptions.legacyBallCount;
 }
 
 
 const char* TestScene::GetPerfLogPath() const
 {
-    return m_perfLogPath;
+    return m_loggingOptions.perfLogPath;
 }
 
 
 bool TestScene::IsPerfLogFlushEnabled() const
 {
-    return m_isPerfLogFlush;
+    return m_loggingOptions.isPerfLogFlush;
 }
 
 
 int TestScene::GetPerfLogFlushInterval() const
 {
-    return m_perfLogFlushInterval;
+    return m_loggingOptions.perfLogFlushInterval;
 }
 
 
 const char* TestScene::GetRollLogPath() const
 {
-    return m_rollLogPath;
+    return m_loggingOptions.rollLogPath;
 }
 
 
 bool TestScene::IsVectorLogEnabled() const
 {
-    return m_isVectorLogEnabled;
+    return m_loggingOptions.isVectorLogEnabled;
 }
 
 
 int TestScene::GetVectorLogInterval() const
 {
-    return m_vectorLogInterval;
+    return m_loggingOptions.vectorLogInterval;
 }
 
 
 const char* TestScene::GetVectorLogPath() const
 {
-    return m_vectorLogPath;
+    return m_loggingOptions.vectorLogPath;
 }
 
 
 bool TestScene::IsVectorLogFlushEnabled() const
 {
-    return m_isVectorLogFlush;
+    return m_loggingOptions.isVectorLogFlush;
 }
 
 
 bool TestScene::HasVsyncOverride() const
 {
-    return m_hasVsyncOverride;
+    return m_runtimeOverrides.hasVsyncOverride;
 }
 
 
 bool TestScene::IsVsyncEnabled() const
 {
-    return m_isVsyncEnabled;
+    return m_runtimeOverrides.isVsyncEnabled;
 }
 
 
 bool TestScene::HasPipelineSyncOverride() const
 {
-    return m_hasPipelineSyncOverride;
+    return m_runtimeOverrides.hasPipelineSyncOverride;
 }
 
 
 bool TestScene::IsPipelineSyncEnabled() const
 {
-    return m_isPipelineSyncEnabled;
+    return m_runtimeOverrides.isPipelineSyncEnabled;
 }
 
 
 bool TestScene::HasRollAlignOverride() const
 {
-    return m_hasRollAlignOverride;
+    return m_runtimeOverrides.hasRollAlignOverride;
 }
 
 
 bool TestScene::IsRollAlignEnabled() const
 {
-    return m_isRollAlignEnabled;
+    return m_runtimeOverrides.isRollAlignEnabled;
 }
 
 
 int TestScene::GetScreenshotInterval() const
 {
-    return m_screenshotInterval;
+    return m_captureOptions.screenshotInterval;
 }
 
 
 const char* TestScene::GetScreenshotDir() const
 {
-    return m_screenshotDir;
+    return m_captureOptions.screenshotDir;
 }
 
 
@@ -867,55 +827,55 @@ int TestScene::GetCameraCount() const
 
 float TestScene::GetTimeScale() const
 {
-    return m_timeScale;
+    return m_sceneOptions.timeScale;
 }
 
 
 bool TestScene::IsDebugVectors() const
 {
-    return m_isDebugVectors;
+    return m_sceneOptions.isDebugVectors;
 }
 
 
 float TestScene::GetTrackHeight() const
 {
-    return m_trackHeight;
+    return m_sceneOptions.trackHeight;
 }
 
 
 float TestScene::GetAutoCycleInterval() const
 {
-    return m_autoCycleInterval;
+    return m_sceneOptions.autoCycleInterval;
 }
 
 
 bool TestScene::IsScreenshotAndExit() const
 {
-    return m_screenshotAndExit;
+    return m_sceneOptions.screenshotAndExit;
 }
 
 
 bool TestScene::HasFlatSlope() const
 {
-    return m_hasFlatSlope;
+    return m_terrainOverride.hasFlatSlope;
 }
 
 
 float TestScene::GetFlatBaseY() const
 {
-    return m_flatBaseY;
+    return m_terrainOverride.flatBaseY;
 }
 
 
 float TestScene::GetFlatSlopeX() const
 {
-    return m_flatSlopeX;
+    return m_terrainOverride.flatSlopeX;
 }
 
 
 float TestScene::GetFlatSlopeZ() const
 {
-    return m_flatSlopeZ;
+    return m_terrainOverride.flatSlopeZ;
 }
 
 
@@ -966,23 +926,23 @@ const SceneBallState& TestScene::GetBallState( int index ) const
 
 bool TestScene::HasWorldOverride() const
 {
-    return m_hasWorldOverride;
+    return m_worldOverride.hasWorldOverride;
 }
 
 
 float TestScene::GetWorldGravity() const
 {
-    return m_worldGravity;
+    return m_worldOverride.worldGravity;
 }
 
 
 float TestScene::GetWorldFluidHeight() const
 {
-    return m_worldFluidHeight;
+    return m_worldOverride.worldFluidHeight;
 }
 
 
 float TestScene::GetWorldFluidDensity() const
 {
-    return m_worldFluidDensity;
+    return m_worldOverride.worldFluidDensity;
 }

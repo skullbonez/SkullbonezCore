@@ -76,6 +76,21 @@ struct PSOKey12
     bool polyOffsetEnabled;
 };
 
+inline constexpr int DX12_TIMER_HEAP_MARKERS = 64;
+inline constexpr int DX12_TIMER_HEAP_SIZE = DX12_TIMER_HEAP_MARKERS * 2;
+
+struct GpuTimerStateDX12
+{
+    ID3D12QueryHeap* queryHeap = nullptr;
+    ID3D12Resource* readbackBuf = nullptr;
+    float resultMs[DX12_TIMER_HEAP_MARKERS] = {};
+    bool resultValid[DX12_TIMER_HEAP_MARKERS] = {};
+    uint64_t freq = 1;
+    bool readPending = false;
+    UINT64 readFenceValue = 0;                   // fence value that guarantees the latest ResolveQueryData has completed
+    bool slotWritten[DX12_TIMER_HEAP_SIZE] = {}; // true for each timestamp slot that had EndQuery recorded this frame
+};
+
 
 /* -- RenderBackendDX12 -----------------------------------------------------------------------------------------------------------------------------------------
 
@@ -90,138 +105,112 @@ class RenderBackendDX12 : public IRenderBackend
 
     // Frame management
     static const int FRAME_COUNT = 2;
-
-    // Core objects
-    IDXGIFactory4* m_factory;
-    IDXGISwapChain3* m_swapChain;
-    ID3D12Device* m_device;
-    ID3D12CommandQueue* m_commandQueue;
-    ID3D12GraphicsCommandList* m_commandList;
-    ID3D12CommandAllocator* m_commandAllocators[FRAME_COUNT];
-    bool m_commandListOpen;
-
-    // Render targets and frame index
-    ID3D12Resource* m_renderTargets[FRAME_COUNT];
-    UINT m_frameIndex;
-    UINT m_allocatorIndex; // Which allocator is active (alternates 0/1)
-
-    // Per-frame fence tracking
-    ID3D12Fence* m_fence;
-    UINT64 m_fenceValue;
-    UINT64 m_frameFenceValues[FRAME_COUNT]; // Fence value signaled by each frame's submission
-    HANDLE m_fenceEvent;
-
-    // Descriptor heaps
-    ID3D12DescriptorHeap* m_rtvHeap;
-    ID3D12DescriptorHeap* m_dsvHeap;
-    ID3D12DescriptorHeap* m_srvHeap;        // GPU-visible (shader-visible) for binding
-    ID3D12DescriptorHeap* m_srvStagingHeap; // CPU-only for persistent SRV storage
-    UINT m_rtvDescSize;
-    UINT m_dsvDescSize;
-    UINT m_srvDescSize;
-    UINT m_nextRTV; // Next available RTV slot (0-1 are swap chain)
-    UINT m_nextDSV; // Next available DSV slot (0 is main depth)
-
-    // SRV allocation
     static const UINT MAX_STATIC_SRVS = 128;
     static const UINT MAX_TRANSIENT_SRVS = 2048; // per frame allocator
-    UINT m_nextStaticSRV;
-    UINT m_nextTransientSRV;
-
-    // Depth stencil
-    ID3D12Resource* m_depthStencil;
-
-    // Upload buffer
-    ID3D12Resource* m_uploadBuffer;
-    uint8_t* m_uploadBufferMapped;
     static const UINT64 UPLOAD_BUFFER_SIZE = 8 * 1024 * 1024;
-    UINT64 m_uploadOffset;
+    static const int TIMER_HEAP_MARKERS = DX12_TIMER_HEAP_MARKERS; // must be >= Profiler::MAX_MARKERS
+    static const int TIMER_HEAP_SIZE = DX12_TIMER_HEAP_SIZE;       // begin + end per marker
 
-    // Root signature
-    ID3D12RootSignature* m_rootSignature;
-
-    // PSO cache
+    // Containers
     std::unordered_map<size_t, ID3D12PipelineState*> m_psoCache;
-
-    // Viewport
-    D3D12_VIEWPORT m_viewport;
-    D3D12_RECT m_scissorRect;
-    int m_width;
-    int m_height;
-    bool m_isVsyncEnabled;
-
-    // Tracked render state
-    bool m_depthTestEnabled;
-    bool m_depthWriteEnabled;
-    bool m_blendEnabled;
-    BlendFactor m_blendSrc;
-    BlendFactor m_blendDst;
-    bool m_cullEnabled;
-    bool m_polyOffsetEnabled;
-    float m_polyOffsetFactor;
-    float m_polyOffsetUnits;
-    float m_clearColor[4];
-    float m_clearDepth;
-    bool m_psoDirty;
-
-    // Active shader
-    ShaderDX12* m_activeShader;
-
-    // Texture registry (1-based, index 0 unused)
-    std::vector<TextureEntryDX12> m_textures;
-    UINT m_boundTexSlot[2]; // Currently bound SRV indices for t0/t1
-
-    // Dynamic VBs and instanced meshes
+    std::vector<TextureEntryDX12> m_textures; // Texture registry (1-based, index 0 unused)
     std::vector<DynamicVBDX12> m_dynamicVBs;
     std::vector<InstancedMeshDX12> m_instancedMeshes;
 
-    // Current render targets (for FBO save/restore)
-    D3D12_CPU_DESCRIPTOR_HANDLE m_currentRTV;
-    D3D12_CPU_DESCRIPTOR_HANDLE m_currentDSV;
-    bool m_renderingToFBO;
-    bool m_backBufferIsRT; // True if back buffer is in RENDER_TARGET state
-
-    // Redundant-call elimination: skip PSO/descriptor/state rebinds when unchanged
-    size_t m_lastPSOHash;
-    bool m_texBindingsDirty;
-    bool m_targetsDirty;
-
-    // DXR raytracing state
-    bool m_dxrSupported;
-    ID3D12Device5* m_device5;
-    ID3D12GraphicsCommandList4* m_cmdList4;
-    ID3D12StateObject* m_rtPSO;
-    ID3D12StateObjectProperties* m_rtPSOProps;
-    ID3D12RootSignature* m_rtRootSignature;
-    ID3D12Resource* m_reflectionUAV;
-    UINT m_reflectionUAVIndex; // UAV descriptor index in SRV heap
-    UINT m_reflectionSRVIndex; // SRV for water shader sampling
-    int m_reflectionWidth;
-    int m_reflectionHeight;
-    bool m_reflectionInSRVState; // True after dispatch (SRV), false initially (UAV)
-    ID3D12Resource* m_rtConstantBuffer;
-    uint8_t* m_rtConstantBufferMapped;
+    // Struct state
+    D3D12_VIEWPORT m_viewport = {};
+    D3D12_RECT m_scissorRect = {};
+    D3D12_CPU_DESCRIPTOR_HANDLE m_currentRTV = {};
+    D3D12_CPU_DESCRIPTOR_HANDLE m_currentDSV = {};
     BLAS m_terrainBLAS;
     BLAS m_sphereBLAS;
     TLAS m_tlas;
     SBT m_sbt;
+    GpuTimerStateDX12 m_gpuTimers;
 
-    // GPU mip generation compute pipeline
-    ID3D12PipelineState* m_genMipsPSO; // Compute PSO for generate_mips.hlsl
-    ID3D12RootSignature* m_genMipsRS;  // Root signature: 4 root constants + SRV + 4 UAVs
-    UINT m_genMipsNullUAV;             // Static SRV slot holding a null UAV (padding)
+    // Primitives / resource handles
+    IDXGIFactory4* m_factory = nullptr;
+    IDXGISwapChain3* m_swapChain = nullptr;
+    ID3D12Device* m_device = nullptr;
+    ID3D12CommandQueue* m_commandQueue = nullptr;
+    ID3D12GraphicsCommandList* m_commandList = nullptr;
+    ID3D12CommandAllocator* m_commandAllocators[FRAME_COUNT] = {};
+    bool m_commandListOpen = false;
 
-    // GPU timestamp timers (for profiler overlay)
-    static const int TIMER_HEAP_MARKERS = 64;                  // must be >= Profiler::MAX_MARKERS
-    static const int TIMER_HEAP_SIZE = TIMER_HEAP_MARKERS * 2; // begin + end per marker
-    ID3D12QueryHeap* m_timerQueryHeap;
-    ID3D12Resource* m_timerReadbackBuf;
-    float m_timerResultMs[TIMER_HEAP_MARKERS];
-    bool m_timerResultValid[TIMER_HEAP_MARKERS];
-    uint64_t m_timerFreq;
-    bool m_timerReadPending;
-    UINT64 m_timerReadFenceValue;             // fence value that guarantees the latest ResolveQueryData has completed
-    bool m_timerSlotWritten[TIMER_HEAP_SIZE]; // true for each timestamp slot that had EndQuery recorded this frame
+    ID3D12Resource* m_renderTargets[FRAME_COUNT] = {};
+    UINT m_frameIndex = 0;
+    UINT m_allocatorIndex = 0; // Which allocator is active (alternates 0/1)
+
+    ID3D12Fence* m_fence = nullptr;
+    UINT64 m_fenceValue = 0;
+    UINT64 m_frameFenceValues[FRAME_COUNT] = {}; // Fence value signaled by each frame's submission
+    HANDLE m_fenceEvent = nullptr;
+
+    ID3D12DescriptorHeap* m_rtvHeap = nullptr;
+    ID3D12DescriptorHeap* m_dsvHeap = nullptr;
+    ID3D12DescriptorHeap* m_srvHeap = nullptr;        // GPU-visible (shader-visible) for binding
+    ID3D12DescriptorHeap* m_srvStagingHeap = nullptr; // CPU-only for persistent SRV storage
+    UINT m_rtvDescSize = 0;
+    UINT m_dsvDescSize = 0;
+    UINT m_srvDescSize = 0;
+    UINT m_nextRTV = FRAME_COUNT; // Next available RTV slot (0-1 are swap chain)
+    UINT m_nextDSV = 1;           // Next available DSV slot (0 is main depth)
+
+    UINT m_nextStaticSRV = 0;
+    UINT m_nextTransientSRV = 0;
+
+    ID3D12Resource* m_depthStencil = nullptr;
+
+    ID3D12Resource* m_uploadBuffer = nullptr;
+    uint8_t* m_uploadBufferMapped = nullptr;
+    UINT64 m_uploadOffset = 0;
+
+    ID3D12RootSignature* m_rootSignature = nullptr;
+    int m_width = 0;
+    int m_height = 0;
+    bool m_isVsyncEnabled = true;
+
+    bool m_depthTestEnabled = true;
+    bool m_depthWriteEnabled = true;
+    bool m_blendEnabled = false;
+    BlendFactor m_blendSrc = BlendFactor::One;
+    BlendFactor m_blendDst = BlendFactor::Zero;
+    bool m_cullEnabled = true;
+    bool m_polyOffsetEnabled = false;
+    float m_polyOffsetFactor = 0.0f;
+    float m_polyOffsetUnits = 0.0f;
+    float m_clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    float m_clearDepth = 1.0f;
+    bool m_psoDirty = true;
+
+    ShaderDX12* m_activeShader = nullptr;
+    UINT m_boundTexSlot[2] = { UINT_MAX, UINT_MAX }; // Currently bound SRV indices for t0/t1
+
+    bool m_renderingToFBO = false;
+    bool m_backBufferIsRT = false; // True if back buffer is in RENDER_TARGET state
+
+    size_t m_lastPSOHash = 0;
+    bool m_texBindingsDirty = true;
+    bool m_targetsDirty = true;
+
+    bool m_dxrSupported = false;
+    ID3D12Device5* m_device5 = nullptr;
+    ID3D12GraphicsCommandList4* m_cmdList4 = nullptr;
+    ID3D12StateObject* m_rtPSO = nullptr;
+    ID3D12StateObjectProperties* m_rtPSOProps = nullptr;
+    ID3D12RootSignature* m_rtRootSignature = nullptr;
+    ID3D12Resource* m_reflectionUAV = nullptr;
+    UINT m_reflectionUAVIndex = 0; // UAV descriptor index in SRV heap
+    UINT m_reflectionSRVIndex = 0; // SRV for water shader sampling
+    int m_reflectionWidth = 0;
+    int m_reflectionHeight = 0;
+    bool m_reflectionInSRVState = false; // True after dispatch (SRV), false initially (UAV)
+    ID3D12Resource* m_rtConstantBuffer = nullptr;
+    uint8_t* m_rtConstantBufferMapped = nullptr;
+
+    ID3D12PipelineState* m_genMipsPSO = nullptr; // Compute PSO for generate_mips.hlsl
+    ID3D12RootSignature* m_genMipsRS = nullptr;  // Root signature: 4 root constants + SRV + 4 UAVs
+    UINT m_genMipsNullUAV = 0;                   // Static SRV slot holding a null UAV (padding)
 
     // --- Internal helpers ---
     void WaitForGpu();
@@ -318,7 +307,7 @@ class RenderBackendDX12 : public IRenderBackend
 
     bool SupportsGpuTimers() const override
     {
-        return m_timerQueryHeap != nullptr;
+        return m_gpuTimers.queryHeap != nullptr;
     }
     void GpuTimerBegin( int markerIdx ) override;
     void GpuTimerEnd( int markerIdx ) override;

@@ -17,10 +17,11 @@ namespace Basics
 {
 struct SceneCamera
 {
-    char name[64];
     Vector3 m_position;
     Vector3 view;
     Vector3 up;
+
+    char name[64];
 };
 
 struct SceneBall
@@ -48,6 +49,70 @@ struct SceneBallState
     float inertiaX, inertiaY, inertiaZ;
 };
 
+struct SceneOptions
+{
+    bool isPhysicsEnabled = true;
+    bool isTextEnabled = true;
+    bool isTextOnly = false;
+    int frameCount = -1;             // -1 = unlimited
+    unsigned int seed = 0;           // RNG seed (0 = use time-based default)
+    int legacyBallCount = 0;         // random legacy-style balls (0 = none)
+    float timeScale = 1.0f;          // Physics time multiplier (1.0 = realtime)
+    bool isDebugVectors = false;     // Draw velocity/omega debug arrows
+    float trackHeight = -1.0f;       // Height above tracked ball for camera (-1 = no tracking)
+    float autoCycleInterval = -1.0f; // Seconds between per-ball screenshots (-1 = disabled)
+    bool screenshotAndExit = false;  // Capture first frame as SCENENAME.bmp then exit
+    bool waterHidden = false;        // Suppress water rendering (for clean texture comparison)
+    bool terrainHidden = false;      // Suppress terrain rendering
+};
+
+struct SceneCaptureOptions
+{
+    char screenshotPath[256] = {}; // output path for screenshot (empty = none)
+    int screenshotFrame = -1;      // trigger on frame N (-1 = unused)
+    int screenshotMs = -1;         // trigger at N ms elapsed (-1 = unused)
+    int screenshotInterval = -1;   // save screenshot every N frames (-1 = disabled)
+    char screenshotDir[256] = {};  // output directory for interval captures
+};
+
+struct SceneLoggingOptions
+{
+    char perfLogPath[256] = {};      // output path for perf CSV (empty = none)
+    bool isPerfLogFlush = false;     // Force flush after each perf-log write
+    int perfLogFlushInterval = 0;    // Flush perf log every N writes (0 = only at close)
+    char rollLogPath[256] = {};      // output path for roll orientation log (empty = none)
+    bool isVectorLogEnabled = false; // Log velocity/omega correlation CSV
+    int vectorLogInterval = 6;       // Write vector log every N frames
+    char vectorLogPath[256] = {};    // output path for vector CSV (empty = use default)
+    bool isVectorLogFlush = false;   // Flush vector log after each write batch
+};
+
+struct SceneRuntimeOverrides
+{
+    bool hasVsyncOverride = false;        // Scene-level override present for vsync
+    bool isVsyncEnabled = true;           // V-Sync policy for scene when override is present
+    bool hasPipelineSyncOverride = false; // Scene-level pipeline-sync override present
+    bool isPipelineSyncEnabled = false;   // Pipeline-sync policy for scene when override is present
+    bool hasRollAlignOverride = false;    // Scene-level roll-align override present
+    bool isRollAlignEnabled = true;       // Terrain roll/pole alignment correction policy
+};
+
+struct SceneTerrainOverride
+{
+    bool hasFlatSlope = false; // True when scene overrides terrain with analytic flat slope
+    float flatBaseY = 0.0f;    // y = flatBaseY + flatSlopeX*x + flatSlopeZ*z
+    float flatSlopeX = 0.0f;
+    float flatSlopeZ = 0.0f;
+};
+
+struct SceneWorldOverride
+{
+    bool hasWorldOverride = false;
+    float worldGravity = 0.0f;
+    float worldFluidHeight = 0.0f;
+    float worldFluidDensity = 0.0f;
+};
+
 /* -- Test Scene -------------------------------------------------------------------------------------------------------------------------------------------------
 
     Loads and holds a deterministic scene description from a .scene file.
@@ -58,49 +123,16 @@ class TestScene
 {
 
   private:
-    bool m_isPhysicsEnabled;
-    bool m_isTextEnabled;
-    bool m_isTextOnly;
-    int m_frameCount;           // -1 = unlimited
-    char m_screenshotPath[256]; // output path for screenshot (empty = none)
-    int m_screenshotFrame;      // trigger on frame N (-1 = unused)
-    int m_screenshotMs;         // trigger at N ms elapsed (-1 = unused)
-    unsigned int m_seed;        // RNG m_seed (0 = use time-based default)
-    int m_legacyBallCount;      // random legacy-style m_balls (0 = none)
-    char m_perfLogPath[256];    // output path for perf CSV (empty = none)
-    bool m_isPerfLogFlush;      // Force flush after each perf-log write (default off)
-    int m_perfLogFlushInterval; // Flush perf log every N writes (0 = only at close)
-    char m_rollLogPath[256];    // output path for roll orientation log (empty = none)
-    bool m_isVectorLogEnabled;  // Log velocity/omega correlation CSV (default off)
-    int m_vectorLogInterval;    // Write vector log every N frames
-    char m_vectorLogPath[256];  // output path for vector CSV (empty = use default)
-    bool m_isVectorLogFlush;    // Flush vector log after each write batch (debug aid)
-    bool m_hasVsyncOverride;    // Scene-level override present for vsync
-    bool m_isVsyncEnabled;      // V-Sync policy for scene when override is present
-    bool m_hasPipelineSyncOverride;
-    bool m_isPipelineSyncEnabled;
-    bool m_hasRollAlignOverride; // Scene-level override present for roll orientation correction
-    bool m_isRollAlignEnabled;   // Terrain roll/pole alignment correction policy
-    int m_screenshotInterval;    // save screenshot every N frames (-1 = disabled)
-    char m_screenshotDir[256];   // output directory for interval captures
-    float m_timeScale;           // Physics time multiplier (1.0 = realtime)
-    bool m_isDebugVectors;       // Draw velocity/omega debug arrows (default false)
-    float m_trackHeight;         // Height above tracked ball for camera (-1 = no tracking)
-    float m_autoCycleInterval;   // Seconds between per-ball screenshots (-1 = disabled)
-    bool m_screenshotAndExit;    // Capture first frame as SCENENAME.bmp then exit
-    bool m_waterHidden;          // Suppress water rendering (for clean texture comparison)
-    bool m_terrainHidden;        // Suppress terrain rendering
-    bool m_hasFlatSlope;         // True when scene overrides terrain with analytic flat slope
-    float m_flatBaseY;           // y = m_flatBaseY + m_flatSlopeX*x + m_flatSlopeZ*z
-    float m_flatSlopeX;
-    float m_flatSlopeZ;
     std::vector<SceneCamera> m_cameras;
     std::vector<SceneBall> m_balls;
     std::vector<SceneBallState> m_ballStates;
-    bool m_hasWorldOverride;
-    float m_worldGravity;
-    float m_worldFluidHeight;
-    float m_worldFluidDensity;
+
+    SceneOptions m_sceneOptions;
+    SceneCaptureOptions m_captureOptions;
+    SceneLoggingOptions m_loggingOptions;
+    SceneRuntimeOverrides m_runtimeOverrides;
+    SceneTerrainOverride m_terrainOverride;
+    SceneWorldOverride m_worldOverride;
 
   public:
     TestScene();

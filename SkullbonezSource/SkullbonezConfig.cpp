@@ -93,23 +93,23 @@ void SkullbonezConfig::Load( const char* path )
         // Window
         if ( strcmp( k, "screen_x" ) == 0 )
         {
-            screenX = atoi( v );
+            window.screenX = atoi( v );
         }
         else if ( strcmp( k, "screen_y" ) == 0 )
         {
-            screenY = atoi( v );
+            window.screenY = atoi( v );
         }
         else if ( strcmp( k, "fullscreen" ) == 0 )
         {
-            fullscreen = atoi( v ) != 0;
+            window.fullscreen = atoi( v ) != 0;
         }
         else if ( strcmp( k, "bits_per_pixel" ) == 0 )
         {
-            bitsPerPixel = atoi( v );
+            window.bitsPerPixel = atoi( v );
         }
         else if ( strcmp( k, "refresh_rate" ) == 0 )
         {
-            refreshRate = atoi( v );
+            window.refreshRate = atoi( v );
         }
 
         // Frustum
@@ -393,15 +393,15 @@ void SkullbonezConfig::Load( const char* path )
         // Debug
         else if ( strcmp( k, "vsync_enabled" ) == 0 )
         {
-            vsyncEnabled = atoi( v ) != 0;
+            runtimeRender.vsyncEnabled = atoi( v ) != 0;
         }
         else if ( strcmp( k, "force_pipeline_sync" ) == 0 )
         {
-            forcePipelineSync = atoi( v ) != 0;
+            runtimeRender.forcePipelineSync = atoi( v ) != 0;
         }
         else if ( strcmp( k, "render_collision_volumes" ) == 0 )
         {
-            renderCollisionVolumes = atoi( v ) != 0;
+            runtimeRender.renderCollisionVolumes = atoi( v ) != 0;
         }
     }
 

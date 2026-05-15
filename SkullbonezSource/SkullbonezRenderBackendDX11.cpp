@@ -76,7 +76,6 @@ RenderBackendDX11* RenderBackendDX11::s_instance = nullptr;
 
 
 RenderBackendDX11::RenderBackendDX11()
-    : m_swapChain( nullptr ), m_device( nullptr ), m_context( nullptr ), m_backBufferRTV( nullptr ), m_depthStencilTex( nullptr ), m_depthStencilView( nullptr ), m_width( 0 ), m_height( 0 ), m_isVsyncEnabled( true ), m_depthTestEnabled( true ), m_depthWriteEnabled( true ), m_blendEnabled( false ), m_clearColor{ 0.0f, 0.0f, 0.0f, 1.0f }, m_clearDepth( 1.0f ), m_dsDepthOn( nullptr ), m_dsDepthOff( nullptr ), m_dsDepthOnWriteOff( nullptr ), m_blendOff( nullptr ), m_rsCullOn( nullptr ), m_rsCullOff( nullptr ), m_rsCullOnPolyOffset( nullptr ), m_rsCullOffPolyOffset( nullptr ), m_samplerLinear( nullptr ), m_samplerNearest( nullptr ), m_activeBlendState( nullptr ), m_currentBlendSrc( BlendFactor::One ), m_currentBlendDst( BlendFactor::Zero ), m_cullEnabled( true ), m_polyOffsetEnabled( false ), m_currentRTV( nullptr ), m_currentDSV( nullptr ), m_stagingTex( nullptr ), m_stagingWidth( 0 ), m_stagingHeight( 0 ), m_activeShader( nullptr )
 {
 }
 
@@ -219,15 +218,15 @@ void RenderBackendDX11::ApplyRasterizerState()
     // Bind a pre-created rasterizer state to the Rasterizer Stage. RSSetState switches which
     // rasterizer configuration (cull mode, polygon offset) is active for subsequent draw calls.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-rssetstate
-    if ( m_cullEnabled && m_polyOffsetEnabled )
+    if ( m_drawState.cullEnabled && m_drawState.polyOffsetEnabled )
     {
         m_context->RSSetState( m_rsCullOnPolyOffset );
     }
-    else if ( m_cullEnabled )
+    else if ( m_drawState.cullEnabled )
     {
         m_context->RSSetState( m_rsCullOn );
     }
-    else if ( m_polyOffsetEnabled )
+    else if ( m_drawState.polyOffsetEnabled )
     {
         m_context->RSSetState( m_rsCullOffPolyOffset );
     }
@@ -332,8 +331,8 @@ bool RenderBackendDX11::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     ThrowIfFailed( hr, "CreateDepthStencilView failed" );
 
     // Set default render target and cache it
-    m_currentRTV = m_backBufferRTV;
-    m_currentDSV = m_depthStencilView;
+    m_targetCache.currentRTV = m_backBufferRTV;
+    m_targetCache.currentDSV = m_depthStencilView;
 
     // Bind the back buffer RTV and depth buffer DSV to the Output Merger. This tells the GPU
     // "all draw calls should output their pixels here and depth-test against this buffer".
@@ -442,10 +441,10 @@ void RenderBackendDX11::Shutdown()
     m_blendCache.clear();
 
     // Staging texture
-    if ( m_stagingTex )
+    if ( m_captureState.stagingTex )
     {
-        m_stagingTex->Release();
-        m_stagingTex = nullptr;
+        m_captureState.stagingTex->Release();
+        m_captureState.stagingTex = nullptr;
     }
 
     // State objects
@@ -516,8 +515,8 @@ void RenderBackendDX11::Shutdown()
         m_device = nullptr;
     }
 
-    m_currentRTV = nullptr;
-    m_currentDSV = nullptr;
+    m_targetCache.currentRTV = nullptr;
+    m_targetCache.currentDSV = nullptr;
     s_instance = nullptr;
 }
 
@@ -534,8 +533,8 @@ void RenderBackendDX11::Present()
     // Rebind immediately so the next frame's draws have a valid render target.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetrendertargets
     m_context->OMSetRenderTargets( 1, &m_backBufferRTV, m_depthStencilView );
-    m_currentRTV = m_backBufferRTV;
-    m_currentDSV = m_depthStencilView;
+    m_targetCache.currentRTV = m_backBufferRTV;
+    m_targetCache.currentDSV = m_depthStencilView;
 }
 
 
@@ -575,8 +574,8 @@ void RenderBackendDX11::Resize( int width, int height )
     }
 
     // Release all swap-chain-backed views before resizing
-    m_currentRTV = nullptr;
-    m_currentDSV = nullptr;
+    m_targetCache.currentRTV = nullptr;
+    m_targetCache.currentDSV = nullptr;
 
     // Unbind all render targets before resize. Setting nullptr prevents the GPU from holding
     // references to the back buffer we're about to release.
@@ -633,25 +632,25 @@ void RenderBackendDX11::Resize( int width, int height )
     ThrowIfFailed( hr, "CreateDepthStencilView (resize) failed" );
 
     // Rebind render targets and update cache
-    m_currentRTV = m_backBufferRTV;
-    m_currentDSV = m_depthStencilView;
+    m_targetCache.currentRTV = m_backBufferRTV;
+    m_targetCache.currentDSV = m_depthStencilView;
 
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetrendertargets
     m_context->OMSetRenderTargets( 1, &m_backBufferRTV, m_depthStencilView );
 
     // Reapply tracked state (ClearState reset everything)
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetdepthstencilstate
-    m_context->OMSetDepthStencilState( m_depthTestEnabled ? m_dsDepthOn : m_dsDepthOff, 0 );
+    m_context->OMSetDepthStencilState( m_drawState.depthTestEnabled ? m_dsDepthOn : m_dsDepthOff, 0 );
     float blendFactor[4] = { 0, 0, 0, 0 };
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetblendstate
-    m_context->OMSetBlendState( m_blendEnabled ? m_activeBlendState : m_blendOff, blendFactor, 0xFFFFFFFF );
+    m_context->OMSetBlendState( m_drawState.blendEnabled ? m_activeBlendState : m_blendOff, blendFactor, 0xFFFFFFFF );
     ApplyRasterizerState();
 
     // Invalidate staging texture (wrong size now)
-    if ( m_stagingTex )
+    if ( m_captureState.stagingTex )
     {
-        m_stagingTex->Release();
-        m_stagingTex = nullptr;
+        m_captureState.stagingTex->Release();
+        m_captureState.stagingTex = nullptr;
     }
 
     // Update viewport and dimensions
@@ -680,57 +679,57 @@ void RenderBackendDX11::SetViewport( int x, int y, int w, int h )
 
 void RenderBackendDX11::Clear( bool color, bool depth )
 {
-    if ( color && m_currentRTV )
+    if ( color && m_targetCache.currentRTV )
     {
         // Fill the entire render target with a solid color (the clear color). This wipes the
         // previous frame's pixels before drawing new geometry. Much faster than drawing a
         // full-screen quad.
         // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-clearrendertargetview
-        m_context->ClearRenderTargetView( m_currentRTV, m_clearColor );
+        m_context->ClearRenderTargetView( m_targetCache.currentRTV, m_drawState.clearColor );
     }
-    if ( depth && m_currentDSV )
+    if ( depth && m_targetCache.currentDSV )
     {
         // Reset the depth buffer to the maximum depth value (1.0 = infinitely far away). This
         // ensures all new geometry will pass the depth test at the start of a new frame.
         // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-cleardepthstencilview
-        m_context->ClearDepthStencilView( m_currentDSV, D3D11_CLEAR_DEPTH, m_clearDepth, 0 );
+        m_context->ClearDepthStencilView( m_targetCache.currentDSV, D3D11_CLEAR_DEPTH, m_drawState.clearDepth, 0 );
     }
 }
 
 
 void RenderBackendDX11::SetClearColor( float r, float g, float b, float a )
 {
-    m_clearColor[0] = r;
-    m_clearColor[1] = g;
-    m_clearColor[2] = b;
-    m_clearColor[3] = a;
+    m_drawState.clearColor[0] = r;
+    m_drawState.clearColor[1] = g;
+    m_drawState.clearColor[2] = b;
+    m_drawState.clearColor[3] = a;
 }
 
 
 void RenderBackendDX11::SetClearDepth( float depth )
 {
-    m_clearDepth = depth;
+    m_drawState.clearDepth = depth;
 }
 
 
 void RenderBackendDX11::SetDepthTest( bool enable )
 {
-    if ( m_depthTestEnabled == enable )
+    if ( m_drawState.depthTestEnabled == enable )
     {
         return;
     }
-    m_depthTestEnabled = enable;
+    m_drawState.depthTestEnabled = enable;
     ApplyDepthState();
 }
 
 
 void RenderBackendDX11::SetDepthWrite( bool enable )
 {
-    if ( m_depthWriteEnabled == enable )
+    if ( m_drawState.depthWriteEnabled == enable )
     {
         return;
     }
-    m_depthWriteEnabled = enable;
+    m_drawState.depthWriteEnabled = enable;
     ApplyDepthState();
 }
 
@@ -744,11 +743,11 @@ void RenderBackendDX11::ApplyDepthState()
     //   depthTest=OFF                 → m_dsDepthOff          (UI/overlays: ignore depth entirely)
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetdepthstencilstate
     ID3D11DepthStencilState* state;
-    if ( !m_depthTestEnabled )
+    if ( !m_drawState.depthTestEnabled )
     {
         state = m_dsDepthOff;
     }
-    else if ( m_depthWriteEnabled )
+    else if ( m_drawState.depthWriteEnabled )
     {
         state = m_dsDepthOn;
     }
@@ -762,11 +761,11 @@ void RenderBackendDX11::ApplyDepthState()
 
 void RenderBackendDX11::SetBlend( bool enable )
 {
-    if ( m_blendEnabled == enable )
+    if ( m_drawState.blendEnabled == enable )
     {
         return;
     }
-    m_blendEnabled = enable;
+    m_drawState.blendEnabled = enable;
     float blendFactor[4] = { 0, 0, 0, 0 };
 
     // Toggle alpha blending on/off in the Output Merger. When enabled, new pixel colors are
@@ -787,7 +786,7 @@ void RenderBackendDX11::SetBlendFunc( BlendFactor src, BlendFactor dst )
     m_currentBlendDst = dst;
 
     // Look up or create the blend state for this (src, dst) pair
-    BlendKey key = { src, dst };
+    BlendKeyDX11 key = { src, dst };
     auto it = m_blendCache.find( key );
     if ( it == m_blendCache.end() )
     {
@@ -817,7 +816,7 @@ void RenderBackendDX11::SetBlendFunc( BlendFactor src, BlendFactor dst )
         m_activeBlendState = it->second;
     }
 
-    if ( m_blendEnabled )
+    if ( m_drawState.blendEnabled )
     {
         float blendFactor4[4] = { 0, 0, 0, 0 };
         // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetblendstate
@@ -828,22 +827,22 @@ void RenderBackendDX11::SetBlendFunc( BlendFactor src, BlendFactor dst )
 
 void RenderBackendDX11::SetCullFace( bool enable )
 {
-    if ( m_cullEnabled == enable )
+    if ( m_drawState.cullEnabled == enable )
     {
         return;
     }
-    m_cullEnabled = enable;
+    m_drawState.cullEnabled = enable;
     ApplyRasterizerState();
 }
 
 
 void RenderBackendDX11::SetPolygonOffset( bool enable, float /*factor*/, float /*units*/ )
 {
-    if ( m_polyOffsetEnabled == enable )
+    if ( m_drawState.polyOffsetEnabled == enable )
     {
         return;
     }
-    m_polyOffsetEnabled = enable;
+    m_drawState.polyOffsetEnabled = enable;
     ApplyRasterizerState();
 }
 
@@ -1080,11 +1079,11 @@ std::vector<uint8_t> RenderBackendDX11::CaptureBackbuffer( int& outWidth, int& o
     ThrowIfFailed( hr, "GetBuffer failed (capture)" );
 
     // Create or reuse staging texture
-    if ( !m_stagingTex || m_stagingWidth != m_width || m_stagingHeight != m_height )
+    if ( !m_captureState.stagingTex || m_captureState.stagingWidth != m_width || m_captureState.stagingHeight != m_height )
     {
-        if ( m_stagingTex )
+        if ( m_captureState.stagingTex )
         {
-            m_stagingTex->Release();
+            m_captureState.stagingTex->Release();
         }
 
         D3D11_TEXTURE2D_DESC desc;
@@ -1098,21 +1097,21 @@ std::vector<uint8_t> RenderBackendDX11::CaptureBackbuffer( int& outWidth, int& o
         // texture lives in CPU-accessible memory. GPU textures can't be read directly by the CPU;
         // we must copy into a staging resource first, then Map it for reading.
         // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createtexture2d
-        hr = m_device->CreateTexture2D( &desc, nullptr, &m_stagingTex );
+        hr = m_device->CreateTexture2D( &desc, nullptr, &m_captureState.stagingTex );
         if ( FAILED( hr ) )
         {
             backBuffer->Release();
             throw std::runtime_error( "CreateTexture2D (staging) failed" );
         }
-        m_stagingWidth = m_width;
-        m_stagingHeight = m_height;
+        m_captureState.stagingWidth = m_width;
+        m_captureState.stagingHeight = m_height;
     }
 
     // Copy the back buffer GPU texture into the staging texture. CopyResource is a GPU-side copy
     // that moves pixel data from one texture to another (here: from VRAM to CPU-readable memory).
     // This must complete before we can Map the staging texture.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-copyresource
-    m_context->CopyResource( m_stagingTex, backBuffer );
+    m_context->CopyResource( m_captureState.stagingTex, backBuffer );
     backBuffer->Release();
 
     // Map the staging texture to get a CPU pointer to the pixel data. D3D11_MAP_READ gives
@@ -1120,7 +1119,7 @@ std::vector<uint8_t> RenderBackendDX11::CaptureBackbuffer( int& outWidth, int& o
     // raw pixel bytes and mapped.RowPitch tells us the stride between rows.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-map
     D3D11_MAPPED_SUBRESOURCE mapped;
-    hr = m_context->Map( m_stagingTex, 0, D3D11_MAP_READ, 0, &mapped );
+    hr = m_context->Map( m_captureState.stagingTex, 0, D3D11_MAP_READ, 0, &mapped );
     ThrowIfFailed( hr, "Map staging texture failed" );
 
     // Convert RGBA to BGR bottom-up (matches GL's CaptureBackbuffer format for BMP compatibility)
@@ -1142,7 +1141,7 @@ std::vector<uint8_t> RenderBackendDX11::CaptureBackbuffer( int& outWidth, int& o
 
     // Release the CPU mapping. After Unmap, the mapped pointer is invalid.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-unmap
-    m_context->Unmap( m_stagingTex, 0 );
+    m_context->Unmap( m_captureState.stagingTex, 0 );
 
     return pixels;
 }
@@ -1162,13 +1161,13 @@ int RenderBackendDX11::GetHeight() const
 
 bool RenderBackendDX11::IsDepthTestEnabled() const
 {
-    return m_depthTestEnabled;
+    return m_drawState.depthTestEnabled;
 }
 
 
 bool RenderBackendDX11::IsBlendEnabled() const
 {
-    return m_blendEnabled;
+    return m_drawState.blendEnabled;
 }
 
 

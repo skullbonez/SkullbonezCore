@@ -18,92 +18,35 @@ using namespace SkullbonezCore::Physics;
 
 
 SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
-    : m_sceneQueue( std::move( sceneQueue ) ), m_currentSceneIndex( -1 )
+    : m_sceneQueue( std::move( sceneQueue ) )
 {
-    // Scene config defaults (overwritten by LoadScene)
-    m_isSceneMode = false;
-    m_isScenePhysics = true;
-    m_isSceneText = true;
-    m_isPerfTest = false;
-    m_perfHeaderWritten = false;
-    m_isScreenshotSaved = false;
-    m_isScreenshotAndExit = false;
-    m_targetFrameCount = -1;
-    m_currentFrame = 0;
-    m_screenshotFrame = -1;
-    m_screenshotMs = -1;
-    m_screenshotPath[0] = '\0';
-    m_screenshotInterval = -1;
-    m_intervalCaptureCount = 0;
-    m_screenshotDir[0] = '\0';
-    m_perfLogPath[0] = '\0';
-    m_perfLogFile = nullptr;
-    m_isPerfLogFlushEnabled = false;
-    m_perfLogFlushInterval = 0;
-    m_perfLogWritesSinceFlush = 0;
-    m_rollLogFile = nullptr;
-    m_isVectorLogEnabled = false;
-    m_vectorLogInterval = 6;
-    m_isVectorLogFlushEnabled = false;
-    strcpy_s( m_vectorLogPath, sizeof( m_vectorLogPath ), "Debug/vector_log.csv" );
-    m_isVsyncEnabled = Cfg().vsyncEnabled;
-    m_isPipelineSyncEnabled = Cfg().forcePipelineSync;
-    m_defaultRollAlignEnabled = Cfg().rollAlignEnabled;
-    m_isRollAlignEnabled = m_defaultRollAlignEnabled;
-    m_vectorLogFile = nullptr;
-
-    // Engine state
-    m_cCameras = 0;
-    m_cTextures = 0;
-    m_cSkyBox = 0;
-    m_selectedCamera = 0;
-    m_timeSinceLastRender = 0.0f;
-    m_renderTime = 0.0f;
-    m_cameraTime = 0.0f;
-    m_r_renderTime = 0.0f;
-    m_physicsTime = 0.0f;
-    m_r_physicsTime = 0.0f;
-    m_r_fpsTime = 0.0f;
-    m_isFlyMode = false;
-    m_isProfilerOverlay = true;
-    m_isWaterFreezeDebug = false;
-    m_isWaterNoReflect = false;
-    m_isWaterFlatDebug = false;
-    m_isTerrainHidden = false;
-    m_isWaterHidden = false;
-    m_isDebugVectors = false;
-    m_isTextOnly = false;
-    m_timeScale = 1.0f;
-    m_frozenWaterTime = 0.0f;
-    m_trackBallIndex = -1;
-    m_trackHeight = 300.0f;
-    m_autoCycleInterval = -1.0f;
-    m_autoCycleAccum = 0.0f;
-    m_autoCycleShotsTaken = 0;
-    m_sInputState = {};
-    m_modelCount = 0;
+    // Config-driven defaults are resolved at construction; scene-specific defaults remain in-member.
+    m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
+    m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
+    m_runtimeSettings.defaultRollAlignEnabled = Cfg().rollAlignEnabled;
+    m_runtimeSettings.isRollAlignEnabled = m_runtimeSettings.defaultRollAlignEnabled;
 }
 
 
 SkullbonezRun::~SkullbonezRun()
 {
-    if ( m_perfLogFile )
+    if ( m_perfLogState.perfLogFile )
     {
-        fclose( m_perfLogFile );
-        m_perfLogFile = nullptr;
+        fclose( m_perfLogState.perfLogFile );
+        m_perfLogState.perfLogFile = nullptr;
     }
 
-    if ( m_rollLogFile )
+    if ( m_perfLogState.rollLogFile )
     {
         m_cGameModelCollection.SetRollLog( nullptr );
-        fclose( m_rollLogFile );
-        m_rollLogFile = nullptr;
+        fclose( m_perfLogState.rollLogFile );
+        m_perfLogState.rollLogFile = nullptr;
     }
 
-    if ( m_vectorLogFile )
+    if ( m_vectorLogState.vectorLogFile )
     {
-        fclose( m_vectorLogFile );
-        m_vectorLogFile = nullptr;
+        fclose( m_vectorLogState.vectorLogFile );
+        m_vectorLogState.vectorLogFile = nullptr;
     }
 
     // Flush GPU before destroying resources to avoid use-after-free
@@ -116,64 +59,64 @@ SkullbonezRun::~SkullbonezRun()
     SkullbonezHelper::ResetGLResources();
     m_cWorldEnvironment.ResetGLResources();
     m_cGameModelCollection.ResetGLResources();
-    if ( m_cReflectionFBO )
+    if ( m_systems.reflectionFBO )
     {
-        m_cReflectionFBO->ResetResources();
+        m_systems.reflectionFBO->ResetResources();
     }
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     Profiler::Instance().InvalidateGpuQueries();
 #endif
     Text2d::DeleteFont();
 
-    m_cTextures->Destroy();
-    m_cCameras->Destroy();
-    m_cSkyBox->Destroy();
+    m_systems.textures->Destroy();
+    m_systems.cameras->Destroy();
+    m_systems.skyBox->Destroy();
 }
 
 
 void SkullbonezRun::Initialise()
 {
     // Init window
-    m_cWindow = SkullbonezWindow::Instance();
+    m_systems.window = SkullbonezWindow::Instance();
 
     // Set loading text
     const char* rendererName = Gfx().GetRendererName();
     char titleText[256];
     sprintf_s( titleText, "::SKULLBONEZ CORE:: [%s] -- LOADING!!!", rendererName );
-    m_cWindow->SetTitleText( titleText );
+    m_systems.window->SetTitleText( titleText );
 
     // Init m_textures
-    m_cTextures = TextureCollection::Instance();
+    m_systems.textures = TextureCollection::Instance();
 
     // Init OpenGL
     SetInitialOpenGlState();
 
     // Init m_terrain
     // path to m_height map | map size pixels | step size | times to wrap texture
-    m_cTerrain = std::make_unique<Terrain>( ( std::string( DATA_ROOT ) + Cfg().terrainRaw ).c_str(), 256, 8, 15 );
+    m_systems.terrain = std::make_unique<Terrain>( ( std::string( DATA_ROOT ) + Cfg().terrainRaw ).c_str(), 256, 8, 15 );
 
     // Init SkyBox (m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax)
-    m_cSkyBox = SkyBox::Instance( -250, 300, -300, 300, -250, 300 );
-    m_cSkyBox->ResetGLResources();
+    m_systems.skyBox = SkyBox::Instance( -250, 300, -300, 300, -250, 300 );
+    m_systems.skyBox->ResetGLResources();
 
     // Init world environment
     {
         const SkullbonezConfig& cfg = Cfg();
         m_cWorldEnvironment = WorldEnvironment( cfg.fluidHeight, cfg.fluidDensity, cfg.gasDensity, cfg.gravity );
-        XZBounds tb = m_cTerrain->GetXZBounds();
+        XZBounds tb = m_systems.terrain->GetXZBounds();
         m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
     }
 
     // Init reflection FBO at the current viewport size
     int fboW = Gfx().GetWidth() * 2;
     int fboH = Gfx().GetHeight() * 2;
-    m_cReflectionFBO = Gfx().CreateFramebuffer( fboW, fboH );
+    m_systems.reflectionFBO = Gfx().CreateFramebuffer( fboW, fboH );
 
     // Init font (HDC, font)
     Text2d::BuildFont( "Verdana" );
 
     // Init cameras singleton (shared across scenes, Reset() between loads)
-    m_cCameras = CameraCollection::Instance();
+    m_systems.cameras = CameraCollection::Instance();
 
     // Load the first scene
     LoadScene( 0 );
@@ -182,7 +125,7 @@ void SkullbonezRun::Initialise()
 
 void SkullbonezRun::SetUpGameModels( int count )
 {
-    m_modelCount = count;
+    m_scene.modelCount = count;
 
     const SkullbonezConfig& cfg = Cfg();
 
@@ -196,7 +139,7 @@ void SkullbonezRun::SetUpGameModels( int count )
     auto randSign = []() -> float
     { return ( rand() % 2 == 0 ) ? 1.0f : -1.0f; };
 
-    for ( int x = 0; x < m_modelCount; ++x )
+    for ( int x = 0; x < m_scene.modelCount; ++x )
     {
         float posX = randFloat( cfg.spawnXBase, cfg.spawnXRange );
         float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
@@ -210,7 +153,7 @@ void SkullbonezRun::SetUpGameModels( int count )
 
         GameModel gameModel( &m_cWorldEnvironment, Vector3( posX, posY, posZ ), Vector3( moment, moment, moment ), mass );
         gameModel.SetCoefficientRestitution( restitution );
-        gameModel.SetTerrain( m_cTerrain.get() );
+        gameModel.SetTerrain( m_systems.terrain.get() );
         gameModel.AddBoundingSphere( radius );
         gameModel.SetImpulseForce( force, forcePos );
 
@@ -237,7 +180,7 @@ void SkullbonezRun::Run()
         else
         {
             // find out how many seconds passed during last frame
-            double secondsPerFrame = m_cFrameTimer.GetElapsedTime();
+            double secondsPerFrame = m_timers.frameTimer.GetElapsedTime();
 
             // Clamp to [0, 0.05] to avoid numerical instability.
             // The lower bound catches the first frame after a scene load where
@@ -251,7 +194,7 @@ void SkullbonezRun::Run()
                 secondsPerFrame = 0.05;
             }
 
-            m_cFrameTimer.StartTimer();
+            m_timers.frameTimer.StartTimer();
             PROFILE_FRAME_BEGIN();
 
             // Input
@@ -260,14 +203,14 @@ void SkullbonezRun::Run()
             PROFILE_END( "Frame/Input" );
 
             // Logic (skip physics in scene mode when disabled)
-            if ( !m_isSceneMode || m_isScenePhysics )
+            if ( !m_scene.isSceneMode || m_scene.isScenePhysics )
             {
-                UpdateLogic( static_cast<float>( secondsPerFrame ) * m_timeScale );
+                UpdateLogic( static_cast<float>( secondsPerFrame ) * m_scene.timeScale );
             }
 
             // Drain GPU pipeline before render
             PROFILE_BEGIN( "Frame/PipelineSync" );
-            if ( m_isPipelineSyncEnabled )
+            if ( m_runtimeSettings.isPipelineSyncEnabled )
             {
                 Gfx().Finish();
             }
@@ -279,7 +222,7 @@ void SkullbonezRun::Run()
             PROFILE_GPU_END( "Frame/Render" );
 
             // Render overlay text
-            if ( !m_isSceneMode || m_isSceneText )
+            if ( !m_scene.isSceneMode || m_scene.isSceneText )
             {
                 PROFILE_GPU_BEGIN( "Frame/Text" );
                 DrawWindowText( secondsPerFrame );
@@ -288,9 +231,9 @@ void SkullbonezRun::Run()
 
             // Scene mode: check screenshot triggers (read back buffer before swap)
             // screenshot_and_exit: on frame 1, save SCENENAME.bmp to root then quit
-            if ( m_isSceneMode && m_isScreenshotAndExit && m_currentFrame == 0 )
+            if ( m_scene.isSceneMode && m_screenshot.isScreenshotAndExit && m_scene.currentFrame == 0 )
             {
-                const std::string& scenePath = m_sceneQueue[m_currentSceneIndex];
+                const std::string& scenePath = m_sceneQueue[m_scene.currentSceneIndex];
                 char outPath[256];
                 const char* base = scenePath.c_str();
                 const char* slash = strrchr( base, '/' );
@@ -311,25 +254,25 @@ void SkullbonezRun::Run()
                 continue;
             }
 
-            if ( m_isSceneMode && m_screenshotPath[0] != '\0' && !m_isScreenshotSaved )
+            if ( m_scene.isSceneMode && m_screenshot.screenshotPath[0] != '\0' && !m_screenshot.isScreenshotSaved )
             {
                 bool shouldCapture = false;
 
 
-                if ( m_screenshotFrame > 0 && ( m_currentFrame + 1 ) >= m_screenshotFrame )
+                if ( m_screenshot.screenshotFrame > 0 && ( m_scene.currentFrame + 1 ) >= m_screenshot.screenshotFrame )
                 {
                     shouldCapture = true;
                 }
 
-                if ( m_screenshotMs > 0 && m_cSimulationTimer.GetTimeSinceLastStart() * 1000.0 >= m_screenshotMs )
+                if ( m_screenshot.screenshotMs > 0 && m_timers.simulationTimer.GetTimeSinceLastStart() * 1000.0 >= m_screenshot.screenshotMs )
                 {
                     shouldCapture = true;
                 }
 
                 if ( shouldCapture )
                 {
-                    SaveScreenshot( m_screenshotPath );
-                    m_isScreenshotSaved = true;
+                    SaveScreenshot( m_screenshot.screenshotPath );
+                    m_screenshot.isScreenshotSaved = true;
 
                     // Close profiler frame before scene transition
                     PROFILE_FRAME_END();
@@ -344,39 +287,39 @@ void SkullbonezRun::Run()
             }
 
             // Interval capture: save numbered screenshots at regular frame intervals
-            if ( m_isSceneMode && m_screenshotInterval > 0 && m_screenshotDir[0] != '\0' )
+            if ( m_scene.isSceneMode && m_screenshot.screenshotInterval > 0 && m_screenshot.screenshotDir[0] != '\0' )
             {
-                if ( ( m_currentFrame + 1 ) % m_screenshotInterval == 0 )
+                if ( ( m_scene.currentFrame + 1 ) % m_screenshot.screenshotInterval == 0 )
                 {
-                    ++m_intervalCaptureCount;
+                    ++m_screenshot.intervalCaptureCount;
                     char intervalPath[512];
-                    sprintf_s( intervalPath, sizeof( intervalPath ), "%s/capture_%04d.bmp", m_screenshotDir, m_intervalCaptureCount );
+                    sprintf_s( intervalPath, sizeof( intervalPath ), "%s/capture_%04d.bmp", m_screenshot.screenshotDir, m_screenshot.intervalCaptureCount );
                     SaveScreenshot( intervalPath );
                 }
             }
 
             // Auto-cycle screenshots (scene directive: auto_cycle_interval N).
             // Every N real seconds: screenshot current tracked ball, cycle to next, exit when all done.
-            if ( m_isSceneMode && m_autoCycleInterval > 0.0f && m_autoCycleAccum >= m_autoCycleInterval )
+            if ( m_scene.isSceneMode && m_camera.autoCycleInterval > 0.0f && m_camera.autoCycleAccum >= m_camera.autoCycleInterval )
             {
                 int ballCount = m_cGameModelCollection.GetModelCount();
                 char shotPath[256];
-                sprintf_s( shotPath, sizeof( shotPath ), "Profile/cardinal_ball%d.bmp", m_autoCycleShotsTaken );
+                sprintf_s( shotPath, sizeof( shotPath ), "Profile/cardinal_ball%d.bmp", m_camera.autoCycleShotsTaken );
                 SaveScreenshot( shotPath );
-                fprintf( stdout, "Auto-shot %d: ball index %d -> %s\n", m_autoCycleShotsTaken, m_trackBallIndex, shotPath );
+                fprintf( stdout, "Auto-shot %d: ball index %d -> %s\n", m_camera.autoCycleShotsTaken, m_camera.trackBallIndex, shotPath );
                 fflush( stdout );
 
-                ++m_autoCycleShotsTaken;
-                m_autoCycleAccum = 0.0f;
+                ++m_camera.autoCycleShotsTaken;
+                m_camera.autoCycleAccum = 0.0f;
 
-                if ( m_autoCycleShotsTaken >= ballCount )
+                if ( m_camera.autoCycleShotsTaken >= ballCount )
                 {
-                    // All balls captured — done
+                    // All balls captured ? done
                     PostQuitMessage( 0 );
                 }
                 else
                 {
-                    m_trackBallIndex = ( m_trackBallIndex + 1 ) % ballCount;
+                    m_camera.trackBallIndex = ( m_camera.trackBallIndex + 1 ) % ballCount;
                 }
             }
 
@@ -385,7 +328,7 @@ void SkullbonezRun::Run()
             Gfx().Present();
             PROFILE_END( "Frame/VsyncWait" );
 
-            m_cFrameTimer.StopTimer();
+            m_timers.frameTimer.StopTimer();
 
             // Close profiler frame and refresh timing fields
             PROFILE_FRAME_END();
@@ -394,49 +337,49 @@ void SkullbonezRun::Run()
                 using SkullbonezCore::Basics::Profiler;
                 static constexpr uint32_t kPhysicsHash = ::HashStr( "Frame/Physics" );
                 static constexpr uint32_t kRenderHash = ::HashStr( "Frame/Render" );
-                m_physicsTime = Profiler::Instance().LastFrameMsByHash( kPhysicsHash ) * 0.001f;
-                m_renderTime = Profiler::Instance().LastFrameMsByHash( kRenderHash ) * 0.001f;
+                m_timers.physicsTime = Profiler::Instance().LastFrameMsByHash( kPhysicsHash ) * 0.001f;
+                m_timers.renderTime = Profiler::Instance().LastFrameMsByHash( kRenderHash ) * 0.001f;
             }
 #endif
 
             // Perf test: log per-frame timing + periodic memory
-            if ( m_isPerfTest && m_perfLogFile )
+            if ( m_perfLogState.isPerfTest && m_perfLogState.perfLogFile )
             {
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-                if ( !m_perfHeaderWritten )
+                if ( !m_perfLogState.perfHeaderWritten )
                 {
-                    Profiler::Instance().WritePerfCSVHeader( m_perfLogFile );
-                    m_perfHeaderWritten = true;
+                    Profiler::Instance().WritePerfCSVHeader( m_perfLogState.perfLogFile );
+                    m_perfLogState.perfHeaderWritten = true;
                 }
-                Profiler::Instance().WritePerfCSVRow( m_perfLogFile, sPerfPass + 1, m_currentFrame + 1 );
+                Profiler::Instance().WritePerfCSVRow( m_perfLogState.perfLogFile, sPerfPass + 1, m_scene.currentFrame + 1 );
 #else
-                fprintf( m_perfLogFile, "%d,%d,%.4f,%.4f\n", sPerfPass + 1, m_currentFrame + 1, m_physicsTime * 1000.0f, m_renderTime * 1000.0f );
+                fprintf( m_perfLogState.perfLogFile, "%d,%d,%.4f,%.4f\n", sPerfPass + 1, m_scene.currentFrame + 1, m_timers.physicsTime * 1000.0f, m_timers.renderTime * 1000.0f );
 #endif
-                ++m_perfLogWritesSinceFlush;
-                if ( m_isPerfLogFlushEnabled ||
-                     ( m_perfLogFlushInterval > 0 && m_perfLogWritesSinceFlush >= m_perfLogFlushInterval ) )
+                ++m_perfLogState.perfLogWritesSinceFlush;
+                if ( m_perfLogState.isPerfLogFlushEnabled ||
+                     ( m_perfLogState.perfLogFlushInterval > 0 && m_perfLogState.perfLogWritesSinceFlush >= m_perfLogState.perfLogFlushInterval ) )
                 {
-                    fflush( m_perfLogFile );
-                    m_perfLogWritesSinceFlush = 0;
+                    fflush( m_perfLogState.perfLogFile );
+                    m_perfLogState.perfLogWritesSinceFlush = 0;
                 }
 
                 // Log memory every 60 frames (~1 second)
-                if ( ( m_currentFrame + 1 ) % 60 == 0 )
+                if ( ( m_scene.currentFrame + 1 ) % 60 == 0 )
                 {
                     LogPerfMemory( "periodic" );
                 }
             }
 
             // Scene mode: count frames
-            if ( m_isSceneMode )
+            if ( m_scene.isSceneMode )
             {
-                ++m_currentFrame;
+                ++m_scene.currentFrame;
             }
 
             // Scene mode: hold after target reached (skip if screenshot auto-exit pending)
-            if ( m_isSceneMode && m_targetFrameCount > 0 && !m_isScreenshotSaved )
+            if ( m_scene.isSceneMode && m_scene.targetFrameCount > 0 && !m_screenshot.isScreenshotSaved )
             {
-                if ( m_currentFrame >= m_targetFrameCount )
+                if ( m_scene.currentFrame >= m_scene.targetFrameCount )
                 {
                     for ( ;; )
                     {
@@ -459,16 +402,16 @@ void SkullbonezRun::Run()
             }
 
             // Legacy mode: restart scene after 20s (keeps app running indefinitely)
-            if ( !m_isSceneMode && !m_isFlyMode && m_cSimulationTimer.GetTimeSinceLastStart() > 20.0 )
+            if ( !m_scene.isSceneMode && !m_camera.isFlyMode && m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
             {
                 // Reload the same scene to restart
-                LoadScene( m_currentSceneIndex );
-                m_cSimulationTimer.StartTimer();
+                LoadScene( m_scene.currentSceneIndex );
+                m_timers.simulationTimer.StartTimer();
                 continue;
             }
 
             // Perf test: advance at 5s (pass 1 restarts same scene, pass 2 advances)
-            if ( m_isPerfTest && m_cSimulationTimer.GetTimeSinceLastStart() > 5.0 )
+            if ( m_perfLogState.isPerfTest && m_timers.simulationTimer.GetTimeSinceLastStart() > 5.0 )
             {
                 if ( !AdvanceScene() )
                 {
@@ -484,107 +427,107 @@ void SkullbonezRun::Run()
 void SkullbonezRun::TakeInput()
 {
     // Toggle fly mode with F (edge-detected so snapshot-loaded fly mode survives the next frame)
-    bool prevFlyMode = m_isFlyMode;
+    bool prevFlyMode = m_camera.isFlyMode;
     bool fNow = Input::IsKeyDown( 'F' );
-    if ( fNow && !m_sInputState.fFWasDown )
+    if ( fNow && !m_camera.input.fFWasDown )
     {
-        m_isFlyMode = !m_isFlyMode;
+        m_camera.isFlyMode = !m_camera.isFlyMode;
     }
-    m_sInputState.fFWasDown = fNow;
+    m_camera.input.fFWasDown = fNow;
 
-    if ( m_isFlyMode != prevFlyMode )
+    if ( m_camera.isFlyMode != prevFlyMode )
     {
-        if ( m_isFlyMode )
+        if ( m_camera.isFlyMode )
         {
             // Entering fly mode: in legacy mode snap to free camera; in scene mode stay
             // on the current camera so fly controls work without requiring CAMERA_FREE
-            if ( !m_isSceneMode )
+            if ( !m_scene.isSceneMode )
             {
-                m_cCameras->SelectCamera( CAMERA_FREE, false );
+                m_systems.cameras->SelectCamera( CAMERA_FREE, false );
             }
-            m_cameraTime = 0.0f;
+            m_camera.cameraTime = 0.0f;
             XZBounds unbounded;
             unbounded.m_xMin = -99999.9f;
             unbounded.m_xMax = 99999.9f;
             unbounded.m_zMin = -99999.9f;
             unbounded.m_zMax = 99999.9f;
-            uint32_t activeCam = m_isSceneMode ? m_cCameras->GetSelectedCameraName() : CAMERA_FREE;
-            m_cCameras->SetCameraXZBounds( activeCam, unbounded );
+            uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
+            m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
             SetCursor( nullptr );
             Input::CentreMouseCoordinates();
-            m_sInputState.xMove = 0;
-            m_sInputState.yMove = 0;
+            m_camera.input.xMove = 0;
+            m_camera.input.yMove = 0;
         }
         else
         {
             // Exiting fly mode: restore m_terrain XZ bounds, cursor, camera cycle clock
-            uint32_t activeCam = m_isSceneMode ? m_cCameras->GetSelectedCameraName() : CAMERA_FREE;
-            m_cCameras->SetCameraXZBounds( activeCam, m_cTerrain->GetXZBounds() );
+            uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
+            m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
             SetCursor( LoadCursor( nullptr, IDC_ARROW ) );
-            m_cameraTime = 0.0f;
+            m_camera.cameraTime = 0.0f;
         }
     }
 
     // Water m_shader debug toggles
-    bool prevFreeze = m_isWaterFreezeDebug;
-    m_isWaterFreezeDebug = ( Input::IsKeyToggled( '1' ) != 0 ); // Water perturbation ON
-    if ( m_isWaterFreezeDebug && !prevFreeze )
+    bool prevFreeze = m_debug.isWaterFreezeDebug;
+    m_debug.isWaterFreezeDebug = ( Input::IsKeyToggled( '1' ) != 0 ); // Water perturbation ON
+    if ( m_debug.isWaterFreezeDebug && !prevFreeze )
     {
-        m_frozenWaterTime = static_cast<float>( m_cSimulationTimer.GetTimeSinceLastStart() );
+        m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
     }
-    m_isWaterNoReflect = ( Input::IsKeyToggled( '2' ) != 0 ); // Reflection default ON
-    m_isWaterFlatDebug = ( Input::IsKeyToggled( '3' ) != 0 ); // Ocean wave displacement ON
-    m_isTerrainHidden = ( Input::IsKeyToggled( '4' ) != 0 );  // Terrain visibility ON
-    m_isWaterHidden = ( Input::IsKeyToggled( '5' ) != 0 );    // Water visibility ON
+    m_debug.isWaterNoReflect = ( Input::IsKeyToggled( '2' ) != 0 ); // Reflection default ON
+    m_debug.isWaterFlatDebug = ( Input::IsKeyToggled( '3' ) != 0 ); // Ocean wave displacement ON
+    m_debug.isTerrainHidden = ( Input::IsKeyToggled( '4' ) != 0 );  // Terrain visibility ON
+    m_debug.isWaterHidden = ( Input::IsKeyToggled( '5' ) != 0 );    // Water visibility ON
     // Debug vectors: in scene mode, start from the scene-loaded value and edge-detect '9' toggles.
     // In legacy mode, mirror the Windows key-toggle state.
-    if ( m_isSceneMode )
+    if ( m_scene.isSceneMode )
     {
-        if ( Input::IsKeyDown( '9' ) && !m_sInputState.f9WasDown )
+        if ( Input::IsKeyDown( '9' ) && !m_camera.input.f9WasDown )
         {
-            m_isDebugVectors = !m_isDebugVectors;
+            m_debug.isDebugVectors = !m_debug.isDebugVectors;
         }
-        m_sInputState.f9WasDown = Input::IsKeyDown( '9' );
+        m_camera.input.f9WasDown = Input::IsKeyDown( '9' );
     }
     else
     {
-        m_isDebugVectors = ( Input::IsKeyToggled( '9' ) != 0 );
+        m_debug.isDebugVectors = ( Input::IsKeyToggled( '9' ) != 0 );
     }
 
     // G key: cycle the tracked ball index (scene mode with tracking active)
-    if ( m_isSceneMode && m_trackBallIndex >= 0 )
+    if ( m_scene.isSceneMode && m_camera.trackBallIndex >= 0 )
     {
-        if ( Input::IsKeyDown( 'G' ) && !m_sInputState.fGKeyWasDown )
+        if ( Input::IsKeyDown( 'G' ) && !m_camera.input.fGKeyWasDown )
         {
             int count = m_cGameModelCollection.GetModelCount();
             if ( count > 0 )
             {
-                m_trackBallIndex = ( m_trackBallIndex + 1 ) % count;
+                m_camera.trackBallIndex = ( m_camera.trackBallIndex + 1 ) % count;
             }
         }
-        m_sInputState.fGKeyWasDown = Input::IsKeyDown( 'G' );
+        m_camera.input.fGKeyWasDown = Input::IsKeyDown( 'G' );
     }
 
-    // Profiler overlay: same edge-detection pattern as debug vectors — starts from scene-loaded
+    // Profiler overlay: same edge-detection pattern as debug vectors ? starts from scene-loaded
     // default in scene mode, mirrors Windows key-toggle state in legacy mode.
-    if ( m_isSceneMode )
+    if ( m_scene.isSceneMode )
     {
-        if ( Input::IsKeyDown( '0' ) && !m_sInputState.f0WasDown )
+        if ( Input::IsKeyDown( '0' ) && !m_camera.input.f0WasDown )
         {
-            m_isProfilerOverlay = !m_isProfilerOverlay;
+            m_debug.isProfilerOverlay = !m_debug.isProfilerOverlay;
         }
-        m_sInputState.f0WasDown = Input::IsKeyDown( '0' );
+        m_camera.input.f0WasDown = Input::IsKeyDown( '0' );
     }
     else
     {
         // Profiler overlay default ON; pressing '0' toggles the OS-level toggle bit, hiding the overlay.
-        m_isProfilerOverlay = ( Input::IsKeyToggled( '0' ) == 0 );
+        m_debug.isProfilerOverlay = ( Input::IsKeyToggled( '0' ) == 0 );
     }
 
     // F2: Save scene snapshot to Scenes/
     {
         bool f2Now = Input::IsKeyDown( VK_F2 );
-        if ( f2Now && !m_sInputState.fF2WasDown )
+        if ( f2Now && !m_camera.input.fF2WasDown )
         {
             CreateDirectoryA( "Scenes", nullptr );
             static int sSnapshotSeq = 0;
@@ -595,21 +538,21 @@ void SkullbonezRun::TakeInput()
                 sprintf_s( path, sizeof( path ), "Scenes\\snapshot_%04d.scene", sSnapshotSeq++ );
                 saved = m_cGameModelCollection.SaveSceneSnapshot(
                     path,
-                    m_isScenePhysics,
-                    m_isSceneText,
+                    m_scene.isScenePhysics,
+                    m_scene.isSceneText,
                     m_cWorldEnvironment,
-                    m_cCameras->GetCameraTranslation(),
-                    m_cCameras->GetCameraView(),
-                    m_cCameras->GetCameraUp() );
+                    m_systems.cameras->GetCameraTranslation(),
+                    m_systems.cameras->GetCameraView(),
+                    m_systems.cameras->GetCameraUp() );
             }
         }
-        m_sInputState.fF2WasDown = f2Now;
+        m_camera.input.fF2WasDown = f2Now;
     }
 
     // F3: Save screenshot to Screenshots/
     {
         bool f3Now = Input::IsKeyDown( VK_F3 );
-        if ( f3Now && !m_sInputState.fF3WasDown )
+        if ( f3Now && !m_camera.input.fF3WasDown )
         {
             CreateDirectoryA( "Screenshots", nullptr );
             static int sScreenshotSeq = 0;
@@ -625,42 +568,42 @@ void SkullbonezRun::TakeInput()
                 }
             }
         }
-        m_sInputState.fF3WasDown = f3Now;
+        m_camera.input.fF3WasDown = f3Now;
     }
 
-    if ( m_isFlyMode )
+    if ( m_camera.isFlyMode )
     {
-        // Keep cursor hidden every frame — Windows restores it on WM_SETCURSOR
+        // Keep cursor hidden every frame ? Windows restores it on WM_SETCURSOR
         SetCursor( nullptr );
 
         // Mouse look: delta from screen centre
         POINT currentCoords = Input::GetMouseCoordinates();
         Input::CentreMouseCoordinates();
         POINT centreCoords = Input::GetMouseCoordinates();
-        m_sInputState.xMove = currentCoords.x - centreCoords.x;
-        m_sInputState.yMove = currentCoords.y - centreCoords.y;
+        m_camera.input.xMove = currentCoords.x - centreCoords.x;
+        m_camera.input.yMove = currentCoords.y - centreCoords.y;
 
         // WASD movement
-        m_sInputState.fUp = Input::IsKeyDown( 'W' );
-        m_sInputState.fLeft = Input::IsKeyDown( 'A' );
-        m_sInputState.fDown = Input::IsKeyDown( 'S' );
-        m_sInputState.fRight = Input::IsKeyDown( 'D' );
+        m_camera.input.fUp = Input::IsKeyDown( 'W' );
+        m_camera.input.fLeft = Input::IsKeyDown( 'A' );
+        m_camera.input.fDown = Input::IsKeyDown( 'S' );
+        m_camera.input.fRight = Input::IsKeyDown( 'D' );
     }
     else
     {
-        m_sInputState.xMove = 0;
-        m_sInputState.yMove = 0;
-        m_sInputState.fUp = false;
-        m_sInputState.fDown = false;
-        m_sInputState.fLeft = false;
-        m_sInputState.fRight = false;
+        m_camera.input.xMove = 0;
+        m_camera.input.yMove = 0;
+        m_camera.input.fUp = false;
+        m_camera.input.fDown = false;
+        m_camera.input.fLeft = false;
+        m_camera.input.fRight = false;
     }
 }
 
 
 void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
 {
-    if ( !m_isFlyMode || Input::IsKeyDown( VK_SPACE ) )
+    if ( !m_camera.isFlyMode || Input::IsKeyDown( VK_SPACE ) )
     {
         // update the game models (sub-markers added inside RunPhysics)
         PROFILE_BEGIN( "Frame/Physics" );
@@ -668,33 +611,33 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
         PROFILE_END( "Frame/Physics" );
     }
 
-    // Auto-cycle: accumulate real (unscaled) time; fires every m_autoCycleInterval seconds
-    if ( m_isSceneMode && m_autoCycleInterval > 0.0f )
+    // Auto-cycle: accumulate real (unscaled) time; fires every m_camera.autoCycleInterval seconds
+    if ( m_scene.isSceneMode && m_camera.autoCycleInterval > 0.0f )
     {
-        m_autoCycleAccum += fSecondsPerFrame;
+        m_camera.autoCycleAccum += fSecondsPerFrame;
     }
 
     // Optional vector diagnostics (scene directive: vector_log on).
     // Captures velocity/omega alignment for each ball. Disabled by default to keep
     // perf scenes free of logging overhead unless explicitly requested.
-    if ( m_isSceneMode && m_isVectorLogEnabled && m_vectorLogInterval > 0 && ( m_currentFrame % m_vectorLogInterval == 0 ) )
+    if ( m_scene.isSceneMode && m_vectorLogState.isVectorLogEnabled && m_vectorLogState.vectorLogInterval > 0 && ( m_scene.currentFrame % m_vectorLogState.vectorLogInterval == 0 ) )
     {
-        if ( !m_vectorLogFile )
+        if ( !m_vectorLogState.vectorLogFile )
         {
-            errno_t err = fopen_s( &m_vectorLogFile, m_vectorLogPath, "w" );
-            if ( err != 0 || !m_vectorLogFile )
+            errno_t err = fopen_s( &m_vectorLogState.vectorLogFile, m_vectorLogState.vectorLogPath, "w" );
+            if ( err != 0 || !m_vectorLogState.vectorLogFile )
             {
                 char msg[512];
-                sprintf_s( msg, sizeof( msg ), "Failed to open vector log file: %s  (SkullbonezRun::UpdateLogic)", m_vectorLogPath );
+                sprintf_s( msg, sizeof( msg ), "Failed to open vector log file: %s  (SkullbonezRun::UpdateLogic)", m_vectorLogState.vectorLogPath );
                 throw std::runtime_error( msg );
             }
-            fprintf( m_vectorLogFile, "frame,ball,vx,vz,ox,oz,vmag_xz,omag_xz,ratio_o_over_v,angle_deg\n" );
-            if ( m_isVectorLogFlushEnabled )
+            fprintf( m_vectorLogState.vectorLogFile, "frame,ball,vx,vz,ox,oz,vmag_xz,omag_xz,ratio_o_over_v,angle_deg\n" );
+            if ( m_vectorLogState.isVectorLogFlushEnabled )
             {
-                fflush( m_vectorLogFile );
+                fflush( m_vectorLogState.vectorLogFile );
             }
         }
-        if ( m_vectorLogFile )
+        if ( m_vectorLogState.vectorLogFile )
         {
             int count = m_cGameModelCollection.GetModelCount();
             for ( int i = 0; i < count; ++i )
@@ -717,11 +660,11 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
                     angle = acosf( dot ) * ( 180.0f / 3.14159265f );
                 }
 
-                fprintf( m_vectorLogFile, "%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.1f\n", m_currentFrame, i, v.x, v.z, omega.x, omega.z, vmag, omag, ratio, angle );
+                fprintf( m_vectorLogState.vectorLogFile, "%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.1f\n", m_scene.currentFrame, i, v.x, v.z, omega.x, omega.z, vmag, omag, ratio, angle );
             }
-            if ( m_isVectorLogFlushEnabled )
+            if ( m_vectorLogState.isVectorLogFlushEnabled )
             {
-                fflush( m_vectorLogFile );
+                fflush( m_vectorLogState.vectorLogFile );
             }
         }
     }
@@ -732,7 +675,7 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
                 fSecondsPerFrame * Cfg().mouseSensitivity );
 
     // update camera tweening speed
-    m_cCameras->SetTweenSpeed( Cfg().cameraTweenRate * fSecondsPerFrame );
+    m_systems.cameras->SetTweenSpeed( Cfg().cameraTweenRate * fSecondsPerFrame );
 }
 
 
@@ -741,8 +684,8 @@ void SkullbonezRun::Render()
     // Clear screen pixel and depth into buffers
     Gfx().Clear( true, true );
 
-    // In text_only mode all 3D rendering is skipped — DrawWindowText handles the display
-    if ( m_isTextOnly )
+    // In text_only mode all 3D rendering is skipped ? DrawWindowText handles the display
+    if ( m_debug.isTextOnly )
     {
         return;
     }
@@ -751,7 +694,7 @@ void SkullbonezRun::Render()
     SetViewingOrientation();
 
     // set the camera into its m_position
-    m_cCameras->SetCamera();
+    m_systems.cameras->SetCamera();
 
     // now camera rotation has been done, draw OpenGL primitives
     DrawPrimitives();
@@ -763,8 +706,8 @@ void SkullbonezRun::DrawPrimitives()
     float lightPosition[] = { 200.0f, 400.0f, 1200.0f, 1.0f };
 
     // Get view and projection matrices from camera/window
-    Matrix4 baseView = m_cCameras->GetViewMatrix();
-    Matrix4 proj = m_cWindow->GetProjectionMatrix();
+    Matrix4 baseView = m_systems.cameras->GetViewMatrix();
+    Matrix4 proj = m_systems.window->GetProjectionMatrix();
     Matrix4 reflVP;
 
     // Camera m_position for skybox placement.  During camera transitions the
@@ -773,28 +716,28 @@ void SkullbonezRun::DrawPrimitives()
     // camera as baseView; otherwise the mirror pass is generated from the
     // destination camera while the water surface samples it from the in-between
     // camera, which stretches reflected balls during transitions.
-    Vector3 eye = m_cCameras->GetRenderCameraTranslation();
+    Vector3 eye = m_systems.cameras->GetRenderCameraTranslation();
 
     // render skybox ------------------------------
     PROFILE_GPU_BEGIN( "Frame/Render/Skybox" );
     Matrix4 skyView = baseView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
-    m_cSkyBox->Render( skyView, proj );
+    m_systems.skyBox->Render( skyView, proj );
     PROFILE_GPU_END( "Frame/Render/Skybox" );
 
     // reflection pre-pass: render above-water scene from mirrored camera into FBO (or DXR dispatch)
     PROFILE_GPU_BEGIN( "Frame/Render/Reflection" );
     float waterY = m_cWorldEnvironment.GetFluidSurfaceHeight();
-    Vector3 center = m_cCameras->GetRenderCameraView();
+    Vector3 center = m_systems.cameras->GetRenderCameraView();
 
     // Mirror eye and look-at target about the water plane; flip up vector
     Vector3 reflEye( eye.x, 2.0f * waterY - eye.y, eye.z );
     Vector3 reflCenter( center.x, 2.0f * waterY - center.y, center.z );
-    Vector3 up = m_cCameras->GetRenderCameraUp();
+    Vector3 up = m_systems.cameras->GetRenderCameraUp();
     Vector3 reflUp( up.x, -up.y, up.z );
     Matrix4 reflView = Matrix4::LookAt( reflEye, reflCenter, reflUp );
     reflVP = proj * reflView;
 
-    if ( Gfx().IsDXRSupported() && !m_isWaterNoReflect )
+    if ( Gfx().IsDXRSupported() && !m_debug.isWaterNoReflect )
     {
         // DXR path: rebuild TLAS with current ball positions, then dispatch rays
         int ballCount = m_cGameModelCollection.GetModelCount();
@@ -811,94 +754,94 @@ void SkullbonezRun::DrawPrimitives()
         Matrix4 vp = proj * baseView;
         Matrix4 invVP = vp.Inverse();
         float cameraPos[3] = { eye.x, eye.y, eye.z };
-        float simTime = static_cast<float>( m_cSimulationTimer.GetTotalTime() );
+        float simTime = static_cast<float>( m_timers.simulationTimer.GetTotalTime() );
 
-        uint32_t sphereHandle = m_cTextures->GetTextureHandle( TEXTURE_BOUNDING_SPHERE );
-        uint32_t terrainHandle = m_cTextures->GetTextureHandle( TEXTURE_GROUND );
-        uint32_t skyUpHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_UP );
-        uint32_t skyDownHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_DOWN );
-        uint32_t skyRightHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_RIGHT );
-        uint32_t skyLeftHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_LEFT );
-        uint32_t skyFrontHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_FRONT );
-        uint32_t skyBackHandle = m_cTextures->GetTextureHandle( TEXTURE_SKY_BACK );
-        Gfx().DispatchReflectionRays( invVP.Data(), cameraPos, waterY, simTime, lightPosition, m_cWindow->m_sWindowDimensions.x * 2, m_cWindow->m_sWindowDimensions.y * 2, sphereHandle, terrainHandle, skyUpHandle, skyDownHandle, skyRightHandle, skyLeftHandle, skyFrontHandle, skyBackHandle );
+        uint32_t sphereHandle = m_systems.textures->GetTextureHandle( TEXTURE_BOUNDING_SPHERE );
+        uint32_t terrainHandle = m_systems.textures->GetTextureHandle( TEXTURE_GROUND );
+        uint32_t skyUpHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_UP );
+        uint32_t skyDownHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_DOWN );
+        uint32_t skyRightHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_RIGHT );
+        uint32_t skyLeftHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_LEFT );
+        uint32_t skyFrontHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_FRONT );
+        uint32_t skyBackHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_BACK );
+        Gfx().DispatchReflectionRays( invVP.Data(), cameraPos, waterY, simTime, lightPosition, m_systems.window->m_sWindowDimensions.x * 2, m_systems.window->m_sWindowDimensions.y * 2, sphereHandle, terrainHandle, skyUpHandle, skyDownHandle, skyRightHandle, skyLeftHandle, skyFrontHandle, skyBackHandle );
     }
     else
     {
         // FBO mirror-camera path (GL, DX11, or DXR fallback)
-        m_cReflectionFBO->Bind();
-        Gfx().SetViewport( 0, 0, m_cReflectionFBO->GetWidth(), m_cReflectionFBO->GetHeight() );
+        m_systems.reflectionFBO->Bind();
+        Gfx().SetViewport( 0, 0, m_systems.reflectionFBO->GetWidth(), m_systems.reflectionFBO->GetHeight() );
         Gfx().Clear( true, true );
 
         // Skybox reflected (XZ follows eye; Y anchored at Cfg().skyboxRenderHeight)
         PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Skybox" );
         Matrix4 skyReflView = reflView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
-        m_cSkyBox->Render( skyReflView, proj );
+        m_systems.skyBox->Render( skyReflView, proj );
         PROFILE_GPU_END( "Frame/Render/Reflection/Skybox" );
 
-        // Game models reflected — clip at water surface (above-water portion only)
+        // Game models reflected ? clip at water surface (above-water portion only)
         PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
         Gfx().SetClipPlane( 0, true );
         SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -waterY );
-        m_cTextures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+        m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
         m_cGameModelCollection.RenderModels( reflView, proj, lightPosition );
         Gfx().SetClipPlane( 0, false );
         SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
 
-        m_cReflectionFBO->Unbind();
-        Gfx().SetViewport( 0, 0, m_cWindow->m_sWindowDimensions.x, m_cWindow->m_sWindowDimensions.y );
+        m_systems.reflectionFBO->Unbind();
+        Gfx().SetViewport( 0, 0, m_systems.window->m_sWindowDimensions.x, m_systems.window->m_sWindowDimensions.y );
     }
     PROFILE_GPU_END( "Frame/Render/Reflection" );
 
     // render game models -----------------------------
     PROFILE_GPU_BEGIN( "Frame/Render/Balls" );
-    m_cTextures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+    m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
     m_cGameModelCollection.RenderModels( baseView, proj, lightPosition );
     PROFILE_GPU_END( "Frame/Render/Balls" );
 
     // render m_terrain ------------------------------
-    if ( !m_isTerrainHidden )
+    if ( !m_debug.isTerrainHidden )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Terrain" );
-        m_cTextures->SelectTexture( TEXTURE_GROUND );
-        m_cTerrain->Render( baseView, proj, lightPosition );
+        m_systems.textures->SelectTexture( TEXTURE_GROUND );
+        m_systems.terrain->Render( baseView, proj, lightPosition );
         PROFILE_GPU_END( "Frame/Render/Terrain" );
     }
 
     // render ground shadows on top of m_terrain
-    if ( !m_isTerrainHidden )
+    if ( !m_debug.isTerrainHidden )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Shadows" );
-        m_cGameModelCollection.RenderShadows( m_cTerrain.get(), baseView, proj, waterY );
+        m_cGameModelCollection.RenderShadows( m_systems.terrain.get(), baseView, proj, waterY );
         PROFILE_GPU_END( "Frame/Render/Shadows" );
     }
 
     // render the fluid ---------------------------
-    if ( !m_isWaterHidden )
+    if ( !m_debug.isWaterHidden )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Water" );
-        float waterTime = m_isWaterFreezeDebug
-                              ? m_frozenWaterTime
-                              : static_cast<float>( m_cSimulationTimer.GetTimeSinceLastStart() );
-        uint32_t reflTex = ( Gfx().IsDXRSupported() && !m_isWaterNoReflect )
+        float waterTime = m_debug.isWaterFreezeDebug
+                              ? m_debug.frozenWaterTime
+                              : static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
+        uint32_t reflTex = ( Gfx().IsDXRSupported() && !m_debug.isWaterNoReflect )
                                ? Gfx().GetReflectionUAVTexture()
-                               : m_cReflectionFBO->GetColorTextureHandle();
+                               : m_systems.reflectionFBO->GetColorTextureHandle();
         // DXR reflection texture is in main-camera screen space, so sample it
-        // using the main VP — not the mirror VP used by the FBO path.
-        Matrix4 waterSampleVP = ( Gfx().IsDXRSupported() && !m_isWaterNoReflect )
+        // using the main VP ? not the mirror VP used by the FBO path.
+        Matrix4 waterSampleVP = ( Gfx().IsDXRSupported() && !m_debug.isWaterNoReflect )
                                     ? proj * baseView
                                     : reflVP;
-        m_cWorldEnvironment.RenderFluid( baseView, proj, waterSampleVP, waterTime, reflTex, m_isWaterFlatDebug, m_isWaterNoReflect );
+        m_cWorldEnvironment.RenderFluid( baseView, proj, waterSampleVP, waterTime, reflTex, m_debug.isWaterFlatDebug, m_debug.isWaterNoReflect );
         PROFILE_GPU_END( "Frame/Render/Water" );
     }
 
-    // debug vector overlay — GL only, toggled with V (or debug_vectors in scene)
+    // debug vector overlay ? GL only, toggled with V (or debug_vectors in scene)
     //   green  = Travel Vector (velocity, scaled)
     //   red    = Roll Axis Vector (angular velocity, scaled)
     //   white  = Pole Vector outside tolerance
-    //   blue   = Pole Vector within tolerance (perpendicular to red within 5°)
-    if ( m_isDebugVectors )
+    //   blue   = Pole Vector within tolerance (perpendicular to red within 5?)
+    if ( m_debug.isDebugVectors )
     {
         Matrix4 viewProj = proj * baseView;
         std::vector<std::pair<Vector3, Vector3>> velLines;
@@ -919,7 +862,7 @@ void SkullbonezRun::DrawPrimitives()
             omegaLines.push_back( { pos, pos + omega * omegaScale } );
 
             // White spike: starts at sphere centre, points along the visual "up" axis.
-            // Length = 2.5× radius so it clearly protrudes above the ball surface.
+            // Length = 2.5? radius so it clearly protrudes above the ball surface.
             Vector3 orientUp = mdl.GetOrientationUp();
             float radius = mdl.GetBoundingRadius();
             bool isWithinPlaneTolerance = false;
@@ -960,31 +903,31 @@ void SkullbonezRun::DrawPrimitives()
 
 void SkullbonezRun::SetUpCameras()
 {
-    m_cCameras = CameraCollection::Instance();
+    m_systems.cameras = CameraCollection::Instance();
 
-    m_cCameras->AddCamera( Vector3( 321.0f, 110.0f, 557.0f ), // Position
-                           Vector3( 581.0f, 40.0f, 633.0f ),  // View
-                           Vector3( 0.0f, 1.0f, 0.0f ),       // Up
-                           CAMERA_GAME_MODEL_1 );
+    m_systems.cameras->AddCamera( Vector3( 321.0f, 110.0f, 557.0f ), // Position
+                                  Vector3( 581.0f, 40.0f, 633.0f ),  // View
+                                  Vector3( 0.0f, 1.0f, 0.0f ),       // Up
+                                  CAMERA_GAME_MODEL_1 );
 
-    m_cCameras->AddCamera( Vector3( 730.0f, 100.0f, 380.0f ), // Position
-                           Vector3( 709.0f, 92.0f, 482.0f ),  // View
-                           Vector3( 0.0f, 1.0f, 0.0f ),       // Up
-                           CAMERA_GAME_MODEL_2 );
+    m_systems.cameras->AddCamera( Vector3( 730.0f, 100.0f, 380.0f ), // Position
+                                  Vector3( 709.0f, 92.0f, 482.0f ),  // View
+                                  Vector3( 0.0f, 1.0f, 0.0f ),       // Up
+                                  CAMERA_GAME_MODEL_2 );
 
-    m_cCameras->AddCamera( Vector3( 900.0f, 110.0f, 900.0f ), // Position
-                           Vector3( 313.0f, 31.0f, 282.0f ),  // View
-                           Vector3( 0.0f, 1.0f, 0.0f ),       // Up
-                           CAMERA_FREE );
+    m_systems.cameras->AddCamera( Vector3( 900.0f, 110.0f, 900.0f ), // Position
+                                  Vector3( 313.0f, 31.0f, 282.0f ),  // View
+                                  Vector3( 0.0f, 1.0f, 0.0f ),       // Up
+                                  CAMERA_FREE );
 
     // set the camera m_boundaries
-    m_cCameras->SetCameraXZBounds( m_cTerrain->GetXZBounds() );
+    m_systems.cameras->SetCameraXZBounds( m_systems.terrain->GetXZBounds() );
 
     // set the m_terrain
-    m_cCameras->SetTerrain( m_cTerrain.get() );
+    m_systems.cameras->SetTerrain( m_systems.terrain.get() );
 
     // lock the m_cameras
-    m_cCameras->SetLockedMode( true );
+    m_systems.cameras->SetLockedMode( true );
 }
 
 
@@ -994,43 +937,43 @@ void SkullbonezRun::SetInitialOpenGlState()
 
     // load m_textures
     const SkullbonezConfig& cfg = Cfg();
-    m_cTextures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.terrainTexture ).c_str(), TEXTURE_GROUND );
-    m_cTextures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.sphereTexture ).c_str(), TEXTURE_BOUNDING_SPHERE );
+    m_systems.textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.terrainTexture ).c_str(), TEXTURE_GROUND );
+    m_systems.textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.sphereTexture ).c_str(), TEXTURE_BOUNDING_SPHERE );
 }
 
 
 void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 {
     // update timers
-    m_cUpdateTimer.StopTimer();
-    m_timeSinceLastRender += static_cast<float>( m_cUpdateTimer.GetElapsedTime() );
-    m_cUpdateTimer.StartTimer();
+    m_timers.updateTimer.StopTimer();
+    m_timers.timeSinceLastRender += static_cast<float>( m_timers.updateTimer.GetElapsedTime() );
+    m_timers.updateTimer.StartTimer();
 
     // if half a second has passed
-    if ( m_timeSinceLastRender > 0.5f )
+    if ( m_timers.timeSinceLastRender > 0.5f )
     {
         if ( dSecondsPerFrame )
         {
             // update the display information
-            m_r_fpsTime = 1.0f / static_cast<float>( dSecondsPerFrame );
-            m_r_physicsTime = m_physicsTime;
-            m_r_renderTime = m_renderTime;
+            m_timers.rollingFpsTime = 1.0f / static_cast<float>( dSecondsPerFrame );
+            m_timers.rollingPhysicsTime = m_timers.physicsTime;
+            m_timers.rollingRenderTime = m_timers.renderTime;
         }
 
         // reset time since last render
-        m_timeSinceLastRender = 0.0f;
+        m_timers.timeSinceLastRender = 0.0f;
     }
 
     // TOP - show renderer type
     const char* rendererName = Gfx().GetRendererName();
 
     // text_only mode: solid background + full-screen pangram, no HUD/profiler
-    if ( m_isTextOnly )
+    if ( m_debug.isTextOnly )
     {
         // Dark background covering the full viewport
         Text2d::Render2dQuad( -0.55f, -0.45f, 0.55f, 0.45f, 0.08f, 0.08f, 0.12f, 1.0f );
 
-        // Three rows of the pangram — each line uses a slightly different colour
+        // Three rows of the pangram ? each line uses a slightly different colour
         // so hue/brightness fringing artefacts are visible on all channel combinations
         const float sz = 0.09f;
         Text2d::Render2dTextColor( -0.46f, 0.22f, sz, 1.00f, 1.00f, 1.00f, "The quick brown fox" );
@@ -1055,18 +998,18 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 
     // Top-right: measure the formatted string so it ends just inside the right edge
     char mcBuf[64];
-    snprintf( mcBuf, sizeof( mcBuf ), "Model Count: %i", m_modelCount );
+    snprintf( mcBuf, sizeof( mcBuf ), "Model Count: %i", m_scene.modelCount );
     Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, mcBuf ), hh - mY - fSz, fSz, "%s", mcBuf );
 
-    // Profiler overlay — bottom-right anchored.
+    // Profiler overlay ? bottom-right anchored.
     // Compiled out in Release; toggleable with '0' in Debug/Profile.
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    if ( m_isProfilerOverlay )
+    if ( m_debug.isProfilerOverlay )
     {
         const float lineH = 0.018f;
         const float profFSz = 0.012f;
         const float padY = lineH * 1.2f;
-        Profiler::Instance().RenderOverlay( -( hw - mX ), -( hh - mY ) - padY, lineH, profFSz, m_r_fpsTime );
+        Profiler::Instance().RenderOverlay( -( hw - mX ), -( hh - mY ) - padY, lineH, profFSz, m_timers.rollingFpsTime );
     }
 #endif
 
@@ -1079,79 +1022,79 @@ void SkullbonezRun::SetViewingOrientation()
 {
     // In scene mode, use the first camera without cycling.
     // If ball-tracking is active, keep the camera locked onto the selected ball.
-    if ( m_isSceneMode )
+    if ( m_scene.isSceneMode )
     {
-        if ( m_trackBallIndex >= 0 && m_trackBallIndex < m_cGameModelCollection.GetModelCount() )
+        if ( m_camera.trackBallIndex >= 0 && m_camera.trackBallIndex < m_cGameModelCollection.GetModelCount() )
         {
-            Vector3 ballPos = m_cGameModelCollection.GetModelPosition( m_trackBallIndex );
-            m_cCameras->SetPrimaryPosition( Vector3( ballPos.x, ballPos.y + m_trackHeight, ballPos.z ) );
-            m_cCameras->SetViewCoordinates( ballPos );
+            Vector3 ballPos = m_cGameModelCollection.GetModelPosition( m_camera.trackBallIndex );
+            m_systems.cameras->SetPrimaryPosition( Vector3( ballPos.x, ballPos.y + m_camera.trackHeight, ballPos.z ) );
+            m_systems.cameras->SetViewCoordinates( ballPos );
         }
         return;
     }
 
     // In fly mode, freeze the cycle clock and keep the free camera
-    if ( m_isFlyMode )
+    if ( m_camera.isFlyMode )
     {
-        m_cameraTime = 0.0f;
-        m_cCameraTimer.StopTimer();
-        m_cCameraTimer.StartTimer();
+        m_camera.cameraTime = 0.0f;
+        m_timers.cameraTimer.StopTimer();
+        m_timers.cameraTimer.StartTimer();
         return;
     }
 
     // set viewing m_orientation
     /*
-        if(Input::IsKeyDown('1')) m_selectedCamera = 0;
-        if(Input::IsKeyDown('2')) m_selectedCamera = 1;
-        if(Input::IsKeyDown('3')) m_selectedCamera = 2;
+        if(Input::IsKeyDown('1')) m_camera.selectedCamera = 0;
+        if(Input::IsKeyDown('2')) m_camera.selectedCamera = 1;
+        if(Input::IsKeyDown('3')) m_camera.selectedCamera = 2;
     */
 
     // maintain the camera timer
-    m_cCameraTimer.StopTimer();
-    m_cameraTime += static_cast<float>( m_cCameraTimer.GetElapsedTime() );
-    m_cCameraTimer.StartTimer();
+    m_timers.cameraTimer.StopTimer();
+    m_camera.cameraTime += static_cast<float>( m_timers.cameraTimer.GetElapsedTime() );
+    m_timers.cameraTimer.StartTimer();
 
     // change the viewing camera automatically
-    if ( m_cameraTime > 5.0f )
+    if ( m_camera.cameraTime > 5.0f )
     {
-        ++m_selectedCamera;
-        if ( m_selectedCamera == 3 )
+        ++m_camera.selectedCamera;
+        if ( m_camera.selectedCamera == 3 )
         {
-            m_selectedCamera = 0;
+            m_camera.selectedCamera = 0;
         }
-        m_cameraTime = 0.0f;
+        m_camera.cameraTime = 0.0f;
     }
 
     // select camera based on input
-    switch ( m_selectedCamera )
+    switch ( m_camera.selectedCamera )
     {
     case 0:
-        m_cCameras->SelectCamera( CAMERA_GAME_MODEL_1, true );
+        m_systems.cameras->SelectCamera( CAMERA_GAME_MODEL_1, true );
         break;
     case 1:
-        m_cCameras->SelectCamera( CAMERA_GAME_MODEL_2, true );
+        m_systems.cameras->SelectCamera( CAMERA_GAME_MODEL_2, true );
         break;
     case 2:
-        m_cCameras->SelectCamera( CAMERA_FREE, true );
+        m_systems.cameras->SelectCamera( CAMERA_FREE, true );
         break;
     }
 
     // set the view m_position of the selected camera based on the game model m_position
-    if ( m_cCameras->IsCameraSelected( CAMERA_GAME_MODEL_1 ) )
+    if ( m_systems.cameras->IsCameraSelected( CAMERA_GAME_MODEL_1 ) )
     {
-        m_cCameras->SetViewCoordinates( m_cGameModelCollection.GetModelPosition( 0 ) );
+        m_systems.cameras->SetViewCoordinates( m_cGameModelCollection.GetModelPosition( 0 ) );
     }
-    if ( m_cCameras->IsCameraSelected( CAMERA_GAME_MODEL_2 ) )
+    if ( m_systems.cameras->IsCameraSelected( CAMERA_GAME_MODEL_2 ) )
     {
-        m_cCameras->SetViewCoordinates( m_cGameModelCollection.GetModelPosition( 1 ) );
+        m_systems.cameras->SetViewCoordinates( m_cGameModelCollection.GetModelPosition( 1 ) );
     }
 
     /*
         // reset relativity when a new request for synchronisation comes in
-        if(m_sInputState.fAux1) m_cCameras->ResetRelativity();
+        if(m_camera.input.fAux1) m_systems.cameras->ResetRelativity();
 
         // sync m_cameras if in sync mode
-        if(m_sInputState.fAux2)
+        if(m_camera.input.fAux2)
         {
             // perform the relative update
             RelativeUpdateCamera(CAMERA_GAME_MODEL_1);
@@ -1159,7 +1102,7 @@ void SkullbonezRun::SetViewingOrientation()
             RelativeUpdateCamera(CAMERA_FREE);
 
             // reset the relative variable as we have already performed the action on desired m_cameras
-            m_cCameras->ResetRelativity();
+            m_systems.cameras->ResetRelativity();
         }
     */
 }
@@ -1167,62 +1110,62 @@ void SkullbonezRun::SetViewingOrientation()
 
 void SkullbonezRun::RelativeUpdateCamera( uint32_t hash )
 {
-    if ( !m_cCameras->IsCameraSelected( hash ) )
+    if ( !m_systems.cameras->IsCameraSelected( hash ) )
     {
-        Vector3 translatedCameraPosition = m_cCameras->GetCameraTranslation( hash );
-        float minY = m_cTerrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) + Cfg().minCameraHeight;
-        m_cCameras->RelativeUpdate( hash, minY, Cfg().maxCameraHeight );
+        Vector3 translatedCameraPosition = m_systems.cameras->GetCameraTranslation( hash );
+        float minY = m_systems.terrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) + Cfg().minCameraHeight;
+        m_systems.cameras->RelativeUpdate( hash, minY, Cfg().maxCameraHeight );
     }
 }
 
 
 void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
 {
-    if ( m_isFlyMode )
+    if ( m_camera.isFlyMode )
     {
         // Shift held = 3x speed
         float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;
 
         // Mouse look
-        if ( m_sInputState.xMove != 0 || m_sInputState.yMove != 0 )
+        if ( m_camera.input.xMove != 0 || m_camera.input.yMove != 0 )
         {
-            m_cCameras->RotatePrimary( m_sInputState.xMove * mouseMovementQty,
-                                       m_sInputState.yMove * mouseMovementQty );
+            m_systems.cameras->RotatePrimary( m_camera.input.xMove * mouseMovementQty,
+                                              m_camera.input.yMove * mouseMovementQty );
         }
 
         // WASD movement
-        if ( m_sInputState.fUp )
+        if ( m_camera.input.fUp )
         {
-            m_cCameras->MovePrimary( Camera::TravelDirection::Forward, keyMovementQty * speedMult );
+            m_systems.cameras->MovePrimary( Camera::TravelDirection::Forward, keyMovementQty * speedMult );
         }
-        if ( m_sInputState.fLeft )
+        if ( m_camera.input.fLeft )
         {
-            m_cCameras->MovePrimary( Camera::TravelDirection::Left, keyMovementQty * speedMult );
+            m_systems.cameras->MovePrimary( Camera::TravelDirection::Left, keyMovementQty * speedMult );
         }
-        if ( m_sInputState.fDown )
+        if ( m_camera.input.fDown )
         {
-            m_cCameras->MovePrimary( Camera::TravelDirection::Backward, keyMovementQty * speedMult );
+            m_systems.cameras->MovePrimary( Camera::TravelDirection::Backward, keyMovementQty * speedMult );
         }
-        if ( m_sInputState.fRight )
+        if ( m_camera.input.fRight )
         {
-            m_cCameras->MovePrimary( Camera::TravelDirection::Right, keyMovementQty * speedMult );
+            m_systems.cameras->MovePrimary( Camera::TravelDirection::Right, keyMovementQty * speedMult );
         }
 
-        m_cCameras->ApplyPrimaryMovementBuffer();
+        m_systems.cameras->ApplyPrimaryMovementBuffer();
     }
 
     // Clamp camera Y between m_terrain surface and Cfg().maxCameraHeight (not in fly mode, not in scene mode)
-    if ( !m_isFlyMode && !m_isSceneMode )
+    if ( !m_camera.isFlyMode && !m_scene.isSceneMode )
     {
-        Vector3 translatedCameraPosition = m_cCameras->GetCameraTranslation();
-        float minY = m_cTerrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) + Cfg().minCameraHeight;
+        Vector3 translatedCameraPosition = m_systems.cameras->GetCameraTranslation();
+        float minY = m_systems.terrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) + Cfg().minCameraHeight;
         if ( minY > translatedCameraPosition.y )
         {
-            m_cCameras->AmmendPrimaryY( minY );
+            m_systems.cameras->AmmendPrimaryY( minY );
         }
         else if ( translatedCameraPosition.y > Cfg().maxCameraHeight )
         {
-            m_cCameras->AmmendPrimaryY( Cfg().maxCameraHeight );
+            m_systems.cameras->AmmendPrimaryY( Cfg().maxCameraHeight );
         }
     }
 }
@@ -1230,29 +1173,29 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
 
 void SkullbonezRun::SetUpCamerasFromScene( const TestScene& scene )
 {
-    m_cCameras = CameraCollection::Instance();
+    m_systems.cameras = CameraCollection::Instance();
 
     for ( int i = 0; i < scene.GetCameraCount(); ++i )
     {
         const SceneCamera& cam = scene.GetCamera( i );
         uint32_t hash = HashStr( cam.name );
-        m_cCameras->AddCamera( cam.m_position, cam.view, cam.up, hash );
+        m_systems.cameras->AddCamera( cam.m_position, cam.view, cam.up, hash );
     }
 
     // set the camera m_boundaries
-    m_cCameras->SetCameraXZBounds( m_cTerrain->GetXZBounds() );
+    m_systems.cameras->SetCameraXZBounds( m_systems.terrain->GetXZBounds() );
 
     // set the m_terrain
-    m_cCameras->SetTerrain( m_cTerrain.get() );
+    m_systems.cameras->SetTerrain( m_systems.terrain.get() );
 
     // lock the m_cameras
-    m_cCameras->SetLockedMode( false );
+    m_systems.cameras->SetLockedMode( false );
 }
 
 
 void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 {
-    m_modelCount = scene.GetBallCount() + scene.GetBallStateCount();
+    m_scene.modelCount = scene.GetBallCount() + scene.GetBallStateCount();
 
     for ( int i = 0; i < scene.GetBallCount(); ++i )
     {
@@ -1264,7 +1207,7 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
                              ball.m_mass );
 
         gameModel.SetCoefficientRestitution( ball.restitution );
-        gameModel.SetTerrain( m_cTerrain.get() );
+        gameModel.SetTerrain( m_systems.terrain.get() );
         gameModel.SetName( ball.name );
         gameModel.AddBoundingSphere( ball.m_radius );
 
@@ -1296,7 +1239,7 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
                              bs.mass );
 
         gameModel.SetCoefficientRestitution( bs.restitution );
-        gameModel.SetTerrain( m_cTerrain.get() );
+        gameModel.SetTerrain( m_systems.terrain.get() );
         gameModel.SetName( bs.name );
         gameModel.AddBoundingSphere( bs.radius );
         gameModel.SetLinearVelocity( Vector3( bs.velX, bs.velY, bs.velZ ) );
@@ -1316,89 +1259,89 @@ void SkullbonezRun::LoadScene( int index )
         Gfx().FlushGPU();
     }
 
-    m_currentSceneIndex = index;
+    m_scene.currentSceneIndex = index;
     const std::string& scenePath = m_sceneQueue[index];
 
     // Close previous perf log if open
-    if ( m_perfLogFile )
+    if ( m_perfLogState.perfLogFile )
     {
         LogPerfMemory( "end" );
-        if ( m_perfLogWritesSinceFlush > 0 )
+        if ( m_perfLogState.perfLogWritesSinceFlush > 0 )
         {
-            fflush( m_perfLogFile );
-            m_perfLogWritesSinceFlush = 0;
+            fflush( m_perfLogState.perfLogFile );
+            m_perfLogState.perfLogWritesSinceFlush = 0;
         }
-        fclose( m_perfLogFile );
-        m_perfLogFile = nullptr;
+        fclose( m_perfLogState.perfLogFile );
+        m_perfLogState.perfLogFile = nullptr;
     }
 
     // Close previous vector log if open
-    if ( m_vectorLogFile )
+    if ( m_vectorLogState.vectorLogFile )
     {
-        fclose( m_vectorLogFile );
-        m_vectorLogFile = nullptr;
+        fclose( m_vectorLogState.vectorLogFile );
+        m_vectorLogState.vectorLogFile = nullptr;
     }
 
     // Reset scene config to defaults
-    m_isScenePhysics = true;
-    m_isSceneText = true;
-    m_isPerfTest = false;
-    m_perfHeaderWritten = false;
-    m_isScreenshotSaved = false;
-    m_isScreenshotAndExit = false;
-    m_targetFrameCount = -1;
-    m_currentFrame = 0;
-    m_screenshotFrame = -1;
-    m_screenshotMs = -1;
-    m_screenshotPath[0] = '\0';
-    m_screenshotInterval = -1;
-    m_intervalCaptureCount = 0;
-    m_screenshotDir[0] = '\0';
-    m_perfLogPath[0] = '\0';
-    m_isPerfLogFlushEnabled = false;
-    m_perfLogFlushInterval = 0;
-    m_perfLogWritesSinceFlush = 0;
-    m_isVectorLogEnabled = false;
-    m_vectorLogInterval = 6;
-    m_isVectorLogFlushEnabled = false;
-    strcpy_s( m_vectorLogPath, sizeof( m_vectorLogPath ), "Debug/vector_log.csv" );
-    m_isVsyncEnabled = Cfg().vsyncEnabled;
-    m_isPipelineSyncEnabled = Cfg().forcePipelineSync;
-    m_isRollAlignEnabled = m_defaultRollAlignEnabled;
-    Cfg().rollAlignEnabled = m_isRollAlignEnabled;
+    m_scene.isScenePhysics = true;
+    m_scene.isSceneText = true;
+    m_perfLogState.isPerfTest = false;
+    m_perfLogState.perfHeaderWritten = false;
+    m_screenshot.isScreenshotSaved = false;
+    m_screenshot.isScreenshotAndExit = false;
+    m_scene.targetFrameCount = -1;
+    m_scene.currentFrame = 0;
+    m_screenshot.screenshotFrame = -1;
+    m_screenshot.screenshotMs = -1;
+    m_screenshot.screenshotPath[0] = '\0';
+    m_screenshot.screenshotInterval = -1;
+    m_screenshot.intervalCaptureCount = 0;
+    m_screenshot.screenshotDir[0] = '\0';
+    m_perfLogState.perfLogPath[0] = '\0';
+    m_perfLogState.isPerfLogFlushEnabled = false;
+    m_perfLogState.perfLogFlushInterval = 0;
+    m_perfLogState.perfLogWritesSinceFlush = 0;
+    m_vectorLogState.isVectorLogEnabled = false;
+    m_vectorLogState.vectorLogInterval = 6;
+    m_vectorLogState.isVectorLogFlushEnabled = false;
+    strcpy_s( m_vectorLogState.vectorLogPath, sizeof( m_vectorLogState.vectorLogPath ), "Debug/vector_log.csv" );
+    m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
+    m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
+    m_runtimeSettings.isRollAlignEnabled = m_runtimeSettings.defaultRollAlignEnabled;
+    Cfg().rollAlignEnabled = m_runtimeSettings.isRollAlignEnabled;
 
     // Reset cameras and game models
-    m_cCameras->Reset();
+    m_systems.cameras->Reset();
     m_cGameModelCollection.Clear();
 
     // Reset input and debug state
-    m_isFlyMode = false;
-    m_isWaterFreezeDebug = false;
-    m_isWaterNoReflect = false;
-    m_isWaterFlatDebug = false;
-    m_isTerrainHidden = false;
-    m_isWaterHidden = false;
-    m_isDebugVectors = false;
-    m_isTextOnly = false;
-    m_timeScale = 1.0f;
-    m_frozenWaterTime = 0.0f;
-    m_trackBallIndex = -1;
-    m_trackHeight = 300.0f;
-    m_autoCycleInterval = -1.0f;
-    m_autoCycleAccum = 0.0f;
-    m_autoCycleShotsTaken = 0;
-    m_sInputState = {};
-    m_isProfilerOverlay = true;
-    m_selectedCamera = 0;
+    m_camera.isFlyMode = false;
+    m_debug.isWaterFreezeDebug = false;
+    m_debug.isWaterNoReflect = false;
+    m_debug.isWaterFlatDebug = false;
+    m_debug.isTerrainHidden = false;
+    m_debug.isWaterHidden = false;
+    m_debug.isDebugVectors = false;
+    m_debug.isTextOnly = false;
+    m_scene.timeScale = 1.0f;
+    m_debug.frozenWaterTime = 0.0f;
+    m_camera.trackBallIndex = -1;
+    m_camera.trackHeight = 300.0f;
+    m_camera.autoCycleInterval = -1.0f;
+    m_camera.autoCycleAccum = 0.0f;
+    m_camera.autoCycleShotsTaken = 0;
+    m_camera.input = {};
+    m_debug.isProfilerOverlay = true;
+    m_camera.selectedCamera = 0;
 
     // Reset timing
-    m_timeSinceLastRender = 0.0f;
-    m_renderTime = 0.0f;
-    m_cameraTime = 0.0f;
-    m_r_renderTime = 0.0f;
-    m_physicsTime = 0.0f;
-    m_r_physicsTime = 0.0f;
-    m_r_fpsTime = 0.0f;
+    m_timers.timeSinceLastRender = 0.0f;
+    m_timers.renderTime = 0.0f;
+    m_camera.cameraTime = 0.0f;
+    m_timers.rollingRenderTime = 0.0f;
+    m_timers.physicsTime = 0.0f;
+    m_timers.rollingPhysicsTime = 0.0f;
+    m_timers.rollingFpsTime = 0.0f;
 
     // Reseed RNG
     srand( static_cast<unsigned>( time( nullptr ) ) );
@@ -1406,95 +1349,95 @@ void SkullbonezRun::LoadScene( int index )
     // Branch on scene mode vs legacy mode
     if ( scenePath.empty() )
     {
-        m_isSceneMode = false;
+        m_scene.isSceneMode = false;
         SetUpCameras();
         SetUpGameModels( DEFAULT_GAME_MODELS );
         const char* rendererName = Gfx().GetRendererName();
         char titleText[256];
         sprintf_s( titleText, "::SKULLBONEZ CORE:: [%s]", rendererName );
-        m_cWindow->SetTitleText( titleText );
+        m_systems.window->SetTitleText( titleText );
     }
     else
     {
-        m_isSceneMode = true;
+        m_scene.isSceneMode = true;
         TestScene scene = TestScene::LoadFromFile( scenePath.c_str() );
-        m_isScenePhysics = scene.IsPhysicsEnabled();
-        m_isSceneText = scene.IsTextEnabled();
-        m_isDebugVectors = scene.IsDebugVectors();
-        m_isVectorLogEnabled = scene.IsVectorLogEnabled();
-        m_vectorLogInterval = scene.GetVectorLogInterval();
-        m_isVectorLogFlushEnabled = scene.IsVectorLogFlushEnabled();
-        m_isPerfLogFlushEnabled = scene.IsPerfLogFlushEnabled();
-        m_perfLogFlushInterval = scene.GetPerfLogFlushInterval();
+        m_scene.isScenePhysics = scene.IsPhysicsEnabled();
+        m_scene.isSceneText = scene.IsTextEnabled();
+        m_debug.isDebugVectors = scene.IsDebugVectors();
+        m_vectorLogState.isVectorLogEnabled = scene.IsVectorLogEnabled();
+        m_vectorLogState.vectorLogInterval = scene.GetVectorLogInterval();
+        m_vectorLogState.isVectorLogFlushEnabled = scene.IsVectorLogFlushEnabled();
+        m_perfLogState.isPerfLogFlushEnabled = scene.IsPerfLogFlushEnabled();
+        m_perfLogState.perfLogFlushInterval = scene.GetPerfLogFlushInterval();
         if ( scene.HasVsyncOverride() )
         {
-            m_isVsyncEnabled = scene.IsVsyncEnabled();
+            m_runtimeSettings.isVsyncEnabled = scene.IsVsyncEnabled();
         }
         if ( scene.HasPipelineSyncOverride() )
         {
-            m_isPipelineSyncEnabled = scene.IsPipelineSyncEnabled();
+            m_runtimeSettings.isPipelineSyncEnabled = scene.IsPipelineSyncEnabled();
         }
         if ( scene.HasRollAlignOverride() )
         {
-            m_isRollAlignEnabled = scene.IsRollAlignEnabled();
+            m_runtimeSettings.isRollAlignEnabled = scene.IsRollAlignEnabled();
         }
-        Cfg().rollAlignEnabled = m_isRollAlignEnabled;
-        m_isTextOnly = scene.IsTextOnly();
-        m_isWaterHidden = scene.IsWaterHidden();
-        m_isTerrainHidden = scene.IsTerrainHidden();
-        m_timeScale = scene.GetTimeScale();
-        m_targetFrameCount = scene.GetFrameCount();
-        m_screenshotFrame = scene.GetScreenshotFrame();
-        m_screenshotMs = scene.GetScreenshotMs();
-        m_isScreenshotAndExit = scene.IsScreenshotAndExit();
-        m_isProfilerOverlay = false; // Default overlay OFF in scene mode; press '0' to show
+        Cfg().rollAlignEnabled = m_runtimeSettings.isRollAlignEnabled;
+        m_debug.isTextOnly = scene.IsTextOnly();
+        m_debug.isWaterHidden = scene.IsWaterHidden();
+        m_debug.isTerrainHidden = scene.IsTerrainHidden();
+        m_scene.timeScale = scene.GetTimeScale();
+        m_scene.targetFrameCount = scene.GetFrameCount();
+        m_screenshot.screenshotFrame = scene.GetScreenshotFrame();
+        m_screenshot.screenshotMs = scene.GetScreenshotMs();
+        m_screenshot.isScreenshotAndExit = scene.IsScreenshotAndExit();
+        m_debug.isProfilerOverlay = false; // Default overlay OFF in scene mode; press '0' to show
 
         if ( scene.GetScreenshotPath()[0] != '\0' )
         {
-            strcpy_s( m_screenshotPath, sizeof( m_screenshotPath ), scene.GetScreenshotPath() );
+            strcpy_s( m_screenshot.screenshotPath, sizeof( m_screenshot.screenshotPath ), scene.GetScreenshotPath() );
         }
         if ( scene.GetVectorLogPath()[0] != '\0' )
         {
-            strcpy_s( m_vectorLogPath, sizeof( m_vectorLogPath ), scene.GetVectorLogPath() );
+            strcpy_s( m_vectorLogState.vectorLogPath, sizeof( m_vectorLogState.vectorLogPath ), scene.GetVectorLogPath() );
         }
 
         // Interval capture: create output directory
-        m_screenshotInterval = scene.GetScreenshotInterval();
+        m_screenshot.screenshotInterval = scene.GetScreenshotInterval();
         if ( scene.GetScreenshotDir()[0] != '\0' )
         {
-            strcpy_s( m_screenshotDir, sizeof( m_screenshotDir ), scene.GetScreenshotDir() );
-            CreateDirectoryA( m_screenshotDir, nullptr );
+            strcpy_s( m_screenshot.screenshotDir, sizeof( m_screenshot.screenshotDir ), scene.GetScreenshotDir() );
+            CreateDirectoryA( m_screenshot.screenshotDir, nullptr );
         }
 
         // Perf test: open CSV log file
         const char* pPerfPath = scene.GetPerfLogPath();
         if ( pPerfPath[0] != '\0' )
         {
-            m_isPerfTest = true;
-            strcpy_s( m_perfLogPath, sizeof( m_perfLogPath ), pPerfPath );
+            m_perfLogState.isPerfTest = true;
+            strcpy_s( m_perfLogState.perfLogPath, sizeof( m_perfLogState.perfLogPath ), pPerfPath );
             const char* mode = ( sPerfPass == 0 ) ? "w" : "a";
-            fopen_s( &m_perfLogFile, m_perfLogPath, mode );
-            if ( m_perfLogFile )
+            fopen_s( &m_perfLogState.perfLogFile, m_perfLogState.perfLogPath, mode );
+            if ( m_perfLogState.perfLogFile )
             {
-                m_perfLogWritesSinceFlush = 0;
+                m_perfLogState.perfLogWritesSinceFlush = 0;
                 LogPerfMemory( "start" );
             }
         }
 
         // Roll log: open text file for per-frame ball orientation diagnostics
-        if ( m_rollLogFile )
+        if ( m_perfLogState.rollLogFile )
         {
             m_cGameModelCollection.SetRollLog( nullptr );
-            fclose( m_rollLogFile );
-            m_rollLogFile = nullptr;
+            fclose( m_perfLogState.rollLogFile );
+            m_perfLogState.rollLogFile = nullptr;
         }
         const char* pRollPath = scene.GetRollLogPath();
         if ( pRollPath[0] != '\0' )
         {
-            fopen_s( &m_rollLogFile, pRollPath, "w" );
-            if ( m_rollLogFile )
+            fopen_s( &m_perfLogState.rollLogFile, pRollPath, "w" );
+            if ( m_perfLogState.rollLogFile )
             {
-                m_cGameModelCollection.SetRollLog( m_rollLogFile );
+                m_cGameModelCollection.SetRollLog( m_perfLogState.rollLogFile );
             }
         }
 
@@ -1508,14 +1451,14 @@ void SkullbonezRun::LoadScene( int index )
         if ( scene.HasFlatSlope() )
         {
             Gfx().FlushGPU();
-            m_cTerrain = std::make_unique<Terrain>( scene.GetFlatBaseY(), scene.GetFlatSlopeX(), scene.GetFlatSlopeZ() );
+            m_systems.terrain = std::make_unique<Terrain>( scene.GetFlatBaseY(), scene.GetFlatSlopeX(), scene.GetFlatSlopeZ() );
         }
 
         // Override world environment if scene specifies world values
         if ( scene.HasWorldOverride() )
         {
             m_cWorldEnvironment = WorldEnvironment( scene.GetWorldFluidHeight(), scene.GetWorldFluidDensity(), Cfg().gasDensity, scene.GetWorldGravity() );
-            XZBounds tb = m_cTerrain->GetXZBounds();
+            XZBounds tb = m_systems.terrain->GetXZBounds();
             m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
         }
 
@@ -1533,45 +1476,45 @@ void SkullbonezRun::LoadScene( int index )
         // Ball-tracking camera: enabled when scene specifies a positive track_height
         if ( scene.GetTrackHeight() > 0.0f )
         {
-            m_trackHeight = scene.GetTrackHeight();
-            m_trackBallIndex = 0;
-            m_autoCycleInterval = scene.GetAutoCycleInterval(); // -1 if not specified = disabled
+            m_camera.trackHeight = scene.GetTrackHeight();
+            m_camera.trackBallIndex = 0;
+            m_camera.autoCycleInterval = scene.GetAutoCycleInterval(); // -1 if not specified = disabled
         }
 
         const char* rendererName = Gfx().GetRendererName();
         char titleText[256];
         sprintf_s( titleText, "::SKULLBONEZ CORE:: [SCENE MODE] [%s]", rendererName );
-        m_cWindow->SetTitleText( titleText );
+        m_systems.window->SetTitleText( titleText );
 
-        // Snapshot scenes (ball_state) start paused in free camera mode —
+        // Snapshot scenes (ball_state) start paused in free camera mode ?
         // user presses F to resume simulation and attach to scene camera
         if ( scene.GetBallStateCount() > 0 )
         {
-            m_isFlyMode = true;
-            m_cameraTime = 0.0f;
+            m_camera.isFlyMode = true;
+            m_camera.cameraTime = 0.0f;
             XZBounds unbounded;
             unbounded.m_xMin = -99999.9f;
             unbounded.m_xMax = 99999.9f;
             unbounded.m_zMin = -99999.9f;
             unbounded.m_zMax = 99999.9f;
-            uint32_t activeCam = m_cCameras->GetSelectedCameraName();
-            m_cCameras->SetCameraXZBounds( activeCam, unbounded );
+            uint32_t activeCam = m_systems.cameras->GetSelectedCameraName();
+            m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
             SetCursor( nullptr );
             Input::CentreMouseCoordinates();
-            m_sInputState.xMove = 0;
-            m_sInputState.yMove = 0;
+            m_camera.input.xMove = 0;
+            m_camera.input.yMove = 0;
         }
     }
 
     // Apply runtime swap policy after config/scene overrides are resolved.
-    Gfx().SetVsyncEnabled( m_isVsyncEnabled );
+    Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
 
     // Restart timers
-    m_cFrameTimer.StartTimer();
-    m_cWorkTimer.StartTimer();
-    m_cUpdateTimer.StartTimer();
-    m_cCameraTimer.StartTimer();
-    m_cSimulationTimer.StartTimer();
+    m_timers.frameTimer.StartTimer();
+    m_timers.workTimer.StartTimer();
+    m_timers.updateTimer.StartTimer();
+    m_timers.cameraTimer.StartTimer();
+    m_timers.simulationTimer.StartTimer();
 
     // Initialize DXR raytracing on first scene load (requires terrain + sphere meshes to exist)
     // Force sphere mesh creation (normally lazy-init on first render)
@@ -1581,9 +1524,9 @@ void SkullbonezRun::LoadScene( int index )
     }
     {
     }
-    if ( Gfx().IsDXRSupported() && m_cTerrain && m_cTerrain->GetMesh() )
+    if ( Gfx().IsDXRSupported() && m_systems.terrain && m_systems.terrain->GetMesh() )
     {
-        IMesh* terrainMesh = m_cTerrain->GetMesh();
+        IMesh* terrainMesh = m_systems.terrain->GetMesh();
         uint64_t terrainVBVA = terrainMesh->GetVertexBufferGPUVA();
         int terrainVertCount = terrainMesh->GetVertexCount();
         int terrainStride = terrainMesh->GetStride();
@@ -1607,17 +1550,17 @@ void SkullbonezRun::LoadScene( int index )
 bool SkullbonezRun::AdvanceScene()
 {
     // For perf tests with 2 passes, the second pass re-runs the same scene
-    if ( m_isPerfTest && sPerfPass == 0 )
+    if ( m_perfLogState.isPerfTest && sPerfPass == 0 )
     {
         sPerfPass = 1;
-        LoadScene( m_currentSceneIndex );
+        LoadScene( m_scene.currentSceneIndex );
         return true;
     }
 
     // Reset perf pass counter for next scene
     sPerfPass = 0;
 
-    int nextIndex = m_currentSceneIndex + 1;
+    int nextIndex = m_scene.currentSceneIndex + 1;
     if ( nextIndex >= static_cast<int>( m_sceneQueue.size() ) )
     {
         return false;
@@ -1687,7 +1630,7 @@ void SkullbonezRun::SaveScreenshot( const char* path )
 
 void SkullbonezRun::LogPerfMemory( const char* checkpoint )
 {
-    if ( !m_perfLogFile )
+    if ( !m_perfLogState.perfLogFile )
     {
         return;
     }
@@ -1697,13 +1640,13 @@ void SkullbonezRun::LogPerfMemory( const char* checkpoint )
     if ( GetProcessMemoryInfo( GetCurrentProcess(), &pmc, sizeof( pmc ) ) )
     {
         double mb = static_cast<double>( pmc.WorkingSetSize ) / ( 1024.0 * 1024.0 );
-        fprintf( m_perfLogFile, "# MEM %s pass=%d working_set_mb=%.2f\n", checkpoint, sPerfPass + 1, mb );
-        ++m_perfLogWritesSinceFlush;
-        if ( m_isPerfLogFlushEnabled ||
-             ( m_perfLogFlushInterval > 0 && m_perfLogWritesSinceFlush >= m_perfLogFlushInterval ) )
+        fprintf( m_perfLogState.perfLogFile, "# MEM %s pass=%d working_set_mb=%.2f\n", checkpoint, sPerfPass + 1, mb );
+        ++m_perfLogState.perfLogWritesSinceFlush;
+        if ( m_perfLogState.isPerfLogFlushEnabled ||
+             ( m_perfLogState.perfLogFlushInterval > 0 && m_perfLogState.perfLogWritesSinceFlush >= m_perfLogState.perfLogFlushInterval ) )
         {
-            fflush( m_perfLogFile );
-            m_perfLogWritesSinceFlush = 0;
+            fflush( m_perfLogState.perfLogFile );
+            m_perfLogState.perfLogWritesSinceFlush = 0;
         }
     }
 }

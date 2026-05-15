@@ -35,6 +35,113 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+struct RunPerfLogState
+{
+    bool isPerfTest = false;            // Performance logging mode
+    bool perfHeaderWritten = false;     // CSV header written for current perf run
+    char perfLogPath[256] = {};         // Output path for perf CSV (empty = none)
+    FILE* perfLogFile = nullptr;        // Open handle for perf CSV
+    bool isPerfLogFlushEnabled = false; // Flush perf CSV on each write (diagnostic mode)
+    int perfLogFlushInterval = 0;       // Flush perf CSV every N writes (0 = flush on close only)
+    int perfLogWritesSinceFlush = 0;    // Buffered perf-log write count since last flush
+    FILE* rollLogFile = nullptr;        // Open handle for roll orientation log (empty = none)
+};
+
+struct RunVectorLogState
+{
+    bool isVectorLogEnabled = false;                  // Per-frame velocity/omega CSV diagnostic
+    int vectorLogInterval = 6;                        // Vector log cadence (N frames)
+    bool isVectorLogFlushEnabled = false;             // Flush each vector log write batch
+    char vectorLogPath[256] = "Debug/vector_log.csv"; // Output path for vector CSV
+    FILE* vectorLogFile = nullptr;                    // Open handle for vector CSV
+};
+
+struct RunRuntimeSettings
+{
+    bool isVsyncEnabled = true;          // Swap-chain sync interval (true = vsync)
+    bool isPipelineSyncEnabled = false;  // Force CPU/GPU sync via Finish() before render
+    bool defaultRollAlignEnabled = true; // Config default for roll orientation correction
+    bool isRollAlignEnabled = true;      // Active roll orientation correction state for current scene
+};
+
+struct RunTimerState
+{
+    Timer frameTimer;
+    Timer workTimer;
+    Timer updateTimer;
+    Timer cameraTimer;
+    Timer simulationTimer;
+
+    float physicsTime = 0.0f;        // Last frame physics time (seconds)
+    float rollingPhysicsTime = 0.0f; // Smoothed physics time accumulator
+    float renderTime = 0.0f;         // Last frame render time (seconds)
+    float rollingRenderTime = 0.0f;  // Smoothed render time accumulator
+    float rollingFpsTime = 0.0f;     // Smoothed FPS time accumulator
+    float timeSinceLastRender = 0.0f;
+};
+
+struct RunSubsystemState
+{
+    std::unique_ptr<Terrain> terrain;
+    std::unique_ptr<IFramebuffer> reflectionFBO;
+
+    CameraCollection* cameras = nullptr;
+    TextureCollection* textures = nullptr;
+    SkullbonezWindow* window = nullptr;
+    SkyBox* skyBox = nullptr;
+};
+
+struct RunCameraState
+{
+    InputState input = {}; // Current frame input state
+
+    int selectedCamera = 0;          // Keeps track of which camera is selected
+    bool isFlyMode = false;          // Free-fly camera mode active (toggle with F)
+    float cameraTime = 0.0f;         // Camera helper clock
+    int trackBallIndex = -1;         // Index of ball to track with camera (-1 = no tracking)
+    float trackHeight = 300.0f;      // Camera height above tracked ball
+    float autoCycleInterval = -1.0f; // Seconds between per-ball auto screenshots (-1 = disabled)
+    float autoCycleAccum = 0.0f;     // Accumulated real-time seconds since last shot
+    int autoCycleShotsTaken = 0;     // Number of per-ball screenshots taken so far
+};
+
+struct RunSceneState
+{
+    int currentSceneIndex = -1; // Index into scene queue (-1 = not yet loaded)
+    bool isSceneMode = false;   // Scene file mode (deterministic, data-driven)
+    bool isScenePhysics = true; // Physics enabled in scene mode
+    bool isSceneText = true;    // Text overlay enabled in scene mode
+    int targetFrameCount = -1;  // Frames to render before holding (-1 = unlimited)
+    int currentFrame = 0;       // Current frame counter for scene mode
+    int modelCount = 0;         // Number of models in the active scene
+    float timeScale = 1.0f;     // Physics time multiplier (1.0 = realtime)
+};
+
+struct RunScreenshotState
+{
+    bool isScreenshotSaved = false;   // Screenshot already written this run
+    bool isScreenshotAndExit = false; // Capture frame 1 as SCENENAME.bmp then exit
+    int screenshotFrame = -1;         // Save screenshot at this frame (-1 = unused)
+    int screenshotMs = -1;            // Save screenshot at this elapsed ms (-1 = unused)
+    char screenshotPath[256] = {};    // Output path for screenshot (empty = none)
+    int screenshotInterval = -1;      // Save screenshot every N frames (-1 = disabled)
+    int intervalCaptureCount = 0;     // Sequential counter for interval captures
+    char screenshotDir[256] = {};     // Output directory for interval captures
+};
+
+struct RunDebugState
+{
+    bool isProfilerOverlay = true;   // Profiler overlay visible (toggle with 0; default ON in profile builds)
+    bool isWaterFreezeDebug = false; // Freeze ocean animation at current shape (toggle with 1)
+    bool isWaterNoReflect = false;   // Disable ocean reflection, output flat tint (toggle with 2)
+    bool isWaterFlatDebug = false;   // Force ocean mesh fully flat, no displacement (toggle with 3)
+    bool isTerrainHidden = false;    // Hide terrain mesh (toggle with 4)
+    bool isWaterHidden = false;      // Hide water mesh (toggle with 5)
+    bool isDebugVectors = false;     // Draw velocity (green) and angular velocity (red) vectors (toggle with V)
+    bool isTextOnly = false;         // Suppress all 3D rendering; show solid background with large pangram text
+    float frozenWaterTime = 0.0f;    // Simulation time captured when freeze was toggled on
+};
+
 /* -- Skullbonez Run ---------------------------------------------------------------------------------------------------------------------------------------------
 
     Harness for the Skullbonez Core graphics library.
@@ -43,76 +150,21 @@ class SkullbonezRun
 {
 
   private:
+    std::vector<std::string> m_sceneQueue; // Ordered list of scene paths ("" = legacy mode)
+
+    RunPerfLogState m_perfLogState;             // Perf/test logging paths, files, and flush policy
+    RunVectorLogState m_vectorLogState;         // Vector logging controls and file handle
+    RunRuntimeSettings m_runtimeSettings;       // Scene/app runtime toggles (vsync, sync, roll-align)
+    RunTimerState m_timers;                     // Frame/simulation timers and rolling timing values
+    RunSubsystemState m_systems;                // Window, camera, texture, terrain, and reflection handles
+    RunCameraState m_camera;                    // Camera/input state and ball-tracking settings
+    RunSceneState m_scene;                      // Scene-mode execution state
+    RunScreenshotState m_screenshot;            // Screenshot trigger and capture state
+    RunDebugState m_debug;                      // Runtime debug/overlay toggles
+    WorldEnvironment m_cWorldEnvironment;       // SkullbonezCore::Environment::WorldEnvironment class
+    GameModelCollection m_cGameModelCollection; // SkullbonezCore::GameObjects::GameModelCollection class
+
     inline static int sPerfPass = 0;
-    std::vector<std::string> m_sceneQueue;          // Ordered list of scene paths ("" = legacy mode)
-    int m_currentSceneIndex;                        // Index into m_sceneQueue (-1 = not yet loaded)
-    bool m_isSceneMode;                             // Scene file mode (deterministic, data-driven)
-    bool m_isScenePhysics;                          // Physics enabled in scene mode
-    bool m_isSceneText;                             // Text overlay enabled in scene mode
-    bool m_isPerfTest;                              // Performance logging mode
-    bool m_perfHeaderWritten;                       // CSV header written for current perf run
-    bool m_isScreenshotSaved;                       // Screenshot already written this run
-    bool m_isScreenshotAndExit;                     // Capture frame 1 as SCENENAME.bmp then exit
-    int m_targetFrameCount;                         // Frames to render before holding (-1 = unlimited)
-    int m_currentFrame;                             // Current frame counter for scene mode
-    int m_screenshotFrame;                          // Save screenshot at this frame (-1 = unused)
-    int m_screenshotMs;                             // Save screenshot at this elapsed ms (-1 = unused)
-    char m_screenshotPath[256];                     // Output path for screenshot (empty = none)
-    int m_screenshotInterval;                       // Save screenshot every N frames (-1 = disabled)
-    int m_intervalCaptureCount;                     // Sequential counter for interval captures
-    char m_screenshotDir[256];                      // Output directory for interval captures
-    char m_perfLogPath[256];                        // Output path for perf CSV (empty = none)
-    FILE* m_perfLogFile;                            // Open handle for perf CSV
-    bool m_isPerfLogFlushEnabled;                   // Flush perf CSV on each write (diagnostic mode)
-    int m_perfLogFlushInterval;                     // Flush perf CSV every N writes (0 = flush on close only)
-    int m_perfLogWritesSinceFlush;                  // Buffered perf-log write count since last flush
-    FILE* m_rollLogFile;                            // Open handle for roll orientation log (empty = none)
-    bool m_isVectorLogEnabled;                      // Per-frame velocity/omega CSV diagnostic
-    int m_vectorLogInterval;                        // Vector log cadence (N frames)
-    bool m_isVectorLogFlushEnabled;                 // Flush each vector log write batch
-    char m_vectorLogPath[256];                      // Output path for vector CSV
-    FILE* m_vectorLogFile;                          // Open handle for vector CSV
-    bool m_isVsyncEnabled;                          // Swap-chain sync interval (true = vsync)
-    bool m_isPipelineSyncEnabled;                   // Force CPU/GPU sync via Finish() before render
-    bool m_defaultRollAlignEnabled;                 // Config default for roll orientation correction
-    bool m_isRollAlignEnabled;                      // Active roll orientation correction state for current scene
-    int m_selectedCamera;                           // Keeps track of which camera is selected
-    int m_modelCount;                               // Number of models in the scene
-    float m_physicsTime, m_r_physicsTime;           // Physics time
-    float m_renderTime, m_r_renderTime;             // Render time
-    float m_r_fpsTime;                              // FPS time
-    float m_timeSinceLastRender;                    // Render helper
-    float m_cameraTime;                             // Camera helper
-    CameraCollection* m_cCameras;                   // SkullbonezCore::Environment::CameraCollection class
-    Timer m_cFrameTimer;                            // SkullbonezCore::Environment::Timer class
-    Timer m_cWorkTimer;                             // SkullbonezCore::Environment::Timer class
-    Timer m_cUpdateTimer;                           // SkullbonezCore::Environment::Timer class
-    Timer m_cCameraTimer;                           // SkullbonezCore::Environment::Timer class
-    Timer m_cSimulationTimer;                       // SkullbonezCore::Environment::Timer class
-    TextureCollection* m_cTextures;                 // SkullbonezCore::Textures::TextureCollection class
-    SkullbonezWindow* m_cWindow;                    // SkullbonezCore::Basics::SkullbonezWindow class
-    std::unique_ptr<Terrain> m_cTerrain;            // SkullbonezCore::Geometry::Terrain class
-    SkyBox* m_cSkyBox;                              // SkullbonezCore::Geometry::SkyBox class
-    WorldEnvironment m_cWorldEnvironment;           // SkullbonezCore::Environment::WorldEnvironment class
-    GameModelCollection m_cGameModelCollection;     // SkullbonezCore::GameObjects::GameModelCollection class
-    std::unique_ptr<IFramebuffer> m_cReflectionFBO; // Offscreen reflection render target
-    InputState m_sInputState;                       // Current frame input state
-    bool m_isFlyMode;                               // Free-fly camera mode active (toggle with F)
-    bool m_isProfilerOverlay;                       // Profiler overlay visible (toggle with 0; default ON in profile builds)
-    bool m_isWaterFreezeDebug;                      // Freeze ocean animation at current shape (toggle with 1)
-    bool m_isWaterNoReflect;                        // Disable ocean reflection, output flat tint (toggle with 2)
-    bool m_isWaterFlatDebug;                        // Force ocean mesh fully flat, no displacement (toggle with 3)
-    bool m_isTerrainHidden;                         // Hide terrain mesh (toggle with 4)
-    bool m_isWaterHidden;                           // Hide water mesh (toggle with 5)
-    bool m_isDebugVectors;                          // Draw velocity (green) and angular velocity (red) vectors (toggle with V)
-    bool m_isTextOnly;                              // Suppress all 3D rendering; show solid background with large pangram text
-    float m_timeScale;                              // Physics time multiplier from scene file (1.0 = realtime)
-    float m_frozenWaterTime;                        // Simulation time captured when freeze was toggled on
-    int m_trackBallIndex;                           // Index of ball to track with camera (-1 = no tracking)
-    float m_trackHeight;                            // Camera height above tracked ball
-    float m_autoCycleInterval;                      // Seconds between per-ball auto screenshots (-1 = disabled)
-    float m_autoCycleAccum;                         // Accumulated real-time seconds since last shot
-    int m_autoCycleShotsTaken;                      // Number of per-ball screenshots taken so far
 
     void Render();                                                     // Main render method
     void RelativeUpdateCamera( uint32_t hash );                        // Relative update specified camera

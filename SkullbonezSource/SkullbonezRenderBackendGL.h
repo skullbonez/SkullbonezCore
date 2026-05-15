@@ -33,6 +33,18 @@ struct InstancedMesh
     int instanceFloats;
 };
 
+struct GLStateTracking
+{
+    bool isVsyncEnabled = true;
+    bool depthTestEnabled = true;
+    bool depthWriteEnabled = true;
+    bool blendEnabled = false;
+    bool cullFaceEnabled = true;
+    bool polygonOffsetEnabled = false;
+    float polygonOffsetFactor = 0.0f;
+    float polygonOffsetUnits = 0.0f;
+};
+
 
 /* -- RenderBackendGL -------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -44,24 +56,17 @@ class RenderBackendGL : public IRenderBackend
 {
 
   private:
+    std::vector<DynamicVBGL> m_dynamicVBs;
+    std::vector<InstancedMesh> m_instancedMeshes;
+    std::unique_ptr<IShader> m_debugLineShader;
+
+    GLStateTracking m_state;
+
     HDC m_hdc;
     int m_width;
     int m_height;
-    bool m_isVsyncEnabled;
-    bool m_depthTestEnabled;
-    bool m_depthWriteEnabled;
-    bool m_blendEnabled;
-    bool m_cullFaceEnabled;
-    bool m_polygonOffsetEnabled;
-    float m_polygonOffsetFactor;
-    float m_polygonOffsetUnits;
-    std::vector<DynamicVBGL> m_dynamicVBs;
-    std::vector<InstancedMesh> m_instancedMeshes;
-
-    // Debug line rendering (lazy-init)
     GLuint m_debugLineVAO = 0;
     GLuint m_debugLineVBO = 0;
-    std::unique_ptr<IShader> m_debugLineShader;
 
   public:
     RenderBackendGL();

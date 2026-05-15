@@ -169,8 +169,8 @@ bool SkullbonezWindow::SetupPixelFormat()
                   PFD_DOUBLEBUFFER;
     pfd.dwLayerMask = PFD_MAIN_PLANE;
     pfd.iPixelType = PFD_TYPE_RGBA; // RGBA color mode (not palette/indexed)
-    pfd.cColorBits = static_cast<BYTE>( Cfg().bitsPerPixel );
-    pfd.cDepthBits = static_cast<BYTE>( Cfg().bitsPerPixel );
+    pfd.cColorBits = static_cast<BYTE>( Cfg().window.bitsPerPixel );
+    pfd.cDepthBits = static_cast<BYTE>( Cfg().window.bitsPerPixel );
     pfd.cAccumBits = 0;
     pfd.cStencilBits = 0;
 
@@ -414,7 +414,7 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
         dwStyle = WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
 
         // Changes to full screen mode
-        ChangeToFullScreen( Cfg().screenX, Cfg().screenY );
+        ChangeToFullScreen( Cfg().window.screenX, Cfg().window.screenY );
 
         // Hide the mouse cursor
         ShowCursor( false );
@@ -430,8 +430,8 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
                          dwStyle,     // Set defined style
                          0,           // Window xPos
                          0,           // Window yPos
-                         Cfg().screenX,
-                         Cfg().screenY,
+                         Cfg().window.screenX,
+                         Cfg().window.screenY,
                          nullptr,   // Parent window handle
                          nullptr,   // Window menu handle
                          hInstance, // Application instance

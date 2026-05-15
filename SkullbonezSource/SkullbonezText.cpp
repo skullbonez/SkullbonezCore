@@ -483,7 +483,7 @@ void Text2d::BuildFont( const char* cFontName )
     // Build the initial orthographic projection from the config dimensions.
     // RebuildProjection() must be called whenever the window is resized so the
     // ortho extents stay matched to the actual viewport aspect ratio.
-    Text2d::RebuildProjection( Cfg().screenX, Cfg().screenY );
+    Text2d::RebuildProjection( Cfg().window.screenX, Cfg().window.screenY );
 }
 
 

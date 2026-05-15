@@ -11,22 +11,47 @@ namespace Basics
 
 /*
     Singleton configuration loaded once from SkullbonezData/engine.cfg at startup.
-    Access via SkullbonezConfig::Instance().fieldName anywhere SkullbonezCommon.h is included.
+    Access via SkullbonezConfig::Instance().fieldName (or grouped sub-structs) anywhere
+    SkullbonezCommon.h is included.
     All fields carry defaults matching the original hard-coded values; the config
     file is optional -- if absent, defaults apply.
 */
+struct WindowConfig
+{
+    int screenX = 1024;
+    int screenY = 768;
+    bool fullscreen = false;
+    int bitsPerPixel = 32;
+    int refreshRate = 75;
+};
+
+struct RuntimeRenderFlags
+{
+    bool vsyncEnabled = true;
+    bool forcePipelineSync = false;
+    bool renderCollisionVolumes = false;
+};
+
 class SkullbonezConfig
 {
   public:
     static SkullbonezConfig& Instance();
     void Load( const char* path );
 
-    // Window
-    int screenX = 1024;
-    int screenY = 768;
-    bool fullscreen = false;
-    int bitsPerPixel = 32;
-    int refreshRate = 75;
+    // Asset paths
+    std::string skyFront = "sky1.jpg";
+    std::string skyLeft = "sky2.jpg";
+    std::string skyBack = "sky3.jpg";
+    std::string skyRight = "sky4.jpg";
+    std::string skyUp = "sky5.jpg";
+    std::string skyDown = "sky6.jpg";
+    std::string terrainTexture = "ground.jpg";
+    std::string sphereTexture = "boundingSphere.jpg";
+    std::string terrainRaw = "terrain.raw";
+
+    // Window and rendering flags
+    WindowConfig window;
+    RuntimeRenderFlags runtimeRender;
 
     // Frustum
     float frustumNear = 1.0f;
@@ -93,25 +118,9 @@ class SkullbonezConfig
     int ballRadiusRange = 10;
     int ballForceRange = 1000;
 
-    // Asset paths
-    std::string skyFront = "sky1.jpg";
-    std::string skyLeft = "sky2.jpg";
-    std::string skyBack = "sky3.jpg";
-    std::string skyRight = "sky4.jpg";
-    std::string skyUp = "sky5.jpg";
-    std::string skyDown = "sky6.jpg";
-    std::string terrainTexture = "ground.jpg";
-    std::string sphereTexture = "boundingSphere.jpg";
-    std::string terrainRaw = "terrain.raw";
-
     // Water
     float oceanWaveHeight = 4.0f;
     float oceanPerturbStrength = 0.002f;
-
-    // Debug / rendering flags
-    bool vsyncEnabled = true;
-    bool forcePipelineSync = false;
-    bool renderCollisionVolumes = false;
 
   private:
     SkullbonezConfig() = default;

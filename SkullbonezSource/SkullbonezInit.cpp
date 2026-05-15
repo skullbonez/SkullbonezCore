@@ -192,7 +192,7 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
 
     // Create the application window
-    m_cWindow->CreateAppWindow( hInstance, Cfg().fullscreen );
+    m_cWindow->CreateAppWindow( hInstance, Cfg().window.fullscreen );
 
     // Get the device context for our window
     m_cWindow->m_sDevice = GetDC( m_cWindow->m_sWindow );
