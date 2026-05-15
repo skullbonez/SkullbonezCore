@@ -378,17 +378,8 @@ void SkullbonezWindow::InitialiseOpenGL()
         return;
     }
 
-    // Enable vsync — forces SwapBuffers to wait for the monitor's vertical retrace signal.
-    // This caps the framerate to the monitor's refresh rate (typically 60Hz) and eliminates
-    // screen tearing (where the top half shows one frame and bottom half shows the next).
-    // Docs: https://registry.khronos.org/OpenGL/extensions/EXT/WGL_EXT_swap_control.txt
-    using PFNWGLSWAPINTERVALEXTPROC = BOOL( WINAPI* )( int );
-    auto wglSwapIntervalEXT = reinterpret_cast<PFNWGLSWAPINTERVALEXTPROC>(
-        wglGetProcAddress( "wglSwapIntervalEXT" ) );
-    if ( wglSwapIntervalEXT )
-    {
-        wglSwapIntervalEXT( 1 ); // 1 = sync to every vblank; 0 = no sync (uncapped FPS)
-    }
+    // V-Sync policy is owned by the render backend so scene/config overrides apply consistently
+    // across OpenGL and DirectX implementations.
 
     // Set window dimensions (HandleScreenResize is called from WinMain after SetGfxBackend)
     RECT windowDimensions;

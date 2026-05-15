@@ -15,7 +15,19 @@ TestScene::TestScene()
     m_frameCount = -1;
     m_screenshotPath[0] = '\0';
     m_perfLogPath[0] = '\0';
+    m_isPerfLogFlush = false;
+    m_perfLogFlushInterval = 0;
     m_rollLogPath[0] = '\0';
+    m_isVectorLogEnabled = false;
+    m_vectorLogInterval = 6;
+    m_vectorLogPath[0] = '\0';
+    m_isVectorLogFlush = false;
+    m_hasVsyncOverride = false;
+    m_isVsyncEnabled = true;
+    m_hasPipelineSyncOverride = false;
+    m_isPipelineSyncEnabled = false;
+    m_hasRollAlignOverride = false;
+    m_isRollAlignEnabled = true;
     m_screenshotFrame = -1;
     m_screenshotMs = -1;
     m_seed = 0;
@@ -238,10 +250,174 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
+        // parse perf_log_flush directive
+        if ( strncmp( line, "perf_log_flush ", 15 ) == 0 )
+        {
+            if ( strcmp( line + 15, "on" ) == 0 )
+            {
+                scene.m_isPerfLogFlush = true;
+            }
+            else if ( strcmp( line + 15, "off" ) == 0 )
+            {
+                scene.m_isPerfLogFlush = false;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid perf_log_flush value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 15 );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
+        // parse perf_log_flush_interval directive
+        if ( strncmp( line, "perf_log_flush_interval ", 24 ) == 0 )
+        {
+            scene.m_perfLogFlushInterval = atoi( line + 24 );
+            if ( scene.m_perfLogFlushInterval < 0 )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid perf_log_flush_interval at line %d (must be >= 0)  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
         // parse roll_log directive
         if ( strncmp( line, "roll_log ", 9 ) == 0 )
         {
             strcpy_s( scene.m_rollLogPath, sizeof( scene.m_rollLogPath ), line + 9 );
+            continue;
+        }
+
+        // parse vector_log directive
+        if ( strncmp( line, "vector_log ", 11 ) == 0 )
+        {
+            if ( strcmp( line + 11, "on" ) == 0 )
+            {
+                scene.m_isVectorLogEnabled = true;
+            }
+            else if ( strcmp( line + 11, "off" ) == 0 )
+            {
+                scene.m_isVectorLogEnabled = false;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid vector_log value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 11 );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
+        // parse vector_log_interval directive
+        if ( strncmp( line, "vector_log_interval ", 20 ) == 0 )
+        {
+            scene.m_vectorLogInterval = atoi( line + 20 );
+            if ( scene.m_vectorLogInterval <= 0 )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid vector_log_interval at line %d (must be > 0)  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
+        // parse vector_log_path directive
+        if ( strncmp( line, "vector_log_path ", 16 ) == 0 )
+        {
+            strcpy_s( scene.m_vectorLogPath, sizeof( scene.m_vectorLogPath ), line + 16 );
+            continue;
+        }
+
+        // parse vector_log_flush directive
+        if ( strncmp( line, "vector_log_flush ", 17 ) == 0 )
+        {
+            if ( strcmp( line + 17, "on" ) == 0 )
+            {
+                scene.m_isVectorLogFlush = true;
+            }
+            else if ( strcmp( line + 17, "off" ) == 0 )
+            {
+                scene.m_isVectorLogFlush = false;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid vector_log_flush value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 17 );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
+        // parse vsync directive
+        if ( strncmp( line, "vsync ", 6 ) == 0 )
+        {
+            scene.m_hasVsyncOverride = true;
+            if ( strcmp( line + 6, "on" ) == 0 )
+            {
+                scene.m_isVsyncEnabled = true;
+            }
+            else if ( strcmp( line + 6, "off" ) == 0 )
+            {
+                scene.m_isVsyncEnabled = false;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid vsync value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 6 );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
+        // parse pipeline_sync directive
+        if ( strncmp( line, "pipeline_sync ", 14 ) == 0 )
+        {
+            scene.m_hasPipelineSyncOverride = true;
+            if ( strcmp( line + 14, "on" ) == 0 )
+            {
+                scene.m_isPipelineSyncEnabled = true;
+            }
+            else if ( strcmp( line + 14, "off" ) == 0 )
+            {
+                scene.m_isPipelineSyncEnabled = false;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid pipeline_sync value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 14 );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
+        // parse roll_align directive
+        if ( strncmp( line, "roll_align ", 11 ) == 0 )
+        {
+            scene.m_hasRollAlignOverride = true;
+            if ( strcmp( line + 11, "on" ) == 0 )
+            {
+                scene.m_isRollAlignEnabled = true;
+            }
+            else if ( strcmp( line + 11, "off" ) == 0 )
+            {
+                scene.m_isRollAlignEnabled = false;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid roll_align value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 11 );
+                throw std::runtime_error( msg );
+            }
             continue;
         }
 
@@ -593,9 +769,81 @@ const char* TestScene::GetPerfLogPath() const
 }
 
 
+bool TestScene::IsPerfLogFlushEnabled() const
+{
+    return m_isPerfLogFlush;
+}
+
+
+int TestScene::GetPerfLogFlushInterval() const
+{
+    return m_perfLogFlushInterval;
+}
+
+
 const char* TestScene::GetRollLogPath() const
 {
     return m_rollLogPath;
+}
+
+
+bool TestScene::IsVectorLogEnabled() const
+{
+    return m_isVectorLogEnabled;
+}
+
+
+int TestScene::GetVectorLogInterval() const
+{
+    return m_vectorLogInterval;
+}
+
+
+const char* TestScene::GetVectorLogPath() const
+{
+    return m_vectorLogPath;
+}
+
+
+bool TestScene::IsVectorLogFlushEnabled() const
+{
+    return m_isVectorLogFlush;
+}
+
+
+bool TestScene::HasVsyncOverride() const
+{
+    return m_hasVsyncOverride;
+}
+
+
+bool TestScene::IsVsyncEnabled() const
+{
+    return m_isVsyncEnabled;
+}
+
+
+bool TestScene::HasPipelineSyncOverride() const
+{
+    return m_hasPipelineSyncOverride;
+}
+
+
+bool TestScene::IsPipelineSyncEnabled() const
+{
+    return m_isPipelineSyncEnabled;
+}
+
+
+bool TestScene::HasRollAlignOverride() const
+{
+    return m_hasRollAlignOverride;
+}
+
+
+bool TestScene::IsRollAlignEnabled() const
+{
+    return m_isRollAlignEnabled;
 }
 
 

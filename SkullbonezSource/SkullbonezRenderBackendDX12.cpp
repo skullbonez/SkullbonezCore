@@ -70,7 +70,7 @@ RenderBackendDX12::RenderBackendDX12()
       ,
       m_nextDSV( 1 ) // 0 reserved for main depth
       ,
-      m_nextStaticSRV( 0 ), m_nextTransientSRV( 0 ), m_depthStencil( nullptr ), m_uploadBuffer( nullptr ), m_uploadBufferMapped( nullptr ), m_uploadOffset( 0 ), m_rootSignature( nullptr ), m_width( 0 ), m_height( 0 ), m_depthTestEnabled( true ), m_depthWriteEnabled( true ), m_blendEnabled( false ), m_blendSrc( BlendFactor::One ), m_blendDst( BlendFactor::Zero ), m_cullEnabled( true ), m_polyOffsetEnabled( false ), m_polyOffsetFactor( 0.0f ), m_polyOffsetUnits( 0.0f ), m_clearDepth( 1.0f ), m_psoDirty( true ), m_activeShader( nullptr ), m_renderingToFBO( false ), m_backBufferIsRT( false ), m_lastPSOHash( 0 ), m_texBindingsDirty( true ), m_targetsDirty( true ), m_dxrSupported( false ), m_device5( nullptr ), m_cmdList4( nullptr ), m_rtPSO( nullptr ), m_rtPSOProps( nullptr ), m_rtRootSignature( nullptr ), m_reflectionUAV( nullptr ), m_reflectionUAVIndex( 0 ), m_reflectionSRVIndex( 0 ), m_reflectionWidth( 0 ), m_reflectionHeight( 0 ), m_reflectionInSRVState( false ), m_rtConstantBuffer( nullptr ), m_rtConstantBufferMapped( nullptr ), m_genMipsPSO( nullptr ), m_genMipsRS( nullptr ), m_genMipsNullUAV( 0 )
+      m_nextStaticSRV( 0 ), m_nextTransientSRV( 0 ), m_depthStencil( nullptr ), m_uploadBuffer( nullptr ), m_uploadBufferMapped( nullptr ), m_uploadOffset( 0 ), m_rootSignature( nullptr ), m_width( 0 ), m_height( 0 ), m_isVsyncEnabled( true ), m_depthTestEnabled( true ), m_depthWriteEnabled( true ), m_blendEnabled( false ), m_blendSrc( BlendFactor::One ), m_blendDst( BlendFactor::Zero ), m_cullEnabled( true ), m_polyOffsetEnabled( false ), m_polyOffsetFactor( 0.0f ), m_polyOffsetUnits( 0.0f ), m_clearDepth( 1.0f ), m_psoDirty( true ), m_activeShader( nullptr ), m_renderingToFBO( false ), m_backBufferIsRT( false ), m_lastPSOHash( 0 ), m_texBindingsDirty( true ), m_targetsDirty( true ), m_dxrSupported( false ), m_device5( nullptr ), m_cmdList4( nullptr ), m_rtPSO( nullptr ), m_rtPSOProps( nullptr ), m_rtRootSignature( nullptr ), m_reflectionUAV( nullptr ), m_reflectionUAVIndex( 0 ), m_reflectionSRVIndex( 0 ), m_reflectionWidth( 0 ), m_reflectionHeight( 0 ), m_reflectionInSRVState( false ), m_rtConstantBuffer( nullptr ), m_rtConstantBufferMapped( nullptr ), m_genMipsPSO( nullptr ), m_genMipsRS( nullptr ), m_genMipsNullUAV( 0 )
 {
     m_clearColor[0] = 0.0f;
     m_clearColor[1] = 0.0f;
@@ -90,6 +90,7 @@ RenderBackendDX12::RenderBackendDX12()
     m_timerReadbackBuf = nullptr;
     m_timerFreq = 1;
     m_timerReadPending = false;
+    m_timerReadFenceValue = 0;
     std::memset( m_timerSlotWritten, 0, sizeof( m_timerSlotWritten ) );
     std::memset( m_timerResultMs, 0, sizeof( m_timerResultMs ) );
     std::memset( m_timerResultValid, 0, sizeof( m_timerResultValid ) );
@@ -158,7 +159,7 @@ void RenderBackendDX12::EnsureCommandListOpen()
     m_commandList->SetGraphicsRootSignature( m_rootSignature );
     m_commandListOpen = true;
     m_uploadOffset = 0;
-    m_nextTransientSRV = MAX_STATIC_SRVS;
+    m_nextTransientSRV = MAX_STATIC_SRVS + ( m_allocatorIndex * MAX_TRANSIENT_SRVS );
 
     // All command list state is reset — force full rebind on next draw
     m_lastPSOHash = 0;
@@ -208,7 +209,7 @@ void RenderBackendDX12::FlushUploadBuffer()
     m_commandList->SetGraphicsRootSignature( m_rootSignature );
     m_commandListOpen = true;
     m_uploadOffset = 0;
-    m_nextTransientSRV = MAX_STATIC_SRVS;
+    m_nextTransientSRV = MAX_STATIC_SRVS + ( m_allocatorIndex * MAX_TRANSIENT_SRVS );
     m_lastPSOHash = 0;
     m_texBindingsDirty = true;
     m_targetsDirty = true;
@@ -256,10 +257,11 @@ UINT RenderBackendDX12::AllocateStaticSRV()
 
 UINT RenderBackendDX12::AllocateTransientSRV()
 {
-    UINT total = MAX_STATIC_SRVS + MAX_TRANSIENT_SRVS;
-    if ( m_nextTransientSRV >= total )
+    UINT transientBase = MAX_STATIC_SRVS + ( m_allocatorIndex * MAX_TRANSIENT_SRVS );
+    UINT transientLimit = transientBase + MAX_TRANSIENT_SRVS;
+    if ( m_nextTransientSRV < transientBase || m_nextTransientSRV >= transientLimit )
     {
-        throw std::runtime_error( "DX12 transient SRV heap exhausted" );
+        throw std::runtime_error( "DX12 transient SRV heap exhausted for current frame allocator" );
     }
     return m_nextTransientSRV++;
 }
@@ -415,10 +417,12 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     // SRV/CBV/UAV heap — SHADER_VISIBLE means the GPU can directly access these descriptors.
     // This single heap holds all texture views (SRVs) and constant buffer views (CBVs) that
     // shaders reference at draw time. Must be bound with SetDescriptorHeaps before drawing.
+    // Transient descriptors are partitioned per in-flight frame allocator to avoid writing over
+    // descriptor slots that are still referenced by queued command lists.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdescriptorheap
     {
         D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-        desc.NumDescriptors = MAX_STATIC_SRVS + MAX_TRANSIENT_SRVS;
+        desc.NumDescriptors = MAX_STATIC_SRVS + ( MAX_TRANSIENT_SRVS * FRAME_COUNT );
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
         desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
         ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvHeap ) ), "CreateDescriptorHeap (SRV) failed" );
@@ -864,8 +868,13 @@ void RenderBackendDX12::Present()
 {
     EnsureCommandListOpen();
 
+    // Opportunistically consume the previous frame's resolved timer buffer before writing
+    // new query results into the same readback resource.
+    TryConsumeGpuTimerReadback( false );
+
     // Resolve GPU timer queries — only resolve contiguous ranges of slots that actually
     // had EndQuery recorded this frame. Resolving unwritten slots triggers D3D12 error 1319.
+    bool resolvedTimerSlotsThisFrame = false;
     if ( m_timerQueryHeap )
     {
         int i = 0;
@@ -885,8 +894,8 @@ void RenderBackendDX12::Present()
             }
             UINT byteOffset = (UINT)( start * sizeof( uint64_t ) );
             m_commandList->ResolveQueryData( m_timerQueryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)start, (UINT)( i - start ), m_timerReadbackBuf, byteOffset );
+            resolvedTimerSlotsThisFrame = true;
         }
-        m_timerReadPending = true;
         std::memset( m_timerSlotWritten, 0, sizeof( m_timerSlotWritten ) ); // reset for next frame
     }
 
@@ -906,9 +915,9 @@ void RenderBackendDX12::Present()
     m_commandQueue->ExecuteCommandLists( 1, ppCLs );
 
     // Present the frame — flips the swap chain to show the just-rendered back buffer on screen.
-    // First param (1) enables V-Sync (waits for vertical blank). Second param (0) = no flags.
+    // Sync interval is configurable so perf scenes can disable V-Sync while visual scenes keep it.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-present
-    m_swapChain->Present( 1, 0 );
+    m_swapChain->Present( m_isVsyncEnabled ? 1 : 0, 0 );
 
     // Signal the fence with the current frame's value. When the GPU reaches this point in its
     // command stream, it will update the fence to this value — letting the CPU know this frame's
@@ -917,10 +926,29 @@ void RenderBackendDX12::Present()
     m_frameFenceValues[m_allocatorIndex] = ++m_fenceValue;
     m_commandQueue->Signal( m_fence, m_fenceValue );
 
+    // Timer readback can be mapped once this frame's signal fence is reached.
+    if ( resolvedTimerSlotsThisFrame )
+    {
+        m_timerReadPending = true;
+        m_timerReadFenceValue = m_fenceValue;
+    }
+
     // Advance to next frame's allocator and swap chain buffer
     m_allocatorIndex = ( m_allocatorIndex + 1 ) % FRAME_COUNT;
     m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
     m_currentRTV = GetRTVHandle( m_frameIndex );
+}
+
+
+void RenderBackendDX12::SetVsyncEnabled( bool enabled )
+{
+    m_isVsyncEnabled = enabled;
+}
+
+
+bool RenderBackendDX12::IsVsyncEnabled() const
+{
+    return m_isVsyncEnabled;
 }
 
 
@@ -934,29 +962,7 @@ void RenderBackendDX12::Finish()
         m_commandQueue->ExecuteCommandLists( 1, ppCLs );
     }
     WaitForGpu();
-
-    // Read back GPU timer results — safe because WaitForGpu() guarantees completion
-    if ( m_timerQueryHeap && m_timerReadPending )
-    {
-        D3D12_RANGE readRange = { 0, (SIZE_T)TIMER_HEAP_SIZE * sizeof( uint64_t ) };
-        uint64_t* pData = nullptr;
-        if ( SUCCEEDED( m_timerReadbackBuf->Map( 0, &readRange, (void**)&pData ) ) )
-        {
-            for ( int i = 0; i < TIMER_HEAP_MARKERS; ++i )
-            {
-                uint64_t t0 = pData[i * 2 + 0];
-                uint64_t t1 = pData[i * 2 + 1];
-                if ( t1 > t0 && m_timerFreq > 0 )
-                {
-                    m_timerResultMs[i] = static_cast<float>( static_cast<double>( t1 - t0 ) / static_cast<double>( m_timerFreq ) * 1000.0 );
-                    m_timerResultValid[i] = true;
-                }
-            }
-            D3D12_RANGE writeRange = { 0, 0 };
-            m_timerReadbackBuf->Unmap( 0, &writeRange );
-        }
-        m_timerReadPending = false;
-    }
+    TryConsumeGpuTimerReadback( true );
 }
 
 
@@ -3149,6 +3155,54 @@ void RenderBackendDX12::ShutdownDXR()
 // --- GPU Timers ---
 
 
+void RenderBackendDX12::TryConsumeGpuTimerReadback( bool waitForFence )
+{
+    if ( !m_timerQueryHeap || !m_timerReadPending || !m_timerReadbackBuf || !m_fence )
+    {
+        return;
+    }
+
+    // Non-blocking mode is used in the normal frame loop so GPU timers keep working even when
+    // PipelineSync is disabled. Blocking mode is only used by Finish()/FlushGPU().
+    if ( waitForFence )
+    {
+        if ( m_fence->GetCompletedValue() < m_timerReadFenceValue )
+        {
+            m_fence->SetEventOnCompletion( m_timerReadFenceValue, m_fenceEvent );
+            WaitForSingleObject( m_fenceEvent, INFINITE );
+        }
+    }
+    else if ( m_fence->GetCompletedValue() < m_timerReadFenceValue )
+    {
+        return;
+    }
+
+    D3D12_RANGE readRange = { 0, (SIZE_T)TIMER_HEAP_SIZE * sizeof( uint64_t ) };
+    uint64_t* pData = nullptr;
+    if ( SUCCEEDED( m_timerReadbackBuf->Map( 0, &readRange, (void**)&pData ) ) )
+    {
+        std::memset( m_timerResultMs, 0, sizeof( m_timerResultMs ) );
+        std::memset( m_timerResultValid, 0, sizeof( m_timerResultValid ) );
+
+        for ( int i = 0; i < TIMER_HEAP_MARKERS; ++i )
+        {
+            const uint64_t t0 = pData[i * 2 + 0];
+            const uint64_t t1 = pData[i * 2 + 1];
+            if ( t1 > t0 && m_timerFreq > 0 )
+            {
+                m_timerResultMs[i] = static_cast<float>( static_cast<double>( t1 - t0 ) / static_cast<double>( m_timerFreq ) * 1000.0 );
+                m_timerResultValid[i] = true;
+            }
+        }
+
+        D3D12_RANGE writeRange = { 0, 0 };
+        m_timerReadbackBuf->Unmap( 0, &writeRange );
+    }
+
+    m_timerReadPending = false;
+}
+
+
 void RenderBackendDX12::GpuTimerBegin( int markerIdx )
 {
     if ( !m_timerQueryHeap || markerIdx < 0 || markerIdx >= TIMER_HEAP_MARKERS )
@@ -3180,11 +3234,14 @@ void RenderBackendDX12::GpuTimerInvalidate()
     std::memset( m_timerResultValid, 0, sizeof( m_timerResultValid ) );
     std::memset( m_timerSlotWritten, 0, sizeof( m_timerSlotWritten ) );
     m_timerReadPending = false;
+    m_timerReadFenceValue = 0;
 }
 
 
 bool RenderBackendDX12::GpuTimerRead( int markerIdx, float& outMs )
 {
+    TryConsumeGpuTimerReadback( false );
+
     if ( markerIdx < 0 || markerIdx >= TIMER_HEAP_MARKERS || !m_timerResultValid[markerIdx] )
     {
         return false;

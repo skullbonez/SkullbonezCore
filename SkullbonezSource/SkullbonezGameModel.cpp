@@ -30,6 +30,22 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     m_physicsInfo.SetMass( fMass );
     m_physicsInfo.SetFrictionCoefficient( Cfg().frictionCoeff );
 
+    // Immutable body properties are read repeatedly in broadphase/narrowphase and
+    // terrain response. Cache them once at construction to keep hot loops on plain
+    // scalar loads instead of repeated getter/ratio work.
+    m_ballPhysics.mass = fMass;
+    m_ballPhysics.invMass = 1.0f / fMass;
+    m_ballPhysics.rotationalInertia = vRotationalInertia;
+    m_ballPhysics.invRotationalInertia = Vector3( 1.0f / vRotationalInertia.x,
+                                                  1.0f / vRotationalInertia.y,
+                                                  1.0f / vRotationalInertia.z );
+    m_ballPhysics.radius = 0.0f;
+    m_ballPhysics.radiusSq = 0.0f;
+    m_ballPhysics.volume = 0.0f;
+    m_ballPhysics.invVolume = 0.0f;
+    m_ballPhysics.projectedSurfaceArea = 0.0f;
+    m_ballPhysics.dragCoefficient = 0.0f;
+
     // initialise pointers
     m_terrain = 0;
 
@@ -39,6 +55,34 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     m_isResponseRequired = false;
     m_name[0] = '\0';
     m_isGrounded = false;
+}
+
+
+void GameModel::BuildSpherePhysicsCache( float radius )
+{
+    if ( radius <= 0.0f )
+    {
+        throw std::runtime_error( "Bounding sphere radius must be greater than zero.  (GameModel::BuildSpherePhysicsCache)" );
+    }
+
+    m_ballPhysics.radius = radius;
+    m_ballPhysics.radiusSq = radius * radius;
+    m_ballPhysics.volume = FOUR_OVER_THREE * _PI * m_ballPhysics.radiusSq * radius;
+    m_ballPhysics.invVolume = 1.0f / m_ballPhysics.volume;
+    m_ballPhysics.projectedSurfaceArea = _PI * m_ballPhysics.radiusSq;
+    m_ballPhysics.dragCoefficient = Cfg().sphereDragCoeff;
+}
+
+
+const BoundingSphere& GameModel::GetBoundingSphere() const
+{
+    return std::get<BoundingSphere>( m_boundingVolume );
+}
+
+
+BoundingSphere& GameModel::GetBoundingSphere()
+{
+    return std::get<BoundingSphere>( m_boundingVolume );
 }
 
 
@@ -108,7 +152,7 @@ bool GameModel::IsGrounded() const
 
 float GameModel::GetBoundingRadius()
 {
-    return GetShapeBoundingRadius( m_boundingVolume );
+    return m_ballPhysics.radius;
 }
 
 
@@ -135,6 +179,7 @@ Vector3 GameModel::GetOrientationUp()
 
 void GameModel::AddBoundingSphere( float fRadius )
 {
+    BuildSpherePhysicsCache( fRadius );
     m_boundingVolume = BoundingSphere( fRadius, Vector::ZERO_VECTOR );
     UpdateModelInfo();
 }
@@ -175,11 +220,8 @@ float GameModel::GetModelCollisionTime( GameModel& collisionTarget,
     // calculate the ray of the focus
     Ray focusRay = CollisionResponse::CalculateRay( *this, changeInTime );
 
-    // perform the collision test
-    return TestShapeCollision( m_boundingVolume,
-                               collisionTarget.m_boundingVolume,
-                               focusRay,
-                               targetRay );
+    // Sphere-only fast path: bypass variant visitor dispatch in hot narrowphase.
+    return GetBoundingSphere().TestCollision( collisionTarget.GetBoundingSphere(), targetRay, focusRay );
 }
 
 
@@ -202,8 +244,8 @@ void GameModel::CollisionResponseGameModel( GameModel& responseTarget )
 
 void GameModel::StaticOverlapResponseGameModel( GameModel& overlapTarget )
 {
-    float thisRadius = GetShapeBoundingRadius( m_boundingVolume );
-    float targetRadius = GetShapeBoundingRadius( overlapTarget.m_boundingVolume );
+    float thisRadius = m_ballPhysics.radius;
+    float targetRadius = overlapTarget.m_ballPhysics.radius;
 
     Vector3 delta = overlapTarget.m_physicsInfo.GetPosition() - m_physicsInfo.GetPosition();
     float dist = Vector::VectorMag( delta );
@@ -255,7 +297,7 @@ Matrix4 GameModel::GetModelMatrix()
     // Sphere mesh local frame is pre-rotated at build time, so no runtime visual
     // yaw compatibility shim is required.
     Matrix4 rotation = Matrix4::FromQuaternion( m_physicsInfo.GetOrientation() );
-    return GetShapeModelMatrix( m_boundingVolume, m_physicsInfo.GetPosition(), rotation );
+    return GetBoundingSphere().GetModelMatrix( m_physicsInfo.GetPosition(), rotation );
 }
 
 
@@ -281,21 +323,19 @@ void GameModel::ApplyWorldForces( float changeInTime )
 
 void GameModel::CalculateProjectedSurfaceArea()
 {
-    // return the average submerged percentage
-    m_projectedSurfaceArea = GetShapeProjectedSurfaceArea( m_boundingVolume );
+    m_projectedSurfaceArea = m_ballPhysics.projectedSurfaceArea;
 }
 
 
 void GameModel::CalculateDragCoefficient()
 {
-    // return the average submerged percentage
-    m_dragCoefficient = GetShapeDragCoefficient( m_boundingVolume );
+    m_dragCoefficient = m_ballPhysics.dragCoefficient;
 }
 
 
 float GameModel::GetVolume()
 {
-    return m_physicsInfo.GetVolume();
+    return m_ballPhysics.volume;
 }
 
 
@@ -311,13 +351,19 @@ void GameModel::UpdatePosition( float changeInTime )
 
 void GameModel::CalculateVolume()
 {
-    m_physicsInfo.SetVolume( GetShapeVolume( m_boundingVolume ) );
+    m_physicsInfo.SetVolume( m_ballPhysics.volume );
 }
 
 
 float GameModel::GetMass()
 {
-    return m_physicsInfo.GetMass();
+    return m_ballPhysics.mass;
+}
+
+
+float GameModel::GetInvertedMass()
+{
+    return m_ballPhysics.invMass;
 }
 
 
@@ -339,7 +385,7 @@ float GameModel::GetTerrainCollisionTime( float changeInTime )
     m_responseInformation.testingRay = CollisionResponse::CalculateRay( *this, changeInTime );
 
     // offset the origin by the bounding radius (for spheres, this is the sphere radius)
-    float bottomOffset = GetShapeTerrainBottomOffset( m_boundingVolume );
+    float bottomOffset = m_ballPhysics.radius;
 
     // if out of bounds, no collision has occured
     if ( !m_terrain->IsInBounds( m_physicsInfo.GetPosition().x, m_physicsInfo.GetPosition().z ) )
@@ -347,16 +393,13 @@ float GameModel::GetTerrainCollisionTime( float changeInTime )
         return NO_COLLISION;
     }
 
-    // store the plane vertically aligned with the object
-    m_responseInformation.testingPlane = GeometricMath::ComputePlane( m_terrain->LocatePolygon( m_physicsInfo.GetPosition().x,
-                                                                                                m_physicsInfo.GetPosition().z ) );
-
-    // Proximity-based contact detection: if the bottom of the sphere is within
-    // contactEpsilon of the terrain surface, report immediate contact (t=0).
-    // This replaces the old m_isGrounded flag with a geometric test.
-    // Derive height directly from the plane we already computed (n.p = d → y = (d - n.x*x - n.z*z) / n.y)
-    const Vector3& planeN = m_responseInformation.testingPlane.m_normal;
-    float terrainHeight = ( m_responseInformation.testingPlane.m_distance - planeN.x * m_physicsInfo.GetPosition().x - planeN.z * m_physicsInfo.GetPosition().z ) / planeN.y;
+    // Cache-backed terrain lookup: one query returns the exact collision plane and
+    // height for this XZ position, avoiding per-frame LocatePolygon + ComputePlane.
+    float terrainHeight = 0.0f;
+    m_terrain->GetTerrainHeightAndPlaneAt( m_physicsInfo.GetPosition().x,
+                                           m_physicsInfo.GetPosition().z,
+                                           terrainHeight,
+                                           m_responseInformation.testingPlane );
     float gap = m_physicsInfo.GetPosition().y - bottomOffset - terrainHeight;
     if ( gap <= Cfg().contactEpsilon )
     {
@@ -468,7 +511,7 @@ void GameModel::DEBUG_SetSphereToTerrain()
     }
 
     // get the total m_radius
-    float rad = GetShapeBoundingRadius( m_boundingVolume );
+    float rad = m_ballPhysics.radius;
 
     // get the m_height of the m_terrain at the current XZ m_position
     float m_height = m_terrain->GetTerrainHeightAt( m_physicsInfo.GetPosition().x, m_physicsInfo.GetPosition().z );
@@ -489,11 +532,23 @@ void GameModel::DEBUG_SetSphereToTerrain()
 
 float GameModel::GetSubmergedVolumePercent()
 {
-    float m_fluidSurfaceHeight = m_worldEnvironment->GetFluidSurfaceHeight();
-    float totalPercentage = GetShapeSubmergedVolumePercent( m_boundingVolume, m_fluidSurfaceHeight - m_physicsInfo.GetPosition().y );
+    // For current sphere-only scenes, submerged volume is evaluated from cached
+    // immutable sphere terms (radius + inverse volume) and the current center height.
+    float fluidHeightRelativeToCenter = m_worldEnvironment->GetFluidSurfaceHeight() - m_physicsInfo.GetPosition().y;
+    float radius = m_ballPhysics.radius;
 
-    // return the submerged percentage
-    return totalPercentage;
+    if ( fluidHeightRelativeToCenter <= -radius )
+    {
+        return 0.0f;
+    }
+
+    if ( fluidHeightRelativeToCenter >= radius )
+    {
+        return 1.0f;
+    }
+
+    float yValue = fluidHeightRelativeToCenter + radius;
+    return ( ONE_OVER_THREE * _PI * ( ( 3.0f * radius ) - yValue ) * yValue * yValue ) * m_ballPhysics.invVolume;
 }
 
 
@@ -505,7 +560,13 @@ const Quaternion& GameModel::GetOrientation() const
 
 const Vector3& GameModel::GetRotationalInertia()
 {
-    return m_physicsInfo.GetRotationalInertia();
+    return m_ballPhysics.rotationalInertia;
+}
+
+
+const Vector3& GameModel::GetInvertedRotationalInertia()
+{
+    return m_ballPhysics.invRotationalInertia;
 }
 
 

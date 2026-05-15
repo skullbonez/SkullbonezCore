@@ -42,7 +42,22 @@ class GameModel
     friend class CollisionResponse; // Declare class Collision Response as a friend of class Game Model
 
   private:
+    struct BallPhysicsCache
+    {
+        float radius;                 // Sphere radius
+        float radiusSq;               // Sphere radius squared
+        float volume;                 // Sphere volume
+        float invVolume;              // 1 / sphere volume
+        float projectedSurfaceArea;   // Cached circle area used by drag
+        float dragCoefficient;        // Cached sphere drag coefficient
+        float mass;                   // Immutable ball mass
+        float invMass;                // 1 / mass
+        Vector3 rotationalInertia;    // Immutable inertia tensor diagonal
+        Vector3 invRotationalInertia; // Component-wise 1 / inertia
+    };
+
     CollisionShape m_boundingVolume;                    // Bounding volume (variant, inline)
+    BallPhysicsCache m_ballPhysics;                     // Immutable per-ball physics cache for hot loops
     RigidBody m_physicsInfo;                            // Physics information for the game object
     Environment::WorldEnvironment* m_worldEnvironment;  // Pointer to the world environment settings
     Geometry::Terrain* m_terrain;                       // Pointer to the world m_terrain
@@ -53,6 +68,9 @@ class GameModel
     char m_name[64];                                    // Optional name for logging (empty = unnamed)
     bool m_isGrounded;                                  // True if ball had terrain contact this physics frame
 
+    void BuildSpherePhysicsCache( float radius );                                  // Precompute immutable sphere data used in hot paths
+    const BoundingSphere& GetBoundingSphere() const;                               // Sphere-only fast path accessor (variant-backed)
+    BoundingSphere& GetBoundingSphere();                                           // Mutable sphere-only fast path accessor (variant-backed)
     void CalculateVolume();                                                        // Calculates the volume of the model
     void ApplyWorldForces( float changeInTime );                                   // Apply forces on the body from the world environment
     void UpdateModelInfo();                                                        // Perform this operation every time the model has objects added or removed from its object list
@@ -70,6 +88,7 @@ class GameModel
     bool IsResponseRequired();                                                          // Indicates whether a collision response is required
     float GetSubmergedVolumePercent();                                                  // Returns the percentage of the game model submerged in fluid
     float GetMass();                                                                    // Returns the mass of the game model
+    float GetInvertedMass();                                                            // Returns inverted mass (cached immutable)
     float GetVolume();                                                                  // Returns the volume of the game model
     void CalculateProjectedSurfaceArea();                                               // Calculates the sum of the surface area of the game model
     void CalculateDragCoefficient();                                                    // Calculates the drag coefficient of the model
@@ -99,6 +118,7 @@ class GameModel
     Vector3 GetOrientationUp();                                                         // Returns local Y axis (0,1,0) rotated into world space by the visual orientation
     const Quaternion& GetOrientation() const;                                           // Returns the orientation quaternion (passthrough to RigidBody)
     const Vector3& GetRotationalInertia();                                              // Returns the rotational inertia (passthrough to RigidBody)
+    const Vector3& GetInvertedRotationalInertia();                                      // Returns component-wise inverse rotational inertia (cached immutable)
     float GetCoefficientRestitution();                                                  // Returns the coefficient of restitution (passthrough to RigidBody)
     void SetLinearVelocity( const Vector3& v );                                         // Sets the linear velocity (passthrough to RigidBody)
     void SetAngularVelocity( const Vector3& v );                                        // Sets the angular velocity (passthrough to RigidBody)

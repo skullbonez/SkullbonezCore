@@ -65,7 +65,7 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 
 
 SpatialGrid::SpatialGrid( float fCellSize )
-    : cellSize( fCellSize ), inverseCellSize( 1.0f / fCellSize ), generation( 0 ), entryPoolUsed( 0 ), objectCount( 0 )
+    : cellSize( fCellSize ), inverseCellSize( 1.0f / fCellSize ), generation( 0 ), entryPoolUsed( 0 ), objectCount( 0 ), activeBucketCount( 0 )
 {
     memset( buckets, 0, sizeof( buckets ) );
 }
@@ -78,6 +78,7 @@ void SpatialGrid::Clear()
     ++generation;
     entryPoolUsed = 0;
     objectCount = 0;
+    activeBucketCount = 0;
 }
 
 
@@ -99,6 +100,11 @@ int SpatialGrid::FindOrCreate( int64_t key )
             b.generation = generation;
             b.head = -1;
             b.count = 0;
+            assert( activeBucketCount < TABLE_SIZE && "activeBuckets overflow" );
+            if ( activeBucketCount < TABLE_SIZE )
+            {
+                activeBuckets[activeBucketCount++] = idx;
+            }
             return idx;
         }
 
@@ -186,8 +192,11 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
     }
     memset( pairSeen, 0, wordsNeeded * sizeof( uint64_t ) );
 
-    for ( int bi = 0; bi < TABLE_SIZE; ++bi )
+    // Iterate only buckets that were actually touched this frame.
+    for ( int activeIndex = 0; activeIndex < activeBucketCount; ++activeIndex )
     {
+        int bi = activeBuckets[activeIndex];
+        assert( bi >= 0 && bi < TABLE_SIZE && "active bucket index OOB" );
         Bucket& b = buckets[bi];
         if ( b.generation != generation || b.count < 2 )
         {
@@ -195,15 +204,23 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
         }
 
         // Collect cell indices into a local buffer for O(c^2) pair generation
-        int cellIndices[64];
+        int cellIndices[MAX_GAME_MODELS];
         int cellCount = 0;
         int cur = b.head;
-        while ( cur != -1 && cellCount < 64 )
+        while ( cur != -1 )
         {
             assert( cur >= 0 && cur < MAX_CELL_ENTRIES && "entry chain index OOB" );
             int objIdx = entries[cur].objectIndex;
             assert( objIdx >= 0 && objIdx < MAX_GAME_MODELS && "objectIndex OOB in entry chain" );
-            cellIndices[cellCount++] = objIdx;
+            if ( cellCount < MAX_GAME_MODELS )
+            {
+                cellIndices[cellCount++] = objIdx;
+            }
+            else
+            {
+                assert( false && "cell index staging overflow" );
+                break;
+            }
             cur = entries[cur].next;
         }
 

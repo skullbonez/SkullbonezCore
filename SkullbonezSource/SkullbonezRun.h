@@ -63,7 +63,19 @@ class SkullbonezRun
     char m_screenshotDir[256];                      // Output directory for interval captures
     char m_perfLogPath[256];                        // Output path for perf CSV (empty = none)
     FILE* m_perfLogFile;                            // Open handle for perf CSV
+    bool m_isPerfLogFlushEnabled;                   // Flush perf CSV on each write (diagnostic mode)
+    int m_perfLogFlushInterval;                     // Flush perf CSV every N writes (0 = flush on close only)
+    int m_perfLogWritesSinceFlush;                  // Buffered perf-log write count since last flush
     FILE* m_rollLogFile;                            // Open handle for roll orientation log (empty = none)
+    bool m_isVectorLogEnabled;                      // Per-frame velocity/omega CSV diagnostic
+    int m_vectorLogInterval;                        // Vector log cadence (N frames)
+    bool m_isVectorLogFlushEnabled;                 // Flush each vector log write batch
+    char m_vectorLogPath[256];                      // Output path for vector CSV
+    FILE* m_vectorLogFile;                          // Open handle for vector CSV
+    bool m_isVsyncEnabled;                          // Swap-chain sync interval (true = vsync)
+    bool m_isPipelineSyncEnabled;                   // Force CPU/GPU sync via Finish() before render
+    bool m_defaultRollAlignEnabled;                 // Config default for roll orientation correction
+    bool m_isRollAlignEnabled;                      // Active roll orientation correction state for current scene
     int m_selectedCamera;                           // Keeps track of which camera is selected
     int m_modelCount;                               // Number of models in the scene
     float m_physicsTime, m_r_physicsTime;           // Physics time

@@ -68,18 +68,30 @@ class TestScene
     unsigned int m_seed;        // RNG m_seed (0 = use time-based default)
     int m_legacyBallCount;      // random legacy-style m_balls (0 = none)
     char m_perfLogPath[256];    // output path for perf CSV (empty = none)
+    bool m_isPerfLogFlush;      // Force flush after each perf-log write (default off)
+    int m_perfLogFlushInterval; // Flush perf log every N writes (0 = only at close)
     char m_rollLogPath[256];    // output path for roll orientation log (empty = none)
-    int m_screenshotInterval;   // save screenshot every N frames (-1 = disabled)
-    char m_screenshotDir[256];  // output directory for interval captures
-    float m_timeScale;          // Physics time multiplier (1.0 = realtime)
-    bool m_isDebugVectors;      // Draw velocity/omega debug arrows (default false)
-    float m_trackHeight;        // Height above tracked ball for camera (-1 = no tracking)
-    float m_autoCycleInterval;  // Seconds between per-ball screenshots (-1 = disabled)
-    bool m_screenshotAndExit;   // Capture first frame as SCENENAME.bmp then exit
-    bool m_waterHidden;         // Suppress water rendering (for clean texture comparison)
-    bool m_terrainHidden;       // Suppress terrain rendering
-    bool m_hasFlatSlope;        // True when scene overrides terrain with analytic flat slope
-    float m_flatBaseY;          // y = m_flatBaseY + m_flatSlopeX*x + m_flatSlopeZ*z
+    bool m_isVectorLogEnabled;  // Log velocity/omega correlation CSV (default off)
+    int m_vectorLogInterval;    // Write vector log every N frames
+    char m_vectorLogPath[256];  // output path for vector CSV (empty = use default)
+    bool m_isVectorLogFlush;    // Flush vector log after each write batch (debug aid)
+    bool m_hasVsyncOverride;    // Scene-level override present for vsync
+    bool m_isVsyncEnabled;      // V-Sync policy for scene when override is present
+    bool m_hasPipelineSyncOverride;
+    bool m_isPipelineSyncEnabled;
+    bool m_hasRollAlignOverride; // Scene-level override present for roll orientation correction
+    bool m_isRollAlignEnabled;   // Terrain roll/pole alignment correction policy
+    int m_screenshotInterval;    // save screenshot every N frames (-1 = disabled)
+    char m_screenshotDir[256];   // output directory for interval captures
+    float m_timeScale;           // Physics time multiplier (1.0 = realtime)
+    bool m_isDebugVectors;       // Draw velocity/omega debug arrows (default false)
+    float m_trackHeight;         // Height above tracked ball for camera (-1 = no tracking)
+    float m_autoCycleInterval;   // Seconds between per-ball screenshots (-1 = disabled)
+    bool m_screenshotAndExit;    // Capture first frame as SCENENAME.bmp then exit
+    bool m_waterHidden;          // Suppress water rendering (for clean texture comparison)
+    bool m_terrainHidden;        // Suppress terrain rendering
+    bool m_hasFlatSlope;         // True when scene overrides terrain with analytic flat slope
+    float m_flatBaseY;           // y = m_flatBaseY + m_flatSlopeX*x + m_flatSlopeZ*z
     float m_flatSlopeX;
     float m_flatSlopeZ;
     std::vector<SceneCamera> m_cameras;
@@ -104,7 +116,19 @@ class TestScene
     unsigned int GetSeed() const;
     int GetLegacyBallCount() const;
     const char* GetPerfLogPath() const;
+    bool IsPerfLogFlushEnabled() const;
+    int GetPerfLogFlushInterval() const;
     const char* GetRollLogPath() const;
+    bool IsVectorLogEnabled() const;
+    int GetVectorLogInterval() const;
+    const char* GetVectorLogPath() const;
+    bool IsVectorLogFlushEnabled() const;
+    bool HasVsyncOverride() const;
+    bool IsVsyncEnabled() const;
+    bool HasPipelineSyncOverride() const;
+    bool IsPipelineSyncEnabled() const;
+    bool HasRollAlignOverride() const;
+    bool IsRollAlignEnabled() const;
     int GetScreenshotInterval() const;
     const char* GetScreenshotDir() const;
     float GetTimeScale() const;

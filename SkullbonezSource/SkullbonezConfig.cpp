@@ -217,6 +217,50 @@ void SkullbonezConfig::Load( const char* path )
         {
             spinFrictionCoeff = static_cast<float>( atof( v ) );
         }
+        else if ( strcmp( k, "roll_align_enabled" ) == 0 )
+        {
+            rollAlignEnabled = atoi( v ) != 0;
+        }
+        else if ( strcmp( k, "roll_align_interval" ) == 0 )
+        {
+            rollAlignInterval = atoi( v );
+            if ( rollAlignInterval < 1 )
+            {
+                rollAlignInterval = 1;
+            }
+        }
+        else if ( strcmp( k, "roll_align_min_speed" ) == 0 )
+        {
+            rollAlignMinSpeed = static_cast<float>( atof( v ) );
+            if ( rollAlignMinSpeed < 0.0f )
+            {
+                rollAlignMinSpeed = 0.0f;
+            }
+        }
+        else if ( strcmp( k, "roll_align_min_omega" ) == 0 )
+        {
+            rollAlignMinOmega = static_cast<float>( atof( v ) );
+            if ( rollAlignMinOmega < 0.0f )
+            {
+                rollAlignMinOmega = 0.0f;
+            }
+        }
+        else if ( strcmp( k, "roll_align_perp_tolerance_deg" ) == 0 )
+        {
+            rollAlignPerpToleranceDeg = static_cast<float>( atof( v ) );
+            if ( rollAlignPerpToleranceDeg < 0.0f )
+            {
+                rollAlignPerpToleranceDeg = 0.0f;
+            }
+        }
+        else if ( strcmp( k, "roll_align_max_correction_deg" ) == 0 )
+        {
+            rollAlignMaxCorrectionDeg = static_cast<float>( atof( v ) );
+            if ( rollAlignMaxCorrectionDeg < 0.0f )
+            {
+                rollAlignMaxCorrectionDeg = 0.0f;
+            }
+        }
         else if ( strcmp( k, "broadphase_cell" ) == 0 )
         {
             broadphaseCell = static_cast<float>( atof( v ) );
@@ -347,6 +391,14 @@ void SkullbonezConfig::Load( const char* path )
         }
 
         // Debug
+        else if ( strcmp( k, "vsync_enabled" ) == 0 )
+        {
+            vsyncEnabled = atoi( v ) != 0;
+        }
+        else if ( strcmp( k, "force_pipeline_sync" ) == 0 )
+        {
+            forcePipelineSync = atoi( v ) != 0;
+        }
         else if ( strcmp( k, "render_collision_volumes" ) == 0 )
         {
             renderCollisionVolumes = atoi( v ) != 0;

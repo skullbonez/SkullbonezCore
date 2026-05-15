@@ -79,6 +79,7 @@ class RenderBackendDX11 : public IRenderBackend
     ID3D11DepthStencilView* m_depthStencilView;
     int m_width;
     int m_height;
+    bool m_isVsyncEnabled;
 
     // State tracking
     bool m_depthTestEnabled;
@@ -162,6 +163,8 @@ class RenderBackendDX11 : public IRenderBackend
     bool Init( HWND hwnd, HDC hdc, int width, int height ) override;
     void Shutdown() override;
     void Present() override;
+    void SetVsyncEnabled( bool enabled ) override;
+    bool IsVsyncEnabled() const override;
     void Finish() override;
     void FlushGPU() override;
     void Resize( int width, int height ) override;

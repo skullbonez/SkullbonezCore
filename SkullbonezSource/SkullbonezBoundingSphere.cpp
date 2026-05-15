@@ -25,55 +25,53 @@ float BoundingSphere::CollisionDetect( const BoundingSphere& target,
                                        const Ray& targetRay,
                                        const Ray& focusRay ) const
 {
-    // calculate the total movement
-    Vector3 totalMovement = targetRay.vector3 - focusRay.vector3;
-
-    // if the total movement is insignificant, exit early
-    if ( totalMovement.IsCloseToZero() )
+    // Relative motion this frame (focus in target space).
+    Vector3 relativeMovement = focusRay.vector3 - targetRay.vector3;
+    float relativeMovementSq = relativeMovement * relativeMovement;
+    if ( relativeMovementSq <= TOLERANCE * TOLERANCE )
     {
         return NO_COLLISION;
     }
 
-    // calculate the total displacement of the total movement
-    float displacement = Vector::VectorMag( totalMovement );
-
-    // calculate the difference vector between both bounding spheres
+    // Relative center vector from target to focus at frame start.
     Vector3 difference = focusRay.origin - targetRay.origin;
-
-    // dot product the difference vector
-    float diffDotDiff = difference * difference;
-
-    // sum the radii of the bounding spheres
+    float centerDistanceSq = difference * difference;
     float radiusSum = target.m_radius + m_radius;
-
-    // square the sums of the radii
     float radiusSumSq = radiusSum * radiusSum;
 
-    // normalise the total movement vector to dispose its magnitude
-    totalMovement.Normalise();
-
-    // dot the difference vector with the normalised total movement vector
-    float diffDotMoveDir = difference * totalMovement;
-
-    // square the result from above
-    float diffDotMoveDirSq = diffDotMoveDir * diffDotMoveDir;
-
-    // store part of the quadratic theorem result into a temp variable
-    float tmp = diffDotMoveDirSq + radiusSumSq - diffDotDiff;
-
-    // ensure no square root of a negative will be
-    // performed - if this was going to be attempted, there
-    // will be no collision in ANY given time frame
-    if ( tmp < 0.0f )
+    // Already overlapping: skip swept solve and let static overlap handling resolve contact.
+    if ( centerDistanceSq <= radiusSumSq )
     {
         return NO_COLLISION;
     }
 
-    // calculate the negative root via quadratic formula
-    float collisionStartDist = diffDotMoveDir - sqrtf( tmp );
+    // If relative motion is separating, no swept impact can occur this frame.
+    float closingDot = difference * relativeMovement;
+    if ( closingDot >= 0.0f )
+    {
+        return NO_COLLISION;
+    }
 
-    // return the proportionate time in which the collision started
-    return collisionStartDist / displacement;
+    // Cheap reachability cull: even if moving directly together for the whole frame,
+    // they cannot reach contact distance.
+    float maxTravel = sqrtf( relativeMovementSq );
+    float reachRadius = radiusSum + maxTravel;
+    if ( centerDistanceSq > reachRadius * reachRadius )
+    {
+        return NO_COLLISION;
+    }
+
+    // Solve |difference + relativeMovement * t|^2 = radiusSum^2 for earliest t in [0,1].
+    float a = relativeMovementSq;
+    float b = closingDot;
+    float c = centerDistanceSq - radiusSumSq;
+    float discriminant = b * b - a * c;
+    if ( discriminant < 0.0f )
+    {
+        return NO_COLLISION;
+    }
+
+    return ( -b - sqrtf( discriminant ) ) / a;
 }
 
 
