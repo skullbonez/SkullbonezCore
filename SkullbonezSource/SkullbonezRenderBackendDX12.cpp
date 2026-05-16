@@ -75,6 +75,11 @@ RenderBackendDX12::RenderBackendDX12()
 
 void RenderBackendDX12::WaitForGpu()
 {
+    if ( !m_commandQueue || !m_fence || !m_fenceEvent )
+    {
+        return;
+    }
+
     // Tell the GPU to signal the fence with an incremented value once all prior work completes.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12commandqueue-signal
     m_commandQueue->Signal( m_fence, ++m_fenceValue );
@@ -97,6 +102,11 @@ void RenderBackendDX12::WaitForGpu()
 
 void RenderBackendDX12::EnsureCommandListOpen()
 {
+    if ( !m_commandList || !m_commandQueue || !m_fence || !m_fenceEvent || !m_commandAllocators[m_allocatorIndex] )
+    {
+        throw std::runtime_error( "DX12 backend is not fully initialised (command list/fence unavailable)." );
+    }
+
     if ( m_commandListOpen )
     {
         return;
@@ -207,14 +217,14 @@ D3D12_GPU_VIRTUAL_ADDRESS RenderBackendDX12::SubAllocateUpload( UINT64 size, UIN
         throw std::runtime_error( "DX12 upload buffer exhausted" );
     }
     m_uploadOffset = aligned + size;
-    return m_uploadBuffer->GetGPUVirtualAddress() + aligned;
+    return m_uploadBuffers[m_allocatorIndex]->GetGPUVirtualAddress() + aligned;
 }
 
 
 uint8_t* RenderBackendDX12::GetUploadPtr( D3D12_GPU_VIRTUAL_ADDRESS addr )
 {
-    UINT64 offset = addr - m_uploadBuffer->GetGPUVirtualAddress();
-    return m_uploadBufferMapped + offset;
+    UINT64 offset = addr - m_uploadBuffers[m_allocatorIndex]->GetGPUVirtualAddress();
+    return m_uploadBufferMapped[m_allocatorIndex] + offset;
 }
 
 
@@ -451,10 +461,13 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     ThrowIfFailed( m_device->CreateFence( 0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &m_fence ) ), "CreateFence failed" );
     m_fenceEvent = CreateEvent( nullptr, FALSE, FALSE, nullptr );
 
-    // Create the Upload Buffer — a large chunk of CPU-writable, GPU-readable memory used to stage
-    // data (vertex buffers, textures, constant buffers) before transferring to fast GPU-only memory.
-    // This is persistently mapped (Map called once, never unmapped) for efficient per-frame writes.
+    // Create per-frame upload buffers — one per FRAME_COUNT allocator. Each holds CPU-writable,
+    // GPU-readable memory for per-frame constant buffers, dynamic vertex buffers, and texture
+    // uploads. Partitioned per-allocator so that frame N+1's CPU recording cannot overwrite data
+    // that frame N's GPU is still reading (the per-allocator fence wait in EnsureCommandListOpen
+    // guarantees frame N is done before we reuse that allocator's upload buffer on frame N+2).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
+    for ( int i = 0; i < FRAME_COUNT; ++i )
     {
         D3D12_HEAP_PROPERTIES heapProps = {};
         heapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -466,8 +479,8 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         desc.MipLevels = 1;
         desc.SampleDesc.Count = 1;
         desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-        ThrowIfFailed( m_device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS( &m_uploadBuffer ) ), "CreateCommittedResource (upload) failed" );
-        m_uploadBuffer->Map( 0, nullptr, (void**)&m_uploadBufferMapped );
+        ThrowIfFailed( m_device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS( &m_uploadBuffers[i] ) ), "CreateCommittedResource (upload) failed" );
+        m_uploadBuffers[i]->Map( 0, nullptr, (void**)&m_uploadBufferMapped[i] );
     }
 
     // Root signature
@@ -663,7 +676,28 @@ void RenderBackendDX12::Shutdown()
         return;
     }
 
+    // Ensure any open command list is closed and submitted before waiting.
+    if ( m_commandListOpen )
+    {
+        m_commandList->Close();
+        m_commandListOpen = false;
+        ID3D12CommandList* ppCLs[] = { m_commandList };
+        m_commandQueue->ExecuteCommandLists( 1, ppCLs );
+    }
+
+    // Wait for all GPU work to complete (command queue + pending presents).
     WaitForGpu();
+
+    // Drain the DXGI flip queue. DX12's WaitForGpu only waits on the command queue fence,
+    // but DXGI's flip-model present queue is separate. Without draining it, DWM may still
+    // hold references to this swap chain's backbuffers after Release(), preventing GDI
+    // (OpenGL SwapBuffers) from reclaiming the window's composition surface.
+    // Present an empty frame with sync-interval 0 to flush the flip queue, then wait again.
+    if ( m_swapChain )
+    {
+        m_swapChain->Present( 0, 0 );
+        WaitForGpu();
+    }
 
     // DXR cleanup
     ShutdownDXR();
@@ -756,10 +790,14 @@ void RenderBackendDX12::Shutdown()
     }
     m_textures.clear();
 
-    if ( m_uploadBuffer )
+    for ( int i = 0; i < FRAME_COUNT; ++i )
     {
-        m_uploadBuffer->Unmap( 0, nullptr );
-        m_uploadBuffer->Release();
+        if ( m_uploadBuffers[i] )
+        {
+            m_uploadBuffers[i]->Unmap( 0, nullptr );
+            m_uploadBuffers[i]->Release();
+            m_uploadBuffers[i] = nullptr;
+        }
     }
     if ( m_depthStencil )
     {
@@ -813,6 +851,7 @@ void RenderBackendDX12::Shutdown()
     }
     if ( m_swapChain )
     {
+        m_swapChain->SetFullscreenState( FALSE, nullptr );
         m_swapChain->Release();
     }
     if ( m_commandQueue )
@@ -971,6 +1010,10 @@ void RenderBackendDX12::Resize( int width, int height )
 
     m_swapChain->ResizeBuffers( FRAME_COUNT, (UINT)width, (UINT)height, DXGI_FORMAT_R8G8B8A8_UNORM, 0 );
     m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+
+    // ResizeBuffers puts all back buffers into PRESENT state — reset our tracking flag
+    // so the next Clear() correctly transitions to RENDER_TARGET before use.
+    m_backBufferIsRT = false;
 
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
@@ -2029,7 +2072,7 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
 
     FlushUploadBufferIfNeeded( mip0Bytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT );
     D3D12_GPU_VIRTUAL_ADDRESS uploadBase = SubAllocateUpload( mip0Bytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT );
-    const UINT64 baseOffset = uploadBase - m_uploadBuffer->GetGPUVirtualAddress();
+    const UINT64 baseOffset = uploadBase - m_uploadBuffers[m_allocatorIndex]->GetGPUVirtualAddress();
     uint8_t* uploadDst = GetUploadPtr( uploadBase );
 
     const UINT srcRowPitch = static_cast<UINT>( w ) * static_cast<UINT>( bytesPerPixel );
@@ -2046,7 +2089,7 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
     dstLoc.SubresourceIndex = 0;
 
     D3D12_TEXTURE_COPY_LOCATION srcLoc = {};
-    srcLoc.pResource = m_uploadBuffer;
+    srcLoc.pResource = m_uploadBuffers[m_allocatorIndex];
     srcLoc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
     srcLoc.PlacedFootprint = fp0;
     srcLoc.PlacedFootprint.Offset = baseOffset + fp0.Offset;
@@ -2162,8 +2205,14 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
     outWidth = m_width;
     outHeight = m_height;
 
-    // Transition backbuffer to copy source
-    TransitionBarrier( m_renderTargets[m_frameIndex], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE );
+    // F3 screenshots are taken in input handling before Clear()/Render, so the backbuffer is
+    // usually still in PRESENT state at this point. Scene-driven captures can happen after render
+    // where the backbuffer is in RENDER_TARGET state. Preserve whichever state we're currently in.
+    const D3D12_RESOURCE_STATES backBufferStateBeforeCopy =
+        m_backBufferIsRT ? D3D12_RESOURCE_STATE_RENDER_TARGET : D3D12_RESOURCE_STATE_PRESENT;
+
+    // Transition backbuffer to COPY_SOURCE for readback.
+    TransitionBarrier( m_renderTargets[m_frameIndex], backBufferStateBeforeCopy, D3D12_RESOURCE_STATE_COPY_SOURCE );
 
     // Get copyable footprint
     D3D12_RESOURCE_DESC bbDesc = m_renderTargets[m_frameIndex]->GetDesc();
@@ -2200,8 +2249,8 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
 
     m_commandList->CopyTextureRegion( &dstLoc, 0, 0, 0, &srcLoc, nullptr );
 
-    // Transition backbuffer back to render target
-    TransitionBarrier( m_renderTargets[m_frameIndex], D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET );
+    // Restore the exact state we found before the capture.
+    TransitionBarrier( m_renderTargets[m_frameIndex], D3D12_RESOURCE_STATE_COPY_SOURCE, backBufferStateBeforeCopy );
 
     // Execute and wait
     m_commandList->Close();
@@ -2354,7 +2403,7 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData, int st
     FlushUploadBufferIfNeeded( dataSize, 4 );
     D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = SubAllocateUpload( dataSize, 4 );
     memcpy( GetUploadPtr( uploadAddr ), staticData, (size_t)dataSize );
-    m_commandList->CopyBufferRegion( im.staticVB, 0, m_uploadBuffer, uploadAddr - m_uploadBuffer->GetGPUVirtualAddress(), dataSize );
+    m_commandList->CopyBufferRegion( im.staticVB, 0, m_uploadBuffers[m_allocatorIndex], uploadAddr - m_uploadBuffers[m_allocatorIndex]->GetGPUVirtualAddress(), dataSize );
     TransitionBarrier( im.staticVB, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER );
 
     im.staticVBV.BufferLocation = im.staticVB->GetGPUVirtualAddress();

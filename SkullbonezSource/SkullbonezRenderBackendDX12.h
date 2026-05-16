@@ -161,8 +161,11 @@ class RenderBackendDX12 : public IRenderBackend
 
     ID3D12Resource* m_depthStencil = nullptr;
 
-    ID3D12Resource* m_uploadBuffer = nullptr;
-    uint8_t* m_uploadBufferMapped = nullptr;
+    // One upload buffer per frame allocator. Partitioned so that frame N+1's CPU recording never
+    // overwrites data in the buffer that frame N's GPU is still reading. Mirrors the per-allocator
+    // partitioning applied to the transient SRV heap.
+    ID3D12Resource* m_uploadBuffers[FRAME_COUNT] = {};
+    uint8_t* m_uploadBufferMapped[FRAME_COUNT] = {};
     UINT64 m_uploadOffset = 0;
 
     ID3D12RootSignature* m_rootSignature = nullptr;
@@ -357,7 +360,7 @@ class RenderBackendDX12 : public IRenderBackend
     uint8_t* GetUploadPtr( D3D12_GPU_VIRTUAL_ADDRESS addr );
     ID3D12Resource* GetUploadBuffer() const
     {
-        return m_uploadBuffer;
+        return m_uploadBuffers[m_allocatorIndex];
     }
     D3D12_CPU_DESCRIPTOR_HANDLE AllocateRTV();
     D3D12_CPU_DESCRIPTOR_HANDLE AllocateDSV();
