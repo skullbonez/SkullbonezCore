@@ -17,8 +17,8 @@
 
 ## Branch & Last Commit
 - Branch: `main`
-- Last commit on main: `17c438d` — Opt/optimizations pass (#28)
-- Working branch HEAD: `17c438d` — Opt/optimizations pass (#28)
+- Last commit on main: `b96bd43` — DX12: fix CPU/GPU upload buffer race by partitioning per frame allocator
+- Working branch HEAD: `b96bd43`
 
 ---
 
@@ -56,7 +56,19 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 
 ## Recent Session Work (this session)
 
-0. **State-composition/struct-hoist readability refactor + ordering cleanup** (`pending commit`):
+0. **Renderer hot-switch: GL display freeze fix, teardown/setup, cleanup** (`768a015`):
+   - Added `SkullbonezWindow::RecreateWindow()` — destroys and recreates HWND. Required when returning to GL after DXGI: DXGI FLIP_DISCARD permanently taints DWM's composition entry for that HWND, causing SwapBuffers to silently no-op. New HWND = clean GDI surface.
+   - `SwitchRenderer()` calls `RecreateWindow()` on DXGI→GL; `DwmFlush()` for DXGI↔DXGI.
+   - `Terrain::ResetRenderResources()` + `InitialiseTerrainShader()` so terrain mesh/shader rebuild after renderer switch.
+   - DX11 ClearState+Flush in teardown for clean DXGI release.
+   - G-key hot-switch cycling (GL→DX11→DX12→GL). `--switch-interval N` CLI flag + `switch_test.scene`.
+   - Removed stale TestOutput run folders (002–015) and debug artefacts.
+
+1. **DX12: fix CPU/GPU upload buffer race by partitioning per frame allocator** (`b96bd43`):
+   - Root cause: opt commit (17c438d) removed unconditional `WaitForGpu()` (now guarded by `force_pipeline_sync = 0`) and partitioned the transient SRV heap but NOT the upload buffer, creating a live CPU/GPU race: Frame N+1 CPU resets uploadOffset=0 and overwrites CB/VB data while Frame N GPU is still reading it → stretched glyphs, geometry corruption, flicker across all scenes including direct DX12 boot.
+   - Fix: `m_uploadBuffer` → `m_uploadBuffers[FRAME_COUNT]` (one per allocator). Per-allocator fence wait in `EnsureCommandListOpen` guarantees frame N's GPU is done before frame N+2 touches that buffer.
+
+
    - Decomposed long member lists into functional structs across key headers:
      - `SkullbonezRun` (`Run*State` groups with scene/screenshot/debug split)
      - `SkullbonezTestScene` (scene/capture/logging/runtime/terrain/world options)
