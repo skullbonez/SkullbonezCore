@@ -34,6 +34,7 @@ class Terrain
     ~Terrain();                                                                      // Default destructor
 
     void Render( const Matrix4& view, const Matrix4& projection, const float* lightPosition ); // Renders the terrain with shader
+    void ResetRenderResources();                                                               // Rebuild backend-specific mesh/shader after renderer switch
     IMesh* GetMesh() const
     {
         return m_terrainMesh.get();
@@ -80,6 +81,7 @@ class Terrain
     Vector3 m_flatSlopeNormal;
 
     void LoadTerrainData( const char* sFileName ); // Loads terrain from .RAW file into terrainData member
+    void InitialiseTerrainShader();                // Creates and configures lit terrain shader for active backend
     void BuildTerrain();                           // Builds the terrain
     void BuildCollisionCache();                    // Precomputes per-quad triangle planes + normals for physics queries
     int GetQuadCacheIndex( float xPosition, float zPosition, bool& isTriangleA );

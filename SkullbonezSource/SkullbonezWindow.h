@@ -30,6 +30,7 @@ class SkullbonezWindow
     HGLRC m_sRenderContext;    // Handle to rendering context
     POINT m_sWindowDimensions; // Window m_width and m_height
     bool m_fIsFullScreenMode;  // Flag for fullscreen mode
+    bool m_isRecreatingWindow; // Suppresses PostQuitMessage during deliberate window recreation
 
     Math::Transformation::Matrix4 projectionMatrix; // Current perspective projection matrix
 
@@ -39,6 +40,7 @@ class SkullbonezWindow
     bool SetupPixelFormat();                // Prepares pixel format of back and front buffer
     void InitialiseOpenGL();                // For all OpenGL API initialisation code (after the window has been created)
     void SetTitleText( const char* cText ); // Draws text to title bar of window
+    void RecreateWindow();                  // Destroy and recreate HWND (required after DXGI taints GDI surface)
     const Math::Transformation::Matrix4& GetProjectionMatrix() const
     {
         return projectionMatrix;

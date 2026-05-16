@@ -33,16 +33,7 @@ Terrain::Terrain( const char* sFileName,
     LoadTerrainData( sFileName );
     BuildTerrain();
     BuildMesh();
-
-    // Load the m_shader
-    m_terrainShader = Gfx().CreateShader( "shaders/lit_textured" );
-
-    m_terrainShader->Use();
-    m_terrainShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
-    m_terrainShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
-    m_terrainShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
-    m_terrainShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
-    m_terrainShader->SetInt( "uTexture", 0 );
+    InitialiseTerrainShader();
 
     // m_height map no longer needed after build
     m_terrainData.clear();
@@ -71,9 +62,18 @@ Terrain::Terrain( float slopeBaseY, float slopeX, float slopeZ )
     m_flatSlopePlane.m_distance = m_flatSlopeNormal.y * m_slopeBaseY;
 
     BuildFlatSlopeMesh();
+    InitialiseTerrainShader();
+}
 
+
+Terrain::~Terrain()
+{
+}
+
+
+void Terrain::InitialiseTerrainShader()
+{
     m_terrainShader = Gfx().CreateShader( "shaders/lit_textured" );
-
     m_terrainShader->Use();
     m_terrainShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
     m_terrainShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
@@ -83,8 +83,21 @@ Terrain::Terrain( float slopeBaseY, float slopeX, float slopeZ )
 }
 
 
-Terrain::~Terrain()
+void Terrain::ResetRenderResources()
 {
+    m_terrainMesh.reset();
+    m_terrainShader.reset();
+
+    if ( m_isFlatSlope )
+    {
+        BuildFlatSlopeMesh();
+    }
+    else
+    {
+        BuildMesh();
+    }
+
+    InitialiseTerrainShader();
 }
 
 

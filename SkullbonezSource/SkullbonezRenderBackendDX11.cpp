@@ -377,6 +377,20 @@ void RenderBackendDX11::Shutdown()
         return;
     }
 
+    // Flip-model swap chains are destroyed lazily on D3D11. ClearState + Flush ensures
+    // all bindings/releases are processed before we destroy this backend so the next
+    // renderer can create a new swap chain on the same HWND immediately.
+    if ( m_context )
+    {
+        m_context->ClearState();
+        m_context->Flush();
+    }
+
+    if ( m_swapChain )
+    {
+        m_swapChain->SetFullscreenState( FALSE, nullptr );
+    }
+
     // Destroy dynamic VBs
     for ( auto& dvb : m_dynamicVBs )
     {
@@ -501,6 +515,15 @@ void RenderBackendDX11::Shutdown()
     {
         m_backBufferRTV->Release();
     }
+
+    // Run one more ClearState/Flush after releasing all bound resources/views so DXGI
+    // can complete deferred destruction of the old flip-model swap chain.
+    if ( m_context )
+    {
+        m_context->ClearState();
+        m_context->Flush();
+    }
+
     if ( m_swapChain )
     {
         m_swapChain->Release();

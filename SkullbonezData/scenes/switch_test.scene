@@ -1,0 +1,6 @@
+# Renderer hot-switch test — runs indefinitely so auto-switch can cycle
+seed 42
+physics on
+text off
+legacy_balls 100
+camera cam1 321 110 557  581 40 633  0 1 0

@@ -187,6 +187,22 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
 
     Cfg().Load( ( std::string( DATA_ROOT ) + "engine.cfg" ).c_str() );
 
+    // Parse --switch-interval N (auto-cycle renderers every N seconds, for hot-switch testing)
+    float switchInterval = -1.0f;
+    if ( szCmdLine )
+    {
+        const char* switchArg = strstr( szCmdLine, "--switch-interval" );
+        if ( switchArg )
+        {
+            switchArg += 17;
+            while ( *switchArg == ' ' )
+            {
+                ++switchArg;
+            }
+            switchInterval = (float)atof( switchArg );
+        }
+    }
+
 
     // Create an instance of our window class
     SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
@@ -227,6 +243,10 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
         // Create the Skullbonez Core instance (scoped so destructor runs
         // BEFORE GL context deletion — ensures GL cleanup calls work)
         SkullbonezRun cRun( std::move( sceneList ) );
+        if ( switchInterval > 0.0f )
+        {
+            cRun.SetRendererSwitchInterval( switchInterval );
+        }
 
         try
         {
@@ -252,11 +272,13 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     // Destroy render backend before GL context
     DestroyGfxBackend();
 
-    // Cleanup rendering context AFTER cRun is destroyed (OpenGL only)
-    if ( renderer == RendererType::OpenGL && m_cWindow->m_sRenderContext )
+    // Cleanup rendering context AFTER cRun is destroyed.
+    // Runtime renderer hot-switching can create an OpenGL context even when startup renderer was DX.
+    if ( m_cWindow->m_sRenderContext )
     {
         wglMakeCurrent( nullptr, nullptr );
         wglDeleteContext( m_cWindow->m_sRenderContext );
+        m_cWindow->m_sRenderContext = nullptr;
     }
 
     // Cleanup device context (Free device context associated with our window)

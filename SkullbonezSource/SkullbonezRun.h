@@ -140,6 +140,15 @@ struct RunDebugState
     bool isDebugVectors = false;     // Draw velocity (green) and angular velocity (red) vectors (toggle with V)
     bool isTextOnly = false;         // Suppress all 3D rendering; show solid background with large pangram text
     float frozenWaterTime = 0.0f;    // Simulation time captured when freeze was toggled on
+    float rendererSwitchInterval = -1.0f; // Auto-switch renderer every N seconds (-1 = disabled)
+    float rendererSwitchAccum    = 0.0f;  // Accumulated time since last auto-switch
+};
+
+enum class RuntimeRendererType
+{
+    OpenGL,
+    DX11,
+    DX12
 };
 
 /* -- Skullbonez Run ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -183,12 +192,16 @@ class SkullbonezRun
     void LoadScene( int index );                                       // Resets scene-specific state and loads a scene by queue index
     bool AdvanceScene();                                               // Advances to the next scene in the queue (returns false if done)
     void MoveCamera( float keyMovementQty, float mouseMovemementQty ); // Moves the camera
+    RuntimeRendererType GetCurrentRendererType() const;                // Detect active backend type from Gfx renderer identity
+    RuntimeRendererType GetNextRendererType( RuntimeRendererType current ) const;
+    void SwitchRenderer( RuntimeRendererType target ); // Rebuild render backend/resources while preserving simulation state
 
   public:
     SkullbonezRun( std::vector<std::string> sceneQueue ); // Constructor (scene queue; empty string = legacy mode)
     ~SkullbonezRun();                                     // Default destructor
     void Initialise();                                    // Initialises shared resources and loads first scene
     void Run();                                           // Runs all scenes in sequence — main message loop
+    void SetRendererSwitchInterval( float seconds );
 };
 } // namespace Basics
 } // namespace SkullbonezCore

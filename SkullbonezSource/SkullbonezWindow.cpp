@@ -14,6 +14,7 @@ SkullbonezWindow::SkullbonezWindow()
     m_sWindow = 0;
     m_sDevice = 0;
     m_sRenderContext = 0;
+    m_isRecreatingWindow = false;
 }
 
 
@@ -156,6 +157,14 @@ bool SkullbonezWindow::SetupPixelFormat()
     // Windows then finds the closest matching format the GPU supports.
 
     SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
+
+    // If a pixel format is already set on this DC, skip. SetPixelFormat can only
+    // be called once per window lifetime — subsequent calls fail on most drivers.
+    if ( GetPixelFormat( m_cWindow->m_sDevice ) != 0 )
+    {
+        return true;
+    }
+
     PIXELFORMATDESCRIPTOR pfd = { 0 };
     int pixelFormat = 0;
 
@@ -237,8 +246,12 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
 
         // WM_DESTROY is fired when the window is closed
         case WM_DESTROY:
-            // Close the window
-            PostQuitMessage( 0 );
+            // During deliberate window recreation (renderer hot-switch), suppress the quit
+            // message — we're about to create a replacement window immediately.
+            if ( !m_cWindow->m_isRecreatingWindow )
+            {
+                PostQuitMessage( 0 );
+            }
             break;
         }
     }
@@ -447,6 +460,77 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
                                        // to our window
 
     m_sWindow = hWnd;
+}
+
+
+void SkullbonezWindow::RecreateWindow()
+{
+    // Destroy the current HWND and create a fresh one with the same position, size, and style.
+    // This is required after DXGI flip-model swap chains have been used on the window because
+    // DXGI permanently taints the window's GDI presentation surface — SwapBuffers (used by
+    // OpenGL) no longer presents to the screen even though it returns TRUE.
+    // A new HWND gets a clean GDI surface that SwapBuffers can present to normally.
+
+    // Capture current geometry
+    RECT wr;
+    GetWindowRect( m_sWindow, &wr );
+    DWORD style = (DWORD)GetWindowLongPtr( m_sWindow, GWL_STYLE );
+    HINSTANCE hInstance = (HINSTANCE)GetWindowLongPtr( m_sWindow, GWLP_HINSTANCE );
+
+    // Release old DC
+    if ( m_sDevice )
+    {
+        ReleaseDC( m_sWindow, m_sDevice );
+        m_sDevice = nullptr;
+    }
+
+    // Suppress PostQuitMessage in WndProc during deliberate destruction
+    m_isRecreatingWindow = true;
+    DestroyWindow( m_sWindow );
+    m_sWindow = nullptr;
+    m_isRecreatingWindow = false;
+
+    // Drain any WM_QUIT that may have been posted by other WndProc handlers (e.g. WM_CLOSE
+    // forwarding to DefWindowProc which sends WM_DESTROY). PeekMessage with PM_REMOVE
+    // discards the quit so the main loop continues.
+    MSG msg;
+    while ( PeekMessage( &msg, nullptr, 0, 0, PM_REMOVE ) )
+    {
+        if ( msg.message == WM_QUIT ) break;
+        TranslateMessage( &msg );
+        DispatchMessage( &msg );
+    }
+
+    // Create replacement window at the same position/size
+    // (window class is already registered from the first CreateAppWindow call)
+    HWND hWnd = CreateWindow( WINDOW_NAME,
+                              TITLE_TEXT,
+                              style,
+                              wr.left,
+                              wr.top,
+                              wr.right - wr.left,
+                              wr.bottom - wr.top,
+                              nullptr,
+                              nullptr,
+                              hInstance,
+                              nullptr );
+
+    if ( !hWnd )
+    {
+        throw std::runtime_error( "RecreateWindow: CreateWindow failed" );
+    }
+
+    ShowWindow( hWnd, SW_SHOWNORMAL );
+    UpdateWindow( hWnd );
+    SetFocus( hWnd );
+
+    m_sWindow = hWnd;
+    m_sDevice = GetDC( hWnd );
+
+    // Update window dimensions from the new window's client area
+    RECT clientRect;
+    GetClientRect( hWnd, &clientRect );
+    SetWindowDimensions( clientRect );
 }
 
 
