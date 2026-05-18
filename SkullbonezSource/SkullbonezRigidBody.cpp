@@ -60,7 +60,7 @@ using namespace SkullbonezCore::Math;
 RigidBody::RigidBody()
 {
     // set all members to default values
-    m_frictionCoefficient = 0.1f;
+    m_frictionCoefficient = 0.5f;
     m_invertedMass = 0.1f;
     m_coefficientRestitution = 0.9f;
     m_mass = 1.0f;
@@ -181,36 +181,22 @@ void RigidBody::ApplyChangeInAngularVelocity()
 }
 
 
-// Clamp angular velocity to prevent numerical explosion.
+// Clamp angular velocity magnitude to prevent numerical explosion.
 // Without this limit, a series of rapid collisions could accumulate
 // unrealistically fast spin that destabilizes the simulation.
+// Uses magnitude-based clamping so the limit is isotropic (axis-independent).
 void RigidBody::ThrottleAngularVelocity()
 {
-    if ( m_angularVelocity.x > Cfg().velocityLimit )
+    float magSq = m_angularVelocity.x * m_angularVelocity.x +
+                  m_angularVelocity.y * m_angularVelocity.y +
+                  m_angularVelocity.z * m_angularVelocity.z;
+    float limitSq = Cfg().velocityLimit * Cfg().velocityLimit;
+    if ( magSq > limitSq )
     {
-        m_angularVelocity.x = Cfg().velocityLimit;
-    }
-    else if ( m_angularVelocity.x < -Cfg().velocityLimit )
-    {
-        m_angularVelocity.x = -Cfg().velocityLimit;
-    }
-
-    if ( m_angularVelocity.y > Cfg().velocityLimit )
-    {
-        m_angularVelocity.y = Cfg().velocityLimit;
-    }
-    else if ( m_angularVelocity.y < -Cfg().velocityLimit )
-    {
-        m_angularVelocity.y = -Cfg().velocityLimit;
-    }
-
-    if ( m_angularVelocity.z > Cfg().velocityLimit )
-    {
-        m_angularVelocity.z = Cfg().velocityLimit;
-    }
-    else if ( m_angularVelocity.z < -Cfg().velocityLimit )
-    {
-        m_angularVelocity.z = -Cfg().velocityLimit;
+        float scale = Cfg().velocityLimit / sqrtf( magSq );
+        m_angularVelocity.x *= scale;
+        m_angularVelocity.y *= scale;
+        m_angularVelocity.z *= scale;
     }
 }
 

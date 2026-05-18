@@ -26,6 +26,7 @@ class WorldEnvironment;
 namespace Physics
 {
 class CollisionResponse;
+class ImpulseSolver;
 } // namespace Physics
 
 namespace GameObjects
@@ -40,6 +41,7 @@ namespace GameObjects
 class GameModel
 {
     friend class CollisionResponse; // Declare class Collision Response as a friend of class Game Model
+    friend class ImpulseSolver;     // New unified sequential impulse solver also needs private access
 
   private:
     struct BallPhysicsCache
@@ -111,6 +113,8 @@ class GameModel
     void SetGrounded( bool grounded );                                                  // Sets the grounded state for this frame
     bool IsGrounded() const;                                                            // Returns true if ball had terrain contact this frame
     void AddBoundingSphere( float fRadius );                                            // Add a bounding sphere to the game model
+    void AddBoundingBox( const Vector3& halfExtents );                                  // Add a bounding box to the game model
+    bool IsBox() const;                                                                 // True if bounding volume is a BoundingBox
     float CollisionDetectGameModel( GameModel& collisionTarget, float changeInTime );   // Collision detect model against model
     void CollisionResponseGameModel( GameModel& responseTarget );                       // Collision response model against model (velocity-only)
     void StaticOverlapResponseGameModel( GameModel& overlapTarget );                    // Check for static overlap and push apart if overlapping

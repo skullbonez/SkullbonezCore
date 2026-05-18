@@ -137,10 +137,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="SkullbonezSource\SkullbonezBoundingBox.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezBoundingSphere.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCamera.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCameraCollection.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCollisionResponse.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezImpulseSolver.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezGameModel.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezGameModelCollection.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezGeometricMath.cpp" />
@@ -185,10 +187,12 @@
     <ClCompile Include="SkullbonezSource\SkullbonezSBTDX12.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="SkullbonezSource\SkullbonezBoundingBox.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingSphere.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCamera.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCameraCollection.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCollisionResponse.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezImpulseSolver.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCollisionShape.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCommon.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezGameModel.h" />

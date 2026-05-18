@@ -13,6 +13,10 @@ using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Geometry;
 
 
+// --- Forward declarations ---
+namespace SkullbonezCore { namespace Math { namespace CollisionDetection { class BoundingBox; } } }
+
+
 namespace SkullbonezCore
 {
 namespace Math
@@ -46,6 +50,7 @@ class BoundingSphere
     float GetBoundingRadius() const;                                                                                  // Returns the bounding radius (same as GetRadius for spheres)
     const Vector3& GetPosition() const;                                                                               // Returns the local-space position offset
     float TestCollision( const BoundingSphere& target, const Ray& targetRay, const Ray& focusRay ) const;             // Sweep test against another bounding sphere
+    float TestCollision( const BoundingBox& target, const Ray& targetRay, const Ray& focusRay ) const;               // Sweep test against a bounding box (uses bounding radius approximation)
 };
 } // namespace CollisionDetection
 } // namespace Math

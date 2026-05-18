@@ -9,6 +9,7 @@
 #include "SkullbonezRenderBackendDX11.h"
 #include "SkullbonezRenderBackendDX12.h"
 #include "SkullbonezCollisionResponse.h"
+#include "SkullbonezImpulseSolver.h"
 #include <time.h>
 #include <cstring>
 #include <psapi.h>
@@ -22,8 +23,9 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Physics;
 
 
-SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
+SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue, bool legacyPhysics )
     : m_sceneQueue( std::move( sceneQueue ) )
+    , m_legacyPhysics( legacyPhysics )
 {
     // Config-driven defaults are resolved at construction; scene-specific defaults remain in-member.
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
@@ -87,6 +89,9 @@ void SkullbonezRun::SetRendererSwitchInterval( float seconds )
 
 void SkullbonezRun::Initialise()
 {
+    // Apply physics mode before any physics runs
+    ImpulseSolver::SetLegacyPhysics( m_legacyPhysics );
+
     // Init window
     m_systems.window = SkullbonezWindow::Instance();
 
@@ -386,19 +391,48 @@ void SkullbonezRun::SetUpGameModels( int count )
         float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
         float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
         float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
-        float moment = randFloat( cfg.ballMomentMin, cfg.ballMomentRange );
         float restitution = cfg.ballRestitutionMin + static_cast<float>( rand() % cfg.ballRestitutionRange ) / 10.0f;
-        float radius = ( 1.0f + static_cast<float>( rand() % cfg.ballRadiusRange ) ) * 0.5f;
         Vector3 force( randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ) );
         Vector3 forcePos( randSign(), randSign(), randSign() );
 
-        GameModel gameModel( &m_cWorldEnvironment, Vector3( posX, posY, posZ ), Vector3( moment, moment, moment ), mass );
-        gameModel.SetCoefficientRestitution( restitution );
-        gameModel.SetTerrain( m_systems.terrain.get() );
-        gameModel.AddBoundingSphere( radius );
-        gameModel.SetImpulseForce( force, forcePos );
+        // ~30% of objects are boxes when using new physics; legacy mode is spheres only
+        bool makeBox = !m_legacyPhysics && ( rand() % 10 ) < 3;
 
-        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
+        if ( makeBox )
+        {
+            float halfExtent = ( 1.0f + static_cast<float>( rand() % 3 ) ) * 0.6f;
+            float hx = halfExtent * ( 0.7f + static_cast<float>( rand() % 4 ) * 0.2f );
+            float hy = halfExtent;
+            float hz = halfExtent * ( 0.7f + static_cast<float>( rand() % 4 ) * 0.2f );
+
+            // Box inertia: I = m/3 * (hy² + hz²) etc.
+            float hx2 = hx * hx;
+            float hy2 = hy * hy;
+            float hz2 = hz * hz;
+            float m3 = mass / 3.0f;
+            Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
+
+            GameModel gameModel( &m_cWorldEnvironment, Vector3( posX, posY, posZ ), inertia, mass );
+            gameModel.SetCoefficientRestitution( restitution );
+            gameModel.SetTerrain( m_systems.terrain.get() );
+            gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );
+            gameModel.SetImpulseForce( force, forcePos );
+
+            m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
+        }
+        else
+        {
+            float moment = randFloat( cfg.ballMomentMin, cfg.ballMomentRange );
+            float radius = ( 1.0f + static_cast<float>( rand() % cfg.ballRadiusRange ) ) * 0.5f;
+
+            GameModel gameModel( &m_cWorldEnvironment, Vector3( posX, posY, posZ ), Vector3( moment, moment, moment ), mass );
+            gameModel.SetCoefficientRestitution( restitution );
+            gameModel.SetTerrain( m_systems.terrain.get() );
+            gameModel.AddBoundingSphere( radius );
+            gameModel.SetImpulseForce( force, forcePos );
+
+            m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
+        }
     }
 }
 
@@ -454,10 +488,35 @@ void SkullbonezRun::Run()
                 }
             }
 
-            // Logic (skip physics in scene mode when disabled)
+            // Logic — fixed-timestep accumulator for deterministic physics,
+            // real dt for camera and other visual interpolation.
             if ( !m_scene.isSceneMode || m_scene.isScenePhysics )
             {
-                UpdateLogic( static_cast<float>( secondsPerFrame ) * m_scene.timeScale );
+                if ( m_scene.isFixedStep )
+                {
+                    // Deterministic lock-step: exactly one physics tick per render frame.
+                    // Ignores wall-clock time entirely — produces identical results every run.
+                    UpdateLogic( PHYSICS_FIXED_DT );
+                }
+                else
+                {
+                    float scaledDt = static_cast<float>( secondsPerFrame ) * m_scene.timeScale;
+                    m_timers.physicsAccumulator += scaledDt;
+
+                    int steps = 0;
+                    while ( m_timers.physicsAccumulator >= PHYSICS_FIXED_DT && steps < PHYSICS_MAX_STEPS_PER_FRAME )
+                    {
+                        UpdateLogic( PHYSICS_FIXED_DT );
+                        m_timers.physicsAccumulator -= PHYSICS_FIXED_DT;
+                        ++steps;
+                    }
+
+                    // Drain excess accumulator if we hit the step cap (avoids spiral of death)
+                    if ( steps == PHYSICS_MAX_STEPS_PER_FRAME )
+                    {
+                        m_timers.physicsAccumulator = 0.0f;
+                    }
+                }
             }
 
             // Drain GPU pipeline before render
@@ -828,6 +887,18 @@ void SkullbonezRun::TakeInput()
             }
         }
         m_camera.input.fF3WasDown = f3Now;
+    }
+
+    // P: toggle between legacy (sphere-only, ad-hoc) and new (sequential impulse) solver at runtime.
+    // In legacy mode boxes freeze in place and disappear; they reappear when toggled back.
+    {
+        bool pNow = Input::IsKeyDown( 'P' );
+        if ( pNow && !m_camera.input.fPWasDown )
+        {
+            m_legacyPhysics = !m_legacyPhysics;
+            ImpulseSolver::SetLegacyPhysics( m_legacyPhysics );
+        }
+        m_camera.input.fPWasDown = pNow;
     }
 
     if ( m_camera.isFlyMode )
@@ -1260,6 +1331,12 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     snprintf( mcBuf, sizeof( mcBuf ), "Model Count: %i", m_scene.modelCount );
     Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, mcBuf ), hh - mY - fSz, fSz, "%s", mcBuf );
 
+    // Second row top-right: show active physics solver (toggle with P)
+    {
+        const char* solverTag = m_legacyPhysics ? "PHYSICS: LEGACY [P]" : "PHYSICS: IMPULSE [P]";
+        Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, solverTag ), hh - mY - fSz * 3.0f, fSz, "%s", solverTag );
+    }
+
     // Profiler overlay ? bottom-right anchored.
     // Compiled out in Release; toggleable with '0' in Debug/Profile.
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
@@ -1454,7 +1531,7 @@ void SkullbonezRun::SetUpCamerasFromScene( const TestScene& scene )
 
 void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 {
-    m_scene.modelCount = scene.GetBallCount() + scene.GetBallStateCount();
+    m_scene.modelCount = scene.GetBallCount() + scene.GetBallStateCount() + scene.GetBoxCount();
 
     for ( int i = 0; i < scene.GetBallCount(); ++i )
     {
@@ -1507,6 +1584,36 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
     }
+
+    // box entries: rigid box entities
+    for ( int i = 0; i < scene.GetBoxCount(); ++i )
+    {
+        const SceneBox& box = scene.GetBox( i );
+
+        // Box inertia: I = m/3 * (hy² + hz²) etc. for half-extents
+        float hx2 = box.halfX * box.halfX;
+        float hy2 = box.halfY * box.halfY;
+        float hz2 = box.halfZ * box.halfZ;
+        float m3 = box.mass / 3.0f;
+        Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
+
+        GameModel gameModel( &m_cWorldEnvironment,
+                             Vector3( box.posX, box.posY, box.posZ ),
+                             inertia,
+                             box.mass );
+
+        gameModel.SetCoefficientRestitution( box.restitution );
+        gameModel.SetTerrain( m_systems.terrain.get() );
+        gameModel.SetName( box.name );
+        gameModel.AddBoundingBox( Vector3( box.halfX, box.halfY, box.halfZ ) );
+
+        if ( box.hasInitOrient )
+        {
+            gameModel.SetInitialOrientation( box.eulerX, box.eulerY, box.eulerZ );
+        }
+
+        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
+    }
 }
 
 
@@ -1550,6 +1657,7 @@ void SkullbonezRun::LoadScene( int index )
     m_screenshot.isScreenshotAndExit = false;
     m_scene.targetFrameCount = -1;
     m_scene.currentFrame = 0;
+    m_timers.physicsAccumulator = 0.0f;
     m_screenshot.screenshotFrame = -1;
     m_screenshot.screenshotMs = -1;
     m_screenshot.screenshotPath[0] = '\0';
@@ -1583,6 +1691,7 @@ void SkullbonezRun::LoadScene( int index )
     m_debug.isDebugVectors = false;
     m_debug.isTextOnly = false;
     m_scene.timeScale = 1.0f;
+    m_scene.isFixedStep = false;
     m_debug.frozenWaterTime = 0.0f;
     m_camera.trackBallIndex = -1;
     m_camera.trackHeight = 300.0f;
@@ -1645,6 +1754,7 @@ void SkullbonezRun::LoadScene( int index )
         m_debug.isWaterHidden = scene.IsWaterHidden();
         m_debug.isTerrainHidden = scene.IsTerrainHidden();
         m_scene.timeScale = scene.GetTimeScale();
+        m_scene.isFixedStep = scene.IsFixedStep();
         m_scene.targetFrameCount = scene.GetFrameCount();
         m_screenshot.screenshotFrame = scene.GetScreenshotFrame();
         m_screenshot.screenshotMs = scene.GetScreenshotMs();

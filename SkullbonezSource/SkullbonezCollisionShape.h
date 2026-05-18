@@ -4,6 +4,7 @@
 // --- Includes ---
 #include <variant>
 #include "SkullbonezBoundingSphere.h"
+#include "SkullbonezBoundingBox.h"
 
 namespace SkullbonezCore
 {
@@ -18,7 +19,7 @@ namespace CollisionDetection
     exhaustive dispatch via std::visit. Adding a new shape type to this
     variant will cause compiler errors at every unhandled dispatch site.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-using CollisionShape = std::variant<BoundingSphere>;
+using CollisionShape = std::variant<BoundingSphere, BoundingBox>;
 
 /* -- Free-function visitors -----------------------------------------------------------------------------------------------------------------------------------------
 

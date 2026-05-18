@@ -3,6 +3,7 @@
 #include "SkullbonezProfiler.h"
 #include "SkullbonezHelper.h"
 #include "SkullbonezIRenderBackend.h"
+#include "SkullbonezImpulseSolver.h"
 #include <cmath>
 #include <cstring>
 
@@ -60,13 +61,32 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
         return;
     }
 
+    // Render spheres
     SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes );
     for ( int x = 0; x < static_cast<int>( m_gameModels.size() ); ++x )
     {
-        Matrix4 model = m_gameModels[x].GetModelMatrix();
-        SkullbonezHelper::DrawSphereBatchModel( model );
+        if ( !m_gameModels[x].IsBox() )
+        {
+            Matrix4 model = m_gameModels[x].GetModelMatrix();
+            SkullbonezHelper::DrawSphereBatchModel( model );
+        }
     }
     SkullbonezHelper::DrawSphereBatchEnd();
+
+    // Render boxes (hidden in legacy mode - boxes don't exist in the legacy sphere-only solver)
+    if ( !ImpulseSolver::IsLegacyPhysics() )
+    {
+        SkullbonezHelper::DrawBoxBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes );
+        for ( int x = 0; x < static_cast<int>( m_gameModels.size() ); ++x )
+        {
+            if ( m_gameModels[x].IsBox() )
+            {
+                Matrix4 model = m_gameModels[x].GetModelMatrix();
+                SkullbonezHelper::DrawBoxBatchModel( model );
+            }
+        }
+        SkullbonezHelper::DrawBoxBatchEnd();
+    }
 }
 
 
@@ -92,6 +112,10 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
     int writeOffset = 0;
     for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
     {
+        // Skip boxes in legacy mode — they are hidden, so no shadow either
+        if ( ImpulseSolver::IsLegacyPhysics() && m_gameModels[i].IsBox() )
+            continue;
+
         Vector3 pos = m_gameModels[i].GetPosition();
         float radius = m_gameModels[i].GetBoundingRadius();
 
@@ -207,6 +231,9 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
     for ( int x = 0; x < modelCount; ++x )
     {
+        // Skip boxes in legacy mode - they freeze in place until solver is toggled back
+        if ( ImpulseSolver::IsLegacyPhysics() && m_gameModels[x].IsBox() )
+            continue;
         m_gameModels[x].ApplyForces( fChangeInTime );
     }
     PROFILE_END( "Frame/Physics/ApplyForces" );
@@ -216,6 +243,9 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     m_spatialGrid.Clear();
     for ( int i = 0; i < modelCount; ++i )
     {
+        // Skip boxes in legacy mode so they don't generate candidate pairs with spheres
+        if ( ImpulseSolver::IsLegacyPhysics() && m_gameModels[i].IsBox() )
+            continue;
         m_spatialGrid.Insert( i, m_gameModels[i].GetPosition(), m_gameModels[i].GetBoundingRadius() );
     }
 
@@ -269,6 +299,10 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     PROFILE_BEGIN( "Frame/Physics/Terrain" );
     for ( int x = 0; x < modelCount; ++x )
     {
+        // Skip boxes in legacy mode - frozen until solver toggled back
+        if ( ImpulseSolver::IsLegacyPhysics() && m_gameModels[x].IsBox() )
+            continue;
+
         // only check m_terrain if this model has remaining time
         if ( m_timeRemaining[x] > 0.0f )
         {
@@ -304,6 +338,31 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
         }
     }
     PROFILE_END( "Frame/Physics/Integrate" );
+
+    // Per-frame physics state log (Debug builds only — compiled out in Release/Profile).
+    // Writes full ball state to Debug/physics_state.csv for baseline capture and regression.
+#ifdef _DEBUG
+    {
+        static int sPhysFrame = 0;
+        if ( sPhysFrame == 0 )
+        {
+            Log().Writef( "Debug/physics_state.csv", "frame,idx,name,posX,posY,posZ,velX,velY,velZ,speed,omegaX,omegaY,omegaZ,omegaMag,grounded\n" );
+        }
+        for ( int i = 0; i < modelCount; ++i )
+        {
+            const char* name = m_gameModels[i].GetName();
+            const Vector3& pos = m_gameModels[i].GetPosition();
+            const Vector3& vel = m_gameModels[i].GetVelocity();
+            const Vector3& omega = m_gameModels[i].GetAngularVelocity();
+            float speed = sqrtf( vel.x * vel.x + vel.y * vel.y + vel.z * vel.z );
+            float omegaMag = sqrtf( omega.x * omega.x + omega.y * omega.y + omega.z * omega.z );
+            int grounded = m_groundedThisFrame[i];
+            Log().Writef( "Debug/physics_state.csv", "%d,%d,%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%d\n",
+                          sPhysFrame, i, name, pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, speed, omega.x, omega.y, omega.z, omegaMag, grounded );
+        }
+        ++sPhysFrame;
+    }
+#endif
 
     // Roll orientation log: one line per named ball per frame
     if ( m_rollLog )

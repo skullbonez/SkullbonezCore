@@ -218,11 +218,20 @@ void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
                                           m_dragCoefficient,
                                           m_projectedSurfaceArea );
 
-    // add the angular viscous drag to the world force
-    m_worldTorque += CalculateViscousDrag( target.GetAngularVelocity(),
-                                           submergedVolumePercent,
-                                           m_dragCoefficient,
-                                           m_projectedSurfaceArea );
+    // Angular viscous drag torque: τ = -C_d * ρ_avg * R³ * ω
+    // This is the correct dimensional form for rotational drag on a sphere.
+    // Linear drag (½ρv²CdA) has units of force [N]; rotational drag must have
+    // units of torque [N·m]. For a spinning sphere, the Stokes drag torque is
+    // proportional to ω and R³, scaled by medium density.
+    Vector3 angularVel = target.GetAngularVelocity();
+    if ( !angularVel.IsCloseToZero() )
+    {
+        float radius = target.GetBoundingRadius();
+        float avgDensity = ( m_gasDensity * ( 1.0f - submergedVolumePercent ) ) +
+                           ( m_fluidDensity * submergedVolumePercent );
+        float angularDragCoeff = m_dragCoefficient * avgDensity * radius * radius * radius;
+        m_worldTorque += angularVel * ( -angularDragCoeff );
+    }
 
     // scale and then set the world force and m_torque
     target.SetWorldForce( m_worldForce * changeInTime, m_worldTorque * changeInTime );

@@ -252,6 +252,13 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
+        // parse physics_log directive
+        if ( strncmp( line, "physics_log ", 12 ) == 0 )
+        {
+            strcpy_s( scene.m_loggingOptions.physicsLogPath, sizeof( scene.m_loggingOptions.physicsLogPath ), line + 12 );
+            continue;
+        }
+
         // parse vector_log directive
         if ( strncmp( line, "vector_log ", 11 ) == 0 )
         {
@@ -472,6 +479,31 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
+        // parse box line: box <name> <posX> <posY> <posZ> <halfX> <halfY> <halfZ> <mass> <restitution> [eulerX eulerY eulerZ]
+        if ( strncmp( line, "box ", 4 ) == 0 )
+        {
+            SceneBox box;
+            memset( &box, 0, sizeof( box ) );
+            box.hasInitOrient = false;
+
+            int parsed = sscanf_s( line + 4, "%63s %f %f %f %f %f %f %f %f %f %f %f", box.name, static_cast<unsigned>( sizeof( box.name ) ), &box.posX, &box.posY, &box.posZ, &box.halfX, &box.halfY, &box.halfZ, &box.mass, &box.restitution, &box.eulerX, &box.eulerY, &box.eulerZ );
+
+            if ( parsed == 12 )
+            {
+                box.hasInitOrient = true;
+            }
+            else if ( parsed != 9 )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid box at line %d (expected 9 or 12 fields, got %d)  (TestScene::LoadFromFile)", lineNumber, parsed );
+                throw std::runtime_error( msg );
+            }
+
+            scene.m_boxes.push_back( box );
+            continue;
+        }
+
         // parse time_scale directive
         if ( strncmp( line, "time_scale ", 11 ) == 0 )
         {
@@ -484,6 +516,13 @@ TestScene TestScene::LoadFromFile( const char* path )
                 throw std::runtime_error( msg );
             }
             scene.m_sceneOptions.timeScale = val;
+            continue;
+        }
+
+        // parse fixed_step directive — one physics tick per render frame at PHYSICS_FIXED_DT
+        if ( strcmp( line, "fixed_step" ) == 0 )
+        {
+            scene.m_sceneOptions.isFixedStep = true;
             continue;
         }
 
@@ -747,6 +786,12 @@ const char* TestScene::GetRollLogPath() const
 }
 
 
+const char* TestScene::GetPhysicsLogPath() const
+{
+    return m_loggingOptions.physicsLogPath;
+}
+
+
 bool TestScene::IsVectorLogEnabled() const
 {
     return m_loggingOptions.isVectorLogEnabled;
@@ -828,6 +873,12 @@ int TestScene::GetCameraCount() const
 float TestScene::GetTimeScale() const
 {
     return m_sceneOptions.timeScale;
+}
+
+
+bool TestScene::IsFixedStep() const
+{
+    return m_sceneOptions.isFixedStep;
 }
 
 
@@ -921,6 +972,23 @@ const SceneBallState& TestScene::GetBallState( int index ) const
     }
 
     return m_ballStates[index];
+}
+
+
+int TestScene::GetBoxCount() const
+{
+    return static_cast<int>( m_boxes.size() );
+}
+
+
+const SceneBox& TestScene::GetBox( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_boxes.size() ) )
+    {
+        throw std::runtime_error( "Box index out of range.  (TestScene::GetBox)" );
+    }
+
+    return m_boxes[index];
 }
 
 

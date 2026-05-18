@@ -62,3 +62,13 @@ Vector3 RotationMatrix::operator*=( const Vector3& v ) const
 {
     return *this * v;
 }
+
+
+Vector3 RotationMatrix::TransposeMultiply( const Vector3& v ) const
+{
+    // For an orthogonal rotation matrix, R^T = R^-1.
+    // Columns become rows: (R^T * v)_i = column_i . v
+    return Vector3( m11 * v.x + m21 * v.y + m31 * v.z,
+                    m12 * v.x + m22 * v.y + m32 * v.z,
+                    m13 * v.x + m23 * v.y + m33 * v.z );
+}

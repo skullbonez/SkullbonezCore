@@ -1,5 +1,6 @@
 // --- Includes ---
 #include "SkullbonezBoundingSphere.h"
+#include "SkullbonezBoundingBox.h"
 #include <immintrin.h> // SSE intrinsics for scale pass in GetModelMatrix
 
 
@@ -193,4 +194,47 @@ float BoundingSphere::GetProjectedSurfaceArea() const
 {
     // Area of circle = PI * r^2
     return _PI * m_radius * m_radius;
+}
+
+
+// Sphere vs Box swept test: approximate box as bounding sphere for broadphase.
+// Precise OBB-sphere tests are done in the narrowphase collision response.
+float BoundingSphere::TestCollision( const BoundingBox& target, const Ray& targetRay, const Ray& focusRay ) const
+{
+    float combinedRadius = m_radius + target.GetBoundingRadius();
+    float combinedRadiusSq = combinedRadius * combinedRadius;
+
+    Vector3 totalMovement = targetRay.vector3 - focusRay.vector3;
+    float totalMovementSq = VectorMagSquared( totalMovement );
+
+    if ( totalMovementSq < TOLERANCE )
+    {
+        Vector3 delta = ( targetRay.origin + target.GetPosition() ) -
+                        ( focusRay.origin + m_position );
+        if ( VectorMagSquared( delta ) <= combinedRadiusSq )
+        {
+            return 0.0f;
+        }
+        return NO_COLLISION;
+    }
+
+    Vector3 d = ( focusRay.origin + m_position ) - ( targetRay.origin + target.GetPosition() );
+    float totalMovementMag = sqrtf( totalMovementSq );
+    Vector3 moveDir = totalMovement / totalMovementMag;
+
+    float dDotMoveDir = d * moveDir;
+    float discriminant = dDotMoveDir * dDotMoveDir - ( VectorMagSquared( d ) - combinedRadiusSq );
+
+    if ( discriminant < 0.0f )
+    {
+        return NO_COLLISION;
+    }
+
+    float t = ( dDotMoveDir - sqrtf( discriminant ) ) / totalMovementMag;
+    if ( t < 0.0f || t > 1.0f )
+    {
+        return NO_COLLISION;
+    }
+
+    return t;
 }
