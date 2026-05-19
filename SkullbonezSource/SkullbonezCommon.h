@@ -26,17 +26,18 @@
 #define WIN32_LEAN_AND_MEAN
 
 #include <windows.h> // Windows
-#include <stdlib.h>  // Standard Library
-#include <stdio.h>   // Standard Input/Output
-#include <stdarg.h>  // Arguments
-#include <math.h>    // Standard Math Functions
-#include <assert.h>  // Assertions
+#include <cstdlib>   // std::atoi, std::atof, std::abs
+#include <cstdio>    // std::sprintf_s, std::sscanf_s, std::FILE
+#include <cstdarg>   // std::va_list, std::va_start, std::va_end
+#include <cmath>     // std::sqrtf, std::sinf, std::cosf, std::fabsf, std::acosf
+#include <cassert>   // assert()
 #include <stdexcept> // std::runtime_error
 #include <memory>    // std::unique_ptr
-#include <vector>    // std::vector
 
+#ifdef _DEBUG
+#define CRTDBG_MAP_ALLOC // must precede crtdbg.h to redirect malloc → _malloc_dbg
 #include <crtdbg.h>
-#define CRTDBG_MAP_ALLOC
+#endif
 
 // Array-sizing counts (must remain compile-time)
 constexpr int TOTAL_CAMERA_COUNT = 3;
@@ -102,21 +103,3 @@ constexpr uint32_t TEXTURE_SKY_DOWN = HashStr( "SkyDown" );
 constexpr uint32_t CAMERA_GAME_MODEL_1 = HashStr( "GameModel1" );
 constexpr uint32_t CAMERA_GAME_MODEL_2 = HashStr( "GameModel2" );
 constexpr uint32_t CAMERA_FREE = HashStr( "Free" );
-
-/*-- LIVE DEBUG CODE ----------------------------------------------------------------
-
-    // inlcude this for debug purposes only////////////////
-    SkullbonezWindow* w = SkullbonezWindow::Instance();  //
-    char b[20];											 //
-    itoa((int)(DEBUG_VARIABLE), b, 10);					 //
-    w->SetTitleText(b);									 //
-    ///////////////////////////////////////////////////////
-
-    // include this for debug purposes only////
-    #include "SkullbonezWindow.h"		     //
-    using namespace SkullbonezCore::Basics;  //
-
-
-    ///////////////////////////////////////////
-
--- END LIVE DEBUG CODE ------------------------------------------------------------*/

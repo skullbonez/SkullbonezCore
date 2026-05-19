@@ -9,6 +9,7 @@
 #include "SkullbonezGeometricMath.h"
 #include "SkullbonezIMesh.h"
 #include "SkullbonezIShader.h"
+#include <vector>
 
 
 // --- Usings ---

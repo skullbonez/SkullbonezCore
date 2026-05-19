@@ -418,19 +418,6 @@ void CameraCollection::SetViewMatrix( const Camera& cCameraData )
 }
 
 
-float CameraCollection::DEBUG_GetViewMag()
-{
-    return ( Vector::Distance( m_cameraArray[m_selectedCamera].m_position,
-                               m_cameraArray[m_selectedCamera].m_view ) );
-}
-
-
-float CameraCollection::DEBUG_GetViewMagTarget()
-{
-    return m_cameraArray[m_selectedCamera].m_viewMagnitude;
-}
-
-
 int CameraCollection::FindIndex( uint32_t hash )
 {
     for ( int count = 0; count < m_arrayPosition; ++count )
