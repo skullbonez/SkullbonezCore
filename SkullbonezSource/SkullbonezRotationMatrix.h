@@ -30,6 +30,7 @@ class RotationMatrix
     void Identity();                              // Sets the matrix back to the identity value
     Vector3 operator*( const Vector3& v ) const;  // Rotation matrix multiplied by vector
     Vector3 operator*=( const Vector3& v ) const; // *= overload
+    Vector3 TransposeMultiply( const Vector3& v ) const; // R^T * v (inverse rotation for orthogonal matrices)
 
   private:
     float m11, m12, m13, m21, m22, m23, m31, m32, m33; // Nine float matrix elements

@@ -84,6 +84,10 @@ class Profiler
     // Call when GL context is destroyed/recreated to invalidate all GPU query state
     void InvalidateGpuQueries();
 
+    // Wipes the marker registry at the start of the next frame so stale markers disappear.
+    // Safe to call mid-frame (deferred until FrameBegin). No-op when profiling is disabled.
+    void ScheduleReset();
+
     int MarkerCount() const
     {
         return m_markerCount;
@@ -126,6 +130,7 @@ class Profiler
     int64_t m_lastAvgTicks;
     bool m_inFrame;
     int m_warmupFrames; // frames remaining in warmup window; ring-buffer stats not recorded when > 0
+    bool m_resetPending; // set by ScheduleReset(); applied at the next FrameBegin()
 };
 
 class ProfilerScope
@@ -218,6 +223,7 @@ class GpuProfilerScope
 
 #define PROFILE_FRAME_BEGIN() ::SkullbonezCore::Basics::Profiler::Instance().FrameBegin()
 #define PROFILE_FRAME_END() ::SkullbonezCore::Basics::Profiler::Instance().FrameEnd()
+#define PROFILE_SCHEDULE_RESET() ::SkullbonezCore::Basics::Profiler::Instance().ScheduleReset()
 
 #else // SKULLBONEZ_PROFILE_ENABLED
 
@@ -229,5 +235,6 @@ class GpuProfilerScope
 #define PROFILE_GPU_SCOPED( name ) ( (void)0 )
 #define PROFILE_FRAME_BEGIN() ( (void)0 )
 #define PROFILE_FRAME_END() ( (void)0 )
+#define PROFILE_SCHEDULE_RESET() ( (void)0 )
 
 #endif // SKULLBONEZ_PROFILE_ENABLED

@@ -4,6 +4,7 @@
 // --- Includes ---
 #include <variant>
 #include "SkullbonezBoundingSphere.h"
+#include "SkullbonezBoundingBox.h"
 
 namespace SkullbonezCore
 {
@@ -18,7 +19,7 @@ namespace CollisionDetection
     exhaustive dispatch via std::visit. Adding a new shape type to this
     variant will cause compiler errors at every unhandled dispatch site.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-using CollisionShape = std::variant<BoundingSphere>;
+using CollisionShape = std::variant<BoundingSphere, BoundingBox>;
 
 /* -- Free-function visitors -----------------------------------------------------------------------------------------------------------------------------------------
 
@@ -72,6 +73,9 @@ inline float GetShapeBoundingRadius( const CollisionShape& shape )
 
 inline float GetShapeTerrainBottomOffset( const CollisionShape& shape )
 {
+    // For all shape types, the terrain bottom offset equals the bounding radius
+    // (the farthest point from the shape's local origin). For a sphere this is
+    // simply the radius. For a box it is the corner distance sqrt(a²+b²+c²).
     return std::visit( []( const auto& s )
                        { return s.GetBoundingRadius(); },
                        shape );

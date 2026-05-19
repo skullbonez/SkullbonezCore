@@ -34,9 +34,13 @@ class SkullbonezHelper
     static uint32_t sphereInstMesh;                                   // Instanced mesh handle (via Gfx())
     static int sphereVertexCount;                                     // Per-sphere vertex count
     static std::vector<float> sphereInstanceData;                     // Staging buffer for model matrices (16 floats per instance)
+    static uint32_t boxInstMesh;                                      // Instanced mesh handle for box
+    static int boxVertexCount;                                        // Per-box vertex count
+    static std::vector<float> boxInstanceData;                        // Staging buffer for box model matrices
     inline static float sClipPlane[4] = { 0.0f, 1.0f, 0.0f, 1.0e9f }; // default: always pass (GL_CLIP_DISTANCE0 disabled)
 
     static void BuildSphereMesh( int slices, int stacks ); // Generate UV sphere instanced mesh
+    static void BuildBoxMesh();                            // Generate unit cube instanced mesh
 
   public:
     static void StateSetup();                                                                                                                  // Assists in setting up initial open gl state
@@ -44,6 +48,9 @@ class SkullbonezHelper
     static void DrawSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent = false );         // Set up instanced shader uniforms and begin collecting instances
     static void DrawSphereBatchModel( const Matrix4& model );                                                                                  // Append model matrix to instance buffer
     static void DrawSphereBatchEnd();                                                                                                          // Upload instance data and issue single instanced draw
+    static void DrawBoxBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent = false );            // Set up box instanced draw
+    static void DrawBoxBatchModel( const Matrix4& model );                                                                                     // Append box model matrix to instance buffer
+    static void DrawBoxBatchEnd();                                                                                                             // Upload box instance data and issue single instanced draw
     static void DrawDebugVectors( const Matrix4& viewProj, const std::vector<std::pair<Vector3, Vector3>>& lines, float r, float g, float b ); // Draw a batch of world-space line segments (GL only)
     static void ResetGLResources();                                                                                                            // Call after GL context recreated to invalidate cached GL objects
     static void EnsureSphereMesh();                                                                                                            // Ensure sphere instanced mesh is created (for DXR BLAS init)

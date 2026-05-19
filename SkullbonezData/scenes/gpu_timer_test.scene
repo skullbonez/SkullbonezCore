@@ -1,0 +1,16 @@
+# GPU timer recovery test
+# Validates that the GPU profiler column survives a PROFILE_SCHEDULE_RESET.
+#
+# This scene was used to verify the fix for the GPU timer column disappearing
+# after toggling the physics solver. The toggle was done manually (P key) and
+# the profiler overlay was enabled via the debug menu.
+seed 42
+physics on
+text on
+frames 100
+fixed_step
+legacy_balls 5
+screenshot_interval Profile/gpu_timer_test 10
+pipeline_sync on
+camera cam1 500 60 650  600 33 600  0 1 0
+ball test_ball 600 33 600  12.0 50.0 10.0 0.8

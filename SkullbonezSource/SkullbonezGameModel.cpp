@@ -4,6 +4,7 @@
 #include "SkullbonezGeometricStructures.h"
 #include "SkullbonezGeometricMath.h"
 #include "SkullbonezCollisionResponse.h"
+#include "SkullbonezImpulseSolver.h"
 
 
 // --- Usings ---
@@ -83,6 +84,12 @@ const BoundingSphere& GameModel::GetBoundingSphere() const
 BoundingSphere& GameModel::GetBoundingSphere()
 {
     return std::get<BoundingSphere>( m_boundingVolume );
+}
+
+
+bool GameModel::IsBox() const
+{
+    return std::holds_alternative<BoundingBox>( m_boundingVolume );
 }
 
 
@@ -185,6 +192,44 @@ void GameModel::AddBoundingSphere( float fRadius )
 }
 
 
+void GameModel::AddBoundingBox( const Vector3& halfExtents )
+{
+    if ( halfExtents.x <= 0.0f || halfExtents.y <= 0.0f || halfExtents.z <= 0.0f )
+    {
+        throw std::runtime_error( "Bounding box half-extents must all be greater than zero.  (GameModel::AddBoundingBox)" );
+    }
+
+    // Compute box inertia tensor: I_xx = m/3 * (hy² + hz²) for half-extents
+    float mass = m_physicsInfo.GetMass();
+    float hx2 = halfExtents.x * halfExtents.x;
+    float hy2 = halfExtents.y * halfExtents.y;
+    float hz2 = halfExtents.z * halfExtents.z;
+    float mOver3 = mass / 3.0f;
+    Vector3 inertia( mOver3 * ( hy2 + hz2 ),
+                     mOver3 * ( hx2 + hz2 ),
+                     mOver3 * ( hx2 + hy2 ) );
+
+    // Populate physics cache using bounding radius as "radius" (for broadphase)
+    float boundRadius = sqrtf( hx2 + hy2 + hz2 );
+    m_ballPhysics.radius = boundRadius;
+    m_ballPhysics.radiusSq = boundRadius * boundRadius;
+    m_ballPhysics.volume = 8.0f * halfExtents.x * halfExtents.y * halfExtents.z;
+    m_ballPhysics.invVolume = 1.0f / m_ballPhysics.volume;
+    m_ballPhysics.projectedSurfaceArea = ( 4.0f * halfExtents.x * halfExtents.y +
+                                           4.0f * halfExtents.x * halfExtents.z +
+                                           4.0f * halfExtents.y * halfExtents.z ) / 3.0f;
+    m_ballPhysics.dragCoefficient = 1.05f;
+    m_ballPhysics.mass = mass;
+    m_ballPhysics.invMass = 1.0f / mass;
+    m_ballPhysics.rotationalInertia = inertia;
+    m_ballPhysics.invRotationalInertia = Vector3( 1.0f / inertia.x, 1.0f / inertia.y, 1.0f / inertia.z );
+
+    m_physicsInfo.SetRotationalInertia( inertia );
+    m_boundingVolume = BoundingBox( halfExtents, Vector::ZERO_VECTOR );
+    UpdateModelInfo();
+}
+
+
 float GameModel::GetDragCoefficient()
 {
     return m_dragCoefficient;
@@ -220,8 +265,8 @@ float GameModel::GetModelCollisionTime( GameModel& collisionTarget,
     // calculate the ray of the focus
     Ray focusRay = CollisionResponse::CalculateRay( *this, changeInTime );
 
-    // Sphere-only fast path: bypass variant visitor dispatch in hot narrowphase.
-    return GetBoundingSphere().TestCollision( collisionTarget.GetBoundingSphere(), targetRay, focusRay );
+    // Dispatch collision test via the variant visitor (handles sphere-sphere, sphere-box, box-box)
+    return TestShapeCollision( m_boundingVolume, collisionTarget.m_boundingVolume, focusRay, targetRay );
 }
 
 
@@ -234,7 +279,10 @@ void GameModel::CollisionResponseGameModel( GameModel& responseTarget )
     }
 
     // respond to the collision (velocity-only — m_position advancement handled by RunPhysics)
-    CollisionResponse::RespondCollisionGameModels( *this, responseTarget );
+    if ( ImpulseSolver::IsLegacyPhysics() )
+        CollisionResponse::RespondCollisionGameModels( *this, responseTarget );
+    else
+        ImpulseSolver::RespondCollisionGameModels( *this, responseTarget );
 
     // clear response flags so both models can participate in further collisions this frame
     m_isResponseRequired = false;
@@ -244,8 +292,8 @@ void GameModel::CollisionResponseGameModel( GameModel& responseTarget )
 
 void GameModel::StaticOverlapResponseGameModel( GameModel& overlapTarget )
 {
-    float thisRadius = m_ballPhysics.radius;
-    float targetRadius = overlapTarget.m_ballPhysics.radius;
+    float thisRadius = GetShapeBoundingRadius( m_boundingVolume );
+    float targetRadius = GetShapeBoundingRadius( overlapTarget.m_boundingVolume );
 
     Vector3 delta = overlapTarget.m_physicsInfo.GetPosition() - m_physicsInfo.GetPosition();
     float dist = Vector::VectorMag( delta );
@@ -256,9 +304,7 @@ void GameModel::StaticOverlapResponseGameModel( GameModel& overlapTarget )
         return;
     }
 
-    // spheres are overlapping — positional correction only
-    // (skip full velocity response to avoid division by zero in angular
-    // response when relative velocity is near-zero on slow balls)
+    // Objects are overlapping — positional correction only
     Vector3 axis = delta / dist;
     float halfOverlap = ( radii - dist ) * 0.5f;
     m_physicsInfo.SetPosition( m_physicsInfo.GetPosition() - axis * halfOverlap );
@@ -275,7 +321,10 @@ void GameModel::CollisionResponseTerrain( float remainingTimeStep )
     }
 
     // respond to the collision...
-    CollisionResponse::RespondCollisionTerrain( *this, remainingTimeStep );
+    if ( ImpulseSolver::IsLegacyPhysics() )
+        CollisionResponse::RespondCollisionTerrain( *this, remainingTimeStep );
+    else
+        ImpulseSolver::RespondCollisionTerrain( *this, remainingTimeStep );
 
     // update the m_position based on remaining time step
     UpdatePosition( remainingTimeStep );
@@ -293,11 +342,12 @@ bool GameModel::IsResponseRequired()
 
 Matrix4 GameModel::GetModelMatrix()
 {
-    // Natural model transform: T(worldPos) * FromQuaternion(q) * Scale(radius).
+    // Natural model transform: T(worldPos) * FromQuaternion(q) * Scale(size).
     // Sphere mesh local frame is pre-rotated at build time, so no runtime visual
     // yaw compatibility shim is required.
     Matrix4 rotation = Matrix4::FromQuaternion( m_physicsInfo.GetOrientation() );
-    return GetBoundingSphere().GetModelMatrix( m_physicsInfo.GetPosition(), rotation );
+    Vector3 pos = m_physicsInfo.GetPosition();
+    return std::visit( [&]( auto& shape ) { return shape.GetModelMatrix( pos, rotation ); }, m_boundingVolume );
 }
 
 
@@ -384,13 +434,43 @@ float GameModel::GetTerrainCollisionTime( float changeInTime )
     // calculate the ray for the current dynamics object
     m_responseInformation.testingRay = CollisionResponse::CalculateRay( *this, changeInTime );
 
-    // offset the origin by the bounding radius (for spheres, this is the sphere radius)
-    float bottomOffset = m_ballPhysics.radius;
-
     // if out of bounds, no collision has occured
     if ( !m_terrain->IsInBounds( m_physicsInfo.GetPosition().x, m_physicsInfo.GetPosition().z ) )
     {
         return NO_COLLISION;
+    }
+
+    // For boxes, check the lowest vertex against terrain instead of using sphere radius offset.
+    // For spheres, use the classic single-point test.
+    bool isBox = std::holds_alternative<BoundingBox>( m_boundingVolume );
+    float bottomOffset;
+
+    if ( isBox )
+    {
+        // Find the lowest world-space vertex of the OBB
+        const BoundingBox& box = std::get<BoundingBox>( m_boundingVolume );
+        const Vector3& he = box.GetHalfExtents();
+        Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
+        Vector3 pos = m_physicsInfo.GetPosition();
+
+        float lowestY = pos.y;
+        for ( int v = 0; v < 8; ++v )
+        {
+            Vector3 local(
+                ( v & 1 ) ? he.x : -he.x,
+                ( v & 2 ) ? he.y : -he.y,
+                ( v & 4 ) ? he.z : -he.z );
+            Vector3 worldVert = pos + ( rotMat * local );
+            if ( worldVert.y < lowestY )
+            {
+                lowestY = worldVert.y;
+            }
+        }
+        bottomOffset = pos.y - lowestY;
+    }
+    else
+    {
+        bottomOffset = m_ballPhysics.radius;
     }
 
     // Cache-backed terrain lookup: one query returns the exact collision plane and
@@ -510,21 +590,45 @@ void GameModel::DEBUG_SetSphereToTerrain()
         return;
     }
 
-    // get the total m_radius
-    float rad = m_ballPhysics.radius;
-
-    // get the m_height of the m_terrain at the current XZ m_position
-    float m_height = m_terrain->GetTerrainHeightAt( m_physicsInfo.GetPosition().x, m_physicsInfo.GetPosition().z );
-
-    // if we are lower than the m_terrain
-    if ( m_physicsInfo.GetPosition().y - rad < m_height )
+    // For boxes: use the lowest world-space vertex to determine the minimum center height.
+    // For spheres: use the cached radius.
+    float bottomOffset;
+    if ( std::holds_alternative<BoundingBox>( m_boundingVolume ) )
     {
-        // work out the m_position we will update the model to
-        Vector3 updatePos( m_physicsInfo.GetPosition().x,
-                           m_height + rad,
-                           m_physicsInfo.GetPosition().z );
+        const BoundingBox& box = std::get<BoundingBox>( m_boundingVolume );
+        const Vector3& he = box.GetHalfExtents();
+        Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
+        Vector3 pos = m_physicsInfo.GetPosition();
 
-        // update the m_position
+        float lowestY = pos.y;
+        for ( int v = 0; v < 8; ++v )
+        {
+            Vector3 local(
+                ( v & 1 ) ? he.x : -he.x,
+                ( v & 2 ) ? he.y : -he.y,
+                ( v & 4 ) ? he.z : -he.z );
+            Vector3 worldVert = pos + ( rotMat * local );
+            if ( worldVert.y < lowestY )
+            {
+                lowestY = worldVert.y;
+            }
+        }
+        bottomOffset = pos.y - lowestY;
+    }
+    else
+    {
+        bottomOffset = m_ballPhysics.radius;
+    }
+
+    // get the height of the terrain at the current XZ position
+    float terrainH = m_terrain->GetTerrainHeightAt( m_physicsInfo.GetPosition().x, m_physicsInfo.GetPosition().z );
+
+    // if we are lower than the terrain, push up
+    if ( m_physicsInfo.GetPosition().y - bottomOffset < terrainH )
+    {
+        Vector3 updatePos( m_physicsInfo.GetPosition().x,
+                           terrainH + bottomOffset,
+                           m_physicsInfo.GetPosition().z );
         m_physicsInfo.SetPosition( updatePos );
     }
 }

@@ -17,6 +17,9 @@ std::unique_ptr<IShader> SkullbonezHelper::sphereShader;
 uint32_t SkullbonezHelper::sphereInstMesh = 0;
 int SkullbonezHelper::sphereVertexCount = 0;
 std::vector<float> SkullbonezHelper::sphereInstanceData;
+uint32_t SkullbonezHelper::boxInstMesh = 0;
+int SkullbonezHelper::boxVertexCount = 0;
+std::vector<float> SkullbonezHelper::boxInstanceData;
 
 void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
 {
@@ -34,6 +37,11 @@ void SkullbonezHelper::ResetGLResources()
     {
         Gfx().DestroyInstancedMesh( sphereInstMesh );
         sphereInstMesh = 0;
+    }
+    if ( boxInstMesh != 0 )
+    {
+        Gfx().DestroyInstancedMesh( boxInstMesh );
+        boxInstMesh = 0;
     }
 }
 
@@ -157,6 +165,139 @@ void SkullbonezHelper::DrawSphereBatchEnd()
     {
         Gfx().UploadInstanceData( sphereInstMesh, sphereInstanceData.data(), static_cast<int>( sphereInstanceData.size() ) );
         Gfx().DrawInstancedMesh( sphereInstMesh, sphereVertexCount, instanceCount );
+    }
+    Gfx().SetBlend( false );
+}
+
+
+// =============================================================================
+// BOX INSTANCED RENDERING
+// =============================================================================
+//
+// Renders unit cubes [-1,1]³ scaled by half-extents via the model matrix.
+// Uses the same lit_textured_instanced shader as spheres so lighting is
+// consistent. The cube has outward-facing normals and simple planar UV.
+//
+// =============================================================================
+
+
+void SkullbonezHelper::BuildBoxMesh()
+{
+    // A unit cube [-1,1]³ (6 faces × 2 triangles × 3 vertices = 36 vertices).
+    // Each vertex: pos(3), normal(3), uv(2) = 8 floats.
+    //
+    //   Face layout (CCW winding when viewed from outside):
+    //     +X face: normal ( 1, 0, 0)
+    //     -X face: normal (-1, 0, 0)
+    //     +Y face: normal ( 0, 1, 0)
+    //     -Y face: normal ( 0,-1, 0)
+    //     +Z face: normal ( 0, 0, 1)
+    //     -Z face: normal ( 0, 0,-1)
+
+    struct CubeFace
+    {
+        float nx, ny, nz;
+        float v0[3], v1[3], v2[3], v3[3]; // 4 corners (CCW: v0→v1→v2, v0→v2→v3)
+    };
+
+    // clang-format off
+    CubeFace faces[6] = {
+        { 1, 0, 0, { 1,-1,-1}, { 1, 1,-1}, { 1, 1, 1}, { 1,-1, 1} }, // +X
+        {-1, 0, 0, {-1,-1, 1}, {-1, 1, 1}, {-1, 1,-1}, {-1,-1,-1} }, // -X
+        { 0, 1, 0, {-1, 1,-1}, {-1, 1, 1}, { 1, 1, 1}, { 1, 1,-1} }, // +Y
+        { 0,-1, 0, {-1,-1, 1}, {-1,-1,-1}, { 1,-1,-1}, { 1,-1, 1} }, // -Y
+        { 0, 0, 1, {-1,-1, 1}, { 1,-1, 1}, { 1, 1, 1}, {-1, 1, 1} }, // +Z
+        { 0, 0,-1, { 1,-1,-1}, {-1,-1,-1}, {-1, 1,-1}, { 1, 1,-1} }  // -Z
+    };
+    // clang-format on
+
+    std::vector<float> verts;
+    verts.reserve( 36 * 8 );
+
+    for ( int f = 0; f < 6; ++f )
+    {
+        const CubeFace& fc = faces[f];
+        float nx = fc.nx, ny = fc.ny, nz = fc.nz;
+
+        // UV corners for the face (simple planar mapping)
+        float uv[4][2] = { { 0, 0 }, { 0, 1 }, { 1, 1 }, { 1, 0 } };
+        const float* v[4] = { fc.v0, fc.v1, fc.v2, fc.v3 };
+
+        // Triangle 1: v0, v1, v2
+        verts.insert( verts.end(), { v[0][0], v[0][1], v[0][2], nx, ny, nz, uv[0][0], uv[0][1] } );
+        verts.insert( verts.end(), { v[1][0], v[1][1], v[1][2], nx, ny, nz, uv[1][0], uv[1][1] } );
+        verts.insert( verts.end(), { v[2][0], v[2][1], v[2][2], nx, ny, nz, uv[2][0], uv[2][1] } );
+
+        // Triangle 2: v0, v2, v3
+        verts.insert( verts.end(), { v[0][0], v[0][1], v[0][2], nx, ny, nz, uv[0][0], uv[0][1] } );
+        verts.insert( verts.end(), { v[2][0], v[2][1], v[2][2], nx, ny, nz, uv[2][0], uv[2][1] } );
+        verts.insert( verts.end(), { v[3][0], v[3][1], v[3][2], nx, ny, nz, uv[3][0], uv[3][1] } );
+    }
+
+    boxVertexCount = 36;
+
+    int staticAttribSizes[] = { 3, 3, 2 };
+    int instanceAttribSizes[] = { 4, 4, 4, 4 };
+    boxInstMesh = Gfx().CreateInstancedMesh( verts.data(), boxVertexCount, 8, MAX_GAME_MODELS, 16, 3, instanceAttribSizes, 4, staticAttribSizes, 3 );
+
+    boxInstanceData.reserve( MAX_GAME_MODELS * 16 );
+}
+
+
+void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent )
+{
+    if ( boxInstMesh == 0 )
+    {
+        BuildBoxMesh();
+    }
+
+    // Reuse sphere shader (same vertex layout, same lighting model)
+    if ( sphereInstMesh == 0 )
+    {
+        BuildSphereMesh( 25, 25 );
+        sphereShader = Gfx().CreateShader( "shaders/lit_textured_instanced" );
+        sphereShader->Use();
+        sphereShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
+        sphereShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
+        sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
+        sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
+    }
+
+    if ( isTransparent )
+    {
+        Gfx().SetBlend( true );
+    }
+
+    float viewLightPos[4];
+    for ( int i = 0; i < 3; ++i )
+    {
+        viewLightPos[i] = view.m[i] * lightPos[0] + view.m[i + 4] * lightPos[1] + view.m[i + 8] * lightPos[2] + view.m[i + 12] * lightPos[3];
+    }
+    viewLightPos[3] = lightPos[3];
+
+    sphereShader->Use();
+    sphereShader->SetMat4( "uView", view );
+    sphereShader->SetMat4( "uProjection", proj );
+    sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
+    sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
+    boxInstanceData.clear();
+}
+
+
+void SkullbonezHelper::DrawBoxBatchModel( const Matrix4& model )
+{
+    const float* md = model.Data();
+    boxInstanceData.insert( boxInstanceData.end(), md, md + 16 );
+}
+
+
+void SkullbonezHelper::DrawBoxBatchEnd()
+{
+    int instanceCount = static_cast<int>( boxInstanceData.size() ) / 16;
+    if ( instanceCount > 0 )
+    {
+        Gfx().UploadInstanceData( boxInstMesh, boxInstanceData.data(), static_cast<int>( boxInstanceData.size() ) );
+        Gfx().DrawInstancedMesh( boxInstMesh, boxVertexCount, instanceCount );
     }
     Gfx().SetBlend( false );
 }

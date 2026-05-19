@@ -49,6 +49,17 @@ struct SceneBallState
     float inertiaX, inertiaY, inertiaZ;
 };
 
+struct SceneBox
+{
+    char name[64];
+    float posX, posY, posZ;
+    float halfX, halfY, halfZ; // Half-extents
+    float mass;
+    float restitution;
+    float eulerX, eulerY, eulerZ; // Initial orientation in degrees (optional, default 0)
+    bool hasInitOrient;
+};
+
 struct SceneOptions
 {
     bool isPhysicsEnabled = true;
@@ -58,6 +69,7 @@ struct SceneOptions
     unsigned int seed = 0;           // RNG seed (0 = use time-based default)
     int legacyBallCount = 0;         // random legacy-style balls (0 = none)
     float timeScale = 1.0f;          // Physics time multiplier (1.0 = realtime)
+    bool isFixedStep = false;        // If true, each render frame triggers exactly one physics tick at PHYSICS_FIXED_DT
     bool isDebugVectors = false;     // Draw velocity/omega debug arrows
     float trackHeight = -1.0f;       // Height above tracked ball for camera (-1 = no tracking)
     float autoCycleInterval = -1.0f; // Seconds between per-ball screenshots (-1 = disabled)
@@ -81,6 +93,7 @@ struct SceneLoggingOptions
     bool isPerfLogFlush = false;     // Force flush after each perf-log write
     int perfLogFlushInterval = 0;    // Flush perf log every N writes (0 = only at close)
     char rollLogPath[256] = {};      // output path for roll orientation log (empty = none)
+    char physicsLogPath[256] = {};   // output path for full physics state CSV (empty = none)
     bool isVectorLogEnabled = false; // Log velocity/omega correlation CSV
     int vectorLogInterval = 6;       // Write vector log every N frames
     char vectorLogPath[256] = {};    // output path for vector CSV (empty = use default)
@@ -126,6 +139,7 @@ class TestScene
     std::vector<SceneCamera> m_cameras;
     std::vector<SceneBall> m_balls;
     std::vector<SceneBallState> m_ballStates;
+    std::vector<SceneBox> m_boxes;
 
     SceneOptions m_sceneOptions;
     SceneCaptureOptions m_captureOptions;
@@ -151,6 +165,7 @@ class TestScene
     bool IsPerfLogFlushEnabled() const;
     int GetPerfLogFlushInterval() const;
     const char* GetRollLogPath() const;
+    const char* GetPhysicsLogPath() const;
     bool IsVectorLogEnabled() const;
     int GetVectorLogInterval() const;
     const char* GetVectorLogPath() const;
@@ -164,6 +179,7 @@ class TestScene
     int GetScreenshotInterval() const;
     const char* GetScreenshotDir() const;
     float GetTimeScale() const;
+    bool IsFixedStep() const;
     bool IsDebugVectors() const;
     float GetTrackHeight() const;       // Returns tracking camera height above ball (-1 = disabled)
     float GetAutoCycleInterval() const; // Returns per-ball screenshot interval in seconds (-1 = disabled)
@@ -180,6 +196,8 @@ class TestScene
     const SceneBall& GetBall( int index ) const;
     int GetBallStateCount() const;
     const SceneBallState& GetBallState( int index ) const;
+    int GetBoxCount() const;
+    const SceneBox& GetBox( int index ) const;
     bool HasWorldOverride() const;
     float GetWorldGravity() const;
     float GetWorldFluidHeight() const;

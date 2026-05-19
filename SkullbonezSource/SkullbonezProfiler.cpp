@@ -56,7 +56,7 @@ Profiler& Profiler::Instance()
 
 Profiler::Profiler()
     : m_markerCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
-      m_warmupFrames( WARMUP_FRAMES + 1 )
+      m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false )
 {
     LARGE_INTEGER f;
     if ( QueryPerformanceFrequency( &f ) )
@@ -245,17 +245,23 @@ void Profiler::End( const char* fullPath, uint32_t hash )
 
 void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
 {
-    // GPU profiler requires OpenGL — fall back to backend timer on DX12
+    // Prefer the render-backend GPU timer path (DX11/DX12) when the active backend
+    // supports it. This must take priority over the GL path because on a runtime renderer
+    // switch (GL → DX via G-key) the GLAD function pointers remain non-null even though
+    // no GL context is active — causing silent failures if the GL path were chosen.
+    if ( IsGfxReady() && Gfx().SupportsGpuTimers() )
+    {
+        int idx = FindOrRegister( fullPath, hash );
+        Marker& m = m_markers[idx];
+        m.hasGpu = true;
+        m.gpuWrittenThisFrame = true;
+        Gfx().GpuTimerBegin( idx );
+        return;
+    }
+
+    // GL timestamp query path (used when the GL backend is active)
     if ( !glGenQueries )
     {
-        if ( IsGfxReady() && Gfx().SupportsGpuTimers() )
-        {
-            int idx = FindOrRegister( fullPath, hash );
-            Marker& m = m_markers[idx];
-            m.hasGpu = true;
-            m.gpuWrittenThisFrame = true;
-            Gfx().GpuTimerBegin( idx );
-        }
         return;
     }
 
@@ -286,17 +292,20 @@ void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
 
 void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
 {
+    // Same priority rule as GpuBegin: prefer backend timer over GL path.
+    if ( IsGfxReady() && Gfx().SupportsGpuTimers() )
+    {
+        int idx = FindOrRegister( fullPath, hash );
+        Marker& m = m_markers[idx];
+        if ( m.gpuWrittenThisFrame )
+        {
+            Gfx().GpuTimerEnd( idx );
+        }
+        return;
+    }
+
     if ( !glQueryCounter )
     {
-        if ( IsGfxReady() && Gfx().SupportsGpuTimers() )
-        {
-            int idx = FindOrRegister( fullPath, hash );
-            Marker& m = m_markers[idx];
-            if ( m.gpuWrittenThisFrame )
-            {
-                Gfx().GpuTimerEnd( idx );
-            }
-        }
         return;
     }
 
@@ -314,30 +323,45 @@ void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
 
 void Profiler::ReadPendingGpuResults()
 {
-    if ( !glGetQueryObjectuiv )
+    // Prefer backend GPU timer path (DX11/DX12) — same priority rule as GpuBegin/GpuEnd.
+    if ( IsGfxReady() && Gfx().SupportsGpuTimers() )
     {
-        if ( IsGfxReady() && Gfx().SupportsGpuTimers() )
+        int readCount = 0;
+        for ( int i = 0; i < m_markerCount; ++i )
         {
-            for ( int i = 0; i < m_markerCount; ++i )
+            Marker& m = m_markers[i];
+            if ( !m.hasGpu )
             {
-                Marker& m = m_markers[i];
-                if ( !m.hasGpu )
+                continue;
+            }
+            float ms = 0.0f;
+            if ( Gfx().GpuTimerRead( i, ms ) )
+            {
+                ++readCount;
+                m.gpuLastFrameMs = ms;
+                m.gpuRingMs[m.gpuRingHead] = ms;
+                m.gpuRingHead = ( m.gpuRingHead + 1 ) % RING_SIZE;
+                if ( m.gpuRingFilled < RING_SIZE )
                 {
-                    continue;
+                    ++m.gpuRingFilled;
                 }
-                float ms = 0.0f;
-                if ( Gfx().GpuTimerRead( i, ms ) )
+                // Recompute the running average here so the display column recovers
+                // immediately after a ScheduleReset() (e.g. P-key mode switch) without
+                // waiting for the 500ms moving-average refresh or the warmup window.
+                double gsum = 0.0;
+                for ( int k = 0; k < m.gpuRingFilled; ++k )
                 {
-                    m.gpuLastFrameMs = ms;
-                    m.gpuRingMs[m.gpuRingHead] = ms;
-                    m.gpuRingHead = ( m.gpuRingHead + 1 ) % RING_SIZE;
-                    if ( m.gpuRingFilled < RING_SIZE )
-                    {
-                        ++m.gpuRingFilled;
-                    }
+                    gsum += m.gpuRingMs[k];
                 }
+                m.gpuAvgMs = static_cast<float>( gsum / m.gpuRingFilled );
             }
         }
+        return;
+    }
+
+    // GL timestamp query readback path
+    if ( !glGetQueryObjectuiv )
+    {
         return;
     }
 
@@ -374,13 +398,19 @@ void Profiler::ReadPendingGpuResults()
 
             m.gpuLastFrameMs = gpuMs;
 
-            // Commit to GPU ring buffer
+            // Commit to GPU ring buffer and recompute average immediately
             m.gpuRingMs[m.gpuRingHead] = gpuMs;
             m.gpuRingHead = ( m.gpuRingHead + 1 ) % RING_SIZE;
             if ( m.gpuRingFilled < RING_SIZE )
             {
                 ++m.gpuRingFilled;
             }
+            double gsum = 0.0;
+            for ( int k = 0; k < m.gpuRingFilled; ++k )
+            {
+                gsum += m.gpuRingMs[k];
+            }
+            m.gpuAvgMs = static_cast<float>( gsum / m.gpuRingFilled );
 
             m.gpuReadCursor = ( m.gpuReadCursor + 1 ) % GPU_QUERY_DEPTH;
         }
@@ -430,8 +460,24 @@ void Profiler::InvalidateGpuQueries()
 }
 
 
+void Profiler::ScheduleReset()
+{
+    m_resetPending = true;
+}
+
+
 void Profiler::FrameBegin()
 {
+    if ( m_resetPending )
+    {
+        // Wipe GPU query state on all current markers, then clear the registry.
+        // InvalidateGpuQueries also calls Gfx().GpuTimerInvalidate() and resets warmup.
+        InvalidateGpuQueries();
+        m_markerCount  = 0;
+        m_lastAvgTicks = 0;
+        m_resetPending = false;
+    }
+
     if ( m_inFrame )
     {
         AbortMismatch( "FrameBegin called twice without FrameEnd", nullptr );

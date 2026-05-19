@@ -60,7 +60,7 @@ using namespace SkullbonezCore::Math;
 RigidBody::RigidBody()
 {
     // set all members to default values
-    m_frictionCoefficient = 0.1f;
+    m_frictionCoefficient = 0.5f;
     m_invertedMass = 0.1f;
     m_coefficientRestitution = 0.9f;
     m_mass = 1.0f;
@@ -173,6 +173,10 @@ void RigidBody::SetChangeInAngularVelocity( const Vector3& vAngularVelocity )
 }
 
 
+// Flush the deferred angular-velocity buffer into the live angular velocity,
+// then clamp to prevent numerical explosion. The deferred buffer pattern ensures
+// that when two objects collide simultaneously, both responses are computed from
+// the pre-collision state before either body's ω is modified.
 void RigidBody::ApplyChangeInAngularVelocity()
 {
     m_angularVelocity += m_changeInAngularVelocity;
@@ -181,36 +185,22 @@ void RigidBody::ApplyChangeInAngularVelocity()
 }
 
 
-// Clamp angular velocity to prevent numerical explosion.
+// Clamp angular velocity magnitude to prevent numerical explosion.
 // Without this limit, a series of rapid collisions could accumulate
 // unrealistically fast spin that destabilizes the simulation.
+// Uses magnitude-based clamping so the limit is isotropic (axis-independent).
 void RigidBody::ThrottleAngularVelocity()
 {
-    if ( m_angularVelocity.x > Cfg().velocityLimit )
+    float magSq = m_angularVelocity.x * m_angularVelocity.x +
+                  m_angularVelocity.y * m_angularVelocity.y +
+                  m_angularVelocity.z * m_angularVelocity.z;
+    float limitSq = Cfg().velocityLimit * Cfg().velocityLimit;
+    if ( magSq > limitSq )
     {
-        m_angularVelocity.x = Cfg().velocityLimit;
-    }
-    else if ( m_angularVelocity.x < -Cfg().velocityLimit )
-    {
-        m_angularVelocity.x = -Cfg().velocityLimit;
-    }
-
-    if ( m_angularVelocity.y > Cfg().velocityLimit )
-    {
-        m_angularVelocity.y = Cfg().velocityLimit;
-    }
-    else if ( m_angularVelocity.y < -Cfg().velocityLimit )
-    {
-        m_angularVelocity.y = -Cfg().velocityLimit;
-    }
-
-    if ( m_angularVelocity.z > Cfg().velocityLimit )
-    {
-        m_angularVelocity.z = Cfg().velocityLimit;
-    }
-    else if ( m_angularVelocity.z < -Cfg().velocityLimit )
-    {
-        m_angularVelocity.z = -Cfg().velocityLimit;
+        float scale = Cfg().velocityLimit / sqrtf( magSq );
+        m_angularVelocity.x *= scale;
+        m_angularVelocity.y *= scale;
+        m_angularVelocity.z *= scale;
     }
 }
 
@@ -221,6 +211,9 @@ void RigidBody::SetChangeInLinearVelocity( const Vector3& vLinearVelocity )
 }
 
 
+// Flush the deferred linear-velocity buffer into the live linear velocity.
+// See ApplyChangeInAngularVelocity() for why changes are buffered and applied
+// in a separate step rather than directly during collision resolution.
 void RigidBody::ApplyChangeInLinearVelocity()
 {
     m_linearVelocity += m_changeInLinearVelocity;
@@ -395,6 +388,9 @@ const Vector3& RigidBody::GetRotationalInertia()
 
 void RigidBody::SetRotationalInertia( const Vector3& vRotationalInertia )
 {
+    // Each diagonal component I_x, I_y, I_z is used as a divisor when computing
+    // angular acceleration: α = τ / I. A zero component would cause division by
+    // zero in every subsequent physics step — guard against it here.
     if ( !vRotationalInertia.x ||
          !vRotationalInertia.y ||
          !vRotationalInertia.z )

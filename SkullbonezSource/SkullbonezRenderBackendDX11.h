@@ -102,6 +102,43 @@ struct BlendKeyHashDX11
 };
 
 
+// GPU timer constants — must match Profiler::MAX_MARKERS
+inline constexpr int DX11_TIMER_MARKERS = 64;
+inline constexpr int DX11_TIMER_FRAMES  = 2; // one-frame-lag double buffer
+
+// Double-buffered D3D11 GPU timestamp query state.
+// DX11 timestamp queries use ID3D11Query rather than a query heap.
+// Each frame: one TIMESTAMP_DISJOINT wraps all per-marker TIMESTAMP begin/end pairs.
+// Results are read non-blocking one frame later via GetData(DONOTFLUSH).
+//
+// Timestamp query pattern:
+//   GpuTimerBegin(i) -> context->End(ts[write][i][0])   (DX11 "begin" = first End)
+//   GpuTimerEnd(i)   -> context->End(ts[write][i][1])
+//   Present()        -> context->End(disjoint[write]) -> try read disjoint[read] -> advance write
+struct GpuTimerStateDX11
+{
+    // Disjoint queries — one per double-buffer slot
+    // D3D11_QUERY_TIMESTAMP_DISJOINT provides clock frequency + disjoint flag per frame.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_query
+    ID3D11Query* disjoint[DX11_TIMER_FRAMES]                  = {};
+
+    // Per-marker timestamp pairs — [frame][markerIdx][0=begin, 1=end]
+    // Each marker gets two D3D11_QUERY_TIMESTAMP queries per double-buffer slot.
+    // DX11 timestamps require End() for both begin and end (no Begin() for TIMESTAMP).
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_query
+    ID3D11Query* ts[DX11_TIMER_FRAMES][DX11_TIMER_MARKERS][2] = {};
+
+    // Results read back from the previous frame's queries
+    float resultMs[DX11_TIMER_MARKERS]    = {};
+    bool  resultValid[DX11_TIMER_MARKERS] = {};
+
+    bool initialized              = false;
+    int  writeIdx                 = 0;    // current write frame slot (0 or 1)
+    bool disjointBegunThisFrame   = false; // true once Begin(disjoint[writeIdx]) has been issued
+    bool frameReady[DX11_TIMER_FRAMES] = {}; // true when a slot has been written and is pending readback
+};
+
+
 /* -- RenderBackendDX11 -------------------------------------------------------------------------------------------------------------------------------------------
 
     DirectX 11 implementation of the render backend interface.
@@ -155,6 +192,9 @@ class RenderBackendDX11 : public IRenderBackend
     void CreateStateObjects();
     void ApplyRasterizerState();
     void ApplyDepthState();
+    GpuTimerStateDX11 m_gpuTimers;
+    void InitGpuTimers();
+    void ShutdownGpuTimers();
 
   public:
     RenderBackendDX11();
@@ -284,6 +324,12 @@ class RenderBackendDX11 : public IRenderBackend
 
     uint32_t RegisterSRV( ID3D11ShaderResourceView* srv );
     void UnregisterSRV( uint32_t handle );
+
+    bool SupportsGpuTimers() const override;
+    void GpuTimerBegin( int markerIdx ) override;
+    void GpuTimerEnd( int markerIdx ) override;
+    void GpuTimerInvalidate() override;
+    bool GpuTimerRead( int markerIdx, float& outMs ) override;
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

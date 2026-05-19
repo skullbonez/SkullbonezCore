@@ -1,5 +1,6 @@
 // --- Includes ---
 #include "SkullbonezBoundingSphere.h"
+#include "SkullbonezBoundingBox.h"
 #include <immintrin.h> // SSE intrinsics for scale pass in GetModelMatrix
 
 
@@ -21,6 +22,27 @@ BoundingSphere::BoundingSphere( float fRadius,
 }
 
 
+/* --- Swept Sphere vs Sphere Collision Test (Continuous Collision Detection) ---
+ *
+ * Finds the earliest time t ∈ [0,1] at which two moving spheres first touch.
+ *
+ * Setup:
+ *   d = focus.center - target.center   (relative center vector at frame start)
+ *   v = focus.velocity - target.velocity  (relative velocity this frame)
+ *   R = r_focus + r_target               (sum of radii; contact when centers are this far apart)
+ *
+ * The spheres touch when |d + v·t|² = R²
+ * Expanding:  (v·v)t² + 2(d·v)t + (d·d - R²) = 0
+ *             with a = v·v,  b = d·v,  c = d·d - R²
+ * Solution:   t = (-b - sqrt(b²-ac)) / a   (earlier root = first contact)
+ *
+ * Early rejection checks (cheapest first):
+ *   1. No relative motion (|v|² ≈ 0) → no sweep, return NO_COLLISION
+ *   2. Already overlapping (|d|² ≤ R²) → static resolution handles it, skip sweep
+ *   3. Moving apart (d·v ≥ 0) → separating this frame, no impact possible
+ *   4. Reachability cull: even at full frame travel they can't reach R apart
+ *   5. Negative discriminant → trajectories don't intersect in 3D space
+ */
 float BoundingSphere::CollisionDetect( const BoundingSphere& target,
                                        const Ray& targetRay,
                                        const Ray& focusRay ) const
@@ -154,6 +176,7 @@ float BoundingSphere::GetVolume() const
 
 float BoundingSphere::GetSubmergedVolumePercent( float m_fluidSurfaceHeight ) const
 {
+    // Compare the sphere's bottom (center.y - r) and top (center.y + r) against the fluid surface.
     if ( m_position.y - m_radius >= m_fluidSurfaceHeight )
     {
         // not touching fluid
@@ -167,10 +190,14 @@ float BoundingSphere::GetSubmergedVolumePercent( float m_fluidSurfaceHeight ) co
     else
     {
         /*
-            Partially submerged in fluid, return submerged proportion
+            Partially submerged: compute the volume of a spherical cap.
 
-            Volume for partially submerged sphere:
-            v = 1/3 * PI * (3r-y)y^2
+            A "spherical cap" is the dome-shaped region of a sphere below a cutting plane.
+            If y = depth of the cap (distance from the bottom of the sphere to the waterline):
+
+                V_cap = π/3 * (3r - y) * y²   (standard formula for spherical cap volume)
+
+            The submerged percentage is V_cap / V_sphere.
 
             Formula from: http://vps.arachnoid.com/calculus/volume1.html
         */
@@ -193,4 +220,47 @@ float BoundingSphere::GetProjectedSurfaceArea() const
 {
     // Area of circle = PI * r^2
     return _PI * m_radius * m_radius;
+}
+
+
+// Sphere vs Box swept test: approximate box as bounding sphere for broadphase.
+// Precise OBB-sphere tests are done in the narrowphase collision response.
+float BoundingSphere::TestCollision( const BoundingBox& target, const Ray& targetRay, const Ray& focusRay ) const
+{
+    float combinedRadius = m_radius + target.GetBoundingRadius();
+    float combinedRadiusSq = combinedRadius * combinedRadius;
+
+    Vector3 totalMovement = targetRay.vector3 - focusRay.vector3;
+    float totalMovementSq = VectorMagSquared( totalMovement );
+
+    if ( totalMovementSq < TOLERANCE )
+    {
+        Vector3 delta = ( targetRay.origin + target.GetPosition() ) -
+                        ( focusRay.origin + m_position );
+        if ( VectorMagSquared( delta ) <= combinedRadiusSq )
+        {
+            return 0.0f;
+        }
+        return NO_COLLISION;
+    }
+
+    Vector3 d = ( focusRay.origin + m_position ) - ( targetRay.origin + target.GetPosition() );
+    float totalMovementMag = sqrtf( totalMovementSq );
+    Vector3 moveDir = totalMovement / totalMovementMag;
+
+    float dDotMoveDir = d * moveDir;
+    float discriminant = dDotMoveDir * dDotMoveDir - ( VectorMagSquared( d ) - combinedRadiusSq );
+
+    if ( discriminant < 0.0f )
+    {
+        return NO_COLLISION;
+    }
+
+    float t = ( dDotMoveDir - sqrtf( discriminant ) ) / totalMovementMag;
+    if ( t < 0.0f || t > 1.0f )
+    {
+        return NO_COLLISION;
+    }
+
+    return t;
 }

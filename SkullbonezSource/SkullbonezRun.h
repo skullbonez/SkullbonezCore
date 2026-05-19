@@ -44,7 +44,7 @@ struct RunPerfLogState
     bool isPerfLogFlushEnabled = false; // Flush perf CSV on each write (diagnostic mode)
     int perfLogFlushInterval = 0;       // Flush perf CSV every N writes (0 = flush on close only)
     int perfLogWritesSinceFlush = 0;    // Buffered perf-log write count since last flush
-    FILE* rollLogFile = nullptr;        // Open handle for roll orientation log (empty = none)
+    FILE* rollLogFile = nullptr;        // Open handle for roll orientation log (null = disabled)
 };
 
 struct RunVectorLogState
@@ -78,6 +78,7 @@ struct RunTimerState
     float rollingRenderTime = 0.0f;  // Smoothed render time accumulator
     float rollingFpsTime = 0.0f;     // Smoothed FPS time accumulator
     float timeSinceLastRender = 0.0f;
+    float physicsAccumulator = 0.0f; // Accumulated time for fixed-step physics
 };
 
 struct RunSubsystemState
@@ -115,6 +116,7 @@ struct RunSceneState
     int currentFrame = 0;       // Current frame counter for scene mode
     int modelCount = 0;         // Number of models in the active scene
     float timeScale = 1.0f;     // Physics time multiplier (1.0 = realtime)
+    bool isFixedStep = false;   // One physics tick per render frame at PHYSICS_FIXED_DT (deterministic)
 };
 
 struct RunScreenshotState
@@ -160,6 +162,7 @@ class SkullbonezRun
 
   private:
     std::vector<std::string> m_sceneQueue; // Ordered list of scene paths ("" = legacy mode)
+    bool m_legacyPhysics = false;          // When true, route physics to legacy sphere-only solver
 
     RunPerfLogState m_perfLogState;             // Perf/test logging paths, files, and flush policy
     RunVectorLogState m_vectorLogState;         // Vector logging controls and file handle
@@ -197,7 +200,7 @@ class SkullbonezRun
     void SwitchRenderer( RuntimeRendererType target ); // Rebuild render backend/resources while preserving simulation state
 
   public:
-    SkullbonezRun( std::vector<std::string> sceneQueue ); // Constructor (scene queue; empty string = legacy mode)
+    SkullbonezRun( std::vector<std::string> sceneQueue, bool legacyPhysics = false ); // Constructor (scene queue; empty string = legacy mode)
     ~SkullbonezRun();                                     // Default destructor
     void Initialise();                                    // Initialises shared resources and loads first scene
     void Run();                                           // Runs all scenes in sequence — main message loop

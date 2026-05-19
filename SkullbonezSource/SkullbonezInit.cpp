@@ -187,6 +187,14 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
 
     Cfg().Load( ( std::string( DATA_ROOT ) + "engine.cfg" ).c_str() );
 
+    // Parse --legacy-physics flag (use original sphere-only ad-hoc solver for comparison)
+    bool legacyPhysics = false;
+    if ( szCmdLine && strstr( szCmdLine, "--legacy-physics" ) )
+    {
+        legacyPhysics = true;
+        fprintf( stdout, "[physics] Legacy sphere-only solver enabled.\n" );
+    }
+
     // Parse --switch-interval N (auto-cycle renderers every N seconds, for hot-switch testing)
     float switchInterval = -1.0f;
     if ( szCmdLine )
@@ -242,7 +250,7 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
     {
         // Create the Skullbonez Core instance (scoped so destructor runs
         // BEFORE GL context deletion — ensures GL cleanup calls work)
-        SkullbonezRun cRun( std::move( sceneList ) );
+        SkullbonezRun cRun( std::move( sceneList ), legacyPhysics );
         if ( switchInterval > 0.0f )
         {
             cRun.SetRendererSwitchInterval( switchInterval );
