@@ -46,6 +46,7 @@
 #include "SkullbonezCollisionResponse.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezCollisionShape.h"
+#include "SkullbonezProfiler.h"
 
 
 // --- Usings ---
@@ -92,6 +93,7 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 // =============================================================================
 void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel, float changeInTime )
 {
+    PROFILE_SCOPED( "Frame/Physics/Terrain/Legacy" );
     std::visit( [&]( const auto& shape )
                 {
         using ShapeT = std::decay_t<decltype( shape )>;
@@ -347,6 +349,7 @@ void CollisionResponse::RespondCollisionTerrain( GameModel& gameModel, float cha
 void CollisionResponse::RespondCollisionGameModels( GameModel& gameModel1,
                                                     GameModel& gameModel2 )
 {
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/Legacy" );
     std::visit( [&]( const auto& shape1, const auto& shape2 )
                 {
         using Shape1T = std::decay_t<decltype( shape1 )>;

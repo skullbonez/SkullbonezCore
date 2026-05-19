@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <string>
 #include <algorithm>
+#include <cstring>
 
 #pragma comment( lib, "d3d11.lib" )
 #pragma comment( lib, "dxgi.lib" )
@@ -366,6 +367,9 @@ bool RenderBackendDX11::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-rssetviewports
     m_context->RSSetViewports( 1, &vp );
 
+    // Initialise GPU timestamp query objects for profiler integration.
+    InitGpuTimers();
+
     return true;
 }
 
@@ -376,6 +380,9 @@ void RenderBackendDX11::Shutdown()
     {
         return;
     }
+
+    // Release GPU timer query objects before tearing down the device.
+    ShutdownGpuTimers();
 
     // Flip-model swap chains are destroyed lazily on D3D11. ClearState + Flush ensures
     // all bindings/releases are processed before we destroy this backend so the next
@@ -546,6 +553,67 @@ void RenderBackendDX11::Shutdown()
 
 void RenderBackendDX11::Present()
 {
+    // --- GPU Timer frame end ---
+    // End the disjoint query for this frame (if any GPU markers were recorded),
+    // then non-blocking read back the previous frame's results.
+    // Must happen before Present() so all GPU commands for this frame are submitted.
+    if ( m_gpuTimers.initialized && m_gpuTimers.disjointBegunThisFrame )
+    {
+        // Close the disjoint wrapper — GPU will fill in Frequency + Disjoint when done.
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-end
+        m_context->End( m_gpuTimers.disjoint[m_gpuTimers.writeIdx] );
+        m_gpuTimers.frameReady[m_gpuTimers.writeIdx] = true;
+        m_gpuTimers.disjointBegunThisFrame = false;
+
+        // Non-blocking readback of the OTHER frame slot (one-frame lag).
+        //
+        // Root cause of the post-reset disappearance: we just called End(disjoint[writeIdx])
+        // above, which queues a new command into the immediate context. With
+        // D3D11_ASYNC_GETDATA_DONOTFLUSH, D3D11 returns S_FALSE for ANY query —
+        // including the previous frame's fully-GPU-complete data — whenever the context
+        // has unflushed work pending. Calling Flush() first submits that queued End command
+        // so the driver sees a clean context and returns S_OK for the prior frame's data.
+        //
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-getdata
+        m_context->Flush();
+
+        int readIdx = 1 - m_gpuTimers.writeIdx;
+        if ( m_gpuTimers.frameReady[readIdx] )
+        {
+            D3D11_QUERY_DATA_TIMESTAMP_DISJOINT disjointData = {};
+            HRESULT hr = m_context->GetData( m_gpuTimers.disjoint[readIdx],
+                                             &disjointData, sizeof( disjointData ),
+                                             D3D11_ASYNC_GETDATA_DONOTFLUSH );
+            if ( hr == S_OK && !disjointData.Disjoint && disjointData.Frequency > 0 )
+            {
+                // Disjoint query succeeded — read all individual timestamp pairs.
+                std::memset( m_gpuTimers.resultValid, 0, sizeof( m_gpuTimers.resultValid ) );
+                for ( int i = 0; i < DX11_TIMER_MARKERS; ++i )
+                {
+                    UINT64 t0 = 0, t1 = 0;
+                    HRESULT h0 = m_context->GetData( m_gpuTimers.ts[readIdx][i][0],
+                                                     &t0, sizeof( t0 ),
+                                                     D3D11_ASYNC_GETDATA_DONOTFLUSH );
+                    HRESULT h1 = m_context->GetData( m_gpuTimers.ts[readIdx][i][1],
+                                                     &t1, sizeof( t1 ),
+                                                     D3D11_ASYNC_GETDATA_DONOTFLUSH );
+                    if ( h0 == S_OK && h1 == S_OK && t1 >= t0 )
+                    {
+                        m_gpuTimers.resultMs[i]    = static_cast<float>(
+                            static_cast<double>( t1 - t0 ) / static_cast<double>( disjointData.Frequency ) * 1000.0 );
+                        m_gpuTimers.resultValid[i] = true;
+                    }
+                }
+                m_gpuTimers.frameReady[readIdx] = false;
+            }
+            // On S_FALSE (data genuinely not ready), leave frameReady[readIdx] = true so
+            // the slot is retried next frame rather than being silently discarded.
+        }
+
+        // Advance write slot for next frame
+        m_gpuTimers.writeIdx = 1 - m_gpuTimers.writeIdx;
+    }
+
     // Present the completed frame to the display. Present() flips the back buffer to the front
     // buffer so the user sees the rendered image. Sync interval is configurable so perf scenes
     // can disable V-Sync without changing backend-specific code.
@@ -1337,6 +1405,209 @@ void RenderBackendDX11::DestroyDynamicVB( uint32_t handle )
         dvb.vb->Release();
         dvb.vb = nullptr;
     }
+}
+
+
+// =============================================================================
+// GPU Timers (DX11)
+// =============================================================================
+//
+// DX11 uses ID3D11Query objects with D3D11_QUERY_TIMESTAMP_DISJOINT +
+// D3D11_QUERY_TIMESTAMP. A double-buffer scheme (2 slots) avoids blocking
+// the CPU to wait for GPU results:
+//
+//   Frame N  : Begin disjoint[0], record timestamps into ts[0][*][*], End disjoint[0]
+//   Frame N+1: Begin disjoint[1], record into ts[1][*][*], End disjoint[1],
+//              non-blocking read of disjoint[0] + ts[0][*][*] -> resultMs[]
+//   ...
+//
+// D3D11_QUERY_TIMESTAMP_DISJOINT wraps all per-frame timestamp queries.
+// It provides:
+//   - Frequency: GPU ticks per second (use to convert delta ticks -> ms)
+//   - Disjoint:  TRUE if timestamps are unreliable this frame (clock drift, etc.)
+//
+// D3D11_QUERY_TIMESTAMP uses End() (not Begin()) for both "begin" and "end"
+// because TIMESTAMP queries are point-in-time not interval.
+//
+// Readback is non-blocking: D3D11_ASYNC_GETDATA_DONOTFLUSH is passed to
+// GetData() so we never stall the CPU. If the GPU hasn't finished yet,
+// the marker simply doesn't get an update this frame.
+//
+// Docs:
+//   https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_query
+//   https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-getdata
+// =============================================================================
+
+
+void RenderBackendDX11::InitGpuTimers()
+{
+    if ( !m_device )
+    {
+        return;
+    }
+
+    // --- Disjoint queries (one per double-buffer slot) ---
+    // D3D11_QUERY_TIMESTAMP_DISJOINT must wrap all TIMESTAMP queries in a frame.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_query
+    D3D11_QUERY_DESC disjointDesc = {};
+    disjointDesc.Query     = D3D11_QUERY_TIMESTAMP_DISJOINT;
+    disjointDesc.MiscFlags = 0;
+    for ( int f = 0; f < DX11_TIMER_FRAMES; ++f )
+    {
+        if ( FAILED( m_device->CreateQuery( &disjointDesc, &m_gpuTimers.disjoint[f] ) ) )
+        {
+            ShutdownGpuTimers(); // partial init — clean up and bail
+            return;
+        }
+    }
+
+    // --- Timestamp queries (begin + end per marker per double-buffer slot) ---
+    // DX11 TIMESTAMP queries record a single point in time via End().
+    // A pair (begin, end) per marker gives elapsed GPU ticks between the two calls.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_query
+    D3D11_QUERY_DESC tsDesc = {};
+    tsDesc.Query     = D3D11_QUERY_TIMESTAMP;
+    tsDesc.MiscFlags = 0;
+    for ( int f = 0; f < DX11_TIMER_FRAMES; ++f )
+    {
+        for ( int m = 0; m < DX11_TIMER_MARKERS; ++m )
+        {
+            for ( int b = 0; b < 2; ++b ) // 0 = begin, 1 = end
+            {
+                if ( FAILED( m_device->CreateQuery( &tsDesc, &m_gpuTimers.ts[f][m][b] ) ) )
+                {
+                    ShutdownGpuTimers();
+                    return;
+                }
+            }
+        }
+    }
+
+    m_gpuTimers.initialized = true;
+}
+
+
+void RenderBackendDX11::ShutdownGpuTimers()
+{
+    for ( int f = 0; f < DX11_TIMER_FRAMES; ++f )
+    {
+        if ( m_gpuTimers.disjoint[f] )
+        {
+            m_gpuTimers.disjoint[f]->Release();
+            m_gpuTimers.disjoint[f] = nullptr;
+        }
+        for ( int m = 0; m < DX11_TIMER_MARKERS; ++m )
+        {
+            for ( int b = 0; b < 2; ++b )
+            {
+                if ( m_gpuTimers.ts[f][m][b] )
+                {
+                    m_gpuTimers.ts[f][m][b]->Release();
+                    m_gpuTimers.ts[f][m][b] = nullptr;
+                }
+            }
+        }
+    }
+    m_gpuTimers.initialized = false;
+}
+
+
+bool RenderBackendDX11::SupportsGpuTimers() const
+{
+    return m_gpuTimers.initialized;
+}
+
+
+void RenderBackendDX11::GpuTimerBegin( int markerIdx )
+{
+    if ( !m_gpuTimers.initialized || markerIdx < 0 || markerIdx >= DX11_TIMER_MARKERS )
+    {
+        return;
+    }
+
+    // Begin the TIMESTAMP_DISJOINT query lazily on the first GPU timer call this frame.
+    // The disjoint query must wrap ALL timestamp queries issued in the same frame.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-begin
+    if ( !m_gpuTimers.disjointBegunThisFrame )
+    {
+        m_context->Begin( m_gpuTimers.disjoint[m_gpuTimers.writeIdx] );
+        m_gpuTimers.disjointBegunThisFrame = true;
+    }
+
+    // Issue the "begin" timestamp as a point-in-time query via End().
+    // DX11 TIMESTAMP queries do not use Begin() — calling End() records the GPU clock at
+    // the moment the GPU processes this command.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-end
+    m_context->End( m_gpuTimers.ts[m_gpuTimers.writeIdx][markerIdx][0] );
+}
+
+
+void RenderBackendDX11::GpuTimerEnd( int markerIdx )
+{
+    // Only issue if the disjoint query is open (i.e. GpuTimerBegin was called this frame).
+    if ( !m_gpuTimers.initialized || !m_gpuTimers.disjointBegunThisFrame )
+    {
+        return;
+    }
+    if ( markerIdx < 0 || markerIdx >= DX11_TIMER_MARKERS )
+    {
+        return;
+    }
+
+    // Issue the "end" timestamp — records GPU clock when this draw-command-stream point is reached.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-end
+    m_context->End( m_gpuTimers.ts[m_gpuTimers.writeIdx][markerIdx][1] );
+}
+
+
+void RenderBackendDX11::GpuTimerInvalidate()
+{
+    // Reset frame-level bookkeeping without clearing cached results.
+    // resultMs and resultValid are intentionally PRESERVED — the profiler zeroes its own
+    // ring buffers (gpuRingFilled=0) and relies on GpuTimerRead() to re-seed them.
+    // Because GetData() with DONOTFLUSH returns S_FALSE for many frames after a reset
+    // (GPU pipeline depth means the first post-reset disjoint query takes ~8 frames to
+    // complete), zeroing resultValid here would leave the GPU column invisible until
+    // that first S_OK arrives. Preserving the stale values lets ReadPendingGpuResults
+    // immediately see data and re-fill the profiler ring, keeping the column visible.
+    // The next successful GetData() (S_OK in Present) overwrites all entries with fresh
+    // data via memset+fill, so stale values are naturally replaced within a few frames.
+    std::memset( m_gpuTimers.frameReady,  0, sizeof( m_gpuTimers.frameReady ) );
+    m_gpuTimers.disjointBegunThisFrame = false;
+
+    // Reset writeIdx to 0 and drain any pending disjoint queries.
+    // If a disjoint query has had End() called but was never consumed via GetData(),
+    // calling Begin() again is a D3D11 spec violation that silently corrupts all
+    // subsequent readbacks. Drain both slots with GetData (non-blocking, result discarded)
+    // to put them in a clean state before the next frame's Begin().
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-getdata
+    if ( m_gpuTimers.initialized && m_context )
+    {
+        D3D11_QUERY_DATA_TIMESTAMP_DISJOINT dummy = {};
+        for ( int f = 0; f < DX11_TIMER_FRAMES; ++f )
+        {
+            if ( m_gpuTimers.disjoint[f] )
+            {
+                m_context->GetData( m_gpuTimers.disjoint[f], &dummy, sizeof( dummy ), 0 );
+            }
+        }
+    }
+    m_gpuTimers.writeIdx = 0;
+}
+
+
+bool RenderBackendDX11::GpuTimerRead( int markerIdx, float& outMs )
+{
+    if ( !m_gpuTimers.initialized || markerIdx < 0 || markerIdx >= DX11_TIMER_MARKERS )
+    {
+        return false;
+    }
+    if ( !m_gpuTimers.resultValid[markerIdx] )
+    {
+        return false;
+    }
+    outMs = m_gpuTimers.resultMs[markerIdx];
+    return true;
 }
 
 

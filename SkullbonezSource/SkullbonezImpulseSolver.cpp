@@ -41,6 +41,7 @@
 #include "SkullbonezCollisionResponse.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezCollisionShape.h"
+#include "SkullbonezProfiler.h"
 
 
 // --- Usings ---
@@ -60,6 +61,8 @@ bool ImpulseSolver::s_legacyPhysics = false;
 // =============================================================================
 void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeInTime )
 {
+    PROFILE_SCOPED( "Frame/Physics/Terrain/Impulse" );
+
     // --- Common state ---
     float invMass = gameModel.GetInvertedMass();
     Vector3 invInertia = gameModel.GetInvertedRotationalInertia();
@@ -579,6 +582,7 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
 void ImpulseSolver::RespondCollisionGameModels( GameModel& gameModel1,
                                                 GameModel& gameModel2 )
 {
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/Impulse" );
     std::visit( [&]( const auto& shape1, const auto& shape2 )
                 {
         using Shape1T = std::decay_t<decltype( shape1 )>;

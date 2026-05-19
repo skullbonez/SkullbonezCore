@@ -939,8 +939,15 @@ void RenderBackendDX12::Present()
     m_commandQueue->Signal( m_fence, m_fenceValue );
 
     // Timer readback can be mapped once this frame's signal fence is reached.
+    // If there's an unconsumed readback still pending (e.g. fence wasn't ready during the
+    // non-blocking TryConsume at the top of Present), do a blocking consume now to avoid
+    // permanently losing that frame's GPU timing data by overwriting readFenceValue.
     if ( resolvedTimerSlotsThisFrame )
     {
+        if ( m_gpuTimers.readPending )
+        {
+            TryConsumeGpuTimerReadback( true );
+        }
         m_gpuTimers.readPending = true;
         m_gpuTimers.readFenceValue = m_fenceValue;
     }
@@ -3196,7 +3203,23 @@ void RenderBackendDX12::TryConsumeGpuTimerReadback( bool waitForFence )
     }
     else if ( m_fence->GetCompletedValue() < m_gpuTimers.readFenceValue )
     {
-        return;
+        // The Signal is submitted right after vsync — the GPU needs only nanoseconds to
+        // process it, but in optimised builds the CPU can arrive here before it fires.
+        // Spin briefly (a few hundred pauses ≈ a few microseconds) to catch it without
+        // burning a full WaitForSingleObject kernel call.
+        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-yieldprocessor
+        for ( int spin = 0; spin < 512; ++spin )
+        {
+            YieldProcessor();
+            if ( m_fence->GetCompletedValue() >= m_gpuTimers.readFenceValue )
+            {
+                break;
+            }
+        }
+        if ( m_fence->GetCompletedValue() < m_gpuTimers.readFenceValue )
+        {
+            return; // genuinely not ready — try again next frame
+        }
     }
 
     D3D12_RANGE readRange = { 0, (SIZE_T)TIMER_HEAP_SIZE * sizeof( uint64_t ) };
@@ -3252,8 +3275,19 @@ void RenderBackendDX12::GpuTimerEnd( int markerIdx )
 
 void RenderBackendDX12::GpuTimerInvalidate()
 {
-    std::memset( m_gpuTimers.resultMs, 0, sizeof( m_gpuTimers.resultMs ) );
-    std::memset( m_gpuTimers.resultValid, 0, sizeof( m_gpuTimers.resultValid ) );
+    // If there's a pending readback from a previous frame, consume it now (blocking)
+    // before clearing state. This prevents the dangling readPending from causing
+    // stale data to be attributed to newly-registered markers after the reset.
+    if ( m_gpuTimers.readPending )
+    {
+        TryConsumeGpuTimerReadback( true );
+    }
+
+    // resultMs and resultValid are intentionally PRESERVED (same reasoning as DX11):
+    // After a reset, the non-blocking TryConsumeGpuTimerReadback in GpuTimerRead may fail
+    // its 512-spin if the GPU hasn't completed the first post-reset frame yet. Preserving
+    // stale resultValid lets ReadPendingGpuResults immediately see data and keeps the GPU
+    // column visible. The next successful consume overwrites all entries with fresh data.
     std::memset( m_gpuTimers.slotWritten, 0, sizeof( m_gpuTimers.slotWritten ) );
     m_gpuTimers.readPending = false;
     m_gpuTimers.readFenceValue = 0;

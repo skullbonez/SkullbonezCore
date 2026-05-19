@@ -897,6 +897,7 @@ void SkullbonezRun::TakeInput()
         {
             m_legacyPhysics = !m_legacyPhysics;
             ImpulseSolver::SetLegacyPhysics( m_legacyPhysics );
+            PROFILE_SCHEDULE_RESET();
         }
         m_camera.input.fPWasDown = pNow;
     }
@@ -1759,7 +1760,6 @@ void SkullbonezRun::LoadScene( int index )
         m_screenshot.screenshotFrame = scene.GetScreenshotFrame();
         m_screenshot.screenshotMs = scene.GetScreenshotMs();
         m_screenshot.isScreenshotAndExit = scene.IsScreenshotAndExit();
-        m_debug.isProfilerOverlay = false; // Default overlay OFF in scene mode; press '0' to show
 
         if ( scene.GetScreenshotPath()[0] != '\0' )
         {
