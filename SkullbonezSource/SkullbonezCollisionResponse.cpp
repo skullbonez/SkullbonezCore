@@ -541,16 +541,29 @@ void CollisionResponse::SphereVsSphereAngular( GameModel& gameModel1,
     // normalise the relative linear velocity
     relativeLinearVelocity.Normalise();
 
-    /*
-        Set the points of collision to the normalised relative linear velocity vector - remember - we are dealing with spheres - we must avoid the object space collision
-        points from being parallel with the collision m_normal - this will always happen with spheres, so use the normalised relative linear velocity vector as the collision
-        point instead for the remainder of the calculations.  This is a little concoction I thought of after comparing the sphere vs sphere case with the sphere vs plane
-        case - note how with the sphere vs plane case from [CollisionResponse::SphereVsPlaneAngular], the collision point is based entirely on the objects ray of movement.
-
-        Now, I don't know why this works so well, nor am I going to pretend to, but let me tell you this:  implementing rotational dynamics has been really difficult -
-        texts by Conger and Zerbst explain techniques - both containing code samples, both which flat out don't work.  This technique works really well for my spheres,
-        it is based on the angular response I have come to understand with my sphere vs plane routine, I am quite happy to use it here.  [SE: 16-08-2005 06:15]
-    */
+    // --- Non-standard moment arm substitution ---
+    //
+    // In the standard angular impulse formula the moment arm is r, the vector
+    // from a body's centre of mass to the contact point.  For two spheres, the
+    // contact point always lies along the collision normal:
+    //
+    //   r1 = +n * R1   r2 = -n * R2
+    //
+    // Because r is parallel to n, the cross product r × n = 0.  Every angular
+    // term in the denominator therefore vanishes, and the formula degenerates to
+    // a purely linear velocity exchange — no spin transfer at all.
+    //
+    // To get physically plausible spin transfer, we substitute the normalised
+    // relative linear velocity for r in both bodies.  The relative linear velocity
+    // is generally NOT parallel to n (the balls approach at some angle), so it
+    // provides a nonzero moment arm that produces a torque perpendicular to the
+    // contact normal.  The resulting spin direction and magnitude are empirically
+    // convincing: fast-spinning balls transfer angular momentum along the
+    // collision tangent, which matches what you see at a billiard table.
+    //
+    // This is an approximation — not derivable from first principles for general
+    // sphere-sphere geometry — but it is stable and behaves correctly for all
+    // tested impact angles.  [SE: 16-08-2005, revised comment 2026]
     objectSpaceCollisionPoint1 = objectSpaceCollisionPoint2 = relativeLinearVelocity;
 
     /*
@@ -609,6 +622,10 @@ void CollisionResponse::SphereVsSphereAngular( GameModel& gameModel1,
 }
 
 
+// Builds a Ray representing this game model's trajectory over the supplied time step.
+// The ray's origin is the current world position; its displacement vector is velocity × dt
+// (where the body would be at the end of this frame if unobstructed).
+// Used by swept collision detection: did the body's path cross a surface this frame?
 Ray CollisionResponse::CalculateRay( GameModel& gameModel,
                                      float changeInTime )
 {
@@ -617,12 +634,22 @@ Ray CollisionResponse::CalculateRay( GameModel& gameModel,
 }
 
 
+// Returns the world-space centre of the bounding volume.
+// The bounding volume stores a LOCAL-SPACE offset from the body's origin.
+// To obtain world space: rotate the local offset by the body's current orientation,
+// then add the body's world position.  For spheres/boxes with zero local offset this
+// reduces to just GetPosition(), but the general form handles offset shapes.
 Vector3 CollisionResponse::GetCollidedObjectWorldPosition( GameModel& gameModel )
 {
     return gameModel.m_physicsInfo.GetPosition() + ( gameModel.m_physicsInfo.GetOrientationMatrix() * GetShapePosition( gameModel.m_boundingVolume ) );
 }
 
 
+// Computes the collision normal for a sphere-sphere pair.
+// For two spheres, the contact point always lies on the straight line between their centres.
+// The collision normal is therefore the unit vector pointing from centre1 to centre2:
+//   n = (pos2 - pos1) / |pos2 - pos1|
+// Impulses applied along n push the spheres apart; impulses perpendicular to n handle friction.
 Vector3 CollisionResponse::GetCollisionNormalSphereVsSphere( GameModel& gameModel1,
                                                              GameModel& gameModel2 )
 {

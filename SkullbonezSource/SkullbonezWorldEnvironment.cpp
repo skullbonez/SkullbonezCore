@@ -188,6 +188,16 @@ float WorldEnvironment::GetFluidDensity() const
 }
 
 
+// Computes and accumulates all world-space forces acting on the target body for this frame.
+// Forces are scaled by changeInTime before being set on the rigid body, converting
+// force (N) to impulse (N·s = kg·m/s) — matching the semi-implicit Euler integrator
+// which adds impulse directly to velocity.
+//
+//  Forces applied (Y-axis positive = up):
+//    1. Gravity:      F_g = m * g             (always downward; g is negative)
+//    2. Buoyancy:     F_b = -g * ρ_f * V_sub  (upward; Archimedes' Principle)
+//    3. Linear drag:  F_d = -v̂ * ½ρv²CdA     (opposes linear velocity)
+//    4. Angular drag: τ   = -C_d * ρ_avg * R³ * ω  (opposes spin)
 void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
 {
     // initialise the world force vector so we can add to it
@@ -238,20 +248,47 @@ void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
 }
 
 
+// Newton's second law: F = m * a, rearranged as F = m * g.
+// g is stored as a NEGATIVE value (downward) in the config, so the result is
+// a negative Y force (pulling the object toward the ground).
 float WorldEnvironment::CalculateGravity( float objectMass )
 {
-    // Fg = ma
+    // F_g = m * g  (Newtons, negative = downward)
     return objectMass * m_gravity;
 }
 
 
+// Archimedes' Principle: a submerged object displaces fluid equal to its
+// own submerged volume, and the fluid pushes back with force:
+//
+//   F_b = -ρ_fluid * V_submerged * g
+//
+// The negative sign is because g is stored as negative (downward), and
+// buoyancy acts upward. Multiplying two negatives gives a positive Y force.
+// The deeper (or denser the fluid), the stronger the upward push.
 float WorldEnvironment::CalculateBuoyancy( float submergedObjectVolume )
 {
-    // Fb = -m_gravity * m_mass of displaced fluid
+    // F_b = -g * ρ_fluid * V_submerged  (positive Y = upward lift)
     return m_gravity * m_fluidDensity * submergedObjectVolume * -1.0f;
 }
 
 
+// Viscous drag (fluid resistance) acts OPPOSITE to the direction of motion and
+// is proportional to the square of speed. Formula:
+//
+//   F_d = -v̂ * 0.5 * ρ_avg * v² * C_d * A
+//
+// Where:
+//   v̂       = unit vector in the direction of motion (negated to oppose it)
+//   ρ_avg   = average density of medium (blended air/water by submersion %)
+//   v²      = speed squared (|velocity|²)
+//   C_d     = drag coefficient (shape-dependent; sphere ≈ 0.47, cube ≈ 1.05)
+//   A       = projected surface area (cross-sectional area facing the motion)
+//
+// Physical intuition:
+//   - Doubling speed → 4× the drag force (quadratic relationship)
+//   - A cube has higher drag than a sphere (C_d of 1.05 vs 0.47)
+//   - Partially submerged objects get weighted drag from both mediums
 Vector3 WorldEnvironment::CalculateViscousDrag( Vector3 velocityVector,
                                                 float submergedVolumePercent,
                                                 float m_dragCoefficient,
@@ -272,19 +309,9 @@ Vector3 WorldEnvironment::CalculateViscousDrag( Vector3 velocityVector,
     // negate the velocity vector
     velocityVector *= -1;
 
-    /*
-        Formula for viscous drag:
-
-        Viscous Drag (N) = vDir *
-                           0.5 *
-                           density *
-                           velocity * velocity *
-                           m_dragCoefficient *
-                           surfaceArea
-
-        NOTE: Density is averaged based on the amount
-        the body is submerged...
-    */
+    // F_d = -v̂ * 0.5 * ρ_avg * v² * C_d * A
+    // ρ_avg is linearly interpolated between gas and fluid density by submergedVolumePercent:
+    //   ρ_avg = ρ_gas * (1 - submerged%) + ρ_fluid * submerged%
     return velocityVector *
            0.5f *
            ( ( m_gasDensity * ( 1.0f - submergedVolumePercent ) ) +

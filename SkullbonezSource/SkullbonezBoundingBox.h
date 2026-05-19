@@ -23,8 +23,28 @@ class BoundingSphere; // Forward declaration
 /* -- BoundingBox ----------------------------------------------------------------------------------------------------------------------------------------------------
 
     Oriented Bounding Box (OBB) collision shape.
-    Stores half-extents in local space. The orientation comes from the owning
-    RigidBody's quaternion — this class stores only the shape definition.
+
+    An OBB is a box that can be oriented at any angle, unlike an AABB (axis-aligned bounding
+    box) which is always aligned to world axes. It provides a tighter fit for rotated objects.
+
+    Representation:
+      - m_halfExtents: half the box dimensions along its LOCAL axes
+                       (x = width/2,  y = height/2,  z = depth/2)
+      - m_position:    local-space centre offset from the owning body's origin (usually zero)
+      - Orientation:   provided externally by the RigidBody's quaternion — this class
+                       stores only the shape definition, not the current rotation
+
+    World-space vertex positions:
+      For each corner: world_vertex = body_position + R * (±he.x, ±he.y, ±he.z)
+      where R is the 3×3 rotation matrix from the RigidBody's orientation quaternion.
+
+    Moment of Inertia (solid box, half-extents a, b, c, mass m):
+      I_xx = m/3 * (b² + c²)
+      I_yy = m/3 * (a² + c²)
+      I_zz = m/3 * (a² + b²)
+    (These are computed by the owning GameModel/Physics layer, not this class.)
+
+    Bounding radius (used for broadphase): distance from centre to corner = sqrt(a²+b²+c²)
 
     Interface matches BoundingSphere so it can participate in the
     std::variant<BoundingSphere, BoundingBox> CollisionShape type.

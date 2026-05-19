@@ -6,6 +6,17 @@
 using namespace SkullbonezCore::Math;
 
 
+// Triangle normal via cross product.
+//
+// Given two edges of a CCW-wound triangle:
+//   edge1 = v2 - v1
+//   edge2 = v3 - v2
+//
+// The outward-facing normal is:   n = edge1 × edge2  (then normalised)
+//
+// The cross product of two edge vectors gives a vector perpendicular to both.
+// Counter-clockwise vertex winding (as seen from the front face) guarantees
+// that the result points outward from the surface.
 Vector3 GeometricMath::ComputeTriangleNormal( const Triangle& triangle )
 {
     // get the vectors representing the edges of the triangle
@@ -22,6 +33,15 @@ Vector3 GeometricMath::ComputeTriangleNormal( const Triangle& triangle )
 }
 
 
+// Build a Plane from a triangle.
+//
+// A plane is defined by the equation:   dot( n, P ) = d
+//
+// where n is the unit normal, P is any point on the plane, and d is the
+// scalar distance of the plane from the origin along n.
+//
+// Since any vertex of the triangle lies on the plane:
+//   d = dot( n, v1 )
 Plane GeometricMath::ComputePlane( const Triangle& triangle )
 {
     Plane plane;
@@ -39,11 +59,18 @@ Plane GeometricMath::ComputePlane( const Triangle& triangle )
 }
 
 
+// Signed distance from a point to a plane.
+//
+// From the plane equation  dot( n, P ) = d:
+//   dist = dot( n, point ) - d
+//
+// Positive result  → point is in front of the plane (same side as n)
+// Negative result  → point is behind the plane
+// Zero             → point lies on the plane
 float GeometricMath::DeterminePointDistFromPlane( const Plane& plane,
                                                   const Vector3& point )
 {
-    // dot the m_normal and point then subtract the planes scalar m_distance from
-    // the origin
+    // Signed distance: dot(n, point) - d
     return ( plane.m_normal * point - plane.m_distance );
 }
 
@@ -72,30 +99,78 @@ GeometricMath::ClassifyPointAgainstPlane( const Plane& plane,
 }
 
 
+// Solve for the Y-coordinate of a terrain plane at a given (X, Z) position.
+//
+// Strategy: use the signed-distance formula to find how far the projected XZ
+// point (with Y = 0) sits from the plane, then push it vertically until it
+// lands on the surface.
+//
+// Derivation using the Law of Sines:
+//
+//   The signed distance from the XZ probe point to the plane (along the normal)
+//   is known: normalDist = dot( n, probe ) - d
+//
+//   Let θ = angle between the plane normal and the vertical axis (0,1,0).
+//
+//     cos(θ) = n.y   →   θ = arccos( n.y )
+//
+//   The elevation correction Δy we must move *vertically* to reach the plane is
+//   related to normalDist by the Law of Sines in the right triangle formed by
+//   the normal direction and the vertical:
+//
+//     sin( π/2 - θ ) = sin( complement of θ ) = cos( θ ) = n.y
+//
+//   But we want the angle between the *normal* and the *vertical* direction:
+//     θ_from_horizontal = π/2 - arccos( n.y )
+//
+//   By the Law of Sines in the right triangle:
+//     Δy / 1 = normalDist / sin( θ_from_horizontal )
+//
+//   Therefore:
+//     Δy = normalDist / sin( θ_from_horizontal )
+//
+//   A negation is applied because a positive normalDist (probe above plane)
+//   means we must move *down* to reach the surface.
 float GeometricMath::GetHeightFromPlane( const Triangle& triangle,
                                          float xCoord,
                                          float zCoord )
 {
-    // place the point on the XZ plane at Y = 0
+    // probe the XZ plane (Y = 0) to find vertical offset to terrain surface
     Vector3 point = Vector3( xCoord, 0.0f, zCoord );
 
-    // compute the traiangle plane
     Plane trianglePlane = GeometricMath::ComputePlane( triangle );
 
-    // compute the m_distance of the plane to the point along the plane m_normal
-    float normalDist = GeometricMath::DeterminePointDistFromPlane( trianglePlane,
-                                                                   point );
+    // How far above/below the plane is this XZ probe point (at Y=0)?
+    float normalDist = GeometricMath::DeterminePointDistFromPlane( trianglePlane, point );
 
-    // use rearranged dot product formula to compute the angle between
-    // the triangle plane m_normal and vertically upwards (0, 1, 0)
-    // remember (let '*' be dot product): (x, y, z)*(0, 1, 0) = y
+    // θ = angle between the plane normal and the vertical axis (0,1,0).
+    // cos(θ) = dot( n, (0,1,0) ) = n.y, so θ = arccos( n.y ).
+    // We want sin of the complement angle from horizontal: sin(π/2 - θ).
     float theta = _HALF_PI - acosf( trianglePlane.m_normal.y );
 
-    // use law of sines to compute result (see math reference)
+    // Law of sines: Δy = normalDist / sin(θ_from_horizontal).
+    // Negate because a probe above the plane must move down to reach it.
     return -( normalDist / sinf( theta ) );
 }
 
 
+// Ray-plane intersection time.
+//
+// A ray is parameterised as:   P(t) = origin + t * direction
+//
+// The ray hits the plane when:   dot( n, P(t) ) = d
+//
+// Substituting the ray:
+//   dot( n, origin + t * direction ) = d
+//   dot( n, origin ) + t * dot( n, direction ) = d
+//
+// Solving for t:
+//   t = ( d - dot( n, origin ) ) / dot( n, direction )
+//     = -( dot( n, origin ) - d ) / dot( n, direction )
+//
+// t = 0 → ray starts on the plane
+// 0 < t ≤ 1 → plane is hit within this frame's movement vector
+// dot(n, direction) = 0 → ray is parallel to plane → no intersection
 float GeometricMath::CalculateIntersectionTime( const Plane& plane,
                                                 const Ray& ray )
 {
@@ -118,11 +193,7 @@ float GeometricMath::CalculateIntersectionTime( const Plane& plane,
         return NO_COLLISION;
     }
 
-    // compute the scalar representing the magnitude of the ray that needs to
-    // be translated upon from vBegin UNTIL the intersection with the plane
-    // takes place.  this magnitude is computed by taking the dot product of
-    // of the plane m_normal and vBegin plus the planes m_distance from the origin,
-    // divided by the dot product of the planes m_normal and the ray
+    // t = -( dot(n, origin) - d ) / dot(n, direction)
     return -( ( ( plane.m_normal * ray.origin ) - plane.m_distance ) / denominator );
 }
 
@@ -154,11 +225,12 @@ Vector3 GeometricMath::ComputeIntersectionPoint( const Plane& plane,
 }
 
 
+// Evaluates the parametric ray at time t: P(t) = origin + t * direction
+// Returns the 3D world position that lies fraction t along the ray vector.
+// t = 0 → ray origin;  t = 1 → tip of direction vector;  t ∈ (0,1) → somewhere between.
 Vector3 GeometricMath::ComputeIntersectionPoint( const Ray& ray,
                                                  float fCollisionTime )
 {
-    // translate from the origin of the ray along the ray until the collision
-    // occurs, and return this vector
     return ray.origin + ( ray.vector3 * fCollisionTime );
 }
 

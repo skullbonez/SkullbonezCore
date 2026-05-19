@@ -16,7 +16,21 @@ namespace Math
 {
 /* -- Geometric Math ---------------------------------------------------------------------------------------------------------------------------------------------
 
-    Provides a series of static methods to assist in linear algebra related mathematical tasks useful in games.
+    Static utility methods for the linear-algebra and spatial-query operations that underpin
+    collision detection and terrain queries.
+
+    All methods are stateless.  No instances of this class are ever created.
+
+    Key operations:
+      - Triangle normal and plane construction          (cross product + dot product)
+      - Signed point-to-plane distance                  (dot(n, P) - d)
+      - Ray-plane intersection time and point           (parametric ray equation)
+      - Terrain height at (X, Z) coordinates            (signed distance + Law of Sines)
+      - Point-in-triangle test                          (barycentric coordinate signs)
+      - Barycentric coordinate computation              (axis-dropped 2D projection)
+
+    Plane representation used throughout:   dot( n, P ) = d
+      n = unit normal, d = scalar distance from origin along n.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class GeometricMath
 {
@@ -29,37 +43,49 @@ class GeometricMath
         CoincideWithPlane
     };
 
-    // Classifies whether a point is on the front side, back side, or coincides with the specified plane
+    // Classifies whether a point is on the front side, back side, or coincides with the specified plane.
+    // Uses DeterminePointDistFromPlane: positive = front, negative = back, zero = on plane.
     static GeometricMath::PointPlaneClassification ClassifyPointAgainstPlane( const Plane& plane, const Vector3& point );
 
-    // PRECONDITION:  Vector3 'point' MUST lie on the specified triangles plane. Returns true or false indicating whether the supplied point is inside the
-    // boundaries of the triangle
+    // PRECONDITION: 'point' MUST lie on the same plane as 'triangle'.
+    // Returns true if the point is inside the triangle boundary.
+    // Delegates to ComputeBarycentricCoordinates; all weights ≥ 0 → inside.
     static bool IsPointInsideTriangle( const Triangle& triangle, const Vector3& point );
 
-    // Barycentric coordinates are a weighting based on the 3 verticies composing Triangle 'triangle' indicating a point on the plane occupied by 'triangle'
-    // for detailed discussion see page 260 of the '3D Math Primer for Games and Graphics Development' by Dunn and Parberry
+    // Computes barycentric coordinates (u, v, w) of 'point' relative to 'triangle'.
+    // All weights sum to 1.  Any weight < 0 means the point is outside that edge.
+    // Projects to the most numerically stable 2D axis (largest normal component) to
+    // avoid near-degenerate area computations on steep or sliver triangles.
+    // Reference: 3D Math Primer for Games and Graphics Development, Dunn & Parberry, p.260
     static Vector3 ComputeBarycentricCoordinates( const Triangle& triangle, const Vector3& point );
 
-    // Returns the normal of the specified triangle based on counter-clockwise rotation
+    // Returns the CCW-winding outward unit normal of the triangle:
+    //   n = normalise( (v2 - v1) × (v3 - v2) )
     static Vector3 ComputeTriangleNormal( const Triangle& triangle );
 
-    // Returns the distance the specified point is from the specified plane
+    // Signed distance from a point to a plane:   dist = dot(n, point) - d
+    // Positive = in front of plane, negative = behind, zero = on the plane.
     static float DeterminePointDistFromPlane( const Plane& plane, const Vector3& point );
 
   public:
-    // Compute the plane in which 3 non-colinear points sit on
+    // Build a plane from three non-collinear points.  plane.normal = triangle normal,
+    // plane.distance = dot( normal, v1 )  (satisfies the plane equation for any point on it).
     static Plane ComputePlane( const Triangle& triangle );
 
-    // Computes the point of intersection between the ray defined by vEnd-vBegin and the specified plane (overloaded)
+    // Compute the 3D intersection point of a ray with a plane or triangle.
+    // Throws if the ray does not intersect the plane within [0,1] (overloaded).
     static Vector3 ComputeIntersectionPoint( const Plane& plane, const Ray& ray );
     static Vector3 ComputeIntersectionPoint( const Ray& ray, float fCollisionTime );
 
-    // Computes the magnitute the ray can travel along before intersecting with the specified plane (overloaded)
+    // Parametric intersection time t ∈ [0,1] for a ray hitting a plane:
+    //   t = -( dot(n, origin) - d ) / dot(n, direction)
+    // Returns NO_COLLISION if the ray is parallel to the plane or has no extent (overloaded).
     static float CalculateIntersectionTime( const Plane& plane, const Ray& ray );
     static float CalculateIntersectionTime( const Triangle& triangle, const Ray& ray );
 
-    // returns the height of the plane represented by the specified triangle at the specified XZ coords detailed math reference
-    // @ http://www.simoneschbach.com/images/GetHeightOfPlaneAtXZ.gif
+    // Returns the Y-height of the terrain plane at (xCoord, zCoord) using the Law of Sines.
+    // Probes with Y=0, measures signed distance to plane, then corrects vertically.
+    // Formula:  Y = -( dot(n, probe) - d ) / sin( π/2 - arccos(n.y) )
     static float GetHeightFromPlane( const Triangle& triangle, float xCoord, float zCoord );
 };
 } // namespace Math

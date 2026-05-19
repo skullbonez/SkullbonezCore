@@ -173,6 +173,10 @@ void RigidBody::SetChangeInAngularVelocity( const Vector3& vAngularVelocity )
 }
 
 
+// Flush the deferred angular-velocity buffer into the live angular velocity,
+// then clamp to prevent numerical explosion. The deferred buffer pattern ensures
+// that when two objects collide simultaneously, both responses are computed from
+// the pre-collision state before either body's ω is modified.
 void RigidBody::ApplyChangeInAngularVelocity()
 {
     m_angularVelocity += m_changeInAngularVelocity;
@@ -207,6 +211,9 @@ void RigidBody::SetChangeInLinearVelocity( const Vector3& vLinearVelocity )
 }
 
 
+// Flush the deferred linear-velocity buffer into the live linear velocity.
+// See ApplyChangeInAngularVelocity() for why changes are buffered and applied
+// in a separate step rather than directly during collision resolution.
 void RigidBody::ApplyChangeInLinearVelocity()
 {
     m_linearVelocity += m_changeInLinearVelocity;
@@ -381,6 +388,9 @@ const Vector3& RigidBody::GetRotationalInertia()
 
 void RigidBody::SetRotationalInertia( const Vector3& vRotationalInertia )
 {
+    // Each diagonal component I_x, I_y, I_z is used as a divisor when computing
+    // angular acceleration: α = τ / I. A zero component would cause division by
+    // zero in every subsequent physics step — guard against it here.
     if ( !vRotationalInertia.x ||
          !vRotationalInertia.y ||
          !vRotationalInertia.z )

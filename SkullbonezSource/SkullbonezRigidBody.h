@@ -41,16 +41,24 @@ class RigidBody
     Vector3 m_forceApplicationPoint;   // Vector representative of the location of the force applied			[Units: point]
     Vector3 m_angularVelocity;         // Vector representative of the bodies angular velocity					[Units: radians/s]
     Vector3 m_angularAcceleration;     // Vector representative of the bodies angular acceleration				[Units: radians/s^2]
-    Vector3 m_rotationalInertia;       // Vector representative of the bodies rotational inertia				[Units: Inertia Tensor]
+    Vector3 m_rotationalInertia;       // Diagonal of the 3×3 inertia tensor (off-diagonal terms are zero for symmetric bodies)  [Units: kg·m²]
     Vector3 m_torque;                  // Vector representative of the bodies m_torque							[Units: Nm]
-    Vector3 m_changeInAngularVelocity; // A buffer to store an expected change in angular velocity				[Units: m/s]
-    Vector3 m_changeInLinearVelocity;  // A buffer to store an expected change in linear velocity				[Units: m/s]
+    /* m_changeInAngularVelocity / m_changeInLinearVelocity are DEFERRED IMPULSE BUFFERS.
+       During collision resolution, both objects' velocity changes are computed first and
+       stored here, then applied simultaneously via ApplyChange*Velocity(). This prevents
+       the second object's response from being affected by the first's already-updated velocity,
+       giving order-independent (symmetric) results. */
+    Vector3 m_changeInAngularVelocity; // Buffered angular-velocity delta — staged here, applied via ApplyChangeInAngularVelocity() [Units: rad/s]
+    Vector3 m_changeInLinearVelocity;  // Buffered linear-velocity delta  — staged here, applied via ApplyChangeInLinearVelocity()  [Units: m/s]
     Quaternion m_orientation;          // Quaternion representative of the m_orientation of the rigid body		[Units: Qrtn]
 
-    void ApplyWorldForce();    // Applies the world force acting on the body
-    void ApplyLinearForce();   // Applies the linear force acting on the body
-    void ApplyAngularForce();  // Applies the angular force acting on the body
-    Vector3 GetRollVelocity(); // Gets the linear velocity based on rolling angular velocity
+    void ApplyWorldForce();    // Applies continuous world forces (gravity) each frame: a = F/m, v += a
+    /* NOTE: Despite being named "Force", both of the following apply ONE-SHOT IMPULSES
+       (instantaneous velocity changes) rather than continuous forces. The impulse is
+       consumed on the first call and ignored on subsequent calls (m_isForceApplied flag). */
+    void ApplyLinearForce();   // Applies the buffered linear impulse: a = F/m, v += a
+    void ApplyAngularForce();  // Applies the buffered angular impulse: τ = r×F, α = τ/I, ω += α
+    Vector3 GetRollVelocity(); // Gets the linear velocity derived from rolling angular velocity (ω × ground normal)
 
   public:
     RigidBody();                                                                            // Default constructor

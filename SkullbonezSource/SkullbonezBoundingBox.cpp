@@ -129,13 +129,21 @@ const Vector3& BoundingBox::GetHalfExtents() const
 
 
 // =============================================================================
-// COLLISION TESTS
+// BROADPHASE SWEPT COLLISION TESTS
 // =============================================================================
 //
-// For now, use bounding-radius approximation for swept tests.
-// The precise collision detection (SAT) happens in the terrain/response phase
-// where we have access to the full orientation. These swept tests are only
-// used for the broadphase pair check.
+// These tests approximate this OBB as a bounding sphere (radius = corner distance)
+// for the broadphase pair check. The broadphase only needs to know "could these
+// two objects possibly be touching this frame?" — a cheap sphere test is enough.
+//
+// Precise OBB-sphere and OBB-OBB narrowphase (SAT, contact manifold) happens in
+// the terrain/impulse response layer where the full orientation is available.
+//
+// Both tests below solve the same swept-sphere quadratic:
+//   |d + v_rel*t|² = R_combined²
+//   → a·t² + 2b·t + c = 0,  t = (-b - sqrt(b²-ac)) / a
+// where d is the centre-to-centre vector, v_rel is relative velocity, R_combined
+// is the sum of the two bounding radii.
 //
 // =============================================================================
 

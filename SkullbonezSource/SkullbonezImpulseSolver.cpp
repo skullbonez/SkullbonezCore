@@ -103,27 +103,36 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     Geometry::Plane colPlane = gameModel.m_responseInformation.collidedPlane;
     Vector3 planeNormal = colPlane.m_normal;
 
-    // --- Contact manifold ---
+    // Per-contact data for the sequential impulse solver.
+    // Fields map directly to the Catto iterative constraint formulation.
     struct Contact
     {
-        Vector3 r;
-        Vector3 normal;
-        float   penetration;
-        float   normalMass;
-        float   tangentMass1;
-        float   tangentMass2;
-        Vector3 tangent1;
-        Vector3 tangent2;
-        float   bias;
-        float   accN;
-        float   accT1;
-        float   accT2;
+        Vector3 r;            // Vector from body CoM to contact point (world space); used in r×n torque terms
+        Vector3 normal;       // Outward surface normal at contact (pointing away from the surface)
+        float   penetration;  // Signed overlap depth (positive = penetrating into surface)
+        float   normalMass;   // Effective (reduced) mass for the normal constraint:
+                              //   K_n = 1/m + n · (I⁻¹(r×n) × r)   →   normalMass = 1/K_n
+        float   tangentMass1; // Effective mass for friction along tangent1 (same structure as normalMass)
+        float   tangentMass2; // Effective mass for friction along tangent2
+        Vector3 tangent1;     // First tangent direction (perpendicular to normal, Gram-Schmidt orthonormalised)
+        Vector3 tangent2;     // Second tangent direction = normal × tangent1  (completing the orthonormal frame)
+        float   bias;         // Per-contact velocity target:
+                              //   Resting contact → Baumgarte bias = β*(pen-slop)/dt  (positional error correction)
+                              //   Impacting contact → e*v_n/count  (restitution push)
+        float   accN;         // Accumulated normal impulse this frame; clamped to [0,∞] (push only, never pull).
+                              //   Warm-started with expected gravity load so friction has a budget from iteration 0.
+        float   accT1;        // Accumulated friction impulse along tangent1; clamped to [−μ·accN, +μ·accN] (Coulomb cone)
+        float   accT2;        // Accumulated friction impulse along tangent2
     };
 
-    Contact contacts[8];
+    Contact contacts[8];  // Up to 8 contacts (one per box vertex; sphere always has 1)
     int contactCount = 0;
 
-    // --- Build contacts based on shape type ---
+    // --- Build contact manifold based on shape type ---
+    // Sphere: single contact at the bottom pole (centre - radius * normal).
+    // Box: check all 8 vertices against the collision plane; include those within
+    //      a small threshold of the deepest-penetrating vertex.  This gives face
+    //      contacts (4 pts) for flat boxes and edge/vertex contacts for tilted ones.
     std::visit( [&]( const auto& shape )
     {
         using ShapeT = std::decay_t<decltype( shape )>;
@@ -256,7 +265,16 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     {
         Contact& c = contacts[i];
 
-        // Build orthonormal tangent frame for friction (Gram-Schmidt)
+        // Build orthonormal tangent frame for friction (Gram-Schmidt).
+        // We need two directions perpendicular to the contact normal to represent
+        // the 2D friction constraint (opposing tangential sliding in any direction).
+        //
+        // Algorithm:
+        //   1. Pick a "seed" vector not parallel to n (world-X, or world-Z if n is near X).
+        //   2. Gram-Schmidt: t1 = normalize(seed - (seed·n)*n)  — subtracts the n component.
+        //   3. t2 = n × t1  — guaranteed perpendicular to both n and t1.
+        //
+        // t1 and t2 together span the plane perpendicular to n at the contact point.
         if ( fabsf( c.normal.x ) > 0.9f )
         {
             c.tangent1 = Vector3( 0.0f, 0.0f, 1.0f );
@@ -296,6 +314,21 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
         Vector3 vAtContact = velocity + Vector::CrossProduct( omega, c.r );
         float vnContact = vAtContact * c.normal;
 
+        // Baumgarte stabilisation for resting contacts (|v_n| < restitution threshold):
+        //
+        //   bias = β × max(penetration - slop, 0) / dt
+        //
+        //   β = 0.3  — fraction of penetration error corrected per step (tunable)
+        //   slop     — small tolerance band; penetrations smaller than this are ignored
+        //              to prevent jitter when objects rest flush against a surface
+        //   dt       — frame time (inverted: multiplying by 1/dt converts metres → m/s)
+        //
+        // Effect: the normal constraint targets a velocity of +bias (pushing the contact
+        // point out of the surface) rather than zero.  Each frame the solver adds a small
+        // corrective velocity that closes the residual overlap over ≈ 3–10 frames.
+        //
+        // NOT applied to impacts (|v_n| > threshold) — impacts use the restitution bias
+        // instead, which encodes how fast to push back based on approach speed × e.
         c.bias = 0.0f;
         if ( fabsf( vnContact ) < Cfg().contactRestitutionThreshold )
         {
@@ -314,10 +347,23 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     }
 
     // --- Sequential Impulse Solver (20 iterations) ---
-    // Warm-start accN with expected gravitational load per contact.
-    // This provides a friction budget floor for resting contacts but does NOT
-    // pre-apply velocity changes (doing so creates separation that the solver
-    // then cancels, wasting iterations).
+    //
+    // Each iteration visits every contact and applies a small corrective impulse:
+    //   λ = effective_mass × (-v_n + bias)
+    //
+    // The accumulated impulse (acc*) is the key to correctness:
+    //   Instead of clamping λ directly, we clamp the ACCUMULATED value: acc += λ, then clamp acc.
+    //   The actual applied impulse is (new_acc - old_acc).  This monotone clamping ensures that
+    //   even if a single iteration overshoots, the accumulated total stays valid and subsequent
+    //   iterations can correct back.  Without accumulation, each iteration would independently
+    //   overshoot/undershoot and the solver would not converge.
+    //
+    // More iterations → closer to the exact constraint solution, but more CPU.
+    // 20 iterations is sufficient for the object counts in this engine.
+    //
+    // Warm-starting: accN is pre-seeded with the expected gravitational load per contact
+    // (mg·cos(θ) / contact_count).  This ensures the friction budget (μ·accN) is non-zero
+    // from iteration 0, preventing resting objects from sliding a frame before friction kicks in.
     constexpr int solverIterations = 20;
 
     for ( int i = 0; i < contactCount; ++i )
@@ -617,7 +663,25 @@ void ImpulseSolver::RespondCollisionGameModels( GameModel& gameModel1,
         }
         else
         {
-            // Box-sphere, sphere-box, or box-box: simple center-based impulse response.
+            // Box-sphere, sphere-box, or box-box: simplified centre-to-centre impulse.
+            //
+            // A full OBB contact manifold (SAT + clip-polygon) is not implemented here
+            // for game-model vs game-model collisions. The broadphase already approximates
+            // boxes as bounding spheres, so a sphere-style impulse is consistent with that.
+            //
+            // Impulse formula (1D along collision normal, no angular terms):
+            //
+            //   v_rel_n = (v1 - v2) · n           (relative approach speed)
+            //   j = -(1+e) × v_rel_n / (1/m1 + 1/m2)
+            //
+            //   Δv1 = +j / m1 * n    (push body 1 away along n)
+            //   Δv2 = -j / m2 * n    (push body 2 away along n)
+            //
+            // e is the geometric mean of both restitution coefficients so that
+            // a perfectly inelastic body (e=0) dominates regardless of the other.
+            //
+            // Position correction uses mass-weighted displacement so heavier bodies
+            // move less:  Δx_i = overlap × (1/m_i) / (1/m1 + 1/m2)
             Vector3 pos1 = gameModel1.m_physicsInfo.GetPosition();
             Vector3 pos2 = gameModel2.m_physicsInfo.GetPosition();
             Vector3 delta = pos2 - pos1;
@@ -796,6 +860,10 @@ void ImpulseSolver::SphereVsSphereAngular( GameModel& gameModel1,
 }
 
 
+// Returns the world-space centre of the bounding volume for this game model.
+// bounding_center_world = body_position + R * local_offset
+// where R is the orientation matrix.  For shapes with zero local offset this
+// equals the body position directly; the general form handles offset shapes.
 Vector3 ImpulseSolver::GetCollidedObjectWorldPosition( GameModel& gameModel )
 {
     return gameModel.m_physicsInfo.GetPosition() +
@@ -803,6 +871,11 @@ Vector3 ImpulseSolver::GetCollidedObjectWorldPosition( GameModel& gameModel )
 }
 
 
+// Computes the collision normal for a sphere-sphere pair.
+// For two spheres, the contact point lies on the straight line between their centres.
+// The outward contact normal (pointing from body1 toward body2) is:
+//   n = normalize(pos2 - pos1)
+// Impulses along +n push body2 away; impulses along -n push body1 away.
 Vector3 ImpulseSolver::GetCollisionNormalSphereVsSphere( GameModel& gameModel1,
                                                          GameModel& gameModel2 )
 {
