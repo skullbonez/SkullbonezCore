@@ -133,7 +133,7 @@ class IRenderBackend
     virtual int GetInstancedMeshStaticStride( uint32_t handle ) const = 0;
 
 
-    // --- GPU Timers (profiler overlay — DX12 only for now) ---
+    // --- GPU Timers (profiler overlay — DX11 and DX12) ---
 
     virtual bool SupportsGpuTimers() const
     {

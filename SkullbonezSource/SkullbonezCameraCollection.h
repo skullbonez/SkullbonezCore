@@ -70,8 +70,6 @@ class CameraCollection
     void SetCameraXZBounds( const XZBounds bounds );      // Set a camera boundary for all cameras
     void ResetRelativity();                               // Resets the difference camera to the current camera (call this after all camera updates have been made)
     bool IsCameraTweening();                              // Returns a flag indicating if the camera is currently tweening or not
-    float DEBUG_GetViewMag();                             // Gets the magnitude of the primary view vector (debug routine)
-    float DEBUG_GetViewMagTarget();                       // Returns the target magnitude of the primary view vector (debug routine)
     const Matrix4& GetViewMatrix() const
     {
         return m_currentViewMatrix;

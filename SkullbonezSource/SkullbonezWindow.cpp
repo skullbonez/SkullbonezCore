@@ -95,26 +95,6 @@ void SkullbonezWindow::HandleScreenResize()
 
 void SkullbonezWindow::ChangeToFullScreen( int xResolution, int yResolution )
 {
-    /*
-        Changes screeen to full screen mode...
-        Notes for this method:
-        ---------------------------------------------------------------------------
-        *** This can be quite helpful in some scenarios: ***
-
-        dmSettings.dmBitsPerPel = BITS_PER_PIXEL;		// Set bits per pixel
-        dmSettings.dmDisplayFrequency = REFRESH_RATE;	// Set refresh rate
-        ...
-        DM_BITSPERPEL							// We changed bits per pixel
-        DM_DISPLAYFREQUENCY;					// We changed display frequency
-        ---------------------------------------------------------------------------
-        *** This code is redundant as DEVMODE struct was set to {0}: ***
-
-        memset(&dmSettings,		 // Beginning at the memory location of dmSettings
-            0,					 // set to zero
-            sizeof(dmSettings)); // the entire DEVMODE struct
-        ---------------------------------------------------------------------------
-    */
-
     DEVMODE dmSettings = { 0 }; // Device mode variable - required to change modes
 
     if ( !EnumDisplaySettings( nullptr, // Get current screen settings

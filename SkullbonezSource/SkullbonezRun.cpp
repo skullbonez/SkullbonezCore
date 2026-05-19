@@ -93,7 +93,7 @@ void SkullbonezRun::Initialise()
     // Set loading text
     const char* rendererName = Gfx().GetRendererName();
     char titleText[256];
-    sprintf_s( titleText, "::SKULLBONEZ CORE:: [%s] -- LOADING!!!", rendererName );
+    sprintf_s( titleText, "%s [%s] -- LOADING!!!", TITLE_TEXT, rendererName );
     m_systems.window->SetTitleText( titleText );
 
     // Init m_textures
@@ -353,11 +353,11 @@ void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
     char titleText[256];
     if ( switchFailureReason.empty() )
     {
-        sprintf_s( titleText, "::SKULLBONEZ CORE:: [%s]", Gfx().GetRendererName() );
+        sprintf_s( titleText, "%s [%s]", TITLE_TEXT, Gfx().GetRendererName() );
     }
     else
     {
-        sprintf_s( titleText, "::SKULLBONEZ CORE:: [%s] -- SWITCH FAILED", Gfx().GetRendererName() );
+        sprintf_s( titleText, "%s [%s] -- SWITCH FAILED", TITLE_TEXT, Gfx().GetRendererName() );
         fprintf( stderr, "Renderer switch failed, restored previous renderer: %s\n", switchFailureReason.c_str() );
     }
     m_systems.window->SetTitleText( titleText );
@@ -1613,7 +1613,7 @@ void SkullbonezRun::LoadScene( int index )
         SetUpGameModels( DEFAULT_GAME_MODELS );
         const char* rendererName = Gfx().GetRendererName();
         char titleText[256];
-        sprintf_s( titleText, "::SKULLBONEZ CORE:: [%s]", rendererName );
+        sprintf_s( titleText, "%s [%s]", TITLE_TEXT, rendererName );
         m_systems.window->SetTitleText( titleText );
     }
     else
@@ -1742,7 +1742,7 @@ void SkullbonezRun::LoadScene( int index )
 
         const char* rendererName = Gfx().GetRendererName();
         char titleText[256];
-        sprintf_s( titleText, "::SKULLBONEZ CORE:: [SCENE MODE] [%s]", rendererName );
+        sprintf_s( titleText, "%s [SCENE MODE] [%s]", TITLE_TEXT, rendererName );
         m_systems.window->SetTitleText( titleText );
 
         // Snapshot scenes (ball_state) start paused in free camera mode ?
