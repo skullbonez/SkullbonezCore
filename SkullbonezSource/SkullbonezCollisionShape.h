@@ -73,6 +73,9 @@ inline float GetShapeBoundingRadius( const CollisionShape& shape )
 
 inline float GetShapeTerrainBottomOffset( const CollisionShape& shape )
 {
+    // For all shape types, the terrain bottom offset equals the bounding radius
+    // (the farthest point from the shape's local origin). For a sphere this is
+    // simply the radius. For a box it is the corner distance sqrt(a²+b²+c²).
     return std::visit( []( const auto& s )
                        { return s.GetBoundingRadius(); },
                        shape );

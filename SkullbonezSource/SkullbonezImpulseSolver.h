@@ -34,10 +34,20 @@ class ImpulseSolver
   private:
     static bool s_legacyPhysics; // Set once at startup via --legacy-physics; routes to CollisionResponse
 
-    static void SphereVsSphereLinear( GameModel& gameModel1, GameModel& gameModel2, const Vector3& collisionNormal );  // Sphere-sphere linear velocity exchange (improved geometric-mean restitution)
-    static void SphereVsSphereAngular( GameModel& gameModel1, GameModel& gameModel2, const Vector3& collisionNormal ); // Sphere-sphere angular impulse (Coulomb friction-based spin transfer)
-    static Vector3 GetCollisionNormalSphereVsSphere( GameModel& gameModel1, GameModel& gameModel2 );                   // Collision normal from center-to-center
-    static Vector3 GetCollidedObjectWorldPosition( GameModel& gameModel );                                             // World position of bounding volume center
+    // 1D elastic collision formula projected along the collision normal (momentum + restitution).
+    // e combined via geometric mean sqrt(e1*e2) so a fully inelastic body dominates.
+    static void SphereVsSphereLinear( GameModel& gameModel1, GameModel& gameModel2, const Vector3& collisionNormal );
+
+    // Coulomb friction-based spin transfer at the sphere-sphere contact point.
+    // For spheres r × n = 0, so normal impulses carry no torque; all spin change comes from tangential friction.
+    // Δω = I⁻¹ * (r × J_friction)
+    static void SphereVsSphereAngular( GameModel& gameModel1, GameModel& gameModel2, const Vector3& collisionNormal );
+
+    // Returns unit vector from gameModel1's bounding volume centre to gameModel2's (the contact normal for sphere pairs).
+    static Vector3 GetCollisionNormalSphereVsSphere( GameModel& gameModel1, GameModel& gameModel2 );
+
+    // World-space bounding volume centre: body_position + R * local_offset
+    static Vector3 GetCollidedObjectWorldPosition( GameModel& gameModel );
 
   public:
     static void SetLegacyPhysics( bool legacy ) { s_legacyPhysics = legacy; } // Called once from SkullbonezRun::Initialise()

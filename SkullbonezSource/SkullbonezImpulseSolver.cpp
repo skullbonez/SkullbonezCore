@@ -798,6 +798,8 @@ void ImpulseSolver::SphereVsSphereAngular( GameModel& gameModel1,
     Vector3 vContact2 = gameModel2.m_physicsInfo.GetVelocity() +
                         Vector::CrossProduct( gameModel2.m_physicsInfo.GetAngularVelocity(), rContact2 );
 
+    // Relative velocity at contact, decomposed into normal and tangential parts.
+    // v_tangent = v_rel - (v_rel · n) * n  (the sliding component perpendicular to normal)
     Vector3 vRel = vContact2 - vContact1;
     float vRelNormal = vRel * collisionNormal;
     Vector3 vTangent = vRel - collisionNormal * vRelNormal;
@@ -822,8 +824,13 @@ void ImpulseSolver::SphereVsSphereAngular( GameModel& gameModel1,
     Vector3 invInertia1 = gameModel1.GetInvertedRotationalInertia();
     Vector3 invInertia2 = gameModel2.GetInvertedRotationalInertia();
 
+    // Magnitude of the normal impulse (used to compute the Coulomb friction cone limit).
+    // j_n = -(1+e) * v_rel_n / (1/m1 + 1/m2)   (no angular terms because r × n = 0 for spheres)
     float jnMag = fabsf( -( 1.0f + e ) * vRelNormal / ( invMass1 + invMass2 ) );
 
+    // Effective (reduced) mass for the tangential friction constraint at the contact point.
+    // K_t = 1/m1 + 1/m2 + t · (I1⁻¹(r1×t) × r1) + t · (I2⁻¹(r2×t) × r2)
+    // This is the same effective-mass formula as for the normal constraint but along t instead of n.
     Vector3 r1CrossT = Vector::CrossProduct( rContact1, tangentDir );
     Vector3 iInv1_r1CrossT = Vector::VectorMultiply( invInertia1, r1CrossT );
     Vector3 term1 = Vector::CrossProduct( iInv1_r1CrossT, rContact1 );
@@ -840,8 +847,12 @@ void ImpulseSolver::SphereVsSphereAngular( GameModel& gameModel1,
         return;
     }
 
+    // j_t = tangential sliding speed / K_t  (impulse needed to stop sliding)
     float jt = vTangentMag / kTangent;
 
+    // Coulomb friction cone: |j_t| ≤ μ * |j_n|
+    // Physical meaning: friction force cannot exceed μ times the normal force.
+    // μ averaged between the two surfaces (e.g. 0.5 + 0.7) / 2 = 0.6.
     float mu = ( gameModel1.m_physicsInfo.GetFrictionCoefficient() +
                  gameModel2.m_physicsInfo.GetFrictionCoefficient() ) * 0.5f;
     float maxFriction = mu * jnMag;
@@ -850,8 +861,12 @@ void ImpulseSolver::SphereVsSphereAngular( GameModel& gameModel1,
         jt = maxFriction;
     }
 
+    // Friction impulse opposes tangential sliding
     Vector3 frictionImpulse = tangentDir * ( -jt );
 
+    // Convert impulse to angular velocity change: Δω = I⁻¹ * (r × J)
+    // Body 1 gets the reaction impulse (+frictionImpulse negated) because
+    // Newton's 3rd law: the force on body1 is opposite to the force on body2.
     Vector3 deltaOmega1 = Vector::VectorMultiply( invInertia1, Vector::CrossProduct( rContact1, frictionImpulse * ( -1.0f ) ) );
     Vector3 deltaOmega2 = Vector::VectorMultiply( invInertia2, Vector::CrossProduct( rContact2, frictionImpulse ) );
 
