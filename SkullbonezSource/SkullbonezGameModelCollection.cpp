@@ -114,7 +114,9 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
     {
         // Skip boxes in legacy mode — they are hidden, so no shadow either
         if ( ImpulseSolver::IsLegacyPhysics() && m_gameModels[i].IsBox() )
+        {
             continue;
+        }
 
         Vector3 pos = m_gameModels[i].GetPosition();
         float radius = m_gameModels[i].GetBoundingRadius();
@@ -233,7 +235,9 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     {
         // Skip boxes in legacy mode - they freeze in place until solver is toggled back
         if ( ImpulseSolver::IsLegacyPhysics() && m_gameModels[x].IsBox() )
+        {
             continue;
+        }
         m_gameModels[x].ApplyForces( fChangeInTime );
     }
     PROFILE_END( "Frame/Physics/ApplyForces" );
@@ -245,7 +249,9 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     {
         // Skip boxes in legacy mode so they don't generate candidate pairs with spheres
         if ( ImpulseSolver::IsLegacyPhysics() && m_gameModels[i].IsBox() )
+        {
             continue;
+        }
         m_spatialGrid.Insert( i, m_gameModels[i].GetPosition(), m_gameModels[i].GetBoundingRadius() );
     }
 
@@ -301,7 +307,9 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     {
         // Skip boxes in legacy mode - frozen until solver toggled back
         if ( ImpulseSolver::IsLegacyPhysics() && m_gameModels[x].IsBox() )
+        {
             continue;
+        }
 
         // only check m_terrain if this model has remaining time
         if ( m_timeRemaining[x] > 0.0f )
@@ -357,8 +365,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
             float speed = sqrtf( vel.x * vel.x + vel.y * vel.y + vel.z * vel.z );
             float omegaMag = sqrtf( omega.x * omega.x + omega.y * omega.y + omega.z * omega.z );
             int grounded = m_groundedThisFrame[i];
-            Log().Writef( "Debug/physics_state.csv", "%d,%d,%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%d\n",
-                          sPhysFrame, i, name, pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, speed, omega.x, omega.y, omega.z, omegaMag, grounded );
+            Log().Writef( "Debug/physics_state.csv", "%d,%d,%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%d\n", sPhysFrame, i, name, pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, speed, omega.x, omega.y, omega.z, omegaMag, grounded );
         }
         ++sPhysFrame;
     }

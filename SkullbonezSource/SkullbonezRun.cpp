@@ -24,8 +24,7 @@ using namespace SkullbonezCore::Physics;
 
 
 SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue, bool legacyPhysics )
-    : m_sceneQueue( std::move( sceneQueue ) )
-    , m_legacyPhysics( legacyPhysics )
+    : m_sceneQueue( std::move( sceneQueue ) ), m_legacyPhysics( legacyPhysics )
 {
     // Config-driven defaults are resolved at construction; scene-specific defaults remain in-member.
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
@@ -434,6 +433,84 @@ void SkullbonezRun::SetUpGameModels( int count )
             m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
         }
     }
+}
+
+
+// Spawns exactly 'balls' sphere objects followed by exactly 'boxes' OBB objects using the
+// same random parameter ranges as SetUpGameModels().  Unlike SetUpGameModels() — which uses
+// a probabilistic 30% box split — this function gives the caller precise control over the
+// object-type mix, which is important for reproducible benchmarks (e.g. "200 balls + 100 boxes").
+//
+// Spheres are spawned first so the RNG sequence is deterministic given a fixed seed,
+// regardless of the balls/boxes ratio.
+void SkullbonezRun::SetUpSolverObjects( int balls, int boxes )
+{
+    const SkullbonezConfig& cfg = Cfg();
+
+    auto randFloat = [&]( float base, int range )
+    { return base + static_cast<float>( rand() % range ); };
+    auto randSigned = [&]( int range ) -> float
+    {
+        float mag = 1.0f + static_cast<float>( rand() % range );
+        return ( rand() % 2 == 0 ) ? mag : -mag;
+    };
+    auto randSign = []() -> float
+    { return ( rand() % 2 == 0 ) ? 1.0f : -1.0f; };
+
+    // --- Sphere pass ---
+    for ( int i = 0; i < balls; ++i )
+    {
+        float posX       = randFloat( cfg.spawnXBase, cfg.spawnXRange );
+        float posY       = randFloat( cfg.spawnYBase, cfg.spawnYRange );
+        float posZ       = randFloat( cfg.spawnZBase, cfg.spawnZRange );
+        float mass       = randFloat( cfg.ballMassMin, cfg.ballMassRange );
+        float restitution = cfg.ballRestitutionMin + static_cast<float>( rand() % cfg.ballRestitutionRange ) / 10.0f;
+        float moment     = randFloat( cfg.ballMomentMin, cfg.ballMomentRange );
+        float radius     = ( 1.0f + static_cast<float>( rand() % cfg.ballRadiusRange ) ) * 0.5f;
+        Vector3 force( randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ) );
+        Vector3 forcePos( randSign(), randSign(), randSign() );
+
+        GameModel gameModel( &m_cWorldEnvironment, Vector3( posX, posY, posZ ), Vector3( moment, moment, moment ), mass );
+        gameModel.SetCoefficientRestitution( restitution );
+        gameModel.SetTerrain( m_systems.terrain.get() );
+        gameModel.AddBoundingSphere( radius );
+        gameModel.SetImpulseForce( force, forcePos );
+        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
+    }
+
+    // --- Box pass ---
+    // Box inertia tensor (solid cuboid about centre of mass):
+    //   Ix = m/12 * (hy² + hz²),  Iy = m/12 * (hx² + hz²),  Iz = m/12 * (hx² + hy²)
+    // where hx, hy, hz are the full extents (2 × half-extents).
+    // The spawn code uses half-extents internally, so the factor is m/3 (= m/12 * 4).
+    for ( int i = 0; i < boxes; ++i )
+    {
+        float posX        = randFloat( cfg.spawnXBase, cfg.spawnXRange );
+        float posY        = randFloat( cfg.spawnYBase, cfg.spawnYRange );
+        float posZ        = randFloat( cfg.spawnZBase, cfg.spawnZRange );
+        float mass        = randFloat( cfg.ballMassMin, cfg.ballMassRange );
+        float restitution = cfg.ballRestitutionMin + static_cast<float>( rand() % cfg.ballRestitutionRange ) / 10.0f;
+        Vector3 force( randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ) );
+        Vector3 forcePos( randSign(), randSign(), randSign() );
+
+        float halfExtent = ( 1.0f + static_cast<float>( rand() % 3 ) ) * 0.6f;
+        float hx = halfExtent * ( 0.7f + static_cast<float>( rand() % 4 ) * 0.2f );
+        float hy = halfExtent;
+        float hz = halfExtent * ( 0.7f + static_cast<float>( rand() % 4 ) * 0.2f );
+
+        float hx2 = hx * hx, hy2 = hy * hy, hz2 = hz * hz;
+        float m3  = mass / 3.0f;
+        Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
+
+        GameModel gameModel( &m_cWorldEnvironment, Vector3( posX, posY, posZ ), inertia, mass );
+        gameModel.SetCoefficientRestitution( restitution );
+        gameModel.SetTerrain( m_systems.terrain.get() );
+        gameModel.AddBoundingBox( Vector3( hx, hy, hz ) );
+        gameModel.SetImpulseForce( force, forcePos );
+        m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
+    }
+
+    m_scene.modelCount = balls + boxes;
 }
 
 
@@ -1756,6 +1833,15 @@ void SkullbonezRun::LoadScene( int index )
         m_debug.isTerrainHidden = scene.IsTerrainHidden();
         m_scene.timeScale = scene.GetTimeScale();
         m_scene.isFixedStep = scene.IsFixedStep();
+
+        // Apply per-scene physics mode override — supersedes the --legacy CLI flag for this scene.
+        // physicsMode 0 = inherit (no change), 1 = legacy, 2 = impulse solver.
+        if ( scene.GetPhysicsMode() != 0 )
+        {
+            m_legacyPhysics = ( scene.GetPhysicsMode() == 1 );
+            ImpulseSolver::SetLegacyPhysics( m_legacyPhysics );
+        }
+
         m_scene.targetFrameCount = scene.GetFrameCount();
         m_screenshot.screenshotFrame = scene.GetScreenshotFrame();
         m_screenshot.screenshotMs = scene.GetScreenshotMs();
@@ -1833,7 +1919,12 @@ void SkullbonezRun::LoadScene( int index )
 
         SetUpCamerasFromScene( scene );
 
-        if ( scene.GetLegacyBallCount() > 0 )
+        if ( scene.GetSolverBallCount() > 0 || scene.GetSolverBoxCount() > 0 )
+        {
+            // Exact-count solver spawn — explicit ball/box split for benchmarks.
+            SetUpSolverObjects( scene.GetSolverBallCount(), scene.GetSolverBoxCount() );
+        }
+        else if ( scene.GetLegacyBallCount() > 0 )
         {
             SetUpGameModels( scene.GetLegacyBallCount() );
         }

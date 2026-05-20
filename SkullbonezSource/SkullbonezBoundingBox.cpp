@@ -54,8 +54,8 @@ BoundingBox::BoundingBox( const Vector3& halfExtents, const Vector3& position )
 Matrix4 BoundingBox::GetModelMatrix( const Vector3& worldPos, const Matrix4& rotation ) const
 {
     Matrix4 translate = Matrix4::Translate( worldPos.x + m_position.x,
-                                             worldPos.y + m_position.y,
-                                             worldPos.z + m_position.z );
+                                            worldPos.y + m_position.y,
+                                            worldPos.z + m_position.z );
     Matrix4 scale = Matrix4::Scale( m_halfExtents.x, m_halfExtents.y, m_halfExtents.z );
     return translate * rotation * scale;
 }

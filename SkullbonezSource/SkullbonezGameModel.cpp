@@ -217,7 +217,8 @@ void GameModel::AddBoundingBox( const Vector3& halfExtents )
     m_ballPhysics.invVolume = 1.0f / m_ballPhysics.volume;
     m_ballPhysics.projectedSurfaceArea = ( 4.0f * halfExtents.x * halfExtents.y +
                                            4.0f * halfExtents.x * halfExtents.z +
-                                           4.0f * halfExtents.y * halfExtents.z ) / 3.0f;
+                                           4.0f * halfExtents.y * halfExtents.z ) /
+                                         3.0f;
     m_ballPhysics.dragCoefficient = 1.05f;
     m_ballPhysics.mass = mass;
     m_ballPhysics.invMass = 1.0f / mass;
@@ -280,9 +281,13 @@ void GameModel::CollisionResponseGameModel( GameModel& responseTarget )
 
     // respond to the collision (velocity-only — m_position advancement handled by RunPhysics)
     if ( ImpulseSolver::IsLegacyPhysics() )
+    {
         CollisionResponse::RespondCollisionGameModels( *this, responseTarget );
+    }
     else
+    {
         ImpulseSolver::RespondCollisionGameModels( *this, responseTarget );
+    }
 
     // clear response flags so both models can participate in further collisions this frame
     m_isResponseRequired = false;
@@ -322,9 +327,13 @@ void GameModel::CollisionResponseTerrain( float remainingTimeStep )
 
     // respond to the collision...
     if ( ImpulseSolver::IsLegacyPhysics() )
+    {
         CollisionResponse::RespondCollisionTerrain( *this, remainingTimeStep );
+    }
     else
+    {
         ImpulseSolver::RespondCollisionTerrain( *this, remainingTimeStep );
+    }
 
     // update the m_position based on remaining time step
     UpdatePosition( remainingTimeStep );
@@ -347,7 +356,9 @@ Matrix4 GameModel::GetModelMatrix()
     // yaw compatibility shim is required.
     Matrix4 rotation = Matrix4::FromQuaternion( m_physicsInfo.GetOrientation() );
     Vector3 pos = m_physicsInfo.GetPosition();
-    return std::visit( [&]( auto& shape ) { return shape.GetModelMatrix( pos, rotation ); }, m_boundingVolume );
+    return std::visit( [&]( auto& shape )
+                       { return shape.GetModelMatrix( pos, rotation ); },
+                       m_boundingVolume );
 }
 
 

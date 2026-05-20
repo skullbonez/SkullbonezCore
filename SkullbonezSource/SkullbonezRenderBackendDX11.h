@@ -104,7 +104,7 @@ struct BlendKeyHashDX11
 
 // GPU timer constants — must match Profiler::MAX_MARKERS
 inline constexpr int DX11_TIMER_MARKERS = 64;
-inline constexpr int DX11_TIMER_FRAMES  = 2; // one-frame-lag double buffer
+inline constexpr int DX11_TIMER_FRAMES = 2; // one-frame-lag double buffer
 
 // Double-buffered D3D11 GPU timestamp query state.
 // DX11 timestamp queries use ID3D11Query rather than a query heap.
@@ -120,7 +120,7 @@ struct GpuTimerStateDX11
     // Disjoint queries — one per double-buffer slot
     // D3D11_QUERY_TIMESTAMP_DISJOINT provides clock frequency + disjoint flag per frame.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_query
-    ID3D11Query* disjoint[DX11_TIMER_FRAMES]                  = {};
+    ID3D11Query* disjoint[DX11_TIMER_FRAMES] = {};
 
     // Per-marker timestamp pairs — [frame][markerIdx][0=begin, 1=end]
     // Each marker gets two D3D11_QUERY_TIMESTAMP queries per double-buffer slot.
@@ -129,12 +129,12 @@ struct GpuTimerStateDX11
     ID3D11Query* ts[DX11_TIMER_FRAMES][DX11_TIMER_MARKERS][2] = {};
 
     // Results read back from the previous frame's queries
-    float resultMs[DX11_TIMER_MARKERS]    = {};
-    bool  resultValid[DX11_TIMER_MARKERS] = {};
+    float resultMs[DX11_TIMER_MARKERS] = {};
+    bool resultValid[DX11_TIMER_MARKERS] = {};
 
-    bool initialized              = false;
-    int  writeIdx                 = 0;    // current write frame slot (0 or 1)
-    bool disjointBegunThisFrame   = false; // true once Begin(disjoint[writeIdx]) has been issued
+    bool initialized = false;
+    int writeIdx = 0;                        // current write frame slot (0 or 1)
+    bool disjointBegunThisFrame = false;     // true once Begin(disjoint[writeIdx]) has been issued
     bool frameReady[DX11_TIMER_FRAMES] = {}; // true when a slot has been written and is pending readback
 };
 

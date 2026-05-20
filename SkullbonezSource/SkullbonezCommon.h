@@ -59,7 +59,7 @@ constexpr float ONE_OVER_THREE = 0.33333f;
 
 // Fixed physics timestep (120 Hz) — guarantees deterministic simulation
 constexpr float PHYSICS_FIXED_DT = 1.0f / 120.0f;
-constexpr int   PHYSICS_MAX_STEPS_PER_FRAME = 8;
+constexpr int PHYSICS_MAX_STEPS_PER_FRAME = 8;
 
 // Numeric sentinels / tolerances
 constexpr float NO_COLLISION = 1e30f;

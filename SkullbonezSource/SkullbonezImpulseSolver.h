@@ -50,8 +50,14 @@ class ImpulseSolver
     static Vector3 GetCollidedObjectWorldPosition( GameModel& gameModel );
 
   public:
-    static void SetLegacyPhysics( bool legacy ) { s_legacyPhysics = legacy; } // Called once from SkullbonezRun::Initialise()
-    static bool IsLegacyPhysics() { return s_legacyPhysics; }
+    static void SetLegacyPhysics( bool legacy )
+    {
+        s_legacyPhysics = legacy;
+    } // Called once from SkullbonezRun::Initialise()
+    static bool IsLegacyPhysics()
+    {
+        return s_legacyPhysics;
+    }
 
     static void RespondCollisionTerrain( GameModel& gameModel, float changeInTime );        // Unified sphere+box terrain response (sequential impulse solver)
     static void RespondCollisionGameModels( GameModel& gameModel1, GameModel& gameModel2 ); // Sphere-sphere (and mixed) game model response

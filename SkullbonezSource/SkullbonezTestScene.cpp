@@ -677,6 +677,58 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
+        // parse physics_mode directive: forces legacy or solver physics for this scene,
+        // overriding whatever --legacy flag was passed on the command line.
+        // Use this to benchmark or compare both modes within a single suite run.
+        if ( strncmp( line, "physics_mode ", 13 ) == 0 )
+        {
+            if ( strcmp( line + 13, "legacy" ) == 0 )
+            {
+                scene.m_sceneOptions.physicsMode = 1;
+            }
+            else if ( strcmp( line + 13, "solver" ) == 0 )
+            {
+                scene.m_sceneOptions.physicsMode = 2;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid physics_mode at line %d: %s (expected 'legacy' or 'solver')  (TestScene::LoadFromFile)", lineNumber, line + 13 );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
+        // parse solver_balls directive: spawns exactly N impulse-solver sphere objects.
+        // Paired with solver_boxes for precise control over the ball/box split in bench scenes.
+        if ( strncmp( line, "solver_balls ", 13 ) == 0 )
+        {
+            scene.m_sceneOptions.solverBallCount = atoi( line + 13 );
+            if ( scene.m_sceneOptions.solverBallCount < 0 )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid solver_balls count at line %d (must be >= 0)  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
+        // parse solver_boxes directive: spawns exactly N impulse-solver OBB objects.
+        if ( strncmp( line, "solver_boxes ", 13 ) == 0 )
+        {
+            scene.m_sceneOptions.solverBoxCount = atoi( line + 13 );
+            if ( scene.m_sceneOptions.solverBoxCount < 0 )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid solver_boxes count at line %d (must be >= 0)  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
         // unknown directive
         fclose( file );
         char msg[256];
@@ -759,6 +811,24 @@ unsigned int TestScene::GetSeed() const
 int TestScene::GetLegacyBallCount() const
 {
     return m_sceneOptions.legacyBallCount;
+}
+
+
+int TestScene::GetPhysicsMode() const
+{
+    return m_sceneOptions.physicsMode;
+}
+
+
+int TestScene::GetSolverBallCount() const
+{
+    return m_sceneOptions.solverBallCount;
+}
+
+
+int TestScene::GetSolverBoxCount() const
+{
+    return m_sceneOptions.solverBoxCount;
 }
 
 

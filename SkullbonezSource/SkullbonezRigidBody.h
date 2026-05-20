@@ -26,23 +26,23 @@ class RigidBody
 {
 
   private:
-    bool m_isForceApplied;             // Keeps track of whether an impulse force has been applied or not
-    float m_mass;                      // Scalar representative of object m_mass									[Units: kg]
-    float m_invertedMass;              // 1.0f / m_mass															[Units: kg]
-    float m_coefficientRestitution;    // Scalar representative of the coefficient of restitution (bounciness) [Units: scalar]
-    float m_frictionCoefficient;       // Scalar representative of the coefficient of friction (grip)			[Units: scalar]
-    float m_volume;                    // Scalar representative of the m_volume of the body						[Units: m^3]
-    Vector3 m_position;                // Vector representative of object m_position								[Units: point]
-    Vector3 m_linearVelocity;          // Vector representative of object velocity								[Units: m/s]
-    Vector3 m_linearAcceleration;      // Vector representative of object acceleration							[Units: m/s^2]
-    Vector3 m_appliedForce;            // Vector representative of the sum of all forces						[Units: N]
-    Vector3 m_worldForce;              // Linear forces acted upon the body by the world						[Units: N]
-    Vector3 m_worldTorque;             // Angular forces acted upon the body by the world						[Units: Nm]
-    Vector3 m_forceApplicationPoint;   // Vector representative of the location of the force applied			[Units: point]
-    Vector3 m_angularVelocity;         // Vector representative of the bodies angular velocity					[Units: radians/s]
-    Vector3 m_angularAcceleration;     // Vector representative of the bodies angular acceleration				[Units: radians/s^2]
-    Vector3 m_rotationalInertia;       // Diagonal of the 3×3 inertia tensor (off-diagonal terms are zero for symmetric bodies)  [Units: kg·m²]
-    Vector3 m_torque;                  // Vector representative of the bodies m_torque							[Units: Nm]
+    bool m_isForceApplied;           // Keeps track of whether an impulse force has been applied or not
+    float m_mass;                    // Scalar representative of object m_mass									[Units: kg]
+    float m_invertedMass;            // 1.0f / m_mass															[Units: kg]
+    float m_coefficientRestitution;  // Scalar representative of the coefficient of restitution (bounciness) [Units: scalar]
+    float m_frictionCoefficient;     // Scalar representative of the coefficient of friction (grip)			[Units: scalar]
+    float m_volume;                  // Scalar representative of the m_volume of the body						[Units: m^3]
+    Vector3 m_position;              // Vector representative of object m_position								[Units: point]
+    Vector3 m_linearVelocity;        // Vector representative of object velocity								[Units: m/s]
+    Vector3 m_linearAcceleration;    // Vector representative of object acceleration							[Units: m/s^2]
+    Vector3 m_appliedForce;          // Vector representative of the sum of all forces						[Units: N]
+    Vector3 m_worldForce;            // Linear forces acted upon the body by the world						[Units: N]
+    Vector3 m_worldTorque;           // Angular forces acted upon the body by the world						[Units: Nm]
+    Vector3 m_forceApplicationPoint; // Vector representative of the location of the force applied			[Units: point]
+    Vector3 m_angularVelocity;       // Vector representative of the bodies angular velocity					[Units: radians/s]
+    Vector3 m_angularAcceleration;   // Vector representative of the bodies angular acceleration				[Units: radians/s^2]
+    Vector3 m_rotationalInertia;     // Diagonal of the 3×3 inertia tensor (off-diagonal terms are zero for symmetric bodies)  [Units: kg·m²]
+    Vector3 m_torque;                // Vector representative of the bodies m_torque							[Units: Nm]
     /* m_changeInAngularVelocity / m_changeInLinearVelocity are DEFERRED IMPULSE BUFFERS.
        During collision resolution, both objects' velocity changes are computed first and
        stored here, then applied simultaneously via ApplyChange*Velocity(). This prevents
@@ -52,7 +52,7 @@ class RigidBody
     Vector3 m_changeInLinearVelocity;  // Buffered linear-velocity delta  — staged here, applied via ApplyChangeInLinearVelocity()  [Units: m/s]
     Quaternion m_orientation;          // Quaternion representative of the m_orientation of the rigid body		[Units: Qrtn]
 
-    void ApplyWorldForce();    // Applies continuous world forces (gravity) each frame: a = F/m, v += a
+    void ApplyWorldForce(); // Applies continuous world forces (gravity) each frame: a = F/m, v += a
     /* NOTE: Despite being named "Force", both of the following apply ONE-SHOT IMPULSES
        (instantaneous velocity changes) rather than continuous forces. The impulse is
        consumed on the first call and ignored on subsequent calls (m_isForceApplied flag). */

@@ -582,7 +582,8 @@ void RenderBackendDX11::Present()
         {
             D3D11_QUERY_DATA_TIMESTAMP_DISJOINT disjointData = {};
             HRESULT hr = m_context->GetData( m_gpuTimers.disjoint[readIdx],
-                                             &disjointData, sizeof( disjointData ),
+                                             &disjointData,
+                                             sizeof( disjointData ),
                                              D3D11_ASYNC_GETDATA_DONOTFLUSH );
             if ( hr == S_OK && !disjointData.Disjoint && disjointData.Frequency > 0 )
             {
@@ -592,14 +593,16 @@ void RenderBackendDX11::Present()
                 {
                     UINT64 t0 = 0, t1 = 0;
                     HRESULT h0 = m_context->GetData( m_gpuTimers.ts[readIdx][i][0],
-                                                     &t0, sizeof( t0 ),
+                                                     &t0,
+                                                     sizeof( t0 ),
                                                      D3D11_ASYNC_GETDATA_DONOTFLUSH );
                     HRESULT h1 = m_context->GetData( m_gpuTimers.ts[readIdx][i][1],
-                                                     &t1, sizeof( t1 ),
+                                                     &t1,
+                                                     sizeof( t1 ),
                                                      D3D11_ASYNC_GETDATA_DONOTFLUSH );
                     if ( h0 == S_OK && h1 == S_OK && t1 >= t0 )
                     {
-                        m_gpuTimers.resultMs[i]    = static_cast<float>(
+                        m_gpuTimers.resultMs[i] = static_cast<float>(
                             static_cast<double>( t1 - t0 ) / static_cast<double>( disjointData.Frequency ) * 1000.0 );
                         m_gpuTimers.resultValid[i] = true;
                     }
@@ -1450,7 +1453,7 @@ void RenderBackendDX11::InitGpuTimers()
     // D3D11_QUERY_TIMESTAMP_DISJOINT must wrap all TIMESTAMP queries in a frame.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_query
     D3D11_QUERY_DESC disjointDesc = {};
-    disjointDesc.Query     = D3D11_QUERY_TIMESTAMP_DISJOINT;
+    disjointDesc.Query = D3D11_QUERY_TIMESTAMP_DISJOINT;
     disjointDesc.MiscFlags = 0;
     for ( int f = 0; f < DX11_TIMER_FRAMES; ++f )
     {
@@ -1466,7 +1469,7 @@ void RenderBackendDX11::InitGpuTimers()
     // A pair (begin, end) per marker gives elapsed GPU ticks between the two calls.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_query
     D3D11_QUERY_DESC tsDesc = {};
-    tsDesc.Query     = D3D11_QUERY_TIMESTAMP;
+    tsDesc.Query = D3D11_QUERY_TIMESTAMP;
     tsDesc.MiscFlags = 0;
     for ( int f = 0; f < DX11_TIMER_FRAMES; ++f )
     {
@@ -1572,7 +1575,7 @@ void RenderBackendDX11::GpuTimerInvalidate()
     // immediately see data and re-fill the profiler ring, keeping the column visible.
     // The next successful GetData() (S_OK in Present) overwrites all entries with fresh
     // data via memset+fill, so stale values are naturally replaced within a few frames.
-    std::memset( m_gpuTimers.frameReady,  0, sizeof( m_gpuTimers.frameReady ) );
+    std::memset( m_gpuTimers.frameReady, 0, sizeof( m_gpuTimers.frameReady ) );
     m_gpuTimers.disjointBegunThisFrame = false;
 
     // Reset writeIdx to 0 and drain any pending disjoint queries.

@@ -476,7 +476,10 @@ void SkullbonezWindow::RecreateWindow()
     MSG msg;
     while ( PeekMessage( &msg, nullptr, 0, 0, PM_REMOVE ) )
     {
-        if ( msg.message == WM_QUIT ) break;
+        if ( msg.message == WM_QUIT )
+        {
+            break;
+        }
         TranslateMessage( &msg );
         DispatchMessage( &msg );
     }

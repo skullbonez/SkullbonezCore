@@ -27,9 +27,9 @@ class RotationMatrix
     RotationMatrix();                                                                                                    // Default constructor
     RotationMatrix( float f11, float f12, float f13, float f21, float f22, float f23, float f31, float f32, float f33 ); // Overloaded constructor
     ~RotationMatrix() = default;
-    void Identity();                              // Sets the matrix back to the identity value
-    Vector3 operator*( const Vector3& v ) const;  // Rotation matrix multiplied by vector
-    Vector3 operator*=( const Vector3& v ) const; // *= overload
+    void Identity();                                     // Sets the matrix back to the identity value
+    Vector3 operator*( const Vector3& v ) const;         // Rotation matrix multiplied by vector
+    Vector3 operator*=( const Vector3& v ) const;        // *= overload
     Vector3 TransposeMultiply( const Vector3& v ) const; // R^T * v (inverse rotation for orthogonal matrices)
 
   private:

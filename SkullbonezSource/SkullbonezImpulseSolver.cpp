@@ -80,10 +80,10 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     // where R is the orientation matrix and ∘ is component-wise multiply.
     Transformation::RotationMatrix orientMat = gameModel.m_physicsInfo.GetOrientationMatrix();
     bool useWorldInertia = std::visit( []( const auto& s ) -> bool
-    {
+                                       {
         using S = std::decay_t<decltype( s )>;
-        return std::is_same_v<S, BoundingBox>;
-    }, gameModel.m_boundingVolume );
+        return std::is_same_v<S, BoundingBox>; },
+                                       gameModel.m_boundingVolume );
 
     // Lambda: compute I_world_inv * v
     auto applyInvInertia = [&]( const Vector3& v ) -> Vector3
@@ -107,25 +107,25 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     // Fields map directly to the Catto iterative constraint formulation.
     struct Contact
     {
-        Vector3 r;            // Vector from body CoM to contact point (world space); used in r×n torque terms
-        Vector3 normal;       // Outward surface normal at contact (pointing away from the surface)
-        float   penetration;  // Signed overlap depth (positive = penetrating into surface)
-        float   normalMass;   // Effective (reduced) mass for the normal constraint:
-                              //   K_n = 1/m + n · (I⁻¹(r×n) × r)   →   normalMass = 1/K_n
-        float   tangentMass1; // Effective mass for friction along tangent1 (same structure as normalMass)
-        float   tangentMass2; // Effective mass for friction along tangent2
-        Vector3 tangent1;     // First tangent direction (perpendicular to normal, Gram-Schmidt orthonormalised)
-        Vector3 tangent2;     // Second tangent direction = normal × tangent1  (completing the orthonormal frame)
-        float   bias;         // Per-contact velocity target:
-                              //   Resting contact → Baumgarte bias = β*(pen-slop)/dt  (positional error correction)
-                              //   Impacting contact → e*v_n/count  (restitution push)
-        float   accN;         // Accumulated normal impulse this frame; clamped to [0,∞] (push only, never pull).
-                              //   Warm-started with expected gravity load so friction has a budget from iteration 0.
-        float   accT1;        // Accumulated friction impulse along tangent1; clamped to [−μ·accN, +μ·accN] (Coulomb cone)
-        float   accT2;        // Accumulated friction impulse along tangent2
+        Vector3 r;          // Vector from body CoM to contact point (world space); used in r×n torque terms
+        Vector3 normal;     // Outward surface normal at contact (pointing away from the surface)
+        float penetration;  // Signed overlap depth (positive = penetrating into surface)
+        float normalMass;   // Effective (reduced) mass for the normal constraint:
+                            //   K_n = 1/m + n · (I⁻¹(r×n) × r)   →   normalMass = 1/K_n
+        float tangentMass1; // Effective mass for friction along tangent1 (same structure as normalMass)
+        float tangentMass2; // Effective mass for friction along tangent2
+        Vector3 tangent1;   // First tangent direction (perpendicular to normal, Gram-Schmidt orthonormalised)
+        Vector3 tangent2;   // Second tangent direction = normal × tangent1  (completing the orthonormal frame)
+        float bias;         // Per-contact velocity target:
+                            //   Resting contact → Baumgarte bias = β*(pen-slop)/dt  (positional error correction)
+                            //   Impacting contact → e*v_n/count  (restitution push)
+        float accN;         // Accumulated normal impulse this frame; clamped to [0,∞] (push only, never pull).
+                            //   Warm-started with expected gravity load so friction has a budget from iteration 0.
+        float accT1;        // Accumulated friction impulse along tangent1; clamped to [−μ·accN, +μ·accN] (Coulomb cone)
+        float accT2;        // Accumulated friction impulse along tangent2
     };
 
-    Contact contacts[8];  // Up to 8 contacts (one per box vertex; sphere always has 1)
+    Contact contacts[8]; // Up to 8 contacts (one per box vertex; sphere always has 1)
     int contactCount = 0;
 
     // --- Build contact manifold based on shape type ---
@@ -134,7 +134,7 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     //      a small threshold of the deepest-penetrating vertex.  This gives face
     //      contacts (4 pts) for flat boxes and edge/vertex contacts for tilted ones.
     std::visit( [&]( const auto& shape )
-    {
+                {
         using ShapeT = std::decay_t<decltype( shape )>;
 
         if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
@@ -208,8 +208,8 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
                 c.accT2 = 0.0f;
                 ++contactCount;
             }
-        }
-    }, gameModel.m_boundingVolume );
+        } },
+                gameModel.m_boundingVolume );
 
     // Safety fallback: cancel normal velocity if no contacts found
     if ( contactCount == 0 )
@@ -249,9 +249,9 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     // reaction force (mg·cos(θ)). We compute the per-contact share of the
     // expected gravity load and use it as a minimum friction budget.
     float gravityNormalImpulse = mass * fabsf( Cfg().gravity ) *
-                                  fabsf( planeNormal.y ) * changeInTime;
+                                 fabsf( planeNormal.y ) * changeInTime;
     float warmStartPerContact = gravityNormalImpulse /
-                                 static_cast<float>( contactCount );
+                                static_cast<float>( contactCount );
 
     // --- Pre-compute per-contact effective mass and bias ---
     // Baumgarte stabilization is used ONLY for resting contacts (low v_n) with
@@ -334,9 +334,15 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
         {
             // Resting contact: gentle Baumgarte to maintain surface contact
             float corrPen = c.penetration - penetrationSlop;
-            if ( corrPen < 0.0f ) corrPen = 0.0f;
+            if ( corrPen < 0.0f )
+            {
+                corrPen = 0.0f;
+            }
             float baumBias = baumgarteBeta * corrPen * invDt;
-            if ( baumBias > maxBaumgarteBias ) baumBias = maxBaumgarteBias;
+            if ( baumBias > maxBaumgarteBias )
+            {
+                baumBias = maxBaumgarteBias;
+            }
             c.bias = baumBias;
         }
         else if ( vnContact < -Cfg().contactRestitutionThreshold )
@@ -387,7 +393,10 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
             // Accumulated impulse clamping: only push, never pull
             float oldAccN = c.accN;
             c.accN = oldAccN + lambdaN;
-            if ( c.accN < 0.0f ) c.accN = 0.0f;
+            if ( c.accN < 0.0f )
+            {
+                c.accN = 0.0f;
+            }
             float deltaN = c.accN - oldAccN;
 
             Vector3 impulseN = c.normal * deltaN;
@@ -405,12 +414,19 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
             float lambdaT1 = c.tangentMass1 * ( -vt1 );
 
             float frictionBudget = ( c.accN > warmStartPerContact )
-                                     ? c.accN : warmStartPerContact;
+                                       ? c.accN
+                                       : warmStartPerContact;
             float maxFriction = mu * frictionBudget;
             float oldAccT1 = c.accT1;
             c.accT1 = oldAccT1 + lambdaT1;
-            if ( c.accT1 > maxFriction ) c.accT1 = maxFriction;
-            if ( c.accT1 < -maxFriction ) c.accT1 = -maxFriction;
+            if ( c.accT1 > maxFriction )
+            {
+                c.accT1 = maxFriction;
+            }
+            if ( c.accT1 < -maxFriction )
+            {
+                c.accT1 = -maxFriction;
+            }
             float deltaT1 = c.accT1 - oldAccT1;
 
             Vector3 impulseT1 = c.tangent1 * deltaT1;
@@ -424,8 +440,14 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
 
             float oldAccT2 = c.accT2;
             c.accT2 = oldAccT2 + lambdaT2;
-            if ( c.accT2 > maxFriction ) c.accT2 = maxFriction;
-            if ( c.accT2 < -maxFriction ) c.accT2 = -maxFriction;
+            if ( c.accT2 > maxFriction )
+            {
+                c.accT2 = maxFriction;
+            }
+            if ( c.accT2 < -maxFriction )
+            {
+                c.accT2 = -maxFriction;
+            }
             float deltaT2 = c.accT2 - oldAccT2;
 
             Vector3 impulseT2 = c.tangent2 * deltaT2;
@@ -456,10 +478,10 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     // is physically correct: gravity at the CM creates a moment about the
     // support that the solver's normal impulses don't fully capture.
     bool isBox = std::visit( []( const auto& s ) -> bool
-    {
+                             {
         using S = std::decay_t<decltype( s )>;
-        return std::is_same_v<S, BoundingBox>;
-    }, gameModel.m_boundingVolume );
+        return std::is_same_v<S, BoundingBox>; },
+                             gameModel.m_boundingVolume );
 
     if ( isBox && contactCount > 0 && contactCount < 4 )
     {
@@ -483,7 +505,7 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
             // Gravitational torque about contact centroid:
             // T = (CM - contact_centroid) x F_gravity
             // Since contacts[i].r is from CM to contact, (CM - contact) = -r
-            Vector3 leverArm = contactCentroid * ( -1.0f );  // from contact to CM
+            Vector3 leverArm = contactCentroid * ( -1.0f ); // from contact to CM
             Vector3 gravForce( 0.0f, mass * Cfg().gravity, 0.0f );
             Vector3 gravTorque = Vector::CrossProduct( leverArm, gravForce );
 
@@ -503,7 +525,7 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
         float omegaMag = sqrtf( omegaMagSq );
 
         float rEff = std::visit( []( const auto& s ) -> float
-        {
+                                 {
             using S = std::decay_t<decltype( s )>;
             if constexpr ( std::is_same_v<S, BoundingSphere> )
             {
@@ -513,14 +535,17 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
             {
                 const Vector3& he = s.GetHalfExtents();
                 return ( he.x + he.y + he.z ) / 3.0f;
-            }
-        }, gameModel.m_boundingVolume );
+            } },
+                                 gameModel.m_boundingVolume );
 
         constexpr float muRolling = 0.02f;
         float rollingTorqueMag = muRolling * normalForce * rEff;
 
         float avgInertia = ( inertia.x + inertia.y + inertia.z ) / 3.0f;
-        if ( avgInertia < TOLERANCE ) avgInertia = 1.0f;
+        if ( avgInertia < TOLERANCE )
+        {
+            avgInertia = 1.0f;
+        }
         float deltaOmega = ( rollingTorqueMag / avgInertia ) * changeInTime;
 
         if ( deltaOmega >= omegaMag )
@@ -555,24 +580,28 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
 
     // --- Visual pole alignment (sphere only, cosmetic) ---
     std::visit( [&]( const auto& shape )
-    {
+                {
         using ShapeT = std::decay_t<decltype( shape )>;
         if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
         {
             float omMagSq = omega * omega;
-            if ( omMagSq < TOLERANCE * TOLERANCE ) return;
-            if ( !Cfg().rollAlignEnabled ) return;
+            if ( omMagSq < TOLERANCE * TOLERANCE ){ return;
+}
+            if ( !Cfg().rollAlignEnabled ){ return;
+}
 
             float radius = shape.GetRadius();
             bool inWater = ( position.y - radius ) < Cfg().fluidHeight;
-            if ( inWater ) return;
+            if ( inWater ){ return;
+}
 
             float omMag = sqrtf( omMagSq );
             Vector3 omDir = omega / omMag;
 
             Vector3 pole = gameModel.GetOrientationUp();
             float poleMag = VectorMag( pole );
-            if ( poleMag < TOLERANCE ) return;
+            if ( poleMag < TOLERANCE ){ return;
+}
             pole = pole / poleMag;
 
             float poleAlongOm = pole * omDir;
@@ -584,13 +613,16 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
                 targetPole = velocity - omDir * ( velocity * omDir );
                 targetMag = VectorMag( targetPole );
             }
-            if ( targetMag < TOLERANCE ) return;
+            if ( targetMag < TOLERANCE ){ return;
+}
 
             targetPole = targetPole / targetMag;
 
             float dotPole = pole * targetPole;
-            if ( dotPole > 1.0f ) dotPole = 1.0f;
-            if ( dotPole < -1.0f ) dotPole = -1.0f;
+            if ( dotPole > 1.0f ){ dotPole = 1.0f;
+}
+            if ( dotPole < -1.0f ){ dotPole = -1.0f;
+}
 
             float angle = acosf( dotPole );
             float maxAngle = Cfg().rollAlignMaxCorrectionDeg * _PI / 180.0f;
@@ -611,8 +643,8 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
                     gameModel.m_physicsInfo.SetOrientation( q );
                 }
             }
-        }
-    }, gameModel.m_boundingVolume );
+        } },
+                gameModel.m_boundingVolume );
 }
 
 
@@ -854,7 +886,8 @@ void ImpulseSolver::SphereVsSphereAngular( GameModel& gameModel1,
     // Physical meaning: friction force cannot exceed μ times the normal force.
     // μ averaged between the two surfaces (e.g. 0.5 + 0.7) / 2 = 0.6.
     float mu = ( gameModel1.m_physicsInfo.GetFrictionCoefficient() +
-                 gameModel2.m_physicsInfo.GetFrictionCoefficient() ) * 0.5f;
+                 gameModel2.m_physicsInfo.GetFrictionCoefficient() ) *
+               0.5f;
     float maxFriction = mu * jnMag;
     if ( jt > maxFriction )
     {

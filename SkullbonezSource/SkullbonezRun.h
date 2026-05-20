@@ -133,17 +133,17 @@ struct RunScreenshotState
 
 struct RunDebugState
 {
-    bool isProfilerOverlay = true;   // Profiler overlay visible (toggle with 0; default ON in profile builds)
-    bool isWaterFreezeDebug = false; // Freeze ocean animation at current shape (toggle with 1)
-    bool isWaterNoReflect = false;   // Disable ocean reflection, output flat tint (toggle with 2)
-    bool isWaterFlatDebug = false;   // Force ocean mesh fully flat, no displacement (toggle with 3)
-    bool isTerrainHidden = false;    // Hide terrain mesh (toggle with 4)
-    bool isWaterHidden = false;      // Hide water mesh (toggle with 5)
-    bool isDebugVectors = false;     // Draw velocity (green) and angular velocity (red) vectors (toggle with V)
-    bool isTextOnly = false;         // Suppress all 3D rendering; show solid background with large pangram text
-    float frozenWaterTime = 0.0f;    // Simulation time captured when freeze was toggled on
+    bool isProfilerOverlay = true;        // Profiler overlay visible (toggle with 0; default ON in profile builds)
+    bool isWaterFreezeDebug = false;      // Freeze ocean animation at current shape (toggle with 1)
+    bool isWaterNoReflect = false;        // Disable ocean reflection, output flat tint (toggle with 2)
+    bool isWaterFlatDebug = false;        // Force ocean mesh fully flat, no displacement (toggle with 3)
+    bool isTerrainHidden = false;         // Hide terrain mesh (toggle with 4)
+    bool isWaterHidden = false;           // Hide water mesh (toggle with 5)
+    bool isDebugVectors = false;          // Draw velocity (green) and angular velocity (red) vectors (toggle with V)
+    bool isTextOnly = false;              // Suppress all 3D rendering; show solid background with large pangram text
+    float frozenWaterTime = 0.0f;         // Simulation time captured when freeze was toggled on
     float rendererSwitchInterval = -1.0f; // Auto-switch renderer every N seconds (-1 = disabled)
-    float rendererSwitchAccum    = 0.0f;  // Accumulated time since last auto-switch
+    float rendererSwitchAccum = 0.0f;     // Accumulated time since last auto-switch
 };
 
 enum class RuntimeRendererType
@@ -185,6 +185,7 @@ class SkullbonezRun
     void SetUpCameras();                                               // Camera init (legacy mode)
     void SetUpCamerasFromScene( const TestScene& scene );              // Camera init from scene file
     void SetUpGameModels( int count );                                 // Game model init (random legacy mode)
+    void SetUpSolverObjects( int balls, int boxes );                   // Game model init: exact N solver balls + M solver boxes
     void SetUpGameModelsFromScene( const TestScene& scene );           // Game model init from scene file
     void DrawPrimitives();                                             // Draw OpenGL primitives here
     void SetInitialOpenGlState();                                      // Sets the initial state of the OpenGL evironment
@@ -201,9 +202,9 @@ class SkullbonezRun
 
   public:
     SkullbonezRun( std::vector<std::string> sceneQueue, bool legacyPhysics = false ); // Constructor (scene queue; empty string = legacy mode)
-    ~SkullbonezRun();                                     // Default destructor
-    void Initialise();                                    // Initialises shared resources and loads first scene
-    void Run();                                           // Runs all scenes in sequence — main message loop
+    ~SkullbonezRun();                                                                 // Default destructor
+    void Initialise();                                                                // Initialises shared resources and loads first scene
+    void Run();                                                                       // Runs all scenes in sequence — main message loop
     void SetRendererSwitchInterval( float seconds );
 };
 } // namespace Basics

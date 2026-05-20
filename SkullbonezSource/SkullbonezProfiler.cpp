@@ -473,7 +473,7 @@ void Profiler::FrameBegin()
         // Wipe GPU query state on all current markers, then clear the registry.
         // InvalidateGpuQueries also calls Gfx().GpuTimerInvalidate() and resets warmup.
         InvalidateGpuQueries();
-        m_markerCount  = 0;
+        m_markerCount = 0;
         m_lastAvgTicks = 0;
         m_resetPending = false;
     }

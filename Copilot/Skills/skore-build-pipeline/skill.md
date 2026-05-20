@@ -20,6 +20,7 @@ Use the `ask_user` tool:
 question: "Which tests should the pipeline run?"
 choices:
   - "Both render + perf (full pipeline) (Recommended)"
+  - "Both render + perf + physics bench (full + bench)"
   - "Render tests only (skip perf)"
   - "Perf tests only (skip render baselines)"
   - "None — format + build + commit only"
@@ -27,12 +28,13 @@ choices:
 
 Record the answer as `$testScope` and apply these rules for the remaining steps:
 
-| Scope | Step 3 suite file | Step 4 (baseline check) | Step 5 (update baselines) | Step 6 (perf analysis) |
-|-------|-------------------|-------------------------|---------------------------|------------------------|
-| Both (full) | `render_tests.suite` | ✅ Run | ✅ Run | ✅ Run |
-| Render only | `render_only.suite`* | ✅ Run | ✅ Run | ⏭️ Skip |
-| Perf only | `perf_only.suite`* | ⏭️ Skip | ⏭️ Skip | ✅ Run |
-| None | ⏭️ Skip steps 3–7 | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip |
+| Scope | Step 3 suite file | Step 4 (baseline check) | Step 5 (update baselines) | Step 6 (perf analysis) | Step 6.5 (physics bench) |
+|-------|-------------------|-------------------------|---------------------------|------------------------|--------------------------|
+| Both (full) | `render_tests.suite` | ✅ Run | ✅ Run | ✅ Run | ⏭️ Skip |
+| Full + bench | `render_tests.suite` | ✅ Run | ✅ Run | ✅ Run | ✅ Run |
+| Render only | `render_only.suite`* | ✅ Run | ✅ Run | ⏭️ Skip | ⏭️ Skip |
+| Perf only | `perf_only.suite`* | ⏭️ Skip | ⏭️ Skip | ✅ Run | ⏭️ Skip |
+| None | ⏭️ Skip steps 3–7 | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip |
 
 *If the named suite doesn't exist yet, use `render_tests.suite` for render-only and pass `--scene SkullbonezData/scenes/perf_test.scene` for perf-only.
 
@@ -408,7 +410,69 @@ Use ask_user tool:
   choices: ["Yes, continue", "No, abort commit"]
 ```
 
-If user says "No", exit with code 1 to abort. Otherwise continue to Step 7.
+If user says "No", exit with code 1 to abort. Otherwise continue to Step 6.5 (or Step 7 if bench is not in scope).
+
+### Step 6.5: Physics Benchmark (optional — only when scope includes bench)
+
+Runs the 4-mode physics benchmark suite (GL renderer only — physics is CPU-side and
+renderer-independent) and writes `physics_bench.json` to the archive directory.
+
+```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
+$commit = (git rev-parse --short HEAD).Trim()
+
+# Locate archive dir created in Step 6
+$archiveDir = Get-ChildItem "$REPO\TestOutput" -Directory |
+    Where-Object { ($_.Name -split '_',2)[1] -eq $commit } |
+    Sort-Object { [int]($_.Name -split '_',2)[0] } |
+    Select-Object -Last 1 -ExpandProperty FullName
+if (-not $archiveDir) { Write-Host "FAIL: Archive dir not found for $commit"; exit 1 }
+
+# Clean old bench CSVs
+Remove-Item "$REPO\Profile\*bench_perf_log.csv" -ErrorAction SilentlyContinue
+
+# Run all 4 bench scenes (GL only — physics is renderer-independent)
+Write-Host "=== Running physics_bench.suite ==="
+$benchProc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
+    -ArgumentList "--suite SkullbonezData/scenes/physics_bench.suite" `
+    -WorkingDirectory $REPO -PassThru `
+    -RedirectStandardOutput "$REPO\Profile\bench_stdout.txt" `
+    -RedirectStandardError  "$REPO\Profile\bench_stderr.txt"
+$benchProcId = $benchProc.Id
+$done = $benchProc.WaitForExit(300000)
+if (-not $done) {
+    Write-Host "FAIL: physics bench timed out"
+    [System.Diagnostics.Process]::GetProcessById($benchProcId).Kill()
+    exit 1
+}
+if ($benchProc.ExitCode -ne 0) {
+    Write-Host "FAIL: bench suite exited $($benchProc.ExitCode)"
+    Get-Content "$REPO\Profile\bench_stderr.txt" | Select-Object -Last 10
+    exit 1
+}
+
+# Find previous physics_bench.json for delta comparison
+$prevBenchJson = $null
+$allDirs = @(Get-ChildItem "$REPO\TestOutput" -Directory |
+    Where-Object { $_.Name -match '^\d+_' } |
+    Sort-Object { [int]($_.Name -split '_',2)[0] })
+foreach ($dir in ($allDirs | Sort-Object { [int]($_.Name -split '_',2)[0] } -Descending)) {
+    if (($dir.Name -split '_',2)[1] -eq $commit) { continue }
+    $candidate = "$($dir.FullName)\physics_bench.json"
+    if (Test-Path $candidate) { $prevBenchJson = $candidate; break }
+}
+
+# Run report — writes physics_bench.json to archive and prints table
+$benchArgs = "--out-dir `"$archiveDir`""
+if ($prevBenchJson) { $benchArgs += " --previous `"$prevBenchJson`"" }
+Write-Host "`n=== Physics Bench Report ==="
+Invoke-Expression "py `"$REPO\Copilot\Skills\bench_report.py`" $benchArgs"
+if ($LASTEXITCODE -ne 0) { Write-Host "FAIL: bench_report.py failed"; exit 1 }
+
+# Clean up temp files
+Remove-Item "$REPO\Profile\bench_stdout.txt","$REPO\Profile\bench_stderr.txt" -ErrorAction SilentlyContinue
+Write-Host "PASS: physics_bench.json written to $(Split-Path $archiveDir -Leaf)"
+```
 
 ### Step 7: Archive Screenshots to TestOutput
 
@@ -515,8 +579,11 @@ Print the following table with a ✅ for every cell (the pipeline exits on first
 ║ 4: Visual/Baseline   ║  ✅  ║  ✅   ║  ✅   ║
 ║ 5: Ref Images        ║  ✅  ║  ✅   ║  ✅   ║
 ║ 6: Perf              ║  ✅  ║  ✅   ║  ✅   ║
+║ 6.5: Physics Bench   ║  ✅  ║  n/a  ║  n/a  ║
 ║ 7: Archive           ║  ✅  ║  ✅   ║  ✅   ║
 ║ 8: LOC               ║  ✅  ║  ✅   ║  ✅   ║
 ║ 8.5: SessionState    ║  ✅  ║  ✅   ║  ✅   ║
 ╚══════════════════════╩═════╩══════╩══════╝
 ```
+
+Note: Step 6.5 only appears in the matrix when scope includes physics bench. Print `(skipped)` in place of ✅ when not in scope.

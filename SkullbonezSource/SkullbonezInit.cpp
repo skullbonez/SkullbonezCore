@@ -187,6 +187,30 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
 
     Cfg().Load( ( std::string( DATA_ROOT ) + "engine.cfg" ).c_str() );
 
+    // Parse --vsync on|off  (overrides the vsync_enabled value from engine.cfg)
+    if ( szCmdLine )
+    {
+        const char* vsyncArg = strstr( szCmdLine, "--vsync" );
+        if ( vsyncArg )
+        {
+            vsyncArg += 7;
+            while ( *vsyncArg == ' ' )
+            {
+                ++vsyncArg;
+            }
+            if ( _strnicmp( vsyncArg, "off", 3 ) == 0 || _strnicmp( vsyncArg, "0", 1 ) == 0 )
+            {
+                Cfg().runtimeRender.vsyncEnabled = false;
+                fprintf( stdout, "[vsync] Disabled via command line.\n" );
+            }
+            else if ( _strnicmp( vsyncArg, "on", 2 ) == 0 || _strnicmp( vsyncArg, "1", 1 ) == 0 )
+            {
+                Cfg().runtimeRender.vsyncEnabled = true;
+                fprintf( stdout, "[vsync] Enabled via command line.\n" );
+            }
+        }
+    }
+
     // Parse --legacy-physics flag (use original sphere-only ad-hoc solver for comparison)
     bool legacyPhysics = false;
     if ( szCmdLine && strstr( szCmdLine, "--legacy-physics" ) )

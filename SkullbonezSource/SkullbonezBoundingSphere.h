@@ -14,7 +14,16 @@ using namespace SkullbonezCore::Geometry;
 
 
 // --- Forward declarations ---
-namespace SkullbonezCore { namespace Math { namespace CollisionDetection { class BoundingBox; } } }
+namespace SkullbonezCore
+{
+namespace Math
+{
+namespace CollisionDetection
+{
+class BoundingBox;
+}
+} // namespace Math
+} // namespace SkullbonezCore
 
 
 namespace SkullbonezCore
@@ -65,7 +74,7 @@ class BoundingSphere
     float GetBoundingRadius() const;                                                                                  // Returns r  (bounding radius == radius for spheres)
     const Vector3& GetPosition() const;                                                                               // Returns local-space centre offset (m_position)
     float TestCollision( const BoundingSphere& target, const Ray& targetRay, const Ray& focusRay ) const;             // Public swept sphere-sphere test (delegates to CollisionDetect)
-    float TestCollision( const BoundingBox& target, const Ray& targetRay, const Ray& focusRay ) const;               // Sphere vs box: approximated via bounding-radius sphere test
+    float TestCollision( const BoundingBox& target, const Ray& targetRay, const Ray& focusRay ) const;                // Sphere vs box: approximated via bounding-radius sphere test
 };
 } // namespace CollisionDetection
 } // namespace Math

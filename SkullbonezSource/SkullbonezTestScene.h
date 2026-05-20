@@ -68,6 +68,9 @@ struct SceneOptions
     int frameCount = -1;             // -1 = unlimited
     unsigned int seed = 0;           // RNG seed (0 = use time-based default)
     int legacyBallCount = 0;         // random legacy-style balls (0 = none)
+    int physicsMode = 0;             // 0=inherit from CLI, 1=legacy, 2=solver (per-scene override)
+    int solverBallCount = 0;         // exact impulse-solver balls to spawn (0 = not set)
+    int solverBoxCount = 0;          // exact impulse-solver boxes to spawn (0 = not set)
     float timeScale = 1.0f;          // Physics time multiplier (1.0 = realtime)
     bool isFixedStep = false;        // If true, each render frame triggers exactly one physics tick at PHYSICS_FIXED_DT
     bool isDebugVectors = false;     // Draw velocity/omega debug arrows
@@ -161,6 +164,9 @@ class TestScene
     int GetScreenshotMs() const;
     unsigned int GetSeed() const;
     int GetLegacyBallCount() const;
+    int GetPhysicsMode() const;      // 0=inherit, 1=legacy, 2=solver
+    int GetSolverBallCount() const;
+    int GetSolverBoxCount() const;
     const char* GetPerfLogPath() const;
     bool IsPerfLogFlushEnabled() const;
     int GetPerfLogFlushInterval() const;
