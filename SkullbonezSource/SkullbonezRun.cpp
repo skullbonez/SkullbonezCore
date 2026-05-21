@@ -918,23 +918,27 @@ void SkullbonezRun::TakeInput()
         m_debug.isDebugVectors = ( Input::IsKeyToggled( '9' ) != 0 );
     }
 
-    // G key: cycle render backend at runtime while preserving current simulation state.
-    // Shift+G keeps the old scene-track-camera behavior (cycle tracked ball index).
+    // R key: cycle render backend at runtime while preserving current simulation state (GL → DX11 → DX12 → GL).
+    {
+        bool isRNow = Input::IsKeyDown( 'R' );
+        if ( isRNow && !m_camera.input.fRKeyWasDown )
+        {
+            SwitchRenderer( GetNextRendererType( GetCurrentRendererType() ) );
+        }
+        m_camera.input.fRKeyWasDown = isRNow;
+    }
+
+    // G key: cycle tracked ball index in scene mode (when ball tracking is active).
     bool isGNow = Input::IsKeyDown( 'G' );
     if ( isGNow && !m_camera.input.fGKeyWasDown )
     {
-        if ( Input::IsKeyDown( VK_SHIFT ) && m_scene.isSceneMode && m_camera.trackBallIndex >= 0 )
+        if ( m_scene.isSceneMode && m_camera.trackBallIndex >= 0 )
         {
             int count = m_cGameModelCollection.GetModelCount();
             if ( count > 0 )
             {
                 m_camera.trackBallIndex = ( m_camera.trackBallIndex + 1 ) % count;
             }
-        }
-        else
-        {
-            RuntimeRendererType nextRenderer = GetNextRendererType( GetCurrentRendererType() );
-            SwitchRenderer( nextRenderer );
         }
     }
     m_camera.input.fGKeyWasDown = isGNow;

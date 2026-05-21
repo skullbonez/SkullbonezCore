@@ -65,6 +65,25 @@ Output: `Debug\SKULLBONEZ_CORE.exe`, `Profile\SKULLBONEZ_CORE.exe`, or `Release\
 
 ---
 
+## Command-Line Arguments
+
+| Argument | Values | Description |
+|----------|--------|-------------|
+| `--renderer` | `gl` \| `dx11` \| `dx12` | Select render backend (default: `gl`) |
+| `--scene` | `<path>` | Load a scene file and run it, then exit |
+| `--suite` | `<path>` | Load a `.suite` file and run all scenes in it |
+| `--vsync` | `on` \| `off` | Override vsync (default: on) |
+| `--legacy-physics` | _(flag)_ | Start with the legacy swept physics solver active |
+
+```bat
+Debug\SKULLBONEZ_CORE.exe --renderer dx12
+Debug\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\water_ball_test.scene
+Profile\SKULLBONEZ_CORE.exe --suite SkullbonezData\scenes\render_tests.suite --renderer dx11
+Debug\SKULLBONEZ_CORE.exe --legacy-physics --vsync off
+```
+
+---
+
 ## Key Bindings
 
 ### Global
@@ -72,7 +91,9 @@ Output: `Debug\SKULLBONEZ_CORE.exe`, `Profile\SKULLBONEZ_CORE.exe`, or `Release\
 | Key | Action |
 |-----|--------|
 | **Esc** | Quit |
-| **F** | Toggle fly mode (free camera). Freezes the camera auto-cycle and physics. Press again to exit. |
+| **F** | Toggle fly mode (free camera). Freezes camera auto-cycle and physics. Press again to exit. |
+| **R** | Cycle render backend at runtime: GL → DX11 → DX12 → GL. Preserves full simulation state. |
+| **P** | Toggle physics solver: **Impulse** (spheres + boxes, unified contact) ↔ **Legacy** (spheres only, swept). In legacy mode boxes freeze and hide; they reappear on toggle back. |
 | **F2** | Save a scene snapshot to `Scenes/snapshot_XXXX.scene`. Captures full state for bug reproduction. |
 | **F3** | Save a screenshot to `Screenshots/screenshot_XXXX.bmp`. |
 
@@ -86,17 +107,17 @@ Output: `Debug\SKULLBONEZ_CORE.exe`, `Profile\SKULLBONEZ_CORE.exe`, or `Release\
 | **Space** | Step the simulation one frame while paused |
 | **F** | Exit fly mode — restores camera auto-cycle and cursor |
 
-### Debug Toggles
+### Debug / Display Toggles
 
 | Key | Action | Default |
 |-----|--------|---------|
+| **0** | Toggle profiler overlay (frame timing, CPU/GPU markers, traffic-light budget) | ON (legacy); follows scene directive in scene mode |
 | **1** | Freeze / unfreeze water animation | Animated |
-| **2** | Toggle water reflection | ON |
+| **2** | Toggle water reflection pass | ON |
 | **3** | Toggle ocean wave displacement | ON |
-| **4** | Toggle terrain visibility (hides terrain mesh and shadow decals) | Visible |
-| **5** | Toggle water visibility (hides water mesh) | Visible |
+| **4** | Toggle terrain visibility (hides mesh and shadow decals) | Visible |
+| **5** | Toggle water visibility | Visible |
 | **9** | Toggle debug velocity vectors on balls | OFF |
-| **0** | Toggle profiler overlay (frame timing text) | ON in legacy mode; OFF in scene mode |
 | **G** | Cycle tracked ball index (scene mode only, when ball tracking is active) | — |
 
 ---
