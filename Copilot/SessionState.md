@@ -17,8 +17,8 @@
 
 ## Branch & Last Commit
 - Branch: `main`
-- Last commit on main: `b96bd43` — DX12: fix CPU/GPU upload buffer race by partitioning per frame allocator
-- Working branch HEAD: `b96bd43`
+- Last commit on main: `396fd1e` — Physics regression test: #ifdef _DEBUG guards, exit_on_complete, consolidated baselines
+- Working branch HEAD: `396fd1e`
 
 ---
 
@@ -56,7 +56,15 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 
 ## Recent Session Work (this session)
 
-0. **Renderer hot-switch: GL display freeze fix, teardown/setup, cleanup** (`768a015`):
+0. **Physics regression system: #ifdef guards, exit_on_complete, consolidated baselines** (`396fd1e`):
+   - All physics log code fully behind `#ifdef _DEBUG` at every touch point: members in `GameModelCollection` and `RunPerfLogState`, method decls/impls (`SetPhysicsLogPath`, `SetPhysicsLogOverride`), `physics_log` scene directive parsing, `Run.cpp` scene-load wiring, `Init.cpp` variable + setter call.
+   - Debug-only functions moved to bottom of their respective headers.
+   - Added `exit_on_complete` scene directive: auto-advances/exits when `targetFrameCount` is reached instead of holding the window open. Wired through `SceneOptions → RunSceneState → Run` loop.
+   - `physics_regression_legacy.scene` and `physics_regression_solver.scene` now use `exit_on_complete` so pipeline runs auto-exit after 300 frames.
+   - Consolidated all baselines into `TestOutput/baselines/`: physics regression CSVs (moved from `physics_regression_baselines/`), plus `gl/dx11/dx12_perf.json` reference baselines (solver physics, tri-renderer Profile run).
+   - Pipeline Step 6.75 now references `TestOutput/baselines/` for physics CSVs; Step 6 falls back to `TestOutput/baselines/{renderer}_perf.json` when no numbered archive exists.
+
+1. **Renderer hot-switch: GL display freeze fix, teardown/setup, cleanup** (`768a015`):
    - Added `SkullbonezWindow::RecreateWindow()` — destroys and recreates HWND. Required when returning to GL after DXGI: DXGI FLIP_DISCARD permanently taints DWM's composition entry for that HWND, causing SwapBuffers to silently no-op. New HWND = clean GDI surface.
    - `SwitchRenderer()` calls `RecreateWindow()` on DXGI→GL; `DwmFlush()` for DXGI↔DXGI.
    - `Terrain::ResetRenderResources()` + `InitialiseTerrainShader()` so terrain mesh/shader rebuild after renderer switch.
