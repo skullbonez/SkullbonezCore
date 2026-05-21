@@ -49,14 +49,6 @@ struct RunPerfLogState
 #endif
 };
 
-struct RunVectorLogState
-{
-    bool isVectorLogEnabled = false;                  // Per-frame velocity/omega CSV diagnostic
-    int vectorLogInterval = 6;                        // Vector log cadence (N frames)
-    bool isVectorLogFlushEnabled = false;             // Flush each vector log write batch
-    char vectorLogPath[256] = "Debug/vector_log.csv"; // Output path for vector CSV
-    FILE* vectorLogFile = nullptr;                    // Open handle for vector CSV
-};
 
 struct RunRuntimeSettings
 {
@@ -167,7 +159,6 @@ class SkullbonezRun
     std::vector<std::string> m_sceneQueue; // Ordered list of scene paths ("" = legacy mode)
 
     RunPerfLogState m_perfLogState;             // Perf/test logging paths, files, and flush policy
-    RunVectorLogState m_vectorLogState;         // Vector logging controls and file handle
     RunRuntimeSettings m_runtimeSettings;       // Scene/app runtime toggles (vsync, sync, roll-align)
     RunTimerState m_timers;                     // Frame/simulation timers and rolling timing values
     RunSubsystemState m_systems;                // Window, camera, texture, terrain, and reflection handles

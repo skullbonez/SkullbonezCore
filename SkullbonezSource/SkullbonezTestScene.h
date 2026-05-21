@@ -96,10 +96,6 @@ struct SceneLoggingOptions
     char perfLogPath[256] = {};      // output path for perf CSV (empty = none)
     bool isPerfLogFlush = false;     // Force flush after each perf-log write
     int perfLogFlushInterval = 0;    // Flush perf log every N writes (0 = only at close)
-    bool isVectorLogEnabled = false; // Log velocity/omega correlation CSV
-    int vectorLogInterval = 6;       // Write vector log every N frames
-    char vectorLogPath[256] = {};    // output path for vector CSV (empty = use default)
-    bool isVectorLogFlush = false;   // Flush vector log after each write batch
 #ifdef _DEBUG
     char physicsLogPath[256] = {}; // output path for full physics state CSV (empty = none)
 #endif
@@ -172,10 +168,6 @@ class TestScene
     const char* GetPerfLogPath() const;
     bool IsPerfLogFlushEnabled() const;
     int GetPerfLogFlushInterval() const;
-    bool IsVectorLogEnabled() const;
-    int GetVectorLogInterval() const;
-    const char* GetVectorLogPath() const;
-    bool IsVectorLogFlushEnabled() const;
     bool HasVsyncOverride() const;
     bool IsVsyncEnabled() const;
     bool HasPipelineSyncOverride() const;

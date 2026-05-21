@@ -254,69 +254,6 @@ TestScene TestScene::LoadFromFile( const char* path )
         }
 #endif
 
-        // parse vector_log directive
-        if ( strncmp( line, "vector_log ", 11 ) == 0 )
-        {
-            if ( strcmp( line + 11, "on" ) == 0 )
-            {
-                scene.m_loggingOptions.isVectorLogEnabled = true;
-            }
-            else if ( strcmp( line + 11, "off" ) == 0 )
-            {
-                scene.m_loggingOptions.isVectorLogEnabled = false;
-            }
-            else
-            {
-                fclose( file );
-                char msg[256];
-                sprintf_s( msg, sizeof( msg ), "Invalid vector_log value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 11 );
-                throw std::runtime_error( msg );
-            }
-            continue;
-        }
-
-        // parse vector_log_interval directive
-        if ( strncmp( line, "vector_log_interval ", 20 ) == 0 )
-        {
-            scene.m_loggingOptions.vectorLogInterval = atoi( line + 20 );
-            if ( scene.m_loggingOptions.vectorLogInterval <= 0 )
-            {
-                fclose( file );
-                char msg[256];
-                sprintf_s( msg, sizeof( msg ), "Invalid vector_log_interval at line %d (must be > 0)  (TestScene::LoadFromFile)", lineNumber );
-                throw std::runtime_error( msg );
-            }
-            continue;
-        }
-
-        // parse vector_log_path directive
-        if ( strncmp( line, "vector_log_path ", 16 ) == 0 )
-        {
-            strcpy_s( scene.m_loggingOptions.vectorLogPath, sizeof( scene.m_loggingOptions.vectorLogPath ), line + 16 );
-            continue;
-        }
-
-        // parse vector_log_flush directive
-        if ( strncmp( line, "vector_log_flush ", 17 ) == 0 )
-        {
-            if ( strcmp( line + 17, "on" ) == 0 )
-            {
-                scene.m_loggingOptions.isVectorLogFlush = true;
-            }
-            else if ( strcmp( line + 17, "off" ) == 0 )
-            {
-                scene.m_loggingOptions.isVectorLogFlush = false;
-            }
-            else
-            {
-                fclose( file );
-                char msg[256];
-                sprintf_s( msg, sizeof( msg ), "Invalid vector_log_flush value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 17 );
-                throw std::runtime_error( msg );
-            }
-            continue;
-        }
-
         // parse vsync directive
         if ( strncmp( line, "vsync ", 6 ) == 0 )
         {
@@ -858,30 +795,6 @@ const char* TestScene::GetPhysicsLogPath() const
     return m_loggingOptions.physicsLogPath;
 }
 #endif
-
-
-bool TestScene::IsVectorLogEnabled() const
-{
-    return m_loggingOptions.isVectorLogEnabled;
-}
-
-
-int TestScene::GetVectorLogInterval() const
-{
-    return m_loggingOptions.vectorLogInterval;
-}
-
-
-const char* TestScene::GetVectorLogPath() const
-{
-    return m_loggingOptions.vectorLogPath;
-}
-
-
-bool TestScene::IsVectorLogFlushEnabled() const
-{
-    return m_loggingOptions.isVectorLogFlush;
-}
 
 
 bool TestScene::HasVsyncOverride() const

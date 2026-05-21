@@ -43,12 +43,6 @@ SkullbonezRun::~SkullbonezRun()
         m_perfLogState.perfLogFile = nullptr;
     }
 
-    if ( m_vectorLogState.vectorLogFile )
-    {
-        fclose( m_vectorLogState.vectorLogFile );
-        m_vectorLogState.vectorLogFile = nullptr;
-    }
-
     // Flush GPU before destroying resources to avoid use-after-free
     if ( IsGfxReady() )
     {
@@ -1056,58 +1050,6 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
         m_camera.autoCycleAccum += fSecondsPerFrame;
     }
 
-    // Optional vector diagnostics (scene directive: vector_log on).
-    // Captures velocity/omega alignment for each ball. Disabled by default to keep
-    // perf scenes free of logging overhead unless explicitly requested.
-    if ( m_scene.isSceneMode && m_vectorLogState.isVectorLogEnabled && m_vectorLogState.vectorLogInterval > 0 && ( m_scene.currentFrame % m_vectorLogState.vectorLogInterval == 0 ) )
-    {
-        if ( !m_vectorLogState.vectorLogFile )
-        {
-            errno_t err = fopen_s( &m_vectorLogState.vectorLogFile, m_vectorLogState.vectorLogPath, "w" );
-            if ( err != 0 || !m_vectorLogState.vectorLogFile )
-            {
-                char msg[512];
-                sprintf_s( msg, sizeof( msg ), "Failed to open vector log file: %s  (SkullbonezRun::UpdateLogic)", m_vectorLogState.vectorLogPath );
-                throw std::runtime_error( msg );
-            }
-            fprintf( m_vectorLogState.vectorLogFile, "frame,ball,vx,vz,ox,oz,vmag_xz,omag_xz,ratio_o_over_v,angle_deg\n" );
-            if ( m_vectorLogState.isVectorLogFlushEnabled )
-            {
-                fflush( m_vectorLogState.vectorLogFile );
-            }
-        }
-        if ( m_vectorLogState.vectorLogFile )
-        {
-            int count = m_cGameModelCollection.GetModelCount();
-            for ( int i = 0; i < count; ++i )
-            {
-                GameModel& mdl = m_cGameModelCollection.GetModelAtIndex( i );
-                const Vector3& v = mdl.GetVelocity();
-                const Vector3& omega = mdl.GetAngularVelocity();
-
-                float vmag = sqrtf( v.x * v.x + v.z * v.z );
-                float omag = sqrtf( omega.x * omega.x + omega.z * omega.z );
-
-                float ratio = ( vmag > 0.001f ) ? omag / vmag : 0.0f;
-
-                float angle = 0.0f;
-                if ( vmag > 0.001f && omag > 0.001f )
-                {
-                    float dot = ( v.x * omega.x + v.z * omega.z ) / ( vmag * omag );
-                    dot = ( dot < -1.0f ) ? -1.0f : ( dot > 1.0f ) ? 1.0f
-                                                                   : dot;
-                    angle = acosf( dot ) * ( 180.0f / 3.14159265f );
-                }
-
-                fprintf( m_vectorLogState.vectorLogFile, "%d,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.1f\n", m_scene.currentFrame, i, v.x, v.z, omega.x, omega.z, vmag, omag, ratio, angle );
-            }
-            if ( m_vectorLogState.isVectorLogFlushEnabled )
-            {
-                fflush( m_vectorLogState.vectorLogFile );
-            }
-        }
-    }
-
     // move the camera based on input
     // (arguments are calculating time based movement quantities)
     MoveCamera( fSecondsPerFrame * Cfg().keySpeed,
@@ -1750,13 +1692,6 @@ void SkullbonezRun::LoadScene( int index )
         m_perfLogState.perfLogFile = nullptr;
     }
 
-    // Close previous vector log if open
-    if ( m_vectorLogState.vectorLogFile )
-    {
-        fclose( m_vectorLogState.vectorLogFile );
-        m_vectorLogState.vectorLogFile = nullptr;
-    }
-
     // Reset scene config to defaults
     m_scene.isScenePhysics = true;
     m_scene.isSceneText = true;
@@ -1777,10 +1712,6 @@ void SkullbonezRun::LoadScene( int index )
     m_perfLogState.isPerfLogFlushEnabled = false;
     m_perfLogState.perfLogFlushInterval = 0;
     m_perfLogState.perfLogWritesSinceFlush = 0;
-    m_vectorLogState.isVectorLogEnabled = false;
-    m_vectorLogState.vectorLogInterval = 6;
-    m_vectorLogState.isVectorLogFlushEnabled = false;
-    strcpy_s( m_vectorLogState.vectorLogPath, sizeof( m_vectorLogState.vectorLogPath ), "Debug/vector_log.csv" );
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
     m_runtimeSettings.isRollAlignEnabled = m_runtimeSettings.defaultRollAlignEnabled;
@@ -1842,9 +1773,6 @@ void SkullbonezRun::LoadScene( int index )
         m_scene.isScenePhysics = scene.IsPhysicsEnabled();
         m_scene.isSceneText = scene.IsTextEnabled();
         m_debug.isDebugVectors = scene.IsDebugVectors();
-        m_vectorLogState.isVectorLogEnabled = scene.IsVectorLogEnabled();
-        m_vectorLogState.vectorLogInterval = scene.GetVectorLogInterval();
-        m_vectorLogState.isVectorLogFlushEnabled = scene.IsVectorLogFlushEnabled();
         m_perfLogState.isPerfLogFlushEnabled = scene.IsPerfLogFlushEnabled();
         m_perfLogState.perfLogFlushInterval = scene.GetPerfLogFlushInterval();
         if ( scene.HasVsyncOverride() )
@@ -1883,11 +1811,6 @@ void SkullbonezRun::LoadScene( int index )
         {
             strcpy_s( m_screenshot.screenshotPath, sizeof( m_screenshot.screenshotPath ), scene.GetScreenshotPath() );
         }
-        if ( scene.GetVectorLogPath()[0] != '\0' )
-        {
-            strcpy_s( m_vectorLogState.vectorLogPath, sizeof( m_vectorLogState.vectorLogPath ), scene.GetVectorLogPath() );
-        }
-
         // Interval capture: create output directory
         m_screenshot.screenshotInterval = scene.GetScreenshotInterval();
         if ( scene.GetScreenshotDir()[0] != '\0' )
