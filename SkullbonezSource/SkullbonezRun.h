@@ -162,7 +162,6 @@ class SkullbonezRun
 
   private:
     std::vector<std::string> m_sceneQueue; // Ordered list of scene paths ("" = legacy mode)
-    bool m_legacyPhysics = false;          // When true, route physics to legacy sphere-only solver
 
     RunPerfLogState m_perfLogState;             // Perf/test logging paths, files, and flush policy
     RunVectorLogState m_vectorLogState;         // Vector logging controls and file handle
@@ -180,7 +179,7 @@ class SkullbonezRun
 
     void Render();                                                     // Main render method
     void RelativeUpdateCamera( uint32_t hash );                        // Relative update specified camera
-    void UpdateLogic( float fSecondsPerFrame );                        // Update world logic
+    void UpdateLogic( float fSecondsPerFrame );                        // Camera, autocycle, logs — once per frame
     void TakeInput();                                                  // Take user input
     void SetUpCameras();                                               // Camera init (legacy mode)
     void SetUpCamerasFromScene( const TestScene& scene );              // Camera init from scene file

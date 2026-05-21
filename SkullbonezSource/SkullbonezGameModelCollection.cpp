@@ -4,6 +4,7 @@
 #include "SkullbonezHelper.h"
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezImpulseSolver.h"
+#include "SkullbonezCollisionResponse.h"
 #include <cmath>
 #include <cstring>
 
@@ -36,6 +37,16 @@ void GameModelCollection::AddGameModel( GameModel gameModel )
     m_planeBlueStreak.push_back( 0 );
 }
 
+
+void GameModelCollection::SetLegacyMode( bool legacy )
+{
+    m_useLegacyPhysics = legacy;
+}
+
+bool GameModelCollection::GetLegacyMode() const
+{
+    return m_useLegacyPhysics;
+}
 
 void GameModelCollection::SetRollLog( FILE* file )
 {
@@ -74,7 +85,7 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
     SkullbonezHelper::DrawSphereBatchEnd();
 
     // Render boxes (hidden in legacy mode - boxes don't exist in the legacy sphere-only solver)
-    if ( !ImpulseSolver::IsLegacyPhysics() )
+    if ( !m_useLegacyPhysics )
     {
         SkullbonezHelper::DrawBoxBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes );
         for ( int x = 0; x < static_cast<int>( m_gameModels.size() ); ++x )
@@ -113,7 +124,7 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
     for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
     {
         // Skip boxes in legacy mode — they are hidden, so no shadow either
-        if ( ImpulseSolver::IsLegacyPhysics() && m_gameModels[i].IsBox() )
+        if ( m_useLegacyPhysics && m_gameModels[i].IsBox() )
         {
             continue;
         }
@@ -229,123 +240,15 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     m_timeRemaining.assign( modelCount, fChangeInTime );
     m_groundedThisFrame.assign( modelCount, 0 );
 
-    // update the velocity of all models
-    PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
-    for ( int x = 0; x < modelCount; ++x )
+    // Dispatch to the appropriate physics implementation — the mode is checked exactly once here.
+    if ( m_useLegacyPhysics )
     {
-        // Skip boxes in legacy mode - they freeze in place until solver is toggled back
-        if ( ImpulseSolver::IsLegacyPhysics() && m_gameModels[x].IsBox() )
-        {
-            continue;
-        }
-        m_gameModels[x].ApplyForces( fChangeInTime );
+        RunLegacyPhysics( fChangeInTime );
     }
-    PROFILE_END( "Frame/Physics/ApplyForces" );
-
-    // broadphase: populate spatial grid and generate candidate pairs
-    PROFILE_BEGIN( "Frame/Physics/Broadphase" );
-    m_spatialGrid.Clear();
-    for ( int i = 0; i < modelCount; ++i )
+    else
     {
-        // Skip boxes in legacy mode so they don't generate candidate pairs with spheres
-        if ( ImpulseSolver::IsLegacyPhysics() && m_gameModels[i].IsBox() )
-        {
-            continue;
-        }
-        m_spatialGrid.Insert( i, m_gameModels[i].GetPosition(), m_gameModels[i].GetBoundingRadius() );
+        RunSolverPhysics( fChangeInTime );
     }
-
-    std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
-    m_spatialGrid.GetCandidatePairs( candidatePairs );
-    PROFILE_END( "Frame/Physics/Broadphase" );
-
-    // detect and respond to collisions between game models (broadphase-culled pairs only)
-    PROFILE_BEGIN( "Frame/Physics/Narrowphase" );
-    for ( const auto& cp : candidatePairs )
-    {
-        int x = cp.first;
-        int y = cp.second;
-
-        // skip pairs where either ball has exhausted its frame time
-        if ( m_timeRemaining[x] <= 0.0f || m_timeRemaining[y] <= 0.0f )
-        {
-            continue;
-        }
-
-        // use the minimum remaining time window for this pair
-        float availableTime = ( std::min )( m_timeRemaining[x], m_timeRemaining[y] );
-
-        // check the collision time
-        float colTime = m_gameModels[x].CollisionDetectGameModel( m_gameModels[y], availableTime );
-
-        // if there is a response required, perform it
-        if ( m_gameModels[x].IsResponseRequired() && m_gameModels[y].IsResponseRequired() )
-        {
-            // advance both models to the collision point
-            m_gameModels[x].UpdatePosition( colTime );
-            m_gameModels[y].UpdatePosition( colTime );
-
-            // subtract consumed time
-            m_timeRemaining[x] -= colTime;
-            m_timeRemaining[y] -= colTime;
-
-            // velocity-only response (clears m_isResponseRequired on both models)
-            m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
-        }
-        else
-        {
-            // sweep test found no collision — check for static overlap
-            // (handles slow m_balls that the sweep test misses)
-            m_gameModels[x].StaticOverlapResponseGameModel( m_gameModels[y] );
-        }
-    }
-    PROFILE_END( "Frame/Physics/Narrowphase" );
-
-    // detect and respond to collisions between game models and the m_terrain
-    PROFILE_BEGIN( "Frame/Physics/Terrain" );
-    for ( int x = 0; x < modelCount; ++x )
-    {
-        // Skip boxes in legacy mode - frozen until solver toggled back
-        if ( ImpulseSolver::IsLegacyPhysics() && m_gameModels[x].IsBox() )
-        {
-            continue;
-        }
-
-        // only check m_terrain if this model has remaining time
-        if ( m_timeRemaining[x] > 0.0f )
-        {
-            // check the collision time
-            float colTime = m_gameModels[x].CollisionDetectTerrain( m_timeRemaining[x] );
-
-            // if a response is required, perform it
-            if ( m_gameModels[x].IsResponseRequired() )
-            {
-                // update the time step before the collision
-                m_gameModels[x].UpdatePosition( colTime );
-
-                // calculate response and update the remaining time step (m_terrain response advances m_position internally)
-                m_gameModels[x].CollisionResponseTerrain( m_timeRemaining[x] - colTime );
-
-                m_groundedThisFrame[x] = 1;
-
-                // m_terrain response already advanced m_position; zero remaining time
-                m_timeRemaining[x] = 0.0f;
-            }
-        }
-    }
-    PROFILE_END( "Frame/Physics/Terrain" );
-
-    // apply the remaining time steps
-    PROFILE_BEGIN( "Frame/Physics/Integrate" );
-    for ( int x = 0; x < modelCount; ++x )
-    {
-        // advance by whatever time remains
-        if ( m_timeRemaining[x] > 0.0f )
-        {
-            m_gameModels[x].UpdatePosition( m_timeRemaining[x] );
-        }
-    }
-    PROFILE_END( "Frame/Physics/Integrate" );
 
     // Per-frame physics state log (Debug builds only — compiled out in Release/Profile).
     // Writes full ball state to Debug/physics_state.csv for baseline capture and regression.
@@ -449,6 +352,209 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
         }
         fflush( m_rollLog );
     }
+}
+
+
+// Physics tick: original sphere-only ad-hoc solver.
+// Boxes are unconditionally skipped — they are frozen in legacy mode.
+// Calls CollisionResponse::* directly; no per-iteration mode check.
+void GameModelCollection::RunLegacyPhysics( float dt )
+{
+    const int modelCount = static_cast<int>( m_gameModels.size() );
+
+    // Apply forces to all spheres (boxes ignored in legacy mode)
+    PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        if ( m_gameModels[x].IsBox() )
+        {
+            continue;
+        }
+        m_gameModels[x].ApplyForces( dt );
+    }
+    PROFILE_END( "Frame/Physics/ApplyForces" );
+
+    // Broadphase: build spatial grid from sphere positions only
+    PROFILE_BEGIN( "Frame/Physics/Broadphase" );
+    m_spatialGrid.Clear();
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        if ( m_gameModels[i].IsBox() )
+        {
+            continue;
+        }
+        m_spatialGrid.Insert( i, m_gameModels[i].GetPosition(), m_gameModels[i].GetBoundingRadius() );
+    }
+    std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
+    m_spatialGrid.GetCandidatePairs( candidatePairs );
+    PROFILE_END( "Frame/Physics/Broadphase" );
+
+    // Narrowphase: legacy sphere-sphere collision response
+    PROFILE_BEGIN( "Frame/Physics/Narrowphase" );
+    for ( const auto& cp : candidatePairs )
+    {
+        int x = cp.first;
+        int y = cp.second;
+
+        if ( m_timeRemaining[x] <= 0.0f || m_timeRemaining[y] <= 0.0f )
+        {
+            continue;
+        }
+
+        float availableTime = ( std::min )( m_timeRemaining[x], m_timeRemaining[y] );
+        float colTime = m_gameModels[x].CollisionDetectGameModel( m_gameModels[y], availableTime );
+
+        if ( m_gameModels[x].IsResponseRequired() && m_gameModels[y].IsResponseRequired() )
+        {
+            m_gameModels[x].UpdatePosition( colTime );
+            m_gameModels[y].UpdatePosition( colTime );
+            m_timeRemaining[x] -= colTime;
+            m_timeRemaining[y] -= colTime;
+
+            // Legacy sphere-sphere response — called directly; no mode flag queried
+            CollisionResponse::RespondCollisionGameModels( m_gameModels[x], m_gameModels[y] );
+            m_gameModels[x].ClearResponseRequired();
+            m_gameModels[y].ClearResponseRequired();
+        }
+        else
+        {
+            m_gameModels[x].StaticOverlapResponseGameModel( m_gameModels[y] );
+        }
+    }
+    PROFILE_END( "Frame/Physics/Narrowphase" );
+
+    // Terrain: legacy sphere-terrain response (boxes skipped)
+    PROFILE_BEGIN( "Frame/Physics/Terrain" );
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        if ( m_gameModels[x].IsBox() )
+        {
+            continue;
+        }
+
+        if ( m_timeRemaining[x] > 0.0f )
+        {
+            float colTime = m_gameModels[x].CollisionDetectTerrain( m_timeRemaining[x] );
+
+            if ( m_gameModels[x].IsResponseRequired() )
+            {
+                m_gameModels[x].UpdatePosition( colTime );
+
+                // Legacy terrain response — called directly; no mode flag queried
+                CollisionResponse::RespondCollisionTerrain( m_gameModels[x], m_timeRemaining[x] - colTime );
+                m_gameModels[x].UpdatePosition( m_timeRemaining[x] - colTime );
+                m_gameModels[x].ClearResponseRequired();
+
+                m_groundedThisFrame[x] = 1;
+                m_timeRemaining[x] = 0.0f;
+            }
+        }
+    }
+    PROFILE_END( "Frame/Physics/Terrain" );
+
+    // Integrate remaining time for spheres only
+    PROFILE_BEGIN( "Frame/Physics/Integrate" );
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        if ( m_gameModels[x].IsBox() )
+        {
+            continue;
+        }
+        if ( m_timeRemaining[x] > 0.0f )
+        {
+            m_gameModels[x].UpdatePosition( m_timeRemaining[x] );
+        }
+    }
+    PROFILE_END( "Frame/Physics/Integrate" );
+}
+
+
+// Physics tick: unified impulse solver for all object types (spheres and boxes).
+// No object filtering needed — all models participate.
+void GameModelCollection::RunSolverPhysics( float dt )
+{
+    const int modelCount = static_cast<int>( m_gameModels.size() );
+
+    // Apply forces to all models
+    PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        m_gameModels[x].ApplyForces( dt );
+    }
+    PROFILE_END( "Frame/Physics/ApplyForces" );
+
+    // Broadphase: build spatial grid from all object positions
+    PROFILE_BEGIN( "Frame/Physics/Broadphase" );
+    m_spatialGrid.Clear();
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        m_spatialGrid.Insert( i, m_gameModels[i].GetPosition(), m_gameModels[i].GetBoundingRadius() );
+    }
+    std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
+    m_spatialGrid.GetCandidatePairs( candidatePairs );
+    PROFILE_END( "Frame/Physics/Broadphase" );
+
+    // Narrowphase: impulse solver collision response for all pairs
+    PROFILE_BEGIN( "Frame/Physics/Narrowphase" );
+    for ( const auto& cp : candidatePairs )
+    {
+        int x = cp.first;
+        int y = cp.second;
+
+        if ( m_timeRemaining[x] <= 0.0f || m_timeRemaining[y] <= 0.0f )
+        {
+            continue;
+        }
+
+        float availableTime = ( std::min )( m_timeRemaining[x], m_timeRemaining[y] );
+        float colTime = m_gameModels[x].CollisionDetectGameModel( m_gameModels[y], availableTime );
+
+        if ( m_gameModels[x].IsResponseRequired() && m_gameModels[y].IsResponseRequired() )
+        {
+            m_gameModels[x].UpdatePosition( colTime );
+            m_gameModels[y].UpdatePosition( colTime );
+            m_timeRemaining[x] -= colTime;
+            m_timeRemaining[y] -= colTime;
+
+            // Impulse solver response (velocity-only; clears response flags on both models)
+            m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
+        }
+        else
+        {
+            m_gameModels[x].StaticOverlapResponseGameModel( m_gameModels[y] );
+        }
+    }
+    PROFILE_END( "Frame/Physics/Narrowphase" );
+
+    // Terrain: impulse solver terrain response for all models
+    PROFILE_BEGIN( "Frame/Physics/Terrain" );
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        if ( m_timeRemaining[x] > 0.0f )
+        {
+            float colTime = m_gameModels[x].CollisionDetectTerrain( m_timeRemaining[x] );
+
+            if ( m_gameModels[x].IsResponseRequired() )
+            {
+                m_gameModels[x].UpdatePosition( colTime );
+                m_gameModels[x].CollisionResponseTerrain( m_timeRemaining[x] - colTime );
+                m_groundedThisFrame[x] = 1;
+                m_timeRemaining[x] = 0.0f;
+            }
+        }
+    }
+    PROFILE_END( "Frame/Physics/Terrain" );
+
+    // Integrate remaining time for all models
+    PROFILE_BEGIN( "Frame/Physics/Integrate" );
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        if ( m_timeRemaining[x] > 0.0f )
+        {
+            m_gameModels[x].UpdatePosition( m_timeRemaining[x] );
+        }
+    }
+    PROFILE_END( "Frame/Physics/Integrate" );
 }
 
 

@@ -24,8 +24,9 @@ using namespace SkullbonezCore::Physics;
 
 
 SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue, bool legacyPhysics )
-    : m_sceneQueue( std::move( sceneQueue ) ), m_legacyPhysics( legacyPhysics )
+    : m_sceneQueue( std::move( sceneQueue ) )
 {
+    m_cGameModelCollection.SetLegacyMode( legacyPhysics );
     // Config-driven defaults are resolved at construction; scene-specific defaults remain in-member.
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
@@ -88,9 +89,6 @@ void SkullbonezRun::SetRendererSwitchInterval( float seconds )
 
 void SkullbonezRun::Initialise()
 {
-    // Apply physics mode before any physics runs
-    ImpulseSolver::SetLegacyPhysics( m_legacyPhysics );
-
     // Init window
     m_systems.window = SkullbonezWindow::Instance();
 
@@ -395,7 +393,7 @@ void SkullbonezRun::SetUpGameModels( int count )
         Vector3 forcePos( randSign(), randSign(), randSign() );
 
         // ~30% of objects are boxes when using new physics; legacy mode is spheres only
-        bool makeBox = !m_legacyPhysics && ( rand() % 10 ) < 3;
+        bool makeBox = !m_cGameModelCollection.GetLegacyMode() && ( rand() % 10 ) < 3;
 
         if ( makeBox )
         {
@@ -565,34 +563,61 @@ void SkullbonezRun::Run()
                 }
             }
 
-            // Logic — fixed-timestep accumulator for deterministic physics,
-            // real dt for camera and other visual interpolation.
+            // Physics (fixed-step or variable dt) then per-frame camera/misc — once each.
             if ( !m_scene.isSceneMode || m_scene.isScenePhysics )
             {
                 if ( m_scene.isFixedStep )
                 {
                     // Deterministic lock-step: exactly one physics tick per render frame.
                     // Ignores wall-clock time entirely — produces identical results every run.
+                    if ( !m_camera.isFlyMode || Input::IsKeyDown( VK_SPACE ) )
+                    {
+                        PROFILE_BEGIN( "Frame/Physics" );
+                        m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
+                        PROFILE_END( "Frame/Physics" );
+                    }
                     UpdateLogic( PHYSICS_FIXED_DT );
                 }
                 else
                 {
                     float scaledDt = static_cast<float>( secondsPerFrame ) * m_scene.timeScale;
-                    m_timers.physicsAccumulator += scaledDt;
 
-                    int steps = 0;
-                    while ( m_timers.physicsAccumulator >= PHYSICS_FIXED_DT && steps < PHYSICS_MAX_STEPS_PER_FRAME )
+                    if ( !m_camera.isFlyMode || Input::IsKeyDown( VK_SPACE ) )
                     {
-                        UpdateLogic( PHYSICS_FIXED_DT );
-                        m_timers.physicsAccumulator -= PHYSICS_FIXED_DT;
-                        ++steps;
+                        PROFILE_BEGIN( "Frame/Physics" );
+                        if ( m_cGameModelCollection.GetLegacyMode() )
+                        {
+                            // Legacy swept physics is frame-rate independent: CollisionDetect* computes the
+                            // exact time-of-impact and steps to it internally, so external sub-division adds
+                            // no benefit and was never used before the accumulator was introduced for the solver.
+                            m_timers.physicsAccumulator = 0.0f;
+                            m_cGameModelCollection.RunPhysics( scaledDt );
+                        }
+                        else
+                        {
+                            // Impulse solver uses discrete overlap tests and needs small fixed steps for stability.
+                            // Only RunPhysics runs in the loop — camera and misc update once per frame below.
+                            m_timers.physicsAccumulator += scaledDt;
+
+                            int steps = 0;
+                            while ( m_timers.physicsAccumulator >= PHYSICS_FIXED_DT && steps < PHYSICS_MAX_STEPS_PER_FRAME )
+                            {
+                                m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
+                                m_timers.physicsAccumulator -= PHYSICS_FIXED_DT;
+                                ++steps;
+                            }
+
+                            // Drain excess accumulator if we hit the step cap (avoids spiral of death)
+                            if ( steps == PHYSICS_MAX_STEPS_PER_FRAME )
+                            {
+                                m_timers.physicsAccumulator = 0.0f;
+                            }
+                        }
+                        PROFILE_END( "Frame/Physics" );
                     }
 
-                    // Drain excess accumulator if we hit the step cap (avoids spiral of death)
-                    if ( steps == PHYSICS_MAX_STEPS_PER_FRAME )
-                    {
-                        m_timers.physicsAccumulator = 0.0f;
-                    }
+                    // Camera movement, tween, auto-cycle, logs — once per frame with real scaled dt
+                    UpdateLogic( scaledDt );
                 }
             }
 
@@ -972,8 +997,7 @@ void SkullbonezRun::TakeInput()
         bool pNow = Input::IsKeyDown( 'P' );
         if ( pNow && !m_camera.input.fPWasDown )
         {
-            m_legacyPhysics = !m_legacyPhysics;
-            ImpulseSolver::SetLegacyPhysics( m_legacyPhysics );
+            m_cGameModelCollection.SetLegacyMode( !m_cGameModelCollection.GetLegacyMode() );
             PROFILE_SCHEDULE_RESET();
         }
         m_camera.input.fPWasDown = pNow;
@@ -1011,15 +1035,7 @@ void SkullbonezRun::TakeInput()
 
 void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
 {
-    if ( !m_camera.isFlyMode || Input::IsKeyDown( VK_SPACE ) )
-    {
-        // update the game models (sub-markers added inside RunPhysics)
-        PROFILE_BEGIN( "Frame/Physics" );
-        m_cGameModelCollection.RunPhysics( fSecondsPerFrame );
-        PROFILE_END( "Frame/Physics" );
-    }
-
-    // Auto-cycle: accumulate real (unscaled) time; fires every m_camera.autoCycleInterval seconds
+    // Auto-cycle
     if ( m_scene.isSceneMode && m_camera.autoCycleInterval > 0.0f )
     {
         m_camera.autoCycleAccum += fSecondsPerFrame;
@@ -1411,7 +1427,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 
     // Second row top-right: show active physics solver (toggle with P)
     {
-        const char* solverTag = m_legacyPhysics ? "PHYSICS: LEGACY [P]" : "PHYSICS: IMPULSE [P]";
+        const char* solverTag = m_cGameModelCollection.GetLegacyMode() ? "PHYSICS: LEGACY [P]" : "PHYSICS: IMPULSE [P]";
         Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, solverTag ), hh - mY - fSz * 3.0f, fSz, "%s", solverTag );
     }
 
@@ -1838,8 +1854,7 @@ void SkullbonezRun::LoadScene( int index )
         // physicsMode 0 = inherit (no change), 1 = legacy, 2 = impulse solver.
         if ( scene.GetPhysicsMode() != 0 )
         {
-            m_legacyPhysics = ( scene.GetPhysicsMode() == 1 );
-            ImpulseSolver::SetLegacyPhysics( m_legacyPhysics );
+            m_cGameModelCollection.SetLegacyMode( scene.GetPhysicsMode() == 1 );
         }
 
         m_scene.targetFrameCount = scene.GetFrameCount();

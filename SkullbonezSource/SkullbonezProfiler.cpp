@@ -884,13 +884,40 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
         y -= lineHeight;
     };
 
+    // Build children lists (fixed arrays — no heap allocation).
+    // children[i] holds indices of markers whose parentIndex == i, in registration order.
+    int  childBuf[MAX_MARKERS][MAX_MARKERS]; // [parent][slot]
+    int  childCount[MAX_MARKERS] = {};
     for ( int i = 0; i < m_markerCount; ++i )
     {
-        if ( m_markers[i].hash == kVsyncHash || m_markers[i].hash == kPipelineSyncHash )
+        int p = m_markers[i].parentIndex;
+        if ( p >= 0 && p < m_markerCount )
         {
-            continue;
+            childBuf[p][childCount[p]++] = i;
         }
-        renderMarkerRow( m_markers[i] );
+    }
+
+    // Depth-first tree walk: roots first in registration order, then their children, etc.
+    // Preserves execution order within each sibling group.
+    int  dfsStack[MAX_MARKERS];
+    int  dfsTop = 0;
+    for ( int i = m_markerCount - 1; i >= 0; --i )
+    {
+        if ( m_markers[i].parentIndex == -1 &&
+             m_markers[i].hash != kVsyncHash &&
+             m_markers[i].hash != kPipelineSyncHash )
+        {
+            dfsStack[dfsTop++] = i;
+        }
+    }
+    while ( dfsTop > 0 )
+    {
+        int idx = dfsStack[--dfsTop];
+        renderMarkerRow( m_markers[idx] );
+        for ( int j = childCount[idx] - 1; j >= 0; --j )
+        {
+            dfsStack[dfsTop++] = childBuf[idx][j];
+        }
     }
     for ( int pass = 0; pass < 2; ++pass )
     {

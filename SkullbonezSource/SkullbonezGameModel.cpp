@@ -280,14 +280,7 @@ void GameModel::CollisionResponseGameModel( GameModel& responseTarget )
     }
 
     // respond to the collision (velocity-only — m_position advancement handled by RunPhysics)
-    if ( ImpulseSolver::IsLegacyPhysics() )
-    {
-        CollisionResponse::RespondCollisionGameModels( *this, responseTarget );
-    }
-    else
-    {
-        ImpulseSolver::RespondCollisionGameModels( *this, responseTarget );
-    }
+    ImpulseSolver::RespondCollisionGameModels( *this, responseTarget );
 
     // clear response flags so both models can participate in further collisions this frame
     m_isResponseRequired = false;
@@ -326,14 +319,7 @@ void GameModel::CollisionResponseTerrain( float remainingTimeStep )
     }
 
     // respond to the collision...
-    if ( ImpulseSolver::IsLegacyPhysics() )
-    {
-        CollisionResponse::RespondCollisionTerrain( *this, remainingTimeStep );
-    }
-    else
-    {
-        ImpulseSolver::RespondCollisionTerrain( *this, remainingTimeStep );
-    }
+    ImpulseSolver::RespondCollisionTerrain( *this, remainingTimeStep );
 
     // update the m_position based on remaining time step
     UpdatePosition( remainingTimeStep );
@@ -346,6 +332,12 @@ void GameModel::CollisionResponseTerrain( float remainingTimeStep )
 bool GameModel::IsResponseRequired()
 {
     return m_isResponseRequired;
+}
+
+
+void GameModel::ClearResponseRequired()
+{
+    m_isResponseRequired = false;
 }
 
 

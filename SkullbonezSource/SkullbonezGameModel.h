@@ -88,6 +88,7 @@ class GameModel
 
     Matrix4 GetModelMatrix();                                                           // Returns the model matrix for rendering (T*R*T*S)
     bool IsResponseRequired();                                                          // Indicates whether a collision response is required
+    void ClearResponseRequired();                                                       // Clears the response-required flag after an inline collision response
     float GetSubmergedVolumePercent();                                                  // Returns the percentage of the game model submerged in fluid
     float GetMass();                                                                    // Returns the mass of the game model
     float GetInvertedMass();                                                            // Returns inverted mass (cached immutable)

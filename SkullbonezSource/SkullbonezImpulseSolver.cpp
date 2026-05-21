@@ -52,10 +52,6 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::CollisionDetection;
 
 
-// --- Static flag ---
-bool ImpulseSolver::s_legacyPhysics = false;
-
-
 // =============================================================================
 // TERRAIN COLLISION RESPONSE — Unified Sequential Impulse Solver
 // =============================================================================

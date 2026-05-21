@@ -49,8 +49,11 @@ class GameModelCollection
     std::vector<bool> m_planeSeenGreen;                // True after a model first enters BLUE tolerance
     std::vector<bool> m_planeFailed;                   // Latched failure: model went WHITE after first BLUE
     std::vector<int> m_planeBlueStreak;                // Consecutive grounded BLUE frames before lock
+    bool m_useLegacyPhysics = false;                   // True when legacy sphere-only solver is active
 
-    void BuildShadowMesh(); // Builds the shadow disc VAO with instanced attributes
+    void BuildShadowMesh();       // Builds the shadow disc VAO with instanced attributes
+    void RunLegacyPhysics( float dt ); // Physics tick: legacy sphere-only solver (boxes skipped)
+    void RunSolverPhysics( float dt ); // Physics tick: unified impulse solver (all objects)
 
   public:
     GameModelCollection(); // Default constructor
@@ -58,6 +61,8 @@ class GameModelCollection
 
     void AddGameModel( GameModel gameModel );                                                                                                                                              // Moves a game model into the collection
     void Clear();                                                                                                                                                                          // Clears all game models (retains GPU resources)
+    void SetLegacyMode( bool legacy );                                                                                                                                                     // Routes physics and rendering to the legacy sphere-only path when true
+    bool GetLegacyMode() const;                                                                                                                                                            // Returns true when the legacy sphere-only solver is active
     void RunPhysics( float fChangeInTime );                                                                                                                                                // Runs the physics for the specified time step
     void RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4] );                                                                                                // Renders the game models
     void RenderShadows( Geometry::Terrain* terrain, const Matrix4& view, const Matrix4& proj, float waterSurfaceY );                                                                       // Renders ground shadows beneath all models
