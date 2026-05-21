@@ -95,8 +95,8 @@ Debug\SKULLBONEZ_CORE.exe --legacy-physics --vsync off
 | **N** | Toggle nudge mode: free camera + live simulation. Walk into balls/boxes to push them. |
 | **R** | Cycle render backend at runtime: GL → DX11 → DX12 → GL. Preserves full simulation state. |
 | **P** | Toggle physics solver: **Impulse** (spheres + boxes, unified contact) ↔ **Legacy** (spheres only, swept). In legacy mode boxes freeze and hide; they reappear on toggle back. |
-| **Ctrl** | Fire a ball out of the camera. Shift = 3× speed. Recycles existing models from the pool. |
-| **Alt** | Fire a box out of the camera (impulse solver mode only). Shift = 3× speed. |
+| **Z** | Fire a ball from the camera. Shift = 3× speed. Recycles existing models from the pool. |
+| **X** | Fire a box from the camera (impulse solver mode only). Shift = 3× speed. |
 | **F2** | Save a scene snapshot to `Scenes/snapshot_XXXX.scene`. Captures full state for bug reproduction. |
 | **F3** | Save a screenshot to `Screenshots/screenshot_XXXX.bmp`. |
 
@@ -142,32 +142,110 @@ The simulation loads **paused in fly mode**. Navigate with WASD/mouse to confirm
 
 ## Physics
 
-The physics simulation uses rigid body dynamics with quaternion orientation tracking. All sphere-terrain and sphere-sphere collisions are resolved in a single unified contact solver.
-
-### Unified Contact Solver
-
-The original engine used a binary `m_isGrounded` flag to switch between two completely separate code paths — a kinematic "rolling mode" and an impulse-based "bounce mode". The transition between them was discontinuous and produced visible stutter (balls stopping and restarting mid-roll).
-
-This was replaced with a single unified contact impulse solver where bouncing, rolling, and settling all emerge naturally from the same physics:
-
-- **Normal impulse** `jₙ = -(1+e)·vₙ / kₙ` — handles bounce. Restitution `e` drops to zero below a velocity threshold to prevent micro-bouncing at rest.
-- **Coulomb friction impulse** — couples linear and angular velocity. Rolling arises naturally: friction decelerates the ball's surface contact velocity, imparting angular velocity in the correct direction without any special-case rolling code.
-- **Spin friction** — damps Y-axis spin (world-up axis) that Coulomb friction alone cannot remove, weighted by the terrain normal's upward component.
-- `m_isGrounded`, `DampenAngularVelocity()`, and the three old terrain response methods (`SphereVsPlaneRollResponse`, `SphereVsPlaneLinearImpulse`, `SphereVsPlaneAngularImpulse`) were removed entirely.
-
-Contact detection uses a proximity test from the plane equation (`pos.y − radius ≤ terrainHeight + ε`) reusing the polygon already located by the swept intersection — no redundant `GetTerrainHeightAt` call.
-
-### Quaternion / Orientation Fix
-
-The engine's quaternion multiply operator had non-standard signs inherited from the 2005 original, and `GetOrientationMatrix()` returns the transpose of the standard active-rotation matrix (passive/coordinate-transform convention). These two conventions interact: physical angular velocity `ω` is stored in physics space, but feeding it directly to `RotateAboutXYZ` produced visually backwards rotation.
-
-Fix: omega is negated at the point of visual application (`UpdatePosition`, `UpdateRollPosition`, `GetOrientationMatrix`) so the physics solver reads and writes correct physical values while the visual output rotates in the expected direction.
-
-### Sphere-Sphere Angular Convention Fix
-
-`SphereVsSphereAngular` was a 2005 calibration hack with empirically tuned signs. After the terrain solver was rewritten to use proper physical convention, the sphere-sphere output was negated to bring it into alignment — both contact types now use the same sign convention throughout.
+The simulation has two physics solvers — **Legacy** (the original 2005 code, spheres only) and **Impulse** (the modern sequential impulse solver, spheres + boxes). Toggle between them at runtime with **P**.
 
 ---
+
+### Legacy Solver (2005 original)
+
+The original physics was written as a portfolio piece to demonstrate understanding of physics fundamentals — it solves collisions analytically rather than iteratively.
+
+**Swept sphere-sphere collision** — instead of testing overlap at end-of-frame (which misses fast or small objects), the solver casts a ray through time to find the exact moment of contact:
+
+```
+d = p_A − p_B          (relative center vector at frame start)
+v = v_A − v_B          (relative velocity this frame)
+R = r_A + r_B          (sum of radii — contact when |d + v·t| = R)
+
+Expanding |d + v·t|² = R²:
+
+    a·t² + 2b·t + c = 0
+    where  a = v·v,  b = d·v,  c = d·d − R²
+
+    t = (−b − √(b²−ac)) / a      (earliest root = first contact)
+```
+
+Early-out tests run cheapest-first: no relative motion, already overlapping, separating this frame, reachability cull, negative discriminant.
+
+**Collision response** uses the standard 1D elastic/inelastic formula:
+
+```
+v_A' = ((m_A − e·m_B)·v_A + (1+e)·m_B·v_B) / (m_A + m_B)
+v_B' = ((m_B − e·m_A)·v_B + (1+e)·m_A·v_A) / (m_A + m_B)
+```
+
+where `e` is the coefficient of restitution (0 = perfectly inelastic, 1 = perfectly elastic). Combined restitution is the geometric mean: `e = √(e_A · e_B)`.
+
+**Limitations:** spheres only (boxes are skipped entirely in legacy mode); no angular coupling at sphere-sphere contacts; variable frame-time dt with no accumulator.
+
+---
+
+### Impulse Solver (current default)
+
+Based on Erin Catto's *Iterative Dynamics with Temporal Coherence* (GDC 2005) — the same algorithm used by Box2D and Bullet. Handles both spheres and oriented bounding boxes (OBBs).
+
+**Contact manifold:**
+- Sphere → 1 contact at the lowest pole (center − radius × normal)
+- Box → up to 8 vertex contacts, filtered to the deepest cluster
+
+**Normal impulse** — computes the magnitude `j_n` to push two bodies apart:
+
+```
+            −(1 + e) · v_n
+j_n = ─────────────────────────────────────────────────────────
+       1/m_A + 1/m_B + n̂·(I_A⁻¹(r_A×n̂)×r_A) + n̂·(I_B⁻¹(r_B×n̂)×r_B)
+```
+
+where:
+- `v_n` = relative velocity at the contact point along the normal
+- `r_A`, `r_B` = vectors from each center-of-mass to the contact point
+- `I⁻¹` = inverse inertia tensor (scalar for spheres, world-space rotated for boxes)
+- The denominator is the **effective mass** — the combined resistance of both bodies to linear *and* angular acceleration at the contact
+
+The accumulated impulse is clamped ≥ 0 (push only, never pull), making the constraint one-sided.
+
+**Friction impulse** (Coulomb model) — applied along the two contact tangent axes:
+
+```
+|j_t| ≤ μ · j_n
+```
+
+Friction naturally produces correct rolling: it decelerates the contact surface velocity and imparts angular velocity in the right direction with no special-case rolling code.
+
+**Additional passes:**
+- **Baumgarte stabilisation** — a small bias term corrects residual penetration each frame without introducing energy
+- **Position correction** — projects out 40% of remaining penetration directly after the velocity solve
+- **Gravitational tipping torque** — applies a small restoring torque to boxes balanced on an edge or vertex
+- **Sleep** — zeroes velocity when both linear and angular fall below threshold
+
+---
+
+### Time Step
+
+The physics clock runs at a **fixed 120 Hz** regardless of rendering frame rate:
+
+```
+accumulator += frame_dt
+
+while accumulator >= PHYSICS_FIXED_DT:   // PHYSICS_FIXED_DT = 1/120 s ≈ 8.3 ms
+    RunPhysics( PHYSICS_FIXED_DT )
+    accumulator -= PHYSICS_FIXED_DT
+```
+
+This decouples rendering from simulation — a 60 fps render frame runs two physics ticks; a 30 fps frame runs four. The simulation produces the same result regardless of frame rate, which is critical for deterministic visual regression testing.
+
+Scene files can override this with `fixed_step` — one physics tick per render frame at exactly `PHYSICS_FIXED_DT` — giving fully deterministic, frame-index-reproducible output for test scenes.
+
+---
+
+### Switching Solvers at Runtime
+
+Press **P** to toggle solvers mid-simulation. The solver switch:
+- Resets the profiler tree (the call hierarchy changes)
+- Boxes freeze in legacy mode (only spheres are simulated); they unfreeze when switching back
+- All sphere velocities, positions, and angular state are preserved across the switch
+
+
 
 ## Test Scenes
 

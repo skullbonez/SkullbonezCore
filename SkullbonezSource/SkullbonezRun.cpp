@@ -1047,24 +1047,24 @@ void SkullbonezRun::TakeInput()
         m_camera.input.fPWasDown = pNow;
     }
 
-    // CTRL: fire a ball out of the camera. ALT: fire a box (ignored in legacy mode).
+    // Z: fire a ball out of the camera. X: fire a box (solver mode only; ignored in legacy mode).
     // Shift applies the same 3× speed multiplier as walking.
     // Objects are recycled from the model pool — no new allocations.
     {
-        bool ctrlNow = Input::IsKeyDown( VK_CONTROL );
-        if ( ctrlNow && !m_camera.input.fCtrlWasDown )
+        bool zNow = Input::IsKeyDown( 'Z' );
+        if ( zNow && !m_camera.input.fZWasDown )
         {
             FireProjectile( false );
         }
-        m_camera.input.fCtrlWasDown = ctrlNow;
+        m_camera.input.fZWasDown = zNow;
     }
     {
-        bool altNow = Input::IsKeyDown( VK_MENU );
-        if ( altNow && !m_camera.input.fAltWasDown )
+        bool xNow = Input::IsKeyDown( 'X' );
+        if ( xNow && !m_camera.input.fXWasDown )
         {
             FireProjectile( true );
         }
-        m_camera.input.fAltWasDown = altNow;
+        m_camera.input.fXWasDown = xNow;
     }
 
     if ( m_camera.isFlyMode )
