@@ -1047,6 +1047,26 @@ void SkullbonezRun::TakeInput()
         m_camera.input.fPWasDown = pNow;
     }
 
+    // CTRL: fire a ball out of the camera. ALT: fire a box (ignored in legacy mode).
+    // Shift applies the same 3× speed multiplier as walking.
+    // Objects are recycled from the model pool — no new allocations.
+    {
+        bool ctrlNow = Input::IsKeyDown( VK_CONTROL );
+        if ( ctrlNow && !m_camera.input.fCtrlWasDown )
+        {
+            FireProjectile( false );
+        }
+        m_camera.input.fCtrlWasDown = ctrlNow;
+    }
+    {
+        bool altNow = Input::IsKeyDown( VK_MENU );
+        if ( altNow && !m_camera.input.fAltWasDown )
+        {
+            FireProjectile( true );
+        }
+        m_camera.input.fAltWasDown = altNow;
+    }
+
     if ( m_camera.isFlyMode )
     {
         // Keep cursor hidden every frame ? Windows restores it on WM_SETCURSOR
@@ -1648,6 +1668,73 @@ void SkullbonezRun::NudgeModelsWithCamera( const Vector3& moveVec )
 }
 
 
+void SkullbonezRun::FireProjectile( bool isBox )
+{
+    // Legacy mode has no boxes — ALT fires nothing.
+    if ( isBox && m_cGameModelCollection.GetLegacyMode() )
+    {
+        return;
+    }
+
+    int count = m_cGameModelCollection.GetModelCount();
+    if ( count == 0 )
+    {
+        return;
+    }
+
+    // Pick the next model of the right type by stepping backwards through the array.
+    // m_fire.ballNext / m_fire.boxNext remembers where we left off so rapid-fire
+    // successive shots use different objects instead of always grabbing the same one.
+    int& cycleIdx = isBox ? m_fire.boxNext : m_fire.ballNext;
+    if ( cycleIdx < 0 || cycleIdx >= count )
+    {
+        cycleIdx = count - 1;
+    }
+
+    int found = -1;
+    for ( int i = 0; i < count; ++i )
+    {
+        int idx = ( ( cycleIdx - i ) % count + count ) % count;
+        if ( m_cGameModelCollection.GetModelAtIndex( idx ).IsBox() == isBox )
+        {
+            found    = idx;
+            cycleIdx = ( ( idx - 1 ) % count + count ) % count;
+            break;
+        }
+    }
+
+    if ( found < 0 )
+    {
+        return; // No models of the requested type in the scene
+    }
+
+    GameModel& model = m_cGameModelCollection.GetModelAtIndex( found );
+
+    // Camera forward direction (normalised look vector)
+    const Vector3& camPos  = m_systems.cameras->GetCameraTranslation();
+    const Vector3& camView = m_systems.cameras->GetCameraView();
+    Vector3 forward        = camView - camPos;
+    float lenSq            = forward * forward;
+    if ( lenSq < 1e-8f )
+    {
+        return;
+    }
+    forward = forward * ( 1.0f / sqrtf( lenSq ) );
+
+    // Spawn just ahead of the camera, clear of the model's bounding radius
+    float clearance = model.GetBoundingRadius() * 2.0f + 50.0f;
+    Vector3 spawnPos = camPos + forward * clearance;
+
+    // Speed matches camera walk speed; Shift gives the 3× sprint multiplier
+    float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;
+    float fireSpeed = Cfg().keySpeed * speedMult;
+
+    model.SetPosition( spawnPos );
+    model.SetLinearVelocity( forward * fireSpeed );
+    model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+}
+
+
 void SkullbonezRun::SetUpCamerasFromScene( const TestScene& scene )
 {
     m_systems.cameras = CameraCollection::Instance();
@@ -1814,6 +1901,8 @@ void SkullbonezRun::LoadScene( int index )
     // Reset input and debug state
     m_camera.isFlyMode = false;
     m_camera.isNudgeMode = false;
+    m_fire.ballNext = -1;
+    m_fire.boxNext  = -1;
     m_debug.isWaterFreezeDebug = false;
     m_debug.isWaterNoReflect = false;
     m_debug.isWaterFlatDebug = false;

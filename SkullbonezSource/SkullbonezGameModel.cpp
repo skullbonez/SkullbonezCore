@@ -682,6 +682,12 @@ void GameModel::SetAngularVelocity( const Vector3& v )
 }
 
 
+void GameModel::SetPosition( const Vector3& pos )
+{
+    m_physicsInfo.SetPosition( pos );
+}
+
+
 void GameModel::SetOrientation( const Quaternion& q )
 {
     m_physicsInfo.SetOrientation( q );

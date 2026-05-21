@@ -124,6 +124,7 @@ class GameModel
     float GetCoefficientRestitution();                                                  // Returns the coefficient of restitution (passthrough to RigidBody)
     void SetLinearVelocity( const Vector3& v );                                         // Sets the linear velocity (passthrough to RigidBody)
     void SetAngularVelocity( const Vector3& v );                                        // Sets the angular velocity (passthrough to RigidBody)
+    void SetPosition( const Vector3& pos );                                             // Teleports the model to a world position (passthrough to RigidBody)
     void SetOrientation( const Quaternion& q );                                         // Sets the orientation quaternion (passthrough to RigidBody)
 };
 } // namespace GameObjects

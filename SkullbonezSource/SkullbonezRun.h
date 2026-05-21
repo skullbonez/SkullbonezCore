@@ -142,6 +142,15 @@ struct RunDebugState
     float rendererSwitchAccum = 0.0f;     // Accumulated time since last auto-switch
 };
 
+struct RunFireState
+{
+    // Cycling indices for projectile recycling.  Each shot steps backwards through the
+    // model array so rapid-fire uses different objects instead of relaunching the same one.
+    // -1 means "not yet initialised" — the first shot seeds the index from the array tail.
+    int ballNext = -1; // Next sphere model index to recycle
+    int boxNext  = -1; // Next box model index to recycle
+};
+
 enum class RuntimeRendererType
 {
     OpenGL,
@@ -167,6 +176,7 @@ class SkullbonezRun
     RunSceneState m_scene;                      // Scene-mode execution state
     RunScreenshotState m_screenshot;            // Screenshot trigger and capture state
     RunDebugState m_debug;                      // Runtime debug/overlay toggles
+    RunFireState m_fire;                        // Projectile recycling state (CTRL = ball, ALT = box)
     WorldEnvironment m_cWorldEnvironment;       // SkullbonezCore::Environment::WorldEnvironment class
     GameModelCollection m_cGameModelCollection; // SkullbonezCore::GameObjects::GameModelCollection class
 
@@ -202,6 +212,7 @@ class SkullbonezRun
     void TickPerfLog();                   // Write per-frame perf CSV row and periodic memory checkpoint
     bool TickSceneAdvance();              // Frame count, exit/hold on completion, restarts; returns true to continue
     void NudgeModelsWithCamera( const Vector3& moveVec ); // Push overlapping balls/boxes in camera movement direction
+    void FireProjectile( bool isBox );                    // Recycle and launch a ball (CTRL) or box (ALT) from the camera
 
   public:
     SkullbonezRun( std::vector<std::string> sceneQueue, bool legacyPhysics = false ); // Constructor (scene queue; empty string = legacy mode)

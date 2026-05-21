@@ -92,20 +92,24 @@ Debug\SKULLBONEZ_CORE.exe --legacy-physics --vsync off
 |-----|--------|
 | **Esc** | Quit |
 | **F** | Toggle fly mode (free camera). Freezes camera auto-cycle and physics. Press again to exit. |
+| **N** | Toggle nudge mode: free camera + live simulation. Walk into balls/boxes to push them. |
 | **R** | Cycle render backend at runtime: GL → DX11 → DX12 → GL. Preserves full simulation state. |
 | **P** | Toggle physics solver: **Impulse** (spheres + boxes, unified contact) ↔ **Legacy** (spheres only, swept). In legacy mode boxes freeze and hide; they reappear on toggle back. |
+| **Ctrl** | Fire a ball out of the camera. Shift = 3× speed. Recycles existing models from the pool. |
+| **Alt** | Fire a box out of the camera (impulse solver mode only). Shift = 3× speed. |
 | **F2** | Save a scene snapshot to `Scenes/snapshot_XXXX.scene`. Captures full state for bug reproduction. |
 | **F3** | Save a screenshot to `Screenshots/screenshot_XXXX.bmp`. |
 
-### Fly Mode (press F to enter)
+### Fly / Nudge Mode (press F or N to enter)
 
 | Key | Action |
 |-----|--------|
 | **W / A / S / D** | Move camera forward / left / backward / right |
 | **Mouse** | Look around |
 | **Shift** | Hold for 3× movement speed |
-| **Space** | Step the simulation one frame while paused |
-| **F** | Exit fly mode — restores camera auto-cycle and cursor |
+| **Space** | Step the simulation one frame (fly mode only — nudge mode keeps it running) |
+| **F** | Exit to normal mode — restores camera auto-cycle and cursor |
+| **N** | Toggle nudge mode on/off while in free camera
 
 ### Debug / Display Toggles
 
