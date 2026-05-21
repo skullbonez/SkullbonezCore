@@ -44,7 +44,9 @@ struct RunPerfLogState
     bool isPerfLogFlushEnabled = false; // Flush perf CSV on each write (diagnostic mode)
     int perfLogFlushInterval = 0;       // Flush perf CSV every N writes (0 = flush on close only)
     int perfLogWritesSinceFlush = 0;    // Buffered perf-log write count since last flush
-    FILE* rollLogFile = nullptr;        // Open handle for roll orientation log (null = disabled)
+#ifdef _DEBUG
+    char physicsLogOverride[256] = {}; // CLI --physics-log path override (empty = use scene directive)
+#endif
 };
 
 struct RunVectorLogState
@@ -108,15 +110,16 @@ struct RunCameraState
 
 struct RunSceneState
 {
-    int currentSceneIndex = -1; // Index into scene queue (-1 = not yet loaded)
-    bool isSceneMode = false;   // Scene file mode (deterministic, data-driven)
-    bool isScenePhysics = true; // Physics enabled in scene mode
-    bool isSceneText = true;    // Text overlay enabled in scene mode
-    int targetFrameCount = -1;  // Frames to render before holding (-1 = unlimited)
-    int currentFrame = 0;       // Current frame counter for scene mode
-    int modelCount = 0;         // Number of models in the active scene
-    float timeScale = 1.0f;     // Physics time multiplier (1.0 = realtime)
-    bool isFixedStep = false;   // One physics tick per render frame at PHYSICS_FIXED_DT (deterministic)
+    int currentSceneIndex = -1;    // Index into scene queue (-1 = not yet loaded)
+    bool isSceneMode = false;      // Scene file mode (deterministic, data-driven)
+    bool isScenePhysics = true;    // Physics enabled in scene mode
+    bool isSceneText = true;       // Text overlay enabled in scene mode
+    int targetFrameCount = -1;     // Frames to render before holding (-1 = unlimited)
+    int currentFrame = 0;          // Current frame counter for scene mode
+    int modelCount = 0;            // Number of models in the active scene
+    float timeScale = 1.0f;        // Physics time multiplier (1.0 = realtime)
+    bool isFixedStep = false;      // One physics tick per render frame at PHYSICS_FIXED_DT (deterministic)
+    bool isExitOnComplete = false; // Exit automatically when targetFrameCount is reached
 };
 
 struct RunScreenshotState
@@ -205,6 +208,10 @@ class SkullbonezRun
     void Initialise();                                                                // Initialises shared resources and loads first scene
     void Run();                                                                       // Runs all scenes in sequence — main message loop
     void SetRendererSwitchInterval( float seconds );
+
+#ifdef _DEBUG
+    void SetPhysicsLogOverride( const char* path ); // Override physics log path for all scenes (CLI --physics-log)
+#endif
 };
 } // namespace Basics
 } // namespace SkullbonezCore

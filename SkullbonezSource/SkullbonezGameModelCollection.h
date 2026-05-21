@@ -45,13 +45,14 @@ class GameModelCollection
     uint32_t m_shadowInstMesh = 0;                     // Instanced mesh handle (via Gfx())
     int m_shadowDiscVertexCount = 0;                   // Disc triangle vertex count
     std::vector<float> m_shadowInstanceData;           // Retained-capacity staging buffer (mat4 + alpha per instance)
-    FILE* m_rollLog;                                   // Optional roll orientation log (null = disabled)
-    std::vector<bool> m_planeSeenGreen;                // True after a model first enters BLUE tolerance
-    std::vector<bool> m_planeFailed;                   // Latched failure: model went WHITE after first BLUE
-    std::vector<int> m_planeBlueStreak;                // Consecutive grounded BLUE frames before lock
     bool m_useLegacyPhysics = false;                   // True when legacy sphere-only solver is active
 
-    void BuildShadowMesh();       // Builds the shadow disc VAO with instanced attributes
+#ifdef _DEBUG
+    char m_physicsLogPath[256] = {}; // Output path for physics state CSV (empty = disabled)
+    int m_physicsLogFrame = 0;       // Frame counter reset when path is set
+#endif
+
+    void BuildShadowMesh();            // Builds the shadow disc VAO with instanced attributes
     void RunLegacyPhysics( float dt ); // Physics tick: legacy sphere-only solver (boxes skipped)
     void RunSolverPhysics( float dt ); // Physics tick: unified impulse solver (all objects)
 
@@ -67,11 +68,14 @@ class GameModelCollection
     void RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4] );                                                                                                // Renders the game models
     void RenderShadows( Geometry::Terrain* terrain, const Matrix4& view, const Matrix4& proj, float waterSurfaceY );                                                                       // Renders ground shadows beneath all models
     void ResetGLResources();                                                                                                                                                               // Releases GPU resources for GL context reset
-    void SetRollLog( FILE* file );                                                                                                                                                         // Sets the roll orientation log file (null = disabled)
     bool SaveSceneSnapshot( const char* path, bool physicsOn, bool textOn, Environment::WorldEnvironment& worldEnv, const Vector3& camEye, const Vector3& camView, const Vector3& camUp ); // Saves full scene state to a .scene file; returns true on success
     Vector3 GetModelPosition( int index );                                                                                                                                                 // Returns the position of the specified game model
     int GetModelCount() const;                                                                                                                                                             // Returns the number of game models
     GameModel& GetModelAtIndex( int index );                                                                                                                                               // Returns a reference to the game model at the given index
+
+#ifdef _DEBUG
+    void SetPhysicsLogPath( const char* path ); // Enable per-frame physics state CSV; empty string disables
+#endif
 };
 } // namespace GameObjects
 } // namespace SkullbonezCore

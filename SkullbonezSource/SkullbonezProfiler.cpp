@@ -886,8 +886,8 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
 
     // Build children lists (fixed arrays — no heap allocation).
     // children[i] holds indices of markers whose parentIndex == i, in registration order.
-    int  childBuf[MAX_MARKERS][MAX_MARKERS]; // [parent][slot]
-    int  childCount[MAX_MARKERS] = {};
+    int childBuf[MAX_MARKERS][MAX_MARKERS]; // [parent][slot]
+    int childCount[MAX_MARKERS] = {};
     for ( int i = 0; i < m_markerCount; ++i )
     {
         int p = m_markers[i].parentIndex;
@@ -899,8 +899,8 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
 
     // Depth-first tree walk: roots first in registration order, then their children, etc.
     // Preserves execution order within each sibling group.
-    int  dfsStack[MAX_MARKERS];
-    int  dfsTop = 0;
+    int dfsStack[MAX_MARKERS];
+    int dfsTop = 0;
     for ( int i = m_markerCount - 1; i >= 0; --i )
     {
         if ( m_markers[i].parentIndex == -1 &&

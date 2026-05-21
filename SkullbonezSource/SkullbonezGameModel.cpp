@@ -55,7 +55,6 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     m_dragCoefficient = 0.0f;
     m_isResponseRequired = false;
     m_name[0] = '\0';
-    m_isGrounded = false;
 }
 
 
@@ -142,18 +141,6 @@ void GameModel::SetName( const char* name )
 const char* GameModel::GetName() const
 {
     return m_name;
-}
-
-
-void GameModel::SetGrounded( bool grounded )
-{
-    m_isGrounded = grounded;
-}
-
-
-bool GameModel::IsGrounded() const
-{
-    return m_isGrounded;
 }
 
 

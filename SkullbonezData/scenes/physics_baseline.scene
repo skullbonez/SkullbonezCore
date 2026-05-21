@@ -1,8 +1,7 @@
 # physics_baseline.scene
-# Comprehensive physics baseline: captures full state (position, velocity, omega)
-# for several ball configurations to benchmark existing behavior before audit fixes.
-#
-# Run in Debug build — Log().Writef writes Debug/physics_state.csv automatically.
+# Comprehensive physics baseline: captures full ball state (position, velocity, omega)
+# for a fixed set of configurations to regression-test physics behavior.
+# Run in Debug build via --scene; output goes to Debug/physics_state.csv.
 #
 # Configurations tested:
 #   1. drop_flat   — Ball dropped vertically onto flat terrain (bounce + settle)
@@ -14,6 +13,7 @@ physics on
 text off
 frames 600
 fixed_step
+physics_log Debug/physics_state.csv
 
 # Elevated camera looking down at the scene
 camera overview 500 200 500  500 50 500  0 1 0

@@ -43,13 +43,6 @@ SkullbonezRun::~SkullbonezRun()
         m_perfLogState.perfLogFile = nullptr;
     }
 
-    if ( m_perfLogState.rollLogFile )
-    {
-        m_cGameModelCollection.SetRollLog( nullptr );
-        fclose( m_perfLogState.rollLogFile );
-        m_perfLogState.rollLogFile = nullptr;
-    }
-
     if ( m_vectorLogState.vectorLogFile )
     {
         fclose( m_vectorLogState.vectorLogFile );
@@ -85,6 +78,14 @@ void SkullbonezRun::SetRendererSwitchInterval( float seconds )
 {
     m_debug.rendererSwitchInterval = seconds;
 }
+
+
+#ifdef _DEBUG
+void SkullbonezRun::SetPhysicsLogOverride( const char* path )
+{
+    strcpy_s( m_perfLogState.physicsLogOverride, sizeof( m_perfLogState.physicsLogOverride ), path );
+}
+#endif
 
 
 void SkullbonezRun::Initialise()
@@ -458,13 +459,13 @@ void SkullbonezRun::SetUpSolverObjects( int balls, int boxes )
     // --- Sphere pass ---
     for ( int i = 0; i < balls; ++i )
     {
-        float posX       = randFloat( cfg.spawnXBase, cfg.spawnXRange );
-        float posY       = randFloat( cfg.spawnYBase, cfg.spawnYRange );
-        float posZ       = randFloat( cfg.spawnZBase, cfg.spawnZRange );
-        float mass       = randFloat( cfg.ballMassMin, cfg.ballMassRange );
+        float posX = randFloat( cfg.spawnXBase, cfg.spawnXRange );
+        float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
+        float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
+        float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
         float restitution = cfg.ballRestitutionMin + static_cast<float>( rand() % cfg.ballRestitutionRange ) / 10.0f;
-        float moment     = randFloat( cfg.ballMomentMin, cfg.ballMomentRange );
-        float radius     = ( 1.0f + static_cast<float>( rand() % cfg.ballRadiusRange ) ) * 0.5f;
+        float moment = randFloat( cfg.ballMomentMin, cfg.ballMomentRange );
+        float radius = ( 1.0f + static_cast<float>( rand() % cfg.ballRadiusRange ) ) * 0.5f;
         Vector3 force( randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ) );
         Vector3 forcePos( randSign(), randSign(), randSign() );
 
@@ -483,10 +484,10 @@ void SkullbonezRun::SetUpSolverObjects( int balls, int boxes )
     // The spawn code uses half-extents internally, so the factor is m/3 (= m/12 * 4).
     for ( int i = 0; i < boxes; ++i )
     {
-        float posX        = randFloat( cfg.spawnXBase, cfg.spawnXRange );
-        float posY        = randFloat( cfg.spawnYBase, cfg.spawnYRange );
-        float posZ        = randFloat( cfg.spawnZBase, cfg.spawnZRange );
-        float mass        = randFloat( cfg.ballMassMin, cfg.ballMassRange );
+        float posX = randFloat( cfg.spawnXBase, cfg.spawnXRange );
+        float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
+        float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
+        float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
         float restitution = cfg.ballRestitutionMin + static_cast<float>( rand() % cfg.ballRestitutionRange ) / 10.0f;
         Vector3 force( randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ) );
         Vector3 forcePos( randSign(), randSign(), randSign() );
@@ -497,7 +498,7 @@ void SkullbonezRun::SetUpSolverObjects( int balls, int boxes )
         float hz = halfExtent * ( 0.7f + static_cast<float>( rand() % 4 ) * 0.2f );
 
         float hx2 = hx * hx, hy2 = hy * hy, hz2 = hz * hz;
-        float m3  = mass / 3.0f;
+        float m3 = mass / 3.0f;
         Vector3 inertia( m3 * ( hy2 + hz2 ), m3 * ( hx2 + hz2 ), m3 * ( hx2 + hy2 ) );
 
         GameModel gameModel( &m_cWorldEnvironment, Vector3( posX, posY, posZ ), inertia, mass );
@@ -789,11 +790,21 @@ void SkullbonezRun::Run()
                 ++m_scene.currentFrame;
             }
 
-            // Scene mode: hold after target reached (skip if screenshot auto-exit pending)
+            // Scene mode: exit or hold after target frame count reached (skip if screenshot auto-exit pending)
             if ( m_scene.isSceneMode && m_scene.targetFrameCount > 0 && !m_screenshot.isScreenshotSaved )
             {
                 if ( m_scene.currentFrame >= m_scene.targetFrameCount )
                 {
+                    if ( m_scene.isExitOnComplete )
+                    {
+                        // Auto-exit: advance to next scene or quit if none remain
+                        if ( !AdvanceScene() )
+                        {
+                            PostQuitMessage( 0 );
+                        }
+                        continue;
+                    }
+
                     for ( ;; )
                     {
                         MSG holdMsg;
@@ -1786,6 +1797,7 @@ void SkullbonezRun::LoadScene( int index )
     m_debug.isTextOnly = false;
     m_scene.timeScale = 1.0f;
     m_scene.isFixedStep = false;
+    m_scene.isExitOnComplete = false;
     m_debug.frozenWaterTime = 0.0f;
     m_camera.trackBallIndex = -1;
     m_camera.trackHeight = 300.0f;
@@ -1858,6 +1870,7 @@ void SkullbonezRun::LoadScene( int index )
         }
 
         m_scene.targetFrameCount = scene.GetFrameCount();
+        m_scene.isExitOnComplete = scene.IsExitOnComplete();
         m_screenshot.screenshotFrame = scene.GetScreenshotFrame();
         m_screenshot.screenshotMs = scene.GetScreenshotMs();
         m_screenshot.isScreenshotAndExit = scene.IsScreenshotAndExit();
@@ -1894,22 +1907,13 @@ void SkullbonezRun::LoadScene( int index )
             }
         }
 
-        // Roll log: open text file for per-frame ball orientation diagnostics
-        if ( m_perfLogState.rollLogFile )
-        {
-            m_cGameModelCollection.SetRollLog( nullptr );
-            fclose( m_perfLogState.rollLogFile );
-            m_perfLogState.rollLogFile = nullptr;
-        }
-        const char* pRollPath = scene.GetRollLogPath();
-        if ( pRollPath[0] != '\0' )
-        {
-            fopen_s( &m_perfLogState.rollLogFile, pRollPath, "w" );
-            if ( m_perfLogState.rollLogFile )
-            {
-                m_cGameModelCollection.SetRollLog( m_perfLogState.rollLogFile );
-            }
-        }
+        // Physics log: per-frame ball state CSV. CLI --physics-log override takes priority over scene directive.
+#ifdef _DEBUG
+        const char* physLogPath = ( m_perfLogState.physicsLogOverride[0] != '\0' )
+                                      ? m_perfLogState.physicsLogOverride
+                                      : scene.GetPhysicsLogPath();
+        m_cGameModelCollection.SetPhysicsLogPath( physLogPath );
+#endif
 
         // Override RNG seed for deterministic scenes
         if ( scene.GetSeed() > 0 )

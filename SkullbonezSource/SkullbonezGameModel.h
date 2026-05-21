@@ -68,7 +68,6 @@ class GameModel
     float m_dragCoefficient;                            // Calculated based on the average drag coefficient of all dynamics objects
     bool m_isResponseRequired;                          // Indicates whether a response is required or not
     char m_name[64];                                    // Optional name for logging (empty = unnamed)
-    bool m_isGrounded;                                  // True if ball had terrain contact this physics frame
 
     void BuildSpherePhysicsCache( float radius );                                  // Precompute immutable sphere data used in hot paths
     const BoundingSphere& GetBoundingSphere() const;                               // Sphere-only fast path accessor (variant-backed)
@@ -111,8 +110,6 @@ class GameModel
     void SetInitialOrientation( float fEulerXDeg, float fEulerYDeg, float fEulerZDeg ); // Sets the initial orientation from euler angles (degrees)
     void SetName( const char* name );                                                   // Sets the ball's log name (up to 63 chars)
     const char* GetName() const;                                                        // Returns the ball's log name
-    void SetGrounded( bool grounded );                                                  // Sets the grounded state for this frame
-    bool IsGrounded() const;                                                            // Returns true if ball had terrain contact this frame
     void AddBoundingSphere( float fRadius );                                            // Add a bounding sphere to the game model
     void AddBoundingBox( const Vector3& halfExtents );                                  // Add a bounding box to the game model
     bool IsBox() const;                                                                 // True if bounding volume is a BoundingBox

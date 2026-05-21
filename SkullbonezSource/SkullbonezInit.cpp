@@ -219,6 +219,47 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
         fprintf( stdout, "[physics] Legacy sphere-only solver enabled.\n" );
     }
 
+    // Parse --physics-log <path>  (requires Debug build — error and exit in Release/Profile)
+    if ( szCmdLine && strstr( szCmdLine, "--physics-log" ) )
+    {
+#ifndef _DEBUG
+        MessageBoxA( nullptr,
+                     "--physics-log is only supported in Debug builds.\n"
+                     "Recompile with the Debug configuration to use physics regression logging.",
+                     "--physics-log requires Debug build",
+                     MB_OK | MB_ICONERROR );
+        return 1;
+#endif
+    }
+
+#ifdef _DEBUG
+    char physicsLogOverride[256] = {};
+    if ( szCmdLine && strstr( szCmdLine, "--physics-log" ) )
+    {
+        const char* physLogArg = strstr( szCmdLine, "--physics-log" ) + 13;
+        while ( *physLogArg == ' ' )
+        {
+            ++physLogArg;
+        }
+        const char* physLogEnd = physLogArg;
+        while ( *physLogEnd != '\0' && *physLogEnd != ' ' && *physLogEnd != '\t' )
+        {
+            ++physLogEnd;
+        }
+        size_t len = static_cast<size_t>( physLogEnd - physLogArg );
+        if ( len >= sizeof( physicsLogOverride ) )
+        {
+            len = sizeof( physicsLogOverride ) - 1;
+        }
+        memcpy( physicsLogOverride, physLogArg, len );
+        physicsLogOverride[len] = '\0';
+        if ( physicsLogOverride[0] != '\0' )
+        {
+            fprintf( stdout, "[physics-log] Output: %s\n", physicsLogOverride );
+        }
+    }
+#endif
+
     // Parse --switch-interval N (auto-cycle renderers every N seconds, for hot-switch testing)
     float switchInterval = -1.0f;
     if ( szCmdLine )
@@ -279,6 +320,12 @@ int WINAPI WinMain( HINSTANCE hInstance,     // Holds info on instance of app
         {
             cRun.SetRendererSwitchInterval( switchInterval );
         }
+#ifdef _DEBUG
+        if ( physicsLogOverride[0] != '\0' )
+        {
+            cRun.SetPhysicsLogOverride( physicsLogOverride );
+        }
+#endif
 
         try
         {

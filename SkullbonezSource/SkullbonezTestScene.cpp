@@ -245,19 +245,14 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
-        // parse roll_log directive
-        if ( strncmp( line, "roll_log ", 9 ) == 0 )
-        {
-            strcpy_s( scene.m_loggingOptions.rollLogPath, sizeof( scene.m_loggingOptions.rollLogPath ), line + 9 );
-            continue;
-        }
-
         // parse physics_log directive
+#ifdef _DEBUG
         if ( strncmp( line, "physics_log ", 12 ) == 0 )
         {
             strcpy_s( scene.m_loggingOptions.physicsLogPath, sizeof( scene.m_loggingOptions.physicsLogPath ), line + 12 );
             continue;
         }
+#endif
 
         // parse vector_log directive
         if ( strncmp( line, "vector_log ", 11 ) == 0 )
@@ -392,6 +387,13 @@ TestScene TestScene::LoadFromFile( const char* path )
         if ( strcmp( line, "screenshot_and_exit" ) == 0 )
         {
             scene.m_sceneOptions.screenshotAndExit = true;
+            continue;
+        }
+
+        // parse exit_on_complete directive: automatically exit when targetFrameCount is reached
+        if ( strcmp( line, "exit_on_complete" ) == 0 )
+        {
+            scene.m_sceneOptions.exitOnComplete = true;
             continue;
         }
 
@@ -850,16 +852,12 @@ int TestScene::GetPerfLogFlushInterval() const
 }
 
 
-const char* TestScene::GetRollLogPath() const
-{
-    return m_loggingOptions.rollLogPath;
-}
-
-
+#ifdef _DEBUG
 const char* TestScene::GetPhysicsLogPath() const
 {
     return m_loggingOptions.physicsLogPath;
 }
+#endif
 
 
 bool TestScene::IsVectorLogEnabled() const
@@ -973,6 +971,12 @@ float TestScene::GetAutoCycleInterval() const
 bool TestScene::IsScreenshotAndExit() const
 {
     return m_sceneOptions.screenshotAndExit;
+}
+
+
+bool TestScene::IsExitOnComplete() const
+{
+    return m_sceneOptions.exitOnComplete;
 }
 
 

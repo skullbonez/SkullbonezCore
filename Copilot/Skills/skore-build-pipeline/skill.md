@@ -21,6 +21,8 @@ question: "Which tests should the pipeline run?"
 choices:
   - "Both render + perf (full pipeline) (Recommended)"
   - "Both render + perf + physics bench (full + bench)"
+  - "Both render + perf + physics regression (full + regression)"
+  - "Both render + perf + bench + regression (full + all)"
   - "Render tests only (skip perf)"
   - "Perf tests only (skip render baselines)"
   - "None — format + build + commit only"
@@ -28,13 +30,15 @@ choices:
 
 Record the answer as `$testScope` and apply these rules for the remaining steps:
 
-| Scope | Step 3 suite file | Step 4 (baseline check) | Step 5 (update baselines) | Step 6 (perf analysis) | Step 6.5 (physics bench) |
-|-------|-------------------|-------------------------|---------------------------|------------------------|--------------------------|
-| Both (full) | `render_tests.suite` | ✅ Run | ✅ Run | ✅ Run | ⏭️ Skip |
-| Full + bench | `render_tests.suite` | ✅ Run | ✅ Run | ✅ Run | ✅ Run |
-| Render only | `render_only.suite`* | ✅ Run | ✅ Run | ⏭️ Skip | ⏭️ Skip |
-| Perf only | `perf_only.suite`* | ⏭️ Skip | ⏭️ Skip | ✅ Run | ⏭️ Skip |
-| None | ⏭️ Skip steps 3–7 | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip |
+| Scope | Step 3 suite file | Step 4 (baseline check) | Step 5 (update baselines) | Step 6 (perf analysis) | Step 6.5 (physics bench) | Step 6.75 (physics regression) |
+|-------|-------------------|-------------------------|---------------------------|------------------------|--------------------------|--------------------------------|
+| Both (full) | `render_tests.suite` | ✅ Run | ✅ Run | ✅ Run | ⏭️ Skip | ⏭️ Skip |
+| Full + bench | `render_tests.suite` | ✅ Run | ✅ Run | ✅ Run | ✅ Run | ⏭️ Skip |
+| Full + regression | `render_tests.suite` | ✅ Run | ✅ Run | ✅ Run | ⏭️ Skip | ✅ Run |
+| Full + all | `render_tests.suite` | ✅ Run | ✅ Run | ✅ Run | ✅ Run | ✅ Run |
+| Render only | `render_only.suite`* | ✅ Run | ✅ Run | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip |
+| Perf only | `perf_only.suite`* | ⏭️ Skip | ⏭️ Skip | ✅ Run | ⏭️ Skip | ⏭️ Skip |
+| None | ⏭️ Skip steps 3–7 | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip |
 
 *If the named suite doesn't exist yet, use `render_tests.suite` for render-only and pass `--scene SkullbonezData/scenes/perf_test.scene` for perf-only.
 
@@ -343,6 +347,11 @@ foreach ($renderer in @("gl", "dx11", "dx12")) {
         $candidate = "$($dir.FullName)\${renderer}_perf.json"
         if (Test-Path $candidate) { $prevJson = $candidate; break }
     }
+    # Fall back to committed baseline if no archive history exists
+    if (-not $prevJson) {
+        $candidate = "$REPO\TestOutput\baselines\${renderer}_perf.json"
+        if (Test-Path $candidate) { $prevJson = $candidate }
+    }
     $currentJson = "$archiveDir\${renderer}_perf.json"
     if ($prevJson) {
         Write-Host "`n=== $($renderer.ToUpper()) Perf Comparison ==="
@@ -474,6 +483,99 @@ Remove-Item "$REPO\Profile\bench_stdout.txt","$REPO\Profile\bench_stderr.txt" -E
 Write-Host "PASS: physics_bench.json written to $(Split-Path $archiveDir -Leaf)"
 ```
 
+### Step 6.75: Physics Regression Test (optional — only when scope includes regression)
+
+Builds the Debug exe, runs both regression scenes, and diffs the output CSVs against committed baselines.
+Physics logging is Debug-only (Log singleton is a no-op in Release/Profile). Both scenes use `fixed_step` + `seed 42` so output is **exactly** deterministic — any single differing byte is a real regression.
+
+```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
+
+# Build Debug (needed for physics logging)
+Write-Host "=== Building Debug for physics regression ==="
+$msbuild = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
+& $msbuild "$REPO\SKULLBONEZ_CORE.sln" /p:Configuration=Debug /p:Platform=x64 /nologo /v:minimal
+if ($LASTEXITCODE -ne 0) { Write-Host "FAIL: Debug build failed"; exit 1 }
+
+# Clean old outputs
+Remove-Item "$REPO\Debug\physics_regression_*.csv" -ErrorAction SilentlyContinue
+
+# Run legacy regression scene
+Write-Host "=== Running physics_regression_legacy ==="
+$p = Start-Process "$REPO\Debug\SKULLBONEZ_CORE.exe" `
+    -ArgumentList "--scene SkullbonezData/scenes/physics_regression_legacy.scene" `
+    -WorkingDirectory $REPO -PassThru -NoNewWindow
+$id = $p.Id
+if (-not $p.WaitForExit(60000)) {
+    Write-Host "FAIL: physics_regression_legacy timed out"
+    [System.Diagnostics.Process]::GetProcessById($id).Kill(); exit 1
+}
+if ($p.ExitCode -ne 0) { Write-Host "FAIL: legacy scene exited $($p.ExitCode)"; exit 1 }
+
+# Run solver regression scene
+Write-Host "=== Running physics_regression_solver ==="
+$p = Start-Process "$REPO\Debug\SKULLBONEZ_CORE.exe" `
+    -ArgumentList "--scene SkullbonezData/scenes/physics_regression_solver.scene" `
+    -WorkingDirectory $REPO -PassThru -NoNewWindow
+$id = $p.Id
+if (-not $p.WaitForExit(60000)) {
+    Write-Host "FAIL: physics_regression_solver timed out"
+    [System.Diagnostics.Process]::GetProcessById($id).Kill(); exit 1
+}
+if ($p.ExitCode -ne 0) { Write-Host "FAIL: solver scene exited $($p.ExitCode)"; exit 1 }
+
+# Compare CSVs to baselines
+$env:SKORE_REPO = $REPO
+py -c "
+import sys, os, shutil
+_r = os.environ['SKORE_REPO']
+baseline_dir = os.path.join(_r, 'TestOutput', 'baselines')
+
+tests = [
+    (r'Debug\physics_regression_legacy.csv', 'physics_regression_legacy.csv'),
+    (r'Debug\physics_regression_solver.csv', 'physics_regression_solver.csv'),
+]
+all_pass = True
+for output_rel, baseline_name in tests:
+    output_path = os.path.join(_r, output_rel)
+    baseline_path = os.path.join(baseline_dir, baseline_name)
+    if not os.path.exists(output_path):
+        print(f'  FAIL: {output_rel} not produced')
+        all_pass = False
+        continue
+    if not os.path.exists(baseline_path):
+        shutil.copy(output_path, baseline_path)
+        with open(output_path) as f:
+            lines = f.readlines()
+        print(f'  BASELINE CREATED: {baseline_name} ({len(lines)} lines)')
+        continue
+    with open(output_path) as f:
+        current = f.readlines()
+    with open(baseline_path) as f:
+        baseline = f.readlines()
+    if current == baseline:
+        print(f'  PASS: {baseline_name} ({len(current)} lines, exact match)')
+    else:
+        if len(current) != len(baseline):
+            print(f'  FAIL: {baseline_name} row count {len(current)} vs baseline {len(baseline)}')
+        else:
+            diffs = [(i+1, b.rstrip(), c.rstrip()) for i,(b,c) in enumerate(zip(baseline,current)) if b!=c]
+            print(f'  FAIL: {baseline_name} {len(diffs)} lines differ (first at line {diffs[0][0]}):')
+            for lineno, b, c in diffs[:3]:
+                print(f'    line {lineno}:')
+                print(f'      baseline: {b}')
+                print(f'      current:  {c}')
+        all_pass = False
+sys.exit(0 if all_pass else 1)
+"
+if ($LASTEXITCODE -ne 0) { Write-Host "FAIL: Physics regression test failed"; exit 1 }
+Write-Host "PASS: Physics regression test passed"
+```
+
+**If regression fails**: The physics output changed. Investigate whether the change is intentional (physics bugfix, solver tuning) or a regression. If intentional, update the baselines by deleting the CSV files in `TestOutput/baselines/` and re-running — the script will recreate them.
+
+**Note:** The Debug exe uses a window (same as Profile). It will open and close automatically when the scene finishes (`frames 300` + exit on completion).
+
 ### Step 7: Archive Screenshots to TestOutput
 
 Screenshots are copied into the archive dir from Step 6. CSVs are not archived (deleted in Step 6 after JSON is written).
@@ -569,21 +671,22 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 Print the following table with a ✅ for every cell (the pipeline exits on first failure, so reaching this step means everything passed):
 
 ```
-╔══════════════════════╦═════╦══════╦══════╗
-║ Step                 ║ GL  ║ DX11 ║ DX12 ║
-╠══════════════════════╬═════╬══════╬══════╣
-║ 0: Format            ║  ✅  ║  ✅   ║  ✅   ║
-║ 2: Build             ║  ✅  ║  ✅   ║  ✅   ║
-║ 3: Suite Run         ║  ✅  ║  ✅   ║  ✅   ║
-║ 3.5: Clean Log       ║  ✅  ║  ✅   ║  ✅   ║
-║ 4: Visual/Baseline   ║  ✅  ║  ✅   ║  ✅   ║
-║ 5: Ref Images        ║  ✅  ║  ✅   ║  ✅   ║
-║ 6: Perf              ║  ✅  ║  ✅   ║  ✅   ║
-║ 6.5: Physics Bench   ║  ✅  ║  n/a  ║  n/a  ║
-║ 7: Archive           ║  ✅  ║  ✅   ║  ✅   ║
-║ 8: LOC               ║  ✅  ║  ✅   ║  ✅   ║
-║ 8.5: SessionState    ║  ✅  ║  ✅   ║  ✅   ║
-╚══════════════════════╩═════╩══════╩══════╝
+╔══════════════════════════╦═════╦══════╦══════╗
+║ Step                     ║ GL  ║ DX11 ║ DX12 ║
+╠══════════════════════════╬═════╬══════╬══════╣
+║ 0: Format                ║  ✅  ║  ✅   ║  ✅   ║
+║ 2: Build                 ║  ✅  ║  ✅   ║  ✅   ║
+║ 3: Suite Run             ║  ✅  ║  ✅   ║  ✅   ║
+║ 3.5: Clean Log           ║  ✅  ║  ✅   ║  ✅   ║
+║ 4: Visual/Baseline       ║  ✅  ║  ✅   ║  ✅   ║
+║ 5: Ref Images            ║  ✅  ║  ✅   ║  ✅   ║
+║ 6: Perf                  ║  ✅  ║  ✅   ║  ✅   ║
+║ 6.5: Physics Bench       ║  ✅  ║  n/a  ║  n/a  ║
+║ 6.75: Physics Regression ║  ✅  ║  n/a  ║  n/a  ║
+║ 7: Archive               ║  ✅  ║  ✅   ║  ✅   ║
+║ 8: LOC                   ║  ✅  ║  ✅   ║  ✅   ║
+║ 8.5: SessionState        ║  ✅  ║  ✅   ║  ✅   ║
+╚══════════════════════════╩═════╩══════╩══════╝
 ```
 
 Note: Step 6.5 only appears in the matrix when scope includes physics bench. Print `(skipped)` in place of ✅ when not in scope.

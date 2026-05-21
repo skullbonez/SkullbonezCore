@@ -20,7 +20,7 @@ static constexpr int SHADOW_INSTANCE_FLOATS = 17;
 
 
 GameModelCollection::GameModelCollection()
-    : m_spatialGrid( Cfg().broadphaseCell ), m_rollLog( nullptr )
+    : m_spatialGrid( Cfg().broadphaseCell )
 {
     m_gameModels.reserve( MAX_GAME_MODELS );
     m_timeRemaining.reserve( MAX_GAME_MODELS );
@@ -32,9 +32,6 @@ void GameModelCollection::AddGameModel( GameModel gameModel )
 {
     assert( static_cast<int>( m_gameModels.size() ) < MAX_GAME_MODELS && "Exceeded MAX_GAME_MODELS" );
     m_gameModels.push_back( std::move( gameModel ) );
-    m_planeSeenGreen.push_back( false );
-    m_planeFailed.push_back( false );
-    m_planeBlueStreak.push_back( 0 );
 }
 
 
@@ -48,20 +45,12 @@ bool GameModelCollection::GetLegacyMode() const
     return m_useLegacyPhysics;
 }
 
-void GameModelCollection::SetRollLog( FILE* file )
-{
-    m_rollLog = file;
-}
-
 
 void GameModelCollection::Clear()
 {
     m_gameModels.clear();
     m_timeRemaining.clear();
     m_groundedThisFrame.clear();
-    m_planeSeenGreen.clear();
-    m_planeFailed.clear();
-    m_planeBlueStreak.clear();
 }
 
 
@@ -250,14 +239,15 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
         RunSolverPhysics( fChangeInTime );
     }
 
-    // Per-frame physics state log (Debug builds only — compiled out in Release/Profile).
-    // Writes full ball state to Debug/physics_state.csv for baseline capture and regression.
+    // Per-frame physics state log. Active only when a path is set via scene directive or
+    // --physics-log CLI arg. Log().Writef is a no-op in non-Debug builds so there is no
+    // file I/O overhead in Release/Profile even if a path is somehow set.
 #ifdef _DEBUG
+    if ( m_physicsLogPath[0] != '\0' )
     {
-        static int sPhysFrame = 0;
-        if ( sPhysFrame == 0 )
+        if ( m_physicsLogFrame == 0 )
         {
-            Log().Writef( "Debug/physics_state.csv", "frame,idx,name,posX,posY,posZ,velX,velY,velZ,speed,omegaX,omegaY,omegaZ,omegaMag,grounded\n" );
+            Log().Writef( m_physicsLogPath, "frame,idx,name,posX,posY,posZ,velX,velY,velZ,speed,omegaX,omegaY,omegaZ,omegaMag,grounded\n" );
         }
         for ( int i = 0; i < modelCount; ++i )
         {
@@ -268,91 +258,21 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
             float speed = sqrtf( vel.x * vel.x + vel.y * vel.y + vel.z * vel.z );
             float omegaMag = sqrtf( omega.x * omega.x + omega.y * omega.y + omega.z * omega.z );
             int grounded = m_groundedThisFrame[i];
-            Log().Writef( "Debug/physics_state.csv", "%d,%d,%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%d\n", sPhysFrame, i, name, pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, speed, omega.x, omega.y, omega.z, omegaMag, grounded );
+            Log().Writef( m_physicsLogPath, "%d,%d,%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%d\n", m_physicsLogFrame, i, name, pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, speed, omega.x, omega.y, omega.z, omegaMag, grounded );
         }
-        ++sPhysFrame;
+        ++m_physicsLogFrame;
     }
 #endif
-
-    // Roll orientation log: one line per named ball per frame
-    if ( m_rollLog )
-    {
-        const float axisToleranceRad = 5.0f * _PI / 180.0f;
-        const int lockBlueFrames = 60;
-
-        if ( static_cast<int>( m_planeSeenGreen.size() ) != modelCount ||
-             static_cast<int>( m_planeBlueStreak.size() ) != modelCount )
-        {
-            m_planeSeenGreen.assign( modelCount, false );
-            m_planeFailed.assign( modelCount, false );
-            m_planeBlueStreak.assign( modelCount, 0 );
-        }
-
-        for ( int i = 0; i < modelCount; ++i )
-        {
-            const char* name = m_gameModels[i].GetName();
-            if ( !name[0] )
-            {
-                continue;
-            }
-
-            bool isGrounded = ( m_groundedThisFrame[i] != 0 );
-            m_gameModels[i].SetGrounded( isGrounded );
-            const char* state = isGrounded ? "LANDED  " : "AIRBORNE";
-            Vector3 spike = m_gameModels[i].GetOrientationUp();
-            Vector3 omega = m_gameModels[i].GetAngularVelocity();
-            Vector3 pos = m_gameModels[i].GetPosition();
-
-            bool withinPlaneTolerance = false;
-            float omegaMag = VectorMag( omega );
-            float spikeMag = VectorMag( spike );
-            if ( omegaMag > TOLERANCE && spikeMag > TOLERANCE )
-            {
-                float dotRed = ( spike * omega ) / ( spikeMag * omegaMag );
-                if ( dotRed > 1.0f )
-                {
-                    dotRed = 1.0f;
-                }
-                else if ( dotRed < -1.0f )
-                {
-                    dotRed = -1.0f;
-                }
-                float angleFromPerp = asinf( fabsf( dotRed ) );
-                withinPlaneTolerance = ( angleFromPerp <= axisToleranceRad );
-            }
-
-            if ( isGrounded && withinPlaneTolerance )
-            {
-                if ( !m_planeSeenGreen[i] )
-                {
-                    ++m_planeBlueStreak[i];
-                    if ( m_planeBlueStreak[i] >= lockBlueFrames )
-                    {
-                        m_planeSeenGreen[i] = true;
-                    }
-                }
-            }
-            else if ( isGrounded )
-            {
-                m_planeBlueStreak[i] = 0;
-                if ( m_planeSeenGreen[i] )
-                {
-                    m_planeFailed[i] = true;
-                }
-            }
-            else
-            {
-                m_planeBlueStreak[i] = 0;
-            }
-
-            const char* planeState = withinPlaneTolerance ? "BLUE" : "WHITE";
-            const char* failState = m_planeFailed[i] ? "FAIL" : ( m_planeSeenGreen[i] ? "LOCKED" : "UNLOCKED" );
-
-            fprintf( m_rollLog, "[%s] %s  pos.y=%8.2f  spike=(%6.3f, %6.3f, %6.3f)  omega=(%6.3f, %6.3f, %6.3f)  axis=%s  axis_lock=%s\n", name, state, pos.y, spike.x, spike.y, spike.z, omega.x, omega.y, omega.z, planeState, failState );
-        }
-        fflush( m_rollLog );
-    }
 }
+
+
+#ifdef _DEBUG
+void GameModelCollection::SetPhysicsLogPath( const char* path )
+{
+    strcpy_s( m_physicsLogPath, sizeof( m_physicsLogPath ), path );
+    m_physicsLogFrame = 0;
+}
+#endif
 
 
 // Physics tick: original sphere-only ad-hoc solver.

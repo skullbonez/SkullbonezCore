@@ -8,7 +8,6 @@ frames 900
 time_scale 1.0
 debug_vectors on
 physics_log Debug/funnel_physics_log.csv
-roll_log Debug/funnel_roll_log.txt
 
 # Top-down tracking camera (same style as slope_roll_test.scene)
 camera top 900 740 600  900 110 600  0 0 -1
