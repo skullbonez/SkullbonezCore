@@ -616,7 +616,7 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
     {
         // Deterministic lock-step: exactly one physics tick per render frame.
         // Ignores wall-clock time entirely — produces identical results every run.
-        if ( !m_camera.isFlyMode || Input::IsKeyDown( VK_SPACE ) )
+        if ( !m_camera.isFlyMode || m_camera.isNudgeMode || Input::IsKeyDown( VK_SPACE ) )
         {
             PROFILE_BEGIN( "Frame/Physics" );
             m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
@@ -628,7 +628,7 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
     {
         float scaledDt = static_cast<float>( secondsPerFrame ) * m_scene.timeScale;
 
-        if ( !m_camera.isFlyMode || Input::IsKeyDown( VK_SPACE ) )
+        if ( !m_camera.isFlyMode || m_camera.isNudgeMode || Input::IsKeyDown( VK_SPACE ) )
         {
             PROFILE_BEGIN( "Frame/Physics" );
             if ( m_cGameModelCollection.GetLegacyMode() )
@@ -870,8 +870,21 @@ void SkullbonezRun::TakeInput()
     if ( fNow && !m_camera.input.fFWasDown )
     {
         m_camera.isFlyMode = !m_camera.isFlyMode;
+        m_camera.isNudgeMode = false; // F-key fly never implies nudge
     }
     m_camera.input.fFWasDown = fNow;
+
+    // N key: toggle nudge mode — free camera with live simulation (edge-detected).
+    // Nudge entering also enters fly mode; nudge exiting also exits fly mode.
+    {
+        bool nNow = Input::IsKeyDown( 'N' );
+        if ( nNow && !m_camera.input.fNWasDown )
+        {
+            m_camera.isNudgeMode = !m_camera.isNudgeMode;
+            m_camera.isFlyMode = m_camera.isNudgeMode;
+        }
+        m_camera.input.fNWasDown = nNow;
+    }
 
     if ( m_camera.isFlyMode != prevFlyMode )
     {
@@ -903,6 +916,8 @@ void SkullbonezRun::TakeInput()
             m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
             SetCursor( LoadCursor( nullptr, IDC_ARROW ) );
             m_camera.cameraTime = 0.0f;
+            // Exiting fly mode also exits nudge mode
+            m_camera.isNudgeMode = false;
         }
     }
 
@@ -1558,7 +1573,11 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
             m_systems.cameras->MovePrimary( Camera::TravelDirection::Right, keyMovementQty * speedMult );
         }
 
+        // Capture movement buffer before Apply zeroes it — used for model nudge below
+        const Vector3 moveVec = m_systems.cameras->GetPrimaryMovementBuffer();
         m_systems.cameras->ApplyPrimaryMovementBuffer();
+
+        NudgeModelsWithCamera( moveVec );
     }
 
     // Clamp camera Y between m_terrain surface and Cfg().maxCameraHeight (not in fly mode, not in scene mode)
@@ -1573,6 +1592,57 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
         else if ( translatedCameraPosition.y > Cfg().maxCameraHeight )
         {
             m_systems.cameras->AmmendPrimaryY( Cfg().maxCameraHeight );
+        }
+    }
+}
+
+
+void SkullbonezRun::NudgeModelsWithCamera( const Vector3& moveVec )
+{
+    float magSq = VectorMagSquared( moveVec );
+    if ( magSq < 1e-8f )
+    {
+        return;
+    }
+
+    // Nudge reach: camera "body" radius added to the model's bounding radius for the overlap test.
+    static constexpr float CAMERA_NUDGE_RADIUS = 15.0f;
+
+    // Camera speed this frame (same formula as MoveCamera: keySpeed * speedMult)
+    float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;
+    float nudgeSpeed = Cfg().keySpeed * speedMult;
+
+    // Direction the camera is moving
+    Vector3 nudgeDir = moveVec * ( 1.0f / sqrtf( magSq ) );
+
+    const Vector3& camPos = m_systems.cameras->GetCameraTranslation();
+
+    int count = m_cGameModelCollection.GetModelCount();
+    for ( int i = 0; i < count; ++i )
+    {
+        GameModel& model = m_cGameModelCollection.GetModelAtIndex( i );
+        Vector3 toModel = model.GetPosition() - camPos;
+
+        // Only push models that are in the direction we're moving — no pulling things behind us
+        if ( ( toModel * nudgeDir ) <= 0.0f )
+        {
+            continue;
+        }
+
+        float distSq = VectorMagSquared( toModel );
+        float reach = model.GetBoundingRadius() + CAMERA_NUDGE_RADIUS;
+        if ( distSq > reach * reach )
+        {
+            continue;
+        }
+
+        // Bring the ball's velocity component along the nudge direction up to camera speed.
+        // Guard prevents the formula from becoming subtractive and braking the ball.
+        const Vector3& vel = model.GetVelocity();
+        float currentComponent = vel * nudgeDir;
+        if ( currentComponent < nudgeSpeed )
+        {
+            model.SetLinearVelocity( vel + nudgeDir * ( nudgeSpeed - currentComponent ) );
         }
     }
 }
@@ -1743,6 +1813,7 @@ void SkullbonezRun::LoadScene( int index )
 
     // Reset input and debug state
     m_camera.isFlyMode = false;
+    m_camera.isNudgeMode = false;
     m_debug.isWaterFreezeDebug = false;
     m_debug.isWaterNoReflect = false;
     m_debug.isWaterFlatDebug = false;

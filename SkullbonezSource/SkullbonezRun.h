@@ -92,6 +92,7 @@ struct RunCameraState
 
     int selectedCamera = 0;          // Keeps track of which camera is selected
     bool isFlyMode = false;          // Free-fly camera mode active (toggle with F)
+    bool isNudgeMode = false;        // Nudge mode: free camera + live simulation (toggle with N)
     float cameraTime = 0.0f;         // Camera helper clock
     int trackBallIndex = -1;         // Index of ball to track with camera (-1 = no tracking)
     float trackHeight = 300.0f;      // Camera height above tracked ball
@@ -200,6 +201,7 @@ class SkullbonezRun
     void TickAutoCycle();                 // Auto-cycle ball capture; posts WM_QUIT when all balls captured
     void TickPerfLog();                   // Write per-frame perf CSV row and periodic memory checkpoint
     bool TickSceneAdvance();              // Frame count, exit/hold on completion, restarts; returns true to continue
+    void NudgeModelsWithCamera( const Vector3& moveVec ); // Push overlapping balls/boxes in camera movement direction
 
   public:
     SkullbonezRun( std::vector<std::string> sceneQueue, bool legacyPhysics = false ); // Constructor (scene queue; empty string = legacy mode)
