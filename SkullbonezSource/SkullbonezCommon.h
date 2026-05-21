@@ -33,6 +33,7 @@
 #include <cassert>   // assert()
 #include <stdexcept> // std::runtime_error
 #include <memory>    // std::unique_ptr
+#include <algorithm> // std::clamp, std::min, std::max
 
 #ifdef _DEBUG
 #define CRTDBG_MAP_ALLOC // must precede crtdbg.h to redirect malloc → _malloc_dbg

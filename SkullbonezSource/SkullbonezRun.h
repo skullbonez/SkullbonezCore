@@ -193,6 +193,14 @@ class SkullbonezRun
     RuntimeRendererType GetNextRendererType( RuntimeRendererType current ) const;
     void SwitchRenderer( RuntimeRendererType target ); // Rebuild render backend/resources while preserving simulation state
 
+    // --- Per-frame tick helpers (called from Run()) ---
+    void TickRendererSwitch( float dt );  // Advance auto-switch timer; cycle backend when interval elapses
+    void TickPhysics( double dt );        // Physics dispatch: fixed-step, accumulator, legacy vs solver
+    bool TickScreenshots();               // Screenshot triggers; returns true when frame should restart (continue)
+    void TickAutoCycle();                 // Auto-cycle ball capture; posts WM_QUIT when all balls captured
+    void TickPerfLog();                   // Write per-frame perf CSV row and periodic memory checkpoint
+    bool TickSceneAdvance();              // Frame count, exit/hold on completion, restarts; returns true to continue
+
   public:
     SkullbonezRun( std::vector<std::string> sceneQueue, bool legacyPhysics = false ); // Constructor (scene queue; empty string = legacy mode)
     ~SkullbonezRun();                                                                 // Default destructor

@@ -524,99 +524,19 @@ void SkullbonezRun::Run()
         }
         else
         {
-            // find out how many seconds passed during last frame
             double secondsPerFrame = m_timers.frameTimer.GetElapsedTime();
-
-            // Clamp to [0, 0.05] to avoid numerical instability.
-            // The lower bound catches the first frame after a scene load where
-            // StopTimer() has not yet been called (m_endTime is stale/zero).
-            if ( secondsPerFrame < 0.0 )
-            {
-                secondsPerFrame = 0.0;
-            }
-            if ( secondsPerFrame > 0.05 )
-            {
-                secondsPerFrame = 0.05;
-            }
+            secondsPerFrame = std::clamp( secondsPerFrame, 0.0, 0.05 );
 
             m_timers.frameTimer.StartTimer();
             PROFILE_FRAME_BEGIN();
 
-            // Input
             PROFILE_BEGIN( "Frame/Input" );
             TakeInput();
             PROFILE_END( "Frame/Input" );
 
-            // Automated renderer switch timer (--switch-interval N)
-            if ( m_debug.rendererSwitchInterval > 0.0f )
-            {
-                m_debug.rendererSwitchAccum += static_cast<float>( secondsPerFrame );
-                if ( m_debug.rendererSwitchAccum >= m_debug.rendererSwitchInterval )
-                {
-                    m_debug.rendererSwitchAccum = 0.0f;
-                    SwitchRenderer( GetNextRendererType( GetCurrentRendererType() ) );
-                }
-            }
+            TickRendererSwitch( static_cast<float>( secondsPerFrame ) );
+            TickPhysics( secondsPerFrame );
 
-            // Physics (fixed-step or variable dt) then per-frame camera/misc — once each.
-            if ( !m_scene.isSceneMode || m_scene.isScenePhysics )
-            {
-                if ( m_scene.isFixedStep )
-                {
-                    // Deterministic lock-step: exactly one physics tick per render frame.
-                    // Ignores wall-clock time entirely — produces identical results every run.
-                    if ( !m_camera.isFlyMode || Input::IsKeyDown( VK_SPACE ) )
-                    {
-                        PROFILE_BEGIN( "Frame/Physics" );
-                        m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
-                        PROFILE_END( "Frame/Physics" );
-                    }
-                    UpdateLogic( PHYSICS_FIXED_DT );
-                }
-                else
-                {
-                    float scaledDt = static_cast<float>( secondsPerFrame ) * m_scene.timeScale;
-
-                    if ( !m_camera.isFlyMode || Input::IsKeyDown( VK_SPACE ) )
-                    {
-                        PROFILE_BEGIN( "Frame/Physics" );
-                        if ( m_cGameModelCollection.GetLegacyMode() )
-                        {
-                            // Legacy swept physics is frame-rate independent: CollisionDetect* computes the
-                            // exact time-of-impact and steps to it internally, so external sub-division adds
-                            // no benefit and was never used before the accumulator was introduced for the solver.
-                            m_timers.physicsAccumulator = 0.0f;
-                            m_cGameModelCollection.RunPhysics( scaledDt );
-                        }
-                        else
-                        {
-                            // Impulse solver uses discrete overlap tests and needs small fixed steps for stability.
-                            // Only RunPhysics runs in the loop — camera and misc update once per frame below.
-                            m_timers.physicsAccumulator += scaledDt;
-
-                            int steps = 0;
-                            while ( m_timers.physicsAccumulator >= PHYSICS_FIXED_DT && steps < PHYSICS_MAX_STEPS_PER_FRAME )
-                            {
-                                m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
-                                m_timers.physicsAccumulator -= PHYSICS_FIXED_DT;
-                                ++steps;
-                            }
-
-                            // Drain excess accumulator if we hit the step cap (avoids spiral of death)
-                            if ( steps == PHYSICS_MAX_STEPS_PER_FRAME )
-                            {
-                                m_timers.physicsAccumulator = 0.0f;
-                            }
-                        }
-                        PROFILE_END( "Frame/Physics" );
-                    }
-
-                    // Camera movement, tween, auto-cycle, logs — once per frame with real scaled dt
-                    UpdateLogic( scaledDt );
-                }
-            }
-
-            // Drain GPU pipeline before render
             PROFILE_BEGIN( "Frame/PipelineSync" );
             if ( m_runtimeSettings.isPipelineSyncEnabled )
             {
@@ -624,12 +544,10 @@ void SkullbonezRun::Run()
             }
             PROFILE_END( "Frame/PipelineSync" );
 
-            // Render
             PROFILE_GPU_BEGIN( "Frame/Render" );
             Render();
             PROFILE_GPU_END( "Frame/Render" );
 
-            // Render overlay text
             if ( !m_scene.isSceneMode || m_scene.isSceneText )
             {
                 PROFILE_GPU_BEGIN( "Frame/Text" );
@@ -637,109 +555,20 @@ void SkullbonezRun::Run()
                 PROFILE_GPU_END( "Frame/Text" );
             }
 
-            // Scene mode: check screenshot triggers (read back buffer before swap)
-            // screenshot_and_exit: on frame 1, save SCENENAME.bmp to root then quit
-            if ( m_scene.isSceneMode && m_screenshot.isScreenshotAndExit && m_scene.currentFrame == 0 )
+            if ( TickScreenshots() )
             {
-                const std::string& scenePath = m_sceneQueue[m_scene.currentSceneIndex];
-                char outPath[256];
-                const char* base = scenePath.c_str();
-                const char* slash = strrchr( base, '/' );
-                const char* backslash = strrchr( base, '\\' );
-                const char* name = slash ? slash + 1 : ( backslash ? backslash + 1 : base );
-                char stem[256];
-                strcpy_s( stem, sizeof( stem ), name );
-                char* dot = strrchr( stem, '.' );
-                if ( dot )
-                {
-                    *dot = '\0';
-                }
-                sprintf_s( outPath, sizeof( outPath ), "%s.bmp", stem );
-                SaveScreenshot( outPath );
-
-                PROFILE_FRAME_END();
-                PostQuitMessage( 0 );
                 continue;
             }
 
-            if ( m_scene.isSceneMode && m_screenshot.screenshotPath[0] != '\0' && !m_screenshot.isScreenshotSaved )
-            {
-                bool shouldCapture = false;
+            TickAutoCycle();
 
-
-                if ( m_screenshot.screenshotFrame > 0 && ( m_scene.currentFrame + 1 ) >= m_screenshot.screenshotFrame )
-                {
-                    shouldCapture = true;
-                }
-
-                if ( m_screenshot.screenshotMs > 0 && m_timers.simulationTimer.GetTimeSinceLastStart() * 1000.0 >= m_screenshot.screenshotMs )
-                {
-                    shouldCapture = true;
-                }
-
-                if ( shouldCapture )
-                {
-                    SaveScreenshot( m_screenshot.screenshotPath );
-                    m_screenshot.isScreenshotSaved = true;
-
-                    // Close profiler frame before scene transition
-                    PROFILE_FRAME_END();
-
-                    // Advance to next scene (or exit if done)
-                    if ( !AdvanceScene() )
-                    {
-                        PostQuitMessage( 0 );
-                    }
-                    continue;
-                }
-            }
-
-            // Interval capture: save numbered screenshots at regular frame intervals
-            if ( m_scene.isSceneMode && m_screenshot.screenshotInterval > 0 && m_screenshot.screenshotDir[0] != '\0' )
-            {
-                if ( ( m_scene.currentFrame + 1 ) % m_screenshot.screenshotInterval == 0 )
-                {
-                    ++m_screenshot.intervalCaptureCount;
-                    char intervalPath[512];
-                    sprintf_s( intervalPath, sizeof( intervalPath ), "%s/capture_%04d.bmp", m_screenshot.screenshotDir, m_screenshot.intervalCaptureCount );
-                    SaveScreenshot( intervalPath );
-                }
-            }
-
-            // Auto-cycle screenshots (scene directive: auto_cycle_interval N).
-            // Every N real seconds: screenshot current tracked ball, cycle to next, exit when all done.
-            if ( m_scene.isSceneMode && m_camera.autoCycleInterval > 0.0f && m_camera.autoCycleAccum >= m_camera.autoCycleInterval )
-            {
-                int ballCount = m_cGameModelCollection.GetModelCount();
-                char shotPath[256];
-                sprintf_s( shotPath, sizeof( shotPath ), "Profile/cardinal_ball%d.bmp", m_camera.autoCycleShotsTaken );
-                SaveScreenshot( shotPath );
-                fprintf( stdout, "Auto-shot %d: ball index %d -> %s\n", m_camera.autoCycleShotsTaken, m_camera.trackBallIndex, shotPath );
-                fflush( stdout );
-
-                ++m_camera.autoCycleShotsTaken;
-                m_camera.autoCycleAccum = 0.0f;
-
-                if ( m_camera.autoCycleShotsTaken >= ballCount )
-                {
-                    // All balls captured ? done
-                    PostQuitMessage( 0 );
-                }
-                else
-                {
-                    m_camera.trackBallIndex = ( m_camera.trackBallIndex + 1 ) % ballCount;
-                }
-            }
-
-            // Swap back buffer
             PROFILE_BEGIN( "Frame/VsyncWait" );
             Gfx().Present();
             PROFILE_END( "Frame/VsyncWait" );
 
             m_timers.frameTimer.StopTimer();
-
-            // Close profiler frame and refresh timing fields
             PROFILE_FRAME_END();
+
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
             {
                 using SkullbonezCore::Basics::Profiler;
@@ -750,95 +579,286 @@ void SkullbonezRun::Run()
             }
 #endif
 
-            // Perf test: log per-frame timing + periodic memory
-            if ( m_perfLogState.isPerfTest && m_perfLogState.perfLogFile )
+            TickPerfLog();
+
+            if ( TickSceneAdvance() )
             {
-#if defined( SKULLBONEZ_PROFILE_ENABLED )
-                if ( !m_perfLogState.perfHeaderWritten )
-                {
-                    Profiler::Instance().WritePerfCSVHeader( m_perfLogState.perfLogFile );
-                    m_perfLogState.perfHeaderWritten = true;
-                }
-                Profiler::Instance().WritePerfCSVRow( m_perfLogState.perfLogFile, sPerfPass + 1, m_scene.currentFrame + 1 );
-#else
-                fprintf( m_perfLogState.perfLogFile, "%d,%d,%.4f,%.4f\n", sPerfPass + 1, m_scene.currentFrame + 1, m_timers.physicsTime * 1000.0f, m_timers.renderTime * 1000.0f );
-#endif
-                ++m_perfLogState.perfLogWritesSinceFlush;
-                if ( m_perfLogState.isPerfLogFlushEnabled ||
-                     ( m_perfLogState.perfLogFlushInterval > 0 && m_perfLogState.perfLogWritesSinceFlush >= m_perfLogState.perfLogFlushInterval ) )
-                {
-                    fflush( m_perfLogState.perfLogFile );
-                    m_perfLogState.perfLogWritesSinceFlush = 0;
-                }
-
-                // Log memory every 60 frames (~1 second)
-                if ( ( m_scene.currentFrame + 1 ) % 60 == 0 )
-                {
-                    LogPerfMemory( "periodic" );
-                }
-            }
-
-            // Scene mode: count frames
-            if ( m_scene.isSceneMode )
-            {
-                ++m_scene.currentFrame;
-            }
-
-            // Scene mode: exit or hold after target frame count reached (skip if screenshot auto-exit pending)
-            if ( m_scene.isSceneMode && m_scene.targetFrameCount > 0 && !m_screenshot.isScreenshotSaved )
-            {
-                if ( m_scene.currentFrame >= m_scene.targetFrameCount )
-                {
-                    if ( m_scene.isExitOnComplete )
-                    {
-                        // Auto-exit: advance to next scene or quit if none remain
-                        if ( !AdvanceScene() )
-                        {
-                            PostQuitMessage( 0 );
-                        }
-                        continue;
-                    }
-
-                    for ( ;; )
-                    {
-                        MSG holdMsg;
-                        if ( PeekMessage( &holdMsg, nullptr, 0, 0, PM_REMOVE ) )
-                        {
-                            if ( holdMsg.message == WM_QUIT )
-                            {
-                                return;
-                            }
-                            TranslateMessage( &holdMsg );
-                            DispatchMessage( &holdMsg );
-                        }
-                        else
-                        {
-                            Sleep( 16 );
-                        }
-                    }
-                }
-            }
-
-            // Legacy mode: restart scene after 20s (keeps app running indefinitely)
-            if ( !m_scene.isSceneMode && !m_camera.isFlyMode && m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
-            {
-                // Reload the same scene to restart
-                LoadScene( m_scene.currentSceneIndex );
-                m_timers.simulationTimer.StartTimer();
                 continue;
             }
+        }
+    }
+}
 
-            // Perf test: advance at 5s (pass 1 restarts same scene, pass 2 advances)
-            if ( m_perfLogState.isPerfTest && m_timers.simulationTimer.GetTimeSinceLastStart() > 5.0 )
+
+void SkullbonezRun::TickRendererSwitch( float dt )
+{
+    if ( m_debug.rendererSwitchInterval <= 0.0f )
+    {
+        return;
+    }
+    m_debug.rendererSwitchAccum += dt;
+    if ( m_debug.rendererSwitchAccum >= m_debug.rendererSwitchInterval )
+    {
+        m_debug.rendererSwitchAccum = 0.0f;
+        SwitchRenderer( GetNextRendererType( GetCurrentRendererType() ) );
+    }
+}
+
+
+void SkullbonezRun::TickPhysics( double secondsPerFrame )
+{
+    if ( m_scene.isSceneMode && !m_scene.isScenePhysics )
+    {
+        return;
+    }
+
+    if ( m_scene.isFixedStep )
+    {
+        // Deterministic lock-step: exactly one physics tick per render frame.
+        // Ignores wall-clock time entirely — produces identical results every run.
+        if ( !m_camera.isFlyMode || Input::IsKeyDown( VK_SPACE ) )
+        {
+            PROFILE_BEGIN( "Frame/Physics" );
+            m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
+            PROFILE_END( "Frame/Physics" );
+        }
+        UpdateLogic( PHYSICS_FIXED_DT );
+    }
+    else
+    {
+        float scaledDt = static_cast<float>( secondsPerFrame ) * m_scene.timeScale;
+
+        if ( !m_camera.isFlyMode || Input::IsKeyDown( VK_SPACE ) )
+        {
+            PROFILE_BEGIN( "Frame/Physics" );
+            if ( m_cGameModelCollection.GetLegacyMode() )
+            {
+                // Legacy swept physics is frame-rate independent: CollisionDetect* computes the
+                // exact time-of-impact and steps to it internally, so external sub-division adds
+                // no benefit and was never used before the accumulator was introduced for the solver.
+                m_timers.physicsAccumulator = 0.0f;
+                m_cGameModelCollection.RunPhysics( scaledDt );
+            }
+            else
+            {
+                // Impulse solver uses discrete overlap tests and needs small fixed steps for stability.
+                // Only RunPhysics runs in the loop — camera and misc update once per frame below.
+                m_timers.physicsAccumulator += scaledDt;
+
+                int steps = 0;
+                while ( m_timers.physicsAccumulator >= PHYSICS_FIXED_DT && steps < PHYSICS_MAX_STEPS_PER_FRAME )
+                {
+                    m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
+                    m_timers.physicsAccumulator -= PHYSICS_FIXED_DT;
+                    ++steps;
+                }
+
+                // Drain excess accumulator if we hit the step cap (avoids spiral of death)
+                if ( steps == PHYSICS_MAX_STEPS_PER_FRAME )
+                {
+                    m_timers.physicsAccumulator = 0.0f;
+                }
+            }
+            PROFILE_END( "Frame/Physics" );
+        }
+
+        // Camera movement, tween, auto-cycle, logs — once per frame with real scaled dt
+        UpdateLogic( scaledDt );
+    }
+}
+
+
+bool SkullbonezRun::TickScreenshots()
+{
+    // screenshot_and_exit: on frame 0, save <scenename>.bmp to root then quit
+    if ( m_scene.isSceneMode && m_screenshot.isScreenshotAndExit && m_scene.currentFrame == 0 )
+    {
+        const std::string& scenePath = m_sceneQueue[m_scene.currentSceneIndex];
+        char outPath[256];
+        const char* base = scenePath.c_str();
+        const char* slash = strrchr( base, '/' );
+        const char* backslash = strrchr( base, '\\' );
+        const char* name = slash ? slash + 1 : ( backslash ? backslash + 1 : base );
+        char stem[256];
+        strcpy_s( stem, sizeof( stem ), name );
+        char* dot = strrchr( stem, '.' );
+        if ( dot )
+        {
+            *dot = '\0';
+        }
+        sprintf_s( outPath, sizeof( outPath ), "%s.bmp", stem );
+        SaveScreenshot( outPath );
+        PROFILE_FRAME_END();
+        PostQuitMessage( 0 );
+        return true;
+    }
+
+    // Triggered screenshot: capture when target frame or ms threshold is reached
+    if ( m_scene.isSceneMode && m_screenshot.screenshotPath[0] != '\0' && !m_screenshot.isScreenshotSaved )
+    {
+        bool shouldCapture = false;
+
+        if ( m_screenshot.screenshotFrame > 0 && ( m_scene.currentFrame + 1 ) >= m_screenshot.screenshotFrame )
+        {
+            shouldCapture = true;
+        }
+        if ( m_screenshot.screenshotMs > 0 && m_timers.simulationTimer.GetTimeSinceLastStart() * 1000.0 >= m_screenshot.screenshotMs )
+        {
+            shouldCapture = true;
+        }
+
+        if ( shouldCapture )
+        {
+            SaveScreenshot( m_screenshot.screenshotPath );
+            m_screenshot.isScreenshotSaved = true;
+            PROFILE_FRAME_END();
+            if ( !AdvanceScene() )
+            {
+                PostQuitMessage( 0 );
+            }
+            return true;
+        }
+    }
+
+    // Interval capture: save numbered screenshot every N frames
+    if ( m_scene.isSceneMode && m_screenshot.screenshotInterval > 0 && m_screenshot.screenshotDir[0] != '\0' )
+    {
+        if ( ( m_scene.currentFrame + 1 ) % m_screenshot.screenshotInterval == 0 )
+        {
+            ++m_screenshot.intervalCaptureCount;
+            char intervalPath[512];
+            sprintf_s( intervalPath, sizeof( intervalPath ), "%s/capture_%04d.bmp", m_screenshot.screenshotDir, m_screenshot.intervalCaptureCount );
+            SaveScreenshot( intervalPath );
+        }
+    }
+
+    return false;
+}
+
+
+void SkullbonezRun::TickAutoCycle()
+{
+    if ( !m_scene.isSceneMode || m_camera.autoCycleInterval <= 0.0f || m_camera.autoCycleAccum < m_camera.autoCycleInterval )
+    {
+        return;
+    }
+
+    int ballCount = m_cGameModelCollection.GetModelCount();
+    char shotPath[256];
+    sprintf_s( shotPath, sizeof( shotPath ), "Profile/cardinal_ball%d.bmp", m_camera.autoCycleShotsTaken );
+    SaveScreenshot( shotPath );
+    fprintf( stdout, "Auto-shot %d: ball index %d -> %s\n", m_camera.autoCycleShotsTaken, m_camera.trackBallIndex, shotPath );
+    fflush( stdout );
+
+    ++m_camera.autoCycleShotsTaken;
+    m_camera.autoCycleAccum = 0.0f;
+
+    if ( m_camera.autoCycleShotsTaken >= ballCount )
+    {
+        PostQuitMessage( 0 );
+    }
+    else
+    {
+        m_camera.trackBallIndex = ( m_camera.trackBallIndex + 1 ) % ballCount;
+    }
+}
+
+
+void SkullbonezRun::TickPerfLog()
+{
+    if ( !m_perfLogState.isPerfTest || !m_perfLogState.perfLogFile )
+    {
+        return;
+    }
+
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    if ( !m_perfLogState.perfHeaderWritten )
+    {
+        Profiler::Instance().WritePerfCSVHeader( m_perfLogState.perfLogFile );
+        m_perfLogState.perfHeaderWritten = true;
+    }
+    Profiler::Instance().WritePerfCSVRow( m_perfLogState.perfLogFile, sPerfPass + 1, m_scene.currentFrame + 1 );
+#else
+    fprintf( m_perfLogState.perfLogFile, "%d,%d,%.4f,%.4f\n", sPerfPass + 1, m_scene.currentFrame + 1, m_timers.physicsTime * 1000.0f, m_timers.renderTime * 1000.0f );
+#endif
+
+    ++m_perfLogState.perfLogWritesSinceFlush;
+    if ( m_perfLogState.isPerfLogFlushEnabled ||
+         ( m_perfLogState.perfLogFlushInterval > 0 && m_perfLogState.perfLogWritesSinceFlush >= m_perfLogState.perfLogFlushInterval ) )
+    {
+        fflush( m_perfLogState.perfLogFile );
+        m_perfLogState.perfLogWritesSinceFlush = 0;
+    }
+
+    if ( ( m_scene.currentFrame + 1 ) % 60 == 0 )
+    {
+        LogPerfMemory( "periodic" );
+    }
+}
+
+
+bool SkullbonezRun::TickSceneAdvance()
+{
+    if ( m_scene.isSceneMode )
+    {
+        ++m_scene.currentFrame;
+    }
+
+    // Check if target frame count is reached (skip if screenshot auto-exit is still pending)
+    if ( m_scene.isSceneMode && m_scene.targetFrameCount > 0 && !m_screenshot.isScreenshotSaved )
+    {
+        if ( m_scene.currentFrame >= m_scene.targetFrameCount )
+        {
+            if ( m_scene.isExitOnComplete )
             {
                 if ( !AdvanceScene() )
                 {
                     PostQuitMessage( 0 );
                 }
-                continue;
+                return true;
+            }
+
+            // Hold on last frame: pump messages until the user closes the window
+            for ( ;; )
+            {
+                MSG holdMsg;
+                if ( PeekMessage( &holdMsg, nullptr, 0, 0, PM_REMOVE ) )
+                {
+                    if ( holdMsg.message == WM_QUIT )
+                    {
+                        PostQuitMessage( 0 );
+                        return false;
+                    }
+                    TranslateMessage( &holdMsg );
+                    DispatchMessage( &holdMsg );
+                }
+                else
+                {
+                    Sleep( 16 );
+                }
             }
         }
     }
+
+    // Legacy (non-scene) mode: restart the scene every 20s to keep running indefinitely
+    if ( !m_scene.isSceneMode && !m_camera.isFlyMode && m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
+    {
+        LoadScene( m_scene.currentSceneIndex );
+        m_timers.simulationTimer.StartTimer();
+        return true;
+    }
+
+    // Perf test: advance to next scene/pass after 5s
+    if ( m_perfLogState.isPerfTest && m_timers.simulationTimer.GetTimeSinceLastStart() > 5.0 )
+    {
+        if ( !AdvanceScene() )
+        {
+            PostQuitMessage( 0 );
+        }
+        return true;
+    }
+
+    return false;
 }
 
 
