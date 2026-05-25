@@ -17,8 +17,8 @@
 
 ## Branch & Last Commit
 - Branch: `main`
-- Last commit on main: `396fd1e` — Physics regression test: #ifdef _DEBUG guards, exit_on_complete, consolidated baselines
-- Working branch HEAD: `396fd1e`
+- Last commit on main: `9a0d059` — Refactor Run() into per-frame tick helpers; add std::clamp, std::algorithm
+- Working branch HEAD: `9a0d059`
 
 ---
 
