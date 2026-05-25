@@ -1441,40 +1441,39 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         return;
     }
 
-    // --- Overlay: Keys reference screen ---
+    // --- Overlay: Keys reference screen (compact, bottom-left) ---
     if ( m_debug.overlayMode == OverlayMode::Keys )
     {
-        // Layout constants
-        const float titleSz = 0.018f;
-        const float entrySz = 0.014f;
-        const float lineH   = 0.029f;
-        const int   nRows   = 10;
+        const float titleSz  = 0.013f;
+        const float entrySz  = 0.011f;
+        const float lineH    = 0.020f;
+        const int   nRows    = 10;
+        const float panPad   = 0.012f;
+        const float titleGap = 0.016f; // space between title baseline and first entry
+        const float keyW     = 0.058f; // key-name column width
+        const float descW    = 0.120f; // description column width
+        const float colGap   = 0.012f; // gap between the two content columns
 
-        // Vertically centre the panel around screen centre
-        const float gap      = titleSz * 2.0f;                              // space between title and first entry
-        const float contentH = titleSz + gap + static_cast<float>(nRows) * lineH;
-        const float panPad   = 0.030f;
-        const float panH     = contentH + 2.0f * panPad;
-        const float panY1    = panH * 0.5f;
-        const float panY0    = -panH * 0.5f;
-        const float titleY   = panY1 - panPad - titleSz;
-        const float firstY   = titleY - gap;
+        // Panel dimensions — anchored to bottom-left corner
+        const float panH = panPad + titleSz + titleGap + static_cast<float>( nRows ) * lineH + panPad;
+        const float panW = panPad + keyW + descW + colGap + keyW + descW + panPad;
+        const float panX0 = -(hw - mX);
+        const float panY0 = -(hh - mY);
+        const float panX1 = panX0 + panW;
+        const float panY1 = panY0 + panH;
 
-        // Full-width panel (tiny margin on left/right)
-        Text2d::Render2dQuad( -(hw - 0.008f), panY0, (hw - 0.008f), panY1, 0.04f, 0.04f, 0.07f, 0.93f );
+        Text2d::Render2dQuad( panX0, panY0, panX1, panY1, 0.04f, 0.04f, 0.07f, 0.93f );
 
-        // Title — centred
-        const char* title = "KEYBOARD REFERENCE";
-        Text2d::Render2dTextColor( -Text2d::MeasureText( titleSz, title ) * 0.5f,
-                                   titleY, titleSz, 1.0f, 0.85f, 0.35f, "%s", title );
+        // Title left-aligned inside panel
+        const float titleY = panY1 - panPad - titleSz;
+        Text2d::Render2dTextColor( panX0 + panPad, titleY, titleSz, 1.0f, 0.85f, 0.35f, "KEYBOARD REFERENCE" );
 
-        // Two-column key table.
-        // Each column: key name left-aligned, description indented by keyW.
-        const float keyW     = hw * 0.15f;       // key-name column width
-        const float colLKey  = -(hw - mX);        // left col key X
-        const float colLDesc = colLKey + keyW;     // left col description X
-        const float colRKey  = mX;                 // right col key X  (just right of centre)
-        const float colRDesc = colRKey + keyW;     // right col description X
+        // Column X positions
+        const float col1Key  = panX0 + panPad;
+        const float col1Desc = col1Key + keyW;
+        const float col2Key  = col1Desc + descW + colGap;
+        const float col2Desc = col2Key + keyW;
+        const float firstY   = titleY - titleGap;
 
         struct KeyEntry
         {
@@ -1494,25 +1493,25 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "Space", "Step physics"      },
         };
         static const KeyEntry kRight[nRows] = {
-            { "0",  "Cycle overlay"       },
-            { "1",  "Freeze water"        },
-            { "2",  "Toggle reflection"   },
-            { "3",  "Toggle water flat"   },
-            { "4",  "Toggle terrain"      },
-            { "5",  "Toggle water"        },
-            { "9",  "Debug vectors"       },
-            { "G",  "Cycle tracked ball"  },
-            { "F2", "Scene snapshot"      },
-            { "F3", "Screenshot"          },
+            { "0",  "Cycle overlay"      },
+            { "1",  "Freeze water"       },
+            { "2",  "Toggle reflection"  },
+            { "3",  "Toggle water flat"  },
+            { "4",  "Toggle terrain"     },
+            { "5",  "Toggle water"       },
+            { "9",  "Debug vectors"      },
+            { "G",  "Cycle tracked ball" },
+            { "F2", "Scene snapshot"     },
+            { "F3", "Screenshot"         },
         };
 
         for ( int i = 0; i < nRows; ++i )
         {
             float y = firstY - static_cast<float>( i ) * lineH;
-            Text2d::Render2dTextColor( colLKey,  y, entrySz, 0.70f, 0.88f, 1.0f,  "%s", kLeft[i].key  );
-            Text2d::Render2dTextColor( colLDesc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kLeft[i].desc );
-            Text2d::Render2dTextColor( colRKey,  y, entrySz, 0.70f, 0.88f, 1.0f,  "%s", kRight[i].key  );
-            Text2d::Render2dTextColor( colRDesc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kRight[i].desc );
+            Text2d::Render2dTextColor( col1Key,  y, entrySz, 0.70f, 0.88f, 1.0f,  "%s", kLeft[i].key  );
+            Text2d::Render2dTextColor( col1Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kLeft[i].desc );
+            Text2d::Render2dTextColor( col2Key,  y, entrySz, 0.70f, 0.88f, 1.0f,  "%s", kRight[i].key  );
+            Text2d::Render2dTextColor( col2Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kRight[i].desc );
         }
 
         Text2d::FlushText();
