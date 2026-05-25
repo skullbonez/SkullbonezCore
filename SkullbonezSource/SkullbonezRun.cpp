@@ -972,20 +972,20 @@ void SkullbonezRun::TakeInput()
     }
     m_camera.input.fGKeyWasDown = isGNow;
 
-    // Profiler overlay: same edge-detection pattern as debug vectors ? starts from scene-loaded
-    // default in scene mode, mirrors Windows key-toggle state in legacy mode.
-    if ( m_scene.isSceneMode )
+    // 0 key: cycle overlay — None → Timers → Keys → None.
+    // Edge-detected in both scene and legacy modes; one advance per keypress.
     {
-        if ( Input::IsKeyDown( '0' ) && !m_camera.input.f0WasDown )
+        bool key0Now = Input::IsKeyDown( '0' );
+        if ( key0Now && !m_camera.input.f0WasDown )
         {
-            m_debug.isProfilerOverlay = !m_debug.isProfilerOverlay;
+            switch ( m_debug.overlayMode )
+            {
+            case OverlayMode::None:   m_debug.overlayMode = OverlayMode::Timers; break;
+            case OverlayMode::Timers: m_debug.overlayMode = OverlayMode::Keys;   break;
+            case OverlayMode::Keys:   m_debug.overlayMode = OverlayMode::None;   break;
+            }
         }
-        m_camera.input.f0WasDown = Input::IsKeyDown( '0' );
-    }
-    else
-    {
-        // Profiler overlay default ON; pressing '0' toggles the OS-level toggle bit, hiding the overlay.
-        m_debug.isProfilerOverlay = ( Input::IsKeyToggled( '0' ) == 0 );
+        m_camera.input.f0WasDown = key0Now;
     }
 
     // F2: Save scene snapshot to Scenes/
@@ -1380,27 +1380,22 @@ void SkullbonezRun::SetInitialOpenGlState()
 
 void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 {
-    // update timers
+    // Update rolling timers — runs every frame regardless of overlay state
     m_timers.updateTimer.StopTimer();
     m_timers.timeSinceLastRender += static_cast<float>( m_timers.updateTimer.GetElapsedTime() );
     m_timers.updateTimer.StartTimer();
 
-    // if half a second has passed
     if ( m_timers.timeSinceLastRender > 0.5f )
     {
         if ( dSecondsPerFrame )
         {
-            // update the display information
             m_timers.rollingFpsTime = 1.0f / static_cast<float>( dSecondsPerFrame );
             m_timers.rollingPhysicsTime = m_timers.physicsTime;
             m_timers.rollingRenderTime = m_timers.renderTime;
         }
-
-        // reset time since last render
         m_timers.timeSinceLastRender = 0.0f;
     }
 
-    // TOP - show renderer type
     const char* rendererName = Gfx().GetRendererName();
 
     // text_only mode: solid background + full-screen pangram, no HUD/profiler
@@ -1409,7 +1404,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         // Dark background covering the full viewport
         Text2d::Render2dQuad( -0.55f, -0.45f, 0.55f, 0.45f, 0.08f, 0.08f, 0.12f, 1.0f );
 
-        // Three rows of the pangram ? each line uses a slightly different colour
+        // Three rows of the pangram — each line uses a slightly different colour
         // so hue/brightness fringing artefacts are visible on all channel combinations
         const float sz = 0.09f;
         Text2d::Render2dTextColor( -0.46f, 0.22f, sz, 1.00f, 1.00f, 1.00f, "The quick brown fox" );
@@ -1429,33 +1424,128 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     const float mY = 0.015f; // vertical inset from top/bottom edge
     const float fSz = 0.015f;
 
-    // Top-left
+    // Crosshair — always visible when nudge mode is active, regardless of overlay state.
+    // Drawn as two thin quads forming a + shape centred on screen.
+    if ( m_camera.isNudgeMode )
+    {
+        const float cArm  = 0.025f;  // half-length of each crosshair arm
+        const float cHalf = 0.002f;  // half-thickness of each arm
+        Text2d::Render2dQuad( -cArm, -cHalf,  cArm, cHalf, 1.0f, 1.0f, 1.0f, 0.85f ); // horizontal
+        Text2d::Render2dQuad( -cHalf, -cArm, cHalf,  cArm, 1.0f, 1.0f, 1.0f, 0.85f ); // vertical
+    }
+
+    // --- Overlay: None ---
+    if ( m_debug.overlayMode == OverlayMode::None )
+    {
+        Text2d::FlushText();
+        return;
+    }
+
+    // --- Overlay: Keys reference screen ---
+    if ( m_debug.overlayMode == OverlayMode::Keys )
+    {
+        // Layout constants
+        const float titleSz = 0.018f;
+        const float entrySz = 0.014f;
+        const float lineH   = 0.029f;
+        const int   nRows   = 10;
+
+        // Vertically centre the panel around screen centre
+        const float gap      = titleSz * 2.0f;                              // space between title and first entry
+        const float contentH = titleSz + gap + static_cast<float>(nRows) * lineH;
+        const float panPad   = 0.030f;
+        const float panH     = contentH + 2.0f * panPad;
+        const float panY1    = panH * 0.5f;
+        const float panY0    = -panH * 0.5f;
+        const float titleY   = panY1 - panPad - titleSz;
+        const float firstY   = titleY - gap;
+
+        // Full-width panel (tiny margin on left/right)
+        Text2d::Render2dQuad( -(hw - 0.008f), panY0, (hw - 0.008f), panY1, 0.04f, 0.04f, 0.07f, 0.93f );
+
+        // Title — centred
+        const char* title = "KEYBOARD REFERENCE";
+        Text2d::Render2dTextColor( -Text2d::MeasureText( titleSz, title ) * 0.5f,
+                                   titleY, titleSz, 1.0f, 0.85f, 0.35f, "%s", title );
+
+        // Two-column key table.
+        // Each column: key name left-aligned, description indented by keyW.
+        const float keyW     = hw * 0.15f;       // key-name column width
+        const float colLKey  = -(hw - mX);        // left col key X
+        const float colLDesc = colLKey + keyW;     // left col description X
+        const float colRKey  = mX;                 // right col key X  (just right of centre)
+        const float colRDesc = colRKey + keyW;     // right col description X
+
+        struct KeyEntry
+        {
+            const char* key;
+            const char* desc;
+        };
+        static const KeyEntry kLeft[nRows] = {
+            { "N",     "Nudge mode"        },
+            { "F",     "Fly mode"          },
+            { "WASD",  "Move camera"       },
+            { "Mouse", "Look"              },
+            { "Shift", "Sprint (3x speed)" },
+            { "Z",     "Fire ball"         },
+            { "X",     "Fire box"          },
+            { "P",     "Physics solver"    },
+            { "R",     "Cycle renderer"    },
+            { "Space", "Step physics"      },
+        };
+        static const KeyEntry kRight[nRows] = {
+            { "0",  "Cycle overlay"       },
+            { "1",  "Freeze water"        },
+            { "2",  "Toggle reflection"   },
+            { "3",  "Toggle water flat"   },
+            { "4",  "Toggle terrain"      },
+            { "5",  "Toggle water"        },
+            { "9",  "Debug vectors"       },
+            { "G",  "Cycle tracked ball"  },
+            { "F2", "Scene snapshot"      },
+            { "F3", "Screenshot"          },
+        };
+
+        for ( int i = 0; i < nRows; ++i )
+        {
+            float y = firstY - static_cast<float>( i ) * lineH;
+            Text2d::Render2dTextColor( colLKey,  y, entrySz, 0.70f, 0.88f, 1.0f,  "%s", kLeft[i].key  );
+            Text2d::Render2dTextColor( colLDesc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kLeft[i].desc );
+            Text2d::Render2dTextColor( colRKey,  y, entrySz, 0.70f, 0.88f, 1.0f,  "%s", kRight[i].key  );
+            Text2d::Render2dTextColor( colRDesc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kRight[i].desc );
+        }
+
+        Text2d::FlushText();
+        return;
+    }
+
+    // --- Overlay: Timers / HUD (OverlayMode::Timers) ---
+
+    // Top-left: engine name + active renderer
     Text2d::Render2dText( -( hw - mX ), hh - mY - fSz, fSz, "SKULLBONEZ CORE [%s]", rendererName );
 
-    // Top-right: measure the formatted string so it ends just inside the right edge
+    // Top-right: model count (right-aligned)
     char mcBuf[64];
     snprintf( mcBuf, sizeof( mcBuf ), "Model Count: %i", m_scene.modelCount );
     Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, mcBuf ), hh - mY - fSz, fSz, "%s", mcBuf );
 
-    // Second row top-right: show active physics solver (toggle with P)
+    // Second row top-right: active physics solver (right-aligned)
     {
         const char* solverTag = m_cGameModelCollection.GetLegacyMode() ? "PHYSICS: LEGACY [P]" : "PHYSICS: IMPULSE [P]";
         Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, solverTag ), hh - mY - fSz * 3.0f, fSz, "%s", solverTag );
     }
 
-    // Profiler overlay ? bottom-right anchored.
-    // Compiled out in Release; toggleable with '0' in Debug/Profile.
+    // Profiler overlay — bottom-left anchored.
+    // Compiled out in Release; always shown when overlay is Timers in Debug/Profile.
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    if ( m_debug.isProfilerOverlay )
     {
-        const float lineH = 0.018f;
+        const float lineH   = 0.018f;
         const float profFSz = 0.012f;
-        const float padY = lineH * 1.2f;
+        const float padY    = lineH * 1.2f;
         Profiler::Instance().RenderOverlay( -( hw - mX ), -( hh - mY ) - padY, lineH, profFSz, m_timers.rollingFpsTime );
     }
 #endif
 
-    // Flush all accumulated text quads in a single GPU upload+draw call.
     Text2d::FlushText();
 }
 
@@ -1920,7 +2010,7 @@ void SkullbonezRun::LoadScene( int index )
     m_camera.autoCycleAccum = 0.0f;
     m_camera.autoCycleShotsTaken = 0;
     m_camera.input = {};
-    m_debug.isProfilerOverlay = true;
+    m_debug.overlayMode = OverlayMode::None; // Boot/scene-load starts clean — press 0 to show timers
     m_camera.selectedCamera = 0;
 
     // Reset timing

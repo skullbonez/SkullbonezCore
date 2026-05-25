@@ -127,10 +127,17 @@ struct RunScreenshotState
     char screenshotDir[256] = {};     // Output directory for interval captures
 };
 
+enum class OverlayMode
+{
+    None,   // Clean screen — nothing shown
+    Timers, // Renderer name, model count, physics solver, profiler overlay
+    Keys,   // Keyboard reference panel
+};
+
 struct RunDebugState
 {
-    bool isProfilerOverlay = true;        // Profiler overlay visible (toggle with 0; default ON in profile builds)
-    bool isWaterFreezeDebug = false;      // Freeze ocean animation at current shape (toggle with 1)
+    OverlayMode overlayMode = OverlayMode::None; // HUD overlay cycle state (0 key advances: none→timers→keys→none)
+    bool isWaterFreezeDebug = false;             // Freeze ocean animation at current shape (toggle with 1)
     bool isWaterNoReflect = false;        // Disable ocean reflection, output flat tint (toggle with 2)
     bool isWaterFlatDebug = false;        // Force ocean mesh fully flat, no displacement (toggle with 3)
     bool isTerrainHidden = false;         // Hide terrain mesh (toggle with 4)
