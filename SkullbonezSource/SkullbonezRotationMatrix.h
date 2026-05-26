@@ -32,6 +32,13 @@ class RotationMatrix
     Vector3 operator*=( const Vector3& v ) const;        // *= overload
     Vector3 TransposeMultiply( const Vector3& v ) const; // R^T * v (inverse rotation for orthogonal matrices)
 
+    // Returns dot(abs(row_Y), v) — the maximum downward extent of an OBB with half-extents v.
+    // Used for closed-form terrain bottom offset: avoids iterating all 8 vertices.
+    float SupportExtentY( const Vector3& halfExtents ) const
+    {
+        return fabsf( m21 ) * halfExtents.x + fabsf( m22 ) * halfExtents.y + fabsf( m23 ) * halfExtents.z;
+    }
+
   private:
     float m11, m12, m13, m21, m22, m23, m31, m32, m33; // Nine float matrix elements
 };

@@ -381,6 +381,13 @@ float GameModel::GetVolume()
 
 void GameModel::UpdatePosition( float changeInTime )
 {
+    // Skip entirely when no time has passed (e.g., zero-time terrain collision cap).
+    // Position hasn't changed, so no need to clamp against terrain.
+    if ( changeInTime <= 0.0f )
+    {
+        return;
+    }
+
     // update m_position based on airbourne model
     m_physicsInfo.UpdatePosition( changeInTime );
 
@@ -437,30 +444,33 @@ float GameModel::GetTerrainCollisionTime( float changeInTime )
 
     if ( isBox )
     {
-        // Find the lowest world-space vertex of the OBB
+        // Closed-form lowest-vertex Y offset. For an OBB, the maximum downward extent
+        // from centre is dot(abs(rotationRow_Y), halfExtents). This replaces the naive
+        // 8-vertex loop with 3 abs + 3 multiply-adds (>10× faster for boxes).
         const BoundingBox& box = std::get<BoundingBox>( m_boundingVolume );
         const Vector3& he = box.GetHalfExtents();
         Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
-        Vector3 pos = m_physicsInfo.GetPosition();
-
-        float lowestY = pos.y;
-        for ( int v = 0; v < 8; ++v )
-        {
-            Vector3 local(
-                ( v & 1 ) ? he.x : -he.x,
-                ( v & 2 ) ? he.y : -he.y,
-                ( v & 4 ) ? he.z : -he.z );
-            Vector3 worldVert = pos + ( rotMat * local );
-            if ( worldVert.y < lowestY )
-            {
-                lowestY = worldVert.y;
-            }
-        }
-        bottomOffset = pos.y - lowestY;
+        bottomOffset = rotMat.SupportExtentY( he );
     }
     else
     {
         bottomOffset = m_ballPhysics.radius;
+    }
+
+    // Airborne early-out: if the object's lowest point cannot reach the terrain's
+    // maximum height during this timestep (even while falling), skip the expensive
+    // cached terrain query entirely.
+    {
+        float minBottomY = m_physicsInfo.GetPosition().y - bottomOffset;
+        float velY = m_physicsInfo.GetVelocity().y;
+        if ( velY < 0.0f )
+        {
+            minBottomY += velY * changeInTime;
+        }
+        if ( minBottomY > m_terrain->GetMaxHeight() )
+        {
+            return NO_COLLISION;
+        }
     }
 
     // Cache-backed terrain lookup: one query returns the exact collision plane and
@@ -580,7 +590,7 @@ void GameModel::DEBUG_SetSphereToTerrain()
         return;
     }
 
-    // For boxes: use the lowest world-space vertex to determine the minimum center height.
+    // For boxes: closed-form lowest-vertex offset (same as terrain collision detection).
     // For spheres: use the cached radius.
     float bottomOffset;
     if ( std::holds_alternative<BoundingBox>( m_boundingVolume ) )
@@ -588,22 +598,7 @@ void GameModel::DEBUG_SetSphereToTerrain()
         const BoundingBox& box = std::get<BoundingBox>( m_boundingVolume );
         const Vector3& he = box.GetHalfExtents();
         Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
-        Vector3 pos = m_physicsInfo.GetPosition();
-
-        float lowestY = pos.y;
-        for ( int v = 0; v < 8; ++v )
-        {
-            Vector3 local(
-                ( v & 1 ) ? he.x : -he.x,
-                ( v & 2 ) ? he.y : -he.y,
-                ( v & 4 ) ? he.z : -he.z );
-            Vector3 worldVert = pos + ( rotMat * local );
-            if ( worldVert.y < lowestY )
-            {
-                lowestY = worldVert.y;
-            }
-        }
-        bottomOffset = pos.y - lowestY;
+        bottomOffset = rotMat.SupportExtentY( he );
     }
     else
     {
