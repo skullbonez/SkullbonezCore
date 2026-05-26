@@ -93,9 +93,9 @@ struct SceneCaptureOptions
 
 struct SceneLoggingOptions
 {
-    char perfLogPath[256] = {};      // output path for perf CSV (empty = none)
-    bool isPerfLogFlush = false;     // Force flush after each perf-log write
-    int perfLogFlushInterval = 0;    // Flush perf log every N writes (0 = only at close)
+    char perfLogPath[256] = {};   // output path for perf CSV (empty = none)
+    bool isPerfLogFlush = false;  // Force flush after each perf-log write
+    int perfLogFlushInterval = 0; // Flush perf log every N writes (0 = only at close)
 #ifdef _DEBUG
     char physicsLogPath[256] = {}; // output path for full physics state CSV (empty = none)
 #endif

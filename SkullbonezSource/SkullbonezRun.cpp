@@ -62,6 +62,15 @@ SkullbonezRun::~SkullbonezRun()
 #endif
     Text2d::DeleteFont();
 
+    // WorldEnvironment::ResetGLResources() rebuilds fluid meshes, which records GPU upload
+    // commands and leaves the command list open. Flush here so those uploads complete before
+    // m_cWorldEnvironment's member destructor releases the VBs — otherwise Shutdown() would
+    // see an open command list referencing already-freed resources (D3D12 TDR).
+    if ( IsGfxReady() )
+    {
+        Gfx().FlushGPU();
+    }
+
     m_systems.textures->Destroy();
     m_systems.cameras->Destroy();
     m_systems.skyBox->Destroy();
@@ -980,9 +989,15 @@ void SkullbonezRun::TakeInput()
         {
             switch ( m_debug.overlayMode )
             {
-            case OverlayMode::None:   m_debug.overlayMode = OverlayMode::Timers; break;
-            case OverlayMode::Timers: m_debug.overlayMode = OverlayMode::Keys;   break;
-            case OverlayMode::Keys:   m_debug.overlayMode = OverlayMode::None;   break;
+            case OverlayMode::None:
+                m_debug.overlayMode = OverlayMode::Timers;
+                break;
+            case OverlayMode::Timers:
+                m_debug.overlayMode = OverlayMode::Keys;
+                break;
+            case OverlayMode::Keys:
+                m_debug.overlayMode = OverlayMode::None;
+                break;
             }
         }
         m_camera.input.f0WasDown = key0Now;
@@ -1428,10 +1443,27 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     // Drawn as two thin quads forming a + shape centred on screen.
     if ( m_camera.isNudgeMode )
     {
-        const float cArm  = 0.025f;  // half-length of each crosshair arm
-        const float cHalf = 0.002f;  // half-thickness of each arm
-        Text2d::Render2dQuad( -cArm, -cHalf,  cArm, cHalf, 1.0f, 1.0f, 1.0f, 0.85f ); // horizontal
-        Text2d::Render2dQuad( -cHalf, -cArm, cHalf,  cArm, 1.0f, 1.0f, 1.0f, 0.85f ); // vertical
+        const float cArm = 0.025f;                                                   // half-length of each crosshair arm
+        const float cHalf = 0.001f;                                                  // half-thickness of each arm
+        Text2d::Render2dQuad( -cArm, -cHalf, cArm, cHalf, 1.0f, 1.0f, 1.0f, 0.85f ); // horizontal
+        Text2d::Render2dQuad( -cHalf, -cArm, cHalf, cArm, 1.0f, 1.0f, 1.0f, 0.85f ); // vertical
+    }
+
+    // Top text — always visible regardless of overlay mode.
+    // Top-left: engine name + active renderer
+    Text2d::Render2dText( -( hw - mX ), hh - mY - fSz, fSz, "SKULLBONEZ CORE [%s]", rendererName );
+
+    // Top-right: model count (right-aligned)
+    {
+        char mcBuf[64];
+        snprintf( mcBuf, sizeof( mcBuf ), "Model Count: %i", m_scene.modelCount );
+        Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, mcBuf ), hh - mY - fSz, fSz, "%s", mcBuf );
+    }
+
+    // Second row top-right: active physics solver (right-aligned)
+    {
+        const char* solverTag = m_cGameModelCollection.GetLegacyMode() ? "PHYSICS: LEGACY [P]" : "PHYSICS: IMPULSE [P]";
+        Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, solverTag ), hh - mY - fSz * 3.0f, fSz, "%s", solverTag );
     }
 
     // --- Overlay: None ---
@@ -1444,21 +1476,21 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     // --- Overlay: Keys reference screen (compact, bottom-left) ---
     if ( m_debug.overlayMode == OverlayMode::Keys )
     {
-        const float titleSz  = 0.013f;
-        const float entrySz  = 0.011f;
-        const float lineH    = 0.020f;
-        const int   nRows    = 10;
-        const float panPad   = 0.012f;
+        const float titleSz = 0.013f;
+        const float entrySz = 0.011f;
+        const float lineH = 0.020f;
+        const int nRows = 10;
+        const float panPad = 0.012f;
         const float titleGap = 0.016f; // space between title baseline and first entry
-        const float keyW     = 0.058f; // key-name column width
-        const float descW    = 0.120f; // description column width
-        const float colGap   = 0.012f; // gap between the two content columns
+        const float keyW = 0.058f;     // key-name column width
+        const float descW = 0.120f;    // description column width
+        const float colGap = 0.012f;   // gap between the two content columns
 
         // Panel dimensions — anchored to bottom-left corner
         const float panH = panPad + titleSz + titleGap + static_cast<float>( nRows ) * lineH + panPad;
         const float panW = panPad + keyW + descW + colGap + keyW + descW + panPad;
-        const float panX0 = -(hw - mX);
-        const float panY0 = -(hh - mY);
+        const float panX0 = -( hw - mX );
+        const float panY0 = -( hh - mY );
         const float panX1 = panX0 + panW;
         const float panY1 = panY0 + panH;
 
@@ -1469,11 +1501,11 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         Text2d::Render2dTextColor( panX0 + panPad, titleY, titleSz, 1.0f, 0.85f, 0.35f, "KEYBOARD REFERENCE" );
 
         // Column X positions
-        const float col1Key  = panX0 + panPad;
+        const float col1Key = panX0 + panPad;
         const float col1Desc = col1Key + keyW;
-        const float col2Key  = col1Desc + descW + colGap;
+        const float col2Key = col1Desc + descW + colGap;
         const float col2Desc = col2Key + keyW;
-        const float firstY   = titleY - titleGap;
+        const float firstY = titleY - titleGap;
 
         struct KeyEntry
         {
@@ -1481,36 +1513,36 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             const char* desc;
         };
         static const KeyEntry kLeft[nRows] = {
-            { "N",     "Nudge mode"        },
-            { "F",     "Fly mode"          },
-            { "WASD",  "Move camera"       },
-            { "Mouse", "Look"              },
+            { "N", "Nudge mode" },
+            { "F", "Fly mode" },
+            { "WASD", "Move camera" },
+            { "Mouse", "Look" },
             { "Shift", "Sprint (3x speed)" },
-            { "Z",     "Fire ball"         },
-            { "X",     "Fire box"          },
-            { "P",     "Physics solver"    },
-            { "R",     "Cycle renderer"    },
-            { "Space", "Step physics"      },
+            { "Z", "Fire ball" },
+            { "X", "Fire box" },
+            { "P", "Physics solver" },
+            { "R", "Cycle renderer" },
+            { "Space", "Step physics" },
         };
         static const KeyEntry kRight[nRows] = {
-            { "0",  "Cycle overlay"      },
-            { "1",  "Freeze water"       },
-            { "2",  "Toggle reflection"  },
-            { "3",  "Toggle water flat"  },
-            { "4",  "Toggle terrain"     },
-            { "5",  "Toggle water"       },
-            { "9",  "Debug vectors"      },
-            { "G",  "Cycle tracked ball" },
-            { "F2", "Scene snapshot"     },
-            { "F3", "Screenshot"         },
+            { "0", "Cycle overlay" },
+            { "1", "Freeze water" },
+            { "2", "Toggle reflection" },
+            { "3", "Toggle water flat" },
+            { "4", "Toggle terrain" },
+            { "5", "Toggle water" },
+            { "9", "Debug vectors" },
+            { "G", "Cycle tracked ball" },
+            { "F2", "Scene snapshot" },
+            { "F3", "Screenshot" },
         };
 
         for ( int i = 0; i < nRows; ++i )
         {
             float y = firstY - static_cast<float>( i ) * lineH;
-            Text2d::Render2dTextColor( col1Key,  y, entrySz, 0.70f, 0.88f, 1.0f,  "%s", kLeft[i].key  );
+            Text2d::Render2dTextColor( col1Key, y, entrySz, 0.70f, 0.88f, 1.0f, "%s", kLeft[i].key );
             Text2d::Render2dTextColor( col1Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kLeft[i].desc );
-            Text2d::Render2dTextColor( col2Key,  y, entrySz, 0.70f, 0.88f, 1.0f,  "%s", kRight[i].key  );
+            Text2d::Render2dTextColor( col2Key, y, entrySz, 0.70f, 0.88f, 1.0f, "%s", kRight[i].key );
             Text2d::Render2dTextColor( col2Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kRight[i].desc );
         }
 
@@ -1520,27 +1552,13 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 
     // --- Overlay: Timers / HUD (OverlayMode::Timers) ---
 
-    // Top-left: engine name + active renderer
-    Text2d::Render2dText( -( hw - mX ), hh - mY - fSz, fSz, "SKULLBONEZ CORE [%s]", rendererName );
-
-    // Top-right: model count (right-aligned)
-    char mcBuf[64];
-    snprintf( mcBuf, sizeof( mcBuf ), "Model Count: %i", m_scene.modelCount );
-    Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, mcBuf ), hh - mY - fSz, fSz, "%s", mcBuf );
-
-    // Second row top-right: active physics solver (right-aligned)
-    {
-        const char* solverTag = m_cGameModelCollection.GetLegacyMode() ? "PHYSICS: LEGACY [P]" : "PHYSICS: IMPULSE [P]";
-        Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, solverTag ), hh - mY - fSz * 3.0f, fSz, "%s", solverTag );
-    }
-
     // Profiler overlay — bottom-left anchored.
     // Compiled out in Release; always shown when overlay is Timers in Debug/Profile.
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     {
-        const float lineH   = 0.018f;
+        const float lineH = 0.018f;
         const float profFSz = 0.012f;
-        const float padY    = lineH * 1.2f;
+        const float padY = lineH * 1.2f;
         Profiler::Instance().RenderOverlay( -( hw - mX ), -( hh - mY ) - padY, lineH, profFSz, m_timers.rollingFpsTime );
     }
 #endif
@@ -1786,7 +1804,7 @@ void SkullbonezRun::FireProjectile( bool isBox )
         int idx = ( ( cycleIdx - i ) % count + count ) % count;
         if ( m_cGameModelCollection.GetModelAtIndex( idx ).IsBox() == isBox )
         {
-            found    = idx;
+            found = idx;
             cycleIdx = ( ( idx - 1 ) % count + count ) % count;
             break;
         }
@@ -1800,10 +1818,10 @@ void SkullbonezRun::FireProjectile( bool isBox )
     GameModel& model = m_cGameModelCollection.GetModelAtIndex( found );
 
     // Camera forward direction (normalised look vector)
-    const Vector3& camPos  = m_systems.cameras->GetCameraTranslation();
+    const Vector3& camPos = m_systems.cameras->GetCameraTranslation();
     const Vector3& camView = m_systems.cameras->GetCameraView();
-    Vector3 forward        = camView - camPos;
-    float lenSq            = forward * forward;
+    Vector3 forward = camView - camPos;
+    float lenSq = forward * forward;
     if ( lenSq < 1e-8f )
     {
         return;
@@ -1811,7 +1829,7 @@ void SkullbonezRun::FireProjectile( bool isBox )
     forward = forward * ( 1.0f / sqrtf( lenSq ) );
 
     // Spawn just ahead of the camera, clear of the model's bounding radius
-    float clearance = model.GetBoundingRadius() * 2.0f + 50.0f;
+    float clearance = model.GetBoundingRadius() * 2.0f + 2.0f;
     Vector3 spawnPos = camPos + forward * clearance;
 
     // Speed matches camera walk speed; Shift gives the 3× sprint multiplier
@@ -1991,7 +2009,7 @@ void SkullbonezRun::LoadScene( int index )
     m_camera.isFlyMode = false;
     m_camera.isNudgeMode = false;
     m_fire.ballNext = -1;
-    m_fire.boxNext  = -1;
+    m_fire.boxNext = -1;
     m_debug.isWaterFreezeDebug = false;
     m_debug.isWaterNoReflect = false;
     m_debug.isWaterFlatDebug = false;
@@ -2009,7 +2027,7 @@ void SkullbonezRun::LoadScene( int index )
     m_camera.autoCycleAccum = 0.0f;
     m_camera.autoCycleShotsTaken = 0;
     m_camera.input = {};
-    m_debug.overlayMode = OverlayMode::None; // Boot/scene-load starts clean — press 0 to show timers
+    // overlayMode intentionally preserved — the user's HUD state persists across scene reloads.
     m_camera.selectedCamera = 0;
 
     // Reset timing

@@ -743,8 +743,26 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     // Layout constants
     const float padX = fSize * 0.6f;
     const float padY = lineHeight * 1.2f;
-    const float panelW = anyGpu ? fSize * 53.0f : fSize * 46.0f;
-    const float rowsHeight = static_cast<float>( m_markerCount + 2 ) * lineHeight; // +2 for header + column labels
+
+    // Column x-offsets
+    const float colName = 0.0f;
+    const float colAvg = fSize * 11.0f;
+    const float colGpu = anyGpu ? fSize * 18.0f : -1.0f;
+    const float colP50 = anyGpu ? fSize * 25.0f : fSize * 18.0f;
+    const float colP99 = anyGpu ? fSize * 32.0f : fSize * 25.0f;
+    const float colMin = anyGpu ? fSize * 39.0f : fSize * 32.0f;
+    const float colMax = anyGpu ? fSize * 46.0f : fSize * 39.0f;
+
+    // Dynamically size the panel: right edge of last column plus measured value width + right padding.
+    // Using MeasureText ensures the background quad is always wide enough for the actual font metrics.
+    const float colValW = Text2d::MeasureText( fSize, "9999.99" );
+    const float panelW = colMax + colValW + padX;
+
+    // Clamp rows to available screen height so the panel never overflows the top of the screen.
+    const float screenH = Text2d::HalfH() * 2.0f;
+    const int maxRows = static_cast<int>( ( screenH - 4.0f * padY ) / lineHeight );
+    const int visRows = ( m_markerCount + 2 < maxRows ) ? m_markerCount + 2 : maxRows;
+    const float rowsHeight = static_cast<float>( visRows ) * lineHeight;
 
     // When right-anchored, xLeft is the desired right edge of the panel; resolve to true xLeft.
     if ( rightAnchored )
@@ -762,15 +780,6 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     const float hdrR = 1.0f, hdrG = 0.85f, hdrB = 0.2f; // gold header
     const float colR = 0.6f, colG = 0.6f, colB = 0.6f;  // grey column headers
     const float gpuR = 0.4f, gpuG = 0.8f, gpuB = 1.0f;  // cyan for GPU values
-
-    // Column x-offsets
-    const float colName = 0.0f;
-    const float colAvg = fSize * 11.0f;
-    const float colGpu = anyGpu ? fSize * 18.0f : -1.0f;
-    const float colP50 = anyGpu ? fSize * 25.0f : fSize * 18.0f;
-    const float colP99 = anyGpu ? fSize * 32.0f : fSize * 25.0f;
-    const float colMin = anyGpu ? fSize * 39.0f : fSize * 32.0f;
-    const float colMax = anyGpu ? fSize * 46.0f : fSize * 39.0f;
 
     // Look up Frame, VsyncWait, and PipelineSync for CPU time
     static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
@@ -820,6 +829,11 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     // Marker rows — PipelineSync and VsyncWait rendered last (at bottom)
     auto renderMarkerRow = [&]( const Marker& m )
     {
+        if ( y < yBottom )
+        {
+            y -= lineHeight;
+            return;
+        }
         char nameBuf[64] = { 0 };
         int spaces = m.depth * 2;
         if ( spaces > 20 )

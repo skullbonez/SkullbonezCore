@@ -21,7 +21,8 @@ using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
 
 
-namespace {
+namespace
+{
 
 // ---------------------------------------------------------------------------
 // Console
@@ -48,7 +49,9 @@ void AttachParentConsole()
 bool HandleGenAtlas( const char* cmdLine, int& outExitCode )
 {
     if ( !cmdLine || !strstr( cmdLine, "--gen-atlas" ) )
+    {
         return false;
+    }
 
     const char* arg = strstr( cmdLine, "--gen-atlas" ) + 11;
     while ( *arg == ' ' )
@@ -100,10 +103,10 @@ enum class RendererType
 struct ParsedArgs
 {
     std::vector<std::string> sceneList;
-    bool                     isSuiteOrSceneMode = false;
-    RendererType             renderer           = RendererType::OpenGL;
-    bool                     legacyPhysics      = false;
-    float                    switchInterval     = -1.0f;
+    bool isSuiteOrSceneMode = false;
+    RendererType renderer = RendererType::OpenGL;
+    bool legacyPhysics = false;
+    float switchInterval = -1.0f;
 #ifdef _DEBUG
     char physicsLogOverride[256] = {};
 #endif
@@ -186,11 +189,15 @@ void ParseSceneArgs( const char* cmdLine, std::vector<std::string>& sceneList, b
 RendererType ParseRendererArg( const char* cmdLine )
 {
     if ( !cmdLine )
+    {
         return RendererType::OpenGL;
+    }
 
     const char* rendererArg = strstr( cmdLine, "--renderer" );
     if ( !rendererArg )
+    {
         return RendererType::OpenGL;
+    }
 
     rendererArg += 10;
     while ( *rendererArg == ' ' )
@@ -199,9 +206,13 @@ RendererType ParseRendererArg( const char* cmdLine )
     }
 
     if ( _strnicmp( rendererArg, "dx12", 4 ) == 0 || _strnicmp( rendererArg, "d3d12", 5 ) == 0 )
+    {
         return RendererType::DX12;
+    }
     if ( _strnicmp( rendererArg, "dx11", 4 ) == 0 || _strnicmp( rendererArg, "d3d11", 5 ) == 0 )
+    {
         return RendererType::DX11;
+    }
     return RendererType::OpenGL;
 }
 
@@ -209,11 +220,15 @@ RendererType ParseRendererArg( const char* cmdLine )
 void ApplyVsyncOverride( const char* cmdLine )
 {
     if ( !cmdLine )
+    {
         return;
+    }
 
     const char* vsyncArg = strstr( cmdLine, "--vsync" );
     if ( !vsyncArg )
+    {
         return;
+    }
 
     vsyncArg += 7;
     while ( *vsyncArg == ' ' )
@@ -236,11 +251,15 @@ void ApplyVsyncOverride( const char* cmdLine )
 float ParseSwitchInterval( const char* cmdLine )
 {
     if ( !cmdLine )
+    {
         return -1.0f;
+    }
 
     const char* switchArg = strstr( cmdLine, "--switch-interval" );
     if ( !switchArg )
+    {
         return -1.0f;
+    }
 
     switchArg += 17;
     while ( *switchArg == ' ' )
@@ -255,7 +274,9 @@ float ParseSwitchInterval( const char* cmdLine )
 bool ValidatePhysicsLog( const char* cmdLine )
 {
     if ( !cmdLine || !strstr( cmdLine, "--physics-log" ) )
+    {
         return true;
+    }
 
 #ifndef _DEBUG
     MessageBoxA( nullptr,
@@ -274,7 +295,9 @@ void ParsePhysicsLogOverride( const char* cmdLine, char ( &outPath )[256] )
 {
     outPath[0] = '\0';
     if ( !cmdLine || !strstr( cmdLine, "--physics-log" ) )
+    {
         return;
+    }
 
     const char* physLogArg = strstr( cmdLine, "--physics-log" ) + 13;
     while ( *physLogArg == ' ' )
@@ -288,7 +311,9 @@ void ParsePhysicsLogOverride( const char* cmdLine, char ( &outPath )[256] )
     }
     size_t len = static_cast<size_t>( physLogEnd - physLogArg );
     if ( len >= 256 )
+    {
         len = 255;
+    }
     memcpy( outPath, physLogArg, len );
     outPath[len] = '\0';
     if ( outPath[0] != '\0' )
@@ -311,10 +336,14 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
 
     out.legacyPhysics = ( cmdLine && strstr( cmdLine, "--legacy-physics" ) );
     if ( out.legacyPhysics )
+    {
         fprintf( stdout, "[physics] Legacy sphere-only solver enabled.\n" );
+    }
 
     if ( !ValidatePhysicsLog( cmdLine ) )
+    {
         return false;
+    }
 
 #ifdef _DEBUG
     ParsePhysicsLogOverride( cmdLine, out.physicsLogOverride );
@@ -363,10 +392,14 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
     {
         SkullbonezRun cRun( std::move( args.sceneList ), args.legacyPhysics );
         if ( args.switchInterval > 0.0f )
+        {
             cRun.SetRendererSwitchInterval( args.switchInterval );
+        }
 #ifdef _DEBUG
         if ( args.physicsLogOverride[0] != '\0' )
+        {
             cRun.SetPhysicsLogOverride( args.physicsLogOverride );
+        }
 #endif
         try
         {
@@ -374,13 +407,17 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
             cRun.Run();
 
             if ( !args.isSuiteOrSceneMode )
+            {
                 window->MsgBox( "Thanks for using the Skullbonez Core!", "Alert!", MB_OK );
+            }
         }
         catch ( const std::exception& e )
         {
             fprintf( stderr, "FATAL: %s\n", e.what() );
             if ( !args.isSuiteOrSceneMode )
+            {
                 window->MsgBox( e.what(), "Alert!", MB_OK );
+            }
         }
     } // cRun destroyed here — GL context still alive for proper cleanup
 }
@@ -403,7 +440,9 @@ void CleanupWindow( SkullbonezWindow* window, HINSTANCE hInstance )
     }
 
     if ( window->m_sDevice )
+    {
         ReleaseDC( window->m_sWindow, window->m_sDevice );
+    }
 
     if ( window->m_fIsFullScreenMode )
     {
@@ -424,8 +463,8 @@ void CleanupWindow( SkullbonezWindow* window, HINSTANCE hInstance )
 
 int WINAPI WinMain( HINSTANCE hInstance,
                     HINSTANCE hPrevInstance,
-                    PSTR      szCmdLine,
-                    int       iCmdShow )
+                    PSTR szCmdLine,
+                    int iCmdShow )
 {
     // Heap debug code - breaks program at specified allocation
     // _CrtSetBreakAlloc(89);
@@ -440,11 +479,15 @@ int WINAPI WinMain( HINSTANCE hInstance,
 
     int atlasExitCode = 0;
     if ( HandleGenAtlas( szCmdLine, atlasExitCode ) )
+    {
         return atlasExitCode;
+    }
 
     ParsedArgs args;
     if ( !ParseCommandLine( szCmdLine, args ) )
+    {
         return 1;
+    }
 
     SkullbonezWindow* window = SkullbonezWindow::Instance();
     window->CreateAppWindow( hInstance, Cfg().window.fullscreen );

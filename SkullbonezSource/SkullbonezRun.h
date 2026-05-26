@@ -138,15 +138,15 @@ struct RunDebugState
 {
     OverlayMode overlayMode = OverlayMode::None; // HUD overlay cycle state (0 key advances: none→timers→keys→none)
     bool isWaterFreezeDebug = false;             // Freeze ocean animation at current shape (toggle with 1)
-    bool isWaterNoReflect = false;        // Disable ocean reflection, output flat tint (toggle with 2)
-    bool isWaterFlatDebug = false;        // Force ocean mesh fully flat, no displacement (toggle with 3)
-    bool isTerrainHidden = false;         // Hide terrain mesh (toggle with 4)
-    bool isWaterHidden = false;           // Hide water mesh (toggle with 5)
-    bool isDebugVectors = false;          // Draw velocity (green) and angular velocity (red) vectors (toggle with V)
-    bool isTextOnly = false;              // Suppress all 3D rendering; show solid background with large pangram text
-    float frozenWaterTime = 0.0f;         // Simulation time captured when freeze was toggled on
-    float rendererSwitchInterval = -1.0f; // Auto-switch renderer every N seconds (-1 = disabled)
-    float rendererSwitchAccum = 0.0f;     // Accumulated time since last auto-switch
+    bool isWaterNoReflect = false;               // Disable ocean reflection, output flat tint (toggle with 2)
+    bool isWaterFlatDebug = false;               // Force ocean mesh fully flat, no displacement (toggle with 3)
+    bool isTerrainHidden = false;                // Hide terrain mesh (toggle with 4)
+    bool isWaterHidden = false;                  // Hide water mesh (toggle with 5)
+    bool isDebugVectors = false;                 // Draw velocity (green) and angular velocity (red) vectors (toggle with V)
+    bool isTextOnly = false;                     // Suppress all 3D rendering; show solid background with large pangram text
+    float frozenWaterTime = 0.0f;                // Simulation time captured when freeze was toggled on
+    float rendererSwitchInterval = -1.0f;        // Auto-switch renderer every N seconds (-1 = disabled)
+    float rendererSwitchAccum = 0.0f;            // Accumulated time since last auto-switch
 };
 
 struct RunFireState
@@ -155,7 +155,7 @@ struct RunFireState
     // model array so rapid-fire uses different objects instead of relaunching the same one.
     // -1 means "not yet initialised" — the first shot seeds the index from the array tail.
     int ballNext = -1; // Next sphere model index to recycle
-    int boxNext  = -1; // Next box model index to recycle
+    int boxNext = -1;  // Next box model index to recycle
 };
 
 enum class RuntimeRendererType
@@ -212,12 +212,12 @@ class SkullbonezRun
     void SwitchRenderer( RuntimeRendererType target ); // Rebuild render backend/resources while preserving simulation state
 
     // --- Per-frame tick helpers (called from Run()) ---
-    void TickRendererSwitch( float dt );  // Advance auto-switch timer; cycle backend when interval elapses
-    void TickPhysics( double dt );        // Physics dispatch: fixed-step, accumulator, legacy vs solver
-    bool TickScreenshots();               // Screenshot triggers; returns true when frame should restart (continue)
-    void TickAutoCycle();                 // Auto-cycle ball capture; posts WM_QUIT when all balls captured
-    void TickPerfLog();                   // Write per-frame perf CSV row and periodic memory checkpoint
-    bool TickSceneAdvance();              // Frame count, exit/hold on completion, restarts; returns true to continue
+    void TickRendererSwitch( float dt );                  // Advance auto-switch timer; cycle backend when interval elapses
+    void TickPhysics( double dt );                        // Physics dispatch: fixed-step, accumulator, legacy vs solver
+    bool TickScreenshots();                               // Screenshot triggers; returns true when frame should restart (continue)
+    void TickAutoCycle();                                 // Auto-cycle ball capture; posts WM_QUIT when all balls captured
+    void TickPerfLog();                                   // Write per-frame perf CSV row and periodic memory checkpoint
+    bool TickSceneAdvance();                              // Frame count, exit/hold on completion, restarts; returns true to continue
     void NudgeModelsWithCamera( const Vector3& moveVec ); // Push overlapping balls/boxes in camera movement direction
     void FireProjectile( bool isBox );                    // Recycle and launch a ball (CTRL) or box (ALT) from the camera
 

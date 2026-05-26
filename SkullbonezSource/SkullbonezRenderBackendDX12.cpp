@@ -2831,6 +2831,15 @@ void RenderBackendDX12::InitDXR( uint64_t terrainVBVA, int terrainVertCount, int
         return;
     }
 
+    // Skip re-initialisation if DXR is already set up (scene reload path). The terrain and sphere
+    // meshes (and their BLAS) do not change between scenes — only the TLAS is rebuilt per-frame.
+    // The full init path is only needed once; on renderer switch the backend is destroyed/recreated,
+    // so m_cmdList4 is null and we fall through to the full init below.
+    if ( m_cmdList4 )
+    {
+        return;
+    }
+
     // Get CmdList4 from command list
     if ( FAILED( m_commandList->QueryInterface( IID_PPV_ARGS( &m_cmdList4 ) ) ) )
     {
