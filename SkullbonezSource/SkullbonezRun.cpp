@@ -1444,9 +1444,26 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     if ( m_camera.isNudgeMode )
     {
         const float cArm = 0.025f;                                                   // half-length of each crosshair arm
-        const float cHalf = 0.002f;                                                  // half-thickness of each arm
+        const float cHalf = 0.001f;                                                  // half-thickness of each arm
         Text2d::Render2dQuad( -cArm, -cHalf, cArm, cHalf, 1.0f, 1.0f, 1.0f, 0.85f ); // horizontal
         Text2d::Render2dQuad( -cHalf, -cArm, cHalf, cArm, 1.0f, 1.0f, 1.0f, 0.85f ); // vertical
+    }
+
+    // Top text — always visible regardless of overlay mode.
+    // Top-left: engine name + active renderer
+    Text2d::Render2dText( -( hw - mX ), hh - mY - fSz, fSz, "SKULLBONEZ CORE [%s]", rendererName );
+
+    // Top-right: model count (right-aligned)
+    {
+        char mcBuf[64];
+        snprintf( mcBuf, sizeof( mcBuf ), "Model Count: %i", m_scene.modelCount );
+        Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, mcBuf ), hh - mY - fSz, fSz, "%s", mcBuf );
+    }
+
+    // Second row top-right: active physics solver (right-aligned)
+    {
+        const char* solverTag = m_cGameModelCollection.GetLegacyMode() ? "PHYSICS: LEGACY [P]" : "PHYSICS: IMPULSE [P]";
+        Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, solverTag ), hh - mY - fSz * 3.0f, fSz, "%s", solverTag );
     }
 
     // --- Overlay: None ---
@@ -1534,20 +1551,6 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     }
 
     // --- Overlay: Timers / HUD (OverlayMode::Timers) ---
-
-    // Top-left: engine name + active renderer
-    Text2d::Render2dText( -( hw - mX ), hh - mY - fSz, fSz, "SKULLBONEZ CORE [%s]", rendererName );
-
-    // Top-right: model count (right-aligned)
-    char mcBuf[64];
-    snprintf( mcBuf, sizeof( mcBuf ), "Model Count: %i", m_scene.modelCount );
-    Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, mcBuf ), hh - mY - fSz, fSz, "%s", mcBuf );
-
-    // Second row top-right: active physics solver (right-aligned)
-    {
-        const char* solverTag = m_cGameModelCollection.GetLegacyMode() ? "PHYSICS: LEGACY [P]" : "PHYSICS: IMPULSE [P]";
-        Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, solverTag ), hh - mY - fSz * 3.0f, fSz, "%s", solverTag );
-    }
 
     // Profiler overlay — bottom-left anchored.
     // Compiled out in Release; always shown when overlay is Timers in Debug/Profile.
@@ -1826,7 +1829,7 @@ void SkullbonezRun::FireProjectile( bool isBox )
     forward = forward * ( 1.0f / sqrtf( lenSq ) );
 
     // Spawn just ahead of the camera, clear of the model's bounding radius
-    float clearance = model.GetBoundingRadius() * 2.0f + 50.0f;
+    float clearance = model.GetBoundingRadius() * 2.0f + 2.0f;
     Vector3 spawnPos = camPos + forward * clearance;
 
     // Speed matches camera walk speed; Shift gives the 3× sprint multiplier
