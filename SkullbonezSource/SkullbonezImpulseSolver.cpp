@@ -691,25 +691,34 @@ void ImpulseSolver::RespondCollisionGameModels( GameModel& gameModel1,
         }
         else
         {
-            // Box-sphere, sphere-box, or box-box: simplified centre-to-centre impulse.
+            // =================================================================
+            // BALL-vs-BOX ANGULAR IMPULSE (Friction-Based Spin Transfer)
+            // =================================================================
             //
-            // A full OBB contact manifold (SAT + clip-polygon) is not implemented here
-            // for game-model vs game-model collisions. The broadphase already approximates
-            // boxes as bounding spheres, so a sphere-style impulse is consistent with that.
+            // For mixed-shape collisions (sphere-box, box-sphere, box-box), the
+            // broadphase uses bounding-radius spheres, so we approximate the
+            // contact geometry as two spheres with bounding radii.  The contact
+            // point for each body lies along the collision normal at distance
+            // bounding_radius from the center:
             //
-            // Impulse formula (1D along collision normal, no angular terms):
+            //   r1 = +n * R1   (body1 toward body2)
+            //   r2 = -n * R2   (body2 toward body1)
             //
-            //   v_rel_n = (v1 - v2) · n           (relative approach speed)
-            //   j = -(1+e) × v_rel_n / (1/m1 + 1/m2)
+            // Unlike pure sphere-sphere, box inertia is anisotropic, so the
+            // angular terms in the effective mass denominator are non-zero for
+            // off-axis normals.  We transform I^-1 into world space using the
+            // orientation matrix for boxes (spheres remain body-space).
             //
-            //   Δv1 = +j / m1 * n    (push body 1 away along n)
-            //   Δv2 = -j / m2 * n    (push body 2 away along n)
+            // Pipeline:
+            //   1. Collision normal and contact arms
+            //   2. Full contact velocity (linear + ω × r)
+            //   3. Normal impulse with angular effective mass
+            //   4. Tangent friction impulse (Coulomb-clamped)
+            //   5. Apply Δv and Δω to both bodies
+            //   6. Positional correction (mass-weighted push-apart)
             //
-            // e is the geometric mean of both restitution coefficients so that
-            // a perfectly inelastic body (e=0) dominates regardless of the other.
-            //
-            // Position correction uses mass-weighted displacement so heavier bodies
-            // move less:  Δx_i = overlap × (1/m_i) / (1/m1 + 1/m2)
+            // =================================================================
+
             Vector3 pos1 = gameModel1.m_physicsInfo.GetPosition();
             Vector3 pos2 = gameModel2.m_physicsInfo.GetPosition();
             Vector3 delta = pos2 - pos1;
@@ -724,25 +733,142 @@ void ImpulseSolver::RespondCollisionGameModels( GameModel& gameModel1,
             float e2 = gameModel2.m_physicsInfo.GetCoefficientRestitution();
             float e = sqrtf( e1 * e2 );
 
+            float invMass1 = gameModel1.GetInvertedMass();
+            float invMass2 = gameModel2.GetInvertedMass();
+            Vector3 invInertia1 = gameModel1.GetInvertedRotationalInertia();
+            Vector3 invInertia2 = gameModel2.GetInvertedRotationalInertia();
+
+            // World-space inverse inertia application.
+            // For boxes: I_world_inv * v = R * (I_body_inv ∘ (R^T * v))
+            // For spheres: isotropic, body-space = world-space.
+            bool isBox1 = gameModel1.IsBox();
+            bool isBox2 = gameModel2.IsBox();
+            Transformation::RotationMatrix rot1 = gameModel1.m_physicsInfo.GetOrientationMatrix();
+            Transformation::RotationMatrix rot2 = gameModel2.m_physicsInfo.GetOrientationMatrix();
+
+            auto applyInvI1 = [&]( const Vector3& v ) -> Vector3
+            {
+                if ( !isBox1 )
+                {
+                    return Vector::VectorMultiply( invInertia1, v );
+                }
+                Vector3 bodyV = rot1.TransposeMultiply( v );
+                return rot1 * Vector::VectorMultiply( invInertia1, bodyV );
+            };
+            auto applyInvI2 = [&]( const Vector3& v ) -> Vector3
+            {
+                if ( !isBox2 )
+                {
+                    return Vector::VectorMultiply( invInertia2, v );
+                }
+                Vector3 bodyV = rot2.TransposeMultiply( v );
+                return rot2 * Vector::VectorMultiply( invInertia2, bodyV );
+            };
+
+            // Contact arms: approximate contact on each bounding sphere along normal
+            float br1 = GetShapeBoundingRadius( gameModel1.m_boundingVolume );
+            float br2 = GetShapeBoundingRadius( gameModel2.m_boundingVolume );
+            Vector3 rContact1 = normal * br1;
+            Vector3 rContact2 = normal * ( -br2 );
+
+            // Full contact velocity including angular contributions
             Vector3 vel1 = gameModel1.m_physicsInfo.GetVelocity();
             Vector3 vel2 = gameModel2.m_physicsInfo.GetVelocity();
-            Vector3 relVel = vel1 - vel2;
-            float relNormalVel = relVel * normal;
+            Vector3 omega1 = gameModel1.m_physicsInfo.GetAngularVelocity();
+            Vector3 omega2 = gameModel2.m_physicsInfo.GetAngularVelocity();
 
-            if ( relNormalVel <= 0.0f )
+            Vector3 vContact1 = vel1 + Vector::CrossProduct( omega1, rContact1 );
+            Vector3 vContact2 = vel2 + Vector::CrossProduct( omega2, rContact2 );
+            Vector3 vRel = vContact1 - vContact2;
+            float vRelNormal = vRel * normal;
+
+            // Only resolve if approaching
+            if ( vRelNormal <= 0.0f )
             {
                 return;
             }
 
-            float invMass1 = gameModel1.GetInvertedMass();
-            float invMass2 = gameModel2.GetInvertedMass();
-            float j = -( 1.0f + e ) * relNormalVel / ( invMass1 + invMass2 );
+            // --- Normal impulse with angular effective mass ---
+            //
+            //  K_n = 1/m1 + 1/m2 + n · (I1^-1(r1×n) × r1) + n · (I2^-1(r2×n) × r2)
+            //  j_n = -(1+e) * v_rel_n / K_n
+            //
+            Vector3 r1CrossN = Vector::CrossProduct( rContact1, normal );
+            Vector3 iInv1_r1CrossN = applyInvI1( r1CrossN );
+            float angTerm1 = normal * Vector::CrossProduct( iInv1_r1CrossN, rContact1 );
 
-            gameModel1.m_physicsInfo.SetLinearVelocity( vel1 + normal * ( j * invMass1 ) );
-            gameModel2.m_physicsInfo.SetLinearVelocity( vel2 - normal * ( j * invMass2 ) );
+            Vector3 r2CrossN = Vector::CrossProduct( rContact2, normal );
+            Vector3 iInv2_r2CrossN = applyInvI2( r2CrossN );
+            float angTerm2 = normal * Vector::CrossProduct( iInv2_r2CrossN, rContact2 );
 
-            float br1 = GetShapeBoundingRadius( gameModel1.m_boundingVolume );
-            float br2 = GetShapeBoundingRadius( gameModel2.m_boundingVolume );
+            float kNormal = invMass1 + invMass2 + angTerm1 + angTerm2;
+            float jn = ( 1.0f + e ) * vRelNormal / kNormal;
+
+            // Apply normal impulse (linear + angular)
+            Vector3 normalImpulse = normal * jn;
+            vel1 -= normalImpulse * invMass1;
+            vel2 += normalImpulse * invMass2;
+            omega1 -= applyInvI1( Vector::CrossProduct( rContact1, normalImpulse ) );
+            omega2 += applyInvI2( Vector::CrossProduct( rContact2, normalImpulse ) );
+
+            // --- Tangent friction impulse (Coulomb model) ---
+            //
+            // Recompute contact velocity after normal impulse, extract tangential slide.
+            // j_t = v_tangent_mag / K_t, clamped to μ * j_n (Coulomb cone).
+            // Applied opposing the tangential sliding direction.
+            //
+            vContact1 = vel1 + Vector::CrossProduct( omega1, rContact1 );
+            vContact2 = vel2 + Vector::CrossProduct( omega2, rContact2 );
+            vRel = vContact1 - vContact2;
+            float vRelN_post = vRel * normal;
+            Vector3 vTangent = vRel - normal * vRelN_post;
+            float vTangentSq = vTangent * vTangent;
+
+            if ( vTangentSq > TOLERANCE * TOLERANCE )
+            {
+                float vTangentMag = sqrtf( vTangentSq );
+                Vector3 tangentDir = vTangent / vTangentMag;
+
+                // Effective mass for tangent direction
+                Vector3 r1CrossT = Vector::CrossProduct( rContact1, tangentDir );
+                Vector3 iInv1_r1CrossT = applyInvI1( r1CrossT );
+                float tAngTerm1 = tangentDir * Vector::CrossProduct( iInv1_r1CrossT, rContact1 );
+
+                Vector3 r2CrossT = Vector::CrossProduct( rContact2, tangentDir );
+                Vector3 iInv2_r2CrossT = applyInvI2( r2CrossT );
+                float tAngTerm2 = tangentDir * Vector::CrossProduct( iInv2_r2CrossT, rContact2 );
+
+                float kTangent = invMass1 + invMass2 + tAngTerm1 + tAngTerm2;
+                if ( kTangent > TOLERANCE )
+                {
+                    float jt = vTangentMag / kTangent;
+
+                    // Coulomb friction cone: |j_t| ≤ μ * j_n
+                    float mu = ( gameModel1.m_physicsInfo.GetFrictionCoefficient() +
+                                 gameModel2.m_physicsInfo.GetFrictionCoefficient() ) *
+                               0.5f;
+                    float maxFriction = mu * jn;
+                    if ( jt > maxFriction )
+                    {
+                        jt = maxFriction;
+                    }
+
+                    // Apply friction impulse opposing tangential slide
+                    Vector3 frictionImpulse = tangentDir * jt;
+                    vel1 -= frictionImpulse * invMass1;
+                    vel2 += frictionImpulse * invMass2;
+                    omega1 -= applyInvI1( Vector::CrossProduct( rContact1, frictionImpulse ) );
+                    omega2 += applyInvI2( Vector::CrossProduct( rContact2, frictionImpulse ) );
+                }
+            }
+
+            // Write back velocities
+            gameModel1.m_physicsInfo.SetLinearVelocity( vel1 );
+            gameModel2.m_physicsInfo.SetLinearVelocity( vel2 );
+            gameModel1.m_physicsInfo.SetAngularVelocity( omega1 );
+            gameModel2.m_physicsInfo.SetAngularVelocity( omega2 );
+
+            // --- Positional correction (mass-weighted push-apart) ---
             float overlap = ( br1 + br2 ) - dist;
             if ( overlap > 0.0f )
             {

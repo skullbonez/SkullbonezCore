@@ -1975,6 +1975,11 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
             gameModel.SetInitialOrientation( box.eulerX, box.eulerY, box.eulerZ );
         }
 
+        if ( box.hasInitVelocity )
+        {
+            gameModel.SetLinearVelocity( Vector3( box.velX, box.velY, box.velZ ) );
+        }
+
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
     }
 }
