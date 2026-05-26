@@ -769,6 +769,14 @@ void RenderBackendDX12::Shutdown()
     }
     m_psoCache.clear();
 
+    // Grid line overlay resources
+    if ( m_gridLinePSO )
+    {
+        m_gridLinePSO->Release();
+        m_gridLinePSO = nullptr;
+    }
+    m_gridLineShader.reset();
+
     // Instanced meshes
     for ( auto& im : m_instancedMeshes )
     {

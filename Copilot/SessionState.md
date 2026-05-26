@@ -18,8 +18,8 @@
 ## Branch & Last Commit
 - Branch: `feature/ball-box-angular-response`
 - Last commit on main: `9a0d059` — Refactor Run() into per-frame tick helpers; add std::clamp, std::algorithm
-- Working branch HEAD: pending commit (ball-box angular velocity response)
-- Uncommitted changes: ImpulseSolver angular response for mixed ball-box collisions, 4 test scenes, box velocity scene format extension
+- Working branch HEAD: `f3bf23d` — feat: broadphase spatial grid visualizer (G key toggle)
+- Uncommitted changes: none
 
 ---
 

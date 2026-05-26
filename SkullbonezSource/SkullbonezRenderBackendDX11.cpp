@@ -412,6 +412,19 @@ void RenderBackendDX11::Shutdown()
     }
     m_dynamicVBs.clear();
 
+    // Grid line overlay resources
+    if ( m_gridLineVB )
+    {
+        m_gridLineVB->Release();
+        m_gridLineVB = nullptr;
+    }
+    if ( m_gridLineIL )
+    {
+        m_gridLineIL->Release();
+        m_gridLineIL = nullptr;
+    }
+    m_gridLineShader.reset();
+
     // Destroy instanced meshes
     for ( auto& im : m_instancedMeshes )
     {

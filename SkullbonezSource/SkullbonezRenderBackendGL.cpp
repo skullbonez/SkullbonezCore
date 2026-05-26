@@ -230,6 +230,19 @@ void RenderBackendGL::Shutdown()
     }
     m_debugLineShader.reset();
 
+    // Grid line overlay resources
+    if ( m_gridLineVBO != 0 )
+    {
+        glDeleteBuffers( 1, &m_gridLineVBO );
+        m_gridLineVBO = 0;
+    }
+    if ( m_gridLineVAO != 0 )
+    {
+        glDeleteVertexArrays( 1, &m_gridLineVAO );
+        m_gridLineVAO = 0;
+    }
+    m_gridLineShader.reset();
+
     m_hdc = nullptr;
 }
 
