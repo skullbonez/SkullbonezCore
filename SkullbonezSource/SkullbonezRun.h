@@ -138,7 +138,8 @@ struct RunDebugState
 {
     OverlayMode overlayMode = OverlayMode::None; // HUD overlay cycle state (0 key advances: none→timers→keys→none)
     bool isWaterFreezeDebug = false;             // Freeze ocean animation at current shape (toggle with 1)
-    bool isWaterNoReflect = false;               // Disable ocean reflection, output flat tint (toggle with 2)
+    bool isWaterNoReflect = false;               // Disable ocean reflection entirely (2 cycles: FBO→DXR→none)
+    bool isWaterRTReflect = false;               // Use DXR ray-traced reflection (2 cycles: FBO→DXR→none; DXR only if supported)
     bool isWaterFlatDebug = false;               // Force ocean mesh fully flat, no displacement (toggle with 3)
     bool isTerrainHidden = false;                // Hide terrain mesh (toggle with 4)
     bool isWaterHidden = false;                  // Hide water mesh (toggle with 5)

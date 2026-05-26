@@ -937,7 +937,35 @@ void SkullbonezRun::TakeInput()
     {
         m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
     }
-    m_debug.isWaterNoReflect = ( Input::IsKeyToggled( '2' ) != 0 ); // Reflection default ON
+    // Key '2' cycles reflection mode: FBO (default) → DXR ray-traced (if supported) → none → FBO
+    {
+        static bool s_key2WasDown = false;
+        bool s_key2Now = ( Input::IsKeyDown( '2' ) != 0 );
+        if ( s_key2Now && !s_key2WasDown )
+        {
+            if ( !m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
+            {
+                if ( Gfx().IsDXRSupported() )
+                {
+                    m_debug.isWaterRTReflect = true; // FBO → DXR
+                }
+                else
+                {
+                    m_debug.isWaterNoReflect = true; // DXR not available, skip to none
+                }
+            }
+            else if ( m_debug.isWaterRTReflect )
+            {
+                m_debug.isWaterRTReflect = false;
+                m_debug.isWaterNoReflect = true; // DXR → none
+            }
+            else
+            {
+                m_debug.isWaterNoReflect = false; // none → FBO
+            }
+        }
+        s_key2WasDown = s_key2Now;
+    }
     m_debug.isWaterFlatDebug = ( Input::IsKeyToggled( '3' ) != 0 ); // Ocean wave displacement ON
     m_debug.isTerrainHidden = ( Input::IsKeyToggled( '4' ) != 0 );  // Terrain visibility ON
     m_debug.isWaterHidden = ( Input::IsKeyToggled( '5' ) != 0 );    // Water visibility ON
@@ -1188,7 +1216,7 @@ void SkullbonezRun::DrawPrimitives()
     Matrix4 reflView = Matrix4::LookAt( reflEye, reflCenter, reflUp );
     reflVP = proj * reflView;
 
-    if ( Gfx().IsDXRSupported() && !m_debug.isWaterNoReflect )
+    if ( Gfx().IsDXRSupported() && m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
     {
         // DXR path: rebuild TLAS with current ball positions, then dispatch rays
         int ballCount = m_cGameModelCollection.GetModelCount();
@@ -1275,12 +1303,12 @@ void SkullbonezRun::DrawPrimitives()
         float waterTime = m_debug.isWaterFreezeDebug
                               ? m_debug.frozenWaterTime
                               : static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
-        uint32_t reflTex = ( Gfx().IsDXRSupported() && !m_debug.isWaterNoReflect )
+        uint32_t reflTex = ( Gfx().IsDXRSupported() && m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
                                ? Gfx().GetReflectionUAVTexture()
                                : m_systems.reflectionFBO->GetColorTextureHandle();
         // DXR reflection texture is in main-camera screen space, so sample it
-        // using the main VP ? not the mirror VP used by the FBO path.
-        Matrix4 waterSampleVP = ( Gfx().IsDXRSupported() && !m_debug.isWaterNoReflect )
+        // using the main VP — not the mirror VP used by the FBO path.
+        Matrix4 waterSampleVP = ( Gfx().IsDXRSupported() && m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
                                     ? proj * baseView
                                     : reflVP;
         m_cWorldEnvironment.RenderFluid( baseView, proj, waterSampleVP, waterTime, reflTex, m_debug.isWaterFlatDebug, m_debug.isWaterNoReflect );
@@ -1527,7 +1555,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         static const KeyEntry kRight[nRows] = {
             { "0", "Cycle overlay" },
             { "1", "Freeze water" },
-            { "2", "Toggle reflection" },
+            { "2", "Reflection mode" },
             { "3", "Toggle water flat" },
             { "4", "Toggle terrain" },
             { "5", "Toggle water" },
@@ -2012,6 +2040,7 @@ void SkullbonezRun::LoadScene( int index )
     m_fire.boxNext = -1;
     m_debug.isWaterFreezeDebug = false;
     m_debug.isWaterNoReflect = false;
+    m_debug.isWaterRTReflect = false;
     m_debug.isWaterFlatDebug = false;
     m_debug.isTerrainHidden = false;
     m_debug.isWaterHidden = false;
