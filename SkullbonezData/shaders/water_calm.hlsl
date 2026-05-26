@@ -32,7 +32,8 @@ cbuffer Uniforms : register(b0)
     float4x4 uReflectVP;           // Reflected camera View×Projection
     float4   uColorTint;           // Base water color (dark blue-green)
     float    uReflectionStrength;  // Reflection blend factor (0=tint, 1=mirror)
-    float3   _pad0;                // Cbuffer alignment padding
+    int      uNoReflect;           // 1 = skip reflection, output flat tint
+    float2   _pad0;                // Cbuffer alignment padding
 };
 
 Texture2D    uReflectionTex : register(t1);  // Scene rendered from reflected camera
@@ -65,6 +66,9 @@ VS_OUT main_vs(VS_IN input)
 
 float4 main_ps(VS_OUT input) : SV_TARGET
 {
+    // When reflection is disabled, output flat tint to match ocean behaviour.
+    if (uNoReflect != 0)
+        return uColorTint;
     // Projective texture mapping: clip → NDC → UV.
     float2 reflUV = (input.reflectClipPos.xy / input.reflectClipPos.w) * 0.5 + 0.5;
     reflUV.y = 1.0 - reflUV.y;  // DX texture Y-flip (top-left origin)

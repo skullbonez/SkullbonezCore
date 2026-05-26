@@ -28,11 +28,18 @@ in vec4 vReflectClipPos;
 uniform vec4      uColorTint;          // Base water color (dark blue-green)
 uniform sampler2D uReflectionTex;      // Texture containing the reflected scene
 uniform float     uReflectionStrength; // 0=pure tint, 1=pure reflection
+uniform int       uNoReflect;          // 1 = skip reflection, output flat tint
 
 out vec4 FragColor;
 
 void main()
 {
+    // When reflection is disabled, output flat tint to match ocean behaviour.
+    if (uNoReflect != 0)
+    {
+        FragColor = uColorTint;
+        return;
+    }
     // Projective texture lookup: convert clip coords → UV coords [0,1].
     vec2 reflUV = (vReflectClipPos.xy / vReflectClipPos.w) * 0.5 + 0.5;
     // Sample the reflection texture at the computed UV.

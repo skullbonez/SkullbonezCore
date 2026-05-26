@@ -54,11 +54,12 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
     Gfx().SetBlend( true );
     Gfx().BindTexture( reflectionTex, 1 );
 
-    // --- calm (inner) pass: flat, always reflective, no waves ---
+    // --- calm (inner) pass: flat, reflective unless disabled ---
     m_calmShader->Use();
     m_calmShader->SetMat4( "uView", view );
     m_calmShader->SetMat4( "uProjection", proj );
     m_calmShader->SetMat4( "uReflectVP", reflectVP );
+    m_calmShader->SetInt( "uNoReflect", noReflect ? 1 : 0 );
     m_calmMesh->Draw();
 
     // --- ocean (outer) pass: vertex displacement + UV perturbation ---
