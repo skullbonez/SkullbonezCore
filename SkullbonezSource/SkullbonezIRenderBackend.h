@@ -180,6 +180,15 @@ class IRenderBackend
         (void)viewProjMatrix16;
     }
 
+    // Draws per-vertex colored line segments. data is interleaved [x,y,z,r,g,b] per vertex.
+    // vertCount is the total number of vertices (2 per line segment).
+    virtual void DrawLinesColored( const float* data, int vertCount, const float* viewProjMatrix16 )
+    {
+        (void)data;
+        (void)vertCount;
+        (void)viewProjMatrix16;
+    }
+
 
     // --- Instanced Mesh (hardware instancing: shadow decals, sphere batches) ---
     // staticData: per-vertex geometry  |  instance data uploaded per frame

@@ -19,6 +19,7 @@
 #include "SkullbonezWorldEnvironment.h"
 #include "SkullbonezIFramebuffer.h"
 #include "SkullbonezTestScene.h"
+#include "SkullbonezBroadphaseVisualizer.h"
 
 
 // --- Usings ---
@@ -29,6 +30,7 @@ using namespace SkullbonezCore::Text;
 using namespace SkullbonezCore::Geometry;
 using namespace SkullbonezCore::Math;
 using namespace SkullbonezCore::GameObjects;
+using namespace SkullbonezCore::Physics;
 
 
 namespace SkullbonezCore
@@ -145,6 +147,7 @@ struct RunDebugState
     bool isWaterHidden = false;                  // Hide water mesh (toggle with 5)
     bool isDebugVectors = false;                 // Draw velocity (green) and angular velocity (red) vectors (toggle with V)
     bool isTextOnly = false;                     // Suppress all 3D rendering; show solid background with large pangram text
+    bool isBroadphaseOverlay = false;            // Broadphase spatial grid visualizer overlay (toggle with G)
     float frozenWaterTime = 0.0f;                // Simulation time captured when freeze was toggled on
     float rendererSwitchInterval = -1.0f;        // Auto-switch renderer every N seconds (-1 = disabled)
     float rendererSwitchAccum = 0.0f;            // Accumulated time since last auto-switch
@@ -176,17 +179,18 @@ class SkullbonezRun
   private:
     std::vector<std::string> m_sceneQueue; // Ordered list of scene paths ("" = legacy mode)
 
-    RunPerfLogState m_perfLogState;             // Perf/test logging paths, files, and flush policy
-    RunRuntimeSettings m_runtimeSettings;       // Scene/app runtime toggles (vsync, sync, roll-align)
-    RunTimerState m_timers;                     // Frame/simulation timers and rolling timing values
-    RunSubsystemState m_systems;                // Window, camera, texture, terrain, and reflection handles
-    RunCameraState m_camera;                    // Camera/input state and ball-tracking settings
-    RunSceneState m_scene;                      // Scene-mode execution state
-    RunScreenshotState m_screenshot;            // Screenshot trigger and capture state
-    RunDebugState m_debug;                      // Runtime debug/overlay toggles
-    RunFireState m_fire;                        // Projectile recycling state (CTRL = ball, ALT = box)
-    WorldEnvironment m_cWorldEnvironment;       // SkullbonezCore::Environment::WorldEnvironment class
-    GameModelCollection m_cGameModelCollection; // SkullbonezCore::GameObjects::GameModelCollection class
+    RunPerfLogState m_perfLogState;              // Perf/test logging paths, files, and flush policy
+    RunRuntimeSettings m_runtimeSettings;        // Scene/app runtime toggles (vsync, sync, roll-align)
+    RunTimerState m_timers;                      // Frame/simulation timers and rolling timing values
+    RunSubsystemState m_systems;                 // Window, camera, texture, terrain, and reflection handles
+    RunCameraState m_camera;                     // Camera/input state and ball-tracking settings
+    RunSceneState m_scene;                       // Scene-mode execution state
+    RunScreenshotState m_screenshot;             // Screenshot trigger and capture state
+    RunDebugState m_debug;                       // Runtime debug/overlay toggles
+    RunFireState m_fire;                         // Projectile recycling state (CTRL = ball, ALT = box)
+    BroadphaseVisualizer m_broadphaseVisualizer; // Spatial grid debug overlay (G key toggle)
+    WorldEnvironment m_cWorldEnvironment;        // SkullbonezCore::Environment::WorldEnvironment class
+    GameModelCollection m_cGameModelCollection;  // SkullbonezCore::GameObjects::GameModelCollection class
 
     inline static int sPerfPass = 0;
 

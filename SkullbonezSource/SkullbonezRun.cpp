@@ -546,6 +546,18 @@ void SkullbonezRun::Run()
             TickRendererSwitch( static_cast<float>( secondsPerFrame ) );
             TickPhysics( secondsPerFrame );
 
+            // Update broadphase visualizer state (runs even when overlay is hidden so fades are correct)
+            {
+                m_broadphaseVisualizer.SetEnabled( m_debug.isBroadphaseOverlay );
+                m_broadphaseVisualizer.SetCellSize( m_cGameModelCollection.GetSpatialGrid().GetCellSize() );
+                const SpatialGrid& grid = m_cGameModelCollection.GetSpatialGrid();
+                SpatialGrid::ActiveCell activeCellBuf[SpatialGrid::MAX_BUCKETS];
+                int activeCellCount = grid.GetActiveCellCount();
+                grid.GetActiveCells( activeCellBuf, SpatialGrid::MAX_BUCKETS );
+                const std::vector<int64_t>& collisionKeys = m_cGameModelCollection.GetCollisionCellKeys();
+                m_broadphaseVisualizer.Update( static_cast<float>( secondsPerFrame ), activeCellBuf, activeCellCount, collisionKeys.data(), static_cast<int>( collisionKeys.size() ) );
+            }
+
             PROFILE_BEGIN( "Frame/PipelineSync" );
             if ( m_runtimeSettings.isPipelineSyncEnabled )
             {
@@ -994,17 +1006,21 @@ void SkullbonezRun::TakeInput()
         m_camera.input.fRKeyWasDown = isRNow;
     }
 
-    // G key: cycle tracked ball index in scene mode (when ball tracking is active).
+    // G key: toggle broadphase overlay, or cycle tracked ball if overlay is off.
     bool isGNow = Input::IsKeyDown( 'G' );
     if ( isGNow && !m_camera.input.fGKeyWasDown )
     {
-        if ( m_scene.isSceneMode && m_camera.trackBallIndex >= 0 )
+        if ( m_scene.isSceneMode && m_camera.trackBallIndex >= 0 && !m_debug.isBroadphaseOverlay )
         {
             int count = m_cGameModelCollection.GetModelCount();
             if ( count > 0 )
             {
                 m_camera.trackBallIndex = ( m_camera.trackBallIndex + 1 ) % count;
             }
+        }
+        else
+        {
+            m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
         }
     }
     m_camera.input.fGKeyWasDown = isGNow;
@@ -1377,6 +1393,13 @@ void SkullbonezRun::DrawPrimitives()
         SkullbonezHelper::DrawDebugVectors( viewProj, upAlignedLines, 0.0f, 0.0f, 1.0f );
         SkullbonezHelper::DrawDebugVectors( viewProj, upErrorLines, 1.0f, 1.0f, 1.0f );
     }
+
+    // Broadphase spatial grid overlay (G key toggle)
+    if ( m_debug.isBroadphaseOverlay )
+    {
+        Matrix4 viewProj = proj * baseView;
+        m_broadphaseVisualizer.Render( viewProj );
+    }
 }
 
 
@@ -1560,7 +1583,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "4", "Toggle terrain" },
             { "5", "Toggle water" },
             { "9", "Debug vectors" },
-            { "G", "Cycle tracked ball" },
+            { "G", "Broadphase overlay" },
             { "F2", "Scene snapshot" },
             { "F3", "Screenshot" },
         };

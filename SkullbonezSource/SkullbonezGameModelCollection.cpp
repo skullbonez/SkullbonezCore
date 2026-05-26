@@ -297,6 +297,7 @@ void GameModelCollection::RunLegacyPhysics( float dt )
     // Broadphase: build spatial grid from sphere positions only
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );
     m_spatialGrid.Clear();
+    m_collisionCellKeys.clear();
     for ( int i = 0; i < modelCount; ++i )
     {
         if ( m_gameModels[i].IsBox() )
@@ -311,6 +312,7 @@ void GameModelCollection::RunLegacyPhysics( float dt )
 
     // Narrowphase: legacy sphere-sphere collision response
     PROFILE_BEGIN( "Frame/Physics/Narrowphase" );
+    float invCellSize = 1.0f / m_spatialGrid.GetCellSize();
     for ( const auto& cp : candidatePairs )
     {
         int x = cp.first;
@@ -335,6 +337,14 @@ void GameModelCollection::RunLegacyPhysics( float dt )
             CollisionResponse::RespondCollisionGameModels( m_gameModels[x], m_gameModels[y] );
             m_gameModels[x].ClearResponseRequired();
             m_gameModels[y].ClearResponseRequired();
+
+            // Record collision cell for broadphase visualizer
+            Vector3 midpoint = ( m_gameModels[x].GetPosition() + m_gameModels[y].GetPosition() ) * 0.5f;
+            int16_t cx = (int16_t)floorf( midpoint.x * invCellSize );
+            int16_t cy = (int16_t)floorf( midpoint.y * invCellSize );
+            int16_t cz = (int16_t)floorf( midpoint.z * invCellSize );
+            int64_t key = ( int64_t( cx ) * 73856093 ) ^ ( int64_t( cy ) * 19349663 ) ^ ( int64_t( cz ) * 83492791 );
+            m_collisionCellKeys.push_back( key );
         }
         else
         {
@@ -406,6 +416,7 @@ void GameModelCollection::RunSolverPhysics( float dt )
     // Broadphase: build spatial grid from all object positions
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );
     m_spatialGrid.Clear();
+    m_collisionCellKeys.clear();
     for ( int i = 0; i < modelCount; ++i )
     {
         m_spatialGrid.Insert( i, m_gameModels[i].GetPosition(), m_gameModels[i].GetBoundingRadius() );
@@ -416,6 +427,7 @@ void GameModelCollection::RunSolverPhysics( float dt )
 
     // Narrowphase: impulse solver collision response for all pairs
     PROFILE_BEGIN( "Frame/Physics/Narrowphase" );
+    float invCellSize = 1.0f / m_spatialGrid.GetCellSize();
     for ( const auto& cp : candidatePairs )
     {
         int x = cp.first;
@@ -438,6 +450,14 @@ void GameModelCollection::RunSolverPhysics( float dt )
 
             // Impulse solver response (velocity-only; clears response flags on both models)
             m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
+
+            // Record collision cell for broadphase visualizer
+            Vector3 midpoint = ( m_gameModels[x].GetPosition() + m_gameModels[y].GetPosition() ) * 0.5f;
+            int16_t cx = (int16_t)floorf( midpoint.x * invCellSize );
+            int16_t cy = (int16_t)floorf( midpoint.y * invCellSize );
+            int16_t cz = (int16_t)floorf( midpoint.z * invCellSize );
+            int64_t key = ( int64_t( cx ) * 73856093 ) ^ ( int64_t( cy ) * 19349663 ) ^ ( int64_t( cz ) * 83492791 );
+            m_collisionCellKeys.push_back( key );
         }
         else
         {

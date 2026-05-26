@@ -46,6 +46,7 @@ class GameModelCollection
     int m_shadowDiscVertexCount = 0;                   // Disc triangle vertex count
     std::vector<float> m_shadowInstanceData;           // Retained-capacity staging buffer (mat4 + alpha per instance)
     bool m_useLegacyPhysics = false;                   // True when legacy sphere-only solver is active
+    std::vector<int64_t> m_collisionCellKeys;          // Cells where narrowphase collisions occurred this frame
 
 #ifdef _DEBUG
     char m_physicsLogPath[256] = {}; // Output path for physics state CSV (empty = disabled)
@@ -72,6 +73,16 @@ class GameModelCollection
     Vector3 GetModelPosition( int index );                                                                                                                                                 // Returns the position of the specified game model
     int GetModelCount() const;                                                                                                                                                             // Returns the number of game models
     GameModel& GetModelAtIndex( int index );                                                                                                                                               // Returns a reference to the game model at the given index
+
+    // Broadphase visualizer data accessors
+    const SpatialGrid& GetSpatialGrid() const
+    {
+        return m_spatialGrid;
+    }
+    const std::vector<int64_t>& GetCollisionCellKeys() const
+    {
+        return m_collisionCellKeys;
+    }
 
 #ifdef _DEBUG
     void SetPhysicsLogPath( const char* path ); // Enable per-frame physics state CSV; empty string disables

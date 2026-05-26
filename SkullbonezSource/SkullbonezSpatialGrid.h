@@ -50,6 +50,7 @@ class SpatialGrid
         uint32_t generation;
         int head; // index into entries[], -1 = empty
         int count;
+        int16_t ix, iy, iz; // Cell grid coordinates (stored for visualization)
     };
 
     float cellSize;
@@ -64,13 +65,30 @@ class SpatialGrid
     Entry entries[MAX_CELL_ENTRIES];
     uint64_t pairSeen[PAIR_WORDS];
 
-    int FindOrCreate( int64_t key );
+    int FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz );
 
   public:
+    static constexpr int MAX_BUCKETS = TABLE_SIZE;
+
+    struct ActiveCell
+    {
+        int16_t ix, iy, iz;
+        int objectCount;
+    };
+
     SpatialGrid( float fCellSize );
     void Clear();
     void Insert( int index, const Vector3& position, float radius );
     void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs );
+    float GetCellSize() const
+    {
+        return cellSize;
+    }
+    int GetActiveCellCount() const
+    {
+        return activeBucketCount;
+    }
+    void GetActiveCells( ActiveCell* outCells, int maxCells ) const;
 };
 } // namespace CollisionDetection
 } // namespace Math

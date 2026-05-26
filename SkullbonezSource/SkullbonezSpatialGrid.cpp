@@ -86,7 +86,7 @@ void SpatialGrid::Clear()
 // Uses LINEAR PROBING: if the target slot is occupied by a different key,
 // try the next slot, then the next, etc.
 // Returns the bucket index for this key.
-int SpatialGrid::FindOrCreate( int64_t key )
+int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
 {
     int idx = static_cast<int>( static_cast<uint64_t>( key ) & TABLE_MASK );
 
@@ -100,6 +100,9 @@ int SpatialGrid::FindOrCreate( int64_t key )
             b.generation = generation;
             b.head = -1;
             b.count = 0;
+            b.ix = cx;
+            b.iy = cy;
+            b.iz = cz;
             assert( activeBucketCount < TABLE_SIZE && "activeBuckets overflow" );
             if ( activeBucketCount < TABLE_SIZE )
             {
@@ -153,7 +156,7 @@ void SpatialGrid::Insert( int index, const Vector3& position, float radius )
             for ( int iz = minZ; iz <= maxZ; ++iz )
             {
                 int64_t key = ( int64_t( ix ) * 73856093 ) ^ ( int64_t( iy ) * 19349663 ) ^ ( int64_t( iz ) * 83492791 );
-                int bi = FindOrCreate( key );
+                int bi = FindOrCreate( key, (int16_t)ix, (int16_t)iy, (int16_t)iz );
                 assert( bi >= 0 && bi < TABLE_SIZE && "Insert: bucket index OOB" );
                 Bucket& b = buckets[bi];
 
@@ -258,5 +261,22 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
                 }
             }
         }
+    }
+}
+
+
+// Copies active cell info into the caller-provided array.
+// Each entry contains the grid coordinate (ix, iy, iz) and object count.
+void SpatialGrid::GetActiveCells( ActiveCell* outCells, int maxCells ) const
+{
+    int count = ( activeBucketCount < maxCells ) ? activeBucketCount : maxCells;
+    for ( int i = 0; i < count; ++i )
+    {
+        int bi = activeBuckets[i];
+        const Bucket& b = buckets[bi];
+        outCells[i].ix = b.ix;
+        outCells[i].iy = b.iy;
+        outCells[i].iz = b.iz;
+        outCells[i].objectCount = b.count;
     }
 }
