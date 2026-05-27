@@ -22,6 +22,10 @@ a minimum separation velocity (typically 1–2 × the Baumgarte bias speed) so
 that low-energy contacts go straight to the resting / positional-correction
 path rather than bouncing. The same issue affects box-on-terrain resting.
 
+## TODO: InputState should be a bit field
+
+`InputState` in `SkullbonezInput.h` stores each key-down and edge-detected flag as a separate `bool` member. As more keys are added the struct grows linearly. Replace the individual bools with a packed bit field (or a pair of `uint32_t` bitmasks — one for current state, one for edge-detected rises) so adding new bindings costs no extra per-frame memory and the whole state fits in a cache line.
+
 ## DX12: Resource deleted before command list close (TDR at end of suite)
 
 During a full test suite run (render_tests.suite), the DX12 backend consistently produces 5 InfoQueue errors near the end of the run: two ID3D12Resource objects are deleted before the command list is closed, which triggers a GPU TDR (device hung). This happens during teardown/cleanup, not during rendering. All screenshots and perf artifacts are produced correctly before the crash. **Pre-existing as of commit 8b4967c — not introduced by any recent changes.**
