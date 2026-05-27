@@ -650,7 +650,7 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
             }
             PROFILE_END( "Frame/Physics" );
         }
-        UpdateLogic( PHYSICS_FIXED_DT * static_cast<float>( ticksThisFrame ) );
+        UpdateLogic( PHYSICS_FIXED_DT );
     }
     else
     {
