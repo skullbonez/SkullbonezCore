@@ -56,7 +56,7 @@ Profiler& Profiler::Instance()
 
 Profiler::Profiler()
     : m_markerCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
-      m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false )
+      m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ), m_nextColorIndex( 0 )
 {
     LARGE_INTEGER f;
     if ( QueryPerformanceFrequency( &f ) )
@@ -117,6 +117,8 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
     m.leafName = FindLeafName( fullPath );
     m.hash = hash;
     m.depth = CountSlashes( fullPath );
+    m.colorIndex = m_nextColorIndex;
+    m_nextColorIndex = ( m_nextColorIndex + 1 ) % BAR_PALETTE_SIZE;
     m.openCount = 0;
     m.openStartTicks = 0;
     m.accumSecondsThisFrame = 0.0;
@@ -945,6 +947,257 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
             }
         }
     }
+}
+
+
+/* -- RenderBarOverlay -------------------------------------------------------------------------------------------------------------------------------------------
+
+    Renders a visual profiler panel with horizontal stacked bars:
+      - One bar for CPU timing (all leaf markers that have CPU timing)
+      - One bar for GPU timing (only leaf markers that have GPU timing)
+
+    Each bar is subdivided into coloured segments proportional to the leaf marker's avgMs.
+    A colour legend is rendered below the bars.
+
+    absolute=false: "Normalized" — segments fill the entire bar width (relative proportions).
+    absolute=true:  "Absolute"  — bar width = full frame time; white segment = idle/vsync remainder.
+
+    The panel is designed with vertical headroom for future multi-core stacking (CPU bar per thread).
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, float panelHeight, bool absolute ) const
+{
+    using SkullbonezCore::Text::Text2d;
+
+    // Identify leaf markers: a marker is a leaf if no other marker has it as parentIndex.
+    // Also skip "Frame" (top-level container) from appearing as a bar segment.
+    bool isLeaf[MAX_MARKERS] = {};
+    for ( int i = 0; i < m_markerCount; ++i )
+    {
+        isLeaf[i] = true;
+    }
+    for ( int i = 0; i < m_markerCount; ++i )
+    {
+        if ( m_markers[i].parentIndex >= 0 )
+        {
+            isLeaf[m_markers[i].parentIndex] = false;
+        }
+    }
+
+    // Exclude VsyncWait and PipelineSync from CPU segments (they become idle in absolute mode)
+    static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
+    static constexpr uint32_t kVsyncHash = ::HashStr( "Frame/VsyncWait" );
+    static constexpr uint32_t kPipelineSyncHash = ::HashStr( "Frame/PipelineSync" );
+
+    // Gather leaf indices for CPU and GPU bars
+    int cpuLeaves[MAX_MARKERS];
+    int cpuLeafCount = 0;
+    int gpuLeaves[MAX_MARKERS];
+    int gpuLeafCount = 0;
+    float cpuTotalMs = 0.0f;
+    float gpuTotalMs = 0.0f;
+
+    for ( int i = 0; i < m_markerCount; ++i )
+    {
+        if ( !isLeaf[i] )
+            continue;
+        if ( m_markers[i].hash == kFrameHash )
+            continue;
+
+        bool isIdle = ( m_markers[i].hash == kVsyncHash || m_markers[i].hash == kPipelineSyncHash );
+        if ( !isIdle )
+        {
+            cpuLeaves[cpuLeafCount++] = i;
+            cpuTotalMs += m_markers[i].avgMs;
+        }
+        if ( m_markers[i].hasGpu && m_markers[i].gpuRingFilled > 0 && !isIdle )
+        {
+            gpuLeaves[gpuLeafCount++] = i;
+            gpuTotalMs += m_markers[i].gpuAvgMs;
+        }
+    }
+
+    // In absolute mode, the bar width represents the full frame time.
+    // The idle portion is drawn as white at the end.
+    float frameMs = 0.0f;
+    for ( int i = 0; i < m_markerCount; ++i )
+    {
+        if ( m_markers[i].hash == kFrameHash )
+        {
+            frameMs = m_markers[i].avgMs;
+            break;
+        }
+    }
+    if ( frameMs < 0.001f )
+        frameMs = 16.67f; // fallback: assume 60 Hz
+
+    // Layout constants
+    const float pad = panelHeight * 0.06f;
+    const float barHeight = panelHeight * 0.18f;    // each bar slightly smaller to make room
+    const float barGap = panelHeight * 0.09f;       // larger gap between bars
+    const float legendHeight = panelHeight * 0.20f; // legend row (increased for wrapping)
+    const float titleH = panelHeight * 0.12f;       // title line (bigger)
+    const float barX0 = xLeft + pad;
+    const float barX1 = xLeft + panelWidth - pad;
+    const float fSz = barHeight * 0.45f; // text size proportional to bar
+
+    // Background quad
+    Text2d::BatchQuad( xLeft, yBottom, xLeft + panelWidth, yBottom + panelHeight, 0.06f, 0.06f, 0.10f, 0.90f );
+
+    // Title
+    float ty = yBottom + panelHeight - pad - titleH;
+    const char* title = absolute ? "PROFILER BARS (ABSOLUTE)" : "PROFILER BARS (NORMALIZED)";
+    Text2d::Render2dTextColor( barX0, ty + titleH * 0.35f, fSz * 1.05f, 1.0f, 0.85f, 0.35f, "%s", title );
+
+    // Totals (right-aligned on title row)
+    char totalsBuf[128] = {0};
+    if ( absolute )
+    {
+        // In absolute mode show CPU sum, GPU sum, and overall frame time
+        sprintf_s( totalsBuf, sizeof(totalsBuf), "CPU: %.2f ms  GPU: %.2f ms  Frame: %.2f ms", cpuTotalMs, gpuTotalMs, frameMs );
+    }
+    else
+    {
+        sprintf_s( totalsBuf, sizeof(totalsBuf), "CPU: %.2f ms  GPU: %.2f ms", cpuTotalMs, gpuTotalMs );
+    }
+    float totalsW = Text2d::MeasureText( fSz * 0.9f, totalsBuf );
+    Text2d::Render2dTextColor( barX1 - totalsW, ty + titleH * 0.35f, fSz * 0.9f, 0.85f, 0.85f, 0.85f, "%s", totalsBuf );
+
+    // --- CPU bar ---
+    float cpuBarY = ty - barGap - barHeight * 0.4f; // nudge down so title doesn't overlap
+    Text2d::Render2dTextColor( barX0, cpuBarY + barHeight * 0.3f, fSz, 0.85f, 0.85f, 0.85f, "CPU" );
+    float cpuLabelW = Text2d::MeasureText( fSz, "CPU " ) + pad * 0.5f;
+    float cpuBarX0 = barX0 + cpuLabelW;
+    float cpuBarWidth = barX1 - cpuBarX0;
+
+    // Draw background (dark grey = empty / absolute idle)
+    Text2d::BatchQuad( cpuBarX0, cpuBarY, barX1, cpuBarY + barHeight, 0.15f, 0.15f, 0.15f, 1.0f );
+
+    // Compute scale factor
+    float cpuScale = 1.0f;
+    if ( absolute )
+    {
+        cpuScale = ( frameMs > 0.001f ) ? ( cpuBarWidth / frameMs ) : 0.0f;
+    }
+    else
+    {
+        cpuScale = ( cpuTotalMs > 0.001f ) ? ( cpuBarWidth / cpuTotalMs ) : 0.0f;
+    }
+
+    // Draw segments
+    float cx = cpuBarX0;
+    for ( int i = 0; i < cpuLeafCount; ++i )
+    {
+        const Marker& m = m_markers[cpuLeaves[i]];
+        float segW = m.avgMs * cpuScale;
+        if ( segW < 0.0001f )
+            continue;
+        if ( cx + segW > barX1 )
+            segW = barX1 - cx; // clamp to bar
+        const BarColor& c = BAR_PALETTE[m.colorIndex % BAR_PALETTE_SIZE];
+        Text2d::BatchQuad( cx, cpuBarY, cx + segW, cpuBarY + barHeight, c.r, c.g, c.b, 1.0f );
+        cx += segW;
+    }
+
+    // Absolute mode: remaining space = white (idle)
+    if ( absolute && cx < barX1 )
+    {
+        Text2d::BatchQuad( cx, cpuBarY, barX1, cpuBarY + barHeight, 0.85f, 0.85f, 0.85f, 0.7f );
+    }
+
+    // --- GPU bar ---
+    float gpuBarY = cpuBarY - barGap - barHeight;
+    if ( gpuLeafCount > 0 )
+    {
+        Text2d::Render2dTextColor( barX0, gpuBarY + barHeight * 0.3f, fSz, 0.4f, 0.8f, 1.0f, "GPU" );
+        float gpuLabelW = cpuLabelW; // align with CPU bar
+        float gpuBarX0 = barX0 + gpuLabelW;
+
+        Text2d::BatchQuad( gpuBarX0, gpuBarY, barX1, gpuBarY + barHeight, 0.15f, 0.15f, 0.15f, 1.0f );
+
+        float gpuScale = 1.0f;
+        if ( absolute )
+        {
+            gpuScale = ( frameMs > 0.001f ) ? ( ( barX1 - gpuBarX0 ) / frameMs ) : 0.0f;
+        }
+        else
+        {
+            gpuScale = ( gpuTotalMs > 0.001f ) ? ( ( barX1 - gpuBarX0 ) / gpuTotalMs ) : 0.0f;
+        }
+
+        float gx = gpuBarX0;
+        for ( int i = 0; i < gpuLeafCount; ++i )
+        {
+            const Marker& m = m_markers[gpuLeaves[i]];
+            float segW = m.gpuAvgMs * gpuScale;
+            if ( segW < 0.0001f )
+                continue;
+            if ( gx + segW > barX1 )
+                segW = barX1 - gx;
+            const BarColor& c = BAR_PALETTE[m.colorIndex % BAR_PALETTE_SIZE];
+            Text2d::BatchQuad( gx, gpuBarY, gx + segW, gpuBarY + barHeight, c.r, c.g, c.b, 1.0f );
+            gx += segW;
+        }
+
+        if ( absolute && gx < barX1 )
+        {
+            Text2d::BatchQuad( gx, gpuBarY, barX1, gpuBarY + barHeight, 0.85f, 0.85f, 0.85f, 0.7f );
+        }
+    }
+
+    // --- Colour legend (below bars) ---
+    // Place legend a little further down to avoid overlapping the bars and title.
+    float legendY = ( gpuLeafCount > 0 ) ? ( gpuBarY - barGap - legendHeight * 0.5f ) : ( cpuBarY - barGap - legendHeight * 0.5f );
+    float legendFSz = fSz * 0.85f;
+    float swatchW = legendFSz * 1.5f; // colour swatch width
+    float swatchH = legendFSz;
+    float legendX = barX0 + cpuLabelW;
+    float legendSpacing = pad * 0.4f;
+
+    // Collect unique leaf markers for legend (union of CPU + GPU leaves, no duplicates)
+    int legendIndices[MAX_MARKERS];
+    int legendCount = 0;
+    bool inLegend[MAX_MARKERS] = {};
+    for ( int i = 0; i < cpuLeafCount; ++i )
+    {
+        inLegend[cpuLeaves[i]] = true;
+        legendIndices[legendCount++] = cpuLeaves[i];
+    }
+    for ( int i = 0; i < gpuLeafCount; ++i )
+    {
+        if ( !inLegend[gpuLeaves[i]] )
+        {
+            inLegend[gpuLeaves[i]] = true;
+            legendIndices[legendCount++] = gpuLeaves[i];
+        }
+    }
+
+    // Render legend entries — wrap to next row if they overflow the bar width
+    float lx = legendX;
+    float ly = legendY;
+    for ( int i = 0; i < legendCount; ++i )
+    {
+        const Marker& m = m_markers[legendIndices[i]];
+        const BarColor& c = BAR_PALETTE[m.colorIndex % BAR_PALETTE_SIZE];
+        float labelW = Text2d::MeasureText( legendFSz, m.leafName );
+        float entryW = swatchW + legendSpacing + labelW + pad;
+
+        // Wrap if this entry would overflow
+        if ( lx + entryW > barX1 && lx > legendX + 0.001f )
+        {
+            lx = legendX;
+            ly -= legendHeight;
+        }
+
+        // Swatch
+        Text2d::BatchQuad( lx, ly, lx + swatchW, ly + swatchH, c.r, c.g, c.b, 1.0f );
+        // Label
+        Text2d::Render2dTextColor( lx + swatchW + legendSpacing, ly, legendFSz, 0.85f, 0.85f, 0.85f, "%s", m.leafName );
+        lx += entryW;
+    }
+
+    // Flush all batched quads in one draw call before the text labels are flushed by the caller.
+    // This gives the full bar overlay exactly 2 draw calls: one for all quads, one for all text.
+    Text2d::FlushQuads();
 }
 
 

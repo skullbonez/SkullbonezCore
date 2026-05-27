@@ -309,10 +309,13 @@
     <None Include="SkullbonezData\shaders\water_ocean.hlsl" />
     <None Include="SkullbonezData\shaders\water_ocean.vert" />
     <None Include="SkullbonezData\shaders\reflect.rt.hlsl" />
+    <None Include="SkullbonezData\shaders\solid_color_batch.vert" />
+    <None Include="SkullbonezData\shaders\solid_color_batch.frag" />
+    <None Include="SkullbonezData\shaders\solid_color_batch.hlsl" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="SkullbonezData\shaders\grid_line.hlsl" />
-    <FxCompile Include="SkullbonezData\shaders\lit_textured_instanced.hlsl" />
+    <None Include="SkullbonezData\shaders\grid_line.hlsl" />
+    <None Include="SkullbonezData\shaders\lit_textured_instanced.hlsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

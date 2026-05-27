@@ -31,6 +31,17 @@ static constexpr int TEXT_BATCH_VERTS_PER_CHAR = 6;
 static float s_batchBuf[TEXT_BATCH_MAX_CHARS * TEXT_BATCH_VERTS_PER_CHAR * TEXT_BATCH_FLOATS_PER_VERT];
 static int s_batchVerts = 0;
 
+// --- Quad batch accumulation buffers ---
+// Layout per vertex: [x, y, r, g, b, a] (6 floats)
+// BatchQuad() accumulates quads here; FlushQuads() uploads and draws them all in
+// one draw call — so an entire profiler bar overlay (background + N segments +
+// legend swatches) costs exactly one draw call for all quads.
+static constexpr int QUAD_BATCH_MAX_QUADS = 512;       // up to 512 quads per flush
+static constexpr int QUAD_BATCH_FLOATS_PER_VERT = 6;   // x, y, r, g, b, a
+static constexpr int QUAD_BATCH_VERTS_PER_QUAD = 6;    // 2 triangles
+static float s_quadBatchBuf[QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD * QUAD_BATCH_FLOATS_PER_VERT];
+static int s_quadBatchVerts = 0;
+
 // Ortho projection matrix cached once at BuildFont time — screen dimensions never
 // change after init, so there is no need to recompute this every frame.
 static Matrix4 s_orthoProj;
@@ -472,13 +483,21 @@ void Text2d::BuildFont( const char* cFontName )
     int quadAttribs[] = { 2, 2 };
     Text2d::dynamicVB = Gfx().CreateDynamicVB( quadAttribs, 2, 6 );
 
+    // Create the quad batch VB: [x, y, r, g, b, a] per vertex, sized for QUAD_BATCH_MAX_QUADS.
+    // All BatchQuad() calls accumulate here; FlushQuads() does one upload+draw per flush.
+    int quadBatchAttribs[] = { 2, 4 };
+    Text2d::quadBatchVB = Gfx().CreateDynamicVB( quadBatchAttribs, 2, QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD );
+
     // Compile the text shader and bind the atlas sampler slot once.
     Text2d::pTextShader = Gfx().CreateShader( "shaders/text" );
     Text2d::pTextShader->Use();
     Text2d::pTextShader->SetInt( "uFontTexture", 0 );
 
-    // Compile the solid-colour HUD quad shader (used by Render2dQuad)
+    // Compile the solid-colour HUD quad shader (used by Render2dQuad — immediate, one draw per call)
     Text2d::pSolidShader = Gfx().CreateShader( "shaders/solid_color" );
+
+    // Compile the batched per-vertex-RGBA quad shader (used by FlushQuads — one draw for all quads)
+    Text2d::pSolidBatchShader = Gfx().CreateShader( "shaders/solid_color_batch" );
 
     // Build the initial orthographic projection from the config dimensions.
     // RebuildProjection() must be called whenever the window is resized so the
@@ -544,9 +563,16 @@ void Text2d::DeleteFont()
         Gfx().DestroyDynamicVB( Text2d::dynamicVB );
         Text2d::dynamicVB = 0;
     }
+    if ( Text2d::quadBatchVB )
+    {
+        Gfx().DestroyDynamicVB( Text2d::quadBatchVB );
+        Text2d::quadBatchVB = 0;
+    }
     Text2d::pTextShader.reset();
     Text2d::pSolidShader.reset();
+    Text2d::pSolidBatchShader.reset();
     s_batchVerts = 0;
+    s_quadBatchVerts = 0;
 }
 
 
@@ -780,4 +806,62 @@ void Text2d::Render2dQuad( float x0, float y0, float x1, float y1, float r, floa
 
     Gfx().SetDepthTest( depthWasEnabled );
     Gfx().SetBlend( blendWasEnabled );
+}
+
+
+void Text2d::BatchQuad( float x0, float y0, float x1, float y1, float r, float g, float b, float a )
+{
+    // Accumulate one quad (two triangles, 6 vertices) into s_quadBatchBuf.
+    // Vertex layout: [x, y, r, g, b, a] — 6 floats per vertex.
+    // FlushQuads() uploads and draws all accumulated quads in one call.
+
+    if ( s_quadBatchVerts + QUAD_BATCH_VERTS_PER_QUAD > QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD )
+    {
+        // Buffer full — flush now and continue accumulating.
+        FlushQuads();
+    }
+
+    float* v = s_quadBatchBuf + s_quadBatchVerts * QUAD_BATCH_FLOATS_PER_VERT;
+
+    // Triangle 1: bottom-left, bottom-right, top-right
+    v[ 0] = x0; v[ 1] = y0; v[ 2] = r; v[ 3] = g; v[ 4] = b; v[ 5] = a;
+    v[ 6] = x1; v[ 7] = y0; v[ 8] = r; v[ 9] = g; v[10] = b; v[11] = a;
+    v[12] = x1; v[13] = y1; v[14] = r; v[15] = g; v[16] = b; v[17] = a;
+    // Triangle 2: bottom-left, top-right, top-left
+    v[18] = x0; v[19] = y0; v[20] = r; v[21] = g; v[22] = b; v[23] = a;
+    v[24] = x1; v[25] = y1; v[26] = r; v[27] = g; v[28] = b; v[29] = a;
+    v[30] = x0; v[31] = y1; v[32] = r; v[33] = g; v[34] = b; v[35] = a;
+
+    s_quadBatchVerts += QUAD_BATCH_VERTS_PER_QUAD;
+}
+
+
+void Text2d::FlushQuads()
+{
+    // Upload all accumulated quad vertices and draw them in a single call.
+    // This is the counterpart to FlushText() — together they give exactly two
+    // draw calls for an entire overlay frame (quads first, then text on top).
+
+    if ( s_quadBatchVerts == 0 || !Text2d::pSolidBatchShader || !Text2d::quadBatchVB )
+    {
+        return;
+    }
+
+    bool depthWasEnabled = Gfx().IsDepthTestEnabled();
+    bool blendWasEnabled = Gfx().IsBlendEnabled();
+
+    Gfx().SetDepthTest( false );
+    Gfx().SetBlend( true );
+    Gfx().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
+
+    Text2d::pSolidBatchShader->Use();
+    Text2d::pSolidBatchShader->SetMat4( "uProjection", s_orthoProj );
+
+    // One GPU upload + one draw call covers every quad batched this frame.
+    Gfx().UploadAndDrawDynamicVB( Text2d::quadBatchVB, s_quadBatchBuf, s_quadBatchVerts );
+
+    Gfx().SetDepthTest( depthWasEnabled );
+    Gfx().SetBlend( blendWasEnabled );
+
+    s_quadBatchVerts = 0;
 }

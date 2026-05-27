@@ -35,6 +35,35 @@ class Profiler
     static constexpr int GPU_QUERY_DEPTH = 4; // pending query ring depth (non-blocking readback)
     static constexpr int WARMUP_FRAMES = 30;  // frames excluded from ring-buffer stats at session/pass start
 
+    // 20-colour palette for visual bar segments. Assigned round-robin to leaf markers.
+    static constexpr int BAR_PALETTE_SIZE = 20;
+    struct BarColor
+    {
+        float r, g, b;
+    };
+    static constexpr BarColor BAR_PALETTE[BAR_PALETTE_SIZE] = {
+        { 0.90f, 0.30f, 0.30f }, // red
+        { 0.30f, 0.75f, 0.93f }, // sky blue
+        { 0.40f, 0.85f, 0.40f }, // green
+        { 0.95f, 0.70f, 0.20f }, // amber
+        { 0.70f, 0.40f, 0.90f }, // purple
+        { 0.20f, 0.90f, 0.80f }, // teal
+        { 0.95f, 0.50f, 0.70f }, // pink
+        { 0.55f, 0.80f, 0.25f }, // lime
+        { 0.30f, 0.50f, 0.95f }, // blue
+        { 0.95f, 0.85f, 0.30f }, // yellow
+        { 0.85f, 0.45f, 0.20f }, // orange
+        { 0.50f, 0.90f, 0.60f }, // mint
+        { 0.80f, 0.30f, 0.70f }, // magenta
+        { 0.60f, 0.70f, 0.85f }, // steel
+        { 0.90f, 0.60f, 0.40f }, // peach
+        { 0.35f, 0.65f, 0.55f }, // sage
+        { 0.75f, 0.55f, 0.85f }, // lavender
+        { 0.65f, 0.85f, 0.75f }, // seafoam
+        { 0.85f, 0.75f, 0.55f }, // tan
+        { 0.45f, 0.45f, 0.80f }, // indigo
+    };
+
     struct Marker
     {
         const char* name;       // full path literal, e.g. "Render/Skybox"
@@ -42,6 +71,7 @@ class Profiler
         uint32_t hash;          // FNV-1a of full path
         int parentIndex;        // -1 if top-level (parent of "Render/Skybox" is "Render")
         int depth;              // count of '/' characters (0 = top)
+        int colorIndex;         // index into BAR_PALETTE (assigned at registration for leaf markers, -1 otherwise)
         int openCount;          // recursion guard (must be 0 at frame end)
         int64_t openStartTicks; // QPC ticks at most recent Begin
         double accumSecondsThisFrame;
@@ -110,6 +140,10 @@ class Profiler
     // When rightAnchored=true, xLeft is treated as the desired right edge of the panel instead.
     void RenderOverlay( float xLeft, float yAnchor, float lineHeight, float fSize, float fps, bool rightAnchored = false ) const;
 
+    // Renders the visual bar overlay — horizontal stacked bars for CPU and GPU timing.
+    // absolute=false: normalized (bar fills panelWidth), absolute=true: white = idle/vsync.
+    void RenderBarOverlay( float xLeft, float yBottom, float panelWidth, float panelHeight, bool absolute ) const;
+
   private:
     Profiler();
     Profiler( const Profiler& ) = delete;
@@ -131,6 +165,7 @@ class Profiler
     bool m_inFrame;
     int m_warmupFrames;  // frames remaining in warmup window; ring-buffer stats not recorded when > 0
     bool m_resetPending; // set by ScheduleReset(); applied at the next FrameBegin()
+    int m_nextColorIndex; // round-robin colour assignment for leaf markers
 };
 
 class ProfilerScope

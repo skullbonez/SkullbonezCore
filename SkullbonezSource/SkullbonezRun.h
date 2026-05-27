@@ -131,14 +131,16 @@ struct RunScreenshotState
 
 enum class OverlayMode
 {
-    None,   // Clean screen — nothing shown
-    Timers, // Renderer name, model count, physics solver, profiler overlay
-    Keys,   // Keyboard reference panel
+    None,           // Clean screen — nothing shown
+    Timers,         // Renderer name, model count, physics solver, profiler overlay
+    BarsNormalized, // Visual profiler bars — segments fill the bar width (relative)
+    BarsAbsolute,   // Visual profiler bars — white = idle/vsync (absolute frame budget)
+    Keys,           // Keyboard reference panel
 };
 
 struct RunDebugState
 {
-    OverlayMode overlayMode = OverlayMode::None; // HUD overlay cycle state (0 key advances: none→timers→keys→none)
+    OverlayMode overlayMode = OverlayMode::None; // HUD overlay cycle state (0 key advances: none→timers→barsNorm→barsAbs→keys→none)
     bool isWaterFreezeDebug = false;             // Freeze ocean animation at current shape (toggle with 1)
     bool isWaterNoReflect = false;               // Disable ocean reflection entirely (2 cycles: FBO→DXR→none)
     bool isWaterRTReflect = false;               // Use DXR ray-traced reflection (2 cycles: FBO→DXR→none; DXR only if supported)
