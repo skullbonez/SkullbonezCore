@@ -18,8 +18,8 @@
 ## Branch & Last Commit
 - Branch: `feature/ball-box-angular-response`
 - Last commit on main: `9a0d059` — Refactor Run() into per-frame tick helpers; add std::clamp, std::algorithm
-- Working branch HEAD: `94f8b8d` — fix: release grid line GPU resources on backend shutdown
-- Uncommitted changes: terrain physics optimization (4 opts) + physics_optimization.md report
+- Working branch HEAD: `9b71786` — fix: wake recycled model on FireProjectile; guard wake-on-impact with time budget
+- Uncommitted changes: none
 
 ---
 
