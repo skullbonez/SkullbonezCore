@@ -1126,6 +1126,17 @@ void SkullbonezRun::TakeInput()
         m_camera.input.fXWasDown = xNow;
     }
 
+    // Backspace: reset (reload) the current scene from scratch. Scene mode only.
+    if ( m_scene.isSceneMode )
+    {
+        bool bsNow = Input::IsKeyDown( VK_BACK );
+        if ( bsNow && !m_camera.input.fBackspaceWasDown )
+        {
+            LoadScene( m_scene.currentSceneIndex );
+        }
+        m_camera.input.fBackspaceWasDown = bsNow;
+    }
+
     if ( m_camera.isFlyMode )
     {
         // Keep cursor hidden every frame ? Windows restores it on WM_SETCURSOR
@@ -1530,7 +1541,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         const float titleSz = 0.013f;
         const float entrySz = 0.011f;
         const float lineH = 0.020f;
-        const int nRows = 10;
+        const int nRows = 11;
         const float panPad = 0.012f;
         const float titleGap = 0.016f; // space between title baseline and first entry
         const float keyW = 0.058f;     // key-name column width
@@ -1574,6 +1585,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "P", "Physics solver" },
             { "R", "Cycle renderer" },
             { "Space", "Step physics" },
+            { "Bksp", "Reset scene" },
         };
         static const KeyEntry kRight[nRows] = {
             { "0", "Cycle overlay" },
@@ -1586,6 +1598,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "G", "Broadphase overlay" },
             { "F2", "Scene snapshot" },
             { "F3", "Screenshot" },
+            { "", "" },
         };
 
         for ( int i = 0; i < nRows; ++i )
