@@ -23,10 +23,12 @@ class Text2d
 
   public:
     inline static uint32_t fontTexture = 0;
-    inline static uint32_t dynamicVB = 0;   // solid-quad VB: [x,y,u,v] — used by Render2dQuad
-    inline static uint32_t textBatchVB = 0; // batch text VB: [x,y,u,v,r,g,b] — flushed once per frame
+    inline static uint32_t dynamicVB = 0;      // solid-quad VB: [x,y,u,v] — used by Render2dQuad (immediate, one draw per call)
+    inline static uint32_t textBatchVB = 0;    // batch text VB: [x,y,u,v,r,g,b] — flushed once per frame
+    inline static uint32_t quadBatchVB = 0;    // batch quad VB: [x,y,r,g,b,a] — flushed once per frame via FlushQuads()
     inline static std::unique_ptr<Rendering::IShader> pTextShader;
     inline static std::unique_ptr<Rendering::IShader> pSolidShader;
+    inline static std::unique_ptr<Rendering::IShader> pSolidBatchShader; // per-vertex RGBA batch shader
     inline static float charAdvance[96] = {};
 
     inline static float s_halfW = 0.0f; // current ortho half-width  (right edge X)
@@ -40,6 +42,8 @@ class Text2d
     static void Render2dTextColor( float xPosition, float yPosition, float fSize, float r, float g, float b, const char* cRawText, ... ); // Accumulates colored text into the batch
     static void FlushText();                                                                                                              // Uploads and draws all accumulated text in one call
     static void Render2dQuad( float x0, float y0, float x1, float y1, float r, float g, float b, float a );                               // Renders a flat-coloured 2D HUD quad (immediate, separate draw)
+    static void BatchQuad( float x0, float y0, float x1, float y1, float r, float g, float b, float a );                                  // Accumulates a coloured quad into the batch
+    static void FlushQuads();                                                                                                              // Uploads and draws all accumulated quads in one call
     static void BuildFont( const char* cFontName );                                                                                       // Loads (or generates) SDF atlas, builds GPU resources
     static bool GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath );                                                    // Generates SDF atlas to binary file (also usable via --gen-atlas)
     static void DeleteFont();                                                                                                             // Releases GPU font resources
