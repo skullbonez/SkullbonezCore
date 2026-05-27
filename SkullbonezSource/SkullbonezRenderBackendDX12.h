@@ -189,6 +189,11 @@ class RenderBackendDX12 : public IRenderBackend
     ShaderDX12* m_activeShader = nullptr;
     UINT m_boundTexSlot[2] = { UINT_MAX, UINT_MAX }; // Currently bound SRV indices for t0/t1
 
+    // Grid line overlay (lazy-init in DrawLinesColored)
+    std::unique_ptr<IShader> m_gridLineShader;
+    ID3D12PipelineState* m_gridLinePSO = nullptr;
+    int m_gridLineVBCapacity = 0;
+
     bool m_renderingToFBO = false;
     bool m_backBufferIsRT = false; // True if back buffer is in RENDER_TARGET state
 
@@ -320,6 +325,8 @@ class RenderBackendDX12 : public IRenderBackend
     uint32_t CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices ) override;
     void UploadAndDrawDynamicVB( uint32_t handle, const float* data, int vertexCount ) override;
     void DestroyDynamicVB( uint32_t handle ) override;
+
+    void DrawLinesColored( const float* data, int vertCount, const float* viewProjMatrix16 ) override;
 
     uint32_t CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int maxInstances, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs, const int* staticAttribSizes = nullptr, int numStaticAttribs = 0 ) override;
     void UploadInstanceData( uint32_t handle, const float* data, int floatCount ) override;

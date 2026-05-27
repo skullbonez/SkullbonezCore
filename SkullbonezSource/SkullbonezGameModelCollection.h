@@ -41,11 +41,14 @@ class GameModelCollection
     std::vector<std::pair<int, int>> m_candidatePairs; // Retained-capacity pair buffer (avoids per-frame alloc)
     std::vector<float> m_timeRemaining;                // Per-model timestep remainder (retained buffer)
     std::vector<uint8_t> m_groundedThisFrame;          // Per-model grounded flag for current frame (0/1)
+    std::vector<uint8_t> m_sleepState;                 // Per-model sleep state: 0=awake, 1=sleeping
+    std::vector<uint8_t> m_sleepCounter;               // Frames object has been below sleep threshold
     std::unique_ptr<IShader> m_shadowShader;           // Shadow decal shader (instanced)
     uint32_t m_shadowInstMesh = 0;                     // Instanced mesh handle (via Gfx())
     int m_shadowDiscVertexCount = 0;                   // Disc triangle vertex count
     std::vector<float> m_shadowInstanceData;           // Retained-capacity staging buffer (mat4 + alpha per instance)
     bool m_useLegacyPhysics = false;                   // True when legacy sphere-only solver is active
+    std::vector<int64_t> m_collisionCellKeys;          // Cells where narrowphase collisions occurred this frame
 
 #ifdef _DEBUG
     char m_physicsLogPath[256] = {}; // Output path for physics state CSV (empty = disabled)
@@ -72,6 +75,18 @@ class GameModelCollection
     Vector3 GetModelPosition( int index );                                                                                                                                                 // Returns the position of the specified game model
     int GetModelCount() const;                                                                                                                                                             // Returns the number of game models
     GameModel& GetModelAtIndex( int index );                                                                                                                                               // Returns a reference to the game model at the given index
+
+    void WakeModel( int index ); // Force a model awake (clears sleep state/counter); call before teleporting/firing a recycled model
+
+    // Broadphase visualizer data accessors
+    const SpatialGrid& GetSpatialGrid() const
+    {
+        return m_spatialGrid;
+    }
+    const std::vector<int64_t>& GetCollisionCellKeys() const
+    {
+        return m_collisionCellKeys;
+    }
 
 #ifdef _DEBUG
     void SetPhysicsLogPath( const char* path ); // Enable per-frame physics state CSV; empty string disables

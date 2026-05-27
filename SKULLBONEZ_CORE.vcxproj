@@ -139,6 +139,7 @@
   <ItemGroup>
     <ClCompile Include="SkullbonezSource\SkullbonezBoundingBox.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezBoundingSphere.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCamera.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCameraCollection.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCollisionResponse.cpp" />
@@ -189,6 +190,7 @@
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingBox.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingSphere.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCamera.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCameraCollection.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCollisionResponse.h" />

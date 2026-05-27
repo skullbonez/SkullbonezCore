@@ -23,6 +23,7 @@ Terrain::Terrain( const char* sFileName,
     m_flatSlopeNormal = Vector3( 0.0f, 1.0f, 0.0f );
     m_flatSlopePlane.m_normal = m_flatSlopeNormal;
     m_flatSlopePlane.m_distance = 0.0f;
+    m_maxTerrainHeight = 0.0f;
 
     m_terrainSizeWorldCoords = ( ( m_mapSize - m_stepSize ) /
                                  m_stepSize ) *
@@ -60,6 +61,13 @@ Terrain::Terrain( float slopeBaseY, float slopeX, float slopeZ )
     }
     m_flatSlopePlane.m_normal = m_flatSlopeNormal;
     m_flatSlopePlane.m_distance = m_flatSlopeNormal.y * m_slopeBaseY;
+
+    // Max height at the 4 corners of the flat slope play area
+    float h00 = slopeBaseY;
+    float h10 = slopeBaseY + slopeX * FLAT_SLOPE_EXTENT;
+    float h01 = slopeBaseY + slopeZ * FLAT_SLOPE_EXTENT;
+    float h11 = slopeBaseY + slopeX * FLAT_SLOPE_EXTENT + slopeZ * FLAT_SLOPE_EXTENT;
+    m_maxTerrainHeight = ( std::max )( ( std::max )( h00, h10 ), ( std::max )( h01, h11 ) );
 
     BuildFlatSlopeMesh();
     InitialiseTerrainShader();
@@ -109,6 +117,17 @@ void Terrain::BuildTerrain()
     m_postData.resize( terrainPostCount );
 
     TranslatePostings();
+
+    // Compute global max terrain height (used for airborne early-out in physics)
+    m_maxTerrainHeight = -FLT_MAX;
+    for ( const auto& post : m_postData )
+    {
+        if ( post.vPosition.y > m_maxTerrainHeight )
+        {
+            m_maxTerrainHeight = post.vPosition.y;
+        }
+    }
+
     BuildCollisionCache();
     GenerateNormals();
 }
@@ -203,6 +222,16 @@ void Terrain::QueryCollisionData( float xPosition,
         throw std::runtime_error( "Specified co-ordinates are out of m_terrain bounds.  (Terrain::QueryCollisionData)" );
     }
 
+    QueryCollisionDataUnchecked( xPosition, zPosition, outHeight, outNormal, outPlane );
+}
+
+
+void Terrain::QueryCollisionDataUnchecked( float xPosition,
+                                           float zPosition,
+                                           float& outHeight,
+                                           Vector3* outNormal,
+                                           Plane* outPlane )
+{
     if ( m_isFlatSlope )
     {
         outHeight = m_slopeBaseY + m_slopeX * xPosition + m_slopeZ * zPosition;
@@ -323,7 +352,7 @@ void Terrain::GetTerrainHeightAndNormalAt( float xPosition, float zPosition, flo
 
 void Terrain::GetTerrainHeightAndPlaneAt( float xPosition, float zPosition, float& outHeight, Plane& outPlane )
 {
-    QueryCollisionData( xPosition, zPosition, outHeight, nullptr, &outPlane );
+    QueryCollisionDataUnchecked( xPosition, zPosition, outHeight, nullptr, &outPlane );
 }
 
 
@@ -331,8 +360,8 @@ bool Terrain::IsInBounds( float xPosition, float zPosition )
 {
     if ( m_isFlatSlope )
     {
-        return ( xPosition >= 0.0f && xPosition < 1000.0f &&
-                 zPosition >= 0.0f && zPosition < 1000.0f );
+        return ( xPosition >= 0.0f && xPosition < FLAT_SLOPE_EXTENT &&
+                 zPosition >= 0.0f && zPosition < FLAT_SLOPE_EXTENT );
     }
 
     /*
@@ -369,8 +398,8 @@ XZBounds Terrain::GetXZBounds()
     {
         bounds.m_xMin = 0.0f;
         bounds.m_zMin = 0.0f;
-        bounds.m_xMax = 1000.0f;
-        bounds.m_zMax = 1000.0f;
+        bounds.m_xMax = FLAT_SLOPE_EXTENT;
+        bounds.m_zMax = FLAT_SLOPE_EXTENT;
         return bounds;
     }
 
@@ -881,7 +910,7 @@ void Terrain::BuildFlatSlopeMesh()
     // Constant normal:       normalize(-m_slopeX, 1.0f, -m_slopeZ)
 
     const int gridN = 40;
-    const float gridMax = 1000.0f;
+    const float gridMax = FLAT_SLOPE_EXTENT;
     const float step = gridMax / static_cast<float>( gridN );
     const float textureWrap = 8.0f;
 

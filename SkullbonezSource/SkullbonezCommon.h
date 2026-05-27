@@ -30,6 +30,7 @@
 #include <cstdio>    // std::sprintf_s, std::sscanf_s, std::FILE
 #include <cstdarg>   // std::va_list, std::va_start, std::va_end
 #include <cmath>     // std::sqrtf, std::sinf, std::cosf, std::fabsf, std::acosf
+#include <cfloat>    // FLT_MAX
 #include <cassert>   // assert()
 #include <stdexcept> // std::runtime_error
 #include <memory>    // std::unique_ptr
@@ -38,6 +39,16 @@
 #ifdef _DEBUG
 #define CRTDBG_MAP_ALLOC // must precede crtdbg.h to redirect malloc → _malloc_dbg
 #include <crtdbg.h>
+#endif
+
+// SSE/SIMD intrinsics — enabled in Release/Profile by default.
+// Override to 0 here to force scalar fallback paths in any configuration.
+#ifndef SKULLBONEZ_INTRINSICS
+#ifndef _DEBUG
+#define SKULLBONEZ_INTRINSICS 1
+#else
+#define SKULLBONEZ_INTRINSICS 0
+#endif
 #endif
 
 // Array-sizing counts (must remain compile-time)

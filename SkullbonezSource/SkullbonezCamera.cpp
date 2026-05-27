@@ -9,6 +9,15 @@ using namespace SkullbonezCore::Math;
 
 
 Camera::Camera()
+    : m_position( 0.0f, 0.0f, 0.0f ),
+      m_view( 0.0f, 0.0f, -1.0f ),
+      m_upVector( 0.0f, 1.0f, 0.0f ),
+      m_movementBuffer( 0.0f, 0.0f, 0.0f ),
+      m_viewMagnitude( 1.0f ),
+      m_isFinishedTranslationRecursed( false ),
+      m_doCalculateViewMagnitude( false ),
+      m_doPreserveViewMagnitude( false ),
+      m_isLockedMode( false )
 {
 }
 

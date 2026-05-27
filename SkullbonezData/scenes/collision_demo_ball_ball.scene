@@ -1,0 +1,23 @@
+# collision_demo_ball_ball.scene
+# Visual demo: two balls collide off-center in mid-air.
+#
+# Offset of 5 units (radius=4, sum=8) gives a glancing blow —
+# large tangential component → friction → visible spin on both balls after impact.
+# Start high enough to stay airborne for the full 7.5s.
+
+physics on
+text off
+frames 900
+fixed_step
+exit_on_complete
+physics_mode solver
+world -9.81 0.0 0.0
+
+# Close-up side-angle camera watching the collision zone
+camera main  380 165 580  500 140 500  0 1 0
+
+# Ball A — approaching from left, aimed slightly high
+ball ball_a  435 147 500  4.0 20.0 15.0 0.7  20 0 0  0 0 0
+
+# Ball B — approaching from right, aimed slightly low (5 unit Y offset = glancing blow)
+ball ball_b  565 142 500  4.0 20.0 15.0 0.7  -20 0 0  0 0 0

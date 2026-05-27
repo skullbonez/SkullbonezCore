@@ -51,6 +51,8 @@ void GameModelCollection::Clear()
     m_gameModels.clear();
     m_timeRemaining.clear();
     m_groundedThisFrame.clear();
+    m_sleepState.clear();
+    m_sleepCounter.clear();
 }
 
 
@@ -229,6 +231,13 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     m_timeRemaining.assign( modelCount, fChangeInTime );
     m_groundedThisFrame.assign( modelCount, 0 );
 
+    // Ensure sleep state vectors are sized (persists across frames)
+    if ( static_cast<int>( m_sleepState.size() ) != modelCount )
+    {
+        m_sleepState.assign( modelCount, 0 );
+        m_sleepCounter.assign( modelCount, 0 );
+    }
+
     // Dispatch to the appropriate physics implementation — the mode is checked exactly once here.
     if ( m_useLegacyPhysics )
     {
@@ -266,6 +275,22 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
 }
 
 
+void GameModelCollection::WakeModel( int index )
+{
+    // Size the sleep vectors if RunPhysics hasn't been called yet.
+    if ( static_cast<int>( m_sleepState.size() ) != static_cast<int>( m_gameModels.size() ) )
+    {
+        m_sleepState.assign( m_gameModels.size(), 0 );
+        m_sleepCounter.assign( m_gameModels.size(), 0 );
+    }
+    if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
+    {
+        m_sleepState[index] = 0;
+        m_sleepCounter[index] = 0;
+    }
+}
+
+
 #ifdef _DEBUG
 void GameModelCollection::SetPhysicsLogPath( const char* path )
 {
@@ -297,6 +322,7 @@ void GameModelCollection::RunLegacyPhysics( float dt )
     // Broadphase: build spatial grid from sphere positions only
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );
     m_spatialGrid.Clear();
+    m_collisionCellKeys.clear();
     for ( int i = 0; i < modelCount; ++i )
     {
         if ( m_gameModels[i].IsBox() )
@@ -311,6 +337,7 @@ void GameModelCollection::RunLegacyPhysics( float dt )
 
     // Narrowphase: legacy sphere-sphere collision response
     PROFILE_BEGIN( "Frame/Physics/Narrowphase" );
+    float invCellSize = 1.0f / m_spatialGrid.GetCellSize();
     for ( const auto& cp : candidatePairs )
     {
         int x = cp.first;
@@ -335,6 +362,14 @@ void GameModelCollection::RunLegacyPhysics( float dt )
             CollisionResponse::RespondCollisionGameModels( m_gameModels[x], m_gameModels[y] );
             m_gameModels[x].ClearResponseRequired();
             m_gameModels[y].ClearResponseRequired();
+
+            // Record collision cell for broadphase visualizer
+            Vector3 midpoint = ( m_gameModels[x].GetPosition() + m_gameModels[y].GetPosition() ) * 0.5f;
+            int16_t cx = (int16_t)floorf( midpoint.x * invCellSize );
+            int16_t cy = (int16_t)floorf( midpoint.y * invCellSize );
+            int16_t cz = (int16_t)floorf( midpoint.z * invCellSize );
+            int64_t key = ( int64_t( cx ) * 73856093 ) ^ ( int64_t( cy ) * 19349663 ) ^ ( int64_t( cz ) * 83492791 );
+            m_collisionCellKeys.push_back( key );
         }
         else
         {
@@ -395,17 +430,29 @@ void GameModelCollection::RunSolverPhysics( float dt )
 {
     const int modelCount = static_cast<int>( m_gameModels.size() );
 
-    // Apply forces to all models
+    // Sleep thresholds: object goes to sleep after SLEEP_FRAMES consecutive frames
+    // with both linear speed² < SLEEP_LINEAR_SQ and angular speed² < SLEEP_ANGULAR_SQ.
+    constexpr float SLEEP_LINEAR_SQ = 0.5f * 0.5f;  // 0.5 units/s
+    constexpr float SLEEP_ANGULAR_SQ = 0.3f * 0.3f; // 0.3 rad/s
+    constexpr uint8_t SLEEP_FRAMES = 30;            // ~0.5s at 60Hz fixed step
+
+    // Apply forces to awake models only
     PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
     for ( int x = 0; x < modelCount; ++x )
     {
+        if ( m_sleepState[x] )
+        {
+            m_timeRemaining[x] = 0.0f;
+            continue;
+        }
         m_gameModels[x].ApplyForces( dt );
     }
     PROFILE_END( "Frame/Physics/ApplyForces" );
 
-    // Broadphase: build spatial grid from all object positions
+    // Broadphase: build spatial grid from all object positions (include sleeping for wake detection)
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );
     m_spatialGrid.Clear();
+    m_collisionCellKeys.clear();
     for ( int i = 0; i < modelCount; ++i )
     {
         m_spatialGrid.Insert( i, m_gameModels[i].GetPosition(), m_gameModels[i].GetBoundingRadius() );
@@ -416,10 +463,62 @@ void GameModelCollection::RunSolverPhysics( float dt )
 
     // Narrowphase: impulse solver collision response for all pairs
     PROFILE_BEGIN( "Frame/Physics/Narrowphase" );
+    float invCellSize = 1.0f / m_spatialGrid.GetCellSize();
     for ( const auto& cp : candidatePairs )
     {
         int x = cp.first;
         int y = cp.second;
+
+        // Wake sleeping objects if an awake object is nearby and overlapping
+        if ( m_sleepState[x] || m_sleepState[y] )
+        {
+            // Only wake if one is awake and moving toward the sleeper
+            if ( m_sleepState[x] && !m_sleepState[y] )
+            {
+                // The awake object (y) must still have time this frame — if it has
+                // already exhausted its budget it has moved to its final position and
+                // cannot validly collide with the sleeper.
+                if ( m_timeRemaining[y] <= 0.0f )
+                {
+                    continue;
+                }
+                // Check actual overlap before waking
+                m_gameModels[y].CollisionDetectGameModel( m_gameModels[x], dt );
+                if ( m_gameModels[y].IsResponseRequired() && m_gameModels[x].IsResponseRequired() )
+                {
+                    m_sleepState[x] = 0;
+                    m_sleepCounter[x] = 0;
+                    m_timeRemaining[x] = dt;
+                    m_gameModels[x].ApplyForces( dt );
+                    // Response flags already set — go straight to response
+                    m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
+                }
+                continue;
+            }
+            else if ( m_sleepState[y] && !m_sleepState[x] )
+            {
+                // Guard: awake object (x) must have time remaining this frame.
+                if ( m_timeRemaining[x] <= 0.0f )
+                {
+                    continue;
+                }
+                m_gameModels[x].CollisionDetectGameModel( m_gameModels[y], dt );
+                if ( m_gameModels[x].IsResponseRequired() && m_gameModels[y].IsResponseRequired() )
+                {
+                    m_sleepState[y] = 0;
+                    m_sleepCounter[y] = 0;
+                    m_timeRemaining[y] = dt;
+                    m_gameModels[y].ApplyForces( dt );
+                    m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
+                }
+                continue;
+            }
+            else
+            {
+                // Both sleeping — skip
+                continue;
+            }
+        }
 
         if ( m_timeRemaining[x] <= 0.0f || m_timeRemaining[y] <= 0.0f )
         {
@@ -438,6 +537,14 @@ void GameModelCollection::RunSolverPhysics( float dt )
 
             // Impulse solver response (velocity-only; clears response flags on both models)
             m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
+
+            // Record collision cell for broadphase visualizer
+            Vector3 midpoint = ( m_gameModels[x].GetPosition() + m_gameModels[y].GetPosition() ) * 0.5f;
+            int16_t cx = (int16_t)floorf( midpoint.x * invCellSize );
+            int16_t cy = (int16_t)floorf( midpoint.y * invCellSize );
+            int16_t cz = (int16_t)floorf( midpoint.z * invCellSize );
+            int64_t key = ( int64_t( cx ) * 73856093 ) ^ ( int64_t( cy ) * 19349663 ) ^ ( int64_t( cz ) * 83492791 );
+            m_collisionCellKeys.push_back( key );
         }
         else
         {
@@ -446,32 +553,64 @@ void GameModelCollection::RunSolverPhysics( float dt )
     }
     PROFILE_END( "Frame/Physics/Narrowphase" );
 
-    // Terrain: impulse solver terrain response for all models
+    // Terrain: impulse solver terrain response for awake models only
     PROFILE_BEGIN( "Frame/Physics/Terrain" );
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( m_timeRemaining[x] > 0.0f )
+        if ( m_sleepState[x] || m_timeRemaining[x] <= 0.0f )
         {
-            float colTime = m_gameModels[x].CollisionDetectTerrain( m_timeRemaining[x] );
+            continue;
+        }
 
-            if ( m_gameModels[x].IsResponseRequired() )
-            {
-                m_gameModels[x].UpdatePosition( colTime );
-                m_gameModels[x].CollisionResponseTerrain( m_timeRemaining[x] - colTime );
-                m_groundedThisFrame[x] = 1;
-                m_timeRemaining[x] = 0.0f;
-            }
+        float colTime = m_gameModels[x].CollisionDetectTerrain( m_timeRemaining[x] );
+
+        if ( m_gameModels[x].IsResponseRequired() )
+        {
+            m_gameModels[x].UpdatePosition( colTime );
+            m_gameModels[x].CollisionResponseTerrain( m_timeRemaining[x] - colTime );
+            m_groundedThisFrame[x] = 1;
+            m_timeRemaining[x] = 0.0f;
         }
     }
     PROFILE_END( "Frame/Physics/Terrain" );
 
-    // Integrate remaining time for all models
+    // Integrate remaining time for awake models
     PROFILE_BEGIN( "Frame/Physics/Integrate" );
     for ( int x = 0; x < modelCount; ++x )
     {
+        if ( m_sleepState[x] )
+        {
+            continue;
+        }
+
         if ( m_timeRemaining[x] > 0.0f )
         {
             m_gameModels[x].UpdatePosition( m_timeRemaining[x] );
+        }
+
+        // Update sleep counter: check if object is below sleep thresholds
+        const Vector3& vel = m_gameModels[x].GetVelocity();
+        const Vector3& omega = m_gameModels[x].GetAngularVelocity();
+        float speedSq = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
+        float omegaSq = omega.x * omega.x + omega.y * omega.y + omega.z * omega.z;
+
+        if ( speedSq < SLEEP_LINEAR_SQ && omegaSq < SLEEP_ANGULAR_SQ && m_groundedThisFrame[x] )
+        {
+            if ( m_sleepCounter[x] < SLEEP_FRAMES )
+            {
+                ++m_sleepCounter[x];
+            }
+            if ( m_sleepCounter[x] >= SLEEP_FRAMES )
+            {
+                m_sleepState[x] = 1;
+                // Zero velocities to prevent drift on wake
+                m_gameModels[x].SetLinearVelocity( Math::Vector::ZERO_VECTOR );
+                m_gameModels[x].SetAngularVelocity( Math::Vector::ZERO_VECTOR );
+            }
+        }
+        else
+        {
+            m_sleepCounter[x] = 0;
         }
     }
     PROFILE_END( "Frame/Physics/Integrate" );

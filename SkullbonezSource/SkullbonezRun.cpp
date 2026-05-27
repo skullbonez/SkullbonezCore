@@ -546,6 +546,18 @@ void SkullbonezRun::Run()
             TickRendererSwitch( static_cast<float>( secondsPerFrame ) );
             TickPhysics( secondsPerFrame );
 
+            // Update broadphase visualizer state (runs even when overlay is hidden so fades are correct)
+            {
+                m_broadphaseVisualizer.SetEnabled( m_debug.isBroadphaseOverlay );
+                m_broadphaseVisualizer.SetCellSize( m_cGameModelCollection.GetSpatialGrid().GetCellSize() );
+                const SpatialGrid& grid = m_cGameModelCollection.GetSpatialGrid();
+                SpatialGrid::ActiveCell activeCellBuf[SpatialGrid::MAX_BUCKETS];
+                int activeCellCount = grid.GetActiveCellCount();
+                grid.GetActiveCells( activeCellBuf, SpatialGrid::MAX_BUCKETS );
+                const std::vector<int64_t>& collisionKeys = m_cGameModelCollection.GetCollisionCellKeys();
+                m_broadphaseVisualizer.Update( static_cast<float>( secondsPerFrame ), activeCellBuf, activeCellCount, collisionKeys.data(), static_cast<int>( collisionKeys.size() ) );
+            }
+
             PROFILE_BEGIN( "Frame/PipelineSync" );
             if ( m_runtimeSettings.isPipelineSyncEnabled )
             {
@@ -625,10 +637,17 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
     {
         // Deterministic lock-step: exactly one physics tick per render frame.
         // Ignores wall-clock time entirely — produces identical results every run.
+        //
+        // time_scale > 1 runs multiple ticks per render frame (integer part) so
+        // scenes can simulate faster than real-time while keeping the fixed dt.
+        const int ticksThisFrame = ( std::max )( 1, static_cast<int>( m_scene.timeScale ) );
         if ( !m_camera.isFlyMode || m_camera.isNudgeMode || Input::IsKeyDown( VK_SPACE ) )
         {
             PROFILE_BEGIN( "Frame/Physics" );
-            m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
+            for ( int tick = 0; tick < ticksThisFrame; ++tick )
+            {
+                m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
+            }
             PROFILE_END( "Frame/Physics" );
         }
         UpdateLogic( PHYSICS_FIXED_DT );
@@ -994,17 +1013,21 @@ void SkullbonezRun::TakeInput()
         m_camera.input.fRKeyWasDown = isRNow;
     }
 
-    // G key: cycle tracked ball index in scene mode (when ball tracking is active).
+    // G key: toggle broadphase overlay, or cycle tracked ball if overlay is off.
     bool isGNow = Input::IsKeyDown( 'G' );
     if ( isGNow && !m_camera.input.fGKeyWasDown )
     {
-        if ( m_scene.isSceneMode && m_camera.trackBallIndex >= 0 )
+        if ( m_scene.isSceneMode && m_camera.trackBallIndex >= 0 && !m_debug.isBroadphaseOverlay )
         {
             int count = m_cGameModelCollection.GetModelCount();
             if ( count > 0 )
             {
                 m_camera.trackBallIndex = ( m_camera.trackBallIndex + 1 ) % count;
             }
+        }
+        else
+        {
+            m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
         }
     }
     m_camera.input.fGKeyWasDown = isGNow;
@@ -1108,6 +1131,17 @@ void SkullbonezRun::TakeInput()
             FireProjectile( true );
         }
         m_camera.input.fXWasDown = xNow;
+    }
+
+    // Backspace: reset (reload) the current scene from scratch. Scene mode only.
+    if ( m_scene.isSceneMode )
+    {
+        bool bsNow = Input::IsKeyDown( VK_BACK );
+        if ( bsNow && !m_camera.input.fBackspaceWasDown )
+        {
+            LoadScene( m_scene.currentSceneIndex );
+        }
+        m_camera.input.fBackspaceWasDown = bsNow;
     }
 
     if ( m_camera.isFlyMode )
@@ -1377,6 +1411,13 @@ void SkullbonezRun::DrawPrimitives()
         SkullbonezHelper::DrawDebugVectors( viewProj, upAlignedLines, 0.0f, 0.0f, 1.0f );
         SkullbonezHelper::DrawDebugVectors( viewProj, upErrorLines, 1.0f, 1.0f, 1.0f );
     }
+
+    // Broadphase spatial grid overlay (G key toggle)
+    if ( m_debug.isBroadphaseOverlay )
+    {
+        Matrix4 viewProj = proj * baseView;
+        m_broadphaseVisualizer.Render( viewProj );
+    }
 }
 
 
@@ -1507,7 +1548,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         const float titleSz = 0.013f;
         const float entrySz = 0.011f;
         const float lineH = 0.020f;
-        const int nRows = 10;
+        const int nRows = 11;
         const float panPad = 0.012f;
         const float titleGap = 0.016f; // space between title baseline and first entry
         const float keyW = 0.058f;     // key-name column width
@@ -1551,6 +1592,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "P", "Physics solver" },
             { "R", "Cycle renderer" },
             { "Space", "Step physics" },
+            { "Bksp", "Reset scene" },
         };
         static const KeyEntry kRight[nRows] = {
             { "0", "Cycle overlay" },
@@ -1560,9 +1602,10 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "4", "Toggle terrain" },
             { "5", "Toggle water" },
             { "9", "Debug vectors" },
-            { "G", "Cycle tracked ball" },
+            { "G", "Broadphase overlay" },
             { "F2", "Scene snapshot" },
             { "F3", "Screenshot" },
+            { "", "" },
         };
 
         for ( int i = 0; i < nRows; ++i )
@@ -1864,6 +1907,10 @@ void SkullbonezRun::FireProjectile( bool isBox )
     float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;
     float fireSpeed = Cfg().keySpeed * speedMult;
 
+    // Wake the recycled model before repositioning it — a settled model's sleep state
+    // must be cleared or RunSolverPhysics will skip gravity/integration and it hangs in air.
+    m_cGameModelCollection.WakeModel( found );
+
     model.SetPosition( spawnPos );
     model.SetLinearVelocity( forward * fireSpeed );
     model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
@@ -1973,6 +2020,11 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
         if ( box.hasInitOrient )
         {
             gameModel.SetInitialOrientation( box.eulerX, box.eulerY, box.eulerZ );
+        }
+
+        if ( box.hasInitVelocity )
+        {
+            gameModel.SetLinearVelocity( Vector3( box.velX, box.velY, box.velZ ) );
         }
 
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );

@@ -7,6 +7,10 @@ using namespace SkullbonezCore::Math::Orientation;
 
 
 Quaternion::Quaternion()
+    : m_x( 0.0f ),
+      m_y( 0.0f ),
+      m_z( 0.0f ),
+      m_w( 1.0f ) // Identity quaternion — no rotation
 {
 }
 

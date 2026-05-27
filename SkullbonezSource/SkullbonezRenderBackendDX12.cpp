@@ -769,6 +769,14 @@ void RenderBackendDX12::Shutdown()
     }
     m_psoCache.clear();
 
+    // Grid line overlay resources
+    if ( m_gridLinePSO )
+    {
+        m_gridLinePSO->Release();
+        m_gridLinePSO = nullptr;
+    }
+    m_gridLineShader.reset();
+
     // Instanced meshes
     for ( auto& im : m_instancedMeshes )
     {
@@ -2359,6 +2367,100 @@ void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle, const float* da
 void RenderBackendDX12::DestroyDynamicVB( uint32_t /*handle*/ )
 {
     // No GPU resources to release — upload buffer is shared
+}
+
+
+// Draws per-vertex colored lines. data is interleaved [x,y,z,r,g,b] per vertex (6 floats each).
+// Uses the shared upload buffer to stream vertex data and draws with LINE_LIST topology.
+// Lazy-creates a LINE_LIST PSO on first call.
+void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, const float* viewProjMatrix16 )
+{
+    if ( vertCount <= 0 )
+    {
+        return;
+    }
+
+    EnsureCommandListOpen();
+
+    // Lazy-init shader and LINE_LIST PSO
+    if ( !m_gridLineShader )
+    {
+        m_gridLineShader = CreateShader( "shaders/grid_line" );
+    }
+    if ( !m_gridLinePSO )
+    {
+        ShaderDX12* shader = static_cast<ShaderDX12*>( m_gridLineShader.get() );
+
+        // Input layout: POSITION (float3) + TEXCOORD0 (float3)
+        D3D12_INPUT_ELEMENT_DESC elements[2] = {};
+        elements[0].SemanticName = "POSITION";
+        elements[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+        elements[0].AlignedByteOffset = 0;
+        elements[1].SemanticName = "TEXCOORD";
+        elements[1].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+        elements[1].AlignedByteOffset = 12;
+
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
+        psoDesc.InputLayout.pInputElementDescs = elements;
+        psoDesc.InputLayout.NumElements = 2;
+        psoDesc.pRootSignature = m_rootSignature;
+        psoDesc.VS.pShaderBytecode = shader->GetVSBytecode();
+        psoDesc.VS.BytecodeLength = shader->GetVSBytecodeSize();
+        psoDesc.PS.pShaderBytecode = shader->GetPSBytecode();
+        psoDesc.PS.BytecodeLength = shader->GetPSBytecodeSize();
+        psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+        psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+        psoDesc.RasterizerState.DepthClipEnable = TRUE;
+        psoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+        psoDesc.DepthStencilState.DepthEnable = FALSE;
+        psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+        psoDesc.SampleMask = UINT_MAX;
+        psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+        psoDesc.NumRenderTargets = 1;
+        psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+        psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+        psoDesc.SampleDesc.Count = 1;
+        m_device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &m_gridLinePSO ) );
+    }
+
+    // Upload vertex data to the shared upload buffer
+    UINT64 dataSize = (UINT64)vertCount * 6 * sizeof( float );
+    FlushUploadBufferIfNeeded( dataSize, 4 );
+    UINT64 vbOffset = m_uploadOffset;
+    memcpy( m_uploadBufferMapped[m_allocatorIndex] + m_uploadOffset, data, (size_t)dataSize );
+    m_uploadOffset += ( dataSize + 255 ) & ~255ULL; // align to 256 bytes
+
+    // Set pipeline state and draw
+    m_commandList->SetPipelineState( m_gridLinePSO );
+    m_commandList->SetGraphicsRootSignature( m_rootSignature );
+    m_commandList->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_LINELIST );
+
+    // Set the viewProj matrix via root constants or CB slot 0
+    ShaderDX12* shader = static_cast<ShaderDX12*>( m_gridLineShader.get() );
+    m_activeShader = shader;
+    m_psoDirty = true; // Force PSO rebind on next normal draw
+
+    Matrix4 vpMat( viewProjMatrix16 );
+    shader->SetMat4( "uViewProj", vpMat );
+    D3D12_GPU_VIRTUAL_ADDRESS cbAddr = shader->FlushCB();
+    if ( cbAddr )
+    {
+        m_commandList->SetGraphicsRootConstantBufferView( 0, cbAddr );
+    }
+
+    // Bind vertex buffer view
+    D3D12_VERTEX_BUFFER_VIEW vbView = {};
+    vbView.BufferLocation = m_uploadBuffers[m_allocatorIndex]->GetGPUVirtualAddress() + vbOffset;
+    vbView.SizeInBytes = (UINT)dataSize;
+    vbView.StrideInBytes = 6 * sizeof( float );
+    m_commandList->IASetVertexBuffers( 0, 1, &vbView );
+
+    // Bind render targets (depth disabled in PSO)
+    m_commandList->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
+    m_commandList->RSSetViewports( 1, &m_viewport );
+    m_commandList->RSSetScissorRects( 1, &m_scissorRect );
+
+    m_commandList->DrawInstanced( (UINT)vertCount, 1, 0, 0 );
 }
 
 

@@ -414,10 +414,7 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         catch ( const std::exception& e )
         {
             fprintf( stderr, "FATAL: %s\n", e.what() );
-            if ( !args.isSuiteOrSceneMode )
-            {
-                window->MsgBox( e.what(), "Alert!", MB_OK );
-            }
+            window->MsgBox( e.what(), "Alert!", MB_OK );
         }
     } // cRun destroyed here — GL context still alive for proper cleanup
 }

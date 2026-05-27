@@ -57,7 +57,9 @@ struct SceneBox
     float mass;
     float restitution;
     float eulerX, eulerY, eulerZ; // Initial orientation in degrees (optional, default 0)
+    float velX, velY, velZ;       // Initial linear velocity (optional, default 0)
     bool hasInitOrient;
+    bool hasInitVelocity;
 };
 
 struct SceneOptions

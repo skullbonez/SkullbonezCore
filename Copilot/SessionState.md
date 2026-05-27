@@ -16,9 +16,10 @@
 > *This applies to: pipeline runs, feature implementations, debugging sessions, refactors, any task expected to take >2 minutes or >10 tool calls.*
 
 ## Branch & Last Commit
-- Branch: `main`
+- Branch: `feature/ball-box-angular-response`
 - Last commit on main: `9a0d059` — Refactor Run() into per-frame tick helpers; add std::clamp, std::algorithm
-- Working branch HEAD: `9a0d059`
+- Working branch HEAD: `9b71786` — fix: wake recycled model on FireProjectile; guard wake-on-impact with time budget
+- Uncommitted changes: none
 
 ---
 

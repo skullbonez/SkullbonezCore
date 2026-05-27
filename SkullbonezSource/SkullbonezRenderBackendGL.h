@@ -59,6 +59,7 @@ class RenderBackendGL : public IRenderBackend
     std::vector<DynamicVBGL> m_dynamicVBs;
     std::vector<InstancedMesh> m_instancedMeshes;
     std::unique_ptr<IShader> m_debugLineShader;
+    std::unique_ptr<IShader> m_gridLineShader;
 
     GLStateTracking m_state;
 
@@ -67,6 +68,8 @@ class RenderBackendGL : public IRenderBackend
     int m_height;
     GLuint m_debugLineVAO = 0;
     GLuint m_debugLineVBO = 0;
+    GLuint m_gridLineVAO = 0;
+    GLuint m_gridLineVBO = 0;
 
   public:
     RenderBackendGL();
@@ -149,6 +152,7 @@ class RenderBackendGL : public IRenderBackend
     void DestroyDynamicVB( uint32_t handle ) override;
 
     void DrawLines( const float* verts, int vertCount, float r, float g, float b, const float* viewProjMatrix16 ) override;
+    void DrawLinesColored( const float* data, int vertCount, const float* viewProjMatrix16 ) override;
 
     uint32_t CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int maxInstances, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs, const int* staticAttribSizes = nullptr, int numStaticAttribs = 0 ) override;
     void UploadInstanceData( uint32_t handle, const float* data, int floatCount ) override;

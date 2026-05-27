@@ -30,6 +30,8 @@ class Terrain
 {
 
   public:
+    static constexpr float FLAT_SLOPE_EXTENT = 1000.0f; // XZ extent of the analytic flat slope play area
+
     Terrain( const char* sFileName, int iMapSize, int iStepSize, int iTextureWrap ); // Overloaded constructor: sFileName is path to .raw file, iMapSize is the size of map (pixels length), iStepSize is steps (pixel steps AND vertex steps), iTextureWrap is number of times to wrap texture
     Terrain( float slopeBaseY, float slopeX, float slopeZ );                         // Flat analytic slope constructor: y = slopeBaseY + slopeX*x + slopeZ*z
     ~Terrain();                                                                      // Default destructor
@@ -40,6 +42,10 @@ class Terrain
     {
         return m_terrainMesh.get();
     } // Returns the internal mesh (for DXR BLAS)
+    float GetMaxHeight() const
+    {
+        return m_maxTerrainHeight;
+    } // Returns the maximum Y height across all terrain posts (used for airborne early-out)
     XZBounds GetXZBounds();                                                                                     // Returns the XZ bounds of the terrain
     Triangle LocatePolygon( float xPosition, float zPosition );                                                 // Locates the polygon surrounding the specified X and Z co-ordinates based on an orthagonal XZ projection.  Detailed math reference at http://www.simoneschbach.com/images/FindingArbitraryPolygon.gif
     bool IsInBounds( float xPosition, float zPosition );                                                        // Returns a flag indicating if specified co-ordinates are inside the bounds of the terrain map
@@ -72,6 +78,7 @@ class Terrain
     int m_textureWrap;            // Number of times to wrap texture over m_terrain
     int m_postsPerSide;           // Terrain postings per side of m_terrain
     int m_terrainSizeWorldCoords; // size per side of m_terrain in world coordinates
+    float m_maxTerrainHeight;     // Maximum Y height across all posts (computed once at build time)
 
     // Flat slope mode
     bool m_isFlatSlope;
@@ -87,6 +94,7 @@ class Terrain
     void BuildCollisionCache();                    // Precomputes per-quad triangle planes + normals for physics queries
     int GetQuadCacheIndex( float xPosition, float zPosition, bool& isTriangleA );
     void QueryCollisionData( float xPosition, float zPosition, float& outHeight, Vector3* outNormal, Plane* outPlane );
+    void QueryCollisionDataUnchecked( float xPosition, float zPosition, float& outHeight, Vector3* outNormal, Plane* outPlane );
     void TranslatePostings();                       // Translates terrain posts
     void GenerateNormals();                         // Generates normals for posts
     void BuildMesh();                               // Builds VBO mesh from post data

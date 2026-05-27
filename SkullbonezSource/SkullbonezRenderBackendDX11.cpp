@@ -412,6 +412,19 @@ void RenderBackendDX11::Shutdown()
     }
     m_dynamicVBs.clear();
 
+    // Grid line overlay resources
+    if ( m_gridLineVB )
+    {
+        m_gridLineVB->Release();
+        m_gridLineVB = nullptr;
+    }
+    if ( m_gridLineIL )
+    {
+        m_gridLineIL->Release();
+        m_gridLineIL = nullptr;
+    }
+    m_gridLineShader.reset();
+
     // Destroy instanced meshes
     for ( auto& im : m_instancedMeshes )
     {
@@ -1408,6 +1421,81 @@ void RenderBackendDX11::DestroyDynamicVB( uint32_t handle )
         dvb.vb->Release();
         dvb.vb = nullptr;
     }
+}
+
+
+// Draws per-vertex colored lines. data is interleaved [x,y,z,r,g,b] per vertex (6 floats each).
+// Uses a dedicated grid_line shader with LINELIST topology and per-vertex color.
+// Lazy-inits a dynamic vertex buffer and input layout on first call.
+void RenderBackendDX11::DrawLinesColored( const float* data, int vertCount, const float* viewProjMatrix16 )
+{
+    if ( vertCount <= 0 )
+    {
+        return;
+    }
+
+    // Lazy-init shader
+    if ( !m_gridLineShader )
+    {
+        m_gridLineShader = CreateShader( "shaders/grid_line" );
+    }
+
+    // Lazy-init or grow vertex buffer
+    int bytesNeeded = vertCount * 6 * (int)sizeof( float );
+    if ( !m_gridLineVB || vertCount > m_gridLineVBCapacity )
+    {
+        if ( m_gridLineVB )
+        {
+            m_gridLineVB->Release();
+            m_gridLineVB = nullptr;
+        }
+        m_gridLineVBCapacity = vertCount + 1024; // overallocate slightly
+
+        D3D11_BUFFER_DESC bd = {};
+        bd.ByteWidth = (UINT)( m_gridLineVBCapacity * 6 * sizeof( float ) );
+        bd.Usage = D3D11_USAGE_DYNAMIC;
+        bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        m_device->CreateBuffer( &bd, nullptr, &m_gridLineVB );
+    }
+
+    // Lazy-init input layout (position float3 + color float3)
+    if ( !m_gridLineIL )
+    {
+        ShaderDX11* shader = static_cast<ShaderDX11*>( m_gridLineShader.get() );
+        D3D11_INPUT_ELEMENT_DESC elements[2] = {};
+        elements[0].SemanticName = "POSITION";
+        elements[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+        elements[0].AlignedByteOffset = 0;
+        elements[1].SemanticName = "TEXCOORD";
+        elements[1].SemanticIndex = 0;
+        elements[1].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+        elements[1].AlignedByteOffset = 12;
+        m_device->CreateInputLayout( elements, 2, shader->GetVSBytecode(), shader->GetVSBytecodeSize(), &m_gridLineIL );
+    }
+
+    // Upload vertex data
+    D3D11_MAPPED_SUBRESOURCE mapped;
+    m_context->Map( m_gridLineVB, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped );
+    memcpy( mapped.pData, data, (size_t)bytesNeeded );
+    m_context->Unmap( m_gridLineVB, 0 );
+
+    // Bind and draw
+    SetDepthTest( false );
+    ShaderDX11* shader = static_cast<ShaderDX11*>( m_gridLineShader.get() );
+    shader->Use();
+
+    Matrix4 vpMat( viewProjMatrix16 );
+    shader->SetMat4( "uViewProj", vpMat );
+    shader->FlushCB();
+
+    m_context->IASetInputLayout( m_gridLineIL );
+    UINT stride = 6 * sizeof( float );
+    UINT offset = 0;
+    m_context->IASetVertexBuffers( 0, 1, &m_gridLineVB, &stride, &offset );
+    m_context->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_LINELIST );
+    m_context->Draw( (UINT)vertCount, 0 );
+    SetDepthTest( true );
 }
 
 

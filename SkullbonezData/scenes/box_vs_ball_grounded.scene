@@ -1,0 +1,28 @@
+# box_vs_ball_grounded.scene
+# Tests angular velocity response when a box hits a ball off-center on terrain.
+#
+# Box slides into ball from a height offset, creating an off-center collision.
+# Expected: both objects should receive angular velocity changes from friction.
+#
+# Run: Debug build with --scene SkullbonezData/scenes/box_vs_ball_grounded.scene
+
+physics on
+text off
+frames 300
+fixed_step
+exit_on_complete
+physics_mode solver
+world -9.81 0.0 998.0
+flat_slope 30.0 0.0 0.0
+
+camera overview 500 60 480  500 35 500  0 1 0
+
+physics_log Debug/box_vs_ball_grounded.csv
+
+# Box with initial velocity, positioned ABOVE ball center for off-center hit
+# box <name> <x y z> <halfX halfY halfZ> <mass> <restitution> [eulerX eulerY eulerZ] [velX velY velZ]
+box box_striker 480 40 500  3.0 3.0 3.0  25.0 0.5  0 0 0  20 0 0
+
+# Ball resting on flat terrain (center at y=34 = terrain + radius)
+# ball <name> <x y z> <radius> <mass> <moment> <restitution>
+ball ball_target 520 34 500  4.0 20.0 15.0 0.5

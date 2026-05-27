@@ -230,6 +230,19 @@ void RenderBackendGL::Shutdown()
     }
     m_debugLineShader.reset();
 
+    // Grid line overlay resources
+    if ( m_gridLineVBO != 0 )
+    {
+        glDeleteBuffers( 1, &m_gridLineVBO );
+        m_gridLineVBO = 0;
+    }
+    if ( m_gridLineVAO != 0 )
+    {
+        glDeleteVertexArrays( 1, &m_gridLineVAO );
+        m_gridLineVAO = 0;
+    }
+    m_gridLineShader.reset();
+
     m_hdc = nullptr;
 }
 
@@ -1019,6 +1032,69 @@ void RenderBackendGL::DrawLines( const float* verts, int vertCount, float r, flo
     glLineWidth( 2.0f );
     glDrawArrays( GL_LINES, 0, vertCount );
     glLineWidth( 1.0f );
+    glBindVertexArray( 0 );
+    SetDepthTest( true );
+}
+
+
+// Draws per-vertex colored lines. data is interleaved [x,y,z,r,g,b] per vertex (6 floats each).
+// vertCount = total vertices (must be even — pairs form line segments).
+// Uses a dedicated "grid_line" shader with per-vertex color attribute.
+void RenderBackendGL::DrawLinesColored( const float* data, int vertCount, const float* viewProjMatrix16 )
+{
+    if ( vertCount <= 0 )
+    {
+        return;
+    }
+
+    // Lazy-init VAO/VBO for per-vertex colored line rendering.
+    // Layout: location 0 = vec3 position, location 1 = vec3 color (interleaved, stride = 24 bytes).
+    if ( m_gridLineVAO == 0 )
+    {
+        glGenVertexArrays( 1, &m_gridLineVAO );
+        glGenBuffers( 1, &m_gridLineVBO );
+        glBindVertexArray( m_gridLineVAO );
+        glBindBuffer( GL_ARRAY_BUFFER, m_gridLineVBO );
+        // Initial allocation: 8192 vertices × 6 floats. Grows on demand below.
+        glBufferData( GL_ARRAY_BUFFER, static_cast<GLsizeiptr>( 8192 * 6 * sizeof( float ) ), nullptr, GL_DYNAMIC_DRAW );
+        // Position attribute (location 0): 3 floats at offset 0, stride 24 bytes
+        glEnableVertexAttribArray( 0 );
+        glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof( float ), reinterpret_cast<void*>( 0 ) );
+        // Color attribute (location 1): 3 floats at offset 12 bytes, stride 24 bytes
+        glEnableVertexAttribArray( 1 );
+        glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof( float ), reinterpret_cast<void*>( 3 * sizeof( float ) ) );
+        glBindVertexArray( 0 );
+    }
+
+    // Lazy-init the grid_line shader (per-vertex color, no uniform color)
+    if ( !m_gridLineShader )
+    {
+        m_gridLineShader = CreateShader( "shaders/grid_line" );
+    }
+
+    // Upload vertex data (position + color interleaved)
+    glBindBuffer( GL_ARRAY_BUFFER, m_gridLineVBO );
+    GLsizeiptr needed = static_cast<GLsizeiptr>( vertCount ) * 6 * static_cast<GLsizeiptr>( sizeof( float ) );
+    GLsizeiptr capacity = static_cast<GLsizeiptr>( 8192 * 6 * sizeof( float ) );
+    if ( needed > capacity )
+    {
+        // Grow buffer to accommodate larger data
+        glBufferData( GL_ARRAY_BUFFER, needed, nullptr, GL_DYNAMIC_DRAW );
+    }
+    glBufferSubData( GL_ARRAY_BUFFER, 0, needed, data );
+    glBindBuffer( GL_ARRAY_BUFFER, 0 );
+
+    // Draw with depth test disabled so grid lines are always visible
+    SetDepthTest( false );
+    m_gridLineShader->Use();
+
+    using SkullbonezCore::Math::Transformation::Matrix4;
+    Matrix4 vpMat( viewProjMatrix16 );
+    m_gridLineShader->SetMat4( "uViewProj", vpMat );
+
+    glBindVertexArray( m_gridLineVAO );
+    glLineWidth( 1.0f );
+    glDrawArrays( GL_LINES, 0, vertCount );
     glBindVertexArray( 0 );
     SetDepthTest( true );
 }

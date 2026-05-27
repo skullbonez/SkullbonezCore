@@ -189,6 +189,12 @@ class RenderBackendDX11 : public IRenderBackend
     int m_height = 0;
     bool m_isVsyncEnabled = true;
 
+    // Grid line overlay (lazy-init in DrawLinesColored)
+    ID3D11Buffer* m_gridLineVB = nullptr;
+    ID3D11InputLayout* m_gridLineIL = nullptr;
+    std::unique_ptr<IShader> m_gridLineShader;
+    int m_gridLineVBCapacity = 0;
+
     void CreateStateObjects();
     void ApplyRasterizerState();
     void ApplyDepthState();
@@ -283,6 +289,8 @@ class RenderBackendDX11 : public IRenderBackend
     uint32_t CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices ) override;
     void UploadAndDrawDynamicVB( uint32_t handle, const float* data, int vertexCount ) override;
     void DestroyDynamicVB( uint32_t handle ) override;
+
+    void DrawLinesColored( const float* data, int vertCount, const float* viewProjMatrix16 ) override;
 
     uint32_t CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int maxInstances, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs, const int* staticAttribSizes = nullptr, int numStaticAttribs = 0 ) override;
     void UploadInstanceData( uint32_t handle, const float* data, int floatCount ) override;

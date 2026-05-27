@@ -1,5 +1,6 @@
 // --- Includes ---
 #include "SkullbonezVector3.h"
+#include <limits>
 
 
 // --- Usings ---
@@ -8,6 +9,12 @@ using namespace SkullbonezCore::Math::Vector;
 
 Vector3::Vector3()
 {
+#ifdef _DEBUG
+    // Poison with NaN in debug so any use-before-init propagates visibly
+    x = std::numeric_limits<float>::quiet_NaN();
+    y = std::numeric_limits<float>::quiet_NaN();
+    z = std::numeric_limits<float>::quiet_NaN();
+#endif
 }
 
 
