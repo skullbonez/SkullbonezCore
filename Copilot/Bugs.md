@@ -28,7 +28,15 @@ Interpenetration can be seen during ball settle time between box and ball around
 
 ## TODO: Add frame counter and scene name to the HUD when running scenes
 
+Top of screen please.
+
 ## TODO: Profile markers change colour as you cycle physics mode
+
+These should be set in the begin marker.
+
+## TODO: Make clear debugging technique a core philopshy of this engine
+
+Agents need to understand the tools they have, static code analysis is not enough for games/physics.  Need to use deterministic test scenes, CDB debugger, logging techniques, sub-profiling techniques.  Any new bug needs to consider which technique is the best fit.
 
 ## TODO: InputState should be a bit field
 
