@@ -1032,10 +1032,10 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
 
     // Layout constants
     const float pad = panelHeight * 0.06f;
-    const float barHeight = panelHeight * 0.20f;    // each bar is 20% of panel height
-    const float barGap = panelHeight * 0.06f;       // gap between bars
-    const float legendHeight = panelHeight * 0.18f; // legend row
-    const float titleH = panelHeight * 0.10f;       // title line
+    const float barHeight = panelHeight * 0.18f;    // each bar slightly smaller to make room
+    const float barGap = panelHeight * 0.09f;       // larger gap between bars
+    const float legendHeight = panelHeight * 0.20f; // legend row (increased for wrapping)
+    const float titleH = panelHeight * 0.12f;       // title line (bigger)
     const float barX0 = xLeft + pad;
     const float barX1 = xLeft + panelWidth - pad;
     const float fSz = barHeight * 0.45f; // text size proportional to bar
@@ -1046,10 +1046,24 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
     // Title
     float ty = yBottom + panelHeight - pad - titleH;
     const char* title = absolute ? "PROFILER BARS (ABSOLUTE)" : "PROFILER BARS (NORMALIZED)";
-    Text2d::Render2dTextColor( barX0, ty + titleH * 0.3f, fSz * 1.1f, 1.0f, 0.85f, 0.35f, "%s", title );
+    Text2d::Render2dTextColor( barX0, ty + titleH * 0.35f, fSz * 1.05f, 1.0f, 0.85f, 0.35f, "%s", title );
+
+    // Totals (right-aligned on title row)
+    char totalsBuf[128] = {0};
+    if ( absolute )
+    {
+        // In absolute mode show CPU sum, GPU sum, and overall frame time
+        sprintf_s( totalsBuf, sizeof(totalsBuf), "CPU: %.2f ms  GPU: %.2f ms  Frame: %.2f ms", cpuTotalMs, gpuTotalMs, frameMs );
+    }
+    else
+    {
+        sprintf_s( totalsBuf, sizeof(totalsBuf), "CPU: %.2f ms  GPU: %.2f ms", cpuTotalMs, gpuTotalMs );
+    }
+    float totalsW = Text2d::MeasureText( fSz * 0.9f, totalsBuf );
+    Text2d::Render2dTextColor( barX1 - totalsW, ty + titleH * 0.35f, fSz * 0.9f, 0.85f, 0.85f, 0.85f, "%s", totalsBuf );
 
     // --- CPU bar ---
-    float cpuBarY = ty - barGap;
+    float cpuBarY = ty - barGap - barHeight * 0.4f; // nudge down so title doesn't overlap
     Text2d::Render2dTextColor( barX0, cpuBarY + barHeight * 0.3f, fSz, 0.85f, 0.85f, 0.85f, "CPU" );
     float cpuLabelW = Text2d::MeasureText( fSz, "CPU " ) + pad * 0.5f;
     float cpuBarX0 = barX0 + cpuLabelW;
@@ -1131,7 +1145,8 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
     }
 
     // --- Colour legend (below bars) ---
-    float legendY = ( gpuLeafCount > 0 ) ? ( gpuBarY - barGap ) : ( cpuBarY - barGap );
+    // Place legend a little further down to avoid overlapping the bars and title.
+    float legendY = ( gpuLeafCount > 0 ) ? ( gpuBarY - barGap - legendHeight * 0.5f ) : ( cpuBarY - barGap - legendHeight * 0.5f );
     float legendFSz = fSz * 0.85f;
     float swatchW = legendFSz * 1.5f; // colour swatch width
     float swatchH = legendFSz;
