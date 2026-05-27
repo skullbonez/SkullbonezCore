@@ -8,10 +8,15 @@ During a full test suite run (render_tests.suite), the DX12 backend consistently
 
 ## Quaternion::Normalise div-by-zero at moment of airborne box-box collision
 
-**Witnessed once** in `collision_demo_box_box.scene` at the exact frame of first contact between two airborne boxes. The exception fired inside `Quaternion::Normalise` (zero-magnitude quaternion). Could not be reproduced reliably — CDB caught it only intermittently across multiple suite runs.
+**Witnessed once** in `collision_demo_box_box.scene` at the exact frame of first contact between two airborne boxes. The exception fired inside `Quaternion::Normalise` (zero-magnitude quaternion). Could not be reproduced reliably under CDB across multiple suite runs.
 
-**Root cause (partial):** Default `Quaternion()` constructor left all 4 components uninitialised. Fixed — default ctor now initialises to identity `(0,0,0,1)`. Same fix applied to `RotationMatrix` (now defaults to identity) and `Camera` (all members now zero/false).
+**Note:** The default `Quaternion()`, `RotationMatrix()`, and `Camera()` constructors were uninitialised and have been fixed to proper identity/zero defaults as a hygiene fix — but this is NOT the cause of this crash. A box with non-zero euler angles (`box_b` has `0 15 0`) would have died at scene load, not at the collision frame.
 
-**Potentially still present:** The crash may also be triggered by a near-zero-magnitude quaternion produced during a flush (perfectly head-on) box-box collision — the angular impulse could drive the orientation quaternion to near-zero before the next `Normalise` call. To investigate:
-- Stress test: run `collision_demo_box_box.scene` in a tight loop (1000+ iterations) and check for recurrence
-- Add a magnitude guard in `Quaternion::Normalise`: if `magSq < epsilon` but `magSq != 0`, reset to identity rather than throwing
+**Root cause: UNKNOWN.** Something in the box-box collision impulse path produces an exact zero-magnitude quaternion at the moment of first contact. Candidates:
+- The roll-align visual correction (`ImpulseSolver.cpp` ~line 848): `RotateAboutAxis` called with an axis that passes the `axisMag > TOLERANCE` check but cancels to zero in the quaternion multiply due to floating-point precision
+- A specific flush collision geometry producing an angular impulse that drives the orientation quaternion to zero through a pathological sequence of floating-point cancellations
+
+To investigate:
+- Stress test: loop `collision_demo_box_box.scene` 1000+ times looking for recurrence after the ctor fix
+- Add a low-magnitude guard in `Quaternion::Normalise`: if `magSq > 0 && magSq < epsilon`, reset to identity and log rather than throw
+- Add `#ifdef _DEBUG` logging of quaternion magnitude before each `Normalise` call in the collision path
