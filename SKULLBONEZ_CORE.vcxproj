@@ -244,10 +244,49 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="SkullbonezData\engine.cfg" />
+    <None Include="SkullbonezData\scenes\at_rest.scene" />
+    <None Include="SkullbonezData\scenes\ball_vs_ball_flight.scene" />
+    <None Include="SkullbonezData\scenes\ball_vs_box_flight.scene" />
+    <None Include="SkullbonezData\scenes\ball_vs_box_grounded.scene" />
+    <None Include="SkullbonezData\scenes\box_flush_test.scene" />
+    <None Include="SkullbonezData\scenes\box_slope_test.scene" />
+    <None Include="SkullbonezData\scenes\box_vs_ball_flight.scene" />
+    <None Include="SkullbonezData\scenes\box_vs_ball_grounded.scene" />
+    <None Include="SkullbonezData\scenes\cardinal_roll_test.scene" />
+    <None Include="SkullbonezData\scenes\collision_demo.suite" />
+    <None Include="SkullbonezData\scenes\collision_demo_ball_ball.scene" />
+    <None Include="SkullbonezData\scenes\collision_demo_box_ball.scene" />
+    <None Include="SkullbonezData\scenes\collision_demo_box_box.scene" />
+    <None Include="SkullbonezData\scenes\float_snap_test.scene" />
+    <None Include="SkullbonezData\scenes\funnel_roll_test.scene" />
+    <None Include="SkullbonezData\scenes\gpu_timer_test.scene" />
+    <None Include="SkullbonezData\scenes\legacy_smoke.scene" />
+    <None Include="SkullbonezData\scenes\perf_test.scene" />
+    <None Include="SkullbonezData\scenes\physics_baseline.scene" />
+    <None Include="SkullbonezData\scenes\physics_bench.suite" />
+    <None Include="SkullbonezData\scenes\physics_bench_legacy.scene" />
+    <None Include="SkullbonezData\scenes\physics_bench_solver.scene" />
+    <None Include="SkullbonezData\scenes\physics_bench_solver_balls.scene" />
+    <None Include="SkullbonezData\scenes\physics_bench_solver_boxes.scene" />
+    <None Include="SkullbonezData\scenes\physics_regression_legacy.scene" />
+    <None Include="SkullbonezData\scenes\physics_regression_solver.scene" />
+    <None Include="SkullbonezData\scenes\physics_roll.scene" />
+    <None Include="SkullbonezData\scenes\render_tests.suite" />
+    <None Include="SkullbonezData\scenes\roll_axis_test.scene" />
+    <None Include="SkullbonezData\scenes\stacking.scene" />
+    <None Include="SkullbonezData\scenes\switch_test.scene" />
+    <None Include="SkullbonezData\scenes\terrain_compare.scene" />
+    <None Include="SkullbonezData\scenes\water_ball_test.scene" />
+    <None Include="SkullbonezData\shaders\debug_line.frag" />
+    <None Include="SkullbonezData\shaders\debug_line.vert" />
+    <None Include="SkullbonezData\shaders\grid_line.frag" />
+    <None Include="SkullbonezData\shaders\grid_line.vert" />
     <None Include="SkullbonezData\shaders\lit_textured.frag" />
     <None Include="SkullbonezData\shaders\generate_mips.hlsl" />
     <None Include="SkullbonezData\shaders\lit_textured.hlsl" />
     <None Include="SkullbonezData\shaders\lit_textured.vert" />
+    <None Include="SkullbonezData\shaders\lit_textured_instanced.frag" />
+    <None Include="SkullbonezData\shaders\lit_textured_instanced.vert" />
     <None Include="SkullbonezData\shaders\shadow.frag" />
     <None Include="SkullbonezData\shaders\shadow.hlsl" />
     <None Include="SkullbonezData\shaders\shadow.vert" />
@@ -270,6 +309,10 @@
     <None Include="SkullbonezData\shaders\water_ocean.hlsl" />
     <None Include="SkullbonezData\shaders\water_ocean.vert" />
     <None Include="SkullbonezData\shaders\reflect.rt.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="SkullbonezData\shaders\grid_line.hlsl" />
+    <FxCompile Include="SkullbonezData\shaders\lit_textured_instanced.hlsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
