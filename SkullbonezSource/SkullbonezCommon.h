@@ -41,6 +41,16 @@
 #include <crtdbg.h>
 #endif
 
+// SSE/SIMD intrinsics — enabled in Release/Profile by default.
+// Override to 0 here to force scalar fallback paths in any configuration.
+#ifndef SKULLBONEZ_INTRINSICS
+#ifndef _DEBUG
+#define SKULLBONEZ_INTRINSICS 1
+#else
+#define SKULLBONEZ_INTRINSICS 0
+#endif
+#endif
+
 // Array-sizing counts (must remain compile-time)
 constexpr int TOTAL_CAMERA_COUNT = 3;
 constexpr int TOTAL_TEXTURE_COUNT = 8;

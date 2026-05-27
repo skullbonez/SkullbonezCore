@@ -41,6 +41,8 @@ class GameModelCollection
     std::vector<std::pair<int, int>> m_candidatePairs; // Retained-capacity pair buffer (avoids per-frame alloc)
     std::vector<float> m_timeRemaining;                // Per-model timestep remainder (retained buffer)
     std::vector<uint8_t> m_groundedThisFrame;          // Per-model grounded flag for current frame (0/1)
+    std::vector<uint8_t> m_sleepState;                 // Per-model sleep state: 0=awake, 1=sleeping
+    std::vector<uint8_t> m_sleepCounter;               // Frames object has been below sleep threshold
     std::unique_ptr<IShader> m_shadowShader;           // Shadow decal shader (instanced)
     uint32_t m_shadowInstMesh = 0;                     // Instanced mesh handle (via Gfx())
     int m_shadowDiscVertexCount = 0;                   // Disc triangle vertex count

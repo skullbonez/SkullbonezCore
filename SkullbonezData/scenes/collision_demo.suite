@@ -1,0 +1,12 @@
+# collision_demo.suite
+# Visual showcase — three mid-air off-centre collisions in sequence.
+# Each scene runs for 7.5s (900 fixed physics steps at 120Hz) then auto-advances.
+#
+#   1. Ball vs Ball  — glancing blow, both balls spin after impact
+#   2. Box vs Box    — off-centre hit, both boxes tumble after impact
+#   3. Box vs Ball   — box clips top of ball, ball gets backspin, box tumbles
+#
+# Run: SKULLBONEZ_CORE.exe --suite SkullbonezData/scenes/collision_demo.suite
+SkullbonezData/scenes/collision_demo_ball_ball.scene
+SkullbonezData/scenes/collision_demo_box_box.scene
+SkullbonezData/scenes/collision_demo_box_ball.scene

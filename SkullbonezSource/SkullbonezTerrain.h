@@ -42,7 +42,10 @@ class Terrain
     {
         return m_terrainMesh.get();
     } // Returns the internal mesh (for DXR BLAS)
-    float GetMaxHeight() const { return m_maxTerrainHeight; }                                                    // Returns the maximum Y height across all terrain posts (used for airborne early-out)
+    float GetMaxHeight() const
+    {
+        return m_maxTerrainHeight;
+    } // Returns the maximum Y height across all terrain posts (used for airborne early-out)
     XZBounds GetXZBounds();                                                                                     // Returns the XZ bounds of the terrain
     Triangle LocatePolygon( float xPosition, float zPosition );                                                 // Locates the polygon surrounding the specified X and Z co-ordinates based on an orthagonal XZ projection.  Detailed math reference at http://www.simoneschbach.com/images/FindingArbitraryPolygon.gif
     bool IsInBounds( float xPosition, float zPosition );                                                        // Returns a flag indicating if specified co-ordinates are inside the bounds of the terrain map

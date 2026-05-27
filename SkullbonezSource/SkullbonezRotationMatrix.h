@@ -4,6 +4,9 @@
 // --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezVector3.h"
+#if SKULLBONEZ_INTRINSICS
+#include <immintrin.h> // SSE4.1 intrinsics for LoadSSE
+#endif
 
 
 // --- Usings ---
@@ -38,6 +41,21 @@ class RotationMatrix
     {
         return fabsf( m21 ) * halfExtents.x + fabsf( m22 ) * halfExtents.y + fabsf( m23 ) * halfExtents.z;
     }
+
+    // Load matrix rows and columns into SSE registers for fast matrix-vector multiply.
+    // row0 = {m11,m12,m13,0}, row1 = {m21,m22,m23,0}, row2 = {m31,m32,m33,0}
+    // col0 = {m11,m21,m31,0}, col1 = {m12,m22,m32,0}, col2 = {m13,m23,m33,0}
+#if SKULLBONEZ_INTRINSICS
+    void LoadSSE( __m128& row0, __m128& row1, __m128& row2, __m128& col0, __m128& col1, __m128& col2 ) const
+    {
+        row0 = _mm_setr_ps( m11, m12, m13, 0.0f );
+        row1 = _mm_setr_ps( m21, m22, m23, 0.0f );
+        row2 = _mm_setr_ps( m31, m32, m33, 0.0f );
+        col0 = _mm_setr_ps( m11, m21, m31, 0.0f );
+        col1 = _mm_setr_ps( m12, m22, m32, 0.0f );
+        col2 = _mm_setr_ps( m13, m23, m33, 0.0f );
+    }
+#endif
 
   private:
     float m11, m12, m13, m21, m22, m23, m31, m32, m33; // Nine float matrix elements

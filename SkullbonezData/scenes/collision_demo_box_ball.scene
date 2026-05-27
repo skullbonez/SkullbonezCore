@@ -1,0 +1,24 @@
+# collision_demo_box_ball.scene
+# Visual demo: a fast box clips a stationary-ish ball off-centre in mid-air.
+#
+# Ball offset 6 units below box centre (within bounding-radius overlap range).
+# Box hits the top of the ball: ball gets heavy backspin downward,
+# box gets angular kick that starts it tumbling.
+
+physics on
+text off
+frames 900
+fixed_step
+exit_on_complete
+physics_mode solver
+world -9.81 0.0 0.0
+
+# Close-up side-angle camera watching the collision zone
+camera main  380 165 580  500 140 500  0 1 0
+
+# Box — fast approach from left
+# box <name> <x y z> <halfX halfY halfZ> <mass> <restitution> [eulerX eulerY eulerZ] [velX velY velZ]
+box box_striker  435 147 500  3.0 3.0 3.0  25.0 0.5  0 0 0  22 0 0
+
+# Ball — slow counter-approach, 6 units lower than box centre
+ball ball_target  565 141 500  4.0 20.0 15.0 0.7  -6 0 0  0 0 0

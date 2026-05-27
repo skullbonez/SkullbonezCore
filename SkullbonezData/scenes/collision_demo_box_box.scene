@@ -1,0 +1,24 @@
+# collision_demo_box_box.scene
+# Visual demo: two boxes collide off-center in mid-air.
+#
+# Y offset of 4 units (half-extent=3) hits above centre — large lever arm
+# creates angular impulse, sending both boxes tumbling visibly after impact.
+# Box B has a slight initial Euler rotation so it enters the hit with a twist.
+
+physics on
+text off
+frames 900
+fixed_step
+exit_on_complete
+physics_mode solver
+world -9.81 0.0 0.0
+
+# Close-up side-angle camera watching the collision zone
+camera main  380 165 580  500 140 500  0 1 0
+
+# Box A — approaching from left
+# box <name> <x y z> <halfX halfY halfZ> <mass> <restitution> [eulerX eulerY eulerZ] [velX velY velZ]
+box box_a  435 144 500  3.0 3.0 3.0  25.0 0.5  0 0 0  18 0 0
+
+# Box B — approaching from right, 4 units lower (off-centre hit) + slight initial yaw
+box box_b  565 140 500  3.0 3.0 3.0  25.0 0.5  0 15 0  -18 0 0

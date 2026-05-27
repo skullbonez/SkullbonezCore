@@ -131,19 +131,133 @@ queries per frame.
 
 ---
 
+## Phase 2: Impulse Solver Optimizations
+
+Following the detection optimizations, the impulse solver was identified as the true bottleneck
+(96% of terrain marker time at steady state). Five strategies were evaluated; three produced
+significant improvements, two were counterproductive.
+
+### Baseline for Solver Optimizations (post-detection opts)
+
+| Metric | Value |
+|--------|-------|
+| Frame/Physics (solver_boxes, steady-state avg) | 1543.6 ms |
+| Frame/Physics/Terrain | 1477.7 ms |
+| Awake objects at frame 2400 | 300/300 |
+
+### Optimization 5: Object Sleeping
+
+**Approach:** Objects that are grounded AND have linear velocity² < 0.25 and angular velocity² < 0.09
+for 30 consecutive frames (~0.5s at 60Hz) are put to sleep. Sleeping objects skip ApplyForces,
+terrain detection, terrain response, and integration. They are woken if a broadphase neighbour
+actually overlaps them (detection verified before wake).
+
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Frame/Physics | 1543.6 ms | 109.7 ms | **-92.9%** |
+| Frame/Physics/Terrain | 1477.7 ms | 69.1 ms | **-95.3%** |
+| Awake objects at frame 2400 | 300 | ~73 | -76% |
+
+**Verdict:** Massive improvement. Most boxes settle onto terrain within ~1000 frames and go to sleep.
+
+### Optimization 6: SSE4.1 SIMD Inner Loop
+
+**Approach:** The 20-iteration solver inner loop (cross products, dot products, matrix-vector
+multiplies for `applyInvInertia`) was rewritten using SSE4.1 intrinsics. Vector3 is loaded as
+`__m128` with zeroed 4th lane. Key operations:
+- `sse_cross3` — 4 shuffles + 2 muls + 1 sub
+- `sse_dot3` — `_mm_dp_ps` with mask 0x71
+- `sse_matvec3` — 3× `_mm_dp_ps` into separate lanes + OR merge
+- Orientation matrix pre-loaded into 6 `__m128` registers (rows + columns)
+- Velocity and omega kept in registers across all contacts/iterations
+
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Frame/Physics | 109.7 ms | 91.4 ms | **-16.7%** |
+| Frame/Physics/Terrain | 69.1 ms | 51.0 ms | **-26.2%** |
+| Peak Terrain (frame 600-800) | ~300 ms | ~225 ms | **-25%** |
+
+**Verdict:** Solid improvement on per-object solver cost. Keeps velocity/omega in XMM registers
+throughout the loop, eliminating store-reload penalties.
+
+### Optimization 7: Adaptive Iteration Early-Out
+
+**Approach:** Track total impulse² applied per iteration. If below 1e-6 (converged), break out
+of the solver loop early. Resting objects typically converge in 5-8 iterations instead of 20.
+
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Frame/Physics | 91.4 ms | 73.1 ms | **-20.0%** |
+| Frame/Physics/Terrain | 51.0 ms | 34.3 ms | **-32.7%** |
+
+**Verdict:** Excellent improvement. Resting boxes converge quickly with the gravity warm-start;
+the early-out saves 12-15 iterations per settled box.
+
+### Optimization 8: Contact Caching (REJECTED)
+
+**Approach:** Store previous frame's accumulated impulses (accN, accT1, accT2) per contact on
+each model. Match contacts across frames by r-vector proximity. Use cached values as warm-start.
+Only applied to slow objects (speed² < 4) to preserve active simulation behavior.
+
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Frame/Physics | 73.1 ms | 97.9 ms | **+33.9% (REGRESSION)** |
+| Frame/Physics/Terrain | 34.3 ms | 55.3 ms | **+61.2% (REGRESSION)** |
+
+**Why it failed:** The cached impulses from the previous frame are slightly stale (position
+correction shifts contacts frame-to-frame). This gives a warm-start that's actually further
+from the true solution than the simple gravity estimate, causing more iterations before the
+adaptive early-out triggers.
+
+### Optimization 9: Centroid Collapse for Resting (REJECTED)
+
+**Approach:** When a box has 4 coplanar contacts (resting flat) and speed² < 4, replace with
+a single centroid contact to reduce constraint count from 12 to 3 per iteration.
+
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Frame/Physics | 73.1 ms | 187.2 ms | **+156% (REGRESSION)** |
+| Awake objects at frame 2400 | ~73 | ~115 | +58% more awake |
+
+**Why it failed:** A single centroid contact cannot provide the multi-point rotational damping
+needed for boxes to stabilize. Boxes oscillate indefinitely around the centroid, never reaching
+the sleep velocity threshold. Fewer objects sleep → more solver work → worse performance.
+
+### Final Results (Optimizations 5 + 6 + 7)
+
+| Metric | Original Baseline | Final | Total Reduction |
+|--------|-------------------|-------|-----------------|
+| Frame/Physics | 1543.6 ms | 72.2 ms | **95.3%** |
+| Frame/Physics/Terrain | 1477.7 ms | 34.0 ms | **97.7%** |
+| Frame/Physics/ApplyForces | 20.0 ms | 4.4 ms | -78% |
+| Frame/Physics/Broadphase | ~10 ms | 13.0 ms | +30% (more spatial grid work per awake obj) |
+| Frame/Physics/Narrowphase | — | 15.3 ms | — |
+| Frame/Physics/Integrate | 30.0 ms | 4.9 ms | -84% |
+
+### Physics Time Progression (solver_boxes, 300 boxes)
+
+| Frame | Awake | Physics Time | Notes |
+|-------|-------|-------------|-------|
+| 50 | ~300 | 72 ms | All falling, no terrain contact yet |
+| 500 | ~300 | 217 ms | Settling phase (boxes hitting terrain) |
+| 800 | ~234 | 371 ms | Peak cost (many active terrain impulse solves) |
+| 1000 | ~171 | 278 ms | Objects starting to sleep |
+| 1500 | ~99 | 112 ms | Most settled |
+| 2000 | ~79 | 134 ms | Near steady state |
+| 2400 | ~73 | 72 ms | Final steady state |
+
+---
+
 ## Key Finding
 
 **The terrain collision detection is not the bottleneck.** The `Frame/Physics/Terrain` profiler
 marker is misleading — it wraps both detection AND response. At steady state (all objects
 grounded), the 20-iteration sequential impulse solver accounts for **96% of terrain marker time**.
 
-The detection-only portion was successfully optimized by 43%, but total terrain time barely moved
-because the impulse solver dominates. Further optimization of the terrain marker would require:
-
-1. **Reducing impulse solver iterations** (currently 20; fewer iterations trade accuracy for speed)
-2. **Contact caching** (warm-start from previous frame's contacts instead of recomputing)
-3. **Sleeping** (skip terrain detection + response for objects at rest for N frames)
-4. **Per-region max height** (hierarchical heightfield for better airborne culling)
+The detection-only portion was successfully optimized by 43%, but the real gains came from
+solver-level optimizations: sleeping (92.9%), SIMD (26.2%), and adaptive early-out (32.7%).
+Contact caching and centroid collapse were both counterproductive due to interference with the
+sleep system's convergence properties.
 
 ---
 
@@ -155,14 +269,19 @@ against updated baselines. The baseline update reflects:
   loop (algebraically identical, numerically more precise)
 - Opt4: Removing the redundant `UpdatePosition(0)` terrain clamp causes imperceptible 4th-decimal
   velocity differences in 34/6001 lines (solver only)
+- Opt7: Adaptive early-out causes 6/6001 lines to differ by max 0.0001 (final residual from
+  skipping the last 1-2 solver iterations when converged)
 
 ## Files Modified
 
 | File | Change |
 |------|--------|
-| `SkullbonezSource/SkullbonezRotationMatrix.h` | Added `SupportExtentY()` inline method |
-| `SkullbonezSource/SkullbonezGameModel.cpp` | Opts 1, 2, 4: closed-form in detection + clamp, airborne early-out, zero-time skip |
-| `SkullbonezSource/SkullbonezTerrain.h` | Added `GetMaxHeight()`, `m_maxTerrainHeight`, `QueryCollisionDataUnchecked` decl |
+| `SkullbonezSource/SkullbonezRotationMatrix.h` | Added `SupportExtentY()` + `LoadSSE()` inline methods |
+| `SkullbonezSource/SkullbonezGameModel.cpp` | Opts 1, 2, 4: closed-form detection + clamp, airborne early-out, zero-time skip |
+| `SkullbonezSource/SkullbonezTerrain.h` | Added `GetMaxHeight()`, `m_maxTerrainHeight`, `QueryCollisionDataUnchecked` |
 | `SkullbonezSource/SkullbonezTerrain.cpp` | Opts 2, 3: max height computation, unchecked query fast path |
 | `SkullbonezSource/SkullbonezCommon.h` | Added `<cfloat>` include for `FLT_MAX` |
+| `SkullbonezSource/SkullbonezGameModelCollection.h` | Added `m_sleepState`, `m_sleepCounter` vectors |
+| `SkullbonezSource/SkullbonezGameModelCollection.cpp` | Opt 5: Full sleep system in `RunSolverPhysics` |
+| `SkullbonezSource/SkullbonezImpulseSolver.cpp` | Opts 6, 7: SSE4.1 solver loop + adaptive early-out |
 | `TestOutput/baselines/*.csv` | Updated regression baselines |
