@@ -849,26 +849,6 @@ bool SkullbonezRun::TickSceneAdvance()
             {
                 throw std::runtime_error( "Tests complete." );
             }
-
-            // Hold on last frame: pump messages until the user closes the window
-            for ( ;; )
-            {
-                MSG holdMsg;
-                if ( PeekMessage( &holdMsg, nullptr, 0, 0, PM_REMOVE ) )
-                {
-                    if ( holdMsg.message == WM_QUIT )
-                    {
-                        PostQuitMessage( 0 );
-                        return false;
-                    }
-                    TranslateMessage( &holdMsg );
-                    DispatchMessage( &holdMsg );
-                }
-                else
-                {
-                    Sleep( 16 );
-                }
-            }
         }
     }
 
