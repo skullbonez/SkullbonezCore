@@ -275,6 +275,22 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
 }
 
 
+void GameModelCollection::WakeModel( int index )
+{
+    // Size the sleep vectors if RunPhysics hasn't been called yet.
+    if ( static_cast<int>( m_sleepState.size() ) != static_cast<int>( m_gameModels.size() ) )
+    {
+        m_sleepState.assign( m_gameModels.size(), 0 );
+        m_sleepCounter.assign( m_gameModels.size(), 0 );
+    }
+    if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
+    {
+        m_sleepState[index] = 0;
+        m_sleepCounter[index] = 0;
+    }
+}
+
+
 #ifdef _DEBUG
 void GameModelCollection::SetPhysicsLogPath( const char* path )
 {
@@ -459,6 +475,13 @@ void GameModelCollection::RunSolverPhysics( float dt )
             // Only wake if one is awake and moving toward the sleeper
             if ( m_sleepState[x] && !m_sleepState[y] )
             {
+                // The awake object (y) must still have time this frame — if it has
+                // already exhausted its budget it has moved to its final position and
+                // cannot validly collide with the sleeper.
+                if ( m_timeRemaining[y] <= 0.0f )
+                {
+                    continue;
+                }
                 // Check actual overlap before waking
                 m_gameModels[y].CollisionDetectGameModel( m_gameModels[x], dt );
                 if ( m_gameModels[y].IsResponseRequired() && m_gameModels[x].IsResponseRequired() )
@@ -474,6 +497,11 @@ void GameModelCollection::RunSolverPhysics( float dt )
             }
             else if ( m_sleepState[y] && !m_sleepState[x] )
             {
+                // Guard: awake object (x) must have time remaining this frame.
+                if ( m_timeRemaining[x] <= 0.0f )
+                {
+                    continue;
+                }
                 m_gameModels[x].CollisionDetectGameModel( m_gameModels[y], dt );
                 if ( m_gameModels[x].IsResponseRequired() && m_gameModels[y].IsResponseRequired() )
                 {

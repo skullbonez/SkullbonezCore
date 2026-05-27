@@ -76,6 +76,8 @@ class GameModelCollection
     int GetModelCount() const;                                                                                                                                                             // Returns the number of game models
     GameModel& GetModelAtIndex( int index );                                                                                                                                               // Returns a reference to the game model at the given index
 
+    void WakeModel( int index ); // Force a model awake (clears sleep state/counter); call before teleporting/firing a recycled model
+
     // Broadphase visualizer data accessors
     const SpatialGrid& GetSpatialGrid() const
     {

@@ -1887,6 +1887,10 @@ void SkullbonezRun::FireProjectile( bool isBox )
     float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;
     float fireSpeed = Cfg().keySpeed * speedMult;
 
+    // Wake the recycled model before repositioning it — a settled model's sleep state
+    // must be cleared or RunSolverPhysics will skip gravity/integration and it hangs in air.
+    m_cGameModelCollection.WakeModel( found );
+
     model.SetPosition( spawnPos );
     model.SetLinearVelocity( forward * fireSpeed );
     model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );

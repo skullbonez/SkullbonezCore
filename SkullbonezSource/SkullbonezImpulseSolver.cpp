@@ -582,7 +582,7 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     sse_store3( velocity, sseVelocity );
     sse_store3( omega, sseOmega );
 
-#else // SKULLBONEZ_INTRINSICS
+#else  // SKULLBONEZ_INTRINSICS
     // Debug: scalar arithmetic — each intermediate value is individually inspectable.
     // Reuses the scalar applyInvInertia lambda defined above for effective-mass pre-compute.
     for ( int iter = 0; iter < solverIterations; ++iter )
