@@ -22,6 +22,10 @@ a minimum separation velocity (typically 1–2 × the Baumgarte bias speed) so
 that low-energy contacts go straight to the resting / positional-correction
 path rather than bouncing. The same issue affects box-on-terrain resting.
 
+## TODO: Box-ball interpenetration
+
+Interpenetration can be seen during ball settle time between box and ball around frame 570 of at_rest.scene
+
 ## TODO: InputState should be a bit field
 
 `InputState` in `SkullbonezInput.h` stores each key-down and edge-detected flag as a separate `bool` member. As more keys are added the struct grows linearly. Replace the individual bools with a packed bit field (or a pair of `uint32_t` bitmasks — one for current state, one for edge-detected rises) so adding new bindings costs no extra per-frame memory and the whole state fits in a cache line.
