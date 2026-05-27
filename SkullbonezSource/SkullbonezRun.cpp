@@ -1032,7 +1032,7 @@ void SkullbonezRun::TakeInput()
     }
     m_camera.input.fGKeyWasDown = isGNow;
 
-    // 0 key: cycle overlay — None → Timers → Keys → None.
+    // 0 key: cycle overlay — None → Timers → BarsNormalized → BarsAbsolute → Keys → None.
     // Edge-detected in both scene and legacy modes; one advance per keypress.
     {
         bool key0Now = Input::IsKeyDown( '0' );
@@ -1044,6 +1044,12 @@ void SkullbonezRun::TakeInput()
                 m_debug.overlayMode = OverlayMode::Timers;
                 break;
             case OverlayMode::Timers:
+                m_debug.overlayMode = OverlayMode::BarsNormalized;
+                break;
+            case OverlayMode::BarsNormalized:
+                m_debug.overlayMode = OverlayMode::BarsAbsolute;
+                break;
+            case OverlayMode::BarsAbsolute:
                 m_debug.overlayMode = OverlayMode::Keys;
                 break;
             case OverlayMode::Keys:
@@ -1541,6 +1547,23 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         Text2d::FlushText();
         return;
     }
+
+    // --- Overlay: Visual profiler bars (normalized or absolute) ---
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    if ( m_debug.overlayMode == OverlayMode::BarsNormalized || m_debug.overlayMode == OverlayMode::BarsAbsolute )
+    {
+        // Panel anchored bottom-left, filling most of the width. Height kept modest — leave vertical
+        // space above for future multi-core stacked rows.
+        const float panW = ( hw - mX ) * 2.0f * 0.85f;  // 85% of screen width
+        const float panH = ( hh - mY ) * 2.0f * 0.22f;  // 22% of screen height
+        const float panX = -( hw - mX ) + mX * 0.5f;    // slight left margin
+        const float panY = -( hh - mY ) + mY * 0.5f;    // slight bottom margin
+        const bool absolute = ( m_debug.overlayMode == OverlayMode::BarsAbsolute );
+        Profiler::Instance().RenderBarOverlay( panX, panY, panW, panH, absolute );
+        Text2d::FlushText();
+        return;
+    }
+#endif
 
     // --- Overlay: Keys reference screen (compact, bottom-left) ---
     if ( m_debug.overlayMode == OverlayMode::Keys )

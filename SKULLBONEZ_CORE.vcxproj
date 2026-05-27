@@ -311,8 +311,8 @@
     <None Include="SkullbonezData\shaders\reflect.rt.hlsl" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="SkullbonezData\shaders\grid_line.hlsl" />
-    <FxCompile Include="SkullbonezData\shaders\lit_textured_instanced.hlsl" />
+    <None Include="SkullbonezData\shaders\grid_line.hlsl" />
+    <None Include="SkullbonezData\shaders\lit_textured_instanced.hlsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
