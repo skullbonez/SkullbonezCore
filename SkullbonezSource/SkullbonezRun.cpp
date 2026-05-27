@@ -637,13 +637,20 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
     {
         // Deterministic lock-step: exactly one physics tick per render frame.
         // Ignores wall-clock time entirely — produces identical results every run.
+        //
+        // time_scale > 1 runs multiple ticks per render frame (integer part) so
+        // scenes can simulate faster than real-time while keeping the fixed dt.
+        const int ticksThisFrame = ( std::max )( 1, static_cast<int>( m_scene.timeScale ) );
         if ( !m_camera.isFlyMode || m_camera.isNudgeMode || Input::IsKeyDown( VK_SPACE ) )
         {
             PROFILE_BEGIN( "Frame/Physics" );
-            m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
+            for ( int tick = 0; tick < ticksThisFrame; ++tick )
+            {
+                m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
+            }
             PROFILE_END( "Frame/Physics" );
         }
-        UpdateLogic( PHYSICS_FIXED_DT );
+        UpdateLogic( PHYSICS_FIXED_DT * static_cast<float>( ticksThisFrame ) );
     }
     else
     {
