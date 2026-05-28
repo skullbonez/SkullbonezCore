@@ -70,17 +70,97 @@ Output: `Debug\SKULLBONEZ_CORE.exe`, `Profile\SKULLBONEZ_CORE.exe`, or `Release\
 | Argument | Values | Description |
 |----------|--------|-------------|
 | `--renderer` | `gl` \| `dx11` \| `dx12` | Select render backend (default: `gl`) |
-| `--scene` | `<path>` | Load a scene file and run it, then exit |
-| `--suite` | `<path>` | Load a `.suite` file and run all scenes in it |
-| `--vsync` | `on` \| `off` | Override vsync (default: on) |
-| `--legacy-physics` | _(flag)_ | Start with the legacy swept physics solver active |
+| `--scene` | `<path>` | Load a single scene file. Quoted paths supported. |
+| `--suite` | `<path>` | Load a `.suite` file (one scene path per line, `#` comments ignored) |
+| `--vsync` | `on` \| `off` | Override vsync from `engine.cfg` |
+| `--legacy-physics` | _(flag)_ | Start with the legacy swept sphere-only solver |
+| `--switch-interval` | `<seconds>` | Auto-cycle renderer (GL → DX11 → DX12 → GL) every N seconds |
+| `--physics-log` | `<path>` | Write per-frame physics state to a CSV file _(Debug builds only)_ |
+| `--gen-atlas` | `[path]` | Generate SDF font atlas to file and exit — no GPU context needed |
 
 ```bat
 Debug\SKULLBONEZ_CORE.exe --renderer dx12
 Debug\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\water_ball_test.scene
 Profile\SKULLBONEZ_CORE.exe --suite SkullbonezData\scenes\render_tests.suite --renderer dx11
 Debug\SKULLBONEZ_CORE.exe --legacy-physics --vsync off
+Debug\SKULLBONEZ_CORE.exe --switch-interval 5 --suite SkullbonezData\scenes\render_tests.suite
+Debug\SKULLBONEZ_CORE.exe --gen-atlas SkullbonezData\font_atlas.sdf
 ```
+
+---
+
+## Scene File Reference
+
+Scene files are plain text. Lines beginning with `#` are comments; blank lines are ignored.
+
+### Playback
+
+| Directive | Description |
+|-----------|-------------|
+| `frames <N>` \| `frames unlimited` | Stop the scene after N rendered frames. Default: unlimited. |
+| `exit_on_complete` | Exit the process when the frame count is reached. Without this, the HUD shows `- TEST COMPLETE` and the scene idles. |
+| `screenshot_and_exit` | Capture frame 1 as `<SCENENAME>.bmp` then exit immediately. |
+| `fixed_step` | One physics tick per render frame at `PHYSICS_FIXED_DT`. Fully deterministic frame-by-frame output. |
+
+### Capture
+
+| Directive | Description |
+|-----------|-------------|
+| `screenshot <path> frame <N>` | Save a screenshot at frame N. |
+| `screenshot <path> ms <N>` | Save a screenshot after N milliseconds. |
+| `screenshot_interval <dir> <N>` | Save a screenshot every N frames to `<dir>`. |
+
+### Logging
+
+| Directive | Description |
+|-----------|-------------|
+| `perf_log <path>` | Write per-frame CPU timing to a CSV file. |
+| `perf_log_flush on\|off` | Flush the CSV on every write (default: `off`). |
+| `perf_log_flush_interval <N>` | Flush every N frames. |
+| `physics_log <path>` | Per-frame physics state CSV. _(Debug builds only)_ |
+
+### Simulation
+
+| Directive | Description |
+|-----------|-------------|
+| `physics on\|off` | Enable or disable physics simulation (default: `on`). |
+| `physics_mode legacy\|solver` | Force a specific solver for this scene, overriding `--legacy-physics`. |
+| `time_scale <F>` | Simulation time multiplier (default: `1.0`). |
+| `seed <N>` | Random seed for reproducible spawning. Must be > 0. |
+| `world <gravity> <fluidHeight> <fluidDensity>` | Override world gravity and fluid parameters. |
+
+### Objects
+
+| Directive | Fields | Description |
+|-----------|--------|-------------|
+| `ball <name> pos3 radius mass moment restitution [force3 forcePos3] [euler3]` | 8 / 11 / 14 / 17 | Spawn a sphere. Force and initial orientation are optional. |
+| `box <name> pos3 half3 mass restitution [euler3] [vel3]` | 9 / 12 / 15 | Spawn an OBB. Orientation and initial velocity are optional. |
+| `ball_state <name> pos3 vel3 angVel3 orient4 radius mass restitution inertia3` | 20 | Snapshot format — full dynamic state. Used by F2 save. |
+| `legacy_balls <N>` | | Spawn N legacy-solver spheres at random positions. |
+| `solver_balls <N>` | | Spawn N impulse-solver spheres at random positions. |
+| `solver_boxes <N>` | | Spawn N impulse-solver OBBs at random positions. |
+
+### Camera
+
+| Directive | Description |
+|-----------|-------------|
+| `camera <name> pos3 view3 up3` | Define a named camera (up to `TOTAL_CAMERA_COUNT`). |
+| `track_height <F>` | Height above the tracked ball for the tracking camera. |
+| `auto_cycle_interval <F>` | Seconds between per-ball auto screenshots (used with `screenshot_interval`). |
+
+### Rendering
+
+| Directive | Description |
+|-----------|-------------|
+| `text on\|off` | Show or hide the HUD text overlay. |
+| `text_only on\|off` | Suppress all 3D rendering — solid background with large text only. |
+| `debug_vectors on\|off` | Show velocity vectors on balls. |
+| `vsync on\|off` | Override vsync for this scene. |
+| `pipeline_sync on\|off` | Override pipeline sync for this scene. |
+| `roll_align on\|off` | Rolling alignment correction. |
+| `water_hidden on\|off` | Hide the water surface. |
+| `terrain_hidden on\|off` | Hide the terrain mesh and shadow decals. |
+| `flat_slope <baseY> <slopeX> <slopeZ>` | Replace the heightmap terrain with a flat tilted plane. |
 
 ---
 
