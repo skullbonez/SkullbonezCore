@@ -108,6 +108,25 @@ Use `std::runtime_error` (or a subclass). The old `catch(char*)` pattern has bee
 ### Platform & CRT
 Windows-only. Use secure CRT variants: `fopen_s`, `strcpy_s`, `vsprintf_s`. Do not introduce POSIX equivalents.
 
+## Debugging Philosophy
+
+Static code analysis is **not sufficient** for a real-time physics and graphics engine. Bugs manifest at runtime through visual glitches, intermittent crashes under specific physics states, and hardware-dependent driver behavior. Every new bug must be investigated with the appropriate runtime technique:
+
+| Technique | When to Use | Skill / Tool |
+|-----------|-------------|--------------|
+| **Deterministic test scenes** | Reproducing visual or physics bugs — load a `.scene` file that triggers the issue, capture screenshots, compare against baselines | `skore-render-test` |
+| **CDB debugger** | Crashes, access violations, hangs — attach to a running process or launch under CDB to get stack traces and inspect state at the point of failure | `skore-cdb-debug` (path: `G:/CDB`) |
+| **Debug logging** | Intermittent state bugs, physics drift, value tracking — use `Log().Writef()` to emit CSV/text data per-frame and analyse offline | Built-in (`SkullbonezLog`) |
+| **CPU sub-profiling** | Performance regressions, hotspot identification — insert fine-grained markers around suspected code, run a perf scene, and measure | `skore-cpu-profiler` |
+| **Output log monitoring** | Driver warnings, validation errors, API messages — watch stdout/debug output for GL/DX diagnostics during a test run | Launch + capture output |
+
+**Workflow for any new bug:**
+1. Classify: Is it a crash, visual defect, performance regression, or intermittent state corruption?
+2. Select technique: Match the bug class to the table above
+3. Reproduce: Use a deterministic scene or specific model count that triggers the issue
+4. Fix: Make the minimal change, then verify with the same reproduction path
+5. Regress: Run the full pipeline to confirm nothing else broke
+
 ## Assets
 - Textures: JPEG files in `SkullbonezData\` loaded via the bundled `ThirdPtySource\JPEG` library
 - Terrain heightmap: `SkullbonezData\terrain.raw` (binary RAW format)

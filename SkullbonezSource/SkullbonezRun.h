@@ -114,7 +114,8 @@ struct RunSceneState
     int modelCount = 0;            // Number of models in the active scene
     float timeScale = 1.0f;        // Physics time multiplier (1.0 = realtime)
     bool isFixedStep = false;      // One physics tick per render frame at PHYSICS_FIXED_DT (deterministic)
-    bool isExitOnComplete = false; // Exit automatically when targetFrameCount is reached
+    bool isExitOnComplete = false;  // Exit automatically when targetFrameCount is reached
+    bool isTestComplete = false;    // Set when targetFrameCount is reached without --exit; appends "- TEST COMPLETE" to HUD
 };
 
 struct RunScreenshotState

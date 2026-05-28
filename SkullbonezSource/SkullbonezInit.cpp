@@ -13,6 +13,7 @@
 #include <vector>
 #include <string>
 #include <io.h>
+#include <objbase.h>
 
 
 // --- Usings ---
@@ -129,13 +130,26 @@ void ParseSceneArgs( const char* cmdLine, std::vector<std::string>& sceneList, b
                 ++suiteArg;
             }
 
-            // Extract just the filename token (stop before any subsequent flags).
-            const char* suiteEnd = suiteArg;
-            while ( *suiteEnd != '\0' && *suiteEnd != ' ' && *suiteEnd != '\t' )
+            // Extract just the filename token — support both quoted and unquoted paths.
+            const char* suiteStart = suiteArg;
+            const char* suiteEnd   = suiteArg;
+            if ( *suiteStart == '"' )
             {
-                ++suiteEnd;
+                ++suiteStart;
+                suiteEnd = suiteStart;
+                while ( *suiteEnd != '\0' && *suiteEnd != '"' )
+                {
+                    ++suiteEnd;
+                }
             }
-            std::string suitePath( suiteArg, suiteEnd );
+            else
+            {
+                while ( *suiteEnd != '\0' && *suiteEnd != ' ' && *suiteEnd != '\t' )
+                {
+                    ++suiteEnd;
+                }
+            }
+            std::string suitePath( suiteStart, suiteEnd );
 
             // Read suite file: one scene path per line, # comments ignored
             FILE* f = nullptr;
@@ -167,14 +181,28 @@ void ParseSceneArgs( const char* cmdLine, std::vector<std::string>& sceneList, b
             }
             if ( *sceneArg != '\0' )
             {
-                // Collect only the first token (stop at whitespace so subsequent
-                // flags like --renderer are not accidentally included in the path).
-                const char* end = sceneArg;
-                while ( *end != '\0' && *end != ' ' && *end != '\t' )
+                // Support both quoted ("path with spaces") and unquoted tokens.
+                // Quoted paths stop at the closing '"'; unquoted paths stop at whitespace.
+                // This handles launchers (CDB, VS debugger) that wrap paths in quotes.
+                const char* start = sceneArg;
+                const char* end   = sceneArg;
+                if ( *start == '"' )
                 {
-                    ++end;
+                    ++start;
+                    end = start;
+                    while ( *end != '\0' && *end != '"' )
+                    {
+                        ++end;
+                    }
                 }
-                sceneList.push_back( std::string( sceneArg, end ) );
+                else
+                {
+                    while ( *end != '\0' && *end != ' ' && *end != '\t' )
+                    {
+                        ++end;
+                    }
+                }
+                sceneList.push_back( std::string( start, end ) );
                 isSuiteOrSceneMode = true;
             }
         }
@@ -472,6 +500,11 @@ int WINAPI WinMain( HINSTANCE hInstance,
     hPrevInstance;
     iCmdShow;
 
+    // Initialize COM on the main thread (multi-threaded apartment). Required before any
+    // WinRT/COM activation occurs — without this, MSCTF.dll throws 0x800401F0 during
+    // text/input service initialization triggered by window creation.
+    CoInitializeEx( nullptr, COINIT_MULTITHREADED );
+
     AttachParentConsole();
 
     int atlasExitCode = 0;
@@ -496,6 +529,8 @@ int WINAPI WinMain( HINSTANCE hInstance,
     RunApp( window, args );
 
     CleanupWindow( window, hInstance );
+
+    CoUninitialize();
 
     // Write memory leaks to output window
     // _CrtDumpMemoryLeaks();

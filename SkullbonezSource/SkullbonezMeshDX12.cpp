@@ -45,11 +45,13 @@ void MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList,
     bufDesc.SampleDesc.Count = 1;
     bufDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
-    // Allocate GPU memory and create a committed resource for the vertex buffer on the DEFAULT heap.
+    // Allocate GPU memory for the vertex buffer on the DEFAULT heap.
     // The Default Heap is fast GPU-only memory (not CPU-accessible). Data must be copied here from
-    // an upload buffer. Initial state is COPY_DEST because we'll immediately copy vertex data into it.
+    // an upload buffer. D3D12 always creates buffers in COMMON state regardless of what is specified —
+    // specifying COPY_DEST fires warning #1328 (CREATERESOURCE_STATE_IGNORED). Use COMMON explicitly;
+    // CopyBufferRegion promotes the buffer to COPY_DEST implicitly within the command list.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    HRESULT hr = device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS( &m_vertexBuffer ) );
+    HRESULT hr = device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS( &m_vertexBuffer ) );
     if ( FAILED( hr ) )
     {
         throw std::runtime_error( "MeshDX12: CreateCommittedResource failed" );
@@ -67,15 +69,16 @@ void MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList,
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-copybufferregion
     cmdList->CopyBufferRegion( m_vertexBuffer, 0, backend->GetUploadBuffer(), uploadOffset, dataSize );
 
-    // Transition the vertex buffer from COPY_DEST to VERTEX_AND_CONSTANT_BUFFER state.
-    // In DX12, you MUST explicitly tell the GPU when a resource changes usage. After the copy
-    // finishes, the buffer needs to be in the correct state before it can be used for drawing.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
+    // Transition the vertex buffer from COMMON (implicitly promoted to COPY_DEST by CopyBufferRegion)
+    // to a combined read state that covers both normal drawing (VERTEX_AND_CONSTANT_BUFFER) and DXR
+    // acceleration structure builds (NON_PIXEL_SHADER_RESOURCE). Both are read-only states so they
+    // can be combined per D3D12 spec.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_resource_states
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
     barrier.Transition.pResource = m_vertexBuffer;
     barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
     cmdList->ResourceBarrier( 1, &barrier );
 

@@ -14,8 +14,44 @@ namespace Hardware
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 struct InputState
 {
-    bool fUp, fDown, fLeft, fRight, fAux1, fAux2, fGKeyWasDown, fRKeyWasDown, f9WasDown, f0WasDown, fF2WasDown, fF3WasDown, fFWasDown, fPWasDown, fNWasDown, fZWasDown, fXWasDown, fBackspaceWasDown;
-    long xMove, yMove;
+    // Bit indices for the key-state bitmask
+    enum Key : uint32_t
+    {
+        Up = 0,
+        Down,
+        Left,
+        Right,
+        Aux1,
+        Aux2,
+        GKeyWasDown,
+        RKeyWasDown,
+        Key9WasDown,
+        Key0WasDown,
+        F2WasDown,
+        F3WasDown,
+        FWasDown,
+        PWasDown,
+        NWasDown,
+        ZWasDown,
+        XWasDown,
+        BackspaceWasDown,
+        KEY_COUNT
+    };
+
+    uint32_t keys = 0; // Packed bit field for all boolean key states
+    long xMove = 0, yMove = 0;
+
+    bool Get( Key k ) const
+    {
+        return ( keys >> k ) & 1u;
+    }
+    void Set( Key k, bool v )
+    {
+        if ( v )
+            keys |= ( 1u << k );
+        else
+            keys &= ~( 1u << k );
+    }
 };
 
 /* -- Input ------------------------------------------------------------------------------------------------------------------------------------------------------

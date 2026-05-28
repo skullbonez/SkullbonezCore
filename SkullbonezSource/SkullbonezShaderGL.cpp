@@ -110,10 +110,31 @@ ShaderGL::ShaderGL( const char* vertPath, const char* fragPath )
     glAttachShader( m_programID, vertShader );
     glAttachShader( m_programID, fragShader );
 
+    // Bind a clean dummy VAO before linking to ensure the driver's JIT compiler captures a
+    // deterministic vertex attribute state. Without this, NVIDIA drivers emit a MEDIUM perf
+    // warning ("vertex shader is being recompiled based on GL state") when the VAO state at
+    // first draw differs from the state at link time.
+    // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glBindVertexArray.xhtml
+    GLint prevVAO = 0;
+    glGetIntegerv( GL_VERTEX_ARRAY_BINDING, &prevVAO );
+    GLuint dummyVAO = 0;
+    glGenVertexArrays( 1, &dummyVAO );
+    glBindVertexArray( dummyVAO );
+
     // Link the program — resolves connections between vertex shader outputs and fragment
     // shader inputs (varyings), validates attribute bindings, and produces final GPU code.
     // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glLinkProgram.xhtml
     glLinkProgram( m_programID );
+
+    // Prime the driver's internal shader cache by activating the program once immediately
+    // after linking. This forces eager compilation against the clean VAO state and prevents
+    // a deferred recompile at first draw time.
+    glUseProgram( m_programID );
+    glUseProgram( 0 );
+
+    // Restore previous VAO and delete the temporary one.
+    glBindVertexArray( static_cast<GLuint>( prevVAO ) );
+    glDeleteVertexArrays( 1, &dummyVAO );
 
     GLint success = 0;
     // Check if linking succeeded (can fail if outputs/inputs don't match, etc.).

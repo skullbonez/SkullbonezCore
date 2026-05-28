@@ -477,6 +477,7 @@ void Profiler::FrameBegin()
         InvalidateGpuQueries();
         m_markerCount = 0;
         m_lastAvgTicks = 0;
+        m_nextColorIndex = 0;
         m_resetPending = false;
     }
 
