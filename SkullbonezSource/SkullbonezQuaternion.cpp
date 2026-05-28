@@ -43,9 +43,14 @@ void Quaternion::Normalise()
                   m_y * m_y +
                   m_z * m_z;
 
-    if ( !magSq )
+    // Guard against zero or near-zero magnitude quaternions that can arise from
+    // pathological floating-point cancellation during collision impulse resolution.
+    // Reset to identity rather than crash — the object retains its last valid orientation.
+    static constexpr float EPSILON_SQ = 1e-12f;
+    if ( magSq < EPSILON_SQ )
     {
-        throw std::runtime_error( "Division by zero.  (Quaternion::Normalise)" );
+        Identity();
+        return;
     }
 
     float oneOverMag = 1.0f / sqrtf( magSq );
