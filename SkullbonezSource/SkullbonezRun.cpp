@@ -1512,6 +1512,20 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     // Top-left: engine name + active renderer
     Text2d::Render2dText( -( hw - mX ), hh - mY - fSz, fSz, "SKULLBONEZ CORE [%s]", rendererName );
 
+    // Second row top-left: scene name and frame counter (only in scene mode)
+    if ( m_scene.isSceneMode && m_scene.currentSceneIndex >= 0 )
+    {
+        const std::string& scenePath = m_sceneQueue[m_scene.currentSceneIndex];
+        const char* base = scenePath.c_str();
+        const char* slash = strrchr( base, '/' );
+        if ( !slash )
+        {
+            slash = strrchr( base, '\\' );
+        }
+        const char* sceneName = slash ? slash + 1 : base;
+        Text2d::Render2dText( -( hw - mX ), hh - mY - fSz * 3.0f, fSz, "%s  frame: %d", sceneName, m_scene.currentFrame );
+    }
+
     // Top-right: model count (right-aligned)
     {
         char mcBuf[64];
