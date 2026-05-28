@@ -13,6 +13,7 @@
 #include <vector>
 #include <string>
 #include <io.h>
+#include <objbase.h>
 
 
 // --- Usings ---
@@ -472,6 +473,11 @@ int WINAPI WinMain( HINSTANCE hInstance,
     hPrevInstance;
     iCmdShow;
 
+    // Initialize COM on the main thread (multi-threaded apartment). Required before any
+    // WinRT/COM activation occurs — without this, MSCTF.dll throws 0x800401F0 during
+    // text/input service initialization triggered by window creation.
+    CoInitializeEx( nullptr, COINIT_MULTITHREADED );
+
     AttachParentConsole();
 
     int atlasExitCode = 0;
@@ -496,6 +502,8 @@ int WINAPI WinMain( HINSTANCE hInstance,
     RunApp( window, args );
 
     CleanupWindow( window, hInstance );
+
+    CoUninitialize();
 
     // Write memory leaks to output window
     // _CrtDumpMemoryLeaks();
