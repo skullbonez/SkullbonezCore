@@ -6,6 +6,10 @@
 
 The entire `ParseCommandLine` family of functions uses raw `const char*` pointer arithmetic — manual `strstr`, `+=` by magic literal length offsets, manual whitespace skipping, `atof`/`_strnicmp`. This is fragile (off-by-one on the offset constant silently reads garbage), hard to test, and not the quality standard we hold the rest of the codebase to. It should be rewritten using proper string types (`std::string_view`, `std::string`) and a proper tokeniser that splits `lpCmdLine` into an `argv`-style vector first, then dispatches by token — the way every modern CLI parser works. The quote-stripping fix for `--scene`/`--suite` paths is a symptom of the same problem and would become unnecessary with correct tokenisation.
 
+## TODO: CPU/GPU spike histogram overlay
+
+The existing profiler overlay shows rolling averages and bar graphs of frame time, but gives no visibility into outlier frames — a single 50ms spike is invisible when averaged into a 60fps rolling window. Add a spike histogram: a fixed-width ring buffer of the last N frame times (CPU and GPU separately), rendered as a scrolling bar graph in the HUD overlay. Each bar is one frame; bars exceeding the frame budget (e.g. 16.6ms at 60Hz) are drawn in a distinct colour. This would make hitching, GC-style stalls, and DX12 pipeline bubbles immediately visible without needing to export a perf CSV and analyse it offline.
+
 ## PHYSICS BUGS
 
 
