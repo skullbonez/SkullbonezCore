@@ -1,31 +1,5 @@
 # SkullbonezCore — Known Bugs
 
-Crash bug in broadphase when you set model count to 512.
-
-## TODO: Fix stacking
-
-Boxes stacked on top of each other (see `stacking.scene`) tend to drift or
-topple slowly over several hundred frames rather than reaching a rock-solid
-rest. The solver converges for individual resting contacts but multi-body
-stacks expose gaps in the constraint ordering and lack of warm-starting across
-frames. Likely needs persistent contact caching (warm-start accumulated
-impulses from the previous frame) and/or position-stabilisation correction
-applied to the full stack chain, not just individual contact pairs.
-
-## TODO: Fix balls contact resting state
-
-Balls resting on terrain (see `at_rest.scene`) exhibit a visible micro-bounce
-or jitter before the sleep threshold kicks in. The ImpulseSolver's restitution
-path applies a small bounce impulse even at near-zero normal velocity, keeping
-the ball alive longer than it should be. The fix is to gate restitution behind
-a minimum separation velocity (typically 1–2 × the Baumgarte bias speed) so
-that low-energy contacts go straight to the resting / positional-correction
-path rather than bouncing. The same issue affects box-on-terrain resting.
-
-## TODO: Box-ball interpenetration
-
-Interpenetration can be seen during ball settle time between box and ball around frame 570 of at_rest.scene
-
 ## TODO: Add frame counter and scene name to the HUD when running scenes
 
 Top of screen please.
@@ -126,31 +100,35 @@ Suggested mitigations:
 Impact: Medium (performance / startup latency). Status: Untriaged.
 
 
-## Freeze on scene end: `at_rest.scene` (freeze / shutdown hang)
+## BONUS BUG
 
-Occurs when a test scene ends. Repro case:
+Crash bug in broadphase when you set model count to 512.  Not sure if still a think.
 
-```
---scene SkullbonezData/scenes/at_rest.scene
-```
 
-Symptom: When the scene completes and the program attempts to tear down the scene or exit, the process becomes unresponsive (hung/frozen). The window stops responding and the exe must be killed. Repro: Launch the Debug/Profile exe with the above `--scene` argument or run the scene via the render test suite; hang occurs at scene end/teardown.
+## PHYSICS BUGS
 
-Observed behaviour:
-- Main thread appears to block during shutdown.
-- Background threads (physics/renderer/worker) may be waiting on synchronization primitives or on GL context-related calls.
-- No crash or exception — the process simply stops making progress.
 
-Likely causes:
-- Deadlock in shutdown ordering (main thread waiting for worker threads that themselves wait on main-thread-only resources such as the GL context).
-- Worker thread trying to delete GL resources after the GL context has been destroyed.
-- Blocking waits (WaitForSingleObject/Join) with no timeout while a worker is stuck.
 
-Suggested mitigations:
-- Ensure deterministic shutdown order: signal workers to stop, let them exit cleanly, then destroy GL context and other single-threaded resources.
-- Move GL resource cleanup to the GL/main thread; never call GL functions from non-GL threads during teardown.
-- Add timeouts and watchdogs to thread joins and log thread states during shutdown for diagnostics.
-- Add verbose shutdown logging and capture thread stacks (via CDB `~*k` or !threads) when hang reproduces.
+## TODO: Fix stacking
 
-Severity: High — freeze on scene end blocks automated test runs. Status: Untriaged.
+Boxes stacked on top of each other (see `stacking.scene`) tend to drift or
+topple slowly over several hundred frames rather than reaching a rock-solid
+rest. The solver converges for individual resting contacts but multi-body
+stacks expose gaps in the constraint ordering and lack of warm-starting across
+frames. Likely needs persistent contact caching (warm-start accumulated
+impulses from the previous frame) and/or position-stabilisation correction
+applied to the full stack chain, not just individual contact pairs.
 
+## TODO: Fix balls contact resting state
+
+Balls resting on terrain (see `at_rest.scene`) exhibit a visible micro-bounce
+or jitter before the sleep threshold kicks in. The ImpulseSolver's restitution
+path applies a small bounce impulse even at near-zero normal velocity, keeping
+the ball alive longer than it should be. The fix is to gate restitution behind
+a minimum separation velocity (typically 1–2 × the Baumgarte bias speed) so
+that low-energy contacts go straight to the resting / positional-correction
+path rather than bouncing. The same issue affects box-on-terrain resting.
+
+## TODO: Box-ball interpenetration
+
+Interpenetration can be seen during ball settle time between box and ball around frame 570 of at_rest.scene
