@@ -288,6 +288,28 @@ bool RenderBackendDX11::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     {
         infoQueue->SetBreakOnSeverity( D3D11_MESSAGE_SEVERITY_CORRUPTION, TRUE );
         infoQueue->SetBreakOnSeverity( D3D11_MESSAGE_SEVERITY_ERROR, TRUE );
+
+        // Suppress expected warnings that fire every frame during normal operation:
+        // - QUERY_BEGIN_ABANDONING_PREVIOUS_RESULTS (408) and
+        //   QUERY_END_ABANDONING_PREVIOUS_RESULTS (410): Our double-buffered GPU timer scheme
+        //   intentionally calls Begin()/End() on disjoint and timestamp queries before prior
+        //   results are consumed via GetData(). D3D11 spec: "valid; but unusual" — expected
+        //   for ring-buffered timestamp patterns.
+        // - DEVICE_OMSETRENDERTARGETS_HAZARD (9): Reflection pass binds the same texture as
+        //   both SRV (read previous frame) and RTV (write new frame). D3D11 safely unbinds
+        //   the SRV and issues this warning. No data hazard — the read completed last frame.
+        // - DEVICE_PSSETSHADERRESOURCES_HAZARD (7): Same cause as above — D3D11 forces the
+        //   PS SRV slot to NULL when the resource becomes an active render target.
+        D3D11_MESSAGE_ID denyIds[] = {
+            D3D11_MESSAGE_ID_QUERY_BEGIN_ABANDONING_PREVIOUS_RESULTS,
+            D3D11_MESSAGE_ID_QUERY_END_ABANDONING_PREVIOUS_RESULTS,
+            D3D11_MESSAGE_ID_DEVICE_OMSETRENDERTARGETS_HAZARD,
+            D3D11_MESSAGE_ID_DEVICE_PSSETSHADERRESOURCES_HAZARD
+        };
+        D3D11_INFO_QUEUE_FILTER filter = {};
+        filter.DenyList.NumIDs = _countof( denyIds );
+        filter.DenyList.pIDList = denyIds;
+        infoQueue->PushStorageFilter( &filter );
         infoQueue->Release();
     }
 #endif
