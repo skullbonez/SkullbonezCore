@@ -67,15 +67,15 @@ void MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList,
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-copybufferregion
     cmdList->CopyBufferRegion( m_vertexBuffer, 0, backend->GetUploadBuffer(), uploadOffset, dataSize );
 
-    // Transition the vertex buffer from COPY_DEST to VERTEX_AND_CONSTANT_BUFFER state.
-    // In DX12, you MUST explicitly tell the GPU when a resource changes usage. After the copy
-    // finishes, the buffer needs to be in the correct state before it can be used for drawing.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
+    // Transition the vertex buffer from COPY_DEST to a combined read state that covers both
+    // normal drawing (VERTEX_AND_CONSTANT_BUFFER) and DXR acceleration structure builds
+    // (NON_PIXEL_SHADER_RESOURCE). Both are read-only states so they can be combined per D3D12 spec.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_resource_states
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
     barrier.Transition.pResource = m_vertexBuffer;
     barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
     cmdList->ResourceBarrier( 1, &barrier );
 

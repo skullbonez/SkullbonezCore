@@ -333,9 +333,15 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         {
             infoQueue->SetBreakOnSeverity( D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE );
 
-            // Suppress noisy warnings about buffer initial states
+            // Suppress all INFO-level messages from the debug layer. INFO-level messages are
+            // pure lifecycle chatter (create/destroy resource, heap, command list, fence etc.)
+            // and provide no actionable diagnostic value during development. We only want to
+            // see WARNING and ERROR severity messages in the debug output.
+            D3D12_MESSAGE_SEVERITY denySeverities[] = { D3D12_MESSAGE_SEVERITY_INFO };
             D3D12_MESSAGE_ID denyIds[] = { D3D12_MESSAGE_ID_CREATERESOURCE_STATE_IGNORED };
             D3D12_INFO_QUEUE_FILTER filter = {};
+            filter.DenyList.NumSeverities = _countof( denySeverities );
+            filter.DenyList.pSeverityList = denySeverities;
             filter.DenyList.NumIDs = _countof( denyIds );
             filter.DenyList.pIDList = denyIds;
             infoQueue->PushStorageFilter( &filter );
@@ -2513,7 +2519,7 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData, int st
     D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = SubAllocateUpload( dataSize, 4 );
     memcpy( GetUploadPtr( uploadAddr ), staticData, (size_t)dataSize );
     m_commandList->CopyBufferRegion( im.staticVB, 0, m_uploadBuffers[m_allocatorIndex], uploadAddr - m_uploadBuffers[m_allocatorIndex]->GetGPUVirtualAddress(), dataSize );
-    TransitionBarrier( im.staticVB, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER );
+    TransitionBarrier( im.staticVB, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE );
 
     im.staticVBV.BufferLocation = im.staticVB->GetGPUVirtualAddress();
     im.staticVBV.SizeInBytes = (UINT)dataSize;
