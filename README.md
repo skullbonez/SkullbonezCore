@@ -75,6 +75,8 @@ Output: `Debug\SKULLBONEZ_CORE.exe`, `Profile\SKULLBONEZ_CORE.exe`, or `Release\
 | `--vsync` | `on` \| `off` | Override vsync from `engine.cfg` |
 | `--legacy-physics` | _(flag)_ | Start with the legacy swept sphere-only solver |
 | `--switch-interval` | `<seconds>` | Auto-cycle renderer (GL → DX11 → DX12 → GL) every N seconds |
+| `--time-scale` | `<float>` | Override simulation time multiplier for every scene (e.g. `0.25` = quarter speed) |
+| `--fixed-step` | _(flag)_ | Force one physics tick per render frame (deterministic) for every scene |
 | `--physics-log` | `<path>` | Write per-frame physics state to a CSV file _(Debug builds only)_ |
 | `--gen-atlas` | `[path]` | Generate SDF font atlas to file and exit — no GPU context needed |
 
@@ -84,6 +86,8 @@ Debug\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\water_ball_test.scene
 Profile\SKULLBONEZ_CORE.exe --suite SkullbonezData\scenes\render_tests.suite --renderer dx11
 Debug\SKULLBONEZ_CORE.exe --legacy-physics --vsync off
 Debug\SKULLBONEZ_CORE.exe --switch-interval 5 --suite SkullbonezData\scenes\render_tests.suite
+Debug\SKULLBONEZ_CORE.exe --time-scale 0.5 --scene SkullbonezData\scenes\water_ball_test.scene
+Debug\SKULLBONEZ_CORE.exe --fixed-step --time-scale 2.0 --scene SkullbonezData\scenes\water_ball_test.scene
 Debug\SKULLBONEZ_CORE.exe --gen-atlas SkullbonezData\font_atlas.sdf
 ```
 

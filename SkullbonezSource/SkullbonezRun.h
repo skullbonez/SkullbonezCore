@@ -181,6 +181,8 @@ class SkullbonezRun
 
   private:
     std::vector<std::string> m_sceneQueue; // Ordered list of scene paths ("" = legacy mode)
+    float m_cmdTimeScaleOverride = 0.0f;   // CLI --time-scale override applied after each scene load (0 = not set)
+    bool  m_cmdFixedStep = false;          // CLI --fixed-step override applied after each scene load
 
     RunPerfLogState m_perfLogState;              // Perf/test logging paths, files, and flush policy
     RunRuntimeSettings m_runtimeSettings;        // Scene/app runtime toggles (vsync, sync, roll-align)
@@ -235,6 +237,8 @@ class SkullbonezRun
     void Initialise();                                                                // Initialises shared resources and loads first scene
     void Run();                                                                       // Runs all scenes in sequence — main message loop
     void SetRendererSwitchInterval( float seconds );
+    void SetTimeScaleOverride( float scale ); // Override timeScale for every scene loaded (CLI --time-scale)
+    void SetFixedStepOverride();              // Force fixed-step for every scene loaded (CLI --fixed-step)
 
 #ifdef _DEBUG
     void SetPhysicsLogOverride( const char* path ); // Override physics log path for all scenes (CLI --physics-log)

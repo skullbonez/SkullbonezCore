@@ -108,6 +108,8 @@ struct ParsedArgs
     RendererType renderer = RendererType::OpenGL;
     bool legacyPhysics = false;
     float switchInterval = -1.0f;
+    float timeScaleOverride = 0.0f; // 0 = not set
+    bool fixedStep = false;
 #ifdef _DEBUG
     char physicsLogOverride[256] = {};
 #endif
@@ -378,6 +380,31 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
 #endif
 
     out.switchInterval = ParseSwitchInterval( cmdLine );
+
+    // --time-scale <F>: positive float, 0 = not set
+    const char* tsArg = strstr( cmdLine, "--time-scale" );
+    if ( tsArg )
+    {
+        tsArg += 12;
+        while ( *tsArg == ' ' )
+        {
+            ++tsArg;
+        }
+        const float ts = static_cast<float>( atof( tsArg ) );
+        if ( ts > 0.0f )
+        {
+            out.timeScaleOverride = ts;
+            fprintf( stdout, "[time-scale] Override: %.4f\n", ts );
+        }
+    }
+
+    // --fixed-step: flag only, no value
+    out.fixedStep = ( strstr( cmdLine, "--fixed-step" ) != nullptr );
+    if ( out.fixedStep )
+    {
+        fprintf( stdout, "[fixed-step] Forced via command line.\n" );
+    }
+
     return true;
 }
 
@@ -422,6 +449,14 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         if ( args.switchInterval > 0.0f )
         {
             cRun.SetRendererSwitchInterval( args.switchInterval );
+        }
+        if ( args.timeScaleOverride > 0.0f )
+        {
+            cRun.SetTimeScaleOverride( args.timeScaleOverride );
+        }
+        if ( args.fixedStep )
+        {
+            cRun.SetFixedStepOverride();
         }
 #ifdef _DEBUG
         if ( args.physicsLogOverride[0] != '\0' )

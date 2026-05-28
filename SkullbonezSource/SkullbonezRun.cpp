@@ -83,6 +83,18 @@ void SkullbonezRun::SetRendererSwitchInterval( float seconds )
 }
 
 
+void SkullbonezRun::SetTimeScaleOverride( float scale )
+{
+    m_cmdTimeScaleOverride = scale;
+}
+
+
+void SkullbonezRun::SetFixedStepOverride()
+{
+    m_cmdFixedStep = true;
+}
+
+
 #ifdef _DEBUG
 void SkullbonezRun::SetPhysicsLogOverride( const char* path )
 {
@@ -2307,6 +2319,16 @@ void SkullbonezRun::LoadScene( int index )
             m_camera.input.xMove = 0;
             m_camera.input.yMove = 0;
         }
+    }
+
+    // CLI --time-scale and --fixed-step override anything the scene file (or legacy defaults) set.
+    if ( m_cmdTimeScaleOverride > 0.0f )
+    {
+        m_scene.timeScale = m_cmdTimeScaleOverride;
+    }
+    if ( m_cmdFixedStep )
+    {
+        m_scene.isFixedStep = true;
     }
 
     // Apply runtime swap policy after config/scene overrides are resolved.
