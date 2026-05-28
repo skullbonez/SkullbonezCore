@@ -847,7 +847,7 @@ bool SkullbonezRun::TickSceneAdvance()
             }
             else
             {
-                throw std::runtime_error( "Tests complete." );
+                m_scene.isTestComplete = true;
             }
         }
     }
@@ -1523,7 +1523,14 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             slash = strrchr( base, '\\' );
         }
         const char* sceneName = slash ? slash + 1 : base;
-        Text2d::Render2dText( -( hw - mX ), hh - mY - fSz * 3.0f, fSz, "%s  frame: %d", sceneName, m_scene.currentFrame );
+        if ( m_scene.isTestComplete )
+        {
+            Text2d::Render2dText( -( hw - mX ), hh - mY - fSz * 3.0f, fSz, "%s - TEST COMPLETE", sceneName );
+        }
+        else
+        {
+            Text2d::Render2dText( -( hw - mX ), hh - mY - fSz * 3.0f, fSz, "%s  frame: %d", sceneName, m_scene.currentFrame );
+        }
     }
 
     // Top-right: model count (right-aligned)
@@ -2086,6 +2093,7 @@ void SkullbonezRun::LoadScene( int index )
     m_screenshot.isScreenshotAndExit = false;
     m_scene.targetFrameCount = -1;
     m_scene.currentFrame = 0;
+    m_scene.isTestComplete = false;
     m_timers.physicsAccumulator = 0.0f;
     m_screenshot.screenshotFrame = -1;
     m_screenshot.screenshotMs = -1;

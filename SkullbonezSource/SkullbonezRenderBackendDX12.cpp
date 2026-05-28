@@ -326,24 +326,24 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     // Check DXR capability
     CheckDXRSupport();
 
-    // Enable break-on-corruption (severe errors only) — errors are still logged
+    // Configure the debug info queue: break on corruption and errors, suppress INFO-level chatter.
     {
         ID3D12InfoQueue* infoQueue = nullptr;
         if ( SUCCEEDED( m_device->QueryInterface( IID_PPV_ARGS( &infoQueue ) ) ) )
         {
+            // Break into the debugger immediately on CORRUPTION or ERROR — same policy as DX11.
+            // WARNING messages are logged but do not break; they must be investigated manually.
             infoQueue->SetBreakOnSeverity( D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE );
+            infoQueue->SetBreakOnSeverity( D3D12_MESSAGE_SEVERITY_ERROR, TRUE );
 
             // Suppress all INFO-level messages from the debug layer. INFO-level messages are
             // pure lifecycle chatter (create/destroy resource, heap, command list, fence etc.)
             // and provide no actionable diagnostic value during development. We only want to
             // see WARNING and ERROR severity messages in the debug output.
             D3D12_MESSAGE_SEVERITY denySeverities[] = { D3D12_MESSAGE_SEVERITY_INFO };
-            D3D12_MESSAGE_ID denyIds[] = { D3D12_MESSAGE_ID_CREATERESOURCE_STATE_IGNORED };
             D3D12_INFO_QUEUE_FILTER filter = {};
             filter.DenyList.NumSeverities = _countof( denySeverities );
             filter.DenyList.pSeverityList = denySeverities;
-            filter.DenyList.NumIDs = _countof( denyIds );
-            filter.DenyList.pIDList = denyIds;
             infoQueue->PushStorageFilter( &filter );
             infoQueue->Release();
         }
@@ -516,7 +516,12 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
             rd.MipLevels = 1;
             rd.SampleDesc.Count = 1;
             rd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-            if ( FAILED( m_device->CreateCommittedResource( &hp, D3D12_HEAP_FLAG_NONE, &rd, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS( &m_gpuTimers.readbackBuf ) ) ) )
+            // Buffers on all heap types are effectively created in COMMON state in D3D12
+            // regardless of the specified initial state. For READBACK buffers the runtime
+            // accepts any state but always uses COMMON — be explicit to keep the debug layer
+            // quiet. CPU Map/Unmap access is independent of the GPU-visible resource state.
+            // Docs: https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12#implicit-state-transitions
+            if ( FAILED( m_device->CreateCommittedResource( &hp, D3D12_HEAP_FLAG_NONE, &rd, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS( &m_gpuTimers.readbackBuf ) ) ) )
             {
                 m_gpuTimers.queryHeap->Release();
                 m_gpuTimers.queryHeap = nullptr;
@@ -2256,7 +2261,11 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
     readbackDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
     ID3D12Resource* readbackBuffer = nullptr;
-    m_device->CreateCommittedResource( &readbackHeap, D3D12_HEAP_FLAG_NONE, &readbackDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS( &readbackBuffer ) );
+    // Buffers are always created in COMMON state in D3D12 regardless of the initial state
+    // specified. Specifying any other state fires warning #1328 (CREATERESOURCE_STATE_IGNORED).
+    // READBACK buffers are accessed via CPU Map/Unmap — no GPU state barrier is needed.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12
+    m_device->CreateCommittedResource( &readbackHeap, D3D12_HEAP_FLAG_NONE, &readbackDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS( &readbackBuffer ) );
 
     // Copy texture to readback buffer
     D3D12_TEXTURE_COPY_LOCATION dstLoc = {};
@@ -2511,7 +2520,11 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData, int st
     bufDesc.SampleDesc.Count = 1;
     bufDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
-    m_device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS( &im.staticVB ) );
+    // Buffers are always created in COMMON state in D3D12 regardless of what is specified here.
+    // Specifying COPY_DEST fires warning #1328 (CREATERESOURCE_STATE_IGNORED). Use COMMON
+    // explicitly, then rely on implicit promotion to COPY_DEST when CopyBufferRegion executes.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12#implicit-state-transitions
+    m_device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS( &im.staticVB ) );
 
     // Upload static vertex data from CPU to GPU via the upload buffer, then transition to VB state.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-copybufferregion
@@ -2519,6 +2532,8 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData, int st
     D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = SubAllocateUpload( dataSize, 4 );
     memcpy( GetUploadPtr( uploadAddr ), staticData, (size_t)dataSize );
     m_commandList->CopyBufferRegion( im.staticVB, 0, m_uploadBuffers[m_allocatorIndex], uploadAddr - m_uploadBuffers[m_allocatorIndex]->GetGPUVirtualAddress(), dataSize );
+    // Transition from COPY_DEST (implicit promotion after CopyBufferRegion) to the
+    // combined read state used for both vertex fetch and DXR BLAS build SRV access.
     TransitionBarrier( im.staticVB, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE );
 
     im.staticVBV.BufferLocation = im.staticVB->GetGPUVirtualAddress();
