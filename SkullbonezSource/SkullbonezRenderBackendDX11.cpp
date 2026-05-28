@@ -288,28 +288,6 @@ bool RenderBackendDX11::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     {
         infoQueue->SetBreakOnSeverity( D3D11_MESSAGE_SEVERITY_CORRUPTION, TRUE );
         infoQueue->SetBreakOnSeverity( D3D11_MESSAGE_SEVERITY_ERROR, TRUE );
-
-        // Suppress expected warnings that fire every frame during normal operation:
-        // - QUERY_BEGIN_ABANDONING_PREVIOUS_RESULTS (408) and
-        //   QUERY_END_ABANDONING_PREVIOUS_RESULTS (410): Our double-buffered GPU timer scheme
-        //   intentionally calls Begin()/End() on disjoint and timestamp queries before prior
-        //   results are consumed via GetData(). D3D11 spec: "valid; but unusual" — expected
-        //   for ring-buffered timestamp patterns.
-        // - DEVICE_OMSETRENDERTARGETS_HAZARD (9): Reflection pass binds the same texture as
-        //   both SRV (read previous frame) and RTV (write new frame). D3D11 safely unbinds
-        //   the SRV and issues this warning. No data hazard — the read completed last frame.
-        // - DEVICE_PSSETSHADERRESOURCES_HAZARD (7): Same cause as above — D3D11 forces the
-        //   PS SRV slot to NULL when the resource becomes an active render target.
-        D3D11_MESSAGE_ID denyIds[] = {
-            D3D11_MESSAGE_ID_QUERY_BEGIN_ABANDONING_PREVIOUS_RESULTS,
-            D3D11_MESSAGE_ID_QUERY_END_ABANDONING_PREVIOUS_RESULTS,
-            D3D11_MESSAGE_ID_DEVICE_OMSETRENDERTARGETS_HAZARD,
-            D3D11_MESSAGE_ID_DEVICE_PSSETSHADERRESOURCES_HAZARD
-        };
-        D3D11_INFO_QUEUE_FILTER filter = {};
-        filter.DenyList.NumIDs = _countof( denyIds );
-        filter.DenyList.pIDList = denyIds;
-        infoQueue->PushStorageFilter( &filter );
         infoQueue->Release();
     }
 #endif
@@ -620,9 +598,13 @@ void RenderBackendDX11::Present()
                                              &disjointData,
                                              sizeof( disjointData ),
                                              D3D11_ASYNC_GETDATA_DONOTFLUSH );
-            if ( hr == S_OK && !disjointData.Disjoint && disjointData.Frequency > 0 )
+            if ( hr == S_OK )
             {
-                // Disjoint query succeeded — read all individual timestamp pairs.
+                // Disjoint query completed — drain ALL timestamp queries in this slot.
+                // This must happen unconditionally once the disjoint is S_OK, because all
+                // enclosed timestamps are guaranteed complete (they were issued between
+                // Begin/End of this disjoint). Consuming them prevents
+                // QUERY_END_ABANDONING_PREVIOUS_RESULTS when the slot is reused next frame.
                 std::memset( m_gpuTimers.resultValid, 0, sizeof( m_gpuTimers.resultValid ) );
                 for ( int i = 0; i < DX11_TIMER_MARKERS; ++i )
                 {
@@ -635,7 +617,8 @@ void RenderBackendDX11::Present()
                                                      &t1,
                                                      sizeof( t1 ),
                                                      D3D11_ASYNC_GETDATA_DONOTFLUSH );
-                    if ( h0 == S_OK && h1 == S_OK && t1 >= t0 )
+                    if ( !disjointData.Disjoint && disjointData.Frequency > 0 &&
+                         h0 == S_OK && h1 == S_OK && t1 >= t0 )
                     {
                         m_gpuTimers.resultMs[i] = static_cast<float>(
                             static_cast<double>( t1 - t0 ) / static_cast<double>( disjointData.Frequency ) * 1000.0 );
@@ -1643,6 +1626,38 @@ void RenderBackendDX11::GpuTimerBegin( int markerIdx )
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-begin
     if ( !m_gpuTimers.disjointBegunThisFrame )
     {
+        // Guard against reusing a slot whose prior results haven't been consumed yet.
+        // With only 2 double-buffer slots, the GPU may still be processing the last use of
+        // this slot (GetData returned S_FALSE on the read frame). Calling Begin() on an
+        // unconsumed disjoint query triggers QUERY_BEGIN_ABANDONING_PREVIOUS_RESULTS. Instead
+        // of suppressing that warning, skip GPU timing for this frame — we'll pick it back up
+        // once the GPU catches up. This is harmless: the profiler simply holds stale data for
+        // one extra frame.
+        if ( m_gpuTimers.frameReady[m_gpuTimers.writeIdx] )
+        {
+            D3D11_QUERY_DATA_TIMESTAMP_DISJOINT dummy = {};
+            HRESULT hr = m_context->GetData( m_gpuTimers.disjoint[m_gpuTimers.writeIdx],
+                                             &dummy, sizeof( dummy ),
+                                             D3D11_ASYNC_GETDATA_DONOTFLUSH );
+            if ( hr != S_OK )
+            {
+                return; // GPU not ready — skip timing this frame
+            }
+            // Disjoint is ready — drain all enclosed timestamp queries to prevent
+            // QUERY_END_ABANDONING_PREVIOUS_RESULTS when we reuse them below.
+            UINT64 throwaway;
+            for ( int i = 0; i < DX11_TIMER_MARKERS; ++i )
+            {
+                m_context->GetData( m_gpuTimers.ts[m_gpuTimers.writeIdx][i][0],
+                                    &throwaway, sizeof( throwaway ),
+                                    D3D11_ASYNC_GETDATA_DONOTFLUSH );
+                m_context->GetData( m_gpuTimers.ts[m_gpuTimers.writeIdx][i][1],
+                                    &throwaway, sizeof( throwaway ),
+                                    D3D11_ASYNC_GETDATA_DONOTFLUSH );
+            }
+            m_gpuTimers.frameReady[m_gpuTimers.writeIdx] = false;
+        }
+
         m_context->Begin( m_gpuTimers.disjoint[m_gpuTimers.writeIdx] );
         m_gpuTimers.disjointBegunThisFrame = true;
     }
@@ -1693,15 +1708,29 @@ void RenderBackendDX11::GpuTimerInvalidate()
     // calling Begin() again is a D3D11 spec violation that silently corrupts all
     // subsequent readbacks. Drain both slots with GetData (non-blocking, result discarded)
     // to put them in a clean state before the next frame's Begin().
+    // Also drain all timestamp queries — same reasoning applies to End() calls on
+    // timestamps that haven't been consumed.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-getdata
     if ( m_gpuTimers.initialized && m_context )
     {
         D3D11_QUERY_DATA_TIMESTAMP_DISJOINT dummy = {};
+        UINT64 throwaway;
         for ( int f = 0; f < DX11_TIMER_FRAMES; ++f )
         {
             if ( m_gpuTimers.disjoint[f] )
             {
                 m_context->GetData( m_gpuTimers.disjoint[f], &dummy, sizeof( dummy ), 0 );
+            }
+            for ( int i = 0; i < DX11_TIMER_MARKERS; ++i )
+            {
+                if ( m_gpuTimers.ts[f][i][0] )
+                {
+                    m_context->GetData( m_gpuTimers.ts[f][i][0], &throwaway, sizeof( throwaway ), 0 );
+                }
+                if ( m_gpuTimers.ts[f][i][1] )
+                {
+                    m_context->GetData( m_gpuTimers.ts[f][i][1], &throwaway, sizeof( throwaway ), 0 );
+                }
             }
         }
     }

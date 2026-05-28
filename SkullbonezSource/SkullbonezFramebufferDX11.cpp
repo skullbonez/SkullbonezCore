@@ -110,6 +110,16 @@ void FramebufferDX11::Bind() const
     m_savedRTV = m_backend->GetBackBufferRTV();
     m_savedDSV = m_backend->GetDepthStencilView();
 
+    // Explicitly unbind our color texture SRV from all PS shader resource slots before binding
+    // it as a render target. If this texture was previously bound for sampling (e.g. as a
+    // reflection map on slot 1 during the water pass), it remains bound until explicitly cleared.
+    // Without this, D3D11 auto-unbinds the SRV and fires DEVICE_OMSETRENDERTARGETS_HAZARD and
+    // DEVICE_PSSETSHADERRESOURCES_HAZARD warnings. The explicit unbind makes the state transition
+    // intentional and warning-free.
+    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-pssetshaderresources
+    ID3D11ShaderResourceView* nullSRVs[8] = {};
+    m_context->PSSetShaderResources( 0, 8, nullSRVs );
+
     // Bind this framebuffer as the active render target. OMSetRenderTargets (Output Merger stage)
     // tells the GPU "all subsequent draw calls should write their pixels into these targets"
     // instead of the main back buffer.
