@@ -49,9 +49,18 @@ SkullbonezRun::~SkullbonezRun()
         Gfx().FlushGPU();
     }
 
-    // Clean up GL resources while context is still alive
-    SkullbonezHelper::ResetGLResources();
+    // Clean up GL resources while context is still alive.
+    // WorldEnvironment::ResetGLResources() rebuilds fluid meshes (records GPU upload commands
+    // and leaves the DX12 command list open). Flush immediately after so subsequent resource
+    // releases don't trigger "ID3D12Resource deleted before command list close" validation
+    // errors — resources must not be freed while any open command list could reference them.
     m_cWorldEnvironment.ResetGLResources();
+    if ( IsGfxReady() )
+    {
+        Gfx().FlushGPU();
+    }
+
+    SkullbonezHelper::ResetGLResources();
     m_cGameModelCollection.ResetGLResources();
     if ( m_systems.reflectionFBO )
     {
@@ -61,15 +70,6 @@ SkullbonezRun::~SkullbonezRun()
     Profiler::Instance().InvalidateGpuQueries();
 #endif
     Text2d::DeleteFont();
-
-    // WorldEnvironment::ResetGLResources() rebuilds fluid meshes, which records GPU upload
-    // commands and leaves the command list open. Flush here so those uploads complete before
-    // m_cWorldEnvironment's member destructor releases the VBs — otherwise Shutdown() would
-    // see an open command list referencing already-freed resources (D3D12 TDR).
-    if ( IsGfxReady() )
-    {
-        Gfx().FlushGPU();
-    }
 
     m_systems.textures->Destroy();
     m_systems.cameras->Destroy();
