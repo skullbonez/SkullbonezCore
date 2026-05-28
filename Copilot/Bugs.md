@@ -1,5 +1,11 @@
 # SkullbonezCore — Known Bugs
 
+## TECH DEBT
+
+## TODO: Rewrite CLI argument parsing in SkullbonezInit.cpp
+
+The entire `ParseCommandLine` family of functions uses raw `const char*` pointer arithmetic — manual `strstr`, `+=` by magic literal length offsets, manual whitespace skipping, `atof`/`_strnicmp`. This is fragile (off-by-one on the offset constant silently reads garbage), hard to test, and not the quality standard we hold the rest of the codebase to. It should be rewritten using proper string types (`std::string_view`, `std::string`) and a proper tokeniser that splits `lpCmdLine` into an `argv`-style vector first, then dispatches by token — the way every modern CLI parser works. The quote-stripping fix for `--scene`/`--suite` paths is a symptom of the same problem and would become unnecessary with correct tokenisation.
+
 ## PHYSICS BUGS
 
 
