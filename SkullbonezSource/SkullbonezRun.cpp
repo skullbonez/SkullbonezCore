@@ -879,23 +879,23 @@ void SkullbonezRun::TakeInput()
     // Toggle fly mode with F (edge-detected so snapshot-loaded fly mode survives the next frame)
     bool prevFlyMode = m_camera.isFlyMode;
     bool fNow = Input::IsKeyDown( 'F' );
-    if ( fNow && !m_camera.input.fFWasDown )
+    if ( fNow && !m_camera.input.Get( InputState::FWasDown ) )
     {
         m_camera.isFlyMode = !m_camera.isFlyMode;
         m_camera.isNudgeMode = false; // F-key fly never implies nudge
     }
-    m_camera.input.fFWasDown = fNow;
+    m_camera.input.Set( InputState::FWasDown, fNow );
 
     // N key: toggle nudge mode — free camera with live simulation (edge-detected).
     // Nudge entering also enters fly mode; nudge exiting also exits fly mode.
     {
         bool nNow = Input::IsKeyDown( 'N' );
-        if ( nNow && !m_camera.input.fNWasDown )
+        if ( nNow && !m_camera.input.Get( InputState::NWasDown ) )
         {
             m_camera.isNudgeMode = !m_camera.isNudgeMode;
             m_camera.isFlyMode = m_camera.isNudgeMode;
         }
-        m_camera.input.fNWasDown = nNow;
+        m_camera.input.Set( InputState::NWasDown, nNow );
     }
 
     if ( m_camera.isFlyMode != prevFlyMode )
@@ -976,11 +976,11 @@ void SkullbonezRun::TakeInput()
     // In legacy mode, mirror the Windows key-toggle state.
     if ( m_scene.isSceneMode )
     {
-        if ( Input::IsKeyDown( '9' ) && !m_camera.input.f9WasDown )
+        if ( Input::IsKeyDown( '9' ) && !m_camera.input.Get( InputState::Key9WasDown ) )
         {
             m_debug.isDebugVectors = !m_debug.isDebugVectors;
         }
-        m_camera.input.f9WasDown = Input::IsKeyDown( '9' );
+        m_camera.input.Set( InputState::Key9WasDown, Input::IsKeyDown( '9' ) );
     }
     else
     {
@@ -990,16 +990,16 @@ void SkullbonezRun::TakeInput()
     // R key: cycle render backend at runtime while preserving current simulation state (GL → DX11 → DX12 → GL).
     {
         bool isRNow = Input::IsKeyDown( 'R' );
-        if ( isRNow && !m_camera.input.fRKeyWasDown )
+        if ( isRNow && !m_camera.input.Get( InputState::RKeyWasDown ) )
         {
             SwitchRenderer( GetNextRendererType( GetCurrentRendererType() ) );
         }
-        m_camera.input.fRKeyWasDown = isRNow;
+        m_camera.input.Set( InputState::RKeyWasDown, isRNow );
     }
 
     // G key: toggle broadphase overlay, or cycle tracked ball if overlay is off.
     bool isGNow = Input::IsKeyDown( 'G' );
-    if ( isGNow && !m_camera.input.fGKeyWasDown )
+    if ( isGNow && !m_camera.input.Get( InputState::GKeyWasDown ) )
     {
         if ( m_scene.isSceneMode && m_camera.trackBallIndex >= 0 && !m_debug.isBroadphaseOverlay )
         {
@@ -1014,13 +1014,13 @@ void SkullbonezRun::TakeInput()
             m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
         }
     }
-    m_camera.input.fGKeyWasDown = isGNow;
+    m_camera.input.Set( InputState::GKeyWasDown, isGNow );
 
     // 0 key: cycle overlay — None → Timers → BarsNormalized → BarsAbsolute → Keys → None.
     // Edge-detected in both scene and legacy modes; one advance per keypress.
     {
         bool key0Now = Input::IsKeyDown( '0' );
-        if ( key0Now && !m_camera.input.f0WasDown )
+        if ( key0Now && !m_camera.input.Get( InputState::Key0WasDown ) )
         {
             switch ( m_debug.overlayMode )
             {
@@ -1041,13 +1041,13 @@ void SkullbonezRun::TakeInput()
                 break;
             }
         }
-        m_camera.input.f0WasDown = key0Now;
+        m_camera.input.Set( InputState::Key0WasDown, key0Now );
     }
 
     // F2: Save scene snapshot to Scenes/
     {
         bool f2Now = Input::IsKeyDown( VK_F2 );
-        if ( f2Now && !m_camera.input.fF2WasDown )
+        if ( f2Now && !m_camera.input.Get( InputState::F2WasDown ) )
         {
             CreateDirectoryA( "Scenes", nullptr );
             static int sSnapshotSeq = 0;
@@ -1066,13 +1066,13 @@ void SkullbonezRun::TakeInput()
                     m_systems.cameras->GetCameraUp() );
             }
         }
-        m_camera.input.fF2WasDown = f2Now;
+        m_camera.input.Set( InputState::F2WasDown, f2Now );
     }
 
     // F3: Save screenshot to Screenshots/
     {
         bool f3Now = Input::IsKeyDown( VK_F3 );
-        if ( f3Now && !m_camera.input.fF3WasDown )
+        if ( f3Now && !m_camera.input.Get( InputState::F3WasDown ) )
         {
             CreateDirectoryA( "Screenshots", nullptr );
             static int sScreenshotSeq = 0;
@@ -1088,19 +1088,19 @@ void SkullbonezRun::TakeInput()
                 }
             }
         }
-        m_camera.input.fF3WasDown = f3Now;
+        m_camera.input.Set( InputState::F3WasDown, f3Now );
     }
 
     // P: toggle between legacy (sphere-only, ad-hoc) and new (sequential impulse) solver at runtime.
     // In legacy mode boxes freeze in place and disappear; they reappear when toggled back.
     {
         bool pNow = Input::IsKeyDown( 'P' );
-        if ( pNow && !m_camera.input.fPWasDown )
+        if ( pNow && !m_camera.input.Get( InputState::PWasDown ) )
         {
             m_cGameModelCollection.SetLegacyMode( !m_cGameModelCollection.GetLegacyMode() );
             PROFILE_SCHEDULE_RESET();
         }
-        m_camera.input.fPWasDown = pNow;
+        m_camera.input.Set( InputState::PWasDown, pNow );
     }
 
     // Z: fire a ball out of the camera. X: fire a box (solver mode only; ignored in legacy mode).
@@ -1108,30 +1108,30 @@ void SkullbonezRun::TakeInput()
     // Objects are recycled from the model pool — no new allocations.
     {
         bool zNow = Input::IsKeyDown( 'Z' );
-        if ( zNow && !m_camera.input.fZWasDown )
+        if ( zNow && !m_camera.input.Get( InputState::ZWasDown ) )
         {
             FireProjectile( false );
         }
-        m_camera.input.fZWasDown = zNow;
+        m_camera.input.Set( InputState::ZWasDown, zNow );
     }
     {
         bool xNow = Input::IsKeyDown( 'X' );
-        if ( xNow && !m_camera.input.fXWasDown )
+        if ( xNow && !m_camera.input.Get( InputState::XWasDown ) )
         {
             FireProjectile( true );
         }
-        m_camera.input.fXWasDown = xNow;
+        m_camera.input.Set( InputState::XWasDown, xNow );
     }
 
     // Backspace: reset (reload) the current scene from scratch. Scene mode only.
     if ( m_scene.isSceneMode )
     {
         bool bsNow = Input::IsKeyDown( VK_BACK );
-        if ( bsNow && !m_camera.input.fBackspaceWasDown )
+        if ( bsNow && !m_camera.input.Get( InputState::BackspaceWasDown ) )
         {
             LoadScene( m_scene.currentSceneIndex );
         }
-        m_camera.input.fBackspaceWasDown = bsNow;
+        m_camera.input.Set( InputState::BackspaceWasDown, bsNow );
     }
 
     if ( m_camera.isFlyMode )
@@ -1147,19 +1147,19 @@ void SkullbonezRun::TakeInput()
         m_camera.input.yMove = currentCoords.y - centreCoords.y;
 
         // WASD movement
-        m_camera.input.fUp = Input::IsKeyDown( 'W' );
-        m_camera.input.fLeft = Input::IsKeyDown( 'A' );
-        m_camera.input.fDown = Input::IsKeyDown( 'S' );
-        m_camera.input.fRight = Input::IsKeyDown( 'D' );
+        m_camera.input.Set( InputState::Up, Input::IsKeyDown( 'W' ) );
+        m_camera.input.Set( InputState::Left, Input::IsKeyDown( 'A' ) );
+        m_camera.input.Set( InputState::Down, Input::IsKeyDown( 'S' ) );
+        m_camera.input.Set( InputState::Right, Input::IsKeyDown( 'D' ) );
     }
     else
     {
         m_camera.input.xMove = 0;
         m_camera.input.yMove = 0;
-        m_camera.input.fUp = false;
-        m_camera.input.fDown = false;
-        m_camera.input.fLeft = false;
-        m_camera.input.fRight = false;
+        m_camera.input.Set( InputState::Up, false );
+        m_camera.input.Set( InputState::Down, false );
+        m_camera.input.Set( InputState::Left, false );
+        m_camera.input.Set( InputState::Right, false );
     }
 }
 
@@ -1718,10 +1718,10 @@ void SkullbonezRun::SetViewingOrientation()
 
     /*
         // reset relativity when a new request for synchronisation comes in
-        if(m_camera.input.fAux1) m_systems.cameras->ResetRelativity();
+        if(m_camera.input.Get( InputState::Aux1 )) m_systems.cameras->ResetRelativity();
 
         // sync m_cameras if in sync mode
-        if(m_camera.input.fAux2)
+        if(m_camera.input.Get( InputState::Aux2 ))
         {
             // perform the relative update
             RelativeUpdateCamera(CAMERA_GAME_MODEL_1);
@@ -1761,19 +1761,19 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
         }
 
         // WASD movement
-        if ( m_camera.input.fUp )
+        if ( m_camera.input.Get( InputState::Up ) )
         {
             m_systems.cameras->MovePrimary( Camera::TravelDirection::Forward, keyMovementQty * speedMult );
         }
-        if ( m_camera.input.fLeft )
+        if ( m_camera.input.Get( InputState::Left ) )
         {
             m_systems.cameras->MovePrimary( Camera::TravelDirection::Left, keyMovementQty * speedMult );
         }
-        if ( m_camera.input.fDown )
+        if ( m_camera.input.Get( InputState::Down ) )
         {
             m_systems.cameras->MovePrimary( Camera::TravelDirection::Backward, keyMovementQty * speedMult );
         }
-        if ( m_camera.input.fRight )
+        if ( m_camera.input.Get( InputState::Right ) )
         {
             m_systems.cameras->MovePrimary( Camera::TravelDirection::Right, keyMovementQty * speedMult );
         }
