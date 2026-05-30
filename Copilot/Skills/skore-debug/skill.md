@@ -14,7 +14,7 @@ $REPO = (git rev-parse --show-toplevel).Trim()
 Test-Path "$REPO\Debug\SKULLBONEZ_CORE.exe"
 ```
 
-If it does not exist, build first using the `build-skullbonez-core` skill.
+If it does not exist, build first using `tools\validate_build.bat Debug` or the `skore-build` skill.
 
 ### Launch under the Visual Studio debugger
 
@@ -62,4 +62,4 @@ if ($hwnd -ne [IntPtr]::Zero) { Write-Host "Window found - rendering OK" } else 
 - Check the Visual Studio Output window and Debug console for exception messages
 - All exceptions use `std::runtime_error` and will be caught and shown in a message box
 - Ensure `SkullbonezData\` assets are present relative to the repo root
-- If the issue is in code, fix it, rebuild using `build-skullbonez-core`, then retry
+- If the issue is in code, fix it, rebuild using `tools\validate_build.bat Debug` or `skore-build`, then retry

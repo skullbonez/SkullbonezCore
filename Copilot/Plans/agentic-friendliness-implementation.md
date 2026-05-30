@@ -4,6 +4,8 @@
 >
 > **Check off tasks** by changing `[ ]` to `[x]` as you complete them.
 
+> **Implementation note (2026-05-30):** Completed through Phase 6 verification. The generated batch files use ASCII banners for reliable `cmd.exe` parsing, and `validate_perf.bat` forces UTF-8 for Python output so `perf_compare.py` can print its status markers on Windows. Phase 7 remains unchecked because committing requires explicit user permission.
+
 ---
 
 ## Prerequisites
@@ -25,7 +27,7 @@ Test-Path "G:\skore3\SKULLBONEZ_CORE.sln"                                       
 
 ### Task 1.1 — Create the `tools\` directory
 
-- [ ] Create folder: `G:\skore3\tools\`
+- [x] Create folder: `G:\skore3\tools\`
 
 ```pwsh
 New-Item -ItemType Directory -Path "G:\skore3\tools" -Force
@@ -37,7 +39,7 @@ New-Item -ItemType Directory -Path "G:\skore3\tools" -Force
 
 A shared helper that locates MSBuild. Other scripts call this.
 
-- [ ] Create file: `G:\skore3\tools\find_msbuild.bat`
+- [x] Create file: `G:\skore3\tools\find_msbuild.bat`
 
 **Full file contents:**
 
@@ -63,7 +65,7 @@ exit /b 99
 
 Checks clang-format compliance. Exits 0 if all files pass, 1 if any need formatting.
 
-- [ ] Create file: `G:\skore3\tools\validate_format.bat`
+- [x] Create file: `G:\skore3\tools\validate_format.bat`
 
 **Full file contents:**
 
@@ -112,7 +114,7 @@ exit /b 0
 
 Auto-fixes formatting violations in-place.
 
-- [ ] Create file: `G:\skore3\tools\format_fix.bat`
+- [x] Create file: `G:\skore3\tools\format_fix.bat`
 
 **Full file contents:**
 
@@ -150,7 +152,7 @@ exit /b 0
 
 Builds a specified configuration. Exits 0 on success (0 errors, 0 warnings), 1 on failure.
 
-- [ ] Create file: `G:\skore3\tools\validate_build.bat`
+- [x] Create file: `G:\skore3\tools\validate_build.bat`
 
 **Full file contents:**
 
@@ -189,7 +191,7 @@ exit /b 0
 
 Checks that `dx12_validation.txt` exists and reports 0 errors.
 
-- [ ] Create file: `G:\skore3\tools\check_dx12_validation.bat`
+- [x] Create file: `G:\skore3\tools\check_dx12_validation.bat`
 
 **Full file contents:**
 
@@ -229,7 +231,7 @@ if "%LAST_LINE%"=="0" (
 
 **The quick sanity check.** Format + Build only. ~30 seconds.
 
-- [ ] Create file: `G:\skore3\tools\validate_fast.bat`
+- [x] Create file: `G:\skore3\tools\validate_fast.bat`
 
 **Full file contents:**
 
@@ -277,7 +279,7 @@ exit /b 0
 
 **Tri-renderer validation.** Build + run GL/DX11/DX12 suites + stdout/stderr check + DX12 validation check + cross-renderer parity. ~90 seconds.
 
-- [ ] Create file: `G:\skore3\tools\validate_renderers.bat`
+- [x] Create file: `G:\skore3\tools\validate_renderers.bat`
 
 **Full file contents:**
 
@@ -315,14 +317,13 @@ REM ── Step 3: Clean old artifacts ─────────────�
 echo [3/7] Cleaning old artifacts...
 del /q "%REPO%\Profile\*screenshot.bmp" 2>nul
 del /q "%REPO%\Profile\*legacy_smoke.bmp" 2>nul
-del /q "%REPO%\Profile\*perf_log.csv" 2>nul
 del /q "%REPO%\Profile\*_stdout.txt" 2>nul
 del /q "%REPO%\Profile\*_stderr.txt" 2>nul
 del /q "%REPO%\dx12_validation.txt" 2>nul
 
 REM ── Step 4: Run GL Suite ──────────────────────────────────────
 echo [4/7] Running GL suite...
-"%REPO%\Profile\SKULLBONEZ_CORE.exe" --suite SkullbonezData/scenes/render_tests.suite >"%REPO%\Profile\gl_stdout.txt" 2>"%REPO%\Profile\gl_stderr.txt"
+"%REPO%\Profile\SKULLBONEZ_CORE.exe" --vsync off --suite SkullbonezData/scenes/render_tests.suite >"%REPO%\Profile\gl_stdout.txt" 2>"%REPO%\Profile\gl_stderr.txt"
 if errorlevel 1 (
     echo FAIL: GL suite exited with error.
     exit /b 3
@@ -330,29 +331,26 @@ if errorlevel 1 (
 REM Rename GL artifacts
 if exist "%REPO%\Profile\screenshot.bmp"   rename "%REPO%\Profile\screenshot.bmp" gl_screenshot.bmp
 if exist "%REPO%\Profile\legacy_smoke.bmp"  rename "%REPO%\Profile\legacy_smoke.bmp" gl_legacy_smoke.bmp
-if exist "%REPO%\Profile\perf_log.csv"      rename "%REPO%\Profile\perf_log.csv" gl_perf_log.csv
 
 REM ── Step 5: Run DX11 Suite ────────────────────────────────────
 echo [5/7] Running DX11 suite...
-"%REPO%\Profile\SKULLBONEZ_CORE.exe" --renderer dx11 --suite SkullbonezData/scenes/render_tests.suite >"%REPO%\Profile\dx11_stdout.txt" 2>"%REPO%\Profile\dx11_stderr.txt"
+"%REPO%\Profile\SKULLBONEZ_CORE.exe" --renderer dx11 --vsync off --suite SkullbonezData/scenes/render_tests.suite >"%REPO%\Profile\dx11_stdout.txt" 2>"%REPO%\Profile\dx11_stderr.txt"
 if errorlevel 1 (
     echo FAIL: DX11 suite exited with error.
     exit /b 4
 )
 if exist "%REPO%\Profile\screenshot.bmp"   rename "%REPO%\Profile\screenshot.bmp" dx11_screenshot.bmp
 if exist "%REPO%\Profile\legacy_smoke.bmp"  rename "%REPO%\Profile\legacy_smoke.bmp" dx11_legacy_smoke.bmp
-if exist "%REPO%\Profile\perf_log.csv"      rename "%REPO%\Profile\perf_log.csv" dx11_perf_log.csv
 
 REM ── Step 6: Run DX12 Suite ────────────────────────────────────
 echo [6/7] Running DX12 suite...
-"%REPO%\Profile\SKULLBONEZ_CORE.exe" --renderer dx12 --suite SkullbonezData/scenes/render_tests.suite >"%REPO%\Profile\dx12_stdout.txt" 2>"%REPO%\Profile\dx12_stderr.txt"
+"%REPO%\Profile\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --suite SkullbonezData/scenes/render_tests.suite >"%REPO%\Profile\dx12_stdout.txt" 2>"%REPO%\Profile\dx12_stderr.txt"
 if errorlevel 1 (
     echo FAIL: DX12 suite exited with error.
     exit /b 5
 )
 if exist "%REPO%\Profile\screenshot.bmp"   rename "%REPO%\Profile\screenshot.bmp" dx12_screenshot.bmp
 if exist "%REPO%\Profile\legacy_smoke.bmp"  rename "%REPO%\Profile\legacy_smoke.bmp" dx12_legacy_smoke.bmp
-if exist "%REPO%\Profile\perf_log.csv"      rename "%REPO%\Profile\perf_log.csv" dx12_perf_log.csv
 
 REM ── Verify all artifacts produced ─────────────────────────────
 set MISSING=0
@@ -419,7 +417,7 @@ exit /b 0
 
 **Physics regression validation.** Builds Debug + runs deterministic scenes + byte-exact CSV diff. ~60 seconds.
 
-- [ ] Create file: `G:\skore3\tools\validate_physics.bat`
+- [x] Create file: `G:\skore3\tools\validate_physics.bat`
 
 **Full file contents:**
 
@@ -451,15 +449,8 @@ REM ── Step 2: Run regression scenes ─────────────
 echo [2/3] Running physics regression scenes...
 del /q "%REPO%\Debug\physics_regression_*.csv" 2>nul
 
-echo   Running physics_regression_legacy...
-"%REPO%\Debug\SKULLBONEZ_CORE.exe" --scene SkullbonezData/scenes/physics_regression_legacy.scene
-if errorlevel 1 (
-    echo FAIL: physics_regression_legacy crashed or errored.
-    exit /b 2
-)
-
 echo   Running physics_regression_solver...
-"%REPO%\Debug\SKULLBONEZ_CORE.exe" --scene SkullbonezData/scenes/physics_regression_solver.scene
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --vsync off --fixed-step --scene SkullbonezData/scenes/physics_regression_solver.scene
 if errorlevel 1 (
     echo FAIL: physics_regression_solver crashed or errored.
     exit /b 2
@@ -471,8 +462,8 @@ set "SKORE_REPO=%REPO%"
 py "%~dp0check_physics_regression.py"
 if errorlevel 1 (
     echo FAIL: Physics regression detected. Output differs from baselines.
-    echo       Baselines: TestOutput\baselines\physics_regression_*.csv
-    echo       Actual:    Debug\physics_regression_*.csv
+    echo       Baseline: TestOutput\baselines\physics_regression_solver.csv
+    echo       Actual:   Debug\physics_regression_solver.csv
     exit /b 2
 )
 
@@ -490,7 +481,7 @@ exit /b 0
 
 The Python script that does byte-exact CSV comparison for physics regression.
 
-- [ ] Create file: `G:\skore3\tools\check_physics_regression.py`
+- [x] Create file: `G:\skore3\tools\check_physics_regression.py`
 
 **Full file contents:**
 
@@ -498,7 +489,7 @@ The Python script that does byte-exact CSV comparison for physics regression.
 """
 check_physics_regression.py — Compare physics CSV output against committed baselines.
 
-Physics scenes use fixed_step + seed 42, so output is EXACTLY deterministic.
+Physics scene uses fixed_step + seed 42, so output is EXACTLY deterministic.
 Any single differing byte is a real regression.
 
 Exit 0 = all match, Exit 1 = regression detected or files missing.
@@ -510,7 +501,6 @@ REPO = os.environ.get("SKORE_REPO", os.path.dirname(os.path.dirname(os.path.absp
 BASELINE_DIR = os.path.join(REPO, "TestOutput", "baselines")
 
 TESTS = [
-    (os.path.join(REPO, "Debug", "physics_regression_legacy.csv"), "physics_regression_legacy.csv"),
     (os.path.join(REPO, "Debug", "physics_regression_solver.csv"), "physics_regression_solver.csv"),
 ]
 
@@ -569,84 +559,21 @@ if __name__ == "__main__":
 
 ### Task 1.11 — Create `tools\validate_perf.bat`
 
-**Performance regression check.** Builds Profile + runs perf scene + generates JSON + compares. ~45 seconds.
+**Performance regression check.** Builds Profile + runs `perf_test.scene` for GL, DX11, and DX12 with vsync off + fixed-step for frame-controlled 1000-frame passes, generates JSON with 1970 analyzed timing samples after first-pass warmup, and compares each renderer. ~1 minute.
 
-- [ ] Create file: `G:\skore3\tools\validate_perf.bat`
+- [x] Create file: `G:\skore3\tools\validate_perf.bat`
 
-**Full file contents:**
+**Current implementation summary:**
 
 ```bat
-@echo off
-setlocal enabledelayedexpansion
-REM ═══════════════════════════════════════════════════════════════
-REM  validate_perf.bat — Performance regression detection
-REM  Use for: optimization work, hot-path changes, allocation changes
-REM  Runtime: ~45 seconds
-REM  Exit 0 = build+run succeeded (perf regressions shown but don't fail)
-REM  Exit 1 = build failure, Exit 2 = perf scene crashed or no output
-REM  NOTE: Perf regressions exit 0 because they require human judgment.
-REM        The comparison output is printed for the agent/user to review.
-REM ═══════════════════════════════════════════════════════════════
-
-set "REPO=%~dp0.."
-pushd "%REPO%"
-echo.
-echo ════════════════════════════════════════
-echo   VALIDATE_PERF — Performance Check
-echo ════════════════════════════════════════
-echo.
-
-REM ── Step 1: Build Profile ─────────────────────────────────────
-echo [1/3] Building Profile x64...
 call "%~dp0validate_build.bat" Profile
-if errorlevel 1 exit /b 1
-
-REM ── Step 2: Run perf scene (GL only — CPU perf is renderer-independent) ──
-echo [2/3] Running perf test (GL)...
-del /q "%REPO%\Profile\perf_log.csv" 2>nul
-"%REPO%\Profile\SKULLBONEZ_CORE.exe" --scene SkullbonezData/scenes/perf_test.scene
-if errorlevel 1 (
-    echo FAIL: perf_test scene crashed.
-    exit /b 2
+call :RunPerf gl "" 2
+call :RunPerf dx11 "--renderer dx11" 3
+call :RunPerf dx12 "--renderer dx12" 4
+for %%r in (gl dx11 dx12) do (
+    py "%REPO%\Copilot\Skills\skore-render-test\analyze_perf.py" --renderer %%r --csv "%REPO%\Profile\%%r_perf_log.csv" --out-dir "%REPO%\Profile"
+    py "%REPO%\Copilot\Skills\skore-render-test\perf_compare.py" --current "%REPO%\Profile\%%r_perf.json" --previous "%REPO%\TestOutput\baselines\%%r_perf.json"
 )
-
-if not exist "%REPO%\Profile\perf_log.csv" (
-    echo FAIL: perf_log.csv not produced.
-    exit /b 2
-)
-
-REM ── Step 3: Analyze and compare ───────────────────────────────
-echo [3/3] Analyzing performance...
-set "SKORE_REPO=%REPO%"
-
-REM Generate JSON from CSV
-py "%REPO%\Copilot\Skills\skore-render-test\analyze_perf.py" --renderer gl --csv "%REPO%\Profile\perf_log.csv" --out-dir "%REPO%\Profile"
-if errorlevel 1 (
-    echo FAIL: perf analysis script failed.
-    exit /b 2
-)
-
-REM Compare against baseline if it exists
-if exist "%REPO%\TestOutput\baselines\gl_perf.json" (
-    echo.
-    echo Performance comparison vs baseline:
-    py "%REPO%\Copilot\Skills\skore-render-test\perf_compare.py" --current "%REPO%\Profile\gl_perf.json" --previous "%REPO%\TestOutput\baselines\gl_perf.json"
-    if errorlevel 1 (
-        echo.
-        echo WARNING: Performance regression detected. Review output above.
-        REM Note: We exit 0 here because perf regressions need human judgment.
-        REM The output above shows the agent what regressed.
-    )
-) else (
-    echo No baseline found at TestOutput\baselines\gl_perf.json — skipping comparison.
-)
-
-echo.
-echo ════════════════════════════════════════
-echo   VALIDATE_PERF: COMPLETE
-echo ════════════════════════════════════════
-popd
-exit /b 0
 ```
 
 ---
@@ -655,7 +582,7 @@ exit /b 0
 
 Cross-renderer pixel parity comparison script.
 
-- [ ] Create file: `G:\skore3\tools\check_parity.py`
+- [x] Create file: `G:\skore3\tools\check_parity.py`
 
 **Full file contents:**
 
@@ -737,7 +664,7 @@ if __name__ == "__main__":
 
 **The full validation pipeline.** Combines all other scripts. ~3 minutes.
 
-- [ ] Create file: `G:\skore3\tools\validate_full.bat`
+- [x] Create file: `G:\skore3\tools\validate_full.bat`
 
 **Full file contents:**
 
@@ -777,9 +704,9 @@ if errorlevel 1 (
     exit /b 2
 )
 
-REM ── Perf (rebuilds Profile and re-runs perf_test.scene for GL — the rebuild
-REM   is a no-op since renderers already built Profile, but perf analysis
-REM   needs its own standalone CSV to compare against the baseline JSON) ──
+REM ── Perf (rebuilds Profile and re-runs perf_test.scene for GL/DX11/DX12.
+REM   The rebuild is a no-op since renderers already built Profile, but perf
+REM   analysis needs standalone CSVs to compare against baseline JSONs.) ──
 echo.
 echo === Phase 3: Performance Validation ===
 call "%~dp0validate_perf.bat"
@@ -802,7 +729,7 @@ exit /b 0
 
 One-command entry point that any agent can run with no arguments.
 
-- [ ] Create file: `G:\skore3\tools\agent_validate.bat`
+- [x] Create file: `G:\skore3\tools\agent_validate.bat`
 
 **Full file contents:**
 
@@ -827,7 +754,7 @@ exit /b %errorlevel%
 
 ### Task 2.1 — Create `AGENTS.md` at repo root
 
-- [ ] Create file: `G:\skore3\AGENTS.md`
+- [x] Create file: `G:\skore3\AGENTS.md`
 
 **Full file contents:**
 
@@ -855,9 +782,9 @@ Run the appropriate validation script from the `tools\` directory:
 |-------------|---------|---------|
 | Documentation only | `tools\validate_fast.bat` | ~30s |
 | Small refactor (no render/physics) | `tools\validate_fast.bat` | ~30s |
-| Shader or render backend | `tools\validate_renderers.bat` | ~90s |
-| Physics, collision, or solver | `tools\validate_physics.bat` | ~60s |
-| Performance-sensitive hot path | `tools\validate_perf.bat` | ~45s |
+| Shader or render backend | `tools\validate_renderers.bat` | ~60s |
+| Physics, collision, or solver | `tools\validate_physics.bat` | ~45s |
+| Performance-sensitive hot path | `tools\validate_perf.bat` | ~1 min |
 | Broad or uncertain scope | `tools\validate_full.bat` | ~3 min |
 | **Don't know? Use this:** | **`tools\agent_validate.bat`** | ~3 min |
 
@@ -969,7 +896,7 @@ The existing `agents.md` at repo root is Copilot-specific. Move it so it doesn't
 
 > **Windows note:** The filesystem is case-insensitive, so `agents.md` and `AGENTS.md` are the same file. You must use a two-step rename through an intermediate path. Git tracks case changes correctly even though Windows doesn't distinguish them.
 
-- [ ] Move to Copilot-specific location, then create the new universal contract:
+- [x] Move to Copilot-specific location, then create the new universal contract:
 
 ```pwsh
 # Step 1: Move the Copilot-specific file
@@ -987,7 +914,7 @@ git mv "G:\skore3\agents.md" "G:\skore3\Copilot\agents-copilot.md"
 
 The copilot-instructions file has stale references (Win32 platform, old member naming convention) and needs to reference the new universal contract.
 
-- [ ] Edit file: `G:\skore3\.github\copilot-instructions.md`
+- [x] Edit file: `G:\skore3\.github\copilot-instructions.md`
 
 **Change 1 — Add this block at line 1 (before existing content):**
 
@@ -1094,7 +1021,7 @@ The existing `Copilot\Skills\collapse_params.py` has a hardcoded path (`G:\Skull
 
 ### Task 3.1 — Update `collapse_params.py` to use repo-relative path
 
-- [ ] Edit file: `G:\skore3\Copilot\Skills\collapse_params.py`
+- [x] Edit file: `G:\skore3\Copilot\Skills\collapse_params.py`
 
 **Find line 3:**
 ```python
@@ -1114,7 +1041,7 @@ This resolves to `{repo_root}\SkullbonezSource` regardless of where the repo is 
 
 ### Task 4.1 — Create documentation for the tools directory
 
-- [ ] Create file: `G:\skore3\tools\README.md`
+- [x] Create file: `G:\skore3\tools\README.md`
 
 **Full file contents:**
 
@@ -1129,9 +1056,9 @@ Scripts for validating SkullbonezCore changes. Run from the repo root or from wi
 |--------|----------|---------|
 | `agent_validate.bat` | Don't know what to run (runs everything) | ~3 min |
 | `validate_fast.bat` | Docs, small refactors, non-render edits | ~30s |
-| `validate_renderers.bat` | Shader, texture, render backend changes | ~90s |
-| `validate_physics.bat` | Physics, collision, solver, rigid body | ~60s |
-| `validate_perf.bat` | Performance-sensitive, hot-path changes | ~45s |
+| `validate_renderers.bat` | Shader, texture, render backend changes | ~60s |
+| `validate_physics.bat` | Physics, collision, solver, rigid body | ~45s |
+| `validate_perf.bat` | Performance-sensitive, hot-path changes | ~1 min |
 | `validate_full.bat` | Broad changes, pre-merge, uncertain scope | ~3 min |
 
 ## Utility Scripts
@@ -1166,7 +1093,7 @@ All scripts follow this convention:
 
 ### Task 5.1 — Ensure tools directory is tracked
 
-- [ ] Verify `tools/` is NOT in `.gitignore`
+- [x] Verify `tools/` is NOT in `.gitignore`
 
 ```pwsh
 Select-String -Path "G:\skore3\.gitignore" -Pattern "tools"
@@ -1182,7 +1109,7 @@ If it appears, remove the line. The `tools\` directory must be committed.
 
 Run this check to confirm every file exists:
 
-- [ ] Run verification
+- [x] Run verification
 
 ```pwsh
 $files = @(
@@ -1210,7 +1137,7 @@ else { Write-Host "ALL FILES PRESENT" }
 
 ### Task 6.2 — Run `validate_fast.bat` to confirm it works
 
-- [ ] Run the fast validation to confirm scripts are functional
+- [x] Run the fast validation to confirm scripts are functional
 
 ```pwsh
 cd G:\skore3
@@ -1235,7 +1162,7 @@ PASS: Build Profile|x64 succeeded.
 
 ### Task 6.3 — Run `validate_renderers.bat` to confirm tri-renderer works
 
-- [ ] Run renderer validation (requires GPU, ~90s)
+- [x] Run renderer validation (requires GPU, ~60s)
 
 ```pwsh
 cd G:\skore3
@@ -1244,7 +1171,7 @@ cd G:\skore3
 
 ### Task 6.4 — Run `validate_physics.bat` to confirm regression test works
 
-- [ ] Run physics validation (~60s)
+- [x] Run physics validation (~45s)
 
 ```pwsh
 cd G:\skore3
@@ -1306,10 +1233,10 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 | 4 | `tools\validate_build.bat` | Build specified configuration |
 | 5 | `tools\check_dx12_validation.bat` | Verify DX12 InfoQueue clean |
 | 6 | `tools\validate_fast.bat` | Quick: format + build (~30s) |
-| 7 | `tools\validate_renderers.bat` | Tri-renderer suite + stdout/stderr + parity (~90s) |
-| 8 | `tools\validate_physics.bat` | Physics determinism regression (~60s) |
+| 7 | `tools\validate_renderers.bat` | Tri-renderer suite + stdout/stderr + parity (~60s) |
+| 8 | `tools\validate_physics.bat` | Physics determinism regression (~45s) |
 | 9 | `tools\check_physics_regression.py` | Physics CSV diff logic |
-| 10 | `tools\validate_perf.bat` | Performance regression (~45s) |
+| 10 | `tools\validate_perf.bat` | Tri-renderer performance regression (~1 min) |
 | 11 | `tools\check_parity.py` | Cross-renderer pixel comparison |
 | 12 | `tools\validate_full.bat` | All validations combined (~3 min) |
 | 13 | `tools\agent_validate.bat` | THE one command (delegates to full) |

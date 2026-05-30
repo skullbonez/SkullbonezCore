@@ -687,6 +687,17 @@ void RenderBackendDX12::Shutdown()
         return;
     }
 
+    // Scene-driven screenshots can leave the swap-chain back buffer restored to
+    // RENDER_TARGET state after readback. Shutdown does one final DXGI Present()
+    // below to drain the flip queue, and DX12 requires that resource to be in
+    // PRESENT state first.
+    if ( !m_renderingToFBO && m_backBufferIsRT && m_swapChain && m_renderTargets[m_frameIndex] )
+    {
+        EnsureCommandListOpen();
+        TransitionBarrier( m_renderTargets[m_frameIndex], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT );
+        m_backBufferIsRT = false;
+    }
+
     // Ensure any open command list is closed and submitted before waiting.
     if ( m_commandListOpen )
     {

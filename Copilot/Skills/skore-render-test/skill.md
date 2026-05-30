@@ -5,22 +5,30 @@ description: Run render test scenes through SkullbonezCore, capture screenshots,
 
 ## Render Test Skill
 
-Launches SkullbonezCore with `--suite SkullbonezData/scenes/render_tests.suite`, which runs all test scenes **in a single process launch** with no GL context restart between scenes. Each render scene produces 1 screenshot. Validates outputs against baselines with a three-tier comparison system.
+Preferred executable path:
+
+```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
+& "$REPO\tools\validate_renderers.bat"
+```
+
+`tools\validate_renderers.bat` builds Profile, runs the GL/DX11/DX12 render-only suite with `--vsync off`, checks stdout/stderr, verifies DX12 InfoQueue output, and performs cross-renderer parity. Use the manual snippets below only for ad-hoc screenshot capture or targeted debugging.
+
+The suite runs via `--vsync off --suite SkullbonezData/scenes/render_tests.suite`, which runs all render scenes **in a single process launch** with no GL context restart between scenes. Each render scene produces 1 screenshot. Performance validation is handled separately by `tools\validate_perf.bat`, which runs `perf_test.scene` for GL, DX11, and DX12 with fixed-step physics.
 
 The suite runs these scenes in order:
 1. **water_ball_test** — Single ball, simple scene (verifies terrain, skybox, water rendering)
 2. **legacy_smoke** — 300 seeded random balls, full legacy code path (verifies sphere rendering at scale)
-3. **perf_test** — 300 balls with physics, 2×5s passes, performance CSV (no screenshot)
 
 ### Prerequisites
 
-The Profile exe must exist at `{REPO}\Profile\SKULLBONEZ_CORE.exe`. If not, build first using the `skore-build` skill.
+The executable script builds Profile automatically. For manual snippets, the Profile exe must exist at `{REPO}\Profile\SKULLBONEZ_CORE.exe`; if not, build first using `tools\validate_build.bat Profile` or the `skore-build` skill.
 
 ### Steps
 
-#### 1. Run the full suite
+#### 1. Run the render suite (manual GL-only path)
 
-All scenes run in a single process invocation. Produces 2 screenshots and 1 perf CSV.
+All render scenes run in a single process invocation. Produces 2 screenshots for the default GL renderer.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
@@ -28,20 +36,17 @@ $REPO = (git rev-parse --show-toplevel).Trim()
 # Clean up old outputs
 Remove-Item "$REPO\Profile\screenshot.bmp" -ErrorAction SilentlyContinue
 Remove-Item "$REPO\Profile\legacy_smoke.bmp" -ErrorAction SilentlyContinue
-Remove-Item "$REPO\Profile\perf_log.csv" -ErrorAction SilentlyContinue
 
-# Run all scenes in one process via the suite file
+# Run all render scenes in one process via the suite file
 $proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
-    -ArgumentList "--suite SkullbonezData/scenes/render_tests.suite" `
+    -ArgumentList "--vsync off --suite SkullbonezData/scenes/render_tests.suite" `
     -WorkingDirectory $REPO -PassThru
 $proc.WaitForExit(30000) | Out-Null
 
 $s1 = Test-Path "$REPO\Profile\screenshot.bmp"
 $s2 = Test-Path "$REPO\Profile\legacy_smoke.bmp"
-$s3 = Test-Path "$REPO\Profile\perf_log.csv"
 Write-Host "water_ball_test: $s1"
 Write-Host "legacy_smoke: $s2"
-Write-Host "perf_log.csv: $s3"
 ```
 
 #### 2. Convert screenshots to PNG
@@ -201,7 +206,7 @@ text off|on                           # default: on
 frames <N>|unlimited                  # default: unlimited
 seed <N>                              # fixed RNG seed (deterministic balls)
 legacy_balls <N>                      # generate N random balls (like legacy mode)
-perf_log <path>                       # enable per-frame timing CSV (triggers 2x5s perf run)
+perf_log <path>                       # enable per-frame timing CSV
 screenshot <path> frame <N>           # capture after frame N
 screenshot <path> ms <N>              # capture after N milliseconds
 camera <name> <px py pz vx vy vz ux uy uz>
@@ -210,27 +215,27 @@ ball <name> <x y z r mass moment rest> [fx fy fz fpx fpy fpz]
 
 ## Performance Test
 
-Runs as part of the suite (scene 3). 300 balls with physics for 10 seconds (2 passes × 5 seconds). Logs per-frame timing plus memory checkpoints. After analysis, writes a JSON artifact for regression tracking.
+Run with `tools\validate_perf.bat` or directly via `perf_test.scene`. It runs 300 balls with fixed-step physics for 2 passes of 1000 frames each, once for every renderer. Logs per-frame timing plus memory checkpoints; the analyzer records 1970 timing samples because the first pass excludes the 30-frame profiler warmup. After analysis, writes one JSON artifact per renderer for regression tracking.
 
 ### Analyzing perf data
 
-After the suite completes, run the analysis scripts with explicit `--renderer` and `--csv` arguments. Specify an `--out-dir` to write the JSON artifact:
+After the perf scene completes for each renderer, run the analysis scripts with explicit `--renderer` and `--csv` arguments. Specify an `--out-dir` to write the JSON artifact:
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
 $archiveDir = "<path to the TestOutput archive dir for this commit>"
 
 # Analyze each renderer
-py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py" `
-    --renderer gl   --csv "$REPO\Profile\gl_perf_log.csv"   --out-dir $archiveDir
-py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py" `
-    --renderer dx11 --csv "$REPO\Profile\dx11_perf_log.csv" --out-dir $archiveDir
+foreach ($renderer in @("gl", "dx11", "dx12")) {
+    py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py" `
+        --renderer $renderer --csv "$REPO\Profile\${renderer}_perf_log.csv" --out-dir $archiveDir
+}
 
 # Compare each renderer against prior commit's matching artifact
-py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py" `
-    --current "$archiveDir\gl_perf.json" --previous "<path to prior gl_perf.json>"
-py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py" `
-    --current "$archiveDir\dx11_perf.json" --previous "<path to prior dx11_perf.json>"
+foreach ($renderer in @("gl", "dx11", "dx12")) {
+    py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py" `
+        --current "$archiveDir\${renderer}_perf.json" --previous "<path to prior ${renderer}_perf.json>"
+}
 ```
 
 In the build pipeline (Step 6), archive dir creation and prior-commit lookup are handled automatically. Use the above directly only for ad-hoc analysis.

@@ -14,15 +14,22 @@ Available configurations:
 
 ### Build command
 
-Use MSBuild via the Visual Studio Developer tools. Find MSBuild with `vswhere`, then invoke it using **`mode="async"`** so the user sees output streaming live as the build progresses. Read output with `read_powershell` after completion.
+Preferred executable wrapper:
+
+```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
+& "$REPO\tools\validate_build.bat" Debug
+```
+
+Replace `Debug` with `Release` or `Profile` for other configurations. The wrapper locates MSBuild with `tools\find_msbuild.bat`, builds `x64`, and uses warning-as-error validation.
+
+Manual fallback: use MSBuild via Visual Studio tools. Find MSBuild with `vswhere`, then invoke it using **`mode="async"`** so the user sees output streaming live as the build progresses. Read output with `read_powershell` after completion.
 
 ```pwsh
 $REPO     = (git rev-parse --show-toplevel).Trim()
 $msbuild  = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
 & $msbuild "$REPO\SKULLBONEZ_CORE.sln" /p:Configuration=Debug /p:Platform=x64
 ```
-
-Replace `Debug` with `Release` or `Profile` for other configurations.
 
 ### Rebuild (clean + build)
 

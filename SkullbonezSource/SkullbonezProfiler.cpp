@@ -1000,9 +1000,13 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
     for ( int i = 0; i < m_markerCount; ++i )
     {
         if ( !isLeaf[i] )
+        {
             continue;
+        }
         if ( m_markers[i].hash == kFrameHash )
+        {
             continue;
+        }
 
         bool isIdle = ( m_markers[i].hash == kVsyncHash || m_markers[i].hash == kPipelineSyncHash );
         if ( !isIdle )
@@ -1029,7 +1033,9 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
         }
     }
     if ( frameMs < 0.001f )
+    {
         frameMs = 16.67f; // fallback: assume 60 Hz
+    }
 
     // Layout constants
     const float pad = panelHeight * 0.06f;
@@ -1050,15 +1056,15 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
     Text2d::Render2dTextColor( barX0, ty + titleH * 0.35f, fSz * 1.05f, 1.0f, 0.85f, 0.35f, "%s", title );
 
     // Totals (right-aligned on title row)
-    char totalsBuf[128] = {0};
+    char totalsBuf[128] = { 0 };
     if ( absolute )
     {
         // In absolute mode show CPU sum, GPU sum, and overall frame time
-        sprintf_s( totalsBuf, sizeof(totalsBuf), "CPU: %.2f ms  GPU: %.2f ms  Frame: %.2f ms", cpuTotalMs, gpuTotalMs, frameMs );
+        sprintf_s( totalsBuf, sizeof( totalsBuf ), "CPU: %.2f ms  GPU: %.2f ms  Frame: %.2f ms", cpuTotalMs, gpuTotalMs, frameMs );
     }
     else
     {
-        sprintf_s( totalsBuf, sizeof(totalsBuf), "CPU: %.2f ms  GPU: %.2f ms", cpuTotalMs, gpuTotalMs );
+        sprintf_s( totalsBuf, sizeof( totalsBuf ), "CPU: %.2f ms  GPU: %.2f ms", cpuTotalMs, gpuTotalMs );
     }
     float totalsW = Text2d::MeasureText( fSz * 0.9f, totalsBuf );
     Text2d::Render2dTextColor( barX1 - totalsW, ty + titleH * 0.35f, fSz * 0.9f, 0.85f, 0.85f, 0.85f, "%s", totalsBuf );
@@ -1091,9 +1097,13 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
         const Marker& m = m_markers[cpuLeaves[i]];
         float segW = m.avgMs * cpuScale;
         if ( segW < 0.0001f )
+        {
             continue;
+        }
         if ( cx + segW > barX1 )
+        {
             segW = barX1 - cx; // clamp to bar
+        }
         const BarColor& c = BAR_PALETTE[m.colorIndex % BAR_PALETTE_SIZE];
         Text2d::BatchQuad( cx, cpuBarY, cx + segW, cpuBarY + barHeight, c.r, c.g, c.b, 1.0f );
         cx += segW;
@@ -1131,9 +1141,13 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
             const Marker& m = m_markers[gpuLeaves[i]];
             float segW = m.gpuAvgMs * gpuScale;
             if ( segW < 0.0001f )
+            {
                 continue;
+            }
             if ( gx + segW > barX1 )
+            {
                 segW = barX1 - gx;
+            }
             const BarColor& c = BAR_PALETTE[m.colorIndex % BAR_PALETTE_SIZE];
             Text2d::BatchQuad( gx, gpuBarY, gx + segW, gpuBarY + barHeight, c.r, c.g, c.b, 1.0f );
             gx += segW;

@@ -24,8 +24,7 @@ class BoundingSphere; // Forward declaration
 
     Oriented Bounding Box (OBB) collision shape.
 
-    An OBB is a box that can be oriented at any angle, unlike an AABB (axis-aligned bounding
-    box) which is always aligned to world axes. It provides a tighter fit for rotated objects.
+    An OBB is a box that can be oriented at any angle, unlike an AABB (axis-aligned bounding box) which is always aligned to world axes. It provides a tighter fit for rotated objects.
 
     Representation:
       - m_halfExtents: half the box dimensions along its LOCAL axes

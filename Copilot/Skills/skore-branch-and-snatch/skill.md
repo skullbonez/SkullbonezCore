@@ -5,7 +5,7 @@ description: Checkout another branch, build it (fixing errors), run the full pip
 
 ## Branch-and-Snatch Skill
 
-Checks out another branch, builds it, runs the perf suite (both GL and DX11), saves the perf JSON artifacts to Copilot session state, then returns to main and compares the snatched JSONs against the most recent matching archive on main. The branch gets compilation fixes committed but all pipeline output is discarded.
+Checks out another branch, builds it, runs the perf scene for GL, DX11, and DX12, saves the perf JSON artifacts to Copilot session state, then returns to main and compares the snatched JSONs against the most recent matching archive on main. The branch gets compilation fixes committed but all pipeline output is discarded.
 
 ### Prerequisites
 
@@ -37,20 +37,18 @@ git checkout <branch-name>
 
 ### Step 3: Build the branch (fix errors)
 
-Build with Profile configuration using the `skore-build` skill approach. Fix any compilation errors — these are likely merge drift or missing changes on the branch.
+Build with Profile configuration using `tools\validate_build.bat Profile` (or the `skore-build` skill approach). Fix any compilation errors — these are likely merge drift or missing changes on the branch.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
-
-$msbuild = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
-& $msbuild "$REPO\SKULLBONEZ_CORE.sln" /p:Configuration=Profile /p:Platform=x64 /nologo /v:minimal
+& "$REPO\tools\validate_build.bat" Profile
 ```
 
 If the build fails with LNK1168 (exe locked), kill the running process first, then rebuild.
 
 ### Step 4: Run the full pipeline and save perf data
 
-Run the pipeline steps: render test, perf test, analyze. **The key output is the perf CSV and JSON artifact.**
+Run the pipeline steps: render test, perf test, analyze. **The key output is the perf CSV and JSON artifact.** Do not use `tools\validate_full.bat` here; branch-and-snatch intentionally captures disposable branch perf data and then discards generated artifacts.
 
 #### 4a. Render test (note results but don't block on failure)
 
@@ -63,42 +61,41 @@ $REPO = (git rev-parse --show-toplevel).Trim()
 $SESSION_DIR = "<Copilot session files/ directory>"  # Agent: use your session state files/ path
 
 # Clean old CSVs
-Remove-Item "$REPO\Profile\gl_perf_log.csv"   -ErrorAction SilentlyContinue
-Remove-Item "$REPO\Profile\dx11_perf_log.csv" -ErrorAction SilentlyContinue
+Remove-Item "$REPO\Profile\perf_log.csv"    -ErrorAction SilentlyContinue
+Remove-Item "$REPO\Profile\*_perf_log.csv" -ErrorAction SilentlyContinue
 
-# GL pass
-$proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
-    -ArgumentList "--suite SkullbonezData/scenes/render_tests.suite" `
-    -WorkingDirectory $REPO -PassThru
-$proc.WaitForExit(30000) | Out-Null
-if (Test-Path "$REPO\Profile\perf_log.csv") {
-    Move-Item "$REPO\Profile\perf_log.csv" "$REPO\Profile\gl_perf_log.csv"
-    Write-Host "PASS: gl_perf_log.csv generated"
-} else {
-    Write-Host "FAIL: No gl_perf_log.csv — cannot snatch perf data"
-    # ABORT
+# Run perf_test.scene for every renderer. Do not use render_tests.suite here;
+# that suite is visual validation only.
+foreach ($renderer in @("gl", "dx11", "dx12")) {
+    $rendererArgs = if ($renderer -eq "gl") {
+        "--vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene"
+    } else {
+        "--renderer $renderer --vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene"
+    }
+    $proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
+        -ArgumentList $rendererArgs `
+        -WorkingDirectory $REPO -PassThru
+    $proc.WaitForExit(120000) | Out-Null
+    if ($proc.ExitCode -ne 0) {
+        Write-Host "FAIL: $renderer perf test exited with $($proc.ExitCode)"
+        # ABORT
+    }
+    if (Test-Path "$REPO\Profile\perf_log.csv") {
+        Move-Item "$REPO\Profile\perf_log.csv" "$REPO\Profile\${renderer}_perf_log.csv"
+        Write-Host "PASS: ${renderer}_perf_log.csv generated"
+    } else {
+        Write-Host "FAIL: No ${renderer}_perf_log.csv - cannot snatch perf data"
+        # ABORT
+    }
 }
 
-# DX11 pass
-$proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
-    -ArgumentList "--renderer dx11 --suite SkullbonezData/scenes/render_tests.suite" `
-    -WorkingDirectory $REPO -PassThru
-$proc.WaitForExit(30000) | Out-Null
-if (Test-Path "$REPO\Profile\perf_log.csv") {
-    Move-Item "$REPO\Profile\perf_log.csv" "$REPO\Profile\dx11_perf_log.csv"
-    Write-Host "PASS: dx11_perf_log.csv generated"
-} else {
-    Write-Host "FAIL: No dx11_perf_log.csv — cannot snatch perf data"
-    # ABORT
-}
-
-# Analyze both renderers into a temp dir
+# Analyze all renderers into a temp dir
 $snatched = "$SESSION_DIR\snatched"
 New-Item -ItemType Directory -Force -Path $snatched | Out-Null
-py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py" `
-    --renderer gl   --csv "$REPO\Profile\gl_perf_log.csv"   --out-dir $snatched
-py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py" `
-    --renderer dx11 --csv "$REPO\Profile\dx11_perf_log.csv" --out-dir $snatched
+foreach ($renderer in @("gl", "dx11", "dx12")) {
+    py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py" `
+        --renderer $renderer --csv "$REPO\Profile\${renderer}_perf_log.csv" --out-dir $snatched
+}
 ```
 
 #### 4c. Save perf artifacts to Copilot session state
@@ -113,7 +110,7 @@ $SESSION_DIR = "<Copilot session files/ directory>"  # Agent: use your session s
 $branch = git branch --show-current
 Set-Content "$SESSION_DIR\snatched_branch.txt" $branch
 Write-Host "Saved perf data from branch: $branch"
-Write-Host "  gl_perf.json and dx11_perf.json are in $SESSION_DIR\snatched\"
+Write-Host "  gl_perf.json, dx11_perf.json, and dx12_perf.json are in $SESSION_DIR\snatched\"
 ```
 
 ### Step 5: Smoke test (optional, note result)

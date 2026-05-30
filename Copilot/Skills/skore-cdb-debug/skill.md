@@ -33,7 +33,7 @@ Flags:
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
-& "G:\cdb\cdb.exe" -g -G -lines -y "$REPO\Debug" -srcpath "$REPO\SkullbonezSource" "$REPO\Debug\SKULLBONEZ_CORE.exe" "--scene" "SkullbonezData/scenes/water_ball_test.scene"
+& "G:\cdb\cdb.exe" -g -G -lines -y "$REPO\Debug" -srcpath "$REPO\SkullbonezSource" "$REPO\Debug\SKULLBONEZ_CORE.exe" "--vsync" "off" "--scene" "SkullbonezData/scenes/water_ball_test.scene"
 ```
 
 ### Interactive debugging

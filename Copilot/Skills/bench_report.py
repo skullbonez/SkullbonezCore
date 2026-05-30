@@ -147,7 +147,7 @@ def main():
         for f in missing:
             print(f"  Profile/{f}")
         print("\nRun the bench suite first:")
-        print("  .\\Profile\\SKULLBONEZ_CORE.exe --suite SkullbonezData/scenes/physics_bench.suite")
+        print("  .\\Profile\\SKULLBONEZ_CORE.exe --vsync off --suite SkullbonezData/scenes/physics_bench.suite")
         sys.exit(1)
 
     has_prev = bool(prev_data)
@@ -155,7 +155,7 @@ def main():
 
     print()
     print(f"{BOLD}  Physics Benchmark — Legacy vs Impulse Solver{RESET}")
-    print(f"  All modes: 300 objects, fixed_step | Frame/Physics CPU time (ms) | pass-2 steady state")
+    print(f"  All modes: 300 objects, vsync off | Frame/Physics CPU time (ms) | pass-2 steady state")
     print(sep)
 
     hdr = f"  {'Mode':<22}  {'avg':>8}  {'p50':>8}  {'p95':>8}  {'p99':>8}  {'frames':>7}"

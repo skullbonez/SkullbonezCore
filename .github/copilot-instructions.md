@@ -1,3 +1,5 @@
+> **Universal agent contract:** Read `AGENTS.md` at the repo root first. This file extends it with Copilot-specific workflows.
+
 # Copilot Instructions for SkullbonezCore
 
 A Windows 3D graphics and physics simulation engine written in C++ using OpenGL, originally authored in 2005 and modernized through a series of cleanup phases.
@@ -20,6 +22,7 @@ A Windows 3D graphics and physics simulation engine written in C++ using OpenGL,
 | skore-cdb-debug | `Copilot/Skills/skore-cdb-debug/skill.md` |
 | skore-launch | `Copilot/Skills/skore-launch/skill.md` |
 | skore-cpu-profiler | `Copilot/Skills/skore-cpu-profiler/skill.md` |
+| skore-branch-and-snatch | `Copilot/Skills/skore-branch-and-snatch/skill.md` |
 
 ## Key Docs
 
@@ -35,16 +38,17 @@ A Windows 3D graphics and physics simulation engine written in C++ using OpenGL,
 Open `SKULLBONEZ_CORE.sln` in Visual Studio 2019+ and build, or use MSBuild:
 
 ```bat
-msbuild SKULLBONEZ_CORE.sln /p:Configuration=Debug /p:Platform=Win32
-msbuild SKULLBONEZ_CORE.sln /p:Configuration=Release /p:Platform=Win32
+msbuild SKULLBONEZ_CORE.sln /p:Configuration=Debug /p:Platform=x64
+msbuild SKULLBONEZ_CORE.sln /p:Configuration=Release /p:Platform=x64
 ```
 
-- Output: `Debug\SKULLBONEZ_CORE.exe` or `Release\SKULLBONEZ_CORE.exe`
-- Target: **Win32 (x86)** — do not change to x64
-- Toolset: v143 (VS2019+)
+- Output: `Debug\SKULLBONEZ_CORE.exe`, `Release\SKULLBONEZ_CORE.exe`, or `Profile\SKULLBONEZ_CORE.exe`
+- Target: **x64** — do not change to Win32
+- Configurations: Debug, Profile, Release
+- Toolset: v143 (VS2022)
 - The build must produce **zero warnings** (compiled at `/W4`)
 
-There are no automated tests.
+Automated validation: run `tools\validate_full.bat` (see `AGENTS.md` for the tiered validation table).
 
 ## Architecture
 
@@ -71,7 +75,7 @@ There are no automated tests.
 ### Naming
 - All project classes are prefixed `Skullbonez` and live one-class-per-file: `SkullbonezFoo.h` / `SkullbonezFoo.cpp`
 - Methods: PascalCase — `GetPosition()`, `RunPhysics()`, `CalculateGravity()`
-- Members: camelCase with intent prefixes — `is` (bools), `f` (floats in ctors), `p` (pointers), `s` (static/struct members), `c` (class-instance members)
+- Members: `m_` prefix, camelCase — `m_position`, `m_isGrounded`, `m_pTexture`
 - Constants: `UPPER_CASE_UNDERSCORE` in `SkullbonezCommon.h`
 
 ### Namespace hierarchy

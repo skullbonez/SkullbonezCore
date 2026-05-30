@@ -134,7 +134,7 @@ void ParseSceneArgs( const char* cmdLine, std::vector<std::string>& sceneList, b
 
             // Extract just the filename token — support both quoted and unquoted paths.
             const char* suiteStart = suiteArg;
-            const char* suiteEnd   = suiteArg;
+            const char* suiteEnd = suiteArg;
             if ( *suiteStart == '"' )
             {
                 ++suiteStart;
@@ -187,7 +187,7 @@ void ParseSceneArgs( const char* cmdLine, std::vector<std::string>& sceneList, b
                 // Quoted paths stop at the closing '"'; unquoted paths stop at whitespace.
                 // This handles launchers (CDB, VS debugger) that wrap paths in quotes.
                 const char* start = sceneArg;
-                const char* end   = sceneArg;
+                const char* end = sceneArg;
                 if ( *start == '"' )
                 {
                     ++start;

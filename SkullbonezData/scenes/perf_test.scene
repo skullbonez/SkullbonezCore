@@ -1,10 +1,14 @@
 # Performance test scene (simulation-focused)
-# 300 balls, text overlay disabled, 5 seconds per pass, 2 passes
+# 300 balls, text overlay disabled, 1000 fixed-step frames per pass, 2 passes.
+# The analyzer records 1970 timing rows: pass 1 excludes the 30-frame profiler warmup.
 seed 42
 physics on
 text off
 legacy_balls 300
 vsync off
+fixed_step
+frames 1000
+exit_on_complete
 pipeline_sync off
 roll_align off
 camera cam1 321 110 557  581 40 633  0 1 0

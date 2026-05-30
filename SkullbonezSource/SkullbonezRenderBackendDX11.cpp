@@ -1637,7 +1637,8 @@ void RenderBackendDX11::GpuTimerBegin( int markerIdx )
         {
             D3D11_QUERY_DATA_TIMESTAMP_DISJOINT dummy = {};
             HRESULT hr = m_context->GetData( m_gpuTimers.disjoint[m_gpuTimers.writeIdx],
-                                             &dummy, sizeof( dummy ),
+                                             &dummy,
+                                             sizeof( dummy ),
                                              D3D11_ASYNC_GETDATA_DONOTFLUSH );
             if ( hr != S_OK )
             {
@@ -1649,10 +1650,12 @@ void RenderBackendDX11::GpuTimerBegin( int markerIdx )
             for ( int i = 0; i < DX11_TIMER_MARKERS; ++i )
             {
                 m_context->GetData( m_gpuTimers.ts[m_gpuTimers.writeIdx][i][0],
-                                    &throwaway, sizeof( throwaway ),
+                                    &throwaway,
+                                    sizeof( throwaway ),
                                     D3D11_ASYNC_GETDATA_DONOTFLUSH );
                 m_context->GetData( m_gpuTimers.ts[m_gpuTimers.writeIdx][i][1],
-                                    &throwaway, sizeof( throwaway ),
+                                    &throwaway,
+                                    sizeof( throwaway ),
                                     D3D11_ASYNC_GETDATA_DONOTFLUSH );
             }
             m_gpuTimers.frameReady[m_gpuTimers.writeIdx] = false;

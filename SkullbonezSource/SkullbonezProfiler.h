@@ -163,8 +163,8 @@ class Profiler
     int64_t m_qpcFrequency;
     int64_t m_lastAvgTicks;
     bool m_inFrame;
-    int m_warmupFrames;  // frames remaining in warmup window; ring-buffer stats not recorded when > 0
-    bool m_resetPending; // set by ScheduleReset(); applied at the next FrameBegin()
+    int m_warmupFrames;   // frames remaining in warmup window; ring-buffer stats not recorded when > 0
+    bool m_resetPending;  // set by ScheduleReset(); applied at the next FrameBegin()
     int m_nextColorIndex; // round-robin colour assignment for leaf markers
 };
 

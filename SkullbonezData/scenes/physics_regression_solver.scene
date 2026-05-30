@@ -1,21 +1,22 @@
 # physics_regression_solver.scene
 # Physics regression baseline — impulse solver, mixed spheres and boxes.
 #
-# Runs 15 spheres + 5 boxes for 300 fixed-step frames with a fixed seed.
+# Runs 15 spheres + 5 boxes for 1000 fixed-step frames with a fixed seed.
 # Output is fully deterministic: same binary CSV every run on the same build.
 #
 # Usage:
 #   Debug\SKULLBONEZ_CORE.exe --scene SkullbonezData/scenes/physics_regression_solver.scene
 #
 # The pipeline (Step 6.75) diffs Debug/physics_regression_solver.csv against
-# TestOutput/physics_regression_baselines/physics_regression_solver.csv.
+# TestOutput/baselines/physics_regression_solver.csv.
 # If no baseline exists the current output is saved as the new baseline.
 
 seed 42
 physics_mode solver
 physics on
 text off
-frames 300
+vsync off
+frames 1000
 fixed_step
 exit_on_complete
 roll_align off

@@ -22,6 +22,11 @@ using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Physics;
 
+namespace
+{
+constexpr double PERF_TEST_PASS_SECONDS = 2.0;
+}
+
 
 SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue, bool legacyPhysics )
     : m_sceneQueue( std::move( sceneQueue ) )
@@ -872,8 +877,10 @@ bool SkullbonezRun::TickSceneAdvance()
         return true;
     }
 
-    // Perf test: advance to next scene/pass after 5s
-    if ( m_perfLogState.isPerfTest && m_timers.simulationTimer.GetTimeSinceLastStart() > 5.0 )
+    // Perf-log scenes without an explicit frame count still use a timed pass duration.
+    if ( m_perfLogState.isPerfTest &&
+         m_scene.targetFrameCount <= 0 &&
+         m_timers.simulationTimer.GetTimeSinceLastStart() > PERF_TEST_PASS_SECONDS )
     {
         if ( !AdvanceScene() )
         {
@@ -1571,10 +1578,10 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     {
         // Panel anchored bottom-left, filling most of the width. Height kept modest — leave vertical
         // space above for future multi-core stacked rows.
-        const float panW = ( hw - mX ) * 2.0f * 0.85f;  // 85% of screen width
-        const float panH = ( hh - mY ) * 2.0f * 0.22f;  // 22% of screen height
-        const float panX = -( hw - mX ) + mX * 0.5f;    // slight left margin
-        const float panY = -( hh - mY ) + mY * 0.5f;    // slight bottom margin
+        const float panW = ( hw - mX ) * 2.0f * 0.85f; // 85% of screen width
+        const float panH = ( hh - mY ) * 2.0f * 0.22f; // 22% of screen height
+        const float panX = -( hw - mX ) + mX * 0.5f;   // slight left margin
+        const float panY = -( hh - mY ) + mY * 0.5f;   // slight bottom margin
         const bool absolute = ( m_debug.overlayMode == OverlayMode::BarsAbsolute );
         Profiler::Instance().RenderBarOverlay( panX, panY, panW, panH, absolute );
         Text2d::FlushText();

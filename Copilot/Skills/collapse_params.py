@@ -1,6 +1,6 @@
 import re, glob, os
 
-SOURCE_DIR = r"G:\SkullbonezCoreOriginal\SkullbonezSource"
+SOURCE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "SkullbonezSource")
 
 def collapse_multiline_params(content):
     """

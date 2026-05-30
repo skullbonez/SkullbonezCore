@@ -4,6 +4,7 @@
 seed 42
 physics off
 text off
+vsync off
 frames 2
 screenshot Profile/legacy_smoke.bmp frame 1
 
