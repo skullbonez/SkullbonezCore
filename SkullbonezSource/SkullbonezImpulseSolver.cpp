@@ -438,11 +438,26 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     // Warm-starting: accN is pre-seeded with the expected gravitational load per contact
     // (mg·cos(θ) / contact_count).  This ensures the friction budget (μ·accN) is non-zero
     // from iteration 0, preventing resting objects from sliding a frame before friction kicks in.
+    // As in Catto's Algorithm 4, any non-zero initial λ must be applied to the velocity state
+    // before the iterations begin; otherwise later negative deltas would "undo" an impulse
+    // that was never applied and inject jitter into separating/resting contacts.
+    // Plain English: if we remember that gravity should already be pressing this
+    // object into the floor, we must actually give the object that upward support
+    // push before solving. Remembering the number alone is like balancing the
+    // books without moving the money.
     constexpr int solverIterations = 20;
 
     for ( int i = 0; i < contactCount; ++i )
     {
-        contacts[i].accN = warmStartPerContact;
+        Contact& c = contacts[i];
+        c.accN = warmStartPerContact;
+
+        if ( warmStartPerContact > 0.0f )
+        {
+            Vector3 warmImpulse = c.normal * warmStartPerContact;
+            velocity += warmImpulse * invMass;
+            omega += applyInvInertia( Vector::CrossProduct( c.r, warmImpulse ) );
+        }
     }
 
     // Adaptive early-out: if the total impulse applied in an iteration is below
@@ -663,6 +678,9 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
 #endif // SKULLBONEZ_INTRINSICS
 
     // --- Position correction (direct projection) ---
+    // The iterative velocity solve removes most sinking, but tiny overlaps can
+    // remain. Push the object out by a small fraction of the remaining overlap so
+    // it settles without the harsh snap upward that causes visible bouncing.
     float maxPen = 0.0f;
     for ( int i = 0; i < contactCount; ++i )
     {
@@ -672,9 +690,9 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
             maxPen = corrPen;
         }
     }
-    if ( maxPen > penetrationSlop )
+    if ( maxPen > 0.0f )
     {
-        position += planeNormal * ( ( maxPen - penetrationSlop ) * 0.4f );
+        position += planeNormal * ( maxPen * 0.4f );
     }
 
     // --- Gravitational tipping (boxes only, edge/vertex contacts) ---
@@ -998,6 +1016,14 @@ void ImpulseSolver::RespondCollisionGameModels( GameModel& gameModel1,
                 return;
             }
 
+            // Very slow contacts are resting contacts, not bounces. Turning
+            // restitution off here prevents the solver from injecting a tiny
+            // rebound every frame, which is the usual "jitters forever" symptom.
+            if ( vRelNormal < Cfg().contactRestitutionThreshold )
+            {
+                e = 0.0f;
+            }
+
             // --- Normal impulse with angular effective mass ---
             //
             //  K_n = 1/m1 + 1/m2 + n · (I1^-1(r1×n) × r1) + n · (I2^-1(r2×n) × r2)
@@ -1119,6 +1145,23 @@ void ImpulseSolver::SphereVsSphereLinear( GameModel& gameModel1,
     float e1 = gameModel1.m_physicsInfo.GetCoefficientRestitution();
     float e2 = gameModel2.m_physicsInfo.GetCoefficientRestitution();
     float e = sqrtf( e1 * e2 );
+    float relativeNormalSpeed = ( v2 - v1 ) * collisionNormal;
+
+    // If the two spheres are already separating, this older impact path should
+    // leave them alone. The persistent contact solver handles slow resting
+    // support separately, so this function only needs to process real impacts.
+    if ( relativeNormalSpeed >= 0.0f )
+    {
+        return;
+    }
+
+    // Below the restitution threshold, a contact should become dull support
+    // instead of a bounce. This lets a ball eventually settle rather than getting
+    // a fresh tiny kick on every low-speed collision.
+    if ( fabsf( relativeNormalSpeed ) < Cfg().contactRestitutionThreshold )
+    {
+        e = 0.0f;
+    }
 
     float m1 = gameModel1.GetMass();
     float m2 = gameModel2.GetMass();
@@ -1182,6 +1225,14 @@ void ImpulseSolver::SphereVsSphereAngular( GameModel& gameModel1,
     float e1 = gameModel1.m_physicsInfo.GetCoefficientRestitution();
     float e2 = gameModel2.m_physicsInfo.GetCoefficientRestitution();
     float e = sqrtf( e1 * e2 );
+
+    // Friction gets its strength from the normal impact. For a gentle resting
+    // touch, treat that impact as inelastic so the friction calculation does not
+    // inherit artificial bounce energy.
+    if ( fabsf( vRelNormal ) < Cfg().contactRestitutionThreshold )
+    {
+        e = 0.0f;
+    }
 
     float invMass1 = gameModel1.GetInvertedMass();
     float invMass2 = gameModel2.GetInvertedMass();

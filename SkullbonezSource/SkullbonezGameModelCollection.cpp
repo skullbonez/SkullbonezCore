@@ -13,6 +13,7 @@
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::Basics;
+namespace Vector = SkullbonezCore::Math::Vector;
 
 
 // Per-instance data layout: mat4 (16 floats) + alpha (1 float)
@@ -25,6 +26,9 @@ GameModelCollection::GameModelCollection()
     m_gameModels.reserve( MAX_GAME_MODELS );
     m_timeRemaining.reserve( MAX_GAME_MODELS );
     m_groundedThisFrame.reserve( MAX_GAME_MODELS );
+    m_persistentContacts.reserve( MAX_GAME_MODELS * 4 );
+    m_persistentContactCache.reserve( MAX_GAME_MODELS * 4 );
+    m_persistentContactCounts.reserve( MAX_GAME_MODELS );
     m_shadowInstanceData.reserve( MAX_GAME_MODELS * SHADOW_INSTANCE_FLOATS );
 };
 
@@ -53,6 +57,9 @@ void GameModelCollection::Clear()
     m_groundedThisFrame.clear();
     m_sleepState.clear();
     m_sleepCounter.clear();
+    m_persistentContacts.clear();
+    m_persistentContactCache.clear();
+    m_persistentContactCounts.clear();
 }
 
 
@@ -424,6 +431,362 @@ void GameModelCollection::RunLegacyPhysics( float dt )
 }
 
 
+void GameModelCollection::SolvePersistentObjectContacts( float dt )
+{
+    PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts" );
+
+    // This pass handles the quiet case that old one-shot impulses were bad at:
+    // balls already touching each other, especially a ball resting on another ball.
+    // Instead of waiting for a fresh "impact", we build contact rules for pairs
+    // that are touching or nearly touching, then solve those rules like tiny springs
+    // with hard limits: push apart along the normal, resist sliding along tangents.
+    const int modelCount = static_cast<int>( m_gameModels.size() );
+    if ( modelCount <= 1 || m_candidatePairs.empty() )
+    {
+        m_persistentContacts.clear();
+        m_persistentContactCache.clear();
+        return;
+    }
+
+    m_persistentContacts.clear();
+    m_persistentContactCounts.assign( modelCount, 0 );
+
+    // Small allowed overlap. Without this tolerance, floating-point noise makes
+    // the solver chase microscopic errors and resting balls visibly tremble.
+    constexpr float contactSlop = 0.005f;
+
+    // Baumgarte bias is a gentle "please separate" velocity for bodies that are
+    // already interpenetrating. It removes overlap over several ticks instead of
+    // teleporting everything apart in one harsh correction.
+    constexpr float baumgarteBeta = 0.2f;
+
+    // A final direct positional nudge catches the remaining overlap after the
+    // velocity solve. The percent is deliberately partial so stacks do not pop.
+    constexpr float positionCorrectionPercent = 0.35f;
+
+    // Projected Gauss-Seidel works by revisiting every contact repeatedly. Each
+    // visit improves the answer a little; twelve passes is a compromise between
+    // stack stability and keeping the physics hot path affordable.
+    constexpr int solverIterations = 12;
+    const float invDt = ( dt > TOLERANCE ) ? ( 1.0f / dt ) : 120.0f;
+
+    // Catto's cache needs a stable name for "body A touching body B". The pair
+    // key is order-independent, so A/B and B/A find the same remembered impulse.
+    auto makeKey = []( int a, int b ) -> int64_t
+    {
+        int lo = ( a < b ) ? a : b;
+        int hi = ( a < b ) ? b : a;
+        return ( static_cast<int64_t>( lo ) << 32 ) | static_cast<unsigned int>( hi );
+    };
+
+    // Inertia is rotational mass. Applying an off-center push changes spin as
+    // well as linear velocity; inverse inertia converts contact torque into the
+    // amount of angular velocity change it should cause.
+    auto applyInvInertia = [&]( int body, const Vector3& v ) -> Vector3
+    {
+        return Vector::VectorMultiply( m_gameModels[body].GetInvertedRotationalInertia(), v );
+    };
+
+    // Apply one impulse to both bodies using Newton's third law: equal and
+    // opposite pushes. A receives -impulse, B receives +impulse. The cross
+    // products turn off-center pushes into spin changes.
+    auto applyImpulse = [&]( const PersistentContact& c, const Vector3& impulse )
+    {
+        GameModel& a = m_gameModels[c.bodyA];
+        GameModel& b = m_gameModels[c.bodyB];
+
+        Vector3 velA = a.GetVelocity();
+        Vector3 velB = b.GetVelocity();
+        Vector3 omegaA = a.GetAngularVelocity();
+        Vector3 omegaB = b.GetAngularVelocity();
+
+        velA -= impulse * a.GetInvertedMass();
+        velB += impulse * b.GetInvertedMass();
+        omegaA -= applyInvInertia( c.bodyA, Vector::CrossProduct( c.rA, impulse ) );
+        omegaB += applyInvInertia( c.bodyB, Vector::CrossProduct( c.rB, impulse ) );
+
+        a.SetLinearVelocity( velA );
+        b.SetLinearVelocity( velB );
+        a.SetAngularVelocity( omegaA );
+        b.SetAngularVelocity( omegaB );
+    };
+
+    // First pass: turn broadphase candidate pairs into contact rows. The current
+    // narrowphase only has bounding spheres for object-object contacts, so this
+    // extrapolates the 2D paper to 3D by using the center-to-center direction as
+    // the contact normal and two perpendicular tangent axes for friction.
+    for ( const auto& cp : m_candidatePairs )
+    {
+        int aIndex = cp.first;
+        int bIndex = cp.second;
+        if ( aIndex == bIndex || m_sleepState[aIndex] || m_sleepState[bIndex] )
+        {
+            continue;
+        }
+
+        if ( bIndex < aIndex )
+        {
+            std::swap( aIndex, bIndex );
+        }
+
+        GameModel& a = m_gameModels[aIndex];
+        GameModel& b = m_gameModels[bIndex];
+        Vector3 posA = a.GetPosition();
+        Vector3 posB = b.GetPosition();
+        Vector3 delta = posB - posA;
+        float distSq = delta * delta;
+        float radiusA = a.GetBoundingRadius();
+        float radiusB = b.GetBoundingRadius();
+        float radiusSum = radiusA + radiusB;
+        float contactDistance = radiusSum + Cfg().contactEpsilon;
+        if ( distSq > contactDistance * contactDistance )
+        {
+            continue;
+        }
+
+        float dist = sqrtf( distSq );
+        Vector3 normal( 0.0f, 1.0f, 0.0f );
+        if ( dist > TOLERANCE )
+        {
+            normal = delta / dist;
+        }
+
+        float separation = dist - radiusSum;
+        Vector3 pointA = posA + normal * radiusA;
+        Vector3 pointB = posB - normal * radiusB;
+        Vector3 contactPoint = ( pointA + pointB ) * 0.5f;
+
+        // rA/rB are the small arms from each center to the contact point. They
+        // are what let the same contact impulse both move and spin a ball.
+        PersistentContact c;
+        c.bodyA = aIndex;
+        c.bodyB = bIndex;
+        c.key = makeKey( aIndex, bIndex );
+        c.normal = normal;
+        c.rA = contactPoint - posA;
+        c.rB = contactPoint - posB;
+        c.penetration = ( separation < 0.0f ) ? -separation : 0.0f;
+        m_persistentContacts.push_back( c );
+        ++m_persistentContactCounts[aIndex];
+        ++m_persistentContactCounts[bIndex];
+
+        if ( fabsf( normal.y ) > 0.25f )
+        {
+            // A mostly vertical contact can support weight, so both bodies count
+            // as grounded for sleep. This lets a ball sleeping on a stack stay
+            // asleep instead of demanding terrain contact directly.
+            m_groundedThisFrame[aIndex] = 1;
+            m_groundedThisFrame[bIndex] = 1;
+        }
+    }
+
+    if ( m_persistentContacts.empty() )
+    {
+        m_persistentContactCache.clear();
+        return;
+    }
+
+    // Second pass: precompute each row. This is the "setup" part of the paper:
+    // build friction axes, effective masses, bias, friction limits, and pull the
+    // previous frame's accumulated impulses from the cache.
+    for ( PersistentContact& c : m_persistentContacts )
+    {
+        GameModel& a = m_gameModels[c.bodyA];
+        GameModel& b = m_gameModels[c.bodyB];
+
+        // The normal is only one direction. In 3D, sliding can happen in any
+        // sideways direction, so we create two perpendicular sideways axes.
+        if ( fabsf( c.normal.x ) > 0.9f )
+        {
+            c.tangent1 = Vector3( 0.0f, 0.0f, 1.0f );
+        }
+        else
+        {
+            c.tangent1 = Vector3( 1.0f, 0.0f, 0.0f );
+        }
+        c.tangent1 -= c.normal * ( c.tangent1 * c.normal );
+        float tangentMag = Vector::VectorMag( c.tangent1 );
+        if ( tangentMag > TOLERANCE )
+        {
+            c.tangent1 /= tangentMag;
+        }
+        c.tangent2 = Vector::CrossProduct( c.normal, c.tangent1 );
+
+        // Effective mass says how stubborn this contact is. A light ball pushed
+        // through its center moves easily; a heavy or off-center body resists more
+        // because some of the push also has to rotate it.
+        Vector3 rAxN = Vector::CrossProduct( c.rA, c.normal );
+        Vector3 rBxN = Vector::CrossProduct( c.rB, c.normal );
+        float kNormal = a.GetInvertedMass() + b.GetInvertedMass() +
+                        c.normal * Vector::CrossProduct( applyInvInertia( c.bodyA, rAxN ), c.rA ) +
+                        c.normal * Vector::CrossProduct( applyInvInertia( c.bodyB, rBxN ), c.rB );
+        c.normalMass = ( kNormal > TOLERANCE ) ? ( 1.0f / kNormal ) : 0.0f;
+
+        Vector3 rAxT1 = Vector::CrossProduct( c.rA, c.tangent1 );
+        Vector3 rBxT1 = Vector::CrossProduct( c.rB, c.tangent1 );
+        float kT1 = a.GetInvertedMass() + b.GetInvertedMass() +
+                    c.tangent1 * Vector::CrossProduct( applyInvInertia( c.bodyA, rAxT1 ), c.rA ) +
+                    c.tangent1 * Vector::CrossProduct( applyInvInertia( c.bodyB, rBxT1 ), c.rB );
+        c.tangentMass1 = ( kT1 > TOLERANCE ) ? ( 1.0f / kT1 ) : 0.0f;
+
+        Vector3 rAxT2 = Vector::CrossProduct( c.rA, c.tangent2 );
+        Vector3 rBxT2 = Vector::CrossProduct( c.rB, c.tangent2 );
+        float kT2 = a.GetInvertedMass() + b.GetInvertedMass() +
+                    c.tangent2 * Vector::CrossProduct( applyInvInertia( c.bodyA, rAxT2 ), c.rA ) +
+                    c.tangent2 * Vector::CrossProduct( applyInvInertia( c.bodyB, rBxT2 ), c.rB );
+        c.tangentMass2 = ( kT2 > TOLERANCE ) ? ( 1.0f / kT2 ) : 0.0f;
+
+        Vector3 velA = a.GetVelocity() + Vector::CrossProduct( a.GetAngularVelocity(), c.rA );
+        Vector3 velB = b.GetVelocity() + Vector::CrossProduct( b.GetAngularVelocity(), c.rB );
+        float vn = ( velB - velA ) * c.normal;
+        float restitution = sqrtf( a.GetCoefficientRestitution() * b.GetCoefficientRestitution() );
+
+        // Bias has two jobs. On a real impact it is bounce. On a resting overlap
+        // it is a small separating velocity that decays the overlap smoothly.
+        c.bias = 0.0f;
+        if ( vn < -Cfg().contactRestitutionThreshold )
+        {
+            c.bias = -restitution * vn;
+        }
+        else
+        {
+            float penetrationError = c.penetration - contactSlop;
+            if ( penetrationError > 0.0f )
+            {
+                c.bias = baumgarteBeta * penetrationError * invDt;
+            }
+        }
+
+        uint16_t countA = ( m_persistentContactCounts[c.bodyA] > 0 ) ? m_persistentContactCounts[c.bodyA] : 1;
+        uint16_t countB = ( m_persistentContactCounts[c.bodyB] > 0 ) ? m_persistentContactCounts[c.bodyB] : 1;
+        float contactMassA = a.GetMass() / static_cast<float>( countA );
+        float contactMassB = b.GetMass() / static_cast<float>( countB );
+        float contactMass = ( contactMassA < contactMassB ) ? contactMassA : contactMassB;
+        c.frictionLimit = Cfg().frictionCoeff * contactMass * fabsf( Cfg().gravity ) * dt;
+
+        // Warm starting: if this same pair was touching last frame, start from
+        // the old solution instead of zero. This is the paper's key ingredient
+        // for stacking, because support forces are almost unchanged frame to frame.
+        for ( const PersistentContactCacheEntry& cached : m_persistentContactCache )
+        {
+            if ( cached.key == c.key )
+            {
+                c.accN = ( cached.accN > 0.0f ) ? cached.accN : 0.0f;
+                c.accT1 = std::clamp( cached.accT1, -c.frictionLimit, c.frictionLimit );
+                c.accT2 = std::clamp( cached.accT2, -c.frictionLimit, c.frictionLimit );
+                break;
+            }
+        }
+
+        if ( c.accN > 0.0f || fabsf( c.accT1 ) > 0.0f || fabsf( c.accT2 ) > 0.0f )
+        {
+            // Cached impulses are not just bookkeeping: they must be applied to
+            // the bodies before iteration starts, otherwise the solver would clamp
+            // against a pretend push that never actually happened.
+            Vector3 warmImpulse = c.normal * c.accN + c.tangent1 * c.accT1 + c.tangent2 * c.accT2;
+            applyImpulse( c, warmImpulse );
+        }
+    }
+
+    // Third pass: Projected Gauss-Seidel. Each contact computes the extra impulse
+    // needed to reduce its current violation, adds that to the accumulated total,
+    // clamps the total to valid bounds, then applies only the difference.
+    for ( int iter = 0; iter < solverIterations; ++iter )
+    {
+        float iterImpulseSq = 0.0f;
+        for ( PersistentContact& c : m_persistentContacts )
+        {
+            GameModel& a = m_gameModels[c.bodyA];
+            GameModel& b = m_gameModels[c.bodyB];
+
+            Vector3 velA = a.GetVelocity() + Vector::CrossProduct( a.GetAngularVelocity(), c.rA );
+            Vector3 velB = b.GetVelocity() + Vector::CrossProduct( b.GetAngularVelocity(), c.rB );
+            float vn = ( velB - velA ) * c.normal;
+            float lambdaN = c.normalMass * ( c.bias - vn );
+            float oldAccN = c.accN;
+
+            // Normal impulses are one-way. Contacts can push bodies apart, but
+            // they cannot glue bodies together, so the accumulated value is >= 0.
+            c.accN = ( oldAccN + lambdaN > 0.0f ) ? oldAccN + lambdaN : 0.0f;
+            float deltaN = c.accN - oldAccN;
+            applyImpulse( c, c.normal * deltaN );
+
+            velA = a.GetVelocity() + Vector::CrossProduct( a.GetAngularVelocity(), c.rA );
+            velB = b.GetVelocity() + Vector::CrossProduct( b.GetAngularVelocity(), c.rB );
+            float vt1 = ( velB - velA ) * c.tangent1;
+            float lambdaT1 = c.tangentMass1 * ( -vt1 );
+            float oldAccT1 = c.accT1;
+
+            // Friction can push either sideways direction, but only up to the
+            // contact's friction budget. Past this clamp the bodies are sliding.
+            c.accT1 = std::clamp( oldAccT1 + lambdaT1, -c.frictionLimit, c.frictionLimit );
+            float deltaT1 = c.accT1 - oldAccT1;
+            applyImpulse( c, c.tangent1 * deltaT1 );
+
+            velA = a.GetVelocity() + Vector::CrossProduct( a.GetAngularVelocity(), c.rA );
+            velB = b.GetVelocity() + Vector::CrossProduct( b.GetAngularVelocity(), c.rB );
+            float vt2 = ( velB - velA ) * c.tangent2;
+            float lambdaT2 = c.tangentMass2 * ( -vt2 );
+            float oldAccT2 = c.accT2;
+            c.accT2 = std::clamp( oldAccT2 + lambdaT2, -c.frictionLimit, c.frictionLimit );
+            float deltaT2 = c.accT2 - oldAccT2;
+            applyImpulse( c, c.tangent2 * deltaT2 );
+
+            iterImpulseSq += deltaN * deltaN + deltaT1 * deltaT1 + deltaT2 * deltaT2;
+        }
+
+        if ( iterImpulseSq < 1.0e-6f )
+        {
+            break;
+        }
+    }
+
+    // Fourth pass: remove any visible leftover overlap. The velocity solver does
+    // most of the work, but this direct correction keeps persistent contacts from
+    // sinking deeper into each other over many frames.
+    for ( const PersistentContact& c : m_persistentContacts )
+    {
+        if ( c.penetration <= contactSlop )
+        {
+            continue;
+        }
+
+        GameModel& a = m_gameModels[c.bodyA];
+        GameModel& b = m_gameModels[c.bodyB];
+        float invMassA = a.GetInvertedMass();
+        float invMassB = b.GetInvertedMass();
+        float totalInvMass = invMassA + invMassB;
+        if ( totalInvMass <= TOLERANCE )
+        {
+            continue;
+        }
+
+        Vector3 correction = c.normal * ( ( c.penetration - contactSlop ) * positionCorrectionPercent / totalInvMass );
+        a.SetPosition( a.GetPosition() - correction * invMassA );
+        b.SetPosition( b.GetPosition() + correction * invMassB );
+    }
+
+    // Final pass: store this frame's accumulated pushes for next frame. This is
+    // why a settled stack can remain settled; it does not have to rediscover from
+    // scratch how much support force each contact needs every tick.
+    m_persistentContactCache.clear();
+    for ( const PersistentContact& c : m_persistentContacts )
+    {
+        if ( c.accN <= 0.0f && fabsf( c.accT1 ) <= TOLERANCE && fabsf( c.accT2 ) <= TOLERANCE )
+        {
+            continue;
+        }
+
+        PersistentContactCacheEntry cached;
+        cached.key = c.key;
+        cached.accN = c.accN;
+        cached.accT1 = c.accT1;
+        cached.accT2 = c.accT2;
+        m_persistentContactCache.push_back( cached );
+    }
+}
+
+
 // Physics tick: unified impulse solver for all object types (spheres and boxes).
 // No object filtering needed — all models participate.
 void GameModelCollection::RunSolverPhysics( float dt )
@@ -573,6 +936,8 @@ void GameModelCollection::RunSolverPhysics( float dt )
         }
     }
     PROFILE_END( "Frame/Physics/Terrain" );
+
+    SolvePersistentObjectContacts( dt );
 
     // Integrate remaining time for awake models
     PROFILE_BEGIN( "Frame/Physics/Integrate" );

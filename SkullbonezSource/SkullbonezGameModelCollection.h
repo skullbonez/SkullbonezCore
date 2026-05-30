@@ -43,6 +43,45 @@ class GameModelCollection
     std::vector<uint8_t> m_groundedThisFrame;          // Per-model grounded flag for current frame (0/1)
     std::vector<uint8_t> m_sleepState;                 // Per-model sleep state: 0=awake, 1=sleeping
     std::vector<uint8_t> m_sleepCounter;               // Frames object has been below sleep threshold
+
+    // A contact row is one "do not move through each other" rule for two bodies.
+    // Catto's paper solves many of these small rules over and over instead of trying
+    // to solve the whole stack in one perfect step.  The extra fields store the
+    // directions, lever arms, and accumulated push needed for that repeated solve.
+    struct PersistentContact
+    {
+        int bodyA = -1;                 // First body index.  The normal points from A toward B.
+        int bodyB = -1;                 // Second body index.
+        int64_t key = 0;                // Stable pair id, used to find last frame's remembered impulses.
+        Vector3 normal = ZERO_VECTOR;   // Push direction.  Normal impulses separate bodies; they never pull.
+        Vector3 tangent1 = ZERO_VECTOR; // First sideways direction at the contact point, used for friction.
+        Vector3 tangent2 = ZERO_VECTOR; // Second sideways direction.  3D contacts need two friction axes.
+        Vector3 rA = ZERO_VECTOR;       // Vector from body A center to the contact point, for spin/torque.
+        Vector3 rB = ZERO_VECTOR;       // Vector from body B center to the contact point, for spin/torque.
+        float penetration = 0.0f;       // How far the bodies overlap.  Zero means touching or separated.
+        float normalMass = 0.0f;        // "How much velocity changes per unit push" along the normal.
+        float tangentMass1 = 0.0f;      // Same effective-mass idea, but for friction tangent 1.
+        float tangentMass2 = 0.0f;      // Same effective-mass idea, but for friction tangent 2.
+        float bias = 0.0f;              // Small target separation speed used to remove overlap smoothly.
+        float frictionLimit = 0.0f;     // Maximum sideways friction push for this contact this frame.
+        float accN = 0.0f;              // Total normal push accumulated by the iterative solver.
+        float accT1 = 0.0f;             // Total friction push accumulated along tangent 1.
+        float accT2 = 0.0f;             // Total friction push accumulated along tangent 2.
+    };
+
+    // The previous frame's solution is a very good first guess for this frame.
+    // Keeping these impulses is the contact caching step from the paper; it lets a
+    // stack remember the support force that was already holding it up.
+    struct PersistentContactCacheEntry
+    {
+        int64_t key = 0;
+        float accN = 0.0f;
+        float accT1 = 0.0f;
+        float accT2 = 0.0f;
+    };
+    std::vector<PersistentContact> m_persistentContacts;                 // Catto-style contact rows retained across frames
+    std::vector<PersistentContactCacheEntry> m_persistentContactCache;   // Previous-frame contact impulses for warm starting
+    std::vector<uint16_t> m_persistentContactCounts;                     // Per-body contact count for mc*g friction bounds
     std::unique_ptr<IShader> m_shadowShader;           // Shadow decal shader (instanced)
     uint32_t m_shadowInstMesh = 0;                     // Instanced mesh handle (via Gfx())
     int m_shadowDiscVertexCount = 0;                   // Disc triangle vertex count
@@ -58,6 +97,7 @@ class GameModelCollection
     void BuildShadowMesh();            // Builds the shadow disc VAO with instanced attributes
     void RunLegacyPhysics( float dt ); // Physics tick: legacy sphere-only solver (boxes skipped)
     void RunSolverPhysics( float dt ); // Physics tick: unified impulse solver (all objects)
+    void SolvePersistentObjectContacts( float dt ); // PGS contact-force pass for resting/stacked object contacts
 
   public:
     GameModelCollection(); // Default constructor
