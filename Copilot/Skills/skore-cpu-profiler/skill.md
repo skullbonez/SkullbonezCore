@@ -241,17 +241,13 @@ Write-Host "Written: $outPath"
 ## Phase 5 — Build Profile Configuration
 
 ```pwsh
-$REPO    = (git rev-parse --show-toplevel).Trim()
-$msbuild = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" `
-    -latest -requires Microsoft.Component.MSBuild `
-    -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
-
-& $msbuild "$REPO\SKULLBONEZ_CORE.sln" /p:Configuration=Profile /p:Platform=x64 /nologo /v:minimal
+$REPO = (git rev-parse --show-toplevel).Trim()
+& "$REPO\tools\validate_build.bat" Profile
 ```
 
-**If build fails with LNK1168** (exe locked): kill the running process first:
+**If build fails with LNK1168** (exe locked): kill only the process you launched and only by PID:
 ```pwsh
-Get-Process SKULLBONEZ_CORE -ErrorAction SilentlyContinue | Stop-Process
+Stop-Process -Id $proc.Id
 ```
 
 Build must produce 0 errors and 0 warnings before proceeding.
@@ -271,9 +267,9 @@ $ts       = "<same timestamp from Phase 4>"
 Remove-Item "$REPO\Profile\perf_log.csv" -ErrorAction SilentlyContinue
 
 $rendererArgs = if ($renderer -eq "gl") {
-    "--scene SkullbonezData/scenes/perf_test.scene"
+    "--vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene"
 } else {
-    "--renderer $renderer --scene SkullbonezData/scenes/perf_test.scene"
+    "--renderer $renderer --vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene"
 }
 
 $proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
@@ -471,11 +467,8 @@ After the fix is implemented (or skipped):
 
 **9a. Build:**
 ```pwsh
-$REPO    = (git rev-parse --show-toplevel).Trim()
-$msbuild = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" `
-    -latest -requires Microsoft.Component.MSBuild `
-    -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
-& $msbuild "$REPO\SKULLBONEZ_CORE.sln" /p:Configuration=Profile /p:Platform=x64 /nologo /v:minimal
+$REPO = (git rev-parse --show-toplevel).Trim()
+& "$REPO\tools\validate_build.bat" Profile
 ```
 
 **9b. Run perf scene again** (same renderer, same markers still in place for apples-to-apples):
@@ -486,9 +479,9 @@ $ts_after = (Get-Date -Format "yyyyMMdd-HHmmss")
 Remove-Item "$REPO\Profile\perf_log.csv" -ErrorAction SilentlyContinue
 
 $rendererArgs = if ($renderer -eq "gl") {
-    "--scene SkullbonezData/scenes/perf_test.scene"
+    "--vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene"
 } else {
-    "--renderer $renderer --scene SkullbonezData/scenes/perf_test.scene"
+    "--renderer $renderer --vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene"
 }
 
 $proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
@@ -645,11 +638,8 @@ foreach ($relFile in $files) {
 ### 12a. Verify cleanup compiles clean
 
 ```pwsh
-$REPO    = (git rev-parse --show-toplevel).Trim()
-$msbuild = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" `
-    -latest -requires Microsoft.Component.MSBuild `
-    -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
-& $msbuild "$REPO\SKULLBONEZ_CORE.sln" /p:Configuration=Profile /p:Platform=x64 /nologo /v:minimal
+$REPO = (git rev-parse --show-toplevel).Trim()
+& "$REPO\tools\validate_build.bat" Profile
 ```
 
 If the build fails: the sentinel removal corrupted something. Inspect the file, fix manually,

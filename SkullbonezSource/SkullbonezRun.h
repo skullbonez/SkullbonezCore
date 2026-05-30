@@ -114,8 +114,8 @@ struct RunSceneState
     int modelCount = 0;            // Number of models in the active scene
     float timeScale = 1.0f;        // Physics time multiplier (1.0 = realtime)
     bool isFixedStep = false;      // One physics tick per render frame at PHYSICS_FIXED_DT (deterministic)
-    bool isExitOnComplete = false;  // Exit automatically when targetFrameCount is reached
-    bool isTestComplete = false;    // Set when targetFrameCount is reached without --exit; appends "- TEST COMPLETE" to HUD
+    bool isExitOnComplete = false; // Exit automatically when targetFrameCount is reached
+    bool isTestComplete = false;   // Set when targetFrameCount is reached without --exit; appends "- TEST COMPLETE" to HUD
 };
 
 struct RunScreenshotState
@@ -182,7 +182,7 @@ class SkullbonezRun
   private:
     std::vector<std::string> m_sceneQueue; // Ordered list of scene paths ("" = legacy mode)
     float m_cmdTimeScaleOverride = 0.0f;   // CLI --time-scale override applied after each scene load (0 = not set)
-    bool  m_cmdFixedStep = false;          // CLI --fixed-step override applied after each scene load
+    bool m_cmdFixedStep = false;           // CLI --fixed-step override applied after each scene load
 
     RunPerfLogState m_perfLogState;              // Perf/test logging paths, files, and flush policy
     RunRuntimeSettings m_runtimeSettings;        // Scene/app runtime toggles (vsync, sync, roll-align)

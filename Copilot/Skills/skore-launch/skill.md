@@ -8,6 +8,7 @@ description: Launch the SkullbonezCore executable. Invoke when the user asks to 
 The executable is built into:
 - Debug:   `{REPO}\Debug\SKULLBONEZ_CORE.exe`
 - Release: `{REPO}\Release\SKULLBONEZ_CORE.exe`
+- Profile: `{REPO}\Profile\SKULLBONEZ_CORE.exe`
 
 ### Check the exe exists before launching
 
@@ -16,7 +17,7 @@ $REPO = (git rev-parse --show-toplevel).Trim()
 Test-Path "$REPO\Debug\SKULLBONEZ_CORE.exe"
 ```
 
-If it does not exist, build first using the `build-skullbonez-core` skill.
+If it does not exist, build first using `tools\validate_build.bat Debug` or the `skore-build` skill.
 
 ### Launch (Debug build)
 
@@ -30,6 +31,15 @@ Start-Process "$REPO\Debug\SKULLBONEZ_CORE.exe" -WorkingDirectory $REPO
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
 Start-Process "$REPO\Release\SKULLBONEZ_CORE.exe" -WorkingDirectory $REPO
+```
+
+### Launch (Profile build, test-friendly)
+
+```pwsh
+$REPO = (git rev-parse --show-toplevel).Trim()
+Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
+    -ArgumentList "--vsync off --scene SkullbonezData/scenes/water_ball_test.scene" `
+    -WorkingDirectory $REPO
 ```
 
 Use `-WorkingDirectory $REPO` so the game can locate data files relative to the repo root.

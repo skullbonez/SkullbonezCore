@@ -1,0 +1,40 @@
+# Validation Tools
+
+Scripts for validating SkullbonezCore changes. Run from the repo root or from within this directory.
+
+## Quick Reference
+
+| Script | Use When | Runtime |
+|--------|----------|---------|
+| `agent_validate.bat` | Unsure what to run, runs everything | ~3 min |
+| `validate_fast.bat` | Docs, small refactors, non-render edits | ~30s |
+| `validate_renderers.bat` | Shader, texture, render backend changes | ~60s |
+| `validate_physics.bat` | Physics, collision, solver, rigid body | ~45s |
+| `validate_perf.bat` | Performance-sensitive, hot-path changes | ~1 min |
+| `validate_full.bat` | Broad changes, pre-merge, uncertain scope | ~3 min |
+
+## Utility Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `validate_format.bat` | Check clang-format compliance without auto-fixing |
+| `format_fix.bat` | Auto-fix formatting in-place |
+| `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Release`) |
+| `find_msbuild.bat` | Locate MSBuild, called by other scripts |
+| `check_dx12_validation.bat` | Verify DX12 InfoQueue clean |
+| `check_parity.py` | Cross-renderer pixel comparison |
+| `check_physics_regression.py` | Byte-exact physics CSV diff |
+
+## Exit Codes
+
+All scripts follow this convention:
+
+- `0` = pass
+- `1-98` = failure, with the code indicating which step failed
+- `99` = tool not found, such as MSBuild, clang-format, Python, or Pillow
+
+## Prerequisites
+
+- Visual Studio 2022 with C++ and LLVM tools
+- Python 3.x with Pillow (`py -m pip install Pillow`)
+- Built executable in `Profile\` for render/perf tests or `Debug\` for physics tests

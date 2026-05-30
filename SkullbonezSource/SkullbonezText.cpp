@@ -36,9 +36,9 @@ static int s_batchVerts = 0;
 // BatchQuad() accumulates quads here; FlushQuads() uploads and draws them all in
 // one draw call — so an entire profiler bar overlay (background + N segments +
 // legend swatches) costs exactly one draw call for all quads.
-static constexpr int QUAD_BATCH_MAX_QUADS = 512;       // up to 512 quads per flush
-static constexpr int QUAD_BATCH_FLOATS_PER_VERT = 6;   // x, y, r, g, b, a
-static constexpr int QUAD_BATCH_VERTS_PER_QUAD = 6;    // 2 triangles
+static constexpr int QUAD_BATCH_MAX_QUADS = 512;     // up to 512 quads per flush
+static constexpr int QUAD_BATCH_FLOATS_PER_VERT = 6; // x, y, r, g, b, a
+static constexpr int QUAD_BATCH_VERTS_PER_QUAD = 6;  // 2 triangles
 static float s_quadBatchBuf[QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD * QUAD_BATCH_FLOATS_PER_VERT];
 static int s_quadBatchVerts = 0;
 
@@ -824,13 +824,43 @@ void Text2d::BatchQuad( float x0, float y0, float x1, float y1, float r, float g
     float* v = s_quadBatchBuf + s_quadBatchVerts * QUAD_BATCH_FLOATS_PER_VERT;
 
     // Triangle 1: bottom-left, bottom-right, top-right
-    v[ 0] = x0; v[ 1] = y0; v[ 2] = r; v[ 3] = g; v[ 4] = b; v[ 5] = a;
-    v[ 6] = x1; v[ 7] = y0; v[ 8] = r; v[ 9] = g; v[10] = b; v[11] = a;
-    v[12] = x1; v[13] = y1; v[14] = r; v[15] = g; v[16] = b; v[17] = a;
+    v[0] = x0;
+    v[1] = y0;
+    v[2] = r;
+    v[3] = g;
+    v[4] = b;
+    v[5] = a;
+    v[6] = x1;
+    v[7] = y0;
+    v[8] = r;
+    v[9] = g;
+    v[10] = b;
+    v[11] = a;
+    v[12] = x1;
+    v[13] = y1;
+    v[14] = r;
+    v[15] = g;
+    v[16] = b;
+    v[17] = a;
     // Triangle 2: bottom-left, top-right, top-left
-    v[18] = x0; v[19] = y0; v[20] = r; v[21] = g; v[22] = b; v[23] = a;
-    v[24] = x1; v[25] = y1; v[26] = r; v[27] = g; v[28] = b; v[29] = a;
-    v[30] = x0; v[31] = y1; v[32] = r; v[33] = g; v[34] = b; v[35] = a;
+    v[18] = x0;
+    v[19] = y0;
+    v[20] = r;
+    v[21] = g;
+    v[22] = b;
+    v[23] = a;
+    v[24] = x1;
+    v[25] = y1;
+    v[26] = r;
+    v[27] = g;
+    v[28] = b;
+    v[29] = a;
+    v[30] = x0;
+    v[31] = y1;
+    v[32] = r;
+    v[33] = g;
+    v[34] = b;
+    v[35] = a;
 
     s_quadBatchVerts += QUAD_BATCH_VERTS_PER_QUAD;
 }

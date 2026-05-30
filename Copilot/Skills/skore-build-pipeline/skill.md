@@ -9,7 +9,21 @@ The full verify-and-commit pipeline after a code change. **Every step must pass 
 
 > ⛔ **YOU MUST RUN ALL STEPS (0 through 9) BEFORE COMMITTING.** Fixing a formatting error in Step 0 or a build error in Step 2 does NOT mean you can commit — continue through the full pipeline. The only time you may stop early is if the pipeline crashes or the exe cannot be produced.
 
-The engine supports in-process scene sequencing — all tests run in a **single process launch** via `--suite`. The suite file `SkullbonezData/scenes/render_tests.suite` runs: `water_ball_test.scene` (render screenshot), `legacy_smoke.scene` (render screenshot, 300 balls), `perf_test.scene` (2×5s passes).
+### Executable Validation Scripts
+
+The `tools\validate_*.bat` scripts are the canonical executable wrappers for validation. Prefer them over manually retyping long PowerShell blocks when they cover the same scope:
+
+| Pipeline Scope | Preferred Script | What It Covers | What Still Needs This Skill |
+|----------------|------------------|----------------|-----------------------------|
+| Format + Profile build | `tools\validate_fast.bat` | Steps 0 and 2 | LOC, SessionState, commit |
+| Renderer suite | `tools\validate_renderers.bat` | Steps 0, 2, 3, 3.5, and cross-renderer parity | Visual baseline compare/update |
+| Physics regression | `tools\validate_physics.bat` | Debug build + fixed-step CSV regression | Commit/archive bookkeeping |
+| Perf smoke | `tools\validate_perf.bat` | Tri-renderer fixed-step perf scene, frame-controlled samples + baseline comparison | Numbered archive, LOC, SessionState, commit |
+| Broad pre-merge sanity | `tools\validate_full.bat` | Renderer + physics regression + tri-renderer perf | Baseline update, numbered perf JSON archive, LOC, SessionState, commit |
+
+The scripts intentionally do **not** update committed visual baselines, create numbered `TestOutput\NNN_<hash>` archives, update `Copilot\SessionState.md`, ask for commit permission, or commit. For a commit, use scripts to produce/validate artifacts, then continue the relevant baseline/archive/session-state/commit steps below.
+
+The engine supports in-process scene sequencing via `--suite`. The suite file `SkullbonezData/scenes/render_tests.suite` is render-only: `water_ball_test.scene` (render screenshot) and `legacy_smoke.scene` (render screenshot, 300 balls). Performance validation is separate and must run `perf_test.scene` for GL, DX11, and DX12 with `--vsync off --fixed-step`.
 
 ### Step -1: Choose Test Scope
 
@@ -30,21 +44,23 @@ choices:
 
 Record the answer as `$testScope` and apply these rules for the remaining steps:
 
-| Scope | Step 3 suite file | Step 4 (baseline check) | Step 5 (update baselines) | Step 6 (perf analysis) | Step 6.5 (physics bench) | Step 6.75 (physics regression) |
+| Scope | Step 3 render input | Step 4 (baseline check) | Step 5 (update baselines) | Step 6 (perf analysis) | Step 6.5 (physics bench) | Step 6.75 (physics regression) |
 |-------|-------------------|-------------------------|---------------------------|------------------------|--------------------------|--------------------------------|
 | Both (full) | `render_tests.suite` | ✅ Run | ✅ Run | ✅ Run | ⏭️ Skip | ⏭️ Skip |
 | Full + bench | `render_tests.suite` | ✅ Run | ✅ Run | ✅ Run | ✅ Run | ⏭️ Skip |
 | Full + regression | `render_tests.suite` | ✅ Run | ✅ Run | ✅ Run | ⏭️ Skip | ✅ Run |
 | Full + all | `render_tests.suite` | ✅ Run | ✅ Run | ✅ Run | ✅ Run | ✅ Run |
-| Render only | `render_only.suite`* | ✅ Run | ✅ Run | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip |
-| Perf only | `perf_only.suite`* | ⏭️ Skip | ⏭️ Skip | ✅ Run | ⏭️ Skip | ⏭️ Skip |
+| Render only | `render_tests.suite` | ✅ Run | ✅ Run | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip |
+| Perf only | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip | ✅ Run | ⏭️ Skip | ⏭️ Skip |
 | None | ⏭️ Skip steps 3–7 | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip |
 
-*If the named suite doesn't exist yet, use `render_tests.suite` for render-only and pass `--scene SkullbonezData/scenes/perf_test.scene` for perf-only.
+Perf-only means running `perf_test.scene` separately for GL, DX11, and DX12 with `--vsync off --fixed-step`.
 
 When scope is **None**, jump directly from Step 2 (build) to Step 8 (LOC) then Step 9 (confirm commit). Steps 3–7 are skipped entirely — no suite run, no baselines, no perf artifacts. The commit message should note "no test artifacts (build-only commit)".
 
 ### Step 0: Verify Formatting
+
+Executable equivalent: `tools\validate_format.bat`.
 
 Uses `--dry-run -Werror` which exits non-zero for any file that would be changed. Do NOT compare clang-format stdout against file contents — PowerShell's pipeline mangles the output.
 
@@ -77,6 +93,8 @@ If this fails, proceed to Step 1 (Format) to auto-fix, then re-run Step 0. **Aft
 
 ### Step 1: Format (auto-fix)
 
+Executable equivalent: `tools\format_fix.bat`.
+
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
 
@@ -95,6 +113,8 @@ Write-Host "Formatted $($files.Count) files"
 
 ### Step 2: Build
 
+Executable equivalent: `tools\validate_build.bat Profile`.
+
 Build the **Profile** configuration. Must produce **0 errors and 0 warnings**.
 
 ```pwsh
@@ -106,9 +126,11 @@ $msbuild = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.e
 
 **If build fails with LNK1168** (exe locked): kill the running `SKULLBONEZ_CORE.exe` process first, then rebuild.
 
-### Step 3: Run Tri-Renderer Test Suite
+### Step 3: Run Tri-Renderer Render Suite
 
-Runs the full suite for **OpenGL, DirectX 11, and DirectX 12**. Stdout/stderr are captured per renderer for Step 3.5 validation.
+Executable equivalent: `tools\validate_renderers.bat`. If you use it, continue at Step 4 with the `Profile\gl_*`, `Profile\dx11_*`, and `Profile\dx12_*` artifacts it produced.
+
+Runs the render-only suite for **OpenGL, DirectX 11, and DirectX 12**. Stdout/stderr are captured per renderer for Step 3.5 validation. Performance is checked later by Step 6.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
@@ -116,16 +138,15 @@ $REPO = (git rev-parse --show-toplevel).Trim()
 # Clean old artifacts
 Remove-Item "$REPO\Profile\*screenshot.bmp"  -ErrorAction SilentlyContinue
 Remove-Item "$REPO\Profile\*legacy_smoke.bmp" -ErrorAction SilentlyContinue
-Remove-Item "$REPO\Profile\*perf_log.csv"    -ErrorAction SilentlyContinue
 Remove-Item "$REPO\dx12_validation.txt"       -ErrorAction SilentlyContinue
 Remove-Item "$REPO\Profile\*_stdout.txt"      -ErrorAction SilentlyContinue
 Remove-Item "$REPO\Profile\*_stderr.txt"      -ErrorAction SilentlyContinue
 
 foreach ($renderer in @("gl", "dx11", "dx12")) {
     $rendererArgs = if ($renderer -eq "gl") {
-        "--suite SkullbonezData/scenes/render_tests.suite"
+        "--vsync off --suite SkullbonezData/scenes/render_tests.suite"
     } else {
-        "--renderer $renderer --suite SkullbonezData/scenes/render_tests.suite"
+        "--renderer $renderer --vsync off --suite SkullbonezData/scenes/render_tests.suite"
     }
     Write-Host "=== Running $($renderer.ToUpper()) Suite ==="
     $proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
@@ -141,7 +162,7 @@ foreach ($renderer in @("gl", "dx11", "dx12")) {
         Write-Host "FAIL: $($renderer.ToUpper()) exited with code $($proc.ExitCode)"
         exit 1
     }
-    foreach ($file in @("screenshot.bmp", "legacy_smoke.bmp", "perf_log.csv")) {
+    foreach ($file in @("screenshot.bmp", "legacy_smoke.bmp")) {
         if (Test-Path "$REPO\Profile\$file") {
             Move-Item "$REPO\Profile\$file" "$REPO\Profile\${renderer}_$file"
         }
@@ -149,9 +170,9 @@ foreach ($renderer in @("gl", "dx11", "dx12")) {
 }
 
 $missing = @()
-foreach ($f in @("gl_screenshot.bmp","gl_legacy_smoke.bmp","gl_perf_log.csv",
-                  "dx11_screenshot.bmp","dx11_legacy_smoke.bmp","dx11_perf_log.csv",
-                  "dx12_screenshot.bmp","dx12_legacy_smoke.bmp","dx12_perf_log.csv")) {
+foreach ($f in @("gl_screenshot.bmp","gl_legacy_smoke.bmp",
+                  "dx11_screenshot.bmp","dx11_legacy_smoke.bmp",
+                  "dx12_screenshot.bmp","dx12_legacy_smoke.bmp")) {
     if (-not (Test-Path "$REPO\Profile\$f")) { $missing += $f }
 }
 if ($missing.Count -gt 0) {
@@ -165,6 +186,8 @@ Write-Host "PASS: All tri-renderer artifacts produced"
 **If the suite fails or crashes**: Debug with `skore-cdb-debug` skill using the same `--suite` command line.
 
 ### Step 3.5: Validate Clean Run (All Renderers)
+
+Covered by `tools\validate_renderers.bat`.
 
 All renderers must produce no error or warning output to stdout/stderr. DX12 is also checked against its in-process InfoQueue validation file.
 
@@ -300,7 +323,9 @@ print('All baselines updated')
 
 **Mandatory for every commit.**
 
-Generate performance JSON artifacts and display the comparison tables without LLM analysis. User decides if regression is acceptable.
+Executable equivalent: `tools\validate_perf.bat` runs `perf_test.scene` for GL, DX11, and DX12 with `--vsync off --fixed-step`, writes current JSON artifacts in `Profile\`, and compares against committed baselines. The scene controls pass length by frame count (`frames 1000`), not wall-clock time; the analyzer records 1970 timing samples because the first pass excludes the 30-frame profiler warmup. The manual flow below additionally writes the numbered `TestOutput\NNN_<hash>` archive required before committing.
+
+Generate tri-renderer performance JSON artifacts and display the comparison tables without LLM analysis. User decides if regression is acceptable.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
@@ -319,6 +344,37 @@ if ($existing) {
     $archiveDir = "$REPO\TestOutput\$("{0:D3}" -f ($maxSeq + 1))_$commit"
     New-Item -ItemType Directory -Path $archiveDir | Out-Null
     Write-Host "Created archive: $(Split-Path $archiveDir -Leaf)"
+}
+
+# Run the perf scene explicitly for each renderer. Do not get perf logs from
+# render_tests.suite; that suite is render-only by design.
+Remove-Item "$REPO\Profile\perf_log.csv"      -ErrorAction SilentlyContinue
+Remove-Item "$REPO\Profile\*_perf_log.csv"   -ErrorAction SilentlyContinue
+
+foreach ($renderer in @("gl", "dx11", "dx12")) {
+    $rendererArgs = if ($renderer -eq "gl") {
+        "--vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene"
+    } else {
+        "--renderer $renderer --vsync off --fixed-step --scene SkullbonezData/scenes/perf_test.scene"
+    }
+    Write-Host "`n=== Running $($renderer.ToUpper()) Perf Test ==="
+    $proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
+        -ArgumentList $rendererArgs `
+        -WorkingDirectory $REPO -PassThru
+    if (-not $proc.WaitForExit(120000)) {
+        Write-Host "FAIL: $($renderer.ToUpper()) perf test timed out after 120s"
+        Stop-Process -Id $proc.Id -Force
+        exit 1
+    }
+    if ($proc.ExitCode -ne 0) {
+        Write-Host "FAIL: $($renderer.ToUpper()) perf test exited with code $($proc.ExitCode)"
+        exit 1
+    }
+    if (-not (Test-Path "$REPO\Profile\perf_log.csv")) {
+        Write-Host "FAIL: $($renderer.ToUpper()) perf_log.csv was not produced"
+        exit 1
+    }
+    Move-Item "$REPO\Profile\perf_log.csv" "$REPO\Profile\${renderer}_perf_log.csv"
 }
 
 foreach ($renderer in @("gl", "dx11", "dx12")) {
@@ -443,7 +499,7 @@ Remove-Item "$REPO\Profile\*bench_perf_log.csv" -ErrorAction SilentlyContinue
 # Run all 4 bench scenes (GL only — physics is renderer-independent)
 Write-Host "=== Running physics_bench.suite ==="
 $benchProc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
-    -ArgumentList "--suite SkullbonezData/scenes/physics_bench.suite" `
+    -ArgumentList "--vsync off --suite SkullbonezData/scenes/physics_bench.suite" `
     -WorkingDirectory $REPO -PassThru `
     -RedirectStandardOutput "$REPO\Profile\bench_stdout.txt" `
     -RedirectStandardError  "$REPO\Profile\bench_stderr.txt"
@@ -485,8 +541,10 @@ Write-Host "PASS: physics_bench.json written to $(Split-Path $archiveDir -Leaf)"
 
 ### Step 6.75: Physics Regression Test (optional — only when scope includes regression)
 
-Builds the Debug exe, runs both regression scenes, and diffs the output CSVs against committed baselines.
-Physics logging is Debug-only (Log singleton is a no-op in Release/Profile). Both scenes use `fixed_step` + `seed 42` so output is **exactly** deterministic — any single differing byte is a real regression.
+Executable equivalent: `tools\validate_physics.bat`.
+
+Builds the Debug exe, runs the solver regression scene, and diffs the output CSV against the committed baseline.
+Physics logging is Debug-only (Log singleton is a no-op in Release/Profile). The scene uses `fixed_step` + `seed 42` for 1000 frames so output is **exactly** deterministic — any single differing byte is a real regression.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
@@ -500,22 +558,10 @@ if ($LASTEXITCODE -ne 0) { Write-Host "FAIL: Debug build failed"; exit 1 }
 # Clean old outputs
 Remove-Item "$REPO\Debug\physics_regression_*.csv" -ErrorAction SilentlyContinue
 
-# Run legacy regression scene
-Write-Host "=== Running physics_regression_legacy ==="
-$p = Start-Process "$REPO\Debug\SKULLBONEZ_CORE.exe" `
-    -ArgumentList "--scene SkullbonezData/scenes/physics_regression_legacy.scene" `
-    -WorkingDirectory $REPO -PassThru -NoNewWindow
-$id = $p.Id
-if (-not $p.WaitForExit(60000)) {
-    Write-Host "FAIL: physics_regression_legacy timed out"
-    [System.Diagnostics.Process]::GetProcessById($id).Kill(); exit 1
-}
-if ($p.ExitCode -ne 0) { Write-Host "FAIL: legacy scene exited $($p.ExitCode)"; exit 1 }
-
 # Run solver regression scene
 Write-Host "=== Running physics_regression_solver ==="
 $p = Start-Process "$REPO\Debug\SKULLBONEZ_CORE.exe" `
-    -ArgumentList "--scene SkullbonezData/scenes/physics_regression_solver.scene" `
+    -ArgumentList "--vsync off --fixed-step --scene SkullbonezData/scenes/physics_regression_solver.scene" `
     -WorkingDirectory $REPO -PassThru -NoNewWindow
 $id = $p.Id
 if (-not $p.WaitForExit(60000)) {
@@ -532,7 +578,6 @@ _r = os.environ['SKORE_REPO']
 baseline_dir = os.path.join(_r, 'TestOutput', 'baselines')
 
 tests = [
-    (r'Debug\physics_regression_legacy.csv', 'physics_regression_legacy.csv'),
     (r'Debug\physics_regression_solver.csv', 'physics_regression_solver.csv'),
 ]
 all_pass = True
@@ -574,7 +619,7 @@ Write-Host "PASS: Physics regression test passed"
 
 **If regression fails**: The physics output changed. Investigate whether the change is intentional (physics bugfix, solver tuning) or a regression. If intentional, update the baselines by deleting the CSV files in `TestOutput/baselines/` and re-running — the script will recreate them.
 
-**Note:** The Debug exe uses a window (same as Profile). It will open and close automatically when the scene finishes (`frames 300` + exit on completion).
+**Note:** The Debug exe uses a window (same as Profile). It will open and close automatically when the scene finishes (`frames 1000` + exit on completion).
 
 ### Step 7: Archive Screenshots to TestOutput
 
