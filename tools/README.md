@@ -27,6 +27,8 @@ Scripts for validating SkullbonezCore changes. Run from the repo root or from wi
 | `check_dx12_validation.bat` | Verify DX12 InfoQueue clean |
 | `check_parity.py` | Cross-renderer pixel comparison |
 | `check_physics_regression.py` | Byte-exact physics CSV diff |
+| `update_baselines.bat` | Copy current Profile visual/perf artifacts into `TestOutput\baselines` |
+| `archive_validation_artifacts.bat` | Archive current Profile artifacts under `TestOutput\NNN_<commit>` |
 
 ## Exit Codes
 

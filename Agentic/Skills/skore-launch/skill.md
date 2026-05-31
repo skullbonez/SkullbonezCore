@@ -1,45 +1,30 @@
 ---
 name: skore-launch
-description: Launch the SkullbonezCore executable. Invoke when the user asks to run, launch, or start SkullbonezCore.
+description: Launch SkullbonezCore with the correct working directory.
 ---
 
-## Launching SkullbonezCore
+# skore-launch
 
-The executable is built into:
-- Debug:   `{REPO}\Debug\SKULLBONEZ_CORE.exe`
-- Release: `{REPO}\Release\SKULLBONEZ_CORE.exe`
-- Profile: `{REPO}\Profile\SKULLBONEZ_CORE.exe`
+Use `Start-Process` from the repository root and keep `-WorkingDirectory` set to the repo so assets resolve.
 
-### Check the exe exists before launching
+## Examples
 
-```pwsh
-$REPO = (git rev-parse --show-toplevel).Trim()
-Test-Path "$REPO\Debug\SKULLBONEZ_CORE.exe"
+```powershell
+$REPO = (Resolve-Path .).Path
+Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" -WorkingDirectory $REPO
 ```
 
-If it does not exist, build first using `tools\validate_build.bat Debug` or the `skore-build` skill.
-
-### Launch (Debug build)
-
-```pwsh
-$REPO = (git rev-parse --show-toplevel).Trim()
-Start-Process "$REPO\Debug\SKULLBONEZ_CORE.exe" -WorkingDirectory $REPO
+```powershell
+$REPO = (Resolve-Path .).Path
+$proc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
+    -ArgumentList "--renderer dx12 --vsync off --scene SkullbonezData/scenes/water_ball_test.scene" `
+    -WorkingDirectory $REPO -PassThru
 ```
 
-### Launch (Release build)
+If the exe is missing, build first:
 
-```pwsh
-$REPO = (git rev-parse --show-toplevel).Trim()
-Start-Process "$REPO\Release\SKULLBONEZ_CORE.exe" -WorkingDirectory $REPO
+```bat
+tools\validate_build.bat Profile
 ```
 
-### Launch (Profile build, test-friendly)
-
-```pwsh
-$REPO = (git rev-parse --show-toplevel).Trim()
-Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
-    -ArgumentList "--vsync off --scene SkullbonezData/scenes/water_ball_test.scene" `
-    -WorkingDirectory $REPO
-```
-
-Use `-WorkingDirectory $REPO` so the game can locate data files relative to the repo root.
+Kill only by PID from `$proc.Id` if you launched the process.

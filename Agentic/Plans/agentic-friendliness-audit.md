@@ -29,7 +29,7 @@ This makes the pipeline:
 | Agent guide | `agents.md` (root) | agent-specific operational reference |
 | Agent instructions | `AGENTS.md` | an AI agent custom instructions |
 | Build pipeline skill | `Agentic/Skills/skore-build-pipeline/skill.md` | 693-line step-by-step validation spec |
-| 6 other skill files | `Agentic/Skills/skore-*/skill.md` | render-test, build, cdb-debug, launch, cpu-profiler, branch-and-snatch |
+| Other skill files | `Agentic/Skills/skore-*/skill.md` | render-test, build, cdb-debug, launch, cpu-profiler. The old branch-and-snatch skill was deprecated by baseline perf comparison. |
 | Session state | `Agentic/SessionState.md` | Cross-session handoff document |
 | Pre-commit hooks | `.githooks/` + `.pre-commit-config.yaml` | clang-format, header consistency, brace check, line endings, whitespace |
 | Test scenes | `SkullbonezData/scenes/*.scene` | 35 scenes + 3 suite files |

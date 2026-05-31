@@ -124,4 +124,5 @@ All agents should also read:
 
 - `Agentic/README.md`, the index for handoff docs, skills, and plans.
 - `Agentic/SessionState.md`, the session handoff state.
-- `Agentic/Skills/skore-build-pipeline/skill.md`, the detailed pipeline with perf archiving.
+
+Load skill files only when the current task needs them. Do not load every skill at session start.

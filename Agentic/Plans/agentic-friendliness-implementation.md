@@ -985,20 +985,9 @@ Replace with:
 Automated validation: run `tools\validate_full.bat` (see `AGENTS.md` for the tiered validation table).
 ```
 
-**Change 7 â€” Add `skore-branch-and-snatch` to the Skills table:**
+**Change 7 - Deprecated: `skore-branch-and-snatch`:**
 
-The skills table in the old tool-specific instructions was missing `skore-branch-and-snatch` (which is listed in `agents.md`). Add it:
-
-Find:
-```
-| skore-cpu-profiler | `Agentic/Skills/skore-cpu-profiler/skill.md` |
-```
-
-Replace with:
-```
-| skore-cpu-profiler | `Agentic/Skills/skore-cpu-profiler/skill.md` |
-| skore-branch-and-snatch | `Agentic/Skills/skore-branch-and-snatch/skill.md` |
-```
+This old recommendation is no longer current. The branch-and-snatch workflow was removed in favor of committed perf baselines and `perf_compare.py`.
 
 **Change 8 â€” Add `Profile` configuration reference:**
 

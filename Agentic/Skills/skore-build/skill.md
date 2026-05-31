@@ -1,47 +1,25 @@
 ---
 name: skore-build
-description: Build the SkullbonezCore solution using MSBuild. Invoke when the user asks to build, compile, or rebuild SkullbonezCore.
+description: Build SkullbonezCore with the repository MSBuild wrapper.
 ---
 
-## Building SkullbonezCore
+# skore-build
 
-The solution is at `SKULLBONEZ_CORE.sln` in the repo root.
+Use when the user asks to build, compile, or rebuild.
 
-Available configurations:
-- `Debug|x64`
-- `Release|x64`
-- `Profile|x64`
+## Commands
 
-### Build command
-
-Preferred executable wrapper:
-
-```pwsh
-$REPO = (git rev-parse --show-toplevel).Trim()
-& "$REPO\tools\validate_build.bat" Debug
+```bat
+tools\validate_build.bat Debug
+tools\validate_build.bat Profile
+tools\validate_build.bat Release
 ```
 
-Replace `Debug` with `Release` or `Profile` for other configurations. The wrapper locates MSBuild with `tools\find_msbuild.bat`, builds `x64`, and uses warning-as-error validation.
+The wrapper locates MSBuild, builds x64, and enforces zero warnings.
 
-Manual fallback: use MSBuild via Visual Studio tools. Find MSBuild with `vswhere`, then invoke it using **`mode="async"`** so the user sees output streaming live as the build progresses. Read output with `read_powershell` after completion.
+Build outputs:
+- `Debug\SKULLBONEZ_CORE.exe`
+- `Profile\SKULLBONEZ_CORE.exe`
+- `Release\SKULLBONEZ_CORE.exe`
 
-```pwsh
-$REPO     = (git rev-parse --show-toplevel).Trim()
-$msbuild  = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
-& $msbuild "$REPO\SKULLBONEZ_CORE.sln" /p:Configuration=Debug /p:Platform=x64
-```
-
-### Rebuild (clean + build)
-
-```pwsh
-$REPO    = (git rev-parse --show-toplevel).Trim()
-$msbuild = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
-& $msbuild "$REPO\SKULLBONEZ_CORE.sln" /t:Rebuild /p:Configuration=Debug /p:Platform=x64
-```
-
-### Output
-
-Build artifacts land in:
-- `{REPO}\Debug\` for Debug builds
-- `{REPO}\Release\` for Release builds
-- `{REPO}\Profile\` for Profile builds
+If the build fails with `LNK1168`, an exe is locked. Kill only a PID you launched, then rebuild.
