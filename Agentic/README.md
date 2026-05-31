@@ -18,7 +18,6 @@ Load a skill from `Skills/` only when the current task calls for it.
 | Path | Purpose |
 |------|---------|
 | `SessionState.md` | Current branch, active work, blockers, and next validation. Keep this short. |
-| `SessionHistory.md` | Older session notes that should not be loaded by default. |
 | `Skills/` | Concise task procedures and helper scripts. |
 | `Plans/` | Design notes and implementation histories. Load on demand. |
 | `Audits/` | Renderer, physics, and process audits. Load on demand. |

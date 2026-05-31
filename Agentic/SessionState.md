@@ -1,14 +1,14 @@
 # SkullbonezCore Session State
 
-Keep this file short. Put older notes in `Agentic/SessionHistory.md` or a task-specific plan.
+Keep this file short. Put detailed history in a task-specific plan only when it is still useful.
 
 ## Current State
 
 | Field | Value |
 |-------|-------|
 | Branch | `main` |
-| Last commit | `60f682d` - chore: make agent onboarding runtime agnostic |
-| Pending work | Agent documentation and skill context-cost cleanup, awaiting commit. |
+| Last commit | `c7ab05b` - docs: reduce agent context cost |
+| Pending work | Lean-up deletion pass awaiting user review; do not commit yet. |
 | Uncommitted changes | See `git status --short`; use `tools\find_git.bat` first if Git is not on PATH. |
 
 ## Active Notes
@@ -58,4 +58,3 @@ Use `AGENTS.md` as the source of truth. Common cases:
 | Validation scripts | `tools/` |
 | Runtime reference | `Agentic/Reference/runtime-reference.md` |
 | Physics overview | `Agentic/Reference/physics-overview.md` |
-| Historical session notes | `Agentic/SessionHistory.md` |
