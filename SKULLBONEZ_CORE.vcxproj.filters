@@ -174,6 +174,24 @@
     <ClCompile Include="SkullbonezSource\SkullbonezFramebufferDX12.cpp">
       <Filter>Source Files\DX12</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezBoundingBox.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezImpulseSolver.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezBLASDX12.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezTLASDX12.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezSBTDX12.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingSphere.h">
@@ -317,6 +335,24 @@
     <ClInclude Include="SkullbonezSource\SkullbonezFramebufferDX12.h">
       <Filter>Header Files\DX12</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezBoundingBox.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezImpulseSolver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezBLASDX12.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezTLASDX12.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezSBTDX12.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="SkullbonezData\shaders\lit_textured.frag">
@@ -390,6 +426,79 @@
     </None>
     <None Include="SkullbonezData\shaders\water_ocean.vert">
       <Filter>Resource Files\OpenGL</Filter>
+    </None>
+    <None Include="SkullbonezData\engine.cfg" />
+    <None Include="SkullbonezData\scenes\at_rest.scene" />
+    <None Include="SkullbonezData\scenes\ball_vs_ball_flight.scene" />
+    <None Include="SkullbonezData\scenes\ball_vs_box_flight.scene" />
+    <None Include="SkullbonezData\scenes\ball_vs_box_grounded.scene" />
+    <None Include="SkullbonezData\scenes\box_flush_test.scene" />
+    <None Include="SkullbonezData\scenes\box_slope_test.scene" />
+    <None Include="SkullbonezData\scenes\box_vs_ball_flight.scene" />
+    <None Include="SkullbonezData\scenes\box_vs_ball_grounded.scene" />
+    <None Include="SkullbonezData\scenes\cardinal_roll_test.scene" />
+    <None Include="SkullbonezData\scenes\collision_demo.suite" />
+    <None Include="SkullbonezData\scenes\collision_demo_ball_ball.scene" />
+    <None Include="SkullbonezData\scenes\collision_demo_box_ball.scene" />
+    <None Include="SkullbonezData\scenes\collision_demo_box_box.scene" />
+    <None Include="SkullbonezData\scenes\float_snap_test.scene" />
+    <None Include="SkullbonezData\scenes\funnel_roll_test.scene" />
+    <None Include="SkullbonezData\scenes\gpu_timer_test.scene" />
+    <None Include="SkullbonezData\scenes\legacy_smoke.scene" />
+    <None Include="SkullbonezData\scenes\perf_test.scene" />
+    <None Include="SkullbonezData\scenes\physics_baseline.scene" />
+    <None Include="SkullbonezData\scenes\physics_bench.suite" />
+    <None Include="SkullbonezData\scenes\physics_bench_legacy.scene" />
+    <None Include="SkullbonezData\scenes\physics_bench_solver.scene" />
+    <None Include="SkullbonezData\scenes\physics_bench_solver_balls.scene" />
+    <None Include="SkullbonezData\scenes\physics_bench_solver_boxes.scene" />
+    <None Include="SkullbonezData\scenes\physics_regression_legacy.scene" />
+    <None Include="SkullbonezData\scenes\physics_regression_solver.scene" />
+    <None Include="SkullbonezData\scenes\physics_roll.scene" />
+    <None Include="SkullbonezData\scenes\render_tests.suite" />
+    <None Include="SkullbonezData\scenes\roll_axis_test.scene" />
+    <None Include="SkullbonezData\scenes\stacking.scene" />
+    <None Include="SkullbonezData\scenes\switch_test.scene" />
+    <None Include="SkullbonezData\scenes\terrain_compare.scene" />
+    <None Include="SkullbonezData\scenes\water_ball_test.scene" />
+    <None Include="SkullbonezData\shaders\debug_line.frag">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\debug_line.vert">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\grid_line.frag">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\grid_line.vert">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\generate_mips.hlsl">
+      <Filter>Resource Files\DirectX</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\lit_textured_instanced.frag">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\lit_textured_instanced.vert">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\reflect.rt.hlsl">
+      <Filter>Resource Files\DirectX</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\solid_color_batch.vert">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\solid_color_batch.frag">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\solid_color_batch.hlsl">
+      <Filter>Resource Files\DirectX</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\grid_line.hlsl">
+      <Filter>Resource Files\DirectX</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\lit_textured_instanced.hlsl">
+      <Filter>Resource Files\DirectX</Filter>
     </None>
   </ItemGroup>
 </Project>
