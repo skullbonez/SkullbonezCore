@@ -286,7 +286,7 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 2. **SIMD/SSE math optimization pass** (`pending`):
 =======
 0. **Natural contact solver improvement plan** (`pending`):
-   - Added `Copilot/Plans/physics-natural-contact-solver-plan.md`, a detailed physics rewrite roadmap for replacing the remaining rolling/orientation/sphere-sphere hacks with a unified sequential impulse contact solver.
+   - Added `Agentic/Plans/physics-natural-contact-solver-plan.md`, a detailed physics rewrite roadmap for replacing the remaining rolling/orientation/sphere-sphere hacks with a unified sequential impulse contact solver.
    - Plan covers contact-point velocity, effective mass, normal/restitution impulses, Baumgarte/split impulse stabilization, static/dynamic tangent friction, spin friction, rolling resistance, sphere-sphere angular impulse cleanup, fixed timesteps, validation scenes, and phased implementation.
    - Documentation-only change; no engine behavior changed.
 
@@ -354,12 +354,12 @@ A Windows C++/OpenGL 3.3 Core Profile 3D physics engine (2005, fully modernized)
 
 ## Pipeline Rules (MANDATORY for every commit)
 Every commit must include:
-1. Updated reference images — run both render test scenes, overwrite `Copilot/Skills/skore-render-test/baseline_*.png`
-2. Performance test artifact — run perf test, write JSON to `Copilot/Skills/skore-render-test/perf_history/{commit}.json`
+1. Updated reference images — run both render test scenes, overwrite `Agentic/Skills/skore-render-test/baseline_*.png`
+2. Performance test artifact — run perf test, write JSON to `Agentic/Skills/skore-render-test/perf_history/{commit}.json`
 3. Only send PNGs to the LLM for visual review **if local pixel comparison fails**
 4. LOC count (informational, Step 5 of pipeline)
 
-Full pipeline steps in `Copilot/Skills/skore-build-pipeline/skill.md`.
+Full pipeline steps in `Agentic/Skills/skore-build-pipeline/skill.md`.
 
 ---
 
@@ -368,22 +368,22 @@ Full pipeline steps in `Copilot/Skills/skore-build-pipeline/skill.md`.
 ### Skills & Tools
 | What | Path |
 |------|------|
-| **Build pipeline skill** | `Copilot/Skills/skore-build-pipeline/skill.md` |
-| Render test skill | `Copilot/Skills/skore-render-test/skill.md` |
-| Perf analysis script | `Copilot/Skills/skore-render-test/analyze_perf.py` |
-| Perf history artifacts | `Copilot/Skills/skore-render-test/perf_history/` |
-| Reference baselines (4 PNG) | `Copilot/Skills/skore-render-test/baseline_*.png` |
-| CDB debug skill | `Copilot/Skills/skore-cdb-debug/skill.md` |
-| Launch skill | `Copilot/Skills/skore-launch/skill.md` |
-| **CPU profiler skill** | `Copilot/Skills/skore-cpu-profiler/skill.md` |
-| LOC counter | `Copilot/Skills/loc_count.py` |
+| **Build pipeline skill** | `Agentic/Skills/skore-build-pipeline/skill.md` |
+| Render test skill | `Agentic/Skills/skore-render-test/skill.md` |
+| Perf analysis script | `Agentic/Skills/skore-render-test/analyze_perf.py` |
+| Perf history artifacts | `Agentic/Skills/skore-render-test/perf_history/` |
+| Reference baselines (4 PNG) | `Agentic/Skills/skore-render-test/baseline_*.png` |
+| CDB debug skill | `Agentic/Skills/skore-cdb-debug/skill.md` |
+| Launch skill | `Agentic/Skills/skore-launch/skill.md` |
+| **CPU profiler skill** | `Agentic/Skills/skore-cpu-profiler/skill.md` |
+| LOC counter | `Agentic/Skills/loc_count.py` |
 
 ### Plans & Docs
 | What | Path |
 |------|------|
-| **Main progress tracker** | `Copilot/Plans/progress.md` |
-| **FFP migration master plan** | `Copilot/Plans/ffp-to-shader-migration.md` |
-| Test harness design | `Copilot/Plans/test-harness.md` |
+| **Main progress tracker** | `Agentic/Plans/progress.md` |
+| **FFP migration master plan** | `Agentic/Plans/ffp-to-shader-migration.md` |
+| Test harness design | `Agentic/Plans/test-harness.md` |
 
 ### Engine Source (key files)
 | What | Path |
@@ -448,6 +448,6 @@ All uniforms that never change per-frame are set once at shader creation time (n
 ### Perf Test
 - 2×5s passes, 300 balls (configurable via `legacy_balls`), seed 42, physics+text enabled
 - Memory sampled every 60 frames via `GetProcessMemoryInfo` (psapi.lib)
-- CSV: `Debug/perf_log.csv` — analysed by `Copilot/Skills/skore-render-test/analyze_perf.py`
+- CSV: `Debug/perf_log.csv` — analysed by `Agentic/Skills/skore-render-test/analyze_perf.py`
 - Regression thresholds: avg/p50 timing >10% = FAIL, memory >5 MB growth = FAIL
 - LOC: ~16584 (logical lines, excludes blanks/comments/ThirdPtySource)

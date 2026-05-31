@@ -8,7 +8,7 @@ Reads a perf_log.csv, computes statistics for every profiler marker column,
 and writes {renderer}_perf.json into the specified output directory.
 
 Paths are derived from this script's location — no hardcoded drive letters.
-  analyze_perf.py  lives in  Copilot/Skills/skore-render-test/
+  analyze_perf.py  lives in  Agentic/Skills/skore-render-test/
   three levels up  gives the repo root.
 """
 import argparse
@@ -18,7 +18,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parent          # …/Copilot/Skills/skore-render-test
+SCRIPT_DIR = Path(__file__).resolve().parent          # …/Agentic/Skills/skore-render-test
 REPO_ROOT  = SCRIPT_DIR.parent.parent.parent          # repo root
 
 

@@ -9,6 +9,10 @@ REM ===============================================================
 
 set "REPO=%~dp0.."
 pushd "%REPO%"
+call "%~dp0find_python.bat"
+if errorlevel 1 exit /b 99
+call "%~dp0find_git.bat"
+if errorlevel 1 exit /b 99
 echo.
 echo ========================================
 echo   VALIDATE_PERF - Performance Check
@@ -40,7 +44,7 @@ set "PYTHONIOENCODING=utf-8"
 for %%r in (gl dx11 dx12) do (
     echo.
     echo Analyzing %%r performance...
-    py "%REPO%\Copilot\Skills\skore-render-test\analyze_perf.py" --renderer %%r --csv "%REPO%\Profile\%%r_perf_log.csv" --out-dir "%REPO%\Profile"
+    "%PYTHON_EXE%" "%REPO%\Agentic\Skills\skore-render-test\analyze_perf.py" --renderer %%r --csv "%REPO%\Profile\%%r_perf_log.csv" --out-dir "%REPO%\Profile"
     if errorlevel 1 (
         echo FAIL: %%r perf analysis script failed.
         exit /b 5
@@ -52,7 +56,7 @@ for %%r in (gl dx11 dx12) do (
     if exist "%REPO%\TestOutput\baselines\%%r_perf.json" (
         echo.
         echo %%r performance comparison vs baseline:
-        py "%REPO%\Copilot\Skills\skore-render-test\perf_compare.py" --current "%REPO%\Profile\%%r_perf.json" --previous "%REPO%\TestOutput\baselines\%%r_perf.json"
+        "%PYTHON_EXE%" "%REPO%\Agentic\Skills\skore-render-test\perf_compare.py" --current "%REPO%\Profile\%%r_perf.json" --previous "%REPO%\TestOutput\baselines\%%r_perf.json"
         if errorlevel 1 (
             echo.
             echo WARNING: %%r performance regression detected. Review output above.

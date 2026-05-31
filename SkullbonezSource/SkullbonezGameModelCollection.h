@@ -79,24 +79,24 @@ class GameModelCollection
         float accT1 = 0.0f;
         float accT2 = 0.0f;
     };
-    std::vector<PersistentContact> m_persistentContacts;                 // Catto-style contact rows retained across frames
-    std::vector<PersistentContactCacheEntry> m_persistentContactCache;   // Previous-frame contact impulses for warm starting
-    std::vector<uint16_t> m_persistentContactCounts;                     // Per-body contact count for mc*g friction bounds
-    std::unique_ptr<IShader> m_shadowShader;           // Shadow decal shader (instanced)
-    uint32_t m_shadowInstMesh = 0;                     // Instanced mesh handle (via Gfx())
-    int m_shadowDiscVertexCount = 0;                   // Disc triangle vertex count
-    std::vector<float> m_shadowInstanceData;           // Retained-capacity staging buffer (mat4 + alpha per instance)
-    bool m_useLegacyPhysics = false;                   // True when legacy sphere-only solver is active
-    std::vector<int64_t> m_collisionCellKeys;          // Cells where narrowphase collisions occurred this frame
+    std::vector<PersistentContact> m_persistentContacts;               // Catto-style contact rows retained across frames
+    std::vector<PersistentContactCacheEntry> m_persistentContactCache; // Previous-frame contact impulses for warm starting
+    std::vector<uint16_t> m_persistentContactCounts;                   // Per-body contact count for mc*g friction bounds
+    std::unique_ptr<IShader> m_shadowShader;                           // Shadow decal shader (instanced)
+    uint32_t m_shadowInstMesh = 0;                                     // Instanced mesh handle (via Gfx())
+    int m_shadowDiscVertexCount = 0;                                   // Disc triangle vertex count
+    std::vector<float> m_shadowInstanceData;                           // Retained-capacity staging buffer (mat4 + alpha per instance)
+    bool m_useLegacyPhysics = false;                                   // True when legacy sphere-only solver is active
+    std::vector<int64_t> m_collisionCellKeys;                          // Cells where narrowphase collisions occurred this frame
 
 #ifdef _DEBUG
     char m_physicsLogPath[256] = {}; // Output path for physics state CSV (empty = disabled)
     int m_physicsLogFrame = 0;       // Frame counter reset when path is set
 #endif
 
-    void BuildShadowMesh();            // Builds the shadow disc VAO with instanced attributes
-    void RunLegacyPhysics( float dt ); // Physics tick: legacy sphere-only solver (boxes skipped)
-    void RunSolverPhysics( float dt ); // Physics tick: unified impulse solver (all objects)
+    void BuildShadowMesh();                         // Builds the shadow disc VAO with instanced attributes
+    void RunLegacyPhysics( float dt );              // Physics tick: legacy sphere-only solver (boxes skipped)
+    void RunSolverPhysics( float dt );              // Physics tick: unified impulse solver (all objects)
     void SolvePersistentObjectContacts( float dt ); // PGS contact-force pass for resting/stacked object contacts
 
   public:

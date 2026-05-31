@@ -17,6 +17,8 @@ echo.
 echo [1/7] Checking formatting...
 call "%~dp0validate_format.bat"
 if errorlevel 1 exit /b 1
+call "%~dp0find_python.bat"
+if errorlevel 1 exit /b 1
 
 echo [2/7] Building Profile x64...
 call "%~dp0validate_build.bat" Profile
@@ -97,7 +99,7 @@ if errorlevel 1 exit /b 8
 echo.
 echo Checking cross-renderer parity...
 set "SKORE_REPO=%REPO%"
-py "%~dp0check_parity.py"
+"%PYTHON_EXE%" "%~dp0check_parity.py"
 if errorlevel 1 (
     echo FAIL: Cross-renderer parity check failed.
     exit /b 9

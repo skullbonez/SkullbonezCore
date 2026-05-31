@@ -1,4 +1,4 @@
----
+﻿---
 name: skore-cpu-profiler
 description: >
   Add fine-grained CPU profiling markers around a suspected bottleneck, run the perf scene,
@@ -19,25 +19,25 @@ investigation markers is optional and driven by the user.
 
 The skill maintains a **session state file** at:
 ```
-Copilot/Skills/skore-cpu-profiler/session_markers.json
+Agentic/Skills/skore-cpu-profiler/session_markers.json
 ```
 This file records every marker inserted during the investigation so cleanup removes **only
 those markers** and never touches pre-existing ones.
 
 ---
 
-## Phase 0 — Parse Invocation
+## Phase 0 â€” Parse Invocation
 
 Extract three things from the user's message:
 
-1. **Concern** — the natural-language description (e.g. "balls render slowly")
-2. **Renderer** — one of `gl`, `dx11`, `dx12`
-3. **Pre-authorization** — whether the user said "fix it", "and fix", "auto-fix", or similar
+1. **Concern** â€” the natural-language description (e.g. "balls render slowly")
+2. **Renderer** â€” one of `gl`, `dx11`, `dx12`
+3. **Pre-authorization** â€” whether the user said "fix it", "and fix", "auto-fix", or similar
 
-**If the renderer is not mentioned, you MUST use `ask_user` before doing anything else:**
+**If the renderer is not mentioned, you MUST use the available structured user-input mechanism before doing anything else:**
 
 ```
-Use ask_user tool:
+Use the available structured user-input mechanism:
   question: "Which renderer should I profile?"
   choices: ["gl (OpenGL)", "dx11 (DirectX 11)", "dx12 (DirectX 12)"]
 ```
@@ -46,14 +46,14 @@ Map the choice to the short key: `gl`, `dx11`, or `dx12`.
 
 ---
 
-## Phase 1 — Check for Stale Session
+## Phase 1 â€” Check for Stale Session
 
-Check whether `Copilot/Skills/skore-cpu-profiler/session_markers.json` already exists.
+Check whether `Agentic/Skills/skore-cpu-profiler/session_markers.json` already exists.
 
-If it exists, read it and present what was in progress, then use `ask_user`:
+If it exists, read it and present what was in progress, then use the available structured user-input mechanism:
 
 ```
-Use ask_user tool:
+Use the available structured user-input mechanism:
   question: "A previous profiling session exists for '<concern>' on <renderer>.
              What would you like to do?"
   choices: [
@@ -69,7 +69,7 @@ Use ask_user tool:
 
 ---
 
-## Phase 2 — Map Concern to Code Area
+## Phase 2 â€” Map Concern to Code Area
 
 ### 2a. Find the parent profiler marker
 
@@ -82,7 +82,7 @@ Select-String -Path "$REPO\SkullbonezSource\*.cpp" -Pattern 'PROFILE_(BEGIN|SCOP
 ```
 
 Use the following table as a **starting point only**. The table gives the likely parent marker
-and source files to read. Always verify by reading the actual source — the code is the ground truth.
+and source files to read. Always verify by reading the actual source â€” the code is the ground truth.
 
 | Concern keywords              | Parent marker path              | Source files to read first                                                         |
 |-------------------------------|---------------------------------|------------------------------------------------------------------------------------|
@@ -102,11 +102,11 @@ and source files to read. Always verify by reading the actual source — the cod
 
 Read each relevant source file. Locate the parent marker's `PROFILE_BEGIN`/`PROFILE_SCOPED`
 call and read the code that runs between it and the matching `PROFILE_END`. Trace the immediate
-callees — read those functions too (they are the sub-areas worth instrumenting).
+callees â€” read those functions too (they are the sub-areas worth instrumenting).
 
 ### 2c. Identify sub-marker insertion sites
 
-Based on the actual code structure, identify 4–8 meaningful sub-markers. Good candidates:
+Based on the actual code structure, identify 4â€“8 meaningful sub-markers. Good candidates:
 - Each significant function call within the profiled block
 - Any loop whose body cost scales with object count
 - State-change calls that might be expensive (texture bind, shader bind, buffer upload)
@@ -118,7 +118,7 @@ Frame/Render/Balls/UniformUpload
 Frame/Render/Balls/DrawCalls
 ```
 
-All sub-markers use `PROFILE_SCOPED` or `PROFILE_BEGIN`/`PROFILE_END` — CPU wall-clock timing
+All sub-markers use `PROFILE_SCOPED` or `PROFILE_BEGIN`/`PROFILE_END` â€” CPU wall-clock timing
 via `QueryPerformanceCounter`.
 
 ### 2d. Check marker budget
@@ -139,7 +139,7 @@ reduce the number of sub-markers or increase `MAX_MARKERS` in `SkullbonezProfile
 
 ---
 
-## Phase 3 — Add Sub-Markers
+## Phase 3 â€” Add Sub-Markers
 
 Insert each sub-marker wrapped in **sentinel comment tags** using this exact format:
 
@@ -149,19 +149,19 @@ PROFILE_SCOPED( "Frame/Render/Balls/DrawCalls" );
 // [SKORE-PROFILER-END:XXXX]
 ```
 
-Where `XXXX` is a short unique ID for this marker (e.g. `pm001`, `pm002`, …).
+Where `XXXX` is a short unique ID for this marker (e.g. `pm001`, `pm002`, â€¦).
 
 **Rules for insertion:**
 - Only insert inside existing braced blocks `{ }`. Never insert inside a single-statement
-  `if`/`for`/`while` body that has no braces — add braces first.
+  `if`/`for`/`while` body that has no braces â€” add braces first.
 - For a section wrapping multiple lines, use `PROFILE_BEGIN`/`PROFILE_END` pair (also wrapped
   in sentinel comments at each call site with the same ID).
-- Ensure every `PROFILE_BEGIN` has a matching `PROFILE_END` — mismatches abort the engine
+- Ensure every `PROFILE_BEGIN` has a matching `PROFILE_END` â€” mismatches abort the engine
   at runtime.
 - `PROFILE_SCOPED` markers must be inside a block scope so their destructor fires correctly.
 - Follow existing code formatting (clang-format style, Allman braces).
 
-**Example — wrapping a single call:**
+**Example â€” wrapping a single call:**
 ```cpp
 m_cTextures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
 ```
@@ -175,7 +175,7 @@ becomes:
 }
 ```
 
-**Example — wrapping a function call:**
+**Example â€” wrapping a function call:**
 ```cpp
 m_cGameModelCollection.RenderModels( baseView, proj, lightPosition );
 ```
@@ -191,16 +191,16 @@ becomes:
 
 ---
 
-## Phase 4 — Write session_markers.json
+## Phase 4 â€” Write session_markers.json
 
 After adding all sub-markers, write the session state file. This file is the **authoritative
-record** of what was added — cleanup reads nothing else.
+record** of what was added â€” cleanup reads nothing else.
 
 ```pwsh
 $REPO   = (git rev-parse --show-toplevel).Trim()
 $commit = (git rev-parse --short HEAD).Trim()
 $ts     = (Get-Date -Format "yyyyMMdd-HHmmss")
-$outPath = "$REPO\Copilot\Skills\skore-cpu-profiler\session_markers.json"
+$outPath = "$REPO\Agentic\Skills\skore-cpu-profiler\session_markers.json"
 
 # Build the JSON manually or use ConvertTo-Json with a hashtable.
 # IMPORTANT: populate added_markers with one entry per sentinel ID, including:
@@ -238,7 +238,7 @@ Write-Host "Written: $outPath"
 
 ---
 
-## Phase 5 — Build Profile Configuration
+## Phase 5 â€” Build Profile Configuration
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
@@ -254,7 +254,7 @@ Build must produce 0 errors and 0 warnings before proceeding.
 
 ---
 
-## Phase 6 — Run "Before" (Profiling) Run
+## Phase 6 â€” Run "Before" (Profiling) Run
 
 This run collects the **before** baseline. The new markers are present but no fix has been
 applied yet.
@@ -302,7 +302,7 @@ $csv     = Get-Content $beforeCsv
 $header  = ($csv | Where-Object { $_ -match '^pass,frame,' })[0]
 $columns = $header -split ','
 
-# Check each expected marker name — populate from session_markers.json
+# Check each expected marker name â€” populate from session_markers.json
 $expectedMarkers = @( "Frame/Render/Balls/TextureBind", "Frame/Render/Balls/DrawCalls" )
 $missing = $expectedMarkers | Where-Object { $_ -notin $columns }
 
@@ -319,7 +319,7 @@ Write-Host "PASS: All $($expectedMarkers.Count) new markers present in CSV"
 
 ```pwsh
 $REPO    = (git rev-parse --show-toplevel).Trim()
-$sjPath  = "$REPO\Copilot\Skills\skore-cpu-profiler\session_markers.json"
+$sjPath  = "$REPO\Agentic\Skills\skore-cpu-profiler\session_markers.json"
 
 $env:SKORE_CSV   = $beforeCsv
 $env:SKORE_AREA  = "<area_path>"   # e.g. Frame/Render/Balls
@@ -400,7 +400,7 @@ if sj_path.exists():
 
 ---
 
-## Phase 7 — Report Finding
+## Phase 7 â€” Report Finding
 
 After the analysis, report to the user in plain language:
 
@@ -408,14 +408,14 @@ After the analysis, report to the user in plain language:
 Profiling complete (CPU wall-clock). Sub-marker timings inside <area_path> on <RENDERER>:
 
   Sub-marker                                  avg ms   p99 ms   % of parent
-  ─────────────────────────────────────────────────────────────────────────
+  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Frame/Render/Balls/DrawCalls                 1.2031   2.1140      68.2%
   Frame/Render/Balls/UniformUpload             0.4107   0.9283      23.3%
   Frame/Render/Balls/TextureBind               0.1522   0.3010       8.6%
-  ─────────────────────────────────────────────────────────────────────────
+  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Frame/Render/Balls (parent)                  1.7642   3.0920     100.0%
 
-Hotspot: Frame/Render/Balls/DrawCalls — 68.2% of ball render time (avg 1.20ms)
+Hotspot: Frame/Render/Balls/DrawCalls â€” 68.2% of ball render time (avg 1.20ms)
 ```
 
 Then cite the specific source location (file + line number range) that corresponds to the
@@ -423,7 +423,7 @@ hottest marker.
 
 ---
 
-## Phase 8 — Fix
+## Phase 8 â€” Fix
 
 ### If pre-authorized (user said "fix it" on invocation):
 
@@ -432,11 +432,11 @@ Proceed directly to implement the fix. Do not ask.
 ### If not pre-authorized:
 
 ```
-Use ask_user tool:
+Use the available structured user-input mechanism:
   question: "The hotspot is <marker> (<X>ms avg, <Y>% of parent). Would you like me to investigate and apply a fix?"
   choices: [
     "Yes, fix it",
-    "No, just report — I'll fix it myself"
+    "No, just report â€” I'll fix it myself"
   ]
 ```
 
@@ -451,17 +451,17 @@ Read the code at the hotspot carefully. Common patterns and their fixes in this 
 |---------|-----|
 | Per-ball texture rebind to the same texture every iteration | Hoist `SelectTexture` before the loop |
 | Per-ball uniform upload for static data | Hoist to init-time or upload once per frame before the loop |
-| Redundant per-frame buffer uploads of never-changing data | Hoist to shader init-time (already done for constant uniforms — check for missed cases) |
+| Redundant per-frame buffer uploads of never-changing data | Hoist to shader init-time (already done for constant uniforms â€” check for missed cases) |
 | Unnecessary state toggle inside tight loop | Cache state, only set on change |
 | Per-ball individual draw calls (no batching) | Convert to instanced draw or geometry batching |
-| O(n²) loop body | Reduce algorithmic complexity |
+| O(nÂ²) loop body | Reduce algorithmic complexity |
 
 If the fix is non-obvious (novel algorithmic issue), describe what you found and reason about
 the best approach before implementing.
 
 ---
 
-## Phase 9 — Build + Run "After" Profiling Run
+## Phase 9 â€” Build + Run "After" Profiling Run
 
 After the fix is implemented (or skipped):
 
@@ -504,13 +504,13 @@ and writing results to `after_stats` in `session_markers.json`. Also set `"fixed
 
 ---
 
-## Phase 10 — Present Before/After Comparison
+## Phase 10 â€” Present Before/After Comparison
 
 Read `before_stats` and `after_stats` from `session_markers.json` and print the full comparison:
 
 ```pwsh
 $REPO    = (git rev-parse --show-toplevel).Trim()
-$env:SKORE_SJ = "$REPO\Copilot\Skills\skore-cpu-profiler\session_markers.json"
+$env:SKORE_SJ = "$REPO\Agentic\Skills\skore-cpu-profiler\session_markers.json"
 
 py -c "
 import os, json
@@ -540,7 +540,7 @@ print()
 print(f'CPU Timing Before/After: {area}')
 print(f'Renderer: {sj[\"renderer\"].upper()}')
 print()
-hdr = f'  {\"Marker\":<{W}}  {\"B avg\":>7}  {\"A avg\":>7}  {\"Δavg\":>7}  {\"B p99\":>7}  {\"A p99\":>7}  {\"Δp99\":>7}  {\"B%par\":>6}  {\"A%par\":>6}'
+hdr = f'  {\"Marker\":<{W}}  {\"B avg\":>7}  {\"A avg\":>7}  {\"Î”avg\":>7}  {\"B p99\":>7}  {\"A p99\":>7}  {\"Î”p99\":>7}  {\"B%par\":>6}  {\"A%par\":>6}'
 print(hdr)
 print(f'  {\"-\"*W}  {\"-\"*7}  {\"-\"*7}  {\"-\"*7}  {\"-\"*7}  {\"-\"*7}  {\"-\"*7}  {\"-\"*6}  {\"-\"*6}')
 
@@ -553,7 +553,7 @@ for m in all_markers:
     d_p99 = delta(b_p99, a_p99)
     pp_b  = share(b_avg, par_b_avg) if m != area else '100.0%'
     pp_a  = share(a_avg, par_a_avg) if m != area else '100.0%'
-    label = m if len(m) <= W else '…' + m[-(W-1):]
+    label = m if len(m) <= W else 'â€¦' + m[-(W-1):]
     print(f'  {label:<{W}}  {b_avg:>7.4f}  {a_avg:>7.4f}  {d_avg:>7}  {b_p99:>7.4f}  {a_p99:>7.4f}  {d_p99:>7}  {pp_b:>6}  {pp_a:>6}')
 
 print()
@@ -564,23 +564,23 @@ if par_b_avg > 0:
 "
 ```
 
-Columns: **B avg** = before avg ms, **A avg** = after avg ms, **Δavg** = % change in avg,
-**B p99** / **A p99** = tail latency before/after, **Δp99** = % change in p99,
+Columns: **B avg** = before avg ms, **A avg** = after avg ms, **Î”avg** = % change in avg,
+**B p99** / **A p99** = tail latency before/after, **Î”p99** = % change in p99,
 **B%par** / **A%par** = share of parent marker time before/after.
 
 ---
 
-## Phase 11 — Ask About Cleanup
+## Phase 11 â€” Ask About Cleanup
 
 After presenting the before/after table, ask the user:
 
 ```
-Use ask_user tool:
+Use the available structured user-input mechanism:
   question: "Would you like me to clean up the profiling markers I added?
              (They add a small overhead and are not needed for production.)"
   choices: [
     "Yes, remove the profiling markers",
-    "No, keep them — they're useful to monitor"
+    "No, keep them â€” they're useful to monitor"
   ]
 ```
 
@@ -591,14 +591,14 @@ If **"Yes"**: proceed to Phase 12.
 
 ---
 
-## Phase 12 — Cleanup (Remove Added Markers)
+## Phase 12 â€” Cleanup (Remove Added Markers)
 
 Read `session_markers.json` to get the list of markers to remove. For each unique source file
 mentioned, remove **only** the sentinel-wrapped blocks by ID.
 
 ```pwsh
 $REPO    = (git rev-parse --show-toplevel).Trim()
-$sjPath  = "$REPO\Copilot\Skills\skore-cpu-profiler\session_markers.json"
+$sjPath  = "$REPO\Agentic\Skills\skore-cpu-profiler\session_markers.json"
 $session = Get-Content $sjPath | ConvertFrom-Json
 
 # Collect distinct files
@@ -607,7 +607,7 @@ $files = $session.added_markers | Select-Object -ExpandProperty file -Unique
 foreach ($relFile in $files) {
     $fullPath = "$REPO\$($relFile -replace '/', '\')"
     if (-not (Test-Path $fullPath)) {
-        Write-Host "WARNING: $relFile not found — skipping"
+        Write-Host "WARNING: $relFile not found â€” skipping"
         continue
     }
 
@@ -648,7 +648,7 @@ then rebuild.
 ### 12b. Delete session state file
 
 ```pwsh
-$sjPath = "$REPO\Copilot\Skills\skore-cpu-profiler\session_markers.json"
+$sjPath = "$REPO\Agentic\Skills\skore-cpu-profiler\session_markers.json"
 Remove-Item $sjPath -Force
 Write-Host "Session state cleared: session_markers.json deleted"
 ```
@@ -667,7 +667,7 @@ Write-Host "Reformatted $($files.Count) files"
 
 ---
 
-## Phase 13 — Handoff
+## Phase 13 â€” Handoff
 
 After cleanup (or if the user chose to keep markers), remind the user:
 

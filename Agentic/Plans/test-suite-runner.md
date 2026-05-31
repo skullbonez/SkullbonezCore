@@ -51,8 +51,8 @@ Refactor `WinMain`:
 After last scene completes (inner loop `break`s with `shouldRestart == false`), the outer scene loop ends and falls through to existing cleanup. No MessageBox shown in suite mode (same rule as `--scene` mode — check `!scenePaths.empty()` instead of `scenePath != nullptr`).
 
 ### th-skill-update
-- Update `Copilot/Skills/skore-render-test/skill.md`: replace the two separate `Start-Process` blocks with a single `--suite` invocation. Update screenshot path expectations (suite run produces all 4 BMPs in one pass).
-- Update `Copilot/Skills/skore-build-pipeline/skill.md` to reference the suite invocation.
+- Update `Agentic/Skills/skore-render-test/skill.md`: replace the two separate `Start-Process` blocks with a single `--suite` invocation. Update screenshot path expectations (suite run produces all 4 BMPs in one pass).
+- Update `Agentic/Skills/skore-build-pipeline/skill.md` to reference the suite invocation.
 
 ### th-build-verify
 Build Debug, run the full pipeline (suite render test + perf test), verify all 4 screenshots captured, pixel comparison passes, commit.

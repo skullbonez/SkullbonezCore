@@ -8,6 +8,8 @@ REM ===============================================================
 
 set "REPO=%~dp0.."
 pushd "%REPO%"
+call "%~dp0find_python.bat"
+if errorlevel 1 exit /b 99
 echo.
 echo ========================================
 echo   VALIDATE_PHYSICS - Determinism Check
@@ -30,7 +32,7 @@ if errorlevel 1 (
 
 echo [3/3] Comparing output against baselines...
 set "SKORE_REPO=%REPO%"
-py "%~dp0check_physics_regression.py"
+"%PYTHON_EXE%" "%~dp0check_physics_regression.py"
 if errorlevel 1 (
     echo FAIL: Physics regression detected. Output differs from baselines.
     echo       Baseline: TestOutput\baselines\physics_regression_solver.csv

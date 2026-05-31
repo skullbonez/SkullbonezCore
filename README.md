@@ -55,6 +55,12 @@ Textures and cameras are looked up by `constexpr` FNV-1a hashes (`TEXTURE_GROUND
 
 ## Build
 
+First time on this repo? Start with:
+
+- `FIRST_TIME_SETUP.md` for Windows toolchain setup.
+- `AGENTS.md` for the repository-wide AI agent contract.
+- `Agentic/README.md` for handoff state, skills, plans, and debugging workflows.
+
 ```bat
 msbuild SKULLBONEZ_CORE.sln /p:Configuration=Debug /p:Platform=x64
 msbuild SKULLBONEZ_CORE.sln /p:Configuration=Profile /p:Platform=x64

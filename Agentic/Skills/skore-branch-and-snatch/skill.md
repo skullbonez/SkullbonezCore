@@ -1,17 +1,17 @@
----
+﻿---
 name: skore-branch-and-snatch
 description: Checkout another branch, build it (fixing errors), run the full pipeline to capture perf data, save results to session state, then switch back to main and compare against the baseline.
 ---
 
 ## Branch-and-Snatch Skill
 
-Checks out another branch, builds it, runs the perf scene for GL, DX11, and DX12, saves the perf JSON artifacts to Copilot session state, then returns to main and compares the snatched JSONs against the most recent matching archive on main. The branch gets compilation fixes committed but all pipeline output is discarded.
+Checks out another branch, builds it, runs the perf scene for GL, DX11, and DX12, saves the perf JSON artifacts to the agent session state, then returns to main and compares the snatched JSONs against the most recent matching archive on main. The branch gets compilation fixes committed but all pipeline output is discarded.
 
 ### Prerequisites
 
 - Must be on `main` branch before starting
 - Profile build configuration must be available
-- `perf_compare.py` and `analyze_perf.py` must exist in `Copilot/Skills/skore-render-test/`
+- `perf_compare.py` and `analyze_perf.py` must exist in `Agentic/Skills/skore-render-test/`
 
 ### Step 1: Pull latest
 
@@ -23,7 +23,7 @@ git pull
 
 ### Step 2: Ask the user which branch to snatch
 
-Use the `ask_user` tool to ask which branch. List remote branches for them to choose from:
+Use the available structured user-input mechanism to ask which branch. List remote branches for them to choose from:
 
 ```pwsh
 git branch -r --no-merged main | ForEach-Object { $_.Trim() -replace '^origin/', '' } | Where-Object { $_ -ne 'HEAD' }
@@ -37,7 +37,7 @@ git checkout <branch-name>
 
 ### Step 3: Build the branch (fix errors)
 
-Build with Profile configuration using `tools\validate_build.bat Profile` (or the `skore-build` skill approach). Fix any compilation errors — these are likely merge drift or missing changes on the branch.
+Build with Profile configuration using `tools\validate_build.bat Profile` (or the `skore-build` skill approach). Fix any compilation errors â€” these are likely merge drift or missing changes on the branch.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
@@ -52,13 +52,13 @@ Run the pipeline steps: render test, perf test, analyze. **The key output is the
 
 #### 4a. Render test (note results but don't block on failure)
 
-Run the `skore-render-test` skill steps 1–3. Note pass/fail but continue regardless — we're here for perf data.
+Run the `skore-render-test` skill steps 1â€“3. Note pass/fail but continue regardless â€” we're here for perf data.
 
 #### 4b. Perf test
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
-$SESSION_DIR = "<Copilot session files/ directory>"  # Agent: use your session state files/ path
+$SESSION_DIR = "<agent session files/ directory>"  # Agent: use your session state files/ path
 
 # Clean old CSVs
 Remove-Item "$REPO\Profile\perf_log.csv"    -ErrorAction SilentlyContinue
@@ -93,18 +93,18 @@ foreach ($renderer in @("gl", "dx11", "dx12")) {
 $snatched = "$SESSION_DIR\snatched"
 New-Item -ItemType Directory -Force -Path $snatched | Out-Null
 foreach ($renderer in @("gl", "dx11", "dx12")) {
-    py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py" `
+    py "$REPO\Agentic\Skills\skore-render-test\analyze_perf.py" `
         --renderer $renderer --csv "$REPO\Profile\${renderer}_perf_log.csv" --out-dir $snatched
 }
 ```
 
-#### 4c. Save perf artifacts to Copilot session state
+#### 4c. Save perf artifacts to agent session state
 
 The JSONs are already written to `$SESSION_DIR\snatched\` in step 4b. Save the branch name too.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
-$SESSION_DIR = "<Copilot session files/ directory>"  # Agent: use your session state files/ path
+$SESSION_DIR = "<agent session files/ directory>"  # Agent: use your session state files/ path
 
 # Note which branch was snatched
 $branch = git branch --show-current
@@ -130,7 +130,7 @@ git add <file1.cpp> <file2.h> ...
 
 git commit -m "fix: compilation fixes for pipeline compatibility
 
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+Co-authored-by: AI Agent <agent@example.invalid>"
 ```
 
 If there were no compilation fixes needed, skip this step.
@@ -153,14 +153,14 @@ For each renderer, find the most recent `TestOutput/NNN_{commit}/` archive on ma
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
-$SESSION_DIR = "<Copilot session files/ directory>"  # Agent: use your session state files/ path
+$SESSION_DIR = "<agent session files/ directory>"  # Agent: use your session state files/ path
 
 $branch = Get-Content "$SESSION_DIR\snatched_branch.txt"
 
 foreach ($renderer in @("gl", "dx11")) {
     $snatched = "$SESSION_DIR\snatched\${renderer}_perf.json"
     if (-not (Test-Path $snatched)) {
-        Write-Host "${renderer}: snatched JSON not found — skipping"
+        Write-Host "${renderer}: snatched JSON not found â€” skipping"
         continue
     }
 
@@ -173,11 +173,11 @@ foreach ($renderer in @("gl", "dx11")) {
         Select-Object -First 1
 
     if ($prevJson) {
-        Write-Host "`n=== $($renderer.ToUpper()) — branch '$branch' vs main ==="
-        py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py" `
+        Write-Host "`n=== $($renderer.ToUpper()) â€” branch '$branch' vs main ==="
+        py "$REPO\Agentic\Skills\skore-render-test\perf_compare.py" `
             --current $snatched --previous $prevJson
     } else {
-        Write-Host "${renderer}: No main archive with ${renderer}_perf.json — skipping compare"
+        Write-Host "${renderer}: No main archive with ${renderer}_perf.json â€” skipping compare"
     }
 }
 ```
@@ -186,10 +186,10 @@ The comparison table shows the branch-under-test as "current" and the most recen
 
 ### Summary output
 
-After Step 8, present the **full results** to the user. Do NOT summarise — print all of the following:
+After Step 8, present the **full results** to the user. Do NOT summarise â€” print all of the following:
 
 1. Which branch was snatched
 2. Whether compilation fixes were needed (and committed)
 3. Render test pass/fail (noted in Step 4a)
-4. **The COMPLETE perf comparison table** — reproduce the entire `perf_compare.py` output (CPU table, GPU table, Memory table) in your response using emoji dots (🔵🟢🟡🔴) next to every delta cell. Do NOT abbreviate, omit rows, or summarise the table. Print every single row.
+4. **The COMPLETE perf comparison table** â€” reproduce the entire `perf_compare.py` output (CPU table, GPU table, Memory table) in your response using emoji dots (ðŸ”µðŸŸ¢ðŸŸ¡ðŸ”´) next to every delta cell. Do NOT abbreviate, omit rows, or summarise the table. Print every single row.
 5. Whether any regressions were flagged

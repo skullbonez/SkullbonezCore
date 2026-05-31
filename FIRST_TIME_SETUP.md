@@ -1,0 +1,89 @@
+# First-Time Setup
+
+This repository expects a Windows x64 development machine with Visual Studio C++ tools, Python, and Pillow available to the validation scripts.
+
+For agent workflow rules, read `AGENTS.md` first, then `Agentic/README.md`.
+
+## Install Tools
+
+Install Visual Studio with the Desktop development with C++ workload and LLVM tools. The validation scripts discover MSBuild and clang-format through `vswhere`, so Visual Studio 2022 Professional is not required as long as the C++ and LLVM components are installed.
+
+Install Git:
+
+```powershell
+winget install --id Git.Git --exact --scope user --accept-package-agreements --accept-source-agreements
+```
+
+Install Python:
+
+```powershell
+winget install --id Python.Python.3.12 --exact --scope user --accept-package-agreements --accept-source-agreements
+```
+
+Refresh the current shell's PATH after installing Python:
+
+```powershell
+$env:PATH = [System.Environment]::GetEnvironmentVariable('PATH','User') + ';' + [System.Environment]::GetEnvironmentVariable('PATH','Machine')
+```
+
+Install the Python image dependency used by renderer parity checks:
+
+```powershell
+python -m pip install Pillow
+```
+
+Verify the tools:
+
+```powershell
+python --version
+py --version
+git --version
+python -c "import PIL; print(PIL.__version__)"
+winget --version
+```
+
+## Validation Scripts
+
+Run validation from the repository root:
+
+```powershell
+tools\agent_validate.bat
+```
+
+This delegates to `tools\validate_full.bat`, which runs renderer validation, physics determinism validation, and performance validation.
+
+For smaller checks:
+
+```powershell
+tools\validate_fast.bat
+tools\validate_renderers.bat
+tools\validate_physics.bat
+tools\validate_perf.bat
+```
+
+The scripts now discover local tool locations through helper scripts:
+
+| Helper | Purpose |
+|--------|---------|
+| `tools\find_msbuild.bat` | Locates MSBuild through Visual Studio Installer `vswhere` |
+| `tools\find_clang_format.bat` | Locates clang-format from the installed Visual Studio LLVM tools or PATH |
+| `tools\find_git.bat` | Locates Git from PATH or standard Git for Windows install locations |
+| `tools\find_python.bat` | Locates Python from the Codex bundled runtime, `py.exe`, or `python.exe` |
+
+## Common First-Run Issues
+
+If `clang-format` is reported missing, install the Visual Studio LLVM tools component. The scripts no longer assume the old fixed path `C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\x64\bin\clang-format.exe`.
+
+If `py` or `python` opens the Microsoft Store or says Python was not found, install Python with the `winget` command above and refresh PATH in the current shell.
+
+If Pillow is missing, renderer parity checks will fail with `ModuleNotFoundError: No module named 'PIL'`. Run `python -m pip install Pillow`.
+
+If perf analysis fails because `git` is missing, install Git with the `winget` command above. In the same shell, refresh PATH or open a new terminal.
+
+If the format gate fails, run:
+
+```powershell
+tools\format_fix.bat
+```
+
+Then rerun the validation command you originally intended to run.

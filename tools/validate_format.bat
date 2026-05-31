@@ -6,15 +6,10 @@ REM  Exit 0 = pass, Exit 1 = formatting violations found.
 REM ===============================================================
 
 set "REPO=%~dp0.."
-set "CLANG_FMT=C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\x64\bin\clang-format.exe"
 set BAD_COUNT=0
 
-if not exist "%CLANG_FMT%" (
-    echo ERROR: clang-format not found at expected path.
-    echo        Expected: %CLANG_FMT%
-    echo        Install VS2022 with C++ LLVM tools.
-    exit /b 99
-)
+call "%~dp0find_clang_format.bat"
+if errorlevel 1 exit /b 99
 
 echo Checking formatting...
 

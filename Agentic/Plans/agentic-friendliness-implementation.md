@@ -1,4 +1,4 @@
-# Agentic Friendliness — Implementation Plan
+﻿# Agentic Friendliness â€” Implementation Plan
 
 > **Purpose:** Step-by-step checklist for improving agentic usability of this repository. Implements tiered validation scripts, a universal `AGENTS.md` agent contract, and fixes stale documentation. Designed so even a simple model can follow along without ambiguity.
 >
@@ -13,10 +13,10 @@
 Before starting, verify these tools are available:
 
 ```pwsh
-# Run these checks — all must succeed
-Test-Path "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"  # → True
-py --version                                                                       # → Python 3.x
-Test-Path "G:\skore3\SKULLBONEZ_CORE.sln"                                         # → True
+# Run these checks â€” all must succeed
+Test-Path "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"  # â†’ True
+py --version                                                                       # â†’ Python 3.x
+Test-Path "G:\skore3\SKULLBONEZ_CORE.sln"                                         # â†’ True
 ```
 
 **Working directory for all tasks:** `G:\skore3`
@@ -25,7 +25,7 @@ Test-Path "G:\skore3\SKULLBONEZ_CORE.sln"                                       
 
 ## Phase 1: Create `tools\` Directory and Helper Scripts
 
-### Task 1.1 — Create the `tools\` directory
+### Task 1.1 â€” Create the `tools\` directory
 
 - [x] Create folder: `G:\skore3\tools\`
 
@@ -35,7 +35,7 @@ New-Item -ItemType Directory -Path "G:\skore3\tools" -Force
 
 ---
 
-### Task 1.2 — Create `tools\find_msbuild.bat`
+### Task 1.2 â€” Create `tools\find_msbuild.bat`
 
 A shared helper that locates MSBuild. Other scripts call this.
 
@@ -45,10 +45,10 @@ A shared helper that locates MSBuild. Other scripts call this.
 
 ```bat
 @echo off
-REM ═══════════════════════════════════════════════════════════════
-REM  find_msbuild.bat — Locates MSBuild via vswhere and sets MSBUILD_EXE
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+REM  find_msbuild.bat â€” Locates MSBuild via vswhere and sets MSBUILD_EXE
 REM  Called by other validate_*.bat scripts. Do not run directly.
-REM ═══════════════════════════════════════════════════════════════
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 for /f "usebackq tokens=*" %%i in (`"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe`) do (
     set "MSBUILD_EXE=%%i"
     goto :found
@@ -61,7 +61,7 @@ exit /b 99
 
 ---
 
-### Task 1.3 — Create `tools\validate_format.bat`
+### Task 1.3 â€” Create `tools\validate_format.bat`
 
 Checks clang-format compliance. Exits 0 if all files pass, 1 if any need formatting.
 
@@ -72,10 +72,10 @@ Checks clang-format compliance. Exits 0 if all files pass, 1 if any need formatt
 ```bat
 @echo off
 setlocal enabledelayedexpansion
-REM ═══════════════════════════════════════════════════════════════
-REM  validate_format.bat — Check all C++ files are correctly formatted
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+REM  validate_format.bat â€” Check all C++ files are correctly formatted
 REM  Exit 0 = pass, Exit 1 = formatting violations found
-REM ═══════════════════════════════════════════════════════════════
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 set "REPO=%~dp0.."
 set "CLANG_FMT=C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\x64\bin\clang-format.exe"
@@ -110,7 +110,7 @@ exit /b 0
 
 ---
 
-### Task 1.4 — Create `tools\format_fix.bat`
+### Task 1.4 â€” Create `tools\format_fix.bat`
 
 Auto-fixes formatting violations in-place.
 
@@ -121,9 +121,9 @@ Auto-fixes formatting violations in-place.
 ```bat
 @echo off
 setlocal
-REM ═══════════════════════════════════════════════════════════════
-REM  format_fix.bat — Auto-format all C++ source files in-place
-REM ═══════════════════════════════════════════════════════════════
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+REM  format_fix.bat â€” Auto-format all C++ source files in-place
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 set "REPO=%~dp0.."
 set "CLANG_FMT=C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\x64\bin\clang-format.exe"
@@ -134,7 +134,7 @@ if not exist "%CLANG_FMT%" (
 )
 
 REM Run the parameter collapse script first (matches pipeline Step 1)
-py "%REPO%\Copilot\Skills\collapse_params.py"
+py "%REPO%\Agentic\Skills\collapse_params.py"
 
 set COUNT=0
 for %%f in ("%REPO%\SkullbonezSource\*.cpp" "%REPO%\SkullbonezSource\*.h") do (
@@ -148,7 +148,7 @@ exit /b 0
 
 ---
 
-### Task 1.5 — Create `tools\validate_build.bat`
+### Task 1.5 â€” Create `tools\validate_build.bat`
 
 Builds a specified configuration. Exits 0 on success (0 errors, 0 warnings), 1 on failure.
 
@@ -159,13 +159,13 @@ Builds a specified configuration. Exits 0 on success (0 errors, 0 warnings), 1 o
 ```bat
 @echo off
 setlocal enabledelayedexpansion
-REM ═══════════════════════════════════════════════════════════════
-REM  validate_build.bat — Build SkullbonezCore solution
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+REM  validate_build.bat â€” Build SkullbonezCore solution
 REM  Usage: validate_build.bat [Configuration]
 REM    Configuration = Debug | Release | Profile (default: Profile)
 REM  Exit 0 = build succeeded (0 errors, 0 warnings)
 REM  Exit 1 = build failed
-REM ═══════════════════════════════════════════════════════════════
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 set "REPO=%~dp0.."
 set "CONFIG=%~1"
@@ -187,7 +187,7 @@ exit /b 0
 
 ---
 
-### Task 1.6 — Create `tools\check_dx12_validation.bat`
+### Task 1.6 â€” Create `tools\check_dx12_validation.bat`
 
 Checks that `dx12_validation.txt` exists and reports 0 errors.
 
@@ -198,10 +198,10 @@ Checks that `dx12_validation.txt` exists and reports 0 errors.
 ```bat
 @echo off
 setlocal
-REM ═══════════════════════════════════════════════════════════════
-REM  check_dx12_validation.bat — Verify DX12 InfoQueue clean
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+REM  check_dx12_validation.bat â€” Verify DX12 InfoQueue clean
 REM  Exit 0 = no validation errors, Exit 1 = errors present or file missing
-REM ═══════════════════════════════════════════════════════════════
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 set "REPO=%~dp0.."
 set "VAL_FILE=%REPO%\dx12_validation.txt"
@@ -212,7 +212,7 @@ if not exist "%VAL_FILE%" (
     exit /b 1
 )
 
-REM Read the last line — it should be "0" (error count)
+REM Read the last line â€” it should be "0" (error count)
 for /f "usebackq delims=" %%a in ("%VAL_FILE%") do set "LAST_LINE=%%a"
 
 if "%LAST_LINE%"=="0" (
@@ -227,7 +227,7 @@ if "%LAST_LINE%"=="0" (
 
 ---
 
-### Task 1.7 — Create `tools\validate_fast.bat`
+### Task 1.7 â€” Create `tools\validate_fast.bat`
 
 **The quick sanity check.** Format + Build only. ~30 seconds.
 
@@ -238,21 +238,21 @@ if "%LAST_LINE%"=="0" (
 ```bat
 @echo off
 setlocal
-REM ═══════════════════════════════════════════════════════════════
-REM  validate_fast.bat — Quick sanity check: format + build
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+REM  validate_fast.bat â€” Quick sanity check: format + build
 REM  Use for: documentation changes, small refactors, non-rendering edits
 REM  Runtime: ~30 seconds
 REM  Exit 0 = pass, Non-zero = failure
-REM ═══════════════════════════════════════════════════════════════
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 set "REPO=%~dp0.."
 echo.
-echo ════════════════════════════════════════
-echo   VALIDATE_FAST — Format + Build
-echo ════════════════════════════════════════
+echo â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+echo   VALIDATE_FAST â€” Format + Build
+echo â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 echo.
 
-REM ── Step 1: Format Check ──────────────────────────────────────
+REM â”€â”€ Step 1: Format Check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo [1/2] Checking formatting...
 call "%~dp0validate_format.bat"
 if errorlevel 1 (
@@ -261,21 +261,21 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM ── Step 2: Build Profile x64 ────────────────────────────────
+REM â”€â”€ Step 2: Build Profile x64 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo [2/2] Building Profile x64...
 call "%~dp0validate_build.bat" Profile
 if errorlevel 1 exit /b 2
 
 echo.
-echo ════════════════════════════════════════
+echo â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 echo   VALIDATE_FAST: ALL PASSED
-echo ════════════════════════════════════════
+echo â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 exit /b 0
 ```
 
 ---
 
-### Task 1.8 — Create `tools\validate_renderers.bat`
+### Task 1.8 â€” Create `tools\validate_renderers.bat`
 
 **Tri-renderer validation.** Build + run GL/DX11/DX12 suites + stdout/stderr check + DX12 validation check + cross-renderer parity. ~90 seconds.
 
@@ -286,34 +286,34 @@ exit /b 0
 ```bat
 @echo off
 setlocal enabledelayedexpansion
-REM ═══════════════════════════════════════════════════════════════
-REM  validate_renderers.bat — Full tri-renderer visual validation
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+REM  validate_renderers.bat â€” Full tri-renderer visual validation
 REM  Use for: shader changes, render backend changes, texture changes
 REM  Runtime: ~90 seconds
 REM  Steps: format, build, clean, GL suite, DX11 suite, DX12 suite,
 REM         stdout/stderr check, DX12 InfoQueue, cross-renderer parity
 REM  Exit 0 = all renderers pass, Non-zero = failure (code = step)
-REM ═══════════════════════════════════════════════════════════════
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 set "REPO=%~dp0.."
 pushd "%REPO%"
 echo.
-echo ════════════════════════════════════════
-echo   VALIDATE_RENDERERS — Tri-Renderer Suite
-echo ════════════════════════════════════════
+echo â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+echo   VALIDATE_RENDERERS â€” Tri-Renderer Suite
+echo â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 echo.
 
-REM ── Step 1: Format Check ──────────────────────────────────────
+REM â”€â”€ Step 1: Format Check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo [1/7] Checking formatting...
 call "%~dp0validate_format.bat"
 if errorlevel 1 exit /b 1
 
-REM ── Step 2: Build Profile ─────────────────────────────────────
+REM â”€â”€ Step 2: Build Profile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo [2/7] Building Profile x64...
 call "%~dp0validate_build.bat" Profile
 if errorlevel 1 exit /b 2
 
-REM ── Step 3: Clean old artifacts ───────────────────────────────
+REM â”€â”€ Step 3: Clean old artifacts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo [3/7] Cleaning old artifacts...
 del /q "%REPO%\Profile\*screenshot.bmp" 2>nul
 del /q "%REPO%\Profile\*legacy_smoke.bmp" 2>nul
@@ -321,7 +321,7 @@ del /q "%REPO%\Profile\*_stdout.txt" 2>nul
 del /q "%REPO%\Profile\*_stderr.txt" 2>nul
 del /q "%REPO%\dx12_validation.txt" 2>nul
 
-REM ── Step 4: Run GL Suite ──────────────────────────────────────
+REM â”€â”€ Step 4: Run GL Suite â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo [4/7] Running GL suite...
 "%REPO%\Profile\SKULLBONEZ_CORE.exe" --vsync off --suite SkullbonezData/scenes/render_tests.suite >"%REPO%\Profile\gl_stdout.txt" 2>"%REPO%\Profile\gl_stderr.txt"
 if errorlevel 1 (
@@ -332,7 +332,7 @@ REM Rename GL artifacts
 if exist "%REPO%\Profile\screenshot.bmp"   rename "%REPO%\Profile\screenshot.bmp" gl_screenshot.bmp
 if exist "%REPO%\Profile\legacy_smoke.bmp"  rename "%REPO%\Profile\legacy_smoke.bmp" gl_legacy_smoke.bmp
 
-REM ── Step 5: Run DX11 Suite ────────────────────────────────────
+REM â”€â”€ Step 5: Run DX11 Suite â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo [5/7] Running DX11 suite...
 "%REPO%\Profile\SKULLBONEZ_CORE.exe" --renderer dx11 --vsync off --suite SkullbonezData/scenes/render_tests.suite >"%REPO%\Profile\dx11_stdout.txt" 2>"%REPO%\Profile\dx11_stderr.txt"
 if errorlevel 1 (
@@ -342,7 +342,7 @@ if errorlevel 1 (
 if exist "%REPO%\Profile\screenshot.bmp"   rename "%REPO%\Profile\screenshot.bmp" dx11_screenshot.bmp
 if exist "%REPO%\Profile\legacy_smoke.bmp"  rename "%REPO%\Profile\legacy_smoke.bmp" dx11_legacy_smoke.bmp
 
-REM ── Step 6: Run DX12 Suite ────────────────────────────────────
+REM â”€â”€ Step 6: Run DX12 Suite â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo [6/7] Running DX12 suite...
 "%REPO%\Profile\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --suite SkullbonezData/scenes/render_tests.suite >"%REPO%\Profile\dx12_stdout.txt" 2>"%REPO%\Profile\dx12_stderr.txt"
 if errorlevel 1 (
@@ -352,7 +352,7 @@ if errorlevel 1 (
 if exist "%REPO%\Profile\screenshot.bmp"   rename "%REPO%\Profile\screenshot.bmp" dx12_screenshot.bmp
 if exist "%REPO%\Profile\legacy_smoke.bmp"  rename "%REPO%\Profile\legacy_smoke.bmp" dx12_legacy_smoke.bmp
 
-REM ── Verify all artifacts produced ─────────────────────────────
+REM â”€â”€ Verify all artifacts produced â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 set MISSING=0
 for %%f in (gl_screenshot.bmp gl_legacy_smoke.bmp dx11_screenshot.bmp dx11_legacy_smoke.bmp dx12_screenshot.bmp dx12_legacy_smoke.bmp) do (
     if not exist "%REPO%\Profile\%%f" (
@@ -365,7 +365,7 @@ if %MISSING% GTR 0 (
     exit /b 6
 )
 
-REM ── Stdout/Stderr Error Check (matches pipeline Step 3.5) ─────
+REM â”€â”€ Stdout/Stderr Error Check (matches pipeline Step 3.5) â”€â”€â”€â”€â”€
 echo [7/7] Checking stdout/stderr for errors...
 set "STDOUT_CLEAN=1"
 for %%r in (gl dx11 dx12) do (
@@ -387,11 +387,11 @@ if "%STDOUT_CLEAN%"=="0" (
     exit /b 7
 )
 
-REM ── DX12 Validation Check ─────────────────────────────────────
+REM â”€â”€ DX12 Validation Check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 call "%~dp0check_dx12_validation.bat"
 if errorlevel 1 exit /b 8
 
-REM ── Cross-Renderer Parity (Python) ───────────────────────────
+REM â”€â”€ Cross-Renderer Parity (Python) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo.
 echo Checking cross-renderer parity...
 set "SKORE_REPO=%REPO%"
@@ -402,9 +402,9 @@ if errorlevel 1 (
 )
 
 echo.
-echo ════════════════════════════════════════
+echo â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 echo   VALIDATE_RENDERERS: ALL PASSED
-echo ════════════════════════════════════════
+echo â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 popd
 exit /b 0
 ```
@@ -413,7 +413,7 @@ exit /b 0
 
 ---
 
-### Task 1.9 — Create `tools\validate_physics.bat`
+### Task 1.9 â€” Create `tools\validate_physics.bat`
 
 **Physics regression validation.** Builds Debug + runs deterministic scenes + byte-exact CSV diff. ~60 seconds.
 
@@ -424,28 +424,28 @@ exit /b 0
 ```bat
 @echo off
 setlocal enabledelayedexpansion
-REM ═══════════════════════════════════════════════════════════════
-REM  validate_physics.bat — Physics determinism regression test
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+REM  validate_physics.bat â€” Physics determinism regression test
 REM  Use for: physics, collision, solver, rigid body changes
 REM  Runtime: ~60 seconds
 REM  Exit 0 = physics output matches baselines exactly
 REM  Exit 1 = build failure, Exit 2 = regression detected
-REM ═══════════════════════════════════════════════════════════════
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 set "REPO=%~dp0.."
 pushd "%REPO%"
 echo.
-echo ════════════════════════════════════════
-echo   VALIDATE_PHYSICS — Determinism Check
-echo ════════════════════════════════════════
+echo â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+echo   VALIDATE_PHYSICS â€” Determinism Check
+echo â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 echo.
 
-REM ── Step 1: Build Debug (required for physics logging) ────────
+REM â”€â”€ Step 1: Build Debug (required for physics logging) â”€â”€â”€â”€â”€â”€â”€â”€
 echo [1/3] Building Debug x64...
 call "%~dp0validate_build.bat" Debug
 if errorlevel 1 exit /b 1
 
-REM ── Step 2: Run regression scenes ─────────────────────────────
+REM â”€â”€ Step 2: Run regression scenes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo [2/3] Running physics regression scenes...
 del /q "%REPO%\Debug\physics_regression_*.csv" 2>nul
 
@@ -456,7 +456,7 @@ if errorlevel 1 (
     exit /b 2
 )
 
-REM ── Step 3: Compare against baselines ─────────────────────────
+REM â”€â”€ Step 3: Compare against baselines â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo [3/3] Comparing output against baselines...
 set "SKORE_REPO=%REPO%"
 py "%~dp0check_physics_regression.py"
@@ -468,16 +468,16 @@ if errorlevel 1 (
 )
 
 echo.
-echo ════════════════════════════════════════
+echo â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 echo   VALIDATE_PHYSICS: ALL PASSED
-echo ════════════════════════════════════════
+echo â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 popd
 exit /b 0
 ```
 
 ---
 
-### Task 1.10 — Create `tools\check_physics_regression.py`
+### Task 1.10 â€” Create `tools\check_physics_regression.py`
 
 The Python script that does byte-exact CSV comparison for physics regression.
 
@@ -487,7 +487,7 @@ The Python script that does byte-exact CSV comparison for physics regression.
 
 ```python
 """
-check_physics_regression.py — Compare physics CSV output against committed baselines.
+check_physics_regression.py â€” Compare physics CSV output against committed baselines.
 
 Physics scene uses fixed_step + seed 42, so output is EXACTLY deterministic.
 Any single differing byte is a real regression.
@@ -517,7 +517,7 @@ def main():
             continue
 
         if not os.path.exists(baseline_path):
-            # No baseline yet — create it (first run)
+            # No baseline yet â€” create it (first run)
             import shutil
             shutil.copy(output_path, baseline_path)
             with open(output_path) as f:
@@ -542,7 +542,7 @@ def main():
                     for i, (b, c) in enumerate(zip(baseline, current))
                     if b != c
                 ]
-                print(f"  FAIL: {baseline_name} — {len(diffs)} lines differ (first at line {diffs[0][0]}):")
+                print(f"  FAIL: {baseline_name} â€” {len(diffs)} lines differ (first at line {diffs[0][0]}):")
                 for lineno, b, c in diffs[:5]:
                     print(f"    line {lineno}:")
                     print(f"      baseline: {b}")
@@ -557,7 +557,7 @@ if __name__ == "__main__":
 
 ---
 
-### Task 1.11 — Create `tools\validate_perf.bat`
+### Task 1.11 â€” Create `tools\validate_perf.bat`
 
 **Performance regression check.** Builds Profile + runs `perf_test.scene` for GL, DX11, and DX12 with vsync off + fixed-step for frame-controlled 1000-frame passes, generates JSON with 1970 analyzed timing samples after first-pass warmup, and compares each renderer. ~1 minute.
 
@@ -571,14 +571,14 @@ call :RunPerf gl "" 2
 call :RunPerf dx11 "--renderer dx11" 3
 call :RunPerf dx12 "--renderer dx12" 4
 for %%r in (gl dx11 dx12) do (
-    py "%REPO%\Copilot\Skills\skore-render-test\analyze_perf.py" --renderer %%r --csv "%REPO%\Profile\%%r_perf_log.csv" --out-dir "%REPO%\Profile"
-    py "%REPO%\Copilot\Skills\skore-render-test\perf_compare.py" --current "%REPO%\Profile\%%r_perf.json" --previous "%REPO%\TestOutput\baselines\%%r_perf.json"
+    py "%REPO%\Agentic\Skills\skore-render-test\analyze_perf.py" --renderer %%r --csv "%REPO%\Profile\%%r_perf_log.csv" --out-dir "%REPO%\Profile"
+    py "%REPO%\Agentic\Skills\skore-render-test\perf_compare.py" --current "%REPO%\Profile\%%r_perf.json" --previous "%REPO%\TestOutput\baselines\%%r_perf.json"
 )
 ```
 
 ---
 
-### Task 1.12 — Create `tools\check_parity.py`
+### Task 1.12 â€” Create `tools\check_parity.py`
 
 Cross-renderer pixel parity comparison script.
 
@@ -588,7 +588,7 @@ Cross-renderer pixel parity comparison script.
 
 ```python
 """
-check_parity.py — Cross-renderer visual parity check.
+check_parity.py â€” Cross-renderer visual parity check.
 
 Compares GL vs DX11 and GL vs DX12 screenshots. Reports average pixel
 difference per pair. Fails if any pair exceeds threshold (avg_diff > 10.0).
@@ -660,7 +660,7 @@ if __name__ == "__main__":
 
 ---
 
-### Task 1.13 — Create `tools\validate_full.bat`
+### Task 1.13 â€” Create `tools\validate_full.bat`
 
 **The full validation pipeline.** Combines all other scripts. ~3 minutes.
 
@@ -671,21 +671,21 @@ if __name__ == "__main__":
 ```bat
 @echo off
 setlocal
-REM ═══════════════════════════════════════════════════════════════
-REM  validate_full.bat — Complete validation pipeline
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+REM  validate_full.bat â€” Complete validation pipeline
 REM  Use for: broad changes, uncertain scope, pre-merge verification
 REM  Runtime: ~3 minutes
 REM  Exit 0 = all pass, Non-zero = failure
-REM ═══════════════════════════════════════════════════════════════
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 set "REPO=%~dp0.."
 echo.
-echo ════════════════════════════════════════════════════════════
-echo   VALIDATE_FULL — Complete Validation Pipeline
-echo ════════════════════════════════════════════════════════════
+echo â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+echo   VALIDATE_FULL â€” Complete Validation Pipeline
+echo â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 echo.
 
-REM ── Renderers (includes format + build + tri-renderer + parity) ──
+REM â”€â”€ Renderers (includes format + build + tri-renderer + parity) â”€â”€
 echo === Phase 1: Renderer Validation ===
 call "%~dp0validate_renderers.bat"
 if errorlevel 1 (
@@ -694,7 +694,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM ── Physics (builds Debug + regression CSVs) ──────────────────
+REM â”€â”€ Physics (builds Debug + regression CSVs) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo.
 echo === Phase 2: Physics Validation ===
 call "%~dp0validate_physics.bat"
@@ -704,9 +704,9 @@ if errorlevel 1 (
     exit /b 2
 )
 
-REM ── Perf (rebuilds Profile and re-runs perf_test.scene for GL/DX11/DX12.
+REM â”€â”€ Perf (rebuilds Profile and re-runs perf_test.scene for GL/DX11/DX12.
 REM   The rebuild is a no-op since renderers already built Profile, but perf
-REM   analysis needs standalone CSVs to compare against baseline JSONs.) ──
+REM   analysis needs standalone CSVs to compare against baseline JSONs.) â”€â”€
 echo.
 echo === Phase 3: Performance Validation ===
 call "%~dp0validate_perf.bat"
@@ -717,15 +717,15 @@ if errorlevel 1 (
 )
 
 echo.
-echo ════════════════════════════════════════════════════════════
+echo â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 echo   VALIDATE_FULL: ALL PHASES PASSED
-echo ════════════════════════════════════════════════════════════
+echo â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 exit /b 0
 ```
 
 ---
 
-### Task 1.14 — Create `tools\agent_validate.bat` (Alias for validate_full)
+### Task 1.14 â€” Create `tools\agent_validate.bat` (Alias for validate_full)
 
 One-command entry point that any agent can run with no arguments.
 
@@ -735,15 +735,15 @@ One-command entry point that any agent can run with no arguments.
 
 ```bat
 @echo off
-REM ═══════════════════════════════════════════════════════════════
-REM  agent_validate.bat — THE one command an agent must run.
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+REM  agent_validate.bat â€” THE one command an agent must run.
 REM  Delegates to validate_full.bat. Exists so agents can run a
 REM  single predictable command without thinking.
 REM
 REM  Usage:  tools\agent_validate.bat
 REM  Exit 0 = all validation passed
 REM  Non-zero = failure (see output for details)
-REM ═══════════════════════════════════════════════════════════════
+REM â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 call "%~dp0validate_full.bat"
 exit /b %errorlevel%
 ```
@@ -752,7 +752,7 @@ exit /b %errorlevel%
 
 ## Phase 2: Create Universal `AGENTS.md`
 
-### Task 2.1 — Create `AGENTS.md` at repo root
+### Task 2.1 â€” Create `AGENTS.md` at repo root
 
 - [x] Create file: `G:\skore3\AGENTS.md`
 
@@ -762,7 +762,7 @@ exit /b %errorlevel%
 # Agent Instructions
 
 > Universal contract for any AI agent working on this repository.
-> Framework-agnostic: applies to Copilot, Cursor, Aider, Devin, Claude Code, and future tools.
+> Framework-agnostic: applies to Agent, other agent runtimes, and future tools.
 
 **Do not** submit, force-push, rebase, or rewrite git history.
 
@@ -788,7 +788,7 @@ Run the appropriate validation script from the `tools\` directory:
 | Broad or uncertain scope | `tools\validate_full.bat` | ~3 min |
 | **Don't know? Use this:** | **`tools\agent_validate.bat`** | ~3 min |
 
-### File → Validation Mapping
+### File â†’ Validation Mapping
 
 | Files Changed | Required Script |
 |---------------|-----------------|
@@ -806,7 +806,7 @@ Run the appropriate validation script from the `tools\` directory:
 | `SkullbonezWindow*` | `validate_full` |
 | `SkullbonezInit*` | `validate_full` |
 | Multiple areas or unsure | `validate_full` |
-| `Copilot/*`, `*.md`, docs | `validate_fast` |
+| `Agentic/*`, `*.md`, docs | `validate_fast` |
 | `tools/*` | `validate_fast` (then run the changed script) |
 
 ---
@@ -815,11 +815,11 @@ Run the appropriate validation script from the `tools\` directory:
 
 - **Never claim success without command output.** Paste the validation output.
 - **Never skip validation** unless the user explicitly says to.
-- **Kill processes by PID only** — never `taskkill /IM` or `Stop-Process -Name`. Multiple agents may run simultaneously.
-- **Zero warnings** at `/W4` — no exceptions.
-- **Zero DX12 validation errors** — no exceptions.
+- **Kill processes by PID only** â€” never `taskkill /IM` or `Stop-Process -Name`. Multiple agents may run simultaneously.
+- **Zero warnings** at `/W4` â€” no exceptions.
+- **Zero DX12 validation errors** â€” no exceptions.
 - **All three renderers** must produce visually identical output (avg pixel diff < 10).
-- **Physics must be deterministic** — byte-exact CSV match against baselines.
+- **Physics must be deterministic** â€” byte-exact CSV match against baselines.
 
 ---
 
@@ -838,7 +838,7 @@ Changes to these areas require extra care. Always run the specified validation:
 | Screenshot timing / frame counting | Flaky non-deterministic captures | `validate_renderers` (verify frames before capture) |
 | Fixed-step simulation behavior | Physics replay not reproducible | `validate_physics` |
 | GL/DX coordinate conventions (Y-flip, UV) | Upside-down textures, clip-space bugs | `validate_renderers` (cross-renderer parity) |
-| Upload buffer / frame allocator (DX12) | GPU race: CPU overwrites in-flight data | `validate_renderers` + run 3× consecutive |
+| Upload buffer / frame allocator (DX12) | GPU race: CPU overwrites in-flight data | `validate_renderers` + run 3Ã— consecutive |
 | Singleton lifecycle (Window, SkyBox, etc.) | Use-after-destroy, double-init crash | `validate_full` |
 | Broadphase spatial grid | Missed collisions, perf regression | `validate_physics` + `validate_perf` |
 
@@ -854,7 +854,7 @@ REM Debug build (for physics logging / CDB debugging):
 tools\validate_build.bat Debug
 ```
 
-- **Platform:** x64 only — do not change
+- **Platform:** x64 only â€” do not change
 - **Configurations:** Debug, Profile, Release
 - **Toolset:** v143 (VS2022)
 - **Warning level:** /W4, zero warnings required
@@ -874,33 +874,33 @@ tools\validate_build.bat Debug
 | Physics baselines | `TestOutput/baselines/*.csv` |
 | Perf baselines | `TestOutput/baselines/*_perf.json` |
 | Validation scripts | `tools/` |
-| Copilot-specific docs | `Copilot/` |
+| agent-specific docs | `Agentic/` |
 
 ---
 
-## For Copilot Agents Specifically
+## For Agent Agents Specifically
 
-If you are GitHub Copilot, also read:
-- `.github/copilot-instructions.md` — loaded automatically
-- `Copilot/SessionState.md` — session handoff state
-- `Copilot/Skills/skore-build-pipeline/skill.md` — detailed pipeline with perf archiving
+If you are an AI agent, also read:
+- `AGENTS.md` â€” loaded automatically
+- `Agentic/SessionState.md` â€” session handoff state
+- `Agentic/Skills/skore-build-pipeline/skill.md` â€” detailed pipeline with perf archiving
 
-These extend this contract with Copilot-specific tooling (skills, session state, `ask_user`).
+These extend this contract with agent-specific tooling (skills, session state, the available user-input mechanism).
 ```
 
 ---
 
-### Task 2.2 — Move existing `agents.md` to `Copilot\agents-copilot.md` and create universal `AGENTS.md`
+### Task 2.2 â€” Move existing `agents.md` to `Agentic\agent-guide.md` and create universal `AGENTS.md`
 
-The existing `agents.md` at repo root is Copilot-specific. Move it so it doesn't conflict with the universal `AGENTS.md`.
+The existing `agents.md` at repo root is agent-specific. Move it so it doesn't conflict with the universal `AGENTS.md`.
 
 > **Windows note:** The filesystem is case-insensitive, so `agents.md` and `AGENTS.md` are the same file. You must use a two-step rename through an intermediate path. Git tracks case changes correctly even though Windows doesn't distinguish them.
 
-- [x] Move to Copilot-specific location, then create the new universal contract:
+- [x] Move to agent-specific location, then create the new universal contract:
 
 ```pwsh
-# Step 1: Move the Copilot-specific file
-git mv "G:\skore3\agents.md" "G:\skore3\Copilot\agents-copilot.md"
+# Step 1: Move the agent-specific file
+git mv "G:\skore3\agents.md" "G:\skore3\Agentic\agent-guide.md"
 
 # Step 2: Create the new universal AGENTS.md (Task 2.1 content)
 # Git will track this as a new file at the root since the old agents.md was moved away.
@@ -910,20 +910,20 @@ git mv "G:\skore3\agents.md" "G:\skore3\Copilot\agents-copilot.md"
 
 ---
 
-### Task 2.3 — Update `.github\copilot-instructions.md` (reference `AGENTS.md` + fix stale info)
+### Task 2.3 â€” Update `AGENTS.md` (reference `AGENTS.md` + fix stale info)
 
-The copilot-instructions file has stale references (Win32 platform, old member naming convention) and needs to reference the new universal contract.
+The old tool-specific instruction file had stale references (Win32 platform, old member naming convention) and needed to reference the new universal contract.
 
-- [x] Edit file: `G:\skore3\.github\copilot-instructions.md`
+- [x] Edit file: `G:\skore3\AGENTS.md`
 
-**Change 1 — Add this block at line 1 (before existing content):**
+**Change 1 â€” Add this block at line 1 (before existing content):**
 
 ```markdown
-> **Universal agent contract:** Read `AGENTS.md` at the repo root first. This file extends it with Copilot-specific workflows.
+> **Universal agent contract:** Read `AGENTS.md` at the repo root first. This file extends it with agent-specific workflows.
 
 ```
 
-**Change 2 — Build section:** Replace `Win32` references with `x64`:
+**Change 2 â€” Build section:** Replace `Win32` references with `x64`:
 
 Find:
 ```bat
@@ -937,31 +937,31 @@ msbuild SKULLBONEZ_CORE.sln /p:Configuration=Debug /p:Platform=x64
 msbuild SKULLBONEZ_CORE.sln /p:Configuration=Release /p:Platform=x64
 ```
 
-**Change 3 — Target line:**
+**Change 3 â€” Target line:**
 
 Find:
 ```
-- Target: **Win32 (x86)** — do not change to x64
+- Target: **Win32 (x86)** â€” do not change to x64
 ```
 
 Replace with:
 ```
-- Target: **x64** — do not change to Win32
+- Target: **x64** â€” do not change to Win32
 ```
 
-**Change 4 — Member naming convention** (the `m_` rename phase is complete):
+**Change 4 â€” Member naming convention** (the `m_` rename phase is complete):
 
 Find:
 ```
-- Members: camelCase with intent prefixes — `is` (bools), `f` (floats in ctors), `p` (pointers), `s` (static/struct members), `c` (class-instance members)
+- Members: camelCase with intent prefixes â€” `is` (bools), `f` (floats in ctors), `p` (pointers), `s` (static/struct members), `c` (class-instance members)
 ```
 
 Replace with:
 ```
-- Members: `m_` prefix, camelCase — `m_position`, `m_isGrounded`, `m_pTexture`
+- Members: `m_` prefix, camelCase â€” `m_position`, `m_isGrounded`, `m_pTexture`
 ```
 
-**Change 5 — Output paths** (now x64, output goes to config-named folders):
+**Change 5 â€” Output paths** (now x64, output goes to config-named folders):
 
 Find:
 ```
@@ -973,7 +973,7 @@ Replace with:
 - Output: `Debug\SKULLBONEZ_CORE.exe`, `Release\SKULLBONEZ_CORE.exe`, or `Profile\SKULLBONEZ_CORE.exe`
 ```
 
-**Change 6 — Remove "no automated tests"** (validation scripts now exist):
+**Change 6 â€” Remove "no automated tests"** (validation scripts now exist):
 
 Find:
 ```
@@ -985,22 +985,22 @@ Replace with:
 Automated validation: run `tools\validate_full.bat` (see `AGENTS.md` for the tiered validation table).
 ```
 
-**Change 7 — Add `skore-branch-and-snatch` to the Skills table:**
+**Change 7 â€” Add `skore-branch-and-snatch` to the Skills table:**
 
-The skills table in copilot-instructions is missing `skore-branch-and-snatch` (which is listed in `agents.md`). Add it:
+The skills table in the old tool-specific instructions was missing `skore-branch-and-snatch` (which is listed in `agents.md`). Add it:
 
 Find:
 ```
-| skore-cpu-profiler | `Copilot/Skills/skore-cpu-profiler/skill.md` |
+| skore-cpu-profiler | `Agentic/Skills/skore-cpu-profiler/skill.md` |
 ```
 
 Replace with:
 ```
-| skore-cpu-profiler | `Copilot/Skills/skore-cpu-profiler/skill.md` |
-| skore-branch-and-snatch | `Copilot/Skills/skore-branch-and-snatch/skill.md` |
+| skore-cpu-profiler | `Agentic/Skills/skore-cpu-profiler/skill.md` |
+| skore-branch-and-snatch | `Agentic/Skills/skore-branch-and-snatch/skill.md` |
 ```
 
-**Change 8 — Add `Profile` configuration reference:**
+**Change 8 â€” Add `Profile` configuration reference:**
 
 Find:
 ```
@@ -1017,11 +1017,11 @@ Replace with:
 
 ## Phase 3: Fix `collapse_params.py` Hardcoded Path
 
-The existing `Copilot\Skills\collapse_params.py` has a hardcoded path (`G:\SkullbonezCoreOriginal\SkullbonezSource`). The `format_fix.bat` script calls it, so it needs to work with dynamic paths.
+The existing `Agentic\Skills\collapse_params.py` has a hardcoded path (`G:\SkullbonezCoreOriginal\SkullbonezSource`). The `format_fix.bat` script calls it, so it needs to work with dynamic paths.
 
-### Task 3.1 — Update `collapse_params.py` to use repo-relative path
+### Task 3.1 â€” Update `collapse_params.py` to use repo-relative path
 
-- [x] Edit file: `G:\skore3\Copilot\Skills\collapse_params.py`
+- [x] Edit file: `G:\skore3\Agentic\Skills\collapse_params.py`
 
 **Find line 3:**
 ```python
@@ -1039,7 +1039,7 @@ This resolves to `{repo_root}\SkullbonezSource` regardless of where the repo is 
 
 ## Phase 4: Add `tools\README.md`
 
-### Task 4.1 — Create documentation for the tools directory
+### Task 4.1 â€” Create documentation for the tools directory
 
 - [x] Create file: `G:\skore3\tools\README.md`
 
@@ -1077,7 +1077,7 @@ Scripts for validating SkullbonezCore changes. Run from the repo root or from wi
 
 All scripts follow this convention:
 - `0` = Pass
-- `1–98` = Failure (code indicates which step failed)
+- `1â€“98` = Failure (code indicates which step failed)
 - `99` = Tool not found (MSBuild, clang-format, Python, Pillow)
 
 ## Prerequisites
@@ -1091,7 +1091,7 @@ All scripts follow this convention:
 
 ## Phase 5: Update `.gitignore`
 
-### Task 5.1 — Ensure tools directory is tracked
+### Task 5.1 â€” Ensure tools directory is tracked
 
 - [x] Verify `tools/` is NOT in `.gitignore`
 
@@ -1105,7 +1105,7 @@ If it appears, remove the line. The `tools\` directory must be committed.
 
 ## Phase 6: Verification
 
-### Task 6.1 — Verify all files were created
+### Task 6.1 â€” Verify all files were created
 
 Run this check to confirm every file exists:
 
@@ -1128,14 +1128,14 @@ $files = @(
     "G:\skore3\tools\agent_validate.bat",
     "G:\skore3\tools\README.md",
     "G:\skore3\AGENTS.md",
-    "G:\skore3\Copilot\agents-copilot.md"
+    "G:\skore3\Agentic\agent-guide.md"
 )
 $missing = $files | Where-Object { -not (Test-Path $_) }
 if ($missing) { $missing | ForEach-Object { Write-Host "MISSING: $_" } }
 else { Write-Host "ALL FILES PRESENT" }
 ```
 
-### Task 6.2 — Run `validate_fast.bat` to confirm it works
+### Task 6.2 â€” Run `validate_fast.bat` to confirm it works
 
 - [x] Run the fast validation to confirm scripts are functional
 
@@ -1146,21 +1146,21 @@ cd G:\skore3
 
 Expected output:
 ```
-════════════════════════════════════════
-  VALIDATE_FAST — Format + Build
-════════════════════════════════════════
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  VALIDATE_FAST â€” Format + Build
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 [1/2] Checking formatting...
 PASS: All source files correctly formatted.
 [2/2] Building Profile x64...
 PASS: Build Profile|x64 succeeded.
 
-════════════════════════════════════════
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   VALIDATE_FAST: ALL PASSED
-════════════════════════════════════════
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 ```
 
-### Task 6.3 — Run `validate_renderers.bat` to confirm tri-renderer works
+### Task 6.3 â€” Run `validate_renderers.bat` to confirm tri-renderer works
 
 - [x] Run renderer validation (requires GPU, ~60s)
 
@@ -1169,7 +1169,7 @@ cd G:\skore3
 & tools\validate_renderers.bat
 ```
 
-### Task 6.4 — Run `validate_physics.bat` to confirm regression test works
+### Task 6.4 â€” Run `validate_physics.bat` to confirm regression test works
 
 - [x] Run physics validation (~45s)
 
@@ -1182,7 +1182,7 @@ cd G:\skore3
 
 ## Phase 7: Commit
 
-### Task 7.1 — Stage all new files
+### Task 7.1 â€” Stage all new files
 
 - [ ] Stage changes
 
@@ -1190,17 +1190,17 @@ cd G:\skore3
 cd G:\skore3
 git add tools/
 git add AGENTS.md
-git add Copilot/agents-copilot.md
-git add .github/copilot-instructions.md
-git add Copilot/Skills/collapse_params.py
-git add Copilot/Plans/agentic-friendliness-implementation.md
+git add Agentic/agent-guide.md
+git add AGENTS.md
+git add Agentic/Skills/collapse_params.py
+git add Agentic/Plans/agentic-friendliness-implementation.md
 ```
 
-### Task 7.2 — Confirm with user before committing
+### Task 7.2 â€” Confirm with user before committing
 
 Ask: "All validation scripts created and tested. Ready to commit?"
 
-### Task 7.3 — Commit
+### Task 7.3 â€” Commit
 
 - [ ] Commit with descriptive message
 
@@ -1211,14 +1211,14 @@ git commit -m "feat: add tools/ validation scripts and universal AGENTS.md
   validate_fast.bat, validate_renderers.bat, validate_physics.bat,
   validate_perf.bat, validate_full.bat, agent_validate.bat
 - Created AGENTS.md as universal agent contract (framework-agnostic)
-- Moved agents.md to Copilot/agents-copilot.md (Copilot-specific)
+- Moved agents.md to Agentic/agent-guide.md (agent-specific)
 - Added helper scripts: find_msbuild.bat, check_dx12_validation.bat,
   format_fix.bat, check_parity.py, check_physics_regression.py
 - Fixed hardcoded path in collapse_params.py
-- Fixed stale Win32/x86 and naming convention references in copilot-instructions.md
+- Fixed stale Win32/x86 and naming convention references in AGENTS.md
 - Added tools/README.md with usage guide
 
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+Co-authored-by: AI Agent <agent@example.invalid>"
 ```
 
 ---
@@ -1242,4 +1242,4 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 | 13 | `tools\agent_validate.bat` | THE one command (delegates to full) |
 | 14 | `tools\README.md` | Documentation for tools/ |
 | 15 | `AGENTS.md` | Universal agent contract |
-| 16 | `Copilot\agents-copilot.md` | Renamed from `agents.md` (Copilot-specific) |
+| 16 | `Agentic\agent-guide.md` | Renamed from `agents.md` (agent-specific) |

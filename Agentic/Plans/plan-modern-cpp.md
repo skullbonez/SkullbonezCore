@@ -117,4 +117,4 @@ Every phase must build with **zero warnings** at `/W4`. Run the full build pipel
 msbuild SKULLBONEZ_CORE.sln /p:Configuration=Debug /p:Platform=Win32
 ```
 
-Each commit must follow the standard pipeline (reference images + perf artifact) per `Copilot/Skills/skore-build-pipeline/skill.md`.
+Each commit must follow the standard pipeline (reference images + perf artifact) per `Agentic/Skills/skore-build-pipeline/skill.md`.

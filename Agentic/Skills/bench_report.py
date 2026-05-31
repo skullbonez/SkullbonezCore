@@ -2,7 +2,7 @@
 Physics benchmark report — legacy solver vs impulse solver (4 modes).
 
 Usage:
-    py Copilot/Skills/bench_report.py [--out-dir <archive_dir>] [--previous <physics_bench.json>]
+    py Agentic/Skills/bench_report.py [--out-dir <archive_dir>] [--previous <physics_bench.json>]
 
 Reads from Profile/:
     legacy_bench_perf_log.csv         — legacy:  300 spheres

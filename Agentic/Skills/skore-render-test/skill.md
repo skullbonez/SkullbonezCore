@@ -1,4 +1,4 @@
----
+﻿---
 name: skore-render-test
 description: Run render test scenes through SkullbonezCore, capture screenshots, and validate against baselines. Invoke when the user asks to run a render test, capture a scene screenshot, or verify rendering output.
 ---
@@ -17,8 +17,8 @@ $REPO = (git rev-parse --show-toplevel).Trim()
 The suite runs via `--vsync off --suite SkullbonezData/scenes/render_tests.suite`, which runs all render scenes **in a single process launch** with no GL context restart between scenes. Each render scene produces 1 screenshot. Performance validation is handled separately by `tools\validate_perf.bat`, which runs `perf_test.scene` for GL, DX11, and DX12 with fixed-step physics.
 
 The suite runs these scenes in order:
-1. **water_ball_test** — Single ball, simple scene (verifies terrain, skybox, water rendering)
-2. **legacy_smoke** — 300 seeded random balls, full legacy code path (verifies sphere rendering at scale)
+1. **water_ball_test** â€” Single ball, simple scene (verifies terrain, skybox, water rendering)
+2. **legacy_smoke** â€” 300 seeded random balls, full legacy code path (verifies sphere rendering at scale)
 
 ### Prerequisites
 
@@ -69,7 +69,7 @@ print('Converted 2 screenshots to PNG')
 "
 ```
 
-**IMPORTANT**: Never send `.bmp` files to the `view` tool — always use the converted `.png` files.
+**IMPORTANT**: Never send `.bmp` files to the `view` tool â€” always use the converted `.png` files.
 
 #### 3. Tolerance pixel comparison
 
@@ -117,10 +117,10 @@ def compare(baseline_path, current_path, name):
         print(f'PIXEL_PASS [{name}]')
         return True
     elif tol_pct < 0.5:
-        print(f'PIXEL_PASS [{name}]: {tol_pct}% beyond tolerance — acceptable')
+        print(f'PIXEL_PASS [{name}]: {tol_pct}% beyond tolerance â€” acceptable')
         return True
     else:
-        print(f'PIXEL_FAIL [{name}]: {tol_pct}% beyond tolerance — needs visual review')
+        print(f'PIXEL_FAIL [{name}]: {tol_pct}% beyond tolerance â€” needs visual review')
         return False
 
 _baselines = _r + r'\TestOutput\baselines'
@@ -139,10 +139,10 @@ else:
 "
 ```
 
-**Pass criteria**: <0.5% of pixels beyond ±5 per-channel tolerance for each pair.
+**Pass criteria**: <0.5% of pixels beyond Â±5 per-channel tolerance for each pair.
 
-If pixel tests pass → **done**, no further steps needed.
-If pixel tests fail → proceed to step 4.
+If pixel tests pass â†’ **done**, no further steps needed.
+If pixel tests fail â†’ proceed to step 4.
 
 #### 4. LLM visual comparison
 
@@ -163,8 +163,8 @@ For each scene that failed pixel comparison, view the baseline and current scree
 6. Are there any rendering artifacts? (black triangles, z-fighting, missing faces)
 
 **Verdict per scene:**
-- If all 6 checks pass → `LLM_PASS` — the scenes are functionally equivalent despite pixel differences (expected during shader migration)
-- If any check fails → `LLM_FAIL` — there is a visual regression
+- If all 6 checks pass â†’ `LLM_PASS` â€” the scenes are functionally equivalent despite pixel differences (expected during shader migration)
+- If any check fails â†’ `LLM_FAIL` â€” there is a visual regression
 
 #### 5. Combined verdict
 
@@ -172,13 +172,13 @@ For each scene that failed pixel comparison, view the baseline and current scree
 |---|---|---|---|
 | PASS | (skip) | **PASS** | No further action |
 | FAIL | PASS | **PASS** | Differences are cosmetic (shading model change). Consider updating baselines. |
-| FAIL | FAIL | **FAIL** | Use `ask_user` to prompt the user to inspect the images. Show them the current screenshots with the `view` tool and report what the LLM checklist flagged. Do not proceed until the user decides. |
+| FAIL | FAIL | **FAIL** | use the available structured user-input mechanism to prompt the user to inspect the images. Show them the current screenshots with the `view` tool and report what the LLM checklist flagged. Do not proceed until the user decides. |
 
-**When both fail**: You MUST use the `ask_user` tool to prompt the user. Show them the failing screenshots and explain what the LLM visual comparison flagged. The user decides whether to accept, investigate, or revert.
+**When both fail**: You MUST Use the available structured user-input mechanism to prompt the user. Show them the failing screenshots and explain what the LLM visual comparison flagged. The user decides whether to accept, investigate, or revert.
 
 ### Updating baselines
 
-When a change **intentionally** alters rendering (e.g. migrating a subsystem to shaders), overwrite the baselines directly — no archiving needed (git history is the archive).
+When a change **intentionally** alters rendering (e.g. migrating a subsystem to shaders), overwrite the baselines directly â€” no archiving needed (git history is the archive).
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
@@ -227,13 +227,13 @@ $archiveDir = "<path to the TestOutput archive dir for this commit>"
 
 # Analyze each renderer
 foreach ($renderer in @("gl", "dx11", "dx12")) {
-    py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py" `
+    py "$REPO\Agentic\Skills\skore-render-test\analyze_perf.py" `
         --renderer $renderer --csv "$REPO\Profile\${renderer}_perf_log.csv" --out-dir $archiveDir
 }
 
 # Compare each renderer against prior commit's matching artifact
 foreach ($renderer in @("gl", "dx11", "dx12")) {
-    py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py" `
+    py "$REPO\Agentic\Skills\skore-render-test\perf_compare.py" `
         --current "$archiveDir\${renderer}_perf.json" --previous "<path to prior ${renderer}_perf.json>"
 }
 ```
@@ -265,4 +265,4 @@ Written to `{archive_dir}/{renderer}_perf.json` (e.g., `gl_perf.json`, `dx11_per
 }
 ```
 
-`perf_compare.py` validates that `current.renderer == previous.renderer` before comparing. Artifacts are stored in numbered `TestOutput/NNN_{commit}/` dirs — `perf_history/` is no longer used.
+`perf_compare.py` validates that `current.renderer == previous.renderer` before comparing. Artifacts are stored in numbered `TestOutput/NNN_{commit}/` dirs â€” `perf_history/` is no longer used.

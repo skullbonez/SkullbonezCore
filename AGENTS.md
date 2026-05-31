@@ -1,7 +1,7 @@
-# Agent Instructions
+﻿# Agent Instructions
 
 > Universal contract for any AI agent working on this repository.
-> Framework-agnostic: applies to Copilot, Cursor, Aider, Devin, Claude Code, and future tools.
+> Framework-agnostic: applies to any current or future AI coding agent.
 
 **Do not** submit, force-push, rebase, or rewrite git history.
 
@@ -12,6 +12,7 @@
 1. Read this file and `README.md`.
 2. Identify your change's impact area: GL, DX11, DX12, physics, scene system, tests, documentation.
 3. State which validation command you will run.
+4. On a fresh machine or failed tool lookup, read `FIRST_TIME_SETUP.md`.
 
 ## After Editing
 
@@ -45,7 +46,7 @@ Run the appropriate validation script from the `tools\` directory:
 | `SkullbonezWindow*` | `validate_full` |
 | `SkullbonezInit*` | `validate_full` |
 | Multiple areas or unsure | `validate_full` |
-| `Copilot/*`, `*.md`, docs | `validate_fast` |
+| `Agentic/*`, `*.md`, docs | `validate_fast` |
 | `tools/*` | `validate_fast`, then run the changed script |
 
 ---
@@ -113,16 +114,14 @@ tools\validate_build.bat Debug
 | Physics baselines | `TestOutput/baselines/*.csv` |
 | Perf baselines | `TestOutput/baselines/*_perf.json` |
 | Validation scripts | `tools/` |
-| Copilot-specific docs | `Copilot/` |
+| Agent handoff docs | `Agentic/` |
 
 ---
 
-## For Copilot Agents Specifically
+## Agentic Handoff
 
-If you are GitHub Copilot, also read:
+All agents should also read:
 
-- `.github/copilot-instructions.md`, loaded automatically.
-- `Copilot/SessionState.md`, the session handoff state.
-- `Copilot/Skills/skore-build-pipeline/skill.md`, the detailed pipeline with perf archiving.
-
-These extend this contract with Copilot-specific tooling, skills, session state, and `ask_user`.
+- `Agentic/README.md`, the index for handoff docs, skills, and plans.
+- `Agentic/SessionState.md`, the session handoff state.
+- `Agentic/Skills/skore-build-pipeline/skill.md`, the detailed pipeline with perf archiving.

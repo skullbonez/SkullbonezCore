@@ -20,7 +20,10 @@ Scripts for validating SkullbonezCore changes. Run from the repo root or from wi
 | `validate_format.bat` | Check clang-format compliance without auto-fixing |
 | `format_fix.bat` | Auto-fix formatting in-place |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Release`) |
+| `find_clang_format.bat` | Locate clang-format, called by format scripts |
+| `find_git.bat` | Locate Git, called by perf validation |
 | `find_msbuild.bat` | Locate MSBuild, called by other scripts |
+| `find_python.bat` | Locate Python, called by Python-backed validation scripts |
 | `check_dx12_validation.bat` | Verify DX12 InfoQueue clean |
 | `check_parity.py` | Cross-renderer pixel comparison |
 | `check_physics_regression.py` | Byte-exact physics CSV diff |
@@ -35,6 +38,7 @@ All scripts follow this convention:
 
 ## Prerequisites
 
-- Visual Studio 2022 with C++ and LLVM tools
+- Visual Studio with C++ and LLVM tools
+- Git for Windows
 - Python 3.x with Pillow (`py -m pip install Pillow`)
 - Built executable in `Profile\` for render/perf tests or `Debug\` for physics tests

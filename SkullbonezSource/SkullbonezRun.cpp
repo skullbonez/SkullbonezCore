@@ -657,7 +657,7 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
         //
         // time_scale > 1 runs multiple ticks per render frame (integer part) so
         // scenes can simulate faster than real-time while keeping the fixed dt.
-        const int ticksThisFrame = ( std::max )( 1, static_cast<int>( m_scene.timeScale ) );
+        const int ticksThisFrame = (std::max)( 1, static_cast<int>( m_scene.timeScale ) );
         if ( !m_camera.isFlyMode || m_camera.isNudgeMode || Input::IsKeyDown( VK_SPACE ) )
         {
             PROFILE_BEGIN( "Frame/Physics" );

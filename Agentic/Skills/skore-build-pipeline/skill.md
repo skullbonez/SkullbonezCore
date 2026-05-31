@@ -1,4 +1,4 @@
----
+﻿---
 name: skore-build-pipeline
 description: Standard development pipeline for SkullbonezCore. Build, run full test suite, update baselines, commit. Invoke after completing a code change to verify and commit it.
 ---
@@ -7,7 +7,7 @@ description: Standard development pipeline for SkullbonezCore. Build, run full t
 
 The full verify-and-commit pipeline after a code change. **Every step must pass before proceeding to the next.** Every commit MUST include updated reference images and performance test artifacts.
 
-> ⛔ **YOU MUST RUN ALL STEPS (0 through 9) BEFORE COMMITTING.** Fixing a formatting error in Step 0 or a build error in Step 2 does NOT mean you can commit — continue through the full pipeline. The only time you may stop early is if the pipeline crashes or the exe cannot be produced.
+> â›” **YOU MUST RUN ALL STEPS (0 through 9) BEFORE COMMITTING.** Fixing a formatting error in Step 0 or a build error in Step 2 does NOT mean you can commit â€” continue through the full pipeline. The only time you may stop early is if the pipeline crashes or the exe cannot be produced.
 
 ### Executable Validation Scripts
 
@@ -21,7 +21,7 @@ The `tools\validate_*.bat` scripts are the canonical executable wrappers for val
 | Perf smoke | `tools\validate_perf.bat` | Tri-renderer fixed-step perf scene, frame-controlled samples + baseline comparison | Numbered archive, LOC, SessionState, commit |
 | Broad pre-merge sanity | `tools\validate_full.bat` | Renderer + physics regression + tri-renderer perf | Baseline update, numbered perf JSON archive, LOC, SessionState, commit |
 
-The scripts intentionally do **not** update committed visual baselines, create numbered `TestOutput\NNN_<hash>` archives, update `Copilot\SessionState.md`, ask for commit permission, or commit. For a commit, use scripts to produce/validate artifacts, then continue the relevant baseline/archive/session-state/commit steps below.
+The scripts intentionally do **not** update committed visual baselines, create numbered `TestOutput\NNN_<hash>` archives, update `Agentic\SessionState.md`, ask for commit permission, or commit. For a commit, use scripts to produce/validate artifacts, then continue the relevant baseline/archive/session-state/commit steps below.
 
 The engine supports in-process scene sequencing via `--suite`. The suite file `SkullbonezData/scenes/render_tests.suite` is render-only: `water_ball_test.scene` (render screenshot) and `legacy_smoke.scene` (render screenshot, 300 balls). Performance validation is separate and must run `perf_test.scene` for GL, DX11, and DX12 with `--vsync off --fixed-step`.
 
@@ -29,7 +29,7 @@ The engine supports in-process scene sequencing via `--suite`. The suite file `S
 
 **Always ask this before starting**, unless the user already specified (e.g. "run render tests only").
 
-Use the `ask_user` tool:
+Use the available structured user-input mechanism:
 ```
 question: "Which tests should the pipeline run?"
 choices:
@@ -39,32 +39,32 @@ choices:
   - "Both render + perf + bench + regression (full + all)"
   - "Render tests only (skip perf)"
   - "Perf tests only (skip render baselines)"
-  - "None — format + build + commit only"
+  - "None â€” format + build + commit only"
 ```
 
 Record the answer as `$testScope` and apply these rules for the remaining steps:
 
 | Scope | Step 3 render input | Step 4 (baseline check) | Step 5 (update baselines) | Step 6 (perf analysis) | Step 6.5 (physics bench) | Step 6.75 (physics regression) |
 |-------|-------------------|-------------------------|---------------------------|------------------------|--------------------------|--------------------------------|
-| Both (full) | `render_tests.suite` | ✅ Run | ✅ Run | ✅ Run | ⏭️ Skip | ⏭️ Skip |
-| Full + bench | `render_tests.suite` | ✅ Run | ✅ Run | ✅ Run | ✅ Run | ⏭️ Skip |
-| Full + regression | `render_tests.suite` | ✅ Run | ✅ Run | ✅ Run | ⏭️ Skip | ✅ Run |
-| Full + all | `render_tests.suite` | ✅ Run | ✅ Run | ✅ Run | ✅ Run | ✅ Run |
-| Render only | `render_tests.suite` | ✅ Run | ✅ Run | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip |
-| Perf only | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip | ✅ Run | ⏭️ Skip | ⏭️ Skip |
-| None | ⏭️ Skip steps 3–7 | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip | ⏭️ Skip |
+| Both (full) | `render_tests.suite` | âœ… Run | âœ… Run | âœ… Run | â­ï¸ Skip | â­ï¸ Skip |
+| Full + bench | `render_tests.suite` | âœ… Run | âœ… Run | âœ… Run | âœ… Run | â­ï¸ Skip |
+| Full + regression | `render_tests.suite` | âœ… Run | âœ… Run | âœ… Run | â­ï¸ Skip | âœ… Run |
+| Full + all | `render_tests.suite` | âœ… Run | âœ… Run | âœ… Run | âœ… Run | âœ… Run |
+| Render only | `render_tests.suite` | âœ… Run | âœ… Run | â­ï¸ Skip | â­ï¸ Skip | â­ï¸ Skip |
+| Perf only | â­ï¸ Skip | â­ï¸ Skip | â­ï¸ Skip | âœ… Run | â­ï¸ Skip | â­ï¸ Skip |
+| None | â­ï¸ Skip steps 3â€“7 | â­ï¸ Skip | â­ï¸ Skip | â­ï¸ Skip | â­ï¸ Skip | â­ï¸ Skip |
 
 Perf-only means running `perf_test.scene` separately for GL, DX11, and DX12 with `--vsync off --fixed-step`.
 
-When scope is **None**, jump directly from Step 2 (build) to Step 8 (LOC) then Step 9 (confirm commit). Steps 3–7 are skipped entirely — no suite run, no baselines, no perf artifacts. The commit message should note "no test artifacts (build-only commit)".
+When scope is **None**, jump directly from Step 2 (build) to Step 8 (LOC) then Step 9 (confirm commit). Steps 3â€“7 are skipped entirely â€” no suite run, no baselines, no perf artifacts. The commit message should note "no test artifacts (build-only commit)".
 
 ### Step 0: Verify Formatting
 
 Executable equivalent: `tools\validate_format.bat`.
 
-Uses `--dry-run -Werror` which exits non-zero for any file that would be changed. Do NOT compare clang-format stdout against file contents — PowerShell's pipeline mangles the output.
+Uses `--dry-run -Werror` which exits non-zero for any file that would be changed. Do NOT compare clang-format stdout against file contents â€” PowerShell's pipeline mangles the output.
 
-Line endings are enforced by `.gitattributes` at commit time — no runtime check needed.
+Line endings are enforced by `.gitattributes` at commit time â€” no runtime check needed.
 
 > **If a `.vcxproj`, `.sln`, or `.vcxproj.filters` file ever appears with wrong line endings**, the fix is: `Remove-Item <file>; git checkout -- <file>`. `git checkout --` is a no-op when the file exists; deleting it forces git to write a fresh copy applying the `eol=` smudge filter.
 
@@ -89,7 +89,7 @@ if ($bad.Count -gt 0) {
 Write-Host "PASS: All $($files.Count) files are correctly formatted"
 ```
 
-If this fails, proceed to Step 1 (Format) to auto-fix, then re-run Step 0. **After Step 0 passes, continue through the full pipeline — do NOT commit yet.**
+If this fails, proceed to Step 1 (Format) to auto-fix, then re-run Step 0. **After Step 0 passes, continue through the full pipeline â€” do NOT commit yet.**
 
 ### Step 1: Format (auto-fix)
 
@@ -100,7 +100,7 @@ $REPO = (git rev-parse --show-toplevel).Trim()
 
 # Collapse multi-line param lists (script strips inline param comments to avoid
 # them being merged into the middle of the collapsed line)
-py "$REPO\Copilot\Skills\collapse_params.py"
+py "$REPO\Agentic\Skills\collapse_params.py"
 
 # Apply clang-format in-place (Allman braces, spaces, LF line endings, etc.)
 $clangfmt = "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Tools\Llvm\x64\bin\clang-format.exe"
@@ -177,7 +177,7 @@ foreach ($f in @("gl_screenshot.bmp","gl_legacy_smoke.bmp",
 }
 if ($missing.Count -gt 0) {
     $missing | ForEach-Object { Write-Host "  MISSING: $_" }
-    Write-Host "FAIL: Missing artifacts — debug with skore-cdb-debug skill"
+    Write-Host "FAIL: Missing artifacts â€” debug with skore-cdb-debug skill"
     exit 1
 }
 Write-Host "PASS: All tri-renderer artifacts produced"
@@ -265,7 +265,7 @@ for cap, base, name in [
     label = 'IDENTICAL' if avg == 0 else f'DIFF avg={avg:.4f}'
     if avg > 5.0: label += ' FAIL'; baseline_ok = False
     print(f'  {name}: {label}')
-print('PASS: All baseline comparisons acceptable' if baseline_ok else 'NOTE: Significant differences — update baselines in Step 5 if intentional')
+print('PASS: All baseline comparisons acceptable' if baseline_ok else 'NOTE: Significant differences â€” update baselines in Step 5 if intentional')
 
 print()
 print('=== Cross-Renderer Parity ===')
@@ -379,14 +379,14 @@ foreach ($renderer in @("gl", "dx11", "dx12")) {
 
 foreach ($renderer in @("gl", "dx11", "dx12")) {
     Write-Host "`n=== $($renderer.ToUpper()) Perf Analysis ==="
-    py "$REPO\Copilot\Skills\skore-render-test\analyze_perf.py" `
+    py "$REPO\Agentic\Skills\skore-render-test\analyze_perf.py" `
         --renderer $renderer `
         --csv "$REPO\Profile\${renderer}_perf_log.csv" `
         --out-dir $archiveDir
     if ($LASTEXITCODE -ne 0) { Write-Host "FAIL: $($renderer.ToUpper()) perf analysis failed"; exit 1 }
 }
 
-# JSON artifacts are now written — delete the raw CSVs (large and redundant vs the JSON)
+# JSON artifacts are now written â€” delete the raw CSVs (large and redundant vs the JSON)
 foreach ($renderer in @("gl", "dx11", "dx12")) {
     $csv = "$REPO\Profile\${renderer}_perf_log.csv"
     if (Test-Path $csv) { Remove-Item $csv; Write-Host "Deleted: ${renderer}_perf_log.csv" }
@@ -411,10 +411,10 @@ foreach ($renderer in @("gl", "dx11", "dx12")) {
     $currentJson = "$archiveDir\${renderer}_perf.json"
     if ($prevJson) {
         Write-Host "`n=== $($renderer.ToUpper()) Perf Comparison ==="
-        py "$REPO\Copilot\Skills\skore-render-test\perf_compare.py" `
+        py "$REPO\Agentic\Skills\skore-render-test\perf_compare.py" `
             --current $currentJson --previous $prevJson
     } else {
-        Write-Host "`n$($renderer.ToUpper()): No prior archive found — displaying current tables:"
+        Write-Host "`n$($renderer.ToUpper()): No prior archive found â€” displaying current tables:"
         py -c "
 import json
 with open(r'$currentJson') as f:
@@ -433,36 +433,36 @@ Write-Host "Review the performance tables above."
 Write-Host "="*60
 ```
 
-After displaying all tables, **you MUST print both an improvements section AND a regressions section** before asking the user. Neither section is optional — if there are no entries in a section, write "None".
+After displaying all tables, **you MUST print both an improvements section AND a regressions section** before asking the user. Neither section is optional â€” if there are no entries in a section, write "None".
 
-#### 📈 Improvements (MANDATORY — always shown)
+#### ðŸ“ˆ Improvements (MANDATORY â€” always shown)
 
 Print every marker where avg OR p50 improved by more than the ramped threshold. Group by renderer. Format:
 
 ```
-📈 IMPROVEMENTS
+ðŸ“ˆ IMPROVEMENTS
   GL   Frame/Text            avg -56.6%  p50 -54.8%
   GL   Frame/Render/Water    avg  -5.5%  p50  -3.4%
   DX11 Frame/Text            avg -20.5%  p50 -13.9%
   DX12 Frame/Text            avg  -9.5%  p50 -10.9%
 ```
 
-If there are no improvements: print `📈 IMPROVEMENTS  None`
+If there are no improvements: print `ðŸ“ˆ IMPROVEMENTS  None`
 
-#### 📉 Regressions (MANDATORY — always shown)
+#### ðŸ“‰ Regressions (MANDATORY â€” always shown)
 
-Print every 🔴 or 🟡 marker. For each, show avg and p50 side-by-side, then a verdict:
-- If avg regresses but p50 is stable/improving → label **"avg-only noise (stall)"**
-- If both avg and p50 regress → label **"REAL REGRESSION — investigate"**
+Print every ðŸ”´ or ðŸŸ¡ marker. For each, show avg and p50 side-by-side, then a verdict:
+- If avg regresses but p50 is stable/improving â†’ label **"avg-only noise (stall)"**
+- If both avg and p50 regress â†’ label **"REAL REGRESSION â€” investigate"**
 
 ```
-📉 REGRESSIONS
-  GL   Frame/Input            avg +36.3%  p50  +1.5%  → avg-only noise (stall)
-  DX11 Frame/Input            avg +20.1%  p50  -1.7%  → avg-only noise (stall)
-  DX12 Frame/Input            avg +243.6% p50  -1.6%  → avg-only noise (stall)
+ðŸ“‰ REGRESSIONS
+  GL   Frame/Input            avg +36.3%  p50  +1.5%  â†’ avg-only noise (stall)
+  DX11 Frame/Input            avg +20.1%  p50  -1.7%  â†’ avg-only noise (stall)
+  DX12 Frame/Input            avg +243.6% p50  -1.6%  â†’ avg-only noise (stall)
 ```
 
-If there are no regressions: print `📉 REGRESSIONS  None`
+If there are no regressions: print `ðŸ“‰ REGRESSIONS  None`
 
 #### Summary sentence
 
@@ -470,16 +470,16 @@ End with one sentence: *"X improvements, Y regressions (Z real, W noise)."*
 
 Then ask the user:
 ```
-Use ask_user tool:
-  question: "Performance summary above — acceptable to continue?"
+Use the available structured user-input mechanism:
+  question: "Performance summary above â€” acceptable to continue?"
   choices: ["Yes, continue", "No, abort commit"]
 ```
 
 If user says "No", exit with code 1 to abort. Otherwise continue to Step 6.5 (or Step 7 if bench is not in scope).
 
-### Step 6.5: Physics Benchmark (optional — only when scope includes bench)
+### Step 6.5: Physics Benchmark (optional â€” only when scope includes bench)
 
-Runs the 4-mode physics benchmark suite (GL renderer only — physics is CPU-side and
+Runs the 4-mode physics benchmark suite (GL renderer only â€” physics is CPU-side and
 renderer-independent) and writes `physics_bench.json` to the archive directory.
 
 ```pwsh
@@ -496,7 +496,7 @@ if (-not $archiveDir) { Write-Host "FAIL: Archive dir not found for $commit"; ex
 # Clean old bench CSVs
 Remove-Item "$REPO\Profile\*bench_perf_log.csv" -ErrorAction SilentlyContinue
 
-# Run all 4 bench scenes (GL only — physics is renderer-independent)
+# Run all 4 bench scenes (GL only â€” physics is renderer-independent)
 Write-Host "=== Running physics_bench.suite ==="
 $benchProc = Start-Process "$REPO\Profile\SKULLBONEZ_CORE.exe" `
     -ArgumentList "--vsync off --suite SkullbonezData/scenes/physics_bench.suite" `
@@ -527,11 +527,11 @@ foreach ($dir in ($allDirs | Sort-Object { [int]($_.Name -split '_',2)[0] } -Des
     if (Test-Path $candidate) { $prevBenchJson = $candidate; break }
 }
 
-# Run report — writes physics_bench.json to archive and prints table
+# Run report â€” writes physics_bench.json to archive and prints table
 $benchArgs = "--out-dir `"$archiveDir`""
 if ($prevBenchJson) { $benchArgs += " --previous `"$prevBenchJson`"" }
 Write-Host "`n=== Physics Bench Report ==="
-Invoke-Expression "py `"$REPO\Copilot\Skills\bench_report.py`" $benchArgs"
+Invoke-Expression "py `"$REPO\Agentic\Skills\bench_report.py`" $benchArgs"
 if ($LASTEXITCODE -ne 0) { Write-Host "FAIL: bench_report.py failed"; exit 1 }
 
 # Clean up temp files
@@ -539,12 +539,12 @@ Remove-Item "$REPO\Profile\bench_stdout.txt","$REPO\Profile\bench_stderr.txt" -E
 Write-Host "PASS: physics_bench.json written to $(Split-Path $archiveDir -Leaf)"
 ```
 
-### Step 6.75: Physics Regression Test (optional — only when scope includes regression)
+### Step 6.75: Physics Regression Test (optional â€” only when scope includes regression)
 
 Executable equivalent: `tools\validate_physics.bat`.
 
 Builds the Debug exe, runs the solver regression scene, and diffs the output CSV against the committed baseline.
-Physics logging is Debug-only (Log singleton is a no-op in Release/Profile). The scene uses `fixed_step` + `seed 42` for 1000 frames so output is **exactly** deterministic — any single differing byte is a real regression.
+Physics logging is Debug-only (Log singleton is a no-op in Release/Profile). The scene uses `fixed_step` + `seed 42` for 1000 frames so output is **exactly** deterministic â€” any single differing byte is a real regression.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
@@ -617,7 +617,7 @@ if ($LASTEXITCODE -ne 0) { Write-Host "FAIL: Physics regression test failed"; ex
 Write-Host "PASS: Physics regression test passed"
 ```
 
-**If regression fails**: The physics output changed. Investigate whether the change is intentional (physics bugfix, solver tuning) or a regression. If intentional, update the baselines by deleting the CSV files in `TestOutput/baselines/` and re-running — the script will recreate them.
+**If regression fails**: The physics output changed. Investigate whether the change is intentional (physics bugfix, solver tuning) or a regression. If intentional, update the baselines by deleting the CSV files in `TestOutput/baselines/` and re-running â€” the script will recreate them.
 
 **Note:** The Debug exe uses a window (same as Profile). It will open and close automatically when the scene finishes (`frames 1000` + exit on completion).
 
@@ -662,16 +662,16 @@ if ($LASTEXITCODE -ne 0) { Write-Host "FAIL: Archive step failed"; exit 1 }
 
 ### Step 8: Lines of Code
 
-Informational — logical LOC across `SkullbonezSource/` (excludes blanks and comments). Note the total in the commit message.
+Informational â€” logical LOC across `SkullbonezSource/` (excludes blanks and comments). Note the total in the commit message.
 
 ```pwsh
 $REPO = (git rev-parse --show-toplevel).Trim()
-py "$REPO\Copilot\Skills\loc_count.py"
+py "$REPO\Agentic\Skills\loc_count.py"
 ```
 
 ### Step 8.5: Update SessionState.md
 
-**Mandatory before every commit.** `Copilot/SessionState.md` is the handoff document between sessions — it must reflect the commit about to be made.
+**Mandatory before every commit.** `Agentic/SessionState.md` is the handoff document between sessions â€” it must reflect the commit about to be made.
 
 Update the following fields:
 - **Last commit**: set to the short SHA that will be created (use `git rev-parse --short HEAD` as a placeholder; amend after commit if needed)
@@ -680,16 +680,16 @@ Update the following fields:
 - **Known bugs / notes**: add any new findings, remove resolved items
 - **Uncommitted changes**: clear this section (everything is being committed)
 
-Use the `edit` tool to update `Copilot/SessionState.md` directly. Do not skip this step even for small commits.
+Use the `edit` tool to update `Agentic/SessionState.md` directly. Do not skip this step even for small commits.
 
 ### Step 9: Confirm Commit
 
 Show the proposed commit message and ask the user whether to proceed, **unless** the user explicitly said "commit" or "push" when invoking the pipeline.
 
-Show the proposed commit message and a brief summary of what changed (files staged, LOC delta), then use the `ask_user` tool:
+Show the proposed commit message and a brief summary of what changed (files staged, LOC delta), then Use the available structured user-input mechanism:
 
 ```
-Use ask_user tool:
+Use the available structured user-input mechanism:
   question: "Pipeline passed. Commit with the message above?"
   choices: ["Yes, commit and push", "Yes, commit (no push)", "No, hold off"]
 ```
@@ -706,32 +706,32 @@ cd $REPO
 git add -A
 git commit -m "<descriptive message>
 
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
+Co-authored-by: AI Agent <agent@example.invalid>"
 ```
 
 ### Step 11: Pipeline Summary Matrix
 
-**MANDATORY — always print this after all steps complete, regardless of whether a commit was made.**
+**MANDATORY â€” always print this after all steps complete, regardless of whether a commit was made.**
 
-Print the following table with a ✅ for every cell (the pipeline exits on first failure, so reaching this step means everything passed):
+Print the following table with a âœ… for every cell (the pipeline exits on first failure, so reaching this step means everything passed):
 
 ```
-╔══════════════════════════╦═════╦══════╦══════╗
-║ Step                     ║ GL  ║ DX11 ║ DX12 ║
-╠══════════════════════════╬═════╬══════╬══════╣
-║ 0: Format                ║  ✅  ║  ✅   ║  ✅   ║
-║ 2: Build                 ║  ✅  ║  ✅   ║  ✅   ║
-║ 3: Suite Run             ║  ✅  ║  ✅   ║  ✅   ║
-║ 3.5: Clean Log           ║  ✅  ║  ✅   ║  ✅   ║
-║ 4: Visual/Baseline       ║  ✅  ║  ✅   ║  ✅   ║
-║ 5: Ref Images            ║  ✅  ║  ✅   ║  ✅   ║
-║ 6: Perf                  ║  ✅  ║  ✅   ║  ✅   ║
-║ 6.5: Physics Bench       ║  ✅  ║  n/a  ║  n/a  ║
-║ 6.75: Physics Regression ║  ✅  ║  n/a  ║  n/a  ║
-║ 7: Archive               ║  ✅  ║  ✅   ║  ✅   ║
-║ 8: LOC                   ║  ✅  ║  ✅   ║  ✅   ║
-║ 8.5: SessionState        ║  ✅  ║  ✅   ║  ✅   ║
-╚══════════════════════════╩═════╩══════╩══════╝
+â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•¦â•â•â•â•â•â•¦â•â•â•â•â•â•â•¦â•â•â•â•â•â•â•—
+â•‘ Step                     â•‘ GL  â•‘ DX11 â•‘ DX12 â•‘
+â• â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•¬â•â•â•â•â•â•¬â•â•â•â•â•â•â•¬â•â•â•â•â•â•â•£
+â•‘ 0: Format                â•‘  âœ…  â•‘  âœ…   â•‘  âœ…   â•‘
+â•‘ 2: Build                 â•‘  âœ…  â•‘  âœ…   â•‘  âœ…   â•‘
+â•‘ 3: Suite Run             â•‘  âœ…  â•‘  âœ…   â•‘  âœ…   â•‘
+â•‘ 3.5: Clean Log           â•‘  âœ…  â•‘  âœ…   â•‘  âœ…   â•‘
+â•‘ 4: Visual/Baseline       â•‘  âœ…  â•‘  âœ…   â•‘  âœ…   â•‘
+â•‘ 5: Ref Images            â•‘  âœ…  â•‘  âœ…   â•‘  âœ…   â•‘
+â•‘ 6: Perf                  â•‘  âœ…  â•‘  âœ…   â•‘  âœ…   â•‘
+â•‘ 6.5: Physics Bench       â•‘  âœ…  â•‘  n/a  â•‘  n/a  â•‘
+â•‘ 6.75: Physics Regression â•‘  âœ…  â•‘  n/a  â•‘  n/a  â•‘
+â•‘ 7: Archive               â•‘  âœ…  â•‘  âœ…   â•‘  âœ…   â•‘
+â•‘ 8: LOC                   â•‘  âœ…  â•‘  âœ…   â•‘  âœ…   â•‘
+â•‘ 8.5: SessionState        â•‘  âœ…  â•‘  âœ…   â•‘  âœ…   â•‘
+â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•©â•â•â•â•â•â•©â•â•â•â•â•â•â•©â•â•â•â•â•â•â•
 ```
 
-Note: Step 6.5 only appears in the matrix when scope includes physics bench. Print `(skipped)` in place of ✅ when not in scope.
+Note: Step 6.5 only appears in the matrix when scope includes physics bench. Print `(skipped)` in place of âœ… when not in scope.
