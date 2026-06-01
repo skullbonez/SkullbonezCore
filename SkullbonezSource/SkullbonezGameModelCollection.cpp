@@ -26,9 +26,11 @@ GameModelCollection::GameModelCollection()
     m_gameModels.reserve( MAX_GAME_MODELS );
     m_timeRemaining.reserve( MAX_GAME_MODELS );
     m_groundedThisFrame.reserve( MAX_GAME_MODELS );
+    m_sleepInhibitedThisFrame.reserve( MAX_GAME_MODELS );
     m_persistentContacts.reserve( MAX_GAME_MODELS * 4 );
     m_persistentContactCache.reserve( MAX_GAME_MODELS * 4 );
     m_persistentContactCounts.reserve( MAX_GAME_MODELS );
+    m_solverBodies.reserve( MAX_GAME_MODELS );
     m_shadowInstanceData.reserve( MAX_GAME_MODELS * SHADOW_INSTANCE_FLOATS );
 };
 
@@ -55,11 +57,13 @@ void GameModelCollection::Clear()
     m_gameModels.clear();
     m_timeRemaining.clear();
     m_groundedThisFrame.clear();
+    m_sleepInhibitedThisFrame.clear();
     m_sleepState.clear();
     m_sleepCounter.clear();
     m_persistentContacts.clear();
     m_persistentContactCache.clear();
     m_persistentContactCounts.clear();
+    m_solverBodies.clear();
 }
 
 
@@ -237,6 +241,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     const int modelCount = static_cast<int>( m_gameModels.size() );
     m_timeRemaining.assign( modelCount, fChangeInTime );
     m_groundedThisFrame.assign( modelCount, 0 );
+    m_sleepInhibitedThisFrame.assign( modelCount, 0 );
 
     // Ensure sleep state vectors are sized (persists across frames)
     if ( static_cast<int>( m_sleepState.size() ) != modelCount )
@@ -263,7 +268,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     {
         if ( m_physicsLogFrame == 0 )
         {
-            Log().Writef( m_physicsLogPath, "frame,idx,name,posX,posY,posZ,velX,velY,velZ,speed,omegaX,omegaY,omegaZ,omegaMag,grounded\n" );
+            Log().Writef( m_physicsLogPath, "frame,idx,name,posX,posY,posZ,velX,velY,velZ,speed,omegaX,omegaY,omegaZ,omegaMag,qX,qY,qZ,qW,grounded,sleeping,sleepInhibited\n" );
         }
         for ( int i = 0; i < modelCount; ++i )
         {
@@ -271,10 +276,17 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
             const Vector3& pos = m_gameModels[i].GetPosition();
             const Vector3& vel = m_gameModels[i].GetVelocity();
             const Vector3& omega = m_gameModels[i].GetAngularVelocity();
+            float qx = 0.0f;
+            float qy = 0.0f;
+            float qz = 0.0f;
+            float qw = 1.0f;
+            m_gameModels[i].GetOrientation().GetComponents( qx, qy, qz, qw );
             float speed = sqrtf( vel.x * vel.x + vel.y * vel.y + vel.z * vel.z );
             float omegaMag = sqrtf( omega.x * omega.x + omega.y * omega.y + omega.z * omega.z );
             int grounded = m_groundedThisFrame[i];
-            Log().Writef( m_physicsLogPath, "%d,%d,%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%d\n", m_physicsLogFrame, i, name, pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, speed, omega.x, omega.y, omega.z, omegaMag, grounded );
+            int sleeping = ( i < static_cast<int>( m_sleepState.size() ) ) ? m_sleepState[i] : 0;
+            int sleepInhibited = ( i < static_cast<int>( m_sleepInhibitedThisFrame.size() ) ) ? m_sleepInhibitedThisFrame[i] : 0;
+            Log().Writef( m_physicsLogPath, "%d,%d,%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.6f,%.6f,%.6f,%.6f,%d,%d,%d\n", m_physicsLogFrame, i, name, pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, speed, omega.x, omega.y, omega.z, omegaMag, qx, qy, qz, qw, grounded, sleeping, sleepInhibited );
         }
         ++m_physicsLogFrame;
     }
@@ -435,6 +447,27 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts" );
 
+    // CATTO REF:
+    //   This whole pass is the engine's closest match to Catto 2005,
+    //   Agentic/Reference/ErinCatto_IterativeDynamics_GDC2005.pdf:
+    //     - Section 4, PDF p. 9: contact point + normal model.
+    //     - Section 6, PDF p. 14, Equations 34-35: time-stepped constraint
+    //       system JB*lambda = eta.
+    //     - Section 7.2, PDF pp. 16-17, Algorithm 4: Projected Gauss-Seidel
+    //       over bounded lambda values.
+    //     - Section 8, PDF pp. 18-19, Algorithm 5: cache lambda per contact
+    //       identifier and reuse it as the next frame's initial guess.
+    // REASON:
+    //   One-shot collision impulses are good for impacts but poor at quiet
+    //   support. Catto's temporal coherence lets resting contacts remember the
+    //   support impulse they converged to last frame, so stacks and touching
+    //   bodies do not rediscover support from zero every tick.
+    //
+    // ENGINE-SPECIFIC / NOVEL:
+    //   Object-object narrowphase still uses bounding radii, so each pair has a
+    //   single fallback contact feature. The cache and PGS row shape are Catto;
+    //   this contact generator is a temporary Skullbonez approximation until true
+    //   box/sphere/box manifolds exist.
     // This pass handles the quiet case that old one-shot impulses were bad at:
     // balls already touching each other, especially a ball resting on another ball.
     // Instead of waiting for a fresh "impact", we build contact rules for pairs
@@ -451,66 +484,162 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     m_persistentContacts.clear();
     m_persistentContactCounts.assign( modelCount, 0 );
 
+    // ENGINE-SPECIFIC:
+    //   Catto's normal constraint allows penetration and uses bias to resolve
+    //   it (PDF p. 9 Section 4; PDF p. 10 Equation 20). This slop is local
+    //   tolerance policy: tiny residual overlap is ignored so resting contacts
+    //   do not jitter while chasing floating-point dust.
     // Small allowed overlap. Without this tolerance, floating-point noise makes
     // the solver chase microscopic errors and resting balls visibly tremble.
     constexpr float contactSlop = 0.005f;
 
+    // CATTO REF:
+    //   Catto 2005, PDF p. 8, Section 3.6, Equation 15 and PDF p. 10,
+    //   Section 4.2, Equation 20. Reason: convert penetration error into a
+    //   target separating velocity so overlap decays over several frames.
     // Baumgarte bias is a gentle "please separate" velocity for bodies that are
     // already interpenetrating. It removes overlap over several ticks instead of
     // teleporting everything apart in one harsh correction.
     constexpr float baumgarteBeta = 0.2f;
 
+    // ENGINE-SPECIFIC / NOVEL:
+    //   Catto uses the bias term for penetration correction. This partial
+    //   post-solve nudge is local visual cleanup for the current approximate
+    //   object manifolds; it is intentionally partial so stacks do not pop.
     // A final direct positional nudge catches the remaining overlap after the
     // velocity solve. The percent is deliberately partial so stacks do not pop.
     constexpr float positionCorrectionPercent = 0.35f;
 
+    // CATTO REF:
+    //   Catto 2005, PDF p. 15, Section 7, and PDF pp. 16-17, Section 7.2,
+    //   Algorithm 4. Reason: repeat cheap row solves until the coupled contact
+    //   system is visually good enough.
     // Projected Gauss-Seidel works by revisiting every contact repeatedly. Each
     // visit improves the answer a little; twelve passes is a compromise between
     // stack stability and keeping the physics hot path affordable.
     constexpr int solverIterations = 12;
     const float invDt = ( dt > TOLERANCE ) ? ( 1.0f / dt ) : 120.0f;
 
-    // Catto's cache needs a stable name for "body A touching body B". The pair
-    // key is order-independent, so A/B and B/A find the same remembered impulse.
-    auto makeKey = []( int a, int b ) -> int64_t
+    // CATTO REF:
+    //   Catto 2005, PDF pp. 18-19, Section 8.1/8.2 and Algorithm 5 store lambda
+    //   with a contact identifier and retrieve it for matching contacts next
+    //   frame.
+    // ENGINE-SPECIFIC:
+    //   This key is a compact pair+feature id. Bounding-sphere fallback contacts
+    //   use feature 0; future manifold rows can assign real feature ids.
+    // Catto's cache needs a stable name for "body A touching body B at this
+    // contact feature".  The current bounding-sphere fallback has one feature
+    // per pair; box manifolds can later assign distinct feature ids per row.
+    auto makeKey = []( int a, int b, uint32_t featureId ) -> int64_t
     {
         int lo = ( a < b ) ? a : b;
         int hi = ( a < b ) ? b : a;
-        return ( static_cast<int64_t>( lo ) << 32 ) | static_cast<unsigned int>( hi );
+        uint64_t packed = ( static_cast<uint64_t>( static_cast<uint32_t>( lo ) ) << 40 ) |
+                          ( static_cast<uint64_t>( static_cast<uint32_t>( hi ) ) << 16 ) |
+                          static_cast<uint64_t>( featureId & 0xffffu );
+        return static_cast<int64_t>( packed );
     };
 
-    // Inertia is rotational mass. Applying an off-center push changes spin as
-    // well as linear velocity; inverse inertia converts contact torque into the
-    // amount of angular velocity change it should cause.
+    m_solverBodies.assign( modelCount, SolverBodyState() );
+    // CATTO REF:
+    //   Catto 2005, PDF p. 7, Algorithms 1-2 and PDF p. 16, Algorithm 4 work on
+    //   sparse body velocity blocks. Algorithm 4 names the mutable velocity-like
+    //   work vector "a".
+    // ENGINE-SPECIFIC / NOVEL:
+    //   We keep compact per-body solver state here and write back once after PGS.
+    //   That preserves Catto's sparse-row shape while avoiding repeated GameModel
+    //   getter/setter churn inside the row loop.
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        GameModel& model = m_gameModels[i];
+        SolverBodyState& body = m_solverBodies[i];
+        body.linearVelocity = model.GetVelocity();
+        body.angularVelocity = model.GetAngularVelocity();
+        body.invMass = model.GetInvertedMass();
+        body.invInertia = model.GetInvertedRotationalInertia();
+        body.useWorldInertia = model.IsBox();
+        if ( body.useWorldInertia )
+        {
+            Quaternion orientation = model.GetOrientation();
+            body.orientation = orientation.GetOrientationMatrix();
+        }
+    }
+
+    auto clampFrictionVector = []( float& accT1, float& accT2, float limit )
+    {
+        // ENGINE-SPECIFIC / NOVEL:
+        //   Catto 2005, PDF p. 12, Equations 24-25 clamp u1/u2 independently.
+        //   That is simple and robust, but in 3D it permits diagonal tangent
+        //   magnitude up to sqrt(2)*limit. This helper clamps the two tangent
+        //   accumulators as one 2D cone, preserving the same friction budget in
+        //   every tangent direction.
+        float limitSq = limit * limit;
+        float magSq = accT1 * accT1 + accT2 * accT2;
+        if ( magSq > limitSq && magSq > TOLERANCE * TOLERANCE )
+        {
+            float scale = limit / sqrtf( magSq );
+            accT1 *= scale;
+            accT2 *= scale;
+        }
+    };
+
+    if ( m_persistentContactCache.size() > 1 )
+    {
+        std::sort( m_persistentContactCache.begin(),
+                   m_persistentContactCache.end(),
+                   []( const PersistentContactCacheEntry& lhs, const PersistentContactCacheEntry& rhs )
+                   {
+                       return lhs.key < rhs.key;
+                   } );
+    }
+
+    // CATTO REF:
+    //   Catto 2005, PDF p. 12, Section 5, unnumbered inertia transform before
+    //   Equations 26-28: I_world^-1 = R * I_body^-1 * R^T.
+    // Inertia is rotational mass. Boxes need world-space inertia because their
+    // local inertia axes rotate with orientation; spheres remain isotropic.
     auto applyInvInertia = [&]( int body, const Vector3& v ) -> Vector3
     {
-        return Vector::VectorMultiply( m_gameModels[body].GetInvertedRotationalInertia(), v );
+        const SolverBodyState& solverBody = m_solverBodies[body];
+        if ( !solverBody.useWorldInertia )
+        {
+            return Vector::VectorMultiply( solverBody.invInertia, v );
+        }
+
+        Vector3 bodyV = solverBody.orientation.TransposeMultiply( v );
+        return solverBody.orientation * Vector::VectorMultiply( solverBody.invInertia, bodyV );
     };
 
+    // CATTO REF:
+    //   Catto 2005, PDF p. 5, Section 3.3, Equation 7 says constraint forces are
+    //   Fc = J^T*lambda. PDF p. 8, Algorithm 2 shows accumulating those row
+    //   contributions into body force/torque blocks.
+    // REASON:
+    //   Applying an impulse to a contact row changes linear velocity by
+    //   invMass*impulse and angular velocity by I^-1*(r cross impulse). Body A
+    //   receives the opposite impulse from body B.
     // Apply one impulse to both bodies using Newton's third law: equal and
     // opposite pushes. A receives -impulse, B receives +impulse. The cross
     // products turn off-center pushes into spin changes.
     auto applyImpulse = [&]( const PersistentContact& c, const Vector3& impulse )
     {
-        GameModel& a = m_gameModels[c.bodyA];
-        GameModel& b = m_gameModels[c.bodyB];
+        SolverBodyState& a = m_solverBodies[c.bodyA];
+        SolverBodyState& b = m_solverBodies[c.bodyB];
 
-        Vector3 velA = a.GetVelocity();
-        Vector3 velB = b.GetVelocity();
-        Vector3 omegaA = a.GetAngularVelocity();
-        Vector3 omegaB = b.GetAngularVelocity();
-
-        velA -= impulse * a.GetInvertedMass();
-        velB += impulse * b.GetInvertedMass();
-        omegaA -= applyInvInertia( c.bodyA, Vector::CrossProduct( c.rA, impulse ) );
-        omegaB += applyInvInertia( c.bodyB, Vector::CrossProduct( c.rB, impulse ) );
-
-        a.SetLinearVelocity( velA );
-        b.SetLinearVelocity( velB );
-        a.SetAngularVelocity( omegaA );
-        b.SetAngularVelocity( omegaB );
+        a.linearVelocity -= impulse * a.invMass;
+        b.linearVelocity += impulse * b.invMass;
+        a.angularVelocity -= applyInvInertia( c.bodyA, Vector::CrossProduct( c.rA, impulse ) );
+        b.angularVelocity += applyInvInertia( c.bodyB, Vector::CrossProduct( c.rB, impulse ) );
     };
 
+    // CATTO REF:
+    //   Catto 2005, PDF p. 9, Section 4 "Contact Model" and Equation 16 require
+    //   a contact point, a normal, and separation/penetration for each row.
+    // ENGINE-SPECIFIC / NOVEL:
+    //   The current object narrowphase uses bounding radii, so we synthesize one
+    //   center-to-center contact point per overlapping pair. This is not Catto's
+    //   box clipping/contact manifold from PDF pp. 19-20; it is a compatibility
+    //   bridge for the existing broadphase/narrowphase.
     // First pass: turn broadphase candidate pairs into contact rows. The current
     // narrowphase only has bounding spheres for object-object contacts, so this
     // extrapolates the 2D paper to 3D by using the center-to-center direction as
@@ -556,12 +685,16 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         Vector3 pointB = posB - normal * radiusB;
         Vector3 contactPoint = ( pointA + pointB ) * 0.5f;
 
+        // CATTO REF:
+        //   rA/rB are the r1/r2 contact arms in Catto 2005, PDF p. 6,
+        //   Equations 9-11 and PDF p. 9, Equations 16-18.
         // rA/rB are the small arms from each center to the contact point. They
         // are what let the same contact impulse both move and spin a ball.
         PersistentContact c;
         c.bodyA = aIndex;
         c.bodyB = bIndex;
-        c.key = makeKey( aIndex, bIndex );
+        c.featureId = 0; // One contact for the bounding-sphere fallback.
+        c.key = makeKey( aIndex, bIndex, c.featureId );
         c.normal = normal;
         c.rA = contactPoint - posA;
         c.rB = contactPoint - posB;
@@ -587,13 +720,22 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     }
 
     // Second pass: precompute each row. This is the "setup" part of the paper:
+    // CATTO REF:
+    //   Catto 2005, PDF p. 17, Algorithm 4 initializes d_i from Jsp*Bsp before
+    //   iteration. PDF p. 14, Equations 34-35 define B = M^-1*J^T. The code
+    //   below expands that sparse matrix math into scalar effective masses.
     // build friction axes, effective masses, bias, friction limits, and pull the
     // previous frame's accumulated impulses from the cache.
     for ( PersistentContact& c : m_persistentContacts )
     {
         GameModel& a = m_gameModels[c.bodyA];
         GameModel& b = m_gameModels[c.bodyB];
+        const SolverBodyState& bodyA = m_solverBodies[c.bodyA];
+        const SolverBodyState& bodyB = m_solverBodies[c.bodyB];
 
+        // CATTO REF:
+        //   Catto 2005, PDF pp. 11-12, Section 4.3, Equations 21-23 use two
+        //   tangent directions u1/u2 perpendicular to the contact normal.
         // The normal is only one direction. In 3D, sliding can happen in any
         // sideways direction, so we create two perpendicular sideways axes.
         if ( fabsf( c.normal.x ) > 0.9f )
@@ -612,35 +754,46 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         }
         c.tangent2 = Vector::CrossProduct( c.normal, c.tangent1 );
 
+        // CATTO REF:
+        //   Catto 2005, PDF p. 17, Algorithm 4 computes d_i = J_i*B_i. With
+        //   B = M^-1*J^T from PDF p. 14, Equations 34-35, this becomes the
+        //   familiar point-contact effective mass:
+        //       axis dot ((I^-1 * (r cross axis)) cross r) plus invMass terms.
         // Effective mass says how stubborn this contact is. A light ball pushed
         // through its center moves easily; a heavy or off-center body resists more
         // because some of the push also has to rotate it.
         Vector3 rAxN = Vector::CrossProduct( c.rA, c.normal );
         Vector3 rBxN = Vector::CrossProduct( c.rB, c.normal );
-        float kNormal = a.GetInvertedMass() + b.GetInvertedMass() +
+        float kNormal = bodyA.invMass + bodyB.invMass +
                         c.normal * Vector::CrossProduct( applyInvInertia( c.bodyA, rAxN ), c.rA ) +
                         c.normal * Vector::CrossProduct( applyInvInertia( c.bodyB, rBxN ), c.rB );
         c.normalMass = ( kNormal > TOLERANCE ) ? ( 1.0f / kNormal ) : 0.0f;
 
         Vector3 rAxT1 = Vector::CrossProduct( c.rA, c.tangent1 );
         Vector3 rBxT1 = Vector::CrossProduct( c.rB, c.tangent1 );
-        float kT1 = a.GetInvertedMass() + b.GetInvertedMass() +
+        float kT1 = bodyA.invMass + bodyB.invMass +
                     c.tangent1 * Vector::CrossProduct( applyInvInertia( c.bodyA, rAxT1 ), c.rA ) +
                     c.tangent1 * Vector::CrossProduct( applyInvInertia( c.bodyB, rBxT1 ), c.rB );
         c.tangentMass1 = ( kT1 > TOLERANCE ) ? ( 1.0f / kT1 ) : 0.0f;
 
         Vector3 rAxT2 = Vector::CrossProduct( c.rA, c.tangent2 );
         Vector3 rBxT2 = Vector::CrossProduct( c.rB, c.tangent2 );
-        float kT2 = a.GetInvertedMass() + b.GetInvertedMass() +
+        float kT2 = bodyA.invMass + bodyB.invMass +
                     c.tangent2 * Vector::CrossProduct( applyInvInertia( c.bodyA, rAxT2 ), c.rA ) +
                     c.tangent2 * Vector::CrossProduct( applyInvInertia( c.bodyB, rBxT2 ), c.rB );
         c.tangentMass2 = ( kT2 > TOLERANCE ) ? ( 1.0f / kT2 ) : 0.0f;
 
-        Vector3 velA = a.GetVelocity() + Vector::CrossProduct( a.GetAngularVelocity(), c.rA );
-        Vector3 velB = b.GetVelocity() + Vector::CrossProduct( b.GetAngularVelocity(), c.rB );
+        Vector3 velA = bodyA.linearVelocity + Vector::CrossProduct( bodyA.angularVelocity, c.rA );
+        Vector3 velB = bodyB.linearVelocity + Vector::CrossProduct( bodyB.angularVelocity, c.rB );
         float vn = ( velB - velA ) * c.normal;
         float restitution = sqrtf( a.GetCoefficientRestitution() * b.GetCoefficientRestitution() );
 
+        // CATTO REF:
+        //   Catto 2005, PDF p. 8, Section 3.6, Equation 15 and PDF p. 10,
+        //   Section 4.2, Equation 20 provide the contact bias idea.
+        // ENGINE NOTE:
+        //   Restitution for impacts is conventional game-physics impact response;
+        //   Baumgarte bias is the Catto-derived resting overlap correction.
         // Bias has two jobs. On a real impact it is bounce. On a resting overlap
         // it is a small separating velocity that decays the overlap smoothly.
         c.bias = 0.0f;
@@ -662,24 +815,41 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         float contactMassA = a.GetMass() / static_cast<float>( countA );
         float contactMassB = b.GetMass() / static_cast<float>( countB );
         float contactMass = ( contactMassA < contactMassB ) ? contactMassA : contactMassB;
+        // CATTO REF:
+        //   Catto 2005, PDF p. 12, Section 4.3, Equations 24-25 bound tangent
+        //   lambdas by +/-mu*m_c*g. Reason: avoid coupling tangent friction to
+        //   solved normal force while keeping static friction usable in games.
         c.frictionLimit = Cfg().frictionCoeff * contactMass * fabsf( Cfg().gravity ) * dt;
 
-        // Warm starting: if this same pair was touching last frame, start from
-        // the old solution instead of zero. This is the paper's key ingredient
-        // for stacking, because support forces are almost unchanged frame to frame.
-        for ( const PersistentContactCacheEntry& cached : m_persistentContactCache )
-        {
-            if ( cached.key == c.key )
+        // CATTO REF:
+        //   Catto 2005, PDF pp. 18-19, Section 8.1 and Algorithm 5. Reason:
+        //   retrieve cached lambda for matching contact identifiers and use it
+        //   as the initial lambda_0 for Algorithm 4.
+        // Warm starting: if this same pair+feature was touching last frame,
+        // start from the old solution instead of zero.  The cache is sorted so
+        // lookup does not linearly scan every previous-frame contact.
+        auto cachedIt = std::lower_bound(
+            m_persistentContactCache.begin(),
+            m_persistentContactCache.end(),
+            c.key,
+            []( const PersistentContactCacheEntry& entry, int64_t key )
             {
-                c.accN = ( cached.accN > 0.0f ) ? cached.accN : 0.0f;
-                c.accT1 = std::clamp( cached.accT1, -c.frictionLimit, c.frictionLimit );
-                c.accT2 = std::clamp( cached.accT2, -c.frictionLimit, c.frictionLimit );
-                break;
-            }
+                return entry.key < key;
+            } );
+        if ( cachedIt != m_persistentContactCache.end() && cachedIt->key == c.key )
+        {
+            c.accN = ( cachedIt->accN > 0.0f ) ? cachedIt->accN : 0.0f;
+            c.accT1 = cachedIt->accT1;
+            c.accT2 = cachedIt->accT2;
+            clampFrictionVector( c.accT1, c.accT2, c.frictionLimit );
         }
 
         if ( c.accN > 0.0f || fabsf( c.accT1 ) > 0.0f || fabsf( c.accT2 ) > 0.0f )
         {
+            // CATTO REF:
+            //   Catto 2005, PDF p. 17, Algorithm 4 initializes a = B*lambda.
+            //   In this implementation, "a" is represented by the mutable solver
+            //   velocities, so cached lambda must be applied before iteration.
             // Cached impulses are not just bookkeeping: they must be applied to
             // the bodies before iteration starts, otherwise the solver would clamp
             // against a pretend push that never actually happened.
@@ -688,6 +858,12 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         }
     }
 
+    // Third pass: Projected Gauss-Seidel.
+    // CATTO REF:
+    //   Catto 2005, PDF pp. 16-17, Section 7.2, Algorithm 4. Reason: compute a
+    //   lambda increment per row, clamp accumulated lambda to the row's bounds,
+    //   then apply only the actual delta so the running velocity state remains
+    //   consistent with B*lambda.
     // Third pass: Projected Gauss-Seidel. Each contact computes the extra impulse
     // needed to reduce its current violation, adds that to the accumulated total,
     // clamps the total to valid bounds, then applies only the difference.
@@ -696,51 +872,76 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         float iterImpulseSq = 0.0f;
         for ( PersistentContact& c : m_persistentContacts )
         {
-            GameModel& a = m_gameModels[c.bodyA];
-            GameModel& b = m_gameModels[c.bodyB];
+            SolverBodyState& a = m_solverBodies[c.bodyA];
+            SolverBodyState& b = m_solverBodies[c.bodyB];
 
-            Vector3 velA = a.GetVelocity() + Vector::CrossProduct( a.GetAngularVelocity(), c.rA );
-            Vector3 velB = b.GetVelocity() + Vector::CrossProduct( b.GetAngularVelocity(), c.rB );
+            Vector3 velA = a.linearVelocity + Vector::CrossProduct( a.angularVelocity, c.rA );
+            Vector3 velB = b.linearVelocity + Vector::CrossProduct( b.angularVelocity, c.rB );
             float vn = ( velB - velA ) * c.normal;
             float lambdaN = c.normalMass * ( c.bias - vn );
             float oldAccN = c.accN;
 
+            // CATTO REF:
+            //   Catto 2005, PDF p. 8, Section 3.5, Equation 14 and PDF p. 9,
+            //   Equation 19 set the normal lower bound to zero.
             // Normal impulses are one-way. Contacts can push bodies apart, but
             // they cannot glue bodies together, so the accumulated value is >= 0.
             c.accN = ( oldAccN + lambdaN > 0.0f ) ? oldAccN + lambdaN : 0.0f;
             float deltaN = c.accN - oldAccN;
             applyImpulse( c, c.normal * deltaN );
 
-            velA = a.GetVelocity() + Vector::CrossProduct( a.GetAngularVelocity(), c.rA );
-            velB = b.GetVelocity() + Vector::CrossProduct( b.GetAngularVelocity(), c.rB );
+            velA = a.linearVelocity + Vector::CrossProduct( a.angularVelocity, c.rA );
+            velB = b.linearVelocity + Vector::CrossProduct( b.angularVelocity, c.rB );
             float vt1 = ( velB - velA ) * c.tangent1;
-            float lambdaT1 = c.tangentMass1 * ( -vt1 );
-            float oldAccT1 = c.accT1;
-
-            // Friction can push either sideways direction, but only up to the
-            // contact's friction budget. Past this clamp the bodies are sliding.
-            c.accT1 = std::clamp( oldAccT1 + lambdaT1, -c.frictionLimit, c.frictionLimit );
-            float deltaT1 = c.accT1 - oldAccT1;
-            applyImpulse( c, c.tangent1 * deltaT1 );
-
-            velA = a.GetVelocity() + Vector::CrossProduct( a.GetAngularVelocity(), c.rA );
-            velB = b.GetVelocity() + Vector::CrossProduct( b.GetAngularVelocity(), c.rB );
             float vt2 = ( velB - velA ) * c.tangent2;
+            float lambdaT1 = c.tangentMass1 * ( -vt1 );
             float lambdaT2 = c.tangentMass2 * ( -vt2 );
+            float oldAccT1 = c.accT1;
             float oldAccT2 = c.accT2;
-            c.accT2 = std::clamp( oldAccT2 + lambdaT2, -c.frictionLimit, c.frictionLimit );
+
+            // ENGINE-SPECIFIC / NOVEL:
+            //   Catto clamps tangent lambdas independently in PDF p. 12,
+            //   Equations 24-25. Skullbonez instead clamps the two accumulated
+            //   tangent lambdas as a vector so diagonal friction cannot exceed
+            //   the intended budget.
+            // Clamp the two tangent accumulators as one 2D friction cone.  The
+            // old per-axis clamp allowed diagonal friction to exceed the budget.
+            c.accT1 = oldAccT1 + lambdaT1;
+            c.accT2 = oldAccT2 + lambdaT2;
+            clampFrictionVector( c.accT1, c.accT2, c.frictionLimit );
+            float deltaT1 = c.accT1 - oldAccT1;
             float deltaT2 = c.accT2 - oldAccT2;
-            applyImpulse( c, c.tangent2 * deltaT2 );
+            applyImpulse( c, c.tangent1 * deltaT1 + c.tangent2 * deltaT2 );
 
             iterImpulseSq += deltaN * deltaN + deltaT1 * deltaT1 + deltaT2 * deltaT2;
         }
 
+        // ENGINE-SPECIFIC / NOVEL:
+        //   Catto lists residual/delta-based termination as a possible
+        //   Gauss-Seidel criterion on PDF p. 15, Section 7.1, then uses fixed
+        //   iterations for simplicity. This deterministic early-out is a local
+        //   optimization using total squared impulse delta.
         if ( iterImpulseSq < 1.0e-6f )
         {
             break;
         }
     }
 
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        if ( m_sleepState[i] )
+        {
+            continue;
+        }
+
+        m_gameModels[i].SetLinearVelocity( m_solverBodies[i].linearVelocity );
+        m_gameModels[i].SetAngularVelocity( m_solverBodies[i].angularVelocity );
+    }
+
+    // ENGINE-SPECIFIC / NOVEL:
+    //   Catto's Baumgarte bias handles overlap through velocity-level constraint
+    //   correction. This partial positional correction is local cleanup for the
+    //   current approximate object contacts.
     // Fourth pass: remove any visible leftover overlap. The velocity solver does
     // most of the work, but this direct correction keeps persistent contacts from
     // sinking deeper into each other over many frames.
@@ -766,6 +967,10 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         b.SetPosition( b.GetPosition() + correction * invMassB );
     }
 
+    // CATTO REF:
+    //   Catto 2005, PDF pp. 18-19, Section 8.1 and Algorithm 5: destroy the old
+    //   contact cache, create a new one, and store lambda plus the contact
+    //   identifier for the next frame.
     // Final pass: store this frame's accumulated pushes for next frame. This is
     // why a settled stack can remain settled; it does not have to rediscover from
     // scratch how much support force each contact needs every tick.
@@ -783,6 +988,15 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         cached.accT1 = c.accT1;
         cached.accT2 = c.accT2;
         m_persistentContactCache.push_back( cached );
+    }
+    if ( m_persistentContactCache.size() > 1 )
+    {
+        std::sort( m_persistentContactCache.begin(),
+                   m_persistentContactCache.end(),
+                   []( const PersistentContactCacheEntry& lhs, const PersistentContactCacheEntry& rhs )
+                   {
+                       return lhs.key < rhs.key;
+                   } );
     }
 }
 
@@ -930,8 +1144,12 @@ void GameModelCollection::RunSolverPhysics( float dt )
         if ( m_gameModels[x].IsResponseRequired() )
         {
             m_gameModels[x].UpdatePosition( colTime );
-            m_gameModels[x].CollisionResponseTerrain( m_timeRemaining[x] - colTime );
+            bool contactSupportsSleep = m_gameModels[x].CollisionResponseTerrain( m_timeRemaining[x] - colTime );
             m_groundedThisFrame[x] = 1;
+            if ( !contactSupportsSleep )
+            {
+                m_sleepInhibitedThisFrame[x] = 1;
+            }
             m_timeRemaining[x] = 0.0f;
         }
     }
@@ -959,7 +1177,10 @@ void GameModelCollection::RunSolverPhysics( float dt )
         float speedSq = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
         float omegaSq = omega.x * omega.x + omega.y * omega.y + omega.z * omega.z;
 
-        if ( speedSq < SLEEP_LINEAR_SQ && omegaSq < SLEEP_ANGULAR_SQ && m_groundedThisFrame[x] )
+        if ( speedSq < SLEEP_LINEAR_SQ &&
+             omegaSq < SLEEP_ANGULAR_SQ &&
+             m_groundedThisFrame[x] &&
+             !m_sleepInhibitedThisFrame[x] )
         {
             if ( m_sleepCounter[x] < SLEEP_FRAMES )
             {

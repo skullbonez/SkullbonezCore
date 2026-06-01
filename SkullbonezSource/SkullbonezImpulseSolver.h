@@ -19,32 +19,22 @@ namespace Physics
 /* -- ImpulseSolver -----------------------------------------------------------------------------------------------------------------------------------------------
 
     Unified sequential impulse solver (Erin Catto / Box2D / Bullet style).
-    Handles both spheres and boxes against terrain, and sphere-sphere collisions
-    with friction-based spin transfer.
+    Handles both spheres and boxes against terrain, plus object-object contacts
+    through the shared contact-point impulse path.
 
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class ImpulseSolver
 {
 
   private:
-    // 1D elastic collision formula projected along the collision normal (momentum + restitution).
-    // e combined via geometric mean sqrt(e1*e2) so a fully inelastic body dominates.
     static void SphereVsSphereLinear( GameModel& gameModel1, GameModel& gameModel2, const Vector3& collisionNormal );
-
-    // Coulomb friction-based spin transfer at the sphere-sphere contact point.
-    // For spheres r × n = 0, so normal impulses carry no torque; all spin change comes from tangential friction.
-    // Δω = I⁻¹ * (r × J_friction)
     static void SphereVsSphereAngular( GameModel& gameModel1, GameModel& gameModel2, const Vector3& collisionNormal );
-
-    // Returns unit vector from gameModel1's bounding volume centre to gameModel2's (the contact normal for sphere pairs).
     static Vector3 GetCollisionNormalSphereVsSphere( GameModel& gameModel1, GameModel& gameModel2 );
-
-    // World-space bounding volume centre: body_position + R * local_offset
     static Vector3 GetCollidedObjectWorldPosition( GameModel& gameModel );
 
   public:
-    static void RespondCollisionTerrain( GameModel& gameModel, float changeInTime );        // Unified sphere+box terrain response (sequential impulse solver)
-    static void RespondCollisionGameModels( GameModel& gameModel1, GameModel& gameModel2 ); // Sphere-sphere (and mixed) game model response
+    static bool RespondCollisionTerrain( GameModel& gameModel, float changeInTime );        // Unified sphere+box terrain response; returns true when contact can sleep
+    static void RespondCollisionGameModels( GameModel& gameModel1, GameModel& gameModel2 ); // Object-object response through contact normal and tangent friction impulses
 };
 } // namespace Physics
 } // namespace SkullbonezCore

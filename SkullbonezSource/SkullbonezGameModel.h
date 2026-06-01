@@ -103,7 +103,7 @@ class GameModel
     void UpdatePosition( float changeInTime );                                          // Update the models position based on its current physicsInfo
     void SetTerrain( Geometry::Terrain* pTerrain );                                     // Sets the terrain pointer
     float CollisionDetectTerrain( float changeInTime );                                 // Collision detect model against terrain
-    void CollisionResponseTerrain( float changeInTime );                                // Collision response model against terrain
+    bool CollisionResponseTerrain( float changeInTime );                                // Collision response model against terrain; false means contact should stay awake
     void SetImpulseForce( const Vector3& vForce, const Vector3& vApplicationPoint );    // Sets an impulse force for the model
     void SetCoefficientRestitution( float fCoefficientRestitution );                    // Sets the coefficient of restitution for the game model
     void SetWorldForce( const Vector3& vWorldForce, const Vector3& vWorldTorque );      // Sets the worlds forces acting on the model

@@ -297,7 +297,7 @@ void GameModel::StaticOverlapResponseGameModel( GameModel& overlapTarget )
 }
 
 
-void GameModel::CollisionResponseTerrain( float remainingTimeStep )
+bool GameModel::CollisionResponseTerrain( float remainingTimeStep )
 {
     // if there has been no collision, throw an exception!
     if ( !m_isResponseRequired )
@@ -306,13 +306,15 @@ void GameModel::CollisionResponseTerrain( float remainingTimeStep )
     }
 
     // respond to the collision...
-    ImpulseSolver::RespondCollisionTerrain( *this, remainingTimeStep );
+    bool contactSupportsSleep = ImpulseSolver::RespondCollisionTerrain( *this, remainingTimeStep );
 
     // update the m_position based on remaining time step
     UpdatePosition( remainingTimeStep );
 
     // set the collided collision object to null now the reaction has taken place
     m_isResponseRequired = false;
+
+    return contactSupportsSleep;
 }
 
 

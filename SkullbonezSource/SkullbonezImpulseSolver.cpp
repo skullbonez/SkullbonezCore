@@ -16,8 +16,8 @@
 //       Normal:  accumulated impulse clamped ≥ 0 (push only, not pull)
 //       Friction: Coulomb cone |λ_t| ≤ μ·λ_n with gravity-floor warm-start
 //  5. Direct position correction (project out remaining penetration × 0.4)
-//  6. Gravitational tipping torque for boxes on edge/vertex contacts
-//  7. Rolling friction torque (opposes ω, decays to rest)
+//  6. Rolling friction torque (opposes ω, decays to rest)
+//  7. Sleep eligibility rejects under-constrained terrain contact manifolds
 //  8. Sleep (zero velocity when both linear and angular fall below threshold)
 //  9. Visual pole alignment (spheres only, cosmetic)
 //
@@ -29,7 +29,55 @@
 //
 // --- References ---
 //  Erin Catto, "Iterative Dynamics with Temporal Coherence", GDC 2005
+//    Local copy: Agentic/Reference/ErinCatto_IterativeDynamics_GDC2005.pdf
 //    https://box2d.org/files/ErinCatto_IterativeDynamics_GDC2005.pdf
+//
+// --- Detailed Catto Provenance ---
+//  CATTO-DERIVED SYSTEMS USED IN THIS FILE:
+//    - Contact points with a normal and penetration depth:
+//      Catto 2005, PDF p. 9, Section 4 "Contact Model"; normal constraint
+//      Equations 16-19. Reason: turn continuous contact into a small finite set
+//      of velocity constraints that can be solved iteratively.
+//    - Point velocity at a contact:
+//      Catto 2005, PDF p. 6, Section 3.4, Equations 9-11. Reason: v + omega x r
+//      is the velocity of the material point touched by the constraint; using
+//      center velocity alone misses rotational effects.
+//    - Constraint force/impulse direction:
+//      Catto 2005, PDF p. 5, Section 3.3, Equation 7 (Fc = J^T lambda).
+//      Reason: each scalar multiplier becomes an impulse along the contact row's
+//      Jacobian, which is why we apply both linear impulse and r x impulse torque.
+//    - One-way contact bounds:
+//      Catto 2005, PDF p. 8, Section 3.5, Equation 14. Reason: normal contacts
+//      can push bodies apart but cannot pull them together.
+//    - Baumgarte/contact bias:
+//      Catto 2005, PDF p. 8, Section 3.6, Equation 15, and PDF p. 10,
+//      Section 4.2, Equation 20. Reason: residual overlap decays gradually
+//      instead of being corrected with an unstable one-frame snap.
+//    - Two tangent friction constraints:
+//      Catto 2005, PDF pp. 11-12, Section 4.3, Equations 21-25. Reason:
+//      tangential slide is constrained separately from normal separation.
+//    - World-space box inertia:
+//      Catto 2005, PDF p. 12, Section 5, unnumbered inertia transform directly
+//      before Equations 26-28: I_world^-1 = R * I_body^-1 * R^T. Reason:
+//      oriented boxes do not have world-axis-aligned inverse inertia.
+//    - Projected Gauss-Seidel iteration:
+//      Catto 2005, PDF pp. 16-17, Section 7.2, Algorithm 4, solving the
+//      time-stepped system from PDF p. 14, Section 6, Equations 34-35. Reason:
+//      linear-time iterative convergence is a good game-physics tradeoff.
+//
+//  ENGINE-SPECIFIC / NOVEL SYSTEMS IN THIS FILE:
+//    - Terrain manifold construction is custom to this engine: spheres use one
+//      bottom-pole contact and boxes use OBB vertices against the terrain plane.
+//      Catto supplies the constraint model, not this terrain manifold generator.
+//    - High-speed terrain manifold collapse is a stability policy for this
+//      engine. It intentionally uses a centroid contact on impacts to avoid
+//      multi-point angular feedback from vertex manifolds.
+//    - Terrain friction warm start is not Catto contact caching. It computes a
+//      deterministic normal-load estimate from mass, gravity, slope normal, and
+//      dt so terrain contacts have static-friction budget on the first iteration.
+//    - Direct post-solve projection, rolling friction damping, sleep eligibility,
+//      sleep velocity zeroing, and sphere visual pole alignment are engine policy,
+//      documented inline where they appear.
 //  Bullet Physics — btSequentialImpulseConstraintSolver
 //  Box2D — b2ContactSolver
 //
@@ -127,11 +175,22 @@ static __forceinline __m128 sse_matvec3( __m128 row0, __m128 row1, __m128 row2, 
 // =============================================================================
 // TERRAIN COLLISION RESPONSE — Unified Sequential Impulse Solver
 // =============================================================================
-void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeInTime )
+bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeInTime )
 {
     PROFILE_SCOPED( "Frame/Physics/Terrain/Impulse" );
 
     // --- Common state ---
+    // CATTO REF:
+    //   Catto 2005, local PDF Agentic/Reference/ErinCatto_IterativeDynamics_GDC2005.pdf,
+    //   PDF p. 3, Section 3.1, Equations 1-3 define the velocity state used by
+    //   the solver: linear velocity v, angular velocity omega, and stacked body
+    //   velocity V. PDF p. 12, Section 5, Equations 26-28 define how mass and
+    //   inertia convert forces/impulses into velocity changes.
+    // REASON:
+    //   The terrain solver works at velocity level. We copy the body's state to
+    //   locals, solve the contact rows, then write back once, matching Catto's
+    //   "solve constraints over V" structure instead of mutating the body during
+    //   row setup.
     float invMass = gameModel.GetInvertedMass();
     Vector3 invInertia = gameModel.GetInvertedRotationalInertia();
     Vector3 inertia = gameModel.GetRotationalInertia();
@@ -143,6 +202,15 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     float mass = gameModel.GetMass();
 
     // --- World-space inverse inertia ---
+    // CATTO REF:
+    //   Catto 2005, PDF p. 12, Section 5, unnumbered inertia transform directly
+    //   before Equations 26-28:
+    //       I_world^-1 = R * I_body^-1 * R^T
+    // REASON:
+    //   Spheres are isotropic, so body-space inverse inertia is valid in world
+    //   space. Oriented boxes are not; their inverse inertia tensor rotates with
+    //   orientation. Without this transform, tilted boxes respond to contact
+    //   torque as if their inertia axes were still world-aligned.
     // For spheres (isotropic inertia), body-space = world-space.
     // For boxes, we must transform: I_world_inv * v = R * (I_body_inv ∘ (R^T * v))
     // where R is the orientation matrix and ∘ is component-wise multiply.
@@ -153,7 +221,13 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
         return std::is_same_v<S, BoundingBox>; },
                                        gameModel.m_boundingVolume );
 
-    // Lambda: compute I_world_inv * v
+    // Lambda: compute I_world_inv * v.
+    // CATTO REF:
+    //   Same Section 5 inertia transform as above. This helper is the local
+    //   implementation of M^-1 for angular rows in Catto's J*M^-1*J^T terms.
+    // REASON:
+    //   Keeping the helper local avoids repeating shape checks and makes every
+    //   effective-mass and impulse application use the exact same inertia path.
     auto applyInvInertia = [&]( const Vector3& v ) -> Vector3
     {
         if ( !useWorldInertia )
@@ -166,12 +240,27 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
         return orientMat * scaled;
     };
 
+    // ENGINE NOTE:
+    //   Catto starts with generated contact points; this engine first collides
+    //   against cached terrain planes. Reusing the plane from detection keeps
+    //   "did we collide?" and "which plane do we solve?" consistent.
     // Collision plane from the detection pass - guarantees consistency
     // between "did we collide?" and "where are the contacts?"
     Geometry::Plane colPlane = gameModel.m_responseInformation.collidedPlane;
     Vector3 planeNormal = colPlane.m_normal;
 
     // Per-contact data for the sequential impulse solver.
+    // CATTO REF:
+    //   r and normal come from the normal contact model in Catto 2005, PDF p. 9,
+    //   Section 4.1, Equations 16-19. normalMass/tangentMass are the row
+    //   denominators from PDF p. 16, Section 7.2, Algorithm 4, expanded from the
+    //   time-stepped system on PDF p. 14, Section 6, Equations 34-35. bias is
+    //   Catto's constraint bias from PDF p. 8, Section 3.6, Equation 15 and
+    //   contact stabilization from PDF p. 10, Section 4.2, Equation 20. accN and
+    //   accT* are Algorithm 4's accumulated lambda values.
+    // REASON:
+    //   Each Contact is one sparse constraint row: build it once, then visit it
+    //   repeatedly during Projected Gauss-Seidel.
     // Fields map directly to the Catto iterative constraint formulation.
     struct Contact
     {
@@ -197,6 +286,15 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     int contactCount = 0;
 
     // --- Build contact manifold based on shape type ---
+    // CATTO REF:
+    //   Catto 2005, PDF p. 9, Section 4 "Contact Model" defines a contact as a
+    //   point of overlap and a normal; Equation 16 measures separation along the
+    //   normal.
+    // ENGINE-SPECIFIC / NOVEL:
+    //   This terrain manifold generator is ours. Spheres get one bottom-pole
+    //   row. Boxes test all OBB vertices against the terrain plane and retain the
+    //   deepest cluster, producing face, edge, or vertex support without a full
+    //   clipping manifold.
     // Sphere: single contact at the bottom pole (centre - radius * normal).
     // Box: check all 8 vertices against the collision plane; include those within
     //      a small threshold of the deepest-penetrating vertex.  This gives face
@@ -279,6 +377,10 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
         } },
                 gameModel.m_boundingVolume );
 
+    // ENGINE-SPECIFIC SAFETY:
+    //   If detection requested a response but manifold construction produced no
+    //   rows, Catto's PGS solve has no valid constraint to process. Cancel only
+    //   incoming normal velocity and report that the contact is not sleep-safe.
     // Safety fallback: cancel normal velocity if no contacts found
     if ( contactCount == 0 )
     {
@@ -288,10 +390,17 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
             velocity -= planeNormal * vn;
         }
         gameModel.m_physicsInfo.SetLinearVelocity( velocity );
-        return;
+        return false;
     }
 
     // --- Collapse manifold to centroid for high-velocity impacts ---
+    // ENGINE-SPECIFIC / NOVEL:
+    //   Catto supports multi-row contact manifolds, but this terrain vertex
+    //   manifold is intentionally approximate. On high-speed impacts, multiple
+    //   vertex rows can create excessive angular feedback before the body has a
+    //   stable support face. Collapsing only impact-time manifolds to one
+    //   centroid row keeps impacts bounded while preserving full multi-point
+    //   support for resting contacts.
     // With multiple contacts, per-contact impulses create angular feedback
     // that can amplify beyond physical bounds. Using a single centroid contact
     // for impacts avoids this; full manifold used for resting/low-velocity.
@@ -312,6 +421,16 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     }
 
     // --- Gravity-based friction floor ---
+    // CATTO REF:
+    //   Catto 2005, PDF pp. 11-12, Section 4.3, Equations 24-25 bound tangent
+    //   friction by +/-mu*m_c*g rather than coupling it directly to the solved
+    //   normal force.
+    // ENGINE-SPECIFIC / NOVEL:
+    //   Terrain contacts in this function do not have a temporal lambda cache.
+    //   A fresh resting contact can therefore start with accN near zero and have
+    //   no friction budget. We estimate the normal support impulse from
+    //   mass*|gravity|*|planeNormal.y|*dt/contactCount so static friction is
+    //   available on the first iteration.
     // For resting contacts sliding tangentially, the solver's accN can be
     // near-zero. But static friction still acts proportional to the normal
     // reaction force (mg·cos(θ)). We compute the per-contact share of the
@@ -322,6 +441,18 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
                                 static_cast<float>( contactCount );
 
     // --- Pre-compute per-contact effective mass and bias ---
+    // CATTO REF:
+    //   This is the setup for Catto 2005, PDF p. 16, Section 7.2, Algorithm 4.
+    //   Algorithm 4 divides by d_i = J_i*B_i. With B = h*M^-1*J^T from PDF p. 14,
+    //   Section 6, Equations 34-35, the scalar point-contact expansion is:
+    //       K = invMass + axis dot ((I^-1 * (r cross axis)) cross r)
+    //   We store 1/K as normalMass/tangentMass.
+    // REASON:
+    //   Effective mass turns velocity error into the impulse magnitude needed to
+    //   correct that error for this body's mass and rotational inertia.
+    // ENGINE-SPECIFIC:
+    //   The Baumgarte threshold and max bias cap are local stability policy:
+    //   they keep deep terrain vertex penetration from becoming a launch impulse.
     // Baumgarte stabilization is used ONLY for resting contacts (low v_n) with
     // a hard cap on maximum bias to prevent launching objects on impacts.
     constexpr float penetrationSlop = 0.005f;
@@ -334,6 +465,13 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
         Contact& c = contacts[i];
 
         // Build orthonormal tangent frame for friction (Gram-Schmidt).
+        // CATTO REF:
+        //   Catto 2005, PDF pp. 11-12, Section 4.3, Equations 21-23 define two
+        //   tangent directions u1/u2 perpendicular to the contact normal.
+        // REASON:
+        //   3D friction needs two independent tangent constraints. We build a
+        //   stable local basis from the normal so sliding in any direction can be
+        //   decomposed into two scalar rows for the PGS solver.
         // We need two directions perpendicular to the contact normal to represent
         // the 2D friction constraint (opposing tangential sliding in any direction).
         //
@@ -361,12 +499,26 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
         c.tangent2 = Vector::CrossProduct( c.normal, c.tangent1 );
 
         // Normal effective mass: K = 1/m + n . ((I^-1 * (r x n)) x r)
+        // CATTO REF:
+        //   Catto 2005, PDF p. 9, Section 4.1, Equations 17-19 give the normal
+        //   velocity Jacobian. PDF p. 14, Section 6, Equations 34-35 and PDF
+        //   p. 16, Algorithm 4 use J*M^-1*J^T as the denominator.
+        // REASON:
+        //   The dot/cross expression below is the scalar expansion of that
+        //   denominator for one body against static ground.
         Vector3 rCrossN = Vector::CrossProduct( c.r, c.normal );
         Vector3 iRCrossN = applyInvInertia( rCrossN );
         float kN = invMass + ( c.normal * Vector::CrossProduct( iRCrossN, c.r ) );
         c.normalMass = ( kN > TOLERANCE ) ? ( 1.0f / kN ) : 0.0f;
 
-        // Tangent effective masses
+        // Tangent effective masses.
+        // CATTO REF:
+        //   Catto 2005, PDF pp. 11-12, Section 4.3, Equations 21-23 are the two
+        //   tangent velocity rows. Their effective masses use the same
+        //   J*M^-1*J^T expansion as the normal row, with tangent axes replacing n.
+        // REASON:
+        //   Tangential velocity correction must respect rotational inertia too;
+        //   otherwise friction would stop center-of-mass sliding but miss spin.
         Vector3 rCrossT1 = Vector::CrossProduct( c.r, c.tangent1 );
         Vector3 iRCrossT1 = applyInvInertia( rCrossT1 );
         float kT1 = invMass + ( c.tangent1 * Vector::CrossProduct( iRCrossT1, c.r ) );
@@ -378,6 +530,14 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
         c.tangentMass2 = ( kT2 > TOLERANCE ) ? ( 1.0f / kT2 ) : 0.0f;
 
         // Bias: Baumgarte only for resting contacts (|v_n| below restitution threshold)
+        // CATTO REF:
+        //   Catto 2005, PDF p. 8, Section 3.6, Equation 15 adds a bias vector to
+        //   the velocity constraint; PDF p. 10, Section 4.2, Equation 20 applies
+        //   beta*C_n to contact stabilization.
+        // REASON:
+        //   Bias turns penetration depth into a target separating velocity. The
+        //   restitution branch below is impact response; the Baumgarte branch is
+        //   resting-contact drift correction.
         // with a hard cap to prevent launching on slopes where vertex pen can be large.
         Vector3 vAtContact = velocity + Vector::CrossProduct( omega, c.r );
         float vnContact = vAtContact * c.normal;
@@ -421,6 +581,17 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     }
 
     // --- Sequential impulse solver loop ---
+    // CATTO REF:
+    //   Catto 2005, PDF pp. 16-17, Section 7.2, Algorithm 4:
+    //       delta_lambda = (eta_i - J_i*a) / d_i
+    //       lambda_i = clamp(lambda_i + delta_lambda, lower_i, upper_i)
+    //       delta_lambda = lambda_i - old_lambda_i
+    //       a += delta_lambda * B_i
+    //   Our velocity variables are the explicit "a" state. Each applied impulse
+    //   updates velocity immediately, so later rows see the latest solution.
+    // REASON:
+    //   This is Projected Gauss-Seidel. It is approximate but cheap, stable for
+    //   game scenes, and matches Catto's linear-time/linear-storage goal.
     //
     // Each iteration visits every contact and applies a small corrective impulse:
     //   λ = effective_mass × (-v_n + bias)
@@ -460,12 +631,21 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
         }
     }
 
+    // ENGINE-SPECIFIC / NOVEL:
+    //   Catto's Algorithm 4 uses a fixed iteration limit. The early-out below is
+    //   an optimization: when all lambda deltas are tiny, remaining iterations
+    //   are unlikely to change visible motion. The threshold is deterministic and
+    //   based on impulse squared, so it avoids sqrt in the hot loop.
     // Adaptive early-out: if the total impulse applied in an iteration is below
     // this threshold, the system is converged and remaining iterations are skipped.
     // Threshold is expressed as impulse-squared to avoid sqrt.
     constexpr float CONVERGENCE_THRESHOLD_SQ = 1.0e-6f;
 
 #if SKULLBONEZ_INTRINSICS
+    // ENGINE-SPECIFIC / NOVEL:
+    //   This SSE path is an implementation optimization, not part of Catto's
+    //   paper. It computes the same scalar PGS equations as the Debug path below
+    //   but keeps Vector3 math in registers in Profile/Release builds.
     // Release/Profile: SSE-accelerated inner loop using preloaded __m128 registers.
     // Pre-load orientation matrix rows for applyInvInertia (boxes only).
     // For spheres, useWorldInertia is false and we use component-wise multiply.
@@ -520,6 +700,11 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
             __m128 vAtContact = _mm_add_ps( sseVelocity, sse_cross3( sseOmega, sseR ) );
 
             // --- Normal constraint (non-penetration) ---
+            // CATTO REF:
+            //   Catto 2005, local PDF p. 9, Section 4.1, Equations 16-19 and
+            //   PDF p. 8, Section 3.5, Equation 14. We solve the normal row and
+            //   clamp the accumulated multiplier to [0, infinity), so terrain can
+            //   push but never pull.
             float vn = sse_dot3( vAtContact, sseNormal );
             float lambdaN = c.normalMass * ( -vn + c.bias );
 
@@ -535,7 +720,14 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
             sseVelocity = _mm_add_ps( sseVelocity, _mm_mul_ps( impulseN, sseInvMass ) );
             sseOmega = _mm_add_ps( sseOmega, sseApplyInvInertia( sse_cross3( sseR, impulseN ) ) );
 
-            // --- Friction constraints (Coulomb cone) ---
+            // --- Friction constraints (Catto-style tangent bounds) ---
+            // CATTO REF:
+            //   Catto 2005, PDF pp. 11-12, Section 4.3, Equations 21-25.
+            //   Tangential slide is solved as two bounded scalar constraints.
+            // ENGINE NOTE:
+            //   Terrain keeps Catto's independent tangent clamps here. The
+            //   persistent object solver below uses a stronger 2D cone clamp and
+            //   documents that as an engine improvement.
             __m128 sseTangent1 = sse_load3( c.tangent1 );
             vAtContact = _mm_add_ps( sseVelocity, sse_cross3( sseOmega, sseR ) );
 
@@ -560,7 +752,8 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
             sseVelocity = _mm_add_ps( sseVelocity, _mm_mul_ps( impulseT1, sseInvMass ) );
             sseOmega = _mm_add_ps( sseOmega, sseApplyInvInertia( sse_cross3( sseR, impulseT1 ) ) );
 
-            // Tangent axis 2
+            // Tangent axis 2: same Catto Section 4.3 friction row as tangent1,
+            // using the second perpendicular basis vector.
             __m128 sseTangent2 = sse_load3( c.tangent2 );
             vAtContact = _mm_add_ps( sseVelocity, sse_cross3( sseOmega, sseR ) );
             float vt2 = sse_dot3( vAtContact, sseTangent2 );
@@ -598,7 +791,10 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     sse_store3( omega, sseOmega );
 
 #else  // SKULLBONEZ_INTRINSICS
-    // Debug: scalar arithmetic — each intermediate value is individually inspectable.
+    // Debug: scalar arithmetic; each intermediate value is individually inspectable.
+    // CATTO REF:
+    //   This is the same Projected Gauss-Seidel solve described above for the
+    //   SSE path: Catto 2005, PDF pp. 16-17, Section 7.2, Algorithm 4.
     // Reuses the scalar applyInvInertia lambda defined above for effective-mass pre-compute.
     for ( int iter = 0; iter < solverIterations; ++iter )
     {
@@ -612,6 +808,9 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
             Vector3 vAtContact = velocity + Vector::CrossProduct( omega, c.r );
 
             // --- Normal constraint (non-penetration) ---
+            // CATTO REF:
+            //   PDF p. 9, Section 4.1, Equations 16-19; PDF p. 8, Section 3.5,
+            //   Equation 14 for the one-way lambda lower bound.
             float vn = vAtContact * c.normal;
             float lambdaN = c.normalMass * ( -vn + c.bias );
             float oldAccN = c.accN;
@@ -626,6 +825,8 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
             omega += applyInvInertia( Vector::CrossProduct( c.r, impulseN ) );
 
             // --- Friction tangent 1 ---
+            // CATTO REF:
+            //   PDF pp. 11-12, Section 4.3, Equations 21, 23, and 24.
             vAtContact = velocity + Vector::CrossProduct( omega, c.r );
             float vt1 = vAtContact * c.tangent1;
             float lambdaT1 = c.tangentMass1 * ( -vt1 );
@@ -647,6 +848,8 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
             omega += applyInvInertia( Vector::CrossProduct( c.r, impulseT1 ) );
 
             // --- Friction tangent 2 ---
+            // CATTO REF:
+            //   PDF pp. 11-12, Section 4.3, Equations 22, 23, and 25.
             vAtContact = velocity + Vector::CrossProduct( omega, c.r );
             float vt2 = vAtContact * c.tangent2;
             float lambdaT2 = c.tangentMass2 * ( -vt2 );
@@ -678,6 +881,11 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
 #endif // SKULLBONEZ_INTRINSICS
 
     // --- Position correction (direct projection) ---
+    // ENGINE-SPECIFIC / NOVEL:
+    //   Catto's contact bias handles overlap through velocity-level correction.
+    //   This extra partial projection is local terrain policy: it removes tiny
+    //   remaining visible penetration after the velocity solve without snapping
+    //   the full depth in one frame.
     // The iterative velocity solve removes most sinking, but tiny overlaps can
     // remain. Push the object out by a small fraction of the remaining overlap so
     // it settles without the harsh snap upward that causes visible bouncing.
@@ -695,52 +903,55 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
         position += planeNormal * ( maxPen * 0.4f );
     }
 
-    // --- Gravitational tipping (boxes only, edge/vertex contacts) ---
-    // When a box rests on fewer than 4 contacts (edge or vertex), it may be
-    // in an unstable configuration. Apply the gravitational torque about the
-    // contact centroid to drive it toward its nearest stable face. This
-    // is physically correct: gravity at the CM creates a moment about the
-    // support that the solver's normal impulses don't fully capture.
+    // --- Sleep support classification ---
+    // ENGINE-SPECIFIC / NOVEL:
+    //   This is not Catto's body sleeping. It is a Skullbonez policy gate that
+    //   prevents a box from sleeping when the terrain manifold is an edge/vertex
+    //   support that is not face-stable against the actual terrain plane normal.
+    //   This keeps the solver running until the contact becomes a plausible rest
+    //   state on the slope, without injecting artificial toppling torque.
     bool isBox = std::visit( []( const auto& s ) -> bool
                              {
         using S = std::decay_t<decltype( s )>;
         return std::is_same_v<S, BoundingBox>; },
                              gameModel.m_boundingVolume );
 
+    bool contactSupportsSleep = true;
     if ( isBox && contactCount > 0 && contactCount < 4 )
     {
-        // Only apply when nearly at rest — during impacts the solver handles it
-        float speedSqChk = velocity * velocity;
-        float omegaSqChk = omega * omega;
-        constexpr float tippingSpeedThreshold = 1.0f;
-        constexpr float tippingOmegaThreshold = 0.5f;
+        // Sleep stability is measured against the local terrain contact plane,
+        // not world up. On a slope, a box is sleep-safe only when one local face
+        // normal is nearly parallel to the slope normal. Otherwise the manifold
+        // is under-constrained and must keep simulating instead of deactivating.
+        Vector3 axisX = orientMat * Vector3( 1.0f, 0.0f, 0.0f );
+        Vector3 axisY = orientMat * Vector3( 0.0f, 1.0f, 0.0f );
+        Vector3 axisZ = orientMat * Vector3( 0.0f, 0.0f, 1.0f );
+        float bestAbsDot = fabsf( axisX * planeNormal );
 
-        if ( speedSqChk < tippingSpeedThreshold * tippingSpeedThreshold &&
-             omegaSqChk < tippingOmegaThreshold * tippingOmegaThreshold )
+        float dotY = axisY * planeNormal;
+        float absDotY = fabsf( dotY );
+        if ( absDotY > bestAbsDot )
         {
-            // Compute centroid of contacts (vector from CM to avg contact point)
-            Vector3 contactCentroid = Math::Vector::ZERO_VECTOR;
-            for ( int i = 0; i < contactCount; ++i )
-            {
-                contactCentroid += contacts[i].r;
-            }
-            contactCentroid = contactCentroid * ( 1.0f / static_cast<float>( contactCount ) );
-
-            // Gravitational torque about contact centroid:
-            // T = (CM - contact_centroid) x F_gravity
-            // Since contacts[i].r is from CM to contact, (CM - contact) = -r
-            Vector3 leverArm = contactCentroid * ( -1.0f ); // from contact to CM
-            Vector3 gravForce( 0.0f, mass * Cfg().gravity, 0.0f );
-            Vector3 gravTorque = Vector::CrossProduct( leverArm, gravForce );
-
-            // Scale down to 50% to avoid over-correction / oscillation
-            constexpr float tippingScale = 0.5f;
-            Vector3 angAccel = applyInvInertia( gravTorque ) * tippingScale;
-            omega += angAccel * changeInTime;
+            bestAbsDot = absDotY;
         }
+
+        float dotZ = axisZ * planeNormal;
+        float absDotZ = fabsf( dotZ );
+        if ( absDotZ > bestAbsDot )
+        {
+            bestAbsDot = absDotZ;
+        }
+
+        constexpr float stableFaceNormalDot = 0.95f; // ~18 degrees from the contact plane normal.
+        contactSupportsSleep = bestAbsDot >= stableFaceNormalDot;
     }
 
     // --- Rolling friction ---
+    // ENGINE-SPECIFIC / NOVEL:
+    //   Catto's paper does not add rolling resistance. This is local damping
+    //   policy that opposes angular velocity using a small normal-load-scaled
+    //   torque, letting objects come to visual rest after contact constraints
+    //   have resolved their main motion.
     // Small torque opposing angular velocity to bring objects to rest.
     float normalForce = mass * fabsf( Cfg().gravity ) * fabsf( planeNormal.y );
     float omegaMagSq = omega * omega;
@@ -784,13 +995,19 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     }
 
     // --- Sleep detection ---
-    // Angular threshold must be very low to allow gravity-driven tipping
-    // to bring tilted boxes flush against the surface before sleeping.
+    // ENGINE-SPECIFIC / NOVEL:
+    //   Catto's box-stacking result explicitly notes no sleeping was used
+    //   (PDF p. 21, Section 9.1). Skullbonez does use sleeping for runtime
+    //   stability/perf, but gates it through contactSupportsSleep above so the
+    //   sleep plane normal is respected.
+    // Angular threshold must be very low so slow contact motion can keep
+    // resolving before a body is eligible for sleep.
     float finalSpeedSq = velocity * velocity;
     omegaMagSq = omega * omega;
     constexpr float sleepLinear = 0.05f;
     constexpr float sleepAngular = 0.02f;
-    if ( finalSpeedSq < sleepLinear * sleepLinear &&
+    if ( contactSupportsSleep &&
+         finalSpeedSq < sleepLinear * sleepLinear &&
          omegaMagSq < sleepAngular * sleepAngular )
     {
         velocity = Math::Vector::ZERO_VECTOR;
@@ -803,6 +1020,10 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     gameModel.m_physicsInfo.SetAngularVelocity( omega );
 
     // --- Visual pole alignment (sphere only, cosmetic) ---
+    // ENGINE-SPECIFIC / NOVEL:
+    //   Purely visual orientation cleanup for spheres; it is outside Catto's
+    //   constraint solver and does not affect linear/angular momentum state used
+    //   for contact resolution.
     std::visit( [&]( const auto& shape )
                 {
         using ShapeT = std::decay_t<decltype( shape )>;
@@ -869,6 +1090,8 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
             }
         } },
                 gameModel.m_boundingVolume );
+
+    return contactSupportsSleep;
 }
 
 
@@ -876,66 +1099,51 @@ void ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
 // SPHERE-SPHERE / MIXED GAME MODEL COLLISION RESPONSE
 // =============================================================================
 //
-// Sphere-sphere: uses proper Coulomb friction-based spin transfer.
-// Mixed (sphere-box, box-box): center-to-center impulse with mass-weighted
-// positional correction.
+// CATTO-DERIVED PARTS:
+//   - Point velocity v + omega x r:
+//     Catto 2005, local PDF p. 6, Section 3.4, Equations 9-11. Reason:
+//     object-object impulses must account for rotation at the contact point.
+//   - Normal Jacobian/effective mass:
+//     PDF p. 9, Section 4.1, Equations 16-19 plus PDF p. 14, Section 6,
+//     Equations 34-35. Reason: convert normal velocity error to an impulse
+//     using mass and rotational inertia.
+//   - Tangent friction:
+//     PDF pp. 11-12, Section 4.3, Equations 21-25. Reason: transfer tangential
+//     sliding into bounded friction impulse and spin.
+//   - World-space inertia:
+//     PDF p. 12, Section 5, unnumbered inertia transform before Equations 26-28.
+//
+// ENGINE-SPECIFIC / NOVEL PARTS:
+//   - Object-object narrowphase still uses bounding radii, so contact arms are
+//     approximated along the center-to-center normal instead of a true convex
+//     manifold. This is an intentional bridge until proper shape-pair manifolds
+//     exist.
+//   - This path is one-shot impact response, not the persistent Catto cache. Slow
+//     resting support is handled in GameModelCollection::SolvePersistentObjectContacts.
+//   - Positional correction is mass-weighted push-apart policy for visible
+//     overlap cleanup.
 //
 // =============================================================================
 void ImpulseSolver::RespondCollisionGameModels( GameModel& gameModel1,
                                                 GameModel& gameModel2 )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/Impulse" );
-    std::visit( [&]( const auto& shape1, const auto& shape2 )
+    std::visit( [&]( const auto&, const auto& )
                 {
-        using Shape1T = std::decay_t<decltype( shape1 )>;
-        using Shape2T = std::decay_t<decltype( shape2 )>;
-
-        if constexpr ( std::is_same_v<Shape1T, BoundingSphere> && std::is_same_v<Shape2T, BoundingSphere> )
-        {
-            Vector3 collisionNormal =
-                ImpulseSolver::GetCollisionNormalSphereVsSphere( gameModel1, gameModel2 );
-
-            ImpulseSolver::SphereVsSphereAngular( gameModel1, gameModel2, collisionNormal );
-            ImpulseSolver::SphereVsSphereLinear( gameModel1, gameModel2, collisionNormal );
-
-            gameModel1.m_physicsInfo.ApplyChangeInAngularVelocity();
-            gameModel2.m_physicsInfo.ApplyChangeInAngularVelocity();
-
-            // Positional correction: push overlapping spheres apart
-            Vector3 pos1 = gameModel1.m_physicsInfo.GetPosition();
-            Vector3 pos2 = gameModel2.m_physicsInfo.GetPosition();
-            float r1 = shape1.GetRadius();
-            float r2 = shape2.GetRadius();
-            Vector3 delta = pos2 - pos1;
-            float dist = Vector::VectorMag( delta );
-            float overlap = ( r1 + r2 ) - dist;
-            if ( overlap > 0.0f && dist > 0.0f )
-            {
-                Vector3 axis = delta / dist;
-                float halfOverlap = overlap * 0.5f;
-                gameModel1.m_physicsInfo.SetPosition( pos1 - axis * halfOverlap );
-                gameModel2.m_physicsInfo.SetPosition( pos2 + axis * halfOverlap );
-            }
-        }
-        else
-        {
             // =================================================================
-            // BALL-vs-BOX ANGULAR IMPULSE (Friction-Based Spin Transfer)
+            // OBJECT-OBJECT ANGULAR IMPULSE (Friction-Based Spin Transfer)
             // =================================================================
             //
-            // For mixed-shape collisions (sphere-box, box-sphere, box-box), the
-            // broadphase uses bounding-radius spheres, so we approximate the
-            // contact geometry as two spheres with bounding radii.  The contact
-            // point for each body lies along the collision normal at distance
-            // bounding_radius from the center:
+            // ENGINE-SPECIFIC / NOVEL:
+            // Object-object narrowphase still uses bounding-radius spheres, so
+            // we approximate each contact point along the center-to-center normal.
             //
             //   r1 = +n * R1   (body1 toward body2)
             //   r2 = -n * R2   (body2 toward body1)
             //
-            // Unlike pure sphere-sphere, box inertia is anisotropic, so the
-            // angular terms in the effective mass denominator are non-zero for
-            // off-axis normals.  We transform I^-1 into world space using the
-            // orientation matrix for boxes (spheres remain body-space).
+            // Spheres get zero torque from the normal impulse because r is
+            // parallel to n.  Tangent friction handles spin transfer for all
+            // pairs, and boxes use world-space inverse inertia.
             //
             // Pipeline:
             //   1. Collision normal and contact arms
@@ -967,6 +1175,10 @@ void ImpulseSolver::RespondCollisionGameModels( GameModel& gameModel1,
             Vector3 invInertia2 = gameModel2.GetInvertedRotationalInertia();
 
             // World-space inverse inertia application.
+            // CATTO REF:
+            //   Catto 2005, PDF p. 12, Section 5, unnumbered inertia transform
+            //   before Equations 26-28. Reason: box angular response must use
+            //   the rotated inverse inertia tensor.
             // For boxes: I_world_inv * v = R * (I_body_inv ∘ (R^T * v))
             // For spheres: isotropic, body-space = world-space.
             bool isBox1 = gameModel1.IsBox();
@@ -993,13 +1205,22 @@ void ImpulseSolver::RespondCollisionGameModels( GameModel& gameModel1,
                 return rot2 * Vector::VectorMultiply( invInertia2, bodyV );
             };
 
-            // Contact arms: approximate contact on each bounding sphere along normal
+            // Contact arms: approximate contact on each bounding sphere along normal.
+            // CATTO REF:
+            //   Contact arms r1/r2 appear in PDF p. 9, Section 4.1, Equations
+            //   16-18 and in tangent constraints on PDF pp. 11-12, Equations
+            //   21-23.
+            // ENGINE NOTE:
+            //   The source of r1/r2 here is approximate bounding-radius contact,
+            //   not Catto's polygon clipping/contact reduction.
             float br1 = GetShapeBoundingRadius( gameModel1.m_boundingVolume );
             float br2 = GetShapeBoundingRadius( gameModel2.m_boundingVolume );
             Vector3 rContact1 = normal * br1;
             Vector3 rContact2 = normal * ( -br2 );
 
-            // Full contact velocity including angular contributions
+            // Full contact velocity including angular contributions.
+            // CATTO REF:
+            //   Catto 2005, PDF p. 6, Section 3.4, Equations 9-11.
             Vector3 vel1 = gameModel1.m_physicsInfo.GetVelocity();
             Vector3 vel2 = gameModel2.m_physicsInfo.GetVelocity();
             Vector3 omega1 = gameModel1.m_physicsInfo.GetAngularVelocity();
@@ -1025,6 +1246,10 @@ void ImpulseSolver::RespondCollisionGameModels( GameModel& gameModel1,
             }
 
             // --- Normal impulse with angular effective mass ---
+            // CATTO REF:
+            //   Catto 2005, PDF p. 9, Section 4.1, Equations 16-19 for the
+            //   normal row, and PDF p. 14, Section 6, Equations 34-35 for the
+            //   J*M^-1*J^T effective-mass denominator.
             //
             //  K_n = 1/m1 + 1/m2 + n · (I1^-1(r1×n) × r1) + n · (I2^-1(r2×n) × r2)
             //  j_n = -(1+e) * v_rel_n / K_n
@@ -1048,6 +1273,12 @@ void ImpulseSolver::RespondCollisionGameModels( GameModel& gameModel1,
             omega2 += applyInvI2( Vector::CrossProduct( rContact2, normalImpulse ) );
 
             // --- Tangent friction impulse (Coulomb model) ---
+            // CATTO REF:
+            //   Catto 2005, PDF pp. 11-12, Section 4.3, Equations 21-25.
+            // REASON:
+            //   Recompute contact velocity after the normal impulse, remove the
+            //   normal component, and solve a bounded tangent impulse that
+            //   opposes sliding.
             //
             // Recompute contact velocity after normal impulse, extract tangential slide.
             // j_t = v_tangent_mag / K_t, clamped to μ * j_n (Coulomb cone).
@@ -1105,14 +1336,17 @@ void ImpulseSolver::RespondCollisionGameModels( GameModel& gameModel1,
             gameModel2.m_physicsInfo.SetAngularVelocity( omega2 );
 
             // --- Positional correction (mass-weighted push-apart) ---
+            // ENGINE-SPECIFIC / NOVEL:
+            //   Catto's paper focuses on velocity-level contact constraints and
+            //   Baumgarte bias. This immediate overlap cleanup is local policy
+            //   for the current bounding-radius object narrowphase.
             float overlap = ( br1 + br2 ) - dist;
             if ( overlap > 0.0f )
             {
                 float totalInvMass = invMass1 + invMass2;
                 gameModel1.m_physicsInfo.SetPosition( pos1 - normal * ( overlap * invMass1 / totalInvMass ) );
                 gameModel2.m_physicsInfo.SetPosition( pos2 + normal * ( overlap * invMass2 / totalInvMass ) );
-            }
-        } },
+            } },
                 gameModel1.m_boundingVolume,
                 gameModel2.m_boundingVolume );
 }

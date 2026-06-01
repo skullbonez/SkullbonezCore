@@ -41,6 +41,7 @@ class GameModelCollection
     std::vector<std::pair<int, int>> m_candidatePairs; // Retained-capacity pair buffer (avoids per-frame alloc)
     std::vector<float> m_timeRemaining;                // Per-model timestep remainder (retained buffer)
     std::vector<uint8_t> m_groundedThisFrame;          // Per-model grounded flag for current frame (0/1)
+    std::vector<uint8_t> m_sleepInhibitedThisFrame;    // Per-model flag for contacts that must remain awake this frame
     std::vector<uint8_t> m_sleepState;                 // Per-model sleep state: 0=awake, 1=sleeping
     std::vector<uint8_t> m_sleepCounter;               // Frames object has been below sleep threshold
 
@@ -52,7 +53,8 @@ class GameModelCollection
     {
         int bodyA = -1;                 // First body index.  The normal points from A toward B.
         int bodyB = -1;                 // Second body index.
-        int64_t key = 0;                // Stable pair id, used to find last frame's remembered impulses.
+        uint32_t featureId = 0;         // Contact-point identity within this pair.  Bounding-sphere fallback uses feature 0.
+        int64_t key = 0;                // Stable pair+feature id, used to find last frame's remembered impulses.
         Vector3 normal = ZERO_VECTOR;   // Push direction.  Normal impulses separate bodies; they never pull.
         Vector3 tangent1 = ZERO_VECTOR; // First sideways direction at the contact point, used for friction.
         Vector3 tangent2 = ZERO_VECTOR; // Second sideways direction.  3D contacts need two friction axes.
@@ -79,9 +81,22 @@ class GameModelCollection
         float accT1 = 0.0f;
         float accT2 = 0.0f;
     };
+
+    // Compact per-step solver body state.  Contact iteration mutates this array
+    // and writes back to GameModel once, matching Catto's sparse body/row shape.
+    struct SolverBodyState
+    {
+        Vector3 linearVelocity = ZERO_VECTOR;
+        Vector3 angularVelocity = ZERO_VECTOR;
+        Vector3 invInertia = ZERO_VECTOR;
+        RotationMatrix orientation;
+        float invMass = 0.0f;
+        bool useWorldInertia = false;
+    };
     std::vector<PersistentContact> m_persistentContacts;               // Catto-style contact rows retained across frames
     std::vector<PersistentContactCacheEntry> m_persistentContactCache; // Previous-frame contact impulses for warm starting
     std::vector<uint16_t> m_persistentContactCounts;                   // Per-body contact count for mc*g friction bounds
+    std::vector<SolverBodyState> m_solverBodies;                       // Per-step compact velocity/inertia state for persistent contact solving
     std::unique_ptr<IShader> m_shadowShader;                           // Shadow decal shader (instanced)
     uint32_t m_shadowInstMesh = 0;                                     // Instanced mesh handle (via Gfx())
     int m_shadowDiscVertexCount = 0;                                   // Disc triangle vertex count
