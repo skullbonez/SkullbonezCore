@@ -5,6 +5,7 @@
 #include "SkullbonezGeometricMath.h"
 #include "SkullbonezCollisionResponse.h"
 #include "SkullbonezImpulseSolver.h"
+#include "SkullbonezObjectContactManifold.h"
 
 
 // --- Usings ---
@@ -277,23 +278,47 @@ void GameModel::CollisionResponseGameModel( GameModel& responseTarget )
 
 void GameModel::StaticOverlapResponseGameModel( GameModel& overlapTarget )
 {
-    float thisRadius = GetShapeBoundingRadius( m_boundingVolume );
-    float targetRadius = GetShapeBoundingRadius( overlapTarget.m_boundingVolume );
-
-    Vector3 delta = overlapTarget.m_physicsInfo.GetPosition() - m_physicsInfo.GetPosition();
-    float dist = Vector::VectorMag( delta );
-    float radii = thisRadius + targetRadius;
-
-    if ( dist >= radii || dist <= 0.0f )
+    // ENGINE-SPECIFIC / NOVEL:
+    //   This is not Catto's velocity-level PGS solve. It is a conservative
+    //   positional cleanup used when the swept collision pass did not schedule a
+    //   one-shot response but the authoritative Skullbonez shape-pair manifold
+    //   says two bodies are already overlapping.
+    //
+    // CATTO CONNECTION:
+    //   The manifold data is still in Catto's contact-row shape: normal plus
+    //   point penetration. We only use the deepest penetration here because this
+    //   routine moves positions directly instead of solving per-row impulses.
+    Physics::ObjectContactManifold manifold;
+    if ( !Physics::BuildObjectContactManifold( *this, overlapTarget, 0, 1, 0.0f, manifold ) )
     {
         return;
     }
 
-    // Objects are overlapping — positional correction only
-    Vector3 axis = delta / dist;
-    float halfOverlap = ( radii - dist ) * 0.5f;
-    m_physicsInfo.SetPosition( m_physicsInfo.GetPosition() - axis * halfOverlap );
-    overlapTarget.m_physicsInfo.SetPosition( overlapTarget.m_physicsInfo.GetPosition() + axis * halfOverlap );
+    // Objects are overlapping: positional correction only.
+    float maxPenetration = 0.0f;
+    for ( uint8_t i = 0; i < manifold.pointCount; ++i )
+    {
+        maxPenetration = (std::max)( maxPenetration, manifold.points[i].penetration );
+    }
+
+    if ( maxPenetration <= 0.0f )
+    {
+        return;
+    }
+
+    float invMassA = GetInvertedMass();
+    float invMassB = overlapTarget.GetInvertedMass();
+    float totalInvMass = invMassA + invMassB;
+    if ( totalInvMass <= TOLERANCE )
+    {
+        return;
+    }
+
+    // Objects are overlapping: push along the real narrowphase normal, not the
+    // broadphase bounding-radius axis.
+    Vector3 correction = manifold.normal * ( maxPenetration / totalInvMass );
+    m_physicsInfo.SetPosition( m_physicsInfo.GetPosition() - correction * invMassA );
+    overlapTarget.m_physicsInfo.SetPosition( overlapTarget.m_physicsInfo.GetPosition() + correction * invMassB );
 }
 
 
@@ -584,6 +609,15 @@ const Vector3& GameModel::GetPosition()
 }
 
 
+const Vector3& GameModel::GetPosition() const
+{
+    // ENGINE-SPECIFIC:
+    //   Const access lets the narrowphase manifold builder inspect immutable
+    //   GameModels without opening write access to physics state.
+    return m_physicsInfo.GetPosition();
+}
+
+
 void GameModel::DEBUG_SetSphereToTerrain()
 {
     // if we are not in bounds then exit now!
@@ -658,6 +692,16 @@ const Vector3& GameModel::GetRotationalInertia()
 const Vector3& GameModel::GetInvertedRotationalInertia()
 {
     return m_ballPhysics.invRotationalInertia;
+}
+
+
+const CollisionShape& GameModel::GetCollisionShape() const
+{
+    // ENGINE-SPECIFIC:
+    //   The manifold builder dispatches on the variant shape type. Returning the
+    //   CollisionShape by const reference keeps that dispatch explicit and avoids
+    //   reintroducing broadphase-radius guesses into narrowphase code.
+    return m_boundingVolume;
 }
 
 

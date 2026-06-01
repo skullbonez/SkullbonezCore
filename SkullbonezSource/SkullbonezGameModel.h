@@ -97,6 +97,7 @@ class GameModel
     float GetProjectedSurfaceArea();                                                    // Returns the projected surface area of the model
     float GetDragCoefficient();                                                         // Returns the drag coefficient of the model
     const Vector3& GetPosition();                                                       // Returns the position of the game model
+    const Vector3& GetPosition() const;                                                 // Const read for manifold row rA/rB setup
     const Vector3& GetVelocity();                                                       // Returns the velocity of the model
     const Vector3& GetAngularVelocity();                                                // Returns the angular velocity of the model
     void ApplyForces( float changeInTime );                                             // Update the models velocity based on its current physicsInfo
@@ -122,6 +123,7 @@ class GameModel
     const Vector3& GetRotationalInertia();                                              // Returns the rotational inertia (passthrough to RigidBody)
     const Vector3& GetInvertedRotationalInertia();                                      // Returns component-wise inverse rotational inertia (cached immutable)
     float GetCoefficientRestitution();                                                  // Returns the coefficient of restitution (passthrough to RigidBody)
+    const CollisionShape& GetCollisionShape() const;                                    // Const shape variant for narrowphase manifold dispatch
     void SetLinearVelocity( const Vector3& v );                                         // Sets the linear velocity (passthrough to RigidBody)
     void SetAngularVelocity( const Vector3& v );                                        // Sets the angular velocity (passthrough to RigidBody)
     void SetPosition( const Vector3& pos );                                             // Teleports the model to a world position (passthrough to RigidBody)

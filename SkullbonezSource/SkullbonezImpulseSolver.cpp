@@ -90,6 +90,7 @@
 #include "SkullbonezVector3.h"
 #include "SkullbonezCollisionShape.h"
 #include "SkullbonezProfiler.h"
+#include "SkullbonezObjectContactManifold.h"
 #if SKULLBONEZ_INTRINSICS
 #include <immintrin.h> // SSE/SSE2/SSE4.1 intrinsics for solver inner loop
 #endif
@@ -1128,6 +1129,18 @@ void ImpulseSolver::RespondCollisionGameModels( GameModel& gameModel1,
                                                 GameModel& gameModel2 )
 {
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/Impulse" );
+    if ( gameModel1.IsBox() || gameModel2.IsBox() )
+    {
+        // ENGINE-SPECIFIC / NOVEL:
+        //   Box-involving contacts are delegated to the persistent manifold PGS
+        //   pass in GameModelCollection. Catto's iterative solver is the better
+        //   fit for box stacks because it can solve several contact rows and
+        //   warm start them over time. The one-shot path below is intentionally
+        //   kept to sphere/sphere impacts; using a single immediate impulse for
+        //   boxes reintroduced stack spin and late creep.
+        return;
+    }
+
     std::visit( [&]( const auto&, const auto& )
                 {
             // =================================================================
@@ -1135,15 +1148,12 @@ void ImpulseSolver::RespondCollisionGameModels( GameModel& gameModel1,
             // =================================================================
             //
             // ENGINE-SPECIFIC / NOVEL:
-            // Object-object narrowphase still uses bounding-radius spheres, so
-            // we approximate each contact point along the center-to-center normal.
-            //
-            //   r1 = +n * R1   (body1 toward body2)
-            //   r2 = -n * R2   (body2 toward body1)
-            //
-            // Spheres get zero torque from the normal impulse because r is
-            // parallel to n.  Tangent friction handles spin transfer for all
-            // pairs, and boxes use world-space inverse inertia.
+            // This immediate impact path now only runs for sphere/sphere pairs.
+            // It still uses BuildObjectContactManifold so the contact point,
+            // normal, and r arms are the same row geometry consumed by the
+            // persistent Catto-style solver. Box contacts return above because
+            // stable stacking needs multi-row temporal coherence, not a single
+            // impact impulse.
             //
             // Pipeline:
             //   1. Collision normal and contact arms
@@ -1157,13 +1167,19 @@ void ImpulseSolver::RespondCollisionGameModels( GameModel& gameModel1,
 
             Vector3 pos1 = gameModel1.m_physicsInfo.GetPosition();
             Vector3 pos2 = gameModel2.m_physicsInfo.GetPosition();
+            ObjectContactManifold manifold;
+            if ( !BuildObjectContactManifold( gameModel1, gameModel2, 0, 1, Cfg().contactEpsilon, manifold ) )
+            {
+                return;
+            }
+
             Vector3 delta = pos2 - pos1;
             float dist = Vector::VectorMag( delta );
             if ( dist < TOLERANCE )
             {
                 return;
             }
-            Vector3 normal = delta / dist;
+            Vector3 normal = manifold.normal;
 
             float e1 = gameModel1.m_physicsInfo.GetCoefficientRestitution();
             float e2 = gameModel2.m_physicsInfo.GetCoefficientRestitution();
@@ -1205,18 +1221,17 @@ void ImpulseSolver::RespondCollisionGameModels( GameModel& gameModel1,
                 return rot2 * Vector::VectorMultiply( invInertia2, bodyV );
             };
 
-            // Contact arms: approximate contact on each bounding sphere along normal.
+            // Contact arms: actual shape-pair manifold contact point.
             // CATTO REF:
             //   Contact arms r1/r2 appear in PDF p. 9, Section 4.1, Equations
             //   16-18 and in tangent constraints on PDF pp. 11-12, Equations
             //   21-23.
             // ENGINE NOTE:
-            //   The source of r1/r2 here is approximate bounding-radius contact,
-            //   not Catto's polygon clipping/contact reduction.
-            float br1 = GetShapeBoundingRadius( gameModel1.m_boundingVolume );
-            float br2 = GetShapeBoundingRadius( gameModel2.m_boundingVolume );
-            Vector3 rContact1 = normal * br1;
-            Vector3 rContact2 = normal * ( -br2 );
+            //   Broadphase may still be bounding-radius based, but the contact
+            //   point consumed here comes from exact sphere/box/OBB narrowphase.
+            const ObjectContactPoint& impactPoint = manifold.points[0];
+            Vector3 rContact1 = impactPoint.rA;
+            Vector3 rContact2 = impactPoint.rB;
 
             // Full contact velocity including angular contributions.
             // CATTO REF:
@@ -1340,7 +1355,11 @@ void ImpulseSolver::RespondCollisionGameModels( GameModel& gameModel1,
             //   Catto's paper focuses on velocity-level contact constraints and
             //   Baumgarte bias. This immediate overlap cleanup is local policy
             //   for the current bounding-radius object narrowphase.
-            float overlap = ( br1 + br2 ) - dist;
+            float overlap = 0.0f;
+            for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
+            {
+                overlap = (std::max)( overlap, manifold.points[pointIndex].penetration );
+            }
             if ( overlap > 0.0f )
             {
                 float totalInvMass = invMass1 + invMass2;

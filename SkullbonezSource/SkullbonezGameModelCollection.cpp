@@ -1,6 +1,7 @@
 // --- Includes ---
 #include "SkullbonezGameModelCollection.h"
 #include "SkullbonezProfiler.h"
+#include "SkullbonezObjectContactManifold.h"
 #include "SkullbonezHelper.h"
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezImpulseSolver.h"
@@ -464,10 +465,9 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     //   bodies do not rediscover support from zero every tick.
     //
     // ENGINE-SPECIFIC / NOVEL:
-    //   Object-object narrowphase still uses bounding radii, so each pair has a
-    //   single fallback contact feature. The cache and PGS row shape are Catto;
-    //   this contact generator is a temporary Skullbonez approximation until true
-    //   box/sphere/box manifolds exist.
+    //   Object-object narrowphase uses Skullbonez shape-pair manifold builders
+    //   for the row geometry. The cache and PGS row shape are Catto; the exact
+    //   sphere/box/OBB feature encodings are local engine policy.
     // This pass handles the quiet case that old one-shot impulses were bad at:
     // balls already touching each other, especially a ball resting on another ball.
     // Instead of waiting for a fresh "impact", we build contact rules for pairs
@@ -525,11 +525,10 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     //   with a contact identifier and retrieve it for matching contacts next
     //   frame.
     // ENGINE-SPECIFIC:
-    //   This key is a compact pair+feature id. Bounding-sphere fallback contacts
-    //   use feature 0; future manifold rows can assign real feature ids.
+    //   This key is a compact pair+feature id. Manifold rows assign deterministic
+    //   feature ids so warm starting survives multi-point box contacts.
     // Catto's cache needs a stable name for "body A touching body B at this
-    // contact feature".  The current bounding-sphere fallback has one feature
-    // per pair; box manifolds can later assign distinct feature ids per row.
+    // contact feature".  Box manifolds assign distinct feature ids per row.
     auto makeKey = []( int a, int b, uint32_t featureId ) -> int64_t
     {
         int lo = ( a < b ) ? a : b;
@@ -553,11 +552,24 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     {
         GameModel& model = m_gameModels[i];
         SolverBodyState& body = m_solverBodies[i];
-        body.linearVelocity = model.GetVelocity();
-        body.angularVelocity = model.GetAngularVelocity();
-        body.invMass = model.GetInvertedMass();
-        body.invInertia = model.GetInvertedRotationalInertia();
-        body.useWorldInertia = model.IsBox();
+        if ( m_sleepState[i] )
+        {
+            // Sleeping bodies still provide persistent support to awake bodies,
+            // but they behave as static anchors until deliberately woken.
+            body.linearVelocity = ZERO_VECTOR;
+            body.angularVelocity = ZERO_VECTOR;
+            body.invMass = 0.0f;
+            body.invInertia = ZERO_VECTOR;
+            body.useWorldInertia = false;
+        }
+        else
+        {
+            body.linearVelocity = model.GetVelocity();
+            body.angularVelocity = model.GetAngularVelocity();
+            body.invMass = model.GetInvertedMass();
+            body.invInertia = model.GetInvertedRotationalInertia();
+            body.useWorldInertia = model.IsBox();
+        }
         if ( body.useWorldInertia )
         {
             Quaternion orientation = model.GetOrientation();
@@ -636,19 +648,18 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     //   Catto 2005, PDF p. 9, Section 4 "Contact Model" and Equation 16 require
     //   a contact point, a normal, and separation/penetration for each row.
     // ENGINE-SPECIFIC / NOVEL:
-    //   The current object narrowphase uses bounding radii, so we synthesize one
-    //   center-to-center contact point per overlapping pair. This is not Catto's
-    //   box clipping/contact manifold from PDF pp. 19-20; it is a compatibility
-    //   bridge for the existing broadphase/narrowphase.
-    // First pass: turn broadphase candidate pairs into contact rows. The current
-    // narrowphase only has bounding spheres for object-object contacts, so this
-    // extrapolates the 2D paper to 3D by using the center-to-center direction as
-    // the contact normal and two perpendicular tangent axes for friction.
+    //   Broadphase still uses conservative bounding radii, but the authoritative
+    //   object contact geometry now comes from shape-pair manifolds: exact
+    //   sphere/sphere, closest-point sphere/box, and SAT/clipped OBB contacts.
+    // First pass: turn broadphase candidate pairs into Catto-style contact rows.
+    // Each manifold point becomes one persistent row with its own feature id so
+    // warm starting can remember face contacts instead of one pair-wide fallback.
+    m_persistentContacts.reserve( m_candidatePairs.size() * 4 );
     for ( const auto& cp : m_candidatePairs )
     {
         int aIndex = cp.first;
         int bIndex = cp.second;
-        if ( aIndex == bIndex || m_sleepState[aIndex] || m_sleepState[bIndex] )
+        if ( aIndex == bIndex || ( m_sleepState[aIndex] && m_sleepState[bIndex] ) )
         {
             continue;
         }
@@ -660,56 +671,48 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
 
         GameModel& a = m_gameModels[aIndex];
         GameModel& b = m_gameModels[bIndex];
-        Vector3 posA = a.GetPosition();
-        Vector3 posB = b.GetPosition();
-        Vector3 delta = posB - posA;
-        float distSq = delta * delta;
-        float radiusA = a.GetBoundingRadius();
-        float radiusB = b.GetBoundingRadius();
-        float radiusSum = radiusA + radiusB;
-        float contactDistance = radiusSum + Cfg().contactEpsilon;
-        if ( distSq > contactDistance * contactDistance )
+
+        ObjectContactManifold manifold;
+        if ( !BuildObjectContactManifold( a, b, aIndex, bIndex, Cfg().contactEpsilon, manifold ) )
         {
             continue;
         }
 
-        float dist = sqrtf( distSq );
-        Vector3 normal( 0.0f, 1.0f, 0.0f );
-        if ( dist > TOLERANCE )
+        for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
         {
-            normal = delta / dist;
-        }
+            const ObjectContactPoint& point = manifold.points[pointIndex];
 
-        float separation = dist - radiusSum;
-        Vector3 pointA = posA + normal * radiusA;
-        Vector3 pointB = posB - normal * radiusB;
-        Vector3 contactPoint = ( pointA + pointB ) * 0.5f;
+            // CATTO REF:
+            //   rA/rB are the r1/r2 contact arms in Catto 2005, PDF p. 6,
+            //   Equations 9-11 and PDF p. 9, Equations 16-18.
+            PersistentContact c;
+            c.bodyA = aIndex;
+            c.bodyB = bIndex;
+            c.featureId = point.featureId;
+            c.key = makeKey( aIndex, bIndex, c.featureId );
+            c.normal = manifold.normal;
+            c.rA = point.rA;
+            c.rB = point.rB;
+            c.penetration = point.penetration;
+            m_persistentContacts.push_back( c );
+            ++m_persistentContactCounts[aIndex];
+            ++m_persistentContactCounts[bIndex];
 
-        // CATTO REF:
-        //   rA/rB are the r1/r2 contact arms in Catto 2005, PDF p. 6,
-        //   Equations 9-11 and PDF p. 9, Equations 16-18.
-        // rA/rB are the small arms from each center to the contact point. They
-        // are what let the same contact impulse both move and spin a ball.
-        PersistentContact c;
-        c.bodyA = aIndex;
-        c.bodyB = bIndex;
-        c.featureId = 0; // One contact for the bounding-sphere fallback.
-        c.key = makeKey( aIndex, bIndex, c.featureId );
-        c.normal = normal;
-        c.rA = contactPoint - posA;
-        c.rB = contactPoint - posB;
-        c.penetration = ( separation < 0.0f ) ? -separation : 0.0f;
-        m_persistentContacts.push_back( c );
-        ++m_persistentContactCounts[aIndex];
-        ++m_persistentContactCounts[bIndex];
-
-        if ( fabsf( normal.y ) > 0.25f )
-        {
-            // A mostly vertical contact can support weight, so both bodies count
-            // as grounded for sleep. This lets a ball sleeping on a stack stay
-            // asleep instead of demanding terrain contact directly.
-            m_groundedThisFrame[aIndex] = 1;
-            m_groundedThisFrame[bIndex] = 1;
+            if ( fabsf( manifold.normal.y ) > 0.25f )
+            {
+                // ENGINE-SPECIFIC / NOVEL:
+                //   Catto's 2005 stack demo explicitly did not use sleeping;
+                //   this is Skullbonez runtime sleep policy. A mostly vertical
+                //   object-object contact is allowed to advance the sleep
+                //   counter so a settled stack can deactivate after the PGS pass
+                //   has removed relative motion. Known limitation: at_rest.scene
+                //   can still mark a mid-air box as sleep-eligible after a
+                //   dynamic collision. See
+                //   Agentic/Plans/physics-floating-box-sleep-handoff.md before
+                //   tightening this; damping/restitution hacks are not allowed.
+                m_groundedThisFrame[aIndex] = 1;
+                m_groundedThisFrame[bIndex] = 1;
+            }
         }
     }
 
@@ -786,22 +789,16 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         Vector3 velA = bodyA.linearVelocity + Vector::CrossProduct( bodyA.angularVelocity, c.rA );
         Vector3 velB = bodyB.linearVelocity + Vector::CrossProduct( bodyB.angularVelocity, c.rB );
         float vn = ( velB - velA ) * c.normal;
-        float restitution = sqrtf( a.GetCoefficientRestitution() * b.GetCoefficientRestitution() );
 
         // CATTO REF:
         //   Catto 2005, PDF p. 8, Section 3.6, Equation 15 and PDF p. 10,
         //   Section 4.2, Equation 20 provide the contact bias idea.
         // ENGINE NOTE:
-        //   Restitution for impacts is conventional game-physics impact response;
-        //   Baumgarte bias is the Catto-derived resting overlap correction.
-        // Bias has two jobs. On a real impact it is bounce. On a resting overlap
-        // it is a small separating velocity that decays the overlap smoothly.
+        //   This persistent pass is for resting support, so it intentionally does
+        //   not add restitution. One-shot impact response owns bounce.
+        // Bias is a small separating velocity that decays resting overlap smoothly.
         c.bias = 0.0f;
-        if ( vn < -Cfg().contactRestitutionThreshold )
-        {
-            c.bias = -restitution * vn;
-        }
-        else
+        if ( vn >= -Cfg().contactRestitutionThreshold )
         {
             float penetrationError = c.penetration - contactSlop;
             if ( penetrationError > 0.0f )
@@ -954,8 +951,8 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
 
         GameModel& a = m_gameModels[c.bodyA];
         GameModel& b = m_gameModels[c.bodyB];
-        float invMassA = a.GetInvertedMass();
-        float invMassB = b.GetInvertedMass();
+        float invMassA = m_sleepState[c.bodyA] ? 0.0f : a.GetInvertedMass();
+        float invMassB = m_sleepState[c.bodyB] ? 0.0f : b.GetInvertedMass();
         float totalInvMass = invMassA + invMassB;
         if ( totalInvMass <= TOLERANCE )
         {
@@ -1038,6 +1035,15 @@ void GameModelCollection::RunSolverPhysics( float dt )
     m_spatialGrid.GetCandidatePairs( candidatePairs );
     PROFILE_END( "Frame/Physics/Broadphase" );
 
+    auto hasWakeEnergy = [&]( int awakeIndex ) -> bool
+    {
+        const Vector3& vel = m_gameModels[awakeIndex].GetVelocity();
+        const Vector3& omega = m_gameModels[awakeIndex].GetAngularVelocity();
+        float speedSq = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
+        float omegaSq = omega.x * omega.x + omega.y * omega.y + omega.z * omega.z;
+        return speedSq >= SLEEP_LINEAR_SQ || omegaSq >= SLEEP_ANGULAR_SQ;
+    };
+
     // Narrowphase: impulse solver collision response for all pairs
     PROFILE_BEGIN( "Frame/Physics/Narrowphase" );
     float invCellSize = 1.0f / m_spatialGrid.GetCellSize();
@@ -1052,6 +1058,10 @@ void GameModelCollection::RunSolverPhysics( float dt )
             // Only wake if one is awake and moving toward the sleeper
             if ( m_sleepState[x] && !m_sleepState[y] )
             {
+                if ( !hasWakeEnergy( y ) )
+                {
+                    continue;
+                }
                 // The awake object (y) must still have time this frame — if it has
                 // already exhausted its budget it has moved to its final position and
                 // cannot validly collide with the sleeper.
@@ -1074,6 +1084,10 @@ void GameModelCollection::RunSolverPhysics( float dt )
             }
             else if ( m_sleepState[y] && !m_sleepState[x] )
             {
+                if ( !hasWakeEnergy( x ) )
+                {
+                    continue;
+                }
                 // Guard: awake object (x) must have time remaining this frame.
                 if ( m_timeRemaining[x] <= 0.0f )
                 {

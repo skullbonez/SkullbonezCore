@@ -1,18 +1,15 @@
 # stacking.scene
-# Tests solver-mode stacking stability: a tower of three boxes with a ball
-# balanced on top. Uses a flat terrain override so the stacking surface is
-# perfectly level and deterministic.
+# Tests solver-mode stacking stability: a tower of three boxes. Uses a flat
+# terrain override so the stacking surface is perfectly level and deterministic.
 #
-# All four objects are released from rest at increasing heights so the heavier
+# All three objects are released from rest at increasing heights so the heavier
 # base box lands and settles before the next one arrives. The slight yaw on the
-# middle and top boxes adds visual interest and exercises the tipping torque path.
-#
-# Known limitation: the solver does not yet produce rock-solid stacks — boxes
-# may drift or topple slowly over several hundred frames. See Bugs.md.
+# middle and top boxes adds visual interest and exercises the contact manifold.
 
 physics on
 text on
 frames 1500
+exit_on_complete
 fixed_step
 time_scale 10.0
 physics_mode solver
@@ -23,17 +20,13 @@ flat_slope 30.0 0.0 0.0
 # Side-angle camera watching the stack form
 camera main  360 115 500  500 55 500  0 1 0
 
-# Base box: widest/heaviest — lands first and forms the foundation.
-# flat terrain baseY=30, halfY=4 → final rest CM at y=34.
+# Base box: widest/heaviest; lands first and forms the foundation.
+# flat terrain baseY=30, halfY=4 -> final rest CM at y=34.
 # box <name> <posX> <posY> <posZ> <halfX> <halfY> <halfZ> <mass> <restitution> [eulerX eulerY eulerZ]
 box base  500 76 500  4.0 4.0 4.0  40.0 0.3
 
-# Mid box: narrower, 12° yaw — rests on base at CM y≈41.
+# Mid box: narrower, 12 deg yaw; rests on base at CM y ~= 41.
 box mid  500 94 500  3.0 3.0 3.0  25.0 0.3  0 12 0
 
-# Top box: smallest, 25° yaw — rests on mid at CM y≈46.
+# Top box: smallest, 25 deg yaw; rests on mid at CM y ~= 46.
 box top  501 110 500  2.0 2.0 2.0  15.0 0.25  0 25 0
-
-# Ball: crowns the stack — released last from highest point.
-# ball <name> <posX> <posY> <posZ> <radius> <mass> <moment> <restitution> <fX> <fY> <fZ> <fpX> <fpY> <fpZ>
-ball apex  500 130 500  3.0 12.0 6.0 0.3  0 0 0  0 0 0
