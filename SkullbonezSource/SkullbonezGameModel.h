@@ -77,6 +77,13 @@ class GameModel
     void UpdateModelInfo();                                                        // Perform this operation every time the model has objects added or removed from its object list
     float GetTerrainCollisionTime( float changeInTime );                           // Gets the time of collision between the current GameModel instance and the terrain
     float GetModelCollisionTime( GameModel& collisionTarget, float changeInTime ); // Gets the time of collision between the current GameModel instance and collisionTarget
+
+    // Box/terrain contact must be measured from the actual oriented box vertices,
+    // not from the model center plus a vertical support extent. On uneven terrain,
+    // the center-based shortcut can say a box is supported while every real vertex
+    // is still visibly above the surface. This helper returns the closest true
+    // vertex, the terrain sample under that vertex, and the signed vertical gap.
+    bool GetClosestBoxTerrainVertex( Vector3& outVertex, float& outTerrainHeight, Plane& outPlane, float& outGap );
     void DEBUG_SetSphereToTerrain();                                               // Debug routine - ensure sphere does not go through terrain
 
   public:

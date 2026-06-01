@@ -326,6 +326,11 @@ bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
         }
         else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
         {
+            // Marker covers the box-only vertex manifold build. It lets the
+            // profiler separate the cost of sampling/caching the eight contact
+            // vertices from the shared impulse response below.
+            PROFILE_SCOPED( "Frame/Physics/Terrain/BoxVertexManifold" );
+
             // Box: check all 8 vertices against the collision plane.
             // Use two-pass approach: first find the minimum signed distance,
             // then include all vertices within a relative threshold of the min.
@@ -945,6 +950,57 @@ bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
 
         constexpr float stableFaceNormalDot = 0.95f; // ~18 degrees from the contact plane normal.
         contactSupportsSleep = bestAbsDot >= stableFaceNormalDot;
+    }
+    if ( isBox && contactSupportsSleep )
+    {
+        // A face-normal match alone can still describe an edge resting on uneven
+        // terrain: the tangent plane is plausible, but only one or two real box
+        // vertices are close to the heightfield. Count actual terrain-near
+        // vertices before allowing terrain contact to seed sleep.
+        PROFILE_SCOPED( "Frame/Physics/Terrain/BoxSleepSupportVerts" );
+
+        int terrainSupportedVertices = 0;
+        std::visit( [&]( const auto& shape )
+                    {
+            using ShapeT = std::decay_t<decltype( shape )>;
+            if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
+            {
+                const Vector3& he = shape.GetHalfExtents();
+                // Match the manifold clustering slack used for resting contact
+                // generation. This tolerates small solver jitter while still
+                // rejecting visible edge/point support as a sleep seed.
+                constexpr float vertexSupportSlack = 0.15f;
+                float supportGap = Cfg().contactEpsilon + vertexSupportSlack;
+                for ( int v = 0; v < 8; ++v )
+                {
+                    Vector3 local(
+                        ( v & 1 ) ? he.x : -he.x,
+                        ( v & 2 ) ? he.y : -he.y,
+                        ( v & 4 ) ? he.z : -he.z );
+                    Vector3 worldVertex = position + ( orientMat * local );
+                    if ( !gameModel.m_terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
+                    {
+                        continue;
+                    }
+
+                    float terrainHeight = 0.0f;
+                    Plane terrainPlane;
+                    gameModel.m_terrain->GetTerrainHeightAndPlaneAt( worldVertex.x,
+                                                                     worldVertex.z,
+                                                                     terrainHeight,
+                                                                     terrainPlane );
+                    if ( worldVertex.y - terrainHeight <= supportGap )
+                    {
+                        ++terrainSupportedVertices;
+                    }
+                }
+            } },
+                    gameModel.m_boundingVolume );
+
+        // Three or more supported vertices means the box has a real terrain
+        // footprint. One or two vertices can be a point/edge balance and must
+        // remain awake so the solver can keep correcting it.
+        contactSupportsSleep = terrainSupportedVertices >= 3;
     }
 
     // --- Rolling friction ---

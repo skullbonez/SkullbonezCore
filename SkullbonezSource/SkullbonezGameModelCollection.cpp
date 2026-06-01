@@ -26,8 +26,14 @@ GameModelCollection::GameModelCollection()
 {
     m_gameModels.reserve( MAX_GAME_MODELS );
     m_timeRemaining.reserve( MAX_GAME_MODELS );
-    m_groundedThisFrame.reserve( MAX_GAME_MODELS );
+    m_sleepSupportedThisFrame.reserve( MAX_GAME_MODELS );
     m_sleepInhibitedThisFrame.reserve( MAX_GAME_MODELS );
+    m_sleepSupportEdges.reserve( MAX_GAME_MODELS * 4 );
+    m_sleepIslandParent.reserve( MAX_GAME_MODELS );
+    m_sleepIslandRank.reserve( MAX_GAME_MODELS );
+    m_sleepIslandHasAwake.reserve( MAX_GAME_MODELS );
+    m_sleepIslandEligible.reserve( MAX_GAME_MODELS );
+    m_sleepIslandCanSleep.reserve( MAX_GAME_MODELS );
     m_persistentContacts.reserve( MAX_GAME_MODELS * 4 );
     m_persistentContactCache.reserve( MAX_GAME_MODELS * 4 );
     m_persistentContactCounts.reserve( MAX_GAME_MODELS );
@@ -57,10 +63,16 @@ void GameModelCollection::Clear()
 {
     m_gameModels.clear();
     m_timeRemaining.clear();
-    m_groundedThisFrame.clear();
+    m_sleepSupportedThisFrame.clear();
     m_sleepInhibitedThisFrame.clear();
     m_sleepState.clear();
     m_sleepCounter.clear();
+    m_sleepSupportEdges.clear();
+    m_sleepIslandParent.clear();
+    m_sleepIslandRank.clear();
+    m_sleepIslandHasAwake.clear();
+    m_sleepIslandEligible.clear();
+    m_sleepIslandCanSleep.clear();
     m_persistentContacts.clear();
     m_persistentContactCache.clear();
     m_persistentContactCounts.clear();
@@ -241,8 +253,9 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
 {
     const int modelCount = static_cast<int>( m_gameModels.size() );
     m_timeRemaining.assign( modelCount, fChangeInTime );
-    m_groundedThisFrame.assign( modelCount, 0 );
+    m_sleepSupportedThisFrame.assign( modelCount, 0 );
     m_sleepInhibitedThisFrame.assign( modelCount, 0 );
+    m_sleepSupportEdges.clear();
 
     // Ensure sleep state vectors are sized (persists across frames)
     if ( static_cast<int>( m_sleepState.size() ) != modelCount )
@@ -284,10 +297,13 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
             m_gameModels[i].GetOrientation().GetComponents( qx, qy, qz, qw );
             float speed = sqrtf( vel.x * vel.x + vel.y * vel.y + vel.z * vel.z );
             float omegaMag = sqrtf( omega.x * omega.x + omega.y * omega.y + omega.z * omega.z );
-            int grounded = m_groundedThisFrame[i];
+            // The CSV header still says "grounded" for existing tooling, but
+            // this value is now the stricter sleep-support signal: terrain-backed
+            // or supported-stack contact, not just "some contact happened."
+            int sleepSupported = m_sleepSupportedThisFrame[i];
             int sleeping = ( i < static_cast<int>( m_sleepState.size() ) ) ? m_sleepState[i] : 0;
             int sleepInhibited = ( i < static_cast<int>( m_sleepInhibitedThisFrame.size() ) ) ? m_sleepInhibitedThisFrame[i] : 0;
-            Log().Writef( m_physicsLogPath, "%d,%d,%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.6f,%.6f,%.6f,%.6f,%d,%d,%d\n", m_physicsLogFrame, i, name, pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, speed, omega.x, omega.y, omega.z, omegaMag, qx, qy, qz, qw, grounded, sleeping, sleepInhibited );
+            Log().Writef( m_physicsLogPath, "%d,%d,%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.6f,%.6f,%.6f,%.6f,%d,%d,%d\n", m_physicsLogFrame, i, name, pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, speed, omega.x, omega.y, omega.z, omegaMag, qx, qy, qz, qw, sleepSupported, sleeping, sleepInhibited );
         }
         ++m_physicsLogFrame;
     }
@@ -420,7 +436,9 @@ void GameModelCollection::RunLegacyPhysics( float dt )
                 m_gameModels[x].UpdatePosition( m_timeRemaining[x] - colTime );
                 m_gameModels[x].ClearResponseRequired();
 
-                m_groundedThisFrame[x] = 1;
+                // Legacy physics does not build object-contact islands, so
+                // terrain response is the only sleep-support source in this path.
+                m_sleepSupportedThisFrame[x] = 1;
                 m_timeRemaining[x] = 0.0f;
             }
         }
@@ -678,6 +696,20 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             continue;
         }
 
+        constexpr float supportNormalY = 0.25f;
+        // This records only a possible vertical support relationship. It does
+        // not grant sleep support by itself; support must propagate later from
+        // terrain or a body that already passed the full sleep gate. That keeps
+        // mid-air object-object impacts from becoming false "grounded" evidence.
+        if ( manifold.normal.y > supportNormalY )
+        {
+            m_sleepSupportEdges.emplace_back( aIndex, bIndex );
+        }
+        else if ( manifold.normal.y < -supportNormalY )
+        {
+            m_sleepSupportEdges.emplace_back( bIndex, aIndex );
+        }
+
         for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
         {
             const ObjectContactPoint& point = manifold.points[pointIndex];
@@ -697,22 +729,6 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             m_persistentContacts.push_back( c );
             ++m_persistentContactCounts[aIndex];
             ++m_persistentContactCounts[bIndex];
-
-            if ( fabsf( manifold.normal.y ) > 0.25f )
-            {
-                // ENGINE-SPECIFIC / NOVEL:
-                //   Catto's 2005 stack demo explicitly did not use sleeping;
-                //   this is Skullbonez runtime sleep policy. A mostly vertical
-                //   object-object contact is allowed to advance the sleep
-                //   counter so a settled stack can deactivate after the PGS pass
-                //   has removed relative motion. Known limitation: at_rest.scene
-                //   can still mark a mid-air box as sleep-eligible after a
-                //   dynamic collision. See
-                //   Agentic/Plans/physics-floating-box-sleep-handoff.md before
-                //   tightening this; damping/restitution hacks are not allowed.
-                m_groundedThisFrame[aIndex] = 1;
-                m_groundedThisFrame[bIndex] = 1;
-            }
         }
     }
 
@@ -998,6 +1014,57 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
 }
 
 
+void GameModelCollection::PropagateSleepSupport()
+{
+    const int modelCount = static_cast<int>( m_gameModels.size() );
+    if ( modelCount <= 0 || m_sleepSupportEdges.empty() )
+    {
+        return;
+    }
+
+    // Terrain seeds support. Object contacts only pass that support upward
+    // through stack-like edges, keeping mid-air dynamic contacts out of sleep.
+    // Sleeping bodies are treated as proven supports because they could only
+    // enter sleep after a previous island pass found them quiet, uninhibited, and
+    // connected to credible support.
+    for ( int pass = 0; pass < modelCount; ++pass )
+    {
+        // The graph is frame-local and small, so bounded relaxation is simpler
+        // than building another traversal structure. The early-out keeps common
+        // one- and two-box stacks cheap.
+        bool changed = false;
+        for ( const auto& edge : m_sleepSupportEdges )
+        {
+            const int supporter = edge.first;
+            const int supported = edge.second;
+            if ( supporter < 0 || supporter >= modelCount || supported < 0 || supported >= modelCount )
+            {
+                continue;
+            }
+
+            bool supporterHasSupport = m_sleepSupportedThisFrame[supporter] != 0;
+            if ( !supporterHasSupport &&
+                 supporter < static_cast<int>( m_sleepState.size() ) &&
+                 m_sleepState[supporter] != 0 )
+            {
+                supporterHasSupport = true;
+            }
+
+            if ( supporterHasSupport && m_sleepSupportedThisFrame[supported] == 0 )
+            {
+                m_sleepSupportedThisFrame[supported] = 1;
+                changed = true;
+            }
+        }
+
+        if ( !changed )
+        {
+            break;
+        }
+    }
+}
+
+
 // Physics tick: unified impulse solver for all object types (spheres and boxes).
 // No object filtering needed — all models participate.
 void GameModelCollection::RunSolverPhysics( float dt )
@@ -1044,6 +1111,37 @@ void GameModelCollection::RunSolverPhysics( float dt )
         return speedSq >= SLEEP_LINEAR_SQ || omegaSq >= SLEEP_ANGULAR_SQ;
     };
 
+    auto wakeSleepingModel = [&]( int sleepingIndex )
+    {
+        // Waking re-enters the body into this frame rather than waiting for the
+        // next tick. Applying forces immediately keeps gravity and other forces
+        // consistent with an awake body that was never asleep.
+        if ( sleepingIndex < 0 || sleepingIndex >= modelCount || !m_sleepState[sleepingIndex] )
+        {
+            return;
+        }
+
+        m_sleepState[sleepingIndex] = 0;
+        m_sleepCounter[sleepingIndex] = 0;
+        m_timeRemaining[sleepingIndex] = dt;
+        m_gameModels[sleepingIndex].ApplyForces( dt );
+    };
+
+    auto hasPersistentWakeContact = [&]( int awakeIndex, int sleepingIndex ) -> bool
+    {
+        // A swept test can miss a sleeper that is already overlapping after an
+        // awake body's correction step. This fresh manifold test catches that
+        // persistent contact so the sleeper cannot remain frozen inside the
+        // awake body until a later frame happens to generate a swept hit.
+        ObjectContactManifold manifold;
+        return BuildObjectContactManifold( m_gameModels[awakeIndex],
+                                           m_gameModels[sleepingIndex],
+                                           awakeIndex,
+                                           sleepingIndex,
+                                           Cfg().contactEpsilon,
+                                           manifold );
+    };
+
     // Narrowphase: impulse solver collision response for all pairs
     PROFILE_BEGIN( "Frame/Physics/Narrowphase" );
     float invCellSize = 1.0f / m_spatialGrid.GetCellSize();
@@ -1062,23 +1160,22 @@ void GameModelCollection::RunSolverPhysics( float dt )
                 {
                     continue;
                 }
-                // The awake object (y) must still have time this frame — if it has
-                // already exhausted its budget it has moved to its final position and
-                // cannot validly collide with the sleeper.
-                if ( m_timeRemaining[y] <= 0.0f )
+                // Swept impact wakes immediately when time remains; persistent
+                // overlap wakes too so sleepers cannot stay frozen after a hit.
+                bool wokeBySweptImpact = false;
+                if ( m_timeRemaining[y] > 0.0f )
                 {
-                    continue;
+                    m_gameModels[y].CollisionDetectGameModel( m_gameModels[x], dt );
+                    if ( m_gameModels[y].IsResponseRequired() && m_gameModels[x].IsResponseRequired() )
+                    {
+                        wakeSleepingModel( x );
+                        wokeBySweptImpact = true;
+                        m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
+                    }
                 }
-                // Check actual overlap before waking
-                m_gameModels[y].CollisionDetectGameModel( m_gameModels[x], dt );
-                if ( m_gameModels[y].IsResponseRequired() && m_gameModels[x].IsResponseRequired() )
+                if ( !wokeBySweptImpact && hasPersistentWakeContact( y, x ) )
                 {
-                    m_sleepState[x] = 0;
-                    m_sleepCounter[x] = 0;
-                    m_timeRemaining[x] = dt;
-                    m_gameModels[x].ApplyForces( dt );
-                    // Response flags already set — go straight to response
-                    m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
+                    wakeSleepingModel( x );
                 }
                 continue;
             }
@@ -1088,19 +1185,20 @@ void GameModelCollection::RunSolverPhysics( float dt )
                 {
                     continue;
                 }
-                // Guard: awake object (x) must have time remaining this frame.
-                if ( m_timeRemaining[x] <= 0.0f )
+                bool wokeBySweptImpact = false;
+                if ( m_timeRemaining[x] > 0.0f )
                 {
-                    continue;
+                    m_gameModels[x].CollisionDetectGameModel( m_gameModels[y], dt );
+                    if ( m_gameModels[x].IsResponseRequired() && m_gameModels[y].IsResponseRequired() )
+                    {
+                        wakeSleepingModel( y );
+                        wokeBySweptImpact = true;
+                        m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
+                    }
                 }
-                m_gameModels[x].CollisionDetectGameModel( m_gameModels[y], dt );
-                if ( m_gameModels[x].IsResponseRequired() && m_gameModels[y].IsResponseRequired() )
+                if ( !wokeBySweptImpact && hasPersistentWakeContact( x, y ) )
                 {
-                    m_sleepState[y] = 0;
-                    m_sleepCounter[y] = 0;
-                    m_timeRemaining[y] = dt;
-                    m_gameModels[y].ApplyForces( dt );
-                    m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
+                    wakeSleepingModel( y );
                 }
                 continue;
             }
@@ -1159,8 +1257,15 @@ void GameModelCollection::RunSolverPhysics( float dt )
         {
             m_gameModels[x].UpdatePosition( colTime );
             bool contactSupportsSleep = m_gameModels[x].CollisionResponseTerrain( m_timeRemaining[x] - colTime );
-            m_groundedThisFrame[x] = 1;
-            if ( !contactSupportsSleep )
+            // Terrain response still resolves every terrain hit, but only hits
+            // classified as stable support seed sleep. Edge/point contacts and
+            // unstable terrain hits keep the body awake while the solver continues
+            // to handle the collision normally.
+            if ( contactSupportsSleep )
+            {
+                m_sleepSupportedThisFrame[x] = 1;
+            }
+            else
             {
                 m_sleepInhibitedThisFrame[x] = 1;
             }
@@ -1170,6 +1275,9 @@ void GameModelCollection::RunSolverPhysics( float dt )
     PROFILE_END( "Frame/Physics/Terrain" );
 
     SolvePersistentObjectContacts( dt );
+    // Object contacts are converted into stack support only after terrain
+    // response has had a chance to seed true support for this frame.
+    PropagateSleepSupport();
 
     // Integrate remaining time for awake models
     PROFILE_BEGIN( "Frame/Physics/Integrate" );
@@ -1185,32 +1293,148 @@ void GameModelCollection::RunSolverPhysics( float dt )
             m_gameModels[x].UpdatePosition( m_timeRemaining[x] );
         }
 
-        // Update sleep counter: check if object is below sleep thresholds
+    }
+
+    // Build sleep islands from the persistent contact graph. Sleep counters are
+    // tracked per body, but the final transition is island-level: connected awake
+    // bodies deactivate together only if the whole island is quiet, supported,
+    // and free of contacts that explicitly inhibit sleep.
+    m_sleepIslandParent.assign( modelCount, 0 );
+    m_sleepIslandRank.assign( modelCount, 0 );
+    m_sleepIslandHasAwake.assign( modelCount, 0 );
+    m_sleepIslandEligible.assign( modelCount, 1 );
+    m_sleepIslandCanSleep.assign( modelCount, 1 );
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        m_sleepIslandParent[i] = i;
+    }
+
+    auto findIsland = [&]( int index ) -> int
+    {
+        int root = index;
+        while ( m_sleepIslandParent[root] != root )
+        {
+            root = m_sleepIslandParent[root];
+        }
+        while ( m_sleepIslandParent[index] != index )
+        {
+            int parent = m_sleepIslandParent[index];
+            m_sleepIslandParent[index] = root;
+            index = parent;
+        }
+        return root;
+    };
+
+    auto unionIslands = [&]( int a, int b )
+    {
+        int rootA = findIsland( a );
+        int rootB = findIsland( b );
+        if ( rootA == rootB )
+        {
+            return;
+        }
+
+        if ( m_sleepIslandRank[rootA] < m_sleepIslandRank[rootB] )
+        {
+            std::swap( rootA, rootB );
+        }
+        m_sleepIslandParent[rootB] = rootA;
+        if ( m_sleepIslandRank[rootA] == m_sleepIslandRank[rootB] )
+        {
+            ++m_sleepIslandRank[rootA];
+        }
+    };
+
+    for ( const PersistentContact& c : m_persistentContacts )
+    {
+        // Persistent contacts are the solver's current dynamic contact graph, so
+        // they are the natural edges for island sleep. Sleeping bodies still act
+        // as graph anchors, but only awake bodies below participate in the current
+        // eligibility and counter checks.
+        if ( c.bodyA >= 0 && c.bodyA < modelCount && c.bodyB >= 0 && c.bodyB < modelCount )
+        {
+            unionIslands( c.bodyA, c.bodyB );
+        }
+    }
+
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        if ( m_sleepState[x] )
+        {
+            continue;
+        }
+
+        const int root = findIsland( x );
+        m_sleepIslandHasAwake[root] = 1;
+
         const Vector3& vel = m_gameModels[x].GetVelocity();
         const Vector3& omega = m_gameModels[x].GetAngularVelocity();
         float speedSq = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
         float omegaSq = omega.x * omega.x + omega.y * omega.y + omega.z * omega.z;
+        bool quiet = speedSq < SLEEP_LINEAR_SQ && omegaSq < SLEEP_ANGULAR_SQ;
+        bool supported = m_sleepSupportedThisFrame[x] != 0;
 
-        if ( speedSq < SLEEP_LINEAR_SQ &&
-             omegaSq < SLEEP_ANGULAR_SQ &&
-             m_groundedThisFrame[x] &&
-             !m_sleepInhibitedThisFrame[x] )
+        // Modern sleep is still velocity based, but Skullbonez also requires
+        // credible support so unsupported gravity bodies cannot become
+        // numerically quiet for a few frames while visibly floating.
+        if ( !quiet || !supported || m_sleepInhibitedThisFrame[x] )
+        {
+            m_sleepIslandEligible[root] = 0;
+        }
+    }
+
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        if ( m_sleepState[x] )
+        {
+            continue;
+        }
+
+        const int root = findIsland( x );
+        if ( m_sleepIslandHasAwake[root] && m_sleepIslandEligible[root] )
         {
             if ( m_sleepCounter[x] < SLEEP_FRAMES )
             {
                 ++m_sleepCounter[x];
             }
-            if ( m_sleepCounter[x] >= SLEEP_FRAMES )
-            {
-                m_sleepState[x] = 1;
-                // Zero velocities to prevent drift on wake
-                m_gameModels[x].SetLinearVelocity( Math::Vector::ZERO_VECTOR );
-                m_gameModels[x].SetAngularVelocity( Math::Vector::ZERO_VECTOR );
-            }
         }
         else
         {
             m_sleepCounter[x] = 0;
+        }
+    }
+
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        if ( m_sleepState[x] )
+        {
+            continue;
+        }
+
+        const int root = findIsland( x );
+        if ( m_sleepCounter[x] < SLEEP_FRAMES )
+        {
+            // Every awake body in an eligible island must accumulate the full
+            // quiet-frame count before any body in that island is deactivated.
+            m_sleepIslandCanSleep[root] = 0;
+        }
+    }
+
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        if ( m_sleepState[x] )
+        {
+            continue;
+        }
+
+        const int root = findIsland( x );
+        if ( m_sleepIslandHasAwake[root] && m_sleepIslandEligible[root] && m_sleepIslandCanSleep[root] )
+        {
+            m_sleepState[x] = 1;
+            // Zeroing velocities at the island sleep transition prevents tiny
+            // residual solver drift from reappearing when the body later wakes.
+            m_gameModels[x].SetLinearVelocity( Math::Vector::ZERO_VECTOR );
+            m_gameModels[x].SetAngularVelocity( Math::Vector::ZERO_VECTOR );
         }
     }
     PROFILE_END( "Frame/Physics/Integrate" );

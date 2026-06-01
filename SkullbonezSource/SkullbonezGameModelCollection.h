@@ -40,10 +40,32 @@ class GameModelCollection
     SpatialGrid m_spatialGrid;                         // Broadphase spatial grid for collision culling
     std::vector<std::pair<int, int>> m_candidatePairs; // Retained-capacity pair buffer (avoids per-frame alloc)
     std::vector<float> m_timeRemaining;                // Per-model timestep remainder (retained buffer)
-    std::vector<uint8_t> m_groundedThisFrame;          // Per-model grounded flag for current frame (0/1)
+
+    // Sleep support is deliberately not the same thing as "grounded" or "has a
+    // contact." It means this body has credible support for deactivation this
+    // frame: terrain contact that passed the terrain support tests, or a stack
+    // chain rooted in such terrain support. Dynamic object contacts alone do not
+    // set this flag, which prevents mid-air collisions from becoming sleep seeds.
+    std::vector<uint8_t> m_sleepSupportedThisFrame;
     std::vector<uint8_t> m_sleepInhibitedThisFrame;    // Per-model flag for contacts that must remain awake this frame
     std::vector<uint8_t> m_sleepState;                 // Per-model sleep state: 0=awake, 1=sleeping
     std::vector<uint8_t> m_sleepCounter;               // Frames object has been below sleep threshold
+
+    // Directed support edges record only the direction of possible vertical
+    // support through object contacts. They are resolved after terrain contacts
+    // are known, so a box can support a box above it only if the lower box is
+    // itself supported by terrain or an already-supported stack chain.
+    std::vector<std::pair<int, int>> m_sleepSupportEdges;
+
+    // Island sleep follows the Box2D/Catto-style rule that connected dynamic
+    // bodies deactivate together only when the whole contact island is quiet and
+    // supported. These retained buffers avoid allocations in the fixed-step hot
+    // path while building a small union-find from this frame's persistent contacts.
+    std::vector<int> m_sleepIslandParent;
+    std::vector<uint8_t> m_sleepIslandRank;
+    std::vector<uint8_t> m_sleepIslandHasAwake;
+    std::vector<uint8_t> m_sleepIslandEligible;
+    std::vector<uint8_t> m_sleepIslandCanSleep;
 
     // A contact row is one "do not move through each other" rule for two bodies.
     // Catto's paper solves many of these small rules over and over instead of trying
@@ -113,6 +135,11 @@ class GameModelCollection
     void RunLegacyPhysics( float dt );              // Physics tick: legacy sphere-only solver (boxes skipped)
     void RunSolverPhysics( float dt );              // Physics tick: unified impulse solver (all objects)
     void SolvePersistentObjectContacts( float dt ); // PGS contact-force pass for resting/stacked object contacts
+
+    // Extends terrain-backed sleep support through vertical object-contact stack
+    // chains. This is separate from the solver so sleep policy can stay strict
+    // without weakening collision response or adding damping hacks.
+    void PropagateSleepSupport();
 
   public:
     GameModelCollection(); // Default constructor
