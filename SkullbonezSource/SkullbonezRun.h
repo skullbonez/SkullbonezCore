@@ -20,6 +20,7 @@
 #include "SkullbonezIFramebuffer.h"
 #include "SkullbonezTestScene.h"
 #include "SkullbonezBroadphaseVisualizer.h"
+#include "SkullbonezCollisionVisualizer.h"
 
 
 // --- Usings ---
@@ -148,7 +149,8 @@ struct RunDebugState
     bool isWaterFlatDebug = false;               // Force ocean mesh fully flat, no displacement (toggle with 3)
     bool isTerrainHidden = false;                // Hide terrain mesh (toggle with 4)
     bool isWaterHidden = false;                  // Hide water mesh (toggle with 5)
-    bool isDebugVectors = false;                 // Draw velocity (green) and angular velocity (red) vectors (toggle with V)
+    bool isDebugVectors = false;                 // Draw velocity (green) and angular velocity (red) vectors (toggle with 9)
+    bool isCollisionVisualizer = false;          // Render solid collision/sleep colours for balls and boxes (toggle with V)
     bool isTextOnly = false;                     // Suppress all 3D rendering; show solid background with large pangram text
     bool isBroadphaseOverlay = false;            // Broadphase spatial grid visualizer overlay (toggle with G)
     float frozenWaterTime = 0.0f;                // Simulation time captured when freeze was toggled on
@@ -194,6 +196,7 @@ class SkullbonezRun
     RunDebugState m_debug;                       // Runtime debug/overlay toggles
     RunFireState m_fire;                         // Projectile recycling state (CTRL = ball, ALT = box)
     BroadphaseVisualizer m_broadphaseVisualizer; // Spatial grid debug overlay (G key toggle)
+    CollisionVisualizer m_collisionVisualizer;   // Solid collision/sleep model visualizer (V key toggle)
     WorldEnvironment m_cWorldEnvironment;        // SkullbonezCore::Environment::WorldEnvironment class
     GameModelCollection m_cGameModelCollection;  // SkullbonezCore::GameObjects::GameModelCollection class
 

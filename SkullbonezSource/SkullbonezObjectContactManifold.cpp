@@ -44,8 +44,7 @@ struct BoxWorld
     Vector3 axes[3] = {
         Vector3( 1.0f, 0.0f, 0.0f ),
         Vector3( 0.0f, 1.0f, 0.0f ),
-        Vector3( 0.0f, 0.0f, 1.0f )
-    };
+        Vector3( 0.0f, 0.0f, 1.0f ) };
 };
 
 struct SatResult
@@ -291,8 +290,7 @@ bool BuildSphereBoxOrdered( const GameModel& sphereModel,
         float distances[3] = {
             bw.halfExtents.x - fabsf( local.x ),
             bw.halfExtents.y - fabsf( local.y ),
-            bw.halfExtents.z - fabsf( local.z )
-        };
+            bw.halfExtents.z - fabsf( local.z ) };
         int faceAxis = 0;
         if ( distances[1] < distances[faceAxis] - 1.0e-5f )
         {
@@ -434,8 +432,7 @@ void BuildFaceVertices( const BoxWorld& box, int faceAxis, float faceSign, ClipV
         { 1.0f, 1.0f },
         { -1.0f, 1.0f },
         { -1.0f, -1.0f },
-        { 1.0f, -1.0f }
-    };
+        { 1.0f, -1.0f } };
 
     for ( int i = 0; i < 4; ++i )
     {

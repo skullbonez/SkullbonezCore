@@ -143,6 +143,7 @@
     <ClCompile Include="SkullbonezSource\SkullbonezCamera.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCameraCollection.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCollisionResponse.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezCollisionVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezImpulseSolver.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezObjectContactManifold.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezGameModel.cpp" />
@@ -195,6 +196,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezCamera.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCameraCollection.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCollisionResponse.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezCollisionVisualizer.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezImpulseSolver.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezObjectContactManifold.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCollisionShape.h" />
@@ -281,6 +283,8 @@
     <None Include="SkullbonezData\scenes\water_ball_test.scene" />
     <None Include="SkullbonezData\shaders\debug_line.frag" />
     <None Include="SkullbonezData\shaders\debug_line.vert" />
+    <None Include="SkullbonezData\shaders\collision_visualizer.frag" />
+    <None Include="SkullbonezData\shaders\collision_visualizer.vert" />
     <None Include="SkullbonezData\shaders\grid_line.frag" />
     <None Include="SkullbonezData\shaders\grid_line.vert" />
     <None Include="SkullbonezData\shaders\lit_textured.frag" />
@@ -316,6 +320,7 @@
     <None Include="SkullbonezData\shaders\solid_color_batch.hlsl" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="SkullbonezData\shaders\collision_visualizer.hlsl" />
     <None Include="SkullbonezData\shaders\grid_line.hlsl" />
     <None Include="SkullbonezData\shaders\lit_textured_instanced.hlsl" />
   </ItemGroup>

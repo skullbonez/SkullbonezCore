@@ -47,9 +47,14 @@ class GameModelCollection
     // chain rooted in such terrain support. Dynamic object contacts alone do not
     // set this flag, which prevents mid-air collisions from becoming sleep seeds.
     std::vector<uint8_t> m_sleepSupportedThisFrame;
-    std::vector<uint8_t> m_sleepInhibitedThisFrame;    // Per-model flag for contacts that must remain awake this frame
-    std::vector<uint8_t> m_sleepState;                 // Per-model sleep state: 0=awake, 1=sleeping
-    std::vector<uint8_t> m_sleepCounter;               // Frames object has been below sleep threshold
+    std::vector<uint8_t> m_sleepInhibitedThisFrame; // Per-model flag for contacts that must remain awake this frame
+    std::vector<uint8_t> m_sleepState;              // Per-model sleep state: 0=awake, 1=sleeping
+    std::vector<uint8_t> m_sleepCounter;            // Frames object has been below sleep threshold
+    std::vector<uint8_t> m_collisionVisualContacts; // Per-render-frame collision/contact flags for the collision visualizer
+    std::vector<int> m_sleepIslandVisualId;         // Stable visual island id while a body remains asleep
+    std::vector<int> m_sleepIslandAssignedVisualId; // Scratch buffer: island root to visual id while transitioning to sleep
+    int m_nextSleepIslandVisualId = 1;
+    bool m_collisionVisualFrameActive = false;
 
     // Directed support edges record only the direction of possible vertical
     // support through object contacts. They are resolved after terrain contacts
@@ -135,6 +140,8 @@ class GameModelCollection
     void RunLegacyPhysics( float dt );              // Physics tick: legacy sphere-only solver (boxes skipped)
     void RunSolverPhysics( float dt );              // Physics tick: unified impulse solver (all objects)
     void SolvePersistentObjectContacts( float dt ); // PGS contact-force pass for resting/stacked object contacts
+    void EnsureCollisionVisualBuffers( int modelCount );
+    void MarkCollisionVisualContact( int index );
 
     // Extends terrain-backed sleep support through vertical object-contact stack
     // chains. This is separate from the solver so sleep policy can stay strict
@@ -158,7 +165,9 @@ class GameModelCollection
     int GetModelCount() const;                                                                                                                                                             // Returns the number of game models
     GameModel& GetModelAtIndex( int index );                                                                                                                                               // Returns a reference to the game model at the given index
 
-    void WakeModel( int index ); // Force a model awake (clears sleep state/counter); call before teleporting/firing a recycled model
+    void WakeModel( int index );      // Force a model awake (clears sleep state/counter); call before teleporting/firing a recycled model
+    void BeginCollisionVisualFrame(); // Clears per-render-frame contact flags before one or more physics substeps
+    void EndCollisionVisualFrame();   // Ends contact accumulation for standalone physics callers
 
     // Broadphase visualizer data accessors
     const SpatialGrid& GetSpatialGrid() const
@@ -168,6 +177,18 @@ class GameModelCollection
     const std::vector<int64_t>& GetCollisionCellKeys() const
     {
         return m_collisionCellKeys;
+    }
+    const std::vector<uint8_t>& GetCollisionVisualContacts() const
+    {
+        return m_collisionVisualContacts;
+    }
+    const std::vector<uint8_t>& GetSleepStates() const
+    {
+        return m_sleepState;
+    }
+    const std::vector<int>& GetSleepIslandVisualIds() const
+    {
+        return m_sleepIslandVisualId;
     }
 
 #ifdef _DEBUG

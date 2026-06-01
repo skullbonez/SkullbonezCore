@@ -923,7 +923,8 @@ bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
                              gameModel.m_boundingVolume );
 
     bool contactSupportsSleep = true;
-    if ( isBox && contactCount > 0 && contactCount < 4 )
+    float bestFaceNormalDot = 1.0f;
+    if ( isBox )
     {
         // Sleep stability is measured against the local terrain contact plane,
         // not world up. On a slope, a box is sleep-safe only when one local face
@@ -948,8 +949,12 @@ bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
             bestAbsDot = absDotZ;
         }
 
+        bestFaceNormalDot = bestAbsDot;
+    }
+    if ( isBox && contactCount > 0 && contactCount < 4 )
+    {
         constexpr float stableFaceNormalDot = 0.95f; // ~18 degrees from the contact plane normal.
-        contactSupportsSleep = bestAbsDot >= stableFaceNormalDot;
+        contactSupportsSleep = bestFaceNormalDot >= stableFaceNormalDot;
     }
     if ( isBox && contactSupportsSleep )
     {
@@ -998,9 +1003,16 @@ bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
                     gameModel.m_boundingVolume );
 
         // Three or more supported vertices means the box has a real terrain
-        // footprint. One or two vertices can be a point/edge balance and must
-        // remain awake so the solver can keep correcting it.
-        contactSupportsSleep = terrainSupportedVertices >= 3;
+        // footprint. A two-vertex terrain footprint can also sleep when the
+        // solver manifold has at least three contact rows and a box face is
+        // nearly flush with the terrain patch; this keeps true edge/point
+        // support awake while allowing stable heightfield rest on uneven cells.
+        constexpr float stablePlanePatchDot = 0.99f; // ~8 degrees from the terrain plane normal.
+        bool hasHeightfieldFootprint = terrainSupportedVertices >= 3;
+        bool hasStablePlanePatch = terrainSupportedVertices >= 2 &&
+                                   contactCount >= 3 &&
+                                   bestFaceNormalDot >= stablePlanePatchDot;
+        contactSupportsSleep = hasHeightfieldFootprint || hasStablePlanePatch;
     }
 
     // --- Rolling friction ---

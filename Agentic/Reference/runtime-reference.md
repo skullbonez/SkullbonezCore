@@ -52,6 +52,7 @@ For exact field order, inspect an existing scene in `SkullbonezData/scenes/` and
 | 3 | Toggle ocean wave displacement. |
 | 4 | Toggle terrain visibility. |
 | 5 | Toggle water visibility. |
+| V | Toggle collision visualiser. |
 | 9 | Toggle velocity vectors. |
 | G | Cycle tracked ball in scene mode. |
 

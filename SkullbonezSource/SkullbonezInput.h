@@ -30,6 +30,7 @@ struct InputState
         F2WasDown,
         F3WasDown,
         FWasDown,
+        VWasDown,
         PWasDown,
         NWasDown,
         ZWasDown,

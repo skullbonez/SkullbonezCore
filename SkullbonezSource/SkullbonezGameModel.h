@@ -84,7 +84,7 @@ class GameModel
     // is still visibly above the surface. This helper returns the closest true
     // vertex, the terrain sample under that vertex, and the signed vertical gap.
     bool GetClosestBoxTerrainVertex( Vector3& outVertex, float& outTerrainHeight, Plane& outPlane, float& outGap );
-    void DEBUG_SetSphereToTerrain();                                               // Debug routine - ensure sphere does not go through terrain
+    void DEBUG_SetSphereToTerrain(); // Debug routine - ensure sphere does not go through terrain
 
   public:
     GameModel( Environment::WorldEnvironment* pWorldEnv, const Vector3& vPosition, const Vector3& vRotationalInertia, float fMass ); // Overloaded constructor

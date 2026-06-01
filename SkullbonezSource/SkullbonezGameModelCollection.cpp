@@ -28,6 +28,9 @@ GameModelCollection::GameModelCollection()
     m_timeRemaining.reserve( MAX_GAME_MODELS );
     m_sleepSupportedThisFrame.reserve( MAX_GAME_MODELS );
     m_sleepInhibitedThisFrame.reserve( MAX_GAME_MODELS );
+    m_collisionVisualContacts.reserve( MAX_GAME_MODELS );
+    m_sleepIslandVisualId.reserve( MAX_GAME_MODELS );
+    m_sleepIslandAssignedVisualId.reserve( MAX_GAME_MODELS );
     m_sleepSupportEdges.reserve( MAX_GAME_MODELS * 4 );
     m_sleepIslandParent.reserve( MAX_GAME_MODELS );
     m_sleepIslandRank.reserve( MAX_GAME_MODELS );
@@ -67,6 +70,11 @@ void GameModelCollection::Clear()
     m_sleepInhibitedThisFrame.clear();
     m_sleepState.clear();
     m_sleepCounter.clear();
+    m_collisionVisualContacts.clear();
+    m_sleepIslandVisualId.clear();
+    m_sleepIslandAssignedVisualId.clear();
+    m_nextSleepIslandVisualId = 1;
+    m_collisionVisualFrameActive = false;
     m_sleepSupportEdges.clear();
     m_sleepIslandParent.clear();
     m_sleepIslandRank.clear();
@@ -249,9 +257,55 @@ GameModel& GameModelCollection::GetModelAtIndex( int index )
 }
 
 
+void GameModelCollection::EnsureCollisionVisualBuffers( int modelCount )
+{
+    if ( static_cast<int>( m_collisionVisualContacts.size() ) != modelCount )
+    {
+        m_collisionVisualContacts.assign( modelCount, 0 );
+    }
+    if ( static_cast<int>( m_sleepIslandVisualId.size() ) != modelCount )
+    {
+        m_sleepIslandVisualId.assign( modelCount, 0 );
+    }
+}
+
+
+void GameModelCollection::MarkCollisionVisualContact( int index )
+{
+    if ( index < 0 || index >= static_cast<int>( m_collisionVisualContacts.size() ) )
+    {
+        return;
+    }
+    m_collisionVisualContacts[index] = 1;
+}
+
+
+void GameModelCollection::BeginCollisionVisualFrame()
+{
+    const int modelCount = static_cast<int>( m_gameModels.size() );
+    m_collisionVisualContacts.assign( modelCount, 0 );
+    if ( static_cast<int>( m_sleepIslandVisualId.size() ) != modelCount )
+    {
+        m_sleepIslandVisualId.assign( modelCount, 0 );
+    }
+    m_collisionVisualFrameActive = true;
+}
+
+
+void GameModelCollection::EndCollisionVisualFrame()
+{
+    m_collisionVisualFrameActive = false;
+}
+
+
 void GameModelCollection::RunPhysics( float fChangeInTime )
 {
     const int modelCount = static_cast<int>( m_gameModels.size() );
+    EnsureCollisionVisualBuffers( modelCount );
+    if ( !m_collisionVisualFrameActive )
+    {
+        m_collisionVisualContacts.assign( modelCount, 0 );
+    }
     m_timeRemaining.assign( modelCount, fChangeInTime );
     m_sleepSupportedThisFrame.assign( modelCount, 0 );
     m_sleepInhibitedThisFrame.assign( modelCount, 0 );
@@ -262,6 +316,13 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     {
         m_sleepState.assign( modelCount, 0 );
         m_sleepCounter.assign( modelCount, 0 );
+    }
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        if ( !m_sleepState[i] )
+        {
+            m_sleepIslandVisualId[i] = 0;
+        }
     }
 
     // Dispatch to the appropriate physics implementation — the mode is checked exactly once here.
@@ -323,6 +384,10 @@ void GameModelCollection::WakeModel( int index )
     {
         m_sleepState[index] = 0;
         m_sleepCounter[index] = 0;
+        if ( index < static_cast<int>( m_sleepIslandVisualId.size() ) )
+        {
+            m_sleepIslandVisualId[index] = 0;
+        }
     }
 }
 
@@ -398,6 +463,8 @@ void GameModelCollection::RunLegacyPhysics( float dt )
             CollisionResponse::RespondCollisionGameModels( m_gameModels[x], m_gameModels[y] );
             m_gameModels[x].ClearResponseRequired();
             m_gameModels[y].ClearResponseRequired();
+            MarkCollisionVisualContact( x );
+            MarkCollisionVisualContact( y );
 
             // Record collision cell for broadphase visualizer
             Vector3 midpoint = ( m_gameModels[x].GetPosition() + m_gameModels[y].GetPosition() ) * 0.5f;
@@ -435,6 +502,7 @@ void GameModelCollection::RunLegacyPhysics( float dt )
                 CollisionResponse::RespondCollisionTerrain( m_gameModels[x], m_timeRemaining[x] - colTime );
                 m_gameModels[x].UpdatePosition( m_timeRemaining[x] - colTime );
                 m_gameModels[x].ClearResponseRequired();
+                MarkCollisionVisualContact( x );
 
                 // Legacy physics does not build object-contact islands, so
                 // terrain response is the only sleep-support source in this path.
@@ -695,6 +763,8 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         {
             continue;
         }
+        MarkCollisionVisualContact( aIndex );
+        MarkCollisionVisualContact( bIndex );
 
         constexpr float supportNormalY = 0.25f;
         // This records only a possible vertical support relationship. It does
@@ -1123,6 +1193,7 @@ void GameModelCollection::RunSolverPhysics( float dt )
 
         m_sleepState[sleepingIndex] = 0;
         m_sleepCounter[sleepingIndex] = 0;
+        m_sleepIslandVisualId[sleepingIndex] = 0;
         m_timeRemaining[sleepingIndex] = dt;
         m_gameModels[sleepingIndex].ApplyForces( dt );
     };
@@ -1171,11 +1242,15 @@ void GameModelCollection::RunSolverPhysics( float dt )
                         wakeSleepingModel( x );
                         wokeBySweptImpact = true;
                         m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
+                        MarkCollisionVisualContact( x );
+                        MarkCollisionVisualContact( y );
                     }
                 }
                 if ( !wokeBySweptImpact && hasPersistentWakeContact( y, x ) )
                 {
                     wakeSleepingModel( x );
+                    MarkCollisionVisualContact( x );
+                    MarkCollisionVisualContact( y );
                 }
                 continue;
             }
@@ -1194,11 +1269,15 @@ void GameModelCollection::RunSolverPhysics( float dt )
                         wakeSleepingModel( y );
                         wokeBySweptImpact = true;
                         m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
+                        MarkCollisionVisualContact( x );
+                        MarkCollisionVisualContact( y );
                     }
                 }
                 if ( !wokeBySweptImpact && hasPersistentWakeContact( x, y ) )
                 {
                     wakeSleepingModel( y );
+                    MarkCollisionVisualContact( x );
+                    MarkCollisionVisualContact( y );
                 }
                 continue;
             }
@@ -1226,6 +1305,8 @@ void GameModelCollection::RunSolverPhysics( float dt )
 
             // Impulse solver response (velocity-only; clears response flags on both models)
             m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
+            MarkCollisionVisualContact( x );
+            MarkCollisionVisualContact( y );
 
             // Record collision cell for broadphase visualizer
             Vector3 midpoint = ( m_gameModels[x].GetPosition() + m_gameModels[y].GetPosition() ) * 0.5f;
@@ -1269,6 +1350,7 @@ void GameModelCollection::RunSolverPhysics( float dt )
             {
                 m_sleepInhibitedThisFrame[x] = 1;
             }
+            MarkCollisionVisualContact( x );
             m_timeRemaining[x] = 0.0f;
         }
     }
@@ -1292,7 +1374,6 @@ void GameModelCollection::RunSolverPhysics( float dt )
         {
             m_gameModels[x].UpdatePosition( m_timeRemaining[x] );
         }
-
     }
 
     // Build sleep islands from the persistent contact graph. Sleep counters are
@@ -1420,6 +1501,21 @@ void GameModelCollection::RunSolverPhysics( float dt )
         }
     }
 
+    m_sleepIslandAssignedVisualId.assign( modelCount, 0 );
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        if ( !m_sleepState[x] || m_sleepIslandVisualId[x] == 0 )
+        {
+            continue;
+        }
+
+        const int root = findIsland( x );
+        if ( m_sleepIslandAssignedVisualId[root] == 0 )
+        {
+            m_sleepIslandAssignedVisualId[root] = m_sleepIslandVisualId[x];
+        }
+    }
+
     for ( int x = 0; x < modelCount; ++x )
     {
         if ( m_sleepState[x] )
@@ -1430,7 +1526,16 @@ void GameModelCollection::RunSolverPhysics( float dt )
         const int root = findIsland( x );
         if ( m_sleepIslandHasAwake[root] && m_sleepIslandEligible[root] && m_sleepIslandCanSleep[root] )
         {
+            if ( m_sleepIslandAssignedVisualId[root] == 0 )
+            {
+                m_sleepIslandAssignedVisualId[root] = m_nextSleepIslandVisualId++;
+                if ( m_nextSleepIslandVisualId <= 0 )
+                {
+                    m_nextSleepIslandVisualId = 1;
+                }
+            }
             m_sleepState[x] = 1;
+            m_sleepIslandVisualId[x] = m_sleepIslandAssignedVisualId[root];
             // Zeroing velocities at the island sleep transition prevents tiny
             // residual solver drift from reappearing when the body later wakes.
             m_gameModels[x].SetLinearVelocity( Math::Vector::ZERO_VECTOR );

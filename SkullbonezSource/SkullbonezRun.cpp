@@ -67,6 +67,7 @@ SkullbonezRun::~SkullbonezRun()
 
     SkullbonezHelper::ResetGLResources();
     m_cGameModelCollection.ResetGLResources();
+    m_collisionVisualizer.ResetResources();
     if ( m_systems.reflectionFBO )
     {
         m_systems.reflectionFBO->ResetResources();
@@ -212,6 +213,7 @@ void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
     Text2d::DeleteFont();
     m_cGameModelCollection.ResetGLResources();
     SkullbonezHelper::ResetGLResources();
+    m_collisionVisualizer.ResetResources();
     if ( m_systems.textures )
     {
         m_systems.textures->DeleteAllTextures();
@@ -561,6 +563,7 @@ void SkullbonezRun::Run()
             PROFILE_END( "Frame/Input" );
 
             TickRendererSwitch( static_cast<float>( secondsPerFrame ) );
+            m_cGameModelCollection.BeginCollisionVisualFrame();
             TickPhysics( secondsPerFrame );
 
             // Update broadphase visualizer state (runs even when overlay is hidden so fades are correct)
@@ -574,6 +577,9 @@ void SkullbonezRun::Run()
                 const std::vector<int64_t>& collisionKeys = m_cGameModelCollection.GetCollisionCellKeys();
                 m_broadphaseVisualizer.Update( static_cast<float>( secondsPerFrame ), activeCellBuf, activeCellCount, collisionKeys.data(), static_cast<int>( collisionKeys.size() ) );
             }
+            m_collisionVisualizer.SetEnabled( m_debug.isCollisionVisualizer );
+            m_collisionVisualizer.Update( static_cast<float>( secondsPerFrame ), m_cGameModelCollection );
+            m_cGameModelCollection.EndCollisionVisualFrame();
 
             PROFILE_BEGIN( "Frame/PipelineSync" );
             if ( m_runtimeSettings.isPipelineSyncEnabled )
@@ -991,6 +997,16 @@ void SkullbonezRun::TakeInput()
     m_debug.isWaterFlatDebug = ( Input::IsKeyToggled( '3' ) != 0 ); // Ocean wave displacement ON
     m_debug.isTerrainHidden = ( Input::IsKeyToggled( '4' ) != 0 );  // Terrain visibility ON
     m_debug.isWaterHidden = ( Input::IsKeyToggled( '5' ) != 0 );    // Water visibility ON
+    // V key: collision visualizer. Renders balls and boxes as solid debug colours.
+    {
+        bool vNow = Input::IsKeyDown( 'V' );
+        if ( vNow && !m_camera.input.Get( InputState::VWasDown ) )
+        {
+            m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
+        }
+        m_camera.input.Set( InputState::VWasDown, vNow );
+    }
+
     // Debug vectors: in scene mode, start from the scene-loaded value and edge-detect '9' toggles.
     // In legacy mode, mirror the Windows key-toggle state.
     if ( m_scene.isSceneMode )
@@ -1259,7 +1275,7 @@ void SkullbonezRun::DrawPrimitives()
     Matrix4 reflView = Matrix4::LookAt( reflEye, reflCenter, reflUp );
     reflVP = proj * reflView;
 
-    if ( Gfx().IsDXRSupported() && m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
+    if ( Gfx().IsDXRSupported() && m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect && !m_debug.isCollisionVisualizer )
     {
         // DXR path: rebuild TLAS with current ball positions, then dispatch rays
         int ballCount = m_cGameModelCollection.GetModelCount();
@@ -1305,10 +1321,19 @@ void SkullbonezRun::DrawPrimitives()
         PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
         Gfx().SetClipPlane( 0, true );
         SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -waterY );
-        m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-        m_cGameModelCollection.RenderModels( reflView, proj, lightPosition );
+        m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -waterY );
+        if ( m_debug.isCollisionVisualizer )
+        {
+            m_collisionVisualizer.Render( m_cGameModelCollection, reflView, proj, lightPosition );
+        }
+        else
+        {
+            m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+            m_cGameModelCollection.RenderModels( reflView, proj, lightPosition );
+        }
         Gfx().SetClipPlane( 0, false );
         SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
+        m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
 
         m_systems.reflectionFBO->Unbind();
@@ -1318,8 +1343,15 @@ void SkullbonezRun::DrawPrimitives()
 
     // render game models -----------------------------
     PROFILE_GPU_BEGIN( "Frame/Render/Balls" );
-    m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-    m_cGameModelCollection.RenderModels( baseView, proj, lightPosition );
+    if ( m_debug.isCollisionVisualizer )
+    {
+        m_collisionVisualizer.Render( m_cGameModelCollection, baseView, proj, lightPosition );
+    }
+    else
+    {
+        m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+        m_cGameModelCollection.RenderModels( baseView, proj, lightPosition );
+    }
     PROFILE_GPU_END( "Frame/Render/Balls" );
 
     // render m_terrain ------------------------------
@@ -1346,19 +1378,19 @@ void SkullbonezRun::DrawPrimitives()
         float waterTime = m_debug.isWaterFreezeDebug
                               ? m_debug.frozenWaterTime
                               : static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
-        uint32_t reflTex = ( Gfx().IsDXRSupported() && m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
+        uint32_t reflTex = ( Gfx().IsDXRSupported() && m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect && !m_debug.isCollisionVisualizer )
                                ? Gfx().GetReflectionUAVTexture()
                                : m_systems.reflectionFBO->GetColorTextureHandle();
         // DXR reflection texture is in main-camera screen space, so sample it
         // using the main VP — not the mirror VP used by the FBO path.
-        Matrix4 waterSampleVP = ( Gfx().IsDXRSupported() && m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
+        Matrix4 waterSampleVP = ( Gfx().IsDXRSupported() && m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect && !m_debug.isCollisionVisualizer )
                                     ? proj * baseView
                                     : reflVP;
         m_cWorldEnvironment.RenderFluid( baseView, proj, waterSampleVP, waterTime, reflTex, m_debug.isWaterFlatDebug, m_debug.isWaterNoReflect );
         PROFILE_GPU_END( "Frame/Render/Water" );
     }
 
-    // debug vector overlay ? GL only, toggled with V (or debug_vectors in scene)
+    // debug vector overlay - toggled with 9 (or debug_vectors in scene)
     //   green  = Travel Vector (velocity, scaled)
     //   red    = Roll Axis Vector (angular velocity, scaled)
     //   white  = Pole Vector outside tolerance
@@ -1652,7 +1684,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "G", "Broadphase overlay" },
             { "F2", "Scene snapshot" },
             { "F3", "Screenshot" },
-            { "", "" },
+            { "V", "Collision visual" },
         };
 
         for ( int i = 0; i < nRows; ++i )

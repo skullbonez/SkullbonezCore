@@ -10,8 +10,24 @@ The entire `ParseCommandLine` family of functions uses raw `const char*` pointer
 
 The existing profiler overlay shows rolling averages and bar graphs of frame time, but gives no visibility into outlier frames — a single 50ms spike is invisible when averaged into a 60fps rolling window. Add a spike histogram: a fixed-width ring buffer of the last N frame times (CPU and GPU separately), rendered as a scrolling bar graph in the HUD overlay. Each bar is one frame; bars exceeding the frame budget (e.g. 16.6ms at 60Hz) are drawn in a distinct colour. This would make hitching, GC-style stalls, and DX12 pipeline bubbles immediately visible without needing to export a perf CSV and analyse it offline.
 
-## PHYSICS BUGS
+## TODO Command line args
 
+I never want to type this again: --scene SkullbonezData/scenes/stacking.scene
+Should simply be --scene stacking or --suite myTests
+
+## TODO: Clock speeds
+
+Why is DX tests running slow and GL fast?
+
+## TODO: Physics text file
+
+20K lines for our physics regression test...  This is overkill.  We should just keep a line at a 60hz rate.
+
+## TODO: Scene reset
+
+Allow scene reset on press of R key
+
+## PHYSICS BUGS
 
 ## TODO: Fix stacking
 
