@@ -42,8 +42,9 @@ Before committing:
 1. Run the selected validation and keep the command output.
 2. Update baselines or archives only when the output change is intentional.
 3. Update `Agentic\SessionState.md` with current branch, latest commit context, active notes, and known bugs.
-4. Show the user the proposed commit message and changed-file summary.
-5. Commit or push only if the user explicitly confirms.
+4. Draft detailed commit notes following `AGENTS.md`: concise subject, explanatory body, validation command and result, and any baseline/artifact/session-state updates.
+5. Show the user the proposed commit notes and changed-file summary.
+6. Commit or push only if the user explicitly confirms.
 
 Do not submit, force-push, rebase, or rewrite history.
 

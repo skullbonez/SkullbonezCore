@@ -63,6 +63,20 @@ Run the appropriate validation script from the `tools\` directory:
 
 ---
 
+## Commit Notes
+
+When the user asks for a commit, write commit notes that are useful future handoff material, not a terse log line.
+
+- Use a short, action-oriented subject. Conventional prefixes like `docs:`, `fix:`, or `feat:` are fine when they fit.
+- Add a body for anything beyond a trivial single-file cleanup. Explain what changed, why it changed, and the important implementation details by area.
+- Mention validation explicitly, including the command run and the meaningful result. Do not reduce this to "tests passed."
+- Call out baseline, artifact, or session-state updates when they are part of the change.
+- Avoid vague messages such as "Update files", "Fix stuff", "Delete old files", or "misc changes."
+
+Show the proposed commit notes and changed-file summary to the user before committing. Commit only after explicit confirmation.
+
+---
+
 ## Danger Zones
 
 Changes to these areas require extra care. Always run the specified validation:
