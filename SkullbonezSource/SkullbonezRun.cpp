@@ -20,12 +20,18 @@
 // --- Usings ---
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
+using namespace SkullbonezCore::Math::Orientation;
+using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 
 namespace
 {
 constexpr double PERF_TEST_PASS_SECONDS = 2.0;
-}
+#ifdef _DEBUG
+constexpr const char* NUDGE_REPRO_SNAPSHOT_PATH = "Debug/nudge_repro_snapshots.txt";
+constexpr double NUDGE_REPRO_MESSAGE_SECONDS = 3.0;
+#endif
+} // namespace
 
 
 SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue, bool legacyPhysics )
@@ -923,6 +929,17 @@ void SkullbonezRun::TakeInput()
         m_camera.input.Set( InputState::NWasDown, nNow );
     }
 
+#ifdef _DEBUG
+    {
+        bool enterNow = Input::IsKeyDown( VK_RETURN );
+        if ( enterNow && !m_camera.input.Get( InputState::EnterWasDown ) && m_camera.isNudgeMode )
+        {
+            WriteNudgeReproSnapshot();
+        }
+        m_camera.input.Set( InputState::EnterWasDown, enterNow );
+    }
+#endif
+
     if ( m_camera.isFlyMode != prevFlyMode )
     {
         if ( m_camera.isFlyMode )
@@ -1557,6 +1574,22 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         const float cHalf = 0.001f;                                                  // half-thickness of each arm
         Text2d::Render2dQuad( -cArm, -cHalf, cArm, cHalf, 1.0f, 1.0f, 1.0f, 0.85f ); // horizontal
         Text2d::Render2dQuad( -cHalf, -cArm, cHalf, cArm, 1.0f, 1.0f, 1.0f, 0.85f ); // vertical
+#ifdef _DEBUG
+        if ( m_debug.reproSnapshotMessage[0] != '\0' &&
+             m_timers.simulationTimer.GetTimeSinceLastStart() <= m_debug.reproSnapshotMessageUntil )
+        {
+            const float msgSz = 0.014f;
+            float msgW = Text2d::MeasureText( msgSz, m_debug.reproSnapshotMessage );
+            Text2d::Render2dTextColor( -msgW * 0.5f,
+                                       -0.065f,
+                                       msgSz,
+                                       0.65f,
+                                       0.92f,
+                                       1.0f,
+                                       "%s",
+                                       m_debug.reproSnapshotMessage );
+        }
+#endif
     }
 
     // Top text — always visible regardless of overlay mode.
@@ -1627,7 +1660,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         const float titleSz = 0.013f;
         const float entrySz = 0.011f;
         const float lineH = 0.020f;
-        const int nRows = 11;
+        const int nRows = 12;
         const float panPad = 0.012f;
         const float titleGap = 0.016f; // space between title baseline and first entry
         const float keyW = 0.058f;     // key-name column width
@@ -1662,6 +1695,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         };
         static const KeyEntry kLeft[nRows] = {
             { "N", "Nudge mode" },
+            { "Enter", "Dump repro" },
             { "F", "Fly mode" },
             { "WASD", "Move camera" },
             { "Mouse", "Look" },
@@ -1674,6 +1708,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "Bksp", "Reset scene" },
         };
         static const KeyEntry kRight[nRows] = {
+            { "Esc", "Quit" },
             { "0", "Cycle overlay" },
             { "1", "Freeze water" },
             { "2", "Reflection mode" },
@@ -1923,6 +1958,347 @@ void SkullbonezRun::NudgeModelsWithCamera( const Vector3& moveVec )
         }
     }
 }
+
+
+#ifdef _DEBUG
+bool SkullbonezRun::PickNudgeReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance )
+{
+    outIndex = -1;
+    outRayT = 0.0f;
+    outCrosshairDistance = 0.0f;
+
+    const Vector3& camPos = m_systems.cameras->GetCameraTranslation();
+    Vector3 rayDir = m_systems.cameras->GetCameraView() - camPos;
+    float rayMagSq = VectorMagSquared( rayDir );
+    if ( rayMagSq < TOLERANCE )
+    {
+        return false;
+    }
+    rayDir = rayDir * ( 1.0f / sqrtf( rayMagSq ) );
+
+    float bestT = FLT_MAX;
+    float bestCrosshairDist = 0.0f;
+    int bestIndex = -1;
+
+    int count = m_cGameModelCollection.GetModelCount();
+    for ( int i = 0; i < count; ++i )
+    {
+        GameModel& model = m_cGameModelCollection.GetModelAtIndex( i );
+        Vector3 toModel = model.GetPosition() - camPos;
+        float rayT = toModel * rayDir;
+        if ( rayT <= 0.0f )
+        {
+            continue;
+        }
+
+        float distSq = VectorMagSquared( toModel );
+        float crosshairDistSq = distSq - rayT * rayT;
+        if ( crosshairDistSq < 0.0f )
+        {
+            crosshairDistSq = 0.0f;
+        }
+
+        float radius = GetShapeBoundingRadius( model.GetCollisionShape() );
+        if ( crosshairDistSq > radius * radius )
+        {
+            continue;
+        }
+
+        float hitOffset = sqrtf( radius * radius - crosshairDistSq );
+        float hitT = rayT - hitOffset;
+        if ( hitT < 0.0f )
+        {
+            hitT = rayT;
+        }
+
+        if ( hitT < bestT )
+        {
+            bestT = hitT;
+            bestCrosshairDist = sqrtf( crosshairDistSq );
+            bestIndex = i;
+        }
+    }
+
+    if ( bestIndex < 0 )
+    {
+        return false;
+    }
+
+    outIndex = bestIndex;
+    outRayT = bestT;
+    outCrosshairDistance = bestCrosshairDist;
+    return true;
+}
+
+
+void SkullbonezRun::WriteNudgeReproSnapshot()
+{
+    int targetIndex = -1;
+    float rayT = 0.0f;
+    float crosshairDistance = 0.0f;
+    if ( !PickNudgeReproTarget( targetIndex, rayT, crosshairDistance ) )
+    {
+        sprintf_s( m_debug.reproSnapshotMessage,
+                   sizeof( m_debug.reproSnapshotMessage ),
+                   "No repro target under crosshair" );
+        m_debug.reproSnapshotMessageUntil = m_timers.simulationTimer.GetTimeSinceLastStart() + NUDGE_REPRO_MESSAGE_SECONDS;
+        return;
+    }
+
+    CreateDirectoryA( "Debug", nullptr );
+    FILE* f = nullptr;
+    if ( fopen_s( &f, NUDGE_REPRO_SNAPSHOT_PATH, "a" ) != 0 || !f )
+    {
+        sprintf_s( m_debug.reproSnapshotMessage,
+                   sizeof( m_debug.reproSnapshotMessage ),
+                   "Failed to write repro snapshot" );
+        m_debug.reproSnapshotMessageUntil = m_timers.simulationTimer.GetTimeSinceLastStart() + NUDGE_REPRO_MESSAGE_SECONDS;
+        return;
+    }
+
+    GameModel& model = m_cGameModelCollection.GetModelAtIndex( targetIndex );
+    const Vector3& pos = model.GetPosition();
+    const Vector3& vel = model.GetVelocity();
+    const Vector3& omega = model.GetAngularVelocity();
+    const Vector3& inertia = model.GetRotationalInertia();
+    const Vector3& invInertia = model.GetInvertedRotationalInertia();
+    float qx = 0.0f, qy = 0.0f, qz = 0.0f, qw = 1.0f;
+    model.GetOrientation().GetComponents( qx, qy, qz, qw );
+
+    const CollisionShape& shape = model.GetCollisionShape();
+    bool isSphere = std::holds_alternative<BoundingSphere>( shape );
+    float boundingRadius = GetShapeBoundingRadius( shape );
+    float shapeVolume = GetShapeVolume( shape );
+    float shapeArea = GetShapeProjectedSurfaceArea( shape );
+    float shapeDrag = GetShapeDragCoefficient( shape );
+    const char* name = model.GetName();
+    if ( !name || name[0] == '\0' )
+    {
+        name = "<unnamed>";
+    }
+
+    const char* scenePath = "<legacy/random>";
+    if ( m_scene.isSceneMode && m_scene.currentSceneIndex >= 0 &&
+         m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() ) )
+    {
+        scenePath = m_sceneQueue[m_scene.currentSceneIndex].c_str();
+    }
+
+    const char* rendererName = IsGfxReady() ? Gfx().GetRendererName() : "<uninitialised>";
+    const char* physicsMode = m_cGameModelCollection.GetLegacyMode() ? "legacy" : "solver";
+    const Vector3& camPos = m_systems.cameras->GetCameraTranslation();
+    const Vector3& camView = m_systems.cameras->GetCameraView();
+    const Vector3& camUp = m_systems.cameras->GetCameraUp();
+
+    int sleeping = 0;
+    int sleepSupported = 0;
+    int sleepInhibited = 0;
+    int collisionVisualContact = 0;
+    int sleepIslandVisualId = 0;
+    const std::vector<uint8_t>& sleepStates = m_cGameModelCollection.GetSleepStates();
+    if ( targetIndex < static_cast<int>( sleepStates.size() ) )
+    {
+        sleeping = sleepStates[targetIndex] ? 1 : 0;
+    }
+    const std::vector<uint8_t>& sleepSupportedStates = m_cGameModelCollection.GetSleepSupportedStates();
+    if ( targetIndex < static_cast<int>( sleepSupportedStates.size() ) )
+    {
+        sleepSupported = sleepSupportedStates[targetIndex] ? 1 : 0;
+    }
+    const std::vector<uint8_t>& sleepInhibitedStates = m_cGameModelCollection.GetSleepInhibitedStates();
+    if ( targetIndex < static_cast<int>( sleepInhibitedStates.size() ) )
+    {
+        sleepInhibited = sleepInhibitedStates[targetIndex] ? 1 : 0;
+    }
+    const std::vector<uint8_t>& collisionContacts = m_cGameModelCollection.GetCollisionVisualContacts();
+    if ( targetIndex < static_cast<int>( collisionContacts.size() ) )
+    {
+        collisionVisualContact = collisionContacts[targetIndex] ? 1 : 0;
+    }
+    const std::vector<int>& islandIds = m_cGameModelCollection.GetSleepIslandVisualIds();
+    if ( targetIndex < static_cast<int>( islandIds.size() ) )
+    {
+        sleepIslandVisualId = islandIds[targetIndex];
+    }
+
+    bool terrainAtCenter = false;
+    float terrainHeight = 0.0f;
+    Vector3 terrainNormal( 0.0f, 1.0f, 0.0f );
+    if ( m_systems.terrain && m_systems.terrain->IsInBounds( pos.x, pos.z ) )
+    {
+        m_systems.terrain->GetTerrainHeightAndNormalAt( pos.x, pos.z, terrainHeight, terrainNormal );
+        terrainAtCenter = true;
+    }
+
+    int boxTerrainSupportedVertices = -1;
+    float boxMinTerrainGap = 0.0f;
+    float boxMaxTerrainGap = 0.0f;
+    if ( std::holds_alternative<BoundingBox>( shape ) && m_systems.terrain )
+    {
+        const BoundingBox& box = std::get<BoundingBox>( shape );
+        const Vector3& he = box.GetHalfExtents();
+        Quaternion qCopy = model.GetOrientation();
+        RotationMatrix orientMat = qCopy.GetOrientationMatrix();
+        constexpr float vertexSupportSlack = 0.15f;
+        float supportGap = Cfg().contactEpsilon + vertexSupportSlack;
+        bool foundVertex = false;
+        float minGap = FLT_MAX;
+        float maxGap = -FLT_MAX;
+        int supported = 0;
+
+        for ( int v = 0; v < 8; ++v )
+        {
+            Vector3 local(
+                ( v & 1 ) ? he.x : -he.x,
+                ( v & 2 ) ? he.y : -he.y,
+                ( v & 4 ) ? he.z : -he.z );
+            Vector3 worldVertex = pos + ( orientMat * local );
+            if ( !m_systems.terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
+            {
+                continue;
+            }
+
+            float vertexTerrainHeight = 0.0f;
+            Plane vertexPlane;
+            m_systems.terrain->GetTerrainHeightAndPlaneAt( worldVertex.x,
+                                                           worldVertex.z,
+                                                           vertexTerrainHeight,
+                                                           vertexPlane );
+            float gap = worldVertex.y - vertexTerrainHeight;
+            if ( gap <= supportGap )
+            {
+                ++supported;
+            }
+            if ( gap < minGap )
+            {
+                minGap = gap;
+            }
+            if ( gap > maxGap )
+            {
+                maxGap = gap;
+            }
+            foundVertex = true;
+        }
+
+        if ( foundVertex )
+        {
+            boxTerrainSupportedVertices = supported;
+            boxMinTerrainGap = minGap;
+            boxMaxTerrainGap = maxGap;
+        }
+    }
+
+    time_t now = time( nullptr );
+    fprintf( f, "\n=== NUDGE REPRO SNAPSHOT ===\n" );
+    fprintf( f, "timestamp_epoch,%lld\n", static_cast<long long>( now ) );
+    fprintf( f, "snapshot_file,%s\n", NUDGE_REPRO_SNAPSHOT_PATH );
+    fprintf( f, "scene,%s\n", scenePath );
+    fprintf( f, "scene_mode,%d\n", m_scene.isSceneMode ? 1 : 0 );
+    fprintf( f, "scene_index,%d\n", m_scene.currentSceneIndex );
+    fprintf( f, "scene_frame,%d\n", m_scene.currentFrame );
+    fprintf( f, "target_frame_count,%d\n", m_scene.targetFrameCount );
+    fprintf( f, "simulation_seconds,%.6f\n", m_timers.simulationTimer.GetTimeSinceLastStart() );
+    fprintf( f, "rng_seed,%u\n", sCurrentRngSeed );
+    fprintf( f, "fixed_step_effective,%d\n", m_scene.isFixedStep ? 1 : 0 );
+    fprintf( f, "cmd_fixed_step_override,%d\n", m_cmdFixedStep ? 1 : 0 );
+    fprintf( f, "time_scale,%.6f\n", m_scene.timeScale );
+    fprintf( f, "renderer,%s\n", rendererName );
+    fprintf( f, "physics_mode,%s\n", physicsMode );
+    fprintf( f, "model_count,%d\n", m_cGameModelCollection.GetModelCount() );
+    fprintf( f, "roll_align_enabled,%d\n", m_runtimeSettings.isRollAlignEnabled ? 1 : 0 );
+    fprintf( f, "vsync_enabled,%d\n", m_runtimeSettings.isVsyncEnabled ? 1 : 0 );
+    fprintf( f, "pipeline_sync_enabled,%d\n", m_runtimeSettings.isPipelineSyncEnabled ? 1 : 0 );
+    fprintf( f, "water_hidden,%d\n", m_debug.isWaterHidden ? 1 : 0 );
+    fprintf( f, "terrain_hidden,%d\n", m_debug.isTerrainHidden ? 1 : 0 );
+    fprintf( f, "collision_visualizer,%d\n", m_debug.isCollisionVisualizer ? 1 : 0 );
+    fprintf( f, "world_gravity,%.6f\n", m_cWorldEnvironment.GetGravity() );
+    fprintf( f, "world_fluid_height,%.6f\n", m_cWorldEnvironment.GetFluidSurfaceHeight() );
+    fprintf( f, "world_fluid_density,%.6f\n", m_cWorldEnvironment.GetFluidDensity() );
+    fprintf( f, "cfg_friction_coeff,%.6f\n", Cfg().frictionCoeff );
+    fprintf( f, "cfg_contact_epsilon,%.6f\n", Cfg().contactEpsilon );
+    fprintf( f, "camera_eye,%.6f,%.6f,%.6f\n", camPos.x, camPos.y, camPos.z );
+    fprintf( f, "camera_view,%.6f,%.6f,%.6f\n", camView.x, camView.y, camView.z );
+    fprintf( f, "camera_up,%.6f,%.6f,%.6f\n", camUp.x, camUp.y, camUp.z );
+    fprintf( f, "pick_index,%d\n", targetIndex );
+    fprintf( f, "pick_name,%s\n", name );
+    fprintf( f, "pick_shape,%s\n", isSphere ? "sphere" : "box" );
+    fprintf( f, "pick_ray_t,%.6f\n", rayT );
+    fprintf( f, "pick_crosshair_distance,%.6f\n", crosshairDistance );
+    fprintf( f, "position,%.6f,%.6f,%.6f\n", pos.x, pos.y, pos.z );
+    fprintf( f, "velocity,%.6f,%.6f,%.6f\n", vel.x, vel.y, vel.z );
+    fprintf( f, "angular_velocity,%.6f,%.6f,%.6f\n", omega.x, omega.y, omega.z );
+    fprintf( f, "speed,%.6f\n", sqrtf( VectorMagSquared( vel ) ) );
+    fprintf( f, "omega_mag,%.6f\n", sqrtf( VectorMagSquared( omega ) ) );
+    fprintf( f, "orientation_q,%.8f,%.8f,%.8f,%.8f\n", qx, qy, qz, qw );
+    fprintf( f, "mass,%.6f\n", model.GetMass() );
+    fprintf( f, "restitution,%.6f\n", model.GetCoefficientRestitution() );
+    fprintf( f, "rotational_inertia,%.6f,%.6f,%.6f\n", inertia.x, inertia.y, inertia.z );
+    fprintf( f, "inverse_rotational_inertia,%.6f,%.6f,%.6f\n", invInertia.x, invInertia.y, invInertia.z );
+    fprintf( f, "shape_bounding_radius,%.6f\n", boundingRadius );
+    fprintf( f, "shape_volume,%.6f\n", shapeVolume );
+    fprintf( f, "shape_projected_area,%.6f\n", shapeArea );
+    fprintf( f, "shape_drag_coefficient,%.6f\n", shapeDrag );
+    if ( isSphere )
+    {
+        const BoundingSphere& sphere = std::get<BoundingSphere>( shape );
+        fprintf( f, "sphere_radius,%.6f\n", sphere.GetRadius() );
+    }
+    else
+    {
+        const BoundingBox& box = std::get<BoundingBox>( shape );
+        const Vector3& he = box.GetHalfExtents();
+        fprintf( f, "box_half_extents,%.6f,%.6f,%.6f\n", he.x, he.y, he.z );
+        fprintf( f, "box_terrain_supported_vertices,%d\n", boxTerrainSupportedVertices );
+        fprintf( f, "box_min_terrain_gap,%.6f\n", boxMinTerrainGap );
+        fprintf( f, "box_max_terrain_gap,%.6f\n", boxMaxTerrainGap );
+    }
+    fprintf( f, "sleeping,%d\n", sleeping );
+    fprintf( f, "sleep_supported_this_frame,%d\n", sleepSupported );
+    fprintf( f, "sleep_inhibited_this_frame,%d\n", sleepInhibited );
+    fprintf( f, "sleep_island_visual_id,%d\n", sleepIslandVisualId );
+    fprintf( f, "collision_visual_contact_this_frame,%d\n", collisionVisualContact );
+    fprintf( f, "terrain_at_center,%d\n", terrainAtCenter ? 1 : 0 );
+    fprintf( f, "terrain_height_at_center,%.6f\n", terrainHeight );
+    fprintf( f, "terrain_normal_at_center,%.6f,%.6f,%.6f\n", terrainNormal.x, terrainNormal.y, terrainNormal.z );
+    fprintf( f,
+             "scene_object_line_hint,%s %s %.6f %.6f %.6f",
+             isSphere ? "ball_state/manual" : "box/manual",
+             name,
+             pos.x,
+             pos.y,
+             pos.z );
+    if ( isSphere )
+    {
+        const BoundingSphere& sphere = std::get<BoundingSphere>( shape );
+        fprintf( f,
+                 " radius=%.6f mass=%.6f restitution=%.6f",
+                 sphere.GetRadius(),
+                 model.GetMass(),
+                 model.GetCoefficientRestitution() );
+    }
+    else
+    {
+        const BoundingBox& box = std::get<BoundingBox>( shape );
+        const Vector3& he = box.GetHalfExtents();
+        fprintf( f,
+                 " halfExtents=%.6f,%.6f,%.6f mass=%.6f restitution=%.6f",
+                 he.x,
+                 he.y,
+                 he.z,
+                 model.GetMass(),
+                 model.GetCoefficientRestitution() );
+    }
+    fprintf( f, "\n" );
+    fprintf( f, "=== END NUDGE REPRO SNAPSHOT ===\n" );
+    fclose( f );
+
+    sprintf_s( m_debug.reproSnapshotMessage,
+               sizeof( m_debug.reproSnapshotMessage ),
+               "Repro snapshot: %s",
+               NUDGE_REPRO_SNAPSHOT_PATH );
+    m_debug.reproSnapshotMessageUntil = m_timers.simulationTimer.GetTimeSinceLastStart() + NUDGE_REPRO_MESSAGE_SECONDS;
+}
+#endif
 
 
 void SkullbonezRun::FireProjectile( bool isBox )
@@ -2178,6 +2554,10 @@ void SkullbonezRun::LoadScene( int index )
     m_debug.isWaterHidden = false;
     m_debug.isDebugVectors = false;
     m_debug.isTextOnly = false;
+#ifdef _DEBUG
+    m_debug.reproSnapshotMessage[0] = '\0';
+    m_debug.reproSnapshotMessageUntil = 0.0;
+#endif
     m_scene.timeScale = 1.0f;
     m_scene.isFixedStep = false;
     m_scene.isExitOnComplete = false;
@@ -2201,7 +2581,11 @@ void SkullbonezRun::LoadScene( int index )
     m_timers.rollingFpsTime = 0.0f;
 
     // Reseed RNG
-    srand( static_cast<unsigned>( time( nullptr ) ) );
+    unsigned int rngSeed = static_cast<unsigned int>( time( nullptr ) );
+#ifdef _DEBUG
+    sCurrentRngSeed = rngSeed;
+#endif
+    srand( rngSeed );
 
     // Branch on scene mode vs legacy mode
     if ( scenePath.empty() )
@@ -2293,7 +2677,11 @@ void SkullbonezRun::LoadScene( int index )
         // Override RNG seed for deterministic scenes
         if ( scene.GetSeed() > 0 )
         {
-            srand( scene.GetSeed() );
+            rngSeed = scene.GetSeed();
+#ifdef _DEBUG
+            sCurrentRngSeed = rngSeed;
+#endif
+            srand( rngSeed );
         }
 
         // Replace terrain with analytic flat slope when the scene requests it

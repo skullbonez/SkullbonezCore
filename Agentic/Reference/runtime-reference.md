@@ -40,6 +40,7 @@ For exact field order, inspect an existing scene in `SkullbonezData/scenes/` and
 | Esc | Quit |
 | F | Toggle fly mode. Freezes physics and camera auto-cycle. |
 | N | Toggle nudge mode. Free camera with live simulation. |
+| Enter | In nudge mode, write Debug-build repro data for the object under the crosshair to `Debug/nudge_repro_snapshots.txt`. |
 | R | Cycle render backend: GL to DX11 to DX12 to GL. |
 | P | Toggle physics solver: impulse or legacy. |
 | Z | Fire a ball from the camera. Shift increases speed. |
@@ -77,3 +78,5 @@ Log().Writef( "Debug/physics.csv", "frame,%d,x,%.3f,y,%.3f,z,%.3f\n", frame, x, 
 ```
 
 The log singleton lazily opens files and compiles out in Release/Profile where the implementation is guarded by `_DEBUG`.
+
+Debug builds also support nudge-mode repro snapshots. Press `N`, centre an object in the crosshair, then press Enter. Each snapshot appends the scene, frame, active RNG seed, fixed-step mode, renderer, physics mode, camera pose, object transform, velocities, shape data, sleep/contact state, and terrain support probes to `Debug/nudge_repro_snapshots.txt`.

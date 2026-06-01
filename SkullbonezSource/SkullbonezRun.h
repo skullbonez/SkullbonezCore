@@ -156,6 +156,10 @@ struct RunDebugState
     float frozenWaterTime = 0.0f;                // Simulation time captured when freeze was toggled on
     float rendererSwitchInterval = -1.0f;        // Auto-switch renderer every N seconds (-1 = disabled)
     float rendererSwitchAccum = 0.0f;            // Accumulated time since last auto-switch
+#ifdef _DEBUG
+    char reproSnapshotMessage[128] = {};    // Short HUD confirmation after nudge-mode repro dump
+    double reproSnapshotMessageUntil = 0.0; // Simulation timer value after which the HUD message expires
+#endif
 };
 
 struct RunFireState
@@ -201,6 +205,9 @@ class SkullbonezRun
     GameModelCollection m_cGameModelCollection;  // SkullbonezCore::GameObjects::GameModelCollection class
 
     inline static int sPerfPass = 0;
+#ifdef _DEBUG
+    inline static unsigned int sCurrentRngSeed = 0; // Effective seed passed to srand() for the active run/scene
+#endif
 
     void Render();                                                     // Main render method
     void RelativeUpdateCamera( uint32_t hash );                        // Relative update specified camera
@@ -233,6 +240,10 @@ class SkullbonezRun
     bool TickSceneAdvance();                              // Frame count, exit/hold on completion, restarts; returns true to continue
     void NudgeModelsWithCamera( const Vector3& moveVec ); // Push overlapping balls/boxes in camera movement direction
     void FireProjectile( bool isBox );                    // Recycle and launch a ball (CTRL) or box (ALT) from the camera
+#ifdef _DEBUG
+    bool PickNudgeReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance );
+    void WriteNudgeReproSnapshot();
+#endif
 
   public:
     SkullbonezRun( std::vector<std::string> sceneQueue, bool legacyPhysics = false ); // Constructor (scene queue; empty string = legacy mode)

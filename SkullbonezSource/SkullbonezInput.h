@@ -33,6 +33,7 @@ struct InputState
         VWasDown,
         PWasDown,
         NWasDown,
+        EnterWasDown,
         ZWasDown,
         XWasDown,
         BackspaceWasDown,

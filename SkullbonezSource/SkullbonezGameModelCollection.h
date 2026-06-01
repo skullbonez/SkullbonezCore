@@ -193,6 +193,14 @@ class GameModelCollection
 
 #ifdef _DEBUG
     void SetPhysicsLogPath( const char* path ); // Enable per-frame physics state CSV; empty string disables
+    const std::vector<uint8_t>& GetSleepSupportedStates() const
+    {
+        return m_sleepSupportedThisFrame;
+    }
+    const std::vector<uint8_t>& GetSleepInhibitedStates() const
+    {
+        return m_sleepInhibitedThisFrame;
+    }
 #endif
 };
 } // namespace GameObjects
