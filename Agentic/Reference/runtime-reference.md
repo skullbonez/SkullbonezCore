@@ -15,6 +15,9 @@ This file holds details that are useful during debugging or manual testing but t
 | `--time-scale` | float | Override simulation time multiplier. |
 | `--fixed-step` | flag | Run one deterministic physics tick per rendered frame. |
 | `--seed` | positive integer | Override the RNG seed for every loaded scene, including legacy mode. Useful with nudge repro snapshots. |
+| `--no-water` | flag | Start the fluid surface below the active terrain. Page Up can raise it during runtime. |
+| `--all-balls` | flag | Force generated object populations to spawn as balls. |
+| `--all-boxes` | flag | Force generated object populations to spawn as boxes and use the solver path for those objects. |
 | `--physics-log` | path | Write per-frame physics CSV in Debug builds. |
 | `--gen-atlas` | optional path | Generate the SDF font atlas and exit before GPU init. |
 
@@ -42,8 +45,8 @@ For exact field order, inspect an existing scene in `SkullbonezData/scenes/` and
 | F | Toggle fly mode. Freezes physics and camera auto-cycle. |
 | N | Toggle nudge mode. Free camera with live simulation. |
 | Enter | In nudge mode, write Debug-build repro data for the object under the crosshair to `Debug/nudge_repro_snapshots.txt`. |
-| R | Cycle render backend: GL to DX11 to DX12 to GL. |
-| Q | Reset or rerun the current scene, including legacy mode. |
+| Q | Cycle render backend: GL to DX11 to DX12 to GL. |
+| R | Reset or rerun the current scene, including legacy mode. |
 | P | Toggle physics solver: impulse or legacy. |
 | Z | Fire a ball from the camera. Shift increases speed. |
 | X | Fire a box from the camera in impulse mode. |
@@ -55,6 +58,7 @@ For exact field order, inspect an existing scene in `SkullbonezData/scenes/` and
 | 3 | Toggle ocean wave displacement. |
 | 4 | Toggle terrain visibility. |
 | 5 | Toggle water visibility. |
+| Page Up / Page Down | Move the water surface up or down while held. |
 | V | Toggle collision visualiser. |
 | 9 | Toggle velocity vectors. |
 | G | Cycle tracked ball in scene mode. |

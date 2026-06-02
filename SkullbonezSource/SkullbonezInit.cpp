@@ -113,6 +113,8 @@ struct ParsedArgs
     float timeScaleOverride = 0.0f; // 0 = not set
     bool fixedStep = false;
     unsigned int seedOverride = 0; // 0 = not set
+    bool noWater = false;
+    GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;
 #ifdef _DEBUG
     char physicsLogOverride[256] = {};
 #endif
@@ -425,6 +427,30 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
         }
     }
 
+    out.noWater = cmdLine && strstr( cmdLine, "--no-water" ) != nullptr;
+    if ( out.noWater )
+    {
+        fprintf( stdout, "[water] Fluid surface starts below terrain.\n" );
+    }
+
+    const bool allBalls = cmdLine && strstr( cmdLine, "--all-balls" ) != nullptr;
+    const bool allBoxes = cmdLine && strstr( cmdLine, "--all-boxes" ) != nullptr;
+    if ( allBalls && allBoxes )
+    {
+        fprintf( stderr, "ERROR: --all-balls and --all-boxes are mutually exclusive.\n" );
+        return false;
+    }
+    if ( allBalls )
+    {
+        out.objectTypeOverride = GeneratedObjectTypeOverride::AllBalls;
+        fprintf( stdout, "[objects] Generated objects forced to balls.\n" );
+    }
+    else if ( allBoxes )
+    {
+        out.objectTypeOverride = GeneratedObjectTypeOverride::AllBoxes;
+        fprintf( stdout, "[objects] Generated objects forced to boxes.\n" );
+    }
+
     return true;
 }
 
@@ -481,6 +507,14 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         if ( args.seedOverride > 0 )
         {
             cRun.SetSeedOverride( args.seedOverride );
+        }
+        if ( args.noWater )
+        {
+            cRun.SetNoWaterOverride();
+        }
+        if ( args.objectTypeOverride != GeneratedObjectTypeOverride::Mixed )
+        {
+            cRun.SetGeneratedObjectTypeOverride( args.objectTypeOverride );
         }
 #ifdef _DEBUG
         if ( args.physicsLogOverride[0] != '\0' )

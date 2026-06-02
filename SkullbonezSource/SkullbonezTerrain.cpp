@@ -24,6 +24,7 @@ Terrain::Terrain( const char* sFileName,
     m_flatSlopePlane.m_normal = m_flatSlopeNormal;
     m_flatSlopePlane.m_distance = 0.0f;
     m_maxTerrainHeight = 0.0f;
+    m_minTerrainHeight = 0.0f;
 
     m_terrainSizeWorldCoords = ( ( m_mapSize - m_stepSize ) /
                                  m_stepSize ) *
@@ -68,6 +69,7 @@ Terrain::Terrain( float slopeBaseY, float slopeX, float slopeZ )
     float h01 = slopeBaseY + slopeZ * FLAT_SLOPE_EXTENT;
     float h11 = slopeBaseY + slopeX * FLAT_SLOPE_EXTENT + slopeZ * FLAT_SLOPE_EXTENT;
     m_maxTerrainHeight = (std::max)( (std::max)( h00, h10 ), (std::max)( h01, h11 ) );
+    m_minTerrainHeight = (std::min)( (std::min)( h00, h10 ), (std::min)( h01, h11 ) );
 
     BuildFlatSlopeMesh();
     InitialiseTerrainShader();
@@ -118,13 +120,18 @@ void Terrain::BuildTerrain()
 
     TranslatePostings();
 
-    // Compute global max terrain height (used for airborne early-out in physics)
+    // Compute global terrain height range.
     m_maxTerrainHeight = -FLT_MAX;
+    m_minTerrainHeight = FLT_MAX;
     for ( const auto& post : m_postData )
     {
         if ( post.vPosition.y > m_maxTerrainHeight )
         {
             m_maxTerrainHeight = post.vPosition.y;
+        }
+        if ( post.vPosition.y < m_minTerrainHeight )
+        {
+            m_minTerrainHeight = post.vPosition.y;
         }
     }
 

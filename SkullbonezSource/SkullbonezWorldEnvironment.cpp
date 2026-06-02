@@ -56,6 +56,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
 
     // --- calm (inner) pass: flat, reflective unless disabled ---
     m_calmShader->Use();
+    m_calmShader->SetMat4( "uModel", Matrix4::Translate( 0.0f, m_fluidSurfaceHeight, 0.0f ) );
     m_calmShader->SetMat4( "uView", view );
     m_calmShader->SetMat4( "uProjection", proj );
     m_calmShader->SetMat4( "uReflectVP", reflectVP );
@@ -64,6 +65,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
 
     // --- ocean (outer) pass: vertex displacement + UV perturbation ---
     m_oceanShader->Use();
+    m_oceanShader->SetMat4( "uModel", Matrix4::Translate( 0.0f, m_fluidSurfaceHeight, 0.0f ) );
     m_oceanShader->SetMat4( "uView", view );
     m_oceanShader->SetMat4( "uProjection", proj );
     m_oceanShader->SetMat4( "uReflectVP", reflectVP );
@@ -79,7 +81,6 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
 
 void WorldEnvironment::BuildFluidMesh()
 {
-    float h = m_fluidSurfaceHeight;
     float f = Cfg().frustumFar;
 
     const int N = 64;
@@ -116,23 +117,23 @@ void WorldEnvironment::BuildFluidMesh()
             std::vector<float>& v = isCalm ? calmVerts : oceanVerts;
 
             v.push_back( x0 );
-            v.push_back( h );
+            v.push_back( 0.0f );
             v.push_back( z0 );
             v.push_back( x0 );
-            v.push_back( h );
+            v.push_back( 0.0f );
             v.push_back( z1 );
             v.push_back( x1 );
-            v.push_back( h );
+            v.push_back( 0.0f );
             v.push_back( z1 );
 
             v.push_back( x0 );
-            v.push_back( h );
+            v.push_back( 0.0f );
             v.push_back( z0 );
             v.push_back( x1 );
-            v.push_back( h );
+            v.push_back( 0.0f );
             v.push_back( z1 );
             v.push_back( x1 );
-            v.push_back( h );
+            v.push_back( 0.0f );
             v.push_back( z0 );
         }
     }
@@ -174,6 +175,12 @@ void WorldEnvironment::ResetGLResources()
 float WorldEnvironment::GetFluidSurfaceHeight()
 {
     return m_fluidSurfaceHeight;
+}
+
+
+void WorldEnvironment::SetFluidSurfaceHeight( float height )
+{
+    m_fluidSurfaceHeight = height;
 }
 
 

@@ -27,6 +27,8 @@ using namespace SkullbonezCore::Physics;
 namespace
 {
 constexpr double PERF_TEST_PASS_SECONDS = 2.0;
+constexpr float WATER_HEIGHT_CONTROL_SPEED = 20.0f;
+constexpr float NO_WATER_TERRAIN_CLEARANCE = 100.0f;
 #ifdef _DEBUG
 constexpr const char* NUDGE_REPRO_SNAPSHOT_PATH = "Debug/nudge_repro_snapshots.txt";
 constexpr double NUDGE_REPRO_MESSAGE_SECONDS = 3.0;
@@ -110,6 +112,22 @@ void SkullbonezRun::SetFixedStepOverride()
 void SkullbonezRun::SetSeedOverride( unsigned int seed )
 {
     m_cmdSeedOverride = seed;
+}
+
+
+void SkullbonezRun::SetNoWaterOverride()
+{
+    m_cmdNoWater = true;
+}
+
+
+void SkullbonezRun::SetGeneratedObjectTypeOverride( GeneratedObjectTypeOverride objectTypeOverride )
+{
+    m_generatedObjectTypeOverride = objectTypeOverride;
+    if ( objectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
+    {
+        m_cGameModelCollection.SetLegacyMode( false );
+    }
 }
 
 
@@ -427,8 +445,20 @@ void SkullbonezRun::SetUpGameModels( int count )
         Vector3 force( randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ) );
         Vector3 forcePos( randSign(), randSign(), randSign() );
 
-        // ~30% of objects are boxes when using new physics; legacy mode is spheres only
-        bool makeBox = !m_cGameModelCollection.GetLegacyMode() && ( rand() % 10 ) < 3;
+        bool makeBox = false;
+        if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
+        {
+            makeBox = true;
+        }
+        else if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
+        {
+            makeBox = false;
+        }
+        else
+        {
+            // ~30% of objects are boxes when using new physics; legacy mode is spheres only
+            makeBox = !m_cGameModelCollection.GetLegacyMode() && ( rand() % 10 ) < 3;
+        }
 
         if ( makeBox )
         {
@@ -478,6 +508,18 @@ void SkullbonezRun::SetUpGameModels( int count )
 // regardless of the balls/boxes ratio.
 void SkullbonezRun::SetUpSolverObjects( int balls, int boxes )
 {
+    const int totalObjects = balls + boxes;
+    if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
+    {
+        balls = totalObjects;
+        boxes = 0;
+    }
+    else if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
+    {
+        balls = 0;
+        boxes = totalObjects;
+    }
+
     const SkullbonezConfig& cfg = Cfg();
 
     auto randFloat = [&]( float base, int range )
@@ -1042,14 +1084,14 @@ void SkullbonezRun::TakeInput()
         m_debug.isDebugVectors = ( Input::IsKeyToggled( '9' ) != 0 );
     }
 
-    // R key: cycle render backend at runtime while preserving current simulation state (GL → DX11 → DX12 → GL).
+    // Q key: cycle render backend at runtime while preserving current simulation state (GL → DX11 → DX12 → GL).
     {
-        bool isRNow = Input::IsKeyDown( 'R' );
-        if ( isRNow && !m_camera.input.Get( InputState::RKeyWasDown ) )
+        bool isQNow = Input::IsKeyDown( 'Q' );
+        if ( isQNow && !m_camera.input.Get( InputState::QKeyWasDown ) )
         {
             SwitchRenderer( GetNextRendererType( GetCurrentRendererType() ) );
         }
-        m_camera.input.Set( InputState::RKeyWasDown, isRNow );
+        m_camera.input.Set( InputState::QKeyWasDown, isQNow );
     }
 
     // G key: toggle broadphase overlay, or cycle tracked ball if overlay is off.
@@ -1178,14 +1220,14 @@ void SkullbonezRun::TakeInput()
         m_camera.input.Set( InputState::XWasDown, xNow );
     }
 
-    // Q: reset/reload the current scene from scratch. Backspace remains as a scene-mode alias.
+    // R: reset/reload the current scene from scratch. Backspace remains as a scene-mode alias.
     {
-        bool qNow = Input::IsKeyDown( 'Q' );
-        if ( qNow && !m_camera.input.Get( InputState::QKeyWasDown ) )
+        bool rNow = Input::IsKeyDown( 'R' );
+        if ( rNow && !m_camera.input.Get( InputState::RKeyWasDown ) )
         {
             ResetCurrentScene();
         }
-        m_camera.input.Set( InputState::QKeyWasDown, qNow );
+        m_camera.input.Set( InputState::RKeyWasDown, rNow );
     }
     if ( m_scene.isSceneMode )
     {
@@ -1240,8 +1282,25 @@ void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
     MoveCamera( fSecondsPerFrame * Cfg().keySpeed,
                 fSecondsPerFrame * Cfg().mouseSensitivity );
 
+    UpdateWaterHeightControls( fSecondsPerFrame );
+
     // update camera tweening speed
     m_systems.cameras->SetTweenSpeed( Cfg().cameraTweenRate * fSecondsPerFrame );
+}
+
+
+void SkullbonezRun::UpdateWaterHeightControls( float dt )
+{
+    const bool downNow = Input::IsKeyDown( VK_NEXT );
+    const bool upNow = Input::IsKeyDown( VK_PRIOR );
+    if ( downNow == upNow )
+    {
+        return;
+    }
+
+    const float direction = upNow ? 1.0f : -1.0f;
+    const float height = m_cWorldEnvironment.GetFluidSurfaceHeight() + direction * WATER_HEIGHT_CONTROL_SPEED * dt;
+    m_cWorldEnvironment.SetFluidSurfaceHeight( height );
 }
 
 
@@ -1714,9 +1773,9 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "Z", "Fire ball" },
             { "X", "Fire box" },
             { "P", "Physics solver" },
-            { "R", "Cycle renderer" },
+            { "Q", "Cycle renderer" },
             { "Space", "Step physics" },
-            { "Q/Bksp", "Reset scene" },
+            { "R/Bksp", "Reset scene" },
         };
         static const KeyEntry kRight[nRows] = {
             { "Esc", "Quit" },
@@ -1728,7 +1787,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "5", "Toggle water" },
             { "9", "Debug vectors" },
             { "G", "Broadphase overlay" },
-            { "F2", "Scene snapshot" },
+            { "PgUp/Dn", "Water height" },
             { "F3", "Screenshot" },
             { "V", "Collision visual" },
         };
@@ -2107,6 +2166,18 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
         rendererArg = "dx12";
     }
     const char* physicsMode = m_cGameModelCollection.GetLegacyMode() ? "legacy" : "solver";
+    const char* generatedObjectOverride = "mixed";
+    const char* generatedObjectArg = "";
+    if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
+    {
+        generatedObjectOverride = "all_balls";
+        generatedObjectArg = " --all-balls";
+    }
+    else if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
+    {
+        generatedObjectOverride = "all_boxes";
+        generatedObjectArg = " --all-boxes";
+    }
     const Vector3& camPos = m_systems.cameras->GetCameraTranslation();
     const Vector3& camView = m_systems.cameras->GetCameraView();
     const Vector3& camUp = m_systems.cameras->GetCameraUp();
@@ -2223,11 +2294,13 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     fprintf( f, "simulation_seconds,%.6f\n", m_timers.simulationTimer.GetTimeSinceLastStart() );
     fprintf( f, "rng_seed,%u\n", m_scene.rngSeed );
     fprintf( f, "cmd_seed_override,%u\n", m_cmdSeedOverride );
+    fprintf( f, "cmd_no_water,%d\n", m_cmdNoWater ? 1 : 0 );
     fprintf( f, "fixed_step_effective,%d\n", m_scene.isFixedStep ? 1 : 0 );
     fprintf( f, "cmd_fixed_step_override,%d\n", m_cmdFixedStep ? 1 : 0 );
     fprintf( f, "time_scale,%.6f\n", m_scene.timeScale );
     fprintf( f, "renderer,%s\n", rendererName );
     fprintf( f, "physics_mode,%s\n", physicsMode );
+    fprintf( f, "generated_object_override,%s\n", generatedObjectOverride );
     fprintf( f, "model_count,%d\n", m_cGameModelCollection.GetModelCount() );
     fprintf( f, "roll_align_enabled,%d\n", m_runtimeSettings.isRollAlignEnabled ? 1 : 0 );
     fprintf( f, "vsync_enabled,%d\n", m_runtimeSettings.isVsyncEnabled ? 1 : 0 );
@@ -2235,23 +2308,27 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     if ( m_scene.isSceneMode )
     {
         fprintf( f,
-                 "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --scene \"%s\" --seed %u --time-scale %.6f%s%s\n",
+                 "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --scene \"%s\" --seed %u --time-scale %.6f%s%s%s%s\n",
                  rendererArg,
                  scenePath,
                  m_scene.rngSeed,
                  m_scene.timeScale,
                  m_scene.isFixedStep ? " --fixed-step" : "",
-                 m_cGameModelCollection.GetLegacyMode() ? " --legacy-physics" : "" );
+                 m_cGameModelCollection.GetLegacyMode() ? " --legacy-physics" : "",
+                 m_cmdNoWater ? " --no-water" : "",
+                 generatedObjectArg );
     }
     else
     {
         fprintf( f,
-                 "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --seed %u --time-scale %.6f%s%s\n",
+                 "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --seed %u --time-scale %.6f%s%s%s%s\n",
                  rendererArg,
                  m_scene.rngSeed,
                  m_scene.timeScale,
                  m_scene.isFixedStep ? " --fixed-step" : "",
-                 m_cGameModelCollection.GetLegacyMode() ? " --legacy-physics" : "" );
+                 m_cGameModelCollection.GetLegacyMode() ? " --legacy-physics" : "",
+                 m_cmdNoWater ? " --no-water" : "",
+                 generatedObjectArg );
     }
     fprintf( f, "water_hidden,%d\n", m_debug.isWaterHidden ? 1 : 0 );
     fprintf( f, "terrain_hidden,%d\n", m_debug.isTerrainHidden ? 1 : 0 );
@@ -2646,6 +2723,7 @@ void SkullbonezRun::LoadScene( int index )
         }
         m_scene.rngSeed = rngSeed;
         srand( rngSeed );
+        ApplyNoWaterOverride();
 
         m_scene.isSceneMode = false;
         SetUpCameras();
@@ -2688,6 +2766,10 @@ void SkullbonezRun::LoadScene( int index )
         if ( scene.GetPhysicsMode() != 0 )
         {
             m_cGameModelCollection.SetLegacyMode( scene.GetPhysicsMode() == 1 );
+        }
+        if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
+        {
+            m_cGameModelCollection.SetLegacyMode( false );
         }
 
         m_scene.targetFrameCount = scene.GetFrameCount();
@@ -2758,6 +2840,7 @@ void SkullbonezRun::LoadScene( int index )
             XZBounds tb = m_systems.terrain->GetXZBounds();
             m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
         }
+        ApplyNoWaterOverride();
 
         SetUpCamerasFromScene( scene );
 
@@ -2869,6 +2952,17 @@ void SkullbonezRun::ResetCurrentScene()
 
     ++m_scene.manualResetCount;
     LoadScene( m_scene.currentSceneIndex );
+}
+
+
+void SkullbonezRun::ApplyNoWaterOverride()
+{
+    if ( !m_cmdNoWater || !m_systems.terrain )
+    {
+        return;
+    }
+
+    m_cWorldEnvironment.SetFluidSurfaceHeight( m_systems.terrain->GetMinHeight() - NO_WATER_TERRAIN_CLEARANCE );
 }
 
 

@@ -181,6 +181,13 @@ enum class RuntimeRendererType
     DX12
 };
 
+enum class GeneratedObjectTypeOverride
+{
+    Mixed,
+    AllBalls,
+    AllBoxes
+};
+
 /* -- Skullbonez Run ---------------------------------------------------------------------------------------------------------------------------------------------
 
     Harness for the Skullbonez Core graphics library.
@@ -193,6 +200,8 @@ class SkullbonezRun
     float m_cmdTimeScaleOverride = 0.0f;   // CLI --time-scale override applied after each scene load (0 = not set)
     bool m_cmdFixedStep = false;           // CLI --fixed-step override applied after each scene load
     unsigned int m_cmdSeedOverride = 0;    // CLI --seed override applied after each scene load (0 = not set)
+    bool m_cmdNoWater = false;             // CLI --no-water starts fluid below terrain
+    GeneratedObjectTypeOverride m_generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
 
     RunPerfLogState m_perfLogState;              // Perf/test logging paths, files, and flush policy
     RunRuntimeSettings m_runtimeSettings;        // Scene/app runtime toggles (vsync, sync, roll-align)
@@ -226,6 +235,7 @@ class SkullbonezRun
     void LogPerfMemory( const char* checkpoint );                      // Log memory usage to perf CSV
     void LoadScene( int index );                                       // Resets scene-specific state and loads a scene by queue index
     void ResetCurrentScene();                                          // User-triggered reset/reload of current scene or legacy mode
+    void ApplyNoWaterOverride();                                       // Pushes fluid surface below the active terrain when requested
     bool AdvanceScene();                                               // Advances to the next scene in the queue (returns false if done)
     void MoveCamera( float keyMovementQty, float mouseMovemementQty ); // Moves the camera
     RuntimeRendererType GetCurrentRendererType() const;                // Detect active backend type from Gfx renderer identity
@@ -239,6 +249,7 @@ class SkullbonezRun
     void TickAutoCycle();                                 // Auto-cycle ball capture; posts WM_QUIT when all balls captured
     void TickPerfLog();                                   // Write per-frame perf CSV row and periodic memory checkpoint
     bool TickSceneAdvance();                              // Frame count, exit/hold on completion, restarts; returns true to continue
+    void UpdateWaterHeightControls( float dt );           // Slide water surface up/down while held
     void NudgeModelsWithCamera( const Vector3& moveVec ); // Push overlapping balls/boxes in camera movement direction
     void FireProjectile( bool isBox );                    // Recycle and launch a ball (CTRL) or box (ALT) from the camera
 #ifdef _DEBUG
@@ -255,6 +266,8 @@ class SkullbonezRun
     void SetTimeScaleOverride( float scale );  // Override timeScale for every scene loaded (CLI --time-scale)
     void SetFixedStepOverride();               // Force fixed-step for every scene loaded (CLI --fixed-step)
     void SetSeedOverride( unsigned int seed ); // Override RNG seed for every scene loaded (CLI --seed)
+    void SetNoWaterOverride();                 // Start scenes with fluid below terrain (CLI --no-water)
+    void SetGeneratedObjectTypeOverride( GeneratedObjectTypeOverride objectTypeOverride );
 
 #ifdef _DEBUG
     void SetPhysicsLogOverride( const char* path ); // Override physics log path for all scenes (CLI --physics-log)
