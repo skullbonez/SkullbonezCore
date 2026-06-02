@@ -313,6 +313,21 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     {
         throw std::runtime_error( "CreateDXGIFactory2 failed" );
     }
+    {
+        IDXGIFactory5* factory5 = nullptr;
+        BOOL allowTearing = FALSE;
+        if ( SUCCEEDED( m_factory->QueryInterface( IID_PPV_ARGS( &factory5 ) ) ) )
+        {
+            if ( FAILED( factory5->CheckFeatureSupport( DXGI_FEATURE_PRESENT_ALLOW_TEARING,
+                                                        &allowTearing,
+                                                        sizeof( allowTearing ) ) ) )
+            {
+                allowTearing = FALSE;
+            }
+            factory5->Release();
+        }
+        m_allowTearing = allowTearing == TRUE;
+    }
 
     // Create the DX12 Device — this is the primary interface for creating ALL GPU resources.
     // The device represents a virtual GPU adapter. Pass nullptr for the first param to use the
@@ -372,6 +387,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     scDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     scDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     scDesc.SampleDesc.Count = 1;
+    scDesc.Flags = m_allowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
 
     IDXGISwapChain1* swapChain1 = nullptr;
     if ( FAILED( m_factory->CreateSwapChainForHwnd( m_commandQueue, hwnd, &scDesc, nullptr, nullptr, &swapChain1 ) ) )
@@ -959,7 +975,11 @@ void RenderBackendDX12::Present()
     // Present the frame — flips the swap chain to show the just-rendered back buffer on screen.
     // Sync interval is configurable so perf scenes can disable V-Sync while visual scenes keep it.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-present
-    m_swapChain->Present( m_isVsyncEnabled ? 1 : 0, 0 );
+    const UINT syncInterval = m_isVsyncEnabled ? 1u : 0u;
+    const UINT presentFlags = ( !m_isVsyncEnabled && m_allowTearing )
+                                  ? DXGI_PRESENT_ALLOW_TEARING
+                                  : 0u;
+    m_swapChain->Present( syncInterval, presentFlags );
 
     // Signal the fence with the current frame's value. When the GPU reaches this point in its
     // command stream, it will update the fence to this value — letting the CPU know this frame's
@@ -976,7 +996,10 @@ void RenderBackendDX12::Present()
     {
         if ( m_gpuTimers.readPending )
         {
-            TryConsumeGpuTimerReadback( true );
+            // In free-running off-vsync mode the CPU can lap the GPU. Dropping one
+            // stale timer sample is better than blocking Present() and throttling
+            // the whole frame loop; the next fence will publish fresh data.
+            m_gpuTimers.readPending = false;
         }
         m_gpuTimers.readPending = true;
         m_gpuTimers.readFenceValue = m_fenceValue;
@@ -1045,7 +1068,8 @@ void RenderBackendDX12::Resize( int width, int height )
     m_depthStencil->Release();
     m_depthStencil = nullptr;
 
-    m_swapChain->ResizeBuffers( FRAME_COUNT, (UINT)width, (UINT)height, DXGI_FORMAT_R8G8B8A8_UNORM, 0 );
+    const UINT resizeFlags = m_allowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u;
+    m_swapChain->ResizeBuffers( FRAME_COUNT, (UINT)width, (UINT)height, DXGI_FORMAT_R8G8B8A8_UNORM, resizeFlags );
     m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
 
     // ResizeBuffers puts all back buffers into PRESENT state — reset our tracking flag

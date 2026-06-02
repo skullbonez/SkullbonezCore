@@ -1,0 +1,81 @@
+# physics_bench_varied.scene
+# Mixed 20-second fixed-step physics benchmark.
+#
+# Purpose:
+#   Exercises sustained terrain contacts, object-object contacts, sleeping,
+#   box support classification, sphere rolling, and active collision churn.
+#   Unlike the older generated launch benches, this scene starts many objects
+#   close to the ground or already in stacked/pile relationships.
+#
+# 1200 fixed-step frames = 20 simulated seconds at 60 Hz.
+# Output: Profile/varied_physics_perf_log.csv
+
+seed 20260602
+physics_mode solver
+physics on
+text off
+frames 1200
+exit_on_complete
+fixed_step
+time_scale 1.0
+world -9.81 0.0 0.0
+water_hidden on
+vsync off
+pipeline_sync off
+roll_align off
+perf_log Profile/varied_physics_perf_log.csv
+perf_log_flush off
+
+camera overview  365 135 620  505 42 515  0 1 0
+
+# A shallow analytic slope keeps terrain contacts deterministic while still
+# producing rolling/sliding behavior across the whole pile.
+flat_slope 30.0 0.012 -0.008
+
+# Settling box pile near the center.
+box base_a  486 35.2 500  5.0 2.5 4.0  60.0 0.20  0 8 0
+box base_b  497 35.4 501  4.0 2.5 4.0  55.0 0.20  0 -12 0
+box base_c  508 35.1 499  5.0 2.5 3.5  58.0 0.20  0 17 0
+box mid_a   491 43.5 500  3.5 3.0 3.5  36.0 0.25  2 23 0
+box mid_b   503 44.0 501  3.0 3.0 4.0  34.0 0.25  -3 -19 4
+box top_a   497 52.0 500  2.5 2.5 2.5  24.0 0.30  6 33 -5
+box top_b   508 57.0 503  2.0 3.0 2.5  20.0 0.30  -8 -27 7
+
+# Edge/tilted support cases that stress Catto terrain support classification.
+box edge_a  464 39.0 485  2.0 5.0 2.0  25.0 0.20  0 0 44
+box edge_b  536 39.0 525  2.0 5.0 2.0  25.0 0.20  0 0 -42
+box edge_c  478 40.0 542  1.8 4.5 2.2  22.0 0.20  18 0 39
+box edge_d  526 40.0 462  2.2 4.2 1.8  22.0 0.20  -16 0 -37
+
+# Rolling balls seeded low enough to hit terrain and the pile quickly.
+ball roll_a  450 43 505  4.0  20.0  8.0 0.35  34 0 12  0 1 0
+ball roll_b  552 44 492  5.0  28.0 12.0 0.35  -38 0 -4  0 1 0
+ball roll_c  500 62 450  4.5  24.0 10.0 0.30  0 0 42  1 0 0
+ball roll_d  512 66 558  4.5  24.0 10.0 0.30  -10 0 -44  1 0 0
+ball roll_e  470 51 530  3.5  18.0  7.0 0.40  18 0 -22  0 0 1
+ball roll_f  535 50 472  3.5  18.0  7.0 0.40  -16 0 20  0 0 1
+
+# Falling mixed objects keep contacts active after the first few seconds.
+box drop_a  482 82 478  2.8 2.8 2.8  26.0 0.35  13 22 8   12 -4 10
+box drop_b  518 86 530  3.2 2.2 3.0  28.0 0.35  -10 -18 17  -14 -5 -8
+box drop_c  545 94 502  2.0 4.0 2.5  24.0 0.30  30 4 -14   -20 -6 2
+box drop_d  456 98 520  4.0 2.0 2.5  30.0 0.30  -24 12 11  18 -6 -5
+box drop_e  500 112 575  3.0 3.0 2.0  26.0 0.35  8 -35 22   0 -8 -24
+box drop_f  575 110 500  2.5 2.5 4.0  28.0 0.35  -18 28 -9  -26 -8 0
+ball drop_a  475 104 555  5.0  30.0 12.0 0.45  16 -3 -20  1 0 0
+ball drop_b  535 108 445  4.0  22.0  8.0 0.45  -12 -2 24  1 0 0
+ball drop_c  445 118 500  6.0  34.0 16.0 0.40  28 -5 4   0 1 0
+ball drop_d  565 122 535  5.5  32.0 14.0 0.40  -26 -5 -18  0 1 0
+
+# Side clusters exercise broadphase and sleeper wake-up paths.
+box side_a  430 37 430  3.0 3.0 3.0  28.0 0.25  5 45 0
+box side_b  440 44 432  2.5 2.5 3.5  24.0 0.30  -7 12 19
+box side_c  420 54 440  2.0 4.0 2.0  22.0 0.25  21 -9 27
+ball side_a  416 44 424  4.0  20.0 8.0 0.35  15 0 12  0 1 0
+ball side_b  448 58 452  4.5  24.0 10.0 0.35  -18 0 -10  0 1 0
+
+box side_d  570 37 580  3.5 2.5 3.0  30.0 0.25  -4 -35 0
+box side_e  558 45 570  2.5 3.0 2.5  24.0 0.30  12 18 -13
+box side_f  586 55 566  2.0 2.0 4.0  22.0 0.25  -18 7 31
+ball side_c  592 48 592  4.0  20.0 8.0 0.35  -14 0 -15  0 1 0
+ball side_d  552 60 548  4.5  24.0 10.0 0.35  20 0 8  0 1 0

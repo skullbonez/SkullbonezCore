@@ -1,5 +1,5 @@
 """
-Physics benchmark report — legacy solver vs impulse solver (4 modes).
+Physics benchmark report — legacy solver vs impulse solver.
 
 Usage:
     py Agentic/Skills/bench_report.py [--out-dir <archive_dir>] [--previous <physics_bench.json>]
@@ -9,6 +9,7 @@ Reads from Profile/:
     solver_balls_bench_perf_log.csv   — solver:  300 balls
     solver_bench_perf_log.csv         — solver:  150 balls + 150 boxes
     solver_boxes_bench_perf_log.csv   — solver:  300 boxes
+    varied_physics_perf_log.csv       — solver:  varied contact-heavy scene
 
 If --out-dir is given, writes physics_bench.json to that directory.
 If --previous is given, appends a delta column showing change vs prior run.
@@ -29,6 +30,7 @@ MODES = [
     ("solver_300balls",     "solver_balls_bench_perf_log.csv", "Solver 300b",       300,  0),
     ("solver_150b_150box",  "solver_bench_perf_log.csv",       "Solver 150b+150box",150, 150),
     ("solver_300boxes",     "solver_boxes_bench_perf_log.csv", "Solver 300box",       0, 300),
+    ("solver_varied_20s",   "varied_physics_perf_log.csv",     "Solver varied 20s",  14, 23),
 ]
 
 GREEN  = "\033[32m"
@@ -155,7 +157,7 @@ def main():
 
     print()
     print(f"{BOLD}  Physics Benchmark — Legacy vs Impulse Solver{RESET}")
-    print(f"  All modes: 300 objects, vsync off | Frame/Physics CPU time (ms) | pass-2 steady state")
+    print(f"  Vsync off | Frame/Physics CPU time (ms) | pass-2 steady state")
     print(sep)
 
     hdr = f"  {'Mode':<22}  {'avg':>8}  {'p50':>8}  {'p95':>8}  {'p99':>8}  {'frames':>7}"

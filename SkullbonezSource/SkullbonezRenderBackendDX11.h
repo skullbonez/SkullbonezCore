@@ -4,7 +4,7 @@
 // --- Includes ---
 #include "SkullbonezIRenderBackend.h"
 #include <d3d11.h>
-#include <dxgi1_2.h>
+#include <dxgi1_5.h>
 #include <vector>
 #include <unordered_map>
 
@@ -188,6 +188,7 @@ class RenderBackendDX11 : public IRenderBackend
     int m_width = 0;
     int m_height = 0;
     bool m_isVsyncEnabled = true;
+    bool m_allowTearing = false;
 
     // Grid line overlay (lazy-init in DrawLinesColored)
     ID3D11Buffer* m_gridLineVB = nullptr;

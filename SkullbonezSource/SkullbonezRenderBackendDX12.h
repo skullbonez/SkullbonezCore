@@ -8,7 +8,7 @@
 #include "SkullbonezTLASDX12.h"
 #include "SkullbonezSBTDX12.h"
 #include <d3d12.h>
-#include <dxgi1_4.h>
+#include <dxgi1_5.h>
 #include <unordered_map>
 #include <vector>
 
@@ -172,6 +172,7 @@ class RenderBackendDX12 : public IRenderBackend
     int m_width = 0;
     int m_height = 0;
     bool m_isVsyncEnabled = true;
+    bool m_allowTearing = false;
 
     bool m_depthTestEnabled = true;
     bool m_depthWriteEnabled = true;
