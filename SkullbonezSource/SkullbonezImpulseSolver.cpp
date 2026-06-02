@@ -426,6 +426,137 @@ bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
         contactCount = 1;
     }
 
+    // --- Box terrain support classification ---
+    // ENGINE-SPECIFIC / NOVEL:
+    //   This block decides whether the current box/terrain manifold is allowed
+    //   to behave like a stable resting support. It intentionally runs before
+    //   warm-starting, friction, and rolling damping because those policies can
+    //   otherwise make an edge/point touch act like a broad support footprint.
+    //
+    //   The edge/point repro showed exactly that failure mode: the collision
+    //   detector correctly found a near-terrain box vertex and the sleep gate
+    //   correctly refused to sleep the body, but the solver still gave the edge
+    //   manifold a full gravity warm-start and static-friction budget. That made
+    //   the box quiet while balanced on only two terrain-near vertices.
+    //
+    //   Catto's constraint rows can resolve impacts and penetrations for any
+    //   contact point count. The extra policy here is only about "resting support"
+    //   privileges:
+    //
+    //     * gravity normal warm-start,
+    //     * static-friction floor based on that warm-start,
+    //     * rolling damping as a rest-state cleanup,
+    //     * sleep support seeding.
+    //
+    //   Edge/point contacts still solve normal impulses. They just do not get the
+    //   artificial support budget that can hold an unstable pose in place.
+    bool isBox = std::visit( []( const auto& s ) -> bool
+                             {
+        using S = std::decay_t<decltype( s )>;
+        return std::is_same_v<S, BoundingBox>; },
+                             gameModel.m_boundingVolume );
+
+    float bestFaceNormalDot = 1.0f;
+    if ( isBox )
+    {
+        // A box resting on terrain should have one of its local face normals close
+        // to the terrain plane normal. This test is cheap: the orientation matrix
+        // columns/axes already exist, and orientation does not change inside this
+        // terrain response call.
+        Vector3 axisX = orientMat * Vector3( 1.0f, 0.0f, 0.0f );
+        Vector3 axisY = orientMat * Vector3( 0.0f, 1.0f, 0.0f );
+        Vector3 axisZ = orientMat * Vector3( 0.0f, 0.0f, 1.0f );
+
+        bestFaceNormalDot = fabsf( axisX * planeNormal );
+        float absDotY = fabsf( axisY * planeNormal );
+        if ( absDotY > bestFaceNormalDot )
+        {
+            bestFaceNormalDot = absDotY;
+        }
+        float absDotZ = fabsf( axisZ * planeNormal );
+        if ( absDotZ > bestFaceNormalDot )
+        {
+            bestFaceNormalDot = absDotZ;
+        }
+    }
+
+    bool contactSupportsSleep = true;
+    if ( isBox )
+    {
+        // A one- or two-row terrain manifold can be a genuine transition contact,
+        // but it is not automatically a stable rest footprint. First require face
+        // alignment so a tilted edge does not receive support just because it is
+        // close to a terrain plane.
+        if ( contactCount > 0 && contactCount < 4 )
+        {
+            constexpr float stableFaceNormalDot = 0.95f; // ~18 degrees from the contact plane normal.
+            contactSupportsSleep = bestFaceNormalDot >= stableFaceNormalDot;
+        }
+
+        if ( contactSupportsSleep )
+        {
+            // Face-normal alignment alone is not enough on a heightfield. A box
+            // can be oriented with a plausible face normal while only one edge is
+            // actually close to the real terrain samples. Count the real OBB
+            // vertices against their own terrain heights before granting stable
+            // support policy.
+            PROFILE_SCOPED( "Frame/Physics/Terrain/BoxSupportPolicyVerts" );
+
+            int terrainSupportedVertices = 0;
+            std::visit( [&]( const auto& shape )
+                        {
+                using ShapeT = std::decay_t<decltype( shape )>;
+                if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
+                {
+                    const Vector3& he = shape.GetHalfExtents();
+                    constexpr float vertexSupportSlack = 0.15f;
+                    float supportGap = Cfg().contactEpsilon + vertexSupportSlack;
+
+                    for ( int v = 0; v < 8; ++v )
+                    {
+                        Vector3 local(
+                            ( v & 1 ) ? he.x : -he.x,
+                            ( v & 2 ) ? he.y : -he.y,
+                            ( v & 4 ) ? he.z : -he.z );
+                        Vector3 worldVertex = position + ( orientMat * local );
+                        if ( !gameModel.m_terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
+                        {
+                            continue;
+                        }
+
+                        float terrainHeight = 0.0f;
+                        Plane terrainPlane;
+                        gameModel.m_terrain->GetTerrainHeightAndPlaneAt( worldVertex.x,
+                                                                         worldVertex.z,
+                                                                         terrainHeight,
+                                                                         terrainPlane );
+                        if ( worldVertex.y - terrainHeight <= supportGap )
+                        {
+                            ++terrainSupportedVertices;
+                        }
+                    }
+                } },
+                        gameModel.m_boundingVolume );
+
+            // Three or more supported vertices means the box has a real terrain
+            // footprint. A two-vertex heightfield footprint is only accepted when
+            // the solver manifold itself has at least three rows and a face is
+            // very close to the terrain plane. That keeps uneven-but-flat terrain
+            // rests alive while rejecting the edge/point support edge case.
+            constexpr float stablePlanePatchDot = 0.99f; // ~8 degrees from the terrain plane normal.
+            bool hasHeightfieldFootprint = terrainSupportedVertices >= 3;
+            bool hasStablePlanePatch = terrainSupportedVertices >= 2 &&
+                                       contactCount >= 3 &&
+                                       bestFaceNormalDot >= stablePlanePatchDot;
+            contactSupportsSleep = hasHeightfieldFootprint || hasStablePlanePatch;
+        }
+    }
+
+    // Non-box terrain contacts keep the existing behavior. For boxes, this is
+    // the single switch that decides whether rest-support-only solver policy is
+    // enabled. Normal collision impulses still run either way.
+    const bool useRestingSupportPolicy = !isBox || contactSupportsSleep;
+
     // --- Gravity-based friction floor ---
     // CATTO REF:
     //   Catto 2005, PDF pp. 11-12, Section 4.3, Equations 24-25 bound tangent
@@ -441,8 +572,14 @@ bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     // near-zero. But static friction still acts proportional to the normal
     // reaction force (mg·cos(θ)). We compute the per-contact share of the
     // expected gravity load and use it as a minimum friction budget.
-    float gravityNormalImpulse = mass * fabsf( Cfg().gravity ) *
-                                 fabsf( planeNormal.y ) * changeInTime;
+    // Only stable resting support gets a gravity warm-start. When a box is on
+    // an edge/point manifold, giving every contact row an expected gravity load
+    // manufactures support that the real footprint does not have. Leaving this
+    // at zero lets any friction budget come only from actual normal impulses
+    // generated by impact/penetration rows.
+    float gravityNormalImpulse = useRestingSupportPolicy
+                                     ? mass * fabsf( Cfg().gravity ) * fabsf( planeNormal.y ) * changeInTime
+                                     : 0.0f;
     float warmStartPerContact = gravityNormalImpulse /
                                 static_cast<float>( contactCount );
 
@@ -547,6 +684,39 @@ bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
         // with a hard cap to prevent launching on slopes where vertex pen can be large.
         Vector3 vAtContact = velocity + Vector::CrossProduct( omega, c.r );
         float vnContact = vAtContact * c.normal;
+
+        // If this is an unstable box edge/point support, do not let a
+        // non-penetrating contact-skin row become a resting normal constraint.
+        //
+        // Why this is separate from the warm-start/friction gate:
+        //   Removing the gravity warm-start stops us from manufacturing support
+        //   up front, but a slow object under gravity can still accumulate real
+        //   normal impulses frame after frame while the contact point is merely
+        //   close to the terrain plane. For face contacts that is exactly what
+        //   we want. For one- or two-vertex box contacts it creates a numerical
+        //   edge balance: the box is not sleep-safe, but the normal row keeps
+        //   catching it gently before it can fall/topple.
+        //
+        // Policy:
+        //   * Stable support: solve normal/friction normally.
+        //   * Unstable support with real penetration: solve normally so the box
+        //     is pushed out of terrain.
+        //   * Unstable support with a real impact: solve normally so impacts
+        //     still bounce/deflect.
+        //   * Unstable support that is only inside the contact skin and moving
+        //     slowly: disable this row for this frame. Gravity will carry the
+        //     box into a real impact/penetration on a later tick instead of
+        //     letting the solver balance it on an edge forever.
+        if ( !useRestingSupportPolicy &&
+             c.penetration <= penetrationSlop &&
+             vnContact > -Cfg().contactRestitutionThreshold )
+        {
+            c.normalMass = 0.0f;
+            c.tangentMass1 = 0.0f;
+            c.tangentMass2 = 0.0f;
+            c.bias = 0.0f;
+            continue;
+        }
 
         // Baumgarte stabilisation for resting contacts (|v_n| < restitution threshold):
         //
@@ -740,6 +910,10 @@ bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
             float vt1 = sse_dot3( vAtContact, sseTangent1 );
             float lambdaT1 = c.tangentMass1 * ( -vt1 );
 
+            // The warm-start is a friction floor only for stable resting support.
+            // For unstable box edge/point contacts warmStartPerContact is zero,
+            // so friction can still happen, but only after the normal solve has
+            // produced a real contact impulse.
             float frictionBudget = ( c.accN > warmStartPerContact ) ? c.accN : warmStartPerContact;
             float maxFriction = mu * frictionBudget;
             float oldAccT1 = c.accT1;
@@ -836,6 +1010,9 @@ bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
             vAtContact = velocity + Vector::CrossProduct( omega, c.r );
             float vt1 = vAtContact * c.tangent1;
             float lambdaT1 = c.tangentMass1 * ( -vt1 );
+            // Same policy as the SSE path: edge/point box contacts are not
+            // granted a static-friction floor. They may use only the normal
+            // impulse actually accumulated by this contact row.
             float frictionBudget = ( c.accN > warmStartPerContact ) ? c.accN : warmStartPerContact;
             float maxFriction = mu * frictionBudget;
             float oldAccT1 = c.accT1;
@@ -916,104 +1093,11 @@ bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     //   support that is not face-stable against the actual terrain plane normal.
     //   This keeps the solver running until the contact becomes a plausible rest
     //   state on the slope, without injecting artificial toppling torque.
-    bool isBox = std::visit( []( const auto& s ) -> bool
-                             {
-        using S = std::decay_t<decltype( s )>;
-        return std::is_same_v<S, BoundingBox>; },
-                             gameModel.m_boundingVolume );
-
-    bool contactSupportsSleep = true;
-    float bestFaceNormalDot = 1.0f;
-    if ( isBox )
-    {
-        // Sleep stability is measured against the local terrain contact plane,
-        // not world up. On a slope, a box is sleep-safe only when one local face
-        // normal is nearly parallel to the slope normal. Otherwise the manifold
-        // is under-constrained and must keep simulating instead of deactivating.
-        Vector3 axisX = orientMat * Vector3( 1.0f, 0.0f, 0.0f );
-        Vector3 axisY = orientMat * Vector3( 0.0f, 1.0f, 0.0f );
-        Vector3 axisZ = orientMat * Vector3( 0.0f, 0.0f, 1.0f );
-        float bestAbsDot = fabsf( axisX * planeNormal );
-
-        float dotY = axisY * planeNormal;
-        float absDotY = fabsf( dotY );
-        if ( absDotY > bestAbsDot )
-        {
-            bestAbsDot = absDotY;
-        }
-
-        float dotZ = axisZ * planeNormal;
-        float absDotZ = fabsf( dotZ );
-        if ( absDotZ > bestAbsDot )
-        {
-            bestAbsDot = absDotZ;
-        }
-
-        bestFaceNormalDot = bestAbsDot;
-    }
-    if ( isBox && contactCount > 0 && contactCount < 4 )
-    {
-        constexpr float stableFaceNormalDot = 0.95f; // ~18 degrees from the contact plane normal.
-        contactSupportsSleep = bestFaceNormalDot >= stableFaceNormalDot;
-    }
-    if ( isBox && contactSupportsSleep )
-    {
-        // A face-normal match alone can still describe an edge resting on uneven
-        // terrain: the tangent plane is plausible, but only one or two real box
-        // vertices are close to the heightfield. Count actual terrain-near
-        // vertices before allowing terrain contact to seed sleep.
-        PROFILE_SCOPED( "Frame/Physics/Terrain/BoxSleepSupportVerts" );
-
-        int terrainSupportedVertices = 0;
-        std::visit( [&]( const auto& shape )
-                    {
-            using ShapeT = std::decay_t<decltype( shape )>;
-            if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
-            {
-                const Vector3& he = shape.GetHalfExtents();
-                // Match the manifold clustering slack used for resting contact
-                // generation. This tolerates small solver jitter while still
-                // rejecting visible edge/point support as a sleep seed.
-                constexpr float vertexSupportSlack = 0.15f;
-                float supportGap = Cfg().contactEpsilon + vertexSupportSlack;
-                for ( int v = 0; v < 8; ++v )
-                {
-                    Vector3 local(
-                        ( v & 1 ) ? he.x : -he.x,
-                        ( v & 2 ) ? he.y : -he.y,
-                        ( v & 4 ) ? he.z : -he.z );
-                    Vector3 worldVertex = position + ( orientMat * local );
-                    if ( !gameModel.m_terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
-                    {
-                        continue;
-                    }
-
-                    float terrainHeight = 0.0f;
-                    Plane terrainPlane;
-                    gameModel.m_terrain->GetTerrainHeightAndPlaneAt( worldVertex.x,
-                                                                     worldVertex.z,
-                                                                     terrainHeight,
-                                                                     terrainPlane );
-                    if ( worldVertex.y - terrainHeight <= supportGap )
-                    {
-                        ++terrainSupportedVertices;
-                    }
-                }
-            } },
-                    gameModel.m_boundingVolume );
-
-        // Three or more supported vertices means the box has a real terrain
-        // footprint. A two-vertex terrain footprint can also sleep when the
-        // solver manifold has at least three contact rows and a box face is
-        // nearly flush with the terrain patch; this keeps true edge/point
-        // support awake while allowing stable heightfield rest on uneven cells.
-        constexpr float stablePlanePatchDot = 0.99f; // ~8 degrees from the terrain plane normal.
-        bool hasHeightfieldFootprint = terrainSupportedVertices >= 3;
-        bool hasStablePlanePatch = terrainSupportedVertices >= 2 &&
-                                   contactCount >= 3 &&
-                                   bestFaceNormalDot >= stablePlanePatchDot;
-        contactSupportsSleep = hasHeightfieldFootprint || hasStablePlanePatch;
-    }
+    // contactSupportsSleep was classified before solving so the same cheap
+    // support decision controls both rest-support impulse policy and sleep
+    // eligibility. This keeps the behavior consistent: a contact that is not a
+    // believable rest footprint cannot receive warm-start support and also
+    // cannot seed sleep.
 
     // --- Rolling friction ---
     // ENGINE-SPECIFIC / NOVEL:
@@ -1024,7 +1108,7 @@ bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     // Small torque opposing angular velocity to bring objects to rest.
     float normalForce = mass * fabsf( Cfg().gravity ) * fabsf( planeNormal.y );
     float omegaMagSq = omega * omega;
-    if ( omegaMagSq > TOLERANCE * TOLERANCE )
+    if ( useRestingSupportPolicy && omegaMagSq > TOLERANCE * TOLERANCE )
     {
         float omegaMag = sqrtf( omegaMagSq );
 

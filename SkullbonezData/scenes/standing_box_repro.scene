@@ -1,0 +1,24 @@
+# standing_box_repro.scene
+# Repro target:
+#   deterministic edge-rest contact reproduction in solver mode with no-water.
+#
+# Standalone command:
+#   Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData/scenes/standing_box_repro.scene --seed 4096348761 --no-water
+#
+# Why this scene is important:
+# Known first capture from this scene when seeded:
+#   model_index=38
+#   supported_vertices=2
+#   min_gap=0.042717
+#   max_gap=3.013268
+#   sleep=0
+#   world gravity=-50
+#
+# Optional scene comments kept here for future low-repro hunts.
+
+physics on
+text off
+frames unlimited
+seed 4096348761
+physics_mode solver
+solver_boxes 300

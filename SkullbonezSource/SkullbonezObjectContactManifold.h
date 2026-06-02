@@ -36,11 +36,6 @@ struct ObjectContactManifold
     uint8_t pointCount = 0;
 };
 
-bool BuildObjectContactManifold( const GameObjects::GameModel& a,
-                                 const GameObjects::GameModel& b,
-                                 int bodyA,
-                                 int bodyB,
-                                 float contactSkin,
-                                 ObjectContactManifold& out );
+bool BuildObjectContactManifold( const GameObjects::GameModel& a, const GameObjects::GameModel& b, int bodyA, int bodyB, float contactSkin, ObjectContactManifold& out );
 } // namespace Physics
 } // namespace SkullbonezCore
