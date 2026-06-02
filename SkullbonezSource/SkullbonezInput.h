@@ -30,11 +30,14 @@ struct InputState
         F2WasDown,
         F3WasDown,
         FWasDown,
+        VWasDown,
         PWasDown,
         NWasDown,
+        EnterWasDown,
         ZWasDown,
         XWasDown,
         BackspaceWasDown,
+        QKeyWasDown,
         KEY_COUNT
     };
 

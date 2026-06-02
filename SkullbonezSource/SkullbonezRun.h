@@ -20,6 +20,7 @@
 #include "SkullbonezIFramebuffer.h"
 #include "SkullbonezTestScene.h"
 #include "SkullbonezBroadphaseVisualizer.h"
+#include "SkullbonezCollisionVisualizer.h"
 
 
 // --- Usings ---
@@ -106,12 +107,15 @@ struct RunCameraState
 struct RunSceneState
 {
     int currentSceneIndex = -1;    // Index into scene queue (-1 = not yet loaded)
+    int loadCount = 0;             // Number of scene/legacy loads since startup
+    int manualResetCount = 0;      // Number of user-triggered resets since startup
     bool isSceneMode = false;      // Scene file mode (deterministic, data-driven)
     bool isScenePhysics = true;    // Physics enabled in scene mode
     bool isSceneText = true;       // Text overlay enabled in scene mode
     int targetFrameCount = -1;     // Frames to render before holding (-1 = unlimited)
-    int currentFrame = 0;          // Current frame counter for scene mode
+    int currentFrame = 0;          // Current frame counter for the loaded scene/legacy run
     int modelCount = 0;            // Number of models in the active scene
+    unsigned int rngSeed = 0;      // Effective RNG seed used to build the current scene
     float timeScale = 1.0f;        // Physics time multiplier (1.0 = realtime)
     bool isFixedStep = false;      // One physics tick per render frame at PHYSICS_FIXED_DT (deterministic)
     bool isExitOnComplete = false; // Exit automatically when targetFrameCount is reached
@@ -148,12 +152,17 @@ struct RunDebugState
     bool isWaterFlatDebug = false;               // Force ocean mesh fully flat, no displacement (toggle with 3)
     bool isTerrainHidden = false;                // Hide terrain mesh (toggle with 4)
     bool isWaterHidden = false;                  // Hide water mesh (toggle with 5)
-    bool isDebugVectors = false;                 // Draw velocity (green) and angular velocity (red) vectors (toggle with V)
+    bool isDebugVectors = false;                 // Draw velocity (green) and angular velocity (red) vectors (toggle with 9)
+    bool isCollisionVisualizer = false;          // Render solid collision/sleep colours for balls and boxes (toggle with V)
     bool isTextOnly = false;                     // Suppress all 3D rendering; show solid background with large pangram text
     bool isBroadphaseOverlay = false;            // Broadphase spatial grid visualizer overlay (toggle with G)
     float frozenWaterTime = 0.0f;                // Simulation time captured when freeze was toggled on
     float rendererSwitchInterval = -1.0f;        // Auto-switch renderer every N seconds (-1 = disabled)
     float rendererSwitchAccum = 0.0f;            // Accumulated time since last auto-switch
+#ifdef _DEBUG
+    char reproSnapshotMessage[128] = {};    // Short HUD confirmation after nudge-mode repro dump
+    double reproSnapshotMessageUntil = 0.0; // Simulation timer value after which the HUD message expires
+#endif
 };
 
 struct RunFireState
@@ -172,6 +181,13 @@ enum class RuntimeRendererType
     DX12
 };
 
+enum class GeneratedObjectTypeOverride
+{
+    Mixed,
+    AllBalls,
+    AllBoxes
+};
+
 /* -- Skullbonez Run ---------------------------------------------------------------------------------------------------------------------------------------------
 
     Harness for the Skullbonez Core graphics library.
@@ -183,6 +199,9 @@ class SkullbonezRun
     std::vector<std::string> m_sceneQueue; // Ordered list of scene paths ("" = legacy mode)
     float m_cmdTimeScaleOverride = 0.0f;   // CLI --time-scale override applied after each scene load (0 = not set)
     bool m_cmdFixedStep = false;           // CLI --fixed-step override applied after each scene load
+    unsigned int m_cmdSeedOverride = 0;    // CLI --seed override applied after each scene load (0 = not set)
+    bool m_cmdNoWater = false;             // CLI --no-water starts fluid below terrain
+    GeneratedObjectTypeOverride m_generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
 
     RunPerfLogState m_perfLogState;              // Perf/test logging paths, files, and flush policy
     RunRuntimeSettings m_runtimeSettings;        // Scene/app runtime toggles (vsync, sync, roll-align)
@@ -194,11 +213,11 @@ class SkullbonezRun
     RunDebugState m_debug;                       // Runtime debug/overlay toggles
     RunFireState m_fire;                         // Projectile recycling state (CTRL = ball, ALT = box)
     BroadphaseVisualizer m_broadphaseVisualizer; // Spatial grid debug overlay (G key toggle)
+    CollisionVisualizer m_collisionVisualizer;   // Solid collision/sleep model visualizer (V key toggle)
     WorldEnvironment m_cWorldEnvironment;        // SkullbonezCore::Environment::WorldEnvironment class
     GameModelCollection m_cGameModelCollection;  // SkullbonezCore::GameObjects::GameModelCollection class
 
     inline static int sPerfPass = 0;
-
     void Render();                                                     // Main render method
     void RelativeUpdateCamera( uint32_t hash );                        // Relative update specified camera
     void UpdateLogic( float fSecondsPerFrame );                        // Camera, autocycle, logs — once per frame
@@ -215,6 +234,8 @@ class SkullbonezRun
     void SaveScreenshot( const char* path );                           // Saves framebuffer to BMP file via glReadPixels
     void LogPerfMemory( const char* checkpoint );                      // Log memory usage to perf CSV
     void LoadScene( int index );                                       // Resets scene-specific state and loads a scene by queue index
+    void ResetCurrentScene();                                          // User-triggered reset/reload of current scene or legacy mode
+    void ApplyNoWaterOverride();                                       // Pushes fluid surface below the active terrain when requested
     bool AdvanceScene();                                               // Advances to the next scene in the queue (returns false if done)
     void MoveCamera( float keyMovementQty, float mouseMovemementQty ); // Moves the camera
     RuntimeRendererType GetCurrentRendererType() const;                // Detect active backend type from Gfx renderer identity
@@ -228,8 +249,13 @@ class SkullbonezRun
     void TickAutoCycle();                                 // Auto-cycle ball capture; posts WM_QUIT when all balls captured
     void TickPerfLog();                                   // Write per-frame perf CSV row and periodic memory checkpoint
     bool TickSceneAdvance();                              // Frame count, exit/hold on completion, restarts; returns true to continue
+    void UpdateWaterHeightControls( float dt );           // Slide water surface up/down while held
     void NudgeModelsWithCamera( const Vector3& moveVec ); // Push overlapping balls/boxes in camera movement direction
     void FireProjectile( bool isBox );                    // Recycle and launch a ball (CTRL) or box (ALT) from the camera
+#ifdef _DEBUG
+    bool PickNudgeReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance );
+    void WriteNudgeReproSnapshot();
+#endif
 
   public:
     SkullbonezRun( std::vector<std::string> sceneQueue, bool legacyPhysics = false ); // Constructor (scene queue; empty string = legacy mode)
@@ -237,8 +263,11 @@ class SkullbonezRun
     void Initialise();                                                                // Initialises shared resources and loads first scene
     void Run();                                                                       // Runs all scenes in sequence — main message loop
     void SetRendererSwitchInterval( float seconds );
-    void SetTimeScaleOverride( float scale ); // Override timeScale for every scene loaded (CLI --time-scale)
-    void SetFixedStepOverride();              // Force fixed-step for every scene loaded (CLI --fixed-step)
+    void SetTimeScaleOverride( float scale );  // Override timeScale for every scene loaded (CLI --time-scale)
+    void SetFixedStepOverride();               // Force fixed-step for every scene loaded (CLI --fixed-step)
+    void SetSeedOverride( unsigned int seed ); // Override RNG seed for every scene loaded (CLI --seed)
+    void SetNoWaterOverride();                 // Start scenes with fluid below terrain (CLI --no-water)
+    void SetGeneratedObjectTypeOverride( GeneratedObjectTypeOverride objectTypeOverride );
 
 #ifdef _DEBUG
     void SetPhysicsLogOverride( const char* path ); // Override physics log path for all scenes (CLI --physics-log)

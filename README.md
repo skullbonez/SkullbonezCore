@@ -55,6 +55,14 @@ Use the repository scripts instead of retyping long commands:
 | Broad or uncertain scope | `tools\validate_full.bat` |
 | Unsure | `tools\agent_validate.bat` |
 
+You can also run any subset with one line:
+
+```bat
+tools\validate_select.bat fast
+tools\validate_select.bat physics renderers
+tools\validate_select.bat format build-profile
+```
+
 ## Common Launches
 
 ```bat

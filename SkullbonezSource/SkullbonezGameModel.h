@@ -77,7 +77,14 @@ class GameModel
     void UpdateModelInfo();                                                        // Perform this operation every time the model has objects added or removed from its object list
     float GetTerrainCollisionTime( float changeInTime );                           // Gets the time of collision between the current GameModel instance and the terrain
     float GetModelCollisionTime( GameModel& collisionTarget, float changeInTime ); // Gets the time of collision between the current GameModel instance and collisionTarget
-    void DEBUG_SetSphereToTerrain();                                               // Debug routine - ensure sphere does not go through terrain
+
+    // Box/terrain contact must be measured from the actual oriented box vertices,
+    // not from the model center plus a vertical support extent. On uneven terrain,
+    // the center-based shortcut can say a box is supported while every real vertex
+    // is still visibly above the surface. This helper returns the closest true
+    // vertex, the terrain sample under that vertex, and the signed vertical gap.
+    bool GetClosestBoxTerrainVertex( Vector3& outVertex, float& outTerrainHeight, Plane& outPlane, float& outGap );
+    void DEBUG_SetSphereToTerrain(); // Debug routine - ensure sphere does not go through terrain
 
   public:
     GameModel( Environment::WorldEnvironment* pWorldEnv, const Vector3& vPosition, const Vector3& vRotationalInertia, float fMass ); // Overloaded constructor
@@ -97,13 +104,14 @@ class GameModel
     float GetProjectedSurfaceArea();                                                    // Returns the projected surface area of the model
     float GetDragCoefficient();                                                         // Returns the drag coefficient of the model
     const Vector3& GetPosition();                                                       // Returns the position of the game model
+    const Vector3& GetPosition() const;                                                 // Const read for manifold row rA/rB setup
     const Vector3& GetVelocity();                                                       // Returns the velocity of the model
     const Vector3& GetAngularVelocity();                                                // Returns the angular velocity of the model
     void ApplyForces( float changeInTime );                                             // Update the models velocity based on its current physicsInfo
     void UpdatePosition( float changeInTime );                                          // Update the models position based on its current physicsInfo
     void SetTerrain( Geometry::Terrain* pTerrain );                                     // Sets the terrain pointer
     float CollisionDetectTerrain( float changeInTime );                                 // Collision detect model against terrain
-    void CollisionResponseTerrain( float changeInTime );                                // Collision response model against terrain
+    bool CollisionResponseTerrain( float changeInTime );                                // Collision response model against terrain; false means contact should stay awake
     void SetImpulseForce( const Vector3& vForce, const Vector3& vApplicationPoint );    // Sets an impulse force for the model
     void SetCoefficientRestitution( float fCoefficientRestitution );                    // Sets the coefficient of restitution for the game model
     void SetWorldForce( const Vector3& vWorldForce, const Vector3& vWorldTorque );      // Sets the worlds forces acting on the model
@@ -122,6 +130,7 @@ class GameModel
     const Vector3& GetRotationalInertia();                                              // Returns the rotational inertia (passthrough to RigidBody)
     const Vector3& GetInvertedRotationalInertia();                                      // Returns component-wise inverse rotational inertia (cached immutable)
     float GetCoefficientRestitution();                                                  // Returns the coefficient of restitution (passthrough to RigidBody)
+    const CollisionShape& GetCollisionShape() const;                                    // Const shape variant for narrowphase manifold dispatch
     void SetLinearVelocity( const Vector3& v );                                         // Sets the linear velocity (passthrough to RigidBody)
     void SetAngularVelocity( const Vector3& v );                                        // Sets the angular velocity (passthrough to RigidBody)
     void SetPosition( const Vector3& pos );                                             // Teleports the model to a world position (passthrough to RigidBody)

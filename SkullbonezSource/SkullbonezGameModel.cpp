@@ -5,6 +5,8 @@
 #include "SkullbonezGeometricMath.h"
 #include "SkullbonezCollisionResponse.h"
 #include "SkullbonezImpulseSolver.h"
+#include "SkullbonezObjectContactManifold.h"
+#include "SkullbonezProfiler.h"
 
 
 // --- Usings ---
@@ -277,27 +279,51 @@ void GameModel::CollisionResponseGameModel( GameModel& responseTarget )
 
 void GameModel::StaticOverlapResponseGameModel( GameModel& overlapTarget )
 {
-    float thisRadius = GetShapeBoundingRadius( m_boundingVolume );
-    float targetRadius = GetShapeBoundingRadius( overlapTarget.m_boundingVolume );
-
-    Vector3 delta = overlapTarget.m_physicsInfo.GetPosition() - m_physicsInfo.GetPosition();
-    float dist = Vector::VectorMag( delta );
-    float radii = thisRadius + targetRadius;
-
-    if ( dist >= radii || dist <= 0.0f )
+    // ENGINE-SPECIFIC / NOVEL:
+    //   This is not Catto's velocity-level PGS solve. It is a conservative
+    //   positional cleanup used when the swept collision pass did not schedule a
+    //   one-shot response but the authoritative Skullbonez shape-pair manifold
+    //   says two bodies are already overlapping.
+    //
+    // CATTO CONNECTION:
+    //   The manifold data is still in Catto's contact-row shape: normal plus
+    //   point penetration. We only use the deepest penetration here because this
+    //   routine moves positions directly instead of solving per-row impulses.
+    Physics::ObjectContactManifold manifold;
+    if ( !Physics::BuildObjectContactManifold( *this, overlapTarget, 0, 1, 0.0f, manifold ) )
     {
         return;
     }
 
-    // Objects are overlapping — positional correction only
-    Vector3 axis = delta / dist;
-    float halfOverlap = ( radii - dist ) * 0.5f;
-    m_physicsInfo.SetPosition( m_physicsInfo.GetPosition() - axis * halfOverlap );
-    overlapTarget.m_physicsInfo.SetPosition( overlapTarget.m_physicsInfo.GetPosition() + axis * halfOverlap );
+    // Objects are overlapping: positional correction only.
+    float maxPenetration = 0.0f;
+    for ( uint8_t i = 0; i < manifold.pointCount; ++i )
+    {
+        maxPenetration = (std::max)( maxPenetration, manifold.points[i].penetration );
+    }
+
+    if ( maxPenetration <= 0.0f )
+    {
+        return;
+    }
+
+    float invMassA = GetInvertedMass();
+    float invMassB = overlapTarget.GetInvertedMass();
+    float totalInvMass = invMassA + invMassB;
+    if ( totalInvMass <= TOLERANCE )
+    {
+        return;
+    }
+
+    // Objects are overlapping: push along the real narrowphase normal, not the
+    // broadphase bounding-radius axis.
+    Vector3 correction = manifold.normal * ( maxPenetration / totalInvMass );
+    m_physicsInfo.SetPosition( m_physicsInfo.GetPosition() - correction * invMassA );
+    overlapTarget.m_physicsInfo.SetPosition( overlapTarget.m_physicsInfo.GetPosition() + correction * invMassB );
 }
 
 
-void GameModel::CollisionResponseTerrain( float remainingTimeStep )
+bool GameModel::CollisionResponseTerrain( float remainingTimeStep )
 {
     // if there has been no collision, throw an exception!
     if ( !m_isResponseRequired )
@@ -306,13 +332,15 @@ void GameModel::CollisionResponseTerrain( float remainingTimeStep )
     }
 
     // respond to the collision...
-    ImpulseSolver::RespondCollisionTerrain( *this, remainingTimeStep );
+    bool contactSupportsSleep = ImpulseSolver::RespondCollisionTerrain( *this, remainingTimeStep );
 
     // update the m_position based on remaining time step
     UpdatePosition( remainingTimeStep );
 
     // set the collided collision object to null now the reaction has taken place
     m_isResponseRequired = false;
+
+    return contactSupportsSleep;
 }
 
 
@@ -426,6 +454,61 @@ void GameModel::SetTerrain( Terrain* pTerrain )
 }
 
 
+bool GameModel::GetClosestBoxTerrainVertex( Vector3& outVertex, float& outTerrainHeight, Plane& outPlane, float& outGap )
+{
+    // Profile just the eight-vertex terrain sampling loop. This is called from
+    // collision detection and debug clamping, so keeping the marker narrow makes
+    // it easy to see the cost of the box-specific fix separately from the rest of
+    // the terrain response.
+    PROFILE_SCOPED( "Frame/Physics/Terrain/BoxClosestVertexProbe" );
+
+    if ( !m_terrain || !std::holds_alternative<BoundingBox>( m_boundingVolume ) )
+    {
+        return false;
+    }
+
+    const BoundingBox& box = std::get<BoundingBox>( m_boundingVolume );
+    const Vector3& he = box.GetHalfExtents();
+    Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
+    const Vector3& position = m_physicsInfo.GetPosition();
+
+    bool found = false;
+    float bestGap = 1.0e30f;
+    for ( int v = 0; v < 8; ++v )
+    {
+        // The low three bits enumerate the OBB corner signs. Sampling each
+        // world-space corner against its own terrain height keeps sleep/contact
+        // decisions tied to the visible geometry instead of a center XZ sample.
+        Vector3 local(
+            ( v & 1 ) ? he.x : -he.x,
+            ( v & 2 ) ? he.y : -he.y,
+            ( v & 4 ) ? he.z : -he.z );
+        Vector3 worldVertex = position + ( rotMat * local );
+
+        if ( !m_terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
+        {
+            continue;
+        }
+
+        float terrainHeight = 0.0f;
+        Plane terrainPlane;
+        m_terrain->GetTerrainHeightAndPlaneAt( worldVertex.x, worldVertex.z, terrainHeight, terrainPlane );
+        float gap = worldVertex.y - terrainHeight;
+        if ( !found || gap < bestGap )
+        {
+            found = true;
+            bestGap = gap;
+            outVertex = worldVertex;
+            outTerrainHeight = terrainHeight;
+            outPlane = terrainPlane;
+            outGap = gap;
+        }
+    }
+
+    return found;
+}
+
+
 float GameModel::GetTerrainCollisionTime( float changeInTime )
 {
     // calculate the ray for the current dynamics object
@@ -471,6 +554,90 @@ float GameModel::GetTerrainCollisionTime( float changeInTime )
         {
             return NO_COLLISION;
         }
+    }
+
+    if ( isBox )
+    {
+        // Boxes need a real vertex/terrain gap test before the old center-based
+        // sphere path runs. The at_rest regression exposed that using the model
+        // center height plus SupportExtentY can produce a false current contact
+        // on sloped terrain, leaving the box sleeping above the ground.
+        Vector3 closestVertex;
+        float terrainHeight = 0.0f;
+        Plane terrainPlane;
+        float gap = 0.0f;
+        if ( !GetClosestBoxTerrainVertex( closestVertex, terrainHeight, terrainPlane, gap ) )
+        {
+            return NO_COLLISION;
+        }
+
+        if ( gap <= Cfg().contactEpsilon )
+        {
+            // Reuse the terrain plane from the actual closest vertex so detection
+            // and response agree about which patch of terrain is carrying the box.
+            m_responseInformation.testingPlane = terrainPlane;
+            m_responseInformation.collisionTime = 0.0f;
+            return 0.0f;
+        }
+
+        if ( m_responseInformation.testingRay.vector3.IsCloseToZero() )
+        {
+            return NO_COLLISION;
+        }
+
+        const BoundingBox& box = std::get<BoundingBox>( m_boundingVolume );
+        const Vector3& he = box.GetHalfExtents();
+        Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
+        const Vector3& position = m_physicsInfo.GetPosition();
+
+        float earliestCollisionTime = NO_COLLISION;
+        Plane earliestPlane;
+        {
+            // When no vertex is currently touching, sweep every box vertex along
+            // the body's linear motion and take the earliest plane hit. This keeps
+            // the existing linear CCD behavior but avoids inventing terrain contact
+            // from a center sample that may be nowhere near the lowest corner.
+            PROFILE_SCOPED( "Frame/Physics/Terrain/BoxSweptVertexProbe" );
+            for ( int v = 0; v < 8; ++v )
+            {
+                Vector3 local(
+                    ( v & 1 ) ? he.x : -he.x,
+                    ( v & 2 ) ? he.y : -he.y,
+                    ( v & 4 ) ? he.z : -he.z );
+                Vector3 worldVertex = position + ( rotMat * local );
+
+                if ( !m_terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
+                {
+                    continue;
+                }
+
+                float vertexTerrainHeight = 0.0f;
+                Plane vertexPlane;
+                m_terrain->GetTerrainHeightAndPlaneAt( worldVertex.x,
+                                                       worldVertex.z,
+                                                       vertexTerrainHeight,
+                                                       vertexPlane );
+
+                Ray vertexRay( worldVertex, m_physicsInfo.GetVelocity() * changeInTime );
+                float vertexCollisionTime = GeometricMath::CalculateIntersectionTime( vertexPlane, vertexRay );
+                if ( vertexCollisionTime >= ZERO_TAKE_TOLERANCE &&
+                     vertexCollisionTime <= 1.0f &&
+                     vertexCollisionTime < earliestCollisionTime )
+                {
+                    earliestCollisionTime = vertexCollisionTime;
+                    earliestPlane = vertexPlane;
+                }
+            }
+        }
+
+        if ( earliestCollisionTime <= 1.0f )
+        {
+            m_responseInformation.testingPlane = earliestPlane;
+            m_responseInformation.collisionTime = earliestCollisionTime;
+            return earliestCollisionTime;
+        }
+
+        return NO_COLLISION;
     }
 
     // Cache-backed terrain lookup: one query returns the exact collision plane and
@@ -582,6 +749,15 @@ const Vector3& GameModel::GetPosition()
 }
 
 
+const Vector3& GameModel::GetPosition() const
+{
+    // ENGINE-SPECIFIC:
+    //   Const access lets the narrowphase manifold builder inspect immutable
+    //   GameModels without opening write access to physics state.
+    return m_physicsInfo.GetPosition();
+}
+
+
 void GameModel::DEBUG_SetSphereToTerrain()
 {
     // if we are not in bounds then exit now!
@@ -590,20 +766,27 @@ void GameModel::DEBUG_SetSphereToTerrain()
         return;
     }
 
-    // For boxes: closed-form lowest-vertex offset (same as terrain collision detection).
-    // For spheres: use the cached radius.
-    float bottomOffset;
     if ( std::holds_alternative<BoundingBox>( m_boundingVolume ) )
     {
-        const BoundingBox& box = std::get<BoundingBox>( m_boundingVolume );
-        const Vector3& he = box.GetHalfExtents();
-        Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
-        bottomOffset = rotMat.SupportExtentY( he );
+        // This debug clamp is intentionally conservative for boxes: only lift the
+        // model by the deepest actual vertex penetration. The previous center
+        // height plus support extent logic could push boxes upward on uneven
+        // terrain and preserve a visible floating gap after sleep.
+        Vector3 closestVertex;
+        float terrainHeight = 0.0f;
+        Plane terrainPlane;
+        float gap = 0.0f;
+        if ( GetClosestBoxTerrainVertex( closestVertex, terrainHeight, terrainPlane, gap ) && gap < 0.0f )
+        {
+            Vector3 updatePos( m_physicsInfo.GetPosition().x,
+                               m_physicsInfo.GetPosition().y - gap,
+                               m_physicsInfo.GetPosition().z );
+            m_physicsInfo.SetPosition( updatePos );
+        }
+        return;
     }
-    else
-    {
-        bottomOffset = m_ballPhysics.radius;
-    }
+
+    float bottomOffset = m_ballPhysics.radius;
 
     // get the height of the terrain at the current XZ position
     float terrainH = m_terrain->GetTerrainHeightAt( m_physicsInfo.GetPosition().x, m_physicsInfo.GetPosition().z );
@@ -656,6 +839,16 @@ const Vector3& GameModel::GetRotationalInertia()
 const Vector3& GameModel::GetInvertedRotationalInertia()
 {
     return m_ballPhysics.invRotationalInertia;
+}
+
+
+const CollisionShape& GameModel::GetCollisionShape() const
+{
+    // ENGINE-SPECIFIC:
+    //   The manifold builder dispatches on the variant shape type. Returning the
+    //   CollisionShape by const reference keeps that dispatch explicit and avoids
+    //   reintroducing broadphase-radius guesses into narrowphase code.
+    return m_boundingVolume;
 }
 
 

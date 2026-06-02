@@ -472,6 +472,16 @@ const Vector3& RigidBody::GetPosition()
 }
 
 
+const Vector3& RigidBody::GetPosition() const
+{
+    // ENGINE-SPECIFIC:
+    //   Const position access supports read-only narrowphase manifold building.
+    //   Catto-style contact rows need body centers to compute rA/rB, but the
+    //   geometry pass must not mutate the rigid body while doing that setup.
+    return m_position;
+}
+
+
 const Vector3& RigidBody::GetVelocity()
 {
     return m_linearVelocity;

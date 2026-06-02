@@ -180,7 +180,13 @@
     <ClCompile Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezCollisionVisualizer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezImpulseSolver.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezObjectContactManifold.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezBLASDX12.cpp">
@@ -341,7 +347,13 @@
     <ClInclude Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezCollisionVisualizer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezImpulseSolver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezObjectContactManifold.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezBLASDX12.h">
@@ -467,6 +479,12 @@
     <None Include="SkullbonezData\shaders\debug_line.vert">
       <Filter>Resource Files\OpenGL</Filter>
     </None>
+    <None Include="SkullbonezData\shaders\collision_visualizer.frag">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\collision_visualizer.vert">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
     <None Include="SkullbonezData\shaders\grid_line.frag">
       <Filter>Resource Files\OpenGL</Filter>
     </None>
@@ -492,6 +510,9 @@
       <Filter>Resource Files\OpenGL</Filter>
     </None>
     <None Include="SkullbonezData\shaders\solid_color_batch.hlsl">
+      <Filter>Resource Files\DirectX</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\collision_visualizer.hlsl">
       <Filter>Resource Files\DirectX</Filter>
     </None>
     <None Include="SkullbonezData\shaders\grid_line.hlsl">

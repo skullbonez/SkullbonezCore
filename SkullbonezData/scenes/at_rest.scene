@@ -13,6 +13,7 @@
 physics on
 text on
 frames 1800
+exit_on_complete
 fixed_step
 time_scale 10.0
 physics_mode solver

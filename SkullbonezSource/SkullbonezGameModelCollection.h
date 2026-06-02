@@ -40,9 +40,37 @@ class GameModelCollection
     SpatialGrid m_spatialGrid;                         // Broadphase spatial grid for collision culling
     std::vector<std::pair<int, int>> m_candidatePairs; // Retained-capacity pair buffer (avoids per-frame alloc)
     std::vector<float> m_timeRemaining;                // Per-model timestep remainder (retained buffer)
-    std::vector<uint8_t> m_groundedThisFrame;          // Per-model grounded flag for current frame (0/1)
-    std::vector<uint8_t> m_sleepState;                 // Per-model sleep state: 0=awake, 1=sleeping
-    std::vector<uint8_t> m_sleepCounter;               // Frames object has been below sleep threshold
+
+    // Sleep support is deliberately not the same thing as "grounded" or "has a
+    // contact." It means this body has credible support for deactivation this
+    // frame: terrain contact that passed the terrain support tests, or a stack
+    // chain rooted in such terrain support. Dynamic object contacts alone do not
+    // set this flag, which prevents mid-air collisions from becoming sleep seeds.
+    std::vector<uint8_t> m_sleepSupportedThisFrame;
+    std::vector<uint8_t> m_sleepInhibitedThisFrame; // Per-model flag for contacts that must remain awake this frame
+    std::vector<uint8_t> m_sleepState;              // Per-model sleep state: 0=awake, 1=sleeping
+    std::vector<uint8_t> m_sleepCounter;            // Frames object has been below sleep threshold
+    std::vector<uint8_t> m_collisionVisualContacts; // Per-render-frame collision/contact flags for the collision visualizer
+    std::vector<int> m_sleepIslandVisualId;         // Stable visual island id while a body remains asleep
+    std::vector<int> m_sleepIslandAssignedVisualId; // Scratch buffer: island root to visual id while transitioning to sleep
+    int m_nextSleepIslandVisualId = 1;
+    bool m_collisionVisualFrameActive = false;
+
+    // Directed support edges record only the direction of possible vertical
+    // support through object contacts. They are resolved after terrain contacts
+    // are known, so a box can support a box above it only if the lower box is
+    // itself supported by terrain or an already-supported stack chain.
+    std::vector<std::pair<int, int>> m_sleepSupportEdges;
+
+    // Island sleep follows the Box2D/Catto-style rule that connected dynamic
+    // bodies deactivate together only when the whole contact island is quiet and
+    // supported. These retained buffers avoid allocations in the fixed-step hot
+    // path while building a small union-find from this frame's persistent contacts.
+    std::vector<int> m_sleepIslandParent;
+    std::vector<uint8_t> m_sleepIslandRank;
+    std::vector<uint8_t> m_sleepIslandHasAwake;
+    std::vector<uint8_t> m_sleepIslandEligible;
+    std::vector<uint8_t> m_sleepIslandCanSleep;
 
     // A contact row is one "do not move through each other" rule for two bodies.
     // Catto's paper solves many of these small rules over and over instead of trying
@@ -52,7 +80,8 @@ class GameModelCollection
     {
         int bodyA = -1;                 // First body index.  The normal points from A toward B.
         int bodyB = -1;                 // Second body index.
-        int64_t key = 0;                // Stable pair id, used to find last frame's remembered impulses.
+        uint32_t featureId = 0;         // Contact-point identity within this pair.  Bounding-sphere fallback uses feature 0.
+        int64_t key = 0;                // Stable pair+feature id, used to find last frame's remembered impulses.
         Vector3 normal = ZERO_VECTOR;   // Push direction.  Normal impulses separate bodies; they never pull.
         Vector3 tangent1 = ZERO_VECTOR; // First sideways direction at the contact point, used for friction.
         Vector3 tangent2 = ZERO_VECTOR; // Second sideways direction.  3D contacts need two friction axes.
@@ -79,9 +108,22 @@ class GameModelCollection
         float accT1 = 0.0f;
         float accT2 = 0.0f;
     };
+
+    // Compact per-step solver body state.  Contact iteration mutates this array
+    // and writes back to GameModel once, matching Catto's sparse body/row shape.
+    struct SolverBodyState
+    {
+        Vector3 linearVelocity = ZERO_VECTOR;
+        Vector3 angularVelocity = ZERO_VECTOR;
+        Vector3 invInertia = ZERO_VECTOR;
+        RotationMatrix orientation;
+        float invMass = 0.0f;
+        bool useWorldInertia = false;
+    };
     std::vector<PersistentContact> m_persistentContacts;               // Catto-style contact rows retained across frames
     std::vector<PersistentContactCacheEntry> m_persistentContactCache; // Previous-frame contact impulses for warm starting
     std::vector<uint16_t> m_persistentContactCounts;                   // Per-body contact count for mc*g friction bounds
+    std::vector<SolverBodyState> m_solverBodies;                       // Per-step compact velocity/inertia state for persistent contact solving
     std::unique_ptr<IShader> m_shadowShader;                           // Shadow decal shader (instanced)
     uint32_t m_shadowInstMesh = 0;                                     // Instanced mesh handle (via Gfx())
     int m_shadowDiscVertexCount = 0;                                   // Disc triangle vertex count
@@ -98,6 +140,13 @@ class GameModelCollection
     void RunLegacyPhysics( float dt );              // Physics tick: legacy sphere-only solver (boxes skipped)
     void RunSolverPhysics( float dt );              // Physics tick: unified impulse solver (all objects)
     void SolvePersistentObjectContacts( float dt ); // PGS contact-force pass for resting/stacked object contacts
+    void EnsureCollisionVisualBuffers( int modelCount );
+    void MarkCollisionVisualContact( int index );
+
+    // Extends terrain-backed sleep support through vertical object-contact stack
+    // chains. This is separate from the solver so sleep policy can stay strict
+    // without weakening collision response or adding damping hacks.
+    void PropagateSleepSupport();
 
   public:
     GameModelCollection(); // Default constructor
@@ -116,7 +165,9 @@ class GameModelCollection
     int GetModelCount() const;                                                                                                                                                             // Returns the number of game models
     GameModel& GetModelAtIndex( int index );                                                                                                                                               // Returns a reference to the game model at the given index
 
-    void WakeModel( int index ); // Force a model awake (clears sleep state/counter); call before teleporting/firing a recycled model
+    void WakeModel( int index );      // Force a model awake (clears sleep state/counter); call before teleporting/firing a recycled model
+    void BeginCollisionVisualFrame(); // Clears per-render-frame contact flags before one or more physics substeps
+    void EndCollisionVisualFrame();   // Ends contact accumulation for standalone physics callers
 
     // Broadphase visualizer data accessors
     const SpatialGrid& GetSpatialGrid() const
@@ -127,9 +178,29 @@ class GameModelCollection
     {
         return m_collisionCellKeys;
     }
+    const std::vector<uint8_t>& GetCollisionVisualContacts() const
+    {
+        return m_collisionVisualContacts;
+    }
+    const std::vector<uint8_t>& GetSleepStates() const
+    {
+        return m_sleepState;
+    }
+    const std::vector<int>& GetSleepIslandVisualIds() const
+    {
+        return m_sleepIslandVisualId;
+    }
 
 #ifdef _DEBUG
     void SetPhysicsLogPath( const char* path ); // Enable per-frame physics state CSV; empty string disables
+    const std::vector<uint8_t>& GetSleepSupportedStates() const
+    {
+        return m_sleepSupportedThisFrame;
+    }
+    const std::vector<uint8_t>& GetSleepInhibitedStates() const
+    {
+        return m_sleepInhibitedThisFrame;
+    }
 #endif
 };
 } // namespace GameObjects

@@ -9,6 +9,8 @@
 #include "SkullbonezRenderBackendDX11.h"
 #include "SkullbonezRenderBackendDX12.h"
 #include <float.h>
+#include <climits>
+#include <cstdlib>
 #include <cstring>
 #include <vector>
 #include <string>
@@ -110,6 +112,9 @@ struct ParsedArgs
     float switchInterval = -1.0f;
     float timeScaleOverride = 0.0f; // 0 = not set
     bool fixedStep = false;
+    unsigned int seedOverride = 0; // 0 = not set
+    bool noWater = false;
+    GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;
 #ifdef _DEBUG
     char physicsLogOverride[256] = {};
 #endif
@@ -399,10 +404,51 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
     }
 
     // --fixed-step: flag only, no value
-    out.fixedStep = ( strstr( cmdLine, "--fixed-step" ) != nullptr );
+    out.fixedStep = ( cmdLine && strstr( cmdLine, "--fixed-step" ) != nullptr );
     if ( out.fixedStep )
     {
         fprintf( stdout, "[fixed-step] Forced via command line.\n" );
+    }
+
+    // --seed <N>: positive unsigned integer, 0 = not set.
+    const char* seedArg = cmdLine ? strstr( cmdLine, "--seed" ) : nullptr;
+    if ( seedArg )
+    {
+        seedArg += 6;
+        while ( *seedArg == ' ' )
+        {
+            ++seedArg;
+        }
+        const unsigned long seed = strtoul( seedArg, nullptr, 10 );
+        if ( seed > 0 && seed <= UINT_MAX )
+        {
+            out.seedOverride = static_cast<unsigned int>( seed );
+            fprintf( stdout, "[seed] Override: %u\n", out.seedOverride );
+        }
+    }
+
+    out.noWater = cmdLine && strstr( cmdLine, "--no-water" ) != nullptr;
+    if ( out.noWater )
+    {
+        fprintf( stdout, "[water] Fluid surface starts below terrain.\n" );
+    }
+
+    const bool allBalls = cmdLine && strstr( cmdLine, "--all-balls" ) != nullptr;
+    const bool allBoxes = cmdLine && strstr( cmdLine, "--all-boxes" ) != nullptr;
+    if ( allBalls && allBoxes )
+    {
+        fprintf( stderr, "ERROR: --all-balls and --all-boxes are mutually exclusive.\n" );
+        return false;
+    }
+    if ( allBalls )
+    {
+        out.objectTypeOverride = GeneratedObjectTypeOverride::AllBalls;
+        fprintf( stdout, "[objects] Generated objects forced to balls.\n" );
+    }
+    else if ( allBoxes )
+    {
+        out.objectTypeOverride = GeneratedObjectTypeOverride::AllBoxes;
+        fprintf( stdout, "[objects] Generated objects forced to boxes.\n" );
     }
 
     return true;
@@ -457,6 +503,18 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         if ( args.fixedStep )
         {
             cRun.SetFixedStepOverride();
+        }
+        if ( args.seedOverride > 0 )
+        {
+            cRun.SetSeedOverride( args.seedOverride );
+        }
+        if ( args.noWater )
+        {
+            cRun.SetNoWaterOverride();
+        }
+        if ( args.objectTypeOverride != GeneratedObjectTypeOverride::Mixed )
+        {
+            cRun.SetGeneratedObjectTypeOverride( args.objectTypeOverride );
         }
 #ifdef _DEBUG
         if ( args.physicsLogOverride[0] != '\0' )

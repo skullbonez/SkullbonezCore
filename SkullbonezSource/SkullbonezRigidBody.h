@@ -86,6 +86,7 @@ class RigidBody
     float GetVolume();                                                                      // Returns the volume of the rigid body
     const Vector3& GetVelocity();                                                           // Returns a const reference to the velocity of the rigid body
     const Vector3& GetPosition();                                                           // Returns a const reference to the position of the rigid body
+    const Vector3& GetPosition() const;                                                     // Const center read for Catto-style contact-arm setup
     const Vector3& GetAngularVelocity();                                                    // Returns a const reference to the angular velocity of the rigid body
     const Vector3& GetRotationalInertia();                                                  // Returns a const reference to the rotational inertia of the rigid body
     float GetDensity();                                                                     // Calculates and returns the density of the body

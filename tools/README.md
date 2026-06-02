@@ -7,11 +7,22 @@ Scripts for validating SkullbonezCore changes. Run from the repo root or from wi
 | Script | Use When | Runtime |
 |--------|----------|---------|
 | `agent_validate.bat` | Unsure what to run, runs everything | ~3 min |
+| `validate_select.bat` | Run any subset of validations by name | ~depends |
 | `validate_fast.bat` | Docs, small refactors, non-render edits | ~30s |
 | `validate_renderers.bat` | Shader, texture, render backend changes | ~60s |
 | `validate_physics.bat` | Physics, collision, solver, rigid body | ~45s |
 | `validate_perf.bat` | Performance-sensitive, hot-path changes | ~1 min |
 | `validate_full.bat` | Broad changes, pre-merge, uncertain scope | ~3 min |
+
+### Selection Example
+
+Run only what you need:
+
+```bat
+tools\validate_select.bat format
+tools\validate_select.bat renderers physics
+tools\validate_select.bat fast build-profile
+```
 
 ## Utility Scripts
 
