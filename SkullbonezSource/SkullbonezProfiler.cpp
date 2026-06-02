@@ -747,14 +747,32 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     const float padX = fSize * 0.6f;
     const float padY = lineHeight * 1.2f;
 
+    float markerNameW = Text2d::MeasureText( fSize, "MARKER" );
+    for ( int i = 0; i < m_markerCount; ++i )
+    {
+        char nameBuf[64] = { 0 };
+        int spaces = m_markers[i].depth * 2;
+        if ( spaces > 20 )
+        {
+            spaces = 20;
+        }
+        for ( int k = 0; k < spaces; ++k )
+        {
+            nameBuf[k] = ' ';
+        }
+        strcpy_s( nameBuf + spaces, sizeof( nameBuf ) - spaces, m_markers[i].leafName );
+        markerNameW = (std::max)( markerNameW, Text2d::MeasureText( fSize, nameBuf ) );
+    }
+
     // Column x-offsets
     const float colName = 0.0f;
-    const float colAvg = fSize * 11.0f;
-    const float colGpu = anyGpu ? fSize * 18.0f : -1.0f;
-    const float colP50 = anyGpu ? fSize * 25.0f : fSize * 18.0f;
-    const float colP99 = anyGpu ? fSize * 32.0f : fSize * 25.0f;
-    const float colMin = anyGpu ? fSize * 39.0f : fSize * 32.0f;
-    const float colMax = anyGpu ? fSize * 46.0f : fSize * 39.0f;
+    const float valueColStep = fSize * 7.0f;
+    const float colAvg = markerNameW + fSize * 1.5f;
+    const float colGpu = anyGpu ? colAvg + valueColStep : -1.0f;
+    const float colP50 = anyGpu ? colGpu + valueColStep : colAvg + valueColStep;
+    const float colP99 = colP50 + valueColStep;
+    const float colMin = colP99 + valueColStep;
+    const float colMax = colMin + valueColStep;
 
     // Dynamically size the panel: right edge of last column plus measured value width + right padding.
     // Using MeasureText ensures the background quad is always wide enough for the actual font metrics.
@@ -879,7 +897,7 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
             }
         }
 
-        Text2d::Render2dTextColor( xLeft + colName, y, fSize, mr, mg, mb, "%-14s", nameBuf );
+        Text2d::Render2dTextColor( xLeft + colName, y, fSize, mr, mg, mb, "%s", nameBuf );
         Text2d::Render2dTextColor( xLeft + colAvg, y, fSize, mr, mg, mb, "%6.2f", m.avgMs );
         if ( anyGpu )
         {
