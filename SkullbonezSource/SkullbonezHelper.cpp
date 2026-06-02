@@ -2,8 +2,9 @@
 #include "SkullbonezHelper.h"
 #include "SkullbonezProfiler.h"
 #include "SkullbonezIRenderBackend.h"
+#include "SkullbonezPrimitiveMeshBuilder.h"
+
 #include <vector>
-#include <cmath>
 
 
 // --- Usings ---
@@ -63,53 +64,17 @@ void SkullbonezHelper::EnsureSphereMesh()
 
 void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
 {
-    // Generate a unit sphere with normals and texcoords (8 floats per vertex).
-    // Local mesh frame is pre-rotated +90° about Y so it naturally matches the
-    // engine's physics orientation (no per-instance visual yaw shim required).
     std::vector<float> verts;
-    verts.reserve( slices * stacks * 6 * 8 );
+    verts.reserve( PrimitiveMeshes::SphereTriangleVertexCount( slices, stacks ) * 8 );
 
-    for ( int i = 0; i < stacks; ++i )
-    {
-        float phi0 = _PI * static_cast<float>( i ) / static_cast<float>( stacks );
-        float phi1 = _PI * static_cast<float>( i + 1 ) / static_cast<float>( stacks );
+    PrimitiveMeshes::EmitUnitSphere( slices, stacks, [&]( const PrimitiveMeshes::VertexPNUV& vertex )
+                                     { verts.insert( verts.end(), { vertex.x, vertex.y, vertex.z, vertex.nx, vertex.ny, vertex.nz, vertex.u, vertex.v } ); } );
 
-        for ( int j = 0; j < slices; ++j )
-        {
-            float theta0 = _2PI * static_cast<float>( j ) / static_cast<float>( slices );
-            float theta1 = _2PI * static_cast<float>( j + 1 ) / static_cast<float>( slices );
-
-            // 4 corners of the quad.
-            // Bake +90 yaw in local space: (x, z) -> (z, -x).
-            // This rotates the generated sphere's theta=0 meridian so the texture
-            // seam/pole frame matches the engine's roll/pole convention. With this
-            // baked into the mesh, poles track physics orientation naturally and we
-            // can remove the per-instance runtime RotY90 compatibility shim.
-            float x00 = sinf( phi0 ) * sinf( theta0 ), y00 = cosf( phi0 ), z00 = -sinf( phi0 ) * cosf( theta0 );
-            float x01 = sinf( phi0 ) * sinf( theta1 ), y01 = cosf( phi0 ), z01 = -sinf( phi0 ) * cosf( theta1 );
-            float x10 = sinf( phi1 ) * sinf( theta0 ), y10 = cosf( phi1 ), z10 = -sinf( phi1 ) * cosf( theta0 );
-            float x11 = sinf( phi1 ) * sinf( theta1 ), y11 = cosf( phi1 ), z11 = -sinf( phi1 ) * cosf( theta1 );
-
-            float u0 = static_cast<float>( j ) / static_cast<float>( slices ), v0 = static_cast<float>( i ) / static_cast<float>( stacks );
-            float u1 = static_cast<float>( j + 1 ) / static_cast<float>( slices ), v1 = static_cast<float>( i + 1 ) / static_cast<float>( stacks );
-
-            // Triangle 1: (0,0) → (1,1) → (1,0)  (CCW viewed from outside)
-            verts.insert( verts.end(), { x00, y00, z00, x00, y00, z00, u0, v0 } );
-            verts.insert( verts.end(), { x11, y11, z11, x11, y11, z11, u1, v1 } );
-            verts.insert( verts.end(), { x10, y10, z10, x10, y10, z10, u0, v1 } );
-
-            // Triangle 2: (0,0) → (0,1) → (1,1)  (CCW viewed from outside)
-            verts.insert( verts.end(), { x00, y00, z00, x00, y00, z00, u0, v0 } );
-            verts.insert( verts.end(), { x01, y01, z01, x01, y01, z01, u1, v0 } );
-            verts.insert( verts.end(), { x11, y11, z11, x11, y11, z11, u1, v1 } );
-        }
-    }
-
-    sphereVertexCount = slices * stacks * 6;
+    sphereVertexCount = PrimitiveMeshes::SphereTriangleVertexCount( slices, stacks );
 
     // Static layout: 3 attributes (pos3, normal3, uv2) at locations 0-2
     int staticAttribSizes[] = { 3, 3, 2 };
-    // Instance layout: 4 attributes (4×vec4 for mat4 = 16 floats), starting at location 3
+    // Instance layout: 4 attributes (4xvec4 for mat4 = 16 floats), starting at location 3
     int instanceAttribSizes[] = { 4, 4, 4, 4 };
     sphereInstMesh = Gfx().CreateInstancedMesh( verts.data(), sphereVertexCount, 8, MAX_GAME_MODELS, 16, 3, instanceAttribSizes, 4, staticAttribSizes, 3 );
 
@@ -174,7 +139,7 @@ void SkullbonezHelper::DrawSphereBatchEnd()
 // BOX INSTANCED RENDERING
 // =============================================================================
 //
-// Renders unit cubes [-1,1]³ scaled by half-extents via the model matrix.
+// Renders unit cubes [-1,1]^3 scaled by half-extents via the model matrix.
 // Uses the same lit_textured_instanced shader as spheres so lighting is
 // consistent. The cube has outward-facing normals and simple planar UV.
 //
@@ -183,58 +148,13 @@ void SkullbonezHelper::DrawSphereBatchEnd()
 
 void SkullbonezHelper::BuildBoxMesh()
 {
-    // A unit cube [-1,1]³ (6 faces × 2 triangles × 3 vertices = 36 vertices).
-    // Each vertex: pos(3), normal(3), uv(2) = 8 floats.
-    //
-    //   Face layout (CCW winding when viewed from outside):
-    //     +X face: normal ( 1, 0, 0)
-    //     -X face: normal (-1, 0, 0)
-    //     +Y face: normal ( 0, 1, 0)
-    //     -Y face: normal ( 0,-1, 0)
-    //     +Z face: normal ( 0, 0, 1)
-    //     -Z face: normal ( 0, 0,-1)
-
-    struct CubeFace
-    {
-        float nx, ny, nz;
-        float v0[3], v1[3], v2[3], v3[3]; // 4 corners (CCW: v0→v1→v2, v0→v2→v3)
-    };
-
-    // clang-format off
-    CubeFace faces[6] = {
-        { 1, 0, 0, { 1,-1,-1}, { 1, 1,-1}, { 1, 1, 1}, { 1,-1, 1} }, // +X
-        {-1, 0, 0, {-1,-1, 1}, {-1, 1, 1}, {-1, 1,-1}, {-1,-1,-1} }, // -X
-        { 0, 1, 0, {-1, 1,-1}, {-1, 1, 1}, { 1, 1, 1}, { 1, 1,-1} }, // +Y
-        { 0,-1, 0, {-1,-1, 1}, {-1,-1,-1}, { 1,-1,-1}, { 1,-1, 1} }, // -Y
-        { 0, 0, 1, {-1,-1, 1}, { 1,-1, 1}, { 1, 1, 1}, {-1, 1, 1} }, // +Z
-        { 0, 0,-1, { 1,-1,-1}, {-1,-1,-1}, {-1, 1,-1}, { 1, 1,-1} }  // -Z
-    };
-    // clang-format on
-
     std::vector<float> verts;
-    verts.reserve( 36 * 8 );
+    verts.reserve( PrimitiveMeshes::BoxTriangleVertexCount() * 8 );
 
-    for ( int f = 0; f < 6; ++f )
-    {
-        const CubeFace& fc = faces[f];
-        float nx = fc.nx, ny = fc.ny, nz = fc.nz;
+    PrimitiveMeshes::EmitUnitBox( [&]( const PrimitiveMeshes::VertexPNUV& vertex )
+                                  { verts.insert( verts.end(), { vertex.x, vertex.y, vertex.z, vertex.nx, vertex.ny, vertex.nz, vertex.u, vertex.v } ); } );
 
-        // UV corners for the face (simple planar mapping)
-        float uv[4][2] = { { 0, 0 }, { 0, 1 }, { 1, 1 }, { 1, 0 } };
-        const float* v[4] = { fc.v0, fc.v1, fc.v2, fc.v3 };
-
-        // Triangle 1: v0, v1, v2
-        verts.insert( verts.end(), { v[0][0], v[0][1], v[0][2], nx, ny, nz, uv[0][0], uv[0][1] } );
-        verts.insert( verts.end(), { v[1][0], v[1][1], v[1][2], nx, ny, nz, uv[1][0], uv[1][1] } );
-        verts.insert( verts.end(), { v[2][0], v[2][1], v[2][2], nx, ny, nz, uv[2][0], uv[2][1] } );
-
-        // Triangle 2: v0, v2, v3
-        verts.insert( verts.end(), { v[0][0], v[0][1], v[0][2], nx, ny, nz, uv[0][0], uv[0][1] } );
-        verts.insert( verts.end(), { v[2][0], v[2][1], v[2][2], nx, ny, nz, uv[2][0], uv[2][1] } );
-        verts.insert( verts.end(), { v[3][0], v[3][1], v[3][2], nx, ny, nz, uv[3][0], uv[3][1] } );
-    }
-
-    boxVertexCount = 36;
+    boxVertexCount = PrimitiveMeshes::BoxTriangleVertexCount();
 
     int staticAttribSizes[] = { 3, 3, 2 };
     int instanceAttribSizes[] = { 4, 4, 4, 4 };
@@ -322,7 +242,7 @@ void SkullbonezHelper::DrawDebugVectors(
         return;
     }
 
-    // Pack line endpoints: each pair → 2 × vec3 = 6 floats
+    // Pack line endpoints: each pair becomes 2 vec3 values.
     std::vector<float> verts;
     verts.reserve( lines.size() * 6 );
     for ( const auto& seg : lines )

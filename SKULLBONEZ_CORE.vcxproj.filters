@@ -239,6 +239,9 @@
     <ClInclude Include="SkullbonezSource\SkullbonezLog.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezPrimitiveMeshBuilder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezQuaternion.h">
       <Filter>Header Files</Filter>
     </ClInclude>
