@@ -14,6 +14,7 @@ This file holds details that are useful during debugging or manual testing but t
 | `--switch-interval` | seconds | Cycle renderers at runtime. |
 | `--time-scale` | float | Override simulation time multiplier. |
 | `--fixed-step` | flag | Run one deterministic physics tick per rendered frame. |
+| `--seed` | positive integer | Override the RNG seed for every loaded scene, including legacy mode. Useful with nudge repro snapshots. |
 | `--physics-log` | path | Write per-frame physics CSV in Debug builds. |
 | `--gen-atlas` | optional path | Generate the SDF font atlas and exit before GPU init. |
 
@@ -42,6 +43,7 @@ For exact field order, inspect an existing scene in `SkullbonezData/scenes/` and
 | N | Toggle nudge mode. Free camera with live simulation. |
 | Enter | In nudge mode, write Debug-build repro data for the object under the crosshair to `Debug/nudge_repro_snapshots.txt`. |
 | R | Cycle render backend: GL to DX11 to DX12 to GL. |
+| Q | Reset or rerun the current scene, including legacy mode. |
 | P | Toggle physics solver: impulse or legacy. |
 | Z | Fire a ball from the camera. Shift increases speed. |
 | X | Fire a box from the camera in impulse mode. |
@@ -80,3 +82,4 @@ Log().Writef( "Debug/physics.csv", "frame,%d,x,%.3f,y,%.3f,z,%.3f\n", frame, x, 
 The log singleton lazily opens files and compiles out in Release/Profile where the implementation is guarded by `_DEBUG`.
 
 Debug builds also support nudge-mode repro snapshots. Press `N`, centre an object in the crosshair, then press Enter. Each snapshot appends the scene, frame, active RNG seed, fixed-step mode, renderer, physics mode, camera pose, object transform, velocities, shape data, sleep/contact state, and terrain support probes to `Debug/nudge_repro_snapshots.txt`.
+Snapshots also include scene load/reset counts and a `--seed` replay hint so an object found after repeated Q resets can be reproduced from a fresh process.

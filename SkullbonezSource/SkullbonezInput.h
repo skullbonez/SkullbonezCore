@@ -37,6 +37,7 @@ struct InputState
         ZWasDown,
         XWasDown,
         BackspaceWasDown,
+        QKeyWasDown,
         KEY_COUNT
     };
 

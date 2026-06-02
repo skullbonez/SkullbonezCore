@@ -107,12 +107,15 @@ struct RunCameraState
 struct RunSceneState
 {
     int currentSceneIndex = -1;    // Index into scene queue (-1 = not yet loaded)
+    int loadCount = 0;             // Number of scene/legacy loads since startup
+    int manualResetCount = 0;      // Number of user-triggered resets since startup
     bool isSceneMode = false;      // Scene file mode (deterministic, data-driven)
     bool isScenePhysics = true;    // Physics enabled in scene mode
     bool isSceneText = true;       // Text overlay enabled in scene mode
     int targetFrameCount = -1;     // Frames to render before holding (-1 = unlimited)
-    int currentFrame = 0;          // Current frame counter for scene mode
+    int currentFrame = 0;          // Current frame counter for the loaded scene/legacy run
     int modelCount = 0;            // Number of models in the active scene
+    unsigned int rngSeed = 0;      // Effective RNG seed used to build the current scene
     float timeScale = 1.0f;        // Physics time multiplier (1.0 = realtime)
     bool isFixedStep = false;      // One physics tick per render frame at PHYSICS_FIXED_DT (deterministic)
     bool isExitOnComplete = false; // Exit automatically when targetFrameCount is reached
@@ -189,6 +192,7 @@ class SkullbonezRun
     std::vector<std::string> m_sceneQueue; // Ordered list of scene paths ("" = legacy mode)
     float m_cmdTimeScaleOverride = 0.0f;   // CLI --time-scale override applied after each scene load (0 = not set)
     bool m_cmdFixedStep = false;           // CLI --fixed-step override applied after each scene load
+    unsigned int m_cmdSeedOverride = 0;    // CLI --seed override applied after each scene load (0 = not set)
 
     RunPerfLogState m_perfLogState;              // Perf/test logging paths, files, and flush policy
     RunRuntimeSettings m_runtimeSettings;        // Scene/app runtime toggles (vsync, sync, roll-align)
@@ -205,10 +209,6 @@ class SkullbonezRun
     GameModelCollection m_cGameModelCollection;  // SkullbonezCore::GameObjects::GameModelCollection class
 
     inline static int sPerfPass = 0;
-#ifdef _DEBUG
-    inline static unsigned int sCurrentRngSeed = 0; // Effective seed passed to srand() for the active run/scene
-#endif
-
     void Render();                                                     // Main render method
     void RelativeUpdateCamera( uint32_t hash );                        // Relative update specified camera
     void UpdateLogic( float fSecondsPerFrame );                        // Camera, autocycle, logs — once per frame
@@ -225,6 +225,7 @@ class SkullbonezRun
     void SaveScreenshot( const char* path );                           // Saves framebuffer to BMP file via glReadPixels
     void LogPerfMemory( const char* checkpoint );                      // Log memory usage to perf CSV
     void LoadScene( int index );                                       // Resets scene-specific state and loads a scene by queue index
+    void ResetCurrentScene();                                          // User-triggered reset/reload of current scene or legacy mode
     bool AdvanceScene();                                               // Advances to the next scene in the queue (returns false if done)
     void MoveCamera( float keyMovementQty, float mouseMovemementQty ); // Moves the camera
     RuntimeRendererType GetCurrentRendererType() const;                // Detect active backend type from Gfx renderer identity
@@ -251,8 +252,9 @@ class SkullbonezRun
     void Initialise();                                                                // Initialises shared resources and loads first scene
     void Run();                                                                       // Runs all scenes in sequence — main message loop
     void SetRendererSwitchInterval( float seconds );
-    void SetTimeScaleOverride( float scale ); // Override timeScale for every scene loaded (CLI --time-scale)
-    void SetFixedStepOverride();              // Force fixed-step for every scene loaded (CLI --fixed-step)
+    void SetTimeScaleOverride( float scale );  // Override timeScale for every scene loaded (CLI --time-scale)
+    void SetFixedStepOverride();               // Force fixed-step for every scene loaded (CLI --fixed-step)
+    void SetSeedOverride( unsigned int seed ); // Override RNG seed for every scene loaded (CLI --seed)
 
 #ifdef _DEBUG
     void SetPhysicsLogOverride( const char* path ); // Override physics log path for all scenes (CLI --physics-log)

@@ -107,6 +107,12 @@ void SkullbonezRun::SetFixedStepOverride()
 }
 
 
+void SkullbonezRun::SetSeedOverride( unsigned int seed )
+{
+    m_cmdSeedOverride = seed;
+}
+
+
 #ifdef _DEBUG
 void SkullbonezRun::SetPhysicsLogOverride( const char* path )
 {
@@ -856,10 +862,7 @@ void SkullbonezRun::TickPerfLog()
 
 bool SkullbonezRun::TickSceneAdvance()
 {
-    if ( m_scene.isSceneMode )
-    {
-        ++m_scene.currentFrame;
-    }
+    ++m_scene.currentFrame;
 
     // Check if target frame count is reached (skip if screenshot auto-exit is still pending)
     if ( m_scene.isSceneMode && m_scene.targetFrameCount > 0 && !m_screenshot.isScreenshotSaved )
@@ -1175,13 +1178,21 @@ void SkullbonezRun::TakeInput()
         m_camera.input.Set( InputState::XWasDown, xNow );
     }
 
-    // Backspace: reset (reload) the current scene from scratch. Scene mode only.
+    // Q: reset/reload the current scene from scratch. Backspace remains as a scene-mode alias.
+    {
+        bool qNow = Input::IsKeyDown( 'Q' );
+        if ( qNow && !m_camera.input.Get( InputState::QKeyWasDown ) )
+        {
+            ResetCurrentScene();
+        }
+        m_camera.input.Set( InputState::QKeyWasDown, qNow );
+    }
     if ( m_scene.isSceneMode )
     {
         bool bsNow = Input::IsKeyDown( VK_BACK );
         if ( bsNow && !m_camera.input.Get( InputState::BackspaceWasDown ) )
         {
-            LoadScene( m_scene.currentSceneIndex );
+            ResetCurrentScene();
         }
         m_camera.input.Set( InputState::BackspaceWasDown, bsNow );
     }
@@ -1705,7 +1716,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "P", "Physics solver" },
             { "R", "Cycle renderer" },
             { "Space", "Step physics" },
-            { "Bksp", "Reset scene" },
+            { "Q/Bksp", "Reset scene" },
         };
         static const KeyEntry kRight[nRows] = {
             { "Esc", "Quit" },
@@ -2085,6 +2096,16 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     }
 
     const char* rendererName = IsGfxReady() ? Gfx().GetRendererName() : "<uninitialised>";
+    const RuntimeRendererType rendererType = IsGfxReady() ? GetCurrentRendererType() : RuntimeRendererType::OpenGL;
+    const char* rendererArg = "gl";
+    if ( rendererType == RuntimeRendererType::DX11 )
+    {
+        rendererArg = "dx11";
+    }
+    else if ( rendererType == RuntimeRendererType::DX12 )
+    {
+        rendererArg = "dx12";
+    }
     const char* physicsMode = m_cGameModelCollection.GetLegacyMode() ? "legacy" : "solver";
     const Vector3& camPos = m_systems.cameras->GetCameraTranslation();
     const Vector3& camView = m_systems.cameras->GetCameraView();
@@ -2195,10 +2216,13 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     fprintf( f, "scene,%s\n", scenePath );
     fprintf( f, "scene_mode,%d\n", m_scene.isSceneMode ? 1 : 0 );
     fprintf( f, "scene_index,%d\n", m_scene.currentSceneIndex );
+    fprintf( f, "scene_load_count,%d\n", m_scene.loadCount );
+    fprintf( f, "manual_reset_count,%d\n", m_scene.manualResetCount );
     fprintf( f, "scene_frame,%d\n", m_scene.currentFrame );
     fprintf( f, "target_frame_count,%d\n", m_scene.targetFrameCount );
     fprintf( f, "simulation_seconds,%.6f\n", m_timers.simulationTimer.GetTimeSinceLastStart() );
-    fprintf( f, "rng_seed,%u\n", sCurrentRngSeed );
+    fprintf( f, "rng_seed,%u\n", m_scene.rngSeed );
+    fprintf( f, "cmd_seed_override,%u\n", m_cmdSeedOverride );
     fprintf( f, "fixed_step_effective,%d\n", m_scene.isFixedStep ? 1 : 0 );
     fprintf( f, "cmd_fixed_step_override,%d\n", m_cmdFixedStep ? 1 : 0 );
     fprintf( f, "time_scale,%.6f\n", m_scene.timeScale );
@@ -2208,6 +2232,27 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     fprintf( f, "roll_align_enabled,%d\n", m_runtimeSettings.isRollAlignEnabled ? 1 : 0 );
     fprintf( f, "vsync_enabled,%d\n", m_runtimeSettings.isVsyncEnabled ? 1 : 0 );
     fprintf( f, "pipeline_sync_enabled,%d\n", m_runtimeSettings.isPipelineSyncEnabled ? 1 : 0 );
+    if ( m_scene.isSceneMode )
+    {
+        fprintf( f,
+                 "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --scene \"%s\" --seed %u --time-scale %.6f%s%s\n",
+                 rendererArg,
+                 scenePath,
+                 m_scene.rngSeed,
+                 m_scene.timeScale,
+                 m_scene.isFixedStep ? " --fixed-step" : "",
+                 m_cGameModelCollection.GetLegacyMode() ? " --legacy-physics" : "" );
+    }
+    else
+    {
+        fprintf( f,
+                 "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --seed %u --time-scale %.6f%s%s\n",
+                 rendererArg,
+                 m_scene.rngSeed,
+                 m_scene.timeScale,
+                 m_scene.isFixedStep ? " --fixed-step" : "",
+                 m_cGameModelCollection.GetLegacyMode() ? " --legacy-physics" : "" );
+    }
     fprintf( f, "water_hidden,%d\n", m_debug.isWaterHidden ? 1 : 0 );
     fprintf( f, "terrain_hidden,%d\n", m_debug.isTerrainHidden ? 1 : 0 );
     fprintf( f, "collision_visualizer,%d\n", m_debug.isCollisionVisualizer ? 1 : 0 );
@@ -2496,6 +2541,7 @@ void SkullbonezRun::LoadScene( int index )
     }
 
     m_scene.currentSceneIndex = index;
+    ++m_scene.loadCount;
     const std::string& scenePath = m_sceneQueue[index];
 
     // Close previous perf log if open
@@ -2580,16 +2626,27 @@ void SkullbonezRun::LoadScene( int index )
     m_timers.rollingPhysicsTime = 0.0f;
     m_timers.rollingFpsTime = 0.0f;
 
-    // Reseed RNG
+    // Reseed RNG. Unseeded reruns mix in the load/reset counters so quick repeated
+    // Q resets do not collapse to the same time(nullptr) seed. Scene files and CLI
+    // overrides can still pin this exactly for repro.
     unsigned int rngSeed = static_cast<unsigned int>( time( nullptr ) );
-#ifdef _DEBUG
-    sCurrentRngSeed = rngSeed;
-#endif
-    srand( rngSeed );
+    rngSeed ^= static_cast<unsigned int>( m_scene.loadCount ) * 2654435761u;
+    rngSeed ^= static_cast<unsigned int>( m_scene.manualResetCount ) * 2246822519u;
+    if ( rngSeed == 0 )
+    {
+        rngSeed = 1;
+    }
 
     // Branch on scene mode vs legacy mode
     if ( scenePath.empty() )
     {
+        if ( m_cmdSeedOverride > 0 )
+        {
+            rngSeed = m_cmdSeedOverride;
+        }
+        m_scene.rngSeed = rngSeed;
+        srand( rngSeed );
+
         m_scene.isSceneMode = false;
         SetUpCameras();
         SetUpGameModels( DEFAULT_GAME_MODELS );
@@ -2674,15 +2731,18 @@ void SkullbonezRun::LoadScene( int index )
         m_cGameModelCollection.SetPhysicsLogPath( physLogPath );
 #endif
 
-        // Override RNG seed for deterministic scenes
+        // Override RNG seed for deterministic scenes. CLI --seed wins so a nudge snapshot can
+        // replay an unseeded/random scene or deliberately override a scene file seed.
         if ( scene.GetSeed() > 0 )
         {
             rngSeed = scene.GetSeed();
-#ifdef _DEBUG
-            sCurrentRngSeed = rngSeed;
-#endif
-            srand( rngSeed );
         }
+        if ( m_cmdSeedOverride > 0 )
+        {
+            rngSeed = m_cmdSeedOverride;
+        }
+        m_scene.rngSeed = rngSeed;
+        srand( rngSeed );
 
         // Replace terrain with analytic flat slope when the scene requests it
         if ( scene.HasFlatSlope() )
@@ -2796,6 +2856,19 @@ void SkullbonezRun::LoadScene( int index )
             Gfx().InitDXR( terrainVBVA, terrainVertCount, terrainStride, sphereVBVA, sphereVertCount, sphereStride, MAX_GAME_MODELS );
         }
     }
+}
+
+
+void SkullbonezRun::ResetCurrentScene()
+{
+    if ( m_scene.currentSceneIndex < 0 ||
+         m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
+    {
+        return;
+    }
+
+    ++m_scene.manualResetCount;
+    LoadScene( m_scene.currentSceneIndex );
 }
 
 
