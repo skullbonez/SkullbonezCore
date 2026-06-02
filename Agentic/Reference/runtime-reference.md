@@ -74,6 +74,8 @@ Fly and nudge mode use WASD, mouse look, Shift for faster movement, and Space to
 | `SkullbonezData/scenes/perf_test.scene` | Tri-renderer performance regression scene. |
 | `SkullbonezData/scenes/physics_roll.scene` | Physics rolling validation. |
 | `SkullbonezData/scenes/physics_regression_solver.scene` | Byte-exact Debug physics CSV regression. |
+| `SkullbonezData/scenes/standing_box_repro.scene` | Deterministic solver-box edge-rest repro seed target. |
+| `SkullbonezData/scenes/box_crater_edge_repro.scene` | Terrain edge-rest regression scene with Debug physics log. |
 
 ## Debug Logging
 

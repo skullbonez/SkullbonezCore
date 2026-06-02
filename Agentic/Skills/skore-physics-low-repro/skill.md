@@ -13,22 +13,25 @@ The goal is to convert "I saw an impossible physics state once" into:
 
 1. a deterministic launch command,
 2. an unattended detector,
-3. a single hit log with enough state to replay and debug,
+3. a scene snapshot or hit log with enough state to replay and debug,
 4. minimal manual input while the loop runs.
 
-The current edge-rest detector is one example of this pattern, not the pattern itself.
+The current edge-rest work is a deterministic seeded scene plus debug snapshot workflow. Treat a
+dedicated unattended detector as the next step only when the scene and nudge snapshots are not
+enough.
 
 ## Generic Capture Pattern
 
 For any low-repro physics bug:
 
 1. Define the impossible state as a precise predicate.
-2. Add a command-line capture mode, usually `--<problem>-test [log_path]`.
-3. Write the log header before the simulation loop starts.
-4. Disable normal interactive input during the unattended run unless the repro requires input.
-5. Scan every frame after physics has advanced.
-6. On first hit, write a full snapshot and stop the app.
-7. Include a replay command hint with seed, renderer, scene, object mode, time scale, fixed-step state, and important feature toggles.
+2. First try to make a deterministic scene and seed that reproduces it.
+3. If a scene is not enough, add a command-line capture mode, usually `--<problem>-test [log_path]`.
+4. Write the log header before the simulation loop starts.
+5. Disable normal interactive input during the unattended run unless the repro requires input.
+6. Scan every frame after physics has advanced.
+7. On first hit, write a full snapshot and stop the app.
+8. Include a replay command hint with seed, renderer, scene, object mode, time scale, fixed-step state, and important feature toggles.
 
 Keep the detector narrow enough to avoid false positives, but log enough context to refine it later.
 
@@ -72,10 +75,12 @@ Examples:
 
 ## Runbook
 
-1. Build the target configuration:
+1. Build the target configuration. Use Profile for fast visual repro runs, or Debug when you need
+   nudge snapshot output:
 
 ```bat
 tools\validate_build.bat Profile
+tools\validate_build.bat Debug
 ```
 
 2. Start the capture command from the repo root:
@@ -84,16 +89,11 @@ tools\validate_build.bat Profile
 Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData/scenes/standing_box_repro.scene --seed 4096348761 --no-water
 ```
 
-3. Monitor only the log while the loop runs:
+3. When a snapshot is needed, rerun the same command with `Debug\SKULLBONEZ_CORE.exe`, enter nudge
+   mode, and press Enter on the suspicious object to append to `Debug\nudge_repro_snapshots.txt`.
+4. Use the logged replay command and snapshot fields to debug in `Debug` or under CDB.
 
-```powershell
-Get-Content Debug\standing_box_repro.log -Wait
-```
-
-4. Stop the test when the app exits on first hit.
-5. Use the logged replay command and snapshot fields to debug in `Debug` or under CDB.
-
-The log may be recreated at each run start depending on the detector. Preserve hit artifacts before rerunning the same path.
+If a future detector writes a log, preserve hit artifacts before rerunning the same path.
 
 ## Current Example: Edge-Rest Box
 
@@ -103,7 +103,7 @@ Example command:
 Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData/scenes/standing_box_repro.scene --no-water --seed 4096348761
 ```
 
-Edge-rest predicate:
+Edge-rest predicate used for manual review and any future detector:
 
 - target is a box,
 - target is not sleeping,
@@ -121,7 +121,9 @@ Known hit from the first capture:
 - max terrain gap: `3.013268`
 - sleeping: `0`
 
-The important lesson from this example is not the box-specific predicate. It is the reusable workflow: predicate, seed, unattended loop, snapshot, stop-on-hit, replay.
+The important lesson from this example is not the box-specific predicate. It is the reusable
+workflow: predicate, seed, scene or unattended loop, snapshot, stop-on-hit when a detector exists,
+and replay.
 
 ## Validation
 

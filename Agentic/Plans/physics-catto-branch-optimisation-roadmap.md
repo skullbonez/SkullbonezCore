@@ -1,4 +1,4 @@
-﻿# Plan - Catto Physics Branch Optimisation Roadmap
+# Plan - Catto Physics Branch Optimisation Roadmap
 
 **Date:** 2026-06-02
 **Status:** Draft for review
@@ -7,112 +7,103 @@
 
 ## Context
 
-This document covers how to optimise the work on the `implement-catto-physics-audit`
-branch. It is deliberately narrower than
-`Agentic/Plans/physics-solver-optimisation-suggestions.md`: that older plan is the broad
-solver backlog, while this document focuses on the new Catto-branch behaviour.
+This document covers how to optimise the current `implement-catto-physics-audit` branch after
+the recent code updates. It is narrower than
+`Agentic/Plans/physics-solver-optimisation-suggestions.md`: that older plan is the broad solver
+backlog, while this roadmap focuses on what is left after the Catto branch work already landed.
 
-The branch now contains several correctness and diagnosis changes that should shape the next
-optimisation pass:
+Current code already includes several of the big architectural steps:
 
-- Catto-aligned object contact manifolds and more stable box stacking.
-- Tighter sleep/support eligibility so contacts are not automatically treated as stable rest.
-- Collision visualisation, Q scene reset, and nudge repro snapshot tooling.
-- A terrain box rest-support policy that can deny gravity warm-start, static-friction floor,
-  rolling damping, and sleep support for unstable edge or point contacts.
-- An unattended `<detector-command>` path that searches for stationary boxes balanced on too few
-  terrain-supported vertices.
+- Catto-style object contact manifolds for sphere/sphere, sphere/box, and OBB/OBB contacts.
+- Per-contact feature IDs for persistent warm starting.
+- A compact persistent-contact solver body cache with one write-back after PGS.
+- Sorted persistent-contact cache lookup instead of pair-wide linear matching.
+- Vector cone clamping for object-contact friction.
+- Terrain support policy that withholds gravity warm-start, static-friction floor, rolling damping,
+  and sleep support from unstable box edge or point contacts.
+- A deterministic edge-rest repro scene at `SkullbonezData/scenes/standing_box_repro.scene`.
+- Debug nudge snapshots with terrain support probes and replay hints.
 
-The main optimisation risk is optimising a transitional behaviour before it is proven correct.
-The branch is specifically trying to prevent false rest states, so any performance work must keep
-that correctness target visible.
+The main optimisation risk has changed: do not plan to add systems that are already present.
+The next useful work is to measure the remaining terrain/support cost, remove duplicated support
+classification logic, and decide when terrain contacts should share more of the object-contact
+row pipeline.
 
-## Optimisation Goals
+## Current Code Baseline
 
-Optimise in this order:
+| Area | Current state | Optimisation concern |
+|------|---------------|----------------------|
+| Terrain solver | `ImpulseSolver::RespondCollisionTerrain` still owns a separate single-body stack contact solver with an SSE path. | It duplicates row math and uses different friction policy than the persistent object solver. |
+| Terrain box support policy | Face-axis checks and OBB vertex terrain-height probes gate rest-only privileges. | The same terrain-supported-vertex idea also exists in debug nudge snapshot logging. |
+| Object persistent solver | Uses manifolds, feature IDs, sorted warm-start cache lookup, solver body cache, and vector friction clamp. | The next gains are profiling/submarker cleanup and avoiding redundant work, not adding these systems from scratch. |
+| Sleep support propagation | Terrain seeds support; object contacts pass it through directed stack edges. | The relaxation loop is simple and correct, but should be measured in stack-heavy scenes. |
+| Repro tooling | Current reproducible path is a seeded scene plus nudge snapshots. | There is not currently a wired `--standing-test` or equivalent detector command in runtime parsing. |
 
-1. Measure the new branch-specific cost centres.
-2. Make the terrain support classification cheap and single-source.
-3. Keep diagnostic tooling from adding accidental hot-path cost.
-4. Move repeated contact policy decisions toward generated contact data.
-5. Only then continue the larger shared solver/body-cache work from the Catto audit.
+## Priority 0 - Profile The Updated Branch First
 
-Do not fix performance by adding damping, weakening the edge-rest predicate, allowing false
-sleep, or collapsing valid multi-point support contacts. Those would make the branch faster by
-walking away from the bug it is trying to catch.
+Before changing code, split markers around the costs that remain ambiguous. Some useful markers
+already exist, including `Frame/Physics/Terrain/BoxVertexManifold`,
+`Frame/Physics/Terrain/BoxSupportPolicyVerts`, and
+`Frame/Physics/Narrowphase/PersistentContacts`; keep those and add finer splits only where they
+answer a decision.
 
-## Current Hot Spots And Risks
-
-| Area | Why it matters | Optimisation concern |
-|------|----------------|----------------------|
-| Terrain support policy | Runs inside `ImpulseSolver::RespondCollisionTerrain`, which is already one of the expensive physics markers. | Box support classification now adds face-axis tests and terrain-height checks for up to 8 OBB vertices. |
-| Low-repro detector | Scans boxes during unattended repro runs and can build object contact manifolds to reject supported/contacting candidates. | It is diagnostic-only, but a long run can still burn CPU if every frame scans many objects. |
-| Sleep support semantics | Terrain and object contacts now distinguish support from ordinary collision. | Duplicating this logic in multiple places risks both cost and future divergence. |
-| Contact manifolds | The branch adds more correct multi-row box contacts. | Multi-row contacts increase solver work, and they require better cache identity before warm-start optimisation is safe. |
-| Updated baselines | Physics CSV output moved intentionally. | Future optimisation must separate intentional physics changes from accidental drift. |
-
-## Priority 0 - Profile The New Branch Behaviour First
-
-Before changing code, split profiler markers enough to identify whether the new support policy is
-actually material.
-
-Suggested markers:
+Suggested new or refined markers:
 
 - `Frame/Physics/Terrain/BoxSupportPolicy`
 - `Frame/Physics/Terrain/BoxSupportPolicyFaceAxes`
-- `Frame/Physics/Terrain/BoxSupportPolicyVerts`
-- `Frame/Physics/Terrain/UnstableSupportRowsSkipped`
 - `Frame/Physics/Terrain/SolveRows`
-- `Frame/Physics/LowReproDetector/Scan`
-- `Frame/Physics/LowReproDetector/TerrainVerts`
-- `Frame/Physics/LowReproDetector/ObjectContactReject`
-- `Frame/Physics/ObjectContacts/BuildManifolds`
-- `Frame/Physics/ObjectContacts/Solve`
+- `Frame/Physics/Terrain/RollingDamping`
+- `Frame/Physics/Narrowphase/BuildManifolds`
+- `Frame/Physics/Narrowphase/WarmStartLookup`
+- `Frame/Physics/Narrowphase/SolveRows`
+- `Frame/Physics/Narrowphase/PositionCorrection`
+- `Frame/Physics/SleepSupport/Propagate`
+- `Frame/Debug/NudgeRepro/TerrainSupportProbe`
 
 Capture data for:
 
+- `SkullbonezData/scenes/standing_box_repro.scene`
+- `SkullbonezData/scenes/box_crater_edge_repro.scene`
 - `SkullbonezData/scenes/stacking.scene`
 - `SkullbonezData/scenes/at_rest.scene`
-- `SkullbonezData/scenes/box_crater_edge_repro.scene`
-- A generated all-box solver run with `--fixed-step --no-water --all-boxes`
-- A generated all-box low-repro detector run with `<detector-command>`
+- A generated all-box run with `--fixed-step --no-water --all-boxes`
+- A solver scene with `solver_boxes` and `perf_log` if a stable per-frame CSV is needed
 
-The decision point is simple: if terrain support classification is noise, do not micro-optimise it
-yet. If it is visible in box-heavy scenes, optimise the classification before touching larger solver
-architecture.
+Decision rule: if the new support policy is not visible in these profiles, leave it alone and
+focus on shared row architecture. If it is visible, centralise and cheapen support classification
+before touching broader solver behaviour.
 
-## Priority 1 - Make Box Terrain Support Classification Cheaper
+## Priority 1 - Centralise Box Terrain Support Classification
 
-The current support policy is correct in spirit: only plausible rest footprints get rest-only
-privileges. The first optimisation pass should preserve that behaviour while reducing repeated
-work.
+The terrain support policy is doing important correctness work. Optimise it by making it one
+small, reusable classifier rather than by weakening the predicate.
 
 Recommended changes:
 
-1. Extract a small internal support classifier used by both terrain solving and diagnostic checks.
-   It should return the support decision plus the measured facts behind it:
-   - whether the shape is a box,
-   - best face-normal dot against the terrain plane,
-   - terrain-supported vertex count,
-   - min/max terrain gap when needed,
-   - whether rest-support policy is allowed.
-2. Keep the fast rejection order:
-   - non-box shapes skip all box policy work,
-   - obvious stable full manifolds avoid extra terrain-vertex checks where safe,
-   - unstable low-row manifolds do only the minimum work needed to reject rest support.
-3. Avoid repeated `std::visit` and shape extraction in the same terrain response call.
-4. Reuse canonical local box corners instead of rebuilding the eight corner sign combinations in
-   every support test.
-5. Use a height-only terrain query for vertex support checks unless the plane is actually needed.
-6. Consider a one-tick support result cache only after profiling proves repeated terrain vertex
-   checks are expensive. Cache invalidation must include movement, rotation, wake, teleport,
-   scene reset, terrain change, and object respawn.
+1. Extract a local helper such as `ClassifyBoxTerrainSupport`.
+2. Return a compact result:
+   - `isBox`,
+   - best face-normal dot,
+   - supported terrain vertex count,
+   - min/max terrain gap when requested by diagnostics,
+   - `supportsRestingPolicy`.
+3. Use the helper from terrain response and Debug nudge snapshot logging.
+4. Keep the current fast rejection order:
+   - non-box shapes skip all box work,
+   - obvious unstable low-row manifolds avoid unnecessary terrain sampling,
+   - terrain vertex sampling happens only when it can change the support decision or diagnostic log.
+5. Avoid repeated `std::visit` and shape extraction in the same response call.
+6. Reuse canonical local box corners instead of rebuilding the eight sign combinations in every
+   support probe.
+7. Use height-only terrain queries for vertex support tests unless the plane is actually needed.
+8. Keep the support constants in one place. Do not make them broad config knobs unless profiling or
+   tests prove tuning is needed.
 
 Expected result:
 
-- Same sleep/support decisions as the branch currently intends.
-- Less terrain query and box-corner setup cost in box-heavy scenes.
-- One support-policy implementation for future audit work.
+- Same support/sleep decisions as the current branch.
+- Less duplicated terrain support math.
+- Debug snapshot fields stay consistent with the solver's actual support policy.
 
 Validation for implementation:
 
@@ -121,68 +112,71 @@ tools\validate_physics.bat
 tools\validate_perf.bat
 ```
 
-If `SkullbonezGameModelCollection*` is touched during the extraction, prefer
-`tools\validate_full.bat`.
+If `SkullbonezRun*` or `SkullbonezGameModelCollection*` is touched, use `tools\validate_full.bat`
+or the stricter mapping in `AGENTS.md`.
 
-## Priority 2 - Keep Low-Repro Detector Cost Controlled
+## Priority 2 - Optimise The Existing Object Contact Solver, Not A Hypothetical One
 
-`<detector-command>` is useful because it turns a visual bug hunt into an unattended repro search.
-It should stay cheap enough for long runs, but it should not influence normal runtime paths.
+The object solver already has the main Catto-shaped pieces. The next pass should be measured
+cleanup around the current implementation.
 
 Recommended changes:
 
-1. Keep the feature disabled by default and ensure normal runs pay only the existing boolean branch.
-2. In low-repro detector mode, keep the scan ordered from cheapest to most expensive:
-   - skip non-boxes,
-   - skip sleeping boxes if the test is specifically looking for awake impossible rest,
-   - check speed and angular speed,
-   - check terrain-supported vertex count,
-   - track candidate persistence,
-   - only then run expensive object-contact rejection before logging a hit.
-3. Replace the all-model object-contact rejection scan with broadphase-backed nearby candidates if
-   profiling shows it is significant.
-4. Share the same terrain support classifier used by `RespondCollisionTerrain`.
-5. Keep log writes one-shot and avoid per-frame file I/O after the header is written.
+1. Split the broad `PersistentContacts` marker into build, precompute, warm-start lookup, solve,
+   write-back, position-correction, and cache-store markers.
+2. Confirm whether sorting `m_persistentContactCache` at the start of the pass is still needed,
+   since the cache is also sorted after it is rebuilt. If the end-of-pass invariant is reliable,
+   replace the start sort with a debug assertion or remove it.
+3. Measure feature-ID cache hit rate and row count by contact type:
+   - sphere/sphere,
+   - sphere/box,
+   - OBB face,
+   - OBB edge.
+4. Measure how often direct position correction fires and how much correction is applied. Do not
+   optimise projection-heavy scenes until it is clear projection is not masking solver weakness.
+5. Consider island-local early-out only after submarkers show the global 12-iteration solve is a
+   real cost in mixed active/settled scenes.
 
 Expected result:
 
-- The test remains strict enough to catch the edge-rest failure.
-- Long repro runs spend most time in actual simulation, not diagnostic scanning.
-- The diagnostic path does not become another source of support-policy divergence.
+- The current solver gets cheaper without reverting to pair-wide or centroid shortcuts.
+- Future work has better data about row counts, cache quality, and correction reliance.
+- Correctness remains anchored by feature IDs and multi-point manifolds.
 
 Validation for implementation:
 
 ```bat
 tools\validate_physics.bat
+tools\validate_perf.bat
 ```
 
-Run at least one manual low-repro detector command afterwards and preserve the log if it finds a hit.
+Use `tools\validate_full.bat` for broad edits to `SkullbonezGameModelCollection*`.
 
-## Priority 3 - Push Rest-Support Policy Toward Contact Data
+## Priority 3 - Decide How Much Terrain Should Share With The Object Solver
 
-The terrain solver currently decides rest-support policy inside response. That is pragmatic, but
-the longer-term Catto shape is cleaner if contact generation emits enough facts for the solver to
-stay generic.
+Terrain still has a separate solver path. That path is fast in Profile because it has an SSE loop,
+but it also duplicates normal/tangent effective mass, warm-start policy, early-out, projection, and
+friction behaviour.
 
 Recommended direction:
 
-1. Generate contact rows with support flags:
-   - can solve normal impulse,
-   - can receive gravity warm-start,
-   - can receive static-friction floor,
-   - can apply rest rolling damping,
-   - can seed sleep.
-2. Keep unstable edge/point rows valid for real penetration or impact response.
-3. Keep the current branch invariant: a contact that cannot seed sleep also cannot receive
-   artificial rest support.
-4. Report row counts by category so future optimisation can distinguish real contact work from
-   rest-policy bookkeeping.
+1. First extract shared row setup helpers only where behaviour is identical.
+2. Preserve terrain-specific policies explicitly:
+   - gravity warm-start floor,
+   - rest-support gating,
+   - unstable contact row skip,
+   - rolling damping,
+   - impact-time centroid collapse.
+3. Compare terrain's independent tangent clamps with object-contact vector cone clamping. Unify
+   only if physics scenes prove the change is intentional and stable.
+4. Keep the terrain SSE path until a shared row kernel can match or beat it.
+5. Treat a full terrain/object solver merge as a later optimisation, not the next small cleanup.
 
 Expected result:
 
-- Less special policy branching inside the inner solver loop.
-- Cleaner path to a shared terrain/object contact solver.
-- Easier validation because support policy is visible in generated contact data.
+- Less duplicated solver logic over time.
+- No accidental regression of the terrain path that currently carries the edge-rest fix.
+- A clear bridge toward one row pipeline without throwing away the working SSE terrain loop.
 
 Validation for implementation:
 
@@ -191,53 +185,65 @@ tools\validate_physics.bat
 tools\validate_perf.bat
 ```
 
-## Priority 4 - Continue The Shared Solver Work After Policy Stabilises
+Run renderer validation too if visual baselines move because terrain/object sleep or orientation
+behaviour changes.
 
-Once the branch-specific support behaviour is measured and centralised, continue the larger Catto
-optimisation direction:
+## Priority 4 - Keep Repro Tooling Honest And Cheap
 
-1. Add a compact solver body cache for awake bodies:
-   - linear velocity,
-   - angular velocity,
-   - inverse mass,
-   - world inverse inertia,
-   - awake/sleep/support state.
-2. Build terrain and object contact rows against body indices rather than mutating `GameModel`
-   state inside every row solve.
-3. Write velocities back once after the solver pass.
-4. Use feature/contact IDs for cache identity before doing more warm-start work.
-5. Keep multi-point manifolds intact. The prior centroid-collapse experiment regressed because it
-   removed the rotational support boxes needed to settle.
+Current runtime code does not expose a dedicated unattended edge-rest detector command. The current
+repro path is:
+
+```bat
+Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\standing_box_repro.scene --seed 4096348761 --no-water
+```
+
+Debug builds can also write nudge snapshots from the object under the crosshair. The low-repro
+skill documents a useful future pattern, but the roadmap should not refer to placeholder commands
+as if they are implemented.
+
+Recommended changes:
+
+1. Keep `standing_box_repro.scene` as the canonical deterministic edge-rest repro.
+2. Add a real detector command only if seeded scenes and nudge snapshots are not enough.
+3. If a detector is added, wire it through command-line parsing, runtime reference docs, and a
+   single log contract in one change.
+4. Reuse the nudge snapshot payload for any detector hit so manual and unattended captures are
+   comparable.
+5. Keep detector scans ordered cheap-to-expensive and disabled by default.
 
 Expected result:
 
-- Object-contact solving gets the same cache-friendly shape as the terrain solver.
-- Future SIMD and SoA work becomes safer because the row/body data layout is explicit.
-- Warm starting can be evaluated with correct contact identity instead of pair-only guesses.
+- Repro docs match runtime reality.
+- Future detector work has a clear contract.
+- Normal runtime pays no hidden diagnostic cost.
 
 Validation for implementation:
+
+```bat
+tools\validate_fast.bat
+```
+
+For detector code touching `SkullbonezRun*`, use:
 
 ```bat
 tools\validate_full.bat
 ```
 
-Also run `tools\validate_perf.bat` separately if the full script does not capture the target perf
-scene closely enough.
+## Priority 5 - Revisit Sleep And Broadphase After Support Semantics Stay Stable
 
-## Priority 5 - Revisit Broadphase And Sleeping After Correctness
-
-Sleeping produced the largest historical physics performance win, but this branch exists because
-false sleep/support states are dangerous. Optimise sleeping only after the support semantics are
-stable.
+Sleeping remains the biggest historical performance win, but this branch exists because false
+sleep/support states are dangerous. Optimise sleep and broadphase only after support semantics are
+stable in the edge-rest, stacking, and at-rest scenes.
 
 Recommended changes:
 
 1. Keep sleep eligibility derived from proven support, not merely contact.
-2. Measure awake/sleeping pair generation separately.
-3. Consider separate awake and sleeping grids only after contact support is correct.
-4. Wake sleeping bodies from actual overlap or conservative predicted overlap, not broad contact
+2. Profile `PropagateSleepSupport` in stack-heavy scenes.
+3. Replace bounded relaxation with a queue traversal only if support propagation is measurable.
+4. Measure awake/sleeping pair generation separately.
+5. Consider separate awake and sleeping grids only after contact support is correct.
+6. Wake sleeping bodies from actual overlap or conservative predicted overlap, not broad contact
    suspicion alone.
-5. Validate stack, slope, and at-rest scenes with sleeping enabled and disabled when possible.
 
 Expected result:
 
@@ -252,7 +258,7 @@ tools\validate_physics.bat
 tools\validate_perf.bat
 ```
 
-Use `tools\validate_full.bat` for changes that touch scene runtime, renderer-facing validation, or
+Use `tools\validate_full.bat` for changes touching scene runtime, renderer-facing validation, or
 multiple systems.
 
 ## Guardrails
@@ -263,23 +269,21 @@ multiple systems.
   The earlier experiment made the adaptive solver converge worse.
 - Do not collapse multi-point box contacts into centroids as a general optimisation. The earlier
   attempt increased awake object count and worsened performance.
-- Do not optimise pair-only contact cache lookup before contact identity includes feature or
-  contact IDs.
+- Do not regress from feature-ID contact caching back to pair-only matching.
 - Treat physics CSV differences as real until they are explained and intentionally baselined.
-- Keep renderer and UI diagnostics separate from physics hot-path changes unless profiling proves
-  they interact.
+- Keep diagnostic docs and runtime flags in sync. No placeholder commands in handoff material.
 
 ## Suggested Implementation Order
 
-1. Add profiler markers for support policy, low-repro detector scan, and object manifold work.
-2. Capture fresh physics/perf numbers for stacking, at-rest, edge repro, and generated all-box runs.
-3. Extract a shared box-terrain support classifier.
-4. Reorder low-repro detector work so expensive object-contact rejection happens only for persistent
-   candidates.
-5. Convert rest-support decisions into generated contact-row flags.
-6. Add solver body-state arrays and write back once per physics step.
-7. Upgrade contact cache identity for multi-row manifolds.
-8. Revisit awake/sleeping broadphase partitioning after the above behaviour is stable.
+1. Add the profiler submarkers listed above.
+2. Capture fresh physics/perf numbers for edge repro, stacking, at-rest, and generated all-box runs.
+3. Extract a shared box-terrain support classifier for terrain response and Debug nudge snapshots.
+4. Remove redundant object-contact cache sorting only if the sorted invariant is proven.
+5. Instrument position correction and contact cache hit rates.
+6. Decide whether terrain and object contact row helpers can be shared without losing the terrain
+   SSE path.
+7. Revisit support propagation and broadphase sleeping partition only after the correctness scenes
+   remain stable.
 
 ## Validation Plan For This Markdown Change
 
@@ -290,4 +294,3 @@ tools\validate_fast.bat
 ```
 
 Future code implementation should use the stricter validation listed in each priority section.
-
