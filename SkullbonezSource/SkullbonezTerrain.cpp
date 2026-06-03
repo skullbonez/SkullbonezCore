@@ -68,8 +68,8 @@ Terrain::Terrain( float slopeBaseY, float slopeX, float slopeZ )
     float h10 = slopeBaseY + slopeX * FLAT_SLOPE_EXTENT;
     float h01 = slopeBaseY + slopeZ * FLAT_SLOPE_EXTENT;
     float h11 = slopeBaseY + slopeX * FLAT_SLOPE_EXTENT + slopeZ * FLAT_SLOPE_EXTENT;
-    m_maxTerrainHeight = (std::max)( (std::max)( h00, h10 ), (std::max)( h01, h11 ) );
-    m_minTerrainHeight = (std::min)( (std::min)( h00, h10 ), (std::min)( h01, h11 ) );
+    m_maxTerrainHeight = ( std::max )( ( std::max )( h00, h10 ), ( std::max )( h01, h11 ) );
+    m_minTerrainHeight = ( std::min )( ( std::min )( h00, h10 ), ( std::min )( h01, h11 ) );
 
     BuildFlatSlopeMesh();
     InitialiseTerrainShader();

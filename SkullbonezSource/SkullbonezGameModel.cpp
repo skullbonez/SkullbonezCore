@@ -299,7 +299,7 @@ void GameModel::StaticOverlapResponseGameModel( GameModel& overlapTarget )
     float maxPenetration = 0.0f;
     for ( uint8_t i = 0; i < manifold.pointCount; ++i )
     {
-        maxPenetration = (std::max)( maxPenetration, manifold.points[i].penetration );
+        maxPenetration = ( std::max )( maxPenetration, manifold.points[i].penetration );
     }
 
     if ( maxPenetration <= 0.0f )

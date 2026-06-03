@@ -16,6 +16,9 @@ This file holds details that are useful during debugging or manual testing but t
 | `--fixed-step` | flag | Run one deterministic physics tick per rendered frame. |
 | `--seed` | positive integer | Override the RNG seed for every loaded scene, including legacy mode. Useful with nudge repro snapshots. |
 | `--no-water` | flag | Start the fluid surface below the active terrain. Page Up can raise it during runtime. |
+| `--profiler` | flag | Start with the timer/profiler HUD visible. Alias: `--show-profiler`. |
+| `--hide-top-text` | flag | Hide the always-on top HUD rows while leaving profiler/key overlays available. Alias: `--no-top-text`. |
+| `--broadphase-visualizer` | flag | Start with the broadphase spatial grid visualizer enabled. Alias: `--broadphase-overlay`. |
 | `--all-balls` | flag | Force generated object populations to spawn as balls. |
 | `--all-boxes` | flag | Force generated object populations to spawn as boxes and use the solver path for those objects. |
 | `--physics-debug` | `none`, `axes`, `contacts`, `sleep`, `all`, `on`, `off` | Override physics debug overlay mode for every loaded scene. |
@@ -72,7 +75,7 @@ For exact field order, inspect an existing scene in `SkullbonezData/scenes/` and
 | V | Toggle collision visualiser. |
 | C | Cycle physics debug overlay: none, axes, contacts, sleep, all. |
 | 9 | Toggle velocity vectors. |
-| G | Cycle tracked ball in scene mode. |
+| G | Toggle broadphase visualizer, or cycle the tracked ball when ball tracking is active and the visualizer is off. |
 
 Fly and nudge mode use WASD, mouse look, Shift for faster movement, and Space to step physics while fly mode is paused.
 

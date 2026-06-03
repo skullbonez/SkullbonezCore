@@ -41,7 +41,6 @@ GameModelCollection::GameModelCollection()
     m_persistentContactCache.reserve( MAX_GAME_MODELS * 4 );
     m_persistentContactCounts.reserve( MAX_GAME_MODELS );
     m_solverBodies.reserve( MAX_GAME_MODELS );
-    m_physicsDebugContacts.reserve( MAX_GAME_MODELS * 4 );
     m_shadowInstanceData.reserve( MAX_GAME_MODELS * SHADOW_INSTANCE_FLOATS );
 };
 
@@ -86,7 +85,6 @@ void GameModelCollection::Clear()
     m_persistentContactCache.clear();
     m_persistentContactCounts.clear();
     m_solverBodies.clear();
-    m_physicsDebugContacts.clear();
 }
 
 
@@ -311,7 +309,6 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     m_timeRemaining.assign( modelCount, fChangeInTime );
     m_sleepSupportedThisFrame.assign( modelCount, 0 );
     m_sleepInhibitedThisFrame.assign( modelCount, 0 );
-    m_physicsDebugContacts.clear();
     m_sleepSupportEdges.clear();
 
     // Ensure sleep state vectors are sized (persists across frames)
@@ -567,7 +564,6 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     {
         m_persistentContacts.clear();
         m_persistentContactCache.clear();
-        m_physicsDebugContacts.clear();
         return;
     }
 
@@ -809,7 +805,6 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     if ( m_persistentContacts.empty() )
     {
         m_persistentContactCache.clear();
-        m_physicsDebugContacts.clear();
         return;
     }
 
@@ -1024,23 +1019,6 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
 
         m_gameModels[i].SetLinearVelocity( m_solverBodies[i].linearVelocity );
         m_gameModels[i].SetAngularVelocity( m_solverBodies[i].angularVelocity );
-    }
-
-    m_physicsDebugContacts.clear();
-    m_physicsDebugContacts.reserve( m_persistentContacts.size() );
-    for ( const PersistentContact& c : m_persistentContacts )
-    {
-        Physics::PhysicsDebugContact out;
-        out.bodyA = c.bodyA;
-        out.bodyB = c.bodyB;
-        out.featureId = c.featureId;
-        out.point = m_gameModels[c.bodyA].GetPosition() + c.rA;
-        out.normal = c.normal;
-        out.tangent1 = c.tangent1;
-        out.tangent2 = c.tangent2;
-        out.penetration = c.penetration;
-        out.normalImpulse = c.accN;
-        m_physicsDebugContacts.push_back( out );
     }
 
     // ENGINE-SPECIFIC / NOVEL:

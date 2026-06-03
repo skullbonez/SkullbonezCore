@@ -121,6 +121,24 @@ void SkullbonezRun::SetNoWaterOverride()
 }
 
 
+void SkullbonezRun::SetInitialOverlayMode( OverlayMode mode )
+{
+    m_debug.overlayMode = mode;
+}
+
+
+void SkullbonezRun::SetTopTextHidden( bool hidden )
+{
+    m_debug.isTopTextHidden = hidden;
+}
+
+
+void SkullbonezRun::SetBroadphaseVisualizerEnabled( bool enabled )
+{
+    m_debug.isBroadphaseOverlay = enabled;
+}
+
+
 void SkullbonezRun::SetGeneratedObjectTypeOverride( GeneratedObjectTypeOverride objectTypeOverride )
 {
     m_generatedObjectTypeOverride = objectTypeOverride;
@@ -677,7 +695,7 @@ void SkullbonezRun::Run()
             Render();
             PROFILE_GPU_END( "Frame/Render" );
 
-            if ( !m_scene.isSceneMode || m_scene.isSceneText )
+            if ( !m_scene.isSceneMode || m_scene.isSceneText || m_debug.overlayMode != OverlayMode::None )
             {
                 PROFILE_GPU_BEGIN( "Frame/Text" );
                 DrawWindowText( secondsPerFrame );
@@ -748,7 +766,7 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
         //
         // time_scale > 1 runs multiple ticks per render frame (integer part) so
         // scenes can simulate faster than real-time while keeping the fixed dt.
-        const int ticksThisFrame = (std::max)( 1, static_cast<int>( m_scene.timeScale ) );
+        const int ticksThisFrame = ( std::max )( 1, static_cast<int>( m_scene.timeScale ) );
         if ( !m_camera.isFlyMode || m_camera.isNudgeMode || Input::IsKeyDown( VK_SPACE ) )
         {
             PROFILE_BEGIN( "Frame/Physics" );
@@ -1740,42 +1758,44 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 #endif
     }
 
-    // Top text — always visible regardless of overlay mode.
-    // Top-left: engine name + active renderer
-    Text2d::Render2dText( -( hw - mX ), hh - mY - fSz, fSz, "SKULLBONEZ CORE [%s]", rendererName );
-
-    // Second row top-left: scene name and frame counter (only in scene mode)
-    if ( m_scene.isSceneMode && m_scene.currentSceneIndex >= 0 )
+    if ( !m_debug.isTopTextHidden )
     {
-        const std::string& scenePath = m_sceneQueue[m_scene.currentSceneIndex];
-        const char* base = scenePath.c_str();
-        const char* slash = strrchr( base, '/' );
-        if ( !slash )
-        {
-            slash = strrchr( base, '\\' );
-        }
-        const char* sceneName = slash ? slash + 1 : base;
-        if ( m_scene.isTestComplete )
-        {
-            Text2d::Render2dText( -( hw - mX ), hh - mY - fSz * 3.0f, fSz, "%s - TEST COMPLETE", sceneName );
-        }
-        else
-        {
-            Text2d::Render2dText( -( hw - mX ), hh - mY - fSz * 3.0f, fSz, "%s  frame: %d", sceneName, m_scene.currentFrame );
-        }
-    }
+        // Top-left: engine name + active renderer
+        Text2d::Render2dText( -( hw - mX ), hh - mY - fSz, fSz, "SKULLBONEZ CORE [%s]", rendererName );
 
-    // Top-right: model count (right-aligned)
-    {
-        char mcBuf[64];
-        snprintf( mcBuf, sizeof( mcBuf ), "Model Count: %i", m_scene.modelCount );
-        Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, mcBuf ), hh - mY - fSz, fSz, "%s", mcBuf );
-    }
+        // Second row top-left: scene name and frame counter (only in scene mode)
+        if ( m_scene.isSceneMode && m_scene.currentSceneIndex >= 0 )
+        {
+            const std::string& scenePath = m_sceneQueue[m_scene.currentSceneIndex];
+            const char* base = scenePath.c_str();
+            const char* slash = strrchr( base, '/' );
+            if ( !slash )
+            {
+                slash = strrchr( base, '\\' );
+            }
+            const char* sceneName = slash ? slash + 1 : base;
+            if ( m_scene.isTestComplete )
+            {
+                Text2d::Render2dText( -( hw - mX ), hh - mY - fSz * 3.0f, fSz, "%s - TEST COMPLETE", sceneName );
+            }
+            else
+            {
+                Text2d::Render2dText( -( hw - mX ), hh - mY - fSz * 3.0f, fSz, "%s  frame: %d", sceneName, m_scene.currentFrame );
+            }
+        }
 
-    // Second row top-right: active physics solver (right-aligned)
-    {
-        const char* solverTag = m_cGameModelCollection.GetLegacyMode() ? "PHYSICS: LEGACY [P]" : "PHYSICS: IMPULSE [P]";
-        Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, solverTag ), hh - mY - fSz * 3.0f, fSz, "%s", solverTag );
+        // Top-right: model count (right-aligned)
+        {
+            char mcBuf[64];
+            snprintf( mcBuf, sizeof( mcBuf ), "Model Count: %i", m_scene.modelCount );
+            Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, mcBuf ), hh - mY - fSz, fSz, "%s", mcBuf );
+        }
+
+        // Second row top-right: active physics solver (right-aligned)
+        {
+            const char* solverTag = m_cGameModelCollection.GetLegacyMode() ? "PHYSICS: LEGACY [P]" : "PHYSICS: IMPULSE [P]";
+            Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, solverTag ), hh - mY - fSz * 3.0f, fSz, "%s", solverTag );
+        }
     }
 
     // --- Overlay: None ---

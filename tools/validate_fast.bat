@@ -2,7 +2,7 @@
 setlocal
 REM ===============================================================
 REM  validate_fast.bat - Quick sanity check: format + build.
-REM  Use for: documentation changes, small refactors, non-rendering edits.
+REM  Use for: small code refactors and non-rendering code edits.
 REM  Runtime: about 30 seconds.
 REM ===============================================================
 

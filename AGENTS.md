@@ -11,7 +11,7 @@
 
 1. Read this file and `README.md`.
 2. Identify your change's impact area: GL, DX11, DX12, physics, scene system, tests, documentation.
-3. State which validation command you will run.
+3. State which validation command you will run. For documentation-only changes, state that no validation is required.
 4. On a fresh machine or failed tool lookup, read `FIRST_TIME_SETUP.md`.
 
 ## After Editing
@@ -20,7 +20,7 @@ Run the appropriate validation script from the `tools\` directory:
 
 | Change Type | Command | Runtime |
 |-------------|---------|---------|
-| Documentation only | `tools\validate_fast.bat` | ~30s |
+| Documentation only | No validation required | N/A |
 | Small refactor, no render or physics changes | `tools\validate_fast.bat` | ~30s |
 | Shader or render backend | `tools\validate_renderers.bat` | ~90s |
 | Physics, collision, or solver | `tools\validate_physics.bat` | ~45s |
@@ -46,15 +46,16 @@ Run the appropriate validation script from the `tools\` directory:
 | `SkullbonezWindow*` | `validate_full` |
 | `SkullbonezInit*` | `validate_full` |
 | Multiple areas or unsure | `validate_full` |
-| `Agentic/*`, `*.md`, docs | `validate_fast` |
+| `Agentic/*`, `*.md`, docs | No validation required when documentation-only |
 | `tools/*` | `validate_fast`, then run the changed script |
 
 ---
 
 ## Rules
 
-- **Never claim success without command output.** Paste the validation output.
-- **Never skip validation** unless the user explicitly says to.
+- **Never claim validation success without command output.** Paste the validation output when validation is required.
+- **Never skip required validation** for code, tool, scene, shader, baseline, or runtime behavior changes unless the user explicitly says to.
+- **Documentation-only changes require no validation.** Do not run `validate_fast` for prose-only edits.
 - **Kill processes by PID only**; never use `taskkill /IM` or `Stop-Process -Name`.
 - **Zero warnings** at `/W4`; no exceptions.
 - **Zero DX12 validation errors**; no exceptions.
