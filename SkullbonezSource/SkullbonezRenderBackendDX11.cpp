@@ -73,6 +73,24 @@ static inline void ThrowIfFailed( HRESULT hr, const char* msg )
 }
 
 
+static bool CheckDxgiTearingSupport()
+{
+    IDXGIFactory5* factory = nullptr;
+    BOOL allowTearing = FALSE;
+    if ( SUCCEEDED( CreateDXGIFactory1( IID_PPV_ARGS( &factory ) ) ) )
+    {
+        if ( FAILED( factory->CheckFeatureSupport( DXGI_FEATURE_PRESENT_ALLOW_TEARING,
+                                                   &allowTearing,
+                                                   sizeof( allowTearing ) ) ) )
+        {
+            allowTearing = FALSE;
+        }
+        factory->Release();
+    }
+    return allowTearing == TRUE;
+}
+
+
 RenderBackendDX11* RenderBackendDX11::s_instance = nullptr;
 
 
@@ -243,6 +261,7 @@ bool RenderBackendDX11::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     s_instance = this;
     m_width = width;
     m_height = height;
+    m_allowTearing = CheckDxgiTearingSupport();
 
     // Create device and flip-model swap chain (DXGI 1.2+)
     DXGI_SWAP_CHAIN_DESC scd = {};
@@ -255,6 +274,7 @@ bool RenderBackendDX11::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     scd.SampleDesc.Count = 1;
     scd.Windowed = TRUE;
     scd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+    scd.Flags = m_allowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
 
     D3D_FEATURE_LEVEL featureLevel;
     UINT flags = 0;
@@ -639,7 +659,11 @@ void RenderBackendDX11::Present()
     // buffer so the user sees the rendered image. Sync interval is configurable so perf scenes
     // can disable V-Sync without changing backend-specific code.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-present
-    m_swapChain->Present( m_isVsyncEnabled ? 1 : 0, 0 );
+    const UINT syncInterval = m_isVsyncEnabled ? 1u : 0u;
+    const UINT presentFlags = ( !m_isVsyncEnabled && m_allowTearing )
+                                  ? DXGI_PRESENT_ALLOW_TEARING
+                                  : 0u;
+    m_swapChain->Present( syncInterval, presentFlags );
 
     // FLIP_DISCARD unbinds the back buffer RTV from the output-merger after Present.
     // Rebind immediately so the next frame's draws have a valid render target.
@@ -709,7 +733,8 @@ void RenderBackendDX11::Resize( int width, int height )
     // height would auto-detect from the window, but we specify explicitly. DXGI_FORMAT_UNKNOWN
     // keeps the existing format. All existing back buffer references are now invalid.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-resizebuffers
-    HRESULT hr = m_swapChain->ResizeBuffers( 0, (UINT)width, (UINT)height, DXGI_FORMAT_UNKNOWN, 0 );
+    const UINT resizeFlags = m_allowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u;
+    HRESULT hr = m_swapChain->ResizeBuffers( 0, (UINT)width, (UINT)height, DXGI_FORMAT_UNKNOWN, resizeFlags );
     ThrowIfFailed( hr, "IDXGISwapChain::ResizeBuffers failed" );
 
     // Recreate back buffer RTV
