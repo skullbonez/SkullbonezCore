@@ -33,7 +33,7 @@ Scene files are plain text. Blank lines and lines beginning with `#` are ignored
 | Simulation | `physics`, `physics_mode`, `time_scale`, `seed`, `world` |
 | Objects | `ball`, `box`, `ball_state`, `legacy_balls`, `solver_balls`, `solver_boxes` |
 | Camera | `camera`, `track_height`, `auto_cycle_interval` |
-| Rendering | `text`, `text_only`, `debug_vectors`, `vsync`, `pipeline_sync`, `roll_align`, `water_hidden`, `terrain_hidden`, `flat_slope` |
+| Rendering | `text`, `text_only`, `debug_vectors`, `physics_debug`, `physics_debug_axes`, `physics_debug_contacts`, `physics_debug_sleep`, `physics_debug_transparent`, `physics_debug_alpha`, `vsync`, `pipeline_sync`, `roll_align`, `water_hidden`, `terrain_hidden`, `flat_slope` |
 
 For exact field order, inspect an existing scene in `SkullbonezData/scenes/` and the parser in `SkullbonezSource/SkullbonezTestScene.cpp`.
 
@@ -58,8 +58,10 @@ For exact field order, inspect an existing scene in `SkullbonezData/scenes/` and
 | 3 | Toggle ocean wave displacement. |
 | 4 | Toggle terrain visibility. |
 | 5 | Toggle water visibility. |
+| 6 | Toggle translucent debug bodies for the physics debug overlay. |
 | Page Up / Page Down | Move the water surface up or down while held. |
 | V | Toggle collision visualiser. |
+| C | Cycle physics debug overlay: none, axes, contacts, sleep, all. |
 | 9 | Toggle velocity vectors. |
 | G | Cycle tracked ball in scene mode. |
 

@@ -50,6 +50,12 @@ void CollisionVisualizer::SetClipPlane( float x, float y, float z, float w )
 }
 
 
+void CollisionVisualizer::SetAlphaOverride( float alpha )
+{
+    m_alphaOverride = alpha;
+}
+
+
 void CollisionVisualizer::ResetResources()
 {
     // Backend resources are context/device-owned. When the renderer is recreated,
@@ -311,7 +317,11 @@ void CollisionVisualizer::Render( GameModelCollection& models, const Matrix4& vi
     for ( int i = 0; i < modelCount; ++i )
     {
         GameModel& model = models.GetModelAtIndex( i );
-        const Color color = ComputeModelColor( i, models );
+        Color color = ComputeModelColor( i, models );
+        if ( m_alphaOverride >= 0.0f )
+        {
+            color.a = m_alphaOverride;
+        }
         if ( model.IsBox() )
         {
             AppendInstance( m_boxInstanceData, model.GetModelMatrix(), color );
@@ -338,7 +348,18 @@ void CollisionVisualizer::Render( GameModelCollection& models, const Matrix4& vi
     m_shader->SetVec4( "uClipPlane", m_clipPlane[0], m_clipPlane[1], m_clipPlane[2], m_clipPlane[3] );
     m_shader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
 
-    Gfx().SetBlend( false );
+    const bool translucent = m_alphaOverride >= 0.0f && m_alphaOverride < 1.0f;
+    Gfx().SetBlend( translucent );
+    if ( translucent )
+    {
+        Gfx().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
+        Gfx().SetDepthWrite( false );
+    }
     DrawInstances( m_sphereInstMesh, m_sphereVertexCount, m_sphereInstanceData );
     DrawInstances( m_boxInstMesh, m_boxVertexCount, m_boxInstanceData );
+    if ( translucent )
+    {
+        Gfx().SetDepthWrite( true );
+    }
+    Gfx().SetBlend( false );
 }

@@ -38,6 +38,8 @@ struct InputState
         XWasDown,
         BackspaceWasDown,
         QKeyWasDown,
+        CKeyWasDown,
+        Key6WasDown,
         KEY_COUNT
     };
 

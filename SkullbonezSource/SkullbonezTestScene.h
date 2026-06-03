@@ -3,6 +3,7 @@
 
 // --- Includes ---
 #include "SkullbonezCommon.h"
+#include "SkullbonezPhysicsDebugVisualizer.h"
 #include "SkullbonezVector3.h"
 #include <vector>
 
@@ -67,21 +68,24 @@ struct SceneOptions
     bool isPhysicsEnabled = true;
     bool isTextEnabled = true;
     bool isTextOnly = false;
-    int frameCount = -1;             // -1 = unlimited
-    unsigned int seed = 0;           // RNG seed (0 = use time-based default)
-    int legacyBallCount = 0;         // random legacy-style balls (0 = none)
-    int physicsMode = 0;             // 0=inherit from CLI, 1=legacy, 2=solver (per-scene override)
-    int solverBallCount = 0;         // exact impulse-solver balls to spawn (0 = not set)
-    int solverBoxCount = 0;          // exact impulse-solver boxes to spawn (0 = not set)
-    float timeScale = 1.0f;          // Physics time multiplier (1.0 = realtime)
-    bool isFixedStep = false;        // If true, each render frame triggers exactly one physics tick at PHYSICS_FIXED_DT
-    bool isDebugVectors = false;     // Draw velocity/omega debug arrows
-    float trackHeight = -1.0f;       // Height above tracked ball for camera (-1 = no tracking)
-    float autoCycleInterval = -1.0f; // Seconds between per-ball screenshots (-1 = disabled)
-    bool screenshotAndExit = false;  // Capture first frame as SCENENAME.bmp then exit
-    bool exitOnComplete = false;     // Exit automatically when targetFrameCount is reached
-    bool waterHidden = false;        // Suppress water rendering (for clean texture comparison)
-    bool terrainHidden = false;      // Suppress terrain rendering
+    int frameCount = -1;                                      // -1 = unlimited
+    unsigned int seed = 0;                                    // RNG seed (0 = use time-based default)
+    int legacyBallCount = 0;                                  // random legacy-style balls (0 = none)
+    int physicsMode = 0;                                      // 0=inherit from CLI, 1=legacy, 2=solver (per-scene override)
+    int solverBallCount = 0;                                  // exact impulse-solver balls to spawn (0 = not set)
+    int solverBoxCount = 0;                                   // exact impulse-solver boxes to spawn (0 = not set)
+    float timeScale = 1.0f;                                   // Physics time multiplier (1.0 = realtime)
+    bool isFixedStep = false;                                 // If true, each render frame triggers exactly one physics tick at PHYSICS_FIXED_DT
+    bool isDebugVectors = false;                              // Draw velocity/omega debug arrows
+    uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE; // Draw physics debug axes/contacts/sleep markers
+    bool physicsDebugTransparent = false;                     // Render translucent debug collision volumes while physics debug is visible
+    float physicsDebugAlpha = 0.28f;                          // Alpha for translucent debug collision volumes
+    float trackHeight = -1.0f;                                // Height above tracked ball for camera (-1 = no tracking)
+    float autoCycleInterval = -1.0f;                          // Seconds between per-ball screenshots (-1 = disabled)
+    bool screenshotAndExit = false;                           // Capture first frame as SCENENAME.bmp then exit
+    bool exitOnComplete = false;                              // Exit automatically when targetFrameCount is reached
+    bool waterHidden = false;                                 // Suppress water rendering (for clean texture comparison)
+    bool terrainHidden = false;                               // Suppress terrain rendering
 };
 
 struct SceneCaptureOptions
@@ -181,6 +185,9 @@ class TestScene
     float GetTimeScale() const;
     bool IsFixedStep() const;
     bool IsDebugVectors() const;
+    uint32_t GetPhysicsDebugFlags() const;
+    bool IsPhysicsDebugTransparent() const;
+    float GetPhysicsDebugAlpha() const;
     float GetTrackHeight() const;       // Returns tracking camera height above ball (-1 = disabled)
     float GetAutoCycleInterval() const; // Returns per-ball screenshot interval in seconds (-1 = disabled)
     bool IsScreenshotAndExit() const;   // True if scene should capture first frame then exit

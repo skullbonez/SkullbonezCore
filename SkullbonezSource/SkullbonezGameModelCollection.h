@@ -14,6 +14,7 @@
 #include "SkullbonezTerrain.h"
 #include "SkullbonezMatrix4.h"
 #include "SkullbonezIShader.h"
+#include "SkullbonezPhysicsDebugVisualizer.h"
 
 
 // --- Usings ---
@@ -124,6 +125,7 @@ class GameModelCollection
     std::vector<PersistentContactCacheEntry> m_persistentContactCache; // Previous-frame contact impulses for warm starting
     std::vector<uint16_t> m_persistentContactCounts;                   // Per-body contact count for mc*g friction bounds
     std::vector<SolverBodyState> m_solverBodies;                       // Per-step compact velocity/inertia state for persistent contact solving
+    std::vector<Physics::PhysicsDebugContact> m_physicsDebugContacts;  // Last solver contact rows for visual debugging
     std::unique_ptr<IShader> m_shadowShader;                           // Shadow decal shader (instanced)
     uint32_t m_shadowInstMesh = 0;                                     // Instanced mesh handle (via Gfx())
     int m_shadowDiscVertexCount = 0;                                   // Disc triangle vertex count
@@ -190,9 +192,6 @@ class GameModelCollection
     {
         return m_sleepIslandVisualId;
     }
-
-#ifdef _DEBUG
-    void SetPhysicsLogPath( const char* path ); // Enable per-frame physics state CSV; empty string disables
     const std::vector<uint8_t>& GetSleepSupportedStates() const
     {
         return m_sleepSupportedThisFrame;
@@ -201,6 +200,13 @@ class GameModelCollection
     {
         return m_sleepInhibitedThisFrame;
     }
+    const std::vector<Physics::PhysicsDebugContact>& GetPhysicsDebugContacts() const
+    {
+        return m_physicsDebugContacts;
+    }
+
+#ifdef _DEBUG
+    void SetPhysicsLogPath( const char* path ); // Enable per-frame physics state CSV; empty string disables
 #endif
 };
 } // namespace GameObjects

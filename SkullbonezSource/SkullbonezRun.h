@@ -21,6 +21,7 @@
 #include "SkullbonezTestScene.h"
 #include "SkullbonezBroadphaseVisualizer.h"
 #include "SkullbonezCollisionVisualizer.h"
+#include "SkullbonezPhysicsDebugVisualizer.h"
 
 
 // --- Usings ---
@@ -145,20 +146,23 @@ enum class OverlayMode
 
 struct RunDebugState
 {
-    OverlayMode overlayMode = OverlayMode::None; // HUD overlay cycle state (0 key advances: none→timers→barsNorm→barsAbs→keys→none)
-    bool isWaterFreezeDebug = false;             // Freeze ocean animation at current shape (toggle with 1)
-    bool isWaterNoReflect = false;               // Disable ocean reflection entirely (2 cycles: FBO→DXR→none)
-    bool isWaterRTReflect = false;               // Use DXR ray-traced reflection (2 cycles: FBO→DXR→none; DXR only if supported)
-    bool isWaterFlatDebug = false;               // Force ocean mesh fully flat, no displacement (toggle with 3)
-    bool isTerrainHidden = false;                // Hide terrain mesh (toggle with 4)
-    bool isWaterHidden = false;                  // Hide water mesh (toggle with 5)
-    bool isDebugVectors = false;                 // Draw velocity (green) and angular velocity (red) vectors (toggle with 9)
-    bool isCollisionVisualizer = false;          // Render solid collision/sleep colours for balls and boxes (toggle with V)
-    bool isTextOnly = false;                     // Suppress all 3D rendering; show solid background with large pangram text
-    bool isBroadphaseOverlay = false;            // Broadphase spatial grid visualizer overlay (toggle with G)
-    float frozenWaterTime = 0.0f;                // Simulation time captured when freeze was toggled on
-    float rendererSwitchInterval = -1.0f;        // Auto-switch renderer every N seconds (-1 = disabled)
-    float rendererSwitchAccum = 0.0f;            // Accumulated time since last auto-switch
+    OverlayMode overlayMode = OverlayMode::None;              // HUD overlay cycle state (0 key advances: none→timers→barsNorm→barsAbs→keys→none)
+    bool isWaterFreezeDebug = false;                          // Freeze ocean animation at current shape (toggle with 1)
+    bool isWaterNoReflect = false;                            // Disable ocean reflection entirely (2 cycles: FBO→DXR→none)
+    bool isWaterRTReflect = false;                            // Use DXR ray-traced reflection (2 cycles: FBO→DXR→none; DXR only if supported)
+    bool isWaterFlatDebug = false;                            // Force ocean mesh fully flat, no displacement (toggle with 3)
+    bool isTerrainHidden = false;                             // Hide terrain mesh (toggle with 4)
+    bool isWaterHidden = false;                               // Hide water mesh (toggle with 5)
+    bool isDebugVectors = false;                              // Draw velocity (green) and angular velocity (red) vectors (toggle with 9)
+    uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE; // Draw object axes, contact manifolds, and sleep state (cycle with C)
+    bool isPhysicsDebugTransparent = false;                   // Draw translucent debug collision volumes behind physics debug lines (toggle with 6)
+    float physicsDebugAlpha = 0.28f;                          // Translucent debug volume alpha
+    bool isCollisionVisualizer = false;                       // Render solid collision/sleep colours for balls and boxes (toggle with V)
+    bool isTextOnly = false;                                  // Suppress all 3D rendering; show solid background with large pangram text
+    bool isBroadphaseOverlay = false;                         // Broadphase spatial grid visualizer overlay (toggle with G)
+    float frozenWaterTime = 0.0f;                             // Simulation time captured when freeze was toggled on
+    float rendererSwitchInterval = -1.0f;                     // Auto-switch renderer every N seconds (-1 = disabled)
+    float rendererSwitchAccum = 0.0f;                         // Accumulated time since last auto-switch
 #ifdef _DEBUG
     char reproSnapshotMessage[128] = {};    // Short HUD confirmation after nudge-mode repro dump
     double reproSnapshotMessageUntil = 0.0; // Simulation timer value after which the HUD message expires
@@ -203,19 +207,20 @@ class SkullbonezRun
     bool m_cmdNoWater = false;             // CLI --no-water starts fluid below terrain
     GeneratedObjectTypeOverride m_generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
 
-    RunPerfLogState m_perfLogState;              // Perf/test logging paths, files, and flush policy
-    RunRuntimeSettings m_runtimeSettings;        // Scene/app runtime toggles (vsync, sync, roll-align)
-    RunTimerState m_timers;                      // Frame/simulation timers and rolling timing values
-    RunSubsystemState m_systems;                 // Window, camera, texture, terrain, and reflection handles
-    RunCameraState m_camera;                     // Camera/input state and ball-tracking settings
-    RunSceneState m_scene;                       // Scene-mode execution state
-    RunScreenshotState m_screenshot;             // Screenshot trigger and capture state
-    RunDebugState m_debug;                       // Runtime debug/overlay toggles
-    RunFireState m_fire;                         // Projectile recycling state (CTRL = ball, ALT = box)
-    BroadphaseVisualizer m_broadphaseVisualizer; // Spatial grid debug overlay (G key toggle)
-    CollisionVisualizer m_collisionVisualizer;   // Solid collision/sleep model visualizer (V key toggle)
-    WorldEnvironment m_cWorldEnvironment;        // SkullbonezCore::Environment::WorldEnvironment class
-    GameModelCollection m_cGameModelCollection;  // SkullbonezCore::GameObjects::GameModelCollection class
+    RunPerfLogState m_perfLogState;                  // Perf/test logging paths, files, and flush policy
+    RunRuntimeSettings m_runtimeSettings;            // Scene/app runtime toggles (vsync, sync, roll-align)
+    RunTimerState m_timers;                          // Frame/simulation timers and rolling timing values
+    RunSubsystemState m_systems;                     // Window, camera, texture, terrain, and reflection handles
+    RunCameraState m_camera;                         // Camera/input state and ball-tracking settings
+    RunSceneState m_scene;                           // Scene-mode execution state
+    RunScreenshotState m_screenshot;                 // Screenshot trigger and capture state
+    RunDebugState m_debug;                           // Runtime debug/overlay toggles
+    RunFireState m_fire;                             // Projectile recycling state (CTRL = ball, ALT = box)
+    BroadphaseVisualizer m_broadphaseVisualizer;     // Spatial grid debug overlay (G key toggle)
+    CollisionVisualizer m_collisionVisualizer;       // Solid collision/sleep model visualizer (V key toggle)
+    PhysicsDebugVisualizer m_physicsDebugVisualizer; // Line overlay for object axes, contact manifolds, and sleep state
+    WorldEnvironment m_cWorldEnvironment;            // SkullbonezCore::Environment::WorldEnvironment class
+    GameModelCollection m_cGameModelCollection;      // SkullbonezCore::GameObjects::GameModelCollection class
 
     inline static int sPerfPass = 0;
     void Render();                                                     // Main render method
