@@ -114,6 +114,9 @@ struct ParsedArgs
     bool fixedStep = false;
     unsigned int seedOverride = 0; // 0 = not set
     bool noWater = false;
+    bool showProfiler = false;
+    bool hideTopText = false;
+    bool showBroadphaseVisualizer = false;
     GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;
 #ifdef _DEBUG
     char physicsLogOverride[256] = {};
@@ -433,6 +436,24 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
         fprintf( stdout, "[water] Fluid surface starts below terrain.\n" );
     }
 
+    out.showProfiler = cmdLine && ( strstr( cmdLine, "--profiler" ) != nullptr || strstr( cmdLine, "--show-profiler" ) != nullptr );
+    if ( out.showProfiler )
+    {
+        fprintf( stdout, "[overlay] Profiler HUD enabled at startup.\n" );
+    }
+
+    out.hideTopText = cmdLine && ( strstr( cmdLine, "--hide-top-text" ) != nullptr || strstr( cmdLine, "--no-top-text" ) != nullptr );
+    if ( out.hideTopText )
+    {
+        fprintf( stdout, "[overlay] Top HUD text hidden.\n" );
+    }
+
+    out.showBroadphaseVisualizer = cmdLine && ( strstr( cmdLine, "--broadphase-visualizer" ) != nullptr || strstr( cmdLine, "--broadphase-overlay" ) != nullptr );
+    if ( out.showBroadphaseVisualizer )
+    {
+        fprintf( stdout, "[overlay] Broadphase visualizer enabled at startup.\n" );
+    }
+
     const bool allBalls = cmdLine && strstr( cmdLine, "--all-balls" ) != nullptr;
     const bool allBoxes = cmdLine && strstr( cmdLine, "--all-boxes" ) != nullptr;
     if ( allBalls && allBoxes )
@@ -511,6 +532,18 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         if ( args.noWater )
         {
             cRun.SetNoWaterOverride();
+        }
+        if ( args.showProfiler )
+        {
+            cRun.SetInitialOverlayMode( OverlayMode::Timers );
+        }
+        if ( args.hideTopText )
+        {
+            cRun.SetTopTextHidden( true );
+        }
+        if ( args.showBroadphaseVisualizer )
+        {
+            cRun.SetBroadphaseVisualizerEnabled( true );
         }
         if ( args.objectTypeOverride != GeneratedObjectTypeOverride::Mixed )
         {

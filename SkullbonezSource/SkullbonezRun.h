@@ -156,6 +156,7 @@ struct RunDebugState
     bool isCollisionVisualizer = false;          // Render solid collision/sleep colours for balls and boxes (toggle with V)
     bool isTextOnly = false;                     // Suppress all 3D rendering; show solid background with large pangram text
     bool isBroadphaseOverlay = false;            // Broadphase spatial grid visualizer overlay (toggle with G)
+    bool isTopTextHidden = false;                // Suppress always-on top HUD rows while leaving profiler overlays available
     float frozenWaterTime = 0.0f;                // Simulation time captured when freeze was toggled on
     float rendererSwitchInterval = -1.0f;        // Auto-switch renderer every N seconds (-1 = disabled)
     float rendererSwitchAccum = 0.0f;            // Accumulated time since last auto-switch
@@ -267,6 +268,9 @@ class SkullbonezRun
     void SetFixedStepOverride();               // Force fixed-step for every scene loaded (CLI --fixed-step)
     void SetSeedOverride( unsigned int seed ); // Override RNG seed for every scene loaded (CLI --seed)
     void SetNoWaterOverride();                 // Start scenes with fluid below terrain (CLI --no-water)
+    void SetInitialOverlayMode( OverlayMode mode );
+    void SetTopTextHidden( bool hidden );
+    void SetBroadphaseVisualizerEnabled( bool enabled );
     void SetGeneratedObjectTypeOverride( GeneratedObjectTypeOverride objectTypeOverride );
 
 #ifdef _DEBUG

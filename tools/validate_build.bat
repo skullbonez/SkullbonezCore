@@ -41,7 +41,7 @@ if not "%SKULLBONEZ_PLATFORM_TOOLSET%"=="" (
 )
 
 echo Building %CONFIG%^|x64 %TOOLSET_ARG%...
-"%MSBUILD_EXE%" "%REPO%\SKULLBONEZ_CORE.sln" /p:Configuration=%CONFIG% /p:Platform=x64 %TOOLSET_ARG% /nologo /v:minimal /warnaserror
+"%MSBUILD_EXE%" "%REPO%\SKULLBONEZ_CORE.sln" /p:Configuration=%CONFIG% /p:Platform=x64 %TOOLSET_ARG% /nologo /v:normal /clp:Summary;PerformanceSummary /warnaserror
 if errorlevel 1 (
     echo FAIL: Build %CONFIG% failed.
     exit /b 1

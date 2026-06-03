@@ -6,9 +6,9 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 
 | Field | Value |
 |-------|-------|
-| Branch | `main` |
+| Branch | `codex/demo-gl-profiler-overlay` |
 | Last commit | `c7ab05b` - docs: reduce agent context cost |
-| Pending work | Lean-up deletion pass awaiting user review; do not commit yet. |
+| Pending work | Demo CLI overlay flags and autonomous-loop handoff docs are uncommitted. |
 | Uncommitted changes | See `git status --short`; use `tools\find_git.bat` first if Git is not on PATH. |
 
 ## Active Notes
@@ -17,6 +17,14 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 - `git` may not be on PATH in fresh shells. Run `tools\find_git.bat` or use the validation scripts, which call it where needed.
 - Do not kill `SKULLBONEZ_CORE.exe` by name. Kill only by PID from a process you launched.
 - Time large work: record wall-clock start/end and report elapsed time for pipeline runs, multi-file features, and debugging sessions.
+- Management demo handoff: `Agentic/Plans/agent-loop/autonomous-agentic-loop-demo-handoff.md`.
+- Broadphase demo design note: `Agentic/Plans/agent-loop/broadphase-plan.md`.
+- For the management demo loop, run only `Agentic\Plans\agent-loop\run_perf_demo_visible.bat`; use `--wait` from Codex when the agent must wait for completion, then inspect `Profile\gl_perf.json` and physics artifacts.
+- Broadphase shadow files live in `Agentic\Plans\agent-loop\shadow-broadphase\SkullbonezSource\` for the recorded restore loop.
+- Do not run screenshot, renderer, full, or general build-pipeline validation during the recorded loop unless explicitly requested.
+- The demo regression step runs with `--broadphase-visualizer`; the OpenGL perf step intentionally does not.
+- When manually inspecting the visible demo, press `G` after launch to toggle the broadphase visualizer.
+- The recorded demo should include honest staged failure beats: an initial compile failure during broadphase reintegration, then a correct but inefficient cache pass, then an optimized cached broadphase recovery.
 
 ## Current Work Items
 
@@ -41,7 +49,8 @@ Use `AGENTS.md` as the source of truth. Common cases:
 
 | Change | Validation |
 |--------|------------|
-| Docs, Agentic docs, small non-render refactor | `tools\validate_fast.bat` |
+| Documentation-only | No validation required |
+| Small non-render code refactor | `tools\validate_fast.bat` |
 | Renderer backend, shaders, screenshots, visual baselines | `tools\validate_renderers.bat` |
 | Physics, collision, solver, determinism | `tools\validate_physics.bat` |
 | Performance-sensitive hot path | `tools\validate_perf.bat` |

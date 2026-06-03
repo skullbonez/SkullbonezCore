@@ -127,11 +127,7 @@ and replay.
 
 ## Validation
 
-For docs or detector documentation changes:
-
-```bat
-tools\validate_fast.bat
-```
+Documentation-only changes require no validation.
 
 For new or changed detector code that touches `SkullbonezRun*` or physics behavior, use the stricter validation required by `AGENTS.md`; when unsure, run:
 

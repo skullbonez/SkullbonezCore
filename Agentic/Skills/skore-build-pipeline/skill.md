@@ -5,7 +5,7 @@ description: Verify SkullbonezCore changes, update required artifacts, and prepa
 
 # skore-build-pipeline
 
-Use after code or documentation changes when the user wants the repository verified or prepared for commit.
+Use after code changes when the user wants the repository verified or prepared for commit. Documentation-only changes do not require validation.
 
 ## Scope
 
@@ -13,7 +13,8 @@ Choose the narrowest validation that matches the touched files. If unsure, run t
 
 | Change | Command |
 |--------|---------|
-| Docs, `Agentic/*`, small non-render refactor | `tools\validate_fast.bat` |
+| Documentation only | No validation required |
+| Small non-render code refactor | `tools\validate_fast.bat` |
 | Renderer backend, shaders, screenshots, visual baselines | `tools\validate_renderers.bat` |
 | Physics, collision, solver, determinism | `tools\validate_physics.bat` |
 | Hot path, allocation-sensitive, performance work | `tools\validate_perf.bat` |
@@ -39,7 +40,7 @@ Both helpers support `--help`.
 ## Commit Prep
 
 Before committing:
-1. Run the selected validation and keep the command output.
+1. Run the selected validation and keep the command output, unless the change is documentation-only.
 2. Update baselines or archives only when the output change is intentional.
 3. Update `Agentic\SessionState.md` with current branch, latest commit context, active notes, and known bugs.
 4. Draft detailed commit notes following `AGENTS.md`: concise subject, explanatory body, validation command and result, and any baseline/artifact/session-state updates.
@@ -52,6 +53,7 @@ Do not submit, force-push, rebase, or rewrite history.
 
 Report:
 - Validation command run.
+- For documentation-only changes, state that no validation was required.
 - Important pass/fail output.
 - Artifact updates, if any.
 - Files changed.
