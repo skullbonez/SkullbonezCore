@@ -12,6 +12,7 @@
 #include <climits>
 #include <cstdlib>
 #include <cstring>
+#include <cstdarg>
 #include <vector>
 #include <string>
 #include <io.h>
@@ -26,6 +27,23 @@ using namespace SkullbonezCore::Math::Transformation;
 
 namespace
 {
+char g_commandLineError[512] = {};
+
+bool FailCommandLineParse( const char* fmt, ... )
+{
+    va_list args;
+    va_start( args, fmt );
+    vsprintf_s( g_commandLineError, sizeof( g_commandLineError ), fmt, args );
+    va_end( args );
+
+    fprintf( stderr, "ERROR: %s\n", g_commandLineError );
+    return false;
+}
+
+const char* GetCommandLineError()
+{
+    return g_commandLineError[0] != '\0' ? g_commandLineError : "Command line parsing failed.";
+}
 
 // ---------------------------------------------------------------------------
 // Console
@@ -118,10 +136,227 @@ struct ParsedArgs
     bool hideTopText = false;
     bool showBroadphaseVisualizer = false;
     GeneratedObjectTypeOverride objectTypeOverride = GeneratedObjectTypeOverride::Mixed;
+    bool hasPhysicsDebugFlagsOverride = false;
+    uint32_t physicsDebugFlagsOverride = PHYSICS_DEBUG_NONE;
+    bool hasPhysicsDebugTransparentOverride = false;
+    bool physicsDebugTransparentOverride = false;
+    bool hasPhysicsDebugAlphaOverride = false;
+    float physicsDebugAlphaOverride = 0.28f;
+    bool hasPhysicsDebugContactLingerOverride = false;
+    float physicsDebugContactLingerOverride = 0.45f;
 #ifdef _DEBUG
     char physicsLogOverride[256] = {};
 #endif
 };
+
+bool IsCmdSeparator( char c )
+{
+    return c == '\0' || c == ' ' || c == '\t';
+}
+
+const char* FindOptionValue( const char* cmdLine, const char* optionName )
+{
+    if ( !cmdLine || !optionName )
+    {
+        return nullptr;
+    }
+
+    const size_t optionLen = strlen( optionName );
+    const char* cursor = cmdLine;
+    while ( ( cursor = strstr( cursor, optionName ) ) != nullptr )
+    {
+        const bool startsToken = cursor == cmdLine || cursor[-1] == ' ' || cursor[-1] == '\t';
+        const bool endsToken = IsCmdSeparator( cursor[optionLen] );
+        if ( startsToken && endsToken )
+        {
+            cursor += optionLen;
+            while ( *cursor == ' ' || *cursor == '\t' )
+            {
+                ++cursor;
+            }
+            return cursor;
+        }
+        cursor += optionLen;
+    }
+    return nullptr;
+}
+
+const char* FindOptionValue( const char* cmdLine, const char* dashedName, const char* underscoredName )
+{
+    const char* value = FindOptionValue( cmdLine, dashedName );
+    return value ? value : FindOptionValue( cmdLine, underscoredName );
+}
+
+bool ParseOnOffValue( const char* value, bool& out )
+{
+    if ( !value )
+    {
+        return false;
+    }
+    if ( _strnicmp( value, "on", 2 ) == 0 || _strnicmp( value, "true", 4 ) == 0 || _strnicmp( value, "1", 1 ) == 0 )
+    {
+        out = true;
+        return true;
+    }
+    if ( _strnicmp( value, "off", 3 ) == 0 || _strnicmp( value, "false", 5 ) == 0 || _strnicmp( value, "0", 1 ) == 0 )
+    {
+        out = false;
+        return true;
+    }
+    return false;
+}
+
+bool ParseOptionalOnOffValue( const char* value, bool& out )
+{
+    if ( !value || IsCmdSeparator( *value ) || ( value[0] == '-' && value[1] == '-' ) )
+    {
+        out = true;
+        return true;
+    }
+    return ParseOnOffValue( value, out );
+}
+
+bool ParsePhysicsDebugMode( const char* value, uint32_t& outFlags )
+{
+    if ( !value )
+    {
+        return false;
+    }
+    if ( _strnicmp( value, "none", 4 ) == 0 || _strnicmp( value, "off", 3 ) == 0 )
+    {
+        outFlags = PHYSICS_DEBUG_NONE;
+        return true;
+    }
+    if ( _strnicmp( value, "axes", 4 ) == 0 )
+    {
+        outFlags = PHYSICS_DEBUG_AXES;
+        return true;
+    }
+    if ( _strnicmp( value, "contacts", 8 ) == 0 )
+    {
+        outFlags = PHYSICS_DEBUG_CONTACTS;
+        return true;
+    }
+    if ( _strnicmp( value, "sleep", 5 ) == 0 )
+    {
+        outFlags = PHYSICS_DEBUG_SLEEP;
+        return true;
+    }
+    if ( _strnicmp( value, "all", 3 ) == 0 || _strnicmp( value, "on", 2 ) == 0 )
+    {
+        outFlags = PHYSICS_DEBUG_ALL;
+        return true;
+    }
+    return false;
+}
+
+bool ApplyPhysicsDebugComponentOverride( const char* cmdLine, const char* dashedName, const char* underscoredName, uint32_t flag, ParsedArgs& out )
+{
+    const char* value = FindOptionValue( cmdLine, dashedName, underscoredName );
+    if ( !value )
+    {
+        return true;
+    }
+
+    bool enabled = false;
+    if ( !ParseOptionalOnOffValue( value, enabled ) )
+    {
+        return FailCommandLineParse( "%s expects optional on|off.", dashedName );
+    }
+
+    if ( !out.hasPhysicsDebugFlagsOverride )
+    {
+        out.physicsDebugFlagsOverride = PHYSICS_DEBUG_NONE;
+    }
+    out.hasPhysicsDebugFlagsOverride = true;
+    if ( enabled )
+    {
+        out.physicsDebugFlagsOverride |= flag;
+    }
+    else
+    {
+        out.physicsDebugFlagsOverride &= ~flag;
+    }
+    return true;
+}
+
+bool ParsePhysicsDebugOverrides( const char* cmdLine, ParsedArgs& out )
+{
+    const char* modeValue = FindOptionValue( cmdLine, "--physics-debug", "--physics_debug" );
+    if ( modeValue )
+    {
+        if ( !ParsePhysicsDebugMode( modeValue, out.physicsDebugFlagsOverride ) )
+        {
+            return FailCommandLineParse( "--physics-debug expects none|axes|contacts|sleep|all|on|off." );
+        }
+        out.hasPhysicsDebugFlagsOverride = true;
+    }
+
+    if ( !ApplyPhysicsDebugComponentOverride( cmdLine, "--physics-debug-axes", "--physics_debug_axes", PHYSICS_DEBUG_AXES, out ) ||
+         !ApplyPhysicsDebugComponentOverride( cmdLine, "--physics-debug-contacts", "--physics_debug_contacts", PHYSICS_DEBUG_CONTACTS, out ) ||
+         !ApplyPhysicsDebugComponentOverride( cmdLine, "--physics-debug-sleep", "--physics_debug_sleep", PHYSICS_DEBUG_SLEEP, out ) )
+    {
+        return false;
+    }
+
+    const char* transparentValue = FindOptionValue( cmdLine, "--physics-debug-transparent", "--physics_debug_transparent" );
+    if ( transparentValue )
+    {
+        if ( !ParseOptionalOnOffValue( transparentValue, out.physicsDebugTransparentOverride ) )
+        {
+            return FailCommandLineParse( "--physics-debug-transparent expects optional on|off." );
+        }
+        out.hasPhysicsDebugTransparentOverride = true;
+    }
+
+    const char* alphaValue = FindOptionValue( cmdLine, "--physics-debug-alpha", "--physics_debug_alpha" );
+    if ( alphaValue )
+    {
+        const float alpha = static_cast<float>( atof( alphaValue ) );
+        if ( alpha < 0.05f || alpha > 1.0f )
+        {
+            return FailCommandLineParse( "--physics-debug-alpha expects 0.05..1.0." );
+        }
+        out.hasPhysicsDebugAlphaOverride = true;
+        out.physicsDebugAlphaOverride = alpha;
+        if ( !out.hasPhysicsDebugTransparentOverride )
+        {
+            out.hasPhysicsDebugTransparentOverride = true;
+            out.physicsDebugTransparentOverride = true;
+        }
+    }
+
+    const char* lingerValue = FindOptionValue( cmdLine, "--physics-debug-contact-linger", "--physics_debug_contact_linger" );
+    if ( lingerValue )
+    {
+        const float linger = static_cast<float>( atof( lingerValue ) );
+        if ( linger < 0.0f || linger > 5.0f )
+        {
+            return FailCommandLineParse( "--physics-debug-contact-linger expects 0.0..5.0 seconds." );
+        }
+        out.hasPhysicsDebugContactLingerOverride = true;
+        out.physicsDebugContactLingerOverride = linger;
+    }
+
+    if ( out.hasPhysicsDebugFlagsOverride )
+    {
+        fprintf( stdout, "[physics-debug] Flags override: 0x%02x\n", out.physicsDebugFlagsOverride );
+    }
+    if ( out.hasPhysicsDebugTransparentOverride )
+    {
+        fprintf( stdout, "[physics-debug] Transparent bodies: %s\n", out.physicsDebugTransparentOverride ? "on" : "off" );
+    }
+    if ( out.hasPhysicsDebugAlphaOverride )
+    {
+        fprintf( stdout, "[physics-debug] Body alpha: %.3f\n", out.physicsDebugAlphaOverride );
+    }
+    if ( out.hasPhysicsDebugContactLingerOverride )
+    {
+        fprintf( stdout, "[physics-debug] Contact linger: %.3fs\n", out.physicsDebugContactLingerOverride );
+    }
+
+    return true;
+}
 
 // Build the ordered list of scene paths from --suite or --scene.
 // Falls back to a single empty string (legacy mode) when neither flag is given.
@@ -317,12 +552,7 @@ bool ValidatePhysicsLog( const char* cmdLine )
     }
 
 #ifndef _DEBUG
-    MessageBoxA( nullptr,
-                 "--physics-log is only supported in Debug builds.\n"
-                 "Recompile with the Debug configuration to use physics regression logging.",
-                 "--physics-log requires Debug build",
-                 MB_OK | MB_ICONERROR );
-    return false;
+    return FailCommandLineParse( "--physics-log is only supported in Debug builds. Recompile with the Debug configuration to use physics regression logging." );
 #else
     return true;
 #endif
@@ -458,8 +688,7 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
     const bool allBoxes = cmdLine && strstr( cmdLine, "--all-boxes" ) != nullptr;
     if ( allBalls && allBoxes )
     {
-        fprintf( stderr, "ERROR: --all-balls and --all-boxes are mutually exclusive.\n" );
-        return false;
+        return FailCommandLineParse( "--all-balls and --all-boxes are mutually exclusive." );
     }
     if ( allBalls )
     {
@@ -470,6 +699,11 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
     {
         out.objectTypeOverride = GeneratedObjectTypeOverride::AllBoxes;
         fprintf( stdout, "[objects] Generated objects forced to boxes.\n" );
+    }
+
+    if ( !ParsePhysicsDebugOverrides( cmdLine, out ) )
+    {
+        return false;
     }
 
     return true;
@@ -548,6 +782,22 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         if ( args.objectTypeOverride != GeneratedObjectTypeOverride::Mixed )
         {
             cRun.SetGeneratedObjectTypeOverride( args.objectTypeOverride );
+        }
+        if ( args.hasPhysicsDebugFlagsOverride )
+        {
+            cRun.SetPhysicsDebugFlagsOverride( args.physicsDebugFlagsOverride );
+        }
+        if ( args.hasPhysicsDebugTransparentOverride )
+        {
+            cRun.SetPhysicsDebugTransparentOverride( args.physicsDebugTransparentOverride );
+        }
+        if ( args.hasPhysicsDebugAlphaOverride )
+        {
+            cRun.SetPhysicsDebugAlphaOverride( args.physicsDebugAlphaOverride );
+        }
+        if ( args.hasPhysicsDebugContactLingerOverride )
+        {
+            cRun.SetPhysicsDebugContactLingerOverride( args.physicsDebugContactLingerOverride );
         }
 #ifdef _DEBUG
         if ( args.physicsLogOverride[0] != '\0' )
@@ -642,6 +892,10 @@ int WINAPI WinMain( HINSTANCE hInstance,
     ParsedArgs args;
     if ( !ParseCommandLine( szCmdLine, args ) )
     {
+        const char* error = GetCommandLineError();
+        fprintf( stderr, "FATAL: %s\n", error );
+        MessageBoxA( nullptr, error, "Command line parse failed", MB_OK | MB_ICONERROR );
+        CoUninitialize();
         return 1;
     }
 

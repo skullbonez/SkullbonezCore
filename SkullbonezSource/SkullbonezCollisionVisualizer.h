@@ -41,6 +41,7 @@ class CollisionVisualizer
     static constexpr int INSTANCE_FLOATS = 20; // mat4 + rgba
 
     bool m_enabled = false;
+    float m_alphaOverride = -1.0f;
     float m_clipPlane[4] = { 0.0f, 1.0f, 0.0f, 1.0e9f };
 
     std::unique_ptr<Rendering::IShader> m_shader;
@@ -79,6 +80,7 @@ class CollisionVisualizer
         m_enabled = !m_enabled;
     }
     void SetClipPlane( float x, float y, float z, float w );
+    void SetAlphaOverride( float alpha );
     void ResetResources();
     void Update( float dt, GameObjects::GameModelCollection& models );
     void Render( GameObjects::GameModelCollection& models, const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4] );

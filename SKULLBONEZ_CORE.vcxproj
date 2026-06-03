@@ -146,6 +146,7 @@
     <ClCompile Include="SkullbonezSource\SkullbonezCollisionVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezImpulseSolver.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezObjectContactManifold.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezPhysicsDebugVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezGameModel.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezGameModelCollection.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezGeometricMath.cpp" />
@@ -199,6 +200,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezCollisionVisualizer.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezImpulseSolver.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezObjectContactManifold.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezPhysicsDebugVisualizer.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCollisionShape.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCommon.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezGameModel.h" />

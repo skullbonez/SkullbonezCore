@@ -493,6 +493,114 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
+        // parse physics_debug directive: none|axes|contacts|sleep|all
+        if ( strncmp( line, "physics_debug ", 14 ) == 0 )
+        {
+            const char* value = line + 14;
+            if ( strcmp( value, "none" ) == 0 || strcmp( value, "off" ) == 0 )
+            {
+                scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE;
+            }
+            else if ( strcmp( value, "axes" ) == 0 )
+            {
+                scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_AXES;
+            }
+            else if ( strcmp( value, "contacts" ) == 0 )
+            {
+                scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_CONTACTS;
+            }
+            else if ( strcmp( value, "sleep" ) == 0 )
+            {
+                scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_SLEEP;
+            }
+            else if ( strcmp( value, "all" ) == 0 || strcmp( value, "on" ) == 0 )
+            {
+                scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_ALL;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid physics_debug value at line %d  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
+        if ( strncmp( line, "physics_debug_axes ", 19 ) == 0 ||
+             strncmp( line, "physics_debug_contacts ", 23 ) == 0 ||
+             strncmp( line, "physics_debug_sleep ", 20 ) == 0 )
+        {
+            const bool isAxes = strncmp( line, "physics_debug_axes ", 19 ) == 0;
+            const bool isContacts = strncmp( line, "physics_debug_contacts ", 23 ) == 0;
+            const int prefixLen = isAxes ? 19 : ( isContacts ? 23 : 20 );
+            const uint32_t flag = isAxes ? Physics::PHYSICS_DEBUG_AXES : ( isContacts ? Physics::PHYSICS_DEBUG_CONTACTS : Physics::PHYSICS_DEBUG_SLEEP );
+            if ( strcmp( line + prefixLen, "on" ) == 0 )
+            {
+                scene.m_sceneOptions.physicsDebugFlags |= flag;
+            }
+            else if ( strcmp( line + prefixLen, "off" ) == 0 )
+            {
+                scene.m_sceneOptions.physicsDebugFlags &= ~flag;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid physics_debug component value at line %d  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
+        if ( strncmp( line, "physics_debug_transparent ", 26 ) == 0 )
+        {
+            if ( strcmp( line + 26, "on" ) == 0 )
+            {
+                scene.m_sceneOptions.physicsDebugTransparent = true;
+            }
+            else if ( strcmp( line + 26, "off" ) == 0 )
+            {
+                scene.m_sceneOptions.physicsDebugTransparent = false;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid physics_debug_transparent value at line %d  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            continue;
+        }
+
+        if ( strncmp( line, "physics_debug_alpha ", 20 ) == 0 )
+        {
+            float val = static_cast<float>( atof( line + 20 ) );
+            if ( val < 0.05f || val > 1.0f )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid physics_debug_alpha at line %d (expected 0.05..1.0)  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            scene.m_sceneOptions.physicsDebugAlpha = val;
+            continue;
+        }
+
+        if ( strncmp( line, "physics_debug_contact_linger ", 29 ) == 0 )
+        {
+            float val = static_cast<float>( atof( line + 29 ) );
+            if ( val < 0.0f || val > 5.0f )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid physics_debug_contact_linger at line %d (expected 0.0..5.0 seconds)  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            scene.m_sceneOptions.physicsDebugContactLinger = val;
+            continue;
+        }
+
         // parse track_height directive
         if ( strncmp( line, "track_height ", 13 ) == 0 )
         {
@@ -873,6 +981,30 @@ bool TestScene::IsFixedStep() const
 bool TestScene::IsDebugVectors() const
 {
     return m_sceneOptions.isDebugVectors;
+}
+
+
+uint32_t TestScene::GetPhysicsDebugFlags() const
+{
+    return m_sceneOptions.physicsDebugFlags;
+}
+
+
+bool TestScene::IsPhysicsDebugTransparent() const
+{
+    return m_sceneOptions.physicsDebugTransparent;
+}
+
+
+float TestScene::GetPhysicsDebugAlpha() const
+{
+    return m_sceneOptions.physicsDebugAlpha;
+}
+
+
+float TestScene::GetPhysicsDebugContactLinger() const
+{
+    return m_sceneOptions.physicsDebugContactLinger;
 }
 
 
