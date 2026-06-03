@@ -160,6 +160,7 @@ struct RunDebugState
     float physicsDebugContactLinger = 0.45f;                  // Seconds to keep contact manifolds visible after their solver row disappears
     bool isCollisionVisualizer = false;                       // Render solid collision/sleep colours for balls and boxes (toggle with V)
     bool isTextOnly = false;                                  // Suppress all 3D rendering; show solid background with large pangram text
+    bool isTopTextHidden = false;                             // Hide top-left HUD text while leaving other overlays active
     bool isBroadphaseOverlay = false;                         // Broadphase spatial grid visualizer overlay (toggle with G)
     float frozenWaterTime = 0.0f;                             // Simulation time captured when freeze was toggled on
     float rendererSwitchInterval = -1.0f;                     // Auto-switch renderer every N seconds (-1 = disabled)
