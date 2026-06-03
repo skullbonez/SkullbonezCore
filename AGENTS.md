@@ -56,6 +56,7 @@ Run the appropriate validation script from the `tools\` directory:
 - **Never claim validation success without command output.** Paste the validation output when validation is required.
 - **Never skip required validation** for code, tool, scene, shader, baseline, or runtime behavior changes unless the user explicitly says to.
 - **Documentation-only changes require no validation.** Do not run `validate_fast` for prose-only edits.
+- **Run builds, game launches, and validation/test scripts in a visible console window.** Use `cmd.exe` or PowerShell so the user can watch compile and test progress, and mirror output to a log when possible so the final response can quote the result.
 - **Kill processes by PID only**; never use `taskkill /IM` or `Stop-Process -Name`.
 - **Zero warnings** at `/W4`; no exceptions.
 - **Zero DX12 validation errors**; no exceptions.
