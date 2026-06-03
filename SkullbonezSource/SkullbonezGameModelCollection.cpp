@@ -449,7 +449,7 @@ void GameModelCollection::RunLegacyPhysics( float dt )
             continue;
         }
 
-        float availableTime = (std::min)( m_timeRemaining[x], m_timeRemaining[y] );
+        float availableTime = ( std::min )( m_timeRemaining[x], m_timeRemaining[y] );
         float colTime = m_gameModels[x].CollisionDetectGameModel( m_gameModels[y], availableTime );
 
         if ( m_gameModels[x].IsResponseRequired() && m_gameModels[y].IsResponseRequired() )
@@ -1293,7 +1293,7 @@ void GameModelCollection::RunSolverPhysics( float dt )
             continue;
         }
 
-        float availableTime = (std::min)( m_timeRemaining[x], m_timeRemaining[y] );
+        float availableTime = ( std::min )( m_timeRemaining[x], m_timeRemaining[y] );
         float colTime = m_gameModels[x].CollisionDetectGameModel( m_gameModels[y], availableTime );
 
         if ( m_gameModels[x].IsResponseRequired() && m_gameModels[y].IsResponseRequired() )

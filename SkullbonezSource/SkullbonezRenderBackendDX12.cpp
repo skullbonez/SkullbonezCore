@@ -1886,9 +1886,9 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
 
     while ( srcMip < numMips - 1 )
     {
-        UINT mipsToGenerate = (std::min)( numMips - 1 - srcMip, 4u );
-        UINT dstW = (std::max)( srcMipW >> 1, 1u );
-        UINT dstH = (std::max)( srcMipH >> 1, 1u );
+        UINT mipsToGenerate = ( std::min )( numMips - 1 - srcMip, 4u );
+        UINT dstW = ( std::max )( srcMipW >> 1, 1u );
+        UINT dstH = ( std::max )( srcMipH >> 1, 1u );
 
         // ------------------------------------------------------------------
         // Source SRV: single-level view of the source mip.
@@ -2003,8 +2003,8 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
         }
 
         srcMip += mipsToGenerate;
-        srcMipW = (std::max)( srcMipW >> mipsToGenerate, 1u );
-        srcMipH = (std::max)( srcMipH >> mipsToGenerate, 1u );
+        srcMipW = ( std::max )( srcMipW >> mipsToGenerate, 1u );
+        srcMipH = ( std::max )( srcMipH >> mipsToGenerate, 1u );
     }
 
     // All mips are now in NON_PIXEL_SHADER_RESOURCE. Transition ALL_SUBRESOURCES
@@ -2062,8 +2062,8 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
         UINT mh = static_cast<UINT>( h );
         while ( mw > 1 || mh > 1 )
         {
-            mw = (std::max)( mw >> 1, 1u );
-            mh = (std::max)( mh >> 1, 1u );
+            mw = ( std::max )( mw >> 1, 1u );
+            mh = ( std::max )( mh >> 1, 1u );
             ++numMips;
         }
     }
