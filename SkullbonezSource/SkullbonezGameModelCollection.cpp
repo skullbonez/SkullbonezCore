@@ -1033,6 +1033,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         Physics::PhysicsDebugContact out;
         out.bodyA = c.bodyA;
         out.bodyB = c.bodyB;
+        out.featureId = c.featureId;
         out.point = m_gameModels[c.bodyA].GetPosition() + c.rA;
         out.normal = c.normal;
         out.tangent1 = c.tangent1;

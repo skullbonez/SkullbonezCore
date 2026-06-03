@@ -80,6 +80,7 @@ struct SceneOptions
     uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE; // Draw physics debug axes/contacts/sleep markers
     bool physicsDebugTransparent = false;                     // Render translucent debug collision volumes while physics debug is visible
     float physicsDebugAlpha = 0.28f;                          // Alpha for translucent debug collision volumes
+    float physicsDebugContactLinger = 0.45f;                  // Seconds to keep contact manifold debug rows visible
     float trackHeight = -1.0f;                                // Height above tracked ball for camera (-1 = no tracking)
     float autoCycleInterval = -1.0f;                          // Seconds between per-ball screenshots (-1 = disabled)
     bool screenshotAndExit = false;                           // Capture first frame as SCENENAME.bmp then exit
@@ -188,6 +189,7 @@ class TestScene
     uint32_t GetPhysicsDebugFlags() const;
     bool IsPhysicsDebugTransparent() const;
     float GetPhysicsDebugAlpha() const;
+    float GetPhysicsDebugContactLinger() const;
     float GetTrackHeight() const;       // Returns tracking camera height above ball (-1 = disabled)
     float GetAutoCycleInterval() const; // Returns per-ball screenshot interval in seconds (-1 = disabled)
     bool IsScreenshotAndExit() const;   // True if scene should capture first frame then exit

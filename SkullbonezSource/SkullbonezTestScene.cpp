@@ -587,6 +587,20 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
+        if ( strncmp( line, "physics_debug_contact_linger ", 29 ) == 0 )
+        {
+            float val = static_cast<float>( atof( line + 29 ) );
+            if ( val < 0.0f || val > 5.0f )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid physics_debug_contact_linger at line %d (expected 0.0..5.0 seconds)  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            scene.m_sceneOptions.physicsDebugContactLinger = val;
+            continue;
+        }
+
         // parse track_height directive
         if ( strncmp( line, "track_height ", 13 ) == 0 )
         {
@@ -985,6 +999,12 @@ bool TestScene::IsPhysicsDebugTransparent() const
 float TestScene::GetPhysicsDebugAlpha() const
 {
     return m_sceneOptions.physicsDebugAlpha;
+}
+
+
+float TestScene::GetPhysicsDebugContactLinger() const
+{
+    return m_sceneOptions.physicsDebugContactLinger;
 }
 
 

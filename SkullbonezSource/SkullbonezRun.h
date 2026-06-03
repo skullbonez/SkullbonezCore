@@ -157,6 +157,7 @@ struct RunDebugState
     uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE; // Draw object axes, contact manifolds, and sleep state (cycle with C)
     bool isPhysicsDebugTransparent = false;                   // Draw translucent debug collision volumes behind physics debug lines (toggle with 6)
     float physicsDebugAlpha = 0.28f;                          // Translucent debug volume alpha
+    float physicsDebugContactLinger = 0.45f;                  // Seconds to keep contact manifolds visible after their solver row disappears
     bool isCollisionVisualizer = false;                       // Render solid collision/sleep colours for balls and boxes (toggle with V)
     bool isTextOnly = false;                                  // Suppress all 3D rendering; show solid background with large pangram text
     bool isBroadphaseOverlay = false;                         // Broadphase spatial grid visualizer overlay (toggle with G)
@@ -206,6 +207,14 @@ class SkullbonezRun
     unsigned int m_cmdSeedOverride = 0;    // CLI --seed override applied after each scene load (0 = not set)
     bool m_cmdNoWater = false;             // CLI --no-water starts fluid below terrain
     GeneratedObjectTypeOverride m_generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
+    bool m_cmdHasPhysicsDebugFlagsOverride = false;
+    uint32_t m_cmdPhysicsDebugFlagsOverride = PHYSICS_DEBUG_NONE;
+    bool m_cmdHasPhysicsDebugTransparentOverride = false;
+    bool m_cmdPhysicsDebugTransparentOverride = false;
+    bool m_cmdHasPhysicsDebugAlphaOverride = false;
+    float m_cmdPhysicsDebugAlphaOverride = 0.28f;
+    bool m_cmdHasPhysicsDebugContactLingerOverride = false;
+    float m_cmdPhysicsDebugContactLingerOverride = 0.45f;
 
     RunPerfLogState m_perfLogState;                  // Perf/test logging paths, files, and flush policy
     RunRuntimeSettings m_runtimeSettings;            // Scene/app runtime toggles (vsync, sync, roll-align)
@@ -273,6 +282,10 @@ class SkullbonezRun
     void SetSeedOverride( unsigned int seed ); // Override RNG seed for every scene loaded (CLI --seed)
     void SetNoWaterOverride();                 // Start scenes with fluid below terrain (CLI --no-water)
     void SetGeneratedObjectTypeOverride( GeneratedObjectTypeOverride objectTypeOverride );
+    void SetPhysicsDebugFlagsOverride( uint32_t flags );
+    void SetPhysicsDebugTransparentOverride( bool transparent );
+    void SetPhysicsDebugAlphaOverride( float alpha );
+    void SetPhysicsDebugContactLingerOverride( float seconds );
 
 #ifdef _DEBUG
     void SetPhysicsLogOverride( const char* path ); // Override physics log path for all scenes (CLI --physics-log)

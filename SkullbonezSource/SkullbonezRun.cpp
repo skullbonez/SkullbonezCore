@@ -131,6 +131,34 @@ void SkullbonezRun::SetGeneratedObjectTypeOverride( GeneratedObjectTypeOverride 
 }
 
 
+void SkullbonezRun::SetPhysicsDebugFlagsOverride( uint32_t flags )
+{
+    m_cmdHasPhysicsDebugFlagsOverride = true;
+    m_cmdPhysicsDebugFlagsOverride = flags & PHYSICS_DEBUG_ALL;
+}
+
+
+void SkullbonezRun::SetPhysicsDebugTransparentOverride( bool transparent )
+{
+    m_cmdHasPhysicsDebugTransparentOverride = true;
+    m_cmdPhysicsDebugTransparentOverride = transparent;
+}
+
+
+void SkullbonezRun::SetPhysicsDebugAlphaOverride( float alpha )
+{
+    m_cmdHasPhysicsDebugAlphaOverride = true;
+    m_cmdPhysicsDebugAlphaOverride = (std::max)( 0.05f, (std::min)( alpha, 1.0f ) );
+}
+
+
+void SkullbonezRun::SetPhysicsDebugContactLingerOverride( float seconds )
+{
+    m_cmdHasPhysicsDebugContactLingerOverride = true;
+    m_cmdPhysicsDebugContactLingerOverride = (std::max)( 0.0f, (std::min)( seconds, 5.0f ) );
+}
+
+
 #ifdef _DEBUG
 void SkullbonezRun::SetPhysicsLogOverride( const char* path )
 {
@@ -633,6 +661,9 @@ void SkullbonezRun::Run()
             }
             m_collisionVisualizer.SetEnabled( m_debug.isCollisionVisualizer || ( m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE && m_debug.isPhysicsDebugTransparent ) );
             m_collisionVisualizer.Update( static_cast<float>( secondsPerFrame ), m_cGameModelCollection );
+            m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
+            m_physicsDebugVisualizer.SetContactLingerSeconds( m_debug.physicsDebugContactLinger );
+            m_physicsDebugVisualizer.Update( static_cast<float>( secondsPerFrame ), m_cGameModelCollection );
             m_cGameModelCollection.EndCollisionVisualFrame();
 
             PROFILE_BEGIN( "Frame/PipelineSync" );
@@ -2726,10 +2757,12 @@ void SkullbonezRun::LoadScene( int index )
     m_debug.isWaterHidden = false;
     m_debug.isDebugVectors = false;
     m_debug.isTextOnly = false;
-#ifdef _DEBUG
     m_debug.physicsDebugFlags = PHYSICS_DEBUG_NONE;
     m_debug.isPhysicsDebugTransparent = false;
     m_debug.physicsDebugAlpha = 0.28f;
+    m_debug.physicsDebugContactLinger = 0.45f;
+    m_physicsDebugVisualizer.SetFlags( PHYSICS_DEBUG_NONE );
+#ifdef _DEBUG
     m_debug.reproSnapshotMessage[0] = '\0';
     m_debug.reproSnapshotMessageUntil = 0.0;
 #endif
@@ -2797,6 +2830,7 @@ void SkullbonezRun::LoadScene( int index )
         m_debug.physicsDebugFlags = scene.GetPhysicsDebugFlags();
         m_debug.isPhysicsDebugTransparent = scene.IsPhysicsDebugTransparent();
         m_debug.physicsDebugAlpha = scene.GetPhysicsDebugAlpha();
+        m_debug.physicsDebugContactLinger = scene.GetPhysicsDebugContactLinger();
         if ( scene.HasVsyncOverride() )
         {
             m_runtimeSettings.isVsyncEnabled = scene.IsVsyncEnabled();
@@ -2954,6 +2988,22 @@ void SkullbonezRun::LoadScene( int index )
     if ( m_cmdFixedStep )
     {
         m_scene.isFixedStep = true;
+    }
+    if ( m_cmdHasPhysicsDebugFlagsOverride )
+    {
+        m_debug.physicsDebugFlags = m_cmdPhysicsDebugFlagsOverride;
+    }
+    if ( m_cmdHasPhysicsDebugTransparentOverride )
+    {
+        m_debug.isPhysicsDebugTransparent = m_cmdPhysicsDebugTransparentOverride;
+    }
+    if ( m_cmdHasPhysicsDebugAlphaOverride )
+    {
+        m_debug.physicsDebugAlpha = m_cmdPhysicsDebugAlphaOverride;
+    }
+    if ( m_cmdHasPhysicsDebugContactLingerOverride )
+    {
+        m_debug.physicsDebugContactLinger = m_cmdPhysicsDebugContactLingerOverride;
     }
 
     // Apply runtime swap policy after config/scene overrides are resolved.
