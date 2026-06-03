@@ -196,7 +196,7 @@ void CollisionVisualizer::Update( float dt, GameModelCollection& models )
         }
         else
         {
-            m_models[i].collisionAmount = ( std::max )( 0.0f, m_models[i].collisionAmount - fadeStep );
+            m_models[i].collisionAmount = (std::max)( 0.0f, m_models[i].collisionAmount - fadeStep );
         }
     }
 }
@@ -235,7 +235,7 @@ void CollisionVisualizer::BuildSleepGroupSizes( GameModelCollection& models )
                 ++count;
             }
         }
-        m_sleepGroupSizes[i] = ( std::max )( 1, count );
+        m_sleepGroupSizes[i] = (std::max)( 1, count );
     }
 }
 

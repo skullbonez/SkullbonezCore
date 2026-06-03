@@ -761,7 +761,7 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
             nameBuf[k] = ' ';
         }
         strcpy_s( nameBuf + spaces, sizeof( nameBuf ) - spaces, m_markers[i].leafName );
-        markerNameW = ( std::max )( markerNameW, Text2d::MeasureText( fSize, nameBuf ) );
+        markerNameW = (std::max)( markerNameW, Text2d::MeasureText( fSize, nameBuf ) );
     }
 
     // Column x-offsets

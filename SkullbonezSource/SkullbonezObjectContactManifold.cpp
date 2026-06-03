@@ -91,7 +91,7 @@ float ClampFloat( float value, float lo, float hi )
     // ENGINE-SPECIFIC:
     //   Narrowphase helpers use scalar clamps for closest-point and clipping
     //   math. Keeping the helper local avoids adding broad utility API surface.
-    return ( std::max )( lo, ( std::min )( value, hi ) );
+    return (std::max)( lo, (std::min)( value, hi ) );
 }
 
 BoxWorld MakeBoxWorld( const GameModel& model, const BoundingBox& box )
