@@ -48,7 +48,8 @@ Use the repository scripts instead of retyping long commands:
 
 | Change Type | Command |
 |-------------|---------|
-| Docs or small refactor | `tools\validate_fast.bat` |
+| Documentation only | No validation required |
+| Small refactor, no render or physics changes | `tools\validate_fast.bat` |
 | Renderer, shader, texture, screenshot behavior | `tools\validate_renderers.bat` |
 | Physics, collision, solver, determinism | `tools\validate_physics.bat` |
 | Hot path or allocation-sensitive work | `tools\validate_perf.bat` |
