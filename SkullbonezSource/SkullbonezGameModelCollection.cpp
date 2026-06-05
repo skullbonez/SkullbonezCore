@@ -146,6 +146,8 @@ void GameModelCollection::InvalidateSoA()
 
 void GameModelCollection::RefreshSoABodyData()
 {
+    PROFILE_SCOPED( "Frame/SoA/RefreshBodyData" );
+
     const int modelCount = static_cast<int>( m_gameModels.size() );
 
     for ( int i = 0; i < modelCount; ++i )

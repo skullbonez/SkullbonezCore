@@ -6,6 +6,7 @@
 #include <vector>
 #include <algorithm>
 #include <memory>
+#include <array>
 #include <cstdint>
 #include <array>
 #include "SkullbonezCommon.h"
