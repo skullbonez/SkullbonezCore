@@ -1,8 +1,8 @@
-# Queryable Physics Diagnostics Plan
+# SkullScope Queryable Physics Diagnostics Plan
 
 ## Directive
 
-Make physics debugging cheap for the model.
+Make physics debugging cheap for the model. The query system is named SkullScope.
 
 The model should not ingest entire physics logs to understand a simulation. It should request a deterministic diagnostic artifact, then query that artifact locally for the smallest useful packet: summary, events, frame windows, body timelines, contact rows, islands, stack state, energy, broadphase, water, or regression deltas.
 

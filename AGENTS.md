@@ -23,7 +23,7 @@ Run the appropriate validation script from the `tools\` directory:
 | Documentation only | No validation required | N/A |
 | Small refactor, no render or physics changes | `tools\validate_fast.bat` | ~30s |
 | Shader or render backend | `tools\validate_renderers.bat` | ~90s |
-| Physics, collision, or solver | `tools\validate_physics.bat` | ~45s |
+| Physics, collision, solver, or SkullScope diagnostics | `tools\validate_physics.bat` | ~45s |
 | Performance-sensitive hot path | `tools\validate_perf.bat` | ~1 min |
 | Broad or uncertain scope | `tools\validate_full.bat` | ~3 min |
 | Unsure what to run | `tools\agent_validate.bat` | ~3 min |
@@ -56,7 +56,7 @@ Run the appropriate validation script from the `tools\` directory:
 - **Never claim validation success without command output.** Paste the validation output when validation is required.
 - **Never skip required validation** for code, tool, scene, shader, baseline, or runtime behavior changes unless the user explicitly says to.
 - **Documentation-only changes require no validation.** Do not run `validate_fast` for prose-only edits.
-- **Keep physics debug data cheap for model analysis.** Do not paste or ingest whole physics CSV, NDJSON, or SQLite diagnostic files unless the user explicitly requests raw logs. When available, prefer the queryable diagnostics workflow in `Agentic/Reference/physics-query-reference.md`: generate a deterministic trace with `--physics-diag`, run `tools\physics_query.py <trace> summary` and `tools\physics_query.py <trace> events`, or expand a pre-baked question with `tools\physics_query.py <trace> questions <name>`, then ask focused frame/body/contact/island queries. The legacy physics CSV remains the byte-exact validation artifact.
+- **Keep physics debug data cheap for model analysis.** Use SkullScope. Do not paste or ingest whole physics CSV, NDJSON, or SQLite diagnostic files unless the user explicitly requests raw logs. When available, prefer the queryable diagnostics workflow in `Agentic/Reference/physics-query-reference.md`: generate a deterministic trace with `--physics-diag`, run `tools\physics_query.py <trace> summary` and `tools\physics_query.py <trace> events`, or expand a pre-baked question with `tools\physics_query.py <trace> questions <name>`, then ask focused frame/body/contact/island queries. The legacy physics CSV remains the byte-exact validation artifact.
 - **Run builds, game launches, and validation/test scripts in a visible console window.** Use `cmd.exe` or PowerShell so the user can watch compile and test progress, and mirror output to a log when possible so the final response can quote the result.
 - **Kill processes by PID only**; never use `taskkill /IM` or `Stop-Process -Name`.
 - **Zero warnings** at `/W4`; no exceptions.

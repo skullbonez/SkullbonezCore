@@ -1,0 +1,165 @@
+"""
+Regression check for SkullScope queryable physics diagnostics.
+
+Generates a deterministic physics diagnostics trace from physics_bench_varied.scene,
+runs a fixed set of representative queries through tools/physics_query.py, removes
+machine-local cache paths from the results, and compares the compact JSON packet
+against a committed baseline.
+"""
+
+import argparse
+import difflib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+
+REPO = Path(os.environ.get("SKORE_REPO", Path(__file__).resolve().parents[1])).resolve()
+BASELINE = REPO / "TestOutput" / "baselines" / "physics_query_varied.json"
+TRACE = REPO / "Debug" / "physics_query_varied.physicsdiag.ndjson"
+SCENE = REPO / "SkullbonezData" / "scenes" / "physics_bench_varied.scene"
+EXE = REPO / "Debug" / "SKULLBONEZ_CORE.exe"
+QUERY_TOOL = REPO / "tools" / "physics_query.py"
+
+DROP_KEYS = {
+    "cache",
+    "otherCache",
+    "questionsFile",
+    "batCommands",
+    "batFollowups",
+}
+
+QUERIES = [
+    ("summary", ["summary", "--limit", "8"]),
+    ("events", ["events", "--limit", "20"]),
+    ("frame_600", ["frame", "600", "--limit", "8"]),
+    ("body_roll_a", ["body", "roll_a", "--frames", "0:1200", "--limit", "12"]),
+    ("energy", ["energy", "--frames", "0:1200", "--limit", "12"]),
+    ("contacts_penetration", ["contacts", "--top", "penetration", "--limit", "12"]),
+    ("island_1_final", ["island", "1", "--frame", "1199", "--limit", "12"]),
+    ("stacks", ["stacks", "--frames", "0:1200", "--limit", "12"]),
+    ("rolling", ["rolling", "--frames", "0:1200", "--limit", "12"]),
+    ("broadphase", ["broadphase", "--frames", "0:1200", "--limit", "12"]),
+    ("question_stack_health", ["questions", "stack_health"]),
+    ("compare_self", ["compare", str(TRACE), "--limit", "8"]),
+]
+
+
+def remove_if_exists(path):
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
+
+
+def normalize(value):
+    if isinstance(value, dict):
+        return {key: normalize(item) for key, item in value.items() if key not in DROP_KEYS}
+    if isinstance(value, list):
+        return [normalize(item) for item in value]
+    return value
+
+
+def run_checked(args, cwd):
+    result = subprocess.run(
+        args,
+        cwd=str(cwd),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(result.stdout, end="")
+        print(result.stderr, end="", file=sys.stderr)
+        raise RuntimeError(f"command failed with exit code {result.returncode}: {' '.join(map(str, args))}")
+    return result.stdout
+
+
+def generate_trace():
+    if not EXE.exists():
+        raise RuntimeError(f"Debug executable not found: {EXE}")
+    remove_if_exists(TRACE)
+    remove_if_exists(TRACE.with_suffix(".sqlite"))
+    remove_if_exists(TRACE.with_suffix(".sqlite.lock"))
+    run_checked(
+        [
+            str(EXE),
+            "--vsync",
+            "off",
+            "--scene",
+            str(SCENE),
+            "--physics-diag",
+            str(TRACE),
+        ],
+        REPO,
+    )
+    if not TRACE.exists():
+        raise RuntimeError(f"diagnostic trace was not produced: {TRACE}")
+
+
+def run_queries():
+    packet = {
+        "name": "SkullScope physics query regression",
+        "scene": "SkullbonezData/scenes/physics_bench_varied.scene",
+        "traceKind": "physicsdiag.ndjson",
+        "queries": {},
+    }
+    for name, query_args in QUERIES:
+        stdout = run_checked([sys.executable, str(QUERY_TOOL), str(TRACE)] + query_args, REPO)
+        packet["queries"][name] = normalize(json.loads(stdout))
+    return packet
+
+
+def canonical_json(packet):
+    return json.dumps(packet, indent=2, sort_keys=True) + "\n"
+
+
+def compare_or_update(current_text, update):
+    if update or not BASELINE.exists():
+        BASELINE.parent.mkdir(parents=True, exist_ok=True)
+        BASELINE.write_text(current_text, encoding="utf-8")
+        action = "UPDATED" if update else "CREATED"
+        print(f"  {action}: {BASELINE.relative_to(REPO)}")
+        return 0
+
+    expected_text = BASELINE.read_text(encoding="utf-8")
+    if expected_text == current_text:
+        print(f"  PASS: {BASELINE.name} exact match")
+        return 0
+
+    print(f"  FAIL: {BASELINE.name} differs from current SkullScope query output")
+    diff = difflib.unified_diff(
+        expected_text.splitlines(),
+        current_text.splitlines(),
+        fromfile="baseline",
+        tofile="current",
+        lineterm="",
+    )
+    for index, line in enumerate(diff):
+        if index >= 120:
+            print("  ... diff truncated after 120 lines")
+            break
+        print(line)
+    return 1
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Check SkullScope physics query output against baseline.")
+    parser.add_argument("--update", action="store_true", help="Update the committed baseline.")
+    args = parser.parse_args()
+
+    try:
+        print("  Generating SkullScope trace from physics_bench_varied.scene...")
+        generate_trace()
+        print("  Running SkullScope query packet...")
+        current_text = canonical_json(run_queries())
+        return compare_or_update(current_text, args.update)
+    except Exception as exc:
+        print(f"  FAIL: {exc}")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

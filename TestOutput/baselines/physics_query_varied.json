@@ -1,0 +1,3321 @@
+{
+  "name": "SkullScope physics query regression",
+  "queries": {
+    "body_roll_a": {
+      "body": 0,
+      "events": [],
+      "relatedQueries": [
+        "contacts --body 0 --frame <frame>",
+        "frame <frame>",
+        "island <id> --frame <frame>"
+      ],
+      "run": "run_0001",
+      "sampled": 12,
+      "stats": {
+        "first_frame": 0,
+        "inhibited_rows": 0,
+        "last_frame": 1199,
+        "max_energy": 1597.454358,
+        "max_omega": 4.506939,
+        "max_speed": 12.313425,
+        "row_count": 1200,
+        "sleeping_rows": 356,
+        "supported_rows": 530
+      },
+      "timeline": [
+        {
+          "angular_energy": 81.25,
+          "body_id": 0,
+          "frame": 0,
+          "half_x": 0.0,
+          "half_y": 0.0,
+          "half_z": 0.0,
+          "inertia_x": 8.0,
+          "inertia_y": 8.0,
+          "inertia_z": 8.0,
+          "inv_mass": 0.05,
+          "island_id": 1,
+          "linear_energy": 32.566833,
+          "mass": 20.0,
+          "name": "roll_a",
+          "omega_mag": 4.506939,
+          "omega_x": 1.5,
+          "omega_y": 0.0,
+          "omega_z": -4.25,
+          "pos_x": 450.01416,
+          "pos_y": 42.999317,
+          "pos_z": 505.005005,
+          "q_w": 0.999824,
+          "q_x": -0.00625,
+          "q_y": 0.0,
+          "q_z": 0.017707,
+          "radius": 4.0,
+          "run_id": "run_0001",
+          "shape": "sphere",
+          "sleep_counter": 0,
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 1.804628,
+          "vel_x": 1.7,
+          "vel_y": -0.08175,
+          "vel_z": 0.6
+        },
+        {
+          "angular_energy": 81.25,
+          "body_id": 0,
+          "frame": 109,
+          "half_x": 0.0,
+          "half_y": 0.0,
+          "half_z": 0.0,
+          "inertia_x": 8.0,
+          "inertia_y": 8.0,
+          "inertia_z": 8.0,
+          "inv_mass": 0.05,
+          "island_id": 1,
+          "linear_energy": 841.149419,
+          "mass": 20.0,
+          "name": "roll_a",
+          "omega_mag": 4.506939,
+          "omega_x": 1.5,
+          "omega_y": 0.0,
+          "omega_z": -4.25,
+          "pos_x": 451.557617,
+          "pos_y": 38.840973,
+          "pos_z": 505.550537,
+          "q_w": -0.474929,
+          "q_x": -0.29289,
+          "q_y": 0.0,
+          "q_z": 0.829854,
+          "radius": 4.0,
+          "run_id": "run_0001",
+          "shape": "sphere",
+          "sleep_counter": 0,
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 9.17142,
+          "vel_x": 1.7,
+          "vel_y": -8.992494,
+          "vel_z": 0.6
+        },
+        {
+          "angular_energy": 0.778533,
+          "body_id": 0,
+          "frame": 218,
+          "half_x": 0.0,
+          "half_y": 0.0,
+          "half_z": 0.0,
+          "inertia_x": 8.0,
+          "inertia_y": 8.0,
+          "inertia_z": 8.0,
+          "inv_mass": 0.05,
+          "island_id": 1,
+          "linear_energy": 59.98725,
+          "mass": 20.0,
+          "name": "roll_a",
+          "omega_mag": 0.441173,
+          "omega_x": 0.173858,
+          "omega_y": -0.031501,
+          "omega_z": -0.404246,
+          "pos_x": 453.201538,
+          "pos_y": 36.257698,
+          "pos_z": 506.245636,
+          "q_w": -0.976802,
+          "q_x": -0.066478,
+          "q_y": -0.011534,
+          "q_z": 0.203239,
+          "radius": 4.0,
+          "run_id": "run_0001",
+          "shape": "sphere",
+          "sleep_counter": 0,
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 2.449229,
+          "vel_x": 1.870409,
+          "vel_y": -1.327811,
+          "vel_z": 0.858611
+        },
+        {
+          "angular_energy": 0.457619,
+          "body_id": 0,
+          "frame": 327,
+          "half_x": 0.0,
+          "half_y": 0.0,
+          "half_z": 0.0,
+          "inertia_x": 8.0,
+          "inertia_y": 8.0,
+          "inertia_z": 8.0,
+          "inv_mass": 0.05,
+          "island_id": 1,
+          "linear_energy": 28.434374,
+          "mass": 20.0,
+          "name": "roll_a",
+          "omega_mag": 0.338238,
+          "omega_x": 0.160196,
+          "omega_y": 0.004282,
+          "omega_z": -0.297865,
+          "pos_x": 454.803802,
+          "pos_y": 35.445747,
+          "pos_z": 507.037079,
+          "q_w": -0.999091,
+          "q_x": 0.009306,
+          "q_y": -0.024125,
+          "q_z": 0.033897,
+          "radius": 4.0,
+          "run_id": "run_0001",
+          "shape": "sphere",
+          "sleep_counter": 0,
+          "sleep_inhibited": 0,
+          "sleep_supported": 1,
+          "sleeping": 0,
+          "speed": 1.686249,
+          "vel_x": 1.484994,
+          "vel_y": 0.011436,
+          "vel_z": 0.798812
+        },
+        {
+          "angular_energy": 0.042573,
+          "body_id": 0,
+          "frame": 436,
+          "half_x": 0.0,
+          "half_y": 0.0,
+          "half_z": 0.0,
+          "inertia_x": 8.0,
+          "inertia_y": 8.0,
+          "inertia_z": 8.0,
+          "inv_mass": 0.05,
+          "island_id": 1,
+          "linear_energy": 5.564615,
+          "mass": 20.0,
+          "name": "roll_a",
+          "omega_mag": 0.103166,
+          "omega_x": 0.057581,
+          "omega_y": 0.001376,
+          "omega_z": -0.085591,
+          "pos_x": 455.752441,
+          "pos_y": 35.452686,
+          "pos_z": 507.592896,
+          "q_w": -0.996619,
+          "q_x": 0.057248,
+          "q_y": -0.025072,
+          "q_z": -0.053329,
+          "radius": 4.0,
+          "run_id": "run_0001",
+          "shape": "sphere",
+          "sleep_counter": 0,
+          "sleep_inhibited": 0,
+          "sleep_supported": 1,
+          "sleeping": 0,
+          "speed": 0.745963,
+          "vel_x": 0.618897,
+          "vel_y": 0.004098,
+          "vel_z": 0.416426
+        },
+        {
+          "angular_energy": 0.0,
+          "body_id": 0,
+          "frame": 545,
+          "half_x": 0.0,
+          "half_y": 0.0,
+          "half_z": 0.0,
+          "inertia_x": 8.0,
+          "inertia_y": 8.0,
+          "inertia_z": 8.0,
+          "inv_mass": 0.05,
+          "island_id": 1,
+          "linear_energy": 0.0,
+          "mass": 20.0,
+          "name": "roll_a",
+          "omega_mag": 0.0,
+          "omega_x": 0.0,
+          "omega_y": 0.0,
+          "omega_z": 0.0,
+          "pos_x": 455.944489,
+          "pos_y": 35.45385,
+          "pos_z": 507.735535,
+          "q_w": -0.995792,
+          "q_x": 0.062923,
+          "q_y": -0.025091,
+          "q_z": -0.06173,
+          "radius": 4.0,
+          "run_id": "run_0001",
+          "shape": "sphere",
+          "sleep_counter": 30,
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 1,
+          "speed": 0.0,
+          "vel_x": 0.0,
+          "vel_y": 0.0,
+          "vel_z": 0.0
+        },
+        {
+          "angular_energy": 0.0,
+          "body_id": 0,
+          "frame": 654,
+          "half_x": 0.0,
+          "half_y": 0.0,
+          "half_z": 0.0,
+          "inertia_x": 8.0,
+          "inertia_y": 8.0,
+          "inertia_z": 8.0,
+          "inv_mass": 0.05,
+          "island_id": 1,
+          "linear_energy": 0.0,
+          "mass": 20.0,
+          "name": "roll_a",
+          "omega_mag": 0.0,
+          "omega_x": 0.0,
+          "omega_y": 0.0,
+          "omega_z": 0.0,
+          "pos_x": 455.944489,
+          "pos_y": 35.45385,
+          "pos_z": 507.735535,
+          "q_w": -0.995792,
+          "q_x": 0.062923,
+          "q_y": -0.025091,
+          "q_z": -0.06173,
+          "radius": 4.0,
+          "run_id": "run_0001",
+          "shape": "sphere",
+          "sleep_counter": 30,
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 1,
+          "speed": 0.0,
+          "vel_x": 0.0,
+          "vel_y": 0.0,
+          "vel_z": 0.0
+        },
+        {
+          "angular_energy": 0.0,
+          "body_id": 0,
+          "frame": 763,
+          "half_x": 0.0,
+          "half_y": 0.0,
+          "half_z": 0.0,
+          "inertia_x": 8.0,
+          "inertia_y": 8.0,
+          "inertia_z": 8.0,
+          "inv_mass": 0.05,
+          "island_id": 1,
+          "linear_energy": 0.0,
+          "mass": 20.0,
+          "name": "roll_a",
+          "omega_mag": 0.0,
+          "omega_x": 0.0,
+          "omega_y": 0.0,
+          "omega_z": 0.0,
+          "pos_x": 455.944489,
+          "pos_y": 35.45385,
+          "pos_z": 507.735535,
+          "q_w": -0.995792,
+          "q_x": 0.062923,
+          "q_y": -0.025091,
+          "q_z": -0.06173,
+          "radius": 4.0,
+          "run_id": "run_0001",
+          "shape": "sphere",
+          "sleep_counter": 30,
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 1,
+          "speed": 0.0,
+          "vel_x": 0.0,
+          "vel_y": 0.0,
+          "vel_z": 0.0
+        },
+        {
+          "angular_energy": 0.701744,
+          "body_id": 0,
+          "frame": 872,
+          "half_x": 0.0,
+          "half_y": 0.0,
+          "half_z": 0.0,
+          "inertia_x": 8.0,
+          "inertia_y": 8.0,
+          "inertia_z": 8.0,
+          "inv_mass": 0.05,
+          "island_id": 1,
+          "linear_energy": 267.655594,
+          "mass": 20.0,
+          "name": "roll_a",
+          "omega_mag": 0.418851,
+          "omega_x": -0.261914,
+          "omega_y": 0.043537,
+          "omega_z": 0.323946,
+          "pos_x": 456.69812,
+          "pos_y": 35.48653,
+          "pos_z": 508.36557,
+          "q_w": -0.998248,
+          "q_x": 0.04251,
+          "q_y": -0.020504,
+          "q_z": -0.035696,
+          "radius": 4.0,
+          "run_id": "run_0001",
+          "shape": "sphere",
+          "sleep_counter": 0,
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 5.173544,
+          "vel_x": 3.929029,
+          "vel_y": -0.73482,
+          "vel_z": 3.28456
+        },
+        {
+          "angular_energy": 3.497498,
+          "body_id": 0,
+          "frame": 981,
+          "half_x": 0.0,
+          "half_y": 0.0,
+          "half_z": 0.0,
+          "inertia_x": 8.0,
+          "inertia_y": 8.0,
+          "inertia_z": 8.0,
+          "inv_mass": 0.05,
+          "island_id": 1,
+          "linear_energy": 165.943687,
+          "mass": 20.0,
+          "name": "roll_a",
+          "omega_mag": 0.93508,
+          "omega_x": 0.620164,
+          "omega_y": 0.013054,
+          "omega_z": -0.699714,
+          "pos_x": 459.819031,
+          "pos_y": 35.470493,
+          "pos_z": 511.053162,
+          "q_w": -0.875172,
+          "q_x": 0.315797,
+          "q_y": -0.012101,
+          "q_z": -0.366333,
+          "radius": 4.0,
+          "run_id": "run_0001",
+          "shape": "sphere",
+          "sleep_counter": 0,
+          "sleep_inhibited": 0,
+          "sleep_supported": 1,
+          "sleeping": 0,
+          "speed": 4.073619,
+          "vel_x": 3.048401,
+          "vel_y": 0.014981,
+          "vel_z": 2.702109
+        },
+        {
+          "angular_energy": 1.994065,
+          "body_id": 0,
+          "frame": 1090,
+          "half_x": 0.0,
+          "half_y": 0.0,
+          "half_z": 0.0,
+          "inertia_x": 8.0,
+          "inertia_y": 8.0,
+          "inertia_z": 8.0,
+          "inv_mass": 0.05,
+          "island_id": 1,
+          "linear_energy": 99.699699,
+          "mass": 20.0,
+          "name": "roll_a",
+          "omega_mag": 0.706057,
+          "omega_x": 0.485908,
+          "omega_y": 0.009927,
+          "omega_z": -0.512163,
+          "pos_x": 462.239105,
+          "pos_y": 35.481842,
+          "pos_z": 513.267151,
+          "q_w": -0.639572,
+          "q_x": 0.503511,
+          "q_y": -0.000996,
+          "q_z": -0.580881,
+          "radius": 4.0,
+          "run_id": "run_0001",
+          "shape": "sphere",
+          "sleep_counter": 0,
+          "sleep_inhibited": 0,
+          "sleep_supported": 1,
+          "sleeping": 0,
+          "speed": 3.157526,
+          "vel_x": 2.29054,
+          "vel_y": 0.010113,
+          "vel_z": 2.173314
+        },
+        {
+          "angular_energy": 0.914843,
+          "body_id": 0,
+          "frame": 1199,
+          "half_x": 0.0,
+          "half_y": 0.0,
+          "half_z": 0.0,
+          "inertia_x": 8.0,
+          "inertia_y": 8.0,
+          "inertia_z": 8.0,
+          "inv_mass": 0.05,
+          "island_id": 1,
+          "linear_energy": 50.456293,
+          "mass": 20.0,
+          "name": "roll_a",
+          "omega_mag": 0.478237,
+          "omega_x": 0.344719,
+          "omega_y": 0.006788,
+          "omega_z": -0.331411,
+          "pos_x": 463.981262,
+          "pos_y": 35.488987,
+          "pos_z": 514.989563,
+          "q_w": -0.413295,
+          "q_x": 0.602004,
+          "q_y": 0.015079,
+          "q_z": -0.683045,
+          "radius": 4.0,
+          "run_id": "run_0001",
+          "shape": "sphere",
+          "sleep_counter": 0,
+          "sleep_inhibited": 0,
+          "sleep_supported": 1,
+          "sleeping": 0,
+          "speed": 2.246248,
+          "vel_x": 1.556709,
+          "vel_y": 0.005735,
+          "vel_z": 1.619337
+        }
+      ],
+      "totalRows": 1200
+    },
+    "broadphase": {
+      "broadphase": [
+        {
+          "active_cells": 47,
+          "candidate_pairs": 96,
+          "collision_cell_count": 2,
+          "contact_pairs": 6,
+          "frame": 344,
+          "max_cell_occupancy": 11,
+          "rejected_pairs": 90,
+          "run_id": "run_0001"
+        },
+        {
+          "active_cells": 47,
+          "candidate_pairs": 96,
+          "collision_cell_count": 2,
+          "contact_pairs": 5,
+          "frame": 345,
+          "max_cell_occupancy": 11,
+          "rejected_pairs": 91,
+          "run_id": "run_0001"
+        },
+        {
+          "active_cells": 47,
+          "candidate_pairs": 96,
+          "collision_cell_count": 1,
+          "contact_pairs": 5,
+          "frame": 346,
+          "max_cell_occupancy": 11,
+          "rejected_pairs": 91,
+          "run_id": "run_0001"
+        },
+        {
+          "active_cells": 47,
+          "candidate_pairs": 96,
+          "collision_cell_count": 2,
+          "contact_pairs": 5,
+          "frame": 347,
+          "max_cell_occupancy": 11,
+          "rejected_pairs": 91,
+          "run_id": "run_0001"
+        },
+        {
+          "active_cells": 47,
+          "candidate_pairs": 96,
+          "collision_cell_count": 2,
+          "contact_pairs": 5,
+          "frame": 348,
+          "max_cell_occupancy": 11,
+          "rejected_pairs": 91,
+          "run_id": "run_0001"
+        },
+        {
+          "active_cells": 47,
+          "candidate_pairs": 96,
+          "collision_cell_count": 2,
+          "contact_pairs": 5,
+          "frame": 349,
+          "max_cell_occupancy": 11,
+          "rejected_pairs": 91,
+          "run_id": "run_0001"
+        },
+        {
+          "active_cells": 47,
+          "candidate_pairs": 96,
+          "collision_cell_count": 2,
+          "contact_pairs": 5,
+          "frame": 350,
+          "max_cell_occupancy": 11,
+          "rejected_pairs": 91,
+          "run_id": "run_0001"
+        },
+        {
+          "active_cells": 47,
+          "candidate_pairs": 96,
+          "collision_cell_count": 2,
+          "contact_pairs": 5,
+          "frame": 351,
+          "max_cell_occupancy": 11,
+          "rejected_pairs": 91,
+          "run_id": "run_0001"
+        },
+        {
+          "active_cells": 47,
+          "candidate_pairs": 96,
+          "collision_cell_count": 1,
+          "contact_pairs": 5,
+          "frame": 352,
+          "max_cell_occupancy": 11,
+          "rejected_pairs": 91,
+          "run_id": "run_0001"
+        },
+        {
+          "active_cells": 47,
+          "candidate_pairs": 96,
+          "collision_cell_count": 2,
+          "contact_pairs": 5,
+          "frame": 353,
+          "max_cell_occupancy": 11,
+          "rejected_pairs": 91,
+          "run_id": "run_0001"
+        },
+        {
+          "active_cells": 47,
+          "candidate_pairs": 96,
+          "collision_cell_count": 3,
+          "contact_pairs": 5,
+          "frame": 354,
+          "max_cell_occupancy": 11,
+          "rejected_pairs": 91,
+          "run_id": "run_0001"
+        },
+        {
+          "active_cells": 47,
+          "candidate_pairs": 96,
+          "collision_cell_count": 2,
+          "contact_pairs": 6,
+          "frame": 355,
+          "max_cell_occupancy": 11,
+          "rejected_pairs": 90,
+          "run_id": "run_0001"
+        }
+      ],
+      "frameFallback": [
+        {
+          "body_count": 37,
+          "contact_count": 19,
+          "frame": 291,
+          "island_count": 27
+        },
+        {
+          "body_count": 37,
+          "contact_count": 19,
+          "frame": 292,
+          "island_count": 27
+        },
+        {
+          "body_count": 37,
+          "contact_count": 18,
+          "frame": 289,
+          "island_count": 28
+        },
+        {
+          "body_count": 37,
+          "contact_count": 17,
+          "frame": 275,
+          "island_count": 29
+        },
+        {
+          "body_count": 37,
+          "contact_count": 17,
+          "frame": 276,
+          "island_count": 29
+        },
+        {
+          "body_count": 37,
+          "contact_count": 17,
+          "frame": 277,
+          "island_count": 30
+        },
+        {
+          "body_count": 37,
+          "contact_count": 17,
+          "frame": 287,
+          "island_count": 28
+        },
+        {
+          "body_count": 37,
+          "contact_count": 17,
+          "frame": 299,
+          "island_count": 27
+        },
+        {
+          "body_count": 37,
+          "contact_count": 17,
+          "frame": 318,
+          "island_count": 27
+        },
+        {
+          "body_count": 37,
+          "contact_count": 16,
+          "frame": 259,
+          "island_count": 30
+        },
+        {
+          "body_count": 37,
+          "contact_count": 16,
+          "frame": 265,
+          "island_count": 30
+        },
+        {
+          "body_count": 37,
+          "contact_count": 16,
+          "frame": 266,
+          "island_count": 30
+        }
+      ],
+      "note": null,
+      "relatedQueries": [
+        "events --type broadphase_spike",
+        "frame <frame>"
+      ],
+      "run": "run_0001"
+    },
+    "compare_self": {
+      "eventDiff": [],
+      "firstDifferentFrame": null,
+      "otherRun": "run_0001",
+      "relatedQueries": [
+        "frame <firstDifferentFrame>",
+        "events --frames <start>:<end>",
+        "energy --frames <start>:<end>"
+      ],
+      "run": "run_0001",
+      "summary": {
+        "base": {
+          "first_frame": 0,
+          "frame_count": 1200,
+          "last_frame": 1199,
+          "max_energy": 142703.513398,
+          "max_omega": 7.210906,
+          "max_penetration": 0.167125,
+          "max_speed": 43.779568,
+          "min_energy": 360.665012
+        },
+        "other": {
+          "first_frame": 0,
+          "frame_count": 1200,
+          "last_frame": 1199,
+          "max_energy": 142703.513398,
+          "max_omega": 7.210906,
+          "max_penetration": 0.167125,
+          "max_speed": 43.779568,
+          "min_energy": 360.665012
+        }
+      }
+    },
+    "contacts_penetration": {
+      "contacts": [
+        {
+          "body_a": 27,
+          "body_b": 28,
+          "contact_id": "27:28:33409",
+          "contact_type": "box/box",
+          "feature_id": 33409,
+          "frame": 302,
+          "normal_impulse": 19.236671,
+          "normal_x": -0.09001,
+          "normal_y": 0.950952,
+          "normal_z": 0.295955,
+          "penetration": 0.167125,
+          "point_count": 1,
+          "rolling_residual": 3.747417,
+          "run_id": "run_0001",
+          "slip_speed": 3.747417,
+          "supports_sleep": 1,
+          "tangent_impulse": 2.666667,
+          "warm_started": 1
+        },
+        {
+          "body_a": 18,
+          "body_b": 27,
+          "contact_id": "18:27:42179",
+          "contact_type": "box/box",
+          "feature_id": 42179,
+          "frame": 327,
+          "normal_impulse": 120.205688,
+          "normal_x": -0.008103,
+          "normal_y": 0.916901,
+          "normal_z": 0.399032,
+          "penetration": 0.149362,
+          "point_count": 1,
+          "rolling_residual": 23.974695,
+          "run_id": "run_0001",
+          "slip_speed": 23.974695,
+          "supports_sleep": 1,
+          "tangent_impulse": 2.0,
+          "warm_started": 1
+        },
+        {
+          "body_a": 18,
+          "body_b": 27,
+          "contact_id": "18:27:42179",
+          "contact_type": "box/box",
+          "feature_id": 42179,
+          "frame": 326,
+          "normal_impulse": 139.65007,
+          "normal_x": -0.003618,
+          "normal_y": 0.919776,
+          "normal_z": 0.392428,
+          "penetration": 0.140258,
+          "point_count": 1,
+          "rolling_residual": 20.518589,
+          "run_id": "run_0001",
+          "slip_speed": 20.518589,
+          "supports_sleep": 1,
+          "tangent_impulse": 3.777778,
+          "warm_started": 1
+        },
+        {
+          "body_a": 18,
+          "body_b": 27,
+          "contact_id": "18:27:42179",
+          "contact_type": "box/box",
+          "feature_id": 42179,
+          "frame": 328,
+          "normal_impulse": 68.195831,
+          "normal_x": -0.021121,
+          "normal_y": 0.914163,
+          "normal_z": 0.404795,
+          "penetration": 0.127679,
+          "point_count": 1,
+          "rolling_residual": 24.639557,
+          "run_id": "run_0001",
+          "slip_speed": 24.639557,
+          "supports_sleep": 1,
+          "tangent_impulse": 2.0,
+          "warm_started": 1
+        },
+        {
+          "body_a": 18,
+          "body_b": 27,
+          "contact_id": "18:27:42179",
+          "contact_type": "box/box",
+          "feature_id": 42179,
+          "frame": 329,
+          "normal_impulse": 59.542057,
+          "normal_x": -0.033962,
+          "normal_y": 0.909981,
+          "normal_z": 0.413256,
+          "penetration": 0.119696,
+          "point_count": 1,
+          "rolling_residual": 25.112867,
+          "run_id": "run_0001",
+          "slip_speed": 25.112867,
+          "supports_sleep": 1,
+          "tangent_impulse": 2.666667,
+          "warm_started": 1
+        },
+        {
+          "body_a": 20,
+          "body_b": 25,
+          "contact_id": "20:25:43011",
+          "contact_type": "box/box",
+          "feature_id": 43011,
+          "frame": 295,
+          "normal_impulse": 12.977104,
+          "normal_x": 0.116926,
+          "normal_y": 0.977543,
+          "normal_z": -0.17532,
+          "penetration": 0.116931,
+          "point_count": 1,
+          "rolling_residual": 22.362898,
+          "run_id": "run_0001",
+          "slip_speed": 22.362898,
+          "supports_sleep": 1,
+          "tangent_impulse": 2.222222,
+          "warm_started": 1
+        },
+        {
+          "body_a": 18,
+          "body_b": 27,
+          "contact_id": "18:27:42179",
+          "contact_type": "box/box",
+          "feature_id": 42179,
+          "frame": 330,
+          "normal_impulse": 49.198406,
+          "normal_x": -0.050537,
+          "normal_y": 0.903786,
+          "normal_z": 0.42499,
+          "penetration": 0.110292,
+          "point_count": 1,
+          "rolling_residual": 25.520693,
+          "run_id": "run_0001",
+          "slip_speed": 25.520693,
+          "supports_sleep": 1,
+          "tangent_impulse": 3.777778,
+          "warm_started": 1
+        },
+        {
+          "body_a": 18,
+          "body_b": 27,
+          "contact_id": "18:27:42179",
+          "contact_type": "box/box",
+          "feature_id": 42179,
+          "frame": 331,
+          "normal_impulse": 38.789902,
+          "normal_x": -0.06264,
+          "normal_y": 0.898909,
+          "normal_z": 0.433634,
+          "penetration": 0.104985,
+          "point_count": 1,
+          "rolling_residual": 25.571619,
+          "run_id": "run_0001",
+          "slip_speed": 25.571619,
+          "supports_sleep": 1,
+          "tangent_impulse": 3.777778,
+          "warm_started": 1
+        },
+        {
+          "body_a": 20,
+          "body_b": 25,
+          "contact_id": "20:25:43011",
+          "contact_type": "box/box",
+          "feature_id": 43011,
+          "frame": 296,
+          "normal_impulse": 7.287936,
+          "normal_x": 0.099514,
+          "normal_y": 0.982225,
+          "normal_z": -0.159159,
+          "penetration": 0.103073,
+          "point_count": 1,
+          "rolling_residual": 21.141392,
+          "run_id": "run_0001",
+          "slip_speed": 21.141392,
+          "supports_sleep": 1,
+          "tangent_impulse": 2.222223,
+          "warm_started": 1
+        },
+        {
+          "body_a": 18,
+          "body_b": 27,
+          "contact_id": "18:27:42179",
+          "contact_type": "box/box",
+          "feature_id": 42179,
+          "frame": 325,
+          "normal_impulse": 193.166428,
+          "normal_x": 0.01302,
+          "normal_y": 0.919462,
+          "normal_z": 0.392964,
+          "penetration": 0.102925,
+          "point_count": 1,
+          "rolling_residual": 22.244116,
+          "run_id": "run_0001",
+          "slip_speed": 22.244116,
+          "supports_sleep": 1,
+          "tangent_impulse": 2.266667,
+          "warm_started": 1
+        },
+        {
+          "body_a": 20,
+          "body_b": 25,
+          "contact_id": "20:25:43011",
+          "contact_type": "box/box",
+          "feature_id": 43011,
+          "frame": 294,
+          "normal_impulse": 9.019114,
+          "normal_x": 0.132233,
+          "normal_y": 0.972704,
+          "normal_z": -0.190688,
+          "penetration": 0.097899,
+          "point_count": 1,
+          "rolling_residual": 23.671045,
+          "run_id": "run_0001",
+          "slip_speed": 23.671045,
+          "supports_sleep": 1,
+          "tangent_impulse": 1.666667,
+          "warm_started": 0
+        },
+        {
+          "body_a": 18,
+          "body_b": 27,
+          "contact_id": "18:27:42179",
+          "contact_type": "box/box",
+          "feature_id": 42179,
+          "frame": 332,
+          "normal_impulse": 26.323931,
+          "normal_x": -0.077903,
+          "normal_y": 0.892092,
+          "normal_z": 0.445087,
+          "penetration": 0.093249,
+          "point_count": 1,
+          "rolling_residual": 25.334101,
+          "run_id": "run_0001",
+          "slip_speed": 25.334101,
+          "supports_sleep": 1,
+          "tangent_impulse": 3.777778,
+          "warm_started": 1
+        }
+      ],
+      "note": null,
+      "relatedQueries": [
+        "frame <frame>",
+        "body <body> --frames <start>:<end>"
+      ],
+      "run": "run_0001"
+    },
+    "energy": {
+      "largestPositiveDeltas": [
+        {
+          "deltaEnergy": 749.6584230000153,
+          "frame": 251,
+          "maxOmegaBody": 3,
+          "maxSpeedBody": 30,
+          "previousFrame": 250,
+          "totalEnergy": 142703.513398
+        },
+        {
+          "deltaEnergy": 745.0277940000087,
+          "frame": 215,
+          "maxOmegaBody": 3,
+          "maxSpeedBody": 30,
+          "previousFrame": 214,
+          "totalEnergy": 127844.23618
+        },
+        {
+          "deltaEnergy": 744.4259779999848,
+          "frame": 250,
+          "maxOmegaBody": 3,
+          "maxSpeedBody": 30,
+          "previousFrame": 249,
+          "totalEnergy": 141953.854975
+        },
+        {
+          "deltaEnergy": 739.9265480000031,
+          "frame": 214,
+          "maxOmegaBody": 3,
+          "maxSpeedBody": 30,
+          "previousFrame": 213,
+          "totalEnergy": 127099.208386
+        },
+        {
+          "deltaEnergy": 739.1588470000133,
+          "frame": 249,
+          "maxOmegaBody": 3,
+          "maxSpeedBody": 30,
+          "previousFrame": 248,
+          "totalEnergy": 141209.428997
+        },
+        {
+          "deltaEnergy": 734.6379329999909,
+          "frame": 213,
+          "maxOmegaBody": 3,
+          "maxSpeedBody": 30,
+          "previousFrame": 212,
+          "totalEnergy": 126359.281838
+        },
+        {
+          "deltaEnergy": 733.912599000003,
+          "frame": 248,
+          "maxOmegaBody": 3,
+          "maxSpeedBody": 30,
+          "previousFrame": 247,
+          "totalEnergy": 140470.27015
+        },
+        {
+          "deltaEnergy": 728.5616399999999,
+          "frame": 247,
+          "maxOmegaBody": 3,
+          "maxSpeedBody": 30,
+          "previousFrame": 246,
+          "totalEnergy": 139736.357551
+        },
+        {
+          "deltaEnergy": 725.4193629999936,
+          "frame": 210,
+          "maxOmegaBody": 3,
+          "maxSpeedBody": 30,
+          "previousFrame": 209,
+          "totalEnergy": 124264.198429
+        },
+        {
+          "deltaEnergy": 724.6592169999931,
+          "frame": 199,
+          "maxOmegaBody": 3,
+          "maxSpeedBody": 30,
+          "previousFrame": 198,
+          "totalEnergy": 119020.795678
+        },
+        {
+          "deltaEnergy": 722.8814339999808,
+          "frame": 246,
+          "maxOmegaBody": 3,
+          "maxSpeedBody": 30,
+          "previousFrame": 245,
+          "totalEnergy": 139007.795911
+        },
+        {
+          "deltaEnergy": 722.0254699999932,
+          "frame": 223,
+          "maxOmegaBody": 3,
+          "maxSpeedBody": 30,
+          "previousFrame": 222,
+          "totalEnergy": 130339.967083
+        }
+      ],
+      "relatedQueries": [
+        "events --type energy_spike",
+        "frame <frame>",
+        "body <body> --frames <start>:<end>"
+      ],
+      "run": "run_0001",
+      "sampledFrames": [
+        {
+          "angular_energy": 576.292854,
+          "frame": 0,
+          "linear_energy": 37463.761914,
+          "max_omega": 4.506939,
+          "max_omega_body": 0,
+          "max_speed": 27.227095,
+          "max_speed_body": 30,
+          "time_seconds": 0.0,
+          "total_energy": 38040.054768
+        },
+        {
+          "angular_energy": 839.283241,
+          "frame": 109,
+          "linear_energy": 72988.394396,
+          "max_omega": 4.506939,
+          "max_omega_body": 0,
+          "max_speed": 31.060347,
+          "max_speed_body": 30,
+          "time_seconds": 0.908333,
+          "total_energy": 73827.677637
+        },
+        {
+          "angular_energy": 1023.643754,
+          "frame": 218,
+          "linear_energy": 125809.417694,
+          "max_omega": 4.4,
+          "max_omega_body": 3,
+          "max_speed": 36.701272,
+          "max_speed_body": 30,
+          "time_seconds": 1.816667,
+          "total_energy": 126833.061447
+        },
+        {
+          "angular_energy": 4121.253803,
+          "frame": 327,
+          "linear_energy": 110941.883381,
+          "max_omega": 4.2607,
+          "max_omega_body": 3,
+          "max_speed": 43.45139,
+          "max_speed_body": 30,
+          "time_seconds": 2.725,
+          "total_energy": 115063.137183
+        },
+        {
+          "angular_energy": 1990.259493,
+          "frame": 436,
+          "linear_energy": 90116.753673,
+          "max_omega": 4.2607,
+          "max_omega_body": 3,
+          "max_speed": 35.894713,
+          "max_speed_body": 9,
+          "time_seconds": 3.633334,
+          "total_energy": 92107.013166
+        },
+        {
+          "angular_energy": 1290.70173,
+          "frame": 545,
+          "linear_energy": 11373.966921,
+          "max_omega": 3.279714,
+          "max_omega_body": 3,
+          "max_speed": 14.541224,
+          "max_speed_body": 26,
+          "time_seconds": 4.541667,
+          "total_energy": 12664.668651
+        },
+        {
+          "angular_energy": 988.563395,
+          "frame": 654,
+          "linear_energy": 3440.916286,
+          "max_omega": 2.991453,
+          "max_omega_body": 7,
+          "max_speed": 11.774957,
+          "max_speed_body": 26,
+          "time_seconds": 5.45,
+          "total_energy": 4429.47968
+        },
+        {
+          "angular_energy": 690.481067,
+          "frame": 763,
+          "linear_energy": 6479.196508,
+          "max_omega": 2.991453,
+          "max_omega_body": 7,
+          "max_speed": 13.0611,
+          "max_speed_body": 26,
+          "time_seconds": 6.358334,
+          "total_energy": 7169.677576
+        },
+        {
+          "angular_energy": 474.442727,
+          "frame": 872,
+          "linear_energy": 9190.538071,
+          "max_omega": 2.887426,
+          "max_omega_body": 7,
+          "max_speed": 14.763124,
+          "max_speed_body": 9,
+          "time_seconds": 7.266667,
+          "total_energy": 9664.980798
+        },
+        {
+          "angular_energy": 303.50846,
+          "frame": 981,
+          "linear_energy": 1793.180385,
+          "max_omega": 2.887426,
+          "max_omega_body": 7,
+          "max_speed": 7.073058,
+          "max_speed_body": 26,
+          "time_seconds": 8.175,
+          "total_energy": 2096.688845
+        },
+        {
+          "angular_energy": 230.694696,
+          "frame": 1090,
+          "linear_energy": 1242.874417,
+          "max_omega": 1.770463,
+          "max_omega_body": 26,
+          "max_speed": 7.672342,
+          "max_speed_body": 26,
+          "time_seconds": 9.083334,
+          "total_energy": 1473.569113
+        },
+        {
+          "angular_energy": 42.124885,
+          "frame": 1199,
+          "linear_energy": 325.595286,
+          "max_omega": 0.675791,
+          "max_omega_body": 25,
+          "max_speed": 2.984933,
+          "max_speed_body": 25,
+          "time_seconds": 9.991667,
+          "total_energy": 367.720171
+        }
+      ],
+      "topContributorsAtMaxEnergy": [
+        {
+          "angular_energy": 0.0,
+          "body_id": 30,
+          "linear_energy": 20916.341492,
+          "name": "drop_f",
+          "omega_mag": 0.0,
+          "shape": "box",
+          "speed": 38.652612,
+          "total_body_energy": 20916.341492
+        },
+        {
+          "angular_energy": 0.0,
+          "body_id": 29,
+          "linear_energy": 18122.3171,
+          "name": "drop_e",
+          "omega_mag": 0.0,
+          "shape": "box",
+          "speed": 37.336636,
+          "total_body_energy": 18122.3171
+        },
+        {
+          "angular_energy": 0.0,
+          "body_id": 28,
+          "linear_energy": 15849.280076,
+          "name": "drop_d",
+          "omega_mag": 0.0,
+          "shape": "box",
+          "speed": 32.505671,
+          "total_body_energy": 15849.280076
+        },
+        {
+          "angular_energy": 0.0,
+          "body_id": 27,
+          "linear_energy": 13339.424061,
+          "name": "drop_c",
+          "omega_mag": 0.0,
+          "shape": "box",
+          "speed": 33.340946,
+          "total_body_energy": 13339.424061
+        },
+        {
+          "angular_energy": 0.0,
+          "body_id": 26,
+          "linear_energy": 12815.822321,
+          "name": "drop_b",
+          "omega_mag": 0.0,
+          "shape": "box",
+          "speed": 30.25584,
+          "total_body_energy": 12815.822321
+        },
+        {
+          "angular_energy": 0.0,
+          "body_id": 25,
+          "linear_energy": 11039.770745,
+          "name": "drop_a",
+          "omega_mag": 0.0,
+          "shape": "box",
+          "speed": 29.141262,
+          "total_body_energy": 11039.770745
+        },
+        {
+          "angular_energy": 25.0,
+          "body_id": 8,
+          "linear_energy": 7329.984325,
+          "name": "drop_c",
+          "omega_mag": 1.767767,
+          "shape": "sphere",
+          "speed": 20.764767,
+          "total_body_energy": 7354.984325
+        },
+        {
+          "angular_energy": 35.714284,
+          "body_id": 9,
+          "linear_energy": 6909.465068,
+          "name": "drop_d",
+          "omega_mag": 2.25877,
+          "shape": "sphere",
+          "speed": 20.780798,
+          "total_body_energy": 6945.179352
+        },
+        {
+          "angular_energy": 17.041666,
+          "body_id": 6,
+          "linear_energy": 6438.926988,
+          "name": "drop_a",
+          "omega_mag": 1.685312,
+          "shape": "sphere",
+          "speed": 20.718634,
+          "total_body_energy": 6455.968654
+        },
+        {
+          "angular_energy": 96.800004,
+          "body_id": 3,
+          "linear_energy": 5135.248915,
+          "name": "roll_d",
+          "omega_mag": 4.4,
+          "shape": "sphere",
+          "speed": 20.686648,
+          "total_body_energy": 5232.048919
+        },
+        {
+          "angular_energy": 88.199992,
+          "body_id": 2,
+          "linear_energy": 5129.582247,
+          "name": "roll_c",
+          "omega_mag": 4.2,
+          "shape": "sphere",
+          "speed": 20.675231,
+          "total_body_energy": 5217.782239
+        },
+        {
+          "angular_energy": 23.2,
+          "body_id": 13,
+          "linear_energy": 5102.498914,
+          "name": "side_d",
+          "omega_mag": 2.154066,
+          "shape": "sphere",
+          "speed": 20.620578,
+          "total_body_energy": 5125.698914
+        }
+      ]
+    },
+    "events": {
+      "events": [
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "16:18:52864",
+            "followups": [
+              "contacts --frame 181 --top penetration",
+              "frame 181"
+            ],
+            "max_penetration": 0.054311
+          },
+          "event_id": "E1",
+          "frame": 181,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        },
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "16:18:52864",
+            "followups": [
+              "contacts --frame 182 --top penetration",
+              "frame 182"
+            ],
+            "max_penetration": 0.052487
+          },
+          "event_id": "E2",
+          "frame": 182,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        },
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "20:25:53248",
+            "followups": [
+              "contacts --frame 291 --top penetration",
+              "frame 291"
+            ],
+            "max_penetration": 0.075526
+          },
+          "event_id": "E3",
+          "frame": 291,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        },
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "20:25:53248",
+            "followups": [
+              "contacts --frame 292 --top penetration",
+              "frame 292"
+            ],
+            "max_penetration": 0.075328
+          },
+          "event_id": "E4",
+          "frame": 292,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        },
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "20:25:53248",
+            "followups": [
+              "contacts --frame 293 --top penetration",
+              "frame 293"
+            ],
+            "max_penetration": 0.061274
+          },
+          "event_id": "E5",
+          "frame": 293,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        },
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "20:25:43011",
+            "followups": [
+              "contacts --frame 294 --top penetration",
+              "frame 294"
+            ],
+            "max_penetration": 0.097899
+          },
+          "event_id": "E6",
+          "frame": 294,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        },
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "20:25:43011",
+            "followups": [
+              "contacts --frame 295 --top penetration",
+              "frame 295"
+            ],
+            "max_penetration": 0.116931
+          },
+          "event_id": "E7",
+          "frame": 295,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        },
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "20:25:43011",
+            "followups": [
+              "contacts --frame 296 --top penetration",
+              "frame 296"
+            ],
+            "max_penetration": 0.103073
+          },
+          "event_id": "E8",
+          "frame": 296,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        },
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "20:25:43011",
+            "followups": [
+              "contacts --frame 297 --top penetration",
+              "frame 297"
+            ],
+            "max_penetration": 0.082959
+          },
+          "event_id": "E9",
+          "frame": 297,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        },
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "20:25:43011",
+            "followups": [
+              "contacts --frame 298 --top penetration",
+              "frame 298"
+            ],
+            "max_penetration": 0.06445
+          },
+          "event_id": "E10",
+          "frame": 298,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        },
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "27:28:33409",
+            "followups": [
+              "contacts --frame 302 --top penetration",
+              "frame 302"
+            ],
+            "max_penetration": 0.167125
+          },
+          "event_id": "E11",
+          "frame": 302,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        },
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "16:18:36481",
+            "followups": [
+              "contacts --frame 318 --top penetration",
+              "frame 318"
+            ],
+            "max_penetration": 0.058111
+          },
+          "event_id": "E12",
+          "frame": 318,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        },
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "16:18:52864",
+            "followups": [
+              "contacts --frame 319 --top penetration",
+              "frame 319"
+            ],
+            "max_penetration": 0.051724
+          },
+          "event_id": "E13",
+          "frame": 319,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        },
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "18:27:42179",
+            "followups": [
+              "contacts --frame 325 --top penetration",
+              "frame 325"
+            ],
+            "max_penetration": 0.102925
+          },
+          "event_id": "E14",
+          "frame": 325,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        },
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "18:27:42179",
+            "followups": [
+              "contacts --frame 326 --top penetration",
+              "frame 326"
+            ],
+            "max_penetration": 0.140258
+          },
+          "event_id": "E15",
+          "frame": 326,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        },
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "18:27:42179",
+            "followups": [
+              "contacts --frame 327 --top penetration",
+              "frame 327"
+            ],
+            "max_penetration": 0.149362
+          },
+          "event_id": "E16",
+          "frame": 327,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        },
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "18:27:42179",
+            "followups": [
+              "contacts --frame 328 --top penetration",
+              "frame 328"
+            ],
+            "max_penetration": 0.127679
+          },
+          "event_id": "E17",
+          "frame": 328,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        },
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "18:27:42179",
+            "followups": [
+              "contacts --frame 329 --top penetration",
+              "frame 329"
+            ],
+            "max_penetration": 0.119696
+          },
+          "event_id": "E18",
+          "frame": 329,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        },
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "18:27:42179",
+            "followups": [
+              "contacts --frame 330 --top penetration",
+              "frame 330"
+            ],
+            "max_penetration": 0.110292
+          },
+          "event_id": "E19",
+          "frame": 330,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        },
+        {
+          "body_a": -1,
+          "body_b": -1,
+          "data": {
+            "contact": "18:27:42179",
+            "followups": [
+              "contacts --frame 331 --top penetration",
+              "frame 331"
+            ],
+            "max_penetration": 0.104985
+          },
+          "event_id": "E20",
+          "frame": 331,
+          "island_id": -1,
+          "severity": "high",
+          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+          "type": "penetration_spike"
+        }
+      ],
+      "relatedQueries": [
+        "event <id> --window 30",
+        "frame <frame>",
+        "body <body> --frames <start>:<end>"
+      ],
+      "run": "run_0001"
+    },
+    "frame_600": {
+      "contacts": [
+        {
+          "body_a": 14,
+          "body_b": 17,
+          "contact_id": "14:17:43202",
+          "contact_type": "box/box",
+          "feature_id": 43202,
+          "frame": 600,
+          "normal_impulse": 1.910926,
+          "normal_x": -0.009016,
+          "normal_y": 0.997431,
+          "normal_z": -0.071065,
+          "penetration": 0.009276,
+          "point_count": 1,
+          "rolling_residual": 0.000113,
+          "run_id": "run_0001",
+          "slip_speed": 0.000113,
+          "supports_sleep": 1,
+          "tangent_impulse": 5.860905,
+          "warm_started": 1
+        },
+        {
+          "body_a": 19,
+          "body_b": 30,
+          "contact_id": "19:30:41155",
+          "contact_type": "box/box",
+          "feature_id": 41155,
+          "frame": 600,
+          "normal_impulse": 0.934686,
+          "normal_x": 0.818387,
+          "normal_y": -0.388961,
+          "normal_z": -0.423028,
+          "penetration": 0.007363,
+          "point_count": 1,
+          "rolling_residual": 0.000335,
+          "run_id": "run_0001",
+          "slip_speed": 0.000335,
+          "supports_sleep": 1,
+          "tangent_impulse": 1.769831,
+          "warm_started": 1
+        },
+        {
+          "body_a": 16,
+          "body_b": 18,
+          "contact_id": "16:18:43202",
+          "contact_type": "box/box",
+          "feature_id": 43202,
+          "frame": 600,
+          "normal_impulse": 0.982647,
+          "normal_x": -0.013337,
+          "normal_y": 0.999909,
+          "normal_z": 0.002082,
+          "penetration": 0.006897,
+          "point_count": 1,
+          "rolling_residual": 0.000179,
+          "run_id": "run_0001",
+          "slip_speed": 0.000179,
+          "supports_sleep": 1,
+          "tangent_impulse": 0.974257,
+          "warm_started": 1
+        },
+        {
+          "body_a": 15,
+          "body_b": 29,
+          "contact_id": "15:29:51584",
+          "contact_type": "box/box",
+          "feature_id": 51584,
+          "frame": 600,
+          "normal_impulse": 1.615018,
+          "normal_x": -0.108068,
+          "normal_y": 0.877338,
+          "normal_z": -0.467545,
+          "penetration": 0.005764,
+          "point_count": 1,
+          "rolling_residual": 0.0,
+          "run_id": "run_0001",
+          "slip_speed": 0.0,
+          "supports_sleep": 1,
+          "tangent_impulse": 0.383758,
+          "warm_started": 1
+        },
+        {
+          "body_a": 16,
+          "body_b": 18,
+          "contact_id": "16:18:43200",
+          "contact_type": "box/box",
+          "feature_id": 43200,
+          "frame": 600,
+          "normal_impulse": 1.394641,
+          "normal_x": -0.013337,
+          "normal_y": 0.999909,
+          "normal_z": 0.002082,
+          "penetration": 0.0,
+          "point_count": 1,
+          "rolling_residual": 8.3e-05,
+          "run_id": "run_0001",
+          "slip_speed": 8.3e-05,
+          "supports_sleep": 1,
+          "tangent_impulse": 2.121591,
+          "warm_started": 1
+        },
+        {
+          "body_a": 16,
+          "body_b": 18,
+          "contact_id": "16:18:43203",
+          "contact_type": "box/box",
+          "feature_id": 43203,
+          "frame": 600,
+          "normal_impulse": 0.0,
+          "normal_x": -0.013337,
+          "normal_y": 0.999909,
+          "normal_z": 0.002082,
+          "penetration": 0.0,
+          "point_count": 1,
+          "rolling_residual": 5.9e-05,
+          "run_id": "run_0001",
+          "slip_speed": 5.9e-05,
+          "supports_sleep": 1,
+          "tangent_impulse": 1.556288,
+          "warm_started": 1
+        },
+        {
+          "body_a": 29,
+          "body_b": 30,
+          "contact_id": "29:30:49344",
+          "contact_type": "box/box",
+          "feature_id": 49344,
+          "frame": 600,
+          "normal_impulse": 0.0,
+          "normal_x": -0.532739,
+          "normal_y": -0.237485,
+          "normal_z": -0.812274,
+          "penetration": 0.0,
+          "point_count": 1,
+          "rolling_residual": 0.001739,
+          "run_id": "run_0001",
+          "slip_speed": 0.001739,
+          "supports_sleep": 0,
+          "tangent_impulse": 0.392589,
+          "warm_started": 1
+        },
+        {
+          "body_a": 19,
+          "body_b": 30,
+          "contact_id": "19:30:41154",
+          "contact_type": "box/box",
+          "feature_id": 41154,
+          "frame": 600,
+          "normal_impulse": 0.0,
+          "normal_x": 0.818387,
+          "normal_y": -0.388961,
+          "normal_z": -0.423028,
+          "penetration": 0.0,
+          "point_count": 1,
+          "rolling_residual": 0.000854,
+          "run_id": "run_0001",
+          "slip_speed": 0.000854,
+          "supports_sleep": 1,
+          "tangent_impulse": 1.725752,
+          "warm_started": 1
+        }
+      ],
+      "events": [],
+      "frame": {
+        "angular_energy": 1298.29459,
+        "awake_count": 25,
+        "body_count": 37,
+        "contact_count": 12,
+        "dt": 0.008333,
+        "frame": 600,
+        "inhibited_count": 5,
+        "island_count": 30,
+        "linear_energy": 7337.574151,
+        "max_omega": 2.991453,
+        "max_omega_body": 7,
+        "max_penetration": 0.009276,
+        "max_penetration_contact": "14:17:43202",
+        "max_speed": 14.678542,
+        "max_speed_body": 26,
+        "run_id": "run_0001",
+        "sleeping_count": 12,
+        "supported_count": 12,
+        "time_seconds": 5.0,
+        "total_energy": 8635.86874
+      },
+      "relatedQueries": [
+        "body <body> --frames 570:630",
+        "events --frames 570:630"
+      ],
+      "run": "run_0001",
+      "topBodiesByEnergy": [
+        {
+          "angular_energy": 609.079058,
+          "body_id": 26,
+          "island_id": 27,
+          "linear_energy": 3016.434229,
+          "name": "drop_b",
+          "omega_mag": 2.985548,
+          "pos_x": 451.702972,
+          "pos_y": 35.917637,
+          "pos_z": 525.211975,
+          "shape": "box",
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 14.678542
+        },
+        {
+          "angular_energy": 376.749898,
+          "body_id": 27,
+          "island_id": 28,
+          "linear_energy": 863.433356,
+          "name": "drop_c",
+          "omega_mag": 2.157558,
+          "pos_x": 511.370026,
+          "pos_y": 36.076572,
+          "pos_z": 522.980103,
+          "shape": "box",
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 8.482498
+        },
+        {
+          "angular_energy": 0.252106,
+          "body_id": 9,
+          "island_id": 10,
+          "linear_energy": 958.084124,
+          "name": "drop_d",
+          "omega_mag": 0.189776,
+          "pos_x": 560.211548,
+          "pos_y": 48.551994,
+          "pos_z": 532.494751,
+          "shape": "sphere",
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 7.738234
+        },
+        {
+          "angular_energy": 101.067967,
+          "body_id": 25,
+          "island_id": 26,
+          "linear_energy": 641.565652,
+          "name": "drop_a",
+          "omega_mag": 1.219615,
+          "pos_x": 532.153564,
+          "pos_y": 36.358555,
+          "pos_z": 504.777649,
+          "shape": "box",
+          "sleep_inhibited": 1,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 7.025041
+        },
+        {
+          "angular_energy": 0.006047,
+          "body_id": 8,
+          "island_id": 9,
+          "linear_energy": 711.61107,
+          "name": "drop_c",
+          "omega_mag": 0.027492,
+          "pos_x": 448.602844,
+          "pos_y": 48.246971,
+          "pos_z": 501.03595,
+          "shape": "sphere",
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 6.46989
+        },
+        {
+          "angular_energy": 100.196608,
+          "body_id": 28,
+          "island_id": 29,
+          "linear_energy": 283.67437,
+          "name": "drop_d",
+          "omega_mag": 0.974161,
+          "pos_x": 503.618073,
+          "pos_y": 36.558079,
+          "pos_z": 519.446045,
+          "shape": "box",
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 4.34875
+        },
+        {
+          "angular_energy": 35.795157,
+          "body_id": 7,
+          "island_id": 8,
+          "linear_energy": 306.354706,
+          "name": "drop_b",
+          "omega_mag": 2.991453,
+          "pos_x": 531.548828,
+          "pos_y": 49.930084,
+          "pos_z": 450.949371,
+          "shape": "sphere",
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 5.27735
+        },
+        {
+          "angular_energy": 14.641293,
+          "body_id": 6,
+          "island_id": 7,
+          "linear_energy": 202.826117,
+          "name": "drop_a",
+          "omega_mag": 1.562119,
+          "pos_x": 476.872864,
+          "pos_y": 49.471561,
+          "pos_z": 552.227295,
+          "shape": "sphere",
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 3.677192
+        }
+      ],
+      "topBodiesBySpeed": [
+        {
+          "angular_energy": 609.079058,
+          "body_id": 26,
+          "island_id": 27,
+          "linear_energy": 3016.434229,
+          "name": "drop_b",
+          "omega_mag": 2.985548,
+          "pos_x": 451.702972,
+          "pos_y": 35.917637,
+          "pos_z": 525.211975,
+          "shape": "box",
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 14.678542
+        },
+        {
+          "angular_energy": 376.749898,
+          "body_id": 27,
+          "island_id": 28,
+          "linear_energy": 863.433356,
+          "name": "drop_c",
+          "omega_mag": 2.157558,
+          "pos_x": 511.370026,
+          "pos_y": 36.076572,
+          "pos_z": 522.980103,
+          "shape": "box",
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 8.482498
+        },
+        {
+          "angular_energy": 0.252106,
+          "body_id": 9,
+          "island_id": 10,
+          "linear_energy": 958.084124,
+          "name": "drop_d",
+          "omega_mag": 0.189776,
+          "pos_x": 560.211548,
+          "pos_y": 48.551994,
+          "pos_z": 532.494751,
+          "shape": "sphere",
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 7.738234
+        },
+        {
+          "angular_energy": 101.067967,
+          "body_id": 25,
+          "island_id": 26,
+          "linear_energy": 641.565652,
+          "name": "drop_a",
+          "omega_mag": 1.219615,
+          "pos_x": 532.153564,
+          "pos_y": 36.358555,
+          "pos_z": 504.777649,
+          "shape": "box",
+          "sleep_inhibited": 1,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 7.025041
+        },
+        {
+          "angular_energy": 0.006047,
+          "body_id": 8,
+          "island_id": 9,
+          "linear_energy": 711.61107,
+          "name": "drop_c",
+          "omega_mag": 0.027492,
+          "pos_x": 448.602844,
+          "pos_y": 48.246971,
+          "pos_z": 501.03595,
+          "shape": "sphere",
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 6.46989
+        },
+        {
+          "angular_energy": 35.795157,
+          "body_id": 7,
+          "island_id": 8,
+          "linear_energy": 306.354706,
+          "name": "drop_b",
+          "omega_mag": 2.991453,
+          "pos_x": 531.548828,
+          "pos_y": 49.930084,
+          "pos_z": 450.949371,
+          "shape": "sphere",
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 5.27735
+        },
+        {
+          "angular_energy": 100.196608,
+          "body_id": 28,
+          "island_id": 29,
+          "linear_energy": 283.67437,
+          "name": "drop_d",
+          "omega_mag": 0.974161,
+          "pos_x": 503.618073,
+          "pos_y": 36.558079,
+          "pos_z": 519.446045,
+          "shape": "box",
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 4.34875
+        },
+        {
+          "angular_energy": 14.641293,
+          "body_id": 6,
+          "island_id": 7,
+          "linear_energy": 202.826117,
+          "name": "drop_a",
+          "omega_mag": 1.562119,
+          "pos_x": 476.872864,
+          "pos_y": 49.471561,
+          "pos_z": 552.227295,
+          "shape": "sphere",
+          "sleep_inhibited": 0,
+          "sleep_supported": 0,
+          "sleeping": 0,
+          "speed": 3.677192
+        }
+      ]
+    },
+    "island_1_final": {
+      "frame": 1199,
+      "islands": [
+        {
+          "awake_count": 1,
+          "body_count": 1,
+          "can_sleep": 0,
+          "eligible": 0,
+          "frame": 1199,
+          "inhibited_count": 0,
+          "island_id": 1,
+          "max_omega": 0.478237,
+          "max_speed": 2.246248,
+          "run_id": "run_0001",
+          "sleeping_count": 0,
+          "supported_count": 1,
+          "total_energy": 51.371136
+        }
+      ],
+      "members": [
+        {
+          "body_id": 0,
+          "island_id": 1,
+          "name": "roll_a",
+          "omega_mag": 0.478237,
+          "shape": "sphere",
+          "sleep_inhibited": 0,
+          "sleep_supported": 1,
+          "sleeping": 0,
+          "speed": 2.246248
+        }
+      ],
+      "note": null,
+      "relatedQueries": [
+        "body <body> --frames 1169:1229",
+        "events --frames 1169:1229"
+      ],
+      "run": "run_0001"
+    },
+    "question_stack_health": {
+      "commands": [
+        "stacks --frames 0:1000 --limit 50",
+        "events --type stack_drift,island_churn,unsupported_sleep --limit 50"
+      ],
+      "description": "Check support chains, unsupported sleepers, and moving supported bodies.",
+      "followups": [
+        "island <id> --frame <frame>",
+        "contacts --frame <frame> --body <body>",
+        "body <body> --frames <start>:<end>"
+      ],
+      "question": "stack_health"
+    },
+    "rolling": {
+      "highestSpinBodies": [
+        {
+          "body_id": 26,
+          "first_frame": 0,
+          "last_frame": 1199,
+          "max_omega": 7.210906,
+          "max_speed": 35.740019,
+          "name": "drop_b",
+          "shape": "box"
+        },
+        {
+          "body_id": 27,
+          "first_frame": 0,
+          "last_frame": 1199,
+          "max_omega": 6.555942,
+          "max_speed": 33.799282,
+          "name": "drop_c",
+          "shape": "box"
+        },
+        {
+          "body_id": 19,
+          "first_frame": 0,
+          "last_frame": 1199,
+          "max_omega": 5.77812,
+          "max_speed": 10.709242,
+          "name": "top_a",
+          "shape": "box"
+        },
+        {
+          "body_id": 30,
+          "first_frame": 0,
+          "last_frame": 1199,
+          "max_omega": 5.165315,
+          "max_speed": 43.779568,
+          "name": "drop_f",
+          "shape": "box"
+        },
+        {
+          "body_id": 20,
+          "first_frame": 0,
+          "last_frame": 1199,
+          "max_omega": 5.03366,
+          "max_speed": 23.270821,
+          "name": "top_b",
+          "shape": "box"
+        },
+        {
+          "body_id": 0,
+          "first_frame": 0,
+          "last_frame": 1199,
+          "max_omega": 4.506939,
+          "max_speed": 12.313425,
+          "name": "roll_a",
+          "shape": "sphere"
+        },
+        {
+          "body_id": 28,
+          "first_frame": 0,
+          "last_frame": 1199,
+          "max_omega": 4.465676,
+          "max_speed": 32.975619,
+          "name": "drop_d",
+          "shape": "box"
+        },
+        {
+          "body_id": 3,
+          "first_frame": 0,
+          "last_frame": 1199,
+          "max_omega": 4.4,
+          "max_speed": 24.189497,
+          "name": "roll_d",
+          "shape": "sphere"
+        },
+        {
+          "body_id": 2,
+          "first_frame": 0,
+          "last_frame": 1199,
+          "max_omega": 4.2,
+          "max_speed": 22.223313,
+          "name": "roll_c",
+          "shape": "sphere"
+        },
+        {
+          "body_id": 29,
+          "first_frame": 0,
+          "last_frame": 1199,
+          "max_omega": 3.753075,
+          "max_speed": 41.681366,
+          "name": "drop_e",
+          "shape": "box"
+        },
+        {
+          "body_id": 1,
+          "first_frame": 0,
+          "last_frame": 1199,
+          "max_omega": 3.184162,
+          "max_speed": 11.120291,
+          "name": "roll_b",
+          "shape": "sphere"
+        },
+        {
+          "body_id": 25,
+          "first_frame": 0,
+          "last_frame": 1199,
+          "max_omega": 3.034554,
+          "max_speed": 30.745112,
+          "name": "drop_a",
+          "shape": "box"
+        }
+      ],
+      "note": null,
+      "relatedQueries": [
+        "events --type rolling_slip,friction_saturation",
+        "contacts --top slip",
+        "body <body> --frames <start>:<end>"
+      ],
+      "rollingContacts": [
+        {
+          "body_a": 19,
+          "body_b": 30,
+          "contact_id": "19:30:51712",
+          "contact_type": "box/box",
+          "feature_id": 51712,
+          "frame": 334,
+          "normal_impulse": 13.773151,
+          "normal_x": 0.871686,
+          "normal_y": 0.076725,
+          "normal_z": 0.484022,
+          "penetration": 0.077205,
+          "point_count": 1,
+          "rolling_residual": 49.984993,
+          "run_id": "run_0001",
+          "slip_speed": 49.984993,
+          "supports_sleep": 0,
+          "tangent_impulse": 2.0,
+          "warm_started": 1
+        },
+        {
+          "body_a": 19,
+          "body_b": 30,
+          "contact_id": "19:30:51712",
+          "contact_type": "box/box",
+          "feature_id": 51712,
+          "frame": 335,
+          "normal_impulse": 0.0,
+          "normal_x": 0.873941,
+          "normal_y": 0.076977,
+          "normal_z": 0.479897,
+          "penetration": 0.0,
+          "point_count": 1,
+          "rolling_residual": 49.735851,
+          "run_id": "run_0001",
+          "slip_speed": 49.735851,
+          "supports_sleep": 0,
+          "tangent_impulse": 2.666667,
+          "warm_started": 1
+        },
+        {
+          "body_a": 19,
+          "body_b": 30,
+          "contact_id": "19:30:51712",
+          "contact_type": "box/box",
+          "feature_id": 51712,
+          "frame": 337,
+          "normal_impulse": 6.11821,
+          "normal_x": 0.88716,
+          "normal_y": 0.085833,
+          "normal_z": 0.45341,
+          "penetration": 0.0,
+          "point_count": 1,
+          "rolling_residual": 49.543247,
+          "run_id": "run_0001",
+          "slip_speed": 49.543247,
+          "supports_sleep": 0,
+          "tangent_impulse": 2.666667,
+          "warm_started": 1
+        },
+        {
+          "body_a": 19,
+          "body_b": 30,
+          "contact_id": "19:30:51712",
+          "contact_type": "box/box",
+          "feature_id": 51712,
+          "frame": 336,
+          "normal_impulse": 1.405008,
+          "normal_x": 0.880647,
+          "normal_y": 0.081499,
+          "normal_z": 0.46671,
+          "penetration": 0.0,
+          "point_count": 1,
+          "rolling_residual": 49.407333,
+          "run_id": "run_0001",
+          "slip_speed": 49.407333,
+          "supports_sleep": 0,
+          "tangent_impulse": 2.666667,
+          "warm_started": 1
+        },
+        {
+          "body_a": 19,
+          "body_b": 30,
+          "contact_id": "19:30:41154",
+          "contact_type": "box/box",
+          "feature_id": 41154,
+          "frame": 342,
+          "normal_impulse": 13.150292,
+          "normal_x": 0.913267,
+          "normal_y": 0.200427,
+          "normal_z": 0.354645,
+          "penetration": 0.019162,
+          "point_count": 1,
+          "rolling_residual": 48.642014,
+          "run_id": "run_0001",
+          "slip_speed": 48.642014,
+          "supports_sleep": 0,
+          "tangent_impulse": 4.000001,
+          "warm_started": 1
+        },
+        {
+          "body_a": 19,
+          "body_b": 30,
+          "contact_id": "19:30:41154",
+          "contact_type": "box/box",
+          "feature_id": 41154,
+          "frame": 338,
+          "normal_impulse": 23.979172,
+          "normal_x": 0.891498,
+          "normal_y": 0.100568,
+          "normal_z": 0.441722,
+          "penetration": 0.004487,
+          "point_count": 1,
+          "rolling_residual": 48.280666,
+          "run_id": "run_0001",
+          "slip_speed": 48.280666,
+          "supports_sleep": 0,
+          "tangent_impulse": 2.0,
+          "warm_started": 0
+        },
+        {
+          "body_a": 19,
+          "body_b": 30,
+          "contact_id": "19:30:41154",
+          "contact_type": "box/box",
+          "feature_id": 41154,
+          "frame": 339,
+          "normal_impulse": 14.871775,
+          "normal_x": 0.897456,
+          "normal_y": 0.126779,
+          "normal_z": 0.422493,
+          "penetration": 9.7e-05,
+          "point_count": 1,
+          "rolling_residual": 48.143276,
+          "run_id": "run_0001",
+          "slip_speed": 48.143276,
+          "supports_sleep": 0,
+          "tangent_impulse": 4.0,
+          "warm_started": 1
+        },
+        {
+          "body_a": 19,
+          "body_b": 30,
+          "contact_id": "19:30:41154",
+          "contact_type": "box/box",
+          "feature_id": 41154,
+          "frame": 343,
+          "normal_impulse": 20.154366,
+          "normal_x": 0.917888,
+          "normal_y": 0.2219,
+          "normal_z": 0.329001,
+          "penetration": 0.03225,
+          "point_count": 1,
+          "rolling_residual": 48.075455,
+          "run_id": "run_0001",
+          "slip_speed": 48.075455,
+          "supports_sleep": 0,
+          "tangent_impulse": 2.666667,
+          "warm_started": 1
+        },
+        {
+          "body_a": 19,
+          "body_b": 30,
+          "contact_id": "19:30:41154",
+          "contact_type": "box/box",
+          "feature_id": 41154,
+          "frame": 340,
+          "normal_impulse": 14.991892,
+          "normal_x": 0.903068,
+          "normal_y": 0.152449,
+          "normal_z": 0.401532,
+          "penetration": 2.5e-05,
+          "point_count": 1,
+          "rolling_residual": 47.906986,
+          "run_id": "run_0001",
+          "slip_speed": 47.906986,
+          "supports_sleep": 0,
+          "tangent_impulse": 4.000001,
+          "warm_started": 1
+        },
+        {
+          "body_a": 19,
+          "body_b": 30,
+          "contact_id": "19:30:51712",
+          "contact_type": "box/box",
+          "feature_id": 51712,
+          "frame": 333,
+          "normal_impulse": 88.65023,
+          "normal_x": 0.860544,
+          "normal_y": 0.071491,
+          "normal_z": 0.504335,
+          "penetration": 0.009386,
+          "point_count": 1,
+          "rolling_residual": 47.875916,
+          "run_id": "run_0001",
+          "slip_speed": 47.875916,
+          "supports_sleep": 0,
+          "tangent_impulse": 2.666667,
+          "warm_started": 0
+        },
+        {
+          "body_a": 19,
+          "body_b": 30,
+          "contact_id": "19:30:41154",
+          "contact_type": "box/box",
+          "feature_id": 41154,
+          "frame": 341,
+          "normal_impulse": 14.717854,
+          "normal_x": 0.908326,
+          "normal_y": 0.177175,
+          "normal_z": 0.378884,
+          "penetration": 7e-06,
+          "point_count": 1,
+          "rolling_residual": 47.600765,
+          "run_id": "run_0001",
+          "slip_speed": 47.600765,
+          "supports_sleep": 0,
+          "tangent_impulse": 4.000001,
+          "warm_started": 1
+        },
+        {
+          "body_a": 28,
+          "body_b": 29,
+          "contact_id": "28:29:51840",
+          "contact_type": "box/box",
+          "feature_id": 51840,
+          "frame": 331,
+          "normal_impulse": 24.635216,
+          "normal_x": -0.079822,
+          "normal_y": 0.995844,
+          "normal_z": 0.043857,
+          "penetration": 0.0,
+          "point_count": 1,
+          "rolling_residual": 47.279778,
+          "run_id": "run_0001",
+          "slip_speed": 47.279778,
+          "supports_sleep": 1,
+          "tangent_impulse": 5.0,
+          "warm_started": 1
+        }
+      ],
+      "run": "run_0001"
+    },
+    "stacks": {
+      "note": null,
+      "relatedQueries": [
+        "events --type unsupported_sleep,stack_drift",
+        "island <id> --frame <frame>",
+        "body <body> --frames <start>:<end>"
+      ],
+      "run": "run_0001",
+      "supportEdges": [
+        {
+          "frame": 97,
+          "run_id": "run_0001",
+          "source": "object_contact",
+          "supported": 17,
+          "supporter": 14
+        },
+        {
+          "frame": 98,
+          "run_id": "run_0001",
+          "source": "object_contact",
+          "supported": 17,
+          "supporter": 14
+        },
+        {
+          "frame": 99,
+          "run_id": "run_0001",
+          "source": "object_contact",
+          "supported": 17,
+          "supporter": 14
+        },
+        {
+          "frame": 99,
+          "run_id": "run_0001",
+          "source": "object_contact",
+          "supported": 17,
+          "supporter": 15
+        },
+        {
+          "frame": 100,
+          "run_id": "run_0001",
+          "source": "object_contact",
+          "supported": 17,
+          "supporter": 14
+        },
+        {
+          "frame": 100,
+          "run_id": "run_0001",
+          "source": "object_contact",
+          "supported": 17,
+          "supporter": 15
+        },
+        {
+          "frame": 101,
+          "run_id": "run_0001",
+          "source": "object_contact",
+          "supported": 17,
+          "supporter": 14
+        },
+        {
+          "frame": 101,
+          "run_id": "run_0001",
+          "source": "object_contact",
+          "supported": 17,
+          "supporter": 15
+        },
+        {
+          "frame": 102,
+          "run_id": "run_0001",
+          "source": "object_contact",
+          "supported": 17,
+          "supporter": 14
+        },
+        {
+          "frame": 102,
+          "run_id": "run_0001",
+          "source": "object_contact",
+          "supported": 17,
+          "supporter": 15
+        },
+        {
+          "frame": 102,
+          "run_id": "run_0001",
+          "source": "object_contact",
+          "supported": 18,
+          "supporter": 16
+        },
+        {
+          "frame": 103,
+          "run_id": "run_0001",
+          "source": "object_contact",
+          "supported": 17,
+          "supporter": 14
+        }
+      ],
+      "supportedMovingBodies": [
+        {
+          "body_id": 30,
+          "first_frame": 338,
+          "last_frame": 446,
+          "max_omega": 5.165315,
+          "max_speed": 37.1052,
+          "name": "drop_f"
+        },
+        {
+          "body_id": 29,
+          "first_frame": 319,
+          "last_frame": 1041,
+          "max_omega": 3.753075,
+          "max_speed": 33.603853,
+          "name": "drop_e"
+        },
+        {
+          "body_id": 28,
+          "first_frame": 289,
+          "last_frame": 1015,
+          "max_omega": 4.465676,
+          "max_speed": 28.815878,
+          "name": "drop_d"
+        },
+        {
+          "body_id": 27,
+          "first_frame": 289,
+          "last_frame": 1003,
+          "max_omega": 6.555942,
+          "max_speed": 23.138883,
+          "name": "drop_c"
+        },
+        {
+          "body_id": 25,
+          "first_frame": 287,
+          "last_frame": 322,
+          "max_omega": 3.034554,
+          "max_speed": 20.913965,
+          "name": "drop_a"
+        },
+        {
+          "body_id": 20,
+          "first_frame": 179,
+          "last_frame": 660,
+          "max_omega": 5.03366,
+          "max_speed": 20.743783,
+          "name": "top_b"
+        },
+        {
+          "body_id": 7,
+          "first_frame": 455,
+          "last_frame": 1199,
+          "max_omega": 2.991453,
+          "max_speed": 16.888817,
+          "name": "drop_b"
+        },
+        {
+          "body_id": 6,
+          "first_frame": 444,
+          "last_frame": 1193,
+          "max_omega": 1.562119,
+          "max_speed": 16.423573,
+          "name": "drop_a"
+        },
+        {
+          "body_id": 9,
+          "first_frame": 494,
+          "last_frame": 1199,
+          "max_omega": 0.352104,
+          "max_speed": 16.311228,
+          "name": "drop_d"
+        },
+        {
+          "body_id": 8,
+          "first_frame": 484,
+          "last_frame": 1199,
+          "max_omega": 2.235211,
+          "max_speed": 15.933761,
+          "name": "drop_c"
+        },
+        {
+          "body_id": 19,
+          "first_frame": 131,
+          "last_frame": 764,
+          "max_omega": 5.77812,
+          "max_speed": 10.292522,
+          "name": "top_a"
+        },
+        {
+          "body_id": 17,
+          "first_frame": 97,
+          "last_frame": 1199,
+          "max_omega": 2.895974,
+          "max_speed": 10.178216,
+          "name": "mid_a"
+        }
+      ],
+      "unsupportedSleepers": [
+        {
+          "body_id": 14,
+          "frame": 82,
+          "island_id": 15,
+          "name": "base_a",
+          "shape": "box",
+          "sleep_counter": 30
+        },
+        {
+          "body_id": 14,
+          "frame": 83,
+          "island_id": 15,
+          "name": "base_a",
+          "shape": "box",
+          "sleep_counter": 30
+        },
+        {
+          "body_id": 14,
+          "frame": 84,
+          "island_id": 15,
+          "name": "base_a",
+          "shape": "box",
+          "sleep_counter": 30
+        },
+        {
+          "body_id": 14,
+          "frame": 85,
+          "island_id": 15,
+          "name": "base_a",
+          "shape": "box",
+          "sleep_counter": 30
+        },
+        {
+          "body_id": 16,
+          "frame": 85,
+          "island_id": 17,
+          "name": "base_c",
+          "shape": "box",
+          "sleep_counter": 30
+        },
+        {
+          "body_id": 14,
+          "frame": 86,
+          "island_id": 15,
+          "name": "base_a",
+          "shape": "box",
+          "sleep_counter": 30
+        },
+        {
+          "body_id": 16,
+          "frame": 86,
+          "island_id": 17,
+          "name": "base_c",
+          "shape": "box",
+          "sleep_counter": 30
+        },
+        {
+          "body_id": 14,
+          "frame": 87,
+          "island_id": 15,
+          "name": "base_a",
+          "shape": "box",
+          "sleep_counter": 30
+        },
+        {
+          "body_id": 16,
+          "frame": 87,
+          "island_id": 17,
+          "name": "base_c",
+          "shape": "box",
+          "sleep_counter": 30
+        },
+        {
+          "body_id": 14,
+          "frame": 88,
+          "island_id": 15,
+          "name": "base_a",
+          "shape": "box",
+          "sleep_counter": 30
+        },
+        {
+          "body_id": 16,
+          "frame": 88,
+          "island_id": 17,
+          "name": "base_c",
+          "shape": "box",
+          "sleep_counter": 30
+        },
+        {
+          "body_id": 14,
+          "frame": 89,
+          "island_id": 15,
+          "name": "base_a",
+          "shape": "box",
+          "sleep_counter": 30
+        }
+      ]
+    },
+    "summary": {
+      "runs": [
+        {
+          "eventCounts": [
+            {
+              "count": 25,
+              "severity": "high",
+              "type": "penetration_spike"
+            }
+          ],
+          "finalFrame": {
+            "angular_energy": 42.124885,
+            "awake_count": 14,
+            "body_count": 37,
+            "contact_count": 12,
+            "dt": 0.008333,
+            "frame": 1199,
+            "inhibited_count": 3,
+            "island_count": 32,
+            "linear_energy": 325.595286,
+            "max_omega": 0.675791,
+            "max_omega_body": 25,
+            "max_penetration": 0.012924,
+            "max_penetration_contact": "29:30:37697",
+            "max_speed": 2.984933,
+            "max_speed_body": 25,
+            "run_id": "run_0001",
+            "sleeping_count": 23,
+            "supported_count": 9,
+            "time_seconds": 9.991667,
+            "total_energy": 367.720171
+          },
+          "frames": {
+            "avg_energy": 41150.88277937584,
+            "first_frame": 0,
+            "frame_count": 1200,
+            "last_frame": 1199,
+            "max_energy": 142703.513398,
+            "min_energy": 360.665012
+          },
+          "maxOmega": {
+            "frame": 329,
+            "max_omega": 7.210906,
+            "max_omega_body": 26
+          },
+          "maxPenetration": {
+            "frame": 302,
+            "max_penetration": 0.167125,
+            "max_penetration_contact": "27:28:33409"
+          },
+          "maxSpeed": {
+            "frame": 332,
+            "max_speed": 43.779568,
+            "max_speed_body": 30
+          },
+          "relatedQueries": [
+            "events --limit 20",
+            "energy --frames 0:1000",
+            "frame <frame>",
+            "body <body> --frames <start>:<end>"
+          ],
+          "run": {
+            "config_json": "{\"broadphase_cell\":24.0,\"contact_epsilon\":0.05,\"contact_restitution_threshold\":2.0,\"friction_coeff\":0.8,\"gravity\":-50.0,\"rolling_friction_coeff\":0.02,\"spin_friction_coeff\":0.3}",
+            "end_frame": 1200,
+            "end_status": "scene_reload",
+            "fixed_step": 1,
+            "fixed_step_forced_by_diag": 1,
+            "frame_count": null,
+            "load_count": 1,
+            "manual_reset_count": 0,
+            "model_count": 37,
+            "renderer": "OpenGL 3.3",
+            "run_id": "run_0001",
+            "scene": "C:\\SkullbonezCore_diag_worktree\\SkullbonezData\\scenes\\physics_bench_varied.scene",
+            "scene_index": 0,
+            "seed": 20260602,
+            "solver": "solver",
+            "suite": null,
+            "target_frames": 1200
+          },
+          "topBodies": [
+            {
+              "body_id": 30,
+              "max_energy": 26833.107869,
+              "max_omega": 5.165315,
+              "max_speed": 43.779568,
+              "name": "drop_f",
+              "shape": "box"
+            },
+            {
+              "body_id": 29,
+              "max_energy": 22585.371683,
+              "max_omega": 3.753075,
+              "max_speed": 41.681366,
+              "name": "drop_e",
+              "shape": "box"
+            },
+            {
+              "body_id": 9,
+              "max_energy": 26348.240367000002,
+              "max_omega": 2.25877,
+              "max_speed": 40.552841,
+              "name": "drop_d",
+              "shape": "sphere"
+            },
+            {
+              "body_id": 8,
+              "max_energy": 26849.355864,
+              "max_omega": 2.238316,
+              "max_speed": 39.722831,
+              "name": "drop_c",
+              "shape": "sphere"
+            },
+            {
+              "body_id": 7,
+              "max_energy": 15346.343201,
+              "max_omega": 3.010399,
+              "max_speed": 37.307193,
+              "name": "drop_b",
+              "shape": "sphere"
+            },
+            {
+              "body_id": 6,
+              "max_energy": 19899.210899,
+              "max_omega": 1.685312,
+              "max_speed": 36.407114,
+              "name": "drop_a",
+              "shape": "sphere"
+            },
+            {
+              "body_id": 26,
+              "max_energy": 17882.885578,
+              "max_omega": 7.210906,
+              "max_speed": 35.740019,
+              "name": "drop_b",
+              "shape": "box"
+            },
+            {
+              "body_id": 27,
+              "max_energy": 15419.220738,
+              "max_omega": 6.555942,
+              "max_speed": 33.799282,
+              "name": "drop_c",
+              "shape": "box"
+            }
+          ],
+          "topEvents": [
+            {
+              "body_a": -1,
+              "body_b": -1,
+              "event_id": "E1",
+              "frame": 181,
+              "island_id": -1,
+              "severity": "high",
+              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+              "type": "penetration_spike"
+            },
+            {
+              "body_a": -1,
+              "body_b": -1,
+              "event_id": "E2",
+              "frame": 182,
+              "island_id": -1,
+              "severity": "high",
+              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+              "type": "penetration_spike"
+            },
+            {
+              "body_a": -1,
+              "body_b": -1,
+              "event_id": "E3",
+              "frame": 291,
+              "island_id": -1,
+              "severity": "high",
+              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+              "type": "penetration_spike"
+            },
+            {
+              "body_a": -1,
+              "body_b": -1,
+              "event_id": "E4",
+              "frame": 292,
+              "island_id": -1,
+              "severity": "high",
+              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+              "type": "penetration_spike"
+            },
+            {
+              "body_a": -1,
+              "body_b": -1,
+              "event_id": "E5",
+              "frame": 293,
+              "island_id": -1,
+              "severity": "high",
+              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+              "type": "penetration_spike"
+            },
+            {
+              "body_a": -1,
+              "body_b": -1,
+              "event_id": "E6",
+              "frame": 294,
+              "island_id": -1,
+              "severity": "high",
+              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+              "type": "penetration_spike"
+            },
+            {
+              "body_a": -1,
+              "body_b": -1,
+              "event_id": "E7",
+              "frame": 295,
+              "island_id": -1,
+              "severity": "high",
+              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+              "type": "penetration_spike"
+            },
+            {
+              "body_a": -1,
+              "body_b": -1,
+              "event_id": "E8",
+              "frame": 296,
+              "island_id": -1,
+              "severity": "high",
+              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+              "type": "penetration_spike"
+            }
+          ]
+        },
+        {
+          "eventCounts": [
+            {
+              "count": 25,
+              "severity": "high",
+              "type": "penetration_spike"
+            }
+          ],
+          "finalFrame": {
+            "angular_energy": 42.124885,
+            "awake_count": 14,
+            "body_count": 37,
+            "contact_count": 12,
+            "dt": 0.008333,
+            "frame": 1199,
+            "inhibited_count": 3,
+            "island_count": 32,
+            "linear_energy": 325.595286,
+            "max_omega": 0.675791,
+            "max_omega_body": 25,
+            "max_penetration": 0.012924,
+            "max_penetration_contact": "29:30:37697",
+            "max_speed": 2.984933,
+            "max_speed_body": 25,
+            "run_id": "run_0002",
+            "sleeping_count": 23,
+            "supported_count": 9,
+            "time_seconds": 9.991667,
+            "total_energy": 367.720171
+          },
+          "frames": {
+            "avg_energy": 41150.88277937584,
+            "first_frame": 0,
+            "frame_count": 1200,
+            "last_frame": 1199,
+            "max_energy": 142703.513398,
+            "min_energy": 360.665012
+          },
+          "maxOmega": {
+            "frame": 329,
+            "max_omega": 7.210906,
+            "max_omega_body": 26
+          },
+          "maxPenetration": {
+            "frame": 302,
+            "max_penetration": 0.167125,
+            "max_penetration_contact": "27:28:33409"
+          },
+          "maxSpeed": {
+            "frame": 332,
+            "max_speed": 43.779568,
+            "max_speed_body": 30
+          },
+          "relatedQueries": [
+            "events --limit 20",
+            "energy --frames 0:1000",
+            "frame <frame>",
+            "body <body> --frames <start>:<end>"
+          ],
+          "run": {
+            "config_json": "{\"broadphase_cell\":24.0,\"contact_epsilon\":0.05,\"contact_restitution_threshold\":2.0,\"friction_coeff\":0.8,\"gravity\":-50.0,\"rolling_friction_coeff\":0.02,\"spin_friction_coeff\":0.3}",
+            "end_frame": 1200,
+            "end_status": "process_end",
+            "fixed_step": 1,
+            "fixed_step_forced_by_diag": 1,
+            "frame_count": null,
+            "load_count": 2,
+            "manual_reset_count": 0,
+            "model_count": 37,
+            "renderer": "OpenGL 3.3",
+            "run_id": "run_0002",
+            "scene": "C:\\SkullbonezCore_diag_worktree\\SkullbonezData\\scenes\\physics_bench_varied.scene",
+            "scene_index": 0,
+            "seed": 20260602,
+            "solver": "solver",
+            "suite": null,
+            "target_frames": 1200
+          },
+          "topBodies": [
+            {
+              "body_id": 30,
+              "max_energy": 26833.107869,
+              "max_omega": 5.165315,
+              "max_speed": 43.779568,
+              "name": "drop_f",
+              "shape": "box"
+            },
+            {
+              "body_id": 29,
+              "max_energy": 22585.371683,
+              "max_omega": 3.753075,
+              "max_speed": 41.681366,
+              "name": "drop_e",
+              "shape": "box"
+            },
+            {
+              "body_id": 9,
+              "max_energy": 26348.240367000002,
+              "max_omega": 2.25877,
+              "max_speed": 40.552841,
+              "name": "drop_d",
+              "shape": "sphere"
+            },
+            {
+              "body_id": 8,
+              "max_energy": 26849.355864,
+              "max_omega": 2.238316,
+              "max_speed": 39.722831,
+              "name": "drop_c",
+              "shape": "sphere"
+            },
+            {
+              "body_id": 7,
+              "max_energy": 15346.343201,
+              "max_omega": 3.010399,
+              "max_speed": 37.307193,
+              "name": "drop_b",
+              "shape": "sphere"
+            },
+            {
+              "body_id": 6,
+              "max_energy": 19899.210899,
+              "max_omega": 1.685312,
+              "max_speed": 36.407114,
+              "name": "drop_a",
+              "shape": "sphere"
+            },
+            {
+              "body_id": 26,
+              "max_energy": 17882.885578,
+              "max_omega": 7.210906,
+              "max_speed": 35.740019,
+              "name": "drop_b",
+              "shape": "box"
+            },
+            {
+              "body_id": 27,
+              "max_energy": 15419.220738,
+              "max_omega": 6.555942,
+              "max_speed": 33.799282,
+              "name": "drop_c",
+              "shape": "box"
+            }
+          ],
+          "topEvents": [
+            {
+              "body_a": -1,
+              "body_b": -1,
+              "event_id": "E1",
+              "frame": 181,
+              "island_id": -1,
+              "severity": "high",
+              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+              "type": "penetration_spike"
+            },
+            {
+              "body_a": -1,
+              "body_b": -1,
+              "event_id": "E2",
+              "frame": 182,
+              "island_id": -1,
+              "severity": "high",
+              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+              "type": "penetration_spike"
+            },
+            {
+              "body_a": -1,
+              "body_b": -1,
+              "event_id": "E3",
+              "frame": 291,
+              "island_id": -1,
+              "severity": "high",
+              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+              "type": "penetration_spike"
+            },
+            {
+              "body_a": -1,
+              "body_b": -1,
+              "event_id": "E4",
+              "frame": 292,
+              "island_id": -1,
+              "severity": "high",
+              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+              "type": "penetration_spike"
+            },
+            {
+              "body_a": -1,
+              "body_b": -1,
+              "event_id": "E5",
+              "frame": 293,
+              "island_id": -1,
+              "severity": "high",
+              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+              "type": "penetration_spike"
+            },
+            {
+              "body_a": -1,
+              "body_b": -1,
+              "event_id": "E6",
+              "frame": 294,
+              "island_id": -1,
+              "severity": "high",
+              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+              "type": "penetration_spike"
+            },
+            {
+              "body_a": -1,
+              "body_b": -1,
+              "event_id": "E7",
+              "frame": 295,
+              "island_id": -1,
+              "severity": "high",
+              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+              "type": "penetration_spike"
+            },
+            {
+              "body_a": -1,
+              "body_b": -1,
+              "event_id": "E8",
+              "frame": 296,
+              "island_id": -1,
+              "severity": "high",
+              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
+              "type": "penetration_spike"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "scene": "SkullbonezData/scenes/physics_bench_varied.scene",
+  "traceKind": "physicsdiag.ndjson"
+}

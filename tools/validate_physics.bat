@@ -16,11 +16,11 @@ echo   VALIDATE_PHYSICS - Determinism Check
 echo ========================================
 echo.
 
-echo [1/3] Building Debug x64...
+echo [1/4] Building Debug x64...
 call "%~dp0validate_build.bat" Debug
 if errorlevel 1 exit /b 1
 
-echo [2/3] Running physics regression scenes...
+echo [2/4] Running physics regression scenes...
 del /q "%REPO%\Debug\physics_regression_*.csv" 2>nul
 
 echo   Running physics_regression_solver...
@@ -30,7 +30,7 @@ if errorlevel 1 (
     exit /b 2
 )
 
-echo [3/3] Comparing output against baselines...
+echo [3/4] Comparing output against baselines...
 set "SKORE_REPO=%REPO%"
 "%PYTHON_EXE%" "%~dp0check_physics_regression.py"
 if errorlevel 1 (
@@ -38,6 +38,15 @@ if errorlevel 1 (
     echo       Baseline: TestOutput\baselines\physics_regression_solver.csv
     echo       Actual:   Debug\physics_regression_solver.csv
     exit /b 2
+)
+
+echo [4/4] Checking SkullScope query baseline...
+"%PYTHON_EXE%" "%~dp0check_physics_query_regression.py"
+if errorlevel 1 (
+    echo FAIL: SkullScope query regression detected.
+    echo       Baseline: TestOutput\baselines\physics_query_varied.json
+    echo       Trace:    Debug\physics_query_varied.physicsdiag.ndjson
+    exit /b 3
 )
 
 echo.

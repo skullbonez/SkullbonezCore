@@ -1,6 +1,6 @@
-# Physics Query Reference
+# SkullScope Physics Query Reference
 
-This is the model-facing reference for queryable physics diagnostics.
+SkullScope is the model-facing query system for physics diagnostics.
 
 Main rule: do not upload whole physics logs. Generate a diagnostic trace, then query it locally and return only the smallest useful result.
 
@@ -37,6 +37,8 @@ Debug\at_rest.physicsdiag.sqlite
 ```
 
 Subsequent queries use SQLite and should be fast.
+
+Regression coverage lives in `tools\check_physics_query_regression.py`. It generates a deterministic trace from `SkullbonezData\scenes\physics_bench_varied.scene`, runs representative SkullScope queries, normalizes cache paths out of the JSON, and compares against `TestOutput\baselines\physics_query_varied.json`.
 
 ## Common Commands
 
