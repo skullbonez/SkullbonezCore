@@ -44,11 +44,12 @@ Scene files are plain text. Blank lines and lines beginning with `#` are ignored
 | Capture | `screenshot`, `screenshot_interval` |
 | Logging | `perf_log`, `perf_log_flush`, `perf_log_flush_interval` |
 | Simulation | `physics`, `physics_mode`, `time_scale`, `seed`, `world` |
-| Objects | `ball`, `box`, `ball_state`, `legacy_balls`, `solver_balls`, `solver_boxes` |
+| Objects | `ball`, `box`, `floating_box`, `ball_state`, `legacy_balls`, `solver_balls`, `solver_boxes` |
 | Camera | `camera`, `track_height`, `auto_cycle_interval` |
 | Rendering | `text`, `text_only`, `debug_vectors`, `physics_debug`, `physics_debug_axes`, `physics_debug_contacts`, `physics_debug_sleep`, `physics_debug_transparent`, `physics_debug_alpha`, `physics_debug_contact_linger`, `vsync`, `pipeline_sync`, `roll_align`, `water_hidden`, `terrain_hidden`, `flat_slope` |
 
 For exact field order, inspect an existing scene in `SkullbonezData/scenes/` and the parser in `SkullbonezSource/SkullbonezTestScene.cpp`.
+`floating_box` uses the same fields as `box`, but the body is fixed in world space and excluded from gravity, impulses, and scene energy.
 
 Physics regression CSV output is command-line only via `--physics-regression-log`; scene files must not enable it.
 
@@ -90,6 +91,7 @@ Fly and nudge mode use WASD, mouse look, Shift for faster movement, and Space to
 | `SkullbonezData/scenes/legacy_smoke.scene` | Smoke test with 300 balls. |
 | `SkullbonezData/scenes/perf_test.scene` | Tri-renderer performance regression scene. |
 | `SkullbonezData/scenes/physics_roll.scene` | Physics rolling validation. |
+| `SkullbonezData/scenes/cause_effect_marble_run.scene` | Fixed floating ramp, scene-energy telemetry, and cube-tower cause/effect demo. |
 | `SkullbonezData/scenes/physics_regression_solver.scene` | Byte-exact Debug physics CSV regression. |
 | `SkullbonezData/scenes/standing_box_repro.scene` | Deterministic solver-box edge-rest repro seed target. |
 | `SkullbonezData/scenes/box_crater_edge_repro.scene` | Terrain edge-rest regression scene with Debug physics regression log. |

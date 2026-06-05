@@ -112,6 +112,7 @@ void GameModelCollection::RefreshSoABodyData()
         m_soaPositions[i] = m_gameModels[i].GetPosition();
         m_soaBoundingRadii[i] = m_gameModels[i].GetBoundingRadius();
         m_soaIsBox[i] = m_gameModels[i].IsBox() ? 1 : 0;
+        m_soaIsFixed[i] = m_gameModels[i].IsFixed() ? 1 : 0;
     }
 
     m_soaActiveCount = modelCount;
@@ -176,7 +177,18 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
         {
             if ( m_soaIsBox[x] )
             {
-                SkullbonezHelper::DrawBoxBatchModel( m_soaModelMatrices[x] );
+                float tintR = 1.0f;
+                float tintG = 1.0f;
+                float tintB = 1.0f;
+                if ( m_soaIsFixed[x] )
+                {
+                    constexpr float fixedBase = 241.0f / 255.0f; // #F1F1F1
+                    float hit = m_gameModels[x].GetFixedContactHighlightAlpha();
+                    tintR = fixedBase + ( 1.0f - fixedBase ) * hit;
+                    tintG = fixedBase * ( 1.0f - hit );
+                    tintB = fixedBase * ( 1.0f - hit );
+                }
+                SkullbonezHelper::DrawBoxBatchModel( m_soaModelMatrices[x], tintR, tintG, tintB );
             }
         }
         SkullbonezHelper::DrawBoxBatchEnd();
@@ -322,6 +334,41 @@ GameModel& GameModelCollection::GetModelAtIndex( int index )
 }
 
 
+double GameModelCollection::GetSceneKineticEnergy()
+{
+    constexpr double REST_LINEAR_SPEED_SQ = 0.5 * 0.5;
+    constexpr double REST_ANGULAR_SPEED_SQ = 0.3 * 0.3;
+    double totalEnergy = 0.0;
+    for ( GameModel& model : m_gameModels )
+    {
+        if ( model.IsFixed() )
+        {
+            continue;
+        }
+
+        const Vector3& vel = model.GetVelocity();
+        const Vector3& omega = model.GetAngularVelocity();
+        const Vector3& inertia = model.GetRotationalInertia();
+        const double speedSq = static_cast<double>( vel.x ) * vel.x +
+                               static_cast<double>( vel.y ) * vel.y +
+                               static_cast<double>( vel.z ) * vel.z;
+        const double omegaSq = static_cast<double>( omega.x ) * omega.x +
+                               static_cast<double>( omega.y ) * omega.y +
+                               static_cast<double>( omega.z ) * omega.z;
+        if ( speedSq < REST_LINEAR_SPEED_SQ && omegaSq < REST_ANGULAR_SPEED_SQ )
+        {
+            continue;
+        }
+        const double angularEnergy = 0.5 *
+                                     ( static_cast<double>( inertia.x ) * omega.x * omega.x +
+                                       static_cast<double>( inertia.y ) * omega.y * omega.y +
+                                       static_cast<double>( inertia.z ) * omega.z * omega.z );
+        totalEnergy += 0.5 * static_cast<double>( model.GetMass() ) * speedSq + angularEnergy;
+    }
+    return totalEnergy;
+}
+
+
 void GameModelCollection::EnsureCollisionVisualBuffers( int modelCount )
 {
     if ( static_cast<int>( m_collisionVisualContacts.size() ) != modelCount )
@@ -342,6 +389,20 @@ void GameModelCollection::MarkCollisionVisualContact( int index )
         return;
     }
     m_collisionVisualContacts[index] = 1;
+    MarkFixedContact( index );
+}
+
+
+void GameModelCollection::MarkFixedContact( int index )
+{
+    if ( index < 0 || index >= static_cast<int>( m_gameModels.size() ) )
+    {
+        return;
+    }
+    if ( m_gameModels[index].IsFixed() )
+    {
+        m_gameModels[index].NotifyFixedContact( 0.5f );
+    }
 }
 
 
@@ -377,6 +438,11 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     m_physicsDebugContacts.clear();
     m_sleepSupportEdges.clear();
 
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        m_gameModels[i].TickFixedContactHighlight( fChangeInTime );
+    }
+
     // Ensure sleep state vectors are sized (persists across frames)
     if ( static_cast<int>( m_sleepState.size() ) != modelCount )
     {
@@ -385,6 +451,14 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     }
     for ( int i = 0; i < modelCount; ++i )
     {
+        if ( m_gameModels[i].IsFixed() )
+        {
+            m_sleepState[i] = 0;
+            m_sleepCounter[i] = 0;
+            m_sleepSupportedThisFrame[i] = 1;
+            m_sleepIslandVisualId[i] = 0;
+            continue;
+        }
         if ( !m_sleepState[i] )
         {
             m_sleepIslandVisualId[i] = 0;
@@ -445,6 +519,13 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
 
 void GameModelCollection::WakeModel( int index )
 {
+    if ( index >= 0 &&
+         index < static_cast<int>( m_gameModels.size() ) &&
+         m_gameModels[index].IsFixed() )
+    {
+        return;
+    }
+
     // Size the sleep vectors if RunPhysics hasn't been called yet.
     if ( static_cast<int>( m_sleepState.size() ) != static_cast<int>( m_gameModels.size() ) )
     {
@@ -729,7 +810,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     {
         GameModel& model = m_gameModels[i];
         SolverBodyState& body = m_solverBodies[i];
-        if ( m_sleepState[i] )
+        if ( m_sleepState[i] || m_soaIsFixed[i] )
         {
             // Sleeping bodies still provide persistent support to awake bodies,
             // but they behave as static anchors until deliberately woken.
@@ -1105,7 +1186,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
 
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( m_sleepState[i] )
+        if ( m_sleepState[i] || m_soaIsFixed[i] )
         {
             continue;
         }
@@ -1147,8 +1228,8 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
 
         GameModel& a = m_gameModels[c.bodyA];
         GameModel& b = m_gameModels[c.bodyB];
-        float invMassA = m_sleepState[c.bodyA] ? 0.0f : a.GetInvertedMass();
-        float invMassB = m_sleepState[c.bodyB] ? 0.0f : b.GetInvertedMass();
+        float invMassA = ( m_sleepState[c.bodyA] || a.IsFixed() ) ? 0.0f : a.GetInvertedMass();
+        float invMassB = ( m_sleepState[c.bodyB] || b.IsFixed() ) ? 0.0f : b.GetInvertedMass();
         float totalInvMass = invMassA + invMassB;
         if ( totalInvMass <= TOLERANCE )
         {
@@ -1223,6 +1304,10 @@ void GameModelCollection::PropagateSleepSupport()
             }
 
             bool supporterHasSupport = m_sleepSupportedThisFrame[supporter] != 0;
+            if ( !supporterHasSupport && m_gameModels[supporter].IsFixed() )
+            {
+                supporterHasSupport = true;
+            }
             if ( !supporterHasSupport &&
                  supporter < static_cast<int>( m_sleepState.size() ) &&
                  m_sleepState[supporter] != 0 )
@@ -1261,6 +1346,10 @@ void GameModelCollection::RunSolverPhysics( float dt )
     PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
     for ( int x = 0; x < modelCount; ++x )
     {
+        if ( m_soaIsFixed[x] )
+        {
+            continue;
+        }
         if ( m_sleepState[x] )
         {
             m_timeRemaining[x] = 0.0f;
@@ -1296,7 +1385,7 @@ void GameModelCollection::RunSolverPhysics( float dt )
         // Waking re-enters the body into this frame rather than waiting for the
         // next tick. Applying forces immediately keeps gravity and other forces
         // consistent with an awake body that was never asleep.
-        if ( sleepingIndex < 0 || sleepingIndex >= modelCount || !m_sleepState[sleepingIndex] )
+        if ( sleepingIndex < 0 || sleepingIndex >= modelCount || m_soaIsFixed[sleepingIndex] || !m_sleepState[sleepingIndex] )
         {
             return;
         }
@@ -1437,6 +1526,10 @@ void GameModelCollection::RunSolverPhysics( float dt )
     PROFILE_BEGIN( "Frame/Physics/Terrain" );
     for ( int x = 0; x < modelCount; ++x )
     {
+        if ( m_soaIsFixed[x] )
+        {
+            continue;
+        }
         if ( m_sleepState[x] || m_timeRemaining[x] <= 0.0f )
         {
             continue;
@@ -1475,6 +1568,10 @@ void GameModelCollection::RunSolverPhysics( float dt )
     PROFILE_BEGIN( "Frame/Physics/Integrate" );
     for ( int x = 0; x < modelCount; ++x )
     {
+        if ( m_soaIsFixed[x] )
+        {
+            continue;
+        }
         if ( m_sleepState[x] )
         {
             continue;
@@ -1550,6 +1647,10 @@ void GameModelCollection::RunSolverPhysics( float dt )
 
     for ( int x = 0; x < modelCount; ++x )
     {
+        if ( m_soaIsFixed[x] )
+        {
+            continue;
+        }
         if ( m_sleepState[x] )
         {
             continue;
@@ -1576,6 +1677,10 @@ void GameModelCollection::RunSolverPhysics( float dt )
 
     for ( int x = 0; x < modelCount; ++x )
     {
+        if ( m_soaIsFixed[x] )
+        {
+            continue;
+        }
         if ( m_sleepState[x] )
         {
             continue;
@@ -1597,6 +1702,10 @@ void GameModelCollection::RunSolverPhysics( float dt )
 
     for ( int x = 0; x < modelCount; ++x )
     {
+        if ( m_soaIsFixed[x] )
+        {
+            continue;
+        }
         if ( m_sleepState[x] )
         {
             continue;
@@ -1614,6 +1723,10 @@ void GameModelCollection::RunSolverPhysics( float dt )
     m_sleepIslandAssignedVisualId.assign( modelCount, 0 );
     for ( int x = 0; x < modelCount; ++x )
     {
+        if ( m_soaIsFixed[x] )
+        {
+            continue;
+        }
         if ( !m_sleepState[x] || m_sleepIslandVisualId[x] == 0 )
         {
             continue;
@@ -1628,6 +1741,10 @@ void GameModelCollection::RunSolverPhysics( float dt )
 
     for ( int x = 0; x < modelCount; ++x )
     {
+        if ( m_soaIsFixed[x] )
+        {
+            continue;
+        }
         if ( m_sleepState[x] )
         {
             continue;

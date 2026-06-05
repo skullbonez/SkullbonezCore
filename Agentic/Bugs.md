@@ -29,6 +29,10 @@ Allow scene reset on press of R key
 
 ## PHYSICS BUGS
 
+## TODO: DX12 physics difference
+
+Check regression logs on DX12 - it looks different.
+
 ## TODO: Fix stacking
 
 Boxes stacked on top of each other (see `stacking.scene`) tend to drift or

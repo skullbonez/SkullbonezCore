@@ -55,7 +55,9 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     // initialise other members
     m_projectedSurfaceArea = 0.0f;
     m_dragCoefficient = 0.0f;
+    m_fixedContactHighlightSeconds = 0.0f;
     m_isResponseRequired = false;
+    m_isFixed = false;
     m_name[0] = '\0';
 }
 
@@ -94,15 +96,84 @@ bool GameModel::IsBox() const
 }
 
 
+void GameModel::SetFixed( bool isFixed )
+{
+    m_isFixed = isFixed;
+    if ( m_isFixed )
+    {
+        m_physicsInfo.SetLinearVelocity( Vector::ZERO_VECTOR );
+        m_physicsInfo.SetAngularVelocity( Vector::ZERO_VECTOR );
+        m_physicsInfo.SetWorldForce( Vector::ZERO_VECTOR, Vector::ZERO_VECTOR );
+        m_physicsInfo.ZeroForce();
+        m_isResponseRequired = false;
+    }
+}
+
+
+bool GameModel::IsFixed() const
+{
+    return m_isFixed;
+}
+
+
+void GameModel::NotifyFixedContact( float highlightSeconds )
+{
+    if ( m_isFixed && highlightSeconds > m_fixedContactHighlightSeconds )
+    {
+        m_fixedContactHighlightSeconds = highlightSeconds;
+    }
+}
+
+
+void GameModel::TickFixedContactHighlight( float dt )
+{
+    if ( m_fixedContactHighlightSeconds <= 0.0f || dt <= 0.0f )
+    {
+        return;
+    }
+
+    m_fixedContactHighlightSeconds -= dt;
+    if ( m_fixedContactHighlightSeconds < 0.0f )
+    {
+        m_fixedContactHighlightSeconds = 0.0f;
+    }
+}
+
+
+float GameModel::GetFixedContactHighlightAlpha() const
+{
+    static constexpr float FADE_SECONDS = 0.5f;
+    float alpha = m_fixedContactHighlightSeconds / FADE_SECONDS;
+    if ( alpha < 0.0f )
+    {
+        return 0.0f;
+    }
+    if ( alpha > 1.0f )
+    {
+        return 1.0f;
+    }
+    return alpha;
+}
+
+
 void GameModel::SetImpulseForce( const Vector3& vForce,
                                  const Vector3& vApplicationPoint )
 {
+    if ( m_isFixed )
+    {
+        return;
+    }
     m_physicsInfo.SetImpulseForce( vForce, vApplicationPoint );
 }
 
 
 void GameModel::SetWorldForce( const Vector3& vWorldForce, const Vector3& vWorldTorque )
 {
+    if ( m_isFixed )
+    {
+        m_physicsInfo.SetWorldForce( Vector::ZERO_VECTOR, Vector::ZERO_VECTOR );
+        return;
+    }
     m_physicsInfo.SetWorldForce( vWorldForce, vWorldTorque );
 }
 
@@ -325,6 +396,12 @@ void GameModel::StaticOverlapResponseGameModel( GameModel& overlapTarget )
 
 bool GameModel::CollisionResponseTerrain( float remainingTimeStep )
 {
+    if ( m_isFixed )
+    {
+        m_isResponseRequired = false;
+        return false;
+    }
+
     // if there has been no collision, throw an exception!
     if ( !m_isResponseRequired )
     {
@@ -371,6 +448,13 @@ Matrix4 GameModel::GetModelMatrix()
 
 void GameModel::ApplyForces( float changeInTime )
 {
+    if ( m_isFixed )
+    {
+        m_physicsInfo.SetLinearVelocity( Vector::ZERO_VECTOR );
+        m_physicsInfo.SetAngularVelocity( Vector::ZERO_VECTOR );
+        return;
+    }
+
     // throttle the angular velocity
     m_physicsInfo.ThrottleAngularVelocity();
 
@@ -409,6 +493,11 @@ float GameModel::GetVolume()
 
 void GameModel::UpdatePosition( float changeInTime )
 {
+    if ( m_isFixed )
+    {
+        return;
+    }
+
     // Skip entirely when no time has passed (e.g., zero-time terrain collision cap).
     // Position hasn't changed, so no need to clamp against terrain.
     if ( changeInTime <= 0.0f )
@@ -438,6 +527,10 @@ float GameModel::GetMass()
 
 float GameModel::GetInvertedMass()
 {
+    if ( m_isFixed )
+    {
+        return 0.0f;
+    }
     return m_ballPhysics.invMass;
 }
 
@@ -838,6 +931,10 @@ const Vector3& GameModel::GetRotationalInertia()
 
 const Vector3& GameModel::GetInvertedRotationalInertia()
 {
+    if ( m_isFixed )
+    {
+        return Vector::ZERO_VECTOR;
+    }
     return m_ballPhysics.invRotationalInertia;
 }
 
@@ -860,12 +957,22 @@ float GameModel::GetCoefficientRestitution()
 
 void GameModel::SetLinearVelocity( const Vector3& v )
 {
+    if ( m_isFixed )
+    {
+        m_physicsInfo.SetLinearVelocity( Vector::ZERO_VECTOR );
+        return;
+    }
     m_physicsInfo.SetLinearVelocity( v );
 }
 
 
 void GameModel::SetAngularVelocity( const Vector3& v )
 {
+    if ( m_isFixed )
+    {
+        m_physicsInfo.SetAngularVelocity( Vector::ZERO_VECTOR );
+        return;
+    }
     m_physicsInfo.SetAngularVelocity( v );
 }
 
