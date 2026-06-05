@@ -29,7 +29,7 @@ uniform sampler2D uTexture;
 in vec3 vViewPos;
 in vec3 vNormal;
 in vec2 vTexCoord;
-in vec3 vTint;
+in vec4 vTint;
 
 out vec4 FragColor;
 
@@ -61,5 +61,6 @@ void main()
 
     // Combine lighting with texture color; specular is added on top (not modulated by texture).
     vec4 texColor = texture(uTexture, vTexCoord);
-    FragColor = vec4((ambient + diffuse) * (texColor.rgb * vTint) + specular, 1.0);
+    vec3 litColor = (ambient + diffuse) * (texColor.rgb * vTint.rgb) + specular;
+    FragColor = vec4(mix(litColor, vTint.rgb, clamp(vTint.a, 0.0, 1.0)), 1.0);
 }

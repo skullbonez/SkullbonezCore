@@ -17,12 +17,12 @@ camera overview  370 125 575  535 50 500  0 1 0
 
 # Dropped marble. The ramp supplies the horizontal velocity.
 # ball <name> <posX> <posY> <posZ> <radius> <mass> <moment> <restitution>
-ball marble  430 125 500  7.0 10.0 196.0 0.15
+ball marble  430 125 500  7.0 10.0 196.0 0.65
 
 # Fixed floating ramp. This renders as #F1F1F1 at rest, goes red during contact,
 # and fades back to grey over 0.5 seconds after contact stops.
 # floating_box <name> <posX> <posY> <posZ> <halfX> <halfY> <halfZ> <mass> <restitution> [eulerX eulerY eulerZ]
-floating_box floating_ramp  465 72 500  38.0 2.0 8.0  1000.0 0.1  0 0 12
+floating_box floating_ramp  465 72 500  38.0 2.0 8.0  1000.0 0.9  0 0 12
 
 # Cube tower on the flat ground downstream.
 # box <name> <posX> <posY> <posZ> <halfX> <halfY> <halfZ> <mass> <restitution>

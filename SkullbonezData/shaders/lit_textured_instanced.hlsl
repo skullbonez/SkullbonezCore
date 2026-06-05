@@ -52,7 +52,7 @@ struct VS_IN
     float4 model1   : TEXCOORD2;  // Per-instance: model matrix column 1
     float4 model2   : TEXCOORD3;  // Per-instance: model matrix column 2
     float4 model3   : TEXCOORD4;  // Per-instance: model matrix column 3
-    float3 tint     : TEXCOORD5;  // Per-instance: RGB tint
+    float4 tint     : TEXCOORD5;  // Per-instance: RGB tint + color override amount
 };
 
 struct VS_OUT
@@ -62,7 +62,7 @@ struct VS_OUT
     float3 viewPos   : TEXCOORD0;
     float3 normal    : TEXCOORD1;
     float2 texCoord  : TEXCOORD2;
-    float3 tint      : TEXCOORD3;
+    float4 tint      : TEXCOORD3;
 };
 
 VS_OUT main_vs(VS_IN input)
@@ -109,5 +109,6 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float3 specular = uLightDiffuse.rgb * spec * 0.1;
 
     float4 texColor = uTexture.Sample(sSampler0, input.texCoord);
-    return float4((ambient + diffuse) * (texColor.rgb * input.tint) + specular, 1.0);
+    float3 litColor = (ambient + diffuse) * (texColor.rgb * input.tint.rgb) + specular;
+    return float4(lerp(litColor, input.tint.rgb, saturate(input.tint.a)), 1.0);
 }

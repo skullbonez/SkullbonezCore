@@ -23,7 +23,7 @@ int SkullbonezHelper::boxVertexCount = 0;
 std::vector<float> SkullbonezHelper::boxInstanceData;
 
 static constexpr int INSTANCE_MATRIX_FLOATS = 16;
-static constexpr int INSTANCE_TINT_FLOATS = 3;
+static constexpr int INSTANCE_TINT_FLOATS = 4;
 static constexpr int INSTANCE_FLOATS = INSTANCE_MATRIX_FLOATS + INSTANCE_TINT_FLOATS;
 
 void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
@@ -78,8 +78,8 @@ void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
 
     // Static layout: 3 attributes (pos3, normal3, uv2) at locations 0-2
     int staticAttribSizes[] = { 3, 3, 2 };
-    // Instance layout: 4 attributes for mat4 plus RGB tint, starting at location 3
-    int instanceAttribSizes[] = { 4, 4, 4, 4, 3 };
+    // Instance layout: 4 attributes for mat4 plus RGBA tint/override, starting at location 3.
+    int instanceAttribSizes[] = { 4, 4, 4, 4, 4 };
     sphereInstMesh = Gfx().CreateInstancedMesh( verts.data(), sphereVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 5, staticAttribSizes, 3 );
 
     sphereInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
@@ -120,13 +120,14 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
 }
 
 
-void SkullbonezHelper::DrawSphereBatchModel( const Matrix4& model, float tintR, float tintG, float tintB )
+void SkullbonezHelper::DrawSphereBatchModel( const Matrix4& model, float tintR, float tintG, float tintB, float colorOverride )
 {
     const float* md = model.Data();
     sphereInstanceData.insert( sphereInstanceData.end(), md, md + INSTANCE_MATRIX_FLOATS );
     sphereInstanceData.push_back( tintR );
     sphereInstanceData.push_back( tintG );
     sphereInstanceData.push_back( tintB );
+    sphereInstanceData.push_back( colorOverride );
 }
 
 
@@ -164,7 +165,7 @@ void SkullbonezHelper::BuildBoxMesh()
     boxVertexCount = PrimitiveMeshes::BoxTriangleVertexCount();
 
     int staticAttribSizes[] = { 3, 3, 2 };
-    int instanceAttribSizes[] = { 4, 4, 4, 4, 3 };
+    int instanceAttribSizes[] = { 4, 4, 4, 4, 4 };
     boxInstMesh = Gfx().CreateInstancedMesh( verts.data(), boxVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 5, staticAttribSizes, 3 );
 
     boxInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
@@ -211,13 +212,14 @@ void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& pr
 }
 
 
-void SkullbonezHelper::DrawBoxBatchModel( const Matrix4& model, float tintR, float tintG, float tintB )
+void SkullbonezHelper::DrawBoxBatchModel( const Matrix4& model, float tintR, float tintG, float tintB, float colorOverride )
 {
     const float* md = model.Data();
     boxInstanceData.insert( boxInstanceData.end(), md, md + INSTANCE_MATRIX_FLOATS );
     boxInstanceData.push_back( tintR );
     boxInstanceData.push_back( tintG );
     boxInstanceData.push_back( tintB );
+    boxInstanceData.push_back( colorOverride );
 }
 
 

@@ -180,6 +180,7 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
                 float tintR = 1.0f;
                 float tintG = 1.0f;
                 float tintB = 1.0f;
+                float colorOverride = 0.0f;
                 if ( m_soaIsFixed[x] )
                 {
                     constexpr float fixedBase = 241.0f / 255.0f; // #F1F1F1
@@ -187,8 +188,9 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
                     tintR = fixedBase + ( 1.0f - fixedBase ) * hit;
                     tintG = fixedBase * ( 1.0f - hit );
                     tintB = fixedBase * ( 1.0f - hit );
+                    colorOverride = 1.0f;
                 }
-                SkullbonezHelper::DrawBoxBatchModel( m_soaModelMatrices[x], tintR, tintG, tintB );
+                SkullbonezHelper::DrawBoxBatchModel( m_soaModelMatrices[x], tintR, tintG, tintB, colorOverride );
             }
         }
         SkullbonezHelper::DrawBoxBatchEnd();
@@ -389,7 +391,6 @@ void GameModelCollection::MarkCollisionVisualContact( int index )
         return;
     }
     m_collisionVisualContacts[index] = 1;
-    MarkFixedContact( index );
 }
 
 
@@ -1053,11 +1054,17 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         //   Catto 2005, PDF p. 8, Section 3.6, Equation 15 and PDF p. 10,
         //   Section 4.2, Equation 20 provide the contact bias idea.
         // ENGINE NOTE:
-        //   This persistent pass is for resting support, so it intentionally does
-        //   not add restitution. One-shot impact response owns bounce.
-        // Bias is a small separating velocity that decays resting overlap smoothly.
+        //   Dynamic box stacks use this persistent pass as resting support. Fixed
+        //   bodies still need restitution here because the one-shot impact path
+        //   deliberately skips box-involving contacts to keep stacks stable.
         c.bias = 0.0f;
-        if ( vn >= -Cfg().contactRestitutionThreshold )
+        const bool fixedImpact = a.IsFixed() || b.IsFixed();
+        if ( fixedImpact && vn < -Cfg().contactRestitutionThreshold )
+        {
+            float restitution = sqrtf( a.GetCoefficientRestitution() * b.GetCoefficientRestitution() );
+            c.bias = -restitution * vn;
+        }
+        else if ( vn >= -Cfg().contactRestitutionThreshold )
         {
             float penetrationError = c.penetration - contactSlop;
             if ( penetrationError > 0.0f )
@@ -1199,6 +1206,18 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     m_physicsDebugContacts.reserve( m_persistentContacts.size() );
     for ( const PersistentContact& c : m_persistentContacts )
     {
+        if ( c.accN > 0.0f )
+        {
+            if ( m_gameModels[c.bodyA].IsFixed() )
+            {
+                MarkFixedContact( c.bodyA );
+            }
+            if ( m_gameModels[c.bodyB].IsFixed() )
+            {
+                MarkFixedContact( c.bodyB );
+            }
+        }
+
         Physics::PhysicsDebugContact out;
         out.bodyA = c.bodyA;
         out.bodyB = c.bodyB;
