@@ -37,11 +37,13 @@ QUERIES = [
     ("frame_600", ["frame", "600", "--limit", "8"]),
     ("body_roll_a", ["body", "roll_a", "--frames", "0:1200", "--limit", "12"]),
     ("energy", ["energy", "--frames", "0:1200", "--limit", "12"]),
+    ("events_penetration", ["events", "--type", "penetration_sustained,penetration_growing", "--limit", "20"]),
     ("contacts_penetration", ["contacts", "--top", "penetration", "--limit", "12"]),
     ("island_1_final", ["island", "1", "--frame", "1199", "--limit", "12"]),
     ("stacks", ["stacks", "--frames", "0:1200", "--limit", "12"]),
     ("rolling", ["rolling", "--frames", "0:1200", "--limit", "12"]),
     ("broadphase", ["broadphase", "--frames", "0:1200", "--limit", "12"]),
+    ("question_penetration_spikes", ["questions", "penetration_spikes"]),
     ("question_stack_health", ["questions", "stack_health"]),
     ("compare_self", ["compare", str(TRACE), "--limit", "8"]),
 ]

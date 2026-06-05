@@ -67,12 +67,12 @@ Physics diagnostics enabled: forcing fixed_step for deterministic queryable trac
 Then query locally:
 
 ```bat
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson summary
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson events --severity high
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson event E12 --window 30
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson body box_03 --frames 540:590
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson island 4 --frame 570
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson contacts --frame 570 --body box_03
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson summary
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson events --severity high
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson event E12 --window 30
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson body box_03 --frames 540:590
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson island 4 --frame 570
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson contacts --frame 570 --body box_03
 ```
 
 On first query, the tool creates or refreshes:
@@ -171,7 +171,7 @@ Use stable `kind` values:
 | `event` | Detected anomaly or important transition. |
 | `end` | Final counts, hashes, and close status. |
 
-The model should not read this file directly. It should call `tools\physics_query.py`.
+The model should not read this file directly. It should call `tools\physics_query.bat` from Windows shells, or `physics_query.py` through Python when scripting.
 
 ## SQLite Import
 
@@ -372,13 +372,13 @@ create index idx_members_body_frame on island_members(body_id, frame);
 Path:
 
 ```text
-tools\physics_query.py
+tools\physics_query.bat
 ```
 
 Usage:
 
 ```bat
-tools\physics_query.py <trace.ndjson> <command> [args]
+tools\physics_query.bat <trace.ndjson> <command> [args]
 ```
 
 Default output is compact JSON. Add `--pretty` for human-readable indentation. Add `--limit N` to expand bounded lists.
@@ -429,7 +429,7 @@ Initial named questions:
 | `what_changed` | `summary` plus top events. |
 | `why_not_resting` | `events --type rest,sleep,support` and `island` follow-up. |
 | `unsupported_sleepers` | `events --type unsupported_sleep`. |
-| `penetration_spikes` | `events --type penetration_spike`. |
+| `penetration_spikes` | `events --type penetration_sustained,penetration_growing`. |
 | `energy_spikes` | `events --type energy_spike`. |
 | `fastest_bodies` | `body --top-speed` or `summary --top bodies`. |
 | `stack_health` | `stacks --frames A:B`. |
@@ -632,7 +632,8 @@ Initial event types:
 | Event Type | Trigger |
 |------------|---------|
 | `energy_spike` | Frame energy delta exceeds threshold. |
-| `penetration_spike` | Max penetration exceeds threshold or local percentile. |
+| `penetration_sustained` | Max penetration stays above threshold for the configured frame count. |
+| `penetration_growing` | Max penetration keeps growing across the configured diagnostic window. |
 | `impulse_spike` | Normal/tangent impulse exceeds threshold. |
 | `unsupported_sleep` | Body is sleeping without terrain or stack support. |
 | `sleep_inhibited_quiet` | Body is quiet but sleep-inhibited for many frames. |
@@ -654,7 +655,7 @@ Each event row should include:
   "kind": "event",
   "event_id": "E12",
   "frame": 570,
-  "type": "penetration_spike",
+  "type": "penetration_sustained",
   "severity": "high",
   "body_a": 4,
   "body_b": 17,
@@ -781,7 +782,7 @@ Validation:
 
 ```bat
 tools\validate_fast.bat
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson summary
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson summary
 ```
 
 Reason: `tools/*` changes require `validate_fast`, then running the changed script.
@@ -828,7 +829,7 @@ Validation:
 
 ```bat
 tools\validate_fast.bat
-tools\physics_query.py Debug\before.physicsdiag.ndjson compare Debug\after.physicsdiag.ndjson
+tools\physics_query.bat Debug\before.physicsdiag.ndjson compare Debug\after.physicsdiag.ndjson
 ```
 
 ### Phase 7 - Optional Runtime Extensions
@@ -872,7 +873,7 @@ If Profile diagnostics are later needed for broadphase/perf work, gate the extra
 
 ## Agent Directive
 
-Once `tools\physics_query.py` exists, agents should follow this order for physics debugging:
+Once SkullScope exists, agents should follow this order for physics debugging:
 
 1. Run or request a diagnostic trace with `--physics-diag`.
 2. Query `summary`.

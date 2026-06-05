@@ -37,6 +37,7 @@ tools\validate_select.bat fast build-profile
 | `find_git.bat` | Locate Git, called by perf validation |
 | `find_msbuild.bat` | Locate MSBuild, called by other scripts |
 | `find_python.bat` | Locate Python, called by Python-backed validation scripts |
+| `physics_query.bat` | Windows launcher for SkullScope; invokes `physics_query.py` through `find_python.bat` |
 | `physics_query.py` | SkullScope: import queryable physics NDJSON traces into SQLite and return bounded JSON summaries/events/frame/body/contact/island queries |
 | `check_physics_query_regression.py` | SkullScope baseline checker used by `validate_physics_query.bat` and `validate_physics.bat` |
 | `check_dx12_validation.bat` | Verify DX12 InfoQueue clean |

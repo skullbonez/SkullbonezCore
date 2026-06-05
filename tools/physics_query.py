@@ -793,8 +793,15 @@ def resolve_body_id(conn, run_id, ref):
 
 
 def query_summary(conn, cache, args):
+    if args.run:
+        run_rows = conn.execute("select * from runs where run_id=? order by run_id", (args.run,)).fetchall()
+        if not run_rows:
+            raise SystemExit(f"ERROR: run not found: {args.run}")
+    else:
+        run_rows = conn.execute("select * from runs order by run_id").fetchall()
+
     runs = []
-    for run in conn.execute("select * from runs order by run_id"):
+    for run in run_rows:
         run_id = run["run_id"]
         frame_stats = conn.execute(
             """
@@ -1418,7 +1425,7 @@ def query_questions(conn, cache, args):
                 }
                 for name, item in sorted(questions.items())
             ],
-            "usage": "tools\\physics_query.py <trace.ndjson> questions <name>",
+            "usage": "tools\\physics_query.bat <trace.ndjson> questions <name>",
         }
     if args.name not in questions:
         raise SystemExit(f"ERROR: unknown question: {args.name}")
@@ -1432,8 +1439,8 @@ def query_questions(conn, cache, args):
         "description": item.get("description"),
         "commands": commands,
         "followups": followups,
-        "batCommands": [f'tools\\physics_query.py "{trace}" {command}' for command in commands],
-        "batFollowups": [f'tools\\physics_query.py "{trace}" {command}' for command in followups],
+        "batCommands": [f'tools\\physics_query.bat "{trace}" {command}' for command in commands],
+        "batFollowups": [f'tools\\physics_query.bat "{trace}" {command}' for command in followups],
     }
 
 

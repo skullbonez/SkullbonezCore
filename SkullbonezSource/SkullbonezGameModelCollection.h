@@ -153,6 +153,13 @@ class GameModelCollection
     double m_physicsDiagnosticsTimeSeconds = 0.0;
     double m_physicsDiagnosticsPrevEnergy = 0.0;
     bool m_physicsDiagnosticsHasPrevEnergy = false;
+    char m_physicsDiagnosticsPenetrationContact[64] = {};
+    int m_physicsDiagnosticsPenetrationFrames = 0;
+    int m_physicsDiagnosticsPenetrationGrowthFrames = 0;
+    double m_physicsDiagnosticsPenetrationWindowStart = 0.0;
+    double m_physicsDiagnosticsPrevPenetration = 0.0;
+    bool m_physicsDiagnosticsPenetrationSustainedReported = false;
+    bool m_physicsDiagnosticsPenetrationGrowingReported = false;
 #endif
 
     void BuildShadowMesh();                         // Builds the shadow disc VAO with instanced attributes

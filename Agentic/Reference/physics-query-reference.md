@@ -27,8 +27,10 @@ Use the legacy CSV for byte-exact validation and baseline diffs. Use the diagnos
 Target command shape:
 
 ```bat
-tools\physics_query.py <trace.ndjson> <command> [options]
+tools\physics_query.bat <trace.ndjson> <command> [options]
 ```
+
+Use the `.bat` launcher from PowerShell or `cmd.exe`. It invokes `physics_query.py` through `tools\find_python.bat`, so the workflow does not depend on Windows `.py` file associations.
 
 On first query, the tool imports the trace into a sibling SQLite file:
 
@@ -43,21 +45,21 @@ Regression coverage lives in `tools\check_physics_query_regression.py`. It gener
 ## Common Commands
 
 ```bat
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson summary
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson events
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson events --severity high
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson event E12 --window 30
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson frame 570
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson body 17 --frames 540:590
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson body box_03 --frames 540:590
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson contacts --frame 570 --body 17
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson island 4 --frame 570
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson stacks --frames 500:650
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson energy --frames 0:1000
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson rolling --frames 300:700
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson broadphase --frames 0:1000
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson questions
-tools\physics_query.py Debug\at_rest.physicsdiag.ndjson questions why_not_resting
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson summary
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson events
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson events --severity high
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson event E12 --window 30
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson frame 570
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson body 17 --frames 540:590
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson body box_03 --frames 540:590
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson contacts --frame 570 --body 17
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson island 4 --frame 570
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson stacks --frames 500:650
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson energy --frames 0:1000
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson rolling --frames 300:700
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson broadphase --frames 0:1000
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson questions
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson questions why_not_resting
 ```
 
 ## Output Controls
@@ -71,7 +73,7 @@ tools\physics_query.py Debug\at_rest.physicsdiag.ndjson questions why_not_restin
 --body 17
 --body box_03
 --severity high
---type penetration_spike
+--type penetration_sustained,penetration_growing
 ```
 
 Default output should be compact JSON. Use `--pretty` only when a human needs to read the result.
@@ -89,15 +91,15 @@ Agentic/Reference/physics-query-questions.json
 List or expand a query pack with:
 
 ```bat
-tools\physics_query.py Debug\scene.physicsdiag.ndjson questions
-tools\physics_query.py Debug\scene.physicsdiag.ndjson questions energy_spikes
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson questions
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson questions energy_spikes
 ```
 
 ### What happened in this run?
 
 ```bat
-tools\physics_query.py Debug\scene.physicsdiag.ndjson summary
-tools\physics_query.py Debug\scene.physicsdiag.ndjson events --limit 20
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson summary
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson events --limit 20
 ```
 
 Expected answer:
@@ -111,118 +113,118 @@ Expected answer:
 ### Why is this scene not resting?
 
 ```bat
-tools\physics_query.py Debug\scene.physicsdiag.ndjson events --type failed_to_sleep,sleep_inhibited_quiet,unsupported_sleep
-tools\physics_query.py Debug\scene.physicsdiag.ndjson stacks --frames 0:1000
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson events --type failed_to_sleep,sleep_inhibited_quiet,unsupported_sleep
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson stacks --frames 0:1000
 ```
 
 Follow up with:
 
 ```bat
-tools\physics_query.py Debug\scene.physicsdiag.ndjson island <id> --frame <frame>
-tools\physics_query.py Debug\scene.physicsdiag.ndjson body <body> --frames <start>:<end>
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson island <id> --frame <frame>
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson body <body> --frames <start>:<end>
 ```
 
 ### Did anything sleep while unsupported?
 
 ```bat
-tools\physics_query.py Debug\scene.physicsdiag.ndjson events --type unsupported_sleep
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson events --type unsupported_sleep
 ```
 
 Follow up:
 
 ```bat
-tools\physics_query.py Debug\scene.physicsdiag.ndjson event <id> --window 30
-tools\physics_query.py Debug\scene.physicsdiag.ndjson contacts --frame <frame> --body <body>
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson event <id> --window 30
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson contacts --frame <frame> --body <body>
 ```
 
 ### Where is the penetration/intersection problem?
 
 ```bat
-tools\physics_query.py Debug\scene.physicsdiag.ndjson events --type penetration_spike
-tools\physics_query.py Debug\scene.physicsdiag.ndjson contacts --top penetration --limit 20
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson events --type penetration_sustained,penetration_growing
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson contacts --top penetration --limit 20
 ```
 
 Follow up:
 
 ```bat
-tools\physics_query.py Debug\scene.physicsdiag.ndjson event <id> --window 20
-tools\physics_query.py Debug\scene.physicsdiag.ndjson body <body> --frames <start>:<end>
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson event <id> --window 20
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson body <body> --frames <start>:<end>
 ```
 
 ### Did the solver inject energy?
 
 ```bat
-tools\physics_query.py Debug\scene.physicsdiag.ndjson energy --frames 0:1000
-tools\physics_query.py Debug\scene.physicsdiag.ndjson events --type energy_spike
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson energy --frames 0:1000
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson events --type energy_spike
 ```
 
 Follow up:
 
 ```bat
-tools\physics_query.py Debug\scene.physicsdiag.ndjson contacts --frame <frame> --top impulse
-tools\physics_query.py Debug\scene.physicsdiag.ndjson body <body> --frames <start>:<end>
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson contacts --frame <frame> --top impulse
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson body <body> --frames <start>:<end>
 ```
 
 ### Which bodies are moving fastest?
 
 ```bat
-tools\physics_query.py Debug\scene.physicsdiag.ndjson summary --top bodies
-tools\physics_query.py Debug\scene.physicsdiag.ndjson body <body> --frames <start>:<end>
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson summary --top bodies
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson body <body> --frames <start>:<end>
 ```
 
 ### Is the stack stable?
 
 ```bat
-tools\physics_query.py Debug\scene.physicsdiag.ndjson stacks --frames 0:1000
-tools\physics_query.py Debug\scene.physicsdiag.ndjson events --type stack_drift,island_churn,unsupported_sleep
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson stacks --frames 0:1000
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson events --type stack_drift,island_churn,unsupported_sleep
 ```
 
 Follow up:
 
 ```bat
-tools\physics_query.py Debug\scene.physicsdiag.ndjson island <id> --frame <frame>
-tools\physics_query.py Debug\scene.physicsdiag.ndjson contacts --frame <frame> --body <body>
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson island <id> --frame <frame>
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson contacts --frame <frame> --body <body>
 ```
 
 ### Is rolling behaving correctly?
 
 ```bat
-tools\physics_query.py Debug\scene.physicsdiag.ndjson rolling --frames 0:1000
-tools\physics_query.py Debug\scene.physicsdiag.ndjson events --type rolling_slip,friction_saturation
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson rolling --frames 0:1000
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson events --type rolling_slip,friction_saturation
 ```
 
 Follow up:
 
 ```bat
-tools\physics_query.py Debug\scene.physicsdiag.ndjson body <ball> --frames <start>:<end>
-tools\physics_query.py Debug\scene.physicsdiag.ndjson contacts --frame <frame> --body <ball>
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson body <ball> --frames <start>:<end>
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson contacts --frame <frame> --body <ball>
 ```
 
 ### Are islands splitting or churning?
 
 ```bat
-tools\physics_query.py Debug\scene.physicsdiag.ndjson events --type island_churn,island_split,island_merge
-tools\physics_query.py Debug\scene.physicsdiag.ndjson island <id> --frame <frame>
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson events --type island_churn,island_split,island_merge
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson island <id> --frame <frame>
 ```
 
 ### Is broadphase causing excess work?
 
 ```bat
-tools\physics_query.py Debug\scene.physicsdiag.ndjson broadphase --frames 0:1000
-tools\physics_query.py Debug\scene.physicsdiag.ndjson events --type broadphase_spike
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson broadphase --frames 0:1000
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson events --type broadphase_spike
 ```
 
 ### What changed between two runs?
 
 ```bat
-tools\physics_query.py Debug\before.physicsdiag.ndjson compare Debug\after.physicsdiag.ndjson
+tools\physics_query.bat Debug\before.physicsdiag.ndjson compare Debug\after.physicsdiag.ndjson
 ```
 
 Follow up:
 
 ```bat
-tools\physics_query.py Debug\after.physicsdiag.ndjson frame <first_bad_frame>
-tools\physics_query.py Debug\after.physicsdiag.ndjson events --frames <start>:<end>
+tools\physics_query.bat Debug\after.physicsdiag.ndjson frame <first_bad_frame>
+tools\physics_query.bat Debug\after.physicsdiag.ndjson events --frames <start>:<end>
 ```
 
 ## Advanced SQL
@@ -230,7 +232,7 @@ tools\physics_query.py Debug\after.physicsdiag.ndjson events --frames <start>:<e
 The query tool may expose read-only SQL for local analysis:
 
 ```bat
-tools\physics_query.py Debug\scene.physicsdiag.ndjson sql "select frame,max_penetration from frames order by max_penetration desc limit 10"
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson sql "select frame,max_penetration from frames order by max_penetration desc limit 10"
 ```
 
 Rules:

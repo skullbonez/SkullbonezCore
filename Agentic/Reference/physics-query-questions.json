@@ -37,9 +37,9 @@
     ]
   },
   "penetration_spikes": {
-    "description": "Find high-penetration contacts and the related bodies/frames.",
+    "description": "Find sustained or growing high-penetration contacts and the related bodies/frames.",
     "commands": [
-      "events --type penetration_spike --limit 50",
+      "events --type penetration_sustained,penetration_growing --limit 50",
       "contacts --top penetration --limit 20",
       "summary --limit 20"
     ],

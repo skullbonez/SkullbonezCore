@@ -29,7 +29,7 @@ This file holds details that are useful during debugging or manual testing but t
 | `--physics-debug-alpha` | float | Override translucent debug body alpha, `0.05` to `1.0`; also enables translucent debug bodies. |
 | `--physics-debug-contact-linger` | seconds | Keep contact manifold visuals visible after contact rows disappear, `0.0` to `5.0`. |
 | `--physics-log` | path | Write per-frame physics CSV in Debug builds. |
-| `--physics-diag` | path | Write queryable physics diagnostics NDJSON in Debug builds. Forces fixed-step playback and can be queried with `tools\physics_query.py`. Alias: `--physics-diagnostics`. |
+| `--physics-diag` | path | Write queryable physics diagnostics NDJSON in Debug builds. Forces fixed-step playback and can be queried with `tools\physics_query.bat`. Alias: `--physics-diagnostics`. |
 | `--gen-atlas` | optional path | Generate the SDF font atlas and exit before GPU init. |
 
 Physics debug command-line arguments also accept underscore spellings matching scene directives, for example `--physics_debug all` and `--physics_debug_contact_linger 0.75`.

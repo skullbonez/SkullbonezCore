@@ -1332,368 +1332,16 @@
       ]
     },
     "events": {
-      "events": [
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "16:18:52864",
-            "followups": [
-              "contacts --frame 181 --top penetration",
-              "frame 181"
-            ],
-            "max_penetration": 0.054311
-          },
-          "event_id": "E1",
-          "frame": 181,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        },
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "16:18:52864",
-            "followups": [
-              "contacts --frame 182 --top penetration",
-              "frame 182"
-            ],
-            "max_penetration": 0.052487
-          },
-          "event_id": "E2",
-          "frame": 182,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        },
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "20:25:53248",
-            "followups": [
-              "contacts --frame 291 --top penetration",
-              "frame 291"
-            ],
-            "max_penetration": 0.075526
-          },
-          "event_id": "E3",
-          "frame": 291,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        },
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "20:25:53248",
-            "followups": [
-              "contacts --frame 292 --top penetration",
-              "frame 292"
-            ],
-            "max_penetration": 0.075328
-          },
-          "event_id": "E4",
-          "frame": 292,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        },
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "20:25:53248",
-            "followups": [
-              "contacts --frame 293 --top penetration",
-              "frame 293"
-            ],
-            "max_penetration": 0.061274
-          },
-          "event_id": "E5",
-          "frame": 293,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        },
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "20:25:43011",
-            "followups": [
-              "contacts --frame 294 --top penetration",
-              "frame 294"
-            ],
-            "max_penetration": 0.097899
-          },
-          "event_id": "E6",
-          "frame": 294,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        },
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "20:25:43011",
-            "followups": [
-              "contacts --frame 295 --top penetration",
-              "frame 295"
-            ],
-            "max_penetration": 0.116931
-          },
-          "event_id": "E7",
-          "frame": 295,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        },
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "20:25:43011",
-            "followups": [
-              "contacts --frame 296 --top penetration",
-              "frame 296"
-            ],
-            "max_penetration": 0.103073
-          },
-          "event_id": "E8",
-          "frame": 296,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        },
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "20:25:43011",
-            "followups": [
-              "contacts --frame 297 --top penetration",
-              "frame 297"
-            ],
-            "max_penetration": 0.082959
-          },
-          "event_id": "E9",
-          "frame": 297,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        },
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "20:25:43011",
-            "followups": [
-              "contacts --frame 298 --top penetration",
-              "frame 298"
-            ],
-            "max_penetration": 0.06445
-          },
-          "event_id": "E10",
-          "frame": 298,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        },
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "27:28:33409",
-            "followups": [
-              "contacts --frame 302 --top penetration",
-              "frame 302"
-            ],
-            "max_penetration": 0.167125
-          },
-          "event_id": "E11",
-          "frame": 302,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        },
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "16:18:36481",
-            "followups": [
-              "contacts --frame 318 --top penetration",
-              "frame 318"
-            ],
-            "max_penetration": 0.058111
-          },
-          "event_id": "E12",
-          "frame": 318,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        },
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "16:18:52864",
-            "followups": [
-              "contacts --frame 319 --top penetration",
-              "frame 319"
-            ],
-            "max_penetration": 0.051724
-          },
-          "event_id": "E13",
-          "frame": 319,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        },
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "18:27:42179",
-            "followups": [
-              "contacts --frame 325 --top penetration",
-              "frame 325"
-            ],
-            "max_penetration": 0.102925
-          },
-          "event_id": "E14",
-          "frame": 325,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        },
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "18:27:42179",
-            "followups": [
-              "contacts --frame 326 --top penetration",
-              "frame 326"
-            ],
-            "max_penetration": 0.140258
-          },
-          "event_id": "E15",
-          "frame": 326,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        },
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "18:27:42179",
-            "followups": [
-              "contacts --frame 327 --top penetration",
-              "frame 327"
-            ],
-            "max_penetration": 0.149362
-          },
-          "event_id": "E16",
-          "frame": 327,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        },
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "18:27:42179",
-            "followups": [
-              "contacts --frame 328 --top penetration",
-              "frame 328"
-            ],
-            "max_penetration": 0.127679
-          },
-          "event_id": "E17",
-          "frame": 328,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        },
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "18:27:42179",
-            "followups": [
-              "contacts --frame 329 --top penetration",
-              "frame 329"
-            ],
-            "max_penetration": 0.119696
-          },
-          "event_id": "E18",
-          "frame": 329,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        },
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "18:27:42179",
-            "followups": [
-              "contacts --frame 330 --top penetration",
-              "frame 330"
-            ],
-            "max_penetration": 0.110292
-          },
-          "event_id": "E19",
-          "frame": 330,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        },
-        {
-          "body_a": -1,
-          "body_b": -1,
-          "data": {
-            "contact": "18:27:42179",
-            "followups": [
-              "contacts --frame 331 --top penetration",
-              "frame 331"
-            ],
-            "max_penetration": 0.104985
-          },
-          "event_id": "E20",
-          "frame": 331,
-          "island_id": -1,
-          "severity": "high",
-          "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-          "type": "penetration_spike"
-        }
+      "events": [],
+      "relatedQueries": [
+        "event <id> --window 30",
+        "frame <frame>",
+        "body <body> --frames <start>:<end>"
       ],
+      "run": "run_0001"
+    },
+    "events_penetration": {
+      "events": [],
       "relatedQueries": [
         "event <id> --window 30",
         "frame <frame>",
@@ -2191,6 +1839,20 @@
         "events --frames 1169:1229"
       ],
       "run": "run_0001"
+    },
+    "question_penetration_spikes": {
+      "commands": [
+        "events --type penetration_sustained,penetration_growing --limit 50",
+        "contacts --top penetration --limit 20",
+        "summary --limit 20"
+      ],
+      "description": "Find sustained or growing high-penetration contacts and the related bodies/frames.",
+      "followups": [
+        "event <id> --window 20",
+        "frame <frame>",
+        "body <body> --frames <start>:<end>"
+      ],
+      "question": "penetration_spikes"
     },
     "question_stack_health": {
       "commands": [
@@ -2860,13 +2522,7 @@
     "summary": {
       "runs": [
         {
-          "eventCounts": [
-            {
-              "count": 25,
-              "severity": "high",
-              "type": "penetration_spike"
-            }
-          ],
+          "eventCounts": [],
           "finalFrame": {
             "angular_energy": 42.124885,
             "awake_count": 14,
@@ -2930,7 +2586,7 @@
             "model_count": 37,
             "renderer": "OpenGL 3.3",
             "run_id": "run_0001",
-            "scene": "C:\\SkullbonezCore_diag_worktree\\SkullbonezData\\scenes\\physics_bench_varied.scene",
+            "scene": "C:\\SkullbonezCore\\SkullbonezData\\scenes\\physics_bench_varied.scene",
             "scene_index": 0,
             "seed": 20260602,
             "solver": "solver",
@@ -3003,97 +2659,10 @@
               "shape": "box"
             }
           ],
-          "topEvents": [
-            {
-              "body_a": -1,
-              "body_b": -1,
-              "event_id": "E1",
-              "frame": 181,
-              "island_id": -1,
-              "severity": "high",
-              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-              "type": "penetration_spike"
-            },
-            {
-              "body_a": -1,
-              "body_b": -1,
-              "event_id": "E2",
-              "frame": 182,
-              "island_id": -1,
-              "severity": "high",
-              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-              "type": "penetration_spike"
-            },
-            {
-              "body_a": -1,
-              "body_b": -1,
-              "event_id": "E3",
-              "frame": 291,
-              "island_id": -1,
-              "severity": "high",
-              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-              "type": "penetration_spike"
-            },
-            {
-              "body_a": -1,
-              "body_b": -1,
-              "event_id": "E4",
-              "frame": 292,
-              "island_id": -1,
-              "severity": "high",
-              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-              "type": "penetration_spike"
-            },
-            {
-              "body_a": -1,
-              "body_b": -1,
-              "event_id": "E5",
-              "frame": 293,
-              "island_id": -1,
-              "severity": "high",
-              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-              "type": "penetration_spike"
-            },
-            {
-              "body_a": -1,
-              "body_b": -1,
-              "event_id": "E6",
-              "frame": 294,
-              "island_id": -1,
-              "severity": "high",
-              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-              "type": "penetration_spike"
-            },
-            {
-              "body_a": -1,
-              "body_b": -1,
-              "event_id": "E7",
-              "frame": 295,
-              "island_id": -1,
-              "severity": "high",
-              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-              "type": "penetration_spike"
-            },
-            {
-              "body_a": -1,
-              "body_b": -1,
-              "event_id": "E8",
-              "frame": 296,
-              "island_id": -1,
-              "severity": "high",
-              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-              "type": "penetration_spike"
-            }
-          ]
+          "topEvents": []
         },
         {
-          "eventCounts": [
-            {
-              "count": 25,
-              "severity": "high",
-              "type": "penetration_spike"
-            }
-          ],
+          "eventCounts": [],
           "finalFrame": {
             "angular_energy": 42.124885,
             "awake_count": 14,
@@ -3157,7 +2726,7 @@
             "model_count": 37,
             "renderer": "OpenGL 3.3",
             "run_id": "run_0002",
-            "scene": "C:\\SkullbonezCore_diag_worktree\\SkullbonezData\\scenes\\physics_bench_varied.scene",
+            "scene": "C:\\SkullbonezCore\\SkullbonezData\\scenes\\physics_bench_varied.scene",
             "scene_index": 0,
             "seed": 20260602,
             "solver": "solver",
@@ -3230,88 +2799,7 @@
               "shape": "box"
             }
           ],
-          "topEvents": [
-            {
-              "body_a": -1,
-              "body_b": -1,
-              "event_id": "E1",
-              "frame": 181,
-              "island_id": -1,
-              "severity": "high",
-              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-              "type": "penetration_spike"
-            },
-            {
-              "body_a": -1,
-              "body_b": -1,
-              "event_id": "E2",
-              "frame": 182,
-              "island_id": -1,
-              "severity": "high",
-              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-              "type": "penetration_spike"
-            },
-            {
-              "body_a": -1,
-              "body_b": -1,
-              "event_id": "E3",
-              "frame": 291,
-              "island_id": -1,
-              "severity": "high",
-              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-              "type": "penetration_spike"
-            },
-            {
-              "body_a": -1,
-              "body_b": -1,
-              "event_id": "E4",
-              "frame": 292,
-              "island_id": -1,
-              "severity": "high",
-              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-              "type": "penetration_spike"
-            },
-            {
-              "body_a": -1,
-              "body_b": -1,
-              "event_id": "E5",
-              "frame": 293,
-              "island_id": -1,
-              "severity": "high",
-              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-              "type": "penetration_spike"
-            },
-            {
-              "body_a": -1,
-              "body_b": -1,
-              "event_id": "E6",
-              "frame": 294,
-              "island_id": -1,
-              "severity": "high",
-              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-              "type": "penetration_spike"
-            },
-            {
-              "body_a": -1,
-              "body_b": -1,
-              "event_id": "E7",
-              "frame": 295,
-              "island_id": -1,
-              "severity": "high",
-              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-              "type": "penetration_spike"
-            },
-            {
-              "body_a": -1,
-              "body_b": -1,
-              "event_id": "E8",
-              "frame": 296,
-              "island_id": -1,
-              "severity": "high",
-              "summary": "Persistent contact penetration exceeded the diagnostic threshold.",
-              "type": "penetration_spike"
-            }
-          ]
+          "topEvents": []
         }
       ]
     }

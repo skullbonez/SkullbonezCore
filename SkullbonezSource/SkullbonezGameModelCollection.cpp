@@ -519,6 +519,13 @@ void GameModelCollection::SetPhysicsDiagnosticsPath( const char* path )
 {
     strcpy_s( m_physicsDiagnosticsPath, sizeof( m_physicsDiagnosticsPath ), path );
     m_physicsDiagnosticsFrame = 0;
+    m_physicsDiagnosticsPenetrationContact[0] = '\0';
+    m_physicsDiagnosticsPenetrationFrames = 0;
+    m_physicsDiagnosticsPenetrationGrowthFrames = 0;
+    m_physicsDiagnosticsPenetrationWindowStart = 0.0;
+    m_physicsDiagnosticsPrevPenetration = 0.0;
+    m_physicsDiagnosticsPenetrationSustainedReported = false;
+    m_physicsDiagnosticsPenetrationGrowingReported = false;
 }
 
 
@@ -530,6 +537,13 @@ void GameModelCollection::SetPhysicsDiagnosticsRunId( const char* runId )
     m_physicsDiagnosticsTimeSeconds = 0.0;
     m_physicsDiagnosticsPrevEnergy = 0.0;
     m_physicsDiagnosticsHasPrevEnergy = false;
+    m_physicsDiagnosticsPenetrationContact[0] = '\0';
+    m_physicsDiagnosticsPenetrationFrames = 0;
+    m_physicsDiagnosticsPenetrationGrowthFrames = 0;
+    m_physicsDiagnosticsPenetrationWindowStart = 0.0;
+    m_physicsDiagnosticsPrevPenetration = 0.0;
+    m_physicsDiagnosticsPenetrationSustainedReported = false;
+    m_physicsDiagnosticsPenetrationGrowingReported = false;
 }
 #endif
 
@@ -556,6 +570,9 @@ void GameModelCollection::EmitPhysicsDiagnosticsFrame( float dt )
     double maxOmega = 0.0;
     double maxPenetration = 0.0;
     char maxPenetrationContact[64] = "";
+    int maxPenetrationBodyA = -1;
+    int maxPenetrationBodyB = -1;
+    uint32_t maxPenetrationFeatureId = 0;
 
     struct DiagnosticsIslandStats
     {
@@ -579,6 +596,9 @@ void GameModelCollection::EmitPhysicsDiagnosticsFrame( float dt )
         {
             maxPenetration = c.penetration;
             sprintf_s( maxPenetrationContact, sizeof( maxPenetrationContact ), "%d:%d:%u", c.bodyA, c.bodyB, c.featureId );
+            maxPenetrationBodyA = c.bodyA;
+            maxPenetrationBodyB = c.bodyB;
+            maxPenetrationFeatureId = c.featureId;
         }
     }
 
@@ -833,18 +853,133 @@ void GameModelCollection::EmitPhysicsDiagnosticsFrame( float dt )
                       frame );
     }
 
-    if ( maxPenetration > 0.05 )
+    constexpr double penetrationSustainedThreshold = 0.05;
+    constexpr double penetrationGrowthTrackThreshold = 0.02;
+    constexpr double penetrationGrowthEpsilon = 0.001;
+    constexpr double penetrationGrowthMinDelta = 0.02;
+    constexpr int penetrationSustainFrames = 12;
+    constexpr int penetrationGrowthWindow = 8;
+
+    const int penetrationIslandId =
+        ( maxPenetrationBodyA >= 0 && maxPenetrationBodyA < static_cast<int>( bodyIslandIds.size() ) ) ? bodyIslandIds[maxPenetrationBodyA] : -1;
+    const int penetrationWindowStartFrame = (std::max)( 0, frame - penetrationGrowthWindow );
+    const int penetrationContextStartFrame = (std::max)( 0, frame - 30 );
+    const bool hasPenetrationContact = maxPenetrationContact[0] != '\0';
+
+    if ( hasPenetrationContact && maxPenetration >= penetrationGrowthTrackThreshold )
     {
-        const int eventId = ++m_physicsDiagnosticsEventCounter;
-        Log().Writef( m_physicsDiagnosticsPath,
-                      "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"E%d\",\"frame\":%d,\"type\":\"penetration_spike\",\"severity\":\"high\",\"body_a\":-1,\"body_b\":-1,\"island_id\":-1,\"summary\":\"Persistent contact penetration exceeded the diagnostic threshold.\",\"data\":{\"max_penetration\":%.6f,\"contact\":\"%s\",\"followups\":[\"contacts --frame %d --top penetration\",\"frame %d\"]}}\n",
-                      m_physicsDiagnosticsRunId,
-                      eventId,
-                      frame,
-                      maxPenetration,
-                      maxPenetrationContact,
-                      frame,
-                      frame );
+        if ( strcmp( m_physicsDiagnosticsPenetrationContact, maxPenetrationContact ) != 0 )
+        {
+            strcpy_s( m_physicsDiagnosticsPenetrationContact, sizeof( m_physicsDiagnosticsPenetrationContact ), maxPenetrationContact );
+            m_physicsDiagnosticsPenetrationFrames = 0;
+            m_physicsDiagnosticsPenetrationGrowthFrames = 0;
+            m_physicsDiagnosticsPenetrationWindowStart = maxPenetration;
+            m_physicsDiagnosticsPrevPenetration = maxPenetration;
+            m_physicsDiagnosticsPenetrationSustainedReported = false;
+            m_physicsDiagnosticsPenetrationGrowingReported = false;
+        }
+
+        if ( maxPenetration >= penetrationSustainedThreshold )
+        {
+            ++m_physicsDiagnosticsPenetrationFrames;
+        }
+        else
+        {
+            m_physicsDiagnosticsPenetrationFrames = 0;
+            m_physicsDiagnosticsPenetrationSustainedReported = false;
+        }
+
+        if ( maxPenetration > m_physicsDiagnosticsPrevPenetration + penetrationGrowthEpsilon )
+        {
+            if ( m_physicsDiagnosticsPenetrationGrowthFrames == 0 )
+            {
+                m_physicsDiagnosticsPenetrationWindowStart = m_physicsDiagnosticsPrevPenetration;
+            }
+            ++m_physicsDiagnosticsPenetrationGrowthFrames;
+        }
+        else if ( maxPenetration < m_physicsDiagnosticsPrevPenetration - penetrationGrowthEpsilon )
+        {
+            m_physicsDiagnosticsPenetrationGrowthFrames = 0;
+            m_physicsDiagnosticsPenetrationWindowStart = maxPenetration;
+            m_physicsDiagnosticsPenetrationGrowingReported = false;
+        }
+
+        const double penetrationGrowthDelta = maxPenetration - m_physicsDiagnosticsPenetrationWindowStart;
+
+        if ( !m_physicsDiagnosticsPenetrationSustainedReported && m_physicsDiagnosticsPenetrationFrames >= penetrationSustainFrames )
+        {
+            const int eventId = ++m_physicsDiagnosticsEventCounter;
+            Log().Writef( m_physicsDiagnosticsPath,
+                          "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"E%d\",\"frame\":%d,\"type\":\"penetration_sustained\",\"severity\":\"medium\",\"body_a\":%d,\"body_b\":%d,\"island_id\":%d,\"summary\":\"Contact penetration stayed above the diagnostic threshold for multiple frames.\",\"data\":{\"max_penetration\":%.6f,\"threshold\":%.6f,\"frames_over_threshold\":%d,\"required_frames\":%d,\"contact\":\"%s\",\"feature_id\":%u,\"followups\":[\"contacts --frame %d --top penetration\",\"event E%d --window 30\",\"body %d --frames %d:%d\",\"body %d --frames %d:%d\",\"frame %d\"]}}\n",
+                          m_physicsDiagnosticsRunId,
+                          eventId,
+                          frame,
+                          maxPenetrationBodyA,
+                          maxPenetrationBodyB,
+                          penetrationIslandId,
+                          maxPenetration,
+                          penetrationSustainedThreshold,
+                          m_physicsDiagnosticsPenetrationFrames,
+                          penetrationSustainFrames,
+                          maxPenetrationContact,
+                          maxPenetrationFeatureId,
+                          frame,
+                          eventId,
+                          maxPenetrationBodyA,
+                          penetrationContextStartFrame,
+                          frame + 30,
+                          maxPenetrationBodyB,
+                          penetrationContextStartFrame,
+                          frame + 30,
+                          frame );
+            m_physicsDiagnosticsPenetrationSustainedReported = true;
+        }
+
+        if ( !m_physicsDiagnosticsPenetrationGrowingReported &&
+             m_physicsDiagnosticsPenetrationGrowthFrames >= penetrationGrowthWindow &&
+             penetrationGrowthDelta >= penetrationGrowthMinDelta )
+        {
+            const int eventId = ++m_physicsDiagnosticsEventCounter;
+            Log().Writef( m_physicsDiagnosticsPath,
+                          "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"E%d\",\"frame\":%d,\"type\":\"penetration_growing\",\"severity\":\"high\",\"body_a\":%d,\"body_b\":%d,\"island_id\":%d,\"summary\":\"Contact penetration kept increasing across the diagnostic window.\",\"data\":{\"start_penetration\":%.6f,\"current_penetration\":%.6f,\"delta_penetration\":%.6f,\"window_start_frame\":%d,\"growth_frames\":%d,\"required_growth_frames\":%d,\"min_delta\":%.6f,\"contact\":\"%s\",\"feature_id\":%u,\"followups\":[\"contacts --frame %d --top penetration\",\"event E%d --window 30\",\"body %d --frames %d:%d\",\"body %d --frames %d:%d\",\"frame %d\"]}}\n",
+                          m_physicsDiagnosticsRunId,
+                          eventId,
+                          frame,
+                          maxPenetrationBodyA,
+                          maxPenetrationBodyB,
+                          penetrationIslandId,
+                          m_physicsDiagnosticsPenetrationWindowStart,
+                          maxPenetration,
+                          penetrationGrowthDelta,
+                          penetrationWindowStartFrame,
+                          m_physicsDiagnosticsPenetrationGrowthFrames,
+                          penetrationGrowthWindow,
+                          penetrationGrowthMinDelta,
+                          maxPenetrationContact,
+                          maxPenetrationFeatureId,
+                          frame,
+                          eventId,
+                          maxPenetrationBodyA,
+                          penetrationContextStartFrame,
+                          frame + 30,
+                          maxPenetrationBodyB,
+                          penetrationContextStartFrame,
+                          frame + 30,
+                          frame );
+            m_physicsDiagnosticsPenetrationGrowingReported = true;
+        }
+
+        m_physicsDiagnosticsPrevPenetration = maxPenetration;
+    }
+    else
+    {
+        m_physicsDiagnosticsPenetrationContact[0] = '\0';
+        m_physicsDiagnosticsPenetrationFrames = 0;
+        m_physicsDiagnosticsPenetrationGrowthFrames = 0;
+        m_physicsDiagnosticsPenetrationWindowStart = 0.0;
+        m_physicsDiagnosticsPrevPenetration = 0.0;
+        m_physicsDiagnosticsPenetrationSustainedReported = false;
+        m_physicsDiagnosticsPenetrationGrowingReported = false;
     }
 
     for ( const PersistentContact& c : m_persistentContacts )
