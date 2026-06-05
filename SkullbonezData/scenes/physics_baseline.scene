@@ -13,7 +13,6 @@ physics on
 text off
 frames 600
 fixed_step
-physics_log Debug/physics_state.csv
 
 # Elevated camera looking down at the scene
 camera overview 500 200 500  500 50 500  0 1 0

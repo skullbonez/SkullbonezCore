@@ -54,7 +54,7 @@
 // Array-sizing counts (must remain compile-time)
 constexpr int TOTAL_CAMERA_COUNT = 3;
 constexpr int TOTAL_TEXTURE_COUNT = 8;
-constexpr int MAX_GAME_MODELS = 512;
+constexpr int MAX_GAME_MODELS = 1024;
 constexpr int DEFAULT_GAME_MODELS = 300;
 
 // Window labels

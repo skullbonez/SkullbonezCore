@@ -25,7 +25,6 @@ flat_slope 30.0 0.0 0.0
 # Camera looking at the test area
 camera overview 500 80 500  500 35 500  0 1 0
 
-physics_log Debug/box_flush_test.csv
 
 # Box 1: straight drop onto flat surface — should land perfectly flush on bottom face
 # box <name> <posX> <posY> <posZ> <halfX> <halfY> <halfZ> <mass> <restitution> [eulerX eulerY eulerZ]

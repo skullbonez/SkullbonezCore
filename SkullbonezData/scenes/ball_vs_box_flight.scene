@@ -18,7 +18,6 @@ flat_slope 30.0 0.0 0.0
 
 camera overview 500 120 480  500 100 500  0 1 0
 
-physics_log Debug/ball_vs_box_flight.csv
 
 # Ball at y=100 launched horizontally (offset below box center)
 # ball <name> <x y z> <radius> <mass> <moment> <restitution> [fx fy fz fpx fpy fpz]

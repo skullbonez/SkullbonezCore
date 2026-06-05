@@ -245,15 +245,6 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
-        // parse physics_log directive
-#ifdef _DEBUG
-        if ( strncmp( line, "physics_log ", 12 ) == 0 )
-        {
-            strcpy_s( scene.m_loggingOptions.physicsLogPath, sizeof( scene.m_loggingOptions.physicsLogPath ), line + 12 );
-            continue;
-        }
-#endif
-
         // parse vsync directive
         if ( strncmp( line, "vsync ", 6 ) == 0 )
         {
@@ -902,15 +893,6 @@ int TestScene::GetPerfLogFlushInterval() const
 {
     return m_loggingOptions.perfLogFlushInterval;
 }
-
-
-#ifdef _DEBUG
-const char* TestScene::GetPhysicsLogPath() const
-{
-    return m_loggingOptions.physicsLogPath;
-}
-#endif
-
 
 bool TestScene::HasVsyncOverride() const
 {

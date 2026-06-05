@@ -19,7 +19,6 @@ water_hidden on
 
 camera overview 620 310 1040  620 55 620  0 1 0
 
-physics_log Debug/box_crater_edge_repro.csv
 
 # box <name> <posX> <posY> <posZ> <halfX> <halfY> <halfZ> <mass> <restitution> [eulerX eulerY eulerZ]
 box crater_rand_00 919.868 71.203 590.976  3.0 3.0 3.0  25.0 0.20  -8.818 -0.320 40.454

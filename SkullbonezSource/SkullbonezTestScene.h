@@ -103,9 +103,6 @@ struct SceneLoggingOptions
     char perfLogPath[256] = {};   // output path for perf CSV (empty = none)
     bool isPerfLogFlush = false;  // Force flush after each perf-log write
     int perfLogFlushInterval = 0; // Flush perf log every N writes (0 = only at close)
-#ifdef _DEBUG
-    char physicsLogPath[256] = {}; // output path for full physics state CSV (empty = none)
-#endif
 };
 
 struct SceneRuntimeOverrides
@@ -212,10 +209,6 @@ class TestScene
     float GetWorldGravity() const;
     float GetWorldFluidHeight() const;
     float GetWorldFluidDensity() const;
-
-#ifdef _DEBUG
-    const char* GetPhysicsLogPath() const; // Output path for per-frame physics state CSV (empty = disabled)
-#endif
 };
 } // namespace Basics
 } // namespace SkullbonezCore

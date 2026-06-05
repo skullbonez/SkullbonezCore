@@ -49,9 +49,9 @@ class SpatialGrid
     //   However, spatial locality means most cells are shared so actual fill ≪ 4096.
     //   Use 2048 (50% load for realistic worst case of ~1000 distinct cells with 512 models)
     //   which keeps the struct ≤ 200KB while handling 512 models cleanly.
-    static constexpr int TABLE_SIZE = 2048;
+    static constexpr int TABLE_SIZE = 4096;
     static constexpr int TABLE_MASK = TABLE_SIZE - 1;
-    static constexpr int MAX_CELL_ENTRIES = MAX_GAME_MODELS * 8 + 4; // 512×8 + 4 = 4100
+    static constexpr int MAX_CELL_ENTRIES = MAX_GAME_MODELS * 8 + 4;
     static constexpr int PAIR_WORDS = ( MAX_GAME_MODELS * ( MAX_GAME_MODELS - 1 ) / 2 + 63 ) / 64;
 
     struct Entry

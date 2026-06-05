@@ -49,9 +49,21 @@ struct RunPerfLogState
     int perfLogFlushInterval = 0;       // Flush perf CSV every N writes (0 = flush on close only)
     int perfLogWritesSinceFlush = 0;    // Buffered perf-log write count since last flush
 #ifdef _DEBUG
-    char physicsLogOverride[256] = {}; // CLI --physics-log path override (empty = use scene directive)
+    char physicsRegressionLogOverride[256] = {}; // CLI --physics-regression-log path (empty = disabled)
 #endif
 };
+
+#ifdef _DEBUG
+struct RunPhysicsDiagnosticsState
+{
+    char path[256] = {};                       // CLI --physics-diag path (empty = disabled)
+    char currentRunId[32] = {};                // Stable per-load id written into NDJSON rows
+    bool isEnabled = false;                    // True when a diagnostics path was provided
+    bool isRunActive = false;                  // True after a run row and before the matching end row
+    bool fixedStepForcedByDiagnostics = false; // True when --physics-diag forced fixed-step mode
+    int runSequence = 0;                       // Incremented on every scene/legacy load
+};
+#endif
 
 
 struct RunRuntimeSettings
@@ -217,7 +229,10 @@ class SkullbonezRun
     bool m_cmdHasPhysicsDebugContactLingerOverride = false;
     float m_cmdPhysicsDebugContactLingerOverride = 0.45f;
 
-    RunPerfLogState m_perfLogState;                  // Perf/test logging paths, files, and flush policy
+    RunPerfLogState m_perfLogState; // Perf/test logging paths, files, and flush policy
+#ifdef _DEBUG
+    RunPhysicsDiagnosticsState m_physicsDiagnostics; // Queryable model-facing physics diagnostic trace
+#endif
     RunRuntimeSettings m_runtimeSettings;            // Scene/app runtime toggles (vsync, sync, roll-align)
     RunTimerState m_timers;                          // Frame/simulation timers and rolling timing values
     RunSubsystemState m_systems;                     // Window, camera, texture, terrain, and reflection handles
@@ -270,6 +285,8 @@ class SkullbonezRun
 #ifdef _DEBUG
     bool PickNudgeReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance );
     void WriteNudgeReproSnapshot();
+    void BeginPhysicsDiagnosticsRun( const char* scenePath );
+    void EndPhysicsDiagnosticsRun( const char* status );
 #endif
 
   public:
@@ -292,7 +309,8 @@ class SkullbonezRun
     void SetPhysicsDebugContactLingerOverride( float seconds );
 
 #ifdef _DEBUG
-    void SetPhysicsLogOverride( const char* path ); // Override physics log path for all scenes (CLI --physics-log)
+    void SetPhysicsRegressionLogOverride( const char* path );                              // Override regression CSV path for all scenes
+    void SetPhysicsDiagnosticsPath( const char* path, bool fixedStepForcedByDiagnostics ); // Enable queryable physics diagnostics (CLI --physics-diag)
 #endif
 };
 } // namespace Basics

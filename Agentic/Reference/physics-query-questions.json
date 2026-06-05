@@ -1,0 +1,142 @@
+{
+  "what_happened": {
+    "description": "Start here for a compact run overview and the highest-signal anomalies.",
+    "commands": [
+      "summary --limit 20",
+      "events --limit 20"
+    ],
+    "followups": [
+      "event <id> --window 30",
+      "frame <frame>",
+      "body <body> --frames <start>:<end>"
+    ]
+  },
+  "why_not_resting": {
+    "description": "Find quiet, supported, inhibited, or sleeping-state failures.",
+    "commands": [
+      "summary --limit 20",
+      "events --type failed_to_sleep,sleep_inhibited_quiet,unsupported_sleep --limit 50",
+      "stacks --frames 0:1000 --limit 50"
+    ],
+    "followups": [
+      "island <id> --frame <frame>",
+      "body <body> --frames <start>:<end>",
+      "contacts --frame <frame> --body <body>"
+    ]
+  },
+  "unsupported_sleepers": {
+    "description": "Check for bodies that slept without credible support.",
+    "commands": [
+      "events --type unsupported_sleep --limit 50",
+      "stacks --frames 0:1000 --limit 50"
+    ],
+    "followups": [
+      "event <id> --window 30",
+      "contacts --frame <frame> --body <body>",
+      "body <body> --frames <start>:<end>"
+    ]
+  },
+  "penetration_spikes": {
+    "description": "Find sustained or growing high-penetration contacts and the related bodies/frames.",
+    "commands": [
+      "events --type penetration_sustained,penetration_growing --limit 50",
+      "contacts --top penetration --limit 20",
+      "summary --limit 20"
+    ],
+    "followups": [
+      "event <id> --window 20",
+      "frame <frame>",
+      "body <body> --frames <start>:<end>"
+    ]
+  },
+  "energy_spikes": {
+    "description": "Find unexpected kinetic energy growth and top energy contributors.",
+    "commands": [
+      "energy --frames 0:1000 --limit 50",
+      "events --type energy_spike --limit 50"
+    ],
+    "followups": [
+      "frame <frame>",
+      "body <body> --frames <start>:<end>",
+      "contacts --frame <frame> --top impulse"
+    ]
+  },
+  "fastest_bodies": {
+    "description": "Find the bodies with the highest linear or angular velocity.",
+    "commands": [
+      "summary --top bodies --limit 20",
+      "energy --frames 0:1000 --limit 20"
+    ],
+    "followups": [
+      "body <body> --frames <start>:<end>",
+      "frame <frame>"
+    ]
+  },
+  "stack_health": {
+    "description": "Check support chains, unsupported sleepers, and moving supported bodies.",
+    "commands": [
+      "stacks --frames 0:1000 --limit 50",
+      "events --type stack_drift,island_churn,unsupported_sleep --limit 50"
+    ],
+    "followups": [
+      "island <id> --frame <frame>",
+      "contacts --frame <frame> --body <body>",
+      "body <body> --frames <start>:<end>"
+    ]
+  },
+  "rolling_health": {
+    "description": "Check rolling/slip/spin behavior and high-spin body candidates.",
+    "commands": [
+      "rolling --frames 0:1000 --limit 50",
+      "events --type rolling_slip,friction_saturation --limit 50"
+    ],
+    "followups": [
+      "body <body> --frames <start>:<end>",
+      "contacts --frame <frame> --body <body>"
+    ]
+  },
+  "island_churn": {
+    "description": "Find island split/merge/churn events and inspect membership.",
+    "commands": [
+      "events --type island_churn,island_split,island_merge --limit 50",
+      "summary --limit 20"
+    ],
+    "followups": [
+      "island <id> --frame <frame>",
+      "body <body> --frames <start>:<end>"
+    ]
+  },
+  "broadphase_health": {
+    "description": "Check candidate/contact work and broadphase spike events.",
+    "commands": [
+      "broadphase --frames 0:1000 --limit 50",
+      "events --type broadphase_spike --limit 50"
+    ],
+    "followups": [
+      "frame <frame>",
+      "sql \"select frame,contact_count from frames order by contact_count desc limit 20\""
+    ]
+  },
+  "water_health": {
+    "description": "Check buoyancy/water diagnostics when the trace contains water rows.",
+    "commands": [
+      "water --frames 0:1000 --limit 50",
+      "events --type water_float_sleep --limit 50"
+    ],
+    "followups": [
+      "body <body> --frames <start>:<end>",
+      "frame <frame>"
+    ]
+  },
+  "first_bad_frame": {
+    "description": "Compare two traces and locate the first changed aggregate frame.",
+    "commands": [
+      "compare <other_trace.ndjson> --limit 20"
+    ],
+    "followups": [
+      "frame <firstDifferentFrame>",
+      "events --frames <start>:<end>",
+      "energy --frames <start>:<end>"
+    ]
+  }
+}

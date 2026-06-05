@@ -2,7 +2,6 @@
 # Reproducer for orientation snap on floating balls.
 # 8 named balls packed tightly near the water surface (fluid_height=25)
 # so they float and collide with each other.
-# physics_log captures every terrain/sphere collision event.
 # snap_log (always-on in code) tracks large orientation changes per frame.
 physics on
 text off

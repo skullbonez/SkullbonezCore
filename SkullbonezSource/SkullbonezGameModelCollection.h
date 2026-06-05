@@ -6,7 +6,9 @@
 #include <vector>
 #include <algorithm>
 #include <memory>
+#include <array>
 #include <cstdint>
+#include <array>
 #include "SkullbonezCommon.h"
 #include "SkullbonezGameModel.h"
 #include "SkullbonezVector3.h"
@@ -15,6 +17,7 @@
 #include "SkullbonezMatrix4.h"
 #include "SkullbonezIShader.h"
 #include "SkullbonezPhysicsDebugVisualizer.h"
+#include "SkullbonezSkullScope.h"
 
 
 // --- Usings ---
@@ -37,10 +40,19 @@ class GameModelCollection
 {
 
   private:
-    std::vector<GameModel> m_gameModels;               // Collection of game models
-    SpatialGrid m_spatialGrid;                         // Broadphase spatial grid for collision culling
-    std::vector<std::pair<int, int>> m_candidatePairs; // Retained-capacity pair buffer (avoids per-frame alloc)
-    std::vector<float> m_timeRemaining;                // Per-model timestep remainder (retained buffer)
+    friend class SkullScope;
+
+    std::vector<GameModel> m_gameModels;                     // Collection of game models
+    SpatialGrid m_spatialGrid;                               // Broadphase spatial grid for collision culling
+    std::vector<std::pair<int, int>> m_candidatePairs;       // Retained-capacity pair buffer (avoids per-frame alloc)
+    std::vector<float> m_timeRemaining;                      // Per-model timestep remainder (retained buffer)
+    std::array<Vector3, MAX_GAME_MODELS> m_soaPositions;     // Hot SoA stream: current model centers
+    std::array<float, MAX_GAME_MODELS> m_soaBoundingRadii;   // Hot SoA stream: broadphase/render radii
+    std::array<uint8_t, MAX_GAME_MODELS> m_soaIsBox;         // Hot SoA stream: shape class, 0=sphere, 1=box
+    std::array<Matrix4, MAX_GAME_MODELS> m_soaModelMatrices; // Per-frame render matrix stream reused by reflection/main passes
+    int m_soaActiveCount = 0;
+    bool m_soaBodyDataValid = false;
+    bool m_soaModelMatricesValid = false;
 
     // Sleep support is deliberately not the same thing as "grounded" or "has a
     // contact." It means this body has credible support for deactivation this
@@ -97,6 +109,7 @@ class GameModelCollection
         float accN = 0.0f;              // Total normal push accumulated by the iterative solver.
         float accT1 = 0.0f;             // Total friction push accumulated along tangent 1.
         float accT2 = 0.0f;             // Total friction push accumulated along tangent 2.
+        bool warmStarted = false;       // True when this row reused a previous-frame cached impulse.
     };
 
     // The previous frame's solution is a very good first guess for this frame.
@@ -134,16 +147,26 @@ class GameModelCollection
     std::vector<int64_t> m_collisionCellKeys;                          // Cells where narrowphase collisions occurred this frame
 
 #ifdef _DEBUG
-    char m_physicsLogPath[256] = {}; // Output path for physics state CSV (empty = disabled)
-    int m_physicsLogFrame = 0;       // Frame counter reset when path is set
+    // Legacy byte-exact CSV artifact for deterministic physics regression tests.
+    // TODO: migrate the regression baseline onto SkullScope/SQLite diagnostics,
+    // then retire this row-per-body CSV path.
+    char m_physicsRegressionLogPath[256] = {}; // Output path for regression CSV (empty = disabled)
+    int m_physicsRegressionLogFrame = 0;       // Frame counter reset when path is set
+    SkullScope m_skullScope;                   // Queryable model-facing physics diagnostics trace writer
 #endif
 
     void BuildShadowMesh();                         // Builds the shadow disc VAO with instanced attributes
     void RunLegacyPhysics( float dt );              // Physics tick: legacy sphere-only solver (boxes skipped)
     void RunSolverPhysics( float dt );              // Physics tick: unified impulse solver (all objects)
     void SolvePersistentObjectContacts( float dt ); // PGS contact-force pass for resting/stacked object contacts
+#ifdef _DEBUG
+    void EmitPhysicsDiagnosticsFrame( float dt );
+#endif
     void EnsureCollisionVisualBuffers( int modelCount );
     void MarkCollisionVisualContact( int index );
+    void InvalidateSoA();
+    void RefreshSoABodyData();
+    void EnsureSoAModelMatrices();
 
     // Extends terrain-backed sleep support through vertical object-contact stack
     // chains. This is separate from the solver so sleep policy can stay strict
@@ -160,6 +183,7 @@ class GameModelCollection
     bool GetLegacyMode() const;                                                                                                                                                            // Returns true when the legacy sphere-only solver is active
     void RunPhysics( float fChangeInTime );                                                                                                                                                // Runs the physics for the specified time step
     void RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4] );                                                                                                // Renders the game models
+    void PrepareRenderStreams();                                                                                                                                                           // Builds cached SoA render streams once for the upcoming frame
     void RenderShadows( Geometry::Terrain* terrain, const Matrix4& view, const Matrix4& proj, float waterSurfaceY );                                                                       // Renders ground shadows beneath all models
     void ResetGLResources();                                                                                                                                                               // Releases GPU resources for GL context reset
     bool SaveSceneSnapshot( const char* path, bool physicsOn, bool textOn, Environment::WorldEnvironment& worldEnv, const Vector3& camEye, const Vector3& camView, const Vector3& camUp ); // Saves full scene state to a .scene file; returns true on success
@@ -206,7 +230,9 @@ class GameModelCollection
     }
 
 #ifdef _DEBUG
-    void SetPhysicsLogPath( const char* path ); // Enable per-frame physics state CSV; empty string disables
+    void SetPhysicsRegressionLogPath( const char* path ); // Enable byte-exact regression CSV; empty string disables
+    void SetPhysicsDiagnosticsPath( const char* path );   // Enable queryable physics diagnostics trace; empty string disables
+    void SetPhysicsDiagnosticsRunId( const char* runId ); // Sets current diagnostics run id and resets run-local counters
 #endif
 };
 } // namespace GameObjects
