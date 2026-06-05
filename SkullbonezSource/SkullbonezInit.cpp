@@ -146,7 +146,10 @@ struct ParsedArgs
     float physicsDebugContactLingerOverride = 0.45f;
 #ifdef _DEBUG
     char physicsLogOverride[256] = {};
+    char physicsDiagnosticsPath[256] = {};
 #endif
+    bool physicsDiagnosticsRequested = false;
+    bool fixedStepForcedByPhysicsDiagnostics = false;
 };
 
 bool IsCmdSeparator( char c )
@@ -558,6 +561,23 @@ bool ValidatePhysicsLog( const char* cmdLine )
 #endif
 }
 
+// Guards --physics-diag / --physics-diagnostics against use in non-Debug builds.
+// Diagnostics traces are model-facing debug artifacts and are not a Profile/Release dependency.
+bool ValidatePhysicsDiagnostics( const char* cmdLine )
+{
+    if ( !FindOptionValue( cmdLine, "--physics-diag" ) &&
+         !FindOptionValue( cmdLine, "--physics-diagnostics" ) )
+    {
+        return true;
+    }
+
+#ifndef _DEBUG
+    return FailCommandLineParse( "--physics-diag is only supported in Debug builds. Recompile with the Debug configuration to use queryable physics diagnostics." );
+#else
+    return true;
+#endif
+}
+
 #ifdef _DEBUG
 void ParsePhysicsLogOverride( const char* cmdLine, char ( &outPath )[256] )
 {
@@ -589,6 +609,38 @@ void ParsePhysicsLogOverride( const char* cmdLine, char ( &outPath )[256] )
         fprintf( stdout, "[physics-log] Output: %s\n", outPath );
     }
 }
+
+bool ParsePhysicsDiagnosticsPath( const char* cmdLine, char ( &outPath )[256] )
+{
+    outPath[0] = '\0';
+    const char* diagArg = FindOptionValue( cmdLine, "--physics-diag" );
+    if ( !diagArg )
+    {
+        diagArg = FindOptionValue( cmdLine, "--physics-diagnostics" );
+    }
+    if ( !diagArg )
+    {
+        return true;
+    }
+    if ( *diagArg == '\0' || *diagArg == '-' )
+    {
+        return FailCommandLineParse( "--physics-diag requires an output path." );
+    }
+
+    const char* diagEnd = diagArg;
+    while ( *diagEnd != '\0' && *diagEnd != ' ' && *diagEnd != '\t' )
+    {
+        ++diagEnd;
+    }
+    size_t len = static_cast<size_t>( diagEnd - diagArg );
+    if ( len >= 256 )
+    {
+        len = 255;
+    }
+    memcpy( outPath, diagArg, len );
+    outPath[len] = '\0';
+    return true;
+}
 #endif
 
 // Parses all command-line options into a ParsedArgs struct.
@@ -612,9 +664,18 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
     {
         return false;
     }
+    if ( !ValidatePhysicsDiagnostics( cmdLine ) )
+    {
+        return false;
+    }
 
 #ifdef _DEBUG
     ParsePhysicsLogOverride( cmdLine, out.physicsLogOverride );
+    if ( !ParsePhysicsDiagnosticsPath( cmdLine, out.physicsDiagnosticsPath ) )
+    {
+        return false;
+    }
+    out.physicsDiagnosticsRequested = out.physicsDiagnosticsPath[0] != '\0';
 #endif
 
     out.switchInterval = ParseSwitchInterval( cmdLine );
@@ -642,6 +703,22 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
     {
         fprintf( stdout, "[fixed-step] Forced via command line.\n" );
     }
+#ifdef _DEBUG
+    if ( out.physicsDiagnosticsRequested )
+    {
+        if ( !out.fixedStep )
+        {
+            out.fixedStep = true;
+            out.fixedStepForcedByPhysicsDiagnostics = true;
+            fprintf( stdout, "[physics-diag] Enabled: forcing fixed_step for deterministic queryable trace.\n" );
+        }
+        else
+        {
+            fprintf( stdout, "[physics-diag] Enabled: fixed_step already active.\n" );
+        }
+        fprintf( stdout, "[physics-diag] Output: %s\n", out.physicsDiagnosticsPath );
+    }
+#endif
 
     // --seed <N>: positive unsigned integer, 0 = not set.
     const char* seedArg = cmdLine ? strstr( cmdLine, "--seed" ) : nullptr;
@@ -803,6 +880,10 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         if ( args.physicsLogOverride[0] != '\0' )
         {
             cRun.SetPhysicsLogOverride( args.physicsLogOverride );
+        }
+        if ( args.physicsDiagnosticsPath[0] != '\0' )
+        {
+            cRun.SetPhysicsDiagnosticsPath( args.physicsDiagnosticsPath, args.fixedStepForcedByPhysicsDiagnostics );
         }
 #endif
         try

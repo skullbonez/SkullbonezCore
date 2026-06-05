@@ -26,10 +26,6 @@ GameModelCollection::GameModelCollection()
 {
     m_gameModels.reserve( MAX_GAME_MODELS );
     m_timeRemaining.reserve( MAX_GAME_MODELS );
-    m_soaPositions.reserve( MAX_GAME_MODELS );
-    m_soaBoundingRadii.reserve( MAX_GAME_MODELS );
-    m_soaIsBox.reserve( MAX_GAME_MODELS );
-    m_soaModelMatrices.reserve( MAX_GAME_MODELS );
     m_sleepSupportedThisFrame.reserve( MAX_GAME_MODELS );
     m_sleepInhibitedThisFrame.reserve( MAX_GAME_MODELS );
     m_collisionVisualContacts.reserve( MAX_GAME_MODELS );
@@ -72,10 +68,7 @@ void GameModelCollection::Clear()
 {
     m_gameModels.clear();
     m_timeRemaining.clear();
-    m_soaPositions.clear();
-    m_soaBoundingRadii.clear();
-    m_soaIsBox.clear();
-    m_soaModelMatrices.clear();
+    m_soaActiveCount = 0;
     InvalidateSoA();
     m_sleepSupportedThisFrame.clear();
     m_sleepInhibitedThisFrame.clear();
@@ -110,9 +103,6 @@ void GameModelCollection::InvalidateSoA()
 void GameModelCollection::RefreshSoABodyData()
 {
     const int modelCount = static_cast<int>( m_gameModels.size() );
-    m_soaPositions.resize( modelCount );
-    m_soaBoundingRadii.resize( modelCount );
-    m_soaIsBox.resize( modelCount );
 
     for ( int i = 0; i < modelCount; ++i )
     {
@@ -121,6 +111,7 @@ void GameModelCollection::RefreshSoABodyData()
         m_soaIsBox[i] = m_gameModels[i].IsBox() ? 1 : 0;
     }
 
+    m_soaActiveCount = modelCount;
     m_soaBodyDataValid = true;
 }
 
@@ -133,12 +124,11 @@ void GameModelCollection::EnsureSoAModelMatrices()
     }
 
     const int modelCount = static_cast<int>( m_gameModels.size() );
-    if ( m_soaModelMatricesValid && static_cast<int>( m_soaModelMatrices.size() ) == modelCount )
+    if ( m_soaModelMatricesValid && m_soaActiveCount == modelCount )
     {
         return;
     }
 
-    m_soaModelMatrices.resize( modelCount );
     for ( int i = 0; i < modelCount; ++i )
     {
         m_soaModelMatrices[i] = m_gameModels[i].GetModelMatrix();
@@ -475,6 +465,13 @@ void GameModelCollection::SetPhysicsLogPath( const char* path )
 {
     strcpy_s( m_physicsLogPath, sizeof( m_physicsLogPath ), path );
     m_physicsLogFrame = 0;
+}
+
+
+void GameModelCollection::SetPhysicsDiagnosticsPath( const char* path )
+{
+    strcpy_s( m_physicsDiagnosticsPath, sizeof( m_physicsDiagnosticsPath ), path );
+    m_physicsDiagnosticsFrame = 0;
 }
 #endif
 

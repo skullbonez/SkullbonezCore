@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <memory>
 #include <cstdint>
+#include <array>
 #include "SkullbonezCommon.h"
 #include "SkullbonezGameModel.h"
 #include "SkullbonezVector3.h"
@@ -37,14 +38,15 @@ class GameModelCollection
 {
 
   private:
-    std::vector<GameModel> m_gameModels;               // Collection of game models
-    SpatialGrid m_spatialGrid;                         // Broadphase spatial grid for collision culling
-    std::vector<std::pair<int, int>> m_candidatePairs; // Retained-capacity pair buffer (avoids per-frame alloc)
-    std::vector<float> m_timeRemaining;                // Per-model timestep remainder (retained buffer)
-    std::vector<Vector3> m_soaPositions;               // Hot SoA stream: current model centers
-    std::vector<float> m_soaBoundingRadii;             // Hot SoA stream: broadphase/render radii
-    std::vector<uint8_t> m_soaIsBox;                   // Hot SoA stream: shape class, 0=sphere, 1=box
-    std::vector<Matrix4> m_soaModelMatrices;           // Per-frame render matrix stream reused by reflection/main passes
+    std::vector<GameModel> m_gameModels;                     // Collection of game models
+    SpatialGrid m_spatialGrid;                               // Broadphase spatial grid for collision culling
+    std::vector<std::pair<int, int>> m_candidatePairs;       // Retained-capacity pair buffer (avoids per-frame alloc)
+    std::vector<float> m_timeRemaining;                      // Per-model timestep remainder (retained buffer)
+    std::array<Vector3, MAX_GAME_MODELS> m_soaPositions;     // Hot SoA stream: current model centers
+    std::array<float, MAX_GAME_MODELS> m_soaBoundingRadii;   // Hot SoA stream: broadphase/render radii
+    std::array<uint8_t, MAX_GAME_MODELS> m_soaIsBox;         // Hot SoA stream: shape class, 0=sphere, 1=box
+    std::array<Matrix4, MAX_GAME_MODELS> m_soaModelMatrices; // Per-frame render matrix stream reused by reflection/main passes
+    int m_soaActiveCount = 0;
     bool m_soaBodyDataValid = false;
     bool m_soaModelMatricesValid = false;
 
@@ -140,8 +142,10 @@ class GameModelCollection
     std::vector<int64_t> m_collisionCellKeys;                          // Cells where narrowphase collisions occurred this frame
 
 #ifdef _DEBUG
-    char m_physicsLogPath[256] = {}; // Output path for physics state CSV (empty = disabled)
-    int m_physicsLogFrame = 0;       // Frame counter reset when path is set
+    char m_physicsLogPath[256] = {};         // Output path for physics state CSV (empty = disabled)
+    int m_physicsLogFrame = 0;               // Frame counter reset when path is set
+    char m_physicsDiagnosticsPath[256] = {}; // Output path for queryable diagnostics trace (empty = disabled)
+    int m_physicsDiagnosticsFrame = 0;       // Frame counter reset when path is set
 #endif
 
     void BuildShadowMesh();                         // Builds the shadow disc VAO with instanced attributes
@@ -216,7 +220,8 @@ class GameModelCollection
     }
 
 #ifdef _DEBUG
-    void SetPhysicsLogPath( const char* path ); // Enable per-frame physics state CSV; empty string disables
+    void SetPhysicsLogPath( const char* path );         // Enable per-frame physics state CSV; empty string disables
+    void SetPhysicsDiagnosticsPath( const char* path ); // Enable queryable physics diagnostics trace; empty string disables
 #endif
 };
 } // namespace GameObjects
