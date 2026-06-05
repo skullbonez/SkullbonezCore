@@ -109,6 +109,7 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float3 specular = uLightDiffuse.rgb * spec * 0.1;
 
     float4 texColor = uTexture.Sample(sSampler0, input.texCoord);
-    float3 litColor = (ambient + diffuse) * (texColor.rgb * input.tint.rgb) + specular;
-    return float4(lerp(litColor, input.tint.rgb, saturate(input.tint.a)), 1.0);
+    float3 materialColor = lerp(texColor.rgb * input.tint.rgb, input.tint.rgb, saturate(input.tint.a));
+    float3 litColor = (ambient + diffuse) * materialColor + specular;
+    return float4(litColor, 1.0);
 }
