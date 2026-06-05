@@ -6,6 +6,7 @@ text on
 frames 3600
 exit_on_complete
 fixed_step
+vsync off
 physics_mode solver
 world -9.81 0.0 0.0
 water_hidden on
