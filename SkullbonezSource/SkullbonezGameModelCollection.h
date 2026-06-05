@@ -145,13 +145,21 @@ class GameModelCollection
     char m_physicsLogPath[256] = {};         // Output path for physics state CSV (empty = disabled)
     int m_physicsLogFrame = 0;               // Frame counter reset when path is set
     char m_physicsDiagnosticsPath[256] = {}; // Output path for queryable diagnostics trace (empty = disabled)
+    char m_physicsDiagnosticsRunId[32] = {}; // Current queryable diagnostics run id
     int m_physicsDiagnosticsFrame = 0;       // Frame counter reset when path is set
+    int m_physicsDiagnosticsEventCounter = 0;
+    double m_physicsDiagnosticsTimeSeconds = 0.0;
+    double m_physicsDiagnosticsPrevEnergy = 0.0;
+    bool m_physicsDiagnosticsHasPrevEnergy = false;
 #endif
 
     void BuildShadowMesh();                         // Builds the shadow disc VAO with instanced attributes
     void RunLegacyPhysics( float dt );              // Physics tick: legacy sphere-only solver (boxes skipped)
     void RunSolverPhysics( float dt );              // Physics tick: unified impulse solver (all objects)
     void SolvePersistentObjectContacts( float dt ); // PGS contact-force pass for resting/stacked object contacts
+#ifdef _DEBUG
+    void EmitPhysicsDiagnosticsFrame( float dt );
+#endif
     void EnsureCollisionVisualBuffers( int modelCount );
     void MarkCollisionVisualContact( int index );
     void InvalidateSoA();
@@ -220,8 +228,9 @@ class GameModelCollection
     }
 
 #ifdef _DEBUG
-    void SetPhysicsLogPath( const char* path );         // Enable per-frame physics state CSV; empty string disables
-    void SetPhysicsDiagnosticsPath( const char* path ); // Enable queryable physics diagnostics trace; empty string disables
+    void SetPhysicsLogPath( const char* path );           // Enable per-frame physics state CSV; empty string disables
+    void SetPhysicsDiagnosticsPath( const char* path );   // Enable queryable physics diagnostics trace; empty string disables
+    void SetPhysicsDiagnosticsRunId( const char* runId ); // Sets current diagnostics run id and resets run-local counters
 #endif
 };
 } // namespace GameObjects

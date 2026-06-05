@@ -3143,6 +3143,7 @@ void SkullbonezRun::BeginPhysicsDiagnosticsRun( const char* scenePath )
                "run_%04d",
                m_physicsDiagnostics.runSequence );
     m_physicsDiagnostics.isRunActive = true;
+    m_cGameModelCollection.SetPhysicsDiagnosticsRunId( m_physicsDiagnostics.currentRunId );
 
     const char* rendererName = IsGfxReady() ? Gfx().GetRendererName() : "unknown";
     const char* solverName = m_cGameModelCollection.GetLegacyMode() ? "legacy" : "solver";

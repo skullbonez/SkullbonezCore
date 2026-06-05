@@ -6,8 +6,12 @@
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezImpulseSolver.h"
 #include "SkullbonezCollisionResponse.h"
+#include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
+#include <string>
+#include <type_traits>
 
 
 // --- Usings ---
@@ -19,6 +23,46 @@ namespace Vector = SkullbonezCore::Math::Vector;
 
 // Per-instance data layout: mat4 (16 floats) + alpha (1 float)
 static constexpr int SHADOW_INSTANCE_FLOATS = 17;
+
+#ifdef _DEBUG
+namespace
+{
+std::string EscapePhysicsDiagJson( const char* value )
+{
+    std::string escaped;
+    if ( !value )
+    {
+        return escaped;
+    }
+
+    for ( const char* p = value; *p != '\0'; ++p )
+    {
+        switch ( *p )
+        {
+        case '\\':
+            escaped += "\\\\";
+            break;
+        case '"':
+            escaped += "\\\"";
+            break;
+        case '\n':
+            escaped += "\\n";
+            break;
+        case '\r':
+            escaped += "\\r";
+            break;
+        case '\t':
+            escaped += "\\t";
+            break;
+        default:
+            escaped += *p;
+            break;
+        }
+    }
+    return escaped;
+}
+} // namespace
+#endif
 
 
 GameModelCollection::GameModelCollection()
@@ -433,6 +477,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
         }
         ++m_physicsLogFrame;
     }
+    EmitPhysicsDiagnosticsFrame( fChangeInTime );
 #endif
 
     InvalidateSoA();
@@ -472,6 +517,306 @@ void GameModelCollection::SetPhysicsDiagnosticsPath( const char* path )
 {
     strcpy_s( m_physicsDiagnosticsPath, sizeof( m_physicsDiagnosticsPath ), path );
     m_physicsDiagnosticsFrame = 0;
+}
+
+
+void GameModelCollection::SetPhysicsDiagnosticsRunId( const char* runId )
+{
+    strcpy_s( m_physicsDiagnosticsRunId, sizeof( m_physicsDiagnosticsRunId ), runId ? runId : "" );
+    m_physicsDiagnosticsFrame = 0;
+    m_physicsDiagnosticsEventCounter = 0;
+    m_physicsDiagnosticsTimeSeconds = 0.0;
+    m_physicsDiagnosticsPrevEnergy = 0.0;
+    m_physicsDiagnosticsHasPrevEnergy = false;
+}
+#endif
+
+
+#ifdef _DEBUG
+void GameModelCollection::EmitPhysicsDiagnosticsFrame( float dt )
+{
+    if ( m_physicsDiagnosticsPath[0] == '\0' || m_physicsDiagnosticsRunId[0] == '\0' )
+    {
+        return;
+    }
+
+    const int frame = m_physicsDiagnosticsFrame;
+    const int modelCount = static_cast<int>( m_gameModels.size() );
+    int awakeCount = 0;
+    int sleepingCount = 0;
+    int supportedCount = 0;
+    int inhibitedCount = 0;
+    int maxSpeedBody = -1;
+    int maxOmegaBody = -1;
+    double totalLinearEnergy = 0.0;
+    double totalAngularEnergy = 0.0;
+    double maxSpeed = 0.0;
+    double maxOmega = 0.0;
+    double maxPenetration = 0.0;
+    char maxPenetrationContact[64] = "";
+
+    for ( const PersistentContact& c : m_persistentContacts )
+    {
+        if ( c.penetration > maxPenetration )
+        {
+            maxPenetration = c.penetration;
+            sprintf_s( maxPenetrationContact, sizeof( maxPenetrationContact ), "%d:%d:%u", c.bodyA, c.bodyB, c.featureId );
+        }
+    }
+
+    std::vector<int> islandRoots;
+    islandRoots.reserve( modelCount );
+
+    auto findIslandRoot = [&]( int index ) -> int
+    {
+        int root = index;
+        while ( root >= 0 &&
+                root < static_cast<int>( m_sleepIslandParent.size() ) &&
+                m_sleepIslandParent[root] != root )
+        {
+            root = m_sleepIslandParent[root];
+        }
+        return root;
+    };
+
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        GameModel& model = m_gameModels[i];
+        const Vector3& vel = model.GetVelocity();
+        const Vector3& omega = model.GetAngularVelocity();
+        const Vector3& inertia = model.GetRotationalInertia();
+        const double speedSq = static_cast<double>( vel.x ) * vel.x +
+                               static_cast<double>( vel.y ) * vel.y +
+                               static_cast<double>( vel.z ) * vel.z;
+        const double omegaSq = static_cast<double>( omega.x ) * omega.x +
+                               static_cast<double>( omega.y ) * omega.y +
+                               static_cast<double>( omega.z ) * omega.z;
+        const double speed = sqrt( speedSq );
+        const double omegaMag = sqrt( omegaSq );
+        const double mass = model.GetMass();
+        const double linearEnergy = 0.5 * mass * speedSq;
+        const double angularEnergy = 0.5 *
+                                     ( static_cast<double>( inertia.x ) * omega.x * omega.x +
+                                       static_cast<double>( inertia.y ) * omega.y * omega.y +
+                                       static_cast<double>( inertia.z ) * omega.z * omega.z );
+
+        totalLinearEnergy += linearEnergy;
+        totalAngularEnergy += angularEnergy;
+
+        if ( speed > maxSpeed )
+        {
+            maxSpeed = speed;
+            maxSpeedBody = i;
+        }
+        if ( omegaMag > maxOmega )
+        {
+            maxOmega = omegaMag;
+            maxOmegaBody = i;
+        }
+
+        const int sleeping = ( i < static_cast<int>( m_sleepState.size() ) ) ? m_sleepState[i] : 0;
+        const int sleepSupported = ( i < static_cast<int>( m_sleepSupportedThisFrame.size() ) ) ? m_sleepSupportedThisFrame[i] : 0;
+        const int sleepInhibited = ( i < static_cast<int>( m_sleepInhibitedThisFrame.size() ) ) ? m_sleepInhibitedThisFrame[i] : 0;
+        if ( sleeping )
+        {
+            ++sleepingCount;
+        }
+        else
+        {
+            ++awakeCount;
+        }
+        if ( sleepSupported )
+        {
+            ++supportedCount;
+        }
+        if ( sleepInhibited )
+        {
+            ++inhibitedCount;
+        }
+
+        if ( i < static_cast<int>( m_sleepIslandParent.size() ) )
+        {
+            int root = findIslandRoot( i );
+            bool seen = false;
+            for ( int existingRoot : islandRoots )
+            {
+                if ( existingRoot == root )
+                {
+                    seen = true;
+                    break;
+                }
+            }
+            if ( !seen )
+            {
+                islandRoots.push_back( root );
+            }
+        }
+    }
+
+    const double totalEnergy = totalLinearEnergy + totalAngularEnergy;
+    Log().Writef( m_physicsDiagnosticsPath,
+                  "{\"kind\":\"frame\",\"run\":\"%s\",\"frame\":%d,\"time_seconds\":%.6f,\"dt\":%.6f,\"body_count\":%d,\"awake_count\":%d,\"sleeping_count\":%d,\"supported_count\":%d,\"inhibited_count\":%d,\"contact_count\":%zu,\"island_count\":%zu,\"total_energy\":%.6f,\"linear_energy\":%.6f,\"angular_energy\":%.6f,\"max_speed\":%.6f,\"max_speed_body\":%d,\"max_omega\":%.6f,\"max_omega_body\":%d,\"max_penetration\":%.6f,\"max_penetration_contact\":\"%s\"}\n",
+                  m_physicsDiagnosticsRunId,
+                  frame,
+                  m_physicsDiagnosticsTimeSeconds,
+                  dt,
+                  modelCount,
+                  awakeCount,
+                  sleepingCount,
+                  supportedCount,
+                  inhibitedCount,
+                  m_persistentContacts.size(),
+                  islandRoots.size(),
+                  totalEnergy,
+                  totalLinearEnergy,
+                  totalAngularEnergy,
+                  maxSpeed,
+                  maxSpeedBody,
+                  maxOmega,
+                  maxOmegaBody,
+                  maxPenetration,
+                  maxPenetrationContact );
+
+    if ( m_physicsDiagnosticsHasPrevEnergy )
+    {
+        const double deltaEnergy = totalEnergy - m_physicsDiagnosticsPrevEnergy;
+        const double spikeThreshold = (std::max)( 10000.0, fabs( m_physicsDiagnosticsPrevEnergy ) * 0.50 );
+        if ( deltaEnergy > spikeThreshold )
+        {
+            const int eventId = ++m_physicsDiagnosticsEventCounter;
+            Log().Writef( m_physicsDiagnosticsPath,
+                          "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"E%d\",\"frame\":%d,\"type\":\"energy_spike\",\"severity\":\"medium\",\"body_a\":%d,\"body_b\":-1,\"island_id\":-1,\"summary\":\"Total kinetic energy increased sharply.\",\"data\":{\"previous_total_energy\":%.6f,\"total_energy\":%.6f,\"delta_energy\":%.6f,\"followups\":[\"energy --frames %d:%d\",\"frame %d\",\"body %d --frames %d:%d\"]}}\n",
+                          m_physicsDiagnosticsRunId,
+                          eventId,
+                          frame,
+                          maxSpeedBody,
+                          m_physicsDiagnosticsPrevEnergy,
+                          totalEnergy,
+                          deltaEnergy,
+                          (std::max)( 0, frame - 30 ),
+                          frame + 30,
+                          frame,
+                          maxSpeedBody,
+                          (std::max)( 0, frame - 30 ),
+                          frame + 30 );
+        }
+    }
+    m_physicsDiagnosticsPrevEnergy = totalEnergy;
+    m_physicsDiagnosticsHasPrevEnergy = true;
+
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        GameModel& model = m_gameModels[i];
+        const char* shapeType = model.IsBox() ? "box" : "sphere";
+        std::string escapedName = EscapePhysicsDiagJson( model.GetName() );
+        const Vector3& pos = model.GetPosition();
+        const Vector3& vel = model.GetVelocity();
+        const Vector3& omega = model.GetAngularVelocity();
+        const Vector3& inertia = model.GetRotationalInertia();
+        float qx = 0.0f;
+        float qy = 0.0f;
+        float qz = 0.0f;
+        float qw = 1.0f;
+        model.GetOrientation().GetComponents( qx, qy, qz, qw );
+
+        const double speedSq = static_cast<double>( vel.x ) * vel.x +
+                               static_cast<double>( vel.y ) * vel.y +
+                               static_cast<double>( vel.z ) * vel.z;
+        const double omegaSq = static_cast<double>( omega.x ) * omega.x +
+                               static_cast<double>( omega.y ) * omega.y +
+                               static_cast<double>( omega.z ) * omega.z;
+        const double speed = sqrt( speedSq );
+        const double omegaMag = sqrt( omegaSq );
+        const double mass = model.GetMass();
+        const double linearEnergy = 0.5 * mass * speedSq;
+        const double angularEnergy = 0.5 *
+                                     ( static_cast<double>( inertia.x ) * omega.x * omega.x +
+                                       static_cast<double>( inertia.y ) * omega.y * omega.y +
+                                       static_cast<double>( inertia.z ) * omega.z * omega.z );
+        const int sleeping = ( i < static_cast<int>( m_sleepState.size() ) ) ? m_sleepState[i] : 0;
+        const int sleepSupported = ( i < static_cast<int>( m_sleepSupportedThisFrame.size() ) ) ? m_sleepSupportedThisFrame[i] : 0;
+        const int sleepInhibited = ( i < static_cast<int>( m_sleepInhibitedThisFrame.size() ) ) ? m_sleepInhibitedThisFrame[i] : 0;
+        const int sleepCounter = ( i < static_cast<int>( m_sleepCounter.size() ) ) ? m_sleepCounter[i] : 0;
+        const int islandId = ( i < static_cast<int>( m_sleepIslandVisualId.size() ) ) ? m_sleepIslandVisualId[i] : 0;
+
+        float radius = 0.0f;
+        Vector3 halfExtents = ZERO_VECTOR;
+        std::visit( [&]( const auto& shape )
+                    {
+            using ShapeT = std::decay_t<decltype( shape )>;
+            if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
+            {
+                radius = shape.GetRadius();
+            }
+            else
+            {
+                halfExtents = shape.GetHalfExtents();
+            } },
+                    model.GetCollisionShape() );
+
+        Log().Writef( m_physicsDiagnosticsPath,
+                      "{\"kind\":\"body\",\"run\":\"%s\",\"frame\":%d,\"body_id\":%d,\"name\":\"%s\",\"shape\":\"%s\",\"pos\":[%.6f,%.6f,%.6f],\"vel\":[%.6f,%.6f,%.6f],\"omega\":[%.6f,%.6f,%.6f],\"q\":[%.6f,%.6f,%.6f,%.6f],\"speed\":%.6f,\"omega_mag\":%.6f,\"mass\":%.6f,\"inv_mass\":%.6f,\"inertia\":[%.6f,%.6f,%.6f],\"radius\":%.6f,\"half_extents\":[%.6f,%.6f,%.6f],\"linear_energy\":%.6f,\"angular_energy\":%.6f,\"sleeping\":%d,\"sleep_supported\":%d,\"sleep_inhibited\":%d,\"sleep_counter\":%d,\"island_id\":%d}\n",
+                      m_physicsDiagnosticsRunId,
+                      frame,
+                      i,
+                      escapedName.c_str(),
+                      shapeType,
+                      pos.x,
+                      pos.y,
+                      pos.z,
+                      vel.x,
+                      vel.y,
+                      vel.z,
+                      omega.x,
+                      omega.y,
+                      omega.z,
+                      qx,
+                      qy,
+                      qz,
+                      qw,
+                      speed,
+                      omegaMag,
+                      mass,
+                      model.GetInvertedMass(),
+                      inertia.x,
+                      inertia.y,
+                      inertia.z,
+                      radius,
+                      halfExtents.x,
+                      halfExtents.y,
+                      halfExtents.z,
+                      linearEnergy,
+                      angularEnergy,
+                      sleeping,
+                      sleepSupported,
+                      sleepInhibited,
+                      sleepCounter,
+                      islandId );
+
+        if ( sleeping && islandId == 0 )
+        {
+            const int eventId = ++m_physicsDiagnosticsEventCounter;
+            Log().Writef( m_physicsDiagnosticsPath,
+                          "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"E%d\",\"frame\":%d,\"type\":\"unsupported_sleep\",\"severity\":\"high\",\"body_a\":%d,\"body_b\":-1,\"island_id\":%d,\"summary\":\"Body is sleeping without an assigned sleep island id.\",\"data\":{\"body_id\":%d,\"sleep_supported\":%d,\"sleep_inhibited\":%d,\"followups\":[\"body %d --frames %d:%d\",\"contacts --frame %d --body %d\",\"frame %d\"]}}\n",
+                          m_physicsDiagnosticsRunId,
+                          eventId,
+                          frame,
+                          i,
+                          islandId,
+                          i,
+                          sleepSupported,
+                          sleepInhibited,
+                          i,
+                          (std::max)( 0, frame - 30 ),
+                          frame + 30,
+                          frame,
+                          i,
+                          frame );
+        }
+    }
+
+    ++m_physicsDiagnosticsFrame;
+    m_physicsDiagnosticsTimeSeconds += dt;
 }
 #endif
 
