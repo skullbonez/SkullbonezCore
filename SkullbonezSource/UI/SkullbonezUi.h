@@ -64,6 +64,7 @@ class InGameUi
     bool IsVisible() const;
     void SetVisible( bool visible, double now = 0.0 );
     void ToggleVisible( double now );
+    void SetMinimized( bool minimized, double now = 0.0 );
     void SetActiveTab( InGameUiTab tab );
     InGameUiTab GetActiveTab() const;
     bool BlocksCameraMouse() const;
@@ -71,24 +72,27 @@ class InGameUi
     void SetBlurEnabled( bool enabled );
     void SetRendererComboOpen( bool open );
     void SetProfilerExpandAll( bool expandAll );
+    void SetProfilerTimelineEnabled( bool enabled );
     void ResetResources();
 
     InGameUiInputResult UpdateInput( HWND hwnd, int screenW, int screenH, double now );
     void Draw( const InGameUiFrameData& data );
 
   private:
-    bool m_isVisible = false;
+    bool m_isVisible = true;
+    bool m_isMinimized = true;
+    bool m_isMaximized = false;
     bool m_leftWasDown = false;
     bool m_isDragging = false;
     bool m_isResizing = false;
     bool m_blocksCameraMouse = false;
     bool m_blurPreviewEnabled = true;
-    bool m_cachePreviewEnabled = true;
+    bool m_profilerTimelineEnabled = false;
     InGameUiTab m_activeTab = InGameUiTab::Profiler;
     UiTabBar m_tabBar;
     UiCheckBox m_blurToggle;
     UiCheckBox m_vsyncToggle;
-    UiCheckBox m_cacheToggle;
+    UiCheckBox m_timelineToggle;
     UiComboBox m_rendererCombo;
     UiBackdropBlur m_backdropBlur;
     UiScrollBar m_scrollBar;
@@ -96,6 +100,10 @@ class InGameUi
     int m_y = 56;
     int m_width = 760;
     int m_height = 540;
+    int m_restoreX = 34;
+    int m_restoreY = 56;
+    int m_restoreW = 760;
+    int m_restoreH = 540;
     int m_dragOffsetX = 0;
     int m_dragOffsetY = 0;
     int m_resizeStartMouseX = 0;
@@ -110,10 +118,20 @@ class InGameUi
     int m_expandedProfilerHashCount = 0;
     bool m_expandAllProfilerMarkers = false;
 
+    struct ProfilerTimelineSegment
+    {
+        float startMs = 0.0f;
+        float durationMs = 0.0f;
+        bool isFilled = false;
+    };
+
     int ContentHeight() const;
+    int BuildVisibleProfilerRows( int* rows, int maxRows ) const;
+    void BuildProfilerTimelineSegments( const int* rows, int rowCount, ProfilerTimelineSegment* segments ) const;
     bool IsProfilerMarkerExpanded( uint32_t hash ) const;
     void ToggleProfilerMarker( uint32_t hash );
     void ApplyProfilerExpandAll();
+    void SetMaximized( bool maximized, int screenW, int screenH );
 };
 
 } // namespace Ui

@@ -195,6 +195,21 @@ TestScene TestScene::LoadFromFile( const char* path )
                 continue;
             }
 
+            if ( strcmp( command, "minimized" ) == 0 )
+            {
+                bool parsedValue = false;
+                if ( !ParseOnOff( value, parsedValue ) )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid ui minimized value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_uiOptions.hasMinimized = true;
+                scene.m_uiOptions.isMinimized = parsedValue;
+                continue;
+            }
+
             if ( strcmp( command, "tab" ) == 0 )
             {
                 int tab = 0;
@@ -274,6 +289,21 @@ TestScene TestScene::LoadFromFile( const char* path )
                 }
                 scene.m_uiOptions.hasProfilerExpandAll = true;
                 scene.m_uiOptions.profilerExpandAll = parsedValue;
+                continue;
+            }
+
+            if ( strcmp( command, "timeline" ) == 0 )
+            {
+                bool parsedValue = false;
+                if ( !ParseOnOff( value, parsedValue ) )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid ui timeline value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_uiOptions.hasProfilerTimeline = true;
+                scene.m_uiOptions.profilerTimeline = parsedValue;
                 continue;
             }
 

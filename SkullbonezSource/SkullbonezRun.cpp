@@ -1309,7 +1309,7 @@ void SkullbonezRun::TakeInput()
         if ( key0Now && !m_camera.input.Get( InputState::Key0WasDown ) )
         {
             m_ui.ToggleVisible( m_timers.simulationTimer.GetTotalTime() );
-            m_debug.overlayMode = m_ui.IsVisible() ? OverlayMode::Timers : OverlayMode::None;
+            m_debug.overlayMode = OverlayMode::None;
         }
         m_camera.input.Set( InputState::Key0WasDown, key0Now );
     }
@@ -1970,7 +1970,9 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         uiData.collisionVisualizer = m_debug.isCollisionVisualizer;
         uiData.waterNoReflect = m_debug.isWaterNoReflect;
         uiData.waterRTReflect = m_debug.isWaterRTReflect;
+        PROFILE_GPU_BEGIN( "Frame/Text/UI" );
         m_ui.Draw( uiData );
+        PROFILE_GPU_END( "Frame/Text/UI" );
         Text2d::FlushText();
         return;
     }
@@ -3092,6 +3094,11 @@ void SkullbonezRun::LoadScene( int index )
         m_scene.isFixedStep = scene.IsFixedStep();
 
         const SceneUiOptions& uiOptions = scene.GetUiOptions();
+        const double uiNow = m_timers.simulationTimer.GetTotalTime();
+        if ( !uiOptions.hasVisible && m_debug.overlayMode == OverlayMode::None )
+        {
+            m_ui.SetVisible( false, uiNow );
+        }
         if ( uiOptions.hasWindowRect )
         {
             m_ui.SetWindowBounds( uiOptions.windowX, uiOptions.windowY, uiOptions.windowW, uiOptions.windowH );
@@ -3108,13 +3115,21 @@ void SkullbonezRun::LoadScene( int index )
         {
             m_ui.SetProfilerExpandAll( uiOptions.profilerExpandAll );
         }
+        if ( uiOptions.hasProfilerTimeline )
+        {
+            m_ui.SetProfilerTimelineEnabled( uiOptions.profilerTimeline );
+        }
         if ( uiOptions.hasRendererComboOpen )
         {
             m_ui.SetRendererComboOpen( uiOptions.rendererComboOpen );
         }
         if ( uiOptions.hasVisible )
         {
-            m_ui.SetVisible( uiOptions.isVisible, m_timers.simulationTimer.GetTotalTime() );
+            m_ui.SetVisible( uiOptions.isVisible, uiNow );
+        }
+        if ( uiOptions.hasMinimized )
+        {
+            m_ui.SetMinimized( uiOptions.isMinimized, uiNow );
         }
         if ( uiOptions.hasTestPattern )
         {

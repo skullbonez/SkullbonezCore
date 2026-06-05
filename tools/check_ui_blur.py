@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import sys
+import csv
 from pathlib import Path
 
 try:
@@ -15,7 +16,8 @@ except ImportError as exc:
 
 
 RENDERERS = ("gl", "dx11", "dx12")
-SCENES = ("blur_off", "blur_on", "profiler_hierarchy", "renderer_combo", "small_scroll")
+SCENES = ("blur_off", "blur_on", "profiler_hierarchy", "profiler_timeline", "renderer_combo", "small_scroll", "minimized")
+TIMELINE_EPSILON_MS = 0.05
 
 
 def edge_score(path: Path, box: tuple[int, int, int, int]) -> float:
@@ -58,6 +60,93 @@ def brightness_span(path: Path) -> float:
         return max(lumas) - min(lumas)
 
 
+def average_marker_ms(path: Path) -> tuple[dict[str, float], list[str]]:
+    header: list[str] | None = None
+    rows: list[list[str]] = []
+    with path.open(newline="") as handle:
+        reader = csv.reader(handle)
+        for row in reader:
+            if not row or row[0].startswith("#"):
+                continue
+            if row[0] == "pass":
+                header = row
+                continue
+            if header is not None:
+                rows.append(row)
+
+    if header is None or not rows:
+        raise ValueError(f"{path.name} has no profiler rows")
+
+    tail = rows[-min(30, len(rows)) :]
+    values: dict[str, float] = {}
+    marker_order: list[str] = []
+    for column, name in enumerate(header[2:], start=2):
+        if name.endswith("_gpu"):
+            continue
+        total = 0.0
+        count = 0
+        for row in tail:
+            if column < len(row):
+                try:
+                    total += float(row[column])
+                    count += 1
+                except ValueError:
+                    pass
+        if count:
+            values[name] = total / count
+            marker_order.append(name)
+    return values, marker_order
+
+
+def validate_timeline_csv(path: Path, renderer: str) -> int:
+    marker_ms, marker_order = average_marker_ms(path)
+    if "Frame/Text/UI" not in marker_ms:
+        print(f"ERROR: {renderer} timeline CSV is missing Frame/Text/UI.")
+        return 1
+
+    children: dict[str | None, list[str]] = {None: []}
+    for name in marker_order:
+        slash = name.rfind("/")
+        parent = name[:slash] if slash >= 0 and name[:slash] in marker_ms else None
+        children.setdefault(parent, []).append(name)
+        children.setdefault(name, [])
+
+    filled_segments: list[tuple[float, float, str]] = []
+    failures = 0
+
+    def assign(name: str, start_ms: float) -> None:
+        nonlocal failures
+        duration_ms = max(0.0, marker_ms.get(name, 0.0))
+        direct_children = children.get(name, [])
+        if direct_children:
+            cursor = start_ms
+            for child in direct_children:
+                assign(child, cursor)
+                cursor += max(0.0, marker_ms.get(child, 0.0))
+            child_total = cursor - start_ms
+            if child_total > duration_ms + TIMELINE_EPSILON_MS:
+                print(f"ERROR: {renderer} child timeline exceeds {name}: children={child_total:.4f}ms parent={duration_ms:.4f}ms")
+                failures += 1
+        elif duration_ms > 0.0:
+            filled_segments.append((start_ms, start_ms + duration_ms, name))
+
+    cursor = 0.0
+    for root in children.get(None, []):
+        assign(root, cursor)
+        cursor += max(0.0, marker_ms.get(root, 0.0))
+
+    filled_segments.sort(key=lambda item: (item[0], item[1], item[2]))
+    previous_end = 0.0
+    for start_ms, end_ms, name in filled_segments:
+        if start_ms < previous_end - TIMELINE_EPSILON_MS:
+            print(f"ERROR: {renderer} timeline overlap at {name}: start={start_ms:.4f}ms previous_end={previous_end:.4f}ms")
+            failures += 1
+        previous_end = max(previous_end, end_ms)
+
+    print(f"{renderer}: timeline segments={len(filled_segments)} max_end={previous_end:.4f}ms")
+    return failures
+
+
 def main() -> int:
     repo = Path(os.environ.get("SKORE_REPO", Path(__file__).resolve().parents[1]))
     profile = repo / "Profile"
@@ -96,6 +185,13 @@ def main() -> int:
             if span < 35.0:
                 print(f"ERROR: {path.name} looks too flat or blank.")
                 failures += 1
+
+    for renderer in RENDERERS:
+        try:
+            failures += validate_timeline_csv(profile / f"ui_{renderer}_profiler_timeline_perf.csv", renderer)
+        except (OSError, ValueError) as exc:
+            print(f"ERROR: {renderer} timeline numeric validation failed: {exc}")
+            failures += 1
 
     if failures:
         print(f"UI screenshot validation failed with {failures} issue(s).")

@@ -16,6 +16,7 @@ using namespace SkullbonezCore::Ui;
 namespace
 {
 constexpr int PROFILER_UI_MAX_MARKERS = 64;
+constexpr float PROFILER_UI_TIMELINE_BUDGET_MS = 16.67f;
 constexpr int RENDERER_GL = 0;
 constexpr int RENDERER_DX11 = 1;
 constexpr int RENDERER_DX12 = 2;
@@ -44,6 +45,22 @@ bool ProfilerMarkerHasChildren( const Profiler& profiler, int markerIndex )
     }
     return false;
 }
+
+
+float ProfilerMarkerDisplayCpuMs( const Profiler::Marker& marker )
+{
+    return marker.avgMs > 0.0f ? marker.avgMs : marker.lastFrameMs;
+}
+
+
+UiRect MinimizedRect( int screenW, int screenH )
+{
+    (void)screenW;
+    constexpr float w = 196.0f;
+    constexpr float h = 38.0f;
+    constexpr float margin = 14.0f;
+    return { margin, (std::max)( margin, static_cast<float>( screenH ) - h - margin ), w, h };
+}
 } // namespace
 
 bool InGameUi::IsVisible() const
@@ -58,10 +75,12 @@ void InGameUi::SetVisible( bool visible, double now )
     m_backdropBlur.Invalidate();
     if ( visible )
     {
+        m_isMinimized = false;
         m_scrollbarVisibleUntil = now + 1.2;
     }
     else
     {
+        m_isMinimized = true;
         m_isDragging = false;
         m_isResizing = false;
         m_blocksCameraMouse = false;
@@ -72,7 +91,34 @@ void InGameUi::SetVisible( bool visible, double now )
 
 void InGameUi::ToggleVisible( double now )
 {
-    SetVisible( !m_isVisible, now );
+    if ( !m_isVisible )
+    {
+        SetVisible( true, now );
+        return;
+    }
+    SetMinimized( !m_isMinimized, now );
+}
+
+
+void InGameUi::SetMinimized( bool minimized, double now )
+{
+    if ( m_isMinimized == minimized )
+    {
+        return;
+    }
+    m_isMinimized = minimized;
+    m_isDragging = false;
+    m_isResizing = false;
+    m_blocksCameraMouse = false;
+    if ( minimized )
+    {
+        m_rendererCombo.Close();
+    }
+    else
+    {
+        m_scrollbarVisibleUntil = now + 1.2;
+    }
+    m_backdropBlur.Invalidate();
 }
 
 
@@ -103,6 +149,7 @@ void InGameUi::SetWindowBounds( int x, int y, int width, int height )
     m_y = y;
     m_width = width;
     m_height = height;
+    m_isMaximized = false;
     m_scrollY = 0.0f;
     m_scrollbarVisibleUntil = 0.0;
     m_backdropBlur.Invalidate();
@@ -133,6 +180,52 @@ void InGameUi::SetProfilerExpandAll( bool expandAll )
     {
         ApplyProfilerExpandAll();
     }
+}
+
+
+void InGameUi::SetProfilerTimelineEnabled( bool enabled )
+{
+    m_profilerTimelineEnabled = enabled;
+}
+
+
+void InGameUi::SetMaximized( bool maximized, int screenW, int screenH )
+{
+    if ( m_isMaximized == maximized )
+    {
+        return;
+    }
+
+    constexpr int minW = 390;
+    constexpr int minH = 250;
+    constexpr int margin = 10;
+    screenW = (std::max)( 1, screenW );
+    screenH = (std::max)( 1, screenH );
+    const int maxW = (std::max)( minW, screenW - margin * 2 );
+    const int maxH = (std::max)( minH, screenH - margin * 2 );
+
+    if ( maximized )
+    {
+        m_restoreX = m_x;
+        m_restoreY = m_y;
+        m_restoreW = m_width;
+        m_restoreH = m_height;
+        m_x = margin;
+        m_y = margin;
+        m_width = maxW;
+        m_height = maxH;
+    }
+    else
+    {
+        m_x = std::clamp( m_restoreX, margin, (std::max)( margin, screenW - m_restoreW - margin ) );
+        m_y = std::clamp( m_restoreY, margin, (std::max)( margin, screenH - m_restoreH - margin ) );
+        m_width = std::clamp( m_restoreW, minW, maxW );
+        m_height = std::clamp( m_restoreH, minH, maxH );
+    }
+
+    m_isMaximized = maximized;
+    m_scrollbarVisibleUntil = 0.0;
+    m_backdropBlur.Invalidate();
 }
 
 
@@ -169,34 +262,139 @@ int InGameUi::ContentHeight() const
         return 560;
     case InGameUiTab::Profiler:
     {
-        const Profiler& profiler = Profiler::Instance();
-        int visibleMarkerCount = 0;
-        for ( int i = 0; i < profiler.MarkerCount(); ++i )
-        {
-            const Profiler::Marker& marker = profiler.GetMarker( i );
-            bool visible = true;
-            int parentIndex = marker.parentIndex;
-            while ( parentIndex >= 0 )
-            {
-                const Profiler::Marker& parent = profiler.GetMarker( parentIndex );
-                if ( !IsProfilerMarkerExpanded( parent.hash ) )
-                {
-                    visible = false;
-                    break;
-                }
-                parentIndex = parent.parentIndex;
-            }
-            if ( visible )
-            {
-                ++visibleMarkerCount;
-            }
-        }
+        int visibleRows[PROFILER_UI_MAX_MARKERS] = {};
+        const int visibleMarkerCount = BuildVisibleProfilerRows( visibleRows, PROFILER_UI_MAX_MARKERS );
         return 54 + visibleMarkerCount * 30;
     }
     case InGameUiTab::Physics:
         return 390;
     default:
         return 330;
+    }
+}
+
+
+int InGameUi::BuildVisibleProfilerRows( int* rows, int maxRows ) const
+{
+    const Profiler& profiler = Profiler::Instance();
+    const int markerCount = (std::min)( profiler.MarkerCount(), PROFILER_UI_MAX_MARKERS );
+    int childIndices[PROFILER_UI_MAX_MARKERS][PROFILER_UI_MAX_MARKERS] = {};
+    int childCounts[PROFILER_UI_MAX_MARKERS] = {};
+
+    for ( int i = 0; i < markerCount; ++i )
+    {
+        const int parentIndex = profiler.GetMarker( i ).parentIndex;
+        if ( parentIndex >= 0 && parentIndex < markerCount )
+        {
+            childIndices[parentIndex][childCounts[parentIndex]++] = i;
+        }
+    }
+
+    int stack[PROFILER_UI_MAX_MARKERS] = {};
+    int stackTop = 0;
+    for ( int i = markerCount - 1; i >= 0; --i )
+    {
+        if ( profiler.GetMarker( i ).parentIndex == -1 )
+        {
+            stack[stackTop++] = i;
+        }
+    }
+
+    int rowCount = 0;
+    while ( stackTop > 0 )
+    {
+        const int markerIndex = stack[--stackTop];
+        if ( rowCount < maxRows )
+        {
+            rows[rowCount] = markerIndex;
+        }
+        ++rowCount;
+
+        const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
+        if ( !IsProfilerMarkerExpanded( marker.hash ) )
+        {
+            continue;
+        }
+        for ( int child = childCounts[markerIndex] - 1; child >= 0; --child )
+        {
+            if ( stackTop < PROFILER_UI_MAX_MARKERS )
+            {
+                stack[stackTop++] = childIndices[markerIndex][child];
+            }
+        }
+    }
+
+    return (std::min)( rowCount, maxRows );
+}
+
+
+void InGameUi::BuildProfilerTimelineSegments( const int* rows, int rowCount, ProfilerTimelineSegment* segments ) const
+{
+    const Profiler& profiler = Profiler::Instance();
+    const int markerCount = (std::min)( profiler.MarkerCount(), PROFILER_UI_MAX_MARKERS );
+    int rowForMarker[PROFILER_UI_MAX_MARKERS] = {};
+    int childIndices[PROFILER_UI_MAX_MARKERS][PROFILER_UI_MAX_MARKERS] = {};
+    int childCounts[PROFILER_UI_MAX_MARKERS] = {};
+
+    for ( int i = 0; i < PROFILER_UI_MAX_MARKERS; ++i )
+    {
+        rowForMarker[i] = -1;
+    }
+    for ( int row = 0; row < rowCount; ++row )
+    {
+        segments[row] = {};
+        if ( rows[row] >= 0 && rows[row] < markerCount )
+        {
+            rowForMarker[rows[row]] = row;
+        }
+    }
+
+    for ( int i = 0; i < markerCount; ++i )
+    {
+        const int parentIndex = profiler.GetMarker( i ).parentIndex;
+        if ( parentIndex >= 0 && parentIndex < markerCount )
+        {
+            childIndices[parentIndex][childCounts[parentIndex]++] = i;
+        }
+    }
+
+    auto assignSubtree = [&]( auto&& self, int markerIndex, float startMs ) -> void
+    {
+        const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
+        const bool hasChildren = childCounts[markerIndex] > 0;
+        const bool expanded = hasChildren && IsProfilerMarkerExpanded( marker.hash );
+        const int row = rowForMarker[markerIndex];
+        const float markerMs = (std::max)( 0.0f, ProfilerMarkerDisplayCpuMs( marker ) );
+
+        if ( row >= 0 )
+        {
+            segments[row].startMs = startMs;
+            segments[row].durationMs = markerMs;
+            segments[row].isFilled = !expanded;
+        }
+
+        if ( !expanded )
+        {
+            return;
+        }
+
+        float childStartMs = startMs;
+        for ( int child = 0; child < childCounts[markerIndex]; ++child )
+        {
+            const int childIndex = childIndices[markerIndex][child];
+            self( self, childIndex, childStartMs );
+            childStartMs += (std::max)( 0.0f, ProfilerMarkerDisplayCpuMs( profiler.GetMarker( childIndex ) ) );
+        }
+    };
+
+    float rootStartMs = 0.0f;
+    for ( int i = 0; i < markerCount; ++i )
+    {
+        if ( profiler.GetMarker( i ).parentIndex == -1 )
+        {
+            assignSubtree( assignSubtree, i, rootStartMs );
+            rootStartMs += (std::max)( 0.0f, ProfilerMarkerDisplayCpuMs( profiler.GetMarker( i ) ) );
+        }
     }
 }
 
@@ -267,23 +465,39 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
     m_y = std::clamp( m_y, margin, (std::max)( margin, screenH - m_height - margin ) );
 
     const bool leftNow = Input::IsLeftMouseDown();
+    if ( m_isMinimized )
+    {
+        const UiRect minimized = MinimizedRect( screenW, screenH );
+        const bool insideMinimized = minimized.Contains( m_mouseX, m_mouseY );
+        if ( leftNow && !m_leftWasDown && insideMinimized )
+        {
+            SetMinimized( false, now );
+        }
+        m_leftWasDown = leftNow;
+        m_blocksCameraMouse = insideMinimized;
+        return result;
+    }
+
     const bool inside = m_mouseX >= m_x && m_mouseX <= m_x + m_width &&
                         m_mouseY >= m_y && m_mouseY <= m_y + m_height;
     const bool inTitle = inside && m_mouseY < m_y + titleH;
     const bool inTabs = inside && m_mouseY >= m_y + titleH && m_mouseY < m_y + titleH + tabH;
-    const bool inResize = inside && m_mouseX >= m_x + m_width - 26 && m_mouseY >= m_y + m_height - 26;
+    const bool inResize = !m_isMaximized && inside && m_mouseX >= m_x + m_width - 26 && m_mouseY >= m_y + m_height - 26;
     const int contentY = m_y + titleH + tabH + 12;
     const int contentH = (std::max)( 24, m_height - titleH - tabH - bottomH - contentPad );
     const int bottomY = m_y + m_height - bottomH;
     const bool inContent = inside && m_mouseY >= contentY && m_mouseY <= contentY + contentH;
     const float maxScroll = static_cast<float>( (std::max)( 0, ContentHeight() - contentH ) );
+    const UiRect minimizeButton = { static_cast<float>( m_x + m_width - 112 ), static_cast<float>( m_y + 6 ), 30.0f, 28.0f };
+    const UiRect maximizeButton = { static_cast<float>( m_x + m_width - 76 ), static_cast<float>( m_y + 6 ), 30.0f, 28.0f };
+    const UiRect closeButton = { static_cast<float>( m_x + m_width - 40 ), static_cast<float>( m_y + 6 ), 30.0f, 28.0f };
 
     m_tabBar.SetBounds( static_cast<float>( m_x + 14 ), static_cast<float>( m_y + titleH ), static_cast<float>( m_width - 28 ), static_cast<float>( tabH ) );
     m_blurToggle.SetBounds( static_cast<float>( m_x + 32 ), static_cast<float>( bottomY + 22 ), 100.0f, 24.0f );
     m_vsyncToggle.SetBounds( static_cast<float>( m_x + 158 ), static_cast<float>( bottomY + 22 ), 100.0f, 24.0f );
     m_rendererCombo.SetBounds( static_cast<float>( m_x + 32 ), static_cast<float>( bottomY + 48 ), 126.0f, 24.0f );
     m_rendererCombo.SetDropdownBounds( static_cast<float>( m_x + 32 ), static_cast<float>( bottomY - 60 ), 96.0f, 60.0f );
-    m_cacheToggle.SetBounds( static_cast<float>( m_x + 158 ), static_cast<float>( bottomY + 48 ), 100.0f, 24.0f );
+    m_timelineToggle.SetBounds( static_cast<float>( m_x + 158 ), static_cast<float>( bottomY + 48 ), 100.0f, 24.0f );
 
     if ( wheelDelta != 0 && inContent )
     {
@@ -294,7 +508,15 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
 
     if ( leftNow && !m_leftWasDown )
     {
-        if ( inResize )
+        if ( minimizeButton.Contains( m_mouseX, m_mouseY ) || closeButton.Contains( m_mouseX, m_mouseY ) )
+        {
+            SetMinimized( true, now );
+        }
+        else if ( maximizeButton.Contains( m_mouseX, m_mouseY ) )
+        {
+            SetMaximized( !m_isMaximized, screenW, screenH );
+        }
+        else if ( inResize )
         {
             m_isResizing = true;
             m_resizeStartMouseX = m_mouseX;
@@ -346,30 +568,16 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
             if ( targetRow >= 0 )
             {
                 const Profiler& profiler = Profiler::Instance();
-                int visibleRow = 0;
-                for ( int i = 0; i < profiler.MarkerCount(); ++i )
+                int visibleRows[PROFILER_UI_MAX_MARKERS] = {};
+                const int visibleRowCount = BuildVisibleProfilerRows( visibleRows, PROFILER_UI_MAX_MARKERS );
+                if ( targetRow < visibleRowCount )
                 {
-                    const Profiler::Marker& marker = profiler.GetMarker( i );
-                    bool markerVisible = true;
-                    int parentIndex = marker.parentIndex;
-                    while ( parentIndex >= 0 )
-                    {
-                        const Profiler::Marker& parent = profiler.GetMarker( parentIndex );
-                        if ( !IsProfilerMarkerExpanded( parent.hash ) )
-                        {
-                            markerVisible = false;
-                            break;
-                        }
-                        parentIndex = parent.parentIndex;
-                    }
-                    if ( !markerVisible )
-                    {
-                        continue;
-                    }
-                    if ( visibleRow == targetRow && ProfilerMarkerHasChildren( profiler, i ) )
+                    const int markerIndex = visibleRows[targetRow];
+                    const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
+                    if ( ProfilerMarkerHasChildren( profiler, markerIndex ) )
                     {
                         const float plusX = static_cast<float>( m_x + contentPad + 12 + marker.depth * 18 );
-                        const float plusY = static_cast<float>( contentY + headerH + visibleRow * rowH ) - m_scrollY + 8.0f;
+                        const float plusY = static_cast<float>( contentY + headerH + targetRow * rowH ) - m_scrollY + 8.0f;
                         UiIconButton expander;
                         expander.SetBounds( plusX, plusY, 14.0f, 14.0f );
                         if ( expander.HitTest( m_mouseX, m_mouseY ) )
@@ -377,9 +585,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
                             ToggleProfilerMarker( marker.hash );
                             m_scrollbarVisibleUntil = now + 1.2;
                         }
-                        break;
                     }
-                    ++visibleRow;
                 }
             }
             m_rendererCombo.Close();
@@ -399,9 +605,9 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
             {
                 m_rendererCombo.ToggleOpen();
             }
-            else if ( m_cacheToggle.HitTest( m_mouseX, m_mouseY ) )
+            else if ( m_timelineToggle.HitTest( m_mouseX, m_mouseY ) )
             {
-                m_cachePreviewEnabled = !m_cachePreviewEnabled;
+                m_profilerTimelineEnabled = !m_profilerTimelineEnabled;
             }
         }
         else
@@ -459,6 +665,19 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     const int screenH = (std::max)( 1, data.screenH );
     const UiDrawContext draw( screenW, screenH );
 
+    if ( m_isMinimized )
+    {
+        const UiRect minimized = MinimizedRect( screenW, screenH );
+        draw.Rect( minimized.x - 5.0f, minimized.y - 5.0f, minimized.w + 10.0f, minimized.h + 10.0f, 0.03f, 0.54f, 0.86f, 0.12f );
+        draw.Rect( minimized.x, minimized.y, minimized.w, minimized.h, 0.018f, 0.040f, 0.056f, 0.76f );
+        draw.Outline( minimized.x, minimized.y, minimized.w, minimized.h, 0.39f, 0.88f, 1.0f, 0.92f );
+        draw.Rect( minimized.x + 10.0f, minimized.y + 12.0f, 12.0f, 12.0f, 0.34f, 0.91f, 1.0f, 0.90f );
+        draw.Text( minimized.x + 32.0f, minimized.y + 11.0f, 12.5f, 0.90f, 0.98f, 1.0f, "Skullbonez UI" );
+        draw.Text( minimized.x + minimized.w - 25.0f, minimized.y + 10.0f, 14.0f, 0.82f, 0.98f, 1.0f, "+" );
+        Text2d::FlushQuads();
+        return;
+    }
+
     const float x = static_cast<float>( m_x );
     const float y = static_cast<float>( m_y );
     const float w = static_cast<float>( m_width );
@@ -488,9 +707,15 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     draw.Outline( x + 2.0f, y + 2.0f, w - 4.0f, h - 4.0f, 0.08f, 0.26f, 0.34f, 0.64f );
 
     draw.Text( x + 20.0f, y + 12.0f, 15.5f, 0.90f, 0.98f, 1.0f, "Skullbonez UI" );
-    draw.Text( x + w - 94.0f, y + 12.0f, 13.0f, 0.68f, 0.86f, 0.92f, "-" );
-    draw.Text( x + w - 58.0f, y + 12.0f, 12.0f, 0.68f, 0.86f, 0.92f, "[]" );
-    draw.Text( x + w - 25.0f, y + 12.0f, 13.0f, 0.82f, 0.92f, 0.96f, "X" );
+    draw.Rect( x + w - 112.0f, y + 6.0f, 30.0f, 28.0f, 0.026f, 0.080f, 0.102f, 0.70f );
+    draw.Rect( x + w - 76.0f, y + 6.0f, 30.0f, 28.0f, 0.026f, 0.080f, 0.102f, 0.70f );
+    draw.Rect( x + w - 40.0f, y + 6.0f, 30.0f, 28.0f, 0.026f, 0.080f, 0.102f, 0.70f );
+    draw.Outline( x + w - 112.0f, y + 6.0f, 30.0f, 28.0f, 0.18f, 0.40f, 0.48f, 0.58f );
+    draw.Outline( x + w - 76.0f, y + 6.0f, 30.0f, 28.0f, 0.18f, 0.40f, 0.48f, m_isMaximized ? 0.90f : 0.58f );
+    draw.Outline( x + w - 40.0f, y + 6.0f, 30.0f, 28.0f, 0.18f, 0.40f, 0.48f, 0.58f );
+    draw.Text( x + w - 101.0f, y + 12.0f, 13.0f, 0.68f, 0.86f, 0.92f, "-" );
+    draw.Text( x + w - 67.0f, y + 12.0f, 12.0f, 0.68f, 0.86f, 0.92f, m_isMaximized ? "><" : "[]" );
+    draw.Text( x + w - 31.0f, y + 12.0f, 13.0f, 0.82f, 0.92f, 0.96f, "X" );
 
     static const char* kTabs[] = { "Overview", "Profiler", "Scene", "Physics", "Renderer", "Keys" };
     const int tabCount = static_cast<int>( InGameUiTab::Count );
@@ -530,6 +755,17 @@ void InGameUi::Draw( const InGameUiFrameData& data )
         const float colP99 = tableX + tableW * 0.66f;
         const float barX = tableX + tableW * 0.76f;
         const float barW = (std::max)( 95.0f, tableW * 0.20f );
+        static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
+        float timelineBudgetMs = PROFILER_UI_TIMELINE_BUDGET_MS;
+        for ( int i = 0; i < profiler.MarkerCount(); ++i )
+        {
+            const Profiler::Marker& marker = profiler.GetMarker( i );
+            if ( marker.hash == kFrameHash )
+            {
+                timelineBudgetMs = (std::max)( PROFILER_UI_TIMELINE_BUDGET_MS, ProfilerMarkerDisplayCpuMs( marker ) );
+                break;
+            }
+        }
         draw.Rect( tableX, tableY, tableW, contentH + 2.0f, 0.018f, 0.030f, 0.038f, 0.58f );
         draw.Outline( tableX, tableY, tableW, contentH + 2.0f, 0.18f, 0.30f, 0.34f, 0.62f );
         draw.Rect( tableX, tableY + headerH, tableW, 1.0f, 0.26f, 0.44f, 0.50f, 0.45f );
@@ -538,10 +774,15 @@ void InGameUi::Draw( const InGameUiFrameData& data )
         draw.Text( colGpu, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "GPU" );
         draw.Text( colP50, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "P50" );
         draw.Text( colP99, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "P99" );
-        draw.Text( barX, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "0 ms" );
-        draw.Text( barX + barW - 44.0f, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "16.67 ms" );
+        draw.Text( barX, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, m_profilerTimelineEnabled ? "Span" : "0 ms" );
+        draw.Text( barX + barW - 44.0f, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, m_profilerTimelineEnabled ? "Frame" : "16.67 ms" );
 
-        auto profilerRow = [&]( int rowIndex, const Profiler::Marker& marker, bool hasChildren, bool isExpanded )
+        int visibleRows[PROFILER_UI_MAX_MARKERS] = {};
+        const int visibleRowCount = BuildVisibleProfilerRows( visibleRows, PROFILER_UI_MAX_MARKERS );
+        ProfilerTimelineSegment timelineSegments[PROFILER_UI_MAX_MARKERS] = {};
+        BuildProfilerTimelineSegments( visibleRows, visibleRowCount, timelineSegments );
+
+        auto profilerRow = [&]( int rowIndex, const Profiler::Marker& marker, const ProfilerTimelineSegment& segment, bool hasChildren, bool isExpanded )
         {
             const float rowY = tableY + headerH + static_cast<float>( rowIndex ) * rowH - m_scrollY;
             if ( rowY + rowH < tableY + headerH || rowY > tableY + contentH )
@@ -554,7 +795,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
             const float b = color.b;
             const float indent = static_cast<float>( (std::min)( marker.depth, 8 ) ) * 18.0f;
             const float nameX = colMarker + indent;
-            const float cpuMs = marker.avgMs > 0.0f ? marker.avgMs : marker.lastFrameMs;
+            const float cpuMs = ProfilerMarkerDisplayCpuMs( marker );
             const float gpuMs = marker.hasGpu ? ( marker.gpuAvgMs > 0.0f ? marker.gpuAvgMs : marker.gpuLastFrameMs ) : -1.0f;
             const float p50Ms = marker.p50Ms > 0.0f ? marker.p50Ms : cpuMs;
             const float p99Ms = marker.p99Ms > 0.0f ? marker.p99Ms : cpuMs;
@@ -587,34 +828,31 @@ void InGameUi::Draw( const InGameUiFrameData& data )
             draw.Text( colP99, rowY + 8.0f, 11.5f, 0.78f, 0.84f, 0.86f, buf );
             draw.Rect( barX, rowY + 16.0f, barW, 1.0f, 0.46f, 0.56f, 0.60f, 0.86f );
             const float fill = std::clamp( cpuMs / 16.67f, 0.0f, 1.0f );
-            const float p99Tick = std::clamp( p99Ms / 16.67f, 0.0f, 1.0f );
-            draw.Rect( barX, rowY + 11.0f, barW * fill, 10.0f, r, g, b, 0.88f );
-            draw.Rect( barX + barW * p99Tick, rowY + 7.0f, 1.0f, 18.0f, r, g, b, 0.98f );
+            if ( m_profilerTimelineEnabled )
+            {
+                if ( segment.isFilled && segment.durationMs > 0.0f )
+                {
+                    const float start = std::clamp( segment.startMs / timelineBudgetMs, 0.0f, 1.0f );
+                    const float end = std::clamp( ( segment.startMs + segment.durationMs ) / timelineBudgetMs, start, 1.0f );
+                    draw.Rect( barX + barW * start, rowY + 11.0f, barW * ( end - start ), 10.0f, r, g, b, 0.88f );
+                    const float p99Tick = std::clamp( ( segment.startMs + p99Ms ) / timelineBudgetMs, start, end );
+                    draw.Rect( barX + barW * p99Tick, rowY + 7.0f, 1.0f, 18.0f, r, g, b, 0.98f );
+                }
+            }
+            else
+            {
+                const float p99Tick = std::clamp( p99Ms / 16.67f, 0.0f, 1.0f );
+                draw.Rect( barX, rowY + 11.0f, barW * fill, 10.0f, r, g, b, 0.88f );
+                draw.Rect( barX + barW * p99Tick, rowY + 7.0f, 1.0f, 18.0f, r, g, b, 0.98f );
+            }
         };
 
-        int visibleRow = 0;
-        for ( int i = 0; i < profiler.MarkerCount(); ++i )
+        for ( int visibleRow = 0; visibleRow < visibleRowCount; ++visibleRow )
         {
-            const Profiler::Marker& marker = profiler.GetMarker( i );
-            bool markerVisible = true;
-            int parentIndex = marker.parentIndex;
-            while ( parentIndex >= 0 )
-            {
-                const Profiler::Marker& parent = profiler.GetMarker( parentIndex );
-                if ( !IsProfilerMarkerExpanded( parent.hash ) )
-                {
-                    markerVisible = false;
-                    break;
-                }
-                parentIndex = parent.parentIndex;
-            }
-            if ( !markerVisible )
-            {
-                continue;
-            }
-            const bool hasChildren = ProfilerMarkerHasChildren( profiler, i );
-            profilerRow( visibleRow, marker, hasChildren, IsProfilerMarkerExpanded( marker.hash ) );
-            ++visibleRow;
+            const int markerIndex = visibleRows[visibleRow];
+            const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
+            const bool hasChildren = ProfilerMarkerHasChildren( profiler, markerIndex );
+            profilerRow( visibleRow, marker, timelineSegments[visibleRow], hasChildren, IsProfilerMarkerExpanded( marker.hash ) );
         }
     }
     else if ( m_activeTab == InGameUiTab::Overview )
@@ -712,13 +950,13 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     m_vsyncToggle.SetBounds( x + 158.0f, by + 22.0f, 100.0f, 24.0f );
     m_rendererCombo.SetBounds( x + 32.0f, by + 48.0f, 126.0f, 24.0f );
     m_rendererCombo.SetDropdownBounds( x + 32.0f, by - 60.0f, 96.0f, 60.0f );
-    m_cacheToggle.SetBounds( x + 158.0f, by + 48.0f, 100.0f, 24.0f );
+    m_timelineToggle.SetBounds( x + 158.0f, by + 48.0f, 100.0f, 24.0f );
     m_blurToggle.DrawToggle( draw, "Blur", m_blurPreviewEnabled, 0.34f, 0.91f, 1.0f );
     m_vsyncToggle.DrawToggle( draw, "VSync", data.vsyncEnabled, 0.34f, 0.91f, 1.0f );
     const int currentRendererIndex = GetRendererIndexFromName( data.rendererName );
     static const char* kRendererOptions[] = { "GL", "DX11", "DX12" };
     m_rendererCombo.Draw( draw, "Renderer", kRendererOptions, 3, currentRendererIndex );
-    m_cacheToggle.DrawToggle( draw, "Cache", m_cachePreviewEnabled, 0.34f, 0.91f, 1.0f );
+    m_timelineToggle.DrawToggle( draw, "Timeline", m_profilerTimelineEnabled, 0.34f, 0.91f, 1.0f );
 
     const float statsX = x + 274.0f;
     const float statsW = (std::max)( 120.0f, w - 292.0f );

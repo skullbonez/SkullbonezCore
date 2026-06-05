@@ -25,6 +25,7 @@ if errorlevel 1 exit /b 2
 
 echo [3/8] Cleaning old UI artifacts...
 del /q "%REPO%\Profile\ui_*.bmp" 2>nul
+del /q "%REPO%\Profile\ui_*_perf.csv" 2>nul
 del /q "%REPO%\Profile\ui_*_stdout.txt" 2>nul
 del /q "%REPO%\Profile\ui_*_stderr.txt" 2>nul
 del /q "%REPO%\dx12_validation.txt" 2>nul
@@ -84,11 +85,16 @@ if errorlevel 1 (
     echo FAIL: %RENDERER% UI suite exited with error.
     exit /b 1
 )
-for %%s in (blur_off blur_on profiler_hierarchy renderer_combo small_scroll) do (
+for %%s in (blur_off blur_on profiler_hierarchy profiler_timeline renderer_combo small_scroll minimized) do (
     if not exist "%REPO%\Profile\ui_%%s.bmp" (
         echo FAIL: %RENDERER% did not produce ui_%%s.bmp.
         exit /b 1
     )
     move /Y "%REPO%\Profile\ui_%%s.bmp" "%REPO%\Profile\ui_%RENDERER%_%%s.bmp" >nul
 )
+if not exist "%REPO%\Profile\ui_profiler_timeline_perf.csv" (
+    echo FAIL: %RENDERER% did not produce ui_profiler_timeline_perf.csv.
+    exit /b 1
+)
+move /Y "%REPO%\Profile\ui_profiler_timeline_perf.csv" "%REPO%\Profile\ui_%RENDERER%_profiler_timeline_perf.csv" >nul
 exit /b 0

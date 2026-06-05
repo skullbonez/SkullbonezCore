@@ -55,7 +55,7 @@ Profiler& Profiler::Instance()
 
 
 Profiler::Profiler()
-    : m_markerCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
+    : m_markerCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 0 ), m_frameStartTicks( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
       m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ), m_nextColorIndex( 0 )
 {
     LARGE_INTEGER f;
@@ -122,9 +122,14 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
     m.openCount = 0;
     m.openStartTicks = 0;
     m.accumSecondsThisFrame = 0.0;
+    m.firstStartSecondsThisFrame = 0.0;
+    m.lastEndSecondsThisFrame = 0.0;
+    m.spanWrittenThisFrame = false;
     m.ringFilled = 0;
     m.ringHead = 0;
     m.lastFrameMs = 0.0f;
+    m.lastFrameStartMs = 0.0f;
+    m.lastFrameEndMs = 0.0f;
     m.avgMs = 0.0f;
     m.p50Ms = 0.0f;
     m.p99Ms = 0.0f;
@@ -212,6 +217,12 @@ void Profiler::Begin( const char* fullPath, uint32_t hash )
     LARGE_INTEGER t;
     QueryPerformanceCounter( &t );
     m.openStartTicks = t.QuadPart;
+    const double startSeconds = static_cast<double>( t.QuadPart - m_frameStartTicks ) / static_cast<double>( m_qpcFrequency );
+    if ( !m.spanWrittenThisFrame )
+    {
+        m.firstStartSecondsThisFrame = startSeconds;
+        m.spanWrittenThisFrame = true;
+    }
     m.openCount = 1;
     m_stackIndices[m_stackTop++] = idx;
 }
@@ -240,6 +251,7 @@ void Profiler::End( const char* fullPath, uint32_t hash )
         delta = 0;
     }
     top.accumSecondsThisFrame += static_cast<double>( delta ) / static_cast<double>( m_qpcFrequency );
+    top.lastEndSecondsThisFrame = static_cast<double>( t.QuadPart - m_frameStartTicks ) / static_cast<double>( m_qpcFrequency );
     top.openCount = 0;
     --m_stackTop;
 }
@@ -491,6 +503,10 @@ void Profiler::FrameBegin()
     }
     m_inFrame = true;
 
+    LARGE_INTEGER frameStart;
+    QueryPerformanceCounter( &frameStart );
+    m_frameStartTicks = frameStart.QuadPart;
+
     // Consume warmup budget at frame start so FrameEnd and WritePerfCSVRow see the same value
     if ( m_warmupFrames > 0 )
     {
@@ -504,6 +520,9 @@ void Profiler::FrameBegin()
     for ( int i = 0; i < m_markerCount; ++i )
     {
         m_markers[i].accumSecondsThisFrame = 0.0;
+        m_markers[i].firstStartSecondsThisFrame = 0.0;
+        m_markers[i].lastEndSecondsThisFrame = 0.0;
+        m_markers[i].spanWrittenThisFrame = false;
     }
 
     // Implicit top-level "Frame" marker captures the entire frame total.
@@ -541,6 +560,16 @@ void Profiler::FrameEnd()
         Marker& m = m_markers[i];
         float ms = static_cast<float>( m.accumSecondsThisFrame * 1000.0 );
         m.lastFrameMs = ms;
+        if ( m.spanWrittenThisFrame )
+        {
+            m.lastFrameStartMs = static_cast<float>( m.firstStartSecondsThisFrame * 1000.0 );
+            m.lastFrameEndMs = static_cast<float>( m.lastEndSecondsThisFrame * 1000.0 );
+        }
+        else
+        {
+            m.lastFrameStartMs = 0.0f;
+            m.lastFrameEndMs = 0.0f;
+        }
         if ( m_warmupFrames > 0 )
         {
             continue;

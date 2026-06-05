@@ -136,6 +136,8 @@ struct SceneUiOptions
 {
     bool hasVisible = false;
     bool isVisible = false;
+    bool hasMinimized = false;
+    bool isMinimized = false;
     bool hasActiveTab = false;
     int activeTab = 1; // 0=Overview, 1=Profiler, 2=Scene, 3=Physics, 4=Renderer, 5=Keys
     bool hasWindowRect = false;
@@ -149,6 +151,8 @@ struct SceneUiOptions
     bool rendererComboOpen = false;
     bool hasProfilerExpandAll = false;
     bool profilerExpandAll = false;
+    bool hasProfilerTimeline = false;
+    bool profilerTimeline = false;
     bool hasTestPattern = false;
     bool testPatternEnabled = false;
 };

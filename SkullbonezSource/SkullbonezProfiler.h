@@ -75,10 +75,15 @@ class Profiler
         int openCount;          // recursion guard (must be 0 at frame end)
         int64_t openStartTicks; // QPC ticks at most recent Begin
         double accumSecondsThisFrame;
+        double firstStartSecondsThisFrame;
+        double lastEndSecondsThisFrame;
+        bool spanWrittenThisFrame;
         float ringMs[RING_SIZE]; // last RING_SIZE finished-frame totals
         int ringFilled;          // number of valid samples (saturates at RING_SIZE)
         int ringHead;            // next write index
         float lastFrameMs;       // most recent finished-frame total
+        float lastFrameStartMs;  // first Begin point within the most recent frame
+        float lastFrameEndMs;    // final End point within the most recent frame
         float avgMs;             // moving average refreshed every 500 ms
         float p50Ms;             // recomputed every frame
         float p99Ms;             // recomputed every frame
@@ -161,6 +166,7 @@ class Profiler
     int m_stackTop;
 
     int64_t m_qpcFrequency;
+    int64_t m_frameStartTicks;
     int64_t m_lastAvgTicks;
     bool m_inFrame;
     int m_warmupFrames;   // frames remaining in warmup window; ring-buffer stats not recorded when > 0
