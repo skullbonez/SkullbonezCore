@@ -6,6 +6,7 @@
 #include <vector>
 #include <algorithm>
 #include <memory>
+#include <array>
 #include <cstdint>
 #include "SkullbonezCommon.h"
 #include "SkullbonezGameModel.h"
@@ -37,14 +38,15 @@ class GameModelCollection
 {
 
   private:
-    std::vector<GameModel> m_gameModels;               // Collection of game models
-    SpatialGrid m_spatialGrid;                         // Broadphase spatial grid for collision culling
-    std::vector<std::pair<int, int>> m_candidatePairs; // Retained-capacity pair buffer (avoids per-frame alloc)
-    std::vector<float> m_timeRemaining;                // Per-model timestep remainder (retained buffer)
-    std::vector<Vector3> m_soaPositions;               // Hot SoA stream: current model centers
-    std::vector<float> m_soaBoundingRadii;             // Hot SoA stream: broadphase/render radii
-    std::vector<uint8_t> m_soaIsBox;                   // Hot SoA stream: shape class, 0=sphere, 1=box
-    std::vector<Matrix4> m_soaModelMatrices;           // Per-frame render matrix stream reused by reflection/main passes
+    std::vector<GameModel> m_gameModels;                     // Collection of game models
+    SpatialGrid m_spatialGrid;                               // Broadphase spatial grid for collision culling
+    std::vector<std::pair<int, int>> m_candidatePairs;       // Retained-capacity pair buffer (avoids per-frame alloc)
+    std::vector<float> m_timeRemaining;                      // Per-model timestep remainder (retained buffer)
+    std::array<Vector3, MAX_GAME_MODELS> m_soaPositions;     // Hot SoA stream: current model centers
+    std::array<float, MAX_GAME_MODELS> m_soaBoundingRadii;   // Hot SoA stream: broadphase/render radii
+    std::array<uint8_t, MAX_GAME_MODELS> m_soaIsBox;         // Hot SoA stream: shape class, 0=sphere, 1=box
+    std::array<Matrix4, MAX_GAME_MODELS> m_soaModelMatrices; // Per-frame render matrix stream reused by reflection/main passes
+    int m_soaActiveCount = 0;
     bool m_soaBodyDataValid = false;
     bool m_soaModelMatricesValid = false;
 
