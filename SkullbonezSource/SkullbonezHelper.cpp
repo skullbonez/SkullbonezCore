@@ -26,6 +26,13 @@ static constexpr int INSTANCE_MATRIX_FLOATS = 16;
 static constexpr int INSTANCE_TINT_FLOATS = 4;
 static constexpr int INSTANCE_FLOATS = INSTANCE_MATRIX_FLOATS + INSTANCE_TINT_FLOATS;
 
+static void ApplySceneLightUniforms( IShader& shader )
+{
+    const auto& light = Cfg().sceneLight;
+    shader.SetVec4( "uLightAmbient", light.colorR, light.colorG, light.colorB, light.colorA );
+    shader.SetVec4( "uLightDiffuse", light.colorR, light.colorG, light.colorB, light.colorA );
+}
+
 void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
 {
     sClipPlane[0] = x;
@@ -58,8 +65,7 @@ void SkullbonezHelper::EnsureSphereMesh()
         BuildSphereMesh( 25, 25 );
         sphereShader = Gfx().CreateShader( "shaders/lit_textured_instanced" );
         sphereShader->Use();
-        sphereShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
-        sphereShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
+        ApplySceneLightUniforms( *sphereShader );
         sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
         sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
     }
@@ -93,8 +99,7 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
         BuildSphereMesh( 25, 25 );
         sphereShader = Gfx().CreateShader( "shaders/lit_textured_instanced" );
         sphereShader->Use();
-        sphereShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
-        sphereShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
+        ApplySceneLightUniforms( *sphereShader );
         sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
         sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
     }
@@ -185,8 +190,7 @@ void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& pr
         BuildSphereMesh( 25, 25 );
         sphereShader = Gfx().CreateShader( "shaders/lit_textured_instanced" );
         sphereShader->Use();
-        sphereShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
-        sphereShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
+        ApplySceneLightUniforms( *sphereShader );
         sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
         sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
     }

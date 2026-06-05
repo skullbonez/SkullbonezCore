@@ -32,6 +32,14 @@ struct RuntimeRenderFlags
     bool renderCollisionVolumes = false;
 };
 
+struct SceneLightConfig
+{
+    float colorR = 1.0f;
+    float colorG = 0.5f;
+    float colorB = 0.5f;
+    float colorA = 1.0f;
+};
+
 class SkullbonezConfig
 {
   public:
@@ -52,6 +60,7 @@ class SkullbonezConfig
     // Window and rendering flags
     WindowConfig window;
     RuntimeRenderFlags runtimeRender;
+    SceneLightConfig sceneLight;
 
     // Frustum
     float frustumNear = 1.0f;
