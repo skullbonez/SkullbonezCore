@@ -41,6 +41,12 @@ class GameModelCollection
     SpatialGrid m_spatialGrid;                         // Broadphase spatial grid for collision culling
     std::vector<std::pair<int, int>> m_candidatePairs; // Retained-capacity pair buffer (avoids per-frame alloc)
     std::vector<float> m_timeRemaining;                // Per-model timestep remainder (retained buffer)
+    std::vector<Vector3> m_soaPositions;               // Hot SoA stream: current model centers
+    std::vector<float> m_soaBoundingRadii;             // Hot SoA stream: broadphase/render radii
+    std::vector<uint8_t> m_soaIsBox;                   // Hot SoA stream: shape class, 0=sphere, 1=box
+    std::vector<Matrix4> m_soaModelMatrices;           // Per-frame render matrix stream reused by reflection/main passes
+    bool m_soaBodyDataValid = false;
+    bool m_soaModelMatricesValid = false;
 
     // Sleep support is deliberately not the same thing as "grounded" or "has a
     // contact." It means this body has credible support for deactivation this
@@ -144,6 +150,9 @@ class GameModelCollection
     void SolvePersistentObjectContacts( float dt ); // PGS contact-force pass for resting/stacked object contacts
     void EnsureCollisionVisualBuffers( int modelCount );
     void MarkCollisionVisualContact( int index );
+    void InvalidateSoA();
+    void RefreshSoABodyData();
+    void EnsureSoAModelMatrices();
 
     // Extends terrain-backed sleep support through vertical object-contact stack
     // chains. This is separate from the solver so sleep policy can stay strict
@@ -160,6 +169,7 @@ class GameModelCollection
     bool GetLegacyMode() const;                                                                                                                                                            // Returns true when the legacy sphere-only solver is active
     void RunPhysics( float fChangeInTime );                                                                                                                                                // Runs the physics for the specified time step
     void RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4] );                                                                                                // Renders the game models
+    void PrepareRenderStreams();                                                                                                                                                           // Builds cached SoA render streams once for the upcoming frame
     void RenderShadows( Geometry::Terrain* terrain, const Matrix4& view, const Matrix4& proj, float waterSurfaceY );                                                                       // Renders ground shadows beneath all models
     void ResetGLResources();                                                                                                                                                               // Releases GPU resources for GL context reset
     bool SaveSceneSnapshot( const char* path, bool physicsOn, bool textOn, Environment::WorldEnvironment& worldEnv, const Vector3& camEye, const Vector3& camView, const Vector3& camUp ); // Saves full scene state to a .scene file; returns true on success

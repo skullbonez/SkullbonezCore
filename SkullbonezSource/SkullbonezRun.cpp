@@ -1421,6 +1421,10 @@ void SkullbonezRun::DrawPrimitives()
     Matrix4 proj = m_systems.window->GetProjectionMatrix();
     Matrix4 reflVP;
 
+    PROFILE_BEGIN( "Frame/Render/PrepareModels" );
+    m_cGameModelCollection.PrepareRenderStreams();
+    PROFILE_END( "Frame/Render/PrepareModels" );
+
     // Camera m_position for skybox placement.  During camera transitions the
     // selected camera is already the destination, but SetCamera() renders from
     // the interpolated tween camera.  Reflection math must use the same render

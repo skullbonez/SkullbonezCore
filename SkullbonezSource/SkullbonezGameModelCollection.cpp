@@ -26,6 +26,10 @@ GameModelCollection::GameModelCollection()
 {
     m_gameModels.reserve( MAX_GAME_MODELS );
     m_timeRemaining.reserve( MAX_GAME_MODELS );
+    m_soaPositions.reserve( MAX_GAME_MODELS );
+    m_soaBoundingRadii.reserve( MAX_GAME_MODELS );
+    m_soaIsBox.reserve( MAX_GAME_MODELS );
+    m_soaModelMatrices.reserve( MAX_GAME_MODELS );
     m_sleepSupportedThisFrame.reserve( MAX_GAME_MODELS );
     m_sleepInhibitedThisFrame.reserve( MAX_GAME_MODELS );
     m_collisionVisualContacts.reserve( MAX_GAME_MODELS );
@@ -49,6 +53,7 @@ void GameModelCollection::AddGameModel( GameModel gameModel )
 {
     assert( static_cast<int>( m_gameModels.size() ) < MAX_GAME_MODELS && "Exceeded MAX_GAME_MODELS" );
     m_gameModels.push_back( std::move( gameModel ) );
+    InvalidateSoA();
 }
 
 
@@ -67,6 +72,11 @@ void GameModelCollection::Clear()
 {
     m_gameModels.clear();
     m_timeRemaining.clear();
+    m_soaPositions.clear();
+    m_soaBoundingRadii.clear();
+    m_soaIsBox.clear();
+    m_soaModelMatrices.clear();
+    InvalidateSoA();
     m_sleepSupportedThisFrame.clear();
     m_sleepInhibitedThisFrame.clear();
     m_sleepState.clear();
@@ -90,6 +100,60 @@ void GameModelCollection::Clear()
 }
 
 
+void GameModelCollection::InvalidateSoA()
+{
+    m_soaBodyDataValid = false;
+    m_soaModelMatricesValid = false;
+}
+
+
+void GameModelCollection::RefreshSoABodyData()
+{
+    const int modelCount = static_cast<int>( m_gameModels.size() );
+    m_soaPositions.resize( modelCount );
+    m_soaBoundingRadii.resize( modelCount );
+    m_soaIsBox.resize( modelCount );
+
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        m_soaPositions[i] = m_gameModels[i].GetPosition();
+        m_soaBoundingRadii[i] = m_gameModels[i].GetBoundingRadius();
+        m_soaIsBox[i] = m_gameModels[i].IsBox() ? 1 : 0;
+    }
+
+    m_soaBodyDataValid = true;
+}
+
+
+void GameModelCollection::EnsureSoAModelMatrices()
+{
+    if ( !m_soaBodyDataValid )
+    {
+        RefreshSoABodyData();
+    }
+
+    const int modelCount = static_cast<int>( m_gameModels.size() );
+    if ( m_soaModelMatricesValid && static_cast<int>( m_soaModelMatrices.size() ) == modelCount )
+    {
+        return;
+    }
+
+    m_soaModelMatrices.resize( modelCount );
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        m_soaModelMatrices[i] = m_gameModels[i].GetModelMatrix();
+    }
+
+    m_soaModelMatricesValid = true;
+}
+
+
+void GameModelCollection::PrepareRenderStreams()
+{
+    EnsureSoAModelMatrices();
+}
+
+
 void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4] )
 {
     if ( m_gameModels.empty() )
@@ -97,14 +161,16 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
         return;
     }
 
+    EnsureSoAModelMatrices();
+    const int modelCount = static_cast<int>( m_gameModels.size() );
+
     // Render spheres
     SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes );
-    for ( int x = 0; x < static_cast<int>( m_gameModels.size() ); ++x )
+    for ( int x = 0; x < modelCount; ++x )
     {
-        if ( !m_gameModels[x].IsBox() )
+        if ( !m_soaIsBox[x] )
         {
-            Matrix4 model = m_gameModels[x].GetModelMatrix();
-            SkullbonezHelper::DrawSphereBatchModel( model );
+            SkullbonezHelper::DrawSphereBatchModel( m_soaModelMatrices[x] );
         }
     }
     SkullbonezHelper::DrawSphereBatchEnd();
@@ -113,12 +179,11 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
     if ( !m_useLegacyPhysics )
     {
         SkullbonezHelper::DrawBoxBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes );
-        for ( int x = 0; x < static_cast<int>( m_gameModels.size() ); ++x )
+        for ( int x = 0; x < modelCount; ++x )
         {
-            if ( m_gameModels[x].IsBox() )
+            if ( m_soaIsBox[x] )
             {
-                Matrix4 model = m_gameModels[x].GetModelMatrix();
-                SkullbonezHelper::DrawBoxBatchModel( model );
+                SkullbonezHelper::DrawBoxBatchModel( m_soaModelMatrices[x] );
             }
         }
         SkullbonezHelper::DrawBoxBatchEnd();
@@ -143,19 +208,23 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
 
     // Build per-instance data: model matrix (16 floats) + alpha (1 float).
     // Pre-size once and write by index so we avoid repeated end-insert growth work.
+    if ( !m_soaBodyDataValid )
+    {
+        RefreshSoABodyData();
+    }
     int modelCount = static_cast<int>( m_gameModels.size() );
     m_shadowInstanceData.resize( modelCount * SHADOW_INSTANCE_FLOATS );
     int writeOffset = 0;
-    for ( int i = 0; i < static_cast<int>( m_gameModels.size() ); ++i )
+    for ( int i = 0; i < modelCount; ++i )
     {
         // Skip boxes in legacy mode — they are hidden, so no shadow either
-        if ( m_useLegacyPhysics && m_gameModels[i].IsBox() )
+        if ( m_useLegacyPhysics && m_soaIsBox[i] )
         {
             continue;
         }
 
-        Vector3 pos = m_gameModels[i].GetPosition();
-        float radius = m_gameModels[i].GetBoundingRadius();
+        const Vector3& pos = m_soaPositions[i];
+        float radius = m_soaBoundingRadii[i];
 
         if ( !m_terrain->IsInBounds( pos.x, pos.z ) )
         {
@@ -255,6 +324,7 @@ int GameModelCollection::GetModelCount() const
 
 GameModel& GameModelCollection::GetModelAtIndex( int index )
 {
+    InvalidateSoA();
     return m_gameModels[index];
 }
 
@@ -328,6 +398,8 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
         }
     }
 
+    RefreshSoABodyData();
+
     // Dispatch to the appropriate physics implementation — the mode is checked exactly once here.
     if ( m_useLegacyPhysics )
     {
@@ -372,6 +444,8 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
         ++m_physicsLogFrame;
     }
 #endif
+
+    InvalidateSoA();
 }
 
 
@@ -385,6 +459,7 @@ void GameModelCollection::WakeModel( int index )
     }
     if ( index >= 0 && index < static_cast<int>( m_sleepState.size() ) )
     {
+        InvalidateSoA();
         m_sleepState[index] = 0;
         m_sleepCounter[index] = 0;
         if ( index < static_cast<int>( m_sleepIslandVisualId.size() ) )
@@ -415,7 +490,7 @@ void GameModelCollection::RunLegacyPhysics( float dt )
     PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( m_gameModels[x].IsBox() )
+        if ( m_soaIsBox[x] )
         {
             continue;
         }
@@ -429,11 +504,11 @@ void GameModelCollection::RunLegacyPhysics( float dt )
     m_collisionCellKeys.clear();
     for ( int i = 0; i < modelCount; ++i )
     {
-        if ( m_gameModels[i].IsBox() )
+        if ( m_soaIsBox[i] )
         {
             continue;
         }
-        m_spatialGrid.Insert( i, m_gameModels[i].GetPosition(), m_gameModels[i].GetBoundingRadius() );
+        m_spatialGrid.Insert( i, m_soaPositions[i], m_soaBoundingRadii[i] );
     }
     std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
     m_spatialGrid.GetCandidatePairs( candidatePairs );
@@ -488,7 +563,7 @@ void GameModelCollection::RunLegacyPhysics( float dt )
     PROFILE_BEGIN( "Frame/Physics/Terrain" );
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( m_gameModels[x].IsBox() )
+        if ( m_soaIsBox[x] )
         {
             continue;
         }
@@ -520,7 +595,7 @@ void GameModelCollection::RunLegacyPhysics( float dt )
     PROFILE_BEGIN( "Frame/Physics/Integrate" );
     for ( int x = 0; x < modelCount; ++x )
     {
-        if ( m_gameModels[x].IsBox() )
+        if ( m_soaIsBox[x] )
         {
             continue;
         }
@@ -1188,7 +1263,7 @@ void GameModelCollection::RunSolverPhysics( float dt )
     m_collisionCellKeys.clear();
     for ( int i = 0; i < modelCount; ++i )
     {
-        m_spatialGrid.Insert( i, m_gameModels[i].GetPosition(), m_gameModels[i].GetBoundingRadius() );
+        m_spatialGrid.Insert( i, m_soaPositions[i], m_soaBoundingRadii[i] );
     }
     std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
     m_spatialGrid.GetCandidatePairs( candidatePairs );
