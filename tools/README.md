@@ -35,6 +35,7 @@ tools\validate_select.bat fast build-profile
 | `find_git.bat` | Locate Git, called by perf validation |
 | `find_msbuild.bat` | Locate MSBuild, called by other scripts |
 | `find_python.bat` | Locate Python, called by Python-backed validation scripts |
+| `physics_query.py` | Import queryable physics NDJSON traces into SQLite and return bounded JSON summaries/events/frame/body/contact/island queries |
 | `check_dx12_validation.bat` | Verify DX12 InfoQueue clean |
 | `check_parity.py` | Cross-renderer pixel comparison |
 | `check_physics_regression.py` | Byte-exact physics CSV diff |

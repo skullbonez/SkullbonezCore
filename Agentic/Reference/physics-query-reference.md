@@ -54,6 +54,8 @@ tools\physics_query.py Debug\at_rest.physicsdiag.ndjson stacks --frames 500:650
 tools\physics_query.py Debug\at_rest.physicsdiag.ndjson energy --frames 0:1000
 tools\physics_query.py Debug\at_rest.physicsdiag.ndjson rolling --frames 300:700
 tools\physics_query.py Debug\at_rest.physicsdiag.ndjson broadphase --frames 0:1000
+tools\physics_query.py Debug\at_rest.physicsdiag.ndjson questions
+tools\physics_query.py Debug\at_rest.physicsdiag.ndjson questions why_not_resting
 ```
 
 ## Output Controls
@@ -75,6 +77,19 @@ Default output should be compact JSON. Use `--pretty` only when a human needs to
 ## Pre-Baked Questions
 
 Use these when the user asks a natural-language physics question.
+
+The helper data lives in:
+
+```text
+Agentic/Reference/physics-query-questions.json
+```
+
+List or expand a query pack with:
+
+```bat
+tools\physics_query.py Debug\scene.physicsdiag.ndjson questions
+tools\physics_query.py Debug\scene.physicsdiag.ndjson questions energy_spikes
+```
 
 ### What happened in this run?
 
@@ -234,4 +249,3 @@ When debugging physics:
 6. Answer from the compact query result.
 
 Do not paste full `*.csv`, `*.ndjson`, or `*.sqlite` contents into conversation unless explicitly requested.
-
