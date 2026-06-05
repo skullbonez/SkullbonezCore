@@ -10,6 +10,7 @@ Scripts for validating SkullbonezCore changes. Run from the repo root or from wi
 | `validate_select.bat` | Run any subset of validations by name | ~depends |
 | `validate_fast.bat` | Small code refactors and non-render code edits | ~30s |
 | `validate_renderers.bat` | Shader, texture, render backend changes | ~60s |
+| `validate_ui.bat` | Optional in-game UI visual screenshots, blur, and control automation | ~depends |
 | `validate_physics.bat` | Physics, collision, solver, rigid body | ~45s |
 | `validate_physics_query.bat` | SkullScope query-output baseline check | ~depends |
 | `validate_perf.bat` | Performance-sensitive, hot-path changes | ~1 min |
@@ -22,6 +23,7 @@ Run only what you need:
 ```bat
 tools\validate_select.bat format
 tools\validate_select.bat renderers physics
+tools\validate_select.bat ui
 tools\validate_select.bat fast build-profile
 ```
 
@@ -32,6 +34,7 @@ tools\validate_select.bat fast build-profile
 | `validate_format.bat` | Check clang-format compliance without auto-fixing |
 | `format_fix.bat` | Auto-fix formatting in-place |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Release`) |
+| `validate_ui.bat` | Optional tri-renderer UI suite that captures UI screenshots and checks blur strength |
 | `validate_physics_query.bat` | Generate the varied physics diagnostic trace and compare SkullScope query output to `TestOutput/baselines/physics_query_varied.json` |
 | `find_clang_format.bat` | Locate clang-format, called by format scripts |
 | `find_git.bat` | Locate Git, called by perf validation |

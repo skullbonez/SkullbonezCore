@@ -132,6 +132,27 @@ struct SceneWorldOverride
     float worldFluidDensity = 0.0f;
 };
 
+struct SceneUiOptions
+{
+    bool hasVisible = false;
+    bool isVisible = false;
+    bool hasActiveTab = false;
+    int activeTab = 1; // 0=Overview, 1=Profiler, 2=Scene, 3=Physics, 4=Renderer, 5=Keys
+    bool hasWindowRect = false;
+    int windowX = 34;
+    int windowY = 56;
+    int windowW = 760;
+    int windowH = 540;
+    bool hasBlur = false;
+    bool blurEnabled = true;
+    bool hasRendererComboOpen = false;
+    bool rendererComboOpen = false;
+    bool hasProfilerExpandAll = false;
+    bool profilerExpandAll = false;
+    bool hasTestPattern = false;
+    bool testPatternEnabled = false;
+};
+
 /* -- Test Scene -------------------------------------------------------------------------------------------------------------------------------------------------
 
     Loads and holds a deterministic scene description from a .scene file.
@@ -153,6 +174,7 @@ class TestScene
     SceneRuntimeOverrides m_runtimeOverrides;
     SceneTerrainOverride m_terrainOverride;
     SceneWorldOverride m_worldOverride;
+    SceneUiOptions m_uiOptions;
 
   public:
     TestScene();
@@ -210,6 +232,7 @@ class TestScene
     float GetWorldGravity() const;
     float GetWorldFluidHeight() const;
     float GetWorldFluidDensity() const;
+    const SceneUiOptions& GetUiOptions() const;
 };
 } // namespace Basics
 } // namespace SkullbonezCore

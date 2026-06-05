@@ -189,6 +189,7 @@ class RenderBackendDX11 : public IRenderBackend
     int m_height = 0;
     bool m_isVsyncEnabled = true;
     bool m_allowTearing = false;
+    int m_frameDrawCallCount = 0;
 
     // Grid line overlay (lazy-init in DrawLinesColored)
     ID3D11Buffer* m_gridLineVB = nullptr;
@@ -253,6 +254,18 @@ class RenderBackendDX11 : public IRenderBackend
     bool IsDepthTestEnabled() const override;
     bool IsBlendEnabled() const override;
     bool UsesZeroToOneDepth() const override;
+    void ResetFrameDrawCallCount() override
+    {
+        m_frameDrawCallCount = 0;
+    }
+    void NoteDrawCall() override
+    {
+        ++m_frameDrawCallCount;
+    }
+    int GetFrameDrawCallCount() const override
+    {
+        return m_frameDrawCallCount;
+    }
     const char* GetRendererName() const override
     {
         return "DirectX 11";

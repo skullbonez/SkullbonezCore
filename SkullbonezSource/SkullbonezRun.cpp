@@ -70,6 +70,39 @@ std::string JsonEscape( const char* value )
     return escaped;
 }
 #endif
+
+void DrawUiTestPattern( int screenW, int screenH )
+{
+    const UiDrawContext draw( screenW, screenH );
+    draw.Rect( 0.0f, 0.0f, static_cast<float>( screenW ), static_cast<float>( screenH ), 0.20f, 0.31f, 0.36f, 1.0f );
+
+    constexpr float tile = 88.0f;
+    for ( float y = 0.0f; y < static_cast<float>( screenH ); y += tile )
+    {
+        for ( float x = 0.0f; x < static_cast<float>( screenW ); x += tile )
+        {
+            const int ix = static_cast<int>( x / tile );
+            const int iy = static_cast<int>( y / tile );
+            const bool alternate = ( ( ix + iy ) & 1 ) != 0;
+            if ( alternate )
+            {
+                draw.Rect( x, y, tile, tile, 0.10f, 0.78f, 0.96f, 0.96f );
+            }
+            else
+            {
+                draw.Rect( x, y, tile, tile, 1.0f, 0.72f, 0.18f, 0.94f );
+            }
+            draw.Rect( x + 12.0f, y + 12.0f, tile - 24.0f, 5.0f, 0.96f, 0.98f, 1.0f, 0.74f );
+            draw.Rect( x + tile - 18.0f, y + 18.0f, 5.0f, tile - 32.0f, 0.12f, 0.20f, 0.24f, 0.54f );
+        }
+    }
+
+    draw.Rect( 44.0f, 46.0f, 780.0f, 560.0f, 1.0f, 1.0f, 1.0f, 0.18f );
+    draw.Rect( 76.0f, 116.0f, 720.0f, 8.0f, 0.98f, 0.12f, 0.46f, 0.82f );
+    draw.Rect( 76.0f, 300.0f, 720.0f, 8.0f, 0.30f, 1.0f, 0.56f, 0.78f );
+    draw.Rect( 76.0f, 484.0f, 720.0f, 8.0f, 0.38f, 0.54f, 1.0f, 0.82f );
+    Text2d::FlushQuads();
+}
 } // namespace
 
 
@@ -117,6 +150,7 @@ SkullbonezRun::~SkullbonezRun()
     SkullbonezHelper::ResetGLResources();
     m_cGameModelCollection.ResetGLResources();
     m_collisionVisualizer.ResetResources();
+    m_ui.ResetResources();
     if ( m_systems.reflectionFBO )
     {
         m_systems.reflectionFBO->ResetResources();
@@ -165,6 +199,23 @@ void SkullbonezRun::SetNoWaterOverride()
 void SkullbonezRun::SetInitialOverlayMode( OverlayMode mode )
 {
     m_debug.overlayMode = mode;
+    m_ui.SetVisible( mode != OverlayMode::None );
+    switch ( mode )
+    {
+    case OverlayMode::SceneStats:
+        m_ui.SetActiveTab( InGameUiTab::Scene );
+        break;
+    case OverlayMode::Keys:
+        m_ui.SetActiveTab( InGameUiTab::Keys );
+        break;
+    case OverlayMode::BarsNormalized:
+    case OverlayMode::BarsAbsolute:
+    case OverlayMode::Timers:
+        m_ui.SetActiveTab( InGameUiTab::Profiler );
+        break;
+    default:
+        break;
+    }
 }
 
 
@@ -340,6 +391,7 @@ void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
     m_cGameModelCollection.ResetGLResources();
     SkullbonezHelper::ResetGLResources();
     m_collisionVisualizer.ResetResources();
+    m_ui.ResetResources();
     if ( m_systems.textures )
     {
         m_systems.textures->DeleteAllTextures();
@@ -707,6 +759,7 @@ void SkullbonezRun::Run()
 
             m_timers.frameTimer.StartTimer();
             PROFILE_FRAME_BEGIN();
+            Gfx().ResetFrameDrawCallCount();
 
             PROFILE_BEGIN( "Frame/Input" );
             TakeInput();
@@ -745,7 +798,7 @@ void SkullbonezRun::Run()
             Render();
             PROFILE_GPU_END( "Frame/Render" );
 
-            if ( !m_scene.isSceneMode || m_scene.isSceneText || m_debug.overlayMode != OverlayMode::None )
+            if ( !m_scene.isSceneMode || m_scene.isSceneText || m_debug.overlayMode != OverlayMode::None || m_ui.IsVisible() )
             {
                 PROFILE_GPU_BEGIN( "Frame/Text" );
                 DrawWindowText( secondsPerFrame );
@@ -1249,35 +1302,42 @@ void SkullbonezRun::TakeInput()
     }
     m_camera.input.Set( InputState::GKeyWasDown, isGNow );
 
-    // 0 key: cycle overlay: None, Timers, SceneStats, BarsNormalized, BarsAbsolute, Keys.
-    // Edge-detected in both scene and legacy modes; one advance per keypress.
+    // 0 key: toggle the in-game diagnostics window. Tabs replace the old overlay cycle.
+    // Edge-detected in both scene and legacy modes; one toggle per keypress.
     {
         bool key0Now = Input::IsKeyDown( '0' );
         if ( key0Now && !m_camera.input.Get( InputState::Key0WasDown ) )
         {
-            switch ( m_debug.overlayMode )
-            {
-            case OverlayMode::None:
-                m_debug.overlayMode = OverlayMode::Timers;
-                break;
-            case OverlayMode::Timers:
-                m_debug.overlayMode = OverlayMode::SceneStats;
-                break;
-            case OverlayMode::SceneStats:
-                m_debug.overlayMode = OverlayMode::BarsNormalized;
-                break;
-            case OverlayMode::BarsNormalized:
-                m_debug.overlayMode = OverlayMode::BarsAbsolute;
-                break;
-            case OverlayMode::BarsAbsolute:
-                m_debug.overlayMode = OverlayMode::Keys;
-                break;
-            case OverlayMode::Keys:
-                m_debug.overlayMode = OverlayMode::None;
-                break;
-            }
+            m_ui.ToggleVisible( m_timers.simulationTimer.GetTotalTime() );
+            m_debug.overlayMode = m_ui.IsVisible() ? OverlayMode::Timers : OverlayMode::None;
         }
         m_camera.input.Set( InputState::Key0WasDown, key0Now );
+    }
+
+    if ( m_systems.window )
+    {
+        InGameUiInputResult uiResult = m_ui.UpdateInput( m_systems.window->m_sWindow,
+                                                         static_cast<int>( m_systems.window->m_sWindowDimensions.x ),
+                                                         static_cast<int>( m_systems.window->m_sWindowDimensions.y ),
+                                                         m_timers.simulationTimer.GetTotalTime() );
+        if ( uiResult.toggleVsync )
+        {
+            m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
+            Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+        }
+        if ( uiResult.requestedRendererIndex >= 0 )
+        {
+            RuntimeRendererType requestedRenderer = RuntimeRendererType::OpenGL;
+            if ( uiResult.requestedRendererIndex == 1 )
+            {
+                requestedRenderer = RuntimeRendererType::DX11;
+            }
+            else if ( uiResult.requestedRendererIndex == 2 )
+            {
+                requestedRenderer = RuntimeRendererType::DX12;
+            }
+            SwitchRenderer( requestedRenderer );
+        }
     }
 
     // F2: Save scene snapshot to Scenes/
@@ -1380,15 +1440,23 @@ void SkullbonezRun::TakeInput()
 
     if ( m_camera.isFlyMode )
     {
-        // Keep cursor hidden every frame ? Windows restores it on WM_SETCURSOR
-        SetCursor( nullptr );
+        // Keep cursor hidden every frame unless the UI owns the mouse.
+        SetCursor( m_ui.BlocksCameraMouse() ? LoadCursor( nullptr, IDC_ARROW ) : nullptr );
 
         // Mouse look: delta from screen centre
-        POINT currentCoords = Input::GetMouseCoordinates();
-        Input::CentreMouseCoordinates();
-        POINT centreCoords = Input::GetMouseCoordinates();
-        m_camera.input.xMove = currentCoords.x - centreCoords.x;
-        m_camera.input.yMove = currentCoords.y - centreCoords.y;
+        if ( m_ui.BlocksCameraMouse() )
+        {
+            m_camera.input.xMove = 0;
+            m_camera.input.yMove = 0;
+        }
+        else
+        {
+            POINT currentCoords = Input::GetMouseCoordinates();
+            Input::CentreMouseCoordinates();
+            POINT centreCoords = Input::GetMouseCoordinates();
+            m_camera.input.xMove = currentCoords.x - centreCoords.x;
+            m_camera.input.yMove = currentCoords.y - centreCoords.y;
+        }
 
         // WASD movement
         m_camera.input.Set( InputState::Up, Input::IsKeyDown( 'W' ) );
@@ -1750,6 +1818,10 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     m_timers.timeSinceLastRender += static_cast<float>( m_timers.updateTimer.GetElapsedTime() );
     m_timers.updateTimer.StartTimer();
 
+    const double currentSceneEnergy = m_cGameModelCollection.GetSceneKineticEnergy();
+    m_timers.sceneEnergyAccumulator += currentSceneEnergy;
+    ++m_timers.sceneEnergySampleCount;
+
     if ( m_timers.timeSinceLastRender > 0.5f )
     {
         if ( dSecondsPerFrame )
@@ -1758,7 +1830,19 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             m_timers.rollingPhysicsTime = m_timers.physicsTime;
             m_timers.rollingRenderTime = m_timers.renderTime;
         }
+        if ( m_timers.sceneEnergySampleCount > 0 )
+        {
+            m_timers.rollingSceneEnergy = static_cast<float>( m_timers.sceneEnergyAccumulator / static_cast<double>( m_timers.sceneEnergySampleCount ) );
+            m_timers.sceneEnergyAccumulator = 0.0;
+            m_timers.sceneEnergySampleCount = 0;
+        }
         m_timers.timeSinceLastRender = 0.0f;
+    }
+
+    float sceneEnergyForDisplay = m_timers.rollingSceneEnergy;
+    if ( m_timers.sceneEnergySampleCount > 0 && sceneEnergyForDisplay == 0.0f )
+    {
+        sceneEnergyForDisplay = static_cast<float>( m_timers.sceneEnergyAccumulator / static_cast<double>( m_timers.sceneEnergySampleCount ) );
     }
 
     const char* rendererName = Gfx().GetRendererName();
@@ -1855,6 +1939,42 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         }
     }
 
+    if ( m_ui.IsVisible() )
+    {
+        InGameUiFrameData uiData;
+        uiData.screenW = m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.x ) : Cfg().window.screenX;
+        uiData.screenH = m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.y ) : Cfg().window.screenY;
+        if ( m_debug.isUiTestPattern )
+        {
+            DrawUiTestPattern( uiData.screenW, uiData.screenH );
+        }
+        uiData.rendererName = rendererName;
+        uiData.drawCallsBeforeUi = Gfx().GetFrameDrawCallCount();
+        uiData.fps = m_timers.rollingFpsTime > 0.0f ? m_timers.rollingFpsTime : ( dSecondsPerFrame > 0.0 ? 1.0f / static_cast<float>( dSecondsPerFrame ) : 0.0f );
+        uiData.renderMs = ( m_timers.rollingRenderTime > 0.0f ? m_timers.rollingRenderTime : m_timers.renderTime ) * 1000.0f;
+        uiData.physicsMs = ( m_timers.rollingPhysicsTime > 0.0f ? m_timers.rollingPhysicsTime : m_timers.physicsTime ) * 1000.0f;
+        uiData.modelCount = m_scene.modelCount;
+        uiData.currentFrame = m_scene.currentFrame;
+        uiData.currentSceneIndex = m_scene.currentSceneIndex;
+        uiData.sceneCount = static_cast<int>( m_sceneQueue.size() );
+        uiData.now = m_timers.simulationTimer.GetTotalTime();
+        uiData.legacyPhysics = m_cGameModelCollection.GetLegacyMode();
+        uiData.fixedStep = m_scene.isFixedStep;
+        uiData.testComplete = m_scene.isTestComplete;
+        uiData.vsyncEnabled = m_runtimeSettings.isVsyncEnabled;
+        uiData.pipelineSyncEnabled = m_runtimeSettings.isPipelineSyncEnabled;
+        uiData.sceneEnergy = sceneEnergyForDisplay;
+        uiData.physicsDebugFlags = m_debug.physicsDebugFlags;
+        uiData.physicsDebugAlpha = m_debug.physicsDebugAlpha;
+        uiData.physicsDebugContactLinger = m_debug.physicsDebugContactLinger;
+        uiData.collisionVisualizer = m_debug.isCollisionVisualizer;
+        uiData.waterNoReflect = m_debug.isWaterNoReflect;
+        uiData.waterRTReflect = m_debug.isWaterRTReflect;
+        m_ui.Draw( uiData );
+        Text2d::FlushText();
+        return;
+    }
+
     // --- Overlay: None ---
     if ( m_debug.overlayMode == OverlayMode::None )
     {
@@ -1886,7 +2006,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
                                    0.85f,
                                    0.85f,
                                    "Scene Energy: %.6f",
-                                   m_cGameModelCollection.GetSceneKineticEnergy() );
+                                   sceneEnergyForDisplay );
         Text2d::FlushText();
         return;
     }
@@ -2874,6 +2994,7 @@ void SkullbonezRun::LoadScene( int index )
     m_debug.isWaterHidden = false;
     m_debug.isDebugVectors = false;
     m_debug.isTextOnly = false;
+    m_debug.isUiTestPattern = false;
     m_debug.physicsDebugFlags = PHYSICS_DEBUG_NONE;
     m_debug.isPhysicsDebugTransparent = false;
     m_debug.physicsDebugAlpha = 0.28f;
@@ -2904,6 +3025,9 @@ void SkullbonezRun::LoadScene( int index )
     m_timers.physicsTime = 0.0f;
     m_timers.rollingPhysicsTime = 0.0f;
     m_timers.rollingFpsTime = 0.0f;
+    m_timers.rollingSceneEnergy = 0.0f;
+    m_timers.sceneEnergyAccumulator = 0.0;
+    m_timers.sceneEnergySampleCount = 0;
 
     // Reseed RNG. Unseeded reruns mix in the load/reset counters so quick repeated
     // Q resets do not collapse to the same time(nullptr) seed. Scene files and CLI
@@ -2966,6 +3090,36 @@ void SkullbonezRun::LoadScene( int index )
         m_debug.isTerrainHidden = scene.IsTerrainHidden();
         m_scene.timeScale = scene.GetTimeScale();
         m_scene.isFixedStep = scene.IsFixedStep();
+
+        const SceneUiOptions& uiOptions = scene.GetUiOptions();
+        if ( uiOptions.hasWindowRect )
+        {
+            m_ui.SetWindowBounds( uiOptions.windowX, uiOptions.windowY, uiOptions.windowW, uiOptions.windowH );
+        }
+        if ( uiOptions.hasActiveTab )
+        {
+            m_ui.SetActiveTab( static_cast<InGameUiTab>( uiOptions.activeTab ) );
+        }
+        if ( uiOptions.hasBlur )
+        {
+            m_ui.SetBlurEnabled( uiOptions.blurEnabled );
+        }
+        if ( uiOptions.hasProfilerExpandAll )
+        {
+            m_ui.SetProfilerExpandAll( uiOptions.profilerExpandAll );
+        }
+        if ( uiOptions.hasRendererComboOpen )
+        {
+            m_ui.SetRendererComboOpen( uiOptions.rendererComboOpen );
+        }
+        if ( uiOptions.hasVisible )
+        {
+            m_ui.SetVisible( uiOptions.isVisible, m_timers.simulationTimer.GetTotalTime() );
+        }
+        if ( uiOptions.hasTestPattern )
+        {
+            m_debug.isUiTestPattern = uiOptions.testPatternEnabled;
+        }
 
         // Apply per-scene physics mode override — supersedes the --legacy CLI flag for this scene.
         // physicsMode 0 = inherit (no change), 1 = legacy, 2 = impulse solver.

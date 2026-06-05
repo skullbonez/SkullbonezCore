@@ -805,6 +805,7 @@ void RenderBackendGL::UploadAndDrawDynamicVB( uint32_t handle, const float* data
     // GL_TRIANGLES means every 3 consecutive vertices form one triangle.
     // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glDrawArrays.xhtml
     glDrawArrays( GL_TRIANGLES, 0, vertexCount );
+    NoteDrawCall();
     glBindVertexArray( 0 );
 }
 
@@ -951,6 +952,7 @@ void RenderBackendGL::DrawInstancedMesh( uint32_t handle, int staticVertCount, i
     // divisor=1 setting. One draw call renders hundreds of objects.
     // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glDrawArraysInstanced.xhtml
     glDrawArraysInstanced( GL_TRIANGLES, 0, staticVertCount, instanceCount );
+    NoteDrawCall();
     glBindVertexArray( 0 );
 }
 
@@ -1031,6 +1033,7 @@ void RenderBackendGL::DrawLines( const float* verts, int vertCount, float r, flo
     glBindVertexArray( m_debugLineVAO );
     glLineWidth( 2.0f );
     glDrawArrays( GL_LINES, 0, vertCount );
+    NoteDrawCall();
     glLineWidth( 1.0f );
     glBindVertexArray( 0 );
     SetDepthTest( true );
@@ -1095,6 +1098,7 @@ void RenderBackendGL::DrawLinesColored( const float* data, int vertCount, const 
     glBindVertexArray( m_gridLineVAO );
     glLineWidth( 1.0f );
     glDrawArrays( GL_LINES, 0, vertCount );
+    NoteDrawCall();
     glBindVertexArray( 0 );
     SetDepthTest( true );
 }

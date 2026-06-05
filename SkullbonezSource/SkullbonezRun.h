@@ -22,6 +22,7 @@
 #include "SkullbonezBroadphaseVisualizer.h"
 #include "SkullbonezCollisionVisualizer.h"
 #include "SkullbonezPhysicsDebugVisualizer.h"
+#include "UI/SkullbonezUi.h"
 
 
 // --- Usings ---
@@ -33,6 +34,7 @@ using namespace SkullbonezCore::Geometry;
 using namespace SkullbonezCore::Math;
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Physics;
+using namespace SkullbonezCore::Ui;
 
 
 namespace SkullbonezCore
@@ -87,7 +89,10 @@ struct RunTimerState
     float renderTime = 0.0f;         // Last frame render time (seconds)
     float rollingRenderTime = 0.0f;  // Smoothed render time accumulator
     float rollingFpsTime = 0.0f;     // Smoothed FPS time accumulator
+    float rollingSceneEnergy = 0.0f; // Half-second averaged kinetic energy
     float timeSinceLastRender = 0.0f;
+    double sceneEnergyAccumulator = 0.0;
+    int sceneEnergySampleCount = 0;
     float physicsAccumulator = 0.0f; // Accumulated time for fixed-step physics
 };
 
@@ -173,6 +178,7 @@ struct RunDebugState
     float physicsDebugContactLinger = 0.45f;                  // Seconds to keep contact manifolds visible after their solver row disappears
     bool isCollisionVisualizer = false;                       // Render solid collision/sleep colours for balls and boxes (toggle with V)
     bool isTextOnly = false;                                  // Suppress all 3D rendering; show solid background with large pangram text
+    bool isUiTestPattern = false;                             // Bright 2D backdrop behind UI for visual blur tests
     bool isTopTextHidden = false;                             // Hide top-left HUD text while leaving other overlays active
     bool isBroadphaseOverlay = false;                         // Broadphase spatial grid visualizer overlay (toggle with G)
     float frozenWaterTime = 0.0f;                             // Simulation time captured when freeze was toggled on
@@ -240,6 +246,7 @@ class SkullbonezRun
     RunCameraState m_camera;                         // Camera/input state and ball-tracking settings
     RunSceneState m_scene;                           // Scene-mode execution state
     RunScreenshotState m_screenshot;                 // Screenshot trigger and capture state
+    InGameUi m_ui;                                   // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                           // Runtime debug/overlay toggles
     RunFireState m_fire;                             // Projectile recycling state (CTRL = ball, ALT = box)
     BroadphaseVisualizer m_broadphaseVisualizer;     // Spatial grid debug overlay (G key toggle)

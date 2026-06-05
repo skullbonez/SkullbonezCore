@@ -1430,6 +1430,7 @@ void RenderBackendDX11::UploadAndDrawDynamicVB( uint32_t handle, const float* da
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-iasetprimitivetopology
     m_context->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-draw
+    NoteDrawCall();
     m_context->Draw( (UINT)vertexCount, 0 );
 }
 
@@ -1524,6 +1525,7 @@ void RenderBackendDX11::DrawLinesColored( const float* data, int vertCount, cons
     UINT offset = 0;
     m_context->IASetVertexBuffers( 0, 1, &m_gridLineVB, &stride, &offset );
     m_context->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_LINELIST );
+    NoteDrawCall();
     m_context->Draw( (UINT)vertCount, 0 );
     SetDepthTest( true );
 }
@@ -1983,6 +1985,7 @@ void RenderBackendDX11::DrawInstancedMesh( uint32_t handle, int staticVertCount,
 
     // Draw all instances in one GPU call. Renders staticVertCount vertices × instanceCount copies.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-drawinstanced
+    NoteDrawCall();
     m_context->DrawInstanced( (UINT)staticVertCount, (UINT)instanceCount, 0, 0 );
 }
 

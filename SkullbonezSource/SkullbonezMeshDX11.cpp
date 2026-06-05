@@ -196,6 +196,7 @@ void MeshDX11::Draw() const
     // Issue a non-indexed draw call. The GPU processes m_vertexCount vertices starting at vertex 0,
     // running them through the entire pipeline (vertex shader -> rasterizer -> pixel shader -> output merger).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-draw
+    backend->NoteDrawCall();
     m_context->Draw( (UINT)m_vertexCount, 0 );
 }
 
@@ -226,5 +227,6 @@ void MeshDX11::DrawInstanced( int instanceCount ) const
     // copies) in a single GPU call. Each instance can receive unique per-instance data (e.g. a
     // different world matrix) from an instance buffer, avoiding one draw call per object.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-drawinstanced
+    backend->NoteDrawCall();
     m_context->DrawInstanced( (UINT)m_vertexCount, (UINT)instanceCount, 0, 0 );
 }

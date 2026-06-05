@@ -1,0 +1,18 @@
+# UI resize capture: intentionally small window so overflow produces auto-hiding scrollbars.
+seed 4242
+physics off
+text off
+vsync off
+water_hidden on
+terrain_hidden on
+frames 24
+ui visible on
+ui tab keys
+ui rect 64 70 430 280
+ui blur on
+ui renderer_combo closed
+ui profiler_expand none
+ui_test_pattern on
+screenshot Profile/ui_small_scroll.bmp frame 20
+
+camera main 500 60 650  600 33 600  0 1 0

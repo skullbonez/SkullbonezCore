@@ -107,6 +107,7 @@ void MeshDX12::Draw() const
     // vertex buffer. Parameters: (vertexCount, instanceCount=1, startVertex=0, startInstance=0).
     // "Instanced" here means you *could* draw multiple copies, but we pass 1 for a single mesh.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
+    backend->NoteDrawCall();
     backend->GetCommandList()->DrawInstanced( (UINT)m_vertexCount, 1, 0, 0 );
 }
 
@@ -125,6 +126,7 @@ void MeshDX12::DrawInstanced( int instanceCount ) const
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
     backend->GetCommandList()->IASetVertexBuffers( 0, 1, &m_vbView );
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
+    backend->NoteDrawCall();
     backend->GetCommandList()->DrawInstanced( (UINT)m_vertexCount, (UINT)instanceCount, 0, 0 );
 }
 

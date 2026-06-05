@@ -70,6 +70,7 @@ class RenderBackendGL : public IRenderBackend
     GLuint m_debugLineVBO = 0;
     GLuint m_gridLineVAO = 0;
     GLuint m_gridLineVBO = 0;
+    int m_frameDrawCallCount = 0;
 
   public:
     RenderBackendGL();
@@ -116,6 +117,18 @@ class RenderBackendGL : public IRenderBackend
     const char* GetRendererName() const override
     {
         return "OpenGL 3.3";
+    }
+    void ResetFrameDrawCallCount() override
+    {
+        m_frameDrawCallCount = 0;
+    }
+    void NoteDrawCall() override
+    {
+        ++m_frameDrawCallCount;
+    }
+    int GetFrameDrawCallCount() const override
+    {
+        return m_frameDrawCallCount;
     }
 
     bool IsDXRSupported() const override
