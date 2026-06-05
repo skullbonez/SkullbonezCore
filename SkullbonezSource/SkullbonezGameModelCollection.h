@@ -17,6 +17,7 @@
 #include "SkullbonezMatrix4.h"
 #include "SkullbonezIShader.h"
 #include "SkullbonezPhysicsDebugVisualizer.h"
+#include "SkullbonezSkullScope.h"
 
 
 // --- Usings ---
@@ -39,6 +40,8 @@ class GameModelCollection
 {
 
   private:
+    friend class SkullScope;
+
     std::vector<GameModel> m_gameModels;                     // Collection of game models
     SpatialGrid m_spatialGrid;                               // Broadphase spatial grid for collision culling
     std::vector<std::pair<int, int>> m_candidatePairs;       // Retained-capacity pair buffer (avoids per-frame alloc)
@@ -144,22 +147,9 @@ class GameModelCollection
     std::vector<int64_t> m_collisionCellKeys;                          // Cells where narrowphase collisions occurred this frame
 
 #ifdef _DEBUG
-    char m_physicsLogPath[256] = {};         // Output path for physics state CSV (empty = disabled)
-    int m_physicsLogFrame = 0;               // Frame counter reset when path is set
-    char m_physicsDiagnosticsPath[256] = {}; // Output path for queryable diagnostics trace (empty = disabled)
-    char m_physicsDiagnosticsRunId[32] = {}; // Current queryable diagnostics run id
-    int m_physicsDiagnosticsFrame = 0;       // Frame counter reset when path is set
-    int m_physicsDiagnosticsEventCounter = 0;
-    double m_physicsDiagnosticsTimeSeconds = 0.0;
-    double m_physicsDiagnosticsPrevEnergy = 0.0;
-    bool m_physicsDiagnosticsHasPrevEnergy = false;
-    char m_physicsDiagnosticsPenetrationContact[64] = {};
-    int m_physicsDiagnosticsPenetrationFrames = 0;
-    int m_physicsDiagnosticsPenetrationGrowthFrames = 0;
-    double m_physicsDiagnosticsPenetrationWindowStart = 0.0;
-    double m_physicsDiagnosticsPrevPenetration = 0.0;
-    bool m_physicsDiagnosticsPenetrationSustainedReported = false;
-    bool m_physicsDiagnosticsPenetrationGrowingReported = false;
+    char m_physicsLogPath[256] = {}; // Output path for physics state CSV (empty = disabled)
+    int m_physicsLogFrame = 0;       // Frame counter reset when path is set
+    SkullScope m_skullScope;         // Queryable model-facing physics diagnostics trace writer
 #endif
 
     void BuildShadowMesh();                         // Builds the shadow disc VAO with instanced attributes
