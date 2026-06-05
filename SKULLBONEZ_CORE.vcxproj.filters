@@ -43,6 +43,9 @@
     <Filter Include="Header Files\DX12">
       <UniqueIdentifier>{0B69E6EE-2014-4D20-A21F-CA6C0DB6E5E4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Scene Files">
+      <UniqueIdentifier>{b5aa4a1f-3d6e-4912-a520-04b55a79f1e1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezSource\SkullbonezBoundingSphere.cpp">
@@ -454,40 +457,6 @@
     <None Include="SkullbonezData\shaders\water_ocean.vert">
       <Filter>Resource Files\OpenGL</Filter>
     </None>
-    <None Include="SkullbonezData\engine.cfg" />
-    <None Include="SkullbonezData\scenes\at_rest.scene" />
-    <None Include="SkullbonezData\scenes\ball_vs_ball_flight.scene" />
-    <None Include="SkullbonezData\scenes\ball_vs_box_flight.scene" />
-    <None Include="SkullbonezData\scenes\ball_vs_box_grounded.scene" />
-    <None Include="SkullbonezData\scenes\box_flush_test.scene" />
-    <None Include="SkullbonezData\scenes\box_slope_test.scene" />
-    <None Include="SkullbonezData\scenes\box_vs_ball_flight.scene" />
-    <None Include="SkullbonezData\scenes\box_vs_ball_grounded.scene" />
-    <None Include="SkullbonezData\scenes\cardinal_roll_test.scene" />
-    <None Include="SkullbonezData\scenes\collision_demo.suite" />
-    <None Include="SkullbonezData\scenes\collision_demo_ball_ball.scene" />
-    <None Include="SkullbonezData\scenes\collision_demo_box_ball.scene" />
-    <None Include="SkullbonezData\scenes\collision_demo_box_box.scene" />
-    <None Include="SkullbonezData\scenes\float_snap_test.scene" />
-    <None Include="SkullbonezData\scenes\funnel_roll_test.scene" />
-    <None Include="SkullbonezData\scenes\gpu_timer_test.scene" />
-    <None Include="SkullbonezData\scenes\legacy_smoke.scene" />
-    <None Include="SkullbonezData\scenes\perf_test.scene" />
-    <None Include="SkullbonezData\scenes\physics_baseline.scene" />
-    <None Include="SkullbonezData\scenes\physics_bench.suite" />
-    <None Include="SkullbonezData\scenes\physics_bench_legacy.scene" />
-    <None Include="SkullbonezData\scenes\physics_bench_solver.scene" />
-    <None Include="SkullbonezData\scenes\physics_bench_solver_balls.scene" />
-    <None Include="SkullbonezData\scenes\physics_bench_solver_boxes.scene" />
-    <None Include="SkullbonezData\scenes\physics_regression_legacy.scene" />
-    <None Include="SkullbonezData\scenes\physics_regression_solver.scene" />
-    <None Include="SkullbonezData\scenes\physics_roll.scene" />
-    <None Include="SkullbonezData\scenes\render_tests.suite" />
-    <None Include="SkullbonezData\scenes\roll_axis_test.scene" />
-    <None Include="SkullbonezData\scenes\stacking.scene" />
-    <None Include="SkullbonezData\scenes\switch_test.scene" />
-    <None Include="SkullbonezData\scenes\terrain_compare.scene" />
-    <None Include="SkullbonezData\scenes\water_ball_test.scene" />
     <None Include="SkullbonezData\shaders\debug_line.frag">
       <Filter>Resource Files\OpenGL</Filter>
     </None>
@@ -535,6 +504,126 @@
     </None>
     <None Include="SkullbonezData\shaders\lit_textured_instanced.hlsl">
       <Filter>Resource Files\DirectX</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\at_rest.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\ball_vs_ball_flight.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\ball_vs_box_flight.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\ball_vs_box_grounded.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\box_flush_test.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\box_slope_test.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\box_vs_ball_flight.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\box_vs_ball_grounded.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\cardinal_roll_test.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\collision_demo.suite">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\collision_demo_ball_ball.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\collision_demo_box_ball.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\collision_demo_box_box.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\engine.cfg">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\float_snap_test.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\funnel_roll_test.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\gpu_timer_test.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\legacy_smoke.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\perf_test.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\physics_baseline.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\physics_bench.suite">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\physics_bench_legacy.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\physics_bench_solver.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\physics_bench_solver_balls.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\physics_bench_solver_boxes.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\physics_regression_legacy.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\physics_regression_solver.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\physics_roll.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\render_tests.suite">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\roll_axis_test.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\stacking.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\switch_test.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\terrain_compare.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\water_ball_test.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\box_crater_edge_repro.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\cause_effect_marble_run.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\perf_1000.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\physics_bench_varied.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\settle_test.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\standing_box_repro.scene">
+      <Filter>Scene Files</Filter>
     </None>
   </ItemGroup>
 </Project>

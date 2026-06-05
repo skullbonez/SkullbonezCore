@@ -29,6 +29,7 @@ uniform sampler2D uTexture;
 in vec3 vViewPos;
 in vec3 vNormal;
 in vec2 vTexCoord;
+in vec4 vTint;
 
 out vec4 FragColor;
 
@@ -58,7 +59,9 @@ void main()
     float spec = pow(max(dot(V, R), 0.0), 64.0);  // 64 = shininess (higher = tighter highlight)
     vec3 specular = uLightDiffuse.rgb * spec * 0.1; // 0.1 = subtle specular intensity
 
-    // Combine lighting with texture color; specular is added on top (not modulated by texture).
+    // Combine lighting with texture or explicit instance color; specular is added on top.
     vec4 texColor = texture(uTexture, vTexCoord);
-    FragColor = vec4((ambient + diffuse) * texColor.rgb + specular, 1.0);
+    vec3 materialColor = mix(texColor.rgb * vTint.rgb, vTint.rgb, clamp(vTint.a, 0.0, 1.0));
+    vec3 litColor = (ambient + diffuse) * materialColor + specular;
+    FragColor = vec4(litColor, 1.0);
 }

@@ -409,16 +409,19 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
-        // parse box line: box <name> <posX> <posY> <posZ> <halfX> <halfY> <halfZ> <mass> <restitution> [eulerX eulerY eulerZ] [velX velY velZ]
-        if ( strncmp( line, "box ", 4 ) == 0 )
+        // parse box line: box|floating_box <name> <posX> <posY> <posZ> <halfX> <halfY> <halfZ> <mass> <restitution> [eulerX eulerY eulerZ] [velX velY velZ]
+        if ( strncmp( line, "box ", 4 ) == 0 || strncmp( line, "floating_box ", 13 ) == 0 )
         {
             SceneBox box;
             memset( &box, 0, sizeof( box ) );
             box.hasInitOrient = false;
             box.hasInitVelocity = false;
+            box.isFixed = strncmp( line, "floating_box ", 13 ) == 0;
+
+            const int prefixLength = box.isFixed ? 13 : 4;
 
             // Try full line: 9 base + 3 euler + 3 velocity = 15 fields
-            int parsed = sscanf_s( line + 4, "%63s %f %f %f %f %f %f %f %f %f %f %f %f %f %f", box.name, static_cast<unsigned>( sizeof( box.name ) ), &box.posX, &box.posY, &box.posZ, &box.halfX, &box.halfY, &box.halfZ, &box.mass, &box.restitution, &box.eulerX, &box.eulerY, &box.eulerZ, &box.velX, &box.velY, &box.velZ );
+            int parsed = sscanf_s( line + prefixLength, "%63s %f %f %f %f %f %f %f %f %f %f %f %f %f %f", box.name, static_cast<unsigned>( sizeof( box.name ) ), &box.posX, &box.posY, &box.posZ, &box.halfX, &box.halfY, &box.halfZ, &box.mass, &box.restitution, &box.eulerX, &box.eulerY, &box.eulerZ, &box.velX, &box.velY, &box.velZ );
 
             if ( parsed == 15 )
             {
@@ -433,7 +436,7 @@ TestScene TestScene::LoadFromFile( const char* path )
             {
                 fclose( file );
                 char msg[256];
-                sprintf_s( msg, sizeof( msg ), "Invalid box at line %d (expected 9, 12, or 15 fields, got %d)  (TestScene::LoadFromFile)", lineNumber, parsed );
+                sprintf_s( msg, sizeof( msg ), "Invalid box/floating_box at line %d (expected 9, 12, or 15 fields, got %d)  (TestScene::LoadFromFile)", lineNumber, parsed );
                 throw std::runtime_error( msg );
             }
 

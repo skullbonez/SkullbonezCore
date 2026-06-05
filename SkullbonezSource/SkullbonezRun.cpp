@@ -1249,7 +1249,7 @@ void SkullbonezRun::TakeInput()
     }
     m_camera.input.Set( InputState::GKeyWasDown, isGNow );
 
-    // 0 key: cycle overlay — None → Timers → BarsNormalized → BarsAbsolute → Keys → None.
+    // 0 key: cycle overlay: None, Timers, SceneStats, BarsNormalized, BarsAbsolute, Keys.
     // Edge-detected in both scene and legacy modes; one advance per keypress.
     {
         bool key0Now = Input::IsKeyDown( '0' );
@@ -1261,6 +1261,9 @@ void SkullbonezRun::TakeInput()
                 m_debug.overlayMode = OverlayMode::Timers;
                 break;
             case OverlayMode::Timers:
+                m_debug.overlayMode = OverlayMode::SceneStats;
+                break;
+            case OverlayMode::SceneStats:
                 m_debug.overlayMode = OverlayMode::BarsNormalized;
                 break;
             case OverlayMode::BarsNormalized:
@@ -1859,6 +1862,35 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         return;
     }
 
+    // --- Overlay: Scene telemetry ---
+    if ( m_debug.overlayMode == OverlayMode::SceneStats )
+    {
+        const float titleSz = 0.013f;
+        const float entrySz = 0.012f;
+        const float lineH = 0.025f;
+        const float panPad = 0.014f;
+        const float panW = 0.36f;
+        const float panH = panPad * 2.0f + titleSz + lineH * 2.0f;
+        const float panX0 = -( hw - mX );
+        const float panY0 = -( hh - mY );
+        const float panX1 = panX0 + panW;
+        const float panY1 = panY0 + panH;
+
+        Text2d::Render2dQuad( panX0, panY0, panX1, panY1, 0.04f, 0.04f, 0.07f, 0.93f );
+        Text2d::Render2dTextColor( panX0 + panPad, panY1 - panPad - titleSz, titleSz, 1.0f, 0.85f, 0.35f, "SCENE TELEMETRY" );
+        Text2d::Render2dTextColor( panX0 + panPad, panY1 - panPad - titleSz - lineH, entrySz, 0.85f, 0.85f, 0.85f, "Model Count: %d", m_scene.modelCount );
+        Text2d::Render2dTextColor( panX0 + panPad,
+                                   panY1 - panPad - titleSz - lineH * 2.0f,
+                                   entrySz,
+                                   0.85f,
+                                   0.85f,
+                                   0.85f,
+                                   "Scene Energy: %.6f",
+                                   m_cGameModelCollection.GetSceneKineticEnergy() );
+        Text2d::FlushText();
+        return;
+    }
+
     // --- Overlay: Visual profiler bars (normalized or absolute) ---
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     if ( m_debug.overlayMode == OverlayMode::BarsNormalized || m_debug.overlayMode == OverlayMode::BarsAbsolute )
@@ -2157,6 +2189,10 @@ void SkullbonezRun::NudgeModelsWithCamera( const Vector3& moveVec )
     for ( int i = 0; i < count; ++i )
     {
         GameModel& model = m_cGameModelCollection.GetModelAtIndex( i );
+        if ( model.IsFixed() )
+        {
+            continue;
+        }
         Vector3 toModel = model.GetPosition() - camPos;
 
         // Only push models that are in the direction we're moving — no pulling things behind us
@@ -2604,7 +2640,8 @@ void SkullbonezRun::FireProjectile( bool isBox )
     for ( int i = 0; i < count; ++i )
     {
         int idx = ( ( cycleIdx - i ) % count + count ) % count;
-        if ( m_cGameModelCollection.GetModelAtIndex( idx ).IsBox() == isBox )
+        GameModel& candidate = m_cGameModelCollection.GetModelAtIndex( idx );
+        if ( !candidate.IsFixed() && candidate.IsBox() == isBox )
         {
             found = idx;
             cycleIdx = ( ( idx - 1 ) % count + count ) % count;
@@ -2757,6 +2794,8 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
         {
             gameModel.SetLinearVelocity( Vector3( box.velX, box.velY, box.velZ ) );
         }
+
+        gameModel.SetFixed( box.isFixed );
 
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
     }

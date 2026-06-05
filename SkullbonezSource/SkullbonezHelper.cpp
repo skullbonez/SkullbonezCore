@@ -22,6 +22,17 @@ uint32_t SkullbonezHelper::boxInstMesh = 0;
 int SkullbonezHelper::boxVertexCount = 0;
 std::vector<float> SkullbonezHelper::boxInstanceData;
 
+static constexpr int INSTANCE_MATRIX_FLOATS = 16;
+static constexpr int INSTANCE_TINT_FLOATS = 4;
+static constexpr int INSTANCE_FLOATS = INSTANCE_MATRIX_FLOATS + INSTANCE_TINT_FLOATS;
+
+static void ApplySceneLightUniforms( IShader& shader )
+{
+    const auto& light = Cfg().sceneLight;
+    shader.SetVec4( "uLightAmbient", light.colorR, light.colorG, light.colorB, light.colorA );
+    shader.SetVec4( "uLightDiffuse", light.colorR, light.colorG, light.colorB, light.colorA );
+}
+
 void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
 {
     sClipPlane[0] = x;
@@ -54,8 +65,7 @@ void SkullbonezHelper::EnsureSphereMesh()
         BuildSphereMesh( 25, 25 );
         sphereShader = Gfx().CreateShader( "shaders/lit_textured_instanced" );
         sphereShader->Use();
-        sphereShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
-        sphereShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
+        ApplySceneLightUniforms( *sphereShader );
         sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
         sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
     }
@@ -74,11 +84,11 @@ void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
 
     // Static layout: 3 attributes (pos3, normal3, uv2) at locations 0-2
     int staticAttribSizes[] = { 3, 3, 2 };
-    // Instance layout: 4 attributes (4xvec4 for mat4 = 16 floats), starting at location 3
-    int instanceAttribSizes[] = { 4, 4, 4, 4 };
-    sphereInstMesh = Gfx().CreateInstancedMesh( verts.data(), sphereVertexCount, 8, MAX_GAME_MODELS, 16, 3, instanceAttribSizes, 4, staticAttribSizes, 3 );
+    // Instance layout: 4 attributes for mat4 plus RGBA tint/override, starting at location 3.
+    int instanceAttribSizes[] = { 4, 4, 4, 4, 4 };
+    sphereInstMesh = Gfx().CreateInstancedMesh( verts.data(), sphereVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 5, staticAttribSizes, 3 );
 
-    sphereInstanceData.reserve( MAX_GAME_MODELS * 16 );
+    sphereInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
 
 
@@ -89,8 +99,7 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
         BuildSphereMesh( 25, 25 );
         sphereShader = Gfx().CreateShader( "shaders/lit_textured_instanced" );
         sphereShader->Use();
-        sphereShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
-        sphereShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
+        ApplySceneLightUniforms( *sphereShader );
         sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
         sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
     }
@@ -116,16 +125,20 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
 }
 
 
-void SkullbonezHelper::DrawSphereBatchModel( const Matrix4& model )
+void SkullbonezHelper::DrawSphereBatchModel( const Matrix4& model, float tintR, float tintG, float tintB, float colorOverride )
 {
     const float* md = model.Data();
-    sphereInstanceData.insert( sphereInstanceData.end(), md, md + 16 );
+    sphereInstanceData.insert( sphereInstanceData.end(), md, md + INSTANCE_MATRIX_FLOATS );
+    sphereInstanceData.push_back( tintR );
+    sphereInstanceData.push_back( tintG );
+    sphereInstanceData.push_back( tintB );
+    sphereInstanceData.push_back( colorOverride );
 }
 
 
 void SkullbonezHelper::DrawSphereBatchEnd()
 {
-    int instanceCount = static_cast<int>( sphereInstanceData.size() ) / 16;
+    int instanceCount = static_cast<int>( sphereInstanceData.size() ) / INSTANCE_FLOATS;
     if ( instanceCount > 0 )
     {
         Gfx().UploadInstanceData( sphereInstMesh, sphereInstanceData.data(), static_cast<int>( sphereInstanceData.size() ) );
@@ -157,10 +170,10 @@ void SkullbonezHelper::BuildBoxMesh()
     boxVertexCount = PrimitiveMeshes::BoxTriangleVertexCount();
 
     int staticAttribSizes[] = { 3, 3, 2 };
-    int instanceAttribSizes[] = { 4, 4, 4, 4 };
-    boxInstMesh = Gfx().CreateInstancedMesh( verts.data(), boxVertexCount, 8, MAX_GAME_MODELS, 16, 3, instanceAttribSizes, 4, staticAttribSizes, 3 );
+    int instanceAttribSizes[] = { 4, 4, 4, 4, 4 };
+    boxInstMesh = Gfx().CreateInstancedMesh( verts.data(), boxVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 5, staticAttribSizes, 3 );
 
-    boxInstanceData.reserve( MAX_GAME_MODELS * 16 );
+    boxInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
 
 
@@ -177,8 +190,7 @@ void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& pr
         BuildSphereMesh( 25, 25 );
         sphereShader = Gfx().CreateShader( "shaders/lit_textured_instanced" );
         sphereShader->Use();
-        sphereShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
-        sphereShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
+        ApplySceneLightUniforms( *sphereShader );
         sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
         sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
     }
@@ -204,16 +216,20 @@ void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& pr
 }
 
 
-void SkullbonezHelper::DrawBoxBatchModel( const Matrix4& model )
+void SkullbonezHelper::DrawBoxBatchModel( const Matrix4& model, float tintR, float tintG, float tintB, float colorOverride )
 {
     const float* md = model.Data();
-    boxInstanceData.insert( boxInstanceData.end(), md, md + 16 );
+    boxInstanceData.insert( boxInstanceData.end(), md, md + INSTANCE_MATRIX_FLOATS );
+    boxInstanceData.push_back( tintR );
+    boxInstanceData.push_back( tintG );
+    boxInstanceData.push_back( tintB );
+    boxInstanceData.push_back( colorOverride );
 }
 
 
 void SkullbonezHelper::DrawBoxBatchEnd()
 {
-    int instanceCount = static_cast<int>( boxInstanceData.size() ) / 16;
+    int instanceCount = static_cast<int>( boxInstanceData.size() ) / INSTANCE_FLOATS;
     if ( instanceCount > 0 )
     {
         Gfx().UploadInstanceData( boxInstMesh, boxInstanceData.data(), static_cast<int>( boxInstanceData.size() ) );

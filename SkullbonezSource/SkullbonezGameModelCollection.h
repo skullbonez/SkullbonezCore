@@ -49,6 +49,7 @@ class GameModelCollection
     std::array<Vector3, MAX_GAME_MODELS> m_soaPositions;     // Hot SoA stream: current model centers
     std::array<float, MAX_GAME_MODELS> m_soaBoundingRadii;   // Hot SoA stream: broadphase/render radii
     std::array<uint8_t, MAX_GAME_MODELS> m_soaIsBox;         // Hot SoA stream: shape class, 0=sphere, 1=box
+    std::array<uint8_t, MAX_GAME_MODELS> m_soaIsFixed;       // Hot SoA stream: 1=immovable contact body
     std::array<Matrix4, MAX_GAME_MODELS> m_soaModelMatrices; // Per-frame render matrix stream reused by reflection/main passes
     int m_soaActiveCount = 0;
     bool m_soaBodyDataValid = false;
@@ -164,6 +165,7 @@ class GameModelCollection
 #endif
     void EnsureCollisionVisualBuffers( int modelCount );
     void MarkCollisionVisualContact( int index );
+    void MarkFixedContact( int index );
     void InvalidateSoA();
     void RefreshSoABodyData();
     void EnsureSoAModelMatrices();
@@ -190,6 +192,7 @@ class GameModelCollection
     Vector3 GetModelPosition( int index );                                                                                                                                                 // Returns the position of the specified game model
     int GetModelCount() const;                                                                                                                                                             // Returns the number of game models
     GameModel& GetModelAtIndex( int index );                                                                                                                                               // Returns a reference to the game model at the given index
+    double GetSceneKineticEnergy();                                                                                                                                                        // Returns active linear + angular kinetic energy for movable models
 
     void WakeModel( int index );      // Force a model awake (clears sleep state/counter); call before teleporting/firing a recycled model
     void BeginCollisionVisualFrame(); // Clears per-render-frame contact flags before one or more physics substeps

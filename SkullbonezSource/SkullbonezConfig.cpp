@@ -180,6 +180,24 @@ void SkullbonezConfig::Load( const char* path )
             skyboxScale = static_cast<float>( atof( v ) );
         }
 
+        // Scene lighting
+        else if ( strcmp( k, "scene_light_color_r" ) == 0 )
+        {
+            sceneLight.colorR = static_cast<float>( atof( v ) );
+        }
+        else if ( strcmp( k, "scene_light_color_g" ) == 0 )
+        {
+            sceneLight.colorG = static_cast<float>( atof( v ) );
+        }
+        else if ( strcmp( k, "scene_light_color_b" ) == 0 )
+        {
+            sceneLight.colorB = static_cast<float>( atof( v ) );
+        }
+        else if ( strcmp( k, "scene_light_color_a" ) == 0 )
+        {
+            sceneLight.colorA = static_cast<float>( atof( v ) );
+        }
+
         // Physics
         else if ( strcmp( k, "gravity" ) == 0 )
         {

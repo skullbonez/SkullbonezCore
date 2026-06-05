@@ -85,8 +85,9 @@ void Terrain::InitialiseTerrainShader()
 {
     m_terrainShader = Gfx().CreateShader( "shaders/lit_textured" );
     m_terrainShader->Use();
-    m_terrainShader->SetVec4( "uLightAmbient", 1.0f, 0.5f, 0.5f, 1.0f );
-    m_terrainShader->SetVec4( "uLightDiffuse", 1.0f, 0.5f, 0.5f, 1.0f );
+    const auto& light = Cfg().sceneLight;
+    m_terrainShader->SetVec4( "uLightAmbient", light.colorR, light.colorG, light.colorB, light.colorA );
+    m_terrainShader->SetVec4( "uLightDiffuse", light.colorR, light.colorG, light.colorB, light.colorA );
     m_terrainShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
     m_terrainShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
     m_terrainShader->SetInt( "uTexture", 0 );

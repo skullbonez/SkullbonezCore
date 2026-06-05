@@ -66,7 +66,9 @@ class GameModel
     Physics::ResponseInformation m_responseInformation; // Information regarding a collision response that needs to be reacted to
     float m_projectedSurfaceArea;                       // 2d surface area approximation based on dynamics object list
     float m_dragCoefficient;                            // Calculated based on the average drag coefficient of all dynamics objects
+    float m_fixedContactHighlightSeconds;               // Seconds remaining for fixed-body red contact feedback
     bool m_isResponseRequired;                          // Indicates whether a response is required or not
+    bool m_isFixed;                                     // True for immovable collision bodies such as floating ramps
     char m_name[64];                                    // Optional name for logging (empty = unnamed)
 
     void BuildSpherePhysicsCache( float radius );                                  // Precompute immutable sphere data used in hot paths
@@ -121,6 +123,11 @@ class GameModel
     void AddBoundingSphere( float fRadius );                                            // Add a bounding sphere to the game model
     void AddBoundingBox( const Vector3& halfExtents );                                  // Add a bounding box to the game model
     bool IsBox() const;                                                                 // True if bounding volume is a BoundingBox
+    void SetFixed( bool isFixed );                                                      // Make this model immovable while still participating in contacts
+    bool IsFixed() const;                                                               // True if the model is an immovable collision body
+    void NotifyFixedContact( float highlightSeconds );                                  // Refresh fixed-body contact highlight timer
+    void TickFixedContactHighlight( float dt );                                         // Decay fixed-body contact highlight timer
+    float GetFixedContactHighlightAlpha() const;                                        // 0=no contact tint, 1=full red contact tint
     float CollisionDetectGameModel( GameModel& collisionTarget, float changeInTime );   // Collision detect model against model
     void CollisionResponseGameModel( GameModel& responseTarget );                       // Collision response model against model (velocity-only)
     void StaticOverlapResponseGameModel( GameModel& overlapTarget );                    // Check for static overlap and push apart if overlapping

@@ -4,6 +4,27 @@ SkullScope is the model-facing query system for physics diagnostics.
 
 Main rule: do not upload whole physics logs. Generate a diagnostic trace, then query it locally and return only the smallest useful result.
 
+## Mandatory Agent Reporting
+
+When an agent uses SkullScope, the handoff or final answer must include:
+
+- the exact runtime command used to generate the trace,
+- the trace NDJSON path and byte size,
+- the SQLite cache path and byte size when a cache was created,
+- every `tools\physics_query.bat` command that was run,
+- the output size for each query that the GPT model read,
+- the total GPT-read size across all query outputs,
+- a note when any query output was truncated by the shell, app, or model context.
+
+Keep the accounting honest:
+
+- Raw trace bytes are not GPT-read bytes unless the agent actually opens or pastes the raw trace.
+- SQLite cache bytes are not GPT-read bytes unless the agent opens or pastes the cache, which should not happen.
+- GPT-read size means the bounded query result text exposed to the model through terminal output, a file read, or a quoted handoff.
+- Prefer characters for context accounting and bytes for file/artifact accounting. If both are easy to measure, report both.
+
+If a query result is too large or gets truncated, do not reason from the truncated result as if it were complete. Rerun a narrower query with `--limit`, `--frame`, `--frames`, `--body`, `--type`, or `--severity`.
+
 ## Generate A Trace
 
 Target command:
@@ -41,6 +62,32 @@ Debug\at_rest.physicsdiag.sqlite
 Subsequent queries use SQLite and should be fast.
 
 Regression coverage lives in `tools\check_physics_query_regression.py`. It generates a deterministic trace from `SkullbonezData\scenes\physics_bench_varied.scene`, runs representative SkullScope queries, normalizes cache paths out of the JSON, and compares against `TestOutput\baselines\physics_query_varied.json`.
+
+## Measuring Query Output
+
+The simplest reliable pattern is to capture each bounded query result to a small text file, measure it, and only then read or summarize it:
+
+```powershell
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson summary | Tee-Object Debug\scope_summary.json
+(Get-Item Debug\scope_summary.json).Length
+(Get-Content -Raw Debug\scope_summary.json).Length
+```
+
+For a final handoff, report something like:
+
+```text
+SkullScope artifacts:
+- Trace: Debug\scene.physicsdiag.ndjson, 22,191,227 bytes
+- SQLite cache: Debug\scene.physicsdiag.sqlite, 4,923,392 bytes
+
+Queries read by GPT:
+- tools\physics_query.bat Debug\scene.physicsdiag.ndjson summary
+  Output read: 5,842 chars, 5,842 bytes
+- tools\physics_query.bat Debug\scene.physicsdiag.ndjson contacts --body marble --frames 320:340 --limit 50
+  Output read: 12,104 chars, 12,104 bytes
+
+Total GPT-read SkullScope output: 17,946 chars. Raw trace was not read by GPT.
+```
 
 ## Common Commands
 

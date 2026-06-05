@@ -61,6 +61,7 @@ struct SceneBox
     float velX, velY, velZ;       // Initial linear velocity (optional, default 0)
     bool hasInitOrient;
     bool hasInitVelocity;
+    bool isFixed;
 };
 
 struct SceneOptions

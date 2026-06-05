@@ -1,0 +1,32 @@
+# cause_effect_marble_run.scene
+# Ball drops onto a fixed floating ramp, rolls to the ground, then bowls over a cube tower.
+
+physics on
+text on
+frames 3600
+exit_on_complete
+fixed_step
+vsync off
+physics_mode solver
+world -9.81 0.0 0.0
+water_hidden on
+flat_slope 30.0 0.0 0.0
+
+# Overview camera watching the ramp, landing zone, and tower.
+camera overview  370 125 575  535 50 500  0 1 0
+
+# Dropped marble. The ramp supplies the horizontal velocity.
+# ball <name> <posX> <posY> <posZ> <radius> <mass> <moment> <restitution>
+ball marble  430 125 500  7.0 10.0 196.0 0.65
+
+# Fixed floating ramp. This renders as #F1F1F1 at rest, goes red during contact,
+# and fades back to grey over 0.5 seconds after contact stops.
+# floating_box <name> <posX> <posY> <posZ> <halfX> <halfY> <halfZ> <mass> <restitution> [eulerX eulerY eulerZ]
+floating_box floating_ramp  465 72 500  38.0 2.0 8.0  1000.0 0.9  0 0 12
+
+# Cube tower on the flat ground downstream.
+# box <name> <posX> <posY> <posZ> <halfX> <halfY> <halfZ> <mass> <restitution>
+box tower_0  555 34 500  4.0 4.0 4.0  4.0 0.2
+box tower_1  553 42 500  4.0 4.0 4.0  4.0 0.2
+box tower_2  551 50 500  4.0 4.0 4.0  4.0 0.2
+box tower_3  549 58 500  4.0 4.0 4.0  4.0 0.2
