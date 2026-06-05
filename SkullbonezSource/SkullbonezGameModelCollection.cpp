@@ -555,6 +555,22 @@ void GameModelCollection::EmitPhysicsDiagnosticsFrame( float dt )
     double maxPenetration = 0.0;
     char maxPenetrationContact[64] = "";
 
+    struct DiagnosticsIslandStats
+    {
+        int root = -1;
+        int islandId = 0;
+        int bodyCount = 0;
+        int awakeCount = 0;
+        int sleepingCount = 0;
+        int supportedCount = 0;
+        int inhibitedCount = 0;
+        int eligible = 0;
+        int canSleep = 0;
+        double maxSpeed = 0.0;
+        double maxOmega = 0.0;
+        double totalEnergy = 0.0;
+    };
+
     for ( const PersistentContact& c : m_persistentContacts )
     {
         if ( c.penetration > maxPenetration )
@@ -566,6 +582,8 @@ void GameModelCollection::EmitPhysicsDiagnosticsFrame( float dt )
 
     std::vector<int> islandRoots;
     islandRoots.reserve( modelCount );
+    std::vector<int> bodyIslandIds( modelCount, 0 );
+    std::vector<DiagnosticsIslandStats> islandStats( modelCount );
 
     auto findIslandRoot = [&]( int index ) -> int
     {
@@ -575,6 +593,10 @@ void GameModelCollection::EmitPhysicsDiagnosticsFrame( float dt )
                 m_sleepIslandParent[root] != root )
         {
             root = m_sleepIslandParent[root];
+        }
+        if ( root < 0 || root >= modelCount )
+        {
+            root = index;
         }
         return root;
     };
@@ -634,9 +656,16 @@ void GameModelCollection::EmitPhysicsDiagnosticsFrame( float dt )
             ++inhibitedCount;
         }
 
-        if ( i < static_cast<int>( m_sleepIslandParent.size() ) )
+        const int root = ( i < static_cast<int>( m_sleepIslandParent.size() ) ) ? findIslandRoot( i ) : i;
+        const int islandId = root + 1;
+        bodyIslandIds[i] = islandId;
+        DiagnosticsIslandStats& island = islandStats[root];
+        if ( island.root < 0 )
         {
-            int root = findIslandRoot( i );
+            island.root = root;
+            island.islandId = islandId;
+            island.eligible = ( root < static_cast<int>( m_sleepIslandEligible.size() ) ) ? m_sleepIslandEligible[root] : 0;
+            island.canSleep = ( root < static_cast<int>( m_sleepIslandCanSleep.size() ) ) ? m_sleepIslandCanSleep[root] : 0;
             bool seen = false;
             for ( int existingRoot : islandRoots )
             {
@@ -651,6 +680,32 @@ void GameModelCollection::EmitPhysicsDiagnosticsFrame( float dt )
                 islandRoots.push_back( root );
             }
         }
+        ++island.bodyCount;
+        if ( sleeping )
+        {
+            ++island.sleepingCount;
+        }
+        else
+        {
+            ++island.awakeCount;
+        }
+        if ( sleepSupported )
+        {
+            ++island.supportedCount;
+        }
+        if ( sleepInhibited )
+        {
+            ++island.inhibitedCount;
+        }
+        if ( speed > island.maxSpeed )
+        {
+            island.maxSpeed = speed;
+        }
+        if ( omegaMag > island.maxOmega )
+        {
+            island.maxOmega = omegaMag;
+        }
+        island.totalEnergy += linearEnergy + angularEnergy;
     }
 
     const double totalEnergy = totalLinearEnergy + totalAngularEnergy;
@@ -704,6 +759,184 @@ void GameModelCollection::EmitPhysicsDiagnosticsFrame( float dt )
     m_physicsDiagnosticsPrevEnergy = totalEnergy;
     m_physicsDiagnosticsHasPrevEnergy = true;
 
+    int activeCellCount = m_spatialGrid.GetActiveCellCount();
+    int maxCellOccupancy = 0;
+    if ( activeCellCount > 0 )
+    {
+        std::vector<SpatialGrid::ActiveCell> activeCells( activeCellCount );
+        m_spatialGrid.GetActiveCells( activeCells.data(), activeCellCount );
+        for ( const SpatialGrid::ActiveCell& cell : activeCells )
+        {
+            if ( cell.objectCount > maxCellOccupancy )
+            {
+                maxCellOccupancy = cell.objectCount;
+            }
+        }
+    }
+
+    std::vector<std::pair<int, int>> contactPairs;
+    contactPairs.reserve( m_persistentContacts.size() );
+    for ( const PersistentContact& c : m_persistentContacts )
+    {
+        int a = c.bodyA;
+        int b = c.bodyB;
+        if ( a > b )
+        {
+            std::swap( a, b );
+        }
+        bool seen = false;
+        for ( const auto& pair : contactPairs )
+        {
+            if ( pair.first == a && pair.second == b )
+            {
+                seen = true;
+                break;
+            }
+        }
+        if ( !seen )
+        {
+            contactPairs.emplace_back( a, b );
+        }
+    }
+
+    int rejectedPairs = static_cast<int>( m_candidatePairs.size() ) - static_cast<int>( contactPairs.size() );
+    if ( rejectedPairs < 0 )
+    {
+        rejectedPairs = 0;
+    }
+    Log().Writef( m_physicsDiagnosticsPath,
+                  "{\"kind\":\"broadphase\",\"run\":\"%s\",\"frame\":%d,\"candidate_pairs\":%zu,\"contact_pairs\":%zu,\"rejected_pairs\":%d,\"active_cells\":%d,\"max_cell_occupancy\":%d,\"collision_cell_count\":%zu}\n",
+                  m_physicsDiagnosticsRunId,
+                  frame,
+                  m_candidatePairs.size(),
+                  contactPairs.size(),
+                  rejectedPairs,
+                  activeCellCount,
+                  maxCellOccupancy,
+                  m_collisionCellKeys.size() );
+
+    if ( m_candidatePairs.size() > (std::max)( 128, modelCount * 8 ) || maxCellOccupancy > 32 )
+    {
+        const int eventId = ++m_physicsDiagnosticsEventCounter;
+        Log().Writef( m_physicsDiagnosticsPath,
+                      "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"E%d\",\"frame\":%d,\"type\":\"broadphase_spike\",\"severity\":\"medium\",\"body_a\":-1,\"body_b\":-1,\"island_id\":-1,\"summary\":\"Broadphase candidate work is unusually high for this frame.\",\"data\":{\"candidate_pairs\":%zu,\"active_cells\":%d,\"max_cell_occupancy\":%d,\"followups\":[\"broadphase --frames %d:%d\",\"frame %d\"]}}\n",
+                      m_physicsDiagnosticsRunId,
+                      eventId,
+                      frame,
+                      m_candidatePairs.size(),
+                      activeCellCount,
+                      maxCellOccupancy,
+                      (std::max)( 0, frame - 30 ),
+                      frame + 30,
+                      frame );
+    }
+
+    if ( maxPenetration > 0.05 )
+    {
+        const int eventId = ++m_physicsDiagnosticsEventCounter;
+        Log().Writef( m_physicsDiagnosticsPath,
+                      "{\"kind\":\"event\",\"run\":\"%s\",\"event_id\":\"E%d\",\"frame\":%d,\"type\":\"penetration_spike\",\"severity\":\"high\",\"body_a\":-1,\"body_b\":-1,\"island_id\":-1,\"summary\":\"Persistent contact penetration exceeded the diagnostic threshold.\",\"data\":{\"max_penetration\":%.6f,\"contact\":\"%s\",\"followups\":[\"contacts --frame %d --top penetration\",\"frame %d\"]}}\n",
+                      m_physicsDiagnosticsRunId,
+                      eventId,
+                      frame,
+                      maxPenetration,
+                      maxPenetrationContact,
+                      frame,
+                      frame );
+    }
+
+    for ( const PersistentContact& c : m_persistentContacts )
+    {
+        if ( c.bodyA < 0 || c.bodyA >= modelCount || c.bodyB < 0 || c.bodyB >= modelCount )
+        {
+            continue;
+        }
+
+        GameModel& a = m_gameModels[c.bodyA];
+        GameModel& b = m_gameModels[c.bodyB];
+        const Vector3 velA = a.GetVelocity() + Vector::CrossProduct( a.GetAngularVelocity(), c.rA );
+        const Vector3 velB = b.GetVelocity() + Vector::CrossProduct( b.GetAngularVelocity(), c.rB );
+        const Vector3 relVel = velB - velA;
+        const float normalSpeed = relVel * c.normal;
+        const Vector3 tangentVel = relVel - c.normal * normalSpeed;
+        const float slipSpeed = Vector::VectorMag( tangentVel );
+        const double tangentImpulse = sqrt( static_cast<double>( c.accT1 ) * c.accT1 +
+                                            static_cast<double>( c.accT2 ) * c.accT2 );
+        const char* shapeA = a.IsBox() ? "box" : "sphere";
+        const char* shapeB = b.IsBox() ? "box" : "sphere";
+        char contactType[32] = "";
+        sprintf_s( contactType, sizeof( contactType ), "%s/%s", shapeA, shapeB );
+        const int supportsSleep =
+            ( c.normal.y > 0.25f && c.bodyB < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[c.bodyB] ) ||
+            ( c.normal.y < -0.25f && c.bodyA < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[c.bodyA] );
+
+        Log().Writef( m_physicsDiagnosticsPath,
+                      "{\"kind\":\"contact\",\"run\":\"%s\",\"frame\":%d,\"contact_id\":\"%d:%d:%u\",\"body_a\":%d,\"body_b\":%d,\"contact_type\":\"%s\",\"feature_id\":%u,\"point_count\":1,\"normal\":[%.6f,%.6f,%.6f],\"penetration\":%.6f,\"normal_impulse\":%.6f,\"tangent_impulse\":%.6f,\"slip_speed\":%.6f,\"rolling_residual\":%.6f,\"warm_started\":%d,\"supports_sleep\":%d}\n",
+                      m_physicsDiagnosticsRunId,
+                      frame,
+                      c.bodyA,
+                      c.bodyB,
+                      c.featureId,
+                      c.bodyA,
+                      c.bodyB,
+                      contactType,
+                      c.featureId,
+                      c.normal.x,
+                      c.normal.y,
+                      c.normal.z,
+                      c.penetration,
+                      c.accN,
+                      tangentImpulse,
+                      slipSpeed,
+                      slipSpeed,
+                      c.warmStarted ? 1 : 0,
+                      supportsSleep ? 1 : 0 );
+    }
+
+    for ( const auto& edge : m_sleepSupportEdges )
+    {
+        Log().Writef( m_physicsDiagnosticsPath,
+                      "{\"kind\":\"support_edge\",\"run\":\"%s\",\"frame\":%d,\"supporter\":%d,\"supported\":%d,\"source\":\"object_contact\"}\n",
+                      m_physicsDiagnosticsRunId,
+                      frame,
+                      edge.first,
+                      edge.second );
+    }
+
+    for ( int root : islandRoots )
+    {
+        if ( root < 0 || root >= static_cast<int>( islandStats.size() ) || islandStats[root].root < 0 )
+        {
+            continue;
+        }
+        const DiagnosticsIslandStats& island = islandStats[root];
+        Log().Writef( m_physicsDiagnosticsPath,
+                      "{\"kind\":\"island\",\"run\":\"%s\",\"frame\":%d,\"island_id\":%d,\"body_count\":%d,\"awake_count\":%d,\"sleeping_count\":%d,\"supported_count\":%d,\"inhibited_count\":%d,\"eligible\":%d,\"can_sleep\":%d,\"max_speed\":%.6f,\"max_omega\":%.6f,\"total_energy\":%.6f}\n",
+                      m_physicsDiagnosticsRunId,
+                      frame,
+                      island.islandId,
+                      island.bodyCount,
+                      island.awakeCount,
+                      island.sleepingCount,
+                      island.supportedCount,
+                      island.inhibitedCount,
+                      island.eligible,
+                      island.canSleep,
+                      island.maxSpeed,
+                      island.maxOmega,
+                      island.totalEnergy );
+    }
+
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        Log().Writef( m_physicsDiagnosticsPath,
+                      "{\"kind\":\"island_member\",\"run\":\"%s\",\"frame\":%d,\"island_id\":%d,\"body_id\":%d}\n",
+                      m_physicsDiagnosticsRunId,
+                      frame,
+                      bodyIslandIds[i],
+                      i );
+    }
+
     for ( int i = 0; i < modelCount; ++i )
     {
         GameModel& model = m_gameModels[i];
@@ -737,7 +970,8 @@ void GameModelCollection::EmitPhysicsDiagnosticsFrame( float dt )
         const int sleepSupported = ( i < static_cast<int>( m_sleepSupportedThisFrame.size() ) ) ? m_sleepSupportedThisFrame[i] : 0;
         const int sleepInhibited = ( i < static_cast<int>( m_sleepInhibitedThisFrame.size() ) ) ? m_sleepInhibitedThisFrame[i] : 0;
         const int sleepCounter = ( i < static_cast<int>( m_sleepCounter.size() ) ) ? m_sleepCounter[i] : 0;
-        const int islandId = ( i < static_cast<int>( m_sleepIslandVisualId.size() ) ) ? m_sleepIslandVisualId[i] : 0;
+        const int islandId = bodyIslandIds[i];
+        const int visualIslandId = ( i < static_cast<int>( m_sleepIslandVisualId.size() ) ) ? m_sleepIslandVisualId[i] : 0;
 
         float radius = 0.0f;
         Vector3 halfExtents = ZERO_VECTOR;
@@ -793,7 +1027,7 @@ void GameModelCollection::EmitPhysicsDiagnosticsFrame( float dt )
                       sleepCounter,
                       islandId );
 
-        if ( sleeping && islandId == 0 )
+        if ( sleeping && visualIslandId == 0 )
         {
             const int eventId = ++m_physicsDiagnosticsEventCounter;
             Log().Writef( m_physicsDiagnosticsPath,
@@ -1347,6 +1581,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             c.accT1 = cachedIt->accT1;
             c.accT2 = cachedIt->accT2;
             clampFrictionVector( c.accT1, c.accT2, c.frictionLimit );
+            c.warmStarted = c.accN > 0.0f || fabsf( c.accT1 ) > 0.0f || fabsf( c.accT2 ) > 0.0f;
         }
 
         if ( c.accN > 0.0f || fabsf( c.accT1 ) > 0.0f || fabsf( c.accT2 ) > 0.0f )

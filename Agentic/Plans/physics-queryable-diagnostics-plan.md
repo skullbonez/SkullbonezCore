@@ -705,6 +705,8 @@ No validation required for documentation-only changes.
 
 ### Phase 2 - CLI and Runtime Plumbing
 
+Status: implemented in `codex/physics-queryable-diagnostics`.
+
 Impact area: scene system / physics diagnostics.
 
 Tasks:
@@ -735,6 +737,8 @@ Reason: `SkullbonezInit*`, `SkullbonezRun*`, and `SkullbonezGameModelCollection*
 
 ### Phase 3 - Frame and Body Rows
 
+Status: implemented in `codex/physics-queryable-diagnostics`.
+
 Impact area: physics diagnostics.
 
 Tasks:
@@ -760,6 +764,8 @@ Debug\SKULLBONEZ_CORE.exe --vsync off --scene SkullbonezData\scenes\at_rest.scen
 
 ### Phase 4 - Query Tool and SQLite Import
 
+Status: implemented in `tools\physics_query.py`.
+
 Impact area: tools / diagnostics.
 
 Tasks:
@@ -781,6 +787,8 @@ tools\physics_query.py Debug\at_rest.physicsdiag.ndjson summary
 Reason: `tools/*` changes require `validate_fast`, then running the changed script.
 
 ### Phase 5 - Contacts, Islands, Stacks, and Broadphase
+
+Status: implemented for persistent object contacts, sleep islands, support edges, and broadphase frame stats. Terrain-contact-specific rows and richer rolling event classifiers remain later extensions.
 
 Impact area: physics / performance-sensitive diagnostics.
 
@@ -804,6 +812,8 @@ tools\validate_perf.bat
 Reason: this touches physics internals and may add overhead in hot paths.
 
 ### Phase 6 - Regression Comparison
+
+Status: first-pass `compare` is implemented in `tools\physics_query.py` using run/frame aggregate differences. Per-frame diagnostic hashes remain a later extension; the legacy CSV is still authoritative for byte-exact physics validation.
 
 Impact area: tools / tests.
 
@@ -883,4 +893,3 @@ The system is useful when:
 5. The old physics CSV baseline remains byte-exact and unchanged unless intentionally updated.
 6. Diagnostics mode clearly states when it forces fixed-step playback.
 7. `AGENTS.md` directs agents to the query workflow to control token cost.
-

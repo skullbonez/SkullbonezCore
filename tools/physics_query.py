@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import sqlite3
 import sys
+import time
 
 
 SCHEMA_VERSION = 1
@@ -379,8 +380,30 @@ def ensure_db(trace_arg):
     stat = trace_path.stat()
     rebuilt = False
     if not is_cache_fresh(sqlite_path, trace_path, stat):
-        rebuild_cache(trace_path, sqlite_path, stat)
-        rebuilt = True
+        lock_path = sqlite_path.with_suffix(sqlite_path.suffix + ".lock")
+        lock_fd = None
+        deadline = time.time() + 60.0
+        while lock_fd is None:
+            if is_cache_fresh(sqlite_path, trace_path, stat):
+                break
+            try:
+                lock_fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.write(lock_fd, str(os.getpid()).encode("ascii", errors="ignore"))
+            except FileExistsError:
+                if time.time() >= deadline:
+                    raise SystemExit(f"ERROR: timed out waiting for SQLite cache rebuild lock: {lock_path}")
+                time.sleep(0.1)
+        if lock_fd is not None:
+            try:
+                if not is_cache_fresh(sqlite_path, trace_path, stat):
+                    rebuild_cache(trace_path, sqlite_path, stat)
+                    rebuilt = True
+            finally:
+                os.close(lock_fd)
+                try:
+                    lock_path.unlink()
+                except FileNotFoundError:
+                    pass
     conn = connect_db(sqlite_path)
     return conn, {"trace": str(trace_path), "sqlite": str(sqlite_path), "rebuilt": rebuilt}
 

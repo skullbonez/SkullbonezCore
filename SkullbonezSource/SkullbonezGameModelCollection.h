@@ -105,6 +105,7 @@ class GameModelCollection
         float accN = 0.0f;              // Total normal push accumulated by the iterative solver.
         float accT1 = 0.0f;             // Total friction push accumulated along tangent 1.
         float accT2 = 0.0f;             // Total friction push accumulated along tangent 2.
+        bool warmStarted = false;       // True when this row reused a previous-frame cached impulse.
     };
 
     // The previous frame's solution is a very good first guess for this frame.
