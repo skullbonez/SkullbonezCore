@@ -17,10 +17,10 @@ Debug\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\at_rest.scene --physics-
 The legacy CSV logger remains separate:
 
 ```bat
-Debug\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\at_rest.scene --physics-log Debug\at_rest.csv
+Debug\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\at_rest.scene --physics-regression-log Debug\at_rest.csv
 ```
 
-Use the legacy CSV for byte-exact validation and baseline diffs. Use the diagnostic trace for model-facing investigation.
+Use the legacy CSV for byte-exact validation and baseline diffs. `--physics-log` remains as a deprecated alias. Use the diagnostic trace for model-facing investigation.
 
 ## Query A Trace
 

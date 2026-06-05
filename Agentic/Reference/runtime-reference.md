@@ -28,7 +28,7 @@ This file holds details that are useful during debugging or manual testing but t
 | `--physics-debug-transparent` | optional `on`, `off` | Toggle translucent debug collision volumes for every loaded scene. Bare flag means `on`. |
 | `--physics-debug-alpha` | float | Override translucent debug body alpha, `0.05` to `1.0`; also enables translucent debug bodies. |
 | `--physics-debug-contact-linger` | seconds | Keep contact manifold visuals visible after contact rows disappear, `0.0` to `5.0`. |
-| `--physics-log` | path | Write per-frame physics CSV in Debug builds. |
+| `--physics-regression-log` | path | Write the legacy byte-exact physics regression CSV in Debug builds. Deprecated alias: `--physics-log`. |
 | `--physics-diag` | path | Write queryable physics diagnostics NDJSON in Debug builds. Forces fixed-step playback and can be queried with `tools\physics_query.bat`. Alias: `--physics-diagnostics`. |
 | `--gen-atlas` | optional path | Generate the SDF font atlas and exit before GPU init. |
 
@@ -42,13 +42,15 @@ Scene files are plain text. Blank lines and lines beginning with `#` are ignored
 |------|------------|
 | Playback | `frames`, `exit_on_complete`, `screenshot_and_exit`, `fixed_step` |
 | Capture | `screenshot`, `screenshot_interval` |
-| Logging | `perf_log`, `perf_log_flush`, `perf_log_flush_interval`, `physics_log` |
+| Logging | `perf_log`, `perf_log_flush`, `perf_log_flush_interval` |
 | Simulation | `physics`, `physics_mode`, `time_scale`, `seed`, `world` |
 | Objects | `ball`, `box`, `ball_state`, `legacy_balls`, `solver_balls`, `solver_boxes` |
 | Camera | `camera`, `track_height`, `auto_cycle_interval` |
 | Rendering | `text`, `text_only`, `debug_vectors`, `physics_debug`, `physics_debug_axes`, `physics_debug_contacts`, `physics_debug_sleep`, `physics_debug_transparent`, `physics_debug_alpha`, `physics_debug_contact_linger`, `vsync`, `pipeline_sync`, `roll_align`, `water_hidden`, `terrain_hidden`, `flat_slope` |
 
 For exact field order, inspect an existing scene in `SkullbonezData/scenes/` and the parser in `SkullbonezSource/SkullbonezTestScene.cpp`.
+
+Physics regression CSV output is command-line only via `--physics-regression-log`; scene files must not enable it.
 
 ## Key Bindings
 
@@ -90,7 +92,7 @@ Fly and nudge mode use WASD, mouse look, Shift for faster movement, and Space to
 | `SkullbonezData/scenes/physics_roll.scene` | Physics rolling validation. |
 | `SkullbonezData/scenes/physics_regression_solver.scene` | Byte-exact Debug physics CSV regression. |
 | `SkullbonezData/scenes/standing_box_repro.scene` | Deterministic solver-box edge-rest repro seed target. |
-| `SkullbonezData/scenes/box_crater_edge_repro.scene` | Terrain edge-rest regression scene with Debug physics log. |
+| `SkullbonezData/scenes/box_crater_edge_repro.scene` | Terrain edge-rest regression scene with Debug physics regression log. |
 
 ## Debug Logging
 

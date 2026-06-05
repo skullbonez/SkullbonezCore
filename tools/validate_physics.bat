@@ -24,7 +24,7 @@ echo [2/4] Running physics regression scenes...
 del /q "%REPO%\Debug\physics_regression_*.csv" 2>nul
 
 echo   Running physics_regression_solver...
-"%REPO%\Debug\SKULLBONEZ_CORE.exe" --vsync off --fixed-step --scene SkullbonezData/scenes/physics_regression_solver.scene
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --vsync off --fixed-step --scene SkullbonezData/scenes/physics_regression_solver.scene --physics-regression-log Debug/physics_regression_solver.csv
 if errorlevel 1 (
     echo FAIL: physics_regression_solver crashed or errored.
     exit /b 2

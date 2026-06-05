@@ -147,9 +147,12 @@ class GameModelCollection
     std::vector<int64_t> m_collisionCellKeys;                          // Cells where narrowphase collisions occurred this frame
 
 #ifdef _DEBUG
-    char m_physicsLogPath[256] = {}; // Output path for physics state CSV (empty = disabled)
-    int m_physicsLogFrame = 0;       // Frame counter reset when path is set
-    SkullScope m_skullScope;         // Queryable model-facing physics diagnostics trace writer
+    // Legacy byte-exact CSV artifact for deterministic physics regression tests.
+    // TODO: migrate the regression baseline onto SkullScope/SQLite diagnostics,
+    // then retire this row-per-body CSV path.
+    char m_physicsRegressionLogPath[256] = {}; // Output path for regression CSV (empty = disabled)
+    int m_physicsRegressionLogFrame = 0;       // Frame counter reset when path is set
+    SkullScope m_skullScope;                   // Queryable model-facing physics diagnostics trace writer
 #endif
 
     void BuildShadowMesh();                         // Builds the shadow disc VAO with instanced attributes
@@ -227,7 +230,7 @@ class GameModelCollection
     }
 
 #ifdef _DEBUG
-    void SetPhysicsLogPath( const char* path );           // Enable per-frame physics state CSV; empty string disables
+    void SetPhysicsRegressionLogPath( const char* path ); // Enable byte-exact regression CSV; empty string disables
     void SetPhysicsDiagnosticsPath( const char* path );   // Enable queryable physics diagnostics trace; empty string disables
     void SetPhysicsDiagnosticsRunId( const char* runId ); // Sets current diagnostics run id and resets run-local counters
 #endif

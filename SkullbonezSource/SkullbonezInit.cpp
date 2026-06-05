@@ -145,7 +145,7 @@ struct ParsedArgs
     bool hasPhysicsDebugContactLingerOverride = false;
     float physicsDebugContactLingerOverride = 0.45f;
 #ifdef _DEBUG
-    char physicsLogOverride[256] = {};
+    char physicsRegressionLogOverride[256] = {};
     char physicsDiagnosticsPath[256] = {};
 #endif
     bool physicsDiagnosticsRequested = false;
@@ -545,17 +545,18 @@ float ParseSwitchInterval( const char* cmdLine )
     return static_cast<float>( atof( switchArg ) );
 }
 
-// Guards --physics-log against use in non-Debug builds.
+// Guards --physics-regression-log / legacy --physics-log against use in non-Debug builds.
 // Returns false if startup should abort.
-bool ValidatePhysicsLog( const char* cmdLine )
+bool ValidatePhysicsRegressionLog( const char* cmdLine )
 {
-    if ( !cmdLine || !strstr( cmdLine, "--physics-log" ) )
+    if ( !FindOptionValue( cmdLine, "--physics-regression-log" ) &&
+         !FindOptionValue( cmdLine, "--physics-log" ) )
     {
         return true;
     }
 
 #ifndef _DEBUG
-    return FailCommandLineParse( "--physics-log is only supported in Debug builds. Recompile with the Debug configuration to use physics regression logging." );
+    return FailCommandLineParse( "--physics-regression-log is only supported in Debug builds. Recompile with the Debug configuration to use physics regression logging." );
 #else
     return true;
 #endif
@@ -579,19 +580,20 @@ bool ValidatePhysicsDiagnostics( const char* cmdLine )
 }
 
 #ifdef _DEBUG
-void ParsePhysicsLogOverride( const char* cmdLine, char ( &outPath )[256] )
+void ParsePhysicsRegressionLogOverride( const char* cmdLine, char ( &outPath )[256] )
 {
     outPath[0] = '\0';
-    if ( !cmdLine || !strstr( cmdLine, "--physics-log" ) )
+    const char* physLogArg = FindOptionValue( cmdLine, "--physics-regression-log" );
+    const bool usedLegacyAlias = physLogArg == nullptr;
+    if ( usedLegacyAlias )
+    {
+        physLogArg = FindOptionValue( cmdLine, "--physics-log" );
+    }
+    if ( !physLogArg )
     {
         return;
     }
 
-    const char* physLogArg = strstr( cmdLine, "--physics-log" ) + 13;
-    while ( *physLogArg == ' ' )
-    {
-        ++physLogArg;
-    }
     const char* physLogEnd = physLogArg;
     while ( *physLogEnd != '\0' && *physLogEnd != ' ' && *physLogEnd != '\t' )
     {
@@ -606,7 +608,11 @@ void ParsePhysicsLogOverride( const char* cmdLine, char ( &outPath )[256] )
     outPath[len] = '\0';
     if ( outPath[0] != '\0' )
     {
-        fprintf( stdout, "[physics-log] Output: %s\n", outPath );
+        if ( usedLegacyAlias )
+        {
+            fprintf( stdout, "[physics-regression-log] Deprecated alias --physics-log used; prefer --physics-regression-log.\n" );
+        }
+        fprintf( stdout, "[physics-regression-log] Output: %s\n", outPath );
     }
 }
 
@@ -645,7 +651,7 @@ bool ParsePhysicsDiagnosticsPath( const char* cmdLine, char ( &outPath )[256] )
 
 // Parses all command-line options into a ParsedArgs struct.
 // Also loads engine.cfg and applies any overrides to the global Cfg() singleton.
-// Returns false if startup should abort (e.g. --physics-log in Release build).
+// Returns false if startup should abort (e.g. --physics-regression-log in Release build).
 bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
 {
     ParseSceneArgs( cmdLine, out.sceneList, out.isSuiteOrSceneMode );
@@ -660,7 +666,7 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
         fprintf( stdout, "[physics] Legacy sphere-only solver enabled.\n" );
     }
 
-    if ( !ValidatePhysicsLog( cmdLine ) )
+    if ( !ValidatePhysicsRegressionLog( cmdLine ) )
     {
         return false;
     }
@@ -670,7 +676,7 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
     }
 
 #ifdef _DEBUG
-    ParsePhysicsLogOverride( cmdLine, out.physicsLogOverride );
+    ParsePhysicsRegressionLogOverride( cmdLine, out.physicsRegressionLogOverride );
     if ( !ParsePhysicsDiagnosticsPath( cmdLine, out.physicsDiagnosticsPath ) )
     {
         return false;
@@ -877,9 +883,9 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
             cRun.SetPhysicsDebugContactLingerOverride( args.physicsDebugContactLingerOverride );
         }
 #ifdef _DEBUG
-        if ( args.physicsLogOverride[0] != '\0' )
+        if ( args.physicsRegressionLogOverride[0] != '\0' )
         {
-            cRun.SetPhysicsLogOverride( args.physicsLogOverride );
+            cRun.SetPhysicsRegressionLogOverride( args.physicsRegressionLogOverride );
         }
         if ( args.physicsDiagnosticsPath[0] != '\0' )
         {

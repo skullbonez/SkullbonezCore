@@ -9,7 +9,6 @@ debug_vectors on
 time_scale 0.2
 track_height 150
 auto_cycle_interval 5
-physics_log Profile/physics_log.csv
 
 # Top-down camera looking straight down at the scene centre
 camera cardinal 500 800 500  500 0 500  0 0 -1

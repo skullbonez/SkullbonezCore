@@ -219,9 +219,9 @@ void SkullbonezRun::SetPhysicsDebugContactLingerOverride( float seconds )
 
 
 #ifdef _DEBUG
-void SkullbonezRun::SetPhysicsLogOverride( const char* path )
+void SkullbonezRun::SetPhysicsRegressionLogOverride( const char* path )
 {
-    strcpy_s( m_perfLogState.physicsLogOverride, sizeof( m_perfLogState.physicsLogOverride ), path );
+    strcpy_s( m_perfLogState.physicsRegressionLogOverride, sizeof( m_perfLogState.physicsRegressionLogOverride ), path );
 }
 
 
@@ -2972,12 +2972,9 @@ void SkullbonezRun::LoadScene( int index )
             }
         }
 
-        // Physics log: per-frame ball state CSV. CLI --physics-log override takes priority over scene directive.
+        // Physics regression log: legacy per-frame CSV enabled only by command line.
 #ifdef _DEBUG
-        const char* physLogPath = ( m_perfLogState.physicsLogOverride[0] != '\0' )
-                                      ? m_perfLogState.physicsLogOverride
-                                      : scene.GetPhysicsLogPath();
-        m_cGameModelCollection.SetPhysicsLogPath( physLogPath );
+        m_cGameModelCollection.SetPhysicsRegressionLogPath( m_perfLogState.physicsRegressionLogOverride );
 #endif
 
         // Override RNG seed for deterministic scenes. CLI --seed wins so a nudge snapshot can

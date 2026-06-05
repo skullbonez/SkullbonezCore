@@ -403,15 +403,15 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
         RunSolverPhysics( fChangeInTime );
     }
 
-    // Per-frame physics state log. Active only when a path is set via scene directive or
-    // --physics-log CLI arg. Log().Writef is a no-op in non-Debug builds so there is no
-    // file I/O overhead in Release/Profile even if a path is somehow set.
+    // Legacy per-frame regression CSV. Active only when a path is set by the
+    // --physics-regression-log CLI arg. SkullScope is the model-facing diagnostics path; this
+    // CSV remains only as the byte-exact validation artifact until that baseline is migrated.
 #ifdef _DEBUG
-    if ( m_physicsLogPath[0] != '\0' )
+    if ( m_physicsRegressionLogPath[0] != '\0' )
     {
-        if ( m_physicsLogFrame == 0 )
+        if ( m_physicsRegressionLogFrame == 0 )
         {
-            Log().Writef( m_physicsLogPath, "frame,idx,name,posX,posY,posZ,velX,velY,velZ,speed,omegaX,omegaY,omegaZ,omegaMag,qX,qY,qZ,qW,grounded,sleeping,sleepInhibited\n" );
+            Log().Writef( m_physicsRegressionLogPath, "frame,idx,name,posX,posY,posZ,velX,velY,velZ,speed,omegaX,omegaY,omegaZ,omegaMag,qX,qY,qZ,qW,grounded,sleeping,sleepInhibited\n" );
         }
         for ( int i = 0; i < modelCount; ++i )
         {
@@ -432,9 +432,9 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
             int sleepSupported = m_sleepSupportedThisFrame[i];
             int sleeping = ( i < static_cast<int>( m_sleepState.size() ) ) ? m_sleepState[i] : 0;
             int sleepInhibited = ( i < static_cast<int>( m_sleepInhibitedThisFrame.size() ) ) ? m_sleepInhibitedThisFrame[i] : 0;
-            Log().Writef( m_physicsLogPath, "%d,%d,%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.6f,%.6f,%.6f,%.6f,%d,%d,%d\n", m_physicsLogFrame, i, name, pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, speed, omega.x, omega.y, omega.z, omegaMag, qx, qy, qz, qw, sleepSupported, sleeping, sleepInhibited );
+            Log().Writef( m_physicsRegressionLogPath, "%d,%d,%s,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.6f,%.6f,%.6f,%.6f,%d,%d,%d\n", m_physicsRegressionLogFrame, i, name, pos.x, pos.y, pos.z, vel.x, vel.y, vel.z, speed, omega.x, omega.y, omega.z, omegaMag, qx, qy, qz, qw, sleepSupported, sleeping, sleepInhibited );
         }
-        ++m_physicsLogFrame;
+        ++m_physicsRegressionLogFrame;
     }
     EmitPhysicsDiagnosticsFrame( fChangeInTime );
 #endif
@@ -465,10 +465,10 @@ void GameModelCollection::WakeModel( int index )
 
 
 #ifdef _DEBUG
-void GameModelCollection::SetPhysicsLogPath( const char* path )
+void GameModelCollection::SetPhysicsRegressionLogPath( const char* path )
 {
-    strcpy_s( m_physicsLogPath, sizeof( m_physicsLogPath ), path );
-    m_physicsLogFrame = 0;
+    strcpy_s( m_physicsRegressionLogPath, sizeof( m_physicsRegressionLogPath ), path );
+    m_physicsRegressionLogFrame = 0;
 }
 
 

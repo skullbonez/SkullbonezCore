@@ -17,7 +17,6 @@ flat_slope 30.0 0.0 0.0
 
 camera overview 500 120 480  500 100 500  0 1 0
 
-physics_log Debug/box_vs_ball_flight.csv
 
 # Box at y=107 with initial velocity toward ball (offset above ball center)
 # box <name> <x y z> <halfX halfY halfZ> <mass> <restitution> [eulerX eulerY eulerZ] [velX velY velZ]
