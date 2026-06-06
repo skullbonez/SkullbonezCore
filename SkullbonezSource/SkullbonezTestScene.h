@@ -146,7 +146,7 @@ struct SceneUIOptions
     bool hasMinimized = false;
     bool isMinimized = false;
     bool hasActiveTab = false;
-    int activeTab = 1; // 0=Overview, 1=Profiler, 2=Scene, 3=Physics, 4=Options, 5=Renderer, 6=Controls
+    int activeTab = 0; // 0=Profiler, 1=Scene, 2=Physics, 3=Options, 4=Renderer, 5=Controls
     bool hasWindowRect = false;
     int windowX = 34;
     int windowY = 56;

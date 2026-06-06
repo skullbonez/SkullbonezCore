@@ -42,7 +42,7 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         [unroll]
         for (int x = -2; x <= 2; ++x)
         {
-            float2 uv = saturate(input.texCoord + float2((float)x, (float)y) * input.texelSize * 1.65);
+            float2 uv = saturate(input.texCoord + float2((float)x, (float)y) * input.texelSize * 2.25);
             color += uTexture.Sample(sSampler0, uv).rgb * weights[x + 2] * weights[y + 2];
         }
     }

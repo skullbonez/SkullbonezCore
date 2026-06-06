@@ -16,7 +16,7 @@ void main()
     {
         for (int x = -2; x <= 2; ++x)
         {
-            vec2 uv = clamp(vTexCoord + vec2(float(x), float(y)) * uTexelSize.xy * 1.65, vec2(0.0), vec2(1.0));
+            vec2 uv = clamp(vTexCoord + vec2(float(x), float(y)) * uTexelSize.xy * 2.25, vec2(0.0), vec2(1.0));
             color += texture(uTexture, uv).rgb * weights[x + 2] * weights[y + 2];
         }
     }

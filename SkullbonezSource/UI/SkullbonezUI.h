@@ -17,7 +17,6 @@ namespace UI
 
 enum class InGameUITab
 {
-    Overview,
     Profiler,
     Scene,
     Physics,

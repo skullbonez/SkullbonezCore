@@ -7,7 +7,7 @@ water_hidden on
 terrain_hidden on
 frames 24
 ui tab overview
-ui rect 300 118 660 500
+ui rect 300 30 660 650
 ui blur off
 ui renderer_combo closed
 ui profiler_expand none

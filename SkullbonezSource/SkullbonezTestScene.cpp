@@ -26,39 +26,34 @@ bool ParseOnOff( const char* value, bool& out )
 
 bool ParseUITab( const char* value, int& outTab )
 {
-    if ( strcmp( value, "overview" ) == 0 )
+    if ( strcmp( value, "profiler" ) == 0 || strcmp( value, "profile" ) == 0 )
     {
         outTab = 0;
         return true;
     }
-    if ( strcmp( value, "profiler" ) == 0 )
+    if ( strcmp( value, "scene" ) == 0 || strcmp( value, "overview" ) == 0 || strcmp( value, "info" ) == 0 )
     {
         outTab = 1;
         return true;
     }
-    if ( strcmp( value, "scene" ) == 0 )
+    if ( strcmp( value, "physics" ) == 0 )
     {
         outTab = 2;
         return true;
     }
-    if ( strcmp( value, "physics" ) == 0 )
+    if ( strcmp( value, "options" ) == 0 || strcmp( value, "params" ) == 0 )
     {
         outTab = 3;
         return true;
     }
-    if ( strcmp( value, "options" ) == 0 || strcmp( value, "params" ) == 0 )
+    if ( strcmp( value, "renderer" ) == 0 )
     {
         outTab = 4;
         return true;
     }
-    if ( strcmp( value, "renderer" ) == 0 )
-    {
-        outTab = 5;
-        return true;
-    }
     if ( strcmp( value, "keys" ) == 0 || strcmp( value, "controls" ) == 0 )
     {
-        outTab = 6;
+        outTab = 5;
         return true;
     }
     return false;

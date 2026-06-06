@@ -2136,7 +2136,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     DrawTitleButton( draw, maximizeButton, m_isMaximized ? TitleButtonIcon::Restore : TitleButtonIcon::Maximize, maximizeButton.Contains( m_mouseX, m_mouseY ), m_isMaximized );
     DrawTitleButton( draw, closeButton, TitleButtonIcon::Close, closeButton.Contains( m_mouseX, m_mouseY ), false );
 
-    static const char* kTabs[] = { "Info", "Profile", "Scene", "Physics", "Options", "Render", "Controls" };
+    static const char* kTabs[] = { "Profile", "Scene", "Physics", "Options", "Render", "Controls" };
     const int tabCount = static_cast<int>( InGameUITab::Count );
     const float tabPad = 14.0f;
     m_tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
@@ -2149,14 +2149,18 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     {
         return rowY + rowH >= contentY && rowY <= contentY + contentH;
     };
-    auto labelValue = [&]( float rowY, const char* label, const char* value, float vr, float vg, float vb )
+    auto labelValueAt = [&]( float tx, float rowY, const char* label, const char* value, float vr, float vg, float vb )
     {
         if ( !visible( rowY, 18.0f ) )
         {
             return;
         }
-        draw.Text( contentX, rowY, 11.5f, 0.52f, 0.76f, 0.84f, label );
-        draw.Text( contentX + 150.0f, rowY, 11.5f, vr, vg, vb, value );
+        draw.Text( tx, rowY, 11.5f, 0.52f, 0.76f, 0.84f, label );
+        draw.Text( tx + 126.0f, rowY, 11.5f, vr, vg, vb, value );
+    };
+    auto labelValue = [&]( float rowY, const char* label, const char* value, float vr, float vg, float vb )
+    {
+        labelValueAt( contentX, rowY, label, value, vr, vg, vb );
     };
     auto drawContentToggle = [&]( UICheckBox& toggle, float tx, float rowY, float controlW, const char* label, bool checked )
     {
@@ -2283,19 +2287,6 @@ void InGameUI::Draw( const InGameUIFrameData& data )
             profilerRow( visibleRow, marker, timelineSegments[visibleRow], hasChildren, IsProfilerMarkerExpanded( marker.hash ) );
         }
     }
-    else if ( m_activeTab == InGameUITab::Overview )
-    {
-        char buf[128];
-        draw.Text( contentX, scrolledY, 16.0f, 1.0f, 0.85f, 0.34f, "Overview" );
-        labelValue( scrolledY + 42.0f, "Renderer", data.rendererName, 0.60f, 0.90f, 1.0f );
-        snprintf( buf, sizeof( buf ), "%d", data.modelCount );
-        labelValue( scrolledY + 68.0f, "Model count", buf, 0.88f, 0.92f, 0.94f );
-        labelValue( scrolledY + 94.0f, "Physics", data.legacyPhysics ? "Legacy solver" : "Impulse solver", 0.36f, 0.95f, 0.56f );
-        snprintf( buf, sizeof( buf ), "%.1f FPS", data.fps );
-        labelValue( scrolledY + 120.0f, "Frame rate", buf, 0.52f, 0.94f, 1.0f );
-        snprintf( buf, sizeof( buf ), "%.6f", data.sceneEnergy );
-        labelValue( scrolledY + 146.0f, "Scene energy", buf, 0.98f, 0.78f, 0.35f );
-    }
     else if ( m_activeTab == InGameUITab::Scene )
     {
         char buf[160];
@@ -2334,7 +2325,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
             selectedSceneName = filterDisplay;
         }
         const float sceneComboW = SceneTabComboWidth( contentW );
-        draw.Text( contentX, scrolledY, 16.0f, 1.0f, 0.85f, 0.34f, "Scene Telemetry" );
+        draw.Text( contentX, scrolledY, 16.0f, 1.0f, 0.85f, 0.34f, "Scene" );
         m_sceneCombo.SetBounds( contentX, scrolledY + 42.0f, sceneComboW, 24.0f );
         m_resetSceneButton.SetBounds( contentX + sceneComboW + 8.0f, scrolledY + 42.0f, 96.0f, 24.0f );
         m_demoSceneButton.SetBounds( contentX + sceneComboW + 112.0f, scrolledY + 42.0f, 112.0f, 24.0f );
@@ -2350,13 +2341,21 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         }
         if ( !m_sceneCombo.IsOpen() )
         {
-            labelValue( scrolledY + 82.0f, "Frame", buf, 0.88f, 0.92f, 0.94f );
+            const float sceneCol2 = contentX + (std::max)( 208.0f, contentW * 0.48f );
+            char statusBuf[64] = {};
+            labelValueAt( contentX, scrolledY + 82.0f, "Renderer", data.rendererName, 0.60f, 0.90f, 1.0f );
+            labelValueAt( sceneCol2, scrolledY + 82.0f, "Physics", data.legacyPhysics ? "Legacy solver" : "Impulse solver", 0.36f, 0.95f, 0.56f );
+            labelValueAt( contentX, scrolledY + 108.0f, "Frame", buf, 0.88f, 0.92f, 0.94f );
+            snprintf( statusBuf, sizeof( statusBuf ), "%s / fixed %s", data.testComplete ? "complete" : "running", data.fixedStep ? "on" : "off" );
+            labelValueAt( sceneCol2, scrolledY + 108.0f, "Status", statusBuf, 0.36f, 0.95f, 0.56f );
             snprintf( buf, sizeof( buf ), "%d / %d", data.currentSceneIndex + 1, data.sceneCount );
-            labelValue( scrolledY + 108.0f, "Scene index", buf, 0.88f, 0.92f, 0.94f );
+            labelValueAt( contentX, scrolledY + 134.0f, "Scene index", buf, 0.88f, 0.92f, 0.94f );
+            snprintf( buf, sizeof( buf ), "%.1f FPS", data.fps );
+            labelValueAt( sceneCol2, scrolledY + 134.0f, "Frame rate", buf, 0.52f, 0.94f, 1.0f );
+            snprintf( buf, sizeof( buf ), "%d", data.modelCount );
+            labelValueAt( contentX, scrolledY + 160.0f, "Model count", buf, 0.88f, 0.92f, 0.94f );
             snprintf( buf, sizeof( buf ), "%.6f", data.sceneEnergy );
-            labelValue( scrolledY + 134.0f, "Kinetic energy", buf, 0.98f, 0.78f, 0.35f );
-            labelValue( scrolledY + 160.0f, "Fixed step", data.fixedStep ? "on" : "off", 0.52f, 0.94f, 1.0f );
-            labelValue( scrolledY + 186.0f, "Status", data.testComplete ? "test complete" : "running", 0.36f, 0.95f, 0.56f );
+            labelValueAt( sceneCol2, scrolledY + 160.0f, "Kinetic energy", buf, 0.98f, 0.78f, 0.35f );
         }
         if ( visible( scrolledY + 42.0f, m_sceneCombo.IsOpen() ? 286.0f : 24.0f ) )
         {
