@@ -122,6 +122,7 @@ class InGameUi
     uint32_t m_expandedProfilerHashes[64] = {};
     int m_expandedProfilerHashCount = 0;
     bool m_expandAllProfilerMarkers = false;
+    bool m_profilerDefaultExpansionApplied = false;
 
     struct ProfilerTimelineSegment
     {
@@ -135,6 +136,7 @@ class InGameUi
     void BuildProfilerTimelineSegments( const int* rows, int rowCount, ProfilerTimelineSegment* segments ) const;
     bool IsProfilerMarkerExpanded( uint32_t hash ) const;
     void ToggleProfilerMarker( uint32_t hash );
+    void ApplyProfilerDefaultExpansion();
     void ApplyProfilerExpandAll();
     void SetMaximized( bool maximized, int screenW, int screenH );
 };

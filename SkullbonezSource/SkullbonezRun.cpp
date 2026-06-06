@@ -787,12 +787,10 @@ void SkullbonezRun::Run()
             m_physicsDebugVisualizer.Update( static_cast<float>( secondsPerFrame ), m_cGameModelCollection );
             m_cGameModelCollection.EndCollisionVisualFrame();
 
-            PROFILE_BEGIN( "Frame/PipelineSync" );
             if ( m_runtimeSettings.isPipelineSyncEnabled )
             {
                 Gfx().Finish();
             }
-            PROFILE_END( "Frame/PipelineSync" );
 
             PROFILE_GPU_BEGIN( "Frame/Render" );
             Render();
@@ -800,9 +798,9 @@ void SkullbonezRun::Run()
 
             if ( !m_scene.isSceneMode || m_scene.isSceneText || m_debug.overlayMode != OverlayMode::None || m_ui.IsVisible() )
             {
-                PROFILE_GPU_BEGIN( "Frame/Text" );
+                PROFILE_GPU_BEGIN( "Frame/UI" );
                 DrawWindowText( secondsPerFrame );
-                PROFILE_GPU_END( "Frame/Text" );
+                PROFILE_GPU_END( "Frame/UI" );
             }
 
             if ( TickScreenshots() )
@@ -1959,10 +1957,12 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         Text2d::FlushText();
         uiData.drawCallsBeforeUi = Gfx().GetFrameDrawCallCount();
         const int uiDrawCallStart = uiData.drawCallsBeforeUi;
-        PROFILE_GPU_BEGIN( "Frame/Text/UI" );
+        PROFILE_GPU_BEGIN( "Frame/UI/Quads" );
         m_ui.Draw( uiData );
+        PROFILE_GPU_END( "Frame/UI/Quads" );
+        PROFILE_GPU_BEGIN( "Frame/UI/Text" );
         Text2d::FlushText();
-        PROFILE_GPU_END( "Frame/Text/UI" );
+        PROFILE_GPU_END( "Frame/UI/Text" );
         const int uiDrawCallEnd = Gfx().GetFrameDrawCallCount();
         m_timers.lastUiDrawCalls = (std::max)( 0, uiDrawCallEnd - uiDrawCallStart );
         return;

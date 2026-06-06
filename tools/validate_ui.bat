@@ -89,7 +89,7 @@ if errorlevel 1 (
     echo FAIL: %RENDERER% UI suite exited with error.
     exit /b 1
 )
-for %%s in (blur_off blur_on profiler_hierarchy profiler_timeline renderer_combo small_scroll minimized) do (
+for %%s in (blur_off blur_on profiler_default profiler_hierarchy profiler_timeline renderer_combo small_scroll minimized) do (
     if not exist "%REPO%\Profile\ui_%%s.bmp" (
         echo FAIL: %RENDERER% did not produce ui_%%s.bmp.
         exit /b 1

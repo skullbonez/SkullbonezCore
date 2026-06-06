@@ -16,7 +16,7 @@ except ImportError as exc:
 
 
 RENDERERS = ("gl", "dx11", "dx12")
-SCENES = ("blur_off", "blur_on", "profiler_hierarchy", "profiler_timeline", "renderer_combo", "small_scroll", "minimized")
+SCENES = ("blur_off", "blur_on", "profiler_default", "profiler_hierarchy", "profiler_timeline", "renderer_combo", "small_scroll", "minimized")
 TIMELINE_EPSILON_MS = 0.05
 
 
@@ -100,13 +100,22 @@ def average_marker_ms(path: Path) -> tuple[dict[str, float], list[str]]:
 
 def validate_timeline_csv(path: Path, renderer: str) -> int:
     marker_ms, marker_order = average_marker_ms(path)
-    if "Frame/Text/UI" not in marker_ms:
-        print(f"ERROR: {renderer} timeline CSV is missing Frame/Text/UI.")
+    if "Frame/PipelineSync" in marker_ms:
+        print(f"ERROR: {renderer} timeline CSV still contains Frame/PipelineSync.")
         return 1
-    if marker_ms["Frame/Text/UI"] <= 0.0:
-        print(f"ERROR: {renderer} Frame/Text/UI marker did not record positive time.")
-        return 1
-    print(f"{renderer}: Frame/Text/UI={marker_ms['Frame/Text/UI']:.4f}ms")
+    required_markers = ("Frame/UI", "Frame/UI/Quads", "Frame/UI/Text")
+    for marker in required_markers:
+        if marker not in marker_ms:
+            print(f"ERROR: {renderer} timeline CSV is missing {marker}.")
+            return 1
+        if marker_ms[marker] <= 0.0:
+            print(f"ERROR: {renderer} {marker} marker did not record positive time.")
+            return 1
+    print(
+        f"{renderer}: Frame/UI={marker_ms['Frame/UI']:.4f}ms "
+        f"Quads={marker_ms['Frame/UI/Quads']:.4f}ms "
+        f"Text={marker_ms['Frame/UI/Text']:.4f}ms"
+    )
 
     children: dict[str | None, list[str]] = {None: []}
     for name in marker_order:

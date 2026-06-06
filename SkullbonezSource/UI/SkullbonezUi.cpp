@@ -176,6 +176,7 @@ void InGameUi::SetProfilerExpandAll( bool expandAll )
 {
     m_expandAllProfilerMarkers = expandAll;
     m_expandedProfilerHashCount = 0;
+    m_profilerDefaultExpansionApplied = false;
     if ( expandAll )
     {
         ApplyProfilerExpandAll();
@@ -264,6 +265,36 @@ void InGameUi::ApplyProfilerExpandAll()
             m_expandedProfilerHashes[m_expandedProfilerHashCount++] = marker.hash;
         }
     }
+}
+
+
+void InGameUi::ApplyProfilerDefaultExpansion()
+{
+    if ( m_profilerDefaultExpansionApplied )
+    {
+        return;
+    }
+
+    const Profiler& profiler = Profiler::Instance();
+    const int markerCount = (std::min)( profiler.MarkerCount(), PROFILER_UI_MAX_MARKERS );
+    if ( markerCount <= 0 )
+    {
+        return;
+    }
+
+    for ( int i = 0; i < markerCount; ++i )
+    {
+        const Profiler::Marker& marker = profiler.GetMarker( i );
+        if ( marker.parentIndex == -1 &&
+             ProfilerMarkerHasChildren( profiler, i ) &&
+             !IsProfilerMarkerExpanded( marker.hash ) &&
+             m_expandedProfilerHashCount < PROFILER_UI_MAX_MARKERS )
+        {
+            m_expandedProfilerHashes[m_expandedProfilerHashCount++] = marker.hash;
+        }
+    }
+
+    m_profilerDefaultExpansionApplied = true;
 }
 
 
@@ -427,6 +458,7 @@ bool InGameUi::IsProfilerMarkerExpanded( uint32_t hash ) const
 
 void InGameUi::ToggleProfilerMarker( uint32_t hash )
 {
+    m_profilerDefaultExpansionApplied = true;
     for ( int i = 0; i < m_expandedProfilerHashCount; ++i )
     {
         if ( m_expandedProfilerHashes[i] == hash )
@@ -455,6 +487,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
     {
         return result;
     }
+    ApplyProfilerDefaultExpansion();
 
     POINT mouse = Input::GetClientMouseCoordinates();
     m_mouseX = static_cast<int>( mouse.x );
@@ -708,6 +741,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     const float contentW = w - pad * 2.0f - 8.0f;
     const float contentH = (std::max)( 30.0f, h - titleH - tabH - bottomH - pad );
     const float scrolledY = contentY - m_scrollY;
+    ApplyProfilerDefaultExpansion();
     ApplyProfilerExpandAll();
 
     const UiRect blurBounds = { x, y, w, h };

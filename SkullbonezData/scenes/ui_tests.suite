@@ -1,6 +1,7 @@
 # Optional in-game UI visual suite.
 SkullbonezData/scenes/ui_blur_off.scene
 SkullbonezData/scenes/ui_blur_on.scene
+SkullbonezData/scenes/ui_profiler_default.scene
 SkullbonezData/scenes/ui_profiler_hierarchy.scene
 SkullbonezData/scenes/ui_profiler_timeline.scene
 SkullbonezData/scenes/ui_renderer_combo.scene
