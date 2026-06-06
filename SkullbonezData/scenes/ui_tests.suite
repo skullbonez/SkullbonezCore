@@ -12,6 +12,7 @@ SkullbonezData/scenes/ui_controls.scene
 SkullbonezData/scenes/ui_renderer_combo.scene
 SkullbonezData/scenes/ui_scene_complete.scene
 SkullbonezData/scenes/ui_small_scroll.scene
+SkullbonezData/scenes/ui_controls_clip_scroll.scene
 SkullbonezData/scenes/ui_controls_bottom.scene
 SkullbonezData/scenes/ui_controls_bottom_bg.scene
 SkullbonezData/scenes/ui_min_size.scene

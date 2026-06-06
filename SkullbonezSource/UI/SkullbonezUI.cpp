@@ -2185,6 +2185,14 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     {
         labelValueAt( contentX, rowY, label, value, vr, vg, vb );
     };
+    auto drawSectionTitle = [&]( float rowY, float textSize, const char* text )
+    {
+        if ( !visible( rowY, textSize + 4.0f ) )
+        {
+            return;
+        }
+        draw.Text( contentX, rowY, textSize, 1.0f, 0.85f, 0.34f, text );
+    };
     auto drawContentToggle = [&]( UICheckBox& toggle, float tx, float rowY, float controlW, const char* label, bool checked )
     {
         if ( !visible( rowY, 24.0f ) )
@@ -2348,7 +2356,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
             selectedSceneName = filterDisplay;
         }
         const float sceneComboW = SceneTabComboWidth( contentW );
-        draw.Text( contentX, scrolledY, 16.0f, 1.0f, 0.85f, 0.34f, "Scene" );
+        drawSectionTitle( scrolledY, 16.0f, "Scene" );
         m_sceneCombo.SetBounds( contentX, scrolledY + 42.0f, sceneComboW, 24.0f );
         m_resetSceneButton.SetBounds( contentX + sceneComboW + 8.0f, scrolledY + 42.0f, 96.0f, 24.0f );
         m_demoSceneButton.SetBounds( contentX + sceneComboW + 112.0f, scrolledY + 42.0f, 112.0f, 24.0f );
@@ -2403,7 +2411,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         const float colW = (std::max)( 148.0f, contentW * 0.46f );
         const float col1 = contentX;
         const float col2 = contentX + colW + 18.0f;
-        draw.Text( contentX, scrolledY, 16.0f, 1.0f, 0.85f, 0.34f, "Physics Controls" );
+        drawSectionTitle( scrolledY, 16.0f, "Physics Controls" );
         drawContentToggle( m_physicsToggles[0], col1, scrolledY + 42.0f, colW, "Collision mesh", data.collisionVisualizer );
         drawContentToggle( m_physicsToggles[1], col1, scrolledY + 72.0f, colW, "Axes", ( data.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0 );
         drawContentToggle( m_physicsToggles[2], col1, scrolledY + 102.0f, colW, "Contacts", ( data.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0 );
@@ -2420,7 +2428,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         labelValue( scrolledY + 256.0f, "Contact linger", buf, 0.88f, 0.92f, 0.94f );
         if ( visible( scrolledY + 292.0f, 18.0f ) )
         {
-            draw.Text( contentX, scrolledY + 292.0f, 12.0f, 1.0f, 0.85f, 0.34f, "World" );
+            drawSectionTitle( scrolledY + 292.0f, 12.0f, "World" );
         }
         const float displayGravityStrength = GravityStrengthFromWorld( data.worldGravity );
         snprintf( buf, sizeof( buf ), "%.1f", displayGravityStrength );
@@ -2438,7 +2446,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         const float col2 = contentX + colW + 18.0f;
         const float displayTimeScale = ( m_activeSlider == 1 && m_previewTimeScale > 0.0f ) ? m_previewTimeScale : data.timeScale;
         const int displayModelCount = ( m_activeSlider == 2 && m_previewModelCount >= 0 ) ? m_previewModelCount : data.modelCount;
-        draw.Text( contentX, scrolledY, 16.0f, 1.0f, 0.85f, 0.34f, "Scene Options" );
+        drawSectionTitle( scrolledY, 16.0f, "Scene Options" );
         drawContentToggle( m_optionToggles[0], col1, scrolledY + 42.0f, colW, "Scene physics", data.scenePhysicsEnabled );
         drawContentToggle( m_optionToggles[1], col2, scrolledY + 42.0f, colW, "Scene text", data.sceneTextEnabled );
         drawContentToggle( m_optionToggles[2], col1, scrolledY + 72.0f, colW, "Fixed step", data.fixedStep );
@@ -2487,7 +2495,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         static const char* kReflectionOptions[] = { "FBO", "DXR", "None" };
         static const char* kPhysicsOptions[] = { "Legacy", "Solver" };
 
-        draw.Text( contentX, scrolledY, 16.0f, 1.0f, 0.85f, 0.34f, "Scene Controls" );
+        drawSectionTitle( scrolledY, 16.0f, "Scene Controls" );
         m_reflectionCombo.SetBounds( contentX, scrolledY + 42.0f, 172.0f, 24.0f );
         m_reflectionCombo.SetDropUp( false );
         m_physicsModeCombo.SetBounds( contentX + 188.0f, scrolledY + 42.0f, 172.0f, 24.0f );
@@ -2531,7 +2539,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         }
         if ( visible( scrolledY + 462.0f, 18.0f ) )
         {
-            draw.Text( contentX, scrolledY + 462.0f, 12.0f, 1.0f, 0.85f, 0.34f, "Playback" );
+            drawSectionTitle( scrolledY + 462.0f, 12.0f, "Playback" );
         }
         if ( displayFrameLimit > 0 )
         {
@@ -2554,7 +2562,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         }
         if ( visible( scrolledY + 582.0f, 18.0f ) )
         {
-            draw.Text( contentX, scrolledY + 582.0f, 12.0f, 1.0f, 0.85f, 0.34f, "Generation" );
+            drawSectionTitle( scrolledY + 582.0f, 12.0f, "Generation" );
         }
         snprintf( buf, sizeof( buf ), "%d", displaySolverBalls );
         m_solverBallSlider.SetBounds( contentX, scrolledY + 608.0f, contentW, 34.0f );
@@ -2570,7 +2578,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         }
         if ( visible( scrolledY + 702.0f, 18.0f ) )
         {
-            draw.Text( contentX, scrolledY + 702.0f, 12.0f, 1.0f, 0.85f, 0.34f, "Camera" );
+            drawSectionTitle( scrolledY + 702.0f, 12.0f, "Camera" );
         }
         snprintf( buf, sizeof( buf ), displayTrackHeight > 0.0f ? "%.0f" : "off", displayTrackHeight );
         m_trackHeightSlider.SetBounds( contentX, scrolledY + 728.0f, contentW, 34.0f );
@@ -2586,7 +2594,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         }
         if ( visible( scrolledY + 822.0f, 18.0f ) )
         {
-            draw.Text( contentX, scrolledY + 822.0f, 12.0f, 1.0f, 0.85f, 0.34f, "World" );
+            drawSectionTitle( scrolledY + 822.0f, 12.0f, "World" );
         }
         const float displayGravityStrength = GravityStrengthFromWorld( data.worldGravity );
         snprintf( buf, sizeof( buf ), "%.1f", displayGravityStrength );

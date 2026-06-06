@@ -30,6 +30,7 @@ SCENES = (
     "renderer_combo",
     "scene_complete",
     "small_scroll",
+    "controls_clip_scroll",
     "controls_bottom",
     "controls_bottom_bg",
     "min_size",
@@ -111,6 +112,26 @@ def changed_pixels_outside_window(
                 if abs(ur - br) + abs(ug - bg) + abs(ub - bb) > 42:
                     changed += 1
         return changed
+
+
+def yellow_pixels_in_box(path: Path, box: tuple[int, int, int, int]) -> int:
+    with Image.open(path) as image:
+        rgb = image.convert("RGB")
+        x0, y0, x1, y1 = box
+        width, height = rgb.size
+        x0 = max(0, min(width, x0))
+        y0 = max(0, min(height, y0))
+        x1 = max(x0, min(width, x1))
+        y1 = max(y0, min(height, y1))
+        pixels = rgb.load()
+        yellow = 0
+        for y in range(y0, y1):
+            for x in range(x0, x1):
+                r, g, b = pixels[x, y]
+                if r > 200 and g > 140 and 40 < b < 150 and r - g < 90:
+                    yellow += 1
+        return yellow
+
 
 
 def average_marker_ms(path: Path) -> tuple[dict[str, float], list[str]]:
@@ -290,6 +311,22 @@ def main() -> int:
             if changed > 90:
                 print(f"ERROR: {renderer}/{scene} appears to draw UI outside the expected window bounds.")
                 failures += 1
+
+    content_clip_band = (74, 156, 486, 180)
+    for renderer in RENDERERS:
+        try:
+            yellow = yellow_pixels_in_box(
+                profile / f"ui_{renderer}_controls_clip_scroll.bmp",
+                content_clip_band,
+            )
+        except (OSError, ValueError) as exc:
+            print(f"ERROR: {renderer}/controls_clip_scroll content clipping check failed: {exc}")
+            failures += 1
+            continue
+        print(f"{renderer}/controls_clip_scroll: pre-content yellow pixels={yellow}")
+        if yellow > 0:
+            print(f"ERROR: {renderer}/controls_clip_scroll appears to leak scrolled content above the viewport.")
+            failures += 1
 
     if failures:
         print(f"UI screenshot validation failed with {failures} issue(s).")
