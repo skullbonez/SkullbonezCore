@@ -5,5 +5,6 @@ SkullbonezData/scenes/ui_profiler_default.scene
 SkullbonezData/scenes/ui_profiler_hierarchy.scene
 SkullbonezData/scenes/ui_profiler_timeline.scene
 SkullbonezData/scenes/ui_renderer_combo.scene
+SkullbonezData/scenes/ui_scene_complete.scene
 SkullbonezData/scenes/ui_small_scroll.scene
 SkullbonezData/scenes/ui_minimized.scene

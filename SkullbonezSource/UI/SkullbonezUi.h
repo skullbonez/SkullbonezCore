@@ -29,6 +29,7 @@ struct InGameUiFrameData
     int screenW = 1;
     int screenH = 1;
     const char* rendererName = "";
+    const char* sceneName = "";
     int drawCallsBeforeUi = 0;
     int uiDrawCalls = 0;
     float fps = 0.0f;
@@ -36,9 +37,11 @@ struct InGameUiFrameData
     float physicsMs = 0.0f;
     int modelCount = 0;
     int currentFrame = 0;
+    int targetFrameCount = -1;
     int currentSceneIndex = -1;
     int sceneCount = 0;
     double now = 0.0;
+    bool sceneMode = false;
     bool legacyPhysics = false;
     bool fixedStep = false;
     bool testComplete = false;

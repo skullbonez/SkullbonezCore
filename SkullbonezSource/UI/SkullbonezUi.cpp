@@ -6,6 +6,7 @@
 #include "UiIconButton.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 
 using namespace SkullbonezCore::Hardware;
@@ -60,6 +61,66 @@ UiRect MinimizedRect( int screenW, int screenH )
     constexpr float h = 38.0f;
     constexpr float margin = 14.0f;
     return { margin, (std::max)( margin, static_cast<float>( screenH ) - h - margin ), w, h };
+}
+
+void BuildWindowTitle( const InGameUiFrameData& data, char* out, size_t outSize )
+{
+    if ( outSize == 0 )
+    {
+        return;
+    }
+
+    if ( data.sceneMode && data.sceneName && data.sceneName[0] != '\0' )
+    {
+        const int displayedFrame = ( data.testComplete && data.targetFrameCount > 0 && data.currentFrame > data.targetFrameCount ) ? data.targetFrameCount : data.currentFrame;
+        if ( data.testComplete )
+        {
+            if ( data.targetFrameCount > 0 )
+            {
+                snprintf( out, outSize, "%s  %d/%d complete", data.sceneName, displayedFrame, data.targetFrameCount );
+            }
+            else
+            {
+                snprintf( out, outSize, "%s  complete", data.sceneName );
+            }
+        }
+        else if ( data.targetFrameCount > 0 )
+        {
+            snprintf( out, outSize, "%s  %d/%d", data.sceneName, displayedFrame, data.targetFrameCount );
+        }
+        else
+        {
+            snprintf( out, outSize, "%s  frame %d", data.sceneName, displayedFrame );
+        }
+    }
+    else
+    {
+        snprintf( out, outSize, "Skullbonez UI" );
+    }
+
+    out[outSize - 1] = '\0';
+}
+
+void FitTitleText( char* text, size_t textSize, float fontSize, float maxWidth )
+{
+    if ( textSize == 0 || Text2d::MeasureText( fontSize, text ) <= maxWidth )
+    {
+        return;
+    }
+
+    char original[192] = {};
+    strcpy_s( original, sizeof( original ), text );
+    const size_t len = strlen( original );
+    for ( size_t start = 1; start < len; ++start )
+    {
+        snprintf( text, textSize, "...%s", original + start );
+        if ( Text2d::MeasureText( fontSize, text ) <= maxWidth )
+        {
+            return;
+        }
+    }
+
+    snprintf( text, textSize, "..." );
 }
 } // namespace
 
@@ -718,11 +779,14 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     if ( m_isMinimized )
     {
         const UiRect minimized = MinimizedRect( screenW, screenH );
+        char titleText[192] = {};
+        BuildWindowTitle( data, titleText, sizeof( titleText ) );
+        FitTitleText( titleText, sizeof( titleText ), 12.5f, minimized.w - 58.0f );
         draw.Rect( minimized.x - 5.0f, minimized.y - 5.0f, minimized.w + 10.0f, minimized.h + 10.0f, 0.03f, 0.54f, 0.86f, 0.12f );
         draw.Rect( minimized.x, minimized.y, minimized.w, minimized.h, 0.018f, 0.040f, 0.056f, 0.76f );
         draw.Outline( minimized.x, minimized.y, minimized.w, minimized.h, 0.39f, 0.88f, 1.0f, 0.92f );
         draw.Rect( minimized.x + 10.0f, minimized.y + 12.0f, 12.0f, 12.0f, 0.34f, 0.91f, 1.0f, 0.90f );
-        draw.Text( minimized.x + 32.0f, minimized.y + 11.0f, 12.5f, 0.90f, 0.98f, 1.0f, "Skullbonez UI" );
+        draw.Text( minimized.x + 32.0f, minimized.y + 11.0f, 12.5f, 0.90f, 0.98f, 1.0f, titleText );
         draw.Text( minimized.x + minimized.w - 25.0f, minimized.y + 10.0f, 14.0f, 0.82f, 0.98f, 1.0f, "+" );
         Text2d::FlushQuads();
         return;
@@ -741,6 +805,9 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     const float contentW = w - pad * 2.0f - 8.0f;
     const float contentH = (std::max)( 30.0f, h - titleH - tabH - bottomH - pad );
     const float scrolledY = contentY - m_scrollY;
+    char titleText[192] = {};
+    BuildWindowTitle( data, titleText, sizeof( titleText ) );
+    FitTitleText( titleText, sizeof( titleText ), 15.5f, w - 150.0f );
     ApplyProfilerDefaultExpansion();
     ApplyProfilerExpandAll();
 
@@ -757,7 +824,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     draw.Outline( x, y, w, h, 0.39f, 0.88f, 1.0f, 0.88f );
     draw.Outline( x + 2.0f, y + 2.0f, w - 4.0f, h - 4.0f, 0.08f, 0.26f, 0.34f, 0.64f );
 
-    draw.Text( x + 20.0f, y + 12.0f, 15.5f, 0.90f, 0.98f, 1.0f, "Skullbonez UI" );
+    draw.Text( x + 20.0f, y + 12.0f, 15.5f, 0.90f, 0.98f, 1.0f, titleText );
     draw.Rect( x + w - 112.0f, y + 6.0f, 30.0f, 28.0f, 0.026f, 0.080f, 0.102f, 0.70f );
     draw.Rect( x + w - 76.0f, y + 6.0f, 30.0f, 28.0f, 0.026f, 0.080f, 0.102f, 0.70f );
     draw.Rect( x + w - 40.0f, y + 6.0f, 30.0f, 28.0f, 0.026f, 0.080f, 0.102f, 0.70f );
@@ -923,7 +990,15 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     {
         char buf[160];
         draw.Text( contentX, scrolledY, 16.0f, 1.0f, 0.85f, 0.34f, "Scene Telemetry" );
-        snprintf( buf, sizeof( buf ), "%d", data.currentFrame );
+        if ( data.targetFrameCount > 0 )
+        {
+            const int displayedFrame = ( data.testComplete && data.currentFrame > data.targetFrameCount ) ? data.targetFrameCount : data.currentFrame;
+            snprintf( buf, sizeof( buf ), "%d / %d", displayedFrame, data.targetFrameCount );
+        }
+        else
+        {
+            snprintf( buf, sizeof( buf ), "%d", data.currentFrame );
+        }
         labelValue( scrolledY + 42.0f, "Frame", buf, 0.88f, 0.92f, 0.94f );
         snprintf( buf, sizeof( buf ), "%d / %d", data.currentSceneIndex + 1, data.sceneCount );
         labelValue( scrolledY + 68.0f, "Scene index", buf, 0.88f, 0.92f, 0.94f );

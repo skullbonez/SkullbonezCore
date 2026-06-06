@@ -103,6 +103,23 @@ void DrawUiTestPattern( int screenW, int screenH )
     draw.Rect( 76.0f, 484.0f, 720.0f, 8.0f, 0.38f, 0.54f, 1.0f, 0.82f );
     Text2d::FlushQuads();
 }
+
+const char* FileNameFromPath( const char* path )
+{
+    if ( !path )
+    {
+        return "";
+    }
+
+    const char* slash = strrchr( path, '/' );
+    const char* backslash = strrchr( path, '\\' );
+    const char* separator = slash;
+    if ( backslash && ( !separator || backslash > separator ) )
+    {
+        separator = backslash;
+    }
+    return separator ? separator + 1 : path;
+}
 } // namespace
 
 
@@ -1869,7 +1886,6 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     const float hh = Text2d::HalfH();
     const float mX = 0.022f; // horizontal inset from left/right edge
     const float mY = 0.015f; // vertical inset from top/bottom edge
-    const float fSz = 0.015f;
 
     // Crosshair — always visible when nudge mode is active, regardless of overlay state.
     // Drawn as two thin quads forming a + shape centred on screen.
@@ -1897,29 +1913,10 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 #endif
     }
 
-    if ( !m_debug.isTopTextHidden )
+    const char* sceneName = "";
+    if ( m_scene.isSceneMode && m_scene.currentSceneIndex >= 0 && m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() ) )
     {
-        // Scene name and frame counter stay visible in scene mode; the rest of the old
-        // top HUD now lives in the movable UI window.
-        if ( m_scene.isSceneMode && m_scene.currentSceneIndex >= 0 )
-        {
-            const std::string& scenePath = m_sceneQueue[m_scene.currentSceneIndex];
-            const char* base = scenePath.c_str();
-            const char* slash = strrchr( base, '/' );
-            if ( !slash )
-            {
-                slash = strrchr( base, '\\' );
-            }
-            const char* sceneName = slash ? slash + 1 : base;
-            if ( m_scene.isTestComplete )
-            {
-                Text2d::Render2dText( -( hw - mX ), hh - mY - fSz, fSz, "%s - TEST COMPLETE", sceneName );
-            }
-            else
-            {
-                Text2d::Render2dText( -( hw - mX ), hh - mY - fSz, fSz, "%s  frame: %d", sceneName, m_scene.currentFrame );
-            }
-        }
+        sceneName = FileNameFromPath( m_sceneQueue[m_scene.currentSceneIndex].c_str() );
     }
 
     if ( m_ui.IsVisible() )
@@ -1932,15 +1929,18 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             DrawUiTestPattern( uiData.screenW, uiData.screenH );
         }
         uiData.rendererName = rendererName;
+        uiData.sceneName = sceneName;
         uiData.uiDrawCalls = m_timers.lastUiDrawCalls;
         uiData.fps = m_timers.rollingFpsTime > 0.0f ? m_timers.rollingFpsTime : ( dSecondsPerFrame > 0.0 ? 1.0f / static_cast<float>( dSecondsPerFrame ) : 0.0f );
         uiData.renderMs = ( m_timers.rollingRenderTime > 0.0f ? m_timers.rollingRenderTime : m_timers.renderTime ) * 1000.0f;
         uiData.physicsMs = ( m_timers.rollingPhysicsTime > 0.0f ? m_timers.rollingPhysicsTime : m_timers.physicsTime ) * 1000.0f;
         uiData.modelCount = m_scene.modelCount;
         uiData.currentFrame = m_scene.currentFrame;
+        uiData.targetFrameCount = m_scene.targetFrameCount;
         uiData.currentSceneIndex = m_scene.currentSceneIndex;
         uiData.sceneCount = static_cast<int>( m_sceneQueue.size() );
         uiData.now = m_timers.simulationTimer.GetTotalTime();
+        uiData.sceneMode = m_scene.isSceneMode;
         uiData.legacyPhysics = m_cGameModelCollection.GetLegacyMode();
         uiData.fixedStep = m_scene.isFixedStep;
         uiData.testComplete = m_scene.isTestComplete;

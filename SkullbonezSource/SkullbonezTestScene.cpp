@@ -166,7 +166,8 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
-        // parse UI automation directives used by optional visual UI tests
+        // Parse scene UI directives. Visual tests use these for automation, but normal
+        // scenes can also opt into the in-game UI with "ui visible on".
         if ( strncmp( line, "ui ", 3 ) == 0 )
         {
             char command[64] = {};
