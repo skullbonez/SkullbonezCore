@@ -171,11 +171,13 @@
     <ClCompile Include="SkullbonezSource\SkullbonezWorldEnvironment.cpp" />
     <ClCompile Include="SkullbonezSource\UI\SkullbonezUi.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UiBackdropBlur.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UiButton.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UiCheckBox.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UiComboBox.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UiDraw.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UiIconButton.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UiScrollBar.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UiSlider.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UiTabBar.cpp" />
     <ClCompile Include="ThirdPtySource\GLAD\src\gl.c" />
     <ClCompile Include="ThirdPtySource\stb\stb_image.cpp" />
@@ -238,11 +240,13 @@
     <ClInclude Include="SkullbonezSource\SkullbonezWorldEnvironment.h" />
     <ClInclude Include="SkullbonezSource\UI\SkullbonezUi.h" />
     <ClInclude Include="SkullbonezSource\UI\UiBackdropBlur.h" />
+    <ClInclude Include="SkullbonezSource\UI\UiButton.h" />
     <ClInclude Include="SkullbonezSource\UI\UiCheckBox.h" />
     <ClInclude Include="SkullbonezSource\UI\UiComboBox.h" />
     <ClInclude Include="SkullbonezSource\UI\UiDraw.h" />
     <ClInclude Include="SkullbonezSource\UI\UiIconButton.h" />
     <ClInclude Include="SkullbonezSource\UI\UiScrollBar.h" />
+    <ClInclude Include="SkullbonezSource\UI\UiSlider.h" />
     <ClInclude Include="SkullbonezSource\UI\UiTabBar.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezMatrix4.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezTestScene.h" />

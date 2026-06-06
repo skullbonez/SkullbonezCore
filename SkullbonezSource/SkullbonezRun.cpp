@@ -1435,6 +1435,20 @@ void SkullbonezRun::TakeInput()
                 m_debug.isWaterRTReflect = false;
             }
         }
+        if ( uiResult.requestedTimeScale > 0.0f )
+        {
+            m_uiTimeScaleOverride = std::clamp( uiResult.requestedTimeScale, 0.10f, 4.00f );
+            m_scene.timeScale = m_uiTimeScaleOverride;
+            m_timers.physicsAccumulator = 0.0f;
+        }
+        if ( uiResult.requestedModelCount >= 0 )
+        {
+            ApplyUiModelCountOverride( uiResult.requestedModelCount );
+        }
+        if ( uiResult.resetScene )
+        {
+            ResetCurrentScene();
+        }
         if ( uiResult.requestedRendererIndex >= 0 )
         {
             RuntimeRendererType requestedRenderer = RuntimeRendererType::OpenGL;
@@ -3153,7 +3167,7 @@ void SkullbonezRun::LoadScene( int index )
 
         m_scene.isSceneMode = false;
         SetUpCameras();
-        SetUpGameModels( DEFAULT_GAME_MODELS );
+        SetUpGameModels( m_uiModelCountOverride >= 0 ? m_uiModelCountOverride : DEFAULT_GAME_MODELS );
         const char* rendererName = Gfx().GetRendererName();
         char titleText[256];
         sprintf_s( titleText, "%s [%s]", TITLE_TEXT, rendererName );
@@ -3315,7 +3329,11 @@ void SkullbonezRun::LoadScene( int index )
 
         SetUpCamerasFromScene( scene );
 
-        if ( scene.GetSolverBallCount() > 0 || scene.GetSolverBoxCount() > 0 )
+        if ( m_uiModelCountOverride >= 0 )
+        {
+            SetUpGameModels( m_uiModelCountOverride );
+        }
+        else if ( scene.GetSolverBallCount() > 0 || scene.GetSolverBoxCount() > 0 )
         {
             // Exact-count solver spawn — explicit ball/box split for benchmarks.
             SetUpSolverObjects( scene.GetSolverBallCount(), scene.GetSolverBoxCount() );
@@ -3366,6 +3384,10 @@ void SkullbonezRun::LoadScene( int index )
     if ( m_cmdTimeScaleOverride > 0.0f )
     {
         m_scene.timeScale = m_cmdTimeScaleOverride;
+    }
+    if ( m_uiTimeScaleOverride > 0.0f )
+    {
+        m_scene.timeScale = m_uiTimeScaleOverride;
     }
     if ( m_cmdFixedStep )
     {
@@ -3508,6 +3530,40 @@ void SkullbonezRun::ResetCurrentScene()
 
     ++m_scene.manualResetCount;
     LoadScene( m_scene.currentSceneIndex );
+}
+
+
+void SkullbonezRun::ApplyUiModelCountOverride( int count )
+{
+    m_uiModelCountOverride = std::clamp( count, 0, 1000 );
+    if ( m_scene.currentSceneIndex < 0 ||
+         m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
+    {
+        return;
+    }
+
+    m_cGameModelCollection.Clear();
+    m_fire.ballNext = -1;
+    m_fire.boxNext = -1;
+    m_timers.physicsAccumulator = 0.0f;
+    m_scene.currentFrame = 0;
+    m_scene.isTestComplete = false;
+    if ( m_uiModelCountOverride <= 0 )
+    {
+        m_scene.modelCount = 0;
+        m_camera.trackBallIndex = -1;
+        PROFILE_SCHEDULE_RESET();
+        return;
+    }
+
+    const unsigned int seed = m_scene.rngSeed > 0 ? m_scene.rngSeed : 1u;
+    srand( seed );
+    SetUpGameModels( m_uiModelCountOverride );
+    if ( m_camera.trackBallIndex >= m_uiModelCountOverride )
+    {
+        m_camera.trackBallIndex = m_uiModelCountOverride - 1;
+    }
+    PROFILE_SCHEDULE_RESET();
 }
 
 

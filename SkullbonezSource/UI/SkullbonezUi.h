@@ -1,10 +1,12 @@
 #pragma once
 
 #include "../SkullbonezCommon.h"
+#include "UiButton.h"
 #include "UiCheckBox.h"
 #include "UiComboBox.h"
 #include "UiBackdropBlur.h"
 #include "UiScrollBar.h"
+#include "UiSlider.h"
 #include "UiTabBar.h"
 #include <cstdint>
 
@@ -85,6 +87,9 @@ struct InGameUiInputResult
     bool toggleWaterFreeze = false;
     bool toggleWaterFlat = false;
     bool toggleWaterReflection = false;
+    bool resetScene = false;
+    float requestedTimeScale = -1.0f;
+    int requestedModelCount = -1;
     uint32_t togglePhysicsDebugFlags = 0;
     int requestedRendererIndex = -1; // 0=GL, 1=DX11, 2=DX12, -1=no request
 };
@@ -127,6 +132,9 @@ class InGameUi
     UiCheckBox m_timelineToggle;
     UiCheckBox m_physicsToggles[7];
     UiCheckBox m_optionToggles[11];
+    UiSlider m_timeScaleSlider;
+    UiSlider m_modelCountSlider;
+    UiButton m_resetSceneButton;
     UiComboBox m_rendererCombo;
     UiBackdropBlur m_backdropBlur;
     UiScrollBar m_scrollBar;
@@ -151,6 +159,9 @@ class InGameUi
     int m_mouseOverrideY = 0;
     float m_scrollY = 0.0f;
     double m_scrollbarVisibleUntil = 0.0;
+    int m_activeSlider = 0; // 0=none, 1=time scale, 2=model count
+    float m_previewTimeScale = -1.0f;
+    int m_previewModelCount = -1;
     uint32_t m_expandedProfilerHashes[64] = {};
     int m_expandedProfilerHashCount = 0;
     bool m_expandAllProfilerMarkers = false;

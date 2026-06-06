@@ -219,6 +219,9 @@
     <ClCompile Include="SkullbonezSource\UI\UiBackdropBlur.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UiButton.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UiCheckBox.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
@@ -232,6 +235,9 @@
       <Filter>Source Files\UI</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UiScrollBar.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UiSlider.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UiTabBar.cpp">
@@ -419,6 +425,9 @@
     <ClInclude Include="SkullbonezSource\UI\UiBackdropBlur.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UiButton.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UiCheckBox.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
@@ -432,6 +441,9 @@
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UiScrollBar.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UiSlider.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UiTabBar.h">

@@ -228,6 +228,8 @@ class SkullbonezRun
     unsigned int m_cmdSeedOverride = 0;    // CLI --seed override applied after each scene load (0 = not set)
     bool m_cmdNoWater = false;             // CLI --no-water starts fluid below terrain
     GeneratedObjectTypeOverride m_generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
+    float m_uiTimeScaleOverride = 0.0f;
+    int m_uiModelCountOverride = -1;
     bool m_cmdHasPhysicsDebugFlagsOverride = false;
     uint32_t m_cmdPhysicsDebugFlagsOverride = PHYSICS_DEBUG_NONE;
     bool m_cmdHasPhysicsDebugTransparentOverride = false;
@@ -274,6 +276,7 @@ class SkullbonezRun
     void LogPerfMemory( const char* checkpoint );                      // Log memory usage to perf CSV
     void LoadScene( int index );                                       // Resets scene-specific state and loads a scene by queue index
     void ResetCurrentScene();                                          // User-triggered reset/reload of current scene or legacy mode
+    void ApplyUiModelCountOverride( int count );                       // Rebuilds the active generated model pool from the UI slider
     void ApplyNoWaterOverride();                                       // Pushes fluid surface below the active terrain when requested
     bool AdvanceScene();                                               // Advances to the next scene in the queue (returns false if done)
     void MoveCamera( float keyMovementQty, float mouseMovemementQty ); // Moves the camera

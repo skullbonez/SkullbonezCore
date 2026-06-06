@@ -9,6 +9,7 @@ fixed_step
 time_scale 1.50
 water_hidden off
 terrain_hidden on
+legacy_balls 300
 frames 24
 ui visible on
 ui tab options

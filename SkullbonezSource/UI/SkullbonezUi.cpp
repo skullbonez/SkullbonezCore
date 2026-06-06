@@ -24,6 +24,11 @@ constexpr int RENDERER_GL = 0;
 constexpr int RENDERER_DX11 = 1;
 constexpr int RENDERER_DX12 = 2;
 constexpr float CONTENT_TOGGLE_ROW_H = 30.0f;
+constexpr float UI_TIME_SCALE_MIN = 0.10f;
+constexpr float UI_TIME_SCALE_MAX = 4.00f;
+constexpr float UI_TIME_SCALE_STEP = 0.05f;
+constexpr int UI_MODEL_COUNT_MIN = 0;
+constexpr int UI_MODEL_COUNT_MAX = 1000;
 
 int GetRendererIndexFromName( const char* rendererName )
 {
@@ -177,6 +182,7 @@ void InGameUi::SetMinimized( bool minimized, double now )
     if ( minimized )
     {
         m_rendererCombo.Close();
+        m_activeSlider = 0;
     }
     else
     {
@@ -191,6 +197,9 @@ void InGameUi::SetActiveTab( InGameUiTab tab )
     m_activeTab = tab;
     m_scrollY = 0.0f;
     m_rendererCombo.Close();
+    m_activeSlider = 0;
+    m_previewTimeScale = -1.0f;
+    m_previewModelCount = -1;
     m_backdropBlur.Invalidate();
 }
 
@@ -377,7 +386,7 @@ int InGameUi::ContentHeight() const
     case InGameUiTab::Physics:
         return 330;
     case InGameUiTab::Options:
-        return 380;
+        return 440;
     default:
         return 330;
     }
@@ -783,6 +792,9 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
             setToggle( 8, 4, 0 );
             setToggle( 9, 4, 1 );
             setToggle( 10, 5, 0 );
+            m_timeScaleSlider.SetBounds( contentX, rowBase + 196.0f, contentW, 34.0f );
+            m_modelCountSlider.SetBounds( contentX, rowBase + 244.0f, contentW, 34.0f );
+            m_resetSceneButton.SetBounds( col2, rowBase + 294.0f, 124.0f, 32.0f );
 
             if ( m_optionToggles[0].HitTest( m_mouseX, m_mouseY ) )
             {
@@ -828,6 +840,26 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
             {
                 result.toggleWaterReflection = true;
             }
+            else if ( m_timeScaleSlider.HitTest( m_mouseX, m_mouseY ) )
+            {
+                m_activeSlider = 1;
+                m_previewTimeScale = m_timeScaleSlider.ValueFromMouse( m_mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
+                result.requestedTimeScale = m_previewTimeScale;
+                SetCapture( hwnd );
+            }
+            else if ( m_modelCountSlider.HitTest( m_mouseX, m_mouseY ) )
+            {
+                m_activeSlider = 2;
+                m_previewModelCount = static_cast<int>( m_modelCountSlider.ValueFromMouse( m_mouseX,
+                                                                                           static_cast<float>( UI_MODEL_COUNT_MIN ),
+                                                                                           static_cast<float>( UI_MODEL_COUNT_MAX ),
+                                                                                           1.0f ) );
+                SetCapture( hwnd );
+            }
+            else if ( m_resetSceneButton.HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.resetScene = true;
+            }
             m_rendererCombo.Close();
         }
         else if ( inside && m_mouseY >= m_y + m_height - bottomH )
@@ -856,6 +888,19 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
         }
     }
 
+    if ( leftNow && m_activeSlider == 1 )
+    {
+        m_previewTimeScale = m_timeScaleSlider.ValueFromMouse( m_mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
+        result.requestedTimeScale = m_previewTimeScale;
+    }
+    else if ( leftNow && m_activeSlider == 2 )
+    {
+        m_previewModelCount = static_cast<int>( m_modelCountSlider.ValueFromMouse( m_mouseX,
+                                                                                   static_cast<float>( UI_MODEL_COUNT_MIN ),
+                                                                                   static_cast<float>( UI_MODEL_COUNT_MAX ),
+                                                                                   1.0f ) );
+    }
+
     if ( leftNow && m_isDragging )
     {
         const int oldX = m_x;
@@ -882,6 +927,15 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
 
     if ( !leftNow && m_leftWasDown )
     {
+        if ( m_activeSlider == 1 && m_previewTimeScale > 0.0f )
+        {
+            result.requestedTimeScale = m_previewTimeScale;
+        }
+        else if ( m_activeSlider == 2 && m_previewModelCount >= 0 )
+        {
+            result.requestedModelCount = m_previewModelCount;
+        }
+        m_activeSlider = 0;
         m_isDragging = false;
         m_isResizing = false;
         ReleaseCapture();
@@ -889,7 +943,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
 
     m_leftWasDown = leftNow;
     m_scrollY = std::clamp( m_scrollY, 0.0f, maxScroll );
-    m_blocksCameraMouse = inside || m_isDragging || m_isResizing;
+    m_blocksCameraMouse = inside || m_isDragging || m_isResizing || m_activeSlider != 0;
     return result;
 }
 
@@ -1173,6 +1227,8 @@ void InGameUi::Draw( const InGameUiFrameData& data )
         const float colW = (std::max)( 148.0f, contentW * 0.46f );
         const float col1 = contentX;
         const float col2 = contentX + colW + 18.0f;
+        const float displayTimeScale = ( m_activeSlider == 1 && m_previewTimeScale > 0.0f ) ? m_previewTimeScale : data.timeScale;
+        const int displayModelCount = ( m_activeSlider == 2 && m_previewModelCount >= 0 ) ? m_previewModelCount : data.modelCount;
         draw.Text( contentX, scrolledY, 16.0f, 1.0f, 0.85f, 0.34f, "Scene Options" );
         drawContentToggle( m_optionToggles[0], col1, scrolledY + 42.0f, colW, "Scene physics", data.scenePhysicsEnabled );
         drawContentToggle( m_optionToggles[1], col2, scrolledY + 42.0f, colW, "Scene text", data.sceneTextEnabled );
@@ -1185,11 +1241,24 @@ void InGameUi::Draw( const InGameUiFrameData& data )
         drawContentToggle( m_optionToggles[8], col1, scrolledY + 162.0f, colW, "Freeze water", data.waterFreezeDebug );
         drawContentToggle( m_optionToggles[9], col2, scrolledY + 162.0f, colW, "Flat water", data.waterFlatDebug );
         drawContentToggle( m_optionToggles[10], col1, scrolledY + 192.0f, colW, "Water reflect", !data.waterNoReflect );
-        snprintf( buf, sizeof( buf ), "%.2fx", data.timeScale );
-        labelValue( scrolledY + 238.0f, "Time scale", buf, 0.52f, 0.94f, 1.0f );
-        snprintf( buf, sizeof( buf ), "%d", data.modelCount );
-        labelValue( scrolledY + 264.0f, "Models", buf, 0.88f, 0.92f, 0.94f );
-        labelValue( scrolledY + 290.0f, "Water mode", data.waterNoReflect ? "no reflection" : ( data.waterRTReflect ? "DXR reflect" : "FBO reflect" ), 0.98f, 0.78f, 0.35f );
+        snprintf( buf, sizeof( buf ), "%.2fx", displayTimeScale );
+        m_timeScaleSlider.SetBounds( contentX, scrolledY + 238.0f, contentW, 34.0f );
+        if ( visible( scrolledY + 238.0f, 34.0f ) )
+        {
+            m_timeScaleSlider.Draw( draw, "Time scale", buf, displayTimeScale, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX );
+        }
+        snprintf( buf, sizeof( buf ), "%d", displayModelCount );
+        m_modelCountSlider.SetBounds( contentX, scrolledY + 286.0f, contentW, 34.0f );
+        if ( visible( scrolledY + 286.0f, 34.0f ) )
+        {
+            m_modelCountSlider.Draw( draw, "Model count", buf, static_cast<float>( displayModelCount ), static_cast<float>( UI_MODEL_COUNT_MIN ), static_cast<float>( UI_MODEL_COUNT_MAX ) );
+        }
+        m_resetSceneButton.SetBounds( col2, scrolledY + 336.0f, 124.0f, 32.0f );
+        if ( visible( scrolledY + 336.0f, 32.0f ) )
+        {
+            m_resetSceneButton.Draw( draw, "Reset scene", m_mouseX, m_mouseY );
+        }
+        labelValue( scrolledY + 386.0f, "Water mode", data.waterNoReflect ? "no reflection" : ( data.waterRTReflect ? "DXR reflect" : "FBO reflect" ), 0.98f, 0.78f, 0.35f );
     }
     else if ( m_activeTab == InGameUiTab::Renderer )
     {
