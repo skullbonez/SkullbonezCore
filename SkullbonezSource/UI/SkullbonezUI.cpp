@@ -308,13 +308,23 @@ float ProfilerMarkerDisplayCpuMs( const Profiler::Marker& marker )
 }
 
 
-UIRect MinimizedRect( int screenW, int screenH )
+UIRect MinimizedRect( int screenW, int screenH, float requestedW )
 {
-    constexpr float desiredW = 360.0f;
     constexpr float h = 38.0f;
     constexpr float margin = 14.0f;
-    const float w = (std::max)( 196.0f, (std::min)( desiredW, static_cast<float>( screenW ) - margin * 2.0f ) );
+    const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );
+    const float w = std::clamp( requestedW, 154.0f, maxW );
     return { margin, (std::max)( margin, static_cast<float>( screenH ) - h - margin ), w, h };
+}
+
+float MinimizedWidthForTitle( const char* title, int screenW )
+{
+    constexpr float margin = 14.0f;
+    constexpr float textSize = 12.5f;
+    constexpr float chromeW = 76.0f;
+    const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );
+    const float textW = Text2d::MeasureText( textSize, title ? title : "" );
+    return std::clamp( textW + chromeW, 154.0f, maxW );
 }
 
 void BuildWindowTitle( const InGameUIFrameData& data, char* out, size_t outSize )
@@ -1166,7 +1176,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     const bool leftNow = Input::IsLeftMouseDown();
     if ( m_isMinimized )
     {
-        const UIRect minimized = MinimizedRect( screenW, screenH );
+        const UIRect minimized = MinimizedRect( screenW, screenH, m_minimizedWidth );
         const bool insideMinimized = minimized.Contains( m_mouseX, m_mouseY );
         if ( leftNow && !m_leftWasDown && insideMinimized )
         {
@@ -2044,10 +2054,11 @@ void InGameUI::Draw( const InGameUIFrameData& data )
 
     if ( m_isMinimized )
     {
-        const UIRect minimized = MinimizedRect( screenW, screenH );
         char titleText[192] = {};
         BuildWindowTitle( data, titleText, sizeof( titleText ) );
-        FitTitleText( titleText, sizeof( titleText ), 12.5f, minimized.w - 88.0f );
+        m_minimizedWidth = MinimizedWidthForTitle( titleText, screenW );
+        const UIRect minimized = MinimizedRect( screenW, screenH, m_minimizedWidth );
+        FitTitleText( titleText, sizeof( titleText ), 12.5f, minimized.w - 76.0f );
         const UIRect restoreButton = { minimized.x + minimized.w - 36.0f, minimized.y + 7.0f, 26.0f, 22.0f };
         draw.Rect( minimized.x - 5.0f, minimized.y - 5.0f, minimized.w + 10.0f, minimized.h + 10.0f, 0.03f, 0.54f, 0.86f, 0.12f );
         draw.Rect( minimized.x, minimized.y, minimized.w, minimized.h, 0.018f, 0.040f, 0.056f, 0.76f );

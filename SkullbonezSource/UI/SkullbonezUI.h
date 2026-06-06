@@ -200,6 +200,7 @@ class InGameUI
     int m_y = 56;
     int m_width = 760;
     int m_height = 540;
+    float m_minimizedWidth = 176.0f;
     int m_restoreX = 34;
     int m_restoreY = 56;
     int m_restoreW = 760;
