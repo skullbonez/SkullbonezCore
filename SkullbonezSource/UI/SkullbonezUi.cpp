@@ -189,6 +189,19 @@ void InGameUi::SetProfilerTimelineEnabled( bool enabled )
 }
 
 
+void InGameUi::SetMouseOverride( bool enabled, int x, int y )
+{
+    m_hasMouseOverride = enabled;
+    m_mouseOverrideX = x;
+    m_mouseOverrideY = y;
+    if ( enabled )
+    {
+        m_mouseX = x;
+        m_mouseY = y;
+    }
+}
+
+
 void InGameUi::SetMaximized( bool maximized, int screenW, int screenH )
 {
     if ( m_isMaximized == maximized )
@@ -446,6 +459,11 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
     POINT mouse = Input::GetClientMouseCoordinates();
     m_mouseX = static_cast<int>( mouse.x );
     m_mouseY = static_cast<int>( mouse.y );
+    if ( m_hasMouseOverride )
+    {
+        m_mouseX = m_mouseOverrideX;
+        m_mouseY = m_mouseOverrideY;
+    }
 
     screenW = (std::max)( 1, screenW );
     screenH = (std::max)( 1, screenH );
@@ -496,7 +514,6 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
     m_blurToggle.SetBounds( static_cast<float>( m_x + 32 ), static_cast<float>( bottomY + 22 ), 100.0f, 24.0f );
     m_vsyncToggle.SetBounds( static_cast<float>( m_x + 158 ), static_cast<float>( bottomY + 22 ), 100.0f, 24.0f );
     m_rendererCombo.SetBounds( static_cast<float>( m_x + 32 ), static_cast<float>( bottomY + 48 ), 126.0f, 24.0f );
-    m_rendererCombo.SetDropdownBounds( static_cast<float>( m_x + 32 ), static_cast<float>( bottomY - 60 ), 96.0f, 60.0f );
     m_timelineToggle.SetBounds( static_cast<float>( m_x + 158 ), static_cast<float>( bottomY + 48 ), 100.0f, 24.0f );
 
     if ( wheelDelta != 0 && inContent )
@@ -949,13 +966,12 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     m_blurToggle.SetBounds( x + 32.0f, by + 22.0f, 100.0f, 24.0f );
     m_vsyncToggle.SetBounds( x + 158.0f, by + 22.0f, 100.0f, 24.0f );
     m_rendererCombo.SetBounds( x + 32.0f, by + 48.0f, 126.0f, 24.0f );
-    m_rendererCombo.SetDropdownBounds( x + 32.0f, by - 60.0f, 96.0f, 60.0f );
     m_timelineToggle.SetBounds( x + 158.0f, by + 48.0f, 100.0f, 24.0f );
     m_blurToggle.DrawToggle( draw, "Blur", m_blurPreviewEnabled, 0.34f, 0.91f, 1.0f );
     m_vsyncToggle.DrawToggle( draw, "VSync", data.vsyncEnabled, 0.34f, 0.91f, 1.0f );
     const int currentRendererIndex = GetRendererIndexFromName( data.rendererName );
     static const char* kRendererOptions[] = { "GL", "DX11", "DX12" };
-    m_rendererCombo.Draw( draw, "Renderer", kRendererOptions, 3, currentRendererIndex );
+    m_rendererCombo.Draw( draw, "Renderer", kRendererOptions, 3, currentRendererIndex, m_mouseX, m_mouseY );
     m_timelineToggle.DrawToggle( draw, "Timeline", m_profilerTimelineEnabled, 0.34f, 0.91f, 1.0f );
 
     const float statsX = x + 274.0f;

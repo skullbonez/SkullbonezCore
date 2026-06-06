@@ -11,6 +11,7 @@ ui tab renderer
 ui rect 34 56 760 540
 ui blur on
 ui renderer_combo open
+ui mouse 142 526
 ui profiler_expand none
 ui_test_pattern on
 screenshot Profile/ui_renderer_combo.bmp frame 20

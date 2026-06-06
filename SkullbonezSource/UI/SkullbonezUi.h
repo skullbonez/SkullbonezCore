@@ -74,6 +74,7 @@ class InGameUi
     void SetRendererComboOpen( bool open );
     void SetProfilerExpandAll( bool expandAll );
     void SetProfilerTimelineEnabled( bool enabled );
+    void SetMouseOverride( bool enabled, int x = 0, int y = 0 );
     void ResetResources();
 
     InGameUiInputResult UpdateInput( HWND hwnd, int screenW, int screenH, double now );
@@ -113,6 +114,9 @@ class InGameUi
     int m_resizeStartH = 0;
     int m_mouseX = 0;
     int m_mouseY = 0;
+    bool m_hasMouseOverride = false;
+    int m_mouseOverrideX = 0;
+    int m_mouseOverrideY = 0;
     float m_scrollY = 0.0f;
     double m_scrollbarVisibleUntil = 0.0;
     uint32_t m_expandedProfilerHashes[64] = {};

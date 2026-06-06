@@ -307,6 +307,24 @@ TestScene TestScene::LoadFromFile( const char* path )
                 continue;
             }
 
+            if ( strcmp( command, "mouse" ) == 0 )
+            {
+                int x = 0;
+                int y = 0;
+                int parsed = sscanf_s( line + 3 + 6, "%d %d", &x, &y );
+                if ( parsed != 2 )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid ui mouse at line %d (expected: ui mouse <x> <y>)  (TestScene::LoadFromFile)", lineNumber );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_uiOptions.hasMouseOverride = true;
+                scene.m_uiOptions.mouseX = x;
+                scene.m_uiOptions.mouseY = y;
+                continue;
+            }
+
             fclose( file );
             char msg[256];
             sprintf_s( msg, sizeof( msg ), "Unknown ui directive at line %d: %s  (TestScene::LoadFromFile)", lineNumber, command );

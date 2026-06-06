@@ -3130,6 +3130,7 @@ void SkullbonezRun::LoadScene( int index )
         {
             m_ui.SetRendererComboOpen( uiOptions.rendererComboOpen );
         }
+        m_ui.SetMouseOverride( uiOptions.hasMouseOverride, uiOptions.mouseX, uiOptions.mouseY );
         if ( uiOptions.hasVisible )
         {
             m_ui.SetVisible( uiOptions.isVisible, uiNow );

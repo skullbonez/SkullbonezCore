@@ -155,6 +155,9 @@ struct SceneUiOptions
     bool profilerTimeline = false;
     bool hasTestPattern = false;
     bool testPatternEnabled = false;
+    bool hasMouseOverride = false;
+    int mouseX = 0;
+    int mouseY = 0;
 };
 
 /* -- Test Scene -------------------------------------------------------------------------------------------------------------------------------------------------
