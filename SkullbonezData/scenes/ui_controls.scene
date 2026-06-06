@@ -2,10 +2,12 @@
 seed 4242
 physics on
 text on
+text_only off
 vsync off
 pipeline_sync off
 roll_align on
 fixed_step
+exit_on_complete
 time_scale 1.75
 debug_vectors on
 physics_debug_axes on
@@ -22,8 +24,12 @@ water_reflection none
 water_hidden off
 terrain_hidden on
 physics_mode solver
-legacy_balls 240
+solver_balls 180
+solver_boxes 60
 frames 24
+track_height 280
+auto_cycle_interval 10
+world -12 24 1.2
 ui visible on
 ui tab controls
 ui rect 24 10 820 748

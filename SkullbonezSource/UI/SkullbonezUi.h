@@ -41,20 +41,30 @@ struct InGameUiFrameData
     int modelCount = 0;
     int currentFrame = 0;
     int targetFrameCount = -1;
+    unsigned int rngSeed = 0;
+    int solverBallCount = 0;
+    int solverBoxCount = 0;
     int currentSceneIndex = -1;
     int sceneCount = 0;
     double now = 0.0;
     bool sceneMode = false;
     bool scenePhysicsEnabled = true;
     bool sceneTextEnabled = true;
+    bool textOnly = false;
     bool legacyPhysics = false;
     bool fixedStep = false;
+    bool exitOnComplete = false;
     bool testComplete = false;
     bool vsyncEnabled = false;
     bool pipelineSyncEnabled = false;
     bool rollAlignEnabled = true;
     float sceneEnergy = 0.0f;
     float timeScale = 1.0f;
+    float trackHeight = 0.0f;
+    float autoCycleInterval = 0.0f;
+    float worldGravity = 0.0f;
+    float worldFluidHeight = 0.0f;
+    float worldFluidDensity = 0.0f;
     uint32_t physicsDebugFlags = 0;
     float physicsDebugAlpha = 0.0f;
     float physicsDebugContactLinger = 0.0f;
@@ -80,7 +90,9 @@ struct InGameUiInputResult
     bool toggleBroadphaseOverlay = false;
     bool toggleScenePhysics = false;
     bool toggleSceneText = false;
+    bool toggleTextOnly = false;
     bool toggleFixedStep = false;
+    bool toggleExitOnComplete = false;
     bool togglePipelineSync = false;
     bool toggleRollAlign = false;
     bool toggleTerrainHidden = false;
@@ -93,10 +105,23 @@ struct InGameUiInputResult
     float requestedTimeScale = -1.0f;
     float requestedPhysicsDebugAlpha = -1.0f;
     float requestedPhysicsDebugContactLinger = -1.0f;
+    float requestedTrackHeight = -1.0f;
+    float requestedAutoCycleInterval = -1.0f;
     int requestedModelCount = -1;
+    int requestedFrameCount = -1;
+    int requestedSeed = -1;
+    int requestedSolverBallCount = -1;
+    int requestedSolverBoxCount = -1;
+    bool requestWorldGravity = false;
+    bool requestWorldFluidHeight = false;
+    bool requestWorldFluidDensity = false;
+    float requestedWorldGravity = 0.0f;
+    float requestedWorldFluidHeight = 0.0f;
+    float requestedWorldFluidDensity = 0.0f;
     uint32_t togglePhysicsDebugFlags = 0;
     int requestedRendererIndex = -1; // 0=GL, 1=DX11, 2=DX12, -1=no request
     int requestedWaterReflectionMode = -1; // 0=FBO, 1=DXR, 2=None, -1=no request
+    int requestedPhysicsMode = -1;         // 0=legacy, 1=solver, -1=no request
 };
 
 class InGameUi
@@ -137,15 +162,25 @@ class InGameUi
     UiCheckBox m_timelineToggle;
     UiCheckBox m_physicsToggles[7];
     UiCheckBox m_optionToggles[11];
-    UiCheckBox m_controlToggles[17];
+    UiCheckBox m_controlToggles[19];
     UiSlider m_timeScaleSlider;
     UiSlider m_modelCountSlider;
     UiSlider m_physicsAlphaSlider;
     UiSlider m_contactLingerSlider;
+    UiSlider m_frameCountSlider;
+    UiSlider m_seedSlider;
+    UiSlider m_solverBallSlider;
+    UiSlider m_solverBoxSlider;
+    UiSlider m_trackHeightSlider;
+    UiSlider m_autoCycleSlider;
+    UiSlider m_worldGravitySlider;
+    UiSlider m_worldFluidHeightSlider;
+    UiSlider m_worldFluidDensitySlider;
     UiButton m_resetSceneButton;
     UiButton m_saveDefaultsButton;
     UiComboBox m_rendererCombo;
     UiComboBox m_reflectionCombo;
+    UiComboBox m_physicsModeCombo;
     UiBackdropBlur m_backdropBlur;
     UiScrollBar m_scrollBar;
     int m_x = 34;
@@ -169,11 +204,13 @@ class InGameUi
     int m_mouseOverrideY = 0;
     float m_scrollY = 0.0f;
     double m_scrollbarVisibleUntil = 0.0;
-    int m_activeSlider = 0; // 0=none, 1=time scale, 2=model count, 3=debug alpha, 4=contact linger
+    int m_activeSlider = 0; // 0=none; other values map to Controls/Options sliders in SkullbonezUi.cpp
     float m_previewTimeScale = -1.0f;
     int m_previewModelCount = -1;
     float m_previewPhysicsAlpha = -1.0f;
     float m_previewContactLinger = -1.0f;
+    int m_previewSolverBallCount = -1;
+    int m_previewSolverBoxCount = -1;
     uint32_t m_expandedProfilerHashes[64] = {};
     int m_expandedProfilerHashCount = 0;
     bool m_expandAllProfilerMarkers = false;

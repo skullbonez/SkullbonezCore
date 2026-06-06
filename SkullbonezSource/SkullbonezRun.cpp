@@ -669,6 +669,8 @@ void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
 void SkullbonezRun::SetUpGameModels( int count )
 {
     m_scene.modelCount = count;
+    m_scene.solverBallCount = 0;
+    m_scene.solverBoxCount = 0;
 
     const SkullbonezConfig& cfg = Cfg();
 
@@ -755,6 +757,8 @@ void SkullbonezRun::SetUpGameModels( int count )
 // regardless of the balls/boxes ratio.
 void SkullbonezRun::SetUpSolverObjects( int balls, int boxes )
 {
+    balls = (std::max)( 0, balls );
+    boxes = (std::max)( 0, boxes );
     const int totalObjects = balls + boxes;
     if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
     {
@@ -766,6 +770,11 @@ void SkullbonezRun::SetUpSolverObjects( int balls, int boxes )
         balls = 0;
         boxes = totalObjects;
     }
+
+    m_cGameModelCollection.SetLegacyMode( false );
+    m_scene.modelCount = balls + boxes;
+    m_scene.solverBallCount = balls;
+    m_scene.solverBoxCount = boxes;
 
     const SkullbonezConfig& cfg = Cfg();
 
@@ -1471,10 +1480,18 @@ void SkullbonezRun::TakeInput()
         {
             m_scene.isSceneText = !m_scene.isSceneText;
         }
+        if ( uiResult.toggleTextOnly )
+        {
+            m_debug.isTextOnly = !m_debug.isTextOnly;
+        }
         if ( uiResult.toggleFixedStep )
         {
             m_scene.isFixedStep = !m_scene.isFixedStep;
             m_timers.physicsAccumulator = 0.0f;
+        }
+        if ( uiResult.toggleExitOnComplete )
+        {
+            m_scene.isExitOnComplete = !m_scene.isExitOnComplete;
         }
         if ( uiResult.togglePipelineSync )
         {
@@ -1523,11 +1540,33 @@ void SkullbonezRun::TakeInput()
             m_debug.isWaterRTReflect = mode == 1;
             m_debug.isWaterNoReflect = mode == 2;
         }
+        if ( uiResult.requestedPhysicsMode >= 0 )
+        {
+            const int mode = std::clamp( uiResult.requestedPhysicsMode, 0, 1 );
+            m_cGameModelCollection.SetLegacyMode( mode == 0 );
+            if ( mode == 0 )
+            {
+                m_uiSolverBallCountOverride = -1;
+                m_uiSolverBoxCountOverride = -1;
+            }
+            m_timers.physicsAccumulator = 0.0f;
+            PROFILE_SCHEDULE_RESET();
+        }
         if ( uiResult.requestedTimeScale > 0.0f )
         {
             m_uiTimeScaleOverride = std::clamp( uiResult.requestedTimeScale, 0.10f, 4.00f );
             m_scene.timeScale = m_uiTimeScaleOverride;
             m_timers.physicsAccumulator = 0.0f;
+        }
+        if ( uiResult.requestedFrameCount >= 0 )
+        {
+            m_scene.targetFrameCount = uiResult.requestedFrameCount > 0 ? std::clamp( uiResult.requestedFrameCount, 1, 5000 ) : -1;
+            m_scene.isTestComplete = false;
+        }
+        if ( uiResult.requestedSeed > 0 )
+        {
+            m_scene.rngSeed = static_cast<unsigned int>( std::clamp( uiResult.requestedSeed, 1, 999999 ) );
+            srand( m_scene.rngSeed );
         }
         if ( uiResult.requestedPhysicsDebugAlpha >= 0.0f )
         {
@@ -1540,6 +1579,48 @@ void SkullbonezRun::TakeInput()
         if ( uiResult.requestedModelCount >= 0 )
         {
             ApplyUiModelCountOverride( uiResult.requestedModelCount );
+        }
+        if ( uiResult.requestedSolverBallCount >= 0 )
+        {
+            const int boxes = m_uiSolverBoxCountOverride >= 0 ? m_uiSolverBoxCountOverride : m_scene.solverBoxCount;
+            ApplyUiSolverObjectCounts( uiResult.requestedSolverBallCount, boxes );
+        }
+        if ( uiResult.requestedSolverBoxCount >= 0 )
+        {
+            const int balls = m_uiSolverBallCountOverride >= 0 ? m_uiSolverBallCountOverride : m_scene.solverBallCount;
+            ApplyUiSolverObjectCounts( balls, uiResult.requestedSolverBoxCount );
+        }
+        if ( uiResult.requestedTrackHeight >= 0.0f )
+        {
+            const float trackHeight = std::clamp( uiResult.requestedTrackHeight, 0.0f, 600.0f );
+            if ( trackHeight <= 0.0f || m_scene.modelCount <= 0 )
+            {
+                m_camera.trackBallIndex = -1;
+            }
+            else
+            {
+                m_camera.trackHeight = trackHeight;
+                if ( m_camera.trackBallIndex < 0 )
+                {
+                    m_camera.trackBallIndex = 0;
+                }
+            }
+        }
+        if ( uiResult.requestedAutoCycleInterval >= 0.0f )
+        {
+            const float interval = std::clamp( uiResult.requestedAutoCycleInterval, 0.0f, 10.0f );
+            m_camera.autoCycleInterval = interval > 0.0f ? interval : -1.0f;
+            m_camera.autoCycleAccum = 0.0f;
+            m_camera.autoCycleShotsTaken = 0;
+        }
+        if ( uiResult.requestWorldGravity || uiResult.requestWorldFluidHeight || uiResult.requestWorldFluidDensity )
+        {
+            const float gravity = uiResult.requestWorldGravity ? uiResult.requestedWorldGravity : m_cWorldEnvironment.GetGravity();
+            const float fluidHeight = uiResult.requestWorldFluidHeight ? uiResult.requestedWorldFluidHeight : m_cWorldEnvironment.GetFluidSurfaceHeight();
+            const float fluidDensity = uiResult.requestWorldFluidDensity ? uiResult.requestedWorldFluidDensity : m_cWorldEnvironment.GetFluidDensity();
+            ApplyUiWorldOverride( std::clamp( gravity, -100.0f, 0.0f ),
+                                  std::clamp( fluidHeight, -100.0f, 200.0f ),
+                                  std::clamp( fluidDensity, 0.0f, 5.0f ) );
         }
         if ( uiResult.resetScene )
         {
@@ -2146,20 +2227,30 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         uiData.modelCount = m_scene.modelCount;
         uiData.currentFrame = m_scene.currentFrame;
         uiData.targetFrameCount = m_scene.targetFrameCount;
+        uiData.rngSeed = m_scene.rngSeed;
+        uiData.solverBallCount = m_scene.solverBallCount;
+        uiData.solverBoxCount = m_scene.solverBoxCount;
         uiData.currentSceneIndex = m_scene.currentSceneIndex;
         uiData.sceneCount = static_cast<int>( m_sceneQueue.size() );
         uiData.now = m_timers.simulationTimer.GetTotalTime();
         uiData.sceneMode = m_scene.isSceneMode;
         uiData.scenePhysicsEnabled = m_scene.isScenePhysics;
         uiData.sceneTextEnabled = m_scene.isSceneText;
+        uiData.textOnly = m_debug.isTextOnly;
         uiData.legacyPhysics = m_cGameModelCollection.GetLegacyMode();
         uiData.fixedStep = m_scene.isFixedStep;
+        uiData.exitOnComplete = m_scene.isExitOnComplete;
         uiData.testComplete = m_scene.isTestComplete;
         uiData.vsyncEnabled = m_runtimeSettings.isVsyncEnabled;
         uiData.pipelineSyncEnabled = m_runtimeSettings.isPipelineSyncEnabled;
         uiData.rollAlignEnabled = m_runtimeSettings.isRollAlignEnabled;
         uiData.sceneEnergy = sceneEnergyForDisplay;
         uiData.timeScale = m_scene.timeScale;
+        uiData.trackHeight = m_camera.trackBallIndex >= 0 ? m_camera.trackHeight : 0.0f;
+        uiData.autoCycleInterval = m_camera.autoCycleInterval > 0.0f ? m_camera.autoCycleInterval : 0.0f;
+        uiData.worldGravity = m_cWorldEnvironment.GetGravity();
+        uiData.worldFluidHeight = m_cWorldEnvironment.GetFluidSurfaceHeight();
+        uiData.worldFluidDensity = m_cWorldEnvironment.GetFluidDensity();
         uiData.physicsDebugFlags = m_debug.physicsDebugFlags;
         uiData.physicsDebugAlpha = m_debug.physicsDebugAlpha;
         uiData.physicsDebugContactLinger = m_debug.physicsDebugContactLinger;
@@ -3177,6 +3268,8 @@ void SkullbonezRun::LoadScene( int index )
     m_screenshot.isScreenshotAndExit = false;
     m_scene.targetFrameCount = -1;
     m_scene.currentFrame = 0;
+    m_scene.solverBallCount = 0;
+    m_scene.solverBoxCount = 0;
     m_scene.isTestComplete = false;
     m_timers.physicsAccumulator = 0.0f;
     m_screenshot.screenshotFrame = -1;
@@ -3271,7 +3364,14 @@ void SkullbonezRun::LoadScene( int index )
 
         m_scene.isSceneMode = false;
         SetUpCameras();
-        SetUpGameModels( m_uiModelCountOverride >= 0 ? m_uiModelCountOverride : DEFAULT_GAME_MODELS );
+        if ( m_uiSolverBallCountOverride >= 0 || m_uiSolverBoxCountOverride >= 0 )
+        {
+            SetUpSolverObjects( (std::max)( 0, m_uiSolverBallCountOverride ), (std::max)( 0, m_uiSolverBoxCountOverride ) );
+        }
+        else
+        {
+            SetUpGameModels( m_uiModelCountOverride >= 0 ? m_uiModelCountOverride : DEFAULT_GAME_MODELS );
+        }
         const char* rendererName = Gfx().GetRendererName();
         char titleText[256];
         sprintf_s( titleText, "%s [%s]", TITLE_TEXT, rendererName );
@@ -3444,7 +3544,11 @@ void SkullbonezRun::LoadScene( int index )
 
         SetUpCamerasFromScene( scene );
 
-        if ( m_uiModelCountOverride >= 0 )
+        if ( m_uiSolverBallCountOverride >= 0 || m_uiSolverBoxCountOverride >= 0 )
+        {
+            SetUpSolverObjects( (std::max)( 0, m_uiSolverBallCountOverride ), (std::max)( 0, m_uiSolverBoxCountOverride ) );
+        }
+        else if ( m_uiModelCountOverride >= 0 )
         {
             SetUpGameModels( m_uiModelCountOverride );
         }
@@ -3666,10 +3770,23 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
     char buf[128] = {};
     SetSceneDirective( lines, "physics", std::string( "physics " ) + OnOff( m_scene.isScenePhysics ), true );
     SetSceneDirective( lines, "text", std::string( "text " ) + OnOff( m_scene.isSceneText ), true );
+    SetSceneDirective( lines, "text_only", std::string( "text_only " ) + OnOff( m_debug.isTextOnly ), true );
     SetSceneDirective( lines, "vsync", std::string( "vsync " ) + OnOff( m_runtimeSettings.isVsyncEnabled ), true );
     SetSceneDirective( lines, "pipeline_sync", std::string( "pipeline_sync " ) + OnOff( m_runtimeSettings.isPipelineSyncEnabled ), true );
     SetSceneDirective( lines, "roll_align", std::string( "roll_align " ) + OnOff( m_runtimeSettings.isRollAlignEnabled ), true );
     SetSceneDirective( lines, "fixed_step", "fixed_step", m_scene.isFixedStep );
+    if ( m_scene.targetFrameCount > 0 )
+    {
+        snprintf( buf, sizeof( buf ), "frames %d", m_scene.targetFrameCount );
+    }
+    else
+    {
+        strcpy_s( buf, sizeof( buf ), "frames unlimited" );
+    }
+    SetSceneDirective( lines, "frames", buf, true );
+    snprintf( buf, sizeof( buf ), "seed %u", (std::max)( 1u, m_scene.rngSeed ) );
+    SetSceneDirective( lines, "seed", buf, true );
+    SetSceneDirective( lines, "exit_on_complete", "exit_on_complete", m_scene.isExitOnComplete );
     SetSceneDirective( lines, "debug_vectors", std::string( "debug_vectors " ) + OnOff( m_debug.isDebugVectors ), true );
     SetSceneDirective( lines, "physics_debug_axes", std::string( "physics_debug_axes " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0 ), true );
     SetSceneDirective( lines, "physics_debug_contacts", std::string( "physics_debug_contacts " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0 ), true );
@@ -3689,6 +3806,26 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
     SetSceneDirective( lines, "terrain_hidden", std::string( "terrain_hidden " ) + OnOff( m_debug.isTerrainHidden ), true );
     SetSceneDirective( lines, "water_reflection", std::string( "water_reflection " ) + WaterReflectionDirectiveValue( m_debug.isWaterNoReflect, m_debug.isWaterRTReflect ), true );
     SetSceneDirective( lines, "physics_mode", std::string( "physics_mode " ) + ( m_cGameModelCollection.GetLegacyMode() ? "legacy" : "solver" ), true );
+    if ( m_camera.trackBallIndex >= 0 && m_camera.trackHeight > 0.0f )
+    {
+        snprintf( buf, sizeof( buf ), "track_height %.2f", m_camera.trackHeight );
+        SetSceneDirective( lines, "track_height", buf, true );
+    }
+    else
+    {
+        SetSceneDirective( lines, "track_height", "", false );
+    }
+    if ( m_camera.autoCycleInterval > 0.0f )
+    {
+        snprintf( buf, sizeof( buf ), "auto_cycle_interval %.2f", m_camera.autoCycleInterval );
+        SetSceneDirective( lines, "auto_cycle_interval", buf, true );
+    }
+    else
+    {
+        SetSceneDirective( lines, "auto_cycle_interval", "", false );
+    }
+    snprintf( buf, sizeof( buf ), "world %.2f %.2f %.2f", m_cWorldEnvironment.GetGravity(), m_cWorldEnvironment.GetFluidSurfaceHeight(), m_cWorldEnvironment.GetFluidDensity() );
+    SetSceneDirective( lines, "world", buf, true );
 
     if ( m_uiModelCountOverride >= 0 )
     {
@@ -3696,6 +3833,14 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
         SetSceneDirective( lines, "legacy_balls", buf, true );
         SetSceneDirective( lines, "solver_balls", "", false );
         SetSceneDirective( lines, "solver_boxes", "", false );
+    }
+    else if ( m_scene.solverBallCount > 0 || m_scene.solverBoxCount > 0 || m_uiSolverBallCountOverride >= 0 || m_uiSolverBoxCountOverride >= 0 )
+    {
+        snprintf( buf, sizeof( buf ), "solver_balls %d", m_scene.solverBallCount );
+        SetSceneDirective( lines, "solver_balls", buf, true );
+        snprintf( buf, sizeof( buf ), "solver_boxes %d", m_scene.solverBoxCount );
+        SetSceneDirective( lines, "solver_boxes", buf, true );
+        SetSceneDirective( lines, "legacy_balls", "", false );
     }
 
     std::ofstream output( scenePath, std::ios::trunc );
@@ -3728,6 +3873,8 @@ void SkullbonezRun::ResetCurrentScene()
 void SkullbonezRun::ApplyUiModelCountOverride( int count )
 {
     m_uiModelCountOverride = std::clamp( count, 0, 1000 );
+    m_uiSolverBallCountOverride = -1;
+    m_uiSolverBoxCountOverride = -1;
     if ( m_scene.currentSceneIndex < 0 ||
          m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
     {
@@ -3756,6 +3903,47 @@ void SkullbonezRun::ApplyUiModelCountOverride( int count )
         m_camera.trackBallIndex = m_uiModelCountOverride - 1;
     }
     PROFILE_SCHEDULE_RESET();
+}
+
+
+void SkullbonezRun::ApplyUiSolverObjectCounts( int balls, int boxes )
+{
+    m_uiSolverBallCountOverride = std::clamp( balls, 0, 1000 );
+    m_uiSolverBoxCountOverride = std::clamp( boxes, 0, 1000 );
+    m_uiModelCountOverride = -1;
+    if ( m_scene.currentSceneIndex < 0 ||
+         m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
+    {
+        return;
+    }
+
+    m_cGameModelCollection.Clear();
+    m_fire.ballNext = -1;
+    m_fire.boxNext = -1;
+    m_timers.physicsAccumulator = 0.0f;
+    m_scene.currentFrame = 0;
+    m_scene.isTestComplete = false;
+
+    const unsigned int seed = m_scene.rngSeed > 0 ? m_scene.rngSeed : 1u;
+    srand( seed );
+    SetUpSolverObjects( m_uiSolverBallCountOverride, m_uiSolverBoxCountOverride );
+    if ( m_scene.modelCount <= 0 )
+    {
+        m_camera.trackBallIndex = -1;
+    }
+    else if ( m_camera.trackBallIndex >= m_scene.modelCount )
+    {
+        m_camera.trackBallIndex = m_scene.modelCount - 1;
+    }
+    PROFILE_SCHEDULE_RESET();
+}
+
+
+void SkullbonezRun::ApplyUiWorldOverride( float gravity, float fluidHeight, float fluidDensity )
+{
+    m_cWorldEnvironment.SetGravity( gravity );
+    m_cWorldEnvironment.SetFluidSurfaceHeight( fluidHeight );
+    m_cWorldEnvironment.SetFluidDensity( fluidDensity );
 }
 
 
