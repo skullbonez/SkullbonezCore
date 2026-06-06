@@ -967,7 +967,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     const float frameDisplayMs = data.fps > 0.0f ? 1000.0f / data.fps : 0.0f;
     const int cpuPercent = static_cast<int>( std::clamp( ( data.renderMs + data.physicsMs ) / 16.67f * 100.0f, 0.0f, 99.0f ) );
     const int gpuPercent = static_cast<int>( std::clamp( data.renderMs / 16.67f * 100.0f, 0.0f, 99.0f ) );
-    const int drawCalls = data.drawCallsBeforeUi + ( m_blurPreviewEnabled ? 3 : 2 );
+    const int drawCalls = data.drawCallsBeforeUi + data.uiDrawCalls;
     auto statCell = [&]( float tx, const char* name, const char* value, float r, float g, float b )
     {
         draw.Text( tx, by + 25.0f, 10.0f, 0.67f, 0.74f, 0.77f, name );
@@ -981,7 +981,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
         char drawText[32];
         snprintf( fpsText, sizeof( fpsText ), "%.0f", data.fps );
         snprintf( frameText, sizeof( frameText ), "%.2f ms", frameDisplayMs );
-        snprintf( drawText, sizeof( drawText ), "%d", drawCalls );
+        snprintf( drawText, sizeof( drawText ), "%d/%d", drawCalls, data.uiDrawCalls );
         auto compactStat = [&]( float ty, const char* name, const char* value, float r, float g, float b )
         {
             draw.Text( statsX + 12.0f, ty, 9.0f, 0.67f, 0.74f, 0.77f, name );
@@ -989,7 +989,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
         };
         compactStat( by + 23.0f, "FPS", fpsText, 0.48f, 0.90f, 0.22f );
         compactStat( by + 41.0f, "Frame", frameText, 0.32f, 0.90f, 1.0f );
-        compactStat( by + 59.0f, "Draws", drawText, 0.32f, 0.90f, 1.0f );
+        compactStat( by + 59.0f, "Draw/UI", drawText, 0.32f, 0.90f, 1.0f );
     }
     else
     {
@@ -1004,8 +1004,8 @@ void InGameUi::Draw( const InGameUiFrameData& data )
         snprintf( status, sizeof( status ), "%d%%", gpuPercent );
         statCell( statsX + 288.0f, "GPU", status, 0.48f, 0.90f, 0.22f );
         draw.Rect( statsX + 342.0f, by + 23.0f, 1.0f, 42.0f, 0.28f, 0.38f, 0.42f, 0.78f );
-        snprintf( status, sizeof( status ), "%d", drawCalls );
-        statCell( statsX + statsW - 100.0f, "Draw Calls", status, 0.32f, 0.90f, 1.0f );
+        snprintf( status, sizeof( status ), "%d / %d", drawCalls, data.uiDrawCalls );
+        statCell( statsX + statsW - 112.0f, "Draws / UI", status, 0.32f, 0.90f, 1.0f );
     }
 
     draw.Rect( x + w - 24.0f, y + h - 9.0f, 14.0f, 2.0f, 0.34f, 0.91f, 1.0f, 0.88f );

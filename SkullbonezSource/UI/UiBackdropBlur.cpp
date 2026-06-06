@@ -12,8 +12,6 @@ using namespace SkullbonezCore::Ui;
 
 namespace
 {
-constexpr int BLUR_REFRESH_MIN_FRAMES = 12;
-constexpr double BLUR_REFRESH_SECONDS = 0.20;
 constexpr int BLUR_PAD_PIXELS = 10;
 
 int ClampByte( float value )
@@ -58,8 +56,6 @@ void UiBackdropBlur::ResetResources()
     m_lastY = -1;
     m_lastW = 0;
     m_lastH = 0;
-    m_lastRefreshFrame = -1000000;
-    m_nextRefreshTime = 0.0;
     m_invalidated = true;
 }
 
@@ -128,7 +124,7 @@ void UiBackdropBlur::BlurPass( std::vector<uint8_t>& src, std::vector<uint8_t>& 
 }
 
 
-void UiBackdropBlur::RefreshTexture( const UiRect& bounds, int screenW, int screenH, int currentFrame, double now )
+void UiBackdropBlur::RefreshTexture( const UiRect& bounds, int screenW, int screenH )
 {
     int captureW = 0;
     int captureH = 0;
@@ -203,8 +199,6 @@ void UiBackdropBlur::RefreshTexture( const UiRect& bounds, int screenW, int scre
     m_lastY = cropY;
     m_lastW = cropW;
     m_lastH = cropH;
-    m_lastRefreshFrame = currentFrame;
-    m_nextRefreshTime = now + BLUR_REFRESH_SECONDS;
     m_invalidated = false;
 }
 
@@ -222,13 +216,14 @@ void UiBackdropBlur::Draw( const UiDrawContext& draw, const UiRect& bounds, int 
     const int requestedH = std::clamp( static_cast<int>( std::ceil( bounds.h ) ) + BLUR_PAD_PIXELS * 2, 1, (std::max)( 1, screenH - requestedY ) );
     const bool geometryChanged = requestedX != m_lastX || requestedY != m_lastY || requestedW != m_lastW || requestedH != m_lastH ||
                                  screenW != m_lastScreenW || screenH != m_lastScreenH;
-    const bool refreshDue = now >= m_nextRefreshTime && ( currentFrame - m_lastRefreshFrame ) >= BLUR_REFRESH_MIN_FRAMES;
+    (void)currentFrame;
+    (void)now;
 
     EnsureDrawResources();
 
-    if ( m_texture == 0 || m_invalidated || geometryChanged || refreshDue )
+    if ( m_texture == 0 || m_invalidated || geometryChanged )
     {
-        RefreshTexture( bounds, screenW, screenH, currentFrame, now );
+        RefreshTexture( bounds, screenW, screenH );
     }
 
     if ( m_texture == 0 || m_dynamicVB == 0 || !m_shader )

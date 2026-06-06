@@ -1949,7 +1949,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             DrawUiTestPattern( uiData.screenW, uiData.screenH );
         }
         uiData.rendererName = rendererName;
-        uiData.drawCallsBeforeUi = Gfx().GetFrameDrawCallCount();
+        uiData.uiDrawCalls = m_timers.lastUiDrawCalls;
         uiData.fps = m_timers.rollingFpsTime > 0.0f ? m_timers.rollingFpsTime : ( dSecondsPerFrame > 0.0 ? 1.0f / static_cast<float>( dSecondsPerFrame ) : 0.0f );
         uiData.renderMs = ( m_timers.rollingRenderTime > 0.0f ? m_timers.rollingRenderTime : m_timers.renderTime ) * 1000.0f;
         uiData.physicsMs = ( m_timers.rollingPhysicsTime > 0.0f ? m_timers.rollingPhysicsTime : m_timers.physicsTime ) * 1000.0f;
@@ -1970,10 +1970,16 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         uiData.collisionVisualizer = m_debug.isCollisionVisualizer;
         uiData.waterNoReflect = m_debug.isWaterNoReflect;
         uiData.waterRTReflect = m_debug.isWaterRTReflect;
+
+        Text2d::FlushText();
+        uiData.drawCallsBeforeUi = Gfx().GetFrameDrawCallCount();
+        const int uiDrawCallStart = uiData.drawCallsBeforeUi;
         PROFILE_GPU_BEGIN( "Frame/Text/UI" );
         m_ui.Draw( uiData );
-        PROFILE_GPU_END( "Frame/Text/UI" );
         Text2d::FlushText();
+        PROFILE_GPU_END( "Frame/Text/UI" );
+        const int uiDrawCallEnd = Gfx().GetFrameDrawCallCount();
+        m_timers.lastUiDrawCalls = (std::max)( 0, uiDrawCallEnd - uiDrawCallStart );
         return;
     }
 
@@ -3030,6 +3036,7 @@ void SkullbonezRun::LoadScene( int index )
     m_timers.rollingSceneEnergy = 0.0f;
     m_timers.sceneEnergyAccumulator = 0.0;
     m_timers.sceneEnergySampleCount = 0;
+    m_timers.lastUiDrawCalls = 0;
 
     // Reseed RNG. Unseeded reruns mix in the load/reset counters so quick repeated
     // Q resets do not collapse to the same time(nullptr) seed. Scene files and CLI

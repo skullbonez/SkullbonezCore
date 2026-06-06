@@ -93,6 +93,7 @@ struct RunTimerState
     float timeSinceLastRender = 0.0f;
     double sceneEnergyAccumulator = 0.0;
     int sceneEnergySampleCount = 0;
+    int lastUiDrawCalls = 0;         // Actual UI draw calls measured around Frame/Text/UI last frame
     float physicsAccumulator = 0.0f; // Accumulated time for fixed-step physics
 };
 

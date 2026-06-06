@@ -22,7 +22,7 @@ class UiBackdropBlur
 
   private:
     void EnsureDrawResources();
-    void RefreshTexture( const UiRect& bounds, int screenW, int screenH, int currentFrame, double now );
+    void RefreshTexture( const UiRect& bounds, int screenW, int screenH );
     void BlurPass( std::vector<uint8_t>& src, std::vector<uint8_t>& tmp, int width, int height );
 
     std::unique_ptr<Rendering::IShader> m_shader;
@@ -39,8 +39,6 @@ class UiBackdropBlur
     int m_lastY = -1;
     int m_lastW = 0;
     int m_lastH = 0;
-    int m_lastRefreshFrame = -1000000;
-    double m_nextRefreshTime = 0.0;
     bool m_invalidated = true;
 };
 

@@ -103,6 +103,10 @@ def validate_timeline_csv(path: Path, renderer: str) -> int:
     if "Frame/Text/UI" not in marker_ms:
         print(f"ERROR: {renderer} timeline CSV is missing Frame/Text/UI.")
         return 1
+    if marker_ms["Frame/Text/UI"] <= 0.0:
+        print(f"ERROR: {renderer} Frame/Text/UI marker did not record positive time.")
+        return 1
+    print(f"{renderer}: Frame/Text/UI={marker_ms['Frame/Text/UI']:.4f}ms")
 
     children: dict[str | None, list[str]] = {None: []}
     for name in marker_order:

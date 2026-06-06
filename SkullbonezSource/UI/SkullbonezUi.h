@@ -30,6 +30,7 @@ struct InGameUiFrameData
     int screenH = 1;
     const char* rendererName = "";
     int drawCallsBeforeUi = 0;
+    int uiDrawCalls = 0;
     float fps = 0.0f;
     float renderMs = 0.0f;
     float physicsMs = 0.0f;

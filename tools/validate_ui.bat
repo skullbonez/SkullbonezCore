@@ -13,36 +13,36 @@ echo   VALIDATE_UI - Optional UI Suite
 echo ========================================
 echo.
 
-echo [1/8] Checking formatting...
+echo [1/9] Checking formatting...
 call "%~dp0validate_format.bat"
 if errorlevel 1 exit /b 1
 call "%~dp0find_python.bat"
 if errorlevel 1 exit /b 1
 
-echo [2/8] Building Profile x64...
+echo [2/9] Building Profile x64...
 call "%~dp0validate_build.bat" Profile
 if errorlevel 1 exit /b 2
 
-echo [3/8] Cleaning old UI artifacts...
+echo [3/9] Cleaning old UI artifacts...
 del /q "%REPO%\Profile\ui_*.bmp" 2>nul
 del /q "%REPO%\Profile\ui_*_perf.csv" 2>nul
 del /q "%REPO%\Profile\ui_*_stdout.txt" 2>nul
 del /q "%REPO%\Profile\ui_*_stderr.txt" 2>nul
 del /q "%REPO%\dx12_validation.txt" 2>nul
 
-echo [4/8] Running GL UI suite...
+echo [4/9] Running GL UI suite...
 call :run_renderer gl ""
 if errorlevel 1 exit /b 3
 
-echo [5/8] Running DX11 UI suite...
+echo [5/9] Running DX11 UI suite...
 call :run_renderer dx11 "--renderer dx11"
 if errorlevel 1 exit /b 4
 
-echo [6/8] Running DX12 UI suite...
+echo [6/9] Running DX12 UI suite...
 call :run_renderer dx12 "--renderer dx12"
 if errorlevel 1 exit /b 5
 
-echo [7/8] Checking logs and DX12 validation...
+echo [7/9] Checking logs and DX12 validation...
 set "STDOUT_CLEAN=1"
 for %%r in (gl dx11 dx12) do (
     findstr /I /C:"error" /C:"warning" /C:"failed" "%REPO%\Profile\ui_%%r_stdout.txt" >nul 2>&1
@@ -65,10 +65,14 @@ if "%STDOUT_CLEAN%"=="0" (
 call "%~dp0check_dx12_validation.bat"
 if errorlevel 1 exit /b 7
 
-echo [8/8] Checking UI screenshots and blur metrics...
+echo [8/9] Checking UI screenshots and blur metrics...
 set "SKORE_REPO=%REPO%"
 "%PYTHON_EXE%" "%~dp0check_ui_blur.py"
 if errorlevel 1 exit /b 8
+
+echo [9/9] Exporting shareable UI PNG artifact...
+"%PYTHON_EXE%" "%~dp0export_screenshot_png.py" "%REPO%\Profile\ui_gl_profiler_timeline.bmp" "%REPO%\Profile\ui_gl_profiler_timeline.png" --max-width 1080
+if errorlevel 1 exit /b 9
 
 echo.
 echo ========================================

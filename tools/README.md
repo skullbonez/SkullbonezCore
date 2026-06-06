@@ -35,6 +35,8 @@ tools\validate_select.bat fast build-profile
 | `format_fix.bat` | Auto-fix formatting in-place |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Release`) |
 | `validate_ui.bat` | Optional tri-renderer UI suite that captures UI screenshots and checks blur strength |
+| `capture_ui_screenshot.bat [gl\|dx11\|dx12] [output.png] [max_width]` | Capture the profiler UI scene and export a phone-friendly PNG |
+| `export_screenshot_png.py <input.bmp> <output.png>` | Convert an engine BMP capture to an optimized PNG |
 | `validate_physics_query.bat` | Generate the varied physics diagnostic trace and compare SkullScope query output to `TestOutput/baselines/physics_query_varied.json` |
 | `find_clang_format.bat` | Locate clang-format, called by format scripts |
 | `find_git.bat` | Locate Git, called by perf validation |
