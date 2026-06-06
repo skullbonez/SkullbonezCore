@@ -68,6 +68,7 @@ struct InGameUiFrameData
     bool waterHidden = false;
     bool waterNoReflect = false;
     bool waterRTReflect = false;
+    bool canSaveSceneDefaults = false;
 };
 
 struct InGameUiInputResult
@@ -88,10 +89,14 @@ struct InGameUiInputResult
     bool toggleWaterFlat = false;
     bool toggleWaterReflection = false;
     bool resetScene = false;
+    bool saveSceneDefaults = false;
     float requestedTimeScale = -1.0f;
+    float requestedPhysicsDebugAlpha = -1.0f;
+    float requestedPhysicsDebugContactLinger = -1.0f;
     int requestedModelCount = -1;
     uint32_t togglePhysicsDebugFlags = 0;
     int requestedRendererIndex = -1; // 0=GL, 1=DX11, 2=DX12, -1=no request
+    int requestedWaterReflectionMode = -1; // 0=FBO, 1=DXR, 2=None, -1=no request
 };
 
 class InGameUi
@@ -132,10 +137,15 @@ class InGameUi
     UiCheckBox m_timelineToggle;
     UiCheckBox m_physicsToggles[7];
     UiCheckBox m_optionToggles[11];
+    UiCheckBox m_controlToggles[17];
     UiSlider m_timeScaleSlider;
     UiSlider m_modelCountSlider;
+    UiSlider m_physicsAlphaSlider;
+    UiSlider m_contactLingerSlider;
     UiButton m_resetSceneButton;
+    UiButton m_saveDefaultsButton;
     UiComboBox m_rendererCombo;
+    UiComboBox m_reflectionCombo;
     UiBackdropBlur m_backdropBlur;
     UiScrollBar m_scrollBar;
     int m_x = 34;
@@ -159,9 +169,11 @@ class InGameUi
     int m_mouseOverrideY = 0;
     float m_scrollY = 0.0f;
     double m_scrollbarVisibleUntil = 0.0;
-    int m_activeSlider = 0; // 0=none, 1=time scale, 2=model count
+    int m_activeSlider = 0; // 0=none, 1=time scale, 2=model count, 3=debug alpha, 4=contact linger
     float m_previewTimeScale = -1.0f;
     int m_previewModelCount = -1;
+    float m_previewPhysicsAlpha = -1.0f;
+    float m_previewContactLinger = -1.0f;
     uint32_t m_expandedProfilerHashes[64] = {};
     int m_expandedProfilerHashCount = 0;
     bool m_expandAllProfilerMarkers = false;

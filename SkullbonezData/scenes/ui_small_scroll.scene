@@ -1,4 +1,4 @@
-# UI resize capture: intentionally small window so overflow produces auto-hiding scrollbars.
+# UI resize capture: intentionally small window so the Controls tab produces auto-hiding scrollbars.
 seed 4242
 physics off
 text off
@@ -7,7 +7,7 @@ water_hidden on
 terrain_hidden on
 frames 24
 ui visible on
-ui tab keys
+ui tab controls
 ui rect 64 70 430 280
 ui blur on
 ui renderer_combo closed

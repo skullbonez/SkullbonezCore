@@ -24,6 +24,7 @@ SCENES = (
     "profiler_timeline",
     "physics_toggles",
     "scene_options",
+    "controls",
     "renderer_combo",
     "scene_complete",
     "small_scroll",

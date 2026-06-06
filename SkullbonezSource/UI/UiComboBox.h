@@ -15,6 +15,7 @@ class UiComboBox
     int HitOption( int mouseX, int mouseY, int optionCount ) const;
     bool IsOpen() const;
     void SetOpen( bool open );
+    void SetDropUp( bool dropUp );
     void ToggleOpen();
     void Close();
     void Draw( const UiDrawContext& draw, const char* label, const char* const* options, int optionCount, int selectedIndex, int mouseX, int mouseY ) const;
@@ -25,6 +26,7 @@ class UiComboBox
 
     UiRect m_bounds;
     bool m_isOpen = false;
+    bool m_dropUp = false;
 };
 
 } // namespace Ui

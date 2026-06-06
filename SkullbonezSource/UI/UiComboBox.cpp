@@ -53,6 +53,12 @@ void UiComboBox::SetOpen( bool open )
 }
 
 
+void UiComboBox::SetDropUp( bool dropUp )
+{
+    m_dropUp = dropUp;
+}
+
+
 void UiComboBox::ToggleOpen()
 {
     m_isOpen = !m_isOpen;
@@ -76,7 +82,8 @@ UiRect UiComboBox::DropdownRect( int optionCount ) const
 {
     const UiRect field = FieldRect();
     const float dropdownH = COMBO_OPTION_H * static_cast<float>( (std::max)( 1, optionCount ) );
-    return { field.x, field.y - dropdownH - COMBO_DROPDOWN_GAP, field.w, dropdownH };
+    const float dropdownY = m_dropUp ? field.y - dropdownH - COMBO_DROPDOWN_GAP : field.y + field.h + COMBO_DROPDOWN_GAP;
+    return { field.x, dropdownY, field.w, dropdownH };
 }
 
 

@@ -24,11 +24,18 @@ constexpr int RENDERER_GL = 0;
 constexpr int RENDERER_DX11 = 1;
 constexpr int RENDERER_DX12 = 2;
 constexpr float CONTENT_TOGGLE_ROW_H = 30.0f;
+constexpr float CONTROL_TOGGLE_ROW_H = 26.0f;
 constexpr float UI_TIME_SCALE_MIN = 0.10f;
 constexpr float UI_TIME_SCALE_MAX = 4.00f;
 constexpr float UI_TIME_SCALE_STEP = 0.05f;
 constexpr int UI_MODEL_COUNT_MIN = 0;
 constexpr int UI_MODEL_COUNT_MAX = 1000;
+constexpr float UI_PHYSICS_ALPHA_MIN = 0.05f;
+constexpr float UI_PHYSICS_ALPHA_MAX = 1.00f;
+constexpr float UI_PHYSICS_ALPHA_STEP = 0.01f;
+constexpr float UI_CONTACT_LINGER_MIN = 0.00f;
+constexpr float UI_CONTACT_LINGER_MAX = 5.00f;
+constexpr float UI_CONTACT_LINGER_STEP = 0.05f;
 
 int GetRendererIndexFromName( const char* rendererName )
 {
@@ -53,6 +60,16 @@ bool ProfilerMarkerHasChildren( const Profiler& profiler, int markerIndex )
         }
     }
     return false;
+}
+
+
+int WaterReflectionModeFromData( const InGameUiFrameData& data )
+{
+    if ( data.waterNoReflect )
+    {
+        return 2;
+    }
+    return data.waterRTReflect ? 1 : 0;
 }
 
 
@@ -154,6 +171,7 @@ void InGameUi::SetVisible( bool visible, double now )
         m_isResizing = false;
         m_blocksCameraMouse = false;
         m_rendererCombo.Close();
+        m_reflectionCombo.Close();
     }
 }
 
@@ -182,6 +200,7 @@ void InGameUi::SetMinimized( bool minimized, double now )
     if ( minimized )
     {
         m_rendererCombo.Close();
+        m_reflectionCombo.Close();
         m_activeSlider = 0;
     }
     else
@@ -197,9 +216,12 @@ void InGameUi::SetActiveTab( InGameUiTab tab )
     m_activeTab = tab;
     m_scrollY = 0.0f;
     m_rendererCombo.Close();
+    m_reflectionCombo.Close();
     m_activeSlider = 0;
     m_previewTimeScale = -1.0f;
     m_previewModelCount = -1;
+    m_previewPhysicsAlpha = -1.0f;
+    m_previewContactLinger = -1.0f;
     m_backdropBlur.Invalidate();
 }
 
@@ -622,6 +644,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
     m_blurToggle.SetBounds( static_cast<float>( m_x + 32 ), static_cast<float>( bottomY + 22 ), 100.0f, 24.0f );
     m_vsyncToggle.SetBounds( static_cast<float>( m_x + 158 ), static_cast<float>( bottomY + 22 ), 100.0f, 24.0f );
     m_rendererCombo.SetBounds( static_cast<float>( m_x + 32 ), static_cast<float>( bottomY + 48 ), 126.0f, 24.0f );
+    m_rendererCombo.SetDropUp( true );
     m_timelineToggle.SetBounds( static_cast<float>( m_x + 166 ), static_cast<float>( bottomY + 48 ), 96.0f, 24.0f );
 
     if ( wheelDelta != 0 && inContent )
@@ -666,6 +689,35 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 SetActiveTab( static_cast<InGameUiTab>( index ) );
                 m_scrollbarVisibleUntil = now + 1.0;
             }
+        }
+        else if ( m_reflectionCombo.IsOpen() )
+        {
+            if ( m_activeTab == InGameUiTab::Keys )
+            {
+                const float contentX = static_cast<float>( m_x + contentPad );
+                const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
+                m_reflectionCombo.SetBounds( contentX, rowBase, 226.0f, 24.0f );
+                m_reflectionCombo.SetDropUp( false );
+                const int option = m_reflectionCombo.HitOption( m_mouseX, m_mouseY, 3 );
+                if ( option >= 0 && option < 3 )
+                {
+                    result.requestedWaterReflectionMode = option;
+                    m_reflectionCombo.Close();
+                }
+                else if ( m_reflectionCombo.HitBox( m_mouseX, m_mouseY ) )
+                {
+                    m_reflectionCombo.ToggleOpen();
+                }
+                else
+                {
+                    m_reflectionCombo.Close();
+                }
+            }
+            else
+            {
+                m_reflectionCombo.Close();
+            }
+            m_rendererCombo.Close();
         }
         else if ( m_rendererCombo.IsOpen() )
         {
@@ -794,6 +846,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
             setToggle( 10, 5, 0 );
             m_timeScaleSlider.SetBounds( contentX, rowBase + 196.0f, contentW, 34.0f );
             m_modelCountSlider.SetBounds( contentX, rowBase + 244.0f, contentW, 34.0f );
+            m_saveDefaultsButton.SetBounds( col1, rowBase + 294.0f, 132.0f, 32.0f );
             m_resetSceneButton.SetBounds( col2, rowBase + 294.0f, 124.0f, 32.0f );
 
             if ( m_optionToggles[0].HitTest( m_mouseX, m_mouseY ) )
@@ -860,6 +913,163 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
             {
                 result.resetScene = true;
             }
+            else if ( m_saveDefaultsButton.HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.saveSceneDefaults = true;
+            }
+            m_rendererCombo.Close();
+            m_reflectionCombo.Close();
+        }
+        else if ( inContent && m_activeTab == InGameUiTab::Keys )
+        {
+            const float contentX = static_cast<float>( m_x + contentPad );
+            const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
+            const float contentW = static_cast<float>( m_width ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const float colW = (std::max)( 148.0f, contentW * 0.46f );
+            const float col1 = contentX;
+            const float col2 = contentX + colW + 18.0f;
+            const auto setToggle = [&]( int index, int row, int column ) -> void
+            {
+                const float tx = column == 0 ? col1 : col2;
+                m_controlToggles[index].SetBounds( tx, rowBase + 34.0f + static_cast<float>( row ) * CONTROL_TOGGLE_ROW_H, colW, 24.0f );
+            };
+
+            m_reflectionCombo.SetBounds( contentX, rowBase, 226.0f, 24.0f );
+            m_reflectionCombo.SetDropUp( false );
+            setToggle( 0, 0, 0 );
+            setToggle( 1, 0, 1 );
+            setToggle( 2, 1, 0 );
+            setToggle( 3, 1, 1 );
+            setToggle( 4, 2, 0 );
+            setToggle( 5, 2, 1 );
+            setToggle( 6, 3, 0 );
+            setToggle( 7, 3, 1 );
+            setToggle( 8, 4, 0 );
+            setToggle( 9, 4, 1 );
+            setToggle( 10, 5, 0 );
+            setToggle( 11, 5, 1 );
+            setToggle( 12, 6, 0 );
+            setToggle( 13, 6, 1 );
+            setToggle( 14, 7, 0 );
+            setToggle( 15, 7, 1 );
+            setToggle( 16, 8, 0 );
+            m_timeScaleSlider.SetBounds( contentX, rowBase + 278.0f, contentW, 34.0f );
+            m_modelCountSlider.SetBounds( contentX, rowBase + 318.0f, contentW, 34.0f );
+            m_physicsAlphaSlider.SetBounds( contentX, rowBase + 358.0f, contentW, 34.0f );
+            m_contactLingerSlider.SetBounds( contentX, rowBase + 398.0f, contentW, 34.0f );
+            m_saveDefaultsButton.SetBounds( col1, rowBase + 436.0f, 132.0f, 32.0f );
+            m_resetSceneButton.SetBounds( col2, rowBase + 436.0f, 124.0f, 32.0f );
+
+            if ( m_reflectionCombo.HitBox( m_mouseX, m_mouseY ) )
+            {
+                m_reflectionCombo.ToggleOpen();
+            }
+            else if ( m_controlToggles[0].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleScenePhysics = true;
+            }
+            else if ( m_controlToggles[1].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleSceneText = true;
+            }
+            else if ( m_controlToggles[2].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleFixedStep = true;
+            }
+            else if ( m_controlToggles[3].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleVsync = true;
+            }
+            else if ( m_controlToggles[4].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.togglePipelineSync = true;
+            }
+            else if ( m_controlToggles[5].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleRollAlign = true;
+            }
+            else if ( m_controlToggles[6].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleTerrainHidden = true;
+            }
+            else if ( m_controlToggles[7].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleWaterHidden = true;
+            }
+            else if ( m_controlToggles[8].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleCollisionVisualizer = true;
+            }
+            else if ( m_controlToggles[9].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.togglePhysicsDebugTransparent = true;
+            }
+            else if ( m_controlToggles[10].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleDebugVectors = true;
+            }
+            else if ( m_controlToggles[11].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleBroadphaseOverlay = true;
+            }
+            else if ( m_controlToggles[12].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleWaterFreeze = true;
+            }
+            else if ( m_controlToggles[13].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleWaterFlat = true;
+            }
+            else if ( m_controlToggles[14].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.togglePhysicsDebugFlags = PHYSICS_DEBUG_AXES;
+            }
+            else if ( m_controlToggles[15].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.togglePhysicsDebugFlags = PHYSICS_DEBUG_CONTACTS;
+            }
+            else if ( m_controlToggles[16].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.togglePhysicsDebugFlags = PHYSICS_DEBUG_SLEEP;
+            }
+            else if ( m_timeScaleSlider.HitTest( m_mouseX, m_mouseY ) )
+            {
+                m_activeSlider = 1;
+                m_previewTimeScale = m_timeScaleSlider.ValueFromMouse( m_mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
+                result.requestedTimeScale = m_previewTimeScale;
+                SetCapture( hwnd );
+            }
+            else if ( m_modelCountSlider.HitTest( m_mouseX, m_mouseY ) )
+            {
+                m_activeSlider = 2;
+                m_previewModelCount = static_cast<int>( m_modelCountSlider.ValueFromMouse( m_mouseX,
+                                                                                           static_cast<float>( UI_MODEL_COUNT_MIN ),
+                                                                                           static_cast<float>( UI_MODEL_COUNT_MAX ),
+                                                                                           1.0f ) );
+                SetCapture( hwnd );
+            }
+            else if ( m_physicsAlphaSlider.HitTest( m_mouseX, m_mouseY ) )
+            {
+                m_activeSlider = 3;
+                m_previewPhysicsAlpha = m_physicsAlphaSlider.ValueFromMouse( m_mouseX, UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX, UI_PHYSICS_ALPHA_STEP );
+                result.requestedPhysicsDebugAlpha = m_previewPhysicsAlpha;
+                SetCapture( hwnd );
+            }
+            else if ( m_contactLingerSlider.HitTest( m_mouseX, m_mouseY ) )
+            {
+                m_activeSlider = 4;
+                m_previewContactLinger = m_contactLingerSlider.ValueFromMouse( m_mouseX, UI_CONTACT_LINGER_MIN, UI_CONTACT_LINGER_MAX, UI_CONTACT_LINGER_STEP );
+                result.requestedPhysicsDebugContactLinger = m_previewContactLinger;
+                SetCapture( hwnd );
+            }
+            else if ( m_saveDefaultsButton.HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.saveSceneDefaults = true;
+            }
+            else if ( m_resetSceneButton.HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.resetScene = true;
+            }
             m_rendererCombo.Close();
         }
         else if ( inside && m_mouseY >= m_y + m_height - bottomH )
@@ -900,6 +1110,16 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
                                                                                    static_cast<float>( UI_MODEL_COUNT_MAX ),
                                                                                    1.0f ) );
     }
+    else if ( leftNow && m_activeSlider == 3 )
+    {
+        m_previewPhysicsAlpha = m_physicsAlphaSlider.ValueFromMouse( m_mouseX, UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX, UI_PHYSICS_ALPHA_STEP );
+        result.requestedPhysicsDebugAlpha = m_previewPhysicsAlpha;
+    }
+    else if ( leftNow && m_activeSlider == 4 )
+    {
+        m_previewContactLinger = m_contactLingerSlider.ValueFromMouse( m_mouseX, UI_CONTACT_LINGER_MIN, UI_CONTACT_LINGER_MAX, UI_CONTACT_LINGER_STEP );
+        result.requestedPhysicsDebugContactLinger = m_previewContactLinger;
+    }
 
     if ( leftNow && m_isDragging )
     {
@@ -934,6 +1154,14 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
         else if ( m_activeSlider == 2 && m_previewModelCount >= 0 )
         {
             result.requestedModelCount = m_previewModelCount;
+        }
+        else if ( m_activeSlider == 3 && m_previewPhysicsAlpha >= 0.0f )
+        {
+            result.requestedPhysicsDebugAlpha = m_previewPhysicsAlpha;
+        }
+        else if ( m_activeSlider == 4 && m_previewContactLinger >= 0.0f )
+        {
+            result.requestedPhysicsDebugContactLinger = m_previewContactLinger;
         }
         m_activeSlider = 0;
         m_isDragging = false;
@@ -1018,7 +1246,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     draw.Text( x + w - 67.0f, y + 12.0f, 12.0f, 0.68f, 0.86f, 0.92f, m_isMaximized ? "><" : "[]" );
     draw.Text( x + w - 31.0f, y + 12.0f, 13.0f, 0.82f, 0.92f, 0.96f, "X" );
 
-    static const char* kTabs[] = { "Info", "Profile", "Scene", "Physics", "Options", "Render", "Keys" };
+    static const char* kTabs[] = { "Info", "Profile", "Scene", "Physics", "Options", "Render", "Controls" };
     const int tabCount = static_cast<int>( InGameUiTab::Count );
     const float tabPad = 14.0f;
     m_tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
@@ -1253,9 +1481,11 @@ void InGameUi::Draw( const InGameUiFrameData& data )
         {
             m_modelCountSlider.Draw( draw, "Model count", buf, static_cast<float>( displayModelCount ), static_cast<float>( UI_MODEL_COUNT_MIN ), static_cast<float>( UI_MODEL_COUNT_MAX ) );
         }
+        m_saveDefaultsButton.SetBounds( col1, scrolledY + 336.0f, 132.0f, 32.0f );
         m_resetSceneButton.SetBounds( col2, scrolledY + 336.0f, 124.0f, 32.0f );
         if ( visible( scrolledY + 336.0f, 32.0f ) )
         {
+            m_saveDefaultsButton.Draw( draw, "Save defaults", m_mouseX, m_mouseY );
             m_resetSceneButton.Draw( draw, "Reset scene", m_mouseX, m_mouseY );
         }
         labelValue( scrolledY + 386.0f, "Water mode", data.waterNoReflect ? "no reflection" : ( data.waterRTReflect ? "DXR reflect" : "FBO reflect" ), 0.98f, 0.78f, 0.35f );
@@ -1271,35 +1501,72 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     }
     else
     {
-        draw.Text( contentX, scrolledY, 16.0f, 1.0f, 0.85f, 0.34f, "Keyboard Reference" );
-        static const char* kKeys[] = {
-            "0  Toggle UI window",
-            "F  Fly mode",
-            "N  Nudge mode",
-            "WASD  Move camera",
-            "Mouse  Look / UI pointer",
-            "Shift  Sprint",
-            "Z  Fire ball",
-            "X  Fire box",
-            "P  Physics solver",
-            "Q  Cycle renderer",
-            "V  Collision visual",
-            "C  Physics debug",
-            "G  Broadphase overlay",
-            "1-6  Water/debug toggles",
-            "9  Debug vectors",
-            "PgUp/PgDn  Water height",
-            "F2  Save scene",
-            "F3  Screenshot",
-            "Esc  Quit" };
-        const int keyCount = static_cast<int>( sizeof( kKeys ) / sizeof( kKeys[0] ) );
-        for ( int i = 0; i < keyCount; ++i )
+        char buf[128];
+        const float colW = (std::max)( 148.0f, contentW * 0.46f );
+        const float col1 = contentX;
+        const float col2 = contentX + colW + 18.0f;
+        const float displayTimeScale = ( m_activeSlider == 1 && m_previewTimeScale > 0.0f ) ? m_previewTimeScale : data.timeScale;
+        const int displayModelCount = ( m_activeSlider == 2 && m_previewModelCount >= 0 ) ? m_previewModelCount : data.modelCount;
+        const float displayAlpha = ( m_activeSlider == 3 && m_previewPhysicsAlpha >= 0.0f ) ? m_previewPhysicsAlpha : data.physicsDebugAlpha;
+        const float displayLinger = ( m_activeSlider == 4 && m_previewContactLinger >= 0.0f ) ? m_previewContactLinger : data.physicsDebugContactLinger;
+        static const char* kReflectionOptions[] = { "FBO", "DXR", "None" };
+
+        draw.Text( contentX, scrolledY, 16.0f, 1.0f, 0.85f, 0.34f, "Scene Controls" );
+        m_reflectionCombo.SetBounds( contentX, scrolledY + 42.0f, 226.0f, 24.0f );
+        m_reflectionCombo.SetDropUp( false );
+
+        drawContentToggle( m_controlToggles[0], col1, scrolledY + 76.0f, colW, "Scene physics", data.scenePhysicsEnabled );
+        drawContentToggle( m_controlToggles[1], col2, scrolledY + 76.0f, colW, "Scene text", data.sceneTextEnabled );
+        drawContentToggle( m_controlToggles[2], col1, scrolledY + 102.0f, colW, "Fixed step", data.fixedStep );
+        drawContentToggle( m_controlToggles[3], col2, scrolledY + 102.0f, colW, "VSync", data.vsyncEnabled );
+        drawContentToggle( m_controlToggles[4], col1, scrolledY + 128.0f, colW, "Pipeline sync", data.pipelineSyncEnabled );
+        drawContentToggle( m_controlToggles[5], col2, scrolledY + 128.0f, colW, "Roll align", data.rollAlignEnabled );
+        drawContentToggle( m_controlToggles[6], col1, scrolledY + 154.0f, colW, "Hide terrain", data.terrainHidden );
+        drawContentToggle( m_controlToggles[7], col2, scrolledY + 154.0f, colW, "Hide water", data.waterHidden );
+        drawContentToggle( m_controlToggles[8], col1, scrolledY + 180.0f, colW, "Collision mesh", data.collisionVisualizer );
+        drawContentToggle( m_controlToggles[9], col2, scrolledY + 180.0f, colW, "Transparent", data.physicsDebugTransparent );
+        drawContentToggle( m_controlToggles[10], col1, scrolledY + 206.0f, colW, "Vectors", data.debugVectors );
+        drawContentToggle( m_controlToggles[11], col2, scrolledY + 206.0f, colW, "Broadphase", data.broadphaseOverlay );
+        drawContentToggle( m_controlToggles[12], col1, scrolledY + 232.0f, colW, "Freeze water", data.waterFreezeDebug );
+        drawContentToggle( m_controlToggles[13], col2, scrolledY + 232.0f, colW, "Flat water", data.waterFlatDebug );
+        drawContentToggle( m_controlToggles[14], col1, scrolledY + 258.0f, colW, "Axes", ( data.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0 );
+        drawContentToggle( m_controlToggles[15], col2, scrolledY + 258.0f, colW, "Contacts", ( data.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0 );
+        drawContentToggle( m_controlToggles[16], col1, scrolledY + 284.0f, colW, "Sleep state", ( data.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0 );
+
+        snprintf( buf, sizeof( buf ), "%.2fx", displayTimeScale );
+        m_timeScaleSlider.SetBounds( contentX, scrolledY + 320.0f, contentW, 34.0f );
+        if ( visible( scrolledY + 320.0f, 34.0f ) )
         {
-            const float rowY = scrolledY + 42.0f + static_cast<float>( i ) * 25.0f;
-            if ( visible( rowY, 18.0f ) )
-            {
-                draw.Text( contentX, rowY, 11.5f, 0.70f, 0.90f, 1.0f, kKeys[i] );
-            }
+            m_timeScaleSlider.Draw( draw, "Time scale", buf, displayTimeScale, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX );
+        }
+        snprintf( buf, sizeof( buf ), "%d", displayModelCount );
+        m_modelCountSlider.SetBounds( contentX, scrolledY + 360.0f, contentW, 34.0f );
+        if ( visible( scrolledY + 360.0f, 34.0f ) )
+        {
+            m_modelCountSlider.Draw( draw, "Model count", buf, static_cast<float>( displayModelCount ), static_cast<float>( UI_MODEL_COUNT_MIN ), static_cast<float>( UI_MODEL_COUNT_MAX ) );
+        }
+        snprintf( buf, sizeof( buf ), "%.2f", displayAlpha );
+        m_physicsAlphaSlider.SetBounds( contentX, scrolledY + 400.0f, contentW, 34.0f );
+        if ( visible( scrolledY + 400.0f, 34.0f ) )
+        {
+            m_physicsAlphaSlider.Draw( draw, "Body alpha", buf, displayAlpha, UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX );
+        }
+        snprintf( buf, sizeof( buf ), "%.2fs", displayLinger );
+        m_contactLingerSlider.SetBounds( contentX, scrolledY + 440.0f, contentW, 34.0f );
+        if ( visible( scrolledY + 440.0f, 34.0f ) )
+        {
+            m_contactLingerSlider.Draw( draw, "Contact linger", buf, displayLinger, UI_CONTACT_LINGER_MIN, UI_CONTACT_LINGER_MAX );
+        }
+        m_saveDefaultsButton.SetBounds( col1, scrolledY + 478.0f, 132.0f, 32.0f );
+        m_resetSceneButton.SetBounds( col2, scrolledY + 478.0f, 124.0f, 32.0f );
+        if ( visible( scrolledY + 478.0f, 32.0f ) )
+        {
+            m_saveDefaultsButton.Draw( draw, "Save defaults", m_mouseX, m_mouseY );
+            m_resetSceneButton.Draw( draw, "Reset scene", m_mouseX, m_mouseY );
+        }
+        if ( visible( scrolledY + 42.0f, 86.0f ) )
+        {
+            m_reflectionCombo.Draw( draw, "Reflect", kReflectionOptions, 3, WaterReflectionModeFromData( data ), m_mouseX, m_mouseY );
         }
     }
 
@@ -1315,6 +1582,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     m_blurToggle.SetBounds( x + 32.0f, by + 22.0f, 100.0f, 24.0f );
     m_vsyncToggle.SetBounds( x + 158.0f, by + 22.0f, 100.0f, 24.0f );
     m_rendererCombo.SetBounds( x + 32.0f, by + 48.0f, 126.0f, 24.0f );
+    m_rendererCombo.SetDropUp( true );
     m_timelineToggle.SetBounds( x + 166.0f, by + 48.0f, 96.0f, 24.0f );
     m_blurToggle.DrawToggle( draw, "Blur", m_blurPreviewEnabled, 0.34f, 0.91f, 1.0f );
     m_vsyncToggle.DrawToggle( draw, "VSync", data.vsyncEnabled, 0.34f, 0.91f, 1.0f );

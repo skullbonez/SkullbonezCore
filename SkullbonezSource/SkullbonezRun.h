@@ -273,6 +273,7 @@ class SkullbonezRun
     void SetViewingOrientation();                                      // Renders camera views etc
     void DrawWindowText( const double dSecondsPerFrame );              // Renders text to the window
     void SaveScreenshot( const char* path );                           // Saves framebuffer to BMP file via glReadPixels
+    bool SaveCurrentSceneDefaults();                                   // Writes UI-controlled defaults back to the active scene file
     void LogPerfMemory( const char* checkpoint );                      // Log memory usage to perf CSV
     void LoadScene( int index );                                       // Resets scene-specific state and loads a scene by queue index
     void ResetCurrentScene();                                          // User-triggered reset/reload of current scene or legacy mode

@@ -56,7 +56,7 @@ bool ParseUiTab( const char* value, int& outTab )
         outTab = 5;
         return true;
     }
-    if ( strcmp( value, "keys" ) == 0 )
+    if ( strcmp( value, "keys" ) == 0 || strcmp( value, "controls" ) == 0 )
     {
         outTab = 6;
         return true;
@@ -434,11 +434,12 @@ TestScene TestScene::LoadFromFile( const char* path )
         if ( strncmp( line, "legacy_balls ", 13 ) == 0 )
         {
             scene.m_sceneOptions.legacyBallCount = atoi( line + 13 );
-            if ( scene.m_sceneOptions.legacyBallCount <= 0 )
+            scene.m_sceneOptions.hasLegacyBallCount = true;
+            if ( scene.m_sceneOptions.legacyBallCount < 0 )
             {
                 fclose( file );
                 char msg[256];
-                sprintf_s( msg, sizeof( msg ), "Invalid legacy_balls count at line %d (must be > 0)  (TestScene::LoadFromFile)", lineNumber );
+                sprintf_s( msg, sizeof( msg ), "Invalid legacy_balls count at line %d (must be >= 0)  (TestScene::LoadFromFile)", lineNumber );
                 throw std::runtime_error( msg );
             }
             continue;
@@ -563,6 +564,87 @@ TestScene TestScene::LoadFromFile( const char* path )
         if ( strcmp( line, "exit_on_complete" ) == 0 )
         {
             scene.m_sceneOptions.exitOnComplete = true;
+            continue;
+        }
+
+        if ( strncmp( line, "collision_visualizer ", 21 ) == 0 )
+        {
+            bool parsedValue = false;
+            if ( !ParseOnOff( line + 21, parsedValue ) )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid collision_visualizer value at line %d  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            scene.m_sceneOptions.collisionVisualizer = parsedValue;
+            continue;
+        }
+
+        if ( strncmp( line, "broadphase_overlay ", 19 ) == 0 )
+        {
+            bool parsedValue = false;
+            if ( !ParseOnOff( line + 19, parsedValue ) )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid broadphase_overlay value at line %d  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            scene.m_sceneOptions.broadphaseOverlay = parsedValue;
+            continue;
+        }
+
+        if ( strncmp( line, "water_freeze ", 13 ) == 0 )
+        {
+            bool parsedValue = false;
+            if ( !ParseOnOff( line + 13, parsedValue ) )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid water_freeze value at line %d  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            scene.m_sceneOptions.waterFreezeDebug = parsedValue;
+            continue;
+        }
+
+        if ( strncmp( line, "water_flat ", 11 ) == 0 )
+        {
+            bool parsedValue = false;
+            if ( !ParseOnOff( line + 11, parsedValue ) )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid water_flat value at line %d  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            scene.m_sceneOptions.waterFlatDebug = parsedValue;
+            continue;
+        }
+
+        if ( strncmp( line, "water_reflection ", 17 ) == 0 )
+        {
+            const char* value = line + 17;
+            if ( strcmp( value, "fbo" ) == 0 || strcmp( value, "on" ) == 0 )
+            {
+                scene.m_sceneOptions.waterReflectionMode = 0;
+            }
+            else if ( strcmp( value, "dxr" ) == 0 || strcmp( value, "rt" ) == 0 )
+            {
+                scene.m_sceneOptions.waterReflectionMode = 1;
+            }
+            else if ( strcmp( value, "none" ) == 0 || strcmp( value, "off" ) == 0 )
+            {
+                scene.m_sceneOptions.waterReflectionMode = 2;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid water_reflection value at line %d  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
             continue;
         }
 
@@ -1097,6 +1179,12 @@ unsigned int TestScene::GetSeed() const
 }
 
 
+bool TestScene::HasLegacyBallCount() const
+{
+    return m_sceneOptions.hasLegacyBallCount;
+}
+
+
 int TestScene::GetLegacyBallCount() const
 {
     return m_sceneOptions.legacyBallCount;
@@ -1255,6 +1343,36 @@ bool TestScene::IsScreenshotAndExit() const
 bool TestScene::IsExitOnComplete() const
 {
     return m_sceneOptions.exitOnComplete;
+}
+
+
+bool TestScene::IsCollisionVisualizerEnabled() const
+{
+    return m_sceneOptions.collisionVisualizer;
+}
+
+
+bool TestScene::IsBroadphaseOverlayEnabled() const
+{
+    return m_sceneOptions.broadphaseOverlay;
+}
+
+
+bool TestScene::IsWaterFreezeDebugEnabled() const
+{
+    return m_sceneOptions.waterFreezeDebug;
+}
+
+
+bool TestScene::IsWaterFlatDebugEnabled() const
+{
+    return m_sceneOptions.waterFlatDebug;
+}
+
+
+int TestScene::GetWaterReflectionMode() const
+{
+    return m_sceneOptions.waterReflectionMode;
 }
 
 

@@ -12,9 +12,11 @@
 #include "SkullbonezImpulseSolver.h"
 #include <time.h>
 #include <cstring>
+#include <cstddef>
 #include <psapi.h>
 #include <cmath>
 #include <dwmapi.h>
+#include <fstream>
 #pragma comment( lib, "dwmapi.lib" )
 
 // --- Usings ---
@@ -103,6 +105,86 @@ void DrawUiTestPattern( int screenW, int screenH )
     draw.Rect( 76.0f, 484.0f, 720.0f, 8.0f, 0.38f, 0.54f, 1.0f, 0.82f );
     Text2d::FlushQuads();
 }
+
+
+bool SceneDirectiveMatches( const std::string& line, const char* key )
+{
+    const size_t keyLen = strlen( key );
+    if ( line.compare( 0, keyLen, key ) != 0 )
+    {
+        return false;
+    }
+    return line.size() == keyLen || line[keyLen] == ' ' || line[keyLen] == '\t';
+}
+
+
+bool IsSceneBodyDirective( const std::string& line )
+{
+    return SceneDirectiveMatches( line, "camera" ) ||
+           SceneDirectiveMatches( line, "ball" ) ||
+           SceneDirectiveMatches( line, "box" ) ||
+           SceneDirectiveMatches( line, "floating_box" ) ||
+           SceneDirectiveMatches( line, "ball_state" );
+}
+
+
+size_t SceneDefaultInsertIndex( const std::vector<std::string>& lines )
+{
+    for ( size_t i = 0; i < lines.size(); ++i )
+    {
+        if ( IsSceneBodyDirective( lines[i] ) )
+        {
+            return i;
+        }
+    }
+    return lines.size();
+}
+
+
+void SetSceneDirective( std::vector<std::string>& lines, const char* key, const std::string& value, bool includeDirective )
+{
+    bool replaced = false;
+    for ( size_t i = 0; i < lines.size(); )
+    {
+        if ( SceneDirectiveMatches( lines[i], key ) )
+        {
+            if ( includeDirective && !replaced )
+            {
+                lines[i] = value;
+                replaced = true;
+                ++i;
+            }
+            else
+            {
+                lines.erase( lines.begin() + static_cast<std::ptrdiff_t>( i ) );
+            }
+            continue;
+        }
+        ++i;
+    }
+
+    if ( includeDirective && !replaced )
+    {
+        lines.insert( lines.begin() + static_cast<std::ptrdiff_t>( SceneDefaultInsertIndex( lines ) ), value );
+    }
+}
+
+
+const char* OnOff( bool value )
+{
+    return value ? "on" : "off";
+}
+
+
+const char* WaterReflectionDirectiveValue( bool noReflect, bool rtReflect )
+{
+    if ( noReflect )
+    {
+        return "none";
+    }
+    return rtReflect ? "dxr" : "fbo";
+}
+
 
 const char* FileNameFromPath( const char* path )
 {
@@ -1435,11 +1517,25 @@ void SkullbonezRun::TakeInput()
                 m_debug.isWaterRTReflect = false;
             }
         }
+        if ( uiResult.requestedWaterReflectionMode >= 0 )
+        {
+            const int mode = std::clamp( uiResult.requestedWaterReflectionMode, 0, 2 );
+            m_debug.isWaterRTReflect = mode == 1;
+            m_debug.isWaterNoReflect = mode == 2;
+        }
         if ( uiResult.requestedTimeScale > 0.0f )
         {
             m_uiTimeScaleOverride = std::clamp( uiResult.requestedTimeScale, 0.10f, 4.00f );
             m_scene.timeScale = m_uiTimeScaleOverride;
             m_timers.physicsAccumulator = 0.0f;
+        }
+        if ( uiResult.requestedPhysicsDebugAlpha >= 0.0f )
+        {
+            m_debug.physicsDebugAlpha = std::clamp( uiResult.requestedPhysicsDebugAlpha, 0.05f, 1.0f );
+        }
+        if ( uiResult.requestedPhysicsDebugContactLinger >= 0.0f )
+        {
+            m_debug.physicsDebugContactLinger = std::clamp( uiResult.requestedPhysicsDebugContactLinger, 0.0f, 5.0f );
         }
         if ( uiResult.requestedModelCount >= 0 )
         {
@@ -1448,6 +1544,10 @@ void SkullbonezRun::TakeInput()
         if ( uiResult.resetScene )
         {
             ResetCurrentScene();
+        }
+        if ( uiResult.saveSceneDefaults )
+        {
+            SaveCurrentSceneDefaults();
         }
         if ( uiResult.requestedRendererIndex >= 0 )
         {
@@ -2073,6 +2173,10 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         uiData.waterHidden = m_debug.isWaterHidden;
         uiData.waterNoReflect = m_debug.isWaterNoReflect;
         uiData.waterRTReflect = m_debug.isWaterRTReflect;
+        uiData.canSaveSceneDefaults = m_scene.isSceneMode &&
+                                      m_scene.currentSceneIndex >= 0 &&
+                                      m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() ) &&
+                                      !m_sceneQueue[m_scene.currentSceneIndex].empty();
 
         Text2d::FlushText();
         uiData.drawCallsBeforeUi = Gfx().GetFrameDrawCallCount();
@@ -3202,6 +3306,17 @@ void SkullbonezRun::LoadScene( int index )
         m_debug.isTextOnly = scene.IsTextOnly();
         m_debug.isWaterHidden = scene.IsWaterHidden();
         m_debug.isTerrainHidden = scene.IsTerrainHidden();
+        m_debug.isCollisionVisualizer = scene.IsCollisionVisualizerEnabled();
+        m_debug.isBroadphaseOverlay = scene.IsBroadphaseOverlayEnabled();
+        m_debug.isWaterFreezeDebug = scene.IsWaterFreezeDebugEnabled();
+        m_debug.isWaterFlatDebug = scene.IsWaterFlatDebugEnabled();
+        const int waterReflectionMode = std::clamp( scene.GetWaterReflectionMode(), 0, 2 );
+        m_debug.isWaterRTReflect = waterReflectionMode == 1;
+        m_debug.isWaterNoReflect = waterReflectionMode == 2;
+        if ( m_debug.isWaterFreezeDebug )
+        {
+            m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
+        }
         m_scene.timeScale = scene.GetTimeScale();
         m_scene.isFixedStep = scene.IsFixedStep();
 
@@ -3338,7 +3453,7 @@ void SkullbonezRun::LoadScene( int index )
             // Exact-count solver spawn — explicit ball/box split for benchmarks.
             SetUpSolverObjects( scene.GetSolverBallCount(), scene.GetSolverBoxCount() );
         }
-        else if ( scene.GetLegacyBallCount() > 0 )
+        else if ( scene.HasLegacyBallCount() )
         {
             SetUpGameModels( scene.GetLegacyBallCount() );
         }
@@ -3518,6 +3633,83 @@ void SkullbonezRun::EndPhysicsDiagnosticsRun( const char* status )
     m_physicsDiagnostics.isRunActive = false;
 }
 #endif
+
+
+bool SkullbonezRun::SaveCurrentSceneDefaults()
+{
+    if ( !m_scene.isSceneMode ||
+         m_scene.currentSceneIndex < 0 ||
+         m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) ||
+         m_sceneQueue[m_scene.currentSceneIndex].empty() )
+    {
+        return false;
+    }
+
+    const std::string& scenePath = m_sceneQueue[m_scene.currentSceneIndex];
+    std::ifstream input( scenePath );
+    if ( !input )
+    {
+        return false;
+    }
+
+    std::vector<std::string> lines;
+    std::string line;
+    while ( std::getline( input, line ) )
+    {
+        if ( !line.empty() && line.back() == '\r' )
+        {
+            line.pop_back();
+        }
+        lines.push_back( line );
+    }
+
+    char buf[128] = {};
+    SetSceneDirective( lines, "physics", std::string( "physics " ) + OnOff( m_scene.isScenePhysics ), true );
+    SetSceneDirective( lines, "text", std::string( "text " ) + OnOff( m_scene.isSceneText ), true );
+    SetSceneDirective( lines, "vsync", std::string( "vsync " ) + OnOff( m_runtimeSettings.isVsyncEnabled ), true );
+    SetSceneDirective( lines, "pipeline_sync", std::string( "pipeline_sync " ) + OnOff( m_runtimeSettings.isPipelineSyncEnabled ), true );
+    SetSceneDirective( lines, "roll_align", std::string( "roll_align " ) + OnOff( m_runtimeSettings.isRollAlignEnabled ), true );
+    SetSceneDirective( lines, "fixed_step", "fixed_step", m_scene.isFixedStep );
+    SetSceneDirective( lines, "debug_vectors", std::string( "debug_vectors " ) + OnOff( m_debug.isDebugVectors ), true );
+    SetSceneDirective( lines, "physics_debug_axes", std::string( "physics_debug_axes " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0 ), true );
+    SetSceneDirective( lines, "physics_debug_contacts", std::string( "physics_debug_contacts " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0 ), true );
+    SetSceneDirective( lines, "physics_debug_sleep", std::string( "physics_debug_sleep " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0 ), true );
+    SetSceneDirective( lines, "physics_debug_transparent", std::string( "physics_debug_transparent " ) + OnOff( m_debug.isPhysicsDebugTransparent ), true );
+    snprintf( buf, sizeof( buf ), "physics_debug_alpha %.2f", m_debug.physicsDebugAlpha );
+    SetSceneDirective( lines, "physics_debug_alpha", buf, true );
+    snprintf( buf, sizeof( buf ), "physics_debug_contact_linger %.2f", m_debug.physicsDebugContactLinger );
+    SetSceneDirective( lines, "physics_debug_contact_linger", buf, true );
+    snprintf( buf, sizeof( buf ), "time_scale %.2f", m_scene.timeScale );
+    SetSceneDirective( lines, "time_scale", buf, true );
+    SetSceneDirective( lines, "collision_visualizer", std::string( "collision_visualizer " ) + OnOff( m_debug.isCollisionVisualizer ), true );
+    SetSceneDirective( lines, "broadphase_overlay", std::string( "broadphase_overlay " ) + OnOff( m_debug.isBroadphaseOverlay ), true );
+    SetSceneDirective( lines, "water_freeze", std::string( "water_freeze " ) + OnOff( m_debug.isWaterFreezeDebug ), true );
+    SetSceneDirective( lines, "water_flat", std::string( "water_flat " ) + OnOff( m_debug.isWaterFlatDebug ), true );
+    SetSceneDirective( lines, "water_hidden", std::string( "water_hidden " ) + OnOff( m_debug.isWaterHidden ), true );
+    SetSceneDirective( lines, "terrain_hidden", std::string( "terrain_hidden " ) + OnOff( m_debug.isTerrainHidden ), true );
+    SetSceneDirective( lines, "water_reflection", std::string( "water_reflection " ) + WaterReflectionDirectiveValue( m_debug.isWaterNoReflect, m_debug.isWaterRTReflect ), true );
+    SetSceneDirective( lines, "physics_mode", std::string( "physics_mode " ) + ( m_cGameModelCollection.GetLegacyMode() ? "legacy" : "solver" ), true );
+
+    if ( m_uiModelCountOverride >= 0 )
+    {
+        snprintf( buf, sizeof( buf ), "legacy_balls %d", m_uiModelCountOverride );
+        SetSceneDirective( lines, "legacy_balls", buf, true );
+        SetSceneDirective( lines, "solver_balls", "", false );
+        SetSceneDirective( lines, "solver_boxes", "", false );
+    }
+
+    std::ofstream output( scenePath, std::ios::trunc );
+    if ( !output )
+    {
+        return false;
+    }
+
+    for ( const std::string& outLine : lines )
+    {
+        output << outLine << '\n';
+    }
+    return output.good();
+}
 
 
 void SkullbonezRun::ResetCurrentScene()
