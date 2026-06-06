@@ -134,6 +134,7 @@ class Profiler
 
     // Accessor for back-compat perf logging (returns last finished-frame total ms; 0 if marker missing)
     float LastFrameMsByHash( uint32_t hash ) const;
+    float LastGpuFrameMsByHash( uint32_t hash ) const;
 
     // Perf CSV helpers: write header (once, pass 1) and one row per frame.
     // Include <cstdio> before calling; FILE* must be open for writing.

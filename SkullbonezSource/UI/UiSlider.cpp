@@ -1,5 +1,7 @@
 #include "UiSlider.h"
 
+#include "../SkullbonezText.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -43,9 +45,12 @@ void UiSlider::Draw( const UiDrawContext& draw, const char* label, const char* v
     const float trackY = m_bounds.y + 17.0f;
     const float t = maxValue > minValue ? std::clamp( ( value - minValue ) / ( maxValue - minValue ), 0.0f, 1.0f ) : 0.0f;
     const float knobX = trackX + trackW * t;
+    const float textSize = 10.5f;
+    const float valueW = Text::Text2d::MeasureText( textSize, valueText ? valueText : "" );
+    const float valueX = m_bounds.x + m_bounds.w - valueW - 4.0f;
 
-    draw.Text( m_bounds.x, m_bounds.y + 1.0f, 10.5f, 0.74f, 0.82f, 0.84f, label );
-    draw.Text( m_bounds.x + m_bounds.w - 62.0f, m_bounds.y + 1.0f, 10.5f, 0.76f, 0.96f, 1.0f, valueText );
+    draw.Text( m_bounds.x, m_bounds.y + 1.0f, textSize, 0.74f, 0.82f, 0.84f, label );
+    draw.Text( valueX, m_bounds.y + 1.0f, textSize, 0.76f, 0.96f, 1.0f, valueText );
     draw.Rect( trackX, trackY, trackW, 3.0f, 0.05f, 0.12f, 0.15f, 0.92f );
     draw.Rect( trackX, trackY, trackW * t, 3.0f, 0.24f, 0.78f, 0.96f, 0.90f );
     draw.Outline( trackX, trackY - 2.0f, trackW, 7.0f, 0.16f, 0.32f, 0.38f, 0.70f );

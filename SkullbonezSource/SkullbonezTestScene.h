@@ -157,10 +157,14 @@ struct SceneUiOptions
     bool rendererComboOpen = false;
     bool hasSceneComboOpen = false;
     bool sceneComboOpen = false;
+    bool hasSceneFilter = false;
+    char sceneFilter[64] = {};
     bool hasProfilerExpandAll = false;
     bool profilerExpandAll = false;
     bool hasProfilerTimeline = false;
     bool profilerTimeline = false;
+    bool hasPerformanceHistogram = false;
+    bool performanceHistogram = false;
     bool hasTestPattern = false;
     bool testPatternEnabled = false;
     bool hasMouseOverride = false;

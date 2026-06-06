@@ -675,6 +675,19 @@ float Profiler::LastFrameMsByHash( uint32_t hash ) const
 }
 
 
+float Profiler::LastGpuFrameMsByHash( uint32_t hash ) const
+{
+    for ( int i = 0; i < m_markerCount; ++i )
+    {
+        if ( m_markers[i].hash == hash )
+        {
+            return m_markers[i].gpuLastFrameMs > 0.0f ? m_markers[i].gpuLastFrameMs : m_markers[i].gpuAvgMs;
+        }
+    }
+    return 0.0f;
+}
+
+
 void Profiler::WritePerfCSVHeader( FILE* f ) const
 {
     static constexpr uint32_t kVsyncHash = ::HashStr( "Frame/VsyncWait" );

@@ -33,6 +33,7 @@ class UiDrawContext
     float ScaleY() const;
 
   private:
+    static float Snap( float value );
     float PixelX( float x ) const;
     float PixelY( float y ) const;
 

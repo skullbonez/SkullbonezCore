@@ -14,6 +14,21 @@ constexpr float COMBO_FIELD_Y = 4.0f;
 constexpr float COMBO_FIELD_H = 18.0f;
 constexpr float COMBO_DROPDOWN_GAP = 4.0f;
 constexpr float COMBO_OPTION_H = 20.0f;
+
+void DrawComboChevron( const UiDrawContext& draw, const UiRect& field, bool open )
+{
+    const float cx = field.x + field.w - 12.0f;
+    const float cy = field.y + field.h * 0.5f;
+    const float step = 2.0f;
+
+    for ( int i = 0; i < 3; ++i )
+    {
+        const float offset = static_cast<float>( i ) * step;
+        const float y = open ? cy + 3.0f - offset : cy - 3.0f + offset;
+        draw.Rect( cx - 4.0f + offset, y, 2.0f, 2.0f, 0.82f, 0.98f, 1.0f, 0.96f );
+        draw.Rect( cx + 2.0f - offset, y, 2.0f, 2.0f, 0.82f, 0.98f, 1.0f, 0.96f );
+    }
+}
 } // namespace
 
 void UiComboBox::SetBounds( float x, float y, float w, float h )
@@ -110,7 +125,7 @@ void UiComboBox::Draw( const UiDrawContext& draw, const char* label, const char*
     {
         draw.Text( field.x + 6.0f, field.y + 3.0f, 10.0f, fieldHovered ? 0.90f : 1.0f, fieldHovered ? 0.98f : 0.86f, fieldHovered ? 1.0f : 0.38f, selectedText );
     }
-    draw.Text( field.x + field.w - 12.0f, field.y + 2.0f, 10.0f, 0.82f, 0.98f, 1.0f, m_isOpen ? "^" : "v" );
+    DrawComboChevron( draw, field, m_isOpen );
 
     if ( !m_isOpen )
     {

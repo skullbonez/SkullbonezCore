@@ -574,12 +574,23 @@ uint32_t RenderBackendGL::CreateTexture2D( const uint8_t* data, int w, int h, in
                                               : ( channels == 1 )   ? GL_RED
                                                                     : GL_RGB;
 
+    GLint previousUnpackAlignment = 4;
+    glGetIntegerv( GL_UNPACK_ALIGNMENT, &previousUnpackAlignment );
+    if ( channels == 3 || channels == 1 )
+    {
+        glPixelStorei( GL_UNPACK_ALIGNMENT, 1 );
+    }
+
     // Upload the pixel data from CPU RAM to GPU video memory. This is the main "upload" call
     // that actually creates the texture's storage and fills it with image data.
     // Parameters: target, mip level 0 (full size), internal format, width, height, border (0),
     //             pixel format, data type (unsigned bytes = 0-255 per channel), pointer to pixels.
     // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glTexImage2D.xhtml
     glTexImage2D( GL_TEXTURE_2D, 0, format, w, h, 0, format, GL_UNSIGNED_BYTE, data );
+    if ( channels == 3 || channels == 1 )
+    {
+        glPixelStorei( GL_UNPACK_ALIGNMENT, previousUnpackAlignment );
+    }
 
     if ( generateMips )
     {

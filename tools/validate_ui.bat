@@ -73,6 +73,8 @@ if errorlevel 1 exit /b 8
 echo [9/9] Exporting shareable UI PNG artifact...
 "%PYTHON_EXE%" "%~dp0export_screenshot_png.py" "%REPO%\Profile\ui_gl_profiler_timeline.bmp" "%REPO%\Profile\ui_gl_profiler_timeline.png" --max-width 1080
 if errorlevel 1 exit /b 9
+"%PYTHON_EXE%" "%~dp0export_screenshot_png.py" "%REPO%\Profile\ui_gl_performance_histogram.bmp" "%REPO%\Profile\ui_gl_performance_histogram.png" --max-width 1080
+if errorlevel 1 exit /b 9
 
 echo.
 echo ========================================
@@ -89,7 +91,7 @@ if errorlevel 1 (
     echo FAIL: %RENDERER% UI suite exited with error.
     exit /b 1
 )
-for %%s in (blur_off blur_on profiler_default profiler_hierarchy profiler_timeline physics_toggles scene_options controls renderer_combo scene_complete small_scroll minimized) do (
+for %%s in (blur_off blur_on blur_moved_off blur_moved_on profiler_default profiler_hierarchy profiler_timeline physics_toggles scene_options controls renderer_combo scene_complete small_scroll minimized performance_histogram) do (
     if not exist "%REPO%\Profile\ui_%%s.bmp" (
         echo FAIL: %RENDERER% did not produce ui_%%s.bmp.
         exit /b 1

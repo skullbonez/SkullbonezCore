@@ -877,6 +877,7 @@ void SkullbonezRun::Run()
 
             m_timers.frameTimer.StartTimer();
             PROFILE_FRAME_BEGIN();
+            m_timers.workTimer.StartTimer();
             Gfx().ResetFrameDrawCallCount();
 
             PROFILE_BEGIN( "Frame/Input" );
@@ -928,6 +929,9 @@ void SkullbonezRun::Run()
 
             TickAutoCycle();
 
+            m_timers.workTimer.StopTimer();
+            m_timers.cpuFrameWorkMs = static_cast<float>( std::clamp( m_timers.workTimer.GetElapsedTime(), 0.0, 0.25 ) * 1000.0 );
+
             PROFILE_BEGIN( "Frame/VsyncWait" );
             Gfx().Present();
             PROFILE_END( "Frame/VsyncWait" );
@@ -940,8 +944,10 @@ void SkullbonezRun::Run()
                 using SkullbonezCore::Basics::Profiler;
                 static constexpr uint32_t kPhysicsHash = ::HashStr( "Frame/Physics" );
                 static constexpr uint32_t kRenderHash = ::HashStr( "Frame/Render" );
+                static constexpr uint32_t kUiHash = ::HashStr( "Frame/UI" );
                 m_timers.physicsTime = Profiler::Instance().LastFrameMsByHash( kPhysicsHash ) * 0.001f;
                 m_timers.renderTime = Profiler::Instance().LastFrameMsByHash( kRenderHash ) * 0.001f;
+                m_timers.gpuFrameWorkMs = Profiler::Instance().LastGpuFrameMsByHash( kRenderHash ) + Profiler::Instance().LastGpuFrameMsByHash( kUiHash );
             }
 #endif
 
@@ -1041,6 +1047,30 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
 }
 
 
+void SkullbonezRun::EnterInteractiveSceneRun()
+{
+    m_scene.isInteractiveRun = true;
+    m_scene.isExitOnComplete = false;
+    m_screenshot.isScreenshotAndExit = false;
+}
+
+
+bool SkullbonezRun::CanSceneAutomationQuit() const
+{
+    return !m_scene.isInteractiveRun;
+}
+
+
+void SkullbonezRun::HoldCompletedInteractiveScene()
+{
+    m_scene.isTestComplete = true;
+    m_scene.isExitOnComplete = false;
+    m_screenshot.isScreenshotAndExit = false;
+    m_camera.autoCycleInterval = -1.0f;
+    m_camera.autoCycleAccum = 0.0f;
+}
+
+
 bool SkullbonezRun::TickScreenshots()
 {
     // screenshot_and_exit: on frame 0, save <scenename>.bmp to root then quit
@@ -1062,7 +1092,14 @@ bool SkullbonezRun::TickScreenshots()
         sprintf_s( outPath, sizeof( outPath ), "%s.bmp", stem );
         SaveScreenshot( outPath );
         PROFILE_FRAME_END();
-        PostQuitMessage( 0 );
+        if ( CanSceneAutomationQuit() )
+        {
+            PostQuitMessage( 0 );
+        }
+        else
+        {
+            HoldCompletedInteractiveScene();
+        }
         return true;
     }
 
@@ -1085,9 +1122,16 @@ bool SkullbonezRun::TickScreenshots()
             SaveScreenshot( m_screenshot.screenshotPath );
             m_screenshot.isScreenshotSaved = true;
             PROFILE_FRAME_END();
-            if ( !AdvanceScene() )
+            if ( CanSceneAutomationQuit() )
             {
-                PostQuitMessage( 0 );
+                if ( !AdvanceScene() )
+                {
+                    PostQuitMessage( 0 );
+                }
+            }
+            else
+            {
+                HoldCompletedInteractiveScene();
             }
             return true;
         }
@@ -1128,7 +1172,14 @@ void SkullbonezRun::TickAutoCycle()
 
     if ( m_camera.autoCycleShotsTaken >= ballCount )
     {
-        PostQuitMessage( 0 );
+        if ( CanSceneAutomationQuit() )
+        {
+            PostQuitMessage( 0 );
+        }
+        else
+        {
+            HoldCompletedInteractiveScene();
+        }
     }
     else
     {
@@ -1179,7 +1230,7 @@ bool SkullbonezRun::TickSceneAdvance()
     {
         if ( m_scene.currentFrame >= m_scene.targetFrameCount )
         {
-            if ( m_scene.isExitOnComplete )
+            if ( m_scene.isExitOnComplete && CanSceneAutomationQuit() )
             {
                 if ( !AdvanceScene() )
                 {
@@ -1189,7 +1240,14 @@ bool SkullbonezRun::TickSceneAdvance()
             }
             else
             {
-                m_scene.isTestComplete = true;
+                if ( CanSceneAutomationQuit() )
+                {
+                    m_scene.isTestComplete = true;
+                }
+                else
+                {
+                    HoldCompletedInteractiveScene();
+                }
             }
         }
     }
@@ -1197,7 +1255,7 @@ bool SkullbonezRun::TickSceneAdvance()
     // Legacy (non-scene) mode: restart the scene every 20s to keep running indefinitely
     if ( !m_scene.isSceneMode && !m_camera.isFlyMode && m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
     {
-        LoadScene( m_scene.currentSceneIndex );
+        LoadScene( m_scene.currentSceneIndex, m_scene.isInteractiveRun, m_scene.isInteractiveRun );
         m_timers.simulationTimer.StartTimer();
         return true;
     }
@@ -1209,7 +1267,14 @@ bool SkullbonezRun::TickSceneAdvance()
     {
         if ( !AdvanceScene() )
         {
-            PostQuitMessage( 0 );
+            if ( CanSceneAutomationQuit() )
+            {
+                PostQuitMessage( 0 );
+            }
+            else
+            {
+                HoldCompletedInteractiveScene();
+            }
         }
         return true;
     }
@@ -1220,234 +1285,259 @@ bool SkullbonezRun::TickSceneAdvance()
 
 void SkullbonezRun::TakeInput()
 {
-    // Toggle fly mode with F (edge-detected so snapshot-loaded fly mode survives the next frame)
-    bool prevFlyMode = m_camera.isFlyMode;
-    bool fNow = Input::IsKeyDown( 'F' );
-    if ( fNow && !m_camera.input.Get( InputState::FWasDown ) )
+    const bool uiBlocksKeyboardBeforeInput = m_ui.BlocksKeyboard();
+    if ( !uiBlocksKeyboardBeforeInput )
     {
-        m_camera.isFlyMode = !m_camera.isFlyMode;
-        m_camera.isNudgeMode = false; // F-key fly never implies nudge
-    }
-    m_camera.input.Set( InputState::FWasDown, fNow );
-
-    // N key: toggle nudge mode — free camera with live simulation (edge-detected).
-    // Nudge entering also enters fly mode; nudge exiting also exits fly mode.
-    {
-        bool nNow = Input::IsKeyDown( 'N' );
-        if ( nNow && !m_camera.input.Get( InputState::NWasDown ) )
+        // Toggle fly mode with F (edge-detected so snapshot-loaded fly mode survives the next frame)
+        bool prevFlyMode = m_camera.isFlyMode;
+        bool fNow = Input::IsKeyDown( 'F' );
+        if ( fNow && !m_camera.input.Get( InputState::FWasDown ) )
         {
-            m_camera.isNudgeMode = !m_camera.isNudgeMode;
-            m_camera.isFlyMode = m_camera.isNudgeMode;
+            m_camera.isFlyMode = !m_camera.isFlyMode;
+            m_camera.isNudgeMode = false; // F-key fly never implies nudge
         }
-        m_camera.input.Set( InputState::NWasDown, nNow );
-    }
+        m_camera.input.Set( InputState::FWasDown, fNow );
+
+        // N key: toggle nudge mode — free camera with live simulation (edge-detected).
+        // Nudge entering also enters fly mode; nudge exiting also exits fly mode.
+        {
+            bool nNow = Input::IsKeyDown( 'N' );
+            if ( nNow && !m_camera.input.Get( InputState::NWasDown ) )
+            {
+                m_camera.isNudgeMode = !m_camera.isNudgeMode;
+                m_camera.isFlyMode = m_camera.isNudgeMode;
+            }
+            m_camera.input.Set( InputState::NWasDown, nNow );
+        }
 
 #ifdef _DEBUG
-    {
-        bool enterNow = Input::IsKeyDown( VK_RETURN );
-        if ( enterNow && !m_camera.input.Get( InputState::EnterWasDown ) && m_camera.isNudgeMode )
         {
-            WriteNudgeReproSnapshot();
+            bool enterNow = Input::IsKeyDown( VK_RETURN );
+            if ( enterNow && !m_camera.input.Get( InputState::EnterWasDown ) && m_camera.isNudgeMode )
+            {
+                WriteNudgeReproSnapshot();
+            }
+            m_camera.input.Set( InputState::EnterWasDown, enterNow );
         }
-        m_camera.input.Set( InputState::EnterWasDown, enterNow );
-    }
 #endif
 
-    if ( m_camera.isFlyMode != prevFlyMode )
-    {
-        if ( m_camera.isFlyMode )
+        if ( m_camera.isFlyMode != prevFlyMode )
         {
-            // Entering fly mode: in legacy mode snap to free camera; in scene mode stay
-            // on the current camera so fly controls work without requiring CAMERA_FREE
-            if ( !m_scene.isSceneMode )
+            if ( m_camera.isFlyMode )
             {
-                m_systems.cameras->SelectCamera( CAMERA_FREE, false );
-            }
-            m_camera.cameraTime = 0.0f;
-            XZBounds unbounded;
-            unbounded.m_xMin = -99999.9f;
-            unbounded.m_xMax = 99999.9f;
-            unbounded.m_zMin = -99999.9f;
-            unbounded.m_zMax = 99999.9f;
-            uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
-            m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
-            SetCursor( nullptr );
-            Input::CentreMouseCoordinates();
-            m_camera.input.xMove = 0;
-            m_camera.input.yMove = 0;
-        }
-        else
-        {
-            // Exiting fly mode: restore m_terrain XZ bounds, cursor, camera cycle clock
-            uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
-            m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
-            SetCursor( LoadCursor( nullptr, IDC_ARROW ) );
-            m_camera.cameraTime = 0.0f;
-            // Exiting fly mode also exits nudge mode
-            m_camera.isNudgeMode = false;
-        }
-    }
-
-    // Water m_shader debug toggles
-    bool key1Now = Input::IsKeyDown( '1' );
-    if ( key1Now && !m_camera.input.Get( InputState::Key1WasDown ) )
-    {
-        m_debug.isWaterFreezeDebug = !m_debug.isWaterFreezeDebug;
-        if ( m_debug.isWaterFreezeDebug )
-        {
-            m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
-        }
-    }
-    m_camera.input.Set( InputState::Key1WasDown, key1Now );
-    // Key '2' cycles reflection mode: FBO (default) → DXR ray-traced (if supported) → none → FBO
-    {
-        static bool s_key2WasDown = false;
-        bool s_key2Now = ( Input::IsKeyDown( '2' ) != 0 );
-        if ( s_key2Now && !s_key2WasDown )
-        {
-            if ( !m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
-            {
-                if ( Gfx().IsDXRSupported() )
+                // Entering fly mode: in legacy mode snap to free camera; in scene mode stay
+                // on the current camera so fly controls work without requiring CAMERA_FREE
+                if ( !m_scene.isSceneMode )
                 {
-                    m_debug.isWaterRTReflect = true; // FBO → DXR
+                    m_systems.cameras->SelectCamera( CAMERA_FREE, false );
                 }
-                else
-                {
-                    m_debug.isWaterNoReflect = true; // DXR not available, skip to none
-                }
-            }
-            else if ( m_debug.isWaterRTReflect )
-            {
-                m_debug.isWaterRTReflect = false;
-                m_debug.isWaterNoReflect = true; // DXR → none
+                m_camera.cameraTime = 0.0f;
+                XZBounds unbounded;
+                unbounded.m_xMin = -99999.9f;
+                unbounded.m_xMax = 99999.9f;
+                unbounded.m_zMin = -99999.9f;
+                unbounded.m_zMax = 99999.9f;
+                uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
+                m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
+                SetCursor( nullptr );
+                Input::CentreMouseCoordinates();
+                m_camera.input.xMove = 0;
+                m_camera.input.yMove = 0;
             }
             else
             {
-                m_debug.isWaterNoReflect = false; // none → FBO
+                // Exiting fly mode: restore m_terrain XZ bounds, cursor, camera cycle clock
+                uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
+                m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
+                SetCursor( LoadCursor( nullptr, IDC_ARROW ) );
+                m_camera.cameraTime = 0.0f;
+                // Exiting fly mode also exits nudge mode
+                m_camera.isNudgeMode = false;
             }
         }
-        s_key2WasDown = s_key2Now;
-    }
-    {
-        bool key3Now = Input::IsKeyDown( '3' );
-        if ( key3Now && !m_camera.input.Get( InputState::Key3WasDown ) )
-        {
-            m_debug.isWaterFlatDebug = !m_debug.isWaterFlatDebug;
-        }
-        m_camera.input.Set( InputState::Key3WasDown, key3Now );
-    }
-    {
-        bool key4Now = Input::IsKeyDown( '4' );
-        if ( key4Now && !m_camera.input.Get( InputState::Key4WasDown ) )
-        {
-            m_debug.isTerrainHidden = !m_debug.isTerrainHidden;
-        }
-        m_camera.input.Set( InputState::Key4WasDown, key4Now );
-    }
-    {
-        bool key5Now = Input::IsKeyDown( '5' );
-        if ( key5Now && !m_camera.input.Get( InputState::Key5WasDown ) )
-        {
-            m_debug.isWaterHidden = !m_debug.isWaterHidden;
-        }
-        m_camera.input.Set( InputState::Key5WasDown, key5Now );
-    }
-    // V key: collision visualizer. Renders balls and boxes as solid debug colours.
-    {
-        bool vNow = Input::IsKeyDown( 'V' );
-        if ( vNow && !m_camera.input.Get( InputState::VWasDown ) )
-        {
-            m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
-        }
-        m_camera.input.Set( InputState::VWasDown, vNow );
-    }
 
-    // Debug vectors: mouse UI and keyboard both toggle the same runtime state.
-    {
-        bool key9Now = Input::IsKeyDown( '9' );
-        if ( key9Now && !m_camera.input.Get( InputState::Key9WasDown ) )
+        // Water m_shader debug toggles
+        bool key1Now = Input::IsKeyDown( '1' );
+        if ( key1Now && !m_camera.input.Get( InputState::Key1WasDown ) )
         {
-            m_debug.isDebugVectors = !m_debug.isDebugVectors;
-        }
-        m_camera.input.Set( InputState::Key9WasDown, key9Now );
-    }
-
-    // C key: cycle physics debug overlay - None -> Axes -> Contacts -> Sleep -> All -> None.
-    {
-        bool cNow = Input::IsKeyDown( 'C' );
-        if ( cNow && !m_camera.input.Get( InputState::CKeyWasDown ) )
-        {
-            switch ( m_debug.physicsDebugFlags )
+            m_debug.isWaterFreezeDebug = !m_debug.isWaterFreezeDebug;
+            if ( m_debug.isWaterFreezeDebug )
             {
-            case PHYSICS_DEBUG_NONE:
-                m_debug.physicsDebugFlags = PHYSICS_DEBUG_AXES;
-                break;
-            case PHYSICS_DEBUG_AXES:
-                m_debug.physicsDebugFlags = PHYSICS_DEBUG_CONTACTS;
-                break;
-            case PHYSICS_DEBUG_CONTACTS:
-                m_debug.physicsDebugFlags = PHYSICS_DEBUG_SLEEP;
-                break;
-            case PHYSICS_DEBUG_SLEEP:
-                m_debug.physicsDebugFlags = PHYSICS_DEBUG_ALL;
-                break;
-            default:
-                m_debug.physicsDebugFlags = PHYSICS_DEBUG_NONE;
-                break;
+                m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
             }
         }
-        m_camera.input.Set( InputState::CKeyWasDown, cNow );
-    }
-
-    // 6 key: translucent debug collision volumes for inspecting axes/contact rows inside bodies.
-    {
-        bool key6Now = Input::IsKeyDown( '6' );
-        if ( key6Now && !m_camera.input.Get( InputState::Key6WasDown ) )
+        m_camera.input.Set( InputState::Key1WasDown, key1Now );
+        // Key '2' cycles reflection mode: FBO (default) → DXR ray-traced (if supported) → none → FBO
         {
-            m_debug.isPhysicsDebugTransparent = !m_debug.isPhysicsDebugTransparent;
-        }
-        m_camera.input.Set( InputState::Key6WasDown, key6Now );
-    }
-
-    // Q key: cycle render backend at runtime while preserving current simulation state (GL → DX11 → DX12 → GL).
-    {
-        bool isQNow = Input::IsKeyDown( 'Q' );
-        if ( isQNow && !m_camera.input.Get( InputState::QKeyWasDown ) )
-        {
-            SwitchRenderer( GetNextRendererType( GetCurrentRendererType() ) );
-        }
-        m_camera.input.Set( InputState::QKeyWasDown, isQNow );
-    }
-
-    // G key: toggle broadphase overlay, or cycle tracked ball if overlay is off.
-    bool isGNow = Input::IsKeyDown( 'G' );
-    if ( isGNow && !m_camera.input.Get( InputState::GKeyWasDown ) )
-    {
-        if ( m_scene.isSceneMode && m_camera.trackBallIndex >= 0 && !m_debug.isBroadphaseOverlay )
-        {
-            int count = m_cGameModelCollection.GetModelCount();
-            if ( count > 0 )
+            static bool s_key2WasDown = false;
+            bool s_key2Now = ( Input::IsKeyDown( '2' ) != 0 );
+            if ( s_key2Now && !s_key2WasDown )
             {
-                m_camera.trackBallIndex = ( m_camera.trackBallIndex + 1 ) % count;
+                if ( !m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
+                {
+                    if ( Gfx().IsDXRSupported() )
+                    {
+                        m_debug.isWaterRTReflect = true; // FBO → DXR
+                    }
+                    else
+                    {
+                        m_debug.isWaterNoReflect = true; // DXR not available, skip to none
+                    }
+                }
+                else if ( m_debug.isWaterRTReflect )
+                {
+                    m_debug.isWaterRTReflect = false;
+                    m_debug.isWaterNoReflect = true; // DXR → none
+                }
+                else
+                {
+                    m_debug.isWaterNoReflect = false; // none → FBO
+                }
+            }
+            s_key2WasDown = s_key2Now;
+        }
+        {
+            bool key3Now = Input::IsKeyDown( '3' );
+            if ( key3Now && !m_camera.input.Get( InputState::Key3WasDown ) )
+            {
+                m_debug.isWaterFlatDebug = !m_debug.isWaterFlatDebug;
+            }
+            m_camera.input.Set( InputState::Key3WasDown, key3Now );
+        }
+        {
+            bool key4Now = Input::IsKeyDown( '4' );
+            if ( key4Now && !m_camera.input.Get( InputState::Key4WasDown ) )
+            {
+                m_debug.isTerrainHidden = !m_debug.isTerrainHidden;
+            }
+            m_camera.input.Set( InputState::Key4WasDown, key4Now );
+        }
+        {
+            bool key5Now = Input::IsKeyDown( '5' );
+            if ( key5Now && !m_camera.input.Get( InputState::Key5WasDown ) )
+            {
+                m_debug.isWaterHidden = !m_debug.isWaterHidden;
+            }
+            m_camera.input.Set( InputState::Key5WasDown, key5Now );
+        }
+        // V key: collision visualizer. Renders balls and boxes as solid debug colours.
+        {
+            bool vNow = Input::IsKeyDown( 'V' );
+            if ( vNow && !m_camera.input.Get( InputState::VWasDown ) )
+            {
+                m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
+            }
+            m_camera.input.Set( InputState::VWasDown, vNow );
+        }
+
+        // Debug vectors: mouse UI and keyboard both toggle the same runtime state.
+        {
+            bool key9Now = Input::IsKeyDown( '9' );
+            if ( key9Now && !m_camera.input.Get( InputState::Key9WasDown ) )
+            {
+                m_debug.isDebugVectors = !m_debug.isDebugVectors;
+            }
+            m_camera.input.Set( InputState::Key9WasDown, key9Now );
+        }
+
+        // C key: cycle physics debug overlay - None -> Axes -> Contacts -> Sleep -> All -> None.
+        {
+            bool cNow = Input::IsKeyDown( 'C' );
+            if ( cNow && !m_camera.input.Get( InputState::CKeyWasDown ) )
+            {
+                switch ( m_debug.physicsDebugFlags )
+                {
+                case PHYSICS_DEBUG_NONE:
+                    m_debug.physicsDebugFlags = PHYSICS_DEBUG_AXES;
+                    break;
+                case PHYSICS_DEBUG_AXES:
+                    m_debug.physicsDebugFlags = PHYSICS_DEBUG_CONTACTS;
+                    break;
+                case PHYSICS_DEBUG_CONTACTS:
+                    m_debug.physicsDebugFlags = PHYSICS_DEBUG_SLEEP;
+                    break;
+                case PHYSICS_DEBUG_SLEEP:
+                    m_debug.physicsDebugFlags = PHYSICS_DEBUG_ALL;
+                    break;
+                default:
+                    m_debug.physicsDebugFlags = PHYSICS_DEBUG_NONE;
+                    break;
+                }
+            }
+            m_camera.input.Set( InputState::CKeyWasDown, cNow );
+        }
+
+        // 6 key: translucent debug collision volumes for inspecting axes/contact rows inside bodies.
+        {
+            bool key6Now = Input::IsKeyDown( '6' );
+            if ( key6Now && !m_camera.input.Get( InputState::Key6WasDown ) )
+            {
+                m_debug.isPhysicsDebugTransparent = !m_debug.isPhysicsDebugTransparent;
+            }
+            m_camera.input.Set( InputState::Key6WasDown, key6Now );
+        }
+
+        // Q key: cycle render backend at runtime while preserving current simulation state (GL → DX11 → DX12 → GL).
+        {
+            bool isQNow = Input::IsKeyDown( 'Q' );
+            if ( isQNow && !m_camera.input.Get( InputState::QKeyWasDown ) )
+            {
+                SwitchRenderer( GetNextRendererType( GetCurrentRendererType() ) );
+            }
+            m_camera.input.Set( InputState::QKeyWasDown, isQNow );
+        }
+
+        // G key: toggle broadphase overlay, or cycle tracked ball if overlay is off.
+        bool isGNow = Input::IsKeyDown( 'G' );
+        if ( isGNow && !m_camera.input.Get( InputState::GKeyWasDown ) )
+        {
+            if ( m_scene.isSceneMode && m_camera.trackBallIndex >= 0 && !m_debug.isBroadphaseOverlay )
+            {
+                int count = m_cGameModelCollection.GetModelCount();
+                if ( count > 0 )
+                {
+                    m_camera.trackBallIndex = ( m_camera.trackBallIndex + 1 ) % count;
+                }
+            }
+            else
+            {
+                m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
             }
         }
-        else
-        {
-            m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
-        }
-    }
-    m_camera.input.Set( InputState::GKeyWasDown, isGNow );
+        m_camera.input.Set( InputState::GKeyWasDown, isGNow );
 
-    // 0 key: toggle the in-game diagnostics window. Tabs replace the old overlay cycle.
-    // Edge-detected in both scene and legacy modes; one toggle per keypress.
-    {
-        bool key0Now = Input::IsKeyDown( '0' );
-        if ( key0Now && !m_camera.input.Get( InputState::Key0WasDown ) )
+        // 0 key: toggle the in-game diagnostics window. Tabs replace the old overlay cycle.
+        // Edge-detected in both scene and legacy modes; one toggle per keypress.
         {
-            m_ui.ToggleVisible( m_timers.simulationTimer.GetTotalTime() );
-            m_debug.overlayMode = OverlayMode::None;
+            bool key0Now = Input::IsKeyDown( '0' );
+            if ( key0Now && !m_camera.input.Get( InputState::Key0WasDown ) )
+            {
+                EnterInteractiveSceneRun();
+                m_ui.ToggleVisible( m_timers.simulationTimer.GetTotalTime() );
+                m_debug.overlayMode = OverlayMode::None;
+            }
+            m_camera.input.Set( InputState::Key0WasDown, key0Now );
         }
-        m_camera.input.Set( InputState::Key0WasDown, key0Now );
+
+        const bool leftSceneNow = Input::IsKeyDown( VK_LEFT );
+        const bool rightSceneNow = Input::IsKeyDown( VK_RIGHT );
+        if ( leftSceneNow && !m_leftSceneCycleWasDown )
+        {
+            EnterInteractiveSceneRun();
+            LoadAdjacentSceneFromBrowser( -1 );
+        }
+        if ( rightSceneNow && !m_rightSceneCycleWasDown )
+        {
+            EnterInteractiveSceneRun();
+            LoadAdjacentSceneFromBrowser( 1 );
+        }
+        m_leftSceneCycleWasDown = leftSceneNow;
+        m_rightSceneCycleWasDown = rightSceneNow;
+    }
+    else
+    {
+        m_leftSceneCycleWasDown = Input::IsKeyDown( VK_LEFT );
+        m_rightSceneCycleWasDown = Input::IsKeyDown( VK_RIGHT );
     }
 
     if ( m_systems.window )
@@ -1457,8 +1547,13 @@ void SkullbonezRun::TakeInput()
                                                          static_cast<int>( m_systems.window->m_sWindowDimensions.x ),
                                                          static_cast<int>( m_systems.window->m_sWindowDimensions.y ),
                                                          m_timers.simulationTimer.GetTotalTime(),
+                                                         m_sceneBrowserNamePtrs.empty() ? nullptr : m_sceneBrowserNamePtrs.data(),
                                                          static_cast<int>( m_sceneBrowserNamePtrs.size() ),
                                                          selectedSceneBrowserIndex );
+        if ( uiResult.userInteracted )
+        {
+            EnterInteractiveSceneRun();
+        }
         if ( uiResult.toggleVsync )
         {
             m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
@@ -1504,7 +1599,7 @@ void SkullbonezRun::TakeInput()
         }
         if ( uiResult.toggleExitOnComplete )
         {
-            m_scene.isExitOnComplete = !m_scene.isExitOnComplete;
+            m_scene.isExitOnComplete = CanSceneAutomationQuit() ? !m_scene.isExitOnComplete : false;
         }
         if ( uiResult.togglePipelineSync )
         {
@@ -1637,7 +1732,12 @@ void SkullbonezRun::TakeInput()
         }
         if ( uiResult.resetScene )
         {
-            ResetCurrentScene();
+            EnterInteractiveSceneRun();
+            ResetCurrentScene( true, true );
+        }
+        if ( uiResult.requestDemoScene )
+        {
+            LoadDemoSceneFromUi();
         }
         if ( uiResult.saveSceneDefaults )
         {
@@ -1660,6 +1760,18 @@ void SkullbonezRun::TakeInput()
         {
             LoadSceneFromBrowserIndex( uiResult.requestedSceneIndex );
         }
+    }
+
+    if ( m_ui.BlocksKeyboard() )
+    {
+        m_camera.input.xMove = 0;
+        m_camera.input.yMove = 0;
+        m_camera.input.Set( InputState::Up, false );
+        m_camera.input.Set( InputState::Down, false );
+        m_camera.input.Set( InputState::Left, false );
+        m_camera.input.Set( InputState::Right, false );
+        SetCursor( LoadCursor( nullptr, IDC_ARROW ) );
+        return;
     }
 
     // F2: Save scene snapshot to Scenes/
@@ -1746,7 +1858,8 @@ void SkullbonezRun::TakeInput()
         bool rNow = Input::IsKeyDown( 'R' );
         if ( rNow && !m_camera.input.Get( InputState::RKeyWasDown ) )
         {
-            ResetCurrentScene();
+            EnterInteractiveSceneRun();
+            ResetCurrentScene( true, true );
         }
         m_camera.input.Set( InputState::RKeyWasDown, rNow );
     }
@@ -1755,7 +1868,8 @@ void SkullbonezRun::TakeInput()
         bool bsNow = Input::IsKeyDown( VK_BACK );
         if ( bsNow && !m_camera.input.Get( InputState::BackspaceWasDown ) )
         {
-            ResetCurrentScene();
+            EnterInteractiveSceneRun();
+            ResetCurrentScene( true, true );
         }
         m_camera.input.Set( InputState::BackspaceWasDown, bsNow );
     }
@@ -2244,6 +2358,8 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         uiData.fps = m_timers.rollingFpsTime > 0.0f ? m_timers.rollingFpsTime : ( dSecondsPerFrame > 0.0 ? 1.0f / static_cast<float>( dSecondsPerFrame ) : 0.0f );
         uiData.renderMs = ( m_timers.rollingRenderTime > 0.0f ? m_timers.rollingRenderTime : m_timers.renderTime ) * 1000.0f;
         uiData.physicsMs = ( m_timers.rollingPhysicsTime > 0.0f ? m_timers.rollingPhysicsTime : m_timers.physicsTime ) * 1000.0f;
+        uiData.cpuFrameMs = m_timers.cpuFrameWorkMs;
+        uiData.gpuFrameMs = m_timers.gpuFrameWorkMs;
         uiData.modelCount = m_scene.modelCount;
         uiData.currentFrame = m_scene.currentFrame;
         uiData.targetFrameCount = m_scene.targetFrameCount;
@@ -3250,11 +3366,17 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 }
 
 
-void SkullbonezRun::LoadScene( int index )
+void SkullbonezRun::LoadScene( int index, bool preserveUiState, bool suppressExitOnComplete )
 {
 #ifdef _DEBUG
     EndPhysicsDiagnosticsRun( "scene_reload" );
 #endif
+
+    if ( suppressExitOnComplete )
+    {
+        m_scene.isInteractiveRun = true;
+    }
+    const bool suppressAutomationExit = m_scene.isInteractiveRun || suppressExitOnComplete;
 
     // Flush GPU before destroying scene resources to avoid use-after-free
     if ( IsGfxReady() )
@@ -3356,6 +3478,8 @@ void SkullbonezRun::LoadScene( int index )
     m_timers.rollingPhysicsTime = 0.0f;
     m_timers.rollingFpsTime = 0.0f;
     m_timers.rollingSceneEnergy = 0.0f;
+    m_timers.cpuFrameWorkMs = 0.0f;
+    m_timers.gpuFrameWorkMs = 0.0f;
     m_timers.sceneEnergyAccumulator = 0.0;
     m_timers.sceneEnergySampleCount = 0;
     m_timers.lastUiDrawCalls = 0;
@@ -3442,50 +3566,61 @@ void SkullbonezRun::LoadScene( int index )
 
         const SceneUiOptions& uiOptions = scene.GetUiOptions();
         const double uiNow = m_timers.simulationTimer.GetTotalTime();
-        if ( !uiOptions.hasVisible && m_debug.overlayMode == OverlayMode::None )
+        if ( !preserveUiState )
         {
-            m_ui.SetVisible( false, uiNow );
-        }
-        if ( uiOptions.hasWindowRect )
-        {
-            m_ui.SetWindowBounds( uiOptions.windowX, uiOptions.windowY, uiOptions.windowW, uiOptions.windowH );
-        }
-        if ( uiOptions.hasActiveTab )
-        {
-            m_ui.SetActiveTab( static_cast<InGameUiTab>( uiOptions.activeTab ) );
-        }
-        if ( uiOptions.hasBlur )
-        {
-            m_ui.SetBlurEnabled( uiOptions.blurEnabled );
-        }
-        if ( uiOptions.hasProfilerExpandAll )
-        {
-            m_ui.SetProfilerExpandAll( uiOptions.profilerExpandAll );
-        }
-        if ( uiOptions.hasProfilerTimeline )
-        {
-            m_ui.SetProfilerTimelineEnabled( uiOptions.profilerTimeline );
-        }
-        if ( uiOptions.hasRendererComboOpen )
-        {
-            m_ui.SetRendererComboOpen( uiOptions.rendererComboOpen );
-        }
-        if ( uiOptions.hasSceneComboOpen )
-        {
-            m_ui.SetSceneComboOpen( uiOptions.sceneComboOpen );
-        }
-        m_ui.SetMouseOverride( uiOptions.hasMouseOverride, uiOptions.mouseX, uiOptions.mouseY );
-        if ( uiOptions.hasVisible )
-        {
-            m_ui.SetVisible( uiOptions.isVisible, uiNow );
-        }
-        if ( uiOptions.hasMinimized )
-        {
-            m_ui.SetMinimized( uiOptions.isMinimized, uiNow );
-        }
-        if ( uiOptions.hasTestPattern )
-        {
-            m_debug.isUiTestPattern = uiOptions.testPatternEnabled;
+            if ( !uiOptions.hasVisible && m_debug.overlayMode == OverlayMode::None )
+            {
+                m_ui.SetVisible( false, uiNow );
+            }
+            if ( uiOptions.hasWindowRect )
+            {
+                m_ui.SetWindowBounds( uiOptions.windowX, uiOptions.windowY, uiOptions.windowW, uiOptions.windowH );
+            }
+            if ( uiOptions.hasActiveTab )
+            {
+                m_ui.SetActiveTab( static_cast<InGameUiTab>( uiOptions.activeTab ) );
+            }
+            if ( uiOptions.hasBlur )
+            {
+                m_ui.SetBlurEnabled( uiOptions.blurEnabled );
+            }
+            if ( uiOptions.hasProfilerExpandAll )
+            {
+                m_ui.SetProfilerExpandAll( uiOptions.profilerExpandAll );
+            }
+            if ( uiOptions.hasProfilerTimeline )
+            {
+                m_ui.SetProfilerTimelineEnabled( uiOptions.profilerTimeline );
+            }
+            if ( uiOptions.hasPerformanceHistogram )
+            {
+                m_ui.SetPerformanceHistogramEnabled( uiOptions.performanceHistogram );
+            }
+            if ( uiOptions.hasRendererComboOpen )
+            {
+                m_ui.SetRendererComboOpen( uiOptions.rendererComboOpen );
+            }
+            if ( uiOptions.hasSceneComboOpen )
+            {
+                m_ui.SetSceneComboOpen( uiOptions.sceneComboOpen );
+            }
+            if ( uiOptions.hasSceneFilter )
+            {
+                m_ui.SetSceneFilter( uiOptions.sceneFilter );
+            }
+            m_ui.SetMouseOverride( uiOptions.hasMouseOverride, uiOptions.mouseX, uiOptions.mouseY );
+            if ( uiOptions.hasVisible )
+            {
+                m_ui.SetVisible( uiOptions.isVisible, uiNow );
+            }
+            if ( uiOptions.hasMinimized )
+            {
+                m_ui.SetMinimized( uiOptions.isMinimized, uiNow );
+            }
+            if ( uiOptions.hasTestPattern )
+            {
+                m_debug.isUiTestPattern = uiOptions.testPatternEnabled;
+            }
         }
 
         // Apply per-scene physics mode override — supersedes the --legacy CLI flag for this scene.
@@ -3500,10 +3635,10 @@ void SkullbonezRun::LoadScene( int index )
         }
 
         m_scene.targetFrameCount = scene.GetFrameCount();
-        m_scene.isExitOnComplete = scene.IsExitOnComplete();
+        m_scene.isExitOnComplete = suppressAutomationExit ? false : scene.IsExitOnComplete();
         m_screenshot.screenshotFrame = scene.GetScreenshotFrame();
         m_screenshot.screenshotMs = scene.GetScreenshotMs();
-        m_screenshot.isScreenshotAndExit = scene.IsScreenshotAndExit();
+        m_screenshot.isScreenshotAndExit = suppressAutomationExit ? false : scene.IsScreenshotAndExit();
 
         if ( scene.GetScreenshotPath()[0] != '\0' )
         {
@@ -3950,6 +4085,8 @@ void SkullbonezRun::LoadSceneFromBrowserIndex( int index )
         return;
     }
 
+    EnterInteractiveSceneRun();
+
     const std::string selectedPath = NormalizeScenePath( m_sceneBrowserPaths[index] );
     for ( int i = 0; i < static_cast<int>( m_sceneQueue.size() ); ++i )
     {
@@ -3957,18 +4094,64 @@ void SkullbonezRun::LoadSceneFromBrowserIndex( int index )
         {
             if ( i != m_scene.currentSceneIndex )
             {
-                LoadScene( i );
+                LoadScene( i, true, true );
+            }
+            else
+            {
+                m_scene.isExitOnComplete = false;
+                m_screenshot.isScreenshotAndExit = false;
             }
             return;
         }
     }
 
     m_sceneQueue.push_back( selectedPath );
-    LoadScene( static_cast<int>( m_sceneQueue.size() ) - 1 );
+    LoadScene( static_cast<int>( m_sceneQueue.size() ) - 1, true, true );
 }
 
 
-void SkullbonezRun::ResetCurrentScene()
+void SkullbonezRun::LoadDemoSceneFromUi()
+{
+    EnterInteractiveSceneRun();
+    m_cGameModelCollection.SetLegacyMode( false );
+    for ( int i = 0; i < static_cast<int>( m_sceneQueue.size() ); ++i )
+    {
+        if ( m_sceneQueue[i].empty() )
+        {
+            LoadScene( i, true, true );
+            return;
+        }
+    }
+
+    m_sceneQueue.push_back( "" );
+    LoadScene( static_cast<int>( m_sceneQueue.size() ) - 1, true, true );
+}
+
+
+void SkullbonezRun::LoadAdjacentSceneFromBrowser( int direction )
+{
+    const int sceneCount = static_cast<int>( m_sceneBrowserPaths.size() );
+    if ( sceneCount <= 0 || direction == 0 )
+    {
+        return;
+    }
+
+    const int currentIndex = CurrentSceneBrowserIndex();
+    int nextIndex = 0;
+    if ( currentIndex < 0 )
+    {
+        nextIndex = direction < 0 ? sceneCount - 1 : 0;
+    }
+    else
+    {
+        nextIndex = ( currentIndex + ( direction < 0 ? -1 : 1 ) + sceneCount ) % sceneCount;
+    }
+
+    LoadSceneFromBrowserIndex( nextIndex );
+}
+
+
+void SkullbonezRun::ResetCurrentScene( bool preserveUiState, bool suppressExitOnComplete )
 {
     if ( m_scene.currentSceneIndex < 0 ||
          m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
@@ -3977,7 +4160,7 @@ void SkullbonezRun::ResetCurrentScene()
     }
 
     ++m_scene.manualResetCount;
-    LoadScene( m_scene.currentSceneIndex );
+    LoadScene( m_scene.currentSceneIndex, preserveUiState, suppressExitOnComplete );
 }
 
 
@@ -4071,11 +4254,13 @@ void SkullbonezRun::ApplyNoWaterOverride()
 
 bool SkullbonezRun::AdvanceScene()
 {
+    const bool preserveInteractiveUi = m_scene.isInteractiveRun;
+
     // For perf tests with 2 passes, the second pass re-runs the same scene
     if ( m_perfLogState.isPerfTest && sPerfPass == 0 )
     {
         sPerfPass = 1;
-        LoadScene( m_scene.currentSceneIndex );
+        LoadScene( m_scene.currentSceneIndex, preserveInteractiveUi, preserveInteractiveUi );
         return true;
     }
 
@@ -4088,7 +4273,7 @@ bool SkullbonezRun::AdvanceScene()
         return false;
     }
 
-    LoadScene( nextIndex );
+    LoadScene( nextIndex, preserveInteractiveUi, preserveInteractiveUi );
     return true;
 }
 

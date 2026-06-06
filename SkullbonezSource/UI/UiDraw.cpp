@@ -3,6 +3,7 @@
 #include "../SkullbonezText.h"
 
 #include <algorithm>
+#include <cmath>
 
 using namespace SkullbonezCore::Text;
 
@@ -31,7 +32,19 @@ UiDrawContext::UiDrawContext( int screenW, int screenH )
 
 void UiDrawContext::Rect( float x, float y, float w, float h, float r, float g, float b, float a ) const
 {
-    Text2d::BatchQuad( PixelX( x ), PixelY( y + h ), PixelX( x + w ), PixelY( y ), r, g, b, a );
+    float x0 = Snap( x );
+    float y0 = Snap( y );
+    float x1 = Snap( x + w );
+    float y1 = Snap( y + h );
+    if ( x1 <= x0 && w > 0.0f )
+    {
+        x1 = x0 + 1.0f;
+    }
+    if ( y1 <= y0 && h > 0.0f )
+    {
+        y1 = y0 + 1.0f;
+    }
+    Text2d::BatchQuad( PixelX( x0 ), PixelY( y1 ), PixelX( x1 ), PixelY( y0 ), r, g, b, a );
 }
 
 
@@ -47,7 +60,7 @@ void UiDrawContext::Outline( float x, float y, float w, float h, float r, float 
 void UiDrawContext::Text( float x, float y, float pxSize, float r, float g, float b, const char* value ) const
 {
     const float unitSize = pxSize * m_sy;
-    Text2d::Render2dTextColor( PixelX( x ), PixelY( y + pxSize ), unitSize, r, g, b, "%s", value );
+    Text2d::Render2dTextColor( PixelX( Snap( x ) ), PixelY( Snap( y ) + pxSize ), unitSize, r, g, b, "%s", value );
 }
 
 
@@ -78,6 +91,12 @@ float UiDrawContext::HalfH() const
 float UiDrawContext::ScaleY() const
 {
     return m_sy;
+}
+
+
+float UiDrawContext::Snap( float value )
+{
+    return std::floor( value + 0.5f );
 }
 
 

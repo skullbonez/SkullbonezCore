@@ -90,6 +90,8 @@ struct RunTimerState
     float rollingRenderTime = 0.0f;  // Smoothed render time accumulator
     float rollingFpsTime = 0.0f;     // Smoothed FPS time accumulator
     float rollingSceneEnergy = 0.0f; // Half-second averaged kinetic energy
+    float cpuFrameWorkMs = 0.0f;     // Last frame CPU work before Present/VSync
+    float gpuFrameWorkMs = 0.0f;     // Last available GPU work before Present/VSync
     float timeSinceLastRender = 0.0f;
     double sceneEnergyAccumulator = 0.0;
     int sceneEnergySampleCount = 0;
@@ -141,6 +143,7 @@ struct RunSceneState
     bool isFixedStep = false;      // One physics tick per render frame at PHYSICS_FIXED_DT (deterministic)
     bool isExitOnComplete = false; // Exit automatically when targetFrameCount is reached
     bool isTestComplete = false;   // Set when targetFrameCount is reached without --exit; appends "- TEST COMPLETE" to HUD
+    bool isInteractiveRun = false; // User/UI controlled scene flow: completion automation may hold/advance but never quit
 };
 
 struct RunScreenshotState
@@ -228,6 +231,8 @@ class SkullbonezRun
     std::vector<std::string> m_sceneBrowserPaths;
     std::vector<std::string> m_sceneBrowserNames;
     std::vector<const char*> m_sceneBrowserNamePtrs;
+    bool m_leftSceneCycleWasDown = false;
+    bool m_rightSceneCycleWasDown = false;
     float m_cmdTimeScaleOverride = 0.0f; // CLI --time-scale override applied after each scene load (0 = not set)
     bool m_cmdFixedStep = false;         // CLI --fixed-step override applied after each scene load
     unsigned int m_cmdSeedOverride = 0;  // CLI --seed override applied after each scene load (0 = not set)
@@ -266,34 +271,39 @@ class SkullbonezRun
     GameModelCollection m_cGameModelCollection;      // SkullbonezCore::GameObjects::GameModelCollection class
 
     inline static int sPerfPass = 0;
-    void Render();                                                                     // Main render method
-    void RelativeUpdateCamera( uint32_t hash );                                        // Relative update specified camera
-    void UpdateLogic( float fSecondsPerFrame );                                        // Camera, autocycle, logs — once per frame
-    void TakeInput();                                                                  // Take user input
-    void SetUpCameras();                                                               // Camera init (legacy mode)
-    void SetUpCamerasFromScene( const TestScene& scene );                              // Camera init from scene file
-    void SetUpGameModels( int count );                                                 // Game model init (random legacy mode)
-    void SetUpSolverObjects( int balls, int boxes );                                   // Game model init: exact N solver balls + M solver boxes
-    void SetUpGameModelsFromScene( const TestScene& scene );                           // Game model init from scene file
-    void DrawPrimitives();                                                             // Draw OpenGL primitives here
-    void SetInitialOpenGlState();                                                      // Sets the initial state of the OpenGL evironment
-    void SetViewingOrientation();                                                      // Renders camera views etc
-    void DrawWindowText( const double dSecondsPerFrame );                              // Renders text to the window
-    void SaveScreenshot( const char* path );                                           // Saves framebuffer to BMP file via glReadPixels
-    bool SaveCurrentSceneDefaults();                                                   // Writes UI-controlled defaults back to the active scene file
-    void RefreshSceneBrowserList();                                                    // Discovers scene files available to the in-game scene dropdown
-    int CurrentSceneBrowserIndex() const;                                              // Returns current scene index within the discovered scene dropdown list
-    void LoadSceneFromBrowserIndex( int index );                                       // Loads a scene selected from the in-game scene dropdown
-    void LogPerfMemory( const char* checkpoint );                                      // Log memory usage to perf CSV
-    void LoadScene( int index );                                                       // Resets scene-specific state and loads a scene by queue index
-    void ResetCurrentScene();                                                          // User-triggered reset/reload of current scene or legacy mode
-    void ApplyUiModelCountOverride( int count );                                       // Rebuilds the active generated model pool from the UI slider
-    void ApplyUiSolverObjectCounts( int balls, int boxes );                            // Rebuilds generated solver objects from exact UI counts
-    void ApplyUiWorldOverride( float gravity, float fluidHeight, float fluidDensity ); // Applies live world/fluid scalar controls
-    void ApplyNoWaterOverride();                                                       // Pushes fluid surface below the active terrain when requested
-    bool AdvanceScene();                                                               // Advances to the next scene in the queue (returns false if done)
-    void MoveCamera( float keyMovementQty, float mouseMovemementQty );                 // Moves the camera
-    RuntimeRendererType GetCurrentRendererType() const;                                // Detect active backend type from Gfx renderer identity
+    void Render();                                                                                  // Main render method
+    void RelativeUpdateCamera( uint32_t hash );                                                     // Relative update specified camera
+    void UpdateLogic( float fSecondsPerFrame );                                                     // Camera, autocycle, logs — once per frame
+    void TakeInput();                                                                               // Take user input
+    void SetUpCameras();                                                                            // Camera init (legacy mode)
+    void SetUpCamerasFromScene( const TestScene& scene );                                           // Camera init from scene file
+    void SetUpGameModels( int count );                                                              // Game model init (random legacy mode)
+    void SetUpSolverObjects( int balls, int boxes );                                                // Game model init: exact N solver balls + M solver boxes
+    void SetUpGameModelsFromScene( const TestScene& scene );                                        // Game model init from scene file
+    void DrawPrimitives();                                                                          // Draw OpenGL primitives here
+    void SetInitialOpenGlState();                                                                   // Sets the initial state of the OpenGL evironment
+    void SetViewingOrientation();                                                                   // Renders camera views etc
+    void DrawWindowText( const double dSecondsPerFrame );                                           // Renders text to the window
+    void SaveScreenshot( const char* path );                                                        // Saves framebuffer to BMP file via glReadPixels
+    bool SaveCurrentSceneDefaults();                                                                // Writes UI-controlled defaults back to the active scene file
+    void RefreshSceneBrowserList();                                                                 // Discovers scene files available to the in-game scene dropdown
+    int CurrentSceneBrowserIndex() const;                                                           // Returns current scene index within the discovered scene dropdown list
+    void LoadSceneFromBrowserIndex( int index );                                                    // Loads a scene selected from the in-game scene dropdown
+    void LoadDemoSceneFromUi();                                                                     // Loads the generated demo scene from the in-game Scene tab
+    void LoadAdjacentSceneFromBrowser( int direction );                                             // Keyboard scene cycling through the discovered scene dropdown list
+    void EnterInteractiveSceneRun();                                                                // Locks scene automation into non-quitting interactive mode
+    bool CanSceneAutomationQuit() const;                                                            // True for CLI suites/tests; false once the user owns scene flow
+    void HoldCompletedInteractiveScene();                                                           // Keep the current scene alive after interactive automation completes
+    void LogPerfMemory( const char* checkpoint );                                                   // Log memory usage to perf CSV
+    void LoadScene( int index, bool preserveUiState = false, bool suppressExitOnComplete = false ); // Resets scene-specific state and loads a scene by queue index
+    void ResetCurrentScene( bool preserveUiState = false, bool suppressExitOnComplete = false );    // User-triggered reset/reload of current scene or legacy mode
+    void ApplyUiModelCountOverride( int count );                                                    // Rebuilds the active generated model pool from the UI slider
+    void ApplyUiSolverObjectCounts( int balls, int boxes );                                         // Rebuilds generated solver objects from exact UI counts
+    void ApplyUiWorldOverride( float gravity, float fluidHeight, float fluidDensity );              // Applies live world/fluid scalar controls
+    void ApplyNoWaterOverride();                                                                    // Pushes fluid surface below the active terrain when requested
+    bool AdvanceScene();                                                                            // Advances to the next scene in the queue (returns false if done)
+    void MoveCamera( float keyMovementQty, float mouseMovemementQty );                              // Moves the camera
+    RuntimeRendererType GetCurrentRendererType() const;                                             // Detect active backend type from Gfx renderer identity
     RuntimeRendererType GetNextRendererType( RuntimeRendererType current ) const;
     void SwitchRenderer( RuntimeRendererType target ); // Rebuild render backend/resources while preserving simulation state
 

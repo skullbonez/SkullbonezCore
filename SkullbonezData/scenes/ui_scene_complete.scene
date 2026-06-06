@@ -12,6 +12,7 @@ ui rect 34 56 760 520
 ui blur on
 ui renderer_combo closed
 ui scene_combo open
+ui scene_filter ball
 ui mouse 132 240
 ui profiler_expand none
 ui_test_pattern on

@@ -41,6 +41,8 @@ struct InGameUiFrameData
     float fps = 0.0f;
     float renderMs = 0.0f;
     float physicsMs = 0.0f;
+    float cpuFrameMs = 0.0f;
+    float gpuFrameMs = 0.0f;
     int modelCount = 0;
     int currentFrame = 0;
     int targetFrameCount = -1;
@@ -86,6 +88,7 @@ struct InGameUiFrameData
 
 struct InGameUiInputResult
 {
+    bool userInteracted = false;
     bool toggleVsync = false;
     bool toggleCollisionVisualizer = false;
     bool togglePhysicsDebugTransparent = false;
@@ -104,6 +107,7 @@ struct InGameUiInputResult
     bool toggleWaterFlat = false;
     bool toggleWaterReflection = false;
     bool resetScene = false;
+    bool requestDemoScene = false;
     bool saveSceneDefaults = false;
     float requestedTimeScale = -1.0f;
     float requestedPhysicsDebugAlpha = -1.0f;
@@ -138,16 +142,19 @@ class InGameUi
     void SetActiveTab( InGameUiTab tab );
     InGameUiTab GetActiveTab() const;
     bool BlocksCameraMouse() const;
+    bool BlocksKeyboard() const;
     void SetWindowBounds( int x, int y, int width, int height );
     void SetBlurEnabled( bool enabled );
     void SetRendererComboOpen( bool open );
     void SetSceneComboOpen( bool open );
+    void SetSceneFilter( const char* filter );
     void SetProfilerExpandAll( bool expandAll );
     void SetProfilerTimelineEnabled( bool enabled );
+    void SetPerformanceHistogramEnabled( bool enabled );
     void SetMouseOverride( bool enabled, int x = 0, int y = 0 );
     void ResetResources();
 
-    InGameUiInputResult UpdateInput( HWND hwnd, int screenW, int screenH, double now, int sceneOptionCount = 0, int selectedSceneOption = -1 );
+    InGameUiInputResult UpdateInput( HWND hwnd, int screenW, int screenH, double now, const char* const* sceneOptions = nullptr, int sceneOptionCount = 0, int selectedSceneOption = -1 );
     void Draw( const InGameUiFrameData& data );
 
   private:
@@ -158,13 +165,15 @@ class InGameUi
     bool m_isDragging = false;
     bool m_isResizing = false;
     bool m_blocksCameraMouse = false;
-    bool m_blurPreviewEnabled = true;
+    bool m_blurPreviewEnabled = false;
     bool m_profilerTimelineEnabled = false;
+    bool m_performanceHistogramEnabled = false;
     InGameUiTab m_activeTab = InGameUiTab::Profiler;
     UiTabBar m_tabBar;
     UiCheckBox m_blurToggle;
     UiCheckBox m_vsyncToggle;
     UiCheckBox m_timelineToggle;
+    UiCheckBox m_histogramToggle;
     UiCheckBox m_physicsToggles[7];
     UiCheckBox m_optionToggles[11];
     UiCheckBox m_controlToggles[19];
@@ -182,6 +191,7 @@ class InGameUi
     UiSlider m_worldFluidHeightSlider;
     UiSlider m_worldFluidDensitySlider;
     UiButton m_resetSceneButton;
+    UiButton m_demoSceneButton;
     UiButton m_saveDefaultsButton;
     UiComboBox m_rendererCombo;
     UiComboBox m_reflectionCombo;
@@ -208,6 +218,8 @@ class InGameUi
     bool m_hasMouseOverride = false;
     int m_mouseOverrideX = 0;
     int m_mouseOverrideY = 0;
+    char m_sceneFilter[64] = {};
+    bool m_sceneFilterKeyWasDown[256] = {};
     int m_sceneComboScroll = 0;
     float m_scrollY = 0.0f;
     double m_scrollbarVisibleUntil = 0.0;
@@ -223,6 +235,18 @@ class InGameUi
     bool m_expandAllProfilerMarkers = false;
     bool m_profilerDefaultExpansionApplied = false;
 
+    struct PerformanceHistogramSample
+    {
+        float cpuMs = 0.0f;
+        float gpuMs = 0.0f;
+        float spikeMs = 0.0f;
+    };
+    static constexpr int PERFORMANCE_HISTOGRAM_SAMPLE_COUNT = 120;
+    PerformanceHistogramSample m_performanceHistogramSamples[PERFORMANCE_HISTOGRAM_SAMPLE_COUNT] = {};
+    int m_performanceHistogramHead = 0;
+    int m_performanceHistogramCount = 0;
+    float m_performanceHistogramAxisMs = 16.67f;
+
     struct ProfilerTimelineSegment
     {
         float startMs = 0.0f;
@@ -237,6 +261,15 @@ class InGameUi
     void ToggleProfilerMarker( uint32_t hash );
     void ApplyProfilerDefaultExpansion();
     void ApplyProfilerExpandAll();
+    void PushPerformanceHistogramSample( float cpuMs, float gpuMs );
+    void DrawPerformanceHistogram( const UiDrawContext& draw, const InGameUiFrameData& data ) const;
+    void ClearSceneFilter();
+    void CloseSceneCombo();
+    void CaptureSceneFilterKeyState();
+    bool SceneFilterKeyPressed( int virtualKey );
+    void AppendSceneFilterChar( char value );
+    void BackspaceSceneFilter();
+    void UpdateSceneFilterTyping( InGameUiInputResult& result, const char* const* sceneOptions, int sceneOptionCount );
     void SetMaximized( bool maximized, int screenW, int screenH );
 };
 

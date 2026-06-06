@@ -21,7 +21,14 @@ void UiIconButton::DrawExpander( const UiDrawContext& draw, bool expanded ) cons
 {
     draw.Rect( m_bounds.x, m_bounds.y, m_bounds.w, m_bounds.h, 0.03f, 0.16f, 0.20f, 0.86f );
     draw.Outline( m_bounds.x, m_bounds.y, m_bounds.w, m_bounds.h, 0.28f, 0.82f, 0.95f, 0.74f );
-    draw.Text( m_bounds.x + 4.0f, m_bounds.y + 0.5f, 11.0f, 0.82f, 0.98f, 1.0f, expanded ? "-" : "+" );
+
+    const float cx = m_bounds.x + m_bounds.w * 0.5f;
+    const float cy = m_bounds.y + m_bounds.h * 0.5f;
+    draw.Rect( cx - 4.0f, cy - 1.0f, 8.0f, 2.0f, 0.82f, 0.98f, 1.0f, 0.96f );
+    if ( !expanded )
+    {
+        draw.Rect( cx - 1.0f, cy - 4.0f, 2.0f, 8.0f, 0.82f, 0.98f, 1.0f, 0.96f );
+    }
 }
 
 } // namespace Ui

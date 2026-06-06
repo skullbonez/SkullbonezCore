@@ -298,6 +298,13 @@ TestScene TestScene::LoadFromFile( const char* path )
                 continue;
             }
 
+            if ( strcmp( command, "scene_filter" ) == 0 )
+            {
+                scene.m_uiOptions.hasSceneFilter = true;
+                strncpy_s( scene.m_uiOptions.sceneFilter, sizeof( scene.m_uiOptions.sceneFilter ), value, _TRUNCATE );
+                continue;
+            }
+
             if ( strcmp( command, "profiler_expand" ) == 0 )
             {
                 bool parsedValue = false;
@@ -325,6 +332,21 @@ TestScene TestScene::LoadFromFile( const char* path )
                 }
                 scene.m_uiOptions.hasProfilerTimeline = true;
                 scene.m_uiOptions.profilerTimeline = parsedValue;
+                continue;
+            }
+
+            if ( strcmp( command, "histogram" ) == 0 )
+            {
+                bool parsedValue = false;
+                if ( !ParseOnOff( value, parsedValue ) )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid ui histogram value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_uiOptions.hasPerformanceHistogram = true;
+                scene.m_uiOptions.performanceHistogram = parsedValue;
                 continue;
             }
 

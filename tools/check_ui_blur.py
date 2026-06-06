@@ -19,6 +19,8 @@ RENDERERS = ("gl", "dx11", "dx12")
 SCENES = (
     "blur_off",
     "blur_on",
+    "blur_moved_off",
+    "blur_moved_on",
     "profiler_default",
     "profiler_hierarchy",
     "profiler_timeline",
@@ -29,6 +31,7 @@ SCENES = (
     "scene_complete",
     "small_scroll",
     "minimized",
+    "performance_histogram",
 )
 TIMELINE_EPSILON_MS = 0.05
 
@@ -192,6 +195,7 @@ def main() -> int:
 
     failures = 0
     blur_sample_box = (92, 350, 770, 490)
+    moved_blur_sample_box = (336, 320, 924, 520)
     for renderer in RENDERERS:
         off_path = profile / f"ui_{renderer}_blur_off.bmp"
         on_path = profile / f"ui_{renderer}_blur_on.bmp"
@@ -201,6 +205,16 @@ def main() -> int:
         print(f"{renderer}: blur edge score off={off_score:.3f} on={on_score:.3f} ratio={ratio:.3f}")
         if ratio >= 0.92:
             print(f"ERROR: {renderer} blur did not soften the checker backdrop enough.")
+            failures += 1
+
+        moved_off_path = profile / f"ui_{renderer}_blur_moved_off.bmp"
+        moved_on_path = profile / f"ui_{renderer}_blur_moved_on.bmp"
+        moved_off_score = edge_score(moved_off_path, moved_blur_sample_box)
+        moved_on_score = edge_score(moved_on_path, moved_blur_sample_box)
+        moved_ratio = moved_on_score / moved_off_score if moved_off_score > 0.001 else 1.0
+        print(f"{renderer}: moved blur edge score off={moved_off_score:.3f} on={moved_on_score:.3f} ratio={moved_ratio:.3f}")
+        if moved_ratio >= 0.92:
+            print(f"ERROR: {renderer} moved blur did not stay aligned/softened enough.")
             failures += 1
 
     for renderer in RENDERERS:

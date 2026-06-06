@@ -18,6 +18,12 @@ int ClampByte( float value )
 {
     return static_cast<int>( std::clamp( value, 0.0f, 255.0f ) );
 }
+
+
+float ClampUv( float value )
+{
+    return std::clamp( value, 0.0f, 1.0f );
+}
 } // namespace
 
 
@@ -212,8 +218,10 @@ void UiBackdropBlur::Draw( const UiDrawContext& draw, const UiRect& bounds, int 
 
     const int requestedX = std::clamp( static_cast<int>( std::floor( bounds.x ) ) - BLUR_PAD_PIXELS, 0, (std::max)( 0, screenW - 1 ) );
     const int requestedY = std::clamp( static_cast<int>( std::floor( bounds.y ) ) - BLUR_PAD_PIXELS, 0, (std::max)( 0, screenH - 1 ) );
-    const int requestedW = std::clamp( static_cast<int>( std::ceil( bounds.w ) ) + BLUR_PAD_PIXELS * 2, 1, (std::max)( 1, screenW - requestedX ) );
-    const int requestedH = std::clamp( static_cast<int>( std::ceil( bounds.h ) ) + BLUR_PAD_PIXELS * 2, 1, (std::max)( 1, screenH - requestedY ) );
+    const int requestedRight = std::clamp( static_cast<int>( std::ceil( bounds.x + bounds.w ) ) + BLUR_PAD_PIXELS, requestedX + 1, screenW );
+    const int requestedBottom = std::clamp( static_cast<int>( std::ceil( bounds.y + bounds.h ) ) + BLUR_PAD_PIXELS, requestedY + 1, screenH );
+    const int requestedW = requestedRight - requestedX;
+    const int requestedH = requestedBottom - requestedY;
     const bool geometryChanged = requestedX != m_lastX || requestedY != m_lastY || requestedW != m_lastW || requestedH != m_lastH ||
                                  screenW != m_lastScreenW || screenH != m_lastScreenH;
     (void)currentFrame;
@@ -221,27 +229,44 @@ void UiBackdropBlur::Draw( const UiDrawContext& draw, const UiRect& bounds, int 
 
     EnsureDrawResources();
 
-    if ( m_texture == 0 || m_invalidated || geometryChanged )
+    const bool needsRefresh = m_texture == 0 || m_invalidated || geometryChanged;
+    if ( needsRefresh )
     {
         RefreshTexture( bounds, screenW, screenH );
     }
 
-    if ( m_texture == 0 || m_dynamicVB == 0 || !m_shader )
+    if ( m_texture == 0 || m_dynamicVB == 0 || !m_shader || m_invalidated || m_lastW <= 0 || m_lastH <= 0 )
     {
         return;
     }
 
-    const float left = draw.TextX( static_cast<float>( m_lastX ) );
-    const float right = draw.TextX( static_cast<float>( m_lastX + m_lastW ) );
-    const float top = draw.TextY( static_cast<float>( m_lastY ) );
-    const float bottom = draw.TextY( static_cast<float>( m_lastY + m_lastH ) );
+    const float drawX0 = std::clamp( bounds.x, 0.0f, static_cast<float>( screenW ) );
+    const float drawY0 = std::clamp( bounds.y, 0.0f, static_cast<float>( screenH ) );
+    const float drawX1 = std::clamp( bounds.x + bounds.w, drawX0, static_cast<float>( screenW ) );
+    const float drawY1 = std::clamp( bounds.y + bounds.h, drawY0, static_cast<float>( screenH ) );
+    if ( drawX1 <= drawX0 || drawY1 <= drawY0 )
+    {
+        return;
+    }
+
+    const float invCropW = 1.0f / static_cast<float>( m_lastW );
+    const float invCropH = 1.0f / static_cast<float>( m_lastH );
+    const float uvLeft = ClampUv( ( drawX0 - static_cast<float>( m_lastX ) ) * invCropW );
+    const float uvRight = ClampUv( ( drawX1 - static_cast<float>( m_lastX ) ) * invCropW );
+    const float uvTop = ClampUv( 1.0f - ( drawY0 - static_cast<float>( m_lastY ) ) * invCropH );
+    const float uvBottom = ClampUv( 1.0f - ( drawY1 - static_cast<float>( m_lastY ) ) * invCropH );
+
+    const float left = draw.TextX( drawX0 );
+    const float right = draw.TextX( drawX1 );
+    const float top = draw.TextY( drawY0 );
+    const float bottom = draw.TextY( drawY1 );
     const float verts[] = {
-        left,  bottom, 0.0f, 0.0f,
-        right, bottom, 1.0f, 0.0f,
-        right, top,    1.0f, 1.0f,
-        left,  bottom, 0.0f, 0.0f,
-        right, top,    1.0f, 1.0f,
-        left,  top,    0.0f, 1.0f,
+        left,  bottom, uvLeft,  uvBottom,
+        right, bottom, uvRight, uvBottom,
+        right, top,    uvRight, uvTop,
+        left,  bottom, uvLeft,  uvBottom,
+        right, top,    uvRight, uvTop,
+        left,  top,    uvLeft,  uvTop,
     };
 
     const Matrix4 proj = Matrix4::Ortho( -draw.HalfW(), draw.HalfW(), -draw.HalfH(), draw.HalfH(), -1.0f, 1.0f );
