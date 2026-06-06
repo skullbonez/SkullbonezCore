@@ -55,7 +55,7 @@ Profiler& Profiler::Instance()
 
 
 Profiler::Profiler()
-    : m_markerCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
+    : m_markerCount( 0 ), m_stackTop( 0 ), m_qpcFrequency( 0 ), m_frameStartTicks( 0 ), m_lastAvgTicks( 0 ), m_inFrame( false ),
       m_warmupFrames( WARMUP_FRAMES + 1 ), m_resetPending( false ), m_nextColorIndex( 0 )
 {
     LARGE_INTEGER f;
@@ -122,9 +122,14 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
     m.openCount = 0;
     m.openStartTicks = 0;
     m.accumSecondsThisFrame = 0.0;
+    m.firstStartSecondsThisFrame = 0.0;
+    m.lastEndSecondsThisFrame = 0.0;
+    m.spanWrittenThisFrame = false;
     m.ringFilled = 0;
     m.ringHead = 0;
     m.lastFrameMs = 0.0f;
+    m.lastFrameStartMs = 0.0f;
+    m.lastFrameEndMs = 0.0f;
     m.avgMs = 0.0f;
     m.p50Ms = 0.0f;
     m.p99Ms = 0.0f;
@@ -212,6 +217,12 @@ void Profiler::Begin( const char* fullPath, uint32_t hash )
     LARGE_INTEGER t;
     QueryPerformanceCounter( &t );
     m.openStartTicks = t.QuadPart;
+    const double startSeconds = static_cast<double>( t.QuadPart - m_frameStartTicks ) / static_cast<double>( m_qpcFrequency );
+    if ( !m.spanWrittenThisFrame )
+    {
+        m.firstStartSecondsThisFrame = startSeconds;
+        m.spanWrittenThisFrame = true;
+    }
     m.openCount = 1;
     m_stackIndices[m_stackTop++] = idx;
 }
@@ -240,6 +251,7 @@ void Profiler::End( const char* fullPath, uint32_t hash )
         delta = 0;
     }
     top.accumSecondsThisFrame += static_cast<double>( delta ) / static_cast<double>( m_qpcFrequency );
+    top.lastEndSecondsThisFrame = static_cast<double>( t.QuadPart - m_frameStartTicks ) / static_cast<double>( m_qpcFrequency );
     top.openCount = 0;
     --m_stackTop;
 }
@@ -491,6 +503,10 @@ void Profiler::FrameBegin()
     }
     m_inFrame = true;
 
+    LARGE_INTEGER frameStart;
+    QueryPerformanceCounter( &frameStart );
+    m_frameStartTicks = frameStart.QuadPart;
+
     // Consume warmup budget at frame start so FrameEnd and WritePerfCSVRow see the same value
     if ( m_warmupFrames > 0 )
     {
@@ -504,6 +520,9 @@ void Profiler::FrameBegin()
     for ( int i = 0; i < m_markerCount; ++i )
     {
         m_markers[i].accumSecondsThisFrame = 0.0;
+        m_markers[i].firstStartSecondsThisFrame = 0.0;
+        m_markers[i].lastEndSecondsThisFrame = 0.0;
+        m_markers[i].spanWrittenThisFrame = false;
     }
 
     // Implicit top-level "Frame" marker captures the entire frame total.
@@ -541,6 +560,16 @@ void Profiler::FrameEnd()
         Marker& m = m_markers[i];
         float ms = static_cast<float>( m.accumSecondsThisFrame * 1000.0 );
         m.lastFrameMs = ms;
+        if ( m.spanWrittenThisFrame )
+        {
+            m.lastFrameStartMs = static_cast<float>( m.firstStartSecondsThisFrame * 1000.0 );
+            m.lastFrameEndMs = static_cast<float>( m.lastEndSecondsThisFrame * 1000.0 );
+        }
+        else
+        {
+            m.lastFrameStartMs = 0.0f;
+            m.lastFrameEndMs = 0.0f;
+        }
         if ( m_warmupFrames > 0 )
         {
             continue;
@@ -646,15 +675,27 @@ float Profiler::LastFrameMsByHash( uint32_t hash ) const
 }
 
 
+float Profiler::LastGpuFrameMsByHash( uint32_t hash ) const
+{
+    for ( int i = 0; i < m_markerCount; ++i )
+    {
+        if ( m_markers[i].hash == hash )
+        {
+            return m_markers[i].gpuLastFrameMs > 0.0f ? m_markers[i].gpuLastFrameMs : m_markers[i].gpuAvgMs;
+        }
+    }
+    return 0.0f;
+}
+
+
 void Profiler::WritePerfCSVHeader( FILE* f ) const
 {
     static constexpr uint32_t kVsyncHash = ::HashStr( "Frame/VsyncWait" );
-    static constexpr uint32_t kPipelineHash = ::HashStr( "Frame/PipelineSync" );
 
     fprintf( f, "pass,frame" );
     for ( int i = 0; i < m_markerCount; ++i )
     {
-        if ( m_markers[i].hash == kVsyncHash || m_markers[i].hash == kPipelineHash )
+        if ( m_markers[i].hash == kVsyncHash )
         {
             continue;
         }
@@ -664,21 +705,17 @@ void Profiler::WritePerfCSVHeader( FILE* f ) const
             fprintf( f, ",%s_gpu", m_markers[i].name );
         }
     }
-    // PipelineSync then VsyncWait at end so they don't skew averages when viewed together
-    for ( int pass = 0; pass < 2; ++pass )
+    // Keep VsyncWait at the end so it doesn't skew active-frame averages when viewed together.
+    for ( int i = 0; i < m_markerCount; ++i )
     {
-        uint32_t target = ( pass == 0 ) ? kPipelineHash : kVsyncHash;
-        for ( int i = 0; i < m_markerCount; ++i )
+        if ( m_markers[i].hash == kVsyncHash )
         {
-            if ( m_markers[i].hash == target )
+            fprintf( f, ",%s", m_markers[i].name );
+            if ( m_markers[i].hasGpu )
             {
-                fprintf( f, ",%s", m_markers[i].name );
-                if ( m_markers[i].hasGpu )
-                {
-                    fprintf( f, ",%s_gpu", m_markers[i].name );
-                }
-                break;
+                fprintf( f, ",%s_gpu", m_markers[i].name );
             }
+            break;
         }
     }
     fprintf( f, "\n" );
@@ -693,12 +730,11 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
     }
 
     static constexpr uint32_t kVsyncHash = ::HashStr( "Frame/VsyncWait" );
-    static constexpr uint32_t kPipelineHash = ::HashStr( "Frame/PipelineSync" );
 
     fprintf( f, "%d,%d", pass, frame );
     for ( int i = 0; i < m_markerCount; ++i )
     {
-        if ( m_markers[i].hash == kVsyncHash || m_markers[i].hash == kPipelineHash )
+        if ( m_markers[i].hash == kVsyncHash )
         {
             continue;
         }
@@ -708,20 +744,16 @@ void Profiler::WritePerfCSVRow( FILE* f, int pass, int frame ) const
             fprintf( f, ",%.4f", m_markers[i].gpuLastFrameMs );
         }
     }
-    for ( int p = 0; p < 2; ++p )
+    for ( int i = 0; i < m_markerCount; ++i )
     {
-        uint32_t target = ( p == 0 ) ? kPipelineHash : kVsyncHash;
-        for ( int i = 0; i < m_markerCount; ++i )
+        if ( m_markers[i].hash == kVsyncHash )
         {
-            if ( m_markers[i].hash == target )
+            fprintf( f, ",%.4f", m_markers[i].lastFrameMs );
+            if ( m_markers[i].hasGpu )
             {
-                fprintf( f, ",%.4f", m_markers[i].lastFrameMs );
-                if ( m_markers[i].hasGpu )
-                {
-                    fprintf( f, ",%.4f", m_markers[i].gpuLastFrameMs );
-                }
-                break;
+                fprintf( f, ",%.4f", m_markers[i].gpuLastFrameMs );
             }
+            break;
         }
     }
     fprintf( f, "\n" );
@@ -802,13 +834,11 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     const float colR = 0.6f, colG = 0.6f, colB = 0.6f;  // grey column headers
     const float gpuR = 0.4f, gpuG = 0.8f, gpuB = 1.0f;  // cyan for GPU values
 
-    // Look up Frame, VsyncWait, and PipelineSync for CPU time
+    // Look up Frame and VsyncWait for active CPU time.
     static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
     static constexpr uint32_t kVsyncHash = ::HashStr( "Frame/VsyncWait" );
-    static constexpr uint32_t kPipelineSyncHash = ::HashStr( "Frame/PipelineSync" );
     float frameAvgMs = 0.0f;
     float vsyncAvgMs = 0.0f;
-    float pipelineSyncAvgMs = 0.0f;
     for ( int i = 0; i < m_markerCount; ++i )
     {
         if ( m_markers[i].hash == kFrameHash )
@@ -819,12 +849,8 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
         {
             vsyncAvgMs = m_markers[i].avgMs;
         }
-        else if ( m_markers[i].hash == kPipelineSyncHash )
-        {
-            pipelineSyncAvgMs = m_markers[i].avgMs;
-        }
     }
-    const float cpuMs = frameAvgMs - vsyncAvgMs - pipelineSyncAvgMs;
+    const float cpuMs = frameAvgMs - vsyncAvgMs;
 
     // Header line
     float y = yTop;
@@ -847,7 +873,7 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     // Traffic-light threshold: proportion of CPU budget
     float budgetMs = ( cpuMs > 0.001f ) ? cpuMs : 1.0f;
 
-    // Marker rows — PipelineSync and VsyncWait rendered last (at bottom)
+    // Marker rows -- VsyncWait rendered last (at bottom).
     auto renderMarkerRow = [&]( const Marker& m )
     {
         if ( y < yBottom )
@@ -868,7 +894,7 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
         strcpy_s( nameBuf + spaces, sizeof( nameBuf ) - spaces, m.leafName );
 
         float mr, mg, mb;
-        if ( m.hash == kVsyncHash || m.hash == kPipelineSyncHash )
+        if ( m.hash == kVsyncHash )
         {
             mr = 0.5f;
             mg = 0.5f;
@@ -939,8 +965,7 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     for ( int i = m_markerCount - 1; i >= 0; --i )
     {
         if ( m_markers[i].parentIndex == -1 &&
-             m_markers[i].hash != kVsyncHash &&
-             m_markers[i].hash != kPipelineSyncHash )
+             m_markers[i].hash != kVsyncHash )
         {
             dfsStack[dfsTop++] = i;
         }
@@ -954,16 +979,12 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
             dfsStack[dfsTop++] = childBuf[idx][j];
         }
     }
-    for ( int pass = 0; pass < 2; ++pass )
+    for ( int i = 0; i < m_markerCount; ++i )
     {
-        uint32_t target = ( pass == 0 ) ? kPipelineSyncHash : kVsyncHash;
-        for ( int i = 0; i < m_markerCount; ++i )
+        if ( m_markers[i].hash == kVsyncHash )
         {
-            if ( m_markers[i].hash == target )
-            {
-                renderMarkerRow( m_markers[i] );
-                break;
-            }
+            renderMarkerRow( m_markers[i] );
+            break;
         }
     }
 }
@@ -1002,10 +1023,9 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
         }
     }
 
-    // Exclude VsyncWait and PipelineSync from CPU segments (they become idle in absolute mode)
+    // Exclude VsyncWait from CPU segments (it becomes idle in absolute mode).
     static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
     static constexpr uint32_t kVsyncHash = ::HashStr( "Frame/VsyncWait" );
-    static constexpr uint32_t kPipelineSyncHash = ::HashStr( "Frame/PipelineSync" );
 
     // Gather leaf indices for CPU and GPU bars
     int cpuLeaves[MAX_MARKERS];
@@ -1026,7 +1046,7 @@ void Profiler::RenderBarOverlay( float xLeft, float yBottom, float panelWidth, f
             continue;
         }
 
-        bool isIdle = ( m_markers[i].hash == kVsyncHash || m_markers[i].hash == kPipelineSyncHash );
+        bool isIdle = ( m_markers[i].hash == kVsyncHash );
         if ( !isIdle )
         {
             cpuLeaves[cpuLeafCount++] = i;

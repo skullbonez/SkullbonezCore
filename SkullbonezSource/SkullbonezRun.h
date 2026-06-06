@@ -22,6 +22,7 @@
 #include "SkullbonezBroadphaseVisualizer.h"
 #include "SkullbonezCollisionVisualizer.h"
 #include "SkullbonezPhysicsDebugVisualizer.h"
+#include "UI/SkullbonezUI.h"
 
 
 // --- Usings ---
@@ -33,6 +34,7 @@ using namespace SkullbonezCore::Geometry;
 using namespace SkullbonezCore::Math;
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Physics;
+using namespace SkullbonezCore::UI;
 
 
 namespace SkullbonezCore
@@ -87,8 +89,15 @@ struct RunTimerState
     float renderTime = 0.0f;         // Last frame render time (seconds)
     float rollingRenderTime = 0.0f;  // Smoothed render time accumulator
     float rollingFpsTime = 0.0f;     // Smoothed FPS time accumulator
+    float rollingSceneEnergy = 0.0f; // Half-second averaged kinetic energy
+    float cpuFrameWorkMs = 0.0f;     // Last frame CPU work before Present/VSync
+    float gpuFrameWorkMs = 0.0f;     // Last available GPU work before Present/VSync
     float timeSinceLastRender = 0.0f;
-    float physicsAccumulator = 0.0f; // Accumulated time for fixed-step physics
+    double sceneEnergyAccumulator = 0.0;
+    int sceneEnergySampleCount = 0;
+    int lastUIDrawCalls = 0;               // Actual UI draw calls measured around Frame/UI last frame
+    float physicsAccumulator = 0.0f;       // Accumulated seconds for variable-step solver substeps
+    float fixedStepTickAccumulator = 0.0f; // Fractional fixed ticks owed by time_scale in fixed-step mode
 };
 
 struct RunSubsystemState
@@ -128,11 +137,14 @@ struct RunSceneState
     int targetFrameCount = -1;     // Frames to render before holding (-1 = unlimited)
     int currentFrame = 0;          // Current frame counter for the loaded scene/legacy run
     int modelCount = 0;            // Number of models in the active scene
+    int solverBallCount = 0;       // Exact solver ball count when generated through solver_balls
+    int solverBoxCount = 0;        // Exact solver box count when generated through solver_boxes
     unsigned int rngSeed = 0;      // Effective RNG seed used to build the current scene
-    float timeScale = 1.0f;        // Physics time multiplier (1.0 = realtime)
+    float timeScale = 1.0f;        // Physics time multiplier
     bool isFixedStep = false;      // One physics tick per render frame at PHYSICS_FIXED_DT (deterministic)
     bool isExitOnComplete = false; // Exit automatically when targetFrameCount is reached
     bool isTestComplete = false;   // Set when targetFrameCount is reached without --exit; appends "- TEST COMPLETE" to HUD
+    bool isInteractiveRun = false; // User/UI controlled scene flow: completion automation may hold/advance but never quit
 };
 
 struct RunScreenshotState
@@ -173,6 +185,7 @@ struct RunDebugState
     float physicsDebugContactLinger = 0.45f;                  // Seconds to keep contact manifolds visible after their solver row disappears
     bool isCollisionVisualizer = false;                       // Render solid collision/sleep colours for balls and boxes (toggle with V)
     bool isTextOnly = false;                                  // Suppress all 3D rendering; show solid background with large pangram text
+    bool isUITestPattern = false;                             // Bright 2D backdrop behind UI for visual blur tests
     bool isTopTextHidden = false;                             // Hide top-left HUD text while leaving other overlays active
     bool isBroadphaseOverlay = false;                         // Broadphase spatial grid visualizer overlay (toggle with G)
     float frozenWaterTime = 0.0f;                             // Simulation time captured when freeze was toggled on
@@ -216,11 +229,20 @@ class SkullbonezRun
 
   private:
     std::vector<std::string> m_sceneQueue; // Ordered list of scene paths ("" = legacy mode)
-    float m_cmdTimeScaleOverride = 0.0f;   // CLI --time-scale override applied after each scene load (0 = not set)
-    bool m_cmdFixedStep = false;           // CLI --fixed-step override applied after each scene load
-    unsigned int m_cmdSeedOverride = 0;    // CLI --seed override applied after each scene load (0 = not set)
-    bool m_cmdNoWater = false;             // CLI --no-water starts fluid below terrain
+    std::vector<std::string> m_sceneBrowserPaths;
+    std::vector<std::string> m_sceneBrowserNames;
+    std::vector<const char*> m_sceneBrowserNamePtrs;
+    bool m_leftSceneCycleWasDown = false;
+    bool m_rightSceneCycleWasDown = false;
+    float m_cmdTimeScaleOverride = 0.0f; // CLI --time-scale override applied after each scene load (0 = not set)
+    bool m_cmdFixedStep = false;         // CLI --fixed-step override applied after each scene load
+    unsigned int m_cmdSeedOverride = 0;  // CLI --seed override applied after each scene load (0 = not set)
+    bool m_cmdNoWater = false;           // CLI --no-water starts fluid below terrain
     GeneratedObjectTypeOverride m_generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
+    float m_UITimeScaleOverride = 0.0f;
+    int m_UIModelCountOverride = -1;
+    int m_UISolverBallCountOverride = -1;
+    int m_UISolverBoxCountOverride = -1;
     bool m_cmdHasPhysicsDebugFlagsOverride = false;
     uint32_t m_cmdPhysicsDebugFlagsOverride = PHYSICS_DEBUG_NONE;
     bool m_cmdHasPhysicsDebugTransparentOverride = false;
@@ -240,6 +262,7 @@ class SkullbonezRun
     RunCameraState m_camera;                         // Camera/input state and ball-tracking settings
     RunSceneState m_scene;                           // Scene-mode execution state
     RunScreenshotState m_screenshot;                 // Screenshot trigger and capture state
+    InGameUI m_UI;                                   // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                           // Runtime debug/overlay toggles
     RunFireState m_fire;                             // Projectile recycling state (CTRL = ball, ALT = box)
     BroadphaseVisualizer m_broadphaseVisualizer;     // Spatial grid debug overlay (G key toggle)
@@ -249,27 +272,39 @@ class SkullbonezRun
     GameModelCollection m_cGameModelCollection;      // SkullbonezCore::GameObjects::GameModelCollection class
 
     inline static int sPerfPass = 0;
-    void Render();                                                     // Main render method
-    void RelativeUpdateCamera( uint32_t hash );                        // Relative update specified camera
-    void UpdateLogic( float fSecondsPerFrame );                        // Camera, autocycle, logs — once per frame
-    void TakeInput();                                                  // Take user input
-    void SetUpCameras();                                               // Camera init (legacy mode)
-    void SetUpCamerasFromScene( const TestScene& scene );              // Camera init from scene file
-    void SetUpGameModels( int count );                                 // Game model init (random legacy mode)
-    void SetUpSolverObjects( int balls, int boxes );                   // Game model init: exact N solver balls + M solver boxes
-    void SetUpGameModelsFromScene( const TestScene& scene );           // Game model init from scene file
-    void DrawPrimitives();                                             // Draw OpenGL primitives here
-    void SetInitialOpenGlState();                                      // Sets the initial state of the OpenGL evironment
-    void SetViewingOrientation();                                      // Renders camera views etc
-    void DrawWindowText( const double dSecondsPerFrame );              // Renders text to the window
-    void SaveScreenshot( const char* path );                           // Saves framebuffer to BMP file via glReadPixels
-    void LogPerfMemory( const char* checkpoint );                      // Log memory usage to perf CSV
-    void LoadScene( int index );                                       // Resets scene-specific state and loads a scene by queue index
-    void ResetCurrentScene();                                          // User-triggered reset/reload of current scene or legacy mode
-    void ApplyNoWaterOverride();                                       // Pushes fluid surface below the active terrain when requested
-    bool AdvanceScene();                                               // Advances to the next scene in the queue (returns false if done)
-    void MoveCamera( float keyMovementQty, float mouseMovemementQty ); // Moves the camera
-    RuntimeRendererType GetCurrentRendererType() const;                // Detect active backend type from Gfx renderer identity
+    void Render();                                                                                  // Main render method
+    void RelativeUpdateCamera( uint32_t hash );                                                     // Relative update specified camera
+    void UpdateLogic( float fSecondsPerFrame );                                                     // Camera, autocycle, logs — once per frame
+    void TakeInput();                                                                               // Take user input
+    void SetUpCameras();                                                                            // Camera init (legacy mode)
+    void SetUpCamerasFromScene( const TestScene& scene );                                           // Camera init from scene file
+    void SetUpGameModels( int count );                                                              // Game model init (random legacy mode)
+    void SetUpSolverObjects( int balls, int boxes );                                                // Game model init: exact N solver balls + M solver boxes
+    void SetUpGameModelsFromScene( const TestScene& scene );                                        // Game model init from scene file
+    void DrawPrimitives();                                                                          // Draw OpenGL primitives here
+    void SetInitialOpenGlState();                                                                   // Sets the initial state of the OpenGL evironment
+    void SetViewingOrientation();                                                                   // Renders camera views etc
+    void DrawWindowText( const double dSecondsPerFrame );                                           // Renders text to the window
+    void SaveScreenshot( const char* path );                                                        // Saves framebuffer to BMP file via glReadPixels
+    bool SaveCurrentSceneDefaults();                                                                // Writes UI-controlled defaults back to the active scene file
+    void RefreshSceneBrowserList();                                                                 // Discovers scene files available to the in-game scene dropdown
+    int CurrentSceneBrowserIndex() const;                                                           // Returns current scene index within the discovered scene dropdown list
+    void LoadSceneFromBrowserIndex( int index );                                                    // Loads a scene selected from the in-game scene dropdown
+    void LoadDemoSceneFromUI();                                                                     // Loads the generated demo scene from the in-game Scene tab
+    void LoadAdjacentSceneFromBrowser( int direction );                                             // Keyboard scene cycling through the discovered scene dropdown list
+    void EnterInteractiveSceneRun();                                                                // Locks scene automation into non-quitting interactive mode
+    bool CanSceneAutomationQuit() const;                                                            // True for CLI suites/tests; false once the user owns scene flow
+    void HoldCompletedInteractiveScene();                                                           // Keep the current scene alive after interactive automation completes
+    void LogPerfMemory( const char* checkpoint );                                                   // Log memory usage to perf CSV
+    void LoadScene( int index, bool preserveUIState = false, bool suppressExitOnComplete = false ); // Resets scene-specific state and loads a scene by queue index
+    void ResetCurrentScene( bool preserveUIState = false, bool suppressExitOnComplete = false );    // User-triggered reset/reload of current scene or legacy mode
+    void ApplyUIModelCountOverride( int count );                                                    // Rebuilds the active generated model pool from the UI slider
+    void ApplyUISolverObjectCounts( int balls, int boxes );                                         // Rebuilds generated solver objects from exact UI counts
+    void ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity );              // Applies live world/fluid scalar controls
+    void ApplyNoWaterOverride();                                                                    // Pushes fluid surface below the active terrain when requested
+    bool AdvanceScene();                                                                            // Advances to the next scene in the queue (returns false if done)
+    void MoveCamera( float keyMovementQty, float mouseMovemementQty );                              // Moves the camera
+    RuntimeRendererType GetCurrentRendererType() const;                                             // Detect active backend type from Gfx renderer identity
     RuntimeRendererType GetNextRendererType( RuntimeRendererType current ) const;
     void SwitchRenderer( RuntimeRendererType target ); // Rebuild render backend/resources while preserving simulation state
 

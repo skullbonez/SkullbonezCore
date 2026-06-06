@@ -1,5 +1,6 @@
 // --- Includes ---
 #include "SkullbonezMeshGL.h"
+#include "SkullbonezIRenderBackend.h"
 
 
 // --- Usings ---
@@ -105,6 +106,7 @@ void MeshGL::Draw() const
     // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glDrawArrays.xhtml
     glBindVertexArray( m_vao );
     glDrawArrays( m_drawMode, 0, m_vertexCount );
+    Gfx().NoteDrawCall();
 }
 
 
@@ -115,6 +117,7 @@ void MeshGL::DrawInstanced( int instanceCount ) const
     // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glDrawArraysInstanced.xhtml
     glBindVertexArray( m_vao );
     glDrawArraysInstanced( m_drawMode, 0, m_vertexCount, instanceCount );
+    Gfx().NoteDrawCall();
 }
 
 

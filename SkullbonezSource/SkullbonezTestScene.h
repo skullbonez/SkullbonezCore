@@ -71,6 +71,7 @@ struct SceneOptions
     bool isTextOnly = false;
     int frameCount = -1;                                      // -1 = unlimited
     unsigned int seed = 0;                                    // RNG seed (0 = use time-based default)
+    bool hasLegacyBallCount = false;                          // True when legacy_balls was explicitly specified
     int legacyBallCount = 0;                                  // random legacy-style balls (0 = none)
     int physicsMode = 0;                                      // 0=inherit from CLI, 1=legacy, 2=solver (per-scene override)
     int solverBallCount = 0;                                  // exact impulse-solver balls to spawn (0 = not set)
@@ -86,6 +87,11 @@ struct SceneOptions
     float autoCycleInterval = -1.0f;                          // Seconds between per-ball screenshots (-1 = disabled)
     bool screenshotAndExit = false;                           // Capture first frame as SCENENAME.bmp then exit
     bool exitOnComplete = false;                              // Exit automatically when targetFrameCount is reached
+    bool collisionVisualizer = false;                         // Render solid collision/sleep debug colours
+    bool broadphaseOverlay = false;                           // Render spatial broadphase debug overlay
+    bool waterFreezeDebug = false;                            // Freeze water animation at load time
+    bool waterFlatDebug = false;                              // Render water as a flat mesh
+    int waterReflectionMode = 0;                              // 0=FBO, 1=DXR, 2=None
     bool waterHidden = false;                                 // Suppress water rendering (for clean texture comparison)
     bool terrainHidden = false;                               // Suppress terrain rendering
 };
@@ -132,6 +138,43 @@ struct SceneWorldOverride
     float worldFluidDensity = 0.0f;
 };
 
+struct SceneUIOptions
+{
+    bool hasDirective = false;
+    bool hasVisible = false;
+    bool isVisible = false;
+    bool hasMinimized = false;
+    bool isMinimized = false;
+    bool hasActiveTab = false;
+    int activeTab = 0; // 0=Profiler, 1=Scene, 2=Physics, 3=Options, 4=Controls
+    bool hasWindowRect = false;
+    int windowX = 34;
+    int windowY = 56;
+    int windowW = 760;
+    int windowH = 540;
+    bool hasBlur = false;
+    bool blurEnabled = true;
+    bool hasRendererComboOpen = false;
+    bool rendererComboOpen = false;
+    bool hasSceneComboOpen = false;
+    bool sceneComboOpen = false;
+    bool hasSceneFilter = false;
+    char sceneFilter[64] = {};
+    bool hasProfilerExpandAll = false;
+    bool profilerExpandAll = false;
+    bool hasProfilerTimeline = false;
+    bool profilerTimeline = false;
+    bool hasPerformanceHistogram = false;
+    bool performanceHistogram = false;
+    bool hasScrollY = false;
+    float scrollY = 0.0f;
+    bool hasTestPattern = false;
+    bool testPatternEnabled = false;
+    bool hasMouseOverride = false;
+    int mouseX = 0;
+    int mouseY = 0;
+};
+
 /* -- Test Scene -------------------------------------------------------------------------------------------------------------------------------------------------
 
     Loads and holds a deterministic scene description from a .scene file.
@@ -153,6 +196,7 @@ class TestScene
     SceneRuntimeOverrides m_runtimeOverrides;
     SceneTerrainOverride m_terrainOverride;
     SceneWorldOverride m_worldOverride;
+    SceneUIOptions m_UIOptions;
 
   public:
     TestScene();
@@ -166,6 +210,7 @@ class TestScene
     int GetScreenshotFrame() const;
     int GetScreenshotMs() const;
     unsigned int GetSeed() const;
+    bool HasLegacyBallCount() const;
     int GetLegacyBallCount() const;
     int GetPhysicsMode() const; // 0=inherit, 1=legacy, 2=solver
     int GetSolverBallCount() const;
@@ -192,6 +237,11 @@ class TestScene
     float GetAutoCycleInterval() const; // Returns per-ball screenshot interval in seconds (-1 = disabled)
     bool IsScreenshotAndExit() const;   // True if scene should capture first frame then exit
     bool IsExitOnComplete() const;      // True if scene should exit automatically when frame count is reached
+    bool IsCollisionVisualizerEnabled() const;
+    bool IsBroadphaseOverlayEnabled() const;
+    bool IsWaterFreezeDebugEnabled() const;
+    bool IsWaterFlatDebugEnabled() const;
+    int GetWaterReflectionMode() const;
     bool IsWaterHidden() const;
     bool IsTerrainHidden() const;
     bool HasFlatSlope() const; // True when scene specifies flat analytic slope terrain
@@ -210,6 +260,7 @@ class TestScene
     float GetWorldGravity() const;
     float GetWorldFluidHeight() const;
     float GetWorldFluidDensity() const;
+    const SceneUIOptions& GetUIOptions() const;
 };
 } // namespace Basics
 } // namespace SkullbonezCore

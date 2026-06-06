@@ -173,6 +173,7 @@ class RenderBackendDX12 : public IRenderBackend
     int m_height = 0;
     bool m_isVsyncEnabled = true;
     bool m_allowTearing = false;
+    int m_frameDrawCallCount = 0;
 
     bool m_depthTestEnabled = true;
     bool m_depthWriteEnabled = true;
@@ -300,6 +301,19 @@ class RenderBackendDX12 : public IRenderBackend
     const char* GetRendererName() const override
     {
         return "DirectX 12";
+    }
+
+    void ResetFrameDrawCallCount() override
+    {
+        m_frameDrawCallCount = 0;
+    }
+    void NoteDrawCall() override
+    {
+        ++m_frameDrawCallCount;
+    }
+    int GetFrameDrawCallCount() const override
+    {
+        return m_frameDrawCallCount;
     }
 
     bool IsDXRSupported() const override

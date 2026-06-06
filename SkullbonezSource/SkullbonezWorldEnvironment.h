@@ -64,7 +64,9 @@ class WorldEnvironment
     float GetFluidSurfaceHeight();                                                                                                                                              // Returns the fluid surface height
     void SetFluidSurfaceHeight( float height );                                                                                                                                 // Sets the fluid surface height
     float GetGravity() const;                                                                                                                                                   // Returns the gravity value (m/s^2)
+    void SetGravity( float gravity );                                                                                                                                           // Sets the gravity value (m/s^2)
     float GetFluidDensity() const;                                                                                                                                              // Returns the fluid density (kg/m^3)
+    void SetFluidDensity( float density );                                                                                                                                      // Sets the fluid density (kg/m^3)
     void AddWorldForces( GameObjects::GameModel& target, float changeInTime );                                                                                                  // Adds world forces to the referenced game model
 
   private:

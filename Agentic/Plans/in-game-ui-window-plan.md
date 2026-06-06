@@ -431,3 +431,118 @@ Concrete first milestone scope:
 - No per-frame allocations in the UI path.
 
 Once that feels good, move to cached compositing and then frosted blur.
+
+## Progress Log
+
+### 2026-06-05 OpenGL First Pass
+
+Branch:
+
+- `codex/in-game-ui-window`
+
+Implemented:
+
+- Added `SkullbonezSource/SkullbonezUi.h/.cpp` and moved the new in-game UI window out of `SkullbonezRun`.
+- Changed the `0` key from overlay cycling to UI visibility toggling.
+- Mapped old startup overlay modes to UI tabs so `--profiler`, scene stats, and keys still have a home.
+- Added mouse support for UI hit testing: client cursor position, left mouse state, wheel accumulation, drag, resize, tab selection, scroll, and UI mouse capture.
+- Added camera mouse-look blocking while the UI is hovered, dragged, or resized.
+- Added a semi-transparent blue glass window matching the mockup direction:
+  - Title bar and window controls.
+  - Tabs: `Overview`, `Profiler`, `Scene`, `Physics`, `Renderer`, `Keys`.
+  - Profiler table with colored rows and timeline bars.
+  - Bottom toggle/status strip with `Blur`, `VSync`, renderer, `Cache`, FPS/frame/CPU/GPU/draw-call tiles.
+  - Resize handle and auto-hiding scrollbar.
+- Added OpenGL draw-call counting hooks and `IRenderBackend` defaults so the UI can show draw calls without forcing every backend to be implemented at once.
+
+Validation and visual checks:
+
+- `tools\validate_build.bat Profile`
+  - Latest run: 5.00s wall time.
+  - Result: `Build succeeded. 0 Warning(s), 0 Error(s).`
+- OpenGL visual review:
+  - Command: `Profile\SKULLBONEZ_CORE.exe --renderer gl --vsync off --profiler --scene TestOutput\ui_gl_review.scene`
+  - Latest run: 1.36s wall time.
+  - Screenshot: `Profile\ui_gl_review.bmp`.
+  - Visual result: matches the mockup direction closely enough to proceed to DX11; no bottom-bar text overlap, blue outline/glass style present, tabs and profiler table readable, draw-call count visible.
+
+Known remaining work:
+
+- The current GL milestone uses the existing `Text2d` quad and text batches, so the UI path is normally two UI draw calls rather than a single cached composite.
+- The `Blur` toggle is currently a glass/blur-look preview, not a true sampled gaussian blur of the scene behind the window.
+- DX11 and DX12 still need draw-call counting and renderer-specific screenshot verification.
+- Full required validation still needs to run after all renderer work is complete: at minimum `tools\validate_renderers.bat`; likely `tools\validate_full.bat` and `tools\validate_perf.bat` because the work touches `SkullbonezRun*`, `SkullbonezWindow*`, renderer backend code, and a hot UI path.
+
+### 2026-06-05 DX11 Pass
+
+Implemented:
+
+- Added DX11 frame draw-call counting through `RenderBackendDX11`.
+- Counted DX11 mesh draws, mesh instanced draws, dynamic UI/text vertex-buffer draws, colored line draws, and backend instanced mesh draws.
+
+Validation and visual checks:
+
+- `tools\validate_build.bat Profile`
+  - Latest DX11-related build run: 8.19s wall time.
+  - Result: `Build succeeded. 0 Warning(s), 0 Error(s).`
+- DX11 visual review:
+  - Command: `Profile\SKULLBONEZ_CORE.exe --renderer dx11 --vsync off --profiler --scene TestOutput\ui_dx11_review.scene`
+  - Latest run: 1.55s wall time.
+  - Screenshot: `Profile\ui_dx11_review.bmp`.
+  - Visual result: matches the OpenGL UI pass and mockup direction; renderer chip shows `DX11`, draw-call tile is visible, and no bottom-bar text overlap was observed.
+
+Remaining sequence:
+
+- Start DX12 only after this DX11 pass; DX12 still needs draw-call counting and screenshot verification.
+
+### 2026-06-05 DX12 Pass
+
+Implemented:
+
+- Added DX12 frame draw-call counting through `RenderBackendDX12`.
+- Counted DX12 mesh draws, mesh instanced draws, dynamic UI/text upload-buffer draws, colored line draws, and backend instanced mesh draws.
+
+Validation and visual checks:
+
+- `tools\validate_build.bat Profile`
+  - Latest DX12-related build run: 8.35s wall time.
+  - Result: `Build succeeded. 0 Warning(s), 0 Error(s).`
+- DX12 visual review:
+  - Command: `Profile\SKULLBONEZ_CORE.exe --renderer dx12 --vsync off --profiler --scene TestOutput\ui_dx12_review.scene`
+  - Latest run: 1.23s wall time plus delayed BMP write.
+  - Screenshot: `Profile\ui_dx12_review.bmp`.
+  - Visual result: matches the OpenGL and DX11 UI passes; renderer chip shows `DX12`, draw-call tile is visible, bottom strip is clean, and no text/layout overlap was observed.
+
+Next validation:
+
+- Run the required broad validation after all renderer work:
+  - `tools\validate_renderers.bat`
+  - `tools\validate_full.bat`
+  - `tools\validate_perf.bat`
+
+### 2026-06-05 Final Validation
+
+Commands run:
+
+- `tools\validate_renderers.bat`
+  - First attempt failed at formatting for `SkullbonezUi.cpp`.
+  - Ran `tools\format_fix.bat`, then `tools\validate_format.bat`.
+  - Rerun passed in 8.86s.
+  - Evidence:
+    - `PASS: DX12 InfoQueue reported 0 validation errors.`
+    - `PASS: Cross-renderer parity acceptable.`
+    - `VALIDATE_RENDERERS: ALL PASSED`
+- `tools\validate_full.bat`
+  - Passed in 78.65s.
+  - Evidence:
+    - Renderer validation passed.
+    - Physics validation passed with exact CSV match and exact SkullScope query baseline.
+    - Performance validation completed for GL, DX11, and DX12.
+    - Perf comparison skipped regression checks because the current machine identifier did not match the baseline machine, but the validation script completed successfully.
+    - `VALIDATE_FULL: ALL PHASES PASSED`
+
+Final visual artifacts:
+
+- `Profile\ui_gl_review.bmp`
+- `Profile\ui_dx11_review.bmp`
+- `Profile\ui_dx12_review.bmp`

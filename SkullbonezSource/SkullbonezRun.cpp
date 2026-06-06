@@ -12,9 +12,12 @@
 #include "SkullbonezImpulseSolver.h"
 #include <time.h>
 #include <cstring>
+#include <cstddef>
 #include <psapi.h>
 #include <cmath>
 #include <dwmapi.h>
+#include <fstream>
+#include <filesystem>
 #pragma comment( lib, "dwmapi.lib" )
 
 // --- Usings ---
@@ -29,6 +32,7 @@ namespace
 constexpr double PERF_TEST_PASS_SECONDS = 2.0;
 constexpr float WATER_HEIGHT_CONTROL_SPEED = 20.0f;
 constexpr float NO_WATER_TERRAIN_CLEARANCE = 100.0f;
+constexpr int FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME = 32;
 #ifdef _DEBUG
 constexpr const char* NUDGE_REPRO_SNAPSHOT_PATH = "Debug/nudge_repro_snapshots.txt";
 constexpr double NUDGE_REPRO_MESSAGE_SECONDS = 3.0;
@@ -70,12 +74,151 @@ std::string JsonEscape( const char* value )
     return escaped;
 }
 #endif
+
+void DrawUITestPattern( int screenW, int screenH )
+{
+    const UIDrawContext draw( screenW, screenH );
+    draw.Rect( 0.0f, 0.0f, static_cast<float>( screenW ), static_cast<float>( screenH ), 0.20f, 0.31f, 0.36f, 1.0f );
+
+    constexpr float tile = 88.0f;
+    for ( float y = 0.0f; y < static_cast<float>( screenH ); y += tile )
+    {
+        for ( float x = 0.0f; x < static_cast<float>( screenW ); x += tile )
+        {
+            const int ix = static_cast<int>( x / tile );
+            const int iy = static_cast<int>( y / tile );
+            const bool alternate = ( ( ix + iy ) & 1 ) != 0;
+            if ( alternate )
+            {
+                draw.Rect( x, y, tile, tile, 0.10f, 0.78f, 0.96f, 0.96f );
+            }
+            else
+            {
+                draw.Rect( x, y, tile, tile, 1.0f, 0.72f, 0.18f, 0.94f );
+            }
+            draw.Rect( x + 12.0f, y + 12.0f, tile - 24.0f, 5.0f, 0.96f, 0.98f, 1.0f, 0.74f );
+            draw.Rect( x + tile - 18.0f, y + 18.0f, 5.0f, tile - 32.0f, 0.12f, 0.20f, 0.24f, 0.54f );
+        }
+    }
+
+    draw.Rect( 44.0f, 46.0f, 780.0f, 560.0f, 1.0f, 1.0f, 1.0f, 0.18f );
+    draw.Rect( 76.0f, 116.0f, 720.0f, 8.0f, 0.98f, 0.12f, 0.46f, 0.82f );
+    draw.Rect( 76.0f, 300.0f, 720.0f, 8.0f, 0.30f, 1.0f, 0.56f, 0.78f );
+    draw.Rect( 76.0f, 484.0f, 720.0f, 8.0f, 0.38f, 0.54f, 1.0f, 0.82f );
+    Text2d::FlushQuads();
+}
+
+
+bool SceneDirectiveMatches( const std::string& line, const char* key )
+{
+    const size_t keyLen = strlen( key );
+    if ( line.compare( 0, keyLen, key ) != 0 )
+    {
+        return false;
+    }
+    return line.size() == keyLen || line[keyLen] == ' ' || line[keyLen] == '\t';
+}
+
+
+bool IsSceneBodyDirective( const std::string& line )
+{
+    return SceneDirectiveMatches( line, "camera" ) ||
+           SceneDirectiveMatches( line, "ball" ) ||
+           SceneDirectiveMatches( line, "box" ) ||
+           SceneDirectiveMatches( line, "floating_box" ) ||
+           SceneDirectiveMatches( line, "ball_state" );
+}
+
+
+size_t SceneDefaultInsertIndex( const std::vector<std::string>& lines )
+{
+    for ( size_t i = 0; i < lines.size(); ++i )
+    {
+        if ( IsSceneBodyDirective( lines[i] ) )
+        {
+            return i;
+        }
+    }
+    return lines.size();
+}
+
+
+void SetSceneDirective( std::vector<std::string>& lines, const char* key, const std::string& value, bool includeDirective )
+{
+    bool replaced = false;
+    for ( size_t i = 0; i < lines.size(); )
+    {
+        if ( SceneDirectiveMatches( lines[i], key ) )
+        {
+            if ( includeDirective && !replaced )
+            {
+                lines[i] = value;
+                replaced = true;
+                ++i;
+            }
+            else
+            {
+                lines.erase( lines.begin() + static_cast<std::ptrdiff_t>( i ) );
+            }
+            continue;
+        }
+        ++i;
+    }
+
+    if ( includeDirective && !replaced )
+    {
+        lines.insert( lines.begin() + static_cast<std::ptrdiff_t>( SceneDefaultInsertIndex( lines ) ), value );
+    }
+}
+
+
+const char* OnOff( bool value )
+{
+    return value ? "on" : "off";
+}
+
+
+const char* WaterReflectionDirectiveValue( bool noReflect, bool rtReflect )
+{
+    if ( noReflect )
+    {
+        return "none";
+    }
+    return rtReflect ? "dxr" : "fbo";
+}
+
+
+const char* FileNameFromPath( const char* path )
+{
+    if ( !path )
+    {
+        return "";
+    }
+
+    const char* slash = strrchr( path, '/' );
+    const char* backslash = strrchr( path, '\\' );
+    const char* separator = slash;
+    if ( backslash && ( !separator || backslash > separator ) )
+    {
+        separator = backslash;
+    }
+    return separator ? separator + 1 : path;
+}
+
+
+std::string NormalizeScenePath( const std::string& path )
+{
+    std::string normalized = path;
+    std::replace( normalized.begin(), normalized.end(), '\\', '/' );
+    return normalized;
+}
 } // namespace
 
 
 SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue, bool legacyPhysics )
     : m_sceneQueue( std::move( sceneQueue ) )
 {
+    RefreshSceneBrowserList();
     m_cGameModelCollection.SetLegacyMode( legacyPhysics );
     // Config-driven defaults are resolved at construction; scene-specific defaults remain in-member.
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
@@ -117,6 +260,7 @@ SkullbonezRun::~SkullbonezRun()
     SkullbonezHelper::ResetGLResources();
     m_cGameModelCollection.ResetGLResources();
     m_collisionVisualizer.ResetResources();
+    m_UI.ResetResources();
     if ( m_systems.reflectionFBO )
     {
         m_systems.reflectionFBO->ResetResources();
@@ -165,6 +309,26 @@ void SkullbonezRun::SetNoWaterOverride()
 void SkullbonezRun::SetInitialOverlayMode( OverlayMode mode )
 {
     m_debug.overlayMode = mode;
+    if ( mode != OverlayMode::None )
+    {
+        m_UI.SetVisible( true );
+    }
+    switch ( mode )
+    {
+    case OverlayMode::SceneStats:
+        m_UI.SetActiveTab( InGameUITab::Scene );
+        break;
+    case OverlayMode::Keys:
+        m_UI.SetActiveTab( InGameUITab::Keys );
+        break;
+    case OverlayMode::BarsNormalized:
+    case OverlayMode::BarsAbsolute:
+    case OverlayMode::Timers:
+        m_UI.SetActiveTab( InGameUITab::Profiler );
+        break;
+    default:
+        break;
+    }
 }
 
 
@@ -340,6 +504,7 @@ void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
     m_cGameModelCollection.ResetGLResources();
     SkullbonezHelper::ResetGLResources();
     m_collisionVisualizer.ResetResources();
+    m_UI.ResetResources();
     if ( m_systems.textures )
     {
         m_systems.textures->DeleteAllTextures();
@@ -518,6 +683,8 @@ void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
 void SkullbonezRun::SetUpGameModels( int count )
 {
     m_scene.modelCount = count;
+    m_scene.solverBallCount = 0;
+    m_scene.solverBoxCount = 0;
 
     const SkullbonezConfig& cfg = Cfg();
 
@@ -604,6 +771,8 @@ void SkullbonezRun::SetUpGameModels( int count )
 // regardless of the balls/boxes ratio.
 void SkullbonezRun::SetUpSolverObjects( int balls, int boxes )
 {
+    balls = (std::max)( 0, balls );
+    boxes = (std::max)( 0, boxes );
     const int totalObjects = balls + boxes;
     if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
     {
@@ -615,6 +784,11 @@ void SkullbonezRun::SetUpSolverObjects( int balls, int boxes )
         balls = 0;
         boxes = totalObjects;
     }
+
+    m_cGameModelCollection.SetLegacyMode( false );
+    m_scene.modelCount = balls + boxes;
+    m_scene.solverBallCount = balls;
+    m_scene.solverBoxCount = boxes;
 
     const SkullbonezConfig& cfg = Cfg();
 
@@ -707,6 +881,8 @@ void SkullbonezRun::Run()
 
             m_timers.frameTimer.StartTimer();
             PROFILE_FRAME_BEGIN();
+            m_timers.workTimer.StartTimer();
+            Gfx().ResetFrameDrawCallCount();
 
             PROFILE_BEGIN( "Frame/Input" );
             TakeInput();
@@ -734,22 +910,20 @@ void SkullbonezRun::Run()
             m_physicsDebugVisualizer.Update( static_cast<float>( secondsPerFrame ), m_cGameModelCollection );
             m_cGameModelCollection.EndCollisionVisualFrame();
 
-            PROFILE_BEGIN( "Frame/PipelineSync" );
             if ( m_runtimeSettings.isPipelineSyncEnabled )
             {
                 Gfx().Finish();
             }
-            PROFILE_END( "Frame/PipelineSync" );
 
             PROFILE_GPU_BEGIN( "Frame/Render" );
             Render();
             PROFILE_GPU_END( "Frame/Render" );
 
-            if ( !m_scene.isSceneMode || m_scene.isSceneText || m_debug.overlayMode != OverlayMode::None )
+            if ( !m_scene.isSceneMode || m_scene.isSceneText || m_debug.overlayMode != OverlayMode::None || m_UI.IsVisible() )
             {
-                PROFILE_GPU_BEGIN( "Frame/Text" );
+                PROFILE_GPU_BEGIN( "Frame/UI" );
                 DrawWindowText( secondsPerFrame );
-                PROFILE_GPU_END( "Frame/Text" );
+                PROFILE_GPU_END( "Frame/UI" );
             }
 
             if ( TickScreenshots() )
@@ -758,6 +932,9 @@ void SkullbonezRun::Run()
             }
 
             TickAutoCycle();
+
+            m_timers.workTimer.StopTimer();
+            m_timers.cpuFrameWorkMs = static_cast<float>( std::clamp( m_timers.workTimer.GetElapsedTime(), 0.0, 0.25 ) * 1000.0 );
 
             PROFILE_BEGIN( "Frame/VsyncWait" );
             Gfx().Present();
@@ -771,8 +948,10 @@ void SkullbonezRun::Run()
                 using SkullbonezCore::Basics::Profiler;
                 static constexpr uint32_t kPhysicsHash = ::HashStr( "Frame/Physics" );
                 static constexpr uint32_t kRenderHash = ::HashStr( "Frame/Render" );
+                static constexpr uint32_t kUIHash = ::HashStr( "Frame/UI" );
                 m_timers.physicsTime = Profiler::Instance().LastFrameMsByHash( kPhysicsHash ) * 0.001f;
                 m_timers.renderTime = Profiler::Instance().LastFrameMsByHash( kRenderHash ) * 0.001f;
+                m_timers.gpuFrameWorkMs = Profiler::Instance().LastGpuFrameMsByHash( kRenderHash ) + Profiler::Instance().LastGpuFrameMsByHash( kUIHash );
             }
 #endif
 
@@ -811,12 +990,14 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
 
     if ( m_scene.isFixedStep )
     {
-        // Deterministic lock-step: exactly one physics tick per render frame.
+        // Deterministic lock-step: exact fixed-delta ticks driven by time_scale.
         // Ignores wall-clock time entirely — produces identical results every run.
         //
-        // time_scale > 1 runs multiple ticks per render frame (integer part) so
-        // scenes can simulate faster than real-time while keeping the fixed dt.
-        const int ticksThisFrame = (std::max)( 1, static_cast<int>( m_scene.timeScale ) );
+        // Accumulate fractional fixed ticks so 0.5x, 1.5x, and 10x all remain
+        // deterministic while using the exact fixed simulation delta.
+        m_timers.fixedStepTickAccumulator += (std::max)( 0.0f, m_scene.timeScale );
+        const int ticksThisFrame = (std::min)( static_cast<int>( std::floor( m_timers.fixedStepTickAccumulator ) ), FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME );
+        m_timers.fixedStepTickAccumulator -= static_cast<float>( ticksThisFrame );
         if ( !m_camera.isFlyMode || m_camera.isNudgeMode || Input::IsKeyDown( VK_SPACE ) )
         {
             PROFILE_BEGIN( "Frame/Physics" );
@@ -826,7 +1007,7 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
             }
             PROFILE_END( "Frame/Physics" );
         }
-        UpdateLogic( PHYSICS_FIXED_DT );
+        UpdateLogic( PHYSICS_FIXED_DT * static_cast<float>( ticksThisFrame ) );
     }
     else
     {
@@ -841,6 +1022,7 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
                 // exact time-of-impact and steps to it internally, so external sub-division adds
                 // no benefit and was never used before the accumulator was introduced for the solver.
                 m_timers.physicsAccumulator = 0.0f;
+                m_timers.fixedStepTickAccumulator = 0.0f;
                 m_cGameModelCollection.RunPhysics( scaledDt );
             }
             else
@@ -872,6 +1054,30 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
 }
 
 
+void SkullbonezRun::EnterInteractiveSceneRun()
+{
+    m_scene.isInteractiveRun = true;
+    m_scene.isExitOnComplete = false;
+    m_screenshot.isScreenshotAndExit = false;
+}
+
+
+bool SkullbonezRun::CanSceneAutomationQuit() const
+{
+    return !m_scene.isInteractiveRun;
+}
+
+
+void SkullbonezRun::HoldCompletedInteractiveScene()
+{
+    m_scene.isTestComplete = true;
+    m_scene.isExitOnComplete = false;
+    m_screenshot.isScreenshotAndExit = false;
+    m_camera.autoCycleInterval = -1.0f;
+    m_camera.autoCycleAccum = 0.0f;
+}
+
+
 bool SkullbonezRun::TickScreenshots()
 {
     // screenshot_and_exit: on frame 0, save <scenename>.bmp to root then quit
@@ -893,7 +1099,14 @@ bool SkullbonezRun::TickScreenshots()
         sprintf_s( outPath, sizeof( outPath ), "%s.bmp", stem );
         SaveScreenshot( outPath );
         PROFILE_FRAME_END();
-        PostQuitMessage( 0 );
+        if ( CanSceneAutomationQuit() )
+        {
+            PostQuitMessage( 0 );
+        }
+        else
+        {
+            HoldCompletedInteractiveScene();
+        }
         return true;
     }
 
@@ -916,9 +1129,16 @@ bool SkullbonezRun::TickScreenshots()
             SaveScreenshot( m_screenshot.screenshotPath );
             m_screenshot.isScreenshotSaved = true;
             PROFILE_FRAME_END();
-            if ( !AdvanceScene() )
+            if ( CanSceneAutomationQuit() )
             {
-                PostQuitMessage( 0 );
+                if ( !AdvanceScene() )
+                {
+                    PostQuitMessage( 0 );
+                }
+            }
+            else
+            {
+                HoldCompletedInteractiveScene();
             }
             return true;
         }
@@ -959,7 +1179,14 @@ void SkullbonezRun::TickAutoCycle()
 
     if ( m_camera.autoCycleShotsTaken >= ballCount )
     {
-        PostQuitMessage( 0 );
+        if ( CanSceneAutomationQuit() )
+        {
+            PostQuitMessage( 0 );
+        }
+        else
+        {
+            HoldCompletedInteractiveScene();
+        }
     }
     else
     {
@@ -1010,7 +1237,7 @@ bool SkullbonezRun::TickSceneAdvance()
     {
         if ( m_scene.currentFrame >= m_scene.targetFrameCount )
         {
-            if ( m_scene.isExitOnComplete )
+            if ( m_scene.isExitOnComplete && CanSceneAutomationQuit() )
             {
                 if ( !AdvanceScene() )
                 {
@@ -1020,7 +1247,14 @@ bool SkullbonezRun::TickSceneAdvance()
             }
             else
             {
-                m_scene.isTestComplete = true;
+                if ( CanSceneAutomationQuit() )
+                {
+                    m_scene.isTestComplete = true;
+                }
+                else
+                {
+                    HoldCompletedInteractiveScene();
+                }
             }
         }
     }
@@ -1028,7 +1262,7 @@ bool SkullbonezRun::TickSceneAdvance()
     // Legacy (non-scene) mode: restart the scene every 20s to keep running indefinitely
     if ( !m_scene.isSceneMode && !m_camera.isFlyMode && m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
     {
-        LoadScene( m_scene.currentSceneIndex );
+        LoadScene( m_scene.currentSceneIndex, m_scene.isInteractiveRun, m_scene.isInteractiveRun );
         m_timers.simulationTimer.StartTimer();
         return true;
     }
@@ -1040,7 +1274,14 @@ bool SkullbonezRun::TickSceneAdvance()
     {
         if ( !AdvanceScene() )
         {
-            PostQuitMessage( 0 );
+            if ( CanSceneAutomationQuit() )
+            {
+                PostQuitMessage( 0 );
+            }
+            else
+            {
+                HoldCompletedInteractiveScene();
+            }
         }
         return true;
     }
@@ -1051,233 +1292,493 @@ bool SkullbonezRun::TickSceneAdvance()
 
 void SkullbonezRun::TakeInput()
 {
-    // Toggle fly mode with F (edge-detected so snapshot-loaded fly mode survives the next frame)
-    bool prevFlyMode = m_camera.isFlyMode;
-    bool fNow = Input::IsKeyDown( 'F' );
-    if ( fNow && !m_camera.input.Get( InputState::FWasDown ) )
+    const bool UIBlocksKeyboardBeforeInput = m_UI.BlocksKeyboard();
+    if ( !UIBlocksKeyboardBeforeInput )
     {
-        m_camera.isFlyMode = !m_camera.isFlyMode;
-        m_camera.isNudgeMode = false; // F-key fly never implies nudge
-    }
-    m_camera.input.Set( InputState::FWasDown, fNow );
-
-    // N key: toggle nudge mode — free camera with live simulation (edge-detected).
-    // Nudge entering also enters fly mode; nudge exiting also exits fly mode.
-    {
-        bool nNow = Input::IsKeyDown( 'N' );
-        if ( nNow && !m_camera.input.Get( InputState::NWasDown ) )
+        // Toggle fly mode with F (edge-detected so snapshot-loaded fly mode survives the next frame)
+        bool prevFlyMode = m_camera.isFlyMode;
+        bool fNow = Input::IsKeyDown( 'F' );
+        if ( fNow && !m_camera.input.Get( InputState::FWasDown ) )
         {
-            m_camera.isNudgeMode = !m_camera.isNudgeMode;
-            m_camera.isFlyMode = m_camera.isNudgeMode;
+            m_camera.isFlyMode = !m_camera.isFlyMode;
+            m_camera.isNudgeMode = false; // F-key fly never implies nudge
         }
-        m_camera.input.Set( InputState::NWasDown, nNow );
-    }
+        m_camera.input.Set( InputState::FWasDown, fNow );
+
+        // N key: toggle nudge mode — free camera with live simulation (edge-detected).
+        // Nudge entering also enters fly mode; nudge exiting also exits fly mode.
+        {
+            bool nNow = Input::IsKeyDown( 'N' );
+            if ( nNow && !m_camera.input.Get( InputState::NWasDown ) )
+            {
+                m_camera.isNudgeMode = !m_camera.isNudgeMode;
+                m_camera.isFlyMode = m_camera.isNudgeMode;
+            }
+            m_camera.input.Set( InputState::NWasDown, nNow );
+        }
 
 #ifdef _DEBUG
-    {
-        bool enterNow = Input::IsKeyDown( VK_RETURN );
-        if ( enterNow && !m_camera.input.Get( InputState::EnterWasDown ) && m_camera.isNudgeMode )
         {
-            WriteNudgeReproSnapshot();
+            bool enterNow = Input::IsKeyDown( VK_RETURN );
+            if ( enterNow && !m_camera.input.Get( InputState::EnterWasDown ) && m_camera.isNudgeMode )
+            {
+                WriteNudgeReproSnapshot();
+            }
+            m_camera.input.Set( InputState::EnterWasDown, enterNow );
         }
-        m_camera.input.Set( InputState::EnterWasDown, enterNow );
-    }
 #endif
 
-    if ( m_camera.isFlyMode != prevFlyMode )
-    {
-        if ( m_camera.isFlyMode )
+        if ( m_camera.isFlyMode != prevFlyMode )
         {
-            // Entering fly mode: in legacy mode snap to free camera; in scene mode stay
-            // on the current camera so fly controls work without requiring CAMERA_FREE
-            if ( !m_scene.isSceneMode )
+            if ( m_camera.isFlyMode )
             {
-                m_systems.cameras->SelectCamera( CAMERA_FREE, false );
-            }
-            m_camera.cameraTime = 0.0f;
-            XZBounds unbounded;
-            unbounded.m_xMin = -99999.9f;
-            unbounded.m_xMax = 99999.9f;
-            unbounded.m_zMin = -99999.9f;
-            unbounded.m_zMax = 99999.9f;
-            uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
-            m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
-            SetCursor( nullptr );
-            Input::CentreMouseCoordinates();
-            m_camera.input.xMove = 0;
-            m_camera.input.yMove = 0;
-        }
-        else
-        {
-            // Exiting fly mode: restore m_terrain XZ bounds, cursor, camera cycle clock
-            uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
-            m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
-            SetCursor( LoadCursor( nullptr, IDC_ARROW ) );
-            m_camera.cameraTime = 0.0f;
-            // Exiting fly mode also exits nudge mode
-            m_camera.isNudgeMode = false;
-        }
-    }
-
-    // Water m_shader debug toggles
-    bool prevFreeze = m_debug.isWaterFreezeDebug;
-    m_debug.isWaterFreezeDebug = ( Input::IsKeyToggled( '1' ) != 0 ); // Water perturbation ON
-    if ( m_debug.isWaterFreezeDebug && !prevFreeze )
-    {
-        m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
-    }
-    // Key '2' cycles reflection mode: FBO (default) → DXR ray-traced (if supported) → none → FBO
-    {
-        static bool s_key2WasDown = false;
-        bool s_key2Now = ( Input::IsKeyDown( '2' ) != 0 );
-        if ( s_key2Now && !s_key2WasDown )
-        {
-            if ( !m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
-            {
-                if ( Gfx().IsDXRSupported() )
+                // Entering fly mode: in legacy mode snap to free camera; in scene mode stay
+                // on the current camera so fly controls work without requiring CAMERA_FREE
+                if ( !m_scene.isSceneMode )
                 {
-                    m_debug.isWaterRTReflect = true; // FBO → DXR
+                    m_systems.cameras->SelectCamera( CAMERA_FREE, false );
                 }
-                else
-                {
-                    m_debug.isWaterNoReflect = true; // DXR not available, skip to none
-                }
-            }
-            else if ( m_debug.isWaterRTReflect )
-            {
-                m_debug.isWaterRTReflect = false;
-                m_debug.isWaterNoReflect = true; // DXR → none
+                m_camera.cameraTime = 0.0f;
+                XZBounds unbounded;
+                unbounded.m_xMin = -99999.9f;
+                unbounded.m_xMax = 99999.9f;
+                unbounded.m_zMin = -99999.9f;
+                unbounded.m_zMax = 99999.9f;
+                uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
+                m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
+                SetCursor( nullptr );
+                Input::CentreMouseCoordinates();
+                m_camera.input.xMove = 0;
+                m_camera.input.yMove = 0;
             }
             else
             {
-                m_debug.isWaterNoReflect = false; // none → FBO
+                // Exiting fly mode: restore m_terrain XZ bounds, cursor, camera cycle clock
+                uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
+                m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
+                SetCursor( LoadCursor( nullptr, IDC_ARROW ) );
+                m_camera.cameraTime = 0.0f;
+                // Exiting fly mode also exits nudge mode
+                m_camera.isNudgeMode = false;
             }
         }
-        s_key2WasDown = s_key2Now;
-    }
-    m_debug.isWaterFlatDebug = ( Input::IsKeyToggled( '3' ) != 0 ); // Ocean wave displacement ON
-    m_debug.isTerrainHidden = ( Input::IsKeyToggled( '4' ) != 0 );  // Terrain visibility ON
-    m_debug.isWaterHidden = ( Input::IsKeyToggled( '5' ) != 0 );    // Water visibility ON
-    // V key: collision visualizer. Renders balls and boxes as solid debug colours.
-    {
-        bool vNow = Input::IsKeyDown( 'V' );
-        if ( vNow && !m_camera.input.Get( InputState::VWasDown ) )
-        {
-            m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
-        }
-        m_camera.input.Set( InputState::VWasDown, vNow );
-    }
 
-    // Debug vectors: in scene mode, start from the scene-loaded value and edge-detect '9' toggles.
-    // In legacy mode, mirror the Windows key-toggle state.
-    if ( m_scene.isSceneMode )
-    {
-        if ( Input::IsKeyDown( '9' ) && !m_camera.input.Get( InputState::Key9WasDown ) )
+        // Water m_shader debug toggles
+        bool key1Now = Input::IsKeyDown( '1' );
+        if ( key1Now && !m_camera.input.Get( InputState::Key1WasDown ) )
         {
-            m_debug.isDebugVectors = !m_debug.isDebugVectors;
+            m_debug.isWaterFreezeDebug = !m_debug.isWaterFreezeDebug;
+            if ( m_debug.isWaterFreezeDebug )
+            {
+                m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
+            }
         }
-        m_camera.input.Set( InputState::Key9WasDown, Input::IsKeyDown( '9' ) );
+        m_camera.input.Set( InputState::Key1WasDown, key1Now );
+        // Key '2' cycles reflection mode: FBO (default) → DXR ray-traced (if supported) → none → FBO
+        {
+            static bool s_key2WasDown = false;
+            bool s_key2Now = ( Input::IsKeyDown( '2' ) != 0 );
+            if ( s_key2Now && !s_key2WasDown )
+            {
+                if ( !m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
+                {
+                    if ( Gfx().IsDXRSupported() )
+                    {
+                        m_debug.isWaterRTReflect = true; // FBO → DXR
+                    }
+                    else
+                    {
+                        m_debug.isWaterNoReflect = true; // DXR not available, skip to none
+                    }
+                }
+                else if ( m_debug.isWaterRTReflect )
+                {
+                    m_debug.isWaterRTReflect = false;
+                    m_debug.isWaterNoReflect = true; // DXR → none
+                }
+                else
+                {
+                    m_debug.isWaterNoReflect = false; // none → FBO
+                }
+            }
+            s_key2WasDown = s_key2Now;
+        }
+        {
+            bool key3Now = Input::IsKeyDown( '3' );
+            if ( key3Now && !m_camera.input.Get( InputState::Key3WasDown ) )
+            {
+                m_debug.isWaterFlatDebug = !m_debug.isWaterFlatDebug;
+            }
+            m_camera.input.Set( InputState::Key3WasDown, key3Now );
+        }
+        {
+            bool key4Now = Input::IsKeyDown( '4' );
+            if ( key4Now && !m_camera.input.Get( InputState::Key4WasDown ) )
+            {
+                m_debug.isTerrainHidden = !m_debug.isTerrainHidden;
+            }
+            m_camera.input.Set( InputState::Key4WasDown, key4Now );
+        }
+        {
+            bool key5Now = Input::IsKeyDown( '5' );
+            if ( key5Now && !m_camera.input.Get( InputState::Key5WasDown ) )
+            {
+                m_debug.isWaterHidden = !m_debug.isWaterHidden;
+            }
+            m_camera.input.Set( InputState::Key5WasDown, key5Now );
+        }
+        // V key: collision visualizer. Renders balls and boxes as solid debug colours.
+        {
+            bool vNow = Input::IsKeyDown( 'V' );
+            if ( vNow && !m_camera.input.Get( InputState::VWasDown ) )
+            {
+                m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
+            }
+            m_camera.input.Set( InputState::VWasDown, vNow );
+        }
+
+        // Debug vectors: mouse UI and keyboard both toggle the same runtime state.
+        {
+            bool key9Now = Input::IsKeyDown( '9' );
+            if ( key9Now && !m_camera.input.Get( InputState::Key9WasDown ) )
+            {
+                m_debug.isDebugVectors = !m_debug.isDebugVectors;
+            }
+            m_camera.input.Set( InputState::Key9WasDown, key9Now );
+        }
+
+        // C key: cycle physics debug overlay - None -> Axes -> Contacts -> Sleep -> All -> None.
+        {
+            bool cNow = Input::IsKeyDown( 'C' );
+            if ( cNow && !m_camera.input.Get( InputState::CKeyWasDown ) )
+            {
+                switch ( m_debug.physicsDebugFlags )
+                {
+                case PHYSICS_DEBUG_NONE:
+                    m_debug.physicsDebugFlags = PHYSICS_DEBUG_AXES;
+                    break;
+                case PHYSICS_DEBUG_AXES:
+                    m_debug.physicsDebugFlags = PHYSICS_DEBUG_CONTACTS;
+                    break;
+                case PHYSICS_DEBUG_CONTACTS:
+                    m_debug.physicsDebugFlags = PHYSICS_DEBUG_SLEEP;
+                    break;
+                case PHYSICS_DEBUG_SLEEP:
+                    m_debug.physicsDebugFlags = PHYSICS_DEBUG_ALL;
+                    break;
+                default:
+                    m_debug.physicsDebugFlags = PHYSICS_DEBUG_NONE;
+                    break;
+                }
+            }
+            m_camera.input.Set( InputState::CKeyWasDown, cNow );
+        }
+
+        // 6 key: translucent debug collision volumes for inspecting axes/contact rows inside bodies.
+        {
+            bool key6Now = Input::IsKeyDown( '6' );
+            if ( key6Now && !m_camera.input.Get( InputState::Key6WasDown ) )
+            {
+                m_debug.isPhysicsDebugTransparent = !m_debug.isPhysicsDebugTransparent;
+            }
+            m_camera.input.Set( InputState::Key6WasDown, key6Now );
+        }
+
+        // Q key: cycle render backend at runtime while preserving current simulation state (GL → DX11 → DX12 → GL).
+        {
+            bool isQNow = Input::IsKeyDown( 'Q' );
+            if ( isQNow && !m_camera.input.Get( InputState::QKeyWasDown ) )
+            {
+                SwitchRenderer( GetNextRendererType( GetCurrentRendererType() ) );
+            }
+            m_camera.input.Set( InputState::QKeyWasDown, isQNow );
+        }
+
+        // G key: toggle broadphase overlay, or cycle tracked ball if overlay is off.
+        bool isGNow = Input::IsKeyDown( 'G' );
+        if ( isGNow && !m_camera.input.Get( InputState::GKeyWasDown ) )
+        {
+            if ( m_scene.isSceneMode && m_camera.trackBallIndex >= 0 && !m_debug.isBroadphaseOverlay )
+            {
+                int count = m_cGameModelCollection.GetModelCount();
+                if ( count > 0 )
+                {
+                    m_camera.trackBallIndex = ( m_camera.trackBallIndex + 1 ) % count;
+                }
+            }
+            else
+            {
+                m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
+            }
+        }
+        m_camera.input.Set( InputState::GKeyWasDown, isGNow );
+
+        // 0 key: toggle the in-game diagnostics window. Tabs replace the old overlay cycle.
+        // Edge-detected in both scene and legacy modes; one toggle per keypress.
+        {
+            bool key0Now = Input::IsKeyDown( '0' );
+            if ( key0Now && !m_camera.input.Get( InputState::Key0WasDown ) )
+            {
+                EnterInteractiveSceneRun();
+                m_UI.ToggleVisible( m_timers.simulationTimer.GetTotalTime() );
+                m_debug.overlayMode = OverlayMode::None;
+            }
+            m_camera.input.Set( InputState::Key0WasDown, key0Now );
+        }
+
+        const bool leftSceneNow = Input::IsKeyDown( VK_LEFT );
+        const bool rightSceneNow = Input::IsKeyDown( VK_RIGHT );
+        if ( leftSceneNow && !m_leftSceneCycleWasDown )
+        {
+            EnterInteractiveSceneRun();
+            LoadAdjacentSceneFromBrowser( -1 );
+        }
+        if ( rightSceneNow && !m_rightSceneCycleWasDown )
+        {
+            EnterInteractiveSceneRun();
+            LoadAdjacentSceneFromBrowser( 1 );
+        }
+        m_leftSceneCycleWasDown = leftSceneNow;
+        m_rightSceneCycleWasDown = rightSceneNow;
     }
     else
     {
-        m_debug.isDebugVectors = ( Input::IsKeyToggled( '9' ) != 0 );
+        m_leftSceneCycleWasDown = Input::IsKeyDown( VK_LEFT );
+        m_rightSceneCycleWasDown = Input::IsKeyDown( VK_RIGHT );
     }
 
-    // C key: cycle physics debug overlay - None -> Axes -> Contacts -> Sleep -> All -> None.
+    if ( m_systems.window )
     {
-        bool cNow = Input::IsKeyDown( 'C' );
-        if ( cNow && !m_camera.input.Get( InputState::CKeyWasDown ) )
+        const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex();
+        InGameUIInputResult UIResult = m_UI.UpdateInput( m_systems.window->m_sWindow,
+                                                         static_cast<int>( m_systems.window->m_sWindowDimensions.x ),
+                                                         static_cast<int>( m_systems.window->m_sWindowDimensions.y ),
+                                                         m_timers.simulationTimer.GetTotalTime(),
+                                                         m_sceneBrowserNamePtrs.empty() ? nullptr : m_sceneBrowserNamePtrs.data(),
+                                                         static_cast<int>( m_sceneBrowserNamePtrs.size() ),
+                                                         selectedSceneBrowserIndex );
+        if ( UIResult.userInteracted )
         {
-            switch ( m_debug.physicsDebugFlags )
-            {
-            case PHYSICS_DEBUG_NONE:
-                m_debug.physicsDebugFlags = PHYSICS_DEBUG_AXES;
-                break;
-            case PHYSICS_DEBUG_AXES:
-                m_debug.physicsDebugFlags = PHYSICS_DEBUG_CONTACTS;
-                break;
-            case PHYSICS_DEBUG_CONTACTS:
-                m_debug.physicsDebugFlags = PHYSICS_DEBUG_SLEEP;
-                break;
-            case PHYSICS_DEBUG_SLEEP:
-                m_debug.physicsDebugFlags = PHYSICS_DEBUG_ALL;
-                break;
-            default:
-                m_debug.physicsDebugFlags = PHYSICS_DEBUG_NONE;
-                break;
-            }
+            EnterInteractiveSceneRun();
         }
-        m_camera.input.Set( InputState::CKeyWasDown, cNow );
-    }
-
-    // 6 key: translucent debug collision volumes for inspecting axes/contact rows inside bodies.
-    {
-        bool key6Now = Input::IsKeyDown( '6' );
-        if ( key6Now && !m_camera.input.Get( InputState::Key6WasDown ) )
+        if ( UIResult.toggleVsync )
+        {
+            m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
+            Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+        }
+        if ( UIResult.toggleCollisionVisualizer )
+        {
+            m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
+        }
+        if ( UIResult.togglePhysicsDebugFlags != 0 )
+        {
+            m_debug.physicsDebugFlags ^= ( UIResult.togglePhysicsDebugFlags & PHYSICS_DEBUG_ALL );
+        }
+        if ( UIResult.togglePhysicsDebugTransparent )
         {
             m_debug.isPhysicsDebugTransparent = !m_debug.isPhysicsDebugTransparent;
         }
-        m_camera.input.Set( InputState::Key6WasDown, key6Now );
-    }
-
-    // Q key: cycle render backend at runtime while preserving current simulation state (GL → DX11 → DX12 → GL).
-    {
-        bool isQNow = Input::IsKeyDown( 'Q' );
-        if ( isQNow && !m_camera.input.Get( InputState::QKeyWasDown ) )
+        if ( UIResult.toggleDebugVectors )
         {
-            SwitchRenderer( GetNextRendererType( GetCurrentRendererType() ) );
+            m_debug.isDebugVectors = !m_debug.isDebugVectors;
         }
-        m_camera.input.Set( InputState::QKeyWasDown, isQNow );
-    }
-
-    // G key: toggle broadphase overlay, or cycle tracked ball if overlay is off.
-    bool isGNow = Input::IsKeyDown( 'G' );
-    if ( isGNow && !m_camera.input.Get( InputState::GKeyWasDown ) )
-    {
-        if ( m_scene.isSceneMode && m_camera.trackBallIndex >= 0 && !m_debug.isBroadphaseOverlay )
-        {
-            int count = m_cGameModelCollection.GetModelCount();
-            if ( count > 0 )
-            {
-                m_camera.trackBallIndex = ( m_camera.trackBallIndex + 1 ) % count;
-            }
-        }
-        else
+        if ( UIResult.toggleBroadphaseOverlay )
         {
             m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
         }
-    }
-    m_camera.input.Set( InputState::GKeyWasDown, isGNow );
-
-    // 0 key: cycle overlay: None, Timers, SceneStats, BarsNormalized, BarsAbsolute, Keys.
-    // Edge-detected in both scene and legacy modes; one advance per keypress.
-    {
-        bool key0Now = Input::IsKeyDown( '0' );
-        if ( key0Now && !m_camera.input.Get( InputState::Key0WasDown ) )
+        if ( UIResult.toggleScenePhysics )
         {
-            switch ( m_debug.overlayMode )
+            m_scene.isScenePhysics = !m_scene.isScenePhysics;
+            m_timers.physicsAccumulator = 0.0f;
+            m_timers.fixedStepTickAccumulator = 0.0f;
+        }
+        if ( UIResult.toggleSceneText )
+        {
+            m_scene.isSceneText = !m_scene.isSceneText;
+        }
+        if ( UIResult.toggleTextOnly )
+        {
+            m_debug.isTextOnly = !m_debug.isTextOnly;
+        }
+        if ( UIResult.toggleFixedStep )
+        {
+            m_scene.isFixedStep = !m_scene.isFixedStep;
+            m_timers.physicsAccumulator = 0.0f;
+            m_timers.fixedStepTickAccumulator = 0.0f;
+        }
+        if ( UIResult.toggleExitOnComplete )
+        {
+            m_scene.isExitOnComplete = CanSceneAutomationQuit() ? !m_scene.isExitOnComplete : false;
+        }
+        if ( UIResult.toggleRollAlign )
+        {
+            m_runtimeSettings.isRollAlignEnabled = !m_runtimeSettings.isRollAlignEnabled;
+            Cfg().rollAlignEnabled = m_runtimeSettings.isRollAlignEnabled;
+        }
+        if ( UIResult.toggleTerrainHidden )
+        {
+            m_debug.isTerrainHidden = !m_debug.isTerrainHidden;
+        }
+        if ( UIResult.toggleWaterHidden )
+        {
+            m_debug.isWaterHidden = !m_debug.isWaterHidden;
+        }
+        if ( UIResult.toggleWaterFreeze )
+        {
+            m_debug.isWaterFreezeDebug = !m_debug.isWaterFreezeDebug;
+            if ( m_debug.isWaterFreezeDebug )
             {
-            case OverlayMode::None:
-                m_debug.overlayMode = OverlayMode::Timers;
-                break;
-            case OverlayMode::Timers:
-                m_debug.overlayMode = OverlayMode::SceneStats;
-                break;
-            case OverlayMode::SceneStats:
-                m_debug.overlayMode = OverlayMode::BarsNormalized;
-                break;
-            case OverlayMode::BarsNormalized:
-                m_debug.overlayMode = OverlayMode::BarsAbsolute;
-                break;
-            case OverlayMode::BarsAbsolute:
-                m_debug.overlayMode = OverlayMode::Keys;
-                break;
-            case OverlayMode::Keys:
-                m_debug.overlayMode = OverlayMode::None;
-                break;
+                m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
             }
         }
-        m_camera.input.Set( InputState::Key0WasDown, key0Now );
+        if ( UIResult.toggleWaterFlat )
+        {
+            m_debug.isWaterFlatDebug = !m_debug.isWaterFlatDebug;
+        }
+        if ( UIResult.toggleWaterReflection )
+        {
+            if ( m_debug.isWaterNoReflect )
+            {
+                m_debug.isWaterNoReflect = false;
+            }
+            else
+            {
+                m_debug.isWaterNoReflect = true;
+                m_debug.isWaterRTReflect = false;
+            }
+        }
+        if ( UIResult.requestedWaterReflectionMode >= 0 )
+        {
+            const int mode = std::clamp( UIResult.requestedWaterReflectionMode, 0, 2 );
+            m_debug.isWaterRTReflect = mode == 1;
+            m_debug.isWaterNoReflect = mode == 2;
+        }
+        if ( UIResult.requestedPhysicsMode >= 0 )
+        {
+            const int mode = std::clamp( UIResult.requestedPhysicsMode, 0, 1 );
+            m_cGameModelCollection.SetLegacyMode( mode == 0 );
+            if ( mode == 0 )
+            {
+                m_UISolverBallCountOverride = -1;
+                m_UISolverBoxCountOverride = -1;
+            }
+            m_timers.physicsAccumulator = 0.0f;
+            m_timers.fixedStepTickAccumulator = 0.0f;
+            PROFILE_SCHEDULE_RESET();
+        }
+        if ( UIResult.requestedTimeScale > 0.0f )
+        {
+            m_UITimeScaleOverride = std::clamp( UIResult.requestedTimeScale, 0.10f, 10.00f );
+            m_scene.timeScale = m_UITimeScaleOverride;
+            m_timers.physicsAccumulator = 0.0f;
+            m_timers.fixedStepTickAccumulator = 0.0f;
+        }
+        if ( UIResult.requestedFrameCount >= 0 )
+        {
+            m_scene.targetFrameCount = UIResult.requestedFrameCount > 0 ? std::clamp( UIResult.requestedFrameCount, 1, 5000 ) : -1;
+            m_scene.isTestComplete = false;
+        }
+        if ( UIResult.requestedSeed > 0 )
+        {
+            m_scene.rngSeed = static_cast<unsigned int>( std::clamp( UIResult.requestedSeed, 1, 999999 ) );
+            srand( m_scene.rngSeed );
+        }
+        if ( UIResult.requestedPhysicsDebugAlpha >= 0.0f )
+        {
+            m_debug.physicsDebugAlpha = std::clamp( UIResult.requestedPhysicsDebugAlpha, 0.05f, 1.0f );
+        }
+        if ( UIResult.requestedPhysicsDebugContactLinger >= 0.0f )
+        {
+            m_debug.physicsDebugContactLinger = std::clamp( UIResult.requestedPhysicsDebugContactLinger, 0.0f, 5.0f );
+        }
+        if ( UIResult.requestedModelCount >= 0 )
+        {
+            ApplyUIModelCountOverride( UIResult.requestedModelCount );
+        }
+        if ( UIResult.requestedSolverBallCount >= 0 )
+        {
+            const int boxes = m_UISolverBoxCountOverride >= 0 ? m_UISolverBoxCountOverride : m_scene.solverBoxCount;
+            ApplyUISolverObjectCounts( UIResult.requestedSolverBallCount, boxes );
+        }
+        if ( UIResult.requestedSolverBoxCount >= 0 )
+        {
+            const int balls = m_UISolverBallCountOverride >= 0 ? m_UISolverBallCountOverride : m_scene.solverBallCount;
+            ApplyUISolverObjectCounts( balls, UIResult.requestedSolverBoxCount );
+        }
+        if ( UIResult.requestedTrackHeight >= 0.0f )
+        {
+            const float trackHeight = std::clamp( UIResult.requestedTrackHeight, 0.0f, 600.0f );
+            if ( trackHeight <= 0.0f || m_scene.modelCount <= 0 )
+            {
+                m_camera.trackBallIndex = -1;
+            }
+            else
+            {
+                m_camera.trackHeight = trackHeight;
+                if ( m_camera.trackBallIndex < 0 )
+                {
+                    m_camera.trackBallIndex = 0;
+                }
+            }
+        }
+        if ( UIResult.requestedAutoCycleInterval >= 0.0f )
+        {
+            const float interval = std::clamp( UIResult.requestedAutoCycleInterval, 0.0f, 10.0f );
+            m_camera.autoCycleInterval = interval > 0.0f ? interval : -1.0f;
+            m_camera.autoCycleAccum = 0.0f;
+            m_camera.autoCycleShotsTaken = 0;
+        }
+        if ( UIResult.requestWorldGravity || UIResult.requestWorldFluidHeight || UIResult.requestWorldFluidDensity )
+        {
+            const float gravity = UIResult.requestWorldGravity ? UIResult.requestedWorldGravity : m_cWorldEnvironment.GetGravity();
+            const float fluidHeight = UIResult.requestWorldFluidHeight ? UIResult.requestedWorldFluidHeight : m_cWorldEnvironment.GetFluidSurfaceHeight();
+            const float fluidDensity = UIResult.requestWorldFluidDensity ? UIResult.requestedWorldFluidDensity : m_cWorldEnvironment.GetFluidDensity();
+            ApplyUIWorldOverride( std::clamp( gravity, -100.0f, 0.0f ),
+                                  std::clamp( fluidHeight, -100.0f, 200.0f ),
+                                  std::clamp( fluidDensity, 0.0f, 5.0f ) );
+        }
+        if ( UIResult.resetScene )
+        {
+            EnterInteractiveSceneRun();
+            ResetCurrentScene( true, true );
+        }
+        if ( UIResult.requestDemoScene )
+        {
+            LoadDemoSceneFromUI();
+        }
+        if ( UIResult.saveSceneDefaults )
+        {
+            SaveCurrentSceneDefaults();
+        }
+        if ( UIResult.requestedRendererIndex >= 0 )
+        {
+            RuntimeRendererType requestedRenderer = RuntimeRendererType::OpenGL;
+            if ( UIResult.requestedRendererIndex == 1 )
+            {
+                requestedRenderer = RuntimeRendererType::DX11;
+            }
+            else if ( UIResult.requestedRendererIndex == 2 )
+            {
+                requestedRenderer = RuntimeRendererType::DX12;
+            }
+            SwitchRenderer( requestedRenderer );
+        }
+        if ( UIResult.requestedSceneIndex >= 0 )
+        {
+            LoadSceneFromBrowserIndex( UIResult.requestedSceneIndex );
+        }
+    }
+
+    if ( m_UI.BlocksKeyboard() )
+    {
+        m_camera.input.xMove = 0;
+        m_camera.input.yMove = 0;
+        m_camera.input.Set( InputState::Up, false );
+        m_camera.input.Set( InputState::Down, false );
+        m_camera.input.Set( InputState::Left, false );
+        m_camera.input.Set( InputState::Right, false );
+        SetCursor( LoadCursor( nullptr, IDC_ARROW ) );
+        return;
     }
 
     // F2: Save scene snapshot to Scenes/
@@ -1364,7 +1865,8 @@ void SkullbonezRun::TakeInput()
         bool rNow = Input::IsKeyDown( 'R' );
         if ( rNow && !m_camera.input.Get( InputState::RKeyWasDown ) )
         {
-            ResetCurrentScene();
+            EnterInteractiveSceneRun();
+            ResetCurrentScene( true, true );
         }
         m_camera.input.Set( InputState::RKeyWasDown, rNow );
     }
@@ -1373,22 +1875,31 @@ void SkullbonezRun::TakeInput()
         bool bsNow = Input::IsKeyDown( VK_BACK );
         if ( bsNow && !m_camera.input.Get( InputState::BackspaceWasDown ) )
         {
-            ResetCurrentScene();
+            EnterInteractiveSceneRun();
+            ResetCurrentScene( true, true );
         }
         m_camera.input.Set( InputState::BackspaceWasDown, bsNow );
     }
 
     if ( m_camera.isFlyMode )
     {
-        // Keep cursor hidden every frame ? Windows restores it on WM_SETCURSOR
-        SetCursor( nullptr );
+        // Keep cursor hidden every frame unless the UI owns the mouse.
+        SetCursor( m_UI.BlocksCameraMouse() ? LoadCursor( nullptr, IDC_ARROW ) : nullptr );
 
         // Mouse look: delta from screen centre
-        POINT currentCoords = Input::GetMouseCoordinates();
-        Input::CentreMouseCoordinates();
-        POINT centreCoords = Input::GetMouseCoordinates();
-        m_camera.input.xMove = currentCoords.x - centreCoords.x;
-        m_camera.input.yMove = currentCoords.y - centreCoords.y;
+        if ( m_UI.BlocksCameraMouse() )
+        {
+            m_camera.input.xMove = 0;
+            m_camera.input.yMove = 0;
+        }
+        else
+        {
+            POINT currentCoords = Input::GetMouseCoordinates();
+            Input::CentreMouseCoordinates();
+            POINT centreCoords = Input::GetMouseCoordinates();
+            m_camera.input.xMove = currentCoords.x - centreCoords.x;
+            m_camera.input.yMove = currentCoords.y - centreCoords.y;
+        }
 
         // WASD movement
         m_camera.input.Set( InputState::Up, Input::IsKeyDown( 'W' ) );
@@ -1750,6 +2261,10 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     m_timers.timeSinceLastRender += static_cast<float>( m_timers.updateTimer.GetElapsedTime() );
     m_timers.updateTimer.StartTimer();
 
+    const double currentSceneEnergy = m_cGameModelCollection.GetSceneKineticEnergy();
+    m_timers.sceneEnergyAccumulator += currentSceneEnergy;
+    ++m_timers.sceneEnergySampleCount;
+
     if ( m_timers.timeSinceLastRender > 0.5f )
     {
         if ( dSecondsPerFrame )
@@ -1758,7 +2273,19 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             m_timers.rollingPhysicsTime = m_timers.physicsTime;
             m_timers.rollingRenderTime = m_timers.renderTime;
         }
+        if ( m_timers.sceneEnergySampleCount > 0 )
+        {
+            m_timers.rollingSceneEnergy = static_cast<float>( m_timers.sceneEnergyAccumulator / static_cast<double>( m_timers.sceneEnergySampleCount ) );
+            m_timers.sceneEnergyAccumulator = 0.0;
+            m_timers.sceneEnergySampleCount = 0;
+        }
         m_timers.timeSinceLastRender = 0.0f;
+    }
+
+    float sceneEnergyForDisplay = m_timers.rollingSceneEnergy;
+    if ( m_timers.sceneEnergySampleCount > 0 && sceneEnergyForDisplay == 0.0f )
+    {
+        sceneEnergyForDisplay = static_cast<float>( m_timers.sceneEnergyAccumulator / static_cast<double>( m_timers.sceneEnergySampleCount ) );
     }
 
     const char* rendererName = Gfx().GetRendererName();
@@ -1787,7 +2314,6 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     const float hh = Text2d::HalfH();
     const float mX = 0.022f; // horizontal inset from left/right edge
     const float mY = 0.015f; // vertical inset from top/bottom edge
-    const float fSz = 0.015f;
 
     // Crosshair — always visible when nudge mode is active, regardless of overlay state.
     // Drawn as two thin quads forming a + shape centred on screen.
@@ -1815,44 +2341,89 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 #endif
     }
 
-    if ( !m_debug.isTopTextHidden )
+    const char* sceneName = "";
+    if ( m_scene.isSceneMode && m_scene.currentSceneIndex >= 0 && m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() ) )
     {
-        // Top-left: engine name + active renderer
-        Text2d::Render2dText( -( hw - mX ), hh - mY - fSz, fSz, "SKULLBONEZ CORE [%s]", rendererName );
+        sceneName = FileNameFromPath( m_sceneQueue[m_scene.currentSceneIndex].c_str() );
+    }
 
-        // Second row top-left: scene name and frame counter (only in scene mode)
-        if ( m_scene.isSceneMode && m_scene.currentSceneIndex >= 0 )
+    if ( m_UI.IsVisible() )
+    {
+        InGameUIFrameData UIData;
+        UIData.screenW = m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.x ) : Cfg().window.screenX;
+        UIData.screenH = m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.y ) : Cfg().window.screenY;
+        if ( m_debug.isUITestPattern )
         {
-            const std::string& scenePath = m_sceneQueue[m_scene.currentSceneIndex];
-            const char* base = scenePath.c_str();
-            const char* slash = strrchr( base, '/' );
-            if ( !slash )
-            {
-                slash = strrchr( base, '\\' );
-            }
-            const char* sceneName = slash ? slash + 1 : base;
-            if ( m_scene.isTestComplete )
-            {
-                Text2d::Render2dText( -( hw - mX ), hh - mY - fSz * 3.0f, fSz, "%s - TEST COMPLETE", sceneName );
-            }
-            else
-            {
-                Text2d::Render2dText( -( hw - mX ), hh - mY - fSz * 3.0f, fSz, "%s  frame: %d", sceneName, m_scene.currentFrame );
-            }
+            DrawUITestPattern( UIData.screenW, UIData.screenH );
         }
+        UIData.rendererName = rendererName;
+        UIData.sceneName = sceneName;
+        UIData.sceneOptions = m_sceneBrowserNamePtrs.empty() ? nullptr : m_sceneBrowserNamePtrs.data();
+        UIData.sceneOptionCount = static_cast<int>( m_sceneBrowserNamePtrs.size() );
+        UIData.selectedSceneOption = CurrentSceneBrowserIndex();
+        UIData.UIDrawCalls = m_timers.lastUIDrawCalls;
+        UIData.fps = m_timers.rollingFpsTime > 0.0f ? m_timers.rollingFpsTime : ( dSecondsPerFrame > 0.0 ? 1.0f / static_cast<float>( dSecondsPerFrame ) : 0.0f );
+        UIData.renderMs = ( m_timers.rollingRenderTime > 0.0f ? m_timers.rollingRenderTime : m_timers.renderTime ) * 1000.0f;
+        UIData.physicsMs = ( m_timers.rollingPhysicsTime > 0.0f ? m_timers.rollingPhysicsTime : m_timers.physicsTime ) * 1000.0f;
+        UIData.cpuFrameMs = m_timers.cpuFrameWorkMs;
+        UIData.gpuFrameMs = m_timers.gpuFrameWorkMs;
+        UIData.modelCount = m_scene.modelCount;
+        UIData.currentFrame = m_scene.currentFrame;
+        UIData.targetFrameCount = m_scene.targetFrameCount;
+        UIData.rngSeed = m_scene.rngSeed;
+        UIData.solverBallCount = m_scene.solverBallCount;
+        UIData.solverBoxCount = m_scene.solverBoxCount;
+        UIData.currentSceneIndex = m_scene.currentSceneIndex;
+        UIData.sceneCount = static_cast<int>( m_sceneQueue.size() );
+        UIData.now = m_timers.simulationTimer.GetTotalTime();
+        UIData.sceneMode = m_scene.isSceneMode;
+        UIData.scenePhysicsEnabled = m_scene.isScenePhysics;
+        UIData.sceneTextEnabled = m_scene.isSceneText;
+        UIData.textOnly = m_debug.isTextOnly;
+        UIData.legacyPhysics = m_cGameModelCollection.GetLegacyMode();
+        UIData.fixedStep = m_scene.isFixedStep;
+        UIData.exitOnComplete = m_scene.isExitOnComplete;
+        UIData.testComplete = m_scene.isTestComplete;
+        UIData.vsyncEnabled = m_runtimeSettings.isVsyncEnabled;
+        UIData.pipelineSyncEnabled = m_runtimeSettings.isPipelineSyncEnabled;
+        UIData.rollAlignEnabled = m_runtimeSettings.isRollAlignEnabled;
+        UIData.sceneEnergy = sceneEnergyForDisplay;
+        UIData.timeScale = m_scene.timeScale;
+        UIData.trackHeight = m_camera.trackBallIndex >= 0 ? m_camera.trackHeight : 0.0f;
+        UIData.autoCycleInterval = m_camera.autoCycleInterval > 0.0f ? m_camera.autoCycleInterval : 0.0f;
+        UIData.worldGravity = m_cWorldEnvironment.GetGravity();
+        UIData.worldFluidHeight = m_cWorldEnvironment.GetFluidSurfaceHeight();
+        UIData.worldFluidDensity = m_cWorldEnvironment.GetFluidDensity();
+        UIData.physicsDebugFlags = m_debug.physicsDebugFlags;
+        UIData.physicsDebugAlpha = m_debug.physicsDebugAlpha;
+        UIData.physicsDebugContactLinger = m_debug.physicsDebugContactLinger;
+        UIData.collisionVisualizer = m_debug.isCollisionVisualizer;
+        UIData.physicsDebugTransparent = m_debug.isPhysicsDebugTransparent;
+        UIData.debugVectors = m_debug.isDebugVectors;
+        UIData.broadphaseOverlay = m_debug.isBroadphaseOverlay;
+        UIData.waterFreezeDebug = m_debug.isWaterFreezeDebug;
+        UIData.waterFlatDebug = m_debug.isWaterFlatDebug;
+        UIData.terrainHidden = m_debug.isTerrainHidden;
+        UIData.waterHidden = m_debug.isWaterHidden;
+        UIData.waterNoReflect = m_debug.isWaterNoReflect;
+        UIData.waterRTReflect = m_debug.isWaterRTReflect;
+        UIData.canSaveSceneDefaults = m_scene.isSceneMode &&
+                                      m_scene.currentSceneIndex >= 0 &&
+                                      m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() ) &&
+                                      !m_sceneQueue[m_scene.currentSceneIndex].empty();
 
-        // Top-right: model count (right-aligned)
-        {
-            char mcBuf[64];
-            snprintf( mcBuf, sizeof( mcBuf ), "Model Count: %i", m_scene.modelCount );
-            Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, mcBuf ), hh - mY - fSz, fSz, "%s", mcBuf );
-        }
-
-        // Second row top-right: active physics solver (right-aligned)
-        {
-            const char* solverTag = m_cGameModelCollection.GetLegacyMode() ? "PHYSICS: LEGACY [P]" : "PHYSICS: IMPULSE [P]";
-            Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, solverTag ), hh - mY - fSz * 3.0f, fSz, "%s", solverTag );
-        }
+        Text2d::FlushText();
+        UIData.drawCallsBeforeUI = Gfx().GetFrameDrawCallCount();
+        const int UIDrawCallStart = UIData.drawCallsBeforeUI;
+        PROFILE_GPU_BEGIN( "Frame/UI/Quads" );
+        m_UI.Draw( UIData );
+        PROFILE_GPU_END( "Frame/UI/Quads" );
+        PROFILE_GPU_BEGIN( "Frame/UI/Text" );
+        Text2d::FlushText();
+        PROFILE_GPU_END( "Frame/UI/Text" );
+        const int UIDrawCallEnd = Gfx().GetFrameDrawCallCount();
+        m_timers.lastUIDrawCalls = (std::max)( 0, UIDrawCallEnd - UIDrawCallStart );
+        return;
     }
 
     // --- Overlay: None ---
@@ -1886,7 +2457,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
                                    0.85f,
                                    0.85f,
                                    "Scene Energy: %.6f",
-                                   m_cGameModelCollection.GetSceneKineticEnergy() );
+                                   sceneEnergyForDisplay );
         Text2d::FlushText();
         return;
     }
@@ -2802,11 +3373,17 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 }
 
 
-void SkullbonezRun::LoadScene( int index )
+void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete )
 {
 #ifdef _DEBUG
     EndPhysicsDiagnosticsRun( "scene_reload" );
 #endif
+
+    if ( suppressExitOnComplete )
+    {
+        m_scene.isInteractiveRun = true;
+    }
+    const bool suppressAutomationExit = m_scene.isInteractiveRun || suppressExitOnComplete;
 
     // Flush GPU before destroying scene resources to avoid use-after-free
     if ( IsGfxReady() )
@@ -2840,8 +3417,11 @@ void SkullbonezRun::LoadScene( int index )
     m_screenshot.isScreenshotAndExit = false;
     m_scene.targetFrameCount = -1;
     m_scene.currentFrame = 0;
+    m_scene.solverBallCount = 0;
+    m_scene.solverBoxCount = 0;
     m_scene.isTestComplete = false;
     m_timers.physicsAccumulator = 0.0f;
+    m_timers.fixedStepTickAccumulator = 0.0f;
     m_screenshot.screenshotFrame = -1;
     m_screenshot.screenshotMs = -1;
     m_screenshot.screenshotPath[0] = '\0';
@@ -2874,6 +3454,7 @@ void SkullbonezRun::LoadScene( int index )
     m_debug.isWaterHidden = false;
     m_debug.isDebugVectors = false;
     m_debug.isTextOnly = false;
+    m_debug.isUITestPattern = false;
     m_debug.physicsDebugFlags = PHYSICS_DEBUG_NONE;
     m_debug.isPhysicsDebugTransparent = false;
     m_debug.physicsDebugAlpha = 0.28f;
@@ -2904,6 +3485,12 @@ void SkullbonezRun::LoadScene( int index )
     m_timers.physicsTime = 0.0f;
     m_timers.rollingPhysicsTime = 0.0f;
     m_timers.rollingFpsTime = 0.0f;
+    m_timers.rollingSceneEnergy = 0.0f;
+    m_timers.cpuFrameWorkMs = 0.0f;
+    m_timers.gpuFrameWorkMs = 0.0f;
+    m_timers.sceneEnergyAccumulator = 0.0;
+    m_timers.sceneEnergySampleCount = 0;
+    m_timers.lastUIDrawCalls = 0;
 
     // Reseed RNG. Unseeded reruns mix in the load/reset counters so quick repeated
     // Q resets do not collapse to the same time(nullptr) seed. Scene files and CLI
@@ -2929,7 +3516,14 @@ void SkullbonezRun::LoadScene( int index )
 
         m_scene.isSceneMode = false;
         SetUpCameras();
-        SetUpGameModels( DEFAULT_GAME_MODELS );
+        if ( m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
+        {
+            SetUpSolverObjects( (std::max)( 0, m_UISolverBallCountOverride ), (std::max)( 0, m_UISolverBoxCountOverride ) );
+        }
+        else
+        {
+            SetUpGameModels( m_UIModelCountOverride >= 0 ? m_UIModelCountOverride : DEFAULT_GAME_MODELS );
+        }
         const char* rendererName = Gfx().GetRendererName();
         char titleText[256];
         sprintf_s( titleText, "%s [%s]", TITLE_TEXT, rendererName );
@@ -2964,8 +3558,110 @@ void SkullbonezRun::LoadScene( int index )
         m_debug.isTextOnly = scene.IsTextOnly();
         m_debug.isWaterHidden = scene.IsWaterHidden();
         m_debug.isTerrainHidden = scene.IsTerrainHidden();
+        m_debug.isCollisionVisualizer = scene.IsCollisionVisualizerEnabled();
+        m_debug.isBroadphaseOverlay = scene.IsBroadphaseOverlayEnabled();
+        m_debug.isWaterFreezeDebug = scene.IsWaterFreezeDebugEnabled();
+        m_debug.isWaterFlatDebug = scene.IsWaterFlatDebugEnabled();
+        const int waterReflectionMode = std::clamp( scene.GetWaterReflectionMode(), 0, 2 );
+        m_debug.isWaterRTReflect = waterReflectionMode == 1;
+        m_debug.isWaterNoReflect = waterReflectionMode == 2;
+        if ( m_debug.isWaterFreezeDebug )
+        {
+            m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
+        }
         m_scene.timeScale = scene.GetTimeScale();
         m_scene.isFixedStep = scene.IsFixedStep();
+
+        const SceneUIOptions& UIOptions = scene.GetUIOptions();
+        const double UINow = m_timers.simulationTimer.GetTotalTime();
+        bool isAutomationScene = scene.IsExitOnComplete() ||
+                                 scene.IsScreenshotAndExit() ||
+                                 scene.GetScreenshotFrame() >= 0 ||
+                                 scene.GetScreenshotMs() >= 0 ||
+                                 scene.GetScreenshotInterval() > 0 ||
+                                 scene.GetPerfLogPath()[0] != '\0';
+#ifdef _DEBUG
+        isAutomationScene = isAutomationScene || m_physicsDiagnostics.isEnabled;
+#endif
+        if ( !preserveUIState )
+        {
+            if ( !UIOptions.hasVisible )
+            {
+                if ( isAutomationScene && !UIOptions.hasDirective )
+                {
+                    m_UI.SetVisible( false, UINow );
+                }
+                else if ( !UIOptions.hasDirective )
+                {
+                    if ( !m_UI.IsVisible() )
+                    {
+                        m_UI.SetVisible( true, UINow );
+                    }
+                    m_UI.SetMinimized( true, UINow );
+                }
+                else if ( !m_UI.IsVisible() )
+                {
+                    m_UI.SetVisible( true, UINow );
+                }
+            }
+            if ( UIOptions.hasWindowRect )
+            {
+                m_UI.SetWindowBounds( UIOptions.windowX, UIOptions.windowY, UIOptions.windowW, UIOptions.windowH );
+                if ( !UIOptions.hasMinimized )
+                {
+                    m_UI.SetMinimized( false, UINow );
+                }
+            }
+            if ( UIOptions.hasActiveTab )
+            {
+                m_UI.SetActiveTab( static_cast<InGameUITab>( UIOptions.activeTab ) );
+            }
+            if ( UIOptions.hasBlur )
+            {
+                m_UI.SetBlurEnabled( UIOptions.blurEnabled );
+            }
+            if ( UIOptions.hasProfilerExpandAll )
+            {
+                m_UI.SetProfilerExpandAll( UIOptions.profilerExpandAll );
+            }
+            if ( UIOptions.hasProfilerTimeline )
+            {
+                m_UI.SetProfilerTimelineEnabled( UIOptions.profilerTimeline );
+            }
+            if ( UIOptions.hasPerformanceHistogram )
+            {
+                m_UI.SetPerformanceHistogramEnabled( UIOptions.performanceHistogram );
+            }
+            if ( UIOptions.hasRendererComboOpen )
+            {
+                m_UI.SetRendererComboOpen( UIOptions.rendererComboOpen );
+            }
+            if ( UIOptions.hasSceneComboOpen )
+            {
+                m_UI.SetSceneComboOpen( UIOptions.sceneComboOpen );
+            }
+            if ( UIOptions.hasSceneFilter )
+            {
+                m_UI.SetSceneFilter( UIOptions.sceneFilter );
+            }
+            if ( UIOptions.hasScrollY )
+            {
+                m_UI.SetScrollY( UIOptions.scrollY );
+            }
+            m_UI.SetMouseOverride( UIOptions.hasMouseOverride, UIOptions.mouseX, UIOptions.mouseY );
+            if ( UIOptions.hasVisible )
+            {
+                m_UI.SetVisible( UIOptions.isVisible, UINow );
+            }
+            if ( UIOptions.hasMinimized )
+            {
+                m_UI.SetMinimized( UIOptions.isMinimized, UINow );
+            }
+            if ( UIOptions.hasTestPattern )
+            {
+                m_debug.isUITestPattern = UIOptions.testPatternEnabled;
+            }
+        }
 
         // Apply per-scene physics mode override — supersedes the --legacy CLI flag for this scene.
         // physicsMode 0 = inherit (no change), 1 = legacy, 2 = impulse solver.
@@ -2979,10 +3675,10 @@ void SkullbonezRun::LoadScene( int index )
         }
 
         m_scene.targetFrameCount = scene.GetFrameCount();
-        m_scene.isExitOnComplete = scene.IsExitOnComplete();
+        m_scene.isExitOnComplete = suppressAutomationExit ? false : scene.IsExitOnComplete();
         m_screenshot.screenshotFrame = scene.GetScreenshotFrame();
         m_screenshot.screenshotMs = scene.GetScreenshotMs();
-        m_screenshot.isScreenshotAndExit = scene.IsScreenshotAndExit();
+        m_screenshot.isScreenshotAndExit = suppressAutomationExit ? false : scene.IsScreenshotAndExit();
 
         if ( scene.GetScreenshotPath()[0] != '\0' )
         {
@@ -3047,12 +3743,20 @@ void SkullbonezRun::LoadScene( int index )
 
         SetUpCamerasFromScene( scene );
 
-        if ( scene.GetSolverBallCount() > 0 || scene.GetSolverBoxCount() > 0 )
+        if ( m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
+        {
+            SetUpSolverObjects( (std::max)( 0, m_UISolverBallCountOverride ), (std::max)( 0, m_UISolverBoxCountOverride ) );
+        }
+        else if ( m_UIModelCountOverride >= 0 )
+        {
+            SetUpGameModels( m_UIModelCountOverride );
+        }
+        else if ( scene.GetSolverBallCount() > 0 || scene.GetSolverBoxCount() > 0 )
         {
             // Exact-count solver spawn — explicit ball/box split for benchmarks.
             SetUpSolverObjects( scene.GetSolverBallCount(), scene.GetSolverBoxCount() );
         }
-        else if ( scene.GetLegacyBallCount() > 0 )
+        else if ( scene.HasLegacyBallCount() )
         {
             SetUpGameModels( scene.GetLegacyBallCount() );
         }
@@ -3098,6 +3802,10 @@ void SkullbonezRun::LoadScene( int index )
     if ( m_cmdTimeScaleOverride > 0.0f )
     {
         m_scene.timeScale = m_cmdTimeScaleOverride;
+    }
+    if ( m_UITimeScaleOverride > 0.0f )
+    {
+        m_scene.timeScale = m_UITimeScaleOverride;
     }
     if ( m_cmdFixedStep )
     {
@@ -3230,7 +3938,260 @@ void SkullbonezRun::EndPhysicsDiagnosticsRun( const char* status )
 #endif
 
 
-void SkullbonezRun::ResetCurrentScene()
+bool SkullbonezRun::SaveCurrentSceneDefaults()
+{
+    if ( !m_scene.isSceneMode ||
+         m_scene.currentSceneIndex < 0 ||
+         m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) ||
+         m_sceneQueue[m_scene.currentSceneIndex].empty() )
+    {
+        return false;
+    }
+
+    const std::string& scenePath = m_sceneQueue[m_scene.currentSceneIndex];
+    std::ifstream input( scenePath );
+    if ( !input )
+    {
+        return false;
+    }
+
+    std::vector<std::string> lines;
+    std::string line;
+    while ( std::getline( input, line ) )
+    {
+        if ( !line.empty() && line.back() == '\r' )
+        {
+            line.pop_back();
+        }
+        lines.push_back( line );
+    }
+
+    char buf[128] = {};
+    SetSceneDirective( lines, "physics", std::string( "physics " ) + OnOff( m_scene.isScenePhysics ), true );
+    SetSceneDirective( lines, "text", std::string( "text " ) + OnOff( m_scene.isSceneText ), true );
+    SetSceneDirective( lines, "text_only", std::string( "text_only " ) + OnOff( m_debug.isTextOnly ), true );
+    SetSceneDirective( lines, "vsync", std::string( "vsync " ) + OnOff( m_runtimeSettings.isVsyncEnabled ), true );
+    SetSceneDirective( lines, "pipeline_sync", std::string( "pipeline_sync " ) + OnOff( m_runtimeSettings.isPipelineSyncEnabled ), true );
+    SetSceneDirective( lines, "roll_align", std::string( "roll_align " ) + OnOff( m_runtimeSettings.isRollAlignEnabled ), true );
+    SetSceneDirective( lines, "fixed_step", "fixed_step", m_scene.isFixedStep );
+    if ( m_scene.targetFrameCount > 0 )
+    {
+        snprintf( buf, sizeof( buf ), "frames %d", m_scene.targetFrameCount );
+    }
+    else
+    {
+        strcpy_s( buf, sizeof( buf ), "frames unlimited" );
+    }
+    SetSceneDirective( lines, "frames", buf, true );
+    snprintf( buf, sizeof( buf ), "seed %u", (std::max)( 1u, m_scene.rngSeed ) );
+    SetSceneDirective( lines, "seed", buf, true );
+    SetSceneDirective( lines, "exit_on_complete", "exit_on_complete", m_scene.isExitOnComplete );
+    SetSceneDirective( lines, "debug_vectors", std::string( "debug_vectors " ) + OnOff( m_debug.isDebugVectors ), true );
+    SetSceneDirective( lines, "physics_debug_axes", std::string( "physics_debug_axes " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0 ), true );
+    SetSceneDirective( lines, "physics_debug_contacts", std::string( "physics_debug_contacts " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0 ), true );
+    SetSceneDirective( lines, "physics_debug_sleep", std::string( "physics_debug_sleep " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0 ), true );
+    SetSceneDirective( lines, "physics_debug_transparent", std::string( "physics_debug_transparent " ) + OnOff( m_debug.isPhysicsDebugTransparent ), true );
+    snprintf( buf, sizeof( buf ), "physics_debug_alpha %.2f", m_debug.physicsDebugAlpha );
+    SetSceneDirective( lines, "physics_debug_alpha", buf, true );
+    snprintf( buf, sizeof( buf ), "physics_debug_contact_linger %.2f", m_debug.physicsDebugContactLinger );
+    SetSceneDirective( lines, "physics_debug_contact_linger", buf, true );
+    snprintf( buf, sizeof( buf ), "time_scale %.2f", m_scene.timeScale );
+    SetSceneDirective( lines, "time_scale", buf, true );
+    SetSceneDirective( lines, "collision_visualizer", std::string( "collision_visualizer " ) + OnOff( m_debug.isCollisionVisualizer ), true );
+    SetSceneDirective( lines, "broadphase_overlay", std::string( "broadphase_overlay " ) + OnOff( m_debug.isBroadphaseOverlay ), true );
+    SetSceneDirective( lines, "water_freeze", std::string( "water_freeze " ) + OnOff( m_debug.isWaterFreezeDebug ), true );
+    SetSceneDirective( lines, "water_flat", std::string( "water_flat " ) + OnOff( m_debug.isWaterFlatDebug ), true );
+    SetSceneDirective( lines, "water_hidden", std::string( "water_hidden " ) + OnOff( m_debug.isWaterHidden ), true );
+    SetSceneDirective( lines, "terrain_hidden", std::string( "terrain_hidden " ) + OnOff( m_debug.isTerrainHidden ), true );
+    SetSceneDirective( lines, "water_reflection", std::string( "water_reflection " ) + WaterReflectionDirectiveValue( m_debug.isWaterNoReflect, m_debug.isWaterRTReflect ), true );
+    SetSceneDirective( lines, "physics_mode", std::string( "physics_mode " ) + ( m_cGameModelCollection.GetLegacyMode() ? "legacy" : "solver" ), true );
+    if ( m_camera.trackBallIndex >= 0 && m_camera.trackHeight > 0.0f )
+    {
+        snprintf( buf, sizeof( buf ), "track_height %.2f", m_camera.trackHeight );
+        SetSceneDirective( lines, "track_height", buf, true );
+    }
+    else
+    {
+        SetSceneDirective( lines, "track_height", "", false );
+    }
+    if ( m_camera.autoCycleInterval > 0.0f )
+    {
+        snprintf( buf, sizeof( buf ), "auto_cycle_interval %.2f", m_camera.autoCycleInterval );
+        SetSceneDirective( lines, "auto_cycle_interval", buf, true );
+    }
+    else
+    {
+        SetSceneDirective( lines, "auto_cycle_interval", "", false );
+    }
+    snprintf( buf, sizeof( buf ), "world %.2f %.2f %.2f", m_cWorldEnvironment.GetGravity(), m_cWorldEnvironment.GetFluidSurfaceHeight(), m_cWorldEnvironment.GetFluidDensity() );
+    SetSceneDirective( lines, "world", buf, true );
+
+    if ( m_UIModelCountOverride >= 0 )
+    {
+        snprintf( buf, sizeof( buf ), "legacy_balls %d", m_UIModelCountOverride );
+        SetSceneDirective( lines, "legacy_balls", buf, true );
+        SetSceneDirective( lines, "solver_balls", "", false );
+        SetSceneDirective( lines, "solver_boxes", "", false );
+    }
+    else if ( m_scene.solverBallCount > 0 || m_scene.solverBoxCount > 0 || m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
+    {
+        snprintf( buf, sizeof( buf ), "solver_balls %d", m_scene.solverBallCount );
+        SetSceneDirective( lines, "solver_balls", buf, true );
+        snprintf( buf, sizeof( buf ), "solver_boxes %d", m_scene.solverBoxCount );
+        SetSceneDirective( lines, "solver_boxes", buf, true );
+        SetSceneDirective( lines, "legacy_balls", "", false );
+    }
+
+    std::ofstream output( scenePath, std::ios::trunc );
+    if ( !output )
+    {
+        return false;
+    }
+
+    for ( const std::string& outLine : lines )
+    {
+        output << outLine << '\n';
+    }
+    return output.good();
+}
+
+
+void SkullbonezRun::RefreshSceneBrowserList()
+{
+    m_sceneBrowserPaths.clear();
+    m_sceneBrowserNames.clear();
+    m_sceneBrowserNamePtrs.clear();
+
+    const std::filesystem::path sceneDir = std::filesystem::path( DATA_ROOT ) / "scenes";
+    try
+    {
+        if ( !std::filesystem::exists( sceneDir ) )
+        {
+            return;
+        }
+
+        for ( const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator( sceneDir ) )
+        {
+            if ( !entry.is_regular_file() || entry.path().extension() != ".scene" )
+            {
+                continue;
+            }
+            m_sceneBrowserPaths.push_back( NormalizeScenePath( entry.path().generic_string() ) );
+        }
+    }
+    catch ( const std::filesystem::filesystem_error& )
+    {
+        m_sceneBrowserPaths.clear();
+    }
+
+    std::sort( m_sceneBrowserPaths.begin(), m_sceneBrowserPaths.end() );
+    m_sceneBrowserPaths.erase( std::unique( m_sceneBrowserPaths.begin(), m_sceneBrowserPaths.end() ), m_sceneBrowserPaths.end() );
+    m_sceneBrowserNames.reserve( m_sceneBrowserPaths.size() );
+    m_sceneBrowserNamePtrs.reserve( m_sceneBrowserPaths.size() );
+    for ( const std::string& path : m_sceneBrowserPaths )
+    {
+        m_sceneBrowserNames.emplace_back( FileNameFromPath( path.c_str() ) );
+    }
+    for ( const std::string& name : m_sceneBrowserNames )
+    {
+        m_sceneBrowserNamePtrs.push_back( name.c_str() );
+    }
+}
+
+
+int SkullbonezRun::CurrentSceneBrowserIndex() const
+{
+    if ( m_scene.currentSceneIndex < 0 || m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
+    {
+        return -1;
+    }
+
+    const std::string currentPath = NormalizeScenePath( m_sceneQueue[m_scene.currentSceneIndex] );
+    for ( int i = 0; i < static_cast<int>( m_sceneBrowserPaths.size() ); ++i )
+    {
+        if ( NormalizeScenePath( m_sceneBrowserPaths[i] ) == currentPath )
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+
+void SkullbonezRun::LoadSceneFromBrowserIndex( int index )
+{
+    if ( index < 0 || index >= static_cast<int>( m_sceneBrowserPaths.size() ) )
+    {
+        return;
+    }
+
+    EnterInteractiveSceneRun();
+
+    const std::string selectedPath = NormalizeScenePath( m_sceneBrowserPaths[index] );
+    for ( int i = 0; i < static_cast<int>( m_sceneQueue.size() ); ++i )
+    {
+        if ( NormalizeScenePath( m_sceneQueue[i] ) == selectedPath )
+        {
+            if ( i != m_scene.currentSceneIndex )
+            {
+                LoadScene( i, true, true );
+            }
+            else
+            {
+                m_scene.isExitOnComplete = false;
+                m_screenshot.isScreenshotAndExit = false;
+            }
+            return;
+        }
+    }
+
+    m_sceneQueue.push_back( selectedPath );
+    LoadScene( static_cast<int>( m_sceneQueue.size() ) - 1, true, true );
+}
+
+
+void SkullbonezRun::LoadDemoSceneFromUI()
+{
+    EnterInteractiveSceneRun();
+    m_cGameModelCollection.SetLegacyMode( false );
+    for ( int i = 0; i < static_cast<int>( m_sceneQueue.size() ); ++i )
+    {
+        if ( m_sceneQueue[i].empty() )
+        {
+            LoadScene( i, true, true );
+            return;
+        }
+    }
+
+    m_sceneQueue.push_back( "" );
+    LoadScene( static_cast<int>( m_sceneQueue.size() ) - 1, true, true );
+}
+
+
+void SkullbonezRun::LoadAdjacentSceneFromBrowser( int direction )
+{
+    const int sceneCount = static_cast<int>( m_sceneBrowserPaths.size() );
+    if ( sceneCount <= 0 || direction == 0 )
+    {
+        return;
+    }
+
+    const int currentIndex = CurrentSceneBrowserIndex();
+    int nextIndex = 0;
+    if ( currentIndex < 0 )
+    {
+        nextIndex = direction < 0 ? sceneCount - 1 : 0;
+    }
+    else
+    {
+        nextIndex = ( currentIndex + ( direction < 0 ? -1 : 1 ) + sceneCount ) % sceneCount;
+    }
+
+    LoadSceneFromBrowserIndex( nextIndex );
+}
+
+
+void SkullbonezRun::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete )
 {
     if ( m_scene.currentSceneIndex < 0 ||
          m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
@@ -3239,7 +4200,86 @@ void SkullbonezRun::ResetCurrentScene()
     }
 
     ++m_scene.manualResetCount;
-    LoadScene( m_scene.currentSceneIndex );
+    LoadScene( m_scene.currentSceneIndex, preserveUIState, suppressExitOnComplete );
+}
+
+
+void SkullbonezRun::ApplyUIModelCountOverride( int count )
+{
+    m_UIModelCountOverride = std::clamp( count, 0, 1000 );
+    m_UISolverBallCountOverride = -1;
+    m_UISolverBoxCountOverride = -1;
+    if ( m_scene.currentSceneIndex < 0 ||
+         m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
+    {
+        return;
+    }
+
+    m_cGameModelCollection.Clear();
+    m_fire.ballNext = -1;
+    m_fire.boxNext = -1;
+    m_timers.physicsAccumulator = 0.0f;
+    m_timers.fixedStepTickAccumulator = 0.0f;
+    m_scene.currentFrame = 0;
+    m_scene.isTestComplete = false;
+    if ( m_UIModelCountOverride <= 0 )
+    {
+        m_scene.modelCount = 0;
+        m_camera.trackBallIndex = -1;
+        PROFILE_SCHEDULE_RESET();
+        return;
+    }
+
+    const unsigned int seed = m_scene.rngSeed > 0 ? m_scene.rngSeed : 1u;
+    srand( seed );
+    SetUpGameModels( m_UIModelCountOverride );
+    if ( m_camera.trackBallIndex >= m_UIModelCountOverride )
+    {
+        m_camera.trackBallIndex = m_UIModelCountOverride - 1;
+    }
+    PROFILE_SCHEDULE_RESET();
+}
+
+
+void SkullbonezRun::ApplyUISolverObjectCounts( int balls, int boxes )
+{
+    m_UISolverBallCountOverride = std::clamp( balls, 0, 1000 );
+    m_UISolverBoxCountOverride = std::clamp( boxes, 0, 1000 );
+    m_UIModelCountOverride = -1;
+    if ( m_scene.currentSceneIndex < 0 ||
+         m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
+    {
+        return;
+    }
+
+    m_cGameModelCollection.Clear();
+    m_fire.ballNext = -1;
+    m_fire.boxNext = -1;
+    m_timers.physicsAccumulator = 0.0f;
+    m_timers.fixedStepTickAccumulator = 0.0f;
+    m_scene.currentFrame = 0;
+    m_scene.isTestComplete = false;
+
+    const unsigned int seed = m_scene.rngSeed > 0 ? m_scene.rngSeed : 1u;
+    srand( seed );
+    SetUpSolverObjects( m_UISolverBallCountOverride, m_UISolverBoxCountOverride );
+    if ( m_scene.modelCount <= 0 )
+    {
+        m_camera.trackBallIndex = -1;
+    }
+    else if ( m_camera.trackBallIndex >= m_scene.modelCount )
+    {
+        m_camera.trackBallIndex = m_scene.modelCount - 1;
+    }
+    PROFILE_SCHEDULE_RESET();
+}
+
+
+void SkullbonezRun::ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity )
+{
+    m_cWorldEnvironment.SetGravity( gravity );
+    m_cWorldEnvironment.SetFluidSurfaceHeight( fluidHeight );
+    m_cWorldEnvironment.SetFluidDensity( fluidDensity );
 }
 
 
@@ -3256,11 +4296,13 @@ void SkullbonezRun::ApplyNoWaterOverride()
 
 bool SkullbonezRun::AdvanceScene()
 {
+    const bool preserveInteractiveUI = m_scene.isInteractiveRun;
+
     // For perf tests with 2 passes, the second pass re-runs the same scene
     if ( m_perfLogState.isPerfTest && sPerfPass == 0 )
     {
         sPerfPass = 1;
-        LoadScene( m_scene.currentSceneIndex );
+        LoadScene( m_scene.currentSceneIndex, preserveInteractiveUI, preserveInteractiveUI );
         return true;
     }
 
@@ -3273,7 +4315,7 @@ bool SkullbonezRun::AdvanceScene()
         return false;
     }
 
-    LoadScene( nextIndex );
+    LoadScene( nextIndex, preserveInteractiveUI, preserveInteractiveUI );
     return true;
 }
 

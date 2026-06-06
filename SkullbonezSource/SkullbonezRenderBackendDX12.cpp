@@ -2410,6 +2410,7 @@ void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle, const float* da
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
     m_commandList->IASetVertexBuffers( 0, 1, &vbv );
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
+    NoteDrawCall();
     m_commandList->DrawInstanced( (UINT)vertexCount, 1, 0, 0 );
 }
 
@@ -2510,6 +2511,7 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
     m_commandList->RSSetViewports( 1, &m_viewport );
     m_commandList->RSSetScissorRects( 1, &m_scissorRect );
 
+    NoteDrawCall();
     m_commandList->DrawInstanced( (UINT)vertCount, 1, 0, 0 );
 }
 
@@ -2630,6 +2632,7 @@ void RenderBackendDX12::DrawInstancedMesh( uint32_t handle, int staticVertCount,
     // Draw all instances in one call — renders staticVertCount vertices × instanceCount copies.
     // This is the key optimization: 300 balls drawn in a single GPU dispatch.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
+    NoteDrawCall();
     m_commandList->DrawInstanced( (UINT)staticVertCount, (UINT)instanceCount, 0, 0 );
 }
 

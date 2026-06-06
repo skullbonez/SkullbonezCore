@@ -1,0 +1,17 @@
+# UI hierarchy capture: profiler rows expanded with the real plus-button tree state.
+seed 4242
+physics off
+text off
+vsync off
+water_hidden on
+terrain_hidden on
+frames 24
+ui tab profiler
+ui rect 34 56 800 560
+ui blur on
+ui renderer_combo closed
+ui profiler_expand all
+ui_test_pattern on
+screenshot Profile/ui_profiler_hierarchy.bmp frame 20
+
+camera main 500 60 650  600 33 600  0 1 0

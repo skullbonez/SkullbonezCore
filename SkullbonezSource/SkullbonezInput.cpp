@@ -7,6 +7,11 @@
 using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Basics;
 
+namespace
+{
+int g_mouseWheelDelta = 0;
+}
+
 
 /*
    0x8000 = (16^3)*8 + (16^2)*0 + (16^1)*0 + (16^0)*0
@@ -63,6 +68,19 @@ POINT Input::GetMouseCoordinates()
 }
 
 
+POINT Input::GetClientMouseCoordinates()
+{
+    POINT mousePos = GetMouseCoordinates();
+    SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
+    if ( !ScreenToClient( m_cWindow->m_sWindow, &mousePos ) )
+    {
+        throw std::runtime_error( "Converting mouse coordinates failed (Input::GetClientMouseCoordinates)." );
+    }
+
+    return mousePos;
+}
+
+
 void Input::SetMouseCoordinates( const POINT& pNewCoordinates )
 {
     // attempt to set the mouse m_position
@@ -70,6 +88,26 @@ void Input::SetMouseCoordinates( const POINT& pNewCoordinates )
     {
         throw std::runtime_error( "Setting mouse m_position failed (Input::SetMouseCoordinates)." );
     }
+}
+
+
+bool Input::IsLeftMouseDown()
+{
+    return ( ( GetKeyState( VK_LBUTTON ) & HIGHEST_ORDER_BIT_16 ) != 0 );
+}
+
+
+int Input::ConsumeMouseWheelDelta()
+{
+    const int delta = g_mouseWheelDelta;
+    g_mouseWheelDelta = 0;
+    return delta;
+}
+
+
+void Input::AccumulateMouseWheelDelta( int delta )
+{
+    g_mouseWheelDelta += delta;
 }
 
 

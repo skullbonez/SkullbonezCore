@@ -574,12 +574,23 @@ uint32_t RenderBackendGL::CreateTexture2D( const uint8_t* data, int w, int h, in
                                               : ( channels == 1 )   ? GL_RED
                                                                     : GL_RGB;
 
+    GLint previousUnpackAlignment = 4;
+    glGetIntegerv( GL_UNPACK_ALIGNMENT, &previousUnpackAlignment );
+    if ( channels == 3 || channels == 1 )
+    {
+        glPixelStorei( GL_UNPACK_ALIGNMENT, 1 );
+    }
+
     // Upload the pixel data from CPU RAM to GPU video memory. This is the main "upload" call
     // that actually creates the texture's storage and fills it with image data.
     // Parameters: target, mip level 0 (full size), internal format, width, height, border (0),
     //             pixel format, data type (unsigned bytes = 0-255 per channel), pointer to pixels.
     // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glTexImage2D.xhtml
     glTexImage2D( GL_TEXTURE_2D, 0, format, w, h, 0, format, GL_UNSIGNED_BYTE, data );
+    if ( channels == 3 || channels == 1 )
+    {
+        glPixelStorei( GL_UNPACK_ALIGNMENT, previousUnpackAlignment );
+    }
 
     if ( generateMips )
     {
@@ -805,6 +816,7 @@ void RenderBackendGL::UploadAndDrawDynamicVB( uint32_t handle, const float* data
     // GL_TRIANGLES means every 3 consecutive vertices form one triangle.
     // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glDrawArrays.xhtml
     glDrawArrays( GL_TRIANGLES, 0, vertexCount );
+    NoteDrawCall();
     glBindVertexArray( 0 );
 }
 
@@ -951,6 +963,7 @@ void RenderBackendGL::DrawInstancedMesh( uint32_t handle, int staticVertCount, i
     // divisor=1 setting. One draw call renders hundreds of objects.
     // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glDrawArraysInstanced.xhtml
     glDrawArraysInstanced( GL_TRIANGLES, 0, staticVertCount, instanceCount );
+    NoteDrawCall();
     glBindVertexArray( 0 );
 }
 
@@ -1031,6 +1044,7 @@ void RenderBackendGL::DrawLines( const float* verts, int vertCount, float r, flo
     glBindVertexArray( m_debugLineVAO );
     glLineWidth( 2.0f );
     glDrawArrays( GL_LINES, 0, vertCount );
+    NoteDrawCall();
     glLineWidth( 1.0f );
     glBindVertexArray( 0 );
     SetDepthTest( true );
@@ -1095,6 +1109,7 @@ void RenderBackendGL::DrawLinesColored( const float* data, int vertCount, const 
     glBindVertexArray( m_gridLineVAO );
     glLineWidth( 1.0f );
     glDrawArrays( GL_LINES, 0, vertCount );
+    NoteDrawCall();
     glBindVertexArray( 0 );
     SetDepthTest( true );
 }

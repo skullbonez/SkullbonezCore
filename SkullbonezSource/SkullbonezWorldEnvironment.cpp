@@ -190,9 +190,21 @@ float WorldEnvironment::GetGravity() const
 }
 
 
+void WorldEnvironment::SetGravity( float gravity )
+{
+    m_gravity = gravity;
+}
+
+
 float WorldEnvironment::GetFluidDensity() const
 {
     return m_fluidDensity;
+}
+
+
+void WorldEnvironment::SetFluidDensity( float density )
+{
+    m_fluidDensity = density;
 }
 
 

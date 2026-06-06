@@ -1,10 +1,65 @@
 // --- Includes ---
 #include "SkullbonezTestScene.h"
+#include <cstdlib>
 #include <cstring>
 
 
 // --- Usings ---
 using namespace SkullbonezCore::Basics;
+
+namespace
+{
+bool ParseOnOff( const char* value, bool& out )
+{
+    if ( strcmp( value, "on" ) == 0 || strcmp( value, "open" ) == 0 || strcmp( value, "all" ) == 0 )
+    {
+        out = true;
+        return true;
+    }
+    if ( strcmp( value, "off" ) == 0 || strcmp( value, "closed" ) == 0 || strcmp( value, "none" ) == 0 )
+    {
+        out = false;
+        return true;
+    }
+    return false;
+}
+
+
+bool ParseUITab( const char* value, int& outTab )
+{
+    if ( strcmp( value, "profiler" ) == 0 || strcmp( value, "profile" ) == 0 )
+    {
+        outTab = 0;
+        return true;
+    }
+    if ( strcmp( value, "scene" ) == 0 || strcmp( value, "overview" ) == 0 || strcmp( value, "info" ) == 0 )
+    {
+        outTab = 1;
+        return true;
+    }
+    if ( strcmp( value, "physics" ) == 0 )
+    {
+        outTab = 2;
+        return true;
+    }
+    if ( strcmp( value, "options" ) == 0 || strcmp( value, "params" ) == 0 )
+    {
+        outTab = 3;
+        return true;
+    }
+    if ( strcmp( value, "renderer" ) == 0 )
+    {
+        outTab = 3;
+        return true;
+    }
+    if ( strcmp( value, "keys" ) == 0 || strcmp( value, "controls" ) == 0 )
+    {
+        outTab = 4;
+        return true;
+    }
+    return false;
+}
+} // namespace
 
 
 TestScene::TestScene()
@@ -112,6 +167,233 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
+        // Parse scene UI directives. The in-game UI is visible by default; scenes
+        // can use these directives to hide it or request a specific layout.
+        if ( strncmp( line, "ui ", 3 ) == 0 || strncmp( line, "UI ", 3 ) == 0 )
+        {
+            char command[64] = {};
+            char value[64] = {};
+
+            if ( sscanf_s( line + 3, "%63s %63s", command, static_cast<unsigned>( sizeof( command ) ), value, static_cast<unsigned>( sizeof( value ) ) ) < 2 )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid UI directive at line %d  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            scene.m_UIOptions.hasDirective = true;
+
+            if ( strcmp( command, "visible" ) == 0 )
+            {
+                bool parsedValue = false;
+                if ( !ParseOnOff( value, parsedValue ) )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI visible value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_UIOptions.hasVisible = true;
+                scene.m_UIOptions.isVisible = parsedValue;
+                continue;
+            }
+
+            if ( strcmp( command, "minimized" ) == 0 )
+            {
+                bool parsedValue = false;
+                if ( !ParseOnOff( value, parsedValue ) )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI minimized value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_UIOptions.hasMinimized = true;
+                scene.m_UIOptions.isMinimized = parsedValue;
+                continue;
+            }
+
+            if ( strcmp( command, "tab" ) == 0 )
+            {
+                int tab = 0;
+                if ( !ParseUITab( value, tab ) )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI tab value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_UIOptions.hasActiveTab = true;
+                scene.m_UIOptions.activeTab = tab;
+                continue;
+            }
+
+            if ( strcmp( command, "rect" ) == 0 )
+            {
+                int x = 0;
+                int y = 0;
+                int w = 0;
+                int h = 0;
+                int parsed = sscanf_s( line + 3 + 4, "%d %d %d %d", &x, &y, &w, &h );
+                if ( parsed != 4 || w <= 0 || h <= 0 )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI rect at line %d (expected: UI rect <x> <y> <w> <h>)  (TestScene::LoadFromFile)", lineNumber );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_UIOptions.hasWindowRect = true;
+                scene.m_UIOptions.windowX = x;
+                scene.m_UIOptions.windowY = y;
+                scene.m_UIOptions.windowW = w;
+                scene.m_UIOptions.windowH = h;
+                continue;
+            }
+
+            if ( strcmp( command, "blur" ) == 0 )
+            {
+                bool parsedValue = false;
+                if ( !ParseOnOff( value, parsedValue ) )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI blur value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_UIOptions.hasBlur = true;
+                scene.m_UIOptions.blurEnabled = parsedValue;
+                continue;
+            }
+
+            if ( strcmp( command, "renderer_combo" ) == 0 )
+            {
+                bool parsedValue = false;
+                if ( !ParseOnOff( value, parsedValue ) )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI renderer_combo value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_UIOptions.hasRendererComboOpen = true;
+                scene.m_UIOptions.rendererComboOpen = parsedValue;
+                continue;
+            }
+
+            if ( strcmp( command, "scene_combo" ) == 0 )
+            {
+                bool parsedValue = false;
+                if ( !ParseOnOff( value, parsedValue ) )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI scene_combo value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_UIOptions.hasSceneComboOpen = true;
+                scene.m_UIOptions.sceneComboOpen = parsedValue;
+                continue;
+            }
+
+            if ( strcmp( command, "scene_filter" ) == 0 )
+            {
+                scene.m_UIOptions.hasSceneFilter = true;
+                strncpy_s( scene.m_UIOptions.sceneFilter, sizeof( scene.m_UIOptions.sceneFilter ), value, _TRUNCATE );
+                continue;
+            }
+
+            if ( strcmp( command, "profiler_expand" ) == 0 )
+            {
+                bool parsedValue = false;
+                if ( !ParseOnOff( value, parsedValue ) )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI profiler_expand value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_UIOptions.hasProfilerExpandAll = true;
+                scene.m_UIOptions.profilerExpandAll = parsedValue;
+                continue;
+            }
+
+            if ( strcmp( command, "timeline" ) == 0 )
+            {
+                bool parsedValue = false;
+                if ( !ParseOnOff( value, parsedValue ) )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI timeline value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_UIOptions.hasProfilerTimeline = true;
+                scene.m_UIOptions.profilerTimeline = parsedValue;
+                continue;
+            }
+
+            if ( strcmp( command, "histogram" ) == 0 )
+            {
+                bool parsedValue = false;
+                if ( !ParseOnOff( value, parsedValue ) )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI histogram value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_UIOptions.hasPerformanceHistogram = true;
+                scene.m_UIOptions.performanceHistogram = parsedValue;
+                continue;
+            }
+
+            if ( strcmp( command, "scroll" ) == 0 )
+            {
+                scene.m_UIOptions.hasScrollY = true;
+                scene.m_UIOptions.scrollY = ( strcmp( value, "bottom" ) == 0 ) ? 1000000.0f : static_cast<float>( atof( value ) );
+                continue;
+            }
+
+            if ( strcmp( command, "mouse" ) == 0 )
+            {
+                int x = 0;
+                int y = 0;
+                int parsed = sscanf_s( line + 3 + 6, "%d %d", &x, &y );
+                if ( parsed != 2 )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI mouse at line %d (expected: UI mouse <x> <y>)  (TestScene::LoadFromFile)", lineNumber );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_UIOptions.hasMouseOverride = true;
+                scene.m_UIOptions.mouseX = x;
+                scene.m_UIOptions.mouseY = y;
+                continue;
+            }
+
+            fclose( file );
+            char msg[256];
+            sprintf_s( msg, sizeof( msg ), "Unknown UI directive at line %d: %s  (TestScene::LoadFromFile)", lineNumber, command );
+            throw std::runtime_error( msg );
+        }
+
+        // parse ui_test_pattern directive: bright checker backdrop for blur/visual tests
+        if ( strncmp( line, "ui_test_pattern ", 16 ) == 0 || strncmp( line, "UI_test_pattern ", 16 ) == 0 )
+        {
+            bool parsedValue = false;
+            if ( !ParseOnOff( line + 16, parsedValue ) )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid UI_test_pattern value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 16 );
+                throw std::runtime_error( msg );
+            }
+            scene.m_UIOptions.hasTestPattern = true;
+            scene.m_UIOptions.testPatternEnabled = parsedValue;
+            continue;
+        }
+
         // parse frames directive
         if ( strncmp( line, "frames ", 7 ) == 0 )
         {
@@ -193,11 +475,12 @@ TestScene TestScene::LoadFromFile( const char* path )
         if ( strncmp( line, "legacy_balls ", 13 ) == 0 )
         {
             scene.m_sceneOptions.legacyBallCount = atoi( line + 13 );
-            if ( scene.m_sceneOptions.legacyBallCount <= 0 )
+            scene.m_sceneOptions.hasLegacyBallCount = true;
+            if ( scene.m_sceneOptions.legacyBallCount < 0 )
             {
                 fclose( file );
                 char msg[256];
-                sprintf_s( msg, sizeof( msg ), "Invalid legacy_balls count at line %d (must be > 0)  (TestScene::LoadFromFile)", lineNumber );
+                sprintf_s( msg, sizeof( msg ), "Invalid legacy_balls count at line %d (must be >= 0)  (TestScene::LoadFromFile)", lineNumber );
                 throw std::runtime_error( msg );
             }
             continue;
@@ -322,6 +605,87 @@ TestScene TestScene::LoadFromFile( const char* path )
         if ( strcmp( line, "exit_on_complete" ) == 0 )
         {
             scene.m_sceneOptions.exitOnComplete = true;
+            continue;
+        }
+
+        if ( strncmp( line, "collision_visualizer ", 21 ) == 0 )
+        {
+            bool parsedValue = false;
+            if ( !ParseOnOff( line + 21, parsedValue ) )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid collision_visualizer value at line %d  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            scene.m_sceneOptions.collisionVisualizer = parsedValue;
+            continue;
+        }
+
+        if ( strncmp( line, "broadphase_overlay ", 19 ) == 0 )
+        {
+            bool parsedValue = false;
+            if ( !ParseOnOff( line + 19, parsedValue ) )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid broadphase_overlay value at line %d  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            scene.m_sceneOptions.broadphaseOverlay = parsedValue;
+            continue;
+        }
+
+        if ( strncmp( line, "water_freeze ", 13 ) == 0 )
+        {
+            bool parsedValue = false;
+            if ( !ParseOnOff( line + 13, parsedValue ) )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid water_freeze value at line %d  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            scene.m_sceneOptions.waterFreezeDebug = parsedValue;
+            continue;
+        }
+
+        if ( strncmp( line, "water_flat ", 11 ) == 0 )
+        {
+            bool parsedValue = false;
+            if ( !ParseOnOff( line + 11, parsedValue ) )
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid water_flat value at line %d  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
+            scene.m_sceneOptions.waterFlatDebug = parsedValue;
+            continue;
+        }
+
+        if ( strncmp( line, "water_reflection ", 17 ) == 0 )
+        {
+            const char* value = line + 17;
+            if ( strcmp( value, "fbo" ) == 0 || strcmp( value, "on" ) == 0 )
+            {
+                scene.m_sceneOptions.waterReflectionMode = 0;
+            }
+            else if ( strcmp( value, "dxr" ) == 0 || strcmp( value, "rt" ) == 0 )
+            {
+                scene.m_sceneOptions.waterReflectionMode = 1;
+            }
+            else if ( strcmp( value, "none" ) == 0 || strcmp( value, "off" ) == 0 )
+            {
+                scene.m_sceneOptions.waterReflectionMode = 2;
+            }
+            else
+            {
+                fclose( file );
+                char msg[256];
+                sprintf_s( msg, sizeof( msg ), "Invalid water_reflection value at line %d  (TestScene::LoadFromFile)", lineNumber );
+                throw std::runtime_error( msg );
+            }
             continue;
         }
 
@@ -856,6 +1220,12 @@ unsigned int TestScene::GetSeed() const
 }
 
 
+bool TestScene::HasLegacyBallCount() const
+{
+    return m_sceneOptions.hasLegacyBallCount;
+}
+
+
 int TestScene::GetLegacyBallCount() const
 {
     return m_sceneOptions.legacyBallCount;
@@ -1017,6 +1387,36 @@ bool TestScene::IsExitOnComplete() const
 }
 
 
+bool TestScene::IsCollisionVisualizerEnabled() const
+{
+    return m_sceneOptions.collisionVisualizer;
+}
+
+
+bool TestScene::IsBroadphaseOverlayEnabled() const
+{
+    return m_sceneOptions.broadphaseOverlay;
+}
+
+
+bool TestScene::IsWaterFreezeDebugEnabled() const
+{
+    return m_sceneOptions.waterFreezeDebug;
+}
+
+
+bool TestScene::IsWaterFlatDebugEnabled() const
+{
+    return m_sceneOptions.waterFlatDebug;
+}
+
+
+int TestScene::GetWaterReflectionMode() const
+{
+    return m_sceneOptions.waterReflectionMode;
+}
+
+
 bool TestScene::HasFlatSlope() const
 {
     return m_terrainOverride.hasFlatSlope;
@@ -1124,4 +1524,10 @@ float TestScene::GetWorldFluidHeight() const
 float TestScene::GetWorldFluidDensity() const
 {
     return m_worldOverride.worldFluidDensity;
+}
+
+
+const SceneUIOptions& TestScene::GetUIOptions() const
+{
+    return m_UIOptions;
 }

@@ -1,11 +1,13 @@
 // --- Includes ---
 #include "SkullbonezWindow.h"
 #include "SkullbonezIRenderBackend.h"
+#include "SkullbonezInput.h"
 #include "SkullbonezText.h"
 
 
 // --- Usings ---
 using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Rendering;
 
 
@@ -222,6 +224,10 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
             {
                 PostQuitMessage( 0 );
             }
+            break;
+
+        case WM_MOUSEWHEEL:
+            Input::AccumulateMouseWheelDelta( GET_WHEEL_DELTA_WPARAM( wParam ) );
             break;
 
         // WM_DESTROY is fired when the window is closed

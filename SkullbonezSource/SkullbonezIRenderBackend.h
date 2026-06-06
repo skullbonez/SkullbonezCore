@@ -121,6 +121,20 @@ class IRenderBackend
     virtual const char* GetRendererName() const = 0;
 
 
+    // --- Frame Diagnostics ---
+
+    virtual void ResetFrameDrawCallCount()
+    {
+    }
+    virtual void NoteDrawCall()
+    {
+    }
+    virtual int GetFrameDrawCallCount() const
+    {
+        return 0;
+    }
+
+
     // --- DXR Raytracing Support ---
 
     virtual bool IsDXRSupported() const = 0;

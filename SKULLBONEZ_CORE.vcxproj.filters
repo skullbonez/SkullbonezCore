@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbUIld/2003">
   <ItemGroup>
     <Filter Include="Source Files">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
@@ -34,6 +34,9 @@
     <Filter Include="Source Files\DX12">
       <UniqueIdentifier>{9467F69A-657B-4B6E-876C-AB6E6A628D9E}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\UI">
+      <UniqueIdentifier>{2C90B792-6D8E-4A99-9C43-D956A32AFBE1}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Header Files\GL">
       <UniqueIdentifier>{559F9006-8981-4E03-AC33-A44EBBECB1F1}</UniqueIdentifier>
     </Filter>
@@ -42,6 +45,9 @@
     </Filter>
     <Filter Include="Header Files\DX12">
       <UniqueIdentifier>{0B69E6EE-2014-4D20-A21F-CA6C0DB6E5E4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\UI">
+      <UniqueIdentifier>{4E809482-4DB4-42F5-8751-17F3D7E08639}</UniqueIdentifier>
     </Filter>
     <Filter Include="Scene Files">
       <UniqueIdentifier>{b5aa4a1f-3d6e-4912-a520-04b55a79f1e1}</UniqueIdentifier>
@@ -207,6 +213,36 @@
     <ClCompile Include="SkullbonezSource\SkullbonezSBTDX12.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\SkullbonezUI.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UIBackdropBlur.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UIButton.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UICheckBox.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UIComboBox.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UIDraw.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UIIconButton.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UIScrollBar.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UISlider.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UITabBar.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingSphere.h">
@@ -251,7 +287,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezLog.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\SkullbonezPrimitiveMeshBuilder.h">
+    <ClInclude Include="SkullbonezSource\SkullbonezPrimitiveMeshBUIlder.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezQuaternion.h">
@@ -383,6 +419,36 @@
     <ClInclude Include="SkullbonezSource\SkullbonezSBTDX12.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\SkullbonezUI.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UIBackdropBlur.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UIButton.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UICheckBox.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UIComboBox.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UIDraw.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UIIconButton.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UIScrollBar.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UISlider.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UITabBar.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="SkullbonezData\shaders\lit_textured.frag">
@@ -496,6 +562,24 @@
     <None Include="SkullbonezData\shaders\solid_color_batch.hlsl">
       <Filter>Resource Files\DirectX</Filter>
     </None>
+    <None Include="SkullbonezData\shaders\UI_textured.frag">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\UI_textured.hlsl">
+      <Filter>Resource Files\DirectX</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\UI_textured.vert">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\UIBackdropBlur.frag">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\UIBackdropBlur.hlsl">
+      <Filter>Resource Files\DirectX</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\UIBackdropBlur.vert">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
     <None Include="SkullbonezData\shaders\collision_visualizer.hlsl">
       <Filter>Resource Files\DirectX</Filter>
     </None>
@@ -532,7 +616,7 @@
     <None Include="SkullbonezData\scenes\cardinal_roll_test.scene">
       <Filter>Scene Files</Filter>
     </None>
-    <None Include="SkullbonezData\scenes\collision_demo.suite">
+    <None Include="SkullbonezData\scenes\collision_demo.sUIte">
       <Filter>Scene Files</Filter>
     </None>
     <None Include="SkullbonezData\scenes\collision_demo_ball_ball.scene">
@@ -565,7 +649,7 @@
     <None Include="SkullbonezData\scenes\physics_baseline.scene">
       <Filter>Scene Files</Filter>
     </None>
-    <None Include="SkullbonezData\scenes\physics_bench.suite">
+    <None Include="SkullbonezData\scenes\physics_bench.sUIte">
       <Filter>Scene Files</Filter>
     </None>
     <None Include="SkullbonezData\scenes\physics_bench_legacy.scene">
@@ -589,7 +673,7 @@
     <None Include="SkullbonezData\scenes\physics_roll.scene">
       <Filter>Scene Files</Filter>
     </None>
-    <None Include="SkullbonezData\scenes\render_tests.suite">
+    <None Include="SkullbonezData\scenes\render_tests.sUIte">
       <Filter>Scene Files</Filter>
     </None>
     <None Include="SkullbonezData\scenes\roll_axis_test.scene">
@@ -602,6 +686,24 @@
       <Filter>Scene Files</Filter>
     </None>
     <None Include="SkullbonezData\scenes\terrain_compare.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\UI_blur_off.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\UI_blur_on.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\UI_profiler_hierarchy.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\UI_renderer_combo.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\UI_small_scroll.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\UI_tests.sUIte">
       <Filter>Scene Files</Filter>
     </None>
     <None Include="SkullbonezData\scenes\water_ball_test.scene">

@@ -1,0 +1,17 @@
+# UI minimum-size capture: smallest allowed window with footer stats constrained inside the frame.
+seed 4242
+physics off
+text off
+vsync off
+water_hidden on
+terrain_hidden on
+frames 24
+ui tab profile
+ui rect 64 70 430 250
+ui blur on
+ui renderer_combo closed
+ui profiler_expand none
+ui_test_pattern off
+screenshot Profile/ui_min_size.bmp frame 20
+
+camera main 500 60 650  600 33 600  0 1 0

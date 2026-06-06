@@ -1,0 +1,15 @@
+# UI minimized capture: bottom-left launcher remains visible and clickable.
+seed 4242
+physics off
+text off
+vsync off
+water_hidden on
+terrain_hidden on
+frames 24
+ui minimized on
+ui tab profiler
+ui blur on
+ui_test_pattern on
+screenshot Profile/ui_minimized.bmp frame 20
+
+camera main 500 60 650  600 33 600  0 1 0
