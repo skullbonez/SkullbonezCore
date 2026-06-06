@@ -19,7 +19,7 @@ int UiTabBar::HitTest( int mouseX, int mouseY, int tabCount ) const
     {
         return -1;
     }
-    const float tabW = (std::max)( 62.0f, m_bounds.w / static_cast<float>( tabCount ) );
+    const float tabW = m_bounds.w / static_cast<float>( tabCount );
     const int index = static_cast<int>( ( static_cast<float>( mouseX ) - m_bounds.x ) / tabW );
     return index >= 0 && index < tabCount ? index : -1;
 }
@@ -32,7 +32,7 @@ void UiTabBar::Draw( const UiDrawContext& draw, const char* const* labels, int t
         return;
     }
 
-    const float tabW = (std::max)( 62.0f, m_bounds.w / static_cast<float>( tabCount ) );
+    const float tabW = m_bounds.w / static_cast<float>( tabCount );
     for ( int i = 0; i < tabCount; ++i )
     {
         const float tx = m_bounds.x + static_cast<float>( i ) * tabW;
@@ -47,7 +47,7 @@ void UiTabBar::Draw( const UiDrawContext& draw, const char* const* labels, int t
         {
             draw.Rect( tx + 2.0f, ty + 30.0f, tabW - 8.0f, 2.0f, 0.34f, 0.91f, 1.0f, 1.0f );
         }
-        draw.Text( tx + 12.0f, ty + 8.0f, 12.5f,
+        draw.Text( tx + 8.0f, ty + 8.0f, 12.5f,
                    active ? 0.94f : 0.62f,
                    active ? 0.99f : 0.76f,
                    active ? 1.0f : 0.82f,

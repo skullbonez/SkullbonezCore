@@ -1188,12 +1188,16 @@ void SkullbonezRun::TakeInput()
     }
 
     // Water m_shader debug toggles
-    bool prevFreeze = m_debug.isWaterFreezeDebug;
-    m_debug.isWaterFreezeDebug = ( Input::IsKeyToggled( '1' ) != 0 ); // Water perturbation ON
-    if ( m_debug.isWaterFreezeDebug && !prevFreeze )
+    bool key1Now = Input::IsKeyDown( '1' );
+    if ( key1Now && !m_camera.input.Get( InputState::Key1WasDown ) )
     {
-        m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
+        m_debug.isWaterFreezeDebug = !m_debug.isWaterFreezeDebug;
+        if ( m_debug.isWaterFreezeDebug )
+        {
+            m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
+        }
     }
+    m_camera.input.Set( InputState::Key1WasDown, key1Now );
     // Key '2' cycles reflection mode: FBO (default) → DXR ray-traced (if supported) → none → FBO
     {
         static bool s_key2WasDown = false;
@@ -1223,9 +1227,30 @@ void SkullbonezRun::TakeInput()
         }
         s_key2WasDown = s_key2Now;
     }
-    m_debug.isWaterFlatDebug = ( Input::IsKeyToggled( '3' ) != 0 ); // Ocean wave displacement ON
-    m_debug.isTerrainHidden = ( Input::IsKeyToggled( '4' ) != 0 );  // Terrain visibility ON
-    m_debug.isWaterHidden = ( Input::IsKeyToggled( '5' ) != 0 );    // Water visibility ON
+    {
+        bool key3Now = Input::IsKeyDown( '3' );
+        if ( key3Now && !m_camera.input.Get( InputState::Key3WasDown ) )
+        {
+            m_debug.isWaterFlatDebug = !m_debug.isWaterFlatDebug;
+        }
+        m_camera.input.Set( InputState::Key3WasDown, key3Now );
+    }
+    {
+        bool key4Now = Input::IsKeyDown( '4' );
+        if ( key4Now && !m_camera.input.Get( InputState::Key4WasDown ) )
+        {
+            m_debug.isTerrainHidden = !m_debug.isTerrainHidden;
+        }
+        m_camera.input.Set( InputState::Key4WasDown, key4Now );
+    }
+    {
+        bool key5Now = Input::IsKeyDown( '5' );
+        if ( key5Now && !m_camera.input.Get( InputState::Key5WasDown ) )
+        {
+            m_debug.isWaterHidden = !m_debug.isWaterHidden;
+        }
+        m_camera.input.Set( InputState::Key5WasDown, key5Now );
+    }
     // V key: collision visualizer. Renders balls and boxes as solid debug colours.
     {
         bool vNow = Input::IsKeyDown( 'V' );
@@ -1236,19 +1261,14 @@ void SkullbonezRun::TakeInput()
         m_camera.input.Set( InputState::VWasDown, vNow );
     }
 
-    // Debug vectors: in scene mode, start from the scene-loaded value and edge-detect '9' toggles.
-    // In legacy mode, mirror the Windows key-toggle state.
-    if ( m_scene.isSceneMode )
+    // Debug vectors: mouse UI and keyboard both toggle the same runtime state.
     {
-        if ( Input::IsKeyDown( '9' ) && !m_camera.input.Get( InputState::Key9WasDown ) )
+        bool key9Now = Input::IsKeyDown( '9' );
+        if ( key9Now && !m_camera.input.Get( InputState::Key9WasDown ) )
         {
             m_debug.isDebugVectors = !m_debug.isDebugVectors;
         }
-        m_camera.input.Set( InputState::Key9WasDown, Input::IsKeyDown( '9' ) );
-    }
-    else
-    {
-        m_debug.isDebugVectors = ( Input::IsKeyToggled( '9' ) != 0 );
+        m_camera.input.Set( InputState::Key9WasDown, key9Now );
     }
 
     // C key: cycle physics debug overlay - None -> Axes -> Contacts -> Sleep -> All -> None.
@@ -1339,6 +1359,81 @@ void SkullbonezRun::TakeInput()
         {
             m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
             Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+        }
+        if ( uiResult.toggleCollisionVisualizer )
+        {
+            m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
+        }
+        if ( uiResult.togglePhysicsDebugFlags != 0 )
+        {
+            m_debug.physicsDebugFlags ^= ( uiResult.togglePhysicsDebugFlags & PHYSICS_DEBUG_ALL );
+        }
+        if ( uiResult.togglePhysicsDebugTransparent )
+        {
+            m_debug.isPhysicsDebugTransparent = !m_debug.isPhysicsDebugTransparent;
+        }
+        if ( uiResult.toggleDebugVectors )
+        {
+            m_debug.isDebugVectors = !m_debug.isDebugVectors;
+        }
+        if ( uiResult.toggleBroadphaseOverlay )
+        {
+            m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
+        }
+        if ( uiResult.toggleScenePhysics )
+        {
+            m_scene.isScenePhysics = !m_scene.isScenePhysics;
+            m_timers.physicsAccumulator = 0.0f;
+        }
+        if ( uiResult.toggleSceneText )
+        {
+            m_scene.isSceneText = !m_scene.isSceneText;
+        }
+        if ( uiResult.toggleFixedStep )
+        {
+            m_scene.isFixedStep = !m_scene.isFixedStep;
+            m_timers.physicsAccumulator = 0.0f;
+        }
+        if ( uiResult.togglePipelineSync )
+        {
+            m_runtimeSettings.isPipelineSyncEnabled = !m_runtimeSettings.isPipelineSyncEnabled;
+        }
+        if ( uiResult.toggleRollAlign )
+        {
+            m_runtimeSettings.isRollAlignEnabled = !m_runtimeSettings.isRollAlignEnabled;
+            Cfg().rollAlignEnabled = m_runtimeSettings.isRollAlignEnabled;
+        }
+        if ( uiResult.toggleTerrainHidden )
+        {
+            m_debug.isTerrainHidden = !m_debug.isTerrainHidden;
+        }
+        if ( uiResult.toggleWaterHidden )
+        {
+            m_debug.isWaterHidden = !m_debug.isWaterHidden;
+        }
+        if ( uiResult.toggleWaterFreeze )
+        {
+            m_debug.isWaterFreezeDebug = !m_debug.isWaterFreezeDebug;
+            if ( m_debug.isWaterFreezeDebug )
+            {
+                m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
+            }
+        }
+        if ( uiResult.toggleWaterFlat )
+        {
+            m_debug.isWaterFlatDebug = !m_debug.isWaterFlatDebug;
+        }
+        if ( uiResult.toggleWaterReflection )
+        {
+            if ( m_debug.isWaterNoReflect )
+            {
+                m_debug.isWaterNoReflect = false;
+            }
+            else
+            {
+                m_debug.isWaterNoReflect = true;
+                m_debug.isWaterRTReflect = false;
+            }
         }
         if ( uiResult.requestedRendererIndex >= 0 )
         {
@@ -1941,16 +2036,27 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         uiData.sceneCount = static_cast<int>( m_sceneQueue.size() );
         uiData.now = m_timers.simulationTimer.GetTotalTime();
         uiData.sceneMode = m_scene.isSceneMode;
+        uiData.scenePhysicsEnabled = m_scene.isScenePhysics;
+        uiData.sceneTextEnabled = m_scene.isSceneText;
         uiData.legacyPhysics = m_cGameModelCollection.GetLegacyMode();
         uiData.fixedStep = m_scene.isFixedStep;
         uiData.testComplete = m_scene.isTestComplete;
         uiData.vsyncEnabled = m_runtimeSettings.isVsyncEnabled;
         uiData.pipelineSyncEnabled = m_runtimeSettings.isPipelineSyncEnabled;
+        uiData.rollAlignEnabled = m_runtimeSettings.isRollAlignEnabled;
         uiData.sceneEnergy = sceneEnergyForDisplay;
+        uiData.timeScale = m_scene.timeScale;
         uiData.physicsDebugFlags = m_debug.physicsDebugFlags;
         uiData.physicsDebugAlpha = m_debug.physicsDebugAlpha;
         uiData.physicsDebugContactLinger = m_debug.physicsDebugContactLinger;
         uiData.collisionVisualizer = m_debug.isCollisionVisualizer;
+        uiData.physicsDebugTransparent = m_debug.isPhysicsDebugTransparent;
+        uiData.debugVectors = m_debug.isDebugVectors;
+        uiData.broadphaseOverlay = m_debug.isBroadphaseOverlay;
+        uiData.waterFreezeDebug = m_debug.isWaterFreezeDebug;
+        uiData.waterFlatDebug = m_debug.isWaterFlatDebug;
+        uiData.terrainHidden = m_debug.isTerrainHidden;
+        uiData.waterHidden = m_debug.isWaterHidden;
         uiData.waterNoReflect = m_debug.isWaterNoReflect;
         uiData.waterRTReflect = m_debug.isWaterRTReflect;
 

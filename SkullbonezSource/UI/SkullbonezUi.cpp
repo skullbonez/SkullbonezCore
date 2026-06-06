@@ -1,5 +1,6 @@
 #include "SkullbonezUi.h"
 #include "../SkullbonezInput.h"
+#include "../SkullbonezPhysicsDebugVisualizer.h"
 #include "../SkullbonezProfiler.h"
 #include "../SkullbonezText.h"
 #include "UiDraw.h"
@@ -11,6 +12,7 @@
 
 using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Text;
 using namespace SkullbonezCore::Ui;
 
@@ -21,6 +23,7 @@ constexpr float PROFILER_UI_TIMELINE_BUDGET_MS = 16.67f;
 constexpr int RENDERER_GL = 0;
 constexpr int RENDERER_DX11 = 1;
 constexpr int RENDERER_DX12 = 2;
+constexpr float CONTENT_TOGGLE_ROW_H = 30.0f;
 
 int GetRendererIndexFromName( const char* rendererName )
 {
@@ -372,7 +375,9 @@ int InGameUi::ContentHeight() const
         return 54 + visibleMarkerCount * 30;
     }
     case InGameUiTab::Physics:
-        return 390;
+        return 330;
+    case InGameUiTab::Options:
+        return 380;
     default:
         return 330;
     }
@@ -561,7 +566,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
 
     screenW = (std::max)( 1, screenW );
     screenH = (std::max)( 1, screenH );
-    const int minW = 390;
+    const int minW = 430;
     const int minH = 250;
     const int margin = 10;
     const int titleH = 44;
@@ -608,7 +613,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
     m_blurToggle.SetBounds( static_cast<float>( m_x + 32 ), static_cast<float>( bottomY + 22 ), 100.0f, 24.0f );
     m_vsyncToggle.SetBounds( static_cast<float>( m_x + 158 ), static_cast<float>( bottomY + 22 ), 100.0f, 24.0f );
     m_rendererCombo.SetBounds( static_cast<float>( m_x + 32 ), static_cast<float>( bottomY + 48 ), 126.0f, 24.0f );
-    m_timelineToggle.SetBounds( static_cast<float>( m_x + 158 ), static_cast<float>( bottomY + 48 ), 100.0f, 24.0f );
+    m_timelineToggle.SetBounds( static_cast<float>( m_x + 166 ), static_cast<float>( bottomY + 48 ), 96.0f, 24.0f );
 
     if ( wheelDelta != 0 && inContent )
     {
@@ -698,6 +703,130 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
                         }
                     }
                 }
+            }
+            m_rendererCombo.Close();
+        }
+        else if ( inContent && m_activeTab == InGameUiTab::Physics )
+        {
+            const float contentX = static_cast<float>( m_x + contentPad );
+            const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
+            const float contentW = static_cast<float>( m_width ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const float colW = (std::max)( 148.0f, contentW * 0.46f );
+            const float col1 = contentX;
+            const float col2 = contentX + colW + 18.0f;
+            const auto setToggle = [&]( int index, int row, int column ) -> void
+            {
+                const float tx = column == 0 ? col1 : col2;
+                m_physicsToggles[index].SetBounds( tx, rowBase + static_cast<float>( row ) * CONTENT_TOGGLE_ROW_H, colW, 24.0f );
+            };
+
+            setToggle( 0, 0, 0 );
+            setToggle( 1, 1, 0 );
+            setToggle( 2, 2, 0 );
+            setToggle( 3, 3, 0 );
+            setToggle( 4, 0, 1 );
+            setToggle( 5, 1, 1 );
+            setToggle( 6, 2, 1 );
+
+            if ( m_physicsToggles[0].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleCollisionVisualizer = true;
+            }
+            else if ( m_physicsToggles[1].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.togglePhysicsDebugFlags = PHYSICS_DEBUG_AXES;
+            }
+            else if ( m_physicsToggles[2].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.togglePhysicsDebugFlags = PHYSICS_DEBUG_CONTACTS;
+            }
+            else if ( m_physicsToggles[3].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.togglePhysicsDebugFlags = PHYSICS_DEBUG_SLEEP;
+            }
+            else if ( m_physicsToggles[4].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.togglePhysicsDebugTransparent = true;
+            }
+            else if ( m_physicsToggles[5].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleDebugVectors = true;
+            }
+            else if ( m_physicsToggles[6].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleBroadphaseOverlay = true;
+            }
+            m_rendererCombo.Close();
+        }
+        else if ( inContent && m_activeTab == InGameUiTab::Options )
+        {
+            const float contentX = static_cast<float>( m_x + contentPad );
+            const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
+            const float contentW = static_cast<float>( m_width ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const float colW = (std::max)( 148.0f, contentW * 0.46f );
+            const float col1 = contentX;
+            const float col2 = contentX + colW + 18.0f;
+            const auto setToggle = [&]( int index, int row, int column ) -> void
+            {
+                const float tx = column == 0 ? col1 : col2;
+                m_optionToggles[index].SetBounds( tx, rowBase + static_cast<float>( row ) * CONTENT_TOGGLE_ROW_H, colW, 24.0f );
+            };
+
+            setToggle( 0, 0, 0 );
+            setToggle( 1, 0, 1 );
+            setToggle( 2, 1, 0 );
+            setToggle( 3, 1, 1 );
+            setToggle( 4, 2, 0 );
+            setToggle( 5, 2, 1 );
+            setToggle( 6, 3, 0 );
+            setToggle( 7, 3, 1 );
+            setToggle( 8, 4, 0 );
+            setToggle( 9, 4, 1 );
+            setToggle( 10, 5, 0 );
+
+            if ( m_optionToggles[0].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleScenePhysics = true;
+            }
+            else if ( m_optionToggles[1].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleSceneText = true;
+            }
+            else if ( m_optionToggles[2].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleFixedStep = true;
+            }
+            else if ( m_optionToggles[3].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleVsync = true;
+            }
+            else if ( m_optionToggles[4].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.togglePipelineSync = true;
+            }
+            else if ( m_optionToggles[5].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleRollAlign = true;
+            }
+            else if ( m_optionToggles[6].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleTerrainHidden = true;
+            }
+            else if ( m_optionToggles[7].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleWaterHidden = true;
+            }
+            else if ( m_optionToggles[8].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleWaterFreeze = true;
+            }
+            else if ( m_optionToggles[9].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleWaterFlat = true;
+            }
+            else if ( m_optionToggles[10].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.toggleWaterReflection = true;
             }
             m_rendererCombo.Close();
         }
@@ -835,7 +964,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     draw.Text( x + w - 67.0f, y + 12.0f, 12.0f, 0.68f, 0.86f, 0.92f, m_isMaximized ? "><" : "[]" );
     draw.Text( x + w - 31.0f, y + 12.0f, 13.0f, 0.82f, 0.92f, 0.96f, "X" );
 
-    static const char* kTabs[] = { "Overview", "Profiler", "Scene", "Physics", "Renderer", "Keys" };
+    static const char* kTabs[] = { "Info", "Profile", "Scene", "Physics", "Options", "Render", "Keys" };
     const int tabCount = static_cast<int>( InGameUiTab::Count );
     const float tabPad = 14.0f;
     m_tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
@@ -856,6 +985,15 @@ void InGameUi::Draw( const InGameUiFrameData& data )
         }
         draw.Text( contentX, rowY, 11.5f, 0.52f, 0.76f, 0.84f, label );
         draw.Text( contentX + 150.0f, rowY, 11.5f, vr, vg, vb, value );
+    };
+    auto drawContentToggle = [&]( UiCheckBox& toggle, float tx, float rowY, float controlW, const char* label, bool checked )
+    {
+        if ( !visible( rowY, 24.0f ) )
+        {
+            return;
+        }
+        toggle.SetBounds( tx, rowY, controlW, 24.0f );
+        toggle.DrawToggle( draw, label, checked, 0.34f, 0.91f, 1.0f );
     };
     if ( m_activeTab == InGameUiTab::Profiler )
     {
@@ -1010,15 +1148,48 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     else if ( m_activeTab == InGameUiTab::Physics )
     {
         char buf[128];
+        const float colW = (std::max)( 148.0f, contentW * 0.46f );
+        const float col1 = contentX;
+        const float col2 = contentX + colW + 18.0f;
         draw.Text( contentX, scrolledY, 16.0f, 1.0f, 0.85f, 0.34f, "Physics Controls" );
-        labelValue( scrolledY + 42.0f, "Solver", data.legacyPhysics ? "Legacy" : "Impulse", 0.36f, 0.95f, 0.56f );
+        drawContentToggle( m_physicsToggles[0], col1, scrolledY + 42.0f, colW, "Collision mesh", data.collisionVisualizer );
+        drawContentToggle( m_physicsToggles[1], col1, scrolledY + 72.0f, colW, "Axes", ( data.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0 );
+        drawContentToggle( m_physicsToggles[2], col1, scrolledY + 102.0f, colW, "Contacts", ( data.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0 );
+        drawContentToggle( m_physicsToggles[3], col1, scrolledY + 132.0f, colW, "Sleep state", ( data.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0 );
+        drawContentToggle( m_physicsToggles[4], col2, scrolledY + 42.0f, colW, "Transparent", data.physicsDebugTransparent );
+        drawContentToggle( m_physicsToggles[5], col2, scrolledY + 72.0f, colW, "Vectors", data.debugVectors );
+        drawContentToggle( m_physicsToggles[6], col2, scrolledY + 102.0f, colW, "Broadphase", data.broadphaseOverlay );
+        labelValue( scrolledY + 178.0f, "Solver", data.legacyPhysics ? "Legacy" : "Impulse", 0.36f, 0.95f, 0.56f );
         snprintf( buf, sizeof( buf ), "0x%04X", data.physicsDebugFlags );
-        labelValue( scrolledY + 68.0f, "Debug flags", buf, 0.52f, 0.94f, 1.0f );
+        labelValue( scrolledY + 204.0f, "Debug flags", buf, 0.52f, 0.94f, 1.0f );
         snprintf( buf, sizeof( buf ), "%.2f", data.physicsDebugAlpha );
-        labelValue( scrolledY + 94.0f, "Body alpha", buf, 0.88f, 0.92f, 0.94f );
+        labelValue( scrolledY + 230.0f, "Body alpha", buf, 0.88f, 0.92f, 0.94f );
         snprintf( buf, sizeof( buf ), "%.2fs", data.physicsDebugContactLinger );
-        labelValue( scrolledY + 120.0f, "Contact linger", buf, 0.88f, 0.92f, 0.94f );
-        labelValue( scrolledY + 146.0f, "Collision visual", data.collisionVisualizer ? "on" : "off", 0.98f, 0.78f, 0.35f );
+        labelValue( scrolledY + 256.0f, "Contact linger", buf, 0.88f, 0.92f, 0.94f );
+    }
+    else if ( m_activeTab == InGameUiTab::Options )
+    {
+        char buf[128];
+        const float colW = (std::max)( 148.0f, contentW * 0.46f );
+        const float col1 = contentX;
+        const float col2 = contentX + colW + 18.0f;
+        draw.Text( contentX, scrolledY, 16.0f, 1.0f, 0.85f, 0.34f, "Scene Options" );
+        drawContentToggle( m_optionToggles[0], col1, scrolledY + 42.0f, colW, "Scene physics", data.scenePhysicsEnabled );
+        drawContentToggle( m_optionToggles[1], col2, scrolledY + 42.0f, colW, "Scene text", data.sceneTextEnabled );
+        drawContentToggle( m_optionToggles[2], col1, scrolledY + 72.0f, colW, "Fixed step", data.fixedStep );
+        drawContentToggle( m_optionToggles[3], col2, scrolledY + 72.0f, colW, "VSync", data.vsyncEnabled );
+        drawContentToggle( m_optionToggles[4], col1, scrolledY + 102.0f, colW, "Pipeline sync", data.pipelineSyncEnabled );
+        drawContentToggle( m_optionToggles[5], col2, scrolledY + 102.0f, colW, "Roll align", data.rollAlignEnabled );
+        drawContentToggle( m_optionToggles[6], col1, scrolledY + 132.0f, colW, "Hide terrain", data.terrainHidden );
+        drawContentToggle( m_optionToggles[7], col2, scrolledY + 132.0f, colW, "Hide water", data.waterHidden );
+        drawContentToggle( m_optionToggles[8], col1, scrolledY + 162.0f, colW, "Freeze water", data.waterFreezeDebug );
+        drawContentToggle( m_optionToggles[9], col2, scrolledY + 162.0f, colW, "Flat water", data.waterFlatDebug );
+        drawContentToggle( m_optionToggles[10], col1, scrolledY + 192.0f, colW, "Water reflect", !data.waterNoReflect );
+        snprintf( buf, sizeof( buf ), "%.2fx", data.timeScale );
+        labelValue( scrolledY + 238.0f, "Time scale", buf, 0.52f, 0.94f, 1.0f );
+        snprintf( buf, sizeof( buf ), "%d", data.modelCount );
+        labelValue( scrolledY + 264.0f, "Models", buf, 0.88f, 0.92f, 0.94f );
+        labelValue( scrolledY + 290.0f, "Water mode", data.waterNoReflect ? "no reflection" : ( data.waterRTReflect ? "DXR reflect" : "FBO reflect" ), 0.98f, 0.78f, 0.35f );
     }
     else if ( m_activeTab == InGameUiTab::Renderer )
     {
@@ -1075,7 +1246,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     m_blurToggle.SetBounds( x + 32.0f, by + 22.0f, 100.0f, 24.0f );
     m_vsyncToggle.SetBounds( x + 158.0f, by + 22.0f, 100.0f, 24.0f );
     m_rendererCombo.SetBounds( x + 32.0f, by + 48.0f, 126.0f, 24.0f );
-    m_timelineToggle.SetBounds( x + 158.0f, by + 48.0f, 100.0f, 24.0f );
+    m_timelineToggle.SetBounds( x + 166.0f, by + 48.0f, 96.0f, 24.0f );
     m_blurToggle.DrawToggle( draw, "Blur", m_blurPreviewEnabled, 0.34f, 0.91f, 1.0f );
     m_vsyncToggle.DrawToggle( draw, "VSync", data.vsyncEnabled, 0.34f, 0.91f, 1.0f );
     const int currentRendererIndex = GetRendererIndexFromName( data.rendererName );

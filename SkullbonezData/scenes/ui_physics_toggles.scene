@@ -1,0 +1,21 @@
+# UI physics controls capture: collision/debug visuals exposed as toggles.
+seed 4242
+physics off
+text off
+vsync off
+water_hidden on
+terrain_hidden on
+physics_debug all
+physics_debug_transparent on
+debug_vectors on
+frames 24
+ui visible on
+ui tab physics
+ui rect 34 56 800 560
+ui blur on
+ui renderer_combo closed
+ui profiler_expand none
+ui_test_pattern on
+screenshot Profile/ui_physics_toggles.bmp frame 20
+
+camera main 500 60 650  600 33 600  0 1 0

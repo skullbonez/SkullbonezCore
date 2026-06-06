@@ -19,6 +19,7 @@ enum class InGameUiTab
     Profiler,
     Scene,
     Physics,
+    Options,
     Renderer,
     Keys,
     Count
@@ -42,16 +43,27 @@ struct InGameUiFrameData
     int sceneCount = 0;
     double now = 0.0;
     bool sceneMode = false;
+    bool scenePhysicsEnabled = true;
+    bool sceneTextEnabled = true;
     bool legacyPhysics = false;
     bool fixedStep = false;
     bool testComplete = false;
     bool vsyncEnabled = false;
     bool pipelineSyncEnabled = false;
+    bool rollAlignEnabled = true;
     float sceneEnergy = 0.0f;
+    float timeScale = 1.0f;
     uint32_t physicsDebugFlags = 0;
     float physicsDebugAlpha = 0.0f;
     float physicsDebugContactLinger = 0.0f;
     bool collisionVisualizer = false;
+    bool physicsDebugTransparent = false;
+    bool debugVectors = false;
+    bool broadphaseOverlay = false;
+    bool waterFreezeDebug = false;
+    bool waterFlatDebug = false;
+    bool terrainHidden = false;
+    bool waterHidden = false;
     bool waterNoReflect = false;
     bool waterRTReflect = false;
 };
@@ -59,6 +71,21 @@ struct InGameUiFrameData
 struct InGameUiInputResult
 {
     bool toggleVsync = false;
+    bool toggleCollisionVisualizer = false;
+    bool togglePhysicsDebugTransparent = false;
+    bool toggleDebugVectors = false;
+    bool toggleBroadphaseOverlay = false;
+    bool toggleScenePhysics = false;
+    bool toggleSceneText = false;
+    bool toggleFixedStep = false;
+    bool togglePipelineSync = false;
+    bool toggleRollAlign = false;
+    bool toggleTerrainHidden = false;
+    bool toggleWaterHidden = false;
+    bool toggleWaterFreeze = false;
+    bool toggleWaterFlat = false;
+    bool toggleWaterReflection = false;
+    uint32_t togglePhysicsDebugFlags = 0;
     int requestedRendererIndex = -1; // 0=GL, 1=DX11, 2=DX12, -1=no request
 };
 
@@ -98,6 +125,8 @@ class InGameUi
     UiCheckBox m_blurToggle;
     UiCheckBox m_vsyncToggle;
     UiCheckBox m_timelineToggle;
+    UiCheckBox m_physicsToggles[7];
+    UiCheckBox m_optionToggles[11];
     UiComboBox m_rendererCombo;
     UiBackdropBlur m_backdropBlur;
     UiScrollBar m_scrollBar;

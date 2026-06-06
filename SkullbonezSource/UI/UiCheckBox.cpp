@@ -1,5 +1,7 @@
 #include "UiCheckBox.h"
 
+#include <algorithm>
+
 namespace SkullbonezCore
 {
 namespace Ui
@@ -19,18 +21,19 @@ bool UiCheckBox::HitTest( int mouseX, int mouseY ) const
 
 void UiCheckBox::DrawToggle( const UiDrawContext& draw, const char* label, bool checked, float accentR, float accentG, float accentB ) const
 {
+    const float switchX = m_bounds.x + (std::max)( 66.0f, m_bounds.w - 34.0f );
     draw.Text( m_bounds.x, m_bounds.y + 4.0f, 10.5f, 0.74f, 0.82f, 0.84f, label );
-    draw.Rect( m_bounds.x + 66.0f, m_bounds.y + 5.0f, 28.0f, 14.0f,
+    draw.Rect( switchX, m_bounds.y + 5.0f, 28.0f, 14.0f,
                checked ? accentR * 0.32f : 0.05f,
                checked ? accentG * 0.32f : 0.08f,
                checked ? accentB * 0.32f : 0.09f,
                0.92f );
-    draw.Outline( m_bounds.x + 66.0f, m_bounds.y + 5.0f, 28.0f, 14.0f,
+    draw.Outline( switchX, m_bounds.y + 5.0f, 28.0f, 14.0f,
                   checked ? accentR : 0.20f,
                   checked ? accentG : 0.30f,
                   checked ? accentB : 0.34f,
                   checked ? 0.82f : 0.58f );
-    draw.Rect( m_bounds.x + ( checked ? 80.0f : 68.0f ), m_bounds.y + 7.0f, 10.0f, 10.0f,
+    draw.Rect( switchX + ( checked ? 14.0f : 2.0f ), m_bounds.y + 7.0f, 10.0f, 10.0f,
                checked ? 0.82f : 0.34f,
                checked ? 0.98f : 0.46f,
                checked ? 1.0f : 0.52f,

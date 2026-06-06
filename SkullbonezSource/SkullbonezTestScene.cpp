@@ -46,14 +46,19 @@ bool ParseUiTab( const char* value, int& outTab )
         outTab = 3;
         return true;
     }
-    if ( strcmp( value, "renderer" ) == 0 )
+    if ( strcmp( value, "options" ) == 0 || strcmp( value, "params" ) == 0 )
     {
         outTab = 4;
         return true;
     }
-    if ( strcmp( value, "keys" ) == 0 )
+    if ( strcmp( value, "renderer" ) == 0 )
     {
         outTab = 5;
+        return true;
+    }
+    if ( strcmp( value, "keys" ) == 0 )
+    {
+        outTab = 6;
         return true;
     }
     return false;

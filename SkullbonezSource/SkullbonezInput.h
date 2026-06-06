@@ -40,6 +40,10 @@ struct InputState
         QKeyWasDown,
         CKeyWasDown,
         Key6WasDown,
+        Key1WasDown,
+        Key3WasDown,
+        Key4WasDown,
+        Key5WasDown,
         KEY_COUNT
     };
 

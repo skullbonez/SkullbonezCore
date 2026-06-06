@@ -16,7 +16,19 @@ except ImportError as exc:
 
 
 RENDERERS = ("gl", "dx11", "dx12")
-SCENES = ("blur_off", "blur_on", "profiler_default", "profiler_hierarchy", "profiler_timeline", "renderer_combo", "scene_complete", "small_scroll", "minimized")
+SCENES = (
+    "blur_off",
+    "blur_on",
+    "profiler_default",
+    "profiler_hierarchy",
+    "profiler_timeline",
+    "physics_toggles",
+    "scene_options",
+    "renderer_combo",
+    "scene_complete",
+    "small_scroll",
+    "minimized",
+)
 TIMELINE_EPSILON_MS = 0.05
 
 
