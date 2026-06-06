@@ -95,8 +95,9 @@ struct RunTimerState
     float timeSinceLastRender = 0.0f;
     double sceneEnergyAccumulator = 0.0;
     int sceneEnergySampleCount = 0;
-    int lastUIDrawCalls = 0;         // Actual UI draw calls measured around Frame/UI last frame
-    float physicsAccumulator = 0.0f; // Accumulated time for fixed-step physics
+    int lastUIDrawCalls = 0;               // Actual UI draw calls measured around Frame/UI last frame
+    float physicsAccumulator = 0.0f;       // Accumulated seconds for variable-step solver substeps
+    float fixedStepTickAccumulator = 0.0f; // Fractional fixed ticks owed by time_scale in fixed-step mode
 };
 
 struct RunSubsystemState
@@ -139,7 +140,7 @@ struct RunSceneState
     int solverBallCount = 0;       // Exact solver ball count when generated through solver_balls
     int solverBoxCount = 0;        // Exact solver box count when generated through solver_boxes
     unsigned int rngSeed = 0;      // Effective RNG seed used to build the current scene
-    float timeScale = 1.0f;        // Physics time multiplier (1.0 = realtime)
+    float timeScale = 1.0f;        // Physics time multiplier
     bool isFixedStep = false;      // One physics tick per render frame at PHYSICS_FIXED_DT (deterministic)
     bool isExitOnComplete = false; // Exit automatically when targetFrameCount is reached
     bool isTestComplete = false;   // Set when targetFrameCount is reached without --exit; appends "- TEST COMPLETE" to HUD

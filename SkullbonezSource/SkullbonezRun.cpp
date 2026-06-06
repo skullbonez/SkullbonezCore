@@ -32,6 +32,7 @@ namespace
 constexpr double PERF_TEST_PASS_SECONDS = 2.0;
 constexpr float WATER_HEIGHT_CONTROL_SPEED = 20.0f;
 constexpr float NO_WATER_TERRAIN_CLEARANCE = 100.0f;
+constexpr int FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME = 32;
 #ifdef _DEBUG
 constexpr const char* NUDGE_REPRO_SNAPSHOT_PATH = "Debug/nudge_repro_snapshots.txt";
 constexpr double NUDGE_REPRO_MESSAGE_SECONDS = 3.0;
@@ -989,12 +990,14 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
 
     if ( m_scene.isFixedStep )
     {
-        // Deterministic lock-step: exactly one physics tick per render frame.
+        // Deterministic lock-step: exact fixed-delta ticks driven by time_scale.
         // Ignores wall-clock time entirely — produces identical results every run.
         //
-        // time_scale > 1 runs multiple ticks per render frame (integer part) so
-        // scenes can simulate faster than real-time while keeping the fixed dt.
-        const int ticksThisFrame = (std::max)( 1, static_cast<int>( m_scene.timeScale ) );
+        // Accumulate fractional fixed ticks so 0.5x, 1.5x, and 10x all remain
+        // deterministic while using the exact fixed simulation delta.
+        m_timers.fixedStepTickAccumulator += (std::max)( 0.0f, m_scene.timeScale );
+        const int ticksThisFrame = (std::min)( static_cast<int>( std::floor( m_timers.fixedStepTickAccumulator ) ), FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME );
+        m_timers.fixedStepTickAccumulator -= static_cast<float>( ticksThisFrame );
         if ( !m_camera.isFlyMode || m_camera.isNudgeMode || Input::IsKeyDown( VK_SPACE ) )
         {
             PROFILE_BEGIN( "Frame/Physics" );
@@ -1004,7 +1007,7 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
             }
             PROFILE_END( "Frame/Physics" );
         }
-        UpdateLogic( PHYSICS_FIXED_DT );
+        UpdateLogic( PHYSICS_FIXED_DT * static_cast<float>( ticksThisFrame ) );
     }
     else
     {
@@ -1019,6 +1022,7 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
                 // exact time-of-impact and steps to it internally, so external sub-division adds
                 // no benefit and was never used before the accumulator was introduced for the solver.
                 m_timers.physicsAccumulator = 0.0f;
+                m_timers.fixedStepTickAccumulator = 0.0f;
                 m_cGameModelCollection.RunPhysics( scaledDt );
             }
             else
@@ -1586,6 +1590,7 @@ void SkullbonezRun::TakeInput()
         {
             m_scene.isScenePhysics = !m_scene.isScenePhysics;
             m_timers.physicsAccumulator = 0.0f;
+            m_timers.fixedStepTickAccumulator = 0.0f;
         }
         if ( UIResult.toggleSceneText )
         {
@@ -1599,6 +1604,7 @@ void SkullbonezRun::TakeInput()
         {
             m_scene.isFixedStep = !m_scene.isFixedStep;
             m_timers.physicsAccumulator = 0.0f;
+            m_timers.fixedStepTickAccumulator = 0.0f;
         }
         if ( UIResult.toggleExitOnComplete )
         {
@@ -1661,13 +1667,15 @@ void SkullbonezRun::TakeInput()
                 m_UISolverBoxCountOverride = -1;
             }
             m_timers.physicsAccumulator = 0.0f;
+            m_timers.fixedStepTickAccumulator = 0.0f;
             PROFILE_SCHEDULE_RESET();
         }
         if ( UIResult.requestedTimeScale > 0.0f )
         {
-            m_UITimeScaleOverride = std::clamp( UIResult.requestedTimeScale, 0.10f, 4.00f );
+            m_UITimeScaleOverride = std::clamp( UIResult.requestedTimeScale, 0.10f, 10.00f );
             m_scene.timeScale = m_UITimeScaleOverride;
             m_timers.physicsAccumulator = 0.0f;
+            m_timers.fixedStepTickAccumulator = 0.0f;
         }
         if ( UIResult.requestedFrameCount >= 0 )
         {
@@ -3417,6 +3425,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     m_scene.solverBoxCount = 0;
     m_scene.isTestComplete = false;
     m_timers.physicsAccumulator = 0.0f;
+    m_timers.fixedStepTickAccumulator = 0.0f;
     m_screenshot.screenshotFrame = -1;
     m_screenshot.screenshotMs = -1;
     m_screenshot.screenshotPath[0] = '\0';
@@ -4210,6 +4219,7 @@ void SkullbonezRun::ApplyUIModelCountOverride( int count )
     m_fire.ballNext = -1;
     m_fire.boxNext = -1;
     m_timers.physicsAccumulator = 0.0f;
+    m_timers.fixedStepTickAccumulator = 0.0f;
     m_scene.currentFrame = 0;
     m_scene.isTestComplete = false;
     if ( m_UIModelCountOverride <= 0 )
@@ -4246,6 +4256,7 @@ void SkullbonezRun::ApplyUISolverObjectCounts( int balls, int boxes )
     m_fire.ballNext = -1;
     m_fire.boxNext = -1;
     m_timers.physicsAccumulator = 0.0f;
+    m_timers.fixedStepTickAccumulator = 0.0f;
     m_scene.currentFrame = 0;
     m_scene.isTestComplete = false;
 
