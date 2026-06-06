@@ -21,7 +21,6 @@ enum class InGameUITab
     Scene,
     Physics,
     Options,
-    Renderer,
     Keys,
     Count
 };
@@ -98,7 +97,6 @@ struct InGameUIInputResult
     bool toggleTextOnly = false;
     bool toggleFixedStep = false;
     bool toggleExitOnComplete = false;
-    bool togglePipelineSync = false;
     bool toggleRollAlign = false;
     bool toggleTerrainHidden = false;
     bool toggleWaterHidden = false;
@@ -174,8 +172,8 @@ class InGameUI
     UICheckBox m_timelineToggle;
     UICheckBox m_histogramToggle;
     UICheckBox m_physicsToggles[7];
-    UICheckBox m_optionToggles[11];
-    UICheckBox m_controlToggles[19];
+    UICheckBox m_optionToggles[9];
+    UICheckBox m_controlToggles[17];
     UISlider m_timeScaleSlider;
     UISlider m_modelCountSlider;
     UISlider m_physicsAlphaSlider;

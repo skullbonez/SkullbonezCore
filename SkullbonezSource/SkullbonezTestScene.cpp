@@ -48,12 +48,12 @@ bool ParseUITab( const char* value, int& outTab )
     }
     if ( strcmp( value, "renderer" ) == 0 )
     {
-        outTab = 4;
+        outTab = 3;
         return true;
     }
     if ( strcmp( value, "keys" ) == 0 || strcmp( value, "controls" ) == 0 )
     {
-        outTab = 5;
+        outTab = 4;
         return true;
     }
     return false;

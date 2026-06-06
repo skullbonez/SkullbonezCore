@@ -1610,10 +1610,6 @@ void SkullbonezRun::TakeInput()
         {
             m_scene.isExitOnComplete = CanSceneAutomationQuit() ? !m_scene.isExitOnComplete : false;
         }
-        if ( UIResult.togglePipelineSync )
-        {
-            m_runtimeSettings.isPipelineSyncEnabled = !m_runtimeSettings.isPipelineSyncEnabled;
-        }
         if ( UIResult.toggleRollAlign )
         {
             m_runtimeSettings.isRollAlignEnabled = !m_runtimeSettings.isRollAlignEnabled;
