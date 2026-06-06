@@ -225,10 +225,13 @@ class SkullbonezRun
 
   private:
     std::vector<std::string> m_sceneQueue; // Ordered list of scene paths ("" = legacy mode)
-    float m_cmdTimeScaleOverride = 0.0f;   // CLI --time-scale override applied after each scene load (0 = not set)
-    bool m_cmdFixedStep = false;           // CLI --fixed-step override applied after each scene load
-    unsigned int m_cmdSeedOverride = 0;    // CLI --seed override applied after each scene load (0 = not set)
-    bool m_cmdNoWater = false;             // CLI --no-water starts fluid below terrain
+    std::vector<std::string> m_sceneBrowserPaths;
+    std::vector<std::string> m_sceneBrowserNames;
+    std::vector<const char*> m_sceneBrowserNamePtrs;
+    float m_cmdTimeScaleOverride = 0.0f; // CLI --time-scale override applied after each scene load (0 = not set)
+    bool m_cmdFixedStep = false;         // CLI --fixed-step override applied after each scene load
+    unsigned int m_cmdSeedOverride = 0;  // CLI --seed override applied after each scene load (0 = not set)
+    bool m_cmdNoWater = false;           // CLI --no-water starts fluid below terrain
     GeneratedObjectTypeOverride m_generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     float m_uiTimeScaleOverride = 0.0f;
     int m_uiModelCountOverride = -1;
@@ -278,6 +281,9 @@ class SkullbonezRun
     void DrawWindowText( const double dSecondsPerFrame );                              // Renders text to the window
     void SaveScreenshot( const char* path );                                           // Saves framebuffer to BMP file via glReadPixels
     bool SaveCurrentSceneDefaults();                                                   // Writes UI-controlled defaults back to the active scene file
+    void RefreshSceneBrowserList();                                                    // Discovers scene files available to the in-game scene dropdown
+    int CurrentSceneBrowserIndex() const;                                              // Returns current scene index within the discovered scene dropdown list
+    void LoadSceneFromBrowserIndex( int index );                                       // Loads a scene selected from the in-game scene dropdown
     void LogPerfMemory( const char* checkpoint );                                      // Log memory usage to perf CSV
     void LoadScene( int index );                                                       // Resets scene-specific state and loads a scene by queue index
     void ResetCurrentScene();                                                          // User-triggered reset/reload of current scene or legacy mode

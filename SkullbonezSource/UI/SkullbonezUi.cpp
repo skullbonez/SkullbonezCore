@@ -57,6 +57,7 @@ constexpr float UI_WORLD_FLUID_HEIGHT_STEP = 1.0f;
 constexpr float UI_WORLD_FLUID_DENSITY_MIN = 0.0f;
 constexpr float UI_WORLD_FLUID_DENSITY_MAX = 5.0f;
 constexpr float UI_WORLD_FLUID_DENSITY_STEP = 0.05f;
+constexpr int UI_SCENE_COMBO_VISIBLE_OPTIONS = 12;
 
 int GetRendererIndexFromName( const char* rendererName )
 {
@@ -97,6 +98,30 @@ int WaterReflectionModeFromData( const InGameUiFrameData& data )
 int PhysicsModeFromData( const InGameUiFrameData& data )
 {
     return data.legacyPhysics ? 0 : 1;
+}
+
+
+int SceneComboVisibleCount( int optionCount )
+{
+    return std::clamp( optionCount, 0, UI_SCENE_COMBO_VISIBLE_OPTIONS );
+}
+
+
+int ClampSceneComboScroll( int scroll, int optionCount )
+{
+    const int maxScroll = (std::max)( 0, optionCount - SceneComboVisibleCount( optionCount ) );
+    return std::clamp( scroll, 0, maxScroll );
+}
+
+
+int SceneComboScrollForSelection( int selectedIndex, int optionCount )
+{
+    const int visibleCount = SceneComboVisibleCount( optionCount );
+    if ( selectedIndex < 0 || visibleCount <= 0 )
+    {
+        return 0;
+    }
+    return ClampSceneComboScroll( selectedIndex - visibleCount / 2, optionCount );
 }
 
 
@@ -200,6 +225,7 @@ void InGameUi::SetVisible( bool visible, double now )
         m_rendererCombo.Close();
         m_reflectionCombo.Close();
         m_physicsModeCombo.Close();
+        m_sceneCombo.Close();
     }
 }
 
@@ -230,6 +256,7 @@ void InGameUi::SetMinimized( bool minimized, double now )
         m_rendererCombo.Close();
         m_reflectionCombo.Close();
         m_physicsModeCombo.Close();
+        m_sceneCombo.Close();
         m_activeSlider = 0;
     }
     else
@@ -247,6 +274,7 @@ void InGameUi::SetActiveTab( InGameUiTab tab )
     m_rendererCombo.Close();
     m_reflectionCombo.Close();
     m_physicsModeCombo.Close();
+    m_sceneCombo.Close();
     m_activeSlider = 0;
     m_previewTimeScale = -1.0f;
     m_previewModelCount = -1;
@@ -296,6 +324,12 @@ void InGameUi::SetBlurEnabled( bool enabled )
 void InGameUi::SetRendererComboOpen( bool open )
 {
     m_rendererCombo.SetOpen( open );
+}
+
+
+void InGameUi::SetSceneComboOpen( bool open )
+{
+    m_sceneCombo.SetOpen( open );
 }
 
 
@@ -607,7 +641,7 @@ void InGameUi::ToggleProfilerMarker( uint32_t hash )
 }
 
 
-InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, double now )
+InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, double now, int sceneOptionCount, int selectedSceneOption )
 {
     InGameUiInputResult result;
     m_blocksCameraMouse = false;
@@ -679,7 +713,24 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
     m_rendererCombo.SetDropUp( true );
     m_timelineToggle.SetBounds( static_cast<float>( m_x + 166 ), static_cast<float>( bottomY + 48 ), 96.0f, 24.0f );
 
-    if ( wheelDelta != 0 && inContent )
+    bool wheelHandled = false;
+    if ( wheelDelta != 0 && m_sceneCombo.IsOpen() && m_activeTab == InGameUiTab::Scene )
+    {
+        const float contentX = static_cast<float>( m_x + contentPad );
+        const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
+        const float contentW = static_cast<float>( m_width ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+        const int visibleSceneOptions = SceneComboVisibleCount( sceneOptionCount );
+        m_sceneCombo.SetBounds( contentX, rowBase, (std::min)( contentW, 520.0f ), 24.0f );
+        m_sceneCombo.SetDropUp( false );
+        if ( m_sceneCombo.HitBox( m_mouseX, m_mouseY ) || m_sceneCombo.HitOption( m_mouseX, m_mouseY, visibleSceneOptions ) >= 0 )
+        {
+            const int wheelSteps = wheelDelta / WHEEL_DELTA;
+            m_sceneComboScroll = ClampSceneComboScroll( m_sceneComboScroll - wheelSteps, sceneOptionCount );
+            wheelHandled = true;
+        }
+    }
+
+    if ( wheelDelta != 0 && inContent && !wheelHandled )
     {
         m_scrollY -= static_cast<float>( wheelDelta ) / static_cast<float>( WHEEL_DELTA ) * 42.0f;
         m_scrollY = std::clamp( m_scrollY, 0.0f, maxScroll );
@@ -722,6 +773,40 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_scrollbarVisibleUntil = now + 1.0;
             }
         }
+        else if ( m_sceneCombo.IsOpen() )
+        {
+            if ( m_activeTab == InGameUiTab::Scene )
+            {
+                const float contentX = static_cast<float>( m_x + contentPad );
+                const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
+                const float contentW = static_cast<float>( m_width ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+                const int visibleSceneOptions = SceneComboVisibleCount( sceneOptionCount );
+                m_sceneComboScroll = ClampSceneComboScroll( m_sceneComboScroll, sceneOptionCount );
+                m_sceneCombo.SetBounds( contentX, rowBase, (std::min)( contentW, 520.0f ), 24.0f );
+                m_sceneCombo.SetDropUp( false );
+                const int option = m_sceneCombo.HitOption( m_mouseX, m_mouseY, visibleSceneOptions );
+                if ( option >= 0 && option < visibleSceneOptions )
+                {
+                    result.requestedSceneIndex = m_sceneComboScroll + option;
+                    m_sceneCombo.Close();
+                }
+                else if ( m_sceneCombo.HitBox( m_mouseX, m_mouseY ) )
+                {
+                    m_sceneCombo.ToggleOpen();
+                }
+                else
+                {
+                    m_sceneCombo.Close();
+                }
+            }
+            else
+            {
+                m_sceneCombo.Close();
+            }
+            m_rendererCombo.Close();
+            m_reflectionCombo.Close();
+            m_physicsModeCombo.Close();
+        }
         else if ( m_reflectionCombo.IsOpen() )
         {
             if ( m_activeTab == InGameUiTab::Keys )
@@ -751,6 +836,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
             m_rendererCombo.Close();
             m_physicsModeCombo.Close();
+            m_sceneCombo.Close();
         }
         else if ( m_physicsModeCombo.IsOpen() )
         {
@@ -782,6 +868,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             m_physicsModeCombo.Close();
+            m_sceneCombo.Close();
         }
         else if ( m_rendererCombo.IsOpen() )
         {
@@ -796,6 +883,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_rendererCombo.ToggleOpen();
                 m_reflectionCombo.Close();
                 m_physicsModeCombo.Close();
+                m_sceneCombo.Close();
             }
             else if ( !m_rendererCombo.HitBox( m_mouseX, m_mouseY ) )
             {
@@ -832,6 +920,27 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 }
             }
             m_rendererCombo.Close();
+            m_sceneCombo.Close();
+        }
+        else if ( inContent && m_activeTab == InGameUiTab::Scene )
+        {
+            const float contentX = static_cast<float>( m_x + contentPad );
+            const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
+            const float contentW = static_cast<float>( m_width ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            m_sceneCombo.SetBounds( contentX, rowBase, (std::min)( contentW, 520.0f ), 24.0f );
+            m_sceneCombo.SetDropUp( false );
+            if ( m_sceneCombo.HitBox( m_mouseX, m_mouseY ) && sceneOptionCount > 0 )
+            {
+                m_sceneComboScroll = SceneComboScrollForSelection( selectedSceneOption, sceneOptionCount );
+                m_sceneCombo.ToggleOpen();
+                m_rendererCombo.Close();
+                m_reflectionCombo.Close();
+                m_physicsModeCombo.Close();
+            }
+            else
+            {
+                m_rendererCombo.Close();
+            }
         }
         else if ( inContent && m_activeTab == InGameUiTab::Physics )
         {
@@ -1248,6 +1357,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
             else if ( m_rendererCombo.HitBox( m_mouseX, m_mouseY ) )
             {
                 m_rendererCombo.ToggleOpen();
+                m_sceneCombo.Close();
             }
             else if ( m_timelineToggle.HitTest( m_mouseX, m_mouseY ) )
             {
@@ -1632,7 +1742,22 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     else if ( m_activeTab == InGameUiTab::Scene )
     {
         char buf[160];
+        const int sceneVisibleCount = SceneComboVisibleCount( data.sceneOptionCount );
+        m_sceneComboScroll = ClampSceneComboScroll( m_sceneComboScroll, data.sceneOptionCount );
+        const int sceneFirstOption = m_sceneComboScroll;
+        const int sceneSelectedInSlice = data.selectedSceneOption >= sceneFirstOption && data.selectedSceneOption < sceneFirstOption + sceneVisibleCount ? data.selectedSceneOption - sceneFirstOption : -1;
+        const char* selectedSceneName = "No scenes";
+        if ( data.sceneOptions && data.selectedSceneOption >= 0 && data.selectedSceneOption < data.sceneOptionCount )
+        {
+            selectedSceneName = data.sceneOptions[data.selectedSceneOption];
+        }
+        else if ( data.sceneName && data.sceneName[0] != '\0' )
+        {
+            selectedSceneName = data.sceneName;
+        }
         draw.Text( contentX, scrolledY, 16.0f, 1.0f, 0.85f, 0.34f, "Scene Telemetry" );
+        m_sceneCombo.SetBounds( contentX, scrolledY + 42.0f, (std::min)( contentW, 520.0f ), 24.0f );
+        m_sceneCombo.SetDropUp( false );
         if ( data.targetFrameCount > 0 )
         {
             const int displayedFrame = ( data.testComplete && data.currentFrame > data.targetFrameCount ) ? data.targetFrameCount : data.currentFrame;
@@ -1642,13 +1767,27 @@ void InGameUi::Draw( const InGameUiFrameData& data )
         {
             snprintf( buf, sizeof( buf ), "%d", data.currentFrame );
         }
-        labelValue( scrolledY + 42.0f, "Frame", buf, 0.88f, 0.92f, 0.94f );
-        snprintf( buf, sizeof( buf ), "%d / %d", data.currentSceneIndex + 1, data.sceneCount );
-        labelValue( scrolledY + 68.0f, "Scene index", buf, 0.88f, 0.92f, 0.94f );
-        snprintf( buf, sizeof( buf ), "%.6f", data.sceneEnergy );
-        labelValue( scrolledY + 94.0f, "Kinetic energy", buf, 0.98f, 0.78f, 0.35f );
-        labelValue( scrolledY + 120.0f, "Fixed step", data.fixedStep ? "on" : "off", 0.52f, 0.94f, 1.0f );
-        labelValue( scrolledY + 146.0f, "Status", data.testComplete ? "test complete" : "running", 0.36f, 0.95f, 0.56f );
+        if ( !m_sceneCombo.IsOpen() )
+        {
+            labelValue( scrolledY + 82.0f, "Frame", buf, 0.88f, 0.92f, 0.94f );
+            snprintf( buf, sizeof( buf ), "%d / %d", data.currentSceneIndex + 1, data.sceneCount );
+            labelValue( scrolledY + 108.0f, "Scene index", buf, 0.88f, 0.92f, 0.94f );
+            snprintf( buf, sizeof( buf ), "%.6f", data.sceneEnergy );
+            labelValue( scrolledY + 134.0f, "Kinetic energy", buf, 0.98f, 0.78f, 0.35f );
+            labelValue( scrolledY + 160.0f, "Fixed step", data.fixedStep ? "on" : "off", 0.52f, 0.94f, 1.0f );
+            labelValue( scrolledY + 186.0f, "Status", data.testComplete ? "test complete" : "running", 0.36f, 0.95f, 0.56f );
+        }
+        if ( visible( scrolledY + 42.0f, m_sceneCombo.IsOpen() ? 286.0f : 24.0f ) )
+        {
+            m_sceneCombo.Draw( draw,
+                               "Load scene",
+                               selectedSceneName,
+                               data.sceneOptions ? data.sceneOptions + sceneFirstOption : nullptr,
+                               sceneVisibleCount,
+                               sceneSelectedInSlice,
+                               m_mouseX,
+                               m_mouseY );
+        }
     }
     else if ( m_activeTab == InGameUiTab::Physics )
     {

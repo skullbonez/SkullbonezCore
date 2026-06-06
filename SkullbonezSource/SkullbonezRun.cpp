@@ -17,6 +17,7 @@
 #include <cmath>
 #include <dwmapi.h>
 #include <fstream>
+#include <filesystem>
 #pragma comment( lib, "dwmapi.lib" )
 
 // --- Usings ---
@@ -202,12 +203,21 @@ const char* FileNameFromPath( const char* path )
     }
     return separator ? separator + 1 : path;
 }
+
+
+std::string NormalizeScenePath( const std::string& path )
+{
+    std::string normalized = path;
+    std::replace( normalized.begin(), normalized.end(), '\\', '/' );
+    return normalized;
+}
 } // namespace
 
 
 SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue, bool legacyPhysics )
     : m_sceneQueue( std::move( sceneQueue ) )
 {
+    RefreshSceneBrowserList();
     m_cGameModelCollection.SetLegacyMode( legacyPhysics );
     // Config-driven defaults are resolved at construction; scene-specific defaults remain in-member.
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
@@ -1442,10 +1452,13 @@ void SkullbonezRun::TakeInput()
 
     if ( m_systems.window )
     {
+        const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex();
         InGameUiInputResult uiResult = m_ui.UpdateInput( m_systems.window->m_sWindow,
                                                          static_cast<int>( m_systems.window->m_sWindowDimensions.x ),
                                                          static_cast<int>( m_systems.window->m_sWindowDimensions.y ),
-                                                         m_timers.simulationTimer.GetTotalTime() );
+                                                         m_timers.simulationTimer.GetTotalTime(),
+                                                         static_cast<int>( m_sceneBrowserNamePtrs.size() ),
+                                                         selectedSceneBrowserIndex );
         if ( uiResult.toggleVsync )
         {
             m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
@@ -1642,6 +1655,10 @@ void SkullbonezRun::TakeInput()
                 requestedRenderer = RuntimeRendererType::DX12;
             }
             SwitchRenderer( requestedRenderer );
+        }
+        if ( uiResult.requestedSceneIndex >= 0 )
+        {
+            LoadSceneFromBrowserIndex( uiResult.requestedSceneIndex );
         }
     }
 
@@ -2220,6 +2237,9 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         }
         uiData.rendererName = rendererName;
         uiData.sceneName = sceneName;
+        uiData.sceneOptions = m_sceneBrowserNamePtrs.empty() ? nullptr : m_sceneBrowserNamePtrs.data();
+        uiData.sceneOptionCount = static_cast<int>( m_sceneBrowserNamePtrs.size() );
+        uiData.selectedSceneOption = CurrentSceneBrowserIndex();
         uiData.uiDrawCalls = m_timers.lastUiDrawCalls;
         uiData.fps = m_timers.rollingFpsTime > 0.0f ? m_timers.rollingFpsTime : ( dSecondsPerFrame > 0.0 ? 1.0f / static_cast<float>( dSecondsPerFrame ) : 0.0f );
         uiData.renderMs = ( m_timers.rollingRenderTime > 0.0f ? m_timers.rollingRenderTime : m_timers.renderTime ) * 1000.0f;
@@ -3450,6 +3470,10 @@ void SkullbonezRun::LoadScene( int index )
         {
             m_ui.SetRendererComboOpen( uiOptions.rendererComboOpen );
         }
+        if ( uiOptions.hasSceneComboOpen )
+        {
+            m_ui.SetSceneComboOpen( uiOptions.sceneComboOpen );
+        }
         m_ui.SetMouseOverride( uiOptions.hasMouseOverride, uiOptions.mouseX, uiOptions.mouseY );
         if ( uiOptions.hasVisible )
         {
@@ -3854,6 +3878,93 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
         output << outLine << '\n';
     }
     return output.good();
+}
+
+
+void SkullbonezRun::RefreshSceneBrowserList()
+{
+    m_sceneBrowserPaths.clear();
+    m_sceneBrowserNames.clear();
+    m_sceneBrowserNamePtrs.clear();
+
+    const std::filesystem::path sceneDir = std::filesystem::path( DATA_ROOT ) / "scenes";
+    try
+    {
+        if ( !std::filesystem::exists( sceneDir ) )
+        {
+            return;
+        }
+
+        for ( const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator( sceneDir ) )
+        {
+            if ( !entry.is_regular_file() || entry.path().extension() != ".scene" )
+            {
+                continue;
+            }
+            m_sceneBrowserPaths.push_back( NormalizeScenePath( entry.path().generic_string() ) );
+        }
+    }
+    catch ( const std::filesystem::filesystem_error& )
+    {
+        m_sceneBrowserPaths.clear();
+    }
+
+    std::sort( m_sceneBrowserPaths.begin(), m_sceneBrowserPaths.end() );
+    m_sceneBrowserPaths.erase( std::unique( m_sceneBrowserPaths.begin(), m_sceneBrowserPaths.end() ), m_sceneBrowserPaths.end() );
+    m_sceneBrowserNames.reserve( m_sceneBrowserPaths.size() );
+    m_sceneBrowserNamePtrs.reserve( m_sceneBrowserPaths.size() );
+    for ( const std::string& path : m_sceneBrowserPaths )
+    {
+        m_sceneBrowserNames.emplace_back( FileNameFromPath( path.c_str() ) );
+    }
+    for ( const std::string& name : m_sceneBrowserNames )
+    {
+        m_sceneBrowserNamePtrs.push_back( name.c_str() );
+    }
+}
+
+
+int SkullbonezRun::CurrentSceneBrowserIndex() const
+{
+    if ( m_scene.currentSceneIndex < 0 || m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
+    {
+        return -1;
+    }
+
+    const std::string currentPath = NormalizeScenePath( m_sceneQueue[m_scene.currentSceneIndex] );
+    for ( int i = 0; i < static_cast<int>( m_sceneBrowserPaths.size() ); ++i )
+    {
+        if ( NormalizeScenePath( m_sceneBrowserPaths[i] ) == currentPath )
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+
+void SkullbonezRun::LoadSceneFromBrowserIndex( int index )
+{
+    if ( index < 0 || index >= static_cast<int>( m_sceneBrowserPaths.size() ) )
+    {
+        return;
+    }
+
+    const std::string selectedPath = NormalizeScenePath( m_sceneBrowserPaths[index] );
+    for ( int i = 0; i < static_cast<int>( m_sceneQueue.size() ); ++i )
+    {
+        if ( NormalizeScenePath( m_sceneQueue[i] ) == selectedPath )
+        {
+            if ( i != m_scene.currentSceneIndex )
+            {
+                LoadScene( i );
+            }
+            return;
+        }
+    }
+
+    m_sceneQueue.push_back( selectedPath );
+    LoadScene( static_cast<int>( m_sceneQueue.size() ) - 1 );
 }
 
 

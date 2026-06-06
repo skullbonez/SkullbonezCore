@@ -155,6 +155,8 @@ struct SceneUiOptions
     bool blurEnabled = true;
     bool hasRendererComboOpen = false;
     bool rendererComboOpen = false;
+    bool hasSceneComboOpen = false;
+    bool sceneComboOpen = false;
     bool hasProfilerExpandAll = false;
     bool profilerExpandAll = false;
     bool hasProfilerTimeline = false;

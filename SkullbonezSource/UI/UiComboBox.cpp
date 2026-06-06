@@ -89,15 +89,26 @@ UiRect UiComboBox::DropdownRect( int optionCount ) const
 
 void UiComboBox::Draw( const UiDrawContext& draw, const char* label, const char* const* options, int optionCount, int selectedIndex, int mouseX, int mouseY ) const
 {
+    const char* selectedText = "";
+    if ( selectedIndex >= 0 && selectedIndex < optionCount && options )
+    {
+        selectedText = options[selectedIndex];
+    }
+    Draw( draw, label, selectedText, options, optionCount, selectedIndex, mouseX, mouseY );
+}
+
+
+void UiComboBox::Draw( const UiDrawContext& draw, const char* label, const char* selectedText, const char* const* options, int optionCount, int selectedIndex, int mouseX, int mouseY ) const
+{
     const UiRect field = FieldRect();
     const UiRect dropdown = DropdownRect( optionCount );
     const bool fieldHovered = field.Contains( mouseX, mouseY );
     draw.Text( m_bounds.x, m_bounds.y + 4.0f, 10.5f, 0.74f, 0.82f, 0.84f, label );
     draw.Rect( field.x, field.y, field.w, field.h, fieldHovered ? 0.060f : 0.040f, fieldHovered ? 0.160f : 0.100f, fieldHovered ? 0.190f : 0.120f, 0.92f );
     draw.Outline( field.x, field.y, field.w, field.h, fieldHovered ? 0.34f : 0.98f, fieldHovered ? 0.91f : 0.74f, fieldHovered ? 1.0f : 0.24f, fieldHovered ? 0.96f : 0.78f );
-    if ( selectedIndex >= 0 && selectedIndex < optionCount )
+    if ( selectedText && selectedText[0] != '\0' )
     {
-        draw.Text( field.x + 6.0f, field.y + 3.0f, 10.0f, fieldHovered ? 0.90f : 1.0f, fieldHovered ? 0.98f : 0.86f, fieldHovered ? 1.0f : 0.38f, options[selectedIndex] );
+        draw.Text( field.x + 6.0f, field.y + 3.0f, 10.0f, fieldHovered ? 0.90f : 1.0f, fieldHovered ? 0.98f : 0.86f, fieldHovered ? 1.0f : 0.38f, selectedText );
     }
     draw.Text( field.x + field.w - 12.0f, field.y + 2.0f, 10.0f, 0.82f, 0.98f, 1.0f, m_isOpen ? "^" : "v" );
 
@@ -112,6 +123,10 @@ void UiComboBox::Draw( const UiDrawContext& draw, const char* label, const char*
     const int hoveredOption = HitOption( mouseX, mouseY, optionCount );
     for ( int i = 0; i < optionCount; ++i )
     {
+        if ( !options )
+        {
+            break;
+        }
         const float optionY = dropdown.y + static_cast<float>( i ) * optionH;
         const bool isSelected = i == selectedIndex;
         const bool isHovered = i == hoveredOption;

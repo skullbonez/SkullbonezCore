@@ -33,6 +33,9 @@ struct InGameUiFrameData
     int screenH = 1;
     const char* rendererName = "";
     const char* sceneName = "";
+    const char* const* sceneOptions = nullptr;
+    int sceneOptionCount = 0;
+    int selectedSceneOption = -1;
     int drawCallsBeforeUi = 0;
     int uiDrawCalls = 0;
     float fps = 0.0f;
@@ -122,6 +125,7 @@ struct InGameUiInputResult
     int requestedRendererIndex = -1; // 0=GL, 1=DX11, 2=DX12, -1=no request
     int requestedWaterReflectionMode = -1; // 0=FBO, 1=DXR, 2=None, -1=no request
     int requestedPhysicsMode = -1;         // 0=legacy, 1=solver, -1=no request
+    int requestedSceneIndex = -1;          // index into sceneOptions, -1=no request
 };
 
 class InGameUi
@@ -137,12 +141,13 @@ class InGameUi
     void SetWindowBounds( int x, int y, int width, int height );
     void SetBlurEnabled( bool enabled );
     void SetRendererComboOpen( bool open );
+    void SetSceneComboOpen( bool open );
     void SetProfilerExpandAll( bool expandAll );
     void SetProfilerTimelineEnabled( bool enabled );
     void SetMouseOverride( bool enabled, int x = 0, int y = 0 );
     void ResetResources();
 
-    InGameUiInputResult UpdateInput( HWND hwnd, int screenW, int screenH, double now );
+    InGameUiInputResult UpdateInput( HWND hwnd, int screenW, int screenH, double now, int sceneOptionCount = 0, int selectedSceneOption = -1 );
     void Draw( const InGameUiFrameData& data );
 
   private:
@@ -181,6 +186,7 @@ class InGameUi
     UiComboBox m_rendererCombo;
     UiComboBox m_reflectionCombo;
     UiComboBox m_physicsModeCombo;
+    UiComboBox m_sceneCombo;
     UiBackdropBlur m_backdropBlur;
     UiScrollBar m_scrollBar;
     int m_x = 34;
@@ -202,6 +208,7 @@ class InGameUi
     bool m_hasMouseOverride = false;
     int m_mouseOverrideX = 0;
     int m_mouseOverrideY = 0;
+    int m_sceneComboScroll = 0;
     float m_scrollY = 0.0f;
     double m_scrollbarVisibleUntil = 0.0;
     int m_activeSlider = 0; // 0=none; other values map to Controls/Options sliders in SkullbonezUi.cpp

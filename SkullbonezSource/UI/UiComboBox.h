@@ -19,6 +19,7 @@ class UiComboBox
     void ToggleOpen();
     void Close();
     void Draw( const UiDrawContext& draw, const char* label, const char* const* options, int optionCount, int selectedIndex, int mouseX, int mouseY ) const;
+    void Draw( const UiDrawContext& draw, const char* label, const char* selectedText, const char* const* options, int optionCount, int selectedIndex, int mouseX, int mouseY ) const;
 
   private:
     UiRect FieldRect() const;

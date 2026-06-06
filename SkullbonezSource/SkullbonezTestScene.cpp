@@ -283,6 +283,21 @@ TestScene TestScene::LoadFromFile( const char* path )
                 continue;
             }
 
+            if ( strcmp( command, "scene_combo" ) == 0 )
+            {
+                bool parsedValue = false;
+                if ( !ParseOnOff( value, parsedValue ) )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid ui scene_combo value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_uiOptions.hasSceneComboOpen = true;
+                scene.m_uiOptions.sceneComboOpen = parsedValue;
+                continue;
+            }
+
             if ( strcmp( command, "profiler_expand" ) == 0 )
             {
                 bool parsedValue = false;
