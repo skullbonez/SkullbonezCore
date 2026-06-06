@@ -1901,10 +1901,8 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 
     if ( !m_debug.isTopTextHidden )
     {
-        // Top-left: engine name + active renderer
-        Text2d::Render2dText( -( hw - mX ), hh - mY - fSz, fSz, "SKULLBONEZ CORE [%s]", rendererName );
-
-        // Second row top-left: scene name and frame counter (only in scene mode)
+        // Scene name and frame counter stay visible in scene mode; the rest of the old
+        // top HUD now lives in the movable UI window.
         if ( m_scene.isSceneMode && m_scene.currentSceneIndex >= 0 )
         {
             const std::string& scenePath = m_sceneQueue[m_scene.currentSceneIndex];
@@ -1917,25 +1915,12 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             const char* sceneName = slash ? slash + 1 : base;
             if ( m_scene.isTestComplete )
             {
-                Text2d::Render2dText( -( hw - mX ), hh - mY - fSz * 3.0f, fSz, "%s - TEST COMPLETE", sceneName );
+                Text2d::Render2dText( -( hw - mX ), hh - mY - fSz, fSz, "%s - TEST COMPLETE", sceneName );
             }
             else
             {
-                Text2d::Render2dText( -( hw - mX ), hh - mY - fSz * 3.0f, fSz, "%s  frame: %d", sceneName, m_scene.currentFrame );
+                Text2d::Render2dText( -( hw - mX ), hh - mY - fSz, fSz, "%s  frame: %d", sceneName, m_scene.currentFrame );
             }
-        }
-
-        // Top-right: model count (right-aligned)
-        {
-            char mcBuf[64];
-            snprintf( mcBuf, sizeof( mcBuf ), "Model Count: %i", m_scene.modelCount );
-            Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, mcBuf ), hh - mY - fSz, fSz, "%s", mcBuf );
-        }
-
-        // Second row top-right: active physics solver (right-aligned)
-        {
-            const char* solverTag = m_cGameModelCollection.GetLegacyMode() ? "PHYSICS: LEGACY [P]" : "PHYSICS: IMPULSE [P]";
-            Text2d::Render2dText( hw - mX - Text2d::MeasureText( fSz, solverTag ), hh - mY - fSz * 3.0f, fSz, "%s", solverTag );
         }
     }
 
