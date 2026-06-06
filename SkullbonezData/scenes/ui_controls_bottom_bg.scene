@@ -1,0 +1,13 @@
+# Matching no-UI background for ui_controls_bottom.scene overflow comparison.
+seed 4242
+physics off
+text off
+vsync off
+water_hidden on
+terrain_hidden on
+frames 24
+ui visible off
+ui_test_pattern off
+screenshot Profile/ui_controls_bottom_bg.bmp frame 20
+
+camera main 500 60 650  600 33 600  0 1 0

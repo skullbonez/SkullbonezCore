@@ -30,6 +30,10 @@ SCENES = (
     "renderer_combo",
     "scene_complete",
     "small_scroll",
+    "controls_bottom",
+    "controls_bottom_bg",
+    "min_size",
+    "min_size_bg",
     "minimized",
     "performance_histogram",
 )
@@ -74,6 +78,39 @@ def brightness_span(path: Path) -> float:
             b = raw[i + 2]
             lumas.append( 0.2126 * r + 0.7152 * g + 0.0722 * b )
         return max(lumas) - min(lumas)
+
+
+def changed_pixels_outside_window(
+    ui_path: Path,
+    background_path: Path,
+    window: tuple[int, int, int, int],
+    pad: int = 14,
+) -> int:
+    with Image.open(ui_path) as ui_image, Image.open(background_path) as background_image:
+        ui = ui_image.convert("RGB")
+        background = background_image.convert("RGB")
+        if ui.size != background.size:
+            raise ValueError(f"{ui_path.name} and {background_path.name} sizes differ")
+
+        wx, wy, ww, wh = window
+        x0 = wx - pad
+        y0 = wy - pad
+        x1 = wx + ww + pad
+        y1 = wy + wh + pad
+        ui_pixels = ui.load()
+        bg_pixels = background.load()
+        width, height = ui.size
+        changed = 0
+        for y in range(height):
+            inside_y = y0 <= y <= y1
+            for x in range(width):
+                if inside_y and x0 <= x <= x1:
+                    continue
+                ur, ug, ub = ui_pixels[x, y]
+                br, bg, bb = bg_pixels[x, y]
+                if abs(ur - br) + abs(ug - bg) + abs(ub - bb) > 42:
+                    changed += 1
+        return changed
 
 
 def average_marker_ms(path: Path) -> tuple[dict[str, float], list[str]]:
@@ -232,6 +269,27 @@ def main() -> int:
         except (OSError, ValueError) as exc:
             print(f"ERROR: {renderer} timeline numeric validation failed: {exc}")
             failures += 1
+
+    window_guards = (
+        ("controls_bottom", "controls_bottom_bg", (64, 70, 430, 280)),
+        ("min_size", "min_size_bg", (64, 70, 430, 250)),
+    )
+    for renderer in RENDERERS:
+        for scene, background, window in window_guards:
+            try:
+                changed = changed_pixels_outside_window(
+                    profile / f"ui_{renderer}_{scene}.bmp",
+                    profile / f"ui_{renderer}_{background}.bmp",
+                    window,
+                )
+            except (OSError, ValueError) as exc:
+                print(f"ERROR: {renderer}/{scene} window containment check failed: {exc}")
+                failures += 1
+                continue
+            print(f"{renderer}/{scene}: outside-window changed pixels={changed}")
+            if changed > 90:
+                print(f"ERROR: {renderer}/{scene} appears to draw UI outside the expected window bounds.")
+                failures += 1
 
     if failures:
         print(f"UI screenshot validation failed with {failures} issue(s).")

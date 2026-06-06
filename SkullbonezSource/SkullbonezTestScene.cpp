@@ -1,5 +1,6 @@
 // --- Includes ---
 #include "SkullbonezTestScene.h"
+#include <cstdlib>
 #include <cstring>
 
 
@@ -343,6 +344,13 @@ TestScene TestScene::LoadFromFile( const char* path )
                 }
                 scene.m_UIOptions.hasPerformanceHistogram = true;
                 scene.m_UIOptions.performanceHistogram = parsedValue;
+                continue;
+            }
+
+            if ( strcmp( command, "scroll" ) == 0 )
+            {
+                scene.m_UIOptions.hasScrollY = true;
+                scene.m_UIOptions.scrollY = ( strcmp( value, "bottom" ) == 0 ) ? 1000000.0f : static_cast<float>( atof( value ) );
                 continue;
             }
 

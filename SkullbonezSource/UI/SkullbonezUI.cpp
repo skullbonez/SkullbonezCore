@@ -48,8 +48,8 @@ constexpr float UI_TRACK_HEIGHT_STEP = 5.0f;
 constexpr float UI_AUTO_CYCLE_MIN = 0.0f;
 constexpr float UI_AUTO_CYCLE_MAX = 10.0f;
 constexpr float UI_AUTO_CYCLE_STEP = 0.10f;
-constexpr float UI_WORLD_GRAVITY_MIN = -100.0f;
-constexpr float UI_WORLD_GRAVITY_MAX = 0.0f;
+constexpr float UI_WORLD_GRAVITY_MIN = 0.0f;
+constexpr float UI_WORLD_GRAVITY_MAX = 100.0f;
 constexpr float UI_WORLD_GRAVITY_STEP = 0.50f;
 constexpr float UI_WORLD_FLUID_HEIGHT_MIN = -100.0f;
 constexpr float UI_WORLD_FLUID_HEIGHT_MAX = 200.0f;
@@ -327,6 +327,18 @@ float MinimizedWidthForTitle( const char* title, int screenW )
     return std::clamp( textW + chromeW, 154.0f, maxW );
 }
 
+float GravityStrengthFromWorld( float gravity )
+{
+    return std::clamp( -gravity, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX );
+}
+
+
+float WorldGravityFromStrength( float strength )
+{
+    return -std::clamp( strength, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX );
+}
+
+
 void BuildWindowTitle( const InGameUIFrameData& data, char* out, size_t outSize )
 {
     if ( outSize == 0 )
@@ -568,6 +580,13 @@ void InGameUI::SetPerformanceHistogramEnabled( bool enabled )
         m_performanceHistogramHead = 0;
         m_performanceHistogramAxisMs = 16.67f;
     }
+}
+
+
+void InGameUI::SetScrollY( float scrollY )
+{
+    m_scrollY = (std::max)( 0.0f, scrollY );
+    m_scrollbarVisibleUntil = 1.2;
 }
 
 
@@ -1541,7 +1560,10 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             {
                 m_activeSlider = 11;
                 result.requestWorldGravity = true;
-                result.requestedWorldGravity = m_worldGravitySlider.ValueFromMouse( m_mouseX, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX, UI_WORLD_GRAVITY_STEP );
+                result.requestedWorldGravity = WorldGravityFromStrength( m_worldGravitySlider.ValueFromMouse( m_mouseX,
+                                                                                                             UI_WORLD_GRAVITY_MIN,
+                                                                                                             UI_WORLD_GRAVITY_MAX,
+                                                                                                             UI_WORLD_GRAVITY_STEP ) );
                 SetCapture( hwnd );
             }
             m_rendererCombo.Close();
@@ -1840,7 +1862,10 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             {
                 m_activeSlider = 11;
                 result.requestWorldGravity = true;
-                result.requestedWorldGravity = m_worldGravitySlider.ValueFromMouse( m_mouseX, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX, UI_WORLD_GRAVITY_STEP );
+                result.requestedWorldGravity = WorldGravityFromStrength( m_worldGravitySlider.ValueFromMouse( m_mouseX,
+                                                                                                             UI_WORLD_GRAVITY_MIN,
+                                                                                                             UI_WORLD_GRAVITY_MAX,
+                                                                                                             UI_WORLD_GRAVITY_STEP ) );
                 SetCapture( hwnd );
             }
             else if ( m_worldFluidHeightSlider.HitTest( m_mouseX, m_mouseY ) )
@@ -1961,7 +1986,10 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     else if ( leftNow && m_activeSlider == 11 )
     {
         result.requestWorldGravity = true;
-        result.requestedWorldGravity = m_worldGravitySlider.ValueFromMouse( m_mouseX, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX, UI_WORLD_GRAVITY_STEP );
+        result.requestedWorldGravity = WorldGravityFromStrength( m_worldGravitySlider.ValueFromMouse( m_mouseX,
+                                                                                                     UI_WORLD_GRAVITY_MIN,
+                                                                                                     UI_WORLD_GRAVITY_MAX,
+                                                                                                     UI_WORLD_GRAVITY_STEP ) );
     }
     else if ( leftNow && m_activeSlider == 12 )
     {
@@ -2094,7 +2122,19 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     const float scrolledY = contentY - m_scrollY;
     char titleText[192] = {};
     BuildWindowTitle( data, titleText, sizeof( titleText ) );
-    FitTitleText( titleText, sizeof( titleText ), 15.5f, w - 150.0f );
+    const bool useTitleStats = w - 36.0f < 560.0f;
+    char titleStat[32] = {};
+    float titleStatW = 0.0f;
+    float titleStatX = 0.0f;
+    float titleMaxW = w - 150.0f;
+    if ( useTitleStats )
+    {
+        snprintf( titleStat, sizeof( titleStat ), "%.0f FPS", data.fps );
+        titleStatW = Text2d::MeasureText( 10.5f, titleStat );
+        titleStatX = (std::max)( x + 148.0f, x + w - 128.0f - titleStatW );
+        titleMaxW = titleStatX - ( x + 20.0f ) - 10.0f;
+    }
+    FitTitleText( titleText, sizeof( titleText ), 15.5f, (std::max)( 40.0f, titleMaxW ) );
     ApplyProfilerDefaultExpansion();
     ApplyProfilerExpandAll();
 
@@ -2130,7 +2170,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
 
     auto visible = [&]( float rowY, float rowH ) -> bool
     {
-        return rowY + rowH >= contentY && rowY <= contentY + contentH;
+        return rowY >= contentY && rowY + rowH <= contentY + contentH;
     };
     auto labelValueAt = [&]( float tx, float rowY, const char* label, const char* value, float vr, float vg, float vb )
     {
@@ -2382,11 +2422,12 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         {
             draw.Text( contentX, scrolledY + 292.0f, 12.0f, 1.0f, 0.85f, 0.34f, "World" );
         }
-        snprintf( buf, sizeof( buf ), "%.1f", data.worldGravity );
+        const float displayGravityStrength = GravityStrengthFromWorld( data.worldGravity );
+        snprintf( buf, sizeof( buf ), "%.1f", displayGravityStrength );
         m_worldGravitySlider.SetBounds( contentX, scrolledY + 318.0f, contentW, 34.0f );
         if ( visible( scrolledY + 318.0f, 34.0f ) )
         {
-            m_worldGravitySlider.Draw( draw, "Gravity", buf, data.worldGravity, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX );
+            m_worldGravitySlider.Draw( draw, "Gravity", buf, displayGravityStrength, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX );
         }
     }
     else if ( m_activeTab == InGameUITab::Options )
@@ -2547,11 +2588,12 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         {
             draw.Text( contentX, scrolledY + 822.0f, 12.0f, 1.0f, 0.85f, 0.34f, "World" );
         }
-        snprintf( buf, sizeof( buf ), "%.1f", data.worldGravity );
+        const float displayGravityStrength = GravityStrengthFromWorld( data.worldGravity );
+        snprintf( buf, sizeof( buf ), "%.1f", displayGravityStrength );
         m_worldGravitySlider.SetBounds( contentX, scrolledY + 848.0f, contentW, 34.0f );
         if ( visible( scrolledY + 848.0f, 34.0f ) )
         {
-            m_worldGravitySlider.Draw( draw, "Gravity", buf, data.worldGravity, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX );
+            m_worldGravitySlider.Draw( draw, "Gravity", buf, displayGravityStrength, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX );
         }
         snprintf( buf, sizeof( buf ), "%.0f", data.worldFluidHeight );
         m_worldFluidHeightSlider.SetBounds( contentX, scrolledY + 888.0f, contentW, 34.0f );
@@ -2585,8 +2627,14 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     const float by = y + h - bottomH;
     draw.Rect( x + 2.0f, by, w - 4.0f, bottomH - 2.0f, 0.014f, 0.042f, 0.056f, 0.82f );
     draw.Rect( x + 2.0f, by, w - 4.0f, 1.0f, 0.30f, 0.88f, 1.0f, 0.46f );
-    draw.Rect( x + 18.0f, by + 16.0f, 414.0f, 56.0f, 0.018f, 0.030f, 0.038f, 0.66f );
-    draw.Outline( x + 18.0f, by + 16.0f, 414.0f, 56.0f, 0.18f, 0.30f, 0.34f, 0.68f );
+    const float footerPad = 18.0f;
+    const float footerGap = 16.0f;
+    const float footerX = x + footerPad;
+    const float footerW = (std::max)( 120.0f, w - footerPad * 2.0f );
+    const bool hasSeparateStats = footerW >= 560.0f;
+    const float controlsW = hasSeparateStats ? 414.0f : footerW;
+    draw.Rect( footerX, by + 16.0f, controlsW, 56.0f, 0.018f, 0.030f, 0.038f, 0.66f );
+    draw.Outline( footerX, by + 16.0f, controlsW, 56.0f, 0.18f, 0.30f, 0.34f, 0.68f );
 
     m_blurToggle.SetBounds( x + 32.0f, by + 22.0f, 100.0f, 24.0f );
     m_vsyncToggle.SetBounds( x + 166.0f, by + 22.0f, 100.0f, 24.0f );
@@ -2602,54 +2650,64 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     m_timelineToggle.DrawToggle( draw, "Timeline", m_profilerTimelineEnabled, 0.34f, 0.91f, 1.0f );
     m_rendererCombo.Draw( draw, "Renderer", kRendererOptions, 3, currentRendererIndex, m_mouseX, m_mouseY );
 
-    const float statsX = x + 448.0f;
-    const float statsW = (std::max)( 120.0f, w - 466.0f );
-    draw.Rect( statsX, by + 16.0f, statsW, 56.0f, 0.018f, 0.030f, 0.038f, 0.66f );
-    draw.Outline( statsX, by + 16.0f, statsW, 56.0f, 0.18f, 0.30f, 0.34f, 0.68f );
-
     char status[128];
     const float frameDisplayMs = data.fps > 0.0f ? 1000.0f / data.fps : 0.0f;
     const int cpuPercent = static_cast<int>( std::clamp( ( data.renderMs + data.physicsMs ) / 16.67f * 100.0f, 0.0f, 99.0f ) );
     const int gpuPercent = static_cast<int>( std::clamp( data.renderMs / 16.67f * 100.0f, 0.0f, 99.0f ) );
     const int drawCalls = data.drawCallsBeforeUI + data.UIDrawCalls;
-    auto statCell = [&]( float tx, const char* name, const char* value, float r, float g, float b )
-    {
-        draw.Text( tx, by + 25.0f, 10.0f, 0.67f, 0.74f, 0.77f, name );
-        draw.Text( tx, by + 47.0f, 11.5f, r, g, b, value );
-    };
     snprintf( status, sizeof( status ), "%.0f", data.fps );
-    if ( statsW < 350.0f )
+    if ( hasSeparateStats )
     {
-        char fpsText[32];
-        char frameText[32];
-        char drawText[32];
-        snprintf( fpsText, sizeof( fpsText ), "%.0f", data.fps );
-        snprintf( frameText, sizeof( frameText ), "%.2f ms", frameDisplayMs );
-        snprintf( drawText, sizeof( drawText ), "%d/%d", drawCalls, data.UIDrawCalls );
-        auto compactStat = [&]( float ty, const char* name, const char* value, float r, float g, float b )
+        const float statsX = footerX + controlsW + footerGap;
+        const float statsW = (std::max)( 120.0f, x + w - footerPad - statsX );
+        draw.Rect( statsX, by + 16.0f, statsW, 56.0f, 0.018f, 0.030f, 0.038f, 0.66f );
+        draw.Outline( statsX, by + 16.0f, statsW, 56.0f, 0.18f, 0.30f, 0.34f, 0.68f );
+
+        auto statCell = [&]( float tx, const char* name, const char* value, float r, float g, float b )
         {
-            draw.Text( statsX + 12.0f, ty, 9.0f, 0.67f, 0.74f, 0.77f, name );
-            draw.Text( statsX + 66.0f, ty, 9.5f, r, g, b, value );
+            draw.Text( tx, by + 25.0f, 10.0f, 0.67f, 0.74f, 0.77f, name );
+            draw.Text( tx, by + 47.0f, 11.5f, r, g, b, value );
         };
-        compactStat( by + 23.0f, "FPS", fpsText, 0.48f, 0.90f, 0.22f );
-        compactStat( by + 41.0f, "Frame", frameText, 0.32f, 0.90f, 1.0f );
-        compactStat( by + 59.0f, "Draw/UI", drawText, 0.32f, 0.90f, 1.0f );
+        if ( statsW < 350.0f )
+        {
+            char fpsText[32];
+            char frameText[32];
+            char drawText[32];
+            snprintf( fpsText, sizeof( fpsText ), "%.0f", data.fps );
+            snprintf( frameText, sizeof( frameText ), "%.2f ms", frameDisplayMs );
+            snprintf( drawText, sizeof( drawText ), "%d/%d", drawCalls, data.UIDrawCalls );
+            auto compactStat = [&]( float ty, const char* name, const char* value, float r, float g, float b )
+            {
+                draw.Text( statsX + 12.0f, ty, 9.0f, 0.67f, 0.74f, 0.77f, name );
+                draw.Text( statsX + 66.0f, ty, 9.5f, r, g, b, value );
+            };
+            compactStat( by + 23.0f, "FPS", fpsText, 0.48f, 0.90f, 0.22f );
+            compactStat( by + 41.0f, "Frame", frameText, 0.32f, 0.90f, 1.0f );
+            compactStat( by + 59.0f, "Draw/UI", drawText, 0.32f, 0.90f, 1.0f );
+        }
+        else
+        {
+            statCell( statsX + 18.0f, "FPS", status, 0.48f, 0.90f, 0.22f );
+            draw.Rect( statsX + 78.0f, by + 23.0f, 1.0f, 42.0f, 0.28f, 0.38f, 0.42f, 0.78f );
+            snprintf( status, sizeof( status ), "%.2f ms", frameDisplayMs );
+            statCell( statsX + 100.0f, "Frame Time", status, 0.32f, 0.90f, 1.0f );
+            draw.Rect( statsX + 190.0f, by + 23.0f, 1.0f, 42.0f, 0.28f, 0.38f, 0.42f, 0.78f );
+            snprintf( status, sizeof( status ), "%d%%", cpuPercent );
+            statCell( statsX + 212.0f, "CPU", status, 0.48f, 0.90f, 0.22f );
+            draw.Rect( statsX + 266.0f, by + 23.0f, 1.0f, 42.0f, 0.28f, 0.38f, 0.42f, 0.78f );
+            snprintf( status, sizeof( status ), "%d%%", gpuPercent );
+            statCell( statsX + 288.0f, "GPU", status, 0.48f, 0.90f, 0.22f );
+            draw.Rect( statsX + 342.0f, by + 23.0f, 1.0f, 42.0f, 0.28f, 0.38f, 0.42f, 0.78f );
+            snprintf( status, sizeof( status ), "%d / %d", drawCalls, data.UIDrawCalls );
+            statCell( statsX + statsW - 112.0f, "Draws / UI", status, 0.32f, 0.90f, 1.0f );
+        }
     }
     else
     {
-        statCell( statsX + 18.0f, "FPS", status, 0.48f, 0.90f, 0.22f );
-        draw.Rect( statsX + 78.0f, by + 23.0f, 1.0f, 42.0f, 0.28f, 0.38f, 0.42f, 0.78f );
-        snprintf( status, sizeof( status ), "%.2f ms", frameDisplayMs );
-        statCell( statsX + 100.0f, "Frame Time", status, 0.32f, 0.90f, 1.0f );
-        draw.Rect( statsX + 190.0f, by + 23.0f, 1.0f, 42.0f, 0.28f, 0.38f, 0.42f, 0.78f );
-        snprintf( status, sizeof( status ), "%d%%", cpuPercent );
-        statCell( statsX + 212.0f, "CPU", status, 0.48f, 0.90f, 0.22f );
-        draw.Rect( statsX + 266.0f, by + 23.0f, 1.0f, 42.0f, 0.28f, 0.38f, 0.42f, 0.78f );
-        snprintf( status, sizeof( status ), "%d%%", gpuPercent );
-        statCell( statsX + 288.0f, "GPU", status, 0.48f, 0.90f, 0.22f );
-        draw.Rect( statsX + 342.0f, by + 23.0f, 1.0f, 42.0f, 0.28f, 0.38f, 0.42f, 0.78f );
-        snprintf( status, sizeof( status ), "%d / %d", drawCalls, data.UIDrawCalls );
-        statCell( statsX + statsW - 112.0f, "Draws / UI", status, 0.32f, 0.90f, 1.0f );
+        if ( titleStatW > 0.0f && titleStatX + titleStatW < x + w - 116.0f )
+        {
+            draw.Text( titleStatX, y + 17.0f, 10.5f, 0.48f, 0.90f, 0.22f, titleStat );
+        }
     }
 
     if ( m_performanceHistogramEnabled )

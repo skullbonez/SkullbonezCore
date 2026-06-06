@@ -166,6 +166,8 @@ struct SceneUIOptions
     bool profilerTimeline = false;
     bool hasPerformanceHistogram = false;
     bool performanceHistogram = false;
+    bool hasScrollY = false;
+    float scrollY = 0.0f;
     bool hasTestPattern = false;
     bool testPatternEnabled = false;
     bool hasMouseOverride = false;

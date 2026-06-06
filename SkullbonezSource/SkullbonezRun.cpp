@@ -3644,6 +3644,10 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
             {
                 m_UI.SetSceneFilter( UIOptions.sceneFilter );
             }
+            if ( UIOptions.hasScrollY )
+            {
+                m_UI.SetScrollY( UIOptions.scrollY );
+            }
             m_UI.SetMouseOverride( UIOptions.hasMouseOverride, UIOptions.mouseX, UIOptions.mouseY );
             if ( UIOptions.hasVisible )
             {
