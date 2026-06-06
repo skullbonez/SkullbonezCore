@@ -1,21 +1,21 @@
 #pragma once
 
 #include "../SkullbonezCommon.h"
-#include "UiButton.h"
-#include "UiCheckBox.h"
-#include "UiComboBox.h"
-#include "UiBackdropBlur.h"
-#include "UiScrollBar.h"
-#include "UiSlider.h"
-#include "UiTabBar.h"
+#include "UIButton.h"
+#include "UICheckBox.h"
+#include "UIComboBox.h"
+#include "UIBackdropBlur.h"
+#include "UIScrollBar.h"
+#include "UISlider.h"
+#include "UITabBar.h"
 #include <cstdint>
 
 namespace SkullbonezCore
 {
-namespace Ui
+namespace UI
 {
 
-enum class InGameUiTab
+enum class InGameUITab
 {
     Overview,
     Profiler,
@@ -27,7 +27,7 @@ enum class InGameUiTab
     Count
 };
 
-struct InGameUiFrameData
+struct InGameUIFrameData
 {
     int screenW = 1;
     int screenH = 1;
@@ -36,8 +36,8 @@ struct InGameUiFrameData
     const char* const* sceneOptions = nullptr;
     int sceneOptionCount = 0;
     int selectedSceneOption = -1;
-    int drawCallsBeforeUi = 0;
-    int uiDrawCalls = 0;
+    int drawCallsBeforeUI = 0;
+    int UIDrawCalls = 0;
     float fps = 0.0f;
     float renderMs = 0.0f;
     float physicsMs = 0.0f;
@@ -86,7 +86,7 @@ struct InGameUiFrameData
     bool canSaveSceneDefaults = false;
 };
 
-struct InGameUiInputResult
+struct InGameUIInputResult
 {
     bool userInteracted = false;
     bool toggleVsync = false;
@@ -132,15 +132,15 @@ struct InGameUiInputResult
     int requestedSceneIndex = -1;          // index into sceneOptions, -1=no request
 };
 
-class InGameUi
+class InGameUI
 {
   public:
     bool IsVisible() const;
     void SetVisible( bool visible, double now = 0.0 );
     void ToggleVisible( double now );
     void SetMinimized( bool minimized, double now = 0.0 );
-    void SetActiveTab( InGameUiTab tab );
-    InGameUiTab GetActiveTab() const;
+    void SetActiveTab( InGameUITab tab );
+    InGameUITab GetActiveTab() const;
     bool BlocksCameraMouse() const;
     bool BlocksKeyboard() const;
     void SetWindowBounds( int x, int y, int width, int height );
@@ -154,8 +154,8 @@ class InGameUi
     void SetMouseOverride( bool enabled, int x = 0, int y = 0 );
     void ResetResources();
 
-    InGameUiInputResult UpdateInput( HWND hwnd, int screenW, int screenH, double now, const char* const* sceneOptions = nullptr, int sceneOptionCount = 0, int selectedSceneOption = -1 );
-    void Draw( const InGameUiFrameData& data );
+    InGameUIInputResult UpdateInput( HWND hwnd, int screenW, int screenH, double now, const char* const* sceneOptions = nullptr, int sceneOptionCount = 0, int selectedSceneOption = -1 );
+    void Draw( const InGameUIFrameData& data );
 
   private:
     bool m_isVisible = true;
@@ -168,37 +168,37 @@ class InGameUi
     bool m_blurPreviewEnabled = false;
     bool m_profilerTimelineEnabled = false;
     bool m_performanceHistogramEnabled = false;
-    InGameUiTab m_activeTab = InGameUiTab::Profiler;
-    UiTabBar m_tabBar;
-    UiCheckBox m_blurToggle;
-    UiCheckBox m_vsyncToggle;
-    UiCheckBox m_timelineToggle;
-    UiCheckBox m_histogramToggle;
-    UiCheckBox m_physicsToggles[7];
-    UiCheckBox m_optionToggles[11];
-    UiCheckBox m_controlToggles[19];
-    UiSlider m_timeScaleSlider;
-    UiSlider m_modelCountSlider;
-    UiSlider m_physicsAlphaSlider;
-    UiSlider m_contactLingerSlider;
-    UiSlider m_frameCountSlider;
-    UiSlider m_seedSlider;
-    UiSlider m_solverBallSlider;
-    UiSlider m_solverBoxSlider;
-    UiSlider m_trackHeightSlider;
-    UiSlider m_autoCycleSlider;
-    UiSlider m_worldGravitySlider;
-    UiSlider m_worldFluidHeightSlider;
-    UiSlider m_worldFluidDensitySlider;
-    UiButton m_resetSceneButton;
-    UiButton m_demoSceneButton;
-    UiButton m_saveDefaultsButton;
-    UiComboBox m_rendererCombo;
-    UiComboBox m_reflectionCombo;
-    UiComboBox m_physicsModeCombo;
-    UiComboBox m_sceneCombo;
-    UiBackdropBlur m_backdropBlur;
-    UiScrollBar m_scrollBar;
+    InGameUITab m_activeTab = InGameUITab::Profiler;
+    UITabBar m_tabBar;
+    UICheckBox m_blurToggle;
+    UICheckBox m_vsyncToggle;
+    UICheckBox m_timelineToggle;
+    UICheckBox m_histogramToggle;
+    UICheckBox m_physicsToggles[7];
+    UICheckBox m_optionToggles[11];
+    UICheckBox m_controlToggles[19];
+    UISlider m_timeScaleSlider;
+    UISlider m_modelCountSlider;
+    UISlider m_physicsAlphaSlider;
+    UISlider m_contactLingerSlider;
+    UISlider m_frameCountSlider;
+    UISlider m_seedSlider;
+    UISlider m_solverBallSlider;
+    UISlider m_solverBoxSlider;
+    UISlider m_trackHeightSlider;
+    UISlider m_autoCycleSlider;
+    UISlider m_worldGravitySlider;
+    UISlider m_worldFluidHeightSlider;
+    UISlider m_worldFluidDensitySlider;
+    UIButton m_resetSceneButton;
+    UIButton m_demoSceneButton;
+    UIButton m_saveDefaultsButton;
+    UIComboBox m_rendererCombo;
+    UIComboBox m_reflectionCombo;
+    UIComboBox m_physicsModeCombo;
+    UIComboBox m_sceneCombo;
+    UIBackdropBlur m_backdropBlur;
+    UIScrollBar m_scrollBar;
     int m_x = 34;
     int m_y = 56;
     int m_width = 760;
@@ -223,7 +223,7 @@ class InGameUi
     int m_sceneComboScroll = 0;
     float m_scrollY = 0.0f;
     double m_scrollbarVisibleUntil = 0.0;
-    int m_activeSlider = 0; // 0=none; other values map to Controls/Options sliders in SkullbonezUi.cpp
+    int m_activeSlider = 0; // 0=none; other values map to Controls/Options sliders in SkullbonezUI.cpp
     float m_previewTimeScale = -1.0f;
     int m_previewModelCount = -1;
     float m_previewPhysicsAlpha = -1.0f;
@@ -262,16 +262,16 @@ class InGameUi
     void ApplyProfilerDefaultExpansion();
     void ApplyProfilerExpandAll();
     void PushPerformanceHistogramSample( float cpuMs, float gpuMs );
-    void DrawPerformanceHistogram( const UiDrawContext& draw, const InGameUiFrameData& data ) const;
+    void DrawPerformanceHistogram( const UIDrawContext& draw, const InGameUIFrameData& data ) const;
     void ClearSceneFilter();
     void CloseSceneCombo();
     void CaptureSceneFilterKeyState();
     bool SceneFilterKeyPressed( int virtualKey );
     void AppendSceneFilterChar( char value );
     void BackspaceSceneFilter();
-    void UpdateSceneFilterTyping( InGameUiInputResult& result, const char* const* sceneOptions, int sceneOptionCount );
+    void UpdateSceneFilterTyping( InGameUIInputResult& result, const char* const* sceneOptions, int sceneOptionCount );
     void SetMaximized( bool maximized, int screenW, int screenH );
 };
 
-} // namespace Ui
+} // namespace UI
 } // namespace SkullbonezCore

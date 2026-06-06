@@ -1,10 +1,10 @@
-#include "UiComboBox.h"
+#include "UIComboBox.h"
 
 #include <algorithm>
 
 namespace SkullbonezCore
 {
-namespace Ui
+namespace UI
 {
 
 namespace
@@ -15,7 +15,7 @@ constexpr float COMBO_FIELD_H = 18.0f;
 constexpr float COMBO_DROPDOWN_GAP = 4.0f;
 constexpr float COMBO_OPTION_H = 20.0f;
 
-void DrawComboChevron( const UiDrawContext& draw, const UiRect& field, bool open )
+void DrawComboChevron( const UIDrawContext& draw, const UIRect& field, bool open )
 {
     const float cx = field.x + field.w - 12.0f;
     const float cy = field.y + field.h * 0.5f;
@@ -31,21 +31,21 @@ void DrawComboChevron( const UiDrawContext& draw, const UiRect& field, bool open
 }
 } // namespace
 
-void UiComboBox::SetBounds( float x, float y, float w, float h )
+void UIComboBox::SetBounds( float x, float y, float w, float h )
 {
     m_bounds = { x, y, w, h };
 }
 
 
-bool UiComboBox::HitBox( int mouseX, int mouseY ) const
+bool UIComboBox::HitBox( int mouseX, int mouseY ) const
 {
     return m_bounds.Contains( mouseX, mouseY );
 }
 
 
-int UiComboBox::HitOption( int mouseX, int mouseY, int optionCount ) const
+int UIComboBox::HitOption( int mouseX, int mouseY, int optionCount ) const
 {
-    const UiRect dropdown = DropdownRect( optionCount );
+    const UIRect dropdown = DropdownRect( optionCount );
     if ( !m_isOpen || optionCount <= 0 || !dropdown.Contains( mouseX, mouseY ) )
     {
         return -1;
@@ -56,53 +56,53 @@ int UiComboBox::HitOption( int mouseX, int mouseY, int optionCount ) const
 }
 
 
-bool UiComboBox::IsOpen() const
+bool UIComboBox::IsOpen() const
 {
     return m_isOpen;
 }
 
 
-void UiComboBox::SetOpen( bool open )
+void UIComboBox::SetOpen( bool open )
 {
     m_isOpen = open;
 }
 
 
-void UiComboBox::SetDropUp( bool dropUp )
+void UIComboBox::SetDropUp( bool dropUp )
 {
     m_dropUp = dropUp;
 }
 
 
-void UiComboBox::ToggleOpen()
+void UIComboBox::ToggleOpen()
 {
     m_isOpen = !m_isOpen;
 }
 
 
-void UiComboBox::Close()
+void UIComboBox::Close()
 {
     m_isOpen = false;
 }
 
 
-UiRect UiComboBox::FieldRect() const
+UIRect UIComboBox::FieldRect() const
 {
     const float fieldW = (std::max)( 54.0f, m_bounds.w - COMBO_LABEL_W );
     return { m_bounds.x + COMBO_LABEL_W, m_bounds.y + COMBO_FIELD_Y, fieldW, COMBO_FIELD_H };
 }
 
 
-UiRect UiComboBox::DropdownRect( int optionCount ) const
+UIRect UIComboBox::DropdownRect( int optionCount ) const
 {
-    const UiRect field = FieldRect();
+    const UIRect field = FieldRect();
     const float dropdownH = COMBO_OPTION_H * static_cast<float>( (std::max)( 1, optionCount ) );
     const float dropdownY = m_dropUp ? field.y - dropdownH - COMBO_DROPDOWN_GAP : field.y + field.h + COMBO_DROPDOWN_GAP;
     return { field.x, dropdownY, field.w, dropdownH };
 }
 
 
-void UiComboBox::Draw( const UiDrawContext& draw, const char* label, const char* const* options, int optionCount, int selectedIndex, int mouseX, int mouseY ) const
+void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char* const* options, int optionCount, int selectedIndex, int mouseX, int mouseY ) const
 {
     const char* selectedText = "";
     if ( selectedIndex >= 0 && selectedIndex < optionCount && options )
@@ -113,10 +113,10 @@ void UiComboBox::Draw( const UiDrawContext& draw, const char* label, const char*
 }
 
 
-void UiComboBox::Draw( const UiDrawContext& draw, const char* label, const char* selectedText, const char* const* options, int optionCount, int selectedIndex, int mouseX, int mouseY ) const
+void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char* selectedText, const char* const* options, int optionCount, int selectedIndex, int mouseX, int mouseY ) const
 {
-    const UiRect field = FieldRect();
-    const UiRect dropdown = DropdownRect( optionCount );
+    const UIRect field = FieldRect();
+    const UIRect dropdown = DropdownRect( optionCount );
     const bool fieldHovered = field.Contains( mouseX, mouseY );
     draw.Text( m_bounds.x, m_bounds.y + 4.0f, 10.5f, 0.74f, 0.82f, 0.84f, label );
     draw.Rect( field.x, field.y, field.w, field.h, fieldHovered ? 0.060f : 0.040f, fieldHovered ? 0.160f : 0.100f, fieldHovered ? 0.190f : 0.120f, 0.92f );
@@ -161,5 +161,5 @@ void UiComboBox::Draw( const UiDrawContext& draw, const char* label, const char*
     }
 }
 
-} // namespace Ui
+} // namespace UI
 } // namespace SkullbonezCore

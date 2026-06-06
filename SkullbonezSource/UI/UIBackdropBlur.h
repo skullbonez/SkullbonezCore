@@ -1,6 +1,6 @@
 #pragma once
 
-#include "UiDraw.h"
+#include "UIDraw.h"
 #include "../SkullbonezIShader.h"
 #include <cstdint>
 #include <memory>
@@ -8,28 +8,26 @@
 
 namespace SkullbonezCore
 {
-namespace Ui
+namespace UI
 {
 
-class UiBackdropBlur
+class UIBackdropBlur
 {
   public:
-    ~UiBackdropBlur();
+    ~UIBackdropBlur();
 
-    void Draw( const UiDrawContext& draw, const UiRect& bounds, int screenW, int screenH, int currentFrame, double now, bool enabled );
+    void Draw( const UIDrawContext& draw, const UIRect& bounds, int screenW, int screenH, int currentFrame, double now, bool enabled );
     void Invalidate();
     void ResetResources();
 
   private:
     void EnsureDrawResources();
-    void RefreshTexture( const UiRect& bounds, int screenW, int screenH );
-    void BlurPass( std::vector<uint8_t>& src, std::vector<uint8_t>& tmp, int width, int height );
+    void RefreshSourceTexture( const UIRect& bounds, int screenW, int screenH );
 
     std::unique_ptr<Rendering::IShader> m_shader;
     uint32_t m_dynamicVB = 0;
     uint32_t m_texture = 0;
-    std::vector<uint8_t> m_blurPixels;
-    std::vector<uint8_t> m_scratchPixels;
+    std::vector<uint8_t> m_sourcePixels;
 
     int m_textureW = 0;
     int m_textureH = 0;
@@ -42,5 +40,5 @@ class UiBackdropBlur
     bool m_invalidated = true;
 };
 
-} // namespace Ui
+} // namespace UI
 } // namespace SkullbonezCore

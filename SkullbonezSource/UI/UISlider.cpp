@@ -1,4 +1,4 @@
-#include "UiSlider.h"
+#include "UISlider.h"
 
 #include "../SkullbonezText.h"
 
@@ -7,22 +7,22 @@
 
 namespace SkullbonezCore
 {
-namespace Ui
+namespace UI
 {
 
-void UiSlider::SetBounds( float x, float y, float w, float h )
+void UISlider::SetBounds( float x, float y, float w, float h )
 {
     m_bounds = { x, y, w, h };
 }
 
 
-bool UiSlider::HitTest( int mouseX, int mouseY ) const
+bool UISlider::HitTest( int mouseX, int mouseY ) const
 {
     return m_bounds.Contains( mouseX, mouseY );
 }
 
 
-float UiSlider::ValueFromMouse( int mouseX, float minValue, float maxValue, float step ) const
+float UISlider::ValueFromMouse( int mouseX, float minValue, float maxValue, float step ) const
 {
     maxValue = (std::max)( minValue, maxValue );
     const float trackX = TrackX();
@@ -37,7 +37,7 @@ float UiSlider::ValueFromMouse( int mouseX, float minValue, float maxValue, floa
 }
 
 
-void UiSlider::Draw( const UiDrawContext& draw, const char* label, const char* valueText, float value, float minValue, float maxValue ) const
+void UISlider::Draw( const UIDrawContext& draw, const char* label, const char* valueText, float value, float minValue, float maxValue ) const
 {
     maxValue = (std::max)( minValue, maxValue );
     const float trackX = TrackX();
@@ -59,16 +59,16 @@ void UiSlider::Draw( const UiDrawContext& draw, const char* label, const char* v
 }
 
 
-float UiSlider::TrackX() const
+float UISlider::TrackX() const
 {
     return m_bounds.x + 118.0f;
 }
 
 
-float UiSlider::TrackW() const
+float UISlider::TrackW() const
 {
     return (std::max)( 80.0f, m_bounds.w - 190.0f );
 }
 
-} // namespace Ui
+} // namespace UI
 } // namespace SkullbonezCore

@@ -138,8 +138,9 @@ struct SceneWorldOverride
     float worldFluidDensity = 0.0f;
 };
 
-struct SceneUiOptions
+struct SceneUIOptions
 {
+    bool hasDirective = false;
     bool hasVisible = false;
     bool isVisible = false;
     bool hasMinimized = false;
@@ -193,7 +194,7 @@ class TestScene
     SceneRuntimeOverrides m_runtimeOverrides;
     SceneTerrainOverride m_terrainOverride;
     SceneWorldOverride m_worldOverride;
-    SceneUiOptions m_uiOptions;
+    SceneUIOptions m_UIOptions;
 
   public:
     TestScene();
@@ -257,7 +258,7 @@ class TestScene
     float GetWorldGravity() const;
     float GetWorldFluidHeight() const;
     float GetWorldFluidDensity() const;
-    const SceneUiOptions& GetUiOptions() const;
+    const SceneUIOptions& GetUIOptions() const;
 };
 } // namespace Basics
 } // namespace SkullbonezCore

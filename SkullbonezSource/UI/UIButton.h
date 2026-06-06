@@ -1,22 +1,22 @@
 #pragma once
 
-#include "UiDraw.h"
+#include "UIDraw.h"
 
 namespace SkullbonezCore
 {
-namespace Ui
+namespace UI
 {
 
-class UiIconButton
+class UIButton
 {
   public:
     void SetBounds( float x, float y, float w, float h );
     bool HitTest( int mouseX, int mouseY ) const;
-    void DrawExpander( const UiDrawContext& draw, bool expanded ) const;
+    void Draw( const UIDrawContext& draw, const char* label, int mouseX, int mouseY ) const;
 
   private:
-    UiRect m_bounds;
+    UIRect m_bounds;
 };
 
-} // namespace Ui
+} // namespace UI
 } // namespace SkullbonezCore

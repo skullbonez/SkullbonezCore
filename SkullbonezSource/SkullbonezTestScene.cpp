@@ -24,7 +24,7 @@ bool ParseOnOff( const char* value, bool& out )
 }
 
 
-bool ParseUiTab( const char* value, int& outTab )
+bool ParseUITab( const char* value, int& outTab )
 {
     if ( strcmp( value, "overview" ) == 0 )
     {
@@ -171,9 +171,9 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
-        // Parse scene UI directives. Visual tests use these for automation, but normal
-        // scenes can also opt into the in-game UI with "ui visible on".
-        if ( strncmp( line, "ui ", 3 ) == 0 )
+        // Parse scene UI directives. The in-game UI is visible by default; scenes
+        // can use these directives to hide it or request a specific layout.
+        if ( strncmp( line, "ui ", 3 ) == 0 || strncmp( line, "UI ", 3 ) == 0 )
         {
             char command[64] = {};
             char value[64] = {};
@@ -182,9 +182,10 @@ TestScene TestScene::LoadFromFile( const char* path )
             {
                 fclose( file );
                 char msg[256];
-                sprintf_s( msg, sizeof( msg ), "Invalid ui directive at line %d  (TestScene::LoadFromFile)", lineNumber );
+                sprintf_s( msg, sizeof( msg ), "Invalid UI directive at line %d  (TestScene::LoadFromFile)", lineNumber );
                 throw std::runtime_error( msg );
             }
+            scene.m_UIOptions.hasDirective = true;
 
             if ( strcmp( command, "visible" ) == 0 )
             {
@@ -193,11 +194,11 @@ TestScene TestScene::LoadFromFile( const char* path )
                 {
                     fclose( file );
                     char msg[256];
-                    sprintf_s( msg, sizeof( msg ), "Invalid ui visible value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI visible value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
                     throw std::runtime_error( msg );
                 }
-                scene.m_uiOptions.hasVisible = true;
-                scene.m_uiOptions.isVisible = parsedValue;
+                scene.m_UIOptions.hasVisible = true;
+                scene.m_UIOptions.isVisible = parsedValue;
                 continue;
             }
 
@@ -208,26 +209,26 @@ TestScene TestScene::LoadFromFile( const char* path )
                 {
                     fclose( file );
                     char msg[256];
-                    sprintf_s( msg, sizeof( msg ), "Invalid ui minimized value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI minimized value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
                     throw std::runtime_error( msg );
                 }
-                scene.m_uiOptions.hasMinimized = true;
-                scene.m_uiOptions.isMinimized = parsedValue;
+                scene.m_UIOptions.hasMinimized = true;
+                scene.m_UIOptions.isMinimized = parsedValue;
                 continue;
             }
 
             if ( strcmp( command, "tab" ) == 0 )
             {
                 int tab = 0;
-                if ( !ParseUiTab( value, tab ) )
+                if ( !ParseUITab( value, tab ) )
                 {
                     fclose( file );
                     char msg[256];
-                    sprintf_s( msg, sizeof( msg ), "Invalid ui tab value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI tab value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
                     throw std::runtime_error( msg );
                 }
-                scene.m_uiOptions.hasActiveTab = true;
-                scene.m_uiOptions.activeTab = tab;
+                scene.m_UIOptions.hasActiveTab = true;
+                scene.m_UIOptions.activeTab = tab;
                 continue;
             }
 
@@ -242,14 +243,14 @@ TestScene TestScene::LoadFromFile( const char* path )
                 {
                     fclose( file );
                     char msg[256];
-                    sprintf_s( msg, sizeof( msg ), "Invalid ui rect at line %d (expected: ui rect <x> <y> <w> <h>)  (TestScene::LoadFromFile)", lineNumber );
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI rect at line %d (expected: UI rect <x> <y> <w> <h>)  (TestScene::LoadFromFile)", lineNumber );
                     throw std::runtime_error( msg );
                 }
-                scene.m_uiOptions.hasWindowRect = true;
-                scene.m_uiOptions.windowX = x;
-                scene.m_uiOptions.windowY = y;
-                scene.m_uiOptions.windowW = w;
-                scene.m_uiOptions.windowH = h;
+                scene.m_UIOptions.hasWindowRect = true;
+                scene.m_UIOptions.windowX = x;
+                scene.m_UIOptions.windowY = y;
+                scene.m_UIOptions.windowW = w;
+                scene.m_UIOptions.windowH = h;
                 continue;
             }
 
@@ -260,11 +261,11 @@ TestScene TestScene::LoadFromFile( const char* path )
                 {
                     fclose( file );
                     char msg[256];
-                    sprintf_s( msg, sizeof( msg ), "Invalid ui blur value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI blur value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
                     throw std::runtime_error( msg );
                 }
-                scene.m_uiOptions.hasBlur = true;
-                scene.m_uiOptions.blurEnabled = parsedValue;
+                scene.m_UIOptions.hasBlur = true;
+                scene.m_UIOptions.blurEnabled = parsedValue;
                 continue;
             }
 
@@ -275,11 +276,11 @@ TestScene TestScene::LoadFromFile( const char* path )
                 {
                     fclose( file );
                     char msg[256];
-                    sprintf_s( msg, sizeof( msg ), "Invalid ui renderer_combo value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI renderer_combo value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
                     throw std::runtime_error( msg );
                 }
-                scene.m_uiOptions.hasRendererComboOpen = true;
-                scene.m_uiOptions.rendererComboOpen = parsedValue;
+                scene.m_UIOptions.hasRendererComboOpen = true;
+                scene.m_UIOptions.rendererComboOpen = parsedValue;
                 continue;
             }
 
@@ -290,18 +291,18 @@ TestScene TestScene::LoadFromFile( const char* path )
                 {
                     fclose( file );
                     char msg[256];
-                    sprintf_s( msg, sizeof( msg ), "Invalid ui scene_combo value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI scene_combo value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
                     throw std::runtime_error( msg );
                 }
-                scene.m_uiOptions.hasSceneComboOpen = true;
-                scene.m_uiOptions.sceneComboOpen = parsedValue;
+                scene.m_UIOptions.hasSceneComboOpen = true;
+                scene.m_UIOptions.sceneComboOpen = parsedValue;
                 continue;
             }
 
             if ( strcmp( command, "scene_filter" ) == 0 )
             {
-                scene.m_uiOptions.hasSceneFilter = true;
-                strncpy_s( scene.m_uiOptions.sceneFilter, sizeof( scene.m_uiOptions.sceneFilter ), value, _TRUNCATE );
+                scene.m_UIOptions.hasSceneFilter = true;
+                strncpy_s( scene.m_UIOptions.sceneFilter, sizeof( scene.m_UIOptions.sceneFilter ), value, _TRUNCATE );
                 continue;
             }
 
@@ -312,11 +313,11 @@ TestScene TestScene::LoadFromFile( const char* path )
                 {
                     fclose( file );
                     char msg[256];
-                    sprintf_s( msg, sizeof( msg ), "Invalid ui profiler_expand value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI profiler_expand value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
                     throw std::runtime_error( msg );
                 }
-                scene.m_uiOptions.hasProfilerExpandAll = true;
-                scene.m_uiOptions.profilerExpandAll = parsedValue;
+                scene.m_UIOptions.hasProfilerExpandAll = true;
+                scene.m_UIOptions.profilerExpandAll = parsedValue;
                 continue;
             }
 
@@ -327,11 +328,11 @@ TestScene TestScene::LoadFromFile( const char* path )
                 {
                     fclose( file );
                     char msg[256];
-                    sprintf_s( msg, sizeof( msg ), "Invalid ui timeline value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI timeline value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
                     throw std::runtime_error( msg );
                 }
-                scene.m_uiOptions.hasProfilerTimeline = true;
-                scene.m_uiOptions.profilerTimeline = parsedValue;
+                scene.m_UIOptions.hasProfilerTimeline = true;
+                scene.m_UIOptions.profilerTimeline = parsedValue;
                 continue;
             }
 
@@ -342,11 +343,11 @@ TestScene TestScene::LoadFromFile( const char* path )
                 {
                     fclose( file );
                     char msg[256];
-                    sprintf_s( msg, sizeof( msg ), "Invalid ui histogram value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI histogram value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
                     throw std::runtime_error( msg );
                 }
-                scene.m_uiOptions.hasPerformanceHistogram = true;
-                scene.m_uiOptions.performanceHistogram = parsedValue;
+                scene.m_UIOptions.hasPerformanceHistogram = true;
+                scene.m_UIOptions.performanceHistogram = parsedValue;
                 continue;
             }
 
@@ -359,34 +360,34 @@ TestScene TestScene::LoadFromFile( const char* path )
                 {
                     fclose( file );
                     char msg[256];
-                    sprintf_s( msg, sizeof( msg ), "Invalid ui mouse at line %d (expected: ui mouse <x> <y>)  (TestScene::LoadFromFile)", lineNumber );
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI mouse at line %d (expected: UI mouse <x> <y>)  (TestScene::LoadFromFile)", lineNumber );
                     throw std::runtime_error( msg );
                 }
-                scene.m_uiOptions.hasMouseOverride = true;
-                scene.m_uiOptions.mouseX = x;
-                scene.m_uiOptions.mouseY = y;
+                scene.m_UIOptions.hasMouseOverride = true;
+                scene.m_UIOptions.mouseX = x;
+                scene.m_UIOptions.mouseY = y;
                 continue;
             }
 
             fclose( file );
             char msg[256];
-            sprintf_s( msg, sizeof( msg ), "Unknown ui directive at line %d: %s  (TestScene::LoadFromFile)", lineNumber, command );
+            sprintf_s( msg, sizeof( msg ), "Unknown UI directive at line %d: %s  (TestScene::LoadFromFile)", lineNumber, command );
             throw std::runtime_error( msg );
         }
 
         // parse ui_test_pattern directive: bright checker backdrop for blur/visual tests
-        if ( strncmp( line, "ui_test_pattern ", 16 ) == 0 )
+        if ( strncmp( line, "ui_test_pattern ", 16 ) == 0 || strncmp( line, "UI_test_pattern ", 16 ) == 0 )
         {
             bool parsedValue = false;
             if ( !ParseOnOff( line + 16, parsedValue ) )
             {
                 fclose( file );
                 char msg[256];
-                sprintf_s( msg, sizeof( msg ), "Invalid ui_test_pattern value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 16 );
+                sprintf_s( msg, sizeof( msg ), "Invalid UI_test_pattern value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 16 );
                 throw std::runtime_error( msg );
             }
-            scene.m_uiOptions.hasTestPattern = true;
-            scene.m_uiOptions.testPatternEnabled = parsedValue;
+            scene.m_UIOptions.hasTestPattern = true;
+            scene.m_UIOptions.testPatternEnabled = parsedValue;
             continue;
         }
 
@@ -1523,7 +1524,7 @@ float TestScene::GetWorldFluidDensity() const
 }
 
 
-const SceneUiOptions& TestScene::GetUiOptions() const
+const SceneUIOptions& TestScene::GetUIOptions() const
 {
-    return m_uiOptions;
+    return m_UIOptions;
 }

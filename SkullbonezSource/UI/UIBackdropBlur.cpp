@@ -1,4 +1,4 @@
-#include "UiBackdropBlur.h"
+#include "UIBackdropBlur.h"
 
 #include "../SkullbonezIRenderBackend.h"
 #include "../SkullbonezMatrix4.h"
@@ -8,17 +8,11 @@
 
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
-using namespace SkullbonezCore::Ui;
+using namespace SkullbonezCore::UI;
 
 namespace
 {
 constexpr int BLUR_PAD_PIXELS = 10;
-
-int ClampByte( float value )
-{
-    return static_cast<int>( std::clamp( value, 0.0f, 255.0f ) );
-}
-
 
 float ClampUv( float value )
 {
@@ -27,19 +21,19 @@ float ClampUv( float value )
 } // namespace
 
 
-UiBackdropBlur::~UiBackdropBlur()
+UIBackdropBlur::~UIBackdropBlur()
 {
     ResetResources();
 }
 
 
-void UiBackdropBlur::Invalidate()
+void UIBackdropBlur::Invalidate()
 {
     m_invalidated = true;
 }
 
 
-void UiBackdropBlur::ResetResources()
+void UIBackdropBlur::ResetResources()
 {
     if ( IsGfxReady() )
     {
@@ -66,11 +60,11 @@ void UiBackdropBlur::ResetResources()
 }
 
 
-void UiBackdropBlur::EnsureDrawResources()
+void UIBackdropBlur::EnsureDrawResources()
 {
     if ( !m_shader )
     {
-        m_shader = Gfx().CreateShader( "shaders/ui_textured" );
+        m_shader = Gfx().CreateShader( "shaders/UIBackdropBlur" );
         m_shader->Use();
         m_shader->SetInt( "uTexture", 0 );
     }
@@ -83,54 +77,7 @@ void UiBackdropBlur::EnsureDrawResources()
 }
 
 
-void UiBackdropBlur::BlurPass( std::vector<uint8_t>& src, std::vector<uint8_t>& tmp, int width, int height )
-{
-    if ( width <= 0 || height <= 0 )
-    {
-        return;
-    }
-
-    tmp.resize( src.size() );
-    static constexpr int kWeights[] = { 1, 4, 6, 4, 1 };
-    static constexpr int kWeightSum = 16;
-
-    for ( int y = 0; y < height; ++y )
-    {
-        for ( int x = 0; x < width; ++x )
-        {
-            for ( int c = 0; c < 3; ++c )
-            {
-                int accum = 0;
-                for ( int k = -2; k <= 2; ++k )
-                {
-                    const int sx = std::clamp( x + k, 0, width - 1 );
-                    accum += kWeights[k + 2] * src[( static_cast<size_t>( y ) * width + sx ) * 3 + c];
-                }
-                tmp[( static_cast<size_t>( y ) * width + x ) * 3 + c] = static_cast<uint8_t>( accum / kWeightSum );
-            }
-        }
-    }
-
-    for ( int y = 0; y < height; ++y )
-    {
-        for ( int x = 0; x < width; ++x )
-        {
-            for ( int c = 0; c < 3; ++c )
-            {
-                int accum = 0;
-                for ( int k = -2; k <= 2; ++k )
-                {
-                    const int sy = std::clamp( y + k, 0, height - 1 );
-                    accum += kWeights[k + 2] * tmp[( static_cast<size_t>( sy ) * width + x ) * 3 + c];
-                }
-                src[( static_cast<size_t>( y ) * width + x ) * 3 + c] = static_cast<uint8_t>( accum / kWeightSum );
-            }
-        }
-    }
-}
-
-
-void UiBackdropBlur::RefreshTexture( const UiRect& bounds, int screenW, int screenH )
+void UIBackdropBlur::RefreshSourceTexture( const UIRect& bounds, int screenW, int screenH )
 {
     int captureW = 0;
     int captureH = 0;
@@ -153,7 +100,7 @@ void UiBackdropBlur::RefreshTexture( const UiRect& bounds, int screenW, int scre
     const int outW = (std::max)( 1, cropW / scale );
     const int outH = (std::max)( 1, cropH / scale );
 
-    m_blurPixels.assign( static_cast<size_t>( outW ) * outH * 3, 0 );
+    m_sourcePixels.assign( static_cast<size_t>( outW ) * outH * 3, 0 );
     const int srcStride = ( captureW * 3 + 3 ) & ~3;
 
     for ( int oy = 0; oy < outH; ++oy )
@@ -181,14 +128,11 @@ void UiBackdropBlur::RefreshTexture( const UiRect& bounds, int screenW, int scre
 
             const float invSamples = samples > 0 ? 1.0f / static_cast<float>( samples ) : 1.0f;
             const size_t dstIndex = ( static_cast<size_t>( oy ) * outW + ox ) * 3;
-            m_blurPixels[dstIndex + 0] = static_cast<uint8_t>( ClampByte( static_cast<float>( sumR ) * invSamples * 1.20f + 18.0f ) );
-            m_blurPixels[dstIndex + 1] = static_cast<uint8_t>( ClampByte( static_cast<float>( sumG ) * invSamples * 1.24f + 20.0f ) );
-            m_blurPixels[dstIndex + 2] = static_cast<uint8_t>( ClampByte( static_cast<float>( sumB ) * invSamples * 1.30f + 24.0f ) );
+            m_sourcePixels[dstIndex + 0] = static_cast<uint8_t>( static_cast<float>( sumR ) * invSamples );
+            m_sourcePixels[dstIndex + 1] = static_cast<uint8_t>( static_cast<float>( sumG ) * invSamples );
+            m_sourcePixels[dstIndex + 2] = static_cast<uint8_t>( static_cast<float>( sumB ) * invSamples );
         }
     }
-
-    BlurPass( m_blurPixels, m_scratchPixels, outW, outH );
-    BlurPass( m_blurPixels, m_scratchPixels, outW, outH );
 
     if ( m_texture != 0 )
     {
@@ -196,7 +140,7 @@ void UiBackdropBlur::RefreshTexture( const UiRect& bounds, int screenW, int scre
         m_texture = 0;
     }
 
-    m_texture = Gfx().CreateTexture2D( m_blurPixels.data(), outW, outH, 3, false, true );
+    m_texture = Gfx().CreateTexture2D( m_sourcePixels.data(), outW, outH, 3, false, true );
     m_textureW = outW;
     m_textureH = outH;
     m_lastScreenW = screenW;
@@ -209,7 +153,7 @@ void UiBackdropBlur::RefreshTexture( const UiRect& bounds, int screenW, int scre
 }
 
 
-void UiBackdropBlur::Draw( const UiDrawContext& draw, const UiRect& bounds, int screenW, int screenH, int currentFrame, double now, bool enabled )
+void UIBackdropBlur::Draw( const UIDrawContext& draw, const UIRect& bounds, int screenW, int screenH, int currentFrame, double now, bool enabled )
 {
     if ( !enabled || bounds.w <= 1.0f || bounds.h <= 1.0f || !IsGfxReady() )
     {
@@ -232,7 +176,7 @@ void UiBackdropBlur::Draw( const UiDrawContext& draw, const UiRect& bounds, int 
     const bool needsRefresh = m_texture == 0 || m_invalidated || geometryChanged;
     if ( needsRefresh )
     {
-        RefreshTexture( bounds, screenW, screenH );
+        RefreshSourceTexture( bounds, screenW, screenH );
     }
 
     if ( m_texture == 0 || m_dynamicVB == 0 || !m_shader || m_invalidated || m_lastW <= 0 || m_lastH <= 0 )
@@ -279,6 +223,7 @@ void UiBackdropBlur::Draw( const UiDrawContext& draw, const UiRect& bounds, int 
     m_shader->Use();
     m_shader->SetMat4( "uProjection", proj );
     m_shader->SetInt( "uTexture", 0 );
+    m_shader->SetVec4( "uTexelSize", 1.0f / static_cast<float>( m_textureW ), 1.0f / static_cast<float>( m_textureH ), 0.0f, 0.0f );
     Gfx().BindTexture( m_texture, 0 );
     Gfx().UploadAndDrawDynamicVB( m_dynamicVB, verts, 6 );
     Gfx().SetDepthTest( depthWasEnabled );

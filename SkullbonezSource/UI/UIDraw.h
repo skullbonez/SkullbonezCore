@@ -4,10 +4,10 @@
 
 namespace SkullbonezCore
 {
-namespace Ui
+namespace UI
 {
 
-struct UiRect
+struct UIRect
 {
     float x = 0.0f;
     float y = 0.0f;
@@ -17,10 +17,10 @@ struct UiRect
     bool Contains( int px, int py ) const;
 };
 
-class UiDrawContext
+class UIDrawContext
 {
   public:
-    UiDrawContext( int screenW, int screenH );
+    UIDrawContext( int screenW, int screenH );
 
     void Rect( float x, float y, float w, float h, float r, float g, float b, float a ) const;
     void Outline( float x, float y, float w, float h, float r, float g, float b, float a ) const;
@@ -43,5 +43,5 @@ class UiDrawContext
     float m_sy = 1.0f;
 };
 
-} // namespace Ui
+} // namespace UI
 } // namespace SkullbonezCore

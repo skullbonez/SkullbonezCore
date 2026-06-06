@@ -1,10 +1,10 @@
-#include "SkullbonezUi.h"
+#include "SkullbonezUI.h"
 #include "../SkullbonezInput.h"
 #include "../SkullbonezPhysicsDebugVisualizer.h"
 #include "../SkullbonezProfiler.h"
 #include "../SkullbonezText.h"
-#include "UiDraw.h"
-#include "UiIconButton.h"
+#include "UIDraw.h"
+#include "UIIconButton.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -14,7 +14,7 @@ using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Text;
-using namespace SkullbonezCore::Ui;
+using namespace SkullbonezCore::UI;
 
 namespace
 {
@@ -85,7 +85,7 @@ bool ProfilerMarkerHasChildren( const Profiler& profiler, int markerIndex )
 }
 
 
-int WaterReflectionModeFromData( const InGameUiFrameData& data )
+int WaterReflectionModeFromData( const InGameUIFrameData& data )
 {
     if ( data.waterNoReflect )
     {
@@ -95,7 +95,7 @@ int WaterReflectionModeFromData( const InGameUiFrameData& data )
 }
 
 
-int PhysicsModeFromData( const InGameUiFrameData& data )
+int PhysicsModeFromData( const InGameUIFrameData& data )
 {
     return data.legacyPhysics ? 0 : 1;
 }
@@ -183,7 +183,7 @@ enum class TitleButtonIcon
 };
 
 
-void DrawTitleButton( const UiDrawContext& draw, const UiRect& bounds, TitleButtonIcon icon, bool hot, bool active )
+void DrawTitleButton( const UIDrawContext& draw, const UIRect& bounds, TitleButtonIcon icon, bool hot, bool active )
 {
     const float bgR = hot ? 0.050f : ( active ? 0.038f : 0.026f );
     const float bgG = hot ? 0.210f : ( active ? 0.145f : 0.080f );
@@ -308,7 +308,7 @@ float ProfilerMarkerDisplayCpuMs( const Profiler::Marker& marker )
 }
 
 
-UiRect MinimizedRect( int screenW, int screenH )
+UIRect MinimizedRect( int screenW, int screenH )
 {
     constexpr float desiredW = 360.0f;
     constexpr float h = 38.0f;
@@ -317,7 +317,7 @@ UiRect MinimizedRect( int screenW, int screenH )
     return { margin, (std::max)( margin, static_cast<float>( screenH ) - h - margin ), w, h };
 }
 
-void BuildWindowTitle( const InGameUiFrameData& data, char* out, size_t outSize )
+void BuildWindowTitle( const InGameUIFrameData& data, char* out, size_t outSize )
 {
     if ( outSize == 0 )
     {
@@ -378,13 +378,13 @@ void FitTitleText( char* text, size_t textSize, float fontSize, float maxWidth )
 }
 } // namespace
 
-bool InGameUi::IsVisible() const
+bool InGameUI::IsVisible() const
 {
     return m_isVisible;
 }
 
 
-void InGameUi::SetVisible( bool visible, double now )
+void InGameUI::SetVisible( bool visible, double now )
 {
     m_isVisible = visible;
     m_backdropBlur.Invalidate();
@@ -407,7 +407,7 @@ void InGameUi::SetVisible( bool visible, double now )
 }
 
 
-void InGameUi::ToggleVisible( double now )
+void InGameUI::ToggleVisible( double now )
 {
     if ( !m_isVisible )
     {
@@ -418,7 +418,7 @@ void InGameUi::ToggleVisible( double now )
 }
 
 
-void InGameUi::SetMinimized( bool minimized, double now )
+void InGameUI::SetMinimized( bool minimized, double now )
 {
     if ( m_isMinimized == minimized )
     {
@@ -444,7 +444,7 @@ void InGameUi::SetMinimized( bool minimized, double now )
 }
 
 
-void InGameUi::SetActiveTab( InGameUiTab tab )
+void InGameUI::SetActiveTab( InGameUITab tab )
 {
     m_activeTab = tab;
     m_scrollY = 0.0f;
@@ -463,25 +463,25 @@ void InGameUi::SetActiveTab( InGameUiTab tab )
 }
 
 
-InGameUiTab InGameUi::GetActiveTab() const
+InGameUITab InGameUI::GetActiveTab() const
 {
     return m_activeTab;
 }
 
 
-bool InGameUi::BlocksCameraMouse() const
+bool InGameUI::BlocksCameraMouse() const
 {
     return m_blocksCameraMouse;
 }
 
 
-bool InGameUi::BlocksKeyboard() const
+bool InGameUI::BlocksKeyboard() const
 {
     return m_isVisible && !m_isMinimized && m_sceneCombo.IsOpen();
 }
 
 
-void InGameUi::SetWindowBounds( int x, int y, int width, int height )
+void InGameUI::SetWindowBounds( int x, int y, int width, int height )
 {
     m_x = x;
     m_y = y;
@@ -494,7 +494,7 @@ void InGameUi::SetWindowBounds( int x, int y, int width, int height )
 }
 
 
-void InGameUi::SetBlurEnabled( bool enabled )
+void InGameUI::SetBlurEnabled( bool enabled )
 {
     if ( m_blurPreviewEnabled != enabled )
     {
@@ -504,13 +504,13 @@ void InGameUi::SetBlurEnabled( bool enabled )
 }
 
 
-void InGameUi::SetRendererComboOpen( bool open )
+void InGameUI::SetRendererComboOpen( bool open )
 {
     m_rendererCombo.SetOpen( open );
 }
 
 
-void InGameUi::SetSceneComboOpen( bool open )
+void InGameUI::SetSceneComboOpen( bool open )
 {
     m_sceneCombo.SetOpen( open );
     if ( open )
@@ -524,14 +524,14 @@ void InGameUi::SetSceneComboOpen( bool open )
 }
 
 
-void InGameUi::SetSceneFilter( const char* filter )
+void InGameUI::SetSceneFilter( const char* filter )
 {
     strncpy_s( m_sceneFilter, sizeof( m_sceneFilter ), filter ? filter : "", _TRUNCATE );
     m_sceneComboScroll = 0;
 }
 
 
-void InGameUi::SetProfilerExpandAll( bool expandAll )
+void InGameUI::SetProfilerExpandAll( bool expandAll )
 {
     m_expandAllProfilerMarkers = expandAll;
     m_expandedProfilerHashCount = 0;
@@ -543,13 +543,13 @@ void InGameUi::SetProfilerExpandAll( bool expandAll )
 }
 
 
-void InGameUi::SetProfilerTimelineEnabled( bool enabled )
+void InGameUI::SetProfilerTimelineEnabled( bool enabled )
 {
     m_profilerTimelineEnabled = enabled;
 }
 
 
-void InGameUi::SetPerformanceHistogramEnabled( bool enabled )
+void InGameUI::SetPerformanceHistogramEnabled( bool enabled )
 {
     m_performanceHistogramEnabled = enabled;
     if ( !enabled )
@@ -561,7 +561,7 @@ void InGameUi::SetPerformanceHistogramEnabled( bool enabled )
 }
 
 
-void InGameUi::SetMouseOverride( bool enabled, int x, int y )
+void InGameUI::SetMouseOverride( bool enabled, int x, int y )
 {
     m_hasMouseOverride = enabled;
     m_mouseOverrideX = x;
@@ -574,7 +574,7 @@ void InGameUi::SetMouseOverride( bool enabled, int x, int y )
 }
 
 
-void InGameUi::SetMaximized( bool maximized, int screenW, int screenH )
+void InGameUI::SetMaximized( bool maximized, int screenW, int screenH )
 {
     if ( m_isMaximized == maximized )
     {
@@ -614,13 +614,13 @@ void InGameUi::SetMaximized( bool maximized, int screenW, int screenH )
 }
 
 
-void InGameUi::ResetResources()
+void InGameUI::ResetResources()
 {
     m_backdropBlur.ResetResources();
 }
 
 
-void InGameUi::ApplyProfilerExpandAll()
+void InGameUI::ApplyProfilerExpandAll()
 {
     if ( !m_expandAllProfilerMarkers )
     {
@@ -639,7 +639,7 @@ void InGameUi::ApplyProfilerExpandAll()
 }
 
 
-void InGameUi::ApplyProfilerDefaultExpansion()
+void InGameUI::ApplyProfilerDefaultExpansion()
 {
     if ( m_profilerDefaultExpansionApplied )
     {
@@ -669,21 +669,21 @@ void InGameUi::ApplyProfilerDefaultExpansion()
 }
 
 
-int InGameUi::ContentHeight() const
+int InGameUI::ContentHeight() const
 {
     switch ( m_activeTab )
     {
-    case InGameUiTab::Keys:
+    case InGameUITab::Keys:
         return 1120;
-    case InGameUiTab::Profiler:
+    case InGameUITab::Profiler:
     {
         int visibleRows[PROFILER_UI_MAX_MARKERS] = {};
         const int visibleMarkerCount = BuildVisibleProfilerRows( visibleRows, PROFILER_UI_MAX_MARKERS );
         return 54 + visibleMarkerCount * 30;
     }
-    case InGameUiTab::Physics:
-        return 330;
-    case InGameUiTab::Options:
+    case InGameUITab::Physics:
+        return 384;
+    case InGameUITab::Options:
         return 440;
     default:
         return 330;
@@ -691,7 +691,7 @@ int InGameUi::ContentHeight() const
 }
 
 
-int InGameUi::BuildVisibleProfilerRows( int* rows, int maxRows ) const
+int InGameUI::BuildVisibleProfilerRows( int* rows, int maxRows ) const
 {
     const Profiler& profiler = Profiler::Instance();
     const int markerCount = (std::min)( profiler.MarkerCount(), PROFILER_UI_MAX_MARKERS );
@@ -745,7 +745,7 @@ int InGameUi::BuildVisibleProfilerRows( int* rows, int maxRows ) const
 }
 
 
-void InGameUi::BuildProfilerTimelineSegments( const int* rows, int rowCount, ProfilerTimelineSegment* segments ) const
+void InGameUI::BuildProfilerTimelineSegments( const int* rows, int rowCount, ProfilerTimelineSegment* segments ) const
 {
     const Profiler& profiler = Profiler::Instance();
     const int markerCount = (std::min)( profiler.MarkerCount(), PROFILER_UI_MAX_MARKERS );
@@ -816,7 +816,7 @@ void InGameUi::BuildProfilerTimelineSegments( const int* rows, int rowCount, Pro
 }
 
 
-bool InGameUi::IsProfilerMarkerExpanded( uint32_t hash ) const
+bool InGameUI::IsProfilerMarkerExpanded( uint32_t hash ) const
 {
     for ( int i = 0; i < m_expandedProfilerHashCount; ++i )
     {
@@ -829,7 +829,7 @@ bool InGameUi::IsProfilerMarkerExpanded( uint32_t hash ) const
 }
 
 
-void InGameUi::ToggleProfilerMarker( uint32_t hash )
+void InGameUI::ToggleProfilerMarker( uint32_t hash )
 {
     m_profilerDefaultExpansionApplied = true;
     for ( int i = 0; i < m_expandedProfilerHashCount; ++i )
@@ -851,7 +851,7 @@ void InGameUi::ToggleProfilerMarker( uint32_t hash )
 }
 
 
-void InGameUi::PushPerformanceHistogramSample( float cpuMs, float gpuMs )
+void InGameUI::PushPerformanceHistogramSample( float cpuMs, float gpuMs )
 {
     cpuMs = std::clamp( cpuMs, 0.0f, 250.0f );
     gpuMs = std::clamp( gpuMs, 0.0f, 250.0f );
@@ -908,7 +908,7 @@ void InGameUi::PushPerformanceHistogramSample( float cpuMs, float gpuMs )
 }
 
 
-void InGameUi::DrawPerformanceHistogram( const UiDrawContext& draw, const InGameUiFrameData& data ) const
+void InGameUI::DrawPerformanceHistogram( const UIDrawContext& draw, const InGameUIFrameData& data ) const
 {
     if ( m_performanceHistogramCount <= 0 )
     {
@@ -989,21 +989,21 @@ void InGameUi::DrawPerformanceHistogram( const UiDrawContext& draw, const InGame
 }
 
 
-void InGameUi::ClearSceneFilter()
+void InGameUI::ClearSceneFilter()
 {
     m_sceneFilter[0] = '\0';
     m_sceneComboScroll = 0;
 }
 
 
-void InGameUi::CloseSceneCombo()
+void InGameUI::CloseSceneCombo()
 {
     m_sceneCombo.Close();
     ClearSceneFilter();
 }
 
 
-void InGameUi::CaptureSceneFilterKeyState()
+void InGameUI::CaptureSceneFilterKeyState()
 {
     for ( int key = 0; key < 256; ++key )
     {
@@ -1012,7 +1012,7 @@ void InGameUi::CaptureSceneFilterKeyState()
 }
 
 
-bool InGameUi::SceneFilterKeyPressed( int virtualKey )
+bool InGameUI::SceneFilterKeyPressed( int virtualKey )
 {
     if ( virtualKey < 0 || virtualKey >= 256 )
     {
@@ -1026,7 +1026,7 @@ bool InGameUi::SceneFilterKeyPressed( int virtualKey )
 }
 
 
-void InGameUi::AppendSceneFilterChar( char value )
+void InGameUI::AppendSceneFilterChar( char value )
 {
     const size_t len = strlen( m_sceneFilter );
     if ( len >= sizeof( m_sceneFilter ) - 1 )
@@ -1039,7 +1039,7 @@ void InGameUi::AppendSceneFilterChar( char value )
 }
 
 
-void InGameUi::BackspaceSceneFilter()
+void InGameUI::BackspaceSceneFilter()
 {
     const size_t len = strlen( m_sceneFilter );
     if ( len == 0 )
@@ -1051,9 +1051,9 @@ void InGameUi::BackspaceSceneFilter()
 }
 
 
-void InGameUi::UpdateSceneFilterTyping( InGameUiInputResult& result, const char* const* sceneOptions, int sceneOptionCount )
+void InGameUI::UpdateSceneFilterTyping( InGameUIInputResult& result, const char* const* sceneOptions, int sceneOptionCount )
 {
-    if ( !m_sceneCombo.IsOpen() || m_activeTab != InGameUiTab::Scene )
+    if ( !m_sceneCombo.IsOpen() || m_activeTab != InGameUITab::Scene )
     {
         return;
     }
@@ -1126,9 +1126,9 @@ void InGameUi::UpdateSceneFilterTyping( InGameUiInputResult& result, const char*
 }
 
 
-InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, double now, const char* const* sceneOptions, int sceneOptionCount, int selectedSceneOption )
+InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, double now, const char* const* sceneOptions, int sceneOptionCount, int selectedSceneOption )
 {
-    InGameUiInputResult result;
+    InGameUIInputResult result;
     m_blocksCameraMouse = false;
     const int wheelDelta = Input::ConsumeMouseWheelDelta();
     if ( !m_isVisible )
@@ -1166,7 +1166,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
     const bool leftNow = Input::IsLeftMouseDown();
     if ( m_isMinimized )
     {
-        const UiRect minimized = MinimizedRect( screenW, screenH );
+        const UIRect minimized = MinimizedRect( screenW, screenH );
         const bool insideMinimized = minimized.Contains( m_mouseX, m_mouseY );
         if ( leftNow && !m_leftWasDown && insideMinimized )
         {
@@ -1188,9 +1188,9 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
     const int bottomY = m_y + m_height - bottomH;
     const bool inContent = inside && m_mouseY >= contentY && m_mouseY <= contentY + contentH;
     const float maxScroll = static_cast<float>( (std::max)( 0, ContentHeight() - contentH ) );
-    const UiRect minimizeButton = { static_cast<float>( m_x + m_width - 112 ), static_cast<float>( m_y + 8 ), 30.0f, 28.0f };
-    const UiRect maximizeButton = { static_cast<float>( m_x + m_width - 76 ), static_cast<float>( m_y + 8 ), 30.0f, 28.0f };
-    const UiRect closeButton = { static_cast<float>( m_x + m_width - 40 ), static_cast<float>( m_y + 8 ), 30.0f, 28.0f };
+    const UIRect minimizeButton = { static_cast<float>( m_x + m_width - 112 ), static_cast<float>( m_y + 8 ), 30.0f, 28.0f };
+    const UIRect maximizeButton = { static_cast<float>( m_x + m_width - 76 ), static_cast<float>( m_y + 8 ), 30.0f, 28.0f };
+    const UIRect closeButton = { static_cast<float>( m_x + m_width - 40 ), static_cast<float>( m_y + 8 ), 30.0f, 28.0f };
 
     m_tabBar.SetBounds( static_cast<float>( m_x + 14 ), static_cast<float>( m_y + titleH ), static_cast<float>( m_width - 28 ), static_cast<float>( tabH ) );
     m_blurToggle.SetBounds( static_cast<float>( m_x + 32 ), static_cast<float>( bottomY + 22 ), 100.0f, 24.0f );
@@ -1209,7 +1209,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
     UpdateSceneFilterTyping( result, sceneOptions, sceneOptionCount );
 
     bool wheelHandled = false;
-    if ( wheelDelta != 0 && m_sceneCombo.IsOpen() && m_activeTab == InGameUiTab::Scene )
+    if ( wheelDelta != 0 && m_sceneCombo.IsOpen() && m_activeTab == InGameUITab::Scene )
     {
         const float contentX = static_cast<float>( m_x + contentPad );
         const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
@@ -1263,17 +1263,17 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
         }
         else if ( inTabs )
         {
-            static const int kTabCount = static_cast<int>( InGameUiTab::Count );
+            static const int kTabCount = static_cast<int>( InGameUITab::Count );
             const int index = m_tabBar.HitTest( m_mouseX, m_mouseY, kTabCount );
             if ( index >= 0 && index < kTabCount )
             {
-                SetActiveTab( static_cast<InGameUiTab>( index ) );
+                SetActiveTab( static_cast<InGameUITab>( index ) );
                 m_scrollbarVisibleUntil = now + 1.0;
             }
         }
         else if ( m_sceneCombo.IsOpen() )
         {
-            if ( m_activeTab == InGameUiTab::Scene )
+            if ( m_activeTab == InGameUITab::Scene )
             {
                 const float contentX = static_cast<float>( m_x + contentPad );
                 const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
@@ -1322,7 +1322,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
         }
         else if ( m_reflectionCombo.IsOpen() )
         {
-            if ( m_activeTab == InGameUiTab::Keys )
+            if ( m_activeTab == InGameUITab::Keys )
             {
                 const float contentX = static_cast<float>( m_x + contentPad );
                 const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
@@ -1353,7 +1353,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
         }
         else if ( m_physicsModeCombo.IsOpen() )
         {
-            if ( m_activeTab == InGameUiTab::Keys )
+            if ( m_activeTab == InGameUITab::Keys )
             {
                 const float contentX = static_cast<float>( m_x + contentPad );
                 const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
@@ -1403,7 +1403,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_rendererCombo.Close();
             }
         }
-        else if ( inContent && m_activeTab == InGameUiTab::Profiler )
+        else if ( inContent && m_activeTab == InGameUITab::Profiler )
         {
             const int headerH = 32;
             const int rowH = 30;
@@ -1422,7 +1422,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
                     {
                         const float plusX = static_cast<float>( m_x + contentPad + 12 + marker.depth * 18 );
                         const float plusY = static_cast<float>( contentY + headerH + targetRow * rowH ) - m_scrollY + 8.0f;
-                        UiIconButton expander;
+                        UIIconButton expander;
                         expander.SetBounds( plusX, plusY, 14.0f, 14.0f );
                         if ( expander.HitTest( m_mouseX, m_mouseY ) )
                         {
@@ -1435,7 +1435,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             CloseSceneCombo();
         }
-        else if ( inContent && m_activeTab == InGameUiTab::Scene )
+        else if ( inContent && m_activeTab == InGameUITab::Scene )
         {
             const float contentX = static_cast<float>( m_x + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
@@ -1476,7 +1476,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_rendererCombo.Close();
             }
         }
-        else if ( inContent && m_activeTab == InGameUiTab::Physics )
+        else if ( inContent && m_activeTab == InGameUITab::Physics )
         {
             const float contentX = static_cast<float>( m_x + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
@@ -1497,6 +1497,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
             setToggle( 4, 0, 1 );
             setToggle( 5, 1, 1 );
             setToggle( 6, 2, 1 );
+            m_worldGravitySlider.SetBounds( contentX, rowBase + 276.0f, contentW, 34.0f );
 
             if ( m_physicsToggles[0].HitTest( m_mouseX, m_mouseY ) )
             {
@@ -1526,9 +1527,16 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
             {
                 result.toggleBroadphaseOverlay = true;
             }
+            else if ( m_worldGravitySlider.HitTest( m_mouseX, m_mouseY ) )
+            {
+                m_activeSlider = 11;
+                result.requestWorldGravity = true;
+                result.requestedWorldGravity = m_worldGravitySlider.ValueFromMouse( m_mouseX, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX, UI_WORLD_GRAVITY_STEP );
+                SetCapture( hwnd );
+            }
             m_rendererCombo.Close();
         }
-        else if ( inContent && m_activeTab == InGameUiTab::Options )
+        else if ( inContent && m_activeTab == InGameUITab::Options )
         {
             const float contentX = static_cast<float>( m_x + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
@@ -1629,7 +1637,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
         }
-        else if ( inContent && m_activeTab == InGameUiTab::Keys )
+        else if ( inContent && m_activeTab == InGameUITab::Keys )
         {
             const float contentX = static_cast<float>( m_x + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
@@ -2047,7 +2055,7 @@ InGameUiInputResult InGameUi::UpdateInput( HWND hwnd, int screenW, int screenH, 
 }
 
 
-void InGameUi::Draw( const InGameUiFrameData& data )
+void InGameUI::Draw( const InGameUIFrameData& data )
 {
     if ( !m_isVisible )
     {
@@ -2056,7 +2064,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
 
     const int screenW = (std::max)( 1, data.screenW );
     const int screenH = (std::max)( 1, data.screenH );
-    const UiDrawContext draw( screenW, screenH );
+    const UIDrawContext draw( screenW, screenH );
     if ( m_performanceHistogramEnabled )
     {
         PushPerformanceHistogramSample( data.cpuFrameMs, data.gpuFrameMs );
@@ -2064,11 +2072,11 @@ void InGameUi::Draw( const InGameUiFrameData& data )
 
     if ( m_isMinimized )
     {
-        const UiRect minimized = MinimizedRect( screenW, screenH );
+        const UIRect minimized = MinimizedRect( screenW, screenH );
         char titleText[192] = {};
         BuildWindowTitle( data, titleText, sizeof( titleText ) );
         FitTitleText( titleText, sizeof( titleText ), 12.5f, minimized.w - 88.0f );
-        const UiRect restoreButton = { minimized.x + minimized.w - 36.0f, minimized.y + 7.0f, 26.0f, 22.0f };
+        const UIRect restoreButton = { minimized.x + minimized.w - 36.0f, minimized.y + 7.0f, 26.0f, 22.0f };
         draw.Rect( minimized.x - 5.0f, minimized.y - 5.0f, minimized.w + 10.0f, minimized.h + 10.0f, 0.03f, 0.54f, 0.86f, 0.12f );
         draw.Rect( minimized.x, minimized.y, minimized.w, minimized.h, 0.018f, 0.040f, 0.056f, 0.76f );
         draw.Outline( minimized.x, minimized.y, minimized.w, minimized.h, 0.39f, 0.88f, 1.0f, 0.92f );
@@ -2107,7 +2115,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     ApplyProfilerDefaultExpansion();
     ApplyProfilerExpandAll();
 
-    const UiRect blurBounds = { x, y, w, h };
+    const UIRect blurBounds = { x, y, w, h };
     Text2d::FlushQuads();
     m_backdropBlur.Draw( draw, blurBounds, screenW, screenH, data.currentFrame, data.now, m_blurPreviewEnabled );
 
@@ -2121,15 +2129,15 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     draw.Outline( x + 2.0f, y + 2.0f, w - 4.0f, h - 4.0f, 0.08f, 0.26f, 0.34f, 0.64f );
 
     draw.Text( x + 20.0f, y + 12.0f, 15.5f, 0.90f, 0.98f, 1.0f, titleText );
-    const UiRect minimizeButton = { x + w - 112.0f, y + 8.0f, 30.0f, 28.0f };
-    const UiRect maximizeButton = { x + w - 76.0f, y + 8.0f, 30.0f, 28.0f };
-    const UiRect closeButton = { x + w - 40.0f, y + 8.0f, 30.0f, 28.0f };
+    const UIRect minimizeButton = { x + w - 112.0f, y + 8.0f, 30.0f, 28.0f };
+    const UIRect maximizeButton = { x + w - 76.0f, y + 8.0f, 30.0f, 28.0f };
+    const UIRect closeButton = { x + w - 40.0f, y + 8.0f, 30.0f, 28.0f };
     DrawTitleButton( draw, minimizeButton, TitleButtonIcon::Minimize, minimizeButton.Contains( m_mouseX, m_mouseY ), false );
     DrawTitleButton( draw, maximizeButton, m_isMaximized ? TitleButtonIcon::Restore : TitleButtonIcon::Maximize, maximizeButton.Contains( m_mouseX, m_mouseY ), m_isMaximized );
     DrawTitleButton( draw, closeButton, TitleButtonIcon::Close, closeButton.Contains( m_mouseX, m_mouseY ), false );
 
     static const char* kTabs[] = { "Info", "Profile", "Scene", "Physics", "Options", "Render", "Controls" };
-    const int tabCount = static_cast<int>( InGameUiTab::Count );
+    const int tabCount = static_cast<int>( InGameUITab::Count );
     const float tabPad = 14.0f;
     m_tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
     m_tabBar.Draw( draw, kTabs, tabCount, static_cast<int>( m_activeTab ) );
@@ -2150,7 +2158,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
         draw.Text( contentX, rowY, 11.5f, 0.52f, 0.76f, 0.84f, label );
         draw.Text( contentX + 150.0f, rowY, 11.5f, vr, vg, vb, value );
     };
-    auto drawContentToggle = [&]( UiCheckBox& toggle, float tx, float rowY, float controlW, const char* label, bool checked )
+    auto drawContentToggle = [&]( UICheckBox& toggle, float tx, float rowY, float controlW, const char* label, bool checked )
     {
         if ( !visible( rowY, 24.0f ) )
         {
@@ -2159,7 +2167,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
         toggle.SetBounds( tx, rowY, controlW, 24.0f );
         toggle.DrawToggle( draw, label, checked, 0.34f, 0.91f, 1.0f );
     };
-    if ( m_activeTab == InGameUiTab::Profiler )
+    if ( m_activeTab == InGameUITab::Profiler )
     {
         char buf[128];
         const Profiler& profiler = Profiler::Instance();
@@ -2222,7 +2230,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
             draw.Rect( tableX, rowY + rowH - 1.0f, tableW, 1.0f, 0.16f, 0.26f, 0.30f, 0.38f );
             if ( hasChildren )
             {
-                UiIconButton expander;
+                UIIconButton expander;
                 expander.SetBounds( nameX, rowY + 8.0f, 14.0f, 14.0f );
                 expander.DrawExpander( draw, isExpanded );
             }
@@ -2275,7 +2283,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
             profilerRow( visibleRow, marker, timelineSegments[visibleRow], hasChildren, IsProfilerMarkerExpanded( marker.hash ) );
         }
     }
-    else if ( m_activeTab == InGameUiTab::Overview )
+    else if ( m_activeTab == InGameUITab::Overview )
     {
         char buf[128];
         draw.Text( contentX, scrolledY, 16.0f, 1.0f, 0.85f, 0.34f, "Overview" );
@@ -2288,7 +2296,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
         snprintf( buf, sizeof( buf ), "%.6f", data.sceneEnergy );
         labelValue( scrolledY + 146.0f, "Scene energy", buf, 0.98f, 0.78f, 0.35f );
     }
-    else if ( m_activeTab == InGameUiTab::Scene )
+    else if ( m_activeTab == InGameUITab::Scene )
     {
         char buf[160];
         char filterDisplay[80] = {};
@@ -2367,7 +2375,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
             m_demoSceneButton.Draw( draw, "Demo Scene", m_mouseX, m_mouseY );
         }
     }
-    else if ( m_activeTab == InGameUiTab::Physics )
+    else if ( m_activeTab == InGameUITab::Physics )
     {
         char buf[128];
         const float colW = (std::max)( 148.0f, contentW * 0.46f );
@@ -2388,8 +2396,18 @@ void InGameUi::Draw( const InGameUiFrameData& data )
         labelValue( scrolledY + 230.0f, "Body alpha", buf, 0.88f, 0.92f, 0.94f );
         snprintf( buf, sizeof( buf ), "%.2fs", data.physicsDebugContactLinger );
         labelValue( scrolledY + 256.0f, "Contact linger", buf, 0.88f, 0.92f, 0.94f );
+        if ( visible( scrolledY + 292.0f, 18.0f ) )
+        {
+            draw.Text( contentX, scrolledY + 292.0f, 12.0f, 1.0f, 0.85f, 0.34f, "World" );
+        }
+        snprintf( buf, sizeof( buf ), "%.1f", data.worldGravity );
+        m_worldGravitySlider.SetBounds( contentX, scrolledY + 318.0f, contentW, 34.0f );
+        if ( visible( scrolledY + 318.0f, 34.0f ) )
+        {
+            m_worldGravitySlider.Draw( draw, "Gravity", buf, data.worldGravity, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX );
+        }
     }
-    else if ( m_activeTab == InGameUiTab::Options )
+    else if ( m_activeTab == InGameUITab::Options )
     {
         char buf[128];
         const float colW = (std::max)( 148.0f, contentW * 0.46f );
@@ -2430,7 +2448,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
         }
         labelValue( scrolledY + 386.0f, "Water mode", data.waterNoReflect ? "no reflection" : ( data.waterRTReflect ? "DXR reflect" : "FBO reflect" ), 0.98f, 0.78f, 0.35f );
     }
-    else if ( m_activeTab == InGameUiTab::Renderer )
+    else if ( m_activeTab == InGameUITab::Renderer )
     {
         draw.Text( contentX, scrolledY, 16.0f, 1.0f, 0.85f, 0.34f, "Renderer" );
         labelValue( scrolledY + 42.0f, "Backend", data.rendererName, 0.60f, 0.90f, 1.0f );
@@ -2631,7 +2649,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
     const float frameDisplayMs = data.fps > 0.0f ? 1000.0f / data.fps : 0.0f;
     const int cpuPercent = static_cast<int>( std::clamp( ( data.renderMs + data.physicsMs ) / 16.67f * 100.0f, 0.0f, 99.0f ) );
     const int gpuPercent = static_cast<int>( std::clamp( data.renderMs / 16.67f * 100.0f, 0.0f, 99.0f ) );
-    const int drawCalls = data.drawCallsBeforeUi + data.uiDrawCalls;
+    const int drawCalls = data.drawCallsBeforeUI + data.UIDrawCalls;
     auto statCell = [&]( float tx, const char* name, const char* value, float r, float g, float b )
     {
         draw.Text( tx, by + 25.0f, 10.0f, 0.67f, 0.74f, 0.77f, name );
@@ -2645,7 +2663,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
         char drawText[32];
         snprintf( fpsText, sizeof( fpsText ), "%.0f", data.fps );
         snprintf( frameText, sizeof( frameText ), "%.2f ms", frameDisplayMs );
-        snprintf( drawText, sizeof( drawText ), "%d/%d", drawCalls, data.uiDrawCalls );
+        snprintf( drawText, sizeof( drawText ), "%d/%d", drawCalls, data.UIDrawCalls );
         auto compactStat = [&]( float ty, const char* name, const char* value, float r, float g, float b )
         {
             draw.Text( statsX + 12.0f, ty, 9.0f, 0.67f, 0.74f, 0.77f, name );
@@ -2668,7 +2686,7 @@ void InGameUi::Draw( const InGameUiFrameData& data )
         snprintf( status, sizeof( status ), "%d%%", gpuPercent );
         statCell( statsX + 288.0f, "GPU", status, 0.48f, 0.90f, 0.22f );
         draw.Rect( statsX + 342.0f, by + 23.0f, 1.0f, 42.0f, 0.28f, 0.38f, 0.42f, 0.78f );
-        snprintf( status, sizeof( status ), "%d / %d", drawCalls, data.uiDrawCalls );
+        snprintf( status, sizeof( status ), "%d / %d", drawCalls, data.UIDrawCalls );
         statCell( statsX + statsW - 112.0f, "Draws / UI", status, 0.32f, 0.90f, 1.0f );
     }
 

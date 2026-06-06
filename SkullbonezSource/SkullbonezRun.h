@@ -22,7 +22,7 @@
 #include "SkullbonezBroadphaseVisualizer.h"
 #include "SkullbonezCollisionVisualizer.h"
 #include "SkullbonezPhysicsDebugVisualizer.h"
-#include "UI/SkullbonezUi.h"
+#include "UI/SkullbonezUI.h"
 
 
 // --- Usings ---
@@ -34,7 +34,7 @@ using namespace SkullbonezCore::Geometry;
 using namespace SkullbonezCore::Math;
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Ui;
+using namespace SkullbonezCore::UI;
 
 
 namespace SkullbonezCore
@@ -95,7 +95,7 @@ struct RunTimerState
     float timeSinceLastRender = 0.0f;
     double sceneEnergyAccumulator = 0.0;
     int sceneEnergySampleCount = 0;
-    int lastUiDrawCalls = 0;         // Actual UI draw calls measured around Frame/UI last frame
+    int lastUIDrawCalls = 0;         // Actual UI draw calls measured around Frame/UI last frame
     float physicsAccumulator = 0.0f; // Accumulated time for fixed-step physics
 };
 
@@ -184,7 +184,7 @@ struct RunDebugState
     float physicsDebugContactLinger = 0.45f;                  // Seconds to keep contact manifolds visible after their solver row disappears
     bool isCollisionVisualizer = false;                       // Render solid collision/sleep colours for balls and boxes (toggle with V)
     bool isTextOnly = false;                                  // Suppress all 3D rendering; show solid background with large pangram text
-    bool isUiTestPattern = false;                             // Bright 2D backdrop behind UI for visual blur tests
+    bool isUITestPattern = false;                             // Bright 2D backdrop behind UI for visual blur tests
     bool isTopTextHidden = false;                             // Hide top-left HUD text while leaving other overlays active
     bool isBroadphaseOverlay = false;                         // Broadphase spatial grid visualizer overlay (toggle with G)
     float frozenWaterTime = 0.0f;                             // Simulation time captured when freeze was toggled on
@@ -238,10 +238,10 @@ class SkullbonezRun
     unsigned int m_cmdSeedOverride = 0;  // CLI --seed override applied after each scene load (0 = not set)
     bool m_cmdNoWater = false;           // CLI --no-water starts fluid below terrain
     GeneratedObjectTypeOverride m_generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
-    float m_uiTimeScaleOverride = 0.0f;
-    int m_uiModelCountOverride = -1;
-    int m_uiSolverBallCountOverride = -1;
-    int m_uiSolverBoxCountOverride = -1;
+    float m_UITimeScaleOverride = 0.0f;
+    int m_UIModelCountOverride = -1;
+    int m_UISolverBallCountOverride = -1;
+    int m_UISolverBoxCountOverride = -1;
     bool m_cmdHasPhysicsDebugFlagsOverride = false;
     uint32_t m_cmdPhysicsDebugFlagsOverride = PHYSICS_DEBUG_NONE;
     bool m_cmdHasPhysicsDebugTransparentOverride = false;
@@ -261,7 +261,7 @@ class SkullbonezRun
     RunCameraState m_camera;                         // Camera/input state and ball-tracking settings
     RunSceneState m_scene;                           // Scene-mode execution state
     RunScreenshotState m_screenshot;                 // Screenshot trigger and capture state
-    InGameUi m_ui;                                   // Encapsulated in-game diagnostics window
+    InGameUI m_UI;                                   // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                           // Runtime debug/overlay toggles
     RunFireState m_fire;                             // Projectile recycling state (CTRL = ball, ALT = box)
     BroadphaseVisualizer m_broadphaseVisualizer;     // Spatial grid debug overlay (G key toggle)
@@ -289,17 +289,17 @@ class SkullbonezRun
     void RefreshSceneBrowserList();                                                                 // Discovers scene files available to the in-game scene dropdown
     int CurrentSceneBrowserIndex() const;                                                           // Returns current scene index within the discovered scene dropdown list
     void LoadSceneFromBrowserIndex( int index );                                                    // Loads a scene selected from the in-game scene dropdown
-    void LoadDemoSceneFromUi();                                                                     // Loads the generated demo scene from the in-game Scene tab
+    void LoadDemoSceneFromUI();                                                                     // Loads the generated demo scene from the in-game Scene tab
     void LoadAdjacentSceneFromBrowser( int direction );                                             // Keyboard scene cycling through the discovered scene dropdown list
     void EnterInteractiveSceneRun();                                                                // Locks scene automation into non-quitting interactive mode
     bool CanSceneAutomationQuit() const;                                                            // True for CLI suites/tests; false once the user owns scene flow
     void HoldCompletedInteractiveScene();                                                           // Keep the current scene alive after interactive automation completes
     void LogPerfMemory( const char* checkpoint );                                                   // Log memory usage to perf CSV
-    void LoadScene( int index, bool preserveUiState = false, bool suppressExitOnComplete = false ); // Resets scene-specific state and loads a scene by queue index
-    void ResetCurrentScene( bool preserveUiState = false, bool suppressExitOnComplete = false );    // User-triggered reset/reload of current scene or legacy mode
-    void ApplyUiModelCountOverride( int count );                                                    // Rebuilds the active generated model pool from the UI slider
-    void ApplyUiSolverObjectCounts( int balls, int boxes );                                         // Rebuilds generated solver objects from exact UI counts
-    void ApplyUiWorldOverride( float gravity, float fluidHeight, float fluidDensity );              // Applies live world/fluid scalar controls
+    void LoadScene( int index, bool preserveUIState = false, bool suppressExitOnComplete = false ); // Resets scene-specific state and loads a scene by queue index
+    void ResetCurrentScene( bool preserveUIState = false, bool suppressExitOnComplete = false );    // User-triggered reset/reload of current scene or legacy mode
+    void ApplyUIModelCountOverride( int count );                                                    // Rebuilds the active generated model pool from the UI slider
+    void ApplyUISolverObjectCounts( int balls, int boxes );                                         // Rebuilds generated solver objects from exact UI counts
+    void ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity );              // Applies live world/fluid scalar controls
     void ApplyNoWaterOverride();                                                                    // Pushes fluid surface below the active terrain when requested
     bool AdvanceScene();                                                                            // Advances to the next scene in the queue (returns false if done)
     void MoveCamera( float keyMovementQty, float mouseMovemementQty );                              // Moves the camera

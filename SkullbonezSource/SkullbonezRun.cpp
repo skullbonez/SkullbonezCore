@@ -74,9 +74,9 @@ std::string JsonEscape( const char* value )
 }
 #endif
 
-void DrawUiTestPattern( int screenW, int screenH )
+void DrawUITestPattern( int screenW, int screenH )
 {
-    const UiDrawContext draw( screenW, screenH );
+    const UIDrawContext draw( screenW, screenH );
     draw.Rect( 0.0f, 0.0f, static_cast<float>( screenW ), static_cast<float>( screenH ), 0.20f, 0.31f, 0.36f, 1.0f );
 
     constexpr float tile = 88.0f;
@@ -259,7 +259,7 @@ SkullbonezRun::~SkullbonezRun()
     SkullbonezHelper::ResetGLResources();
     m_cGameModelCollection.ResetGLResources();
     m_collisionVisualizer.ResetResources();
-    m_ui.ResetResources();
+    m_UI.ResetResources();
     if ( m_systems.reflectionFBO )
     {
         m_systems.reflectionFBO->ResetResources();
@@ -308,19 +308,22 @@ void SkullbonezRun::SetNoWaterOverride()
 void SkullbonezRun::SetInitialOverlayMode( OverlayMode mode )
 {
     m_debug.overlayMode = mode;
-    m_ui.SetVisible( mode != OverlayMode::None );
+    if ( mode != OverlayMode::None )
+    {
+        m_UI.SetVisible( true );
+    }
     switch ( mode )
     {
     case OverlayMode::SceneStats:
-        m_ui.SetActiveTab( InGameUiTab::Scene );
+        m_UI.SetActiveTab( InGameUITab::Scene );
         break;
     case OverlayMode::Keys:
-        m_ui.SetActiveTab( InGameUiTab::Keys );
+        m_UI.SetActiveTab( InGameUITab::Keys );
         break;
     case OverlayMode::BarsNormalized:
     case OverlayMode::BarsAbsolute:
     case OverlayMode::Timers:
-        m_ui.SetActiveTab( InGameUiTab::Profiler );
+        m_UI.SetActiveTab( InGameUITab::Profiler );
         break;
     default:
         break;
@@ -500,7 +503,7 @@ void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
     m_cGameModelCollection.ResetGLResources();
     SkullbonezHelper::ResetGLResources();
     m_collisionVisualizer.ResetResources();
-    m_ui.ResetResources();
+    m_UI.ResetResources();
     if ( m_systems.textures )
     {
         m_systems.textures->DeleteAllTextures();
@@ -915,7 +918,7 @@ void SkullbonezRun::Run()
             Render();
             PROFILE_GPU_END( "Frame/Render" );
 
-            if ( !m_scene.isSceneMode || m_scene.isSceneText || m_debug.overlayMode != OverlayMode::None || m_ui.IsVisible() )
+            if ( !m_scene.isSceneMode || m_scene.isSceneText || m_debug.overlayMode != OverlayMode::None || m_UI.IsVisible() )
             {
                 PROFILE_GPU_BEGIN( "Frame/UI" );
                 DrawWindowText( secondsPerFrame );
@@ -944,10 +947,10 @@ void SkullbonezRun::Run()
                 using SkullbonezCore::Basics::Profiler;
                 static constexpr uint32_t kPhysicsHash = ::HashStr( "Frame/Physics" );
                 static constexpr uint32_t kRenderHash = ::HashStr( "Frame/Render" );
-                static constexpr uint32_t kUiHash = ::HashStr( "Frame/UI" );
+                static constexpr uint32_t kUIHash = ::HashStr( "Frame/UI" );
                 m_timers.physicsTime = Profiler::Instance().LastFrameMsByHash( kPhysicsHash ) * 0.001f;
                 m_timers.renderTime = Profiler::Instance().LastFrameMsByHash( kRenderHash ) * 0.001f;
-                m_timers.gpuFrameWorkMs = Profiler::Instance().LastGpuFrameMsByHash( kRenderHash ) + Profiler::Instance().LastGpuFrameMsByHash( kUiHash );
+                m_timers.gpuFrameWorkMs = Profiler::Instance().LastGpuFrameMsByHash( kRenderHash ) + Profiler::Instance().LastGpuFrameMsByHash( kUIHash );
             }
 #endif
 
@@ -1285,8 +1288,8 @@ bool SkullbonezRun::TickSceneAdvance()
 
 void SkullbonezRun::TakeInput()
 {
-    const bool uiBlocksKeyboardBeforeInput = m_ui.BlocksKeyboard();
-    if ( !uiBlocksKeyboardBeforeInput )
+    const bool UIBlocksKeyboardBeforeInput = m_UI.BlocksKeyboard();
+    if ( !UIBlocksKeyboardBeforeInput )
     {
         // Toggle fly mode with F (edge-detected so snapshot-loaded fly mode survives the next frame)
         bool prevFlyMode = m_camera.isFlyMode;
@@ -1513,7 +1516,7 @@ void SkullbonezRun::TakeInput()
             if ( key0Now && !m_camera.input.Get( InputState::Key0WasDown ) )
             {
                 EnterInteractiveSceneRun();
-                m_ui.ToggleVisible( m_timers.simulationTimer.GetTotalTime() );
+                m_UI.ToggleVisible( m_timers.simulationTimer.GetTotalTime() );
                 m_debug.overlayMode = OverlayMode::None;
             }
             m_camera.input.Set( InputState::Key0WasDown, key0Now );
@@ -1543,82 +1546,82 @@ void SkullbonezRun::TakeInput()
     if ( m_systems.window )
     {
         const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex();
-        InGameUiInputResult uiResult = m_ui.UpdateInput( m_systems.window->m_sWindow,
+        InGameUIInputResult UIResult = m_UI.UpdateInput( m_systems.window->m_sWindow,
                                                          static_cast<int>( m_systems.window->m_sWindowDimensions.x ),
                                                          static_cast<int>( m_systems.window->m_sWindowDimensions.y ),
                                                          m_timers.simulationTimer.GetTotalTime(),
                                                          m_sceneBrowserNamePtrs.empty() ? nullptr : m_sceneBrowserNamePtrs.data(),
                                                          static_cast<int>( m_sceneBrowserNamePtrs.size() ),
                                                          selectedSceneBrowserIndex );
-        if ( uiResult.userInteracted )
+        if ( UIResult.userInteracted )
         {
             EnterInteractiveSceneRun();
         }
-        if ( uiResult.toggleVsync )
+        if ( UIResult.toggleVsync )
         {
             m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
             Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
         }
-        if ( uiResult.toggleCollisionVisualizer )
+        if ( UIResult.toggleCollisionVisualizer )
         {
             m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
         }
-        if ( uiResult.togglePhysicsDebugFlags != 0 )
+        if ( UIResult.togglePhysicsDebugFlags != 0 )
         {
-            m_debug.physicsDebugFlags ^= ( uiResult.togglePhysicsDebugFlags & PHYSICS_DEBUG_ALL );
+            m_debug.physicsDebugFlags ^= ( UIResult.togglePhysicsDebugFlags & PHYSICS_DEBUG_ALL );
         }
-        if ( uiResult.togglePhysicsDebugTransparent )
+        if ( UIResult.togglePhysicsDebugTransparent )
         {
             m_debug.isPhysicsDebugTransparent = !m_debug.isPhysicsDebugTransparent;
         }
-        if ( uiResult.toggleDebugVectors )
+        if ( UIResult.toggleDebugVectors )
         {
             m_debug.isDebugVectors = !m_debug.isDebugVectors;
         }
-        if ( uiResult.toggleBroadphaseOverlay )
+        if ( UIResult.toggleBroadphaseOverlay )
         {
             m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
         }
-        if ( uiResult.toggleScenePhysics )
+        if ( UIResult.toggleScenePhysics )
         {
             m_scene.isScenePhysics = !m_scene.isScenePhysics;
             m_timers.physicsAccumulator = 0.0f;
         }
-        if ( uiResult.toggleSceneText )
+        if ( UIResult.toggleSceneText )
         {
             m_scene.isSceneText = !m_scene.isSceneText;
         }
-        if ( uiResult.toggleTextOnly )
+        if ( UIResult.toggleTextOnly )
         {
             m_debug.isTextOnly = !m_debug.isTextOnly;
         }
-        if ( uiResult.toggleFixedStep )
+        if ( UIResult.toggleFixedStep )
         {
             m_scene.isFixedStep = !m_scene.isFixedStep;
             m_timers.physicsAccumulator = 0.0f;
         }
-        if ( uiResult.toggleExitOnComplete )
+        if ( UIResult.toggleExitOnComplete )
         {
             m_scene.isExitOnComplete = CanSceneAutomationQuit() ? !m_scene.isExitOnComplete : false;
         }
-        if ( uiResult.togglePipelineSync )
+        if ( UIResult.togglePipelineSync )
         {
             m_runtimeSettings.isPipelineSyncEnabled = !m_runtimeSettings.isPipelineSyncEnabled;
         }
-        if ( uiResult.toggleRollAlign )
+        if ( UIResult.toggleRollAlign )
         {
             m_runtimeSettings.isRollAlignEnabled = !m_runtimeSettings.isRollAlignEnabled;
             Cfg().rollAlignEnabled = m_runtimeSettings.isRollAlignEnabled;
         }
-        if ( uiResult.toggleTerrainHidden )
+        if ( UIResult.toggleTerrainHidden )
         {
             m_debug.isTerrainHidden = !m_debug.isTerrainHidden;
         }
-        if ( uiResult.toggleWaterHidden )
+        if ( UIResult.toggleWaterHidden )
         {
             m_debug.isWaterHidden = !m_debug.isWaterHidden;
         }
-        if ( uiResult.toggleWaterFreeze )
+        if ( UIResult.toggleWaterFreeze )
         {
             m_debug.isWaterFreezeDebug = !m_debug.isWaterFreezeDebug;
             if ( m_debug.isWaterFreezeDebug )
@@ -1626,11 +1629,11 @@ void SkullbonezRun::TakeInput()
                 m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
             }
         }
-        if ( uiResult.toggleWaterFlat )
+        if ( UIResult.toggleWaterFlat )
         {
             m_debug.isWaterFlatDebug = !m_debug.isWaterFlatDebug;
         }
-        if ( uiResult.toggleWaterReflection )
+        if ( UIResult.toggleWaterReflection )
         {
             if ( m_debug.isWaterNoReflect )
             {
@@ -1642,65 +1645,65 @@ void SkullbonezRun::TakeInput()
                 m_debug.isWaterRTReflect = false;
             }
         }
-        if ( uiResult.requestedWaterReflectionMode >= 0 )
+        if ( UIResult.requestedWaterReflectionMode >= 0 )
         {
-            const int mode = std::clamp( uiResult.requestedWaterReflectionMode, 0, 2 );
+            const int mode = std::clamp( UIResult.requestedWaterReflectionMode, 0, 2 );
             m_debug.isWaterRTReflect = mode == 1;
             m_debug.isWaterNoReflect = mode == 2;
         }
-        if ( uiResult.requestedPhysicsMode >= 0 )
+        if ( UIResult.requestedPhysicsMode >= 0 )
         {
-            const int mode = std::clamp( uiResult.requestedPhysicsMode, 0, 1 );
+            const int mode = std::clamp( UIResult.requestedPhysicsMode, 0, 1 );
             m_cGameModelCollection.SetLegacyMode( mode == 0 );
             if ( mode == 0 )
             {
-                m_uiSolverBallCountOverride = -1;
-                m_uiSolverBoxCountOverride = -1;
+                m_UISolverBallCountOverride = -1;
+                m_UISolverBoxCountOverride = -1;
             }
             m_timers.physicsAccumulator = 0.0f;
             PROFILE_SCHEDULE_RESET();
         }
-        if ( uiResult.requestedTimeScale > 0.0f )
+        if ( UIResult.requestedTimeScale > 0.0f )
         {
-            m_uiTimeScaleOverride = std::clamp( uiResult.requestedTimeScale, 0.10f, 4.00f );
-            m_scene.timeScale = m_uiTimeScaleOverride;
+            m_UITimeScaleOverride = std::clamp( UIResult.requestedTimeScale, 0.10f, 4.00f );
+            m_scene.timeScale = m_UITimeScaleOverride;
             m_timers.physicsAccumulator = 0.0f;
         }
-        if ( uiResult.requestedFrameCount >= 0 )
+        if ( UIResult.requestedFrameCount >= 0 )
         {
-            m_scene.targetFrameCount = uiResult.requestedFrameCount > 0 ? std::clamp( uiResult.requestedFrameCount, 1, 5000 ) : -1;
+            m_scene.targetFrameCount = UIResult.requestedFrameCount > 0 ? std::clamp( UIResult.requestedFrameCount, 1, 5000 ) : -1;
             m_scene.isTestComplete = false;
         }
-        if ( uiResult.requestedSeed > 0 )
+        if ( UIResult.requestedSeed > 0 )
         {
-            m_scene.rngSeed = static_cast<unsigned int>( std::clamp( uiResult.requestedSeed, 1, 999999 ) );
+            m_scene.rngSeed = static_cast<unsigned int>( std::clamp( UIResult.requestedSeed, 1, 999999 ) );
             srand( m_scene.rngSeed );
         }
-        if ( uiResult.requestedPhysicsDebugAlpha >= 0.0f )
+        if ( UIResult.requestedPhysicsDebugAlpha >= 0.0f )
         {
-            m_debug.physicsDebugAlpha = std::clamp( uiResult.requestedPhysicsDebugAlpha, 0.05f, 1.0f );
+            m_debug.physicsDebugAlpha = std::clamp( UIResult.requestedPhysicsDebugAlpha, 0.05f, 1.0f );
         }
-        if ( uiResult.requestedPhysicsDebugContactLinger >= 0.0f )
+        if ( UIResult.requestedPhysicsDebugContactLinger >= 0.0f )
         {
-            m_debug.physicsDebugContactLinger = std::clamp( uiResult.requestedPhysicsDebugContactLinger, 0.0f, 5.0f );
+            m_debug.physicsDebugContactLinger = std::clamp( UIResult.requestedPhysicsDebugContactLinger, 0.0f, 5.0f );
         }
-        if ( uiResult.requestedModelCount >= 0 )
+        if ( UIResult.requestedModelCount >= 0 )
         {
-            ApplyUiModelCountOverride( uiResult.requestedModelCount );
+            ApplyUIModelCountOverride( UIResult.requestedModelCount );
         }
-        if ( uiResult.requestedSolverBallCount >= 0 )
+        if ( UIResult.requestedSolverBallCount >= 0 )
         {
-            const int boxes = m_uiSolverBoxCountOverride >= 0 ? m_uiSolverBoxCountOverride : m_scene.solverBoxCount;
-            ApplyUiSolverObjectCounts( uiResult.requestedSolverBallCount, boxes );
+            const int boxes = m_UISolverBoxCountOverride >= 0 ? m_UISolverBoxCountOverride : m_scene.solverBoxCount;
+            ApplyUISolverObjectCounts( UIResult.requestedSolverBallCount, boxes );
         }
-        if ( uiResult.requestedSolverBoxCount >= 0 )
+        if ( UIResult.requestedSolverBoxCount >= 0 )
         {
-            const int balls = m_uiSolverBallCountOverride >= 0 ? m_uiSolverBallCountOverride : m_scene.solverBallCount;
-            ApplyUiSolverObjectCounts( balls, uiResult.requestedSolverBoxCount );
+            const int balls = m_UISolverBallCountOverride >= 0 ? m_UISolverBallCountOverride : m_scene.solverBallCount;
+            ApplyUISolverObjectCounts( balls, UIResult.requestedSolverBoxCount );
         }
-        if ( uiResult.requestedTrackHeight >= 0.0f )
+        if ( UIResult.requestedTrackHeight >= 0.0f )
         {
-            const float trackHeight = std::clamp( uiResult.requestedTrackHeight, 0.0f, 600.0f );
+            const float trackHeight = std::clamp( UIResult.requestedTrackHeight, 0.0f, 600.0f );
             if ( trackHeight <= 0.0f || m_scene.modelCount <= 0 )
             {
                 m_camera.trackBallIndex = -1;
@@ -1714,55 +1717,55 @@ void SkullbonezRun::TakeInput()
                 }
             }
         }
-        if ( uiResult.requestedAutoCycleInterval >= 0.0f )
+        if ( UIResult.requestedAutoCycleInterval >= 0.0f )
         {
-            const float interval = std::clamp( uiResult.requestedAutoCycleInterval, 0.0f, 10.0f );
+            const float interval = std::clamp( UIResult.requestedAutoCycleInterval, 0.0f, 10.0f );
             m_camera.autoCycleInterval = interval > 0.0f ? interval : -1.0f;
             m_camera.autoCycleAccum = 0.0f;
             m_camera.autoCycleShotsTaken = 0;
         }
-        if ( uiResult.requestWorldGravity || uiResult.requestWorldFluidHeight || uiResult.requestWorldFluidDensity )
+        if ( UIResult.requestWorldGravity || UIResult.requestWorldFluidHeight || UIResult.requestWorldFluidDensity )
         {
-            const float gravity = uiResult.requestWorldGravity ? uiResult.requestedWorldGravity : m_cWorldEnvironment.GetGravity();
-            const float fluidHeight = uiResult.requestWorldFluidHeight ? uiResult.requestedWorldFluidHeight : m_cWorldEnvironment.GetFluidSurfaceHeight();
-            const float fluidDensity = uiResult.requestWorldFluidDensity ? uiResult.requestedWorldFluidDensity : m_cWorldEnvironment.GetFluidDensity();
-            ApplyUiWorldOverride( std::clamp( gravity, -100.0f, 0.0f ),
+            const float gravity = UIResult.requestWorldGravity ? UIResult.requestedWorldGravity : m_cWorldEnvironment.GetGravity();
+            const float fluidHeight = UIResult.requestWorldFluidHeight ? UIResult.requestedWorldFluidHeight : m_cWorldEnvironment.GetFluidSurfaceHeight();
+            const float fluidDensity = UIResult.requestWorldFluidDensity ? UIResult.requestedWorldFluidDensity : m_cWorldEnvironment.GetFluidDensity();
+            ApplyUIWorldOverride( std::clamp( gravity, -100.0f, 0.0f ),
                                   std::clamp( fluidHeight, -100.0f, 200.0f ),
                                   std::clamp( fluidDensity, 0.0f, 5.0f ) );
         }
-        if ( uiResult.resetScene )
+        if ( UIResult.resetScene )
         {
             EnterInteractiveSceneRun();
             ResetCurrentScene( true, true );
         }
-        if ( uiResult.requestDemoScene )
+        if ( UIResult.requestDemoScene )
         {
-            LoadDemoSceneFromUi();
+            LoadDemoSceneFromUI();
         }
-        if ( uiResult.saveSceneDefaults )
+        if ( UIResult.saveSceneDefaults )
         {
             SaveCurrentSceneDefaults();
         }
-        if ( uiResult.requestedRendererIndex >= 0 )
+        if ( UIResult.requestedRendererIndex >= 0 )
         {
             RuntimeRendererType requestedRenderer = RuntimeRendererType::OpenGL;
-            if ( uiResult.requestedRendererIndex == 1 )
+            if ( UIResult.requestedRendererIndex == 1 )
             {
                 requestedRenderer = RuntimeRendererType::DX11;
             }
-            else if ( uiResult.requestedRendererIndex == 2 )
+            else if ( UIResult.requestedRendererIndex == 2 )
             {
                 requestedRenderer = RuntimeRendererType::DX12;
             }
             SwitchRenderer( requestedRenderer );
         }
-        if ( uiResult.requestedSceneIndex >= 0 )
+        if ( UIResult.requestedSceneIndex >= 0 )
         {
-            LoadSceneFromBrowserIndex( uiResult.requestedSceneIndex );
+            LoadSceneFromBrowserIndex( UIResult.requestedSceneIndex );
         }
     }
 
-    if ( m_ui.BlocksKeyboard() )
+    if ( m_UI.BlocksKeyboard() )
     {
         m_camera.input.xMove = 0;
         m_camera.input.yMove = 0;
@@ -1877,10 +1880,10 @@ void SkullbonezRun::TakeInput()
     if ( m_camera.isFlyMode )
     {
         // Keep cursor hidden every frame unless the UI owns the mouse.
-        SetCursor( m_ui.BlocksCameraMouse() ? LoadCursor( nullptr, IDC_ARROW ) : nullptr );
+        SetCursor( m_UI.BlocksCameraMouse() ? LoadCursor( nullptr, IDC_ARROW ) : nullptr );
 
         // Mouse look: delta from screen centre
-        if ( m_ui.BlocksCameraMouse() )
+        if ( m_UI.BlocksCameraMouse() )
         {
             m_camera.input.xMove = 0;
             m_camera.input.yMove = 0;
@@ -2340,82 +2343,82 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         sceneName = FileNameFromPath( m_sceneQueue[m_scene.currentSceneIndex].c_str() );
     }
 
-    if ( m_ui.IsVisible() )
+    if ( m_UI.IsVisible() )
     {
-        InGameUiFrameData uiData;
-        uiData.screenW = m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.x ) : Cfg().window.screenX;
-        uiData.screenH = m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.y ) : Cfg().window.screenY;
-        if ( m_debug.isUiTestPattern )
+        InGameUIFrameData UIData;
+        UIData.screenW = m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.x ) : Cfg().window.screenX;
+        UIData.screenH = m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.y ) : Cfg().window.screenY;
+        if ( m_debug.isUITestPattern )
         {
-            DrawUiTestPattern( uiData.screenW, uiData.screenH );
+            DrawUITestPattern( UIData.screenW, UIData.screenH );
         }
-        uiData.rendererName = rendererName;
-        uiData.sceneName = sceneName;
-        uiData.sceneOptions = m_sceneBrowserNamePtrs.empty() ? nullptr : m_sceneBrowserNamePtrs.data();
-        uiData.sceneOptionCount = static_cast<int>( m_sceneBrowserNamePtrs.size() );
-        uiData.selectedSceneOption = CurrentSceneBrowserIndex();
-        uiData.uiDrawCalls = m_timers.lastUiDrawCalls;
-        uiData.fps = m_timers.rollingFpsTime > 0.0f ? m_timers.rollingFpsTime : ( dSecondsPerFrame > 0.0 ? 1.0f / static_cast<float>( dSecondsPerFrame ) : 0.0f );
-        uiData.renderMs = ( m_timers.rollingRenderTime > 0.0f ? m_timers.rollingRenderTime : m_timers.renderTime ) * 1000.0f;
-        uiData.physicsMs = ( m_timers.rollingPhysicsTime > 0.0f ? m_timers.rollingPhysicsTime : m_timers.physicsTime ) * 1000.0f;
-        uiData.cpuFrameMs = m_timers.cpuFrameWorkMs;
-        uiData.gpuFrameMs = m_timers.gpuFrameWorkMs;
-        uiData.modelCount = m_scene.modelCount;
-        uiData.currentFrame = m_scene.currentFrame;
-        uiData.targetFrameCount = m_scene.targetFrameCount;
-        uiData.rngSeed = m_scene.rngSeed;
-        uiData.solverBallCount = m_scene.solverBallCount;
-        uiData.solverBoxCount = m_scene.solverBoxCount;
-        uiData.currentSceneIndex = m_scene.currentSceneIndex;
-        uiData.sceneCount = static_cast<int>( m_sceneQueue.size() );
-        uiData.now = m_timers.simulationTimer.GetTotalTime();
-        uiData.sceneMode = m_scene.isSceneMode;
-        uiData.scenePhysicsEnabled = m_scene.isScenePhysics;
-        uiData.sceneTextEnabled = m_scene.isSceneText;
-        uiData.textOnly = m_debug.isTextOnly;
-        uiData.legacyPhysics = m_cGameModelCollection.GetLegacyMode();
-        uiData.fixedStep = m_scene.isFixedStep;
-        uiData.exitOnComplete = m_scene.isExitOnComplete;
-        uiData.testComplete = m_scene.isTestComplete;
-        uiData.vsyncEnabled = m_runtimeSettings.isVsyncEnabled;
-        uiData.pipelineSyncEnabled = m_runtimeSettings.isPipelineSyncEnabled;
-        uiData.rollAlignEnabled = m_runtimeSettings.isRollAlignEnabled;
-        uiData.sceneEnergy = sceneEnergyForDisplay;
-        uiData.timeScale = m_scene.timeScale;
-        uiData.trackHeight = m_camera.trackBallIndex >= 0 ? m_camera.trackHeight : 0.0f;
-        uiData.autoCycleInterval = m_camera.autoCycleInterval > 0.0f ? m_camera.autoCycleInterval : 0.0f;
-        uiData.worldGravity = m_cWorldEnvironment.GetGravity();
-        uiData.worldFluidHeight = m_cWorldEnvironment.GetFluidSurfaceHeight();
-        uiData.worldFluidDensity = m_cWorldEnvironment.GetFluidDensity();
-        uiData.physicsDebugFlags = m_debug.physicsDebugFlags;
-        uiData.physicsDebugAlpha = m_debug.physicsDebugAlpha;
-        uiData.physicsDebugContactLinger = m_debug.physicsDebugContactLinger;
-        uiData.collisionVisualizer = m_debug.isCollisionVisualizer;
-        uiData.physicsDebugTransparent = m_debug.isPhysicsDebugTransparent;
-        uiData.debugVectors = m_debug.isDebugVectors;
-        uiData.broadphaseOverlay = m_debug.isBroadphaseOverlay;
-        uiData.waterFreezeDebug = m_debug.isWaterFreezeDebug;
-        uiData.waterFlatDebug = m_debug.isWaterFlatDebug;
-        uiData.terrainHidden = m_debug.isTerrainHidden;
-        uiData.waterHidden = m_debug.isWaterHidden;
-        uiData.waterNoReflect = m_debug.isWaterNoReflect;
-        uiData.waterRTReflect = m_debug.isWaterRTReflect;
-        uiData.canSaveSceneDefaults = m_scene.isSceneMode &&
+        UIData.rendererName = rendererName;
+        UIData.sceneName = sceneName;
+        UIData.sceneOptions = m_sceneBrowserNamePtrs.empty() ? nullptr : m_sceneBrowserNamePtrs.data();
+        UIData.sceneOptionCount = static_cast<int>( m_sceneBrowserNamePtrs.size() );
+        UIData.selectedSceneOption = CurrentSceneBrowserIndex();
+        UIData.UIDrawCalls = m_timers.lastUIDrawCalls;
+        UIData.fps = m_timers.rollingFpsTime > 0.0f ? m_timers.rollingFpsTime : ( dSecondsPerFrame > 0.0 ? 1.0f / static_cast<float>( dSecondsPerFrame ) : 0.0f );
+        UIData.renderMs = ( m_timers.rollingRenderTime > 0.0f ? m_timers.rollingRenderTime : m_timers.renderTime ) * 1000.0f;
+        UIData.physicsMs = ( m_timers.rollingPhysicsTime > 0.0f ? m_timers.rollingPhysicsTime : m_timers.physicsTime ) * 1000.0f;
+        UIData.cpuFrameMs = m_timers.cpuFrameWorkMs;
+        UIData.gpuFrameMs = m_timers.gpuFrameWorkMs;
+        UIData.modelCount = m_scene.modelCount;
+        UIData.currentFrame = m_scene.currentFrame;
+        UIData.targetFrameCount = m_scene.targetFrameCount;
+        UIData.rngSeed = m_scene.rngSeed;
+        UIData.solverBallCount = m_scene.solverBallCount;
+        UIData.solverBoxCount = m_scene.solverBoxCount;
+        UIData.currentSceneIndex = m_scene.currentSceneIndex;
+        UIData.sceneCount = static_cast<int>( m_sceneQueue.size() );
+        UIData.now = m_timers.simulationTimer.GetTotalTime();
+        UIData.sceneMode = m_scene.isSceneMode;
+        UIData.scenePhysicsEnabled = m_scene.isScenePhysics;
+        UIData.sceneTextEnabled = m_scene.isSceneText;
+        UIData.textOnly = m_debug.isTextOnly;
+        UIData.legacyPhysics = m_cGameModelCollection.GetLegacyMode();
+        UIData.fixedStep = m_scene.isFixedStep;
+        UIData.exitOnComplete = m_scene.isExitOnComplete;
+        UIData.testComplete = m_scene.isTestComplete;
+        UIData.vsyncEnabled = m_runtimeSettings.isVsyncEnabled;
+        UIData.pipelineSyncEnabled = m_runtimeSettings.isPipelineSyncEnabled;
+        UIData.rollAlignEnabled = m_runtimeSettings.isRollAlignEnabled;
+        UIData.sceneEnergy = sceneEnergyForDisplay;
+        UIData.timeScale = m_scene.timeScale;
+        UIData.trackHeight = m_camera.trackBallIndex >= 0 ? m_camera.trackHeight : 0.0f;
+        UIData.autoCycleInterval = m_camera.autoCycleInterval > 0.0f ? m_camera.autoCycleInterval : 0.0f;
+        UIData.worldGravity = m_cWorldEnvironment.GetGravity();
+        UIData.worldFluidHeight = m_cWorldEnvironment.GetFluidSurfaceHeight();
+        UIData.worldFluidDensity = m_cWorldEnvironment.GetFluidDensity();
+        UIData.physicsDebugFlags = m_debug.physicsDebugFlags;
+        UIData.physicsDebugAlpha = m_debug.physicsDebugAlpha;
+        UIData.physicsDebugContactLinger = m_debug.physicsDebugContactLinger;
+        UIData.collisionVisualizer = m_debug.isCollisionVisualizer;
+        UIData.physicsDebugTransparent = m_debug.isPhysicsDebugTransparent;
+        UIData.debugVectors = m_debug.isDebugVectors;
+        UIData.broadphaseOverlay = m_debug.isBroadphaseOverlay;
+        UIData.waterFreezeDebug = m_debug.isWaterFreezeDebug;
+        UIData.waterFlatDebug = m_debug.isWaterFlatDebug;
+        UIData.terrainHidden = m_debug.isTerrainHidden;
+        UIData.waterHidden = m_debug.isWaterHidden;
+        UIData.waterNoReflect = m_debug.isWaterNoReflect;
+        UIData.waterRTReflect = m_debug.isWaterRTReflect;
+        UIData.canSaveSceneDefaults = m_scene.isSceneMode &&
                                       m_scene.currentSceneIndex >= 0 &&
                                       m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() ) &&
                                       !m_sceneQueue[m_scene.currentSceneIndex].empty();
 
         Text2d::FlushText();
-        uiData.drawCallsBeforeUi = Gfx().GetFrameDrawCallCount();
-        const int uiDrawCallStart = uiData.drawCallsBeforeUi;
+        UIData.drawCallsBeforeUI = Gfx().GetFrameDrawCallCount();
+        const int UIDrawCallStart = UIData.drawCallsBeforeUI;
         PROFILE_GPU_BEGIN( "Frame/UI/Quads" );
-        m_ui.Draw( uiData );
+        m_UI.Draw( UIData );
         PROFILE_GPU_END( "Frame/UI/Quads" );
         PROFILE_GPU_BEGIN( "Frame/UI/Text" );
         Text2d::FlushText();
         PROFILE_GPU_END( "Frame/UI/Text" );
-        const int uiDrawCallEnd = Gfx().GetFrameDrawCallCount();
-        m_timers.lastUiDrawCalls = (std::max)( 0, uiDrawCallEnd - uiDrawCallStart );
+        const int UIDrawCallEnd = Gfx().GetFrameDrawCallCount();
+        m_timers.lastUIDrawCalls = (std::max)( 0, UIDrawCallEnd - UIDrawCallStart );
         return;
     }
 
@@ -3366,7 +3369,7 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 }
 
 
-void SkullbonezRun::LoadScene( int index, bool preserveUiState, bool suppressExitOnComplete )
+void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete )
 {
 #ifdef _DEBUG
     EndPhysicsDiagnosticsRun( "scene_reload" );
@@ -3446,7 +3449,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUiState, bool suppressExi
     m_debug.isWaterHidden = false;
     m_debug.isDebugVectors = false;
     m_debug.isTextOnly = false;
-    m_debug.isUiTestPattern = false;
+    m_debug.isUITestPattern = false;
     m_debug.physicsDebugFlags = PHYSICS_DEBUG_NONE;
     m_debug.isPhysicsDebugTransparent = false;
     m_debug.physicsDebugAlpha = 0.28f;
@@ -3482,7 +3485,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUiState, bool suppressExi
     m_timers.gpuFrameWorkMs = 0.0f;
     m_timers.sceneEnergyAccumulator = 0.0;
     m_timers.sceneEnergySampleCount = 0;
-    m_timers.lastUiDrawCalls = 0;
+    m_timers.lastUIDrawCalls = 0;
 
     // Reseed RNG. Unseeded reruns mix in the load/reset counters so quick repeated
     // Q resets do not collapse to the same time(nullptr) seed. Scene files and CLI
@@ -3508,13 +3511,13 @@ void SkullbonezRun::LoadScene( int index, bool preserveUiState, bool suppressExi
 
         m_scene.isSceneMode = false;
         SetUpCameras();
-        if ( m_uiSolverBallCountOverride >= 0 || m_uiSolverBoxCountOverride >= 0 )
+        if ( m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
         {
-            SetUpSolverObjects( (std::max)( 0, m_uiSolverBallCountOverride ), (std::max)( 0, m_uiSolverBoxCountOverride ) );
+            SetUpSolverObjects( (std::max)( 0, m_UISolverBallCountOverride ), (std::max)( 0, m_UISolverBoxCountOverride ) );
         }
         else
         {
-            SetUpGameModels( m_uiModelCountOverride >= 0 ? m_uiModelCountOverride : DEFAULT_GAME_MODELS );
+            SetUpGameModels( m_UIModelCountOverride >= 0 ? m_UIModelCountOverride : DEFAULT_GAME_MODELS );
         }
         const char* rendererName = Gfx().GetRendererName();
         char titleText[256];
@@ -3564,62 +3567,90 @@ void SkullbonezRun::LoadScene( int index, bool preserveUiState, bool suppressExi
         m_scene.timeScale = scene.GetTimeScale();
         m_scene.isFixedStep = scene.IsFixedStep();
 
-        const SceneUiOptions& uiOptions = scene.GetUiOptions();
-        const double uiNow = m_timers.simulationTimer.GetTotalTime();
-        if ( !preserveUiState )
+        const SceneUIOptions& UIOptions = scene.GetUIOptions();
+        const double UINow = m_timers.simulationTimer.GetTotalTime();
+        bool isAutomationScene = scene.IsExitOnComplete() ||
+                                 scene.IsScreenshotAndExit() ||
+                                 scene.GetScreenshotFrame() >= 0 ||
+                                 scene.GetScreenshotMs() >= 0 ||
+                                 scene.GetScreenshotInterval() > 0 ||
+                                 scene.GetPerfLogPath()[0] != '\0';
+#ifdef _DEBUG
+        isAutomationScene = isAutomationScene || m_physicsDiagnostics.isEnabled;
+#endif
+        if ( !preserveUIState )
         {
-            if ( !uiOptions.hasVisible && m_debug.overlayMode == OverlayMode::None )
+            if ( !UIOptions.hasVisible )
             {
-                m_ui.SetVisible( false, uiNow );
+                if ( isAutomationScene && !UIOptions.hasDirective )
+                {
+                    m_UI.SetVisible( false, UINow );
+                }
+                else if ( !UIOptions.hasDirective )
+                {
+                    if ( !m_UI.IsVisible() )
+                    {
+                        m_UI.SetVisible( true, UINow );
+                    }
+                    m_UI.SetMinimized( true, UINow );
+                }
+                else if ( !m_UI.IsVisible() )
+                {
+                    m_UI.SetVisible( true, UINow );
+                }
             }
-            if ( uiOptions.hasWindowRect )
+            if ( UIOptions.hasWindowRect )
             {
-                m_ui.SetWindowBounds( uiOptions.windowX, uiOptions.windowY, uiOptions.windowW, uiOptions.windowH );
+                m_UI.SetWindowBounds( UIOptions.windowX, UIOptions.windowY, UIOptions.windowW, UIOptions.windowH );
+                if ( !UIOptions.hasMinimized )
+                {
+                    m_UI.SetMinimized( false, UINow );
+                }
             }
-            if ( uiOptions.hasActiveTab )
+            if ( UIOptions.hasActiveTab )
             {
-                m_ui.SetActiveTab( static_cast<InGameUiTab>( uiOptions.activeTab ) );
+                m_UI.SetActiveTab( static_cast<InGameUITab>( UIOptions.activeTab ) );
             }
-            if ( uiOptions.hasBlur )
+            if ( UIOptions.hasBlur )
             {
-                m_ui.SetBlurEnabled( uiOptions.blurEnabled );
+                m_UI.SetBlurEnabled( UIOptions.blurEnabled );
             }
-            if ( uiOptions.hasProfilerExpandAll )
+            if ( UIOptions.hasProfilerExpandAll )
             {
-                m_ui.SetProfilerExpandAll( uiOptions.profilerExpandAll );
+                m_UI.SetProfilerExpandAll( UIOptions.profilerExpandAll );
             }
-            if ( uiOptions.hasProfilerTimeline )
+            if ( UIOptions.hasProfilerTimeline )
             {
-                m_ui.SetProfilerTimelineEnabled( uiOptions.profilerTimeline );
+                m_UI.SetProfilerTimelineEnabled( UIOptions.profilerTimeline );
             }
-            if ( uiOptions.hasPerformanceHistogram )
+            if ( UIOptions.hasPerformanceHistogram )
             {
-                m_ui.SetPerformanceHistogramEnabled( uiOptions.performanceHistogram );
+                m_UI.SetPerformanceHistogramEnabled( UIOptions.performanceHistogram );
             }
-            if ( uiOptions.hasRendererComboOpen )
+            if ( UIOptions.hasRendererComboOpen )
             {
-                m_ui.SetRendererComboOpen( uiOptions.rendererComboOpen );
+                m_UI.SetRendererComboOpen( UIOptions.rendererComboOpen );
             }
-            if ( uiOptions.hasSceneComboOpen )
+            if ( UIOptions.hasSceneComboOpen )
             {
-                m_ui.SetSceneComboOpen( uiOptions.sceneComboOpen );
+                m_UI.SetSceneComboOpen( UIOptions.sceneComboOpen );
             }
-            if ( uiOptions.hasSceneFilter )
+            if ( UIOptions.hasSceneFilter )
             {
-                m_ui.SetSceneFilter( uiOptions.sceneFilter );
+                m_UI.SetSceneFilter( UIOptions.sceneFilter );
             }
-            m_ui.SetMouseOverride( uiOptions.hasMouseOverride, uiOptions.mouseX, uiOptions.mouseY );
-            if ( uiOptions.hasVisible )
+            m_UI.SetMouseOverride( UIOptions.hasMouseOverride, UIOptions.mouseX, UIOptions.mouseY );
+            if ( UIOptions.hasVisible )
             {
-                m_ui.SetVisible( uiOptions.isVisible, uiNow );
+                m_UI.SetVisible( UIOptions.isVisible, UINow );
             }
-            if ( uiOptions.hasMinimized )
+            if ( UIOptions.hasMinimized )
             {
-                m_ui.SetMinimized( uiOptions.isMinimized, uiNow );
+                m_UI.SetMinimized( UIOptions.isMinimized, UINow );
             }
-            if ( uiOptions.hasTestPattern )
+            if ( UIOptions.hasTestPattern )
             {
-                m_debug.isUiTestPattern = uiOptions.testPatternEnabled;
+                m_debug.isUITestPattern = UIOptions.testPatternEnabled;
             }
         }
 
@@ -3703,13 +3734,13 @@ void SkullbonezRun::LoadScene( int index, bool preserveUiState, bool suppressExi
 
         SetUpCamerasFromScene( scene );
 
-        if ( m_uiSolverBallCountOverride >= 0 || m_uiSolverBoxCountOverride >= 0 )
+        if ( m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
         {
-            SetUpSolverObjects( (std::max)( 0, m_uiSolverBallCountOverride ), (std::max)( 0, m_uiSolverBoxCountOverride ) );
+            SetUpSolverObjects( (std::max)( 0, m_UISolverBallCountOverride ), (std::max)( 0, m_UISolverBoxCountOverride ) );
         }
-        else if ( m_uiModelCountOverride >= 0 )
+        else if ( m_UIModelCountOverride >= 0 )
         {
-            SetUpGameModels( m_uiModelCountOverride );
+            SetUpGameModels( m_UIModelCountOverride );
         }
         else if ( scene.GetSolverBallCount() > 0 || scene.GetSolverBoxCount() > 0 )
         {
@@ -3763,9 +3794,9 @@ void SkullbonezRun::LoadScene( int index, bool preserveUiState, bool suppressExi
     {
         m_scene.timeScale = m_cmdTimeScaleOverride;
     }
-    if ( m_uiTimeScaleOverride > 0.0f )
+    if ( m_UITimeScaleOverride > 0.0f )
     {
-        m_scene.timeScale = m_uiTimeScaleOverride;
+        m_scene.timeScale = m_UITimeScaleOverride;
     }
     if ( m_cmdFixedStep )
     {
@@ -3986,14 +4017,14 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
     snprintf( buf, sizeof( buf ), "world %.2f %.2f %.2f", m_cWorldEnvironment.GetGravity(), m_cWorldEnvironment.GetFluidSurfaceHeight(), m_cWorldEnvironment.GetFluidDensity() );
     SetSceneDirective( lines, "world", buf, true );
 
-    if ( m_uiModelCountOverride >= 0 )
+    if ( m_UIModelCountOverride >= 0 )
     {
-        snprintf( buf, sizeof( buf ), "legacy_balls %d", m_uiModelCountOverride );
+        snprintf( buf, sizeof( buf ), "legacy_balls %d", m_UIModelCountOverride );
         SetSceneDirective( lines, "legacy_balls", buf, true );
         SetSceneDirective( lines, "solver_balls", "", false );
         SetSceneDirective( lines, "solver_boxes", "", false );
     }
-    else if ( m_scene.solverBallCount > 0 || m_scene.solverBoxCount > 0 || m_uiSolverBallCountOverride >= 0 || m_uiSolverBoxCountOverride >= 0 )
+    else if ( m_scene.solverBallCount > 0 || m_scene.solverBoxCount > 0 || m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
     {
         snprintf( buf, sizeof( buf ), "solver_balls %d", m_scene.solverBallCount );
         SetSceneDirective( lines, "solver_balls", buf, true );
@@ -4110,7 +4141,7 @@ void SkullbonezRun::LoadSceneFromBrowserIndex( int index )
 }
 
 
-void SkullbonezRun::LoadDemoSceneFromUi()
+void SkullbonezRun::LoadDemoSceneFromUI()
 {
     EnterInteractiveSceneRun();
     m_cGameModelCollection.SetLegacyMode( false );
@@ -4151,7 +4182,7 @@ void SkullbonezRun::LoadAdjacentSceneFromBrowser( int direction )
 }
 
 
-void SkullbonezRun::ResetCurrentScene( bool preserveUiState, bool suppressExitOnComplete )
+void SkullbonezRun::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete )
 {
     if ( m_scene.currentSceneIndex < 0 ||
          m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
@@ -4160,15 +4191,15 @@ void SkullbonezRun::ResetCurrentScene( bool preserveUiState, bool suppressExitOn
     }
 
     ++m_scene.manualResetCount;
-    LoadScene( m_scene.currentSceneIndex, preserveUiState, suppressExitOnComplete );
+    LoadScene( m_scene.currentSceneIndex, preserveUIState, suppressExitOnComplete );
 }
 
 
-void SkullbonezRun::ApplyUiModelCountOverride( int count )
+void SkullbonezRun::ApplyUIModelCountOverride( int count )
 {
-    m_uiModelCountOverride = std::clamp( count, 0, 1000 );
-    m_uiSolverBallCountOverride = -1;
-    m_uiSolverBoxCountOverride = -1;
+    m_UIModelCountOverride = std::clamp( count, 0, 1000 );
+    m_UISolverBallCountOverride = -1;
+    m_UISolverBoxCountOverride = -1;
     if ( m_scene.currentSceneIndex < 0 ||
          m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
     {
@@ -4181,7 +4212,7 @@ void SkullbonezRun::ApplyUiModelCountOverride( int count )
     m_timers.physicsAccumulator = 0.0f;
     m_scene.currentFrame = 0;
     m_scene.isTestComplete = false;
-    if ( m_uiModelCountOverride <= 0 )
+    if ( m_UIModelCountOverride <= 0 )
     {
         m_scene.modelCount = 0;
         m_camera.trackBallIndex = -1;
@@ -4191,20 +4222,20 @@ void SkullbonezRun::ApplyUiModelCountOverride( int count )
 
     const unsigned int seed = m_scene.rngSeed > 0 ? m_scene.rngSeed : 1u;
     srand( seed );
-    SetUpGameModels( m_uiModelCountOverride );
-    if ( m_camera.trackBallIndex >= m_uiModelCountOverride )
+    SetUpGameModels( m_UIModelCountOverride );
+    if ( m_camera.trackBallIndex >= m_UIModelCountOverride )
     {
-        m_camera.trackBallIndex = m_uiModelCountOverride - 1;
+        m_camera.trackBallIndex = m_UIModelCountOverride - 1;
     }
     PROFILE_SCHEDULE_RESET();
 }
 
 
-void SkullbonezRun::ApplyUiSolverObjectCounts( int balls, int boxes )
+void SkullbonezRun::ApplyUISolverObjectCounts( int balls, int boxes )
 {
-    m_uiSolverBallCountOverride = std::clamp( balls, 0, 1000 );
-    m_uiSolverBoxCountOverride = std::clamp( boxes, 0, 1000 );
-    m_uiModelCountOverride = -1;
+    m_UISolverBallCountOverride = std::clamp( balls, 0, 1000 );
+    m_UISolverBoxCountOverride = std::clamp( boxes, 0, 1000 );
+    m_UIModelCountOverride = -1;
     if ( m_scene.currentSceneIndex < 0 ||
          m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
     {
@@ -4220,7 +4251,7 @@ void SkullbonezRun::ApplyUiSolverObjectCounts( int balls, int boxes )
 
     const unsigned int seed = m_scene.rngSeed > 0 ? m_scene.rngSeed : 1u;
     srand( seed );
-    SetUpSolverObjects( m_uiSolverBallCountOverride, m_uiSolverBoxCountOverride );
+    SetUpSolverObjects( m_UISolverBallCountOverride, m_UISolverBoxCountOverride );
     if ( m_scene.modelCount <= 0 )
     {
         m_camera.trackBallIndex = -1;
@@ -4233,7 +4264,7 @@ void SkullbonezRun::ApplyUiSolverObjectCounts( int balls, int boxes )
 }
 
 
-void SkullbonezRun::ApplyUiWorldOverride( float gravity, float fluidHeight, float fluidDensity )
+void SkullbonezRun::ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity )
 {
     m_cWorldEnvironment.SetGravity( gravity );
     m_cWorldEnvironment.SetFluidSurfaceHeight( fluidHeight );
@@ -4254,13 +4285,13 @@ void SkullbonezRun::ApplyNoWaterOverride()
 
 bool SkullbonezRun::AdvanceScene()
 {
-    const bool preserveInteractiveUi = m_scene.isInteractiveRun;
+    const bool preserveInteractiveUI = m_scene.isInteractiveRun;
 
     // For perf tests with 2 passes, the second pass re-runs the same scene
     if ( m_perfLogState.isPerfTest && sPerfPass == 0 )
     {
         sPerfPass = 1;
-        LoadScene( m_scene.currentSceneIndex, preserveInteractiveUi, preserveInteractiveUi );
+        LoadScene( m_scene.currentSceneIndex, preserveInteractiveUI, preserveInteractiveUI );
         return true;
     }
 
@@ -4273,7 +4304,7 @@ bool SkullbonezRun::AdvanceScene()
         return false;
     }
 
-    LoadScene( nextIndex, preserveInteractiveUi, preserveInteractiveUi );
+    LoadScene( nextIndex, preserveInteractiveUI, preserveInteractiveUI );
     return true;
 }
 

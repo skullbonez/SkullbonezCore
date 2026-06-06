@@ -6,7 +6,6 @@ vsync off
 water_hidden on
 terrain_hidden on
 frames 24
-ui visible on
 ui tab overview
 ui rect 54 72 760 520
 ui blur on

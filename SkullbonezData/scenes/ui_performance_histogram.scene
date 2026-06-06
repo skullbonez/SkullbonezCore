@@ -7,7 +7,6 @@ water_hidden off
 terrain_hidden off
 legacy_balls 300
 frames 48
-ui visible on
 ui minimized on
 ui blur off
 ui histogram on

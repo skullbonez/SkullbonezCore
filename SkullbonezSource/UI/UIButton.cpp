@@ -1,4 +1,4 @@
-#include "UiButton.h"
+#include "UIButton.h"
 
 #include "../SkullbonezText.h"
 
@@ -6,22 +6,22 @@
 
 namespace SkullbonezCore
 {
-namespace Ui
+namespace UI
 {
 
-void UiButton::SetBounds( float x, float y, float w, float h )
+void UIButton::SetBounds( float x, float y, float w, float h )
 {
     m_bounds = { x, y, w, h };
 }
 
 
-bool UiButton::HitTest( int mouseX, int mouseY ) const
+bool UIButton::HitTest( int mouseX, int mouseY ) const
 {
     return m_bounds.Contains( mouseX, mouseY );
 }
 
 
-void UiButton::Draw( const UiDrawContext& draw, const char* label, int mouseX, int mouseY ) const
+void UIButton::Draw( const UIDrawContext& draw, const char* label, int mouseX, int mouseY ) const
 {
     const bool hot = HitTest( mouseX, mouseY );
     const float textSize = 11.0f;
@@ -45,5 +45,5 @@ void UiButton::Draw( const UiDrawContext& draw, const char* label, int mouseX, i
                label );
 }
 
-} // namespace Ui
+} // namespace UI
 } // namespace SkullbonezCore

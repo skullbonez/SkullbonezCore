@@ -1,23 +1,23 @@
-#include "UiIconButton.h"
+#include "UIIconButton.h"
 
 namespace SkullbonezCore
 {
-namespace Ui
+namespace UI
 {
 
-void UiIconButton::SetBounds( float x, float y, float w, float h )
+void UIIconButton::SetBounds( float x, float y, float w, float h )
 {
     m_bounds = { x, y, w, h };
 }
 
 
-bool UiIconButton::HitTest( int mouseX, int mouseY ) const
+bool UIIconButton::HitTest( int mouseX, int mouseY ) const
 {
     return m_bounds.Contains( mouseX, mouseY );
 }
 
 
-void UiIconButton::DrawExpander( const UiDrawContext& draw, bool expanded ) const
+void UIIconButton::DrawExpander( const UIDrawContext& draw, bool expanded ) const
 {
     draw.Rect( m_bounds.x, m_bounds.y, m_bounds.w, m_bounds.h, 0.03f, 0.16f, 0.20f, 0.86f );
     draw.Outline( m_bounds.x, m_bounds.y, m_bounds.w, m_bounds.h, 0.28f, 0.82f, 0.95f, 0.74f );
@@ -31,5 +31,5 @@ void UiIconButton::DrawExpander( const UiDrawContext& draw, bool expanded ) cons
     }
 }
 
-} // namespace Ui
+} // namespace UI
 } // namespace SkullbonezCore

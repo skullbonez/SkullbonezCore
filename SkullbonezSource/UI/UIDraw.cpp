@@ -1,4 +1,4 @@
-#include "UiDraw.h"
+#include "UIDraw.h"
 
 #include "../SkullbonezText.h"
 
@@ -9,17 +9,17 @@ using namespace SkullbonezCore::Text;
 
 namespace SkullbonezCore
 {
-namespace Ui
+namespace UI
 {
 
-bool UiRect::Contains( int px, int py ) const
+bool UIRect::Contains( int px, int py ) const
 {
     return static_cast<float>( px ) >= x && static_cast<float>( px ) <= x + w &&
            static_cast<float>( py ) >= y && static_cast<float>( py ) <= y + h;
 }
 
 
-UiDrawContext::UiDrawContext( int screenW, int screenH )
+UIDrawContext::UIDrawContext( int screenW, int screenH )
 {
     screenW = (std::max)( 1, screenW );
     screenH = (std::max)( 1, screenH );
@@ -30,7 +30,7 @@ UiDrawContext::UiDrawContext( int screenW, int screenH )
 }
 
 
-void UiDrawContext::Rect( float x, float y, float w, float h, float r, float g, float b, float a ) const
+void UIDrawContext::Rect( float x, float y, float w, float h, float r, float g, float b, float a ) const
 {
     float x0 = Snap( x );
     float y0 = Snap( y );
@@ -48,7 +48,7 @@ void UiDrawContext::Rect( float x, float y, float w, float h, float r, float g, 
 }
 
 
-void UiDrawContext::Outline( float x, float y, float w, float h, float r, float g, float b, float a ) const
+void UIDrawContext::Outline( float x, float y, float w, float h, float r, float g, float b, float a ) const
 {
     Rect( x, y, w, 1.0f, r, g, b, a );
     Rect( x, y + h - 1.0f, w, 1.0f, r, g, b, a );
@@ -57,59 +57,59 @@ void UiDrawContext::Outline( float x, float y, float w, float h, float r, float 
 }
 
 
-void UiDrawContext::Text( float x, float y, float pxSize, float r, float g, float b, const char* value ) const
+void UIDrawContext::Text( float x, float y, float pxSize, float r, float g, float b, const char* value ) const
 {
     const float unitSize = pxSize * m_sy;
     Text2d::Render2dTextColor( PixelX( Snap( x ) ), PixelY( Snap( y ) + pxSize ), unitSize, r, g, b, "%s", value );
 }
 
 
-float UiDrawContext::TextX( float x ) const
+float UIDrawContext::TextX( float x ) const
 {
     return -m_hw + x * m_sx;
 }
 
 
-float UiDrawContext::TextY( float y ) const
+float UIDrawContext::TextY( float y ) const
 {
     return m_hh - y * m_sy;
 }
 
 
-float UiDrawContext::HalfW() const
+float UIDrawContext::HalfW() const
 {
     return m_hw;
 }
 
 
-float UiDrawContext::HalfH() const
+float UIDrawContext::HalfH() const
 {
     return m_hh;
 }
 
 
-float UiDrawContext::ScaleY() const
+float UIDrawContext::ScaleY() const
 {
     return m_sy;
 }
 
 
-float UiDrawContext::Snap( float value )
+float UIDrawContext::Snap( float value )
 {
     return std::floor( value + 0.5f );
 }
 
 
-float UiDrawContext::PixelX( float x ) const
+float UIDrawContext::PixelX( float x ) const
 {
     return TextX( x );
 }
 
 
-float UiDrawContext::PixelY( float y ) const
+float UIDrawContext::PixelY( float y ) const
 {
     return TextY( y );
 }
 
-} // namespace Ui
+} // namespace UI
 } // namespace SkullbonezCore

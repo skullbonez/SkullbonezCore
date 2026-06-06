@@ -1,4 +1,4 @@
-#include "UiTabBar.h"
+#include "UITabBar.h"
 
 #include "../SkullbonezText.h"
 
@@ -6,16 +6,16 @@
 
 namespace SkullbonezCore
 {
-namespace Ui
+namespace UI
 {
 
-void UiTabBar::SetBounds( float x, float y, float w, float h )
+void UITabBar::SetBounds( float x, float y, float w, float h )
 {
     m_bounds = { x, y, w, h };
 }
 
 
-int UiTabBar::HitTest( int mouseX, int mouseY, int tabCount ) const
+int UITabBar::HitTest( int mouseX, int mouseY, int tabCount ) const
 {
     if ( tabCount <= 0 || !m_bounds.Contains( mouseX, mouseY ) )
     {
@@ -27,7 +27,7 @@ int UiTabBar::HitTest( int mouseX, int mouseY, int tabCount ) const
 }
 
 
-void UiTabBar::Draw( const UiDrawContext& draw, const char* const* labels, int tabCount, int activeIndex ) const
+void UITabBar::Draw( const UIDrawContext& draw, const char* const* labels, int tabCount, int activeIndex ) const
 {
     if ( tabCount <= 0 )
     {
@@ -62,5 +62,5 @@ void UiTabBar::Draw( const UiDrawContext& draw, const char* const* labels, int t
     }
 }
 
-} // namespace Ui
+} // namespace UI
 } // namespace SkullbonezCore

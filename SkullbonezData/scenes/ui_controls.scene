@@ -30,7 +30,6 @@ frames 24
 track_height 280
 auto_cycle_interval 10
 world -12 24 1.2
-ui visible on
 ui tab controls
 ui rect 24 10 820 748
 ui blur on

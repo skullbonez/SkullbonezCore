@@ -8,7 +8,6 @@ terrain_hidden on
 frames 60
 perf_log Profile/ui_profiler_timeline_perf.csv
 perf_log_flush on
-ui visible on
 ui tab profiler
 ui rect 34 56 800 560
 ui blur on

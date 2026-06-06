@@ -9,7 +9,6 @@ physics_debug all
 physics_debug_transparent on
 debug_vectors on
 frames 24
-ui visible on
 ui tab physics
 ui rect 34 56 800 560
 ui blur on

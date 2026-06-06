@@ -1,19 +1,19 @@
-#include "UiScrollBar.h"
+#include "UIScrollBar.h"
 
 #include <algorithm>
 
 namespace SkullbonezCore
 {
-namespace Ui
+namespace UI
 {
 
-void UiScrollBar::SetBounds( float x, float y, float w, float h )
+void UIScrollBar::SetBounds( float x, float y, float w, float h )
 {
     m_track = { x, y, w, h };
 }
 
 
-void UiScrollBar::Draw( const UiDrawContext& draw, float contentHeight, float viewportHeight, float scrollY, double visibleUntil, double now ) const
+void UIScrollBar::Draw( const UIDrawContext& draw, float contentHeight, float viewportHeight, float scrollY, double visibleUntil, double now ) const
 {
     const float maxScroll = (std::max)( 0.0f, contentHeight - viewportHeight );
     if ( maxScroll <= 0.0f )
@@ -33,5 +33,5 @@ void UiScrollBar::Draw( const UiDrawContext& draw, float contentHeight, float vi
     draw.Rect( m_track.x - 1.0f, thumbY, m_track.w + 2.0f, thumbH, 0.32f, 0.88f, 1.0f, alpha );
 }
 
-} // namespace Ui
+} // namespace UI
 } // namespace SkullbonezCore

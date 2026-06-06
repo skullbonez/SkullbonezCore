@@ -1,25 +1,25 @@
-#include "UiCheckBox.h"
+#include "UICheckBox.h"
 
 #include <algorithm>
 
 namespace SkullbonezCore
 {
-namespace Ui
+namespace UI
 {
 
-void UiCheckBox::SetBounds( float x, float y, float w, float h )
+void UICheckBox::SetBounds( float x, float y, float w, float h )
 {
     m_bounds = { x, y, w, h };
 }
 
 
-bool UiCheckBox::HitTest( int mouseX, int mouseY ) const
+bool UICheckBox::HitTest( int mouseX, int mouseY ) const
 {
     return m_bounds.Contains( mouseX, mouseY );
 }
 
 
-void UiCheckBox::DrawToggle( const UiDrawContext& draw, const char* label, bool checked, float accentR, float accentG, float accentB ) const
+void UICheckBox::DrawToggle( const UIDrawContext& draw, const char* label, bool checked, float accentR, float accentG, float accentB ) const
 {
     const float switchX = m_bounds.x + (std::max)( 66.0f, m_bounds.w - 34.0f );
     draw.Text( m_bounds.x, m_bounds.y + 4.0f, 10.5f, 0.74f, 0.82f, 0.84f, label );
@@ -40,5 +40,5 @@ void UiCheckBox::DrawToggle( const UiDrawContext& draw, const char* label, bool 
                0.96f );
 }
 
-} // namespace Ui
+} // namespace UI
 } // namespace SkullbonezCore

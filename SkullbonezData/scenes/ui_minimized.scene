@@ -6,7 +6,6 @@ vsync off
 water_hidden on
 terrain_hidden on
 frames 24
-ui visible on
 ui minimized on
 ui tab profiler
 ui blur on
