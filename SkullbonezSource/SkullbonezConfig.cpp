@@ -19,6 +19,10 @@ SkullbonezConfig& SkullbonezConfig::Instance()
 /* ---------------------------------------------------------------------------------*/
 void SkullbonezConfig::Load( const char* path )
 {
+    // engine.cfg is an optional developer/runtime defaults file.  Unlike scene
+    // files, unknown or malformed lines are ignored so older configs do not
+    // block startup after a setting is removed; deterministic tests should use
+    // scene directives for values that must fail loudly.
     FILE* f = nullptr;
     if ( fopen_s( &f, path, "r" ) != 0 || !f )
     {

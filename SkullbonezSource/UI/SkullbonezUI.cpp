@@ -18,6 +18,9 @@ using namespace SkullbonezCore::UI;
 
 namespace
 {
+// UI layout uses fixed pixel constants because the engine UI is a diagnostics
+// tool, not an auto-layout system.  These values define hit boxes and draw boxes
+// together, so changing one here should keep input and rendering aligned.
 constexpr int PROFILER_UI_MAX_MARKERS = 64;
 constexpr float PROFILER_UI_TIMELINE_BUDGET_MS = 16.67f;
 constexpr int RENDERER_GL = 0;
@@ -1878,6 +1881,9 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
 
     if ( leftNow && m_activeSlider == 1 )
     {
+        // Sliders update previews continuously while dragged.  Heavy operations
+        // such as rebuilding generated bodies are delayed until mouse release,
+        // but cheap scalar controls are emitted every frame for immediate feedback.
         m_previewTimeScale = m_timeScaleSlider.ValueFromMouse( m_mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
         result.requestedTimeScale = m_previewTimeScale;
     }
@@ -1979,6 +1985,9 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
 
     if ( !leftNow && m_leftWasDown )
     {
+        // Commit deferred slider previews exactly once on release.  This avoids
+        // rebuilding solver objects or generated model pools every mouse-move
+        // while still letting the drawn slider thumb track the user's drag.
         if ( m_activeSlider == 1 && m_previewTimeScale > 0.0f )
         {
             result.requestedTimeScale = m_previewTimeScale;

@@ -58,6 +58,10 @@ std::string EscapeSkullScopeJson( const char* value )
 } // namespace
 
 
+// SkullScope writes append-only NDJSON rows for agent/query tooling.  It samples
+// the same retained buffers used by physics visualization and sleep solving, so
+// model-facing analysis can ask bounded questions without ingesting the legacy
+// per-body CSV artifact.
 void SkullScope::SetPath( const char* path )
 {
     strcpy_s( m_physicsDiagnosticsPath, sizeof( m_physicsDiagnosticsPath ), path ? path : "" );
@@ -118,6 +122,9 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
     auto& m_sleepSupportEdges = collection.m_sleepSupportEdges;
     auto& m_sleepIslandVisualId = collection.m_sleepIslandVisualId;
 
+    // Frame rows summarize the whole physics island graph, not just individual
+    // bodies.  The query layer uses these aggregate maxima/counts to decide which
+    // body/contact/island details are worth expanding in a follow-up query.
     const int frame = m_physicsDiagnosticsFrame;
     const int modelCount = static_cast<int>( m_gameModels.size() );
     int awakeCount = 0;
@@ -169,6 +176,9 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
     std::vector<int> bodyIslandIds( modelCount, 0 );
     std::vector<DiagnosticsIslandStats> islandStats( modelCount );
 
+    // Sleep islands are rebuilt every physics step in GameModelCollection.  The
+    // diagnostics copy only the root/id mapping and aggregate counts; it avoids
+    // serializing the entire union-find unless a specific query asks for detail.
     auto findIslandRoot = [&]( int index ) -> int
     {
         int root = index;

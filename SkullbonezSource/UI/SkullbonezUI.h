@@ -25,6 +25,9 @@ enum class InGameUITab
     Count
 };
 
+// Snapshot of engine state needed to draw the UI for one frame.  The UI reads
+// this structure but does not mutate engine objects directly; that keeps render
+// code, input hit-testing, and runtime state changes separated.
 struct InGameUIFrameData
 {
     int screenW = 1;
@@ -81,6 +84,9 @@ struct InGameUIFrameData
     bool canSaveSceneDefaults = false;
 };
 
+// Commands emitted by UI hit-testing for SkullbonezRun to apply.  Booleans are
+// edge-triggered requests from this frame, while requested* fields carry slider
+// or combo values and use sentinel values (-1 / false) when unchanged.
 struct InGameUIInputResult
 {
     bool userInteracted = false;
@@ -99,7 +105,7 @@ struct InGameUIInputResult
     bool toggleWaterFlat = false;
     bool toggleWaterReflection = false;
     bool resetScene = false;
-    bool resetSceneDefaults = false; // Scene-tab command: reload current scene/config defaults instead of preserving live run controls
+    bool resetSceneDefaults = false; // Explicit defaults reload; unlike resetScene, scene/config directives win over live controls
     bool requestDemoScene = false;
     bool saveSceneDefaults = false;
     float requestedTimeScale = -1.0f;
@@ -151,6 +157,9 @@ class InGameUI
     void Draw( const InGameUIFrameData& data );
 
   private:
+    // Persistent widget state.  Scene loads may apply SceneUIOptions, but normal
+    // simulation resets preserve these values so the UI remains where the user
+    // left it while the bodies/timers are rebuilt underneath.
     bool m_isVisible = true;
     bool m_isMinimized = true;
     bool m_isMaximized = false;

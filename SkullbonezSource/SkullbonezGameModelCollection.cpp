@@ -86,6 +86,9 @@ void GameModelCollection::Clear()
 
 void GameModelCollection::InvalidateSoA()
 {
+    // GameModel is the authoritative state store.  SoA arrays are rebuilt lazily
+    // for render/broadphase hot paths and must be invalidated after any add,
+    // clear, wake, integration, or external state edit.
     m_soaBodyDataValid = false;
     m_soaModelMatricesValid = false;
 }
@@ -407,6 +410,9 @@ void GameModelCollection::EndCollisionVisualFrame()
 
 void GameModelCollection::RunPhysics( float fChangeInTime )
 {
+    // One physics tick owns all per-step scratch buffers.  Persistent sleep
+    // state and warm-start caches survive across ticks, while contact visuals,
+    // support flags, and time remainders are rebuilt for this exact dt.
     const int modelCount = static_cast<int>( m_gameModels.size() );
     EnsureCollisionVisualBuffers( modelCount );
     if ( !m_collisionVisualFrameActive )
@@ -448,7 +454,9 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
 
     RefreshSoABodyData();
 
-    // Dispatch to the appropriate physics implementation — the mode is checked exactly once here.
+    // All bodies now run through the unified solver path. Keeping the dispatch
+    // narrow here makes it obvious that removed legacy modes cannot bypass the
+    // same sleep, diagnostics, broadphase, and visualization bookkeeping.
     RunSolverPhysics( fChangeInTime );
 
     // Per-frame deterministic regression CSV. Active only when a path is set by
@@ -1319,7 +1327,8 @@ void GameModelCollection::PropagateSleepSupport()
 
 
 // Physics tick: unified impulse solver for all object types (spheres and boxes).
-// No object filtering needed — all models participate.
+// No object filtering is needed: broadphase, swept narrowphase, terrain contact,
+// persistent contacts, sleep propagation, and diagnostics all see the same model set.
 void GameModelCollection::RunSolverPhysics( float dt )
 {
     const int modelCount = static_cast<int>( m_gameModels.size() );

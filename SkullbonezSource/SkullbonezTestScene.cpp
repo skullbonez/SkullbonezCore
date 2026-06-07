@@ -69,6 +69,10 @@ TestScene::TestScene()
 
 TestScene TestScene::LoadFromFile( const char* path )
 {
+    // Scene files are the deterministic runtime contract for renderer, UI, and
+    // physics validation.  Parsing stays intentionally strict for known
+    // directives so bad test data fails at load time instead of becoming a
+    // silent baseline drift.
     TestScene scene;
 
     FILE* file = nullptr;
@@ -104,7 +108,9 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
-        // parse physics directive
+        // Global run toggles appear before body directives in most scenes, but
+        // the parser accepts them anywhere so hand-authored repro files can stay
+        // compact and focused on the body list.
         if ( strncmp( line, "physics ", 8 ) == 0 )
         {
             if ( strcmp( line + 8, "off" ) == 0 )
@@ -167,8 +173,10 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
-        // Parse scene UI directives. The in-game UI is visible by default; scenes
-        // can use these directives to hide it or request a specific layout.
+        // Parse scene UI directives.  These are used by screenshot baselines and
+        // interactive repros to restore a window layout, open combos, scroll
+        // offsets, and visual toggles without baking those values into engine
+        // defaults.
         if ( strncmp( line, "ui ", 3 ) == 0 || strncmp( line, "UI ", 3 ) == 0 )
         {
             char command[64] = {};

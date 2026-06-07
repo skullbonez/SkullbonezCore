@@ -31,6 +31,11 @@ float ShapeAxisLength( GameModel& model, int axis )
 }
 } // namespace
 
+// Contact debug rows are produced by the solver only for the current physics
+// step, but a one-frame manifold is too easy to miss visually.  The visualizer
+// tracks contacts by body pair + feature id and lets them fade after the solver
+// stops reporting them.  This is display state only; it never feeds back into
+// physics, sleeping, or collision response.
 PhysicsDebugVisualizer::TrackedContact* PhysicsDebugVisualizer::FindTrackedContact( const PhysicsDebugContact& contact )
 {
     for ( TrackedContact& tracked : m_trackedContacts )
@@ -197,6 +202,9 @@ void PhysicsDebugVisualizer::SetContactLingerSeconds( float seconds )
 
 void PhysicsDebugVisualizer::Update( float dt, GameModelCollection& models )
 {
+    // The C-key mode is bitmask based: axes, contacts, and sleep state can be
+    // shown independently or together.  If contacts are disabled, discard the
+    // linger cache immediately so re-enabling starts from live solver rows.
     if ( ( m_flags & PHYSICS_DEBUG_CONTACTS ) == 0 )
     {
         m_trackedContacts.clear();
@@ -257,6 +265,9 @@ void PhysicsDebugVisualizer::Render( GameModelCollection& models, const Matrix4&
     }
 
     m_lineData.clear();
+    // Each enabled layer writes into one retained CPU line buffer, then uploads a
+    // single dynamic vertex stream.  That keeps debug rendering cheap enough to
+    // leave on while investigating solver state in large scenes.
     if ( ( m_flags & PHYSICS_DEBUG_AXES ) != 0 )
     {
         EmitObjectAxes( models );

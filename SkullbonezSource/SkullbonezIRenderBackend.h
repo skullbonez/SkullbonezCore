@@ -29,8 +29,13 @@ enum class BlendFactor
 /* -- IRenderBackend ---------------------------------------------------------------------------------------------------------------------------------------------
 
     Abstract render backend interface. Owns GPU state and resource creation.
-    Concrete implementations: RenderBackendGL (OpenGL 3.3), RenderBackendDX11 (DirectX 11).
+    Concrete implementations: RenderBackendGL (OpenGL 3.3), RenderBackendDX11 (DirectX 11),
+    and RenderBackendDX12 (DirectX 12).
     One global instance is set during init and accessed via Gfx().
+
+    Backend parity depends on these calls having the same visible behavior across
+    GL/DX11/DX12 even when the underlying API state model differs.  State queries
+    below report the engine's tracked state, not slow readbacks from the graphics API.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class IRenderBackend
 {

@@ -111,6 +111,10 @@ void DrawUITestPattern( int screenW, int screenH )
 
 bool SceneDirectiveMatches( const std::string& line, const char* key )
 {
+    // Scene-default writes work on line-oriented directives, not a full parsed
+    // syntax tree.  Match only a complete directive key so editing "text" never
+    // accidentally catches "text_only", and so tabs remain valid separators for
+    // hand-authored scene files.
     const size_t keyLen = strlen( key );
     if ( line.compare( 0, keyLen, key ) != 0 )
     {
@@ -145,6 +149,10 @@ size_t SceneDefaultInsertIndex( const std::vector<std::string>& lines )
 
 void SetSceneDirective( std::vector<std::string>& lines, const char* key, const std::string& value, bool includeDirective )
 {
+    // Save Defaults is deliberately surgical: preserve body/camera ordering and
+    // comments, replace the first matching singleton directive, and delete any
+    // duplicate stale copies.  When includeDirective is false this same helper is
+    // used as a migration broom for directives that no longer exist.
     bool replaced = false;
     for ( size_t i = 0; i < lines.size(); )
     {
@@ -213,6 +221,12 @@ std::string NormalizeScenePath( const std::string& path )
     return normalized;
 }
 
+// Captures the part of a live run that belongs to the operator's current scene
+// configuration rather than the simulation instance.  A normal Reset button
+// should rebuild bodies, timers, contact caches, screenshots, and diagnostics;
+// it should not silently undo debug overlays, physics debug settings, time scale,
+// fixed-step mode, world sliders, or generated-count overrides.  Scene changes
+// and Reset To Defaults skip this snapshot so the file/config becomes authority.
 struct SceneRuntimeResetSnapshot
 {
     RunRuntimeSettings runtimeSettings; // Renderer sync toggles changed while operating the current scene
@@ -3934,6 +3948,9 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
     SetSceneDirective( lines, "text_only", std::string( "text_only " ) + OnOff( m_debug.isTextOnly ), true );
     SetSceneDirective( lines, "vsync", std::string( "vsync " ) + OnOff( m_runtimeSettings.isVsyncEnabled ), true );
     SetSceneDirective( lines, "pipeline_sync", std::string( "pipeline_sync " ) + OnOff( m_runtimeSettings.isPipelineSyncEnabled ), true );
+    // Deprecated directives are intentionally removed on save.  Keeping this
+    // cleanup here lets old local scene files self-heal without reintroducing
+    // parser support for legacy physics, physics_mode, or roll_align.
     SetSceneDirective( lines, "legacy_balls", "", false );
     SetSceneDirective( lines, "physics_mode", "", false );
     SetSceneDirective( lines, "roll_align", "", false );
