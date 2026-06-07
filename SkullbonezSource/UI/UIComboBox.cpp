@@ -1,4 +1,5 @@
 #include "UIComboBox.h"
+#include "../SkullbonezText.h"
 
 #include <algorithm>
 
@@ -138,6 +139,11 @@ void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char*
     {
         return;
     }
+
+    // Open combos are overlay surfaces.  Flush anything already queued so the
+    // dropdown backer can cover earlier labels before its option text is added.
+    Text::Text2d::FlushQuads();
+    Text::Text2d::FlushText();
 
     draw.Rect( dropdown.x - 3.0f, dropdown.y - 3.0f, dropdown.w + 6.0f, dropdown.h + 6.0f, 0.004f, 0.012f, 0.018f, 1.0f );
     draw.Rect( dropdown.x, dropdown.y, dropdown.w, dropdown.h, 0.012f, 0.030f, 0.040f, 1.0f );

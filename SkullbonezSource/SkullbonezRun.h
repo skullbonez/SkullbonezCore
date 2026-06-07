@@ -203,6 +203,14 @@ struct RunFireState
     int boxNext = -1;  // Next box model index to recycle
 };
 
+struct RunUIStressState
+{
+    bool enabled = false;                   // Deterministic scene-driven UI stress runner
+    unsigned int randomState = 0x7F4A7C15u; // LCG state, seeded from scene UI options
+    int actionsPerFrame = 4;                // Cheap UI state mutations per rendered frame
+    int framesRun = 0;                      // Stress-run frame counter independent of scene resets
+};
+
 enum class RuntimeRendererType
 {
     OpenGL,
@@ -263,6 +271,7 @@ class SkullbonezRun
     InGameUI m_UI;                                   // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                           // Runtime debug/overlay toggles
     RunFireState m_fire;                             // Projectile recycling state (CTRL = ball, ALT = box)
+    RunUIStressState m_uiStress;                     // Deterministic UI stress run state
     BroadphaseVisualizer m_broadphaseVisualizer;     // Spatial grid debug overlay (G key toggle)
     CollisionVisualizer m_collisionVisualizer;       // Solid collision/sleep model visualizer (V key toggle)
     PhysicsDebugVisualizer m_physicsDebugVisualizer; // Line overlay for object axes, contact manifolds, and sleep state
@@ -305,6 +314,10 @@ class SkullbonezRun
     RuntimeRendererType GetCurrentRendererType() const;                                                                                // Detect active backend type from Gfx renderer identity
     RuntimeRendererType GetNextRendererType( RuntimeRendererType current ) const;
     void SwitchRenderer( RuntimeRendererType target ); // Rebuild render backend/resources while preserving simulation state
+    unsigned int NextUIStressRandom();
+    int NextUIStressInt( int maxExclusive );
+    float NextUIStressFloat( float minValue, float maxValue );
+    void RunUIStressActions();
 
     // --- Per-frame tick helpers (called from Run()) ---
     void TickRendererSwitch( float dt );                  // Advance auto-switch timer; cycle backend when interval elapses

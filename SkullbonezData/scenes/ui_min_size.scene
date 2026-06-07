@@ -10,6 +10,7 @@ ui tab profile
 ui rect 64 70 430 250
 ui blur on
 ui renderer_combo closed
+ui mouse 120 300
 ui profiler_expand none
 ui_test_pattern off
 screenshot Profile/ui_min_size.bmp frame 20

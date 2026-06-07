@@ -139,6 +139,7 @@ class InGameUI
     void SetWindowBounds( int x, int y, int width, int height );
     void SetBlurEnabled( bool enabled );
     void SetRendererComboOpen( bool open );
+    void SetWaterComboOpen( bool open );
     void SetSceneComboOpen( bool open );
     void SetSceneFilter( const char* filter );
     void SetProfilerExpandAll( bool expandAll );

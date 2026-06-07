@@ -150,6 +150,8 @@ struct SceneUIOptions
     bool blurEnabled = true;
     bool hasRendererComboOpen = false;
     bool rendererComboOpen = false;
+    bool hasWaterComboOpen = false;
+    bool waterComboOpen = false;
     bool hasSceneComboOpen = false;
     bool sceneComboOpen = false;
     bool hasSceneFilter = false;
@@ -167,6 +169,12 @@ struct SceneUIOptions
     bool hasMouseOverride = false;
     int mouseX = 0;
     int mouseY = 0;
+    bool hasStress = false;
+    bool stressEnabled = false;
+    bool hasStressSeed = false;
+    unsigned int stressSeed = 0;
+    bool hasStressActions = false;
+    int stressActionsPerFrame = 4;
 };
 
 /* -- Test Scene -------------------------------------------------------------------------------------------------------------------------------------------------

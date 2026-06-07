@@ -21,6 +21,9 @@ for %%A in (%*) do (
     ) else if /I "!ARG!"=="ui" (
         call "%ROOT%validate_ui.bat"
         if errorlevel 1 set "FAILED=1"
+    ) else if /I "!ARG!"=="ui-stress" (
+        call "%ROOT%validate_ui_stress.bat"
+        if errorlevel 1 set "FAILED=1"
     ) else if /I "!ARG!"=="physics" (
         call "%ROOT%validate_physics.bat"
         if errorlevel 1 set "FAILED=1"
@@ -72,6 +75,7 @@ echo Validate one or more targets from this workspace:
 echo   tools\validate_select.bat fast
 echo   tools\validate_select.bat renderers
 echo   tools\validate_select.bat ui
+echo   tools\validate_select.bat ui-stress
 echo   tools\validate_select.bat physics
 echo   tools\validate_select.bat physics-query
 echo   tools\validate_select.bat perf

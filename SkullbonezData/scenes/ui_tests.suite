@@ -10,6 +10,7 @@ SkullbonezData/scenes/ui_physics_toggles.scene
 SkullbonezData/scenes/ui_scene_options.scene
 SkullbonezData/scenes/ui_controls.scene
 SkullbonezData/scenes/ui_renderer_combo.scene
+SkullbonezData/scenes/ui_water_combo.scene
 SkullbonezData/scenes/ui_scene_complete.scene
 SkullbonezData/scenes/ui_small_scroll.scene
 SkullbonezData/scenes/ui_controls_clip_scroll.scene

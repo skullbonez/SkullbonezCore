@@ -28,6 +28,7 @@ SCENES = (
     "scene_options",
     "controls",
     "renderer_combo",
+    "water_combo",
     "scene_complete",
     "small_scroll",
     "controls_clip_scroll",

@@ -407,6 +407,35 @@ uint32_t ReflectionDisabledMask( int rendererIndex )
 }
 
 
+void DrawFooterToggle( const UIDrawContext& draw, const UIRect& bounds, const char* label, bool checked, float accentR, float accentG, float accentB )
+{
+    const float switchW = 28.0f;
+    const float switchH = 14.0f;
+    const float switchX = bounds.x + bounds.w - switchW - 2.0f;
+    const float switchY = bounds.y + 5.0f;
+    const float labelAreaW = (std::max)( 1.0f, switchX - bounds.x - 6.0f );
+    const float labelW = Text2d::MeasureText( 10.5f, label );
+    const float labelX = bounds.x + (std::max)( 0.0f, ( labelAreaW - labelW ) * 0.5f );
+
+    draw.Text( labelX, bounds.y + 4.0f, 10.5f, 0.74f, 0.82f, 0.84f, label );
+    draw.Rect( switchX, switchY, switchW, switchH,
+               checked ? accentR * 0.32f : 0.05f,
+               checked ? accentG * 0.32f : 0.08f,
+               checked ? accentB * 0.32f : 0.09f,
+               0.92f );
+    draw.Outline( switchX, switchY, switchW, switchH,
+                  checked ? accentR : 0.20f,
+                  checked ? accentG : 0.30f,
+                  checked ? accentB : 0.34f,
+                  checked ? 0.82f : 0.58f );
+    draw.Rect( switchX + ( checked ? 14.0f : 2.0f ), bounds.y + 7.0f, 10.0f, 10.0f,
+               checked ? 0.82f : 0.34f,
+               checked ? 0.98f : 0.46f,
+               checked ? 1.0f : 0.52f,
+               0.96f );
+}
+
+
 void BuildWindowTitle( const InGameUIFrameData& data, char* out, size_t outSize )
 {
     if ( outSize == 0 )
@@ -642,6 +671,22 @@ void InGameUI::SetBlurEnabled( bool enabled )
 void InGameUI::SetRendererComboOpen( bool open )
 {
     m_rendererCombo.SetOpen( open );
+    if ( open )
+    {
+        m_reflectionCombo.Close();
+        CloseSceneCombo();
+    }
+}
+
+
+void InGameUI::SetWaterComboOpen( bool open )
+{
+    m_reflectionCombo.SetOpen( open );
+    if ( open )
+    {
+        m_rendererCombo.Close();
+        CloseSceneCombo();
+    }
 }
 
 
@@ -650,6 +695,8 @@ void InGameUI::SetSceneComboOpen( bool open )
     m_sceneCombo.SetOpen( open );
     if ( open )
     {
+        m_rendererCombo.Close();
+        m_reflectionCombo.Close();
         CaptureSceneFilterKeyState();
     }
     else
@@ -2604,10 +2651,10 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     static const char* kRendererOptions[] = { "GL", "DX11", "DX12" };
     static const char* kReflectionOptions[] = { "FBO", "DXR", "None" };
     m_rendererCombo.Draw( draw, "Renderer", kRendererOptions, 3, currentRendererIndex, m_mouseX, m_mouseY );
-    m_blurToggle.DrawToggle( draw, "Blur", m_blurPreviewEnabled, 0.34f, 0.91f, 1.0f );
-    m_vsyncToggle.DrawToggle( draw, "VSync", data.vsyncEnabled, 0.34f, 0.91f, 1.0f );
-    m_histogramToggle.DrawToggle( draw, "Perf", m_performanceHistogramEnabled, 0.34f, 0.91f, 1.0f );
-    m_timelineToggle.DrawToggle( draw, "Timeline", m_profilerTimelineEnabled, 0.34f, 0.91f, 1.0f );
+    DrawFooterToggle( draw, blurFooterBounds, "Blur", m_blurPreviewEnabled, 0.34f, 0.91f, 1.0f );
+    DrawFooterToggle( draw, vsyncFooterBounds, "VSync", data.vsyncEnabled, 0.34f, 0.91f, 1.0f );
+    DrawFooterToggle( draw, perfFooterBounds, "Perf", m_performanceHistogramEnabled, 0.34f, 0.91f, 1.0f );
+    DrawFooterToggle( draw, timelineFooterBounds, "Timeline", m_profilerTimelineEnabled, 0.34f, 0.91f, 1.0f );
     m_reflectionCombo.Draw( draw,
                             "Water",
                             kReflectionOptions,

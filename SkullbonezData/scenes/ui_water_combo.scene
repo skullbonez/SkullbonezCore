@@ -1,0 +1,19 @@
+# UI water combo capture: bottom-left water combo opened over the renderer row.
+seed 4242
+physics off
+text off
+vsync off
+water_hidden on
+terrain_hidden on
+frames 24
+ui tab renderer
+ui rect 34 56 760 540
+ui blur on
+ui renderer_combo closed
+ui water_combo open
+ui mouse 142 552
+ui profiler_expand none
+ui_test_pattern on
+screenshot Profile/ui_water_combo.bmp frame 20
+
+camera main 500 60 650  600 33 600  0 1 0
