@@ -23,6 +23,7 @@ class UIDrawContext
     UIDrawContext( int screenW, int screenH );
 
     void Rect( float x, float y, float w, float h, float r, float g, float b, float a ) const;
+    void Triangle( float x0, float y0, float x1, float y1, float x2, float y2, float r, float g, float b, float a ) const;
     void Outline( float x, float y, float w, float h, float r, float g, float b, float a ) const;
     void Text( float x, float y, float pxSize, float r, float g, float b, const char* value ) const;
     float TextX( float x ) const;
@@ -34,6 +35,8 @@ class UIDrawContext
 
   private:
     static float Snap( float value );
+    float PixelXUnsnapped( float x ) const;
+    float PixelYUnsnapped( float y ) const;
     float PixelX( float x ) const;
     float PixelY( float y ) const;
 

@@ -179,8 +179,8 @@ class InGameUI
     UICheckBox m_timelineToggle;
     UICheckBox m_histogramToggle;
     UICheckBox m_physicsToggles[6];
-    UICheckBox m_optionToggles[8];
-    UICheckBox m_controlToggles[15];
+    UICheckBox m_optionToggles[7];
+    UICheckBox m_controlToggles[2];
     UISlider m_timeScaleSlider;
     UISlider m_modelCountSlider;
     UISlider m_physicsAlphaSlider;
@@ -220,6 +220,8 @@ class InGameUI
     int m_resizeStartH = 0;
     int m_mouseX = 0;
     int m_mouseY = 0;
+    int m_lastScreenW = 1;
+    int m_lastScreenH = 1;
     bool m_hasMouseOverride = false;
     int m_mouseOverrideX = 0;
     int m_mouseOverrideY = 0;
@@ -239,6 +241,12 @@ class InGameUI
     int m_expandedProfilerHashCount = 0;
     bool m_expandAllProfilerMarkers = false;
     bool m_profilerDefaultExpansionApplied = false;
+    bool m_windowAnimationActive = false;
+    bool m_windowAnimationToMinimized = false;
+    double m_windowAnimationStart = 0.0;
+    double m_windowAnimationEnd = 0.0;
+    UIRect m_windowAnimationFrom;
+    UIRect m_windowAnimationTo;
 
     struct PerformanceHistogramSample
     {
@@ -270,6 +278,9 @@ class InGameUI
     void DrawPerformanceHistogram( const UIDrawContext& draw, const InGameUIFrameData& data ) const;
     void ApplyDefaultWindowPlacement( int screenW, int screenH );
     void DrawCursor( const UIDrawContext& draw ) const;
+    void BeginWindowAnimation( const UIRect& from, const UIRect& to, double now, bool toMinimized );
+    UIRect CurrentWindowRect( double now );
+    void DrawWindowAnimationShell( const UIDrawContext& draw, const UIRect& bounds ) const;
     void ClearSceneFilter();
     void CloseSceneCombo();
     void CaptureSceneFilterKeyState();
@@ -277,7 +288,7 @@ class InGameUI
     void AppendSceneFilterChar( char value );
     void BackspaceSceneFilter();
     void UpdateSceneFilterTyping( InGameUIInputResult& result, const char* const* sceneOptions, int sceneOptionCount );
-    void SetMaximized( bool maximized, int screenW, int screenH );
+    void SetMaximized( bool maximized, int screenW, int screenH, double now = 0.0 );
 };
 
 } // namespace UI

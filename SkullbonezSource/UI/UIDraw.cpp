@@ -48,6 +48,21 @@ void UIDrawContext::Rect( float x, float y, float w, float h, float r, float g, 
 }
 
 
+void UIDrawContext::Triangle( float x0, float y0, float x1, float y1, float x2, float y2, float r, float g, float b, float a ) const
+{
+    Text2d::BatchTriangle( PixelXUnsnapped( x0 ),
+                           PixelYUnsnapped( y0 ),
+                           PixelXUnsnapped( x1 ),
+                           PixelYUnsnapped( y1 ),
+                           PixelXUnsnapped( x2 ),
+                           PixelYUnsnapped( y2 ),
+                           r,
+                           g,
+                           b,
+                           a );
+}
+
+
 void UIDrawContext::Outline( float x, float y, float w, float h, float r, float g, float b, float a ) const
 {
     Rect( x, y, w, 1.0f, r, g, b, a );
@@ -97,6 +112,18 @@ float UIDrawContext::ScaleY() const
 float UIDrawContext::Snap( float value )
 {
     return std::floor( value + 0.5f );
+}
+
+
+float UIDrawContext::PixelXUnsnapped( float x ) const
+{
+    return TextX( x );
+}
+
+
+float UIDrawContext::PixelYUnsnapped( float y ) const
+{
+    return TextY( y );
 }
 
 

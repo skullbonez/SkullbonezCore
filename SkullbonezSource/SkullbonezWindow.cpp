@@ -224,6 +224,14 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
             Input::AccumulateMouseWheelDelta( GET_WHEEL_DELTA_WPARAM( wParam ) );
             break;
 
+        case WM_SETCURSOR:
+            if ( LOWORD( lParam ) == HTCLIENT )
+            {
+                SetCursor( nullptr );
+                return TRUE;
+            }
+            break;
+
         // WM_DESTROY is fired when the window is closed
         case WM_DESTROY:
             // During deliberate window recreation (renderer hot-switch), suppress the quit
@@ -455,6 +463,7 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
     UpdateWindow( hWnd );              // Draw window
     SetFocus( hWnd );                  // Set keyboard focus
                                        // to our window
+    SetCursor( nullptr );
 
     m_sWindow = hWnd;
 }

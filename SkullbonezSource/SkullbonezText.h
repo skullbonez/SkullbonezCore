@@ -43,7 +43,8 @@ class Text2d
     static void FlushText();                                                                                                              // Uploads and draws all accumulated text in one call
     static void Render2dQuad( float x0, float y0, float x1, float y1, float r, float g, float b, float a );                               // Renders a flat-coloured 2D HUD quad (immediate, separate draw)
     static void BatchQuad( float x0, float y0, float x1, float y1, float r, float g, float b, float a );                                  // Accumulates a coloured quad into the batch
-    static void FlushQuads();                                                                                                             // Uploads and draws all accumulated quads in one call
+    static void BatchTriangle( float x0, float y0, float x1, float y1, float x2, float y2, float r, float g, float b, float a );          // Accumulates a coloured triangle into the same batch
+    static void FlushQuads();                                                                                                             // Uploads and draws all accumulated quads/triangles in one call
     static void BuildFont( const char* cFontName );                                                                                       // Loads (or generates) SDF atlas, builds GPU resources
     static bool GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath );                                                    // Generates SDF atlas to binary file (also usable via --gen-atlas)
     static void DeleteFont();                                                                                                             // Releases GPU font resources
