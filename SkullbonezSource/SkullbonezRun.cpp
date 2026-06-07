@@ -2401,7 +2401,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         const float titleSz = 0.013f;
         const float entrySz = 0.011f;
         const float lineH = 0.020f;
-        const int nRows = 13;
+        const int nRows = 12;
         const float panPad = 0.012f;
         const float titleGap = 0.016f; // space between title baseline and first entry
         const float keyW = 0.058f;     // key-name column width
@@ -2443,7 +2443,6 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "Shift", "Sprint (3x speed)" },
             { "Z", "Fire ball" },
             { "X", "Fire box" },
-            { "P", "Physics solver" },
             { "Q", "Cycle renderer" },
             { "V", "Collision visual" },
             { "Space", "Step physics" },
@@ -2458,7 +2457,6 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "4", "Toggle terrain" },
             { "5", "Toggle water" },
             { "6", "Debug body alpha" },
-            { "9", "Debug vectors" },
             { "G", "Broadphase overlay" },
             { "C", "Physics debug" },
             { "PgUp/Dn", "Water height" },
