@@ -36,6 +36,7 @@ GameModelCollection::GameModelCollection()
     m_sleepIslandParent.reserve( MAX_GAME_MODELS );
     m_sleepIslandRank.reserve( MAX_GAME_MODELS );
     m_sleepIslandHasAwake.reserve( MAX_GAME_MODELS );
+    m_sleepIslandHasSupportAnchor.reserve( MAX_GAME_MODELS );
     m_sleepIslandEligible.reserve( MAX_GAME_MODELS );
     m_sleepIslandCanSleep.reserve( MAX_GAME_MODELS );
     m_persistentContacts.reserve( MAX_GAME_MODELS * 4 );
@@ -84,6 +85,7 @@ void GameModelCollection::Clear()
     m_sleepIslandParent.clear();
     m_sleepIslandRank.clear();
     m_sleepIslandHasAwake.clear();
+    m_sleepIslandHasSupportAnchor.clear();
     m_sleepIslandEligible.clear();
     m_sleepIslandCanSleep.clear();
     m_persistentContacts.clear();
@@ -732,6 +734,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     // that are touching or nearly touching, then solve those rules like tiny springs
     // with hard limits: push apart along the normal, resist sliding along tangents.
     const int modelCount = static_cast<int>( m_gameModels.size() );
+    m_persistentContactCounts.assign( modelCount, 0 );
     if ( modelCount <= 1 || m_candidatePairs.empty() )
     {
         m_persistentContacts.clear();
@@ -741,7 +744,6 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     }
 
     m_persistentContacts.clear();
-    m_persistentContactCounts.assign( modelCount, 0 );
 
     // ENGINE-SPECIFIC:
     //   Catto's normal constraint allows penetration and uses bias to resolve
@@ -1604,11 +1606,23 @@ void GameModelCollection::RunSolverPhysics( float dt )
 
     // Build sleep islands from the persistent contact graph. Sleep counters are
     // tracked per body, but the final transition is island-level: connected awake
-    // bodies deactivate together only if the whole island is quiet, supported,
-    // and free of contacts that explicitly inhibit sleep.
+    // bodies deactivate together only if the whole island is quiet and rooted in
+    // credible support.
+    //
+    // Important nuance:
+    //   "Supported" is an island property, not a demand that every body directly
+    //   touch terrain. A box can be quiet and physically constrained by the side
+    //   of a grounded pile. Requiring that specific box to also pass terrain
+    //   support classification creates the bad varied-scene wedge: terrain says
+    //   "not a stable footprint", object contacts keep the box from falling, and
+    //   the sleep gate has no way out. The anchor pass below keeps the original
+    //   safety rule for floating/mid-air islands: at least one member must still
+    //   be terrain-supported, fixed, or already sleeping from a previous proven
+    //   support state.
     m_sleepIslandParent.assign( modelCount, 0 );
     m_sleepIslandRank.assign( modelCount, 0 );
     m_sleepIslandHasAwake.assign( modelCount, 0 );
+    m_sleepIslandHasSupportAnchor.assign( modelCount, 0 );
     m_sleepIslandEligible.assign( modelCount, 1 );
     m_sleepIslandCanSleep.assign( modelCount, 1 );
     for ( int i = 0; i < modelCount; ++i )
@@ -1666,6 +1680,24 @@ void GameModelCollection::RunSolverPhysics( float dt )
 
     for ( int x = 0; x < modelCount; ++x )
     {
+        const int root = findIsland( x );
+
+        // A support anchor is evidence that this island is not a free-floating
+        // collection of bodies that merely became numerically quiet. Terrain
+        // support remains the usual anchor. Fixed objects and sleeping bodies are
+        // also valid anchors: fixed objects are immovable world geometry, and a
+        // sleeping dynamic body could only have reached sleep after satisfying the
+        // same support gate in an earlier frame.
+        if ( m_soaIsFixed[x] ||
+             ( x < static_cast<int>( m_sleepState.size() ) && m_sleepState[x] != 0 ) ||
+             ( x < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[x] != 0 ) )
+        {
+            m_sleepIslandHasSupportAnchor[root] = 1;
+        }
+    }
+
+    for ( int x = 0; x < modelCount; ++x )
+    {
         if ( m_soaIsFixed[x] )
         {
             continue;
@@ -1683,12 +1715,40 @@ void GameModelCollection::RunSolverPhysics( float dt )
         float speedSq = vel.x * vel.x + vel.y * vel.y + vel.z * vel.z;
         float omegaSq = omega.x * omega.x + omega.y * omega.y + omega.z * omega.z;
         bool quiet = speedSq < SLEEP_LINEAR_SQ && omegaSq < SLEEP_ANGULAR_SQ;
-        bool supported = m_sleepSupportedThisFrame[x] != 0;
+        bool supported = x < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[x] != 0;
+        bool hasObjectContact = x < static_cast<int>( m_persistentContactCounts.size() ) && m_persistentContactCounts[x] > 0;
+        bool islandHasSupportAnchor = m_sleepIslandHasSupportAnchor[root] != 0;
+
+        // A quiet body in a grounded object-contact island is supported even if
+        // the body itself is side-wedged or touching terrain on an edge/point.
+        // This is deliberately narrower than "any contact means support":
+        //
+        //   * quiet keeps active impacts and real toppling awake;
+        //   * hasObjectContact requires the body to be constrained by the island;
+        //   * islandHasSupportAnchor keeps floating piles from becoming sleepers.
+        //
+        // Marking the body supported here also keeps SkullScope diagnostics honest:
+        // the body is not terrain-supported, but it is supported for deactivation
+        // by a contact island rooted in credible support.
+        if ( !supported && quiet && hasObjectContact && islandHasSupportAnchor )
+        {
+            m_sleepSupportedThisFrame[x] = 1;
+            supported = true;
+        }
+
+        // Terrain can still inhibit sleep for edge/point contacts when that
+        // contact is the only apparent support. In a quiet anchored island,
+        // though, the same terrain rejection must not be an infinite veto: the
+        // object solver may have wedged the body against neighbors so it cannot
+        // fall into a more stable footprint. The island anchor and object-contact
+        // checks above are the escape hatch for that exact low-energy state.
+        bool terrainInhibitBlocksSleep = m_sleepInhibitedThisFrame[x] != 0 &&
+                                         !( quiet && hasObjectContact && islandHasSupportAnchor );
 
         // Modern sleep is still velocity based, but Skullbonez also requires
-        // credible support so unsupported gravity bodies cannot become
+        // credible island support so unsupported gravity bodies cannot become
         // numerically quiet for a few frames while visibly floating.
-        if ( !quiet || !supported || m_sleepInhibitedThisFrame[x] )
+        if ( !quiet || !supported || terrainInhibitBlocksSleep )
         {
             m_sleepIslandEligible[root] = 0;
         }

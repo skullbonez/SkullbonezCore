@@ -83,6 +83,7 @@ class GameModelCollection
     std::vector<int> m_sleepIslandParent;
     std::vector<uint8_t> m_sleepIslandRank;
     std::vector<uint8_t> m_sleepIslandHasAwake;
+    std::vector<uint8_t> m_sleepIslandHasSupportAnchor;
     std::vector<uint8_t> m_sleepIslandEligible;
     std::vector<uint8_t> m_sleepIslandCanSleep;
 

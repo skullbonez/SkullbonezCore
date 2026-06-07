@@ -2326,7 +2326,7 @@
         {
           "body_id": 30,
           "first_frame": 338,
-          "last_frame": 446,
+          "last_frame": 1190,
           "max_omega": 5.165315,
           "max_speed": 37.1052,
           "name": "drop_f"
@@ -2334,7 +2334,7 @@
         {
           "body_id": 29,
           "first_frame": 319,
-          "last_frame": 1041,
+          "last_frame": 1199,
           "max_omega": 3.753075,
           "max_speed": 33.603853,
           "name": "drop_e"
@@ -2406,7 +2406,7 @@
         {
           "body_id": 19,
           "first_frame": 131,
-          "last_frame": 764,
+          "last_frame": 1100,
           "max_omega": 5.77812,
           "max_speed": 10.292522,
           "name": "top_a"
@@ -2541,7 +2541,7 @@
             "max_speed_body": 25,
             "run_id": "run_0001",
             "sleeping_count": 23,
-            "supported_count": 9,
+            "supported_count": 10,
             "time_seconds": 9.991667,
             "total_energy": 367.720171
           },
@@ -2681,7 +2681,7 @@
             "max_speed_body": 25,
             "run_id": "run_0002",
             "sleeping_count": 23,
-            "supported_count": 9,
+            "supported_count": 10,
             "time_seconds": 9.991667,
             "total_energy": 367.720171
           },
