@@ -58,6 +58,10 @@ constexpr float UI_WORLD_FLUID_DENSITY_MIN = 0.0f;
 constexpr float UI_WORLD_FLUID_DENSITY_MAX = 5.0f;
 constexpr float UI_WORLD_FLUID_DENSITY_STEP = 0.05f;
 constexpr int UI_SCENE_COMBO_VISIBLE_OPTIONS = 12;
+constexpr float UI_SCENE_HEADER_BUTTON_GAP = 8.0f;
+constexpr float UI_SCENE_RESET_BUTTON_W = 72.0f;
+constexpr float UI_SCENE_RESET_DEFAULTS_BUTTON_W = 132.0f;
+constexpr float UI_SCENE_DEMO_BUTTON_W = 112.0f;
 
 int GetRendererIndexFromName( const char* rendererName )
 {
@@ -128,7 +132,10 @@ int SceneComboScrollForSelection( int selectedIndex, int optionCount )
 float SceneTabComboWidth( float contentW )
 {
     const float maxComboW = (std::min)( contentW, 520.0f );
-    const float buttonW = 96.0f + 112.0f + 16.0f;
+    const float buttonW = UI_SCENE_RESET_BUTTON_W +
+                          UI_SCENE_RESET_DEFAULTS_BUTTON_W +
+                          UI_SCENE_DEMO_BUTTON_W +
+                          UI_SCENE_HEADER_BUTTON_GAP * 3.0f;
     const float withButtons = contentW - buttonW;
     return (std::max)( 180.0f, (std::min)( maxComboW, withButtons ) );
 }
@@ -1313,13 +1320,22 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 const int sceneDrawOptions = filteredSceneCount > 0 ? visibleSceneOptions : ( m_sceneFilter[0] != '\0' ? 1 : 0 );
                 m_sceneComboScroll = ClampSceneComboScroll( m_sceneComboScroll, filteredSceneCount );
                 m_sceneCombo.SetBounds( contentX, rowBase, sceneComboW, 24.0f );
-                m_resetSceneButton.SetBounds( contentX + sceneComboW + 8.0f, rowBase, 96.0f, 24.0f );
-                m_demoSceneButton.SetBounds( contentX + sceneComboW + 112.0f, rowBase, 112.0f, 24.0f );
+                const float resetX = contentX + sceneComboW + UI_SCENE_HEADER_BUTTON_GAP;
+                const float defaultsX = resetX + UI_SCENE_RESET_BUTTON_W + UI_SCENE_HEADER_BUTTON_GAP;
+                const float demoX = defaultsX + UI_SCENE_RESET_DEFAULTS_BUTTON_W + UI_SCENE_HEADER_BUTTON_GAP;
+                m_resetSceneButton.SetBounds( resetX, rowBase, UI_SCENE_RESET_BUTTON_W, 24.0f );
+                m_resetDefaultsButton.SetBounds( defaultsX, rowBase, UI_SCENE_RESET_DEFAULTS_BUTTON_W, 24.0f );
+                m_demoSceneButton.SetBounds( demoX, rowBase, UI_SCENE_DEMO_BUTTON_W, 24.0f );
                 m_sceneCombo.SetDropUp( false );
                 const int option = m_sceneCombo.HitOption( m_mouseX, m_mouseY, sceneDrawOptions );
                 if ( m_resetSceneButton.HitTest( m_mouseX, m_mouseY ) )
                 {
                     result.resetScene = true;
+                    CloseSceneCombo();
+                }
+                else if ( m_resetDefaultsButton.HitTest( m_mouseX, m_mouseY ) )
+                {
+                    result.resetSceneDefaults = true;
                     CloseSceneCombo();
                 }
                 else if ( m_demoSceneButton.HitTest( m_mouseX, m_mouseY ) )
@@ -1471,12 +1487,24 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             const float contentW = static_cast<float>( m_width ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
             const float sceneComboW = SceneTabComboWidth( contentW );
             m_sceneCombo.SetBounds( contentX, rowBase, sceneComboW, 24.0f );
-            m_resetSceneButton.SetBounds( contentX + sceneComboW + 8.0f, rowBase, 96.0f, 24.0f );
-            m_demoSceneButton.SetBounds( contentX + sceneComboW + 112.0f, rowBase, 112.0f, 24.0f );
+            const float resetX = contentX + sceneComboW + UI_SCENE_HEADER_BUTTON_GAP;
+            const float defaultsX = resetX + UI_SCENE_RESET_BUTTON_W + UI_SCENE_HEADER_BUTTON_GAP;
+            const float demoX = defaultsX + UI_SCENE_RESET_DEFAULTS_BUTTON_W + UI_SCENE_HEADER_BUTTON_GAP;
+            m_resetSceneButton.SetBounds( resetX, rowBase, UI_SCENE_RESET_BUTTON_W, 24.0f );
+            m_resetDefaultsButton.SetBounds( defaultsX, rowBase, UI_SCENE_RESET_DEFAULTS_BUTTON_W, 24.0f );
+            m_demoSceneButton.SetBounds( demoX, rowBase, UI_SCENE_DEMO_BUTTON_W, 24.0f );
             m_sceneCombo.SetDropUp( false );
             if ( m_resetSceneButton.HitTest( m_mouseX, m_mouseY ) )
             {
                 result.resetScene = true;
+                CloseSceneCombo();
+                m_rendererCombo.Close();
+                m_reflectionCombo.Close();
+                m_physicsModeCombo.Close();
+            }
+            else if ( m_resetDefaultsButton.HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.resetSceneDefaults = true;
                 CloseSceneCombo();
                 m_rendererCombo.Close();
                 m_reflectionCombo.Close();
@@ -2358,8 +2386,12 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         const float sceneComboW = SceneTabComboWidth( contentW );
         drawSectionTitle( scrolledY, 16.0f, "Scene" );
         m_sceneCombo.SetBounds( contentX, scrolledY + 42.0f, sceneComboW, 24.0f );
-        m_resetSceneButton.SetBounds( contentX + sceneComboW + 8.0f, scrolledY + 42.0f, 96.0f, 24.0f );
-        m_demoSceneButton.SetBounds( contentX + sceneComboW + 112.0f, scrolledY + 42.0f, 112.0f, 24.0f );
+        const float resetX = contentX + sceneComboW + UI_SCENE_HEADER_BUTTON_GAP;
+        const float defaultsX = resetX + UI_SCENE_RESET_BUTTON_W + UI_SCENE_HEADER_BUTTON_GAP;
+        const float demoX = defaultsX + UI_SCENE_RESET_DEFAULTS_BUTTON_W + UI_SCENE_HEADER_BUTTON_GAP;
+        m_resetSceneButton.SetBounds( resetX, scrolledY + 42.0f, UI_SCENE_RESET_BUTTON_W, 24.0f );
+        m_resetDefaultsButton.SetBounds( defaultsX, scrolledY + 42.0f, UI_SCENE_RESET_DEFAULTS_BUTTON_W, 24.0f );
+        m_demoSceneButton.SetBounds( demoX, scrolledY + 42.0f, UI_SCENE_DEMO_BUTTON_W, 24.0f );
         m_sceneCombo.SetDropUp( false );
         if ( data.targetFrameCount > 0 )
         {
@@ -2402,6 +2434,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         if ( visible( scrolledY + 42.0f, 24.0f ) )
         {
             m_resetSceneButton.Draw( draw, "Reset", m_mouseX, m_mouseY );
+            m_resetDefaultsButton.Draw( draw, "Reset Defaults", m_mouseX, m_mouseY );
             m_demoSceneButton.Draw( draw, "Demo Scene", m_mouseX, m_mouseY );
         }
     }

@@ -213,6 +213,32 @@ std::string NormalizeScenePath( const std::string& path )
     std::replace( normalized.begin(), normalized.end(), '\\', '/' );
     return normalized;
 }
+
+struct SceneRuntimeResetSnapshot
+{
+    RunRuntimeSettings runtimeSettings; // Renderer sync and roll-align toggles changed while operating the current scene
+    RunDebugState debug;                // Debug overlays/visualizers, including the C-key physics debug mode and associated alpha/linger knobs
+    bool isScenePhysics = true;         // Live scene simulation toggle; reset should rebuild the run, not silently re-enable physics
+    bool isSceneText = true;            // Live text/HUD toggle from the scene controls
+    bool isFixedStep = false;           // Live stepping mode; resetting the simulation should not change how it advances
+    bool isExitOnComplete = false;      // Interactive reset preserves the user's automation/hold choice
+    bool isInteractiveRun = false;      // Once a user owns the scene, a reset should not go back to CLI auto-quit behavior
+    int targetFrameCount = -1;          // Live frame-count control from the UI
+    float timeScale = 1.0f;             // Live time-scale control from the UI/scene controls
+    bool legacyPhysicsMode = false;     // Live physics-mode combo state until the later legacy-system removal pass
+    float worldGravity = 0.0f;          // Live world/environment sliders
+    float worldFluidHeight = 0.0f;
+    float worldFluidDensity = 0.0f;
+    float uiTimeScaleOverride = 0.0f; // UI overrides feed object setup during reload, so they must survive before the scene rebuilds
+    int uiModelCountOverride = -1;
+    int uiSolverBallCountOverride = -1;
+    int uiSolverBoxCountOverride = -1;
+    int trackBallIndex = -1; // Scene-tab camera tracking controls
+    float trackHeight = 300.0f;
+    float autoCycleInterval = -1.0f;
+    float autoCycleAccum = 0.0f;
+    int autoCycleShotsTaken = 0;
+};
 } // namespace
 
 
@@ -220,6 +246,7 @@ SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue, bool legacyPh
     : m_sceneQueue( std::move( sceneQueue ) )
 {
     RefreshSceneBrowserList();
+    m_defaultLegacyPhysicsMode = legacyPhysics;
     m_cGameModelCollection.SetLegacyMode( legacyPhysics );
     // Config-driven defaults are resolved at construction; scene-specific defaults remain in-member.
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
@@ -1272,7 +1299,7 @@ bool SkullbonezRun::TickSceneAdvance()
     // Legacy (non-scene) mode: restart the scene every 20s to keep running indefinitely
     if ( !m_scene.isSceneMode && !m_camera.isFlyMode && m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
     {
-        LoadScene( m_scene.currentSceneIndex, m_scene.isInteractiveRun, m_scene.isInteractiveRun );
+        LoadScene( m_scene.currentSceneIndex, m_scene.isInteractiveRun, m_scene.isInteractiveRun, m_scene.isInteractiveRun );
         m_timers.simulationTimer.StartTimer();
         return true;
     }
@@ -1751,6 +1778,11 @@ void SkullbonezRun::TakeInput()
         {
             EnterInteractiveSceneRun();
             ResetCurrentScene( true, true );
+        }
+        if ( UIResult.resetSceneDefaults )
+        {
+            EnterInteractiveSceneRun();
+            ResetCurrentScene( false, true, false );
         }
         if ( UIResult.requestDemoScene )
         {
@@ -3388,7 +3420,7 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 }
 
 
-void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete )
+void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
 #ifdef _DEBUG
     EndPhysicsDiagnosticsRun( "scene_reload" );
@@ -3399,6 +3431,50 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         m_scene.isInteractiveRun = true;
     }
     const bool suppressAutomationExit = m_scene.isInteractiveRun || suppressExitOnComplete;
+    const bool shouldPreserveRuntimeState = preserveRuntimeState &&
+                                            m_scene.currentSceneIndex >= 0 &&
+                                            m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() );
+    SceneRuntimeResetSnapshot resetSnapshot;
+    if ( shouldPreserveRuntimeState )
+    {
+        // Standard reset is a simulation rebuild, not a scene/config reload.  Capture
+        // every operator-facing scene control before LoadScene reapplies file defaults.
+        // Transient run artifacts such as frame counters, screenshot/perf files, timers,
+        // contact caches, and generated object transforms intentionally reset below.
+        resetSnapshot.runtimeSettings = m_runtimeSettings;
+        resetSnapshot.debug = m_debug;
+        resetSnapshot.isScenePhysics = m_scene.isScenePhysics;
+        resetSnapshot.isSceneText = m_scene.isSceneText;
+        resetSnapshot.isFixedStep = m_scene.isFixedStep;
+        resetSnapshot.isExitOnComplete = m_scene.isExitOnComplete;
+        resetSnapshot.isInteractiveRun = m_scene.isInteractiveRun;
+        resetSnapshot.targetFrameCount = m_scene.targetFrameCount;
+        resetSnapshot.timeScale = m_scene.timeScale;
+        resetSnapshot.legacyPhysicsMode = m_cGameModelCollection.GetLegacyMode();
+        resetSnapshot.worldGravity = m_cWorldEnvironment.GetGravity();
+        resetSnapshot.worldFluidHeight = m_cWorldEnvironment.GetFluidSurfaceHeight();
+        resetSnapshot.worldFluidDensity = m_cWorldEnvironment.GetFluidDensity();
+        resetSnapshot.uiTimeScaleOverride = m_UITimeScaleOverride;
+        resetSnapshot.uiModelCountOverride = m_UIModelCountOverride;
+        resetSnapshot.uiSolverBallCountOverride = m_UISolverBallCountOverride;
+        resetSnapshot.uiSolverBoxCountOverride = m_UISolverBoxCountOverride;
+        resetSnapshot.trackBallIndex = m_camera.trackBallIndex;
+        resetSnapshot.trackHeight = m_camera.trackHeight;
+        resetSnapshot.autoCycleInterval = m_camera.autoCycleInterval;
+        resetSnapshot.autoCycleAccum = m_camera.autoCycleAccum;
+        resetSnapshot.autoCycleShotsTaken = m_camera.autoCycleShotsTaken;
+    }
+    else
+    {
+        // Scene changes and the explicit Reset Defaults command must make the scene
+        // file/config authoritative again.  UI sliders are live overrides, so clearing
+        // them here prevents stale counts or time scale from leaking into unrelated scenes.
+        m_UITimeScaleOverride = 0.0f;
+        m_UIModelCountOverride = -1;
+        m_UISolverBallCountOverride = -1;
+        m_UISolverBoxCountOverride = -1;
+        m_cGameModelCollection.SetLegacyMode( m_defaultLegacyPhysicsMode );
+    }
 
     // Flush GPU before destroying scene resources to avoid use-after-free
     if ( IsGfxReady() )
@@ -3528,6 +3604,13 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         m_scene.rngSeed = rngSeed;
         srand( rngSeed );
         ApplyNoWaterOverride();
+        if ( shouldPreserveRuntimeState )
+        {
+            // Restore setup-affecting live controls before the generated model pool is rebuilt.
+            // Other visual/debug controls are restored later after scene directives have loaded.
+            m_cGameModelCollection.SetLegacyMode( resetSnapshot.legacyPhysicsMode );
+            ApplyUIWorldOverride( resetSnapshot.worldGravity, resetSnapshot.worldFluidHeight, resetSnapshot.worldFluidDensity );
+        }
 
         m_scene.isSceneMode = false;
         SetUpCameras();
@@ -3688,6 +3771,12 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         {
             m_cGameModelCollection.SetLegacyMode( false );
         }
+        if ( shouldPreserveRuntimeState )
+        {
+            // A scene file may declare a default physics_mode, but standard reset should
+            // keep the mode chosen in the running UI until a scene/default reload occurs.
+            m_cGameModelCollection.SetLegacyMode( resetSnapshot.legacyPhysicsMode );
+        }
 
         m_scene.targetFrameCount = scene.GetFrameCount();
         m_scene.isExitOnComplete = suppressAutomationExit ? false : scene.IsExitOnComplete();
@@ -3755,6 +3844,13 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
             m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
         }
         ApplyNoWaterOverride();
+        if ( shouldPreserveRuntimeState )
+        {
+            // World sliders/keyboard water edits are part of the live scene controls.
+            // Restore them after terrain/world directives and --no-water have resolved,
+            // so a plain reset keeps the operator's current environment.
+            ApplyUIWorldOverride( resetSnapshot.worldGravity, resetSnapshot.worldFluidHeight, resetSnapshot.worldFluidDensity );
+        }
 
         SetUpCamerasFromScene( scene );
 
@@ -3811,6 +3907,36 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
             m_camera.input.xMove = 0;
             m_camera.input.yMove = 0;
         }
+    }
+
+    if ( shouldPreserveRuntimeState )
+    {
+        // Restore live run controls that do not affect object construction.  Timers,
+        // frame counters, diagnostics/perf files, screenshots, input edge states, and
+        // object transforms stay reset because they belong to the simulation run itself.
+        m_runtimeSettings = resetSnapshot.runtimeSettings;
+        Cfg().rollAlignEnabled = m_runtimeSettings.isRollAlignEnabled;
+        m_debug = resetSnapshot.debug;
+        m_scene.isScenePhysics = resetSnapshot.isScenePhysics;
+        m_scene.isSceneText = resetSnapshot.isSceneText;
+        m_scene.timeScale = resetSnapshot.timeScale;
+        m_scene.isFixedStep = resetSnapshot.isFixedStep;
+        m_scene.isInteractiveRun = resetSnapshot.isInteractiveRun || suppressExitOnComplete;
+        m_scene.isExitOnComplete = m_scene.isInteractiveRun ? false : resetSnapshot.isExitOnComplete;
+        m_scene.targetFrameCount = resetSnapshot.targetFrameCount;
+        m_UITimeScaleOverride = resetSnapshot.uiTimeScaleOverride;
+        m_UIModelCountOverride = resetSnapshot.uiModelCountOverride;
+        m_UISolverBallCountOverride = resetSnapshot.uiSolverBallCountOverride;
+        m_UISolverBoxCountOverride = resetSnapshot.uiSolverBoxCountOverride;
+        m_camera.trackHeight = resetSnapshot.trackHeight;
+        m_camera.trackBallIndex = ( resetSnapshot.trackBallIndex >= 0 && resetSnapshot.trackBallIndex < m_scene.modelCount )
+                                      ? resetSnapshot.trackBallIndex
+                                      : -1;
+        m_camera.autoCycleInterval = resetSnapshot.autoCycleInterval;
+        m_camera.autoCycleAccum = resetSnapshot.autoCycleAccum;
+        m_camera.autoCycleShotsTaken = resetSnapshot.autoCycleShotsTaken;
+        m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
+        m_physicsDebugVisualizer.SetContactLingerSeconds( m_debug.physicsDebugContactLinger );
     }
 
     // CLI --time-scale and --fixed-step override anything the scene file (or legacy defaults) set.
@@ -4206,7 +4332,7 @@ void SkullbonezRun::LoadAdjacentSceneFromBrowser( int direction )
 }
 
 
-void SkullbonezRun::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete )
+void SkullbonezRun::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
     if ( m_scene.currentSceneIndex < 0 ||
          m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
@@ -4215,7 +4341,7 @@ void SkullbonezRun::ResetCurrentScene( bool preserveUIState, bool suppressExitOn
     }
 
     ++m_scene.manualResetCount;
-    LoadScene( m_scene.currentSceneIndex, preserveUIState, suppressExitOnComplete );
+    LoadScene( m_scene.currentSceneIndex, preserveUIState, suppressExitOnComplete, preserveRuntimeState );
 }
 
 
@@ -4317,7 +4443,7 @@ bool SkullbonezRun::AdvanceScene()
     if ( m_perfLogState.isPerfTest && sPerfPass == 0 )
     {
         sPerfPass = 1;
-        LoadScene( m_scene.currentSceneIndex, preserveInteractiveUI, preserveInteractiveUI );
+        LoadScene( m_scene.currentSceneIndex, preserveInteractiveUI, preserveInteractiveUI, preserveInteractiveUI );
         return true;
     }
 

@@ -104,6 +104,7 @@ struct InGameUIInputResult
     bool toggleWaterFlat = false;
     bool toggleWaterReflection = false;
     bool resetScene = false;
+    bool resetSceneDefaults = false; // Scene-tab command: reload current scene/config defaults instead of preserving live run controls
     bool requestDemoScene = false;
     bool saveSceneDefaults = false;
     float requestedTimeScale = -1.0f;
@@ -189,6 +190,7 @@ class InGameUI
     UISlider m_worldFluidHeightSlider;
     UISlider m_worldFluidDensitySlider;
     UIButton m_resetSceneButton;
+    UIButton m_resetDefaultsButton;
     UIButton m_demoSceneButton;
     UIButton m_saveDefaultsButton;
     UIComboBox m_rendererCombo;
