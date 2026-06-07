@@ -274,7 +274,7 @@ class SkullbonezRun
     inline static int sPerfPass = 0;
     void Render();                                                                                  // Main render method
     void RelativeUpdateCamera( uint32_t hash );                                                     // Relative update specified camera
-    void UpdateLogic( float fSecondsPerFrame );                                                     // Camera, autocycle, logs — once per frame
+    void UpdateLogic( float simulationDt, float cameraDt );                                         // Per-frame logic; cameraDt is unscaled wall time
     void TakeInput();                                                                               // Take user input
     void SetUpCameras();                                                                            // Camera init (legacy mode)
     void SetUpCamerasFromScene( const TestScene& scene );                                           // Camera init from scene file

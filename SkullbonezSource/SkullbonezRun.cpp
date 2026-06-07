@@ -32,6 +32,7 @@ namespace
 constexpr double PERF_TEST_PASS_SECONDS = 2.0;
 constexpr float WATER_HEIGHT_CONTROL_SPEED = 20.0f;
 constexpr float NO_WATER_TERRAIN_CLEARANCE = 100.0f;
+constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
 constexpr int FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME = 32;
 #ifdef _DEBUG
 constexpr const char* NUDGE_REPRO_SNAPSHOT_PATH = "Debug/nudge_repro_snapshots.txt";
@@ -1007,7 +1008,14 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
             }
             PROFILE_END( "Frame/Physics" );
         }
-        UpdateLogic( PHYSICS_FIXED_DT * static_cast<float>( ticksThisFrame ) );
+        // Keep deterministic scene time and presentation time separate.
+        //
+        // Fixed-step scenes intentionally advance simulation by an exact tick count
+        // that is independent of wall-clock time. Camera input and camera tweens are
+        // not part of that deterministic simulation contract: they should feel the
+        // same at 30 Hz, 144 Hz, or when time_scale is cranked for diagnostics.
+        UpdateLogic( PHYSICS_FIXED_DT * static_cast<float>( ticksThisFrame ),
+                     static_cast<float>( secondsPerFrame ) );
     }
     else
     {
@@ -1048,8 +1056,10 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
             PROFILE_END( "Frame/Physics" );
         }
 
-        // Camera movement, tween, auto-cycle, logs — once per frame with real scaled dt
-        UpdateLogic( scaledDt );
+        // Per-frame logic runs once per render frame. Anything tied to simulation
+        // playback gets the scaled dt; camera input and camera tweens get real wall
+        // time so time_scale does not make the operator fly around the scene.
+        UpdateLogic( scaledDt, static_cast<float>( secondsPerFrame ) );
     }
 }
 
@@ -1919,23 +1929,28 @@ void SkullbonezRun::TakeInput()
 }
 
 
-void SkullbonezRun::UpdateLogic( float fSecondsPerFrame )
+void SkullbonezRun::UpdateLogic( float simulationDt, float cameraDt )
 {
     // Auto-cycle
     if ( m_scene.isSceneMode && m_camera.autoCycleInterval > 0.0f )
     {
-        m_camera.autoCycleAccum += fSecondsPerFrame;
+        m_camera.autoCycleAccum += simulationDt;
     }
 
-    // move the camera based on input
-    // (arguments are calculating time based movement quantities)
-    MoveCamera( fSecondsPerFrame * Cfg().keySpeed,
-                fSecondsPerFrame * Cfg().mouseSensitivity );
+    // Camera controls are presentation-time behavior, not simulation-time
+    // behavior. Keyboard travel is velocity-based, so it consumes unscaled real
+    // frame time. Mouse look consumes a per-frame cursor delta, so using live dt
+    // would make sensitivity vary with FPS; the fixed reference preserves the
+    // existing 60 Hz tuning while making the result frame-rate independent.
+    MoveCamera( cameraDt * Cfg().keySpeed,
+                CAMERA_MOUSE_REFERENCE_DT * Cfg().mouseSensitivity );
 
-    UpdateWaterHeightControls( fSecondsPerFrame );
+    UpdateWaterHeightControls( simulationDt );
 
-    // update camera tweening speed
-    m_systems.cameras->SetTweenSpeed( Cfg().cameraTweenRate * fSecondsPerFrame );
+    // Tween speed is also presentation-time behavior. The selected destination
+    // camera can still track moving scene objects, but the interpolation rate
+    // itself should be stable in real seconds instead of following time_scale.
+    m_systems.cameras->SetTweenSpeed( Cfg().cameraTweenRate * cameraDt );
 }
 
 
