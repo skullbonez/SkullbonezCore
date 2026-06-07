@@ -102,28 +102,35 @@ UIRect UIComboBox::DropdownRect( int optionCount ) const
 }
 
 
-void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char* const* options, int optionCount, int selectedIndex, int mouseX, int mouseY ) const
+void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char* const* options, int optionCount, int selectedIndex, int mouseX, int mouseY, uint32_t disabledOptionMask ) const
 {
     const char* selectedText = "";
     if ( selectedIndex >= 0 && selectedIndex < optionCount && options )
     {
         selectedText = options[selectedIndex];
     }
-    Draw( draw, label, selectedText, options, optionCount, selectedIndex, mouseX, mouseY );
+    Draw( draw, label, selectedText, options, optionCount, selectedIndex, mouseX, mouseY, disabledOptionMask );
 }
 
 
-void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char* selectedText, const char* const* options, int optionCount, int selectedIndex, int mouseX, int mouseY ) const
+void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char* selectedText, const char* const* options, int optionCount, int selectedIndex, int mouseX, int mouseY, uint32_t disabledOptionMask ) const
 {
     const UIRect field = FieldRect();
     const UIRect dropdown = DropdownRect( optionCount );
     const bool fieldHovered = field.Contains( mouseX, mouseY );
+    const bool selectedDisabled = selectedIndex >= 0 && selectedIndex < 32 && ( disabledOptionMask & ( 1u << selectedIndex ) ) != 0;
     draw.Text( m_bounds.x, m_bounds.y + 4.0f, 10.5f, 0.74f, 0.82f, 0.84f, label );
-    draw.Rect( field.x, field.y, field.w, field.h, fieldHovered ? 0.060f : 0.040f, fieldHovered ? 0.160f : 0.100f, fieldHovered ? 0.190f : 0.120f, 0.92f );
-    draw.Outline( field.x, field.y, field.w, field.h, fieldHovered ? 0.34f : 0.98f, fieldHovered ? 0.91f : 0.74f, fieldHovered ? 1.0f : 0.24f, fieldHovered ? 0.96f : 0.78f );
+    draw.Rect( field.x, field.y, field.w, field.h, fieldHovered ? 0.130f : 0.040f, fieldHovered ? 0.105f : 0.120f, fieldHovered ? 0.026f : 0.150f, 0.94f );
+    draw.Outline( field.x, field.y, field.w, field.h, fieldHovered ? 1.0f : 0.34f, fieldHovered ? 0.84f : 0.91f, fieldHovered ? 0.34f : 1.0f, fieldHovered ? 0.96f : 0.78f );
     if ( selectedText && selectedText[0] != '\0' )
     {
-        draw.Text( field.x + 6.0f, field.y + 3.0f, 10.0f, fieldHovered ? 0.90f : 1.0f, fieldHovered ? 0.98f : 0.86f, fieldHovered ? 1.0f : 0.38f, selectedText );
+        draw.Text( field.x + 6.0f,
+                   field.y + 3.0f,
+                   10.0f,
+                   selectedDisabled ? 0.38f : ( fieldHovered ? 1.0f : 0.86f ),
+                   selectedDisabled ? 0.48f : ( fieldHovered ? 0.88f : 0.98f ),
+                   selectedDisabled ? 0.52f : ( fieldHovered ? 0.42f : 1.0f ),
+                   selectedText );
     }
     DrawComboChevron( draw, field, m_isOpen );
 
@@ -132,7 +139,8 @@ void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char*
         return;
     }
 
-    draw.Rect( dropdown.x, dropdown.y, dropdown.w, dropdown.h, 0.012f, 0.030f, 0.040f, 0.96f );
+    draw.Rect( dropdown.x - 3.0f, dropdown.y - 3.0f, dropdown.w + 6.0f, dropdown.h + 6.0f, 0.004f, 0.012f, 0.018f, 1.0f );
+    draw.Rect( dropdown.x, dropdown.y, dropdown.w, dropdown.h, 0.012f, 0.030f, 0.040f, 1.0f );
     draw.Outline( dropdown.x, dropdown.y, dropdown.w, dropdown.h, 0.34f, 0.91f, 1.0f, 0.86f );
     const float optionH = optionCount > 0 ? dropdown.h / static_cast<float>( optionCount ) : 0.0f;
     const int hoveredOption = HitOption( mouseX, mouseY, optionCount );
@@ -143,20 +151,21 @@ void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char*
             break;
         }
         const float optionY = dropdown.y + static_cast<float>( i ) * optionH;
+        const bool isDisabled = i < 32 && ( disabledOptionMask & ( 1u << i ) ) != 0;
         const bool isSelected = i == selectedIndex;
-        const bool isHovered = i == hoveredOption;
+        const bool isHovered = i == hoveredOption && !isDisabled;
         if ( isSelected || isHovered )
         {
             draw.Rect( dropdown.x + 2.0f, optionY + 2.0f, dropdown.w - 4.0f, optionH - 4.0f,
-                       isHovered ? 0.070f : 0.050f,
-                       isHovered ? 0.340f : 0.250f,
-                       isHovered ? 0.430f : 0.330f,
-                       isHovered ? 0.92f : 0.86f );
+                       isDisabled ? 0.026f : ( isHovered ? 0.150f : 0.050f ),
+                       isDisabled ? 0.050f : ( isHovered ? 0.118f : 0.250f ),
+                       isDisabled ? 0.064f : ( isHovered ? 0.032f : 0.330f ),
+                       isDisabled ? 0.70f : ( isHovered ? 0.92f : 0.86f ) );
         }
         draw.Text( dropdown.x + 10.0f, optionY + 4.0f, 10.5f,
-                   isHovered ? 1.0f : ( isSelected ? 0.96f : 0.70f ),
-                   isHovered ? 0.98f : ( isSelected ? 0.98f : 0.84f ),
-                   isHovered ? 0.82f : ( isSelected ? 1.0f : 0.88f ),
+                   isDisabled ? 0.34f : ( isHovered ? 1.0f : ( isSelected ? 0.78f : 0.70f ) ),
+                   isDisabled ? 0.42f : ( isHovered ? 0.88f : ( isSelected ? 0.98f : 0.84f ) ),
+                   isDisabled ? 0.46f : ( isHovered ? 0.38f : ( isSelected ? 1.0f : 0.88f ) ),
                    options[i] );
     }
 }

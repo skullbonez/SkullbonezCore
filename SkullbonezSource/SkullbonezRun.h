@@ -231,6 +231,7 @@ class SkullbonezRun
     std::vector<const char*> m_sceneBrowserNamePtrs;
     bool m_leftSceneCycleWasDown = false;
     bool m_rightSceneCycleWasDown = false;
+    double m_lastEscapeTapTime = -1000.0;
     float m_cmdTimeScaleOverride = 0.0f; // CLI --time-scale override applied after each scene load (0 = not set)
     bool m_cmdFixedStep = false;         // CLI --fixed-step override applied after each scene load
     unsigned int m_cmdSeedOverride = 0;  // CLI --seed override applied after each scene load (0 = not set)

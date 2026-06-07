@@ -1584,18 +1584,27 @@ void SkullbonezRun::TakeInput()
             EnterInteractiveSceneRun();
         }
 
-        // ESC is a diagnostics-window command now, not an application quit command.
+        // ESC flicks the diagnostics window between minimized and expanded, with
+        // a very fast double-tap escape hatch for quitting interactive runs.
         // Run it after UI input processing so focused controls keep their local ESC
         // behavior first, such as closing the scene filter combo without also
-        // minimizing/maximizing the whole diagnostics surface on the same frame.
+        // hiding the whole diagnostics surface on the same frame.
         const bool escapeNow = Input::IsKeyDown( VK_ESCAPE );
         if ( escapeNow && !m_camera.input.Get( InputState::EscapeWasDown ) && !UIResult.userInteracted )
         {
-            EnterInteractiveSceneRun();
-            m_UI.ToggleMaximizeMinimize( static_cast<int>( m_systems.window->m_sWindowDimensions.x ),
-                                         static_cast<int>( m_systems.window->m_sWindowDimensions.y ),
-                                         m_timers.simulationTimer.GetTotalTime() );
-            m_debug.overlayMode = OverlayMode::None;
+            constexpr double ESC_QUICK_EXIT_SECONDS = 0.32;
+            const double UINow = m_timers.simulationTimer.GetTotalTime();
+            if ( UINow - m_lastEscapeTapTime <= ESC_QUICK_EXIT_SECONDS )
+            {
+                PostQuitMessage( 0 );
+            }
+            else
+            {
+                EnterInteractiveSceneRun();
+                m_UI.ToggleVisible( UINow );
+                m_debug.overlayMode = OverlayMode::None;
+                m_lastEscapeTapTime = UINow;
+            }
         }
         m_camera.input.Set( InputState::EscapeWasDown, escapeNow );
 
@@ -1620,16 +1629,6 @@ void SkullbonezRun::TakeInput()
         {
             m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
         }
-        if ( UIResult.toggleScenePhysics )
-        {
-            m_scene.isScenePhysics = !m_scene.isScenePhysics;
-            m_timers.physicsAccumulator = 0.0f;
-            m_timers.fixedStepTickAccumulator = 0.0f;
-        }
-        if ( UIResult.toggleSceneText )
-        {
-            m_scene.isSceneText = !m_scene.isSceneText;
-        }
         if ( UIResult.toggleTextOnly )
         {
             m_debug.isTextOnly = !m_debug.isTextOnly;
@@ -1639,10 +1638,6 @@ void SkullbonezRun::TakeInput()
             m_scene.isFixedStep = !m_scene.isFixedStep;
             m_timers.physicsAccumulator = 0.0f;
             m_timers.fixedStepTickAccumulator = 0.0f;
-        }
-        if ( UIResult.toggleExitOnComplete )
-        {
-            m_scene.isExitOnComplete = CanSceneAutomationQuit() ? !m_scene.isExitOnComplete : false;
         }
         if ( UIResult.toggleTerrainHidden )
         {
@@ -1689,11 +1684,6 @@ void SkullbonezRun::TakeInput()
             m_timers.physicsAccumulator = 0.0f;
             m_timers.fixedStepTickAccumulator = 0.0f;
         }
-        if ( UIResult.requestedFrameCount >= 0 )
-        {
-            m_scene.targetFrameCount = UIResult.requestedFrameCount > 0 ? std::clamp( UIResult.requestedFrameCount, 1, 5000 ) : -1;
-            m_scene.isTestComplete = false;
-        }
         if ( UIResult.requestedSeed > 0 )
         {
             m_scene.rngSeed = static_cast<unsigned int>( std::clamp( UIResult.requestedSeed, 1, 999999 ) );
@@ -1714,35 +1704,12 @@ void SkullbonezRun::TakeInput()
         if ( UIResult.requestedSolverBallCount >= 0 )
         {
             const int boxes = m_UISolverBoxCountOverride >= 0 ? m_UISolverBoxCountOverride : m_scene.solverBoxCount;
-            ApplyUISolverObjectCounts( UIResult.requestedSolverBallCount, boxes );
+            ApplyUISolverObjectCounts( std::clamp( UIResult.requestedSolverBallCount, 0, (std::max)( 0, 1000 - boxes ) ), boxes );
         }
         if ( UIResult.requestedSolverBoxCount >= 0 )
         {
             const int balls = m_UISolverBallCountOverride >= 0 ? m_UISolverBallCountOverride : m_scene.solverBallCount;
-            ApplyUISolverObjectCounts( balls, UIResult.requestedSolverBoxCount );
-        }
-        if ( UIResult.requestedTrackHeight >= 0.0f )
-        {
-            const float trackHeight = std::clamp( UIResult.requestedTrackHeight, 0.0f, 600.0f );
-            if ( trackHeight <= 0.0f || m_scene.modelCount <= 0 )
-            {
-                m_camera.trackBallIndex = -1;
-            }
-            else
-            {
-                m_camera.trackHeight = trackHeight;
-                if ( m_camera.trackBallIndex < 0 )
-                {
-                    m_camera.trackBallIndex = 0;
-                }
-            }
-        }
-        if ( UIResult.requestedAutoCycleInterval >= 0.0f )
-        {
-            const float interval = std::clamp( UIResult.requestedAutoCycleInterval, 0.0f, 10.0f );
-            m_camera.autoCycleInterval = interval > 0.0f ? interval : -1.0f;
-            m_camera.autoCycleAccum = 0.0f;
-            m_camera.autoCycleShotsTaken = 0;
+            ApplyUISolverObjectCounts( balls, std::clamp( UIResult.requestedSolverBoxCount, 0, (std::max)( 0, 1000 - balls ) ) );
         }
         if ( UIResult.requestWorldGravity || UIResult.requestWorldFluidHeight || UIResult.requestWorldFluidDensity )
         {
@@ -2483,8 +2450,8 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "R/Bksp", "Reset scene" },
         };
         static const KeyEntry kRight[nRows] = {
-            { "Esc", "Quit" },
-            { "0", "Cycle overlay" },
+            { "Esc", "Min/expand UI" },
+            { "Esc Esc", "Quit" },
             { "1", "Freeze water" },
             { "2", "Reflection mode" },
             { "3", "Toggle water flat" },
@@ -4239,8 +4206,14 @@ void SkullbonezRun::ApplyUIModelCountOverride( int count )
 
 void SkullbonezRun::ApplyUISolverObjectCounts( int balls, int boxes )
 {
-    m_UISolverBallCountOverride = std::clamp( balls, 0, 1000 );
-    m_UISolverBoxCountOverride = std::clamp( boxes, 0, 1000 );
+    balls = std::clamp( balls, 0, 1000 );
+    boxes = std::clamp( boxes, 0, 1000 );
+    if ( balls + boxes > 1000 )
+    {
+        boxes = (std::max)( 0, 1000 - balls );
+    }
+    m_UISolverBallCountOverride = balls;
+    m_UISolverBoxCountOverride = boxes;
     m_UIModelCountOverride = -1;
     if ( m_scene.currentSceneIndex < 0 ||
          m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
