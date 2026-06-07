@@ -145,11 +145,10 @@ class GameModelCollection
     uint32_t m_shadowInstMesh = 0;                                     // Instanced mesh handle (via Gfx())
     int m_shadowDiscVertexCount = 0;                                   // Disc triangle vertex count
     std::vector<float> m_shadowInstanceData;                           // Retained-capacity staging buffer (mat4 + alpha per instance)
-    bool m_useLegacyPhysics = false;                                   // True when legacy sphere-only solver is active
     std::vector<int64_t> m_collisionCellKeys;                          // Cells where narrowphase collisions occurred this frame
 
 #ifdef _DEBUG
-    // Legacy byte-exact CSV artifact for deterministic physics regression tests.
+    // Deterministic per-body CSV artifact for current-solver regression tests.
     // TODO: migrate the regression baseline onto SkullScope/SQLite diagnostics,
     // then retire this row-per-body CSV path.
     char m_physicsRegressionLogPath[256] = {}; // Output path for regression CSV (empty = disabled)
@@ -158,7 +157,6 @@ class GameModelCollection
 #endif
 
     void BuildShadowMesh();                         // Builds the shadow disc VAO with instanced attributes
-    void RunLegacyPhysics( float dt );              // Physics tick: legacy sphere-only solver (boxes skipped)
     void RunSolverPhysics( float dt );              // Physics tick: unified impulse solver (all objects)
     void SolvePersistentObjectContacts( float dt ); // PGS contact-force pass for resting/stacked object contacts
 #ifdef _DEBUG
@@ -182,8 +180,6 @@ class GameModelCollection
 
     void AddGameModel( GameModel gameModel );                                                                                                                                              // Moves a game model into the collection
     void Clear();                                                                                                                                                                          // Clears all game models (retains GPU resources)
-    void SetLegacyMode( bool legacy );                                                                                                                                                     // Routes physics and rendering to the legacy sphere-only path when true
-    bool GetLegacyMode() const;                                                                                                                                                            // Returns true when the legacy sphere-only solver is active
     void RunPhysics( float fChangeInTime );                                                                                                                                                // Runs the physics for the specified time step
     void RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4] );                                                                                                // Renders the game models
     void PrepareRenderStreams();                                                                                                                                                           // Builds cached SoA render streams once for the upcoming frame

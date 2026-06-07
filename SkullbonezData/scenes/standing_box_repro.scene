@@ -20,5 +20,4 @@ physics on
 text off
 frames unlimited
 seed 4096348761
-physics_mode solver
 solver_boxes 300

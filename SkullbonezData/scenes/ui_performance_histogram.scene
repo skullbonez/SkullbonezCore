@@ -5,7 +5,7 @@ text off
 vsync off
 water_hidden off
 terrain_hidden off
-legacy_balls 300
+solver_balls 300
 frames 48
 ui minimized on
 ui blur off

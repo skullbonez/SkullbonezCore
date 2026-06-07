@@ -86,7 +86,6 @@
 
 // --- Includes ---
 #include "SkullbonezImpulseSolver.h"
-#include "SkullbonezCollisionResponse.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezCollisionShape.h"
 #include "SkullbonezProfiler.h"

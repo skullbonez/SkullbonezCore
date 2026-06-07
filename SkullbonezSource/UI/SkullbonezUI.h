@@ -54,13 +54,11 @@ struct InGameUIFrameData
     bool scenePhysicsEnabled = true;
     bool sceneTextEnabled = true;
     bool textOnly = false;
-    bool legacyPhysics = false;
     bool fixedStep = false;
     bool exitOnComplete = false;
     bool testComplete = false;
     bool vsyncEnabled = false;
     bool pipelineSyncEnabled = false;
-    bool rollAlignEnabled = true;
     float sceneEnergy = 0.0f;
     float timeScale = 1.0f;
     float trackHeight = 0.0f;
@@ -95,7 +93,6 @@ struct InGameUIInputResult
     bool toggleTextOnly = false;
     bool toggleFixedStep = false;
     bool toggleExitOnComplete = false;
-    bool toggleRollAlign = false;
     bool toggleTerrainHidden = false;
     bool toggleWaterHidden = false;
     bool toggleWaterFreeze = false;
@@ -124,7 +121,6 @@ struct InGameUIInputResult
     uint32_t togglePhysicsDebugFlags = 0;
     int requestedRendererIndex = -1; // 0=GL, 1=DX11, 2=DX12, -1=no request
     int requestedWaterReflectionMode = -1; // 0=FBO, 1=DXR, 2=None, -1=no request
-    int requestedPhysicsMode = -1;         // 0=legacy, 1=solver, -1=no request
     int requestedSceneIndex = -1;          // index into sceneOptions, -1=no request
 };
 
@@ -172,8 +168,8 @@ class InGameUI
     UICheckBox m_timelineToggle;
     UICheckBox m_histogramToggle;
     UICheckBox m_physicsToggles[6];
-    UICheckBox m_optionToggles[9];
-    UICheckBox m_controlToggles[16];
+    UICheckBox m_optionToggles[8];
+    UICheckBox m_controlToggles[15];
     UISlider m_timeScaleSlider;
     UISlider m_modelCountSlider;
     UISlider m_physicsAlphaSlider;
@@ -193,7 +189,6 @@ class InGameUI
     UIButton m_saveDefaultsButton;
     UIComboBox m_rendererCombo;
     UIComboBox m_reflectionCombo;
-    UIComboBox m_physicsModeCombo;
     UIComboBox m_sceneCombo;
     UIBackdropBlur m_backdropBlur;
     UIScrollBar m_scrollBar;

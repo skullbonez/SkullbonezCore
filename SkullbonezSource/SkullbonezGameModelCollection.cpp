@@ -5,7 +5,6 @@
 #include "SkullbonezHelper.h"
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezImpulseSolver.h"
-#include "SkullbonezCollisionResponse.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -52,17 +51,6 @@ void GameModelCollection::AddGameModel( GameModel gameModel )
     assert( static_cast<int>( m_gameModels.size() ) < MAX_GAME_MODELS && "Exceeded MAX_GAME_MODELS" );
     m_gameModels.push_back( std::move( gameModel ) );
     InvalidateSoA();
-}
-
-
-void GameModelCollection::SetLegacyMode( bool legacy )
-{
-    m_useLegacyPhysics = legacy;
-}
-
-bool GameModelCollection::GetLegacyMode() const
-{
-    return m_useLegacyPhysics;
 }
 
 
@@ -171,32 +159,28 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
     }
     SkullbonezHelper::DrawSphereBatchEnd();
 
-    // Render boxes (hidden in legacy mode - boxes don't exist in the legacy sphere-only solver)
-    if ( !m_useLegacyPhysics )
+    SkullbonezHelper::DrawBoxBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes );
+    for ( int x = 0; x < modelCount; ++x )
     {
-        SkullbonezHelper::DrawBoxBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes );
-        for ( int x = 0; x < modelCount; ++x )
+        if ( m_soaIsBox[x] )
         {
-            if ( m_soaIsBox[x] )
+            float tintR = 1.0f;
+            float tintG = 1.0f;
+            float tintB = 1.0f;
+            float colorOverride = 0.0f;
+            if ( m_soaIsFixed[x] )
             {
-                float tintR = 1.0f;
-                float tintG = 1.0f;
-                float tintB = 1.0f;
-                float colorOverride = 0.0f;
-                if ( m_soaIsFixed[x] )
-                {
-                    constexpr float fixedBase = 241.0f / 255.0f; // #F1F1F1
-                    float hit = m_gameModels[x].GetFixedContactHighlightAlpha();
-                    tintR = fixedBase + ( 1.0f - fixedBase ) * hit;
-                    tintG = fixedBase * ( 1.0f - hit );
-                    tintB = fixedBase * ( 1.0f - hit );
-                    colorOverride = 1.0f;
-                }
-                SkullbonezHelper::DrawBoxBatchModel( m_soaModelMatrices[x], tintR, tintG, tintB, colorOverride );
+                constexpr float fixedBase = 241.0f / 255.0f; // #F1F1F1
+                float hit = m_gameModels[x].GetFixedContactHighlightAlpha();
+                tintR = fixedBase + ( 1.0f - fixedBase ) * hit;
+                tintG = fixedBase * ( 1.0f - hit );
+                tintB = fixedBase * ( 1.0f - hit );
+                colorOverride = 1.0f;
             }
+            SkullbonezHelper::DrawBoxBatchModel( m_soaModelMatrices[x], tintR, tintG, tintB, colorOverride );
         }
-        SkullbonezHelper::DrawBoxBatchEnd();
     }
+    SkullbonezHelper::DrawBoxBatchEnd();
 }
 
 
@@ -226,12 +210,6 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
     int writeOffset = 0;
     for ( int i = 0; i < modelCount; ++i )
     {
-        // Skip boxes in legacy mode — they are hidden, so no shadow either
-        if ( m_useLegacyPhysics && m_soaIsBox[i] )
-        {
-            continue;
-        }
-
         const Vector3& pos = m_soaPositions[i];
         float radius = m_soaBoundingRadii[i];
 
@@ -471,18 +449,12 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     RefreshSoABodyData();
 
     // Dispatch to the appropriate physics implementation — the mode is checked exactly once here.
-    if ( m_useLegacyPhysics )
-    {
-        RunLegacyPhysics( fChangeInTime );
-    }
-    else
-    {
-        RunSolverPhysics( fChangeInTime );
-    }
+    RunSolverPhysics( fChangeInTime );
 
-    // Legacy per-frame regression CSV. Active only when a path is set by the
-    // --physics-regression-log CLI arg. SkullScope is the model-facing diagnostics path; this
-    // CSV remains only as the byte-exact validation artifact until that baseline is migrated.
+    // Per-frame deterministic regression CSV. Active only when a path is set by
+    // --physics-regression-log. SkullScope is the model-facing diagnostics path;
+    // this CSV remains only as the byte-exact validation artifact until that
+    // baseline is migrated.
 #ifdef _DEBUG
     if ( m_physicsRegressionLogPath[0] != '\0' )
     {
@@ -573,135 +545,6 @@ void GameModelCollection::EmitPhysicsDiagnosticsFrame( float dt )
     m_skullScope.EmitFrame( *this, dt );
 }
 #endif
-
-
-// Physics tick: original sphere-only ad-hoc solver.
-// Boxes are unconditionally skipped — they are frozen in legacy mode.
-// Calls CollisionResponse::* directly; no per-iteration mode check.
-void GameModelCollection::RunLegacyPhysics( float dt )
-{
-    const int modelCount = static_cast<int>( m_gameModels.size() );
-
-    // Apply forces to all spheres (boxes ignored in legacy mode)
-    PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
-    for ( int x = 0; x < modelCount; ++x )
-    {
-        if ( m_soaIsBox[x] )
-        {
-            continue;
-        }
-        m_gameModels[x].ApplyForces( dt );
-    }
-    PROFILE_END( "Frame/Physics/ApplyForces" );
-
-    // Broadphase: build spatial grid from sphere positions only
-    PROFILE_BEGIN( "Frame/Physics/Broadphase" );
-    m_spatialGrid.Clear();
-    m_collisionCellKeys.clear();
-    for ( int i = 0; i < modelCount; ++i )
-    {
-        if ( m_soaIsBox[i] )
-        {
-            continue;
-        }
-        m_spatialGrid.Insert( i, m_soaPositions[i], m_soaBoundingRadii[i] );
-    }
-    std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
-    m_spatialGrid.GetCandidatePairs( candidatePairs );
-    PROFILE_END( "Frame/Physics/Broadphase" );
-
-    // Narrowphase: legacy sphere-sphere collision response
-    PROFILE_BEGIN( "Frame/Physics/Narrowphase" );
-    float invCellSize = 1.0f / m_spatialGrid.GetCellSize();
-    for ( const auto& cp : candidatePairs )
-    {
-        int x = cp.first;
-        int y = cp.second;
-
-        if ( m_timeRemaining[x] <= 0.0f || m_timeRemaining[y] <= 0.0f )
-        {
-            continue;
-        }
-
-        float availableTime = (std::min)( m_timeRemaining[x], m_timeRemaining[y] );
-        float colTime = m_gameModels[x].CollisionDetectGameModel( m_gameModels[y], availableTime );
-
-        if ( m_gameModels[x].IsResponseRequired() && m_gameModels[y].IsResponseRequired() )
-        {
-            m_gameModels[x].UpdatePosition( colTime );
-            m_gameModels[y].UpdatePosition( colTime );
-            m_timeRemaining[x] -= colTime;
-            m_timeRemaining[y] -= colTime;
-
-            // Legacy sphere-sphere response — called directly; no mode flag queried
-            CollisionResponse::RespondCollisionGameModels( m_gameModels[x], m_gameModels[y] );
-            m_gameModels[x].ClearResponseRequired();
-            m_gameModels[y].ClearResponseRequired();
-            MarkCollisionVisualContact( x );
-            MarkCollisionVisualContact( y );
-
-            // Record collision cell for broadphase visualizer
-            Vector3 midpoint = ( m_gameModels[x].GetPosition() + m_gameModels[y].GetPosition() ) * 0.5f;
-            int16_t cx = (int16_t)floorf( midpoint.x * invCellSize );
-            int16_t cy = (int16_t)floorf( midpoint.y * invCellSize );
-            int16_t cz = (int16_t)floorf( midpoint.z * invCellSize );
-            int64_t key = ( int64_t( cx ) * 73856093 ) ^ ( int64_t( cy ) * 19349663 ) ^ ( int64_t( cz ) * 83492791 );
-            m_collisionCellKeys.push_back( key );
-        }
-        else
-        {
-            m_gameModels[x].StaticOverlapResponseGameModel( m_gameModels[y] );
-        }
-    }
-    PROFILE_END( "Frame/Physics/Narrowphase" );
-
-    // Terrain: legacy sphere-terrain response (boxes skipped)
-    PROFILE_BEGIN( "Frame/Physics/Terrain" );
-    for ( int x = 0; x < modelCount; ++x )
-    {
-        if ( m_soaIsBox[x] )
-        {
-            continue;
-        }
-
-        if ( m_timeRemaining[x] > 0.0f )
-        {
-            float colTime = m_gameModels[x].CollisionDetectTerrain( m_timeRemaining[x] );
-
-            if ( m_gameModels[x].IsResponseRequired() )
-            {
-                m_gameModels[x].UpdatePosition( colTime );
-
-                // Legacy terrain response — called directly; no mode flag queried
-                CollisionResponse::RespondCollisionTerrain( m_gameModels[x], m_timeRemaining[x] - colTime );
-                m_gameModels[x].UpdatePosition( m_timeRemaining[x] - colTime );
-                m_gameModels[x].ClearResponseRequired();
-                MarkCollisionVisualContact( x );
-
-                // Legacy physics does not build object-contact islands, so
-                // terrain response is the only sleep-support source in this path.
-                m_sleepSupportedThisFrame[x] = 1;
-                m_timeRemaining[x] = 0.0f;
-            }
-        }
-    }
-    PROFILE_END( "Frame/Physics/Terrain" );
-
-    // Integrate remaining time for spheres only
-    PROFILE_BEGIN( "Frame/Physics/Integrate" );
-    for ( int x = 0; x < modelCount; ++x )
-    {
-        if ( m_soaIsBox[x] )
-        {
-            continue;
-        }
-        if ( m_timeRemaining[x] > 0.0f )
-        {
-            m_gameModels[x].UpdatePosition( m_timeRemaining[x] );
-        }
-    }
-    PROFILE_END( "Frame/Physics/Integrate" );
-}
 
 
 void GameModelCollection::SolvePersistentObjectContacts( float dt )

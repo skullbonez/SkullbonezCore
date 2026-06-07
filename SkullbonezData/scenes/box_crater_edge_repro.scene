@@ -7,7 +7,6 @@
 #
 # Seed: 1 from the temporary crater random-search harness.
 
-physics_mode solver
 physics on
 text off
 frames 1500

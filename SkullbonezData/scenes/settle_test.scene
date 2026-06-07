@@ -6,7 +6,7 @@
 # and interpenetration bugs (see Bugs.md) are clearly visible: objects
 # jiggle indefinitely instead of reaching a true rest state.
 #
-# Object count and camera match legacy/default mode (DEFAULT_GAME_MODELS=300,
+# Object count and camera match generated demo mode (DEFAULT_GAME_MODELS=300,
 # ~30% boxes = 90 boxes, 210 balls).
 #
 # Run with:   --vsync off --fixed-step
@@ -16,11 +16,10 @@ text on
 frames unlimited
 fixed_step
 vsync off
-physics_mode solver
 # Sink water 500 units below terrain — no buoyancy, no drag
 world -9.81 -500.0 1025.0
 
-# Same as legacy default CAMERA_GAME_MODEL_1
+# Same as generated default CAMERA_GAME_MODEL_1
 camera main  321 110 557  581 40 633  0 1 0
 
 # 300 objects total matching DEFAULT_GAME_MODELS (~30% boxes)

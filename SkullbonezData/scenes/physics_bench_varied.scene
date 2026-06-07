@@ -11,7 +11,6 @@
 # Output: Profile/varied_physics_perf_log.csv
 
 seed 20260602
-physics_mode solver
 physics on
 text off
 frames 1200
@@ -22,7 +21,6 @@ world -9.81 0.0 0.0
 water_hidden on
 vsync off
 pipeline_sync off
-roll_align off
 perf_log Profile/varied_physics_perf_log.csv
 perf_log_flush off
 

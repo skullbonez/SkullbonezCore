@@ -95,12 +95,6 @@ class SkullbonezConfig
     float frictionCoeff = 0.1f;
     float rollingFrictionCoeff = 0.02f;
     float spinFrictionCoeff = 0.3f;
-    bool rollAlignEnabled = true;
-    int rollAlignInterval = 2;
-    float rollAlignMinSpeed = 0.35f;
-    float rollAlignMinOmega = 0.35f;
-    float rollAlignPerpToleranceDeg = 2.0f;
-    float rollAlignMaxCorrectionDeg = 6.0f;
     float contactRestitutionThreshold = 2.0f;
     float contactEpsilon = 0.05f;
     float broadphaseCell = 24.0f;
@@ -111,7 +105,7 @@ class SkullbonezConfig
     float shadowOffset = 0.2f;
     float shadowScale = 1.2f;
 
-    // Ball spawn ranges (legacy random mode)
+    // Generated-object spawn ranges
     float spawnXBase = 400.0f;
     int spawnXRange = 400;
     float spawnYBase = 100.0f;

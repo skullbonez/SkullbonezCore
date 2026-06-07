@@ -10,7 +10,6 @@ text off
 frames 900
 fixed_step
 exit_on_complete
-physics_mode solver
 world -9.81 0.0 0.0
 
 # Close-up side-angle camera watching the collision zone

@@ -471,21 +471,6 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
-        // parse legacy_balls directive
-        if ( strncmp( line, "legacy_balls ", 13 ) == 0 )
-        {
-            scene.m_sceneOptions.legacyBallCount = atoi( line + 13 );
-            scene.m_sceneOptions.hasLegacyBallCount = true;
-            if ( scene.m_sceneOptions.legacyBallCount < 0 )
-            {
-                fclose( file );
-                char msg[256];
-                sprintf_s( msg, sizeof( msg ), "Invalid legacy_balls count at line %d (must be >= 0)  (TestScene::LoadFromFile)", lineNumber );
-                throw std::runtime_error( msg );
-            }
-            continue;
-        }
-
         // parse perf_log directive
         if ( strncmp( line, "perf_log ", 9 ) == 0 )
         {
@@ -567,28 +552,6 @@ TestScene TestScene::LoadFromFile( const char* path )
                 fclose( file );
                 char msg[256];
                 sprintf_s( msg, sizeof( msg ), "Invalid pipeline_sync value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 14 );
-                throw std::runtime_error( msg );
-            }
-            continue;
-        }
-
-        // parse roll_align directive
-        if ( strncmp( line, "roll_align ", 11 ) == 0 )
-        {
-            scene.m_runtimeOverrides.hasRollAlignOverride = true;
-            if ( strcmp( line + 11, "on" ) == 0 )
-            {
-                scene.m_runtimeOverrides.isRollAlignEnabled = true;
-            }
-            else if ( strcmp( line + 11, "off" ) == 0 )
-            {
-                scene.m_runtimeOverrides.isRollAlignEnabled = false;
-            }
-            else
-            {
-                fclose( file );
-                char msg[256];
-                sprintf_s( msg, sizeof( msg ), "Invalid roll_align value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, line + 11 );
                 throw std::runtime_error( msg );
             }
             continue;
@@ -1068,29 +1031,6 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
-        // parse physics_mode directive: forces legacy or solver physics for this scene,
-        // overriding whatever --legacy flag was passed on the command line.
-        // Use this to benchmark or compare both modes within a single suite run.
-        if ( strncmp( line, "physics_mode ", 13 ) == 0 )
-        {
-            if ( strcmp( line + 13, "legacy" ) == 0 )
-            {
-                scene.m_sceneOptions.physicsMode = 1;
-            }
-            else if ( strcmp( line + 13, "solver" ) == 0 )
-            {
-                scene.m_sceneOptions.physicsMode = 2;
-            }
-            else
-            {
-                fclose( file );
-                char msg[256];
-                sprintf_s( msg, sizeof( msg ), "Invalid physics_mode at line %d: %s (expected 'legacy' or 'solver')  (TestScene::LoadFromFile)", lineNumber, line + 13 );
-                throw std::runtime_error( msg );
-            }
-            continue;
-        }
-
         // parse solver_balls directive: spawns exactly N impulse-solver sphere objects.
         // Paired with solver_boxes for precise control over the ball/box split in bench scenes.
         if ( strncmp( line, "solver_balls ", 13 ) == 0 )
@@ -1199,24 +1139,6 @@ unsigned int TestScene::GetSeed() const
 }
 
 
-bool TestScene::HasLegacyBallCount() const
-{
-    return m_sceneOptions.hasLegacyBallCount;
-}
-
-
-int TestScene::GetLegacyBallCount() const
-{
-    return m_sceneOptions.legacyBallCount;
-}
-
-
-int TestScene::GetPhysicsMode() const
-{
-    return m_sceneOptions.physicsMode;
-}
-
-
 int TestScene::GetSolverBallCount() const
 {
     return m_sceneOptions.solverBallCount;
@@ -1267,18 +1189,6 @@ bool TestScene::HasPipelineSyncOverride() const
 bool TestScene::IsPipelineSyncEnabled() const
 {
     return m_runtimeOverrides.isPipelineSyncEnabled;
-}
-
-
-bool TestScene::HasRollAlignOverride() const
-{
-    return m_runtimeOverrides.hasRollAlignOverride;
-}
-
-
-bool TestScene::IsRollAlignEnabled() const
-{
-    return m_runtimeOverrides.isRollAlignEnabled;
 }
 
 

@@ -26,7 +26,7 @@ if errorlevel 1 exit /b 2
 
 echo [3/7] Cleaning old artifacts...
 del /q "%REPO%\Profile\*screenshot.bmp" 2>nul
-del /q "%REPO%\Profile\*legacy_smoke.bmp" 2>nul
+del /q "%REPO%\Profile\*solver_smoke.bmp" 2>nul
 del /q "%REPO%\Profile\perf_log.csv" 2>nul
 del /q "%REPO%\Profile\*_perf_log.csv" 2>nul
 del /q "%REPO%\Profile\*_stdout.txt" 2>nul
@@ -40,7 +40,7 @@ if errorlevel 1 (
     exit /b 3
 )
 if exist "%REPO%\Profile\screenshot.bmp" rename "%REPO%\Profile\screenshot.bmp" gl_screenshot.bmp
-if exist "%REPO%\Profile\legacy_smoke.bmp" rename "%REPO%\Profile\legacy_smoke.bmp" gl_legacy_smoke.bmp
+if exist "%REPO%\Profile\solver_smoke.bmp" rename "%REPO%\Profile\solver_smoke.bmp" gl_solver_smoke.bmp
 
 echo [5/7] Running DX11 suite...
 "%REPO%\Profile\SKULLBONEZ_CORE.exe" --renderer dx11 --vsync off --suite SkullbonezData/scenes/render_tests.suite >"%REPO%\Profile\dx11_stdout.txt" 2>"%REPO%\Profile\dx11_stderr.txt"
@@ -49,7 +49,7 @@ if errorlevel 1 (
     exit /b 4
 )
 if exist "%REPO%\Profile\screenshot.bmp" rename "%REPO%\Profile\screenshot.bmp" dx11_screenshot.bmp
-if exist "%REPO%\Profile\legacy_smoke.bmp" rename "%REPO%\Profile\legacy_smoke.bmp" dx11_legacy_smoke.bmp
+if exist "%REPO%\Profile\solver_smoke.bmp" rename "%REPO%\Profile\solver_smoke.bmp" dx11_solver_smoke.bmp
 
 echo [6/7] Running DX12 suite...
 "%REPO%\Profile\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --suite SkullbonezData/scenes/render_tests.suite >"%REPO%\Profile\dx12_stdout.txt" 2>"%REPO%\Profile\dx12_stderr.txt"
@@ -58,10 +58,10 @@ if errorlevel 1 (
     exit /b 5
 )
 if exist "%REPO%\Profile\screenshot.bmp" rename "%REPO%\Profile\screenshot.bmp" dx12_screenshot.bmp
-if exist "%REPO%\Profile\legacy_smoke.bmp" rename "%REPO%\Profile\legacy_smoke.bmp" dx12_legacy_smoke.bmp
+if exist "%REPO%\Profile\solver_smoke.bmp" rename "%REPO%\Profile\solver_smoke.bmp" dx12_solver_smoke.bmp
 
 set MISSING=0
-for %%f in (gl_screenshot.bmp gl_legacy_smoke.bmp dx11_screenshot.bmp dx11_legacy_smoke.bmp dx12_screenshot.bmp dx12_legacy_smoke.bmp) do (
+for %%f in (gl_screenshot.bmp gl_solver_smoke.bmp dx11_screenshot.bmp dx11_solver_smoke.bmp dx12_screenshot.bmp dx12_solver_smoke.bmp) do (
     if not exist "%REPO%\Profile\%%f" (
         echo   MISSING: %%f
         set /a MISSING+=1

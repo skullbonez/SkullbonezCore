@@ -40,11 +40,11 @@ Keep the detector narrow enough to avoid false positives, but log enough context
 Every low-repro capture log should include:
 
 - log path and start timestamp,
-- renderer and physics mode,
-- scene path or legacy/random marker,
+- renderer,
+- scene path or generated-scene marker,
 - RNG seed and command-line seed override,
 - fixed-step state and time scale,
-- relevant runtime toggles (`--no-water`, object-generation overrides, solver/legacy mode),
+- relevant runtime toggles (`--no-water`, object-generation overrides),
 - model count and selected model index,
 - position, velocity, angular velocity, orientation, mass, restitution, inertia,
 - collision shape details,

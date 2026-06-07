@@ -23,8 +23,8 @@ THRESHOLD = 10.0
 PAIRS = [
     ("gl_screenshot.bmp", "dx11_screenshot.bmp", "water_ball_test GL vs DX11"),
     ("gl_screenshot.bmp", "dx12_screenshot.bmp", "water_ball_test GL vs DX12"),
-    ("gl_legacy_smoke.bmp", "dx11_legacy_smoke.bmp", "legacy_smoke GL vs DX11"),
-    ("gl_legacy_smoke.bmp", "dx12_legacy_smoke.bmp", "legacy_smoke GL vs DX12"),
+    ("gl_solver_smoke.bmp", "dx11_solver_smoke.bmp", "solver_smoke GL vs DX11"),
+    ("gl_solver_smoke.bmp", "dx12_solver_smoke.bmp", "solver_smoke GL vs DX12"),
 ]
 
 

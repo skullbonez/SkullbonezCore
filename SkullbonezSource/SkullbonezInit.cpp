@@ -126,7 +126,6 @@ struct ParsedArgs
     std::vector<std::string> sceneList;
     bool isSuiteOrSceneMode = false;
     RendererType renderer = RendererType::OpenGL;
-    bool legacyPhysics = false;
     float switchInterval = -1.0f;
     float timeScaleOverride = 0.0f; // 0 = not set
     bool fixedStep = false;
@@ -362,7 +361,7 @@ bool ParsePhysicsDebugOverrides( const char* cmdLine, ParsedArgs& out )
 }
 
 // Build the ordered list of scene paths from --suite or --scene.
-// Falls back to a single empty string (legacy mode) when neither flag is given.
+// Falls back to a single empty string (generated demo mode) when neither flag is given.
 void ParseSceneArgs( const char* cmdLine, std::vector<std::string>& sceneList, bool& isSuiteOrSceneMode )
 {
     if ( cmdLine && cmdLine[0] != '\0' )
@@ -458,7 +457,7 @@ void ParseSceneArgs( const char* cmdLine, std::vector<std::string>& sceneList, b
 
     if ( sceneList.empty() )
     {
-        sceneList.push_back( "" ); // legacy mode — empty string maps to nullptr
+        sceneList.push_back( "" ); // generated demo mode
     }
 }
 
@@ -545,12 +544,11 @@ float ParseSwitchInterval( const char* cmdLine )
     return static_cast<float>( atof( switchArg ) );
 }
 
-// Guards --physics-regression-log / legacy --physics-log against use in non-Debug builds.
+// Guards --physics-regression-log against use in non-Debug builds.
 // Returns false if startup should abort.
 bool ValidatePhysicsRegressionLog( const char* cmdLine )
 {
-    if ( !FindOptionValue( cmdLine, "--physics-regression-log" ) &&
-         !FindOptionValue( cmdLine, "--physics-log" ) )
+    if ( !FindOptionValue( cmdLine, "--physics-regression-log" ) )
     {
         return true;
     }
@@ -584,11 +582,6 @@ void ParsePhysicsRegressionLogOverride( const char* cmdLine, char ( &outPath )[2
 {
     outPath[0] = '\0';
     const char* physLogArg = FindOptionValue( cmdLine, "--physics-regression-log" );
-    const bool usedLegacyAlias = physLogArg == nullptr;
-    if ( usedLegacyAlias )
-    {
-        physLogArg = FindOptionValue( cmdLine, "--physics-log" );
-    }
     if ( !physLogArg )
     {
         return;
@@ -608,10 +601,6 @@ void ParsePhysicsRegressionLogOverride( const char* cmdLine, char ( &outPath )[2
     outPath[len] = '\0';
     if ( outPath[0] != '\0' )
     {
-        if ( usedLegacyAlias )
-        {
-            fprintf( stdout, "[physics-regression-log] Deprecated alias --physics-log used; prefer --physics-regression-log.\n" );
-        }
         fprintf( stdout, "[physics-regression-log] Output: %s\n", outPath );
     }
 }
@@ -659,12 +648,6 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
 
     Cfg().Load( ( std::string( DATA_ROOT ) + "engine.cfg" ).c_str() );
     ApplyVsyncOverride( cmdLine );
-
-    out.legacyPhysics = ( cmdLine && strstr( cmdLine, "--legacy-physics" ) );
-    if ( out.legacyPhysics )
-    {
-        fprintf( stdout, "[physics] Legacy sphere-only solver enabled.\n" );
-    }
 
     if ( !ValidatePhysicsRegressionLog( cmdLine ) )
     {
@@ -829,7 +812,7 @@ void InitRenderBackend( RendererType renderer, SkullbonezWindow* window )
 void RunApp( SkullbonezWindow* window, ParsedArgs& args )
 {
     {
-        SkullbonezRun cRun( std::move( args.sceneList ), args.legacyPhysics );
+        SkullbonezRun cRun( std::move( args.sceneList ) );
         if ( args.switchInterval > 0.0f )
         {
             cRun.SetRendererSwitchInterval( args.switchInterval );

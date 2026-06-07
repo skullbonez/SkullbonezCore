@@ -63,17 +63,15 @@ struct RunPhysicsDiagnosticsState
     bool isEnabled = false;                    // True when a diagnostics path was provided
     bool isRunActive = false;                  // True after a run row and before the matching end row
     bool fixedStepForcedByDiagnostics = false; // True when --physics-diag forced fixed-step mode
-    int runSequence = 0;                       // Incremented on every scene/legacy load
+    int runSequence = 0;                       // Incremented on every scene/generated load
 };
 #endif
 
 
 struct RunRuntimeSettings
 {
-    bool isVsyncEnabled = true;          // Swap-chain sync interval (true = vsync)
-    bool isPipelineSyncEnabled = false;  // Force CPU/GPU sync via Finish() before render
-    bool defaultRollAlignEnabled = true; // Config default for roll orientation correction
-    bool isRollAlignEnabled = true;      // Active roll orientation correction state for current scene
+    bool isVsyncEnabled = true;         // Swap-chain sync interval (true = vsync)
+    bool isPipelineSyncEnabled = false; // Force CPU/GPU sync via Finish() before render
 };
 
 struct RunTimerState
@@ -129,13 +127,13 @@ struct RunCameraState
 struct RunSceneState
 {
     int currentSceneIndex = -1;    // Index into scene queue (-1 = not yet loaded)
-    int loadCount = 0;             // Number of scene/legacy loads since startup
+    int loadCount = 0;             // Number of scene/generated loads since startup
     int manualResetCount = 0;      // Number of user-triggered resets since startup
     bool isSceneMode = false;      // Scene file mode (deterministic, data-driven)
     bool isScenePhysics = true;    // Physics enabled in scene mode
     bool isSceneText = true;       // Text overlay enabled in scene mode
     int targetFrameCount = -1;     // Frames to render before holding (-1 = unlimited)
-    int currentFrame = 0;          // Current frame counter for the loaded scene/legacy run
+    int currentFrame = 0;          // Current frame counter for the loaded scene/generated run
     int modelCount = 0;            // Number of models in the active scene
     int solverBallCount = 0;       // Exact solver ball count when generated through solver_balls
     int solverBoxCount = 0;        // Exact solver box count when generated through solver_boxes
@@ -227,7 +225,7 @@ class SkullbonezRun
 {
 
   private:
-    std::vector<std::string> m_sceneQueue; // Ordered list of scene paths ("" = legacy mode)
+    std::vector<std::string> m_sceneQueue; // Ordered list of scene paths ("" = generated demo scene)
     std::vector<std::string> m_sceneBrowserPaths;
     std::vector<std::string> m_sceneBrowserNames;
     std::vector<const char*> m_sceneBrowserNamePtrs;
@@ -242,7 +240,6 @@ class SkullbonezRun
     int m_UIModelCountOverride = -1;
     int m_UISolverBallCountOverride = -1;
     int m_UISolverBoxCountOverride = -1;
-    bool m_defaultLegacyPhysicsMode = false; // Startup physics mode restored by scene/default reloads when a scene does not override physics_mode
     bool m_cmdHasPhysicsDebugFlagsOverride = false;
     uint32_t m_cmdPhysicsDebugFlagsOverride = PHYSICS_DEBUG_NONE;
     bool m_cmdHasPhysicsDebugTransparentOverride = false;
@@ -256,7 +253,7 @@ class SkullbonezRun
 #ifdef _DEBUG
     RunPhysicsDiagnosticsState m_physicsDiagnostics; // Queryable model-facing physics diagnostic trace
 #endif
-    RunRuntimeSettings m_runtimeSettings;            // Scene/app runtime toggles (vsync, sync, roll-align)
+    RunRuntimeSettings m_runtimeSettings;            // Scene/app runtime swap policy toggles
     RunTimerState m_timers;                          // Frame/simulation timers and rolling timing values
     RunSubsystemState m_systems;                     // Window, camera, texture, terrain, and reflection handles
     RunCameraState m_camera;                         // Camera/input state and ball-tracking settings
@@ -276,9 +273,9 @@ class SkullbonezRun
     void RelativeUpdateCamera( uint32_t hash );                                                                                        // Relative update specified camera
     void UpdateLogic( float simulationDt, float cameraDt );                                                                            // Per-frame logic; cameraDt is unscaled wall time
     void TakeInput();                                                                                                                  // Take user input
-    void SetUpCameras();                                                                                                               // Camera init (legacy mode)
+    void SetUpCameras();                                                                                                               // Camera init for generated demo mode
     void SetUpCamerasFromScene( const TestScene& scene );                                                                              // Camera init from scene file
-    void SetUpGameModels( int count );                                                                                                 // Game model init (random legacy mode)
+    void SetUpGameModels( int count );                                                                                                 // Game model init for generated mixed-object mode
     void SetUpSolverObjects( int balls, int boxes );                                                                                   // Game model init: exact N solver balls + M solver boxes
     void SetUpGameModelsFromScene( const TestScene& scene );                                                                           // Game model init from scene file
     void DrawPrimitives();                                                                                                             // Draw OpenGL primitives here
@@ -297,7 +294,7 @@ class SkullbonezRun
     void HoldCompletedInteractiveScene();                                                                                              // Keep the current scene alive after interactive automation completes
     void LogPerfMemory( const char* checkpoint );                                                                                      // Log memory usage to perf CSV
     void LoadScene( int index, bool preserveUIState = false, bool suppressExitOnComplete = false, bool preserveRuntimeState = false ); // Resets scene-specific state and loads a scene by queue index
-    void ResetCurrentScene( bool preserveUIState = false, bool suppressExitOnComplete = false, bool preserveRuntimeState = true );     // User-triggered reset/reload of current scene or legacy mode
+    void ResetCurrentScene( bool preserveUIState = false, bool suppressExitOnComplete = false, bool preserveRuntimeState = true );     // User-triggered reset/reload of current scene or generated demo mode
     void ApplyUIModelCountOverride( int count );                                                                                       // Rebuilds the active generated model pool from the UI slider
     void ApplyUISolverObjectCounts( int balls, int boxes );                                                                            // Rebuilds generated solver objects from exact UI counts
     void ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity );                                                 // Applies live world/fluid scalar controls
@@ -310,7 +307,7 @@ class SkullbonezRun
 
     // --- Per-frame tick helpers (called from Run()) ---
     void TickRendererSwitch( float dt );                  // Advance auto-switch timer; cycle backend when interval elapses
-    void TickPhysics( double dt );                        // Physics dispatch: fixed-step, accumulator, legacy vs solver
+    void TickPhysics( double dt );                        // Physics dispatch: fixed-step and variable-step accumulator
     bool TickScreenshots();                               // Screenshot triggers; returns true when frame should restart (continue)
     void TickAutoCycle();                                 // Auto-cycle ball capture; posts WM_QUIT when all balls captured
     void TickPerfLog();                                   // Write per-frame perf CSV row and periodic memory checkpoint
@@ -326,10 +323,10 @@ class SkullbonezRun
 #endif
 
   public:
-    SkullbonezRun( std::vector<std::string> sceneQueue, bool legacyPhysics = false ); // Constructor (scene queue; empty string = legacy mode)
-    ~SkullbonezRun();                                                                 // Default destructor
-    void Initialise();                                                                // Initialises shared resources and loads first scene
-    void Run();                                                                       // Runs all scenes in sequence — main message loop
+    SkullbonezRun( std::vector<std::string> sceneQueue ); // Constructor (scene queue; empty string = generated demo scene)
+    ~SkullbonezRun();                                     // Default destructor
+    void Initialise();                                    // Initialises shared resources and loads first scene
+    void Run();                                           // Runs all scenes in sequence — main message loop
     void SetRendererSwitchInterval( float seconds );
     void SetTimeScaleOverride( float scale );  // Override timeScale for every scene loaded (CLI --time-scale)
     void SetFixedStepOverride();               // Force fixed-step for every scene loaded (CLI --fixed-step)

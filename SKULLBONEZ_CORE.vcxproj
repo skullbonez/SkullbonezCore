@@ -142,7 +142,6 @@
     <ClCompile Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCamera.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCameraCollection.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezCollisionResponse.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCollisionVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezImpulseSolver.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezObjectContactManifold.cpp" />
@@ -207,7 +206,6 @@
     <ClInclude Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCamera.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCameraCollection.h" />
-    <ClInclude Include="SkullbonezSource\SkullbonezCollisionResponse.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCollisionVisualizer.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezImpulseSolver.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezObjectContactManifold.h" />
@@ -291,17 +289,15 @@
     <None Include="SkullbonezData\scenes\float_snap_test.scene" />
     <None Include="SkullbonezData\scenes\funnel_roll_test.scene" />
     <None Include="SkullbonezData\scenes\gpu_timer_test.scene" />
-    <None Include="SkullbonezData\scenes\legacy_smoke.scene" />
+    <None Include="SkullbonezData\scenes\solver_smoke.scene" />
     <None Include="SkullbonezData\scenes\perf_1000.scene" />
     <None Include="SkullbonezData\scenes\perf_test.scene" />
     <None Include="SkullbonezData\scenes\physics_baseline.scene" />
     <None Include="SkullbonezData\scenes\physics_bench.sUIte" />
-    <None Include="SkullbonezData\scenes\physics_bench_legacy.scene" />
     <None Include="SkullbonezData\scenes\physics_bench_solver.scene" />
     <None Include="SkullbonezData\scenes\physics_bench_solver_balls.scene" />
     <None Include="SkullbonezData\scenes\physics_bench_solver_boxes.scene" />
     <None Include="SkullbonezData\scenes\physics_bench_varied.scene" />
-    <None Include="SkullbonezData\scenes\physics_regression_legacy.scene" />
     <None Include="SkullbonezData\scenes\physics_regression_solver.scene" />
     <None Include="SkullbonezData\scenes\physics_roll.scene" />
     <None Include="SkullbonezData\scenes\render_tests.sUIte" />

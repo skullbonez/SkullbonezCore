@@ -10,11 +10,11 @@ from pathlib import Path
 
 VISUALS = [
     ("gl_screenshot.bmp", "baseline_gl_water_ball_test.png"),
-    ("gl_legacy_smoke.bmp", "baseline_gl_legacy_smoke.png"),
+    ("gl_solver_smoke.bmp", "baseline_gl_solver_smoke.png"),
     ("dx11_screenshot.bmp", "baseline_dx11_water_ball_test.png"),
-    ("dx11_legacy_smoke.bmp", "baseline_dx11_legacy_smoke.png"),
+    ("dx11_solver_smoke.bmp", "baseline_dx11_solver_smoke.png"),
     ("dx12_screenshot.bmp", "baseline_dx12_water_ball_test.png"),
-    ("dx12_legacy_smoke.bmp", "baseline_dx12_legacy_smoke.png"),
+    ("dx12_solver_smoke.bmp", "baseline_dx12_solver_smoke.png"),
 ]
 
 PERF = [

@@ -1,10 +1,9 @@
 # Physics Overview
 
-SkullbonezCore currently keeps two solvers:
+SkullbonezCore currently uses one solver:
 
 | Solver | Scope | Notes |
 |--------|-------|-------|
-| Legacy | Spheres only | Original swept sphere-sphere collision and analytic response. |
 | Impulse | Spheres and oriented boxes | Sequential impulse contact solver with friction and stabilization. |
 
 ## Time Step
@@ -43,7 +42,6 @@ Physics CSV baselines live in `TestOutput/baselines/` and are byte-exact. A sing
 | Area | Files |
 |------|-------|
 | Rigid body state | `SkullbonezSource/SkullbonezRigidBody*` |
-| Contact response | `SkullbonezSource/SkullbonezCollisionResponse*` |
 | Impulse solver | `SkullbonezSource/SkullbonezImpulseSolver*` |
 | Shapes | `SkullbonezSource/SkullbonezBoundingSphere*`, `SkullbonezSource/SkullbonezDynamicsObject*` |
 | Broadphase | `SkullbonezSource/SkullbonezSpatialGrid*` |

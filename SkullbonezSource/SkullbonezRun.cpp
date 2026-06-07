@@ -8,7 +8,6 @@
 #include "SkullbonezRenderBackendGL.h"
 #include "SkullbonezRenderBackendDX11.h"
 #include "SkullbonezRenderBackendDX12.h"
-#include "SkullbonezCollisionResponse.h"
 #include "SkullbonezImpulseSolver.h"
 #include <time.h>
 #include <cstring>
@@ -216,7 +215,7 @@ std::string NormalizeScenePath( const std::string& path )
 
 struct SceneRuntimeResetSnapshot
 {
-    RunRuntimeSettings runtimeSettings; // Renderer sync and roll-align toggles changed while operating the current scene
+    RunRuntimeSettings runtimeSettings; // Renderer sync toggles changed while operating the current scene
     RunDebugState debug;                // Debug overlays/visualizers, including the C-key physics debug mode and associated alpha/linger knobs
     bool isScenePhysics = true;         // Live scene simulation toggle; reset should rebuild the run, not silently re-enable physics
     bool isSceneText = true;            // Live text/HUD toggle from the scene controls
@@ -225,7 +224,6 @@ struct SceneRuntimeResetSnapshot
     bool isInteractiveRun = false;      // Once a user owns the scene, a reset should not go back to CLI auto-quit behavior
     int targetFrameCount = -1;          // Live frame-count control from the UI
     float timeScale = 1.0f;             // Live time-scale control from the UI/scene controls
-    bool legacyPhysicsMode = false;     // Live physics-mode combo state until the later legacy-system removal pass
     float worldGravity = 0.0f;          // Live world/environment sliders
     float worldFluidHeight = 0.0f;
     float worldFluidDensity = 0.0f;
@@ -242,17 +240,12 @@ struct SceneRuntimeResetSnapshot
 } // namespace
 
 
-SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue, bool legacyPhysics )
+SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
     : m_sceneQueue( std::move( sceneQueue ) )
 {
     RefreshSceneBrowserList();
-    m_defaultLegacyPhysicsMode = legacyPhysics;
-    m_cGameModelCollection.SetLegacyMode( legacyPhysics );
-    // Config-driven defaults are resolved at construction; scene-specific defaults remain in-member.
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
-    m_runtimeSettings.defaultRollAlignEnabled = Cfg().rollAlignEnabled;
-    m_runtimeSettings.isRollAlignEnabled = m_runtimeSettings.defaultRollAlignEnabled;
 }
 
 
@@ -375,10 +368,6 @@ void SkullbonezRun::SetBroadphaseVisualizerEnabled( bool enabled )
 void SkullbonezRun::SetGeneratedObjectTypeOverride( GeneratedObjectTypeOverride objectTypeOverride )
 {
     m_generatedObjectTypeOverride = objectTypeOverride;
-    if ( objectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
-    {
-        m_cGameModelCollection.SetLegacyMode( false );
-    }
 }
 
 
@@ -747,8 +736,9 @@ void SkullbonezRun::SetUpGameModels( int count )
         }
         else
         {
-            // ~30% of objects are boxes when using new physics; legacy mode is spheres only
-            makeBox = !m_cGameModelCollection.GetLegacyMode() && ( rand() % 10 ) < 3;
+            // ~30% of generated objects are boxes, giving the default demo a
+            // mixed collision workload without requiring explicit scene bodies.
+            makeBox = ( rand() % 10 ) < 3;
         }
 
         if ( makeBox )
@@ -813,7 +803,6 @@ void SkullbonezRun::SetUpSolverObjects( int balls, int boxes )
         boxes = totalObjects;
     }
 
-    m_cGameModelCollection.SetLegacyMode( false );
     m_scene.modelCount = balls + boxes;
     m_scene.solverBallCount = balls;
     m_scene.solverBoxCount = boxes;
@@ -1051,34 +1040,24 @@ void SkullbonezRun::TickPhysics( double secondsPerFrame )
         if ( !m_camera.isFlyMode || m_camera.isNudgeMode || Input::IsKeyDown( VK_SPACE ) )
         {
             PROFILE_BEGIN( "Frame/Physics" );
-            if ( m_cGameModelCollection.GetLegacyMode() )
+            // The impulse solver uses discrete overlap tests and needs small
+            // fixed steps for stability. Only RunPhysics runs in the loop;
+            // camera and miscellaneous UI updates use real frame time below.
+            m_timers.physicsAccumulator += scaledDt;
+
+            int steps = 0;
+            while ( m_timers.physicsAccumulator >= PHYSICS_FIXED_DT && steps < PHYSICS_MAX_STEPS_PER_FRAME )
             {
-                // Legacy swept physics is frame-rate independent: CollisionDetect* computes the
-                // exact time-of-impact and steps to it internally, so external sub-division adds
-                // no benefit and was never used before the accumulator was introduced for the solver.
-                m_timers.physicsAccumulator = 0.0f;
-                m_timers.fixedStepTickAccumulator = 0.0f;
-                m_cGameModelCollection.RunPhysics( scaledDt );
+                m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
+                m_timers.physicsAccumulator -= PHYSICS_FIXED_DT;
+                ++steps;
             }
-            else
+
+            // Drain excess accumulator if we hit the step cap to avoid carrying
+            // a runaway backlog into the next frame after a stall.
+            if ( steps == PHYSICS_MAX_STEPS_PER_FRAME )
             {
-                // Impulse solver uses discrete overlap tests and needs small fixed steps for stability.
-                // Only RunPhysics runs in the loop — camera and misc update once per frame below.
-                m_timers.physicsAccumulator += scaledDt;
-
-                int steps = 0;
-                while ( m_timers.physicsAccumulator >= PHYSICS_FIXED_DT && steps < PHYSICS_MAX_STEPS_PER_FRAME )
-                {
-                    m_cGameModelCollection.RunPhysics( PHYSICS_FIXED_DT );
-                    m_timers.physicsAccumulator -= PHYSICS_FIXED_DT;
-                    ++steps;
-                }
-
-                // Drain excess accumulator if we hit the step cap (avoids spiral of death)
-                if ( steps == PHYSICS_MAX_STEPS_PER_FRAME )
-                {
-                    m_timers.physicsAccumulator = 0.0f;
-                }
+                m_timers.physicsAccumulator = 0.0f;
             }
             PROFILE_END( "Frame/Physics" );
         }
@@ -1296,7 +1275,7 @@ bool SkullbonezRun::TickSceneAdvance()
         }
     }
 
-    // Legacy (non-scene) mode: restart the scene every 20s to keep running indefinitely
+    // Generated demo mode: restart every 20s to keep the sandbox moving indefinitely.
     if ( !m_scene.isSceneMode && !m_camera.isFlyMode && m_timers.simulationTimer.GetTimeSinceLastStart() > 20.0 )
     {
         LoadScene( m_scene.currentSceneIndex, m_scene.isInteractiveRun, m_scene.isInteractiveRun, m_scene.isInteractiveRun );
@@ -1369,7 +1348,7 @@ void SkullbonezRun::TakeInput()
         {
             if ( m_camera.isFlyMode )
             {
-                // Entering fly mode: in legacy mode snap to free camera; in scene mode stay
+                // Entering fly mode: generated demo mode snaps to free camera; scene mode stays
                 // on the current camera so fly controls work without requiring CAMERA_FREE
                 if ( !m_scene.isSceneMode )
                 {
@@ -1541,7 +1520,7 @@ void SkullbonezRun::TakeInput()
         m_camera.input.Set( InputState::GKeyWasDown, isGNow );
 
         // 0 key: toggle the in-game diagnostics window. Tabs replace the old overlay cycle.
-        // Edge-detected in both scene and legacy modes; one toggle per keypress.
+        // Edge-detected in both scene and generated demo modes; one toggle per keypress.
         {
             bool key0Now = Input::IsKeyDown( '0' );
             if ( key0Now && !m_camera.input.Get( InputState::Key0WasDown ) )
@@ -1633,11 +1612,6 @@ void SkullbonezRun::TakeInput()
         {
             m_scene.isExitOnComplete = CanSceneAutomationQuit() ? !m_scene.isExitOnComplete : false;
         }
-        if ( UIResult.toggleRollAlign )
-        {
-            m_runtimeSettings.isRollAlignEnabled = !m_runtimeSettings.isRollAlignEnabled;
-            Cfg().rollAlignEnabled = m_runtimeSettings.isRollAlignEnabled;
-        }
         if ( UIResult.toggleTerrainHidden )
         {
             m_debug.isTerrainHidden = !m_debug.isTerrainHidden;
@@ -1675,19 +1649,6 @@ void SkullbonezRun::TakeInput()
             const int mode = std::clamp( UIResult.requestedWaterReflectionMode, 0, 2 );
             m_debug.isWaterRTReflect = mode == 1;
             m_debug.isWaterNoReflect = mode == 2;
-        }
-        if ( UIResult.requestedPhysicsMode >= 0 )
-        {
-            const int mode = std::clamp( UIResult.requestedPhysicsMode, 0, 1 );
-            m_cGameModelCollection.SetLegacyMode( mode == 0 );
-            if ( mode == 0 )
-            {
-                m_UISolverBallCountOverride = -1;
-                m_UISolverBoxCountOverride = -1;
-            }
-            m_timers.physicsAccumulator = 0.0f;
-            m_timers.fixedStepTickAccumulator = 0.0f;
-            PROFILE_SCHEDULE_RESET();
         }
         if ( UIResult.requestedTimeScale > 0.0f )
         {
@@ -1856,19 +1817,7 @@ void SkullbonezRun::TakeInput()
         m_camera.input.Set( InputState::F3WasDown, f3Now );
     }
 
-    // P: toggle between legacy (sphere-only, ad-hoc) and new (sequential impulse) solver at runtime.
-    // In legacy mode boxes freeze in place and disappear; they reappear when toggled back.
-    {
-        bool pNow = Input::IsKeyDown( 'P' );
-        if ( pNow && !m_camera.input.Get( InputState::PWasDown ) )
-        {
-            m_cGameModelCollection.SetLegacyMode( !m_cGameModelCollection.GetLegacyMode() );
-            PROFILE_SCHEDULE_RESET();
-        }
-        m_camera.input.Set( InputState::PWasDown, pNow );
-    }
-
-    // Z: fire a ball out of the camera. X: fire a box (solver mode only; ignored in legacy mode).
+    // Z: fire a ball out of the camera. X: fire a box out of the camera.
     // Shift applies the same 3× speed multiplier as walking.
     // Objects are recycled from the model pool — no new allocations.
     {
@@ -2350,13 +2299,11 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         UIData.scenePhysicsEnabled = m_scene.isScenePhysics;
         UIData.sceneTextEnabled = m_scene.isSceneText;
         UIData.textOnly = m_debug.isTextOnly;
-        UIData.legacyPhysics = m_cGameModelCollection.GetLegacyMode();
         UIData.fixedStep = m_scene.isFixedStep;
         UIData.exitOnComplete = m_scene.isExitOnComplete;
         UIData.testComplete = m_scene.isTestComplete;
         UIData.vsyncEnabled = m_runtimeSettings.isVsyncEnabled;
         UIData.pipelineSyncEnabled = m_runtimeSettings.isPipelineSyncEnabled;
-        UIData.rollAlignEnabled = m_runtimeSettings.isRollAlignEnabled;
         UIData.sceneEnergy = sceneEnergyForDisplay;
         UIData.timeScale = m_scene.timeScale;
         UIData.trackHeight = m_camera.trackBallIndex >= 0 ? m_camera.trackHeight : 0.0f;
@@ -2877,7 +2824,7 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
         name = "<unnamed>";
     }
 
-    const char* scenePath = "<legacy/random>";
+    const char* scenePath = "<generated>";
     if ( m_scene.isSceneMode && m_scene.currentSceneIndex >= 0 &&
          m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() ) )
     {
@@ -2895,7 +2842,6 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     {
         rendererArg = "dx12";
     }
-    const char* physicsMode = m_cGameModelCollection.GetLegacyMode() ? "legacy" : "solver";
     const char* generatedObjectOverride = "mixed";
     const char* generatedObjectArg = "";
     if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
@@ -3029,34 +2975,30 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     fprintf( f, "cmd_fixed_step_override,%d\n", m_cmdFixedStep ? 1 : 0 );
     fprintf( f, "time_scale,%.6f\n", m_scene.timeScale );
     fprintf( f, "renderer,%s\n", rendererName );
-    fprintf( f, "physics_mode,%s\n", physicsMode );
     fprintf( f, "generated_object_override,%s\n", generatedObjectOverride );
     fprintf( f, "model_count,%d\n", m_cGameModelCollection.GetModelCount() );
-    fprintf( f, "roll_align_enabled,%d\n", m_runtimeSettings.isRollAlignEnabled ? 1 : 0 );
     fprintf( f, "vsync_enabled,%d\n", m_runtimeSettings.isVsyncEnabled ? 1 : 0 );
     fprintf( f, "pipeline_sync_enabled,%d\n", m_runtimeSettings.isPipelineSyncEnabled ? 1 : 0 );
     if ( m_scene.isSceneMode )
     {
         fprintf( f,
-                 "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --scene \"%s\" --seed %u --time-scale %.6f%s%s%s%s\n",
+                 "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --scene \"%s\" --seed %u --time-scale %.6f%s%s%s\n",
                  rendererArg,
                  scenePath,
                  m_scene.rngSeed,
                  m_scene.timeScale,
                  m_scene.isFixedStep ? " --fixed-step" : "",
-                 m_cGameModelCollection.GetLegacyMode() ? " --legacy-physics" : "",
                  m_cmdNoWater ? " --no-water" : "",
                  generatedObjectArg );
     }
     else
     {
         fprintf( f,
-                 "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --seed %u --time-scale %.6f%s%s%s%s\n",
+                 "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --seed %u --time-scale %.6f%s%s%s\n",
                  rendererArg,
                  m_scene.rngSeed,
                  m_scene.timeScale,
                  m_scene.isFixedStep ? " --fixed-step" : "",
-                 m_cGameModelCollection.GetLegacyMode() ? " --legacy-physics" : "",
                  m_cmdNoWater ? " --no-water" : "",
                  generatedObjectArg );
     }
@@ -3155,12 +3097,6 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
 
 void SkullbonezRun::FireProjectile( bool isBox )
 {
-    // Legacy mode has no boxes — ALT fires nothing.
-    if ( isBox && m_cGameModelCollection.GetLegacyMode() )
-    {
-        return;
-    }
-
     int count = m_cGameModelCollection.GetModelCount();
     if ( count == 0 )
     {
@@ -3372,7 +3308,6 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         resetSnapshot.isInteractiveRun = m_scene.isInteractiveRun;
         resetSnapshot.targetFrameCount = m_scene.targetFrameCount;
         resetSnapshot.timeScale = m_scene.timeScale;
-        resetSnapshot.legacyPhysicsMode = m_cGameModelCollection.GetLegacyMode();
         resetSnapshot.worldGravity = m_cWorldEnvironment.GetGravity();
         resetSnapshot.worldFluidHeight = m_cWorldEnvironment.GetFluidSurfaceHeight();
         resetSnapshot.worldFluidDensity = m_cWorldEnvironment.GetFluidDensity();
@@ -3395,7 +3330,6 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         m_UIModelCountOverride = -1;
         m_UISolverBallCountOverride = -1;
         m_UISolverBoxCountOverride = -1;
-        m_cGameModelCollection.SetLegacyMode( m_defaultLegacyPhysicsMode );
     }
 
     // Flush GPU before destroying scene resources to avoid use-after-free
@@ -3447,8 +3381,6 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     m_perfLogState.perfLogWritesSinceFlush = 0;
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
-    m_runtimeSettings.isRollAlignEnabled = m_runtimeSettings.defaultRollAlignEnabled;
-    Cfg().rollAlignEnabled = m_runtimeSettings.isRollAlignEnabled;
 
     // Reset cameras and game models
     m_systems.cameras->Reset();
@@ -3515,7 +3447,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         rngSeed = 1;
     }
 
-    // Branch on scene mode vs legacy mode
+    // Branch on file-backed scene mode vs generated demo mode.
     if ( scenePath.empty() )
     {
         if ( m_cmdSeedOverride > 0 )
@@ -3529,7 +3461,6 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         {
             // Restore setup-affecting live controls before the generated model pool is rebuilt.
             // Other visual/debug controls are restored later after scene directives have loaded.
-            m_cGameModelCollection.SetLegacyMode( resetSnapshot.legacyPhysicsMode );
             ApplyUIWorldOverride( resetSnapshot.worldGravity, resetSnapshot.worldFluidHeight, resetSnapshot.worldFluidDensity );
         }
 
@@ -3568,11 +3499,6 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         {
             m_runtimeSettings.isPipelineSyncEnabled = scene.IsPipelineSyncEnabled();
         }
-        if ( scene.HasRollAlignOverride() )
-        {
-            m_runtimeSettings.isRollAlignEnabled = scene.IsRollAlignEnabled();
-        }
-        Cfg().rollAlignEnabled = m_runtimeSettings.isRollAlignEnabled;
         m_debug.isTextOnly = scene.IsTextOnly();
         m_debug.isWaterHidden = scene.IsWaterHidden();
         m_debug.isTerrainHidden = scene.IsTerrainHidden();
@@ -3680,24 +3606,6 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
                 m_debug.isUITestPattern = UIOptions.testPatternEnabled;
             }
         }
-
-        // Apply per-scene physics mode override — supersedes the --legacy CLI flag for this scene.
-        // physicsMode 0 = inherit (no change), 1 = legacy, 2 = impulse solver.
-        if ( scene.GetPhysicsMode() != 0 )
-        {
-            m_cGameModelCollection.SetLegacyMode( scene.GetPhysicsMode() == 1 );
-        }
-        if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBoxes )
-        {
-            m_cGameModelCollection.SetLegacyMode( false );
-        }
-        if ( shouldPreserveRuntimeState )
-        {
-            // A scene file may declare a default physics_mode, but standard reset should
-            // keep the mode chosen in the running UI until a scene/default reload occurs.
-            m_cGameModelCollection.SetLegacyMode( resetSnapshot.legacyPhysicsMode );
-        }
-
         m_scene.targetFrameCount = scene.GetFrameCount();
         m_scene.isExitOnComplete = suppressAutomationExit ? false : scene.IsExitOnComplete();
         m_screenshot.screenshotFrame = scene.GetScreenshotFrame();
@@ -3731,7 +3639,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
             }
         }
 
-        // Physics regression log: legacy per-frame CSV enabled only by command line.
+        // Physics regression log: current-solver per-frame CSV enabled only by command line.
 #ifdef _DEBUG
         m_cGameModelCollection.SetPhysicsRegressionLogPath( m_perfLogState.physicsRegressionLogOverride );
 #endif
@@ -3787,10 +3695,6 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
             // Exact-count solver spawn — explicit ball/box split for benchmarks.
             SetUpSolverObjects( scene.GetSolverBallCount(), scene.GetSolverBoxCount() );
         }
-        else if ( scene.HasLegacyBallCount() )
-        {
-            SetUpGameModels( scene.GetLegacyBallCount() );
-        }
         else
         {
             SetUpGameModelsFromScene( scene );
@@ -3835,7 +3739,6 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         // frame counters, diagnostics/perf files, screenshots, input edge states, and
         // object transforms stay reset because they belong to the simulation run itself.
         m_runtimeSettings = resetSnapshot.runtimeSettings;
-        Cfg().rollAlignEnabled = m_runtimeSettings.isRollAlignEnabled;
         m_debug = resetSnapshot.debug;
         m_scene.isScenePhysics = resetSnapshot.isScenePhysics;
         m_scene.isSceneText = resetSnapshot.isSceneText;
@@ -3859,7 +3762,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         m_physicsDebugVisualizer.SetContactLingerSeconds( m_debug.physicsDebugContactLinger );
     }
 
-    // CLI --time-scale and --fixed-step override anything the scene file (or legacy defaults) set.
+    // CLI --time-scale and --fixed-step override anything the scene file sets.
     if ( m_cmdTimeScaleOverride > 0.0f )
     {
         m_scene.timeScale = m_cmdTimeScaleOverride;
@@ -3951,8 +3854,8 @@ void SkullbonezRun::BeginPhysicsDiagnosticsRun( const char* scenePath )
     m_cGameModelCollection.SetPhysicsDiagnosticsRunId( m_physicsDiagnostics.currentRunId );
 
     const char* rendererName = IsGfxReady() ? Gfx().GetRendererName() : "unknown";
-    const char* solverName = m_cGameModelCollection.GetLegacyMode() ? "legacy" : "solver";
-    std::string escapedScene = JsonEscape( scenePath && scenePath[0] != '\0' ? scenePath : "legacy" );
+    const char* solverName = "solver";
+    std::string escapedScene = JsonEscape( scenePath && scenePath[0] != '\0' ? scenePath : "generated" );
     std::string escapedRenderer = JsonEscape( rendererName );
     std::string escapedSolver = JsonEscape( solverName );
 
@@ -4033,7 +3936,9 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
     SetSceneDirective( lines, "text_only", std::string( "text_only " ) + OnOff( m_debug.isTextOnly ), true );
     SetSceneDirective( lines, "vsync", std::string( "vsync " ) + OnOff( m_runtimeSettings.isVsyncEnabled ), true );
     SetSceneDirective( lines, "pipeline_sync", std::string( "pipeline_sync " ) + OnOff( m_runtimeSettings.isPipelineSyncEnabled ), true );
-    SetSceneDirective( lines, "roll_align", std::string( "roll_align " ) + OnOff( m_runtimeSettings.isRollAlignEnabled ), true );
+    SetSceneDirective( lines, "legacy_balls", "", false );
+    SetSceneDirective( lines, "physics_mode", "", false );
+    SetSceneDirective( lines, "roll_align", "", false );
     SetSceneDirective( lines, "fixed_step", "fixed_step", m_scene.isFixedStep );
     if ( m_scene.targetFrameCount > 0 )
     {
@@ -4064,7 +3969,6 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
     SetSceneDirective( lines, "water_hidden", std::string( "water_hidden " ) + OnOff( m_debug.isWaterHidden ), true );
     SetSceneDirective( lines, "terrain_hidden", std::string( "terrain_hidden " ) + OnOff( m_debug.isTerrainHidden ), true );
     SetSceneDirective( lines, "water_reflection", std::string( "water_reflection " ) + WaterReflectionDirectiveValue( m_debug.isWaterNoReflect, m_debug.isWaterRTReflect ), true );
-    SetSceneDirective( lines, "physics_mode", std::string( "physics_mode " ) + ( m_cGameModelCollection.GetLegacyMode() ? "legacy" : "solver" ), true );
     if ( m_camera.trackBallIndex >= 0 && m_camera.trackHeight > 0.0f )
     {
         snprintf( buf, sizeof( buf ), "track_height %.2f", m_camera.trackHeight );
@@ -4088,9 +3992,8 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
 
     if ( m_UIModelCountOverride >= 0 )
     {
-        snprintf( buf, sizeof( buf ), "legacy_balls %d", m_UIModelCountOverride );
-        SetSceneDirective( lines, "legacy_balls", buf, true );
-        SetSceneDirective( lines, "solver_balls", "", false );
+        snprintf( buf, sizeof( buf ), "solver_balls %d", m_UIModelCountOverride );
+        SetSceneDirective( lines, "solver_balls", buf, true );
         SetSceneDirective( lines, "solver_boxes", "", false );
     }
     else if ( m_scene.solverBallCount > 0 || m_scene.solverBoxCount > 0 || m_UISolverBallCountOverride >= 0 || m_UISolverBoxCountOverride >= 0 )
@@ -4099,7 +4002,6 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
         SetSceneDirective( lines, "solver_balls", buf, true );
         snprintf( buf, sizeof( buf ), "solver_boxes %d", m_scene.solverBoxCount );
         SetSceneDirective( lines, "solver_boxes", buf, true );
-        SetSceneDirective( lines, "legacy_balls", "", false );
     }
 
     std::ofstream output( scenePath, std::ios::trunc );
@@ -4213,7 +4115,6 @@ void SkullbonezRun::LoadSceneFromBrowserIndex( int index )
 void SkullbonezRun::LoadDemoSceneFromUI()
 {
     EnterInteractiveSceneRun();
-    m_cGameModelCollection.SetLegacyMode( false );
     for ( int i = 0; i < static_cast<int>( m_sceneQueue.size() ); ++i )
     {
         if ( m_sceneQueue[i].empty() )

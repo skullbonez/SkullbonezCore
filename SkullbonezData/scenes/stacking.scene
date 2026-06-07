@@ -12,7 +12,6 @@ frames 1500
 exit_on_complete
 fixed_step
 time_scale 10.0
-physics_mode solver
 world -9.81 0.0 0.0
 water_hidden on
 flat_slope 30.0 0.0 0.0

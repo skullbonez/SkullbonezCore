@@ -10,7 +10,6 @@ text off
 frames 300
 fixed_step
 exit_on_complete
-physics_mode solver
 world -9.81 0.0 998.0
 
 camera overview 500 120 480  500 100 500  0 1 0

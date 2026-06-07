@@ -1,0 +1,17 @@
+# Solver smoke test - 300 generated balls with fixed seed
+# Exercises deterministic generated-object rendering across all backends
+# Physics off ensures pixel-identical output across runs
+seed 42
+physics off
+text off
+vsync off
+frames 2
+screenshot Profile/solver_smoke.bmp frame 1
+
+# Use the standard generated-scene camera positions
+camera game_model_1  321 110 557  581 40 633  0 1 0
+camera game_model_2  730 100 380  709 92 482  0 1 0
+camera free          900 110 900  313 31 282  0 1 0
+
+# Generate 300 random balls through the unified solver path
+solver_balls 300

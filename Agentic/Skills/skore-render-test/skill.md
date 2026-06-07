@@ -16,9 +16,9 @@ tools\validate_renderers.bat
 This builds Profile, runs `SkullbonezData/scenes/render_tests.suite` with GL, DX11, and DX12, checks stdout/stderr, verifies DX12 InfoQueue output, and checks cross-renderer pixel parity.
 
 Expected captures are written to `Profile\`:
-- `gl_screenshot.bmp`, `gl_legacy_smoke.bmp`
-- `dx11_screenshot.bmp`, `dx11_legacy_smoke.bmp`
-- `dx12_screenshot.bmp`, `dx12_legacy_smoke.bmp`
+- `gl_screenshot.bmp`, `gl_solver_smoke.bmp`
+- `dx11_screenshot.bmp`, `dx11_solver_smoke.bmp`
+- `dx12_screenshot.bmp`, `dx12_solver_smoke.bmp`
 
 Baselines live in `TestOutput\baselines\baseline_<renderer>_<scene>.png`.
 

@@ -3,7 +3,6 @@
 #include "SkullbonezCollisionShape.h"
 #include "SkullbonezGeometricStructures.h"
 #include "SkullbonezGeometricMath.h"
-#include "SkullbonezCollisionResponse.h"
 #include "SkullbonezImpulseSolver.h"
 #include "SkullbonezObjectContactManifold.h"
 #include "SkullbonezProfiler.h"
@@ -320,11 +319,11 @@ void GameModel::UpdateModelInfo()
 float GameModel::GetModelCollisionTime( GameModel& collisionTarget,
                                         float changeInTime )
 {
-    // calculate the ray of the target
-    Ray targetRay = CollisionResponse::CalculateRay( collisionTarget, changeInTime );
-
-    // calculate the ray of the focus
-    Ray focusRay = CollisionResponse::CalculateRay( *this, changeInTime );
+    // Swept tests use the path each body would travel during this substep if
+    // unobstructed.  The solver only needs the simple kinematic ray: current
+    // position plus velocity scaled by the candidate timestep.
+    Ray targetRay( collisionTarget.m_physicsInfo.GetPosition(), collisionTarget.m_physicsInfo.GetVelocity() * changeInTime );
+    Ray focusRay( m_physicsInfo.GetPosition(), m_physicsInfo.GetVelocity() * changeInTime );
 
     // Dispatch collision test via the variant visitor (handles sphere-sphere, sphere-box, box-box)
     return TestShapeCollision( m_boundingVolume, collisionTarget.m_boundingVolume, focusRay, targetRay );
@@ -604,8 +603,10 @@ bool GameModel::GetClosestBoxTerrainVertex( Vector3& outVertex, float& outTerrai
 
 float GameModel::GetTerrainCollisionTime( float changeInTime )
 {
-    // calculate the ray for the current dynamics object
-    m_responseInformation.testingRay = CollisionResponse::CalculateRay( *this, changeInTime );
+    // Swept terrain tests use the model's unobstructed path for the candidate
+    // timestep. Keeping this local makes the ray construction explicit at the
+    // point where terrain collision state is prepared.
+    m_responseInformation.testingRay = Ray( m_physicsInfo.GetPosition(), m_physicsInfo.GetVelocity() * changeInTime );
 
     // if out of bounds, no collision has occured
     if ( !m_terrain->IsInBounds( m_physicsInfo.GetPosition().x, m_physicsInfo.GetPosition().z ) )

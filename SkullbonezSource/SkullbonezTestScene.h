@@ -71,9 +71,6 @@ struct SceneOptions
     bool isTextOnly = false;
     int frameCount = -1;                                      // -1 = unlimited
     unsigned int seed = 0;                                    // RNG seed (0 = use time-based default)
-    bool hasLegacyBallCount = false;                          // True when legacy_balls was explicitly specified
-    int legacyBallCount = 0;                                  // random legacy-style balls (0 = none)
-    int physicsMode = 0;                                      // 0=inherit from CLI, 1=legacy, 2=solver (per-scene override)
     int solverBallCount = 0;                                  // exact impulse-solver balls to spawn (0 = not set)
     int solverBoxCount = 0;                                   // exact impulse-solver boxes to spawn (0 = not set)
     float timeScale = 1.0f;                                   // Physics time multiplier (1.0 = realtime)
@@ -117,8 +114,6 @@ struct SceneRuntimeOverrides
     bool isVsyncEnabled = true;           // V-Sync policy for scene when override is present
     bool hasPipelineSyncOverride = false; // Scene-level pipeline-sync override present
     bool isPipelineSyncEnabled = false;   // Pipeline-sync policy for scene when override is present
-    bool hasRollAlignOverride = false;    // Scene-level roll-align override present
-    bool isRollAlignEnabled = true;       // Terrain roll/pole alignment correction policy
 };
 
 struct SceneTerrainOverride
@@ -209,9 +204,6 @@ class TestScene
     int GetScreenshotFrame() const;
     int GetScreenshotMs() const;
     unsigned int GetSeed() const;
-    bool HasLegacyBallCount() const;
-    int GetLegacyBallCount() const;
-    int GetPhysicsMode() const; // 0=inherit, 1=legacy, 2=solver
     int GetSolverBallCount() const;
     int GetSolverBoxCount() const;
     const char* GetPerfLogPath() const;
@@ -221,8 +213,6 @@ class TestScene
     bool IsVsyncEnabled() const;
     bool HasPipelineSyncOverride() const;
     bool IsPipelineSyncEnabled() const;
-    bool HasRollAlignOverride() const;
-    bool IsRollAlignEnabled() const;
     int GetScreenshotInterval() const;
     const char* GetScreenshotDir() const;
     float GetTimeScale() const;

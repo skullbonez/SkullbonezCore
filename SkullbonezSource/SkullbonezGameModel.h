@@ -25,7 +25,6 @@ class WorldEnvironment;
 } // namespace Environment
 namespace Physics
 {
-class CollisionResponse;
 class ImpulseSolver;
 } // namespace Physics
 
@@ -40,8 +39,7 @@ namespace GameObjects
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class GameModel
 {
-    friend class CollisionResponse; // Declare class Collision Response as a friend of class Game Model
-    friend class ImpulseSolver;     // New unified sequential impulse solver also needs private access
+    friend class ImpulseSolver; // Unified sequential impulse solver needs private access to cached shape/rigid-body state
 
   private:
     struct BallPhysicsCache

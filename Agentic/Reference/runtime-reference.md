@@ -10,11 +10,10 @@ This file holds details that are useful during debugging or manual testing but t
 | `--scene` | path | Load one scene file. Quoted paths are supported. |
 | `--suite` | path | Load a `.suite` file with one scene path per line. |
 | `--vsync` | `on`, `off` | Override vsync from `engine.cfg`. |
-| `--legacy-physics` | flag | Start with the legacy swept-sphere solver. |
 | `--switch-interval` | seconds | Cycle renderers at runtime. |
 | `--time-scale` | float | Override simulation time multiplier. |
 | `--fixed-step` | flag | Run one deterministic physics tick per rendered frame. |
-| `--seed` | positive integer | Override the RNG seed for every loaded scene, including legacy mode. Useful with nudge repro snapshots. |
+| `--seed` | positive integer | Override the RNG seed for every loaded scene, including generated demo mode. Useful with nudge repro snapshots. |
 | `--no-water` | flag | Start the fluid surface below the active terrain. Page Up can raise it during runtime. |
 | `--profiler` | flag | Start with the timer/profiler HUD visible. Alias: `--show-profiler`. |
 | `--hide-top-text` | flag | Hide the always-on top HUD rows while leaving profiler/key overlays available. Alias: `--no-top-text`. |
@@ -28,7 +27,7 @@ This file holds details that are useful during debugging or manual testing but t
 | `--physics-debug-transparent` | optional `on`, `off` | Toggle translucent debug collision volumes for every loaded scene. Bare flag means `on`. |
 | `--physics-debug-alpha` | float | Override translucent debug body alpha, `0.05` to `1.0`; also enables translucent debug bodies. |
 | `--physics-debug-contact-linger` | seconds | Keep contact manifold visuals visible after contact rows disappear, `0.0` to `5.0`. |
-| `--physics-regression-log` | path | Write the legacy byte-exact physics regression CSV in Debug builds. Deprecated alias: `--physics-log`. |
+| `--physics-regression-log` | path | Write the byte-exact physics regression CSV in Debug builds. |
 | `--physics-diag` | path | Write queryable physics diagnostics NDJSON in Debug builds. Forces fixed-step playback and can be queried with `tools\physics_query.bat`. Alias: `--physics-diagnostics`. |
 | `--gen-atlas` | optional path | Generate the SDF font atlas and exit before GPU init. |
 
@@ -43,10 +42,10 @@ Scene files are plain text. Blank lines and lines beginning with `#` are ignored
 | Playback | `frames`, `exit_on_complete`, `screenshot_and_exit`, `fixed_step` |
 | Capture | `screenshot`, `screenshot_interval` |
 | Logging | `perf_log`, `perf_log_flush`, `perf_log_flush_interval` |
-| Simulation | `physics`, `physics_mode`, `time_scale`, `seed`, `world` |
-| Objects | `ball`, `box`, `floating_box`, `ball_state`, `legacy_balls`, `solver_balls`, `solver_boxes` |
+| Simulation | `physics`, `time_scale`, `seed`, `world` |
+| Objects | `ball`, `box`, `floating_box`, `ball_state`, `solver_balls`, `solver_boxes` |
 | Camera | `camera`, `track_height`, `auto_cycle_interval` |
-| Rendering | `text`, `text_only`, `physics_debug`, `physics_debug_axes`, `physics_debug_contacts`, `physics_debug_sleep`, `physics_debug_transparent`, `physics_debug_alpha`, `physics_debug_contact_linger`, `vsync`, `pipeline_sync`, `roll_align`, `water_hidden`, `terrain_hidden`, `flat_slope` |
+| Rendering | `text`, `text_only`, `physics_debug`, `physics_debug_axes`, `physics_debug_contacts`, `physics_debug_sleep`, `physics_debug_transparent`, `physics_debug_alpha`, `physics_debug_contact_linger`, `vsync`, `pipeline_sync`, `water_hidden`, `terrain_hidden`, `flat_slope` |
 
 For exact field order, inspect an existing scene in `SkullbonezData/scenes/` and the parser in `SkullbonezSource/SkullbonezTestScene.cpp`.
 `floating_box` uses the same fields as `box`, but the body is fixed in world space and excluded from gravity, impulses, and scene energy.
@@ -62,10 +61,9 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | N | Toggle nudge mode. Free camera with live simulation. |
 | Enter | In nudge mode, write Debug-build repro data for the object under the crosshair to `Debug/nudge_repro_snapshots.txt`. |
 | Q | Cycle render backend: GL to DX11 to DX12 to GL. |
-| R | Reset or rerun the current scene, including legacy mode. |
-| P | Toggle physics solver: impulse or legacy. |
+| R | Reset or rerun the current scene/generated demo while preserving live controls. |
 | Z | Fire a ball from the camera. Shift increases speed. |
-| X | Fire a box from the camera in impulse mode. |
+| X | Fire a box from the camera. Shift increases speed. |
 | F2 | Save a scene snapshot. |
 | F3 | Save a screenshot. |
 | 0 | Toggle profiler overlay. |
@@ -78,7 +76,6 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | Page Up / Page Down | Move the water surface up or down while held. |
 | V | Toggle collision visualiser. |
 | C | Cycle physics debug overlay: none, axes, contacts, sleep, all. |
-| 9 | Toggle velocity vectors. |
 | G | Toggle broadphase visualizer, or cycle the tracked ball when ball tracking is active and the visualizer is off. |
 
 Fly and nudge mode use WASD, mouse look, Shift for faster movement, and Space to step physics while fly mode is paused.
@@ -88,7 +85,7 @@ Fly and nudge mode use WASD, mouse look, Shift for faster movement, and Space to
 | Scene | Purpose |
 |-------|---------|
 | `SkullbonezData/scenes/water_ball_test.scene` | Visual regression for terrain, skybox, sphere, water, and shadow. |
-| `SkullbonezData/scenes/legacy_smoke.scene` | Smoke test with 300 balls. |
+| `SkullbonezData/scenes/solver_smoke.scene` | Smoke test with 300 generated balls. |
 | `SkullbonezData/scenes/perf_test.scene` | Tri-renderer performance regression scene. |
 | `SkullbonezData/scenes/physics_roll.scene` | Physics rolling validation. |
 | `SkullbonezData/scenes/cause_effect_marble_run.scene` | Fixed floating ramp, scene-energy telemetry, and cube-tower cause/effect demo. |
@@ -106,5 +103,5 @@ Log().Writef( "Debug/physics.csv", "frame,%d,x,%.3f,y,%.3f,z,%.3f\n", frame, x, 
 
 The log singleton lazily opens files and compiles out in Release/Profile where the implementation is guarded by `_DEBUG`.
 
-Debug builds also support nudge-mode repro snapshots. Press `N`, centre an object in the crosshair, then press Enter. Each snapshot appends the scene, frame, active RNG seed, fixed-step mode, renderer, physics mode, camera pose, object transform, velocities, shape data, sleep/contact state, and terrain support probes to `Debug/nudge_repro_snapshots.txt`.
+Debug builds also support nudge-mode repro snapshots. Press `N`, centre an object in the crosshair, then press Enter. Each snapshot appends the scene, frame, active RNG seed, fixed-step mode, renderer, camera pose, object transform, velocities, shape data, sleep/contact state, and terrain support probes to `Debug/nudge_repro_snapshots.txt`.
 Snapshots also include scene load/reset counts and a `--seed` replay hint so an object found after repeated Q resets can be reproduced from a fresh process.
