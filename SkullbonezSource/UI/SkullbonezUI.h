@@ -137,6 +137,7 @@ class InGameUI
     void SetVisible( bool visible, double now = 0.0 );
     void ToggleVisible( double now );
     void SetMinimized( bool minimized, double now = 0.0 );
+    void ToggleMaximizeMinimize( int screenW, int screenH, double now );
     void SetActiveTab( InGameUITab tab );
     InGameUITab GetActiveTab() const;
     bool BlocksCameraMouse() const;
@@ -166,6 +167,7 @@ class InGameUI
     bool m_leftWasDown = false;
     bool m_isDragging = false;
     bool m_isResizing = false;
+    bool m_hasAppliedDefaultPlacement = false;
     bool m_blocksCameraMouse = false;
     bool m_blurPreviewEnabled = false;
     bool m_profilerTimelineEnabled = false;
@@ -266,6 +268,8 @@ class InGameUI
     void ApplyProfilerExpandAll();
     void PushPerformanceHistogramSample( float cpuMs, float gpuMs );
     void DrawPerformanceHistogram( const UIDrawContext& draw, const InGameUIFrameData& data ) const;
+    void ApplyDefaultWindowPlacement( int screenW, int screenH );
+    void DrawCursor( const UIDrawContext& draw ) const;
     void ClearSceneFilter();
     void CloseSceneCombo();
     void CaptureSceneFilterKeyState();

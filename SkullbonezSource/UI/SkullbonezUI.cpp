@@ -468,6 +468,20 @@ void InGameUI::SetMinimized( bool minimized, double now )
 }
 
 
+void InGameUI::ToggleMaximizeMinimize( int screenW, int screenH, double now )
+{
+    if ( !m_isVisible || m_isMinimized || !m_isMaximized )
+    {
+        SetVisible( true, now );
+        SetMinimized( false, now );
+        SetMaximized( true, screenW, screenH );
+        return;
+    }
+
+    SetMinimized( true, now );
+}
+
+
 void InGameUI::SetActiveTab( InGameUITab tab )
 {
     m_activeTab = tab;
@@ -510,6 +524,7 @@ void InGameUI::SetWindowBounds( int x, int y, int width, int height )
     m_y = y;
     m_width = width;
     m_height = height;
+    m_hasAppliedDefaultPlacement = true;
     m_isMaximized = false;
     m_scrollY = 0.0f;
     m_scrollbarVisibleUntil = 0.0;
@@ -696,6 +711,42 @@ void InGameUI::ApplyProfilerDefaultExpansion()
     }
 
     m_profilerDefaultExpansionApplied = true;
+}
+
+
+void InGameUI::ApplyDefaultWindowPlacement( int screenW, int screenH )
+{
+    constexpr int margin = 14;
+    screenW = (std::max)( 1, screenW );
+    screenH = (std::max)( 1, screenH );
+    m_x = margin;
+    m_y = (std::max)( margin, screenH - m_height - margin );
+    m_restoreX = m_x;
+    m_restoreY = m_y;
+    m_restoreW = m_width;
+    m_restoreH = m_height;
+    m_hasAppliedDefaultPlacement = true;
+}
+
+
+void InGameUI::DrawCursor( const UIDrawContext& draw ) const
+{
+    const float x = static_cast<float>( m_mouseX );
+    const float y = static_cast<float>( m_mouseY );
+
+    // Pixel-built cursor in the same cyan/ink language as the diagnostics UI.
+    // The OS cursor is hidden in the run loop, so this is the single visible
+    // pointer while the UI is up.
+    draw.Rect( x - 5.0f, y - 5.0f, 26.0f, 26.0f, 0.03f, 0.54f, 0.86f, 0.16f );
+    draw.Rect( x - 1.0f, y - 1.0f, 4.0f, 20.0f, 0.004f, 0.016f, 0.020f, 0.88f );
+    draw.Rect( x + 3.0f, y + 3.0f, 4.0f, 4.0f, 0.004f, 0.016f, 0.020f, 0.88f );
+    draw.Rect( x + 7.0f, y + 7.0f, 4.0f, 4.0f, 0.004f, 0.016f, 0.020f, 0.88f );
+    draw.Rect( x + 11.0f, y + 11.0f, 4.0f, 4.0f, 0.004f, 0.016f, 0.020f, 0.88f );
+    draw.Rect( x, y, 3.0f, 18.0f, 0.82f, 0.98f, 1.0f, 0.98f );
+    draw.Rect( x + 3.0f, y + 3.0f, 4.0f, 3.0f, 0.34f, 0.91f, 1.0f, 0.98f );
+    draw.Rect( x + 7.0f, y + 7.0f, 4.0f, 3.0f, 0.34f, 0.91f, 1.0f, 0.98f );
+    draw.Rect( x + 11.0f, y + 11.0f, 4.0f, 3.0f, 0.34f, 0.91f, 1.0f, 0.98f );
+    draw.Rect( x + 6.0f, y + 15.0f, 10.0f, 3.0f, 0.48f, 0.90f, 0.22f, 0.94f );
 }
 
 
@@ -1188,6 +1239,10 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     const int maxW = (std::max)( minW, screenW - margin * 2 );
     const int maxH = (std::max)( minH, screenH - margin * 2 );
 
+    if ( !m_hasAppliedDefaultPlacement )
+    {
+        ApplyDefaultWindowPlacement( screenW, screenH );
+    }
     m_width = std::clamp( m_width, minW, maxW );
     m_height = std::clamp( m_height, minH, maxH );
     m_x = std::clamp( m_x, margin, (std::max)( margin, screenW - m_width - margin ) );
@@ -1424,7 +1479,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                     const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
                     if ( ProfilerMarkerHasChildren( profiler, markerIndex ) )
                     {
-                        const float plusX = static_cast<float>( m_x + contentPad + 12 + marker.depth * 18 );
+                        const float plusX = static_cast<float>( m_x + contentPad + 18 + marker.depth * 18 );
                         const float plusY = static_cast<float>( contentY + headerH + targetRow * rowH ) - m_scrollY + 8.0f;
                         UIIconButton expander;
                         expander.SetBounds( plusX, plusY, 14.0f, 14.0f );
@@ -2063,6 +2118,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         {
             DrawPerformanceHistogram( draw, data );
         }
+        DrawCursor( draw );
         Text2d::FlushQuads();
         return;
     }
@@ -2684,5 +2740,6 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     draw.Rect( x + w - 18.0f, y + h - 15.0f, 8.0f, 2.0f, 0.34f, 0.91f, 1.0f, 0.72f );
     draw.Rect( x + w - 12.0f, y + h - 21.0f, 2.0f, 2.0f, 0.34f, 0.91f, 1.0f, 0.60f );
 
+    DrawCursor( draw );
     Text2d::FlushQuads();
 }

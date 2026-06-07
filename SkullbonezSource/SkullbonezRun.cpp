@@ -1383,10 +1383,12 @@ void SkullbonezRun::TakeInput()
             }
             else
             {
-                // Exiting fly mode: restore m_terrain XZ bounds, cursor, camera cycle clock
+                // Exiting fly mode restores terrain bounds and the camera-cycle clock.  The
+                // Windows cursor stays hidden because the diagnostics UI now draws the styled
+                // cursor itself; restoring IDC_ARROW here creates a mismatched second cursor.
                 uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
                 m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
-                SetCursor( LoadCursor( nullptr, IDC_ARROW ) );
+                SetCursor( nullptr );
                 m_camera.cameraTime = 0.0f;
                 // Exiting fly mode also exits nudge mode
                 m_camera.isNudgeMode = false;
@@ -1581,6 +1583,22 @@ void SkullbonezRun::TakeInput()
         {
             EnterInteractiveSceneRun();
         }
+
+        // ESC is a diagnostics-window command now, not an application quit command.
+        // Run it after UI input processing so focused controls keep their local ESC
+        // behavior first, such as closing the scene filter combo without also
+        // minimizing/maximizing the whole diagnostics surface on the same frame.
+        const bool escapeNow = Input::IsKeyDown( VK_ESCAPE );
+        if ( escapeNow && !m_camera.input.Get( InputState::EscapeWasDown ) && !UIResult.userInteracted )
+        {
+            EnterInteractiveSceneRun();
+            m_UI.ToggleMaximizeMinimize( static_cast<int>( m_systems.window->m_sWindowDimensions.x ),
+                                         static_cast<int>( m_systems.window->m_sWindowDimensions.y ),
+                                         m_timers.simulationTimer.GetTotalTime() );
+            m_debug.overlayMode = OverlayMode::None;
+        }
+        m_camera.input.Set( InputState::EscapeWasDown, escapeNow );
+
         if ( UIResult.toggleVsync )
         {
             m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
@@ -1780,7 +1798,7 @@ void SkullbonezRun::TakeInput()
         m_camera.input.Set( InputState::Down, false );
         m_camera.input.Set( InputState::Left, false );
         m_camera.input.Set( InputState::Right, false );
-        SetCursor( LoadCursor( nullptr, IDC_ARROW ) );
+        SetCursor( nullptr );
         return;
     }
 
@@ -1874,8 +1892,10 @@ void SkullbonezRun::TakeInput()
 
     if ( m_camera.isFlyMode )
     {
-        // Keep cursor hidden every frame unless the UI owns the mouse.
-        SetCursor( m_UI.BlocksCameraMouse() ? LoadCursor( nullptr, IDC_ARROW ) : nullptr );
+        // Keep the platform cursor hidden every frame.  Mouse-look still uses the
+        // recentered OS coordinates internally, while the diagnostics UI paints the
+        // visible pointer in the same visual language as its controls.
+        SetCursor( nullptr );
 
         // Mouse look: delta from screen centre
         if ( m_UI.BlocksCameraMouse() )

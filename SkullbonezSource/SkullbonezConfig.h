@@ -18,8 +18,8 @@ namespace Basics
 */
 struct WindowConfig
 {
-    int screenX = 1024;
-    int screenY = 768;
+    int screenX = 1800;
+    int screenY = 1000;
     bool fullscreen = false;
     int bitsPerPixel = 32;
     int refreshRate = 75;

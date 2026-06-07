@@ -4,6 +4,8 @@
 #include "SkullbonezInput.h"
 #include "SkullbonezText.h"
 
+#include <algorithm>
+
 
 // --- Usings ---
 using namespace SkullbonezCore::Basics;
@@ -218,14 +220,6 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
             EndPaint( hWnd, &ps );   // End painting
             break;
 
-        case WM_KEYDOWN:
-            // Quit if ESCAPE pressed
-            if ( wParam == VK_ESCAPE )
-            {
-                PostQuitMessage( 0 );
-            }
-            break;
-
         case WM_MOUSEWHEEL:
             Input::AccumulateMouseWheelDelta( GET_WHEEL_DELTA_WPARAM( wParam ) );
             break;
@@ -393,11 +387,11 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
     WNDCLASS wndclass = { 0 }; // Window class struct
     DWORD dwStyle = 0;         // Window style
 
-    wndclass.style = CS_HREDRAW | CS_VREDRAW;            // Vert and Horiz redraw
-    wndclass.lpfnWndProc = WndProc;                      // Assign callback function
-    wndclass.hInstance = hInstance;                      // Assign hInstance
-    wndclass.hIcon = LoadIcon( nullptr, IDI_WINLOGO );   // Default icon
-    wndclass.hCursor = LoadCursor( nullptr, IDC_ARROW ); // Arrow cursor
+    wndclass.style = CS_HREDRAW | CS_VREDRAW;          // Vert and Horiz redraw
+    wndclass.lpfnWndProc = WndProc;                    // Assign callback function
+    wndclass.hInstance = hInstance;                    // Assign hInstance
+    wndclass.hIcon = LoadIcon( nullptr, IDI_WINLOGO ); // Default icon
+    wndclass.hCursor = nullptr;                        // Engine/UI draws its own cursor when needed
     wndclass.hbrBackground =
         reinterpret_cast<HBRUSH>( GetStockObject( WHITE_BRUSH ) ); // White client background
     wndclass.lpszClassName = WINDOW_NAME;                          // Assign class name
@@ -424,13 +418,30 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
         dwStyle = WS_OVERLAPPEDWINDOW | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
     }
 
+    int windowX = 0;
+    int windowY = 0;
+    const int windowW = Cfg().window.screenX;
+    const int windowH = Cfg().window.screenY;
+    if ( !m_fIsFullScreenMode )
+    {
+        // Default the window to the bottom-left of the usable desktop work area.
+        // The work area excludes the taskbar, so a tall 1800x1000 window does not
+        // open with its title bar hidden behind shell chrome.
+        RECT workArea = {};
+        if ( SystemParametersInfoA( SPI_GETWORKAREA, 0, &workArea, 0 ) )
+        {
+            windowX = workArea.left;
+            windowY = (std::max)( workArea.top, workArea.bottom - windowH );
+        }
+    }
+
     hWnd = CreateWindow( WINDOW_NAME, // Window class name
                          TITLE_TEXT,  // Window title text
                          dwStyle,     // Set defined style
-                         0,           // Window xPos
-                         0,           // Window yPos
-                         Cfg().window.screenX,
-                         Cfg().window.screenY,
+                         windowX,     // Window xPos
+                         windowY,     // Window yPos
+                         windowW,
+                         windowH,
                          nullptr,   // Parent window handle
                          nullptr,   // Window menu handle
                          hInstance, // Application instance
