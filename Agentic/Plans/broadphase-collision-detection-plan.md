@@ -98,7 +98,6 @@ physics_debug_contacts on
 physics_debug_axes on
 physics_debug_sleep on
 physics_debug_contact_linger 0.75
-debug_vectors on
 ```
 
 Command-line overrides:

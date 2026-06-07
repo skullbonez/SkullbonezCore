@@ -78,7 +78,6 @@ struct SceneOptions
     int solverBoxCount = 0;                                   // exact impulse-solver boxes to spawn (0 = not set)
     float timeScale = 1.0f;                                   // Physics time multiplier (1.0 = realtime)
     bool isFixedStep = false;                                 // If true, each render frame triggers exactly one physics tick at PHYSICS_FIXED_DT
-    bool isDebugVectors = false;                              // Draw velocity/omega debug arrows
     uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE; // Draw physics debug axes/contacts/sleep markers
     bool physicsDebugTransparent = false;                     // Render translucent debug collision volumes while physics debug is visible
     float physicsDebugAlpha = 0.28f;                          // Alpha for translucent debug collision volumes
@@ -228,7 +227,6 @@ class TestScene
     const char* GetScreenshotDir() const;
     float GetTimeScale() const;
     bool IsFixedStep() const;
-    bool IsDebugVectors() const;
     uint32_t GetPhysicsDebugFlags() const;
     bool IsPhysicsDebugTransparent() const;
     float GetPhysicsDebugAlpha() const;

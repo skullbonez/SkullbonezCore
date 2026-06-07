@@ -830,27 +830,6 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
-        // parse debug_vectors directive
-        if ( strncmp( line, "debug_vectors ", 14 ) == 0 )
-        {
-            if ( strcmp( line + 14, "on" ) == 0 )
-            {
-                scene.m_sceneOptions.isDebugVectors = true;
-            }
-            else if ( strcmp( line + 14, "off" ) == 0 )
-            {
-                scene.m_sceneOptions.isDebugVectors = false;
-            }
-            else
-            {
-                fclose( file );
-                char msg[256];
-                sprintf_s( msg, sizeof( msg ), "Invalid debug_vectors value at line %d  (TestScene::LoadFromFile)", lineNumber );
-                throw std::runtime_error( msg );
-            }
-            continue;
-        }
-
         // parse physics_debug directive: none|axes|contacts|sleep|all
         if ( strncmp( line, "physics_debug ", 14 ) == 0 )
         {
@@ -1330,12 +1309,6 @@ float TestScene::GetTimeScale() const
 bool TestScene::IsFixedStep() const
 {
     return m_sceneOptions.isFixedStep;
-}
-
-
-bool TestScene::IsDebugVectors() const
-{
-    return m_sceneOptions.isDebugVectors;
 }
 
 

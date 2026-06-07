@@ -5,7 +5,6 @@
 physics on
 text on
 frames unlimited
-debug_vectors on
 time_scale 0.2
 track_height 150
 auto_cycle_interval 5

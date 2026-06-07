@@ -46,7 +46,7 @@ Scene files are plain text. Blank lines and lines beginning with `#` are ignored
 | Simulation | `physics`, `physics_mode`, `time_scale`, `seed`, `world` |
 | Objects | `ball`, `box`, `floating_box`, `ball_state`, `legacy_balls`, `solver_balls`, `solver_boxes` |
 | Camera | `camera`, `track_height`, `auto_cycle_interval` |
-| Rendering | `text`, `text_only`, `debug_vectors`, `physics_debug`, `physics_debug_axes`, `physics_debug_contacts`, `physics_debug_sleep`, `physics_debug_transparent`, `physics_debug_alpha`, `physics_debug_contact_linger`, `vsync`, `pipeline_sync`, `roll_align`, `water_hidden`, `terrain_hidden`, `flat_slope` |
+| Rendering | `text`, `text_only`, `physics_debug`, `physics_debug_axes`, `physics_debug_contacts`, `physics_debug_sleep`, `physics_debug_transparent`, `physics_debug_alpha`, `physics_debug_contact_linger`, `vsync`, `pipeline_sync`, `roll_align`, `water_hidden`, `terrain_hidden`, `flat_slope` |
 
 For exact field order, inspect an existing scene in `SkullbonezData/scenes/` and the parser in `SkullbonezSource/SkullbonezTestScene.cpp`.
 `floating_box` uses the same fields as `box`, but the body is fixed in world space and excluded from gravity, impulses, and scene energy.

@@ -244,33 +244,3 @@ void SkullbonezHelper::StateSetup()
     // Initial GL state is now set by RenderBackendGL::Init()
     // This method is retained for any additional state setup needed after backend init
 }
-
-
-void SkullbonezHelper::DrawDebugVectors(
-    const Matrix4& viewProj,
-    const std::vector<std::pair<Vector3, Vector3>>& lines,
-    float r,
-    float g,
-    float b )
-{
-    if ( lines.empty() )
-    {
-        return;
-    }
-
-    // Pack line endpoints: each pair becomes 2 vec3 values.
-    std::vector<float> verts;
-    verts.reserve( lines.size() * 6 );
-    for ( const auto& seg : lines )
-    {
-        verts.push_back( seg.first.x );
-        verts.push_back( seg.first.y );
-        verts.push_back( seg.first.z );
-        verts.push_back( seg.second.x );
-        verts.push_back( seg.second.y );
-        verts.push_back( seg.second.z );
-    }
-
-    int vertCount = static_cast<int>( lines.size() * 2 );
-    Gfx().DrawLines( verts.data(), vertCount, r, g, b, viewProj.Data() );
-}

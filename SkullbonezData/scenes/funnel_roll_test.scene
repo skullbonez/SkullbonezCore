@@ -6,7 +6,6 @@ physics on
 text on
 frames 900
 time_scale 1.0
-debug_vectors on
 
 # Top-down tracking camera (same style as slope_roll_test.scene)
 camera top 900 740 600  900 110 600  0 0 -1

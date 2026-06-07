@@ -9,7 +9,6 @@ roll_align on
 fixed_step
 exit_on_complete
 time_scale 1.75
-debug_vectors on
 physics_debug_axes on
 physics_debug_contacts on
 physics_debug_sleep off

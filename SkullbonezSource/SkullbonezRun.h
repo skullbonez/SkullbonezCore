@@ -178,7 +178,6 @@ struct RunDebugState
     bool isWaterFlatDebug = false;                            // Force ocean mesh fully flat, no displacement (toggle with 3)
     bool isTerrainHidden = false;                             // Hide terrain mesh (toggle with 4)
     bool isWaterHidden = false;                               // Hide water mesh (toggle with 5)
-    bool isDebugVectors = false;                              // Draw velocity (green) and angular velocity (red) vectors (toggle with 9)
     uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE; // Draw object axes, contact manifolds, and sleep state (cycle with C)
     bool isPhysicsDebugTransparent = false;                   // Draw translucent debug collision volumes behind physics debug lines (toggle with 6)
     float physicsDebugAlpha = 0.28f;                          // Translucent debug volume alpha

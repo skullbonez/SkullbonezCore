@@ -25,7 +25,6 @@ struct InputState
         Aux2,
         GKeyWasDown,
         RKeyWasDown,
-        Key9WasDown,
         Key0WasDown,
         F2WasDown,
         F3WasDown,

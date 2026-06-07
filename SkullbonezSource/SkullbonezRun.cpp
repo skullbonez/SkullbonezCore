@@ -1474,16 +1474,6 @@ void SkullbonezRun::TakeInput()
             m_camera.input.Set( InputState::VWasDown, vNow );
         }
 
-        // Debug vectors: mouse UI and keyboard both toggle the same runtime state.
-        {
-            bool key9Now = Input::IsKeyDown( '9' );
-            if ( key9Now && !m_camera.input.Get( InputState::Key9WasDown ) )
-            {
-                m_debug.isDebugVectors = !m_debug.isDebugVectors;
-            }
-            m_camera.input.Set( InputState::Key9WasDown, key9Now );
-        }
-
         // C key: cycle physics debug overlay - None -> Axes -> Contacts -> Sleep -> All -> None.
         {
             bool cNow = Input::IsKeyDown( 'C' );
@@ -1614,10 +1604,6 @@ void SkullbonezRun::TakeInput()
         if ( UIResult.togglePhysicsDebugTransparent )
         {
             m_debug.isPhysicsDebugTransparent = !m_debug.isPhysicsDebugTransparent;
-        }
-        if ( UIResult.toggleDebugVectors )
-        {
-            m_debug.isDebugVectors = !m_debug.isDebugVectors;
         }
         if ( UIResult.toggleBroadphaseOverlay )
         {
@@ -2181,69 +2167,6 @@ void SkullbonezRun::DrawPrimitives()
         PROFILE_GPU_END( "Frame/Render/Water" );
     }
 
-    // debug vector overlay - toggled with 9 (or debug_vectors in scene)
-    //   green  = Travel Vector (velocity, scaled)
-    //   red    = Roll Axis Vector (angular velocity, scaled)
-    //   white  = Pole Vector outside tolerance
-    //   blue   = Pole Vector within tolerance (perpendicular to red within 5?)
-    if ( m_debug.isDebugVectors )
-    {
-        Matrix4 viewProj = proj * baseView;
-        std::vector<std::pair<Vector3, Vector3>> velLines;
-        std::vector<std::pair<Vector3, Vector3>> omegaLines;
-        std::vector<std::pair<Vector3, Vector3>> upAlignedLines;
-        std::vector<std::pair<Vector3, Vector3>> upErrorLines;
-        const float axisToleranceRad = 5.0f * _PI / 180.0f;
-        int modelCount = m_cGameModelCollection.GetModelCount();
-        for ( int i = 0; i < modelCount; ++i )
-        {
-            GameModel& mdl = m_cGameModelCollection.GetModelAtIndex( i );
-            Vector3 pos = mdl.GetPosition();
-            Vector3 vel = mdl.GetVelocity();
-            Vector3 omega = mdl.GetAngularVelocity();
-            const float velScale = 0.5f;
-            const float omegaScale = 2.0f;
-            velLines.push_back( { pos, pos + vel * velScale } );
-            omegaLines.push_back( { pos, pos + omega * omegaScale } );
-
-            // White spike: starts at sphere centre, points along the visual "up" axis.
-            // Length = 2.5? radius so it clearly protrudes above the ball surface.
-            Vector3 orientUp = mdl.GetOrientationUp();
-            float radius = mdl.GetBoundingRadius();
-            bool isWithinPlaneTolerance = false;
-            float omegaMag = Vector::VectorMag( omega );
-            float orientUpMag = Vector::VectorMag( orientUp );
-            if ( omegaMag > TOLERANCE && orientUpMag > TOLERANCE )
-            {
-                float dotRed = ( orientUp * omega ) / ( orientUpMag * omegaMag );
-                if ( dotRed > 1.0f )
-                {
-                    dotRed = 1.0f;
-                }
-                else if ( dotRed < -1.0f )
-                {
-                    dotRed = -1.0f;
-                }
-                float redPerpDeviationRad = asinf( fabsf( dotRed ) );
-                isWithinPlaneTolerance = ( redPerpDeviationRad <= axisToleranceRad );
-            }
-
-            Vector3 upLineEnd = pos + orientUp * ( radius * 2.5f );
-            if ( isWithinPlaneTolerance )
-            {
-                upAlignedLines.push_back( { pos, upLineEnd } );
-            }
-            else
-            {
-                upErrorLines.push_back( { pos, upLineEnd } );
-            }
-        }
-        SkullbonezHelper::DrawDebugVectors( viewProj, velLines, 0.0f, 1.0f, 0.0f );
-        SkullbonezHelper::DrawDebugVectors( viewProj, omegaLines, 1.0f, 0.0f, 0.0f );
-        SkullbonezHelper::DrawDebugVectors( viewProj, upAlignedLines, 0.0f, 0.0f, 1.0f );
-        SkullbonezHelper::DrawDebugVectors( viewProj, upErrorLines, 1.0f, 1.0f, 1.0f );
-    }
-
     // Broadphase spatial grid overlay (G key toggle)
     if ( m_debug.isBroadphaseOverlay )
     {
@@ -2446,7 +2369,6 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         UIData.physicsDebugContactLinger = m_debug.physicsDebugContactLinger;
         UIData.collisionVisualizer = m_debug.isCollisionVisualizer;
         UIData.physicsDebugTransparent = m_debug.isPhysicsDebugTransparent;
-        UIData.debugVectors = m_debug.isDebugVectors;
         UIData.broadphaseOverlay = m_debug.isBroadphaseOverlay;
         UIData.waterFreezeDebug = m_debug.isWaterFreezeDebug;
         UIData.waterFlatDebug = m_debug.isWaterFlatDebug;
@@ -3543,7 +3465,6 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     m_debug.isWaterFlatDebug = false;
     m_debug.isTerrainHidden = false;
     m_debug.isWaterHidden = false;
-    m_debug.isDebugVectors = false;
     m_debug.isTextOnly = false;
     m_debug.isUITestPattern = false;
     m_debug.physicsDebugFlags = PHYSICS_DEBUG_NONE;
@@ -3633,7 +3554,6 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         TestScene scene = TestScene::LoadFromFile( scenePath.c_str() );
         m_scene.isScenePhysics = scene.IsPhysicsEnabled();
         m_scene.isSceneText = scene.IsTextEnabled();
-        m_debug.isDebugVectors = scene.IsDebugVectors();
         m_perfLogState.isPerfLogFlushEnabled = scene.IsPerfLogFlushEnabled();
         m_perfLogState.perfLogFlushInterval = scene.GetPerfLogFlushInterval();
         m_debug.physicsDebugFlags = scene.GetPhysicsDebugFlags();
@@ -4127,7 +4047,6 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
     snprintf( buf, sizeof( buf ), "seed %u", (std::max)( 1u, m_scene.rngSeed ) );
     SetSceneDirective( lines, "seed", buf, true );
     SetSceneDirective( lines, "exit_on_complete", "exit_on_complete", m_scene.isExitOnComplete );
-    SetSceneDirective( lines, "debug_vectors", std::string( "debug_vectors " ) + OnOff( m_debug.isDebugVectors ), true );
     SetSceneDirective( lines, "physics_debug_axes", std::string( "physics_debug_axes " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0 ), true );
     SetSceneDirective( lines, "physics_debug_contacts", std::string( "physics_debug_contacts " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0 ), true );
     SetSceneDirective( lines, "physics_debug_sleep", std::string( "physics_debug_sleep " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0 ), true );
