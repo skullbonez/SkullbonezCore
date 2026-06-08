@@ -142,6 +142,7 @@ struct RunSceneState
     bool isFixedStep = false;      // One physics tick per render frame at PHYSICS_FIXED_DT (deterministic)
     bool isExitOnComplete = false; // Exit automatically when targetFrameCount is reached
     bool isTestComplete = false;   // Set when targetFrameCount is reached without --exit; appends "- TEST COMPLETE" to HUD
+    bool isFinishLogged = false;   // Debug event log guard for scene completion
     bool isInteractiveRun = false; // User/UI controlled scene flow: completion automation may hold/advance but never quit
 };
 
@@ -330,6 +331,7 @@ class SkullbonezRun
     void NudgeModelsWithCamera( const Vector3& moveVec ); // Push overlapping balls/boxes in camera movement direction
     void FireProjectile( bool isBox );                    // Recycle and launch a ball (CTRL) or box (ALT) from the camera
 #ifdef _DEBUG
+    void LogSceneFinished( const char* reason );
     bool PickNudgeReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance );
     void WriteNudgeReproSnapshot();
     void BeginPhysicsDiagnosticsRun( const char* scenePath );

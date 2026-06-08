@@ -13,10 +13,16 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdarg>
+#include <cstdint>
 #include <vector>
 #include <string>
 #include <io.h>
 #include <objbase.h>
+
+#ifdef _DEBUG
+#include <dbghelp.h>
+#pragma comment( lib, "dbghelp.lib" )
+#endif
 
 
 // --- Usings ---
@@ -28,6 +34,171 @@ using namespace SkullbonezCore::Math::Transformation;
 namespace
 {
 char g_commandLineError[512] = {};
+
+#ifdef _DEBUG
+const char* ExceptionCodeName( DWORD code )
+{
+    switch ( code )
+    {
+    case EXCEPTION_ACCESS_VIOLATION:
+        return "EXCEPTION_ACCESS_VIOLATION";
+    case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
+        return "EXCEPTION_ARRAY_BOUNDS_EXCEEDED";
+    case EXCEPTION_BREAKPOINT:
+        return "EXCEPTION_BREAKPOINT";
+    case EXCEPTION_DATATYPE_MISALIGNMENT:
+        return "EXCEPTION_DATATYPE_MISALIGNMENT";
+    case EXCEPTION_FLT_DIVIDE_BY_ZERO:
+        return "EXCEPTION_FLT_DIVIDE_BY_ZERO";
+    case EXCEPTION_ILLEGAL_INSTRUCTION:
+        return "EXCEPTION_ILLEGAL_INSTRUCTION";
+    case EXCEPTION_INT_DIVIDE_BY_ZERO:
+        return "EXCEPTION_INT_DIVIDE_BY_ZERO";
+    case EXCEPTION_STACK_OVERFLOW:
+        return "EXCEPTION_STACK_OVERFLOW";
+    default:
+        return "EXCEPTION_UNKNOWN";
+    }
+}
+
+
+void WriteDebugCrashStack( EXCEPTION_POINTERS* exceptionInfo )
+{
+    HANDLE process = GetCurrentProcess();
+    HANDLE thread = GetCurrentThread();
+
+    DWORD symOptions = SymGetOptions();
+    symOptions |= SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES | SYMOPT_UNDNAME;
+    SymSetOptions( symOptions );
+
+    const BOOL symbolsReady = SymInitialize( process, nullptr, TRUE );
+    if ( !symbolsReady )
+    {
+        Log().Writef( SkullbonezLog::EventLogPath(), "    stack_symbols=unavailable error=%lu\n", GetLastError() );
+    }
+
+    CONTEXT context = {};
+    if ( exceptionInfo && exceptionInfo->ContextRecord )
+    {
+        context = *exceptionInfo->ContextRecord;
+    }
+    else
+    {
+        RtlCaptureContext( &context );
+    }
+
+    STACKFRAME64 frame = {};
+    DWORD machineType = IMAGE_FILE_MACHINE_AMD64;
+#if defined( _M_X64 )
+    frame.AddrPC.Offset = context.Rip;
+    frame.AddrPC.Mode = AddrModeFlat;
+    frame.AddrFrame.Offset = context.Rbp;
+    frame.AddrFrame.Mode = AddrModeFlat;
+    frame.AddrStack.Offset = context.Rsp;
+    frame.AddrStack.Mode = AddrModeFlat;
+#else
+    machineType = IMAGE_FILE_MACHINE_I386;
+    frame.AddrPC.Offset = context.Eip;
+    frame.AddrPC.Mode = AddrModeFlat;
+    frame.AddrFrame.Offset = context.Ebp;
+    frame.AddrFrame.Mode = AddrModeFlat;
+    frame.AddrStack.Offset = context.Esp;
+    frame.AddrStack.Mode = AddrModeFlat;
+#endif
+
+    Log().Writef( SkullbonezLog::EventLogPath(), "    stack_trace:\n" );
+    for ( int frameIndex = 0; frameIndex < 64; ++frameIndex )
+    {
+        BOOL walked = StackWalk64( machineType,
+                                   process,
+                                   thread,
+                                   &frame,
+                                   &context,
+                                   nullptr,
+                                   SymFunctionTableAccess64,
+                                   SymGetModuleBase64,
+                                   nullptr );
+        if ( !walked || frame.AddrPC.Offset == 0 )
+        {
+            break;
+        }
+
+        const DWORD64 address = frame.AddrPC.Offset;
+        char symbolStorage[sizeof( SYMBOL_INFO ) + MAX_SYM_NAME] = {};
+        PSYMBOL_INFO symbol = reinterpret_cast<PSYMBOL_INFO>( symbolStorage );
+        symbol->SizeOfStruct = sizeof( SYMBOL_INFO );
+        symbol->MaxNameLen = MAX_SYM_NAME;
+
+        DWORD64 symbolDisplacement = 0;
+        const BOOL hasSymbol = symbolsReady && SymFromAddr( process, address, &symbolDisplacement, symbol );
+
+        IMAGEHLP_LINE64 lineInfo = {};
+        lineInfo.SizeOfStruct = sizeof( lineInfo );
+        DWORD lineDisplacement = 0;
+        const BOOL hasLine = symbolsReady && SymGetLineFromAddr64( process, address, &lineDisplacement, &lineInfo );
+
+        if ( hasSymbol && hasLine )
+        {
+            Log().Writef( SkullbonezLog::EventLogPath(),
+                          "      #%02d 0x%016llX %s+0x%llX (%s:%lu)\n",
+                          frameIndex,
+                          static_cast<unsigned long long>( address ),
+                          symbol->Name,
+                          static_cast<unsigned long long>( symbolDisplacement ),
+                          lineInfo.FileName,
+                          lineInfo.LineNumber );
+        }
+        else if ( hasSymbol )
+        {
+            Log().Writef( SkullbonezLog::EventLogPath(),
+                          "      #%02d 0x%016llX %s+0x%llX\n",
+                          frameIndex,
+                          static_cast<unsigned long long>( address ),
+                          symbol->Name,
+                          static_cast<unsigned long long>( symbolDisplacement ) );
+        }
+        else
+        {
+            Log().Writef( SkullbonezLog::EventLogPath(),
+                          "      #%02d 0x%016llX <unknown>\n",
+                          frameIndex,
+                          static_cast<unsigned long long>( address ) );
+        }
+    }
+
+    if ( symbolsReady )
+    {
+        SymCleanup( process );
+    }
+}
+
+
+LONG WINAPI DebugUnhandledExceptionFilter( EXCEPTION_POINTERS* exceptionInfo )
+{
+    DWORD exceptionCode = 0;
+    void* exceptionAddress = nullptr;
+    if ( exceptionInfo && exceptionInfo->ExceptionRecord )
+    {
+        exceptionCode = exceptionInfo->ExceptionRecord->ExceptionCode;
+        exceptionAddress = exceptionInfo->ExceptionRecord->ExceptionAddress;
+    }
+
+    Log().WriteEventf( "crash exception=0x%08lX name=%s address=%p",
+                       exceptionCode,
+                       ExceptionCodeName( exceptionCode ),
+                       exceptionAddress );
+    WriteDebugCrashStack( exceptionInfo );
+    Log().FlushAll();
+
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+
+
+void InstallDebugCrashLogger()
+{
+    SetUnhandledExceptionFilter( DebugUnhandledExceptionFilter );
+}
+#endif
 
 bool FailCommandLineParse( const char* fmt, ... )
 {
@@ -887,6 +1058,9 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         }
         catch ( const std::exception& e )
         {
+#ifdef _DEBUG
+            Log().WriteEventf( "fatal_exception message=\"%s\"", e.what() );
+#endif
             fprintf( stderr, "FATAL: %s\n", e.what() );
             window->MsgBox( e.what(), "Alert!", MB_OK );
         }
@@ -945,6 +1119,17 @@ int WINAPI WinMain( HINSTANCE hInstance,
 
     hPrevInstance;
     iCmdShow;
+
+#ifdef _DEBUG
+    InstallDebugCrashLogger();
+    Log().WriteEventf( "process_started command_line=\"%s\"", szCmdLine ? szCmdLine : "" );
+    if ( szCmdLine && strstr( szCmdLine, "--debug-crash-test" ) )
+    {
+        Log().WriteEventf( "debug_crash_test_requested" );
+        volatile int* crashAddress = nullptr;
+        *crashAddress = 1;
+    }
+#endif
 
     // Initialize COM on the main thread (multi-threaded apartment). Required before any
     // WinRT/COM activation occurs — without this, MSCTF.dll throws 0x800401F0 during

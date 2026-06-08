@@ -99,9 +99,13 @@ Use `Log().Writef()` for debug-only diagnostic output:
 
 ```cpp
 Log().Writef( "Debug/physics.csv", "frame,%d,x,%.3f,y,%.3f,z,%.3f\n", frame, x, y, z );
+Log().WriteEventf( "renderer_changed from=%s to=%s", oldName, newName );
 ```
 
 The log singleton lazily opens files and compiles out in Release/Profile where the implementation is guarded by `_DEBUG`.
+
+Runtime lifecycle events go to `Debug/runtime_events.log` in Debug builds. The engine records process start, scene start, scene finish, renderer changes, fatal exceptions, and unhandled crash stack traces in that file.
+Use `Debug\SKULLBONEZ_CORE.exe --debug-crash-test` to intentionally exercise the crash stack logger.
 
 Debug builds also support nudge-mode repro snapshots. Press `N`, centre an object in the crosshair, then press Enter. Each snapshot appends the scene, frame, active RNG seed, fixed-step mode, renderer, camera pose, object transform, velocities, shape data, sleep/contact state, and terrain support probes to `Debug/nudge_repro_snapshots.txt`.
 Snapshots also include scene load/reset counts and a `--seed` replay hint so an object found after repeated Q resets can be reproduced from a fresh process.

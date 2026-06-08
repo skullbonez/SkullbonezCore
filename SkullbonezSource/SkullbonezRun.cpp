@@ -214,6 +214,22 @@ const char* FileNameFromPath( const char* path )
 }
 
 
+const char* RuntimeRendererTypeName( RuntimeRendererType type )
+{
+    switch ( type )
+    {
+    case RuntimeRendererType::OpenGL:
+        return "OpenGL";
+    case RuntimeRendererType::DX11:
+        return "DX11";
+    case RuntimeRendererType::DX12:
+        return "DX12";
+    default:
+        return "unknown";
+    }
+}
+
+
 std::string NormalizeScenePath( const std::string& path )
 {
     std::string normalized = path;
@@ -522,6 +538,12 @@ void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
         return;
     }
 
+#ifdef _DEBUG
+    Log().WriteEventf( "renderer_change_started from=%s to=%s",
+                       RuntimeRendererTypeName( current ),
+                       RuntimeRendererTypeName( target ) );
+#endif
+
     // --- Phase 1: Tear down the current backend ---
     // All GPU-visible resources must be released while the backend that owns them is still alive.
     // The backend's FlushGPU() ensures all in-flight GPU work completes before resource destruction.
@@ -644,6 +666,13 @@ void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
         }
         catch ( const std::exception& rollbackError )
         {
+#ifdef _DEBUG
+            Log().WriteEventf( "renderer_change_failed from=%s to=%s rollback=failed reason=\"%s\" rollback_reason=\"%s\"",
+                               RuntimeRendererTypeName( current ),
+                               RuntimeRendererTypeName( target ),
+                               switchFailureReason.c_str(),
+                               rollbackError.what() );
+#endif
             char msg[512];
             sprintf_s( msg,
                        sizeof( msg ),
@@ -708,6 +737,24 @@ void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
         fprintf( stderr, "Renderer switch failed, restored previous renderer: %s\n", switchFailureReason.c_str() );
     }
     m_systems.window->SetTitleText( titleText );
+
+#ifdef _DEBUG
+    if ( switchFailureReason.empty() )
+    {
+        Log().WriteEventf( "renderer_changed from=%s to=%s backend=\"%s\"",
+                           RuntimeRendererTypeName( current ),
+                           RuntimeRendererTypeName( target ),
+                           Gfx().GetRendererName() );
+    }
+    else
+    {
+        Log().WriteEventf( "renderer_change_failed from=%s to=%s rollback=ok backend=\"%s\" reason=\"%s\"",
+                           RuntimeRendererTypeName( current ),
+                           RuntimeRendererTypeName( target ),
+                           Gfx().GetRendererName(),
+                           switchFailureReason.c_str() );
+    }
+#endif
 }
 
 
@@ -1294,6 +1341,9 @@ bool SkullbonezRun::TickScreenshots()
         sprintf_s( outPath, sizeof( outPath ), "%s.bmp", stem );
         SaveScreenshot( outPath );
         PROFILE_FRAME_END();
+#ifdef _DEBUG
+        LogSceneFinished( "screenshot_and_exit" );
+#endif
         if ( CanSceneAutomationQuit() )
         {
             PostQuitMessage( 0 );
@@ -1324,6 +1374,9 @@ bool SkullbonezRun::TickScreenshots()
             SaveScreenshot( m_screenshot.screenshotPath );
             m_screenshot.isScreenshotSaved = true;
             PROFILE_FRAME_END();
+#ifdef _DEBUG
+            LogSceneFinished( "screenshot" );
+#endif
             if ( CanSceneAutomationQuit() )
             {
                 if ( !AdvanceScene() )
@@ -1374,6 +1427,9 @@ void SkullbonezRun::TickAutoCycle()
 
     if ( m_camera.autoCycleShotsTaken >= ballCount )
     {
+#ifdef _DEBUG
+        LogSceneFinished( "auto_cycle" );
+#endif
         if ( CanSceneAutomationQuit() )
         {
             PostQuitMessage( 0 );
@@ -1432,6 +1488,12 @@ bool SkullbonezRun::TickSceneAdvance()
     {
         if ( m_scene.currentFrame >= m_scene.targetFrameCount )
         {
+#ifdef _DEBUG
+            if ( !m_scene.isTestComplete )
+            {
+                LogSceneFinished( "frame_count" );
+            }
+#endif
             if ( m_scene.isExitOnComplete && CanSceneAutomationQuit() )
             {
                 if ( !AdvanceScene() )
@@ -1467,6 +1529,9 @@ bool SkullbonezRun::TickSceneAdvance()
          m_scene.targetFrameCount <= 0 &&
          m_timers.simulationTimer.GetTimeSinceLastStart() > PERF_TEST_PASS_SECONDS )
     {
+#ifdef _DEBUG
+        LogSceneFinished( "perf_duration" );
+#endif
         if ( !AdvanceScene() )
         {
             if ( CanSceneAutomationQuit() )
@@ -3533,6 +3598,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     m_scene.solverBallCount = 0;
     m_scene.solverBoxCount = 0;
     m_scene.isTestComplete = false;
+    m_scene.isFinishLogged = false;
     m_timers.physicsAccumulator = 0.0f;
     m_timers.fixedStepTickAccumulator = 0.0f;
     m_screenshot.screenshotFrame = -1;
@@ -3770,7 +3836,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
             }
             if ( UIOptions.hasMinimized )
             {
-                m_UI.SetMinimized( UIOptions.isMinimized, UINow );
+                m_UI.SetMinimized( UIOptions.isMinimized, 0.0 );
             }
             if ( UIOptions.hasTestPattern )
             {
@@ -3976,6 +4042,20 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     }
 
 #ifdef _DEBUG
+    Log().WriteEventf( "scene_started index=%d load=%d path=\"%s\" renderer=\"%s\" target_frames=%d seed=%u fixed_step=%d physics=%d text=%d models=%d",
+                       m_scene.currentSceneIndex,
+                       m_scene.loadCount,
+                       scenePath.empty() ? "generated" : scenePath.c_str(),
+                       IsGfxReady() ? Gfx().GetRendererName() : "unknown",
+                       m_scene.targetFrameCount,
+                       m_scene.rngSeed,
+                       m_scene.isFixedStep ? 1 : 0,
+                       m_scene.isScenePhysics ? 1 : 0,
+                       m_scene.isSceneText ? 1 : 0,
+                       m_scene.modelCount );
+#endif
+
+#ifdef _DEBUG
     BeginPhysicsDiagnosticsRun( scenePath.c_str() );
 #endif
 
@@ -4021,6 +4101,36 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
 
 
 #ifdef _DEBUG
+void SkullbonezRun::LogSceneFinished( const char* reason )
+{
+    if ( m_scene.isFinishLogged )
+    {
+        return;
+    }
+
+    const char* scenePath = "generated";
+    if ( m_scene.currentSceneIndex >= 0 &&
+         m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() ) &&
+         !m_sceneQueue[m_scene.currentSceneIndex].empty() )
+    {
+        scenePath = m_sceneQueue[m_scene.currentSceneIndex].c_str();
+    }
+
+    Log().WriteEventf( "scene_finished index=%d load=%d path=\"%s\" reason=%s frame=%d target_frames=%d renderer=\"%s\" models=%d test_complete=%d",
+                       m_scene.currentSceneIndex,
+                       m_scene.loadCount,
+                       scenePath,
+                       reason && reason[0] != '\0' ? reason : "unknown",
+                       m_scene.currentFrame,
+                       m_scene.targetFrameCount,
+                       IsGfxReady() ? Gfx().GetRendererName() : "unknown",
+                       m_scene.modelCount,
+                       m_scene.isTestComplete ? 1 : 0 );
+
+    m_scene.isFinishLogged = true;
+}
+
+
 void SkullbonezRun::BeginPhysicsDiagnosticsRun( const char* scenePath )
 {
     if ( !m_physicsDiagnostics.isEnabled )
