@@ -3,6 +3,7 @@
 #include "SkullbonezRun.h"
 #include "SkullbonezText.h"
 #include "SkullbonezWindow.h"
+#include "SkullbonezInput.h"
 #include "SkullbonezTimer.h"
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezRenderBackendGL.h"
@@ -27,6 +28,7 @@
 
 // --- Usings ---
 using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
 
@@ -302,6 +304,11 @@ struct ParsedArgs
     bool fixedStep = false;
     unsigned int seedOverride = 0; // 0 = not set
     bool noWater = false;
+    int frameCountOverride = -1;
+    bool uiStress = false;
+    unsigned int uiStressSeed = 0x7F4A7C15u;
+    int uiStressActions = 5;
+    bool suppressExitDialog = false;
     bool showProfiler = false;
     bool hideTopText = false;
     bool showBroadphaseVisualizer = false;
@@ -903,6 +910,62 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
         fprintf( stdout, "[water] Fluid surface starts below terrain.\n" );
     }
 
+    const char* framesArg = FindOptionValue( cmdLine, "--frames" );
+    if ( framesArg )
+    {
+        const int frames = atoi( framesArg );
+        if ( frames <= 0 )
+        {
+            return FailCommandLineParse( "--frames expects a positive integer." );
+        }
+        out.frameCountOverride = frames;
+        out.suppressExitDialog = true;
+        fprintf( stdout, "[frames] Exit after %d frames.\n", out.frameCountOverride );
+    }
+
+    const char* uiStressArg = FindOptionValue( cmdLine, "--ui-stress", "--ui_stress" );
+    if ( uiStressArg )
+    {
+        bool enabled = false;
+        if ( !ParseOptionalOnOffValue( uiStressArg, enabled ) )
+        {
+            return FailCommandLineParse( "--ui-stress expects optional on|off." );
+        }
+        out.uiStress = enabled;
+        out.suppressExitDialog = out.suppressExitDialog || enabled;
+    }
+
+    const char* uiStressSeedArg = FindOptionValue( cmdLine, "--ui-stress-seed", "--ui_stress_seed" );
+    if ( uiStressSeedArg )
+    {
+        const unsigned long seed = strtoul( uiStressSeedArg, nullptr, 10 );
+        if ( seed == 0 || seed > UINT_MAX )
+        {
+            return FailCommandLineParse( "--ui-stress-seed expects a positive 32-bit integer." );
+        }
+        out.uiStress = true;
+        out.uiStressSeed = static_cast<unsigned int>( seed );
+        out.suppressExitDialog = true;
+    }
+
+    const char* uiStressActionsArg = FindOptionValue( cmdLine, "--ui-stress-actions", "--ui_stress_actions" );
+    if ( uiStressActionsArg )
+    {
+        const int actions = atoi( uiStressActionsArg );
+        if ( actions <= 0 || actions > 32 )
+        {
+            return FailCommandLineParse( "--ui-stress-actions expects 1..32." );
+        }
+        out.uiStress = true;
+        out.uiStressActions = actions;
+        out.suppressExitDialog = true;
+    }
+
+    if ( out.uiStress )
+    {
+        fprintf( stdout, "[ui-stress] Enabled seed=%u actions=%d.\n", out.uiStressSeed, out.uiStressActions );
+    }
+
     out.showProfiler = cmdLine && ( strstr( cmdLine, "--profiler" ) != nullptr || strstr( cmdLine, "--show-profiler" ) != nullptr );
     if ( out.showProfiler )
     {
@@ -1004,6 +1067,14 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         {
             cRun.SetNoWaterOverride();
         }
+        if ( args.frameCountOverride > 0 )
+        {
+            cRun.SetFrameCountOverride( args.frameCountOverride );
+        }
+        if ( args.uiStress )
+        {
+            cRun.SetUIStressOverride( args.uiStressSeed, args.uiStressActions );
+        }
         if ( args.showProfiler )
         {
             cRun.SetInitialOverlayMode( OverlayMode::Timers );
@@ -1051,7 +1122,7 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
             cRun.Initialise();
             cRun.Run();
 
-            if ( !args.isSuiteOrSceneMode )
+            if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
             {
                 window->MsgBox( "Thanks for using the Skullbonez Core!", "Alert!", MB_OK );
             }
@@ -1092,7 +1163,7 @@ void CleanupWindow( SkullbonezWindow* window, HINSTANCE hInstance )
     if ( window->m_fIsFullScreenMode )
     {
         ChangeDisplaySettings( nullptr, 0 ); // Restore desktop mode
-        ShowCursor( true );
+        Input::SetSystemCursorVisible( true );
     }
 
     UnregisterClass( WINDOW_NAME, hInstance );

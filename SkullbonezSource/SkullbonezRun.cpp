@@ -357,6 +357,20 @@ void SkullbonezRun::SetNoWaterOverride()
 }
 
 
+void SkullbonezRun::SetFrameCountOverride( int frames )
+{
+    m_cmdFrameCountOverride = (std::max)( 1, frames );
+}
+
+
+void SkullbonezRun::SetUIStressOverride( unsigned int seed, int actionsPerFrame )
+{
+    m_cmdUIStress = true;
+    m_cmdUIStressSeed = seed > 0 ? seed : 0x7F4A7C15u;
+    m_cmdUIStressActions = std::clamp( actionsPerFrame, 1, 32 );
+}
+
+
 void SkullbonezRun::SetInitialOverlayMode( OverlayMode mode )
 {
     m_debug.overlayMode = mode;
@@ -466,6 +480,7 @@ void SkullbonezRun::Initialise()
     // Init m_terrain
     // path to m_height map | map size pixels | step size | times to wrap texture
     m_systems.terrain = std::make_unique<Terrain>( ( std::string( DATA_ROOT ) + Cfg().terrainRaw ).c_str(), 256, 8, 15 );
+    m_systems.isFlatSlopeTerrain = false;
 
     // Init SkyBox (m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax)
     m_systems.skyBox = SkyBox::Instance( -250, 300, -300, 300, -250, 300 );
@@ -794,11 +809,8 @@ void SkullbonezRun::RunUIStressActions()
     const int screenW = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.x ) );
     const int screenH = (std::max)( 1, static_cast<int>( m_systems.window->m_sWindowDimensions.y ) );
 
-    if ( m_uiStress.framesRun == 1 )
-    {
-        m_UI.SetVisible( true, UINow );
-        m_UI.SetMinimized( false, UINow );
-    }
+    m_UI.SetVisible( true, UINow );
+    m_UI.SetMinimized( false, UINow );
 
     m_UI.SetMouseOverride( true, NextUIStressInt( screenW ), NextUIStressInt( screenH ) );
 
@@ -911,10 +923,7 @@ void SkullbonezRun::RunUIStressActions()
                                   NextUIStressFloat( 0.0f, 5.0f ) );
             break;
         case 23:
-            if ( m_uiStress.framesRun % 48 == 0 )
-            {
-                m_UI.ToggleVisible( UINow );
-            }
+            m_UI.SetActiveTab( static_cast<InGameUITab>( NextUIStressInt( static_cast<int>( InGameUITab::Count ) ) ) );
             break;
         default:
             break;
@@ -1484,7 +1493,7 @@ bool SkullbonezRun::TickSceneAdvance()
     ++m_scene.currentFrame;
 
     // Check if target frame count is reached (skip if screenshot auto-exit is still pending)
-    if ( m_scene.isSceneMode && m_scene.targetFrameCount > 0 && !m_screenshot.isScreenshotSaved )
+    if ( m_scene.targetFrameCount > 0 && !m_screenshot.isScreenshotSaved )
     {
         if ( m_scene.currentFrame >= m_scene.targetFrameCount )
         {
@@ -1552,6 +1561,20 @@ bool SkullbonezRun::TickSceneAdvance()
 
 void SkullbonezRun::TakeInput()
 {
+    if ( !Input::IsAppFocused() )
+    {
+        Input::SetSystemCursorVisible( true );
+        m_camera.input = {};
+        m_leftSceneCycleWasDown = false;
+        m_rightSceneCycleWasDown = false;
+        Input::ConsumeMouseWheelDelta();
+        m_UI.CancelInputCapture();
+        RunUIStressActions();
+        return;
+    }
+
+    Input::SetSystemCursorVisible( false );
+
     const bool UIBlocksKeyboardBeforeInput = m_UI.BlocksKeyboard();
     if ( !UIBlocksKeyboardBeforeInput )
     {
@@ -1606,7 +1629,7 @@ void SkullbonezRun::TakeInput()
                 unbounded.m_zMax = 99999.9f;
                 uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
                 m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
-                SetCursor( nullptr );
+                Input::SetSystemCursorVisible( false );
                 Input::CentreMouseCoordinates();
                 m_camera.input.xMove = 0;
                 m_camera.input.yMove = 0;
@@ -1618,7 +1641,7 @@ void SkullbonezRun::TakeInput()
                 // cursor itself; restoring IDC_ARROW here creates a mismatched second cursor.
                 uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
                 m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
-                SetCursor( nullptr );
+                Input::SetSystemCursorVisible( false );
                 m_camera.cameraTime = 0.0f;
                 // Exiting fly mode also exits nudge mode
                 m_camera.isNudgeMode = false;
@@ -1997,7 +2020,7 @@ void SkullbonezRun::TakeInput()
         m_camera.input.Set( InputState::Down, false );
         m_camera.input.Set( InputState::Left, false );
         m_camera.input.Set( InputState::Right, false );
-        SetCursor( nullptr );
+        Input::SetSystemCursorVisible( false );
         return;
     }
 
@@ -2092,9 +2115,9 @@ void SkullbonezRun::TakeInput()
     if ( m_camera.isFlyMode )
     {
         // Keep the platform cursor hidden every frame.  Mouse-look still uses the
-        // recentered OS coordinates internally, while the diagnostics UI paints the
-        // visible pointer in the same visual language as its controls.
-        SetCursor( nullptr );
+        // recentered OS coordinates internally; the UI hides its vector cursor
+        // while camera movement owns the mouse.
+        Input::SetSystemCursorVisible( false );
 
         // Mouse look: delta from screen centre
         if ( m_UI.BlocksCameraMouse() )
@@ -2556,6 +2579,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         UIData.waterHidden = m_debug.isWaterHidden;
         UIData.waterNoReflect = m_debug.isWaterNoReflect;
         UIData.waterRTReflect = m_debug.isWaterRTReflect;
+        UIData.cameraMouseActive = m_camera.isFlyMode && !m_UI.BlocksCameraMouse();
         UIData.canSaveSceneDefaults = m_scene.isSceneMode &&
                                       m_scene.currentSceneIndex >= 0 &&
                                       m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() ) &&
@@ -3689,6 +3713,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         }
         m_scene.rngSeed = rngSeed;
         srand( rngSeed );
+        UseDefaultTerrain();
         ApplyNoWaterOverride();
         if ( shouldPreserveRuntimeState )
         {
@@ -3906,19 +3931,22 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         m_scene.rngSeed = rngSeed;
         srand( rngSeed );
 
-        // Replace terrain with analytic flat slope when the scene requests it
+        // Scene terrain is authoritative.  A flat-slope test scene must not leak
+        // its analytic terrain into the next height-map scene.
         if ( scene.HasFlatSlope() )
         {
-            Gfx().FlushGPU();
-            m_systems.terrain = std::make_unique<Terrain>( scene.GetFlatBaseY(), scene.GetFlatSlopeX(), scene.GetFlatSlopeZ() );
+            UseFlatSlopeTerrain( scene.GetFlatBaseY(), scene.GetFlatSlopeX(), scene.GetFlatSlopeZ() );
+        }
+        else
+        {
+            UseDefaultTerrain();
         }
 
         // Override world environment if scene specifies world values
         if ( scene.HasWorldOverride() )
         {
             m_cWorldEnvironment = WorldEnvironment( scene.GetWorldFluidHeight(), scene.GetWorldFluidDensity(), Cfg().gasDensity, scene.GetWorldGravity() );
-            XZBounds tb = m_systems.terrain->GetXZBounds();
-            m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
+            UpdateWorldTerrainBounds();
         }
         ApplyNoWaterOverride();
         if ( shouldPreserveRuntimeState )
@@ -3975,7 +4003,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
             unbounded.m_zMax = 99999.9f;
             uint32_t activeCam = m_systems.cameras->GetSelectedCameraName();
             m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
-            SetCursor( nullptr );
+            Input::SetSystemCursorVisible( false );
             Input::CentreMouseCoordinates();
             m_camera.input.xMove = 0;
             m_camera.input.yMove = 0;
@@ -4023,6 +4051,19 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     if ( m_cmdFixedStep )
     {
         m_scene.isFixedStep = true;
+    }
+    if ( m_cmdFrameCountOverride > 0 )
+    {
+        m_scene.targetFrameCount = m_cmdFrameCountOverride;
+        m_scene.isExitOnComplete = true;
+    }
+    if ( m_cmdUIStress )
+    {
+        m_uiStress.enabled = true;
+        m_uiStress.randomState = m_cmdUIStressSeed;
+        m_uiStress.actionsPerFrame = m_cmdUIStressActions;
+        m_UI.SetVisible( true, m_timers.simulationTimer.GetTotalTime() );
+        m_UI.SetMinimized( false, m_timers.simulationTimer.GetTotalTime() );
     }
     if ( m_cmdHasPhysicsDebugFlagsOverride )
     {
@@ -4554,6 +4595,47 @@ void SkullbonezRun::ApplyNoWaterOverride()
     }
 
     m_cWorldEnvironment.SetFluidSurfaceHeight( m_systems.terrain->GetMinHeight() - NO_WATER_TERRAIN_CLEARANCE );
+}
+
+
+void SkullbonezRun::UseDefaultTerrain()
+{
+    if ( !m_systems.terrain || m_systems.isFlatSlopeTerrain )
+    {
+        if ( IsGfxReady() )
+        {
+            Gfx().FlushGPU();
+        }
+        m_systems.terrain = std::make_unique<Terrain>( ( std::string( DATA_ROOT ) + Cfg().terrainRaw ).c_str(), 256, 8, 15 );
+        m_systems.isFlatSlopeTerrain = false;
+    }
+
+    UpdateWorldTerrainBounds();
+}
+
+
+void SkullbonezRun::UseFlatSlopeTerrain( float baseY, float slopeX, float slopeZ )
+{
+    if ( IsGfxReady() )
+    {
+        Gfx().FlushGPU();
+    }
+    m_systems.terrain = std::make_unique<Terrain>( baseY, slopeX, slopeZ );
+    m_systems.isFlatSlopeTerrain = true;
+
+    UpdateWorldTerrainBounds();
+}
+
+
+void SkullbonezRun::UpdateWorldTerrainBounds()
+{
+    if ( !m_systems.terrain )
+    {
+        return;
+    }
+
+    XZBounds tb = m_systems.terrain->GetXZBounds();
+    m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
 }
 
 

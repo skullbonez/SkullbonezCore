@@ -81,6 +81,7 @@ struct InGameUIFrameData
     bool waterHidden = false;
     bool waterNoReflect = false;
     bool waterRTReflect = false;
+    bool cameraMouseActive = false;
     bool canSaveSceneDefaults = false;
 };
 
@@ -147,6 +148,7 @@ class InGameUI
     void SetPerformanceHistogramEnabled( bool enabled );
     void SetScrollY( float scrollY );
     void SetMouseOverride( bool enabled, int x = 0, int y = 0 );
+    void CancelInputCapture();
     void ResetResources();
 
     InGameUIInputResult UpdateInput( HWND hwnd, int screenW, int screenH, double now, const char* const* sceneOptions = nullptr, int sceneOptionCount = 0, int selectedSceneOption = -1 );

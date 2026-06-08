@@ -221,13 +221,32 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
             break;
 
         case WM_MOUSEWHEEL:
-            Input::AccumulateMouseWheelDelta( GET_WHEEL_DELTA_WPARAM( wParam ) );
+            if ( GetForegroundWindow() == hWnd )
+            {
+                Input::AccumulateMouseWheelDelta( GET_WHEEL_DELTA_WPARAM( wParam ) );
+            }
+            break;
+
+        case WM_SETFOCUS:
+            Input::SetSystemCursorVisible( false );
+            break;
+
+        case WM_KILLFOCUS:
+            Input::SetSystemCursorVisible( true );
             break;
 
         case WM_SETCURSOR:
             if ( LOWORD( lParam ) == HTCLIENT )
             {
-                SetCursor( nullptr );
+                if ( GetForegroundWindow() == hWnd )
+                {
+                    Input::SetSystemCursorVisible( false );
+                }
+                else
+                {
+                    Input::SetSystemCursorVisible( true );
+                    SetCursor( LoadCursor( nullptr, IDC_ARROW ) );
+                }
                 return TRUE;
             }
             break;
@@ -417,8 +436,7 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
         // Changes to full screen mode
         ChangeToFullScreen( Cfg().window.screenX, Cfg().window.screenY );
 
-        // Hide the mouse cursor
-        ShowCursor( false );
+        Input::SetSystemCursorVisible( false );
     }
     else
     {
@@ -463,7 +481,7 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
     UpdateWindow( hWnd );              // Draw window
     SetFocus( hWnd );                  // Set keyboard focus
                                        // to our window
-    SetCursor( nullptr );
+    Input::SetSystemCursorVisible( false );
 
     m_sWindow = hWnd;
 }
@@ -532,6 +550,7 @@ void SkullbonezWindow::RecreateWindow()
     ShowWindow( hWnd, SW_SHOWNORMAL );
     UpdateWindow( hWnd );
     SetFocus( hWnd );
+    Input::SetSystemCursorVisible( false );
 
     m_sWindow = hWnd;
     m_sDevice = GetDC( hWnd );

@@ -1,15 +1,15 @@
 @echo off
 setlocal enabledelayedexpansion
 REM ===============================================================
-REM  validate_ui_stress.bat - Deterministic UI stress crash test.
-REM  Use for: UI controls, tabs, combo state, and renderer swapping.
+REM  validate_ui_stress.bat - Deterministic UI-only stress crash test.
+REM  Use for: UI controls, tabs, combo state, and renderer swapping over a UI backdrop.
 REM ===============================================================
 
 set "REPO=%~dp0.."
 pushd "%REPO%"
 echo.
 echo ========================================
-echo   VALIDATE_UI_STRESS - UI Crash Sweep
+echo   VALIDATE_UI_STRESS - UI-Only Crash Sweep
 echo ========================================
 echo.
 

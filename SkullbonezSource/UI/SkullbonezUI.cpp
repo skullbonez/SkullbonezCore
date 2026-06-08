@@ -627,6 +627,22 @@ InGameUITab InGameUI::GetActiveTab() const
 }
 
 
+void InGameUI::CancelInputCapture()
+{
+    m_leftWasDown = false;
+    m_isDragging = false;
+    m_isResizing = false;
+    m_blocksCameraMouse = false;
+    m_activeSlider = 0;
+    m_previewTimeScale = -1.0f;
+    m_previewModelCount = -1;
+    m_previewPhysicsAlpha = -1.0f;
+    m_previewContactLinger = -1.0f;
+    m_previewSolverBallCount = -1;
+    m_previewSolverBoxCount = -1;
+}
+
+
 bool InGameUI::BlocksCameraMouse() const
 {
     return m_blocksCameraMouse;
@@ -2145,6 +2161,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     const int currentRendererIndex = GetRendererIndexFromName( data.rendererName );
     m_lastRendererIndex = currentRendererIndex;
     const UIDrawContext draw( screenW, screenH );
+    const bool shouldDrawCursor = !data.cameraMouseActive;
     if ( m_performanceHistogramEnabled )
     {
         PushPerformanceHistogramSample( data.cpuFrameMs, data.gpuFrameMs );
@@ -2164,8 +2181,11 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                 }
                 Text2d::FlushQuads();
                 Text2d::FlushText();
-                DrawCursor( draw );
-                Text2d::FlushQuads();
+                if ( shouldDrawCursor )
+                {
+                    DrawCursor( draw );
+                    Text2d::FlushQuads();
+                }
                 return;
             }
         }
@@ -2193,8 +2213,11 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         }
         Text2d::FlushQuads();
         Text2d::FlushText();
-        DrawCursor( draw );
-        Text2d::FlushQuads();
+        if ( shouldDrawCursor )
+        {
+            DrawCursor( draw );
+            Text2d::FlushQuads();
+        }
         return;
     }
 
@@ -2735,6 +2758,9 @@ void InGameUI::Draw( const InGameUIFrameData& data )
 
     Text2d::FlushQuads();
     Text2d::FlushText();
-    DrawCursor( draw );
-    Text2d::FlushQuads();
+    if ( shouldDrawCursor )
+    {
+        DrawCursor( draw );
+        Text2d::FlushQuads();
+    }
 }

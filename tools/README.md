@@ -11,10 +11,14 @@ Scripts for validating SkullbonezCore changes. Run from the repo root or from wi
 | `validate_fast.bat` | Small code refactors and non-render code edits | ~30s |
 | `validate_renderers.bat` | Shader, texture, render backend changes | ~60s |
 | `validate_ui.bat` | Optional in-game UI visual screenshots, blur, and control automation | ~depends |
+| `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep | ~10s |
+| `validate_demo_stress.bat` | Generated demo scene plus UI interaction crash sweep | ~depends |
 | `validate_physics.bat` | Physics, collision, solver, rigid body | ~45s |
 | `validate_physics_query.bat` | SkullScope query-output baseline check | ~depends |
 | `validate_perf.bat` | Performance-sensitive, hot-path changes | ~1 min |
 | `validate_full.bat` | Broad changes, pre-merge, uncertain scope | ~3 min |
+| `watch_ui_stress.bat` | Repeated UI stress watcher, finite by default | ~depends |
+| `watch_demo_stress.bat` | Repeated generated demo stress watcher, finite by default | ~depends |
 
 ### Selection Example
 
@@ -35,6 +39,10 @@ tools\validate_select.bat fast build-profile
 | `format_fix.bat` | Auto-fix formatting in-place |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Release`) |
 | `validate_ui.bat` | Optional tri-renderer UI suite that captures UI screenshots and checks blur strength |
+| `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep over a UI backdrop |
+| `validate_demo_stress.bat` | Generated demo scene crash sweep that keeps physics/rendering active while changing UI settings and renderers |
+| `watch_ui_stress.bat [--test ui\|demo] [--iterations N] [--sleep N] [--forever]` | Repeated stress watcher; defaults to a finite 25-lap UI-only run and requires `--forever` for an intentional soak |
+| `watch_demo_stress.bat [--iterations N] [--sleep N] [--forever]` | Convenience wrapper for repeated generated demo interaction stress |
 | `capture_ui_screenshot.bat [gl\|dx11\|dx12] [output.png] [max_width]` | Capture the profiler UI scene and export a phone-friendly PNG |
 | `export_screenshot_png.py <input.bmp> <output.png>` | Convert an engine BMP capture to an optimized PNG |
 | `validate_physics_query.bat` | Generate the varied physics diagnostic trace and compare SkullScope query output to `TestOutput/baselines/physics_query_varied.json` |

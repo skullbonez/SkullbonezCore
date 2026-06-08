@@ -101,6 +101,7 @@ struct RunTimerState
 struct RunSubsystemState
 {
     std::unique_ptr<Terrain> terrain;
+    bool isFlatSlopeTerrain = false;
     std::unique_ptr<IFramebuffer> reflectionFBO;
 
     CameraCollection* cameras = nullptr;
@@ -245,6 +246,10 @@ class SkullbonezRun
     bool m_cmdFixedStep = false;         // CLI --fixed-step override applied after each scene load
     unsigned int m_cmdSeedOverride = 0;  // CLI --seed override applied after each scene load (0 = not set)
     bool m_cmdNoWater = false;           // CLI --no-water starts fluid below terrain
+    int m_cmdFrameCountOverride = -1;    // CLI --frames override applied after each scene load
+    bool m_cmdUIStress = false;          // CLI --ui-stress enables generated/demo stress without a scene file
+    unsigned int m_cmdUIStressSeed = 0;  // CLI --ui-stress-seed
+    int m_cmdUIStressActions = 5;        // CLI --ui-stress-actions
     GeneratedObjectTypeOverride m_generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     float m_UITimeScaleOverride = 0.0f;
     int m_UIModelCountOverride = -1;
@@ -310,6 +315,9 @@ class SkullbonezRun
     void ApplyUISolverObjectCounts( int balls, int boxes );                                                                            // Rebuilds generated solver objects from exact UI counts
     void ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity );                                                 // Applies live world/fluid scalar controls
     void ApplyNoWaterOverride();                                                                                                       // Pushes fluid surface below the active terrain when requested
+    void UseDefaultTerrain();                                                                                                          // Restores the normal height-map terrain when leaving analytic test scenes
+    void UseFlatSlopeTerrain( float baseY, float slopeX, float slopeZ );                                                               // Activates analytic flat-slope terrain for focused physics scenes
+    void UpdateWorldTerrainBounds();                                                                                                   // Keeps world/fluid helpers aligned with the active terrain bounds
     bool AdvanceScene();                                                                                                               // Advances to the next scene in the queue (returns false if done)
     void MoveCamera( float keyMovementQty, float mouseMovemementQty );                                                                 // Moves the camera
     RuntimeRendererType GetCurrentRendererType() const;                                                                                // Detect active backend type from Gfx renderer identity
@@ -344,10 +352,12 @@ class SkullbonezRun
     void Initialise();                                    // Initialises shared resources and loads first scene
     void Run();                                           // Runs all scenes in sequence — main message loop
     void SetRendererSwitchInterval( float seconds );
-    void SetTimeScaleOverride( float scale );  // Override timeScale for every scene loaded (CLI --time-scale)
-    void SetFixedStepOverride();               // Force fixed-step for every scene loaded (CLI --fixed-step)
-    void SetSeedOverride( unsigned int seed ); // Override RNG seed for every scene loaded (CLI --seed)
-    void SetNoWaterOverride();                 // Start scenes with fluid below terrain (CLI --no-water)
+    void SetTimeScaleOverride( float scale );                           // Override timeScale for every scene loaded (CLI --time-scale)
+    void SetFixedStepOverride();                                        // Force fixed-step for every scene loaded (CLI --fixed-step)
+    void SetSeedOverride( unsigned int seed );                          // Override RNG seed for every scene loaded (CLI --seed)
+    void SetNoWaterOverride();                                          // Start scenes with fluid below terrain (CLI --no-water)
+    void SetFrameCountOverride( int frames );                           // Stop scene/demo automation after N frames (CLI --frames)
+    void SetUIStressOverride( unsigned int seed, int actionsPerFrame ); // Enable deterministic UI stress from CLI
     void SetInitialOverlayMode( OverlayMode mode );
     void SetTopTextHidden( bool hidden );
     void SetBroadphaseVisualizerEnabled( bool enabled );
