@@ -9,6 +9,7 @@ This file holds details that are useful during debugging or manual testing but t
 | `--renderer` | `gl`, `dx11`, `dx12` | Select render backend. Default is `gl`. |
 | `--scene` | path | Load one scene file. Quoted paths are supported. |
 | `--suite` | path | Load a `.suite` file with one scene path per line. |
+| `--scene-load-only` | flag | Load queued scene files and exit before the frame loop. Alias: `--load-scenes-only`. Used by `tools\validate_scene_loads.bat`. |
 | `--vsync` | `on`, `off` | Override vsync from `engine.cfg`. |
 | `--switch-interval` | seconds | Cycle renderers at runtime. |
 | `--time-scale` | float | Override simulation time multiplier. |
@@ -65,8 +66,8 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | Enter | In nudge mode, write Debug-build repro data for the object under the crosshair to `Debug/nudge_repro_snapshots.txt`. |
 | Q | Cycle render backend: GL to DX11 to DX12 to GL. |
 | R | Reset or rerun the current scene/generated demo while preserving live controls. |
-| Z | Fire a ball from the camera. Shift increases speed. |
-| X | Fire a box from the camera. Shift increases speed. |
+| Z | Fire a pooled high-speed silver bullet from the camera. Shift increases speed. |
+| X | Fire a pooled high-speed silver bullet from the camera. Shift increases speed. |
 | F2 | Save a scene snapshot. |
 | F3 | Save a screenshot. |
 | 0 | Toggle profiler overlay. |

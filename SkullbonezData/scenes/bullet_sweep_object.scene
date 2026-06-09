@@ -16,8 +16,8 @@ terrain_hidden on
 
 camera overview 470 150 450  520 120 500  0 1 0
 
-# Diagonal launch aims at the fixed cube corner. That makes the bounding-sphere
-# swept candidate coincide with a real corner contact for the current CCD layer.
-ball bullet_object 502.679 102.679 482.679  2.0 5.0 8.0 0.2  51961.525 51961.525 51961.525  0 0 0
+# Starts outside the fixed cube's static broadphase cells. The diagonal launch
+# still aims at the cube corner, so swept broadphase must pair it for CCD.
+ball bullet_object 473.812 73.812 453.812  2.0 5.0 8.0 0.2  51961.525 51961.525 51961.525  0 0 0
 
 floating_box fixed_object 520 120 500  4.0 4.0 4.0  1000.0 0.2

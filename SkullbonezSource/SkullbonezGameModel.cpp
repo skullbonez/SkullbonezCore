@@ -55,6 +55,10 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     m_projectedSurfaceArea = 0.0f;
     m_dragCoefficient = 0.0f;
     m_fixedContactHighlightSeconds = 0.0f;
+    m_renderTintR = 1.0f;
+    m_renderTintG = 1.0f;
+    m_renderTintB = 1.0f;
+    m_renderColorOverride = 0.0f;
     m_isResponseRequired = false;
     m_isFixed = false;
     m_name[0] = '\0';
@@ -213,6 +217,24 @@ void GameModel::SetName( const char* name )
 const char* GameModel::GetName() const
 {
     return m_name;
+}
+
+
+void GameModel::SetRenderTint( float tintR, float tintG, float tintB, float colorOverride )
+{
+    m_renderTintR = tintR;
+    m_renderTintG = tintG;
+    m_renderTintB = tintB;
+    m_renderColorOverride = colorOverride;
+}
+
+
+void GameModel::GetRenderTint( float& tintR, float& tintG, float& tintB, float& colorOverride ) const
+{
+    tintR = m_renderTintR;
+    tintG = m_renderTintG;
+    tintB = m_renderTintB;
+    colorOverride = m_renderColorOverride;
 }
 
 

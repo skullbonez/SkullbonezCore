@@ -58,6 +58,7 @@
 
 // --- Includes ---
 #include "SkullbonezSpatialGrid.h"
+#include <algorithm>
 
 
 // --- Usings ---
@@ -123,13 +124,9 @@ int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
 }
 
 
-// Insert an object into all grid cells it overlaps.
-// A sphere at position P with radius R overlaps cells from:
-//   min = floor((P - R) / cellSize)  to  max = floor((P + R) / cellSize)
-//
-// For each overlapping cell, compute its hash key and add this object's
-// index to that bucket's linked list (via the entries[] pool).
-void SpatialGrid::Insert( int index, const Vector3& position, float radius )
+// Insert an object into all grid cells touched by an explicit AABB.
+// Bounds are inclusive after conversion to grid coordinates.
+void SpatialGrid::InsertBounds( int index, const Vector3& minBounds, const Vector3& maxBounds )
 {
     assert( index >= 0 && "Insert: negative object index" );
     if ( index >= MAX_GAME_MODELS )
@@ -142,12 +139,12 @@ void SpatialGrid::Insert( int index, const Vector3& position, float radius )
         objectCount = index + 1;
     }
 
-    int minX = static_cast<int>( floorf( ( position.x - radius ) * inverseCellSize ) );
-    int minY = static_cast<int>( floorf( ( position.y - radius ) * inverseCellSize ) );
-    int minZ = static_cast<int>( floorf( ( position.z - radius ) * inverseCellSize ) );
-    int maxX = static_cast<int>( floorf( ( position.x + radius ) * inverseCellSize ) );
-    int maxY = static_cast<int>( floorf( ( position.y + radius ) * inverseCellSize ) );
-    int maxZ = static_cast<int>( floorf( ( position.z + radius ) * inverseCellSize ) );
+    int minX = static_cast<int>( floorf( minBounds.x * inverseCellSize ) );
+    int minY = static_cast<int>( floorf( minBounds.y * inverseCellSize ) );
+    int minZ = static_cast<int>( floorf( minBounds.z * inverseCellSize ) );
+    int maxX = static_cast<int>( floorf( maxBounds.x * inverseCellSize ) );
+    int maxY = static_cast<int>( floorf( maxBounds.y * inverseCellSize ) );
+    int maxZ = static_cast<int>( floorf( maxBounds.z * inverseCellSize ) );
 
     for ( int ix = minX; ix <= maxX; ++ix )
     {
@@ -171,6 +168,33 @@ void SpatialGrid::Insert( int index, const Vector3& position, float radius )
             }
         }
     }
+}
+
+
+// Insert an object into all grid cells it overlaps at its current position.
+// A sphere at position P with radius R overlaps cells from:
+//   min = floor((P - R) / cellSize)  to  max = floor((P + R) / cellSize)
+void SpatialGrid::Insert( int index, const Vector3& position, float radius )
+{
+    InsertBounds( index,
+                  Vector3( position.x - radius, position.y - radius, position.z - radius ),
+                  Vector3( position.x + radius, position.y + radius, position.z + radius ) );
+}
+
+
+// Insert a dynamic body over the world-space AABB swept by its center this tick.
+// Narrowphase still computes the exact time-of-impact; this only prevents the
+// broadphase from skipping a fast body that starts outside the target cell.
+void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3& displacement, float radius )
+{
+    const Vector3 endPosition = position + displacement;
+    InsertBounds( index,
+                  Vector3( (std::min)( position.x, endPosition.x ) - radius,
+                           (std::min)( position.y, endPosition.y ) - radius,
+                           (std::min)( position.z, endPosition.z ) - radius ),
+                  Vector3( (std::max)( position.x, endPosition.x ) + radius,
+                           (std::max)( position.y, endPosition.y ) + radius,
+                           (std::max)( position.z, endPosition.z ) + radius ) );
 }
 
 

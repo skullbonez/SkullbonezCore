@@ -16,8 +16,8 @@ terrain_hidden on
 
 camera overview 470 125 470  520 100 500  0 1 0
 
-# ball <name> <pos> <radius> <mass> <moment> <restitution> <impulse> <application point>
-ball bullet_wall 480 100 500  2.0 5.0 8.0 0.2  60000 0 0  0 0 0
+# Starts outside the fixed wall's static broadphase cells; swept broadphase must pair it.
+ball bullet_wall 450 100 500  2.0 5.0 8.0 0.2  60000 0 0  0 0 0
 
 # Long along the bullet axis so the current bounding-sphere CCD candidate lands
 # on the fixed box contact surface instead of far in front of a broad panel.

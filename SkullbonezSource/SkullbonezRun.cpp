@@ -11,6 +11,7 @@
 #include "SkullbonezImpulseSolver.h"
 #include "SkullbonezTerrainSupportClassifier.h"
 #include <time.h>
+#include <cstdio>
 #include <cstring>
 #include <cstddef>
 #include <psapi.h>
@@ -33,6 +34,17 @@ constexpr double PERF_TEST_PASS_SECONDS = 2.0;
 constexpr float WATER_HEIGHT_CONTROL_SPEED = 20.0f;
 constexpr float NO_WATER_TERRAIN_CLEARANCE = 100.0f;
 constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
+constexpr float CAMERA_PROJECTILE_SPEED = 12000.0f;
+constexpr float CAMERA_PROJECTILE_SHIFT_MULTIPLIER = 3.0f;
+constexpr float CAMERA_PROJECTILE_RADIUS = 0.25f;
+constexpr float CAMERA_PROJECTILE_MASS = 0.25f;
+constexpr float CAMERA_PROJECTILE_RESTITUTION = 0.2f;
+constexpr float CAMERA_PROJECTILE_MOMENT = 0.025f;
+constexpr float CAMERA_PROJECTILE_SPAWN_CLEARANCE = 12.0f;
+constexpr float CAMERA_PROJECTILE_PARK_BASE = -5000.0f;
+constexpr float CAMERA_PROJECTILE_SILVER_R = 1.0f;
+constexpr float CAMERA_PROJECTILE_SILVER_G = 1.0f;
+constexpr float CAMERA_PROJECTILE_SILVER_B = 1.0f;
 constexpr int FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME = 32;
 #ifdef _DEBUG
 constexpr const char* NUDGE_REPRO_SNAPSHOT_PATH = "Debug/nudge_repro_snapshots.txt";
@@ -522,6 +534,23 @@ void SkullbonezRun::Initialise()
 
     // Load the first scene
     LoadScene( 0 );
+}
+
+
+void SkullbonezRun::RunSceneLoadOnly()
+{
+    const int sceneCount = static_cast<int>( m_sceneQueue.size() );
+    if ( sceneCount <= 0 )
+    {
+        return;
+    }
+
+    printf( "[scene-load-only] Loaded 1/%d: %s\n", sceneCount, m_sceneQueue[0].empty() ? "generated" : m_sceneQueue[0].c_str() );
+    for ( int i = 1; i < sceneCount; ++i )
+    {
+        LoadScene( i );
+        printf( "[scene-load-only] Loaded %d/%d: %s\n", i + 1, sceneCount, m_sceneQueue[i].empty() ? "generated" : m_sceneQueue[i].c_str() );
+    }
 }
 
 
@@ -2115,14 +2144,14 @@ void SkullbonezRun::TakeInput()
         m_camera.input.Set( InputState::F3WasDown, f3Now );
     }
 
-    // Z: fire a ball out of the camera. X: fire a box out of the camera.
-    // Shift applies the same 3× speed multiplier as walking.
-    // Objects are recycled from the model pool — no new allocations.
+    // Z/X: fire a pooled silver bullet out of the camera.
+    // Shift applies the same speed multiplier as sprinting.
+    // Bullets are recycled from a ten-body runtime pool.
     {
         bool zNow = Input::IsKeyDown( 'Z' );
         if ( zNow && !m_camera.input.Get( InputState::ZWasDown ) )
         {
-            FireProjectile( false );
+            FireProjectile();
         }
         m_camera.input.Set( InputState::ZWasDown, zNow );
     }
@@ -2130,7 +2159,7 @@ void SkullbonezRun::TakeInput()
         bool xNow = Input::IsKeyDown( 'X' );
         if ( xNow && !m_camera.input.Get( InputState::XWasDown ) )
         {
-            FireProjectile( true );
+            FireProjectile();
         }
         m_camera.input.Set( InputState::XWasDown, xNow );
     }
@@ -2536,13 +2565,21 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     const float mY = 0.015f; // vertical inset from top/bottom edge
 
     // Crosshair — always visible when nudge mode is active, regardless of overlay state.
-    // Drawn as two thin quads forming a + shape centred on screen.
+    // A tiny center gap keeps the target visible instead of covering it.
     if ( m_camera.isNudgeMode )
     {
-        const float cArm = 0.025f;                                                   // half-length of each crosshair arm
-        const float cHalf = 0.001f;                                                  // half-thickness of each arm
-        Text2d::Render2dQuad( -cArm, -cHalf, cArm, cHalf, 1.0f, 1.0f, 1.0f, 0.85f ); // horizontal
-        Text2d::Render2dQuad( -cHalf, -cArm, cHalf, cArm, 1.0f, 1.0f, 1.0f, 0.85f ); // vertical
+        const float cArm = 0.020f;
+        const float cGap = 0.004f;
+        const float cHalf = 0.00045f;
+        const float cShadowHalf = 0.00080f;
+        Text2d::Render2dQuad( -cArm, -cShadowHalf, -cGap, cShadowHalf, 0.0f, 0.0f, 0.0f, 0.40f );
+        Text2d::Render2dQuad( cGap, -cShadowHalf, cArm, cShadowHalf, 0.0f, 0.0f, 0.0f, 0.40f );
+        Text2d::Render2dQuad( -cShadowHalf, -cArm, cShadowHalf, -cGap, 0.0f, 0.0f, 0.0f, 0.40f );
+        Text2d::Render2dQuad( -cShadowHalf, cGap, cShadowHalf, cArm, 0.0f, 0.0f, 0.0f, 0.40f );
+        Text2d::Render2dQuad( -cArm, -cHalf, -cGap, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
+        Text2d::Render2dQuad( cGap, -cHalf, cArm, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
+        Text2d::Render2dQuad( -cHalf, -cArm, cHalf, -cGap, 0.80f, 0.96f, 1.0f, 0.88f );
+        Text2d::Render2dQuad( -cHalf, cGap, cHalf, cArm, 0.80f, 0.96f, 1.0f, 0.88f );
 #ifdef _DEBUG
         if ( m_debug.reproSnapshotMessage[0] != '\0' &&
              m_timers.simulationTimer.GetTimeSinceLastStart() <= m_debug.reproSnapshotMessageUntil )
@@ -2755,8 +2792,8 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "WASD", "Move camera" },
             { "Mouse", "Look" },
             { "Shift", "Sprint (3x speed)" },
-            { "Z", "Fire ball" },
-            { "X", "Fire box" },
+            { "Z", "Fire silver bullet" },
+            { "X", "Fire silver bullet" },
             { "Q", "Cycle renderer" },
             { "V", "Collision visual" },
             { "Space", "Step physics" },
@@ -2940,11 +2977,7 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
             m_systems.cameras->MovePrimary( Camera::TravelDirection::Right, keyMovementQty * speedMult );
         }
 
-        // Capture movement buffer before Apply zeroes it — used for model nudge below
-        const Vector3 moveVec = m_systems.cameras->GetPrimaryMovementBuffer();
         m_systems.cameras->ApplyPrimaryMovementBuffer();
-
-        NudgeModelsWithCamera( moveVec );
     }
 
     // Clamp camera Y between m_terrain surface and Cfg().maxCameraHeight (not in fly mode, not in scene mode)
@@ -2959,61 +2992,6 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
         else if ( translatedCameraPosition.y > Cfg().maxCameraHeight )
         {
             m_systems.cameras->AmmendPrimaryY( Cfg().maxCameraHeight );
-        }
-    }
-}
-
-
-void SkullbonezRun::NudgeModelsWithCamera( const Vector3& moveVec )
-{
-    float magSq = VectorMagSquared( moveVec );
-    if ( magSq < 1e-8f )
-    {
-        return;
-    }
-
-    // Nudge reach: camera "body" radius added to the model's bounding radius for the overlap test.
-    static constexpr float CAMERA_NUDGE_RADIUS = 15.0f;
-
-    // Camera speed this frame (same formula as MoveCamera: keySpeed * speedMult)
-    float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;
-    float nudgeSpeed = Cfg().keySpeed * speedMult;
-
-    // Direction the camera is moving
-    Vector3 nudgeDir = moveVec * ( 1.0f / sqrtf( magSq ) );
-
-    const Vector3& camPos = m_systems.cameras->GetCameraTranslation();
-
-    int count = m_cGameModelCollection.GetModelCount();
-    for ( int i = 0; i < count; ++i )
-    {
-        GameModel& model = m_cGameModelCollection.GetModelAtIndex( i );
-        if ( model.IsFixed() )
-        {
-            continue;
-        }
-        Vector3 toModel = model.GetPosition() - camPos;
-
-        // Only push models that are in the direction we're moving — no pulling things behind us
-        if ( ( toModel * nudgeDir ) <= 0.0f )
-        {
-            continue;
-        }
-
-        float distSq = VectorMagSquared( toModel );
-        float reach = model.GetBoundingRadius() + CAMERA_NUDGE_RADIUS;
-        if ( distSq > reach * reach )
-        {
-            continue;
-        }
-
-        // Bring the ball's velocity component along the nudge direction up to camera speed.
-        // Guard prevents the formula from becoming subtractive and braking the ball.
-        const Vector3& vel = model.GetVelocity();
-        float currentComponent = vel * nudgeDir;
-        if ( currentComponent < nudgeSpeed )
-        {
-            model.SetLinearVelocity( vel + nudgeDir * ( nudgeSpeed - currentComponent ) );
         }
     }
 }
@@ -3372,69 +3350,95 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
 #endif
 
 
-void SkullbonezRun::FireProjectile( bool isBox )
+void SkullbonezRun::ResetProjectilePool()
 {
-    int count = m_cGameModelCollection.GetModelCount();
-    if ( count == 0 )
+    m_fire.bulletIndices.fill( -1 );
+    m_fire.bulletNext = 0;
+    m_fire.bulletPoolReady = false;
+}
+
+
+bool SkullbonezRun::EnsureProjectilePool()
+{
+    if ( m_fire.bulletPoolReady )
+    {
+        return true;
+    }
+
+    if ( m_cGameModelCollection.GetModelCount() > MAX_GAME_MODELS - RUNTIME_PROJECTILE_POOL_SIZE )
+    {
+        return false;
+    }
+
+    m_fire.bulletIndices.fill( -1 );
+    for ( int i = 0; i < RUNTIME_PROJECTILE_POOL_SIZE; ++i )
+    {
+        const float parkOffset = static_cast<float>( i ) * ( CAMERA_PROJECTILE_RADIUS * 4.0f );
+        GameModel bullet( &m_cWorldEnvironment,
+                          Vector3( CAMERA_PROJECTILE_PARK_BASE, CAMERA_PROJECTILE_PARK_BASE - parkOffset, CAMERA_PROJECTILE_PARK_BASE ),
+                          Vector3( CAMERA_PROJECTILE_MOMENT, CAMERA_PROJECTILE_MOMENT, CAMERA_PROJECTILE_MOMENT ),
+                          CAMERA_PROJECTILE_MASS );
+        bullet.SetTerrain( m_systems.terrain.get() );
+        bullet.SetCoefficientRestitution( CAMERA_PROJECTILE_RESTITUTION );
+        bullet.AddBoundingSphere( CAMERA_PROJECTILE_RADIUS );
+        bullet.SetRenderTint( CAMERA_PROJECTILE_SILVER_R, CAMERA_PROJECTILE_SILVER_G, CAMERA_PROJECTILE_SILVER_B, 1.0f );
+        bullet.SetFixed( true );
+
+        char name[64];
+        sprintf_s( name, sizeof( name ), "silver_bullet_%02d", i );
+        bullet.SetName( name );
+
+        const int bulletIndex = m_cGameModelCollection.GetModelCount();
+        m_cGameModelCollection.AddGameModel( std::move( bullet ) );
+        m_fire.bulletIndices[i] = bulletIndex;
+    }
+
+    m_fire.bulletNext = 0;
+    m_fire.bulletPoolReady = true;
+    return true;
+}
+
+
+void SkullbonezRun::FireProjectile()
+{
+    if ( !EnsureProjectilePool() )
     {
         return;
     }
 
-    // Pick the next model of the right type by stepping backwards through the array.
-    // m_fire.ballNext / m_fire.boxNext remembers where we left off so rapid-fire
-    // successive shots use different objects instead of always grabbing the same one.
-    int& cycleIdx = isBox ? m_fire.boxNext : m_fire.ballNext;
-    if ( cycleIdx < 0 || cycleIdx >= count )
-    {
-        cycleIdx = count - 1;
-    }
+    const int slot = m_fire.bulletNext;
+    m_fire.bulletNext = ( m_fire.bulletNext + 1 ) % RUNTIME_PROJECTILE_POOL_SIZE;
 
-    int found = -1;
-    for ( int i = 0; i < count; ++i )
+    const int found = m_fire.bulletIndices[slot];
+    if ( found < 0 || found >= m_cGameModelCollection.GetModelCount() )
     {
-        int idx = ( ( cycleIdx - i ) % count + count ) % count;
-        GameModel& candidate = m_cGameModelCollection.GetModelAtIndex( idx );
-        if ( !candidate.IsFixed() && candidate.IsBox() == isBox )
-        {
-            found = idx;
-            cycleIdx = ( ( idx - 1 ) % count + count ) % count;
-            break;
-        }
-    }
-
-    if ( found < 0 )
-    {
-        return; // No models of the requested type in the scene
+        ResetProjectilePool();
+        return;
     }
 
     GameModel& model = m_cGameModelCollection.GetModelAtIndex( found );
 
-    // Camera forward direction (normalised look vector)
     const Vector3& camPos = m_systems.cameras->GetCameraTranslation();
     const Vector3& camView = m_systems.cameras->GetCameraView();
     Vector3 forward = camView - camPos;
-    float lenSq = forward * forward;
+    const float lenSq = forward * forward;
     if ( lenSq < 1e-8f )
     {
         return;
     }
     forward = forward * ( 1.0f / sqrtf( lenSq ) );
 
-    // Spawn just ahead of the camera, clear of the model's bounding radius
-    float clearance = model.GetBoundingRadius() * 2.0f + 2.0f;
-    Vector3 spawnPos = camPos + forward * clearance;
+    const Vector3 spawnPos = camPos + forward * CAMERA_PROJECTILE_SPAWN_CLEARANCE;
 
-    // Speed matches camera walk speed; Shift gives the 3× sprint multiplier
-    float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;
-    float fireSpeed = Cfg().keySpeed * speedMult;
+    const float speedMult = Input::IsKeyDown( VK_SHIFT ) ? CAMERA_PROJECTILE_SHIFT_MULTIPLIER : 1.0f;
+    const float fireSpeed = CAMERA_PROJECTILE_SPEED * speedMult;
 
-    // Wake the recycled model before repositioning it — a settled model's sleep state
-    // must be cleared or RunSolverPhysics will skip gravity/integration and it hangs in air.
+    model.SetFixed( false );
     m_cGameModelCollection.WakeModel( found );
-
     model.SetPosition( spawnPos );
     model.SetLinearVelocity( forward * fireSpeed );
     model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+    model.SetRenderTint( CAMERA_PROJECTILE_SILVER_R, CAMERA_PROJECTILE_SILVER_G, CAMERA_PROJECTILE_SILVER_B, 1.0f );
 }
 
 
@@ -3668,8 +3672,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     // Reset input and debug state
     m_camera.isFlyMode = false;
     m_camera.isNudgeMode = false;
-    m_fire.ballNext = -1;
-    m_fire.boxNext = -1;
+    ResetProjectilePool();
     m_debug.isWaterFreezeDebug = false;
     m_debug.isWaterNoReflect = false;
     m_debug.isWaterRTReflect = false;
@@ -4551,8 +4554,7 @@ void SkullbonezRun::ApplyUIModelCountOverride( int count )
     }
 
     m_cGameModelCollection.Clear();
-    m_fire.ballNext = -1;
-    m_fire.boxNext = -1;
+    ResetProjectilePool();
     m_timers.physicsAccumulator = 0.0f;
     m_timers.fixedStepTickAccumulator = 0.0f;
     m_scene.currentFrame = 0;
@@ -4594,8 +4596,7 @@ void SkullbonezRun::ApplyUISolverObjectCounts( int balls, int boxes )
     }
 
     m_cGameModelCollection.Clear();
-    m_fire.ballNext = -1;
-    m_fire.boxNext = -1;
+    ResetProjectilePool();
     m_timers.physicsAccumulator = 0.0f;
     m_timers.fixedStepTickAccumulator = 0.0f;
     m_scene.currentFrame = 0;

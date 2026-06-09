@@ -161,7 +161,12 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
     {
         if ( !m_soaIsBox[x] )
         {
-            SkullbonezHelper::DrawSphereBatchModel( m_soaModelMatrices[x] );
+            float tintR = 1.0f;
+            float tintG = 1.0f;
+            float tintB = 1.0f;
+            float colorOverride = 0.0f;
+            m_gameModels[x].GetRenderTint( tintR, tintG, tintB, colorOverride );
+            SkullbonezHelper::DrawSphereBatchModel( m_soaModelMatrices[x], tintR, tintG, tintB, colorOverride );
         }
     }
     SkullbonezHelper::DrawSphereBatchEnd();
@@ -175,6 +180,7 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
             float tintG = 1.0f;
             float tintB = 1.0f;
             float colorOverride = 0.0f;
+            m_gameModels[x].GetRenderTint( tintR, tintG, tintB, colorOverride );
             if ( m_soaIsFixed[x] )
             {
                 constexpr float fixedBase = 241.0f / 255.0f; // #F1F1F1
@@ -1488,7 +1494,17 @@ void GameModelCollection::RunSolverPhysics( float dt )
     m_collisionCellKeys.clear();
     for ( int i = 0; i < modelCount; ++i )
     {
-        m_spatialGrid.Insert( i, m_soaPositions[i], m_soaBoundingRadii[i] );
+        const float radius = m_soaBoundingRadii[i];
+        const Vector3 displacement = m_gameModels[i].GetVelocity() * dt;
+        const float displacementSq = Vector::VectorMagSquared( displacement );
+        if ( !m_soaIsFixed[i] && displacementSq > radius * radius )
+        {
+            m_spatialGrid.InsertSwept( i, m_soaPositions[i], displacement, radius );
+        }
+        else
+        {
+            m_spatialGrid.Insert( i, m_soaPositions[i], radius );
+        }
     }
     std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
     m_spatialGrid.GetCandidatePairs( candidatePairs );

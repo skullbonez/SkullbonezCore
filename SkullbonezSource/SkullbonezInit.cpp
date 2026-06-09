@@ -306,6 +306,7 @@ struct ParsedArgs
     bool noWater = false;
     bool noSleep = false;
     int frameCountOverride = -1;
+    bool sceneLoadOnly = false;
     bool uiStress = false;
     unsigned int uiStressSeed = 0x7F4A7C15u;
     int uiStressActions = 5;
@@ -552,17 +553,11 @@ void ParseSceneArgs( const char* cmdLine, std::vector<std::string>& sceneList, b
 {
     if ( cmdLine && cmdLine[0] != '\0' )
     {
-        const char* suiteArg = strstr( cmdLine, "--suite" );
-        const char* sceneArg = strstr( cmdLine, "--scene" );
+        const char* suiteArg = FindOptionValue( cmdLine, "--suite" );
+        const char* sceneArg = FindOptionValue( cmdLine, "--scene" );
 
         if ( suiteArg )
         {
-            suiteArg += 7;
-            while ( *suiteArg == ' ' )
-            {
-                ++suiteArg;
-            }
-
             // Extract just the filename token — support both quoted and unquoted paths.
             const char* suiteStart = suiteArg;
             const char* suiteEnd = suiteArg;
@@ -607,11 +602,6 @@ void ParseSceneArgs( const char* cmdLine, std::vector<std::string>& sceneList, b
         }
         else if ( sceneArg )
         {
-            sceneArg += 7;
-            while ( *sceneArg == ' ' )
-            {
-                ++sceneArg;
-            }
             if ( *sceneArg != '\0' )
             {
                 // Support both quoted ("path with spaces") and unquoted tokens.
@@ -988,6 +978,13 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
         fprintf( stdout, "[frames] Exit after %d frames.\n", out.frameCountOverride );
     }
 
+    out.sceneLoadOnly = cmdLine && ( strstr( cmdLine, "--scene-load-only" ) != nullptr || strstr( cmdLine, "--load-scenes-only" ) != nullptr );
+    if ( out.sceneLoadOnly )
+    {
+        out.suppressExitDialog = true;
+        fprintf( stdout, "[scene-load-only] Load queued scenes without running frames.\n" );
+    }
+
     const char* uiStressArg = FindOptionValue( cmdLine, "--ui-stress", "--ui_stress" );
     if ( uiStressArg )
     {
@@ -1193,7 +1190,14 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         try
         {
             cRun.Initialise();
-            cRun.Run();
+            if ( args.sceneLoadOnly )
+            {
+                cRun.RunSceneLoadOnly();
+            }
+            else
+            {
+                cRun.Run();
+            }
 
             if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
             {
