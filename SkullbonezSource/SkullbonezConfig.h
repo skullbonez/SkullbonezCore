@@ -99,6 +99,32 @@ class SkullbonezConfig
     float contactEpsilon = 0.05f;
     float broadphaseCell = 24.0f;
 
+    // Persistent object/object contact solver tuning. These defaults match the
+    // current Catto-style PGS behavior; exposing them in config makes intentional
+    // solver experiments reproducible and ensures SkullScope can report the
+    // exact policy used for a deterministic diagnostics run.
+    float persistentContactSlop = 0.005f;
+    float persistentContactBaumgarteBeta = 0.2f;
+    float persistentContactPositionCorrectionPercent = 0.35f;
+    int persistentContactSolverIterations = 12;
+
+    // Terrain contact tuning. The terrain path uses the shared Catto row math
+    // for tangent basis and effective mass, but still has terrain-specific
+    // manifold generation and rest-support policy. These fields keep those
+    // policy choices visible while the paths continue to converge.
+    float terrainContactThreshold = 0.15f;
+    float terrainContactSlop = 0.005f;
+    float terrainContactBaumgarteBeta = 0.3f;
+    float terrainMaxBaumgarteBias = 2.0f;
+
+    // Sleep policy tuning. Sleeping is an engine optimization layered on top of
+    // Catto solving, so these thresholds are separate from contact row math.
+    // Raising them keeps more bodies awake for diagnostics; lowering them can
+    // reduce broadphase/narrowphase work once stacks have settled.
+    float physicsSleepLinearSpeed = 0.5f;
+    float physicsSleepAngularSpeed = 0.3f;
+    int physicsSleepFrames = 30;
+
     // Shadows
     float shadowMaxHeight = 50.0f;
     float shadowMaxAlpha = 0.8f;

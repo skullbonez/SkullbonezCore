@@ -90,6 +90,8 @@
 #include "SkullbonezCollisionShape.h"
 #include "SkullbonezProfiler.h"
 #include "SkullbonezObjectContactManifold.h"
+#include "SkullbonezTerrainSupportClassifier.h"
+#include "SkullbonezContactSolverCommon.h"
 #if SKULLBONEZ_INTRINSICS
 #include <immintrin.h> // SSE/SSE2/SSE4.1 intrinsics for solver inner loop
 #endif
@@ -359,7 +361,7 @@ bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
             // Include all vertices within contactThreshold of the deepest penetration.
             // A small threshold gives edge (2 verts) or vertex (1) contacts for
             // tilted boxes, and face (4) contacts for flush boxes.
-            constexpr float contactThreshold = 0.15f;
+            const float contactThreshold = (std::max)( 0.0f, Cfg().terrainContactThreshold );
             float cutoff = minSignedDist + contactThreshold;
 
             for ( int v = 0; v < 8; ++v )
@@ -449,107 +451,18 @@ bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     //
     //   Edge/point contacts still solve normal impulses. They just do not get the
     //   artificial support budget that can hold an unstable pose in place.
-    bool isBox = std::visit( []( const auto& s ) -> bool
-                             {
-        using S = std::decay_t<decltype( s )>;
-        return std::is_same_v<S, BoundingBox>; },
-                             gameModel.m_boundingVolume );
+    const BoxTerrainSupportClassification terrainSupport =
+        ClassifyBoxTerrainSupport( gameModel.m_boundingVolume,
+                                   position,
+                                   orientMat,
+                                   planeNormal,
+                                   gameModel.m_terrain,
+                                   contactCount,
+                                   Cfg().contactEpsilon,
+                                   true );
 
-    float bestFaceNormalDot = 1.0f;
-    if ( isBox )
-    {
-        // A box resting on terrain should have one of its local face normals close
-        // to the terrain plane normal. This test is cheap: the orientation matrix
-        // columns/axes already exist, and orientation does not change inside this
-        // terrain response call.
-        Vector3 axisX = orientMat * Vector3( 1.0f, 0.0f, 0.0f );
-        Vector3 axisY = orientMat * Vector3( 0.0f, 1.0f, 0.0f );
-        Vector3 axisZ = orientMat * Vector3( 0.0f, 0.0f, 1.0f );
-
-        bestFaceNormalDot = fabsf( axisX * planeNormal );
-        float absDotY = fabsf( axisY * planeNormal );
-        if ( absDotY > bestFaceNormalDot )
-        {
-            bestFaceNormalDot = absDotY;
-        }
-        float absDotZ = fabsf( axisZ * planeNormal );
-        if ( absDotZ > bestFaceNormalDot )
-        {
-            bestFaceNormalDot = absDotZ;
-        }
-    }
-
-    bool contactSupportsSleep = true;
-    if ( isBox )
-    {
-        // A one- or two-row terrain manifold can be a genuine transition contact,
-        // but it is not automatically a stable rest footprint. First require face
-        // alignment so a tilted edge does not receive support just because it is
-        // close to a terrain plane.
-        if ( contactCount > 0 && contactCount < 4 )
-        {
-            constexpr float stableFaceNormalDot = 0.95f; // ~18 degrees from the contact plane normal.
-            contactSupportsSleep = bestFaceNormalDot >= stableFaceNormalDot;
-        }
-
-        if ( contactSupportsSleep )
-        {
-            // Face-normal alignment alone is not enough on a heightfield. A box
-            // can be oriented with a plausible face normal while only one edge is
-            // actually close to the real terrain samples. Count the real OBB
-            // vertices against their own terrain heights before granting stable
-            // support policy.
-            PROFILE_SCOPED( "Frame/Physics/Terrain/BoxSupportPolicyVerts" );
-
-            int terrainSupportedVertices = 0;
-            std::visit( [&]( const auto& shape )
-                        {
-                using ShapeT = std::decay_t<decltype( shape )>;
-                if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
-                {
-                    const Vector3& he = shape.GetHalfExtents();
-                    constexpr float vertexSupportSlack = 0.15f;
-                    float supportGap = Cfg().contactEpsilon + vertexSupportSlack;
-
-                    for ( int v = 0; v < 8; ++v )
-                    {
-                        Vector3 local(
-                            ( v & 1 ) ? he.x : -he.x,
-                            ( v & 2 ) ? he.y : -he.y,
-                            ( v & 4 ) ? he.z : -he.z );
-                        Vector3 worldVertex = position + ( orientMat * local );
-                        if ( !gameModel.m_terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
-                        {
-                            continue;
-                        }
-
-                        float terrainHeight = 0.0f;
-                        Plane terrainPlane;
-                        gameModel.m_terrain->GetTerrainHeightAndPlaneAt( worldVertex.x,
-                                                                         worldVertex.z,
-                                                                         terrainHeight,
-                                                                         terrainPlane );
-                        if ( worldVertex.y - terrainHeight <= supportGap )
-                        {
-                            ++terrainSupportedVertices;
-                        }
-                    }
-                } },
-                        gameModel.m_boundingVolume );
-
-            // Three or more supported vertices means the box has a real terrain
-            // footprint. A two-vertex heightfield footprint is only accepted when
-            // the solver manifold itself has at least three rows and a face is
-            // very close to the terrain plane. That keeps uneven-but-flat terrain
-            // rests alive while rejecting the edge/point support edge case.
-            constexpr float stablePlanePatchDot = 0.99f; // ~8 degrees from the terrain plane normal.
-            bool hasHeightfieldFootprint = terrainSupportedVertices >= 3;
-            bool hasStablePlanePatch = terrainSupportedVertices >= 2 &&
-                                       contactCount >= 3 &&
-                                       bestFaceNormalDot >= stablePlanePatchDot;
-            contactSupportsSleep = hasHeightfieldFootprint || hasStablePlanePatch;
-        }
-    }
+    const bool isBox = terrainSupport.isBox;
+    const bool contactSupportsSleep = terrainSupport.supportsRestingPolicy;
 
     // Non-box terrain contacts keep the existing behavior. For boxes, this is
     // the single switch that decides whether rest-support-only solver policy is
@@ -597,9 +510,9 @@ bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
     //   they keep deep terrain vertex penetration from becoming a launch impulse.
     // Baumgarte stabilization is used ONLY for resting contacts (low v_n) with
     // a hard cap on maximum bias to prevent launching objects on impacts.
-    constexpr float penetrationSlop = 0.005f;
-    constexpr float baumgarteBeta = 0.3f;
-    constexpr float maxBaumgarteBias = 2.0f;
+    const float penetrationSlop = (std::max)( 0.0f, Cfg().terrainContactSlop );
+    const float baumgarteBeta = (std::max)( 0.0f, Cfg().terrainContactBaumgarteBeta );
+    const float maxBaumgarteBias = (std::max)( 0.0f, Cfg().terrainMaxBaumgarteBias );
     float invDt = ( changeInTime > TOLERANCE ) ? ( 1.0f / changeInTime ) : 120.0f;
 
     for ( int i = 0; i < contactCount; ++i )
@@ -623,22 +536,7 @@ bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
         //   3. t2 = n × t1  — guaranteed perpendicular to both n and t1.
         //
         // t1 and t2 together span the plane perpendicular to n at the contact point.
-        if ( fabsf( c.normal.x ) > 0.9f )
-        {
-            c.tangent1 = Vector3( 0.0f, 0.0f, 1.0f );
-        }
-        else
-        {
-            c.tangent1 = Vector3( 1.0f, 0.0f, 0.0f );
-        }
-        float d = c.tangent1 * c.normal;
-        c.tangent1 = c.tangent1 - c.normal * d;
-        float t1Mag = VectorMag( c.tangent1 );
-        if ( t1Mag > TOLERANCE )
-        {
-            c.tangent1 = c.tangent1 / t1Mag;
-        }
-        c.tangent2 = Vector::CrossProduct( c.normal, c.tangent1 );
+        ContactSolver::BuildContactTangents( c.normal, c.tangent1, c.tangent2 );
 
         // Normal effective mass: K = 1/m + n . ((I^-1 * (r x n)) x r)
         // CATTO REF:
@@ -648,10 +546,7 @@ bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
         // REASON:
         //   The dot/cross expression below is the scalar expansion of that
         //   denominator for one body against static ground.
-        Vector3 rCrossN = Vector::CrossProduct( c.r, c.normal );
-        Vector3 iRCrossN = applyInvInertia( rCrossN );
-        float kN = invMass + ( c.normal * Vector::CrossProduct( iRCrossN, c.r ) );
-        c.normalMass = ( kN > TOLERANCE ) ? ( 1.0f / kN ) : 0.0f;
+        c.normalMass = ContactSolver::ComputeStaticBodyEffectiveMass( invMass, c.normal, c.r, applyInvInertia );
 
         // Tangent effective masses.
         // CATTO REF:
@@ -661,15 +556,8 @@ bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
         // REASON:
         //   Tangential velocity correction must respect rotational inertia too;
         //   otherwise friction would stop center-of-mass sliding but miss spin.
-        Vector3 rCrossT1 = Vector::CrossProduct( c.r, c.tangent1 );
-        Vector3 iRCrossT1 = applyInvInertia( rCrossT1 );
-        float kT1 = invMass + ( c.tangent1 * Vector::CrossProduct( iRCrossT1, c.r ) );
-        c.tangentMass1 = ( kT1 > TOLERANCE ) ? ( 1.0f / kT1 ) : 0.0f;
-
-        Vector3 rCrossT2 = Vector::CrossProduct( c.r, c.tangent2 );
-        Vector3 iRCrossT2 = applyInvInertia( rCrossT2 );
-        float kT2 = invMass + ( c.tangent2 * Vector::CrossProduct( iRCrossT2, c.r ) );
-        c.tangentMass2 = ( kT2 > TOLERANCE ) ? ( 1.0f / kT2 ) : 0.0f;
+        c.tangentMass1 = ContactSolver::ComputeStaticBodyEffectiveMass( invMass, c.tangent1, c.r, applyInvInertia );
+        c.tangentMass2 = ContactSolver::ComputeStaticBodyEffectiveMass( invMass, c.tangent2, c.r, applyInvInertia );
 
         // Bias: Baumgarte only for resting contacts (|v_n| below restitution threshold)
         // CATTO REF:

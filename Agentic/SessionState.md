@@ -6,9 +6,9 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 
 | Field | Value |
 |-------|-------|
-| Branch | `codex/demo-gl-profiler-overlay` |
-| Last commit | `c7ab05b` - docs: reduce agent context cost |
-| Pending work | Demo CLI overlay flags and autonomous-loop handoff docs are uncommitted. |
+| Branch | `catto-final` |
+| Last commit | `14795e0` |
+| Pending work | Catto physics finalisation changes are uncommitted in the sibling worktree `C:\SkullbonezCore-catto`. |
 | Uncommitted changes | See `git status --short`; use `tools\find_git.bat` first if Git is not on PATH. |
 
 ## Active Notes
@@ -30,7 +30,7 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Natural contact solver plan | Pending | See `Agentic/Plans/physics-natural-contact-solver-plan.md`. |
+| Catto physics solver finalisation | Recent | Config-backed Catto solver knobs, solver SkullScope stats, sleep/no-sleep perf coverage, sleep-pair pruning, and shared contact-row math are implemented in `catto-final`; validate with `tools\validate_full.bat`. |
 | SIMD/SSE math optimization pass | Pending | Reported large wins in matrix and render markers; verify current code before continuing. |
 | Camera tween reflection fix | Recent | Reflection pass should use the exact render camera state during camera transitions. |
 | DX12 GPU timer readback | Recent | Non-blocking readback restored when `pipeline_sync` is off. |

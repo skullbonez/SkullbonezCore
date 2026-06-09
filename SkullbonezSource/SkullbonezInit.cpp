@@ -131,6 +131,7 @@ struct ParsedArgs
     bool fixedStep = false;
     unsigned int seedOverride = 0; // 0 = not set
     bool noWater = false;
+    bool noSleep = false;
     bool showProfiler = false;
     bool hideTopText = false;
     bool showBroadphaseVisualizer = false;
@@ -731,6 +732,11 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
     {
         fprintf( stdout, "[water] Fluid surface starts below terrain.\n" );
     }
+    out.noSleep = cmdLine && strstr( cmdLine, "--no-sleep" ) != nullptr;
+    if ( out.noSleep )
+    {
+        fprintf( stdout, "[physics] Sleep disabled via command line.\n" );
+    }
 
     out.showProfiler = cmdLine && ( strstr( cmdLine, "--profiler" ) != nullptr || strstr( cmdLine, "--show-profiler" ) != nullptr );
     if ( out.showProfiler )
@@ -832,6 +838,10 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         if ( args.noWater )
         {
             cRun.SetNoWaterOverride();
+        }
+        if ( args.noSleep )
+        {
+            cRun.SetNoSleepOverride();
         }
         if ( args.showProfiler )
         {

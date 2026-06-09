@@ -9,6 +9,7 @@
 #include "SkullbonezRenderBackendDX11.h"
 #include "SkullbonezRenderBackendDX12.h"
 #include "SkullbonezImpulseSolver.h"
+#include "SkullbonezTerrainSupportClassifier.h"
 #include <time.h>
 #include <cstring>
 #include <cstddef>
@@ -338,6 +339,13 @@ void SkullbonezRun::SetSeedOverride( unsigned int seed )
 void SkullbonezRun::SetNoWaterOverride()
 {
     m_cmdNoWater = true;
+}
+
+
+void SkullbonezRun::SetNoSleepOverride()
+{
+    m_cmdNoSleep = true;
+    m_cGameModelCollection.SetPhysicsSleepEnabled( false );
 }
 
 
@@ -2936,55 +2944,16 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     if ( std::holds_alternative<BoundingBox>( shape ) && m_systems.terrain )
     {
         const BoundingBox& box = std::get<BoundingBox>( shape );
-        const Vector3& he = box.GetHalfExtents();
         Quaternion qCopy = model.GetOrientation();
         RotationMatrix orientMat = qCopy.GetOrientationMatrix();
-        constexpr float vertexSupportSlack = 0.15f;
-        float supportGap = Cfg().contactEpsilon + vertexSupportSlack;
-        bool foundVertex = false;
-        float minGap = FLT_MAX;
-        float maxGap = -FLT_MAX;
-        int supported = 0;
+        const BoxTerrainVertexSupportProbe supportProbe =
+            ProbeBoxTerrainVertices( box, pos, orientMat, *m_systems.terrain, Cfg().contactEpsilon, false );
 
-        for ( int v = 0; v < 8; ++v )
+        if ( supportProbe.hasTerrainGaps )
         {
-            Vector3 local(
-                ( v & 1 ) ? he.x : -he.x,
-                ( v & 2 ) ? he.y : -he.y,
-                ( v & 4 ) ? he.z : -he.z );
-            Vector3 worldVertex = pos + ( orientMat * local );
-            if ( !m_systems.terrain->IsInBounds( worldVertex.x, worldVertex.z ) )
-            {
-                continue;
-            }
-
-            float vertexTerrainHeight = 0.0f;
-            Plane vertexPlane;
-            m_systems.terrain->GetTerrainHeightAndPlaneAt( worldVertex.x,
-                                                           worldVertex.z,
-                                                           vertexTerrainHeight,
-                                                           vertexPlane );
-            float gap = worldVertex.y - vertexTerrainHeight;
-            if ( gap <= supportGap )
-            {
-                ++supported;
-            }
-            if ( gap < minGap )
-            {
-                minGap = gap;
-            }
-            if ( gap > maxGap )
-            {
-                maxGap = gap;
-            }
-            foundVertex = true;
-        }
-
-        if ( foundVertex )
-        {
-            boxTerrainSupportedVertices = supported;
-            boxMinTerrainGap = minGap;
-            boxMaxTerrainGap = maxGap;
+            boxTerrainSupportedVertices = supportProbe.supportedVertices;
+            boxMinTerrainGap = supportProbe.minTerrainGap;
+            boxMaxTerrainGap = supportProbe.maxTerrainGap;
         }
     }
 
@@ -3003,6 +2972,7 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     fprintf( f, "rng_seed,%u\n", m_scene.rngSeed );
     fprintf( f, "cmd_seed_override,%u\n", m_cmdSeedOverride );
     fprintf( f, "cmd_no_water,%d\n", m_cmdNoWater ? 1 : 0 );
+    fprintf( f, "cmd_no_sleep,%d\n", m_cmdNoSleep ? 1 : 0 );
     fprintf( f, "fixed_step_effective,%d\n", m_scene.isFixedStep ? 1 : 0 );
     fprintf( f, "cmd_fixed_step_override,%d\n", m_cmdFixedStep ? 1 : 0 );
     fprintf( f, "time_scale,%.6f\n", m_scene.timeScale );
@@ -3014,24 +2984,26 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     if ( m_scene.isSceneMode )
     {
         fprintf( f,
-                 "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --scene \"%s\" --seed %u --time-scale %.6f%s%s%s\n",
+                 "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --scene \"%s\" --seed %u --time-scale %.6f%s%s%s%s\n",
                  rendererArg,
                  scenePath,
                  m_scene.rngSeed,
                  m_scene.timeScale,
                  m_scene.isFixedStep ? " --fixed-step" : "",
                  m_cmdNoWater ? " --no-water" : "",
+                 m_cmdNoSleep ? " --no-sleep" : "",
                  generatedObjectArg );
     }
     else
     {
         fprintf( f,
-                 "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --seed %u --time-scale %.6f%s%s%s\n",
+                 "repro_command_hint,Debug\\SKULLBONEZ_CORE.exe --renderer %s --seed %u --time-scale %.6f%s%s%s%s\n",
                  rendererArg,
                  m_scene.rngSeed,
                  m_scene.timeScale,
                  m_scene.isFixedStep ? " --fixed-step" : "",
                  m_cmdNoWater ? " --no-water" : "",
+                 m_cmdNoSleep ? " --no-sleep" : "",
                  generatedObjectArg );
     }
     fprintf( f, "water_hidden,%d\n", m_debug.isWaterHidden ? 1 : 0 );
@@ -3807,6 +3779,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     {
         m_scene.isFixedStep = true;
     }
+    m_cGameModelCollection.SetPhysicsSleepEnabled( !m_cmdNoSleep );
     if ( m_cmdHasPhysicsDebugFlagsOverride )
     {
         m_debug.physicsDebugFlags = m_cmdPhysicsDebugFlagsOverride;
@@ -3892,7 +3865,7 @@ void SkullbonezRun::BeginPhysicsDiagnosticsRun( const char* scenePath )
     std::string escapedSolver = JsonEscape( solverName );
 
     Log().Writef( m_physicsDiagnostics.path,
-                  "{\"kind\":\"run\",\"run\":\"%s\",\"scene\":\"%s\",\"scene_index\":%d,\"load_count\":%d,\"manual_reset_count\":%d,\"renderer\":\"%s\",\"solver\":\"%s\",\"seed\":%u,\"fixed_step\":%d,\"fixed_step_forced_by_diag\":%d,\"target_frames\":%d,\"model_count\":%d,\"config\":{\"gravity\":%.6f,\"contact_epsilon\":%.6f,\"contact_restitution_threshold\":%.6f,\"friction_coeff\":%.6f,\"rolling_friction_coeff\":%.6f,\"spin_friction_coeff\":%.6f,\"broadphase_cell\":%.6f}}\n",
+                  "{\"kind\":\"run\",\"run\":\"%s\",\"scene\":\"%s\",\"scene_index\":%d,\"load_count\":%d,\"manual_reset_count\":%d,\"renderer\":\"%s\",\"solver\":\"%s\",\"seed\":%u,\"fixed_step\":%d,\"fixed_step_forced_by_diag\":%d,\"target_frames\":%d,\"model_count\":%d,\"config\":{\"gravity\":%.6f,\"contact_epsilon\":%.6f,\"contact_restitution_threshold\":%.6f,\"friction_coeff\":%.6f,\"rolling_friction_coeff\":%.6f,\"spin_friction_coeff\":%.6f,\"broadphase_cell\":%.6f,\"persistent_contact_slop\":%.6f,\"persistent_contact_baumgarte_beta\":%.6f,\"persistent_contact_position_correction_percent\":%.6f,\"persistent_contact_solver_iterations\":%d,\"terrain_contact_threshold\":%.6f,\"terrain_contact_slop\":%.6f,\"terrain_contact_baumgarte_beta\":%.6f,\"terrain_max_baumgarte_bias\":%.6f,\"physics_sleep_linear_speed\":%.6f,\"physics_sleep_angular_speed\":%.6f,\"physics_sleep_frames\":%d}}\n",
                   m_physicsDiagnostics.currentRunId,
                   escapedScene.c_str(),
                   m_scene.currentSceneIndex,
@@ -3911,7 +3884,18 @@ void SkullbonezRun::BeginPhysicsDiagnosticsRun( const char* scenePath )
                   Cfg().frictionCoeff,
                   Cfg().rollingFrictionCoeff,
                   Cfg().spinFrictionCoeff,
-                  Cfg().broadphaseCell );
+                  Cfg().broadphaseCell,
+                  Cfg().persistentContactSlop,
+                  Cfg().persistentContactBaumgarteBeta,
+                  Cfg().persistentContactPositionCorrectionPercent,
+                  Cfg().persistentContactSolverIterations,
+                  Cfg().terrainContactThreshold,
+                  Cfg().terrainContactSlop,
+                  Cfg().terrainContactBaumgarteBeta,
+                  Cfg().terrainMaxBaumgarteBias,
+                  Cfg().physicsSleepLinearSpeed,
+                  Cfg().physicsSleepAngularSpeed,
+                  Cfg().physicsSleepFrames );
 }
 
 

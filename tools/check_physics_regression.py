@@ -37,28 +37,33 @@ def main():
             print(f"  BASELINE CREATED: {baseline_name} ({len(lines)} lines)")
             continue
 
-        with open(output_path) as f:
-            current = f.readlines()
-        with open(baseline_path) as f:
-            baseline = f.readlines()
+        with open(output_path, "rb") as f:
+            current = f.read()
+        with open(baseline_path, "rb") as f:
+            baseline = f.read()
 
         if current == baseline:
-            print(f"  PASS: {baseline_name} ({len(current)} lines, exact match)")
+            line_count = current.count(b"\n")
+            print(f"  PASS: {baseline_name} ({line_count} lines, byte-exact match)")
         else:
             all_pass = False
-            if len(current) != len(baseline):
-                print(f"  FAIL: {baseline_name} row count {len(current)} vs baseline {len(baseline)}")
+            current_line_count = current.count(b"\n")
+            baseline_line_count = baseline.count(b"\n")
+            if current_line_count != baseline_line_count:
+                print(f"  FAIL: {baseline_name} row count {current_line_count} vs baseline {baseline_line_count}")
             else:
-                diffs = [
-                    (i + 1, b.rstrip(), c.rstrip())
-                    for i, (b, c) in enumerate(zip(baseline, current))
-                    if b != c
-                ]
+                baseline_lines = baseline.splitlines()
+                current_lines = current.splitlines()
+                diffs = [(i + 1, b, c) for i, (b, c) in enumerate(zip(baseline_lines, current_lines)) if b != c]
+                if not diffs:
+                    print(f"  FAIL: {baseline_name} byte mismatch with identical text lines; check newline encoding.")
+                    continue
+
                 print(f"  FAIL: {baseline_name} - {len(diffs)} lines differ (first at line {diffs[0][0]}):")
                 for lineno, b, c in diffs[:5]:
                     print(f"    line {lineno}:")
-                    print(f"      baseline: {b}")
-                    print(f"      current:  {c}")
+                    print(f"      baseline: {b.decode(errors='replace')}")
+                    print(f"      current:  {c.decode(errors='replace')}")
 
     return 0 if all_pass else 1
 

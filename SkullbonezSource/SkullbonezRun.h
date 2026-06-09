@@ -235,6 +235,7 @@ class SkullbonezRun
     bool m_cmdFixedStep = false;         // CLI --fixed-step override applied after each scene load
     unsigned int m_cmdSeedOverride = 0;  // CLI --seed override applied after each scene load (0 = not set)
     bool m_cmdNoWater = false;           // CLI --no-water starts fluid below terrain
+    bool m_cmdNoSleep = false;           // CLI --no-sleep keeps physics bodies awake for diagnostics/perf comparison
     GeneratedObjectTypeOverride m_generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     float m_UITimeScaleOverride = 0.0f;
     int m_UIModelCountOverride = -1;
@@ -332,6 +333,7 @@ class SkullbonezRun
     void SetFixedStepOverride();               // Force fixed-step for every scene loaded (CLI --fixed-step)
     void SetSeedOverride( unsigned int seed ); // Override RNG seed for every scene loaded (CLI --seed)
     void SetNoWaterOverride();                 // Start scenes with fluid below terrain (CLI --no-water)
+    void SetNoSleepOverride();                 // Disable physics sleeping for every scene loaded (CLI --no-sleep)
     void SetInitialOverlayMode( OverlayMode mode );
     void SetTopTextHidden( bool hidden );
     void SetBroadphaseVisualizerEnabled( bool enabled );

@@ -109,6 +109,7 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
 
     auto& m_gameModels = collection.m_gameModels;
     auto& m_persistentContacts = collection.m_persistentContacts;
+    auto& m_persistentContactSolverStats = collection.m_persistentContactSolverStats;
     auto& m_sleepIslandParent = collection.m_sleepIslandParent;
     auto& m_sleepSupportedThisFrame = collection.m_sleepSupportedThisFrame;
     auto& m_sleepInhibitedThisFrame = collection.m_sleepInhibitedThisFrame;
@@ -325,6 +326,20 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
                   maxOmegaBody,
                   maxPenetration,
                   maxPenetrationContact );
+
+    Log().Writef( m_physicsDiagnosticsPath,
+                  "{\"kind\":\"solver_stats\",\"run\":\"%s\",\"frame\":%d,\"row_count\":%d,\"cache_previous_rows\":%d,\"cache_hits\":%d,\"cache_misses\":%d,\"warm_started_rows\":%d,\"position_correction_rows\":%d,\"position_correction_total\":%.6f,\"position_correction_max\":%.6f,\"solver_iterations\":%d}\n",
+                  m_physicsDiagnosticsRunId,
+                  frame,
+                  m_persistentContactSolverStats.rowCount,
+                  m_persistentContactSolverStats.cachePreviousRows,
+                  m_persistentContactSolverStats.cacheHits,
+                  m_persistentContactSolverStats.cacheMisses,
+                  m_persistentContactSolverStats.warmStartedRows,
+                  m_persistentContactSolverStats.positionCorrectionRows,
+                  m_persistentContactSolverStats.positionCorrectionTotal,
+                  m_persistentContactSolverStats.positionCorrectionMax,
+                  m_persistentContactSolverStats.solverIterations );
 
     if ( m_physicsDiagnosticsHasPrevEnergy )
     {

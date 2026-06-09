@@ -5,6 +5,7 @@
 #include "SkullbonezHelper.h"
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezImpulseSolver.h"
+#include "SkullbonezContactSolverCommon.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -78,6 +79,7 @@ void GameModelCollection::Clear()
     m_sleepIslandCanSleep.clear();
     m_persistentContacts.clear();
     m_persistentContactCache.clear();
+    m_persistentContactSolverStats = PersistentContactSolverStats();
     m_persistentContactCounts.clear();
     m_solverBodies.clear();
     m_physicsDebugContacts.clear();
@@ -436,6 +438,12 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
         m_sleepState.assign( modelCount, 0 );
         m_sleepCounter.assign( modelCount, 0 );
     }
+    if ( !m_sleepEnabled )
+    {
+        std::fill( m_sleepState.begin(), m_sleepState.end(), static_cast<uint8_t>( 0 ) );
+        std::fill( m_sleepCounter.begin(), m_sleepCounter.end(), static_cast<uint8_t>( 0 ) );
+        std::fill( m_sleepIslandVisualId.begin(), m_sleepIslandVisualId.end(), 0 );
+    }
     for ( int i = 0; i < modelCount; ++i )
     {
         if ( m_gameModels[i].IsFixed() )
@@ -528,6 +536,21 @@ void GameModelCollection::WakeModel( int index )
 }
 
 
+void GameModelCollection::SetPhysicsSleepEnabled( bool enabled )
+{
+    m_sleepEnabled = enabled;
+    if ( enabled )
+    {
+        return;
+    }
+
+    std::fill( m_sleepState.begin(), m_sleepState.end(), static_cast<uint8_t>( 0 ) );
+    std::fill( m_sleepCounter.begin(), m_sleepCounter.end(), static_cast<uint8_t>( 0 ) );
+    std::fill( m_sleepIslandVisualId.begin(), m_sleepIslandVisualId.end(), 0 );
+    std::fill( m_sleepIslandAssignedVisualId.begin(), m_sleepIslandAssignedVisualId.end(), 0 );
+}
+
+
 #ifdef _DEBUG
 void GameModelCollection::SetPhysicsRegressionLogPath( const char* path )
 {
@@ -585,6 +608,8 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     // that are touching or nearly touching, then solve those rules like tiny springs
     // with hard limits: push apart along the normal, resist sliding along tangents.
     const int modelCount = static_cast<int>( m_gameModels.size() );
+    m_persistentContactSolverStats = PersistentContactSolverStats();
+    m_persistentContactSolverStats.cachePreviousRows = static_cast<int>( m_persistentContactCache.size() );
     m_persistentContactCounts.assign( modelCount, 0 );
     if ( modelCount <= 1 || m_candidatePairs.empty() )
     {
@@ -603,7 +628,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     //   do not jitter while chasing floating-point dust.
     // Small allowed overlap. Without this tolerance, floating-point noise makes
     // the solver chase microscopic errors and resting balls visibly tremble.
-    constexpr float contactSlop = 0.005f;
+    const float contactSlop = (std::max)( 0.0f, Cfg().persistentContactSlop );
 
     // CATTO REF:
     //   Catto 2005, PDF p. 8, Section 3.6, Equation 15 and PDF p. 10,
@@ -612,7 +637,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     // Baumgarte bias is a gentle "please separate" velocity for bodies that are
     // already interpenetrating. It removes overlap over several ticks instead of
     // teleporting everything apart in one harsh correction.
-    constexpr float baumgarteBeta = 0.2f;
+    const float baumgarteBeta = (std::max)( 0.0f, Cfg().persistentContactBaumgarteBeta );
 
     // ENGINE-SPECIFIC / NOVEL:
     //   Catto uses the bias term for penetration correction. This partial
@@ -620,7 +645,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     //   object manifolds; it is intentionally partial so stacks do not pop.
     // A final direct positional nudge catches the remaining overlap after the
     // velocity solve. The percent is deliberately partial so stacks do not pop.
-    constexpr float positionCorrectionPercent = 0.35f;
+    const float positionCorrectionPercent = (std::max)( 0.0f, (std::min)( Cfg().persistentContactPositionCorrectionPercent, 1.0f ) );
 
     // CATTO REF:
     //   Catto 2005, PDF p. 15, Section 7, and PDF pp. 16-17, Section 7.2,
@@ -629,7 +654,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     // Projected Gauss-Seidel works by revisiting every contact repeatedly. Each
     // visit improves the answer a little; twelve passes is a compromise between
     // stack stability and keeping the physics hot path affordable.
-    constexpr int solverIterations = 12;
+    const int solverIterations = (std::max)( 1, Cfg().persistentContactSolverIterations );
     const float invDt = ( dt > TOLERANCE ) ? ( 1.0f / dt ) : 120.0f;
 
     // CATTO REF:
@@ -692,24 +717,6 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             }
         }
     }
-
-    auto clampFrictionVector = []( float& accT1, float& accT2, float limit )
-    {
-        // ENGINE-SPECIFIC / NOVEL:
-        //   Catto 2005, PDF p. 12, Equations 24-25 clamp u1/u2 independently.
-        //   That is simple and robust, but in 3D it permits diagonal tangent
-        //   magnitude up to sqrt(2)*limit. This helper clamps the two tangent
-        //   accumulators as one 2D cone, preserving the same friction budget in
-        //   every tangent direction.
-        float limitSq = limit * limit;
-        float magSq = accT1 * accT1 + accT2 * accT2;
-        if ( magSq > limitSq && magSq > TOLERANCE * TOLERANCE )
-        {
-            float scale = limit / sqrtf( magSq );
-            accT1 *= scale;
-            accT2 *= scale;
-        }
-    };
 
     if ( m_persistentContactCache.size() > 1 )
     {
@@ -939,6 +946,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         m_physicsDebugContacts.clear();
         return;
     }
+    m_persistentContactSolverStats.rowCount = static_cast<int>( m_persistentContacts.size() );
 
     // Second pass: precompute each row. This is the "setup" part of the paper:
     // CATTO REF:
@@ -961,21 +969,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             //   tangent directions u1/u2 perpendicular to the contact normal.
             // The normal is only one direction. In 3D, sliding can happen in any
             // sideways direction, so we create two perpendicular sideways axes.
-            if ( fabsf( c.normal.x ) > 0.9f )
-            {
-                c.tangent1 = Vector3( 0.0f, 0.0f, 1.0f );
-            }
-            else
-            {
-                c.tangent1 = Vector3( 1.0f, 0.0f, 0.0f );
-            }
-            c.tangent1 -= c.normal * ( c.tangent1 * c.normal );
-            float tangentMag = Vector::VectorMag( c.tangent1 );
-            if ( tangentMag > TOLERANCE )
-            {
-                c.tangent1 /= tangentMag;
-            }
-            c.tangent2 = Vector::CrossProduct( c.normal, c.tangent1 );
+            Physics::ContactSolver::BuildContactTangents( c.normal, c.tangent1, c.tangent2 );
 
             // CATTO REF:
             //   Catto 2005, PDF p. 17, Algorithm 4 computes d_i = J_i*B_i. With
@@ -985,26 +979,38 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             // Effective mass says how stubborn this contact is. A light ball pushed
             // through its center moves easily; a heavy or off-center body resists more
             // because some of the push also has to rotate it.
-            Vector3 rAxN = Vector::CrossProduct( c.rA, c.normal );
-            Vector3 rBxN = Vector::CrossProduct( c.rB, c.normal );
-            float kNormal = bodyA.invMass + bodyB.invMass +
-                            c.normal * Vector::CrossProduct( applyInvInertia( c.bodyA, rAxN ), c.rA ) +
-                            c.normal * Vector::CrossProduct( applyInvInertia( c.bodyB, rBxN ), c.rB );
-            c.normalMass = ( kNormal > TOLERANCE ) ? ( 1.0f / kNormal ) : 0.0f;
-
-            Vector3 rAxT1 = Vector::CrossProduct( c.rA, c.tangent1 );
-            Vector3 rBxT1 = Vector::CrossProduct( c.rB, c.tangent1 );
-            float kT1 = bodyA.invMass + bodyB.invMass +
-                        c.tangent1 * Vector::CrossProduct( applyInvInertia( c.bodyA, rAxT1 ), c.rA ) +
-                        c.tangent1 * Vector::CrossProduct( applyInvInertia( c.bodyB, rBxT1 ), c.rB );
-            c.tangentMass1 = ( kT1 > TOLERANCE ) ? ( 1.0f / kT1 ) : 0.0f;
-
-            Vector3 rAxT2 = Vector::CrossProduct( c.rA, c.tangent2 );
-            Vector3 rBxT2 = Vector::CrossProduct( c.rB, c.tangent2 );
-            float kT2 = bodyA.invMass + bodyB.invMass +
-                        c.tangent2 * Vector::CrossProduct( applyInvInertia( c.bodyA, rAxT2 ), c.rA ) +
-                        c.tangent2 * Vector::CrossProduct( applyInvInertia( c.bodyB, rBxT2 ), c.rB );
-            c.tangentMass2 = ( kT2 > TOLERANCE ) ? ( 1.0f / kT2 ) : 0.0f;
+            auto applyInvInertiaA = [&]( const Vector3& v ) -> Vector3
+            {
+                return applyInvInertia( c.bodyA, v );
+            };
+            auto applyInvInertiaB = [&]( const Vector3& v ) -> Vector3
+            {
+                return applyInvInertia( c.bodyB, v );
+            };
+            c.normalMass = Physics::ContactSolver::ComputeTwoBodyEffectiveMass(
+                bodyA.invMass,
+                bodyB.invMass,
+                c.normal,
+                c.rA,
+                c.rB,
+                applyInvInertiaA,
+                applyInvInertiaB );
+            c.tangentMass1 = Physics::ContactSolver::ComputeTwoBodyEffectiveMass(
+                bodyA.invMass,
+                bodyB.invMass,
+                c.tangent1,
+                c.rA,
+                c.rB,
+                applyInvInertiaA,
+                applyInvInertiaB );
+            c.tangentMass2 = Physics::ContactSolver::ComputeTwoBodyEffectiveMass(
+                bodyA.invMass,
+                bodyB.invMass,
+                c.tangent2,
+                c.rA,
+                c.rB,
+                applyInvInertiaA,
+                applyInvInertiaB );
 
             Vector3 velA = bodyA.linearVelocity + Vector::CrossProduct( bodyA.angularVelocity, c.rA );
             Vector3 velB = bodyB.linearVelocity + Vector::CrossProduct( bodyB.angularVelocity, c.rB );
@@ -1061,11 +1067,21 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
                 } );
             if ( cachedIt != m_persistentContactCache.end() && cachedIt->key == c.key )
             {
+                ++m_persistentContactSolverStats.cacheHits;
                 c.accN = ( cachedIt->accN > 0.0f ) ? cachedIt->accN : 0.0f;
                 c.accT1 = cachedIt->accT1;
                 c.accT2 = cachedIt->accT2;
-                clampFrictionVector( c.accT1, c.accT2, c.frictionLimit );
+                Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, c.frictionLimit );
                 c.warmStarted = c.accN > 0.0f || fabsf( c.accT1 ) > 0.0f || fabsf( c.accT2 ) > 0.0f;
+            }
+            else
+            {
+                ++m_persistentContactSolverStats.cacheMisses;
+            }
+
+            if ( c.warmStarted )
+            {
+                ++m_persistentContactSolverStats.warmStartedRows;
             }
 
             if ( c.accN > 0.0f || fabsf( c.accT1 ) > 0.0f || fabsf( c.accT2 ) > 0.0f )
@@ -1096,6 +1112,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/SolveRows" );
         for ( int iter = 0; iter < solverIterations; ++iter )
         {
+            m_persistentContactSolverStats.solverIterations = iter + 1;
             float iterImpulseSq = 0.0f;
             for ( PersistentContact& c : m_persistentContacts )
             {
@@ -1135,7 +1152,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
                 // old per-axis clamp allowed diagonal friction to exceed the budget.
                 c.accT1 = oldAccT1 + lambdaT1;
                 c.accT2 = oldAccT2 + lambdaT2;
-                clampFrictionVector( c.accT1, c.accT2, c.frictionLimit );
+                Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, c.frictionLimit );
                 float deltaT1 = c.accT1 - oldAccT1;
                 float deltaT2 = c.accT2 - oldAccT2;
                 applyImpulse( c, c.tangent1 * deltaT1 + c.tangent2 * deltaT2 );
@@ -1228,6 +1245,13 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             }
 
             Vector3 correction = c.normal * ( ( c.penetration - contactSlop ) * positionCorrectionPercent / totalInvMass );
+            float correctionMagnitude = Vector::VectorMag( correction );
+            ++m_persistentContactSolverStats.positionCorrectionRows;
+            m_persistentContactSolverStats.positionCorrectionTotal += correctionMagnitude;
+            if ( correctionMagnitude > m_persistentContactSolverStats.positionCorrectionMax )
+            {
+                m_persistentContactSolverStats.positionCorrectionMax = correctionMagnitude;
+            }
             a.SetPosition( a.GetPosition() - correction * invMassA );
             b.SetPosition( b.GetPosition() + correction * invMassB );
         }
@@ -1333,11 +1357,21 @@ void GameModelCollection::RunSolverPhysics( float dt )
 {
     const int modelCount = static_cast<int>( m_gameModels.size() );
 
-    // Sleep thresholds: object goes to sleep after SLEEP_FRAMES consecutive frames
-    // with both linear speed² < SLEEP_LINEAR_SQ and angular speed² < SLEEP_ANGULAR_SQ.
-    constexpr float SLEEP_LINEAR_SQ = 0.5f * 0.5f;  // 0.5 units/s
-    constexpr float SLEEP_ANGULAR_SQ = 0.3f * 0.3f; // 0.3 rad/s
-    constexpr uint8_t SLEEP_FRAMES = 30;            // ~0.5s at 60Hz fixed step
+    // Sleep thresholds are config-backed because they directly trade CPU cost
+    // against visible settling behavior. Higher thresholds keep bodies awake
+    // longer, which is useful while validating the solver but expensive in
+    // sleeping-heavy scenes. Lower thresholds save broadphase/narrowphase work
+    // sooner, but if set too aggressively they can freeze objects before the
+    // persistent contact solver has converged to a stable support impulse.
+    //
+    // The counter storage is still uint8_t, so physics_sleep_frames is clamped
+    // to 1..255 here. Widening that storage is a separate data-layout change and
+    // should be measured before doing it in a hot per-body array.
+    const float sleepLinear = (std::max)( 0.0f, Cfg().physicsSleepLinearSpeed );
+    const float sleepAngular = (std::max)( 0.0f, Cfg().physicsSleepAngularSpeed );
+    const float SLEEP_LINEAR_SQ = sleepLinear * sleepLinear;
+    const float SLEEP_ANGULAR_SQ = sleepAngular * sleepAngular;
+    const uint8_t SLEEP_FRAMES = static_cast<uint8_t>( (std::max)( 1, (std::min)( Cfg().physicsSleepFrames, 255 ) ) );
 
     // Apply forces to awake models only
     PROFILE_BEGIN( "Frame/Physics/ApplyForces" );
@@ -1366,6 +1400,36 @@ void GameModelCollection::RunSolverPhysics( float dt )
     }
     std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
     m_spatialGrid.GetCandidatePairs( candidatePairs );
+    {
+        PROFILE_SCOPED( "Frame/Physics/Broadphase/PruneSleepPairs" );
+        // The spatial grid is still populated with sleeping bodies because an
+        // awake body must be able to find and wake a sleeping neighbor. What we
+        // do not need is sleep/sleep work: two sleeping dynamic bodies cannot
+        // generate a new wake event because neither has wake energy, and their
+        // previous support relationship is already represented by sleep state
+        // and island visual ids. Pruning these pairs immediately keeps both the
+        // swept narrowphase and the persistent contact manifold builder from
+        // re-checking pairs that would only be skipped later.
+        //
+        // This is deliberately narrower than a separate awake/sleeping grid.
+        // The full partition is still a valid future optimization, but this
+        // single pass removes the common dead work without changing pair
+        // generation order for any pair that can affect simulation behavior.
+        candidatePairs.erase(
+            std::remove_if( candidatePairs.begin(),
+                            candidatePairs.end(),
+                            [&]( const std::pair<int, int>& pair )
+                            {
+                                const int a = pair.first;
+                                const int b = pair.second;
+                                return a >= 0 && b >= 0 &&
+                                       a < static_cast<int>( m_sleepState.size() ) &&
+                                       b < static_cast<int>( m_sleepState.size() ) &&
+                                       m_sleepState[a] != 0 &&
+                                       m_sleepState[b] != 0;
+                            } ),
+            candidatePairs.end() );
+    }
     PROFILE_END( "Frame/Physics/Broadphase" );
 
     auto hasWakeEnergy = [&]( int awakeIndex ) -> bool
@@ -1728,6 +1792,15 @@ void GameModelCollection::RunSolverPhysics( float dt )
         {
             m_sleepIslandEligible[root] = 0;
         }
+    }
+
+    if ( !m_sleepEnabled )
+    {
+        std::fill( m_sleepCounter.begin(), m_sleepCounter.end(), static_cast<uint8_t>( 0 ) );
+        m_sleepIslandCanSleep.assign( modelCount, 0 );
+        m_sleepIslandAssignedVisualId.assign( modelCount, 0 );
+        PROFILE_END( "Frame/Physics/Integrate" );
+        return;
     }
 
     for ( int x = 0; x < modelCount; ++x )

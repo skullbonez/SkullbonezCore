@@ -19,7 +19,8 @@ import sys
 REPO = Path(os.environ.get("SKORE_REPO", Path(__file__).resolve().parents[1])).resolve()
 BASELINE = REPO / "TestOutput" / "baselines" / "physics_query_varied.json"
 TRACE = REPO / "Debug" / "physics_query_varied.physicsdiag.ndjson"
-SCENE = REPO / "SkullbonezData" / "scenes" / "physics_bench_varied.scene"
+TRACE_NO_SLEEP = REPO / "Debug" / "physics_query_varied_no_sleep.physicsdiag.ndjson"
+SCENE_ARG = "SkullbonezData/scenes/physics_bench_varied.scene"
 EXE = REPO / "Debug" / "SKULLBONEZ_CORE.exe"
 QUERY_TOOL = REPO / "tools" / "physics_query.py"
 
@@ -43,9 +44,17 @@ QUERIES = [
     ("stacks", ["stacks", "--frames", "0:1200", "--limit", "12"]),
     ("rolling", ["rolling", "--frames", "0:1200", "--limit", "12"]),
     ("broadphase", ["broadphase", "--frames", "0:1200", "--limit", "12"]),
+    ("solver", ["solver", "--frames", "0:1200", "--limit", "12"]),
     ("question_penetration_spikes", ["questions", "penetration_spikes"]),
     ("question_stack_health", ["questions", "stack_health"]),
     ("compare_self", ["compare", str(TRACE), "--limit", "8"]),
+]
+
+NO_SLEEP_QUERIES = [
+    ("summary", ["summary", "--limit", "8"]),
+    ("events_sleep", ["events", "--type", "failed_to_sleep,sleep_inhibited_quiet,unsupported_sleep", "--limit", "20"]),
+    ("stacks", ["stacks", "--frames", "0:1200", "--limit", "12"]),
+    ("solver", ["solver", "--frames", "0:1200", "--limit", "12"]),
 ]
 
 
@@ -61,6 +70,22 @@ def normalize(value):
         return {key: normalize(item) for key, item in value.items() if key not in DROP_KEYS}
     if isinstance(value, list):
         return [normalize(item) for item in value]
+    if isinstance(value, str):
+        return normalize_string(value)
+    return value
+
+
+def normalize_string(value):
+    candidate = value.replace("\\", "/")
+    repo_prefix = str(REPO).replace("\\", "/")
+    if candidate.lower().startswith(repo_prefix.lower()):
+        return candidate[len(repo_prefix):].lstrip("/")
+
+    scene_marker = "/SkullbonezData/"
+    marker_index = candidate.lower().find(scene_marker.lower())
+    if marker_index >= 0 and ":" in candidate[:marker_index]:
+        return candidate[marker_index + 1:]
+
     return value
 
 
@@ -79,26 +104,35 @@ def run_checked(args, cwd):
     return result.stdout
 
 
-def generate_trace():
+def generate_trace(trace, extra_args):
     if not EXE.exists():
         raise RuntimeError(f"Debug executable not found: {EXE}")
-    remove_if_exists(TRACE)
-    remove_if_exists(TRACE.with_suffix(".sqlite"))
-    remove_if_exists(TRACE.with_suffix(".sqlite.lock"))
+    remove_if_exists(trace)
+    remove_if_exists(trace.with_suffix(".sqlite"))
+    remove_if_exists(trace.with_suffix(".sqlite.lock"))
     run_checked(
         [
             str(EXE),
             "--vsync",
             "off",
             "--scene",
-            str(SCENE),
+            SCENE_ARG,
+            *extra_args,
             "--physics-diag",
-            str(TRACE),
+            str(trace),
         ],
         REPO,
     )
-    if not TRACE.exists():
-        raise RuntimeError(f"diagnostic trace was not produced: {TRACE}")
+    if not trace.exists():
+        raise RuntimeError(f"diagnostic trace was not produced: {trace}")
+
+
+def run_query_set(trace, queries):
+    outputs = {}
+    for name, query_args in queries:
+        stdout = run_checked([sys.executable, str(QUERY_TOOL), str(trace)] + query_args, REPO)
+        outputs[name] = normalize(json.loads(stdout))
+    return outputs
 
 
 def run_queries():
@@ -106,11 +140,9 @@ def run_queries():
         "name": "SkullScope physics query regression",
         "scene": "SkullbonezData/scenes/physics_bench_varied.scene",
         "traceKind": "physicsdiag.ndjson",
-        "queries": {},
+        "queries": run_query_set(TRACE, QUERIES),
+        "noSleepQueries": run_query_set(TRACE_NO_SLEEP, NO_SLEEP_QUERIES),
     }
-    for name, query_args in QUERIES:
-        stdout = run_checked([sys.executable, str(QUERY_TOOL), str(TRACE)] + query_args, REPO)
-        packet["queries"][name] = normalize(json.loads(stdout))
     return packet
 
 
@@ -126,7 +158,7 @@ def compare_or_update(current_text, update):
         print(f"  {action}: {BASELINE.relative_to(REPO)}")
         return 0
 
-    expected_text = BASELINE.read_text(encoding="utf-8")
+    expected_text = canonical_json(normalize(json.loads(BASELINE.read_text(encoding="utf-8"))))
     if expected_text == current_text:
         print(f"  PASS: {BASELINE.name} exact match")
         return 0
@@ -154,7 +186,9 @@ def main():
 
     try:
         print("  Generating SkullScope trace from physics_bench_varied.scene...")
-        generate_trace()
+        generate_trace(TRACE, [])
+        print("  Generating no-sleep SkullScope trace from physics_bench_varied.scene...")
+        generate_trace(TRACE_NO_SLEEP, ["--no-sleep"])
         print("  Running SkullScope query packet...")
         current_text = canonical_json(run_queries())
         return compare_or_update(current_text, args.update)
