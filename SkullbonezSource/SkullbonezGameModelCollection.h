@@ -118,6 +118,12 @@ class GameModelCollection
         float accT1 = 0.0f;             // Total friction push accumulated along tangent 1.
         float accT2 = 0.0f;             // Total friction push accumulated along tangent 2.
         bool warmStarted = false;       // True when this row reused a previous-frame cached impulse.
+        bool isTerrain = false;         // True when bodyB is the static terrain sentinel.
+        bool supportsRestingPolicy = true;
+        bool inhibitsSleep = false;
+        uint8_t manifoldPointCount = 1;
+        Vector3 terrainNormal = ZERO_VECTOR; // Surface normal; row normal is opposite because it points A -> terrain.
+        float terrainWarmStart = 0.0f;
     };
 
     // The previous frame's solution is a very good first guess for this frame.
@@ -160,18 +166,19 @@ class GameModelCollection
         float invMass = 0.0f;
         bool useWorldInertia = false;
     };
-    std::vector<PersistentContact> m_persistentContacts;                // Catto-style contact rows retained across frames
-    std::vector<PersistentContactCacheEntry> m_persistentContactCache;  // Previous-frame contact impulses for warm starting
-    PersistentContactSolverStats m_persistentContactSolverStats;        // Compact SkullScope counters for the Catto-style solver
-    std::vector<uint16_t> m_persistentContactCounts;                    // Per-body contact count for mc*g friction bounds
-    std::vector<SolverBodyState> m_solverBodies;                        // Per-step compact velocity/inertia state for persistent contact solving
-    std::vector<Physics::PhysicsDebugContact> m_physicsDebugContacts;   // Last solver contact rows for visual debugging
-    std::vector<Physics::PhysicsPipelineRecord> m_physicsPipelineTrace; // Bounded per-step Catto pipeline records for visual/debug stage stepping
-    std::unique_ptr<IShader> m_shadowShader;                            // Shadow decal shader (instanced)
-    uint32_t m_shadowInstMesh = 0;                                      // Instanced mesh handle (via Gfx())
-    int m_shadowDiscVertexCount = 0;                                    // Disc triangle vertex count
-    std::vector<float> m_shadowInstanceData;                            // Retained-capacity staging buffer (mat4 + alpha per instance)
-    std::vector<int64_t> m_collisionCellKeys;                           // Cells where narrowphase collisions occurred this frame
+    std::vector<PersistentContact> m_persistentContacts;                    // Catto-style contact rows retained across frames
+    std::vector<PersistentContactCacheEntry> m_persistentContactCache;      // Previous-frame contact impulses for warm starting
+    PersistentContactSolverStats m_persistentContactSolverStats;            // Compact SkullScope counters for the Catto-style solver
+    std::vector<uint16_t> m_persistentContactCounts;                        // Per-body contact count for mc*g friction bounds
+    std::vector<SolverBodyState> m_solverBodies;                            // Per-step compact velocity/inertia state for persistent contact solving
+    std::vector<Physics::PhysicsDebugContact> m_physicsDebugContacts;       // Last solver contact rows for visual debugging
+    std::vector<Physics::PhysicsPipelineRecord> m_physicsPipelineTrace;     // Bounded per-step Catto pipeline records for visual/debug stage stepping
+    std::vector<Physics::TerrainContactManifold> m_terrainContactManifolds; // Current-step terrain manifolds feeding shared rows
+    std::unique_ptr<IShader> m_shadowShader;                                // Shadow decal shader (instanced)
+    uint32_t m_shadowInstMesh = 0;                                          // Instanced mesh handle (via Gfx())
+    int m_shadowDiscVertexCount = 0;                                        // Disc triangle vertex count
+    std::vector<float> m_shadowInstanceData;                                // Retained-capacity staging buffer (mat4 + alpha per instance)
+    std::vector<int64_t> m_collisionCellKeys;                               // Cells where narrowphase collisions occurred this frame
 
 #ifdef _DEBUG
     // Deterministic per-body CSV artifact for current-solver regression tests.

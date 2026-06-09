@@ -3,9 +3,11 @@
 #include "SkullbonezCollisionShape.h"
 #include "SkullbonezGeometricStructures.h"
 #include "SkullbonezGeometricMath.h"
-#include "SkullbonezImpulseSolver.h"
 #include "SkullbonezObjectContactManifold.h"
+#include "SkullbonezTerrainSupportClassifier.h"
+#include "SkullbonezContactSolverCommon.h"
 #include "SkullbonezProfiler.h"
+#include <type_traits>
 
 
 // --- Usings ---
@@ -398,33 +400,6 @@ void GameModel::StaticOverlapResponseGameModel( GameModel& overlapTarget )
 }
 
 
-bool GameModel::CollisionResponseTerrain( float remainingTimeStep )
-{
-    if ( m_isFixed )
-    {
-        m_isResponseRequired = false;
-        return false;
-    }
-
-    // if there has been no collision, throw an exception!
-    if ( !m_isResponseRequired )
-    {
-        throw std::runtime_error( "Cannot perform collision response when no collision has occured!  (GameModel::CollisionResponseTerrain)" );
-    }
-
-    // respond to the collision...
-    bool contactSupportsSleep = ImpulseSolver::RespondCollisionTerrain( *this, remainingTimeStep );
-
-    // update the m_position based on remaining time step
-    UpdatePosition( remainingTimeStep );
-
-    // set the collided collision object to null now the reaction has taken place
-    m_isResponseRequired = false;
-
-    return contactSupportsSleep;
-}
-
-
 bool GameModel::IsResponseRequired()
 {
     return m_isResponseRequired;
@@ -807,6 +782,151 @@ float GameModel::CollisionDetectTerrain( float changeInTime )
 
     // return when the collision will occur
     return collisionTime;
+}
+
+
+bool GameModel::BuildTerrainContactManifold( int bodyIndex, float timeOfImpact, float availableTime, Physics::TerrainContactManifold& out )
+{
+    PROFILE_SCOPED( "Frame/Physics/Terrain/Manifold/Build" );
+
+    // Geometry-only boundary for the shared terrain row path. This converts the
+    // swept terrain hit cached by CollisionDetectTerrain into contact points,
+    // feature ids, tangent axes, and support-policy metadata. It must not apply
+    // impulses, write warm-start caches, or decide final sleep state; those jobs
+    // belong to GameModelCollection's shared row solver.
+    if ( !m_terrain || m_isFixed )
+    {
+        return false;
+    }
+
+    out = Physics::TerrainContactManifold();
+    out.bodyA = bodyIndex;
+    out.bodyB = -1;
+    out.normal = m_responseInformation.collidedPlane.m_normal;
+    out.timeOfImpact = timeOfImpact;
+    out.sweptHit = timeOfImpact > ZERO_TAKE_TOLERANCE && timeOfImpact < availableTime;
+
+    // Build one stable tangent basis per terrain manifold. Every contact point
+    // in the manifold reuses this basis so friction rows are deterministic and
+    // do not drift because of point ordering.
+    Physics::ContactSolver::BuildContactTangents( out.normal, out.tangent1, out.tangent2 );
+
+    Geometry::Plane colPlane = m_responseInformation.collidedPlane;
+    const Vector3 planeNormal = out.normal;
+    const Vector3 position = m_physicsInfo.GetPosition();
+
+    std::visit( [&]( const auto& shape )
+                {
+        using ShapeT = std::decay_t<decltype( shape )>;
+
+        if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
+        {
+            // A sphere has one terrain point: the bottom pole along the terrain
+            // normal. That becomes one normal row and two tangent friction rows.
+            float radius = shape.GetRadius();
+            Vector3 contactWorldPos = position - planeNormal * radius;
+            float signedDist = ( contactWorldPos * planeNormal ) - colPlane.m_distance;
+
+            Physics::TerrainContactPoint& point = out.points[0];
+            point.point = contactWorldPos;
+            point.rA = contactWorldPos - position;
+            point.penetration = -signedDist;
+            point.featureId = 0;
+            out.pointCount = 1;
+        }
+        else if constexpr ( std::is_same_v<ShapeT, BoundingBox> )
+        {
+            PROFILE_SCOPED( "Frame/Physics/Terrain/Manifold/BoxVertices" );
+
+            // Boxes may touch terrain on a face, an edge, or a single corner.
+            // Sample all eight oriented-box corners against the collided terrain
+            // plane and keep the closest cluster. The terrain contact threshold
+            // lets a slightly uneven heightfield still form a stable patch, but
+            // rejects corners that are clearly not part of the touching feature.
+            const Vector3& he = shape.GetHalfExtents();
+            Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
+            Vector3 worldVerts[8];
+            float signedDists[8];
+            float minSignedDist = 1e10f;
+
+            for ( int v = 0; v < 8; ++v )
+            {
+                Vector3 local = Physics::GetBoxTerrainLocalCorner( he, v );
+                worldVerts[v] = position + ( rotMat * local );
+                signedDists[v] = ( worldVerts[v] * planeNormal ) - colPlane.m_distance;
+                if ( signedDists[v] < minSignedDist )
+                {
+                    minSignedDist = signedDists[v];
+                }
+            }
+
+            const float contactThreshold = (std::max)( 0.0f, Cfg().terrainContactThreshold );
+            const float cutoff = minSignedDist + contactThreshold;
+            for ( int v = 0; v < 8; ++v )
+            {
+                if ( signedDists[v] > cutoff )
+                {
+                    continue;
+                }
+
+                float penetration = -signedDists[v];
+                Physics::TerrainContactPoint& point = out.points[out.pointCount];
+                point.point = worldVerts[v];
+                point.rA = worldVerts[v] - position;
+                point.penetration = ( penetration > 0.0f ) ? penetration : 0.0f;
+                point.featureId = static_cast<uint32_t>( v + 1 );
+                ++out.pointCount;
+            }
+        } },
+                m_boundingVolume );
+
+    if ( out.pointCount == 0 )
+    {
+        return false;
+    }
+
+    const float preVn = m_physicsInfo.GetVelocity() * planeNormal;
+    if ( preVn < -Cfg().contactRestitutionThreshold && out.pointCount > 1 )
+    {
+        // For fast impacts, collapse a multi-point box footprint to a centroid
+        // impact row. Resting contacts should use the full patch, but a high
+        // speed bounce should not stack several restitution rows and over-launch
+        // the body.
+        Vector3 centroid = Vector::ZERO_VECTOR;
+        Vector3 centroidR = Vector::ZERO_VECTOR;
+        float avgPen = 0.0f;
+        for ( uint8_t i = 0; i < out.pointCount; ++i )
+        {
+            centroid += out.points[i].point;
+            centroidR += out.points[i].rA;
+            avgPen += out.points[i].penetration;
+        }
+
+        const float invCount = 1.0f / static_cast<float>( out.pointCount );
+        out.points[0].point = centroid * invCount;
+        out.points[0].rA = centroidR * invCount;
+        out.points[0].penetration = avgPen * invCount;
+        out.points[0].featureId = 0x7fffu;
+        out.pointCount = 1;
+    }
+
+    const Transformation::RotationMatrix orientMat = m_physicsInfo.GetOrientationMatrix();
+    const Physics::BoxTerrainSupportClassification terrainSupport =
+        Physics::ClassifyBoxTerrainSupport( m_boundingVolume,
+                                            position,
+                                            orientMat,
+                                            planeNormal,
+                                            m_terrain,
+                                            out.pointCount,
+                                            Cfg().contactEpsilon,
+                                            true );
+
+    // Support policy is metadata, not collision response. Unsupported edge or
+    // point contacts still generate rows and solve penetration, but they cannot
+    // seed sleep, receive rest-only gravity warm start, or keep cached impulses.
+    out.supportsRestingPolicy = !terrainSupport.isBox || terrainSupport.supportsRestingPolicy;
+    out.inhibitsSleep = !out.supportsRestingPolicy;
+    return true;
 }
 
 

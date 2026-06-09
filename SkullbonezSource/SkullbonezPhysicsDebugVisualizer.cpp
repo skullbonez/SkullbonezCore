@@ -66,6 +66,16 @@ void PipelineStageColor( PhysicsPipelineStage stage, float& r, float& g, float& 
         g = 1.0f;
         b = 0.25f;
         break;
+    case PhysicsPipelineStage::TerrainManifold:
+        r = 0.25f;
+        g = 0.95f;
+        b = 0.70f;
+        break;
+    case PhysicsPipelineStage::TerrainRow:
+        r = 0.12f;
+        g = 0.72f;
+        b = 1.0f;
+        break;
     case PhysicsPipelineStage::ManifoldRow:
         r = 0.0f;
         g = 0.92f;
@@ -131,6 +141,10 @@ const char* SkullbonezCore::Physics::PhysicsPipelineStageName( PhysicsPipelineSt
         return "swept_object_miss";
     case PhysicsPipelineStage::TerrainHit:
         return "terrain_hit";
+    case PhysicsPipelineStage::TerrainManifold:
+        return "terrain_manifold";
+    case PhysicsPipelineStage::TerrainRow:
+        return "terrain_row";
     case PhysicsPipelineStage::ManifoldRow:
         return "manifold_row";
     case PhysicsPipelineStage::WarmStart:

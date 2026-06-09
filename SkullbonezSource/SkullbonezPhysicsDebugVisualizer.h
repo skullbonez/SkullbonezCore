@@ -32,6 +32,8 @@ enum class PhysicsPipelineStage : uint8_t
     SweptObjectHit,
     SweptObjectMiss,
     TerrainHit,
+    TerrainManifold,
+    TerrainRow,
     ManifoldRow,
     WarmStart,
     SolverIteration,

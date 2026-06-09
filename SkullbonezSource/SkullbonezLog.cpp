@@ -23,6 +23,8 @@ SkullbonezLog& SkullbonezLog::Get()
 
 namespace
 {
+constexpr size_t DEBUG_LOG_BUFFER_BYTES = 8u * 1024u * 1024u;
+
 void EnsureParentDirectory( const char* fileName )
 {
     if ( !fileName )
@@ -73,6 +75,11 @@ FILE* SkullbonezLog::OpenLog( const char* fileName )
         fopen_s( &f, fileName, "wb" );
         if ( f )
         {
+            // SkullScope and physics CSV logging can emit thousands of small
+            // rows per run. Give the CRT a large user-space buffer so those rows
+            // batch in memory instead of forcing tiny disk writes from the hot
+            // physics loop. Event logs still flush explicitly in WriteEventf().
+            setvbuf( f, nullptr, _IOFBF, DEBUG_LOG_BUFFER_BYTES );
             m_logs[fileName] = f;
         }
     }
@@ -91,11 +98,14 @@ void SkullbonezLog::Writef( const char* fileName, const char* fmt, ... )
 
     if ( f )
     {
+        // Intentionally no fflush here. Hot diagnostic paths call Writef many
+        // times per frame; flushing each row makes SkullScope trace generation
+        // dominated by I/O. Callers that need durable output at a boundary use
+        // FlushAll(), and the logger destructor flushes/closes every file.
         va_list args;
         va_start( args, fmt );
         vfprintf( f, fmt, args );
         va_end( args );
-        fflush( f );
     }
 }
 

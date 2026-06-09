@@ -143,7 +143,6 @@
     <ClCompile Include="SkullbonezSource\SkullbonezCamera.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCameraCollection.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCollisionVisualizer.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezImpulseSolver.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezObjectContactManifold.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezPhysicsDebugVisualizer.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezGameModel.cpp" />
@@ -207,7 +206,6 @@
     <ClInclude Include="SkullbonezSource\SkullbonezCamera.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCameraCollection.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCollisionVisualizer.h" />
-    <ClInclude Include="SkullbonezSource\SkullbonezImpulseSolver.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezObjectContactManifold.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezPhysicsDebugVisualizer.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCollisionShape.h" />

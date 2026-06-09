@@ -26,7 +26,9 @@ namespace Basics
         Log().WriteEventf( "scene_started index=%d path=\"%s\"", index, path );
 
     The file is created on the first Writef() for that name.  Subsequent calls to the same
-    name append to the already-open handle.  All files are closed when the process exits.
+    name append to the already-open handle.  Writef() uses a generous file buffer so hot
+    diagnostic paths can emit many rows without forcing a disk flush on every row.  Event
+    logs still flush immediately.  All files are flushed and closed when the process exits.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class SkullbonezLog
 {

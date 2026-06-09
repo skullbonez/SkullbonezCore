@@ -10,7 +10,7 @@ namespace SkullbonezCore
 namespace Physics
 {
 // These terrain-support constants are intentionally kept beside the classifier
-// instead of buried in RespondCollisionTerrain. They are not Catto solver row
+// instead of buried inside a terrain response routine. They are not Catto solver row
 // constants; they describe Skullbonez policy for deciding whether a box/terrain
 // contact is credible enough to seed resting support and sleeping.
 static constexpr float BOX_TERRAIN_VERTEX_SUPPORT_SLACK = 0.15f;
@@ -170,8 +170,8 @@ inline BoxTerrainSupportClassification ClassifyBoxTerrainSupportImpl( const Math
     {
         // Sphere/capsule-style terrain contacts do not have an oriented face
         // footprint to test here, so leave supportsRestingPolicy at the legacy
-        // default. The terrain rows still solve their Catto normal/friction
-        // impulses in RespondCollisionTerrain.
+        // default. The shared terrain rows still solve their Catto
+        // normal/friction impulses.
         return result;
     }
 

@@ -1,0 +1,41 @@
+# box_only_rest.scene
+# Focused box-only rest repro for terrain contact stability.
+#
+# The scene mirrors the at_rest/varied acceptance intent without balls, so box
+# terrain rows, support classification, and sleep are easier to inspect.
+
+physics on
+text on
+frames 1800
+exit_on_complete
+fixed_step
+time_scale 10.0
+world -9.81 0.0 0.0
+water_hidden on
+
+camera overview  340 200 430  520 30 540  0 1 0
+
+# Match physics_bench_varied.scene terrain so the low pile starts just above
+# the intended analytic slope rather than inside the natural bowl.
+flat_slope 30.0 0.012 -0.008
+
+# Low varied-style pile in the bowl.
+box base_a  486 35.2 500  5.0 2.5 4.0  60.0 0.20  0 8 0
+box base_b  497 35.4 501  4.0 2.5 4.0  55.0 0.20  0 -12 0
+box base_c  508 35.1 499  5.0 2.5 3.5  58.0 0.20  0 17 0
+box mid_a   491 43.5 500  3.5 3.0 3.5  36.0 0.25  2 23 0
+box mid_b   503 44.0 501  3.0 3.0 4.0  34.0 0.25  -3 -19 4
+box top_a   497 52.0 500  2.5 2.5 2.5  24.0 0.30  6 33 -5
+box top_b   508 57.0 503  2.0 3.0 2.5  20.0 0.30  -8 -27 7
+
+# Edge/tilted contacts exercise support rejection without ball noise.
+box edge_a  464 39.0 485  2.0 5.0 2.0  25.0 0.20  0 0 44
+box edge_b  536 39.0 525  2.0 5.0 2.0  25.0 0.20  0 0 -42
+box edge_c  478 40.0 542  1.8 4.5 2.2  22.0 0.20  18 0 39
+box edge_d  526 40.0 462  2.2 4.2 1.8  22.0 0.20  -16 0 -37
+
+# Drop-only boxes should settle instead of relaunching.
+box drop_a  482 82 478  2.8 2.8 2.8  26.0 0.35  13 22 8   12 -4 10
+box drop_b  518 86 530  3.2 2.2 3.0  28.0 0.35  -10 -18 17  -14 -5 -8
+box drop_c  545 94 502  2.0 4.0 2.5  24.0 0.30  30 4 -14   -20 -6 2
+box drop_d  456 98 520  4.0 2.0 2.5  30.0 0.30  -24 12 11  18 -6 -5

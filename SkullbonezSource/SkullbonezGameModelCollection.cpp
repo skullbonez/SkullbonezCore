@@ -4,12 +4,12 @@
 #include "SkullbonezObjectContactManifold.h"
 #include "SkullbonezHelper.h"
 #include "SkullbonezIRenderBackend.h"
-#include "SkullbonezImpulseSolver.h"
 #include "SkullbonezContactSolverCommon.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <type_traits>
 
 
 // --- Usings ---
@@ -22,6 +22,7 @@ namespace Vector = SkullbonezCore::Math::Vector;
 // Per-instance data layout: mat4 (16 floats) + alpha (1 float)
 static constexpr int SHADOW_INSTANCE_FLOATS = 17;
 static constexpr size_t MAX_PIPELINE_TRACE_RECORDS = 4096;
+static constexpr int TERRAIN_BODY_INDEX = -1;
 
 GameModelCollection::GameModelCollection()
     : m_spatialGrid( Cfg().broadphaseCell )
@@ -46,6 +47,7 @@ GameModelCollection::GameModelCollection()
     m_solverBodies.reserve( MAX_GAME_MODELS );
     m_physicsDebugContacts.reserve( MAX_GAME_MODELS * 4 );
     m_physicsPipelineTrace.reserve( MAX_PIPELINE_TRACE_RECORDS );
+    m_terrainContactManifolds.reserve( MAX_GAME_MODELS );
     m_shadowInstanceData.reserve( MAX_GAME_MODELS * SHADOW_INSTANCE_FLOATS );
 };
 
@@ -85,6 +87,7 @@ void GameModelCollection::Clear()
     m_persistentContactCounts.clear();
     m_solverBodies.clear();
     m_physicsDebugContacts.clear();
+    m_terrainContactManifolds.clear();
 }
 
 
@@ -443,6 +446,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     m_sleepInhibitedThisFrame.assign( modelCount, 0 );
     m_physicsDebugContacts.clear();
     m_physicsPipelineTrace.clear();
+    m_terrainContactManifolds.clear();
     m_sleepSupportEdges.clear();
 
     for ( int i = 0; i < modelCount; ++i )
@@ -678,7 +682,8 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     m_persistentContactSolverStats = PersistentContactSolverStats();
     m_persistentContactSolverStats.cachePreviousRows = static_cast<int>( m_persistentContactCache.size() );
     m_persistentContactCounts.assign( modelCount, 0 );
-    if ( modelCount <= 1 || m_candidatePairs.empty() )
+    if ( modelCount <= 0 ||
+         ( m_candidatePairs.empty() && m_terrainContactManifolds.empty() ) )
     {
         m_persistentContacts.clear();
         m_persistentContactCache.clear();
@@ -735,6 +740,14 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     // contact feature".  Box manifolds assign distinct feature ids per row.
     auto makeKey = []( int a, int b, uint32_t featureId ) -> int64_t
     {
+        if ( b == TERRAIN_BODY_INDEX )
+        {
+            uint64_t packed = ( uint64_t( 0xffffu ) << 48 ) |
+                              ( static_cast<uint64_t>( static_cast<uint32_t>( a ) ) << 16 ) |
+                              static_cast<uint64_t>( featureId & 0xffffu );
+            return static_cast<int64_t>( packed );
+        }
+
         int lo = ( a < b ) ? a : b;
         int hi = ( a < b ) ? b : a;
         uint64_t packed = ( static_cast<uint64_t>( static_cast<uint32_t>( lo ) ) << 40 ) |
@@ -811,6 +824,11 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     // local inertia axes rotate with orientation; spheres remain isotropic.
     auto applyInvInertia = [&]( int body, const Vector3& v ) -> Vector3
     {
+        if ( body == TERRAIN_BODY_INDEX )
+        {
+            return ZERO_VECTOR;
+        }
+
         const SolverBodyState& solverBody = m_solverBodies[body];
         if ( !solverBody.useWorldInertia )
         {
@@ -835,12 +853,15 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     auto applyImpulse = [&]( const PersistentContact& c, const Vector3& impulse )
     {
         SolverBodyState& a = m_solverBodies[c.bodyA];
-        SolverBodyState& b = m_solverBodies[c.bodyB];
 
         a.linearVelocity -= impulse * a.invMass;
-        b.linearVelocity += impulse * b.invMass;
         a.angularVelocity -= applyInvInertia( c.bodyA, Vector::CrossProduct( c.rA, impulse ) );
-        b.angularVelocity += applyInvInertia( c.bodyB, Vector::CrossProduct( c.rB, impulse ) );
+        if ( c.bodyB != TERRAIN_BODY_INDEX )
+        {
+            SolverBodyState& b = m_solverBodies[c.bodyB];
+            b.linearVelocity += impulse * b.invMass;
+            b.angularVelocity += applyInvInertia( c.bodyB, Vector::CrossProduct( c.rB, impulse ) );
+        }
     };
 
     auto conservativeContactRadius = []( const GameModel& model ) -> float
@@ -978,6 +999,98 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         }
     }
 
+    {
+        PROFILE_SCOPED( "Frame/Physics/Terrain/Rows" );
+
+        // Convert terrain manifolds into the same PersistentContact rows used by
+        // object/object contacts. Terrain uses TERRAIN_BODY_INDEX for body B, so
+        // later solver phases treat it as infinite mass, zero velocity, and no
+        // writeback. From this point on, terrain response is ordinary shared-row
+        // normal/friction solving.
+        size_t terrainRowCount = 0;
+        for ( const Physics::TerrainContactManifold& manifold : m_terrainContactManifolds )
+        {
+            terrainRowCount += manifold.pointCount;
+        }
+        m_persistentContacts.reserve( m_persistentContacts.size() + terrainRowCount );
+
+        for ( const Physics::TerrainContactManifold& manifold : m_terrainContactManifolds )
+        {
+            // Skip invalid/no-op manifolds before they affect profiler counts,
+            // pipeline records, or the warm-start cache. Sleeping bodies do not
+            // need fresh terrain rows; their accepted support state is already
+            // represented by the sleep island data.
+            if ( manifold.bodyA < 0 ||
+                 manifold.bodyA >= modelCount ||
+                 manifold.pointCount == 0 ||
+                 ( manifold.bodyA < static_cast<int>( m_sleepState.size() ) && m_sleepState[manifold.bodyA] ) )
+            {
+                continue;
+            }
+
+            Physics::PhysicsPipelineRecord manifoldRecord;
+            manifoldRecord.stage = Physics::PhysicsPipelineStage::TerrainManifold;
+            manifoldRecord.bodyA = manifold.bodyA;
+            manifoldRecord.bodyB = TERRAIN_BODY_INDEX;
+            manifoldRecord.point = manifold.points[0].point;
+            manifoldRecord.normal = manifold.normal;
+            manifoldRecord.scalarA = static_cast<float>( manifold.pointCount );
+            manifoldRecord.scalarB = manifold.supportsRestingPolicy ? 1.0f : 0.0f;
+            manifoldRecord.scalarC = manifold.timeOfImpact;
+            RecordPhysicsPipelineStage( manifoldRecord );
+
+            // Stable terrain support receives a gravity-sized normal seed so a
+            // resting body does not sink a little before the solver rediscovers
+            // the support force. Edge/point terrain contacts deliberately get
+            // zero here: they still resolve impact and penetration, but cannot
+            // become sleep anchors or rest-friction anchors.
+            const float warmStartTotal = manifold.supportsRestingPolicy
+                                             ? m_gameModels[manifold.bodyA].GetMass() * fabsf( Cfg().gravity ) * fabsf( manifold.normal.y ) * dt
+                                             : 0.0f;
+            const float warmStartPerContact = warmStartTotal / static_cast<float>( manifold.pointCount );
+
+            for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
+            {
+                const Physics::TerrainContactPoint& point = manifold.points[pointIndex];
+
+                PersistentContact c;
+                c.bodyA = manifold.bodyA;
+                c.bodyB = TERRAIN_BODY_INDEX;
+                c.featureId = point.featureId;
+                c.key = makeKey( c.bodyA, c.bodyB, c.featureId );
+
+                // PersistentContact normals point from body A toward body B.
+                // Terrain manifold normals point out of the terrain and into
+                // body A, so flip them to match the shared solver convention.
+                c.normal = -manifold.normal;
+                c.tangent1 = manifold.tangent1;
+                c.tangent2 = manifold.tangent2;
+                c.rA = point.rA;
+                c.rB = ZERO_VECTOR;
+                c.penetration = point.penetration;
+                c.isTerrain = true;
+                c.supportsRestingPolicy = manifold.supportsRestingPolicy;
+                c.inhibitsSleep = manifold.inhibitsSleep;
+                c.manifoldPointCount = manifold.pointCount;
+                c.terrainNormal = manifold.normal;
+                c.terrainWarmStart = warmStartPerContact;
+                m_persistentContacts.push_back( c );
+
+                Physics::PhysicsPipelineRecord rowRecord;
+                rowRecord.stage = Physics::PhysicsPipelineStage::TerrainRow;
+                rowRecord.bodyA = c.bodyA;
+                rowRecord.bodyB = TERRAIN_BODY_INDEX;
+                rowRecord.featureId = c.featureId;
+                rowRecord.point = point.point;
+                rowRecord.normal = manifold.normal;
+                rowRecord.scalarA = point.penetration;
+                rowRecord.scalarB = warmStartPerContact;
+                rowRecord.scalarC = static_cast<float>( pointIndex );
+                RecordPhysicsPipelineStage( rowRecord );
+            }
+        }
+    }
+
     if ( m_persistentContacts.empty() )
     {
         m_persistentContactCache.clear();
@@ -985,6 +1098,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         return;
     }
     m_persistentContactSolverStats.rowCount = static_cast<int>( m_persistentContacts.size() );
+    const SolverBodyState staticTerrainBody;
 
     // Second pass: precompute each row. This is the "setup" part of the paper:
     // CATTO REF:
@@ -998,9 +1112,8 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         for ( PersistentContact& c : m_persistentContacts )
         {
             GameModel& a = m_gameModels[c.bodyA];
-            GameModel& b = m_gameModels[c.bodyB];
             const SolverBodyState& bodyA = m_solverBodies[c.bodyA];
-            const SolverBodyState& bodyB = m_solverBodies[c.bodyB];
+            const SolverBodyState& bodyB = c.isTerrain ? staticTerrainBody : m_solverBodies[c.bodyB];
 
             // CATTO REF:
             //   Catto 2005, PDF pp. 11-12, Section 4.3, Equations 21-23 use two
@@ -1025,7 +1138,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             };
             auto applyInvInertiaB = [&]( const Vector3& v ) -> Vector3
             {
-                return applyInvInertia( c.bodyB, v );
+                return c.isTerrain ? ZERO_VECTOR : applyInvInertia( c.bodyB, v );
             };
             c.normalMass = Physics::ContactSolver::ComputeTwoBodyEffectiveMass(
                 bodyA.invMass,
@@ -1053,7 +1166,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
                 applyInvInertiaB );
 
             Vector3 velA = bodyA.linearVelocity + Vector::CrossProduct( bodyA.angularVelocity, c.rA );
-            Vector3 velB = bodyB.linearVelocity + Vector::CrossProduct( bodyB.angularVelocity, c.rB );
+            Vector3 velB = c.isTerrain ? ZERO_VECTOR : bodyB.linearVelocity + Vector::CrossProduct( bodyB.angularVelocity, c.rB );
             float vn = ( velB - velA ) * c.normal;
 
             // CATTO REF:
@@ -1064,8 +1177,40 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             //   immediate impulse. Dynamic bounce therefore belongs in the same
             //   persistent Catto rows as fixed-body impact and resting support.
             c.bias = 0.0f;
-            if ( vn < -Cfg().contactRestitutionThreshold )
+            if ( c.isTerrain )
             {
+                const float terrainSlop = (std::max)( 0.0f, Cfg().terrainContactSlop );
+                if ( !c.supportsRestingPolicy &&
+                     c.penetration <= terrainSlop &&
+                     vn > -Cfg().contactRestitutionThreshold )
+                {
+                    c.normalMass = 0.0f;
+                    c.tangentMass1 = 0.0f;
+                    c.tangentMass2 = 0.0f;
+                }
+                else if ( fabsf( vn ) < Cfg().contactRestitutionThreshold )
+                {
+                    float penetrationError = c.penetration - terrainSlop;
+                    if ( penetrationError > 0.0f )
+                    {
+                        const float terrainBeta = (std::max)( 0.0f, Cfg().terrainContactBaumgarteBeta );
+                        const float maxTerrainBias = (std::max)( 0.0f, Cfg().terrainMaxBaumgarteBias );
+                        c.bias = terrainBeta * penetrationError * invDt;
+                        if ( c.bias > maxTerrainBias )
+                        {
+                            c.bias = maxTerrainBias;
+                        }
+                    }
+                }
+                else if ( vn < -Cfg().contactRestitutionThreshold )
+                {
+                    const uint8_t pointCount = c.manifoldPointCount > 0 ? c.manifoldPointCount : 1;
+                    c.bias = ( -a.GetCoefficientRestitution() * vn ) / static_cast<float>( pointCount );
+                }
+            }
+            else if ( vn < -Cfg().contactRestitutionThreshold )
+            {
+                GameModel& b = m_gameModels[c.bodyB];
                 float restitution = sqrtf( a.GetCoefficientRestitution() * b.GetCoefficientRestitution() );
                 c.bias = -restitution * vn;
             }
@@ -1079,15 +1224,24 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             }
 
             uint16_t countA = ( m_persistentContactCounts[c.bodyA] > 0 ) ? m_persistentContactCounts[c.bodyA] : 1;
-            uint16_t countB = ( m_persistentContactCounts[c.bodyB] > 0 ) ? m_persistentContactCounts[c.bodyB] : 1;
-            float contactMassA = a.GetMass() / static_cast<float>( countA );
-            float contactMassB = b.GetMass() / static_cast<float>( countB );
-            float contactMass = ( contactMassA < contactMassB ) ? contactMassA : contactMassB;
+            float contactMass = a.GetMass() / static_cast<float>( countA );
+            if ( !c.isTerrain )
+            {
+                GameModel& b = m_gameModels[c.bodyB];
+                uint16_t countB = ( m_persistentContactCounts[c.bodyB] > 0 ) ? m_persistentContactCounts[c.bodyB] : 1;
+                float contactMassB = b.GetMass() / static_cast<float>( countB );
+                if ( contactMassB < contactMass )
+                {
+                    contactMass = contactMassB;
+                }
+            }
             // CATTO REF:
             //   Catto 2005, PDF p. 12, Section 4.3, Equations 24-25 bound tangent
             //   lambdas by +/-mu*m_c*g. Reason: avoid coupling tangent friction to
             //   solved normal force while keeping static friction usable in games.
-            c.frictionLimit = Cfg().frictionCoeff * contactMass * fabsf( Cfg().gravity ) * dt;
+            c.frictionLimit = c.isTerrain
+                                  ? Cfg().frictionCoeff * c.terrainWarmStart
+                                  : Cfg().frictionCoeff * contactMass * fabsf( Cfg().gravity ) * dt;
 
             // CATTO REF:
             //   Catto 2005, PDF pp. 18-19, Section 8.1 and Algorithm 5. Reason:
@@ -1096,26 +1250,38 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             // Warm starting: if this same pair+feature was touching last frame,
             // start from the cached solution instead of zero.  The cache is sorted so
             // lookup does not linearly scan every previous-frame contact.
-            auto cachedIt = std::lower_bound(
-                m_persistentContactCache.begin(),
-                m_persistentContactCache.end(),
-                c.key,
-                []( const PersistentContactCacheEntry& entry, int64_t key )
-                {
-                    return entry.key < key;
-                } );
-            if ( cachedIt != m_persistentContactCache.end() && cachedIt->key == c.key )
+            const bool canUseCachedWarmStart = !c.isTerrain || c.supportsRestingPolicy;
+            auto cachedIt = canUseCachedWarmStart
+                                ? std::lower_bound(
+                                      m_persistentContactCache.begin(),
+                                      m_persistentContactCache.end(),
+                                      c.key,
+                                      []( const PersistentContactCacheEntry& entry, int64_t key )
+                                      {
+                                          return entry.key < key;
+                                      } )
+                                : m_persistentContactCache.end();
+            if ( canUseCachedWarmStart && cachedIt != m_persistentContactCache.end() && cachedIt->key == c.key )
             {
                 ++m_persistentContactSolverStats.cacheHits;
                 c.accN = ( cachedIt->accN > 0.0f ) ? cachedIt->accN : 0.0f;
                 c.accT1 = cachedIt->accT1;
                 c.accT2 = cachedIt->accT2;
-                Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, c.frictionLimit );
+                const float cachedFrictionLimit = c.isTerrain
+                                                      ? Cfg().frictionCoeff * ( ( c.accN > c.terrainWarmStart ) ? c.accN : c.terrainWarmStart )
+                                                      : c.frictionLimit;
+                Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, cachedFrictionLimit );
                 c.warmStarted = c.accN > 0.0f || fabsf( c.accT1 ) > 0.0f || fabsf( c.accT2 ) > 0.0f;
             }
-            else
+            else if ( canUseCachedWarmStart )
             {
                 ++m_persistentContactSolverStats.cacheMisses;
+            }
+
+            if ( c.isTerrain && c.terrainWarmStart > c.accN )
+            {
+                c.accN = c.terrainWarmStart;
+                c.warmStarted = c.accN > 0.0f || c.warmStarted;
             }
 
             if ( c.warmStarted )
@@ -1170,10 +1336,10 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             for ( PersistentContact& c : m_persistentContacts )
             {
                 SolverBodyState& a = m_solverBodies[c.bodyA];
-                SolverBodyState& b = m_solverBodies[c.bodyB];
+                const SolverBodyState& b = c.isTerrain ? staticTerrainBody : m_solverBodies[c.bodyB];
 
                 Vector3 velA = a.linearVelocity + Vector::CrossProduct( a.angularVelocity, c.rA );
-                Vector3 velB = b.linearVelocity + Vector::CrossProduct( b.angularVelocity, c.rB );
+                Vector3 velB = c.isTerrain ? ZERO_VECTOR : b.linearVelocity + Vector::CrossProduct( b.angularVelocity, c.rB );
                 float vn = ( velB - velA ) * c.normal;
                 float lambdaN = c.normalMass * ( c.bias - vn );
                 float oldAccN = c.accN;
@@ -1188,7 +1354,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
                 applyImpulse( c, c.normal * deltaN );
 
                 velA = a.linearVelocity + Vector::CrossProduct( a.angularVelocity, c.rA );
-                velB = b.linearVelocity + Vector::CrossProduct( b.angularVelocity, c.rB );
+                velB = c.isTerrain ? ZERO_VECTOR : b.linearVelocity + Vector::CrossProduct( b.angularVelocity, c.rB );
                 float vt1 = ( velB - velA ) * c.tangent1;
                 float vt2 = ( velB - velA ) * c.tangent2;
                 float lambdaT1 = c.tangentMass1 * ( -vt1 );
@@ -1205,7 +1371,10 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
                 // old per-axis clamp allowed diagonal friction to exceed the budget.
                 c.accT1 = oldAccT1 + lambdaT1;
                 c.accT2 = oldAccT2 + lambdaT2;
-                Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, c.frictionLimit );
+                const float frictionLimit = c.isTerrain
+                                                ? Cfg().frictionCoeff * ( ( c.accN > c.terrainWarmStart ) ? c.accN : c.terrainWarmStart )
+                                                : c.frictionLimit;
+                Physics::ContactSolver::ClampFrictionVector( c.accT1, c.accT2, frictionLimit );
                 float deltaT1 = c.accT1 - oldAccT1;
                 float deltaT2 = c.accT2 - oldAccT2;
                 applyImpulse( c, c.tangent1 * deltaT1 + c.tangent2 * deltaT2 );
@@ -1234,6 +1403,89 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             if ( iterImpulseSq < 1.0e-6f )
             {
                 break;
+            }
+        }
+    }
+
+    {
+        PROFILE_SCOPED( "Frame/Physics/Terrain/RestPolicy" );
+
+        // This is intentionally separate from the row solver. The rows above
+        // handle physical contact response; this pass applies engine rest policy
+        // only for manifolds that the terrain classifier marked as stable
+        // support. That separation keeps unstable edge/corner terrain contacts
+        // from gaining rolling damping or sleep privileges just because their
+        // impact rows solved successfully.
+        std::vector<uint8_t> terrainRestApplied( modelCount, 0 );
+        for ( const Physics::TerrainContactManifold& manifold : m_terrainContactManifolds )
+        {
+            const int bodyIndex = manifold.bodyA;
+            if ( bodyIndex < 0 ||
+                 bodyIndex >= modelCount ||
+                 terrainRestApplied[bodyIndex] ||
+                 !manifold.supportsRestingPolicy ||
+                 m_sleepState[bodyIndex] ||
+                 m_soaIsFixed[bodyIndex] )
+            {
+                continue;
+            }
+
+            terrainRestApplied[bodyIndex] = 1;
+            GameModel& model = m_gameModels[bodyIndex];
+            SolverBodyState& body = m_solverBodies[bodyIndex];
+            float normalForce = model.GetMass() * fabsf( Cfg().gravity ) * fabsf( manifold.normal.y );
+            float omegaMagSq = body.angularVelocity * body.angularVelocity;
+            if ( omegaMagSq > TOLERANCE * TOLERANCE )
+            {
+                // Approximate rolling friction as a torque opposite angular
+                // velocity. The effective radius is exact for spheres and a
+                // conservative average extent for boxes, enough to bleed tiny
+                // residual spin without adding a shape-specific response path.
+                float omegaMag = sqrtf( omegaMagSq );
+                float rEff = std::visit( []( const auto& shape ) -> float
+                                         {
+                    using ShapeT = std::decay_t<decltype( shape )>;
+                    if constexpr ( std::is_same_v<ShapeT, BoundingSphere> )
+                    {
+                        return shape.GetRadius();
+                    }
+                    else
+                    {
+                        const Vector3& he = shape.GetHalfExtents();
+                        return ( he.x + he.y + he.z ) / 3.0f;
+                    } },
+                                         model.GetCollisionShape() );
+
+                constexpr float muRolling = 0.02f;
+                float rollingTorqueMag = muRolling * normalForce * rEff;
+                const Vector3& inertia = model.GetRotationalInertia();
+                float avgInertia = ( inertia.x + inertia.y + inertia.z ) / 3.0f;
+                if ( avgInertia < TOLERANCE )
+                {
+                    avgInertia = 1.0f;
+                }
+
+                float deltaOmega = ( rollingTorqueMag / avgInertia ) * dt;
+                if ( deltaOmega >= omegaMag )
+                {
+                    body.angularVelocity = ZERO_VECTOR;
+                }
+                else
+                {
+                    body.angularVelocity -= ( body.angularVelocity / omegaMag ) * deltaOmega;
+                }
+            }
+
+            constexpr float sleepLinear = 0.05f;
+            constexpr float sleepAngular = 0.02f;
+            if ( ( body.linearVelocity * body.linearVelocity ) < sleepLinear * sleepLinear &&
+                 ( body.angularVelocity * body.angularVelocity ) < sleepAngular * sleepAngular )
+            {
+                // Snap only near-zero supported motion. This avoids tiny solver
+                // residue keeping a legitimately settled terrain body awake,
+                // while leaving unsupported impacts and sliding bodies untouched.
+                body.linearVelocity = ZERO_VECTOR;
+                body.angularVelocity = ZERO_VECTOR;
             }
         }
     }
@@ -1272,7 +1524,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
                 {
                     MarkFixedContact( c.bodyA );
                 }
-                if ( m_gameModels[c.bodyB].IsFixed() )
+                if ( c.bodyB != TERRAIN_BODY_INDEX && m_gameModels[c.bodyB].IsFixed() )
                 {
                     MarkFixedContact( c.bodyB );
                 }
@@ -1283,7 +1535,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             out.bodyB = c.bodyB;
             out.featureId = c.featureId;
             out.point = m_gameModels[c.bodyA].GetPosition() + c.rA;
-            out.normal = c.normal;
+            out.normal = c.isTerrain ? c.terrainNormal : c.normal;
             out.tangent1 = c.tangent1;
             out.tangent2 = c.tangent2;
             out.penetration = c.penetration;
@@ -1303,22 +1555,29 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/PositionCorrection" );
         for ( const PersistentContact& c : m_persistentContacts )
         {
-            if ( c.penetration <= contactSlop )
+            const float rowContactSlop = c.isTerrain ? (std::max)( 0.0f, Cfg().terrainContactSlop ) : contactSlop;
+            if ( c.penetration <= rowContactSlop )
             {
                 continue;
             }
 
             GameModel& a = m_gameModels[c.bodyA];
-            GameModel& b = m_gameModels[c.bodyB];
             float invMassA = ( m_sleepState[c.bodyA] || a.IsFixed() ) ? 0.0f : a.GetInvertedMass();
-            float invMassB = ( m_sleepState[c.bodyB] || b.IsFixed() ) ? 0.0f : b.GetInvertedMass();
+            float invMassB = 0.0f;
+            GameModel* b = nullptr;
+            if ( c.bodyB != TERRAIN_BODY_INDEX )
+            {
+                b = &m_gameModels[c.bodyB];
+                invMassB = ( m_sleepState[c.bodyB] || b->IsFixed() ) ? 0.0f : b->GetInvertedMass();
+            }
             float totalInvMass = invMassA + invMassB;
             if ( totalInvMass <= TOLERANCE )
             {
                 continue;
             }
 
-            Vector3 correction = c.normal * ( ( c.penetration - contactSlop ) * positionCorrectionPercent / totalInvMass );
+            const float rowPositionCorrectionPercent = c.isTerrain ? 0.4f : positionCorrectionPercent;
+            Vector3 correction = c.normal * ( ( c.penetration - rowContactSlop ) * rowPositionCorrectionPercent / totalInvMass );
             float correctionMagnitude = Vector::VectorMag( correction );
             ++m_persistentContactSolverStats.positionCorrectionRows;
             m_persistentContactSolverStats.positionCorrectionTotal += correctionMagnitude;
@@ -1335,10 +1594,13 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             record.normal = c.normal;
             record.scalarA = correctionMagnitude;
             record.scalarB = c.penetration;
-            record.scalarC = contactSlop;
+            record.scalarC = rowContactSlop;
             RecordPhysicsPipelineStage( record );
             a.SetPosition( a.GetPosition() - correction * invMassA );
-            b.SetPosition( b.GetPosition() + correction * invMassB );
+            if ( b )
+            {
+                b->SetPosition( b->GetPosition() + correction * invMassB );
+            }
         }
     }
 
@@ -1354,6 +1616,11 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         m_persistentContactCache.clear();
         for ( const PersistentContact& c : m_persistentContacts )
         {
+            if ( c.isTerrain && !c.supportsRestingPolicy )
+            {
+                continue;
+            }
+
             if ( c.accN <= 0.0f && fabsf( c.accT1 ) <= TOLERANCE && fabsf( c.accT2 ) <= TOLERANCE )
             {
                 continue;
@@ -1846,8 +2113,14 @@ void GameModelCollection::RunSolverPhysics( float dt )
     }
     PROFILE_END( "Frame/Physics/Narrowphase" );
 
-    // Terrain: impulse solver terrain response for awake models only
-    PROFILE_BEGIN( "Frame/Physics/Terrain" );
+    // Terrain phase ownership:
+    //   1. Keep swept terrain detection here so fast bodies still stop at the
+    //      correct time of impact.
+    //   2. Convert the hit into a terrain manifold only. Do not apply impulses
+    //      or terrain-only velocity response in this phase.
+    //   3. Leave remaining-time integration and all normal/friction response to
+    //      the shared persistent contact rows below.
+    PROFILE_BEGIN( "Frame/Physics/Terrain/Detect" );
     for ( int x = 0; x < modelCount; ++x )
     {
         if ( m_soaIsFixed[x] )
@@ -1865,33 +2138,49 @@ void GameModelCollection::RunSolverPhysics( float dt )
         if ( m_gameModels[x].IsResponseRequired() )
         {
             m_gameModels[x].UpdatePosition( colTime );
-            bool contactSupportsSleep = m_gameModels[x].CollisionResponseTerrain( availableTime - colTime );
+            const float remainingTime = (std::max)( 0.0f, availableTime - colTime );
+            // BuildTerrainContactManifold is the handoff from terrain-specific
+            // collision data to solver-neutral contact geometry. The old
+            // response-required flag is now just a detection latch; clear it
+            // once the manifold is captured so no later path can replay terrain
+            // response work.
+            Physics::TerrainContactManifold manifold;
+            const bool hasManifold = m_gameModels[x].BuildTerrainContactManifold( x, colTime, availableTime, manifold );
+            m_gameModels[x].ClearResponseRequired();
+
             Physics::PhysicsPipelineRecord record;
             record.stage = Physics::PhysicsPipelineStage::TerrainHit;
             record.bodyA = x;
-            record.bodyB = -1;
-            record.point = m_gameModels[x].GetPosition();
+            record.bodyB = TERRAIN_BODY_INDEX;
+            record.point = hasManifold ? manifold.points[0].point : m_gameModels[x].GetPosition();
+            record.normal = hasManifold ? manifold.normal : ZERO_VECTOR;
             record.scalarA = colTime;
-            record.scalarB = contactSupportsSleep ? 1.0f : 0.0f;
+            record.scalarB = hasManifold && manifold.supportsRestingPolicy ? 1.0f : 0.0f;
+            record.scalarC = hasManifold ? static_cast<float>( manifold.pointCount ) : 0.0f;
             RecordPhysicsPipelineStage( record );
             EmitPhysicsCollisionTime( "terrain", x, -1, colTime, availableTime );
-            // Terrain response still resolves every terrain hit, but only hits
-            // classified as stable support seed sleep. Edge/point contacts and
-            // unstable terrain hits keep the body awake while the solver continues
-            // to handle the collision normally.
-            if ( contactSupportsSleep )
+
+            if ( hasManifold )
             {
-                m_sleepSupportedThisFrame[x] = 1;
+                m_terrainContactManifolds.push_back( manifold );
+                if ( manifold.supportsRestingPolicy )
+                {
+                    m_sleepSupportedThisFrame[x] = 1;
+                }
+                else
+                {
+                    m_sleepInhibitedThisFrame[x] = 1;
+                }
             }
             else
             {
                 m_sleepInhibitedThisFrame[x] = 1;
             }
             MarkCollisionVisualContact( x );
-            m_timeRemaining[x] = 0.0f;
+            m_timeRemaining[x] = remainingTime;
         }
     }
-    PROFILE_END( "Frame/Physics/Terrain" );
+    PROFILE_END( "Frame/Physics/Terrain/Detect" );
 
     SolvePersistentObjectContacts( dt );
     // Object contacts are converted into stack support only after terrain

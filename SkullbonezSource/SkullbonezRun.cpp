@@ -8,7 +8,6 @@
 #include "SkullbonezRenderBackendGL.h"
 #include "SkullbonezRenderBackendDX11.h"
 #include "SkullbonezRenderBackendDX12.h"
-#include "SkullbonezImpulseSolver.h"
 #include "SkullbonezTerrainSupportClassifier.h"
 #include <time.h>
 #include <cstdio>
@@ -4327,6 +4326,7 @@ void SkullbonezRun::EndPhysicsDiagnosticsRun( const char* status )
                   m_physicsDiagnostics.currentRunId,
                   m_scene.currentFrame,
                   escapedStatus.c_str() );
+    Log().FlushAll();
 
     m_physicsDiagnostics.isRunActive = false;
 }

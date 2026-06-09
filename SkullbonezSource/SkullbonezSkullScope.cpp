@@ -123,6 +123,7 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
     auto& m_sleepSupportEdges = collection.m_sleepSupportEdges;
     auto& m_sleepIslandVisualId = collection.m_sleepIslandVisualId;
     auto& m_physicsPipelineTrace = collection.m_physicsPipelineTrace;
+    auto& m_terrainContactManifolds = collection.m_terrainContactManifolds;
 
     // Frame rows summarize the whole physics island graph, not just individual
     // bodies.  The query layer uses these aggregate maxima/counts to decide which
@@ -415,6 +416,11 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
     contactPairs.reserve( m_persistentContacts.size() );
     for ( const auto& c : m_persistentContacts )
     {
+        if ( c.isTerrain )
+        {
+            continue;
+        }
+
         int a = c.bodyA;
         int b = c.bodyB;
         if ( a > b )
@@ -593,15 +599,17 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
 
     for ( const auto& c : m_persistentContacts )
     {
-        if ( c.bodyA < 0 || c.bodyA >= modelCount || c.bodyB < 0 || c.bodyB >= modelCount )
+        if ( c.bodyA < 0 ||
+             c.bodyA >= modelCount ||
+             ( !c.isTerrain && ( c.bodyB < 0 || c.bodyB >= modelCount ) ) )
         {
             continue;
         }
 
         GameModel& a = m_gameModels[c.bodyA];
-        GameModel& b = m_gameModels[c.bodyB];
         const Vector3 velA = a.GetVelocity() + Vector::CrossProduct( a.GetAngularVelocity(), c.rA );
-        const Vector3 velB = b.GetVelocity() + Vector::CrossProduct( b.GetAngularVelocity(), c.rB );
+        const Vector3 velB = c.isTerrain ? ZERO_VECTOR
+                                         : m_gameModels[c.bodyB].GetVelocity() + Vector::CrossProduct( m_gameModels[c.bodyB].GetAngularVelocity(), c.rB );
         const Vector3 relVel = velB - velA;
         const float normalSpeed = relVel * c.normal;
         const Vector3 tangentVel = relVel - c.normal * normalSpeed;
@@ -609,12 +617,14 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
         const double tangentImpulse = sqrt( static_cast<double>( c.accT1 ) * c.accT1 +
                                             static_cast<double>( c.accT2 ) * c.accT2 );
         const char* shapeA = a.IsBox() ? "box" : "sphere";
-        const char* shapeB = b.IsBox() ? "box" : "sphere";
+        const char* shapeB = c.isTerrain ? "terrain" : ( m_gameModels[c.bodyB].IsBox() ? "box" : "sphere" );
         char contactType[32] = "";
         sprintf_s( contactType, sizeof( contactType ), "%s/%s", shapeA, shapeB );
-        const int supportsSleep =
-            ( c.normal.y > 0.25f && c.bodyB < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[c.bodyB] ) ||
-            ( c.normal.y < -0.25f && c.bodyA < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[c.bodyA] );
+        const int supportsSleep = c.isTerrain
+                                      ? ( c.bodyA < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[c.bodyA] )
+                                      : ( ( c.normal.y > 0.25f && c.bodyB < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[c.bodyB] ) ||
+                                          ( c.normal.y < -0.25f && c.bodyA < static_cast<int>( m_sleepSupportedThisFrame.size() ) && m_sleepSupportedThisFrame[c.bodyA] ) );
+        const Vector3 diagnosticNormal = c.isTerrain ? c.terrainNormal : c.normal;
 
         Log().Writef( m_physicsDiagnosticsPath,
                       "{\"kind\":\"contact\",\"run\":\"%s\",\"frame\":%d,\"contact_id\":\"%d:%d:%u\",\"body_a\":%d,\"body_b\":%d,\"contact_type\":\"%s\",\"feature_id\":%u,\"point_count\":1,\"normal\":[%.6f,%.6f,%.6f],\"penetration\":%.6f,\"normal_impulse\":%.6f,\"tangent_impulse\":%.6f,\"slip_speed\":%.6f,\"rolling_residual\":%.6f,\"warm_started\":%d,\"supports_sleep\":%d}\n",
@@ -627,9 +637,9 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
                       c.bodyB,
                       contactType,
                       c.featureId,
-                      c.normal.x,
-                      c.normal.y,
-                      c.normal.z,
+                      diagnosticNormal.x,
+                      diagnosticNormal.y,
+                      diagnosticNormal.z,
                       c.penetration,
                       c.accN,
                       tangentImpulse,
@@ -647,6 +657,18 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
                       frame,
                       edge.first,
                       edge.second );
+    }
+
+    for ( const auto& manifold : m_terrainContactManifolds )
+    {
+        if ( manifold.supportsRestingPolicy )
+        {
+            Log().Writef( m_physicsDiagnosticsPath,
+                          "{\"kind\":\"support_edge\",\"run\":\"%s\",\"frame\":%d,\"supporter\":-1,\"supported\":%d,\"source\":\"terrain\"}\n",
+                          m_physicsDiagnosticsRunId,
+                          frame,
+                          manifold.bodyA );
+        }
     }
 
     for ( int root : islandRoots )

@@ -1,7 +1,7 @@
 # physics_bench_solver.scene
 # Physics benchmark — impulse solver, 200 balls + 100 boxes (300 objects total).
 #
-# Measures the sequential-impulse solver (SkullbonezImpulseSolver) overhead with
+# Measures shared sequential-impulse solver overhead with
 # a mixed object population.
 #
 # Run via physics_bench.suite for current-solver benchmark coverage.

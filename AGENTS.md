@@ -35,7 +35,7 @@ Run the appropriate validation script from the `tools\` directory:
 | `SkullbonezRenderBackend*.cpp/h` | `validate_renderers` |
 | `SkullbonezData/shaders/*` | `validate_renderers` |
 | `SkullbonezRigidBody*` | `validate_physics` |
-| `SkullbonezImpulseSolver*` | `validate_physics` |
+| `SkullbonezGameModelCollection*` physics solver changes | `validate_physics` |
 | `SkullbonezBoundingSphere*` | `validate_physics` |
 | `SkullbonezDynamicsObject*` | `validate_physics` |
 | `SkullbonezSpatialGrid*` | `validate_physics` + `validate_perf` |
