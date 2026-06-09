@@ -29,6 +29,28 @@ Allow scene reset on press of R key
 
 ## RUNTIME BUGS
 
+## TODO: Profiler tree accounting hides unbucketed physics time
+
+The profiler overlay can make the `Frame/Physics` row look wrong: the parent
+time is inclusive, but the visible child rows do not necessarily sum to the
+same value because some work inside the physics scope is not represented as a
+direct `Frame/Physics/...` child row. In practice this makes the missing time
+appear to belong to whichever nearby row is expanded or visually adjacent, and
+can make physics markers look like they live under `VsyncWait` instead of under
+`Physics`. Rework the profiler tree/accounting so scoped hierarchy and
+slash-delimited marker paths agree, then add explicit direct buckets for physics
+setup, solver, sleep-support propagation, terrain, and integration subwork so
+the parent total can be explained from the visible rows.
+
+## TODO: Add profiler visual mode that excludes VSync wait
+
+When `VsyncWait` is large, it consumes almost the entire profiler bar scale and
+makes the real CPU work visually tiny even when those rows have useful timing
+differences. Add an overlay option such as `Exclude VSync from visual scale` so
+the numeric `VsyncWait` row can remain visible while the bar normalization uses
+frame time minus wait time. The toggle should affect only the visual bar scale,
+not the recorded timings, exported data, or inclusive frame totals.
+
 ## TODO: Body alpha slider does not reliably affect debug bodies
 
 The Physics tab `Body alpha` control is still reported as not working reliably from the in-game UI. Do not treat the render-path alpha fix as complete until the slider path itself is verified end-to-end from mouse drag to `physicsDebugAlpha` to visible body transparency.
