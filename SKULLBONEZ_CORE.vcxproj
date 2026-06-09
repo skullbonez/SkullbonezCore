@@ -157,7 +157,14 @@
     <ClCompile Include="SkullbonezSource\SkullbonezRigidBody.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRotationMatrix.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezConfig.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRunCapture.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRun.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRunFrame.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRunInput.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRunRender.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRunRenderer.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRunScene.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRunStress.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezSkyBox.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezSpatialGrid.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezTerrain.cpp" />
@@ -225,6 +232,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezRotationMatrix.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezConfig.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRun.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezRunInternal.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSkyBox.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezSpatialGrid.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezTerrain.h" />

@@ -99,7 +99,28 @@
     <ClCompile Include="SkullbonezSource\SkullbonezConfig.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRunCapture.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRun.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRunFrame.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRunInput.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRunRender.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRunRenderer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRunScene.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRunStress.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezSkyBox.cpp">
@@ -297,6 +318,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezRun.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezRunInternal.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezSkyBox.h">
