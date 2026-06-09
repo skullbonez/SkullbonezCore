@@ -1,0 +1,18 @@
+# bullet_sweep_terrain.scene
+# High-speed sphere fired straight down into analytic flat terrain.
+# Regression command supplies --physics-collision-time-log.
+
+seed 42
+physics on
+text off
+vsync off
+frames 3
+fixed_step
+exit_on_complete
+world 0.0 -1000.0 0.0
+flat_slope 30.0 0.0 0.0
+water_hidden on
+
+camera overview 500 130 470  500 75 500  0 1 0
+
+ball bullet_terrain 500 130 500  2.0 5.0 8.0 0.2  0 -60000 0  0 0 0

@@ -65,7 +65,7 @@ class GameModel
     float m_projectedSurfaceArea;                       // 2d surface area approximation based on dynamics object list
     float m_dragCoefficient;                            // Calculated based on the average drag coefficient of all dynamics objects
     float m_fixedContactHighlightSeconds;               // Seconds remaining for fixed-body red contact feedback
-    bool m_isResponseRequired;                          // Indicates whether a response is required or not
+    bool m_isResponseRequired;                          // Terrain/deprecated response flag; object/object sweep returns explicit hit data
     bool m_isFixed;                                     // True for immovable collision bodies such as floating ramps
     char m_name[64];                                    // Optional name for logging (empty = unnamed)
 
@@ -87,14 +87,20 @@ class GameModel
     void DEBUG_SetSphereToTerrain(); // Debug routine - ensure sphere does not go through terrain
 
   public:
+    struct ObjectSweepResult
+    {
+        bool hit = false;
+        float collisionTime = 0.0f;
+    };
+
     GameModel( Environment::WorldEnvironment* pWorldEnv, const Vector3& vPosition, const Vector3& vRotationalInertia, float fMass ); // Overloaded constructor
     ~GameModel() = default;
     GameModel( GameModel&& ) noexcept = default;            // Move constructor
     GameModel& operator=( GameModel&& ) noexcept = default; // Move assignment
 
     Matrix4 GetModelMatrix();                                                           // Returns the model matrix for rendering (T*R*T*S)
-    bool IsResponseRequired();                                                          // Indicates whether a collision response is required
-    void ClearResponseRequired();                                                       // Clears a swept object/terrain response flag after the owner consumes it
+    bool IsResponseRequired();                                                          // Indicates whether terrain/deprecated response is required
+    void ClearResponseRequired();                                                       // Clears the terrain/deprecated response flag after the owner consumes it
     float GetSubmergedVolumePercent();                                                  // Returns the percentage of the game model submerged in fluid
     float GetMass();                                                                    // Returns the mass of the game model
     float GetInvertedMass();                                                            // Returns inverted mass (cached immutable)
@@ -126,7 +132,7 @@ class GameModel
     void NotifyFixedContact( float highlightSeconds );                                  // Refresh fixed-body contact highlight timer
     void TickFixedContactHighlight( float dt );                                         // Decay fixed-body contact highlight timer
     float GetFixedContactHighlightAlpha() const;                                        // 0=no contact tint, 1=full red contact tint
-    float CollisionDetectGameModel( GameModel& collisionTarget, float changeInTime );   // Collision detect model against model
+    ObjectSweepResult SweepGameModel( GameModel& collisionTarget, float changeInTime ); // Swept object/object query with explicit hit state
     void CollisionResponseGameModel( GameModel& responseTarget );                       // Deprecated legacy object impulse path; RunSolverPhysics does not call it
     void StaticOverlapResponseGameModel( GameModel& overlapTarget );                    // Deprecated object overlap projection; persistent rows own object cleanup
     float GetBoundingRadius();                                                          // Returns the radius of the bounding sphere

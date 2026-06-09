@@ -51,7 +51,8 @@ struct RunPerfLogState
     int perfLogFlushInterval = 0;       // Flush perf CSV every N writes (0 = flush on close only)
     int perfLogWritesSinceFlush = 0;    // Buffered perf-log write count since last flush
 #ifdef _DEBUG
-    char physicsRegressionLogOverride[256] = {}; // CLI --physics-regression-log path (empty = disabled)
+    char physicsRegressionLogOverride[256] = {};    // CLI --physics-regression-log path (empty = disabled)
+    char physicsCollisionTimeLogOverride[256] = {}; // CLI --physics-collision-time-log path (empty = disabled)
 #endif
 };
 
@@ -373,6 +374,7 @@ class SkullbonezRun
 
 #ifdef _DEBUG
     void SetPhysicsRegressionLogOverride( const char* path );                              // Override regression CSV path for all scenes
+    void SetPhysicsCollisionTimeLogOverride( const char* path );                           // Override swept collision-time CSV path for all scenes
     void SetPhysicsDiagnosticsPath( const char* path, bool fixedStepForcedByDiagnostics ); // Enable queryable physics diagnostics (CLI --physics-diag)
 #endif
 };

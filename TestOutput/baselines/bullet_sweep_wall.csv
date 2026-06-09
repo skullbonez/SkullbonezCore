@@ -1,0 +1,2 @@
+frame,type,bodyA,bodyB,nameA,nameB,collisionTime,availableTime
+0,object,0,1,bullet_wall,fixed_wall,0.001499,0.008333

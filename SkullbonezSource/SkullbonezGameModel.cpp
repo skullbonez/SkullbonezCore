@@ -809,15 +809,11 @@ float GameModel::CollisionDetectTerrain( float changeInTime )
 }
 
 
-float GameModel::CollisionDetectGameModel( GameModel& collisionTarget,
-                                           float changeInTime )
+GameModel::ObjectSweepResult GameModel::SweepGameModel( GameModel& collisionTarget,
+                                                        float changeInTime )
 {
-    // if there is a collision pending to be responded to between one of the two models
-    if ( m_isResponseRequired || collisionTarget.m_isResponseRequired )
-    {
-        // throw an exception!
-        throw std::runtime_error( "Cannot detect collision when a response is required first!  (GameModel::CollisionDetectGameModel)" );
-    }
+    ObjectSweepResult result;
+    result.collisionTime = changeInTime;
 
     // get the time of collision
     float collisionTime = GetModelCollisionTime( collisionTarget, changeInTime );
@@ -831,13 +827,12 @@ float GameModel::CollisionDetectGameModel( GameModel& collisionTarget,
     else
     {
         // perform the cap - cap time to be applied by converting collision from time ratio to actual seconds
-        collisionTime *= changeInTime;
-        m_isResponseRequired = true;
-        collisionTarget.m_isResponseRequired = true;
+        result.hit = true;
+        result.collisionTime = collisionTime * changeInTime;
     }
 
     // return when the collision will occur
-    return collisionTime;
+    return result;
 }
 
 

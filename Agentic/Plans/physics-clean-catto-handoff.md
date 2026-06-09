@@ -70,7 +70,7 @@ The current workspace has a Catto-style persistent object/object solver as the
 single dynamic object response owner. `RunSolverPhysics` still uses the old
 object/object swept narrowphase as a CCD front-end, but that front-end now only
 finds candidate timing, advances bodies to a time of impact, wakes sleeping
-pairs, records debug stages, and clears legacy response flags. It no longer
+pairs, and records debug stages. It no longer
 calls the legacy object/object impulse or overlap-projection wrappers.
 
 Current order in `GameModelCollection::RunSolverPhysics`:
@@ -78,11 +78,10 @@ Current order in `GameModelCollection::RunSolverPhysics`:
 1. Apply forces to awake dynamic bodies.
 2. Build broadphase candidate pairs with `SkullbonezSpatialGrid`.
 3. Prune pairs where both bodies are sleeping.
-4. Run the old object/object swept narrowphase through
-   `CollisionDetectGameModel` as CCD/contact discovery only.
+4. Run object/object swept narrowphase through `SweepGameModel` as explicit
+   CCD/contact discovery only.
 5. For swept object/object hits, advance bodies to the candidate collision time,
-   wake sleepers, clear legacy response-required flags, and record pipeline
-   stages without applying an impulse.
+   wake sleepers, and record pipeline stages without applying an impulse.
 6. Run swept terrain detection/response.
 7. Run `SolvePersistentObjectContacts(dt)` on the same candidate pair list.
 8. Propagate object contact support.
@@ -473,7 +472,7 @@ After the migration lands, update:
 - `Agentic/Reference/physics-overview.md`
 - any runtime reference text that describes physics diagnostics,
 - any stale plans that still describe the old hybrid as intended,
-- comments around `CollisionDetectGameModel`, `CollisionResponseGameModel`,
+- comments around `SweepGameModel`, `CollisionResponseGameModel`,
   `RespondCollisionGameModels`, and `SolvePersistentObjectContacts`.
 
 ## Validation Gate For This Implementation

@@ -513,6 +513,10 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
         }
         ++m_physicsRegressionLogFrame;
     }
+    if ( m_physicsCollisionTimeLogPath[0] != '\0' )
+    {
+        ++m_physicsCollisionTimeLogFrame;
+    }
     EmitPhysicsDiagnosticsFrame( fChangeInTime );
 #endif
 
@@ -571,6 +575,14 @@ void GameModelCollection::SetPhysicsRegressionLogPath( const char* path )
 }
 
 
+void GameModelCollection::SetPhysicsCollisionTimeLogPath( const char* path )
+{
+    strcpy_s( m_physicsCollisionTimeLogPath, sizeof( m_physicsCollisionTimeLogPath ), path );
+    m_physicsCollisionTimeLogFrame = 0;
+    m_physicsCollisionTimeHeaderWritten = false;
+}
+
+
 void GameModelCollection::SetPhysicsDiagnosticsPath( const char* path )
 {
     m_skullScope.SetPath( path );
@@ -588,6 +600,43 @@ void GameModelCollection::EmitPhysicsDiagnosticsFrame( float dt )
     m_skullScope.EmitFrame( *this, dt );
 }
 #endif
+
+
+void GameModelCollection::EmitPhysicsCollisionTime( const char* type, int bodyA, int bodyB, float collisionTime, float availableTime )
+{
+#ifdef _DEBUG
+    if ( m_physicsCollisionTimeLogPath[0] == '\0' )
+    {
+        return;
+    }
+
+    if ( !m_physicsCollisionTimeHeaderWritten )
+    {
+        Log().Writef( m_physicsCollisionTimeLogPath, "frame,type,bodyA,bodyB,nameA,nameB,collisionTime,availableTime\n" );
+        m_physicsCollisionTimeHeaderWritten = true;
+    }
+
+    const char* nameA = ( bodyA >= 0 && bodyA < static_cast<int>( m_gameModels.size() ) ) ? m_gameModels[bodyA].GetName() : "";
+    const char* nameB = ( bodyB >= 0 && bodyB < static_cast<int>( m_gameModels.size() ) ) ? m_gameModels[bodyB].GetName() : "terrain";
+
+    Log().Writef( m_physicsCollisionTimeLogPath,
+                  "%d,%s,%d,%d,%s,%s,%.6f,%.6f\n",
+                  m_physicsCollisionTimeLogFrame,
+                  type,
+                  bodyA,
+                  bodyB,
+                  nameA,
+                  nameB,
+                  collisionTime,
+                  availableTime );
+#else
+    (void)type;
+    (void)bodyA;
+    (void)bodyB;
+    (void)collisionTime;
+    (void)availableTime;
+#endif
+}
 
 
 void GameModelCollection::SolvePersistentObjectContacts( float dt )
@@ -1570,9 +1619,10 @@ void GameModelCollection::RunSolverPhysics( float dt )
                 bool wokeBySweptImpact = false;
                 if ( m_timeRemaining[y] > 0.0f )
                 {
-                    float colTime = m_gameModels[y].CollisionDetectGameModel( m_gameModels[x], dt );
-                    if ( m_gameModels[y].IsResponseRequired() && m_gameModels[x].IsResponseRequired() )
+                    GameModel::ObjectSweepResult sweep = m_gameModels[y].SweepGameModel( m_gameModels[x], m_timeRemaining[y] );
+                    if ( sweep.hit )
                     {
+                        float colTime = sweep.collisionTime;
                         Physics::PhysicsPipelineRecord record;
                         record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
                         record.bodyA = y;
@@ -1581,11 +1631,10 @@ void GameModelCollection::RunSolverPhysics( float dt )
                         record.scalarA = colTime;
                         record.scalarB = m_timeRemaining[y];
                         RecordPhysicsPipelineStage( record );
+                        EmitPhysicsCollisionTime( "object", y, x, colTime, m_timeRemaining[y] );
 
                         m_gameModels[y].UpdatePosition( colTime );
                         m_timeRemaining[y] = (std::max)( 0.0f, m_timeRemaining[y] - colTime );
-                        m_gameModels[y].ClearResponseRequired();
-                        m_gameModels[x].ClearResponseRequired();
                         wakeSleepingModel( x );
                         wokeBySweptImpact = true;
                         MarkCollisionVisualContact( x );
@@ -1617,9 +1666,10 @@ void GameModelCollection::RunSolverPhysics( float dt )
                 bool wokeBySweptImpact = false;
                 if ( m_timeRemaining[x] > 0.0f )
                 {
-                    float colTime = m_gameModels[x].CollisionDetectGameModel( m_gameModels[y], dt );
-                    if ( m_gameModels[x].IsResponseRequired() && m_gameModels[y].IsResponseRequired() )
+                    GameModel::ObjectSweepResult sweep = m_gameModels[x].SweepGameModel( m_gameModels[y], m_timeRemaining[x] );
+                    if ( sweep.hit )
                     {
+                        float colTime = sweep.collisionTime;
                         Physics::PhysicsPipelineRecord record;
                         record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
                         record.bodyA = x;
@@ -1628,11 +1678,10 @@ void GameModelCollection::RunSolverPhysics( float dt )
                         record.scalarA = colTime;
                         record.scalarB = m_timeRemaining[x];
                         RecordPhysicsPipelineStage( record );
+                        EmitPhysicsCollisionTime( "object", x, y, colTime, m_timeRemaining[x] );
 
                         m_gameModels[x].UpdatePosition( colTime );
                         m_timeRemaining[x] = (std::max)( 0.0f, m_timeRemaining[x] - colTime );
-                        m_gameModels[x].ClearResponseRequired();
-                        m_gameModels[y].ClearResponseRequired();
                         wakeSleepingModel( y );
                         wokeBySweptImpact = true;
                         MarkCollisionVisualContact( x );
@@ -1668,10 +1717,11 @@ void GameModelCollection::RunSolverPhysics( float dt )
         }
 
         float availableTime = (std::min)( m_timeRemaining[x], m_timeRemaining[y] );
-        float colTime = m_gameModels[x].CollisionDetectGameModel( m_gameModels[y], availableTime );
+        GameModel::ObjectSweepResult sweep = m_gameModels[x].SweepGameModel( m_gameModels[y], availableTime );
 
-        if ( m_gameModels[x].IsResponseRequired() && m_gameModels[y].IsResponseRequired() )
+        if ( sweep.hit )
         {
+            float colTime = sweep.collisionTime;
             Physics::PhysicsPipelineRecord record;
             record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
             record.bodyA = x;
@@ -1680,6 +1730,7 @@ void GameModelCollection::RunSolverPhysics( float dt )
             record.scalarA = colTime;
             record.scalarB = availableTime;
             RecordPhysicsPipelineStage( record );
+            EmitPhysicsCollisionTime( "object", x, y, colTime, availableTime );
 
             m_gameModels[x].UpdatePosition( colTime );
             m_gameModels[y].UpdatePosition( colTime );
@@ -1688,8 +1739,6 @@ void GameModelCollection::RunSolverPhysics( float dt )
 
             // Object/object CCD only advances to the contact candidate. The
             // persistent Catto rows below own velocity response and cache storage.
-            m_gameModels[x].ClearResponseRequired();
-            m_gameModels[y].ClearResponseRequired();
             MarkCollisionVisualContact( x );
             MarkCollisionVisualContact( y );
 
@@ -1727,12 +1776,13 @@ void GameModelCollection::RunSolverPhysics( float dt )
             continue;
         }
 
-        float colTime = m_gameModels[x].CollisionDetectTerrain( m_timeRemaining[x] );
+        float availableTime = m_timeRemaining[x];
+        float colTime = m_gameModels[x].CollisionDetectTerrain( availableTime );
 
         if ( m_gameModels[x].IsResponseRequired() )
         {
             m_gameModels[x].UpdatePosition( colTime );
-            bool contactSupportsSleep = m_gameModels[x].CollisionResponseTerrain( m_timeRemaining[x] - colTime );
+            bool contactSupportsSleep = m_gameModels[x].CollisionResponseTerrain( availableTime - colTime );
             Physics::PhysicsPipelineRecord record;
             record.stage = Physics::PhysicsPipelineStage::TerrainHit;
             record.bodyA = x;
@@ -1741,6 +1791,7 @@ void GameModelCollection::RunSolverPhysics( float dt )
             record.scalarA = colTime;
             record.scalarB = contactSupportsSleep ? 1.0f : 0.0f;
             RecordPhysicsPipelineStage( record );
+            EmitPhysicsCollisionTime( "terrain", x, -1, colTime, availableTime );
             // Terrain response still resolves every terrain hit, but only hits
             // classified as stable support seed sleep. Edge/point contacts and
             // unstable terrain hits keep the body awake while the solver continues

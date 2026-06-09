@@ -22,6 +22,7 @@ if errorlevel 1 exit /b 1
 
 echo [2/4] Running physics regression scenes...
 del /q "%REPO%\Debug\physics_regression_*.csv" 2>nul
+del /q "%REPO%\Debug\bullet_sweep_*.csv" 2>nul
 
 echo   Running physics_regression_solver...
 "%REPO%\Debug\SKULLBONEZ_CORE.exe" --vsync off --fixed-step --scene SkullbonezData/scenes/physics_regression_solver.scene --physics-regression-log Debug/physics_regression_solver.csv
@@ -30,13 +31,34 @@ if errorlevel 1 (
     exit /b 2
 )
 
+echo   Running bullet_sweep_wall...
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --vsync off --fixed-step --scene SkullbonezData/scenes/bullet_sweep_wall.scene --physics-collision-time-log Debug/bullet_sweep_wall.csv
+if errorlevel 1 (
+    echo FAIL: bullet_sweep_wall crashed or errored.
+    exit /b 2
+)
+
+echo   Running bullet_sweep_object...
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --vsync off --fixed-step --scene SkullbonezData/scenes/bullet_sweep_object.scene --physics-collision-time-log Debug/bullet_sweep_object.csv
+if errorlevel 1 (
+    echo FAIL: bullet_sweep_object crashed or errored.
+    exit /b 2
+)
+
+echo   Running bullet_sweep_terrain...
+"%REPO%\Debug\SKULLBONEZ_CORE.exe" --vsync off --fixed-step --scene SkullbonezData/scenes/bullet_sweep_terrain.scene --physics-collision-time-log Debug/bullet_sweep_terrain.csv
+if errorlevel 1 (
+    echo FAIL: bullet_sweep_terrain crashed or errored.
+    exit /b 2
+)
+
 echo [3/4] Comparing output against baselines...
 set "SKORE_REPO=%REPO%"
 "%PYTHON_EXE%" "%~dp0check_physics_regression.py"
 if errorlevel 1 (
     echo FAIL: Physics regression detected. Output differs from baselines.
-    echo       Baseline: TestOutput\baselines\physics_regression_solver.csv
-    echo       Actual:   Debug\physics_regression_solver.csv
+    echo       Baseline dir: TestOutput\baselines
+    echo       Actual dir:   Debug
     exit /b 2
 )
 

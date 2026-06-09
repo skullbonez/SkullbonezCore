@@ -30,6 +30,7 @@ This file holds details that are useful during debugging or manual testing but t
 | `--physics-debug-alpha` | float | Override translucent debug body alpha, `0.05` to `1.0`; also enables translucent debug bodies. |
 | `--physics-debug-contact-linger` | seconds | Keep contact manifold visuals visible after contact rows disappear, `0.0` to `5.0`. |
 | `--physics-regression-log` | path | Write the byte-exact physics regression CSV in Debug builds. |
+| `--physics-collision-time-log` | path | Write a Debug-only swept collision event CSV with collision times for focused regression scenes. |
 | `--physics-diag` | path | Write queryable physics diagnostics NDJSON in Debug builds. Forces fixed-step playback and can be queried with `tools\physics_query.bat`. Alias: `--physics-diagnostics`. |
 | `--gen-atlas` | optional path | Generate the SDF font atlas and exit before GPU init. |
 
@@ -52,7 +53,7 @@ Scene files are plain text. Blank lines and lines beginning with `#` are ignored
 For exact field order, inspect an existing scene in `SkullbonezData/scenes/` and the parser in `SkullbonezSource/SkullbonezTestScene.cpp`.
 `floating_box` uses the same fields as `box`, but the body is fixed in world space and excluded from gravity, impulses, and scene energy.
 
-Physics regression CSV output is command-line only via `--physics-regression-log`; scene files must not enable it.
+Physics regression CSV output is command-line only via `--physics-regression-log` and `--physics-collision-time-log`; scene files must not enable it.
 
 ## Key Bindings
 
@@ -93,6 +94,9 @@ Fly and nudge mode use WASD, mouse look, Shift for faster movement, and Space to
 | `SkullbonezData/scenes/physics_roll.scene` | Physics rolling validation. |
 | `SkullbonezData/scenes/cause_effect_marble_run.scene` | Fixed floating ramp, scene-energy telemetry, and cube-tower cause/effect demo. |
 | `SkullbonezData/scenes/physics_regression_solver.scene` | Byte-exact Debug physics CSV regression. |
+| `SkullbonezData/scenes/bullet_sweep_wall.scene` | High-speed bullet into a fixed wall block; emits collision time via `--physics-collision-time-log`. |
+| `SkullbonezData/scenes/bullet_sweep_object.scene` | High-speed bullet into a fixed object corner; emits collision time via `--physics-collision-time-log`. |
+| `SkullbonezData/scenes/bullet_sweep_terrain.scene` | High-speed bullet into flat terrain; emits collision time via `--physics-collision-time-log`. |
 | `SkullbonezData/scenes/standing_box_repro.scene` | Deterministic solver-box edge-rest repro seed target. |
 | `SkullbonezData/scenes/box_crater_edge_repro.scene` | Terrain edge-rest regression scene with Debug physics regression log. |
 

@@ -179,7 +179,10 @@ class GameModelCollection
     // then retire this row-per-body CSV path.
     char m_physicsRegressionLogPath[256] = {}; // Output path for regression CSV (empty = disabled)
     int m_physicsRegressionLogFrame = 0;       // Frame counter reset when path is set
-    SkullScope m_skullScope;                   // Queryable model-facing physics diagnostics trace writer
+    char m_physicsCollisionTimeLogPath[256] = {};
+    int m_physicsCollisionTimeLogFrame = 0;
+    bool m_physicsCollisionTimeHeaderWritten = false;
+    SkullScope m_skullScope; // Queryable model-facing physics diagnostics trace writer
 #endif
 
     void BuildShadowMesh();                         // Builds the shadow disc VAO with instanced attributes
@@ -188,6 +191,7 @@ class GameModelCollection
 #ifdef _DEBUG
     void EmitPhysicsDiagnosticsFrame( float dt );
 #endif
+    void EmitPhysicsCollisionTime( const char* type, int bodyA, int bodyB, float collisionTime, float availableTime );
     void RecordPhysicsPipelineStage( const Physics::PhysicsPipelineRecord& record );
     void EnsureCollisionVisualBuffers( int modelCount );
     void MarkCollisionVisualContact( int index );
@@ -267,9 +271,10 @@ class GameModelCollection
     }
 
 #ifdef _DEBUG
-    void SetPhysicsRegressionLogPath( const char* path ); // Enable byte-exact regression CSV; empty string disables
-    void SetPhysicsDiagnosticsPath( const char* path );   // Enable queryable physics diagnostics trace; empty string disables
-    void SetPhysicsDiagnosticsRunId( const char* runId ); // Sets current diagnostics run id and resets run-local counters
+    void SetPhysicsRegressionLogPath( const char* path );    // Enable byte-exact regression CSV; empty string disables
+    void SetPhysicsCollisionTimeLogPath( const char* path ); // Enable swept collision-time CSV; empty string disables
+    void SetPhysicsDiagnosticsPath( const char* path );      // Enable queryable physics diagnostics trace; empty string disables
+    void SetPhysicsDiagnosticsRunId( const char* runId );    // Sets current diagnostics run id and resets run-local counters
 #endif
 };
 } // namespace GameObjects

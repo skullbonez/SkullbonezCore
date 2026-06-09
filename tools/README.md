@@ -13,7 +13,7 @@ Scripts for validating SkullbonezCore changes. Run from the repo root or from wi
 | `validate_ui.bat` | Optional in-game UI visual screenshots, blur, and control automation | ~depends |
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep | ~10s |
 | `validate_demo_stress.bat` | Generated demo scene plus UI interaction crash sweep | ~depends |
-| `validate_physics.bat` | Physics, collision, solver, rigid body | ~45s |
+| `validate_physics.bat` | Physics, collision, solver, rigid body, bullet sweep collision-time baselines | ~45s |
 | `validate_physics_query.bat` | SkullScope query-output baseline check | ~depends |
 | `validate_perf.bat` | Performance-sensitive, hot-path changes | ~1 min |
 | `validate_full.bat` | Broad changes, pre-merge, uncertain scope | ~3 min |
@@ -55,7 +55,7 @@ tools\validate_select.bat fast build-profile
 | `check_physics_query_regression.py` | SkullScope baseline checker used by `validate_physics_query.bat` and `validate_physics.bat` |
 | `check_dx12_validation.bat` | Verify DX12 InfoQueue clean |
 | `check_parity.py` | Cross-renderer pixel comparison |
-| `check_physics_regression.py` | Byte-exact physics CSV diff |
+| `check_physics_regression.py` | Byte-exact physics and bullet collision-time CSV diff |
 | `update_baselines.bat` | Copy current Profile visual/perf artifacts into `TestOutput\baselines` |
 | `archive_validation_artifacts.bat` | Archive current Profile artifacts under `TestOutput\NNN_<commit>` |
 

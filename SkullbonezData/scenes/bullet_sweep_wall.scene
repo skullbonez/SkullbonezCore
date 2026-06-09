@@ -1,0 +1,24 @@
+# bullet_sweep_wall.scene
+# High-speed sphere fired into an immovable fixed wall block.
+# Regression command supplies --physics-collision-time-log.
+
+seed 42
+physics on
+text off
+vsync off
+frames 3
+fixed_step
+exit_on_complete
+world 0.0 -1000.0 0.0
+flat_slope 0.0 0.0 0.0
+water_hidden on
+terrain_hidden on
+
+camera overview 470 125 470  520 100 500  0 1 0
+
+# ball <name> <pos> <radius> <mass> <moment> <restitution> <impulse> <application point>
+ball bullet_wall 480 100 500  2.0 5.0 8.0 0.2  60000 0 0  0 0 0
+
+# Long along the bullet axis so the current bounding-sphere CCD candidate lands
+# on the fixed box contact surface instead of far in front of a broad panel.
+floating_box fixed_wall 520 100 500  20.0 0.5 0.5  1000.0 0.2

@@ -324,6 +324,7 @@ struct ParsedArgs
     float physicsDebugContactLingerOverride = 0.45f;
 #ifdef _DEBUG
     char physicsRegressionLogOverride[256] = {};
+    char physicsCollisionTimeLogOverride[256] = {};
     char physicsDiagnosticsPath[256] = {};
 #endif
     bool physicsDiagnosticsRequested = false;
@@ -745,6 +746,24 @@ bool ValidatePhysicsRegressionLog( const char* cmdLine )
 #endif
 }
 
+
+// Guards --physics-collision-time-log against use in non-Debug builds.
+// Returns false if startup should abort.
+bool ValidatePhysicsCollisionTimeLog( const char* cmdLine )
+{
+    if ( !FindOptionValue( cmdLine, "--physics-collision-time-log" ) )
+    {
+        return true;
+    }
+
+#ifndef _DEBUG
+    return FailCommandLineParse( "--physics-collision-time-log is only supported in Debug builds. Recompile with the Debug configuration to use collision-time logging." );
+#else
+    return true;
+#endif
+}
+
+
 // Guards --physics-diag / --physics-diagnostics against use in non-Debug builds.
 // Diagnostics traces are model-facing debug artifacts and are not a Profile/Release dependency.
 bool ValidatePhysicsDiagnostics( const char* cmdLine )
@@ -789,6 +808,35 @@ void ParsePhysicsRegressionLogOverride( const char* cmdLine, char ( &outPath )[2
         fprintf( stdout, "[physics-regression-log] Output: %s\n", outPath );
     }
 }
+
+
+void ParsePhysicsCollisionTimeLogOverride( const char* cmdLine, char ( &outPath )[256] )
+{
+    outPath[0] = '\0';
+    const char* collisionLogArg = FindOptionValue( cmdLine, "--physics-collision-time-log" );
+    if ( !collisionLogArg )
+    {
+        return;
+    }
+
+    const char* collisionLogEnd = collisionLogArg;
+    while ( *collisionLogEnd != '\0' && *collisionLogEnd != ' ' && *collisionLogEnd != '\t' )
+    {
+        ++collisionLogEnd;
+    }
+    size_t len = static_cast<size_t>( collisionLogEnd - collisionLogArg );
+    if ( len >= 256 )
+    {
+        len = 255;
+    }
+    memcpy( outPath, collisionLogArg, len );
+    outPath[len] = '\0';
+    if ( outPath[0] != '\0' )
+    {
+        fprintf( stdout, "[physics-collision-time-log] Output: %s\n", outPath );
+    }
+}
+
 
 bool ParsePhysicsDiagnosticsPath( const char* cmdLine, char ( &outPath )[256] )
 {
@@ -838,6 +886,10 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
     {
         return false;
     }
+    if ( !ValidatePhysicsCollisionTimeLog( cmdLine ) )
+    {
+        return false;
+    }
     if ( !ValidatePhysicsDiagnostics( cmdLine ) )
     {
         return false;
@@ -845,6 +897,7 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
 
 #ifdef _DEBUG
     ParsePhysicsRegressionLogOverride( cmdLine, out.physicsRegressionLogOverride );
+    ParsePhysicsCollisionTimeLogOverride( cmdLine, out.physicsCollisionTimeLogOverride );
     if ( !ParsePhysicsDiagnosticsPath( cmdLine, out.physicsDiagnosticsPath ) )
     {
         return false;
@@ -1127,6 +1180,10 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         if ( args.physicsRegressionLogOverride[0] != '\0' )
         {
             cRun.SetPhysicsRegressionLogOverride( args.physicsRegressionLogOverride );
+        }
+        if ( args.physicsCollisionTimeLogOverride[0] != '\0' )
+        {
+            cRun.SetPhysicsCollisionTimeLogOverride( args.physicsCollisionTimeLogOverride );
         }
         if ( args.physicsDiagnosticsPath[0] != '\0' )
         {

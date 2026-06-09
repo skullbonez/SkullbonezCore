@@ -459,6 +459,12 @@ void SkullbonezRun::SetPhysicsRegressionLogOverride( const char* path )
 }
 
 
+void SkullbonezRun::SetPhysicsCollisionTimeLogOverride( const char* path )
+{
+    strcpy_s( m_perfLogState.physicsCollisionTimeLogOverride, sizeof( m_perfLogState.physicsCollisionTimeLogOverride ), path );
+}
+
+
 void SkullbonezRun::SetPhysicsDiagnosticsPath( const char* path, bool fixedStepForcedByDiagnostics )
 {
     strcpy_s( m_physicsDiagnostics.path, sizeof( m_physicsDiagnostics.path ), path );
@@ -3933,6 +3939,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         // Physics regression log: current-solver per-frame CSV enabled only by command line.
 #ifdef _DEBUG
         m_cGameModelCollection.SetPhysicsRegressionLogPath( m_perfLogState.physicsRegressionLogOverride );
+        m_cGameModelCollection.SetPhysicsCollisionTimeLogPath( m_perfLogState.physicsCollisionTimeLogOverride );
 #endif
 
         // Override RNG seed for deterministic scenes. CLI --seed wins so a nudge snapshot can
