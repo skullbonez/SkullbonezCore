@@ -53,11 +53,18 @@ TestOutput/baseline-*/
 # Stale terrain-compare BMPs (large, not needed in source control)
 TestOutput/terrain_*.bmp
 
+# TestOutput generated artifacts are local-only: validation logs, screenshots,
+# stress-watch folders, perf captures, and crash-test output. Keep committed
+# baselines visible because validation depends on them.
+TestOutput/*
+!TestOutput/baselines/
+!TestOutput/baselines/**
+
 dx12_validation.txt
 
 # Runtime-generated user snapshots and screenshots
 # To keep a specific snapshot as a test case, move it to SkullbonezData/scenes/
-# To keep a specific screenshot, move it to TestOutput/ or another tracked folder
+# To keep a specific screenshot, move it to a deliberate tracked data folder
 /Scenes/
 /Screenshots/
 
@@ -70,4 +77,3 @@ build_profile.txt
 build_rel.txt
 cdb_*.txt
 crash_out.txt
-
