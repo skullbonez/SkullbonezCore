@@ -16,6 +16,10 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+class TestScene;
+class TestSceneParser;
+TestScene LoadTestSceneFromFileImpl( const char* path );
+
 struct SceneCamera
 {
     Vector3 m_position;
@@ -187,6 +191,9 @@ class TestScene
 {
 
   private:
+    friend TestScene LoadTestSceneFromFileImpl( const char* path );
+    friend class TestSceneParser;
+
     std::vector<SceneCamera> m_cameras;
     std::vector<SceneBall> m_balls;
     std::vector<SceneBallState> m_ballStates;

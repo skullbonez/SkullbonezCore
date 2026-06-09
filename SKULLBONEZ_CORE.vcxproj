@@ -188,6 +188,7 @@
     <ClCompile Include="ThirdPtySource\stb\stb_image.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezMatrix4.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezTestScene.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezTestSceneParser.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezFramebufferGL.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezShaderGL.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezMeshGL.cpp" />

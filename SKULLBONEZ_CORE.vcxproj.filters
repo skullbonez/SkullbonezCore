@@ -156,6 +156,9 @@
     <ClCompile Include="SkullbonezSource\SkullbonezTestScene.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezTestSceneParser.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezProfiler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
