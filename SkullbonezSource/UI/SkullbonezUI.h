@@ -10,6 +10,9 @@
 #include "UISlider.h"
 #include "UIState.h"
 #include "UITabBar.h"
+#include "UITabControls.h"
+#include "UITabOptions.h"
+#include "UITabPhysics.h"
 #include "UITabProfiler.h"
 #include "UITabScene.h"
 #include <cstdint>
@@ -137,20 +140,6 @@ class InGameUI
     UICheckBox m_vsyncToggle;
     UICheckBox m_timelineToggle;
     UICheckBox m_histogramToggle;
-    UICheckBox m_physicsToggles[8];
-    UIRect m_pipelinePrevButton;
-    UIRect m_pipelineNextButton;
-    UICheckBox m_optionToggles[5];
-    UISlider m_timeScaleSlider;
-    UISlider m_modelCountSlider;
-    UISlider m_physicsAlphaSlider;
-    UISlider m_contactLingerSlider;
-    UISlider m_seedSlider;
-    UISlider m_solverBallSlider;
-    UISlider m_solverBoxSlider;
-    UISlider m_worldGravitySlider;
-    UISlider m_worldFluidHeightSlider;
-    UISlider m_worldFluidDensitySlider;
     UIButton m_resetSceneButton;
     UIButton m_resetDefaultsButton;
     UIButton m_saveDefaultsButton;
@@ -169,17 +158,14 @@ class InGameUI
     bool m_hasMouseOverride = false;
     int m_mouseOverrideX = 0;
     int m_mouseOverrideY = 0;
+    ControlsTab::UIControlsTabState m_controlsTab;
+    OptionsTab::UIOptionsTabState m_optionsTab;
+    PhysicsTab::UIPhysicsTabState m_physicsTab;
+    ProfilerTab::UIProfilerTabState m_profilerTab;
     SceneTab::UISceneTabState m_sceneTab;
     float m_scrollY = 0.0f;
     double m_scrollbarVisibleUntil = 0.0;
     int m_activeSlider = 0; // 0=none; other values map to Controls/Options sliders in SkullbonezUI.cpp
-    float m_previewTimeScale = -1.0f;
-    int m_previewModelCount = -1;
-    float m_previewPhysicsAlpha = -1.0f;
-    float m_previewContactLinger = -1.0f;
-    int m_previewSolverBallCount = -1;
-    int m_previewSolverBoxCount = -1;
-    ProfilerTab::UIProfilerTabState m_profilerTab;
 
     int ContentHeight() const;
     void DrawCursor( const UIDrawContext& draw ) const;

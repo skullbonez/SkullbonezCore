@@ -188,6 +188,9 @@
     <ClCompile Include="SkullbonezSource\UI\UISlider.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIStyle.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabBar.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITabControls.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITabOptions.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UITabPhysics.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabProfiler.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabScene.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIWindowChrome.cpp" />
@@ -266,6 +269,9 @@
     <ClInclude Include="SkullbonezSource\UI\UIState.h" />
     <ClInclude Include="SkullbonezSource\UI\UIStyle.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabBar.h" />
+    <ClInclude Include="SkullbonezSource\UI\UITabControls.h" />
+    <ClInclude Include="SkullbonezSource\UI\UITabOptions.h" />
+    <ClInclude Include="SkullbonezSource\UI\UITabPhysics.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabProfiler.h" />
     <ClInclude Include="SkullbonezSource\UI\UITabScene.h" />
     <ClInclude Include="SkullbonezSource\UI\UIWindowChrome.h" />

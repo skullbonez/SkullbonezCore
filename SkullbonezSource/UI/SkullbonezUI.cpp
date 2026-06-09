@@ -5,6 +5,9 @@
 #include "UIDrawWidgets.h"
 #include "UIInput.h"
 #include "UILayout.h"
+#include "UITabControls.h"
+#include "UITabOptions.h"
+#include "UITabPhysics.h"
 #include "UITabProfiler.h"
 #include "UITabScene.h"
 #include "UIWindowChrome.h"
@@ -144,12 +147,9 @@ void InGameUI::SetActiveTab( InGameUITab tab )
     m_reflectionCombo.Close();
     CloseSceneCombo();
     m_activeSlider = 0;
-    m_previewTimeScale = -1.0f;
-    m_previewModelCount = -1;
-    m_previewPhysicsAlpha = -1.0f;
-    m_previewContactLinger = -1.0f;
-    m_previewSolverBallCount = -1;
-    m_previewSolverBoxCount = -1;
+    OptionsTab::ResetPreviewState( m_optionsTab );
+    PhysicsTab::ResetPreviewState( m_physicsTab );
+    ControlsTab::ResetPreviewState( m_controlsTab );
     m_backdropBlur.Invalidate();
 }
 
@@ -167,12 +167,9 @@ void InGameUI::CancelInputCapture()
     m_interaction.isResizing = false;
     m_interaction.blocksCameraMouse = false;
     m_activeSlider = 0;
-    m_previewTimeScale = -1.0f;
-    m_previewModelCount = -1;
-    m_previewPhysicsAlpha = -1.0f;
-    m_previewContactLinger = -1.0f;
-    m_previewSolverBallCount = -1;
-    m_previewSolverBoxCount = -1;
+    OptionsTab::ResetPreviewState( m_optionsTab );
+    PhysicsTab::ResetPreviewState( m_physicsTab );
+    ControlsTab::ResetPreviewState( m_controlsTab );
 }
 
 
@@ -351,15 +348,15 @@ int InGameUI::ContentHeight() const
     switch ( m_activeTab )
     {
     case InGameUITab::Keys:
-        return 338;
+        return ControlsTab::ContentHeight();
     case InGameUITab::Profiler:
         return ProfilerTab::ContentHeight( m_profilerTab );
     case InGameUITab::Physics:
-        return 438;
+        return PhysicsTab::ContentHeight();
     case InGameUITab::Options:
-        return 286;
+        return OptionsTab::ContentHeight();
     default:
-        return 338;
+        return ControlsTab::ContentHeight();
     }
 }
 
@@ -632,90 +629,15 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
             const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            const float colW = (std::max)( 148.0f, contentW * 0.46f );
-            const float col1 = contentX;
-            const float col2 = contentX + colW + 18.0f;
-            const auto setToggle = [&]( int index, int row, int column ) -> void
+            if ( PhysicsTab::HandleContentClick( m_physicsTab,
+                                                 result,
+                                                 m_activeSlider,
+                                                 m_mouseX,
+                                                 m_mouseY,
+                                                 contentX,
+                                                 rowBase,
+                                                 contentW ) )
             {
-                const float tx = column == 0 ? col1 : col2;
-                m_physicsToggles[index].SetBounds( tx, rowBase + static_cast<float>( row ) * CONTENT_TOGGLE_ROW_H, colW, 24.0f );
-            };
-
-            setToggle( 0, 0, 0 );
-            setToggle( 4, 1, 0 );
-            setToggle( 5, 2, 0 );
-            setToggle( 7, 3, 0 );
-            setToggle( 1, 0, 1 );
-            setToggle( 2, 1, 1 );
-            setToggle( 3, 2, 1 );
-            setToggle( 6, 3, 1 );
-            SetPipelineStepButtonBounds( m_pipelinePrevButton, m_pipelineNextButton, contentX, contentW, rowBase + 194.0f );
-            m_physicsAlphaSlider.SetBounds( contentX, rowBase + 242.0f, contentW, 34.0f );
-            m_contactLingerSlider.SetBounds( contentX, rowBase + 290.0f, contentW, 34.0f );
-            m_worldGravitySlider.SetBounds( contentX, rowBase + 374.0f, contentW, 34.0f );
-
-            if ( m_physicsToggles[0].HitTest( m_mouseX, m_mouseY ) )
-            {
-                result.commands.physics.toggleCollisionVisualizer = true;
-            }
-            else if ( m_physicsToggles[1].HitTest( m_mouseX, m_mouseY ) )
-            {
-                result.commands.physics.togglePhysicsDebugFlags = PHYSICS_DEBUG_AXES;
-            }
-            else if ( m_physicsToggles[2].HitTest( m_mouseX, m_mouseY ) )
-            {
-                result.commands.physics.togglePhysicsDebugFlags = PHYSICS_DEBUG_CONTACTS;
-            }
-            else if ( m_physicsToggles[3].HitTest( m_mouseX, m_mouseY ) )
-            {
-                result.commands.physics.togglePhysicsDebugFlags = PHYSICS_DEBUG_SLEEP;
-            }
-            else if ( m_physicsToggles[4].HitTest( m_mouseX, m_mouseY ) )
-            {
-                result.commands.physics.togglePhysicsDebugTransparent = true;
-            }
-            else if ( m_physicsToggles[5].HitTest( m_mouseX, m_mouseY ) )
-            {
-                result.commands.physics.toggleBroadphaseOverlay = true;
-            }
-            else if ( m_physicsToggles[7].HitTest( m_mouseX, m_mouseY ) )
-            {
-                result.commands.physics.togglePhysicsDebugFlags = PHYSICS_DEBUG_PIPELINE;
-            }
-            else if ( m_physicsToggles[6].HitTest( m_mouseX, m_mouseY ) )
-            {
-                result.commands.physics.togglePhysicsSleepPolicy = true;
-            }
-            else if ( m_pipelinePrevButton.Contains( m_mouseX, m_mouseY ) )
-            {
-                result.commands.physics.stepPhysicsPipelinePrevious = true;
-            }
-            else if ( m_pipelineNextButton.Contains( m_mouseX, m_mouseY ) )
-            {
-                result.commands.physics.stepPhysicsPipelineNext = true;
-            }
-            else if ( m_physicsAlphaSlider.HitTest( m_mouseX, m_mouseY ) )
-            {
-                m_activeSlider = 3;
-                m_previewPhysicsAlpha = m_physicsAlphaSlider.ValueFromMouse( m_mouseX, UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX, UI_PHYSICS_ALPHA_STEP );
-                result.commands.physics.requestedPhysicsDebugAlpha = m_previewPhysicsAlpha;
-                InputControl::BeginMouseCapture( hwnd );
-            }
-            else if ( m_contactLingerSlider.HitTest( m_mouseX, m_mouseY ) )
-            {
-                m_activeSlider = 4;
-                m_previewContactLinger = m_contactLingerSlider.ValueFromMouse( m_mouseX, UI_CONTACT_LINGER_MIN, UI_CONTACT_LINGER_MAX, UI_CONTACT_LINGER_STEP );
-                result.commands.physics.requestedPhysicsDebugContactLinger = m_previewContactLinger;
-                InputControl::BeginMouseCapture( hwnd );
-            }
-            else if ( m_worldGravitySlider.HitTest( m_mouseX, m_mouseY ) )
-            {
-                m_activeSlider = 11;
-                result.commands.water.requestWorldGravity = true;
-                result.commands.water.requestedWorldGravity = WorldGravityFromStrength( m_worldGravitySlider.ValueFromMouse( m_mouseX,
-                                                                                                             UI_WORLD_GRAVITY_MIN,
-                                                                                                             UI_WORLD_GRAVITY_MAX,
-                                                                                                             UI_WORLD_GRAVITY_STEP ) );
                 InputControl::BeginMouseCapture( hwnd );
             }
             m_rendererCombo.Close();
@@ -725,57 +647,15 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
             const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            const float colW = (std::max)( 148.0f, contentW * 0.46f );
-            const float col1 = contentX;
-            const float col2 = contentX + colW + 18.0f;
-            const auto setToggle = [&]( int index, int row, int column ) -> void
+            if ( OptionsTab::HandleContentClick( m_optionsTab,
+                                                 result,
+                                                 m_activeSlider,
+                                                 m_mouseX,
+                                                 m_mouseY,
+                                                 contentX,
+                                                 rowBase,
+                                                 contentW ) )
             {
-                const float tx = column == 0 ? col1 : col2;
-                m_optionToggles[index].SetBounds( tx, rowBase + static_cast<float>( row ) * CONTENT_TOGGLE_ROW_H, colW, 24.0f );
-            };
-
-            setToggle( 0, 0, 0 );
-            setToggle( 1, 0, 1 );
-            setToggle( 2, 1, 0 );
-            setToggle( 3, 1, 1 );
-            setToggle( 4, 2, 0 );
-            m_timeScaleSlider.SetBounds( contentX, rowBase + 126.0f, contentW, 34.0f );
-            m_modelCountSlider.SetBounds( contentX, rowBase + 174.0f, contentW, 34.0f );
-
-            if ( m_optionToggles[0].HitTest( m_mouseX, m_mouseY ) )
-            {
-                result.commands.sceneOptions.toggleFixedStep = true;
-            }
-            else if ( m_optionToggles[1].HitTest( m_mouseX, m_mouseY ) )
-            {
-                result.commands.sceneOptions.toggleTerrainHidden = true;
-            }
-            else if ( m_optionToggles[2].HitTest( m_mouseX, m_mouseY ) )
-            {
-                result.commands.sceneOptions.toggleWaterHidden = true;
-            }
-            else if ( m_optionToggles[3].HitTest( m_mouseX, m_mouseY ) )
-            {
-                result.commands.sceneOptions.toggleWaterFreeze = true;
-            }
-            else if ( m_optionToggles[4].HitTest( m_mouseX, m_mouseY ) )
-            {
-                result.commands.sceneOptions.toggleWaterFlat = true;
-            }
-            else if ( m_timeScaleSlider.HitTest( m_mouseX, m_mouseY ) )
-            {
-                m_activeSlider = 1;
-                m_previewTimeScale = m_timeScaleSlider.ValueFromMouse( m_mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
-                result.commands.sceneOptions.requestedTimeScale = m_previewTimeScale;
-                InputControl::BeginMouseCapture( hwnd );
-            }
-            else if ( m_modelCountSlider.HitTest( m_mouseX, m_mouseY ) )
-            {
-                m_activeSlider = 2;
-                m_previewModelCount = static_cast<int>( m_modelCountSlider.ValueFromMouse( m_mouseX,
-                                                                                           static_cast<float>( UI_MODEL_COUNT_MIN ),
-                                                                                           static_cast<float>( UI_MODEL_COUNT_MAX ),
-                                                                                           1.0f ) );
                 InputControl::BeginMouseCapture( hwnd );
             }
             m_rendererCombo.Close();
@@ -786,56 +666,17 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
             const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            const int displayBalls = m_previewSolverBallCount >= 0 ? m_previewSolverBallCount : m_lastSolverBallCount;
-            const int displayBoxes = m_previewSolverBoxCount >= 0 ? m_previewSolverBoxCount : m_lastSolverBoxCount;
-
-            m_seedSlider.SetBounds( contentX, rowBase, contentW, 34.0f );
-            m_solverBallSlider.SetBounds( contentX, rowBase + 88.0f, contentW, 34.0f );
-            m_solverBoxSlider.SetBounds( contentX, rowBase + 128.0f, contentW, 34.0f );
-            m_worldFluidHeightSlider.SetBounds( contentX, rowBase + 210.0f, contentW, 34.0f );
-            m_worldFluidDensitySlider.SetBounds( contentX, rowBase + 250.0f, contentW, 34.0f );
-
-            if ( m_seedSlider.HitTest( m_mouseX, m_mouseY ) )
+            if ( ControlsTab::HandleContentClick( m_controlsTab,
+                                                  result,
+                                                  m_activeSlider,
+                                                  m_mouseX,
+                                                  m_mouseY,
+                                                  contentX,
+                                                  rowBase,
+                                                  contentW,
+                                                  m_lastSolverBallCount,
+                                                  m_lastSolverBoxCount ) )
             {
-                m_activeSlider = 6;
-                result.commands.run.requestedSeed = static_cast<int>( m_seedSlider.ValueFromMouse( m_mouseX,
-                                                                                      static_cast<float>( UI_SEED_MIN ),
-                                                                                      static_cast<float>( UI_SEED_MAX ),
-                                                                                      1.0f ) );
-                InputControl::BeginMouseCapture( hwnd );
-            }
-            else if ( m_solverBallSlider.HitTest( m_mouseX, m_mouseY ) )
-            {
-                m_activeSlider = 7;
-                const int maxBalls = RemainingGameModelSlots( displayBoxes );
-                m_previewSolverBallCount = static_cast<int>( m_solverBallSlider.ValueFromMouse( m_mouseX,
-                                                                                                static_cast<float>( UI_SOLVER_COUNT_MIN ),
-                                                                                                static_cast<float>( maxBalls ),
-                                                                                                1.0f ) );
-                InputControl::BeginMouseCapture( hwnd );
-            }
-            else if ( m_solverBoxSlider.HitTest( m_mouseX, m_mouseY ) )
-            {
-                m_activeSlider = 8;
-                const int maxBoxes = RemainingGameModelSlots( displayBalls );
-                m_previewSolverBoxCount = static_cast<int>( m_solverBoxSlider.ValueFromMouse( m_mouseX,
-                                                                                              static_cast<float>( UI_SOLVER_COUNT_MIN ),
-                                                                                              static_cast<float>( maxBoxes ),
-                                                                                              1.0f ) );
-                InputControl::BeginMouseCapture( hwnd );
-            }
-            else if ( m_worldFluidHeightSlider.HitTest( m_mouseX, m_mouseY ) )
-            {
-                m_activeSlider = 12;
-                result.commands.water.requestWorldFluidHeight = true;
-                result.commands.water.requestedWorldFluidHeight = m_worldFluidHeightSlider.ValueFromMouse( m_mouseX, UI_WORLD_FLUID_HEIGHT_MIN, UI_WORLD_FLUID_HEIGHT_MAX, UI_WORLD_FLUID_HEIGHT_STEP );
-                InputControl::BeginMouseCapture( hwnd );
-            }
-            else if ( m_worldFluidDensitySlider.HitTest( m_mouseX, m_mouseY ) )
-            {
-                m_activeSlider = 13;
-                result.commands.water.requestWorldFluidDensity = true;
-                result.commands.water.requestedWorldFluidDensity = m_worldFluidDensitySlider.ValueFromMouse( m_mouseX, UI_WORLD_FLUID_DENSITY_MIN, UI_WORLD_FLUID_DENSITY_MAX, UI_WORLD_FLUID_DENSITY_STEP );
                 InputControl::BeginMouseCapture( hwnd );
             }
             m_rendererCombo.Close();
@@ -880,73 +721,21 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         }
     }
 
-    if ( leftNow && m_activeSlider == 1 )
+    if ( leftNow && m_activeSlider != 0 )
     {
         // Sliders update previews continuously while dragged.  Heavy operations
         // such as rebuilding generated bodies are delayed until mouse release,
         // but cheap scalar controls are emitted every frame for immediate feedback.
-        m_previewTimeScale = m_timeScaleSlider.ValueFromMouse( m_mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
-        result.commands.sceneOptions.requestedTimeScale = m_previewTimeScale;
-    }
-    else if ( leftNow && m_activeSlider == 2 )
-    {
-        m_previewModelCount = static_cast<int>( m_modelCountSlider.ValueFromMouse( m_mouseX,
-                                                                                   static_cast<float>( UI_MODEL_COUNT_MIN ),
-                                                                                   static_cast<float>( UI_MODEL_COUNT_MAX ),
-                                                                                   1.0f ) );
-    }
-    else if ( leftNow && m_activeSlider == 3 )
-    {
-        m_previewPhysicsAlpha = m_physicsAlphaSlider.ValueFromMouse( m_mouseX, UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX, UI_PHYSICS_ALPHA_STEP );
-        result.commands.physics.requestedPhysicsDebugAlpha = m_previewPhysicsAlpha;
-    }
-    else if ( leftNow && m_activeSlider == 4 )
-    {
-        m_previewContactLinger = m_contactLingerSlider.ValueFromMouse( m_mouseX, UI_CONTACT_LINGER_MIN, UI_CONTACT_LINGER_MAX, UI_CONTACT_LINGER_STEP );
-        result.commands.physics.requestedPhysicsDebugContactLinger = m_previewContactLinger;
-    }
-    else if ( leftNow && m_activeSlider == 6 )
-    {
-        result.commands.run.requestedSeed = static_cast<int>( m_seedSlider.ValueFromMouse( m_mouseX,
-                                                                              static_cast<float>( UI_SEED_MIN ),
-                                                                              static_cast<float>( UI_SEED_MAX ),
-                                                                              1.0f ) );
-    }
-    else if ( leftNow && m_activeSlider == 7 )
-    {
-        const int boxes = m_previewSolverBoxCount >= 0 ? m_previewSolverBoxCount : m_lastSolverBoxCount;
-        const int maxBalls = RemainingGameModelSlots( boxes );
-        m_previewSolverBallCount = static_cast<int>( m_solverBallSlider.ValueFromMouse( m_mouseX,
-                                                                                        static_cast<float>( UI_SOLVER_COUNT_MIN ),
-                                                                                        static_cast<float>( maxBalls ),
-                                                                                        1.0f ) );
-    }
-    else if ( leftNow && m_activeSlider == 8 )
-    {
-        const int balls = m_previewSolverBallCount >= 0 ? m_previewSolverBallCount : m_lastSolverBallCount;
-        const int maxBoxes = RemainingGameModelSlots( balls );
-        m_previewSolverBoxCount = static_cast<int>( m_solverBoxSlider.ValueFromMouse( m_mouseX,
-                                                                                      static_cast<float>( UI_SOLVER_COUNT_MIN ),
-                                                                                      static_cast<float>( maxBoxes ),
-                                                                                      1.0f ) );
-    }
-    else if ( leftNow && m_activeSlider == 11 )
-    {
-        result.commands.water.requestWorldGravity = true;
-        result.commands.water.requestedWorldGravity = WorldGravityFromStrength( m_worldGravitySlider.ValueFromMouse( m_mouseX,
-                                                                                                     UI_WORLD_GRAVITY_MIN,
-                                                                                                     UI_WORLD_GRAVITY_MAX,
-                                                                                                     UI_WORLD_GRAVITY_STEP ) );
-    }
-    else if ( leftNow && m_activeSlider == 12 )
-    {
-        result.commands.water.requestWorldFluidHeight = true;
-        result.commands.water.requestedWorldFluidHeight = m_worldFluidHeightSlider.ValueFromMouse( m_mouseX, UI_WORLD_FLUID_HEIGHT_MIN, UI_WORLD_FLUID_HEIGHT_MAX, UI_WORLD_FLUID_HEIGHT_STEP );
-    }
-    else if ( leftNow && m_activeSlider == 13 )
-    {
-        result.commands.water.requestWorldFluidDensity = true;
-        result.commands.water.requestedWorldFluidDensity = m_worldFluidDensitySlider.ValueFromMouse( m_mouseX, UI_WORLD_FLUID_DENSITY_MIN, UI_WORLD_FLUID_DENSITY_MAX, UI_WORLD_FLUID_DENSITY_STEP );
+        if ( !OptionsTab::UpdateActiveSlider( m_optionsTab, m_activeSlider, m_mouseX, result ) &&
+             !PhysicsTab::UpdateActiveSlider( m_physicsTab, m_activeSlider, m_mouseX, result ) )
+        {
+            ControlsTab::UpdateActiveSlider( m_controlsTab,
+                                             m_activeSlider,
+                                             m_mouseX,
+                                             m_lastSolverBallCount,
+                                             m_lastSolverBoxCount,
+                                             result );
+        }
     }
 
     if ( leftNow && m_interaction.isDragging )
@@ -978,31 +767,15 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         // Commit deferred slider previews exactly once on release.  This avoids
         // rebuilding solver objects or generated model pools every mouse-move
         // while still letting the drawn slider thumb track the user's drag.
-        if ( m_activeSlider == 1 && m_previewTimeScale > 0.0f )
+        if ( !OptionsTab::CommitActiveSlider( m_optionsTab, m_activeSlider, result ) &&
+             !PhysicsTab::CommitActiveSlider( m_physicsTab, m_activeSlider, result ) )
         {
-            result.commands.sceneOptions.requestedTimeScale = m_previewTimeScale;
-        }
-        else if ( m_activeSlider == 2 && m_previewModelCount >= 0 )
-        {
-            result.commands.sceneOptions.requestedModelCount = m_previewModelCount;
-        }
-        else if ( m_activeSlider == 3 && m_previewPhysicsAlpha >= 0.0f )
-        {
-            result.commands.physics.requestedPhysicsDebugAlpha = m_previewPhysicsAlpha;
-        }
-        else if ( m_activeSlider == 4 && m_previewContactLinger >= 0.0f )
-        {
-            result.commands.physics.requestedPhysicsDebugContactLinger = m_previewContactLinger;
-        }
-        else if ( m_activeSlider == 7 && m_previewSolverBallCount >= 0 )
-        {
-            result.commands.run.requestedSolverBallCount = m_previewSolverBallCount;
-        }
-        else if ( m_activeSlider == 8 && m_previewSolverBoxCount >= 0 )
-        {
-            result.commands.run.requestedSolverBoxCount = m_previewSolverBoxCount;
+            ControlsTab::CommitActiveSlider( m_controlsTab, m_activeSlider, result );
         }
         m_activeSlider = 0;
+        OptionsTab::ResetPreviewState( m_optionsTab );
+        PhysicsTab::ResetPreviewState( m_physicsTab );
+        ControlsTab::ResetPreviewState( m_controlsTab );
         m_interaction.isDragging = false;
         m_interaction.isResizing = false;
         InputControl::EndMouseCapture();
@@ -1129,10 +902,6 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     draw.Rect( contentX - 10.0f, contentY - 10.0f, contentW + 20.0f, contentH + 12.0f, 0.010f, 0.020f, 0.028f, 0.56f );
     draw.Outline( contentX - 10.0f, contentY - 10.0f, contentW + 20.0f, contentH + 12.0f, 0.16f, 0.28f, 0.34f, 0.62f );
 
-    auto visible = [&]( float rowY, float rowH ) -> bool
-    {
-        return IsRowVisible( contentY, contentH, rowY, rowH );
-    };
     if ( m_activeTab == InGameUITab::Profiler )
     {
         ProfilerTab::Draw( m_profilerTab, draw, contentX, contentY, contentW, contentH, m_scrollY );
@@ -1156,134 +925,25 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     }
     else if ( m_activeTab == InGameUITab::Physics )
     {
-        char buf[128];
-        const float colW = (std::max)( 148.0f, contentW * 0.46f );
-        const float col1 = contentX;
-        const float col2 = contentX + colW + 18.0f;
-        const float displayAlpha = ( m_activeSlider == 3 && m_previewPhysicsAlpha >= 0.0f ) ? m_previewPhysicsAlpha : data.physicsDebugAlpha;
-        const float displayLinger = ( m_activeSlider == 4 && m_previewContactLinger >= 0.0f ) ? m_previewContactLinger : data.physicsDebugContactLinger;
-        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Physics Controls" );
-        DrawContentToggle( draw, contentY, contentH, m_physicsToggles[0], col1, scrolledY + 42.0f, colW, "Collision state", data.collisionVisualizer );
-        DrawContentToggle( draw, contentY, contentH, m_physicsToggles[4], col1, scrolledY + 72.0f, colW, "Transparent", data.physicsDebugTransparent );
-        DrawContentToggle( draw, contentY, contentH, m_physicsToggles[5], col1, scrolledY + 102.0f, colW, "Broadphase", data.broadphaseOverlay );
-        DrawContentToggle( draw, contentY, contentH, m_physicsToggles[7], col1, scrolledY + 132.0f, colW, "Pipeline", ( data.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0 );
-        DrawContentToggle( draw, contentY, contentH, m_physicsToggles[1], col2, scrolledY + 42.0f, colW, "Axes", ( data.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0 );
-        DrawContentToggle( draw, contentY, contentH, m_physicsToggles[2], col2, scrolledY + 72.0f, colW, "Contacts", ( data.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0 );
-        DrawContentToggle( draw, contentY, contentH, m_physicsToggles[3], col2, scrolledY + 102.0f, colW, "Sleep state", ( data.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0 );
-        DrawContentToggle( draw, contentY, contentH, m_physicsToggles[6], col2, scrolledY + 132.0f, colW, "Sleep policy", data.physicsSleepEnabled );
-        snprintf( buf, sizeof( buf ), "0x%04X", data.physicsDebugFlags );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 178.0f, "Debug flags", buf, 0.52f, 0.94f, 1.0f );
-        snprintf( buf, sizeof( buf ), "%d/%d %s", data.physicsPipelineStageIndex + 1, data.physicsPipelineStageCount, data.physicsPipelineStageName );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 198.0f, "Pipeline stage", buf, 0.52f, 0.94f, 1.0f );
-        SetPipelineStepButtonBounds( m_pipelinePrevButton, m_pipelineNextButton, contentX, contentW, scrolledY + 194.0f );
-        if ( visible( scrolledY + 194.0f, UI_PIPELINE_STEP_BUTTON_H ) )
-        {
-            DrawPipelineStepButton( draw, m_pipelinePrevButton, true, m_pipelinePrevButton.Contains( m_mouseX, m_mouseY ) );
-            DrawPipelineStepButton( draw, m_pipelineNextButton, false, m_pipelineNextButton.Contains( m_mouseX, m_mouseY ) );
-        }
-        if ( visible( scrolledY + 216.0f, 18.0f ) )
-        {
-            DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 216.0f, 12.0f, "Debug Draw" );
-        }
-        snprintf( buf, sizeof( buf ), "%.2f", displayAlpha );
-        m_physicsAlphaSlider.SetBounds( contentX, scrolledY + 242.0f, contentW, 34.0f );
-        if ( visible( scrolledY + 242.0f, 34.0f ) )
-        {
-            m_physicsAlphaSlider.Draw( draw, "Body alpha", buf, displayAlpha, UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX );
-        }
-        snprintf( buf, sizeof( buf ), "%.2fs", displayLinger );
-        m_contactLingerSlider.SetBounds( contentX, scrolledY + 290.0f, contentW, 34.0f );
-        if ( visible( scrolledY + 290.0f, 34.0f ) )
-        {
-            m_contactLingerSlider.Draw( draw, "Contact linger", buf, displayLinger, UI_CONTACT_LINGER_MIN, UI_CONTACT_LINGER_MAX );
-        }
-        if ( visible( scrolledY + 348.0f, 18.0f ) )
-        {
-            DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 348.0f, 12.0f, "World" );
-        }
-        const float displayGravityStrength = GravityStrengthFromWorld( data.worldGravity );
-        snprintf( buf, sizeof( buf ), "%.1f", displayGravityStrength );
-        m_worldGravitySlider.SetBounds( contentX, scrolledY + 374.0f, contentW, 34.0f );
-        if ( visible( scrolledY + 374.0f, 34.0f ) )
-        {
-            m_worldGravitySlider.Draw( draw, "Gravity", buf, displayGravityStrength, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX );
-        }
+        PhysicsTab::Draw( m_physicsTab,
+                          draw,
+                          data,
+                          contentX,
+                          contentY,
+                          contentW,
+                          contentH,
+                          scrolledY,
+                          m_activeSlider,
+                          m_mouseX,
+                          m_mouseY );
     }
     else if ( m_activeTab == InGameUITab::Options )
     {
-        char buf[128];
-        const float colW = (std::max)( 148.0f, contentW * 0.46f );
-        const float col1 = contentX;
-        const float col2 = contentX + colW + 18.0f;
-        const float displayTimeScale = ( m_activeSlider == 1 && m_previewTimeScale > 0.0f ) ? m_previewTimeScale : data.timeScale;
-        const int displayModelCount = ( m_activeSlider == 2 && m_previewModelCount >= 0 ) ? m_previewModelCount : data.modelCount;
-        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Scene Options" );
-        DrawContentToggle( draw, contentY, contentH, m_optionToggles[0], col1, scrolledY + 42.0f, colW, "Fixed step", data.fixedStep );
-        DrawContentToggle( draw, contentY, contentH, m_optionToggles[1], col2, scrolledY + 42.0f, colW, "Hide terrain", data.terrainHidden );
-        DrawContentToggle( draw, contentY, contentH, m_optionToggles[2], col1, scrolledY + 72.0f, colW, "Hide water", data.waterHidden );
-        DrawContentToggle( draw, contentY, contentH, m_optionToggles[3], col2, scrolledY + 72.0f, colW, "Freeze water", data.waterFreezeDebug );
-        DrawContentToggle( draw, contentY, contentH, m_optionToggles[4], col1, scrolledY + 102.0f, colW, "Flat water", data.waterFlatDebug );
-        snprintf( buf, sizeof( buf ), "%.2fx", displayTimeScale );
-        m_timeScaleSlider.SetBounds( contentX, scrolledY + 168.0f, contentW, 34.0f );
-        if ( visible( scrolledY + 168.0f, 34.0f ) )
-        {
-            m_timeScaleSlider.Draw( draw, "Time scale", buf, displayTimeScale, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX );
-        }
-        snprintf( buf, sizeof( buf ), "%d", displayModelCount );
-        m_modelCountSlider.SetBounds( contentX, scrolledY + 216.0f, contentW, 34.0f );
-        if ( visible( scrolledY + 216.0f, 34.0f ) )
-        {
-            m_modelCountSlider.Draw( draw, "Model count", buf, static_cast<float>( displayModelCount ), static_cast<float>( UI_MODEL_COUNT_MIN ), static_cast<float>( UI_MODEL_COUNT_MAX ) );
-        }
+        OptionsTab::Draw( m_optionsTab, draw, data, contentX, contentY, contentW, contentH, scrolledY, m_activeSlider );
     }
     else
     {
-        char buf[128];
-        const int displaySeed = static_cast<int>( (std::max)( 1u, data.rngSeed ) );
-        const int displaySolverBalls = ( m_activeSlider == 7 && m_previewSolverBallCount >= 0 ) ? m_previewSolverBallCount : data.solverBallCount;
-        const int displaySolverBoxes = ( m_activeSlider == 8 && m_previewSolverBoxCount >= 0 ) ? m_previewSolverBoxCount : data.solverBoxCount;
-        const int displayBallMax = RemainingGameModelSlots( displaySolverBoxes );
-        const int displayBoxMax = RemainingGameModelSlots( displaySolverBalls );
-
-        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Run Controls" );
-        snprintf( buf, sizeof( buf ), "%d", displaySeed );
-        m_seedSlider.SetBounds( contentX, scrolledY + 42.0f, contentW, 34.0f );
-        if ( visible( scrolledY + 42.0f, 34.0f ) )
-        {
-            m_seedSlider.Draw( draw, "Seed", buf, static_cast<float>( displaySeed ), static_cast<float>( UI_SEED_MIN ), static_cast<float>( UI_SEED_MAX ) );
-        }
-        if ( visible( scrolledY + 104.0f, 18.0f ) )
-        {
-            DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 104.0f, 12.0f, "Game Models" );
-        }
-        snprintf( buf, sizeof( buf ), "%d", displaySolverBalls );
-        m_solverBallSlider.SetBounds( contentX, scrolledY + 130.0f, contentW, 34.0f );
-        if ( visible( scrolledY + 130.0f, 34.0f ) )
-        {
-            m_solverBallSlider.Draw( draw, "Balls", buf, static_cast<float>( displaySolverBalls ), static_cast<float>( UI_SOLVER_COUNT_MIN ), static_cast<float>( displayBallMax ) );
-        }
-        snprintf( buf, sizeof( buf ), "%d", displaySolverBoxes );
-        m_solverBoxSlider.SetBounds( contentX, scrolledY + 170.0f, contentW, 34.0f );
-        if ( visible( scrolledY + 170.0f, 34.0f ) )
-        {
-            m_solverBoxSlider.Draw( draw, "Boxes", buf, static_cast<float>( displaySolverBoxes ), static_cast<float>( UI_SOLVER_COUNT_MIN ), static_cast<float>( displayBoxMax ) );
-        }
-        if ( visible( scrolledY + 226.0f, 18.0f ) )
-        {
-            DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 226.0f, 12.0f, "Fluid" );
-        }
-        snprintf( buf, sizeof( buf ), "%.0f", data.worldFluidHeight );
-        m_worldFluidHeightSlider.SetBounds( contentX, scrolledY + 252.0f, contentW, 34.0f );
-        if ( visible( scrolledY + 252.0f, 34.0f ) )
-        {
-            m_worldFluidHeightSlider.Draw( draw, "Fluid height", buf, data.worldFluidHeight, UI_WORLD_FLUID_HEIGHT_MIN, UI_WORLD_FLUID_HEIGHT_MAX );
-        }
-        snprintf( buf, sizeof( buf ), "%.2f", data.worldFluidDensity );
-        m_worldFluidDensitySlider.SetBounds( contentX, scrolledY + 292.0f, contentW, 34.0f );
-        if ( visible( scrolledY + 292.0f, 34.0f ) )
-        {
-            m_worldFluidDensitySlider.Draw( draw, "Fluid density", buf, data.worldFluidDensity, UI_WORLD_FLUID_DENSITY_MIN, UI_WORLD_FLUID_DENSITY_MAX );
-        }
+        ControlsTab::Draw( m_controlsTab, draw, data, contentX, contentY, contentW, contentH, scrolledY );
     }
 
     m_scrollBar.SetBounds( x + w - 14.0f, contentY, 4.0f, contentH );
