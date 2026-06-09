@@ -10,7 +10,34 @@ using namespace SkullbonezCore::Basics;
 namespace
 {
 int g_mouseWheelDelta = 0;
+
+void EnsureShowCursorVisible()
+{
+    int counter = ShowCursor( TRUE );
+    while ( counter < 0 )
+    {
+        counter = ShowCursor( TRUE );
+    }
+    if ( counter > 0 )
+    {
+        ShowCursor( FALSE );
+    }
 }
+
+
+void EnsureShowCursorHidden()
+{
+    int counter = ShowCursor( FALSE );
+    while ( counter >= 0 )
+    {
+        counter = ShowCursor( FALSE );
+    }
+    if ( counter < -1 )
+    {
+        ShowCursor( TRUE );
+    }
+}
+} // namespace
 
 
 /*
@@ -30,8 +57,40 @@ int g_mouseWheelDelta = 0;
    */
 #define LOWEST_ORDER_BIT_16 0x1
 
+bool Input::IsAppFocused()
+{
+    SkullbonezWindow* window = SkullbonezWindow::Instance();
+    if ( !window || !window->m_sWindow )
+    {
+        return false;
+    }
+
+    return GetForegroundWindow() == window->m_sWindow;
+}
+
+
+void Input::SetSystemCursorVisible( bool visible )
+{
+    if ( visible )
+    {
+        SetCursor( LoadCursor( nullptr, IDC_ARROW ) );
+        EnsureShowCursorVisible();
+    }
+    else
+    {
+        SetCursor( nullptr );
+        EnsureShowCursorHidden();
+    }
+}
+
+
 bool Input::IsKeyDown( const char cKey )
 {
+    if ( !IsAppFocused() )
+    {
+        return false;
+    }
+
     /*
         recall that HIGHEST_ORDER_BIT_16 = 1000 0000 0000 0000 (binary)
         recall that a conditional statement in C++ simply checks if the value is
@@ -50,6 +109,11 @@ bool Input::IsKeyDown( const char cKey )
 
 bool Input::IsKeyToggled( const char cKey )
 {
+    if ( !IsAppFocused() )
+    {
+        return false;
+    }
+
     // lowest order bit is set to 1 if key is toggled, see Input::IsKeyDown
     // for an explanation on the conditional statement below
     return ( ( GetKeyState( cKey ) & LOWEST_ORDER_BIT_16 ) != 0 );
@@ -83,6 +147,11 @@ POINT Input::GetClientMouseCoordinates()
 
 void Input::SetMouseCoordinates( const POINT& pNewCoordinates )
 {
+    if ( !IsAppFocused() )
+    {
+        return;
+    }
+
     // attempt to set the mouse m_position
     if ( !SetCursorPos( pNewCoordinates.x, pNewCoordinates.y ) )
     {
@@ -93,12 +162,23 @@ void Input::SetMouseCoordinates( const POINT& pNewCoordinates )
 
 bool Input::IsLeftMouseDown()
 {
+    if ( !IsAppFocused() )
+    {
+        return false;
+    }
+
     return ( ( GetKeyState( VK_LBUTTON ) & HIGHEST_ORDER_BIT_16 ) != 0 );
 }
 
 
 int Input::ConsumeMouseWheelDelta()
 {
+    if ( !IsAppFocused() )
+    {
+        g_mouseWheelDelta = 0;
+        return 0;
+    }
+
     const int delta = g_mouseWheelDelta;
     g_mouseWheelDelta = 0;
     return delta;
@@ -107,13 +187,32 @@ int Input::ConsumeMouseWheelDelta()
 
 void Input::AccumulateMouseWheelDelta( int delta )
 {
+    if ( !IsAppFocused() )
+    {
+        return;
+    }
+
     g_mouseWheelDelta += delta;
 }
 
 
 void Input::CentreMouseCoordinates()
 {
+    if ( !IsAppFocused() )
+    {
+        return;
+    }
+
     SkullbonezWindow* m_cWindow = SkullbonezWindow::Instance();
-    SetCursorPos( m_cWindow->m_sWindowDimensions.x >> 1,
-                  m_cWindow->m_sWindowDimensions.y >> 1 );
+    POINT clientCenter = { m_cWindow->m_sWindowDimensions.x >> 1,
+                           m_cWindow->m_sWindowDimensions.y >> 1 };
+    if ( !ClientToScreen( m_cWindow->m_sWindow, &clientCenter ) )
+    {
+        throw std::runtime_error( "Converting mouse center failed (Input::CentreMouseCoordinates)." );
+    }
+
+    if ( !SetCursorPos( clientCenter.x, clientCenter.y ) )
+    {
+        throw std::runtime_error( "Setting mouse center failed (Input::CentreMouseCoordinates)." );
+    }
 }

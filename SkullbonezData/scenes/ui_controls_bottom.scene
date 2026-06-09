@@ -11,6 +11,7 @@ ui rect 64 70 430 280
 ui scroll bottom
 ui blur on
 ui renderer_combo closed
+ui mouse 120 300
 ui profiler_expand none
 ui_test_pattern off
 screenshot Profile/ui_controls_bottom.bmp frame 20

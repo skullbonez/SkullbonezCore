@@ -288,6 +288,21 @@ TestScene TestScene::LoadFromFile( const char* path )
                 continue;
             }
 
+            if ( strcmp( command, "water_combo" ) == 0 )
+            {
+                bool parsedValue = false;
+                if ( !ParseOnOff( value, parsedValue ) )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI water_combo value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_UIOptions.hasWaterComboOpen = true;
+                scene.m_UIOptions.waterComboOpen = parsedValue;
+                continue;
+            }
+
             if ( strcmp( command, "scene_combo" ) == 0 )
             {
                 bool parsedValue = false;
@@ -377,6 +392,51 @@ TestScene TestScene::LoadFromFile( const char* path )
                 scene.m_UIOptions.hasMouseOverride = true;
                 scene.m_UIOptions.mouseX = x;
                 scene.m_UIOptions.mouseY = y;
+                continue;
+            }
+
+            if ( strcmp( command, "stress" ) == 0 )
+            {
+                bool parsedValue = false;
+                if ( !ParseOnOff( value, parsedValue ) )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI stress value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_UIOptions.hasStress = true;
+                scene.m_UIOptions.stressEnabled = parsedValue;
+                continue;
+            }
+
+            if ( strcmp( command, "stress_seed" ) == 0 )
+            {
+                const int seed = atoi( value );
+                if ( seed <= 0 )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI stress_seed value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_UIOptions.hasStressSeed = true;
+                scene.m_UIOptions.stressSeed = static_cast<unsigned int>( seed );
+                continue;
+            }
+
+            if ( strcmp( command, "stress_actions" ) == 0 )
+            {
+                const int actions = atoi( value );
+                if ( actions <= 0 )
+                {
+                    fclose( file );
+                    char msg[256];
+                    sprintf_s( msg, sizeof( msg ), "Invalid UI stress_actions value at line %d: %s  (TestScene::LoadFromFile)", lineNumber, value );
+                    throw std::runtime_error( msg );
+                }
+                scene.m_UIOptions.hasStressActions = true;
+                scene.m_UIOptions.stressActionsPerFrame = actions > 32 ? 32 : actions;
                 continue;
             }
 

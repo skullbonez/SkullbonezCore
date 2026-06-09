@@ -3,6 +3,7 @@
 #include "SkullbonezRun.h"
 #include "SkullbonezText.h"
 #include "SkullbonezWindow.h"
+#include "SkullbonezInput.h"
 #include "SkullbonezTimer.h"
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezRenderBackendGL.h"
@@ -13,14 +14,21 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdarg>
+#include <cstdint>
 #include <vector>
 #include <string>
 #include <io.h>
 #include <objbase.h>
 
+#ifdef _DEBUG
+#include <dbghelp.h>
+#pragma comment( lib, "dbghelp.lib" )
+#endif
+
 
 // --- Usings ---
 using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
 
@@ -28,6 +36,171 @@ using namespace SkullbonezCore::Math::Transformation;
 namespace
 {
 char g_commandLineError[512] = {};
+
+#ifdef _DEBUG
+const char* ExceptionCodeName( DWORD code )
+{
+    switch ( code )
+    {
+    case EXCEPTION_ACCESS_VIOLATION:
+        return "EXCEPTION_ACCESS_VIOLATION";
+    case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
+        return "EXCEPTION_ARRAY_BOUNDS_EXCEEDED";
+    case EXCEPTION_BREAKPOINT:
+        return "EXCEPTION_BREAKPOINT";
+    case EXCEPTION_DATATYPE_MISALIGNMENT:
+        return "EXCEPTION_DATATYPE_MISALIGNMENT";
+    case EXCEPTION_FLT_DIVIDE_BY_ZERO:
+        return "EXCEPTION_FLT_DIVIDE_BY_ZERO";
+    case EXCEPTION_ILLEGAL_INSTRUCTION:
+        return "EXCEPTION_ILLEGAL_INSTRUCTION";
+    case EXCEPTION_INT_DIVIDE_BY_ZERO:
+        return "EXCEPTION_INT_DIVIDE_BY_ZERO";
+    case EXCEPTION_STACK_OVERFLOW:
+        return "EXCEPTION_STACK_OVERFLOW";
+    default:
+        return "EXCEPTION_UNKNOWN";
+    }
+}
+
+
+void WriteDebugCrashStack( EXCEPTION_POINTERS* exceptionInfo )
+{
+    HANDLE process = GetCurrentProcess();
+    HANDLE thread = GetCurrentThread();
+
+    DWORD symOptions = SymGetOptions();
+    symOptions |= SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES | SYMOPT_UNDNAME;
+    SymSetOptions( symOptions );
+
+    const BOOL symbolsReady = SymInitialize( process, nullptr, TRUE );
+    if ( !symbolsReady )
+    {
+        Log().Writef( SkullbonezLog::EventLogPath(), "    stack_symbols=unavailable error=%lu\n", GetLastError() );
+    }
+
+    CONTEXT context = {};
+    if ( exceptionInfo && exceptionInfo->ContextRecord )
+    {
+        context = *exceptionInfo->ContextRecord;
+    }
+    else
+    {
+        RtlCaptureContext( &context );
+    }
+
+    STACKFRAME64 frame = {};
+    DWORD machineType = IMAGE_FILE_MACHINE_AMD64;
+#if defined( _M_X64 )
+    frame.AddrPC.Offset = context.Rip;
+    frame.AddrPC.Mode = AddrModeFlat;
+    frame.AddrFrame.Offset = context.Rbp;
+    frame.AddrFrame.Mode = AddrModeFlat;
+    frame.AddrStack.Offset = context.Rsp;
+    frame.AddrStack.Mode = AddrModeFlat;
+#else
+    machineType = IMAGE_FILE_MACHINE_I386;
+    frame.AddrPC.Offset = context.Eip;
+    frame.AddrPC.Mode = AddrModeFlat;
+    frame.AddrFrame.Offset = context.Ebp;
+    frame.AddrFrame.Mode = AddrModeFlat;
+    frame.AddrStack.Offset = context.Esp;
+    frame.AddrStack.Mode = AddrModeFlat;
+#endif
+
+    Log().Writef( SkullbonezLog::EventLogPath(), "    stack_trace:\n" );
+    for ( int frameIndex = 0; frameIndex < 64; ++frameIndex )
+    {
+        BOOL walked = StackWalk64( machineType,
+                                   process,
+                                   thread,
+                                   &frame,
+                                   &context,
+                                   nullptr,
+                                   SymFunctionTableAccess64,
+                                   SymGetModuleBase64,
+                                   nullptr );
+        if ( !walked || frame.AddrPC.Offset == 0 )
+        {
+            break;
+        }
+
+        const DWORD64 address = frame.AddrPC.Offset;
+        char symbolStorage[sizeof( SYMBOL_INFO ) + MAX_SYM_NAME] = {};
+        PSYMBOL_INFO symbol = reinterpret_cast<PSYMBOL_INFO>( symbolStorage );
+        symbol->SizeOfStruct = sizeof( SYMBOL_INFO );
+        symbol->MaxNameLen = MAX_SYM_NAME;
+
+        DWORD64 symbolDisplacement = 0;
+        const BOOL hasSymbol = symbolsReady && SymFromAddr( process, address, &symbolDisplacement, symbol );
+
+        IMAGEHLP_LINE64 lineInfo = {};
+        lineInfo.SizeOfStruct = sizeof( lineInfo );
+        DWORD lineDisplacement = 0;
+        const BOOL hasLine = symbolsReady && SymGetLineFromAddr64( process, address, &lineDisplacement, &lineInfo );
+
+        if ( hasSymbol && hasLine )
+        {
+            Log().Writef( SkullbonezLog::EventLogPath(),
+                          "      #%02d 0x%016llX %s+0x%llX (%s:%lu)\n",
+                          frameIndex,
+                          static_cast<unsigned long long>( address ),
+                          symbol->Name,
+                          static_cast<unsigned long long>( symbolDisplacement ),
+                          lineInfo.FileName,
+                          lineInfo.LineNumber );
+        }
+        else if ( hasSymbol )
+        {
+            Log().Writef( SkullbonezLog::EventLogPath(),
+                          "      #%02d 0x%016llX %s+0x%llX\n",
+                          frameIndex,
+                          static_cast<unsigned long long>( address ),
+                          symbol->Name,
+                          static_cast<unsigned long long>( symbolDisplacement ) );
+        }
+        else
+        {
+            Log().Writef( SkullbonezLog::EventLogPath(),
+                          "      #%02d 0x%016llX <unknown>\n",
+                          frameIndex,
+                          static_cast<unsigned long long>( address ) );
+        }
+    }
+
+    if ( symbolsReady )
+    {
+        SymCleanup( process );
+    }
+}
+
+
+LONG WINAPI DebugUnhandledExceptionFilter( EXCEPTION_POINTERS* exceptionInfo )
+{
+    DWORD exceptionCode = 0;
+    void* exceptionAddress = nullptr;
+    if ( exceptionInfo && exceptionInfo->ExceptionRecord )
+    {
+        exceptionCode = exceptionInfo->ExceptionRecord->ExceptionCode;
+        exceptionAddress = exceptionInfo->ExceptionRecord->ExceptionAddress;
+    }
+
+    Log().WriteEventf( "crash exception=0x%08lX name=%s address=%p",
+                       exceptionCode,
+                       ExceptionCodeName( exceptionCode ),
+                       exceptionAddress );
+    WriteDebugCrashStack( exceptionInfo );
+    Log().FlushAll();
+
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+
+
+void InstallDebugCrashLogger()
+{
+    SetUnhandledExceptionFilter( DebugUnhandledExceptionFilter );
+}
+#endif
 
 bool FailCommandLineParse( const char* fmt, ... )
 {
@@ -132,6 +305,11 @@ struct ParsedArgs
     unsigned int seedOverride = 0; // 0 = not set
     bool noWater = false;
     bool noSleep = false;
+    int frameCountOverride = -1;
+    bool uiStress = false;
+    unsigned int uiStressSeed = 0x7F4A7C15u;
+    int uiStressActions = 5;
+    bool suppressExitDialog = false;
     bool showProfiler = false;
     bool hideTopText = false;
     bool showBroadphaseVisualizer = false;
@@ -738,6 +916,62 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
         fprintf( stdout, "[physics] Sleep disabled via command line.\n" );
     }
 
+    const char* framesArg = FindOptionValue( cmdLine, "--frames" );
+    if ( framesArg )
+    {
+        const int frames = atoi( framesArg );
+        if ( frames <= 0 )
+        {
+            return FailCommandLineParse( "--frames expects a positive integer." );
+        }
+        out.frameCountOverride = frames;
+        out.suppressExitDialog = true;
+        fprintf( stdout, "[frames] Exit after %d frames.\n", out.frameCountOverride );
+    }
+
+    const char* uiStressArg = FindOptionValue( cmdLine, "--ui-stress", "--ui_stress" );
+    if ( uiStressArg )
+    {
+        bool enabled = false;
+        if ( !ParseOptionalOnOffValue( uiStressArg, enabled ) )
+        {
+            return FailCommandLineParse( "--ui-stress expects optional on|off." );
+        }
+        out.uiStress = enabled;
+        out.suppressExitDialog = out.suppressExitDialog || enabled;
+    }
+
+    const char* uiStressSeedArg = FindOptionValue( cmdLine, "--ui-stress-seed", "--ui_stress_seed" );
+    if ( uiStressSeedArg )
+    {
+        const unsigned long seed = strtoul( uiStressSeedArg, nullptr, 10 );
+        if ( seed == 0 || seed > UINT_MAX )
+        {
+            return FailCommandLineParse( "--ui-stress-seed expects a positive 32-bit integer." );
+        }
+        out.uiStress = true;
+        out.uiStressSeed = static_cast<unsigned int>( seed );
+        out.suppressExitDialog = true;
+    }
+
+    const char* uiStressActionsArg = FindOptionValue( cmdLine, "--ui-stress-actions", "--ui_stress_actions" );
+    if ( uiStressActionsArg )
+    {
+        const int actions = atoi( uiStressActionsArg );
+        if ( actions <= 0 || actions > 32 )
+        {
+            return FailCommandLineParse( "--ui-stress-actions expects 1..32." );
+        }
+        out.uiStress = true;
+        out.uiStressActions = actions;
+        out.suppressExitDialog = true;
+    }
+
+    if ( out.uiStress )
+    {
+        fprintf( stdout, "[ui-stress] Enabled seed=%u actions=%d.\n", out.uiStressSeed, out.uiStressActions );
+    }
+
     out.showProfiler = cmdLine && ( strstr( cmdLine, "--profiler" ) != nullptr || strstr( cmdLine, "--show-profiler" ) != nullptr );
     if ( out.showProfiler )
     {
@@ -843,6 +1077,14 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         {
             cRun.SetNoSleepOverride();
         }
+        if ( args.frameCountOverride > 0 )
+        {
+            cRun.SetFrameCountOverride( args.frameCountOverride );
+        }
+        if ( args.uiStress )
+        {
+            cRun.SetUIStressOverride( args.uiStressSeed, args.uiStressActions );
+        }
         if ( args.showProfiler )
         {
             cRun.SetInitialOverlayMode( OverlayMode::Timers );
@@ -890,13 +1132,16 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
             cRun.Initialise();
             cRun.Run();
 
-            if ( !args.isSuiteOrSceneMode )
+            if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
             {
                 window->MsgBox( "Thanks for using the Skullbonez Core!", "Alert!", MB_OK );
             }
         }
         catch ( const std::exception& e )
         {
+#ifdef _DEBUG
+            Log().WriteEventf( "fatal_exception message=\"%s\"", e.what() );
+#endif
             fprintf( stderr, "FATAL: %s\n", e.what() );
             window->MsgBox( e.what(), "Alert!", MB_OK );
         }
@@ -928,7 +1173,7 @@ void CleanupWindow( SkullbonezWindow* window, HINSTANCE hInstance )
     if ( window->m_fIsFullScreenMode )
     {
         ChangeDisplaySettings( nullptr, 0 ); // Restore desktop mode
-        ShowCursor( true );
+        Input::SetSystemCursorVisible( true );
     }
 
     UnregisterClass( WINDOW_NAME, hInstance );
@@ -955,6 +1200,17 @@ int WINAPI WinMain( HINSTANCE hInstance,
 
     hPrevInstance;
     iCmdShow;
+
+#ifdef _DEBUG
+    InstallDebugCrashLogger();
+    Log().WriteEventf( "process_started command_line=\"%s\"", szCmdLine ? szCmdLine : "" );
+    if ( szCmdLine && strstr( szCmdLine, "--debug-crash-test" ) )
+    {
+        Log().WriteEventf( "debug_crash_test_requested" );
+        volatile int* crashAddress = nullptr;
+        *crashAddress = 1;
+    }
+#endif
 
     // Initialize COM on the main thread (multi-threaded apartment). Required before any
     // WinRT/COM activation occurs — without this, MSCTF.dll throws 0x800401F0 during

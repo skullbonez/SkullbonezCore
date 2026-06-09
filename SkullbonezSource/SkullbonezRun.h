@@ -101,6 +101,7 @@ struct RunTimerState
 struct RunSubsystemState
 {
     std::unique_ptr<Terrain> terrain;
+    bool isFlatSlopeTerrain = false;
     std::unique_ptr<IFramebuffer> reflectionFBO;
 
     CameraCollection* cameras = nullptr;
@@ -142,6 +143,7 @@ struct RunSceneState
     bool isFixedStep = false;      // One physics tick per render frame at PHYSICS_FIXED_DT (deterministic)
     bool isExitOnComplete = false; // Exit automatically when targetFrameCount is reached
     bool isTestComplete = false;   // Set when targetFrameCount is reached without --exit; appends "- TEST COMPLETE" to HUD
+    bool isFinishLogged = false;   // Debug event log guard for scene completion
     bool isInteractiveRun = false; // User/UI controlled scene flow: completion automation may hold/advance but never quit
 };
 
@@ -203,6 +205,14 @@ struct RunFireState
     int boxNext = -1;  // Next box model index to recycle
 };
 
+struct RunUIStressState
+{
+    bool enabled = false;                   // Deterministic scene-driven UI stress runner
+    unsigned int randomState = 0x7F4A7C15u; // LCG state, seeded from scene UI options
+    int actionsPerFrame = 4;                // Cheap UI state mutations per rendered frame
+    int framesRun = 0;                      // Stress-run frame counter independent of scene resets
+};
+
 enum class RuntimeRendererType
 {
     OpenGL,
@@ -231,11 +241,16 @@ class SkullbonezRun
     std::vector<const char*> m_sceneBrowserNamePtrs;
     bool m_leftSceneCycleWasDown = false;
     bool m_rightSceneCycleWasDown = false;
+    double m_lastEscapeTapTime = -1000.0;
     float m_cmdTimeScaleOverride = 0.0f; // CLI --time-scale override applied after each scene load (0 = not set)
     bool m_cmdFixedStep = false;         // CLI --fixed-step override applied after each scene load
     unsigned int m_cmdSeedOverride = 0;  // CLI --seed override applied after each scene load (0 = not set)
     bool m_cmdNoWater = false;           // CLI --no-water starts fluid below terrain
     bool m_cmdNoSleep = false;           // CLI --no-sleep keeps physics bodies awake for diagnostics/perf comparison
+    int m_cmdFrameCountOverride = -1;    // CLI --frames override applied after each scene load
+    bool m_cmdUIStress = false;          // CLI --ui-stress enables generated/demo stress without a scene file
+    unsigned int m_cmdUIStressSeed = 0;  // CLI --ui-stress-seed
+    int m_cmdUIStressActions = 5;        // CLI --ui-stress-actions
     GeneratedObjectTypeOverride m_generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     float m_UITimeScaleOverride = 0.0f;
     int m_UIModelCountOverride = -1;
@@ -263,6 +278,7 @@ class SkullbonezRun
     InGameUI m_UI;                                   // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                           // Runtime debug/overlay toggles
     RunFireState m_fire;                             // Projectile recycling state (CTRL = ball, ALT = box)
+    RunUIStressState m_uiStress;                     // Deterministic UI stress run state
     BroadphaseVisualizer m_broadphaseVisualizer;     // Spatial grid debug overlay (G key toggle)
     CollisionVisualizer m_collisionVisualizer;       // Solid collision/sleep model visualizer (V key toggle)
     PhysicsDebugVisualizer m_physicsDebugVisualizer; // Line overlay for object axes, contact manifolds, and sleep state
@@ -300,11 +316,18 @@ class SkullbonezRun
     void ApplyUISolverObjectCounts( int balls, int boxes );                                                                            // Rebuilds generated solver objects from exact UI counts
     void ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity );                                                 // Applies live world/fluid scalar controls
     void ApplyNoWaterOverride();                                                                                                       // Pushes fluid surface below the active terrain when requested
+    void UseDefaultTerrain();                                                                                                          // Restores the normal height-map terrain when leaving analytic test scenes
+    void UseFlatSlopeTerrain( float baseY, float slopeX, float slopeZ );                                                               // Activates analytic flat-slope terrain for focused physics scenes
+    void UpdateWorldTerrainBounds();                                                                                                   // Keeps world/fluid helpers aligned with the active terrain bounds
     bool AdvanceScene();                                                                                                               // Advances to the next scene in the queue (returns false if done)
     void MoveCamera( float keyMovementQty, float mouseMovemementQty );                                                                 // Moves the camera
     RuntimeRendererType GetCurrentRendererType() const;                                                                                // Detect active backend type from Gfx renderer identity
     RuntimeRendererType GetNextRendererType( RuntimeRendererType current ) const;
     void SwitchRenderer( RuntimeRendererType target ); // Rebuild render backend/resources while preserving simulation state
+    unsigned int NextUIStressRandom();
+    int NextUIStressInt( int maxExclusive );
+    float NextUIStressFloat( float minValue, float maxValue );
+    void RunUIStressActions();
 
     // --- Per-frame tick helpers (called from Run()) ---
     void TickRendererSwitch( float dt );                  // Advance auto-switch timer; cycle backend when interval elapses
@@ -317,6 +340,7 @@ class SkullbonezRun
     void NudgeModelsWithCamera( const Vector3& moveVec ); // Push overlapping balls/boxes in camera movement direction
     void FireProjectile( bool isBox );                    // Recycle and launch a ball (CTRL) or box (ALT) from the camera
 #ifdef _DEBUG
+    void LogSceneFinished( const char* reason );
     bool PickNudgeReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance );
     void WriteNudgeReproSnapshot();
     void BeginPhysicsDiagnosticsRun( const char* scenePath );
@@ -329,11 +353,13 @@ class SkullbonezRun
     void Initialise();                                    // Initialises shared resources and loads first scene
     void Run();                                           // Runs all scenes in sequence — main message loop
     void SetRendererSwitchInterval( float seconds );
-    void SetTimeScaleOverride( float scale );  // Override timeScale for every scene loaded (CLI --time-scale)
-    void SetFixedStepOverride();               // Force fixed-step for every scene loaded (CLI --fixed-step)
-    void SetSeedOverride( unsigned int seed ); // Override RNG seed for every scene loaded (CLI --seed)
-    void SetNoWaterOverride();                 // Start scenes with fluid below terrain (CLI --no-water)
-    void SetNoSleepOverride();                 // Disable physics sleeping for every scene loaded (CLI --no-sleep)
+    void SetTimeScaleOverride( float scale );                           // Override timeScale for every scene loaded (CLI --time-scale)
+    void SetFixedStepOverride();                                        // Force fixed-step for every scene loaded (CLI --fixed-step)
+    void SetSeedOverride( unsigned int seed );                          // Override RNG seed for every scene loaded (CLI --seed)
+    void SetNoWaterOverride();                                          // Start scenes with fluid below terrain (CLI --no-water)
+    void SetNoSleepOverride();                                          // Disable physics sleeping for every scene loaded (CLI --no-sleep)
+    void SetFrameCountOverride( int frames );                           // Stop scene/demo automation after N frames (CLI --frames)
+    void SetUIStressOverride( unsigned int seed, int actionsPerFrame ); // Enable deterministic UI stress from CLI
     void SetInitialOverlayMode( OverlayMode mode );
     void SetTopTextHidden( bool hidden );
     void SetBroadphaseVisualizerEnabled( bool enabled );

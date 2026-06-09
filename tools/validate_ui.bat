@@ -91,7 +91,7 @@ if errorlevel 1 (
     echo FAIL: %RENDERER% UI suite exited with error.
     exit /b 1
 )
-for %%s in (blur_off blur_on blur_moved_off blur_moved_on profiler_default profiler_hierarchy profiler_timeline physics_toggles scene_options controls renderer_combo scene_complete small_scroll controls_clip_scroll controls_bottom controls_bottom_bg min_size min_size_bg minimized performance_histogram) do (
+for %%s in (blur_off blur_on blur_moved_off blur_moved_on profiler_default profiler_hierarchy profiler_timeline physics_toggles scene_options controls renderer_combo water_combo scene_complete small_scroll controls_clip_scroll controls_bottom controls_bottom_bg min_size min_size_bg minimized performance_histogram) do (
     if not exist "%REPO%\Profile\ui_%%s.bmp" (
         echo FAIL: %RENDERER% did not produce ui_%%s.bmp.
         exit /b 1

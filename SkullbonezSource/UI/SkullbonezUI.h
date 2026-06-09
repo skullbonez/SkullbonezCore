@@ -81,6 +81,7 @@ struct InGameUIFrameData
     bool waterHidden = false;
     bool waterNoReflect = false;
     bool waterRTReflect = false;
+    bool cameraMouseActive = false;
     bool canSaveSceneDefaults = false;
 };
 
@@ -94,11 +95,8 @@ struct InGameUIInputResult
     bool toggleCollisionVisualizer = false;
     bool togglePhysicsDebugTransparent = false;
     bool toggleBroadphaseOverlay = false;
-    bool toggleScenePhysics = false;
-    bool toggleSceneText = false;
     bool toggleTextOnly = false;
     bool toggleFixedStep = false;
-    bool toggleExitOnComplete = false;
     bool toggleTerrainHidden = false;
     bool toggleWaterHidden = false;
     bool toggleWaterFreeze = false;
@@ -111,10 +109,7 @@ struct InGameUIInputResult
     float requestedTimeScale = -1.0f;
     float requestedPhysicsDebugAlpha = -1.0f;
     float requestedPhysicsDebugContactLinger = -1.0f;
-    float requestedTrackHeight = -1.0f;
-    float requestedAutoCycleInterval = -1.0f;
     int requestedModelCount = -1;
-    int requestedFrameCount = -1;
     int requestedSeed = -1;
     int requestedSolverBallCount = -1;
     int requestedSolverBoxCount = -1;
@@ -145,6 +140,7 @@ class InGameUI
     void SetWindowBounds( int x, int y, int width, int height );
     void SetBlurEnabled( bool enabled );
     void SetRendererComboOpen( bool open );
+    void SetWaterComboOpen( bool open );
     void SetSceneComboOpen( bool open );
     void SetSceneFilter( const char* filter );
     void SetProfilerExpandAll( bool expandAll );
@@ -152,6 +148,7 @@ class InGameUI
     void SetPerformanceHistogramEnabled( bool enabled );
     void SetScrollY( float scrollY );
     void SetMouseOverride( bool enabled, int x = 0, int y = 0 );
+    void CancelInputCapture();
     void ResetResources();
 
     InGameUIInputResult UpdateInput( HWND hwnd, int screenW, int screenH, double now, const char* const* sceneOptions = nullptr, int sceneOptionCount = 0, int selectedSceneOption = -1 );
@@ -179,24 +176,19 @@ class InGameUI
     UICheckBox m_timelineToggle;
     UICheckBox m_histogramToggle;
     UICheckBox m_physicsToggles[6];
-    UICheckBox m_optionToggles[7];
-    UICheckBox m_controlToggles[2];
+    UICheckBox m_optionToggles[5];
     UISlider m_timeScaleSlider;
     UISlider m_modelCountSlider;
     UISlider m_physicsAlphaSlider;
     UISlider m_contactLingerSlider;
-    UISlider m_frameCountSlider;
     UISlider m_seedSlider;
     UISlider m_solverBallSlider;
     UISlider m_solverBoxSlider;
-    UISlider m_trackHeightSlider;
-    UISlider m_autoCycleSlider;
     UISlider m_worldGravitySlider;
     UISlider m_worldFluidHeightSlider;
     UISlider m_worldFluidDensitySlider;
     UIButton m_resetSceneButton;
     UIButton m_resetDefaultsButton;
-    UIButton m_demoSceneButton;
     UIButton m_saveDefaultsButton;
     UIComboBox m_rendererCombo;
     UIComboBox m_reflectionCombo;
@@ -222,6 +214,9 @@ class InGameUI
     int m_mouseY = 0;
     int m_lastScreenW = 1;
     int m_lastScreenH = 1;
+    int m_lastRendererIndex = 0;
+    int m_lastSolverBallCount = 0;
+    int m_lastSolverBoxCount = 0;
     bool m_hasMouseOverride = false;
     int m_mouseOverrideX = 0;
     int m_mouseOverrideY = 0;

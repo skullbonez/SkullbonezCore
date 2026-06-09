@@ -1,0 +1,24 @@
+# UI stress: deterministic random UI state/action smashing plus renderer swaps.
+seed 9001
+physics off
+text off
+vsync off
+water_hidden on
+terrain_hidden on
+frames 240
+exit_on_complete
+ui visible on
+ui minimized off
+ui tab profiler
+ui rect 34 56 760 540
+ui blur on
+ui renderer_combo closed
+ui water_combo closed
+ui scene_combo closed
+ui profiler_expand none
+ui_test_pattern on
+ui stress on
+ui stress_seed 8675309
+ui stress_actions 5
+
+camera main 500 60 650  600 33 600  0 1 0
