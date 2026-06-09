@@ -7,6 +7,7 @@
 #include "UIDrawWidgets.h"
 #include "UIIconButton.h"
 #include "UILayout.h"
+#include "UIWindowChrome.h"
 
 #include <algorithm>
 #include <cmath>
@@ -195,90 +196,29 @@ float ProfilerMarkerDisplayCpuMs( const Profiler::Marker& marker )
 }
 
 
-void BuildWindowTitle( const InGameUIFrameData& data, char* out, size_t outSize )
-{
-    if ( outSize == 0 )
-    {
-        return;
-    }
-
-    if ( data.sceneMode && data.sceneName && data.sceneName[0] != '\0' )
-    {
-        const int displayedFrame = ( data.testComplete && data.targetFrameCount > 0 && data.currentFrame > data.targetFrameCount ) ? data.targetFrameCount : data.currentFrame;
-        if ( data.testComplete )
-        {
-            if ( data.targetFrameCount > 0 )
-            {
-                snprintf( out, outSize, "%s  %d/%d complete", data.sceneName, displayedFrame, data.targetFrameCount );
-            }
-            else
-            {
-                snprintf( out, outSize, "%s  complete", data.sceneName );
-            }
-        }
-        else if ( data.targetFrameCount > 0 )
-        {
-            snprintf( out, outSize, "%s  %d/%d", data.sceneName, displayedFrame, data.targetFrameCount );
-        }
-        else
-        {
-            snprintf( out, outSize, "%s  frame %d", data.sceneName, displayedFrame );
-        }
-    }
-    else
-    {
-        snprintf( out, outSize, "Skullbonez Core" );
-    }
-
-    out[outSize - 1] = '\0';
-}
-
-void FitTitleText( char* text, size_t textSize, float fontSize, float maxWidth )
-{
-    if ( textSize == 0 || Text2d::MeasureText( fontSize, text ) <= maxWidth )
-    {
-        return;
-    }
-
-    char original[192] = {};
-    strcpy_s( original, sizeof( original ), text );
-    const size_t len = strlen( original );
-    for ( size_t start = 1; start < len; ++start )
-    {
-        snprintf( text, textSize, "...%s", original + start );
-        if ( Text2d::MeasureText( fontSize, text ) <= maxWidth )
-        {
-            return;
-        }
-    }
-
-    snprintf( text, textSize, "..." );
-}
-
-
 } // namespace
 
 bool InGameUI::IsVisible() const
 {
-    return m_isVisible;
+    return m_window.isVisible;
 }
 
 
 void InGameUI::SetVisible( bool visible, double now )
 {
-    m_isVisible = visible;
+    m_window.isVisible = visible;
     m_backdropBlur.Invalidate();
     if ( visible )
     {
-        m_isMinimized = false;
+        m_window.isMinimized = false;
         m_scrollbarVisibleUntil = now + 1.2;
     }
     else
     {
-        m_isMinimized = true;
-        m_isDragging = false;
-        m_isResizing = false;
-        m_blocksCameraMouse = false;
+        m_window.isMinimized = true;
+        m_interaction.isDragging = false;
+        m_interaction.isResizing = false;
+        m_interaction.blocksCameraMouse = false;
         m_rendererCombo.Close();
         m_reflectionCombo.Close();
         CloseSceneCombo();
@@ -288,31 +228,31 @@ void InGameUI::SetVisible( bool visible, double now )
 
 void InGameUI::ToggleVisible( double now )
 {
-    if ( !m_isVisible )
+    if ( !m_window.isVisible )
     {
         SetVisible( true, now );
         return;
     }
-    SetMinimized( !m_isMinimized, now );
+    SetMinimized( !m_window.isMinimized, now );
 }
 
 
 void InGameUI::SetMinimized( bool minimized, double now )
 {
-    if ( m_isMinimized == minimized )
+    if ( m_window.isMinimized == minimized )
     {
         return;
     }
 
-    const UIRect currentBounds = { static_cast<float>( m_x ), static_cast<float>( m_y ), static_cast<float>( m_width ), static_cast<float>( m_height ) };
-    const UIRect minimizedBounds = MinimizedRect( m_lastScreenW, m_lastScreenH, m_minimizedWidth );
-    m_isDragging = false;
-    m_isResizing = false;
-    m_blocksCameraMouse = false;
+    const UIRect currentBounds = Chrome::WindowRect( m_window );
+    const UIRect minimizedBounds = MinimizedRect( m_lastScreenW, m_lastScreenH, m_window.minimizedWidth );
+    m_interaction.isDragging = false;
+    m_interaction.isResizing = false;
+    m_interaction.blocksCameraMouse = false;
     if ( minimized )
     {
-        m_isMinimized = true;
-        BeginWindowAnimation( currentBounds, minimizedBounds, now, true );
+        m_window.isMinimized = true;
+        Chrome::BeginWindowAnimation( m_window, currentBounds, minimizedBounds, now, true );
         m_rendererCombo.Close();
         m_reflectionCombo.Close();
         CloseSceneCombo();
@@ -320,9 +260,8 @@ void InGameUI::SetMinimized( bool minimized, double now )
     }
     else
     {
-        m_isMinimized = false;
-        const UIRect restoredBounds = { static_cast<float>( m_x ), static_cast<float>( m_y ), static_cast<float>( m_width ), static_cast<float>( m_height ) };
-        BeginWindowAnimation( minimizedBounds, restoredBounds, now, false );
+        m_window.isMinimized = false;
+        Chrome::BeginWindowAnimation( m_window, minimizedBounds, Chrome::WindowRect( m_window ), now, false );
         m_scrollbarVisibleUntil = now + 1.2;
     }
     m_backdropBlur.Invalidate();
@@ -331,19 +270,19 @@ void InGameUI::SetMinimized( bool minimized, double now )
 
 void InGameUI::ToggleMaximizeMinimize( int screenW, int screenH, double now )
 {
-    if ( !m_isVisible )
+    if ( !m_window.isVisible )
     {
         SetVisible( true, now );
         return;
     }
 
-    if ( m_isMinimized )
+    if ( m_window.isMinimized )
     {
         SetMinimized( false, now );
         return;
     }
 
-    SetMaximized( !m_isMaximized, screenW, screenH, now );
+    SetMaximized( !m_window.isMaximized, screenW, screenH, now );
 }
 
 
@@ -373,10 +312,10 @@ InGameUITab InGameUI::GetActiveTab() const
 
 void InGameUI::CancelInputCapture()
 {
-    m_leftWasDown = false;
-    m_isDragging = false;
-    m_isResizing = false;
-    m_blocksCameraMouse = false;
+    m_interaction.leftWasDown = false;
+    m_interaction.isDragging = false;
+    m_interaction.isResizing = false;
+    m_interaction.blocksCameraMouse = false;
     m_activeSlider = 0;
     m_previewTimeScale = -1.0f;
     m_previewModelCount = -1;
@@ -389,35 +328,35 @@ void InGameUI::CancelInputCapture()
 
 bool InGameUI::BlocksCameraMouse() const
 {
-    return m_blocksCameraMouse;
+    return m_interaction.blocksCameraMouse;
 }
 
 
 bool InGameUI::BlocksKeyboard() const
 {
-    return m_isVisible && !m_isMinimized && m_sceneCombo.IsOpen();
+    return m_window.isVisible && !m_window.isMinimized && m_sceneCombo.IsOpen();
 }
 
 
 bool InGameUI::WantsNativeMouseCursor() const
 {
-    return m_isVisible && !m_isMinimized;
+    return m_window.isVisible && !m_window.isMinimized;
 }
 
 
 void InGameUI::SetWindowBounds( int x, int y, int width, int height )
 {
-    m_x = x;
-    m_y = y;
-    m_width = width;
-    m_height = height;
-    m_restoreX = x;
-    m_restoreY = y;
-    m_restoreW = width;
-    m_restoreH = height;
-    m_hasAppliedDefaultPlacement = true;
-    m_isMaximized = false;
-    m_windowAnimationActive = false;
+    m_window.x = x;
+    m_window.y = y;
+    m_window.width = width;
+    m_window.height = height;
+    m_window.restoreX = x;
+    m_window.restoreY = y;
+    m_window.restoreW = width;
+    m_window.restoreH = height;
+    m_window.hasAppliedDefaultPlacement = true;
+    m_window.isMaximized = false;
+    m_window.animationActive = false;
     m_scrollY = 0.0f;
     m_scrollbarVisibleUntil = 0.0;
     m_backdropBlur.Invalidate();
@@ -531,44 +470,11 @@ void InGameUI::SetMouseOverride( bool enabled, int x, int y )
 
 void InGameUI::SetMaximized( bool maximized, int screenW, int screenH, double now )
 {
-    if ( m_isMaximized == maximized )
+    if ( Chrome::SetMaximized( m_window, maximized, screenW, screenH, now ) )
     {
-        return;
+        m_scrollbarVisibleUntil = 0.0;
+        m_backdropBlur.Invalidate();
     }
-
-    constexpr int minW = 390;
-    constexpr int minH = 250;
-    constexpr int margin = 10;
-    screenW = (std::max)( 1, screenW );
-    screenH = (std::max)( 1, screenH );
-    const int maxW = (std::max)( minW, screenW - margin * 2 );
-    const int maxH = (std::max)( minH, screenH - margin * 2 );
-    const UIRect from = { static_cast<float>( m_x ), static_cast<float>( m_y ), static_cast<float>( m_width ), static_cast<float>( m_height ) };
-
-    if ( maximized )
-    {
-        m_restoreX = m_x;
-        m_restoreY = m_y;
-        m_restoreW = m_width;
-        m_restoreH = m_height;
-        m_x = margin;
-        m_y = margin;
-        m_width = maxW;
-        m_height = maxH;
-    }
-    else
-    {
-        m_x = std::clamp( m_restoreX, margin, (std::max)( margin, screenW - m_restoreW - margin ) );
-        m_y = std::clamp( m_restoreY, margin, (std::max)( margin, screenH - m_restoreH - margin ) );
-        m_width = std::clamp( m_restoreW, minW, maxW );
-        m_height = std::clamp( m_restoreH, minH, maxH );
-    }
-
-    m_isMaximized = maximized;
-    const UIRect to = { static_cast<float>( m_x ), static_cast<float>( m_y ), static_cast<float>( m_width ), static_cast<float>( m_height ) };
-    BeginWindowAnimation( from, to, now, false );
-    m_scrollbarVisibleUntil = 0.0;
-    m_backdropBlur.Invalidate();
 }
 
 
@@ -627,21 +533,6 @@ void InGameUI::ApplyProfilerDefaultExpansion()
 }
 
 
-void InGameUI::ApplyDefaultWindowPlacement( int screenW, int screenH )
-{
-    constexpr int margin = 14;
-    screenW = (std::max)( 1, screenW );
-    screenH = (std::max)( 1, screenH );
-    m_x = margin;
-    m_y = (std::max)( margin, screenH - m_height - margin );
-    m_restoreX = m_x;
-    m_restoreY = m_y;
-    m_restoreW = m_width;
-    m_restoreH = m_height;
-    m_hasAppliedDefaultPlacement = true;
-}
-
-
 void InGameUI::DrawCursor( const UIDrawContext& draw ) const
 {
     const float x = static_cast<float>( m_mouseX );
@@ -664,55 +555,6 @@ void InGameUI::DrawCursor( const UIDrawContext& draw ) const
     drawShape( outer, 0.42f, 0.91f, 1.0f, 0.98f );
     drawShape( inner, 0.014f, 0.064f, 0.102f, 0.98f );
     draw.Triangle( x + 4.0f, y + 5.0f, x + 4.2f, y + 10.8f, x + 5.9f, y + 9.0f, 0.18f, 0.46f, 0.58f, 0.58f );
-}
-
-
-void InGameUI::BeginWindowAnimation( const UIRect& from, const UIRect& to, double now, bool toMinimized )
-{
-    const bool sameBounds = std::fabs( from.x - to.x ) < 0.5f &&
-                            std::fabs( from.y - to.y ) < 0.5f &&
-                            std::fabs( from.w - to.w ) < 0.5f &&
-                            std::fabs( from.h - to.h ) < 0.5f;
-    if ( now <= 0.0 || sameBounds )
-    {
-        m_windowAnimationActive = false;
-        return;
-    }
-
-    m_windowAnimationActive = true;
-    m_windowAnimationToMinimized = toMinimized;
-    m_windowAnimationStart = now;
-    m_windowAnimationEnd = now + UI_WINDOW_ANIMATION_SECONDS;
-    m_windowAnimationFrom = from;
-    m_windowAnimationTo = to;
-}
-
-
-UIRect InGameUI::CurrentWindowRect( double now )
-{
-    if ( !m_windowAnimationActive )
-    {
-        return { static_cast<float>( m_x ), static_cast<float>( m_y ), static_cast<float>( m_width ), static_cast<float>( m_height ) };
-    }
-
-    const double duration = m_windowAnimationEnd - m_windowAnimationStart;
-    const float t = duration > 0.0 ? static_cast<float>( ( now - m_windowAnimationStart ) / duration ) : 1.0f;
-    if ( t >= 1.0f )
-    {
-        m_windowAnimationActive = false;
-        return m_windowAnimationTo;
-    }
-
-    return LerpRect( m_windowAnimationFrom, m_windowAnimationTo, t );
-}
-
-
-void InGameUI::DrawWindowAnimationShell( const UIDrawContext& draw, const UIRect& bounds ) const
-{
-    draw.Rect( bounds.x - 6.0f, bounds.y - 6.0f, bounds.w + 12.0f, bounds.h + 12.0f, 0.03f, 0.54f, 0.86f, 0.08f );
-    draw.Rect( bounds.x, bounds.y, bounds.w, bounds.h, 0.018f, 0.040f, 0.056f, 0.42f );
-    draw.Outline( bounds.x, bounds.y, bounds.w, bounds.h, 0.39f, 0.88f, 1.0f, 0.76f );
-    draw.Rect( bounds.x + 2.0f, bounds.y + 2.0f, (std::max)( 1.0f, bounds.w - 4.0f ), 8.0f, 0.34f, 0.91f, 1.0f, 0.32f );
 }
 
 
@@ -1182,9 +1024,9 @@ void InGameUI::UpdateSceneFilterTyping( InGameUIInputResult& result, const char*
 InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, double now, const char* const* sceneOptions, int sceneOptionCount, int selectedSceneOption )
 {
     InGameUIInputResult result;
-    m_blocksCameraMouse = false;
+    m_interaction.blocksCameraMouse = false;
     const int wheelDelta = Input::ConsumeMouseWheelDelta();
-    if ( !m_isVisible )
+    if ( !m_window.isVisible )
     {
         return result;
     }
@@ -1213,48 +1055,44 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     const int maxW = (std::max)( minW, screenW - margin * 2 );
     const int maxH = (std::max)( minH, screenH - margin * 2 );
 
-    if ( !m_hasAppliedDefaultPlacement )
+    if ( !m_window.hasAppliedDefaultPlacement )
     {
-        ApplyDefaultWindowPlacement( screenW, screenH );
+        Chrome::ApplyDefaultWindowPlacement( m_window, screenW, screenH );
     }
-    m_width = std::clamp( m_width, minW, maxW );
-    m_height = std::clamp( m_height, minH, maxH );
-    m_x = std::clamp( m_x, margin, (std::max)( margin, screenW - m_width - margin ) );
-    m_y = std::clamp( m_y, margin, (std::max)( margin, screenH - m_height - margin ) );
+    Chrome::ClampWindowToScreen( m_window, screenW, screenH, minW, minH, margin );
 
     const bool leftNow = Input::IsLeftMouseDown();
-    if ( m_isMinimized )
+    if ( m_window.isMinimized )
     {
-        const UIRect minimized = MinimizedRect( screenW, screenH, m_minimizedWidth );
+        const UIRect minimized = MinimizedRect( screenW, screenH, m_window.minimizedWidth );
         const bool insideMinimized = minimized.Contains( m_mouseX, m_mouseY );
-        if ( leftNow && !m_leftWasDown && insideMinimized )
+        if ( leftNow && !m_interaction.leftWasDown && insideMinimized )
         {
             SetMinimized( false, now );
             result.userInteracted = true;
         }
-        m_leftWasDown = leftNow;
-        m_blocksCameraMouse = insideMinimized;
+        m_interaction.leftWasDown = leftNow;
+        m_interaction.blocksCameraMouse = insideMinimized;
         return result;
     }
 
-    const UIRect inputBounds = CurrentWindowRect( now );
+    const UIRect inputBounds = Chrome::CurrentWindowRect( m_window, now );
     const int inputX = static_cast<int>( std::round( inputBounds.x ) );
     const int inputY = static_cast<int>( std::round( inputBounds.y ) );
     const int inputW = static_cast<int>( std::round( inputBounds.w ) );
     const int inputH = static_cast<int>( std::round( inputBounds.h ) );
+    const UIRect inputHitBounds = { static_cast<float>( inputX ), static_cast<float>( inputY ), static_cast<float>( inputW ), static_cast<float>( inputH ) };
     const bool inside = m_mouseX >= inputX && m_mouseX <= inputX + inputW &&
                         m_mouseY >= inputY && m_mouseY <= inputY + inputH;
     const bool inTitle = inside && m_mouseY < inputY + titleH;
     const bool inTabs = inside && m_mouseY >= inputY + titleH && m_mouseY < inputY + titleH + tabH;
-    const bool inResize = !m_isMaximized && inside && m_mouseX >= inputX + inputW - 26 && m_mouseY >= inputY + inputH - 26;
+    const bool inResize = !m_window.isMaximized && inside && Chrome::IsResizeHotspot( inputHitBounds, m_mouseX, m_mouseY );
     const int contentY = inputY + titleH + tabH + 12;
     const int contentH = (std::max)( 24, inputH - titleH - tabH - bottomH - contentPad );
     const int bottomY = inputY + inputH - bottomH;
     const bool inContent = inside && m_mouseY >= contentY && m_mouseY <= contentY + contentH;
     const float maxScroll = static_cast<float>( (std::max)( 0, ContentHeight() - contentH ) );
-    const UIRect minimizeButton = { static_cast<float>( inputX + inputW - 112 ), static_cast<float>( inputY + 8 ), 30.0f, 28.0f };
-    const UIRect maximizeButton = { static_cast<float>( inputX + inputW - 76 ), static_cast<float>( inputY + 8 ), 30.0f, 28.0f };
-    const UIRect closeButton = { static_cast<float>( inputX + inputW - 40 ), static_cast<float>( inputY + 8 ), 30.0f, 28.0f };
+    const Chrome::TitleButtonRects titleButtons = Chrome::GetTitleButtonRects( inputHitBounds );
 
     m_tabBar.SetBounds( static_cast<float>( inputX + 14 ), static_cast<float>( inputY + titleH ), static_cast<float>( inputW - 28 ), static_cast<float>( tabH ) );
     const float footerX = static_cast<float>( inputX );
@@ -1274,7 +1112,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     m_histogramToggle.SetBounds( perfBounds.x, perfBounds.y, perfBounds.w, perfBounds.h );
     m_timelineToggle.SetBounds( timelineBounds.x, timelineBounds.y, timelineBounds.w, timelineBounds.h );
 
-    if ( ( leftNow && ( inside || m_isDragging || m_isResizing || m_activeSlider != 0 ) ) ||
+    if ( ( leftNow && ( inside || m_interaction.isDragging || m_interaction.isResizing || m_activeSlider != 0 ) ) ||
          ( wheelDelta != 0 && inside ) )
     {
         result.userInteracted = true;
@@ -1309,30 +1147,30 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         m_scrollbarVisibleUntil = now + 1.4;
     }
 
-    if ( leftNow && !m_leftWasDown )
+    if ( leftNow && !m_interaction.leftWasDown )
     {
-        if ( minimizeButton.Contains( m_mouseX, m_mouseY ) || closeButton.Contains( m_mouseX, m_mouseY ) )
+        if ( titleButtons.minimize.Contains( m_mouseX, m_mouseY ) || titleButtons.close.Contains( m_mouseX, m_mouseY ) )
         {
             SetMinimized( true, now );
         }
-        else if ( maximizeButton.Contains( m_mouseX, m_mouseY ) )
+        else if ( titleButtons.maximize.Contains( m_mouseX, m_mouseY ) )
         {
-            SetMaximized( !m_isMaximized, screenW, screenH, now );
+            SetMaximized( !m_window.isMaximized, screenW, screenH, now );
         }
         else if ( inResize )
         {
-            m_isResizing = true;
-            m_resizeStartMouseX = m_mouseX;
-            m_resizeStartMouseY = m_mouseY;
-            m_resizeStartW = inputW;
-            m_resizeStartH = inputH;
+            m_interaction.isResizing = true;
+            m_interaction.resizeStartMouseX = m_mouseX;
+            m_interaction.resizeStartMouseY = m_mouseY;
+            m_interaction.resizeStartW = inputW;
+            m_interaction.resizeStartH = inputH;
             SetCapture( hwnd );
         }
         else if ( inTitle )
         {
-            m_isDragging = true;
-            m_dragOffsetX = m_mouseX - inputX;
-            m_dragOffsetY = m_mouseY - inputY;
+            m_interaction.isDragging = true;
+            m_interaction.dragOffsetX = m_mouseX - inputX;
+            m_interaction.dragOffsetY = m_mouseY - inputY;
             SetCapture( hwnd );
         }
         else if ( inTabs )
@@ -1853,31 +1691,31 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         result.requestedWorldFluidDensity = m_worldFluidDensitySlider.ValueFromMouse( m_mouseX, UI_WORLD_FLUID_DENSITY_MIN, UI_WORLD_FLUID_DENSITY_MAX, UI_WORLD_FLUID_DENSITY_STEP );
     }
 
-    if ( leftNow && m_isDragging )
+    if ( leftNow && m_interaction.isDragging )
     {
-        const int oldX = m_x;
-        const int oldY = m_y;
-        m_x = std::clamp( m_mouseX - m_dragOffsetX, margin, (std::max)( margin, screenW - m_width - margin ) );
-        m_y = std::clamp( m_mouseY - m_dragOffsetY, margin, (std::max)( margin, screenH - m_height - margin ) );
-        if ( oldX != m_x || oldY != m_y )
+        const int oldX = m_window.x;
+        const int oldY = m_window.y;
+        m_window.x = std::clamp( m_mouseX - m_interaction.dragOffsetX, margin, (std::max)( margin, screenW - m_window.width - margin ) );
+        m_window.y = std::clamp( m_mouseY - m_interaction.dragOffsetY, margin, (std::max)( margin, screenH - m_window.height - margin ) );
+        if ( oldX != m_window.x || oldY != m_window.y )
         {
             m_backdropBlur.Invalidate();
         }
     }
-    if ( leftNow && m_isResizing )
+    if ( leftNow && m_interaction.isResizing )
     {
-        const int oldW = m_width;
-        const int oldH = m_height;
-        m_width = std::clamp( m_resizeStartW + m_mouseX - m_resizeStartMouseX, minW, maxW );
-        m_height = std::clamp( m_resizeStartH + m_mouseY - m_resizeStartMouseY, minH, maxH );
+        const int oldW = m_window.width;
+        const int oldH = m_window.height;
+        m_window.width = std::clamp( m_interaction.resizeStartW + m_mouseX - m_interaction.resizeStartMouseX, minW, maxW );
+        m_window.height = std::clamp( m_interaction.resizeStartH + m_mouseY - m_interaction.resizeStartMouseY, minH, maxH );
         m_scrollbarVisibleUntil = now + 1.4;
-        if ( oldW != m_width || oldH != m_height )
+        if ( oldW != m_window.width || oldH != m_window.height )
         {
             m_backdropBlur.Invalidate();
         }
     }
 
-    if ( !leftNow && m_leftWasDown )
+    if ( !leftNow && m_interaction.leftWasDown )
     {
         // Commit deferred slider previews exactly once on release.  This avoids
         // rebuilding solver objects or generated model pools every mouse-move
@@ -1907,21 +1745,21 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             result.requestedSolverBoxCount = m_previewSolverBoxCount;
         }
         m_activeSlider = 0;
-        m_isDragging = false;
-        m_isResizing = false;
+        m_interaction.isDragging = false;
+        m_interaction.isResizing = false;
         ReleaseCapture();
     }
 
-    m_leftWasDown = leftNow;
+    m_interaction.leftWasDown = leftNow;
     m_scrollY = std::clamp( m_scrollY, 0.0f, maxScroll );
-    m_blocksCameraMouse = inside || m_isDragging || m_isResizing || m_activeSlider != 0;
+    m_interaction.blocksCameraMouse = inside || m_interaction.isDragging || m_interaction.isResizing || m_activeSlider != 0;
     return result;
 }
 
 
 void InGameUI::Draw( const InGameUIFrameData& data )
 {
-    if ( !m_isVisible )
+    if ( !m_window.isVisible )
     {
         return;
     }
@@ -1941,14 +1779,14 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         PushPerformanceHistogramSample( data.cpuFrameMs, data.gpuFrameMs );
     }
 
-    if ( m_isMinimized )
+    if ( m_window.isMinimized )
     {
-        if ( m_windowAnimationActive && m_windowAnimationToMinimized )
+        if ( m_window.animationActive && m_window.animationToMinimized )
         {
-            const UIRect animBounds = CurrentWindowRect( data.now );
-            if ( m_windowAnimationActive )
+            const UIRect animBounds = Chrome::CurrentWindowRect( m_window, data.now );
+            if ( m_window.animationActive )
             {
-                DrawWindowAnimationShell( draw, animBounds );
+                Chrome::DrawWindowAnimationShell( draw, animBounds );
                 if ( m_performanceHistogramEnabled )
                 {
                     DrawPerformanceHistogram( draw, data );
@@ -1965,22 +1803,11 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         }
 
         char titleText[192] = {};
-        BuildWindowTitle( data, titleText, sizeof( titleText ) );
-        m_minimizedWidth = MinimizedWidthForTitle( titleText, screenW );
-        const UIRect minimized = MinimizedRect( screenW, screenH, m_minimizedWidth );
-        FitTitleText( titleText, sizeof( titleText ), 12.5f, minimized.w - 76.0f );
-        const UIRect restoreButton = { minimized.x + minimized.w - 36.0f, minimized.y + 7.0f, 26.0f, 22.0f };
-        draw.Rect( minimized.x - 5.0f, minimized.y - 5.0f, minimized.w + 10.0f, minimized.h + 10.0f, 0.03f, 0.54f, 0.86f, 0.12f );
-        draw.Rect( minimized.x, minimized.y, minimized.w, minimized.h, 0.018f, 0.040f, 0.056f, 0.76f );
-        draw.Outline( minimized.x, minimized.y, minimized.w, minimized.h, 0.39f, 0.88f, 1.0f, 0.92f );
-        draw.Rect( minimized.x + 10.0f, minimized.y + 12.0f, 12.0f, 12.0f, 0.34f, 0.91f, 1.0f, 0.90f );
-        draw.Rect( restoreButton.x, restoreButton.y, restoreButton.w, restoreButton.h, 0.026f, 0.100f, 0.132f, 0.78f );
-        draw.Outline( restoreButton.x, restoreButton.y, restoreButton.w, restoreButton.h, 0.24f, 0.58f, 0.70f, 0.78f );
-        draw.Text( minimized.x + 32.0f, minimized.y + 11.0f, 12.5f, 0.90f, 0.98f, 1.0f, titleText );
-        const float plusX = restoreButton.x + restoreButton.w * 0.5f;
-        const float plusY = restoreButton.y + restoreButton.h * 0.5f;
-        draw.Rect( plusX - 5.0f, plusY - 1.0f, 10.0f, 2.0f, 0.82f, 0.98f, 1.0f, 0.96f );
-        draw.Rect( plusX - 1.0f, plusY - 5.0f, 2.0f, 10.0f, 0.82f, 0.98f, 1.0f, 0.96f );
+        Chrome::BuildWindowTitle( data, titleText, sizeof( titleText ) );
+        m_window.minimizedWidth = MinimizedWidthForTitle( titleText, screenW );
+        const UIRect minimized = MinimizedRect( screenW, screenH, m_window.minimizedWidth );
+        Chrome::FitTitleText( titleText, sizeof( titleText ), 12.5f, minimized.w - 76.0f );
+        Chrome::DrawMinimizedWindow( draw, minimized, titleText );
         if ( m_performanceHistogramEnabled )
         {
             DrawPerformanceHistogram( draw, data );
@@ -1995,7 +1822,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         return;
     }
 
-    const UIRect windowBounds = CurrentWindowRect( data.now );
+    const UIRect windowBounds = Chrome::CurrentWindowRect( m_window, data.now );
     const float x = windowBounds.x;
     const float y = windowBounds.y;
     const float w = windowBounds.w;
@@ -2010,7 +1837,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     const float contentH = (std::max)( 30.0f, h - titleH - tabH - bottomH - pad );
     const float scrolledY = contentY - m_scrollY;
     char titleText[192] = {};
-    BuildWindowTitle( data, titleText, sizeof( titleText ) );
+    Chrome::BuildWindowTitle( data, titleText, sizeof( titleText ) );
     const bool useTitleStats = w - 36.0f < 560.0f;
     char titleStat[32] = {};
     float titleStatW = 0.0f;
@@ -2023,7 +1850,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         titleStatX = (std::max)( x + 148.0f, x + w - 128.0f - titleStatW );
         titleMaxW = titleStatX - ( x + 20.0f ) - 10.0f;
     }
-    FitTitleText( titleText, sizeof( titleText ), 15.5f, (std::max)( 40.0f, titleMaxW ) );
+    Chrome::FitTitleText( titleText, sizeof( titleText ), 15.5f, (std::max)( 40.0f, titleMaxW ) );
     ApplyProfilerDefaultExpansion();
     ApplyProfilerExpandAll();
 
@@ -2031,22 +1858,8 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     Text2d::FlushQuads();
     m_backdropBlur.Draw( draw, blurBounds, screenW, screenH, data.currentFrame, data.now, m_blurPreviewEnabled );
 
-    draw.Rect( x - 8.0f, y - 8.0f, w + 16.0f, h + 16.0f, 0.03f, 0.54f, 0.86f, 0.10f );
-    draw.Rect( x - 4.0f, y - 4.0f, w + 8.0f, h + 8.0f, 0.06f, 0.34f, 0.48f, 0.18f );
-    draw.Rect( x, y, w, h, 0.018f, 0.040f, 0.056f, m_blurPreviewEnabled ? 0.60f : 0.66f );
-    draw.Rect( x + 2.0f, y + 2.0f, w - 4.0f, titleH - 3.0f, 0.040f, 0.100f, 0.132f, 0.74f );
-    draw.Rect( x + 2.0f, y + titleH, w - 4.0f, tabH, 0.026f, 0.060f, 0.078f, 0.58f );
-    draw.Rect( x + 2.0f, y + titleH + tabH, w - 4.0f, 1.0f, 0.26f, 0.82f, 1.0f, 0.38f );
-    draw.Outline( x, y, w, h, 0.39f, 0.88f, 1.0f, 0.88f );
-    draw.Outline( x + 2.0f, y + 2.0f, w - 4.0f, h - 4.0f, 0.08f, 0.26f, 0.34f, 0.64f );
-
-    draw.Text( x + 20.0f, y + 12.0f, 15.5f, 0.90f, 0.98f, 1.0f, titleText );
-    const UIRect minimizeButton = { x + w - 112.0f, y + 8.0f, 30.0f, 28.0f };
-    const UIRect maximizeButton = { x + w - 76.0f, y + 8.0f, 30.0f, 28.0f };
-    const UIRect closeButton = { x + w - 40.0f, y + 8.0f, 30.0f, 28.0f };
-    DrawTitleButton( draw, minimizeButton, TitleButtonIcon::Minimize, minimizeButton.Contains( m_mouseX, m_mouseY ), false );
-    DrawTitleButton( draw, maximizeButton, m_isMaximized ? TitleButtonIcon::Restore : TitleButtonIcon::Maximize, maximizeButton.Contains( m_mouseX, m_mouseY ), m_isMaximized );
-    DrawTitleButton( draw, closeButton, TitleButtonIcon::Close, closeButton.Contains( m_mouseX, m_mouseY ), false );
+    Chrome::DrawWindowFrame( draw, windowBounds, titleH, tabH, m_blurPreviewEnabled, titleText );
+    Chrome::DrawTitleButtons( draw, Chrome::GetTitleButtonRects( windowBounds ), m_window.isMaximized, m_mouseX, m_mouseY );
 
     static const char* kTabs[] = { "Profile", "Scene", "Physics", "Options", "Controls" };
     const int tabCount = static_cast<int>( InGameUITab::Count );

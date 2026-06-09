@@ -7,6 +7,7 @@
 #include "UIBackdropBlur.h"
 #include "UIScrollBar.h"
 #include "UISlider.h"
+#include "UIState.h"
 #include "UITabBar.h"
 #include <cstdint>
 
@@ -167,14 +168,8 @@ class InGameUI
     // Persistent widget state.  Scene loads may apply SceneUIOptions, but normal
     // simulation resets preserve these values so the UI remains where the user
     // left it while the bodies/timers are rebuilt underneath.
-    bool m_isVisible = true;
-    bool m_isMinimized = true;
-    bool m_isMaximized = false;
-    bool m_leftWasDown = false;
-    bool m_isDragging = false;
-    bool m_isResizing = false;
-    bool m_hasAppliedDefaultPlacement = false;
-    bool m_blocksCameraMouse = false;
+    UIWindowState m_window;
+    UIInteractionState m_interaction;
     bool m_blurPreviewEnabled = false;
     bool m_profilerTimelineEnabled = false;
     bool m_performanceHistogramEnabled = false;
@@ -206,21 +201,6 @@ class InGameUI
     UIComboBox m_sceneCombo;
     UIBackdropBlur m_backdropBlur;
     UIScrollBar m_scrollBar;
-    int m_x = 34;
-    int m_y = 56;
-    int m_width = 760;
-    int m_height = 540;
-    float m_minimizedWidth = 176.0f;
-    int m_restoreX = 34;
-    int m_restoreY = 56;
-    int m_restoreW = 760;
-    int m_restoreH = 540;
-    int m_dragOffsetX = 0;
-    int m_dragOffsetY = 0;
-    int m_resizeStartMouseX = 0;
-    int m_resizeStartMouseY = 0;
-    int m_resizeStartW = 0;
-    int m_resizeStartH = 0;
     int m_mouseX = 0;
     int m_mouseY = 0;
     int m_lastScreenW = 1;
@@ -247,13 +227,6 @@ class InGameUI
     int m_expandedProfilerHashCount = 0;
     bool m_expandAllProfilerMarkers = false;
     bool m_profilerDefaultExpansionApplied = false;
-    bool m_windowAnimationActive = false;
-    bool m_windowAnimationToMinimized = false;
-    double m_windowAnimationStart = 0.0;
-    double m_windowAnimationEnd = 0.0;
-    UIRect m_windowAnimationFrom;
-    UIRect m_windowAnimationTo;
-
     struct PerformanceHistogramSample
     {
         float cpuMs = 0.0f;
@@ -282,11 +255,7 @@ class InGameUI
     void ApplyProfilerExpandAll();
     void PushPerformanceHistogramSample( float cpuMs, float gpuMs );
     void DrawPerformanceHistogram( const UIDrawContext& draw, const InGameUIFrameData& data ) const;
-    void ApplyDefaultWindowPlacement( int screenW, int screenH );
     void DrawCursor( const UIDrawContext& draw ) const;
-    void BeginWindowAnimation( const UIRect& from, const UIRect& to, double now, bool toMinimized );
-    UIRect CurrentWindowRect( double now );
-    void DrawWindowAnimationShell( const UIDrawContext& draw, const UIRect& bounds ) const;
     void ClearSceneFilter();
     void CloseSceneCombo();
     void CaptureSceneFilterKeyState();
