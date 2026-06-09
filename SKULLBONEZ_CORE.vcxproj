@@ -253,6 +253,7 @@
     <ClInclude Include="SkullbonezSource\UI\UIButton.h" />
     <ClInclude Include="SkullbonezSource\UI\UICheckBox.h" />
     <ClInclude Include="SkullbonezSource\UI\UIComboBox.h" />
+    <ClInclude Include="SkullbonezSource\UI\UICommands.h" />
     <ClInclude Include="SkullbonezSource\UI\UIDraw.h" />
     <ClInclude Include="SkullbonezSource\UI\UIDrawWidgets.h" />
     <ClInclude Include="SkullbonezSource\UI\UIIconButton.h" />

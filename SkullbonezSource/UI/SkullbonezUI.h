@@ -4,6 +4,7 @@
 #include "UIButton.h"
 #include "UICheckBox.h"
 #include "UIComboBox.h"
+#include "UICommands.h"
 #include "UIBackdropBlur.h"
 #include "UIScrollBar.h"
 #include "UISlider.h"
@@ -89,49 +90,6 @@ struct InGameUIFrameData
     bool cameraMouseActive = false;
     bool nativeCursorVisible = false;
     bool canSaveSceneDefaults = false;
-};
-
-// Commands emitted by UI hit-testing for SkullbonezRun to apply.  Booleans are
-// edge-triggered requests from this frame, while requested* fields carry slider
-// or combo values and use sentinel values (-1 / false) when unchanged.
-struct InGameUIInputResult
-{
-    bool userInteracted = false;
-    bool toggleVsync = false;
-    bool toggleCollisionVisualizer = false;
-    bool togglePhysicsSleepPolicy = false;
-    bool togglePhysicsDebugTransparent = false;
-    bool toggleBroadphaseOverlay = false;
-    bool toggleTextOnly = false;
-    bool toggleFixedStep = false;
-    bool toggleTerrainHidden = false;
-    bool toggleWaterHidden = false;
-    bool toggleWaterFreeze = false;
-    bool toggleWaterFlat = false;
-    bool toggleWaterReflection = false;
-    bool resetScene = false;
-    bool resetSceneDefaults = false; // Explicit defaults reload; unlike resetScene, scene/config directives win over live controls
-    bool requestDemoScene = false;
-    bool saveSceneDefaults = false;
-    float requestedTimeScale = -1.0f;
-    float requestedPhysicsDebugAlpha = -1.0f;
-    float requestedPhysicsDebugContactLinger = -1.0f;
-    int requestedModelCount = -1;
-    int requestedSeed = -1;
-    int requestedSolverBallCount = -1;
-    int requestedSolverBoxCount = -1;
-    bool requestWorldGravity = false;
-    bool requestWorldFluidHeight = false;
-    bool requestWorldFluidDensity = false;
-    float requestedWorldGravity = 0.0f;
-    float requestedWorldFluidHeight = 0.0f;
-    float requestedWorldFluidDensity = 0.0f;
-    uint32_t togglePhysicsDebugFlags = 0;
-    bool stepPhysicsPipelinePrevious = false;
-    bool stepPhysicsPipelineNext = false;
-    int requestedRendererIndex = -1; // 0=GL, 1=DX11, 2=DX12, -1=no request
-    int requestedWaterReflectionMode = -1; // 0=FBO, 1=DXR, 2=None, -1=no request
-    int requestedSceneIndex = -1;          // index into sceneOptions, -1=no request
 };
 
 class InGameUI

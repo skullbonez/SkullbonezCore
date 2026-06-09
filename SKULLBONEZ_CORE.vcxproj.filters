@@ -464,6 +464,9 @@
     <ClInclude Include="SkullbonezSource\UI\UIComboBox.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UICommands.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIDraw.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>

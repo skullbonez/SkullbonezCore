@@ -934,7 +934,7 @@ void InGameUI::UpdateSceneFilterTyping( InGameUIInputResult& result, const char*
         if ( SceneFilterKeyPressed( key ) )
         {
             AppendSceneFilterChar( static_cast<char>( 'a' + key - 'A' ) );
-            result.userInteracted = true;
+            result.commands.ui.userInteracted = true;
         }
     }
     for ( int key = '0'; key <= '9'; ++key )
@@ -942,7 +942,7 @@ void InGameUI::UpdateSceneFilterTyping( InGameUIInputResult& result, const char*
         if ( SceneFilterKeyPressed( key ) )
         {
             AppendSceneFilterChar( static_cast<char>( key ) );
-            result.userInteracted = true;
+            result.commands.ui.userInteracted = true;
         }
     }
 
@@ -950,27 +950,27 @@ void InGameUI::UpdateSceneFilterTyping( InGameUIInputResult& result, const char*
     if ( SceneFilterKeyPressed( VK_SPACE ) )
     {
         AppendSceneFilterChar( ' ' );
-        result.userInteracted = true;
+        result.commands.ui.userInteracted = true;
     }
     if ( SceneFilterKeyPressed( VK_OEM_MINUS ) )
     {
         AppendSceneFilterChar( isShiftDown ? '_' : '-' );
-        result.userInteracted = true;
+        result.commands.ui.userInteracted = true;
     }
     if ( SceneFilterKeyPressed( VK_OEM_PERIOD ) )
     {
         AppendSceneFilterChar( '.' );
-        result.userInteracted = true;
+        result.commands.ui.userInteracted = true;
     }
     if ( SceneFilterKeyPressed( VK_BACK ) )
     {
         BackspaceSceneFilter();
-        result.userInteracted = true;
+        result.commands.ui.userInteracted = true;
     }
     if ( SceneFilterKeyPressed( VK_DELETE ) )
     {
         ClearSceneFilter();
-        result.userInteracted = true;
+        result.commands.ui.userInteracted = true;
     }
     if ( SceneFilterKeyPressed( VK_ESCAPE ) )
     {
@@ -982,22 +982,22 @@ void InGameUI::UpdateSceneFilterTyping( InGameUIInputResult& result, const char*
         {
             CloseSceneCombo();
         }
-        result.userInteracted = true;
+        result.commands.ui.userInteracted = true;
     }
     if ( SceneFilterKeyPressed( VK_RETURN ) && m_sceneCombo.IsOpen() )
     {
         const int sceneIndex = FindFilteredSceneOptionIndex( sceneOptions, sceneOptionCount, m_sceneFilter, 0 );
         if ( sceneIndex == UI_DEMO_SCENE_BROWSER_INDEX )
         {
-            result.requestDemoScene = true;
+            result.commands.scene.requestDemoScene = true;
             CloseSceneCombo();
-            result.userInteracted = true;
+            result.commands.ui.userInteracted = true;
         }
         else if ( sceneIndex >= 0 )
         {
-            result.requestedSceneIndex = sceneIndex;
+            result.commands.scene.requestedSceneIndex = sceneIndex;
             CloseSceneCombo();
-            result.userInteracted = true;
+            result.commands.ui.userInteracted = true;
         }
     }
 }
@@ -1011,6 +1011,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     const int wheelDelta = input.wheelDelta;
     if ( !m_window.isVisible )
     {
+        result.SyncLegacyFields();
         return result;
     }
     ApplyProfilerDefaultExpansion();
@@ -1046,10 +1047,11 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         if ( input.leftPressed && insideMinimized )
         {
             SetMinimized( false, now );
-            result.userInteracted = true;
+            result.commands.ui.userInteracted = true;
         }
         m_interaction.leftWasDown = leftNow;
         m_interaction.blocksCameraMouse = insideMinimized;
+        result.SyncLegacyFields();
         return result;
     }
 
@@ -1092,7 +1094,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     if ( ( leftNow && ( inside || m_interaction.isDragging || m_interaction.isResizing || m_activeSlider != 0 ) ) ||
          ( wheelDelta != 0 && inside ) )
     {
-        result.userInteracted = true;
+        result.commands.ui.userInteracted = true;
     }
 
     UpdateSceneFilterTyping( result, sceneOptions, sceneOptionCount );
@@ -1183,17 +1185,17 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 const int option = m_sceneCombo.HitOption( m_mouseX, m_mouseY, sceneDrawOptions );
                 if ( m_resetSceneButton.HitTest( m_mouseX, m_mouseY ) )
                 {
-                    result.resetScene = true;
+                    result.commands.scene.resetScene = true;
                     CloseSceneCombo();
                 }
                 else if ( m_resetDefaultsButton.HitTest( m_mouseX, m_mouseY ) )
                 {
-                    result.resetSceneDefaults = true;
+                    result.commands.scene.resetSceneDefaults = true;
                     CloseSceneCombo();
                 }
                 else if ( m_saveDefaultsButton.HitTest( m_mouseX, m_mouseY ) )
                 {
-                    result.saveSceneDefaults = true;
+                    result.commands.scene.saveSceneDefaults = true;
                     CloseSceneCombo();
                 }
                 else if ( filteredSceneCount > 0 && option >= 0 && option < visibleSceneOptions )
@@ -1201,11 +1203,11 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                     const int sceneIndex = FindFilteredSceneOptionIndex( sceneOptions, sceneOptionCount, m_sceneFilter, m_sceneComboScroll + option );
                     if ( sceneIndex == UI_DEMO_SCENE_BROWSER_INDEX )
                     {
-                        result.requestDemoScene = true;
+                        result.commands.scene.requestDemoScene = true;
                     }
                     else if ( sceneIndex >= 0 )
                     {
-                        result.requestedSceneIndex = sceneIndex;
+                        result.commands.scene.requestedSceneIndex = sceneIndex;
                     }
                     CloseSceneCombo();
                 }
@@ -1231,7 +1233,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             const bool isDXRDisabled = option == 1 && m_lastRendererIndex != RENDERER_DX12;
             if ( option >= 0 && option < 3 && !isDXRDisabled )
             {
-                result.requestedWaterReflectionMode = option;
+                result.commands.water.requestedWaterReflectionMode = option;
                 m_reflectionCombo.Close();
             }
             else if ( m_reflectionCombo.HitBox( m_mouseX, m_mouseY ) )
@@ -1250,7 +1252,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             const int option = m_rendererCombo.HitOption( m_mouseX, m_mouseY, 3 );
             if ( option >= 0 && option < 3 )
             {
-                result.requestedRendererIndex = option;
+                result.commands.renderer.requestedRendererIndex = option;
                 m_rendererCombo.Close();
             }
             else if ( m_rendererCombo.HitBox( m_mouseX, m_mouseY ) )
@@ -1312,21 +1314,21 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_sceneCombo.SetDropUp( false );
             if ( m_resetSceneButton.HitTest( m_mouseX, m_mouseY ) )
             {
-                result.resetScene = true;
+                result.commands.scene.resetScene = true;
                 CloseSceneCombo();
                 m_rendererCombo.Close();
                 m_reflectionCombo.Close();
             }
             else if ( m_resetDefaultsButton.HitTest( m_mouseX, m_mouseY ) )
             {
-                result.resetSceneDefaults = true;
+                result.commands.scene.resetSceneDefaults = true;
                 CloseSceneCombo();
                 m_rendererCombo.Close();
                 m_reflectionCombo.Close();
             }
             else if ( m_saveDefaultsButton.HitTest( m_mouseX, m_mouseY ) )
             {
-                result.saveSceneDefaults = true;
+                result.commands.scene.saveSceneDefaults = true;
                 CloseSceneCombo();
                 m_rendererCombo.Close();
                 m_reflectionCombo.Close();
@@ -1375,63 +1377,63 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
 
             if ( m_physicsToggles[0].HitTest( m_mouseX, m_mouseY ) )
             {
-                result.toggleCollisionVisualizer = true;
+                result.commands.physics.toggleCollisionVisualizer = true;
             }
             else if ( m_physicsToggles[1].HitTest( m_mouseX, m_mouseY ) )
             {
-                result.togglePhysicsDebugFlags = PHYSICS_DEBUG_AXES;
+                result.commands.physics.togglePhysicsDebugFlags = PHYSICS_DEBUG_AXES;
             }
             else if ( m_physicsToggles[2].HitTest( m_mouseX, m_mouseY ) )
             {
-                result.togglePhysicsDebugFlags = PHYSICS_DEBUG_CONTACTS;
+                result.commands.physics.togglePhysicsDebugFlags = PHYSICS_DEBUG_CONTACTS;
             }
             else if ( m_physicsToggles[3].HitTest( m_mouseX, m_mouseY ) )
             {
-                result.togglePhysicsDebugFlags = PHYSICS_DEBUG_SLEEP;
+                result.commands.physics.togglePhysicsDebugFlags = PHYSICS_DEBUG_SLEEP;
             }
             else if ( m_physicsToggles[4].HitTest( m_mouseX, m_mouseY ) )
             {
-                result.togglePhysicsDebugTransparent = true;
+                result.commands.physics.togglePhysicsDebugTransparent = true;
             }
             else if ( m_physicsToggles[5].HitTest( m_mouseX, m_mouseY ) )
             {
-                result.toggleBroadphaseOverlay = true;
+                result.commands.physics.toggleBroadphaseOverlay = true;
             }
             else if ( m_physicsToggles[7].HitTest( m_mouseX, m_mouseY ) )
             {
-                result.togglePhysicsDebugFlags = PHYSICS_DEBUG_PIPELINE;
+                result.commands.physics.togglePhysicsDebugFlags = PHYSICS_DEBUG_PIPELINE;
             }
             else if ( m_physicsToggles[6].HitTest( m_mouseX, m_mouseY ) )
             {
-                result.togglePhysicsSleepPolicy = true;
+                result.commands.physics.togglePhysicsSleepPolicy = true;
             }
             else if ( m_pipelinePrevButton.Contains( m_mouseX, m_mouseY ) )
             {
-                result.stepPhysicsPipelinePrevious = true;
+                result.commands.physics.stepPhysicsPipelinePrevious = true;
             }
             else if ( m_pipelineNextButton.Contains( m_mouseX, m_mouseY ) )
             {
-                result.stepPhysicsPipelineNext = true;
+                result.commands.physics.stepPhysicsPipelineNext = true;
             }
             else if ( m_physicsAlphaSlider.HitTest( m_mouseX, m_mouseY ) )
             {
                 m_activeSlider = 3;
                 m_previewPhysicsAlpha = m_physicsAlphaSlider.ValueFromMouse( m_mouseX, UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX, UI_PHYSICS_ALPHA_STEP );
-                result.requestedPhysicsDebugAlpha = m_previewPhysicsAlpha;
+                result.commands.physics.requestedPhysicsDebugAlpha = m_previewPhysicsAlpha;
                 InputControl::BeginMouseCapture( hwnd );
             }
             else if ( m_contactLingerSlider.HitTest( m_mouseX, m_mouseY ) )
             {
                 m_activeSlider = 4;
                 m_previewContactLinger = m_contactLingerSlider.ValueFromMouse( m_mouseX, UI_CONTACT_LINGER_MIN, UI_CONTACT_LINGER_MAX, UI_CONTACT_LINGER_STEP );
-                result.requestedPhysicsDebugContactLinger = m_previewContactLinger;
+                result.commands.physics.requestedPhysicsDebugContactLinger = m_previewContactLinger;
                 InputControl::BeginMouseCapture( hwnd );
             }
             else if ( m_worldGravitySlider.HitTest( m_mouseX, m_mouseY ) )
             {
                 m_activeSlider = 11;
-                result.requestWorldGravity = true;
-                result.requestedWorldGravity = WorldGravityFromStrength( m_worldGravitySlider.ValueFromMouse( m_mouseX,
+                result.commands.water.requestWorldGravity = true;
+                result.commands.water.requestedWorldGravity = WorldGravityFromStrength( m_worldGravitySlider.ValueFromMouse( m_mouseX,
                                                                                                              UI_WORLD_GRAVITY_MIN,
                                                                                                              UI_WORLD_GRAVITY_MAX,
                                                                                                              UI_WORLD_GRAVITY_STEP ) );
@@ -1463,29 +1465,29 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
 
             if ( m_optionToggles[0].HitTest( m_mouseX, m_mouseY ) )
             {
-                result.toggleFixedStep = true;
+                result.commands.sceneOptions.toggleFixedStep = true;
             }
             else if ( m_optionToggles[1].HitTest( m_mouseX, m_mouseY ) )
             {
-                result.toggleTerrainHidden = true;
+                result.commands.sceneOptions.toggleTerrainHidden = true;
             }
             else if ( m_optionToggles[2].HitTest( m_mouseX, m_mouseY ) )
             {
-                result.toggleWaterHidden = true;
+                result.commands.sceneOptions.toggleWaterHidden = true;
             }
             else if ( m_optionToggles[3].HitTest( m_mouseX, m_mouseY ) )
             {
-                result.toggleWaterFreeze = true;
+                result.commands.sceneOptions.toggleWaterFreeze = true;
             }
             else if ( m_optionToggles[4].HitTest( m_mouseX, m_mouseY ) )
             {
-                result.toggleWaterFlat = true;
+                result.commands.sceneOptions.toggleWaterFlat = true;
             }
             else if ( m_timeScaleSlider.HitTest( m_mouseX, m_mouseY ) )
             {
                 m_activeSlider = 1;
                 m_previewTimeScale = m_timeScaleSlider.ValueFromMouse( m_mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
-                result.requestedTimeScale = m_previewTimeScale;
+                result.commands.sceneOptions.requestedTimeScale = m_previewTimeScale;
                 InputControl::BeginMouseCapture( hwnd );
             }
             else if ( m_modelCountSlider.HitTest( m_mouseX, m_mouseY ) )
@@ -1517,7 +1519,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             if ( m_seedSlider.HitTest( m_mouseX, m_mouseY ) )
             {
                 m_activeSlider = 6;
-                result.requestedSeed = static_cast<int>( m_seedSlider.ValueFromMouse( m_mouseX,
+                result.commands.run.requestedSeed = static_cast<int>( m_seedSlider.ValueFromMouse( m_mouseX,
                                                                                       static_cast<float>( UI_SEED_MIN ),
                                                                                       static_cast<float>( UI_SEED_MAX ),
                                                                                       1.0f ) );
@@ -1546,15 +1548,15 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             else if ( m_worldFluidHeightSlider.HitTest( m_mouseX, m_mouseY ) )
             {
                 m_activeSlider = 12;
-                result.requestWorldFluidHeight = true;
-                result.requestedWorldFluidHeight = m_worldFluidHeightSlider.ValueFromMouse( m_mouseX, UI_WORLD_FLUID_HEIGHT_MIN, UI_WORLD_FLUID_HEIGHT_MAX, UI_WORLD_FLUID_HEIGHT_STEP );
+                result.commands.water.requestWorldFluidHeight = true;
+                result.commands.water.requestedWorldFluidHeight = m_worldFluidHeightSlider.ValueFromMouse( m_mouseX, UI_WORLD_FLUID_HEIGHT_MIN, UI_WORLD_FLUID_HEIGHT_MAX, UI_WORLD_FLUID_HEIGHT_STEP );
                 InputControl::BeginMouseCapture( hwnd );
             }
             else if ( m_worldFluidDensitySlider.HitTest( m_mouseX, m_mouseY ) )
             {
                 m_activeSlider = 13;
-                result.requestWorldFluidDensity = true;
-                result.requestedWorldFluidDensity = m_worldFluidDensitySlider.ValueFromMouse( m_mouseX, UI_WORLD_FLUID_DENSITY_MIN, UI_WORLD_FLUID_DENSITY_MAX, UI_WORLD_FLUID_DENSITY_STEP );
+                result.commands.water.requestWorldFluidDensity = true;
+                result.commands.water.requestedWorldFluidDensity = m_worldFluidDensitySlider.ValueFromMouse( m_mouseX, UI_WORLD_FLUID_DENSITY_MIN, UI_WORLD_FLUID_DENSITY_MAX, UI_WORLD_FLUID_DENSITY_STEP );
                 InputControl::BeginMouseCapture( hwnd );
             }
             m_rendererCombo.Close();
@@ -1581,7 +1583,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
             else if ( m_vsyncToggle.HitTest( m_mouseX, m_mouseY ) )
             {
-                result.toggleVsync = true;
+                result.commands.renderer.toggleVsync = true;
             }
             else if ( m_histogramToggle.HitTest( m_mouseX, m_mouseY ) )
             {
@@ -1605,7 +1607,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         // such as rebuilding generated bodies are delayed until mouse release,
         // but cheap scalar controls are emitted every frame for immediate feedback.
         m_previewTimeScale = m_timeScaleSlider.ValueFromMouse( m_mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
-        result.requestedTimeScale = m_previewTimeScale;
+        result.commands.sceneOptions.requestedTimeScale = m_previewTimeScale;
     }
     else if ( leftNow && m_activeSlider == 2 )
     {
@@ -1617,16 +1619,16 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     else if ( leftNow && m_activeSlider == 3 )
     {
         m_previewPhysicsAlpha = m_physicsAlphaSlider.ValueFromMouse( m_mouseX, UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX, UI_PHYSICS_ALPHA_STEP );
-        result.requestedPhysicsDebugAlpha = m_previewPhysicsAlpha;
+        result.commands.physics.requestedPhysicsDebugAlpha = m_previewPhysicsAlpha;
     }
     else if ( leftNow && m_activeSlider == 4 )
     {
         m_previewContactLinger = m_contactLingerSlider.ValueFromMouse( m_mouseX, UI_CONTACT_LINGER_MIN, UI_CONTACT_LINGER_MAX, UI_CONTACT_LINGER_STEP );
-        result.requestedPhysicsDebugContactLinger = m_previewContactLinger;
+        result.commands.physics.requestedPhysicsDebugContactLinger = m_previewContactLinger;
     }
     else if ( leftNow && m_activeSlider == 6 )
     {
-        result.requestedSeed = static_cast<int>( m_seedSlider.ValueFromMouse( m_mouseX,
+        result.commands.run.requestedSeed = static_cast<int>( m_seedSlider.ValueFromMouse( m_mouseX,
                                                                               static_cast<float>( UI_SEED_MIN ),
                                                                               static_cast<float>( UI_SEED_MAX ),
                                                                               1.0f ) );
@@ -1651,21 +1653,21 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     }
     else if ( leftNow && m_activeSlider == 11 )
     {
-        result.requestWorldGravity = true;
-        result.requestedWorldGravity = WorldGravityFromStrength( m_worldGravitySlider.ValueFromMouse( m_mouseX,
+        result.commands.water.requestWorldGravity = true;
+        result.commands.water.requestedWorldGravity = WorldGravityFromStrength( m_worldGravitySlider.ValueFromMouse( m_mouseX,
                                                                                                      UI_WORLD_GRAVITY_MIN,
                                                                                                      UI_WORLD_GRAVITY_MAX,
                                                                                                      UI_WORLD_GRAVITY_STEP ) );
     }
     else if ( leftNow && m_activeSlider == 12 )
     {
-        result.requestWorldFluidHeight = true;
-        result.requestedWorldFluidHeight = m_worldFluidHeightSlider.ValueFromMouse( m_mouseX, UI_WORLD_FLUID_HEIGHT_MIN, UI_WORLD_FLUID_HEIGHT_MAX, UI_WORLD_FLUID_HEIGHT_STEP );
+        result.commands.water.requestWorldFluidHeight = true;
+        result.commands.water.requestedWorldFluidHeight = m_worldFluidHeightSlider.ValueFromMouse( m_mouseX, UI_WORLD_FLUID_HEIGHT_MIN, UI_WORLD_FLUID_HEIGHT_MAX, UI_WORLD_FLUID_HEIGHT_STEP );
     }
     else if ( leftNow && m_activeSlider == 13 )
     {
-        result.requestWorldFluidDensity = true;
-        result.requestedWorldFluidDensity = m_worldFluidDensitySlider.ValueFromMouse( m_mouseX, UI_WORLD_FLUID_DENSITY_MIN, UI_WORLD_FLUID_DENSITY_MAX, UI_WORLD_FLUID_DENSITY_STEP );
+        result.commands.water.requestWorldFluidDensity = true;
+        result.commands.water.requestedWorldFluidDensity = m_worldFluidDensitySlider.ValueFromMouse( m_mouseX, UI_WORLD_FLUID_DENSITY_MIN, UI_WORLD_FLUID_DENSITY_MAX, UI_WORLD_FLUID_DENSITY_STEP );
     }
 
     if ( leftNow && m_interaction.isDragging )
@@ -1699,27 +1701,27 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         // while still letting the drawn slider thumb track the user's drag.
         if ( m_activeSlider == 1 && m_previewTimeScale > 0.0f )
         {
-            result.requestedTimeScale = m_previewTimeScale;
+            result.commands.sceneOptions.requestedTimeScale = m_previewTimeScale;
         }
         else if ( m_activeSlider == 2 && m_previewModelCount >= 0 )
         {
-            result.requestedModelCount = m_previewModelCount;
+            result.commands.sceneOptions.requestedModelCount = m_previewModelCount;
         }
         else if ( m_activeSlider == 3 && m_previewPhysicsAlpha >= 0.0f )
         {
-            result.requestedPhysicsDebugAlpha = m_previewPhysicsAlpha;
+            result.commands.physics.requestedPhysicsDebugAlpha = m_previewPhysicsAlpha;
         }
         else if ( m_activeSlider == 4 && m_previewContactLinger >= 0.0f )
         {
-            result.requestedPhysicsDebugContactLinger = m_previewContactLinger;
+            result.commands.physics.requestedPhysicsDebugContactLinger = m_previewContactLinger;
         }
         else if ( m_activeSlider == 7 && m_previewSolverBallCount >= 0 )
         {
-            result.requestedSolverBallCount = m_previewSolverBallCount;
+            result.commands.run.requestedSolverBallCount = m_previewSolverBallCount;
         }
         else if ( m_activeSlider == 8 && m_previewSolverBoxCount >= 0 )
         {
-            result.requestedSolverBoxCount = m_previewSolverBoxCount;
+            result.commands.run.requestedSolverBoxCount = m_previewSolverBoxCount;
         }
         m_activeSlider = 0;
         m_interaction.isDragging = false;
@@ -1730,6 +1732,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     m_interaction.leftWasDown = leftNow;
     m_scrollY = std::clamp( m_scrollY, 0.0f, maxScroll );
     m_interaction.blocksCameraMouse = inside || m_interaction.isDragging || m_interaction.isResizing || m_activeSlider != 0;
+    result.SyncLegacyFields();
     return result;
 }
 
