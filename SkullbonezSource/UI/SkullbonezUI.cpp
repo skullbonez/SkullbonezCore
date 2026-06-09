@@ -5,6 +5,8 @@
 #include "../SkullbonezText.h"
 #include "UIDraw.h"
 #include "UIIconButton.h"
+#include "UILayout.h"
+#include "UIStyle.h"
 
 #include <algorithm>
 #include <cmath>
@@ -16,54 +18,14 @@ using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Text;
 using namespace SkullbonezCore::UI;
+using namespace SkullbonezCore::UI::Layout;
 
 namespace
 {
-// UI layout uses fixed pixel constants because the engine UI is a diagnostics
-// tool, not an auto-layout system.  These values define hit boxes and draw boxes
-// together, so changing one here should keep input and rendering aligned.
 constexpr int PROFILER_UI_MAX_MARKERS = 64;
 constexpr float PROFILER_UI_TIMELINE_BUDGET_MS = 16.67f;
-constexpr int RENDERER_GL = 0;
-constexpr int RENDERER_DX11 = 1;
-constexpr int RENDERER_DX12 = 2;
-constexpr float CONTENT_TOGGLE_ROW_H = 30.0f;
-constexpr float UI_TIME_SCALE_MIN = 0.10f;
-constexpr float UI_TIME_SCALE_MAX = 10.00f;
-constexpr float UI_TIME_SCALE_STEP = 0.05f;
-constexpr int UI_MODEL_COUNT_MIN = 0;
-constexpr int UI_MODEL_COUNT_MAX = 1000;
-constexpr int UI_GAME_MODEL_TOTAL_MAX = 1000;
-constexpr float UI_PHYSICS_ALPHA_MIN = 0.05f;
-constexpr float UI_PHYSICS_ALPHA_MAX = 1.00f;
-constexpr float UI_PHYSICS_ALPHA_STEP = 0.01f;
-constexpr float UI_CONTACT_LINGER_MIN = 0.00f;
-constexpr float UI_CONTACT_LINGER_MAX = 5.00f;
-constexpr float UI_CONTACT_LINGER_STEP = 0.05f;
-constexpr int UI_SEED_MIN = 1;
-constexpr int UI_SEED_MAX = 999999;
-constexpr int UI_SOLVER_COUNT_MIN = 0;
-constexpr int UI_SOLVER_COUNT_MAX = UI_GAME_MODEL_TOTAL_MAX;
-constexpr float UI_WORLD_GRAVITY_MIN = 0.0f;
-constexpr float UI_WORLD_GRAVITY_MAX = 100.0f;
-constexpr float UI_WORLD_GRAVITY_STEP = 0.50f;
-constexpr float UI_WORLD_FLUID_HEIGHT_MIN = -100.0f;
-constexpr float UI_WORLD_FLUID_HEIGHT_MAX = 200.0f;
-constexpr float UI_WORLD_FLUID_HEIGHT_STEP = 1.0f;
-constexpr float UI_WORLD_FLUID_DENSITY_MIN = 0.0f;
-constexpr float UI_WORLD_FLUID_DENSITY_MAX = 5.0f;
-constexpr float UI_WORLD_FLUID_DENSITY_STEP = 0.05f;
-constexpr int UI_SCENE_COMBO_VISIBLE_OPTIONS = 12;
-constexpr float UI_SCENE_HEADER_BUTTON_GAP = 8.0f;
-constexpr float UI_SCENE_RESET_BUTTON_W = 72.0f;
-constexpr float UI_SCENE_RESET_DEFAULTS_BUTTON_W = 132.0f;
-constexpr float UI_SCENE_SAVE_DEFAULTS_BUTTON_W = 132.0f;
-constexpr float UI_PIPELINE_STEP_BUTTON_W = 26.0f;
-constexpr float UI_PIPELINE_STEP_BUTTON_H = 22.0f;
-constexpr float UI_PIPELINE_STEP_BUTTON_GAP = 6.0f;
 constexpr int UI_DEMO_SCENE_BROWSER_INDEX = -2;
 constexpr const char* UI_DEMO_SCENE_OPTION = "Demo Scene";
-constexpr double UI_WINDOW_ANIMATION_SECONDS = 0.18;
 
 int GetRendererIndexFromName( const char* rendererName )
 {
@@ -98,42 +60,6 @@ int WaterReflectionModeFromData( const InGameUIFrameData& data )
         return 2;
     }
     return data.waterRTReflect ? 1 : 0;
-}
-
-
-int SceneComboVisibleCount( int optionCount )
-{
-    return std::clamp( optionCount, 0, UI_SCENE_COMBO_VISIBLE_OPTIONS );
-}
-
-
-int ClampSceneComboScroll( int scroll, int optionCount )
-{
-    const int maxScroll = (std::max)( 0, optionCount - SceneComboVisibleCount( optionCount ) );
-    return std::clamp( scroll, 0, maxScroll );
-}
-
-
-int SceneComboScrollForSelection( int selectedIndex, int optionCount )
-{
-    const int visibleCount = SceneComboVisibleCount( optionCount );
-    if ( selectedIndex < 0 || visibleCount <= 0 )
-    {
-        return 0;
-    }
-    return ClampSceneComboScroll( selectedIndex - visibleCount / 2, optionCount );
-}
-
-
-float SceneTabComboWidth( float contentW )
-{
-    const float maxComboW = (std::min)( contentW, 520.0f );
-    const float buttonW = UI_SCENE_RESET_BUTTON_W +
-                          UI_SCENE_RESET_DEFAULTS_BUTTON_W +
-                          UI_SCENE_SAVE_DEFAULTS_BUTTON_W +
-                          UI_SCENE_HEADER_BUTTON_GAP * 3.0f;
-    const float withButtons = contentW - buttonW;
-    return (std::max)( 180.0f, (std::min)( maxComboW, withButtons ) );
 }
 
 
@@ -236,15 +162,6 @@ void DrawTitleButton( const UIDrawContext& draw, const UIRect& bounds, TitleButt
             }
             break;
     }
-}
-
-
-void SetPipelineStepButtonBounds( UIRect& previous, UIRect& next, float contentX, float contentW, float y )
-{
-    const float nextX = contentX + contentW - UI_PIPELINE_STEP_BUTTON_W;
-    const float previousX = nextX - UI_PIPELINE_STEP_BUTTON_GAP - UI_PIPELINE_STEP_BUTTON_W;
-    previous = { previousX, y, UI_PIPELINE_STEP_BUTTON_W, UI_PIPELINE_STEP_BUTTON_H };
-    next = { nextX, y, UI_PIPELINE_STEP_BUTTON_W, UI_PIPELINE_STEP_BUTTON_H };
 }
 
 
@@ -358,97 +275,18 @@ float ProfilerMarkerDisplayCpuMs( const Profiler::Marker& marker )
 }
 
 
-UIRect MinimizedRect( int screenW, int screenH, float requestedW )
-{
-    constexpr float h = 38.0f;
-    constexpr float margin = 14.0f;
-    const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );
-    const float w = std::clamp( requestedW, 154.0f, maxW );
-    return { margin, (std::max)( margin, static_cast<float>( screenH ) - h - margin ), w, h };
-}
-
-float MinimizedWidthForTitle( const char* title, int screenW )
-{
-    constexpr float margin = 14.0f;
-    constexpr float textSize = 12.5f;
-    constexpr float chromeW = 76.0f;
-    const float maxW = (std::max)( 154.0f, static_cast<float>( screenW ) - margin * 2.0f );
-    const float textW = Text2d::MeasureText( textSize, title ? title : "" );
-    return std::clamp( textW + chromeW, 154.0f, maxW );
-}
-
-float GravityStrengthFromWorld( float gravity )
-{
-    return std::clamp( -gravity, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX );
-}
-
-
-float WorldGravityFromStrength( float strength )
-{
-    return -std::clamp( strength, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX );
-}
-
-
-int RemainingGameModelSlots( int otherCount )
-{
-    otherCount = std::clamp( otherCount, UI_SOLVER_COUNT_MIN, UI_GAME_MODEL_TOTAL_MAX );
-    return UI_GAME_MODEL_TOTAL_MAX - otherCount;
-}
-
-
-UIRect FooterRendererComboBounds( float x, float bottomY )
-{
-    return { x + 32.0f, bottomY + 20.0f, 172.0f, 24.0f };
-}
-
-
-UIRect FooterWaterComboBounds( float x, float bottomY )
-{
-    return { x + 32.0f, bottomY + 46.0f, 172.0f, 24.0f };
-}
-
-
-UIRect FooterBlurBounds( float x, float bottomY )
-{
-    return { x + 224.0f, bottomY + 22.0f, 94.0f, 24.0f };
-}
-
-
-UIRect FooterVsyncBounds( float x, float bottomY )
-{
-    return { x + 316.0f, bottomY + 22.0f, 94.0f, 24.0f };
-}
-
-
-UIRect FooterTimelineBounds( float x, float bottomY )
-{
-    return { x + 224.0f, bottomY + 48.0f, 94.0f, 24.0f };
-}
-
-
-UIRect FooterPerfBounds( float x, float bottomY )
-{
-    return { x + 316.0f, bottomY + 48.0f, 94.0f, 24.0f };
-}
-
-
-uint32_t ReflectionDisabledMask( int rendererIndex )
-{
-    return rendererIndex == RENDERER_DX12 ? 0u : ( 1u << 1 );
-}
-
-
 void DrawFooterToggle( const UIDrawContext& draw, const UIRect& bounds, const char* label, bool checked, float accentR, float accentG, float accentB )
 {
-    const float switchW = 28.0f;
-    const float switchH = 14.0f;
+    const Style::FooterToggleStyle& style = Style::FooterToggle();
+    const float switchW = style.switchW;
+    const float switchH = style.switchH;
     const float switchX = bounds.x + bounds.w - switchW - 2.0f;
     const float switchY = bounds.y + 5.0f;
     const float labelAreaW = (std::max)( 1.0f, switchX - bounds.x - 6.0f );
-    const float labelW = Text2d::MeasureText( 10.5f, label );
+    const float labelW = Text2d::MeasureText( style.labelTextSize, label );
     const float labelX = bounds.x + (std::max)( 0.0f, ( labelAreaW - labelW ) * 0.5f );
 
-    draw.Text( labelX, bounds.y + 4.0f, 10.5f, 0.74f, 0.82f, 0.84f, label );
+    draw.Text( labelX, bounds.y + 4.0f, style.labelTextSize, style.label.r, style.label.g, style.label.b, label );
     draw.Rect( switchX, switchY, switchW, switchH,
                checked ? accentR * 0.32f : 0.05f,
                checked ? accentG * 0.32f : 0.08f,
@@ -459,7 +297,7 @@ void DrawFooterToggle( const UIDrawContext& draw, const UIRect& bounds, const ch
                   checked ? accentG : 0.30f,
                   checked ? accentB : 0.34f,
                   checked ? 0.82f : 0.58f );
-    draw.Rect( switchX + ( checked ? 14.0f : 2.0f ), bounds.y + 7.0f, 10.0f, 10.0f,
+    draw.Rect( switchX + ( checked ? 14.0f : 2.0f ), bounds.y + 7.0f, style.knobW, style.knobH,
                checked ? 0.82f : 0.34f,
                checked ? 0.98f : 0.46f,
                checked ? 1.0f : 0.52f,
@@ -528,21 +366,6 @@ void FitTitleText( char* text, size_t textSize, float fontSize, float maxWidth )
 }
 
 
-float SmoothStep( float t )
-{
-    t = std::clamp( t, 0.0f, 1.0f );
-    return t * t * ( 3.0f - 2.0f * t );
-}
-
-
-UIRect LerpRect( const UIRect& from, const UIRect& to, float t )
-{
-    const float e = SmoothStep( t );
-    return { from.x + ( to.x - from.x ) * e,
-             from.y + ( to.y - from.y ) * e,
-             from.w + ( to.w - from.w ) * e,
-             from.h + ( to.h - from.h ) * e };
-}
 } // namespace
 
 bool InGameUI::IsVisible() const
@@ -2745,10 +2568,11 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     static const char* kRendererOptions[] = { "GL", "DX11", "DX12" };
     static const char* kReflectionOptions[] = { "FBO", "DXR", "None" };
     m_rendererCombo.Draw( draw, "Renderer", kRendererOptions, 3, currentRendererIndex, m_mouseX, m_mouseY );
-    DrawFooterToggle( draw, blurFooterBounds, "Blur", m_blurPreviewEnabled, 0.34f, 0.91f, 1.0f );
-    DrawFooterToggle( draw, vsyncFooterBounds, "VSync", data.vsyncEnabled, 0.34f, 0.91f, 1.0f );
-    DrawFooterToggle( draw, perfFooterBounds, "Perf", m_performanceHistogramEnabled, 0.34f, 0.91f, 1.0f );
-    DrawFooterToggle( draw, timelineFooterBounds, "Timeline", m_profilerTimelineEnabled, 0.34f, 0.91f, 1.0f );
+    const Style::UIColor& footerAccent = Style::AccentCyan();
+    DrawFooterToggle( draw, blurFooterBounds, "Blur", m_blurPreviewEnabled, footerAccent.r, footerAccent.g, footerAccent.b );
+    DrawFooterToggle( draw, vsyncFooterBounds, "VSync", data.vsyncEnabled, footerAccent.r, footerAccent.g, footerAccent.b );
+    DrawFooterToggle( draw, perfFooterBounds, "Perf", m_performanceHistogramEnabled, footerAccent.r, footerAccent.g, footerAccent.b );
+    DrawFooterToggle( draw, timelineFooterBounds, "Timeline", m_profilerTimelineEnabled, footerAccent.r, footerAccent.g, footerAccent.b );
     m_reflectionCombo.Draw( draw,
                             "Water",
                             kReflectionOptions,
