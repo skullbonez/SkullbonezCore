@@ -10,6 +10,7 @@ using namespace SkullbonezCore::Basics;
 namespace
 {
 int g_mouseWheelDelta = 0;
+bool g_systemCursorVisibleRequested = false;
 
 void EnsureShowCursorVisible()
 {
@@ -71,6 +72,7 @@ bool Input::IsAppFocused()
 
 void Input::SetSystemCursorVisible( bool visible )
 {
+    g_systemCursorVisibleRequested = visible;
     if ( visible )
     {
         SetCursor( LoadCursor( nullptr, IDC_ARROW ) );
@@ -81,6 +83,12 @@ void Input::SetSystemCursorVisible( bool visible )
         SetCursor( nullptr );
         EnsureShowCursorHidden();
     }
+}
+
+
+bool Input::IsSystemCursorVisibleRequested()
+{
+    return g_systemCursorVisibleRequested;
 }
 
 

@@ -17,6 +17,7 @@ TESTS = [
     (os.path.join(REPO, "Debug", "bullet_sweep_wall.csv"), "bullet_sweep_wall.csv"),
     (os.path.join(REPO, "Debug", "bullet_sweep_object.csv"), "bullet_sweep_object.csv"),
     (os.path.join(REPO, "Debug", "bullet_sweep_terrain.csv"), "bullet_sweep_terrain.csv"),
+    (os.path.join(REPO, "Debug", "shooting_reaction_volley.csv"), "shooting_reaction_volley.csv"),
 ]
 
 

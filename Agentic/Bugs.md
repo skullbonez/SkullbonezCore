@@ -27,6 +27,20 @@ Why is DX tests running slow and GL fast?
 
 Allow scene reset on press of R key
 
+## RUNTIME BUGS
+
+## TODO: Body alpha slider does not reliably affect debug bodies
+
+The Physics tab `Body alpha` control is still reported as not working reliably from the in-game UI. Do not treat the render-path alpha fix as complete until the slider path itself is verified end-to-end from mouse drag to `physicsDebugAlpha` to visible body transparency.
+
+## TODO: Camera-fired bullets are inconsistent
+
+Nudge/free-mode left-click bullets still only work reliably some of the time in interactive use. Keep the existing shooting regression coverage, but investigate the live input/projectile path separately before calling this closed.
+
+## TODO: Physics tab slider hitboxes are vertically offset
+
+Physics tab sliders are reported as having hitboxes that are incorrect and way too low. Verify each slider's rendered track/thumb bounds against mouse hit testing, especially while the diagnostics window is opening, minimized/restored, or moved.
+
 ## PHYSICS BUGS
 
 ## TODO: DX12 physics difference

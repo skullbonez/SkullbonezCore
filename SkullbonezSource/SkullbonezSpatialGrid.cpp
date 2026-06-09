@@ -120,7 +120,37 @@ int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
         idx = ( idx + 1 ) & TABLE_MASK;
     }
 
-    return 0;
+    return -1;
+}
+
+
+void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
+{
+    const int64_t key = ( int64_t( ix ) * 73856093 ) ^ ( int64_t( iy ) * 19349663 ) ^ ( int64_t( iz ) * 83492791 );
+    const int bi = FindOrCreate( key, (int16_t)ix, (int16_t)iy, (int16_t)iz );
+    if ( bi < 0 || bi >= TABLE_SIZE )
+    {
+        return;
+    }
+
+    Bucket& b = buckets[bi];
+    for ( int cur = b.head; cur != -1; cur = entries[cur].next )
+    {
+        assert( cur >= 0 && cur < MAX_CELL_ENTRIES && "entry chain index OOB" );
+        if ( entries[cur].objectIndex == index )
+        {
+            return;
+        }
+    }
+
+    if ( entryPoolUsed < MAX_CELL_ENTRIES )
+    {
+        entries[entryPoolUsed].objectIndex = index;
+        entries[entryPoolUsed].next = b.head;
+        b.head = entryPoolUsed;
+        ++entryPoolUsed;
+        ++b.count;
+    }
 }
 
 
@@ -152,19 +182,7 @@ void SpatialGrid::InsertBounds( int index, const Vector3& minBounds, const Vecto
         {
             for ( int iz = minZ; iz <= maxZ; ++iz )
             {
-                int64_t key = ( int64_t( ix ) * 73856093 ) ^ ( int64_t( iy ) * 19349663 ) ^ ( int64_t( iz ) * 83492791 );
-                int bi = FindOrCreate( key, (int16_t)ix, (int16_t)iy, (int16_t)iz );
-                assert( bi >= 0 && bi < TABLE_SIZE && "Insert: bucket index OOB" );
-                Bucket& b = buckets[bi];
-
-                if ( entryPoolUsed < MAX_CELL_ENTRIES )
-                {
-                    entries[entryPoolUsed].objectIndex = index;
-                    entries[entryPoolUsed].next = b.head;
-                    b.head = entryPoolUsed;
-                    ++entryPoolUsed;
-                    ++b.count;
-                }
+                InsertCell( index, ix, iy, iz );
             }
         }
     }
@@ -188,13 +206,44 @@ void SpatialGrid::Insert( int index, const Vector3& position, float radius )
 void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3& displacement, float radius )
 {
     const Vector3 endPosition = position + displacement;
-    InsertBounds( index,
-                  Vector3( (std::min)( position.x, endPosition.x ) - radius,
-                           (std::min)( position.y, endPosition.y ) - radius,
-                           (std::min)( position.z, endPosition.z ) - radius ),
-                  Vector3( (std::max)( position.x, endPosition.x ) + radius,
-                           (std::max)( position.y, endPosition.y ) + radius,
-                           (std::max)( position.z, endPosition.z ) + radius ) );
+    const Vector3 minBounds( (std::min)( position.x, endPosition.x ) - radius,
+                             (std::min)( position.y, endPosition.y ) - radius,
+                             (std::min)( position.z, endPosition.z ) - radius );
+    const Vector3 maxBounds( (std::max)( position.x, endPosition.x ) + radius,
+                             (std::max)( position.y, endPosition.y ) + radius,
+                             (std::max)( position.z, endPosition.z ) + radius );
+
+    const int minX = static_cast<int>( floorf( minBounds.x * inverseCellSize ) );
+    const int minY = static_cast<int>( floorf( minBounds.y * inverseCellSize ) );
+    const int minZ = static_cast<int>( floorf( minBounds.z * inverseCellSize ) );
+    const int maxX = static_cast<int>( floorf( maxBounds.x * inverseCellSize ) );
+    const int maxY = static_cast<int>( floorf( maxBounds.y * inverseCellSize ) );
+    const int maxZ = static_cast<int>( floorf( maxBounds.z * inverseCellSize ) );
+    const int64_t cellCount = int64_t( maxX - minX + 1 ) * int64_t( maxY - minY + 1 ) * int64_t( maxZ - minZ + 1 );
+
+    if ( cellCount <= MAX_SWEPT_AABB_CELLS )
+    {
+        InsertBounds( index, minBounds, maxBounds );
+        return;
+    }
+
+    const float distanceSq = displacement * displacement;
+    if ( distanceSq <= TOLERANCE )
+    {
+        Insert( index, position, radius );
+        return;
+    }
+
+    const float distance = sqrtf( distanceSq );
+    const float stepLength = (std::max)( cellSize * 0.5f, 0.01f );
+    int steps = static_cast<int>( ceilf( distance / stepLength ) );
+    steps = (std::max)( 1, (std::min)( steps, MAX_SWEPT_SAMPLE_STEPS ) );
+
+    for ( int sample = 0; sample <= steps; ++sample )
+    {
+        const float t = static_cast<float>( sample ) / static_cast<float>( steps );
+        Insert( index, position + displacement * t, radius );
+    }
 }
 
 

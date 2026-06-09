@@ -97,6 +97,7 @@ Fly and nudge mode use WASD, mouse look, Shift for faster movement, and Space to
 | `SkullbonezData/scenes/bullet_sweep_wall.scene` | High-speed bullet into a fixed wall block; emits collision time via `--physics-collision-time-log`. |
 | `SkullbonezData/scenes/bullet_sweep_object.scene` | High-speed bullet into a fixed object corner; emits collision time via `--physics-collision-time-log`. |
 | `SkullbonezData/scenes/bullet_sweep_terrain.scene` | High-speed bullet into flat terrain; emits collision time via `--physics-collision-time-log`. |
+| `SkullbonezData/scenes/shooting_reaction_volley.scene` | Ten camera-style bullets fired into mixed dynamic targets; validation asserts every target reacts. |
 | `SkullbonezData/scenes/standing_box_repro.scene` | Deterministic solver-box edge-rest repro seed target. |
 | `SkullbonezData/scenes/box_crater_edge_repro.scene` | Terrain edge-rest regression scene with Debug physics regression log. |
 

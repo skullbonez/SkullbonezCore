@@ -228,7 +228,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
             break;
 
         case WM_SETFOCUS:
-            Input::SetSystemCursorVisible( false );
+            Input::SetSystemCursorVisible( Input::IsSystemCursorVisibleRequested() );
             break;
 
         case WM_KILLFOCUS:
@@ -240,7 +240,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
             {
                 if ( GetForegroundWindow() == hWnd )
                 {
-                    Input::SetSystemCursorVisible( false );
+                    Input::SetSystemCursorVisible( Input::IsSystemCursorVisibleRequested() );
                 }
                 else
                 {

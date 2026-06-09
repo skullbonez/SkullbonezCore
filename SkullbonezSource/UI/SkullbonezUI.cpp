@@ -686,6 +686,12 @@ bool InGameUI::BlocksKeyboard() const
 }
 
 
+bool InGameUI::WantsNativeMouseCursor() const
+{
+    return m_isVisible && !m_isMinimized;
+}
+
+
 void InGameUI::SetWindowBounds( int x, int y, int width, int height )
 {
     m_x = x;
@@ -1518,22 +1524,27 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         return result;
     }
 
-    const bool inside = m_mouseX >= m_x && m_mouseX <= m_x + m_width &&
-                        m_mouseY >= m_y && m_mouseY <= m_y + m_height;
-    const bool inTitle = inside && m_mouseY < m_y + titleH;
-    const bool inTabs = inside && m_mouseY >= m_y + titleH && m_mouseY < m_y + titleH + tabH;
-    const bool inResize = !m_isMaximized && inside && m_mouseX >= m_x + m_width - 26 && m_mouseY >= m_y + m_height - 26;
-    const int contentY = m_y + titleH + tabH + 12;
-    const int contentH = (std::max)( 24, m_height - titleH - tabH - bottomH - contentPad );
-    const int bottomY = m_y + m_height - bottomH;
+    const UIRect inputBounds = CurrentWindowRect( now );
+    const int inputX = static_cast<int>( std::round( inputBounds.x ) );
+    const int inputY = static_cast<int>( std::round( inputBounds.y ) );
+    const int inputW = static_cast<int>( std::round( inputBounds.w ) );
+    const int inputH = static_cast<int>( std::round( inputBounds.h ) );
+    const bool inside = m_mouseX >= inputX && m_mouseX <= inputX + inputW &&
+                        m_mouseY >= inputY && m_mouseY <= inputY + inputH;
+    const bool inTitle = inside && m_mouseY < inputY + titleH;
+    const bool inTabs = inside && m_mouseY >= inputY + titleH && m_mouseY < inputY + titleH + tabH;
+    const bool inResize = !m_isMaximized && inside && m_mouseX >= inputX + inputW - 26 && m_mouseY >= inputY + inputH - 26;
+    const int contentY = inputY + titleH + tabH + 12;
+    const int contentH = (std::max)( 24, inputH - titleH - tabH - bottomH - contentPad );
+    const int bottomY = inputY + inputH - bottomH;
     const bool inContent = inside && m_mouseY >= contentY && m_mouseY <= contentY + contentH;
     const float maxScroll = static_cast<float>( (std::max)( 0, ContentHeight() - contentH ) );
-    const UIRect minimizeButton = { static_cast<float>( m_x + m_width - 112 ), static_cast<float>( m_y + 8 ), 30.0f, 28.0f };
-    const UIRect maximizeButton = { static_cast<float>( m_x + m_width - 76 ), static_cast<float>( m_y + 8 ), 30.0f, 28.0f };
-    const UIRect closeButton = { static_cast<float>( m_x + m_width - 40 ), static_cast<float>( m_y + 8 ), 30.0f, 28.0f };
+    const UIRect minimizeButton = { static_cast<float>( inputX + inputW - 112 ), static_cast<float>( inputY + 8 ), 30.0f, 28.0f };
+    const UIRect maximizeButton = { static_cast<float>( inputX + inputW - 76 ), static_cast<float>( inputY + 8 ), 30.0f, 28.0f };
+    const UIRect closeButton = { static_cast<float>( inputX + inputW - 40 ), static_cast<float>( inputY + 8 ), 30.0f, 28.0f };
 
-    m_tabBar.SetBounds( static_cast<float>( m_x + 14 ), static_cast<float>( m_y + titleH ), static_cast<float>( m_width - 28 ), static_cast<float>( tabH ) );
-    const float footerX = static_cast<float>( m_x );
+    m_tabBar.SetBounds( static_cast<float>( inputX + 14 ), static_cast<float>( inputY + titleH ), static_cast<float>( inputW - 28 ), static_cast<float>( tabH ) );
+    const float footerX = static_cast<float>( inputX );
     const float footerY = static_cast<float>( bottomY );
     const UIRect rendererComboBounds = FooterRendererComboBounds( footerX, footerY );
     const UIRect waterComboBounds = FooterWaterComboBounds( footerX, footerY );
@@ -1561,9 +1572,9 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     bool wheelHandled = false;
     if ( wheelDelta != 0 && m_sceneCombo.IsOpen() && m_activeTab == InGameUITab::Scene )
     {
-        const float contentX = static_cast<float>( m_x + contentPad );
+        const float contentX = static_cast<float>( inputX + contentPad );
         const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-        const float contentW = static_cast<float>( m_width ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+        const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
         const float sceneComboW = SceneTabComboWidth( contentW );
         const int filteredSceneCount = CountFilteredSceneOptions( sceneOptions, sceneOptionCount, m_sceneFilter );
         const int visibleSceneOptions = SceneComboVisibleCount( filteredSceneCount );
@@ -1600,15 +1611,15 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_isResizing = true;
             m_resizeStartMouseX = m_mouseX;
             m_resizeStartMouseY = m_mouseY;
-            m_resizeStartW = m_width;
-            m_resizeStartH = m_height;
+            m_resizeStartW = inputW;
+            m_resizeStartH = inputH;
             SetCapture( hwnd );
         }
         else if ( inTitle )
         {
             m_isDragging = true;
-            m_dragOffsetX = m_mouseX - m_x;
-            m_dragOffsetY = m_mouseY - m_y;
+            m_dragOffsetX = m_mouseX - inputX;
+            m_dragOffsetY = m_mouseY - inputY;
             SetCapture( hwnd );
         }
         else if ( inTabs )
@@ -1625,9 +1636,9 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         {
             if ( m_activeTab == InGameUITab::Scene )
             {
-                const float contentX = static_cast<float>( m_x + contentPad );
+                const float contentX = static_cast<float>( inputX + contentPad );
                 const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-                const float contentW = static_cast<float>( m_width ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+                const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
                 const float sceneComboW = SceneTabComboWidth( contentW );
                 const int filteredSceneCount = CountFilteredSceneOptions( sceneOptions, sceneOptionCount, m_sceneFilter );
                 const int visibleSceneOptions = SceneComboVisibleCount( filteredSceneCount );
@@ -1742,7 +1753,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                     const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
                     if ( ProfilerMarkerHasChildren( profiler, markerIndex ) )
                     {
-                        const float plusX = static_cast<float>( m_x + contentPad + 18 + marker.depth * 18 );
+                        const float plusX = static_cast<float>( inputX + contentPad + 18 + marker.depth * 18 );
                         const float plusY = static_cast<float>( contentY + headerH + targetRow * rowH ) - m_scrollY + 8.0f;
                         UIIconButton expander;
                         expander.SetBounds( plusX, plusY, 14.0f, 14.0f );
@@ -1759,9 +1770,9 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         }
         else if ( inContent && m_activeTab == InGameUITab::Scene )
         {
-            const float contentX = static_cast<float>( m_x + contentPad );
+            const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-            const float contentW = static_cast<float>( m_width ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
             const float sceneComboW = SceneTabComboWidth( contentW );
             m_sceneCombo.SetBounds( contentX, rowBase, sceneComboW, 24.0f );
             const float resetX = contentX + sceneComboW + UI_SCENE_HEADER_BUTTON_GAP;
@@ -1809,9 +1820,9 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         }
         else if ( inContent && m_activeTab == InGameUITab::Physics )
         {
-            const float contentX = static_cast<float>( m_x + contentPad );
+            const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-            const float contentW = static_cast<float>( m_width ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
             const float colW = (std::max)( 148.0f, contentW * 0.46f );
             const float col1 = contentX;
             const float col2 = contentX + colW + 18.0f;
@@ -1902,9 +1913,9 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         }
         else if ( inContent && m_activeTab == InGameUITab::Options )
         {
-            const float contentX = static_cast<float>( m_x + contentPad );
+            const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-            const float contentW = static_cast<float>( m_width ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
             const float colW = (std::max)( 148.0f, contentW * 0.46f );
             const float col1 = contentX;
             const float col2 = contentX + colW + 18.0f;
@@ -1963,9 +1974,9 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         }
         else if ( inContent && m_activeTab == InGameUITab::Keys )
         {
-            const float contentX = static_cast<float>( m_x + contentPad );
+            const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-            const float contentW = static_cast<float>( m_width ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
             const int displayBalls = m_previewSolverBallCount >= 0 ? m_previewSolverBallCount : m_lastSolverBallCount;
             const int displayBoxes = m_previewSolverBoxCount >= 0 ? m_previewSolverBoxCount : m_lastSolverBoxCount;
 
@@ -2021,7 +2032,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
         }
-        else if ( inside && m_mouseY >= m_y + m_height - bottomH )
+        else if ( inside && m_mouseY >= inputY + inputH - bottomH )
         {
             if ( m_rendererCombo.HitBox( m_mouseX, m_mouseY ) )
             {
@@ -2211,7 +2222,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     const int currentRendererIndex = GetRendererIndexFromName( data.rendererName );
     m_lastRendererIndex = currentRendererIndex;
     const UIDrawContext draw( screenW, screenH );
-    const bool shouldDrawCursor = !data.cameraMouseActive;
+    const bool shouldDrawCursor = !data.cameraMouseActive && !data.nativeCursorVisible;
     if ( m_performanceHistogramEnabled )
     {
         PushPerformanceHistogramSample( data.cpuFrameMs, data.gpuFrameMs );

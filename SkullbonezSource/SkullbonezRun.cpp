@@ -1636,7 +1636,25 @@ void SkullbonezRun::TakeInput()
         return;
     }
 
-    Input::SetSystemCursorVisible( false );
+    const auto UIWantsReleasedMouse = [&]() -> bool
+    {
+        return m_camera.isFlyMode && m_UI.WantsNativeMouseCursor();
+    };
+    const auto ApplyCursorOwnership = [&]() -> void
+    {
+        Input::SetSystemCursorVisible( UIWantsReleasedMouse() );
+    };
+    const auto ReleaseMouseToUI = [&]() -> void
+    {
+        if ( UIWantsReleasedMouse() )
+        {
+            ReleaseCapture();
+            m_camera.input.xMove = 0;
+            m_camera.input.yMove = 0;
+        }
+    };
+
+    ApplyCursorOwnership();
 
     const bool UIBlocksKeyboardBeforeInput = m_UI.BlocksKeyboard();
     if ( !UIBlocksKeyboardBeforeInput )
@@ -1692,8 +1710,16 @@ void SkullbonezRun::TakeInput()
                 unbounded.m_zMax = 99999.9f;
                 uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
                 m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
-                Input::SetSystemCursorVisible( false );
-                Input::CentreMouseCoordinates();
+                if ( UIWantsReleasedMouse() )
+                {
+                    ReleaseMouseToUI();
+                    Input::SetSystemCursorVisible( true );
+                }
+                else
+                {
+                    Input::SetSystemCursorVisible( false );
+                    Input::CentreMouseCoordinates();
+                }
                 m_camera.input.xMove = 0;
                 m_camera.input.yMove = 0;
             }
@@ -1880,6 +1906,8 @@ void SkullbonezRun::TakeInput()
                 EnterInteractiveSceneRun();
                 m_UI.ToggleVisible( m_timers.simulationTimer.GetTotalTime() );
                 m_debug.overlayMode = OverlayMode::None;
+                ApplyCursorOwnership();
+                ReleaseMouseToUI();
             }
             m_camera.input.Set( InputState::Key0WasDown, key0Now );
         }
@@ -1942,6 +1970,8 @@ void SkullbonezRun::TakeInput()
                 m_UI.ToggleVisible( UINow );
                 m_debug.overlayMode = OverlayMode::None;
                 m_lastEscapeTapTime = UINow;
+                ApplyCursorOwnership();
+                ReleaseMouseToUI();
             }
         }
         m_camera.input.Set( InputState::EscapeWasDown, escapeNow );
@@ -2132,7 +2162,7 @@ void SkullbonezRun::TakeInput()
         m_camera.input.Set( InputState::Down, false );
         m_camera.input.Set( InputState::Left, false );
         m_camera.input.Set( InputState::Right, false );
-        Input::SetSystemCursorVisible( false );
+        ApplyCursorOwnership();
         return;
     }
 
@@ -2206,19 +2236,23 @@ void SkullbonezRun::TakeInput()
 
     if ( m_camera.isFlyMode )
     {
-        // Keep the platform cursor hidden every frame.  Mouse-look still uses the
-        // recentered OS coordinates internally; the UI hides its vector cursor
-        // while camera movement owns the mouse.
-        Input::SetSystemCursorVisible( false );
-
-        // Mouse look: delta from screen centre
-        if ( m_UI.BlocksCameraMouse() )
+        // Expanded diagnostics UI owns the native cursor in fly/nudge mode.
+        // Otherwise mouse-look keeps using recentered OS coordinates internally.
+        if ( UIWantsReleasedMouse() )
         {
+            Input::SetSystemCursorVisible( true );
+            m_camera.input.xMove = 0;
+            m_camera.input.yMove = 0;
+        }
+        else if ( m_UI.BlocksCameraMouse() )
+        {
+            Input::SetSystemCursorVisible( false );
             m_camera.input.xMove = 0;
             m_camera.input.yMove = 0;
         }
         else
         {
+            Input::SetSystemCursorVisible( false );
             POINT currentCoords = Input::GetMouseCoordinates();
             Input::CentreMouseCoordinates();
             POINT centreCoords = Input::GetMouseCoordinates();
@@ -2319,6 +2353,9 @@ void SkullbonezRun::DrawPrimitives()
     m_cGameModelCollection.PrepareRenderStreams();
     PROFILE_END( "Frame/Render/PrepareModels" );
 
+    const bool physicsDebugTransparent = m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE && m_debug.isPhysicsDebugTransparent;
+    const float collisionVisualizerAlphaOverride = physicsDebugTransparent ? m_debug.physicsDebugAlpha : -1.0f;
+
     // Camera m_position for skybox placement.  During camera transitions the
     // selected camera is already the destination, but SetCamera() renders from
     // the interpolated tween camera.  Reflection math must use the same render
@@ -2395,7 +2432,9 @@ void SkullbonezRun::DrawPrimitives()
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -waterY );
         if ( m_debug.isCollisionVisualizer )
         {
+            m_collisionVisualizer.SetAlphaOverride( collisionVisualizerAlphaOverride );
             m_collisionVisualizer.Render( m_cGameModelCollection, reflView, proj, lightPosition );
+            m_collisionVisualizer.SetAlphaOverride( -1.0f );
         }
         else
         {
@@ -2414,10 +2453,9 @@ void SkullbonezRun::DrawPrimitives()
 
     // render game models -----------------------------
     PROFILE_GPU_BEGIN( "Frame/Render/Balls" );
-    const bool physicsDebugTransparent = m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE && m_debug.isPhysicsDebugTransparent;
     if ( m_debug.isCollisionVisualizer || physicsDebugTransparent )
     {
-        m_collisionVisualizer.SetAlphaOverride( physicsDebugTransparent && !m_debug.isCollisionVisualizer ? m_debug.physicsDebugAlpha : -1.0f );
+        m_collisionVisualizer.SetAlphaOverride( collisionVisualizerAlphaOverride );
         m_collisionVisualizer.Render( m_cGameModelCollection, baseView, proj, lightPosition );
         m_collisionVisualizer.SetAlphaOverride( -1.0f );
     }
@@ -2692,7 +2730,8 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         UIData.waterHidden = m_debug.isWaterHidden;
         UIData.waterNoReflect = m_debug.isWaterNoReflect;
         UIData.waterRTReflect = m_debug.isWaterRTReflect;
-        UIData.cameraMouseActive = m_camera.isFlyMode && !m_UI.BlocksCameraMouse();
+        UIData.nativeCursorVisible = m_camera.isFlyMode && m_UI.WantsNativeMouseCursor();
+        UIData.cameraMouseActive = m_camera.isFlyMode && !m_UI.BlocksCameraMouse() && !UIData.nativeCursorVisible;
         UIData.canSaveSceneDefaults = m_scene.isSceneMode &&
                                       m_scene.currentSceneIndex >= 0 &&
                                       m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() ) &&

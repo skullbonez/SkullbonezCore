@@ -86,6 +86,7 @@ struct InGameUIFrameData
     bool waterNoReflect = false;
     bool waterRTReflect = false;
     bool cameraMouseActive = false;
+    bool nativeCursorVisible = false;
     bool canSaveSceneDefaults = false;
 };
 
@@ -144,6 +145,7 @@ class InGameUI
     InGameUITab GetActiveTab() const;
     bool BlocksCameraMouse() const;
     bool BlocksKeyboard() const;
+    bool WantsNativeMouseCursor() const;
     void SetWindowBounds( int x, int y, int width, int height );
     void SetBlurEnabled( bool enabled );
     void SetRendererComboOpen( bool open );

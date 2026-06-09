@@ -1610,6 +1610,73 @@ void GameModelCollection::RunSolverPhysics( float dt )
                                            manifold );
     };
 
+    auto hasObjectContactAtTime = [&]( int a, int b, float time ) -> bool
+    {
+        const Vector3 startA = m_gameModels[a].GetPosition();
+        const Vector3 startB = m_gameModels[b].GetPosition();
+        m_gameModels[a].SetPosition( startA + m_gameModels[a].GetVelocity() * time );
+        m_gameModels[b].SetPosition( startB + m_gameModels[b].GetVelocity() * time );
+
+        ObjectContactManifold manifold;
+        const bool hit = BuildObjectContactManifold( m_gameModels[a],
+                                                     m_gameModels[b],
+                                                     a,
+                                                     b,
+                                                     Cfg().contactEpsilon,
+                                                     manifold );
+
+        m_gameModels[a].SetPosition( startA );
+        m_gameModels[b].SetPosition( startB );
+        return hit;
+    };
+
+    auto refineObjectSweepContactTime = [&]( int a, int b, float coarseTime, float availableTime ) -> float
+    {
+        if ( coarseTime <= 0.0f || coarseTime >= availableTime )
+        {
+            return coarseTime;
+        }
+
+        if ( hasObjectContactAtTime( a, b, coarseTime ) )
+        {
+            return coarseTime;
+        }
+
+        float lo = coarseTime;
+        float hi = coarseTime;
+        bool foundContactWindow = false;
+        for ( int step = 1; step <= 48; ++step )
+        {
+            const float t = coarseTime + ( availableTime - coarseTime ) * ( static_cast<float>( step ) / 48.0f );
+            if ( hasObjectContactAtTime( a, b, t ) )
+            {
+                hi = t;
+                foundContactWindow = true;
+                break;
+            }
+            lo = t;
+        }
+
+        if ( !foundContactWindow )
+        {
+            return coarseTime;
+        }
+
+        for ( int iter = 0; iter < 12; ++iter )
+        {
+            const float mid = ( lo + hi ) * 0.5f;
+            if ( hasObjectContactAtTime( a, b, mid ) )
+            {
+                hi = mid;
+            }
+            else
+            {
+                lo = mid;
+            }
+        }
+        return hi;
+    };
+
     // Object/object CCD front-end: wake sleepers and advance swept hits to a
     // contact candidate, but leave velocity response to the persistent rows.
     PROFILE_BEGIN( "Frame/Physics/Narrowphase" );
@@ -1638,7 +1705,7 @@ void GameModelCollection::RunSolverPhysics( float dt )
                     GameModel::ObjectSweepResult sweep = m_gameModels[y].SweepGameModel( m_gameModels[x], m_timeRemaining[y] );
                     if ( sweep.hit )
                     {
-                        float colTime = sweep.collisionTime;
+                        float colTime = refineObjectSweepContactTime( y, x, sweep.collisionTime, m_timeRemaining[y] );
                         Physics::PhysicsPipelineRecord record;
                         record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
                         record.bodyA = y;
@@ -1685,7 +1752,7 @@ void GameModelCollection::RunSolverPhysics( float dt )
                     GameModel::ObjectSweepResult sweep = m_gameModels[x].SweepGameModel( m_gameModels[y], m_timeRemaining[x] );
                     if ( sweep.hit )
                     {
-                        float colTime = sweep.collisionTime;
+                        float colTime = refineObjectSweepContactTime( x, y, sweep.collisionTime, m_timeRemaining[x] );
                         Physics::PhysicsPipelineRecord record;
                         record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
                         record.bodyA = x;
@@ -1737,7 +1804,7 @@ void GameModelCollection::RunSolverPhysics( float dt )
 
         if ( sweep.hit )
         {
-            float colTime = sweep.collisionTime;
+            float colTime = refineObjectSweepContactTime( x, y, sweep.collisionTime, availableTime );
             Physics::PhysicsPipelineRecord record;
             record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
             record.bodyA = x;

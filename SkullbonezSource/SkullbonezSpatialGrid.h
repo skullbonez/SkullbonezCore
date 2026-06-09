@@ -47,6 +47,8 @@ class SpatialGrid
     static constexpr int MAX_STATIC_CELL_ENTRIES = MAX_GAME_MODELS * 8;
     static constexpr int MAX_SWEPT_CELL_ENTRIES = 4096;
     static constexpr int MAX_CELL_ENTRIES = MAX_STATIC_CELL_ENTRIES + MAX_SWEPT_CELL_ENTRIES + 4;
+    static constexpr int MAX_SWEPT_AABB_CELLS = MAX_SWEPT_CELL_ENTRIES / 2;
+    static constexpr int MAX_SWEPT_SAMPLE_STEPS = MAX_SWEPT_CELL_ENTRIES / 4;
     static constexpr int PAIR_WORDS = ( MAX_GAME_MODELS * ( MAX_GAME_MODELS - 1 ) / 2 + 63 ) / 64;
 
     struct Entry
@@ -77,6 +79,7 @@ class SpatialGrid
     uint64_t pairSeen[PAIR_WORDS];
 
     int FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz );
+    void InsertCell( int index, int ix, int iy, int iz );
     void InsertBounds( int index, const Vector3& minBounds, const Vector3& maxBounds );
 
   public:
