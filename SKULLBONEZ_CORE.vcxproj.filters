@@ -255,6 +255,9 @@
     <ClCompile Include="SkullbonezSource\UI\UIIconButton.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UIInput.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UILayout.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
@@ -468,6 +471,9 @@
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIIconButton.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UIInput.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UILayout.h">

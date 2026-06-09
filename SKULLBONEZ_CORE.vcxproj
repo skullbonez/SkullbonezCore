@@ -182,6 +182,7 @@
     <ClCompile Include="SkullbonezSource\UI\UIDraw.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIDrawWidgets.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIIconButton.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIInput.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UILayout.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIScrollBar.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UISlider.cpp" />
@@ -255,6 +256,7 @@
     <ClInclude Include="SkullbonezSource\UI\UIDraw.h" />
     <ClInclude Include="SkullbonezSource\UI\UIDrawWidgets.h" />
     <ClInclude Include="SkullbonezSource\UI\UIIconButton.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIInput.h" />
     <ClInclude Include="SkullbonezSource\UI\UILayout.h" />
     <ClInclude Include="SkullbonezSource\UI\UIScrollBar.h" />
     <ClInclude Include="SkullbonezSource\UI\UISlider.h" />

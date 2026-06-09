@@ -1,11 +1,11 @@
 #include "SkullbonezUI.h"
-#include "../SkullbonezInput.h"
 #include "../SkullbonezPhysicsDebugVisualizer.h"
 #include "../SkullbonezProfiler.h"
 #include "../SkullbonezText.h"
 #include "UIDraw.h"
 #include "UIDrawWidgets.h"
 #include "UIIconButton.h"
+#include "UIInput.h"
 #include "UILayout.h"
 #include "UIWindowChrome.h"
 
@@ -14,7 +14,6 @@
 #include <cstdio>
 #include <cstring>
 
-using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Text;
@@ -62,12 +61,6 @@ int WaterReflectionModeFromData( const InGameUIFrameData& data )
         return 2;
     }
     return data.waterRTReflect ? 1 : 0;
-}
-
-
-bool IsVirtualKeyDown( int virtualKey )
-{
-    return ( GetKeyState( virtualKey ) & 0x8000 ) != 0;
 }
 
 
@@ -894,24 +887,13 @@ void InGameUI::CloseSceneCombo()
 
 void InGameUI::CaptureSceneFilterKeyState()
 {
-    for ( int key = 0; key < 256; ++key )
-    {
-        m_sceneFilterKeyWasDown[key] = IsVirtualKeyDown( key );
-    }
+    InputControl::CaptureKeyStates( m_sceneFilterKeyWasDown );
 }
 
 
 bool InGameUI::SceneFilterKeyPressed( int virtualKey )
 {
-    if ( virtualKey < 0 || virtualKey >= 256 )
-    {
-        return false;
-    }
-
-    const bool isDown = IsVirtualKeyDown( virtualKey );
-    const bool wasPressed = isDown && !m_sceneFilterKeyWasDown[virtualKey];
-    m_sceneFilterKeyWasDown[virtualKey] = isDown;
-    return wasPressed;
+    return InputControl::ConsumeKeyPress( m_sceneFilterKeyWasDown, virtualKey );
 }
 
 
@@ -964,7 +946,7 @@ void InGameUI::UpdateSceneFilterTyping( InGameUIInputResult& result, const char*
         }
     }
 
-    const bool isShiftDown = IsVirtualKeyDown( VK_SHIFT );
+    const bool isShiftDown = InputControl::IsVirtualKeyDown( VK_SHIFT );
     if ( SceneFilterKeyPressed( VK_SPACE ) )
     {
         AppendSceneFilterChar( ' ' );
@@ -1025,21 +1007,16 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
 {
     InGameUIInputResult result;
     m_interaction.blocksCameraMouse = false;
-    const int wheelDelta = Input::ConsumeMouseWheelDelta();
+    const InputControl::UIInputSnapshot input = InputControl::CaptureSnapshot( m_interaction.leftWasDown, m_hasMouseOverride, m_mouseOverrideX, m_mouseOverrideY );
+    const int wheelDelta = input.wheelDelta;
     if ( !m_window.isVisible )
     {
         return result;
     }
     ApplyProfilerDefaultExpansion();
 
-    POINT mouse = Input::GetClientMouseCoordinates();
-    m_mouseX = static_cast<int>( mouse.x );
-    m_mouseY = static_cast<int>( mouse.y );
-    if ( m_hasMouseOverride )
-    {
-        m_mouseX = m_mouseOverrideX;
-        m_mouseY = m_mouseOverrideY;
-    }
+    m_mouseX = input.mouseX;
+    m_mouseY = input.mouseY;
 
     screenW = (std::max)( 1, screenW );
     screenH = (std::max)( 1, screenH );
@@ -1061,12 +1038,12 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     }
     Chrome::ClampWindowToScreen( m_window, screenW, screenH, minW, minH, margin );
 
-    const bool leftNow = Input::IsLeftMouseDown();
+    const bool leftNow = input.leftDown;
     if ( m_window.isMinimized )
     {
         const UIRect minimized = MinimizedRect( screenW, screenH, m_window.minimizedWidth );
         const bool insideMinimized = minimized.Contains( m_mouseX, m_mouseY );
-        if ( leftNow && !m_interaction.leftWasDown && insideMinimized )
+        if ( input.leftPressed && insideMinimized )
         {
             SetMinimized( false, now );
             result.userInteracted = true;
@@ -1147,7 +1124,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         m_scrollbarVisibleUntil = now + 1.4;
     }
 
-    if ( leftNow && !m_interaction.leftWasDown )
+    if ( input.leftPressed )
     {
         if ( titleButtons.minimize.Contains( m_mouseX, m_mouseY ) || titleButtons.close.Contains( m_mouseX, m_mouseY ) )
         {
@@ -1164,14 +1141,14 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_interaction.resizeStartMouseY = m_mouseY;
             m_interaction.resizeStartW = inputW;
             m_interaction.resizeStartH = inputH;
-            SetCapture( hwnd );
+            InputControl::BeginMouseCapture( hwnd );
         }
         else if ( inTitle )
         {
             m_interaction.isDragging = true;
             m_interaction.dragOffsetX = m_mouseX - inputX;
             m_interaction.dragOffsetY = m_mouseY - inputY;
-            SetCapture( hwnd );
+            InputControl::BeginMouseCapture( hwnd );
         }
         else if ( inTabs )
         {
@@ -1441,14 +1418,14 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_activeSlider = 3;
                 m_previewPhysicsAlpha = m_physicsAlphaSlider.ValueFromMouse( m_mouseX, UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX, UI_PHYSICS_ALPHA_STEP );
                 result.requestedPhysicsDebugAlpha = m_previewPhysicsAlpha;
-                SetCapture( hwnd );
+                InputControl::BeginMouseCapture( hwnd );
             }
             else if ( m_contactLingerSlider.HitTest( m_mouseX, m_mouseY ) )
             {
                 m_activeSlider = 4;
                 m_previewContactLinger = m_contactLingerSlider.ValueFromMouse( m_mouseX, UI_CONTACT_LINGER_MIN, UI_CONTACT_LINGER_MAX, UI_CONTACT_LINGER_STEP );
                 result.requestedPhysicsDebugContactLinger = m_previewContactLinger;
-                SetCapture( hwnd );
+                InputControl::BeginMouseCapture( hwnd );
             }
             else if ( m_worldGravitySlider.HitTest( m_mouseX, m_mouseY ) )
             {
@@ -1458,7 +1435,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                                                                                                              UI_WORLD_GRAVITY_MIN,
                                                                                                              UI_WORLD_GRAVITY_MAX,
                                                                                                              UI_WORLD_GRAVITY_STEP ) );
-                SetCapture( hwnd );
+                InputControl::BeginMouseCapture( hwnd );
             }
             m_rendererCombo.Close();
         }
@@ -1509,7 +1486,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_activeSlider = 1;
                 m_previewTimeScale = m_timeScaleSlider.ValueFromMouse( m_mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
                 result.requestedTimeScale = m_previewTimeScale;
-                SetCapture( hwnd );
+                InputControl::BeginMouseCapture( hwnd );
             }
             else if ( m_modelCountSlider.HitTest( m_mouseX, m_mouseY ) )
             {
@@ -1518,7 +1495,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                                                                                            static_cast<float>( UI_MODEL_COUNT_MIN ),
                                                                                            static_cast<float>( UI_MODEL_COUNT_MAX ),
                                                                                            1.0f ) );
-                SetCapture( hwnd );
+                InputControl::BeginMouseCapture( hwnd );
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
@@ -1544,7 +1521,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                                                                                       static_cast<float>( UI_SEED_MIN ),
                                                                                       static_cast<float>( UI_SEED_MAX ),
                                                                                       1.0f ) );
-                SetCapture( hwnd );
+                InputControl::BeginMouseCapture( hwnd );
             }
             else if ( m_solverBallSlider.HitTest( m_mouseX, m_mouseY ) )
             {
@@ -1554,7 +1531,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                                                                                                 static_cast<float>( UI_SOLVER_COUNT_MIN ),
                                                                                                 static_cast<float>( maxBalls ),
                                                                                                 1.0f ) );
-                SetCapture( hwnd );
+                InputControl::BeginMouseCapture( hwnd );
             }
             else if ( m_solverBoxSlider.HitTest( m_mouseX, m_mouseY ) )
             {
@@ -1564,21 +1541,21 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                                                                                               static_cast<float>( UI_SOLVER_COUNT_MIN ),
                                                                                               static_cast<float>( maxBoxes ),
                                                                                               1.0f ) );
-                SetCapture( hwnd );
+                InputControl::BeginMouseCapture( hwnd );
             }
             else if ( m_worldFluidHeightSlider.HitTest( m_mouseX, m_mouseY ) )
             {
                 m_activeSlider = 12;
                 result.requestWorldFluidHeight = true;
                 result.requestedWorldFluidHeight = m_worldFluidHeightSlider.ValueFromMouse( m_mouseX, UI_WORLD_FLUID_HEIGHT_MIN, UI_WORLD_FLUID_HEIGHT_MAX, UI_WORLD_FLUID_HEIGHT_STEP );
-                SetCapture( hwnd );
+                InputControl::BeginMouseCapture( hwnd );
             }
             else if ( m_worldFluidDensitySlider.HitTest( m_mouseX, m_mouseY ) )
             {
                 m_activeSlider = 13;
                 result.requestWorldFluidDensity = true;
                 result.requestedWorldFluidDensity = m_worldFluidDensitySlider.ValueFromMouse( m_mouseX, UI_WORLD_FLUID_DENSITY_MIN, UI_WORLD_FLUID_DENSITY_MAX, UI_WORLD_FLUID_DENSITY_STEP );
-                SetCapture( hwnd );
+                InputControl::BeginMouseCapture( hwnd );
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
@@ -1715,7 +1692,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         }
     }
 
-    if ( !leftNow && m_interaction.leftWasDown )
+    if ( input.leftReleased )
     {
         // Commit deferred slider previews exactly once on release.  This avoids
         // rebuilding solver objects or generated model pools every mouse-move
@@ -1747,7 +1724,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         m_activeSlider = 0;
         m_interaction.isDragging = false;
         m_interaction.isResizing = false;
-        ReleaseCapture();
+        InputControl::EndMouseCapture();
     }
 
     m_interaction.leftWasDown = leftNow;
