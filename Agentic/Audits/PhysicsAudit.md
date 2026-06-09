@@ -429,7 +429,7 @@ The standard approach for combining restitution coefficients is `e = min(e1, e2)
 The current rolling system has several fundamental problems:
 
 **Problem 1: Flat damping replaces rolling physics**  
-`SphereVsPlaneRollResponse()` multiplies both linear and angular velocity by 0.9 every frame the ball is grounded. This is called from `RespondCollisionTerrain()` when `isGrounded == true`. Since the collision detect runs every frame for grounded balls (`collisionTime = 0.0`), this damping compounds at frame rate — a 60 FPS simulation would reduce velocity to `0.9^60 ≈ 0.002` of its original value in one second.
+`SphereVsPlaneRollResponse()` multiplies both linear and angular velocity by 0.9 every frame the ball is grounded. This was called from the former terrain response path when `isGrounded == true`. Since the collision detect runs every frame for grounded balls (`collisionTime = 0.0`), this damping compounds at frame rate — a 60 FPS simulation would reduce velocity to `0.9^60 ≈ 0.002` of its original value in one second.
 
 **Problem 2: No angular-linear coupling while rolling**  
 While grounded, linear and angular velocities are damped independently. There is no constraint enforcing `v = ω × r` (no-slip condition). A ball can have high angular velocity with zero linear velocity or vice versa.
@@ -506,7 +506,7 @@ void CollisionResponse::SphereVsPlaneRollResponse( GameModel& gameModel )
 A ball should leave grounded state when the terrain normal component of velocity exceeds a threshold:
 
 ```cpp
-// In RespondCollisionTerrain, before entering grounded path:
+// In the terrain response path, before entering grounded path:
 Vector3 terrainNormal = gameModel.m_terrain->GetTerrainNormalAt(pos.x, pos.z);
 float normalVelocity = gameModel.GetVelocity() * terrainNormal;
 

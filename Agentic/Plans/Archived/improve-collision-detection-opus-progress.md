@@ -43,7 +43,7 @@ allow each ball to participate in multiple collision pairs per frame.
 |---|------|--------|--------|
 | 16 | Replace terrain guard | Change `if(!isTimeStepApplied[x])` to `if(timeRemaining[x] > 0.0f)` (line 123) | ✅ Done |
 | 17 | Pass `timeRemaining[x]` to terrain detect | Change `CollisionDetectTerrain(fChangeInTime)` to `CollisionDetectTerrain(timeRemaining[x])` (line 126) | ✅ Done |
-| 18 | Adjust terrain response remaining time | Change `CollisionResponseTerrain(fChangeInTime - colTime)` to `CollisionResponseTerrain(timeRemaining[x] - colTime)` (line 135) — `CollisionResponseTerrain` still advances position internally | ✅ Done |
+| 18 | Adjust terrain hit remaining time | Consume `timeRemaining[x] - colTime` for the terrain hit path and zero remaining time afterward | ✅ Done |
 | 19 | Zero `timeRemaining` after terrain response | Replace `isTimeStepApplied[x] = true` with `timeRemaining[x] = 0.0f` (line 138) — prevents double-advancement in the final pass | ✅ Done |
 
 ### Steps — Final advancement pass

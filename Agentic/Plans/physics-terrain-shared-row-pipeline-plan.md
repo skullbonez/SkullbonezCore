@@ -1,23 +1,51 @@
 # Terrain Solver Integration Plan
 
 Date: 2026-06-09
-Status: Plan only
+Status: Implemented and validated
 Impact area: physics architecture, collision pipeline, diagnostics, tests
-Validation for this edit: documentation-only, no validation required
+Validation for implementation: `tools\validate_physics.bat`, `tools\validate_perf.bat`, and `tools\validate_full.bat`
+
+## Implementation Notes
+
+- Terrain detection still owns swept terrain timing and advances bodies to the
+  time of impact.
+- `GameModel::BuildTerrainContactManifold` now turns the cached terrain collision
+  plane into terrain contact manifolds:
+  - spheres use the bottom-pole contact,
+  - boxes use the credible vertex cluster,
+  - high-speed multi-point impacts collapse to a centroid contact,
+  - `ClassifyBoxTerrainSupport` metadata is attached before solving.
+- `GameModelCollection::SolvePersistentObjectContacts` appends terrain rows after
+  object/object rows. Terrain rows use body B = `-1` as a static terrain sentinel.
+- The shared row loop owns terrain effective mass, bias, friction, warm-start,
+  PGS iteration, velocity writeback, position correction, cache storage, debug
+  contacts, and SkullScope contact output.
+- Stable terrain support keeps the gravity warm-start, friction floor, rolling
+  rest damping, and sleep seeding. Edge/point terrain contacts solve impacts and
+  penetration but inhibit sleep and do not receive rest-only support policy.
+- Unsupported terrain rows are deliberately excluded from the persistent
+  warm-start cache. This keeps edge/point impact impulses from being replayed as
+  launch impulses on the next frame.
+- The old terrain-only response adapter and impulse solver files have been
+  removed from source and the Visual Studio project.
+- Pipeline records now include `terrain_manifold` and `terrain_row` stages.
+- SkullScope emits terrain contacts as `sphere/terrain` or `box/terrain` and
+  terrain support seeds as `support_edge` rows with `source="terrain"`.
+- Added `SkullbonezData/scenes/box_only_rest.scene` as a focused box-only rest
+  diagnostic. The scene reaches 15/15 sleeping bodies after the cache gate.
 
 ## Goal
 
 Bring terrain contacts into the same Catto-style solver row pipeline used for
 object/object contacts.
 
-Today, terrain is partly Catto-shaped but still special-cased:
+Before this migration, terrain was partly Catto-shaped but still special-cased:
 
 ```text
 RunSolverPhysics
 -> CollisionDetectTerrain
 -> GetTerrainCollisionTime
--> CollisionResponseTerrain
--> ImpulseSolver::RespondCollisionTerrain
+-> terrain-only response adapter
 ```
 
 The target shape is:
@@ -43,8 +71,8 @@ Frame-level terrain ownership:
   - Current terrain phase lives under `Frame/Physics/Terrain`.
   - Calls `CollisionDetectTerrain`.
   - If `IsResponseRequired()` is true, advances to collision time, calls
-    `CollisionResponseTerrain`, records `TerrainHit`, emits collision time, and
-    seeds or inhibits sleep support.
+    `BuildTerrainContactManifold`, clears the response flag, records
+    `TerrainHit`, emits collision time, and seeds or inhibits sleep support.
 
 Detection and handoff:
 
@@ -62,17 +90,17 @@ Detection and handoff:
   - Samples all OBB corners against terrain height/plane and returns the closest
     credible terrain vertex.
 
-Response:
+Shared row handoff:
 
-- `GameModel::CollisionResponseTerrain`
-  - Delegates to `ImpulseSolver::RespondCollisionTerrain`.
-  - Calls `UpdatePosition`.
-  - Clears `m_isResponseRequired`.
-- `ImpulseSolver::RespondCollisionTerrain`
-  - Builds terrain contacts internally.
-  - Applies terrain normal/friction/restitution impulses.
-  - Applies terrain-specific stable-support policy.
-  - Returns whether the contact can seed sleep.
+- `GameModel::BuildTerrainContactManifold`
+  - Builds explicit sphere/terrain and box/terrain manifolds from the cached
+    swept terrain hit data.
+  - Attaches `ClassifyBoxTerrainSupport` metadata before solving.
+- `GameModelCollection::SolvePersistentObjectContacts`
+  - Converts terrain manifolds to shared solver rows with body B set to the
+    static terrain sentinel.
+  - Solves terrain normal/friction/restitution response in the same row loop as
+    object/object contacts.
 - `GameModel::DEBUG_SetSphereToTerrain`
   - Safety clamp path after movement; name is historical and box-aware behavior
     now exists inside it.
@@ -133,24 +161,21 @@ box flat on terrain: 4 contact points -> 4 normal rows + 8 friction rows
 - Make the visual pipeline stepper see terrain manifolds and rows the same way
   it sees object manifolds and rows.
 
-## What Should Disappear
+## Removed Or Reduced
 
-These should disappear or shrink once terrain is integrated:
+These items were removed or reduced by the shared terrain-row migration:
 
-- `GameModel::CollisionResponseTerrain`
-  - Remove or reduce to a temporary compatibility adapter.
-- `ImpulseSolver::RespondCollisionTerrain`
-  - Dismantle the terrain-only impulse solve.
-  - Move reusable row math into shared helpers.
+- The terrain-only runtime response adapter.
+- The terrain-only impulse solver source files.
 - Terrain use of `m_isResponseRequired`
-  - Terrain generation should emit manifolds/rows directly instead of setting a
-    delayed response flag.
+  - Reduced to a swept-detection handoff flag that is cleared once terrain
+    manifolds are emitted.
 - Terrain response dependence on `m_responseInformation.collidedPlane` and
   `collidedRay`
-  - The generated manifold should carry the contact normal, points,
-    penetration, and time-of-impact metadata.
+  - Reduced to detection input for manifold generation. The generated manifold
+    carries contact normal, points, penetration, and time-of-impact metadata.
 - Resting support policy hidden inside terrain response
-  - Keep the policy, but attach its result to terrain manifolds/rows.
+  - The policy is attached to terrain manifolds/rows.
 - `DEBUG_SetSphereToTerrain`
   - Remove only after solver stabilization and regression coverage make the
     clamp unnecessary. Until then, make it an assertion/safety net rather than
@@ -231,10 +256,10 @@ tools\validate_physics.bat
 
 ## Phase 1: Split Terrain Manifold Generation From Response
 
-Purpose: create terrain manifolds while still using the old response path.
+Purpose: create terrain manifolds independently from response ownership.
 
 1. Extract terrain manifold generation from
-   `ImpulseSolver::RespondCollisionTerrain` and `GameModel::GetTerrainCollisionTime`.
+   the old terrain response path and `GameModel::GetTerrainCollisionTime`.
 2. Generate sphere terrain manifolds from the bottom-pole contact point.
 3. Generate box terrain manifolds from the credible vertex cluster against the
    detected terrain plane.
@@ -296,8 +321,8 @@ tools\validate_perf.bat
 
 ## Phase 3: Solve Terrain Rows Behind A Toggle
 
-Purpose: run terrain through shared rows while retaining the old path as an
-escape hatch.
+Purpose: run terrain through shared rows while the old path is still available
+as an escape hatch during staging.
 
 1. Add an internal runtime toggle for terrain shared-row response.
 2. When enabled, route terrain rows into the shared PGS loop.
@@ -306,7 +331,7 @@ escape hatch.
 4. Keep sleep seeding controlled by terrain support metadata, not by raw impulse
    magnitude.
 5. Keep terrain collision-time logging unchanged.
-6. Compare old and new response using targeted scenes:
+6. Compare staged and shared response using targeted scenes:
    - `bullet_sweep_terrain.scene`,
    - `box_flush_test.scene`,
    - `box_slope_test.scene`,
@@ -370,10 +395,11 @@ tools\validate_full.bat
 
 Purpose: delete the special-case response code once the shared path is proven.
 
-1. Remove default use of `GameModel::CollisionResponseTerrain`.
-2. Remove or shrink `ImpulseSolver::RespondCollisionTerrain`.
-3. Remove terrain response dependence on `m_isResponseRequired`.
-4. Replace `m_responseInformation` terrain plane/ray handoff with manifold data.
+1. Remove the old terrain-only runtime response adapter.
+2. Remove the terrain-only impulse solver source files.
+3. Reduce terrain dependence on `m_isResponseRequired` to swept-detection
+   handoff.
+4. Replace terrain plane/ray response handoff with manifold data.
 5. Keep terrain collision-time data only where needed for swept detection and
    regression output.
 6. Convert `DEBUG_SetSphereToTerrain` into:
@@ -469,8 +495,7 @@ stale heightfield-cache risk.
 ## Definition Of Done
 
 - Terrain contacts enter the same shared solver row path as object contacts.
-- `ImpulseSolver::RespondCollisionTerrain` no longer owns normal runtime
-  response.
+- The terrain-only impulse solver files are removed.
 - The terrain polygon/plane lookup is confined to detection and manifold
   generation.
 - Terrain support classification is explicit metadata consumed by sleep and

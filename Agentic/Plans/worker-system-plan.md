@@ -331,7 +331,7 @@ void GameModelCollection::RunSolverPhysics( float dt )
         float colTime = m_gameModels[x].CollisionDetectTerrain( m_timeRemaining[x] );
         if ( m_gameModels[x].IsResponseRequired() ) {
             m_gameModels[x].UpdatePosition( colTime );
-            m_gameModels[x].CollisionResponseTerrain( m_timeRemaining[x] - colTime );
+            BuildTerrainContactManifold( x, colTime, m_timeRemaining[x] - colTime );
             m_groundedThisFrame[x] = 1;
             m_timeRemaining[x] = 0.0f;
         }

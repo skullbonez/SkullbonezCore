@@ -60,8 +60,9 @@ separate time values.
   has a pending response) is safe to keep unchanged. Since each pair is detect→respond
   atomically within the loop body, the flag is always cleared before the next detection call.
 
-- Terrain collision handling (`CollisionResponseTerrain`) still advances position internally.
-  This is fine — `timeRemaining` is zeroed after terrain response to prevent double-advancement.
+- Terrain collision handling now emits shared terrain manifolds/rows before
+  final advancement accounting. `timeRemaining` is zeroed after a terrain hit to
+  prevent double-advancement.
 
 - Previously, a ball that collided with another ball was excluded from terrain checks. The new
   code checks all balls against terrain using their remaining time. This is more correct — a

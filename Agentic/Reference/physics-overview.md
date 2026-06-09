@@ -1,19 +1,25 @@
 # Physics Overview
 
-SkullbonezCore currently uses one object/object solver:
+SkullbonezCore currently uses one shared contact-row solver:
 
 | Solver | Scope | Notes |
 |--------|-------|-------|
-| Persistent contact solver | Spheres and oriented boxes | Catto-style sequential impulse contact rows with warm starting, friction, restitution bias, stabilization, position correction, and impulse caching. |
+| Persistent contact solver | Object/object and object/terrain contacts for spheres and oriented boxes | Catto-style sequential impulse contact rows with warm starting, friction, restitution bias, stabilization, position correction, impulse caching, and terrain support metadata. |
 
 Object/object swept tests are a CCD front-end only. They build candidate timing,
 advance bodies to a time of impact when needed, and wake sleeping pairs, but
 they do not apply the object/object impulse response. `SolvePersistentObjectContacts`
 owns dynamic object velocity response and post-solve object position cleanup.
 
-Terrain still uses its separate swept collision path before the persistent
-object/object solve. Terrain support information then feeds the sleep/support
-classification used by object sleep islands.
+Terrain still uses its swept collision path before the shared solve, but the
+detection phase now emits terrain contact manifolds instead of running the
+legacy terrain impulse response. Terrain manifolds are appended after
+object/object rows with body B set to the static terrain sentinel (`-1`). The
+shared row solve owns velocity response, writeback, position correction, cache
+storage, diagnostics, and visual pipeline records for both object and terrain
+contacts. Terrain support classification remains explicit metadata: stable
+terrain support may seed sleep, while edge/point terrain contacts inhibit sleep
+and do not receive rest-only warm-start or damping policy.
 
 ## Time Step
 
@@ -71,7 +77,8 @@ tools\physics_query.bat Debug\scene.physicsdiag.ndjson pipeline --frames 0:1000
 | Area | Files |
 |------|-------|
 | Rigid body state | `SkullbonezSource/SkullbonezRigidBody*` |
-| Impulse solver | `SkullbonezSource/SkullbonezImpulseSolver*` |
+| Shared row solver | `SkullbonezSource/SkullbonezGameModelCollection*` |
+| Terrain support policy | `SkullbonezSource/SkullbonezTerrainSupportClassifier.h` |
 | Shapes | `SkullbonezSource/SkullbonezBoundingSphere*`, `SkullbonezSource/SkullbonezDynamicsObject*` |
 | Broadphase | `SkullbonezSource/SkullbonezSpatialGrid*` |
 | Main physics loop | `SkullbonezSource/SkullbonezGameModelCollection*` |

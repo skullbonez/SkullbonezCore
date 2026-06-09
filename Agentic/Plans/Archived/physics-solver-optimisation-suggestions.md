@@ -12,8 +12,9 @@ physics reference notes, and `Agentic/Audits/physics_optimization.md`.
 
 The current code already contains several important wins:
 
-- Terrain response in `SkullbonezSource/SkullbonezImpulseSolver.cpp` keeps per-body velocity
-  and angular velocity in locals/registers and has an SSE path for the terrain solver loop.
+- Terrain response now enters the shared row solver through explicit terrain
+  manifolds; future optimisation should measure terrain row build/solve cost
+  inside `SkullbonezGameModelCollection.cpp`.
 - The prior physics audit reports large wins from sleeping, SSE terrain solving, and adaptive
   solver early-out.
 - Broadphase uses a retained, zero-allocation spatial grid with generation stamping.
@@ -28,12 +29,12 @@ objects.
 
 | Area | Observation | Relevant code |
 |------|-------------|---------------|
-| Terrain solver | Single-body terrain response has stack contacts, per-contact effective masses, SSE/Profile path, and adaptive early-out. | `SkullbonezSource/SkullbonezImpulseSolver.cpp:130` |
+| Terrain solver | Terrain contacts are converted into shared solver rows with static-terrain body B. | `SkullbonezSource/SkullbonezGameModelCollection.cpp` |
 | Object persistent contacts | Object-object resting contacts are built and solved separately in scalar code. `applyImpulse` reads and writes both bodies on every row update. | `SkullbonezSource/SkullbonezGameModelCollection.cpp:434` |
 | Solver pipeline | The solver still runs immediate swept pair response first, then a separate persistent object-contact pass. | `SkullbonezSource/SkullbonezGameModelCollection.cpp:792` |
 | Broadphase | Solver mode inserts all objects, including sleeping objects, then skips sleep/sleep or wake-checks later. | `SkullbonezSource/SkullbonezGameModelCollection.cpp:815` |
 | Pair generation | Pair dedup clears a bitset sized from inserted object count and emits all pairs before later sleep filtering. | `SkullbonezSource/SkullbonezSpatialGrid.cpp:184` |
-| Visual correction | Terrain response still has sphere roll-alignment work with `sqrtf`/`acosf` and direct orientation mutation. | `SkullbonezSource/SkullbonezImpulseSolver.cpp:805` |
+| Visual correction | Terrain safety/roll alignment should remain measured separately from shared row solving. | `SkullbonezSource/SkullbonezGameModel.cpp` |
 | Safety clamp | `RigidBody::ThrottleAngularVelocity()` still clamps angular speed using `velocityLimit`. | `SkullbonezSource/SkullbonezRigidBody.cpp:192` |
 | Config gaps | Several solver constants are hardcoded even though related config fields already exist. | `SkullbonezSource/SkullbonezConfig.h:79` |
 
@@ -105,8 +106,8 @@ Correctness note:
 
 There are currently multiple response paths:
 
-- Terrain manifold solver in `ImpulseSolver::RespondCollisionTerrain`.
-- Immediate sphere-sphere and mixed-shape response in `ImpulseSolver::RespondCollisionGameModels`.
+- Terrain manifolds and rows in `GameModelCollection::SolvePersistentObjectContacts`.
+- Immediate swept object/object collision discovery in `GameModelCollection::RunSolverPhysics`.
 - Persistent object-object contact solver in `GameModelCollection::SolvePersistentObjectContacts`.
 
 The long-term optimisation is to make contact generation separate from solving:
@@ -221,7 +222,7 @@ Suggestions:
    - The global max-height early-out helps only when objects are above the highest point anywhere.
    - A coarse height grid could skip terrain queries for airborne objects over lower regions.
 3. Precompute box local corner vectors.
-   - `RespondCollisionTerrain` rebuilds the 8 local corner vectors while building box contacts.
+   - Terrain manifold generation samples the 8 local corner vectors while building box contacts.
    - Store or expose canonical local corners from `BoundingBox` to reduce per-contact setup.
 4. Gate visual roll alignment more aggressively while it exists.
    - The config has speed, omega, and interval fields, but the terrain impulse path only checks

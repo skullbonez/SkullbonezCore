@@ -111,8 +111,8 @@ The persistent object solver is now the Catto-shaped response path:
   velocity response.
 - Object/object boxes still use broadphase radius filtering plus discrete OBB
   manifold contacts in the persistent solver.
-- Object/terrain is separate and swept. Terrain response is not currently just
-  another contact row in the persistent object solver.
+- Object/terrain still uses swept detection, then emits terrain manifolds that
+  feed the shared row solver as static-terrain contacts.
 - Direct position correction is a local cleanup step after the velocity solve.
   Treat it as intentional current behavior until a split-correction path proves
   it can replace the direct cleanup.
@@ -123,7 +123,6 @@ The persistent object solver is now the Catto-shaped response path:
 |------|-----|
 | `SkullbonezSource/SkullbonezGameModelCollection.cpp` | Frame order, candidate pairs, old object pass, terrain pass, persistent solver, sleep islands. |
 | `SkullbonezSource/SkullbonezObjectContactManifold.cpp` | Sphere/sphere, sphere/box, and box/box manifold generation. |
-| `SkullbonezSource/SkullbonezImpulseSolver.cpp` | Legacy object response and separate terrain response. |
 | `SkullbonezSource/SkullbonezGameModel.cpp` | Collision detect/response wrappers and terrain collision time. |
 | `SkullbonezSource/Physics/SkullbonezContactSolver.h` | Shared Catto row math helpers. |
 | `Agentic/Reference/physics-overview.md` | Current physics reference, but verify it against code before trusting it. |
@@ -305,8 +304,8 @@ Add focused repro scenes or SkullScope queries for any tunneling case.
 
 ### Phase 5 - Bring Terrain Toward The Same Row Pipeline
 
-Goal: terrain response should eventually be solver-compatible, while preserving
-the terrain support policy that keeps box stacks and sleep stable.
+Goal: terrain response remains solver-compatible while preserving the terrain
+support policy that keeps box stacks and sleep stable.
 
 Recommended steps:
 
@@ -319,13 +318,13 @@ Recommended steps:
    - sleep support/inhibit flags,
    - terrain debug fields.
 4. Share Catto row helpers only where behavior is identical.
-5. Do not delete the current terrain SSE/response path until the row path is
-   measured and validated.
+5. Keep terrain row diagnostics cheap enough to compare object and terrain row
+   costs after the migration.
 
 Expected result:
 
-- Terrain can keep swept detection and sleep classification without owning a
-  totally separate impulse solver forever.
+- Terrain keeps swept detection and sleep classification without owning a
+  totally separate impulse solver.
 - The long-term pipeline becomes one response model with terrain-specific
   contact generation and support metadata.
 

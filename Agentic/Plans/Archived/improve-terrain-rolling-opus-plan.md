@@ -2,7 +2,7 @@
 
 ## Problem
 
-When a ball hits the terrain and `projectedVelocity < 1.0f`, `RespondCollisionTerrain` sets
+When a ball hits the terrain and `projectedVelocity < 1.0f`, the terrain response path sets
 `isGrounded = true`. On subsequent frames, `SphereVsPlaneRollResponse` fires, which multiplies
 both linear and angular velocity by 0.9 every frame — an unconditional damping that rapidly
 kills all motion. There is nothing that converts gravitational potential energy on a slope into
@@ -50,19 +50,19 @@ Three interlocking problems:
 |----|---------|--------|
 | `slope-force` | `SkullbonezCollisionResponse.cpp` | In `SphereVsPlaneRollResponse`: compute slope direction by projecting gravity onto the terrain plane; apply downhill acceleration to linear velocity scaled by `changeInTime`. Requires passing `changeInTime` and the terrain plane normal into `SphereVsPlaneRollResponse`. |
 | `framerate-damping` | `SkullbonezCollisionResponse.cpp` | In `SphereVsPlaneRollResponse`: replace `*= 0.9f` with `*= powf(ROLLING_FRICTION, changeInTime)` for both linear and angular velocity. Add `ROLLING_FRICTION` constant to `SkullbonezCommon.h`. |
-| `clear-grounded` | `SkullbonezCollisionResponse.cpp` | In `RespondCollisionTerrain`: after computing the slope force, if the ball's velocity dotted with the terrain normal is positive (moving away from surface), set `isGrounded = false`. |
-| `pass-context` | `SkullbonezCollisionResponse.h`, `SkullbonezCollisionResponse.cpp` | Update `SphereVsPlaneRollResponse` signature to accept `float changeInTime` and `const Vector3& planeNormal`. Update `RespondCollisionTerrain` to accept `float changeInTime` and thread it through. Update call site in `GameModel::CollisionResponseTerrain` to pass `remainingTimeStep`. |
+| `clear-grounded` | `SkullbonezCollisionResponse.cpp` | After computing the slope force, if the ball's velocity dotted with the terrain normal is positive (moving away from surface), set `isGrounded = false`. |
+| `pass-context` | `SkullbonezCollisionResponse.h`, `SkullbonezCollisionResponse.cpp` | Update `SphereVsPlaneRollResponse` signature to accept `float changeInTime` and `const Vector3& planeNormal`. Thread `changeInTime` through the terrain rolling context. |
 | `slope-angular` | `SkullbonezCollisionResponse.cpp` | In `SphereVsPlaneRollResponse`: derive the angular velocity from the ball's linear velocity and the terrain plane so the spin axis is perpendicular to the rolling direction projected onto the slope surface, not just the flat XZ mapping that `GetRollVelocity` assumes. Use the cross product of the plane normal and the linear velocity direction to get the correct spin axis, scaled by `linearSpeed / radius`. |
 | `verify-build` | All | Build to 0 errors, 0 warnings. |
 
 ## Notes
 
-- The terrain plane normal is already available in `gameModel.responseInformation.collidedPlane.normal` at the point `RespondCollisionTerrain` is called.
+- The terrain plane normal is already available in `gameModel.responseInformation.collidedPlane.normal` at the point terrain response context is built.
 
 - Gravity magnitude is in `WorldEnvironment::gravity` but `CollisionResponse` doesn't have
   access to it. Options: (a) pass gravity as a parameter, (b) use a hardcoded constant
   matching the value in `SkullbonezCommon.h`, or (c) add a gravity accessor. Prefer (a) — pass
-  it through from `RunPhysics` via `CollisionResponseTerrain`.
+  it through from `RunPhysics` with the terrain response context.
 
 - `UpdateRollPosition` exists on `RigidBody` but is never called. It could be repurposed for
   slope-aware position updates, but the simpler approach is to let the existing

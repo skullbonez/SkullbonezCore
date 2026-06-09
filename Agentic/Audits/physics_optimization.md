@@ -283,5 +283,5 @@ against updated baselines. The baseline update reflects:
 | `SkullbonezSource/SkullbonezCommon.h` | Added `<cfloat>` include for `FLT_MAX` |
 | `SkullbonezSource/SkullbonezGameModelCollection.h` | Added `m_sleepState`, `m_sleepCounter` vectors |
 | `SkullbonezSource/SkullbonezGameModelCollection.cpp` | Opt 5: Full sleep system in `RunSolverPhysics` |
-| `SkullbonezSource/SkullbonezImpulseSolver.cpp` | Opts 6, 7: SSE4.1 solver loop + adaptive early-out |
+| Former terrain solver path | Opts 6, 7: SSE4.1 solver loop + adaptive early-out |
 | `TestOutput/baselines/*.csv` | Updated regression baselines |

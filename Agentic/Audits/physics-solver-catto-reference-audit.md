@@ -42,7 +42,7 @@ The paper's relevant design points are:
 
 | Area | Fit with reference | Notes |
 |------|--------------------|-------|
-| Terrain PGS shape | Good | `ImpulseSolver::RespondCollisionTerrain` builds contact rows, computes normal/tangent effective masses, accumulates impulses, clamps normal impulses, and has adaptive early-out. |
+| Terrain PGS shape | Good | The former terrain response path built contact rows, computed normal/tangent effective masses, accumulated impulses, clamped normal impulses, and had adaptive early-out. |
 | Terrain box inertia | Good | Terrain response uses world-space inverse inertia for boxes. |
 | Fixed-step support | Good | `PHYSICS_FIXED_DT` exists and physics validation uses fixed-step scenes. |
 | Persistent contact concept | Partial | `SolvePersistentObjectContacts` creates persistent rows and caches impulses across frames. |
@@ -57,7 +57,7 @@ Current code still uses bounding radii and a center-to-center normal for mixed a
 object contacts:
 
 - `SkullbonezSource/SkullbonezGameModelCollection.cpp:514`
-- `SkullbonezSource/SkullbonezImpulseSolver.cpp:922`
+- Former terrain solver source, row solve loop.
 
 Catto's box-stacking section depends on real contact manifolds. A single bounding-radius contact
 can be acceptable as a broadphase or fallback approximation, but optimising it heavily risks
@@ -138,7 +138,7 @@ Terrain and mixed immediate response transform box inverse inertia into world sp
 object contact pass uses component-wise inverse inertia:
 
 - Persistent lambda: `SkullbonezSource/SkullbonezGameModelCollection.cpp:485`
-- Terrain world inertia path: `SkullbonezSource/SkullbonezImpulseSolver.cpp:145`
+- Former terrain world inertia path.
 
 Catto's equations use world-space inertia. This is a correctness issue first and a performance issue
 second.
@@ -157,9 +157,9 @@ The paper uses two tangent constraints with a simplified constant bound:
 
 Current code uses at least three variants:
 
-- Terrain: `mu * max(accN, gravityWarmStart)` at `SkullbonezSource/SkullbonezImpulseSolver.cpp:545`
+- Terrain: `mu * max(accN, gravityWarmStart)` in the former terrain solver path.
 - Persistent contacts: `mu * contactMass * gravity * dt` at `SkullbonezSource/SkullbonezGameModelCollection.cpp:665`
-- Immediate mixed contacts: `mu * normalImpulse` at `SkullbonezSource/SkullbonezImpulseSolver.cpp:1086`
+- Immediate mixed contacts: `mu * normalImpulse` in the former immediate response path.
 
 All three can be defensible, but using them together makes behavior and optimisation measurements
 harder to interpret.
@@ -177,7 +177,7 @@ Suggestion:
 Catto handles penetration through velocity bias. Current code also applies direct position
 projection:
 
-- Terrain projection: `SkullbonezSource/SkullbonezImpulseSolver.cpp:680`
+- Former terrain projection path.
 - Persistent projection: `SkullbonezSource/SkullbonezGameModelCollection.cpp:744`
 - Static overlap projection: `SkullbonezSource/SkullbonezGameModel.cpp:278`
 
@@ -214,7 +214,7 @@ Suggestion:
 
 Current terrain response still mutates orientation directly for visual pole alignment:
 
-- `SkullbonezSource/SkullbonezImpulseSolver.cpp:805`
+- Former terrain visual roll-alignment path.
 
 Angular velocity is also throttled in normal force application:
 

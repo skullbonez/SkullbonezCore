@@ -18,11 +18,11 @@ Already implemented in this branch:
 - Warm-started impulses are applied to the mutable solver state before iteration, matching Catto Algorithm 4's `a = B * lambda` initialization shape.
 - Object persistent friction now clamps the two tangent accumulators as a 2D vector cone, preventing diagonal friction from exceeding the intended budget.
 - Box inverse inertia is applied in world space in terrain, immediate object response, and persistent object contacts.
-- `ImpulseSolver::RespondCollisionGameModels` now uses one shared contact-point normal/friction impulse path for sphere-sphere, sphere-box, and box-box fallback contacts instead of a separate sphere-sphere special response branch.
+- The object response migration previously unified sphere-sphere, sphere-box, and box-box fallback contacts before the persistent solver became the single dynamic response owner.
 - Terrain response returns whether its contact is safe for sleep. Under-constrained terrain box contacts inhibit sleep until a local box face normal is sufficiently aligned to the actual terrain contact plane normal.
 - The previous bespoke box toppling assists were removed. There is no forced angular "fall to face" nudge and no gravitational toppling torque block. The solver now relies on contact resolution plus sleep eligibility.
 - The physics logger includes orientation (`qX,qY,qZ,qW`), `sleeping`, and `sleepInhibited`; the deterministic physics regression baseline has been updated for that schema and the accepted solver behavior.
-- `SkullbonezImpulseSolver.cpp` and `SkullbonezGameModelCollection.cpp` now include detailed Catto references to `Agentic/Reference/ErinCatto_IterativeDynamics_GDC2005.pdf`, with engine-specific/novel behavior explicitly marked.
+- `SkullbonezGameModelCollection.cpp` now includes detailed Catto references to `Agentic/Reference/ErinCatto_IterativeDynamics_GDC2005.pdf`, with engine-specific/novel behavior explicitly marked.
 
 Still not implemented:
 
@@ -63,7 +63,7 @@ That is acceptable as a broadphase or conservative early candidate test, but it 
 
 ### Immediate response
 
-`ImpulseSolver::RespondCollisionGameModels` now runs through the shared contact-point impulse path, but the contact arms are still based on bounding radii:
+The old immediate object response path ran through a shared contact-point impulse path, but the contact arms were still based on bounding radii:
 
 ```cpp
 float br1 = GetShapeBoundingRadius( gameModel1.m_boundingVolume );
@@ -458,7 +458,7 @@ After exact shape-pair manifolds are validated:
 
 - Remove or clearly isolate object-object bounding-radius contact-arm code.
 - Keep bounding radius for broadphase and conservative swept candidate discovery only.
-- Ensure comments in `ImpulseSolver::RespondCollisionGameModels` no longer describe fallback geometry as the primary path.
+- Ensure comments in old object response notes no longer describe fallback geometry as the primary path.
 - Update this plan and `Agentic/Reference/physics-overview.md` if solver ownership changes.
 
 ## Detailed Shape Algorithms

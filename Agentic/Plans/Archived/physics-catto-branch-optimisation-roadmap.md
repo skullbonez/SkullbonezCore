@@ -33,7 +33,7 @@ row pipeline.
 
 | Area | Current state | Optimisation concern |
 |------|---------------|----------------------|
-| Terrain solver | `ImpulseSolver::RespondCollisionTerrain` still owns a separate single-body stack contact solver with an SSE path. | It duplicates row math and uses different friction policy than the persistent object solver. |
+| Terrain solver | Terrain contacts now feed the shared row solver through explicit terrain manifolds. | Remaining optimisation work should measure terrain row build/solve cost rather than duplicate response math. |
 | Terrain box support policy | Face-axis checks and OBB vertex terrain-height probes gate rest-only privileges. | The same terrain-supported-vertex idea also exists in debug nudge snapshot logging. |
 | Object persistent solver | Uses manifolds, feature IDs, sorted warm-start cache lookup, solver body cache, and vector friction clamp. | The next gains are profiling/submarker cleanup and avoiding redundant work, not adding these systems from scratch. |
 | Sleep support propagation | Terrain seeds support; object contacts pass it through directed stack edges. | The relaxation loop is simple and correct, but should be measured in stack-heavy scenes. |

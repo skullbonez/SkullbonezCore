@@ -10,10 +10,10 @@ so slope force and frame-rate-independent damping can be computed.
 | # | Step | Detail | Status |
 |---|------|--------|--------|
 | 1 | Update `SphereVsPlaneRollResponse` signature | Change from `(GameModel& gameModel)` to `(GameModel& gameModel, float changeInTime, const Vector3& planeNormal)` in both `.h` and `.cpp` | ✅ Done |
-| 2 | Update `RespondCollisionTerrain` signature | Add `float changeInTime` parameter. Update declaration in `SkullbonezCollisionResponse.h` | ✅ Done |
-| 3 | Thread `changeInTime` in `RespondCollisionTerrain` | Pass `changeInTime` and `gameModel.responseInformation.collidedPlane.normal` to `SphereVsPlaneRollResponse` call | ✅ Done |
-| 4 | Update `CollisionResponseTerrain` call in `GameModel.cpp` | `CollisionResponse::RespondCollisionTerrain(*this)` → `CollisionResponse::RespondCollisionTerrain(*this, remainingTimeStep)` | ✅ Done |
-| 5 | Pass gravity to `CollisionResponseTerrain` | Add gravity parameter to `RespondCollisionTerrain` and `CollisionResponseTerrain` so slope force can use the correct value. Thread from `WorldEnvironment` through `GameModel` (which already holds a `worldEnvironment` pointer). Alternatively, add a `GetGravity()` accessor to `GameModel` that delegates to `worldEnvironment` | ✅ Done |
+| 2 | Update terrain rolling response context | Add `float changeInTime` parameter. Update the terrain rolling declaration | ✅ Done |
+| 3 | Thread `changeInTime` in terrain rolling response | Pass `changeInTime` and `gameModel.responseInformation.collidedPlane.normal` to `SphereVsPlaneRollResponse` call | ✅ Done |
+| 4 | Update terrain response call in `GameModel.cpp` | Thread the remaining time into the terrain rolling path | ✅ Done |
+| 5 | Pass gravity to terrain rolling response | Add gravity parameter to the terrain response context so slope force can use the correct value. Thread from `WorldEnvironment` through `GameModel` (which already holds a `worldEnvironment` pointer). Alternatively, add a `GetGravity()` accessor to `GameModel` that delegates to `worldEnvironment` | ✅ Done |
 
 ---
 
@@ -59,7 +59,7 @@ behaves consistently regardless of frame rate.
 
 | # | Step | Detail | Status |
 |---|------|--------|--------|
-| 15 | Check velocity vs terrain normal | In `RespondCollisionTerrain`, after the roll response: compute `float normalVelocity = gameModel.physicsInfo.GetVelocity() * gameModel.responseInformation.collidedPlane.normal` | ✅ Done |
+| 15 | Check velocity vs terrain normal | After the roll response, compute `float normalVelocity = gameModel.physicsInfo.GetVelocity() * gameModel.responseInformation.collidedPlane.normal` | ✅ Done |
 | 16 | Clear grounded if moving away | `if(normalVelocity > GROUNDED_ESCAPE_THRESHOLD) gameModel.SetIsGrounded(false)` — use a small positive threshold to avoid flickering. Add `#define GROUNDED_ESCAPE_THRESHOLD 0.1f` to `SkullbonezCommon.h` | ✅ Done |
 
 ---
