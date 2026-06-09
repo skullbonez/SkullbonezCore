@@ -58,6 +58,7 @@
 
 // --- Includes ---
 #include "SkullbonezSpatialGrid.h"
+#include <algorithm>
 
 
 // --- Usings ---
@@ -119,17 +120,43 @@ int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
         idx = ( idx + 1 ) & TABLE_MASK;
     }
 
-    return 0;
+    return -1;
 }
 
 
-// Insert an object into all grid cells it overlaps.
-// A sphere at position P with radius R overlaps cells from:
-//   min = floor((P - R) / cellSize)  to  max = floor((P + R) / cellSize)
-//
-// For each overlapping cell, compute its hash key and add this object's
-// index to that bucket's linked list (via the entries[] pool).
-void SpatialGrid::Insert( int index, const Vector3& position, float radius )
+void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
+{
+    const int64_t key = ( int64_t( ix ) * 73856093 ) ^ ( int64_t( iy ) * 19349663 ) ^ ( int64_t( iz ) * 83492791 );
+    const int bi = FindOrCreate( key, (int16_t)ix, (int16_t)iy, (int16_t)iz );
+    if ( bi < 0 || bi >= TABLE_SIZE )
+    {
+        return;
+    }
+
+    Bucket& b = buckets[bi];
+    for ( int cur = b.head; cur != -1; cur = entries[cur].next )
+    {
+        assert( cur >= 0 && cur < MAX_CELL_ENTRIES && "entry chain index OOB" );
+        if ( entries[cur].objectIndex == index )
+        {
+            return;
+        }
+    }
+
+    if ( entryPoolUsed < MAX_CELL_ENTRIES )
+    {
+        entries[entryPoolUsed].objectIndex = index;
+        entries[entryPoolUsed].next = b.head;
+        b.head = entryPoolUsed;
+        ++entryPoolUsed;
+        ++b.count;
+    }
+}
+
+
+// Insert an object into all grid cells touched by an explicit AABB.
+// Bounds are inclusive after conversion to grid coordinates.
+void SpatialGrid::InsertBounds( int index, const Vector3& minBounds, const Vector3& maxBounds )
 {
     assert( index >= 0 && "Insert: negative object index" );
     if ( index >= MAX_GAME_MODELS )
@@ -142,12 +169,12 @@ void SpatialGrid::Insert( int index, const Vector3& position, float radius )
         objectCount = index + 1;
     }
 
-    int minX = static_cast<int>( floorf( ( position.x - radius ) * inverseCellSize ) );
-    int minY = static_cast<int>( floorf( ( position.y - radius ) * inverseCellSize ) );
-    int minZ = static_cast<int>( floorf( ( position.z - radius ) * inverseCellSize ) );
-    int maxX = static_cast<int>( floorf( ( position.x + radius ) * inverseCellSize ) );
-    int maxY = static_cast<int>( floorf( ( position.y + radius ) * inverseCellSize ) );
-    int maxZ = static_cast<int>( floorf( ( position.z + radius ) * inverseCellSize ) );
+    int minX = static_cast<int>( floorf( minBounds.x * inverseCellSize ) );
+    int minY = static_cast<int>( floorf( minBounds.y * inverseCellSize ) );
+    int minZ = static_cast<int>( floorf( minBounds.z * inverseCellSize ) );
+    int maxX = static_cast<int>( floorf( maxBounds.x * inverseCellSize ) );
+    int maxY = static_cast<int>( floorf( maxBounds.y * inverseCellSize ) );
+    int maxZ = static_cast<int>( floorf( maxBounds.z * inverseCellSize ) );
 
     for ( int ix = minX; ix <= maxX; ++ix )
     {
@@ -155,21 +182,67 @@ void SpatialGrid::Insert( int index, const Vector3& position, float radius )
         {
             for ( int iz = minZ; iz <= maxZ; ++iz )
             {
-                int64_t key = ( int64_t( ix ) * 73856093 ) ^ ( int64_t( iy ) * 19349663 ) ^ ( int64_t( iz ) * 83492791 );
-                int bi = FindOrCreate( key, (int16_t)ix, (int16_t)iy, (int16_t)iz );
-                assert( bi >= 0 && bi < TABLE_SIZE && "Insert: bucket index OOB" );
-                Bucket& b = buckets[bi];
-
-                if ( entryPoolUsed < MAX_CELL_ENTRIES )
-                {
-                    entries[entryPoolUsed].objectIndex = index;
-                    entries[entryPoolUsed].next = b.head;
-                    b.head = entryPoolUsed;
-                    ++entryPoolUsed;
-                    ++b.count;
-                }
+                InsertCell( index, ix, iy, iz );
             }
         }
+    }
+}
+
+
+// Insert an object into all grid cells it overlaps at its current position.
+// A sphere at position P with radius R overlaps cells from:
+//   min = floor((P - R) / cellSize)  to  max = floor((P + R) / cellSize)
+void SpatialGrid::Insert( int index, const Vector3& position, float radius )
+{
+    InsertBounds( index,
+                  Vector3( position.x - radius, position.y - radius, position.z - radius ),
+                  Vector3( position.x + radius, position.y + radius, position.z + radius ) );
+}
+
+
+// Insert a dynamic body over the world-space AABB swept by its center this tick.
+// Narrowphase still computes the exact time-of-impact; this only prevents the
+// broadphase from skipping a fast body that starts outside the target cell.
+void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3& displacement, float radius )
+{
+    const Vector3 endPosition = position + displacement;
+    const Vector3 minBounds( (std::min)( position.x, endPosition.x ) - radius,
+                             (std::min)( position.y, endPosition.y ) - radius,
+                             (std::min)( position.z, endPosition.z ) - radius );
+    const Vector3 maxBounds( (std::max)( position.x, endPosition.x ) + radius,
+                             (std::max)( position.y, endPosition.y ) + radius,
+                             (std::max)( position.z, endPosition.z ) + radius );
+
+    const int minX = static_cast<int>( floorf( minBounds.x * inverseCellSize ) );
+    const int minY = static_cast<int>( floorf( minBounds.y * inverseCellSize ) );
+    const int minZ = static_cast<int>( floorf( minBounds.z * inverseCellSize ) );
+    const int maxX = static_cast<int>( floorf( maxBounds.x * inverseCellSize ) );
+    const int maxY = static_cast<int>( floorf( maxBounds.y * inverseCellSize ) );
+    const int maxZ = static_cast<int>( floorf( maxBounds.z * inverseCellSize ) );
+    const int64_t cellCount = int64_t( maxX - minX + 1 ) * int64_t( maxY - minY + 1 ) * int64_t( maxZ - minZ + 1 );
+
+    if ( cellCount <= MAX_SWEPT_AABB_CELLS )
+    {
+        InsertBounds( index, minBounds, maxBounds );
+        return;
+    }
+
+    const float distanceSq = displacement * displacement;
+    if ( distanceSq <= TOLERANCE )
+    {
+        Insert( index, position, radius );
+        return;
+    }
+
+    const float distance = sqrtf( distanceSq );
+    const float stepLength = (std::max)( cellSize * 0.5f, 0.01f );
+    int steps = static_cast<int>( ceilf( distance / stepLength ) );
+    steps = (std::max)( 1, (std::min)( steps, MAX_SWEPT_SAMPLE_STEPS ) );
+
+    for ( int sample = 0; sample <= steps; ++sample )
+    {
+        const float t = static_cast<float>( sample ) / static_cast<float>( steps );
+        Insert( index, position + displacement * t, radius );
     }
 }
 

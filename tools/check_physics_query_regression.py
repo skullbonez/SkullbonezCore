@@ -45,6 +45,7 @@ QUERIES = [
     ("rolling", ["rolling", "--frames", "0:1200", "--limit", "12"]),
     ("broadphase", ["broadphase", "--frames", "0:1200", "--limit", "12"]),
     ("solver", ["solver", "--frames", "0:1200", "--limit", "12"]),
+    ("pipeline", ["pipeline", "--frames", "0:1200", "--limit", "12"]),
     ("question_penetration_spikes", ["questions", "penetration_spikes"]),
     ("question_stack_health", ["questions", "stack_health"]),
     ("compare_self", ["compare", str(TRACE), "--limit", "8"]),
@@ -55,6 +56,7 @@ NO_SLEEP_QUERIES = [
     ("events_sleep", ["events", "--type", "failed_to_sleep,sleep_inhibited_quiet,unsupported_sleep", "--limit", "20"]),
     ("stacks", ["stacks", "--frames", "0:1200", "--limit", "12"]),
     ("solver", ["solver", "--frames", "0:1200", "--limit", "12"]),
+    ("pipeline", ["pipeline", "--frames", "0:1200", "--limit", "12"]),
 ]
 
 

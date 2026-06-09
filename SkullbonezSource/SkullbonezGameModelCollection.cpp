@@ -21,6 +21,7 @@ namespace Vector = SkullbonezCore::Math::Vector;
 
 // Per-instance data layout: mat4 (16 floats) + alpha (1 float)
 static constexpr int SHADOW_INSTANCE_FLOATS = 17;
+static constexpr size_t MAX_PIPELINE_TRACE_RECORDS = 4096;
 
 GameModelCollection::GameModelCollection()
     : m_spatialGrid( Cfg().broadphaseCell )
@@ -44,6 +45,7 @@ GameModelCollection::GameModelCollection()
     m_persistentContactCounts.reserve( MAX_GAME_MODELS );
     m_solverBodies.reserve( MAX_GAME_MODELS );
     m_physicsDebugContacts.reserve( MAX_GAME_MODELS * 4 );
+    m_physicsPipelineTrace.reserve( MAX_PIPELINE_TRACE_RECORDS );
     m_shadowInstanceData.reserve( MAX_GAME_MODELS * SHADOW_INSTANCE_FLOATS );
 };
 
@@ -159,7 +161,12 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
     {
         if ( !m_soaIsBox[x] )
         {
-            SkullbonezHelper::DrawSphereBatchModel( m_soaModelMatrices[x] );
+            float tintR = 1.0f;
+            float tintG = 1.0f;
+            float tintB = 1.0f;
+            float colorOverride = 0.0f;
+            m_gameModels[x].GetRenderTint( tintR, tintG, tintB, colorOverride );
+            SkullbonezHelper::DrawSphereBatchModel( m_soaModelMatrices[x], tintR, tintG, tintB, colorOverride );
         }
     }
     SkullbonezHelper::DrawSphereBatchEnd();
@@ -173,6 +180,7 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
             float tintG = 1.0f;
             float tintB = 1.0f;
             float colorOverride = 0.0f;
+            m_gameModels[x].GetRenderTint( tintR, tintG, tintB, colorOverride );
             if ( m_soaIsFixed[x] )
             {
                 constexpr float fixedBase = 241.0f / 255.0f; // #F1F1F1
@@ -392,6 +400,15 @@ void GameModelCollection::MarkFixedContact( int index )
 }
 
 
+void GameModelCollection::RecordPhysicsPipelineStage( const Physics::PhysicsPipelineRecord& record )
+{
+    if ( m_physicsPipelineTrace.size() < MAX_PIPELINE_TRACE_RECORDS )
+    {
+        m_physicsPipelineTrace.push_back( record );
+    }
+}
+
+
 void GameModelCollection::BeginCollisionVisualFrame()
 {
     const int modelCount = static_cast<int>( m_gameModels.size() );
@@ -425,6 +442,7 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
     m_sleepSupportedThisFrame.assign( modelCount, 0 );
     m_sleepInhibitedThisFrame.assign( modelCount, 0 );
     m_physicsDebugContacts.clear();
+    m_physicsPipelineTrace.clear();
     m_sleepSupportEdges.clear();
 
     for ( int i = 0; i < modelCount; ++i )
@@ -501,6 +519,10 @@ void GameModelCollection::RunPhysics( float fChangeInTime )
         }
         ++m_physicsRegressionLogFrame;
     }
+    if ( m_physicsCollisionTimeLogPath[0] != '\0' )
+    {
+        ++m_physicsCollisionTimeLogFrame;
+    }
     EmitPhysicsDiagnosticsFrame( fChangeInTime );
 #endif
 
@@ -559,6 +581,14 @@ void GameModelCollection::SetPhysicsRegressionLogPath( const char* path )
 }
 
 
+void GameModelCollection::SetPhysicsCollisionTimeLogPath( const char* path )
+{
+    strcpy_s( m_physicsCollisionTimeLogPath, sizeof( m_physicsCollisionTimeLogPath ), path );
+    m_physicsCollisionTimeLogFrame = 0;
+    m_physicsCollisionTimeHeaderWritten = false;
+}
+
+
 void GameModelCollection::SetPhysicsDiagnosticsPath( const char* path )
 {
     m_skullScope.SetPath( path );
@@ -576,6 +606,43 @@ void GameModelCollection::EmitPhysicsDiagnosticsFrame( float dt )
     m_skullScope.EmitFrame( *this, dt );
 }
 #endif
+
+
+void GameModelCollection::EmitPhysicsCollisionTime( const char* type, int bodyA, int bodyB, float collisionTime, float availableTime )
+{
+#ifdef _DEBUG
+    if ( m_physicsCollisionTimeLogPath[0] == '\0' )
+    {
+        return;
+    }
+
+    if ( !m_physicsCollisionTimeHeaderWritten )
+    {
+        Log().Writef( m_physicsCollisionTimeLogPath, "frame,type,bodyA,bodyB,nameA,nameB,collisionTime,availableTime\n" );
+        m_physicsCollisionTimeHeaderWritten = true;
+    }
+
+    const char* nameA = ( bodyA >= 0 && bodyA < static_cast<int>( m_gameModels.size() ) ) ? m_gameModels[bodyA].GetName() : "";
+    const char* nameB = ( bodyB >= 0 && bodyB < static_cast<int>( m_gameModels.size() ) ) ? m_gameModels[bodyB].GetName() : "terrain";
+
+    Log().Writef( m_physicsCollisionTimeLogPath,
+                  "%d,%s,%d,%d,%s,%s,%.6f,%.6f\n",
+                  m_physicsCollisionTimeLogFrame,
+                  type,
+                  bodyA,
+                  bodyB,
+                  nameA,
+                  nameB,
+                  collisionTime,
+                  availableTime );
+#else
+    (void)type;
+    (void)bodyA;
+    (void)bodyB;
+    (void)collisionTime;
+    (void)availableTime;
+#endif
+}
 
 
 void GameModelCollection::SolvePersistentObjectContacts( float dt )
@@ -799,61 +866,27 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         if ( normal.y > supportNormalY )
         {
             m_sleepSupportEdges.emplace_back( aIndex, bIndex );
+            Physics::PhysicsPipelineRecord record;
+            record.stage = Physics::PhysicsPipelineStage::SleepSupportEdge;
+            record.bodyA = aIndex;
+            record.bodyB = bIndex;
+            record.normal = normal;
+            record.point = ( m_gameModels[aIndex].GetPosition() + m_gameModels[bIndex].GetPosition() ) * 0.5f;
+            record.scalarA = normal.y;
+            RecordPhysicsPipelineStage( record );
         }
         else if ( normal.y < -supportNormalY )
         {
             m_sleepSupportEdges.emplace_back( bIndex, aIndex );
+            Physics::PhysicsPipelineRecord record;
+            record.stage = Physics::PhysicsPipelineStage::SleepSupportEdge;
+            record.bodyA = bIndex;
+            record.bodyB = aIndex;
+            record.normal = -normal;
+            record.point = ( m_gameModels[aIndex].GetPosition() + m_gameModels[bIndex].GetPosition() ) * 0.5f;
+            record.scalarA = -normal.y;
+            RecordPhysicsPipelineStage( record );
         }
-    };
-
-    auto appendSphereSphereContact = [&]( int aIndex, int bIndex, GameModel& a, GameModel& b, Vector3& outNormal ) -> bool
-    {
-        const CollisionShape& shapeA = a.GetCollisionShape();
-        const CollisionShape& shapeB = b.GetCollisionShape();
-        if ( !std::holds_alternative<BoundingSphere>( shapeA ) ||
-             !std::holds_alternative<BoundingSphere>( shapeB ) )
-        {
-            return false;
-        }
-
-        const BoundingSphere& sphereA = std::get<BoundingSphere>( shapeA );
-        const BoundingSphere& sphereB = std::get<BoundingSphere>( shapeB );
-        Quaternion orientationA = a.GetOrientation();
-        Quaternion orientationB = b.GetOrientation();
-        RotationMatrix rotA = orientationA.GetOrientationMatrix();
-        RotationMatrix rotB = orientationB.GetOrientationMatrix();
-        Vector3 centerA = a.GetPosition() + rotA * sphereA.GetPosition();
-        Vector3 centerB = b.GetPosition() + rotB * sphereB.GetPosition();
-        Vector3 delta = centerB - centerA;
-        float distSq = Vector::VectorMagSquared( delta );
-        float radiusSum = sphereA.GetRadius() + sphereB.GetRadius();
-        float contactDistance = radiusSum + Cfg().contactEpsilon;
-        if ( distSq > contactDistance * contactDistance )
-        {
-            return false;
-        }
-
-        float dist = sqrtf( distSq );
-        Vector3 normal = ( dist > TOLERANCE ) ? ( delta / dist ) : Vector3( 0.0f, 1.0f, 0.0f );
-        Vector3 pointA = centerA + normal * sphereA.GetRadius();
-        Vector3 pointB = centerB - normal * sphereB.GetRadius();
-        Vector3 point = ( pointA + pointB ) * 0.5f;
-        float penetration = radiusSum - dist;
-
-        PersistentContact c;
-        c.bodyA = aIndex;
-        c.bodyB = bIndex;
-        c.featureId = 0u;
-        c.key = makeKey( aIndex, bIndex, c.featureId );
-        c.normal = normal;
-        c.rA = point - a.GetPosition();
-        c.rB = point - b.GetPosition();
-        c.penetration = ( penetration > 0.0f ) ? penetration : 0.0f;
-        m_persistentContacts.push_back( c );
-        ++m_persistentContactCounts[aIndex];
-        ++m_persistentContactCounts[bIndex];
-        outNormal = normal;
-        return true;
     };
 
     // CATTO REF:
@@ -895,38 +928,43 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
 
             Vector3 contactNormal = ZERO_VECTOR;
             bool hasContact = false;
-            if ( !a.IsBox() && !b.IsBox() )
+            ObjectContactManifold manifold;
+            if ( BuildObjectContactManifold( a, b, aIndex, bIndex, Cfg().contactEpsilon, manifold ) )
             {
-                hasContact = appendSphereSphereContact( aIndex, bIndex, a, b, contactNormal );
-            }
-            else
-            {
-                ObjectContactManifold manifold;
-                if ( BuildObjectContactManifold( a, b, aIndex, bIndex, Cfg().contactEpsilon, manifold ) )
+                contactNormal = manifold.normal;
+                for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
                 {
-                    contactNormal = manifold.normal;
-                    for ( uint8_t pointIndex = 0; pointIndex < manifold.pointCount; ++pointIndex )
-                    {
-                        const ObjectContactPoint& point = manifold.points[pointIndex];
+                    const ObjectContactPoint& point = manifold.points[pointIndex];
 
-                        // CATTO REF:
-                        //   rA/rB are the r1/r2 contact arms in Catto 2005, PDF p. 6,
-                        //   Equations 9-11 and PDF p. 9, Equations 16-18.
-                        PersistentContact c;
-                        c.bodyA = aIndex;
-                        c.bodyB = bIndex;
-                        c.featureId = point.featureId;
-                        c.key = makeKey( aIndex, bIndex, c.featureId );
-                        c.normal = manifold.normal;
-                        c.rA = point.rA;
-                        c.rB = point.rB;
-                        c.penetration = point.penetration;
-                        m_persistentContacts.push_back( c );
-                        ++m_persistentContactCounts[aIndex];
-                        ++m_persistentContactCounts[bIndex];
-                    }
-                    hasContact = manifold.pointCount > 0;
+                    // CATTO REF:
+                    //   rA/rB are the r1/r2 contact arms in Catto 2005, PDF p. 6,
+                    //   Equations 9-11 and PDF p. 9, Equations 16-18.
+                    PersistentContact c;
+                    c.bodyA = aIndex;
+                    c.bodyB = bIndex;
+                    c.featureId = point.featureId;
+                    c.key = makeKey( aIndex, bIndex, c.featureId );
+                    c.normal = manifold.normal;
+                    c.rA = point.rA;
+                    c.rB = point.rB;
+                    c.penetration = point.penetration;
+                    m_persistentContacts.push_back( c );
+                    ++m_persistentContactCounts[aIndex];
+                    ++m_persistentContactCounts[bIndex];
+
+                    Physics::PhysicsPipelineRecord record;
+                    record.stage = Physics::PhysicsPipelineStage::ManifoldRow;
+                    record.bodyA = aIndex;
+                    record.bodyB = bIndex;
+                    record.featureId = point.featureId;
+                    record.point = point.point;
+                    record.normal = manifold.normal;
+                    record.scalarA = point.penetration;
+                    record.scalarB = static_cast<float>( pointIndex );
+                    record.scalarC = static_cast<float>( manifold.pointCount );
+                    RecordPhysicsPipelineStage( record );
                 }
+                hasContact = manifold.pointCount > 0;
             }
 
             if ( !hasContact )
@@ -1022,12 +1060,11 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             //   Catto 2005, PDF p. 8, Section 3.6, Equation 15 and PDF p. 10,
             //   Section 4.2, Equation 20 provide the contact bias idea.
             // ENGINE NOTE:
-            //   Dynamic box stacks use this persistent pass as resting support. Fixed
-            //   bodies still need restitution here because the one-shot impact path
-            //   deliberately skips box-involving contacts to keep stacks stable.
+            //   Object/object swept detection no longer applies a competing
+            //   immediate impulse. Dynamic bounce therefore belongs in the same
+            //   persistent Catto rows as fixed-body impact and resting support.
             c.bias = 0.0f;
-            const bool fixedImpact = a.IsFixed() || b.IsFixed();
-            if ( fixedImpact && vn < -Cfg().contactRestitutionThreshold )
+            if ( vn < -Cfg().contactRestitutionThreshold )
             {
                 float restitution = sqrtf( a.GetCoefficientRestitution() * b.GetCoefficientRestitution() );
                 c.bias = -restitution * vn;
@@ -1084,6 +1121,20 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             if ( c.warmStarted )
             {
                 ++m_persistentContactSolverStats.warmStartedRows;
+            }
+
+            {
+                Physics::PhysicsPipelineRecord record;
+                record.stage = Physics::PhysicsPipelineStage::WarmStart;
+                record.bodyA = c.bodyA;
+                record.bodyB = c.bodyB;
+                record.featureId = c.featureId;
+                record.point = m_gameModels[c.bodyA].GetPosition() + c.rA;
+                record.normal = c.normal;
+                record.scalarA = c.warmStarted ? 1.0f : 0.0f;
+                record.scalarB = c.accN;
+                record.scalarC = c.frictionLimit;
+                RecordPhysicsPipelineStage( record );
             }
 
             if ( c.accN > 0.0f || fabsf( c.accT1 ) > 0.0f || fabsf( c.accT2 ) > 0.0f )
@@ -1160,6 +1211,19 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
                 applyImpulse( c, c.tangent1 * deltaT1 + c.tangent2 * deltaT2 );
 
                 iterImpulseSq += deltaN * deltaN + deltaT1 * deltaT1 + deltaT2 * deltaT2;
+
+                Physics::PhysicsPipelineRecord record;
+                record.stage = Physics::PhysicsPipelineStage::SolverIteration;
+                record.bodyA = c.bodyA;
+                record.bodyB = c.bodyB;
+                record.iteration = iter;
+                record.featureId = c.featureId;
+                record.point = m_gameModels[c.bodyA].GetPosition() + c.rA;
+                record.normal = c.normal;
+                record.scalarA = deltaN;
+                record.scalarB = c.accN;
+                record.scalarC = sqrtf( c.accT1 * c.accT1 + c.accT2 * c.accT2 );
+                RecordPhysicsPipelineStage( record );
             }
 
             // ENGINE-SPECIFIC / NOVEL:
@@ -1182,6 +1246,14 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             {
                 continue;
             }
+
+            Physics::PhysicsPipelineRecord record;
+            record.stage = Physics::PhysicsPipelineStage::VelocityWriteback;
+            record.bodyA = i;
+            record.point = m_gameModels[i].GetPosition();
+            record.scalarA = Vector::VectorMag( m_solverBodies[i].linearVelocity );
+            record.scalarB = Vector::VectorMag( m_solverBodies[i].angularVelocity );
+            RecordPhysicsPipelineStage( record );
 
             m_gameModels[i].SetLinearVelocity( m_solverBodies[i].linearVelocity );
             m_gameModels[i].SetAngularVelocity( m_solverBodies[i].angularVelocity );
@@ -1254,6 +1326,17 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             {
                 m_persistentContactSolverStats.positionCorrectionMax = correctionMagnitude;
             }
+            Physics::PhysicsPipelineRecord record;
+            record.stage = Physics::PhysicsPipelineStage::PositionCorrection;
+            record.bodyA = c.bodyA;
+            record.bodyB = c.bodyB;
+            record.featureId = c.featureId;
+            record.point = a.GetPosition() + c.rA;
+            record.normal = c.normal;
+            record.scalarA = correctionMagnitude;
+            record.scalarB = c.penetration;
+            record.scalarC = contactSlop;
+            RecordPhysicsPipelineStage( record );
             a.SetPosition( a.GetPosition() - correction * invMassA );
             b.SetPosition( b.GetPosition() + correction * invMassB );
         }
@@ -1282,6 +1365,18 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             cached.accT1 = c.accT1;
             cached.accT2 = c.accT2;
             m_persistentContactCache.push_back( cached );
+
+            Physics::PhysicsPipelineRecord record;
+            record.stage = Physics::PhysicsPipelineStage::CacheStore;
+            record.bodyA = c.bodyA;
+            record.bodyB = c.bodyB;
+            record.featureId = c.featureId;
+            record.point = m_gameModels[c.bodyA].GetPosition() + c.rA;
+            record.normal = c.normal;
+            record.scalarA = c.accN;
+            record.scalarB = c.accT1;
+            record.scalarC = c.accT2;
+            RecordPhysicsPipelineStage( record );
         }
 
         if ( m_persistentContactCache.size() > 1 )
@@ -1353,8 +1448,9 @@ void GameModelCollection::PropagateSleepSupport()
 
 
 // Physics tick: unified impulse solver for all object types (spheres and boxes).
-// No object filtering is needed: broadphase, swept narrowphase, terrain contact,
-// persistent contacts, sleep propagation, and diagnostics all see the same model set.
+// Object/object swept tests only create or advance contact candidates. Velocity
+// response for object pairs is owned by SolvePersistentObjectContacts so no
+// legacy one-shot impulse can compete with the Catto row pipeline.
 void GameModelCollection::RunSolverPhysics( float dt )
 {
     const int modelCount = static_cast<int>( m_gameModels.size() );
@@ -1398,10 +1494,38 @@ void GameModelCollection::RunSolverPhysics( float dt )
     m_collisionCellKeys.clear();
     for ( int i = 0; i < modelCount; ++i )
     {
-        m_spatialGrid.Insert( i, m_soaPositions[i], m_soaBoundingRadii[i] );
+        const float radius = m_soaBoundingRadii[i];
+        const Vector3 displacement = m_gameModels[i].GetVelocity() * dt;
+        const float displacementSq = Vector::VectorMagSquared( displacement );
+        if ( !m_soaIsFixed[i] && displacementSq > radius * radius )
+        {
+            m_spatialGrid.InsertSwept( i, m_soaPositions[i], displacement, radius );
+        }
+        else
+        {
+            m_spatialGrid.Insert( i, m_soaPositions[i], radius );
+        }
     }
     std::vector<std::pair<int, int>>& candidatePairs = m_candidatePairs;
     m_spatialGrid.GetCandidatePairs( candidatePairs );
+    for ( const auto& pair : candidatePairs )
+    {
+        if ( pair.first < 0 || pair.second < 0 || pair.first >= modelCount || pair.second >= modelCount )
+        {
+            continue;
+        }
+
+        Physics::PhysicsPipelineRecord record;
+        record.stage = Physics::PhysicsPipelineStage::BroadphaseCandidate;
+        record.bodyA = pair.first;
+        record.bodyB = pair.second;
+        record.point = ( m_gameModels[pair.first].GetPosition() + m_gameModels[pair.second].GetPosition() ) * 0.5f;
+        Vector3 delta = m_gameModels[pair.second].GetPosition() - m_gameModels[pair.first].GetPosition();
+        float deltaMag = Vector::VectorMag( delta );
+        record.normal = deltaMag > TOLERANCE ? delta / deltaMag : Vector3( 0.0f, 1.0f, 0.0f );
+        record.scalarA = static_cast<float>( candidatePairs.size() );
+        RecordPhysicsPipelineStage( record );
+    }
     {
         PROFILE_SCOPED( "Frame/Physics/Broadphase/PruneSleepPairs" );
         // The spatial grid is still populated with sleeping bodies because an
@@ -1424,11 +1548,22 @@ void GameModelCollection::RunSolverPhysics( float dt )
                             {
                                 const int a = pair.first;
                                 const int b = pair.second;
-                                return a >= 0 && b >= 0 &&
-                                       a < static_cast<int>( m_sleepState.size() ) &&
-                                       b < static_cast<int>( m_sleepState.size() ) &&
-                                       m_sleepState[a] != 0 &&
-                                       m_sleepState[b] != 0;
+                                const bool prune = a >= 0 && b >= 0 &&
+                                                   a < static_cast<int>( m_sleepState.size() ) &&
+                                                   b < static_cast<int>( m_sleepState.size() ) &&
+                                                   m_sleepState[a] != 0 &&
+                                                   m_sleepState[b] != 0;
+                                if ( prune )
+                                {
+                                    Physics::PhysicsPipelineRecord record;
+                                    record.stage = Physics::PhysicsPipelineStage::SleepPrunedPair;
+                                    record.bodyA = a;
+                                    record.bodyB = b;
+                                    record.point = ( m_gameModels[a].GetPosition() + m_gameModels[b].GetPosition() ) * 0.5f;
+                                    record.scalarA = 1.0f;
+                                    RecordPhysicsPipelineStage( record );
+                                }
+                                return prune;
                             } ),
             candidatePairs.end() );
     }
@@ -1475,7 +1610,75 @@ void GameModelCollection::RunSolverPhysics( float dt )
                                            manifold );
     };
 
-    // Narrowphase: immediate impact response for candidate pairs that can affect simulation.
+    auto hasObjectContactAtTime = [&]( int a, int b, float time ) -> bool
+    {
+        const Vector3 startA = m_gameModels[a].GetPosition();
+        const Vector3 startB = m_gameModels[b].GetPosition();
+        m_gameModels[a].SetPosition( startA + m_gameModels[a].GetVelocity() * time );
+        m_gameModels[b].SetPosition( startB + m_gameModels[b].GetVelocity() * time );
+
+        ObjectContactManifold manifold;
+        const bool hit = BuildObjectContactManifold( m_gameModels[a],
+                                                     m_gameModels[b],
+                                                     a,
+                                                     b,
+                                                     Cfg().contactEpsilon,
+                                                     manifold );
+
+        m_gameModels[a].SetPosition( startA );
+        m_gameModels[b].SetPosition( startB );
+        return hit;
+    };
+
+    auto refineObjectSweepContactTime = [&]( int a, int b, float coarseTime, float availableTime ) -> float
+    {
+        if ( coarseTime <= 0.0f || coarseTime >= availableTime )
+        {
+            return coarseTime;
+        }
+
+        if ( hasObjectContactAtTime( a, b, coarseTime ) )
+        {
+            return coarseTime;
+        }
+
+        float lo = coarseTime;
+        float hi = coarseTime;
+        bool foundContactWindow = false;
+        for ( int step = 1; step <= 48; ++step )
+        {
+            const float t = coarseTime + ( availableTime - coarseTime ) * ( static_cast<float>( step ) / 48.0f );
+            if ( hasObjectContactAtTime( a, b, t ) )
+            {
+                hi = t;
+                foundContactWindow = true;
+                break;
+            }
+            lo = t;
+        }
+
+        if ( !foundContactWindow )
+        {
+            return coarseTime;
+        }
+
+        for ( int iter = 0; iter < 12; ++iter )
+        {
+            const float mid = ( lo + hi ) * 0.5f;
+            if ( hasObjectContactAtTime( a, b, mid ) )
+            {
+                hi = mid;
+            }
+            else
+            {
+                lo = mid;
+            }
+        }
+        return hi;
+    };
+
+    // Object/object CCD front-end: wake sleepers and advance swept hits to a
+    // contact candidate, but leave velocity response to the persistent rows.
     PROFILE_BEGIN( "Frame/Physics/Narrowphase" );
     float invCellSize = 1.0f / m_spatialGrid.GetCellSize();
     for ( const auto& cp : candidatePairs )
@@ -1499,18 +1702,38 @@ void GameModelCollection::RunSolverPhysics( float dt )
                 bool wokeBySweptImpact = false;
                 if ( m_timeRemaining[y] > 0.0f )
                 {
-                    m_gameModels[y].CollisionDetectGameModel( m_gameModels[x], dt );
-                    if ( m_gameModels[y].IsResponseRequired() && m_gameModels[x].IsResponseRequired() )
+                    GameModel::ObjectSweepResult sweep = m_gameModels[y].SweepGameModel( m_gameModels[x], m_timeRemaining[y] );
+                    if ( sweep.hit )
                     {
+                        float colTime = refineObjectSweepContactTime( y, x, sweep.collisionTime, m_timeRemaining[y] );
+                        Physics::PhysicsPipelineRecord record;
+                        record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
+                        record.bodyA = y;
+                        record.bodyB = x;
+                        record.point = ( m_gameModels[y].GetPosition() + m_gameModels[x].GetPosition() ) * 0.5f;
+                        record.scalarA = colTime;
+                        record.scalarB = m_timeRemaining[y];
+                        RecordPhysicsPipelineStage( record );
+                        EmitPhysicsCollisionTime( "object", y, x, colTime, m_timeRemaining[y] );
+
+                        m_gameModels[y].UpdatePosition( colTime );
+                        m_timeRemaining[y] = (std::max)( 0.0f, m_timeRemaining[y] - colTime );
                         wakeSleepingModel( x );
                         wokeBySweptImpact = true;
-                        m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
                         MarkCollisionVisualContact( x );
                         MarkCollisionVisualContact( y );
                     }
                 }
                 if ( !wokeBySweptImpact && hasPersistentWakeContact( y, x ) )
                 {
+                    Physics::PhysicsPipelineRecord record;
+                    record.stage = Physics::PhysicsPipelineStage::WakeDecision;
+                    record.bodyA = y;
+                    record.bodyB = x;
+                    record.point = ( m_gameModels[y].GetPosition() + m_gameModels[x].GetPosition() ) * 0.5f;
+                    record.scalarA = 1.0f;
+                    RecordPhysicsPipelineStage( record );
+
                     wakeSleepingModel( x );
                     MarkCollisionVisualContact( x );
                     MarkCollisionVisualContact( y );
@@ -1526,18 +1749,38 @@ void GameModelCollection::RunSolverPhysics( float dt )
                 bool wokeBySweptImpact = false;
                 if ( m_timeRemaining[x] > 0.0f )
                 {
-                    m_gameModels[x].CollisionDetectGameModel( m_gameModels[y], dt );
-                    if ( m_gameModels[x].IsResponseRequired() && m_gameModels[y].IsResponseRequired() )
+                    GameModel::ObjectSweepResult sweep = m_gameModels[x].SweepGameModel( m_gameModels[y], m_timeRemaining[x] );
+                    if ( sweep.hit )
                     {
+                        float colTime = refineObjectSweepContactTime( x, y, sweep.collisionTime, m_timeRemaining[x] );
+                        Physics::PhysicsPipelineRecord record;
+                        record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
+                        record.bodyA = x;
+                        record.bodyB = y;
+                        record.point = ( m_gameModels[x].GetPosition() + m_gameModels[y].GetPosition() ) * 0.5f;
+                        record.scalarA = colTime;
+                        record.scalarB = m_timeRemaining[x];
+                        RecordPhysicsPipelineStage( record );
+                        EmitPhysicsCollisionTime( "object", x, y, colTime, m_timeRemaining[x] );
+
+                        m_gameModels[x].UpdatePosition( colTime );
+                        m_timeRemaining[x] = (std::max)( 0.0f, m_timeRemaining[x] - colTime );
                         wakeSleepingModel( y );
                         wokeBySweptImpact = true;
-                        m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
                         MarkCollisionVisualContact( x );
                         MarkCollisionVisualContact( y );
                     }
                 }
                 if ( !wokeBySweptImpact && hasPersistentWakeContact( x, y ) )
                 {
+                    Physics::PhysicsPipelineRecord record;
+                    record.stage = Physics::PhysicsPipelineStage::WakeDecision;
+                    record.bodyA = x;
+                    record.bodyB = y;
+                    record.point = ( m_gameModels[x].GetPosition() + m_gameModels[y].GetPosition() ) * 0.5f;
+                    record.scalarA = 1.0f;
+                    RecordPhysicsPipelineStage( record );
+
                     wakeSleepingModel( y );
                     MarkCollisionVisualContact( x );
                     MarkCollisionVisualContact( y );
@@ -1557,17 +1800,28 @@ void GameModelCollection::RunSolverPhysics( float dt )
         }
 
         float availableTime = (std::min)( m_timeRemaining[x], m_timeRemaining[y] );
-        float colTime = m_gameModels[x].CollisionDetectGameModel( m_gameModels[y], availableTime );
+        GameModel::ObjectSweepResult sweep = m_gameModels[x].SweepGameModel( m_gameModels[y], availableTime );
 
-        if ( m_gameModels[x].IsResponseRequired() && m_gameModels[y].IsResponseRequired() )
+        if ( sweep.hit )
         {
+            float colTime = refineObjectSweepContactTime( x, y, sweep.collisionTime, availableTime );
+            Physics::PhysicsPipelineRecord record;
+            record.stage = Physics::PhysicsPipelineStage::SweptObjectHit;
+            record.bodyA = x;
+            record.bodyB = y;
+            record.point = ( m_gameModels[x].GetPosition() + m_gameModels[y].GetPosition() ) * 0.5f;
+            record.scalarA = colTime;
+            record.scalarB = availableTime;
+            RecordPhysicsPipelineStage( record );
+            EmitPhysicsCollisionTime( "object", x, y, colTime, availableTime );
+
             m_gameModels[x].UpdatePosition( colTime );
             m_gameModels[y].UpdatePosition( colTime );
-            m_timeRemaining[x] -= colTime;
-            m_timeRemaining[y] -= colTime;
+            m_timeRemaining[x] = (std::max)( 0.0f, m_timeRemaining[x] - colTime );
+            m_timeRemaining[y] = (std::max)( 0.0f, m_timeRemaining[y] - colTime );
 
-            // Impulse solver response (velocity-only; clears response flags on both models)
-            m_gameModels[x].CollisionResponseGameModel( m_gameModels[y] );
+            // Object/object CCD only advances to the contact candidate. The
+            // persistent Catto rows below own velocity response and cache storage.
             MarkCollisionVisualContact( x );
             MarkCollisionVisualContact( y );
 
@@ -1581,7 +1835,13 @@ void GameModelCollection::RunSolverPhysics( float dt )
         }
         else
         {
-            m_gameModels[x].StaticOverlapResponseGameModel( m_gameModels[y] );
+            Physics::PhysicsPipelineRecord record;
+            record.stage = Physics::PhysicsPipelineStage::SweptObjectMiss;
+            record.bodyA = x;
+            record.bodyB = y;
+            record.point = ( m_gameModels[x].GetPosition() + m_gameModels[y].GetPosition() ) * 0.5f;
+            record.scalarA = availableTime;
+            RecordPhysicsPipelineStage( record );
         }
     }
     PROFILE_END( "Frame/Physics/Narrowphase" );
@@ -1599,12 +1859,22 @@ void GameModelCollection::RunSolverPhysics( float dt )
             continue;
         }
 
-        float colTime = m_gameModels[x].CollisionDetectTerrain( m_timeRemaining[x] );
+        float availableTime = m_timeRemaining[x];
+        float colTime = m_gameModels[x].CollisionDetectTerrain( availableTime );
 
         if ( m_gameModels[x].IsResponseRequired() )
         {
             m_gameModels[x].UpdatePosition( colTime );
-            bool contactSupportsSleep = m_gameModels[x].CollisionResponseTerrain( m_timeRemaining[x] - colTime );
+            bool contactSupportsSleep = m_gameModels[x].CollisionResponseTerrain( availableTime - colTime );
+            Physics::PhysicsPipelineRecord record;
+            record.stage = Physics::PhysicsPipelineStage::TerrainHit;
+            record.bodyA = x;
+            record.bodyB = -1;
+            record.point = m_gameModels[x].GetPosition();
+            record.scalarA = colTime;
+            record.scalarB = contactSupportsSleep ? 1.0f : 0.0f;
+            RecordPhysicsPipelineStage( record );
+            EmitPhysicsCollisionTime( "terrain", x, -1, colTime, availableTime );
             // Terrain response still resolves every terrain hit, but only hits
             // classified as stable support seed sleep. Edge/point contacts and
             // unstable terrain hits keep the body awake while the solver continues
@@ -1795,6 +2065,16 @@ void GameModelCollection::RunSolverPhysics( float dt )
         {
             m_sleepIslandEligible[root] = 0;
         }
+
+        Physics::PhysicsPipelineRecord record;
+        record.stage = Physics::PhysicsPipelineStage::SleepIslandDecision;
+        record.bodyA = x;
+        record.bodyB = root;
+        record.point = m_gameModels[x].GetPosition();
+        record.scalarA = quiet ? 1.0f : 0.0f;
+        record.scalarB = supported ? 1.0f : 0.0f;
+        record.scalarC = terrainInhibitBlocksSleep ? 1.0f : 0.0f;
+        RecordPhysicsPipelineStage( record );
     }
 
     if ( !m_sleepEnabled )
@@ -1894,6 +2174,15 @@ void GameModelCollection::RunSolverPhysics( float dt )
             }
             m_sleepState[x] = 1;
             m_sleepIslandVisualId[x] = m_sleepIslandAssignedVisualId[root];
+            Physics::PhysicsPipelineRecord record;
+            record.stage = Physics::PhysicsPipelineStage::SleepIslandDecision;
+            record.bodyA = x;
+            record.bodyB = root;
+            record.point = m_gameModels[x].GetPosition();
+            record.scalarA = 1.0f;
+            record.scalarB = static_cast<float>( m_sleepIslandAssignedVisualId[root] );
+            record.scalarC = static_cast<float>( m_sleepCounter[x] );
+            RecordPhysicsPipelineStage( record );
             // Zeroing velocities at the island sleep transition prevents tiny
             // residual solver drift from reappearing when the body later wakes.
             m_gameModels[x].SetLinearVelocity( Math::Vector::ZERO_VECTOR );

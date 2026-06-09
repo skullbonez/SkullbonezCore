@@ -1,10 +1,19 @@
 # Physics Overview
 
-SkullbonezCore currently uses one solver:
+SkullbonezCore currently uses one object/object solver:
 
 | Solver | Scope | Notes |
 |--------|-------|-------|
-| Impulse | Spheres and oriented boxes | Sequential impulse contact solver with friction and stabilization. |
+| Persistent contact solver | Spheres and oriented boxes | Catto-style sequential impulse contact rows with warm starting, friction, restitution bias, stabilization, position correction, and impulse caching. |
+
+Object/object swept tests are a CCD front-end only. They build candidate timing,
+advance bodies to a time of impact when needed, and wake sleeping pairs, but
+they do not apply the object/object impulse response. `SolvePersistentObjectContacts`
+owns dynamic object velocity response and post-solve object position cleanup.
+
+Terrain still uses its separate swept collision path before the persistent
+object/object solve. Terrain support information then feeds the sleep/support
+classification used by object sleep islands.
 
 ## Time Step
 
@@ -36,6 +45,26 @@ tools\validate_perf.bat
 ```
 
 Physics CSV baselines live in `TestOutput/baselines/` and are byte-exact. A single differing byte is a real behavioral change until proven intentional.
+
+## Debugging
+
+The in-game physics overlay supports a pipeline stage mode:
+
+```bat
+Profile\SKULLBONEZ_CORE.exe --physics-debug pipeline --scene SkullbonezData\scenes\solver_smoke.scene
+```
+
+`--physics-debug-pipeline on` and the scene directive
+`physics_debug_pipeline on` enable the same overlay component. In-game, F7 and
+F8 step backward and forward through the recorded stage cursor.
+
+SkullScope emits compact `pipeline_stages` rows that count bounded per-frame
+records by stage. Use `tools\physics_query.bat` for summaries instead of
+loading raw NDJSON or CSV artifacts into the model:
+
+```bat
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson pipeline --frames 0:1000
+```
 
 ## Useful Code Areas
 

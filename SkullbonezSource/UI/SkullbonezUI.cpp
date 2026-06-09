@@ -58,6 +58,9 @@ constexpr float UI_SCENE_HEADER_BUTTON_GAP = 8.0f;
 constexpr float UI_SCENE_RESET_BUTTON_W = 72.0f;
 constexpr float UI_SCENE_RESET_DEFAULTS_BUTTON_W = 132.0f;
 constexpr float UI_SCENE_SAVE_DEFAULTS_BUTTON_W = 132.0f;
+constexpr float UI_PIPELINE_STEP_BUTTON_W = 26.0f;
+constexpr float UI_PIPELINE_STEP_BUTTON_H = 22.0f;
+constexpr float UI_PIPELINE_STEP_BUTTON_GAP = 6.0f;
 constexpr int UI_DEMO_SCENE_BROWSER_INDEX = -2;
 constexpr const char* UI_DEMO_SCENE_OPTION = "Demo Scene";
 constexpr double UI_WINDOW_ANIMATION_SECONDS = 0.18;
@@ -233,6 +236,34 @@ void DrawTitleButton( const UIDrawContext& draw, const UIRect& bounds, TitleButt
             }
             break;
     }
+}
+
+
+void SetPipelineStepButtonBounds( UIRect& previous, UIRect& next, float contentX, float contentW, float y )
+{
+    const float nextX = contentX + contentW - UI_PIPELINE_STEP_BUTTON_W;
+    const float previousX = nextX - UI_PIPELINE_STEP_BUTTON_GAP - UI_PIPELINE_STEP_BUTTON_W;
+    previous = { previousX, y, UI_PIPELINE_STEP_BUTTON_W, UI_PIPELINE_STEP_BUTTON_H };
+    next = { nextX, y, UI_PIPELINE_STEP_BUTTON_W, UI_PIPELINE_STEP_BUTTON_H };
+}
+
+
+void DrawPipelineStepButton( const UIDrawContext& draw, const UIRect& bounds, bool previous, bool hot )
+{
+    const float bgR = hot ? 0.050f : 0.024f;
+    const float bgG = hot ? 0.235f : 0.108f;
+    const float bgB = hot ? 0.315f : 0.142f;
+    const float outlineR = hot ? 0.44f : 0.24f;
+    const float outlineG = hot ? 0.92f : 0.58f;
+    const float outlineB = hot ? 1.00f : 0.70f;
+    const float cx = bounds.x + bounds.w * 0.5f;
+    const float cy = bounds.y + bounds.h * 0.5f;
+    const float tipX = previous ? cx - 4.0f : cx + 4.0f;
+    const float rearX = previous ? cx + 4.0f : cx - 4.0f;
+
+    draw.Rect( bounds.x, bounds.y, bounds.w, bounds.h, bgR, bgG, bgB, hot ? 0.92f : 0.78f );
+    draw.Outline( bounds.x, bounds.y, bounds.w, bounds.h, outlineR, outlineG, outlineB, hot ? 0.96f : 0.78f );
+    draw.Triangle( tipX, cy, rearX, cy - 5.5f, rearX, cy + 5.5f, hot ? 0.96f : 0.78f, hot ? 1.0f : 0.92f, 1.0f, hot ? 0.98f : 0.88f );
 }
 
 
@@ -652,6 +683,12 @@ bool InGameUI::BlocksCameraMouse() const
 bool InGameUI::BlocksKeyboard() const
 {
     return m_isVisible && !m_isMinimized && m_sceneCombo.IsOpen();
+}
+
+
+bool InGameUI::WantsNativeMouseCursor() const
+{
+    return m_isVisible && !m_isMinimized;
 }
 
 
@@ -1487,22 +1524,27 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         return result;
     }
 
-    const bool inside = m_mouseX >= m_x && m_mouseX <= m_x + m_width &&
-                        m_mouseY >= m_y && m_mouseY <= m_y + m_height;
-    const bool inTitle = inside && m_mouseY < m_y + titleH;
-    const bool inTabs = inside && m_mouseY >= m_y + titleH && m_mouseY < m_y + titleH + tabH;
-    const bool inResize = !m_isMaximized && inside && m_mouseX >= m_x + m_width - 26 && m_mouseY >= m_y + m_height - 26;
-    const int contentY = m_y + titleH + tabH + 12;
-    const int contentH = (std::max)( 24, m_height - titleH - tabH - bottomH - contentPad );
-    const int bottomY = m_y + m_height - bottomH;
+    const UIRect inputBounds = CurrentWindowRect( now );
+    const int inputX = static_cast<int>( std::round( inputBounds.x ) );
+    const int inputY = static_cast<int>( std::round( inputBounds.y ) );
+    const int inputW = static_cast<int>( std::round( inputBounds.w ) );
+    const int inputH = static_cast<int>( std::round( inputBounds.h ) );
+    const bool inside = m_mouseX >= inputX && m_mouseX <= inputX + inputW &&
+                        m_mouseY >= inputY && m_mouseY <= inputY + inputH;
+    const bool inTitle = inside && m_mouseY < inputY + titleH;
+    const bool inTabs = inside && m_mouseY >= inputY + titleH && m_mouseY < inputY + titleH + tabH;
+    const bool inResize = !m_isMaximized && inside && m_mouseX >= inputX + inputW - 26 && m_mouseY >= inputY + inputH - 26;
+    const int contentY = inputY + titleH + tabH + 12;
+    const int contentH = (std::max)( 24, inputH - titleH - tabH - bottomH - contentPad );
+    const int bottomY = inputY + inputH - bottomH;
     const bool inContent = inside && m_mouseY >= contentY && m_mouseY <= contentY + contentH;
     const float maxScroll = static_cast<float>( (std::max)( 0, ContentHeight() - contentH ) );
-    const UIRect minimizeButton = { static_cast<float>( m_x + m_width - 112 ), static_cast<float>( m_y + 8 ), 30.0f, 28.0f };
-    const UIRect maximizeButton = { static_cast<float>( m_x + m_width - 76 ), static_cast<float>( m_y + 8 ), 30.0f, 28.0f };
-    const UIRect closeButton = { static_cast<float>( m_x + m_width - 40 ), static_cast<float>( m_y + 8 ), 30.0f, 28.0f };
+    const UIRect minimizeButton = { static_cast<float>( inputX + inputW - 112 ), static_cast<float>( inputY + 8 ), 30.0f, 28.0f };
+    const UIRect maximizeButton = { static_cast<float>( inputX + inputW - 76 ), static_cast<float>( inputY + 8 ), 30.0f, 28.0f };
+    const UIRect closeButton = { static_cast<float>( inputX + inputW - 40 ), static_cast<float>( inputY + 8 ), 30.0f, 28.0f };
 
-    m_tabBar.SetBounds( static_cast<float>( m_x + 14 ), static_cast<float>( m_y + titleH ), static_cast<float>( m_width - 28 ), static_cast<float>( tabH ) );
-    const float footerX = static_cast<float>( m_x );
+    m_tabBar.SetBounds( static_cast<float>( inputX + 14 ), static_cast<float>( inputY + titleH ), static_cast<float>( inputW - 28 ), static_cast<float>( tabH ) );
+    const float footerX = static_cast<float>( inputX );
     const float footerY = static_cast<float>( bottomY );
     const UIRect rendererComboBounds = FooterRendererComboBounds( footerX, footerY );
     const UIRect waterComboBounds = FooterWaterComboBounds( footerX, footerY );
@@ -1530,9 +1572,9 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     bool wheelHandled = false;
     if ( wheelDelta != 0 && m_sceneCombo.IsOpen() && m_activeTab == InGameUITab::Scene )
     {
-        const float contentX = static_cast<float>( m_x + contentPad );
+        const float contentX = static_cast<float>( inputX + contentPad );
         const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-        const float contentW = static_cast<float>( m_width ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+        const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
         const float sceneComboW = SceneTabComboWidth( contentW );
         const int filteredSceneCount = CountFilteredSceneOptions( sceneOptions, sceneOptionCount, m_sceneFilter );
         const int visibleSceneOptions = SceneComboVisibleCount( filteredSceneCount );
@@ -1569,15 +1611,15 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_isResizing = true;
             m_resizeStartMouseX = m_mouseX;
             m_resizeStartMouseY = m_mouseY;
-            m_resizeStartW = m_width;
-            m_resizeStartH = m_height;
+            m_resizeStartW = inputW;
+            m_resizeStartH = inputH;
             SetCapture( hwnd );
         }
         else if ( inTitle )
         {
             m_isDragging = true;
-            m_dragOffsetX = m_mouseX - m_x;
-            m_dragOffsetY = m_mouseY - m_y;
+            m_dragOffsetX = m_mouseX - inputX;
+            m_dragOffsetY = m_mouseY - inputY;
             SetCapture( hwnd );
         }
         else if ( inTabs )
@@ -1594,9 +1636,9 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         {
             if ( m_activeTab == InGameUITab::Scene )
             {
-                const float contentX = static_cast<float>( m_x + contentPad );
+                const float contentX = static_cast<float>( inputX + contentPad );
                 const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-                const float contentW = static_cast<float>( m_width ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+                const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
                 const float sceneComboW = SceneTabComboWidth( contentW );
                 const int filteredSceneCount = CountFilteredSceneOptions( sceneOptions, sceneOptionCount, m_sceneFilter );
                 const int visibleSceneOptions = SceneComboVisibleCount( filteredSceneCount );
@@ -1711,7 +1753,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                     const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
                     if ( ProfilerMarkerHasChildren( profiler, markerIndex ) )
                     {
-                        const float plusX = static_cast<float>( m_x + contentPad + 18 + marker.depth * 18 );
+                        const float plusX = static_cast<float>( inputX + contentPad + 18 + marker.depth * 18 );
                         const float plusY = static_cast<float>( contentY + headerH + targetRow * rowH ) - m_scrollY + 8.0f;
                         UIIconButton expander;
                         expander.SetBounds( plusX, plusY, 14.0f, 14.0f );
@@ -1728,9 +1770,9 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         }
         else if ( inContent && m_activeTab == InGameUITab::Scene )
         {
-            const float contentX = static_cast<float>( m_x + contentPad );
+            const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-            const float contentW = static_cast<float>( m_width ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
             const float sceneComboW = SceneTabComboWidth( contentW );
             m_sceneCombo.SetBounds( contentX, rowBase, sceneComboW, 24.0f );
             const float resetX = contentX + sceneComboW + UI_SCENE_HEADER_BUTTON_GAP;
@@ -1778,9 +1820,9 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         }
         else if ( inContent && m_activeTab == InGameUITab::Physics )
         {
-            const float contentX = static_cast<float>( m_x + contentPad );
+            const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-            const float contentW = static_cast<float>( m_width ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
             const float colW = (std::max)( 148.0f, contentW * 0.46f );
             const float col1 = contentX;
             const float col2 = contentX + colW + 18.0f;
@@ -1793,13 +1835,15 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             setToggle( 0, 0, 0 );
             setToggle( 4, 1, 0 );
             setToggle( 5, 2, 0 );
+            setToggle( 7, 3, 0 );
             setToggle( 1, 0, 1 );
             setToggle( 2, 1, 1 );
             setToggle( 3, 2, 1 );
             setToggle( 6, 3, 1 );
-            m_physicsAlphaSlider.SetBounds( contentX, rowBase + 200.0f, contentW, 34.0f );
-            m_contactLingerSlider.SetBounds( contentX, rowBase + 248.0f, contentW, 34.0f );
-            m_worldGravitySlider.SetBounds( contentX, rowBase + 332.0f, contentW, 34.0f );
+            SetPipelineStepButtonBounds( m_pipelinePrevButton, m_pipelineNextButton, contentX, contentW, rowBase + 194.0f );
+            m_physicsAlphaSlider.SetBounds( contentX, rowBase + 242.0f, contentW, 34.0f );
+            m_contactLingerSlider.SetBounds( contentX, rowBase + 290.0f, contentW, 34.0f );
+            m_worldGravitySlider.SetBounds( contentX, rowBase + 374.0f, contentW, 34.0f );
 
             if ( m_physicsToggles[0].HitTest( m_mouseX, m_mouseY ) )
             {
@@ -1825,9 +1869,21 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             {
                 result.toggleBroadphaseOverlay = true;
             }
+            else if ( m_physicsToggles[7].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.togglePhysicsDebugFlags = PHYSICS_DEBUG_PIPELINE;
+            }
             else if ( m_physicsToggles[6].HitTest( m_mouseX, m_mouseY ) )
             {
                 result.togglePhysicsSleepPolicy = true;
+            }
+            else if ( m_pipelinePrevButton.Contains( m_mouseX, m_mouseY ) )
+            {
+                result.stepPhysicsPipelinePrevious = true;
+            }
+            else if ( m_pipelineNextButton.Contains( m_mouseX, m_mouseY ) )
+            {
+                result.stepPhysicsPipelineNext = true;
             }
             else if ( m_physicsAlphaSlider.HitTest( m_mouseX, m_mouseY ) )
             {
@@ -1857,9 +1913,9 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         }
         else if ( inContent && m_activeTab == InGameUITab::Options )
         {
-            const float contentX = static_cast<float>( m_x + contentPad );
+            const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-            const float contentW = static_cast<float>( m_width ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
             const float colW = (std::max)( 148.0f, contentW * 0.46f );
             const float col1 = contentX;
             const float col2 = contentX + colW + 18.0f;
@@ -1918,9 +1974,9 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         }
         else if ( inContent && m_activeTab == InGameUITab::Keys )
         {
-            const float contentX = static_cast<float>( m_x + contentPad );
+            const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
-            const float contentW = static_cast<float>( m_width ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
             const int displayBalls = m_previewSolverBallCount >= 0 ? m_previewSolverBallCount : m_lastSolverBallCount;
             const int displayBoxes = m_previewSolverBoxCount >= 0 ? m_previewSolverBoxCount : m_lastSolverBoxCount;
 
@@ -1976,7 +2032,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
         }
-        else if ( inside && m_mouseY >= m_y + m_height - bottomH )
+        else if ( inside && m_mouseY >= inputY + inputH - bottomH )
         {
             if ( m_rendererCombo.HitBox( m_mouseX, m_mouseY ) )
             {
@@ -2166,7 +2222,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     const int currentRendererIndex = GetRendererIndexFromName( data.rendererName );
     m_lastRendererIndex = currentRendererIndex;
     const UIDrawContext draw( screenW, screenH );
-    const bool shouldDrawCursor = !data.cameraMouseActive;
+    const bool shouldDrawCursor = !data.cameraMouseActive && !data.nativeCursorVisible;
     if ( m_performanceHistogramEnabled )
     {
         PushPerformanceHistogramSample( data.cpuFrameMs, data.gpuFrameMs );
@@ -2537,12 +2593,21 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         drawContentToggle( m_physicsToggles[0], col1, scrolledY + 42.0f, colW, "Collision state", data.collisionVisualizer );
         drawContentToggle( m_physicsToggles[4], col1, scrolledY + 72.0f, colW, "Transparent", data.physicsDebugTransparent );
         drawContentToggle( m_physicsToggles[5], col1, scrolledY + 102.0f, colW, "Broadphase", data.broadphaseOverlay );
+        drawContentToggle( m_physicsToggles[7], col1, scrolledY + 132.0f, colW, "Pipeline", ( data.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0 );
         drawContentToggle( m_physicsToggles[1], col2, scrolledY + 42.0f, colW, "Axes", ( data.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0 );
         drawContentToggle( m_physicsToggles[2], col2, scrolledY + 72.0f, colW, "Contacts", ( data.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0 );
         drawContentToggle( m_physicsToggles[3], col2, scrolledY + 102.0f, colW, "Sleep state", ( data.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0 );
         drawContentToggle( m_physicsToggles[6], col2, scrolledY + 132.0f, colW, "Sleep policy", data.physicsSleepEnabled );
         snprintf( buf, sizeof( buf ), "0x%04X", data.physicsDebugFlags );
         labelValue( scrolledY + 178.0f, "Debug flags", buf, 0.52f, 0.94f, 1.0f );
+        snprintf( buf, sizeof( buf ), "%d/%d %s", data.physicsPipelineStageIndex + 1, data.physicsPipelineStageCount, data.physicsPipelineStageName );
+        labelValue( scrolledY + 198.0f, "Pipeline stage", buf, 0.52f, 0.94f, 1.0f );
+        SetPipelineStepButtonBounds( m_pipelinePrevButton, m_pipelineNextButton, contentX, contentW, scrolledY + 194.0f );
+        if ( visible( scrolledY + 194.0f, UI_PIPELINE_STEP_BUTTON_H ) )
+        {
+            DrawPipelineStepButton( draw, m_pipelinePrevButton, true, m_pipelinePrevButton.Contains( m_mouseX, m_mouseY ) );
+            DrawPipelineStepButton( draw, m_pipelineNextButton, false, m_pipelineNextButton.Contains( m_mouseX, m_mouseY ) );
+        }
         if ( visible( scrolledY + 216.0f, 18.0f ) )
         {
             drawSectionTitle( scrolledY + 216.0f, 12.0f, "Debug Draw" );

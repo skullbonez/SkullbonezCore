@@ -1,0 +1,23 @@
+# bullet_sweep_object.scene
+# High-speed sphere fired into the corner of an immovable object.
+# Regression command supplies --physics-collision-time-log.
+
+seed 42
+physics on
+text off
+vsync off
+frames 3
+fixed_step
+exit_on_complete
+world 0.0 -1000.0 0.0
+flat_slope 0.0 0.0 0.0
+water_hidden on
+terrain_hidden on
+
+camera overview 470 150 450  520 120 500  0 1 0
+
+# Starts outside the fixed cube's static broadphase cells. The diagonal launch
+# still aims at the cube corner, so swept broadphase must pair it for CCD.
+ball bullet_object 473.812 73.812 453.812  2.0 5.0 8.0 0.2  51961.525 51961.525 51961.525  0 0 0
+
+floating_box fixed_object 520 120 500  4.0 4.0 4.0  1000.0 0.2

@@ -2,6 +2,7 @@
 
 
 // --- Includes ---
+#include <array>
 #include <memory>
 #include <string>
 #include <vector>
@@ -51,7 +52,8 @@ struct RunPerfLogState
     int perfLogFlushInterval = 0;       // Flush perf CSV every N writes (0 = flush on close only)
     int perfLogWritesSinceFlush = 0;    // Buffered perf-log write count since last flush
 #ifdef _DEBUG
-    char physicsRegressionLogOverride[256] = {}; // CLI --physics-regression-log path (empty = disabled)
+    char physicsRegressionLogOverride[256] = {};    // CLI --physics-regression-log path (empty = disabled)
+    char physicsCollisionTimeLogOverride[256] = {}; // CLI --physics-collision-time-log path (empty = disabled)
 #endif
 };
 
@@ -183,6 +185,7 @@ struct RunDebugState
     bool isPhysicsDebugTransparent = false;                   // Draw translucent debug collision volumes behind physics debug lines (toggle with 6)
     float physicsDebugAlpha = 0.28f;                          // Translucent debug volume alpha
     float physicsDebugContactLinger = 0.45f;                  // Seconds to keep contact manifolds visible after their solver row disappears
+    int physicsDebugPipelineStageCursor = 0;                  // F7/F8-selected Catto pipeline stage for PHYSICS_DEBUG_PIPELINE
     bool isCollisionVisualizer = false;                       // Render solid collision/sleep colours for balls and boxes (toggle with V)
     bool isTextOnly = false;                                  // Suppress all 3D rendering; show solid background with large pangram text
     bool isUITestPattern = false;                             // Bright 2D backdrop behind UI for visual blur tests
@@ -197,13 +200,19 @@ struct RunDebugState
 #endif
 };
 
+static constexpr int RUNTIME_PROJECTILE_POOL_SIZE = 10;
+
 struct RunFireState
 {
-    // Cycling indices for projectile recycling.  Each shot steps backwards through the
-    // model array so rapid-fire uses different objects instead of relaunching the same one.
-    // -1 means "not yet initialised" — the first shot seeds the index from the array tail.
-    int ballNext = -1; // Next sphere model index to recycle
-    int boxNext = -1;  // Next box model index to recycle
+    // Runtime-created bullet model indices, recycled in a simple ring.
+    RunFireState()
+    {
+        bulletIndices.fill( -1 );
+    }
+
+    std::array<int, RUNTIME_PROJECTILE_POOL_SIZE> bulletIndices = {};
+    int bulletNext = 0;
+    bool bulletPoolReady = false;
 };
 
 struct RunUIStressState
@@ -278,7 +287,7 @@ class SkullbonezRun
     RunScreenshotState m_screenshot;                 // Screenshot trigger and capture state
     InGameUI m_UI;                                   // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                           // Runtime debug/overlay toggles
-    RunFireState m_fire;                             // Projectile recycling state (CTRL = ball, ALT = box)
+    RunFireState m_fire;                             // Runtime silver bullet pool state
     RunUIStressState m_uiStress;                     // Deterministic UI stress run state
     BroadphaseVisualizer m_broadphaseVisualizer;     // Spatial grid debug overlay (G key toggle)
     CollisionVisualizer m_collisionVisualizer;       // Solid collision/sleep model visualizer (V key toggle)
@@ -291,6 +300,7 @@ class SkullbonezRun
     void RelativeUpdateCamera( uint32_t hash );                                                                                        // Relative update specified camera
     void UpdateLogic( float simulationDt, float cameraDt );                                                                            // Per-frame logic; cameraDt is unscaled wall time
     void TakeInput();                                                                                                                  // Take user input
+    void StepPhysicsPipelineStage( int direction );                                                                                    // Move the debug pipeline visualization cursor left/right
     void SetUpCameras();                                                                                                               // Camera init for generated demo mode
     void SetUpCamerasFromScene( const TestScene& scene );                                                                              // Camera init from scene file
     void SetUpGameModels( int count );                                                                                                 // Game model init for generated mixed-object mode
@@ -331,15 +341,16 @@ class SkullbonezRun
     void RunUIStressActions();
 
     // --- Per-frame tick helpers (called from Run()) ---
-    void TickRendererSwitch( float dt );                  // Advance auto-switch timer; cycle backend when interval elapses
-    void TickPhysics( double dt );                        // Physics dispatch: fixed-step and variable-step accumulator
-    bool TickScreenshots();                               // Screenshot triggers; returns true when frame should restart (continue)
-    void TickAutoCycle();                                 // Auto-cycle ball capture; posts WM_QUIT when all balls captured
-    void TickPerfLog();                                   // Write per-frame perf CSV row and periodic memory checkpoint
-    bool TickSceneAdvance();                              // Frame count, exit/hold on completion, restarts; returns true to continue
-    void UpdateWaterHeightControls( float dt );           // Slide water surface up/down while held
-    void NudgeModelsWithCamera( const Vector3& moveVec ); // Push overlapping balls/boxes in camera movement direction
-    void FireProjectile( bool isBox );                    // Recycle and launch a ball (CTRL) or box (ALT) from the camera
+    void TickRendererSwitch( float dt );        // Advance auto-switch timer; cycle backend when interval elapses
+    void TickPhysics( double dt );              // Physics dispatch: fixed-step and variable-step accumulator
+    bool TickScreenshots();                     // Screenshot triggers; returns true when frame should restart (continue)
+    void TickAutoCycle();                       // Auto-cycle ball capture; posts WM_QUIT when all balls captured
+    void TickPerfLog();                         // Write per-frame perf CSV row and periodic memory checkpoint
+    bool TickSceneAdvance();                    // Frame count, exit/hold on completion, restarts; returns true to continue
+    void UpdateWaterHeightControls( float dt ); // Slide water surface up/down while held
+    void ResetProjectilePool();                 // Clears cached projectile indices after scene/model rebuilds
+    bool EnsureProjectilePool();                // Lazily creates the ten runtime silver bullets
+    void FireProjectile();                      // Recycle and launch a high-speed silver bullet from the camera
 #ifdef _DEBUG
     void LogSceneFinished( const char* reason );
     bool PickNudgeReproTarget( int& outIndex, float& outRayT, float& outCrosshairDistance );
@@ -352,6 +363,7 @@ class SkullbonezRun
     SkullbonezRun( std::vector<std::string> sceneQueue ); // Constructor (scene queue; empty string = generated demo scene)
     ~SkullbonezRun();                                     // Default destructor
     void Initialise();                                    // Initialises shared resources and loads first scene
+    void RunSceneLoadOnly();                              // Loads every queued scene once, then returns without entering the frame loop
     void Run();                                           // Runs all scenes in sequence — main message loop
     void SetRendererSwitchInterval( float seconds );
     void SetTimeScaleOverride( float scale );                           // Override timeScale for every scene loaded (CLI --time-scale)
@@ -372,6 +384,7 @@ class SkullbonezRun
 
 #ifdef _DEBUG
     void SetPhysicsRegressionLogOverride( const char* path );                              // Override regression CSV path for all scenes
+    void SetPhysicsCollisionTimeLogOverride( const char* path );                           // Override swept collision-time CSV path for all scenes
     void SetPhysicsDiagnosticsPath( const char* path, bool fixedStepForcedByDiagnostics ); // Enable queryable physics diagnostics (CLI --physics-diag)
 #endif
 };

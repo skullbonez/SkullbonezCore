@@ -1,7 +1,7 @@
 """
 Compare physics CSV output against committed baselines.
 
-Physics scenes use fixed_step + seed 42, so output is exactly deterministic.
+Physics scenes use fixed_step + deterministic authored state, so output is exactly deterministic.
 Any single differing byte is a real regression.
 
 Exit 0 = all match, Exit 1 = regression detected or files missing.
@@ -14,6 +14,10 @@ BASELINE_DIR = os.path.join(REPO, "TestOutput", "baselines")
 
 TESTS = [
     (os.path.join(REPO, "Debug", "physics_regression_solver.csv"), "physics_regression_solver.csv"),
+    (os.path.join(REPO, "Debug", "bullet_sweep_wall.csv"), "bullet_sweep_wall.csv"),
+    (os.path.join(REPO, "Debug", "bullet_sweep_object.csv"), "bullet_sweep_object.csv"),
+    (os.path.join(REPO, "Debug", "bullet_sweep_terrain.csv"), "bullet_sweep_terrain.csv"),
+    (os.path.join(REPO, "Debug", "shooting_reaction_volley.csv"), "shooting_reaction_volley.csv"),
 ]
 
 

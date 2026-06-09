@@ -32,8 +32,7 @@ struct InputState
         VWasDown,
         NWasDown,
         EnterWasDown,
-        ZWasDown,
-        XWasDown,
+        LeftMouseWasDown,
         BackspaceWasDown,
         QKeyWasDown,
         CKeyWasDown,
@@ -75,6 +74,7 @@ class Input
   public:
     static bool IsAppFocused();                                      // True when the game window owns foreground input
     static void SetSystemCursorVisible( bool visible );              // Shows or hides the Win32 cursor display counter
+    static bool IsSystemCursorVisibleRequested();                    // Last requested native cursor ownership state
     static bool IsKeyDown( const char cKey );                        // Returns true if specified key is pressed (use upper case)
     static bool IsKeyToggled( const char cKey );                     // Returns true if specified key is toggled (use upper case)
     static POINT GetMouseCoordinates();                              // Returns the coordinates of the mouse cursor

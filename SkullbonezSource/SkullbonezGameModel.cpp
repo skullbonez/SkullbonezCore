@@ -55,6 +55,10 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     m_projectedSurfaceArea = 0.0f;
     m_dragCoefficient = 0.0f;
     m_fixedContactHighlightSeconds = 0.0f;
+    m_renderTintR = 1.0f;
+    m_renderTintG = 1.0f;
+    m_renderTintB = 1.0f;
+    m_renderColorOverride = 0.0f;
     m_isResponseRequired = false;
     m_isFixed = false;
     m_name[0] = '\0';
@@ -216,6 +220,24 @@ const char* GameModel::GetName() const
 }
 
 
+void GameModel::SetRenderTint( float tintR, float tintG, float tintB, float colorOverride )
+{
+    m_renderTintR = tintR;
+    m_renderTintG = tintG;
+    m_renderTintB = tintB;
+    m_renderColorOverride = colorOverride;
+}
+
+
+void GameModel::GetRenderTint( float& tintR, float& tintG, float& tintB, float& colorOverride ) const
+{
+    tintR = m_renderTintR;
+    tintG = m_renderTintG;
+    tintB = m_renderTintB;
+    colorOverride = m_renderColorOverride;
+}
+
+
 float GameModel::GetBoundingRadius()
 {
     return m_ballPhysics.radius;
@@ -327,23 +349,6 @@ float GameModel::GetModelCollisionTime( GameModel& collisionTarget,
 
     // Dispatch collision test via the variant visitor (handles sphere-sphere, sphere-box, box-box)
     return TestShapeCollision( m_boundingVolume, collisionTarget.m_boundingVolume, focusRay, targetRay );
-}
-
-
-void GameModel::CollisionResponseGameModel( GameModel& responseTarget )
-{
-    // if there has been no collision, throw an exception!
-    if ( !responseTarget.m_isResponseRequired || !m_isResponseRequired )
-    {
-        throw std::runtime_error( "Cannot perform collision response when no collision has occured!  (GameModel::CollisionResponseGameModel)" );
-    }
-
-    // respond to the collision (velocity-only — m_position advancement handled by RunPhysics)
-    ImpulseSolver::RespondCollisionGameModels( *this, responseTarget );
-
-    // clear response flags so both models can participate in further collisions this frame
-    m_isResponseRequired = false;
-    responseTarget.m_isResponseRequired = false;
 }
 
 
@@ -805,15 +810,11 @@ float GameModel::CollisionDetectTerrain( float changeInTime )
 }
 
 
-float GameModel::CollisionDetectGameModel( GameModel& collisionTarget,
-                                           float changeInTime )
+GameModel::ObjectSweepResult GameModel::SweepGameModel( GameModel& collisionTarget,
+                                                        float changeInTime )
 {
-    // if there is a collision pending to be responded to between one of the two models
-    if ( m_isResponseRequired || collisionTarget.m_isResponseRequired )
-    {
-        // throw an exception!
-        throw std::runtime_error( "Cannot detect collision when a response is required first!  (GameModel::CollisionDetectGameModel)" );
-    }
+    ObjectSweepResult result;
+    result.collisionTime = changeInTime;
 
     // get the time of collision
     float collisionTime = GetModelCollisionTime( collisionTarget, changeInTime );
@@ -827,13 +828,12 @@ float GameModel::CollisionDetectGameModel( GameModel& collisionTarget,
     else
     {
         // perform the cap - cap time to be applied by converting collision from time ratio to actual seconds
-        collisionTime *= changeInTime;
-        m_isResponseRequired = true;
-        collisionTarget.m_isResponseRequired = true;
+        result.hit = true;
+        result.collisionTime = collisionTime * changeInTime;
     }
 
     // return when the collision will occur
-    return collisionTime;
+    return result;
 }
 
 

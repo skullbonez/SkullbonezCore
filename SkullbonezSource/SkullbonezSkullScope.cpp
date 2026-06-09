@@ -122,6 +122,7 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
     auto& m_collisionCellKeys = collection.m_collisionCellKeys;
     auto& m_sleepSupportEdges = collection.m_sleepSupportEdges;
     auto& m_sleepIslandVisualId = collection.m_sleepIslandVisualId;
+    auto& m_physicsPipelineTrace = collection.m_physicsPipelineTrace;
 
     // Frame rows summarize the whole physics island graph, not just individual
     // bodies.  The query layer uses these aggregate maxima/counts to decide which
@@ -340,6 +341,33 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
                   m_persistentContactSolverStats.positionCorrectionTotal,
                   m_persistentContactSolverStats.positionCorrectionMax,
                   m_persistentContactSolverStats.solverIterations );
+
+    {
+        const int stageCount = static_cast<int>( Physics::PhysicsPipelineStage::Count );
+        int stageCounts[static_cast<int>( Physics::PhysicsPipelineStage::Count )] = {};
+        for ( const Physics::PhysicsPipelineRecord& record : m_physicsPipelineTrace )
+        {
+            const int stageIndex = static_cast<int>( record.stage );
+            if ( stageIndex >= 0 && stageIndex < stageCount )
+            {
+                ++stageCounts[stageIndex];
+            }
+        }
+
+        Log().Writef( m_physicsDiagnosticsPath,
+                      "{\"kind\":\"pipeline_stages\",\"run\":\"%s\",\"frame\":%d,\"record_count\":%zu",
+                      m_physicsDiagnosticsRunId,
+                      frame,
+                      m_physicsPipelineTrace.size() );
+        for ( int i = 0; i < stageCount; ++i )
+        {
+            Log().Writef( m_physicsDiagnosticsPath,
+                          ",\"%s\":%d",
+                          Physics::PhysicsPipelineStageName( static_cast<Physics::PhysicsPipelineStage>( i ) ),
+                          stageCounts[i] );
+        }
+        Log().Writef( m_physicsDiagnosticsPath, "}\n" );
+    }
 
     if ( m_physicsDiagnosticsHasPrevEnergy )
     {

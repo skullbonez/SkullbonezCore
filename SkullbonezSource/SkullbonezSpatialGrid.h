@@ -34,24 +34,21 @@ class SpatialGrid
 
   private:
     // --- Capacity derivation ---
-    // Each object of radius R in a grid of cell size C spans at most ceil(2R/C + 1) cells
-    // per axis. With max ball radius = 5.5 and cell size = 24.0, diameter/cell = 0.46 so
-    // an object spans at most 2 cells per axis → 2×2×2 = 8 cells worst case (on boundary).
+    // Static objects of radius R in a grid of cell size C span at most
+    // ceil(2R/C + 1) cells per axis. With the default 24-unit cells, normal
+    // scene bodies are expected to use at most 2x2x2 = 8 cells.
     //
-    // MAX_CELL_ENTRIES: total linked-list pool entries across all cells.
-    //   = MAX_GAME_MODELS × 8 (worst case: every object straddles all 3 axis boundaries)
-    //   = 512 × 8 = 4096, but +1 because the insert check is strict-less-than (<).
-    //   Round up to 4100 for a small safety margin against edge rounding.
-    //
-    // TABLE_SIZE: open-addressing hash table slots. Load factor must stay well below 1.0
-    //   to keep linear-probe chains short. Worst-case distinct cells = MAX_CELL_ENTRIES = 4096.
-    //   At 75% max load: 4096 / 0.75 = 5461 → next power-of-2 = 8192.
-    //   However, spatial locality means most cells are shared so actual fill ≪ 4096.
-    //   Use 2048 (50% load for realistic worst case of ~1000 distinct cells with 512 models)
-    //   which keeps the struct ≤ 200KB while handling 512 models cleanly.
+    // Fast dynamic bodies can insert their swept AABB for CCD pairing. That is
+    // intentionally a limited escape hatch for bullets and other rare high-speed
+    // movers, not a promise that every body can sweep across the whole world in
+    // one tick. Large projectile clouds should use a dedicated ray/query path.
     static constexpr int TABLE_SIZE = 4096;
     static constexpr int TABLE_MASK = TABLE_SIZE - 1;
-    static constexpr int MAX_CELL_ENTRIES = MAX_GAME_MODELS * 8 + 4;
+    static constexpr int MAX_STATIC_CELL_ENTRIES = MAX_GAME_MODELS * 8;
+    static constexpr int MAX_SWEPT_CELL_ENTRIES = 4096;
+    static constexpr int MAX_CELL_ENTRIES = MAX_STATIC_CELL_ENTRIES + MAX_SWEPT_CELL_ENTRIES + 4;
+    static constexpr int MAX_SWEPT_AABB_CELLS = MAX_SWEPT_CELL_ENTRIES / 2;
+    static constexpr int MAX_SWEPT_SAMPLE_STEPS = MAX_SWEPT_CELL_ENTRIES / 4;
     static constexpr int PAIR_WORDS = ( MAX_GAME_MODELS * ( MAX_GAME_MODELS - 1 ) / 2 + 63 ) / 64;
 
     struct Entry
@@ -82,6 +79,8 @@ class SpatialGrid
     uint64_t pairSeen[PAIR_WORDS];
 
     int FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz );
+    void InsertCell( int index, int ix, int iy, int iz );
+    void InsertBounds( int index, const Vector3& minBounds, const Vector3& maxBounds );
 
   public:
     static constexpr int MAX_BUCKETS = TABLE_SIZE;
@@ -95,6 +94,7 @@ class SpatialGrid
     SpatialGrid( float fCellSize );
     void Clear();
     void Insert( int index, const Vector3& position, float radius );
+    void InsertSwept( int index, const Vector3& position, const Vector3& displacement, float radius );
     void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs );
     float GetCellSize() const
     {

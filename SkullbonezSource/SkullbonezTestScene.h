@@ -75,7 +75,7 @@ struct SceneOptions
     int solverBoxCount = 0;                                   // exact impulse-solver boxes to spawn (0 = not set)
     float timeScale = 1.0f;                                   // Physics time multiplier (1.0 = realtime)
     bool isFixedStep = false;                                 // If true, each render frame triggers exactly one physics tick at PHYSICS_FIXED_DT
-    uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE; // Draw physics debug axes/contacts/sleep markers
+    uint32_t physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE; // Draw physics debug axes/contacts/sleep/pipeline markers
     bool physicsDebugTransparent = false;                     // Render translucent debug collision volumes while physics debug is visible
     float physicsDebugAlpha = 0.28f;                          // Alpha for translucent debug collision volumes
     float physicsDebugContactLinger = 0.45f;                  // Seconds to keep contact manifold debug rows visible

@@ -70,6 +70,9 @@ struct InGameUIFrameData
     float worldFluidHeight = 0.0f;
     float worldFluidDensity = 0.0f;
     uint32_t physicsDebugFlags = 0;
+    const char* physicsPipelineStageName = "";
+    int physicsPipelineStageIndex = 0;
+    int physicsPipelineStageCount = 0;
     float physicsDebugAlpha = 0.0f;
     float physicsDebugContactLinger = 0.0f;
     bool physicsSleepEnabled = true;
@@ -83,6 +86,7 @@ struct InGameUIFrameData
     bool waterNoReflect = false;
     bool waterRTReflect = false;
     bool cameraMouseActive = false;
+    bool nativeCursorVisible = false;
     bool canSaveSceneDefaults = false;
 };
 
@@ -122,6 +126,8 @@ struct InGameUIInputResult
     float requestedWorldFluidHeight = 0.0f;
     float requestedWorldFluidDensity = 0.0f;
     uint32_t togglePhysicsDebugFlags = 0;
+    bool stepPhysicsPipelinePrevious = false;
+    bool stepPhysicsPipelineNext = false;
     int requestedRendererIndex = -1; // 0=GL, 1=DX11, 2=DX12, -1=no request
     int requestedWaterReflectionMode = -1; // 0=FBO, 1=DXR, 2=None, -1=no request
     int requestedSceneIndex = -1;          // index into sceneOptions, -1=no request
@@ -139,6 +145,7 @@ class InGameUI
     InGameUITab GetActiveTab() const;
     bool BlocksCameraMouse() const;
     bool BlocksKeyboard() const;
+    bool WantsNativeMouseCursor() const;
     void SetWindowBounds( int x, int y, int width, int height );
     void SetBlurEnabled( bool enabled );
     void SetRendererComboOpen( bool open );
@@ -177,7 +184,9 @@ class InGameUI
     UICheckBox m_vsyncToggle;
     UICheckBox m_timelineToggle;
     UICheckBox m_histogramToggle;
-    UICheckBox m_physicsToggles[7];
+    UICheckBox m_physicsToggles[8];
+    UIRect m_pipelinePrevButton;
+    UIRect m_pipelineNextButton;
     UICheckBox m_optionToggles[5];
     UISlider m_timeScaleSlider;
     UISlider m_modelCountSlider;

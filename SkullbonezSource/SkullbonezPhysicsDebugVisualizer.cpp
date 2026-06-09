@@ -18,6 +18,8 @@ using namespace SkullbonezCore::Rendering;
 
 namespace
 {
+constexpr int PIPELINE_STAGE_COUNT = static_cast<int>( PhysicsPipelineStage::Count );
+
 float ShapeAxisLength( GameModel& model, int axis )
 {
     const CollisionShape& shape = model.GetCollisionShape();
@@ -29,7 +31,126 @@ float ShapeAxisLength( GameModel& model, int axis )
     }
     return (std::max)( 1.0f, model.GetBoundingRadius() * 1.35f );
 }
+
+void PipelineStageColor( PhysicsPipelineStage stage, float& r, float& g, float& b )
+{
+    switch ( stage )
+    {
+    case PhysicsPipelineStage::BroadphaseCandidate:
+        r = 0.35f;
+        g = 0.65f;
+        b = 1.0f;
+        break;
+    case PhysicsPipelineStage::SleepPrunedPair:
+        r = 0.35f;
+        g = 0.28f;
+        b = 0.8f;
+        break;
+    case PhysicsPipelineStage::WakeDecision:
+        r = 0.25f;
+        g = 1.0f;
+        b = 0.55f;
+        break;
+    case PhysicsPipelineStage::SweptObjectHit:
+        r = 1.0f;
+        g = 0.78f;
+        b = 0.16f;
+        break;
+    case PhysicsPipelineStage::SweptObjectMiss:
+        r = 0.35f;
+        g = 0.35f;
+        b = 0.35f;
+        break;
+    case PhysicsPipelineStage::TerrainHit:
+        r = 0.35f;
+        g = 1.0f;
+        b = 0.25f;
+        break;
+    case PhysicsPipelineStage::ManifoldRow:
+        r = 0.0f;
+        g = 0.92f;
+        b = 1.0f;
+        break;
+    case PhysicsPipelineStage::WarmStart:
+        r = 1.0f;
+        g = 0.45f;
+        b = 0.10f;
+        break;
+    case PhysicsPipelineStage::SolverIteration:
+        r = 1.0f;
+        g = 0.95f;
+        b = 0.12f;
+        break;
+    case PhysicsPipelineStage::VelocityWriteback:
+        r = 0.50f;
+        g = 0.88f;
+        b = 1.0f;
+        break;
+    case PhysicsPipelineStage::PositionCorrection:
+        r = 1.0f;
+        g = 0.20f;
+        b = 0.10f;
+        break;
+    case PhysicsPipelineStage::CacheStore:
+        r = 0.90f;
+        g = 0.58f;
+        b = 1.0f;
+        break;
+    case PhysicsPipelineStage::SleepSupportEdge:
+        r = 0.42f;
+        g = 1.0f;
+        b = 0.38f;
+        break;
+    case PhysicsPipelineStage::SleepIslandDecision:
+        r = 0.70f;
+        g = 0.50f;
+        b = 1.0f;
+        break;
+    default:
+        r = 1.0f;
+        g = 1.0f;
+        b = 1.0f;
+        break;
+    }
+}
 } // namespace
+
+const char* SkullbonezCore::Physics::PhysicsPipelineStageName( PhysicsPipelineStage stage )
+{
+    switch ( stage )
+    {
+    case PhysicsPipelineStage::BroadphaseCandidate:
+        return "broadphase_candidate";
+    case PhysicsPipelineStage::SleepPrunedPair:
+        return "sleep_pruned_pair";
+    case PhysicsPipelineStage::WakeDecision:
+        return "wake_decision";
+    case PhysicsPipelineStage::SweptObjectHit:
+        return "swept_object_hit";
+    case PhysicsPipelineStage::SweptObjectMiss:
+        return "swept_object_miss";
+    case PhysicsPipelineStage::TerrainHit:
+        return "terrain_hit";
+    case PhysicsPipelineStage::ManifoldRow:
+        return "manifold_row";
+    case PhysicsPipelineStage::WarmStart:
+        return "warm_start";
+    case PhysicsPipelineStage::SolverIteration:
+        return "solver_iteration";
+    case PhysicsPipelineStage::VelocityWriteback:
+        return "velocity_writeback";
+    case PhysicsPipelineStage::PositionCorrection:
+        return "position_correction";
+    case PhysicsPipelineStage::CacheStore:
+        return "cache_store";
+    case PhysicsPipelineStage::SleepSupportEdge:
+        return "sleep_support_edge";
+    case PhysicsPipelineStage::SleepIslandDecision:
+        return "sleep_island_decision";
+    default:
+        return "unknown";
+    }
+}
 
 // Contact debug rows are produced by the solver only for the current physics
 // step, but a one-frame manifold is too easy to miss visually.  The visualizer
@@ -195,9 +316,72 @@ void PhysicsDebugVisualizer::EmitSleepState( GameModelCollection& models )
     }
 }
 
+void PhysicsDebugVisualizer::EmitPipelineStage( GameModelCollection& models )
+{
+    const std::vector<PhysicsPipelineRecord>& records = models.GetPhysicsPipelineTrace();
+    if ( records.empty() || PIPELINE_STAGE_COUNT <= 0 )
+    {
+        return;
+    }
+
+    int stageIndex = m_pipelineStageCursor % PIPELINE_STAGE_COUNT;
+    if ( stageIndex < 0 )
+    {
+        stageIndex += PIPELINE_STAGE_COUNT;
+    }
+    const PhysicsPipelineStage selectedStage = static_cast<PhysicsPipelineStage>( stageIndex );
+    float r = 1.0f;
+    float g = 1.0f;
+    float b = 1.0f;
+    PipelineStageColor( selectedStage, r, g, b );
+
+    int emitted = 0;
+    for ( const PhysicsPipelineRecord& record : records )
+    {
+        if ( record.stage != selectedStage )
+        {
+            continue;
+        }
+
+        const bool hasA = record.bodyA >= 0 && record.bodyA < models.GetModelCount();
+        const bool hasB = record.bodyB >= 0 && record.bodyB < models.GetModelCount();
+        if ( hasA && hasB )
+        {
+            Vector3 a = models.GetModelAtIndex( record.bodyA ).GetPosition();
+            Vector3 bPos = models.GetModelAtIndex( record.bodyB ).GetPosition();
+            EmitLine( a, bPos, r * 0.55f, g * 0.55f, b * 0.55f );
+        }
+
+        Vector3 p = record.point;
+        if ( hasA && VectorMagSquared( p ) <= TOLERANCE * TOLERANCE )
+        {
+            p = models.GetModelAtIndex( record.bodyA ).GetPosition();
+        }
+        const float scale = 0.24f + (std::min)( fabsf( record.scalarA ), 4.0f ) * 0.05f;
+        EmitCross( p, scale, r, g, b );
+
+        if ( VectorMagSquared( record.normal ) > TOLERANCE * TOLERANCE )
+        {
+            float normalLen = 1.0f + (std::min)( fabsf( record.scalarB ), 6.0f ) * 0.08f;
+            EmitArrow( p, p + record.normal * normalLen, r, g, b );
+        }
+
+        ++emitted;
+        if ( emitted >= 512 )
+        {
+            break;
+        }
+    }
+}
+
 void PhysicsDebugVisualizer::SetContactLingerSeconds( float seconds )
 {
     m_contactLingerSeconds = (std::max)( 0.0f, (std::min)( seconds, 5.0f ) );
+}
+
+void PhysicsDebugVisualizer::SetPipelineStageCursor( int cursor )
+{
+    m_pipelineStageCursor = cursor;
 }
 
 void PhysicsDebugVisualizer::Update( float dt, GameModelCollection& models )
@@ -279,6 +463,10 @@ void PhysicsDebugVisualizer::Render( GameModelCollection& models, const Matrix4&
     if ( ( m_flags & PHYSICS_DEBUG_SLEEP ) != 0 )
     {
         EmitSleepState( models );
+    }
+    if ( ( m_flags & PHYSICS_DEBUG_PIPELINE ) != 0 )
+    {
+        EmitPipelineStage( models );
     }
 
     if ( !m_lineData.empty() )

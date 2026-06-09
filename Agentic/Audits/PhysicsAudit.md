@@ -4,6 +4,12 @@
 **Scope:** All physics, collision, math, and game-object source files  
 **Engine version:** Post-Phase 10 (shader migration in progress)
 
+> Historical audit note: current object/object response has since moved to the
+> persistent Catto contact rows described in
+> `Agentic/Plans/physics-clean-catto-handoff.md` and
+> `Agentic/Reference/physics-overview.md`. Treat the object/object response
+> sections below as pre-Catto historical context, not the active solver contract.
+
 ---
 
 ## Table of Contents

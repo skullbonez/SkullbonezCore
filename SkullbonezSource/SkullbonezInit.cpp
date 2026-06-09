@@ -306,6 +306,7 @@ struct ParsedArgs
     bool noWater = false;
     bool noSleep = false;
     int frameCountOverride = -1;
+    bool sceneLoadOnly = false;
     bool uiStress = false;
     unsigned int uiStressSeed = 0x7F4A7C15u;
     int uiStressActions = 5;
@@ -324,6 +325,7 @@ struct ParsedArgs
     float physicsDebugContactLingerOverride = 0.45f;
 #ifdef _DEBUG
     char physicsRegressionLogOverride[256] = {};
+    char physicsCollisionTimeLogOverride[256] = {};
     char physicsDiagnosticsPath[256] = {};
 #endif
     bool physicsDiagnosticsRequested = false;
@@ -423,6 +425,11 @@ bool ParsePhysicsDebugMode( const char* value, uint32_t& outFlags )
         outFlags = PHYSICS_DEBUG_SLEEP;
         return true;
     }
+    if ( _strnicmp( value, "pipeline", 8 ) == 0 )
+    {
+        outFlags = PHYSICS_DEBUG_PIPELINE;
+        return true;
+    }
     if ( _strnicmp( value, "all", 3 ) == 0 || _strnicmp( value, "on", 2 ) == 0 )
     {
         outFlags = PHYSICS_DEBUG_ALL;
@@ -468,14 +475,15 @@ bool ParsePhysicsDebugOverrides( const char* cmdLine, ParsedArgs& out )
     {
         if ( !ParsePhysicsDebugMode( modeValue, out.physicsDebugFlagsOverride ) )
         {
-            return FailCommandLineParse( "--physics-debug expects none|axes|contacts|sleep|all|on|off." );
+            return FailCommandLineParse( "--physics-debug expects none|axes|contacts|sleep|pipeline|all|on|off." );
         }
         out.hasPhysicsDebugFlagsOverride = true;
     }
 
     if ( !ApplyPhysicsDebugComponentOverride( cmdLine, "--physics-debug-axes", "--physics_debug_axes", PHYSICS_DEBUG_AXES, out ) ||
          !ApplyPhysicsDebugComponentOverride( cmdLine, "--physics-debug-contacts", "--physics_debug_contacts", PHYSICS_DEBUG_CONTACTS, out ) ||
-         !ApplyPhysicsDebugComponentOverride( cmdLine, "--physics-debug-sleep", "--physics_debug_sleep", PHYSICS_DEBUG_SLEEP, out ) )
+         !ApplyPhysicsDebugComponentOverride( cmdLine, "--physics-debug-sleep", "--physics_debug_sleep", PHYSICS_DEBUG_SLEEP, out ) ||
+         !ApplyPhysicsDebugComponentOverride( cmdLine, "--physics-debug-pipeline", "--physics_debug_pipeline", PHYSICS_DEBUG_PIPELINE, out ) )
     {
         return false;
     }
@@ -545,17 +553,11 @@ void ParseSceneArgs( const char* cmdLine, std::vector<std::string>& sceneList, b
 {
     if ( cmdLine && cmdLine[0] != '\0' )
     {
-        const char* suiteArg = strstr( cmdLine, "--suite" );
-        const char* sceneArg = strstr( cmdLine, "--scene" );
+        const char* suiteArg = FindOptionValue( cmdLine, "--suite" );
+        const char* sceneArg = FindOptionValue( cmdLine, "--scene" );
 
         if ( suiteArg )
         {
-            suiteArg += 7;
-            while ( *suiteArg == ' ' )
-            {
-                ++suiteArg;
-            }
-
             // Extract just the filename token — support both quoted and unquoted paths.
             const char* suiteStart = suiteArg;
             const char* suiteEnd = suiteArg;
@@ -600,11 +602,6 @@ void ParseSceneArgs( const char* cmdLine, std::vector<std::string>& sceneList, b
         }
         else if ( sceneArg )
         {
-            sceneArg += 7;
-            while ( *sceneArg == ' ' )
-            {
-                ++sceneArg;
-            }
             if ( *sceneArg != '\0' )
             {
                 // Support both quoted ("path with spaces") and unquoted tokens.
@@ -739,6 +736,24 @@ bool ValidatePhysicsRegressionLog( const char* cmdLine )
 #endif
 }
 
+
+// Guards --physics-collision-time-log against use in non-Debug builds.
+// Returns false if startup should abort.
+bool ValidatePhysicsCollisionTimeLog( const char* cmdLine )
+{
+    if ( !FindOptionValue( cmdLine, "--physics-collision-time-log" ) )
+    {
+        return true;
+    }
+
+#ifndef _DEBUG
+    return FailCommandLineParse( "--physics-collision-time-log is only supported in Debug builds. Recompile with the Debug configuration to use collision-time logging." );
+#else
+    return true;
+#endif
+}
+
+
 // Guards --physics-diag / --physics-diagnostics against use in non-Debug builds.
 // Diagnostics traces are model-facing debug artifacts and are not a Profile/Release dependency.
 bool ValidatePhysicsDiagnostics( const char* cmdLine )
@@ -783,6 +798,35 @@ void ParsePhysicsRegressionLogOverride( const char* cmdLine, char ( &outPath )[2
         fprintf( stdout, "[physics-regression-log] Output: %s\n", outPath );
     }
 }
+
+
+void ParsePhysicsCollisionTimeLogOverride( const char* cmdLine, char ( &outPath )[256] )
+{
+    outPath[0] = '\0';
+    const char* collisionLogArg = FindOptionValue( cmdLine, "--physics-collision-time-log" );
+    if ( !collisionLogArg )
+    {
+        return;
+    }
+
+    const char* collisionLogEnd = collisionLogArg;
+    while ( *collisionLogEnd != '\0' && *collisionLogEnd != ' ' && *collisionLogEnd != '\t' )
+    {
+        ++collisionLogEnd;
+    }
+    size_t len = static_cast<size_t>( collisionLogEnd - collisionLogArg );
+    if ( len >= 256 )
+    {
+        len = 255;
+    }
+    memcpy( outPath, collisionLogArg, len );
+    outPath[len] = '\0';
+    if ( outPath[0] != '\0' )
+    {
+        fprintf( stdout, "[physics-collision-time-log] Output: %s\n", outPath );
+    }
+}
+
 
 bool ParsePhysicsDiagnosticsPath( const char* cmdLine, char ( &outPath )[256] )
 {
@@ -832,6 +876,10 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
     {
         return false;
     }
+    if ( !ValidatePhysicsCollisionTimeLog( cmdLine ) )
+    {
+        return false;
+    }
     if ( !ValidatePhysicsDiagnostics( cmdLine ) )
     {
         return false;
@@ -839,6 +887,7 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
 
 #ifdef _DEBUG
     ParsePhysicsRegressionLogOverride( cmdLine, out.physicsRegressionLogOverride );
+    ParsePhysicsCollisionTimeLogOverride( cmdLine, out.physicsCollisionTimeLogOverride );
     if ( !ParsePhysicsDiagnosticsPath( cmdLine, out.physicsDiagnosticsPath ) )
     {
         return false;
@@ -927,6 +976,13 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
         out.frameCountOverride = frames;
         out.suppressExitDialog = true;
         fprintf( stdout, "[frames] Exit after %d frames.\n", out.frameCountOverride );
+    }
+
+    out.sceneLoadOnly = cmdLine && ( strstr( cmdLine, "--scene-load-only" ) != nullptr || strstr( cmdLine, "--load-scenes-only" ) != nullptr );
+    if ( out.sceneLoadOnly )
+    {
+        out.suppressExitDialog = true;
+        fprintf( stdout, "[scene-load-only] Load queued scenes without running frames.\n" );
     }
 
     const char* uiStressArg = FindOptionValue( cmdLine, "--ui-stress", "--ui_stress" );
@@ -1122,6 +1178,10 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         {
             cRun.SetPhysicsRegressionLogOverride( args.physicsRegressionLogOverride );
         }
+        if ( args.physicsCollisionTimeLogOverride[0] != '\0' )
+        {
+            cRun.SetPhysicsCollisionTimeLogOverride( args.physicsCollisionTimeLogOverride );
+        }
         if ( args.physicsDiagnosticsPath[0] != '\0' )
         {
             cRun.SetPhysicsDiagnosticsPath( args.physicsDiagnosticsPath, args.fixedStepForcedByPhysicsDiagnostics );
@@ -1130,7 +1190,14 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         try
         {
             cRun.Initialise();
-            cRun.Run();
+            if ( args.sceneLoadOnly )
+            {
+                cRun.RunSceneLoadOnly();
+            }
+            else
+            {
+                cRun.Run();
+            }
 
             if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
             {

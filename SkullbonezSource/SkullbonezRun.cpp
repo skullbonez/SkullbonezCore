@@ -11,6 +11,7 @@
 #include "SkullbonezImpulseSolver.h"
 #include "SkullbonezTerrainSupportClassifier.h"
 #include <time.h>
+#include <cstdio>
 #include <cstring>
 #include <cstddef>
 #include <psapi.h>
@@ -33,6 +34,17 @@ constexpr double PERF_TEST_PASS_SECONDS = 2.0;
 constexpr float WATER_HEIGHT_CONTROL_SPEED = 20.0f;
 constexpr float NO_WATER_TERRAIN_CLEARANCE = 100.0f;
 constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
+constexpr float CAMERA_PROJECTILE_SPEED = 12000.0f;
+constexpr float CAMERA_PROJECTILE_SHIFT_MULTIPLIER = 3.0f;
+constexpr float CAMERA_PROJECTILE_RADIUS = 0.25f;
+constexpr float CAMERA_PROJECTILE_MASS = 0.25f;
+constexpr float CAMERA_PROJECTILE_RESTITUTION = 0.2f;
+constexpr float CAMERA_PROJECTILE_MOMENT = 0.025f;
+constexpr float CAMERA_PROJECTILE_SPAWN_CLEARANCE = 12.0f;
+constexpr float CAMERA_PROJECTILE_PARK_BASE = -5000.0f;
+constexpr float CAMERA_PROJECTILE_SILVER_R = 1.0f;
+constexpr float CAMERA_PROJECTILE_SILVER_G = 1.0f;
+constexpr float CAMERA_PROJECTILE_SILVER_B = 1.0f;
 constexpr int FIXED_STEP_TIME_SCALE_MAX_TICKS_PER_FRAME = 32;
 #ifdef _DEBUG
 constexpr const char* NUDGE_REPRO_SNAPSHOT_PATH = "Debug/nudge_repro_snapshots.txt";
@@ -459,6 +471,12 @@ void SkullbonezRun::SetPhysicsRegressionLogOverride( const char* path )
 }
 
 
+void SkullbonezRun::SetPhysicsCollisionTimeLogOverride( const char* path )
+{
+    strcpy_s( m_perfLogState.physicsCollisionTimeLogOverride, sizeof( m_perfLogState.physicsCollisionTimeLogOverride ), path );
+}
+
+
 void SkullbonezRun::SetPhysicsDiagnosticsPath( const char* path, bool fixedStepForcedByDiagnostics )
 {
     strcpy_s( m_physicsDiagnostics.path, sizeof( m_physicsDiagnostics.path ), path );
@@ -516,6 +534,23 @@ void SkullbonezRun::Initialise()
 
     // Load the first scene
     LoadScene( 0 );
+}
+
+
+void SkullbonezRun::RunSceneLoadOnly()
+{
+    const int sceneCount = static_cast<int>( m_sceneQueue.size() );
+    if ( sceneCount <= 0 )
+    {
+        return;
+    }
+
+    printf( "[scene-load-only] Loaded 1/%d: %s\n", sceneCount, m_sceneQueue[0].empty() ? "generated" : m_sceneQueue[0].c_str() );
+    for ( int i = 1; i < sceneCount; ++i )
+    {
+        LoadScene( i );
+        printf( "[scene-load-only] Loaded %d/%d: %s\n", i + 1, sceneCount, m_sceneQueue[i].empty() ? "generated" : m_sceneQueue[i].c_str() );
+    }
 }
 
 
@@ -1168,6 +1203,7 @@ void SkullbonezRun::Run()
             m_collisionVisualizer.Update( static_cast<float>( secondsPerFrame ), m_cGameModelCollection );
             m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
             m_physicsDebugVisualizer.SetContactLingerSeconds( m_debug.physicsDebugContactLinger );
+            m_physicsDebugVisualizer.SetPipelineStageCursor( m_debug.physicsDebugPipelineStageCursor );
             m_physicsDebugVisualizer.Update( static_cast<float>( secondsPerFrame ), m_cGameModelCollection );
             m_cGameModelCollection.EndCollisionVisualFrame();
 
@@ -1568,6 +1604,24 @@ bool SkullbonezRun::TickSceneAdvance()
 }
 
 
+void SkullbonezRun::StepPhysicsPipelineStage( int direction )
+{
+    const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
+    if ( stageCount <= 0 || direction == 0 )
+    {
+        return;
+    }
+
+    m_debug.physicsDebugFlags |= PHYSICS_DEBUG_PIPELINE;
+    int nextStage = ( m_debug.physicsDebugPipelineStageCursor + direction ) % stageCount;
+    if ( nextStage < 0 )
+    {
+        nextStage += stageCount;
+    }
+    m_debug.physicsDebugPipelineStageCursor = nextStage;
+}
+
+
 void SkullbonezRun::TakeInput()
 {
     if ( !Input::IsAppFocused() )
@@ -1582,7 +1636,25 @@ void SkullbonezRun::TakeInput()
         return;
     }
 
-    Input::SetSystemCursorVisible( false );
+    const auto UIWantsReleasedMouse = [&]() -> bool
+    {
+        return m_camera.isFlyMode && m_UI.WantsNativeMouseCursor();
+    };
+    const auto ApplyCursorOwnership = [&]() -> void
+    {
+        Input::SetSystemCursorVisible( UIWantsReleasedMouse() );
+    };
+    const auto ReleaseMouseToUI = [&]() -> void
+    {
+        if ( UIWantsReleasedMouse() )
+        {
+            ReleaseCapture();
+            m_camera.input.xMove = 0;
+            m_camera.input.yMove = 0;
+        }
+    };
+
+    ApplyCursorOwnership();
 
     const bool UIBlocksKeyboardBeforeInput = m_UI.BlocksKeyboard();
     if ( !UIBlocksKeyboardBeforeInput )
@@ -1638,8 +1710,16 @@ void SkullbonezRun::TakeInput()
                 unbounded.m_zMax = 99999.9f;
                 uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
                 m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
-                Input::SetSystemCursorVisible( false );
-                Input::CentreMouseCoordinates();
+                if ( UIWantsReleasedMouse() )
+                {
+                    ReleaseMouseToUI();
+                    Input::SetSystemCursorVisible( true );
+                }
+                else
+                {
+                    Input::SetSystemCursorVisible( false );
+                    Input::CentreMouseCoordinates();
+                }
                 m_camera.input.xMove = 0;
                 m_camera.input.yMove = 0;
             }
@@ -1758,6 +1838,26 @@ void SkullbonezRun::TakeInput()
             m_camera.input.Set( InputState::CKeyWasDown, cNow );
         }
 
+        // F7/F8: step the physics pipeline visualizer through the bounded Catto
+        // stage trace from the most recent physics tick. The simulation can be
+        // paused with fly mode and advanced separately with Space.
+        {
+            static bool s_pipelinePrevWasDown = false;
+            static bool s_pipelineNextWasDown = false;
+            const bool prevNow = Input::IsKeyDown( VK_F7 );
+            const bool nextNow = Input::IsKeyDown( VK_F8 );
+            if ( prevNow && !s_pipelinePrevWasDown )
+            {
+                StepPhysicsPipelineStage( -1 );
+            }
+            if ( nextNow && !s_pipelineNextWasDown )
+            {
+                StepPhysicsPipelineStage( 1 );
+            }
+            s_pipelinePrevWasDown = prevNow;
+            s_pipelineNextWasDown = nextNow;
+        }
+
         // 6 key: translucent debug collision volumes for inspecting axes/contact rows inside bodies.
         {
             bool key6Now = Input::IsKeyDown( '6' );
@@ -1806,6 +1906,8 @@ void SkullbonezRun::TakeInput()
                 EnterInteractiveSceneRun();
                 m_UI.ToggleVisible( m_timers.simulationTimer.GetTotalTime() );
                 m_debug.overlayMode = OverlayMode::None;
+                ApplyCursorOwnership();
+                ReleaseMouseToUI();
             }
             m_camera.input.Set( InputState::Key0WasDown, key0Now );
         }
@@ -1831,6 +1933,7 @@ void SkullbonezRun::TakeInput()
         m_rightSceneCycleWasDown = Input::IsKeyDown( VK_RIGHT );
     }
 
+    bool suppressNudgeFireThisFrame = UIBlocksKeyboardBeforeInput;
     if ( m_systems.window )
     {
         const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex();
@@ -1845,6 +1948,7 @@ void SkullbonezRun::TakeInput()
         {
             EnterInteractiveSceneRun();
         }
+        suppressNudgeFireThisFrame = suppressNudgeFireThisFrame || UIResult.userInteracted || m_UI.BlocksCameraMouse();
 
         // ESC flicks the diagnostics window between minimized and expanded, with
         // a very fast double-tap escape hatch for quitting interactive runs.
@@ -1866,6 +1970,8 @@ void SkullbonezRun::TakeInput()
                 m_UI.ToggleVisible( UINow );
                 m_debug.overlayMode = OverlayMode::None;
                 m_lastEscapeTapTime = UINow;
+                ApplyCursorOwnership();
+                ReleaseMouseToUI();
             }
         }
         m_camera.input.Set( InputState::EscapeWasDown, escapeNow );
@@ -1887,6 +1993,14 @@ void SkullbonezRun::TakeInput()
         if ( UIResult.togglePhysicsDebugFlags != 0 )
         {
             m_debug.physicsDebugFlags ^= ( UIResult.togglePhysicsDebugFlags & PHYSICS_DEBUG_ALL );
+        }
+        if ( UIResult.stepPhysicsPipelinePrevious )
+        {
+            StepPhysicsPipelineStage( -1 );
+        }
+        if ( UIResult.stepPhysicsPipelineNext )
+        {
+            StepPhysicsPipelineStage( 1 );
         }
         if ( UIResult.togglePhysicsDebugTransparent )
         {
@@ -2026,6 +2140,20 @@ void SkullbonezRun::TakeInput()
         RunUIStressActions();
     }
 
+    // Nudge mode owns left click for firing the pooled silver bullets.  Keyboard
+    // shortcuts are intentionally avoided so aiming and firing live on the mouse.
+    {
+        const bool leftMouseNow = Input::IsLeftMouseDown();
+        if ( m_camera.isNudgeMode &&
+             leftMouseNow &&
+             !m_camera.input.Get( InputState::LeftMouseWasDown ) &&
+             !suppressNudgeFireThisFrame )
+        {
+            FireProjectile();
+        }
+        m_camera.input.Set( InputState::LeftMouseWasDown, leftMouseNow );
+    }
+
     if ( m_UI.BlocksKeyboard() )
     {
         m_camera.input.xMove = 0;
@@ -2034,7 +2162,7 @@ void SkullbonezRun::TakeInput()
         m_camera.input.Set( InputState::Down, false );
         m_camera.input.Set( InputState::Left, false );
         m_camera.input.Set( InputState::Right, false );
-        Input::SetSystemCursorVisible( false );
+        ApplyCursorOwnership();
         return;
     }
 
@@ -2085,26 +2213,6 @@ void SkullbonezRun::TakeInput()
         m_camera.input.Set( InputState::F3WasDown, f3Now );
     }
 
-    // Z: fire a ball out of the camera. X: fire a box out of the camera.
-    // Shift applies the same 3× speed multiplier as walking.
-    // Objects are recycled from the model pool — no new allocations.
-    {
-        bool zNow = Input::IsKeyDown( 'Z' );
-        if ( zNow && !m_camera.input.Get( InputState::ZWasDown ) )
-        {
-            FireProjectile( false );
-        }
-        m_camera.input.Set( InputState::ZWasDown, zNow );
-    }
-    {
-        bool xNow = Input::IsKeyDown( 'X' );
-        if ( xNow && !m_camera.input.Get( InputState::XWasDown ) )
-        {
-            FireProjectile( true );
-        }
-        m_camera.input.Set( InputState::XWasDown, xNow );
-    }
-
     // R: reset/reload the current scene from scratch. Backspace remains as a scene-mode alias.
     {
         bool rNow = Input::IsKeyDown( 'R' );
@@ -2128,19 +2236,23 @@ void SkullbonezRun::TakeInput()
 
     if ( m_camera.isFlyMode )
     {
-        // Keep the platform cursor hidden every frame.  Mouse-look still uses the
-        // recentered OS coordinates internally; the UI hides its vector cursor
-        // while camera movement owns the mouse.
-        Input::SetSystemCursorVisible( false );
-
-        // Mouse look: delta from screen centre
-        if ( m_UI.BlocksCameraMouse() )
+        // Expanded diagnostics UI owns the native cursor in fly/nudge mode.
+        // Otherwise mouse-look keeps using recentered OS coordinates internally.
+        if ( UIWantsReleasedMouse() )
         {
+            Input::SetSystemCursorVisible( true );
+            m_camera.input.xMove = 0;
+            m_camera.input.yMove = 0;
+        }
+        else if ( m_UI.BlocksCameraMouse() )
+        {
+            Input::SetSystemCursorVisible( false );
             m_camera.input.xMove = 0;
             m_camera.input.yMove = 0;
         }
         else
         {
+            Input::SetSystemCursorVisible( false );
             POINT currentCoords = Input::GetMouseCoordinates();
             Input::CentreMouseCoordinates();
             POINT centreCoords = Input::GetMouseCoordinates();
@@ -2241,6 +2353,9 @@ void SkullbonezRun::DrawPrimitives()
     m_cGameModelCollection.PrepareRenderStreams();
     PROFILE_END( "Frame/Render/PrepareModels" );
 
+    const bool physicsDebugTransparent = m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE && m_debug.isPhysicsDebugTransparent;
+    const float collisionVisualizerAlphaOverride = physicsDebugTransparent ? m_debug.physicsDebugAlpha : -1.0f;
+
     // Camera m_position for skybox placement.  During camera transitions the
     // selected camera is already the destination, but SetCamera() renders from
     // the interpolated tween camera.  Reflection math must use the same render
@@ -2317,7 +2432,9 @@ void SkullbonezRun::DrawPrimitives()
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -waterY );
         if ( m_debug.isCollisionVisualizer )
         {
+            m_collisionVisualizer.SetAlphaOverride( collisionVisualizerAlphaOverride );
             m_collisionVisualizer.Render( m_cGameModelCollection, reflView, proj, lightPosition );
+            m_collisionVisualizer.SetAlphaOverride( -1.0f );
         }
         else
         {
@@ -2336,10 +2453,9 @@ void SkullbonezRun::DrawPrimitives()
 
     // render game models -----------------------------
     PROFILE_GPU_BEGIN( "Frame/Render/Balls" );
-    const bool physicsDebugTransparent = m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE && m_debug.isPhysicsDebugTransparent;
     if ( m_debug.isCollisionVisualizer || physicsDebugTransparent )
     {
-        m_collisionVisualizer.SetAlphaOverride( physicsDebugTransparent && !m_debug.isCollisionVisualizer ? m_debug.physicsDebugAlpha : -1.0f );
+        m_collisionVisualizer.SetAlphaOverride( collisionVisualizerAlphaOverride );
         m_collisionVisualizer.Render( m_cGameModelCollection, baseView, proj, lightPosition );
         m_collisionVisualizer.SetAlphaOverride( -1.0f );
     }
@@ -2397,6 +2513,7 @@ void SkullbonezRun::DrawPrimitives()
     {
         Matrix4 viewProj = proj * baseView;
         m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
+        m_physicsDebugVisualizer.SetPipelineStageCursor( m_debug.physicsDebugPipelineStageCursor );
         m_physicsDebugVisualizer.Render( m_cGameModelCollection, viewProj );
     }
 }
@@ -2505,13 +2622,21 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
     const float mY = 0.015f; // vertical inset from top/bottom edge
 
     // Crosshair — always visible when nudge mode is active, regardless of overlay state.
-    // Drawn as two thin quads forming a + shape centred on screen.
+    // A tiny center gap keeps the target visible instead of covering it.
     if ( m_camera.isNudgeMode )
     {
-        const float cArm = 0.025f;                                                   // half-length of each crosshair arm
-        const float cHalf = 0.001f;                                                  // half-thickness of each arm
-        Text2d::Render2dQuad( -cArm, -cHalf, cArm, cHalf, 1.0f, 1.0f, 1.0f, 0.85f ); // horizontal
-        Text2d::Render2dQuad( -cHalf, -cArm, cHalf, cArm, 1.0f, 1.0f, 1.0f, 0.85f ); // vertical
+        const float cArm = 0.020f;
+        const float cGap = 0.004f;
+        const float cHalf = 0.00045f;
+        const float cShadowHalf = 0.00080f;
+        Text2d::Render2dQuad( -cArm, -cShadowHalf, -cGap, cShadowHalf, 0.0f, 0.0f, 0.0f, 0.40f );
+        Text2d::Render2dQuad( cGap, -cShadowHalf, cArm, cShadowHalf, 0.0f, 0.0f, 0.0f, 0.40f );
+        Text2d::Render2dQuad( -cShadowHalf, -cArm, cShadowHalf, -cGap, 0.0f, 0.0f, 0.0f, 0.40f );
+        Text2d::Render2dQuad( -cShadowHalf, cGap, cShadowHalf, cArm, 0.0f, 0.0f, 0.0f, 0.40f );
+        Text2d::Render2dQuad( -cArm, -cHalf, -cGap, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
+        Text2d::Render2dQuad( cGap, -cHalf, cArm, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
+        Text2d::Render2dQuad( -cHalf, -cArm, cHalf, -cGap, 0.80f, 0.96f, 1.0f, 0.88f );
+        Text2d::Render2dQuad( -cHalf, cGap, cHalf, cArm, 0.80f, 0.96f, 1.0f, 0.88f );
 #ifdef _DEBUG
         if ( m_debug.reproSnapshotMessage[0] != '\0' &&
              m_timers.simulationTimer.GetTimeSinceLastStart() <= m_debug.reproSnapshotMessageUntil )
@@ -2582,6 +2707,17 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         UIData.worldFluidHeight = m_cWorldEnvironment.GetFluidSurfaceHeight();
         UIData.worldFluidDensity = m_cWorldEnvironment.GetFluidDensity();
         UIData.physicsDebugFlags = m_debug.physicsDebugFlags;
+        {
+            const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
+            int stageIndex = stageCount > 0 ? m_debug.physicsDebugPipelineStageCursor % stageCount : 0;
+            if ( stageIndex < 0 )
+            {
+                stageIndex += stageCount;
+            }
+            UIData.physicsPipelineStageName = PhysicsPipelineStageName( static_cast<PhysicsPipelineStage>( stageIndex ) );
+            UIData.physicsPipelineStageIndex = stageIndex;
+            UIData.physicsPipelineStageCount = stageCount;
+        }
         UIData.physicsDebugAlpha = m_debug.physicsDebugAlpha;
         UIData.physicsDebugContactLinger = m_debug.physicsDebugContactLinger;
         UIData.physicsSleepEnabled = m_runtimeSettings.isPhysicsSleepEnabled;
@@ -2594,7 +2730,8 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         UIData.waterHidden = m_debug.isWaterHidden;
         UIData.waterNoReflect = m_debug.isWaterNoReflect;
         UIData.waterRTReflect = m_debug.isWaterRTReflect;
-        UIData.cameraMouseActive = m_camera.isFlyMode && !m_UI.BlocksCameraMouse();
+        UIData.nativeCursorVisible = m_camera.isFlyMode && m_UI.WantsNativeMouseCursor();
+        UIData.cameraMouseActive = m_camera.isFlyMode && !m_UI.BlocksCameraMouse() && !UIData.nativeCursorVisible;
         UIData.canSaveSceneDefaults = m_scene.isSceneMode &&
                                       m_scene.currentSceneIndex >= 0 &&
                                       m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() ) &&
@@ -2692,7 +2829,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 
         // Title left-aligned inside panel
         const float titleY = panY1 - panPad - titleSz;
-        Text2d::Render2dTextColor( panX0 + panPad, titleY, titleSz, 1.0f, 0.85f, 0.35f, "KEYBOARD REFERENCE" );
+        Text2d::Render2dTextColor( panX0 + panPad, titleY, titleSz, 1.0f, 0.85f, 0.35f, "CONTROL REFERENCE" );
 
         // Column X positions
         const float col1Key = panX0 + panPad;
@@ -2713,8 +2850,8 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "WASD", "Move camera" },
             { "Mouse", "Look" },
             { "Shift", "Sprint (3x speed)" },
-            { "Z", "Fire ball" },
-            { "X", "Fire box" },
+            { "LMB", "Fire silver bullet" },
+            { "Shift+LMB", "Fast bullet" },
             { "Q", "Cycle renderer" },
             { "V", "Collision visual" },
             { "Space", "Step physics" },
@@ -2898,11 +3035,7 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
             m_systems.cameras->MovePrimary( Camera::TravelDirection::Right, keyMovementQty * speedMult );
         }
 
-        // Capture movement buffer before Apply zeroes it — used for model nudge below
-        const Vector3 moveVec = m_systems.cameras->GetPrimaryMovementBuffer();
         m_systems.cameras->ApplyPrimaryMovementBuffer();
-
-        NudgeModelsWithCamera( moveVec );
     }
 
     // Clamp camera Y between m_terrain surface and Cfg().maxCameraHeight (not in fly mode, not in scene mode)
@@ -2917,61 +3050,6 @@ void SkullbonezRun::MoveCamera( float keyMovementQty, float mouseMovementQty )
         else if ( translatedCameraPosition.y > Cfg().maxCameraHeight )
         {
             m_systems.cameras->AmmendPrimaryY( Cfg().maxCameraHeight );
-        }
-    }
-}
-
-
-void SkullbonezRun::NudgeModelsWithCamera( const Vector3& moveVec )
-{
-    float magSq = VectorMagSquared( moveVec );
-    if ( magSq < 1e-8f )
-    {
-        return;
-    }
-
-    // Nudge reach: camera "body" radius added to the model's bounding radius for the overlap test.
-    static constexpr float CAMERA_NUDGE_RADIUS = 15.0f;
-
-    // Camera speed this frame (same formula as MoveCamera: keySpeed * speedMult)
-    float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;
-    float nudgeSpeed = Cfg().keySpeed * speedMult;
-
-    // Direction the camera is moving
-    Vector3 nudgeDir = moveVec * ( 1.0f / sqrtf( magSq ) );
-
-    const Vector3& camPos = m_systems.cameras->GetCameraTranslation();
-
-    int count = m_cGameModelCollection.GetModelCount();
-    for ( int i = 0; i < count; ++i )
-    {
-        GameModel& model = m_cGameModelCollection.GetModelAtIndex( i );
-        if ( model.IsFixed() )
-        {
-            continue;
-        }
-        Vector3 toModel = model.GetPosition() - camPos;
-
-        // Only push models that are in the direction we're moving — no pulling things behind us
-        if ( ( toModel * nudgeDir ) <= 0.0f )
-        {
-            continue;
-        }
-
-        float distSq = VectorMagSquared( toModel );
-        float reach = model.GetBoundingRadius() + CAMERA_NUDGE_RADIUS;
-        if ( distSq > reach * reach )
-        {
-            continue;
-        }
-
-        // Bring the ball's velocity component along the nudge direction up to camera speed.
-        // Guard prevents the formula from becoming subtractive and braking the ball.
-        const Vector3& vel = model.GetVelocity();
-        float currentComponent = vel * nudgeDir;
-        if ( currentComponent < nudgeSpeed )
-        {
-            model.SetLinearVelocity( vel + nudgeDir * ( nudgeSpeed - currentComponent ) );
         }
     }
 }
@@ -3330,69 +3408,95 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
 #endif
 
 
-void SkullbonezRun::FireProjectile( bool isBox )
+void SkullbonezRun::ResetProjectilePool()
 {
-    int count = m_cGameModelCollection.GetModelCount();
-    if ( count == 0 )
+    m_fire.bulletIndices.fill( -1 );
+    m_fire.bulletNext = 0;
+    m_fire.bulletPoolReady = false;
+}
+
+
+bool SkullbonezRun::EnsureProjectilePool()
+{
+    if ( m_fire.bulletPoolReady )
+    {
+        return true;
+    }
+
+    if ( m_cGameModelCollection.GetModelCount() > MAX_GAME_MODELS - RUNTIME_PROJECTILE_POOL_SIZE )
+    {
+        return false;
+    }
+
+    m_fire.bulletIndices.fill( -1 );
+    for ( int i = 0; i < RUNTIME_PROJECTILE_POOL_SIZE; ++i )
+    {
+        const float parkOffset = static_cast<float>( i ) * ( CAMERA_PROJECTILE_RADIUS * 4.0f );
+        GameModel bullet( &m_cWorldEnvironment,
+                          Vector3( CAMERA_PROJECTILE_PARK_BASE, CAMERA_PROJECTILE_PARK_BASE - parkOffset, CAMERA_PROJECTILE_PARK_BASE ),
+                          Vector3( CAMERA_PROJECTILE_MOMENT, CAMERA_PROJECTILE_MOMENT, CAMERA_PROJECTILE_MOMENT ),
+                          CAMERA_PROJECTILE_MASS );
+        bullet.SetTerrain( m_systems.terrain.get() );
+        bullet.SetCoefficientRestitution( CAMERA_PROJECTILE_RESTITUTION );
+        bullet.AddBoundingSphere( CAMERA_PROJECTILE_RADIUS );
+        bullet.SetRenderTint( CAMERA_PROJECTILE_SILVER_R, CAMERA_PROJECTILE_SILVER_G, CAMERA_PROJECTILE_SILVER_B, 1.0f );
+        bullet.SetFixed( true );
+
+        char name[64];
+        sprintf_s( name, sizeof( name ), "silver_bullet_%02d", i );
+        bullet.SetName( name );
+
+        const int bulletIndex = m_cGameModelCollection.GetModelCount();
+        m_cGameModelCollection.AddGameModel( std::move( bullet ) );
+        m_fire.bulletIndices[i] = bulletIndex;
+    }
+
+    m_fire.bulletNext = 0;
+    m_fire.bulletPoolReady = true;
+    return true;
+}
+
+
+void SkullbonezRun::FireProjectile()
+{
+    if ( !EnsureProjectilePool() )
     {
         return;
     }
 
-    // Pick the next model of the right type by stepping backwards through the array.
-    // m_fire.ballNext / m_fire.boxNext remembers where we left off so rapid-fire
-    // successive shots use different objects instead of always grabbing the same one.
-    int& cycleIdx = isBox ? m_fire.boxNext : m_fire.ballNext;
-    if ( cycleIdx < 0 || cycleIdx >= count )
-    {
-        cycleIdx = count - 1;
-    }
+    const int slot = m_fire.bulletNext;
+    m_fire.bulletNext = ( m_fire.bulletNext + 1 ) % RUNTIME_PROJECTILE_POOL_SIZE;
 
-    int found = -1;
-    for ( int i = 0; i < count; ++i )
+    const int found = m_fire.bulletIndices[slot];
+    if ( found < 0 || found >= m_cGameModelCollection.GetModelCount() )
     {
-        int idx = ( ( cycleIdx - i ) % count + count ) % count;
-        GameModel& candidate = m_cGameModelCollection.GetModelAtIndex( idx );
-        if ( !candidate.IsFixed() && candidate.IsBox() == isBox )
-        {
-            found = idx;
-            cycleIdx = ( ( idx - 1 ) % count + count ) % count;
-            break;
-        }
-    }
-
-    if ( found < 0 )
-    {
-        return; // No models of the requested type in the scene
+        ResetProjectilePool();
+        return;
     }
 
     GameModel& model = m_cGameModelCollection.GetModelAtIndex( found );
 
-    // Camera forward direction (normalised look vector)
     const Vector3& camPos = m_systems.cameras->GetCameraTranslation();
     const Vector3& camView = m_systems.cameras->GetCameraView();
     Vector3 forward = camView - camPos;
-    float lenSq = forward * forward;
+    const float lenSq = forward * forward;
     if ( lenSq < 1e-8f )
     {
         return;
     }
     forward = forward * ( 1.0f / sqrtf( lenSq ) );
 
-    // Spawn just ahead of the camera, clear of the model's bounding radius
-    float clearance = model.GetBoundingRadius() * 2.0f + 2.0f;
-    Vector3 spawnPos = camPos + forward * clearance;
+    const Vector3 spawnPos = camPos + forward * CAMERA_PROJECTILE_SPAWN_CLEARANCE;
 
-    // Speed matches camera walk speed; Shift gives the 3× sprint multiplier
-    float speedMult = Input::IsKeyDown( VK_SHIFT ) ? 3.0f : 1.0f;
-    float fireSpeed = Cfg().keySpeed * speedMult;
+    const float speedMult = Input::IsKeyDown( VK_SHIFT ) ? CAMERA_PROJECTILE_SHIFT_MULTIPLIER : 1.0f;
+    const float fireSpeed = CAMERA_PROJECTILE_SPEED * speedMult;
 
-    // Wake the recycled model before repositioning it — a settled model's sleep state
-    // must be cleared or RunSolverPhysics will skip gravity/integration and it hangs in air.
+    model.SetFixed( false );
     m_cGameModelCollection.WakeModel( found );
-
     model.SetPosition( spawnPos );
     model.SetLinearVelocity( forward * fireSpeed );
     model.SetAngularVelocity( Vector3( 0.0f, 0.0f, 0.0f ) );
+    model.SetRenderTint( CAMERA_PROJECTILE_SILVER_R, CAMERA_PROJECTILE_SILVER_G, CAMERA_PROJECTILE_SILVER_B, 1.0f );
 }
 
 
@@ -3626,8 +3730,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     // Reset input and debug state
     m_camera.isFlyMode = false;
     m_camera.isNudgeMode = false;
-    m_fire.ballNext = -1;
-    m_fire.boxNext = -1;
+    ResetProjectilePool();
     m_debug.isWaterFreezeDebug = false;
     m_debug.isWaterNoReflect = false;
     m_debug.isWaterRTReflect = false;
@@ -3640,6 +3743,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     m_debug.isPhysicsDebugTransparent = false;
     m_debug.physicsDebugAlpha = 0.28f;
     m_debug.physicsDebugContactLinger = 0.45f;
+    m_debug.physicsDebugPipelineStageCursor = 0;
     m_physicsDebugVisualizer.SetFlags( PHYSICS_DEBUG_NONE );
 #ifdef _DEBUG
     m_debug.reproSnapshotMessage[0] = '\0';
@@ -3896,6 +4000,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         // Physics regression log: current-solver per-frame CSV enabled only by command line.
 #ifdef _DEBUG
         m_cGameModelCollection.SetPhysicsRegressionLogPath( m_perfLogState.physicsRegressionLogOverride );
+        m_cGameModelCollection.SetPhysicsCollisionTimeLogPath( m_perfLogState.physicsCollisionTimeLogOverride );
 #endif
 
         // Override RNG seed for deterministic scenes. CLI --seed wins so a nudge snapshot can
@@ -4284,6 +4389,7 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
     SetSceneDirective( lines, "physics_debug_axes", std::string( "physics_debug_axes " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0 ), true );
     SetSceneDirective( lines, "physics_debug_contacts", std::string( "physics_debug_contacts " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0 ), true );
     SetSceneDirective( lines, "physics_debug_sleep", std::string( "physics_debug_sleep " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0 ), true );
+    SetSceneDirective( lines, "physics_debug_pipeline", std::string( "physics_debug_pipeline " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0 ), true );
     SetSceneDirective( lines, "physics_debug_transparent", std::string( "physics_debug_transparent " ) + OnOff( m_debug.isPhysicsDebugTransparent ), true );
     snprintf( buf, sizeof( buf ), "physics_debug_alpha %.2f", m_debug.physicsDebugAlpha );
     SetSceneDirective( lines, "physics_debug_alpha", buf, true );
@@ -4506,8 +4612,7 @@ void SkullbonezRun::ApplyUIModelCountOverride( int count )
     }
 
     m_cGameModelCollection.Clear();
-    m_fire.ballNext = -1;
-    m_fire.boxNext = -1;
+    ResetProjectilePool();
     m_timers.physicsAccumulator = 0.0f;
     m_timers.fixedStepTickAccumulator = 0.0f;
     m_scene.currentFrame = 0;
@@ -4549,8 +4654,7 @@ void SkullbonezRun::ApplyUISolverObjectCounts( int balls, int boxes )
     }
 
     m_cGameModelCollection.Clear();
-    m_fire.ballNext = -1;
-    m_fire.boxNext = -1;
+    ResetProjectilePool();
     m_timers.physicsAccumulator = 0.0f;
     m_timers.fixedStepTickAccumulator = 0.0f;
     m_scene.currentFrame = 0;

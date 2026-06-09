@@ -1,0 +1,2 @@
+frame,type,bodyA,bodyB,nameA,nameB,collisionTime,availableTime
+0,terrain,0,-1,bullet_terrain,terrain,0.008167,0.008333
