@@ -243,6 +243,50 @@ void SkullbonezConfig::Load( const char* path )
         {
             broadphaseCell = static_cast<float>( atof( v ) );
         }
+        else if ( strcmp( k, "persistent_contact_slop" ) == 0 )
+        {
+            persistentContactSlop = static_cast<float>( atof( v ) );
+        }
+        else if ( strcmp( k, "persistent_contact_baumgarte_beta" ) == 0 )
+        {
+            persistentContactBaumgarteBeta = static_cast<float>( atof( v ) );
+        }
+        else if ( strcmp( k, "persistent_contact_position_correction_percent" ) == 0 )
+        {
+            persistentContactPositionCorrectionPercent = static_cast<float>( atof( v ) );
+        }
+        else if ( strcmp( k, "persistent_contact_solver_iterations" ) == 0 )
+        {
+            persistentContactSolverIterations = atoi( v );
+        }
+        else if ( strcmp( k, "terrain_contact_threshold" ) == 0 )
+        {
+            terrainContactThreshold = static_cast<float>( atof( v ) );
+        }
+        else if ( strcmp( k, "terrain_contact_slop" ) == 0 )
+        {
+            terrainContactSlop = static_cast<float>( atof( v ) );
+        }
+        else if ( strcmp( k, "terrain_contact_baumgarte_beta" ) == 0 )
+        {
+            terrainContactBaumgarteBeta = static_cast<float>( atof( v ) );
+        }
+        else if ( strcmp( k, "terrain_max_baumgarte_bias" ) == 0 )
+        {
+            terrainMaxBaumgarteBias = static_cast<float>( atof( v ) );
+        }
+        else if ( strcmp( k, "physics_sleep_linear_speed" ) == 0 )
+        {
+            physicsSleepLinearSpeed = static_cast<float>( atof( v ) );
+        }
+        else if ( strcmp( k, "physics_sleep_angular_speed" ) == 0 )
+        {
+            physicsSleepAngularSpeed = static_cast<float>( atof( v ) );
+        }
+        else if ( strcmp( k, "physics_sleep_frames" ) == 0 )
+        {
+            physicsSleepFrames = atoi( v );
+        }
 
         // Shadows
         else if ( strcmp( k, "shadow_max_height" ) == 0 )

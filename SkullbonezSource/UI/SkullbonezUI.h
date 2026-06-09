@@ -72,6 +72,7 @@ struct InGameUIFrameData
     uint32_t physicsDebugFlags = 0;
     float physicsDebugAlpha = 0.0f;
     float physicsDebugContactLinger = 0.0f;
+    bool physicsSleepEnabled = true;
     bool collisionVisualizer = false;
     bool physicsDebugTransparent = false;
     bool broadphaseOverlay = false;
@@ -93,6 +94,7 @@ struct InGameUIInputResult
     bool userInteracted = false;
     bool toggleVsync = false;
     bool toggleCollisionVisualizer = false;
+    bool togglePhysicsSleepPolicy = false;
     bool togglePhysicsDebugTransparent = false;
     bool toggleBroadphaseOverlay = false;
     bool toggleTextOnly = false;
@@ -175,7 +177,7 @@ class InGameUI
     UICheckBox m_vsyncToggle;
     UICheckBox m_timelineToggle;
     UICheckBox m_histogramToggle;
-    UICheckBox m_physicsToggles[6];
+    UICheckBox m_physicsToggles[7];
     UICheckBox m_optionToggles[5];
     UISlider m_timeScaleSlider;
     UISlider m_modelCountSlider;

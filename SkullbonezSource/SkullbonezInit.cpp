@@ -304,6 +304,7 @@ struct ParsedArgs
     bool fixedStep = false;
     unsigned int seedOverride = 0; // 0 = not set
     bool noWater = false;
+    bool noSleep = false;
     int frameCountOverride = -1;
     bool uiStress = false;
     unsigned int uiStressSeed = 0x7F4A7C15u;
@@ -909,6 +910,11 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
     {
         fprintf( stdout, "[water] Fluid surface starts below terrain.\n" );
     }
+    out.noSleep = cmdLine && strstr( cmdLine, "--no-sleep" ) != nullptr;
+    if ( out.noSleep )
+    {
+        fprintf( stdout, "[physics] Sleep disabled via command line.\n" );
+    }
 
     const char* framesArg = FindOptionValue( cmdLine, "--frames" );
     if ( framesArg )
@@ -1066,6 +1072,10 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         if ( args.noWater )
         {
             cRun.SetNoWaterOverride();
+        }
+        if ( args.noSleep )
+        {
+            cRun.SetNoSleepOverride();
         }
         if ( args.frameCountOverride > 0 )
         {

@@ -16,7 +16,7 @@ import sys
 import time
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 DEFAULT_LIMIT = 50
 SUMMARY_LIMIT = 20
 BODY_SAMPLE_LIMIT = 120
@@ -276,6 +276,21 @@ def create_schema(conn):
             primary key(run_id, frame)
         );
 
+        create table solver_stats(
+            run_id text not null,
+            frame integer not null,
+            row_count integer,
+            cache_previous_rows integer,
+            cache_hits integer,
+            cache_misses integer,
+            warm_started_rows integer,
+            position_correction_rows integer,
+            position_correction_total real,
+            position_correction_max real,
+            solver_iterations integer,
+            primary key(run_id, frame)
+        );
+
         create table events(
             run_id text not null,
             event_id text not null,
@@ -309,6 +324,7 @@ def create_indexes(conn):
         create index idx_islands_frame on islands(run_id, frame);
         create index idx_members_body_frame on island_members(run_id, body_id, frame);
         create index idx_support_edges_frame on support_edges(run_id, frame);
+        create index idx_solver_stats_frame on solver_stats(run_id, frame);
         """
     )
 
@@ -419,6 +435,7 @@ def import_trace(conn, trace_path):
         "island_member": 0,
         "support_edge": 0,
         "broadphase": 0,
+        "solver_stats": 0,
         "event": 0,
         "end": 0,
         "unknown": 0,
@@ -452,6 +469,8 @@ def import_trace(conn, trace_path):
                 insert_support_edge(conn, item)
             elif kind == "broadphase":
                 insert_broadphase(conn, item)
+            elif kind == "solver_stats":
+                insert_solver_stats(conn, item)
             elif kind == "event":
                 insert_event(conn, item)
             elif kind == "end":
@@ -696,6 +715,32 @@ def insert_broadphase(conn, item):
             as_int(item.get("active_cells")),
             as_int(item.get("max_cell_occupancy")),
             as_int(item.get("collision_cell_count")),
+        ),
+    )
+
+
+def insert_solver_stats(conn, item):
+    conn.execute(
+        """
+        insert or replace into solver_stats(
+            run_id, frame, row_count, cache_previous_rows, cache_hits, cache_misses,
+            warm_started_rows, position_correction_rows, position_correction_total,
+            position_correction_max, solver_iterations
+        )
+        values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            item.get("run"),
+            as_int(item.get("frame")),
+            as_int(item.get("row_count")),
+            as_int(item.get("cache_previous_rows")),
+            as_int(item.get("cache_hits")),
+            as_int(item.get("cache_misses")),
+            as_int(item.get("warm_started_rows")),
+            as_int(item.get("position_correction_rows")),
+            as_float(item.get("position_correction_total")),
+            as_float(item.get("position_correction_max")),
+            as_int(item.get("solver_iterations")),
         ),
     )
 
@@ -1393,6 +1438,64 @@ def query_broadphase(conn, cache, args):
     }
 
 
+def query_solver(conn, cache, args):
+    run_id = resolve_run_id(conn, args)
+    where = ["run_id=?"]
+    params = [run_id]
+    apply_frame_where(where, params, frame_range=args.frames)
+
+    rows = conn.execute(
+        f"""
+        select frame, row_count, cache_previous_rows, cache_hits, cache_misses,
+               warm_started_rows, position_correction_rows, position_correction_total,
+               position_correction_max, solver_iterations
+        from solver_stats
+        where {' and '.join(where)}
+        order by frame
+        """,
+        params,
+    ).fetchall()
+    stats_row = conn.execute(
+        f"""
+        select count(*) as sample_count, min(frame) as first_frame, max(frame) as last_frame,
+               max(row_count) as max_contact_rows, avg(row_count) as avg_contact_rows,
+               sum(row_count) as total_contact_rows,
+               sum(cache_previous_rows) as cache_previous_rows,
+               sum(cache_hits) as cache_hits, sum(cache_misses) as cache_misses,
+               sum(warm_started_rows) as warm_started_rows,
+               sum(position_correction_rows) as position_correction_rows,
+               sum(position_correction_total) as position_correction_total,
+               max(position_correction_max) as position_correction_max,
+               max(solver_iterations) as max_solver_iterations,
+               avg(solver_iterations) as avg_solver_iterations
+        from solver_stats
+        where {' and '.join(where)}
+        """,
+        params,
+    ).fetchone()
+    stats = row_to_dict(stats_row)
+    if stats is None:
+        stats = {}
+    cache_hits = stats.get("cache_hits") or 0
+    cache_misses = stats.get("cache_misses") or 0
+    total_lookups = cache_hits + cache_misses
+    total_contact_rows = stats.get("total_contact_rows") or 0
+    correction_rows = stats.get("position_correction_rows") or 0
+    warm_started_rows = stats.get("warm_started_rows") or 0
+    stats["cache_hit_rate"] = (cache_hits / total_lookups) if total_lookups else None
+    stats["warm_start_rate"] = (warm_started_rows / total_contact_rows) if total_contact_rows else None
+    stats["position_correction_row_rate"] = (correction_rows / total_contact_rows) if total_contact_rows else None
+
+    return {
+        "cache": cache,
+        "run": run_id,
+        "stats": stats,
+        "timeline": rows_to_dicts(sample_rows(rows, args.limit or DEFAULT_LIMIT)),
+        "note": None if rows else "Dedicated solver_stats rows are not present for this trace yet.",
+        "relatedQueries": ["contacts --top impulse", "contacts --top penetration", "frame <frame>"],
+    }
+
+
 def query_water(conn, cache, args):
     return {
         "cache": cache,
@@ -1628,6 +1731,11 @@ def build_parser():
     add_common(broadphase)
     broadphase.add_argument("--frames", default=None)
     broadphase.set_defaults(func=query_broadphase)
+
+    solver = sub.add_parser("solver", help="Persistent contact solver cache/projection diagnostics.")
+    add_common(solver)
+    solver.add_argument("--frames", default=None)
+    solver.set_defaults(func=query_solver)
 
     water = sub.add_parser("water", help="Water/buoyancy diagnostics.")
     add_common(water)

@@ -105,6 +105,7 @@ tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson stacks --frames 500:650
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson energy --frames 0:1000
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson rolling --frames 300:700
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson broadphase --frames 0:1000
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson solver --frames 0:1000
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson questions
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson questions why_not_resting
 ```
@@ -210,6 +211,14 @@ Follow up:
 ```bat
 tools\physics_query.bat Debug\scene.physicsdiag.ndjson contacts --frame <frame> --top impulse
 tools\physics_query.bat Debug\scene.physicsdiag.ndjson body <body> --frames <start>:<end>
+```
+
+### Is the Catto solver cache/projection healthy?
+
+```bat
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson solver --frames 0:1000
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson contacts --top impulse --limit 20
+tools\physics_query.bat Debug\scene.physicsdiag.ndjson contacts --top penetration --limit 20
 ```
 
 ### Which bodies are moving fastest?

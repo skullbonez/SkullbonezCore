@@ -21,6 +21,8 @@ PERF = [
     ("gl_perf.json", "gl_perf.json"),
     ("dx11_perf.json", "dx11_perf.json"),
     ("dx12_perf.json", "dx12_perf.json"),
+    ("physics_bench_perf.json", "physics_bench_perf.json"),
+    ("physics_bench_no_sleep_perf.json", "physics_bench_no_sleep_perf.json"),
 ]
 
 

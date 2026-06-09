@@ -65,8 +65,12 @@ FILE* SkullbonezLog::OpenLog( const char* fileName )
     auto it = m_logs.find( fileName );
     if ( it == m_logs.end() )
     {
+        // Open debug logs in binary mode so '\n' is written exactly as LF on
+        // Windows. Physics regression CSVs are intended to be byte-exact
+        // validation artifacts; text mode silently expands '\n' to CRLF and can
+        // make data-identical files differ at the byte level.
         EnsureParentDirectory( fileName );
-        fopen_s( &f, fileName, "w" );
+        fopen_s( &f, fileName, "wb" );
         if ( f )
         {
             m_logs[fileName] = f;

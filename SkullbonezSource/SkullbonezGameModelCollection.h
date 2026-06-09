@@ -68,6 +68,12 @@ class GameModelCollection
     std::vector<int> m_sleepIslandVisualId;         // Stable visual island id while a body remains asleep
     std::vector<int> m_sleepIslandAssignedVisualId; // Scratch buffer: island root to visual id while transitioning to sleep
     int m_nextSleepIslandVisualId = 1;
+
+    // Runtime switch for the engine's sleep policy. Disabling sleep does not
+    // remove Catto contact solving; it keeps every movable body awake so
+    // diagnostics and perf runs can compare solver cost with and without the
+    // sleep system masking settled contacts.
+    bool m_sleepEnabled = true;
     bool m_collisionVisualFrameActive = false;
 
     // Directed support edges record only the direction of possible vertical
@@ -125,6 +131,24 @@ class GameModelCollection
         float accT2 = 0.0f;
     };
 
+    struct PersistentContactSolverStats
+    {
+        // Compact per-frame counters emitted to SkullScope. These are deliberately
+        // integer/float summaries rather than full row dumps so query output stays
+        // cheap for agents while still exposing the health of Catto temporal
+        // coherence: cache reuse, warm start rate, row count, solver iteration
+        // usage, and positional cleanup magnitude.
+        int rowCount = 0;
+        int cachePreviousRows = 0;
+        int cacheHits = 0;
+        int cacheMisses = 0;
+        int warmStartedRows = 0;
+        int positionCorrectionRows = 0;
+        int solverIterations = 0;
+        float positionCorrectionTotal = 0.0f;
+        float positionCorrectionMax = 0.0f;
+    };
+
     // Compact per-step solver body state.  Contact iteration mutates this array
     // and writes back to GameModel once, matching Catto's sparse body/row shape.
     struct SolverBodyState
@@ -138,6 +162,7 @@ class GameModelCollection
     };
     std::vector<PersistentContact> m_persistentContacts;               // Catto-style contact rows retained across frames
     std::vector<PersistentContactCacheEntry> m_persistentContactCache; // Previous-frame contact impulses for warm starting
+    PersistentContactSolverStats m_persistentContactSolverStats;       // Compact SkullScope counters for the Catto-style solver
     std::vector<uint16_t> m_persistentContactCounts;                   // Per-body contact count for mc*g friction bounds
     std::vector<SolverBodyState> m_solverBodies;                       // Per-step compact velocity/inertia state for persistent contact solving
     std::vector<Physics::PhysicsDebugContact> m_physicsDebugContacts;  // Last solver contact rows for visual debugging
@@ -191,7 +216,13 @@ class GameModelCollection
     GameModel& GetModelAtIndex( int index );                                                                                                                                               // Returns a reference to the game model at the given index
     double GetSceneKineticEnergy();                                                                                                                                                        // Returns active linear + angular kinetic energy for movable models
 
-    void WakeModel( int index );      // Force a model awake (clears sleep state/counter); call before teleporting/firing a recycled model
+    void WakeModel( int index ); // Force a model awake (clears sleep state/counter); call before teleporting/firing a recycled model
+
+    // Toggle only the sleep policy layer. Collision detection and Catto contact
+    // solving still run normally when this is false; the difference is that
+    // movable bodies cannot transition into the frozen sleep state. That makes
+    // --no-sleep useful for isolating solver behavior from sleep optimization.
+    void SetPhysicsSleepEnabled( bool enabled );
     void BeginCollisionVisualFrame(); // Clears per-render-frame contact flags before one or more physics substeps
     void EndCollisionVisualFrame();   // Ends contact accumulation for standalone physics callers
 

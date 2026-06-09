@@ -15,6 +15,7 @@ This file holds details that are useful during debugging or manual testing but t
 | `--fixed-step` | flag | Run one deterministic physics tick per rendered frame. |
 | `--seed` | positive integer | Override the RNG seed for every loaded scene, including generated demo mode. Useful with nudge repro snapshots. |
 | `--no-water` | flag | Start the fluid surface below the active terrain. Page Up can raise it during runtime. |
+| `--no-sleep` | flag | Keep movable physics bodies awake for solver diagnostics and sleep/no-sleep performance comparisons. |
 | `--profiler` | flag | Start with the timer/profiler HUD visible. Alias: `--show-profiler`. |
 | `--hide-top-text` | flag | Hide the always-on top HUD rows while leaving profiler/key overlays available. Alias: `--no-top-text`. |
 | `--broadphase-visualizer` | flag | Start with the broadphase spatial grid visualizer enabled. Alias: `--broadphase-overlay`. |

@@ -1,0 +1,377 @@
+{
+  "schema_version": 2,
+  "commit": "14795e0",
+  "renderer": "physics_bench",
+  "machine": {
+    "cpu": "AMD64 Family 23 Model 49 Stepping 0, AuthenticAMD",
+    "cores": 64,
+    "ram_gb": 0.0,
+    "os": "10.0.26200"
+  },
+  "total_frames": 2370,
+  "markers": {
+    "Frame": {
+      "min": 0.2697,
+      "max": 6.4087,
+      "avg": 0.405,
+      "p50": 0.3509,
+      "p99": 1.1667,
+      "p99_9": 2.3573
+    },
+    "Frame/Input": {
+      "min": 0.014,
+      "max": 1.9697,
+      "avg": 0.0295,
+      "p50": 0.0148,
+      "p99": 0.4243,
+      "p99_9": 0.9214
+    },
+    "Frame/Physics": {
+      "min": 0.0328,
+      "max": 0.2435,
+      "avg": 0.092,
+      "p50": 0.093,
+      "p99": 0.1398,
+      "p99_9": 0.1902
+    },
+    "Frame/SoA/RefreshBodyData": {
+      "min": 0.0005,
+      "max": 0.0035,
+      "avg": 0.0007,
+      "p50": 0.0006,
+      "p99": 0.0022,
+      "p99_9": 0.0033
+    },
+    "Frame/Physics/ApplyForces": {
+      "min": 0.0013,
+      "max": 0.0172,
+      "avg": 0.0027,
+      "p50": 0.0025,
+      "p99": 0.0073,
+      "p99_9": 0.0089
+    },
+    "Frame/Physics/Broadphase": {
+      "min": 0.0016,
+      "max": 0.0776,
+      "avg": 0.0031,
+      "p50": 0.0027,
+      "p99": 0.0078,
+      "p99_9": 0.0117
+    },
+    "Frame/Physics/Broadphase/PruneSleepPairs": {
+      "min": 0.0,
+      "max": 0.0007,
+      "avg": 0.0003,
+      "p50": 0.0003,
+      "p99": 0.0005,
+      "p99_9": 0.0006
+    },
+    "Frame/Physics/Narrowphase": {
+      "min": 0.0066,
+      "max": 0.1213,
+      "avg": 0.0158,
+      "p50": 0.0142,
+      "p99": 0.0312,
+      "p99_9": 0.0364
+    },
+    "Frame/Physics/Narrowphase/Impulse": {
+      "min": 0.0,
+      "max": 0.0102,
+      "avg": 0.0002,
+      "p50": 0.0001,
+      "p99": 0.0006,
+      "p99_9": 0.0015
+    },
+    "Frame/Physics/Terrain": {
+      "min": 0.0087,
+      "max": 0.1075,
+      "avg": 0.0326,
+      "p50": 0.0314,
+      "p99": 0.0549,
+      "p99_9": 0.0643
+    },
+    "Frame/Physics/Terrain/BoxClosestVertexProbe": {
+      "min": 0.003,
+      "max": 0.0185,
+      "avg": 0.0066,
+      "p50": 0.0066,
+      "p99": 0.0098,
+      "p99_9": 0.0142
+    },
+    "Frame/Physics/Terrain/BoxSweptVertexProbe": {
+      "min": 0.0006,
+      "max": 0.0801,
+      "avg": 0.0024,
+      "p50": 0.0023,
+      "p99": 0.004,
+      "p99_9": 0.0049
+    },
+    "Frame/Physics/Narrowphase/PersistentContacts": {
+      "min": 0.0034,
+      "max": 0.1826,
+      "avg": 0.0306,
+      "p50": 0.0329,
+      "p99": 0.0482,
+      "p99_9": 0.1103
+    },
+    "Frame/Physics/Narrowphase/PersistentContacts/BodySetup": {
+      "min": 0.0007,
+      "max": 0.0041,
+      "avg": 0.0009,
+      "p50": 0.0009,
+      "p99": 0.0014,
+      "p99_9": 0.0019
+    },
+    "Frame/Physics/Narrowphase/PersistentContacts/BuildManifolds": {
+      "min": 0.0022,
+      "max": 0.0332,
+      "avg": 0.0103,
+      "p50": 0.0109,
+      "p99": 0.0152,
+      "p99_9": 0.0188
+    },
+    "Frame/Physics/Integrate": {
+      "min": 0.0028,
+      "max": 0.0186,
+      "avg": 0.0055,
+      "p50": 0.0053,
+      "p99": 0.0091,
+      "p99_9": 0.0177
+    },
+    "Frame/Render": {
+      "min": 0.082,
+      "max": 0.5957,
+      "avg": 0.0987,
+      "p50": 0.0878,
+      "p99": 0.226,
+      "p99_9": 0.283
+    },
+    "Frame/Render_gpu": {
+      "min": 0.1167,
+      "max": 0.3779,
+      "avg": 0.1235,
+      "p50": 0.1229,
+      "p99": 0.1311,
+      "p99_9": 0.1375
+    },
+    "Frame/Render/PrepareModels": {
+      "min": 0.0017,
+      "max": 0.0183,
+      "avg": 0.0022,
+      "p50": 0.0018,
+      "p99": 0.0072,
+      "p99_9": 0.0094
+    },
+    "Frame/Render/Skybox": {
+      "min": 0.0095,
+      "max": 0.1314,
+      "avg": 0.0138,
+      "p50": 0.0116,
+      "p99": 0.041,
+      "p99_9": 0.0621
+    },
+    "Frame/Render/Skybox_gpu": {
+      "min": 0.001,
+      "max": 0.0143,
+      "avg": 0.0128,
+      "p50": 0.0133,
+      "p99": 0.0143,
+      "p99_9": 0.0143
+    },
+    "Frame/Render/Reflection": {
+      "min": 0.0377,
+      "max": 0.1671,
+      "avg": 0.0442,
+      "p50": 0.0402,
+      "p99": 0.0865,
+      "p99_9": 0.1257
+    },
+    "Frame/Render/Reflection_gpu": {
+      "min": 0.0645,
+      "max": 0.0727,
+      "avg": 0.0671,
+      "p50": 0.0666,
+      "p99": 0.0717,
+      "p99_9": 0.0727
+    },
+    "Frame/Render/Reflection/Skybox": {
+      "min": 0.0061,
+      "max": 0.1289,
+      "avg": 0.0069,
+      "p50": 0.0067,
+      "p99": 0.0112,
+      "p99_9": 0.0266
+    },
+    "Frame/Render/Reflection/Skybox_gpu": {
+      "min": 0.0348,
+      "max": 0.0471,
+      "avg": 0.0422,
+      "p50": 0.042,
+      "p99": 0.0461,
+      "p99_9": 0.0461
+    },
+    "Frame/Render/Reflection/Balls": {
+      "min": 0.013,
+      "max": 0.1323,
+      "avg": 0.0155,
+      "p50": 0.0139,
+      "p99": 0.0339,
+      "p99_9": 0.0485
+    },
+    "Frame/Render/Reflection/Balls_gpu": {
+      "min": 0.002,
+      "max": 0.0051,
+      "avg": 0.0037,
+      "p50": 0.0041,
+      "p99": 0.0051,
+      "p99_9": 0.0051
+    },
+    "Frame/Render/Balls": {
+      "min": 0.01,
+      "max": 0.0398,
+      "avg": 0.0112,
+      "p50": 0.0109,
+      "p99": 0.0184,
+      "p99_9": 0.029
+    },
+    "Frame/Render/Balls_gpu": {
+      "min": 0.0184,
+      "max": 0.2796,
+      "avg": 0.0205,
+      "p50": 0.0205,
+      "p99": 0.0218,
+      "p99_9": 0.0345
+    },
+    "Frame/Render/Terrain": {
+      "min": 0.0035,
+      "max": 0.1126,
+      "avg": 0.0045,
+      "p50": 0.004,
+      "p99": 0.0092,
+      "p99_9": 0.0583
+    },
+    "Frame/Render/Terrain_gpu": {
+      "min": 0.0123,
+      "max": 0.0256,
+      "avg": 0.0162,
+      "p50": 0.0164,
+      "p99": 0.0174,
+      "p99_9": 0.0184
+    },
+    "Frame/Render/Shadows": {
+      "min": 0.007,
+      "max": 0.0356,
+      "avg": 0.0082,
+      "p50": 0.0076,
+      "p99": 0.0149,
+      "p99_9": 0.0201
+    },
+    "Frame/Render/Shadows_gpu": {
+      "min": 0.0,
+      "max": 0.002,
+      "avg": 0.0008,
+      "p50": 0.001,
+      "p99": 0.001,
+      "p99_9": 0.0016
+    },
+    "Frame/Physics/Terrain/Impulse": {
+      "min": 0.0,
+      "max": 0.0507,
+      "avg": 0.021,
+      "p50": 0.0202,
+      "p99": 0.0395,
+      "p99_9": 0.0479
+    },
+    "Frame/Physics/Terrain/BoxVertexManifold": {
+      "min": 0.0,
+      "max": 0.0134,
+      "avg": 0.0018,
+      "p50": 0.0018,
+      "p99": 0.0029,
+      "p99_9": 0.0088
+    },
+    "Frame/Physics/Terrain/BoxSupportPolicy": {
+      "min": 0.0,
+      "max": 0.0188,
+      "avg": 0.0028,
+      "p50": 0.0028,
+      "p99": 0.0049,
+      "p99_9": 0.016
+    },
+    "Frame/Physics/Terrain/BoxSupportPolicyFaceAxes": {
+      "min": 0.0,
+      "max": 0.0009,
+      "avg": 0.0003,
+      "p50": 0.0003,
+      "p99": 0.0007,
+      "p99_9": 0.0008
+    },
+    "Frame/Physics/Terrain/BoxSupportPolicyVerts": {
+      "min": 0.0,
+      "max": 0.0172,
+      "avg": 0.0016,
+      "p50": 0.0016,
+      "p99": 0.003,
+      "p99_9": 0.0139
+    },
+    "Frame/Physics/Narrowphase/PersistentContacts/Precompute": {
+      "min": 0.0,
+      "max": 0.0089,
+      "avg": 0.0025,
+      "p50": 0.0026,
+      "p99": 0.0043,
+      "p99_9": 0.0062
+    },
+    "Frame/Physics/Narrowphase/PersistentContacts/SolveRows": {
+      "min": 0.0,
+      "max": 0.1569,
+      "avg": 0.015,
+      "p50": 0.0164,
+      "p99": 0.0261,
+      "p99_9": 0.0346
+    },
+    "Frame/Physics/Narrowphase/PersistentContacts/WriteBack": {
+      "min": 0.0,
+      "max": 0.0029,
+      "avg": 0.0002,
+      "p50": 0.0002,
+      "p99": 0.0004,
+      "p99_9": 0.0008
+    },
+    "Frame/Physics/Narrowphase/PersistentContacts/DebugContacts": {
+      "min": 0.0,
+      "max": 0.0013,
+      "avg": 0.0004,
+      "p50": 0.0004,
+      "p99": 0.0008,
+      "p99_9": 0.0011
+    },
+    "Frame/Physics/Narrowphase/PersistentContacts/PositionCorrection": {
+      "min": 0.0,
+      "max": 0.0007,
+      "avg": 0.0002,
+      "p50": 0.0002,
+      "p99": 0.0004,
+      "p99_9": 0.0005
+    },
+    "Frame/Physics/Narrowphase/PersistentContacts/CacheStore": {
+      "min": 0.0,
+      "max": 0.0042,
+      "avg": 0.0002,
+      "p50": 0.0002,
+      "p99": 0.0005,
+      "p99_9": 0.0007
+    },
+    "Frame/VsyncWait": {
+      "min": 0.0,
+      "max": 6.2043,
+      "avg": 0.1053,
+      "p50": 0.1376,
+      "p99": 0.536,
+      "p99_9": 1.2233
+    }
+  },
+  "mem_start_mb": 72.2,
+  "mem_restart_mb": 78.07,
+  "mem_end_mb": 78.07
+}
