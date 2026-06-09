@@ -63,11 +63,10 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | Esc | Quit |
 | F | Toggle fly mode. Freezes physics and camera auto-cycle. |
 | N | Toggle nudge mode. Free camera with live simulation. |
+| Left Click | In nudge mode, fire a pooled high-speed silver bullet from the camera. Shift increases speed. |
 | Enter | In nudge mode, write Debug-build repro data for the object under the crosshair to `Debug/nudge_repro_snapshots.txt`. |
 | Q | Cycle render backend: GL to DX11 to DX12 to GL. |
 | R | Reset or rerun the current scene/generated demo while preserving live controls. |
-| Z | Fire a pooled high-speed silver bullet from the camera. Shift increases speed. |
-| X | Fire a pooled high-speed silver bullet from the camera. Shift increases speed. |
 | F2 | Save a scene snapshot. |
 | F3 | Save a screenshot. |
 | 0 | Toggle profiler overlay. |

@@ -352,27 +352,6 @@ float GameModel::GetModelCollisionTime( GameModel& collisionTarget,
 }
 
 
-void GameModel::CollisionResponseGameModel( GameModel& responseTarget )
-{
-    // Deprecated object/object impulse bridge. RunSolverPhysics now clears
-    // swept object flags after candidate advancement and lets the persistent
-    // Catto rows own velocity response. This function remains only until any
-    // external/debug callers are audited.
-    // if there has been no collision, throw an exception!
-    if ( !responseTarget.m_isResponseRequired || !m_isResponseRequired )
-    {
-        throw std::runtime_error( "Cannot perform collision response when no collision has occured!  (GameModel::CollisionResponseGameModel)" );
-    }
-
-    // respond to the collision (velocity-only — m_position advancement handled by RunPhysics)
-    ImpulseSolver::RespondCollisionGameModels( *this, responseTarget );
-
-    // clear response flags so both models can participate in further collisions this frame
-    m_isResponseRequired = false;
-    responseTarget.m_isResponseRequired = false;
-}
-
-
 void GameModel::StaticOverlapResponseGameModel( GameModel& overlapTarget )
 {
     // ENGINE-SPECIFIC / NOVEL:

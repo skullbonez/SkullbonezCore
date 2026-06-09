@@ -551,6 +551,17 @@ void Profiler::FrameEnd()
     // Advance GPU write cursors for markers that recorded timestamps this frame
     AdvanceGpuWriteCursors();
 
+    static constexpr uint32_t kVsyncHash = HashStr( "Frame/VsyncWait" );
+    float vsyncMsThisFrame = 0.0f;
+    for ( int i = 0; i < m_markerCount; ++i )
+    {
+        if ( m_markers[i].hash == kVsyncHash )
+        {
+            vsyncMsThisFrame = static_cast<float>( m_markers[i].accumSecondsThisFrame * 1000.0 );
+            break;
+        }
+    }
+
     // Commit per-frame totals into ring buffer; compute p50 / p99
     // During warmup (m_warmupFrames > 0) we still update lastFrameMs for the live overlay
     // but skip ring buffer / min / max / percentile updates to exclude startup noise.
@@ -558,12 +569,21 @@ void Profiler::FrameEnd()
     for ( int i = 0; i < m_markerCount; ++i )
     {
         Marker& m = m_markers[i];
+        const bool isFrameMarker = m.hash == kFrameHash;
         float ms = static_cast<float>( m.accumSecondsThisFrame * 1000.0 );
+        if ( isFrameMarker )
+        {
+            ms = (std::max)( 0.0f, ms - vsyncMsThisFrame );
+        }
         m.lastFrameMs = ms;
         if ( m.spanWrittenThisFrame )
         {
             m.lastFrameStartMs = static_cast<float>( m.firstStartSecondsThisFrame * 1000.0 );
             m.lastFrameEndMs = static_cast<float>( m.lastEndSecondsThisFrame * 1000.0 );
+            if ( isFrameMarker )
+            {
+                m.lastFrameEndMs = (std::max)( m.lastFrameStartMs, m.lastFrameEndMs - vsyncMsThisFrame );
+            }
         }
         else
         {
@@ -834,23 +854,18 @@ void Profiler::RenderOverlay( float xLeft, float yAnchor, float lineHeight, floa
     const float colR = 0.6f, colG = 0.6f, colB = 0.6f;  // grey column headers
     const float gpuR = 0.4f, gpuG = 0.8f, gpuB = 1.0f;  // cyan for GPU values
 
-    // Look up Frame and VsyncWait for active CPU time.
+    // Frame samples are work-only; VsyncWait remains a separate marker row.
     static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
     static constexpr uint32_t kVsyncHash = ::HashStr( "Frame/VsyncWait" );
     float frameAvgMs = 0.0f;
-    float vsyncAvgMs = 0.0f;
     for ( int i = 0; i < m_markerCount; ++i )
     {
         if ( m_markers[i].hash == kFrameHash )
         {
             frameAvgMs = m_markers[i].avgMs;
         }
-        else if ( m_markers[i].hash == kVsyncHash )
-        {
-            vsyncAvgMs = m_markers[i].avgMs;
-        }
     }
-    const float cpuMs = frameAvgMs - vsyncAvgMs;
+    const float cpuMs = frameAvgMs;
 
     // Header line
     float y = yTop;

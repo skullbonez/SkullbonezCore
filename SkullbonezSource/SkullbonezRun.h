@@ -300,6 +300,7 @@ class SkullbonezRun
     void RelativeUpdateCamera( uint32_t hash );                                                                                        // Relative update specified camera
     void UpdateLogic( float simulationDt, float cameraDt );                                                                            // Per-frame logic; cameraDt is unscaled wall time
     void TakeInput();                                                                                                                  // Take user input
+    void StepPhysicsPipelineStage( int direction );                                                                                    // Move the debug pipeline visualization cursor left/right
     void SetUpCameras();                                                                                                               // Camera init for generated demo mode
     void SetUpCamerasFromScene( const TestScene& scene );                                                                              // Camera init from scene file
     void SetUpGameModels( int count );                                                                                                 // Game model init for generated mixed-object mode

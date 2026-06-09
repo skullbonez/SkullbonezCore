@@ -1604,6 +1604,24 @@ bool SkullbonezRun::TickSceneAdvance()
 }
 
 
+void SkullbonezRun::StepPhysicsPipelineStage( int direction )
+{
+    const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
+    if ( stageCount <= 0 || direction == 0 )
+    {
+        return;
+    }
+
+    m_debug.physicsDebugFlags |= PHYSICS_DEBUG_PIPELINE;
+    int nextStage = ( m_debug.physicsDebugPipelineStageCursor + direction ) % stageCount;
+    if ( nextStage < 0 )
+    {
+        nextStage += stageCount;
+    }
+    m_debug.physicsDebugPipelineStageCursor = nextStage;
+}
+
+
 void SkullbonezRun::TakeInput()
 {
     if ( !Input::IsAppFocused() )
@@ -1802,16 +1820,13 @@ void SkullbonezRun::TakeInput()
             static bool s_pipelineNextWasDown = false;
             const bool prevNow = Input::IsKeyDown( VK_F7 );
             const bool nextNow = Input::IsKeyDown( VK_F8 );
-            const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
             if ( prevNow && !s_pipelinePrevWasDown )
             {
-                m_debug.physicsDebugFlags |= PHYSICS_DEBUG_PIPELINE;
-                m_debug.physicsDebugPipelineStageCursor = ( m_debug.physicsDebugPipelineStageCursor + stageCount - 1 ) % stageCount;
+                StepPhysicsPipelineStage( -1 );
             }
             if ( nextNow && !s_pipelineNextWasDown )
             {
-                m_debug.physicsDebugFlags |= PHYSICS_DEBUG_PIPELINE;
-                m_debug.physicsDebugPipelineStageCursor = ( m_debug.physicsDebugPipelineStageCursor + 1 ) % stageCount;
+                StepPhysicsPipelineStage( 1 );
             }
             s_pipelinePrevWasDown = prevNow;
             s_pipelineNextWasDown = nextNow;
@@ -1890,6 +1905,7 @@ void SkullbonezRun::TakeInput()
         m_rightSceneCycleWasDown = Input::IsKeyDown( VK_RIGHT );
     }
 
+    bool suppressNudgeFireThisFrame = UIBlocksKeyboardBeforeInput;
     if ( m_systems.window )
     {
         const int selectedSceneBrowserIndex = CurrentSceneBrowserIndex();
@@ -1904,6 +1920,7 @@ void SkullbonezRun::TakeInput()
         {
             EnterInteractiveSceneRun();
         }
+        suppressNudgeFireThisFrame = suppressNudgeFireThisFrame || UIResult.userInteracted || m_UI.BlocksCameraMouse();
 
         // ESC flicks the diagnostics window between minimized and expanded, with
         // a very fast double-tap escape hatch for quitting interactive runs.
@@ -1946,6 +1963,14 @@ void SkullbonezRun::TakeInput()
         if ( UIResult.togglePhysicsDebugFlags != 0 )
         {
             m_debug.physicsDebugFlags ^= ( UIResult.togglePhysicsDebugFlags & PHYSICS_DEBUG_ALL );
+        }
+        if ( UIResult.stepPhysicsPipelinePrevious )
+        {
+            StepPhysicsPipelineStage( -1 );
+        }
+        if ( UIResult.stepPhysicsPipelineNext )
+        {
+            StepPhysicsPipelineStage( 1 );
         }
         if ( UIResult.togglePhysicsDebugTransparent )
         {
@@ -2085,6 +2110,20 @@ void SkullbonezRun::TakeInput()
         RunUIStressActions();
     }
 
+    // Nudge mode owns left click for firing the pooled silver bullets.  Keyboard
+    // shortcuts are intentionally avoided so aiming and firing live on the mouse.
+    {
+        const bool leftMouseNow = Input::IsLeftMouseDown();
+        if ( m_camera.isNudgeMode &&
+             leftMouseNow &&
+             !m_camera.input.Get( InputState::LeftMouseWasDown ) &&
+             !suppressNudgeFireThisFrame )
+        {
+            FireProjectile();
+        }
+        m_camera.input.Set( InputState::LeftMouseWasDown, leftMouseNow );
+    }
+
     if ( m_UI.BlocksKeyboard() )
     {
         m_camera.input.xMove = 0;
@@ -2142,26 +2181,6 @@ void SkullbonezRun::TakeInput()
             }
         }
         m_camera.input.Set( InputState::F3WasDown, f3Now );
-    }
-
-    // Z/X: fire a pooled silver bullet out of the camera.
-    // Shift applies the same speed multiplier as sprinting.
-    // Bullets are recycled from a ten-body runtime pool.
-    {
-        bool zNow = Input::IsKeyDown( 'Z' );
-        if ( zNow && !m_camera.input.Get( InputState::ZWasDown ) )
-        {
-            FireProjectile();
-        }
-        m_camera.input.Set( InputState::ZWasDown, zNow );
-    }
-    {
-        bool xNow = Input::IsKeyDown( 'X' );
-        if ( xNow && !m_camera.input.Get( InputState::XWasDown ) )
-        {
-            FireProjectile();
-        }
-        m_camera.input.Set( InputState::XWasDown, xNow );
     }
 
     // R: reset/reload the current scene from scratch. Backspace remains as a scene-mode alias.
@@ -2771,7 +2790,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 
         // Title left-aligned inside panel
         const float titleY = panY1 - panPad - titleSz;
-        Text2d::Render2dTextColor( panX0 + panPad, titleY, titleSz, 1.0f, 0.85f, 0.35f, "KEYBOARD REFERENCE" );
+        Text2d::Render2dTextColor( panX0 + panPad, titleY, titleSz, 1.0f, 0.85f, 0.35f, "CONTROL REFERENCE" );
 
         // Column X positions
         const float col1Key = panX0 + panPad;
@@ -2792,8 +2811,8 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "WASD", "Move camera" },
             { "Mouse", "Look" },
             { "Shift", "Sprint (3x speed)" },
-            { "Z", "Fire silver bullet" },
-            { "X", "Fire silver bullet" },
+            { "LMB", "Fire silver bullet" },
+            { "Shift+LMB", "Fast bullet" },
             { "Q", "Cycle renderer" },
             { "V", "Collision visual" },
             { "Space", "Step physics" },

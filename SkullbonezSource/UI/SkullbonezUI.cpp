@@ -58,6 +58,9 @@ constexpr float UI_SCENE_HEADER_BUTTON_GAP = 8.0f;
 constexpr float UI_SCENE_RESET_BUTTON_W = 72.0f;
 constexpr float UI_SCENE_RESET_DEFAULTS_BUTTON_W = 132.0f;
 constexpr float UI_SCENE_SAVE_DEFAULTS_BUTTON_W = 132.0f;
+constexpr float UI_PIPELINE_STEP_BUTTON_W = 26.0f;
+constexpr float UI_PIPELINE_STEP_BUTTON_H = 22.0f;
+constexpr float UI_PIPELINE_STEP_BUTTON_GAP = 6.0f;
 constexpr int UI_DEMO_SCENE_BROWSER_INDEX = -2;
 constexpr const char* UI_DEMO_SCENE_OPTION = "Demo Scene";
 constexpr double UI_WINDOW_ANIMATION_SECONDS = 0.18;
@@ -233,6 +236,34 @@ void DrawTitleButton( const UIDrawContext& draw, const UIRect& bounds, TitleButt
             }
             break;
     }
+}
+
+
+void SetPipelineStepButtonBounds( UIRect& previous, UIRect& next, float contentX, float contentW, float y )
+{
+    const float nextX = contentX + contentW - UI_PIPELINE_STEP_BUTTON_W;
+    const float previousX = nextX - UI_PIPELINE_STEP_BUTTON_GAP - UI_PIPELINE_STEP_BUTTON_W;
+    previous = { previousX, y, UI_PIPELINE_STEP_BUTTON_W, UI_PIPELINE_STEP_BUTTON_H };
+    next = { nextX, y, UI_PIPELINE_STEP_BUTTON_W, UI_PIPELINE_STEP_BUTTON_H };
+}
+
+
+void DrawPipelineStepButton( const UIDrawContext& draw, const UIRect& bounds, bool previous, bool hot )
+{
+    const float bgR = hot ? 0.050f : 0.024f;
+    const float bgG = hot ? 0.235f : 0.108f;
+    const float bgB = hot ? 0.315f : 0.142f;
+    const float outlineR = hot ? 0.44f : 0.24f;
+    const float outlineG = hot ? 0.92f : 0.58f;
+    const float outlineB = hot ? 1.00f : 0.70f;
+    const float cx = bounds.x + bounds.w * 0.5f;
+    const float cy = bounds.y + bounds.h * 0.5f;
+    const float tipX = previous ? cx - 4.0f : cx + 4.0f;
+    const float rearX = previous ? cx + 4.0f : cx - 4.0f;
+
+    draw.Rect( bounds.x, bounds.y, bounds.w, bounds.h, bgR, bgG, bgB, hot ? 0.92f : 0.78f );
+    draw.Outline( bounds.x, bounds.y, bounds.w, bounds.h, outlineR, outlineG, outlineB, hot ? 0.96f : 0.78f );
+    draw.Triangle( tipX, cy, rearX, cy - 5.5f, rearX, cy + 5.5f, hot ? 0.96f : 0.78f, hot ? 1.0f : 0.92f, 1.0f, hot ? 0.98f : 0.88f );
 }
 
 
@@ -1798,9 +1829,10 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             setToggle( 2, 1, 1 );
             setToggle( 3, 2, 1 );
             setToggle( 6, 3, 1 );
-            m_physicsAlphaSlider.SetBounds( contentX, rowBase + 200.0f, contentW, 34.0f );
-            m_contactLingerSlider.SetBounds( contentX, rowBase + 248.0f, contentW, 34.0f );
-            m_worldGravitySlider.SetBounds( contentX, rowBase + 332.0f, contentW, 34.0f );
+            SetPipelineStepButtonBounds( m_pipelinePrevButton, m_pipelineNextButton, contentX, contentW, rowBase + 194.0f );
+            m_physicsAlphaSlider.SetBounds( contentX, rowBase + 242.0f, contentW, 34.0f );
+            m_contactLingerSlider.SetBounds( contentX, rowBase + 290.0f, contentW, 34.0f );
+            m_worldGravitySlider.SetBounds( contentX, rowBase + 374.0f, contentW, 34.0f );
 
             if ( m_physicsToggles[0].HitTest( m_mouseX, m_mouseY ) )
             {
@@ -1833,6 +1865,14 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             else if ( m_physicsToggles[6].HitTest( m_mouseX, m_mouseY ) )
             {
                 result.togglePhysicsSleepPolicy = true;
+            }
+            else if ( m_pipelinePrevButton.Contains( m_mouseX, m_mouseY ) )
+            {
+                result.stepPhysicsPipelinePrevious = true;
+            }
+            else if ( m_pipelineNextButton.Contains( m_mouseX, m_mouseY ) )
+            {
+                result.stepPhysicsPipelineNext = true;
             }
             else if ( m_physicsAlphaSlider.HitTest( m_mouseX, m_mouseY ) )
             {
@@ -2551,6 +2591,12 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         labelValue( scrolledY + 178.0f, "Debug flags", buf, 0.52f, 0.94f, 1.0f );
         snprintf( buf, sizeof( buf ), "%d/%d %s", data.physicsPipelineStageIndex + 1, data.physicsPipelineStageCount, data.physicsPipelineStageName );
         labelValue( scrolledY + 198.0f, "Pipeline stage", buf, 0.52f, 0.94f, 1.0f );
+        SetPipelineStepButtonBounds( m_pipelinePrevButton, m_pipelineNextButton, contentX, contentW, scrolledY + 194.0f );
+        if ( visible( scrolledY + 194.0f, UI_PIPELINE_STEP_BUTTON_H ) )
+        {
+            DrawPipelineStepButton( draw, m_pipelinePrevButton, true, m_pipelinePrevButton.Contains( m_mouseX, m_mouseY ) );
+            DrawPipelineStepButton( draw, m_pipelineNextButton, false, m_pipelineNextButton.Contains( m_mouseX, m_mouseY ) );
+        }
         if ( visible( scrolledY + 216.0f, 18.0f ) )
         {
             drawSectionTitle( scrolledY + 216.0f, 12.0f, "Debug Draw" );

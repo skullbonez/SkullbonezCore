@@ -105,9 +105,10 @@ The persistent object solver is now the Catto-shaped response path:
 
 ## Remaining Compatibility Facts
 
-- `CollisionResponseGameModel`, `StaticOverlapResponseGameModel`, and
-  `RespondCollisionGameModels` remain as deprecated compatibility wrappers, but
-  the active solver frame does not call them for object/object response.
+- `RespondCollisionGameModels` and the `CollisionResponseGameModel` wrapper have
+  been removed. `StaticOverlapResponseGameModel` remains as deprecated overlap
+  cleanup, but the active solver frame does not call it for object/object
+  velocity response.
 - Object/object boxes still use broadphase radius filtering plus discrete OBB
   manifold contacts in the persistent solver.
 - Object/terrain is separate and swept. Terrain response is not currently just
@@ -179,13 +180,11 @@ solver.
 
 Recommended steps:
 
-1. Add comments or temporary assertions around the old object/object response
-   boundary so it is obvious when it is still being used.
-2. Rename the legacy path if it remains temporarily, for example from generic
-   `RespondCollisionGameModels` toward `RespondSphereSphereSweptImpact`.
-3. Remove or quarantine unreachable box logic from the old response path.
-4. Keep the current behavior covered by physics validation before deleting
-   response code.
+1. Keep `RespondCollisionGameModels` deleted; do not reintroduce immediate
+   object/object response outside persistent rows.
+2. Keep swept object/object detection as explicit hit/candidate plumbing only.
+3. Keep the current behavior covered by physics validation before deleting any
+   remaining overlap cleanup.
 
 Expected result:
 
@@ -346,10 +345,8 @@ Goal: remove confusing old response code after replacement behavior is proven.
 
 Delete or reduce:
 
-- `RespondCollisionGameModels` as a generic object/object response path.
-- Dead box/generalized branches inside that function.
-- Any `CollisionResponseGameModel` wrapper that implies object/object response
-  can happen outside the persistent solver.
+- Any remaining docs or stale plans that refer to `RespondCollisionGameModels`
+  or `CollisionResponseGameModel` as live code.
 - Any comments or docs that describe the old hybrid as the intended model.
 
 Expected result:
@@ -472,8 +469,8 @@ After the migration lands, update:
 - `Agentic/Reference/physics-overview.md`
 - any runtime reference text that describes physics diagnostics,
 - any stale plans that still describe the old hybrid as intended,
-- comments around `SweepGameModel`, `CollisionResponseGameModel`,
-  `RespondCollisionGameModels`, and `SolvePersistentObjectContacts`.
+- comments around `SweepGameModel`, `StaticOverlapResponseGameModel`, and
+  `SolvePersistentObjectContacts`.
 
 ## Validation Gate For This Implementation
 

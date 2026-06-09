@@ -26,15 +26,8 @@ namespace Physics
 class ImpulseSolver
 {
 
-  private:
-    static void SphereVsSphereLinear( GameModel& gameModel1, GameModel& gameModel2, const Vector3& collisionNormal );
-    static void SphereVsSphereAngular( GameModel& gameModel1, GameModel& gameModel2, const Vector3& collisionNormal );
-    static Vector3 GetCollisionNormalSphereVsSphere( GameModel& gameModel1, GameModel& gameModel2 );
-    static Vector3 GetCollidedObjectWorldPosition( GameModel& gameModel );
-
   public:
-    static bool RespondCollisionTerrain( GameModel& gameModel, float changeInTime );        // Unified sphere+box terrain response; returns true when contact can sleep
-    static void RespondCollisionGameModels( GameModel& gameModel1, GameModel& gameModel2 ); // Deprecated legacy object impulse path; persistent Catto rows own object/object response
+    static bool RespondCollisionTerrain( GameModel& gameModel, float changeInTime ); // Unified sphere+box terrain response; returns true when contact can sleep
 };
 } // namespace Physics
 } // namespace SkullbonezCore

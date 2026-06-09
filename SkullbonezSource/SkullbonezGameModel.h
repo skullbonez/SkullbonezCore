@@ -139,7 +139,6 @@ class GameModel
     void TickFixedContactHighlight( float dt );                                                 // Decay fixed-body contact highlight timer
     float GetFixedContactHighlightAlpha() const;                                                // 0=no contact tint, 1=full red contact tint
     ObjectSweepResult SweepGameModel( GameModel& collisionTarget, float changeInTime );         // Swept object/object query with explicit hit state
-    void CollisionResponseGameModel( GameModel& responseTarget );                               // Deprecated legacy object impulse path; RunSolverPhysics does not call it
     void StaticOverlapResponseGameModel( GameModel& overlapTarget );                            // Deprecated object overlap projection; persistent rows own object cleanup
     float GetBoundingRadius();                                                                  // Returns the radius of the bounding sphere
     Vector3 GetOrientationUp();                                                                 // Returns local Y axis (0,1,0) rotated into world space by the visual orientation
