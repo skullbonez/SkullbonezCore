@@ -10,6 +10,7 @@
 #include "UISlider.h"
 #include "UIState.h"
 #include "UITabBar.h"
+#include "UITabScene.h"
 #include <cstdint>
 
 namespace SkullbonezCore
@@ -169,9 +170,7 @@ class InGameUI
     bool m_hasMouseOverride = false;
     int m_mouseOverrideX = 0;
     int m_mouseOverrideY = 0;
-    char m_sceneFilter[64] = {};
-    bool m_sceneFilterKeyWasDown[256] = {};
-    int m_sceneComboScroll = 0;
+    SceneTab::UISceneTabState m_sceneTab;
     float m_scrollY = 0.0f;
     double m_scrollbarVisibleUntil = 0.0;
     int m_activeSlider = 0; // 0=none; other values map to Controls/Options sliders in SkullbonezUI.cpp
@@ -214,13 +213,7 @@ class InGameUI
     void PushPerformanceHistogramSample( float cpuMs, float gpuMs );
     void DrawPerformanceHistogram( const UIDrawContext& draw, const InGameUIFrameData& data ) const;
     void DrawCursor( const UIDrawContext& draw ) const;
-    void ClearSceneFilter();
     void CloseSceneCombo();
-    void CaptureSceneFilterKeyState();
-    bool SceneFilterKeyPressed( int virtualKey );
-    void AppendSceneFilterChar( char value );
-    void BackspaceSceneFilter();
-    void UpdateSceneFilterTyping( InGameUIInputResult& result, const char* const* sceneOptions, int sceneOptionCount );
     void SetMaximized( bool maximized, int screenW, int screenH, double now = 0.0 );
 };
 

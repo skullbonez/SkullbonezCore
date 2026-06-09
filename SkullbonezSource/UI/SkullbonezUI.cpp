@@ -7,6 +7,7 @@
 #include "UIIconButton.h"
 #include "UIInput.h"
 #include "UILayout.h"
+#include "UITabScene.h"
 #include "UIWindowChrome.h"
 
 #include <algorithm>
@@ -25,8 +26,6 @@ namespace
 {
 constexpr int PROFILER_UI_MAX_MARKERS = 64;
 constexpr float PROFILER_UI_TIMELINE_BUDGET_MS = 16.67f;
-constexpr int UI_DEMO_SCENE_BROWSER_INDEX = -2;
-constexpr const char* UI_DEMO_SCENE_OPTION = "Demo Scene";
 
 int GetRendererIndexFromName( const char* rendererName )
 {
@@ -61,125 +60,6 @@ int WaterReflectionModeFromData( const InGameUIFrameData& data )
         return 2;
     }
     return data.waterRTReflect ? 1 : 0;
-}
-
-
-char LowerAscii( char value )
-{
-    return value >= 'A' && value <= 'Z' ? static_cast<char>( value + ( 'a' - 'A' ) ) : value;
-}
-
-
-bool SceneFilterMatches( const char* option, const char* filter )
-{
-    if ( !filter || filter[0] == '\0' )
-    {
-        return true;
-    }
-    if ( !option )
-    {
-        return false;
-    }
-
-    for ( int optionStart = 0; option[optionStart] != '\0'; ++optionStart )
-    {
-        int optionOffset = 0;
-        while ( filter[optionOffset] != '\0' &&
-                option[optionStart + optionOffset] != '\0' &&
-                LowerAscii( option[optionStart + optionOffset] ) == LowerAscii( filter[optionOffset] ) )
-        {
-            ++optionOffset;
-        }
-        if ( filter[optionOffset] == '\0' )
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-int CountFilteredSceneOptions( const char* const* options, int optionCount, const char* filter )
-{
-    int count = SceneFilterMatches( UI_DEMO_SCENE_OPTION, filter ) ? 1 : 0;
-    if ( !options || optionCount <= 0 )
-    {
-        return count;
-    }
-    for ( int i = 0; i < optionCount; ++i )
-    {
-        if ( SceneFilterMatches( options[i], filter ) )
-        {
-            ++count;
-        }
-    }
-    return count;
-}
-
-
-int FindFilteredSceneOptionIndex( const char* const* options, int optionCount, const char* filter, int filteredIndex )
-{
-    if ( filteredIndex < 0 )
-    {
-        return -1;
-    }
-
-    int filteredPosition = 0;
-    if ( SceneFilterMatches( UI_DEMO_SCENE_OPTION, filter ) )
-    {
-        if ( filteredPosition == filteredIndex )
-        {
-            return UI_DEMO_SCENE_BROWSER_INDEX;
-        }
-        ++filteredPosition;
-    }
-    if ( !options || optionCount <= 0 )
-    {
-        return -1;
-    }
-    for ( int i = 0; i < optionCount; ++i )
-    {
-        if ( SceneFilterMatches( options[i], filter ) )
-        {
-            if ( filteredPosition == filteredIndex )
-            {
-                return i;
-            }
-            ++filteredPosition;
-        }
-    }
-    return -1;
-}
-
-
-int SceneFilteredPositionForIndex( const char* const* options, int optionCount, const char* filter, int optionIndex )
-{
-    int filteredPosition = 0;
-    if ( SceneFilterMatches( UI_DEMO_SCENE_OPTION, filter ) )
-    {
-        if ( optionIndex < 0 )
-        {
-            return filteredPosition;
-        }
-        ++filteredPosition;
-    }
-    if ( !options || optionIndex < 0 || optionIndex >= optionCount )
-    {
-        return -1;
-    }
-
-    for ( int i = 0; i < optionCount; ++i )
-    {
-        if ( !SceneFilterMatches( options[i], filter ) )
-        {
-            continue;
-        }
-        if ( i == optionIndex )
-        {
-            return filteredPosition;
-        }
-        ++filteredPosition;
-    }
-    return -1;
 }
 
 
@@ -395,19 +275,18 @@ void InGameUI::SetSceneComboOpen( bool open )
     {
         m_rendererCombo.Close();
         m_reflectionCombo.Close();
-        CaptureSceneFilterKeyState();
+        SceneTab::CaptureFilterKeyState( m_sceneTab );
     }
     else
     {
-        ClearSceneFilter();
+        SceneTab::ClearFilter( m_sceneTab );
     }
 }
 
 
 void InGameUI::SetSceneFilter( const char* filter )
 {
-    strncpy_s( m_sceneFilter, sizeof( m_sceneFilter ), filter ? filter : "", _TRUNCATE );
-    m_sceneComboScroll = 0;
+    SceneTab::SetFilter( m_sceneTab, filter );
 }
 
 
@@ -871,135 +750,9 @@ void InGameUI::DrawPerformanceHistogram( const UIDrawContext& draw, const InGame
 }
 
 
-void InGameUI::ClearSceneFilter()
-{
-    m_sceneFilter[0] = '\0';
-    m_sceneComboScroll = 0;
-}
-
-
 void InGameUI::CloseSceneCombo()
 {
-    m_sceneCombo.Close();
-    ClearSceneFilter();
-}
-
-
-void InGameUI::CaptureSceneFilterKeyState()
-{
-    InputControl::CaptureKeyStates( m_sceneFilterKeyWasDown );
-}
-
-
-bool InGameUI::SceneFilterKeyPressed( int virtualKey )
-{
-    return InputControl::ConsumeKeyPress( m_sceneFilterKeyWasDown, virtualKey );
-}
-
-
-void InGameUI::AppendSceneFilterChar( char value )
-{
-    const size_t len = strlen( m_sceneFilter );
-    if ( len >= sizeof( m_sceneFilter ) - 1 )
-    {
-        return;
-    }
-    m_sceneFilter[len] = value;
-    m_sceneFilter[len + 1] = '\0';
-    m_sceneComboScroll = 0;
-}
-
-
-void InGameUI::BackspaceSceneFilter()
-{
-    const size_t len = strlen( m_sceneFilter );
-    if ( len == 0 )
-    {
-        return;
-    }
-    m_sceneFilter[len - 1] = '\0';
-    m_sceneComboScroll = 0;
-}
-
-
-void InGameUI::UpdateSceneFilterTyping( InGameUIInputResult& result, const char* const* sceneOptions, int sceneOptionCount )
-{
-    if ( !m_sceneCombo.IsOpen() || m_activeTab != InGameUITab::Scene )
-    {
-        return;
-    }
-
-    for ( int key = 'A'; key <= 'Z'; ++key )
-    {
-        if ( SceneFilterKeyPressed( key ) )
-        {
-            AppendSceneFilterChar( static_cast<char>( 'a' + key - 'A' ) );
-            result.commands.ui.userInteracted = true;
-        }
-    }
-    for ( int key = '0'; key <= '9'; ++key )
-    {
-        if ( SceneFilterKeyPressed( key ) )
-        {
-            AppendSceneFilterChar( static_cast<char>( key ) );
-            result.commands.ui.userInteracted = true;
-        }
-    }
-
-    const bool isShiftDown = InputControl::IsVirtualKeyDown( VK_SHIFT );
-    if ( SceneFilterKeyPressed( VK_SPACE ) )
-    {
-        AppendSceneFilterChar( ' ' );
-        result.commands.ui.userInteracted = true;
-    }
-    if ( SceneFilterKeyPressed( VK_OEM_MINUS ) )
-    {
-        AppendSceneFilterChar( isShiftDown ? '_' : '-' );
-        result.commands.ui.userInteracted = true;
-    }
-    if ( SceneFilterKeyPressed( VK_OEM_PERIOD ) )
-    {
-        AppendSceneFilterChar( '.' );
-        result.commands.ui.userInteracted = true;
-    }
-    if ( SceneFilterKeyPressed( VK_BACK ) )
-    {
-        BackspaceSceneFilter();
-        result.commands.ui.userInteracted = true;
-    }
-    if ( SceneFilterKeyPressed( VK_DELETE ) )
-    {
-        ClearSceneFilter();
-        result.commands.ui.userInteracted = true;
-    }
-    if ( SceneFilterKeyPressed( VK_ESCAPE ) )
-    {
-        if ( m_sceneFilter[0] != '\0' )
-        {
-            ClearSceneFilter();
-        }
-        else
-        {
-            CloseSceneCombo();
-        }
-        result.commands.ui.userInteracted = true;
-    }
-    if ( SceneFilterKeyPressed( VK_RETURN ) && m_sceneCombo.IsOpen() )
-    {
-        const int sceneIndex = FindFilteredSceneOptionIndex( sceneOptions, sceneOptionCount, m_sceneFilter, 0 );
-        if ( sceneIndex == UI_DEMO_SCENE_BROWSER_INDEX )
-        {
-            result.commands.scene.requestDemoScene = true;
-            CloseSceneCombo();
-            result.commands.ui.userInteracted = true;
-        }
-        else if ( sceneIndex >= 0 )
-        {
-            result.commands.scene.requestedSceneIndex = sceneIndex;
-            CloseSceneCombo();
-            result.commands.ui.userInteracted = true;
-        }
-    }
+    SceneTab::CloseCombo( m_sceneTab, m_sceneCombo );
 }
 
 
@@ -1097,7 +850,10 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         result.commands.ui.userInteracted = true;
     }
 
-    UpdateSceneFilterTyping( result, sceneOptions, sceneOptionCount );
+    if ( m_activeTab == InGameUITab::Scene )
+    {
+        SceneTab::UpdateFilterTyping( m_sceneTab, m_sceneCombo, result, sceneOptions, sceneOptionCount );
+    }
 
     bool wheelHandled = false;
     if ( wheelDelta != 0 && m_sceneCombo.IsOpen() && m_activeTab == InGameUITab::Scene )
@@ -1105,18 +861,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         const float contentX = static_cast<float>( inputX + contentPad );
         const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
         const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-        const float sceneComboW = SceneTabComboWidth( contentW );
-        const int filteredSceneCount = CountFilteredSceneOptions( sceneOptions, sceneOptionCount, m_sceneFilter );
-        const int visibleSceneOptions = SceneComboVisibleCount( filteredSceneCount );
-        const int sceneDrawOptions = filteredSceneCount > 0 ? visibleSceneOptions : ( m_sceneFilter[0] != '\0' ? 1 : 0 );
-        m_sceneCombo.SetBounds( contentX, rowBase, sceneComboW, 24.0f );
-        m_sceneCombo.SetDropUp( false );
-        if ( m_sceneCombo.HitBox( m_mouseX, m_mouseY ) || m_sceneCombo.HitOption( m_mouseX, m_mouseY, sceneDrawOptions ) >= 0 )
-        {
-            const int wheelSteps = wheelDelta / WHEEL_DELTA;
-            m_sceneComboScroll = ClampSceneComboScroll( m_sceneComboScroll - wheelSteps, filteredSceneCount );
-            wheelHandled = true;
-        }
+        wheelHandled = SceneTab::HandleComboWheel( m_sceneTab, m_sceneCombo, sceneOptions, sceneOptionCount, m_mouseX, m_mouseY, wheelDelta, contentX, rowBase, contentW );
     }
 
     if ( wheelDelta != 0 && inContent && !wheelHandled )
@@ -1169,56 +914,19 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 const float contentX = static_cast<float>( inputX + contentPad );
                 const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
                 const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-                const float sceneComboW = SceneTabComboWidth( contentW );
-                const int filteredSceneCount = CountFilteredSceneOptions( sceneOptions, sceneOptionCount, m_sceneFilter );
-                const int visibleSceneOptions = SceneComboVisibleCount( filteredSceneCount );
-                const int sceneDrawOptions = filteredSceneCount > 0 ? visibleSceneOptions : ( m_sceneFilter[0] != '\0' ? 1 : 0 );
-                m_sceneComboScroll = ClampSceneComboScroll( m_sceneComboScroll, filteredSceneCount );
-                m_sceneCombo.SetBounds( contentX, rowBase, sceneComboW, 24.0f );
-                const float resetX = contentX + sceneComboW + UI_SCENE_HEADER_BUTTON_GAP;
-                const float defaultsX = resetX + UI_SCENE_RESET_BUTTON_W + UI_SCENE_HEADER_BUTTON_GAP;
-                const float saveDefaultsX = defaultsX + UI_SCENE_RESET_DEFAULTS_BUTTON_W + UI_SCENE_HEADER_BUTTON_GAP;
-                m_resetSceneButton.SetBounds( resetX, rowBase, UI_SCENE_RESET_BUTTON_W, 24.0f );
-                m_resetDefaultsButton.SetBounds( defaultsX, rowBase, UI_SCENE_RESET_DEFAULTS_BUTTON_W, 24.0f );
-                m_saveDefaultsButton.SetBounds( saveDefaultsX, rowBase, UI_SCENE_SAVE_DEFAULTS_BUTTON_W, 24.0f );
-                m_sceneCombo.SetDropUp( false );
-                const int option = m_sceneCombo.HitOption( m_mouseX, m_mouseY, sceneDrawOptions );
-                if ( m_resetSceneButton.HitTest( m_mouseX, m_mouseY ) )
-                {
-                    result.commands.scene.resetScene = true;
-                    CloseSceneCombo();
-                }
-                else if ( m_resetDefaultsButton.HitTest( m_mouseX, m_mouseY ) )
-                {
-                    result.commands.scene.resetSceneDefaults = true;
-                    CloseSceneCombo();
-                }
-                else if ( m_saveDefaultsButton.HitTest( m_mouseX, m_mouseY ) )
-                {
-                    result.commands.scene.saveSceneDefaults = true;
-                    CloseSceneCombo();
-                }
-                else if ( filteredSceneCount > 0 && option >= 0 && option < visibleSceneOptions )
-                {
-                    const int sceneIndex = FindFilteredSceneOptionIndex( sceneOptions, sceneOptionCount, m_sceneFilter, m_sceneComboScroll + option );
-                    if ( sceneIndex == UI_DEMO_SCENE_BROWSER_INDEX )
-                    {
-                        result.commands.scene.requestDemoScene = true;
-                    }
-                    else if ( sceneIndex >= 0 )
-                    {
-                        result.commands.scene.requestedSceneIndex = sceneIndex;
-                    }
-                    CloseSceneCombo();
-                }
-                else if ( m_sceneCombo.HitBox( m_mouseX, m_mouseY ) )
-                {
-                    CloseSceneCombo();
-                }
-                else
-                {
-                    CloseSceneCombo();
-                }
+                SceneTab::HandleOpenComboClick( m_sceneTab,
+                                                m_sceneCombo,
+                                                m_resetSceneButton,
+                                                m_resetDefaultsButton,
+                                                m_saveDefaultsButton,
+                                                result,
+                                                sceneOptions,
+                                                sceneOptionCount,
+                                                m_mouseX,
+                                                m_mouseY,
+                                                contentX,
+                                                rowBase,
+                                                contentW );
             }
             else
             {
@@ -1303,49 +1011,24 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             const float contentX = static_cast<float>( inputX + contentPad );
             const float rowBase = static_cast<float>( contentY ) + 42.0f - m_scrollY;
             const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            const float sceneComboW = SceneTabComboWidth( contentW );
-            m_sceneCombo.SetBounds( contentX, rowBase, sceneComboW, 24.0f );
-            const float resetX = contentX + sceneComboW + UI_SCENE_HEADER_BUTTON_GAP;
-            const float defaultsX = resetX + UI_SCENE_RESET_BUTTON_W + UI_SCENE_HEADER_BUTTON_GAP;
-            const float saveDefaultsX = defaultsX + UI_SCENE_RESET_DEFAULTS_BUTTON_W + UI_SCENE_HEADER_BUTTON_GAP;
-            m_resetSceneButton.SetBounds( resetX, rowBase, UI_SCENE_RESET_BUTTON_W, 24.0f );
-            m_resetDefaultsButton.SetBounds( defaultsX, rowBase, UI_SCENE_RESET_DEFAULTS_BUTTON_W, 24.0f );
-            m_saveDefaultsButton.SetBounds( saveDefaultsX, rowBase, UI_SCENE_SAVE_DEFAULTS_BUTTON_W, 24.0f );
-            m_sceneCombo.SetDropUp( false );
-            if ( m_resetSceneButton.HitTest( m_mouseX, m_mouseY ) )
+            const bool sceneClickHandled = SceneTab::HandleContentClick( m_sceneTab,
+                                                                         m_sceneCombo,
+                                                                         m_resetSceneButton,
+                                                                         m_resetDefaultsButton,
+                                                                         m_saveDefaultsButton,
+                                                                         result,
+                                                                         sceneOptions,
+                                                                         sceneOptionCount,
+                                                                         selectedSceneOption,
+                                                                         m_mouseX,
+                                                                         m_mouseY,
+                                                                         contentX,
+                                                                         rowBase,
+                                                                         contentW );
+            m_rendererCombo.Close();
+            if ( sceneClickHandled )
             {
-                result.commands.scene.resetScene = true;
-                CloseSceneCombo();
-                m_rendererCombo.Close();
                 m_reflectionCombo.Close();
-            }
-            else if ( m_resetDefaultsButton.HitTest( m_mouseX, m_mouseY ) )
-            {
-                result.commands.scene.resetSceneDefaults = true;
-                CloseSceneCombo();
-                m_rendererCombo.Close();
-                m_reflectionCombo.Close();
-            }
-            else if ( m_saveDefaultsButton.HitTest( m_mouseX, m_mouseY ) )
-            {
-                result.commands.scene.saveSceneDefaults = true;
-                CloseSceneCombo();
-                m_rendererCombo.Close();
-                m_reflectionCombo.Close();
-            }
-            else if ( m_sceneCombo.HitBox( m_mouseX, m_mouseY ) )
-            {
-                ClearSceneFilter();
-                CaptureSceneFilterKeyState();
-                const int filteredSceneCount = CountFilteredSceneOptions( sceneOptions, sceneOptionCount, m_sceneFilter );
-                m_sceneComboScroll = SceneComboScrollForSelection( SceneFilteredPositionForIndex( sceneOptions, sceneOptionCount, m_sceneFilter, selectedSceneOption ), filteredSceneCount );
-                m_sceneCombo.SetOpen( true );
-                m_rendererCombo.Close();
-                m_reflectionCombo.Close();
-            }
-            else
-            {
-                m_rendererCombo.Close();
             }
         }
         else if ( inContent && m_activeTab == InGameUITab::Physics )
@@ -1972,90 +1655,20 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     }
     else if ( m_activeTab == InGameUITab::Scene )
     {
-        char buf[160];
-        char filterDisplay[80] = {};
-        const bool sceneFilterActive = m_sceneFilter[0] != '\0';
-        const int filteredSceneCount = CountFilteredSceneOptions( data.sceneOptions, data.sceneOptionCount, m_sceneFilter );
-        const int sceneVisibleCount = SceneComboVisibleCount( filteredSceneCount );
-        m_sceneComboScroll = ClampSceneComboScroll( m_sceneComboScroll, filteredSceneCount );
-        const int sceneFirstOption = m_sceneComboScroll;
-        const int selectedFilteredPosition = SceneFilteredPositionForIndex( data.sceneOptions, data.sceneOptionCount, m_sceneFilter, data.selectedSceneOption );
-        const int sceneSelectedInSlice = selectedFilteredPosition >= sceneFirstOption && selectedFilteredPosition < sceneFirstOption + sceneVisibleCount ? selectedFilteredPosition - sceneFirstOption : -1;
-        const char* visibleSceneOptions[UI_SCENE_COMBO_VISIBLE_OPTIONS] = {};
-        for ( int i = 0; i < sceneVisibleCount; ++i )
-        {
-            const int sceneIndex = FindFilteredSceneOptionIndex( data.sceneOptions, data.sceneOptionCount, m_sceneFilter, sceneFirstOption + i );
-            visibleSceneOptions[i] = sceneIndex == UI_DEMO_SCENE_BROWSER_INDEX ? UI_DEMO_SCENE_OPTION : ( sceneIndex >= 0 ? data.sceneOptions[sceneIndex] : "" );
-        }
-        int sceneDrawCount = sceneVisibleCount;
-        if ( sceneDrawCount == 0 && sceneFilterActive )
-        {
-            visibleSceneOptions[0] = "No matches";
-            sceneDrawCount = 1;
-        }
-        const char* selectedSceneName = UI_DEMO_SCENE_OPTION;
-        if ( data.sceneOptions && data.selectedSceneOption >= 0 && data.selectedSceneOption < data.sceneOptionCount )
-        {
-            selectedSceneName = data.sceneOptions[data.selectedSceneOption];
-        }
-        if ( m_sceneCombo.IsOpen() && sceneFilterActive )
-        {
-            snprintf( filterDisplay, sizeof( filterDisplay ), "%s", m_sceneFilter );
-            selectedSceneName = filterDisplay;
-        }
-        const float sceneComboW = SceneTabComboWidth( contentW );
-        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Scene" );
-        m_sceneCombo.SetBounds( contentX, scrolledY + 42.0f, sceneComboW, 24.0f );
-        const float resetX = contentX + sceneComboW + UI_SCENE_HEADER_BUTTON_GAP;
-        const float defaultsX = resetX + UI_SCENE_RESET_BUTTON_W + UI_SCENE_HEADER_BUTTON_GAP;
-        const float saveDefaultsX = defaultsX + UI_SCENE_RESET_DEFAULTS_BUTTON_W + UI_SCENE_HEADER_BUTTON_GAP;
-        m_resetSceneButton.SetBounds( resetX, scrolledY + 42.0f, UI_SCENE_RESET_BUTTON_W, 24.0f );
-        m_resetDefaultsButton.SetBounds( defaultsX, scrolledY + 42.0f, UI_SCENE_RESET_DEFAULTS_BUTTON_W, 24.0f );
-        m_saveDefaultsButton.SetBounds( saveDefaultsX, scrolledY + 42.0f, UI_SCENE_SAVE_DEFAULTS_BUTTON_W, 24.0f );
-        m_sceneCombo.SetDropUp( false );
-        if ( data.targetFrameCount > 0 )
-        {
-            const int displayedFrame = ( data.testComplete && data.currentFrame > data.targetFrameCount ) ? data.targetFrameCount : data.currentFrame;
-            snprintf( buf, sizeof( buf ), "%d / %d", displayedFrame, data.targetFrameCount );
-        }
-        else
-        {
-            snprintf( buf, sizeof( buf ), "%d", data.currentFrame );
-        }
-        if ( !m_sceneCombo.IsOpen() )
-        {
-            const float sceneCol2 = contentX + (std::max)( 208.0f, contentW * 0.48f );
-            char statusBuf[64] = {};
-            snprintf( statusBuf, sizeof( statusBuf ), "%s / fixed %s", data.testComplete ? "complete" : "running", data.fixedStep ? "on" : "off" );
-            DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 82.0f, "Renderer", data.rendererName, 0.60f, 0.90f, 1.0f );
-            DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 82.0f, "Status", statusBuf, 0.36f, 0.95f, 0.56f );
-            DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 108.0f, "Frame", buf, 0.88f, 0.92f, 0.94f );
-            snprintf( buf, sizeof( buf ), "%.1f FPS", data.fps );
-            DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 108.0f, "Frame rate", buf, 0.52f, 0.94f, 1.0f );
-            snprintf( buf, sizeof( buf ), "%d / %d", data.currentSceneIndex + 1, data.sceneCount );
-            DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 134.0f, "Scene index", buf, 0.88f, 0.92f, 0.94f );
-            snprintf( buf, sizeof( buf ), "%.6f", data.sceneEnergy );
-            DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 134.0f, "Kinetic energy", buf, 0.98f, 0.78f, 0.35f );
-            snprintf( buf, sizeof( buf ), "%d", data.modelCount );
-            DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 160.0f, "Model count", buf, 0.88f, 0.92f, 0.94f );
-        }
-        if ( visible( scrolledY + 42.0f, 24.0f ) )
-        {
-            m_sceneCombo.Draw( draw,
-                               "Load scene",
-                               selectedSceneName,
-                               visibleSceneOptions,
-                               sceneDrawCount,
-                               sceneSelectedInSlice,
-                               m_mouseX,
-                               m_mouseY );
-        }
-        if ( visible( scrolledY + 42.0f, 24.0f ) )
-        {
-            m_resetSceneButton.Draw( draw, "Reset", m_mouseX, m_mouseY );
-            m_resetDefaultsButton.Draw( draw, "Reset Defaults", m_mouseX, m_mouseY );
-            m_saveDefaultsButton.Draw( draw, "Save Defaults", m_mouseX, m_mouseY );
-        }
+        SceneTab::Draw( m_sceneTab,
+                        m_sceneCombo,
+                        m_resetSceneButton,
+                        m_resetDefaultsButton,
+                        m_saveDefaultsButton,
+                        draw,
+                        data,
+                        contentX,
+                        contentY,
+                        contentW,
+                        contentH,
+                        scrolledY,
+                        m_mouseX,
+                        m_mouseY );
     }
     else if ( m_activeTab == InGameUITab::Physics )
     {
