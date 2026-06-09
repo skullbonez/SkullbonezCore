@@ -1,7 +1,9 @@
 #include "SkullbonezUI.h"
 #include "../SkullbonezPhysicsDebugVisualizer.h"
+#include "../SkullbonezProfiler.h"
 #include "../SkullbonezText.h"
 #include "UIDraw.h"
+#include "UIDrawList.h"
 #include "UIDrawWidgets.h"
 #include "UIInput.h"
 #include "UILayout.h"
@@ -26,6 +28,48 @@ using namespace SkullbonezCore::UI::Layout;
 
 namespace
 {
+uint32_t HashCombine( uint32_t seed, uint32_t value )
+{
+    seed ^= value;
+    seed *= 16777619u;
+    return seed;
+}
+
+
+uint32_t HashTextValue( uint32_t seed, const char* value )
+{
+    if ( !value )
+    {
+        return HashCombine( seed, 0u );
+    }
+
+    while ( *value != '\0' )
+    {
+        seed = HashCombine( seed, static_cast<uint8_t>( *value ) );
+        ++value;
+    }
+    return HashCombine( seed, 0u );
+}
+
+
+uint32_t HashBool( uint32_t seed, bool value )
+{
+    return HashCombine( seed, value ? 1u : 0u );
+}
+
+
+uint32_t HashInt( uint32_t seed, int value )
+{
+    return HashCombine( seed, static_cast<uint32_t>( value ) );
+}
+
+
+uint32_t HashFloat( uint32_t seed, float value, float scale = 100.0f )
+{
+    return HashInt( seed, static_cast<int>( std::round( value * scale ) ) );
+}
+
+
 int GetRendererIndexFromName( const char* rendererName )
 {
     if ( rendererName && strstr( rendererName, "12" ) )
@@ -37,6 +81,95 @@ int GetRendererIndexFromName( const char* rendererName )
         return RENDERER_DX11;
     }
     return RENDERER_GL;
+}
+
+
+uint32_t BuildUIContentSignature( const InGameUIFrameData& data, int currentRendererIndex )
+{
+    uint32_t hash = 2166136261u;
+    hash = HashTextValue( hash, data.rendererName );
+    hash = HashTextValue( hash, data.sceneName );
+    hash = HashInt( hash, currentRendererIndex );
+    hash = HashInt( hash, data.sceneOptionCount );
+    hash = HashInt( hash, data.selectedSceneOption );
+    for ( int i = 0; i < data.sceneOptionCount && data.sceneOptions; ++i )
+    {
+        hash = HashTextValue( hash, data.sceneOptions[i] );
+    }
+    hash = HashInt( hash, data.drawCallsBeforeUI );
+    hash = HashInt( hash, data.UIDrawCalls );
+    hash = HashFloat( hash, data.fps );
+    hash = HashFloat( hash, data.renderMs, 1000.0f );
+    hash = HashFloat( hash, data.physicsMs, 1000.0f );
+    hash = HashFloat( hash, data.cpuFrameMs, 1000.0f );
+    hash = HashFloat( hash, data.gpuFrameMs, 1000.0f );
+    hash = HashInt( hash, data.modelCount );
+    hash = HashInt( hash, data.currentFrame );
+    hash = HashInt( hash, data.targetFrameCount );
+    hash = HashInt( hash, static_cast<int>( data.rngSeed ) );
+    hash = HashInt( hash, data.solverBallCount );
+    hash = HashInt( hash, data.solverBoxCount );
+    hash = HashInt( hash, data.currentSceneIndex );
+    hash = HashInt( hash, data.sceneCount );
+    hash = HashInt( hash, static_cast<int>( std::round( data.now * 1000.0 ) ) );
+    hash = HashBool( hash, data.sceneMode );
+    hash = HashBool( hash, data.scenePhysicsEnabled );
+    hash = HashBool( hash, data.sceneTextEnabled );
+    hash = HashBool( hash, data.textOnly );
+    hash = HashBool( hash, data.fixedStep );
+    hash = HashBool( hash, data.exitOnComplete );
+    hash = HashBool( hash, data.testComplete );
+    hash = HashBool( hash, data.vsyncEnabled );
+    hash = HashBool( hash, data.pipelineSyncEnabled );
+    hash = HashFloat( hash, data.sceneEnergy, 1000.0f );
+    hash = HashFloat( hash, data.timeScale, 1000.0f );
+    hash = HashFloat( hash, data.trackHeight, 1000.0f );
+    hash = HashFloat( hash, data.autoCycleInterval, 1000.0f );
+    hash = HashFloat( hash, data.worldGravity, 1000.0f );
+    hash = HashFloat( hash, data.worldFluidHeight, 1000.0f );
+    hash = HashFloat( hash, data.worldFluidDensity, 1000.0f );
+    hash = HashInt( hash, static_cast<int>( data.physicsDebugFlags ) );
+    hash = HashTextValue( hash, data.physicsPipelineStageName );
+    hash = HashInt( hash, data.physicsPipelineStageIndex );
+    hash = HashInt( hash, data.physicsPipelineStageCount );
+    hash = HashFloat( hash, data.physicsDebugAlpha, 1000.0f );
+    hash = HashFloat( hash, data.physicsDebugContactLinger, 1000.0f );
+    hash = HashBool( hash, data.physicsSleepEnabled );
+    hash = HashBool( hash, data.collisionVisualizer );
+    hash = HashBool( hash, data.physicsDebugTransparent );
+    hash = HashBool( hash, data.broadphaseOverlay );
+    hash = HashBool( hash, data.waterFreezeDebug );
+    hash = HashBool( hash, data.waterFlatDebug );
+    hash = HashBool( hash, data.terrainHidden );
+    hash = HashBool( hash, data.waterHidden );
+    hash = HashBool( hash, data.waterNoReflect );
+    hash = HashBool( hash, data.waterRTReflect );
+    hash = HashBool( hash, data.cameraMouseActive );
+    hash = HashBool( hash, data.nativeCursorVisible );
+    hash = HashBool( hash, data.canSaveSceneDefaults );
+    return hash;
+}
+
+
+uint32_t BuildUIInteractionSignature( int mouseX, int mouseY, bool rendererOpen, bool reflectionOpen, bool sceneOpen, int activeSlider )
+{
+    uint32_t hash = 2166136261u;
+    hash = HashInt( hash, mouseX );
+    hash = HashInt( hash, mouseY );
+    hash = HashBool( hash, rendererOpen );
+    hash = HashBool( hash, reflectionOpen );
+    hash = HashBool( hash, sceneOpen );
+    hash = HashInt( hash, activeSlider );
+    return hash;
+}
+
+
+void FlushUIDrawList( const UIDrawList& drawList, int screenW, int screenH, float offsetX = 0.0f, float offsetY = 0.0f )
+{
+    const UIDrawContext immediateDraw( screenW, screenH );
+    drawList.Flush( immediateDraw, offsetX, offsetY );
+    Text2d::FlushQuads();
+    Text2d::FlushText();
 }
 
 int WaterReflectionModeFromData( const InGameUIFrameData& data )
@@ -60,6 +193,7 @@ bool InGameUI::IsVisible() const
 void InGameUI::SetVisible( bool visible, double now )
 {
     m_window.isVisible = visible;
+    m_cache.Reset();
     m_backdropBlur.Invalidate();
     if ( visible )
     {
@@ -118,6 +252,7 @@ void InGameUI::SetMinimized( bool minimized, double now )
         m_scrollbarVisibleUntil = now + 1.2;
     }
     m_backdropBlur.Invalidate();
+    m_cache.Reset();
 }
 
 
@@ -151,6 +286,7 @@ void InGameUI::SetActiveTab( InGameUITab tab )
     PhysicsTab::ResetPreviewState( m_physicsTab );
     ControlsTab::ResetPreviewState( m_controlsTab );
     m_backdropBlur.Invalidate();
+    m_cache.Reset();
 }
 
 
@@ -207,6 +343,7 @@ void InGameUI::SetWindowBounds( int x, int y, int width, int height )
     m_scrollY = 0.0f;
     m_scrollbarVisibleUntil = 0.0;
     m_backdropBlur.Invalidate();
+    m_cache.Reset();
 }
 
 
@@ -216,6 +353,7 @@ void InGameUI::SetBlurEnabled( bool enabled )
     {
         m_blurPreviewEnabled = enabled;
         m_backdropBlur.Invalidate();
+        m_cache.Reset();
     }
 }
 
@@ -286,6 +424,7 @@ void InGameUI::SetScrollY( float scrollY )
 {
     m_scrollY = (std::max)( 0.0f, scrollY );
     m_scrollbarVisibleUntil = 1.2;
+    m_cache.Reset();
 }
 
 
@@ -315,6 +454,7 @@ void InGameUI::SetMaximized( bool maximized, int screenW, int screenH, double no
 void InGameUI::ResetResources()
 {
     m_backdropBlur.ResetResources();
+    m_cache.Reset();
 }
 
 
@@ -369,6 +509,7 @@ void InGameUI::CloseSceneCombo()
 
 InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, double now, const char* const* sceneOptions, int sceneOptionCount, int selectedSceneOption )
 {
+    PROFILE_SCOPED( "Frame/UI/Input" );
     InGameUIInputResult result;
     m_interaction.blocksCameraMouse = false;
     const InputControl::UIInputSnapshot input = InputControl::CaptureSnapshot( m_interaction.leftWasDown, m_hasMouseOverride, m_mouseOverrideX, m_mouseOverrideY );
@@ -801,7 +942,6 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     m_lastSolverBoxCount = std::clamp( data.solverBoxCount, UI_SOLVER_COUNT_MIN, UI_GAME_MODEL_TOTAL_MAX );
     const int currentRendererIndex = GetRendererIndexFromName( data.rendererName );
     m_lastRendererIndex = currentRendererIndex;
-    const UIDrawContext draw( screenW, screenH );
     const bool shouldDrawCursor = !data.cameraMouseActive && !data.nativeCursorVisible;
     if ( ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) )
     {
@@ -810,6 +950,10 @@ void InGameUI::Draw( const InGameUIFrameData& data )
 
     if ( m_window.isMinimized )
     {
+        m_cache.Reset();
+        UIDrawList& drawList = m_cache.MutableDrawList();
+        drawList.Clear();
+        const UIDrawContext draw( screenW, screenH, &drawList );
         if ( m_window.animationActive && m_window.animationToMinimized )
         {
             const UIRect animBounds = Chrome::CurrentWindowRect( m_window, data.now );
@@ -820,11 +964,11 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                 {
                     ProfilerTab::DrawPerformanceHistogram( m_profilerTab, draw, data );
                 }
-                Text2d::FlushQuads();
-                Text2d::FlushText();
+                FlushUIDrawList( drawList, screenW, screenH );
                 if ( shouldDrawCursor )
                 {
-                    DrawCursor( draw );
+                    const UIDrawContext cursorDraw( screenW, screenH );
+                    DrawCursor( cursorDraw );
                     Text2d::FlushQuads();
                 }
                 return;
@@ -841,16 +985,17 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         {
             ProfilerTab::DrawPerformanceHistogram( m_profilerTab, draw, data );
         }
-        Text2d::FlushQuads();
-        Text2d::FlushText();
+        FlushUIDrawList( drawList, screenW, screenH );
         if ( shouldDrawCursor )
         {
-            DrawCursor( draw );
+            const UIDrawContext cursorDraw( screenW, screenH );
+            DrawCursor( cursorDraw );
             Text2d::FlushQuads();
         }
         return;
     }
 
+    PROFILE_BEGIN( "Frame/UI/Layout" );
     const UIRect windowBounds = Chrome::CurrentWindowRect( m_window, data.now );
     const float x = windowBounds.x;
     const float y = windowBounds.y;
@@ -883,9 +1028,44 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     ProfilerTab::ApplyDefaultExpansion( m_profilerTab );
     ProfilerTab::ApplyExpandAll( m_profilerTab );
 
+    UICacheFrameKey cacheKey;
+    cacheKey.screenW = screenW;
+    cacheKey.screenH = screenH;
+    cacheKey.windowBounds = windowBounds;
+    cacheKey.activeTab = static_cast<int>( m_activeTab );
+    cacheKey.scrollY = m_scrollY;
+    cacheKey.blurEnabled = m_blurPreviewEnabled;
+    cacheKey.contentSignature = BuildUIContentSignature( data, currentRendererIndex );
+    cacheKey.styleSignature = HashBool( 2166136261u, m_blurPreviewEnabled );
+    cacheKey.interactionSignature = BuildUIInteractionSignature( m_mouseX, m_mouseY, m_rendererCombo.IsOpen(), m_reflectionCombo.IsOpen(), m_sceneCombo.IsOpen(), m_activeSlider );
+    m_cache.BeginFrame( cacheKey );
+    PROFILE_END( "Frame/UI/Layout" );
+
+    if ( m_cache.CanReplayPositionOnly( cacheKey ) )
+    {
+        const float replayOffsetX = m_cache.ReplayOffsetX( cacheKey );
+        const float replayOffsetY = m_cache.ReplayOffsetY( cacheKey );
+        FlushUIDrawList( m_cache.DrawList(), screenW, screenH, replayOffsetX, replayOffsetY );
+        if ( shouldDrawCursor )
+        {
+            const UIDrawContext cursorDraw( screenW, screenH );
+            DrawCursor( cursorDraw );
+            Text2d::FlushQuads();
+        }
+        m_cache.StoreFrame( cacheKey );
+        return;
+    }
+
+    UIDrawList& drawList = m_cache.MutableDrawList();
+    drawList.Clear();
+    const UIDrawContext draw( screenW, screenH, &drawList );
+    PROFILE_BEGIN( "Frame/UI/DrawBuild" );
+
     const UIRect blurBounds = { x, y, w, h };
     Text2d::FlushQuads();
+    PROFILE_BEGIN( "Frame/UI/Blur" );
     m_backdropBlur.Draw( draw, blurBounds, screenW, screenH, data.currentFrame, data.now, m_blurPreviewEnabled );
+    PROFILE_END( "Frame/UI/Blur" );
 
     Chrome::DrawWindowFrame( draw, windowBounds, titleH, tabH, m_blurPreviewEnabled, titleText );
     Chrome::DrawTitleButtons( draw, Chrome::GetTitleButtonRects( windowBounds ), m_window.isMaximized, m_mouseX, m_mouseY );
@@ -1047,11 +1227,13 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     draw.Rect( x + w - 18.0f, y + h - 15.0f, 8.0f, 2.0f, 0.34f, 0.91f, 1.0f, 0.72f );
     draw.Rect( x + w - 12.0f, y + h - 21.0f, 2.0f, 2.0f, 0.34f, 0.91f, 1.0f, 0.60f );
 
-    Text2d::FlushQuads();
-    Text2d::FlushText();
+    PROFILE_END( "Frame/UI/DrawBuild" );
+    m_cache.StoreFrame( cacheKey );
+    FlushUIDrawList( drawList, screenW, screenH );
     if ( shouldDrawCursor )
     {
-        DrawCursor( draw );
+        const UIDrawContext cursorDraw( screenW, screenH );
+        DrawCursor( cursorDraw );
         Text2d::FlushQuads();
     }
 }

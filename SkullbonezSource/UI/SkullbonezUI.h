@@ -5,6 +5,7 @@
 #include "UICheckBox.h"
 #include "UIComboBox.h"
 #include "UICommands.h"
+#include "UICache.h"
 #include "UIBackdropBlur.h"
 #include "UIScrollBar.h"
 #include "UISlider.h"
@@ -147,6 +148,7 @@ class InGameUI
     UIComboBox m_reflectionCombo;
     UIComboBox m_sceneCombo;
     UIBackdropBlur m_backdropBlur;
+    UICacheState m_cache;
     UIScrollBar m_scrollBar;
     int m_mouseX = 0;
     int m_mouseY = 0;

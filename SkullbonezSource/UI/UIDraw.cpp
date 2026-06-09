@@ -1,6 +1,7 @@
 #include "UIDraw.h"
 
 #include "../SkullbonezText.h"
+#include "UIDrawList.h"
 
 #include <algorithm>
 #include <cmath>
@@ -19,7 +20,7 @@ bool UIRect::Contains( int px, int py ) const
 }
 
 
-UIDrawContext::UIDrawContext( int screenW, int screenH )
+UIDrawContext::UIDrawContext( int screenW, int screenH, UIDrawList* drawList )
 {
     screenW = (std::max)( 1, screenW );
     screenH = (std::max)( 1, screenH );
@@ -27,11 +28,18 @@ UIDrawContext::UIDrawContext( int screenW, int screenH )
     m_hh = Text2d::HalfH();
     m_sx = ( m_hw * 2.0f ) / static_cast<float>( screenW );
     m_sy = ( m_hh * 2.0f ) / static_cast<float>( screenH );
+    m_drawList = drawList;
 }
 
 
 void UIDrawContext::Rect( float x, float y, float w, float h, float r, float g, float b, float a ) const
 {
+    if ( m_drawList )
+    {
+        m_drawList->AddRect( x, y, w, h, r, g, b, a );
+        return;
+    }
+
     float x0 = Snap( x );
     float y0 = Snap( y );
     float x1 = Snap( x + w );
@@ -50,6 +58,12 @@ void UIDrawContext::Rect( float x, float y, float w, float h, float r, float g, 
 
 void UIDrawContext::Triangle( float x0, float y0, float x1, float y1, float x2, float y2, float r, float g, float b, float a ) const
 {
+    if ( m_drawList )
+    {
+        m_drawList->AddTriangle( x0, y0, x1, y1, x2, y2, r, g, b, a );
+        return;
+    }
+
     Text2d::BatchTriangle( PixelXUnsnapped( x0 ),
                            PixelYUnsnapped( y0 ),
                            PixelXUnsnapped( x1 ),
@@ -74,6 +88,12 @@ void UIDrawContext::Outline( float x, float y, float w, float h, float r, float 
 
 void UIDrawContext::Text( float x, float y, float pxSize, float r, float g, float b, const char* value ) const
 {
+    if ( m_drawList )
+    {
+        m_drawList->AddText( x, y, pxSize, r, g, b, value );
+        return;
+    }
+
     const float unitSize = pxSize * m_sy;
     Text2d::Render2dTextColor( PixelX( Snap( x ) ), PixelY( Snap( y ) + pxSize ), unitSize, r, g, b, "%s", value );
 }

@@ -243,10 +243,16 @@
     <ClCompile Include="SkullbonezSource\UI\UICheckBox.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UICache.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIComboBox.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIDraw.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\UI\UIDrawList.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\UIDrawWidgets.cpp">
@@ -476,6 +482,9 @@
     <ClInclude Include="SkullbonezSource\UI\UICheckBox.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UICache.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIComboBox.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
@@ -483,6 +492,9 @@
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIDraw.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\UI\UIDrawList.h">
       <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\UIDrawWidgets.h">

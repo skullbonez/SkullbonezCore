@@ -178,8 +178,10 @@
     <ClCompile Include="SkullbonezSource\UI\UIBackdropBlur.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIButton.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UICheckBox.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UICache.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIComboBox.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIDraw.cpp" />
+    <ClCompile Include="SkullbonezSource\UI\UIDrawList.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIDrawWidgets.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIIconButton.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIInput.cpp" />
@@ -257,9 +259,11 @@
     <ClInclude Include="SkullbonezSource\UI\UIBackdropBlur.h" />
     <ClInclude Include="SkullbonezSource\UI\UIButton.h" />
     <ClInclude Include="SkullbonezSource\UI\UICheckBox.h" />
+    <ClInclude Include="SkullbonezSource\UI\UICache.h" />
     <ClInclude Include="SkullbonezSource\UI\UIComboBox.h" />
     <ClInclude Include="SkullbonezSource\UI\UICommands.h" />
     <ClInclude Include="SkullbonezSource\UI\UIDraw.h" />
+    <ClInclude Include="SkullbonezSource\UI\UIDrawList.h" />
     <ClInclude Include="SkullbonezSource\UI\UIDrawWidgets.h" />
     <ClInclude Include="SkullbonezSource\UI\UIIconButton.h" />
     <ClInclude Include="SkullbonezSource\UI\UIInput.h" />
