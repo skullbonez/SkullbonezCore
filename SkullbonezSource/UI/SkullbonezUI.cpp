@@ -4,9 +4,9 @@
 #include "../SkullbonezProfiler.h"
 #include "../SkullbonezText.h"
 #include "UIDraw.h"
+#include "UIDrawWidgets.h"
 #include "UIIconButton.h"
 #include "UILayout.h"
-#include "UIStyle.h"
 
 #include <algorithm>
 #include <cmath>
@@ -18,6 +18,7 @@ using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Text;
 using namespace SkullbonezCore::UI;
+using namespace SkullbonezCore::UI::Widgets;
 using namespace SkullbonezCore::UI::Layout;
 
 namespace
@@ -102,87 +103,6 @@ bool SceneFilterMatches( const char* option, const char* filter )
     }
     return false;
 }
-
-enum class TitleButtonIcon
-{
-    Minimize,
-    Maximize,
-    Restore,
-    Close
-};
-
-
-void DrawTitleButton( const UIDrawContext& draw, const UIRect& bounds, TitleButtonIcon icon, bool hot, bool active )
-{
-    const float bgR = hot ? 0.050f : ( active ? 0.038f : 0.026f );
-    const float bgG = hot ? 0.210f : ( active ? 0.145f : 0.080f );
-    const float bgB = hot ? 0.285f : ( active ? 0.188f : 0.102f );
-    const float outlineR = hot ? 0.44f : 0.18f;
-    const float outlineG = hot ? 0.92f : 0.40f;
-    const float outlineB = hot ? 1.00f : 0.48f;
-    const float outlineA = hot ? 0.96f : ( active ? 0.90f : 0.58f );
-    const float iconR = icon == TitleButtonIcon::Close && hot ? 0.95f : 0.68f;
-    const float iconG = icon == TitleButtonIcon::Close && hot ? 0.99f : 0.86f;
-    const float iconB = 1.00f;
-    const float iconA = hot || active ? 0.98f : 0.88f;
-    const float cx = bounds.x + bounds.w * 0.5f;
-    const float cy = bounds.y + bounds.h * 0.5f;
-
-    draw.Rect( bounds.x, bounds.y, bounds.w, bounds.h, bgR, bgG, bgB, hot ? 0.92f : 0.78f );
-    draw.Outline( bounds.x, bounds.y, bounds.w, bounds.h, outlineR, outlineG, outlineB, outlineA );
-    if ( hot )
-    {
-        draw.Rect( bounds.x + 1.0f, bounds.y + 1.0f, bounds.w - 2.0f, 1.0f, 0.44f, 0.92f, 1.0f, 0.32f );
-    }
-
-    switch ( icon )
-    {
-        case TitleButtonIcon::Minimize:
-            draw.Rect( cx - 5.0f, cy + 4.0f, 10.0f, 2.0f, iconR, iconG, iconB, iconA );
-            break;
-        case TitleButtonIcon::Maximize:
-            draw.Outline( cx - 6.0f, cy - 6.0f, 12.0f, 12.0f, iconR, iconG, iconB, iconA );
-            draw.Rect( cx - 6.0f, cy - 6.0f, 12.0f, 2.0f, iconR, iconG, iconB, iconA );
-            break;
-        case TitleButtonIcon::Restore:
-            draw.Outline( cx - 2.0f, cy - 7.0f, 10.0f, 10.0f, iconR, iconG, iconB, iconA * 0.72f );
-            draw.Rect( cx - 2.0f, cy - 7.0f, 10.0f, 2.0f, iconR, iconG, iconB, iconA * 0.72f );
-            draw.Outline( cx - 7.0f, cy - 2.0f, 10.0f, 10.0f, iconR, iconG, iconB, iconA );
-            draw.Rect( cx - 7.0f, cy - 2.0f, 10.0f, 2.0f, iconR, iconG, iconB, iconA );
-            break;
-        case TitleButtonIcon::Close:
-            for ( int i = 0; i < 5; ++i )
-            {
-                const float offset = static_cast<float>( i ) * 2.0f;
-                draw.Rect( cx - 5.0f + offset, cy - 5.0f + offset, 2.0f, 2.0f, iconR, iconG, iconB, iconA );
-                if ( i != 2 )
-                {
-                    draw.Rect( cx + 3.0f - offset, cy - 5.0f + offset, 2.0f, 2.0f, iconR, iconG, iconB, iconA );
-                }
-            }
-            break;
-    }
-}
-
-
-void DrawPipelineStepButton( const UIDrawContext& draw, const UIRect& bounds, bool previous, bool hot )
-{
-    const float bgR = hot ? 0.050f : 0.024f;
-    const float bgG = hot ? 0.235f : 0.108f;
-    const float bgB = hot ? 0.315f : 0.142f;
-    const float outlineR = hot ? 0.44f : 0.24f;
-    const float outlineG = hot ? 0.92f : 0.58f;
-    const float outlineB = hot ? 1.00f : 0.70f;
-    const float cx = bounds.x + bounds.w * 0.5f;
-    const float cy = bounds.y + bounds.h * 0.5f;
-    const float tipX = previous ? cx - 4.0f : cx + 4.0f;
-    const float rearX = previous ? cx + 4.0f : cx - 4.0f;
-
-    draw.Rect( bounds.x, bounds.y, bounds.w, bounds.h, bgR, bgG, bgB, hot ? 0.92f : 0.78f );
-    draw.Outline( bounds.x, bounds.y, bounds.w, bounds.h, outlineR, outlineG, outlineB, hot ? 0.96f : 0.78f );
-    draw.Triangle( tipX, cy, rearX, cy - 5.5f, rearX, cy + 5.5f, hot ? 0.96f : 0.78f, hot ? 1.0f : 0.92f, 1.0f, hot ? 0.98f : 0.88f );
-}
-
 
 int CountFilteredSceneOptions( const char* const* options, int optionCount, const char* filter )
 {
@@ -272,36 +192,6 @@ int SceneFilteredPositionForIndex( const char* const* options, int optionCount, 
 float ProfilerMarkerDisplayCpuMs( const Profiler::Marker& marker )
 {
     return marker.avgMs > 0.0f ? marker.avgMs : marker.lastFrameMs;
-}
-
-
-void DrawFooterToggle( const UIDrawContext& draw, const UIRect& bounds, const char* label, bool checked, float accentR, float accentG, float accentB )
-{
-    const Style::FooterToggleStyle& style = Style::FooterToggle();
-    const float switchW = style.switchW;
-    const float switchH = style.switchH;
-    const float switchX = bounds.x + bounds.w - switchW - 2.0f;
-    const float switchY = bounds.y + 5.0f;
-    const float labelAreaW = (std::max)( 1.0f, switchX - bounds.x - 6.0f );
-    const float labelW = Text2d::MeasureText( style.labelTextSize, label );
-    const float labelX = bounds.x + (std::max)( 0.0f, ( labelAreaW - labelW ) * 0.5f );
-
-    draw.Text( labelX, bounds.y + 4.0f, style.labelTextSize, style.label.r, style.label.g, style.label.b, label );
-    draw.Rect( switchX, switchY, switchW, switchH,
-               checked ? accentR * 0.32f : 0.05f,
-               checked ? accentG * 0.32f : 0.08f,
-               checked ? accentB * 0.32f : 0.09f,
-               0.92f );
-    draw.Outline( switchX, switchY, switchW, switchH,
-                  checked ? accentR : 0.20f,
-                  checked ? accentG : 0.30f,
-                  checked ? accentB : 0.34f,
-                  checked ? 0.82f : 0.58f );
-    draw.Rect( switchX + ( checked ? 14.0f : 2.0f ), bounds.y + 7.0f, style.knobW, style.knobH,
-               checked ? 0.82f : 0.34f,
-               checked ? 0.98f : 0.46f,
-               checked ? 1.0f : 0.52f,
-               0.96f );
 }
 
 
@@ -2169,37 +2059,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
 
     auto visible = [&]( float rowY, float rowH ) -> bool
     {
-        return rowY >= contentY && rowY + rowH <= contentY + contentH;
-    };
-    auto labelValueAt = [&]( float tx, float rowY, const char* label, const char* value, float vr, float vg, float vb )
-    {
-        if ( !visible( rowY, 18.0f ) )
-        {
-            return;
-        }
-        draw.Text( tx, rowY, 11.5f, 0.52f, 0.76f, 0.84f, label );
-        draw.Text( tx + 126.0f, rowY, 11.5f, vr, vg, vb, value );
-    };
-    auto labelValue = [&]( float rowY, const char* label, const char* value, float vr, float vg, float vb )
-    {
-        labelValueAt( contentX, rowY, label, value, vr, vg, vb );
-    };
-    auto drawSectionTitle = [&]( float rowY, float textSize, const char* text )
-    {
-        if ( !visible( rowY, textSize + 4.0f ) )
-        {
-            return;
-        }
-        draw.Text( contentX, rowY, textSize, 1.0f, 0.85f, 0.34f, text );
-    };
-    auto drawContentToggle = [&]( UICheckBox& toggle, float tx, float rowY, float controlW, const char* label, bool checked )
-    {
-        if ( !visible( rowY, 24.0f ) )
-        {
-            return;
-        }
-        toggle.SetBounds( tx, rowY, controlW, 24.0f );
-        toggle.DrawToggle( draw, label, checked, 0.34f, 0.91f, 1.0f );
+        return IsRowVisible( contentY, contentH, rowY, rowH );
     };
     if ( m_activeTab == InGameUITab::Profiler )
     {
@@ -2351,7 +2211,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
             selectedSceneName = filterDisplay;
         }
         const float sceneComboW = SceneTabComboWidth( contentW );
-        drawSectionTitle( scrolledY, 16.0f, "Scene" );
+        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Scene" );
         m_sceneCombo.SetBounds( contentX, scrolledY + 42.0f, sceneComboW, 24.0f );
         const float resetX = contentX + sceneComboW + UI_SCENE_HEADER_BUTTON_GAP;
         const float defaultsX = resetX + UI_SCENE_RESET_BUTTON_W + UI_SCENE_HEADER_BUTTON_GAP;
@@ -2374,17 +2234,17 @@ void InGameUI::Draw( const InGameUIFrameData& data )
             const float sceneCol2 = contentX + (std::max)( 208.0f, contentW * 0.48f );
             char statusBuf[64] = {};
             snprintf( statusBuf, sizeof( statusBuf ), "%s / fixed %s", data.testComplete ? "complete" : "running", data.fixedStep ? "on" : "off" );
-            labelValueAt( contentX, scrolledY + 82.0f, "Renderer", data.rendererName, 0.60f, 0.90f, 1.0f );
-            labelValueAt( sceneCol2, scrolledY + 82.0f, "Status", statusBuf, 0.36f, 0.95f, 0.56f );
-            labelValueAt( contentX, scrolledY + 108.0f, "Frame", buf, 0.88f, 0.92f, 0.94f );
+            DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 82.0f, "Renderer", data.rendererName, 0.60f, 0.90f, 1.0f );
+            DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 82.0f, "Status", statusBuf, 0.36f, 0.95f, 0.56f );
+            DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 108.0f, "Frame", buf, 0.88f, 0.92f, 0.94f );
             snprintf( buf, sizeof( buf ), "%.1f FPS", data.fps );
-            labelValueAt( sceneCol2, scrolledY + 108.0f, "Frame rate", buf, 0.52f, 0.94f, 1.0f );
+            DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 108.0f, "Frame rate", buf, 0.52f, 0.94f, 1.0f );
             snprintf( buf, sizeof( buf ), "%d / %d", data.currentSceneIndex + 1, data.sceneCount );
-            labelValueAt( contentX, scrolledY + 134.0f, "Scene index", buf, 0.88f, 0.92f, 0.94f );
+            DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 134.0f, "Scene index", buf, 0.88f, 0.92f, 0.94f );
             snprintf( buf, sizeof( buf ), "%.6f", data.sceneEnergy );
-            labelValueAt( sceneCol2, scrolledY + 134.0f, "Kinetic energy", buf, 0.98f, 0.78f, 0.35f );
+            DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 134.0f, "Kinetic energy", buf, 0.98f, 0.78f, 0.35f );
             snprintf( buf, sizeof( buf ), "%d", data.modelCount );
-            labelValueAt( contentX, scrolledY + 160.0f, "Model count", buf, 0.88f, 0.92f, 0.94f );
+            DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 160.0f, "Model count", buf, 0.88f, 0.92f, 0.94f );
         }
         if ( visible( scrolledY + 42.0f, 24.0f ) )
         {
@@ -2412,19 +2272,19 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         const float col2 = contentX + colW + 18.0f;
         const float displayAlpha = ( m_activeSlider == 3 && m_previewPhysicsAlpha >= 0.0f ) ? m_previewPhysicsAlpha : data.physicsDebugAlpha;
         const float displayLinger = ( m_activeSlider == 4 && m_previewContactLinger >= 0.0f ) ? m_previewContactLinger : data.physicsDebugContactLinger;
-        drawSectionTitle( scrolledY, 16.0f, "Physics Controls" );
-        drawContentToggle( m_physicsToggles[0], col1, scrolledY + 42.0f, colW, "Collision state", data.collisionVisualizer );
-        drawContentToggle( m_physicsToggles[4], col1, scrolledY + 72.0f, colW, "Transparent", data.physicsDebugTransparent );
-        drawContentToggle( m_physicsToggles[5], col1, scrolledY + 102.0f, colW, "Broadphase", data.broadphaseOverlay );
-        drawContentToggle( m_physicsToggles[7], col1, scrolledY + 132.0f, colW, "Pipeline", ( data.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0 );
-        drawContentToggle( m_physicsToggles[1], col2, scrolledY + 42.0f, colW, "Axes", ( data.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0 );
-        drawContentToggle( m_physicsToggles[2], col2, scrolledY + 72.0f, colW, "Contacts", ( data.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0 );
-        drawContentToggle( m_physicsToggles[3], col2, scrolledY + 102.0f, colW, "Sleep state", ( data.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0 );
-        drawContentToggle( m_physicsToggles[6], col2, scrolledY + 132.0f, colW, "Sleep policy", data.physicsSleepEnabled );
+        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Physics Controls" );
+        DrawContentToggle( draw, contentY, contentH, m_physicsToggles[0], col1, scrolledY + 42.0f, colW, "Collision state", data.collisionVisualizer );
+        DrawContentToggle( draw, contentY, contentH, m_physicsToggles[4], col1, scrolledY + 72.0f, colW, "Transparent", data.physicsDebugTransparent );
+        DrawContentToggle( draw, contentY, contentH, m_physicsToggles[5], col1, scrolledY + 102.0f, colW, "Broadphase", data.broadphaseOverlay );
+        DrawContentToggle( draw, contentY, contentH, m_physicsToggles[7], col1, scrolledY + 132.0f, colW, "Pipeline", ( data.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0 );
+        DrawContentToggle( draw, contentY, contentH, m_physicsToggles[1], col2, scrolledY + 42.0f, colW, "Axes", ( data.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0 );
+        DrawContentToggle( draw, contentY, contentH, m_physicsToggles[2], col2, scrolledY + 72.0f, colW, "Contacts", ( data.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0 );
+        DrawContentToggle( draw, contentY, contentH, m_physicsToggles[3], col2, scrolledY + 102.0f, colW, "Sleep state", ( data.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0 );
+        DrawContentToggle( draw, contentY, contentH, m_physicsToggles[6], col2, scrolledY + 132.0f, colW, "Sleep policy", data.physicsSleepEnabled );
         snprintf( buf, sizeof( buf ), "0x%04X", data.physicsDebugFlags );
-        labelValue( scrolledY + 178.0f, "Debug flags", buf, 0.52f, 0.94f, 1.0f );
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 178.0f, "Debug flags", buf, 0.52f, 0.94f, 1.0f );
         snprintf( buf, sizeof( buf ), "%d/%d %s", data.physicsPipelineStageIndex + 1, data.physicsPipelineStageCount, data.physicsPipelineStageName );
-        labelValue( scrolledY + 198.0f, "Pipeline stage", buf, 0.52f, 0.94f, 1.0f );
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 198.0f, "Pipeline stage", buf, 0.52f, 0.94f, 1.0f );
         SetPipelineStepButtonBounds( m_pipelinePrevButton, m_pipelineNextButton, contentX, contentW, scrolledY + 194.0f );
         if ( visible( scrolledY + 194.0f, UI_PIPELINE_STEP_BUTTON_H ) )
         {
@@ -2433,7 +2293,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         }
         if ( visible( scrolledY + 216.0f, 18.0f ) )
         {
-            drawSectionTitle( scrolledY + 216.0f, 12.0f, "Debug Draw" );
+            DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 216.0f, 12.0f, "Debug Draw" );
         }
         snprintf( buf, sizeof( buf ), "%.2f", displayAlpha );
         m_physicsAlphaSlider.SetBounds( contentX, scrolledY + 242.0f, contentW, 34.0f );
@@ -2449,7 +2309,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         }
         if ( visible( scrolledY + 348.0f, 18.0f ) )
         {
-            drawSectionTitle( scrolledY + 348.0f, 12.0f, "World" );
+            DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 348.0f, 12.0f, "World" );
         }
         const float displayGravityStrength = GravityStrengthFromWorld( data.worldGravity );
         snprintf( buf, sizeof( buf ), "%.1f", displayGravityStrength );
@@ -2467,12 +2327,12 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         const float col2 = contentX + colW + 18.0f;
         const float displayTimeScale = ( m_activeSlider == 1 && m_previewTimeScale > 0.0f ) ? m_previewTimeScale : data.timeScale;
         const int displayModelCount = ( m_activeSlider == 2 && m_previewModelCount >= 0 ) ? m_previewModelCount : data.modelCount;
-        drawSectionTitle( scrolledY, 16.0f, "Scene Options" );
-        drawContentToggle( m_optionToggles[0], col1, scrolledY + 42.0f, colW, "Fixed step", data.fixedStep );
-        drawContentToggle( m_optionToggles[1], col2, scrolledY + 42.0f, colW, "Hide terrain", data.terrainHidden );
-        drawContentToggle( m_optionToggles[2], col1, scrolledY + 72.0f, colW, "Hide water", data.waterHidden );
-        drawContentToggle( m_optionToggles[3], col2, scrolledY + 72.0f, colW, "Freeze water", data.waterFreezeDebug );
-        drawContentToggle( m_optionToggles[4], col1, scrolledY + 102.0f, colW, "Flat water", data.waterFlatDebug );
+        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Scene Options" );
+        DrawContentToggle( draw, contentY, contentH, m_optionToggles[0], col1, scrolledY + 42.0f, colW, "Fixed step", data.fixedStep );
+        DrawContentToggle( draw, contentY, contentH, m_optionToggles[1], col2, scrolledY + 42.0f, colW, "Hide terrain", data.terrainHidden );
+        DrawContentToggle( draw, contentY, contentH, m_optionToggles[2], col1, scrolledY + 72.0f, colW, "Hide water", data.waterHidden );
+        DrawContentToggle( draw, contentY, contentH, m_optionToggles[3], col2, scrolledY + 72.0f, colW, "Freeze water", data.waterFreezeDebug );
+        DrawContentToggle( draw, contentY, contentH, m_optionToggles[4], col1, scrolledY + 102.0f, colW, "Flat water", data.waterFlatDebug );
         snprintf( buf, sizeof( buf ), "%.2fx", displayTimeScale );
         m_timeScaleSlider.SetBounds( contentX, scrolledY + 168.0f, contentW, 34.0f );
         if ( visible( scrolledY + 168.0f, 34.0f ) )
@@ -2495,7 +2355,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         const int displayBallMax = RemainingGameModelSlots( displaySolverBoxes );
         const int displayBoxMax = RemainingGameModelSlots( displaySolverBalls );
 
-        drawSectionTitle( scrolledY, 16.0f, "Run Controls" );
+        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Run Controls" );
         snprintf( buf, sizeof( buf ), "%d", displaySeed );
         m_seedSlider.SetBounds( contentX, scrolledY + 42.0f, contentW, 34.0f );
         if ( visible( scrolledY + 42.0f, 34.0f ) )
@@ -2504,7 +2364,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         }
         if ( visible( scrolledY + 104.0f, 18.0f ) )
         {
-            drawSectionTitle( scrolledY + 104.0f, 12.0f, "Game Models" );
+            DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 104.0f, 12.0f, "Game Models" );
         }
         snprintf( buf, sizeof( buf ), "%d", displaySolverBalls );
         m_solverBallSlider.SetBounds( contentX, scrolledY + 130.0f, contentW, 34.0f );
@@ -2520,7 +2380,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         }
         if ( visible( scrolledY + 226.0f, 18.0f ) )
         {
-            drawSectionTitle( scrolledY + 226.0f, 12.0f, "Fluid" );
+            DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 226.0f, 12.0f, "Fluid" );
         }
         snprintf( buf, sizeof( buf ), "%.0f", data.worldFluidHeight );
         m_worldFluidHeightSlider.SetBounds( contentX, scrolledY + 252.0f, contentW, 34.0f );
@@ -2568,11 +2428,10 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     static const char* kRendererOptions[] = { "GL", "DX11", "DX12" };
     static const char* kReflectionOptions[] = { "FBO", "DXR", "None" };
     m_rendererCombo.Draw( draw, "Renderer", kRendererOptions, 3, currentRendererIndex, m_mouseX, m_mouseY );
-    const Style::UIColor& footerAccent = Style::AccentCyan();
-    DrawFooterToggle( draw, blurFooterBounds, "Blur", m_blurPreviewEnabled, footerAccent.r, footerAccent.g, footerAccent.b );
-    DrawFooterToggle( draw, vsyncFooterBounds, "VSync", data.vsyncEnabled, footerAccent.r, footerAccent.g, footerAccent.b );
-    DrawFooterToggle( draw, perfFooterBounds, "Perf", m_performanceHistogramEnabled, footerAccent.r, footerAccent.g, footerAccent.b );
-    DrawFooterToggle( draw, timelineFooterBounds, "Timeline", m_profilerTimelineEnabled, footerAccent.r, footerAccent.g, footerAccent.b );
+    DrawFooterToggle( draw, blurFooterBounds, "Blur", m_blurPreviewEnabled );
+    DrawFooterToggle( draw, vsyncFooterBounds, "VSync", data.vsyncEnabled );
+    DrawFooterToggle( draw, perfFooterBounds, "Perf", m_performanceHistogramEnabled );
+    DrawFooterToggle( draw, timelineFooterBounds, "Timeline", m_profilerTimelineEnabled );
     m_reflectionCombo.Draw( draw,
                             "Water",
                             kReflectionOptions,
@@ -2595,11 +2454,6 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         draw.Rect( statsX, by + 16.0f, statsW, 56.0f, 0.018f, 0.030f, 0.038f, 0.66f );
         draw.Outline( statsX, by + 16.0f, statsW, 56.0f, 0.18f, 0.30f, 0.34f, 0.68f );
 
-        auto statCell = [&]( float tx, const char* name, const char* value, float r, float g, float b )
-        {
-            draw.Text( tx, by + 25.0f, 10.0f, 0.67f, 0.74f, 0.77f, name );
-            draw.Text( tx, by + 47.0f, 11.5f, r, g, b, value );
-        };
         if ( statsW < 350.0f )
         {
             char fpsText[32];
@@ -2608,30 +2462,25 @@ void InGameUI::Draw( const InGameUIFrameData& data )
             snprintf( fpsText, sizeof( fpsText ), "%.0f", data.fps );
             snprintf( frameText, sizeof( frameText ), "%.2f ms", frameDisplayMs );
             snprintf( drawText, sizeof( drawText ), "%d/%d", drawCalls, data.UIDrawCalls );
-            auto compactStat = [&]( float ty, const char* name, const char* value, float r, float g, float b )
-            {
-                draw.Text( statsX + 12.0f, ty, 9.0f, 0.67f, 0.74f, 0.77f, name );
-                draw.Text( statsX + 66.0f, ty, 9.5f, r, g, b, value );
-            };
-            compactStat( by + 23.0f, "FPS", fpsText, 0.48f, 0.90f, 0.22f );
-            compactStat( by + 41.0f, "Frame", frameText, 0.32f, 0.90f, 1.0f );
-            compactStat( by + 59.0f, "Draw/UI", drawText, 0.32f, 0.90f, 1.0f );
+            DrawCompactFooterStat( draw, statsX, by + 23.0f, "FPS", fpsText, 0.48f, 0.90f, 0.22f );
+            DrawCompactFooterStat( draw, statsX, by + 41.0f, "Frame", frameText, 0.32f, 0.90f, 1.0f );
+            DrawCompactFooterStat( draw, statsX, by + 59.0f, "Draw/UI", drawText, 0.32f, 0.90f, 1.0f );
         }
         else
         {
-            statCell( statsX + 18.0f, "FPS", status, 0.48f, 0.90f, 0.22f );
-            draw.Rect( statsX + 78.0f, by + 23.0f, 1.0f, 42.0f, 0.28f, 0.38f, 0.42f, 0.78f );
+            DrawFooterStatCell( draw, statsX + 18.0f, by, "FPS", status, 0.48f, 0.90f, 0.22f );
+            DrawFooterStatDivider( draw, statsX + 78.0f, by );
             snprintf( status, sizeof( status ), "%.2f ms", frameDisplayMs );
-            statCell( statsX + 100.0f, "Frame Time", status, 0.32f, 0.90f, 1.0f );
-            draw.Rect( statsX + 190.0f, by + 23.0f, 1.0f, 42.0f, 0.28f, 0.38f, 0.42f, 0.78f );
+            DrawFooterStatCell( draw, statsX + 100.0f, by, "Frame Time", status, 0.32f, 0.90f, 1.0f );
+            DrawFooterStatDivider( draw, statsX + 190.0f, by );
             snprintf( status, sizeof( status ), "%d%%", cpuPercent );
-            statCell( statsX + 212.0f, "CPU", status, 0.48f, 0.90f, 0.22f );
-            draw.Rect( statsX + 266.0f, by + 23.0f, 1.0f, 42.0f, 0.28f, 0.38f, 0.42f, 0.78f );
+            DrawFooterStatCell( draw, statsX + 212.0f, by, "CPU", status, 0.48f, 0.90f, 0.22f );
+            DrawFooterStatDivider( draw, statsX + 266.0f, by );
             snprintf( status, sizeof( status ), "%d%%", gpuPercent );
-            statCell( statsX + 288.0f, "GPU", status, 0.48f, 0.90f, 0.22f );
-            draw.Rect( statsX + 342.0f, by + 23.0f, 1.0f, 42.0f, 0.28f, 0.38f, 0.42f, 0.78f );
+            DrawFooterStatCell( draw, statsX + 288.0f, by, "GPU", status, 0.48f, 0.90f, 0.22f );
+            DrawFooterStatDivider( draw, statsX + 342.0f, by );
             snprintf( status, sizeof( status ), "%d / %d", drawCalls, data.UIDrawCalls );
-            statCell( statsX + statsW - 112.0f, "Draws / UI", status, 0.32f, 0.90f, 1.0f );
+            DrawFooterStatCell( draw, statsX + statsW - 112.0f, by, "Draws / UI", status, 0.32f, 0.90f, 1.0f );
         }
     }
     else
