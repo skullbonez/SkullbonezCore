@@ -1,11 +1,342 @@
 // --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezConfig.h"
-#include <string.h>
+#include <cerrno>
+#include <climits>
+#include <cstdlib>
+#include <cstring>
 
 
 // --- Usings ---
 using namespace SkullbonezCore::Basics;
+
+
+namespace
+{
+enum class ConfigValueType
+{
+    Int,
+    Float,
+    Bool,
+    String
+};
+
+struct ConfigSetting
+{
+    const char* name;
+    ConfigValueType type;
+    bool hasRange;
+    double minValue;
+    double maxValue;
+    bool ( *apply )( SkullbonezConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line );
+    void ( *dump )( const SkullbonezConfig& cfg, FILE* out, const ConfigSetting& setting );
+};
+
+bool IsSpaceOrTab( char c )
+{
+    return c == ' ' || c == '\t';
+}
+
+char* TrimInPlace( char* text )
+{
+    while ( IsSpaceOrTab( *text ) )
+    {
+        ++text;
+    }
+
+    size_t len = strlen( text );
+    while ( len > 0 && IsSpaceOrTab( text[len - 1] ) )
+    {
+        text[--len] = '\0';
+    }
+    return text;
+}
+
+void WarnConfigLine( const char* path, int line, const char* key, const char* value, const char* reason )
+{
+    fprintf( stderr,
+             "[config] %s:%d ignored %s=%s (%s).\n",
+             path ? path : "<config>",
+             line,
+             key ? key : "<unknown>",
+             value ? value : "",
+             reason ? reason : "invalid value" );
+}
+
+bool IsRangeValid( double value, const ConfigSetting& setting )
+{
+    return !setting.hasRange || ( value >= setting.minValue && value <= setting.maxValue );
+}
+
+bool ParseConfigIntValue( const char* value, const ConfigSetting& setting, const char* path, int line, int& out )
+{
+    if ( !value || *value == '\0' )
+    {
+        WarnConfigLine( path, line, setting.name, value, "expected integer" );
+        return false;
+    }
+
+    errno = 0;
+    char* end = nullptr;
+    const long parsed = strtol( value, &end, 10 );
+    if ( end == value || *end != '\0' || errno == ERANGE || parsed < INT_MIN || parsed > INT_MAX )
+    {
+        WarnConfigLine( path, line, setting.name, value, "expected integer" );
+        return false;
+    }
+
+    if ( !IsRangeValid( static_cast<double>( parsed ), setting ) )
+    {
+        WarnConfigLine( path, line, setting.name, value, "outside allowed range" );
+        return false;
+    }
+
+    out = static_cast<int>( parsed );
+    return true;
+}
+
+bool ParseConfigFloatValue( const char* value, const ConfigSetting& setting, const char* path, int line, float& out )
+{
+    if ( !value || *value == '\0' )
+    {
+        WarnConfigLine( path, line, setting.name, value, "expected float" );
+        return false;
+    }
+
+    errno = 0;
+    char* end = nullptr;
+    const double parsed = strtod( value, &end );
+    if ( end == value || *end != '\0' || errno == ERANGE )
+    {
+        WarnConfigLine( path, line, setting.name, value, "expected float" );
+        return false;
+    }
+
+    if ( !IsRangeValid( parsed, setting ) )
+    {
+        WarnConfigLine( path, line, setting.name, value, "outside allowed range" );
+        return false;
+    }
+
+    out = static_cast<float>( parsed );
+    return true;
+}
+
+bool ParseConfigBoolValue( const char* value, const ConfigSetting& setting, const char* path, int line, bool& out )
+{
+    if ( !value || *value == '\0' )
+    {
+        WarnConfigLine( path, line, setting.name, value, "expected boolean" );
+        return false;
+    }
+
+    if ( _stricmp( value, "true" ) == 0 || _stricmp( value, "on" ) == 0 || _stricmp( value, "yes" ) == 0 )
+    {
+        out = true;
+        return true;
+    }
+    if ( _stricmp( value, "false" ) == 0 || _stricmp( value, "off" ) == 0 || _stricmp( value, "no" ) == 0 )
+    {
+        out = false;
+        return true;
+    }
+
+    int parsed = 0;
+    if ( ParseConfigIntValue( value, setting, path, line, parsed ) )
+    {
+        out = parsed != 0;
+        return true;
+    }
+
+    WarnConfigLine( path, line, setting.name, value, "expected boolean" );
+    return false;
+}
+
+bool ApplyConfigString( SkullbonezConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line, std::string& out )
+{
+    static_cast<void>( cfg );
+    if ( !value || *value == '\0' )
+    {
+        WarnConfigLine( path, line, setting.name, value, "expected non-empty string" );
+        return false;
+    }
+    out = value;
+    return true;
+}
+
+#define CONFIG_INT( KEY, FIELD, MIN_VALUE, MAX_VALUE )                                                                        \
+    {                                                                                                                         \
+        KEY,                                                                                                                  \
+        ConfigValueType::Int,                                                                                                 \
+        true,                                                                                                                 \
+        static_cast<double>( MIN_VALUE ),                                                                                     \
+        static_cast<double>( MAX_VALUE ),                                                                                     \
+        []( SkullbonezConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool {              \
+                int parsed = 0;                                                                                                             \
+                if ( !ParseConfigIntValue( value, setting, path, line, parsed ) )                                                            \
+                {                                                                                                                           \
+                    return false;                                                                                                           \
+                }                                                                                                                           \
+                cfg.FIELD = parsed;                                                                                                         \
+                return true; }, \
+        []( const SkullbonezConfig& cfg, FILE* out, const ConfigSetting& setting ) { fprintf( out, "%s = %d\n", setting.name, cfg.FIELD ); } }
+
+#define CONFIG_FLOAT( KEY, FIELD, MIN_VALUE, MAX_VALUE )                                                                      \
+    {                                                                                                                         \
+        KEY,                                                                                                                  \
+        ConfigValueType::Float,                                                                                               \
+        true,                                                                                                                 \
+        static_cast<double>( MIN_VALUE ),                                                                                     \
+        static_cast<double>( MAX_VALUE ),                                                                                     \
+        []( SkullbonezConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool {              \
+                float parsed = 0.0f;                                                                                                        \
+                if ( !ParseConfigFloatValue( value, setting, path, line, parsed ) )                                                          \
+                {                                                                                                                           \
+                    return false;                                                                                                           \
+                }                                                                                                                           \
+                cfg.FIELD = parsed;                                                                                                         \
+                return true; }, \
+        []( const SkullbonezConfig& cfg, FILE* out, const ConfigSetting& setting ) { fprintf( out, "%s = %.9g\n", setting.name, static_cast<double>( cfg.FIELD ) ); } }
+
+#define CONFIG_BOOL( KEY, FIELD )                                                                                             \
+    {                                                                                                                         \
+        KEY,                                                                                                                  \
+        ConfigValueType::Bool,                                                                                                \
+        true,                                                                                                                 \
+        0.0,                                                                                                                  \
+        static_cast<double>( INT_MAX ),                                                                                       \
+        []( SkullbonezConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool {              \
+                bool parsed = false;                                                                                                        \
+                if ( !ParseConfigBoolValue( value, setting, path, line, parsed ) )                                                           \
+                {                                                                                                                           \
+                    return false;                                                                                                           \
+                }                                                                                                                           \
+                cfg.FIELD = parsed;                                                                                                         \
+                return true; }, \
+        []( const SkullbonezConfig& cfg, FILE* out, const ConfigSetting& setting ) { fprintf( out, "%s = %d\n", setting.name, cfg.FIELD ? 1 : 0 ); } }
+
+#define CONFIG_STRING( KEY, FIELD )                                                                                                                                                                   \
+    {                                                                                                                                                                                                 \
+        KEY,                                                                                                                                                                                          \
+        ConfigValueType::String,                                                                                                                                                                      \
+        false,                                                                                                                                                                                        \
+        0.0,                                                                                                                                                                                          \
+        0.0,                                                                                                                                                                                          \
+        []( SkullbonezConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line ) -> bool { return ApplyConfigString( cfg, value, setting, path, line, cfg.FIELD ); }, \
+        []( const SkullbonezConfig& cfg, FILE* out, const ConfigSetting& setting ) { fprintf( out, "%s = %s\n", setting.name, cfg.FIELD.c_str() ); } }
+
+const ConfigSetting* ConfigSettings( size_t& outCount )
+{
+    static const ConfigSetting kSettings[] = {
+        CONFIG_INT( "screen_x", window.screenX, 1, 32768 ),
+        CONFIG_INT( "screen_y", window.screenY, 1, 32768 ),
+        CONFIG_BOOL( "fullscreen", window.fullscreen ),
+        CONFIG_INT( "bits_per_pixel", window.bitsPerPixel, 1, 128 ),
+        CONFIG_INT( "refresh_rate", window.refreshRate, 1, 1000 ),
+
+        CONFIG_FLOAT( "frustum_near", frustumNear, 0.0001, 100000000.0 ),
+        CONFIG_FLOAT( "frustum_far", frustumFar, 0.0001, 100000000.0 ),
+
+        CONFIG_FLOAT( "mouse_sensitivity", mouseSensitivity, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "key_speed", keySpeed, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "camera_tween_rate", cameraTweenRate, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "camera_collision_threshold", cameraCollisionThreshold, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "min_camera_height", minCameraHeight, -1000000.0, 1000000.0 ),
+        CONFIG_FLOAT( "max_camera_height", maxCameraHeight, -1000000.0, 1000000.0 ),
+        CONFIG_FLOAT( "min_view_mag", minViewMag, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "max_view_mag", maxViewMag, 0.0, 1000000.0 ),
+
+        CONFIG_FLOAT( "terrain_scale", terrainScale, 0.0001, 1000000.0 ),
+        CONFIG_FLOAT( "terrain_height_scale", terrainHeightScale, -1000000.0, 1000000.0 ),
+
+        CONFIG_FLOAT( "skybox_render_height", skyboxRenderHeight, -1000000.0, 1000000.0 ),
+        CONFIG_INT( "skybox_overflow", skyboxOverflow, -1000000, 1000000 ),
+        CONFIG_FLOAT( "skybox_scale", skyboxScale, 0.0001, 1000000.0 ),
+
+        CONFIG_FLOAT( "scene_light_color_r", sceneLight.colorR, -1000000.0, 1000000.0 ),
+        CONFIG_FLOAT( "scene_light_color_g", sceneLight.colorG, -1000000.0, 1000000.0 ),
+        CONFIG_FLOAT( "scene_light_color_b", sceneLight.colorB, -1000000.0, 1000000.0 ),
+        CONFIG_FLOAT( "scene_light_color_a", sceneLight.colorA, -1000000.0, 1000000.0 ),
+
+        CONFIG_FLOAT( "gravity", gravity, -1000000.0, 1000000.0 ),
+        CONFIG_FLOAT( "fluid_height", fluidHeight, -1000000.0, 1000000.0 ),
+        CONFIG_FLOAT( "fluid_density", fluidDensity, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "gas_density", gasDensity, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "velocity_limit", velocityLimit, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "sphere_drag_coeff", sphereDragCoeff, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "friction_coeff", frictionCoeff, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "rolling_friction_coeff", rollingFrictionCoeff, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "spin_friction_coeff", spinFrictionCoeff, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "contact_restitution_threshold", contactRestitutionThreshold, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "contact_epsilon", contactEpsilon, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "broadphase_cell", broadphaseCell, 0.0001, 1000000.0 ),
+        CONFIG_FLOAT( "persistent_contact_slop", persistentContactSlop, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "persistent_contact_baumgarte_beta", persistentContactBaumgarteBeta, 0.0, 1.0 ),
+        CONFIG_FLOAT( "persistent_contact_position_correction_percent", persistentContactPositionCorrectionPercent, 0.0, 1.0 ),
+        CONFIG_INT( "persistent_contact_solver_iterations", persistentContactSolverIterations, 1, 1000000 ),
+        CONFIG_FLOAT( "terrain_contact_threshold", terrainContactThreshold, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "terrain_contact_slop", terrainContactSlop, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "terrain_contact_baumgarte_beta", terrainContactBaumgarteBeta, 0.0, 1.0 ),
+        CONFIG_FLOAT( "terrain_max_baumgarte_bias", terrainMaxBaumgarteBias, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "physics_sleep_linear_speed", physicsSleepLinearSpeed, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "physics_sleep_angular_speed", physicsSleepAngularSpeed, 0.0, 1000000.0 ),
+        CONFIG_INT( "physics_sleep_frames", physicsSleepFrames, 0, 1000000 ),
+
+        CONFIG_FLOAT( "shadow_max_height", shadowMaxHeight, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "shadow_max_alpha", shadowMaxAlpha, 0.0, 1.0 ),
+        CONFIG_FLOAT( "shadow_offset", shadowOffset, -1000000.0, 1000000.0 ),
+        CONFIG_FLOAT( "shadow_scale", shadowScale, 0.0, 1000000.0 ),
+
+        CONFIG_FLOAT( "spawn_x_base", spawnXBase, -1000000.0, 1000000.0 ),
+        CONFIG_INT( "spawn_x_range", spawnXRange, 0, 1000000 ),
+        CONFIG_FLOAT( "spawn_y_base", spawnYBase, -1000000.0, 1000000.0 ),
+        CONFIG_INT( "spawn_y_range", spawnYRange, 0, 1000000 ),
+        CONFIG_FLOAT( "spawn_z_base", spawnZBase, -1000000.0, 1000000.0 ),
+        CONFIG_INT( "spawn_z_range", spawnZRange, 0, 1000000 ),
+        CONFIG_FLOAT( "ball_mass_min", ballMassMin, 0.0, 1000000.0 ),
+        CONFIG_INT( "ball_mass_range", ballMassRange, 0, 1000000 ),
+        CONFIG_FLOAT( "ball_moment_min", ballMomentMin, 0.0, 1000000.0 ),
+        CONFIG_INT( "ball_moment_range", ballMomentRange, 0, 1000000 ),
+        CONFIG_FLOAT( "ball_restitution_min", ballRestitutionMin, -1000000.0, 1000000.0 ),
+        CONFIG_INT( "ball_restitution_range", ballRestitutionRange, 0, 1000000 ),
+        CONFIG_INT( "ball_radius_range", ballRadiusRange, 0, 1000000 ),
+        CONFIG_INT( "ball_force_range", ballForceRange, 0, 1000000 ),
+
+        CONFIG_STRING( "sky_front", skyFront ),
+        CONFIG_STRING( "sky_left", skyLeft ),
+        CONFIG_STRING( "sky_back", skyBack ),
+        CONFIG_STRING( "sky_right", skyRight ),
+        CONFIG_STRING( "sky_up", skyUp ),
+        CONFIG_STRING( "sky_down", skyDown ),
+        CONFIG_STRING( "terrain_texture", terrainTexture ),
+        CONFIG_STRING( "sphere_texture", sphereTexture ),
+        CONFIG_STRING( "terrain_raw", terrainRaw ),
+
+        CONFIG_FLOAT( "ocean_wave_height", oceanWaveHeight, -1000000.0, 1000000.0 ),
+        CONFIG_FLOAT( "ocean_perturb_strength", oceanPerturbStrength, -1000000.0, 1000000.0 ),
+
+        CONFIG_BOOL( "vsync_enabled", runtimeRender.vsyncEnabled ),
+        CONFIG_BOOL( "force_pipeline_sync", runtimeRender.forcePipelineSync ),
+        CONFIG_BOOL( "render_collision_volumes", runtimeRender.renderCollisionVolumes ),
+    };
+    outCount = sizeof( kSettings ) / sizeof( kSettings[0] );
+    return kSettings;
+}
+
+const ConfigSetting* FindConfigSetting( const char* name )
+{
+    size_t count = 0;
+    const ConfigSetting* settings = ConfigSettings( count );
+    for ( size_t i = 0; i < count; ++i )
+    {
+        if ( strcmp( settings[i].name, name ) == 0 )
+        {
+            return &settings[i];
+        }
+    }
+    return nullptr;
+}
+} // anonymous namespace
 
 
 /* ---------------------------------------------------------------------------------*/
@@ -19,413 +350,83 @@ SkullbonezConfig& SkullbonezConfig::Instance()
 /* ---------------------------------------------------------------------------------*/
 void SkullbonezConfig::Load( const char* path )
 {
-    // engine.cfg is an optional developer/runtime defaults file.  Unlike scene
-    // files, unknown or malformed lines are ignored so older configs do not
-    // block startup after a setting is removed; deterministic tests should use
-    // scene directives for values that must fail loudly.
+    // engine.cfg is an optional developer/runtime defaults file. Unknown or
+    // malformed lines are skipped with a warning so older configs do not block
+    // startup after a setting is removed.
     FILE* f = nullptr;
     if ( fopen_s( &f, path, "r" ) != 0 || !f )
     {
-        return; // config file is optional
+        return;
     }
 
     char line[512];
+    int lineNumber = 0;
     while ( fgets( line, sizeof( line ), f ) )
     {
+        ++lineNumber;
         size_t len = strlen( line );
         while ( len > 0 && ( line[len - 1] == '\r' || line[len - 1] == '\n' ) )
         {
             line[--len] = '\0';
         }
 
-        if ( len == 0 || line[0] == '#' )
+        char* trimmedLine = TrimInPlace( line );
+        if ( *trimmedLine == '\0' || *trimmedLine == '#' )
         {
             continue;
         }
 
-        char* eq = strchr( line, '=' );
+        char* eq = strchr( trimmedLine, '=' );
         if ( !eq )
         {
+            WarnConfigLine( path, lineNumber, trimmedLine, "", "expected key=value" );
             continue;
         }
 
-        // Trim key
         *eq = '\0';
-        char* k = line;
-        while ( *k == ' ' || *k == '\t' )
-        {
-            ++k;
-        }
-        char* ke = eq - 1;
-        while ( ke >= k && ( *ke == ' ' || *ke == '\t' ) )
-        {
-            --ke;
-        }
-        *( ke + 1 ) = '\0';
+        char* key = TrimInPlace( trimmedLine );
+        char* value = TrimInPlace( eq + 1 );
 
-        // Trim value
-        char* v = eq + 1;
-        while ( *v == ' ' || *v == '\t' )
-        {
-            ++v;
-        }
-        size_t vlen = strlen( v );
-        while ( vlen > 0 && ( v[vlen - 1] == ' ' || v[vlen - 1] == '\t' ) )
-        {
-            v[--vlen] = '\0';
-        }
-
-        // Strip inline comments from value
-        char* hash = strchr( v, '#' );
+        char* hash = strchr( value, '#' );
         if ( hash )
         {
             *hash = '\0';
-            vlen = strlen( v );
-            while ( vlen > 0 && ( v[vlen - 1] == ' ' || v[vlen - 1] == '\t' ) )
-            {
-                v[--vlen] = '\0';
-            }
+            value = TrimInPlace( value );
         }
 
-        if ( *k == '\0' || *v == '\0' )
+        if ( *key == '\0' || *value == '\0' )
         {
+            WarnConfigLine( path, lineNumber, key, value, "expected non-empty key and value" );
             continue;
         }
 
-        // --- match keys ---
-
-        // Window
-        if ( strcmp( k, "screen_x" ) == 0 )
+        const ConfigSetting* setting = FindConfigSetting( key );
+        if ( !setting )
         {
-            window.screenX = atoi( v );
-        }
-        else if ( strcmp( k, "screen_y" ) == 0 )
-        {
-            window.screenY = atoi( v );
-        }
-        else if ( strcmp( k, "fullscreen" ) == 0 )
-        {
-            window.fullscreen = atoi( v ) != 0;
-        }
-        else if ( strcmp( k, "bits_per_pixel" ) == 0 )
-        {
-            window.bitsPerPixel = atoi( v );
-        }
-        else if ( strcmp( k, "refresh_rate" ) == 0 )
-        {
-            window.refreshRate = atoi( v );
+            WarnConfigLine( path, lineNumber, key, value, "unknown setting" );
+            continue;
         }
 
-        // Frustum
-        else if ( strcmp( k, "frustum_near" ) == 0 )
-        {
-            frustumNear = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "frustum_far" ) == 0 )
-        {
-            frustumFar = static_cast<float>( atof( v ) );
-        }
-
-        // Camera controls
-        else if ( strcmp( k, "mouse_sensitivity" ) == 0 )
-        {
-            mouseSensitivity = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "key_speed" ) == 0 )
-        {
-            keySpeed = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "camera_tween_rate" ) == 0 )
-        {
-            cameraTweenRate = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "camera_collision_threshold" ) == 0 )
-        {
-            cameraCollisionThreshold = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "min_camera_height" ) == 0 )
-        {
-            minCameraHeight = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "max_camera_height" ) == 0 )
-        {
-            maxCameraHeight = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "min_view_mag" ) == 0 )
-        {
-            minViewMag = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "max_view_mag" ) == 0 )
-        {
-            maxViewMag = static_cast<float>( atof( v ) );
-        }
-
-        // Terrain
-        else if ( strcmp( k, "terrain_scale" ) == 0 )
-        {
-            terrainScale = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "terrain_height_scale" ) == 0 )
-        {
-            terrainHeightScale = static_cast<float>( atof( v ) );
-        }
-
-        // Skybox
-        else if ( strcmp( k, "skybox_render_height" ) == 0 )
-        {
-            skyboxRenderHeight = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "skybox_overflow" ) == 0 )
-        {
-            skyboxOverflow = atoi( v );
-        }
-        else if ( strcmp( k, "skybox_scale" ) == 0 )
-        {
-            skyboxScale = static_cast<float>( atof( v ) );
-        }
-
-        // Scene lighting
-        else if ( strcmp( k, "scene_light_color_r" ) == 0 )
-        {
-            sceneLight.colorR = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "scene_light_color_g" ) == 0 )
-        {
-            sceneLight.colorG = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "scene_light_color_b" ) == 0 )
-        {
-            sceneLight.colorB = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "scene_light_color_a" ) == 0 )
-        {
-            sceneLight.colorA = static_cast<float>( atof( v ) );
-        }
-
-        // Physics
-        else if ( strcmp( k, "gravity" ) == 0 )
-        {
-            gravity = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "fluid_height" ) == 0 )
-        {
-            fluidHeight = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "fluid_density" ) == 0 )
-        {
-            fluidDensity = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "gas_density" ) == 0 )
-        {
-            gasDensity = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "velocity_limit" ) == 0 )
-        {
-            velocityLimit = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "sphere_drag_coeff" ) == 0 )
-        {
-            sphereDragCoeff = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "friction_coeff" ) == 0 )
-        {
-            frictionCoeff = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "rolling_friction_coeff" ) == 0 )
-        {
-            rollingFrictionCoeff = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "spin_friction_coeff" ) == 0 )
-        {
-            spinFrictionCoeff = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "broadphase_cell" ) == 0 )
-        {
-            broadphaseCell = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "persistent_contact_slop" ) == 0 )
-        {
-            persistentContactSlop = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "persistent_contact_baumgarte_beta" ) == 0 )
-        {
-            persistentContactBaumgarteBeta = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "persistent_contact_position_correction_percent" ) == 0 )
-        {
-            persistentContactPositionCorrectionPercent = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "persistent_contact_solver_iterations" ) == 0 )
-        {
-            persistentContactSolverIterations = atoi( v );
-        }
-        else if ( strcmp( k, "terrain_contact_threshold" ) == 0 )
-        {
-            terrainContactThreshold = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "terrain_contact_slop" ) == 0 )
-        {
-            terrainContactSlop = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "terrain_contact_baumgarte_beta" ) == 0 )
-        {
-            terrainContactBaumgarteBeta = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "terrain_max_baumgarte_bias" ) == 0 )
-        {
-            terrainMaxBaumgarteBias = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "physics_sleep_linear_speed" ) == 0 )
-        {
-            physicsSleepLinearSpeed = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "physics_sleep_angular_speed" ) == 0 )
-        {
-            physicsSleepAngularSpeed = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "physics_sleep_frames" ) == 0 )
-        {
-            physicsSleepFrames = atoi( v );
-        }
-
-        // Shadows
-        else if ( strcmp( k, "shadow_max_height" ) == 0 )
-        {
-            shadowMaxHeight = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "shadow_max_alpha" ) == 0 )
-        {
-            shadowMaxAlpha = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "shadow_offset" ) == 0 )
-        {
-            shadowOffset = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "shadow_scale" ) == 0 )
-        {
-            shadowScale = static_cast<float>( atof( v ) );
-        }
-
-        // Ball spawn ranges
-        else if ( strcmp( k, "spawn_x_base" ) == 0 )
-        {
-            spawnXBase = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "spawn_x_range" ) == 0 )
-        {
-            spawnXRange = atoi( v );
-        }
-        else if ( strcmp( k, "spawn_y_base" ) == 0 )
-        {
-            spawnYBase = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "spawn_y_range" ) == 0 )
-        {
-            spawnYRange = atoi( v );
-        }
-        else if ( strcmp( k, "spawn_z_base" ) == 0 )
-        {
-            spawnZBase = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "spawn_z_range" ) == 0 )
-        {
-            spawnZRange = atoi( v );
-        }
-        else if ( strcmp( k, "ball_mass_min" ) == 0 )
-        {
-            ballMassMin = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "ball_mass_range" ) == 0 )
-        {
-            ballMassRange = atoi( v );
-        }
-        else if ( strcmp( k, "ball_moment_min" ) == 0 )
-        {
-            ballMomentMin = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "ball_moment_range" ) == 0 )
-        {
-            ballMomentRange = atoi( v );
-        }
-        else if ( strcmp( k, "ball_restitution_min" ) == 0 )
-        {
-            ballRestitutionMin = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "ball_restitution_range" ) == 0 )
-        {
-            ballRestitutionRange = atoi( v );
-        }
-        else if ( strcmp( k, "ball_radius_range" ) == 0 )
-        {
-            ballRadiusRange = atoi( v );
-        }
-        else if ( strcmp( k, "ball_force_range" ) == 0 )
-        {
-            ballForceRange = atoi( v );
-        }
-
-        // Asset paths
-        else if ( strcmp( k, "sky_front" ) == 0 )
-        {
-            skyFront = v;
-        }
-        else if ( strcmp( k, "sky_left" ) == 0 )
-        {
-            skyLeft = v;
-        }
-        else if ( strcmp( k, "sky_back" ) == 0 )
-        {
-            skyBack = v;
-        }
-        else if ( strcmp( k, "sky_right" ) == 0 )
-        {
-            skyRight = v;
-        }
-        else if ( strcmp( k, "sky_up" ) == 0 )
-        {
-            skyUp = v;
-        }
-        else if ( strcmp( k, "sky_down" ) == 0 )
-        {
-            skyDown = v;
-        }
-        else if ( strcmp( k, "terrain_texture" ) == 0 )
-        {
-            terrainTexture = v;
-        }
-        else if ( strcmp( k, "sphere_texture" ) == 0 )
-        {
-            sphereTexture = v;
-        }
-        else if ( strcmp( k, "terrain_raw" ) == 0 )
-        {
-            terrainRaw = v;
-        }
-
-        // Water
-        else if ( strcmp( k, "ocean_wave_height" ) == 0 )
-        {
-            oceanWaveHeight = static_cast<float>( atof( v ) );
-        }
-        else if ( strcmp( k, "ocean_perturb_strength" ) == 0 )
-        {
-            oceanPerturbStrength = static_cast<float>( atof( v ) );
-        }
-
-        // Debug
-        else if ( strcmp( k, "vsync_enabled" ) == 0 )
-        {
-            runtimeRender.vsyncEnabled = atoi( v ) != 0;
-        }
-        else if ( strcmp( k, "force_pipeline_sync" ) == 0 )
-        {
-            runtimeRender.forcePipelineSync = atoi( v ) != 0;
-        }
-        else if ( strcmp( k, "render_collision_volumes" ) == 0 )
-        {
-            runtimeRender.renderCollisionVolumes = atoi( v ) != 0;
-        }
+        setting->apply( *this, value, *setting, path, lineNumber );
     }
 
     fclose( f );
+}
+
+
+/* ---------------------------------------------------------------------------------*/
+void SkullbonezConfig::Dump( FILE* out ) const
+{
+    if ( !out )
+    {
+        return;
+    }
+
+    fprintf( out, "[config]\n" );
+    size_t count = 0;
+    const ConfigSetting* settings = ConfigSettings( count );
+    for ( size_t i = 0; i < count; ++i )
+    {
+        settings[i].dump( *this, out, settings[i] );
+    }
 }

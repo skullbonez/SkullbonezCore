@@ -9,6 +9,7 @@
 #include "SkullbonezRenderBackendGL.h"
 #include "SkullbonezRenderBackendDX11.h"
 #include "SkullbonezRenderBackendDX12.h"
+#include <cerrno>
 #include <float.h>
 #include <climits>
 #include <cstdlib>
@@ -234,35 +235,247 @@ void AttachParentConsole()
     }
 }
 
+struct CommandLineView
+{
+    std::vector<std::string> tokens;
+};
+
+bool IsTokenWhitespace( char c )
+{
+    return c == ' ' || c == '\t';
+}
+
+CommandLineView TokenizeCommandLine( const char* cmdLine )
+{
+    CommandLineView result;
+    if ( !cmdLine )
+    {
+        return result;
+    }
+
+    const char* cursor = cmdLine;
+    while ( *cursor != '\0' )
+    {
+        while ( IsTokenWhitespace( *cursor ) )
+        {
+            ++cursor;
+        }
+        if ( *cursor == '\0' )
+        {
+            break;
+        }
+
+        std::string token;
+        bool inQuote = false;
+        while ( *cursor != '\0' )
+        {
+            const char c = *cursor;
+            if ( c == '"' )
+            {
+                inQuote = !inQuote;
+                ++cursor;
+                continue;
+            }
+            if ( !inQuote && IsTokenWhitespace( c ) )
+            {
+                break;
+            }
+            token.push_back( c );
+            ++cursor;
+        }
+
+        if ( !token.empty() )
+        {
+            result.tokens.push_back( token );
+        }
+    }
+    return result;
+}
+
+bool IsOptionToken( const std::string& token )
+{
+    return token.size() >= 2 && token[0] == '-' && token[1] == '-';
+}
+
+bool IsOptionValueMissing( const char* value )
+{
+    return !value || *value == '\0';
+}
+
+bool OptionTokenMatches( const std::string& token, const char* optionName )
+{
+    return optionName && token == optionName;
+}
+
+bool OptionTokenHasAssignedValue( const std::string& token, const char* optionName, const char*& outValue )
+{
+    if ( !optionName )
+    {
+        return false;
+    }
+
+    const size_t optionLen = strlen( optionName );
+    if ( token.size() <= optionLen || token.compare( 0, optionLen, optionName ) != 0 || token[optionLen] != '=' )
+    {
+        return false;
+    }
+
+    outValue = token.c_str() + optionLen + 1;
+    return true;
+}
+
+const char* FindOptionValue( const CommandLineView& commandLine, const char* optionName )
+{
+    for ( size_t i = 0; i < commandLine.tokens.size(); ++i )
+    {
+        const std::string& token = commandLine.tokens[i];
+        const char* assignedValue = nullptr;
+        if ( OptionTokenHasAssignedValue( token, optionName, assignedValue ) )
+        {
+            return assignedValue;
+        }
+        if ( OptionTokenMatches( token, optionName ) )
+        {
+            if ( i + 1 < commandLine.tokens.size() && !IsOptionToken( commandLine.tokens[i + 1] ) )
+            {
+                return commandLine.tokens[i + 1].c_str();
+            }
+            return "";
+        }
+    }
+    return nullptr;
+}
+
+const char* FindOptionValue( const CommandLineView& commandLine, const char* dashedName, const char* underscoredName )
+{
+    const char* value = FindOptionValue( commandLine, dashedName );
+    return value ? value : FindOptionValue( commandLine, underscoredName );
+}
+
+bool HasOption( const CommandLineView& commandLine, const char* optionName )
+{
+    for ( const std::string& token : commandLine.tokens )
+    {
+        const char* assignedValue = nullptr;
+        if ( OptionTokenMatches( token, optionName ) || OptionTokenHasAssignedValue( token, optionName, assignedValue ) )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+char* TrimLineInPlace( char* text )
+{
+    while ( IsTokenWhitespace( *text ) )
+    {
+        ++text;
+    }
+
+    size_t len = strlen( text );
+    while ( len > 0 && ( IsTokenWhitespace( text[len - 1] ) || text[len - 1] == '\r' || text[len - 1] == '\n' ) )
+    {
+        text[--len] = '\0';
+    }
+    return text;
+}
+
+bool ParseFloatToken( const char* value, float& out )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return false;
+    }
+
+    errno = 0;
+    char* end = nullptr;
+    const double parsed = strtod( value, &end );
+    if ( end == value || *end != '\0' || errno == ERANGE )
+    {
+        return false;
+    }
+
+    out = static_cast<float>( parsed );
+    return true;
+}
+
+bool ParseIntToken( const char* value, int& out )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return false;
+    }
+
+    errno = 0;
+    char* end = nullptr;
+    const long parsed = strtol( value, &end, 10 );
+    if ( end == value || *end != '\0' || errno == ERANGE || parsed < INT_MIN || parsed > INT_MAX )
+    {
+        return false;
+    }
+
+    out = static_cast<int>( parsed );
+    return true;
+}
+
+bool ParseUnsignedIntToken( const char* value, unsigned int& out )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return false;
+    }
+
+    errno = 0;
+    char* end = nullptr;
+    const unsigned long parsed = strtoul( value, &end, 10 );
+    if ( end == value || *end != '\0' || errno == ERANGE || parsed > UINT_MAX )
+    {
+        return false;
+    }
+
+    out = static_cast<unsigned int>( parsed );
+    return true;
+}
+
+bool CopyOptionPath( const char* value, const char* optionName, char* outPath, size_t outPathSize )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return FailCommandLineParse( "%s requires an output path.", optionName );
+    }
+    if ( strlen( value ) >= outPathSize )
+    {
+        return FailCommandLineParse( "%s path is too long.", optionName );
+    }
+
+    strcpy_s( outPath, outPathSize, value );
+    return true;
+}
+
 // ---------------------------------------------------------------------------
 // --gen-atlas early exit
 // Generates the SDF font atlas to a file and exits — no GPU context needed.
 // Returns true if the flag was present; outExitCode is 0 on success, 1 on failure.
 // ---------------------------------------------------------------------------
 
-bool HandleGenAtlas( const char* cmdLine, int& outExitCode )
+bool HandleGenAtlas( const CommandLineView& commandLine, int& outExitCode )
 {
-    if ( !cmdLine || !strstr( cmdLine, "--gen-atlas" ) )
+    if ( !HasOption( commandLine, "--gen-atlas" ) )
     {
         return false;
     }
 
-    const char* arg = strstr( cmdLine, "--gen-atlas" ) + 11;
-    while ( *arg == ' ' )
-    {
-        ++arg;
-    }
-
     char outPath[MAX_PATH];
-    if ( *arg != '\0' && *arg != '-' )
+    const char* atlasArg = FindOptionValue( commandLine, "--gen-atlas" );
+    if ( atlasArg && *atlasArg != '\0' )
     {
-        int len = 0;
-        while ( arg[len] != ' ' && arg[len] != '\0' && len < MAX_PATH - 1 )
+        if ( strlen( atlasArg ) >= MAX_PATH )
         {
-            outPath[len] = arg[len];
-            ++len;
+            fprintf( stderr, "[gen-atlas] Output path is too long.\n" );
+            outExitCode = 1;
+            return true;
         }
-        outPath[len] = '\0';
+        strcpy_s( outPath, atlasArg );
     }
     else
     {
@@ -330,60 +543,88 @@ struct ParsedArgs
 #endif
     bool physicsDiagnosticsRequested = false;
     bool fixedStepForcedByPhysicsDiagnostics = false;
+    bool dumpConfig = false;
 };
 
-bool IsCmdSeparator( char c )
+struct CliFlagDirective
 {
-    return c == '\0' || c == ' ' || c == '\t';
+    const char* name;
+    const char* alias;
+    void ( *apply )( ParsedArgs& args );
+    const char* message;
+};
+
+bool HasFlagDirective( const CommandLineView& commandLine, const CliFlagDirective& directive )
+{
+    return HasOption( commandLine, directive.name ) || ( directive.alias && HasOption( commandLine, directive.alias ) );
 }
 
-const char* FindOptionValue( const char* cmdLine, const char* optionName )
+void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out )
 {
-    if ( !cmdLine || !optionName )
-    {
-        return nullptr;
-    }
+    static const CliFlagDirective kFlags[] = {
+        { "--fixed-step", nullptr, []( ParsedArgs& args )
+          { args.fixedStep = true; },
+          "[fixed-step] Forced via command line." },
+        { "--no-water", nullptr, []( ParsedArgs& args )
+          { args.noWater = true; },
+          "[water] Fluid surface starts below terrain." },
+        { "--no-sleep", nullptr, []( ParsedArgs& args )
+          { args.noSleep = true; },
+          "[physics] Sleep disabled via command line." },
+        { "--scene-load-only", "--load-scenes-only", []( ParsedArgs& args )
+          {
+              args.sceneLoadOnly = true;
+              args.suppressExitDialog = true;
+          },
+          "[scene-load-only] Load queued scenes without running frames." },
+        { "--profiler", "--show-profiler", []( ParsedArgs& args )
+          { args.showProfiler = true; },
+          "[overlay] Profiler HUD enabled at startup." },
+        { "--hide-top-text", "--no-top-text", []( ParsedArgs& args )
+          { args.hideTopText = true; },
+          "[overlay] Top HUD text hidden." },
+        { "--broadphase-visualizer", "--broadphase-overlay", []( ParsedArgs& args )
+          { args.showBroadphaseVisualizer = true; },
+          "[overlay] Broadphase visualizer enabled at startup." },
+        { "--dump-config", nullptr, []( ParsedArgs& args )
+          { args.dumpConfig = true; },
+          nullptr },
+    };
 
-    const size_t optionLen = strlen( optionName );
-    const char* cursor = cmdLine;
-    while ( ( cursor = strstr( cursor, optionName ) ) != nullptr )
+    for ( const CliFlagDirective& flag : kFlags )
     {
-        const bool startsToken = cursor == cmdLine || cursor[-1] == ' ' || cursor[-1] == '\t';
-        const bool endsToken = IsCmdSeparator( cursor[optionLen] );
-        if ( startsToken && endsToken )
+        if ( HasFlagDirective( commandLine, flag ) )
         {
-            cursor += optionLen;
-            while ( *cursor == ' ' || *cursor == '\t' )
+            flag.apply( out );
+            if ( flag.message )
             {
-                ++cursor;
+                fprintf( stdout, "%s\n", flag.message );
             }
-            return cursor;
         }
-        cursor += optionLen;
     }
-    return nullptr;
-}
-
-const char* FindOptionValue( const char* cmdLine, const char* dashedName, const char* underscoredName )
-{
-    const char* value = FindOptionValue( cmdLine, dashedName );
-    return value ? value : FindOptionValue( cmdLine, underscoredName );
 }
 
 bool ParseOnOffValue( const char* value, bool& out )
 {
-    if ( !value )
+    if ( IsOptionValueMissing( value ) )
     {
         return false;
     }
-    if ( _strnicmp( value, "on", 2 ) == 0 || _strnicmp( value, "true", 4 ) == 0 || _strnicmp( value, "1", 1 ) == 0 )
+    if ( _stricmp( value, "on" ) == 0 || _stricmp( value, "true" ) == 0 || _stricmp( value, "yes" ) == 0 )
     {
         out = true;
         return true;
     }
-    if ( _strnicmp( value, "off", 3 ) == 0 || _strnicmp( value, "false", 5 ) == 0 || _strnicmp( value, "0", 1 ) == 0 )
+    if ( _stricmp( value, "off" ) == 0 || _stricmp( value, "false" ) == 0 || _stricmp( value, "no" ) == 0 )
     {
         out = false;
+        return true;
+    }
+
+    int numeric = 0;
+    if ( ParseIntToken( value, numeric ) )
+    {
+        out = numeric != 0;
         return true;
     }
     return false;
@@ -391,7 +632,7 @@ bool ParseOnOffValue( const char* value, bool& out )
 
 bool ParseOptionalOnOffValue( const char* value, bool& out )
 {
-    if ( !value || IsCmdSeparator( *value ) || ( value[0] == '-' && value[1] == '-' ) )
+    if ( IsOptionValueMissing( value ) )
     {
         out = true;
         return true;
@@ -401,36 +642,36 @@ bool ParseOptionalOnOffValue( const char* value, bool& out )
 
 bool ParsePhysicsDebugMode( const char* value, uint32_t& outFlags )
 {
-    if ( !value )
+    if ( IsOptionValueMissing( value ) )
     {
         return false;
     }
-    if ( _strnicmp( value, "none", 4 ) == 0 || _strnicmp( value, "off", 3 ) == 0 )
+    if ( _stricmp( value, "none" ) == 0 || _stricmp( value, "off" ) == 0 )
     {
         outFlags = PHYSICS_DEBUG_NONE;
         return true;
     }
-    if ( _strnicmp( value, "axes", 4 ) == 0 )
+    if ( _stricmp( value, "axes" ) == 0 )
     {
         outFlags = PHYSICS_DEBUG_AXES;
         return true;
     }
-    if ( _strnicmp( value, "contacts", 8 ) == 0 )
+    if ( _stricmp( value, "contacts" ) == 0 )
     {
         outFlags = PHYSICS_DEBUG_CONTACTS;
         return true;
     }
-    if ( _strnicmp( value, "sleep", 5 ) == 0 )
+    if ( _stricmp( value, "sleep" ) == 0 )
     {
         outFlags = PHYSICS_DEBUG_SLEEP;
         return true;
     }
-    if ( _strnicmp( value, "pipeline", 8 ) == 0 )
+    if ( _stricmp( value, "pipeline" ) == 0 )
     {
         outFlags = PHYSICS_DEBUG_PIPELINE;
         return true;
     }
-    if ( _strnicmp( value, "all", 3 ) == 0 || _strnicmp( value, "on", 2 ) == 0 )
+    if ( _stricmp( value, "all" ) == 0 || _stricmp( value, "on" ) == 0 )
     {
         outFlags = PHYSICS_DEBUG_ALL;
         return true;
@@ -438,9 +679,9 @@ bool ParsePhysicsDebugMode( const char* value, uint32_t& outFlags )
     return false;
 }
 
-bool ApplyPhysicsDebugComponentOverride( const char* cmdLine, const char* dashedName, const char* underscoredName, uint32_t flag, ParsedArgs& out )
+bool ApplyPhysicsDebugComponentOverride( const CommandLineView& commandLine, const char* dashedName, const char* underscoredName, uint32_t flag, ParsedArgs& out )
 {
-    const char* value = FindOptionValue( cmdLine, dashedName, underscoredName );
+    const char* value = FindOptionValue( commandLine, dashedName, underscoredName );
     if ( !value )
     {
         return true;
@@ -468,9 +709,9 @@ bool ApplyPhysicsDebugComponentOverride( const char* cmdLine, const char* dashed
     return true;
 }
 
-bool ParsePhysicsDebugOverrides( const char* cmdLine, ParsedArgs& out )
+bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs& out )
 {
-    const char* modeValue = FindOptionValue( cmdLine, "--physics-debug", "--physics_debug" );
+    const char* modeValue = FindOptionValue( commandLine, "--physics-debug", "--physics_debug" );
     if ( modeValue )
     {
         if ( !ParsePhysicsDebugMode( modeValue, out.physicsDebugFlagsOverride ) )
@@ -480,15 +721,15 @@ bool ParsePhysicsDebugOverrides( const char* cmdLine, ParsedArgs& out )
         out.hasPhysicsDebugFlagsOverride = true;
     }
 
-    if ( !ApplyPhysicsDebugComponentOverride( cmdLine, "--physics-debug-axes", "--physics_debug_axes", PHYSICS_DEBUG_AXES, out ) ||
-         !ApplyPhysicsDebugComponentOverride( cmdLine, "--physics-debug-contacts", "--physics_debug_contacts", PHYSICS_DEBUG_CONTACTS, out ) ||
-         !ApplyPhysicsDebugComponentOverride( cmdLine, "--physics-debug-sleep", "--physics_debug_sleep", PHYSICS_DEBUG_SLEEP, out ) ||
-         !ApplyPhysicsDebugComponentOverride( cmdLine, "--physics-debug-pipeline", "--physics_debug_pipeline", PHYSICS_DEBUG_PIPELINE, out ) )
+    if ( !ApplyPhysicsDebugComponentOverride( commandLine, "--physics-debug-axes", "--physics_debug_axes", PHYSICS_DEBUG_AXES, out ) ||
+         !ApplyPhysicsDebugComponentOverride( commandLine, "--physics-debug-contacts", "--physics_debug_contacts", PHYSICS_DEBUG_CONTACTS, out ) ||
+         !ApplyPhysicsDebugComponentOverride( commandLine, "--physics-debug-sleep", "--physics_debug_sleep", PHYSICS_DEBUG_SLEEP, out ) ||
+         !ApplyPhysicsDebugComponentOverride( commandLine, "--physics-debug-pipeline", "--physics_debug_pipeline", PHYSICS_DEBUG_PIPELINE, out ) )
     {
         return false;
     }
 
-    const char* transparentValue = FindOptionValue( cmdLine, "--physics-debug-transparent", "--physics_debug_transparent" );
+    const char* transparentValue = FindOptionValue( commandLine, "--physics-debug-transparent", "--physics_debug_transparent" );
     if ( transparentValue )
     {
         if ( !ParseOptionalOnOffValue( transparentValue, out.physicsDebugTransparentOverride ) )
@@ -498,10 +739,14 @@ bool ParsePhysicsDebugOverrides( const char* cmdLine, ParsedArgs& out )
         out.hasPhysicsDebugTransparentOverride = true;
     }
 
-    const char* alphaValue = FindOptionValue( cmdLine, "--physics-debug-alpha", "--physics_debug_alpha" );
+    const char* alphaValue = FindOptionValue( commandLine, "--physics-debug-alpha", "--physics_debug_alpha" );
     if ( alphaValue )
     {
-        const float alpha = static_cast<float>( atof( alphaValue ) );
+        float alpha = 0.0f;
+        if ( !ParseFloatToken( alphaValue, alpha ) )
+        {
+            return FailCommandLineParse( "--physics-debug-alpha expects 0.05..1.0." );
+        }
         if ( alpha < 0.05f || alpha > 1.0f )
         {
             return FailCommandLineParse( "--physics-debug-alpha expects 0.05..1.0." );
@@ -515,10 +760,14 @@ bool ParsePhysicsDebugOverrides( const char* cmdLine, ParsedArgs& out )
         }
     }
 
-    const char* lingerValue = FindOptionValue( cmdLine, "--physics-debug-contact-linger", "--physics_debug_contact_linger" );
+    const char* lingerValue = FindOptionValue( commandLine, "--physics-debug-contact-linger", "--physics_debug_contact_linger" );
     if ( lingerValue )
     {
-        const float linger = static_cast<float>( atof( lingerValue ) );
+        float linger = 0.0f;
+        if ( !ParseFloatToken( lingerValue, linger ) )
+        {
+            return FailCommandLineParse( "--physics-debug-contact-linger expects 0.0..5.0 seconds." );
+        }
         if ( linger < 0.0f || linger > 5.0f )
         {
             return FailCommandLineParse( "--physics-debug-contact-linger expects 0.0..5.0 seconds." );
@@ -549,85 +798,65 @@ bool ParsePhysicsDebugOverrides( const char* cmdLine, ParsedArgs& out )
 
 // Build the ordered list of scene paths from --suite or --scene.
 // Falls back to a single empty string (generated demo mode) when neither flag is given.
-void ParseSceneArgs( const char* cmdLine, std::vector<std::string>& sceneList, bool& isSuiteOrSceneMode )
+bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string>& sceneList, bool& isSuiteOrSceneMode )
 {
-    if ( cmdLine && cmdLine[0] != '\0' )
+    const char* suiteArg = FindOptionValue( commandLine, "--suite" );
+    const char* sceneArg = FindOptionValue( commandLine, "--scene" );
+
+    if ( suiteArg && sceneArg )
     {
-        const char* suiteArg = FindOptionValue( cmdLine, "--suite" );
-        const char* sceneArg = FindOptionValue( cmdLine, "--scene" );
+        return FailCommandLineParse( "--suite and --scene are mutually exclusive." );
+    }
 
-        if ( suiteArg )
+    if ( suiteArg )
+    {
+        if ( IsOptionValueMissing( suiteArg ) )
         {
-            // Extract just the filename token — support both quoted and unquoted paths.
-            const char* suiteStart = suiteArg;
-            const char* suiteEnd = suiteArg;
-            if ( *suiteStart == '"' )
-            {
-                ++suiteStart;
-                suiteEnd = suiteStart;
-                while ( *suiteEnd != '\0' && *suiteEnd != '"' )
-                {
-                    ++suiteEnd;
-                }
-            }
-            else
-            {
-                while ( *suiteEnd != '\0' && *suiteEnd != ' ' && *suiteEnd != '\t' )
-                {
-                    ++suiteEnd;
-                }
-            }
-            std::string suitePath( suiteStart, suiteEnd );
-
-            // Read suite file: one scene path per line, # comments ignored
-            FILE* f = nullptr;
-            if ( fopen_s( &f, suitePath.c_str(), "r" ) == 0 && f )
-            {
-                char line[512];
-                while ( fgets( line, sizeof( line ), f ) )
-                {
-                    size_t len = strlen( line );
-                    while ( len > 0 && ( line[len - 1] == '\r' || line[len - 1] == '\n' || line[len - 1] == ' ' ) )
-                    {
-                        line[--len] = '\0';
-                    }
-                    if ( len > 0 && line[0] != '#' )
-                    {
-                        sceneList.push_back( line );
-                    }
-                }
-                fclose( f );
-            }
-            isSuiteOrSceneMode = true;
+            return FailCommandLineParse( "--suite requires a path." );
         }
-        else if ( sceneArg )
+
+        // Extract just the filename token — support both quoted and unquoted paths.
+        std::string suitePath( suiteArg );
+
+        // Read suite file: one scene path per line, # comments ignored
+        FILE* f = nullptr;
+        if ( fopen_s( &f, suitePath.c_str(), "r" ) == 0 && f )
         {
-            if ( *sceneArg != '\0' )
+            char line[512];
+            while ( fgets( line, sizeof( line ), f ) )
             {
-                // Support both quoted ("path with spaces") and unquoted tokens.
-                // Quoted paths stop at the closing '"'; unquoted paths stop at whitespace.
-                // This handles launchers (CDB, VS debugger) that wrap paths in quotes.
-                const char* start = sceneArg;
-                const char* end = sceneArg;
-                if ( *start == '"' )
+                size_t len = strlen( line );
+                while ( len > 0 && ( line[len - 1] == '\r' || line[len - 1] == '\n' || line[len - 1] == ' ' ) )
                 {
-                    ++start;
-                    end = start;
-                    while ( *end != '\0' && *end != '"' )
-                    {
-                        ++end;
-                    }
+                    line[--len] = '\0';
                 }
-                else
+                if ( len > 0 && line[0] != '#' )
                 {
-                    while ( *end != '\0' && *end != ' ' && *end != '\t' )
-                    {
-                        ++end;
-                    }
+                    sceneList.push_back( line );
                 }
-                sceneList.push_back( std::string( start, end ) );
-                isSuiteOrSceneMode = true;
             }
+            fclose( f );
+        }
+        else
+        {
+            return FailCommandLineParse( "--suite could not open '%s'.", suitePath.c_str() );
+        }
+        isSuiteOrSceneMode = true;
+    }
+    else if ( sceneArg )
+    {
+        if ( IsOptionValueMissing( sceneArg ) )
+        {
+            return FailCommandLineParse( "--scene requires a path." );
+        }
+
+        if ( *sceneArg != '\0' )
+        {
+            // Support both quoted ("path with spaces") and unquoted tokens.
+            // Quoted paths stop at the closing '"'; unquoted paths stop at whitespace.
+            // This handles launchers (CDB, VS debugger) that wrap paths in quotes.
+            sceneList.push_back( sceneArg );
+            isSuiteOrSceneMode = true;
         }
     }
 
@@ -635,96 +864,85 @@ void ParseSceneArgs( const char* cmdLine, std::vector<std::string>& sceneList, b
     {
         sceneList.push_back( "" ); // generated demo mode
     }
+    return true;
 }
 
-RendererType ParseRendererArg( const char* cmdLine )
+bool ParseRendererArg( const CommandLineView& commandLine, RendererType& out )
 {
-    if ( !cmdLine )
-    {
-        return RendererType::OpenGL;
-    }
-
-    const char* rendererArg = strstr( cmdLine, "--renderer" );
+    const char* rendererArg = FindOptionValue( commandLine, "--renderer" );
     if ( !rendererArg )
     {
-        return RendererType::OpenGL;
+        out = RendererType::OpenGL;
+        return true;
     }
 
-    rendererArg += 10;
-    while ( *rendererArg == ' ' )
+    if ( IsOptionValueMissing( rendererArg ) )
     {
-        ++rendererArg;
+        return FailCommandLineParse( "--renderer expects gl|dx11|dx12." );
     }
 
-    if ( _strnicmp( rendererArg, "dx12", 4 ) == 0 || _strnicmp( rendererArg, "d3d12", 5 ) == 0 )
+    if ( _stricmp( rendererArg, "dx12" ) == 0 || _stricmp( rendererArg, "d3d12" ) == 0 )
     {
-        return RendererType::DX12;
+        out = RendererType::DX12;
+        return true;
     }
-    if ( _strnicmp( rendererArg, "dx11", 4 ) == 0 || _strnicmp( rendererArg, "d3d11", 5 ) == 0 )
+    if ( _stricmp( rendererArg, "dx11" ) == 0 || _stricmp( rendererArg, "d3d11" ) == 0 )
     {
-        return RendererType::DX11;
+        out = RendererType::DX11;
+        return true;
     }
-    return RendererType::OpenGL;
+    if ( _stricmp( rendererArg, "gl" ) == 0 || _stricmp( rendererArg, "opengl" ) == 0 )
+    {
+        out = RendererType::OpenGL;
+        return true;
+    }
+    return FailCommandLineParse( "--renderer expects gl|dx11|dx12." );
 }
 
 // Applies --vsync on|off to the already-loaded Cfg() singleton.
-void ApplyVsyncOverride( const char* cmdLine )
+bool ApplyVsyncOverride( const CommandLineView& commandLine )
 {
-    if ( !cmdLine )
-    {
-        return;
-    }
-
-    const char* vsyncArg = strstr( cmdLine, "--vsync" );
+    const char* vsyncArg = FindOptionValue( commandLine, "--vsync" );
     if ( !vsyncArg )
     {
-        return;
+        return true;
     }
 
-    vsyncArg += 7;
-    while ( *vsyncArg == ' ' )
+    bool enabled = false;
+    if ( !ParseOnOffValue( vsyncArg, enabled ) )
     {
-        ++vsyncArg;
+        return FailCommandLineParse( "--vsync expects on|off." );
     }
 
-    if ( _strnicmp( vsyncArg, "off", 3 ) == 0 || _strnicmp( vsyncArg, "0", 1 ) == 0 )
-    {
-        Cfg().runtimeRender.vsyncEnabled = false;
-        fprintf( stdout, "[vsync] Disabled via command line.\n" );
-    }
-    else if ( _strnicmp( vsyncArg, "on", 2 ) == 0 || _strnicmp( vsyncArg, "1", 1 ) == 0 )
-    {
-        Cfg().runtimeRender.vsyncEnabled = true;
-        fprintf( stdout, "[vsync] Enabled via command line.\n" );
-    }
+    Cfg().runtimeRender.vsyncEnabled = enabled;
+    fprintf( stdout, "[vsync] %s via command line.\n", enabled ? "Enabled" : "Disabled" );
+    return true;
 }
 
-float ParseSwitchInterval( const char* cmdLine )
+bool ParseSwitchInterval( const CommandLineView& commandLine, float& out )
 {
-    if ( !cmdLine )
-    {
-        return -1.0f;
-    }
-
-    const char* switchArg = strstr( cmdLine, "--switch-interval" );
+    const char* switchArg = FindOptionValue( commandLine, "--switch-interval" );
     if ( !switchArg )
     {
-        return -1.0f;
+        out = -1.0f;
+        return true;
     }
 
-    switchArg += 17;
-    while ( *switchArg == ' ' )
+    float interval = 0.0f;
+    if ( !ParseFloatToken( switchArg, interval ) || interval <= 0.0f )
     {
-        ++switchArg;
+        return FailCommandLineParse( "--switch-interval expects a positive float." );
     }
-    return static_cast<float>( atof( switchArg ) );
+
+    out = interval;
+    return true;
 }
 
 // Guards --physics-regression-log against use in non-Debug builds.
 // Returns false if startup should abort.
-bool ValidatePhysicsRegressionLog( const char* cmdLine )
+bool ValidatePhysicsRegressionLog( const CommandLineView& commandLine )
 {
-    if ( !FindOptionValue( cmdLine, "--physics-regression-log" ) )
+    if ( !HasOption( commandLine, "--physics-regression-log" ) )
     {
         return true;
     }
@@ -739,9 +957,9 @@ bool ValidatePhysicsRegressionLog( const char* cmdLine )
 
 // Guards --physics-collision-time-log against use in non-Debug builds.
 // Returns false if startup should abort.
-bool ValidatePhysicsCollisionTimeLog( const char* cmdLine )
+bool ValidatePhysicsCollisionTimeLog( const CommandLineView& commandLine )
 {
-    if ( !FindOptionValue( cmdLine, "--physics-collision-time-log" ) )
+    if ( !HasOption( commandLine, "--physics-collision-time-log" ) )
     {
         return true;
     }
@@ -756,10 +974,10 @@ bool ValidatePhysicsCollisionTimeLog( const char* cmdLine )
 
 // Guards --physics-diag / --physics-diagnostics against use in non-Debug builds.
 // Diagnostics traces are model-facing debug artifacts and are not a Profile/Release dependency.
-bool ValidatePhysicsDiagnostics( const char* cmdLine )
+bool ValidatePhysicsDiagnostics( const CommandLineView& commandLine )
 {
-    if ( !FindOptionValue( cmdLine, "--physics-diag" ) &&
-         !FindOptionValue( cmdLine, "--physics-diagnostics" ) )
+    if ( !HasOption( commandLine, "--physics-diag" ) &&
+         !HasOption( commandLine, "--physics-diagnostics" ) )
     {
         return true;
     }
@@ -772,154 +990,130 @@ bool ValidatePhysicsDiagnostics( const char* cmdLine )
 }
 
 #ifdef _DEBUG
-void ParsePhysicsRegressionLogOverride( const char* cmdLine, char ( &outPath )[256] )
+bool ParsePhysicsRegressionLogOverride( const CommandLineView& commandLine, char ( &outPath )[256] )
 {
     outPath[0] = '\0';
-    const char* physLogArg = FindOptionValue( cmdLine, "--physics-regression-log" );
+    const char* physLogArg = FindOptionValue( commandLine, "--physics-regression-log" );
     if ( !physLogArg )
     {
-        return;
+        return true;
     }
 
-    const char* physLogEnd = physLogArg;
-    while ( *physLogEnd != '\0' && *physLogEnd != ' ' && *physLogEnd != '\t' )
+    if ( !CopyOptionPath( physLogArg, "--physics-regression-log", outPath, sizeof( outPath ) ) )
     {
-        ++physLogEnd;
+        return false;
     }
-    size_t len = static_cast<size_t>( physLogEnd - physLogArg );
-    if ( len >= 256 )
-    {
-        len = 255;
-    }
-    memcpy( outPath, physLogArg, len );
-    outPath[len] = '\0';
-    if ( outPath[0] != '\0' )
-    {
-        fprintf( stdout, "[physics-regression-log] Output: %s\n", outPath );
-    }
+
+    fprintf( stdout, "[physics-regression-log] Output: %s\n", outPath );
+    return true;
 }
 
 
-void ParsePhysicsCollisionTimeLogOverride( const char* cmdLine, char ( &outPath )[256] )
+bool ParsePhysicsCollisionTimeLogOverride( const CommandLineView& commandLine, char ( &outPath )[256] )
 {
     outPath[0] = '\0';
-    const char* collisionLogArg = FindOptionValue( cmdLine, "--physics-collision-time-log" );
+    const char* collisionLogArg = FindOptionValue( commandLine, "--physics-collision-time-log" );
     if ( !collisionLogArg )
     {
-        return;
+        return true;
     }
 
-    const char* collisionLogEnd = collisionLogArg;
-    while ( *collisionLogEnd != '\0' && *collisionLogEnd != ' ' && *collisionLogEnd != '\t' )
+    if ( !CopyOptionPath( collisionLogArg, "--physics-collision-time-log", outPath, sizeof( outPath ) ) )
     {
-        ++collisionLogEnd;
+        return false;
     }
-    size_t len = static_cast<size_t>( collisionLogEnd - collisionLogArg );
-    if ( len >= 256 )
-    {
-        len = 255;
-    }
-    memcpy( outPath, collisionLogArg, len );
-    outPath[len] = '\0';
-    if ( outPath[0] != '\0' )
-    {
-        fprintf( stdout, "[physics-collision-time-log] Output: %s\n", outPath );
-    }
+
+    fprintf( stdout, "[physics-collision-time-log] Output: %s\n", outPath );
+    return true;
 }
 
 
-bool ParsePhysicsDiagnosticsPath( const char* cmdLine, char ( &outPath )[256] )
+bool ParsePhysicsDiagnosticsPath( const CommandLineView& commandLine, char ( &outPath )[256] )
 {
     outPath[0] = '\0';
-    const char* diagArg = FindOptionValue( cmdLine, "--physics-diag" );
+    const char* diagArg = FindOptionValue( commandLine, "--physics-diag" );
     if ( !diagArg )
     {
-        diagArg = FindOptionValue( cmdLine, "--physics-diagnostics" );
+        diagArg = FindOptionValue( commandLine, "--physics-diagnostics" );
     }
     if ( !diagArg )
     {
         return true;
     }
-    if ( *diagArg == '\0' || *diagArg == '-' )
-    {
-        return FailCommandLineParse( "--physics-diag requires an output path." );
-    }
 
-    const char* diagEnd = diagArg;
-    while ( *diagEnd != '\0' && *diagEnd != ' ' && *diagEnd != '\t' )
-    {
-        ++diagEnd;
-    }
-    size_t len = static_cast<size_t>( diagEnd - diagArg );
-    if ( len >= 256 )
-    {
-        len = 255;
-    }
-    memcpy( outPath, diagArg, len );
-    outPath[len] = '\0';
-    return true;
+    return CopyOptionPath( diagArg, "--physics-diag", outPath, sizeof( outPath ) );
 }
 #endif
 
 // Parses all command-line options into a ParsedArgs struct.
 // Also loads engine.cfg and applies any overrides to the global Cfg() singleton.
 // Returns false if startup should abort (e.g. --physics-regression-log in Release build).
-bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
+bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
 {
-    ParseSceneArgs( cmdLine, out.sceneList, out.isSuiteOrSceneMode );
-    out.renderer = ParseRendererArg( cmdLine );
+    if ( !ParseSceneArgs( commandLine, out.sceneList, out.isSuiteOrSceneMode ) )
+    {
+        return false;
+    }
+    if ( !ParseRendererArg( commandLine, out.renderer ) )
+    {
+        return false;
+    }
 
     Cfg().Load( ( std::string( DATA_ROOT ) + "engine.cfg" ).c_str() );
-    ApplyVsyncOverride( cmdLine );
+    if ( !ApplyVsyncOverride( commandLine ) )
+    {
+        return false;
+    }
 
-    if ( !ValidatePhysicsRegressionLog( cmdLine ) )
+    if ( !ValidatePhysicsRegressionLog( commandLine ) )
     {
         return false;
     }
-    if ( !ValidatePhysicsCollisionTimeLog( cmdLine ) )
+    if ( !ValidatePhysicsCollisionTimeLog( commandLine ) )
     {
         return false;
     }
-    if ( !ValidatePhysicsDiagnostics( cmdLine ) )
+    if ( !ValidatePhysicsDiagnostics( commandLine ) )
     {
         return false;
     }
 
 #ifdef _DEBUG
-    ParsePhysicsRegressionLogOverride( cmdLine, out.physicsRegressionLogOverride );
-    ParsePhysicsCollisionTimeLogOverride( cmdLine, out.physicsCollisionTimeLogOverride );
-    if ( !ParsePhysicsDiagnosticsPath( cmdLine, out.physicsDiagnosticsPath ) )
+    if ( !ParsePhysicsRegressionLogOverride( commandLine, out.physicsRegressionLogOverride ) )
+    {
+        return false;
+    }
+    if ( !ParsePhysicsCollisionTimeLogOverride( commandLine, out.physicsCollisionTimeLogOverride ) )
+    {
+        return false;
+    }
+    if ( !ParsePhysicsDiagnosticsPath( commandLine, out.physicsDiagnosticsPath ) )
     {
         return false;
     }
     out.physicsDiagnosticsRequested = out.physicsDiagnosticsPath[0] != '\0';
 #endif
 
-    out.switchInterval = ParseSwitchInterval( cmdLine );
+    if ( !ParseSwitchInterval( commandLine, out.switchInterval ) )
+    {
+        return false;
+    }
 
     // --time-scale <F>: positive float, 0 = not set
-    const char* tsArg = strstr( cmdLine, "--time-scale" );
+    const char* tsArg = FindOptionValue( commandLine, "--time-scale" );
     if ( tsArg )
     {
-        tsArg += 12;
-        while ( *tsArg == ' ' )
+        float ts = 0.0f;
+        if ( !ParseFloatToken( tsArg, ts ) || ts <= 0.0f )
         {
-            ++tsArg;
+            return FailCommandLineParse( "--time-scale expects a positive float." );
         }
-        const float ts = static_cast<float>( atof( tsArg ) );
-        if ( ts > 0.0f )
-        {
-            out.timeScaleOverride = ts;
-            fprintf( stdout, "[time-scale] Override: %.4f\n", ts );
-        }
+        out.timeScaleOverride = ts;
+        fprintf( stdout, "[time-scale] Override: %.4f\n", ts );
     }
 
-    // --fixed-step: flag only, no value
-    out.fixedStep = ( cmdLine && strstr( cmdLine, "--fixed-step" ) != nullptr );
-    if ( out.fixedStep )
-    {
-        fprintf( stdout, "[fixed-step] Forced via command line.\n" );
-    }
+    ApplyCliFlagDirectives( commandLine, out );
+
 #ifdef _DEBUG
     if ( out.physicsDiagnosticsRequested )
     {
@@ -938,38 +1132,23 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
 #endif
 
     // --seed <N>: positive unsigned integer, 0 = not set.
-    const char* seedArg = cmdLine ? strstr( cmdLine, "--seed" ) : nullptr;
+    const char* seedArg = FindOptionValue( commandLine, "--seed" );
     if ( seedArg )
     {
-        seedArg += 6;
-        while ( *seedArg == ' ' )
+        unsigned int seed = 0;
+        if ( !ParseUnsignedIntToken( seedArg, seed ) || seed == 0 )
         {
-            ++seedArg;
+            return FailCommandLineParse( "--seed expects a positive 32-bit integer." );
         }
-        const unsigned long seed = strtoul( seedArg, nullptr, 10 );
-        if ( seed > 0 && seed <= UINT_MAX )
-        {
-            out.seedOverride = static_cast<unsigned int>( seed );
-            fprintf( stdout, "[seed] Override: %u\n", out.seedOverride );
-        }
+        out.seedOverride = seed;
+        fprintf( stdout, "[seed] Override: %u\n", out.seedOverride );
     }
 
-    out.noWater = cmdLine && strstr( cmdLine, "--no-water" ) != nullptr;
-    if ( out.noWater )
-    {
-        fprintf( stdout, "[water] Fluid surface starts below terrain.\n" );
-    }
-    out.noSleep = cmdLine && strstr( cmdLine, "--no-sleep" ) != nullptr;
-    if ( out.noSleep )
-    {
-        fprintf( stdout, "[physics] Sleep disabled via command line.\n" );
-    }
-
-    const char* framesArg = FindOptionValue( cmdLine, "--frames" );
+    const char* framesArg = FindOptionValue( commandLine, "--frames" );
     if ( framesArg )
     {
-        const int frames = atoi( framesArg );
-        if ( frames <= 0 )
+        int frames = 0;
+        if ( !ParseIntToken( framesArg, frames ) || frames <= 0 )
         {
             return FailCommandLineParse( "--frames expects a positive integer." );
         }
@@ -978,14 +1157,7 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
         fprintf( stdout, "[frames] Exit after %d frames.\n", out.frameCountOverride );
     }
 
-    out.sceneLoadOnly = cmdLine && ( strstr( cmdLine, "--scene-load-only" ) != nullptr || strstr( cmdLine, "--load-scenes-only" ) != nullptr );
-    if ( out.sceneLoadOnly )
-    {
-        out.suppressExitDialog = true;
-        fprintf( stdout, "[scene-load-only] Load queued scenes without running frames.\n" );
-    }
-
-    const char* uiStressArg = FindOptionValue( cmdLine, "--ui-stress", "--ui_stress" );
+    const char* uiStressArg = FindOptionValue( commandLine, "--ui-stress", "--ui_stress" );
     if ( uiStressArg )
     {
         bool enabled = false;
@@ -997,24 +1169,24 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
         out.suppressExitDialog = out.suppressExitDialog || enabled;
     }
 
-    const char* uiStressSeedArg = FindOptionValue( cmdLine, "--ui-stress-seed", "--ui_stress_seed" );
+    const char* uiStressSeedArg = FindOptionValue( commandLine, "--ui-stress-seed", "--ui_stress_seed" );
     if ( uiStressSeedArg )
     {
-        const unsigned long seed = strtoul( uiStressSeedArg, nullptr, 10 );
-        if ( seed == 0 || seed > UINT_MAX )
+        unsigned int seed = 0;
+        if ( !ParseUnsignedIntToken( uiStressSeedArg, seed ) || seed == 0 )
         {
             return FailCommandLineParse( "--ui-stress-seed expects a positive 32-bit integer." );
         }
         out.uiStress = true;
-        out.uiStressSeed = static_cast<unsigned int>( seed );
+        out.uiStressSeed = seed;
         out.suppressExitDialog = true;
     }
 
-    const char* uiStressActionsArg = FindOptionValue( cmdLine, "--ui-stress-actions", "--ui_stress_actions" );
+    const char* uiStressActionsArg = FindOptionValue( commandLine, "--ui-stress-actions", "--ui_stress_actions" );
     if ( uiStressActionsArg )
     {
-        const int actions = atoi( uiStressActionsArg );
-        if ( actions <= 0 || actions > 32 )
+        int actions = 0;
+        if ( !ParseIntToken( uiStressActionsArg, actions ) || actions <= 0 || actions > 32 )
         {
             return FailCommandLineParse( "--ui-stress-actions expects 1..32." );
         }
@@ -1028,26 +1200,8 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
         fprintf( stdout, "[ui-stress] Enabled seed=%u actions=%d.\n", out.uiStressSeed, out.uiStressActions );
     }
 
-    out.showProfiler = cmdLine && ( strstr( cmdLine, "--profiler" ) != nullptr || strstr( cmdLine, "--show-profiler" ) != nullptr );
-    if ( out.showProfiler )
-    {
-        fprintf( stdout, "[overlay] Profiler HUD enabled at startup.\n" );
-    }
-
-    out.hideTopText = cmdLine && ( strstr( cmdLine, "--hide-top-text" ) != nullptr || strstr( cmdLine, "--no-top-text" ) != nullptr );
-    if ( out.hideTopText )
-    {
-        fprintf( stdout, "[overlay] Top HUD text hidden.\n" );
-    }
-
-    out.showBroadphaseVisualizer = cmdLine && ( strstr( cmdLine, "--broadphase-visualizer" ) != nullptr || strstr( cmdLine, "--broadphase-overlay" ) != nullptr );
-    if ( out.showBroadphaseVisualizer )
-    {
-        fprintf( stdout, "[overlay] Broadphase visualizer enabled at startup.\n" );
-    }
-
-    const bool allBalls = cmdLine && strstr( cmdLine, "--all-balls" ) != nullptr;
-    const bool allBoxes = cmdLine && strstr( cmdLine, "--all-boxes" ) != nullptr;
+    const bool allBalls = HasOption( commandLine, "--all-balls" );
+    const bool allBoxes = HasOption( commandLine, "--all-boxes" );
     if ( allBalls && allBoxes )
     {
         return FailCommandLineParse( "--all-balls and --all-boxes are mutually exclusive." );
@@ -1063,9 +1217,14 @@ bool ParseCommandLine( const char* cmdLine, ParsedArgs& out )
         fprintf( stdout, "[objects] Generated objects forced to boxes.\n" );
     }
 
-    if ( !ParsePhysicsDebugOverrides( cmdLine, out ) )
+    if ( !ParsePhysicsDebugOverrides( commandLine, out ) )
     {
         return false;
+    }
+
+    if ( out.dumpConfig )
+    {
+        Cfg().Dump( stdout );
     }
 
     return true;
@@ -1268,10 +1427,12 @@ int WINAPI WinMain( HINSTANCE hInstance,
     hPrevInstance;
     iCmdShow;
 
+    const CommandLineView commandLine = TokenizeCommandLine( szCmdLine );
+
 #ifdef _DEBUG
     InstallDebugCrashLogger();
     Log().WriteEventf( "process_started command_line=\"%s\"", szCmdLine ? szCmdLine : "" );
-    if ( szCmdLine && strstr( szCmdLine, "--debug-crash-test" ) )
+    if ( HasOption( commandLine, "--debug-crash-test" ) )
     {
         Log().WriteEventf( "debug_crash_test_requested" );
         volatile int* crashAddress = nullptr;
@@ -1287,13 +1448,13 @@ int WINAPI WinMain( HINSTANCE hInstance,
     AttachParentConsole();
 
     int atlasExitCode = 0;
-    if ( HandleGenAtlas( szCmdLine, atlasExitCode ) )
+    if ( HandleGenAtlas( commandLine, atlasExitCode ) )
     {
         return atlasExitCode;
     }
 
     ParsedArgs args;
-    if ( !ParseCommandLine( szCmdLine, args ) )
+    if ( !ParseCommandLine( commandLine, args ) )
     {
         const char* error = GetCommandLineError();
         fprintf( stderr, "FATAL: %s\n", error );
