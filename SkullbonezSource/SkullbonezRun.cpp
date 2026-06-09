@@ -1168,6 +1168,7 @@ void SkullbonezRun::Run()
             m_collisionVisualizer.Update( static_cast<float>( secondsPerFrame ), m_cGameModelCollection );
             m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
             m_physicsDebugVisualizer.SetContactLingerSeconds( m_debug.physicsDebugContactLinger );
+            m_physicsDebugVisualizer.SetPipelineStageCursor( m_debug.physicsDebugPipelineStageCursor );
             m_physicsDebugVisualizer.Update( static_cast<float>( secondsPerFrame ), m_cGameModelCollection );
             m_cGameModelCollection.EndCollisionVisualFrame();
 
@@ -1756,6 +1757,29 @@ void SkullbonezRun::TakeInput()
                 }
             }
             m_camera.input.Set( InputState::CKeyWasDown, cNow );
+        }
+
+        // F7/F8: step the physics pipeline visualizer through the bounded Catto
+        // stage trace from the most recent physics tick. The simulation can be
+        // paused with fly mode and advanced separately with Space.
+        {
+            static bool s_pipelinePrevWasDown = false;
+            static bool s_pipelineNextWasDown = false;
+            const bool prevNow = Input::IsKeyDown( VK_F7 );
+            const bool nextNow = Input::IsKeyDown( VK_F8 );
+            const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
+            if ( prevNow && !s_pipelinePrevWasDown )
+            {
+                m_debug.physicsDebugFlags |= PHYSICS_DEBUG_PIPELINE;
+                m_debug.physicsDebugPipelineStageCursor = ( m_debug.physicsDebugPipelineStageCursor + stageCount - 1 ) % stageCount;
+            }
+            if ( nextNow && !s_pipelineNextWasDown )
+            {
+                m_debug.physicsDebugFlags |= PHYSICS_DEBUG_PIPELINE;
+                m_debug.physicsDebugPipelineStageCursor = ( m_debug.physicsDebugPipelineStageCursor + 1 ) % stageCount;
+            }
+            s_pipelinePrevWasDown = prevNow;
+            s_pipelineNextWasDown = nextNow;
         }
 
         // 6 key: translucent debug collision volumes for inspecting axes/contact rows inside bodies.
@@ -2397,6 +2421,7 @@ void SkullbonezRun::DrawPrimitives()
     {
         Matrix4 viewProj = proj * baseView;
         m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
+        m_physicsDebugVisualizer.SetPipelineStageCursor( m_debug.physicsDebugPipelineStageCursor );
         m_physicsDebugVisualizer.Render( m_cGameModelCollection, viewProj );
     }
 }
@@ -2582,6 +2607,17 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         UIData.worldFluidHeight = m_cWorldEnvironment.GetFluidSurfaceHeight();
         UIData.worldFluidDensity = m_cWorldEnvironment.GetFluidDensity();
         UIData.physicsDebugFlags = m_debug.physicsDebugFlags;
+        {
+            const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
+            int stageIndex = stageCount > 0 ? m_debug.physicsDebugPipelineStageCursor % stageCount : 0;
+            if ( stageIndex < 0 )
+            {
+                stageIndex += stageCount;
+            }
+            UIData.physicsPipelineStageName = PhysicsPipelineStageName( static_cast<PhysicsPipelineStage>( stageIndex ) );
+            UIData.physicsPipelineStageIndex = stageIndex;
+            UIData.physicsPipelineStageCount = stageCount;
+        }
         UIData.physicsDebugAlpha = m_debug.physicsDebugAlpha;
         UIData.physicsDebugContactLinger = m_debug.physicsDebugContactLinger;
         UIData.physicsSleepEnabled = m_runtimeSettings.isPhysicsSleepEnabled;
@@ -3640,6 +3676,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     m_debug.isPhysicsDebugTransparent = false;
     m_debug.physicsDebugAlpha = 0.28f;
     m_debug.physicsDebugContactLinger = 0.45f;
+    m_debug.physicsDebugPipelineStageCursor = 0;
     m_physicsDebugVisualizer.SetFlags( PHYSICS_DEBUG_NONE );
 #ifdef _DEBUG
     m_debug.reproSnapshotMessage[0] = '\0';
@@ -4284,6 +4321,7 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
     SetSceneDirective( lines, "physics_debug_axes", std::string( "physics_debug_axes " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0 ), true );
     SetSceneDirective( lines, "physics_debug_contacts", std::string( "physics_debug_contacts " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0 ), true );
     SetSceneDirective( lines, "physics_debug_sleep", std::string( "physics_debug_sleep " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0 ), true );
+    SetSceneDirective( lines, "physics_debug_pipeline", std::string( "physics_debug_pipeline " ) + OnOff( ( m_debug.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0 ), true );
     SetSceneDirective( lines, "physics_debug_transparent", std::string( "physics_debug_transparent " ) + OnOff( m_debug.isPhysicsDebugTransparent ), true );
     snprintf( buf, sizeof( buf ), "physics_debug_alpha %.2f", m_debug.physicsDebugAlpha );
     SetSceneDirective( lines, "physics_debug_alpha", buf, true );

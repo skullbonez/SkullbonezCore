@@ -6,9 +6,9 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 
 | Field | Value |
 |-------|-------|
-| Branch | `catto-final` |
-| Last commit | `14795e0` |
-| Pending work | Catto physics finalisation changes are uncommitted in the sibling worktree `C:\SkullbonezCore-catto`. |
+| Branch | `main` |
+| Last commit | `origin/main` |
+| Pending work | Clean Catto physics migration is implemented, rebaselined with user approval, and validated. |
 | Uncommitted changes | See `git status --short`; use `tools\find_git.bat` first if Git is not on PATH. |
 
 ## Active Notes
@@ -30,7 +30,7 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 
 | Item | Status | Notes |
 |------|--------|-------|
-| Catto physics solver finalisation | Recent | Config-backed Catto solver knobs, solver SkullScope stats, sleep/no-sleep perf coverage, sleep-pair pruning, and shared contact-row math are implemented in `catto-final`; validate with `tools\validate_full.bat`. |
+| Catto physics solver finalisation | Recent | Object/object response now belongs to persistent Catto rows with pipeline visualizer and SkullScope `pipeline` query support. User-approved physics CSV and SkullScope query baselines were updated; `tools\validate_full.bat` passed. |
 | SIMD/SSE math optimization pass | Pending | Reported large wins in matrix and render markers; verify current code before continuing. |
 | Camera tween reflection fix | Recent | Reflection pass should use the exact render camera state during camera transitions. |
 | DX12 GPU timer readback | Recent | Non-blocking readback restored when `pipeline_sync` is off. |

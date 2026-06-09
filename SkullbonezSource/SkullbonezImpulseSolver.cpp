@@ -1083,14 +1083,12 @@ bool ImpulseSolver::RespondCollisionTerrain( GameModel& gameModel, float changeI
 //     PDF p. 12, Section 5, unnumbered inertia transform before Equations 26-28.
 //
 // ENGINE-SPECIFIC / NOVEL PARTS:
-//   - Object-object narrowphase still uses bounding radii, so contact arms are
-//     approximated along the center-to-center normal instead of a true convex
-//     manifold. This is an intentional bridge until proper shape-pair manifolds
-//     exist.
-//   - This path is one-shot impact response, not the persistent Catto cache. Slow
-//     resting support is handled in GameModelCollection::SolvePersistentObjectContacts.
-//   - Positional correction is mass-weighted push-apart policy for visible
-//     overlap cleanup.
+//   - Deprecated compatibility path. The active frame loop no longer calls this
+//     for object/object response; swept object tests only advance or wake contact
+//     candidates, and GameModelCollection::SolvePersistentObjectContacts owns
+//     all object-pair velocity response and cache storage.
+//   - Kept temporarily as isolated API surface while callers are audited. Do not
+//     add new uses; feed contacts into the persistent Catto row pipeline instead.
 //
 // =============================================================================
 void ImpulseSolver::RespondCollisionGameModels( GameModel& gameModel1,

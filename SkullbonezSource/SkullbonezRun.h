@@ -183,6 +183,7 @@ struct RunDebugState
     bool isPhysicsDebugTransparent = false;                   // Draw translucent debug collision volumes behind physics debug lines (toggle with 6)
     float physicsDebugAlpha = 0.28f;                          // Translucent debug volume alpha
     float physicsDebugContactLinger = 0.45f;                  // Seconds to keep contact manifolds visible after their solver row disappears
+    int physicsDebugPipelineStageCursor = 0;                  // F7/F8-selected Catto pipeline stage for PHYSICS_DEBUG_PIPELINE
     bool isCollisionVisualizer = false;                       // Render solid collision/sleep colours for balls and boxes (toggle with V)
     bool isTextOnly = false;                                  // Suppress all 3D rendering; show solid background with large pangram text
     bool isUITestPattern = false;                             // Bright 2D backdrop behind UI for visual blur tests

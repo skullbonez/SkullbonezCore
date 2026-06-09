@@ -34,7 +34,7 @@ class ImpulseSolver
 
   public:
     static bool RespondCollisionTerrain( GameModel& gameModel, float changeInTime );        // Unified sphere+box terrain response; returns true when contact can sleep
-    static void RespondCollisionGameModels( GameModel& gameModel1, GameModel& gameModel2 ); // Object-object response through contact normal and tangent friction impulses
+    static void RespondCollisionGameModels( GameModel& gameModel1, GameModel& gameModel2 ); // Deprecated legacy object impulse path; persistent Catto rows own object/object response
 };
 } // namespace Physics
 } // namespace SkullbonezCore

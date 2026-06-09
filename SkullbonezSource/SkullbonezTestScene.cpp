@@ -861,7 +861,7 @@ TestScene TestScene::LoadFromFile( const char* path )
             continue;
         }
 
-        // parse physics_debug directive: none|axes|contacts|sleep|all
+        // parse physics_debug directive: none|axes|contacts|sleep|pipeline|all
         if ( strncmp( line, "physics_debug ", 14 ) == 0 )
         {
             const char* value = line + 14;
@@ -881,6 +881,10 @@ TestScene TestScene::LoadFromFile( const char* path )
             {
                 scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_SLEEP;
             }
+            else if ( strcmp( value, "pipeline" ) == 0 )
+            {
+                scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_PIPELINE;
+            }
             else if ( strcmp( value, "all" ) == 0 || strcmp( value, "on" ) == 0 )
             {
                 scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_ALL;
@@ -897,12 +901,14 @@ TestScene TestScene::LoadFromFile( const char* path )
 
         if ( strncmp( line, "physics_debug_axes ", 19 ) == 0 ||
              strncmp( line, "physics_debug_contacts ", 23 ) == 0 ||
-             strncmp( line, "physics_debug_sleep ", 20 ) == 0 )
+             strncmp( line, "physics_debug_sleep ", 20 ) == 0 ||
+             strncmp( line, "physics_debug_pipeline ", 23 ) == 0 )
         {
             const bool isAxes = strncmp( line, "physics_debug_axes ", 19 ) == 0;
             const bool isContacts = strncmp( line, "physics_debug_contacts ", 23 ) == 0;
-            const int prefixLen = isAxes ? 19 : ( isContacts ? 23 : 20 );
-            const uint32_t flag = isAxes ? Physics::PHYSICS_DEBUG_AXES : ( isContacts ? Physics::PHYSICS_DEBUG_CONTACTS : Physics::PHYSICS_DEBUG_SLEEP );
+            const bool isSleep = strncmp( line, "physics_debug_sleep ", 20 ) == 0;
+            const int prefixLen = isAxes ? 19 : ( isContacts ? 23 : ( isSleep ? 20 : 23 ) );
+            const uint32_t flag = isAxes ? Physics::PHYSICS_DEBUG_AXES : ( isContacts ? Physics::PHYSICS_DEBUG_CONTACTS : ( isSleep ? Physics::PHYSICS_DEBUG_SLEEP : Physics::PHYSICS_DEBUG_PIPELINE ) );
             if ( strcmp( line + prefixLen, "on" ) == 0 )
             {
                 scene.m_sceneOptions.physicsDebugFlags |= flag;

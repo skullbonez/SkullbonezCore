@@ -94,7 +94,7 @@ class GameModel
 
     Matrix4 GetModelMatrix();                                                           // Returns the model matrix for rendering (T*R*T*S)
     bool IsResponseRequired();                                                          // Indicates whether a collision response is required
-    void ClearResponseRequired();                                                       // Clears the response-required flag after an inline collision response
+    void ClearResponseRequired();                                                       // Clears a swept object/terrain response flag after the owner consumes it
     float GetSubmergedVolumePercent();                                                  // Returns the percentage of the game model submerged in fluid
     float GetMass();                                                                    // Returns the mass of the game model
     float GetInvertedMass();                                                            // Returns inverted mass (cached immutable)
@@ -127,8 +127,8 @@ class GameModel
     void TickFixedContactHighlight( float dt );                                         // Decay fixed-body contact highlight timer
     float GetFixedContactHighlightAlpha() const;                                        // 0=no contact tint, 1=full red contact tint
     float CollisionDetectGameModel( GameModel& collisionTarget, float changeInTime );   // Collision detect model against model
-    void CollisionResponseGameModel( GameModel& responseTarget );                       // Collision response model against model (velocity-only)
-    void StaticOverlapResponseGameModel( GameModel& overlapTarget );                    // Check for static overlap and push apart if overlapping
+    void CollisionResponseGameModel( GameModel& responseTarget );                       // Deprecated legacy object impulse path; RunSolverPhysics does not call it
+    void StaticOverlapResponseGameModel( GameModel& overlapTarget );                    // Deprecated object overlap projection; persistent rows own object cleanup
     float GetBoundingRadius();                                                          // Returns the radius of the bounding sphere
     Vector3 GetOrientationUp();                                                         // Returns local Y axis (0,1,0) rotated into world space by the visual orientation
     const Quaternion& GetOrientation() const;                                           // Returns the orientation quaternion (passthrough to RigidBody)

@@ -1,9 +1,9 @@
 # Clean Catto Physics Handoff
 
 **Date:** 2026-06-09
-**Status:** Ready for implementation planning
-**Current edit type:** Documentation only
-**Primary future impact areas:** Physics, collision, solver, tests, diagnostics
+**Status:** Implemented and validated in the current workspace
+**Current edit type:** Physics/runtime/diagnostics/documentation
+**Primary impact areas:** Physics, collision, solver, tests, diagnostics
 
 ## Goal
 
@@ -55,20 +55,23 @@ The goal is to make every important stage inspectable in order:
 11. Contact cache storage for the next frame.
 12. Sleep support edges, support anchors, and final sleep-island decisions.
 
-The intended UX is a frame debugger for physics: pause the simulation, choose a
-physics frame, and press a step control repeatedly to advance through the Catto
-pipeline stage by stage. A future implementation may expose this through the
-existing in-game physics tab, SkullScope traces, or both, but the visual mode
-should be able to show the process spatially in the running scene.
+The implemented UX is a frame debugger for physics: pause the simulation and use
+F7/F8, the physics tab, or SkullScope `pipeline` queries to inspect the Catto
+pipeline stage by stage. The visual mode shows the process spatially in the
+running scene through the existing physics debug overlay.
 
 This requirement should influence the refactor shape. Prefer explicit stage
 records and debug event structs over hidden side effects, so the same data that
 drives the solver can also drive the visualizer and SkullScope queries.
 
-## Current State
+## Implementation State
 
-The current branch has a Catto-style persistent object solver, but the whole
-frame is still hybrid.
+The current workspace has a Catto-style persistent object/object solver as the
+single dynamic object response owner. `RunSolverPhysics` still uses the old
+object/object swept narrowphase as a CCD front-end, but that front-end now only
+finds candidate timing, advances bodies to a time of impact, wakes sleeping
+pairs, records debug stages, and clears legacy response flags. It no longer
+calls the legacy object/object impulse or overlap-projection wrappers.
 
 Current order in `GameModelCollection::RunSolverPhysics`:
 
@@ -76,48 +79,43 @@ Current order in `GameModelCollection::RunSolverPhysics`:
 2. Build broadphase candidate pairs with `SkullbonezSpatialGrid`.
 3. Prune pairs where both bodies are sleeping.
 4. Run the old object/object swept narrowphase through
-   `CollisionDetectGameModel`.
-5. If both bodies require response, advance them to collision time and call
-   `CollisionResponseGameModel`.
-6. If that does not require response, run `StaticOverlapResponseGameModel`.
-7. Run swept terrain detection/response.
-8. Run `SolvePersistentObjectContacts(dt)` on the same candidate pair list.
-9. Propagate object contact support.
-10. Integrate remaining time.
-11. Build/evaluate sleep islands.
+   `CollisionDetectGameModel` as CCD/contact discovery only.
+5. For swept object/object hits, advance bodies to the candidate collision time,
+   wake sleepers, clear legacy response-required flags, and record pipeline
+   stages without applying an impulse.
+6. Run swept terrain detection/response.
+7. Run `SolvePersistentObjectContacts(dt)` on the same candidate pair list.
+8. Propagate object contact support.
+9. Integrate remaining time.
+10. Build/evaluate sleep islands.
 
-The persistent object solver itself is already broadly Catto-shaped:
+The persistent object solver is now the Catto-shaped response path:
 
 1. Build compact `m_solverBodies`.
-2. Convert candidate pairs into persistent contact rows.
-3. Build sphere/sphere, sphere/box, and box/box manifolds.
+2. Convert candidate pairs into shape manifolds.
+3. Build sphere/sphere, sphere/box, and box/box rows through
+   `BuildObjectContactManifold`.
 4. Precompute tangents, effective mass, bias, friction limits, and cached
-   impulses.
+   impulses, including dynamic/dynamic restitution bias.
 5. Warm start by applying cached impulses to solver velocities.
 6. Run PGS/sequential impulse iterations.
 7. Write solved velocities back to `GameModel`.
-8. Emit debug contacts.
+8. Emit debug contacts and bounded pipeline stage records.
 9. Apply direct position correction.
 10. Store accumulated impulses for next-frame warm starting.
 
-## Important Current Hybrid Facts
+## Remaining Compatibility Facts
 
-- `RespondCollisionGameModels` returns immediately when either object is a box.
-  The box-looking branches later in that function are therefore dead or
-  misleading.
-- Sphere/sphere object contacts can still go through both the old swept response
-  path and the persistent solver in the same frame.
-- Object/object boxes are effectively discrete in the persistent solver. They
-  get broadphase radius filtering, old swept detection/position handling, then
-  discrete OBB manifold contacts.
+- `CollisionResponseGameModel`, `StaticOverlapResponseGameModel`, and
+  `RespondCollisionGameModels` remain as deprecated compatibility wrappers, but
+  the active solver frame does not call them for object/object response.
+- Object/object boxes still use broadphase radius filtering plus discrete OBB
+  manifold contacts in the persistent solver.
 - Object/terrain is separate and swept. Terrain response is not currently just
   another contact row in the persistent object solver.
-- Dynamic/dynamic restitution is split. Sphere bounce can happen in the old
-  immediate path, while the persistent object solver currently applies
-  restitution bias mainly for fixed-body impacts.
 - Direct position correction is a local cleanup step after the velocity solve.
-  Treat it as intentional current behavior until the new solver can prove it no
-  longer needs it.
+  Treat it as intentional current behavior until a split-correction path proves
+  it can replace the direct cleanup.
 
 ## Primary Files To Inspect First
 
@@ -478,6 +476,17 @@ After the migration lands, update:
 - comments around `CollisionDetectGameModel`, `CollisionResponseGameModel`,
   `RespondCollisionGameModels`, and `SolvePersistentObjectContacts`.
 
-## Validation Plan For This Markdown Change
+## Validation Gate For This Implementation
 
-Documentation-only change. No validation required.
+This is no longer a documentation-only change. Required validation is
+`tools\validate_full.bat`.
+
+Validation completed after the intentional physics CSV and SkullScope query
+baselines were approved and updated:
+
+```bat
+tools\validate_full.bat
+```
+
+Result: all phases passed, including renderer parity, byte-exact physics CSV,
+SkullScope query baseline, and perf validation.

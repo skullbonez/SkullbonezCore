@@ -106,6 +106,7 @@ tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson energy --frames 0:1000
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson rolling --frames 300:700
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson broadphase --frames 0:1000
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson solver --frames 0:1000
+tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson pipeline --frames 0:1000
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson questions
 tools\physics_query.bat Debug\at_rest.physicsdiag.ndjson questions why_not_resting
 ```

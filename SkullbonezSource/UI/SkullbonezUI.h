@@ -70,6 +70,9 @@ struct InGameUIFrameData
     float worldFluidHeight = 0.0f;
     float worldFluidDensity = 0.0f;
     uint32_t physicsDebugFlags = 0;
+    const char* physicsPipelineStageName = "";
+    int physicsPipelineStageIndex = 0;
+    int physicsPipelineStageCount = 0;
     float physicsDebugAlpha = 0.0f;
     float physicsDebugContactLinger = 0.0f;
     bool physicsSleepEnabled = true;
@@ -177,7 +180,7 @@ class InGameUI
     UICheckBox m_vsyncToggle;
     UICheckBox m_timelineToggle;
     UICheckBox m_histogramToggle;
-    UICheckBox m_physicsToggles[7];
+    UICheckBox m_physicsToggles[8];
     UICheckBox m_optionToggles[5];
     UISlider m_timeScaleSlider;
     UISlider m_modelCountSlider;

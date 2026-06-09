@@ -1793,6 +1793,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             setToggle( 0, 0, 0 );
             setToggle( 4, 1, 0 );
             setToggle( 5, 2, 0 );
+            setToggle( 7, 3, 0 );
             setToggle( 1, 0, 1 );
             setToggle( 2, 1, 1 );
             setToggle( 3, 2, 1 );
@@ -1824,6 +1825,10 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             else if ( m_physicsToggles[5].HitTest( m_mouseX, m_mouseY ) )
             {
                 result.toggleBroadphaseOverlay = true;
+            }
+            else if ( m_physicsToggles[7].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.togglePhysicsDebugFlags = PHYSICS_DEBUG_PIPELINE;
             }
             else if ( m_physicsToggles[6].HitTest( m_mouseX, m_mouseY ) )
             {
@@ -2537,12 +2542,15 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         drawContentToggle( m_physicsToggles[0], col1, scrolledY + 42.0f, colW, "Collision state", data.collisionVisualizer );
         drawContentToggle( m_physicsToggles[4], col1, scrolledY + 72.0f, colW, "Transparent", data.physicsDebugTransparent );
         drawContentToggle( m_physicsToggles[5], col1, scrolledY + 102.0f, colW, "Broadphase", data.broadphaseOverlay );
+        drawContentToggle( m_physicsToggles[7], col1, scrolledY + 132.0f, colW, "Pipeline", ( data.physicsDebugFlags & PHYSICS_DEBUG_PIPELINE ) != 0 );
         drawContentToggle( m_physicsToggles[1], col2, scrolledY + 42.0f, colW, "Axes", ( data.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0 );
         drawContentToggle( m_physicsToggles[2], col2, scrolledY + 72.0f, colW, "Contacts", ( data.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0 );
         drawContentToggle( m_physicsToggles[3], col2, scrolledY + 102.0f, colW, "Sleep state", ( data.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0 );
         drawContentToggle( m_physicsToggles[6], col2, scrolledY + 132.0f, colW, "Sleep policy", data.physicsSleepEnabled );
         snprintf( buf, sizeof( buf ), "0x%04X", data.physicsDebugFlags );
         labelValue( scrolledY + 178.0f, "Debug flags", buf, 0.52f, 0.94f, 1.0f );
+        snprintf( buf, sizeof( buf ), "%d/%d %s", data.physicsPipelineStageIndex + 1, data.physicsPipelineStageCount, data.physicsPipelineStageName );
+        labelValue( scrolledY + 198.0f, "Pipeline stage", buf, 0.52f, 0.94f, 1.0f );
         if ( visible( scrolledY + 216.0f, 18.0f ) )
         {
             drawSectionTitle( scrolledY + 216.0f, 12.0f, "Debug Draw" );

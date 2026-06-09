@@ -16,7 +16,7 @@ import sys
 import time
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 DEFAULT_LIMIT = 50
 SUMMARY_LIMIT = 20
 BODY_SAMPLE_LIMIT = 120
@@ -291,6 +291,14 @@ def create_schema(conn):
             primary key(run_id, frame)
         );
 
+        create table pipeline_stages(
+            run_id text not null,
+            frame integer not null,
+            record_count integer,
+            stage_counts_json text,
+            primary key(run_id, frame)
+        );
+
         create table events(
             run_id text not null,
             event_id text not null,
@@ -325,6 +333,7 @@ def create_indexes(conn):
         create index idx_members_body_frame on island_members(run_id, body_id, frame);
         create index idx_support_edges_frame on support_edges(run_id, frame);
         create index idx_solver_stats_frame on solver_stats(run_id, frame);
+        create index idx_pipeline_stages_frame on pipeline_stages(run_id, frame);
         """
     )
 
@@ -436,6 +445,7 @@ def import_trace(conn, trace_path):
         "support_edge": 0,
         "broadphase": 0,
         "solver_stats": 0,
+        "pipeline_stages": 0,
         "event": 0,
         "end": 0,
         "unknown": 0,
@@ -471,6 +481,8 @@ def import_trace(conn, trace_path):
                 insert_broadphase(conn, item)
             elif kind == "solver_stats":
                 insert_solver_stats(conn, item)
+            elif kind == "pipeline_stages":
+                insert_pipeline_stages(conn, item)
             elif kind == "event":
                 insert_event(conn, item)
             elif kind == "end":
@@ -741,6 +753,28 @@ def insert_solver_stats(conn, item):
             as_float(item.get("position_correction_total")),
             as_float(item.get("position_correction_max")),
             as_int(item.get("solver_iterations")),
+        ),
+    )
+
+
+def insert_pipeline_stages(conn, item):
+    stage_counts = {
+        key: as_int(value, 0)
+        for key, value in item.items()
+        if key not in ("kind", "run", "frame", "record_count")
+    }
+    conn.execute(
+        """
+        insert or replace into pipeline_stages(
+            run_id, frame, record_count, stage_counts_json
+        )
+        values(?, ?, ?, ?)
+        """,
+        (
+            item.get("run"),
+            as_int(item.get("frame")),
+            as_int(item.get("record_count")),
+            as_json(stage_counts),
         ),
     )
 
@@ -1496,6 +1530,55 @@ def query_solver(conn, cache, args):
     }
 
 
+def query_pipeline(conn, cache, args):
+    run_id = resolve_run_id(conn, args)
+    where = ["run_id=?"]
+    params = [run_id]
+    apply_frame_where(where, params, frame_range=args.frames, frame=args.frame)
+
+    rows = conn.execute(
+        f"""
+        select frame, record_count, stage_counts_json
+        from pipeline_stages
+        where {' and '.join(where)}
+        order by frame
+        """,
+        params,
+    ).fetchall()
+
+    aggregate = {}
+    total_records = 0
+    timeline = []
+    for row in rows:
+        try:
+            stage_counts = json.loads(row["stage_counts_json"] or "{}")
+        except json.JSONDecodeError:
+            stage_counts = {}
+        total_records += row["record_count"] or 0
+        for stage, count in stage_counts.items():
+            aggregate[stage] = aggregate.get(stage, 0) + (count or 0)
+        timeline.append(
+            {
+                "frame": row["frame"],
+                "record_count": row["record_count"],
+                "stages": stage_counts,
+            }
+        )
+
+    return {
+        "cache": cache,
+        "run": run_id,
+        "stats": {
+            "sample_count": len(rows),
+            "total_records": total_records,
+            "stage_totals": dict(sorted(aggregate.items())),
+        },
+        "timeline": sample_rows(timeline, args.limit or DEFAULT_LIMIT),
+        "note": None if rows else "Dedicated pipeline_stages rows are not present for this trace yet.",
+        "relatedQueries": ["solver --frames <start>:<end>", "frame <frame>", "events --frames <start>:<end>"],
+    }
+
+
 def query_water(conn, cache, args):
     return {
         "cache": cache,
@@ -1736,6 +1819,12 @@ def build_parser():
     add_common(solver)
     solver.add_argument("--frames", default=None)
     solver.set_defaults(func=query_solver)
+
+    pipeline = sub.add_parser("pipeline", help="Catto pipeline stage counts by frame.")
+    add_common(pipeline)
+    pipeline.add_argument("--frames", default=None)
+    pipeline.add_argument("--frame", type=int, default=None)
+    pipeline.set_defaults(func=query_pipeline)
 
     water = sub.add_parser("water", help="Water/buoyancy diagnostics.")
     add_common(water)

@@ -423,6 +423,11 @@ bool ParsePhysicsDebugMode( const char* value, uint32_t& outFlags )
         outFlags = PHYSICS_DEBUG_SLEEP;
         return true;
     }
+    if ( _strnicmp( value, "pipeline", 8 ) == 0 )
+    {
+        outFlags = PHYSICS_DEBUG_PIPELINE;
+        return true;
+    }
     if ( _strnicmp( value, "all", 3 ) == 0 || _strnicmp( value, "on", 2 ) == 0 )
     {
         outFlags = PHYSICS_DEBUG_ALL;
@@ -468,14 +473,15 @@ bool ParsePhysicsDebugOverrides( const char* cmdLine, ParsedArgs& out )
     {
         if ( !ParsePhysicsDebugMode( modeValue, out.physicsDebugFlagsOverride ) )
         {
-            return FailCommandLineParse( "--physics-debug expects none|axes|contacts|sleep|all|on|off." );
+            return FailCommandLineParse( "--physics-debug expects none|axes|contacts|sleep|pipeline|all|on|off." );
         }
         out.hasPhysicsDebugFlagsOverride = true;
     }
 
     if ( !ApplyPhysicsDebugComponentOverride( cmdLine, "--physics-debug-axes", "--physics_debug_axes", PHYSICS_DEBUG_AXES, out ) ||
          !ApplyPhysicsDebugComponentOverride( cmdLine, "--physics-debug-contacts", "--physics_debug_contacts", PHYSICS_DEBUG_CONTACTS, out ) ||
-         !ApplyPhysicsDebugComponentOverride( cmdLine, "--physics-debug-sleep", "--physics_debug_sleep", PHYSICS_DEBUG_SLEEP, out ) )
+         !ApplyPhysicsDebugComponentOverride( cmdLine, "--physics-debug-sleep", "--physics_debug_sleep", PHYSICS_DEBUG_SLEEP, out ) ||
+         !ApplyPhysicsDebugComponentOverride( cmdLine, "--physics-debug-pipeline", "--physics_debug_pipeline", PHYSICS_DEBUG_PIPELINE, out ) )
     {
         return false;
     }

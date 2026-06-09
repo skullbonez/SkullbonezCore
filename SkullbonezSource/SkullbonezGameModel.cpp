@@ -332,6 +332,10 @@ float GameModel::GetModelCollisionTime( GameModel& collisionTarget,
 
 void GameModel::CollisionResponseGameModel( GameModel& responseTarget )
 {
+    // Deprecated object/object impulse bridge. RunSolverPhysics now clears
+    // swept object flags after candidate advancement and lets the persistent
+    // Catto rows own velocity response. This function remains only until any
+    // external/debug callers are audited.
     // if there has been no collision, throw an exception!
     if ( !responseTarget.m_isResponseRequired || !m_isResponseRequired )
     {

@@ -160,17 +160,18 @@ class GameModelCollection
         float invMass = 0.0f;
         bool useWorldInertia = false;
     };
-    std::vector<PersistentContact> m_persistentContacts;               // Catto-style contact rows retained across frames
-    std::vector<PersistentContactCacheEntry> m_persistentContactCache; // Previous-frame contact impulses for warm starting
-    PersistentContactSolverStats m_persistentContactSolverStats;       // Compact SkullScope counters for the Catto-style solver
-    std::vector<uint16_t> m_persistentContactCounts;                   // Per-body contact count for mc*g friction bounds
-    std::vector<SolverBodyState> m_solverBodies;                       // Per-step compact velocity/inertia state for persistent contact solving
-    std::vector<Physics::PhysicsDebugContact> m_physicsDebugContacts;  // Last solver contact rows for visual debugging
-    std::unique_ptr<IShader> m_shadowShader;                           // Shadow decal shader (instanced)
-    uint32_t m_shadowInstMesh = 0;                                     // Instanced mesh handle (via Gfx())
-    int m_shadowDiscVertexCount = 0;                                   // Disc triangle vertex count
-    std::vector<float> m_shadowInstanceData;                           // Retained-capacity staging buffer (mat4 + alpha per instance)
-    std::vector<int64_t> m_collisionCellKeys;                          // Cells where narrowphase collisions occurred this frame
+    std::vector<PersistentContact> m_persistentContacts;                // Catto-style contact rows retained across frames
+    std::vector<PersistentContactCacheEntry> m_persistentContactCache;  // Previous-frame contact impulses for warm starting
+    PersistentContactSolverStats m_persistentContactSolverStats;        // Compact SkullScope counters for the Catto-style solver
+    std::vector<uint16_t> m_persistentContactCounts;                    // Per-body contact count for mc*g friction bounds
+    std::vector<SolverBodyState> m_solverBodies;                        // Per-step compact velocity/inertia state for persistent contact solving
+    std::vector<Physics::PhysicsDebugContact> m_physicsDebugContacts;   // Last solver contact rows for visual debugging
+    std::vector<Physics::PhysicsPipelineRecord> m_physicsPipelineTrace; // Bounded per-step Catto pipeline records for visual/debug stage stepping
+    std::unique_ptr<IShader> m_shadowShader;                            // Shadow decal shader (instanced)
+    uint32_t m_shadowInstMesh = 0;                                      // Instanced mesh handle (via Gfx())
+    int m_shadowDiscVertexCount = 0;                                    // Disc triangle vertex count
+    std::vector<float> m_shadowInstanceData;                            // Retained-capacity staging buffer (mat4 + alpha per instance)
+    std::vector<int64_t> m_collisionCellKeys;                           // Cells where narrowphase collisions occurred this frame
 
 #ifdef _DEBUG
     // Deterministic per-body CSV artifact for current-solver regression tests.
@@ -187,6 +188,7 @@ class GameModelCollection
 #ifdef _DEBUG
     void EmitPhysicsDiagnosticsFrame( float dt );
 #endif
+    void RecordPhysicsPipelineStage( const Physics::PhysicsPipelineRecord& record );
     void EnsureCollisionVisualBuffers( int modelCount );
     void MarkCollisionVisualContact( int index );
     void MarkFixedContact( int index );
@@ -258,6 +260,10 @@ class GameModelCollection
     const std::vector<Physics::PhysicsDebugContact>& GetPhysicsDebugContacts() const
     {
         return m_physicsDebugContacts;
+    }
+    const std::vector<Physics::PhysicsPipelineRecord>& GetPhysicsPipelineTrace() const
+    {
+        return m_physicsPipelineTrace;
     }
 
 #ifdef _DEBUG
