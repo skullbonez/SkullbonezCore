@@ -349,11 +349,12 @@ void SkullbonezRun::TakeInput()
                                                          m_sceneBrowserNamePtrs.empty() ? nullptr : m_sceneBrowserNamePtrs.data(),
                                                          static_cast<int>( m_sceneBrowserNamePtrs.size() ),
                                                          selectedSceneBrowserIndex );
-        if ( UIResult.userInteracted )
+        const InGameUICommands& uiCommands = UIResult.commands;
+        if ( uiCommands.ui.userInteracted )
         {
             EnterInteractiveSceneRun();
         }
-        suppressNudgeFireThisFrame = suppressNudgeFireThisFrame || UIResult.userInteracted || m_UI.BlocksCameraMouse();
+        suppressNudgeFireThisFrame = suppressNudgeFireThisFrame || uiCommands.ui.userInteracted || m_UI.BlocksCameraMouse();
 
         // ESC flicks the diagnostics window between minimized and expanded, with
         // a very fast double-tap escape hatch for quitting interactive runs.
@@ -361,7 +362,7 @@ void SkullbonezRun::TakeInput()
         // behavior first, such as closing the scene filter combo without also
         // hiding the whole diagnostics surface on the same frame.
         const bool escapeNow = Input::IsKeyDown( VK_ESCAPE );
-        if ( escapeNow && !m_camera.input.Get( InputState::EscapeWasDown ) && !UIResult.userInteracted )
+        if ( escapeNow && !m_camera.input.Get( InputState::EscapeWasDown ) && !uiCommands.ui.userInteracted )
         {
             constexpr double ESC_QUICK_EXIT_SECONDS = 0.32;
             const double UINow = m_timers.simulationTimer.GetTotalTime();
@@ -381,59 +382,59 @@ void SkullbonezRun::TakeInput()
         }
         m_camera.input.Set( InputState::EscapeWasDown, escapeNow );
 
-        if ( UIResult.toggleVsync )
+        if ( uiCommands.renderer.toggleVsync )
         {
             m_runtimeSettings.isVsyncEnabled = !m_runtimeSettings.isVsyncEnabled;
             Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
         }
-        if ( UIResult.toggleCollisionVisualizer )
+        if ( uiCommands.physics.toggleCollisionVisualizer )
         {
             m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
         }
-        if ( UIResult.togglePhysicsSleepPolicy )
+        if ( uiCommands.physics.togglePhysicsSleepPolicy )
         {
             m_runtimeSettings.isPhysicsSleepEnabled = !m_runtimeSettings.isPhysicsSleepEnabled;
             m_cGameModelCollection.SetPhysicsSleepEnabled( m_runtimeSettings.isPhysicsSleepEnabled );
         }
-        if ( UIResult.togglePhysicsDebugFlags != 0 )
+        if ( uiCommands.physics.togglePhysicsDebugFlags != 0 )
         {
-            m_debug.physicsDebugFlags ^= ( UIResult.togglePhysicsDebugFlags & PHYSICS_DEBUG_ALL );
+            m_debug.physicsDebugFlags ^= ( uiCommands.physics.togglePhysicsDebugFlags & PHYSICS_DEBUG_ALL );
         }
-        if ( UIResult.stepPhysicsPipelinePrevious )
+        if ( uiCommands.physics.stepPhysicsPipelinePrevious )
         {
             StepPhysicsPipelineStage( -1 );
         }
-        if ( UIResult.stepPhysicsPipelineNext )
+        if ( uiCommands.physics.stepPhysicsPipelineNext )
         {
             StepPhysicsPipelineStage( 1 );
         }
-        if ( UIResult.togglePhysicsDebugTransparent )
+        if ( uiCommands.physics.togglePhysicsDebugTransparent )
         {
             m_debug.isPhysicsDebugTransparent = !m_debug.isPhysicsDebugTransparent;
         }
-        if ( UIResult.toggleBroadphaseOverlay )
+        if ( uiCommands.physics.toggleBroadphaseOverlay )
         {
             m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
         }
-        if ( UIResult.toggleTextOnly )
+        if ( uiCommands.sceneOptions.toggleTextOnly )
         {
             m_debug.isTextOnly = !m_debug.isTextOnly;
         }
-        if ( UIResult.toggleFixedStep )
+        if ( uiCommands.sceneOptions.toggleFixedStep )
         {
             m_scene.isFixedStep = !m_scene.isFixedStep;
             m_timers.physicsAccumulator = 0.0f;
             m_timers.fixedStepTickAccumulator = 0.0f;
         }
-        if ( UIResult.toggleTerrainHidden )
+        if ( uiCommands.sceneOptions.toggleTerrainHidden )
         {
             m_debug.isTerrainHidden = !m_debug.isTerrainHidden;
         }
-        if ( UIResult.toggleWaterHidden )
+        if ( uiCommands.sceneOptions.toggleWaterHidden )
         {
             m_debug.isWaterHidden = !m_debug.isWaterHidden;
         }
-        if ( UIResult.toggleWaterFreeze )
+        if ( uiCommands.sceneOptions.toggleWaterFreeze )
         {
             m_debug.isWaterFreezeDebug = !m_debug.isWaterFreezeDebug;
             if ( m_debug.isWaterFreezeDebug )
@@ -441,11 +442,11 @@ void SkullbonezRun::TakeInput()
                 m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
             }
         }
-        if ( UIResult.toggleWaterFlat )
+        if ( uiCommands.sceneOptions.toggleWaterFlat )
         {
             m_debug.isWaterFlatDebug = !m_debug.isWaterFlatDebug;
         }
-        if ( UIResult.toggleWaterReflection )
+        if ( uiCommands.water.toggleWaterReflection )
         {
             if ( m_debug.isWaterNoReflect )
             {
@@ -457,89 +458,89 @@ void SkullbonezRun::TakeInput()
                 m_debug.isWaterRTReflect = false;
             }
         }
-        if ( UIResult.requestedWaterReflectionMode >= 0 )
+        if ( uiCommands.water.requestedWaterReflectionMode >= 0 )
         {
-            const int mode = std::clamp( UIResult.requestedWaterReflectionMode, 0, 2 );
+            const int mode = std::clamp( uiCommands.water.requestedWaterReflectionMode, 0, 2 );
             m_debug.isWaterRTReflect = mode == 1;
             m_debug.isWaterNoReflect = mode == 2;
         }
-        if ( UIResult.requestedTimeScale > 0.0f )
+        if ( uiCommands.sceneOptions.requestedTimeScale > 0.0f )
         {
-            m_UITimeScaleOverride = std::clamp( UIResult.requestedTimeScale, 0.10f, 10.00f );
+            m_UITimeScaleOverride = std::clamp( uiCommands.sceneOptions.requestedTimeScale, 0.10f, 10.00f );
             m_scene.timeScale = m_UITimeScaleOverride;
             m_timers.physicsAccumulator = 0.0f;
             m_timers.fixedStepTickAccumulator = 0.0f;
         }
-        if ( UIResult.requestedSeed > 0 )
+        if ( uiCommands.run.requestedSeed > 0 )
         {
-            m_scene.rngSeed = static_cast<unsigned int>( std::clamp( UIResult.requestedSeed, 1, 999999 ) );
+            m_scene.rngSeed = static_cast<unsigned int>( std::clamp( uiCommands.run.requestedSeed, 1, 999999 ) );
             srand( m_scene.rngSeed );
         }
-        if ( UIResult.requestedPhysicsDebugAlpha >= 0.0f )
+        if ( uiCommands.physics.requestedPhysicsDebugAlpha >= 0.0f )
         {
-            m_debug.physicsDebugAlpha = std::clamp( UIResult.requestedPhysicsDebugAlpha, 0.05f, 1.0f );
+            m_debug.physicsDebugAlpha = std::clamp( uiCommands.physics.requestedPhysicsDebugAlpha, 0.05f, 1.0f );
         }
-        if ( UIResult.requestedPhysicsDebugContactLinger >= 0.0f )
+        if ( uiCommands.physics.requestedPhysicsDebugContactLinger >= 0.0f )
         {
-            m_debug.physicsDebugContactLinger = std::clamp( UIResult.requestedPhysicsDebugContactLinger, 0.0f, 5.0f );
+            m_debug.physicsDebugContactLinger = std::clamp( uiCommands.physics.requestedPhysicsDebugContactLinger, 0.0f, 5.0f );
         }
-        if ( UIResult.requestedModelCount >= 0 )
+        if ( uiCommands.sceneOptions.requestedModelCount >= 0 )
         {
-            ApplyUIModelCountOverride( UIResult.requestedModelCount );
+            ApplyUIModelCountOverride( uiCommands.sceneOptions.requestedModelCount );
         }
-        if ( UIResult.requestedSolverBallCount >= 0 )
+        if ( uiCommands.run.requestedSolverBallCount >= 0 )
         {
             const int boxes = m_UISolverBoxCountOverride >= 0 ? m_UISolverBoxCountOverride : m_scene.solverBoxCount;
-            ApplyUISolverObjectCounts( std::clamp( UIResult.requestedSolverBallCount, 0, (std::max)( 0, 1000 - boxes ) ), boxes );
+            ApplyUISolverObjectCounts( std::clamp( uiCommands.run.requestedSolverBallCount, 0, (std::max)( 0, 1000 - boxes ) ), boxes );
         }
-        if ( UIResult.requestedSolverBoxCount >= 0 )
+        if ( uiCommands.run.requestedSolverBoxCount >= 0 )
         {
             const int balls = m_UISolverBallCountOverride >= 0 ? m_UISolverBallCountOverride : m_scene.solverBallCount;
-            ApplyUISolverObjectCounts( balls, std::clamp( UIResult.requestedSolverBoxCount, 0, (std::max)( 0, 1000 - balls ) ) );
+            ApplyUISolverObjectCounts( balls, std::clamp( uiCommands.run.requestedSolverBoxCount, 0, (std::max)( 0, 1000 - balls ) ) );
         }
-        if ( UIResult.requestWorldGravity || UIResult.requestWorldFluidHeight || UIResult.requestWorldFluidDensity )
+        if ( uiCommands.water.requestWorldGravity || uiCommands.water.requestWorldFluidHeight || uiCommands.water.requestWorldFluidDensity )
         {
-            const float gravity = UIResult.requestWorldGravity ? UIResult.requestedWorldGravity : m_cWorldEnvironment.GetGravity();
-            const float fluidHeight = UIResult.requestWorldFluidHeight ? UIResult.requestedWorldFluidHeight : m_cWorldEnvironment.GetFluidSurfaceHeight();
-            const float fluidDensity = UIResult.requestWorldFluidDensity ? UIResult.requestedWorldFluidDensity : m_cWorldEnvironment.GetFluidDensity();
+            const float gravity = uiCommands.water.requestWorldGravity ? uiCommands.water.requestedWorldGravity : m_cWorldEnvironment.GetGravity();
+            const float fluidHeight = uiCommands.water.requestWorldFluidHeight ? uiCommands.water.requestedWorldFluidHeight : m_cWorldEnvironment.GetFluidSurfaceHeight();
+            const float fluidDensity = uiCommands.water.requestWorldFluidDensity ? uiCommands.water.requestedWorldFluidDensity : m_cWorldEnvironment.GetFluidDensity();
             ApplyUIWorldOverride( std::clamp( gravity, -100.0f, 0.0f ),
                                   std::clamp( fluidHeight, -100.0f, 200.0f ),
                                   std::clamp( fluidDensity, 0.0f, 5.0f ) );
         }
-        if ( UIResult.resetScene )
+        if ( uiCommands.scene.resetScene )
         {
             EnterInteractiveSceneRun();
             ResetCurrentScene( true, true );
         }
-        if ( UIResult.resetSceneDefaults )
+        if ( uiCommands.scene.resetSceneDefaults )
         {
             EnterInteractiveSceneRun();
             ResetCurrentScene( false, true, false );
         }
-        if ( UIResult.requestDemoScene )
+        if ( uiCommands.scene.requestDemoScene )
         {
             LoadDemoSceneFromUI();
         }
-        if ( UIResult.saveSceneDefaults )
+        if ( uiCommands.scene.saveSceneDefaults )
         {
             SaveCurrentSceneDefaults();
         }
-        if ( UIResult.requestedRendererIndex >= 0 )
+        if ( uiCommands.renderer.requestedRendererIndex >= 0 )
         {
             RuntimeRendererType requestedRenderer = RuntimeRendererType::OpenGL;
-            if ( UIResult.requestedRendererIndex == 1 )
+            if ( uiCommands.renderer.requestedRendererIndex == 1 )
             {
                 requestedRenderer = RuntimeRendererType::DX11;
             }
-            else if ( UIResult.requestedRendererIndex == 2 )
+            else if ( uiCommands.renderer.requestedRendererIndex == 2 )
             {
                 requestedRenderer = RuntimeRendererType::DX12;
             }
             SwitchRenderer( requestedRenderer );
         }
-        if ( UIResult.requestedSceneIndex >= 0 )
+        if ( uiCommands.scene.requestedSceneIndex >= 0 )
         {
-            LoadSceneFromBrowserIndex( UIResult.requestedSceneIndex );
+            LoadSceneFromBrowserIndex( uiCommands.scene.requestedSceneIndex );
         }
 
         RunUIStressActions();

@@ -375,7 +375,6 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     const int wheelDelta = input.wheelDelta;
     if ( !m_window.isVisible )
     {
-        result.SyncLegacyFields();
         return result;
     }
     ProfilerTab::ApplyDefaultExpansion( m_profilerTab );
@@ -415,7 +414,6 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         }
         m_interaction.leftWasDown = leftNow;
         m_interaction.blocksCameraMouse = insideMinimized;
-        result.SyncLegacyFields();
         return result;
     }
 
@@ -784,7 +782,6 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     m_interaction.leftWasDown = leftNow;
     m_scrollY = std::clamp( m_scrollY, 0.0f, maxScroll );
     m_interaction.blocksCameraMouse = inside || m_interaction.isDragging || m_interaction.isResizing || m_activeSlider != 0;
-    result.SyncLegacyFields();
     return result;
 }
 
