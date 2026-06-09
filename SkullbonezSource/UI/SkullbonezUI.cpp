@@ -194,7 +194,7 @@ void InGameUI::SetVisible( bool visible, double now )
 {
     m_window.isVisible = visible;
     m_cache.Reset();
-    m_backdropBlur.Invalidate();
+    m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Visibility );
     if ( visible )
     {
         m_window.isMinimized = false;
@@ -251,7 +251,7 @@ void InGameUI::SetMinimized( bool minimized, double now )
         Chrome::BeginWindowAnimation( m_window, minimizedBounds, Chrome::WindowRect( m_window ), now, false );
         m_scrollbarVisibleUntil = now + 1.2;
     }
-    m_backdropBlur.Invalidate();
+    m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::WindowState );
     m_cache.Reset();
 }
 
@@ -285,7 +285,7 @@ void InGameUI::SetActiveTab( InGameUITab tab )
     OptionsTab::ResetPreviewState( m_optionsTab );
     PhysicsTab::ResetPreviewState( m_physicsTab );
     ControlsTab::ResetPreviewState( m_controlsTab );
-    m_backdropBlur.Invalidate();
+    m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Content );
     m_cache.Reset();
 }
 
@@ -342,7 +342,7 @@ void InGameUI::SetWindowBounds( int x, int y, int width, int height )
     m_window.animationActive = false;
     m_scrollY = 0.0f;
     m_scrollbarVisibleUntil = 0.0;
-    m_backdropBlur.Invalidate();
+    m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Bounds );
     m_cache.Reset();
 }
 
@@ -352,7 +352,7 @@ void InGameUI::SetBlurEnabled( bool enabled )
     if ( m_blurPreviewEnabled != enabled )
     {
         m_blurPreviewEnabled = enabled;
-        m_backdropBlur.Invalidate();
+        m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Toggle );
         m_cache.Reset();
     }
 }
@@ -446,7 +446,7 @@ void InGameUI::SetMaximized( bool maximized, int screenW, int screenH, double no
     if ( Chrome::SetMaximized( m_window, maximized, screenW, screenH, now ) )
     {
         m_scrollbarVisibleUntil = 0.0;
-        m_backdropBlur.Invalidate();
+        m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Bounds );
     }
 }
 
@@ -838,7 +838,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             else if ( m_blurToggle.HitTest( m_mouseX, m_mouseY ) )
             {
                 m_blurPreviewEnabled = !m_blurPreviewEnabled;
-                m_backdropBlur.Invalidate();
+                m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Toggle );
             }
             else if ( m_vsyncToggle.HitTest( m_mouseX, m_mouseY ) )
             {
@@ -885,7 +885,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         m_window.y = std::clamp( m_mouseY - m_interaction.dragOffsetY, margin, (std::max)( margin, screenH - m_window.height - margin ) );
         if ( oldX != m_window.x || oldY != m_window.y )
         {
-            m_backdropBlur.Invalidate();
+            m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Bounds );
         }
     }
     if ( leftNow && m_interaction.isResizing )
@@ -897,7 +897,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         m_scrollbarVisibleUntil = now + 1.4;
         if ( oldW != m_window.width || oldH != m_window.height )
         {
-            m_backdropBlur.Invalidate();
+            m_backdropBlur.Invalidate( UIBackdropBlurInvalidationReason::Bounds );
         }
     }
 
