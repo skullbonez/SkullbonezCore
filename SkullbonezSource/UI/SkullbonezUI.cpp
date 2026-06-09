@@ -1,12 +1,11 @@
 #include "SkullbonezUI.h"
 #include "../SkullbonezPhysicsDebugVisualizer.h"
-#include "../SkullbonezProfiler.h"
 #include "../SkullbonezText.h"
 #include "UIDraw.h"
 #include "UIDrawWidgets.h"
-#include "UIIconButton.h"
 #include "UIInput.h"
 #include "UILayout.h"
+#include "UITabProfiler.h"
 #include "UITabScene.h"
 #include "UIWindowChrome.h"
 
@@ -24,9 +23,6 @@ using namespace SkullbonezCore::UI::Layout;
 
 namespace
 {
-constexpr int PROFILER_UI_MAX_MARKERS = 64;
-constexpr float PROFILER_UI_TIMELINE_BUDGET_MS = 16.67f;
-
 int GetRendererIndexFromName( const char* rendererName )
 {
     if ( rendererName && strstr( rendererName, "12" ) )
@@ -40,19 +36,6 @@ int GetRendererIndexFromName( const char* rendererName )
     return RENDERER_GL;
 }
 
-bool ProfilerMarkerHasChildren( const Profiler& profiler, int markerIndex )
-{
-    for ( int i = 0; i < profiler.MarkerCount(); ++i )
-    {
-        if ( profiler.GetMarker( i ).parentIndex == markerIndex )
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-
 int WaterReflectionModeFromData( const InGameUIFrameData& data )
 {
     if ( data.waterNoReflect )
@@ -60,12 +43,6 @@ int WaterReflectionModeFromData( const InGameUIFrameData& data )
         return 2;
     }
     return data.waterRTReflect ? 1 : 0;
-}
-
-
-float ProfilerMarkerDisplayCpuMs( const Profiler::Marker& marker )
-{
-    return marker.avgMs > 0.0f ? marker.avgMs : marker.lastFrameMs;
 }
 
 
@@ -292,31 +269,19 @@ void InGameUI::SetSceneFilter( const char* filter )
 
 void InGameUI::SetProfilerExpandAll( bool expandAll )
 {
-    m_expandAllProfilerMarkers = expandAll;
-    m_expandedProfilerHashCount = 0;
-    m_profilerDefaultExpansionApplied = false;
-    if ( expandAll )
-    {
-        ApplyProfilerExpandAll();
-    }
+    ProfilerTab::SetExpandAll( m_profilerTab, expandAll );
 }
 
 
 void InGameUI::SetProfilerTimelineEnabled( bool enabled )
 {
-    m_profilerTimelineEnabled = enabled;
+    ProfilerTab::SetTimelineEnabled( m_profilerTab, enabled );
 }
 
 
 void InGameUI::SetPerformanceHistogramEnabled( bool enabled )
 {
-    m_performanceHistogramEnabled = enabled;
-    if ( !enabled )
-    {
-        m_performanceHistogramCount = 0;
-        m_performanceHistogramHead = 0;
-        m_performanceHistogramAxisMs = 16.67f;
-    }
+    ProfilerTab::SetPerformanceHistogramEnabled( m_profilerTab, enabled );
 }
 
 
@@ -356,55 +321,6 @@ void InGameUI::ResetResources()
 }
 
 
-void InGameUI::ApplyProfilerExpandAll()
-{
-    if ( !m_expandAllProfilerMarkers )
-    {
-        return;
-    }
-
-    const Profiler& profiler = Profiler::Instance();
-    for ( int i = 0; i < profiler.MarkerCount(); ++i )
-    {
-        const Profiler::Marker& marker = profiler.GetMarker( i );
-        if ( ProfilerMarkerHasChildren( profiler, i ) && !IsProfilerMarkerExpanded( marker.hash ) && m_expandedProfilerHashCount < PROFILER_UI_MAX_MARKERS )
-        {
-            m_expandedProfilerHashes[m_expandedProfilerHashCount++] = marker.hash;
-        }
-    }
-}
-
-
-void InGameUI::ApplyProfilerDefaultExpansion()
-{
-    if ( m_profilerDefaultExpansionApplied )
-    {
-        return;
-    }
-
-    const Profiler& profiler = Profiler::Instance();
-    const int markerCount = (std::min)( profiler.MarkerCount(), PROFILER_UI_MAX_MARKERS );
-    if ( markerCount <= 0 )
-    {
-        return;
-    }
-
-    for ( int i = 0; i < markerCount; ++i )
-    {
-        const Profiler::Marker& marker = profiler.GetMarker( i );
-        if ( marker.parentIndex == -1 &&
-             ProfilerMarkerHasChildren( profiler, i ) &&
-             !IsProfilerMarkerExpanded( marker.hash ) &&
-             m_expandedProfilerHashCount < PROFILER_UI_MAX_MARKERS )
-        {
-            m_expandedProfilerHashes[m_expandedProfilerHashCount++] = marker.hash;
-        }
-    }
-
-    m_profilerDefaultExpansionApplied = true;
-}
-
-
 void InGameUI::DrawCursor( const UIDrawContext& draw ) const
 {
     const float x = static_cast<float>( m_mouseX );
@@ -437,11 +353,7 @@ int InGameUI::ContentHeight() const
     case InGameUITab::Keys:
         return 338;
     case InGameUITab::Profiler:
-    {
-        int visibleRows[PROFILER_UI_MAX_MARKERS] = {};
-        const int visibleMarkerCount = BuildVisibleProfilerRows( visibleRows, PROFILER_UI_MAX_MARKERS );
-        return 54 + visibleMarkerCount * 30;
-    }
+        return ProfilerTab::ContentHeight( m_profilerTab );
     case InGameUITab::Physics:
         return 438;
     case InGameUITab::Options:
@@ -449,304 +361,6 @@ int InGameUI::ContentHeight() const
     default:
         return 338;
     }
-}
-
-
-int InGameUI::BuildVisibleProfilerRows( int* rows, int maxRows ) const
-{
-    const Profiler& profiler = Profiler::Instance();
-    const int markerCount = (std::min)( profiler.MarkerCount(), PROFILER_UI_MAX_MARKERS );
-    int childIndices[PROFILER_UI_MAX_MARKERS][PROFILER_UI_MAX_MARKERS] = {};
-    int childCounts[PROFILER_UI_MAX_MARKERS] = {};
-
-    for ( int i = 0; i < markerCount; ++i )
-    {
-        const int parentIndex = profiler.GetMarker( i ).parentIndex;
-        if ( parentIndex >= 0 && parentIndex < markerCount )
-        {
-            childIndices[parentIndex][childCounts[parentIndex]++] = i;
-        }
-    }
-
-    int stack[PROFILER_UI_MAX_MARKERS] = {};
-    int stackTop = 0;
-    for ( int i = markerCount - 1; i >= 0; --i )
-    {
-        if ( profiler.GetMarker( i ).parentIndex == -1 )
-        {
-            stack[stackTop++] = i;
-        }
-    }
-
-    int rowCount = 0;
-    while ( stackTop > 0 )
-    {
-        const int markerIndex = stack[--stackTop];
-        if ( rowCount < maxRows )
-        {
-            rows[rowCount] = markerIndex;
-        }
-        ++rowCount;
-
-        const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
-        if ( !IsProfilerMarkerExpanded( marker.hash ) )
-        {
-            continue;
-        }
-        for ( int child = childCounts[markerIndex] - 1; child >= 0; --child )
-        {
-            if ( stackTop < PROFILER_UI_MAX_MARKERS )
-            {
-                stack[stackTop++] = childIndices[markerIndex][child];
-            }
-        }
-    }
-
-    return (std::min)( rowCount, maxRows );
-}
-
-
-void InGameUI::BuildProfilerTimelineSegments( const int* rows, int rowCount, ProfilerTimelineSegment* segments ) const
-{
-    const Profiler& profiler = Profiler::Instance();
-    const int markerCount = (std::min)( profiler.MarkerCount(), PROFILER_UI_MAX_MARKERS );
-    int rowForMarker[PROFILER_UI_MAX_MARKERS] = {};
-    int childIndices[PROFILER_UI_MAX_MARKERS][PROFILER_UI_MAX_MARKERS] = {};
-    int childCounts[PROFILER_UI_MAX_MARKERS] = {};
-
-    for ( int i = 0; i < PROFILER_UI_MAX_MARKERS; ++i )
-    {
-        rowForMarker[i] = -1;
-    }
-    for ( int row = 0; row < rowCount; ++row )
-    {
-        segments[row] = {};
-        if ( rows[row] >= 0 && rows[row] < markerCount )
-        {
-            rowForMarker[rows[row]] = row;
-        }
-    }
-
-    for ( int i = 0; i < markerCount; ++i )
-    {
-        const int parentIndex = profiler.GetMarker( i ).parentIndex;
-        if ( parentIndex >= 0 && parentIndex < markerCount )
-        {
-            childIndices[parentIndex][childCounts[parentIndex]++] = i;
-        }
-    }
-
-    auto assignSubtree = [&]( auto&& self, int markerIndex, float startMs ) -> void
-    {
-        const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
-        const bool hasChildren = childCounts[markerIndex] > 0;
-        const bool expanded = hasChildren && IsProfilerMarkerExpanded( marker.hash );
-        const int row = rowForMarker[markerIndex];
-        const float markerMs = (std::max)( 0.0f, ProfilerMarkerDisplayCpuMs( marker ) );
-
-        if ( row >= 0 )
-        {
-            segments[row].startMs = startMs;
-            segments[row].durationMs = markerMs;
-            segments[row].isFilled = !expanded;
-        }
-
-        if ( !expanded )
-        {
-            return;
-        }
-
-        float childStartMs = startMs;
-        for ( int child = 0; child < childCounts[markerIndex]; ++child )
-        {
-            const int childIndex = childIndices[markerIndex][child];
-            self( self, childIndex, childStartMs );
-            childStartMs += (std::max)( 0.0f, ProfilerMarkerDisplayCpuMs( profiler.GetMarker( childIndex ) ) );
-        }
-    };
-
-    float rootStartMs = 0.0f;
-    for ( int i = 0; i < markerCount; ++i )
-    {
-        if ( profiler.GetMarker( i ).parentIndex == -1 )
-        {
-            assignSubtree( assignSubtree, i, rootStartMs );
-            rootStartMs += (std::max)( 0.0f, ProfilerMarkerDisplayCpuMs( profiler.GetMarker( i ) ) );
-        }
-    }
-}
-
-
-bool InGameUI::IsProfilerMarkerExpanded( uint32_t hash ) const
-{
-    for ( int i = 0; i < m_expandedProfilerHashCount; ++i )
-    {
-        if ( m_expandedProfilerHashes[i] == hash )
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-
-void InGameUI::ToggleProfilerMarker( uint32_t hash )
-{
-    m_profilerDefaultExpansionApplied = true;
-    for ( int i = 0; i < m_expandedProfilerHashCount; ++i )
-    {
-        if ( m_expandedProfilerHashes[i] == hash )
-        {
-            for ( int j = i; j < m_expandedProfilerHashCount - 1; ++j )
-            {
-                m_expandedProfilerHashes[j] = m_expandedProfilerHashes[j + 1];
-            }
-            --m_expandedProfilerHashCount;
-            return;
-        }
-    }
-    if ( m_expandedProfilerHashCount < PROFILER_UI_MAX_MARKERS )
-    {
-        m_expandedProfilerHashes[m_expandedProfilerHashCount++] = hash;
-    }
-}
-
-
-void InGameUI::PushPerformanceHistogramSample( float cpuMs, float gpuMs )
-{
-    cpuMs = std::clamp( cpuMs, 0.0f, 250.0f );
-    gpuMs = std::clamp( gpuMs, 0.0f, 250.0f );
-
-    float previousMaxMs = 0.0f;
-    for ( int i = 0; i < m_performanceHistogramCount; ++i )
-    {
-        const int sampleIndex = ( m_performanceHistogramHead - m_performanceHistogramCount + i + PERFORMANCE_HISTOGRAM_SAMPLE_COUNT ) % PERFORMANCE_HISTOGRAM_SAMPLE_COUNT;
-        const PerformanceHistogramSample& sample = m_performanceHistogramSamples[sampleIndex];
-        previousMaxMs = (std::max)( previousMaxMs, (std::max)( sample.cpuMs, sample.gpuMs ) );
-    }
-
-    const float sampleMaxMs = (std::max)( cpuMs, gpuMs );
-    PerformanceHistogramSample& writeSample = m_performanceHistogramSamples[m_performanceHistogramHead];
-    writeSample.cpuMs = cpuMs;
-    writeSample.gpuMs = gpuMs;
-    writeSample.spikeMs = 0.0f;
-    if ( m_performanceHistogramCount > 8 &&
-         sampleMaxMs > 1.0f &&
-         sampleMaxMs > (std::max)( previousMaxMs * 1.20f, m_performanceHistogramAxisMs * 0.92f ) )
-    {
-        writeSample.spikeMs = sampleMaxMs;
-    }
-
-    m_performanceHistogramHead = ( m_performanceHistogramHead + 1 ) % PERFORMANCE_HISTOGRAM_SAMPLE_COUNT;
-    if ( m_performanceHistogramCount < PERFORMANCE_HISTOGRAM_SAMPLE_COUNT )
-    {
-        ++m_performanceHistogramCount;
-    }
-
-    float visibleMaxMs = 0.0f;
-    for ( int i = 0; i < m_performanceHistogramCount; ++i )
-    {
-        const int sampleIndex = ( m_performanceHistogramHead - m_performanceHistogramCount + i + PERFORMANCE_HISTOGRAM_SAMPLE_COUNT ) % PERFORMANCE_HISTOGRAM_SAMPLE_COUNT;
-        const PerformanceHistogramSample& sample = m_performanceHistogramSamples[sampleIndex];
-        visibleMaxMs = (std::max)( visibleMaxMs, (std::max)( sample.cpuMs, sample.gpuMs ) );
-    }
-
-    float targetAxisMs = 8.0f;
-    const float targetRawMs = (std::max)( 8.0f, visibleMaxMs * 1.18f );
-    while ( targetAxisMs < targetRawMs )
-    {
-        targetAxisMs += targetAxisMs < 32.0f ? 4.0f : 8.0f;
-    }
-
-    if ( targetAxisMs > m_performanceHistogramAxisMs )
-    {
-        m_performanceHistogramAxisMs = targetAxisMs;
-    }
-    else
-    {
-        m_performanceHistogramAxisMs += ( targetAxisMs - m_performanceHistogramAxisMs ) * 0.055f;
-    }
-}
-
-
-void InGameUI::DrawPerformanceHistogram( const UIDrawContext& draw, const InGameUIFrameData& data ) const
-{
-    if ( m_performanceHistogramCount <= 0 )
-    {
-        return;
-    }
-
-    const float panelX = 16.0f;
-    const float panelY = 16.0f;
-    const float panelW = (std::max)( 180.0f, (std::min)( 260.0f, static_cast<float>( data.screenW ) - 32.0f ) );
-    const float panelH = 116.0f;
-    const float plotX = panelX + 12.0f;
-    const float plotY = panelY + 32.0f;
-    const float plotW = panelW - 24.0f;
-    const float plotH = 58.0f;
-    const float baseY = plotY + plotH;
-    const float axisMs = (std::max)( 1.0f, m_performanceHistogramAxisMs );
-
-    draw.Rect( panelX - 5.0f, panelY - 5.0f, panelW + 10.0f, panelH + 10.0f, 0.03f, 0.54f, 0.86f, 0.10f );
-    draw.Rect( panelX, panelY, panelW, panelH, 0.012f, 0.030f, 0.040f, 0.76f );
-    draw.Outline( panelX, panelY, panelW, panelH, 0.39f, 0.88f, 1.0f, 0.82f );
-    draw.Rect( panelX + 1.0f, panelY + 1.0f, panelW - 2.0f, 1.0f, 0.44f, 0.92f, 1.0f, 0.30f );
-    draw.Text( panelX + 10.0f, panelY + 8.0f, 10.5f, 1.0f, 0.85f, 0.34f, "Frame Time" );
-
-    char text[64] = {};
-    snprintf( text, sizeof( text ), "%.0f ms", axisMs );
-    draw.Text( panelX + panelW - 58.0f, panelY + 8.0f, 10.0f, 0.68f, 0.86f, 0.92f, text );
-
-    draw.Rect( plotX, plotY, plotW, plotH, 0.005f, 0.014f, 0.020f, 0.68f );
-    draw.Rect( plotX, plotY + plotH * 0.50f, plotW, 1.0f, 0.18f, 0.30f, 0.34f, 0.45f );
-    draw.Rect( plotX, plotY, plotW, 1.0f, 0.18f, 0.30f, 0.34f, 0.62f );
-    draw.Rect( plotX, baseY, plotW, 1.0f, 0.26f, 0.82f, 1.0f, 0.34f );
-
-    const float step = plotW / static_cast<float>( PERFORMANCE_HISTOGRAM_SAMPLE_COUNT );
-    const float barW = (std::max)( 1.0f, step * 0.42f );
-    float spikeX = -1.0f;
-    float spikeY = plotY;
-    float spikeMs = 0.0f;
-
-    for ( int i = 0; i < m_performanceHistogramCount; ++i )
-    {
-        const int sampleIndex = ( m_performanceHistogramHead - m_performanceHistogramCount + i + PERFORMANCE_HISTOGRAM_SAMPLE_COUNT ) % PERFORMANCE_HISTOGRAM_SAMPLE_COUNT;
-        const PerformanceHistogramSample& sample = m_performanceHistogramSamples[sampleIndex];
-        const float x = plotX + static_cast<float>( PERFORMANCE_HISTOGRAM_SAMPLE_COUNT - m_performanceHistogramCount + i ) * step;
-        const float cpuH = std::clamp( sample.cpuMs / axisMs, 0.0f, 1.0f ) * plotH;
-        const float gpuH = std::clamp( sample.gpuMs / axisMs, 0.0f, 1.0f ) * plotH;
-
-        if ( cpuH > 0.5f )
-        {
-            draw.Rect( x, baseY - cpuH, barW, cpuH, 0.48f, 0.90f, 0.22f, 0.66f );
-        }
-        if ( gpuH > 0.5f )
-        {
-            draw.Rect( x + barW + 0.5f, baseY - gpuH, barW, gpuH, 0.34f, 0.91f, 1.0f, 0.78f );
-        }
-        if ( sample.spikeMs > spikeMs )
-        {
-            spikeMs = sample.spikeMs;
-            spikeX = x + barW;
-            spikeY = baseY - std::clamp( sample.spikeMs / axisMs, 0.0f, 1.0f ) * plotH;
-        }
-    }
-
-    if ( spikeMs > 0.0f && spikeX >= plotX )
-    {
-        snprintf( text, sizeof( text ), "%.1f ms", spikeMs );
-        const float labelX = ( spikeX + 54.0f < panelX + panelW ) ? spikeX + 4.0f : spikeX - 54.0f;
-        const float labelY = (std::max)( plotY + 2.0f, spikeY - 16.0f );
-        draw.Rect( spikeX, plotY, 1.0f, plotH, 1.0f, 0.85f, 0.34f, 0.58f );
-        draw.Text( labelX, labelY, 9.5f, 1.0f, 0.85f, 0.34f, text );
-    }
-
-    const int newestIndex = ( m_performanceHistogramHead - 1 + PERFORMANCE_HISTOGRAM_SAMPLE_COUNT ) % PERFORMANCE_HISTOGRAM_SAMPLE_COUNT;
-    const PerformanceHistogramSample& newest = m_performanceHistogramSamples[newestIndex];
-    snprintf( text, sizeof( text ), "CPU %.2f", newest.cpuMs );
-    draw.Text( panelX + 10.0f, panelY + panelH - 20.0f, 10.0f, 0.48f, 0.90f, 0.22f, text );
-    snprintf( text, sizeof( text ), "GPU %.2f", newest.gpuMs );
-    draw.Text( panelX + 96.0f, panelY + panelH - 20.0f, 10.0f, 0.34f, 0.91f, 1.0f, text );
 }
 
 
@@ -767,7 +381,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         result.SyncLegacyFields();
         return result;
     }
-    ApplyProfilerDefaultExpansion();
+    ProfilerTab::ApplyDefaultExpansion( m_profilerTab );
 
     m_mouseX = input.mouseX;
     m_mouseY = input.mouseY;
@@ -976,32 +590,14 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         }
         else if ( inContent && m_activeTab == InGameUITab::Profiler )
         {
-            const int headerH = 32;
-            const int rowH = 30;
-            const int localY = static_cast<int>( static_cast<float>( m_mouseY - contentY ) + m_scrollY );
-            const int targetRow = ( localY - headerH ) / rowH;
-            if ( targetRow >= 0 )
+            if ( ProfilerTab::HandleContentClick( m_profilerTab,
+                                                  inputX + contentPad,
+                                                  contentY,
+                                                  m_scrollY,
+                                                  m_mouseX,
+                                                  m_mouseY ) )
             {
-                const Profiler& profiler = Profiler::Instance();
-                int visibleRows[PROFILER_UI_MAX_MARKERS] = {};
-                const int visibleRowCount = BuildVisibleProfilerRows( visibleRows, PROFILER_UI_MAX_MARKERS );
-                if ( targetRow < visibleRowCount )
-                {
-                    const int markerIndex = visibleRows[targetRow];
-                    const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
-                    if ( ProfilerMarkerHasChildren( profiler, markerIndex ) )
-                    {
-                        const float plusX = static_cast<float>( inputX + contentPad + 18 + marker.depth * 18 );
-                        const float plusY = static_cast<float>( contentY + headerH + targetRow * rowH ) - m_scrollY + 8.0f;
-                        UIIconButton expander;
-                        expander.SetBounds( plusX, plusY, 14.0f, 14.0f );
-                        if ( expander.HitTest( m_mouseX, m_mouseY ) )
-                        {
-                            ToggleProfilerMarker( marker.hash );
-                            m_scrollbarVisibleUntil = now + 1.2;
-                        }
-                    }
-                }
+                m_scrollbarVisibleUntil = now + 1.2;
             }
             m_rendererCombo.Close();
             CloseSceneCombo();
@@ -1270,11 +866,11 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
             else if ( m_histogramToggle.HitTest( m_mouseX, m_mouseY ) )
             {
-                SetPerformanceHistogramEnabled( !m_performanceHistogramEnabled );
+                SetPerformanceHistogramEnabled( !ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) );
             }
             else if ( m_timelineToggle.HitTest( m_mouseX, m_mouseY ) )
             {
-                m_profilerTimelineEnabled = !m_profilerTimelineEnabled;
+                SetProfilerTimelineEnabled( !ProfilerTab::TimelineEnabled( m_profilerTab ) );
             }
         }
         else
@@ -1437,9 +1033,9 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     m_lastRendererIndex = currentRendererIndex;
     const UIDrawContext draw( screenW, screenH );
     const bool shouldDrawCursor = !data.cameraMouseActive && !data.nativeCursorVisible;
-    if ( m_performanceHistogramEnabled )
+    if ( ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) )
     {
-        PushPerformanceHistogramSample( data.cpuFrameMs, data.gpuFrameMs );
+        ProfilerTab::PushPerformanceHistogramSample( m_profilerTab, data.cpuFrameMs, data.gpuFrameMs );
     }
 
     if ( m_window.isMinimized )
@@ -1450,9 +1046,9 @@ void InGameUI::Draw( const InGameUIFrameData& data )
             if ( m_window.animationActive )
             {
                 Chrome::DrawWindowAnimationShell( draw, animBounds );
-                if ( m_performanceHistogramEnabled )
+                if ( ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) )
                 {
-                    DrawPerformanceHistogram( draw, data );
+                    ProfilerTab::DrawPerformanceHistogram( m_profilerTab, draw, data );
                 }
                 Text2d::FlushQuads();
                 Text2d::FlushText();
@@ -1471,9 +1067,9 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         const UIRect minimized = MinimizedRect( screenW, screenH, m_window.minimizedWidth );
         Chrome::FitTitleText( titleText, sizeof( titleText ), 12.5f, minimized.w - 76.0f );
         Chrome::DrawMinimizedWindow( draw, minimized, titleText );
-        if ( m_performanceHistogramEnabled )
+        if ( ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) )
         {
-            DrawPerformanceHistogram( draw, data );
+            ProfilerTab::DrawPerformanceHistogram( m_profilerTab, draw, data );
         }
         Text2d::FlushQuads();
         Text2d::FlushText();
@@ -1514,8 +1110,8 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         titleMaxW = titleStatX - ( x + 20.0f ) - 10.0f;
     }
     Chrome::FitTitleText( titleText, sizeof( titleText ), 15.5f, (std::max)( 40.0f, titleMaxW ) );
-    ApplyProfilerDefaultExpansion();
-    ApplyProfilerExpandAll();
+    ProfilerTab::ApplyDefaultExpansion( m_profilerTab );
+    ProfilerTab::ApplyExpandAll( m_profilerTab );
 
     const UIRect blurBounds = { x, y, w, h };
     Text2d::FlushQuads();
@@ -1539,119 +1135,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     };
     if ( m_activeTab == InGameUITab::Profiler )
     {
-        char buf[128];
-        const Profiler& profiler = Profiler::Instance();
-        const float tableX = contentX;
-        const float tableY = contentY;
-        const float tableW = contentW;
-        const float rowH = 30.0f;
-        const float headerH = 32.0f;
-        const float colMarker = tableX + 18.0f;
-        const float colCpu = tableX + tableW * 0.36f;
-        const float colGpu = tableX + tableW * 0.46f;
-        const float colP50 = tableX + tableW * 0.56f;
-        const float colP99 = tableX + tableW * 0.66f;
-        const float barX = tableX + tableW * 0.76f;
-        const float barW = (std::max)( 95.0f, tableW * 0.20f );
-        static constexpr uint32_t kFrameHash = ::HashStr( "Frame" );
-        float timelineBudgetMs = PROFILER_UI_TIMELINE_BUDGET_MS;
-        for ( int i = 0; i < profiler.MarkerCount(); ++i )
-        {
-            const Profiler::Marker& marker = profiler.GetMarker( i );
-            if ( marker.hash == kFrameHash )
-            {
-                timelineBudgetMs = (std::max)( PROFILER_UI_TIMELINE_BUDGET_MS, ProfilerMarkerDisplayCpuMs( marker ) );
-                break;
-            }
-        }
-        draw.Rect( tableX, tableY, tableW, contentH + 2.0f, 0.018f, 0.030f, 0.038f, 0.58f );
-        draw.Outline( tableX, tableY, tableW, contentH + 2.0f, 0.18f, 0.30f, 0.34f, 0.62f );
-        draw.Rect( tableX, tableY + headerH, tableW, 1.0f, 0.26f, 0.44f, 0.50f, 0.45f );
-        draw.Text( colMarker, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "Marker" );
-        draw.Text( colCpu, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "CPU" );
-        draw.Text( colGpu, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "GPU" );
-        draw.Text( colP50, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "P50" );
-        draw.Text( colP99, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, "P99" );
-        draw.Text( barX, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, m_profilerTimelineEnabled ? "Span" : "0 ms" );
-        draw.Text( barX + barW - 44.0f, tableY + 10.0f, 10.5f, 0.68f, 0.78f, 0.82f, m_profilerTimelineEnabled ? "Frame" : "16.67 ms" );
-
-        int visibleRows[PROFILER_UI_MAX_MARKERS] = {};
-        const int visibleRowCount = BuildVisibleProfilerRows( visibleRows, PROFILER_UI_MAX_MARKERS );
-        ProfilerTimelineSegment timelineSegments[PROFILER_UI_MAX_MARKERS] = {};
-        BuildProfilerTimelineSegments( visibleRows, visibleRowCount, timelineSegments );
-
-        auto profilerRow = [&]( int rowIndex, const Profiler::Marker& marker, const ProfilerTimelineSegment& segment, bool hasChildren, bool isExpanded )
-        {
-            const float rowY = tableY + headerH + static_cast<float>( rowIndex ) * rowH - m_scrollY;
-            if ( rowY + rowH < tableY + headerH || rowY > tableY + contentH )
-            {
-                return;
-            }
-            const Profiler::BarColor& color = Profiler::BAR_PALETTE[marker.colorIndex % Profiler::BAR_PALETTE_SIZE];
-            const float r = color.r;
-            const float g = color.g;
-            const float b = color.b;
-            const float indent = static_cast<float>( (std::min)( marker.depth, 8 ) ) * 18.0f;
-            const float nameX = colMarker + indent;
-            const float cpuMs = ProfilerMarkerDisplayCpuMs( marker );
-            const float gpuMs = marker.hasGpu ? ( marker.gpuAvgMs > 0.0f ? marker.gpuAvgMs : marker.gpuLastFrameMs ) : -1.0f;
-            const float p50Ms = marker.p50Ms > 0.0f ? marker.p50Ms : cpuMs;
-            const float p99Ms = marker.p99Ms > 0.0f ? marker.p99Ms : cpuMs;
-            draw.Rect( tableX, rowY + rowH - 1.0f, tableW, 1.0f, 0.16f, 0.26f, 0.30f, 0.38f );
-            if ( hasChildren )
-            {
-                UIIconButton expander;
-                expander.SetBounds( nameX, rowY + 8.0f, 14.0f, 14.0f );
-                expander.DrawExpander( draw, isExpanded );
-            }
-            else
-            {
-                draw.Rect( nameX + 3.0f, rowY + 12.0f, 8.0f, 8.0f, r, g, b, 0.94f );
-            }
-            draw.Text( nameX + 22.0f, rowY + 8.0f, 12.0f, 0.92f, 0.96f, 0.97f, marker.leafName );
-            snprintf( buf, sizeof( buf ), "%.2f", cpuMs );
-            draw.Text( colCpu, rowY + 8.0f, 11.5f, r, g, b, buf );
-            if ( gpuMs >= 0.0f )
-            {
-                snprintf( buf, sizeof( buf ), "%.2f", gpuMs );
-            }
-            else
-            {
-                snprintf( buf, sizeof( buf ), "-" );
-            }
-            draw.Text( colGpu, rowY + 8.0f, 11.5f, 0.38f, 0.84f, 1.0f, buf );
-            snprintf( buf, sizeof( buf ), "%.2f", p50Ms );
-            draw.Text( colP50, rowY + 8.0f, 11.5f, 0.78f, 0.84f, 0.86f, buf );
-            snprintf( buf, sizeof( buf ), "%.2f", p99Ms );
-            draw.Text( colP99, rowY + 8.0f, 11.5f, 0.78f, 0.84f, 0.86f, buf );
-            draw.Rect( barX, rowY + 16.0f, barW, 1.0f, 0.46f, 0.56f, 0.60f, 0.86f );
-            const float fill = std::clamp( cpuMs / 16.67f, 0.0f, 1.0f );
-            if ( m_profilerTimelineEnabled )
-            {
-                if ( segment.isFilled && segment.durationMs > 0.0f )
-                {
-                    const float start = std::clamp( segment.startMs / timelineBudgetMs, 0.0f, 1.0f );
-                    const float end = std::clamp( ( segment.startMs + segment.durationMs ) / timelineBudgetMs, start, 1.0f );
-                    draw.Rect( barX + barW * start, rowY + 11.0f, barW * ( end - start ), 10.0f, r, g, b, 0.88f );
-                    const float p99Tick = std::clamp( ( segment.startMs + p99Ms ) / timelineBudgetMs, start, end );
-                    draw.Rect( barX + barW * p99Tick, rowY + 7.0f, 1.0f, 18.0f, r, g, b, 0.98f );
-                }
-            }
-            else
-            {
-                const float p99Tick = std::clamp( p99Ms / 16.67f, 0.0f, 1.0f );
-                draw.Rect( barX, rowY + 11.0f, barW * fill, 10.0f, r, g, b, 0.88f );
-                draw.Rect( barX + barW * p99Tick, rowY + 7.0f, 1.0f, 18.0f, r, g, b, 0.98f );
-            }
-        };
-
-        for ( int visibleRow = 0; visibleRow < visibleRowCount; ++visibleRow )
-        {
-            const int markerIndex = visibleRows[visibleRow];
-            const Profiler::Marker& marker = profiler.GetMarker( markerIndex );
-            const bool hasChildren = ProfilerMarkerHasChildren( profiler, markerIndex );
-            profilerRow( visibleRow, marker, timelineSegments[visibleRow], hasChildren, IsProfilerMarkerExpanded( marker.hash ) );
-        }
+        ProfilerTab::Draw( m_profilerTab, draw, contentX, contentY, contentW, contentH, m_scrollY );
     }
     else if ( m_activeTab == InGameUITab::Scene )
     {
@@ -1836,8 +1320,8 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     m_rendererCombo.Draw( draw, "Renderer", kRendererOptions, 3, currentRendererIndex, m_mouseX, m_mouseY );
     DrawFooterToggle( draw, blurFooterBounds, "Blur", m_blurPreviewEnabled );
     DrawFooterToggle( draw, vsyncFooterBounds, "VSync", data.vsyncEnabled );
-    DrawFooterToggle( draw, perfFooterBounds, "Perf", m_performanceHistogramEnabled );
-    DrawFooterToggle( draw, timelineFooterBounds, "Timeline", m_profilerTimelineEnabled );
+    DrawFooterToggle( draw, perfFooterBounds, "Perf", ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) );
+    DrawFooterToggle( draw, timelineFooterBounds, "Timeline", ProfilerTab::TimelineEnabled( m_profilerTab ) );
     m_reflectionCombo.Draw( draw,
                             "Water",
                             kReflectionOptions,
@@ -1897,9 +1381,9 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         }
     }
 
-    if ( m_performanceHistogramEnabled )
+    if ( ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) )
     {
-        DrawPerformanceHistogram( draw, data );
+        ProfilerTab::DrawPerformanceHistogram( m_profilerTab, draw, data );
     }
 
     draw.Rect( x + w - 24.0f, y + h - 9.0f, 14.0f, 2.0f, 0.34f, 0.91f, 1.0f, 0.88f );

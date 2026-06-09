@@ -10,6 +10,7 @@
 #include "UISlider.h"
 #include "UIState.h"
 #include "UITabBar.h"
+#include "UITabProfiler.h"
 #include "UITabScene.h"
 #include <cstdint>
 
@@ -130,8 +131,6 @@ class InGameUI
     UIWindowState m_window;
     UIInteractionState m_interaction;
     bool m_blurPreviewEnabled = false;
-    bool m_profilerTimelineEnabled = false;
-    bool m_performanceHistogramEnabled = false;
     InGameUITab m_activeTab = InGameUITab::Profiler;
     UITabBar m_tabBar;
     UICheckBox m_blurToggle;
@@ -180,38 +179,9 @@ class InGameUI
     float m_previewContactLinger = -1.0f;
     int m_previewSolverBallCount = -1;
     int m_previewSolverBoxCount = -1;
-    uint32_t m_expandedProfilerHashes[64] = {};
-    int m_expandedProfilerHashCount = 0;
-    bool m_expandAllProfilerMarkers = false;
-    bool m_profilerDefaultExpansionApplied = false;
-    struct PerformanceHistogramSample
-    {
-        float cpuMs = 0.0f;
-        float gpuMs = 0.0f;
-        float spikeMs = 0.0f;
-    };
-    static constexpr int PERFORMANCE_HISTOGRAM_SAMPLE_COUNT = 120;
-    PerformanceHistogramSample m_performanceHistogramSamples[PERFORMANCE_HISTOGRAM_SAMPLE_COUNT] = {};
-    int m_performanceHistogramHead = 0;
-    int m_performanceHistogramCount = 0;
-    float m_performanceHistogramAxisMs = 16.67f;
-
-    struct ProfilerTimelineSegment
-    {
-        float startMs = 0.0f;
-        float durationMs = 0.0f;
-        bool isFilled = false;
-    };
+    ProfilerTab::UIProfilerTabState m_profilerTab;
 
     int ContentHeight() const;
-    int BuildVisibleProfilerRows( int* rows, int maxRows ) const;
-    void BuildProfilerTimelineSegments( const int* rows, int rowCount, ProfilerTimelineSegment* segments ) const;
-    bool IsProfilerMarkerExpanded( uint32_t hash ) const;
-    void ToggleProfilerMarker( uint32_t hash );
-    void ApplyProfilerDefaultExpansion();
-    void ApplyProfilerExpandAll();
-    void PushPerformanceHistogramSample( float cpuMs, float gpuMs );
-    void DrawPerformanceHistogram( const UIDrawContext& draw, const InGameUIFrameData& data ) const;
     void DrawCursor( const UIDrawContext& draw ) const;
     void CloseSceneCombo();
     void SetMaximized( bool maximized, int screenW, int screenH, double now = 0.0 );
