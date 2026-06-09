@@ -103,6 +103,7 @@ void GameModelCollection::InvalidateSoA()
 
 void GameModelCollection::RefreshSoABodyData()
 {
+    PROFILE_SCOPED( "Frame/SoA" );
     PROFILE_SCOPED( "Frame/SoA/RefreshBodyData" );
 
     const int modelCount = static_cast<int>( m_gameModels.size() );
@@ -1000,6 +1001,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     }
 
     {
+        PROFILE_SCOPED( "Frame/Physics/Terrain" );
         PROFILE_SCOPED( "Frame/Physics/Terrain/Rows" );
 
         // Convert terrain manifolds into the same PersistentContact rows used by
@@ -1408,6 +1410,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     }
 
     {
+        PROFILE_SCOPED( "Frame/Physics/Terrain" );
         PROFILE_SCOPED( "Frame/Physics/Terrain/RestPolicy" );
 
         // This is intentionally separate from the row solver. The rows above
@@ -2120,6 +2123,7 @@ void GameModelCollection::RunSolverPhysics( float dt )
     //      or terrain-only velocity response in this phase.
     //   3. Leave remaining-time integration and all normal/friction response to
     //      the shared persistent contact rows below.
+    PROFILE_BEGIN( "Frame/Physics/Terrain" );
     PROFILE_BEGIN( "Frame/Physics/Terrain/Detect" );
     for ( int x = 0; x < modelCount; ++x )
     {
@@ -2181,6 +2185,7 @@ void GameModelCollection::RunSolverPhysics( float dt )
         }
     }
     PROFILE_END( "Frame/Physics/Terrain/Detect" );
+    PROFILE_END( "Frame/Physics/Terrain" );
 
     SolvePersistentObjectContacts( dt );
     // Object contacts are converted into stack support only after terrain

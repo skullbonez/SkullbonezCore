@@ -787,6 +787,7 @@ float GameModel::CollisionDetectTerrain( float changeInTime )
 
 bool GameModel::BuildTerrainContactManifold( int bodyIndex, float timeOfImpact, float availableTime, Physics::TerrainContactManifold& out )
 {
+    PROFILE_SCOPED( "Frame/Physics/Terrain/Manifold" );
     PROFILE_SCOPED( "Frame/Physics/Terrain/Manifold/Build" );
 
     // Geometry-only boundary for the shared terrain row path. This converts the
