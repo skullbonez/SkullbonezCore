@@ -1796,6 +1796,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             setToggle( 1, 0, 1 );
             setToggle( 2, 1, 1 );
             setToggle( 3, 2, 1 );
+            setToggle( 6, 3, 1 );
             m_physicsAlphaSlider.SetBounds( contentX, rowBase + 200.0f, contentW, 34.0f );
             m_contactLingerSlider.SetBounds( contentX, rowBase + 248.0f, contentW, 34.0f );
             m_worldGravitySlider.SetBounds( contentX, rowBase + 332.0f, contentW, 34.0f );
@@ -1823,6 +1824,10 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             else if ( m_physicsToggles[5].HitTest( m_mouseX, m_mouseY ) )
             {
                 result.toggleBroadphaseOverlay = true;
+            }
+            else if ( m_physicsToggles[6].HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.togglePhysicsSleepPolicy = true;
             }
             else if ( m_physicsAlphaSlider.HitTest( m_mouseX, m_mouseY ) )
             {
@@ -2535,6 +2540,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         drawContentToggle( m_physicsToggles[1], col2, scrolledY + 42.0f, colW, "Axes", ( data.physicsDebugFlags & PHYSICS_DEBUG_AXES ) != 0 );
         drawContentToggle( m_physicsToggles[2], col2, scrolledY + 72.0f, colW, "Contacts", ( data.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0 );
         drawContentToggle( m_physicsToggles[3], col2, scrolledY + 102.0f, colW, "Sleep state", ( data.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0 );
+        drawContentToggle( m_physicsToggles[6], col2, scrolledY + 132.0f, colW, "Sleep policy", data.physicsSleepEnabled );
         snprintf( buf, sizeof( buf ), "0x%04X", data.physicsDebugFlags );
         labelValue( scrolledY + 178.0f, "Debug flags", buf, 0.52f, 0.94f, 1.0f );
         if ( visible( scrolledY + 216.0f, 18.0f ) )

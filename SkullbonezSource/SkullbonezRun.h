@@ -72,6 +72,7 @@ struct RunRuntimeSettings
 {
     bool isVsyncEnabled = true;         // Swap-chain sync interval (true = vsync)
     bool isPipelineSyncEnabled = false; // Force CPU/GPU sync via Finish() before render
+    bool isPhysicsSleepEnabled = true;  // Live Catto sleep policy; false keeps bodies awake while leaving collision/solving active
 };
 
 struct RunTimerState
@@ -246,7 +247,7 @@ class SkullbonezRun
     bool m_cmdFixedStep = false;         // CLI --fixed-step override applied after each scene load
     unsigned int m_cmdSeedOverride = 0;  // CLI --seed override applied after each scene load (0 = not set)
     bool m_cmdNoWater = false;           // CLI --no-water starts fluid below terrain
-    bool m_cmdNoSleep = false;           // CLI --no-sleep keeps physics bodies awake for diagnostics/perf comparison
+    bool m_cmdNoSleep = false;           // Startup CLI --no-sleep request; the live policy can still be toggled from the Physics tab
     int m_cmdFrameCountOverride = -1;    // CLI --frames override applied after each scene load
     bool m_cmdUIStress = false;          // CLI --ui-stress enables generated/demo stress without a scene file
     unsigned int m_cmdUIStressSeed = 0;  // CLI --ui-stress-seed

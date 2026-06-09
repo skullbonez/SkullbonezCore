@@ -153,7 +153,7 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
     EnsureSoAModelMatrices();
     const int modelCount = static_cast<int>( m_gameModels.size() );
 
-    // Render spheres
+    // Render non-box models through the sphere batch.
     SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes );
     for ( int x = 0; x < modelCount; ++x )
     {
@@ -227,7 +227,7 @@ void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
         Vector3 N;
         m_terrain->GetTerrainHeightAndNormalAt( pos.x, pos.z, groundY, N );
 
-        // Fast-out: ball centre is over fully submerged terrain — no visible shadow.
+        // Fast-out: model origin is over fully submerged terrain, so no visible shadow is needed.
         if ( groundY <= waterSurfaceY )
         {
             continue;
@@ -602,8 +602,8 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     //   Object-object narrowphase uses Skullbonez shape-pair manifold builders
     //   for the row geometry. The cache and PGS row shape are Catto; the exact
     //   sphere/box/OBB feature encodings are local engine policy.
-    // This pass handles the quiet case that old one-shot impulses were bad at:
-    // balls already touching each other, especially a ball resting on another ball.
+    // This pass handles the quiet case that one-shot impact impulses are bad at:
+    // dynamic bodies already touching each other, especially one body resting on another.
     // Instead of waiting for a fresh "impact", we build contact rules for pairs
     // that are touching or nearly touching, then solve those rules like tiny springs
     // with hard limits: push apart along the normal, resist sliding along tangents.
@@ -627,7 +627,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     //   tolerance policy: tiny residual overlap is ignored so resting contacts
     //   do not jitter while chasing floating-point dust.
     // Small allowed overlap. Without this tolerance, floating-point noise makes
-    // the solver chase microscopic errors and resting balls visibly tremble.
+    // the solver chase microscopic errors and resting bodies visibly tremble.
     const float contactSlop = (std::max)( 0.0f, Cfg().persistentContactSlop );
 
     // CATTO REF:
@@ -953,8 +953,8 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     //   Catto 2005, PDF p. 17, Algorithm 4 initializes d_i from Jsp*Bsp before
     //   iteration. PDF p. 14, Equations 34-35 define B = M^-1*J^T. The code
     //   below expands that sparse matrix math into scalar effective masses.
-    // build friction axes, effective masses, bias, friction limits, and pull the
-    // previous frame's accumulated impulses from the cache.
+    // The setup below builds friction axes, effective masses, bias, friction
+    // limits, and pulls the previous frame's accumulated impulses from the cache.
     {
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/Precompute" );
         for ( PersistentContact& c : m_persistentContacts )
@@ -966,9 +966,11 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
 
             // CATTO REF:
             //   Catto 2005, PDF pp. 11-12, Section 4.3, Equations 21-23 use two
-            //   tangent directions u1/u2 perpendicular to the contact normal.
-            // The normal is only one direction. In 3D, sliding can happen in any
-            // sideways direction, so we create two perpendicular sideways axes.
+            //   tangent directions named u1/u2 perpendicular to the contact normal.
+            // ENGINE MAPPING:
+            //   Skullbonez stores Catto's u1/u2 basis as c.tangent1/c.tangent2.
+            //   The normal covers push-apart motion; the two tangent axes cover
+            //   sideways sliding in the contact plane.
             Physics::ContactSolver::BuildContactTangents( c.normal, c.tangent1, c.tangent2 );
 
             // CATTO REF:
@@ -976,7 +978,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             //   B = M^-1*J^T from PDF p. 14, Equations 34-35, this becomes the
             //   familiar point-contact effective mass:
             //       axis dot ((I^-1 * (r cross axis)) cross r) plus invMass terms.
-            // Effective mass says how stubborn this contact is. A light ball pushed
+            // Effective mass says how stubborn this contact is. A light body pushed
             // through its center moves easily; a heavy or off-center body resists more
             // because some of the push also has to rotate it.
             auto applyInvInertiaA = [&]( const Vector3& v ) -> Vector3
@@ -1055,7 +1057,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
             //   retrieve cached lambda for matching contact identifiers and use it
             //   as the initial lambda_0 for Algorithm 4.
             // Warm starting: if this same pair+feature was touching last frame,
-            // start from the old solution instead of zero.  The cache is sorted so
+            // start from the cached solution instead of zero.  The cache is sorted so
             // lookup does not linearly scan every previous-frame contact.
             auto cachedIt = std::lower_bound(
                 m_persistentContactCache.begin(),
@@ -1105,9 +1107,9 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
     //   lambda increment per row, clamp accumulated lambda to the row's bounds,
     //   then apply only the actual delta so the running velocity state remains
     //   consistent with B*lambda.
-    // Third pass: Projected Gauss-Seidel. Each contact computes the extra impulse
-    // needed to reduce its current violation, adds that to the accumulated total,
-    // clamps the total to valid bounds, then applies only the difference.
+    // In engine terms, each contact computes the extra impulse needed to reduce
+    // its current violation, adds that to the accumulated total, clamps the total
+    // to valid bounds, then applies only the difference.
     {
         PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts/SolveRows" );
         for ( int iter = 0; iter < solverIterations; ++iter )
@@ -1473,7 +1475,7 @@ void GameModelCollection::RunSolverPhysics( float dt )
                                            manifold );
     };
 
-    // Narrowphase: impulse solver collision response for all pairs
+    // Narrowphase: immediate impact response for candidate pairs that can affect simulation.
     PROFILE_BEGIN( "Frame/Physics/Narrowphase" );
     float invCellSize = 1.0f / m_spatialGrid.GetCellSize();
     for ( const auto& cp : candidatePairs )
@@ -1481,10 +1483,11 @@ void GameModelCollection::RunSolverPhysics( float dt )
         int x = cp.first;
         int y = cp.second;
 
-        // Wake sleeping objects if an awake object is nearby and overlapping
+        // Wake a sleeping object only after an energetic awake neighbor proves
+        // an actual swept hit or persistent overlap.
         if ( m_sleepState[x] || m_sleepState[y] )
         {
-            // Only wake if one is awake and moving toward the sleeper
+            // Quiet awake bodies cannot wake sleepers just by sharing a broadphase cell.
             if ( m_sleepState[x] && !m_sleepState[y] )
             {
                 if ( !hasWakeEnergy( y ) )
@@ -1543,7 +1546,7 @@ void GameModelCollection::RunSolverPhysics( float dt )
             }
             else
             {
-                // Both sleeping — skip
+                // Both bodies are sleeping; there is no awake energy to produce a wake event.
                 continue;
             }
         }
@@ -1908,7 +1911,7 @@ void GameModelCollection::BuildShadowMesh()
     // and applies a smooth per-pixel radial fade — no triangle fan needed.
     //
     // 2 triangles = 6 vertices (vs the old 16-segment fan = 48 vertices).
-    // At 300 balls this saves 4,200 triangles per frame.
+    // At 300 shadowed models this saves 4,200 triangles per frame.
     //
     //  (-1,0,-1)-------(1,0,-1)
     //      |          /    |

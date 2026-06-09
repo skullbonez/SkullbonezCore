@@ -246,7 +246,7 @@ std::string NormalizeScenePath( const std::string& path )
 // and Reset To Defaults skip this snapshot so the file/config becomes authority.
 struct SceneRuntimeResetSnapshot
 {
-    RunRuntimeSettings runtimeSettings; // Renderer sync toggles changed while operating the current scene
+    RunRuntimeSettings runtimeSettings; // Live runtime toggles changed while operating the current scene
     RunDebugState debug;                // Debug overlays/visualizers, including the C-key physics debug mode and associated alpha/linger knobs
     bool isScenePhysics = true;         // Live scene simulation toggle; reset should rebuild the run, not silently re-enable physics
     bool isSceneText = true;            // Live text/HUD toggle from the scene controls
@@ -361,6 +361,7 @@ void SkullbonezRun::SetNoWaterOverride()
 void SkullbonezRun::SetNoSleepOverride()
 {
     m_cmdNoSleep = true;
+    m_runtimeSettings.isPhysicsSleepEnabled = false;
     m_cGameModelCollection.SetPhysicsSleepEnabled( false );
 }
 
@@ -1878,6 +1879,11 @@ void SkullbonezRun::TakeInput()
         {
             m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
         }
+        if ( UIResult.togglePhysicsSleepPolicy )
+        {
+            m_runtimeSettings.isPhysicsSleepEnabled = !m_runtimeSettings.isPhysicsSleepEnabled;
+            m_cGameModelCollection.SetPhysicsSleepEnabled( m_runtimeSettings.isPhysicsSleepEnabled );
+        }
         if ( UIResult.togglePhysicsDebugFlags != 0 )
         {
             m_debug.physicsDebugFlags ^= ( UIResult.togglePhysicsDebugFlags & PHYSICS_DEBUG_ALL );
@@ -2578,6 +2584,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         UIData.physicsDebugFlags = m_debug.physicsDebugFlags;
         UIData.physicsDebugAlpha = m_debug.physicsDebugAlpha;
         UIData.physicsDebugContactLinger = m_debug.physicsDebugContactLinger;
+        UIData.physicsSleepEnabled = m_runtimeSettings.isPhysicsSleepEnabled;
         UIData.collisionVisualizer = m_debug.isCollisionVisualizer;
         UIData.physicsDebugTransparent = m_debug.isPhysicsDebugTransparent;
         UIData.broadphaseOverlay = m_debug.isBroadphaseOverlay;
@@ -3196,6 +3203,7 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     fprintf( f, "cmd_seed_override,%u\n", m_cmdSeedOverride );
     fprintf( f, "cmd_no_water,%d\n", m_cmdNoWater ? 1 : 0 );
     fprintf( f, "cmd_no_sleep,%d\n", m_cmdNoSleep ? 1 : 0 );
+    fprintf( f, "physics_sleep_enabled,%d\n", m_runtimeSettings.isPhysicsSleepEnabled ? 1 : 0 );
     fprintf( f, "fixed_step_effective,%d\n", m_scene.isFixedStep ? 1 : 0 );
     fprintf( f, "cmd_fixed_step_override,%d\n", m_cmdFixedStep ? 1 : 0 );
     fprintf( f, "time_scale,%.6f\n", m_scene.timeScale );
@@ -3214,7 +3222,7 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
                  m_scene.timeScale,
                  m_scene.isFixedStep ? " --fixed-step" : "",
                  m_cmdNoWater ? " --no-water" : "",
-                 m_cmdNoSleep ? " --no-sleep" : "",
+                 m_runtimeSettings.isPhysicsSleepEnabled ? "" : " --no-sleep",
                  generatedObjectArg );
     }
     else
@@ -3226,7 +3234,7 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
                  m_scene.timeScale,
                  m_scene.isFixedStep ? " --fixed-step" : "",
                  m_cmdNoWater ? " --no-water" : "",
-                 m_cmdNoSleep ? " --no-sleep" : "",
+                 m_runtimeSettings.isPhysicsSleepEnabled ? "" : " --no-sleep",
                  generatedObjectArg );
     }
     fprintf( f, "water_hidden,%d\n", m_debug.isWaterHidden ? 1 : 0 );
@@ -4024,7 +4032,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     {
         m_scene.isFixedStep = true;
     }
-    m_cGameModelCollection.SetPhysicsSleepEnabled( !m_cmdNoSleep );
+    m_cGameModelCollection.SetPhysicsSleepEnabled( m_runtimeSettings.isPhysicsSleepEnabled );
     if ( m_cmdFrameCountOverride > 0 )
     {
         m_scene.targetFrameCount = m_cmdFrameCountOverride;
