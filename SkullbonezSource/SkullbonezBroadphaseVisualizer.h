@@ -8,12 +8,6 @@
 #include "SkullbonezSpatialGrid.h"
 #include "SkullbonezMatrix4.h"
 
-
-// --- Usings ---
-using namespace SkullbonezCore::Math::CollisionDetection;
-using namespace SkullbonezCore::Math::Transformation;
-
-
 namespace SkullbonezCore
 {
 namespace Physics
@@ -103,10 +97,10 @@ class BroadphaseVisualizer
     // Call once per frame after broadphase + narrowphase complete.
     // activeCells: cells that have objects this frame.
     // collisionCells: packed keys of cells where narrowphase collisions occurred.
-    void Update( float dt, const SpatialGrid::ActiveCell* activeCells, int activeCellCount, const int64_t* collisionKeys, int collisionKeyCount );
+    void Update( float dt, const Math::CollisionDetection::SpatialGrid::ActiveCell* activeCells, int activeCellCount, const int64_t* collisionKeys, int collisionKeyCount );
 
     // Generates line vertex data and calls Gfx().DrawLinesColored().
-    void Render( const Matrix4& viewProj );
+    void Render( const Math::Transformation::Matrix4& viewProj );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

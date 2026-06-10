@@ -233,9 +233,13 @@ bool SkullbonezRun::TickScreenshots()
     // screenshot_and_exit: on frame 0, save <scenename>.bmp to root then quit
     if ( m_scene.isSceneMode && m_screenshot.isScreenshotAndExit && m_scene.currentFrame == 0 )
     {
-        const std::string& scenePath = m_sceneQueue[m_scene.currentSceneIndex];
+        const std::string* scenePath = CurrentSceneQueuePath();
+        if ( !scenePath )
+        {
+            return false;
+        }
         char outPath[256];
-        const char* base = scenePath.c_str();
+        const char* base = scenePath->c_str();
         const char* slash = strrchr( base, '/' );
         const char* backslash = strrchr( base, '\\' );
         const char* name = slash ? slash + 1 : ( backslash ? backslash + 1 : base );

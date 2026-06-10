@@ -4,11 +4,6 @@
 // --- Includes ---
 #include "SkullbonezVector3.h"
 
-
-// --- Usings ---
-using namespace SkullbonezCore::Math::Vector;
-
-
 namespace SkullbonezCore
 {
 namespace Geometry
@@ -19,7 +14,7 @@ namespace Geometry
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 struct TerrainPost
 {
-    Vector3 vPosition, vNormal;
+    Math::Vector::Vector3 vPosition, vNormal;
 };
 
 /* -- Triangle ---------------------------------------------------------------------------------------------------------------------------------------------------
@@ -28,7 +23,7 @@ struct TerrainPost
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 struct Triangle
 {
-    Vector3 v1, v2, v3;
+    Math::Vector::Vector3 v1, v2, v3;
 };
 
 /* -- Plane ------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -38,7 +33,7 @@ struct Triangle
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 struct Plane
 {
-    Vector3 m_normal;
+    Math::Vector::Vector3 m_normal;
     float m_distance;
 
     Plane& operator=( Plane plane )
@@ -94,13 +89,13 @@ struct XZCoords
 class Ray
 {
   public:
-    Vector3 origin;
-    Vector3 vector3;
+    Math::Vector::Vector3 origin;
+    Math::Vector::Vector3 vector3;
 
     Ray()
     {
     }
-    Ray( const Vector3& vOrigin, const Vector3& vVector3 )
+    Ray( const Math::Vector::Vector3& vOrigin, const Math::Vector::Vector3& vVector3 )
         : origin( vOrigin ), vector3( vVector3 )
     {
     }

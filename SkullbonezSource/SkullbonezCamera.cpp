@@ -6,6 +6,8 @@
 // --- Usings ---
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::Math;
+using namespace SkullbonezCore::Math::Vector;
+using namespace SkullbonezCore::Geometry;
 
 
 Camera::Camera()

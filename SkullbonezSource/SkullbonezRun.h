@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include "SkullbonezCommon.h"
+#include "SkullbonezAssetSystem.h"
 #include "SkullbonezCameraCollection.h"
 #include "SkullbonezTimer.h"
 #include "SkullbonezInput.h"
@@ -27,22 +28,15 @@
 #include "UI/SkullbonezUI.h"
 
 
-// --- Usings ---
-using namespace SkullbonezCore::Environment;
-using namespace SkullbonezCore::Hardware;
-using namespace SkullbonezCore::Textures;
-using namespace SkullbonezCore::Text;
-using namespace SkullbonezCore::Geometry;
-using namespace SkullbonezCore::Math;
-using namespace SkullbonezCore::GameObjects;
-using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::UI;
-
-
 namespace SkullbonezCore
 {
 namespace Basics
 {
+namespace RunInternal
+{
+struct SceneRuntimeResetSnapshot;
+}
+
 struct RunPerfLogState
 {
     bool isPerfTest = false;            // Performance logging mode
@@ -80,11 +74,11 @@ struct RunRuntimeSettings
 
 struct RunTimerState
 {
-    Timer frameTimer;
-    Timer workTimer;
-    Timer updateTimer;
-    Timer cameraTimer;
-    Timer simulationTimer;
+    Environment::Timer frameTimer;
+    Environment::Timer workTimer;
+    Environment::Timer updateTimer;
+    Environment::Timer cameraTimer;
+    Environment::Timer simulationTimer;
 
     float physicsTime = 0.0f;        // Last frame physics time (seconds)
     float rollingPhysicsTime = 0.0f; // Smoothed physics time accumulator
@@ -104,30 +98,31 @@ struct RunTimerState
 
 struct RunSubsystemState
 {
-    std::unique_ptr<Terrain> terrain;
+    Assets::AssetSystem assets;
+    std::unique_ptr<Geometry::Terrain> terrain;
     bool isFlatSlopeTerrain = false;
-    std::unique_ptr<IFramebuffer> reflectionFBO;
+    std::unique_ptr<Rendering::IFramebuffer> reflectionFBO;
 
     // Cinematic render targets and post-process shaders. The sceneFBO holds the
     // full HDR world image, volumetricLightFBO holds a softer half-res light
     // texture, and postQuadVB is the screen-covering rectangle used by those
     // shaders.
-    std::unique_ptr<IFramebuffer> sceneFBO;
-    std::unique_ptr<IFramebuffer> volumetricLightFBO;
+    std::unique_ptr<Rendering::IFramebuffer> sceneFBO;
+    std::unique_ptr<Rendering::IFramebuffer> volumetricLightFBO;
     std::unique_ptr<Rendering::IShader> skyAtmosphereShader;
     std::unique_ptr<Rendering::IShader> volumetricLightShader;
     std::unique_ptr<Rendering::IShader> tonemapShader;
     uint32_t postQuadVB = 0;
 
-    CameraCollection* cameras = nullptr;
-    TextureCollection* textures = nullptr;
+    Environment::CameraCollection* cameras = nullptr;
+    Textures::TextureCollection* textures = nullptr;
     SkullbonezWindow* window = nullptr;
-    SkyBox* skyBox = nullptr;
+    Geometry::SkyBox* skyBox = nullptr;
 };
 
 struct RunCameraState
 {
-    InputState input = {}; // Current frame input state
+    Hardware::InputState input = {}; // Current frame input state
 
     int selectedCamera = 0;          // Keeps track of which camera is selected
     bool isFlyMode = false;          // Free-fly camera mode active (toggle with F)
@@ -294,7 +289,7 @@ class SkullbonezRun
     int m_UISolverBallCountOverride = -1;
     int m_UISolverBoxCountOverride = -1;
     bool m_cmdHasPhysicsDebugFlagsOverride = false;
-    uint32_t m_cmdPhysicsDebugFlagsOverride = PHYSICS_DEBUG_NONE;
+    uint32_t m_cmdPhysicsDebugFlagsOverride = Physics::PHYSICS_DEBUG_NONE;
     bool m_cmdHasPhysicsDebugTransparentOverride = false;
     bool m_cmdPhysicsDebugTransparentOverride = false;
     bool m_cmdHasPhysicsDebugAlphaOverride = false;
@@ -306,21 +301,21 @@ class SkullbonezRun
 #ifdef _DEBUG
     RunPhysicsDiagnosticsState m_physicsDiagnostics; // Queryable model-facing physics diagnostic trace
 #endif
-    RunRuntimeSettings m_runtimeSettings;            // Scene/app runtime swap policy toggles
-    RunTimerState m_timers;                          // Frame/simulation timers and rolling timing values
-    RunSubsystemState m_systems;                     // Window, camera, texture, terrain, and reflection handles
-    RunCameraState m_camera;                         // Camera/input state and ball-tracking settings
-    RunSceneState m_scene;                           // Scene-mode execution state
-    RunScreenshotState m_screenshot;                 // Screenshot trigger and capture state
-    InGameUI m_UI;                                   // Encapsulated in-game diagnostics window
-    RunDebugState m_debug;                           // Runtime debug/overlay toggles
-    RunFireState m_fire;                             // Runtime silver bullet pool state
-    RunUIStressState m_uiStress;                     // Deterministic UI stress run state
-    BroadphaseVisualizer m_broadphaseVisualizer;     // Spatial grid debug overlay (G key toggle)
-    CollisionVisualizer m_collisionVisualizer;       // Solid collision/sleep model visualizer (V key toggle)
-    PhysicsDebugVisualizer m_physicsDebugVisualizer; // Line overlay for object axes, contact manifolds, and sleep state
-    WorldEnvironment m_cWorldEnvironment;            // SkullbonezCore::Environment::WorldEnvironment class
-    GameModelCollection m_cGameModelCollection;      // SkullbonezCore::GameObjects::GameModelCollection class
+    RunRuntimeSettings m_runtimeSettings;                     // Scene/app runtime swap policy toggles
+    RunTimerState m_timers;                                   // Frame/simulation timers and rolling timing values
+    RunSubsystemState m_systems;                              // Window, camera, texture, terrain, and reflection handles
+    RunCameraState m_camera;                                  // Camera/input state and ball-tracking settings
+    RunSceneState m_scene;                                    // Scene-mode execution state
+    RunScreenshotState m_screenshot;                          // Screenshot trigger and capture state
+    UI::InGameUI m_UI;                                        // Encapsulated in-game diagnostics window
+    RunDebugState m_debug;                                    // Runtime debug/overlay toggles
+    RunFireState m_fire;                                      // Runtime silver bullet pool state
+    RunUIStressState m_uiStress;                              // Deterministic UI stress run state
+    Physics::BroadphaseVisualizer m_broadphaseVisualizer;     // Spatial grid debug overlay (G key toggle)
+    Physics::CollisionVisualizer m_collisionVisualizer;       // Solid collision/sleep model visualizer (V key toggle)
+    Physics::PhysicsDebugVisualizer m_physicsDebugVisualizer; // Line overlay for object axes, contact manifolds, and sleep state
+    Environment::WorldEnvironment m_cWorldEnvironment;        // SkullbonezCore::Environment::WorldEnvironment class
+    GameObjects::GameModelCollection m_cGameModelCollection;  // SkullbonezCore::GameObjects::GameModelCollection class
 
     inline static int sPerfPass = 0;
     void Render();                                                                                                                     // Main render method
@@ -333,6 +328,7 @@ class SkullbonezRun
     void SetUpGameModels( int count );                                                                                                 // Game model init for generated mixed-object mode
     void SetUpSolverObjects( int balls, int boxes );                                                                                   // Game model init: exact N solver balls + M solver boxes
     void SetUpGameModelsFromScene( const TestScene& scene );                                                                           // Game model init from scene file
+    std::string ResolveSourceAssetPath( Assets::AssetKind kind, const char* logicalName, const std::string& relativePath );            // Registers and resolves a source asset under DATA_ROOT
     void DrawPrimitives();                                                                                                             // Draw OpenGL primitives here
     CinematicRenderConfig& ActiveCinematicConfig();                                                                                    // Mutable cinematic style config for the active scene/run
     const CinematicRenderConfig& ActiveCinematicConfig() const;                                                                        // Read-only cinematic style config for the active scene/run
@@ -345,7 +341,7 @@ class SkullbonezRun
     void SetInitialOpenGlState();                                                                                                      // Sets the initial state of the OpenGL evironment
     void SetViewingOrientation();                                                                                                      // Renders camera views etc
     void DrawWindowText( const double dSecondsPerFrame );                                                                              // Renders text to the window
-    void SaveScreenshot( const char* path );                                                                                           // Saves framebuffer to BMP file via glReadPixels
+    void SaveScreenshot( const char* path );                                                                                           // Saves current backbuffer to a BMP file
     bool SaveCurrentSceneDefaults();                                                                                                   // Writes UI-controlled defaults back to the active scene file
     void RefreshSceneBrowserList();                                                                                                    // Discovers scene files available to the in-game scene dropdown
     int CurrentSceneBrowserIndex() const;                                                                                              // Returns current scene index within the discovered scene dropdown list
@@ -355,6 +351,12 @@ class SkullbonezRun
     void EnterInteractiveSceneRun();                                                                                                   // Locks scene automation into non-quitting interactive mode
     bool CanSceneAutomationQuit() const;                                                                                               // True for CLI suites/tests; false once the user owns scene flow
     void HoldCompletedInteractiveScene();                                                                                              // Keep the current scene alive after interactive automation completes
+    bool HasSceneQueueEntry( int index ) const;                                                                                        // True when index points at a queued scene/demo entry
+    bool HasCurrentSceneQueueEntry() const;                                                                                            // True when currentSceneIndex points at a queued entry
+    const std::string* CurrentSceneQueuePath() const;                                                                                  // Current queued scene path, or nullptr if no current entry
+    RunInternal::SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot();                                                         // Captures live runtime controls before a scene reset rebuilds objects
+    void RestoreSceneRuntimeResetSnapshot( const RunInternal::SceneRuntimeResetSnapshot& snapshot, bool suppressExitOnComplete );      // Restores preserved live controls after scene file/defaults rebuild
+    void ClearSceneRuntimeUIOverrides();                                                                                               // Clears UI rebuild overrides when a new scene/defaults should be authoritative
     void LogPerfMemory( const char* checkpoint );                                                                                      // Log memory usage to perf CSV
     void LoadScene( int index, bool preserveUIState = false, bool suppressExitOnComplete = false, bool preserveRuntimeState = false ); // Resets scene-specific state and loads a scene by queue index
     void ResetCurrentScene( bool preserveUIState = false, bool suppressExitOnComplete = false, bool preserveRuntimeState = true );     // User-triggered reset/reload of current scene or generated demo mode
@@ -369,7 +371,23 @@ class SkullbonezRun
     void MoveCamera( float keyMovementQty, float mouseMovemementQty );                                                                 // Moves the camera
     RuntimeRendererType GetCurrentRendererType() const;                                                                                // Detect active backend type from Gfx renderer identity
     RuntimeRendererType GetNextRendererType( RuntimeRendererType current ) const;
-    void SwitchRenderer( RuntimeRendererType target ); // Rebuild render backend/resources while preserving simulation state
+    void ReleaseBackendOwnedResourcesForSwitch();        // Releases GPU-visible resources while the old backend is still alive
+    void RebuildBackendOwnedResourcesAfterSwitch();      // Rebuilds GPU-visible resources after the new backend is active
+    void RunRendererSwitchResourceReleaseSteps();        // Ordered backend-resource release registry for renderer switches
+    void RunRendererSwitchResourceRebuildSteps();        // Ordered backend-resource rebuild registry for renderer switches
+    void ReleaseReflectionResourcesForSwitch();          // Releases reflection framebuffer ownership before backend teardown
+    void RebuildReflectionResourcesAfterSwitch();        // Recreates reflection framebuffer ownership after backend startup
+    void ReleaseTextResourcesForSwitch();                // Releases text renderer GPU resources before backend teardown
+    void RebuildTextResourcesAfterSwitch();              // Recreates text renderer GPU resources after backend startup
+    void ReleaseModelCollectionResourcesForSwitch();     // Releases game-model collection GPU resources before backend teardown
+    void ReleaseHelperResourcesForSwitch();              // Releases helper-owned cached render resources before backend teardown
+    void ReleaseCollisionVisualizerResourcesForSwitch(); // Releases collision visualizer GPU resources before backend teardown
+    void ReleaseUIResourcesForSwitch();                  // Releases in-game UI GPU resources before backend teardown
+    void ReleaseTextureResourcesForSwitch();             // Clears texture collection GPU resources before backend teardown
+    void RebuildTerrainResourcesAfterSwitch();           // Recreates active terrain GPU resources after backend startup
+    void RebuildSkyBoxResourcesAfterSwitch();            // Recreates active skybox GPU resources after backend startup
+    void RebuildWorldResourcesAfterSwitch();             // Recreates world/fluid GPU resources after backend startup
+    void SwitchRenderer( RuntimeRendererType target );   // Rebuild render backend/resources while preserving simulation state
     unsigned int NextUIStressRandom();
     int NextUIStressInt( int maxExclusive );
     float NextUIStressFloat( float minValue, float maxValue );

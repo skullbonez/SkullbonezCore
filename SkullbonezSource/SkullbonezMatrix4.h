@@ -16,10 +16,6 @@ class Quaternion;
 } // namespace Math
 } // namespace SkullbonezCore
 
-// --- Usings ---
-using namespace SkullbonezCore::Math::Vector;
-
-
 namespace SkullbonezCore
 {
 namespace Math
@@ -44,18 +40,18 @@ class Matrix4
     Matrix4();                      // Default constructor (identity)
     Matrix4( const float* values ); // Construct from 16-element column-major array
 
-    static Matrix4 Perspective( float fovDegrees, float aspect, float nearPlane, float farPlane );             // Perspective projection matrix (GL depth [-1,1])
-    static Matrix4 PerspectiveZeroToOne( float fovDegrees, float aspect, float nearPlane, float farPlane );    // Perspective projection matrix (DX depth [0,1])
-    static Matrix4 Ortho( float left, float right, float bottom, float top, float nearPlane, float farPlane ); // Orthographic projection matrix
-    static Matrix4 LookAt( const Vector3& eye, const Vector3& center, const Vector3& up );                     // View matrix
-    static Matrix4 Translate( const Vector3& v );                                                              // Translation matrix
-    static Matrix4 Translate( float x, float y, float z );                                                     // Translation matrix (component form)
-    static Matrix4 Scale( const Vector3& v );                                                                  // Scale matrix
-    static Matrix4 Scale( float x, float y, float z );                                                         // Scale matrix (component form)
-    static Matrix4 Scale( float uniform );                                                                     // Uniform scale matrix
-    static Matrix4 RotateAxis( float angleDeg, float axisX, float axisY, float axisZ );                        // Axis-angle rotation matrix
-    static Matrix4 FromQuaternion( const Orientation::Quaternion& q );                                         // Rotation matrix from quaternion
-    static Matrix4 ShadowFromNormal( float tx, float ty, float tz, const Vector3& N, float scale );            // Fused T(tx,ty,tz)*RotFromUpToN*Scale(s) — zero acosf/cosf/sinf, zero Matrix4 products
+    static Matrix4 Perspective( float fovDegrees, float aspect, float nearPlane, float farPlane );                 // Perspective projection matrix (GL depth [-1,1])
+    static Matrix4 PerspectiveZeroToOne( float fovDegrees, float aspect, float nearPlane, float farPlane );        // Perspective projection matrix (DX depth [0,1])
+    static Matrix4 Ortho( float left, float right, float bottom, float top, float nearPlane, float farPlane );     // Orthographic projection matrix
+    static Matrix4 LookAt( const Vector::Vector3& eye, const Vector::Vector3& center, const Vector::Vector3& up ); // View matrix
+    static Matrix4 Translate( const Vector::Vector3& v );                                                          // Translation matrix
+    static Matrix4 Translate( float x, float y, float z );                                                         // Translation matrix (component form)
+    static Matrix4 Scale( const Vector::Vector3& v );                                                              // Scale matrix
+    static Matrix4 Scale( float x, float y, float z );                                                             // Scale matrix (component form)
+    static Matrix4 Scale( float uniform );                                                                         // Uniform scale matrix
+    static Matrix4 RotateAxis( float angleDeg, float axisX, float axisY, float axisZ );                            // Axis-angle rotation matrix
+    static Matrix4 FromQuaternion( const Orientation::Quaternion& q );                                             // Rotation matrix from quaternion
+    static Matrix4 ShadowFromNormal( float tx, float ty, float tz, const Vector::Vector3& N, float scale );        // Fused T(tx,ty,tz)*RotFromUpToN*Scale(s) — zero acosf/cosf/sinf, zero Matrix4 products
 
     Matrix4 operator*( const Matrix4& rhs ) const; // Matrix multiplication
     Matrix4& operator*=( const Matrix4& rhs );     // In-place matrix multiplication

@@ -59,7 +59,7 @@ void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
 }
 
 
-void SkullbonezHelper::ResetGLResources()
+void SkullbonezHelper::ResetRenderResources()
 {
     sphereShader.reset();
     if ( sphereInstMesh != 0 )

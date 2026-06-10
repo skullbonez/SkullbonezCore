@@ -5,6 +5,7 @@
 #include <climits>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 
 
 // --- Usings ---
@@ -31,6 +32,19 @@ struct ConfigSetting
     bool ( *apply )( SkullbonezConfig& cfg, const char* value, const ConfigSetting& setting, const char* path, int line );
     void ( *dump )( const SkullbonezConfig& cfg, FILE* out, const ConfigSetting& setting );
 };
+
+struct FileCloser
+{
+    void operator()( FILE* file ) const
+    {
+        if ( file )
+        {
+            fclose( file );
+        }
+    }
+};
+
+using FileHandle = std::unique_ptr<FILE, FileCloser>;
 
 bool IsSpaceOrTab( char c )
 {
@@ -400,15 +414,16 @@ void SkullbonezConfig::Load( const char* path )
     // engine.cfg is an optional developer/runtime defaults file. Unknown or
     // malformed lines are skipped with a warning so older configs do not block
     // startup after a setting is removed.
-    FILE* f = nullptr;
-    if ( fopen_s( &f, path, "r" ) != 0 || !f )
+    FILE* rawFile = nullptr;
+    if ( fopen_s( &rawFile, path, "r" ) != 0 || !rawFile )
     {
         return;
     }
+    FileHandle file( rawFile );
 
     char line[512];
     int lineNumber = 0;
-    while ( fgets( line, sizeof( line ), f ) )
+    while ( fgets( line, sizeof( line ), file.get() ) )
     {
         ++lineNumber;
         size_t len = strlen( line );
@@ -456,8 +471,6 @@ void SkullbonezConfig::Load( const char* path )
 
         setting->apply( *this, value, *setting, path, lineNumber );
     }
-
-    fclose( f );
 }
 
 

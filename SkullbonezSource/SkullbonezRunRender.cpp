@@ -464,6 +464,11 @@ void SkullbonezRun::DrawPrimitives()
     // reflection pre-pass: render above-water scene from mirrored camera into FBO (or DXR dispatch)
     PROFILE_GPU_BEGIN( "Frame/Render/Reflection" );
     float waterY = m_cWorldEnvironment.GetFluidSurfaceHeight();
+    const auto renderCapabilities = Gfx().GetCapabilities();
+    const bool useDxrReflection = renderCapabilities.supportsDxrReflection &&
+                                  m_debug.isWaterRTReflect &&
+                                  !m_debug.isWaterNoReflect &&
+                                  !m_debug.isCollisionVisualizer;
     Vector3 center = m_systems.cameras->GetRenderCameraView();
 
     // Mirror eye and look-at target about the water plane; flip up vector
@@ -474,7 +479,7 @@ void SkullbonezRun::DrawPrimitives()
     Matrix4 reflView = Matrix4::LookAt( reflEye, reflCenter, reflUp );
     reflVP = proj * reflView;
 
-    if ( Gfx().IsDXRSupported() && m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect && !m_debug.isCollisionVisualizer )
+    if ( useDxrReflection )
     {
         // DXR path: rebuild TLAS with current ball positions, then dispatch rays
         int ballCount = m_cGameModelCollection.GetModelCount();
@@ -612,12 +617,12 @@ void SkullbonezRun::DrawPrimitives()
         float waterTime = m_debug.isWaterFreezeDebug
                               ? m_debug.frozenWaterTime
                               : static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
-        uint32_t reflTex = ( Gfx().IsDXRSupported() && m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect && !m_debug.isCollisionVisualizer )
+        uint32_t reflTex = useDxrReflection
                                ? Gfx().GetReflectionUAVTexture()
                                : m_systems.reflectionFBO->GetColorTextureHandle();
         // DXR reflection texture is in main-camera screen space, so sample it
         // using the main VP — not the mirror VP used by the FBO path.
-        Matrix4 waterSampleVP = ( Gfx().IsDXRSupported() && m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect && !m_debug.isCollisionVisualizer )
+        Matrix4 waterSampleVP = useDxrReflection
                                     ? proj * baseView
                                     : reflVP;
         m_cWorldEnvironment.RenderFluid( baseView,
@@ -690,12 +695,14 @@ void SkullbonezRun::SetUpCameras()
 
 void SkullbonezRun::SetInitialOpenGlState()
 {
-    SkullbonezHelper::ResetGLResources();
+    SkullbonezHelper::ResetRenderResources();
 
     // load m_textures
     const SkullbonezConfig& cfg = Cfg();
-    m_systems.textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.terrainTexture ).c_str(), TEXTURE_GROUND );
-    m_systems.textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.sphereTexture ).c_str(), TEXTURE_BOUNDING_SPHERE );
+    const std::string terrainTexturePath = ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Texture, "texture.terrain", cfg.terrainTexture );
+    const std::string sphereTexturePath = ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Texture, "texture.sphere", cfg.sphereTexture );
+    m_systems.textures->CreateJpegTexture( terrainTexturePath.c_str(), TEXTURE_GROUND );
+    m_systems.textures->CreateJpegTexture( sphereTexturePath.c_str(), TEXTURE_BOUNDING_SPHERE );
 }
 
 

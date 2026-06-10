@@ -5,11 +5,6 @@
 #include "SkullbonezCommon.h"
 #include "SkullbonezGeometricStructures.h"
 
-
-// --- Usings ---
-using namespace SkullbonezCore::Geometry;
-
-
 namespace SkullbonezCore
 {
 namespace Physics

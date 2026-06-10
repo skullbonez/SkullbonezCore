@@ -1,8 +1,11 @@
 // --- Includes ---
 #include "SkullbonezTestScene.h"
+#include <cerrno>
+#include <climits>
 #include <cstdarg>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <stdexcept>
 
 
@@ -12,6 +15,31 @@ namespace Basics
 {
 namespace
 {
+struct SceneIntOption
+{
+    const char* name;
+    int value;
+};
+
+template <size_t N>
+bool TryParseIntOption( const char* token, const SceneIntOption ( &options )[N], int& out )
+{
+    if ( !token )
+    {
+        return false;
+    }
+
+    for ( const SceneIntOption& option : options )
+    {
+        if ( strcmp( token, option.name ) == 0 )
+        {
+            out = option.value;
+            return true;
+        }
+    }
+    return false;
+}
+
 bool ParseOnOff( const char* value, bool& out )
 {
     if ( strcmp( value, "on" ) == 0 || strcmp( value, "open" ) == 0 || strcmp( value, "all" ) == 0 )
@@ -30,38 +58,37 @@ bool ParseOnOff( const char* value, bool& out )
 
 bool ParseUITab( const char* value, int& outTab )
 {
-    if ( strcmp( value, "profiler" ) == 0 || strcmp( value, "profile" ) == 0 )
-    {
-        outTab = 0;
-        return true;
-    }
-    if ( strcmp( value, "scene" ) == 0 || strcmp( value, "overview" ) == 0 || strcmp( value, "info" ) == 0 )
-    {
-        outTab = 1;
-        return true;
-    }
-    if ( strcmp( value, "physics" ) == 0 )
-    {
-        outTab = 2;
-        return true;
-    }
-    if ( strcmp( value, "options" ) == 0 || strcmp( value, "params" ) == 0 || strcmp( value, "renderer" ) == 0 )
-    {
-        outTab = 3;
-        return true;
-    }
-    if ( strcmp( value, "keys" ) == 0 || strcmp( value, "controls" ) == 0 )
-    {
-        outTab = 4;
-        return true;
-    }
-    if ( strcmp( value, "cinematic" ) == 0 || strcmp( value, "cine" ) == 0 || strcmp( value, "look" ) == 0 )
-    {
-        outTab = 5;
-        return true;
-    }
-    return false;
+    static const SceneIntOption kTabs[] = {
+        { "profiler", 0 },
+        { "profile", 0 },
+        { "scene", 1 },
+        { "overview", 1 },
+        { "info", 1 },
+        { "physics", 2 },
+        { "options", 3 },
+        { "params", 3 },
+        { "renderer", 3 },
+        { "keys", 4 },
+        { "controls", 4 },
+        { "cinematic", 5 },
+        { "cine", 5 },
+        { "look", 5 },
+    };
+    return TryParseIntOption( value, kTabs, outTab );
 }
+
+struct FileCloser
+{
+    void operator()( FILE* file ) const
+    {
+        if ( file )
+        {
+            fclose( file );
+        }
+    }
+};
+
+using SceneFileHandle = std::unique_ptr<FILE, FileCloser>;
 } // namespace
 
 
@@ -85,7 +112,7 @@ class TestSceneParser
     };
 
     const char* m_path = nullptr;
-    FILE* m_file = nullptr;
+    SceneFileHandle m_file;
     int m_lineNumber = 0;
     TestScene m_scene;
 
@@ -154,8 +181,7 @@ class TestSceneParser
     {
         if ( m_file )
         {
-            fclose( m_file );
-            m_file = nullptr;
+            m_file.reset();
         }
 
         char detail[256] = {};
@@ -176,6 +202,124 @@ class TestSceneParser
             Fail( "Invalid %s at line %d (expected: %s)", directive, m_lineNumber, expected );
         }
         return args;
+    }
+
+    static bool TryParseInt( const char* value, int& out )
+    {
+        if ( !value || value[0] == '\0' )
+        {
+            return false;
+        }
+
+        errno = 0;
+        char* end = nullptr;
+        const long parsed = strtol( value, &end, 10 );
+        if ( end == value || *end != '\0' || errno == ERANGE || parsed < INT_MIN || parsed > INT_MAX )
+        {
+            return false;
+        }
+
+        out = static_cast<int>( parsed );
+        return true;
+    }
+
+    static bool TryParseFloat( const char* value, float& out )
+    {
+        if ( !value || value[0] == '\0' )
+        {
+            return false;
+        }
+
+        errno = 0;
+        char* end = nullptr;
+        const double parsed = strtod( value, &end );
+        if ( end == value || *end != '\0' || errno == ERANGE )
+        {
+            return false;
+        }
+
+        out = static_cast<float>( parsed );
+        return true;
+    }
+
+    int ParseIntValue( const char* directive, const char* value )
+    {
+        int parsed = 0;
+        if ( !TryParseInt( value, parsed ) )
+        {
+            Fail( "Invalid %s at line %d: %s", directive, m_lineNumber, value ? value : "" );
+        }
+        return parsed;
+    }
+
+    int ParseIntArg( const char* directive, const char* args, const char* expected )
+    {
+        return ParseIntValue( directive, RequireArgs( directive, args, expected ) );
+    }
+
+    int ParseNextIntToken( const char* directive, const char*& cursor, const char* expected )
+    {
+        char value[64] = {};
+        if ( !ReadToken( cursor, value, sizeof( value ) ) )
+        {
+            Fail( "Invalid %s at line %d (expected: %s)", directive, m_lineNumber, expected );
+        }
+        return ParseIntValue( directive, value );
+    }
+
+    void ParseNextToken( const char* directive, const char*& cursor, char* out, size_t outSize, const char* expected )
+    {
+        if ( !ReadToken( cursor, out, outSize ) )
+        {
+            Fail( "Invalid %s at line %d (expected: %s)", directive, m_lineNumber, expected );
+        }
+    }
+
+    int ParseTokenList( const char* directive, const char* args, const char* expected, char tokens[][64], int maxTokens )
+    {
+        const char* cursor = RequireArgs( directive, args, expected );
+        int count = 0;
+        while ( true )
+        {
+            while ( IsSpace( *cursor ) )
+            {
+                ++cursor;
+            }
+            if ( *cursor == '\0' )
+            {
+                return count;
+            }
+
+            char discard[64] = {};
+            char* target = ( count < maxTokens ) ? tokens[count] : discard;
+            ParseNextToken( directive, cursor, target, 64, expected );
+            ++count;
+        }
+    }
+
+    float ParseFloatValue( const char* directive, const char* value )
+    {
+        float parsed = 0.0f;
+        if ( !TryParseFloat( value, parsed ) )
+        {
+            Fail( "Invalid %s at line %d: %s", directive, m_lineNumber, value ? value : "" );
+        }
+        return parsed;
+    }
+
+    float ParseFloatArg( const char* directive, const char* args, const char* expected )
+    {
+        return ParseFloatValue( directive, RequireArgs( directive, args, expected ) );
+    }
+
+    float ParseNextFloatToken( const char* directive, const char*& cursor, const char* expected )
+    {
+        char value[64] = {};
+        if ( !ReadToken( cursor, value, sizeof( value ) ) )
+        {
+            Fail( "Invalid %s at line %d (expected: %s)", directive, m_lineNumber, expected );
+        }
+        return ParseFloatValue( directive, value );
     }
 
     bool ParseOnOffOnly( const char* value, bool& out ) const
@@ -309,12 +453,12 @@ class TestSceneParser
 
     void ParseUIRect( const char* args )
     {
-        int x = 0;
-        int y = 0;
-        int w = 0;
-        int h = 0;
-        const int parsed = sscanf_s( args, "%d %d %d %d", &x, &y, &w, &h );
-        if ( parsed != 4 || w <= 0 || h <= 0 )
+        const char* cursor = RequireArgs( "UI rect", args, "UI rect <x> <y> <w> <h>" );
+        const int x = ParseNextIntToken( "UI rect", cursor, "UI rect <x> <y> <w> <h>" );
+        const int y = ParseNextIntToken( "UI rect", cursor, "UI rect <x> <y> <w> <h>" );
+        const int w = ParseNextIntToken( "UI rect", cursor, "UI rect <x> <y> <w> <h>" );
+        const int h = ParseNextIntToken( "UI rect", cursor, "UI rect <x> <y> <w> <h>" );
+        if ( w <= 0 || h <= 0 )
         {
             Fail( "Invalid UI rect at line %d (expected: UI rect <x> <y> <w> <h>)", m_lineNumber );
         }
@@ -402,18 +546,14 @@ class TestSceneParser
             Fail( "Invalid UI scroll value at line %d", m_lineNumber );
         }
         m_scene.m_UIOptions.hasScrollY = true;
-        m_scene.m_UIOptions.scrollY = ( strcmp( value, "bottom" ) == 0 ) ? 1000000.0f : static_cast<float>( atof( value ) );
+        m_scene.m_UIOptions.scrollY = ( strcmp( value, "bottom" ) == 0 ) ? 1000000.0f : ParseFloatValue( "UI scroll", value );
     }
 
     void ParseUIMouse( const char* args )
     {
-        int x = 0;
-        int y = 0;
-        const int parsed = sscanf_s( args, "%d %d", &x, &y );
-        if ( parsed != 2 )
-        {
-            Fail( "Invalid UI mouse at line %d (expected: UI mouse <x> <y>)", m_lineNumber );
-        }
+        const char* cursor = RequireArgs( "UI mouse", args, "UI mouse <x> <y>" );
+        const int x = ParseNextIntToken( "UI mouse", cursor, "UI mouse <x> <y>" );
+        const int y = ParseNextIntToken( "UI mouse", cursor, "UI mouse <x> <y>" );
         m_scene.m_UIOptions.hasMouseOverride = true;
         m_scene.m_UIOptions.mouseX = x;
         m_scene.m_UIOptions.mouseY = y;
@@ -429,7 +569,7 @@ class TestSceneParser
 
     void ParseUIStressSeed( const char* args )
     {
-        const int seed = atoi( args );
+        const int seed = ParseIntArg( "UI stress_seed", args, "UI stress_seed <N>" );
         if ( seed <= 0 )
         {
             Fail( "Invalid UI stress_seed value at line %d: %s", m_lineNumber, args );
@@ -440,7 +580,7 @@ class TestSceneParser
 
     void ParseUIStressActions( const char* args )
     {
-        const int actions = atoi( args );
+        const int actions = ParseIntArg( "UI stress_actions", args, "UI stress_actions <N>" );
         if ( actions <= 0 )
         {
             Fail( "Invalid UI stress_actions value at line %d: %s", m_lineNumber, args );
@@ -466,7 +606,7 @@ class TestSceneParser
             return;
         }
 
-        m_scene.m_sceneOptions.frameCount = atoi( args );
+        m_scene.m_sceneOptions.frameCount = ParseIntValue( "frames", args );
         if ( m_scene.m_sceneOptions.frameCount <= 0 && strcmp( args, "-1" ) != 0 )
         {
             Fail( "Invalid frame count at line %d: %s", m_lineNumber, args );
@@ -479,20 +619,17 @@ class TestSceneParser
 
     void ParseScreenshot( const char* args )
     {
+        const char* expected = "screenshot <path> frame|ms <N>";
+        const char* cursor = RequireArgs( "screenshot", args, expected );
         char outPath[256] = {};
         char triggerType[16] = {};
-        int triggerValue = 0;
-        const int parsed = sscanf_s( RequireArgs( "screenshot", args, "screenshot <path> frame|ms <N>" ),
-                                     "%255s %15s %d",
-                                     outPath,
-                                     static_cast<unsigned>( sizeof( outPath ) ),
-                                     triggerType,
-                                     static_cast<unsigned>( sizeof( triggerType ) ),
-                                     &triggerValue );
+        ParseNextToken( "screenshot", cursor, outPath, sizeof( outPath ), expected );
+        ParseNextToken( "screenshot", cursor, triggerType, sizeof( triggerType ), expected );
+        const int triggerValue = ParseNextIntToken( "screenshot", cursor, expected );
 
-        if ( parsed != 3 || triggerValue <= 0 )
+        if ( triggerValue <= 0 )
         {
-            Fail( "Invalid screenshot at line %d (expected: screenshot <path> frame|ms <N>)", m_lineNumber );
+            Fail( "Invalid screenshot at line %d (expected: %s)", m_lineNumber, expected );
         }
 
         strcpy_s( m_scene.m_captureOptions.screenshotPath, sizeof( m_scene.m_captureOptions.screenshotPath ), outPath );
@@ -515,7 +652,7 @@ class TestSceneParser
 
     void ParseSeed( const char* args )
     {
-        m_scene.m_sceneOptions.seed = static_cast<unsigned int>( atoi( RequireArgs( "seed", args, "seed <N>" ) ) );
+        m_scene.m_sceneOptions.seed = static_cast<unsigned int>( ParseIntArg( "seed", args, "seed <N>" ) );
         if ( m_scene.m_sceneOptions.seed == 0 )
         {
             Fail( "Invalid seed at line %d (must be > 0)", m_lineNumber );
@@ -534,7 +671,7 @@ class TestSceneParser
 
     void ParsePerfLogFlushInterval( const char* args )
     {
-        m_scene.m_loggingOptions.perfLogFlushInterval = atoi( RequireArgs( "perf_log_flush_interval", args, "perf_log_flush_interval <N>" ) );
+        m_scene.m_loggingOptions.perfLogFlushInterval = ParseIntArg( "perf_log_flush_interval", args, "perf_log_flush_interval <N>" );
         if ( m_scene.m_loggingOptions.perfLogFlushInterval < 0 )
         {
             Fail( "Invalid perf_log_flush_interval at line %d (must be >= 0)", m_lineNumber );
@@ -586,33 +723,33 @@ class TestSceneParser
     void ParseWaterReflection( const char* args )
     {
         const char* value = RequireArgs( "water_reflection", args, "water_reflection fbo|dxr|none" );
-        if ( strcmp( value, "fbo" ) == 0 || strcmp( value, "on" ) == 0 )
-        {
-            m_scene.m_sceneOptions.waterReflectionMode = 0;
-        }
-        else if ( strcmp( value, "dxr" ) == 0 || strcmp( value, "rt" ) == 0 )
-        {
-            m_scene.m_sceneOptions.waterReflectionMode = 1;
-        }
-        else if ( strcmp( value, "none" ) == 0 || strcmp( value, "off" ) == 0 )
-        {
-            m_scene.m_sceneOptions.waterReflectionMode = 2;
-        }
-        else
+        static const SceneIntOption kWaterReflectionModes[] = {
+            { "fbo", 0 },
+            { "on", 0 },
+            { "dxr", 1 },
+            { "rt", 1 },
+            { "none", 2 },
+            { "off", 2 },
+        };
+        int mode = 0;
+        if ( !TryParseIntOption( value, kWaterReflectionModes, mode ) )
         {
             Fail( "Invalid water_reflection value at line %d", m_lineNumber );
         }
+        m_scene.m_sceneOptions.waterReflectionMode = mode;
     }
 
     void ParseScreenshotInterval( const char* args )
     {
+        const char* expected = "screenshot_interval <dir> <N>";
+        const char* cursor = RequireArgs( "screenshot_interval", args, expected );
         char outDir[256] = {};
-        int intervalFrames = 0;
-        const int parsed = sscanf_s( RequireArgs( "screenshot_interval", args, "screenshot_interval <dir> <N>" ), "%255s %d", outDir, static_cast<unsigned>( sizeof( outDir ) ), &intervalFrames );
+        ParseNextToken( "screenshot_interval", cursor, outDir, sizeof( outDir ), expected );
+        const int intervalFrames = ParseNextIntToken( "screenshot_interval", cursor, expected );
 
-        if ( parsed != 2 || intervalFrames <= 0 )
+        if ( intervalFrames <= 0 )
         {
-            Fail( "Invalid screenshot_interval at line %d (expected: screenshot_interval <dir> <N>)", m_lineNumber );
+            Fail( "Invalid screenshot_interval at line %d (expected: %s)", m_lineNumber, expected );
         }
 
         strcpy_s( m_scene.m_captureOptions.screenshotDir, sizeof( m_scene.m_captureOptions.screenshotDir ), outDir );
@@ -626,87 +763,69 @@ class TestSceneParser
             Fail( "Too many cameras at line %d (max %d)", m_lineNumber, TOTAL_CAMERA_COUNT );
         }
 
+        const char* expected = "camera <name> <pos> <view> <up>";
+        const char* cursor = RequireArgs( "camera", args, expected );
         SceneCamera cam;
         memset( &cam, 0, sizeof( cam ) );
 
-        const int parsed = sscanf_s( RequireArgs( "camera", args, "camera <name> <pos> <view> <up>" ),
-                                     "%63s %f %f %f %f %f %f %f %f %f",
-                                     cam.name,
-                                     static_cast<unsigned>( sizeof( cam.name ) ),
-                                     &cam.m_position.x,
-                                     &cam.m_position.y,
-                                     &cam.m_position.z,
-                                     &cam.view.x,
-                                     &cam.view.y,
-                                     &cam.view.z,
-                                     &cam.up.x,
-                                     &cam.up.y,
-                                     &cam.up.z );
-
-        if ( parsed != 10 )
-        {
-            Fail( "Invalid camera at line %d (expected 10 fields, got %d)", m_lineNumber, parsed );
-        }
+        ParseNextToken( "camera", cursor, cam.name, sizeof( cam.name ), expected );
+        cam.m_position.x = ParseNextFloatToken( "camera", cursor, expected );
+        cam.m_position.y = ParseNextFloatToken( "camera", cursor, expected );
+        cam.m_position.z = ParseNextFloatToken( "camera", cursor, expected );
+        cam.view.x = ParseNextFloatToken( "camera", cursor, expected );
+        cam.view.y = ParseNextFloatToken( "camera", cursor, expected );
+        cam.view.z = ParseNextFloatToken( "camera", cursor, expected );
+        cam.up.x = ParseNextFloatToken( "camera", cursor, expected );
+        cam.up.y = ParseNextFloatToken( "camera", cursor, expected );
+        cam.up.z = ParseNextFloatToken( "camera", cursor, expected );
 
         m_scene.m_cameras.push_back( cam );
     }
 
     void ParseBall( const char* args )
     {
+        const char* expected = "ball <name> <pos> <radius> <mass> <moment> <restitution> [force forcePos] [euler]";
+        char tokens[17][64] = {};
+        const int parsed = ParseTokenList( "ball", args, expected, tokens, 17 );
+        if ( parsed != 8 && parsed != 11 && parsed != 14 && parsed != 17 )
+        {
+            Fail( "Invalid ball at line %d (expected 8, 11, 14 or 17 fields, got %d)", m_lineNumber, parsed );
+        }
+
         SceneBall ball;
         memset( &ball, 0, sizeof( ball ) );
         ball.hasInitOrient = false;
 
-        args = RequireArgs( "ball", args, "ball <name> ..." );
-        int parsed = sscanf_s( args,
-                               "%63s %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
-                               ball.name,
-                               static_cast<unsigned>( sizeof( ball.name ) ),
-                               &ball.posX,
-                               &ball.posY,
-                               &ball.posZ,
-                               &ball.m_radius,
-                               &ball.m_mass,
-                               &ball.moment,
-                               &ball.restitution,
-                               &ball.forceX,
-                               &ball.forceY,
-                               &ball.forceZ,
-                               &ball.forcePosX,
-                               &ball.forcePosY,
-                               &ball.forcePosZ,
-                               &ball.eulerX,
-                               &ball.eulerY,
-                               &ball.eulerZ );
+        strcpy_s( ball.name, sizeof( ball.name ), tokens[0] );
+        ball.posX = ParseFloatValue( "ball", tokens[1] );
+        ball.posY = ParseFloatValue( "ball", tokens[2] );
+        ball.posZ = ParseFloatValue( "ball", tokens[3] );
+        ball.m_radius = ParseFloatValue( "ball", tokens[4] );
+        ball.m_mass = ParseFloatValue( "ball", tokens[5] );
+        ball.moment = ParseFloatValue( "ball", tokens[6] );
+        ball.restitution = ParseFloatValue( "ball", tokens[7] );
 
-        if ( parsed == 17 )
+        if ( parsed == 11 )
         {
+            ball.eulerX = ParseFloatValue( "ball", tokens[8] );
+            ball.eulerY = ParseFloatValue( "ball", tokens[9] );
+            ball.eulerZ = ParseFloatValue( "ball", tokens[10] );
             ball.hasInitOrient = true;
         }
-        else if ( parsed != 14 )
+        else if ( parsed == 14 || parsed == 17 )
         {
-            parsed = sscanf_s( args,
-                               "%63s %f %f %f %f %f %f %f %f %f %f",
-                               ball.name,
-                               static_cast<unsigned>( sizeof( ball.name ) ),
-                               &ball.posX,
-                               &ball.posY,
-                               &ball.posZ,
-                               &ball.m_radius,
-                               &ball.m_mass,
-                               &ball.moment,
-                               &ball.restitution,
-                               &ball.eulerX,
-                               &ball.eulerY,
-                               &ball.eulerZ );
-
-            if ( parsed == 11 )
+            ball.forceX = ParseFloatValue( "ball", tokens[8] );
+            ball.forceY = ParseFloatValue( "ball", tokens[9] );
+            ball.forceZ = ParseFloatValue( "ball", tokens[10] );
+            ball.forcePosX = ParseFloatValue( "ball", tokens[11] );
+            ball.forcePosY = ParseFloatValue( "ball", tokens[12] );
+            ball.forcePosZ = ParseFloatValue( "ball", tokens[13] );
+            if ( parsed == 17 )
             {
+                ball.eulerX = ParseFloatValue( "ball", tokens[14] );
+                ball.eulerY = ParseFloatValue( "ball", tokens[15] );
+                ball.eulerZ = ParseFloatValue( "ball", tokens[16] );
                 ball.hasInitOrient = true;
-            }
-            else if ( parsed != 8 )
-            {
-                Fail( "Invalid ball at line %d (expected 8, 11, 14 or 17 fields, got %d)", m_lineNumber, parsed );
             }
         }
 
@@ -715,43 +834,44 @@ class TestSceneParser
 
     void ParseBoxCommon( const char* args, bool isFixed )
     {
+        const char* directive = isFixed ? "floating_box" : "box";
+        const char* expected = isFixed ? "floating_box <name> <pos> <halfExtents> <mass> <restitution> [euler] [velocity]" : "box <name> <pos> <halfExtents> <mass> <restitution> [euler] [velocity]";
+        char tokens[15][64] = {};
+        const int parsed = ParseTokenList( directive, args, expected, tokens, 15 );
+        if ( parsed != 9 && parsed != 12 && parsed != 15 )
+        {
+            Fail( "Invalid box/floating_box at line %d (expected 9, 12, or 15 fields, got %d)", m_lineNumber, parsed );
+        }
+
         SceneBox box;
         memset( &box, 0, sizeof( box ) );
         box.hasInitOrient = false;
         box.hasInitVelocity = false;
         box.isFixed = isFixed;
 
-        int parsed = sscanf_s( RequireArgs( isFixed ? "floating_box" : "box", args, "box <name> ..." ),
-                               "%63s %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
-                               box.name,
-                               static_cast<unsigned>( sizeof( box.name ) ),
-                               &box.posX,
-                               &box.posY,
-                               &box.posZ,
-                               &box.halfX,
-                               &box.halfY,
-                               &box.halfZ,
-                               &box.mass,
-                               &box.restitution,
-                               &box.eulerX,
-                               &box.eulerY,
-                               &box.eulerZ,
-                               &box.velX,
-                               &box.velY,
-                               &box.velZ );
+        strcpy_s( box.name, sizeof( box.name ), tokens[0] );
+        box.posX = ParseFloatValue( directive, tokens[1] );
+        box.posY = ParseFloatValue( directive, tokens[2] );
+        box.posZ = ParseFloatValue( directive, tokens[3] );
+        box.halfX = ParseFloatValue( directive, tokens[4] );
+        box.halfY = ParseFloatValue( directive, tokens[5] );
+        box.halfZ = ParseFloatValue( directive, tokens[6] );
+        box.mass = ParseFloatValue( directive, tokens[7] );
+        box.restitution = ParseFloatValue( directive, tokens[8] );
 
+        if ( parsed == 12 || parsed == 15 )
+        {
+            box.eulerX = ParseFloatValue( directive, tokens[9] );
+            box.eulerY = ParseFloatValue( directive, tokens[10] );
+            box.eulerZ = ParseFloatValue( directive, tokens[11] );
+            box.hasInitOrient = true;
+        }
         if ( parsed == 15 )
         {
-            box.hasInitOrient = true;
+            box.velX = ParseFloatValue( directive, tokens[12] );
+            box.velY = ParseFloatValue( directive, tokens[13] );
+            box.velZ = ParseFloatValue( directive, tokens[14] );
             box.hasInitVelocity = true;
-        }
-        else if ( parsed == 12 )
-        {
-            box.hasInitOrient = true;
-        }
-        else if ( parsed != 9 )
-        {
-            Fail( "Invalid box/floating_box at line %d (expected 9, 12, or 15 fields, got %d)", m_lineNumber, parsed );
         }
 
         m_scene.m_boxes.push_back( box );
@@ -769,7 +889,7 @@ class TestSceneParser
 
     void ParseTimeScale( const char* args )
     {
-        const float val = static_cast<float>( atof( RequireArgs( "time_scale", args, "time_scale <value>" ) ) );
+        const float val = ParseFloatArg( "time_scale", args, "time_scale <value>" );
         if ( val <= 0.0f )
         {
             Fail( "Invalid time_scale at line %d (must be > 0)", m_lineNumber );
@@ -856,7 +976,7 @@ class TestSceneParser
 
     void ParsePhysicsDebugAlpha( const char* args )
     {
-        const float val = static_cast<float>( atof( RequireArgs( "physics_debug_alpha", args, "physics_debug_alpha <0.05..1.0>" ) ) );
+        const float val = ParseFloatArg( "physics_debug_alpha", args, "physics_debug_alpha <0.05..1.0>" );
         if ( val < 0.05f || val > 1.0f )
         {
             Fail( "Invalid physics_debug_alpha at line %d (expected 0.05..1.0)", m_lineNumber );
@@ -866,7 +986,7 @@ class TestSceneParser
 
     void ParsePhysicsDebugContactLinger( const char* args )
     {
-        const float val = static_cast<float>( atof( RequireArgs( "physics_debug_contact_linger", args, "physics_debug_contact_linger <0.0..5.0>" ) ) );
+        const float val = ParseFloatArg( "physics_debug_contact_linger", args, "physics_debug_contact_linger <0.0..5.0>" );
         if ( val < 0.0f || val > 5.0f )
         {
             Fail( "Invalid physics_debug_contact_linger at line %d (expected 0.0..5.0 seconds)", m_lineNumber );
@@ -876,7 +996,7 @@ class TestSceneParser
 
     void ParseTrackHeight( const char* args )
     {
-        const float val = static_cast<float>( atof( RequireArgs( "track_height", args, "track_height <height>" ) ) );
+        const float val = ParseFloatArg( "track_height", args, "track_height <height>" );
         if ( val <= 0.0f )
         {
             Fail( "Invalid track_height at line %d (must be > 0)", m_lineNumber );
@@ -886,7 +1006,7 @@ class TestSceneParser
 
     void ParseAutoCycleInterval( const char* args )
     {
-        const float val = static_cast<float>( atof( RequireArgs( "auto_cycle_interval", args, "auto_cycle_interval <seconds>" ) ) );
+        const float val = ParseFloatArg( "auto_cycle_interval", args, "auto_cycle_interval <seconds>" );
         if ( val <= 0.0f )
         {
             Fail( "Invalid auto_cycle_interval at line %d (must be > 0)", m_lineNumber );
@@ -896,14 +1016,11 @@ class TestSceneParser
 
     void ParseFlatSlope( const char* args )
     {
-        float baseY = 0.0f;
-        float slopeX = 0.0f;
-        float slopeZ = 0.0f;
-        const int parsed = sscanf_s( RequireArgs( "flat_slope", args, "flat_slope <baseY> <slopeX> <slopeZ>" ), "%f %f %f", &baseY, &slopeX, &slopeZ );
-        if ( parsed != 3 )
-        {
-            Fail( "Invalid flat_slope at line %d (expected: flat_slope <baseY> <slopeX> <slopeZ>)", m_lineNumber );
-        }
+        const char* expected = "flat_slope <baseY> <slopeX> <slopeZ>";
+        const char* cursor = RequireArgs( "flat_slope", args, expected );
+        const float baseY = ParseNextFloatToken( "flat_slope", cursor, expected );
+        const float slopeX = ParseNextFloatToken( "flat_slope", cursor, expected );
+        const float slopeZ = ParseNextFloatToken( "flat_slope", cursor, expected );
         m_scene.m_terrainOverride.hasFlatSlope = true;
         m_scene.m_terrainOverride.flatBaseY = baseY;
         m_scene.m_terrainOverride.flatSlopeX = slopeX;
@@ -912,51 +1029,42 @@ class TestSceneParser
 
     void ParseBallState( const char* args )
     {
+        const char* expected = "ball_state <name> <position> <velocity> <angular_velocity> <orientation> <radius> <mass> <restitution> <inertia>";
+        const char* cursor = RequireArgs( "ball_state", args, expected );
         SceneBallState bs;
         memset( &bs, 0, sizeof( bs ) );
 
-        const int parsed = sscanf_s( RequireArgs( "ball_state", args, "ball_state <name> ..." ),
-                                     "%63s %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
-                                     bs.name,
-                                     static_cast<unsigned>( sizeof( bs.name ) ),
-                                     &bs.posX,
-                                     &bs.posY,
-                                     &bs.posZ,
-                                     &bs.velX,
-                                     &bs.velY,
-                                     &bs.velZ,
-                                     &bs.angVelX,
-                                     &bs.angVelY,
-                                     &bs.angVelZ,
-                                     &bs.orientX,
-                                     &bs.orientY,
-                                     &bs.orientZ,
-                                     &bs.orientW,
-                                     &bs.radius,
-                                     &bs.mass,
-                                     &bs.restitution,
-                                     &bs.inertiaX,
-                                     &bs.inertiaY,
-                                     &bs.inertiaZ );
-
-        if ( parsed != 20 )
-        {
-            Fail( "Invalid ball_state at line %d (expected 20 fields, got %d)", m_lineNumber, parsed );
-        }
+        ParseNextToken( "ball_state", cursor, bs.name, sizeof( bs.name ), expected );
+        bs.posX = ParseNextFloatToken( "ball_state", cursor, expected );
+        bs.posY = ParseNextFloatToken( "ball_state", cursor, expected );
+        bs.posZ = ParseNextFloatToken( "ball_state", cursor, expected );
+        bs.velX = ParseNextFloatToken( "ball_state", cursor, expected );
+        bs.velY = ParseNextFloatToken( "ball_state", cursor, expected );
+        bs.velZ = ParseNextFloatToken( "ball_state", cursor, expected );
+        bs.angVelX = ParseNextFloatToken( "ball_state", cursor, expected );
+        bs.angVelY = ParseNextFloatToken( "ball_state", cursor, expected );
+        bs.angVelZ = ParseNextFloatToken( "ball_state", cursor, expected );
+        bs.orientX = ParseNextFloatToken( "ball_state", cursor, expected );
+        bs.orientY = ParseNextFloatToken( "ball_state", cursor, expected );
+        bs.orientZ = ParseNextFloatToken( "ball_state", cursor, expected );
+        bs.orientW = ParseNextFloatToken( "ball_state", cursor, expected );
+        bs.radius = ParseNextFloatToken( "ball_state", cursor, expected );
+        bs.mass = ParseNextFloatToken( "ball_state", cursor, expected );
+        bs.restitution = ParseNextFloatToken( "ball_state", cursor, expected );
+        bs.inertiaX = ParseNextFloatToken( "ball_state", cursor, expected );
+        bs.inertiaY = ParseNextFloatToken( "ball_state", cursor, expected );
+        bs.inertiaZ = ParseNextFloatToken( "ball_state", cursor, expected );
 
         m_scene.m_ballStates.push_back( bs );
     }
 
     void ParseWorld( const char* args )
     {
-        float gravity = 0.0f;
-        float fluidHeight = 0.0f;
-        float fluidDensity = 0.0f;
-        const int parsed = sscanf_s( RequireArgs( "world", args, "world <gravity> <fluidHeight> <fluidDensity>" ), "%f %f %f", &gravity, &fluidHeight, &fluidDensity );
-        if ( parsed != 3 )
-        {
-            Fail( "Invalid world at line %d (expected: world <gravity> <fluidHeight> <fluidDensity>)", m_lineNumber );
-        }
+        const char* expected = "world <gravity> <fluidHeight> <fluidDensity>";
+        const char* cursor = RequireArgs( "world", args, expected );
+        const float gravity = ParseNextFloatToken( "world", cursor, expected );
+        const float fluidHeight = ParseNextFloatToken( "world", cursor, expected );
+        const float fluidDensity = ParseNextFloatToken( "world", cursor, expected );
         m_scene.m_worldOverride.hasWorldOverride = true;
         m_scene.m_worldOverride.worldGravity = gravity;
         m_scene.m_worldOverride.worldFluidHeight = fluidHeight;
@@ -975,7 +1083,7 @@ class TestSceneParser
 
     void ParseSolverBalls( const char* args )
     {
-        m_scene.m_sceneOptions.solverBallCount = atoi( RequireArgs( "solver_balls", args, "solver_balls <count>" ) );
+        m_scene.m_sceneOptions.solverBallCount = ParseIntArg( "solver_balls", args, "solver_balls <count>" );
         if ( m_scene.m_sceneOptions.solverBallCount < 0 )
         {
             Fail( "Invalid solver_balls count at line %d (must be >= 0)", m_lineNumber );
@@ -984,7 +1092,7 @@ class TestSceneParser
 
     void ParseSolverBoxes( const char* args )
     {
-        m_scene.m_sceneOptions.solverBoxCount = atoi( RequireArgs( "solver_boxes", args, "solver_boxes <count>" ) );
+        m_scene.m_sceneOptions.solverBoxCount = ParseIntArg( "solver_boxes", args, "solver_boxes <count>" );
         if ( m_scene.m_sceneOptions.solverBoxCount < 0 )
         {
             Fail( "Invalid solver_boxes count at line %d (must be >= 0)", m_lineNumber );
@@ -1102,7 +1210,7 @@ class TestSceneParser
         {
             if ( strcmp( key, directive.name ) == 0 )
             {
-                const float parsedValue = static_cast<float>( atof( value ) );
+                const float parsedValue = ParseFloatValue( key, value );
                 if ( parsedValue < directive.minValue || parsedValue > directive.maxValue )
                 {
                     Fail( "Invalid %s at line %d (expected %.3f..%.3f)", key, m_lineNumber, directive.minValue, directive.maxValue );
@@ -1200,27 +1308,22 @@ class TestSceneParser
     {
     }
 
-    ~TestSceneParser()
-    {
-        if ( m_file )
-        {
-            fclose( m_file );
-            m_file = nullptr;
-        }
-    }
+    ~TestSceneParser() = default;
 
     TestScene Load()
     {
-        const errno_t err = fopen_s( &m_file, m_path, "r" );
-        if ( err != 0 || !m_file )
+        FILE* rawFile = nullptr;
+        const errno_t err = fopen_s( &rawFile, m_path, "r" );
+        if ( err != 0 || !rawFile )
         {
             char msg[256];
             sprintf_s( msg, sizeof( msg ), "Failed to open scene file: %s  (TestScene::LoadFromFile)", m_path );
             throw std::runtime_error( msg );
         }
+        m_file.reset( rawFile );
 
         char line[512];
-        while ( fgets( line, sizeof( line ), m_file ) )
+        while ( fgets( line, sizeof( line ), m_file.get() ) )
         {
             ++m_lineNumber;
 
@@ -1241,8 +1344,7 @@ class TestSceneParser
             }
         }
 
-        fclose( m_file );
-        m_file = nullptr;
+        m_file.reset();
 
         if ( m_scene.m_cameras.empty() )
         {

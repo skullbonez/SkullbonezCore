@@ -27,6 +27,40 @@
 
 #pragma comment( lib, "dwmapi.lib" )
 
+using SkullbonezCore::Basics::CinematicRenderConfig;
+using SkullbonezCore::Environment::Camera;
+using SkullbonezCore::Environment::CameraCollection;
+using SkullbonezCore::Environment::WorldEnvironment;
+using SkullbonezCore::GameObjects::GameModel;
+using SkullbonezCore::Geometry::SkyBox;
+using SkullbonezCore::Geometry::Terrain;
+using SkullbonezCore::Geometry::XZBounds;
+using SkullbonezCore::Hardware::Input;
+using SkullbonezCore::Hardware::InputState;
+using SkullbonezCore::Math::CollisionDetection::BoundingBox;
+using SkullbonezCore::Math::CollisionDetection::BoundingSphere;
+using SkullbonezCore::Math::Orientation::Quaternion;
+using SkullbonezCore::Math::Transformation::Matrix4;
+using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Physics::PhysicsPipelineStage;
+using SkullbonezCore::Physics::PhysicsPipelineStageName;
+using SkullbonezCore::Rendering::DestroyGfxBackend;
+using SkullbonezCore::Rendering::Gfx;
+using SkullbonezCore::Rendering::IMesh;
+using SkullbonezCore::Rendering::IRenderBackend;
+using SkullbonezCore::Rendering::IsGfxReady;
+using SkullbonezCore::Rendering::RenderBackendDX11;
+using SkullbonezCore::Rendering::RenderBackendDX12;
+using SkullbonezCore::Rendering::RenderBackendGL;
+using SkullbonezCore::Text::Text2d;
+using SkullbonezCore::Textures::TextureCollection;
+using SkullbonezCore::UI::InGameUICommands;
+using SkullbonezCore::UI::InGameUIFrameData;
+using SkullbonezCore::UI::InGameUIInputResult;
+using SkullbonezCore::UI::InGameUITab;
+using SkullbonezCore::UI::UICinematicFeature;
+using SkullbonezCore::UI::UICinematicParam;
+
 namespace SkullbonezCore
 {
 namespace Basics

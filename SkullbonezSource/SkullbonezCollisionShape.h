@@ -33,9 +33,9 @@ using CollisionShape = std::variant<BoundingSphere, BoundingBox>;
     a compile-time dispatch table.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-inline const Vector3& GetShapePosition( const CollisionShape& shape )
+inline const Vector::Vector3& GetShapePosition( const CollisionShape& shape )
 {
-    return std::visit( []( const auto& s ) -> const Vector3&
+    return std::visit( []( const auto& s ) -> const Vector::Vector3&
                        { return s.GetPosition(); },
                        shape );
 }
@@ -85,7 +85,7 @@ inline float GetShapeTerrainBottomOffset( const CollisionShape& shape )
                        shape );
 }
 
-inline Transformation::Matrix4 GetShapeModelMatrix( const CollisionShape& shape, const Vector3& worldPos, const Transformation::Matrix4& rotation )
+inline Transformation::Matrix4 GetShapeModelMatrix( const CollisionShape& shape, const Vector::Vector3& worldPos, const Transformation::Matrix4& rotation )
 {
     return std::visit( [&]( const auto& s )
                        { return s.GetModelMatrix( worldPos, rotation ); },
@@ -98,7 +98,7 @@ inline Transformation::Matrix4 GetShapeModelMatrix( const CollisionShape& shape,
     variants produces a compile-time N*N dispatch table. When new shape types
     are added, the compiler will enforce that all pair combinations are handled.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline float TestShapeCollision( const CollisionShape& focus, const CollisionShape& target, const Ray& focusRay, const Ray& targetRay )
+inline float TestShapeCollision( const CollisionShape& focus, const CollisionShape& target, const Geometry::Ray& focusRay, const Geometry::Ray& targetRay )
 {
     // Double visit is the collision-shape switchboard. If focus is a sphere and
     // target is a box, the compiler chooses BoundingSphere::TestCollision(box).

@@ -6,6 +6,9 @@
 
 // --- Usings ---
 using namespace SkullbonezCore::Geometry;
+using namespace SkullbonezCore::Math::Transformation;
+using namespace SkullbonezCore::Rendering;
+using namespace SkullbonezCore::Textures;
 
 
 SkyBox::SkyBox( int m_xMin,
@@ -303,7 +306,7 @@ void SkyBox::Destroy()
 }
 
 
-void SkyBox::ResetGLResources()
+void SkyBox::ResetRenderResources()
 {
     for ( int i = 0; i < 6; ++i )
     {

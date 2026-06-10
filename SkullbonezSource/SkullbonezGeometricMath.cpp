@@ -4,6 +4,8 @@
 
 // --- Usings ---
 using namespace SkullbonezCore::Math;
+using namespace SkullbonezCore::Math::Vector;
+using namespace SkullbonezCore::Geometry;
 
 
 // Triangle normal via cross product.

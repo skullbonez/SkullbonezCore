@@ -2,6 +2,8 @@
 #include "SkullbonezText.h"
 #include "SkullbonezIRenderBackend.h"
 
+#include <memory>
+
 
 // --- Usings ---
 using namespace SkullbonezCore::Text;
@@ -46,6 +48,22 @@ static int s_quadBatchVerts = 0;
 // Ortho projection matrix cached once at BuildFont time — screen dimensions never
 // change after init, so there is no need to recompute this every frame.
 static Matrix4 s_orthoProj;
+
+namespace
+{
+struct FileCloser
+{
+    void operator()( FILE* file ) const
+    {
+        if ( file )
+        {
+            fclose( file );
+        }
+    }
+};
+
+using FileHandle = std::unique_ptr<FILE, FileCloser>;
+} // namespace
 
 // =============================================================================
 // SDF ATLAS — binary file format
@@ -167,23 +185,22 @@ static void ComputeEDT2D( float* grid, int w, int h )
 // Returns true on success, false if the file is absent or its header is invalid.
 static bool LoadSdfAtlasFromFile( const char* path )
 {
-    FILE* f = nullptr;
-    if ( fopen_s( &f, path, "rb" ) != 0 || !f )
+    FILE* rawFile = nullptr;
+    if ( fopen_s( &rawFile, path, "rb" ) != 0 || !rawFile )
     {
         return false;
     }
+    FileHandle file( rawFile );
 
     SdfFileHeader hdr = {};
-    if ( fread( &hdr, sizeof( hdr ), 1, f ) != 1u )
+    if ( fread( &hdr, sizeof( hdr ), 1, file.get() ) != 1u )
     {
-        fclose( f );
         return false;
     }
 
     // Reject stale or corrupt files before touching any engine state.
     if ( memcmp( hdr.magic, "SBSDF001", 8 ) != 0 || hdr.version != 1u || hdr.atlasW != static_cast<uint32_t>( FONT_ATLAS_W ) || hdr.atlasH != static_cast<uint32_t>( FONT_ATLAS_H ) || hdr.fontSize != static_cast<uint32_t>( FONT_SIZE ) || hdr.cellW != static_cast<uint32_t>( FONT_CELL_W ) || hdr.cellH != static_cast<uint32_t>( FONT_CELL_H ) )
     {
-        fclose( f );
         return false;
     }
 
@@ -191,12 +208,10 @@ static bool LoadSdfAtlasFromFile( const char* path )
 
     const size_t dataSize = static_cast<size_t>( FONT_ATLAS_W ) * static_cast<size_t>( FONT_ATLAS_H );
     std::unique_ptr<uint8_t[]> pixels( new uint8_t[dataSize] );
-    if ( fread( pixels.get(), 1, dataSize, f ) != dataSize )
+    if ( fread( pixels.get(), 1, dataSize, file.get() ) != dataSize )
     {
-        fclose( f );
         return false;
     }
-    fclose( f );
 
     // Upload as a single-channel R8 texture with bilinear filtering.
     // SDF rendering REQUIRES linear filtering — nearest-neighbour would staircase
@@ -431,11 +446,12 @@ bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath
     // =========================================================================
     // Phase 3 — write binary atlas file
     // =========================================================================
-    FILE* f = nullptr;
-    if ( fopen_s( &f, cOutPath, "wb" ) != 0 || !f )
+    FILE* rawFile = nullptr;
+    if ( fopen_s( &rawFile, cOutPath, "wb" ) != 0 || !rawFile )
     {
         return false;
     }
+    FileHandle file( rawFile );
 
     SdfFileHeader hdr = {};
     memcpy( hdr.magic, "SBSDF001", 8 );
@@ -447,9 +463,8 @@ bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath
     hdr.cellH = static_cast<uint32_t>( FONT_CELL_H );
     memcpy( hdr.charAdvance, charAdvBuf, 96 * sizeof( float ) );
 
-    fwrite( &hdr, sizeof( hdr ), 1, f );
-    fwrite( finalAtlas.get(), 1, static_cast<size_t>( finalTotalPx ), f );
-    fclose( f );
+    fwrite( &hdr, sizeof( hdr ), 1, file.get() );
+    fwrite( finalAtlas.get(), 1, static_cast<size_t>( finalTotalPx ), file.get() );
     return true;
 }
 

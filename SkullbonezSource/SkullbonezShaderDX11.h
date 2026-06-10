@@ -50,7 +50,7 @@ class ShaderDX11 : public IShader
     void Use() const override;
     void SetInt( const char* name, int value ) const override;
     void SetFloat( const char* name, float value ) const override;
-    void SetVec3( const char* name, const Vector3& v ) const override;
+    void SetVec3( const char* name, const Math::Vector::Vector3& v ) const override;
     void SetVec3( const char* name, float x, float y, float z ) const override;
     void SetVec4( const char* name, float x, float y, float z, float w ) const override;
     void SetMat4( const char* name, const Math::Transformation::Matrix4& mat ) const override;

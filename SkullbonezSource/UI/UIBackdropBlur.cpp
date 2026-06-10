@@ -179,6 +179,12 @@ void UIBackdropBlur::Draw( const UIDrawContext& draw, const UIRect& bounds, int 
     (void)currentFrame;
     (void)now;
 
+    const RenderCapabilities capabilities = Gfx().GetCapabilities();
+    if ( !capabilities.supportsBackbufferCapture || !capabilities.supportsDynamicVertexBuffers )
+    {
+        return;
+    }
+
     EnsureDrawResources();
 
     const bool needsRefresh = m_texture == 0 || m_invalidated || geometryChanged;

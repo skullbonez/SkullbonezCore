@@ -7,6 +7,7 @@
 #include <string>
 #include <algorithm>
 #include <cstring>
+#include <wrl/client.h>
 
 #pragma comment( lib, "d3d11.lib" )
 #pragma comment( lib, "dxgi.lib" )
@@ -61,6 +62,7 @@
 // --- Usings ---
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
+using Microsoft::WRL::ComPtr;
 
 
 // --- Helpers ---
@@ -75,9 +77,9 @@ static inline void ThrowIfFailed( HRESULT hr, const char* msg )
 
 static bool CheckDxgiTearingSupport()
 {
-    IDXGIFactory5* factory = nullptr;
+    ComPtr<IDXGIFactory5> factory;
     BOOL allowTearing = FALSE;
-    if ( SUCCEEDED( CreateDXGIFactory1( IID_PPV_ARGS( &factory ) ) ) )
+    if ( SUCCEEDED( CreateDXGIFactory1( IID_PPV_ARGS( factory.GetAddressOf() ) ) ) )
     {
         if ( FAILED( factory->CheckFeatureSupport( DXGI_FEATURE_PRESENT_ALLOW_TEARING,
                                                    &allowTearing,
@@ -85,7 +87,6 @@ static bool CheckDxgiTearingSupport()
         {
             allowTearing = FALSE;
         }
-        factory->Release();
     }
     return allowTearing == TRUE;
 }
@@ -303,29 +304,27 @@ bool RenderBackendDX11::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
 
 #ifdef _DEBUG
     // Configure ID3D11InfoQueue for debug message filtering
-    ID3D11InfoQueue* infoQueue = nullptr;
-    if ( SUCCEEDED( m_device->QueryInterface( __uuidof( ID3D11InfoQueue ), (void**)&infoQueue ) ) )
+    ComPtr<ID3D11InfoQueue> infoQueue;
+    if ( SUCCEEDED( m_device->QueryInterface( IID_PPV_ARGS( infoQueue.GetAddressOf() ) ) ) )
     {
         infoQueue->SetBreakOnSeverity( D3D11_MESSAGE_SEVERITY_CORRUPTION, TRUE );
         infoQueue->SetBreakOnSeverity( D3D11_MESSAGE_SEVERITY_ERROR, TRUE );
-        infoQueue->Release();
     }
 #endif
 
     // Create back buffer RTV
-    ID3D11Texture2D* backBuffer = nullptr;
+    ComPtr<ID3D11Texture2D> backBuffer;
 
     // Retrieve the back buffer texture from the swap chain. GetBuffer(0) returns the current
     // back buffer that we'll render into. The swap chain owns this texture; we just get a pointer.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-getbuffer
-    hr = m_swapChain->GetBuffer( 0, __uuidof( ID3D11Texture2D ), (void**)&backBuffer );
+    hr = m_swapChain->GetBuffer( 0, IID_PPV_ARGS( backBuffer.GetAddressOf() ) );
     ThrowIfFailed( hr, "SwapChain::GetBuffer failed" );
 
     // Create a Render Target View for the back buffer texture. This RTV is what we bind to the
     // Output Merger so draw calls write their pixels into the back buffer (which gets displayed).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createrendertargetview
-    hr = m_device->CreateRenderTargetView( backBuffer, nullptr, &m_backBufferRTV );
-    backBuffer->Release();
+    hr = m_device->CreateRenderTargetView( backBuffer.Get(), nullptr, &m_backBufferRTV );
     ThrowIfFailed( hr, "CreateRenderTargetView failed" );
 
     // Create depth stencil
@@ -738,15 +737,14 @@ void RenderBackendDX11::Resize( int width, int height )
     ThrowIfFailed( hr, "IDXGISwapChain::ResizeBuffers failed" );
 
     // Recreate back buffer RTV
-    ID3D11Texture2D* backBuffer = nullptr;
+    ComPtr<ID3D11Texture2D> backBuffer;
 
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-getbuffer
-    hr = m_swapChain->GetBuffer( 0, __uuidof( ID3D11Texture2D ), (void**)&backBuffer );
+    hr = m_swapChain->GetBuffer( 0, IID_PPV_ARGS( backBuffer.GetAddressOf() ) );
     ThrowIfFailed( hr, "SwapChain::GetBuffer failed (resize)" );
 
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createrendertargetview
-    hr = m_device->CreateRenderTargetView( backBuffer, nullptr, &m_backBufferRTV );
-    backBuffer->Release();
+    hr = m_device->CreateRenderTargetView( backBuffer.Get(), nullptr, &m_backBufferRTV );
     ThrowIfFailed( hr, "CreateRenderTargetView failed (resize)" );
 
     // Recreate depth stencil at new size
@@ -1209,10 +1207,10 @@ std::vector<uint8_t> RenderBackendDX11::CaptureBackbuffer( int& outWidth, int& o
     outHeight = m_height;
 
     // Get back buffer
-    ID3D11Texture2D* backBuffer = nullptr;
+    ComPtr<ID3D11Texture2D> backBuffer;
 
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-getbuffer
-    HRESULT hr = m_swapChain->GetBuffer( 0, __uuidof( ID3D11Texture2D ), (void**)&backBuffer );
+    HRESULT hr = m_swapChain->GetBuffer( 0, IID_PPV_ARGS( backBuffer.GetAddressOf() ) );
     ThrowIfFailed( hr, "GetBuffer failed (capture)" );
 
     // Create or reuse staging texture
@@ -1237,7 +1235,6 @@ std::vector<uint8_t> RenderBackendDX11::CaptureBackbuffer( int& outWidth, int& o
         hr = m_device->CreateTexture2D( &desc, nullptr, &m_captureState.stagingTex );
         if ( FAILED( hr ) )
         {
-            backBuffer->Release();
             throw std::runtime_error( "CreateTexture2D (staging) failed" );
         }
         m_captureState.stagingWidth = m_width;
@@ -1248,8 +1245,7 @@ std::vector<uint8_t> RenderBackendDX11::CaptureBackbuffer( int& outWidth, int& o
     // that moves pixel data from one texture to another (here: from VRAM to CPU-readable memory).
     // This must complete before we can Map the staging texture.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-copyresource
-    m_context->CopyResource( m_captureState.stagingTex, backBuffer );
-    backBuffer->Release();
+    m_context->CopyResource( m_captureState.stagingTex, backBuffer.Get() );
 
     // Map the staging texture to get a CPU pointer to the pixel data. D3D11_MAP_READ gives
     // read-only access to the GPU-copied data. After this call, mapped.pData points to the

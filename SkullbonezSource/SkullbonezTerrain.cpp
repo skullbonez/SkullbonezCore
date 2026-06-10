@@ -2,10 +2,31 @@
 #include "SkullbonezTerrain.h"
 #include "SkullbonezIRenderBackend.h"
 
+#include <memory>
+
 
 // --- Usings ---
 using namespace SkullbonezCore::Geometry;
 using namespace SkullbonezCore::Math;
+using namespace SkullbonezCore::Math::Vector;
+using namespace SkullbonezCore::Math::Transformation;
+using namespace SkullbonezCore::Rendering;
+
+namespace
+{
+struct FileCloser
+{
+    void operator()( FILE* file ) const
+    {
+        if ( file )
+        {
+            fclose( file );
+        }
+    }
+};
+
+using FileHandle = std::unique_ptr<FILE, FileCloser>;
+} // namespace
 
 
 Terrain::Terrain( const char* sFileName,
@@ -290,26 +311,24 @@ int Terrain::GetPixelHeightAt( int xCoord, int yCoord )
 
 void Terrain::LoadTerrainData( const char* sFileName )
 {
-    FILE* pRawFile = nullptr;
-    fopen_s( &pRawFile, sFileName, "rb" );
+    FILE* rawFile = nullptr;
+    fopen_s( &rawFile, sFileName, "rb" );
 
-    if ( !pRawFile )
+    if ( !rawFile )
     {
         throw std::runtime_error( "Height map file not found.  (Terrain::LoadTerrain)" );
     }
+    FileHandle file( rawFile );
 
     m_terrainData.resize( m_mapSize * m_mapSize );
 
-    fread( m_terrainData.data(), 1, m_terrainData.size(), pRawFile );
+    fread( m_terrainData.data(), 1, m_terrainData.size(), file.get() );
 
-    if ( ferror( pRawFile ) )
+    if ( ferror( file.get() ) )
     {
-        fclose( pRawFile );
         m_terrainData.clear();
         throw std::runtime_error( "Failed to read m_height map.  (Terrain::LoadTerrain)" );
     }
-
-    fclose( pRawFile );
 }
 
 

@@ -5,6 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <wrl/client.h>
 
 #pragma comment( lib, "d3dcompiler.lib" )
 #pragma comment( lib, "dxguid.lib" )
@@ -14,6 +15,7 @@
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
+using Microsoft::WRL::ComPtr;
 
 
 ShaderDX11::ShaderDX11( ID3D11Device* device, ID3D11DeviceContext* context )
@@ -53,8 +55,8 @@ bool ShaderDX11::Compile( const char* hlslPath )
     std::string source = ss.str();
 
     // Compile vertex ShaderGL
-    ID3DBlob* vsBlob = nullptr;
-    ID3DBlob* errBlob = nullptr;
+    ComPtr<ID3DBlob> vsBlob;
+    ComPtr<ID3DBlob> errBlob;
     UINT compileFlags = D3DCOMPILE_ENABLE_STRICTNESS;
 #ifndef _DEBUG
     compileFlags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
@@ -72,24 +74,17 @@ bool ShaderDX11::Compile( const char* hlslPath )
                              "vs_5_0",
                              compileFlags,
                              0,
-                             &vsBlob,
-                             &errBlob );
+                             vsBlob.GetAddressOf(),
+                             errBlob.GetAddressOf() );
     if ( FAILED( hr ) )
     {
-        std::string err = errBlob ? (const char*)errBlob->GetBufferPointer() : "Unknown error";
-        if ( errBlob )
-        {
-            errBlob->Release();
-        }
+        std::string err = errBlob ? static_cast<const char*>( errBlob->GetBufferPointer() ) : "Unknown error";
         throw std::runtime_error( "VS compile failed: " + err );
     }
-    if ( errBlob )
-    {
-        errBlob->Release();
-    }
+    errBlob.Reset();
 
-    m_vsBytecode.assign( (uint8_t*)vsBlob->GetBufferPointer(),
-                         (uint8_t*)vsBlob->GetBufferPointer() + vsBlob->GetBufferSize() );
+    m_vsBytecode.assign( static_cast<uint8_t*>( vsBlob->GetBufferPointer() ),
+                         static_cast<uint8_t*>( vsBlob->GetBufferPointer() ) + vsBlob->GetBufferSize() );
 
     // Create a vertex shader object from compiled bytecode. The Device (GPU abstraction) takes the
     // bytecode blob and produces a shader object that can be bound to the pipeline. The bytecode
@@ -98,12 +93,11 @@ bool ShaderDX11::Compile( const char* hlslPath )
     hr = m_device->CreateVertexShader( vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &m_vs );
     if ( FAILED( hr ) )
     {
-        vsBlob->Release();
         throw std::runtime_error( "CreateVertexShader failed" );
     }
 
     // Reflect VS to build uniform map
-    ID3D11ShaderReflection* reflection = nullptr;
+    ComPtr<ID3D11ShaderReflection> reflection;
     // Use D3DReflect to inspect the compiled vertex shader bytecode. Reflection lets us discover
     // constant buffer layouts (names, offsets, sizes of variables) at runtime without hardcoding
     // them. This builds our uniform map so SetFloat/SetMat4/etc. know where to write data.
@@ -111,7 +105,7 @@ bool ShaderDX11::Compile( const char* hlslPath )
     hr = D3DReflect( vsBlob->GetBufferPointer(),
                      vsBlob->GetBufferSize(),
                      IID_ID3D11ShaderReflection,
-                     (void**)&reflection );
+                     reinterpret_cast<void**>( reflection.GetAddressOf() ) );
     if ( SUCCEEDED( hr ) )
     {
         D3D11_SHADER_DESC shaderDesc;
@@ -136,13 +130,11 @@ bool ShaderDX11::Compile( const char* hlslPath )
                 m_uniformMap[varDesc.Name] = { varDesc.StartOffset, varDesc.Size };
             }
         }
-        reflection->Release();
     }
-    vsBlob->Release();
 
     // Compile pixel ShaderGL
-    ID3DBlob* psBlob = nullptr;
-    errBlob = nullptr;
+    ComPtr<ID3DBlob> psBlob;
+    errBlob.Reset();
     // Compile the pixel (fragment) shader from the same HLSL file. The entry point is "main_ps"
     // targeting "ps_5_0" (Pixel Shader Model 5.0). The pixel shader runs once per pixel-fragment
     // and determines the final color output for each covered pixel.
@@ -156,31 +148,24 @@ bool ShaderDX11::Compile( const char* hlslPath )
                      "ps_5_0",
                      compileFlags,
                      0,
-                     &psBlob,
-                     &errBlob );
+                     psBlob.GetAddressOf(),
+                     errBlob.GetAddressOf() );
     if ( FAILED( hr ) )
     {
-        std::string err = errBlob ? (const char*)errBlob->GetBufferPointer() : "Unknown error";
-        if ( errBlob )
-        {
-            errBlob->Release();
-        }
+        std::string err = errBlob ? static_cast<const char*>( errBlob->GetBufferPointer() ) : "Unknown error";
         throw std::runtime_error( "PS compile failed: " + err );
     }
-    if ( errBlob )
-    {
-        errBlob->Release();
-    }
+    errBlob.Reset();
 
     // Also reflect PS to capture PS-only uniforms
-    reflection = nullptr;
+    reflection.Reset();
     // Reflect the pixel shader to discover any constant buffer variables that are only referenced
     // by the pixel shader (not the vertex shader). Merges them into our shared uniform map.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dreflect
     hr = D3DReflect( psBlob->GetBufferPointer(),
                      psBlob->GetBufferSize(),
                      IID_ID3D11ShaderReflection,
-                     (void**)&reflection );
+                     reinterpret_cast<void**>( reflection.GetAddressOf() ) );
     if ( SUCCEEDED( hr ) )
     {
         D3D11_SHADER_DESC shaderDesc;
@@ -208,14 +193,12 @@ bool ShaderDX11::Compile( const char* hlslPath )
                 }
             }
         }
-        reflection->Release();
     }
 
     // Create a pixel shader object from the compiled bytecode. Similar to CreateVertexShader but
     // for the pixel/fragment stage of the pipeline.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createpixelshader
     hr = m_device->CreatePixelShader( psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &m_ps );
-    psBlob->Release();
     if ( FAILED( hr ) )
     {
         throw std::runtime_error( "CreatePixelShader failed" );

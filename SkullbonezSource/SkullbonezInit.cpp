@@ -16,6 +16,7 @@
 #include <cstring>
 #include <cstdarg>
 #include <cstdint>
+#include <fstream>
 #include <vector>
 #include <string>
 #include <io.h>
@@ -32,6 +33,7 @@ using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
+using namespace SkullbonezCore::Physics;
 
 
 namespace
@@ -507,6 +509,13 @@ enum class RendererType
     DX12
 };
 
+struct RendererOption
+{
+    const char* name;
+    const char* alias;
+    RendererType type;
+};
+
 struct ParsedArgs
 {
     std::vector<std::string> sceneList;
@@ -557,9 +566,66 @@ struct CliFlagDirective
     const char* message;
 };
 
+struct CliValueDirective
+{
+    const char* name;
+    const char* alias;
+    bool ( *apply )( const char* value, ParsedArgs& args );
+};
+
+struct PhysicsDebugComponentDirective
+{
+    const char* dashedName;
+    const char* underscoredName;
+    uint32_t flag;
+};
+
+struct PhysicsDebugFloatDirective
+{
+    const char* dashedName;
+    const char* underscoredName;
+    bool ParsedArgs::* hasOverride;
+    float ParsedArgs::* value;
+    float minValue;
+    float maxValue;
+    const char* errorMessage;
+    bool enableTransparentBodies;
+};
+
+struct GeneratedObjectOverrideDirective
+{
+    const char* optionName;
+    GeneratedObjectTypeOverride objectType;
+    const char* message;
+};
+
 bool HasFlagDirective( const CommandLineView& commandLine, const CliFlagDirective& directive )
 {
     return HasOption( commandLine, directive.name ) || ( directive.alias && HasOption( commandLine, directive.alias ) );
+}
+
+const char* FindValueDirective( const CommandLineView& commandLine, const CliValueDirective& directive )
+{
+    const char* value = FindOptionValue( commandLine, directive.name );
+    if ( value || !directive.alias )
+    {
+        return value;
+    }
+    return FindOptionValue( commandLine, directive.alias );
+}
+
+template <size_t N>
+bool ApplyCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out, const CliValueDirective ( &directives )[N] )
+{
+    for ( const CliValueDirective& directive : directives )
+    {
+        const char* value = FindValueDirective( commandLine, directive );
+        if ( value && !directive.apply( value, out ) )
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out )
@@ -712,6 +778,30 @@ bool ApplyPhysicsDebugComponentOverride( const CommandLineView& commandLine, con
     return true;
 }
 
+bool ApplyPhysicsDebugFloatOverride( const CommandLineView& commandLine, const PhysicsDebugFloatDirective& directive, ParsedArgs& out )
+{
+    const char* value = FindOptionValue( commandLine, directive.dashedName, directive.underscoredName );
+    if ( !value )
+    {
+        return true;
+    }
+
+    float parsed = 0.0f;
+    if ( !ParseFloatToken( value, parsed ) || parsed < directive.minValue || parsed > directive.maxValue )
+    {
+        return FailCommandLineParse( directive.errorMessage );
+    }
+
+    out.*( directive.hasOverride ) = true;
+    out.*( directive.value ) = parsed;
+    if ( directive.enableTransparentBodies && !out.hasPhysicsDebugTransparentOverride )
+    {
+        out.hasPhysicsDebugTransparentOverride = true;
+        out.physicsDebugTransparentOverride = true;
+    }
+    return true;
+}
+
 bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs& out )
 {
     const char* modeValue = FindOptionValue( commandLine, "--physics-debug", "--physics_debug" );
@@ -724,12 +814,18 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
         out.hasPhysicsDebugFlagsOverride = true;
     }
 
-    if ( !ApplyPhysicsDebugComponentOverride( commandLine, "--physics-debug-axes", "--physics_debug_axes", PHYSICS_DEBUG_AXES, out ) ||
-         !ApplyPhysicsDebugComponentOverride( commandLine, "--physics-debug-contacts", "--physics_debug_contacts", PHYSICS_DEBUG_CONTACTS, out ) ||
-         !ApplyPhysicsDebugComponentOverride( commandLine, "--physics-debug-sleep", "--physics_debug_sleep", PHYSICS_DEBUG_SLEEP, out ) ||
-         !ApplyPhysicsDebugComponentOverride( commandLine, "--physics-debug-pipeline", "--physics_debug_pipeline", PHYSICS_DEBUG_PIPELINE, out ) )
+    static const PhysicsDebugComponentDirective kComponentOverrides[] = {
+        { "--physics-debug-axes", "--physics_debug_axes", PHYSICS_DEBUG_AXES },
+        { "--physics-debug-contacts", "--physics_debug_contacts", PHYSICS_DEBUG_CONTACTS },
+        { "--physics-debug-sleep", "--physics_debug_sleep", PHYSICS_DEBUG_SLEEP },
+        { "--physics-debug-pipeline", "--physics_debug_pipeline", PHYSICS_DEBUG_PIPELINE },
+    };
+    for ( const PhysicsDebugComponentDirective& component : kComponentOverrides )
     {
-        return false;
+        if ( !ApplyPhysicsDebugComponentOverride( commandLine, component.dashedName, component.underscoredName, component.flag, out ) )
+        {
+            return false;
+        }
     }
 
     const char* transparentValue = FindOptionValue( commandLine, "--physics-debug-transparent", "--physics_debug_transparent" );
@@ -742,41 +838,16 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
         out.hasPhysicsDebugTransparentOverride = true;
     }
 
-    const char* alphaValue = FindOptionValue( commandLine, "--physics-debug-alpha", "--physics_debug_alpha" );
-    if ( alphaValue )
+    static const PhysicsDebugFloatDirective kFloatOverrides[] = {
+        { "--physics-debug-alpha", "--physics_debug_alpha", &ParsedArgs::hasPhysicsDebugAlphaOverride, &ParsedArgs::physicsDebugAlphaOverride, 0.05f, 1.0f, "--physics-debug-alpha expects 0.05..1.0.", true },
+        { "--physics-debug-contact-linger", "--physics_debug_contact_linger", &ParsedArgs::hasPhysicsDebugContactLingerOverride, &ParsedArgs::physicsDebugContactLingerOverride, 0.0f, 5.0f, "--physics-debug-contact-linger expects 0.0..5.0 seconds.", false },
+    };
+    for ( const PhysicsDebugFloatDirective& directive : kFloatOverrides )
     {
-        float alpha = 0.0f;
-        if ( !ParseFloatToken( alphaValue, alpha ) )
+        if ( !ApplyPhysicsDebugFloatOverride( commandLine, directive, out ) )
         {
-            return FailCommandLineParse( "--physics-debug-alpha expects 0.05..1.0." );
+            return false;
         }
-        if ( alpha < 0.05f || alpha > 1.0f )
-        {
-            return FailCommandLineParse( "--physics-debug-alpha expects 0.05..1.0." );
-        }
-        out.hasPhysicsDebugAlphaOverride = true;
-        out.physicsDebugAlphaOverride = alpha;
-        if ( !out.hasPhysicsDebugTransparentOverride )
-        {
-            out.hasPhysicsDebugTransparentOverride = true;
-            out.physicsDebugTransparentOverride = true;
-        }
-    }
-
-    const char* lingerValue = FindOptionValue( commandLine, "--physics-debug-contact-linger", "--physics_debug_contact_linger" );
-    if ( lingerValue )
-    {
-        float linger = 0.0f;
-        if ( !ParseFloatToken( lingerValue, linger ) )
-        {
-            return FailCommandLineParse( "--physics-debug-contact-linger expects 0.0..5.0 seconds." );
-        }
-        if ( linger < 0.0f || linger > 5.0f )
-        {
-            return FailCommandLineParse( "--physics-debug-contact-linger expects 0.0..5.0 seconds." );
-        }
-        out.hasPhysicsDebugContactLingerOverride = true;
-        out.physicsDebugContactLingerOverride = linger;
     }
 
     if ( out.hasPhysicsDebugFlagsOverride )
@@ -822,23 +893,21 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
         std::string suitePath( suiteArg );
 
         // Read suite file: one scene path per line, # comments ignored
-        FILE* f = nullptr;
-        if ( fopen_s( &f, suitePath.c_str(), "r" ) == 0 && f )
+        std::ifstream suiteFile( suitePath );
+        if ( suiteFile )
         {
-            char line[512];
-            while ( fgets( line, sizeof( line ), f ) )
+            std::string line;
+            while ( std::getline( suiteFile, line ) )
             {
-                size_t len = strlen( line );
-                while ( len > 0 && ( line[len - 1] == '\r' || line[len - 1] == '\n' || line[len - 1] == ' ' ) )
+                while ( !line.empty() && ( line.back() == '\r' || line.back() == ' ' ) )
                 {
-                    line[--len] = '\0';
+                    line.pop_back();
                 }
-                if ( len > 0 && line[0] != '#' )
+                if ( !line.empty() && line[0] != '#' )
                 {
                     sceneList.push_back( line );
                 }
             }
-            fclose( f );
         }
         else
         {
@@ -872,6 +941,12 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
 
 bool ParseRendererArg( const CommandLineView& commandLine, RendererType& out )
 {
+    static const RendererOption kRenderers[] = {
+        { "gl", "opengl", RendererType::OpenGL },
+        { "dx11", "d3d11", RendererType::DX11 },
+        { "dx12", "d3d12", RendererType::DX12 },
+    };
+
     const char* rendererArg = FindOptionValue( commandLine, "--renderer" );
     if ( !rendererArg )
     {
@@ -884,21 +959,16 @@ bool ParseRendererArg( const CommandLineView& commandLine, RendererType& out )
         return FailCommandLineParse( "--renderer expects gl|dx11|dx12." );
     }
 
-    if ( _stricmp( rendererArg, "dx12" ) == 0 || _stricmp( rendererArg, "d3d12" ) == 0 )
+    for ( const RendererOption& renderer : kRenderers )
     {
-        out = RendererType::DX12;
-        return true;
+        if ( _stricmp( rendererArg, renderer.name ) == 0 ||
+             ( renderer.alias && _stricmp( rendererArg, renderer.alias ) == 0 ) )
+        {
+            out = renderer.type;
+            return true;
+        }
     }
-    if ( _stricmp( rendererArg, "dx11" ) == 0 || _stricmp( rendererArg, "d3d11" ) == 0 )
-    {
-        out = RendererType::DX11;
-        return true;
-    }
-    if ( _stricmp( rendererArg, "gl" ) == 0 || _stricmp( rendererArg, "opengl" ) == 0 )
-    {
-        out = RendererType::OpenGL;
-        return true;
-    }
+
     return FailCommandLineParse( "--renderer expects gl|dx11|dx12." );
 }
 
@@ -922,22 +992,155 @@ bool ApplyVsyncOverride( const CommandLineView& commandLine )
     return true;
 }
 
-bool ParseSwitchInterval( const CommandLineView& commandLine, float& out )
+bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out )
 {
-    const char* switchArg = FindOptionValue( commandLine, "--switch-interval" );
-    if ( !switchArg )
+    static const CliValueDirective kValues[] = {
+        { "--switch-interval", nullptr, []( const char* value, ParsedArgs& args ) -> bool
+          {
+              float interval = 0.0f;
+              if ( !ParseFloatToken( value, interval ) || interval <= 0.0f )
+              {
+                  return FailCommandLineParse( "--switch-interval expects a positive float." );
+              }
+              args.switchInterval = interval;
+              return true;
+          } },
+        { "--time-scale", nullptr, []( const char* value, ParsedArgs& args ) -> bool
+          {
+              float timeScale = 0.0f;
+              if ( !ParseFloatToken( value, timeScale ) || timeScale <= 0.0f )
+              {
+                  return FailCommandLineParse( "--time-scale expects a positive float." );
+              }
+              args.timeScaleOverride = timeScale;
+              fprintf( stdout, "[time-scale] Override: %.4f\n", timeScale );
+              return true;
+          } },
+        { "--cinematic", "--cinematic-rendering", []( const char* value, ParsedArgs& args ) -> bool
+          {
+              bool enabled = false;
+              if ( !ParseOptionalOnOffValue( value, enabled ) )
+              {
+                  return FailCommandLineParse( "--cinematic expects optional on|off." );
+              }
+              args.hasCinematicRenderingOverride = true;
+              args.cinematicRendering = enabled;
+              fprintf( stdout, "[cinematic] Rendering %s via command line.\n", enabled ? "enabled" : "disabled" );
+              return true;
+          } },
+        { "--interactive", "--hold", []( const char* value, ParsedArgs& args ) -> bool
+          {
+              bool enabled = false;
+              if ( !ParseOptionalOnOffValue( value, enabled ) )
+              {
+                  return FailCommandLineParse( "--interactive expects optional on|off." );
+              }
+              args.interactiveRun = enabled;
+              args.suppressExitDialog = args.suppressExitDialog || enabled;
+              if ( enabled )
+              {
+                  fprintf( stdout, "[scene] Interactive hold enabled; scene automation will not quit the app.\n" );
+              }
+              return true;
+          } },
+    };
+
+    out.switchInterval = -1.0f;
+    return ApplyCliValueDirectives( commandLine, out, kValues );
+}
+
+bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out )
+{
+    static const CliValueDirective kValues[] = {
+        { "--seed", nullptr, []( const char* value, ParsedArgs& args ) -> bool
+          {
+              unsigned int seed = 0;
+              if ( !ParseUnsignedIntToken( value, seed ) || seed == 0 )
+              {
+                  return FailCommandLineParse( "--seed expects a positive 32-bit integer." );
+              }
+              args.seedOverride = seed;
+              fprintf( stdout, "[seed] Override: %u\n", args.seedOverride );
+              return true;
+          } },
+        { "--frames", nullptr, []( const char* value, ParsedArgs& args ) -> bool
+          {
+              int frames = 0;
+              if ( !ParseIntToken( value, frames ) || frames <= 0 )
+              {
+                  return FailCommandLineParse( "--frames expects a positive integer." );
+              }
+              args.frameCountOverride = frames;
+              args.suppressExitDialog = true;
+              fprintf( stdout, "[frames] Exit after %d frames.\n", args.frameCountOverride );
+              return true;
+          } },
+        { "--ui-stress", "--ui_stress", []( const char* value, ParsedArgs& args ) -> bool
+          {
+              bool enabled = false;
+              if ( !ParseOptionalOnOffValue( value, enabled ) )
+              {
+                  return FailCommandLineParse( "--ui-stress expects optional on|off." );
+              }
+              args.uiStress = enabled;
+              args.suppressExitDialog = args.suppressExitDialog || enabled;
+              return true;
+          } },
+        { "--ui-stress-seed", "--ui_stress_seed", []( const char* value, ParsedArgs& args ) -> bool
+          {
+              unsigned int seed = 0;
+              if ( !ParseUnsignedIntToken( value, seed ) || seed == 0 )
+              {
+                  return FailCommandLineParse( "--ui-stress-seed expects a positive 32-bit integer." );
+              }
+              args.uiStress = true;
+              args.uiStressSeed = seed;
+              args.suppressExitDialog = true;
+              return true;
+          } },
+        { "--ui-stress-actions", "--ui_stress_actions", []( const char* value, ParsedArgs& args ) -> bool
+          {
+              int actions = 0;
+              if ( !ParseIntToken( value, actions ) || actions <= 0 || actions > 32 )
+              {
+                  return FailCommandLineParse( "--ui-stress-actions expects 1..32." );
+              }
+              args.uiStress = true;
+              args.uiStressActions = actions;
+              args.suppressExitDialog = true;
+              return true;
+          } },
+    };
+
+    return ApplyCliValueDirectives( commandLine, out, kValues );
+}
+
+bool ApplyGeneratedObjectOverride( const CommandLineView& commandLine, ParsedArgs& out )
+{
+    static const GeneratedObjectOverrideDirective kOverrides[] = {
+        { "--all-balls", GeneratedObjectTypeOverride::AllBalls, "[objects] Generated objects forced to balls." },
+        { "--all-boxes", GeneratedObjectTypeOverride::AllBoxes, "[objects] Generated objects forced to boxes." },
+    };
+
+    const GeneratedObjectOverrideDirective* selected = nullptr;
+    for ( const GeneratedObjectOverrideDirective& directive : kOverrides )
     {
-        out = -1.0f;
-        return true;
+        if ( !HasOption( commandLine, directive.optionName ) )
+        {
+            continue;
+        }
+        if ( selected )
+        {
+            return FailCommandLineParse( "--all-balls and --all-boxes are mutually exclusive." );
+        }
+        selected = &directive;
     }
 
-    float interval = 0.0f;
-    if ( !ParseFloatToken( switchArg, interval ) || interval <= 0.0f )
+    if ( selected )
     {
-        return FailCommandLineParse( "--switch-interval expects a positive float." );
+        out.objectTypeOverride = selected->objectType;
+        fprintf( stdout, "%s\n", selected->message );
     }
-
-    out = interval;
     return true;
 }
 
@@ -1097,51 +1300,9 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
     out.physicsDiagnosticsRequested = out.physicsDiagnosticsPath[0] != '\0';
 #endif
 
-    if ( !ParseSwitchInterval( commandLine, out.switchInterval ) )
+    if ( !ApplyStartupCliValueDirectives( commandLine, out ) )
     {
         return false;
-    }
-
-    // --time-scale <F>: positive float, 0 = not set
-    const char* tsArg = FindOptionValue( commandLine, "--time-scale" );
-    if ( tsArg )
-    {
-        float ts = 0.0f;
-        if ( !ParseFloatToken( tsArg, ts ) || ts <= 0.0f )
-        {
-            return FailCommandLineParse( "--time-scale expects a positive float." );
-        }
-        out.timeScaleOverride = ts;
-        fprintf( stdout, "[time-scale] Override: %.4f\n", ts );
-    }
-
-    const char* cinematicArg = FindOptionValue( commandLine, "--cinematic", "--cinematic-rendering" );
-    if ( cinematicArg )
-    {
-        bool enabled = false;
-        if ( !ParseOptionalOnOffValue( cinematicArg, enabled ) )
-        {
-            return FailCommandLineParse( "--cinematic expects optional on|off." );
-        }
-        out.hasCinematicRenderingOverride = true;
-        out.cinematicRendering = enabled;
-        fprintf( stdout, "[cinematic] Rendering %s via command line.\n", enabled ? "enabled" : "disabled" );
-    }
-
-    const char* interactiveArg = FindOptionValue( commandLine, "--interactive", "--hold" );
-    if ( interactiveArg )
-    {
-        bool enabled = false;
-        if ( !ParseOptionalOnOffValue( interactiveArg, enabled ) )
-        {
-            return FailCommandLineParse( "--interactive expects optional on|off." );
-        }
-        out.interactiveRun = enabled;
-        out.suppressExitDialog = out.suppressExitDialog || enabled;
-        if ( enabled )
-        {
-            fprintf( stdout, "[scene] Interactive hold enabled; scene automation will not quit the app.\n" );
-        }
     }
 
     ApplyCliFlagDirectives( commandLine, out );
@@ -1163,68 +1324,9 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
     }
 #endif
 
-    // --seed <N>: positive unsigned integer, 0 = not set.
-    const char* seedArg = FindOptionValue( commandLine, "--seed" );
-    if ( seedArg )
+    if ( !ApplyRunCliValueDirectives( commandLine, out ) )
     {
-        unsigned int seed = 0;
-        if ( !ParseUnsignedIntToken( seedArg, seed ) || seed == 0 )
-        {
-            return FailCommandLineParse( "--seed expects a positive 32-bit integer." );
-        }
-        out.seedOverride = seed;
-        fprintf( stdout, "[seed] Override: %u\n", out.seedOverride );
-    }
-
-    const char* framesArg = FindOptionValue( commandLine, "--frames" );
-    if ( framesArg )
-    {
-        int frames = 0;
-        if ( !ParseIntToken( framesArg, frames ) || frames <= 0 )
-        {
-            return FailCommandLineParse( "--frames expects a positive integer." );
-        }
-        out.frameCountOverride = frames;
-        out.suppressExitDialog = true;
-        fprintf( stdout, "[frames] Exit after %d frames.\n", out.frameCountOverride );
-    }
-
-    const char* uiStressArg = FindOptionValue( commandLine, "--ui-stress", "--ui_stress" );
-    if ( uiStressArg )
-    {
-        bool enabled = false;
-        if ( !ParseOptionalOnOffValue( uiStressArg, enabled ) )
-        {
-            return FailCommandLineParse( "--ui-stress expects optional on|off." );
-        }
-        out.uiStress = enabled;
-        out.suppressExitDialog = out.suppressExitDialog || enabled;
-    }
-
-    const char* uiStressSeedArg = FindOptionValue( commandLine, "--ui-stress-seed", "--ui_stress_seed" );
-    if ( uiStressSeedArg )
-    {
-        unsigned int seed = 0;
-        if ( !ParseUnsignedIntToken( uiStressSeedArg, seed ) || seed == 0 )
-        {
-            return FailCommandLineParse( "--ui-stress-seed expects a positive 32-bit integer." );
-        }
-        out.uiStress = true;
-        out.uiStressSeed = seed;
-        out.suppressExitDialog = true;
-    }
-
-    const char* uiStressActionsArg = FindOptionValue( commandLine, "--ui-stress-actions", "--ui_stress_actions" );
-    if ( uiStressActionsArg )
-    {
-        int actions = 0;
-        if ( !ParseIntToken( uiStressActionsArg, actions ) || actions <= 0 || actions > 32 )
-        {
-            return FailCommandLineParse( "--ui-stress-actions expects 1..32." );
-        }
-        out.uiStress = true;
-        out.uiStressActions = actions;
-        out.suppressExitDialog = true;
+        return false;
     }
 
     if ( out.uiStress )
@@ -1232,21 +1334,9 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
         fprintf( stdout, "[ui-stress] Enabled seed=%u actions=%d.\n", out.uiStressSeed, out.uiStressActions );
     }
 
-    const bool allBalls = HasOption( commandLine, "--all-balls" );
-    const bool allBoxes = HasOption( commandLine, "--all-boxes" );
-    if ( allBalls && allBoxes )
+    if ( !ApplyGeneratedObjectOverride( commandLine, out ) )
     {
-        return FailCommandLineParse( "--all-balls and --all-boxes are mutually exclusive." );
-    }
-    if ( allBalls )
-    {
-        out.objectTypeOverride = GeneratedObjectTypeOverride::AllBalls;
-        fprintf( stdout, "[objects] Generated objects forced to balls.\n" );
-    }
-    else if ( allBoxes )
-    {
-        out.objectTypeOverride = GeneratedObjectTypeOverride::AllBoxes;
-        fprintf( stdout, "[objects] Generated objects forced to boxes.\n" );
+        return false;
     }
 
     if ( !ParsePhysicsDebugOverrides( commandLine, out ) )

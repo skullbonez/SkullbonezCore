@@ -6,12 +6,6 @@
 #include "SkullbonezVector3.h"
 #include "SkullbonezRotationMatrix.h"
 
-
-// --- Usings ---
-using namespace SkullbonezCore::Math::Vector;
-using namespace SkullbonezCore::Math::Transformation;
-
-
 namespace SkullbonezCore
 {
 namespace Math
@@ -31,9 +25,9 @@ class Quaternion
     ~Quaternion() = default;
     void Identity();                                                       // Sets the quaternion back to the identity value
     void Normalise();                                                      // Normalises the quaternion (do this to combat floating point error creep)
-    void RotateAboutXYZ( const Vector3& vRadians );                        // Overload taking an angular-displacement vector in radians
-    void RotateAboutAxis( const Vector3& axis, float angle );              // Rotate by angle radians about an arbitrary world-space axis (no Euler decomposition)
-    RotationMatrix GetOrientationMatrix();                                 // Returns the orientation expressed in matrix form
+    void RotateAboutXYZ( const Vector::Vector3& vRadians );                // Overload taking an angular-displacement vector in radians
+    void RotateAboutAxis( const Vector::Vector3& axis, float angle );      // Rotate by angle radians about an arbitrary world-space axis (no Euler decomposition)
+    Transformation::RotationMatrix GetOrientationMatrix();                 // Returns the orientation expressed in matrix form
     void RotateAboutXYZ( float xRadians, float yRadians, float zRadians ); // Rotate by angular-displacement components without Euler decomposition
     Quaternion operator*( const Quaternion& q ) const;                     // Quaternion dot product, overload * operator for this
     Quaternion& operator*=( const Quaternion& q );                         // *= Overload

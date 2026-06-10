@@ -43,10 +43,13 @@
 #include <algorithm>
 #include <string>
 #include <fstream>
+#include <wrl/client.h>
 
 
 // --- Usings ---
+using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
+using Microsoft::WRL::ComPtr;
 
 
 // --- Helpers ---
@@ -640,22 +643,17 @@ void RenderBackendDX12::CreateRootSignature()
     // what data shaders can access: [0] CBV at b0 (constants), [1] SRV table at t0,
     // [2] SRV table at t1, [3] SRV table at t2, plus two static samplers.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-d3d12serializeversionedrootsignature
-    ID3DBlob* signature = nullptr;
-    ID3DBlob* error = nullptr;
-    if ( FAILED( D3D12SerializeVersionedRootSignature( &rootSigDesc, &signature, &error ) ) )
+    ComPtr<ID3DBlob> signature;
+    ComPtr<ID3DBlob> error;
+    if ( FAILED( D3D12SerializeVersionedRootSignature( &rootSigDesc, signature.GetAddressOf(), error.GetAddressOf() ) ) )
     {
         std::string msg = "Root signature serialization failed";
         if ( error )
         {
             msg += ": ";
             msg += (const char*)error->GetBufferPointer();
-            error->Release();
         }
         throw std::runtime_error( msg );
-    }
-    if ( error )
-    {
-        error->Release();
     }
 
     // Create the Root Signature object from the serialized blob. This is the "contract" between
@@ -664,10 +662,8 @@ void RenderBackendDX12::CreateRootSignature()
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrootsignature
     if ( FAILED( m_device->CreateRootSignature( 0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS( &m_rootSignature ) ) ) )
     {
-        signature->Release();
         throw std::runtime_error( "CreateRootSignature failed" );
     }
-    signature->Release();
 }
 
 
@@ -1771,24 +1767,19 @@ void RenderBackendDX12::InitGenMipsPipeline()
     compileFlags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
 #endif
 
-    ID3DBlob* csBlob = nullptr;
-    ID3DBlob* errors = nullptr;
-    HRESULT hr = D3DCompile( csSource.c_str(), csSource.size(), csPath.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "main_cs", "cs_5_0", compileFlags, 0, &csBlob, &errors );
+    ComPtr<ID3DBlob> csBlob;
+    ComPtr<ID3DBlob> errors;
+    HRESULT hr = D3DCompile( csSource.c_str(), csSource.size(), csPath.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "main_cs", "cs_5_0", compileFlags, 0, csBlob.GetAddressOf(), errors.GetAddressOf() );
     if ( FAILED( hr ) )
     {
         std::string msg = "generate_mips.hlsl CS compile failed: ";
         if ( errors )
         {
             msg += reinterpret_cast<const char*>( errors->GetBufferPointer() );
-            errors->Release();
         }
         throw std::runtime_error( msg );
     }
-    if ( errors )
-    {
-        errors->Release();
-        errors = nullptr;
-    }
+    errors.Reset();
 
     // -------------------------------------------------------------------------
     // Root signature
@@ -1849,18 +1840,13 @@ void RenderBackendDX12::InitGenMipsPipeline()
     rsDesc.Desc_1_1.pStaticSamplers = &sampler;
     rsDesc.Desc_1_1.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 
-    ID3DBlob* rsBlob = nullptr;
-    ThrowIfFailed( D3D12SerializeVersionedRootSignature( &rsDesc, &rsBlob, &errors ),
+    ComPtr<ID3DBlob> rsBlob;
+    ThrowIfFailed( D3D12SerializeVersionedRootSignature( &rsDesc, rsBlob.GetAddressOf(), errors.GetAddressOf() ),
                    "GenerateMips root signature serialization failed" );
-    if ( errors )
-    {
-        errors->Release();
-        errors = nullptr;
-    }
+    errors.Reset();
 
     ThrowIfFailed( m_device->CreateRootSignature( 0, rsBlob->GetBufferPointer(), rsBlob->GetBufferSize(), IID_PPV_ARGS( &m_genMipsRS ) ),
                    "CreateRootSignature (genMips) failed" );
-    rsBlob->Release();
 
     // -------------------------------------------------------------------------
     // Compute PSO
@@ -1871,7 +1857,6 @@ void RenderBackendDX12::InitGenMipsPipeline()
     psoDesc.CS.BytecodeLength = csBlob->GetBufferSize();
     ThrowIfFailed( m_device->CreateComputePipelineState( &psoDesc, IID_PPV_ARGS( &m_genMipsPSO ) ),
                    "CreateComputePipelineState (genMips) failed" );
-    csBlob->Release();
 
     // -------------------------------------------------------------------------
     // Null UAV descriptor — used to pad unused UAV table slots so the
@@ -2804,19 +2789,11 @@ void RenderBackendDX12::CreateRTRootSignature()
     rootSigDesc.Desc_1_1.pStaticSamplers = &samplerDesc;
     rootSigDesc.Desc_1_1.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 
-    ID3DBlob* signature = nullptr;
-    ID3DBlob* error = nullptr;
-    if ( FAILED( D3D12SerializeVersionedRootSignature( &rootSigDesc, &signature, &error ) ) )
+    ComPtr<ID3DBlob> signature;
+    ComPtr<ID3DBlob> error;
+    if ( FAILED( D3D12SerializeVersionedRootSignature( &rootSigDesc, signature.GetAddressOf(), error.GetAddressOf() ) ) )
     {
-        if ( error )
-        {
-            error->Release();
-        }
         throw std::runtime_error( "RT root signature serialization failed" );
-    }
-    if ( error )
-    {
-        error->Release();
     }
 
     // Create the DXR root signature from the serialized blob. Same concept as the raster root
@@ -2824,10 +2801,8 @@ void RenderBackendDX12::CreateRTRootSignature()
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrootsignature
     if ( FAILED( m_device->CreateRootSignature( 0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS( &m_rtRootSignature ) ) ) )
     {
-        signature->Release();
         throw std::runtime_error( "CreateRootSignature (RT) failed" );
     }
-    signature->Release();
 }
 
 

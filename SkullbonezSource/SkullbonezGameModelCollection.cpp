@@ -16,6 +16,13 @@
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Math::CollisionDetection;
+using namespace SkullbonezCore::Physics;
+using SkullbonezCore::Math::Orientation::Quaternion;
+using SkullbonezCore::Math::Transformation::Matrix4;
+using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Math::Vector::ZERO_VECTOR;
+using SkullbonezCore::Rendering::Gfx;
 namespace Vector = SkullbonezCore::Math::Vector;
 
 
@@ -2562,7 +2569,7 @@ void GameModelCollection::BuildShadowMesh()
 }
 
 
-void GameModelCollection::ResetGLResources()
+void GameModelCollection::ResetRenderResources()
 {
     m_shadowShader.reset();
     if ( m_shadowInstMesh )

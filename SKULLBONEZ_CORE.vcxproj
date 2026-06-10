@@ -137,9 +137,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="SkullbonezSource\SkullbonezAssetSystem.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezBoundingBox.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezBoundingSphere.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezCaptureSystem.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCamera.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCameraCollection.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezCollisionVisualizer.cpp" />
@@ -220,9 +222,11 @@
     <ClCompile Include="SkullbonezSource\SkullbonezSBTDX12.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="SkullbonezSource\SkullbonezAssetSystem.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingBox.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingSphere.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezCaptureSystem.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCamera.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCameraCollection.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezCollisionVisualizer.h" />

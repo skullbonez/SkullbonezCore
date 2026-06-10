@@ -2,6 +2,8 @@
 
 Date: 2026-06-02
 
+Status update: 2026-06-10
+
 Scope: current `main` worktree review of `SkullbonezSource/`, `Agentic/Reference/`, existing audits/plans, renderer interfaces, scene loading, physics, validation, and runtime architecture. This report is based on source inspection only; it does not include runtime profiling beyond the existing profiler/validation infrastructure.
 
 ## Executive Summary
@@ -17,6 +19,47 @@ The highest-leverage improvement is not another feature. It is to carve clear su
 3. Promote physics into a `PhysicsWorld` with separate body/collider/render entity data.
 4. Replace manual parser/config chains with table-driven schemas that still preserve deterministic text scenes.
 5. Add a resource/device lifetime layer so backend hot-switching is robust by construction.
+
+### 2026-06-10 Branch Scope Update
+
+This plan is now being used as the backlog for the `codex/architecture-cleanup` branch. Several items from the original pass have been partly or fully addressed since 2026-06-02, so the current branch should focus on the remaining boundaries rather than re-solving fixed work.
+
+Resolved or mostly resolved:
+
+| Area | Current status |
+|------|----------------|
+| Terrain/object solver unification | Implemented through shared persistent solver rows; see `Agentic/Plans/physics-terrain-shared-row-pipeline-plan.md`. |
+| Scene parser command dispatch | Partially implemented with directive tables in `SkullbonezTestSceneParser.cpp`; UI tab and water reflection value aliases now share a compact typed option helper. Remaining work is diagnostics, more typed helpers, and less prefix/token glue. |
+| Config and CLI parsing | Config settings are table-driven, CLI value/flag handling has directive-table footholds, renderer selection and generated-object overrides use option tables, physics debug component flags and ranged float overrides use directive tables, and suite-file scene lists use scoped file IO. Remaining parser pressure is mostly resolved-config reporting and shrinking the specialized physics/scene argument helpers. |
+| Runtime file split | `SkullbonezRun` behavior has been split across focused `.cpp` files, with capture serialization, renderer resource phases, scene-queue lookup, and scene reset snapshot/restore now behind small named helper boundaries. The runtime is still one broad facade rather than owned subsystems. |
+| Physics commentary | Core physics-facing files now have layman-oriented comments explaining collision, solver, terrain, and visualizer behavior. |
+| GL-era render resource names | Remaining runtime/helper/model/skybox/world reset methods now use backend-neutral `ResetRenderResources()` naming. |
+| Render backend capabilities | A compatibility-preserving `RenderCapabilities` query now centralizes GPU timer, DXR, debug line, instancing, capture, and dynamic-VB support checks; capture-dependent and debug-line overlay callers now honor the relevant capability boundaries. |
+| Source asset scaffold | `Assets::AssetSystem` exists as source-asset/path-resolution scaffolding and is now wired into runtime terrain/core texture path resolution; GPU resource ownership is still separate. |
+| Capture subsystem seed | Backbuffer-to-BMP serialization now lives behind `CaptureSystem`, while `SkullbonezRun::SaveScreenshot()` remains the runtime facade. |
+| File-handle and temporary-resource RAII | Config loading, GL shader source loading, terrain raw loading, scene parsing, suite-file startup parsing, nudge repro snapshot writing, text atlas IO, backbuffer capture, DX11/DX12 shader compile blobs, DX12 root-signature/generate-mips temporary blobs, and selected DX11 factory/info-queue/backbuffer temporaries now use scoped ownership rather than manual close/release paths. |
+| Header namespace cleanup | Complete for `SkullbonezSource/*.h`: broad `using namespace` imports have been removed from source headers, with implementation shorthand kept local to `.cpp` files or internal runtime glue. |
+| Renderer switch resource phases | Backend-owned release/rebuild sequences now run through an ordered resource-step table with named hooks for reflection, cinematic targets, text, models, helper caches, collision visualization, UI, textures, terrain, skybox, and world resources. This completes the branch's registry prep while preserving the future `IRenderResource` registry as a deeper render-pipeline step. |
+
+Remaining implementation scope for this branch:
+
+| Item | Implement on this branch? | Validation expectation |
+|------|---------------------------|------------------------|
+| Neutral render resource lifetime names and registry prep | Complete for current runtime hot-switch paths; full `IRenderResource` ownership is still part of render pipeline/resource registry extraction | `tools\validate_renderers.bat` if future render-resource code changes. |
+| `SkullbonezRun` subsystem extraction | Yes, one subsystem at a time; capture facade, renderer resource phase helpers, scene-queue lookup helpers, and reset snapshot/restore helpers are started | `tools\validate_full.bat` for runtime code movement. |
+| Render backend capability split | Partly done through `RenderCapabilities`; capture and debug-line callers now use the capability boundary, while deeper interface split remains | `tools\validate_renderers.bat` plus DX12 validation log check. |
+| Render pipeline/pass extraction | Yes, incremental facade-first extraction | `tools\validate_renderers.bat`. |
+| `PhysicsWorld` boundary | Yes, adapter-first extraction only | `tools\validate_physics.bat`; add `tools\validate_perf.bat` if hot storage changes. |
+| CLI parser cleanup | In progress; renderer selection and generated-object overrides are table-driven, value/flag directive tables are in place, physics debug component switches and ranged float overrides are table-driven, suite-file loading uses scoped IO, and specialized physics/scene helpers remain | `tools\validate_fast.bat`; use broader validation if launch behavior changes or `SkullbonezInit*` changes. |
+| Scene parser cleanup | In progress; directive tables and shared value-option parsing are in place for selected directives | `tools\validate_fast.bat`; use `tools\validate_full.bat` if scene loading semantics change. |
+| Header namespace cleanup | Complete for current source headers; preserve this as a guardrail for future headers | `tools\validate_full.bat` if future header ownership changes cross subsystem boundaries. |
+| RAII cleanup | In progress; file handles/source buffers plus selected DX11/DX12 shader/root-signature/backbuffer temporaries are improved, including suite parsing and nudge repro snapshot writing, while broader backend-owned COM resources remain | Renderer-specific validation for COM/resource changes. |
+| Asset system | Scaffold started with source records/path resolution and runtime terrain/core texture paths now register through it; cache and GPU lifetime integration remain | `tools\validate_renderers.bat` when renderer assets are touched; `tools\validate_full.bat` if routed through `SkullbonezRun*`. |
+| Worker system implementation | No | Design notes only; primary design lives in `Agentic/Plans/worker-system-plan.md`. |
+| Replay/debug implementation | No | Design notes only. |
+| Standout/stretch feature implementation | No | Design notes only. |
+
+Commit policy for this branch: land one architecture item at a time, validate the touched area, then commit and push that item before moving to the next one.
 
 ## Current Architectural Shape
 
@@ -123,6 +166,8 @@ Recommended split:
 | `InputController` | Key edge detection and high-level commands |
 
 Do this as extraction, not rewrite. Move one cohesive chunk at a time and keep `SkullbonezRun` as the facade until the final shape is clear.
+
+Branch progress: `CaptureSystem` owns backbuffer-to-BMP serialization, renderer hot-switch prep is organized through named resource phase tables, scene queue access now goes through helper methods instead of repeated direct bounds checks, and reset-time runtime state capture/restore is isolated from the main `LoadScene` flow. The next `SceneRuntime` slice should move more load/reset/advance policy behind a facade while keeping `SkullbonezRun` as the caller-facing coordinator.
 
 Priority: High. Effort: Medium-high. Risk: Medium, because it touches broad runtime behavior.
 
@@ -285,6 +330,8 @@ Validation: `validate_physics` and `validate_perf`.
 
 ### 8. Implement The Worker Plan Conservatively
 
+Status for `codex/architecture-cleanup`: design-only. Do not implement worker infrastructure on this branch.
+
 `Agentic/Plans/worker-system-plan.md` is directionally sound. The safest first step is not full island decomposition; it is a deterministic worker pool with parallel stages that have independent per-index writes.
 
 Recommended order:
@@ -300,6 +347,19 @@ Determinism is the key constraint. Any parallel reduction must preserve stable o
 Priority: Medium-high. Effort: Medium-high. Risk: High.
 
 Validation: `validate_physics`, `validate_perf`, and explicit single-thread vs multi-thread byte-exact comparison in fixed-step scenes.
+
+Design integration notes for the future worker branch:
+
+| Boundary | Future worker contract |
+|----------|------------------------|
+| Runtime | `SimulationSystem` submits frame-critical work and waits before render reads transforms. |
+| Physics | `PhysicsWorld` owns all worker-touched body arrays; render-facing snapshots are read only after the physics fence. |
+| Profiler | Worker timing must use per-thread marker buffers that merge on the main thread after a fence. |
+| Determinism | Fixed chunk ranges, stable island ordering, and ordered reductions are required. |
+| Configuration | `worker_threads`, `physics_parallel`, and any amortized-task toggles belong in config metadata and CLI tables. |
+| Validation | Every worker implementation step must compare single-thread and multi-thread deterministic physics output. |
+
+The worker branch should not start until `PhysicsWorld` and runtime simulation boundaries exist, because those boundaries define which data workers may touch.
 
 ### 9. Make Scene Parsing Table-Driven
 
@@ -416,6 +476,8 @@ Validation: `validate_renderers`.
 
 ### 15. Add A Render/Physics Replay Recorder
 
+Status for `codex/architecture-cleanup`: design-only. Do not implement replay recording, time-travel debugging, or new debug tooling on this branch.
+
 The engine already has the ingredients: scene files, seed overrides, fixed-step mode, screenshots, profiler CSVs, and nudge snapshots. Make that a formal replay artifact:
 
 ```text
@@ -438,15 +500,56 @@ Priority: Medium. Effort: Medium. Risk: Low.
 
 Validation: `validate_fast` for artifact format; `validate_full` once integrated.
 
+Future replay/debug architecture:
+
+| Layer | Responsibility |
+|-------|----------------|
+| Replay manifest | Stores engine commit, renderer, scene path, seed, fixed-step settings, config overrides, and expected artifacts. |
+| Input stream | Records high-level runtime commands, camera changes, scene resets, nudges, and renderer switches in frame order. |
+| Physics checkpoints | Stores compact periodic body snapshots plus deterministic per-frame events rather than whole raw diagnostics by default. |
+| Render checkpoints | Stores screenshot references, renderer name, viewport size, and optional per-pass capture IDs. |
+| Debug timeline | Presents frame, contact, island, sleep, nudge, and render-pass events as queryable slices. |
+| Export path | Converts a selected replay segment into a `.scene`, `.suite`, or focused validation case. |
+
+Replay should depend on stable `SceneRuntime`, `SimulationSystem`, `RenderPipeline`, and `PhysicsWorld` boundaries. It should not scrape state from the monolithic runtime.
+
+Suggested artifact sketch:
+
+```text
+replay_version 1
+engine_commit dd860cf
+scene SkullbonezData/scenes/example.scene
+renderer dx12
+fixed_step 1
+seed 12345
+viewport 1280 720
+
+config {
+  vsync 0
+  gravity -9.8
+}
+
+events {
+  frame 00012 key_down R
+  frame 00018 camera_eye 0.0 4.0 -9.5
+  frame 00024 nudge body=3 impulse=0.0,4.0,0.0
+}
+
+expect {
+  screenshot frame=120 path=TestOutput/replays/example_dx12_120.png
+  physics_hash frame=120 value=...
+}
+```
+
 ## Suggested Roadmap
 
 ### Phase 1: Stabilize The Boundaries
 
-1. Rename GL-era render resource methods to backend-neutral names.
-2. Extract `CaptureSystem` from `SkullbonezRun`.
-3. Extract `SceneRuntime` load/reset/advance state from `SkullbonezRun`.
-4. Make scene/config parsing table-driven.
-5. Remove `using namespace std` and broad namespace imports from headers.
+1. Rename GL-era render resource methods to backend-neutral names. Done for the visible runtime/helper/model/skybox/world reset paths; renderer-switch resource prep now uses an ordered table of named release/rebuild steps.
+2. Extract `CaptureSystem` from `SkullbonezRun`. Seeded through the backbuffer capture helper; screenshot trigger policy still lives in runtime.
+3. Extract `SceneRuntime` load/reset/advance state from `SkullbonezRun`. Scene-queue lookup and reset snapshot/restore are now centralized as helper footholds; the owned runtime subsystem still needs to be extracted.
+4. Make scene/config parsing table-driven. Config and CLI have table-driven footholds, including renderer-option parsing, generated-object override parsing, physics debug component switch parsing, and ranged physics debug float parsing; scene parser has directive tables plus typed value-option helpers for selected aliases, and still needs richer directive diagnostics and serializer-friendly schemas.
+5. Remove `using namespace std` and broad namespace imports from headers. Done for current source headers; keep it from regressing.
 
 Why first: these changes reduce future blast radius without changing the engine's output.
 
@@ -466,11 +569,13 @@ Why second: rendering is the engine's public identity, and these changes make tr
 2. Move solver scratch/contact/sleep data into `PhysicsWorld`.
 3. Split render instances from rigid-body/collider state.
 4. Isolate legacy solver as a solver strategy.
-5. Implement deterministic worker pool stages.
+5. Prepare worker-safe data boundaries, but do not implement workers on this branch.
 
 Why third: this is the highest-risk work and should happen after runtime/render boundaries are cleaner.
 
-### Phase 4: Tooling And Standout Features
+### Phase 4: Deferred Tooling And Standout Features
+
+These are design-only for `codex/architecture-cleanup`. They should become separate implementation branches after the lower-level runtime, render, asset, and physics boundaries are stable.
 
 1. Formal replay artifacts.
 2. Side-by-side cross-renderer diff view.
@@ -484,7 +589,7 @@ Why fourth: these features become easier once the engine has clear systems to ob
 
 | Change | Suggested validation |
 |--------|----------------------|
-| Docs or architecture notes | `tools\validate_fast.bat` |
+| Docs or architecture notes | No validation required when documentation-only |
 | Runtime extraction from `SkullbonezRun` | `tools\validate_full.bat` |
 | Render backend interface or render pass changes | `tools\validate_renderers.bat` |
 | DX12 resource lifetime/barriers | `tools\validate_renderers.bat` plus `dx12_validation.txt` equals zero errors |
@@ -493,6 +598,20 @@ Why fourth: these features become easier once the engine has clear systems to ob
 | Scene parser/config behavior | `tools\validate_fast.bat` for pure parser cleanup, `tools\validate_full.bat` if scenes can load differently |
 
 ## Creative Directions That Could Make Skullbonez Stand Out
+
+Status for `codex/architecture-cleanup`: design-only. Do not implement these stretch systems on this branch.
+
+These ideas are intentionally parked until the engine has clearer system boundaries. Treat each one as a future product slice that consumes stable runtime, render, asset, replay, and physics APIs rather than adding more logic to `SkullbonezRun` or `GameModelCollection`.
+
+Shared architecture gates before any stretch implementation:
+
+| Gate | Why it matters |
+|------|----------------|
+| `RenderPipeline` pass extraction | Stretch render tools need named passes and capture points instead of one large draw function. |
+| Backend capability queries | Cross-API tools need to know which renderer supports DXR, timers, debug lines, and capture paths. |
+| `PhysicsWorld` debug snapshots | Physics tools need compact frame/contact/island data without scraping render objects. |
+| `AssetSystem` source/GPU split | Scene forge and hot reload need source assets that survive backend switches. |
+| Replay artifact format | Standout debugging tools should export reproducible cases, not one-off screenshots. |
 
 ### 1. The Cross-API Truth Engine
 
@@ -507,6 +626,16 @@ Lean fully into the tri-renderer identity. Make SkullbonezCore the engine that c
 
 This would make the engine genuinely unusual: part renderer, part graphics-debug laboratory.
 
+Architecture sketch:
+
+| Component | Future role |
+|-----------|-------------|
+| `RendererComparisonSession` | Owns the active scene/camera seed and runs the same frame through selected backends. |
+| `FrameCaptureStore` | Keeps color/depth/pass captures with renderer and frame metadata. |
+| `DiffAnalyzer` | Produces average/max pixel diff, heatmaps, and selected-pixel reports. |
+| `ParityInspectorOverlay` | Lets the user inspect divergent pixels and jump to pass/material/state context. |
+| `ReplayExporter` | Saves the exact camera, renderer set, scene, seed, and diff thresholds as a replay or suite case. |
+
 ### 2. A Time-Travel Physics Debugger
 
 The deterministic scene system and fixed-step physics are perfect for rewind. Store compact per-frame snapshots or periodic checkpoints plus input deltas, then allow:
@@ -519,6 +648,16 @@ The deterministic scene system and fixed-step physics are perfect for rewind. St
 | Export branch as `.scene` | Every interesting moment becomes a regression test |
 
 This would give Skullbonez a "physics lab" flavor rather than just a physics demo.
+
+Architecture sketch:
+
+| Component | Future role |
+|-----------|-------------|
+| `PhysicsTimelineStore` | Stores compact body/contact/island/sleep events keyed by frame. |
+| `CheckpointRing` | Keeps periodic state snapshots so rewind does not require replaying from frame zero every time. |
+| `ContactInspector` | Presents normal, penetration, warm-start impulse, solver row state, and owning bodies. |
+| `BranchController` | Forks from a checkpoint with altered input, force, water, or nudge state. |
+| `RegressionExporter` | Writes the selected branch as a deterministic `.scene`, `.suite`, or replay artifact. |
 
 ### 3. Water As The Signature System
 
@@ -533,6 +672,16 @@ The engine already has terrain, rigid bodies, buoyancy, water rendering, reflect
 
 The engine could become known for tactile rigid-body water scenes rather than generic terrain balls.
 
+Architecture sketch:
+
+| Component | Future role |
+|-----------|-------------|
+| `WaterInteractionSystem` | Converts body-water overlap into forces, ripples, and debug arrows. |
+| `WaterSurfaceState` | Owns simulation parameters and render-facing wave/ripple data. |
+| `ReflectionModeController` | Switches between FBO, DXR, and debug reflection modes through render capabilities. |
+| `BuoyancyDebugView` | Shows displaced volume, drag, buoyancy force, and object sleep state. |
+| `WaterSceneSuite` | Generates deterministic comparison cases for mass, density, terrain basin, and renderer mode. |
+
 ### 4. A Deterministic Scene Forge
 
 Turn `.scene` from a test format into a creative format. Add a scene generator that can produce reproducible stress tests and visual compositions:
@@ -546,6 +695,16 @@ Turn `.scene` from a test format into a creative format. Add a scene generator t
 
 The twist: every generated scene is also a validation asset. Creativity and regression coverage grow together.
 
+Architecture sketch:
+
+| Component | Future role |
+|-----------|-------------|
+| `SceneRecipe` | Typed generator description with seed, parameters, and expected outputs. |
+| `SceneForge` | Expands recipes into `.scene` files and optional `.suite` entries. |
+| `ExpectationBuilder` | Records screenshot, physics hash, perf budget, and renderer parity thresholds. |
+| `RecipeLibrary` | Stores named generators such as stack tests, reflection galleries, and terrain roll suites. |
+| `ArtifactPublisher` | Writes generated scenes and baselines into predictable validation folders. |
+
 ### 5. The Living Profiler Overlay
 
 The profiler is already strong. Make it more spatial and explanatory:
@@ -558,6 +717,16 @@ The profiler is already strong. Make it more spatial and explanatory:
 | Backend comparison timeline | Shows where DX11, DX12, and GL spend time differently |
 
 This would make performance tuning feel like navigating the engine, not reading CSVs.
+
+Architecture sketch:
+
+| Component | Future role |
+|-----------|-------------|
+| `ProfilerFrameModel` | Aggregates CPU, GPU, pass, worker, and scene-object timing for a frame. |
+| `ProfilerSelectionBridge` | Maps a profiler bar back to render pass, object IDs, physics island, or asset names. |
+| `PassThumbnailCache` | Stores tiny per-pass captures for the selected frame. |
+| `BackendTimelineCompare` | Aligns GL, DX11, and DX12 timings for the same replay frame. |
+| `SlowFrameBookmark` | Saves scene, replay event, profiler slice, and artifacts for future investigation. |
 
 ### 6. A Retro-Modern Engine Aesthetic
 

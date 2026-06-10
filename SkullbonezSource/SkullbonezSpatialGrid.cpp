@@ -63,6 +63,7 @@
 
 // --- Usings ---
 using namespace SkullbonezCore::Math::CollisionDetection;
+using namespace SkullbonezCore::Math::Vector;
 
 
 SpatialGrid::SpatialGrid( float fCellSize )

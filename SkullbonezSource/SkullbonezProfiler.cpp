@@ -263,7 +263,7 @@ void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
     // supports it. This must take priority over the GL path because on a runtime renderer
     // switch (GL → DX via G-key) the GLAD function pointers remain non-null even though
     // no GL context is active — causing silent failures if the GL path were chosen.
-    if ( IsGfxReady() && Gfx().SupportsGpuTimers() )
+    if ( IsGfxReady() && Gfx().GetCapabilities().supportsGpuTimers )
     {
         int idx = FindOrRegister( fullPath, hash );
         Marker& m = m_markers[idx];
@@ -307,7 +307,7 @@ void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
 void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
 {
     // Same priority rule as GpuBegin: prefer backend timer over GL path.
-    if ( IsGfxReady() && Gfx().SupportsGpuTimers() )
+    if ( IsGfxReady() && Gfx().GetCapabilities().supportsGpuTimers )
     {
         int idx = FindOrRegister( fullPath, hash );
         Marker& m = m_markers[idx];
@@ -338,7 +338,7 @@ void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
 void Profiler::ReadPendingGpuResults()
 {
     // Prefer backend GPU timer path (DX11/DX12) — same priority rule as GpuBegin/GpuEnd.
-    if ( IsGfxReady() && Gfx().SupportsGpuTimers() )
+    if ( IsGfxReady() && Gfx().GetCapabilities().supportsGpuTimers )
     {
         int readCount = 0;
         for ( int i = 0; i < m_markerCount; ++i )

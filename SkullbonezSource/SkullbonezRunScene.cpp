@@ -301,6 +301,117 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 }
 
 
+bool SkullbonezRun::HasSceneQueueEntry( int index ) const
+{
+    return index >= 0 && index < static_cast<int>( m_sceneQueue.size() );
+}
+
+
+bool SkullbonezRun::HasCurrentSceneQueueEntry() const
+{
+    return HasSceneQueueEntry( m_scene.currentSceneIndex );
+}
+
+
+const std::string* SkullbonezRun::CurrentSceneQueuePath() const
+{
+    return HasCurrentSceneQueueEntry() ? &m_sceneQueue[m_scene.currentSceneIndex] : nullptr;
+}
+
+
+SceneRuntimeResetSnapshot SkullbonezRun::CaptureSceneRuntimeResetSnapshot()
+{
+    // Standard reset is a simulation rebuild, not a scene/config reload.  Capture
+    // every operator-facing scene control before LoadScene reapplies file defaults.
+    // Transient run artifacts such as frame counters, screenshot/perf files, timers,
+    // contact caches, and generated object transforms intentionally reset below.
+    SceneRuntimeResetSnapshot snapshot;
+    snapshot.runtimeSettings = m_runtimeSettings;
+    snapshot.debug = m_debug;
+    snapshot.isScenePhysics = m_scene.isScenePhysics;
+    snapshot.isSceneText = m_scene.isSceneText;
+    snapshot.isFixedStep = m_scene.isFixedStep;
+    snapshot.isExitOnComplete = m_scene.isExitOnComplete;
+    snapshot.isInteractiveRun = m_scene.isInteractiveRun;
+    snapshot.targetFrameCount = m_scene.targetFrameCount;
+    snapshot.timeScale = m_scene.timeScale;
+    snapshot.worldGravity = m_cWorldEnvironment.GetGravity();
+    snapshot.worldFluidHeight = m_cWorldEnvironment.GetFluidSurfaceHeight();
+    snapshot.worldFluidDensity = m_cWorldEnvironment.GetFluidDensity();
+    // Preserve live Cine-tab edits across a scene reset/reload. Without this,
+    // pressing reset would snap the visual look back to the file/defaults.
+    snapshot.hasCinematicRenderingOverride = m_scene.hasCinematicRenderingOverride;
+    snapshot.isCinematicRenderingEnabled = m_scene.isCinematicRenderingEnabled;
+    snapshot.hasCinematicExposure = m_scene.hasCinematicExposure;
+    snapshot.cinematicExposure = m_scene.cinematicExposure;
+    snapshot.hasCinematicGamma = m_scene.hasCinematicGamma;
+    snapshot.cinematicGamma = m_scene.cinematicGamma;
+    snapshot.cinematicOverrideMask = m_scene.cinematicOverrideMask;
+    snapshot.cinematicRender = m_scene.cinematicRender;
+    snapshot.uiTimeScaleOverride = m_UITimeScaleOverride;
+    snapshot.uiModelCountOverride = m_UIModelCountOverride;
+    snapshot.uiSolverBallCountOverride = m_UISolverBallCountOverride;
+    snapshot.uiSolverBoxCountOverride = m_UISolverBoxCountOverride;
+    snapshot.trackBallIndex = m_camera.trackBallIndex;
+    snapshot.trackHeight = m_camera.trackHeight;
+    snapshot.autoCycleInterval = m_camera.autoCycleInterval;
+    snapshot.autoCycleAccum = m_camera.autoCycleAccum;
+    snapshot.autoCycleShotsTaken = m_camera.autoCycleShotsTaken;
+    return snapshot;
+}
+
+
+void SkullbonezRun::RestoreSceneRuntimeResetSnapshot( const SceneRuntimeResetSnapshot& snapshot, bool suppressExitOnComplete )
+{
+    // Restore live run controls that do not affect object construction.  Timers,
+    // frame counters, diagnostics/perf files, screenshots, input edge states, and
+    // object transforms stay reset because they belong to the simulation run itself.
+    m_runtimeSettings = snapshot.runtimeSettings;
+    m_debug = snapshot.debug;
+    m_scene.isScenePhysics = snapshot.isScenePhysics;
+    m_scene.isSceneText = snapshot.isSceneText;
+    m_scene.timeScale = snapshot.timeScale;
+    m_scene.isFixedStep = snapshot.isFixedStep;
+    m_scene.isInteractiveRun = snapshot.isInteractiveRun || suppressExitOnComplete;
+    m_scene.isExitOnComplete = m_scene.isInteractiveRun ? false : snapshot.isExitOnComplete;
+    m_scene.targetFrameCount = snapshot.targetFrameCount;
+    // Re-apply preserved runtime/UI cinematic state after the scene rebuilds.
+    m_scene.hasCinematicRenderingOverride = snapshot.hasCinematicRenderingOverride;
+    m_scene.isCinematicRenderingEnabled = snapshot.isCinematicRenderingEnabled;
+    m_scene.hasCinematicExposure = snapshot.hasCinematicExposure;
+    m_scene.cinematicExposure = snapshot.cinematicExposure;
+    m_scene.hasCinematicGamma = snapshot.hasCinematicGamma;
+    m_scene.cinematicGamma = snapshot.cinematicGamma;
+    m_scene.cinematicOverrideMask = snapshot.cinematicOverrideMask;
+    m_scene.cinematicRender = snapshot.cinematicRender;
+    m_UITimeScaleOverride = snapshot.uiTimeScaleOverride;
+    m_UIModelCountOverride = snapshot.uiModelCountOverride;
+    m_UISolverBallCountOverride = snapshot.uiSolverBallCountOverride;
+    m_UISolverBoxCountOverride = snapshot.uiSolverBoxCountOverride;
+    m_camera.trackHeight = snapshot.trackHeight;
+    m_camera.trackBallIndex = ( snapshot.trackBallIndex >= 0 && snapshot.trackBallIndex < m_scene.modelCount )
+                                  ? snapshot.trackBallIndex
+                                  : -1;
+    m_camera.autoCycleInterval = snapshot.autoCycleInterval;
+    m_camera.autoCycleAccum = snapshot.autoCycleAccum;
+    m_camera.autoCycleShotsTaken = snapshot.autoCycleShotsTaken;
+    m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
+    m_physicsDebugVisualizer.SetContactLingerSeconds( m_debug.physicsDebugContactLinger );
+}
+
+
+void SkullbonezRun::ClearSceneRuntimeUIOverrides()
+{
+    // Scene changes and the explicit Reset Defaults command must make the scene
+    // file/config authoritative again.  UI sliders are live overrides, so clearing
+    // them here prevents stale counts or time scale from leaking into unrelated scenes.
+    m_UITimeScaleOverride = 0.0f;
+    m_UIModelCountOverride = -1;
+    m_UISolverBallCountOverride = -1;
+    m_UISolverBoxCountOverride = -1;
+}
+
+
 void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
 #ifdef _DEBUG
@@ -316,57 +427,15 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         m_scene.isInteractiveRun = true;
     }
     const bool suppressAutomationExit = m_scene.isInteractiveRun || suppressExitOnComplete;
-    const bool shouldPreserveRuntimeState = preserveRuntimeState &&
-                                            m_scene.currentSceneIndex >= 0 &&
-                                            m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() );
+    const bool shouldPreserveRuntimeState = preserveRuntimeState && HasCurrentSceneQueueEntry();
     SceneRuntimeResetSnapshot resetSnapshot;
     if ( shouldPreserveRuntimeState )
     {
-        // Standard reset is a simulation rebuild, not a scene/config reload.  Capture
-        // every operator-facing scene control before LoadScene reapplies file defaults.
-        // Transient run artifacts such as frame counters, screenshot/perf files, timers,
-        // contact caches, and generated object transforms intentionally reset below.
-        resetSnapshot.runtimeSettings = m_runtimeSettings;
-        resetSnapshot.debug = m_debug;
-        resetSnapshot.isScenePhysics = m_scene.isScenePhysics;
-        resetSnapshot.isSceneText = m_scene.isSceneText;
-        resetSnapshot.isFixedStep = m_scene.isFixedStep;
-        resetSnapshot.isExitOnComplete = m_scene.isExitOnComplete;
-        resetSnapshot.isInteractiveRun = m_scene.isInteractiveRun;
-        resetSnapshot.targetFrameCount = m_scene.targetFrameCount;
-        resetSnapshot.timeScale = m_scene.timeScale;
-        resetSnapshot.worldGravity = m_cWorldEnvironment.GetGravity();
-        resetSnapshot.worldFluidHeight = m_cWorldEnvironment.GetFluidSurfaceHeight();
-        resetSnapshot.worldFluidDensity = m_cWorldEnvironment.GetFluidDensity();
-        // Preserve live Cine-tab edits across a scene reset/reload. Without this,
-        // pressing reset would snap the visual look back to the file/defaults.
-        resetSnapshot.hasCinematicRenderingOverride = m_scene.hasCinematicRenderingOverride;
-        resetSnapshot.isCinematicRenderingEnabled = m_scene.isCinematicRenderingEnabled;
-        resetSnapshot.hasCinematicExposure = m_scene.hasCinematicExposure;
-        resetSnapshot.cinematicExposure = m_scene.cinematicExposure;
-        resetSnapshot.hasCinematicGamma = m_scene.hasCinematicGamma;
-        resetSnapshot.cinematicGamma = m_scene.cinematicGamma;
-        resetSnapshot.cinematicOverrideMask = m_scene.cinematicOverrideMask;
-        resetSnapshot.cinematicRender = m_scene.cinematicRender;
-        resetSnapshot.uiTimeScaleOverride = m_UITimeScaleOverride;
-        resetSnapshot.uiModelCountOverride = m_UIModelCountOverride;
-        resetSnapshot.uiSolverBallCountOverride = m_UISolverBallCountOverride;
-        resetSnapshot.uiSolverBoxCountOverride = m_UISolverBoxCountOverride;
-        resetSnapshot.trackBallIndex = m_camera.trackBallIndex;
-        resetSnapshot.trackHeight = m_camera.trackHeight;
-        resetSnapshot.autoCycleInterval = m_camera.autoCycleInterval;
-        resetSnapshot.autoCycleAccum = m_camera.autoCycleAccum;
-        resetSnapshot.autoCycleShotsTaken = m_camera.autoCycleShotsTaken;
+        resetSnapshot = CaptureSceneRuntimeResetSnapshot();
     }
     else
     {
-        // Scene changes and the explicit Reset Defaults command must make the scene
-        // file/config authoritative again.  UI sliders are live overrides, so clearing
-        // them here prevents stale counts or time scale from leaking into unrelated scenes.
-        m_UITimeScaleOverride = 0.0f;
-        m_UIModelCountOverride = -1;
-        m_UISolverBallCountOverride = -1;
-        m_UISolverBoxCountOverride = -1;
+        ClearSceneRuntimeUIOverrides();
     }
 
     // Flush GPU before destroying scene resources to avoid use-after-free
@@ -814,40 +883,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
 
     if ( shouldPreserveRuntimeState )
     {
-        // Restore live run controls that do not affect object construction.  Timers,
-        // frame counters, diagnostics/perf files, screenshots, input edge states, and
-        // object transforms stay reset because they belong to the simulation run itself.
-        m_runtimeSettings = resetSnapshot.runtimeSettings;
-        m_debug = resetSnapshot.debug;
-        m_scene.isScenePhysics = resetSnapshot.isScenePhysics;
-        m_scene.isSceneText = resetSnapshot.isSceneText;
-        m_scene.timeScale = resetSnapshot.timeScale;
-        m_scene.isFixedStep = resetSnapshot.isFixedStep;
-        m_scene.isInteractiveRun = resetSnapshot.isInteractiveRun || suppressExitOnComplete;
-        m_scene.isExitOnComplete = m_scene.isInteractiveRun ? false : resetSnapshot.isExitOnComplete;
-        m_scene.targetFrameCount = resetSnapshot.targetFrameCount;
-        // Re-apply preserved runtime/UI cinematic state after the scene rebuilds.
-        m_scene.hasCinematicRenderingOverride = resetSnapshot.hasCinematicRenderingOverride;
-        m_scene.isCinematicRenderingEnabled = resetSnapshot.isCinematicRenderingEnabled;
-        m_scene.hasCinematicExposure = resetSnapshot.hasCinematicExposure;
-        m_scene.cinematicExposure = resetSnapshot.cinematicExposure;
-        m_scene.hasCinematicGamma = resetSnapshot.hasCinematicGamma;
-        m_scene.cinematicGamma = resetSnapshot.cinematicGamma;
-        m_scene.cinematicOverrideMask = resetSnapshot.cinematicOverrideMask;
-        m_scene.cinematicRender = resetSnapshot.cinematicRender;
-        m_UITimeScaleOverride = resetSnapshot.uiTimeScaleOverride;
-        m_UIModelCountOverride = resetSnapshot.uiModelCountOverride;
-        m_UISolverBallCountOverride = resetSnapshot.uiSolverBallCountOverride;
-        m_UISolverBoxCountOverride = resetSnapshot.uiSolverBoxCountOverride;
-        m_camera.trackHeight = resetSnapshot.trackHeight;
-        m_camera.trackBallIndex = ( resetSnapshot.trackBallIndex >= 0 && resetSnapshot.trackBallIndex < m_scene.modelCount )
-                                      ? resetSnapshot.trackBallIndex
-                                      : -1;
-        m_camera.autoCycleInterval = resetSnapshot.autoCycleInterval;
-        m_camera.autoCycleAccum = resetSnapshot.autoCycleAccum;
-        m_camera.autoCycleShotsTaken = resetSnapshot.autoCycleShotsTaken;
-        m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
-        m_physicsDebugVisualizer.SetContactLingerSeconds( m_debug.physicsDebugContactLinger );
+        RestoreSceneRuntimeResetSnapshot( resetSnapshot, suppressExitOnComplete );
     }
 
     // CLI --time-scale and --fixed-step override anything the scene file sets.
@@ -924,13 +960,14 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
 
     // Initialize DXR raytracing on first scene load (requires terrain + sphere meshes to exist)
     // Force sphere mesh creation (normally lazy-init on first render)
-    if ( Gfx().IsDXRSupported() && SkullbonezHelper::GetSphereInstMeshHandle() == 0 )
+    const auto renderCapabilities = Gfx().GetCapabilities();
+    if ( renderCapabilities.supportsDxrReflection && SkullbonezHelper::GetSphereInstMeshHandle() == 0 )
     {
         SkullbonezHelper::EnsureSphereMesh();
     }
     {
     }
-    if ( Gfx().IsDXRSupported() && m_systems.terrain && m_systems.terrain->GetMesh() )
+    if ( renderCapabilities.supportsDxrReflection && m_systems.terrain && m_systems.terrain->GetMesh() )
     {
         IMesh* terrainMesh = m_systems.terrain->GetMesh();
         uint64_t terrainVBVA = terrainMesh->GetVertexBufferGPUVA();
@@ -955,16 +992,13 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
 
 bool SkullbonezRun::SaveCurrentSceneDefaults()
 {
-    if ( !m_scene.isSceneMode ||
-         m_scene.currentSceneIndex < 0 ||
-         m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) ||
-         m_sceneQueue[m_scene.currentSceneIndex].empty() )
+    const std::string* scenePath = CurrentSceneQueuePath();
+    if ( !m_scene.isSceneMode || !scenePath || scenePath->empty() )
     {
         return false;
     }
 
-    const std::string& scenePath = m_sceneQueue[m_scene.currentSceneIndex];
-    std::ifstream input( scenePath );
+    std::ifstream input( *scenePath );
     if ( !input )
     {
         return false;
@@ -1059,7 +1093,7 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
         SetSceneDirective( lines, "solver_boxes", buf, true );
     }
 
-    std::ofstream output( scenePath, std::ios::trunc );
+    std::ofstream output( *scenePath, std::ios::trunc );
     if ( !output )
     {
         return false;
@@ -1118,12 +1152,13 @@ void SkullbonezRun::RefreshSceneBrowserList()
 
 int SkullbonezRun::CurrentSceneBrowserIndex() const
 {
-    if ( m_scene.currentSceneIndex < 0 || m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
+    const std::string* currentScenePath = CurrentSceneQueuePath();
+    if ( !currentScenePath )
     {
         return -1;
     }
 
-    const std::string currentPath = NormalizeScenePath( m_sceneQueue[m_scene.currentSceneIndex] );
+    const std::string currentPath = NormalizeScenePath( *currentScenePath );
     for ( int i = 0; i < static_cast<int>( m_sceneBrowserPaths.size() ); ++i )
     {
         if ( NormalizeScenePath( m_sceneBrowserPaths[i] ) == currentPath )
@@ -1209,8 +1244,7 @@ void SkullbonezRun::LoadAdjacentSceneFromBrowser( int direction )
 
 void SkullbonezRun::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
-    if ( m_scene.currentSceneIndex < 0 ||
-         m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
+    if ( !HasCurrentSceneQueueEntry() )
     {
         return;
     }
@@ -1225,8 +1259,7 @@ void SkullbonezRun::ApplyUIModelCountOverride( int count )
     m_UIModelCountOverride = std::clamp( count, 0, 1000 );
     m_UISolverBallCountOverride = -1;
     m_UISolverBoxCountOverride = -1;
-    if ( m_scene.currentSceneIndex < 0 ||
-         m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
+    if ( !HasCurrentSceneQueueEntry() )
     {
         return;
     }
@@ -1267,8 +1300,7 @@ void SkullbonezRun::ApplyUISolverObjectCounts( int balls, int boxes )
     m_UISolverBallCountOverride = balls;
     m_UISolverBoxCountOverride = boxes;
     m_UIModelCountOverride = -1;
-    if ( m_scene.currentSceneIndex < 0 ||
-         m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
+    if ( !HasCurrentSceneQueueEntry() )
     {
         return;
     }
@@ -1322,7 +1354,8 @@ void SkullbonezRun::UseDefaultTerrain()
         {
             Gfx().FlushGPU();
         }
-        m_systems.terrain = std::make_unique<Terrain>( ( std::string( DATA_ROOT ) + Cfg().terrainRaw ).c_str(), 256, 8, 15 );
+        const std::string terrainRawPath = ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", Cfg().terrainRaw );
+        m_systems.terrain = std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15 );
         m_systems.isFlatSlopeTerrain = false;
     }
 
@@ -1371,7 +1404,7 @@ bool SkullbonezRun::AdvanceScene()
     sPerfPass = 0;
 
     int nextIndex = m_scene.currentSceneIndex + 1;
-    if ( nextIndex >= static_cast<int>( m_sceneQueue.size() ) )
+    if ( !HasSceneQueueEntry( nextIndex ) )
     {
         return false;
     }

@@ -28,6 +28,8 @@
 // --- Usings ---
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Rendering;
+using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
+using SkullbonezCore::Math::Transformation::Matrix4;
 
 
 BroadphaseVisualizer::BroadphaseVisualizer()
@@ -330,7 +332,7 @@ void BroadphaseVisualizer::Update( float dt, const SpatialGrid::ActiveCell* acti
 
 void BroadphaseVisualizer::Render( const Matrix4& viewProj )
 {
-    if ( !m_enabled || m_cellCount == 0 )
+    if ( !m_enabled || m_cellCount == 0 || !Gfx().GetCapabilities().supportsDebugLines )
     {
         return;
     }

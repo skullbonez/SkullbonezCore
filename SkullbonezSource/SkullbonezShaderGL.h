@@ -10,11 +10,6 @@
 #include <string>
 
 
-// --- Usings ---
-using namespace SkullbonezCore::Math::Vector;
-using namespace SkullbonezCore::Math::Transformation;
-
-
 namespace SkullbonezCore
 {
 namespace Rendering
@@ -32,7 +27,7 @@ class ShaderGL : public IShader
     mutable std::unordered_map<std::string, GLint> m_uniformCache;
 
     static GLuint CompileShader( const char* path, GLenum type ); // Compile a single ShaderGL stage from file
-    static char* LoadShaderSource( const char* path );            // Read ShaderGL source from file
+    static std::string LoadShaderSource( const char* path );      // Read ShaderGL source from file
     GLint GetUniformLocation( const char* name ) const;           // Cached uniform location lookup
 
   public:
@@ -42,12 +37,12 @@ class ShaderGL : public IShader
     void Use() const override;   // Bind this ShaderGL program
     GLuint GetProgramID() const; // Get the OpenGL program handle
 
-    void SetInt( const char* name, int value ) const override;                           // Set int uniform
-    void SetFloat( const char* name, float value ) const override;                       // Set float uniform
-    void SetVec3( const char* name, const Vector3& v ) const override;                   // Set vec3 uniform
-    void SetVec3( const char* name, float x, float y, float z ) const override;          // Set vec3 uniform (components)
-    void SetVec4( const char* name, float x, float y, float z, float w ) const override; // Set vec4 uniform
-    void SetMat4( const char* name, const Matrix4& mat ) const override;                 // Set mat4 uniform
+    void SetInt( const char* name, int value ) const override;                                 // Set int uniform
+    void SetFloat( const char* name, float value ) const override;                             // Set float uniform
+    void SetVec3( const char* name, const Math::Vector::Vector3& v ) const override;           // Set vec3 uniform
+    void SetVec3( const char* name, float x, float y, float z ) const override;                // Set vec3 uniform (components)
+    void SetVec4( const char* name, float x, float y, float z, float w ) const override;       // Set vec4 uniform
+    void SetMat4( const char* name, const Math::Transformation::Matrix4& mat ) const override; // Set mat4 uniform
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

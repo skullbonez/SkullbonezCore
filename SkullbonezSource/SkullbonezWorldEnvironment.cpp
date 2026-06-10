@@ -7,6 +7,9 @@
 // --- Usings ---
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::GameObjects;
+using namespace SkullbonezCore::Math::Vector;
+using namespace SkullbonezCore::Math::Transformation;
+using namespace SkullbonezCore::Rendering;
 
 
 WorldEnvironment::WorldEnvironment()
@@ -261,7 +264,7 @@ void WorldEnvironment::BuildFluidMesh()
 }
 
 
-void WorldEnvironment::ResetGLResources()
+void WorldEnvironment::ResetRenderResources()
 {
     m_calmMesh.reset();
     m_calmShader.reset();

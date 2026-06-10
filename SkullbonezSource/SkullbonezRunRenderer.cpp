@@ -9,6 +9,16 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
 
+namespace
+{
+struct RendererSwitchResourceStep
+{
+    const char* name;
+    void ( SkullbonezRun::*release )();
+    void ( SkullbonezRun::*rebuild )();
+};
+} // namespace
+
 RuntimeRendererType SkullbonezRun::GetCurrentRendererType() const
 {
     const char* rendererName = Gfx().GetRendererName();
@@ -39,6 +49,155 @@ RuntimeRendererType SkullbonezRun::GetNextRendererType( RuntimeRendererType curr
 }
 
 
+void SkullbonezRun::ReleaseReflectionResourcesForSwitch()
+{
+    if ( m_systems.reflectionFBO )
+    {
+        m_systems.reflectionFBO->ResetResources();
+        m_systems.reflectionFBO.reset();
+    }
+}
+
+
+void SkullbonezRun::RebuildReflectionResourcesAfterSwitch()
+{
+    const int fboW = Gfx().GetWidth() * 2;
+    const int fboH = Gfx().GetHeight() * 2;
+    m_systems.reflectionFBO = Gfx().CreateFramebuffer( fboW, fboH );
+}
+
+
+void SkullbonezRun::ReleaseTextResourcesForSwitch()
+{
+    Text2d::DeleteFont();
+}
+
+
+void SkullbonezRun::RebuildTextResourcesAfterSwitch()
+{
+    Text2d::BuildFont( "Verdana" );
+}
+
+
+void SkullbonezRun::ReleaseModelCollectionResourcesForSwitch()
+{
+    m_cGameModelCollection.ResetRenderResources();
+}
+
+
+void SkullbonezRun::ReleaseHelperResourcesForSwitch()
+{
+    SkullbonezHelper::ResetRenderResources();
+}
+
+
+void SkullbonezRun::ReleaseCollisionVisualizerResourcesForSwitch()
+{
+    m_collisionVisualizer.ResetResources();
+}
+
+
+void SkullbonezRun::ReleaseUIResourcesForSwitch()
+{
+    m_UI.ResetResources();
+}
+
+
+void SkullbonezRun::ReleaseTextureResourcesForSwitch()
+{
+    if ( m_systems.textures )
+    {
+        m_systems.textures->DeleteAllTextures();
+    }
+}
+
+
+void SkullbonezRun::RebuildTerrainResourcesAfterSwitch()
+{
+    if ( m_systems.terrain )
+    {
+        m_systems.terrain->ResetRenderResources();
+    }
+}
+
+
+void SkullbonezRun::RebuildSkyBoxResourcesAfterSwitch()
+{
+    if ( m_systems.skyBox )
+    {
+        m_systems.skyBox->ResetRenderResources();
+    }
+}
+
+
+void SkullbonezRun::RebuildWorldResourcesAfterSwitch()
+{
+    m_cWorldEnvironment.ResetRenderResources();
+}
+
+
+void SkullbonezRun::RunRendererSwitchResourceReleaseSteps()
+{
+    const RendererSwitchResourceStep steps[] = {
+        { "reflection_fbo", &SkullbonezRun::ReleaseReflectionResourcesForSwitch, nullptr },
+        { "cinematic_targets", &SkullbonezRun::ResetCinematicRenderResources, nullptr },
+        { "text", &SkullbonezRun::ReleaseTextResourcesForSwitch, nullptr },
+        { "game_models", &SkullbonezRun::ReleaseModelCollectionResourcesForSwitch, nullptr },
+        { "helper_cache", &SkullbonezRun::ReleaseHelperResourcesForSwitch, nullptr },
+        { "collision_visualizer", &SkullbonezRun::ReleaseCollisionVisualizerResourcesForSwitch, nullptr },
+        { "ui", &SkullbonezRun::ReleaseUIResourcesForSwitch, nullptr },
+        { "textures", &SkullbonezRun::ReleaseTextureResourcesForSwitch, nullptr },
+    };
+
+    for ( const RendererSwitchResourceStep& step : steps )
+    {
+        (void)step.name;
+        ( this->*step.release )();
+    }
+}
+
+
+void SkullbonezRun::RunRendererSwitchResourceRebuildSteps()
+{
+    const RendererSwitchResourceStep steps[] = {
+        { "terrain", nullptr, &SkullbonezRun::RebuildTerrainResourcesAfterSwitch },
+        { "skybox", nullptr, &SkullbonezRun::RebuildSkyBoxResourcesAfterSwitch },
+        { "world", nullptr, &SkullbonezRun::RebuildWorldResourcesAfterSwitch },
+        { "reflection_fbo", nullptr, &SkullbonezRun::RebuildReflectionResourcesAfterSwitch },
+        { "cinematic_targets", nullptr, &SkullbonezRun::EnsureCinematicRenderResources },
+        { "text", nullptr, &SkullbonezRun::RebuildTextResourcesAfterSwitch },
+    };
+
+    for ( const RendererSwitchResourceStep& step : steps )
+    {
+        (void)step.name;
+        ( this->*step.rebuild )();
+    }
+}
+
+
+void SkullbonezRun::ReleaseBackendOwnedResourcesForSwitch()
+{
+    // All GPU-visible resources must be released while the backend that owns them is still alive.
+    // The backend's FlushGPU() ensures all in-flight GPU work completes before resource destruction.
+    Gfx().FlushGPU();
+    RunRendererSwitchResourceReleaseSteps();
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    Profiler::Instance().InvalidateGpuQueries();
+#endif
+}
+
+
+void SkullbonezRun::RebuildBackendOwnedResourcesAfterSwitch()
+{
+    m_systems.window->HandleScreenResize();
+    Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+
+    SetInitialOpenGlState();
+    RunRendererSwitchResourceRebuildSteps();
+}
+
+
 void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
 {
     if ( !m_systems.window || !IsGfxReady() )
@@ -59,27 +218,7 @@ void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
 #endif
 
     // --- Phase 1: Tear down the current backend ---
-    // All GPU-visible resources must be released while the backend that owns them is still alive.
-    // The backend's FlushGPU() ensures all in-flight GPU work completes before resource destruction.
-    Gfx().FlushGPU();
-    if ( m_systems.reflectionFBO )
-    {
-        m_systems.reflectionFBO->ResetResources();
-        m_systems.reflectionFBO.reset();
-    }
-    ResetCinematicRenderResources();
-    Text2d::DeleteFont();
-    m_cGameModelCollection.ResetGLResources();
-    SkullbonezHelper::ResetGLResources();
-    m_collisionVisualizer.ResetResources();
-    m_UI.ResetResources();
-    if ( m_systems.textures )
-    {
-        m_systems.textures->DeleteAllTextures();
-    }
-#if defined( SKULLBONEZ_PROFILE_ENABLED )
-    Profiler::Instance().InvalidateGpuQueries();
-#endif
+    ReleaseBackendOwnedResourcesForSwitch();
 
     // Determine if the outgoing backend used a DXGI flip-model swap chain.
     // DXGI swap chains take exclusive ownership of the HWND's DWM composition surface;
@@ -199,26 +338,7 @@ void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
     }
 
     // --- Phase 4: Rebuild render resources ---
-    m_systems.window->HandleScreenResize();
-    Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
-
-    SetInitialOpenGlState();
-    if ( m_systems.terrain )
-    {
-        m_systems.terrain->ResetRenderResources();
-    }
-    if ( m_systems.skyBox )
-    {
-        m_systems.skyBox->ResetGLResources();
-    }
-    m_cWorldEnvironment.ResetGLResources();
-
-    int fboW = Gfx().GetWidth() * 2;
-    int fboH = Gfx().GetHeight() * 2;
-    m_systems.reflectionFBO = Gfx().CreateFramebuffer( fboW, fboH );
-    EnsureCinematicRenderResources();
-
-    Text2d::BuildFont( "Verdana" );
+    RebuildBackendOwnedResourcesAfterSwitch();
 
     // --- Phase 5: Warm-up frame ---
     // Present one fully-cleared frame to the new backend. This serves two purposes:

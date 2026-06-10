@@ -37,19 +37,19 @@ SkullbonezRun::~SkullbonezRun()
         Gfx().FlushGPU();
     }
 
-    // Clean up GL resources while context is still alive.
-    // WorldEnvironment::ResetGLResources() rebuilds fluid meshes (records GPU upload commands
+    // Clean up backend-owned render resources while the current backend is still alive.
+    // WorldEnvironment::ResetRenderResources() rebuilds fluid meshes (records GPU upload commands
     // and leaves the DX12 command list open). Flush immediately after so subsequent resource
     // releases don't trigger "ID3D12Resource deleted before command list close" validation
     // errors — resources must not be freed while any open command list could reference them.
-    m_cWorldEnvironment.ResetGLResources();
+    m_cWorldEnvironment.ResetRenderResources();
     if ( IsGfxReady() )
     {
         Gfx().FlushGPU();
     }
 
-    SkullbonezHelper::ResetGLResources();
-    m_cGameModelCollection.ResetGLResources();
+    SkullbonezHelper::ResetRenderResources();
+    m_cGameModelCollection.ResetRenderResources();
     m_collisionVisualizer.ResetResources();
     m_UI.ResetResources();
     ResetCinematicRenderResources();
@@ -65,6 +65,13 @@ SkullbonezRun::~SkullbonezRun()
     m_systems.textures->Destroy();
     m_systems.cameras->Destroy();
     m_systems.skyBox->Destroy();
+}
+
+
+std::string SkullbonezRun::ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind kind, const char* logicalName, const std::string& relativePath )
+{
+    const SkullbonezCore::Assets::SourceAssetRecord& record = m_systems.assets.RegisterSourceAsset( kind, logicalName, relativePath.c_str() );
+    return record.resolvedPath;
 }
 
 
@@ -247,12 +254,13 @@ void SkullbonezRun::Initialise()
 
     // Init m_terrain
     // path to m_height map | map size pixels | step size | times to wrap texture
-    m_systems.terrain = std::make_unique<Terrain>( ( std::string( DATA_ROOT ) + Cfg().terrainRaw ).c_str(), 256, 8, 15 );
+    const std::string terrainRawPath = ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", Cfg().terrainRaw );
+    m_systems.terrain = std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15 );
     m_systems.isFlatSlopeTerrain = false;
 
     // Init SkyBox (m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax)
     m_systems.skyBox = SkyBox::Instance( -250, 300, -300, 300, -250, 300 );
-    m_systems.skyBox->ResetGLResources();
+    m_systems.skyBox->ResetRenderResources();
 
     // Init world environment
     {
@@ -382,8 +390,8 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     }
 
     CreateDirectoryA( "Debug", nullptr );
-    FILE* f = nullptr;
-    if ( fopen_s( &f, NUDGE_REPRO_SNAPSHOT_PATH, "a" ) != 0 || !f )
+    FILE* rawFile = nullptr;
+    if ( fopen_s( &rawFile, NUDGE_REPRO_SNAPSHOT_PATH, "a" ) != 0 || !rawFile )
     {
         sprintf_s( m_debug.reproSnapshotMessage,
                    sizeof( m_debug.reproSnapshotMessage ),
@@ -391,6 +399,8 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
         m_debug.reproSnapshotMessageUntil = m_timers.simulationTimer.GetTimeSinceLastStart() + NUDGE_REPRO_MESSAGE_SECONDS;
         return;
     }
+    std::unique_ptr<FILE, decltype( &fclose )> file( rawFile, fclose );
+    FILE* f = file.get();
 
     GameModel& model = m_cGameModelCollection.GetModelAtIndex( targetIndex );
     const Vector3& pos = model.GetPosition();
@@ -414,10 +424,13 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     }
 
     const char* scenePath = "<generated>";
-    if ( m_scene.isSceneMode && m_scene.currentSceneIndex >= 0 &&
-         m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() ) )
+    if ( m_scene.isSceneMode )
     {
-        scenePath = m_sceneQueue[m_scene.currentSceneIndex].c_str();
+        const std::string* currentScenePath = CurrentSceneQueuePath();
+        if ( currentScenePath )
+        {
+            scenePath = currentScenePath->c_str();
+        }
     }
 
     const char* rendererName = IsGfxReady() ? Gfx().GetRendererName() : "<uninitialised>";
@@ -638,7 +651,6 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     }
     fprintf( f, "\n" );
     fprintf( f, "=== END NUDGE REPRO SNAPSHOT ===\n" );
-    fclose( f );
 
     sprintf_s( m_debug.reproSnapshotMessage,
                sizeof( m_debug.reproSnapshotMessage ),
@@ -658,11 +670,10 @@ void SkullbonezRun::LogSceneFinished( const char* reason )
     }
 
     const char* scenePath = "generated";
-    if ( m_scene.currentSceneIndex >= 0 &&
-         m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() ) &&
-         !m_sceneQueue[m_scene.currentSceneIndex].empty() )
+    const std::string* currentScenePath = CurrentSceneQueuePath();
+    if ( currentScenePath && !currentScenePath->empty() )
     {
-        scenePath = m_sceneQueue[m_scene.currentSceneIndex].c_str();
+        scenePath = currentScenePath->c_str();
     }
 
     Log().WriteEventf( "scene_finished index=%d load=%d path=\"%s\" reason=%s frame=%d target_frames=%d renderer=\"%s\" models=%d test_complete=%d",
