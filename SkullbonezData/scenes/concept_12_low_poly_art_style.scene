@@ -65,6 +65,8 @@ floating_ball rock_fore_left 386 51 846  10 40 9 0.18 0 24 0
 floating_ball rock_fore_right 880 51 838  11 44 10 0.18 0 -31 0
 floating_ball rock_fore_mid_left 520 50 872  9 36 8 0.18 0 -18 0
 floating_ball rock_fore_mid_right 745 51 866  10 40 9 0.18 0 22 0
+floating_box shorecube_left 505 60 702  12 12 12  2000 0.08  0 -8 0
+floating_box shorecube_right 838 60 704  12 12 12  2000 0.08  0 10 0
 floating_box bladel_fore_left_01 286 56 852  5 14 4  2000 0.08  0 18 0
 floating_box blade_fore_left_02 318 58 844  4 16 3  2000 0.08  0 48 0
 floating_box bladed_fore_left_03 356 57 866  6 15 4  2000 0.08  0 82 0
@@ -156,7 +158,9 @@ floating_ball flowery_hero_right_02 814 66 728  3.4 11.5 4.2 0.20 0 225 0
 ball hero 620 58 650 27 108 25 0.44 0 20 0
 ball game_left 430 66 724 10 42 9 0.44 0 52 0
 ball game_right 740 74 760 8 34 7 0.44 0 116 0
-box game_box_01 580 54 792  5.5 5.5 5.5  45 0.36  0 28 0
+box game_box_left 510 68 762  9.5 9.5 9.5  90 0.42  0 -14 0  3 0 -6
+box game_box_right 768 66 832  9.0 9.0 9.0  86 0.42  0 18 0  1 0 -2
+box game_box_01 580 58 792  8.2 8.2 8.2  62 0.38  0 28 0
 floating_ball low_01 470 64 705 14 58 13 0.40 0 68 0
 floating_ball low_02 760 58 690 15 62 14 0.40 0 128 0
 floating_ball low_03 390 80 555 8 32 8 0.36 0 20 0
