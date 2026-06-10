@@ -11,11 +11,6 @@
 #include "SkullbonezCommon.h"
 #include "SkullbonezVector3.h"
 
-
-// --- Usings ---
-using namespace SkullbonezCore::Math::Vector;
-
-
 namespace SkullbonezCore
 {
 namespace Math
@@ -86,7 +81,7 @@ class SpatialGrid
 
     int FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz );
     void InsertCell( int index, int ix, int iy, int iz );
-    void InsertBounds( int index, const Vector3& minBounds, const Vector3& maxBounds );
+    void InsertBounds( int index, const Vector::Vector3& minBounds, const Vector::Vector3& maxBounds );
 
   public:
     static constexpr int MAX_BUCKETS = TABLE_SIZE;
@@ -99,8 +94,8 @@ class SpatialGrid
 
     SpatialGrid( float fCellSize );
     void Clear();
-    void Insert( int index, const Vector3& position, float radius );
-    void InsertSwept( int index, const Vector3& position, const Vector3& displacement, float radius );
+    void Insert( int index, const Vector::Vector3& position, float radius );
+    void InsertSwept( int index, const Vector::Vector3& position, const Vector::Vector3& displacement, float radius );
     void GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs );
     float GetCellSize() const
     {
