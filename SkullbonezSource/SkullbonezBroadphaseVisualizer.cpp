@@ -28,6 +28,8 @@
 // --- Usings ---
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Rendering;
+using SkullbonezCore::Math::CollisionDetection::SpatialGrid;
+using SkullbonezCore::Math::Transformation::Matrix4;
 
 
 BroadphaseVisualizer::BroadphaseVisualizer()
