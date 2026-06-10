@@ -710,6 +710,64 @@ bool ParseOptionalOnOffValue( const char* value, bool& out )
     return ParseOnOffValue( value, out );
 }
 
+
+bool SceneArgHasPathSyntax( const std::string& sceneArg )
+{
+    return sceneArg.find( '/' ) != std::string::npos ||
+           sceneArg.find( '\\' ) != std::string::npos ||
+           sceneArg.find( ':' ) != std::string::npos;
+}
+
+
+bool SceneArgHasExtension( const std::string& sceneArg )
+{
+    const size_t slash = sceneArg.find_last_of( "/\\" );
+    const size_t dot = sceneArg.find_last_of( '.' );
+    return dot != std::string::npos && ( slash == std::string::npos || dot > slash );
+}
+
+
+bool FileExistsForLaunch( const std::string& path )
+{
+    return _access( path.c_str(), 0 ) == 0;
+}
+
+
+std::string ResolveSceneLaunchPath( const char* rawSceneArg )
+{
+    std::string sceneArg( rawSceneArg );
+    if ( sceneArg.empty() || SceneArgHasPathSyntax( sceneArg ) )
+    {
+        return sceneArg;
+    }
+
+    if ( _stricmp( sceneArg.c_str(), "hero" ) == 0 ||
+         _stricmp( sceneArg.c_str(), "low_poly_hero" ) == 0 ||
+         _stricmp( sceneArg.c_str(), "low-poly-hero" ) == 0 )
+    {
+        return std::string( DATA_ROOT ) + "scenes/concept_12_low_poly_art_style.scene";
+    }
+
+    const std::string sceneDir = std::string( DATA_ROOT ) + "scenes/";
+    if ( !SceneArgHasExtension( sceneArg ) )
+    {
+        const std::string sceneCandidate = sceneDir + sceneArg + ".scene";
+        if ( FileExistsForLaunch( sceneCandidate ) )
+        {
+            return sceneCandidate;
+        }
+    }
+
+    const std::string directCandidate = sceneDir + sceneArg;
+    if ( FileExistsForLaunch( directCandidate ) )
+    {
+        return directCandidate;
+    }
+
+    return sceneArg;
+}
+
+
 bool ParsePhysicsDebugMode( const char* value, uint32_t& outFlags )
 {
     if ( IsOptionValueMissing( value ) )
@@ -928,7 +986,7 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
             // Support both quoted ("path with spaces") and unquoted tokens.
             // Quoted paths stop at the closing '"'; unquoted paths stop at whitespace.
             // This handles launchers (CDB, VS debugger) that wrap paths in quotes.
-            sceneList.push_back( sceneArg );
+            sceneList.push_back( ResolveSceneLaunchPath( sceneArg ) );
             isSuiteOrSceneMode = true;
         }
     }

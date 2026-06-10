@@ -72,13 +72,23 @@ cinematic_exposure 0.85
 
 Scene overrides are merged into a per-run active cinematic config. They do not write back to `engine.cfg`, and `--cinematic on/off` remains the top-level command-line override for the rendering stack.
 
+## Interactive Hero Scene
+
+Use this to boot the low-poly hero scene with physics running, unlimited frames, and the balls/cubes bouncing:
+
+```bat
+Profile\SKULLBONEZ_CORE.exe --renderer gl --scene hero
+```
+
+The aliases `hero`, `low_poly_hero`, and `low-poly-hero` resolve to `SkullbonezData\scenes\concept_12_low_poly_art_style.scene`. Bare scene names also resolve through `SkullbonezData\scenes\`, so `--scene stacking` loads `SkullbonezData\scenes\stacking.scene` when it exists.
+
 ## Live Style Harness
 
 The live style harness is for look-dev: keep the game window running, edit a `.style` descriptor, then request screenshots without restarting the scene or resetting physics.
 
 ```bat
 tools\style_harness.bat init -Style low_poly_art_style
-tools\style_harness.bat launch -Renderer gl -Scene SkullbonezData\scenes\concept_12_low_poly_art_style.scene
+tools\style_harness.bat launch -Renderer gl -Scene hero
 tools\style_harness.bat setshot -Key cinematic_exposure -Value 0.90 -Name exposure_090
 tools\style_harness.bat setshot -Key cinematic_style_grade -Value "1.35 1.10 0.22" -Name punchy_grade
 tools\style_harness.bat status
