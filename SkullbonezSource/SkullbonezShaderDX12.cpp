@@ -9,12 +9,14 @@
 #include <vector>
 #include <cstring>
 #include <d3dcompiler.h>
+#include <wrl/client.h>
 
 
 // --- Usings ---
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Math::Transformation;
+using Microsoft::WRL::ComPtr;
 
 
 ShaderDX12::ShaderDX12()
@@ -57,42 +59,33 @@ bool ShaderDX12::Compile( const char* hlslPath )
     // and converts it into GPU bytecode. The "vs_5_0" target means Vertex Shader Model 5.0.
     // D3D_COMPILE_STANDARD_FILE_INCLUDE enables #include directives in the shader source.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompile
-    ID3DBlob* errors = nullptr;
-    HRESULT hr = D3DCompile( source.c_str(), source.size(), hlslPath, nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "main_vs", "vs_5_0", flags, 0, &m_vsBlob, &errors );
+    ComPtr<ID3DBlob> errors;
+    HRESULT hr = D3DCompile( source.c_str(), source.size(), hlslPath, nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "main_vs", "vs_5_0", flags, 0, &m_vsBlob, errors.GetAddressOf() );
     if ( FAILED( hr ) )
     {
         std::string msg = "VS compile failed: ";
         if ( errors )
         {
-            msg += (const char*)errors->GetBufferPointer();
-            errors->Release();
+            msg += static_cast<const char*>( errors->GetBufferPointer() );
         }
         throw std::runtime_error( msg );
     }
-    if ( errors )
-    {
-        errors->Release();
-        errors = nullptr;
-    }
+    errors.Reset();
 
     // Compile the pixel shader from the same HLSL file. The "ps_5_0" target means Pixel Shader
     // Model 5.0. Both VS and PS live in the same .hlsl file with different entry points.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompile
-    hr = D3DCompile( source.c_str(), source.size(), hlslPath, nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "main_ps", "ps_5_0", flags, 0, &m_psBlob, &errors );
+    hr = D3DCompile( source.c_str(), source.size(), hlslPath, nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "main_ps", "ps_5_0", flags, 0, &m_psBlob, errors.GetAddressOf() );
     if ( FAILED( hr ) )
     {
         std::string msg = "PS compile failed: ";
         if ( errors )
         {
-            msg += (const char*)errors->GetBufferPointer();
-            errors->Release();
+            msg += static_cast<const char*>( errors->GetBufferPointer() );
         }
         throw std::runtime_error( msg );
     }
-    if ( errors )
-    {
-        errors->Release();
-    }
+    errors.Reset();
 
     // Reflect both stages so PS-only post/sky uniforms are visible to SetFloat/SetVec*.
     ReflectCB( m_vsBlob );
@@ -108,8 +101,12 @@ void ShaderDX12::ReflectCB( ID3DBlob* blob )
     // Reflection tells us the name, offset, and size of each variable in the shader's cbuffer,
     // so we can write data at the correct byte offsets when setting uniforms from C++.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dreflect
-    ID3D11ShaderReflection* reflect = nullptr;
-    D3DReflect( blob->GetBufferPointer(), blob->GetBufferSize(), IID_ID3D11ShaderReflection, (void**)&reflect );
+    ComPtr<ID3D11ShaderReflection> reflect;
+    HRESULT hr = D3DReflect( blob->GetBufferPointer(), blob->GetBufferSize(), IID_ID3D11ShaderReflection, reinterpret_cast<void**>( reflect.GetAddressOf() ) );
+    if ( FAILED( hr ) || !reflect )
+    {
+        throw std::runtime_error( "D3DReflect failed for DX12 shader." );
+    }
 
     D3D11_SHADER_DESC shaderDesc = {};
     reflect->GetDesc( &shaderDesc );
@@ -133,9 +130,6 @@ void ShaderDX12::ReflectCB( ID3DBlob* blob )
             m_uniformMap[varDesc.Name] = { varDesc.StartOffset, varDesc.Size };
         }
     }
-
-    reflect->Release();
-
     // Align CB size to 256 bytes (DX12 requirement)
     m_cbSize = ( m_cbSize + 255 ) & ~255u;
     m_cbData.resize( m_cbSize, 0 );
