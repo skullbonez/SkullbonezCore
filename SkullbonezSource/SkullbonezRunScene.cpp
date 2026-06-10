@@ -301,6 +301,24 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 }
 
 
+bool SkullbonezRun::HasSceneQueueEntry( int index ) const
+{
+    return index >= 0 && index < static_cast<int>( m_sceneQueue.size() );
+}
+
+
+bool SkullbonezRun::HasCurrentSceneQueueEntry() const
+{
+    return HasSceneQueueEntry( m_scene.currentSceneIndex );
+}
+
+
+const std::string* SkullbonezRun::CurrentSceneQueuePath() const
+{
+    return HasCurrentSceneQueueEntry() ? &m_sceneQueue[m_scene.currentSceneIndex] : nullptr;
+}
+
+
 void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
 #ifdef _DEBUG
@@ -316,9 +334,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         m_scene.isInteractiveRun = true;
     }
     const bool suppressAutomationExit = m_scene.isInteractiveRun || suppressExitOnComplete;
-    const bool shouldPreserveRuntimeState = preserveRuntimeState &&
-                                            m_scene.currentSceneIndex >= 0 &&
-                                            m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() );
+    const bool shouldPreserveRuntimeState = preserveRuntimeState && HasCurrentSceneQueueEntry();
     SceneRuntimeResetSnapshot resetSnapshot;
     if ( shouldPreserveRuntimeState )
     {
@@ -956,16 +972,13 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
 
 bool SkullbonezRun::SaveCurrentSceneDefaults()
 {
-    if ( !m_scene.isSceneMode ||
-         m_scene.currentSceneIndex < 0 ||
-         m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) ||
-         m_sceneQueue[m_scene.currentSceneIndex].empty() )
+    const std::string* scenePath = CurrentSceneQueuePath();
+    if ( !m_scene.isSceneMode || !scenePath || scenePath->empty() )
     {
         return false;
     }
 
-    const std::string& scenePath = m_sceneQueue[m_scene.currentSceneIndex];
-    std::ifstream input( scenePath );
+    std::ifstream input( *scenePath );
     if ( !input )
     {
         return false;
@@ -1060,7 +1073,7 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
         SetSceneDirective( lines, "solver_boxes", buf, true );
     }
 
-    std::ofstream output( scenePath, std::ios::trunc );
+    std::ofstream output( *scenePath, std::ios::trunc );
     if ( !output )
     {
         return false;
@@ -1119,12 +1132,13 @@ void SkullbonezRun::RefreshSceneBrowserList()
 
 int SkullbonezRun::CurrentSceneBrowserIndex() const
 {
-    if ( m_scene.currentSceneIndex < 0 || m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
+    const std::string* currentScenePath = CurrentSceneQueuePath();
+    if ( !currentScenePath )
     {
         return -1;
     }
 
-    const std::string currentPath = NormalizeScenePath( m_sceneQueue[m_scene.currentSceneIndex] );
+    const std::string currentPath = NormalizeScenePath( *currentScenePath );
     for ( int i = 0; i < static_cast<int>( m_sceneBrowserPaths.size() ); ++i )
     {
         if ( NormalizeScenePath( m_sceneBrowserPaths[i] ) == currentPath )
@@ -1210,8 +1224,7 @@ void SkullbonezRun::LoadAdjacentSceneFromBrowser( int direction )
 
 void SkullbonezRun::ResetCurrentScene( bool preserveUIState, bool suppressExitOnComplete, bool preserveRuntimeState )
 {
-    if ( m_scene.currentSceneIndex < 0 ||
-         m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
+    if ( !HasCurrentSceneQueueEntry() )
     {
         return;
     }
@@ -1226,8 +1239,7 @@ void SkullbonezRun::ApplyUIModelCountOverride( int count )
     m_UIModelCountOverride = std::clamp( count, 0, 1000 );
     m_UISolverBallCountOverride = -1;
     m_UISolverBoxCountOverride = -1;
-    if ( m_scene.currentSceneIndex < 0 ||
-         m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
+    if ( !HasCurrentSceneQueueEntry() )
     {
         return;
     }
@@ -1268,8 +1280,7 @@ void SkullbonezRun::ApplyUISolverObjectCounts( int balls, int boxes )
     m_UISolverBallCountOverride = balls;
     m_UISolverBoxCountOverride = boxes;
     m_UIModelCountOverride = -1;
-    if ( m_scene.currentSceneIndex < 0 ||
-         m_scene.currentSceneIndex >= static_cast<int>( m_sceneQueue.size() ) )
+    if ( !HasCurrentSceneQueueEntry() )
     {
         return;
     }
@@ -1372,7 +1383,7 @@ bool SkullbonezRun::AdvanceScene()
     sPerfPass = 0;
 
     int nextIndex = m_scene.currentSceneIndex + 1;
-    if ( nextIndex >= static_cast<int>( m_sceneQueue.size() ) )
+    if ( !HasSceneQueueEntry( nextIndex ) )
     {
         return false;
     }

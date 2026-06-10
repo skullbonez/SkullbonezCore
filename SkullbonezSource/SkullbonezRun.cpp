@@ -414,10 +414,13 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     }
 
     const char* scenePath = "<generated>";
-    if ( m_scene.isSceneMode && m_scene.currentSceneIndex >= 0 &&
-         m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() ) )
+    if ( m_scene.isSceneMode )
     {
-        scenePath = m_sceneQueue[m_scene.currentSceneIndex].c_str();
+        const std::string* currentScenePath = CurrentSceneQueuePath();
+        if ( currentScenePath )
+        {
+            scenePath = currentScenePath->c_str();
+        }
     }
 
     const char* rendererName = IsGfxReady() ? Gfx().GetRendererName() : "<uninitialised>";
@@ -658,11 +661,10 @@ void SkullbonezRun::LogSceneFinished( const char* reason )
     }
 
     const char* scenePath = "generated";
-    if ( m_scene.currentSceneIndex >= 0 &&
-         m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() ) &&
-         !m_sceneQueue[m_scene.currentSceneIndex].empty() )
+    const std::string* currentScenePath = CurrentSceneQueuePath();
+    if ( currentScenePath && !currentScenePath->empty() )
     {
-        scenePath = m_sceneQueue[m_scene.currentSceneIndex].c_str();
+        scenePath = currentScenePath->c_str();
     }
 
     Log().WriteEventf( "scene_finished index=%d load=%d path=\"%s\" reason=%s frame=%d target_frames=%d renderer=\"%s\" models=%d test_complete=%d",
