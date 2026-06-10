@@ -223,14 +223,14 @@ void main()
     }
     else if (mode == 11)
     {
-        vec3 horizon = clamp(mix(vec3(1.00, 0.95, 0.80), uHorizonColor, 0.78), 0.0, 1.8);
-        vec3 zenith = clamp(mix(vec3(0.55, 0.75, 1.00), uZenithColor, 0.78), 0.0, 1.8);
-        vec3 middle = clamp(mix(horizon, zenith, 0.44) + vec3(0.05, 0.04, 0.02), 0.0, 1.8);
+        vec3 horizon = clamp(mix(vec3(1.00, 0.88, 0.64), uHorizonColor, 0.70), 0.0, 1.8);
+        vec3 zenith = clamp(mix(vec3(0.46, 0.74, 1.06), uZenithColor, 0.82), 0.0, 1.8);
+        vec3 middle = clamp(mix(horizon, zenith, 0.52) + vec3(0.03, 0.03, 0.02), 0.0, 1.8);
         vec3 lowPolySky = mix(horizon, middle, smoothstep(0.08, 0.55, height));
-        lowPolySky = mix(lowPolySky, zenith, smoothstep(0.50, 1.0, height));
+        lowPolySky = mix(lowPolySky, zenith, smoothstep(0.42, 0.94, height));
         float band = floor(height * 9.0) / 9.0;
         vec3 bandedSky = mix(horizon, middle, smoothstep(0.08, 0.55, band));
-        bandedSky = mix(bandedSky, zenith, smoothstep(0.50, 1.0, band));
+        bandedSky = mix(bandedSky, zenith, smoothstep(0.42, 0.94, band));
         lowPolySky = mix(lowPolySky, bandedSky, 0.18);
 
         float farRidge = LowPolyRidgeHeight(skyCoord.x, 0.57, 0.12, 4.60, 0.11);
@@ -325,12 +325,12 @@ void main()
 
         float horizonHaze = smoothstep(0.18, 0.36, height) * (1.0 - smoothstep(0.48, 0.62, height));
         lowPolySky = mix(lowPolySky, clamp(uHorizonColor * vec3(0.88, 0.82, 0.74), 0.0, 1.6), horizonHaze * 0.12);
-        float lowPolySunDisk = 1.0 - smoothstep(0.020, 0.050, sunDistance);
-        float lowPolyInnerGlow = exp(-sunDistance * 26.0);
-        float lowPolyOuterGlow = exp(-sunDistance * 8.5);
-        float cleanSun = lowPolySunDisk * 1.28 + lowPolyInnerGlow * 0.20 + lowPolyOuterGlow * 0.030;
+        float lowPolySunDisk = 1.0 - smoothstep(0.016, 0.038, sunDistance);
+        float lowPolyInnerGlow = exp(-sunDistance * 32.0);
+        float lowPolyOuterGlow = exp(-sunDistance * 10.0);
+        float cleanSun = lowPolySunDisk * 1.18 + lowPolyInnerGlow * 0.16 + lowPolyOuterGlow * 0.020;
         vec3 lowPolySun = clamp(mix(vec3(1.14, 1.02, 0.76), uSunColor * vec3(0.98, 0.88, 0.60), 0.44), 0.0, 2.0);
-        lowPolySky += lowPolySun * cleanSun * 0.60;
+        lowPolySky += lowPolySun * cleanSun * 0.52;
         finalSky = lowPolySky;
     }
     else if (mode == 7)

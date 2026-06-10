@@ -247,14 +247,14 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     }
     else if (mode == 11)
     {
-        float3 horizon = clamp(lerp(float3(1.00f, 0.95f, 0.80f), uHorizonColor, 0.78f), 0.0f, 1.8f);
-        float3 zenith = clamp(lerp(float3(0.55f, 0.75f, 1.00f), uZenithColor, 0.78f), 0.0f, 1.8f);
-        float3 middle = clamp(lerp(horizon, zenith, 0.44f) + float3(0.05f, 0.04f, 0.02f), 0.0f, 1.8f);
+        float3 horizon = clamp(lerp(float3(1.00f, 0.88f, 0.64f), uHorizonColor, 0.70f), 0.0f, 1.8f);
+        float3 zenith = clamp(lerp(float3(0.46f, 0.74f, 1.06f), uZenithColor, 0.82f), 0.0f, 1.8f);
+        float3 middle = clamp(lerp(horizon, zenith, 0.52f) + float3(0.03f, 0.03f, 0.02f), 0.0f, 1.8f);
         float3 lowPolySky = lerp(horizon, middle, smoothstep(0.08f, 0.55f, height));
-        lowPolySky = lerp(lowPolySky, zenith, smoothstep(0.50f, 1.0f, height));
+        lowPolySky = lerp(lowPolySky, zenith, smoothstep(0.42f, 0.94f, height));
         float band = floor(height * 9.0f) / 9.0f;
         float3 bandedSky = lerp(horizon, middle, smoothstep(0.08f, 0.55f, band));
-        bandedSky = lerp(bandedSky, zenith, smoothstep(0.50f, 1.0f, band));
+        bandedSky = lerp(bandedSky, zenith, smoothstep(0.42f, 0.94f, band));
         lowPolySky = lerp(lowPolySky, bandedSky, 0.18f);
 
         float farRidge = LowPolyRidgeHeight(skyCoord.x, 0.57f, 0.12f, 4.60f, 0.11f);
@@ -349,12 +349,12 @@ float4 main_ps(VS_OUT input) : SV_TARGET
 
         float horizonHaze = smoothstep(0.18f, 0.36f, height) * (1.0f - smoothstep(0.48f, 0.62f, height));
         lowPolySky = lerp(lowPolySky, clamp(uHorizonColor * float3(0.88f, 0.82f, 0.74f), 0.0f, 1.6f), horizonHaze * 0.12f);
-        float lowPolySunDisk = 1.0f - smoothstep(0.020f, 0.050f, sunDistance);
-        float lowPolyInnerGlow = exp(-sunDistance * 26.0f);
-        float lowPolyOuterGlow = exp(-sunDistance * 8.5f);
-        float cleanSun = lowPolySunDisk * 1.28f + lowPolyInnerGlow * 0.20f + lowPolyOuterGlow * 0.030f;
+        float lowPolySunDisk = 1.0f - smoothstep(0.016f, 0.038f, sunDistance);
+        float lowPolyInnerGlow = exp(-sunDistance * 32.0f);
+        float lowPolyOuterGlow = exp(-sunDistance * 10.0f);
+        float cleanSun = lowPolySunDisk * 1.18f + lowPolyInnerGlow * 0.16f + lowPolyOuterGlow * 0.020f;
         float3 lowPolySun = clamp(lerp(float3(1.14f, 1.02f, 0.76f), uSunColor * float3(0.98f, 0.88f, 0.60f), 0.44f), 0.0f, 2.0f);
-        lowPolySky += lowPolySun * cleanSun * 0.60f;
+        lowPolySky += lowPolySun * cleanSun * 0.52f;
         finalSky = lowPolySky;
     }
     else if (mode == 7)
