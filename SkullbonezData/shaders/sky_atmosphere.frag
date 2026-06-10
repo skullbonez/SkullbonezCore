@@ -121,7 +121,9 @@ vec2 SkyboxCoord(vec2 screenUv)
 {
     vec3 dir = SkyWorldDirection(screenUv);
     float longitude = atan(dir.x, dir.z);
-    float u = fract(longitude / 6.28318530718);
+    // Repeat the painted panorama over a half-turn so the authored cloud and
+    // ridge shapes remain visible through a normal gameplay FOV.
+    float u = fract(longitude / 3.14159265359 + 0.47);
     float v = clamp(dir.y * 0.5 + 0.5, 0.0, 1.0);
     return vec2(u, v);
 }

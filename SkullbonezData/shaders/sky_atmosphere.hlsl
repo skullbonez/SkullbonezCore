@@ -144,7 +144,9 @@ float2 SkyboxCoord(float2 screenUv)
 {
     float3 dir = SkyWorldDirection(screenUv);
     float longitude = atan2(dir.x, dir.z);
-    float u = frac(longitude / 6.28318530718f);
+    // Repeat the painted panorama over a half-turn so the authored cloud and
+    // ridge shapes remain visible through a normal gameplay FOV.
+    float u = frac(longitude / 3.14159265359f + 0.47f);
     float v = saturate(dir.y * 0.5f + 0.5f);
     return float2(u, v);
 }
