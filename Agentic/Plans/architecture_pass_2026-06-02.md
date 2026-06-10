@@ -39,13 +39,13 @@ Resolved or mostly resolved:
 | Capture subsystem seed | Backbuffer-to-BMP serialization now lives behind `CaptureSystem`, while `SkullbonezRun::SaveScreenshot()` remains the runtime facade. |
 | File-handle RAII | Config loading, GL shader source loading, terrain raw loading, scene parsing, text atlas IO, and backbuffer capture now use scoped ownership rather than manual close paths. |
 | Header namespace cleanup | Complete for `SkullbonezSource/*.h`: broad `using namespace` imports have been removed from source headers, with implementation shorthand kept local to `.cpp` files or internal runtime glue. |
-| Renderer switch resource phases | Backend-owned release/rebuild sequences are now named helpers, giving the future resource registry a clear replacement point. |
+| Renderer switch resource phases | Backend-owned release/rebuild sequences now run through an ordered resource-step table with named hooks for reflection, cinematic targets, text, models, helper caches, collision visualization, UI, textures, terrain, skybox, and world resources. This completes the branch's registry prep while preserving the future `IRenderResource` registry as a deeper render-pipeline step. |
 
 Remaining implementation scope for this branch:
 
 | Item | Implement on this branch? | Validation expectation |
 |------|---------------------------|------------------------|
-| Neutral render resource lifetime names and registry prep | Yes | `tools\validate_renderers.bat` if render-resource code changes. |
+| Neutral render resource lifetime names and registry prep | Complete for current runtime hot-switch paths; full `IRenderResource` ownership is still part of render pipeline/resource registry extraction | `tools\validate_renderers.bat` if future render-resource code changes. |
 | `SkullbonezRun` subsystem extraction | Yes, one subsystem at a time; capture facade and renderer resource phase helpers are started | `tools\validate_full.bat` for runtime code movement. |
 | Render backend capability split | Partly done through `RenderCapabilities`; deeper interface split remains | `tools\validate_renderers.bat` plus DX12 validation log check. |
 | Render pipeline/pass extraction | Yes, incremental facade-first extraction | `tools\validate_renderers.bat`. |
@@ -543,7 +543,7 @@ expect {
 
 ### Phase 1: Stabilize The Boundaries
 
-1. Rename GL-era render resource methods to backend-neutral names. Done for the visible runtime/helper/model/skybox/world reset paths; registry work remains.
+1. Rename GL-era render resource methods to backend-neutral names. Done for the visible runtime/helper/model/skybox/world reset paths; renderer-switch resource prep now uses an ordered table of named release/rebuild steps.
 2. Extract `CaptureSystem` from `SkullbonezRun`. Seeded through the backbuffer capture helper; screenshot trigger policy still lives in runtime.
 3. Extract `SceneRuntime` load/reset/advance state from `SkullbonezRun`.
 4. Make scene/config parsing table-driven. Config and CLI have table-driven footholds; scene parser still needs richer directive diagnostics and serializer-friendly schemas.
