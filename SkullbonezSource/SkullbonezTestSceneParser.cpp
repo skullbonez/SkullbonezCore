@@ -1630,12 +1630,24 @@ class TestSceneParser
 
         return m_scene;
     }
+
+    TestScene LoadStyle()
+    {
+        IncludeStyleFile( m_path );
+        return m_scene;
+    }
 };
 
 
 TestScene LoadTestSceneFromFileImpl( const char* path )
 {
     return TestSceneParser( path ).Load();
+}
+
+
+TestScene LoadStyleSceneFromFileImpl( const char* path )
+{
+    return TestSceneParser( path ).LoadStyle();
 }
 } // namespace Basics
 } // namespace SkullbonezCore

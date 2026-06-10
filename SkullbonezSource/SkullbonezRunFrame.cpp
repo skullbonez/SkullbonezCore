@@ -36,6 +36,7 @@ void SkullbonezRun::Run()
 
             PROFILE_BEGIN( "Frame/Input" );
             TakeInput();
+            TickLiveStyleControl();
             PROFILE_END( "Frame/Input" );
 
             TickRendererSwitch( static_cast<float>( secondsPerFrame ) );
@@ -76,6 +77,8 @@ void SkullbonezRun::Run()
                 DrawWindowText( secondsPerFrame );
                 PROFILE_GPU_END( "Frame/UI" );
             }
+
+            TickLiveStyleControlCapture();
 
             if ( TickScreenshots() )
             {

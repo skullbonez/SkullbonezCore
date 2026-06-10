@@ -182,6 +182,21 @@ struct RunScreenshotState
     char screenshotDir[256] = {};     // Output directory for interval captures
 };
 
+struct RunLiveStyleControlState
+{
+    bool enabled = false;                 // Polls a small control folder for live .style and screenshot requests
+    char directory[260] = {};             // Folder containing live.style, capture.txt, and status.txt
+    char stylePath[300] = {};             // Style descriptor applied without reloading the scene
+    char capturePath[300] = {};           // Text command file used to request one screenshot
+    char statusPath[300] = {};            // Latest harness status for scripts/humans
+    char pendingScreenshotPath[512] = {}; // Screenshot path requested by capture.txt
+    uint64_t styleStamp = 0;              // Last applied live.style write stamp
+    uint64_t captureStamp = 0;            // Last consumed capture.txt write stamp
+    int styleApplyCount = 0;              // Successful live style applications
+    int captureCount = 0;                 // Successful live screenshots
+    bool hasPendingScreenshot = false;    // Capture should run after render/UI this frame
+};
+
 enum class OverlayMode
 {
     None,           // Clean screen — nothing shown
@@ -310,6 +325,7 @@ class SkullbonezRun
     RunCameraState m_camera;                                  // Camera/input state and ball-tracking settings
     RunSceneState m_scene;                                    // Scene-mode execution state
     RunScreenshotState m_screenshot;                          // Screenshot trigger and capture state
+    RunLiveStyleControlState m_liveStyle;                     // Live style tweak/capture harness state
     UI::InGameUI m_UI;                                        // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                                    // Runtime debug/overlay toggles
     RunFireState m_fire;                                      // Runtime silver bullet pool state
@@ -352,6 +368,7 @@ class SkullbonezRun
     void LoadDemoSceneFromUI();                                                                                                        // Loads the generated demo scene from the in-game Scene tab
     bool ApplyCinematicModeFromBrowserIndex( int index );                                                                              // Applies a cine/concept look live without rebuilding the scene
     bool ApplyAdjacentCinematicMode( int direction );                                                                                  // Cycles live cine/concept looks without rebuilding the scene
+    void ApplyLiveStyleScene( const TestScene& styleScene );                                                                           // Applies style-only cinematic/material directives without rebuilding objects
     void LoadAdjacentSceneFromBrowser( int direction );                                                                                // Keyboard scene cycling through the discovered scene dropdown list
     void EnterInteractiveSceneRun();                                                                                                   // Locks scene automation into non-quitting interactive mode
     bool CanSceneAutomationQuit() const;                                                                                               // True for CLI suites/tests; false once the user owns scene flow
@@ -402,6 +419,8 @@ class SkullbonezRun
     void TickRendererSwitch( float dt );        // Advance auto-switch timer; cycle backend when interval elapses
     void TickPhysics( double dt );              // Physics dispatch: fixed-step and variable-step accumulator
     bool TickScreenshots();                     // Screenshot triggers; returns true when frame should restart (continue)
+    void TickLiveStyleControl();                // Poll live.style/capture.txt and apply look changes without scene reload
+    void TickLiveStyleControlCapture();         // Save pending harness screenshot after render/UI are drawn
     void TickAutoCycle();                       // Auto-cycle ball capture; posts WM_QUIT when all balls captured
     void TickPerfLog();                         // Write per-frame perf CSV row and periodic memory checkpoint
     bool TickSceneAdvance();                    // Frame count, exit/hold on completion, restarts; returns true to continue
@@ -431,6 +450,7 @@ class SkullbonezRun
     void SetNoSleepOverride();                                          // Disable physics sleeping for every scene loaded (CLI --no-sleep)
     void SetCinematicRenderingOverride( bool enabled );                 // Force cinematic HDR/post rendering on/off for every scene loaded
     void SetInteractiveRunOverride();                                   // Keep scene automation from quitting the app (CLI --interactive/--hold)
+    void SetLiveStyleControlDirectory( const char* path );              // Enable live .style/capture harness in a control folder
     void SetFrameCountOverride( int frames );                           // Stop scene/demo automation after N frames (CLI --frames)
     void SetUIStressOverride( unsigned int seed, int actionsPerFrame ); // Enable deterministic UI stress from CLI
     void SetInitialOverlayMode( OverlayMode mode );

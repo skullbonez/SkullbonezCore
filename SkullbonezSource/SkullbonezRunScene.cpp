@@ -1397,12 +1397,12 @@ bool SkullbonezRun::ApplyCinematicModeFromBrowserIndex( int index )
         }
     };
 
-    auto applyObjectMaterials = [&]( const TestScene& lookScene )
+    auto applyObjectMaterials = [&]( const TestScene& styleScene )
     {
         resetObjectMaterials();
-        for ( int materialIndex = 0; materialIndex < lookScene.GetObjectMaterialOverrideCount(); ++materialIndex )
+        for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )
         {
-            const SceneObjectMaterialOverride& material = lookScene.GetObjectMaterialOverride( materialIndex );
+            const SceneObjectMaterialOverride& material = styleScene.GetObjectMaterialOverride( materialIndex );
             for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
             {
                 GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
@@ -1456,6 +1456,46 @@ bool SkullbonezRun::ApplyCinematicModeFromBrowserIndex( int index )
     applyObjectMaterials( lookScene );
     m_selectedCineModeSceneIndex = index;
     return true;
+}
+
+
+void SkullbonezRun::ApplyLiveStyleScene( const TestScene& styleScene )
+{
+    m_cmdHasCinematicRenderingOverride = false;
+
+    for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
+    {
+        m_cGameModelCollection.GetModelAtIndex( modelIndex ).SetRenderTint( 1.0f, 1.0f, 1.0f, 0.0f );
+    }
+
+    for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )
+    {
+        const SceneObjectMaterialOverride& material = styleScene.GetObjectMaterialOverride( materialIndex );
+        for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
+        {
+            GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
+            if ( SceneMaterialTargetMatches( material, model ) )
+            {
+                model.SetRenderTint( material.tintR, material.tintG, material.tintB, material.materialMode );
+            }
+        }
+    }
+
+    CinematicRenderConfig& cinematic = ActiveCinematicConfig();
+    cinematic = m_defaultCinematicRender;
+    ApplyCinematicSceneOverrides( cinematic, styleScene.GetCinematicOverrideMask(), styleScene.GetCinematicRenderConfig() );
+    if ( m_scene.isSceneMode )
+    {
+        m_scene.hasCinematicRenderingOverride = styleScene.HasCinematicRenderingOverride();
+        m_scene.isCinematicRenderingEnabled = styleScene.IsCinematicRenderingEnabled();
+        m_scene.hasCinematicExposure = styleScene.HasCinematicExposure();
+        m_scene.cinematicExposure = styleScene.GetCinematicExposure();
+        m_scene.hasCinematicGamma = styleScene.HasCinematicGamma();
+        m_scene.cinematicGamma = styleScene.GetCinematicGamma();
+        m_scene.cinematicOverrideMask = styleScene.GetCinematicOverrideMask();
+        m_scene.uiCinematicOverrideMask = 0;
+    }
+    m_selectedCineModeSceneIndex = -1;
 }
 
 

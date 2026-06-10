@@ -114,6 +114,9 @@
     <ClCompile Include="SkullbonezSource\SkullbonezRunInput.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRunLiveStyle.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRunRender.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

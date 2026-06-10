@@ -17,6 +17,12 @@ TestScene TestScene::LoadFromFile( const char* path )
 }
 
 
+TestScene TestScene::LoadStyleFromFile( const char* path )
+{
+    return LoadStyleSceneFromFileImpl( path );
+}
+
+
 bool TestScene::IsPhysicsEnabled() const
 {
     return m_sceneOptions.isPhysicsEnabled;

@@ -15,6 +15,7 @@ namespace Basics
 class TestScene;
 class TestSceneParser;
 TestScene LoadTestSceneFromFileImpl( const char* path );
+TestScene LoadStyleSceneFromFileImpl( const char* path );
 
 struct SceneCamera
 {
@@ -267,6 +268,7 @@ class TestScene
 
   private:
     friend TestScene LoadTestSceneFromFileImpl( const char* path );
+    friend TestScene LoadStyleSceneFromFileImpl( const char* path );
     friend class TestSceneParser;
 
     std::vector<SceneCamera> m_cameras;
@@ -286,6 +288,7 @@ class TestScene
   public:
     TestScene();
     static TestScene LoadFromFile( const char* path );
+    static TestScene LoadStyleFromFile( const char* path );
 
     bool IsPhysicsEnabled() const;
     bool IsTextEnabled() const;

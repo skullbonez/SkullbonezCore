@@ -535,6 +535,7 @@ struct ParsedArgs
     bool uiStress = false;
     unsigned int uiStressSeed = 0x7F4A7C15u;
     int uiStressActions = 5;
+    char liveStyleControlDir[260] = {};
     bool suppressExitDialog = false;
     bool showProfiler = false;
     bool hideTopText = false;
@@ -1049,6 +1050,26 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
     return ApplyCliValueDirectives( commandLine, out, kValues );
 }
 
+
+bool ApplyLiveStyleControlDir( const char* value, ParsedArgs& args )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return FailCommandLineParse( "--live-style-control expects a directory path." );
+    }
+    if ( strlen( value ) >= sizeof( args.liveStyleControlDir ) )
+    {
+        return FailCommandLineParse( "--live-style-control path is too long." );
+    }
+
+    strcpy_s( args.liveStyleControlDir, sizeof( args.liveStyleControlDir ), value );
+    args.interactiveRun = true;
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[style-harness] Live style control directory: %s\n", args.liveStyleControlDir );
+    return true;
+}
+
+
 bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out )
 {
     static const CliValueDirective kValues[] = {
@@ -1075,6 +1096,8 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               fprintf( stdout, "[frames] Exit after %d frames.\n", args.frameCountOverride );
               return true;
           } },
+        { "--live-style-control", "--style-harness", ApplyLiveStyleControlDir },
+        { "--live_style_control", "--style_harness", ApplyLiveStyleControlDir },
         { "--ui-stress", "--ui_stress", []( const char* value, ParsedArgs& args ) -> bool
           {
               bool enabled = false;
@@ -1421,6 +1444,10 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         if ( args.interactiveRun )
         {
             cRun.SetInteractiveRunOverride();
+        }
+        if ( args.liveStyleControlDir[0] != '\0' )
+        {
+            cRun.SetLiveStyleControlDirectory( args.liveStyleControlDir );
         }
         if ( args.frameCountOverride > 0 )
         {

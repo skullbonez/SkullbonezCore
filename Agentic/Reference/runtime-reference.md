@@ -20,6 +20,7 @@ This file holds details that are useful during debugging or manual testing but t
 | `--no-sleep` | flag | Keep movable physics bodies awake for solver diagnostics and sleep/no-sleep performance comparisons. |
 | `--cinematic` | optional `on`, `off` | Force cinematic HDR/post rendering on or off for every loaded scene. Bare flag means `on`. Alias: `--cinematic-rendering`. |
 | `--interactive` | optional `on`, `off` | Keep scene automation from quitting the app so a screenshot/validation scene can be inspected live. Bare flag means `on`. Alias: `--hold`. |
+| `--live-style-control` | directory | Watch `<directory>\live.style` and `<directory>\capture.txt` while the scene keeps running. Applies style-only descriptors without reloading physics and saves requested screenshots after the current frame is drawn. Aliases: `--style-harness`, `--live_style_control`, `--style_harness`. |
 | `--profiler` | flag | Start with the timer/profiler HUD visible. Alias: `--show-profiler`. |
 | `--hide-top-text` | flag | Hide the always-on top HUD rows while leaving profiler/key overlays available. Alias: `--no-top-text`. |
 | `--broadphase-visualizer` | flag | Start with the broadphase spatial grid visualizer enabled. Alias: `--broadphase-overlay`. |
@@ -70,6 +71,28 @@ cinematic_exposure 0.85
 ```
 
 Scene overrides are merged into a per-run active cinematic config. They do not write back to `engine.cfg`, and `--cinematic on/off` remains the top-level command-line override for the rendering stack.
+
+## Live Style Harness
+
+The live style harness is for look-dev: keep the game window running, edit a `.style` descriptor, then request screenshots without restarting the scene or resetting physics.
+
+```bat
+tools\style_harness.bat init -Style low_poly_art_style
+tools\style_harness.bat launch -Renderer gl -Scene SkullbonezData\scenes\concept_12_low_poly_art_style.scene
+tools\style_harness.bat setshot -Key cinematic_exposure -Value 0.90 -Name exposure_090
+tools\style_harness.bat setshot -Key cinematic_style_grade -Value "1.35 1.10 0.22" -Name punchy_grade
+tools\style_harness.bat status
+```
+
+The watched folder defaults to `Agentic\style-harness\` and contains:
+
+| File | Purpose |
+|------|---------|
+| `live.style` | The active style descriptor. It may contain `style <name>`, `cinematic_*`, and `object_material` directives. |
+| `capture.txt` | A one-line request such as `capture "C:\SkullbonezCore\Agentic\style-harness\shots\shot.bmp"`. Relative paths are resolved under the harness folder. |
+| `status.txt` | Last app-side status, including whether the style was applied or a screenshot was saved. |
+
+`--live-style-control` automatically enters interactive hold mode. The app only parses/apply styles when `live.style` changes, then captures after render/UI on the next requested frame. It does not rebuild objects, reload cameras, restart frame counters, change simulation time scale, or apply scene directives such as `world`, `flat_slope`, `solver_balls`, or `time_scale`.
 
 ## Scene Directives
 

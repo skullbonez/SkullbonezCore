@@ -38,6 +38,9 @@ Profile/
 # VS launch args (personal tool preference)
 *.args.json
 
+# Live style tweak/capture harness scratch files
+Agentic/style-harness/
+
 # Python
 __pycache__/
 *.pyc
