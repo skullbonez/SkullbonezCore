@@ -3,10 +3,10 @@ style _concept_base
 cinematic_style_modes 11 7 6 4
 cinematic_exposure 1.00
 cinematic_gamma 1.74
-cinematic_sun_screen_x 0.52
-cinematic_sun_screen_y 0.58
-cinematic_sun_intensity 9.8
-cinematic_sky_glow_strength 0.62
+cinematic_sun_screen_x 0.50
+cinematic_sun_screen_y 0.51
+cinematic_sun_intensity 10.4
+cinematic_sky_glow_strength 0.50
 cinematic_style_grade 1.62 1.23 0.48
 cinematic_cloud_coverage 0.56
 cinematic_cloud_softness 0.16

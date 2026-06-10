@@ -308,9 +308,12 @@ void main()
 
         float horizonHaze = smoothstep(0.18, 0.36, height) * (1.0 - smoothstep(0.48, 0.62, height));
         lowPolySky = mix(lowPolySky, clamp(uHorizonColor * vec3(0.88, 0.82, 0.74), 0.0, 1.6), horizonHaze * 0.12);
-        float cleanSun = sunDisk * 1.55 + innerGlow * 0.34 + outerGlow * 0.050;
-        vec3 lowPolySun = clamp(mix(vec3(1.10, 0.98, 0.72), uSunColor * vec3(1.00, 0.92, 0.64), 0.42), 0.0, 2.0);
-        lowPolySky += lowPolySun * cleanSun * 0.74;
+        float lowPolySunDisk = 1.0 - smoothstep(0.020, 0.050, sunDistance);
+        float lowPolyInnerGlow = exp(-sunDistance * 26.0);
+        float lowPolyOuterGlow = exp(-sunDistance * 8.5);
+        float cleanSun = lowPolySunDisk * 1.28 + lowPolyInnerGlow * 0.20 + lowPolyOuterGlow * 0.030;
+        vec3 lowPolySun = clamp(mix(vec3(1.14, 1.02, 0.76), uSunColor * vec3(0.98, 0.88, 0.60), 0.44), 0.0, 2.0);
+        lowPolySky += lowPolySun * cleanSun * 0.60;
         finalSky = lowPolySky;
     }
     else if (mode == 7)

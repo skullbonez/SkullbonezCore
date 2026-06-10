@@ -332,9 +332,12 @@ float4 main_ps(VS_OUT input) : SV_TARGET
 
         float horizonHaze = smoothstep(0.18f, 0.36f, height) * (1.0f - smoothstep(0.48f, 0.62f, height));
         lowPolySky = lerp(lowPolySky, clamp(uHorizonColor * float3(0.88f, 0.82f, 0.74f), 0.0f, 1.6f), horizonHaze * 0.12f);
-        float cleanSun = sunDisk * 1.55f + innerGlow * 0.34f + outerGlow * 0.050f;
-        float3 lowPolySun = clamp(lerp(float3(1.10f, 0.98f, 0.72f), uSunColor * float3(1.00f, 0.92f, 0.64f), 0.42f), 0.0f, 2.0f);
-        lowPolySky += lowPolySun * cleanSun * 0.74f;
+        float lowPolySunDisk = 1.0f - smoothstep(0.020f, 0.050f, sunDistance);
+        float lowPolyInnerGlow = exp(-sunDistance * 26.0f);
+        float lowPolyOuterGlow = exp(-sunDistance * 8.5f);
+        float cleanSun = lowPolySunDisk * 1.28f + lowPolyInnerGlow * 0.20f + lowPolyOuterGlow * 0.030f;
+        float3 lowPolySun = clamp(lerp(float3(1.14f, 1.02f, 0.76f), uSunColor * float3(0.98f, 0.88f, 0.60f), 0.44f), 0.0f, 2.0f);
+        lowPolySky += lowPolySun * cleanSun * 0.60f;
         finalSky = lowPolySky;
     }
     else if (mode == 7)
