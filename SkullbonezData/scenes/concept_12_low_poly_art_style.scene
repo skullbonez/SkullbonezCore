@@ -162,4 +162,4 @@ floating_ball low_02 760 58 690 15 62 14 0.40 0 128 0
 floating_ball low_03 390 80 555 8 32 8 0.36 0 20 0
 floating_ball low_04 520 74 530 7 28 7 0.36 0 60 0
 floating_ball low_05 675 70 535 7 28 7 0.36 0 100 0
-floating_ball sky_01 860 178 500 10 34 9 0.34 0 140 0
+floating_ball sky_01 820 166 515 10 34 9 0.34 0 140 0
