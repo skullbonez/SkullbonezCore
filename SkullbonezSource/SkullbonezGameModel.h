@@ -79,16 +79,16 @@ class GameModel
         // stores the hot scalar properties for both spheres and boxes. For boxes,
         // radius means conservative bounding radius: the distance from center to
         // the farthest corner, used for cheap broadphase checks.
-        float radius;                 // Sphere radius
-        float radiusSq;               // Sphere radius squared
-        float volume;                 // Sphere volume
-        float invVolume;              // 1 / sphere volume
-        float projectedSurfaceArea;   // Cached circle area used by drag
-        float dragCoefficient;        // Cached sphere drag coefficient
-        float mass;                   // Immutable ball mass
-        float invMass;                // 1 / mass
-        Vector3 rotationalInertia;    // Immutable inertia tensor diagonal
-        Vector3 invRotationalInertia; // Component-wise 1 / inertia
+        float radius;                               // Sphere radius
+        float radiusSq;                             // Sphere radius squared
+        float volume;                               // Sphere volume
+        float invVolume;                            // 1 / sphere volume
+        float projectedSurfaceArea;                 // Cached circle area used by drag
+        float dragCoefficient;                      // Cached sphere drag coefficient
+        float mass;                                 // Immutable ball mass
+        float invMass;                              // 1 / mass
+        Math::Vector::Vector3 rotationalInertia;    // Immutable inertia tensor diagonal
+        Math::Vector::Vector3 invRotationalInertia; // Component-wise 1 / inertia
     };
 
     // Authoritative collision shape. Broadphase may use cached radii for speed,
@@ -128,7 +128,7 @@ class GameModel
     // the center-based shortcut can say a box is supported while every real vertex
     // is still visibly above the surface. This helper returns the closest true
     // vertex, the terrain sample under that vertex, and the signed vertical gap.
-    bool GetClosestBoxTerrainVertex( Vector3& outVertex, float& outTerrainHeight, Plane& outPlane, float& outGap );
+    bool GetClosestBoxTerrainVertex( Math::Vector::Vector3& outVertex, float& outTerrainHeight, Plane& outPlane, float& outGap );
     void DEBUG_SetSphereToTerrain(); // Debug routine - ensure sphere does not go through terrain
 
   public:
@@ -138,7 +138,7 @@ class GameModel
         float collisionTime = 0.0f;
     };
 
-    GameModel( Environment::WorldEnvironment* pWorldEnv, const Vector3& vPosition, const Vector3& vRotationalInertia, float fMass ); // Overloaded constructor
+    GameModel( Environment::WorldEnvironment* pWorldEnv, const Math::Vector::Vector3& vPosition, const Math::Vector::Vector3& vRotationalInertia, float fMass ); // Overloaded constructor
     ~GameModel() = default;
     GameModel( GameModel&& ) noexcept = default;            // Move constructor
     GameModel& operator=( GameModel&& ) noexcept = default; // Move assignment
@@ -154,25 +154,25 @@ class GameModel
     void CalculateDragCoefficient();                                                                                                  // Calculates the drag coefficient of the model
     float GetProjectedSurfaceArea();                                                                                                  // Returns the projected surface area of the model
     float GetDragCoefficient();                                                                                                       // Returns the drag coefficient of the model
-    const Vector3& GetPosition();                                                                                                     // Returns the position of the game model
-    const Vector3& GetPosition() const;                                                                                               // Const read for manifold row rA/rB setup
-    const Vector3& GetVelocity();                                                                                                     // Returns the velocity of the model
-    const Vector3& GetAngularVelocity();                                                                                              // Returns the angular velocity of the model
+    const Math::Vector::Vector3& GetPosition();                                                                                       // Returns the position of the game model
+    const Math::Vector::Vector3& GetPosition() const;                                                                                 // Const read for manifold row rA/rB setup
+    const Math::Vector::Vector3& GetVelocity();                                                                                       // Returns the velocity of the model
+    const Math::Vector::Vector3& GetAngularVelocity();                                                                                // Returns the angular velocity of the model
     void ApplyForces( float changeInTime );                                                                                           // Update the models velocity based on its current physicsInfo
     void UpdatePosition( float changeInTime );                                                                                        // Update the models position based on its current physicsInfo
     void SetTerrain( Geometry::Terrain* pTerrain );                                                                                   // Sets the terrain pointer
     float CollisionDetectTerrain( float changeInTime );                                                                               // Collision detect model against terrain
     bool BuildTerrainContactManifold( int bodyIndex, float timeOfImpact, float availableTime, Physics::TerrainContactManifold& out ); // Builds terrain contact geometry for the shared row solver
-    void SetImpulseForce( const Vector3& vForce, const Vector3& vApplicationPoint );                                                  // Sets an impulse force for the model
+    void SetImpulseForce( const Math::Vector::Vector3& vForce, const Math::Vector::Vector3& vApplicationPoint );                      // Sets an impulse force for the model
     void SetCoefficientRestitution( float fCoefficientRestitution );                                                                  // Sets the coefficient of restitution for the game model
-    void SetWorldForce( const Vector3& vWorldForce, const Vector3& vWorldTorque );                                                    // Sets the worlds forces acting on the model
+    void SetWorldForce( const Math::Vector::Vector3& vWorldForce, const Math::Vector::Vector3& vWorldTorque );                        // Sets the worlds forces acting on the model
     void SetInitialOrientation( float fEulerXDeg, float fEulerYDeg, float fEulerZDeg );                                               // Sets the initial orientation from euler angles (degrees)
     void SetName( const char* name );                                                                                                 // Sets the ball's log name (up to 63 chars)
     const char* GetName() const;                                                                                                      // Returns the ball's log name
     void SetRenderTint( float tintR, float tintG, float tintB, float colorOverride );                                                 // Sets per-instance render tint/override
     void GetRenderTint( float& tintR, float& tintG, float& tintB, float& colorOverride ) const;                                       // Returns per-instance render tint/override
     void AddBoundingSphere( float fRadius );                                                                                          // Add a bounding sphere to the game model
-    void AddBoundingBox( const Vector3& halfExtents );                                                                                // Add a bounding box to the game model
+    void AddBoundingBox( const Math::Vector::Vector3& halfExtents );                                                                  // Add a bounding box to the game model
     bool IsBox() const;                                                                                                               // True if bounding volume is a BoundingBox
     void SetFixed( bool isFixed );                                                                                                    // Make this model immovable while still participating in contacts
     bool IsFixed() const;                                                                                                             // True if the model is an immovable collision body
@@ -182,15 +182,15 @@ class GameModel
     ObjectSweepResult SweepGameModel( GameModel& collisionTarget, float changeInTime );                                               // Swept object/object query with explicit hit state
     void StaticOverlapResponseGameModel( GameModel& overlapTarget );                                                                  // Deprecated object overlap projection; persistent rows own object cleanup
     float GetBoundingRadius();                                                                                                        // Returns the radius of the bounding sphere
-    Vector3 GetOrientationUp();                                                                                                       // Returns local Y axis (0,1,0) rotated into world space by the visual orientation
+    Math::Vector::Vector3 GetOrientationUp();                                                                                         // Returns local Y axis (0,1,0) rotated into world space by the visual orientation
     const Math::Orientation::Quaternion& GetOrientation() const;                                                                      // Returns the orientation quaternion (passthrough to RigidBody)
-    const Vector3& GetRotationalInertia();                                                                                            // Returns the rotational inertia (passthrough to RigidBody)
-    const Vector3& GetInvertedRotationalInertia();                                                                                    // Returns component-wise inverse rotational inertia (cached immutable)
+    const Math::Vector::Vector3& GetRotationalInertia();                                                                              // Returns the rotational inertia (passthrough to RigidBody)
+    const Math::Vector::Vector3& GetInvertedRotationalInertia();                                                                      // Returns component-wise inverse rotational inertia (cached immutable)
     float GetCoefficientRestitution();                                                                                                // Returns the coefficient of restitution (passthrough to RigidBody)
     const CollisionShape& GetCollisionShape() const;                                                                                  // Const shape variant for narrowphase manifold dispatch
-    void SetLinearVelocity( const Vector3& v );                                                                                       // Sets the linear velocity (passthrough to RigidBody)
-    void SetAngularVelocity( const Vector3& v );                                                                                      // Sets the angular velocity (passthrough to RigidBody)
-    void SetPosition( const Vector3& pos );                                                                                           // Teleports the model to a world position (passthrough to RigidBody)
+    void SetLinearVelocity( const Math::Vector::Vector3& v );                                                                         // Sets the linear velocity (passthrough to RigidBody)
+    void SetAngularVelocity( const Math::Vector::Vector3& v );                                                                        // Sets the angular velocity (passthrough to RigidBody)
+    void SetPosition( const Math::Vector::Vector3& pos );                                                                             // Teleports the model to a world position (passthrough to RigidBody)
     void SetOrientation( const Math::Orientation::Quaternion& q );                                                                    // Sets the orientation quaternion (passthrough to RigidBody)
 };
 } // namespace GameObjects

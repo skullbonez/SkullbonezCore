@@ -15,6 +15,7 @@ using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math;
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::Math::Orientation;
+using namespace SkullbonezCore::Math::Vector;
 
 // GameModel is the per-object physics bridge:
 //   - RigidBody stores motion state such as position, velocity, spin, and mass.

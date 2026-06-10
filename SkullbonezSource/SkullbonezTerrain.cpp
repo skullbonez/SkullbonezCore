@@ -8,6 +8,9 @@
 // --- Usings ---
 using namespace SkullbonezCore::Geometry;
 using namespace SkullbonezCore::Math;
+using namespace SkullbonezCore::Math::Vector;
+using namespace SkullbonezCore::Math::Transformation;
+using namespace SkullbonezCore::Rendering;
 
 namespace
 {
