@@ -7,12 +7,6 @@
 #include "SkullbonezGeometricStructures.h"
 #include "SkullbonezMatrix4.h"
 
-
-// --- Usings ---
-using namespace SkullbonezCore::Math::Vector;
-using namespace SkullbonezCore::Geometry;
-
-
 namespace SkullbonezCore
 {
 namespace Math
@@ -52,31 +46,31 @@ class BoundingBox
 {
 
   private:
-    Vector3 m_position;    // Local-space offset (usually zero)
-    Vector3 m_halfExtents; // Half-size along each local axis (x, y, z)
+    Vector::Vector3 m_position;    // Local-space offset (usually zero)
+    Vector::Vector3 m_halfExtents; // Half-size along each local axis (x, y, z)
 
   public:
     BoundingBox();
-    BoundingBox( const Vector3& halfExtents, const Vector3& position );
+    BoundingBox( const Vector::Vector3& halfExtents, const Vector::Vector3& position );
 
     // --- Shape interface (matches BoundingSphere for std::visit dispatch) ---
-    Transformation::Matrix4 GetModelMatrix( const Vector3& worldPos, const Transformation::Matrix4& rotation ) const;
+    Transformation::Matrix4 GetModelMatrix( const Vector::Vector3& worldPos, const Transformation::Matrix4& rotation ) const;
     float GetVolume() const;
     float GetSubmergedVolumePercent( float fluidSurfaceHeight ) const;
     float GetDragCoefficient() const;
     float GetProjectedSurfaceArea() const;
     float GetBoundingRadius() const;
-    const Vector3& GetPosition() const;
+    const Vector::Vector3& GetPosition() const;
 
     // --- Box-specific accessors ---
-    const Vector3& GetHalfExtents() const;
+    const Vector::Vector3& GetHalfExtents() const;
 
     // --- Collision tests ---
     // Sphere-box: sphere sweeps against this box (returns collision time [0,1] or NO_COLLISION)
-    float TestCollision( const BoundingSphere& target, const Ray& targetRay, const Ray& focusRay ) const;
+    float TestCollision( const BoundingSphere& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;
 
     // Box-sphere: this box sweeps against a sphere
-    float TestCollision( const BoundingBox& target, const Ray& targetRay, const Ray& focusRay ) const;
+    float TestCollision( const BoundingBox& target, const Geometry::Ray& targetRay, const Geometry::Ray& focusRay ) const;
 };
 } // namespace CollisionDetection
 } // namespace Math
