@@ -827,6 +827,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         UIData.sceneOptions = m_sceneBrowserNamePtrs.empty() ? nullptr : m_sceneBrowserNamePtrs.data();
         UIData.sceneOptionCount = static_cast<int>( m_sceneBrowserNamePtrs.size() );
         UIData.selectedSceneOption = CurrentSceneBrowserIndex();
+        UIData.selectedCineModeSceneOption = m_selectedCineModeSceneIndex;
         UIData.UIDrawCalls = m_timers.lastUIDrawCalls;
         UIData.fps = m_timers.rollingFpsTime > 0.0f ? m_timers.rollingFpsTime : ( dSecondsPerFrame > 0.0 ? 1.0f / static_cast<float>( dSecondsPerFrame ) : 0.0f );
         UIData.renderMs = ( m_timers.rollingRenderTime > 0.0f ? m_timers.rollingRenderTime : m_timers.renderTime ) * 1000.0f;

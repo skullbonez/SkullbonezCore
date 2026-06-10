@@ -1229,10 +1229,10 @@ class TestSceneParser
         c.volumetricLightingEnabled = true;
         c.bloomEnabled = true;
         c.fogEnabled = true;
-        c.terrainReliefEnabled = true;
-        c.terrainRelief = 0.18f;
-        c.basinDepth = 44.0f;
-        c.basinRimLift = 30.0f;
+        c.terrainReliefEnabled = false;
+        c.terrainRelief = 0.0f;
+        c.basinDepth = 0.0f;
+        c.basinRimLift = 0.0f;
         c.basinCenterX = 620.0f;
         c.basinCenterZ = 615.0f;
         c.basinRadiusX = 220.0f;

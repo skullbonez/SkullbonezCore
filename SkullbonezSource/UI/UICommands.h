@@ -135,7 +135,10 @@ struct UICinematicCommands
 {
     // UI output for one frame. These are requests, not state: the render loop
     // consumes them and mutates the real CinematicRenderConfig.
+    // requestedModeSceneIndex uses sceneOptions indexing for concept/cine look
+    // presets; -1 = Demo Scene/default look, -2 = no request this frame.
     bool toggleRendering = false;
+    int requestedModeSceneIndex = -2;
     UICinematicFeature requestedFeature = UICinematicFeature::None;
     UICinematicParam requestedParam = UICinematicParam::None;
     float requestedValue = 0.0f;

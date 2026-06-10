@@ -278,11 +278,13 @@ class SkullbonezRun
     bool m_cmdNoSleep = false;           // Startup CLI --no-sleep request; the live policy can still be toggled from the Physics tab
     bool m_cmdHasCinematicRenderingOverride = false;
     bool m_cmdCinematicRendering = false;
-    bool m_cmdInteractiveSceneRun = false; // CLI --interactive/--hold keeps scene automation from quitting the app
-    int m_cmdFrameCountOverride = -1;      // CLI --frames override applied after each scene load
-    bool m_cmdUIStress = false;            // CLI --ui-stress enables generated/demo stress without a scene file
-    unsigned int m_cmdUIStressSeed = 0;    // CLI --ui-stress-seed
-    int m_cmdUIStressActions = 5;          // CLI --ui-stress-actions
+    bool m_cmdInteractiveSceneRun = false;          // CLI --interactive/--hold keeps scene automation from quitting the app
+    int m_cmdFrameCountOverride = -1;               // CLI --frames override applied after each scene load
+    bool m_cmdUIStress = false;                     // CLI --ui-stress enables generated/demo stress without a scene file
+    unsigned int m_cmdUIStressSeed = 0;             // CLI --ui-stress-seed
+    int m_cmdUIStressActions = 5;                   // CLI --ui-stress-actions
+    int m_selectedCineModeSceneIndex = -1;          // -1=Demo/default look, otherwise scene-browser index of live cine/concept look
+    CinematicRenderConfig m_defaultCinematicRender; // engine.cfg cinematic baseline restored by the Demo Scene cine mode
     GeneratedObjectTypeOverride m_generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     float m_UITimeScaleOverride = 0.0f;
     int m_UIModelCountOverride = -1;
@@ -347,6 +349,8 @@ class SkullbonezRun
     int CurrentSceneBrowserIndex() const;                                                                                              // Returns current scene index within the discovered scene dropdown list
     void LoadSceneFromBrowserIndex( int index );                                                                                       // Loads a scene selected from the in-game scene dropdown
     void LoadDemoSceneFromUI();                                                                                                        // Loads the generated demo scene from the in-game Scene tab
+    bool ApplyCinematicModeFromBrowserIndex( int index );                                                                              // Applies a cine/concept look live without rebuilding the scene
+    bool ApplyAdjacentCinematicMode( int direction );                                                                                  // Cycles live cine/concept looks without rebuilding the scene
     void LoadAdjacentSceneFromBrowser( int direction );                                                                                // Keyboard scene cycling through the discovered scene dropdown list
     void EnterInteractiveSceneRun();                                                                                                   // Locks scene automation into non-quitting interactive mode
     bool CanSceneAutomationQuit() const;                                                                                               // True for CLI suites/tests; false once the user owns scene flow

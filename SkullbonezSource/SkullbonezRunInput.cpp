@@ -537,12 +537,18 @@ void SkullbonezRun::TakeInput()
         if ( leftSceneNow && !m_leftSceneCycleWasDown )
         {
             EnterInteractiveSceneRun();
-            LoadAdjacentSceneFromBrowser( -1 );
+            if ( !ApplyAdjacentCinematicMode( -1 ) )
+            {
+                LoadAdjacentSceneFromBrowser( -1 );
+            }
         }
         if ( rightSceneNow && !m_rightSceneCycleWasDown )
         {
             EnterInteractiveSceneRun();
-            LoadAdjacentSceneFromBrowser( 1 );
+            if ( !ApplyAdjacentCinematicMode( 1 ) )
+            {
+                LoadAdjacentSceneFromBrowser( 1 );
+            }
         }
         m_leftSceneCycleWasDown = leftSceneNow;
         m_rightSceneCycleWasDown = rightSceneNow;
@@ -736,6 +742,10 @@ void SkullbonezRun::TakeInput()
                 m_scene.isCinematicRenderingEnabled = cinematic.enabled;
                 m_scene.cinematicOverrideMask |= SCENE_CINE_RENDERING;
             }
+        }
+        if ( uiCommands.cinematic.requestedModeSceneIndex >= -1 )
+        {
+            ApplyCinematicModeFromBrowserIndex( uiCommands.cinematic.requestedModeSceneIndex );
         }
         if ( uiCommands.cinematic.requestedFeature != UICinematicFeature::None )
         {

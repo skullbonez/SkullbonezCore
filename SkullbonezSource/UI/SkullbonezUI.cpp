@@ -92,6 +92,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data, int currentRend
     hash = HashInt( hash, currentRendererIndex );
     hash = HashInt( hash, data.sceneOptionCount );
     hash = HashInt( hash, data.selectedSceneOption );
+    hash = HashInt( hash, data.selectedCineModeSceneOption );
     for ( int i = 0; i < data.sceneOptionCount && data.sceneOptions; ++i )
     {
         hash = HashTextValue( hash, data.sceneOptions[i] );
@@ -1040,14 +1041,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             const int option = m_cineSceneCombo.HitOption( m_mouseX, m_mouseY, cineSceneOptionCount );
             if ( option >= 0 && option < cineSceneOptionCount )
             {
-                if ( cineSceneIndices[option] < 0 )
-                {
-                    result.commands.scene.requestDemoScene = true;
-                }
-                else
-                {
-                    result.commands.scene.requestedSceneIndex = cineSceneIndices[option];
-                }
+                result.commands.cinematic.requestedModeSceneIndex = cineSceneIndices[option];
                 m_cineSceneCombo.Close();
             }
             else if ( m_cineSceneCombo.HitBox( m_mouseX, m_mouseY ) )
@@ -1587,7 +1581,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         const char* cineSceneOptions[UI_CINE_SCENE_MAX_OPTIONS] = {};
         int cineSceneIndices[UI_CINE_SCENE_MAX_OPTIONS] = {};
         const int cineSceneOptionCount = BuildCineSceneOptions( data.sceneOptions, data.sceneOptionCount, cineSceneOptions, cineSceneIndices );
-        const int selectedCineSceneOption = SelectedCineSceneOption( cineSceneIndices, cineSceneOptionCount, data.selectedSceneOption );
+        const int selectedCineSceneOption = SelectedCineSceneOption( cineSceneIndices, cineSceneOptionCount, data.selectedCineModeSceneOption );
 
         DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 16.0f, 16.0f, "Cine" );
         m_cineSceneCombo.SetBounds( contentX, scrolledY + UI_CINEMATIC_SCENE_Y, contentW, 24.0f );
