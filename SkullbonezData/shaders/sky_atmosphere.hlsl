@@ -261,10 +261,10 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         cardCloud *= smoothstep(0.38f, 0.46f, height) * (1.0f - smoothstep(0.82f, 0.90f, height));
         float cloudBand = smoothstep(0.035f, 0.32f, cardCloud);
         cloudBand = floor(cloudBand * 3.0f + 0.5f) / 3.0f;
-        float3 flatCloudShadow = clamp(lerp(float3(0.72f, 0.58f, 0.72f), uHorizonColor * float3(0.80f, 0.50f, 0.54f), 0.72f), 0.0f, 1.6f);
-        float3 flatCloudLight = clamp(lerp(float3(1.24f, 0.88f, 0.52f), uSunColor * float3(1.36f, 0.98f, 0.70f), 0.58f), 0.0f, 1.8f);
-        float3 flatCloud = lerp(flatCloudShadow, flatCloudLight, saturate(sunLit * 0.50f + 0.38f));
-        lowPolySky = lerp(lowPolySky, flatCloud, clamp(cloudBand * 0.94f, 0.0f, 0.94f));
+        float3 flatCloudShadow = clamp(lerp(float3(0.84f, 0.55f, 0.62f), uHorizonColor * float3(0.82f, 0.48f, 0.52f), 0.66f), 0.0f, 1.6f);
+        float3 flatCloudLight = clamp(lerp(float3(1.38f, 0.86f, 0.52f), uSunColor * float3(1.42f, 0.98f, 0.68f), 0.62f), 0.0f, 1.8f);
+        float3 flatCloud = lerp(flatCloudShadow, flatCloudLight, saturate(sunLit * 0.52f + 0.40f));
+        lowPolySky = lerp(lowPolySky, flatCloud, clamp(cloudBand * 0.98f, 0.0f, 0.98f));
 
         float polyStreak = 0.0f;
         polyStreak = max(polyStreak, LowPolyCloudStreak(input.texCoord, float2(0.20f, 0.58f), float2(0.24f, 0.030f), -1.00f));
@@ -299,9 +299,9 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         streakCloud *= smoothstep(0.69f, 0.75f, height) * (1.0f - smoothstep(0.88f, 0.96f, height));
         streakCloud = floor(streakCloud * 3.0f + 0.5f) / 3.0f;
         float3 streakShadow = clamp(lerp(float3(0.72f, 0.58f, 0.66f), uHorizonColor * float3(0.84f, 0.58f, 0.60f), 0.62f), 0.0f, 1.7f);
-        float3 streakLight = clamp(lerp(float3(1.18f, 0.78f, 0.50f), uSunColor * float3(1.18f, 0.90f, 0.72f), 0.60f), 0.0f, 1.9f);
+        float3 streakLight = clamp(lerp(float3(1.28f, 0.82f, 0.50f), uSunColor * float3(1.22f, 0.90f, 0.70f), 0.62f), 0.0f, 1.9f);
         float3 streakColor = lerp(streakShadow, streakLight, saturate(sunLit * 0.54f + 0.36f));
-        lowPolySky = lerp(lowPolySky, streakColor, clamp(streakCloud * uCloudParams.w * 0.52f, 0.0f, 0.52f));
+        lowPolySky = lerp(lowPolySky, streakColor, clamp(streakCloud * uCloudParams.w * 0.58f, 0.0f, 0.58f));
 
         float horizonHaze = smoothstep(0.18f, 0.36f, height) * (1.0f - smoothstep(0.48f, 0.62f, height));
         lowPolySky = lerp(lowPolySky, clamp(uHorizonColor * float3(0.88f, 0.82f, 0.74f), 0.0f, 1.6f), horizonHaze * 0.12f);
