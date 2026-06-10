@@ -16,20 +16,25 @@ floating_box ridge_right 980 60 505  130 17 18  2000 0.08  0 10 0
 floating_box ridge_mid 640 60 466  170 14 16  2000 0.08  0 1 0
 floating_box ridge_back_left 390 68 445  95 11 13  2000 0.08  0 18 0
 floating_box ridge_back_right 820 70 445  105 12 13  2000 0.08  0 -14 0
-floating_box shore_left 500 44 775  16 3 6  2000 0.08  0 32 0
-floating_box shore_right 835 45 748  16 3 6  2000 0.08  0 -28 0
-floating_box shore_front_left 520 42 810  13 3 5  2000 0.08  0 24 0
-floating_box shore_front_mid 625 42 822  11 3 5  2000 0.08  0 -10 0
-floating_box shore_front_right 760 42 800  11 3 5  2000 0.08  0 -24 0
-floating_box shore_back_left 515 46 612  30 3 7  2000 0.08  0 -24 0
-floating_box shore_back_mid 620 46 606  28 3 6  2000 0.08  0 4 0
-floating_box shore_back_right 730 46 604  32 3 7  2000 0.08  0 22 0
-floating_box shore_chipped_01 570 43 804  9 2 4  2000 0.08  0 -34 0
-floating_box shore_chipped_02 690 43 815  10 2 4  2000 0.08  0 26 0
-floating_box shore_chipped_03 810 43 754  8 2 4  2000 0.08  0 42 0
-floating_box shore_chipped_04 483 45 661  9 2 4  2000 0.08  0 -48 0
-floating_box shore_chipped_05 742 45 646  10 2 4  2000 0.08  0 36 0
-floating_box shore_chipped_06 602 44 584  8 2 3  2000 0.08  0 -20 0
+floating_ball shore_left_01 492 50 778  6.0 24 5.2 0.18 0 32 0
+floating_ball shore_left_02 516 49 766  4.8 19 4.2 0.18 0 76 0
+floating_ball shore_right_01 824 50 750  6.0 24 5.2 0.18 0 -28 0
+floating_ball shore_right_02 850 49 738  4.8 19 4.2 0.18 0 -66 0
+floating_ball shore_front_left 520 47 810  5.0 20 4.5 0.18 0 24 0
+floating_ball shore_front_mid 626 46 822  4.2 17 3.8 0.18 0 -10 0
+floating_ball shore_front_right 760 46 800  4.2 17 3.8 0.18 0 -24 0
+floating_ball shore_back_left_01 505 52 614  7.5 30 6.6 0.18 0 -24 0
+floating_ball shore_back_left_02 532 50 606  5.2 21 4.6 0.18 0 18 0
+floating_ball shore_back_mid_01 612 51 608  6.8 27 6.0 0.18 0 4 0
+floating_ball shore_back_mid_02 642 49 602  4.8 19 4.2 0.18 0 -36 0
+floating_ball shore_back_right_01 722 52 606  7.5 30 6.6 0.18 0 22 0
+floating_ball shore_back_right_02 752 50 598  5.2 21 4.6 0.18 0 58 0
+floating_ball shore_chipped_01 570 47 804  3.8 15 3.4 0.18 0 -34 0
+floating_ball shore_chipped_02 690 48 815  4.2 17 3.8 0.18 0 26 0
+floating_ball shore_chipped_03 810 47 754  3.6 14 3.2 0.18 0 42 0
+floating_ball shore_chipped_04 483 49 661  4.0 16 3.6 0.18 0 -48 0
+floating_ball shore_chipped_05 742 49 646  4.2 17 3.8 0.18 0 36 0
+floating_ball shore_chipped_06 602 47 584  3.4 14 3.0 0.18 0 -20 0
 floating_box trunk_left 455 56 575  5 24 5  2000 0.08  0 25 0
 floating_box pineleaf_left_low 455 79 575  31 15 31  2000 0.08  0 25 0
 floating_box pineleaf_left_mid 455 98 575  24 14 24  2000 0.08  0 25 0
