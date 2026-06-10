@@ -35,7 +35,7 @@ Resolved or mostly resolved:
 | Physics commentary | Core physics-facing files now have layman-oriented comments explaining collision, solver, terrain, and visualizer behavior. |
 | GL-era render resource names | Remaining runtime/helper/model/skybox/world reset methods now use backend-neutral `ResetRenderResources()` naming. |
 | Render backend capabilities | A compatibility-preserving `RenderCapabilities` query now centralizes GPU timer, DXR, debug line, instancing, capture, and dynamic-VB support checks; capture-dependent and debug-line overlay callers now honor the relevant capability boundaries. |
-| Source asset scaffold | `Assets::AssetSystem` exists as source-asset/path-resolution scaffolding; GPU resource ownership is still separate. |
+| Source asset scaffold | `Assets::AssetSystem` exists as source-asset/path-resolution scaffolding and is now wired into runtime terrain/core texture path resolution; GPU resource ownership is still separate. |
 | Capture subsystem seed | Backbuffer-to-BMP serialization now lives behind `CaptureSystem`, while `SkullbonezRun::SaveScreenshot()` remains the runtime facade. |
 | File-handle and temporary-resource RAII | Config loading, GL shader source loading, terrain raw loading, scene parsing, suite-file startup parsing, text atlas IO, backbuffer capture, DX11/DX12 shader compile blobs, DX12 root-signature/generate-mips temporary blobs, and selected DX11 factory/info-queue/backbuffer temporaries now use scoped ownership rather than manual close/release paths. |
 | Header namespace cleanup | Complete for `SkullbonezSource/*.h`: broad `using namespace` imports have been removed from source headers, with implementation shorthand kept local to `.cpp` files or internal runtime glue. |
@@ -54,7 +54,7 @@ Remaining implementation scope for this branch:
 | Scene parser cleanup | In progress; directive tables and shared value-option parsing are in place for selected directives | `tools\validate_fast.bat`; use `tools\validate_full.bat` if scene loading semantics change. |
 | Header namespace cleanup | Complete for current source headers; preserve this as a guardrail for future headers | `tools\validate_full.bat` if future header ownership changes cross subsystem boundaries. |
 | RAII cleanup | In progress; file handles/source buffers plus selected DX11/DX12 shader/root-signature/backbuffer temporaries are improved, including suite parsing in startup, while broader backend-owned COM resources remain | Renderer-specific validation for COM/resource changes. |
-| Asset system | Scaffold started with source records/path resolution; cache and GPU lifetime integration remain | `tools\validate_renderers.bat` when renderer assets are touched. |
+| Asset system | Scaffold started with source records/path resolution and runtime terrain/core texture paths now register through it; cache and GPU lifetime integration remain | `tools\validate_renderers.bat` when renderer assets are touched; `tools\validate_full.bat` if routed through `SkullbonezRun*`. |
 | Worker system implementation | No | Design notes only; primary design lives in `Agentic/Plans/worker-system-plan.md`. |
 | Replay/debug implementation | No | Design notes only. |
 | Standout/stretch feature implementation | No | Design notes only. |
