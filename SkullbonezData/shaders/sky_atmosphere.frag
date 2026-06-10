@@ -254,6 +254,19 @@ void main()
         vec3 polyStreakColor = mix(streakDust, streakWarm, clamp(sunLit * 0.36 + 0.44, 0.0, 1.0));
         lowPolySky = mix(lowPolySky, polyStreakColor, clamp(polyStreak * 0.86, 0.0, 0.86));
 
+        float upperShard = 0.0;
+        upperShard = max(upperShard, LowPolyCloudStreak(vTexCoord, vec2(0.19, 0.80), vec2(0.090, 0.016), -1.85));
+        upperShard = max(upperShard, LowPolyCloudStreak(vTexCoord, vec2(0.31, 0.86), vec2(0.115, 0.018), -1.70) * 0.82);
+        upperShard = max(upperShard, LowPolyCloudStreak(vTexCoord, vec2(0.47, 0.82), vec2(0.082, 0.014), -1.55) * 0.62);
+        upperShard = max(upperShard, LowPolyCloudStreak(vTexCoord, vec2(0.69, 0.84), vec2(0.130, 0.020), -1.65) * 0.90);
+        upperShard = max(upperShard, LowPolyCloudStreak(vTexCoord, vec2(0.82, 0.76), vec2(0.100, 0.016), -1.80) * 0.74);
+        upperShard *= smoothstep(0.68, 0.74, height) * (1.0 - smoothstep(0.92, 0.98, height));
+        upperShard = floor(upperShard * 3.0 + 0.5) / 3.0;
+        vec3 shardShadow = clamp(mix(vec3(0.82, 0.52, 0.58), uHorizonColor * vec3(0.76, 0.46, 0.48), 0.46), 0.0, 1.5);
+        vec3 shardLight = clamp(mix(vec3(1.38, 0.80, 0.48), uSunColor * vec3(1.22, 0.88, 0.68), 0.56), 0.0, 1.9);
+        vec3 shardColor = mix(shardShadow, shardLight, clamp(sunLit * 0.46 + 0.46, 0.0, 1.0));
+        lowPolySky = mix(lowPolySky, shardColor, clamp(upperShard * uCloudParams.w * 0.66, 0.0, 0.66));
+
         float streakCloud = 0.0;
         streakCloud = max(streakCloud, CloudLobe(vTexCoord, vec2(0.17, 0.82), vec2(0.10, 0.026), 31.0));
         streakCloud = max(streakCloud, CloudLobe(vTexCoord, vec2(0.37, 0.77), vec2(0.085, 0.022), 33.0) * 0.70);

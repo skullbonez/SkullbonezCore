@@ -278,6 +278,19 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         float3 polyStreakColor = lerp(streakDust, streakWarm, saturate(sunLit * 0.36f + 0.44f));
         lowPolySky = lerp(lowPolySky, polyStreakColor, clamp(polyStreak * 0.86f, 0.0f, 0.86f));
 
+        float upperShard = 0.0f;
+        upperShard = max(upperShard, LowPolyCloudStreak(input.texCoord, float2(0.19f, 0.80f), float2(0.090f, 0.016f), -1.85f));
+        upperShard = max(upperShard, LowPolyCloudStreak(input.texCoord, float2(0.31f, 0.86f), float2(0.115f, 0.018f), -1.70f) * 0.82f);
+        upperShard = max(upperShard, LowPolyCloudStreak(input.texCoord, float2(0.47f, 0.82f), float2(0.082f, 0.014f), -1.55f) * 0.62f);
+        upperShard = max(upperShard, LowPolyCloudStreak(input.texCoord, float2(0.69f, 0.84f), float2(0.130f, 0.020f), -1.65f) * 0.90f);
+        upperShard = max(upperShard, LowPolyCloudStreak(input.texCoord, float2(0.82f, 0.76f), float2(0.100f, 0.016f), -1.80f) * 0.74f);
+        upperShard *= smoothstep(0.68f, 0.74f, height) * (1.0f - smoothstep(0.92f, 0.98f, height));
+        upperShard = floor(upperShard * 3.0f + 0.5f) / 3.0f;
+        float3 shardShadow = clamp(lerp(float3(0.82f, 0.52f, 0.58f), uHorizonColor * float3(0.76f, 0.46f, 0.48f), 0.46f), 0.0f, 1.5f);
+        float3 shardLight = clamp(lerp(float3(1.38f, 0.80f, 0.48f), uSunColor * float3(1.22f, 0.88f, 0.68f), 0.56f), 0.0f, 1.9f);
+        float3 shardColor = lerp(shardShadow, shardLight, saturate(sunLit * 0.46f + 0.46f));
+        lowPolySky = lerp(lowPolySky, shardColor, clamp(upperShard * uCloudParams.w * 0.66f, 0.0f, 0.66f));
+
         float streakCloud = 0.0f;
         streakCloud = max(streakCloud, CloudLobe(input.texCoord, float2(0.17f, 0.82f), float2(0.10f, 0.026f), 31.0f));
         streakCloud = max(streakCloud, CloudLobe(input.texCoord, float2(0.37f, 0.77f), float2(0.085f, 0.022f), 33.0f) * 0.70f);
