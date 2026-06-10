@@ -124,7 +124,7 @@ void SkullbonezRun::ResetCinematicRenderResources()
 }
 
 
-void SkullbonezRun::RenderCinematicSky()
+void SkullbonezRun::RenderCinematicSky( const Matrix4& view, const Matrix4& projection )
 {
     const CinematicRenderConfig& cinematic = ActiveCinematicConfig();
     if ( !cinematic.skyAtmosphereEnabled || !m_systems.skyAtmosphereShader || m_systems.postQuadVB == 0 )
@@ -149,6 +149,8 @@ void SkullbonezRun::RenderCinematicSky()
     m_systems.skyAtmosphereShader->SetVec3( "uSunColor", cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
     m_systems.skyAtmosphereShader->SetVec3( "uHorizonColor", cinematic.skyHorizonR, cinematic.skyHorizonG, cinematic.skyHorizonB );
     m_systems.skyAtmosphereShader->SetVec3( "uZenithColor", cinematic.skyZenithR, cinematic.skyZenithG, cinematic.skyZenithB );
+    m_systems.skyAtmosphereShader->SetMat4( "uInvView", view.Inverse() );
+    m_systems.skyAtmosphereShader->SetMat4( "uInvProjection", projection.Inverse() );
     m_systems.skyAtmosphereShader->SetInt( "uSkyMode", cinematic.skyMode );
     m_systems.skyAtmosphereShader->SetVec4( "uCloudParams",
                                             cinematic.cloudCoverage,
@@ -527,7 +529,7 @@ void SkullbonezRun::DrawPrimitives()
         PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Skybox" );
         if ( cinematicRender && ActiveCinematicConfig().skyAtmosphereEnabled )
         {
-            RenderCinematicSky();
+            RenderCinematicSky( reflView, proj );
         }
         else
         {
@@ -574,7 +576,7 @@ void SkullbonezRun::DrawPrimitives()
         PROFILE_GPU_BEGIN( "Frame/Render/CinematicSky" );
         if ( ActiveCinematicConfig().skyAtmosphereEnabled )
         {
-            RenderCinematicSky();
+            RenderCinematicSky( baseView, proj );
         }
         else
         {
