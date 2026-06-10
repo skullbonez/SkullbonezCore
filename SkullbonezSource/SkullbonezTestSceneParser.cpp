@@ -246,6 +246,16 @@ class TestSceneParser
         return ParseIntValue( directive, RequireArgs( directive, args, expected ) );
     }
 
+    int ParseNextIntToken( const char* directive, const char*& cursor, const char* expected )
+    {
+        char value[64] = {};
+        if ( !ReadToken( cursor, value, sizeof( value ) ) )
+        {
+            Fail( "Invalid %s at line %d (expected: %s)", directive, m_lineNumber, expected );
+        }
+        return ParseIntValue( directive, value );
+    }
+
     float ParseFloatValue( const char* directive, const char* value )
     {
         float parsed = 0.0f;
@@ -392,12 +402,12 @@ class TestSceneParser
 
     void ParseUIRect( const char* args )
     {
-        int x = 0;
-        int y = 0;
-        int w = 0;
-        int h = 0;
-        const int parsed = sscanf_s( args, "%d %d %d %d", &x, &y, &w, &h );
-        if ( parsed != 4 || w <= 0 || h <= 0 )
+        const char* cursor = RequireArgs( "UI rect", args, "UI rect <x> <y> <w> <h>" );
+        const int x = ParseNextIntToken( "UI rect", cursor, "UI rect <x> <y> <w> <h>" );
+        const int y = ParseNextIntToken( "UI rect", cursor, "UI rect <x> <y> <w> <h>" );
+        const int w = ParseNextIntToken( "UI rect", cursor, "UI rect <x> <y> <w> <h>" );
+        const int h = ParseNextIntToken( "UI rect", cursor, "UI rect <x> <y> <w> <h>" );
+        if ( w <= 0 || h <= 0 )
         {
             Fail( "Invalid UI rect at line %d (expected: UI rect <x> <y> <w> <h>)", m_lineNumber );
         }
@@ -490,13 +500,9 @@ class TestSceneParser
 
     void ParseUIMouse( const char* args )
     {
-        int x = 0;
-        int y = 0;
-        const int parsed = sscanf_s( args, "%d %d", &x, &y );
-        if ( parsed != 2 )
-        {
-            Fail( "Invalid UI mouse at line %d (expected: UI mouse <x> <y>)", m_lineNumber );
-        }
+        const char* cursor = RequireArgs( "UI mouse", args, "UI mouse <x> <y>" );
+        const int x = ParseNextIntToken( "UI mouse", cursor, "UI mouse <x> <y>" );
+        const int y = ParseNextIntToken( "UI mouse", cursor, "UI mouse <x> <y>" );
         m_scene.m_UIOptions.hasMouseOverride = true;
         m_scene.m_UIOptions.mouseX = x;
         m_scene.m_UIOptions.mouseY = y;
