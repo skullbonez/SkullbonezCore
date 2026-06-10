@@ -391,6 +391,7 @@ struct SceneRuntimeResetSnapshot
     bool hasCinematicGamma = false;
     float cinematicGamma = 2.2f;
     uint64_t cinematicOverrideMask = 0;
+    uint64_t uiCinematicOverrideMask = 0;
     CinematicRenderConfig cinematicRender;
     float uiTimeScaleOverride = 0.0f; // UI overrides feed object setup during reload, so they must survive before the scene rebuilds
     int uiModelCountOverride = -1;

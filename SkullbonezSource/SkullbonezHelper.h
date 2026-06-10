@@ -28,13 +28,19 @@ class SkullbonezHelper
     static uint32_t sphereInstMesh;                                   // Instanced mesh handle (via Gfx())
     static int sphereVertexCount;                                     // Per-sphere vertex count
     static std::vector<float> sphereInstanceData;                     // Staging buffer for model matrices + tint/override
+    static uint32_t lowPolySphereInstMesh;                            // Faceted sphere mesh for low-poly cinematic styles
+    static int lowPolySphereVertexCount;                              // Per-low-poly-sphere vertex count
+    static uint32_t activeSphereInstMesh;                             // Mesh selected for the current sphere batch
+    static int activeSphereVertexCount;                               // Vertex count selected for the current sphere batch
     static uint32_t boxInstMesh;                                      // Instanced mesh handle for box
     static int boxVertexCount;                                        // Per-box vertex count
     static std::vector<float> boxInstanceData;                        // Staging buffer for box model matrices + tint/override
     inline static float sClipPlane[4] = { 0.0f, 1.0f, 0.0f, 1.0e9f }; // default: always pass (GL_CLIP_DISTANCE0 disabled)
 
-    static void BuildSphereMesh( int slices, int stacks ); // Generate UV sphere instanced mesh
-    static void BuildBoxMesh();                            // Generate unit cube instanced mesh
+    static void EnsureSphereShader();                             // Create shared instanced lighting shader
+    static void BuildSphereMesh( int slices, int stacks );        // Generate UV sphere instanced mesh
+    static void BuildLowPolySphereMesh( int slices, int stacks ); // Generate faceted sphere instanced mesh
+    static void BuildBoxMesh();                                   // Generate unit cube instanced mesh
 
   public:
     static void StateSetup();                                                                                                                                                                                                        // Assists in setting up initial open gl state

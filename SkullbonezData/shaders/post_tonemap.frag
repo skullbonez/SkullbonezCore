@@ -274,5 +274,12 @@ void main()
     mapped = clamp((mapped - 0.5) * max(uStyleGrade.y, 0.0) + 0.5, 0.0, 1.0);
     float vignette = 1.0 - smoothstep(0.28, 0.86, distance(vTexCoord, vec2(0.52, 0.48)));
     mapped *= mix(clamp(uStyleGrade.z, 0.0, 1.0), 1.0, vignette);
+    int styleMode = int(floor(uStyleGrade.w + 0.5));
+    if (styleMode == 11)
+    {
+        vec3 pastel = pow(mapped, vec3(0.92)) * vec3(1.04, 1.02, 0.94) + vec3(0.012, 0.018, 0.010);
+        vec3 poster = floor(clamp(pastel, 0.0, 1.0) * 18.0 + 0.5) / 18.0;
+        mapped = mix(mapped, poster, 0.22);
+    }
     FragColor = vec4(mapped, 1.0);
 }

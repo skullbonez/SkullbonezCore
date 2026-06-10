@@ -118,6 +118,17 @@ float3 ProceduralBeachBallColor(float2 uv)
     return lerp(color, float3(1.0f, 0.62f, 0.02f), seam * 0.28f);
 }
 
+float3 QuantizedLowPolyNormal(float3 N)
+{
+    float3 qN = floor(N * 2.5f + 0.5f) / 2.5f;
+    return normalize(lerp(N, qN, 0.88f));
+}
+
+float LowPolySunBand(float lightAmount)
+{
+    return lightAmount > 0.72f ? 1.0f : (lightAmount > 0.34f ? 0.62f : 0.30f);
+}
+
 float3 ApplyMaterialMode(int mode, float3 materialColor, float3 N, float3 V, float3 L, float3 lightColor, float diff, float spec, float2 uv)
 {
     float3 R = reflect(-L, N);
@@ -145,9 +156,82 @@ float3 ApplyMaterialMode(int mode, float3 materialColor, float3 N, float3 V, flo
     }
     if (mode == 6)
     {
-        float bands = floor(saturate(diff) * 3.0f) / 2.0f;
-        float3 poster = floor(materialColor * 4.0f) / 4.0f;
-        return poster * (0.25f + bands * 0.95f);
+        float3 qN = QuantizedLowPolyNormal(N);
+        float qDiff = max(dot(qN, L), 0.0f);
+        float sunBand = LowPolySunBand(qDiff);
+        float hemiT = saturate(qN.y * 0.5f + 0.5f);
+        float3 skyAmbient = float3(0.34f, 0.46f, 0.72f);
+        float3 groundAmbient = float3(0.34f, 0.24f, 0.13f);
+        float3 hemiAmbient = lerp(groundAmbient, skyAmbient, hemiT);
+        float3 poster = lerp(materialColor, floor(materialColor * 4.0f + 0.5f) / 4.0f, 0.35f);
+        float rim = pow(1.0f - saturate(dot(qN, V)), 2.2f);
+        float3 warmSun = lightColor * float3(1.03f, 0.92f, 0.68f);
+        return poster * (hemiAmbient * 0.50f + warmSun * (0.22f + sunBand * 0.42f)) + warmSun * rim * 0.055f;
+    }
+    if (mode == 8)
+    {
+        float3 qN = QuantizedLowPolyNormal(N);
+        float qDiff = max(dot(qN, L), 0.0f);
+        float sunBand = LowPolySunBand(qDiff);
+        float hemiT = saturate(qN.y * 0.5f + 0.5f);
+        float leafTier = floor(saturate(uv.y + qN.y * 0.22f) * 4.0f) / 4.0f;
+        float3 topLeaf = lerp(materialColor, float3(0.66f, 0.74f, 0.28f), 0.34f);
+        float3 underside = lerp(materialColor * float3(0.42f, 0.56f, 0.36f), float3(0.12f, 0.28f, 0.12f), 0.30f);
+        float3 leaf = lerp(underside, topLeaf, hemiT);
+        leaf *= 0.78f + leafTier * 0.24f;
+        float3 skyAmbient = float3(0.30f, 0.42f, 0.62f);
+        float3 groundAmbient = float3(0.20f, 0.26f, 0.12f);
+        float3 hemiAmbient = lerp(groundAmbient, skyAmbient, hemiT);
+        float3 warmSun = lightColor * float3(1.06f, 0.96f, 0.66f);
+        float rim = pow(1.0f - saturate(dot(qN, V)), 2.1f);
+        return leaf * (hemiAmbient * 0.54f + warmSun * (0.16f + sunBand * 0.34f)) + warmSun * rim * 0.030f;
+    }
+    if (mode == 9)
+    {
+        float3 qN = QuantizedLowPolyNormal(N);
+        float sunBand = LowPolySunBand(max(dot(qN, L), 0.0f));
+        float grain = 0.5f + 0.5f * sin(uv.x * 24.0f + uv.y * 7.0f);
+        float3 bark = lerp(materialColor * float3(0.72f, 0.58f, 0.42f), materialColor * float3(1.22f, 0.96f, 0.62f) + float3(0.05f, 0.025f, 0.0f), grain * 0.28f);
+        float hemiT = saturate(qN.y * 0.5f + 0.5f);
+        float3 hemiAmbient = lerp(float3(0.30f, 0.20f, 0.11f), float3(0.44f, 0.44f, 0.32f), hemiT);
+        float3 warmSun = lightColor * float3(1.02f, 0.86f, 0.55f);
+        return bark * (hemiAmbient * 0.46f + warmSun * (0.14f + sunBand * 0.34f));
+    }
+    if (mode == 10)
+    {
+        float3 qN = QuantizedLowPolyNormal(N);
+        float sunBand = LowPolySunBand(max(dot(qN, L), 0.0f));
+        float facet = floor(max(qN.y, 0.0f) * 4.0f) / 4.0f;
+        float3 stone = lerp(materialColor * float3(0.82f, 0.86f, 0.78f), float3(0.62f, 0.64f, 0.54f), 0.28f);
+        stone *= 0.76f + facet * 0.28f;
+        float hemiT = saturate(qN.y * 0.5f + 0.5f);
+        float3 hemiAmbient = lerp(float3(0.30f, 0.28f, 0.22f), float3(0.48f, 0.56f, 0.58f), hemiT);
+        float3 warmSun = lightColor * float3(1.0f, 0.90f, 0.68f);
+        float rim = pow(1.0f - saturate(dot(qN, V)), 2.4f);
+        return stone * (hemiAmbient * 0.50f + warmSun * (0.18f + sunBand * 0.30f)) + warmSun * rim * 0.020f;
+    }
+    if (mode == 11)
+    {
+        float3 qN = QuantizedLowPolyNormal(N);
+        float sunBand = LowPolySunBand(max(dot(qN, L), 0.0f));
+        float hemiT = saturate(qN.y * 0.5f + 0.5f);
+        float3 ridge = lerp(materialColor, float3(0.70f, 0.76f, 0.48f), 0.38f);
+        ridge *= 0.82f + floor(max(qN.y, 0.0f) * 3.0f) * 0.08f;
+        float3 hazeAmbient = lerp(float3(0.40f, 0.44f, 0.30f), float3(0.62f, 0.70f, 0.66f), hemiT);
+        float3 warmSun = lightColor * float3(0.88f, 0.80f, 0.58f);
+        return ridge * (hazeAmbient * 0.58f + warmSun * (0.10f + sunBand * 0.20f));
+    }
+    if (mode == 12)
+    {
+        float3 qN = QuantizedLowPolyNormal(N);
+        float sunBand = LowPolySunBand(max(dot(qN, L), 0.0f));
+        float band = floor(saturate(uv.y) * 3.0f) / 3.0f;
+        float3 sand = lerp(materialColor, float3(0.84f, 0.76f, 0.48f), 0.44f);
+        sand *= 0.86f + band * 0.12f;
+        float hemiT = saturate(qN.y * 0.5f + 0.5f);
+        float3 hemiAmbient = lerp(float3(0.42f, 0.34f, 0.20f), float3(0.62f, 0.66f, 0.52f), hemiT);
+        float3 warmSun = lightColor * float3(1.06f, 0.94f, 0.64f);
+        return sand * (hemiAmbient * 0.50f + warmSun * (0.18f + sunBand * 0.34f));
     }
     if (mode == 7)
     {

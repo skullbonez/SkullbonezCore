@@ -31,7 +31,7 @@ uniform sampler2D uReflectionTex;      // Texture containing the reflected scene
 uniform float     uReflectionStrength; // 0=pure tint, 1=pure reflection
 uniform int       uNoReflect;          // 1 = skip reflection, output flat tint
 uniform float     uCinematicMode;      // 1 = warm sunset response
-uniform int       uWaterMode;          // 1 = basin pool, 2 = full calm plane
+uniform int       uWaterMode;          // 1 = basin pool, 2 = full calm plane, 4 = stylized basin
 uniform vec3      uSunColor;
 uniform float     uSunGlintStrength;
 uniform vec4      uBasinMask;          // center xz, radius xz for cinematic pool mask
@@ -42,13 +42,15 @@ out vec4 FragColor;
 void main()
 {
     float basinMask = 1.0;
-    if (uCinematicMode > 0.5 && uWaterMode == 1)
+    float basinDistance = 0.0;
+    vec2 basinOffset = vec2(0.0);
+    if (uCinematicMode > 0.5 && (uWaterMode == 1 || uWaterMode == 4))
     {
         // Cinematic mode turns the calm water into an oval pool in the basin.
         // Outside the oval we discard pixels so the old broad water plane does
         // not cover the shot.
-        vec2 basinOffset = (vWorldXZ - uBasinMask.xy) / max(uBasinMask.zw, vec2(1.0));
-        float basinDistance = length(basinOffset);
+        basinOffset = (vWorldXZ - uBasinMask.xy) / max(uBasinMask.zw, vec2(1.0));
+        basinDistance = length(basinOffset);
         basinMask = 1.0 - smoothstep(max(0.0, 1.0 - uBasinMaskFeather), 1.0, basinDistance);
         if (basinMask <= 0.01)
         {
@@ -68,6 +70,33 @@ void main()
     vec4 reflection = texture(uReflectionTex, reflUV);
     // Blend between base water color and reflection based on strength.
     vec3 waterColor = mix(uColorTint.rgb, reflection.rgb, uReflectionStrength);
+    if (uCinematicMode > 0.5 && uWaterMode == 4)
+    {
+        // Low-poly water: clean turquoise depth bands with a bright shoreline.
+        // It keeps a tiny reflection contribution but avoids the mirror-like
+        // grey sheet that fights the stylized terrain.
+        float shore = smoothstep(0.54, 0.94, basinDistance);
+        float angle = atan(basinOffset.y, basinOffset.x);
+        float shard = floor(fract(angle * 1.90986 + basinDistance * 2.4 + 0.35) * 4.0) / 4.0;
+        float depthBand = floor(clamp(1.0 - basinDistance, 0.0, 1.0) * 5.0 + shard * 0.45) / 5.0;
+        vec3 deep = vec3(0.055, 0.30, 0.44);
+        vec3 mid = vec3(0.14, 0.58, 0.68);
+        vec3 shallow = vec3(0.70, 0.90, 0.74);
+        waterColor = mix(deep, mid, 0.30 + depthBand * 0.50);
+        waterColor = mix(waterColor, shallow, shore * 0.58);
+        waterColor *= 0.94 + shard * 0.16;
+        float wedge = fract(angle * 2.86479 + basinDistance * 0.30 + 0.5);
+        float panelEdge = 1.0 - smoothstep(0.0, 0.040, min(wedge, 1.0 - wedge));
+        waterColor = mix(waterColor, waterColor * vec3(0.72, 0.88, 0.96), panelEdge * 0.22);
+        waterColor = mix(waterColor, reflection.rgb, min(uReflectionStrength, 0.07));
+        float rimLine = smoothstep(0.70, 0.91, basinDistance) * (1.0 - smoothstep(0.94, 1.0, basinDistance));
+        float innerRim = smoothstep(0.52, 0.72, basinDistance) * (1.0 - smoothstep(0.76, 0.88, basinDistance));
+        waterColor += vec3(0.46, 0.50, 0.24) * rimLine;
+        waterColor += vec3(0.08, 0.22, 0.18) * innerRim;
+        float sunShard = pow(max(0.0, 1.0 - abs(reflUV.x - 0.64) * 6.0), 3.0) *
+                         pow(max(0.0, 1.0 - abs(reflUV.y - 0.48) * 8.0), 2.0);
+        waterColor += uSunColor * sunShard * 0.018;
+    }
     if (uCinematicMode > 0.5)
     {
         // Add a fake sunset glint where the reflected sun column would land.
@@ -76,7 +105,10 @@ void main()
         float sunColumn = pow(max(0.0, 1.0 - abs(reflUV.x - 0.28) * 4.6), 3.0);
         float horizonLine = pow(max(0.0, 1.0 - abs(reflUV.y - 0.54) * 9.0), 2.0);
         float glint = sunColumn * horizonLine * uSunGlintStrength;
-        waterColor = mix(waterColor * vec3(0.72, 0.58, 0.42), vec3(0.58, 0.24, 0.065), 0.14);
+        if (uWaterMode != 4)
+        {
+            waterColor = mix(waterColor * vec3(0.72, 0.58, 0.42), vec3(0.58, 0.24, 0.065), 0.14);
+        }
         waterColor += uSunColor * glint;
     }
     FragColor = vec4(waterColor, uColorTint.a * basinMask);

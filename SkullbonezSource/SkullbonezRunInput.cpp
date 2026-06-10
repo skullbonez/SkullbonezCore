@@ -11,6 +11,150 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
+uint64_t CinematicOverrideMaskForUIParam( UICinematicParam param )
+{
+    switch ( param )
+    {
+    case UICinematicParam::Exposure:
+        return SCENE_CINE_EXPOSURE;
+    case UICinematicParam::Gamma:
+        return SCENE_CINE_GAMMA;
+    case UICinematicParam::SkyMode:
+    case UICinematicParam::TerrainMode:
+    case UICinematicParam::ObjectStyle:
+    case UICinematicParam::WaterMode:
+        return SCENE_CINE_STYLE_MODES;
+    case UICinematicParam::StyleSaturation:
+    case UICinematicParam::StyleContrast:
+    case UICinematicParam::StyleVignette:
+        return SCENE_CINE_STYLE_GRADE;
+    case UICinematicParam::SunX:
+        return SCENE_CINE_SUN_SCREEN_X;
+    case UICinematicParam::SunY:
+        return SCENE_CINE_SUN_SCREEN_Y;
+    case UICinematicParam::SunBrightness:
+        return SCENE_CINE_SUN_INTENSITY;
+    case UICinematicParam::SunRed:
+        return SCENE_CINE_SUN_COLOR_R;
+    case UICinematicParam::SunGreen:
+        return SCENE_CINE_SUN_COLOR_G;
+    case UICinematicParam::SunBlue:
+        return SCENE_CINE_SUN_COLOR_B;
+    case UICinematicParam::SkyGlow:
+        return SCENE_CINE_SKY_GLOW_STRENGTH;
+    case UICinematicParam::HorizonRed:
+        return SCENE_CINE_SKY_HORIZON_R;
+    case UICinematicParam::HorizonGreen:
+        return SCENE_CINE_SKY_HORIZON_G;
+    case UICinematicParam::HorizonBlue:
+        return SCENE_CINE_SKY_HORIZON_B;
+    case UICinematicParam::ZenithRed:
+        return SCENE_CINE_SKY_ZENITH_R;
+    case UICinematicParam::ZenithGreen:
+        return SCENE_CINE_SKY_ZENITH_G;
+    case UICinematicParam::ZenithBlue:
+        return SCENE_CINE_SKY_ZENITH_B;
+    case UICinematicParam::CloudCoverage:
+        return SCENE_CINE_CLOUD_COVERAGE;
+    case UICinematicParam::CloudSoftness:
+        return SCENE_CINE_CLOUD_SOFTNESS;
+    case UICinematicParam::CloudScale:
+        return SCENE_CINE_CLOUD_SCALE;
+    case UICinematicParam::CloudIntensity:
+        return SCENE_CINE_CLOUD_INTENSITY;
+    case UICinematicParam::ShaftStrength:
+        return SCENE_CINE_SUN_SHAFT_STRENGTH;
+    case UICinematicParam::ShaftFalloff:
+        return SCENE_CINE_SUN_SHAFT_FALLOFF;
+    case UICinematicParam::VolumetricStrength:
+        return SCENE_CINE_VOLUMETRIC_STRENGTH;
+    case UICinematicParam::VolumetricDensity:
+        return SCENE_CINE_VOLUMETRIC_DENSITY;
+    case UICinematicParam::VolumetricDecay:
+        return SCENE_CINE_VOLUMETRIC_DECAY;
+    case UICinematicParam::BloomThreshold:
+        return SCENE_CINE_BLOOM_THRESHOLD;
+    case UICinematicParam::BloomKnee:
+        return SCENE_CINE_BLOOM_KNEE;
+    case UICinematicParam::BloomStrength:
+        return SCENE_CINE_BLOOM_STRENGTH;
+    case UICinematicParam::BloomRadius:
+        return SCENE_CINE_BLOOM_RADIUS;
+    case UICinematicParam::TerrainRelief:
+        return SCENE_CINE_TERRAIN_RELIEF;
+    case UICinematicParam::TerrainTintRed:
+    case UICinematicParam::TerrainTintGreen:
+    case UICinematicParam::TerrainTintBlue:
+        return SCENE_CINE_TERRAIN_TINT;
+    case UICinematicParam::TerrainAccentRed:
+    case UICinematicParam::TerrainAccentGreen:
+    case UICinematicParam::TerrainAccentBlue:
+        return SCENE_CINE_TERRAIN_ACCENT;
+    case UICinematicParam::TerrainGridScale:
+    case UICinematicParam::TerrainGridStrength:
+        return SCENE_CINE_TERRAIN_GRID;
+    case UICinematicParam::WaterTintRed:
+    case UICinematicParam::WaterTintGreen:
+    case UICinematicParam::WaterTintBlue:
+        return SCENE_CINE_WATER_TINT;
+    case UICinematicParam::WaterAlpha:
+    case UICinematicParam::WaterReflection:
+    case UICinematicParam::WaterGlint:
+        return SCENE_CINE_WATER_PROFILE;
+    case UICinematicParam::BasinCenterX:
+    case UICinematicParam::BasinCenterZ:
+    case UICinematicParam::BasinRadiusX:
+    case UICinematicParam::BasinRadiusZ:
+    case UICinematicParam::BasinFeather:
+        return SCENE_CINE_BASIN_MASK;
+    case UICinematicParam::BasinDepth:
+        return SCENE_CINE_BASIN_DEPTH;
+    case UICinematicParam::BasinRimLift:
+        return SCENE_CINE_BASIN_RIM_LIFT;
+    case UICinematicParam::FogDensity:
+        return SCENE_CINE_FOG_DENSITY;
+    case UICinematicParam::FogOpacity:
+        return SCENE_CINE_FOG_MAX_OPACITY;
+    case UICinematicParam::FogStart:
+        return SCENE_CINE_FOG_START;
+    case UICinematicParam::FogEnd:
+        return SCENE_CINE_FOG_END;
+    case UICinematicParam::FogRed:
+        return SCENE_CINE_FOG_COLOR_R;
+    case UICinematicParam::FogGreen:
+        return SCENE_CINE_FOG_COLOR_G;
+    case UICinematicParam::FogBlue:
+        return SCENE_CINE_FOG_COLOR_B;
+    default:
+        return 0;
+    }
+}
+
+
+uint64_t CinematicOverrideMaskForUIFeature( UICinematicFeature feature )
+{
+    switch ( feature )
+    {
+    case UICinematicFeature::Sky:
+        return SCENE_CINE_SKY_ATMOSPHERE;
+    case UICinematicFeature::Clouds:
+        return SCENE_CINE_CLOUDS;
+    case UICinematicFeature::GodRays:
+        return SCENE_CINE_GOD_RAYS;
+    case UICinematicFeature::VolumetricLight:
+        return SCENE_CINE_VOLUMETRIC_LIGHTING;
+    case UICinematicFeature::Bloom:
+        return SCENE_CINE_BLOOM;
+    case UICinematicFeature::Fog:
+        return SCENE_CINE_FOG;
+    case UICinematicFeature::TerrainRelief:
+        return SCENE_CINE_TERRAIN_RELIEF_ENABLED;
+    default:
+        return 0;
+    }
+}
+
+
 void ApplyCinematicUIParam( CinematicRenderConfig& cinematic, RunSceneState& scene, UICinematicParam param, float rawValue )
 {
     // The UI sends "the user dragged this slider to this raw value." This helper
@@ -19,6 +163,10 @@ void ApplyCinematicUIParam( CinematicRenderConfig& cinematic, RunSceneState& sce
     const auto clampValue = []( float value, float minValue, float maxValue ) -> float
     {
         return std::clamp( value, minValue, maxValue );
+    };
+    const auto clampIntValue = []( float value, int minValue, int maxValue ) -> int
+    {
+        return std::clamp( static_cast<int>( std::round( value ) ), minValue, maxValue );
     };
 
     switch ( param )
@@ -34,6 +182,34 @@ void ApplyCinematicUIParam( CinematicRenderConfig& cinematic, RunSceneState& sce
         scene.hasCinematicGamma = true;
         scene.cinematicGamma = cinematic.gamma;
         scene.cinematicOverrideMask |= SCENE_CINE_GAMMA;
+        break;
+    case UICinematicParam::SkyMode:
+        cinematic.skyMode = clampIntValue( rawValue, 0, 32 );
+        scene.cinematicOverrideMask |= SCENE_CINE_STYLE_MODES;
+        break;
+    case UICinematicParam::TerrainMode:
+        cinematic.terrainMode = clampIntValue( rawValue, 0, 32 );
+        scene.cinematicOverrideMask |= SCENE_CINE_STYLE_MODES;
+        break;
+    case UICinematicParam::ObjectStyle:
+        cinematic.objectStyle = clampIntValue( rawValue, 0, 32 );
+        scene.cinematicOverrideMask |= SCENE_CINE_STYLE_MODES;
+        break;
+    case UICinematicParam::WaterMode:
+        cinematic.waterMode = clampIntValue( rawValue, 0, 4 );
+        scene.cinematicOverrideMask |= SCENE_CINE_STYLE_MODES;
+        break;
+    case UICinematicParam::StyleSaturation:
+        cinematic.styleSaturation = clampValue( rawValue, 0.00f, 2.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_STYLE_GRADE;
+        break;
+    case UICinematicParam::StyleContrast:
+        cinematic.styleContrast = clampValue( rawValue, 0.00f, 2.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_STYLE_GRADE;
+        break;
+    case UICinematicParam::StyleVignette:
+        cinematic.styleVignette = clampValue( rawValue, 0.00f, 1.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_STYLE_GRADE;
         break;
     case UICinematicParam::SunX:
         cinematic.sunScreenX = clampValue( rawValue, 0.00f, 1.00f );
@@ -143,6 +319,82 @@ void ApplyCinematicUIParam( CinematicRenderConfig& cinematic, RunSceneState& sce
         cinematic.terrainRelief = clampValue( rawValue, 0.00f, 1.50f );
         scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_RELIEF;
         break;
+    case UICinematicParam::TerrainTintRed:
+        cinematic.terrainTintR = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_TINT;
+        break;
+    case UICinematicParam::TerrainTintGreen:
+        cinematic.terrainTintG = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_TINT;
+        break;
+    case UICinematicParam::TerrainTintBlue:
+        cinematic.terrainTintB = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_TINT;
+        break;
+    case UICinematicParam::TerrainAccentRed:
+        cinematic.terrainAccentR = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_ACCENT;
+        break;
+    case UICinematicParam::TerrainAccentGreen:
+        cinematic.terrainAccentG = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_ACCENT;
+        break;
+    case UICinematicParam::TerrainAccentBlue:
+        cinematic.terrainAccentB = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_ACCENT;
+        break;
+    case UICinematicParam::TerrainGridScale:
+        cinematic.terrainGridScale = clampValue( rawValue, 0.10f, 120.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_GRID;
+        break;
+    case UICinematicParam::TerrainGridStrength:
+        cinematic.terrainGridStrength = clampValue( rawValue, 0.00f, 4.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_GRID;
+        break;
+    case UICinematicParam::WaterTintRed:
+        cinematic.waterTintR = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_WATER_TINT;
+        break;
+    case UICinematicParam::WaterTintGreen:
+        cinematic.waterTintG = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_WATER_TINT;
+        break;
+    case UICinematicParam::WaterTintBlue:
+        cinematic.waterTintB = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_WATER_TINT;
+        break;
+    case UICinematicParam::WaterAlpha:
+        cinematic.waterAlpha = clampValue( rawValue, 0.00f, 1.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_WATER_PROFILE;
+        break;
+    case UICinematicParam::WaterReflection:
+        cinematic.waterReflectionStrength = clampValue( rawValue, 0.00f, 1.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_WATER_PROFILE;
+        break;
+    case UICinematicParam::WaterGlint:
+        cinematic.waterGlintStrength = clampValue( rawValue, 0.00f, 4.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_WATER_PROFILE;
+        break;
+    case UICinematicParam::BasinCenterX:
+        cinematic.basinCenterX = clampValue( rawValue, 0.00f, 1200.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_BASIN_MASK;
+        break;
+    case UICinematicParam::BasinCenterZ:
+        cinematic.basinCenterZ = clampValue( rawValue, 0.00f, 1200.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_BASIN_MASK;
+        break;
+    case UICinematicParam::BasinRadiusX:
+        cinematic.basinRadiusX = clampValue( rawValue, 1.00f, 500.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_BASIN_MASK;
+        break;
+    case UICinematicParam::BasinRadiusZ:
+        cinematic.basinRadiusZ = clampValue( rawValue, 1.00f, 500.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_BASIN_MASK;
+        break;
+    case UICinematicParam::BasinFeather:
+        cinematic.basinFeather = clampValue( rawValue, 0.00f, 1.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_BASIN_MASK;
+        break;
     case UICinematicParam::BasinDepth:
         cinematic.basinDepth = clampValue( rawValue, 0.00f, 80.00f );
         scene.cinematicOverrideMask |= SCENE_CINE_BASIN_DEPTH;
@@ -182,6 +434,13 @@ void ApplyCinematicUIParam( CinematicRenderConfig& cinematic, RunSceneState& sce
     default:
         break;
     }
+
+    const uint64_t touchedMask = CinematicOverrideMaskForUIParam( param );
+    if ( touchedMask != 0 )
+    {
+        scene.cinematicOverrideMask |= touchedMask;
+        scene.uiCinematicOverrideMask |= touchedMask;
+    }
 }
 
 void ToggleCinematicUIFeature( CinematicRenderConfig& cinematic, RunSceneState& scene, UICinematicFeature feature )
@@ -220,6 +479,13 @@ void ToggleCinematicUIFeature( CinematicRenderConfig& cinematic, RunSceneState& 
         break;
     default:
         break;
+    }
+
+    const uint64_t touchedMask = CinematicOverrideMaskForUIFeature( feature );
+    if ( touchedMask != 0 )
+    {
+        scene.cinematicOverrideMask |= touchedMask;
+        scene.uiCinematicOverrideMask |= touchedMask;
     }
 }
 } // namespace
@@ -741,6 +1007,7 @@ void SkullbonezRun::TakeInput()
                 m_scene.hasCinematicRenderingOverride = true;
                 m_scene.isCinematicRenderingEnabled = cinematic.enabled;
                 m_scene.cinematicOverrideMask |= SCENE_CINE_RENDERING;
+                m_scene.uiCinematicOverrideMask |= SCENE_CINE_RENDERING;
             }
         }
         if ( uiCommands.cinematic.requestedModeSceneIndex >= -1 )

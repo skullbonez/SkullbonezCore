@@ -37,6 +37,7 @@ struct SceneBall
     float forcePosX, forcePosY, forcePosZ;
     float eulerX, eulerY, eulerZ; // Initial orientation in degrees (optional, default 0)
     bool hasInitOrient;
+    bool isFixed;
 };
 
 struct SceneBallState

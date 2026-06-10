@@ -298,5 +298,12 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     mapped = saturate((mapped - 0.5f) * max(uStyleGrade.y, 0.0f) + 0.5f);
     float vignette = 1.0f - smoothstep(0.28f, 0.86f, distance(screenUV, float2(0.52f, 0.48f)));
     mapped *= lerp(saturate(uStyleGrade.z), 1.0f, vignette);
+    int styleMode = (int)floor(uStyleGrade.w + 0.5f);
+    if (styleMode == 11)
+    {
+        float3 pastel = pow(mapped, float3(0.92f, 0.92f, 0.92f)) * float3(1.04f, 1.02f, 0.94f) + float3(0.012f, 0.018f, 0.010f);
+        float3 poster = floor(saturate(pastel) * 18.0f + 0.5f) / 18.0f;
+        mapped = lerp(mapped, poster, 0.22f);
+    }
     return float4(mapped, 1.0f);
 }

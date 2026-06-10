@@ -81,12 +81,14 @@ Scene files are plain text. Blank lines and lines beginning with `#` are ignored
 | Capture | `screenshot`, `screenshot_interval` |
 | Logging | `perf_log`, `perf_log_flush`, `perf_log_flush_interval` |
 | Simulation | `physics`, `time_scale`, `seed`, `world` |
-| Objects | `ball`, `box`, `floating_box`, `ball_state`, `solver_balls`, `solver_boxes` |
+| Objects | `ball`, `floating_ball`, `box`, `floating_box`, `ball_state`, `solver_balls`, `solver_boxes` |
 | Camera | `camera`, `track_height`, `auto_cycle_interval` |
-| Rendering | `text`, `text_only`, `physics_debug`, `physics_debug_axes`, `physics_debug_contacts`, `physics_debug_sleep`, `physics_debug_pipeline`, `physics_debug_transparent`, `physics_debug_alpha`, `physics_debug_contact_linger`, `vsync`, `pipeline_sync`, `water_hidden`, `terrain_hidden`, `flat_slope` |
+| Rendering | `style`, `look`, `text`, `text_only`, `physics_debug`, `physics_debug_axes`, `physics_debug_contacts`, `physics_debug_sleep`, `physics_debug_pipeline`, `physics_debug_transparent`, `physics_debug_alpha`, `physics_debug_contact_linger`, `vsync`, `pipeline_sync`, `water_hidden`, `terrain_hidden`, `flat_slope` |
 
 For exact field order, inspect an existing scene in `SkullbonezData/scenes/` and the parser in `SkullbonezSource/SkullbonezTestScene.cpp`.
-`floating_box` uses the same fields as `box`, but the body is fixed in world space and excluded from gravity, impulses, and scene energy.
+`floating_ball` and `floating_box` use the same fields as `ball` and `box`, but the body is fixed in world space and excluded from gravity, impulses, and scene energy.
+`style <name>` includes `SkullbonezData/styles/<name>.style`; explicit paths ending in `.style` are also accepted. Style files should hold render-look directives such as `look` and `cinematic_*`, while scene files should own cameras, physics, gameplay objects, and set dressing.
+The in-game Cine tab exposes live sliders for tonemap, style modes, style grade, sky, terrain, water, basin, fog, and related cinematic values. Dragging those sliders mutates the active scene's `CinematicRenderConfig` without restarting physics; Scene tab `Save Defaults` writes only Cine controls changed by the UI as scene-local `cinematic_*` overrides, so `.style` files remain reusable base descriptors.
 
 Physics regression CSV output is command-line only via `--physics-regression-log` and `--physics-collision-time-log`; scene files must not enable it.
 

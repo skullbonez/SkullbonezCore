@@ -18,6 +18,10 @@ std::unique_ptr<IShader> SkullbonezHelper::sphereShader;
 uint32_t SkullbonezHelper::sphereInstMesh = 0;
 int SkullbonezHelper::sphereVertexCount = 0;
 std::vector<float> SkullbonezHelper::sphereInstanceData;
+uint32_t SkullbonezHelper::lowPolySphereInstMesh = 0;
+int SkullbonezHelper::lowPolySphereVertexCount = 0;
+uint32_t SkullbonezHelper::activeSphereInstMesh = 0;
+int SkullbonezHelper::activeSphereVertexCount = 0;
 uint32_t SkullbonezHelper::boxInstMesh = 0;
 int SkullbonezHelper::boxVertexCount = 0;
 std::vector<float> SkullbonezHelper::boxInstanceData;
@@ -72,10 +76,30 @@ void SkullbonezHelper::ResetRenderResources()
         Gfx().DestroyInstancedMesh( sphereInstMesh );
         sphereInstMesh = 0;
     }
+    if ( lowPolySphereInstMesh != 0 )
+    {
+        Gfx().DestroyInstancedMesh( lowPolySphereInstMesh );
+        lowPolySphereInstMesh = 0;
+    }
     if ( boxInstMesh != 0 )
     {
         Gfx().DestroyInstancedMesh( boxInstMesh );
         boxInstMesh = 0;
+    }
+    activeSphereInstMesh = 0;
+    activeSphereVertexCount = 0;
+}
+
+
+void SkullbonezHelper::EnsureSphereShader()
+{
+    if ( !sphereShader )
+    {
+        sphereShader = Gfx().CreateShader( "shaders/lit_textured_instanced" );
+        sphereShader->Use();
+        ApplySceneLightUniforms( *sphereShader );
+        sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
+        sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
     }
 }
 
@@ -85,12 +109,8 @@ void SkullbonezHelper::EnsureSphereMesh()
     if ( sphereInstMesh == 0 )
     {
         BuildSphereMesh( 25, 25 );
-        sphereShader = Gfx().CreateShader( "shaders/lit_textured_instanced" );
-        sphereShader->Use();
-        ApplySceneLightUniforms( *sphereShader );
-        sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
-        sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
     }
+    EnsureSphereShader();
 }
 
 
@@ -114,17 +134,46 @@ void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
 }
 
 
+void SkullbonezHelper::BuildLowPolySphereMesh( int slices, int stacks )
+{
+    std::vector<float> verts;
+    verts.reserve( PrimitiveMeshes::SphereTriangleVertexCount( slices, stacks ) * 8 );
+
+    PrimitiveMeshes::EmitUnitSphereFlat( slices, stacks, [&]( const PrimitiveMeshes::VertexPNUV& vertex )
+                                         { verts.insert( verts.end(), { vertex.x, vertex.y, vertex.z, vertex.nx, vertex.ny, vertex.nz, vertex.u, vertex.v } ); } );
+
+    lowPolySphereVertexCount = PrimitiveMeshes::SphereTriangleVertexCount( slices, stacks );
+
+    int staticAttribSizes[] = { 3, 3, 2 };
+    int instanceAttribSizes[] = { 4, 4, 4, 4, 4 };
+    lowPolySphereInstMesh = Gfx().CreateInstancedMesh( verts.data(), lowPolySphereVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 5, staticAttribSizes, 3 );
+
+    sphereInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
+}
+
+
 void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic )
 {
-    if ( sphereInstMesh == 0 )
+    const bool useLowPolySphereMesh = ObjectStyleForShader( cinematic ) == 6;
+    if ( useLowPolySphereMesh )
     {
-        BuildSphereMesh( 25, 25 );
-        sphereShader = Gfx().CreateShader( "shaders/lit_textured_instanced" );
-        sphereShader->Use();
-        ApplySceneLightUniforms( *sphereShader );
-        sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
-        sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
+        if ( lowPolySphereInstMesh == 0 )
+        {
+            BuildLowPolySphereMesh( 12, 7 );
+        }
+        activeSphereInstMesh = lowPolySphereInstMesh;
+        activeSphereVertexCount = lowPolySphereVertexCount;
     }
+    else
+    {
+        if ( sphereInstMesh == 0 )
+        {
+            BuildSphereMesh( 25, 25 );
+        }
+        activeSphereInstMesh = sphereInstMesh;
+        activeSphereVertexCount = sphereVertexCount;
+    }
+    EnsureSphereShader();
 
     if ( isTransparent )
     {
@@ -163,10 +212,10 @@ void SkullbonezHelper::DrawSphereBatchModel( const Matrix4& model, float tintR, 
 void SkullbonezHelper::DrawSphereBatchEnd()
 {
     int instanceCount = static_cast<int>( sphereInstanceData.size() ) / INSTANCE_FLOATS;
-    if ( instanceCount > 0 )
+    if ( instanceCount > 0 && activeSphereInstMesh != 0 )
     {
-        Gfx().UploadInstanceData( sphereInstMesh, sphereInstanceData.data(), static_cast<int>( sphereInstanceData.size() ) );
-        Gfx().DrawInstancedMesh( sphereInstMesh, sphereVertexCount, instanceCount );
+        Gfx().UploadInstanceData( activeSphereInstMesh, sphereInstanceData.data(), static_cast<int>( sphereInstanceData.size() ) );
+        Gfx().DrawInstancedMesh( activeSphereInstMesh, activeSphereVertexCount, instanceCount );
     }
     Gfx().SetBlend( false );
 }
@@ -208,16 +257,8 @@ void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& pr
         BuildBoxMesh();
     }
 
-    // Reuse sphere shader (same vertex layout, same lighting model)
-    if ( sphereInstMesh == 0 )
-    {
-        BuildSphereMesh( 25, 25 );
-        sphereShader = Gfx().CreateShader( "shaders/lit_textured_instanced" );
-        sphereShader->Use();
-        ApplySceneLightUniforms( *sphereShader );
-        sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
-        sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
-    }
+    // Reuse sphere shader (same vertex layout, same lighting model).
+    EnsureSphereShader();
 
     if ( isTransparent )
     {

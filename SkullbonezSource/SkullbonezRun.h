@@ -166,6 +166,7 @@ struct RunSceneState
     bool hasCinematicGamma = false;
     float cinematicGamma = 2.2f;
     uint64_t cinematicOverrideMask = 0;
+    uint64_t uiCinematicOverrideMask = 0; // Cine-tab values edited by sliders/toggles and eligible for Save Defaults
     CinematicRenderConfig cinematicRender;
 };
 

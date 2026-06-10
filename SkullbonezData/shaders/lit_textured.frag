@@ -78,6 +78,14 @@ float GridLine(vec2 xz, float scale)
     return 1.0 - smoothstep(0.470, 0.498, lineDistance);
 }
 
+vec3 FacetNormalFromDerivatives(vec3 viewPos, vec3 fallbackNormal)
+{
+    vec3 dx = dFdx(viewPos);
+    vec3 dy = dFdy(viewPos);
+    vec3 faceN = normalize(cross(dy, dx));
+    return dot(faceN, fallbackNormal) < 0.0 ? -faceN : faceN;
+}
+
 vec3 TerrainModeColor(int mode, vec3 texColor, vec3 N, vec3 worldPos)
 {
     vec3 base = texColor * max(uTerrainTint.rgb, vec3(0.001));
@@ -110,8 +118,18 @@ vec3 TerrainModeColor(int mode, vec3 texColor, vec3 N, vec3 worldPos)
     }
     else if (mode == 7)
     {
-        float bands = floor(max(N.y, 0.0) * 3.0) / 3.0;
-        base = uTerrainTint.rgb * (0.35 + bands * 0.85);
+        float heightT = clamp((worldPos.y - 28.0) / 115.0, 0.0, 1.0);
+        float terrace = floor(heightT * 5.0) / 5.0;
+        vec3 lowColor = mix(vec3(0.30, 0.46, 0.18), uTerrainAccent.rgb, 0.18);
+        vec3 midColor = mix(vec3(0.58, 0.68, 0.28), uTerrainTint.rgb, 0.35);
+        vec3 highColor = vec3(0.92, 0.80, 0.42);
+        base = mix(lowColor, midColor, smoothstep(0.08, 0.58, heightT));
+        base = mix(base, highColor, smoothstep(0.58, 1.0, heightT));
+        float slope = clamp(1.0 - max(N.y, 0.0), 0.0, 1.0);
+        vec3 slopeColor = mix(vec3(0.38, 0.30, 0.16), uTerrainAccent.rgb, 0.25);
+        base = mix(base, slopeColor, slope * 0.38);
+        float facet = floor(max(N.y, 0.0) * 4.0) / 4.0;
+        base *= 0.78 + facet * 0.30 + terrace * 0.10;
     }
     else if (mode == 8)
     {
@@ -192,11 +210,18 @@ void main()
         // w=0 is how the C++ render path tells this shader "cinematic sun mode".
         // The terrain then gets a warmer, more photographic grade instead of the
         // neutral gameplay Phong lighting.
-        float warmWrap = clamp(dot(N, L) * 0.5 + 0.5, 0.0, 1.0);
-        float grazing = pow(clamp(1.0 - abs(dot(N, L)), 0.0, 1.0), 1.5);
-        float rim = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 3.0) * (0.25 + warmWrap * 0.75);
         int terrainMode = int(floor(uStyleModes.y + 0.5));
-        vec3 earthBase = TerrainModeColor(terrainMode, texColor.rgb, N, vWorldPos);
+        vec3 terrainN = N;
+        if (terrainMode == 7)
+        {
+            terrainN = normalize(mix(N, FacetNormalFromDerivatives(vViewPos, N), 0.86));
+        }
+        float terrainDot = dot(terrainN, L);
+        float terrainDiff = max(terrainDot, 0.0);
+        float warmWrap = clamp(terrainDot * 0.5 + 0.5, 0.0, 1.0);
+        float grazing = pow(clamp(1.0 - abs(terrainDot), 0.0, 1.0), 1.5);
+        float rim = pow(1.0 - clamp(dot(terrainN, V), 0.0, 1.0), 3.0) * (0.25 + warmWrap * 0.75);
+        vec3 earthBase = TerrainModeColor(terrainMode, texColor.rgb, terrainN, vWorldPos);
         if (uCinematicTerrain.x > 0.5)
         {
             // If visual terrain relief is enabled, darken the basin center and
@@ -209,13 +234,30 @@ void main()
             earthBase = mix(earthBase, earthBase * vec3(0.62, 0.47, 0.34), bowlShade * 0.55);
             earthBase += vec3(0.20, 0.09, 0.02) * rimShade * 0.10;
         }
+        if (terrainMode == 7)
+        {
+            // Low-poly art mode: no texture dependency, just height-colored
+            // terrain, hemisphere ambient, warm sun bands, and readable facets.
+            float hemiT = clamp(terrainN.y * 0.5 + 0.5, 0.0, 1.0);
+            vec3 skyAmbient = vec3(0.45, 0.65, 1.0);
+            vec3 groundAmbient = vec3(0.35, 0.25, 0.15);
+            vec3 hemiAmbient = mix(groundAmbient, skyAmbient, hemiT);
+            float sunBand = terrainDiff > 0.72 ? 1.0 : (terrainDiff > 0.34 ? 0.62 : 0.30);
+            float softFill = warmWrap * 0.12;
+            vec3 warmSun = uLightDiffuse.rgb * vec3(1.04, 0.94, 0.72);
+            vec3 color = earthBase * (hemiAmbient * 0.58 + warmSun * (sunBand * 0.34 + softFill));
+            color += warmSun * (rim * 0.055 + grazing * 0.030);
+            FragColor = vec4(color, 1.0);
+            return;
+        }
+
         // Grade the texture into a sunset palette: brown shadow tone, orange lit
         // tone, and a tiny ridge highlight where the view/light angle catches.
         vec3 shadowTone = earthBase * vec3(0.42, 0.28, 0.18);
         vec3 litTone = earthBase * vec3(1.28, 0.72, 0.34);
-        vec3 gradedBase = mix(shadowTone, litTone, clamp(diff * 0.85 + warmWrap * 0.12, 0.0, 1.0));
-        vec3 warmAmbient = gradedBase * uLightAmbient.rgb * (0.95 + max(N.y, 0.0) * 0.35);
-        vec3 directSun = gradedBase * uLightDiffuse.rgb * (diff * 0.42 + grazing * 0.08);
+        vec3 gradedBase = mix(shadowTone, litTone, clamp(terrainDiff * 0.85 + warmWrap * 0.12, 0.0, 1.0));
+        vec3 warmAmbient = gradedBase * uLightAmbient.rgb * (0.95 + max(terrainN.y, 0.0) * 0.35);
+        vec3 directSun = gradedBase * uLightDiffuse.rgb * (terrainDiff * 0.42 + grazing * 0.08);
         vec3 ridgeLight = uLightDiffuse.rgb * (rim * 0.045 + spec * 0.035);
         FragColor = vec4(warmAmbient + directSun + ridgeLight, 1.0);
         return;

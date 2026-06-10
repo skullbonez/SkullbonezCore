@@ -128,6 +128,14 @@ float GridLine(float2 xz, float scale)
     return 1.0f - smoothstep(0.470f, 0.498f, lineDistance);
 }
 
+float3 FacetNormalFromDerivatives(float3 viewPos, float3 fallbackNormal)
+{
+    float3 dx = ddx(viewPos);
+    float3 dy = ddy(viewPos);
+    float3 faceN = normalize(cross(dy, dx));
+    return dot(faceN, fallbackNormal) < 0.0f ? -faceN : faceN;
+}
+
 float3 TerrainModeColor(int mode, float3 texColor, float3 N, float3 worldPos)
 {
     float3 base = texColor * max(uTerrainTint.rgb, float3(0.001f, 0.001f, 0.001f));
@@ -160,8 +168,18 @@ float3 TerrainModeColor(int mode, float3 texColor, float3 N, float3 worldPos)
     }
     else if (mode == 7)
     {
-        float bands = floor(max(N.y, 0.0f) * 3.0f) / 3.0f;
-        base = uTerrainTint.rgb * (0.35f + bands * 0.85f);
+        float heightT = saturate((worldPos.y - 28.0f) / 115.0f);
+        float terrace = floor(heightT * 5.0f) / 5.0f;
+        float3 lowColor = lerp(float3(0.30f, 0.46f, 0.18f), uTerrainAccent.rgb, 0.18f);
+        float3 midColor = lerp(float3(0.58f, 0.68f, 0.28f), uTerrainTint.rgb, 0.35f);
+        float3 highColor = float3(0.92f, 0.80f, 0.42f);
+        base = lerp(lowColor, midColor, smoothstep(0.08f, 0.58f, heightT));
+        base = lerp(base, highColor, smoothstep(0.58f, 1.0f, heightT));
+        float slope = saturate(1.0f - max(N.y, 0.0f));
+        float3 slopeColor = lerp(float3(0.38f, 0.30f, 0.16f), uTerrainAccent.rgb, 0.25f);
+        base = lerp(base, slopeColor, slope * 0.38f);
+        float facet = floor(max(N.y, 0.0f) * 4.0f) / 4.0f;
+        base *= 0.78f + facet * 0.30f + terrace * 0.10f;
     }
     else if (mode == 8)
     {
@@ -276,11 +294,18 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         // w=0 is how the C++ render path tells this shader "cinematic sun mode".
         // The terrain then gets a warmer, more photographic grade instead of the
         // neutral gameplay Phong lighting.
-        float warmWrap = saturate(dot(N, L) * 0.5f + 0.5f);
-        float grazing = pow(saturate(1.0f - abs(dot(N, L))), 1.5f);
-        float rim = pow(1.0f - saturate(dot(N, V)), 3.0f) * (0.25f + warmWrap * 0.75f);
         int terrainMode = (int)floor(uStyleModes.y + 0.5f);
-        float3 earthBase = TerrainModeColor(terrainMode, texColor.rgb, N, input.worldPos);
+        float3 terrainN = N;
+        if (terrainMode == 7)
+        {
+            terrainN = normalize(lerp(N, FacetNormalFromDerivatives(input.viewPos, N), 0.86f));
+        }
+        float terrainDot = dot(terrainN, L);
+        float terrainDiff = max(terrainDot, 0.0f);
+        float warmWrap = saturate(terrainDot * 0.5f + 0.5f);
+        float grazing = pow(saturate(1.0f - abs(terrainDot)), 1.5f);
+        float rim = pow(1.0f - saturate(dot(terrainN, V)), 3.0f) * (0.25f + warmWrap * 0.75f);
+        float3 earthBase = TerrainModeColor(terrainMode, texColor.rgb, terrainN, input.worldPos);
         if (uCinematicTerrain.x > 0.5f)
         {
             // If visual terrain relief is enabled, darken the basin center and
@@ -293,13 +318,29 @@ float4 main_ps(VS_OUT input) : SV_TARGET
             earthBase = lerp(earthBase, earthBase * float3(0.62f, 0.47f, 0.34f), bowlShade * 0.55f);
             earthBase += float3(0.20f, 0.09f, 0.02f) * rimShade * 0.10f;
         }
+        if (terrainMode == 7)
+        {
+            // Low-poly art mode: no texture dependency, just height-colored
+            // terrain, hemisphere ambient, warm sun bands, and readable facets.
+            float hemiT = saturate(terrainN.y * 0.5f + 0.5f);
+            float3 skyAmbient = float3(0.45f, 0.65f, 1.0f);
+            float3 groundAmbient = float3(0.35f, 0.25f, 0.15f);
+            float3 hemiAmbient = lerp(groundAmbient, skyAmbient, hemiT);
+            float sunBand = terrainDiff > 0.72f ? 1.0f : (terrainDiff > 0.34f ? 0.62f : 0.30f);
+            float softFill = warmWrap * 0.12f;
+            float3 warmSun = uLightDiffuse.rgb * float3(1.04f, 0.94f, 0.72f);
+            float3 color = earthBase * (hemiAmbient * 0.58f + warmSun * (sunBand * 0.34f + softFill));
+            color += warmSun * (rim * 0.055f + grazing * 0.030f);
+            return float4(color, 1.0f);
+        }
+
         // Grade the texture into a sunset palette: brown shadow tone, orange lit
         // tone, and a tiny ridge highlight where the view/light angle catches.
         float3 shadowTone = earthBase * float3(0.42f, 0.28f, 0.18f);
         float3 litTone = earthBase * float3(1.28f, 0.72f, 0.34f);
-        float3 gradedBase = lerp(shadowTone, litTone, saturate(diff * 0.85f + warmWrap * 0.12f));
-        float3 warmAmbient = gradedBase * uLightAmbient.rgb * (0.95f + max(N.y, 0.0f) * 0.35f);
-        float3 directSun = gradedBase * uLightDiffuse.rgb * (diff * 0.42f + grazing * 0.08f);
+        float3 gradedBase = lerp(shadowTone, litTone, saturate(terrainDiff * 0.85f + warmWrap * 0.12f));
+        float3 warmAmbient = gradedBase * uLightAmbient.rgb * (0.95f + max(terrainN.y, 0.0f) * 0.35f);
+        float3 directSun = gradedBase * uLightDiffuse.rgb * (terrainDiff * 0.42f + grazing * 0.08f);
         float3 ridgeLight = uLightDiffuse.rgb * (rim * 0.045f + spec * 0.035f);
         return float4(warmAmbient + directSun + ridgeLight, 1.0f);
     }

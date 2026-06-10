@@ -188,6 +188,16 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
             float tintB = 1.0f;
             float colorOverride = 0.0f;
             m_gameModels[x].GetRenderTint( tintR, tintG, tintB, colorOverride );
+            if ( m_soaIsFixed[x] )
+            {
+                const float hit = m_gameModels[x].GetFixedContactHighlightAlpha();
+                if ( hit > 0.0f )
+                {
+                    tintR = tintR + ( 1.0f - tintR ) * hit;
+                    tintG = tintG * ( 1.0f - hit );
+                    tintB = tintB * ( 1.0f - hit );
+                }
+            }
             SkullbonezHelper::DrawSphereBatchModel( m_soaModelMatrices[x], tintR, tintG, tintB, colorOverride );
         }
     }
@@ -205,12 +215,21 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
             m_gameModels[x].GetRenderTint( tintR, tintG, tintB, colorOverride );
             if ( m_soaIsFixed[x] )
             {
-                constexpr float fixedBase = 241.0f / 255.0f; // #F1F1F1
                 float hit = m_gameModels[x].GetFixedContactHighlightAlpha();
-                tintR = fixedBase + ( 1.0f - fixedBase ) * hit;
-                tintG = fixedBase * ( 1.0f - hit );
-                tintB = fixedBase * ( 1.0f - hit );
-                colorOverride = 1.0f;
+                if ( colorOverride <= 0.5f && colorOverride >= -0.5f )
+                {
+                    constexpr float fixedBase = 241.0f / 255.0f; // #F1F1F1
+                    tintR = fixedBase + ( 1.0f - fixedBase ) * hit;
+                    tintG = fixedBase * ( 1.0f - hit );
+                    tintB = fixedBase * ( 1.0f - hit );
+                    colorOverride = 1.0f;
+                }
+                else if ( hit > 0.0f )
+                {
+                    tintR = tintR + ( 1.0f - tintR ) * hit;
+                    tintG = tintG * ( 1.0f - hit );
+                    tintB = tintB * ( 1.0f - hit );
+                }
             }
             SkullbonezHelper::DrawBoxBatchModel( m_soaModelMatrices[x], tintR, tintG, tintB, colorOverride );
         }

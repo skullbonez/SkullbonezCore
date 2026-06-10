@@ -189,6 +189,32 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data, int currentRend
     hash = HashFloat( hash, data.cinematic.fogEnd, 10.0f );
     hash = HashFloat( hash, data.cinematic.fogDensity, 100000.0f );
     hash = HashFloat( hash, data.cinematic.fogMaxOpacity, 1000.0f );
+    hash = HashInt( hash, data.cinematic.skyMode );
+    hash = HashInt( hash, data.cinematic.terrainMode );
+    hash = HashInt( hash, data.cinematic.objectStyle );
+    hash = HashInt( hash, data.cinematic.waterMode );
+    hash = HashFloat( hash, data.cinematic.styleSaturation, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.styleContrast, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.styleVignette, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.terrainTintR, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.terrainTintG, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.terrainTintB, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.terrainAccentR, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.terrainAccentG, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.terrainAccentB, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.terrainGridScale, 100.0f );
+    hash = HashFloat( hash, data.cinematic.terrainGridStrength, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.waterTintR, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.waterTintG, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.waterTintB, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.waterAlpha, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.waterReflectionStrength, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.waterGlintStrength, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.basinCenterX, 10.0f );
+    hash = HashFloat( hash, data.cinematic.basinCenterZ, 10.0f );
+    hash = HashFloat( hash, data.cinematic.basinRadiusX, 10.0f );
+    hash = HashFloat( hash, data.cinematic.basinRadiusZ, 10.0f );
+    hash = HashFloat( hash, data.cinematic.basinFeather, 1000.0f );
     return hash;
 }
 
@@ -255,6 +281,13 @@ struct CinematicFeatureSpec
 constexpr CinematicSliderSpec kCinematicSliderSpecs[] = {
     { "Tonemap", "Exposure", UICinematicParam::Exposure, 0.05f, 3.00f, 0.01f, "%.2f" },
     { nullptr, "Gamma", UICinematicParam::Gamma, 1.00f, 3.00f, 0.01f, "%.2f" },
+    { "Style", "Sky mode", UICinematicParam::SkyMode, 0.00f, 32.00f, 1.00f, "%.0f" },
+    { nullptr, "Terrain mode", UICinematicParam::TerrainMode, 0.00f, 32.00f, 1.00f, "%.0f" },
+    { nullptr, "Object style", UICinematicParam::ObjectStyle, 0.00f, 32.00f, 1.00f, "%.0f" },
+    { nullptr, "Water mode", UICinematicParam::WaterMode, 0.00f, 4.00f, 1.00f, "%.0f" },
+    { nullptr, "Saturation", UICinematicParam::StyleSaturation, 0.00f, 2.50f, 0.01f, "%.2f" },
+    { nullptr, "Contrast", UICinematicParam::StyleContrast, 0.00f, 2.50f, 0.01f, "%.2f" },
+    { nullptr, "Vignette", UICinematicParam::StyleVignette, 0.00f, 1.00f, 0.01f, "%.2f" },
     { "Sun", "Sun X", UICinematicParam::SunX, 0.00f, 1.00f, 0.005f, "%.3f" },
     { nullptr, "Sun Y", UICinematicParam::SunY, 0.00f, 1.00f, 0.005f, "%.3f" },
     { nullptr, "Brightness", UICinematicParam::SunBrightness, 0.00f, 40.00f, 0.10f, "%.1f" },
@@ -282,6 +315,25 @@ constexpr CinematicSliderSpec kCinematicSliderSpecs[] = {
     { nullptr, "Strength", UICinematicParam::BloomStrength, 0.00f, 2.00f, 0.01f, "%.2f" },
     { nullptr, "Radius", UICinematicParam::BloomRadius, 0.25f, 8.00f, 0.05f, "%.2f" },
     { "Terrain", "Relief", UICinematicParam::TerrainRelief, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Ground R", UICinematicParam::TerrainTintRed, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Ground G", UICinematicParam::TerrainTintGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Ground B", UICinematicParam::TerrainTintBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Accent R", UICinematicParam::TerrainAccentRed, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Accent G", UICinematicParam::TerrainAccentGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Accent B", UICinematicParam::TerrainAccentBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Grid scale", UICinematicParam::TerrainGridScale, 0.10f, 120.00f, 0.10f, "%.1f" },
+    { nullptr, "Grid strength", UICinematicParam::TerrainGridStrength, 0.00f, 4.00f, 0.01f, "%.2f" },
+    { "Water", "Water R", UICinematicParam::WaterTintRed, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Water G", UICinematicParam::WaterTintGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Water B", UICinematicParam::WaterTintBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Alpha", UICinematicParam::WaterAlpha, 0.00f, 1.00f, 0.01f, "%.2f" },
+    { nullptr, "Reflection", UICinematicParam::WaterReflection, 0.00f, 1.00f, 0.01f, "%.2f" },
+    { nullptr, "Glint", UICinematicParam::WaterGlint, 0.00f, 4.00f, 0.01f, "%.2f" },
+    { "Basin", "Center X", UICinematicParam::BasinCenterX, 0.00f, 1200.00f, 1.00f, "%.0f" },
+    { nullptr, "Center Z", UICinematicParam::BasinCenterZ, 0.00f, 1200.00f, 1.00f, "%.0f" },
+    { nullptr, "Radius X", UICinematicParam::BasinRadiusX, 1.00f, 500.00f, 1.00f, "%.0f" },
+    { nullptr, "Radius Z", UICinematicParam::BasinRadiusZ, 1.00f, 500.00f, 1.00f, "%.0f" },
+    { nullptr, "Feather", UICinematicParam::BasinFeather, 0.00f, 1.00f, 0.01f, "%.2f" },
     { nullptr, "Basin Depth", UICinematicParam::BasinDepth, 0.00f, 80.00f, 1.00f, "%.0f" },
     { nullptr, "Rim Lift", UICinematicParam::BasinRimLift, 0.00f, 60.00f, 1.00f, "%.0f" },
     { "Fog", "Density", UICinematicParam::FogDensity, 0.00000f, 0.00600f, 0.00005f, "%.5f" },
@@ -405,6 +457,20 @@ float CinematicValueForParam( const CinematicRenderConfig& cinematic, UICinemati
         return cinematic.exposure;
     case UICinematicParam::Gamma:
         return cinematic.gamma;
+    case UICinematicParam::SkyMode:
+        return static_cast<float>( cinematic.skyMode );
+    case UICinematicParam::TerrainMode:
+        return static_cast<float>( cinematic.terrainMode );
+    case UICinematicParam::ObjectStyle:
+        return static_cast<float>( cinematic.objectStyle );
+    case UICinematicParam::WaterMode:
+        return static_cast<float>( cinematic.waterMode );
+    case UICinematicParam::StyleSaturation:
+        return cinematic.styleSaturation;
+    case UICinematicParam::StyleContrast:
+        return cinematic.styleContrast;
+    case UICinematicParam::StyleVignette:
+        return cinematic.styleVignette;
     case UICinematicParam::SunX:
         return cinematic.sunScreenX;
     case UICinematicParam::SunY:
@@ -459,6 +525,44 @@ float CinematicValueForParam( const CinematicRenderConfig& cinematic, UICinemati
         return cinematic.bloomRadius;
     case UICinematicParam::TerrainRelief:
         return cinematic.terrainRelief;
+    case UICinematicParam::TerrainTintRed:
+        return cinematic.terrainTintR;
+    case UICinematicParam::TerrainTintGreen:
+        return cinematic.terrainTintG;
+    case UICinematicParam::TerrainTintBlue:
+        return cinematic.terrainTintB;
+    case UICinematicParam::TerrainAccentRed:
+        return cinematic.terrainAccentR;
+    case UICinematicParam::TerrainAccentGreen:
+        return cinematic.terrainAccentG;
+    case UICinematicParam::TerrainAccentBlue:
+        return cinematic.terrainAccentB;
+    case UICinematicParam::TerrainGridScale:
+        return cinematic.terrainGridScale;
+    case UICinematicParam::TerrainGridStrength:
+        return cinematic.terrainGridStrength;
+    case UICinematicParam::WaterTintRed:
+        return cinematic.waterTintR;
+    case UICinematicParam::WaterTintGreen:
+        return cinematic.waterTintG;
+    case UICinematicParam::WaterTintBlue:
+        return cinematic.waterTintB;
+    case UICinematicParam::WaterAlpha:
+        return cinematic.waterAlpha;
+    case UICinematicParam::WaterReflection:
+        return cinematic.waterReflectionStrength;
+    case UICinematicParam::WaterGlint:
+        return cinematic.waterGlintStrength;
+    case UICinematicParam::BasinCenterX:
+        return cinematic.basinCenterX;
+    case UICinematicParam::BasinCenterZ:
+        return cinematic.basinCenterZ;
+    case UICinematicParam::BasinRadiusX:
+        return cinematic.basinRadiusX;
+    case UICinematicParam::BasinRadiusZ:
+        return cinematic.basinRadiusZ;
+    case UICinematicParam::BasinFeather:
+        return cinematic.basinFeather;
     case UICinematicParam::BasinDepth:
         return cinematic.basinDepth;
     case UICinematicParam::BasinRimLift:

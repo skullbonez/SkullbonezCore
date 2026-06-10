@@ -114,6 +114,7 @@ class TestSceneParser
     const char* m_path = nullptr;
     SceneFileHandle m_file;
     int m_lineNumber = 0;
+    int m_styleIncludeDepth = 0;
     TestScene m_scene;
 
     static bool IsSpace( char c )
@@ -376,6 +377,17 @@ class TestSceneParser
             { "lowpoly", 6 },
             { "shadow", 7 },
             { "black", 7 },
+            { "foliage", 8 },
+            { "leaf", 8 },
+            { "leaves", 8 },
+            { "bark", 9 },
+            { "trunk", 9 },
+            { "stone", 10 },
+            { "rock", 10 },
+            { "ridge", 11 },
+            { "distant", 11 },
+            { "shore", 12 },
+            { "sand", 12 },
         };
         int mode = 0;
         if ( TryParseIntOption( value, kMaterialModes, mode ) )
@@ -815,54 +827,127 @@ class TestSceneParser
         m_scene.m_cameras.push_back( cam );
     }
 
-    void ParseBall( const char* args )
+    void ParseStyle( const char* args )
     {
-        const char* expected = "ball <name> <pos> <radius> <mass> <moment> <restitution> [force forcePos] [euler]";
+        const char* expected = "style <name|path>";
+        const char* cursor = RequireArgs( "style", args, expected );
+        char token[260] = {};
+        ParseNextToken( "style", cursor, token, sizeof( token ), expected );
+
+        if ( m_styleIncludeDepth >= 8 )
+        {
+            Fail( "Style include depth exceeded at line %d", m_lineNumber );
+        }
+
+        char stylePath[300] = {};
+        if ( strchr( token, '/' ) || strchr( token, '\\' ) || strstr( token, ".style" ) )
+        {
+            strcpy_s( stylePath, sizeof( stylePath ), token );
+        }
+        else
+        {
+            sprintf_s( stylePath, sizeof( stylePath ), "SkullbonezData/styles/%s.style", token );
+        }
+
+        FILE* rawStyleFile = nullptr;
+        const errno_t err = fopen_s( &rawStyleFile, stylePath, "r" );
+        if ( err != 0 || !rawStyleFile )
+        {
+            Fail( "Failed to open style file at line %d: %s", m_lineNumber, stylePath );
+        }
+
+        SceneFileHandle styleFile( rawStyleFile );
+        const int parentLineNumber = m_lineNumber;
+        ++m_styleIncludeDepth;
+
+        char line[512];
+        int styleLineNumber = 0;
+        while ( fgets( line, sizeof( line ), styleFile.get() ) )
+        {
+            ++styleLineNumber;
+            m_lineNumber = styleLineNumber;
+
+            size_t len = strlen( line );
+            while ( len > 0 && ( line[len - 1] == '\n' || line[len - 1] == '\r' ) )
+            {
+                line[--len] = '\0';
+            }
+
+            if ( line[0] == '\0' || line[0] == '#' )
+            {
+                continue;
+            }
+
+            if ( !DispatchLine( line ) )
+            {
+                Fail( "Unknown directive in style file %s at line %d: %.64s", stylePath, styleLineNumber, line );
+            }
+        }
+
+        --m_styleIncludeDepth;
+        m_lineNumber = parentLineNumber;
+    }
+
+    void ParseBallCommon( const char* args, bool isFixed )
+    {
+        const char* directive = isFixed ? "floating_ball" : "ball";
+        const char* expected = isFixed ? "floating_ball <name> <pos> <radius> <mass> <moment> <restitution> [force forcePos] [euler]" : "ball <name> <pos> <radius> <mass> <moment> <restitution> [force forcePos] [euler]";
         char tokens[17][64] = {};
-        const int parsed = ParseTokenList( "ball", args, expected, tokens, 17 );
+        const int parsed = ParseTokenList( directive, args, expected, tokens, 17 );
         if ( parsed != 8 && parsed != 11 && parsed != 14 && parsed != 17 )
         {
-            Fail( "Invalid ball at line %d (expected 8, 11, 14 or 17 fields, got %d)", m_lineNumber, parsed );
+            Fail( "Invalid %s at line %d (expected 8, 11, 14 or 17 fields, got %d)", directive, m_lineNumber, parsed );
         }
 
         SceneBall ball;
         memset( &ball, 0, sizeof( ball ) );
         ball.hasInitOrient = false;
+        ball.isFixed = isFixed;
 
         strcpy_s( ball.name, sizeof( ball.name ), tokens[0] );
-        ball.posX = ParseFloatValue( "ball", tokens[1] );
-        ball.posY = ParseFloatValue( "ball", tokens[2] );
-        ball.posZ = ParseFloatValue( "ball", tokens[3] );
-        ball.m_radius = ParseFloatValue( "ball", tokens[4] );
-        ball.m_mass = ParseFloatValue( "ball", tokens[5] );
-        ball.moment = ParseFloatValue( "ball", tokens[6] );
-        ball.restitution = ParseFloatValue( "ball", tokens[7] );
+        ball.posX = ParseFloatValue( directive, tokens[1] );
+        ball.posY = ParseFloatValue( directive, tokens[2] );
+        ball.posZ = ParseFloatValue( directive, tokens[3] );
+        ball.m_radius = ParseFloatValue( directive, tokens[4] );
+        ball.m_mass = ParseFloatValue( directive, tokens[5] );
+        ball.moment = ParseFloatValue( directive, tokens[6] );
+        ball.restitution = ParseFloatValue( directive, tokens[7] );
 
         if ( parsed == 11 )
         {
-            ball.eulerX = ParseFloatValue( "ball", tokens[8] );
-            ball.eulerY = ParseFloatValue( "ball", tokens[9] );
-            ball.eulerZ = ParseFloatValue( "ball", tokens[10] );
+            ball.eulerX = ParseFloatValue( directive, tokens[8] );
+            ball.eulerY = ParseFloatValue( directive, tokens[9] );
+            ball.eulerZ = ParseFloatValue( directive, tokens[10] );
             ball.hasInitOrient = true;
         }
         else if ( parsed == 14 || parsed == 17 )
         {
-            ball.forceX = ParseFloatValue( "ball", tokens[8] );
-            ball.forceY = ParseFloatValue( "ball", tokens[9] );
-            ball.forceZ = ParseFloatValue( "ball", tokens[10] );
-            ball.forcePosX = ParseFloatValue( "ball", tokens[11] );
-            ball.forcePosY = ParseFloatValue( "ball", tokens[12] );
-            ball.forcePosZ = ParseFloatValue( "ball", tokens[13] );
+            ball.forceX = ParseFloatValue( directive, tokens[8] );
+            ball.forceY = ParseFloatValue( directive, tokens[9] );
+            ball.forceZ = ParseFloatValue( directive, tokens[10] );
+            ball.forcePosX = ParseFloatValue( directive, tokens[11] );
+            ball.forcePosY = ParseFloatValue( directive, tokens[12] );
+            ball.forcePosZ = ParseFloatValue( directive, tokens[13] );
             if ( parsed == 17 )
             {
-                ball.eulerX = ParseFloatValue( "ball", tokens[14] );
-                ball.eulerY = ParseFloatValue( "ball", tokens[15] );
-                ball.eulerZ = ParseFloatValue( "ball", tokens[16] );
+                ball.eulerX = ParseFloatValue( directive, tokens[14] );
+                ball.eulerY = ParseFloatValue( directive, tokens[15] );
+                ball.eulerZ = ParseFloatValue( directive, tokens[16] );
                 ball.hasInitOrient = true;
             }
         }
 
         m_scene.m_balls.push_back( ball );
+    }
+
+    void ParseBall( const char* args )
+    {
+        ParseBallCommon( args, false );
+    }
+
+    void ParseFloatingBall( const char* args )
+    {
+        ParseBallCommon( args, true );
     }
 
     void ParseBoxCommon( const char* args, bool isFixed )
@@ -1452,17 +1537,40 @@ class TestSceneParser
             c.skyMode = 11;
             c.terrainMode = 7;
             c.objectStyle = 6;
-            c.exposure = 0.92f;
-            c.gamma = 2.02f;
+            c.exposure = 0.84f;
+            c.gamma = 2.08f;
             c.sunScreenX = 0.64f;
-            c.sunScreenY = 0.78f;
-            c.sunIntensity = 17.0f;
-            c.styleSaturation = 1.26f;
-            c.styleContrast = 1.02f;
-            c.styleVignette = 0.86f;
-            c.cloudIntensity = 0.38f;
-            SetLookColors( c, 1.00f, 0.78f, 0.52f, 0.52f, 0.72f, 0.96f, 0.12f, 0.38f, 0.78f, 0.36f, 0.64f, 0.34f, 0.18f, 0.48f, 0.22f );
-            SetLookWater( c, 1, 0.12f, 0.46f, 0.56f, 0.82f, 0.14f, 0.10f );
+            c.sunScreenY = 0.76f;
+            c.sunIntensity = 7.8f;
+            c.skyGlowStrength = 0.74f;
+            c.styleSaturation = 1.28f;
+            c.styleContrast = 1.04f;
+            c.styleVignette = 0.88f;
+            c.cloudCoverage = 0.44f;
+            c.cloudSoftness = 0.26f;
+            c.cloudScale = 3.9f;
+            c.cloudIntensity = 0.34f;
+            c.sunShaftStrength = 0.22f;
+            c.sunShaftFalloff = 2.4f;
+            c.volumetricStrength = 0.10f;
+            c.volumetricDensity = 0.65f;
+            c.bloomThreshold = 1.18f;
+            c.bloomStrength = 0.18f;
+            c.bloomRadius = 3.0f;
+            c.fogColorR = 0.86f;
+            c.fogColorG = 0.82f;
+            c.fogColorB = 0.66f;
+            c.fogStart = 160.0f;
+            c.fogEnd = 1180.0f;
+            c.fogDensity = 0.00092f;
+            c.fogMaxOpacity = 0.27f;
+            c.basinCenterX = 620.0f;
+            c.basinCenterZ = 650.0f;
+            c.basinRadiusX = 250.0f;
+            c.basinRadiusZ = 170.0f;
+            c.basinFeather = 0.16f;
+            SetLookColors( c, 1.00f, 0.92f, 0.65f, 1.00f, 0.95f, 0.80f, 0.55f, 0.75f, 1.00f, 0.46f, 0.62f, 0.28f, 0.30f, 0.38f, 0.16f );
+            SetLookWater( c, 4, 0.20f, 0.58f, 0.62f, 0.74f, 0.06f, 0.03f );
         }
         else if ( strcmp( name, "massive_scale" ) == 0 )
         {
@@ -1933,6 +2041,7 @@ class TestSceneParser
             { "screenshot_interval", &TestSceneParser::ParseScreenshotInterval, "screenshot_interval <dir> <N>" },
             { "camera", &TestSceneParser::ParseCamera, "camera <name> <pos> <view> <up>" },
             { "ball", &TestSceneParser::ParseBall, "ball <name> ..." },
+            { "floating_ball", &TestSceneParser::ParseFloatingBall, "floating_ball <name> ..." },
             { "box", &TestSceneParser::ParseBox, "box <name> ..." },
             { "floating_box", &TestSceneParser::ParseFloatingBox, "floating_box <name> ..." },
             { "time_scale", &TestSceneParser::ParseTimeScale, "time_scale <value>" },
@@ -1952,6 +2061,7 @@ class TestSceneParser
             { "world", &TestSceneParser::ParseWorld, "world <gravity> <fluidHeight> <fluidDensity>" },
             { "water_hidden", &TestSceneParser::ParseWaterHidden, "water_hidden on|off" },
             { "terrain_hidden", &TestSceneParser::ParseTerrainHidden, "terrain_hidden on|off" },
+            { "style", &TestSceneParser::ParseStyle, "style <name|path>" },
             { "look", &TestSceneParser::ParseLook, "look <concept_name>" },
             { "object_material", &TestSceneParser::ParseObjectMaterial, "object_material <target> <r> <g> <b> <mode>" },
             { "solver_balls", &TestSceneParser::ParseSolverBalls, "solver_balls <count>" },
