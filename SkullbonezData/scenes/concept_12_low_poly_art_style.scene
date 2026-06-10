@@ -16,20 +16,20 @@ floating_box ridge_right 980 60 505  130 17 18  2000 0.08  0 10 0
 floating_box ridge_mid 640 60 466  170 14 16  2000 0.08  0 1 0
 floating_box ridge_back_left 390 68 445  95 11 13  2000 0.08  0 18 0
 floating_box ridge_back_right 820 70 445  105 12 13  2000 0.08  0 -14 0
-floating_box shore_left 500 44 775  42 4 12  2000 0.08  0 28 0
-floating_box shore_right 835 45 748  42 4 12  2000 0.08  0 -24 0
-floating_box shore_front_left 520 42 810  30 3 9  2000 0.08  0 18 0
-floating_box shore_front_mid 625 42 822  24 3 7  2000 0.08  0 -6 0
-floating_box shore_front_right 760 42 800  24 3 8  2000 0.08  0 -18 0
+floating_box shore_left 500 44 775  16 3 6  2000 0.08  0 32 0
+floating_box shore_right 835 45 748  16 3 6  2000 0.08  0 -28 0
+floating_box shore_front_left 520 42 810  13 3 5  2000 0.08  0 24 0
+floating_box shore_front_mid 625 42 822  11 3 5  2000 0.08  0 -10 0
+floating_box shore_front_right 760 42 800  11 3 5  2000 0.08  0 -24 0
 floating_box shore_back_left 515 46 612  30 3 7  2000 0.08  0 -24 0
 floating_box shore_back_mid 620 46 606  28 3 6  2000 0.08  0 4 0
 floating_box shore_back_right 730 46 604  32 3 7  2000 0.08  0 22 0
-floating_box shore_chipped_01 570 43 804  13 2 5  2000 0.08  0 -34 0
-floating_box shore_chipped_02 690 43 815  16 2 5  2000 0.08  0 26 0
-floating_box shore_chipped_03 810 43 754  12 2 5  2000 0.08  0 42 0
-floating_box shore_chipped_04 483 45 661  15 2 5  2000 0.08  0 -48 0
-floating_box shore_chipped_05 742 45 646  16 2 5  2000 0.08  0 36 0
-floating_box shore_chipped_06 602 44 584  11 2 4  2000 0.08  0 -20 0
+floating_box shore_chipped_01 570 43 804  9 2 4  2000 0.08  0 -34 0
+floating_box shore_chipped_02 690 43 815  10 2 4  2000 0.08  0 26 0
+floating_box shore_chipped_03 810 43 754  8 2 4  2000 0.08  0 42 0
+floating_box shore_chipped_04 483 45 661  9 2 4  2000 0.08  0 -48 0
+floating_box shore_chipped_05 742 45 646  10 2 4  2000 0.08  0 36 0
+floating_box shore_chipped_06 602 44 584  8 2 3  2000 0.08  0 -20 0
 floating_box trunk_left 455 56 575  5 24 5  2000 0.08  0 25 0
 floating_box pineleaf_left_low 455 79 575  31 15 31  2000 0.08  0 25 0
 floating_box pineleaf_left_mid 455 98 575  24 14 24  2000 0.08  0 25 0
@@ -50,23 +50,31 @@ floating_box trunk_mid 835 53 748  4 17 4  2000 0.08  0 16 0
 floating_box pineleaf_mid_low 835 73 748  22 12 22  2000 0.08  0 16 0
 floating_box pineleaf_mid_mid 835 88 748  16 11 16  2000 0.08  0 16 0
 floating_box pineleaf_mid_top 835 102 748  11 12 11  2000 0.08  0 16 0
-floating_box rock_01 400 45 680  28 10 18  2000 0.08  0 18 0
-floating_box rock_02 815 42 650  32 9 20  2000 0.08  0 -16 0
-floating_box rock_03 555 43 760  20 7 15  2000 0.08  0 34 0
-floating_box rock_04 920 45 720  26 8 17  2000 0.08  0 -34 0
-floating_box rock_05 610 43 804  14 5 10  2000 0.08  0 8 0
-floating_box rock_06 735 43 790  18 5 12  2000 0.08  0 -28 0
-floating_box rock_fore_left 386 43 846  20 6 12  2000 0.08  0 24 0
-floating_box rock_fore_right 880 43 838  22 6 13  2000 0.08  0 -31 0
+floating_ball rock_01 400 55 680  13 52 12 0.18 0 18 0
+floating_ball rock_02 815 54 650  14 56 13 0.18 0 -16 0
+floating_ball rock_03 555 50 760  9 36 8 0.18 0 34 0
+floating_ball rock_04 920 52 720  11 44 10 0.18 0 -34 0
+floating_ball rock_05 610 48 804  7 28 6 0.18 0 8 0
+floating_ball rock_06 735 49 790  8 32 7 0.18 0 -28 0
+floating_ball rock_fore_left 386 51 846  10 40 9 0.18 0 24 0
+floating_ball rock_fore_right 880 51 838  11 44 10 0.18 0 -31 0
+floating_ball rock_fore_mid_left 520 50 872  9 36 8 0.18 0 -18 0
+floating_ball rock_fore_mid_right 745 51 866  10 40 9 0.18 0 22 0
 floating_box bladel_fore_left_01 286 56 852  5 14 4  2000 0.08  0 18 0
 floating_box blade_fore_left_02 318 58 844  4 16 3  2000 0.08  0 48 0
 floating_box bladed_fore_left_03 356 57 866  6 15 4  2000 0.08  0 82 0
 floating_box blade_fore_left_04 404 56 842  4 14 3  2000 0.08  0 126 0
 floating_box bladel_fore_left_05 450 57 868  5 15 4  2000 0.08  0 166 0
+floating_box blade_near_left_01 246 59 884  8 19 6  2000 0.08  0 26 0
+floating_box bladel_near_left_02 286 61 890  7 21 5  2000 0.08  0 72 0
+floating_box bladed_near_left_03 470 59 888  7 18 5  2000 0.08  0 152 0
 floating_box bladed_fore_right_01 822 57 856  6 15 4  2000 0.08  0 206 0
 floating_box blade_fore_right_02 868 58 842  4 16 3  2000 0.08  0 246 0
 floating_box bladel_fore_right_03 916 57 864  5 15 4  2000 0.08  0 286 0
 floating_box blade_fore_right_04 958 56 836  4 14 3  2000 0.08  0 326 0
+floating_box bladel_near_right_01 812 60 888  7 20 5  2000 0.08  0 212 0
+floating_box blade_near_right_02 946 61 884  8 21 6  2000 0.08  0 282 0
+floating_box bladed_near_right_03 990 59 874  7 18 5  2000 0.08  0 326 0
 floating_box bladed_pond_left_01 468 58 786  5 15 4  2000 0.08  0 28 0
 floating_box bladel_pond_left_02 506 57 806  4 14 3  2000 0.08  0 76 0
 floating_box blade_pond_left_03 430 56 796  4 13 3  2000 0.08  0 118 0
@@ -128,8 +136,12 @@ floating_ball flower_pond_right_02 828 59 802  3.2 12.0 4.2 0.20 0 225 0
 floating_ball flowerhot_fore_left_01 302 65 850  4.0 14.0 5.0 0.20 0 25 0
 floating_ball flowery_fore_left_02 340 64 862  3.4 12.0 4.4 0.20 0 75 0
 floating_ball flowerhot_fore_left_03 412 65 856  3.6 13.0 4.6 0.20 0 125 0
+floating_ball flowerhot_near_left_01 270 67 882  4.6 16.0 5.6 0.20 0 55 0
+floating_ball flowery_near_left_02 454 66 886  4.0 14.0 5.0 0.20 0 115 0
 floating_ball flowery_fore_right_01 860 64 854  3.4 12.0 4.4 0.20 0 175 0
 floating_ball flowerhot_fore_right_02 912 65 866  4.0 14.0 5.0 0.20 0 225 0
+floating_ball flowery_near_right_01 834 66 886  4.0 14.0 5.0 0.20 0 175 0
+floating_ball flowerhot_near_right_02 962 67 880  4.6 16.0 5.6 0.20 0 235 0
 floating_ball flowery_pond_left_01 480 64 792  3.4 12.0 4.4 0.20 0 95 0
 floating_ball flowerhot_pond_right_01 806 64 792  3.4 12.0 4.4 0.20 0 195 0
 floating_ball flowerhot_hero_left_01 510 66 710  3.0 10.0 3.6 0.20 0 45 0
