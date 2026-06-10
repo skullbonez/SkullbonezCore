@@ -224,22 +224,22 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         bandedSky = lerp(bandedSky, zenith, smoothstep(0.50f, 1.0f, band));
         lowPolySky = lerp(lowPolySky, bandedSky, 0.22f);
 
-        float farRidge = LowPolyRidgeHeight(input.texCoord.x, 0.57f, 0.17f, 2.25f, 0.11f);
-        float midRidge = LowPolyRidgeHeight(input.texCoord.x, 0.50f, 0.15f, 3.35f, 0.37f);
-        float nearRidge = LowPolyRidgeHeight(input.texCoord.x, 0.44f, 0.13f, 4.55f, 0.68f);
-        float ridgeFade = smoothstep(0.38f, 0.50f, height) * (1.0f - smoothstep(0.82f, 0.92f, height));
+        float farRidge = LowPolyRidgeHeight(input.texCoord.x, 0.63f, 0.16f, 2.25f, 0.11f);
+        float midRidge = LowPolyRidgeHeight(input.texCoord.x, 0.57f, 0.14f, 3.35f, 0.37f);
+        float nearRidge = LowPolyRidgeHeight(input.texCoord.x, 0.51f, 0.12f, 4.55f, 0.68f);
+        float ridgeFade = smoothstep(0.48f, 0.58f, height) * (1.0f - smoothstep(0.86f, 0.94f, height));
         float farMask = (1.0f - smoothstep(farRidge - 0.010f, farRidge + 0.018f, height)) * ridgeFade;
         float midMask = (1.0f - smoothstep(midRidge - 0.010f, midRidge + 0.016f, height)) * ridgeFade;
         float nearMask = (1.0f - smoothstep(nearRidge - 0.008f, nearRidge + 0.014f, height)) * ridgeFade;
         farMask = floor(farMask * 4.0f + 0.5f) / 4.0f;
         midMask = floor(midMask * 4.0f + 0.5f) / 4.0f;
         nearMask = floor(nearMask * 4.0f + 0.5f) / 4.0f;
-        float3 farMountain = clamp(lerp(zenith, horizon, 0.48f) * float3(0.46f, 0.43f, 0.58f), 0.0f, 1.4f);
-        float3 midMountain = clamp(lerp(horizon, uSunColor, 0.16f) * float3(0.40f, 0.34f, 0.32f), 0.0f, 1.4f);
-        float3 nearMountain = clamp(lerp(horizon, float3(0.16f, 0.11f, 0.08f), 0.54f) * float3(0.56f, 0.50f, 0.44f), 0.0f, 1.3f);
-        lowPolySky = lerp(lowPolySky, farMountain, clamp(farMask * 0.58f, 0.0f, 0.58f));
-        lowPolySky = lerp(lowPolySky, midMountain, clamp(midMask * 0.64f, 0.0f, 0.64f));
-        lowPolySky = lerp(lowPolySky, nearMountain, clamp(nearMask * 0.50f, 0.0f, 0.50f));
+        float3 farMountain = clamp(lerp(zenith, horizon, 0.40f) * float3(0.40f, 0.38f, 0.58f), 0.0f, 1.4f);
+        float3 midMountain = clamp(lerp(horizon, uSunColor, 0.10f) * float3(0.34f, 0.30f, 0.34f), 0.0f, 1.4f);
+        float3 nearMountain = clamp(lerp(horizon, float3(0.14f, 0.10f, 0.09f), 0.58f) * float3(0.48f, 0.43f, 0.42f), 0.0f, 1.3f);
+        lowPolySky = lerp(lowPolySky, farMountain, clamp(farMask * 0.64f, 0.0f, 0.64f));
+        lowPolySky = lerp(lowPolySky, midMountain, clamp(midMask * 0.68f, 0.0f, 0.68f));
+        lowPolySky = lerp(lowPolySky, nearMountain, clamp(nearMask * 0.56f, 0.0f, 0.56f));
 
         // Low-poly mode uses deliberate flat cloud cards instead of the broader
         // cinematic cloud bank. This keeps the sky clean and composed.

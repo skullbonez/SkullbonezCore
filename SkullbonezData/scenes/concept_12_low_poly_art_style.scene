@@ -9,7 +9,7 @@ frames unlimited
 water_reflection fbo
 world -30.0 25.0 1.0
 style low_poly_art_style
-camera main 650 170 970  610 60 610  0 1 0
+camera main 650 118 895  610 55 650  0 1 0
 
 floating_box ridge_left 250 58 500  120 16 18  2000 0.08  0 -8 0
 floating_box ridge_right 980 60 505  130 17 18  2000 0.08  0 10 0
@@ -54,6 +54,8 @@ floating_box rock_03 555 43 760  20 7 15  2000 0.08  0 34 0
 floating_box rock_04 920 45 720  26 8 17  2000 0.08  0 -34 0
 floating_box rock_05 610 43 804  14 5 10  2000 0.08  0 8 0
 floating_box rock_06 735 43 790  18 5 12  2000 0.08  0 -28 0
+floating_box rock_fore_left 386 43 846  20 6 12  2000 0.08  0 24 0
+floating_box rock_fore_right 880 43 838  22 6 13  2000 0.08  0 -31 0
 floating_ball grassl_front_01 312 48 820  5.5 20 5.0 0.18 0 12 0
 floating_ball grass_front_02 334 48 812  4.5 16 4.0 0.18 0 46 0
 floating_ball grassd_front_03 366 47 834  6.5 22 5.5 0.18 0 86 0
@@ -82,6 +84,26 @@ floating_ball flower_front_02 417 56 818  1.8 7.0 2.6 0.20 0 72 0
 floating_ball flower_front_03 884 55 830  2.0 8.0 3.0 0.20 0 132 0
 floating_ball flower_left_01 476 58 712  1.8 7.0 2.6 0.20 0 192 0
 floating_ball flower_right_01 808 57 700  1.8 7.0 2.6 0.20 0 252 0
+floating_ball grassl_fore_left_01 325 48 862  7.0 26 6.0 0.18 0 18 0
+floating_ball grass_fore_left_02 356 49 852  6.0 22 5.2 0.18 0 58 0
+floating_ball grassd_fore_left_03 398 49 872  7.5 28 6.4 0.18 0 98 0
+floating_ball grassl_fore_right_01 862 48 862  7.0 26 6.0 0.18 0 218 0
+floating_ball grass_fore_right_02 910 49 852  6.0 22 5.2 0.18 0 258 0
+floating_ball grassd_fore_right_03 950 49 872  7.5 28 6.4 0.18 0 298 0
+floating_ball flower_fore_left_01 338 58 858  2.6 10.0 3.6 0.20 0 35 0
+floating_ball flower_fore_left_02 382 58 866  2.4 9.0 3.4 0.20 0 95 0
+floating_ball flower_fore_right_01 896 58 858  2.6 10.0 3.6 0.20 0 155 0
+floating_ball flower_fore_right_02 940 58 866  2.4 9.0 3.4 0.20 0 215 0
+floating_ball grassl_pond_left_01 446 50 790  8.0 28 6.8 0.18 0 28 0
+floating_ball grass_pond_left_02 478 50 778  6.8 24 5.8 0.18 0 68 0
+floating_ball grassd_pond_left_03 505 50 802  7.4 26 6.2 0.18 0 108 0
+floating_ball flower_pond_left_01 460 59 790  3.6 13.0 4.6 0.20 0 45 0
+floating_ball flower_pond_left_02 495 59 802  3.2 12.0 4.2 0.20 0 105 0
+floating_ball grassl_pond_right_01 772 50 790  8.0 28 6.8 0.18 0 208 0
+floating_ball grass_pond_right_02 806 50 778  6.8 24 5.8 0.18 0 248 0
+floating_ball grassd_pond_right_03 835 50 802  7.4 26 6.2 0.18 0 288 0
+floating_ball flower_pond_right_01 790 59 790  3.6 13.0 4.6 0.20 0 165 0
+floating_ball flower_pond_right_02 828 59 802  3.2 12.0 4.2 0.20 0 225 0
 ball hero 620 58 650 27 108 25 0.44 0 20 0
 ball game_left 430 66 724 10 42 9 0.44 0 52 0
 ball game_right 740 74 760 8 34 7 0.44 0 116 0
