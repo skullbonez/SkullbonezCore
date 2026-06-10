@@ -175,14 +175,14 @@ float3 ApplyMaterialMode(int mode, float3 materialColor, float3 N, float3 V, flo
         float sunBand = LowPolySunBand(qDiff);
         float hemiT = saturate(qN.y * 0.5f + 0.5f);
         float leafTier = floor(saturate(uv.y + qN.y * 0.22f) * 4.0f) / 4.0f;
-        float3 topLeaf = lerp(materialColor, float3(0.66f, 0.74f, 0.28f), 0.34f);
-        float3 underside = lerp(materialColor * float3(0.42f, 0.56f, 0.36f), float3(0.12f, 0.28f, 0.12f), 0.30f);
+        float3 topLeaf = lerp(materialColor, float3(0.40f, 0.58f, 0.18f), 0.38f);
+        float3 underside = lerp(materialColor * float3(0.36f, 0.52f, 0.32f), float3(0.05f, 0.20f, 0.06f), 0.42f);
         float3 leaf = lerp(underside, topLeaf, hemiT);
-        leaf *= 0.78f + leafTier * 0.24f;
-        float3 skyAmbient = float3(0.30f, 0.42f, 0.62f);
-        float3 groundAmbient = float3(0.20f, 0.26f, 0.12f);
+        leaf *= 0.72f + leafTier * 0.22f + sunBand * 0.06f;
+        float3 skyAmbient = float3(0.24f, 0.36f, 0.52f);
+        float3 groundAmbient = float3(0.12f, 0.22f, 0.08f);
         float3 hemiAmbient = lerp(groundAmbient, skyAmbient, hemiT);
-        float3 warmSun = lightColor * float3(1.06f, 0.96f, 0.66f);
+        float3 warmSun = lightColor * float3(1.02f, 0.88f, 0.54f);
         float rim = pow(1.0f - saturate(dot(qN, V)), 2.1f);
         return leaf * (hemiAmbient * 0.54f + warmSun * (0.16f + sunBand * 0.34f)) + warmSun * rim * 0.030f;
     }
@@ -193,16 +193,16 @@ float3 ApplyMaterialMode(int mode, float3 materialColor, float3 N, float3 V, flo
         float sunBand = LowPolySunBand(qDiff);
         float hemiT = saturate(qN.y * 0.5f + 0.5f);
         float heightBand = floor(saturate(uv.y) * 3.0f) / 3.0f;
-        float3 litNeedle = lerp(materialColor, float3(0.64f, 0.70f, 0.24f), 0.30f);
-        float3 shadowNeedle = lerp(materialColor * float3(0.42f, 0.56f, 0.34f), float3(0.08f, 0.20f, 0.08f), 0.34f);
+        float3 litNeedle = lerp(materialColor, float3(0.42f, 0.58f, 0.16f), 0.36f);
+        float3 shadowNeedle = lerp(materialColor * float3(0.34f, 0.52f, 0.32f), float3(0.035f, 0.14f, 0.040f), 0.46f);
         float3 leaf = lerp(shadowNeedle, litNeedle, hemiT);
-        leaf *= 0.78f + heightBand * 0.18f + sunBand * 0.12f;
-        float3 skyAmbient = float3(0.28f, 0.38f, 0.54f);
-        float3 groundAmbient = float3(0.16f, 0.22f, 0.09f);
+        leaf *= 0.72f + heightBand * 0.16f + sunBand * 0.16f;
+        float3 skyAmbient = float3(0.22f, 0.33f, 0.48f);
+        float3 groundAmbient = float3(0.10f, 0.18f, 0.07f);
         float3 hemiAmbient = lerp(groundAmbient, skyAmbient, hemiT);
-        float3 warmSun = lightColor * float3(1.10f, 0.94f, 0.58f);
+        float3 warmSun = lightColor * float3(1.02f, 0.86f, 0.50f);
         float rim = pow(1.0f - saturate(dot(qN, V)), 2.0f);
-        return leaf * (hemiAmbient * 0.52f + warmSun * (0.13f + sunBand * 0.36f)) + warmSun * rim * 0.026f;
+        return leaf * (hemiAmbient * 0.60f + warmSun * (0.10f + sunBand * 0.34f)) + warmSun * rim * 0.022f;
     }
     if (mode == 9)
     {
