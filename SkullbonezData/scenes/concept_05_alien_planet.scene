@@ -8,12 +8,9 @@ fixed_step
 frames unlimited
 water_reflection fbo
 world -30.0 25.0 1.0
-look alien_planet
+style alien_planet
 camera main 650 190 1040  615 65 600  0 1 0
 
-object_material balls 1.0 1.0 1.0 beachball
-object_material prefix:rock 0.20 0.14 0.28 matte
-object_material prefix:crystal 0.32 1.00 0.74 glass
 floating_box rock_island_01 420 140 500  42 14 24  3000 0.10  8 0 18
 floating_box rock_island_02 785 132 540  34 12 20  3000 0.10  -6 0 -20
 floating_box crystal_spire_01 500 65 570  8 34 8  2000 0.10  0 18 0

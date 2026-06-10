@@ -8,10 +8,9 @@ fixed_step
 frames unlimited
 water_reflection fbo
 world -30.0 25.0 1.0
-look ocean_world
+style ocean_world
 camera main 620 92 850  615 31 610  0 1 0
 
-object_material balls 1.0 1.0 1.0 beachball
 ball hero 610 44 650 28 112 26 0.48 0 18 0
 ball swell_01 455 38 690 15 62 14 0.42 0 62 0
 ball swell_02 760 38 685 16 66 15 0.42 0 122 0

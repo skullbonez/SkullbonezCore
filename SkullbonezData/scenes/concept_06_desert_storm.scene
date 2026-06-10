@@ -8,11 +8,9 @@ fixed_step
 frames unlimited
 water_reflection none
 world -30.0 25.0 1.0
-look desert_storm
+style desert_storm
 camera main 575 118 870  610 45 610  0 1 0
 
-object_material balls 0.95 0.74 0.42 matte
-object_material prefix:dune 0.70 0.42 0.18 matte
 floating_box dune_ridge_l 430 38 665  92 8 18  3000 0.05  0 8 0
 floating_box dune_ridge_r 780 36 625  120 7 17  3000 0.05  0 -12 0
 ball hero 610 50 650 27 108 25 0.40 0 18 0

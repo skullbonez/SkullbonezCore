@@ -8,11 +8,9 @@ fixed_step
 frames unlimited
 water_reflection fbo
 world -30.0 25.0 1.0
-look massive_scale
+style massive_scale
 camera main 620 260 1350  620 80 570  0 1 0
 
-object_material balls 0.86 0.80 0.70 matte
-object_material prefix:tiny 1.0 1.0 1.0 beachball
 ball hero_far 620 70 650 18 70 16 0.36 0 18 0
 ball tiny_01 420 85 610 5 20 5 0.28 0 0 0
 ball tiny_02 480 78 560 4 18 4 0.28 0 0 0

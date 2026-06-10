@@ -8,12 +8,9 @@ fixed_step
 frames unlimited
 water_reflection fbo
 world -30.0 25.0 1.0
-look scifi_test_chamber
+style scifi_test_chamber
 camera main 620 118 790  620 44 600  0 1 0
 
-object_material balls 1.0 1.0 1.0 beachball
-object_material prefix:wall 0.82 0.84 0.86 matte
-object_material prefix:light 0.62 0.92 1.00 neon
 floating_box wall_floor 620 22 610  320 4 240  3000 0.02
 floating_box wall_back 620 110 430  300 90 8  3000 0.02
 floating_box wall_left 360 96 600  8 72 190  3000 0.02

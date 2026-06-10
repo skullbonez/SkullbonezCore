@@ -1,0 +1,32 @@
+# 06. Desert Storm
+style _concept_base
+cinematic_style_modes 5 5 1 0
+cinematic_exposure 0.72
+cinematic_gamma 2.18
+cinematic_sun_screen_x 0.36
+cinematic_sun_screen_y 0.64
+cinematic_sun_intensity 26.0
+cinematic_style_grade 0.92 1.18 0.68
+cinematic_cloud_coverage 0.94
+cinematic_cloud_intensity 1.30
+cinematic_fog_density 0.0042
+cinematic_fog_max_opacity 0.82
+cinematic_fog_start 18.0
+cinematic_fog_end 820.0
+cinematic_sun_color_r 1.20
+cinematic_sun_color_g 0.72
+cinematic_sun_color_b 0.28
+cinematic_sky_horizon_r 0.76
+cinematic_sky_horizon_g 0.48
+cinematic_sky_horizon_b 0.20
+cinematic_sky_zenith_r 0.18
+cinematic_sky_zenith_g 0.13
+cinematic_sky_zenith_b 0.08
+cinematic_terrain_tint 0.84 0.52 0.24
+cinematic_terrain_accent 0.36 0.18 0.05
+cinematic_water_tint 0.08 0.06 0.04
+cinematic_water_profile 0.0 0.0 0.0
+
+# Object material look overrides.
+object_material balls 0.95 0.74 0.42 matte
+object_material prefix:dune 0.70 0.42 0.18 matte

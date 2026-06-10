@@ -1,0 +1,29 @@
+# 20. Pixar Inspired
+style _concept_base
+cinematic_style_modes 19 14 5 1
+cinematic_exposure 0.92
+cinematic_gamma 2.00
+cinematic_sun_screen_x 0.62
+cinematic_sun_screen_y 0.76
+cinematic_sun_intensity 18.0
+cinematic_style_grade 1.22 0.96 0.88
+cinematic_cloud_coverage 0.46
+cinematic_cloud_intensity 0.52
+cinematic_sun_color_r 1.00
+cinematic_sun_color_g 0.78
+cinematic_sun_color_b 0.48
+cinematic_sky_horizon_r 0.92
+cinematic_sky_horizon_g 0.68
+cinematic_sky_horizon_b 0.46
+cinematic_sky_zenith_r 0.36
+cinematic_sky_zenith_g 0.68
+cinematic_sky_zenith_b 1.00
+cinematic_terrain_tint 0.48 0.72 0.32
+cinematic_terrain_accent 0.94 0.70 0.34
+cinematic_water_tint 0.18 0.46 0.56
+cinematic_water_profile 0.78 0.18 0.18
+
+# Object material look overrides.
+object_material balls 1.0 1.0 1.0 beachball
+object_material prefix:hill 0.42 0.72 0.26 toon
+object_material prefix:cloud 0.96 0.94 0.88 toon

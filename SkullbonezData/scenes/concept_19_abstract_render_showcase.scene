@@ -8,16 +8,9 @@ fixed_step
 frames unlimited
 water_reflection fbo
 world -30.0 25.0 1.0
-look abstract_render_showcase
+style abstract_render_showcase
 camera main 620 132 805  620 40 610  0 1 0
 
-object_material prefix:chrome 0.86 0.88 0.90 chrome
-object_material prefix:gold 1.00 0.66 0.16 metal
-object_material prefix:glass 0.58 0.72 1.00 glass
-object_material prefix:matte 0.92 0.90 0.84 matte
-object_material prefix:neon 0.18 0.78 1.00 neon
-object_material prefix:black 0.02 0.02 0.025 shadow
-object_material prefix:toon 0.42 0.80 0.28 toon
 floating_box showcase_floor 620 22 610  330 4 240  3000 0.02
 ball chrome_hero 620 50 650 26 104 24 0.45 0 0 0
 ball gold_01 485 44 675 15 62 14 0.40 0 0 0

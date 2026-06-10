@@ -1,0 +1,30 @@
+# 09. Atmospheric Fog World
+style _concept_base
+cinematic_style_modes 8 8 7 1
+cinematic_exposure 0.62
+cinematic_gamma 2.12
+cinematic_sun_screen_x 0.56
+cinematic_sun_screen_y 0.86
+cinematic_sun_intensity 10.0
+cinematic_style_grade 0.46 0.92 0.58
+cinematic_fog_density 0.0070
+cinematic_fog_max_opacity 0.90
+cinematic_fog_start 8.0
+cinematic_fog_end 620.0
+cinematic_sun_color_r 0.70
+cinematic_sun_color_g 0.84
+cinematic_sun_color_b 0.88
+cinematic_sky_horizon_r 0.56
+cinematic_sky_horizon_g 0.62
+cinematic_sky_horizon_b 0.62
+cinematic_sky_zenith_r 0.22
+cinematic_sky_zenith_g 0.28
+cinematic_sky_zenith_b 0.32
+cinematic_terrain_tint 0.36 0.44 0.44
+cinematic_terrain_accent 0.16 0.20 0.20
+cinematic_water_tint 0.05 0.12 0.14
+cinematic_water_profile 0.78 0.20 0.05
+
+# Object material look overrides.
+object_material balls 0.72 0.70 0.66 beachball
+object_material prefix:ghost 0.20 0.23 0.24 shadow

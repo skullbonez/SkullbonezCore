@@ -8,12 +8,9 @@ fixed_step
 frames unlimited
 water_reflection fbo
 world -30.0 25.0 1.0
-look studio_lighting_showcase
+style studio_lighting_showcase
 camera main 610 122 830  620 42 615  0 1 0
 
-object_material balls 1.0 1.0 1.0 beachball
-object_material prefix:chrome 0.88 0.90 0.94 chrome
-object_material prefix:white 0.92 0.92 0.88 matte
 floating_box sweep_floor 620 22 610  360 4 280  3000 0.02
 ball hero 655 48 640 23 100 22 0.50 0 32 0
 ball chrome_01 540 45 620 14 60 14 0.45 0 0 0

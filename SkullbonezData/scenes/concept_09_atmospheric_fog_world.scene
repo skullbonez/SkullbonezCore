@@ -8,11 +8,9 @@ fixed_step
 frames unlimited
 water_reflection fbo
 world -30.0 25.0 1.0
-look atmospheric_fog_world
+style atmospheric_fog_world
 camera main 620 126 820  610 44 600  0 1 0
 
-object_material balls 0.72 0.70 0.66 beachball
-object_material prefix:ghost 0.20 0.23 0.24 shadow
 ball hero 620 52 640 26 104 24 0.38 0 24 0
 ball ghost_near 485 58 690 14 56 13 0.34 0 70 0
 ball ghost_right 750 56 675 14 56 13 0.34 0 120 0

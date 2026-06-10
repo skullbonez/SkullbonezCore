@@ -8,12 +8,9 @@ fixed_step
 frames unlimited
 water_reflection none
 world -30.0 25.0 1.0
-look tron_grid
+style tron_grid
 camera main 620 135 900  620 35 610  0 1 0
 
-object_material balls 0.02 0.04 0.08 shadow
-object_material prefix:ring 0.00 0.72 1.00 neon
-object_material prefix:redline 1.00 0.05 0.10 neon
 floating_box ring_horizon 620 35 515  310 2 3  3000 0.02
 floating_box redline_left 450 42 650  130 2 3  3000 0.02  0 18 0
 floating_box redline_right 790 42 645  130 2 3  3000 0.02  0 -18 0

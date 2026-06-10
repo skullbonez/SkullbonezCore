@@ -87,7 +87,7 @@ Scene files are plain text. Blank lines and lines beginning with `#` are ignored
 
 For exact field order, inspect an existing scene in `SkullbonezData/scenes/` and the parser in `SkullbonezSource/SkullbonezTestScene.cpp`.
 `floating_ball` and `floating_box` use the same fields as `ball` and `box`, but the body is fixed in world space and excluded from gravity, impulses, and scene energy.
-`style <name>` includes `SkullbonezData/styles/<name>.style`; explicit paths ending in `.style` are also accepted. Style files should hold render-look directives such as `look` and `cinematic_*`, while scene files should own cameras, physics, gameplay objects, and set dressing.
+`style <name>` includes `SkullbonezData/styles/<name>.style`; explicit paths ending in `.style` are also accepted. Style files hold render-look directives such as `cinematic_*` and `object_material`, can include shared style files with `style <name>`, and are intentionally kept separate from cameras, physics, gameplay objects, and set dressing. Legacy `look <name>` and `cinematic_look <name>` directives are compatibility aliases that load the matching `.style` file instead of using hard-coded presets.
 The in-game Cine tab exposes live sliders for tonemap, style modes, style grade, sky, terrain, water, basin, fog, and related cinematic values. Dragging those sliders mutates the active scene's `CinematicRenderConfig` without restarting physics; Scene tab `Save Defaults` writes only Cine controls changed by the UI as scene-local `cinematic_*` overrides, so `.style` files remain reusable base descriptors.
 
 Physics regression CSV output is command-line only via `--physics-regression-log` and `--physics-collision-time-log`; scene files must not enable it.

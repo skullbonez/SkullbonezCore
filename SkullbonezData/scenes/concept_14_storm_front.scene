@@ -8,12 +8,9 @@ fixed_step
 frames unlimited
 water_reflection fbo
 world -30.0 25.0 1.0
-look storm_front
+style storm_front
 camera main 610 142 930  610 48 610  0 1 0
 
-object_material balls 0.78 0.66 0.66 beachball
-object_material prefix:lightning 0.74 0.88 1.00 neon
-object_material prefix:debris 0.12 0.12 0.13 matte
 floating_box lightning_a 590 150 500  3 90 3  3000 0.05  0 0 24
 floating_box lightning_b 635 115 515  3 62 3  3000 0.05  0 0 -32
 floating_box debris_01 440 88 555  24 7 15  2000 0.05  8 20 16

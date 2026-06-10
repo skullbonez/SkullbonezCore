@@ -1,0 +1,30 @@
+# 02. Brutal Industrial
+style _concept_base
+cinematic_style_modes 1 1 0 1
+cinematic_exposure 0.58
+cinematic_gamma 2.15
+cinematic_sun_screen_x 0.42
+cinematic_sun_screen_y 0.82
+cinematic_sun_intensity 16.0
+cinematic_style_grade 0.42 1.34 0.66
+cinematic_cloud_coverage 0.84
+cinematic_cloud_intensity 1.05
+cinematic_fog_density 0.0011
+cinematic_fog_max_opacity 0.48
+cinematic_sun_color_r 0.74
+cinematic_sun_color_g 0.70
+cinematic_sun_color_b 0.62
+cinematic_sky_horizon_r 0.42
+cinematic_sky_horizon_g 0.42
+cinematic_sky_horizon_b 0.38
+cinematic_sky_zenith_r 0.10
+cinematic_sky_zenith_g 0.11
+cinematic_sky_zenith_b 0.12
+cinematic_terrain_tint 0.42 0.42 0.39
+cinematic_terrain_accent 0.15 0.15 0.13
+cinematic_water_tint 0.055 0.060 0.058
+cinematic_water_profile 0.90 0.38 0.10
+
+# Object material look overrides.
+object_material balls 1.0 1.0 1.0 beachball
+object_material boxes 0.30 0.31 0.30 matte

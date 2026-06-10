@@ -8,11 +8,9 @@ fixed_step
 frames unlimited
 water_reflection none
 world -30.0 25.0 1.0
-look photogrammetry_ground
+style photogrammetry_ground
 camera main 675 155 910  610 42 610  0 1 0
 
-object_material balls 1.0 1.0 1.0 beachball
-object_material prefix:stone 0.46 0.44 0.36 matte
 floating_box stone_slab_01 430 42 660  52 7 34  2200 0.08  0 18 0
 floating_box stone_slab_02 795 38 625  64 6 30  2200 0.08  0 -14 0
 floating_box stone_slab_03 610 48 520  72 8 22  2200 0.08  0 0 0

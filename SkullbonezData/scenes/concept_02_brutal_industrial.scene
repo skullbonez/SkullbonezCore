@@ -8,11 +8,9 @@ fixed_step
 frames unlimited
 water_reflection fbo
 world -30.0 25.0 1.0
-look brutal_industrial
+style brutal_industrial
 camera main 590 170 990  610 54 610  0 1 0
 
-object_material balls 1.0 1.0 1.0 beachball
-object_material boxes 0.30 0.31 0.30 matte
 floating_box slab_left 410 42 620  82 8 18  2000 0.05  0 8 0
 floating_box slab_right 790 42 610  96 8 18  2000 0.05  0 -10 0
 floating_box bunker_back 610 70 470  210 26 12  3000 0.05  0 0 0

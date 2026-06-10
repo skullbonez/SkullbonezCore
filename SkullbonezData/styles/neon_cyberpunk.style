@@ -1,0 +1,32 @@
+# 04. Neon Cyberpunk
+style _concept_base
+cinematic_style_modes 3 3 3 1
+cinematic_exposure 0.82
+cinematic_gamma 1.92
+cinematic_sun_screen_x 0.58
+cinematic_sun_screen_y 0.70
+cinematic_sun_intensity 12.0
+cinematic_style_grade 1.55 1.24 0.60
+cinematic_bloom_threshold 0.45
+cinematic_bloom_strength 1.45
+cinematic_bloom_radius 6.4
+cinematic_terrain_grid 28.0 1.25
+cinematic_sun_color_r 0.30
+cinematic_sun_color_g 0.95
+cinematic_sun_color_b 1.80
+cinematic_sky_horizon_r 0.05
+cinematic_sky_horizon_g 0.02
+cinematic_sky_horizon_b 0.16
+cinematic_sky_zenith_r 0.00
+cinematic_sky_zenith_g 0.01
+cinematic_sky_zenith_b 0.05
+cinematic_terrain_tint 0.02 0.05 0.12
+cinematic_terrain_accent 0.10 0.95 1.00
+cinematic_water_tint 0.035 0.05 0.11
+cinematic_water_profile 0.92 0.62 0.68
+
+# Object material look overrides.
+object_material balls 1.0 1.0 1.0 beachball
+object_material prefix:neon_cyan 0.02 0.95 1.00 neon
+object_material prefix:neon_magenta 1.00 0.04 0.82 neon
+object_material prefix:black 0.015 0.018 0.026 shadow

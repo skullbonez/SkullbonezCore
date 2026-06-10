@@ -11,21 +11,6 @@ world -30.0 25.0 1.0
 style low_poly_art_style
 camera main 650 170 970  610 60 610  0 1 0
 
-object_material balls 1.00 1.00 1.00 texture
-object_material boxes 1.00 1.00 1.00 texture
-object_material hero 1.00 1.00 1.00 texture
-object_material prefix:low_ 0.34 0.58 0.30 foliage
-object_material prefix:sky_ 0.58 0.74 0.95 lowpoly
-object_material prefix:canopy 0.18 0.50 0.20 foliage
-object_material prefix:trunk 0.34 0.20 0.10 bark
-object_material prefix:rock 0.42 0.44 0.38 stone
-object_material prefix:ridge 0.50 0.61 0.30 ridge
-object_material prefix:shore 0.72 0.66 0.40 shore
-object_material prefix:grass 0.23 0.48 0.16 foliage
-object_material prefix:grassd 0.16 0.36 0.12 foliage
-object_material prefix:grassl 0.38 0.56 0.18 foliage
-object_material prefix:reed 0.35 0.45 0.18 foliage
-object_material prefix:flower 0.95 0.66 0.22 lowpoly
 floating_box ridge_left 250 58 500  120 16 18  2000 0.08  0 -8 0
 floating_box ridge_right 980 60 505  130 17 18  2000 0.08  0 10 0
 floating_box ridge_mid 640 60 466  170 14 16  2000 0.08  0 1 0

@@ -8,10 +8,9 @@ fixed_step
 frames unlimited
 water_reflection fbo
 world -30.0 25.0 1.0
-look golden_hour_realism
+style golden_hour_realism
 camera main 620 210 1035  610 72 610  0 1 0
 
-object_material balls 1.0 1.0 1.0 beachball
 ball hero 620 56 630 28 115 26 0.55 0 22 0
 ball near_left 460 72 690 18 82 18 0.55 0 70 8
 ball near_right 795 62 680 20 86 20 0.55 4 132 0

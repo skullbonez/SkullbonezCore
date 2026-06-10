@@ -8,12 +8,9 @@ fixed_step
 frames unlimited
 water_reflection fbo
 world -30.0 25.0 1.0
-look dreamscape
+style dreamscape
 camera main 630 205 1030  615 72 610  0 1 0
 
-object_material balls 1.0 1.0 1.0 beachball
-object_material prefix:island 0.46 0.28 0.58 toon
-object_material prefix:glow 1.00 0.42 0.92 neon
 floating_box island_left 420 130 520  58 16 34  3000 0.08  4 12 18
 floating_box island_right 815 148 540  64 18 38  3000 0.08  -6 -12 -16
 floating_box glow_crystal 610 115 500  9 42 9  2000 0.08  0 24 0

@@ -8,11 +8,9 @@ fixed_step
 frames unlimited
 water_reflection fbo
 world -30.0 25.0 1.0
-look retro_future_2005
+style retro_future_2005
 camera main 610 152 910  610 46 610  0 1 0
 
-object_material balls 1.0 1.0 1.0 beachball
-object_material prefix:chrome 0.85 0.90 1.00 chrome
 floating_box horizon_plate 620 31 610  300 5 220  3000 0.02
 ball hero 630 52 660 28 112 26 0.48 0 20 0
 ball chrome_satellite 845 170 500 10 34 9 0.38 0 0 0
