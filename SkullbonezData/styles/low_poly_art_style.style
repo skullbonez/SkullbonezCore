@@ -56,5 +56,10 @@ object_material prefix:shore 0.66 0.56 0.32 shore
 object_material prefix:grass 0.18 0.36 0.10 foliage
 object_material prefix:grassd 0.09 0.24 0.07 foliage
 object_material prefix:grassl 0.30 0.44 0.14 foliage
+object_material prefix:blade 0.18 0.36 0.10 pine
+object_material prefix:bladed 0.09 0.24 0.07 pine
+object_material prefix:bladel 0.30 0.44 0.14 pine
 object_material prefix:reed 0.35 0.45 0.18 foliage
 object_material prefix:flower 1.00 0.50 0.16 lowpoly
+object_material prefix:flowerhot 1.00 0.18 0.06 lowpoly
+object_material prefix:flowery 1.00 0.72 0.06 lowpoly
