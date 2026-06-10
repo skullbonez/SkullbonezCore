@@ -27,6 +27,16 @@
 
 #pragma comment( lib, "dwmapi.lib" )
 
+using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Rendering::DestroyGfxBackend;
+using SkullbonezCore::Rendering::Gfx;
+using SkullbonezCore::Rendering::IMesh;
+using SkullbonezCore::Rendering::IRenderBackend;
+using SkullbonezCore::Rendering::IsGfxReady;
+using SkullbonezCore::Rendering::RenderBackendDX11;
+using SkullbonezCore::Rendering::RenderBackendDX12;
+using SkullbonezCore::Rendering::RenderBackendGL;
+
 namespace SkullbonezCore
 {
 namespace Basics

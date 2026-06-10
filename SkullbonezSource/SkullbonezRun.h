@@ -106,14 +106,14 @@ struct RunSubsystemState
 {
     std::unique_ptr<Terrain> terrain;
     bool isFlatSlopeTerrain = false;
-    std::unique_ptr<IFramebuffer> reflectionFBO;
+    std::unique_ptr<Rendering::IFramebuffer> reflectionFBO;
 
     // Cinematic render targets and post-process shaders. The sceneFBO holds the
     // full HDR world image, volumetricLightFBO holds a softer half-res light
     // texture, and postQuadVB is the screen-covering rectangle used by those
     // shaders.
-    std::unique_ptr<IFramebuffer> sceneFBO;
-    std::unique_ptr<IFramebuffer> volumetricLightFBO;
+    std::unique_ptr<Rendering::IFramebuffer> sceneFBO;
+    std::unique_ptr<Rendering::IFramebuffer> volumetricLightFBO;
     std::unique_ptr<Rendering::IShader> skyAtmosphereShader;
     std::unique_ptr<Rendering::IShader> volumetricLightShader;
     std::unique_ptr<Rendering::IShader> tonemapShader;
