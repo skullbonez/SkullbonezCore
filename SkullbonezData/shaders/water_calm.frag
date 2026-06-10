@@ -79,23 +79,23 @@ void main()
         float angle = atan(basinOffset.y, basinOffset.x);
         float shard = floor(fract(angle * 1.90986 + basinDistance * 2.4 + 0.35) * 4.0) / 4.0;
         float depthBand = floor(clamp(1.0 - basinDistance, 0.0, 1.0) * 5.0 + shard * 0.45) / 5.0;
-        vec3 deep = vec3(0.055, 0.30, 0.44);
-        vec3 mid = vec3(0.14, 0.58, 0.68);
-        vec3 shallow = vec3(0.70, 0.90, 0.74);
-        waterColor = mix(deep, mid, 0.30 + depthBand * 0.50);
-        waterColor = mix(waterColor, shallow, shore * 0.58);
-        waterColor *= 0.94 + shard * 0.16;
+        vec3 deep = vec3(0.035, 0.22, 0.34);
+        vec3 mid = vec3(0.08, 0.46, 0.56);
+        vec3 shallow = vec3(0.42, 0.76, 0.66);
+        waterColor = mix(deep, mid, 0.24 + depthBand * 0.54);
+        waterColor = mix(waterColor, shallow, shore * 0.44);
+        waterColor *= 0.90 + shard * 0.15;
         float wedge = fract(angle * 2.86479 + basinDistance * 0.30 + 0.5);
         float panelEdge = 1.0 - smoothstep(0.0, 0.040, min(wedge, 1.0 - wedge));
-        waterColor = mix(waterColor, waterColor * vec3(0.72, 0.88, 0.96), panelEdge * 0.22);
-        waterColor = mix(waterColor, reflection.rgb, min(uReflectionStrength, 0.12));
+        waterColor = mix(waterColor, waterColor * vec3(0.58, 0.78, 0.90), panelEdge * 0.24);
+        waterColor = mix(waterColor, reflection.rgb, min(uReflectionStrength, 0.16));
         float rimLine = smoothstep(0.70, 0.91, basinDistance) * (1.0 - smoothstep(0.94, 1.0, basinDistance));
         float innerRim = smoothstep(0.52, 0.72, basinDistance) * (1.0 - smoothstep(0.76, 0.88, basinDistance));
-        waterColor += vec3(0.46, 0.50, 0.24) * rimLine;
+        waterColor += vec3(0.38, 0.42, 0.18) * rimLine;
         waterColor += vec3(0.08, 0.22, 0.18) * innerRim;
         float sunShard = pow(max(0.0, 1.0 - abs(reflUV.x - 0.64) * 6.0), 3.0) *
                          pow(max(0.0, 1.0 - abs(reflUV.y - 0.48) * 8.0), 2.0);
-        waterColor += uSunColor * sunShard * 0.040;
+        waterColor += uSunColor * sunShard * 0.052;
     }
     if (uCinematicMode > 0.5)
     {
