@@ -50,9 +50,9 @@ object_material prefix:sky_ 1.00 1.00 1.00 texture
 object_material prefix:canopy 0.045 0.20 0.035 foliage
 object_material prefix:pineleaf 0.045 0.20 0.040 pine
 object_material prefix:trunk 0.38 0.16 0.05 bark
-object_material prefix:rock 0.18 0.20 0.24 stone
+object_material prefix:rock 0.24 0.26 0.32 stone
 object_material prefix:ridge 0.42 0.46 0.20 ridge
-object_material prefix:shore 0.24 0.22 0.18 stone
+object_material prefix:shore 0.30 0.28 0.24 stone
 object_material prefix:grass 0.18 0.36 0.10 foliage
 object_material prefix:grassd 0.09 0.24 0.07 foliage
 object_material prefix:grassl 0.30 0.44 0.14 foliage
