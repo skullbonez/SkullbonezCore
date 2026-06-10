@@ -48,6 +48,7 @@ object_material hero 1.00 1.00 1.00 texture
 object_material prefix:low_ 0.13 0.27 0.09 foliage
 object_material prefix:sky_ 0.58 0.74 0.95 lowpoly
 object_material prefix:canopy 0.045 0.20 0.035 foliage
+object_material prefix:pineleaf 0.060 0.26 0.045 pine
 object_material prefix:trunk 0.34 0.17 0.06 bark
 object_material prefix:rock 0.43 0.40 0.35 stone
 object_material prefix:ridge 0.42 0.46 0.20 ridge

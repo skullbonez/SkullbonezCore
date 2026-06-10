@@ -31,23 +31,25 @@ floating_box shore_chipped_04 483 45 661  15 2 5  2000 0.08  0 -48 0
 floating_box shore_chipped_05 742 45 646  16 2 5  2000 0.08  0 36 0
 floating_box shore_chipped_06 602 44 584  11 2 4  2000 0.08  0 -20 0
 floating_box trunk_left 455 56 575  5 24 5  2000 0.08  0 25 0
-floating_ball canopy_left_core 455 94 575 24 96 22 0.38 0 25 0
-floating_ball canopy_left_lobe_a 431 86 568 16 52 14 0.36 0 48 0
-floating_ball canopy_left_lobe_b 480 86 586 15 48 13 0.36 0 82 0
+floating_box pineleaf_left_low 455 79 575  31 15 31  2000 0.08  0 25 0
+floating_box pineleaf_left_mid 455 98 575  24 14 24  2000 0.08  0 25 0
+floating_box pineleaf_left_top 455 116 575  16 15 16  2000 0.08  0 25 0
 floating_box trunk_right 760 55 560  5 23 5  2000 0.08  0 -20 0
-floating_ball canopy_right_core 760 91 560 22 88 20 0.38 0 -20 0
-floating_ball canopy_right_lobe_a 737 83 554 15 48 13 0.36 0 22 0
-floating_ball canopy_right_lobe_b 784 83 571 14 44 12 0.36 0 68 0
+floating_box pineleaf_right_low 760 78 560  30 15 30  2000 0.08  0 -20 0
+floating_box pineleaf_right_mid 760 97 560  23 14 23  2000 0.08  0 -20 0
+floating_box pineleaf_right_top 760 115 560  15 15 15  2000 0.08  0 -20 0
 floating_box trunk_far 875 71 506  4 19 4  2000 0.08  0 10 0
-floating_ball canopy_far_core 875 100 506 17 58 14 0.36 0 10 0
-floating_ball canopy_far_lobe 893 95 512 11 36 9 0.34 0 54 0
+floating_box pineleaf_far_low 875 93 506  24 14 24  2000 0.08  0 10 0
+floating_box pineleaf_far_mid 875 111 506  18 13 18  2000 0.08  0 10 0
+floating_box pineleaf_far_top 875 127 506  12 13 12  2000 0.08  0 10 0
 floating_box trunk_fore 350 52 760  5 21 5  2000 0.08  0 -12 0
-floating_ball canopy_fore_core 350 84 760 21 78 18 0.38 0 -12 0
-floating_ball canopy_fore_lobe_a 329 78 752 14 44 12 0.36 0 32 0
-floating_ball canopy_fore_lobe_b 372 77 771 13 40 11 0.36 0 74 0
+floating_box pineleaf_fore_low 350 76 760  28 14 28  2000 0.08  0 -12 0
+floating_box pineleaf_fore_mid 350 94 760  21 13 21  2000 0.08  0 -12 0
+floating_box pineleaf_fore_top 350 111 760  14 14 14  2000 0.08  0 -12 0
 floating_box trunk_mid 835 53 748  4 17 4  2000 0.08  0 16 0
-floating_ball canopy_mid_core 835 80 748 14 42 11 0.36 0 16 0
-floating_ball canopy_mid_lobe 849 75 754 9 28 8 0.34 0 58 0
+floating_box pineleaf_mid_low 835 73 748  22 12 22  2000 0.08  0 16 0
+floating_box pineleaf_mid_mid 835 88 748  16 11 16  2000 0.08  0 16 0
+floating_box pineleaf_mid_top 835 102 748  11 12 11  2000 0.08  0 16 0
 floating_box rock_01 400 45 680  28 10 18  2000 0.08  0 18 0
 floating_box rock_02 815 42 650  32 9 20  2000 0.08  0 -16 0
 floating_box rock_03 555 43 760  20 7 15  2000 0.08  0 34 0

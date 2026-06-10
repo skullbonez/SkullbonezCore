@@ -388,6 +388,8 @@ class TestSceneParser
             { "distant", 11 },
             { "shore", 12 },
             { "sand", 12 },
+            { "pine", 13 },
+            { "conifer", 13 },
         };
         int mode = 0;
         if ( TryParseIntOption( value, kMaterialModes, mode ) )

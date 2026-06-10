@@ -47,6 +47,12 @@ inline constexpr int BoxTriangleVertexCount()
 }
 
 
+inline constexpr int PineTriangleVertexCount()
+{
+    return 18;
+}
+
+
 template <typename EmitVertex>
 inline void EmitUnitSphere( int slices, int stacks, EmitVertex emitVertex )
 {
@@ -204,6 +210,55 @@ inline void EmitUnitBox( EmitVertex emitVertex )
         emit( v[2], face, uv[2] );
         emit( v[3], face, uv[3] );
     }
+}
+
+
+template <typename EmitVertex>
+inline void EmitUnitPinePyramid( EmitVertex emitVertex )
+{
+    struct LocalVertex
+    {
+        float x, y, z;
+        float u, v;
+    };
+
+    auto emitTri = [&]( const LocalVertex& a, const LocalVertex& b, const LocalVertex& c )
+    {
+        const float abx = b.x - a.x;
+        const float aby = b.y - a.y;
+        const float abz = b.z - a.z;
+        const float acx = c.x - a.x;
+        const float acy = c.y - a.y;
+        const float acz = c.z - a.z;
+        float nx = aby * acz - abz * acy;
+        float ny = abz * acx - abx * acz;
+        float nz = abx * acy - aby * acx;
+        const float len = sqrtf( nx * nx + ny * ny + nz * nz );
+        if ( len > 0.00001f )
+        {
+            const float invLen = 1.0f / len;
+            nx *= invLen;
+            ny *= invLen;
+            nz *= invLen;
+        }
+
+        emitVertex( VertexPNUV{ a.x, a.y, a.z, nx, ny, nz, a.u, a.v } );
+        emitVertex( VertexPNUV{ b.x, b.y, b.z, nx, ny, nz, b.u, b.v } );
+        emitVertex( VertexPNUV{ c.x, c.y, c.z, nx, ny, nz, c.u, c.v } );
+    };
+
+    const LocalVertex apex{ 0.0f, 1.0f, 0.0f, 0.5f, 1.0f };
+    const LocalVertex frontLeft{ -1.0f, -1.0f, 1.0f, 0.0f, 0.0f };
+    const LocalVertex frontRight{ 1.0f, -1.0f, 1.0f, 1.0f, 0.0f };
+    const LocalVertex backRight{ 1.0f, -1.0f, -1.0f, 0.0f, 0.0f };
+    const LocalVertex backLeft{ -1.0f, -1.0f, -1.0f, 1.0f, 0.0f };
+
+    emitTri( frontLeft, frontRight, apex );
+    emitTri( frontRight, backRight, apex );
+    emitTri( backRight, backLeft, apex );
+    emitTri( backLeft, frontLeft, apex );
+    emitTri( backLeft, backRight, frontRight );
+    emitTri( backLeft, frontRight, frontLeft );
 }
 } // namespace PrimitiveMeshes
 } // namespace Rendering

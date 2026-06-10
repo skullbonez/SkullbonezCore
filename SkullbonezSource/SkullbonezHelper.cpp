@@ -25,6 +25,9 @@ int SkullbonezHelper::activeSphereVertexCount = 0;
 uint32_t SkullbonezHelper::boxInstMesh = 0;
 int SkullbonezHelper::boxVertexCount = 0;
 std::vector<float> SkullbonezHelper::boxInstanceData;
+uint32_t SkullbonezHelper::pineInstMesh = 0;
+int SkullbonezHelper::pineVertexCount = 0;
+std::vector<float> SkullbonezHelper::pineInstanceData;
 
 static constexpr int INSTANCE_MATRIX_FLOATS = 16;
 static constexpr int INSTANCE_TINT_FLOATS = 4;
@@ -85,6 +88,11 @@ void SkullbonezHelper::ResetRenderResources()
     {
         Gfx().DestroyInstancedMesh( boxInstMesh );
         boxInstMesh = 0;
+    }
+    if ( pineInstMesh != 0 )
+    {
+        Gfx().DestroyInstancedMesh( pineInstMesh );
+        pineInstMesh = 0;
     }
     activeSphereInstMesh = 0;
     activeSphereVertexCount = 0;
@@ -301,6 +309,79 @@ void SkullbonezHelper::DrawBoxBatchEnd()
     {
         Gfx().UploadInstanceData( boxInstMesh, boxInstanceData.data(), static_cast<int>( boxInstanceData.size() ) );
         Gfx().DrawInstancedMesh( boxInstMesh, boxVertexCount, instanceCount );
+    }
+    Gfx().SetBlend( false );
+}
+
+
+void SkullbonezHelper::BuildPineMesh()
+{
+    std::vector<float> verts;
+    verts.reserve( PrimitiveMeshes::PineTriangleVertexCount() * 8 );
+
+    PrimitiveMeshes::EmitUnitPinePyramid( [&]( const PrimitiveMeshes::VertexPNUV& vertex )
+                                           { verts.insert( verts.end(), { vertex.x, vertex.y, vertex.z, vertex.nx, vertex.ny, vertex.nz, vertex.u, vertex.v } ); } );
+
+    pineVertexCount = PrimitiveMeshes::PineTriangleVertexCount();
+
+    int staticAttribSizes[] = { 3, 3, 2 };
+    int instanceAttribSizes[] = { 4, 4, 4, 4, 4 };
+    pineInstMesh = Gfx().CreateInstancedMesh( verts.data(), pineVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 5, staticAttribSizes, 3 );
+
+    pineInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
+}
+
+
+void SkullbonezHelper::DrawPineBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic )
+{
+    if ( pineInstMesh == 0 )
+    {
+        BuildPineMesh();
+    }
+
+    EnsureSphereShader();
+
+    if ( isTransparent )
+    {
+        Gfx().SetBlend( true );
+    }
+
+    float viewLightPos[4];
+    for ( int i = 0; i < 3; ++i )
+    {
+        viewLightPos[i] = view.m[i] * lightPos[0] + view.m[i + 4] * lightPos[1] + view.m[i + 8] * lightPos[2] + view.m[i + 12] * lightPos[3];
+    }
+    viewLightPos[3] = lightPos[3];
+
+    sphereShader->Use();
+    ApplyBatchLightUniforms( *sphereShader, lightPos, cinematic );
+    sphereShader->SetMat4( "uView", view );
+    sphereShader->SetMat4( "uProjection", proj );
+    sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
+    sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
+    sphereShader->SetInt( "uObjectStyle", ObjectStyleForShader( cinematic ) );
+    pineInstanceData.clear();
+}
+
+
+void SkullbonezHelper::DrawPineBatchModel( const Matrix4& model, float tintR, float tintG, float tintB, float colorOverride )
+{
+    const float* md = model.Data();
+    pineInstanceData.insert( pineInstanceData.end(), md, md + INSTANCE_MATRIX_FLOATS );
+    pineInstanceData.push_back( tintR );
+    pineInstanceData.push_back( tintG );
+    pineInstanceData.push_back( tintB );
+    pineInstanceData.push_back( colorOverride );
+}
+
+
+void SkullbonezHelper::DrawPineBatchEnd()
+{
+    int instanceCount = static_cast<int>( pineInstanceData.size() ) / INSTANCE_FLOATS;
+    if ( instanceCount > 0 )
+    {
+        Gfx().UploadInstanceData( pineInstMesh, pineInstanceData.data(), static_cast<int>( pineInstanceData.size() ) );
+        Gfx().DrawInstancedMesh( pineInstMesh, pineVertexCount, instanceCount );
     }
     Gfx().SetBlend( false );
 }

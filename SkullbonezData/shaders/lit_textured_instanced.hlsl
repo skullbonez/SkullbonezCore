@@ -186,6 +186,24 @@ float3 ApplyMaterialMode(int mode, float3 materialColor, float3 N, float3 V, flo
         float rim = pow(1.0f - saturate(dot(qN, V)), 2.1f);
         return leaf * (hemiAmbient * 0.54f + warmSun * (0.16f + sunBand * 0.34f)) + warmSun * rim * 0.030f;
     }
+    if (mode == 13)
+    {
+        float3 qN = QuantizedLowPolyNormal(N);
+        float qDiff = max(dot(qN, L), 0.0f);
+        float sunBand = LowPolySunBand(qDiff);
+        float hemiT = saturate(qN.y * 0.5f + 0.5f);
+        float heightBand = floor(saturate(uv.y) * 3.0f) / 3.0f;
+        float3 litNeedle = lerp(materialColor, float3(0.64f, 0.70f, 0.24f), 0.30f);
+        float3 shadowNeedle = lerp(materialColor * float3(0.42f, 0.56f, 0.34f), float3(0.08f, 0.20f, 0.08f), 0.34f);
+        float3 leaf = lerp(shadowNeedle, litNeedle, hemiT);
+        leaf *= 0.78f + heightBand * 0.18f + sunBand * 0.12f;
+        float3 skyAmbient = float3(0.28f, 0.38f, 0.54f);
+        float3 groundAmbient = float3(0.16f, 0.22f, 0.09f);
+        float3 hemiAmbient = lerp(groundAmbient, skyAmbient, hemiT);
+        float3 warmSun = lightColor * float3(1.10f, 0.94f, 0.58f);
+        float rim = pow(1.0f - saturate(dot(qN, V)), 2.0f);
+        return leaf * (hemiAmbient * 0.52f + warmSun * (0.13f + sunBand * 0.36f)) + warmSun * rim * 0.026f;
+    }
     if (mode == 9)
     {
         float3 qN = QuantizedLowPolyNormal(N);
