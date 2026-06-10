@@ -234,28 +234,28 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         farMask = floor(farMask * 4.0f + 0.5f) / 4.0f;
         midMask = floor(midMask * 4.0f + 0.5f) / 4.0f;
         nearMask = floor(nearMask * 4.0f + 0.5f) / 4.0f;
-        float3 farMountain = clamp(lerp(zenith, horizon, 0.40f) * float3(0.40f, 0.38f, 0.58f), 0.0f, 1.4f);
-        float3 midMountain = clamp(lerp(horizon, uSunColor, 0.10f) * float3(0.34f, 0.30f, 0.34f), 0.0f, 1.4f);
-        float3 nearMountain = clamp(lerp(horizon, float3(0.14f, 0.10f, 0.09f), 0.58f) * float3(0.48f, 0.43f, 0.42f), 0.0f, 1.3f);
-        lowPolySky = lerp(lowPolySky, farMountain, clamp(farMask * 0.64f, 0.0f, 0.64f));
-        lowPolySky = lerp(lowPolySky, midMountain, clamp(midMask * 0.68f, 0.0f, 0.68f));
-        lowPolySky = lerp(lowPolySky, nearMountain, clamp(nearMask * 0.56f, 0.0f, 0.56f));
+        float3 farMountain = clamp(lerp(zenith, horizon, 0.34f) * float3(0.50f, 0.44f, 0.70f), 0.0f, 1.4f);
+        float3 midMountain = clamp(lerp(horizon, uSunColor, 0.16f) * float3(0.42f, 0.34f, 0.42f), 0.0f, 1.4f);
+        float3 nearMountain = clamp(lerp(horizon, float3(0.16f, 0.10f, 0.09f), 0.56f) * float3(0.58f, 0.46f, 0.42f), 0.0f, 1.3f);
+        lowPolySky = lerp(lowPolySky, farMountain, clamp(farMask * 0.76f, 0.0f, 0.76f));
+        lowPolySky = lerp(lowPolySky, midMountain, clamp(midMask * 0.82f, 0.0f, 0.82f));
+        lowPolySky = lerp(lowPolySky, nearMountain, clamp(nearMask * 0.70f, 0.0f, 0.70f));
 
         // Low-poly mode uses deliberate flat cloud cards instead of the broader
         // cinematic cloud bank. This keeps the sky clean and composed.
         float cardCloud = 0.0f;
-        cardCloud = max(cardCloud, CloudLobe(input.texCoord, float2(0.18f, 0.69f), float2(0.14f, 0.040f), 3.0f));
-        cardCloud = max(cardCloud, CloudLobe(input.texCoord, float2(0.36f, 0.73f), float2(0.18f, 0.044f), 6.0f) * 0.82f);
-        cardCloud = max(cardCloud, CloudLobe(input.texCoord, float2(0.55f, 0.63f), float2(0.17f, 0.040f), 7.4f) * 0.58f);
-        cardCloud = max(cardCloud, CloudLobe(input.texCoord, float2(0.76f, 0.71f), float2(0.19f, 0.044f), 9.0f) * 0.74f);
-        cardCloud = max(cardCloud, CloudLobe(input.texCoord, float2(0.90f, 0.58f), float2(0.13f, 0.036f), 12.0f) * 0.52f);
-        cardCloud *= smoothstep(0.50f, 0.59f, height) * (1.0f - smoothstep(0.79f, 0.88f, height));
-        float cloudBand = smoothstep(0.09f, 0.50f, cardCloud);
+        cardCloud = max(cardCloud, CloudLobe(input.texCoord, float2(0.16f, 0.63f), float2(0.17f, 0.052f), 3.0f));
+        cardCloud = max(cardCloud, CloudLobe(input.texCoord, float2(0.36f, 0.68f), float2(0.22f, 0.055f), 6.0f) * 0.92f);
+        cardCloud = max(cardCloud, CloudLobe(input.texCoord, float2(0.56f, 0.57f), float2(0.20f, 0.050f), 7.4f) * 0.70f);
+        cardCloud = max(cardCloud, CloudLobe(input.texCoord, float2(0.76f, 0.66f), float2(0.23f, 0.055f), 9.0f) * 0.84f);
+        cardCloud = max(cardCloud, CloudLobe(input.texCoord, float2(0.91f, 0.53f), float2(0.16f, 0.045f), 12.0f) * 0.64f);
+        cardCloud *= smoothstep(0.42f, 0.50f, height) * (1.0f - smoothstep(0.78f, 0.88f, height));
+        float cloudBand = smoothstep(0.05f, 0.42f, cardCloud);
         cloudBand = floor(cloudBand * 3.0f + 0.5f) / 3.0f;
-        float3 flatCloudShadow = clamp(lerp(float3(0.66f, 0.78f, 0.84f), uHorizonColor * float3(0.72f, 0.62f, 0.58f), 0.72f), 0.0f, 1.6f);
-        float3 flatCloudLight = clamp(lerp(float3(1.0f, 0.94f, 0.74f), uSunColor * float3(1.24f, 1.02f, 0.82f), 0.50f), 0.0f, 1.8f);
+        float3 flatCloudShadow = clamp(lerp(float3(0.72f, 0.66f, 0.78f), uHorizonColor * float3(0.78f, 0.58f, 0.58f), 0.70f), 0.0f, 1.6f);
+        float3 flatCloudLight = clamp(lerp(float3(1.10f, 0.86f, 0.58f), uSunColor * float3(1.32f, 1.00f, 0.74f), 0.54f), 0.0f, 1.8f);
         float3 flatCloud = lerp(flatCloudShadow, flatCloudLight, saturate(sunLit * 0.50f + 0.38f));
-        lowPolySky = lerp(lowPolySky, flatCloud, clamp(cloudBand * 0.62f, 0.0f, 0.62f));
+        lowPolySky = lerp(lowPolySky, flatCloud, clamp(cloudBand * 0.82f, 0.0f, 0.82f));
 
         float streakCloud = 0.0f;
         streakCloud = max(streakCloud, CloudLobe(input.texCoord, float2(0.17f, 0.82f), float2(0.10f, 0.026f), 31.0f));
@@ -267,7 +267,7 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         float3 streakShadow = clamp(lerp(float3(0.72f, 0.58f, 0.66f), uHorizonColor * float3(0.84f, 0.58f, 0.60f), 0.62f), 0.0f, 1.7f);
         float3 streakLight = clamp(lerp(float3(1.18f, 0.78f, 0.50f), uSunColor * float3(1.18f, 0.90f, 0.72f), 0.60f), 0.0f, 1.9f);
         float3 streakColor = lerp(streakShadow, streakLight, saturate(sunLit * 0.54f + 0.36f));
-        lowPolySky = lerp(lowPolySky, streakColor, clamp(streakCloud * uCloudParams.w * 0.26f, 0.0f, 0.26f));
+        lowPolySky = lerp(lowPolySky, streakColor, clamp(streakCloud * uCloudParams.w * 0.38f, 0.0f, 0.38f));
 
         float horizonHaze = smoothstep(0.18f, 0.36f, height) * (1.0f - smoothstep(0.48f, 0.62f, height));
         lowPolySky = lerp(lowPolySky, clamp(uHorizonColor * float3(0.88f, 0.82f, 0.74f), 0.0f, 1.6f), horizonHaze * 0.18f);
