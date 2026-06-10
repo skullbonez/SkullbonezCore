@@ -357,9 +357,23 @@ class SkullbonezRun
     void MoveCamera( float keyMovementQty, float mouseMovemementQty );                                                                 // Moves the camera
     RuntimeRendererType GetCurrentRendererType() const;                                                                                // Detect active backend type from Gfx renderer identity
     RuntimeRendererType GetNextRendererType( RuntimeRendererType current ) const;
-    void ReleaseBackendOwnedResourcesForSwitch();      // Releases GPU-visible resources while the old backend is still alive
-    void RebuildBackendOwnedResourcesAfterSwitch();    // Rebuilds GPU-visible resources after the new backend is active
-    void SwitchRenderer( RuntimeRendererType target ); // Rebuild render backend/resources while preserving simulation state
+    void ReleaseBackendOwnedResourcesForSwitch();        // Releases GPU-visible resources while the old backend is still alive
+    void RebuildBackendOwnedResourcesAfterSwitch();      // Rebuilds GPU-visible resources after the new backend is active
+    void RunRendererSwitchResourceReleaseSteps();        // Ordered backend-resource release registry for renderer switches
+    void RunRendererSwitchResourceRebuildSteps();        // Ordered backend-resource rebuild registry for renderer switches
+    void ReleaseReflectionResourcesForSwitch();          // Releases reflection framebuffer ownership before backend teardown
+    void RebuildReflectionResourcesAfterSwitch();        // Recreates reflection framebuffer ownership after backend startup
+    void ReleaseTextResourcesForSwitch();                // Releases text renderer GPU resources before backend teardown
+    void RebuildTextResourcesAfterSwitch();              // Recreates text renderer GPU resources after backend startup
+    void ReleaseModelCollectionResourcesForSwitch();     // Releases game-model collection GPU resources before backend teardown
+    void ReleaseHelperResourcesForSwitch();              // Releases helper-owned cached render resources before backend teardown
+    void ReleaseCollisionVisualizerResourcesForSwitch(); // Releases collision visualizer GPU resources before backend teardown
+    void ReleaseUIResourcesForSwitch();                  // Releases in-game UI GPU resources before backend teardown
+    void ReleaseTextureResourcesForSwitch();             // Clears texture collection GPU resources before backend teardown
+    void RebuildTerrainResourcesAfterSwitch();           // Recreates active terrain GPU resources after backend startup
+    void RebuildSkyBoxResourcesAfterSwitch();            // Recreates active skybox GPU resources after backend startup
+    void RebuildWorldResourcesAfterSwitch();             // Recreates world/fluid GPU resources after backend startup
+    void SwitchRenderer( RuntimeRendererType target );   // Rebuild render backend/resources while preserving simulation state
     unsigned int NextUIStressRandom();
     int NextUIStressInt( int maxExclusive );
     float NextUIStressFloat( float minValue, float maxValue );
