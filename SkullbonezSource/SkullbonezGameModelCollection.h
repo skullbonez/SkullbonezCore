@@ -2,13 +2,11 @@
 
 
 // --- Includes ---
-#include <list>
 #include <vector>
 #include <algorithm>
 #include <memory>
 #include <array>
 #include <cstdint>
-#include <array>
 #include "SkullbonezCommon.h"
 #include "SkullbonezConfig.h"
 #include "SkullbonezGameModel.h"
@@ -22,7 +20,6 @@
 
 
 // --- Usings ---
-using namespace std;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
