@@ -7,6 +7,9 @@
 // --- Usings ---
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::GameObjects;
+using namespace SkullbonezCore::Math::Vector;
+using namespace SkullbonezCore::Math::Transformation;
+using namespace SkullbonezCore::Rendering;
 
 
 WorldEnvironment::WorldEnvironment()
