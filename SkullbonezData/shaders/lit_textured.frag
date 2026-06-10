@@ -128,12 +128,12 @@ vec3 TerrainModeColor(int mode, vec3 texColor, vec3 N, vec3 worldPos)
         float slope = clamp(1.0 - max(N.y, 0.0), 0.0, 1.0);
         vec3 slopeColor = mix(vec3(0.38, 0.30, 0.16), uTerrainAccent.rgb, 0.25);
         base = mix(base, slopeColor, slope * 0.38);
-        vec2 patchCell = floor(worldPos.xz / 72.0);
+        vec2 patchCell = floor(worldPos.xz / 64.0);
         float patchSeed = fract(sin(dot(patchCell, vec2(12.9898, 78.233))) * 43758.5453);
         float patchBand = floor(patchSeed * 4.0) / 3.0;
-        vec3 coolPatch = mix(vec3(0.24, 0.40, 0.12), uTerrainAccent.rgb, 0.10);
-        vec3 warmPatch = vec3(0.62, 0.58, 0.22);
-        base = mix(base, mix(coolPatch, warmPatch, patchBand), 0.16);
+        vec3 coolPatch = mix(vec3(0.23, 0.38, 0.10), uTerrainAccent.rgb, 0.08);
+        vec3 warmPatch = vec3(0.70, 0.62, 0.24);
+        base = mix(base, mix(coolPatch, warmPatch, patchBand), 0.22);
         float basinT = clamp(1.0 - BasinDistance(worldPos.xz), 0.0, 1.0);
         base *= 1.0 - basinT * 0.055;
         float facet = floor(max(N.y, 0.0) * 4.0) / 4.0;

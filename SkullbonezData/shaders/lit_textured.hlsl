@@ -178,12 +178,12 @@ float3 TerrainModeColor(int mode, float3 texColor, float3 N, float3 worldPos)
         float slope = saturate(1.0f - max(N.y, 0.0f));
         float3 slopeColor = lerp(float3(0.38f, 0.30f, 0.16f), uTerrainAccent.rgb, 0.25f);
         base = lerp(base, slopeColor, slope * 0.38f);
-        float2 patchCell = floor(worldPos.xz / 72.0f);
+        float2 patchCell = floor(worldPos.xz / 64.0f);
         float patchSeed = frac(sin(dot(patchCell, float2(12.9898f, 78.233f))) * 43758.5453f);
         float patchBand = floor(patchSeed * 4.0f) / 3.0f;
-        float3 coolPatch = lerp(float3(0.24f, 0.40f, 0.12f), uTerrainAccent.rgb, 0.10f);
-        float3 warmPatch = float3(0.62f, 0.58f, 0.22f);
-        base = lerp(base, lerp(coolPatch, warmPatch, patchBand), 0.16f);
+        float3 coolPatch = lerp(float3(0.23f, 0.38f, 0.10f), uTerrainAccent.rgb, 0.08f);
+        float3 warmPatch = float3(0.70f, 0.62f, 0.24f);
+        base = lerp(base, lerp(coolPatch, warmPatch, patchBand), 0.22f);
         float basinT = saturate(1.0f - BasinDistance(worldPos.xz));
         base *= 1.0f - basinT * 0.055f;
         float facet = floor(max(N.y, 0.0f) * 4.0f) / 4.0f;
