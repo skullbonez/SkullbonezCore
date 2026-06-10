@@ -32,7 +32,7 @@ class ShaderGL : public IShader
     mutable std::unordered_map<std::string, GLint> m_uniformCache;
 
     static GLuint CompileShader( const char* path, GLenum type ); // Compile a single ShaderGL stage from file
-    static char* LoadShaderSource( const char* path );            // Read ShaderGL source from file
+    static std::string LoadShaderSource( const char* path );      // Read ShaderGL source from file
     GLint GetUniformLocation( const char* name ) const;           // Cached uniform location lookup
 
   public:

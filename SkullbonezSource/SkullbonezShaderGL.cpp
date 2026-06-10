@@ -1,30 +1,68 @@
 // --- Includes ---
 #include "SkullbonezShaderGL.h"
 
+#include <memory>
+
 
 // --- Usings ---
 using namespace SkullbonezCore::Rendering;
 
 
-char* ShaderGL::LoadShaderSource( const char* path )
+namespace
 {
-    FILE* file = nullptr;
-    errno_t err = fopen_s( &file, path, "rb" );
-    if ( err != 0 || !file )
+struct FileCloser
+{
+    void operator()( FILE* file ) const
+    {
+        if ( file )
+        {
+            fclose( file );
+        }
+    }
+};
+
+using FileHandle = std::unique_ptr<FILE, FileCloser>;
+} // namespace
+
+
+std::string ShaderGL::LoadShaderSource( const char* path )
+{
+    FILE* rawFile = nullptr;
+    errno_t err = fopen_s( &rawFile, path, "rb" );
+    if ( err != 0 || !rawFile )
     {
         char msg[512];
         sprintf_s( msg, sizeof( msg ), "Failed to open m_shader file: %s  (ShaderGL::LoadShaderSource)", path );
         throw std::runtime_error( msg );
     }
+    FileHandle file( rawFile );
 
-    fseek( file, 0, SEEK_END );
-    long length = ftell( file );
-    fseek( file, 0, SEEK_SET );
+    if ( fseek( file.get(), 0, SEEK_END ) != 0 )
+    {
+        char msg[512];
+        sprintf_s( msg, sizeof( msg ), "Failed to seek m_shader file: %s  (ShaderGL::LoadShaderSource)", path );
+        throw std::runtime_error( msg );
+    }
+    long length = ftell( file.get() );
+    if ( length < 0 )
+    {
+        char msg[512];
+        sprintf_s( msg, sizeof( msg ), "Failed to measure m_shader file: %s  (ShaderGL::LoadShaderSource)", path );
+        throw std::runtime_error( msg );
+    }
+    fseek( file.get(), 0, SEEK_SET );
 
-    char* source = new char[length + 1];
-    fread( source, 1, static_cast<size_t>( length ), file );
-    source[length] = '\0';
-    fclose( file );
+    std::string source( static_cast<size_t>( length ), '\0' );
+    if ( !source.empty() )
+    {
+        const size_t bytesRead = fread( source.data(), 1, source.size(), file.get() );
+        if ( bytesRead != source.size() )
+        {
+            char msg[512];
+            sprintf_s( msg, sizeof( msg ), "Failed to read m_shader file: %s  (ShaderGL::LoadShaderSource)", path );
+            throw std::runtime_error( msg );
+        }
+    }
 
     return source;
 }
@@ -40,7 +78,8 @@ GLuint ShaderGL::CompileShader( const char* path, GLenum type )
     // The process is: load text file → give source to GPU driver → driver compiles it →
     // we check for errors → return a handle to the compiled shader.
 
-    char* source = LoadShaderSource( path );
+    std::string source = LoadShaderSource( path );
+    const char* sourceText = source.c_str();
 
     // Create a shader object on the GPU. GL_VERTEX_SHADER or GL_FRAGMENT_SHADER tells the
     // driver what stage of the pipeline this shader is for.
@@ -49,13 +88,11 @@ GLuint ShaderGL::CompileShader( const char* path, GLenum type )
 
     // Upload the GLSL source code text to the shader object.
     // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glShaderSource.xhtml
-    glShaderSource( m_shader, 1, &source, nullptr );
+    glShaderSource( m_shader, 1, &sourceText, nullptr );
 
     // Ask the GPU driver to compile the source code into GPU machine code.
     // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glCompileShader.xhtml
     glCompileShader( m_shader );
-
-    delete[] source;
 
     GLint success = 0;
     // Check if compilation succeeded. If there are syntax errors in the GLSL code,
