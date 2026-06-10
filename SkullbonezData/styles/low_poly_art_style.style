@@ -1,13 +1,13 @@
 # 12. Low Poly Art Style
 style _concept_base
 cinematic_style_modes 11 7 6 4
-cinematic_exposure 0.84
-cinematic_gamma 2.02
-cinematic_sun_screen_x 0.48
-cinematic_sun_screen_y 0.61
-cinematic_sun_intensity 8.8
-cinematic_sky_glow_strength 0.64
-cinematic_style_grade 1.28 1.24 0.70
+cinematic_exposure 0.88
+cinematic_gamma 2.00
+cinematic_sun_screen_x 0.43
+cinematic_sun_screen_y 0.72
+cinematic_sun_intensity 10.8
+cinematic_sky_glow_strength 0.78
+cinematic_style_grade 1.33 1.20 0.66
 cinematic_cloud_coverage 0.50
 cinematic_cloud_softness 0.16
 cinematic_cloud_scale 5.2
@@ -27,15 +27,15 @@ cinematic_fog_end 1760.0
 cinematic_fog_density 0.00024
 cinematic_fog_max_opacity 0.09
 cinematic_basin_mask 620.0 650.0 250.0 170.0 0.16
-cinematic_sun_color_r 1.38
-cinematic_sun_color_g 0.76
-cinematic_sun_color_b 0.38
-cinematic_sky_horizon_r 1.42
-cinematic_sky_horizon_g 0.74
-cinematic_sky_horizon_b 0.42
-cinematic_sky_zenith_r 0.62
+cinematic_sun_color_r 1.46
+cinematic_sun_color_g 0.82
+cinematic_sun_color_b 0.42
+cinematic_sky_horizon_r 1.50
+cinematic_sky_horizon_g 0.78
+cinematic_sky_horizon_b 0.44
+cinematic_sky_zenith_r 0.58
 cinematic_sky_zenith_g 0.70
-cinematic_sky_zenith_b 0.88
+cinematic_sky_zenith_b 0.94
 cinematic_terrain_tint 0.36 0.48 0.20
 cinematic_terrain_accent 0.20 0.27 0.10
 cinematic_water_tint 0.05 0.24 0.27
