@@ -301,9 +301,9 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     int styleMode = (int)floor(uStyleGrade.w + 0.5f);
     if (styleMode == 11)
     {
-        float3 pastel = pow(mapped, float3(0.92f, 0.92f, 0.92f)) * float3(1.04f, 1.02f, 0.94f) + float3(0.012f, 0.018f, 0.010f);
+        float3 pastel = pow(mapped, float3(0.94f, 0.94f, 0.94f)) * float3(1.00f, 1.03f, 0.99f) + float3(0.006f, 0.012f, 0.018f);
         float3 poster = floor(saturate(pastel) * 18.0f + 0.5f) / 18.0f;
-        mapped = lerp(mapped, poster, 0.22f);
+        mapped = lerp(mapped, poster, 0.26f);
     }
     return float4(mapped, 1.0f);
 }

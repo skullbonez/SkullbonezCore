@@ -170,24 +170,24 @@ float3 TerrainModeColor(int mode, float3 texColor, float3 N, float3 worldPos)
     {
         float heightT = saturate((worldPos.y - 28.0f) / 115.0f);
         float terrace = floor(heightT * 5.0f) / 5.0f;
-        float3 lowColor = lerp(float3(0.30f, 0.46f, 0.18f), uTerrainAccent.rgb, 0.18f);
-        float3 midColor = lerp(float3(0.58f, 0.68f, 0.28f), uTerrainTint.rgb, 0.35f);
-        float3 highColor = float3(0.92f, 0.80f, 0.42f);
+        float3 lowColor = lerp(float3(0.24f, 0.40f, 0.12f), uTerrainAccent.rgb, 0.20f);
+        float3 midColor = lerp(float3(0.48f, 0.60f, 0.20f), uTerrainTint.rgb, 0.38f);
+        float3 highColor = float3(0.80f, 0.68f, 0.30f);
         base = lerp(lowColor, midColor, smoothstep(0.08f, 0.58f, heightT));
         base = lerp(base, highColor, smoothstep(0.58f, 1.0f, heightT));
         float slope = saturate(1.0f - max(N.y, 0.0f));
-        float3 slopeColor = lerp(float3(0.38f, 0.30f, 0.16f), uTerrainAccent.rgb, 0.25f);
-        base = lerp(base, slopeColor, slope * 0.38f);
+        float3 slopeColor = lerp(float3(0.28f, 0.25f, 0.12f), uTerrainAccent.rgb, 0.30f);
+        base = lerp(base, slopeColor, slope * 0.42f);
         float2 patchCell = floor(worldPos.xz / 64.0f);
         float patchSeed = frac(sin(dot(patchCell, float2(12.9898f, 78.233f))) * 43758.5453f);
         float patchBand = floor(patchSeed * 4.0f) / 3.0f;
-        float3 coolPatch = lerp(float3(0.23f, 0.38f, 0.10f), uTerrainAccent.rgb, 0.08f);
-        float3 warmPatch = float3(0.70f, 0.62f, 0.24f);
-        base = lerp(base, lerp(coolPatch, warmPatch, patchBand), 0.22f);
+        float3 coolPatch = lerp(float3(0.18f, 0.34f, 0.09f), uTerrainAccent.rgb, 0.10f);
+        float3 warmPatch = float3(0.62f, 0.56f, 0.20f);
+        base = lerp(base, lerp(coolPatch, warmPatch, patchBand), 0.20f);
         float basinT = saturate(1.0f - BasinDistance(worldPos.xz));
         base *= 1.0f - basinT * 0.055f;
         float facet = floor(max(N.y, 0.0f) * 4.0f) / 4.0f;
-        base *= 0.78f + facet * 0.30f + terrace * 0.10f;
+        base *= 0.72f + facet * 0.34f + terrace * 0.08f;
     }
     else if (mode == 8)
     {
@@ -331,14 +331,14 @@ float4 main_ps(VS_OUT input) : SV_TARGET
             // Low-poly art mode: no texture dependency, just height-colored
             // terrain, hemisphere ambient, warm sun bands, and readable facets.
             float hemiT = saturate(terrainN.y * 0.5f + 0.5f);
-            float3 skyAmbient = float3(0.45f, 0.65f, 1.0f);
-            float3 groundAmbient = float3(0.35f, 0.25f, 0.15f);
+            float3 skyAmbient = float3(0.40f, 0.54f, 0.74f);
+            float3 groundAmbient = float3(0.22f, 0.28f, 0.10f);
             float3 hemiAmbient = lerp(groundAmbient, skyAmbient, hemiT);
             float sunBand = terrainDiff > 0.72f ? 1.0f : (terrainDiff > 0.34f ? 0.62f : 0.30f);
-            float softFill = warmWrap * 0.12f;
-            float3 warmSun = uLightDiffuse.rgb * float3(1.04f, 0.94f, 0.72f);
-            float3 color = earthBase * (hemiAmbient * 0.58f + warmSun * (sunBand * 0.34f + softFill));
-            color += warmSun * (rim * 0.055f + grazing * 0.030f);
+            float softFill = warmWrap * 0.10f;
+            float3 warmSun = uLightDiffuse.rgb * float3(1.08f, 0.86f, 0.54f);
+            float3 color = earthBase * (hemiAmbient * 0.52f + warmSun * (sunBand * 0.32f + softFill));
+            color += warmSun * (rim * 0.045f + grazing * 0.024f);
             return float4(color, 1.0f);
         }
 

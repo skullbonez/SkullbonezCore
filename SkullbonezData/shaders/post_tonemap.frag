@@ -277,9 +277,9 @@ void main()
     int styleMode = int(floor(uStyleGrade.w + 0.5));
     if (styleMode == 11)
     {
-        vec3 pastel = pow(mapped, vec3(0.92)) * vec3(1.04, 1.02, 0.94) + vec3(0.012, 0.018, 0.010);
+        vec3 pastel = pow(mapped, vec3(0.94)) * vec3(1.00, 1.03, 0.99) + vec3(0.006, 0.012, 0.018);
         vec3 poster = floor(clamp(pastel, 0.0, 1.0) * 18.0 + 0.5) / 18.0;
-        mapped = mix(mapped, poster, 0.22);
+        mapped = mix(mapped, poster, 0.26);
     }
     FragColor = vec4(mapped, 1.0);
 }
