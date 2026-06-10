@@ -1,59 +1,59 @@
 # 12. Low Poly Art Style
 style _concept_base
 cinematic_style_modes 11 7 6 4
-cinematic_exposure 0.88
-cinematic_gamma 2.04
-cinematic_sun_screen_x 0.64
-cinematic_sun_screen_y 0.76
-cinematic_sun_intensity 7.8
-cinematic_sky_glow_strength 0.74
-cinematic_style_grade 1.34 1.08 0.84
-cinematic_cloud_coverage 0.44
-cinematic_cloud_softness 0.26
-cinematic_cloud_scale 3.9
-cinematic_cloud_intensity 0.34
-cinematic_sun_shaft_strength 0.22
+cinematic_exposure 0.84
+cinematic_gamma 2.02
+cinematic_sun_screen_x 0.48
+cinematic_sun_screen_y 0.61
+cinematic_sun_intensity 8.8
+cinematic_sky_glow_strength 0.64
+cinematic_style_grade 1.28 1.24 0.70
+cinematic_cloud_coverage 0.50
+cinematic_cloud_softness 0.16
+cinematic_cloud_scale 5.2
+cinematic_cloud_intensity 0.76
+cinematic_sun_shaft_strength 0.28
 cinematic_sun_shaft_falloff 2.4
 cinematic_volumetric_strength 0.10
 cinematic_volumetric_density 0.65
-cinematic_bloom_threshold 1.18
-cinematic_bloom_strength 0.18
+cinematic_bloom_threshold 1.16
+cinematic_bloom_strength 0.16
 cinematic_bloom_radius 3.0
-cinematic_fog_color_r 0.86
-cinematic_fog_color_g 0.82
-cinematic_fog_color_b 0.66
-cinematic_fog_start 220.0
-cinematic_fog_end 1180.0
-cinematic_fog_density 0.00062
-cinematic_fog_max_opacity 0.20
+cinematic_fog_color_r 1.08
+cinematic_fog_color_g 0.66
+cinematic_fog_color_b 0.38
+cinematic_fog_start 440.0
+cinematic_fog_end 1760.0
+cinematic_fog_density 0.00024
+cinematic_fog_max_opacity 0.09
 cinematic_basin_mask 620.0 650.0 250.0 170.0 0.16
-cinematic_sun_color_r 1.00
-cinematic_sun_color_g 0.92
-cinematic_sun_color_b 0.65
-cinematic_sky_horizon_r 1.00
-cinematic_sky_horizon_g 0.95
-cinematic_sky_horizon_b 0.80
-cinematic_sky_zenith_r 0.55
-cinematic_sky_zenith_g 0.75
-cinematic_sky_zenith_b 1.00
-cinematic_terrain_tint 0.46 0.62 0.28
-cinematic_terrain_accent 0.30 0.38 0.16
-cinematic_water_tint 0.20 0.58 0.62
-cinematic_water_profile 0.74 0.06 0.03
+cinematic_sun_color_r 1.38
+cinematic_sun_color_g 0.76
+cinematic_sun_color_b 0.38
+cinematic_sky_horizon_r 1.42
+cinematic_sky_horizon_g 0.74
+cinematic_sky_horizon_b 0.42
+cinematic_sky_zenith_r 0.62
+cinematic_sky_zenith_g 0.70
+cinematic_sky_zenith_b 0.88
+cinematic_terrain_tint 0.36 0.48 0.20
+cinematic_terrain_accent 0.20 0.27 0.10
+cinematic_water_tint 0.05 0.24 0.27
+cinematic_water_profile 0.50 0.26 0.12
 
 # Object material look overrides.
 object_material balls 1.00 1.00 1.00 texture
 object_material boxes 1.00 1.00 1.00 texture
 object_material hero 1.00 1.00 1.00 texture
-object_material prefix:low_ 0.34 0.58 0.30 foliage
+object_material prefix:low_ 0.22 0.42 0.20 foliage
 object_material prefix:sky_ 0.58 0.74 0.95 lowpoly
-object_material prefix:canopy 0.18 0.50 0.20 foliage
-object_material prefix:trunk 0.34 0.20 0.10 bark
-object_material prefix:rock 0.42 0.44 0.38 stone
-object_material prefix:ridge 0.50 0.61 0.30 ridge
-object_material prefix:shore 0.72 0.66 0.40 shore
-object_material prefix:grass 0.23 0.48 0.16 foliage
-object_material prefix:grassd 0.16 0.36 0.12 foliage
-object_material prefix:grassl 0.38 0.56 0.18 foliage
+object_material prefix:canopy 0.09 0.32 0.09 foliage
+object_material prefix:trunk 0.34 0.17 0.06 bark
+object_material prefix:rock 0.43 0.40 0.35 stone
+object_material prefix:ridge 0.42 0.46 0.20 ridge
+object_material prefix:shore 0.66 0.56 0.32 shore
+object_material prefix:grass 0.18 0.36 0.10 foliage
+object_material prefix:grassd 0.09 0.24 0.07 foliage
+object_material prefix:grassl 0.30 0.44 0.14 foliage
 object_material prefix:reed 0.35 0.45 0.18 foliage
-object_material prefix:flower 0.95 0.66 0.22 lowpoly
+object_material prefix:flower 1.00 0.50 0.16 lowpoly

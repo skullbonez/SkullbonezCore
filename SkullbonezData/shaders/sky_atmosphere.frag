@@ -182,9 +182,9 @@ void main()
     }
     else if (mode == 11)
     {
-        vec3 horizon = vec3(1.00, 0.95, 0.80);
-        vec3 middle = vec3(0.80, 0.90, 1.00);
-        vec3 zenith = vec3(0.55, 0.75, 1.00);
+        vec3 horizon = clamp(mix(vec3(1.00, 0.95, 0.80), uHorizonColor, 0.78), 0.0, 1.8);
+        vec3 zenith = clamp(mix(vec3(0.55, 0.75, 1.00), uZenithColor, 0.78), 0.0, 1.8);
+        vec3 middle = clamp(mix(horizon, zenith, 0.44) + vec3(0.05, 0.04, 0.02), 0.0, 1.8);
         vec3 lowPolySky = mix(horizon, middle, smoothstep(0.08, 0.55, height));
         lowPolySky = mix(lowPolySky, zenith, smoothstep(0.50, 1.0, height));
         float band = floor(height * 7.0) / 7.0;
@@ -203,13 +203,13 @@ void main()
         cardCloud *= smoothstep(0.50, 0.59, height) * (1.0 - smoothstep(0.79, 0.88, height));
         float cloudBand = smoothstep(0.09, 0.50, cardCloud);
         cloudBand = floor(cloudBand * 3.0 + 0.5) / 3.0;
-        vec3 flatCloudShadow = vec3(0.66, 0.78, 0.84);
-        vec3 flatCloudLight = vec3(1.0, 0.94, 0.74);
+        vec3 flatCloudShadow = clamp(mix(vec3(0.66, 0.78, 0.84), uHorizonColor * vec3(0.72, 0.62, 0.58), 0.72), 0.0, 1.6);
+        vec3 flatCloudLight = clamp(mix(vec3(1.0, 0.94, 0.74), uSunColor * vec3(1.24, 1.02, 0.82), 0.50), 0.0, 1.8);
         vec3 flatCloud = mix(flatCloudShadow, flatCloudLight, clamp(sunLit * 0.50 + 0.38, 0.0, 1.0));
         lowPolySky = mix(lowPolySky, flatCloud, clamp(cloudBand * 0.62, 0.0, 0.62));
 
         float horizonHaze = smoothstep(0.18, 0.36, height) * (1.0 - smoothstep(0.48, 0.62, height));
-        lowPolySky = mix(lowPolySky, vec3(0.96, 0.91, 0.72), horizonHaze * 0.12);
+        lowPolySky = mix(lowPolySky, clamp(uHorizonColor * vec3(0.88, 0.82, 0.74), 0.0, 1.6), horizonHaze * 0.18);
         float cleanSun = sunDisk * 1.18 + innerGlow * 0.24 + outerGlow * 0.035;
         lowPolySky += uSunColor * vec3(1.0, 0.92, 0.64) * cleanSun * 0.55;
         finalSky = lowPolySky;

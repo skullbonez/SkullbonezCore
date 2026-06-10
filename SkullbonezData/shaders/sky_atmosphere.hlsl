@@ -206,9 +206,9 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     }
     else if (mode == 11)
     {
-        float3 horizon = float3(1.00f, 0.95f, 0.80f);
-        float3 middle = float3(0.80f, 0.90f, 1.00f);
-        float3 zenith = float3(0.55f, 0.75f, 1.00f);
+        float3 horizon = clamp(lerp(float3(1.00f, 0.95f, 0.80f), uHorizonColor, 0.78f), 0.0f, 1.8f);
+        float3 zenith = clamp(lerp(float3(0.55f, 0.75f, 1.00f), uZenithColor, 0.78f), 0.0f, 1.8f);
+        float3 middle = clamp(lerp(horizon, zenith, 0.44f) + float3(0.05f, 0.04f, 0.02f), 0.0f, 1.8f);
         float3 lowPolySky = lerp(horizon, middle, smoothstep(0.08f, 0.55f, height));
         lowPolySky = lerp(lowPolySky, zenith, smoothstep(0.50f, 1.0f, height));
         float band = floor(height * 7.0f) / 7.0f;
@@ -227,13 +227,13 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         cardCloud *= smoothstep(0.50f, 0.59f, height) * (1.0f - smoothstep(0.79f, 0.88f, height));
         float cloudBand = smoothstep(0.09f, 0.50f, cardCloud);
         cloudBand = floor(cloudBand * 3.0f + 0.5f) / 3.0f;
-        float3 flatCloudShadow = float3(0.66f, 0.78f, 0.84f);
-        float3 flatCloudLight = float3(1.0f, 0.94f, 0.74f);
+        float3 flatCloudShadow = clamp(lerp(float3(0.66f, 0.78f, 0.84f), uHorizonColor * float3(0.72f, 0.62f, 0.58f), 0.72f), 0.0f, 1.6f);
+        float3 flatCloudLight = clamp(lerp(float3(1.0f, 0.94f, 0.74f), uSunColor * float3(1.24f, 1.02f, 0.82f), 0.50f), 0.0f, 1.8f);
         float3 flatCloud = lerp(flatCloudShadow, flatCloudLight, saturate(sunLit * 0.50f + 0.38f));
         lowPolySky = lerp(lowPolySky, flatCloud, clamp(cloudBand * 0.62f, 0.0f, 0.62f));
 
         float horizonHaze = smoothstep(0.18f, 0.36f, height) * (1.0f - smoothstep(0.48f, 0.62f, height));
-        lowPolySky = lerp(lowPolySky, float3(0.96f, 0.91f, 0.72f), horizonHaze * 0.12f);
+        lowPolySky = lerp(lowPolySky, clamp(uHorizonColor * float3(0.88f, 0.82f, 0.74f), 0.0f, 1.6f), horizonHaze * 0.18f);
         float cleanSun = sunDisk * 1.18f + innerGlow * 0.24f + outerGlow * 0.035f;
         lowPolySky += uSunColor * float3(1.0f, 0.92f, 0.64f) * cleanSun * 0.55f;
         finalSky = lowPolySky;
