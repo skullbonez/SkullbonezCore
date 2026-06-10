@@ -220,13 +220,13 @@ float3 ApplyMaterialMode(int mode, float3 materialColor, float3 N, float3 V, flo
         float3 qN = QuantizedLowPolyNormal(N);
         float sunBand = LowPolySunBand(max(dot(qN, L), 0.0f));
         float facet = floor(max(qN.y, 0.0f) * 4.0f) / 4.0f;
-        float3 stone = lerp(materialColor * float3(0.82f, 0.86f, 0.78f), float3(0.62f, 0.64f, 0.54f), 0.28f);
-        stone *= 0.76f + facet * 0.28f;
+        float3 stone = lerp(materialColor * float3(0.90f, 0.94f, 1.04f), float3(0.44f, 0.48f, 0.56f), 0.42f);
+        stone *= 0.68f + facet * 0.26f + sunBand * 0.05f;
         float hemiT = saturate(qN.y * 0.5f + 0.5f);
-        float3 hemiAmbient = lerp(float3(0.30f, 0.28f, 0.22f), float3(0.48f, 0.56f, 0.58f), hemiT);
-        float3 warmSun = lightColor * float3(1.0f, 0.90f, 0.68f);
+        float3 hemiAmbient = lerp(float3(0.22f, 0.22f, 0.26f), float3(0.46f, 0.50f, 0.56f), hemiT);
+        float3 warmSun = lightColor * float3(0.86f, 0.78f, 0.58f);
         float rim = pow(1.0f - saturate(dot(qN, V)), 2.4f);
-        return stone * (hemiAmbient * 0.50f + warmSun * (0.18f + sunBand * 0.30f)) + warmSun * rim * 0.020f;
+        return stone * (hemiAmbient * 0.54f + warmSun * (0.12f + sunBand * 0.24f)) + warmSun * rim * 0.014f;
     }
     if (mode == 11)
     {

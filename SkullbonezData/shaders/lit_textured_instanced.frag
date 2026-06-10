@@ -164,13 +164,13 @@ vec3 ApplyMaterialMode(int mode, vec3 materialColor, vec3 N, vec3 V, vec3 L, vec
         vec3 qN = QuantizedLowPolyNormal(N);
         float sunBand = LowPolySunBand(max(dot(qN, L), 0.0));
         float facet = floor(max(qN.y, 0.0) * 4.0) / 4.0;
-        vec3 stone = mix(materialColor * vec3(0.82, 0.86, 0.78), vec3(0.62, 0.64, 0.54), 0.28);
-        stone *= 0.76 + facet * 0.28;
+        vec3 stone = mix(materialColor * vec3(0.90, 0.94, 1.04), vec3(0.44, 0.48, 0.56), 0.42);
+        stone *= 0.68 + facet * 0.26 + sunBand * 0.05;
         float hemiT = clamp(qN.y * 0.5 + 0.5, 0.0, 1.0);
-        vec3 hemiAmbient = mix(vec3(0.30, 0.28, 0.22), vec3(0.48, 0.56, 0.58), hemiT);
-        vec3 warmSun = lightColor * vec3(1.0, 0.90, 0.68);
+        vec3 hemiAmbient = mix(vec3(0.22, 0.22, 0.26), vec3(0.46, 0.50, 0.56), hemiT);
+        vec3 warmSun = lightColor * vec3(0.86, 0.78, 0.58);
         float rim = pow(1.0 - clamp(dot(qN, V), 0.0, 1.0), 2.4);
-        return stone * (hemiAmbient * 0.50 + warmSun * (0.18 + sunBand * 0.30)) + warmSun * rim * 0.020;
+        return stone * (hemiAmbient * 0.54 + warmSun * (0.12 + sunBand * 0.24)) + warmSun * rim * 0.014;
     }
     if (mode == 11)
     {
