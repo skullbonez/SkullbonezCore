@@ -96,6 +96,15 @@ float CloudLobe(float2 uv, float2 center, float2 radius, float seed)
     return saturate(body * 0.72f + crown * 0.28f);
 }
 
+float LowPolyCloudStreak(float2 uv, float2 center, float2 size, float skew)
+{
+    float2 q = uv - center;
+    q.x += q.y * skew;
+    float diamond = abs(q.x) / max(size.x, 0.001f) + abs(q.y) / max(size.y, 0.001f);
+    float mask = 1.0f - smoothstep(0.76f, 1.02f, diamond);
+    return floor(saturate(mask) * 3.0f + 0.5f) / 3.0f;
+}
+
 float HeroCloudMask(float2 uv)
 {
     // These are deliberate screen-space cloud placements, not random clouds.
@@ -256,6 +265,18 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         float3 flatCloudLight = clamp(lerp(float3(1.24f, 0.88f, 0.52f), uSunColor * float3(1.36f, 0.98f, 0.70f), 0.58f), 0.0f, 1.8f);
         float3 flatCloud = lerp(flatCloudShadow, flatCloudLight, saturate(sunLit * 0.50f + 0.38f));
         lowPolySky = lerp(lowPolySky, flatCloud, clamp(cloudBand * 0.94f, 0.0f, 0.94f));
+
+        float polyStreak = 0.0f;
+        polyStreak = max(polyStreak, LowPolyCloudStreak(input.texCoord, float2(0.20f, 0.58f), float2(0.24f, 0.030f), -1.00f));
+        polyStreak = max(polyStreak, LowPolyCloudStreak(input.texCoord, float2(0.42f, 0.63f), float2(0.30f, 0.034f), -0.80f) * 0.94f);
+        polyStreak = max(polyStreak, LowPolyCloudStreak(input.texCoord, float2(0.64f, 0.70f), float2(0.24f, 0.030f), -0.72f) * 0.84f);
+        polyStreak = max(polyStreak, LowPolyCloudStreak(input.texCoord, float2(0.80f, 0.56f), float2(0.22f, 0.028f), -1.10f) * 0.72f);
+        polyStreak = max(polyStreak, LowPolyCloudStreak(input.texCoord, float2(0.52f, 0.78f), float2(0.18f, 0.024f), -0.96f) * 0.58f);
+        polyStreak *= smoothstep(0.46f, 0.52f, height) * (1.0f - smoothstep(0.82f, 0.92f, height));
+        float3 streakWarm = clamp(lerp(float3(1.34f, 0.66f, 0.36f), uSunColor * float3(1.18f, 0.78f, 0.50f), 0.66f), 0.0f, 1.9f);
+        float3 streakDust = clamp(lerp(float3(0.80f, 0.48f, 0.56f), uHorizonColor * float3(0.72f, 0.46f, 0.50f), 0.50f), 0.0f, 1.6f);
+        float3 polyStreakColor = lerp(streakDust, streakWarm, saturate(sunLit * 0.36f + 0.44f));
+        lowPolySky = lerp(lowPolySky, polyStreakColor, clamp(polyStreak * 0.86f, 0.0f, 0.86f));
 
         float streakCloud = 0.0f;
         streakCloud = max(streakCloud, CloudLobe(input.texCoord, float2(0.17f, 0.82f), float2(0.10f, 0.026f), 31.0f));

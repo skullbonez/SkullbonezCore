@@ -73,6 +73,15 @@ float CloudLobe(vec2 uv, vec2 center, vec2 radius, float seed)
     return clamp(body * 0.72 + crown * 0.28, 0.0, 1.0);
 }
 
+float LowPolyCloudStreak(vec2 uv, vec2 center, vec2 size, float skew)
+{
+    vec2 q = uv - center;
+    q.x += q.y * skew;
+    float diamond = abs(q.x) / max(size.x, 0.001) + abs(q.y) / max(size.y, 0.001);
+    float mask = 1.0 - smoothstep(0.76, 1.02, diamond);
+    return floor(clamp(mask, 0.0, 1.0) * 3.0 + 0.5) / 3.0;
+}
+
 float HeroCloudMask(vec2 uv)
 {
     // These are deliberate screen-space cloud placements, not random clouds.
@@ -232,6 +241,18 @@ void main()
         vec3 flatCloudLight = clamp(mix(vec3(1.24, 0.88, 0.52), uSunColor * vec3(1.36, 0.98, 0.70), 0.58), 0.0, 1.8);
         vec3 flatCloud = mix(flatCloudShadow, flatCloudLight, clamp(sunLit * 0.50 + 0.38, 0.0, 1.0));
         lowPolySky = mix(lowPolySky, flatCloud, clamp(cloudBand * 0.94, 0.0, 0.94));
+
+        float polyStreak = 0.0;
+        polyStreak = max(polyStreak, LowPolyCloudStreak(vTexCoord, vec2(0.20, 0.58), vec2(0.24, 0.030), -1.00));
+        polyStreak = max(polyStreak, LowPolyCloudStreak(vTexCoord, vec2(0.42, 0.63), vec2(0.30, 0.034), -0.80) * 0.94);
+        polyStreak = max(polyStreak, LowPolyCloudStreak(vTexCoord, vec2(0.64, 0.70), vec2(0.24, 0.030), -0.72) * 0.84);
+        polyStreak = max(polyStreak, LowPolyCloudStreak(vTexCoord, vec2(0.80, 0.56), vec2(0.22, 0.028), -1.10) * 0.72);
+        polyStreak = max(polyStreak, LowPolyCloudStreak(vTexCoord, vec2(0.52, 0.78), vec2(0.18, 0.024), -0.96) * 0.58);
+        polyStreak *= smoothstep(0.46, 0.52, height) * (1.0 - smoothstep(0.82, 0.92, height));
+        vec3 streakWarm = clamp(mix(vec3(1.34, 0.66, 0.36), uSunColor * vec3(1.18, 0.78, 0.50), 0.66), 0.0, 1.9);
+        vec3 streakDust = clamp(mix(vec3(0.80, 0.48, 0.56), uHorizonColor * vec3(0.72, 0.46, 0.50), 0.50), 0.0, 1.6);
+        vec3 polyStreakColor = mix(streakDust, streakWarm, clamp(sunLit * 0.36 + 0.44, 0.0, 1.0));
+        lowPolySky = mix(lowPolySky, polyStreakColor, clamp(polyStreak * 0.86, 0.0, 0.86));
 
         float streakCloud = 0.0;
         streakCloud = max(streakCloud, CloudLobe(vTexCoord, vec2(0.17, 0.82), vec2(0.10, 0.026), 31.0));
