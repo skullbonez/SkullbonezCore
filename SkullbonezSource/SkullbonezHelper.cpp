@@ -320,7 +320,7 @@ void SkullbonezHelper::BuildPineMesh()
     verts.reserve( PrimitiveMeshes::PineTriangleVertexCount() * 8 );
 
     PrimitiveMeshes::EmitUnitPinePyramid( [&]( const PrimitiveMeshes::VertexPNUV& vertex )
-                                           { verts.insert( verts.end(), { vertex.x, vertex.y, vertex.z, vertex.nx, vertex.ny, vertex.nz, vertex.u, vertex.v } ); } );
+                                          { verts.insert( verts.end(), { vertex.x, vertex.y, vertex.z, vertex.nx, vertex.ny, vertex.nz, vertex.u, vertex.v } ); } );
 
     pineVertexCount = PrimitiveMeshes::PineTriangleVertexCount();
 
