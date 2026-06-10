@@ -369,6 +369,8 @@ class SkullbonezRun
     void MoveCamera( float keyMovementQty, float mouseMovemementQty );                                                                 // Moves the camera
     RuntimeRendererType GetCurrentRendererType() const;                                                                                // Detect active backend type from Gfx renderer identity
     RuntimeRendererType GetNextRendererType( RuntimeRendererType current ) const;
+    void ReleaseBackendOwnedResourcesForSwitch();      // Releases GPU-visible resources while the old backend is still alive
+    void RebuildBackendOwnedResourcesAfterSwitch();    // Rebuilds GPU-visible resources after the new backend is active
     void SwitchRenderer( RuntimeRendererType target ); // Rebuild render backend/resources while preserving simulation state
     unsigned int NextUIStressRandom();
     int NextUIStressInt( int maxExclusive );

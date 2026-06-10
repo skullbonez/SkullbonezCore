@@ -39,26 +39,8 @@ RuntimeRendererType SkullbonezRun::GetNextRendererType( RuntimeRendererType curr
 }
 
 
-void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
+void SkullbonezRun::ReleaseBackendOwnedResourcesForSwitch()
 {
-    if ( !m_systems.window || !IsGfxReady() )
-    {
-        return;
-    }
-
-    RuntimeRendererType current = GetCurrentRendererType();
-    if ( current == target )
-    {
-        return;
-    }
-
-#ifdef _DEBUG
-    Log().WriteEventf( "renderer_change_started from=%s to=%s",
-                       RuntimeRendererTypeName( current ),
-                       RuntimeRendererTypeName( target ) );
-#endif
-
-    // --- Phase 1: Tear down the current backend ---
     // All GPU-visible resources must be released while the backend that owns them is still alive.
     // The backend's FlushGPU() ensures all in-flight GPU work completes before resource destruction.
     Gfx().FlushGPU();
@@ -80,6 +62,55 @@ void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
     Profiler::Instance().InvalidateGpuQueries();
 #endif
+}
+
+
+void SkullbonezRun::RebuildBackendOwnedResourcesAfterSwitch()
+{
+    m_systems.window->HandleScreenResize();
+    Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
+
+    SetInitialOpenGlState();
+    if ( m_systems.terrain )
+    {
+        m_systems.terrain->ResetRenderResources();
+    }
+    if ( m_systems.skyBox )
+    {
+        m_systems.skyBox->ResetRenderResources();
+    }
+    m_cWorldEnvironment.ResetRenderResources();
+
+    const int fboW = Gfx().GetWidth() * 2;
+    const int fboH = Gfx().GetHeight() * 2;
+    m_systems.reflectionFBO = Gfx().CreateFramebuffer( fboW, fboH );
+    EnsureCinematicRenderResources();
+
+    Text2d::BuildFont( "Verdana" );
+}
+
+
+void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
+{
+    if ( !m_systems.window || !IsGfxReady() )
+    {
+        return;
+    }
+
+    RuntimeRendererType current = GetCurrentRendererType();
+    if ( current == target )
+    {
+        return;
+    }
+
+#ifdef _DEBUG
+    Log().WriteEventf( "renderer_change_started from=%s to=%s",
+                       RuntimeRendererTypeName( current ),
+                       RuntimeRendererTypeName( target ) );
+#endif
+
+    // --- Phase 1: Tear down the current backend ---
+    ReleaseBackendOwnedResourcesForSwitch();
 
     // Determine if the outgoing backend used a DXGI flip-model swap chain.
     // DXGI swap chains take exclusive ownership of the HWND's DWM composition surface;
@@ -199,26 +230,7 @@ void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
     }
 
     // --- Phase 4: Rebuild render resources ---
-    m_systems.window->HandleScreenResize();
-    Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
-
-    SetInitialOpenGlState();
-    if ( m_systems.terrain )
-    {
-        m_systems.terrain->ResetRenderResources();
-    }
-    if ( m_systems.skyBox )
-    {
-        m_systems.skyBox->ResetRenderResources();
-    }
-    m_cWorldEnvironment.ResetRenderResources();
-
-    int fboW = Gfx().GetWidth() * 2;
-    int fboH = Gfx().GetHeight() * 2;
-    m_systems.reflectionFBO = Gfx().CreateFramebuffer( fboW, fboH );
-    EnsureCinematicRenderResources();
-
-    Text2d::BuildFont( "Verdana" );
+    RebuildBackendOwnedResourcesAfterSwitch();
 
     // --- Phase 5: Warm-up frame ---
     // Present one fully-cleared frame to the new backend. This serves two purposes:
