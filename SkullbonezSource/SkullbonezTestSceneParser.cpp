@@ -5,6 +5,7 @@
 #include <cstdarg>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <stdexcept>
 
 
@@ -64,6 +65,19 @@ bool ParseUITab( const char* value, int& outTab )
     }
     return false;
 }
+
+struct FileCloser
+{
+    void operator()( FILE* file ) const
+    {
+        if ( file )
+        {
+            fclose( file );
+        }
+    }
+};
+
+using SceneFileHandle = std::unique_ptr<FILE, FileCloser>;
 } // namespace
 
 
@@ -87,7 +101,7 @@ class TestSceneParser
     };
 
     const char* m_path = nullptr;
-    FILE* m_file = nullptr;
+    SceneFileHandle m_file;
     int m_lineNumber = 0;
     TestScene m_scene;
 
@@ -156,8 +170,7 @@ class TestSceneParser
     {
         if ( m_file )
         {
-            fclose( m_file );
-            m_file = nullptr;
+            m_file.reset();
         }
 
         char detail[256] = {};
@@ -1270,27 +1283,22 @@ class TestSceneParser
     {
     }
 
-    ~TestSceneParser()
-    {
-        if ( m_file )
-        {
-            fclose( m_file );
-            m_file = nullptr;
-        }
-    }
+    ~TestSceneParser() = default;
 
     TestScene Load()
     {
-        const errno_t err = fopen_s( &m_file, m_path, "r" );
-        if ( err != 0 || !m_file )
+        FILE* rawFile = nullptr;
+        const errno_t err = fopen_s( &rawFile, m_path, "r" );
+        if ( err != 0 || !rawFile )
         {
             char msg[256];
             sprintf_s( msg, sizeof( msg ), "Failed to open scene file: %s  (TestScene::LoadFromFile)", m_path );
             throw std::runtime_error( msg );
         }
+        m_file.reset( rawFile );
 
         char line[512];
-        while ( fgets( line, sizeof( line ), m_file ) )
+        while ( fgets( line, sizeof( line ), m_file.get() ) )
         {
             ++m_lineNumber;
 
@@ -1311,8 +1319,7 @@ class TestSceneParser
             }
         }
 
-        fclose( m_file );
-        m_file = nullptr;
+        m_file.reset();
 
         if ( m_scene.m_cameras.empty() )
         {
