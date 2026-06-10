@@ -508,6 +508,13 @@ enum class RendererType
     DX12
 };
 
+struct RendererOption
+{
+    const char* name;
+    const char* alias;
+    RendererType type;
+};
+
 struct ParsedArgs
 {
     std::vector<std::string> sceneList;
@@ -904,6 +911,12 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
 
 bool ParseRendererArg( const CommandLineView& commandLine, RendererType& out )
 {
+    static const RendererOption kRenderers[] = {
+        { "gl", "opengl", RendererType::OpenGL },
+        { "dx11", "d3d11", RendererType::DX11 },
+        { "dx12", "d3d12", RendererType::DX12 },
+    };
+
     const char* rendererArg = FindOptionValue( commandLine, "--renderer" );
     if ( !rendererArg )
     {
@@ -916,21 +929,16 @@ bool ParseRendererArg( const CommandLineView& commandLine, RendererType& out )
         return FailCommandLineParse( "--renderer expects gl|dx11|dx12." );
     }
 
-    if ( _stricmp( rendererArg, "dx12" ) == 0 || _stricmp( rendererArg, "d3d12" ) == 0 )
+    for ( const RendererOption& renderer : kRenderers )
     {
-        out = RendererType::DX12;
-        return true;
+        if ( _stricmp( rendererArg, renderer.name ) == 0 ||
+             ( renderer.alias && _stricmp( rendererArg, renderer.alias ) == 0 ) )
+        {
+            out = renderer.type;
+            return true;
+        }
     }
-    if ( _stricmp( rendererArg, "dx11" ) == 0 || _stricmp( rendererArg, "d3d11" ) == 0 )
-    {
-        out = RendererType::DX11;
-        return true;
-    }
-    if ( _stricmp( rendererArg, "gl" ) == 0 || _stricmp( rendererArg, "opengl" ) == 0 )
-    {
-        out = RendererType::OpenGL;
-        return true;
-    }
+
     return FailCommandLineParse( "--renderer expects gl|dx11|dx12." );
 }
 
