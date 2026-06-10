@@ -46,6 +46,53 @@ bool TestScene::IsTerrainHidden() const
     return m_sceneOptions.terrainHidden;
 }
 
+bool TestScene::HasCinematicRenderingOverride() const
+{
+    return m_sceneOptions.hasCinematicRenderingOverride;
+}
+
+
+bool TestScene::IsCinematicRenderingEnabled() const
+{
+    return m_sceneOptions.cinematicRendering;
+}
+
+
+bool TestScene::HasCinematicExposure() const
+{
+    return m_sceneOptions.hasCinematicExposure;
+}
+
+
+float TestScene::GetCinematicExposure() const
+{
+    return m_sceneOptions.cinematicExposure;
+}
+
+
+bool TestScene::HasCinematicGamma() const
+{
+    return m_sceneOptions.hasCinematicGamma;
+}
+
+
+float TestScene::GetCinematicGamma() const
+{
+    return m_sceneOptions.cinematicGamma;
+}
+
+
+uint64_t TestScene::GetCinematicOverrideMask() const
+{
+    return m_sceneOptions.cinematicOverrideMask;
+}
+
+
+const CinematicRenderConfig& TestScene::GetCinematicRenderConfig() const
+{
+    return m_sceneOptions.cinematicRender;
+}
+
 
 int TestScene::GetFrameCount() const
 {

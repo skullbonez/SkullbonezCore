@@ -3,6 +3,7 @@
 
 // --- Includes ---
 #include "SkullbonezCommon.h"
+#include "SkullbonezConfig.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezMatrix4.h"
 #include "SkullbonezGeometricStructures.h"
@@ -42,8 +43,8 @@ class Terrain
     Terrain( float slopeBaseY, float slopeX, float slopeZ );                         // Flat analytic slope constructor: y = slopeBaseY + slopeX*x + slopeZ*z
     ~Terrain();                                                                      // Default destructor
 
-    void Render( const Matrix4& view, const Matrix4& projection, const float* lightPosition ); // Renders the terrain with shader
-    void ResetRenderResources();                                                               // Rebuild backend-specific mesh/shader after renderer switch
+    void Render( const Matrix4& view, const Matrix4& projection, const float* lightPosition, const Basics::CinematicRenderConfig* cinematic = nullptr ); // Renders the terrain with shader
+    void ResetRenderResources();                                                                                                                         // Rebuild backend-specific mesh/shader after renderer switch
     IMesh* GetMesh() const
     {
         return m_terrainMesh.get();

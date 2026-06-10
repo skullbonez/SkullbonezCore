@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <array>
 #include "SkullbonezCommon.h"
+#include "SkullbonezConfig.h"
 #include "SkullbonezGameModel.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezSpatialGrid.h"
@@ -105,31 +106,31 @@ class GameModelCollection
     // directions, lever arms, and accumulated push needed for that repeated solve.
     struct PersistentContact
     {
-        int bodyA = -1;                 // First body index.  The normal points from A toward B.
-        int bodyB = -1;                 // Second body index.
-        uint32_t featureId = 0;         // Contact-point identity within this pair.  Bounding-sphere fallback uses feature 0.
-        int64_t key = 0;                // Stable pair+feature id, used to find last frame's remembered impulses.
-        Vector3 normal = ZERO_VECTOR;   // Push direction.  Normal impulses separate bodies; they never pull.
-        Vector3 tangent1 = ZERO_VECTOR; // First sideways direction at the contact point, used for friction.
-        Vector3 tangent2 = ZERO_VECTOR; // Second sideways direction.  3D contacts need two friction axes.
-        Vector3 rA = ZERO_VECTOR;       // Vector from body A center to the contact point, for spin/torque.
-        Vector3 rB = ZERO_VECTOR;       // Vector from body B center to the contact point, for spin/torque.
-        float penetration = 0.0f;       // How far the bodies overlap.  Zero means touching or separated.
-        float normalMass = 0.0f;        // "How much velocity changes per unit push" along the normal.
-        float tangentMass1 = 0.0f;      // Same effective-mass idea, but for friction tangent 1.
-        float tangentMass2 = 0.0f;      // Same effective-mass idea, but for friction tangent 2.
-        float bias = 0.0f;              // Small target separation speed used to remove overlap smoothly.
-        float frictionLimit = 0.0f;     // Maximum sideways friction push for this contact this frame.
-        float accN = 0.0f;              // Total normal push accumulated by the iterative solver.
-        float accT1 = 0.0f;             // Total friction push accumulated along tangent 1.
-        float accT2 = 0.0f;             // Total friction push accumulated along tangent 2.
-        bool warmStarted = false;       // True when this row reused a previous-frame cached impulse.
-        bool isTerrain = false;         // True when bodyB is the static terrain sentinel.
-        bool supportsRestingPolicy = true; // True when this row may seed rest/sleep policy, not just collision response.
-        bool inhibitsSleep = false;        // True for edge/point terrain contacts that should keep the body awake.
-        uint8_t manifoldPointCount = 1;    // Number of points in the source manifold; used to divide impact bias.
+        int bodyA = -1;                      // First body index.  The normal points from A toward B.
+        int bodyB = -1;                      // Second body index.
+        uint32_t featureId = 0;              // Contact-point identity within this pair.  Bounding-sphere fallback uses feature 0.
+        int64_t key = 0;                     // Stable pair+feature id, used to find last frame's remembered impulses.
+        Vector3 normal = ZERO_VECTOR;        // Push direction.  Normal impulses separate bodies; they never pull.
+        Vector3 tangent1 = ZERO_VECTOR;      // First sideways direction at the contact point, used for friction.
+        Vector3 tangent2 = ZERO_VECTOR;      // Second sideways direction.  3D contacts need two friction axes.
+        Vector3 rA = ZERO_VECTOR;            // Vector from body A center to the contact point, for spin/torque.
+        Vector3 rB = ZERO_VECTOR;            // Vector from body B center to the contact point, for spin/torque.
+        float penetration = 0.0f;            // How far the bodies overlap.  Zero means touching or separated.
+        float normalMass = 0.0f;             // "How much velocity changes per unit push" along the normal.
+        float tangentMass1 = 0.0f;           // Same effective-mass idea, but for friction tangent 1.
+        float tangentMass2 = 0.0f;           // Same effective-mass idea, but for friction tangent 2.
+        float bias = 0.0f;                   // Small target separation speed used to remove overlap smoothly.
+        float frictionLimit = 0.0f;          // Maximum sideways friction push for this contact this frame.
+        float accN = 0.0f;                   // Total normal push accumulated by the iterative solver.
+        float accT1 = 0.0f;                  // Total friction push accumulated along tangent 1.
+        float accT2 = 0.0f;                  // Total friction push accumulated along tangent 2.
+        bool warmStarted = false;            // True when this row reused a previous-frame cached impulse.
+        bool isTerrain = false;              // True when bodyB is the static terrain sentinel.
+        bool supportsRestingPolicy = true;   // True when this row may seed rest/sleep policy, not just collision response.
+        bool inhibitsSleep = false;          // True for edge/point terrain contacts that should keep the body awake.
+        uint8_t manifoldPointCount = 1;      // Number of points in the source manifold; used to divide impact bias.
         Vector3 terrainNormal = ZERO_VECTOR; // Surface normal; row normal is opposite because it points A -> terrain.
-        float terrainWarmStart = 0.0f;        // Gravity-sized initial support impulse for stable terrain contacts.
+        float terrainWarmStart = 0.0f;       // Gravity-sized initial support impulse for stable terrain contacts.
     };
 
     // The previous frame's solution is a very good first guess for this frame.
@@ -225,7 +226,7 @@ class GameModelCollection
     void AddGameModel( GameModel gameModel );                                                                                                                                              // Moves a game model into the collection
     void Clear();                                                                                                                                                                          // Clears all game models (retains GPU resources)
     void RunPhysics( float fChangeInTime );                                                                                                                                                // Runs the physics for the specified time step
-    void RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4] );                                                                                                // Renders the game models
+    void RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4], const Basics::CinematicRenderConfig* cinematic = nullptr );                                      // Renders the game models
     void PrepareRenderStreams();                                                                                                                                                           // Builds cached SoA render streams once for the upcoming frame
     void RenderShadows( Geometry::Terrain* terrain, const Matrix4& view, const Matrix4& proj, float waterSurfaceY );                                                                       // Renders ground shadows beneath all models
     void ResetGLResources();                                                                                                                                                               // Releases GPU resources for GL context reset

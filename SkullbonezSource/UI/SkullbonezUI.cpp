@@ -147,6 +147,47 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data, int currentRend
     hash = HashBool( hash, data.cameraMouseActive );
     hash = HashBool( hash, data.nativeCursorVisible );
     hash = HashBool( hash, data.canSaveSceneDefaults );
+    hash = HashBool( hash, data.cinematicRendering );
+    hash = HashBool( hash, data.cinematic.enabled );
+    hash = HashBool( hash, data.cinematic.skyAtmosphereEnabled );
+    hash = HashBool( hash, data.cinematic.cloudsEnabled );
+    hash = HashBool( hash, data.cinematic.godRaysEnabled );
+    hash = HashBool( hash, data.cinematic.volumetricLightingEnabled );
+    hash = HashBool( hash, data.cinematic.bloomEnabled );
+    hash = HashBool( hash, data.cinematic.fogEnabled );
+    hash = HashBool( hash, data.cinematic.terrainReliefEnabled );
+    hash = HashFloat( hash, data.cinematic.exposure, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.gamma, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.sunScreenX, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.sunScreenY, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.sunColorR, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.sunColorG, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.sunColorB, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.sunIntensity, 100.0f );
+    hash = HashFloat( hash, data.cinematic.skyGlowStrength, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.cloudCoverage, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.cloudSoftness, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.cloudScale, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.cloudIntensity, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.sunShaftStrength, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.sunShaftFalloff, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.volumetricStrength, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.volumetricDensity, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.volumetricDecay, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.bloomThreshold, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.bloomKnee, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.bloomStrength, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.bloomRadius, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.terrainRelief, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.basinDepth, 100.0f );
+    hash = HashFloat( hash, data.cinematic.basinRimLift, 100.0f );
+    hash = HashFloat( hash, data.cinematic.fogColorR, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.fogColorG, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.fogColorB, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.fogStart, 10.0f );
+    hash = HashFloat( hash, data.cinematic.fogEnd, 10.0f );
+    hash = HashFloat( hash, data.cinematic.fogDensity, 100000.0f );
+    hash = HashFloat( hash, data.cinematic.fogMaxOpacity, 1000.0f );
     return hash;
 }
 
@@ -179,6 +220,256 @@ int WaterReflectionModeFromData( const InGameUIFrameData& data )
         return 2;
     }
     return data.waterRTReflect ? 1 : 0;
+}
+
+constexpr int UI_CINEMATIC_SLIDER_BASE = 5000;
+constexpr float UI_CINEMATIC_MASTER_Y = 42.0f;
+constexpr float UI_CINEMATIC_FEATURE_START_Y = 88.0f;
+constexpr float UI_CINEMATIC_START_Y = 258.0f;
+constexpr float UI_CINEMATIC_SECTION_H = 28.0f;
+constexpr float UI_CINEMATIC_ROW_H = 42.0f;
+
+struct CinematicSliderSpec
+{
+    // One row in the Cine tab. Keeping label/range/step together makes it clear
+    // which UI slider controls which render setting.
+    const char* section;
+    const char* label;
+    UICinematicParam param;
+    float minValue;
+    float maxValue;
+    float step;
+    const char* valueFormat;
+};
+
+struct CinematicFeatureSpec
+{
+    // One toggle in the Cine tab, such as Bloom or Fog.
+    const char* label;
+    UICinematicFeature feature;
+};
+
+constexpr CinematicSliderSpec kCinematicSliderSpecs[] = {
+    { "Tonemap", "Exposure", UICinematicParam::Exposure, 0.05f, 3.00f, 0.01f, "%.2f" },
+    { nullptr, "Gamma", UICinematicParam::Gamma, 1.00f, 3.00f, 0.01f, "%.2f" },
+    { "Sun", "Sun X", UICinematicParam::SunX, 0.00f, 1.00f, 0.005f, "%.3f" },
+    { nullptr, "Sun Y", UICinematicParam::SunY, 0.00f, 1.00f, 0.005f, "%.3f" },
+    { nullptr, "Brightness", UICinematicParam::SunBrightness, 0.00f, 40.00f, 0.10f, "%.1f" },
+    { nullptr, "Sun R", UICinematicParam::SunRed, 0.00f, 2.00f, 0.01f, "%.2f" },
+    { nullptr, "Sun G", UICinematicParam::SunGreen, 0.00f, 2.00f, 0.01f, "%.2f" },
+    { nullptr, "Sun B", UICinematicParam::SunBlue, 0.00f, 2.00f, 0.01f, "%.2f" },
+    { "Sky", "Glow", UICinematicParam::SkyGlow, 0.00f, 8.00f, 0.05f, "%.2f" },
+    { nullptr, "Horizon R", UICinematicParam::HorizonRed, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Horizon G", UICinematicParam::HorizonGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Horizon B", UICinematicParam::HorizonBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Zenith R", UICinematicParam::ZenithRed, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Zenith G", UICinematicParam::ZenithGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Zenith B", UICinematicParam::ZenithBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { "Clouds", "Coverage", UICinematicParam::CloudCoverage, 0.00f, 1.00f, 0.01f, "%.2f" },
+    { nullptr, "Softness", UICinematicParam::CloudSoftness, 0.01f, 0.65f, 0.01f, "%.2f" },
+    { nullptr, "Scale", UICinematicParam::CloudScale, 0.50f, 12.00f, 0.05f, "%.2f" },
+    { nullptr, "Intensity", UICinematicParam::CloudIntensity, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { "Shafts", "Strength", UICinematicParam::ShaftStrength, 0.00f, 3.00f, 0.01f, "%.2f" },
+    { nullptr, "Falloff", UICinematicParam::ShaftFalloff, 0.25f, 5.00f, 0.01f, "%.2f" },
+    { "Volume", "Strength", UICinematicParam::VolumetricStrength, 0.00f, 2.00f, 0.01f, "%.2f" },
+    { nullptr, "Density", UICinematicParam::VolumetricDensity, 0.00f, 2.50f, 0.01f, "%.2f" },
+    { nullptr, "Decay", UICinematicParam::VolumetricDecay, 0.800f, 0.995f, 0.001f, "%.3f" },
+    { "Bloom", "Threshold", UICinematicParam::BloomThreshold, 0.00f, 4.00f, 0.01f, "%.2f" },
+    { nullptr, "Knee", UICinematicParam::BloomKnee, 0.01f, 2.00f, 0.01f, "%.2f" },
+    { nullptr, "Strength", UICinematicParam::BloomStrength, 0.00f, 2.00f, 0.01f, "%.2f" },
+    { nullptr, "Radius", UICinematicParam::BloomRadius, 0.25f, 8.00f, 0.05f, "%.2f" },
+    { "Terrain", "Relief", UICinematicParam::TerrainRelief, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Basin Depth", UICinematicParam::BasinDepth, 0.00f, 80.00f, 1.00f, "%.0f" },
+    { nullptr, "Rim Lift", UICinematicParam::BasinRimLift, 0.00f, 60.00f, 1.00f, "%.0f" },
+    { "Fog", "Density", UICinematicParam::FogDensity, 0.00000f, 0.00600f, 0.00005f, "%.5f" },
+    { nullptr, "Opacity", UICinematicParam::FogOpacity, 0.00f, 1.00f, 0.01f, "%.2f" },
+    { nullptr, "Start", UICinematicParam::FogStart, 0.00f, 500.00f, 1.00f, "%.0f" },
+    { nullptr, "End", UICinematicParam::FogEnd, 100.00f, 4000.00f, 10.00f, "%.0f" },
+    { nullptr, "Fog R", UICinematicParam::FogRed, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Fog G", UICinematicParam::FogGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Fog B", UICinematicParam::FogBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
+};
+static_assert( sizeof( kCinematicSliderSpecs ) / sizeof( kCinematicSliderSpecs[0] ) == static_cast<int>( UICinematicParam::Count ),
+               "Cinematic slider specs must match UICinematicParam." );
+
+constexpr CinematicFeatureSpec kCinematicFeatureSpecs[] = {
+    { "Sky", UICinematicFeature::Sky },
+    { "Clouds", UICinematicFeature::Clouds },
+    { "God rays", UICinematicFeature::GodRays },
+    { "Volume", UICinematicFeature::VolumetricLight },
+    { "Bloom", UICinematicFeature::Bloom },
+    { "Fog", UICinematicFeature::Fog },
+    { "Relief", UICinematicFeature::TerrainRelief },
+};
+static_assert( sizeof( kCinematicFeatureSpecs ) / sizeof( kCinematicFeatureSpecs[0] ) == static_cast<int>( UICinematicFeature::Count ),
+               "Cinematic feature specs must match UICinematicFeature." );
+
+int CinematicSliderIndexFromActiveSlider( int activeSlider )
+{
+    // Other UI tabs already use m_activeSlider. Give Cine sliders their own id
+    // range so dragging can continue even if the mouse leaves the slider bounds.
+    const int index = activeSlider - UI_CINEMATIC_SLIDER_BASE;
+    return ( index >= 0 && index < static_cast<int>( UICinematicParam::Count ) ) ? index : -1;
+}
+
+float CinematicSliderY( int index, float baseY )
+{
+    // Sections add extra vertical space. Calculating this from the spec array
+    // keeps hit testing and drawing in lockstep.
+    float y = baseY;
+    for ( int i = 0; i <= index; ++i )
+    {
+        if ( kCinematicSliderSpecs[i].section )
+        {
+            y += UI_CINEMATIC_SECTION_H;
+        }
+        if ( i == index )
+        {
+            return y;
+        }
+        y += UI_CINEMATIC_ROW_H;
+    }
+    return y;
+}
+
+int CinematicContentHeight()
+{
+    float height = UI_CINEMATIC_START_Y;
+    for ( int i = 0; i < static_cast<int>( UICinematicParam::Count ); ++i )
+    {
+        if ( kCinematicSliderSpecs[i].section )
+        {
+            height += UI_CINEMATIC_SECTION_H;
+        }
+        height += UI_CINEMATIC_ROW_H;
+    }
+    return static_cast<int>( height + 18.0f );
+}
+
+float CinematicValueForParam( const CinematicRenderConfig& cinematic, UICinematicParam param )
+{
+    // Read the live value for a Cine slider. This is the inverse of the command
+    // application in SkullbonezRunInput.cpp.
+    switch ( param )
+    {
+    case UICinematicParam::Exposure:
+        return cinematic.exposure;
+    case UICinematicParam::Gamma:
+        return cinematic.gamma;
+    case UICinematicParam::SunX:
+        return cinematic.sunScreenX;
+    case UICinematicParam::SunY:
+        return cinematic.sunScreenY;
+    case UICinematicParam::SunBrightness:
+        return cinematic.sunIntensity;
+    case UICinematicParam::SunRed:
+        return cinematic.sunColorR;
+    case UICinematicParam::SunGreen:
+        return cinematic.sunColorG;
+    case UICinematicParam::SunBlue:
+        return cinematic.sunColorB;
+    case UICinematicParam::SkyGlow:
+        return cinematic.skyGlowStrength;
+    case UICinematicParam::HorizonRed:
+        return cinematic.skyHorizonR;
+    case UICinematicParam::HorizonGreen:
+        return cinematic.skyHorizonG;
+    case UICinematicParam::HorizonBlue:
+        return cinematic.skyHorizonB;
+    case UICinematicParam::ZenithRed:
+        return cinematic.skyZenithR;
+    case UICinematicParam::ZenithGreen:
+        return cinematic.skyZenithG;
+    case UICinematicParam::ZenithBlue:
+        return cinematic.skyZenithB;
+    case UICinematicParam::CloudCoverage:
+        return cinematic.cloudCoverage;
+    case UICinematicParam::CloudSoftness:
+        return cinematic.cloudSoftness;
+    case UICinematicParam::CloudScale:
+        return cinematic.cloudScale;
+    case UICinematicParam::CloudIntensity:
+        return cinematic.cloudIntensity;
+    case UICinematicParam::ShaftStrength:
+        return cinematic.sunShaftStrength;
+    case UICinematicParam::ShaftFalloff:
+        return cinematic.sunShaftFalloff;
+    case UICinematicParam::VolumetricStrength:
+        return cinematic.volumetricStrength;
+    case UICinematicParam::VolumetricDensity:
+        return cinematic.volumetricDensity;
+    case UICinematicParam::VolumetricDecay:
+        return cinematic.volumetricDecay;
+    case UICinematicParam::BloomThreshold:
+        return cinematic.bloomThreshold;
+    case UICinematicParam::BloomKnee:
+        return cinematic.bloomKnee;
+    case UICinematicParam::BloomStrength:
+        return cinematic.bloomStrength;
+    case UICinematicParam::BloomRadius:
+        return cinematic.bloomRadius;
+    case UICinematicParam::TerrainRelief:
+        return cinematic.terrainRelief;
+    case UICinematicParam::BasinDepth:
+        return cinematic.basinDepth;
+    case UICinematicParam::BasinRimLift:
+        return cinematic.basinRimLift;
+    case UICinematicParam::FogDensity:
+        return cinematic.fogDensity;
+    case UICinematicParam::FogOpacity:
+        return cinematic.fogMaxOpacity;
+    case UICinematicParam::FogStart:
+        return cinematic.fogStart;
+    case UICinematicParam::FogEnd:
+        return cinematic.fogEnd;
+    case UICinematicParam::FogRed:
+        return cinematic.fogColorR;
+    case UICinematicParam::FogGreen:
+        return cinematic.fogColorG;
+    case UICinematicParam::FogBlue:
+        return cinematic.fogColorB;
+    default:
+        return 0.0f;
+    }
+}
+
+void SetCinematicSliderResult( InGameUIInputResult& result, const UISlider& slider, int mouseX, const CinematicSliderSpec& spec )
+{
+    result.commands.cinematic.requestedParam = spec.param;
+    result.commands.cinematic.requestedValue = slider.ValueFromMouse( mouseX, spec.minValue, spec.maxValue, spec.step );
+}
+
+float CinematicFeatureY( int index, float baseY )
+{
+    return baseY + static_cast<float>( index / 2 ) * CONTENT_TOGGLE_ROW_H;
+}
+
+float CinematicFeatureX( int index, float contentX, float colW )
+{
+    return ( index % 2 == 0 ) ? contentX : contentX + colW + 18.0f;
+}
+
+bool CinematicFeatureEnabled( const CinematicRenderConfig& cinematic, UICinematicFeature feature )
+{
+    switch ( feature )
+    {
+    case UICinematicFeature::Sky:
+        return cinematic.skyAtmosphereEnabled;
+    case UICinematicFeature::Clouds:
+        return cinematic.cloudsEnabled;
+    case UICinematicFeature::GodRays:
+        return cinematic.godRaysEnabled;
+    case UICinematicFeature::VolumetricLight:
+        return cinematic.volumetricLightingEnabled;
+    case UICinematicFeature::Bloom:
+        return cinematic.bloomEnabled;
+    case UICinematicFeature::Fog:
+        return cinematic.fogEnabled;
+    case UICinematicFeature::TerrainRelief:
+        return cinematic.terrainReliefEnabled;
+    default:
+        return false;
+    }
 }
 
 
@@ -495,6 +786,8 @@ int InGameUI::ContentHeight() const
         return PhysicsTab::ContentHeight();
     case InGameUITab::Options:
         return OptionsTab::ContentHeight();
+    case InGameUITab::Cinematic:
+        return CinematicContentHeight();
     default:
         return ControlsTab::ContentHeight();
     }
@@ -800,6 +1093,58 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
         }
+        else if ( inContent && m_activeTab == InGameUITab::Cinematic )
+        {
+            const float contentX = static_cast<float>( inputX + contentPad );
+            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            const float scrolledY = static_cast<float>( contentY ) - m_scrollY;
+            const float colW = (std::max)( 148.0f, contentW * 0.46f );
+            bool capturedSlider = false;
+
+            m_cinematicMasterToggle.SetBounds( contentX, scrolledY + UI_CINEMATIC_MASTER_Y, contentW, 24.0f );
+            if ( m_cinematicMasterToggle.HitTest( m_mouseX, m_mouseY ) )
+            {
+                result.commands.cinematic.toggleRendering = true;
+            }
+            else
+            {
+                const float featureBaseY = scrolledY + UI_CINEMATIC_FEATURE_START_Y + 26.0f;
+                for ( int i = 0; i < static_cast<int>( UICinematicFeature::Count ); ++i )
+                {
+                    const float tx = CinematicFeatureX( i, contentX, colW );
+                    const float toggleY = CinematicFeatureY( i, featureBaseY );
+                    m_cinematicFeatureToggles[i].SetBounds( tx, toggleY, colW, 24.0f );
+                    if ( m_cinematicFeatureToggles[i].HitTest( m_mouseX, m_mouseY ) )
+                    {
+                        result.commands.cinematic.requestedFeature = kCinematicFeatureSpecs[i].feature;
+                        break;
+                    }
+                }
+
+                if ( result.commands.cinematic.requestedFeature == UICinematicFeature::None )
+                {
+                    const float rowBase = scrolledY + UI_CINEMATIC_START_Y;
+                    for ( int i = 0; i < static_cast<int>( UICinematicParam::Count ); ++i )
+                    {
+                        m_cinematicSliders[i].SetBounds( contentX, CinematicSliderY( i, rowBase ), contentW, 34.0f );
+                        if ( m_cinematicSliders[i].HitTest( m_mouseX, m_mouseY ) )
+                        {
+                            m_activeSlider = UI_CINEMATIC_SLIDER_BASE + i;
+                            SetCinematicSliderResult( result, m_cinematicSliders[i], m_mouseX, kCinematicSliderSpecs[i] );
+                            capturedSlider = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if ( capturedSlider )
+            {
+                InputControl::BeginMouseCapture( hwnd );
+            }
+            m_rendererCombo.Close();
+            m_reflectionCombo.Close();
+        }
         else if ( inContent && m_activeTab == InGameUITab::Keys )
         {
             const float contentX = static_cast<float>( inputX + contentPad );
@@ -868,12 +1213,20 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         if ( !OptionsTab::UpdateActiveSlider( m_optionsTab, m_activeSlider, m_mouseX, result ) &&
              !PhysicsTab::UpdateActiveSlider( m_physicsTab, m_activeSlider, m_mouseX, result ) )
         {
-            ControlsTab::UpdateActiveSlider( m_controlsTab,
-                                             m_activeSlider,
-                                             m_mouseX,
-                                             m_lastSolverBallCount,
-                                             m_lastSolverBoxCount,
-                                             result );
+            const int cinematicSlider = CinematicSliderIndexFromActiveSlider( m_activeSlider );
+            if ( cinematicSlider >= 0 )
+            {
+                SetCinematicSliderResult( result, m_cinematicSliders[cinematicSlider], m_mouseX, kCinematicSliderSpecs[cinematicSlider] );
+            }
+            else
+            {
+                ControlsTab::UpdateActiveSlider( m_controlsTab,
+                                                 m_activeSlider,
+                                                 m_mouseX,
+                                                 m_lastSolverBallCount,
+                                                 m_lastSolverBoxCount,
+                                                 result );
+            }
         }
     }
 
@@ -909,7 +1262,15 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         if ( !OptionsTab::CommitActiveSlider( m_optionsTab, m_activeSlider, result ) &&
              !PhysicsTab::CommitActiveSlider( m_physicsTab, m_activeSlider, result ) )
         {
-            ControlsTab::CommitActiveSlider( m_controlsTab, m_activeSlider, result );
+            const int cinematicSlider = CinematicSliderIndexFromActiveSlider( m_activeSlider );
+            if ( cinematicSlider >= 0 )
+            {
+                SetCinematicSliderResult( result, m_cinematicSliders[cinematicSlider], m_mouseX, kCinematicSliderSpecs[cinematicSlider] );
+            }
+            else
+            {
+                ControlsTab::CommitActiveSlider( m_controlsTab, m_activeSlider, result );
+            }
         }
         m_activeSlider = 0;
         OptionsTab::ResetPreviewState( m_optionsTab );
@@ -1070,7 +1431,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     Chrome::DrawWindowFrame( draw, windowBounds, titleH, tabH, m_blurPreviewEnabled, titleText );
     Chrome::DrawTitleButtons( draw, Chrome::GetTitleButtonRects( windowBounds ), m_window.isMaximized, m_mouseX, m_mouseY );
 
-    static const char* kTabs[] = { "Profile", "Scene", "Physics", "Options", "Controls" };
+    static const char* kTabs[] = { "Profile", "Scene", "Physics", "Options", "Controls", "Cine" };
     const int tabCount = static_cast<int>( InGameUITab::Count );
     const float tabPad = 14.0f;
     m_tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
@@ -1117,6 +1478,57 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     else if ( m_activeTab == InGameUITab::Options )
     {
         OptionsTab::Draw( m_optionsTab, draw, data, contentX, contentY, contentW, contentH, scrolledY, m_activeSlider );
+    }
+    else if ( m_activeTab == InGameUITab::Cinematic )
+    {
+        char buf[128];
+        const float colW = (std::max)( 148.0f, contentW * 0.46f );
+        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 16.0f, 16.0f, "Cine" );
+        DrawContentToggle( draw,
+                           contentY,
+                           contentH,
+                           m_cinematicMasterToggle,
+                           contentX,
+                           scrolledY + UI_CINEMATIC_MASTER_Y,
+                           contentW,
+                           "Cine mode",
+                           data.cinematicRendering );
+        if ( IsRowVisible( contentY, contentH, scrolledY + UI_CINEMATIC_FEATURE_START_Y, 18.0f ) )
+        {
+            DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + UI_CINEMATIC_FEATURE_START_Y, 12.0f, "Passes" );
+        }
+        const float featureBaseY = scrolledY + UI_CINEMATIC_FEATURE_START_Y + 26.0f;
+        for ( int i = 0; i < static_cast<int>( UICinematicFeature::Count ); ++i )
+        {
+            const float tx = CinematicFeatureX( i, contentX, colW );
+            const float toggleY = CinematicFeatureY( i, featureBaseY );
+            DrawContentToggle( draw,
+                               contentY,
+                               contentH,
+                               m_cinematicFeatureToggles[i],
+                               tx,
+                               toggleY,
+                               colW,
+                               kCinematicFeatureSpecs[i].label,
+                               CinematicFeatureEnabled( data.cinematic, kCinematicFeatureSpecs[i].feature ) );
+        }
+        const float baseY = scrolledY + UI_CINEMATIC_START_Y;
+        for ( int i = 0; i < static_cast<int>( UICinematicParam::Count ); ++i )
+        {
+            const CinematicSliderSpec& spec = kCinematicSliderSpecs[i];
+            const float sliderY = CinematicSliderY( i, baseY );
+            if ( spec.section && IsRowVisible( contentY, contentH, sliderY - UI_CINEMATIC_SECTION_H + 4.0f, 18.0f ) )
+            {
+                DrawSectionTitle( draw, contentX, contentY, contentH, sliderY - UI_CINEMATIC_SECTION_H + 4.0f, 12.0f, spec.section );
+            }
+            const float value = std::clamp( CinematicValueForParam( data.cinematic, spec.param ), spec.minValue, spec.maxValue );
+            snprintf( buf, sizeof( buf ), spec.valueFormat, value );
+            m_cinematicSliders[i].SetBounds( contentX, sliderY, contentW, 34.0f );
+            if ( IsRowVisible( contentY, contentH, sliderY, 34.0f ) )
+            {
+                m_cinematicSliders[i].Draw( draw, spec.label, buf, value, spec.minValue, spec.maxValue );
+            }
+        }
     }
     else
     {

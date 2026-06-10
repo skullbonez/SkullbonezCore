@@ -577,7 +577,14 @@ void RenderBackendDX12::CreateRootSignature()
     srvRange1.RegisterSpace = 0;
     srvRange1.OffsetInDescriptorsFromTableStart = 0;
 
-    D3D12_ROOT_PARAMETER1 params[3] = {};
+    D3D12_DESCRIPTOR_RANGE1 srvRange2 = {};
+    srvRange2.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    srvRange2.NumDescriptors = 1;
+    srvRange2.BaseShaderRegister = 2;
+    srvRange2.RegisterSpace = 0;
+    srvRange2.OffsetInDescriptorsFromTableStart = 0;
+
+    D3D12_ROOT_PARAMETER1 params[4] = {};
     params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     params[0].Descriptor.ShaderRegister = 0;
     params[0].Descriptor.RegisterSpace = 0;
@@ -592,6 +599,11 @@ void RenderBackendDX12::CreateRootSignature()
     params[2].DescriptorTable.NumDescriptorRanges = 1;
     params[2].DescriptorTable.pDescriptorRanges = &srvRange1;
     params[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+    params[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+    params[3].DescriptorTable.NumDescriptorRanges = 1;
+    params[3].DescriptorTable.pDescriptorRanges = &srvRange2;
+    params[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
     D3D12_STATIC_SAMPLER_DESC samplers[2] = {};
     // s0: linear wrap (most textures — terrain, skybox, sphere)
@@ -618,15 +630,15 @@ void RenderBackendDX12::CreateRootSignature()
 
     D3D12_VERSIONED_ROOT_SIGNATURE_DESC rootSigDesc = {};
     rootSigDesc.Version = D3D_ROOT_SIGNATURE_VERSION_1_1;
-    rootSigDesc.Desc_1_1.NumParameters = 3;
+    rootSigDesc.Desc_1_1.NumParameters = 4;
     rootSigDesc.Desc_1_1.pParameters = params;
     rootSigDesc.Desc_1_1.NumStaticSamplers = 2;
     rootSigDesc.Desc_1_1.pStaticSamplers = samplers;
     rootSigDesc.Desc_1_1.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
     // Serialize the root signature description into a binary blob. The root signature defines
-    // what data shaders can access: [0] CBV at b0 (constants), [1] SRV table at t0 (texture 0),
-    // [2] SRV table at t1 (texture 1), plus two static samplers (linear wrap + linear clamp).
+    // what data shaders can access: [0] CBV at b0 (constants), [1] SRV table at t0,
+    // [2] SRV table at t1, [3] SRV table at t2, plus two static samplers.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-d3d12serializeversionedrootsignature
     ID3DBlob* signature = nullptr;
     ID3DBlob* error = nullptr;
@@ -1267,6 +1279,7 @@ size_t RenderBackendDX12::HashPSOKey( const PSOKey12& key )
     hashCombine( h, (size_t)key.depthWriteEnabled );
     hashCombine( h, (size_t)key.cullEnabled );
     hashCombine( h, (size_t)key.polyOffsetEnabled );
+    hashCombine( h, (size_t)key.rtvFormat );
     return h;
 }
 
@@ -1468,7 +1481,7 @@ ID3D12PipelineState* RenderBackendDX12::CreatePSO( VertexFormat12 format, bool i
 
     psoDesc.SampleMask = UINT_MAX;
     psoDesc.NumRenderTargets = 1;
-    psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+    psoDesc.RTVFormats[0] = m_currentRTVFormat;
     psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
     psoDesc.SampleDesc.Count = 1;
 
@@ -1491,6 +1504,13 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
 {
     EnsureCommandListOpen();
 
+    if ( !m_renderingToFBO && !m_backBufferIsRT )
+    {
+        TransitionBarrier( m_renderTargets[m_frameIndex], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET );
+        m_backBufferIsRT = true;
+        m_targetsDirty = true;
+    }
+
     // Build PSO key
     PSOKey12 key = {};
     key.shaderVS = m_activeShader->GetVSBytecode();
@@ -1504,6 +1524,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
     key.depthWriteEnabled = m_depthWriteEnabled;
     key.cullEnabled = m_cullEnabled;
     key.polyOffsetEnabled = m_polyOffsetEnabled;
+    key.rtvFormat = m_currentRTVFormat;
 
     size_t psoHash = HashPSOKey( key );
     if ( dvb )
@@ -1570,11 +1591,11 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
     }
 
     // Bind textures by copying their SRV descriptors to the shader-visible heap and pointing
-    // the root descriptor table at them. Root param [1]=texture slot 0, [2]=texture slot 1.
+    // the root descriptor table at them. Root params [1..3] map to texture slots t0..t2.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootdescriptortable
     if ( m_texBindingsDirty )
     {
-        for ( int slot = 0; slot < 2; ++slot )
+        for ( int slot = 0; slot < 3; ++slot )
         {
             UINT srcIdx = m_boundTexSlot[slot];
             if ( srcIdx != UINT_MAX )
@@ -1620,16 +1641,18 @@ void RenderBackendDX12::SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D1
 }
 
 
-void RenderBackendDX12::SetRenderingToFBO( bool rendering, UINT fboSrvIndex )
+void RenderBackendDX12::SetRenderingToFBO( bool rendering, UINT fboSrvIndex, UINT fboDepthSrvIndex, DXGI_FORMAT rtvFormat )
 {
     m_renderingToFBO = rendering;
-    if ( rendering && fboSrvIndex != UINT_MAX )
+    m_currentRTVFormat = rendering ? rtvFormat : DXGI_FORMAT_R8G8B8A8_UNORM;
+    m_psoDirty = true;
+    if ( rendering )
     {
         // Clear any texture slot still referencing the FBO color texture
         // (it's now in RENDER_TARGET state and cannot be used as SRV)
-        for ( int i = 0; i < 2; ++i )
+        for ( int i = 0; i < 3; ++i )
         {
-            if ( m_boundTexSlot[i] == fboSrvIndex )
+            if ( m_boundTexSlot[i] == fboSrvIndex || m_boundTexSlot[i] == fboDepthSrvIndex )
             {
                 m_boundTexSlot[i] = UINT_MAX;
                 m_texBindingsDirty = true;
@@ -1706,9 +1729,9 @@ std::unique_ptr<IMesh> RenderBackendDX12::CreateMesh( const float* data, int ver
 }
 
 
-std::unique_ptr<IFramebuffer> RenderBackendDX12::CreateFramebuffer( int width, int height )
+std::unique_ptr<IFramebuffer> RenderBackendDX12::CreateFramebuffer( int width, int height, FramebufferColorFormat colorFormat )
 {
-    auto fbo = std::make_unique<FramebufferDX12>();
+    auto fbo = std::make_unique<FramebufferDX12>( colorFormat );
     fbo->Create( width, height );
     return fbo;
 }
@@ -2195,7 +2218,7 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
 
 void RenderBackendDX12::BindTexture( uint32_t handle, int slot )
 {
-    if ( slot < 0 || slot > 1 )
+    if ( slot < 0 || slot > 2 )
     {
         return;
     }

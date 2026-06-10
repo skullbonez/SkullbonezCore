@@ -311,6 +311,10 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     {
         m_scene.isInteractiveRun = true;
     }
+    if ( m_cmdInteractiveSceneRun )
+    {
+        m_scene.isInteractiveRun = true;
+    }
     const bool suppressAutomationExit = m_scene.isInteractiveRun || suppressExitOnComplete;
     const bool shouldPreserveRuntimeState = preserveRuntimeState &&
                                             m_scene.currentSceneIndex >= 0 &&
@@ -334,6 +338,16 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         resetSnapshot.worldGravity = m_cWorldEnvironment.GetGravity();
         resetSnapshot.worldFluidHeight = m_cWorldEnvironment.GetFluidSurfaceHeight();
         resetSnapshot.worldFluidDensity = m_cWorldEnvironment.GetFluidDensity();
+        // Preserve live Cine-tab edits across a scene reset/reload. Without this,
+        // pressing reset would snap the visual look back to the file/defaults.
+        resetSnapshot.hasCinematicRenderingOverride = m_scene.hasCinematicRenderingOverride;
+        resetSnapshot.isCinematicRenderingEnabled = m_scene.isCinematicRenderingEnabled;
+        resetSnapshot.hasCinematicExposure = m_scene.hasCinematicExposure;
+        resetSnapshot.cinematicExposure = m_scene.cinematicExposure;
+        resetSnapshot.hasCinematicGamma = m_scene.hasCinematicGamma;
+        resetSnapshot.cinematicGamma = m_scene.cinematicGamma;
+        resetSnapshot.cinematicOverrideMask = m_scene.cinematicOverrideMask;
+        resetSnapshot.cinematicRender = m_scene.cinematicRender;
         resetSnapshot.uiTimeScaleOverride = m_UITimeScaleOverride;
         resetSnapshot.uiModelCountOverride = m_UIModelCountOverride;
         resetSnapshot.uiSolverBallCountOverride = m_UISolverBallCountOverride;
@@ -389,6 +403,14 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     m_scene.currentFrame = 0;
     m_scene.solverBallCount = 0;
     m_scene.solverBoxCount = 0;
+    m_scene.hasCinematicRenderingOverride = false;
+    m_scene.isCinematicRenderingEnabled = false;
+    m_scene.hasCinematicExposure = false;
+    m_scene.cinematicExposure = Cfg().cinematicRender.exposure;
+    m_scene.hasCinematicGamma = false;
+    m_scene.cinematicGamma = Cfg().cinematicRender.gamma;
+    m_scene.cinematicOverrideMask = 0;
+    m_scene.cinematicRender = Cfg().cinematicRender;
     m_scene.isTestComplete = false;
     m_scene.isFinishLogged = false;
     m_timers.physicsAccumulator = 0.0f;
@@ -541,6 +563,17 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         }
         m_scene.timeScale = scene.GetTimeScale();
         m_scene.isFixedStep = scene.IsFixedStep();
+        // Start with engine.cfg defaults, then apply only the cinematic fields
+        // that the .scene file explicitly authored.
+        m_scene.hasCinematicRenderingOverride = scene.HasCinematicRenderingOverride();
+        m_scene.isCinematicRenderingEnabled = scene.IsCinematicRenderingEnabled();
+        m_scene.hasCinematicExposure = scene.HasCinematicExposure();
+        m_scene.cinematicExposure = scene.GetCinematicExposure();
+        m_scene.hasCinematicGamma = scene.HasCinematicGamma();
+        m_scene.cinematicGamma = scene.GetCinematicGamma();
+        m_scene.cinematicOverrideMask = scene.GetCinematicOverrideMask();
+        m_scene.cinematicRender = Cfg().cinematicRender;
+        ApplyCinematicSceneOverrides( m_scene.cinematicRender, m_scene.cinematicOverrideMask, scene.GetCinematicRenderConfig() );
 
         const SceneUIOptions& UIOptions = scene.GetUIOptions();
         const double UINow = m_timers.simulationTimer.GetTotalTime();
@@ -793,6 +826,15 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         m_scene.isInteractiveRun = resetSnapshot.isInteractiveRun || suppressExitOnComplete;
         m_scene.isExitOnComplete = m_scene.isInteractiveRun ? false : resetSnapshot.isExitOnComplete;
         m_scene.targetFrameCount = resetSnapshot.targetFrameCount;
+        // Re-apply preserved runtime/UI cinematic state after the scene rebuilds.
+        m_scene.hasCinematicRenderingOverride = resetSnapshot.hasCinematicRenderingOverride;
+        m_scene.isCinematicRenderingEnabled = resetSnapshot.isCinematicRenderingEnabled;
+        m_scene.hasCinematicExposure = resetSnapshot.hasCinematicExposure;
+        m_scene.cinematicExposure = resetSnapshot.cinematicExposure;
+        m_scene.hasCinematicGamma = resetSnapshot.hasCinematicGamma;
+        m_scene.cinematicGamma = resetSnapshot.cinematicGamma;
+        m_scene.cinematicOverrideMask = resetSnapshot.cinematicOverrideMask;
+        m_scene.cinematicRender = resetSnapshot.cinematicRender;
         m_UITimeScaleOverride = resetSnapshot.uiTimeScaleOverride;
         m_UIModelCountOverride = resetSnapshot.uiModelCountOverride;
         m_UISolverBallCountOverride = resetSnapshot.uiSolverBallCountOverride;

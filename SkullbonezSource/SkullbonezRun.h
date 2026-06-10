@@ -19,6 +19,7 @@
 #include "SkullbonezGameModelCollection.h"
 #include "SkullbonezWorldEnvironment.h"
 #include "SkullbonezIFramebuffer.h"
+#include "SkullbonezIShader.h"
 #include "SkullbonezTestScene.h"
 #include "SkullbonezBroadphaseVisualizer.h"
 #include "SkullbonezCollisionVisualizer.h"
@@ -107,6 +108,17 @@ struct RunSubsystemState
     bool isFlatSlopeTerrain = false;
     std::unique_ptr<IFramebuffer> reflectionFBO;
 
+    // Cinematic render targets and post-process shaders. The sceneFBO holds the
+    // full HDR world image, volumetricLightFBO holds a softer half-res light
+    // texture, and postQuadVB is the screen-covering rectangle used by those
+    // shaders.
+    std::unique_ptr<IFramebuffer> sceneFBO;
+    std::unique_ptr<IFramebuffer> volumetricLightFBO;
+    std::unique_ptr<Rendering::IShader> skyAtmosphereShader;
+    std::unique_ptr<Rendering::IShader> volumetricLightShader;
+    std::unique_ptr<Rendering::IShader> tonemapShader;
+    uint32_t postQuadVB = 0;
+
     CameraCollection* cameras = nullptr;
     TextureCollection* textures = nullptr;
     SkullbonezWindow* window = nullptr;
@@ -148,6 +160,18 @@ struct RunSceneState
     bool isTestComplete = false;   // Set when targetFrameCount is reached without --exit; appends "- TEST COMPLETE" to HUD
     bool isFinishLogged = false;   // Debug event log guard for scene completion
     bool isInteractiveRun = false; // User/UI controlled scene flow: completion automation may hold/advance but never quit
+
+    // Live cinematic scene state. Scene files can override only selected fields,
+    // while UI sliders mutate this copy at runtime so the user can tune the look
+    // without changing engine.cfg.
+    bool hasCinematicRenderingOverride = false;
+    bool isCinematicRenderingEnabled = false;
+    bool hasCinematicExposure = false;
+    float cinematicExposure = 1.0f;
+    bool hasCinematicGamma = false;
+    float cinematicGamma = 2.2f;
+    uint64_t cinematicOverrideMask = 0;
+    CinematicRenderConfig cinematicRender;
 };
 
 struct RunScreenshotState
@@ -257,10 +281,13 @@ class SkullbonezRun
     unsigned int m_cmdSeedOverride = 0;  // CLI --seed override applied after each scene load (0 = not set)
     bool m_cmdNoWater = false;           // CLI --no-water starts fluid below terrain
     bool m_cmdNoSleep = false;           // Startup CLI --no-sleep request; the live policy can still be toggled from the Physics tab
-    int m_cmdFrameCountOverride = -1;    // CLI --frames override applied after each scene load
-    bool m_cmdUIStress = false;          // CLI --ui-stress enables generated/demo stress without a scene file
-    unsigned int m_cmdUIStressSeed = 0;  // CLI --ui-stress-seed
-    int m_cmdUIStressActions = 5;        // CLI --ui-stress-actions
+    bool m_cmdHasCinematicRenderingOverride = false;
+    bool m_cmdCinematicRendering = false;
+    bool m_cmdInteractiveSceneRun = false; // CLI --interactive/--hold keeps scene automation from quitting the app
+    int m_cmdFrameCountOverride = -1;      // CLI --frames override applied after each scene load
+    bool m_cmdUIStress = false;            // CLI --ui-stress enables generated/demo stress without a scene file
+    unsigned int m_cmdUIStressSeed = 0;    // CLI --ui-stress-seed
+    int m_cmdUIStressActions = 5;          // CLI --ui-stress-actions
     GeneratedObjectTypeOverride m_generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     float m_UITimeScaleOverride = 0.0f;
     int m_UIModelCountOverride = -1;
@@ -307,6 +334,14 @@ class SkullbonezRun
     void SetUpSolverObjects( int balls, int boxes );                                                                                   // Game model init: exact N solver balls + M solver boxes
     void SetUpGameModelsFromScene( const TestScene& scene );                                                                           // Game model init from scene file
     void DrawPrimitives();                                                                                                             // Draw OpenGL primitives here
+    CinematicRenderConfig& ActiveCinematicConfig();                                                                                    // Mutable cinematic style config for the active scene/run
+    const CinematicRenderConfig& ActiveCinematicConfig() const;                                                                        // Read-only cinematic style config for the active scene/run
+    bool IsCinematicRenderingEnabled() const;                                                                                          // True when the HDR/post stack should wrap the main scene
+    void EnsureCinematicRenderResources();                                                                                             // Lazily builds/resizes HDR scene target and post resources
+    void ResetCinematicRenderResources();                                                                                              // Releases HDR/post resources before backend teardown
+    void RenderCinematicSky();                                                                                                         // Draws procedural HDR sunset sky into the active cinematic target
+    bool RenderCinematicVolumetricLight();                                                                                             // Renders depth-aware low-resolution light shafts into the volumetric buffer
+    void ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound, bool volumetricReady );                                          // Tonemaps HDR scene target to the backbuffer
     void SetInitialOpenGlState();                                                                                                      // Sets the initial state of the OpenGL evironment
     void SetViewingOrientation();                                                                                                      // Renders camera views etc
     void DrawWindowText( const double dSecondsPerFrame );                                                                              // Renders text to the window
@@ -371,6 +406,8 @@ class SkullbonezRun
     void SetSeedOverride( unsigned int seed );                          // Override RNG seed for every scene loaded (CLI --seed)
     void SetNoWaterOverride();                                          // Start scenes with fluid below terrain (CLI --no-water)
     void SetNoSleepOverride();                                          // Disable physics sleeping for every scene loaded (CLI --no-sleep)
+    void SetCinematicRenderingOverride( bool enabled );                 // Force cinematic HDR/post rendering on/off for every scene loaded
+    void SetInteractiveRunOverride();                                   // Keep scene automation from quitting the app (CLI --interactive/--hold)
     void SetFrameCountOverride( int frames );                           // Stop scene/demo automation after N frames (CLI --frames)
     void SetUIStressOverride( unsigned int seed, int actionsPerFrame ); // Enable deterministic UI stress from CLI
     void SetInitialOverlayMode( OverlayMode mode );

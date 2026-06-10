@@ -74,6 +74,7 @@ struct PSOKey12
     bool depthWriteEnabled;
     bool cullEnabled;
     bool polyOffsetEnabled;
+    DXGI_FORMAT rtvFormat;
 };
 
 inline constexpr int DX12_TIMER_HEAP_MARKERS = 64;
@@ -122,6 +123,7 @@ class RenderBackendDX12 : public IRenderBackend
     D3D12_RECT m_scissorRect = {};
     D3D12_CPU_DESCRIPTOR_HANDLE m_currentRTV = {};
     D3D12_CPU_DESCRIPTOR_HANDLE m_currentDSV = {};
+    DXGI_FORMAT m_currentRTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
     BLAS m_terrainBLAS;
     BLAS m_sphereBLAS;
     TLAS m_tlas;
@@ -189,7 +191,7 @@ class RenderBackendDX12 : public IRenderBackend
     bool m_psoDirty = true;
 
     ShaderDX12* m_activeShader = nullptr;
-    UINT m_boundTexSlot[2] = { UINT_MAX, UINT_MAX }; // Currently bound SRV indices for t0/t1
+    UINT m_boundTexSlot[3] = { UINT_MAX, UINT_MAX, UINT_MAX }; // Currently bound SRV indices for t0/t1/t2
 
     // Grid line overlay (lazy-init in DrawLinesColored)
     std::unique_ptr<IShader> m_gridLineShader;
@@ -284,7 +286,7 @@ class RenderBackendDX12 : public IRenderBackend
 
     std::unique_ptr<IShader> CreateShader( const char* baseName ) override;
     std::unique_ptr<IMesh> CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords ) override;
-    std::unique_ptr<IFramebuffer> CreateFramebuffer( int width, int height ) override;
+    std::unique_ptr<IFramebuffer> CreateFramebuffer( int width, int height, FramebufferColorFormat colorFormat = FramebufferColorFormat::RGBA8 ) override;
 
     uint32_t CreateTexture2D( const uint8_t* data, int w, int h, int channels, bool generateMips, bool linearFilter ) override;
     void BindTexture( uint32_t handle, int slot ) override;
@@ -376,7 +378,7 @@ class RenderBackendDX12 : public IRenderBackend
         return m_currentDSV;
     }
     void SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv );
-    void SetRenderingToFBO( bool rendering, UINT fboSrvIndex = UINT_MAX );
+    void SetRenderingToFBO( bool rendering, UINT fboSrvIndex = UINT_MAX, UINT fboDepthSrvIndex = UINT_MAX, DXGI_FORMAT rtvFormat = DXGI_FORMAT_R8G8B8A8_UNORM );
 
     D3D12_GPU_VIRTUAL_ADDRESS SubAllocateUpload( UINT64 size, UINT64 alignment );
     uint8_t* GetUploadPtr( D3D12_GPU_VIRTUAL_ADDRESS addr );

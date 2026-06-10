@@ -52,6 +52,7 @@ SkullbonezRun::~SkullbonezRun()
     m_cGameModelCollection.ResetGLResources();
     m_collisionVisualizer.ResetResources();
     m_UI.ResetResources();
+    ResetCinematicRenderResources();
     if ( m_systems.reflectionFBO )
     {
         m_systems.reflectionFBO->ResetResources();
@@ -102,6 +103,19 @@ void SkullbonezRun::SetNoSleepOverride()
     m_cmdNoSleep = true;
     m_runtimeSettings.isPhysicsSleepEnabled = false;
     m_cGameModelCollection.SetPhysicsSleepEnabled( false );
+}
+
+
+void SkullbonezRun::SetCinematicRenderingOverride( bool enabled )
+{
+    m_cmdHasCinematicRenderingOverride = true;
+    m_cmdCinematicRendering = enabled;
+}
+
+
+void SkullbonezRun::SetInteractiveRunOverride()
+{
+    m_cmdInteractiveSceneRun = true;
 }
 
 
@@ -252,6 +266,7 @@ void SkullbonezRun::Initialise()
     int fboW = Gfx().GetWidth() * 2;
     int fboH = Gfx().GetHeight() * 2;
     m_systems.reflectionFBO = Gfx().CreateFramebuffer( fboW, fboH );
+    EnsureCinematicRenderResources();
 
     // Init font (HDC, font)
     Text2d::BuildFont( "Verdana" );

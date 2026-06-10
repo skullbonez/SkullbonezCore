@@ -41,7 +41,10 @@ cbuffer Uniforms : register(b0)
     float    uPerturbStrength;     // UV offset multiplier (controls shimmer intensity)
     int      uFlatWater;           // 1=no waves (debug)
     int      uNoReflect;           // 1=flat color output (reflection pass)
-    float2   _pad0;                // Cbuffer alignment padding
+    float    uCinematicMode;       // 1 = warm sunset response
+    float    uSunGlintStrength;
+    float3   uSunColor;
+    float    _pad0;
 };
 
 Texture2D    uReflectionTex : register(t1);
@@ -99,6 +102,17 @@ float4 main_ps(VS_OUT input) : SV_TARGET
 
     // Sample perturbed reflection and blend with base tint.
     float4 reflection = uReflectionTex.Sample(sSampler1, reflUV);
-    return lerp(uColorTint, reflection, uReflectionStrength);
+    float3 waterColor = lerp(uColorTint.rgb, reflection.rgb, uReflectionStrength);
+    if (uCinematicMode > 0.5f)
+    {
+        // Cinematic ocean is currently skipped by the C++ path, but keeping this
+        // branch documented makes the shader ready if we later re-enable distant
+        // water behind the basin.
+        float sunColumn = pow(max(0.0f, 1.0f - abs(reflUV.x - 0.28f) * 4.2f), 3.0f);
+        float shimmer = 0.55f + 0.45f * sin((input.worldXZ.x + input.worldXZ.y) * 0.15f + uTime * 2.0f);
+        float glint = sunColumn * shimmer * uSunGlintStrength;
+        waterColor = lerp(waterColor * float3(0.70f, 0.54f, 0.40f), float3(0.52f, 0.20f, 0.06f), 0.12f);
+        waterColor += uSunColor * glint;
+    }
+    return float4(waterColor, uColorTint.a);
 }
-

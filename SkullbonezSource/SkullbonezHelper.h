@@ -21,6 +21,8 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+struct CinematicRenderConfig;
+
 /* -- Skullbonez Helper ------------------------------------------------------------------------------------------------------------------------------------------
 
     Static helper to assist in OpenGL state setup.
@@ -42,16 +44,16 @@ class SkullbonezHelper
     static void BuildBoxMesh();                            // Generate unit cube instanced mesh
 
   public:
-    static void StateSetup();                                                                                                                         // Assists in setting up initial open gl state
-    static void SetClipPlane( float x, float y, float z, float w );                                                                                   // Set sphere shader clip plane (default (0,1,0,1e9) = always pass)
-    static void DrawSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent = false );                // Set up instanced shader uniforms and begin collecting instances
-    static void DrawSphereBatchModel( const Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f ); // Append model matrix and tint/override to instance buffer
-    static void DrawSphereBatchEnd();                                                                                                                 // Upload instance data and issue single instanced draw
-    static void DrawBoxBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent = false );                   // Set up box instanced draw
-    static void DrawBoxBatchModel( const Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f );    // Append box model matrix and tint/override to instance buffer
-    static void DrawBoxBatchEnd();                                                                                                                    // Upload box instance data and issue single instanced draw
-    static void ResetGLResources();                                                                                                                   // Call after GL context recreated to invalidate cached GL objects
-    static void EnsureSphereMesh();                                                                                                                   // Ensure sphere instanced mesh is created (for DXR BLAS init)
+    static void StateSetup();                                                                                                                                                            // Assists in setting up initial open gl state
+    static void SetClipPlane( float x, float y, float z, float w );                                                                                                                      // Set sphere shader clip plane (default (0,1,0,1e9) = always pass)
+    static void DrawSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent = false, const CinematicRenderConfig* cinematic = nullptr ); // Set up instanced shader uniforms and begin collecting instances
+    static void DrawSphereBatchModel( const Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f );                                    // Append model matrix and tint/override to instance buffer
+    static void DrawSphereBatchEnd();                                                                                                                                                    // Upload instance data and issue single instanced draw
+    static void DrawBoxBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent = false, const CinematicRenderConfig* cinematic = nullptr );    // Set up box instanced draw
+    static void DrawBoxBatchModel( const Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f );                                       // Append box model matrix and tint/override to instance buffer
+    static void DrawBoxBatchEnd();                                                                                                                                                       // Upload box instance data and issue single instanced draw
+    static void ResetGLResources();                                                                                                                                                      // Call after GL context recreated to invalidate cached GL objects
+    static void EnsureSphereMesh();                                                                                                                                                      // Ensure sphere instanced mesh is created (for DXR BLAS init)
     static uint32_t GetSphereInstMeshHandle()
     {
         return sphereInstMesh;

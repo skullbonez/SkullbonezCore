@@ -314,6 +314,9 @@
     <None Include="SkullbonezData\scenes\box_vs_ball_flight.scene" />
     <None Include="SkullbonezData\scenes\box_vs_ball_grounded.scene" />
     <None Include="SkullbonezData\scenes\cardinal_roll_test.scene" />
+    <None Include="SkullbonezData\scenes\cinematic_volumetric.scene" />
+    <None Include="SkullbonezData\scenes\ui_cinematic_controls.scene" />
+    <None Include="SkullbonezData\scenes\ui_cinematic_overrides.scene" />
     <None Include="SkullbonezData\scenes\cause_effect_marble_run.scene" />
     <None Include="SkullbonezData\scenes\collision_demo.sUIte" />
     <None Include="SkullbonezData\scenes\collision_demo_ball_ball.scene" />
@@ -359,6 +362,15 @@
     <None Include="SkullbonezData\shaders\lit_textured.vert" />
     <None Include="SkullbonezData\shaders\lit_textured_instanced.frag" />
     <None Include="SkullbonezData\shaders\lit_textured_instanced.vert" />
+    <None Include="SkullbonezData\shaders\post_volumetric_light.frag" />
+    <None Include="SkullbonezData\shaders\post_volumetric_light.hlsl" />
+    <None Include="SkullbonezData\shaders\post_volumetric_light.vert" />
+    <None Include="SkullbonezData\shaders\post_tonemap.frag" />
+    <None Include="SkullbonezData\shaders\post_tonemap.hlsl" />
+    <None Include="SkullbonezData\shaders\post_tonemap.vert" />
+    <None Include="SkullbonezData\shaders\sky_atmosphere.frag" />
+    <None Include="SkullbonezData\shaders\sky_atmosphere.hlsl" />
+    <None Include="SkullbonezData\shaders\sky_atmosphere.vert" />
     <None Include="SkullbonezData\shaders\shadow.frag" />
     <None Include="SkullbonezData\shaders\shadow.hlsl" />
     <None Include="SkullbonezData\shaders\shadow.vert" />

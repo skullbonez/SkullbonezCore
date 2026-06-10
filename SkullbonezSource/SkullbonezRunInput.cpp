@@ -9,6 +9,221 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
 
+namespace
+{
+void ApplyCinematicUIParam( CinematicRenderConfig& cinematic, RunSceneState& scene, UICinematicParam param, float rawValue )
+{
+    // The UI sends "the user dragged this slider to this raw value." This helper
+    // clamps the value into a safe range, writes it into the live cinematic
+    // config, and marks the scene override bit so reloads keep the user's tweak.
+    const auto clampValue = []( float value, float minValue, float maxValue ) -> float
+    {
+        return std::clamp( value, minValue, maxValue );
+    };
+
+    switch ( param )
+    {
+    case UICinematicParam::Exposure:
+        cinematic.exposure = clampValue( rawValue, 0.05f, 3.00f );
+        scene.hasCinematicExposure = true;
+        scene.cinematicExposure = cinematic.exposure;
+        scene.cinematicOverrideMask |= SCENE_CINE_EXPOSURE;
+        break;
+    case UICinematicParam::Gamma:
+        cinematic.gamma = clampValue( rawValue, 1.00f, 3.00f );
+        scene.hasCinematicGamma = true;
+        scene.cinematicGamma = cinematic.gamma;
+        scene.cinematicOverrideMask |= SCENE_CINE_GAMMA;
+        break;
+    case UICinematicParam::SunX:
+        cinematic.sunScreenX = clampValue( rawValue, 0.00f, 1.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_SUN_SCREEN_X;
+        break;
+    case UICinematicParam::SunY:
+        cinematic.sunScreenY = clampValue( rawValue, 0.00f, 1.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_SUN_SCREEN_Y;
+        break;
+    case UICinematicParam::SunBrightness:
+        cinematic.sunIntensity = clampValue( rawValue, 0.00f, 40.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_SUN_INTENSITY;
+        break;
+    case UICinematicParam::SunRed:
+        cinematic.sunColorR = clampValue( rawValue, 0.00f, 2.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_SUN_COLOR_R;
+        break;
+    case UICinematicParam::SunGreen:
+        cinematic.sunColorG = clampValue( rawValue, 0.00f, 2.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_SUN_COLOR_G;
+        break;
+    case UICinematicParam::SunBlue:
+        cinematic.sunColorB = clampValue( rawValue, 0.00f, 2.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_SUN_COLOR_B;
+        break;
+    case UICinematicParam::SkyGlow:
+        cinematic.skyGlowStrength = clampValue( rawValue, 0.00f, 8.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_SKY_GLOW_STRENGTH;
+        break;
+    case UICinematicParam::HorizonRed:
+        cinematic.skyHorizonR = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_SKY_HORIZON_R;
+        break;
+    case UICinematicParam::HorizonGreen:
+        cinematic.skyHorizonG = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_SKY_HORIZON_G;
+        break;
+    case UICinematicParam::HorizonBlue:
+        cinematic.skyHorizonB = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_SKY_HORIZON_B;
+        break;
+    case UICinematicParam::ZenithRed:
+        cinematic.skyZenithR = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_SKY_ZENITH_R;
+        break;
+    case UICinematicParam::ZenithGreen:
+        cinematic.skyZenithG = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_SKY_ZENITH_G;
+        break;
+    case UICinematicParam::ZenithBlue:
+        cinematic.skyZenithB = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_SKY_ZENITH_B;
+        break;
+    case UICinematicParam::CloudCoverage:
+        cinematic.cloudCoverage = clampValue( rawValue, 0.00f, 1.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_CLOUD_COVERAGE;
+        break;
+    case UICinematicParam::CloudSoftness:
+        cinematic.cloudSoftness = clampValue( rawValue, 0.01f, 0.65f );
+        scene.cinematicOverrideMask |= SCENE_CINE_CLOUD_SOFTNESS;
+        break;
+    case UICinematicParam::CloudScale:
+        cinematic.cloudScale = clampValue( rawValue, 0.50f, 12.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_CLOUD_SCALE;
+        break;
+    case UICinematicParam::CloudIntensity:
+        cinematic.cloudIntensity = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_CLOUD_INTENSITY;
+        break;
+    case UICinematicParam::ShaftStrength:
+        cinematic.sunShaftStrength = clampValue( rawValue, 0.00f, 3.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_SUN_SHAFT_STRENGTH;
+        break;
+    case UICinematicParam::ShaftFalloff:
+        cinematic.sunShaftFalloff = clampValue( rawValue, 0.25f, 5.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_SUN_SHAFT_FALLOFF;
+        break;
+    case UICinematicParam::VolumetricStrength:
+        cinematic.volumetricStrength = clampValue( rawValue, 0.00f, 2.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_VOLUMETRIC_STRENGTH;
+        break;
+    case UICinematicParam::VolumetricDensity:
+        cinematic.volumetricDensity = clampValue( rawValue, 0.00f, 2.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_VOLUMETRIC_DENSITY;
+        break;
+    case UICinematicParam::VolumetricDecay:
+        cinematic.volumetricDecay = clampValue( rawValue, 0.800f, 0.995f );
+        scene.cinematicOverrideMask |= SCENE_CINE_VOLUMETRIC_DECAY;
+        break;
+    case UICinematicParam::BloomThreshold:
+        cinematic.bloomThreshold = clampValue( rawValue, 0.00f, 4.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_BLOOM_THRESHOLD;
+        break;
+    case UICinematicParam::BloomKnee:
+        cinematic.bloomKnee = clampValue( rawValue, 0.01f, 2.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_BLOOM_KNEE;
+        break;
+    case UICinematicParam::BloomStrength:
+        cinematic.bloomStrength = clampValue( rawValue, 0.00f, 2.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_BLOOM_STRENGTH;
+        break;
+    case UICinematicParam::BloomRadius:
+        cinematic.bloomRadius = clampValue( rawValue, 0.25f, 8.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_BLOOM_RADIUS;
+        break;
+    case UICinematicParam::TerrainRelief:
+        cinematic.terrainRelief = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_RELIEF;
+        break;
+    case UICinematicParam::BasinDepth:
+        cinematic.basinDepth = clampValue( rawValue, 0.00f, 80.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_BASIN_DEPTH;
+        break;
+    case UICinematicParam::BasinRimLift:
+        cinematic.basinRimLift = clampValue( rawValue, 0.00f, 60.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_BASIN_RIM_LIFT;
+        break;
+    case UICinematicParam::FogDensity:
+        cinematic.fogDensity = clampValue( rawValue, 0.00000f, 0.00600f );
+        scene.cinematicOverrideMask |= SCENE_CINE_FOG_DENSITY;
+        break;
+    case UICinematicParam::FogOpacity:
+        cinematic.fogMaxOpacity = clampValue( rawValue, 0.00f, 1.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_FOG_MAX_OPACITY;
+        break;
+    case UICinematicParam::FogStart:
+        cinematic.fogStart = clampValue( rawValue, 0.00f, 500.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_FOG_START;
+        break;
+    case UICinematicParam::FogEnd:
+        cinematic.fogEnd = clampValue( rawValue, 100.00f, 4000.00f );
+        scene.cinematicOverrideMask |= SCENE_CINE_FOG_END;
+        break;
+    case UICinematicParam::FogRed:
+        cinematic.fogColorR = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_FOG_COLOR_R;
+        break;
+    case UICinematicParam::FogGreen:
+        cinematic.fogColorG = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_FOG_COLOR_G;
+        break;
+    case UICinematicParam::FogBlue:
+        cinematic.fogColorB = clampValue( rawValue, 0.00f, 1.50f );
+        scene.cinematicOverrideMask |= SCENE_CINE_FOG_COLOR_B;
+        break;
+    default:
+        break;
+    }
+}
+
+void ToggleCinematicUIFeature( CinematicRenderConfig& cinematic, RunSceneState& scene, UICinematicFeature feature )
+{
+    // Feature toggles are boolean pass switches: sky on/off, bloom on/off, etc.
+    // Each toggle also marks the matching override bit for scene persistence.
+    switch ( feature )
+    {
+    case UICinematicFeature::Sky:
+        cinematic.skyAtmosphereEnabled = !cinematic.skyAtmosphereEnabled;
+        scene.cinematicOverrideMask |= SCENE_CINE_SKY_ATMOSPHERE;
+        break;
+    case UICinematicFeature::Clouds:
+        cinematic.cloudsEnabled = !cinematic.cloudsEnabled;
+        scene.cinematicOverrideMask |= SCENE_CINE_CLOUDS;
+        break;
+    case UICinematicFeature::GodRays:
+        cinematic.godRaysEnabled = !cinematic.godRaysEnabled;
+        scene.cinematicOverrideMask |= SCENE_CINE_GOD_RAYS;
+        break;
+    case UICinematicFeature::VolumetricLight:
+        cinematic.volumetricLightingEnabled = !cinematic.volumetricLightingEnabled;
+        scene.cinematicOverrideMask |= SCENE_CINE_VOLUMETRIC_LIGHTING;
+        break;
+    case UICinematicFeature::Bloom:
+        cinematic.bloomEnabled = !cinematic.bloomEnabled;
+        scene.cinematicOverrideMask |= SCENE_CINE_BLOOM;
+        break;
+    case UICinematicFeature::Fog:
+        cinematic.fogEnabled = !cinematic.fogEnabled;
+        scene.cinematicOverrideMask |= SCENE_CINE_FOG;
+        break;
+    case UICinematicFeature::TerrainRelief:
+        cinematic.terrainReliefEnabled = !cinematic.terrainReliefEnabled;
+        scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_RELIEF_ENABLED;
+        break;
+    default:
+        break;
+    }
+}
+} // namespace
+
 void SkullbonezRun::StepPhysicsPipelineStage( int direction )
 {
     const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
@@ -506,6 +721,31 @@ void SkullbonezRun::TakeInput()
             ApplyUIWorldOverride( std::clamp( gravity, -100.0f, 0.0f ),
                                   std::clamp( fluidHeight, -100.0f, 200.0f ),
                                   std::clamp( fluidDensity, 0.0f, 5.0f ) );
+        }
+        if ( uiCommands.cinematic.toggleRendering )
+        {
+            // Master Cine switch. Clearing m_cmdHasCinematicRenderingOverride lets
+            // the runtime toggle become the new source of truth after launch.
+            CinematicRenderConfig& cinematic = ActiveCinematicConfig();
+            const bool currentlyEnabled = m_cmdHasCinematicRenderingOverride ? m_cmdCinematicRendering : cinematic.enabled;
+            cinematic.enabled = !currentlyEnabled;
+            m_cmdHasCinematicRenderingOverride = false;
+            if ( m_scene.isSceneMode )
+            {
+                m_scene.hasCinematicRenderingOverride = true;
+                m_scene.isCinematicRenderingEnabled = cinematic.enabled;
+                m_scene.cinematicOverrideMask |= SCENE_CINE_RENDERING;
+            }
+        }
+        if ( uiCommands.cinematic.requestedFeature != UICinematicFeature::None )
+        {
+            CinematicRenderConfig& cinematic = ActiveCinematicConfig();
+            ToggleCinematicUIFeature( cinematic, m_scene, uiCommands.cinematic.requestedFeature );
+        }
+        if ( uiCommands.cinematic.requestedParam != UICinematicParam::None )
+        {
+            CinematicRenderConfig& cinematic = ActiveCinematicConfig();
+            ApplyCinematicUIParam( cinematic, m_scene, uiCommands.cinematic.requestedParam, uiCommands.cinematic.requestedValue );
         }
         if ( uiCommands.scene.resetScene )
         {

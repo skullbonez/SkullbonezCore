@@ -33,6 +33,23 @@ static void ApplySceneLightUniforms( IShader& shader )
     shader.SetVec4( "uLightDiffuse", light.colorR, light.colorG, light.colorB, light.colorA );
 }
 
+static void ApplyBatchLightUniforms( IShader& shader, const float lightPos[4], const CinematicRenderConfig* cinematicOverride )
+{
+    if ( lightPos[3] == 0.0f )
+    {
+        const CinematicRenderConfig& cinematic = cinematicOverride ? *cinematicOverride : Cfg().cinematicRender;
+        shader.SetVec4( "uLightAmbient", 0.28f, 0.15f, 0.06f, 1.0f );
+        shader.SetVec4( "uLightDiffuse",
+                        cinematic.sunColorR * 2.35f,
+                        cinematic.sunColorG * 2.35f,
+                        cinematic.sunColorB * 2.35f,
+                        1.0f );
+        return;
+    }
+
+    ApplySceneLightUniforms( shader );
+}
+
 void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
 {
     sClipPlane[0] = x;
@@ -92,7 +109,7 @@ void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
 }
 
 
-void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent )
+void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic )
 {
     if ( sphereInstMesh == 0 )
     {
@@ -117,6 +134,7 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
     viewLightPos[3] = lightPos[3];
 
     sphereShader->Use();
+    ApplyBatchLightUniforms( *sphereShader, lightPos, cinematic );
     sphereShader->SetMat4( "uView", view );
     sphereShader->SetMat4( "uProjection", proj );
     sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
@@ -177,7 +195,7 @@ void SkullbonezHelper::BuildBoxMesh()
 }
 
 
-void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent )
+void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic )
 {
     if ( boxInstMesh == 0 )
     {
@@ -208,6 +226,7 @@ void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& pr
     viewLightPos[3] = lightPos[3];
 
     sphereShader->Use();
+    ApplyBatchLightUniforms( *sphereShader, lightPos, cinematic );
     sphereShader->SetMat4( "uView", view );
     sphereShader->SetMat4( "uProjection", proj );
     sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );

@@ -30,7 +30,10 @@ class FramebufferDX11 : public IFramebuffer
     ID3D11ShaderResourceView* m_srv;
     ID3D11Texture2D* m_depthTex;
     ID3D11DepthStencilView* m_dsv;
+    ID3D11ShaderResourceView* m_depthSRV;
     uint32_t m_textureHandle;
+    uint32_t m_depthTextureHandle;
+    FramebufferColorFormat m_colorFormat;
     int m_width;
     int m_height;
 
@@ -39,7 +42,7 @@ class FramebufferDX11 : public IFramebuffer
     mutable ID3D11DepthStencilView* m_savedDSV;
 
   public:
-    FramebufferDX11( RenderBackendDX11* backend, ID3D11Device* device, ID3D11DeviceContext* context );
+    FramebufferDX11( RenderBackendDX11* backend, ID3D11Device* device, ID3D11DeviceContext* context, FramebufferColorFormat colorFormat = FramebufferColorFormat::RGBA8 );
     ~FramebufferDX11() override;
 
     bool Create( int width, int height );
@@ -47,6 +50,11 @@ class FramebufferDX11 : public IFramebuffer
     void Bind() const override;
     void Unbind() const override;
     uint32_t GetColorTextureHandle() const override;
+    uint32_t GetDepthTextureHandle() const override;
+    FramebufferColorFormat GetColorFormat() const override
+    {
+        return m_colorFormat;
+    }
     int GetWidth() const override
     {
         return m_width;

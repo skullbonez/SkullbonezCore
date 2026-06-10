@@ -547,9 +547,9 @@ std::unique_ptr<IMesh> RenderBackendGL::CreateMesh( const float* data, int verte
 }
 
 
-std::unique_ptr<IFramebuffer> RenderBackendGL::CreateFramebuffer( int width, int height )
+std::unique_ptr<IFramebuffer> RenderBackendGL::CreateFramebuffer( int width, int height, FramebufferColorFormat colorFormat )
 {
-    return std::make_unique<FramebufferGL>( width, height );
+    return std::make_unique<FramebufferGL>( width, height, colorFormat );
 }
 
 

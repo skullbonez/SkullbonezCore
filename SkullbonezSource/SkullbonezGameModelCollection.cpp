@@ -160,7 +160,7 @@ void GameModelCollection::PrepareRenderStreams()
 }
 
 
-void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4] )
+void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4], const CinematicRenderConfig* cinematic )
 {
     if ( m_gameModels.empty() )
     {
@@ -171,7 +171,7 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
     const int modelCount = static_cast<int>( m_gameModels.size() );
 
     // Render non-box models through the sphere batch.
-    SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes );
+    SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes, cinematic );
     for ( int x = 0; x < modelCount; ++x )
     {
         if ( !m_soaIsBox[x] )
@@ -186,7 +186,7 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
     }
     SkullbonezHelper::DrawSphereBatchEnd();
 
-    SkullbonezHelper::DrawBoxBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes );
+    SkullbonezHelper::DrawBoxBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes, cinematic );
     for ( int x = 0; x < modelCount; ++x )
     {
         if ( m_soaIsBox[x] )

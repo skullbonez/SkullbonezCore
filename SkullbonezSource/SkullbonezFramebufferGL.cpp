@@ -7,8 +7,8 @@
 using namespace SkullbonezCore::Rendering;
 
 
-FramebufferGL::FramebufferGL( int m_width, int m_height )
-    : m_fbo( 0 ), m_colorTex( 0 ), m_depthRBO( 0 ), m_width( m_width ), m_height( m_height )
+FramebufferGL::FramebufferGL( int m_width, int m_height, FramebufferColorFormat colorFormat )
+    : m_fbo( 0 ), m_colorTex( 0 ), m_depthTex( 0 ), m_colorFormat( colorFormat ), m_width( m_width ), m_height( m_height )
 {
     Build();
 }
@@ -27,11 +27,10 @@ FramebufferGL::~FramebufferGL()
         // Delete the color texture that was attached to the FBO.
         glDeleteTextures( 1, &m_colorTex );
     }
-    if ( m_depthRBO )
+    if ( m_depthTex )
     {
-        // Delete the depth renderbuffer (GPU-only storage for depth data).
-        // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glDeleteRenderbuffers.xhtml
-        glDeleteRenderbuffers( 1, &m_depthRBO );
+        // Delete the depth texture that was attached to the FBO.
+        glDeleteTextures( 1, &m_depthTex );
     }
 }
 
@@ -60,10 +59,16 @@ void FramebufferGL::Build()
     glGenTextures( 1, &m_colorTex );
     glBindTexture( GL_TEXTURE_2D, m_colorTex );
 
-    // Allocate an empty RGB texture at the FBO's resolution. nullptr = no initial pixel data.
+    // RGBA8 is the normal "display color" format. RGBA16F is the HDR format used
+    // by cinematic rendering so values can go above 1.0 before tonemapping.
+    const GLint internalFormat = ( m_colorFormat == FramebufferColorFormat::RGBA16F ) ? GL_RGBA16F : GL_RGBA8;
+    const GLenum uploadFormat = GL_RGBA;
+    const GLenum uploadType = ( m_colorFormat == FramebufferColorFormat::RGBA16F ) ? GL_HALF_FLOAT : GL_UNSIGNED_BYTE;
+
+    // Allocate an empty texture at the FBO's resolution. nullptr = no initial pixel data.
     // This texture will be filled by rendering into the FBO.
     // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glTexImage2D.xhtml
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGB, m_width, m_height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr );
+    glTexImage2D( GL_TEXTURE_2D, 0, internalFormat, m_width, m_height, 0, uploadFormat, uploadType, nullptr );
 
     // Set filtering to LINEAR (smooth) when sampling this texture later.
     // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glTexParameter.xhtml
@@ -77,19 +82,25 @@ void FramebufferGL::Build()
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
     glBindTexture( GL_TEXTURE_2D, 0 );
 
-    // --- Step 2: Create the depth attachment (a renderbuffer for depth testing) ---
+    // --- Step 2: Create the depth attachment (a texture for depth testing and sampling) ---
 
-    // A renderbuffer is like a texture but GPU-only — you can't sample it in a shader.
-    // Perfect for depth buffers where we just need the GPU to do depth comparisons internally.
-    // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glGenRenderbuffers.xhtml
-    glGenRenderbuffers( 1, &m_depthRBO );
-    glBindRenderbuffer( GL_RENDERBUFFER, m_depthRBO );
+    // This used to be a renderbuffer, which is fine when depth is only used for
+    // hidden-surface testing. Cinematic post effects need to read depth in a
+    // shader, so it must be a texture instead.
+    // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glGenTextures.xhtml
+    glGenTextures( 1, &m_depthTex );
+    glBindTexture( GL_TEXTURE_2D, m_depthTex );
 
-    // Allocate storage for the depth renderbuffer at the FBO's resolution.
-    // GL_DEPTH_COMPONENT = 24-bit depth precision (same as the main screen).
-    // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glRenderbufferStorage.xhtml
-    glRenderbufferStorage( GL_RENDERBUFFER, GL_DEPTH_COMPONENT, m_width, m_height );
-    glBindRenderbuffer( GL_RENDERBUFFER, 0 );
+    // Allocate storage for the depth texture at the FBO's resolution. Nearest
+    // filtering avoids blending depth values between neighboring pixels, which
+    // would make fog and ray masks mushy around object edges.
+    // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glTexImage2D.xhtml
+    glTexImage2D( GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, m_width, m_height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, nullptr );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+    glBindTexture( GL_TEXTURE_2D, 0 );
 
     // --- Step 3: Assemble the FBO (connect the color texture and depth buffer) ---
 
@@ -106,10 +117,11 @@ void FramebufferGL::Build()
     // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glFramebufferTexture2D.xhtml
     glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_colorTex, 0 );
 
-    // Attach the depth renderbuffer. Depth testing still works when rendering to FBOs —
-    // closer objects still occlude farther ones.
-    // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glFramebufferRenderbuffer.xhtml
-    glFramebufferRenderbuffer( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthRBO );
+    // Attach the depth texture. Depth testing still works while rendering, and
+    // later post-process shaders can sample the same texture to reconstruct fog
+    // and light-shaft occlusion.
+    // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glFramebufferTexture2D.xhtml
+    glFramebufferTexture2D( GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_depthTex, 0 );
 
     // Verify the FBO is properly set up. If any attachment is missing or incompatible,
     // this returns something other than GL_FRAMEBUFFER_COMPLETE and we throw.
@@ -148,6 +160,17 @@ uint32_t FramebufferGL::GetColorTextureHandle() const
 }
 
 
+uint32_t FramebufferGL::GetDepthTextureHandle() const
+{
+    return static_cast<uint32_t>( m_depthTex );
+}
+
+FramebufferColorFormat FramebufferGL::GetColorFormat() const
+{
+    return m_colorFormat;
+}
+
+
 int FramebufferGL::GetWidth() const
 {
     return m_width;
@@ -172,10 +195,10 @@ void FramebufferGL::ResetResources()
         glDeleteTextures( 1, &m_colorTex );
         m_colorTex = 0;
     }
-    if ( m_depthRBO )
+    if ( m_depthTex )
     {
-        glDeleteRenderbuffers( 1, &m_depthRBO );
-        m_depthRBO = 0;
+        glDeleteTextures( 1, &m_depthTex );
+        m_depthTex = 0;
     }
     Build();
 }

@@ -38,6 +38,9 @@ uniform float     uTime;              // Animation time (syncs with vertex shade
 uniform float     uWaveHeight;        // Amplitude (controls perturbation magnitude)
 uniform float     uPerturbStrength;   // Multiplier for UV offset intensity
 uniform int       uNoReflect;         // 1 = skip reflection (used during reflection pass)
+uniform float     uCinematicMode;     // 1 = warm sunset response
+uniform vec3      uSunColor;
+uniform float     uSunGlintStrength;
 
 out vec4 FragColor;
 
@@ -63,5 +66,17 @@ void main()
     // Sample the reflection texture at the perturbed UV coordinate.
     vec4 reflection = texture(uReflectionTex, reflUV);
     // Blend water tint with reflection.
-    FragColor = mix(uColorTint, reflection, uReflectionStrength);
+    vec3 waterColor = mix(uColorTint.rgb, reflection.rgb, uReflectionStrength);
+    if (uCinematicMode > 0.5)
+    {
+        // Cinematic ocean is currently skipped by the C++ path, but keeping this
+        // branch documented makes the shader ready if we later re-enable distant
+        // water behind the basin.
+        float sunColumn = pow(max(0.0, 1.0 - abs(reflUV.x - 0.28) * 4.2), 3.0);
+        float shimmer = 0.55 + 0.45 * sin((vWorldXZ.x + vWorldXZ.y) * 0.15 + uTime * 2.0);
+        float glint = sunColumn * shimmer * uSunGlintStrength;
+        waterColor = mix(waterColor * vec3(0.70, 0.54, 0.40), vec3(0.52, 0.20, 0.06), 0.12);
+        waterColor += uSunColor * glint;
+    }
+    FragColor = vec4(waterColor, uColorTint.a);
 }

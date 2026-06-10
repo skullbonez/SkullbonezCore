@@ -8,8 +8,8 @@
 using namespace SkullbonezCore::Rendering;
 
 
-FramebufferDX11::FramebufferDX11( RenderBackendDX11* backend, ID3D11Device* device, ID3D11DeviceContext* context )
-    : m_backend( backend ), m_device( device ), m_context( context ), m_colorTex( nullptr ), m_rtv( nullptr ), m_srv( nullptr ), m_depthTex( nullptr ), m_dsv( nullptr ), m_textureHandle( 0 ), m_width( 0 ), m_height( 0 ), m_savedRTV( nullptr ), m_savedDSV( nullptr )
+FramebufferDX11::FramebufferDX11( RenderBackendDX11* backend, ID3D11Device* device, ID3D11DeviceContext* context, FramebufferColorFormat colorFormat )
+    : m_backend( backend ), m_device( device ), m_context( context ), m_colorTex( nullptr ), m_rtv( nullptr ), m_srv( nullptr ), m_depthTex( nullptr ), m_dsv( nullptr ), m_depthSRV( nullptr ), m_textureHandle( 0 ), m_depthTextureHandle( 0 ), m_colorFormat( colorFormat ), m_width( 0 ), m_height( 0 ), m_savedRTV( nullptr ), m_savedDSV( nullptr )
 {
 }
 
@@ -31,14 +31,16 @@ bool FramebufferDX11::Create( int width, int height )
     texDesc.Height = (UINT)height;
     texDesc.MipLevels = 1;
     texDesc.ArraySize = 1;
-    texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    // RGBA8 is normal display color. RGBA16F is HDR color for cinematic scenes,
+    // where sunlight/bloom can temporarily be brighter than the monitor range.
+    texDesc.Format = ( m_colorFormat == FramebufferColorFormat::RGBA16F ) ? DXGI_FORMAT_R16G16B16A16_FLOAT : DXGI_FORMAT_R8G8B8A8_UNORM;
     texDesc.SampleDesc.Count = 1;
     texDesc.Usage = D3D11_USAGE_DEFAULT;
     texDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 
     // Create a 2D texture on the GPU for the framebuffer's color attachment. The descriptor
-    // specifies RGBA 8-bit format and dual bind flags so it can be both drawn into (render target)
-    // and later sampled from in shaders (shader resource).
+    // uses dual bind flags so it can be both drawn into (render target) and later sampled from
+    // in shaders (shader resource).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createtexture2d
     HRESULT hr = m_device->CreateTexture2D( &texDesc, nullptr, &m_colorTex );
     if ( FAILED( hr ) )
@@ -75,14 +77,16 @@ bool FramebufferDX11::Create( int width, int height )
     depthDesc.Height = (UINT)height;
     depthDesc.MipLevels = 1;
     depthDesc.ArraySize = 1;
-    depthDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    // "TYPELESS" means the same memory can be viewed in two ways: as a depth
+    // stencil target while rendering, and as a sampled texture during post FX.
+    depthDesc.Format = DXGI_FORMAT_R24G8_TYPELESS;
     depthDesc.SampleDesc.Count = 1;
     depthDesc.Usage = D3D11_USAGE_DEFAULT;
-    depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+    depthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
 
-    // Create a 2D texture for the framebuffer's depth/stencil attachment. D24_UNORM_S8_UINT means
-    // 24 bits for depth (z-buffer) and 8 bits for stencil. This is GPU-only memory (USAGE_DEFAULT)
-    // bound exclusively as a depth-stencil target.
+    // Create a 2D texture for the framebuffer's depth/stencil attachment. It is still GPU
+    // memory, but because it was created with SHADER_RESOURCE binding the cinematic shaders
+    // can later sample it for fog and god-ray occlusion.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createtexture2d
     hr = m_device->CreateTexture2D( &depthDesc, nullptr, &m_depthTex );
     if ( FAILED( hr ) )
@@ -90,15 +94,31 @@ bool FramebufferDX11::Create( int width, int height )
         return false;
     }
 
-    // Create a Depth Stencil View (DSV) that wraps the depth texture. A DSV tells the GPU
-    // "use this texture for depth testing and stencil operations during rendering". It is the
-    // depth equivalent of an RTV.
+    // View #1: a Depth Stencil View (DSV). The renderer binds this while drawing the scene
+    // so normal depth testing works.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createDepthStencilView
-    hr = m_device->CreateDepthStencilView( m_depthTex, nullptr, &m_dsv );
+    D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+    dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+    hr = m_device->CreateDepthStencilView( m_depthTex, &dsvDesc, &m_dsv );
     if ( FAILED( hr ) )
     {
         return false;
     }
+
+    // View #2: a Shader Resource View (SRV). The post-processing shader binds this after
+    // rendering to tell sky pixels from terrain/balls.
+    D3D11_SHADER_RESOURCE_VIEW_DESC depthSRVDesc = {};
+    depthSRVDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+    depthSRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    depthSRVDesc.Texture2D.MipLevels = 1;
+    hr = m_device->CreateShaderResourceView( m_depthTex, &depthSRVDesc, &m_depthSRV );
+    if ( FAILED( hr ) )
+    {
+        return false;
+    }
+
+    m_depthTextureHandle = m_backend->RegisterSRV( m_depthSRV );
 
     return true;
 }
@@ -162,6 +182,12 @@ uint32_t FramebufferDX11::GetColorTextureHandle() const
 }
 
 
+uint32_t FramebufferDX11::GetDepthTextureHandle() const
+{
+    return m_depthTextureHandle;
+}
+
+
 void FramebufferDX11::ResetResources()
 {
     if ( m_textureHandle && m_backend )
@@ -169,10 +195,20 @@ void FramebufferDX11::ResetResources()
         m_backend->UnregisterSRV( m_textureHandle );
         m_textureHandle = 0;
     }
+    if ( m_depthTextureHandle && m_backend )
+    {
+        m_backend->UnregisterSRV( m_depthTextureHandle );
+        m_depthTextureHandle = 0;
+    }
     if ( m_dsv )
     {
         m_dsv->Release();
         m_dsv = nullptr;
+    }
+    if ( m_depthSRV )
+    {
+        m_depthSRV->Release();
+        m_depthSRV = nullptr;
     }
     if ( m_depthTex )
     {

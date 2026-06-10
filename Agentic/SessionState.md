@@ -6,10 +6,10 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 
 | Field | Value |
 |-------|-------|
-| Branch | `codex/physics-clean-catto-handoff` |
-| Last commit | `f10b052` / `origin/codex/physics-clean-catto-handoff` |
-| Pending work | Bullet sweep regression, object/object response-flag removal, and terrain shared-row plan are in progress. |
-| Uncommitted changes | See `git status --short`; use `tools\find_git.bat` first if Git is not on PATH. |
+| Branch | `codex/cinematic-renderer` in worktree `C:\SkullbonezCore` |
+| Last commit | Branch point from current main before cinematic renderer integration. |
+| Pending work | Cinematic renderer merge, runtime Cine controls, terrain relief default-off polish, validation, then user-approved commit/PR. |
+| Uncommitted changes | See `git status --short`; current changes are intentionally local until commit notes are confirmed. |
 
 ## Active Notes
 
@@ -36,6 +36,7 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 | SIMD/SSE math optimization pass | Pending | Reported large wins in matrix and render markers; verify current code before continuing. |
 | Camera tween reflection fix | Recent | Reflection pass should use the exact render camera state during camera transitions. |
 | DX12 GPU timer readback | Recent | Non-blocking readback restored when `pipeline_sync` is off. |
+| Cinematic volumetric rendering | Integrating for PR | Main worktree branch `codex/cinematic-renderer`. Use `Profile\SKULLBONEZ_CORE.exe --renderer gl --scene SkullbonezData\scenes\cinematic_volumetric.scene --cinematic --hold` for interactive look-dev. The implementation includes HDR scene FBOs, shader-readable depth, procedural sky/cloud shader, half-res volumetric light, tonemap/bloom/fog/god-ray composite, crisp shader-sampled red/yellow ball/box pattern, terrain basin relief with default relief `0.0`, `--cinematic` / `--hold`, Cine UI feature toggles/sliders plus master runtime toggle, and scene-file `cinematic_*` overrides. |
 
 ## Known Bugs
 

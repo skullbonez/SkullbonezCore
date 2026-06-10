@@ -55,6 +55,11 @@ bool ParseUITab( const char* value, int& outTab )
         outTab = 4;
         return true;
     }
+    if ( strcmp( value, "cinematic" ) == 0 || strcmp( value, "cine" ) == 0 || strcmp( value, "look" ) == 0 )
+    {
+        outTab = 5;
+        return true;
+    }
     return false;
 }
 } // namespace
@@ -243,7 +248,7 @@ class TestSceneParser
         static const UIDirective directives[] = {
             { "visible", &TestSceneParser::ParseUIVisible, "ui visible on|off" },
             { "minimized", &TestSceneParser::ParseUIMinimized, "ui minimized on|off" },
-            { "tab", &TestSceneParser::ParseUITabDirective, "ui tab <profiler|scene|physics|options|controls>" },
+            { "tab", &TestSceneParser::ParseUITabDirective, "ui tab <profiler|scene|physics|options|controls|cine>" },
             { "rect", &TestSceneParser::ParseUIRect, "ui rect <x> <y> <w> <h>" },
             { "blur", &TestSceneParser::ParseUIBlur, "ui blur on|off" },
             { "renderer_combo", &TestSceneParser::ParseUIRendererCombo, "ui renderer_combo open|closed" },
@@ -986,8 +991,148 @@ class TestSceneParser
         }
     }
 
+    bool TryParseCinematicDirective( const char* line )
+    {
+        // Cinematic scene directives all share the cinematic_ prefix. Keeping
+        // them in one parser function makes it easy to compare the scene-file
+        // names with CinematicRenderConfig fields.
+        if ( strncmp( line, "cinematic_", 10 ) != 0 )
+        {
+            return false;
+        }
+
+        const char* cursor = line;
+        char key[96] = {};
+        char value[96] = {};
+        if ( !ReadToken( cursor, key, sizeof( key ) ) || !ReadToken( cursor, value, sizeof( value ) ) )
+        {
+            Fail( "Invalid cinematic directive at line %d", m_lineNumber );
+        }
+
+        struct BoolDirective
+        {
+            // Boolean directives toggle whole passes/features such as bloom,
+            // fog, clouds, or the master cinematic renderer.
+            const char* name;
+            bool CinematicRenderConfig::* field;
+            uint64_t bit;
+        };
+        static constexpr BoolDirective kBoolDirectives[] = {
+            { "cinematic_rendering", &CinematicRenderConfig::enabled, SCENE_CINE_RENDERING },
+            { "cinematic_sky_atmosphere", &CinematicRenderConfig::skyAtmosphereEnabled, SCENE_CINE_SKY_ATMOSPHERE },
+            { "cinematic_clouds", &CinematicRenderConfig::cloudsEnabled, SCENE_CINE_CLOUDS },
+            { "cinematic_god_rays", &CinematicRenderConfig::godRaysEnabled, SCENE_CINE_GOD_RAYS },
+            { "cinematic_volumetric_lighting", &CinematicRenderConfig::volumetricLightingEnabled, SCENE_CINE_VOLUMETRIC_LIGHTING },
+            { "cinematic_bloom", &CinematicRenderConfig::bloomEnabled, SCENE_CINE_BLOOM },
+            { "cinematic_fog", &CinematicRenderConfig::fogEnabled, SCENE_CINE_FOG },
+            { "cinematic_terrain_relief_enabled", &CinematicRenderConfig::terrainReliefEnabled, SCENE_CINE_TERRAIN_RELIEF_ENABLED },
+        };
+        for ( const BoolDirective& directive : kBoolDirectives )
+        {
+            if ( strcmp( key, directive.name ) == 0 )
+            {
+                bool parsedValue = false;
+                if ( !ParseOnOff( value, parsedValue ) )
+                {
+                    Fail( "Invalid %s value at line %d: %s", key, m_lineNumber, value );
+                }
+                m_scene.m_sceneOptions.cinematicRender.*( directive.field ) = parsedValue;
+                m_scene.m_sceneOptions.cinematicOverrideMask |= directive.bit;
+                if ( directive.bit == SCENE_CINE_RENDERING )
+                {
+                    m_scene.m_sceneOptions.hasCinematicRenderingOverride = true;
+                    m_scene.m_sceneOptions.cinematicRendering = parsedValue;
+                }
+                return true;
+            }
+        }
+
+        struct FloatDirective
+        {
+            // Float directives are the slider-like values. Each entry names the
+            // scene token, the config field it writes, the override bit to mark,
+            // and a safe authoring range.
+            const char* name;
+            float CinematicRenderConfig::* field;
+            uint64_t bit;
+            float minValue;
+            float maxValue;
+        };
+        static constexpr FloatDirective kFloatDirectives[] = {
+            { "cinematic_exposure", &CinematicRenderConfig::exposure, SCENE_CINE_EXPOSURE, 0.0f, 16.0f },
+            { "cinematic_gamma", &CinematicRenderConfig::gamma, SCENE_CINE_GAMMA, 0.1f, 8.0f },
+            { "cinematic_sun_screen_x", &CinematicRenderConfig::sunScreenX, SCENE_CINE_SUN_SCREEN_X, 0.0f, 1.0f },
+            { "cinematic_sun_screen_y", &CinematicRenderConfig::sunScreenY, SCENE_CINE_SUN_SCREEN_Y, 0.0f, 1.0f },
+            { "cinematic_sun_color_r", &CinematicRenderConfig::sunColorR, SCENE_CINE_SUN_COLOR_R, 0.0f, 4.0f },
+            { "cinematic_sun_color_g", &CinematicRenderConfig::sunColorG, SCENE_CINE_SUN_COLOR_G, 0.0f, 4.0f },
+            { "cinematic_sun_color_b", &CinematicRenderConfig::sunColorB, SCENE_CINE_SUN_COLOR_B, 0.0f, 4.0f },
+            { "cinematic_sun_intensity", &CinematicRenderConfig::sunIntensity, SCENE_CINE_SUN_INTENSITY, 0.0f, 80.0f },
+            { "cinematic_sky_horizon_r", &CinematicRenderConfig::skyHorizonR, SCENE_CINE_SKY_HORIZON_R, 0.0f, 4.0f },
+            { "cinematic_sky_horizon_g", &CinematicRenderConfig::skyHorizonG, SCENE_CINE_SKY_HORIZON_G, 0.0f, 4.0f },
+            { "cinematic_sky_horizon_b", &CinematicRenderConfig::skyHorizonB, SCENE_CINE_SKY_HORIZON_B, 0.0f, 4.0f },
+            { "cinematic_sky_zenith_r", &CinematicRenderConfig::skyZenithR, SCENE_CINE_SKY_ZENITH_R, 0.0f, 4.0f },
+            { "cinematic_sky_zenith_g", &CinematicRenderConfig::skyZenithG, SCENE_CINE_SKY_ZENITH_G, 0.0f, 4.0f },
+            { "cinematic_sky_zenith_b", &CinematicRenderConfig::skyZenithB, SCENE_CINE_SKY_ZENITH_B, 0.0f, 4.0f },
+            { "cinematic_sky_glow_strength", &CinematicRenderConfig::skyGlowStrength, SCENE_CINE_SKY_GLOW_STRENGTH, 0.0f, 16.0f },
+            { "cinematic_cloud_coverage", &CinematicRenderConfig::cloudCoverage, SCENE_CINE_CLOUD_COVERAGE, 0.0f, 1.0f },
+            { "cinematic_cloud_softness", &CinematicRenderConfig::cloudSoftness, SCENE_CINE_CLOUD_SOFTNESS, 0.001f, 1.0f },
+            { "cinematic_cloud_scale", &CinematicRenderConfig::cloudScale, SCENE_CINE_CLOUD_SCALE, 0.1f, 64.0f },
+            { "cinematic_cloud_intensity", &CinematicRenderConfig::cloudIntensity, SCENE_CINE_CLOUD_INTENSITY, 0.0f, 4.0f },
+            { "cinematic_sun_shaft_strength", &CinematicRenderConfig::sunShaftStrength, SCENE_CINE_SUN_SHAFT_STRENGTH, 0.0f, 8.0f },
+            { "cinematic_sun_shaft_falloff", &CinematicRenderConfig::sunShaftFalloff, SCENE_CINE_SUN_SHAFT_FALLOFF, 0.1f, 10.0f },
+            { "cinematic_volumetric_strength", &CinematicRenderConfig::volumetricStrength, SCENE_CINE_VOLUMETRIC_STRENGTH, 0.0f, 8.0f },
+            { "cinematic_volumetric_density", &CinematicRenderConfig::volumetricDensity, SCENE_CINE_VOLUMETRIC_DENSITY, 0.0f, 8.0f },
+            { "cinematic_volumetric_decay", &CinematicRenderConfig::volumetricDecay, SCENE_CINE_VOLUMETRIC_DECAY, 0.0f, 1.0f },
+            { "cinematic_bloom_threshold", &CinematicRenderConfig::bloomThreshold, SCENE_CINE_BLOOM_THRESHOLD, 0.0f, 16.0f },
+            { "cinematic_bloom_knee", &CinematicRenderConfig::bloomKnee, SCENE_CINE_BLOOM_KNEE, 0.001f, 8.0f },
+            { "cinematic_bloom_strength", &CinematicRenderConfig::bloomStrength, SCENE_CINE_BLOOM_STRENGTH, 0.0f, 8.0f },
+            { "cinematic_bloom_radius", &CinematicRenderConfig::bloomRadius, SCENE_CINE_BLOOM_RADIUS, 0.1f, 32.0f },
+            { "cinematic_terrain_relief", &CinematicRenderConfig::terrainRelief, SCENE_CINE_TERRAIN_RELIEF, 0.0f, 4.0f },
+            { "cinematic_basin_depth", &CinematicRenderConfig::basinDepth, SCENE_CINE_BASIN_DEPTH, 0.0f, 256.0f },
+            { "cinematic_basin_rim_lift", &CinematicRenderConfig::basinRimLift, SCENE_CINE_BASIN_RIM_LIFT, 0.0f, 256.0f },
+            { "cinematic_fog_color_r", &CinematicRenderConfig::fogColorR, SCENE_CINE_FOG_COLOR_R, 0.0f, 4.0f },
+            { "cinematic_fog_color_g", &CinematicRenderConfig::fogColorG, SCENE_CINE_FOG_COLOR_G, 0.0f, 4.0f },
+            { "cinematic_fog_color_b", &CinematicRenderConfig::fogColorB, SCENE_CINE_FOG_COLOR_B, 0.0f, 4.0f },
+            { "cinematic_fog_start", &CinematicRenderConfig::fogStart, SCENE_CINE_FOG_START, 0.0f, 10000.0f },
+            { "cinematic_fog_end", &CinematicRenderConfig::fogEnd, SCENE_CINE_FOG_END, 0.0f, 20000.0f },
+            { "cinematic_fog_density", &CinematicRenderConfig::fogDensity, SCENE_CINE_FOG_DENSITY, 0.0f, 0.1f },
+            { "cinematic_fog_max_opacity", &CinematicRenderConfig::fogMaxOpacity, SCENE_CINE_FOG_MAX_OPACITY, 0.0f, 1.0f },
+        };
+        for ( const FloatDirective& directive : kFloatDirectives )
+        {
+            if ( strcmp( key, directive.name ) == 0 )
+            {
+                const float parsedValue = static_cast<float>( atof( value ) );
+                if ( parsedValue < directive.minValue || parsedValue > directive.maxValue )
+                {
+                    Fail( "Invalid %s at line %d (expected %.3f..%.3f)", key, m_lineNumber, directive.minValue, directive.maxValue );
+                }
+                m_scene.m_sceneOptions.cinematicRender.*( directive.field ) = parsedValue;
+                m_scene.m_sceneOptions.cinematicOverrideMask |= directive.bit;
+                if ( directive.bit == SCENE_CINE_EXPOSURE )
+                {
+                    m_scene.m_sceneOptions.hasCinematicExposure = true;
+                    m_scene.m_sceneOptions.cinematicExposure = parsedValue;
+                }
+                else if ( directive.bit == SCENE_CINE_GAMMA )
+                {
+                    m_scene.m_sceneOptions.hasCinematicGamma = true;
+                    m_scene.m_sceneOptions.cinematicGamma = parsedValue;
+                }
+                return true;
+            }
+        }
+
+        Fail( "Unknown cinematic directive at line %d: %s", m_lineNumber, key );
+    }
+
     bool DispatchLine( const char* line )
     {
+        if ( TryParseCinematicDirective( line ) )
+        {
+            return true;
+        }
+
         static const SceneDirective directives[] = {
             { "physics", &TestSceneParser::ParsePhysics, "physics on|off" },
             { "text", &TestSceneParser::ParseText, "text on|off" },

@@ -41,6 +41,89 @@ struct SceneLightConfig
     float colorA = 1.0f;
 };
 
+struct CinematicRenderConfig
+{
+    // Master switch. The UI can toggle this at runtime; command-line overrides
+    // can also force it on/off for quick visual checks.
+    bool enabled = false;
+
+    // Individual pass toggles. These let the Cine tab turn pieces of the look on
+    // and off without rebuilding the renderer: sky, clouds, shafts, bloom, fog,
+    // and the visual-only terrain morph.
+    bool skyAtmosphereEnabled = true;
+    bool cloudsEnabled = true;
+    bool godRaysEnabled = true;
+    bool volumetricLightingEnabled = true;
+    bool bloomEnabled = true;
+    bool fogEnabled = true;
+    bool terrainReliefEnabled = true;
+
+    // Final image controls. Exposure is overall brightness before tonemapping;
+    // gamma adjusts how the final color is mapped to the monitor.
+    float exposure = 0.68f;
+    float gamma = 2.05f;
+
+    // Sun position is in screen coordinates, not world coordinates. 0,0 is the
+    // bottom-left of the image and 1,1 is the top-right. That makes the reference
+    // composition easy to tune.
+    float sunScreenX = 0.28f;
+    float sunScreenY = 0.76f;
+
+    // Sun/sky colors are deliberately allowed above normal 0..1 color in the
+    // config parser. HDR values make bloom and tonemapping feel like hot sunlight.
+    float sunColorR = 1.0f;
+    float sunColorG = 0.68f;
+    float sunColorB = 0.32f;
+    float sunIntensity = 22.0f;
+    float skyHorizonR = 0.88f;
+    float skyHorizonG = 0.34f;
+    float skyHorizonB = 0.08f;
+    float skyZenithR = 0.26f;
+    float skyZenithG = 0.13f;
+    float skyZenithB = 0.12f;
+    float skyGlowStrength = 2.85f;
+
+    // Procedural cloud controls. Coverage decides how much cloud exists, softness
+    // controls edge width, scale changes noise size, and intensity is blend amount.
+    float cloudCoverage = 0.66f;
+    float cloudSoftness = 0.19f;
+    float cloudScale = 5.4f;
+    float cloudIntensity = 0.62f;
+
+    // God-ray and volumetric controls. Strength is visible brightness, density is
+    // how far each ray marches toward the sun, and decay is how quickly light
+    // fades along that march.
+    float sunShaftStrength = 2.28f;
+    float sunShaftFalloff = 1.92f;
+    float volumetricStrength = 1.28f;
+    float volumetricDensity = 1.25f;
+    float volumetricDecay = 0.955f;
+
+    // Bloom controls. Threshold chooses what is bright enough to glow, knee makes
+    // that cutoff soft, strength is glow amount, radius is blur spread.
+    float bloomThreshold = 1.05f;
+    float bloomKnee = 0.55f;
+    float bloomStrength = 0.62f;
+    float bloomRadius = 4.2f;
+
+    // Visual-only terrain controls. terrainRelief defaults to 0, so the basin
+    // exaggeration is off even though the pass is ready for the slider. These do
+    // not change physics or collision data.
+    float terrainRelief = 0.0f;
+    float basinDepth = 48.0f;
+    float basinRimLift = 32.0f;
+
+    // Fog/haze controls. Fog is applied from depth in post-processing, so it can
+    // make distant terrain and balls disappear into warm sunset air.
+    float fogColorR = 0.86f;
+    float fogColorG = 0.34f;
+    float fogColorB = 0.12f;
+    float fogStart = 70.0f;
+    float fogEnd = 1550.0f;
+    float fogDensity = 0.00145f;
+    float fogMaxOpacity = 0.54f;
+};
+
 class SkullbonezConfig
 {
   public:
@@ -63,6 +146,7 @@ class SkullbonezConfig
     WindowConfig window;
     RuntimeRenderFlags runtimeRender;
     SceneLightConfig sceneLight;
+    CinematicRenderConfig cinematicRender;
 
     // Frustum
     float frustumNear = 1.0f;

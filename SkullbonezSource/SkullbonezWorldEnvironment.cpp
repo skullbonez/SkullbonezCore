@@ -44,14 +44,27 @@ void WorldEnvironment::SetTerrainBounds( float xMin, float xMax, float zMin, flo
 }
 
 
-void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, const Matrix4& reflectVP, float time, uint32_t reflectionTex, bool flatWater, bool noReflect )
+void WorldEnvironment::RenderFluid( const Matrix4& view,
+                                    const Matrix4& proj,
+                                    const Matrix4& reflectVP,
+                                    float time,
+                                    uint32_t reflectionTex,
+                                    bool flatWater,
+                                    bool noReflect,
+                                    bool cinematic,
+                                    const SkullbonezCore::Basics::CinematicRenderConfig* cinematicConfig )
 {
     if ( !m_calmMesh )
     {
         BuildFluidMesh();
     }
+    const SkullbonezCore::Basics::CinematicRenderConfig& cinematicStyle = cinematicConfig ? *cinematicConfig : Cfg().cinematicRender;
 
     Gfx().SetBlend( true );
+
+    // Water reflections are rendered earlier into a texture. Both calm and ocean
+    // water sample that texture from slot 1 so the water can mirror the sky,
+    // balls, terrain, and cinematic light grade.
     Gfx().BindTexture( reflectionTex, 1 );
 
     // --- calm (inner) pass: flat, reflective unless disabled ---
@@ -60,8 +73,36 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
     m_calmShader->SetMat4( "uView", view );
     m_calmShader->SetMat4( "uProjection", proj );
     m_calmShader->SetMat4( "uReflectVP", reflectVP );
+    if ( cinematic )
+    {
+        m_calmShader->SetVec4( "uColorTint", 0.24f, 0.13f, 0.055f, 0.94f );
+        m_calmShader->SetFloat( "uReflectionStrength", 0.22f );
+    }
+    else
+    {
+        m_calmShader->SetVec4( "uColorTint", 0.05f, 0.15f, 0.42f, 0.65f );
+        m_calmShader->SetFloat( "uReflectionStrength", 0.35f );
+    }
     m_calmShader->SetInt( "uNoReflect", noReflect ? 1 : 0 );
+    m_calmShader->SetFloat( "uCinematicMode", cinematic ? 1.0f : 0.0f );
+    m_calmShader->SetVec3( "uSunColor", cinematicStyle.sunColorR, cinematicStyle.sunColorG, cinematicStyle.sunColorB );
+    m_calmShader->SetFloat( "uSunGlintStrength", cinematic ? 0.28f : 0.0f );
+
+    // In cinematic mode the reference look has a small reflective pool inside
+    // the basin, not a full ocean plane cutting through the whole scene. The
+    // shader uses this oval mask to discard calm-water pixels outside the pool.
+    m_calmShader->SetVec4( "uBasinMask", 620.0f, 615.0f, 205.0f, 145.0f );
+    m_calmShader->SetFloat( "uBasinMaskFeather", cinematic ? 0.18f : 1.0f );
     m_calmMesh->Draw();
+
+    if ( cinematic )
+    {
+        // Cinematic preview stops after the calm basin pool. Skipping the outer
+        // ocean avoids a giant water sheet behind the shot and keeps attention on
+        // the terrain bowl, balls, sunset, and fog.
+        Gfx().SetBlend( false );
+        return;
+    }
 
     // --- ocean (outer) pass: vertex displacement + UV perturbation ---
     m_oceanShader->Use();
@@ -71,8 +112,21 @@ void WorldEnvironment::RenderFluid( const Matrix4& view, const Matrix4& proj, co
     m_oceanShader->SetMat4( "uReflectVP", reflectVP );
     m_oceanShader->SetFloat( "uTime", time );
     m_oceanShader->SetFloat( "uPerturbStrength", Cfg().oceanPerturbStrength );
+    if ( cinematic )
+    {
+        m_oceanShader->SetVec4( "uColorTint", 0.20f, 0.10f, 0.045f, 0.96f );
+        m_oceanShader->SetFloat( "uReflectionStrength", 0.18f );
+    }
+    else
+    {
+        m_oceanShader->SetVec4( "uColorTint", 0.02f, 0.10f, 0.35f, 0.72f );
+        m_oceanShader->SetFloat( "uReflectionStrength", 0.25f );
+    }
     m_oceanShader->SetInt( "uNoReflect", noReflect ? 1 : 0 );
     m_oceanShader->SetInt( "uFlatWater", flatWater ? 1 : 0 );
+    m_oceanShader->SetFloat( "uCinematicMode", cinematic ? 1.0f : 0.0f );
+    m_oceanShader->SetVec3( "uSunColor", cinematicStyle.sunColorR, cinematicStyle.sunColorG, cinematicStyle.sunColorB );
+    m_oceanShader->SetFloat( "uSunGlintStrength", cinematic ? 0.22f : 0.0f );
     m_oceanMesh->Draw();
 
     Gfx().SetBlend( false );
@@ -98,8 +152,42 @@ void WorldEnvironment::BuildFluidMesh()
 
     std::vector<float> calmVerts;
     std::vector<float> oceanVerts;
-    calmVerts.reserve( N * N * 6 * 3 );
+    constexpr int CALM_N = 128;
+    calmVerts.reserve( CALM_N * CALM_N * 6 * 3 );
     oceanVerts.reserve( N * N * 6 * 3 );
+
+    const float calmStepX = ( calmXMax - calmXMin ) / static_cast<float>( CALM_N );
+    const float calmStepZ = ( calmZMax - calmZMin ) / static_cast<float>( CALM_N );
+    for ( int row = 0; row < CALM_N; ++row )
+    {
+        for ( int col = 0; col < CALM_N; ++col )
+        {
+            float x0 = calmXMin + static_cast<float>( col ) * calmStepX;
+            float x1 = x0 + calmStepX;
+            float z0 = calmZMin + static_cast<float>( row ) * calmStepZ;
+            float z1 = z0 + calmStepZ;
+
+            calmVerts.push_back( x0 );
+            calmVerts.push_back( 0.0f );
+            calmVerts.push_back( z0 );
+            calmVerts.push_back( x0 );
+            calmVerts.push_back( 0.0f );
+            calmVerts.push_back( z1 );
+            calmVerts.push_back( x1 );
+            calmVerts.push_back( 0.0f );
+            calmVerts.push_back( z1 );
+
+            calmVerts.push_back( x0 );
+            calmVerts.push_back( 0.0f );
+            calmVerts.push_back( z0 );
+            calmVerts.push_back( x1 );
+            calmVerts.push_back( 0.0f );
+            calmVerts.push_back( z1 );
+            calmVerts.push_back( x1 );
+            calmVerts.push_back( 0.0f );
+            calmVerts.push_back( z0 );
+        }
+    }
 
     for ( int row = 0; row < N; ++row )
     {
@@ -113,8 +201,11 @@ void WorldEnvironment::BuildFluidMesh()
             // A quad belongs to the calm mesh only if it lies fully inside the calm region
             bool isCalm = ( x0 >= calmXMin && x1 <= calmXMax &&
                             z0 >= calmZMin && z1 <= calmZMax );
-
-            std::vector<float>& v = isCalm ? calmVerts : oceanVerts;
+            if ( isCalm )
+            {
+                continue;
+            }
+            std::vector<float>& v = oceanVerts;
 
             v.push_back( x0 );
             v.push_back( 0.0f );
@@ -150,6 +241,11 @@ void WorldEnvironment::BuildFluidMesh()
     m_calmShader->SetVec4( "uColorTint", 0.05f, 0.15f, 0.42f, 0.65f );
     m_calmShader->SetFloat( "uReflectionStrength", 0.35f );
     m_calmShader->SetInt( "uReflectionTex", 1 );
+    m_calmShader->SetFloat( "uCinematicMode", 0.0f );
+    m_calmShader->SetVec3( "uSunColor", Cfg().cinematicRender.sunColorR, Cfg().cinematicRender.sunColorG, Cfg().cinematicRender.sunColorB );
+    m_calmShader->SetFloat( "uSunGlintStrength", 0.0f );
+    m_calmShader->SetVec4( "uBasinMask", 620.0f, 615.0f, 205.0f, 145.0f );
+    m_calmShader->SetFloat( "uBasinMaskFeather", 1.0f );
 
     m_oceanShader = Gfx().CreateShader( "shaders/water_ocean" );
     m_oceanShader->Use();
@@ -159,6 +255,9 @@ void WorldEnvironment::BuildFluidMesh()
     m_oceanShader->SetFloat( "uPerturbStrength", Cfg().oceanPerturbStrength );
     m_oceanShader->SetFloat( "uReflectionStrength", 0.25f );
     m_oceanShader->SetInt( "uReflectionTex", 1 );
+    m_oceanShader->SetFloat( "uCinematicMode", 0.0f );
+    m_oceanShader->SetVec3( "uSunColor", Cfg().cinematicRender.sunColorR, Cfg().cinematicRender.sunColorG, Cfg().cinematicRender.sunColorB );
+    m_oceanShader->SetFloat( "uSunGlintStrength", 0.0f );
 }
 
 
