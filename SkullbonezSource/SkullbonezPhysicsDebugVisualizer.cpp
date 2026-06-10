@@ -467,7 +467,7 @@ void PhysicsDebugVisualizer::Update( float dt, GameModelCollection& models )
 
 void PhysicsDebugVisualizer::Render( GameModelCollection& models, const Matrix4& viewProj )
 {
-    if ( m_flags == PHYSICS_DEBUG_NONE || models.GetModelCount() <= 0 )
+    if ( m_flags == PHYSICS_DEBUG_NONE || models.GetModelCount() <= 0 || !Gfx().GetCapabilities().supportsDebugLines )
     {
         return;
     }
