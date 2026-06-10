@@ -345,7 +345,7 @@ class SkullbonezRun
     void SetInitialOpenGlState();                                                                                                      // Sets the initial state of the OpenGL evironment
     void SetViewingOrientation();                                                                                                      // Renders camera views etc
     void DrawWindowText( const double dSecondsPerFrame );                                                                              // Renders text to the window
-    void SaveScreenshot( const char* path );                                                                                           // Saves framebuffer to BMP file via glReadPixels
+    void SaveScreenshot( const char* path );                                                                                           // Saves current backbuffer to a BMP file
     bool SaveCurrentSceneDefaults();                                                                                                   // Writes UI-controlled defaults back to the active scene file
     void RefreshSceneBrowserList();                                                                                                    // Discovers scene files available to the in-game scene dropdown
     int CurrentSceneBrowserIndex() const;                                                                                              // Returns current scene index within the discovered scene dropdown list

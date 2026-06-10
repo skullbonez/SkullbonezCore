@@ -216,6 +216,9 @@
     <ClCompile Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezCaptureSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezCollisionVisualizer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -456,6 +459,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezCaptureSystem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezCollisionVisualizer.h">
