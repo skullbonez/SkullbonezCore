@@ -30,7 +30,7 @@ Resolved or mostly resolved:
 |------|----------------|
 | Terrain/object solver unification | Implemented through shared persistent solver rows; see `Agentic/Plans/physics-terrain-shared-row-pipeline-plan.md`. |
 | Scene parser command dispatch | Partially implemented with directive tables in `SkullbonezTestSceneParser.cpp`; remaining work is diagnostics, typed helpers, and less `sscanf_s`/`strncmp` glue. |
-| Config parsing | Largely table-driven now; remaining parser pressure is mostly CLI token handling and resolved-config reporting. |
+| Config and CLI parsing | Config settings are table-driven, CLI value/flag handling has directive-table footholds, and renderer selection now uses a renderer option table. Remaining parser pressure is mostly resolved-config reporting and shrinking the specialized physics/scene argument helpers. |
 | Runtime file split | `SkullbonezRun` behavior has been split across focused `.cpp` files, but the runtime is still one broad facade rather than owned subsystems. |
 | Physics commentary | Core physics-facing files now have layman-oriented comments explaining collision, solver, terrain, and visualizer behavior. |
 | GL-era render resource names | Remaining runtime/helper/model/skybox/world reset methods now use backend-neutral `ResetRenderResources()` naming. |
@@ -50,7 +50,7 @@ Remaining implementation scope for this branch:
 | Render backend capability split | Partly done through `RenderCapabilities`; deeper interface split remains | `tools\validate_renderers.bat` plus DX12 validation log check. |
 | Render pipeline/pass extraction | Yes, incremental facade-first extraction | `tools\validate_renderers.bat`. |
 | `PhysicsWorld` boundary | Yes, adapter-first extraction only | `tools\validate_physics.bat`; add `tools\validate_perf.bat` if hot storage changes. |
-| CLI parser cleanup | Yes | `tools\validate_fast.bat`; use broader validation if launch behavior changes. |
+| CLI parser cleanup | In progress; renderer selection is table-driven, value/flag directive tables are in place, and specialized physics/scene helpers remain | `tools\validate_fast.bat`; use broader validation if launch behavior changes or `SkullbonezInit*` changes. |
 | Scene parser cleanup | Yes, targeted cleanup only | `tools\validate_fast.bat`; use `tools\validate_full.bat` if scene loading semantics change. |
 | Header namespace cleanup | Complete for current source headers; preserve this as a guardrail for future headers | `tools\validate_full.bat` if future header ownership changes cross subsystem boundaries. |
 | RAII cleanup | In progress; file handles/source buffers are improved, COM resources remain | Renderer-specific validation for COM/resource changes. |
@@ -546,7 +546,7 @@ expect {
 1. Rename GL-era render resource methods to backend-neutral names. Done for the visible runtime/helper/model/skybox/world reset paths; renderer-switch resource prep now uses an ordered table of named release/rebuild steps.
 2. Extract `CaptureSystem` from `SkullbonezRun`. Seeded through the backbuffer capture helper; screenshot trigger policy still lives in runtime.
 3. Extract `SceneRuntime` load/reset/advance state from `SkullbonezRun`.
-4. Make scene/config parsing table-driven. Config and CLI have table-driven footholds; scene parser still needs richer directive diagnostics and serializer-friendly schemas.
+4. Make scene/config parsing table-driven. Config and CLI have table-driven footholds, including renderer-option parsing; scene parser still needs richer directive diagnostics and serializer-friendly schemas.
 5. Remove `using namespace std` and broad namespace imports from headers. Done for current source headers; keep it from regressing.
 
 Why first: these changes reduce future blast radius without changing the engine's output.
