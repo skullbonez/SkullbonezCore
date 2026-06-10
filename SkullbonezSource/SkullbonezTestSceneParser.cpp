@@ -264,6 +264,28 @@ class TestSceneParser
         }
     }
 
+    int ParseTokenList( const char* directive, const char* args, const char* expected, char tokens[][64], int maxTokens )
+    {
+        const char* cursor = RequireArgs( directive, args, expected );
+        int count = 0;
+        while ( true )
+        {
+            while ( IsSpace( *cursor ) )
+            {
+                ++cursor;
+            }
+            if ( *cursor == '\0' )
+            {
+                return count;
+            }
+
+            char discard[64] = {};
+            char* target = ( count < maxTokens ) ? tokens[count] : discard;
+            ParseNextToken( directive, cursor, target, 64, expected );
+            ++count;
+        }
+    }
+
     float ParseFloatValue( const char* directive, const char* value )
     {
         float parsed = 0.0f;
@@ -753,60 +775,48 @@ class TestSceneParser
 
     void ParseBall( const char* args )
     {
+        const char* expected = "ball <name> <pos> <radius> <mass> <moment> <restitution> [force forcePos] [euler]";
+        char tokens[17][64] = {};
+        const int parsed = ParseTokenList( "ball", args, expected, tokens, 17 );
+        if ( parsed != 8 && parsed != 11 && parsed != 14 && parsed != 17 )
+        {
+            Fail( "Invalid ball at line %d (expected 8, 11, 14 or 17 fields, got %d)", m_lineNumber, parsed );
+        }
+
         SceneBall ball;
         memset( &ball, 0, sizeof( ball ) );
         ball.hasInitOrient = false;
 
-        args = RequireArgs( "ball", args, "ball <name> ..." );
-        int parsed = sscanf_s( args,
-                               "%63s %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
-                               ball.name,
-                               static_cast<unsigned>( sizeof( ball.name ) ),
-                               &ball.posX,
-                               &ball.posY,
-                               &ball.posZ,
-                               &ball.m_radius,
-                               &ball.m_mass,
-                               &ball.moment,
-                               &ball.restitution,
-                               &ball.forceX,
-                               &ball.forceY,
-                               &ball.forceZ,
-                               &ball.forcePosX,
-                               &ball.forcePosY,
-                               &ball.forcePosZ,
-                               &ball.eulerX,
-                               &ball.eulerY,
-                               &ball.eulerZ );
+        strcpy_s( ball.name, sizeof( ball.name ), tokens[0] );
+        ball.posX = ParseFloatValue( "ball", tokens[1] );
+        ball.posY = ParseFloatValue( "ball", tokens[2] );
+        ball.posZ = ParseFloatValue( "ball", tokens[3] );
+        ball.m_radius = ParseFloatValue( "ball", tokens[4] );
+        ball.m_mass = ParseFloatValue( "ball", tokens[5] );
+        ball.moment = ParseFloatValue( "ball", tokens[6] );
+        ball.restitution = ParseFloatValue( "ball", tokens[7] );
 
-        if ( parsed == 17 )
+        if ( parsed == 11 )
         {
+            ball.eulerX = ParseFloatValue( "ball", tokens[8] );
+            ball.eulerY = ParseFloatValue( "ball", tokens[9] );
+            ball.eulerZ = ParseFloatValue( "ball", tokens[10] );
             ball.hasInitOrient = true;
         }
-        else if ( parsed != 14 )
+        else if ( parsed == 14 || parsed == 17 )
         {
-            parsed = sscanf_s( args,
-                               "%63s %f %f %f %f %f %f %f %f %f %f",
-                               ball.name,
-                               static_cast<unsigned>( sizeof( ball.name ) ),
-                               &ball.posX,
-                               &ball.posY,
-                               &ball.posZ,
-                               &ball.m_radius,
-                               &ball.m_mass,
-                               &ball.moment,
-                               &ball.restitution,
-                               &ball.eulerX,
-                               &ball.eulerY,
-                               &ball.eulerZ );
-
-            if ( parsed == 11 )
+            ball.forceX = ParseFloatValue( "ball", tokens[8] );
+            ball.forceY = ParseFloatValue( "ball", tokens[9] );
+            ball.forceZ = ParseFloatValue( "ball", tokens[10] );
+            ball.forcePosX = ParseFloatValue( "ball", tokens[11] );
+            ball.forcePosY = ParseFloatValue( "ball", tokens[12] );
+            ball.forcePosZ = ParseFloatValue( "ball", tokens[13] );
+            if ( parsed == 17 )
             {
+                ball.eulerX = ParseFloatValue( "ball", tokens[14] );
+                ball.eulerY = ParseFloatValue( "ball", tokens[15] );
+                ball.eulerZ = ParseFloatValue( "ball", tokens[16] );
                 ball.hasInitOrient = true;
-            }
-            else if ( parsed != 8 )
-            {
-                Fail( "Invalid ball at line %d (expected 8, 11, 14 or 17 fields, got %d)", m_lineNumber, parsed );
             }
         }
 
@@ -815,43 +825,44 @@ class TestSceneParser
 
     void ParseBoxCommon( const char* args, bool isFixed )
     {
+        const char* directive = isFixed ? "floating_box" : "box";
+        const char* expected = isFixed ? "floating_box <name> <pos> <halfExtents> <mass> <restitution> [euler] [velocity]" : "box <name> <pos> <halfExtents> <mass> <restitution> [euler] [velocity]";
+        char tokens[15][64] = {};
+        const int parsed = ParseTokenList( directive, args, expected, tokens, 15 );
+        if ( parsed != 9 && parsed != 12 && parsed != 15 )
+        {
+            Fail( "Invalid box/floating_box at line %d (expected 9, 12, or 15 fields, got %d)", m_lineNumber, parsed );
+        }
+
         SceneBox box;
         memset( &box, 0, sizeof( box ) );
         box.hasInitOrient = false;
         box.hasInitVelocity = false;
         box.isFixed = isFixed;
 
-        int parsed = sscanf_s( RequireArgs( isFixed ? "floating_box" : "box", args, "box <name> ..." ),
-                               "%63s %f %f %f %f %f %f %f %f %f %f %f %f %f %f",
-                               box.name,
-                               static_cast<unsigned>( sizeof( box.name ) ),
-                               &box.posX,
-                               &box.posY,
-                               &box.posZ,
-                               &box.halfX,
-                               &box.halfY,
-                               &box.halfZ,
-                               &box.mass,
-                               &box.restitution,
-                               &box.eulerX,
-                               &box.eulerY,
-                               &box.eulerZ,
-                               &box.velX,
-                               &box.velY,
-                               &box.velZ );
+        strcpy_s( box.name, sizeof( box.name ), tokens[0] );
+        box.posX = ParseFloatValue( directive, tokens[1] );
+        box.posY = ParseFloatValue( directive, tokens[2] );
+        box.posZ = ParseFloatValue( directive, tokens[3] );
+        box.halfX = ParseFloatValue( directive, tokens[4] );
+        box.halfY = ParseFloatValue( directive, tokens[5] );
+        box.halfZ = ParseFloatValue( directive, tokens[6] );
+        box.mass = ParseFloatValue( directive, tokens[7] );
+        box.restitution = ParseFloatValue( directive, tokens[8] );
 
+        if ( parsed == 12 || parsed == 15 )
+        {
+            box.eulerX = ParseFloatValue( directive, tokens[9] );
+            box.eulerY = ParseFloatValue( directive, tokens[10] );
+            box.eulerZ = ParseFloatValue( directive, tokens[11] );
+            box.hasInitOrient = true;
+        }
         if ( parsed == 15 )
         {
-            box.hasInitOrient = true;
+            box.velX = ParseFloatValue( directive, tokens[12] );
+            box.velY = ParseFloatValue( directive, tokens[13] );
+            box.velZ = ParseFloatValue( directive, tokens[14] );
             box.hasInitVelocity = true;
-        }
-        else if ( parsed == 12 )
-        {
-            box.hasInitOrient = true;
-        }
-        else if ( parsed != 9 )
-        {
-            Fail( "Invalid box/floating_box at line %d (expected 9, 12, or 15 fields, got %d)", m_lineNumber, parsed );
         }
 
         m_scene.m_boxes.push_back( box );
