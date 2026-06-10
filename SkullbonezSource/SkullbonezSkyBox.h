@@ -13,13 +13,6 @@
 #include <array>
 
 
-// --- Usings ---
-using namespace SkullbonezCore::Math::Vector;
-using namespace SkullbonezCore::Math;
-using namespace SkullbonezCore::Textures;
-using namespace SkullbonezCore::Rendering;
-
-
 namespace SkullbonezCore
 {
 namespace Geometry
@@ -33,11 +26,11 @@ class SkyBox
 
   private:
     inline static SkyBox* pInstance = nullptr;
-    Box m_boundaries;                                   // Boundaries of sky box
-    TextureCollection* m_textures;                      // Textures of the sky box
-    std::unique_ptr<IShader> m_shader;                  // Unlit textured m_shader
-    std::array<std::unique_ptr<IMesh>, 6> m_faceMeshes; // VBO mesh per face
-    std::array<uint32_t, 6> m_faceTextures;             // Texture hash per face
+    Box m_boundaries;                                              // Boundaries of sky box
+    Textures::TextureCollection* m_textures;                       // Textures of the sky box
+    std::unique_ptr<Rendering::IShader> m_shader;                  // Unlit textured m_shader
+    std::array<std::unique_ptr<Rendering::IMesh>, 6> m_faceMeshes; // VBO mesh per face
+    std::array<uint32_t, 6> m_faceTextures;                        // Texture hash per face
 
     SkyBox( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax ); // Overloaded constructor
     ~SkyBox() = default;                                                  // Destructor

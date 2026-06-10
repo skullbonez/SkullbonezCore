@@ -7,6 +7,8 @@
 // --- Usings ---
 using namespace SkullbonezCore::Geometry;
 using namespace SkullbonezCore::Math::Transformation;
+using namespace SkullbonezCore::Rendering;
+using namespace SkullbonezCore::Textures;
 
 
 SkyBox::SkyBox( int m_xMin,
