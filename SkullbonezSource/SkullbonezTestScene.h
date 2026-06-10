@@ -8,11 +8,6 @@
 #include "SkullbonezVector3.h"
 #include <vector>
 
-
-// --- Usings ---
-using namespace SkullbonezCore::Math::Vector;
-
-
 namespace SkullbonezCore
 {
 namespace Basics
@@ -23,9 +18,9 @@ TestScene LoadTestSceneFromFileImpl( const char* path );
 
 struct SceneCamera
 {
-    Vector3 m_position;
-    Vector3 view;
-    Vector3 up;
+    Math::Vector::Vector3 m_position;
+    Math::Vector::Vector3 view;
+    Math::Vector::Vector3 up;
 
     char name[64];
 };
