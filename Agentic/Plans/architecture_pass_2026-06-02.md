@@ -31,7 +31,7 @@ Resolved or mostly resolved:
 | Terrain/object solver unification | Implemented through shared persistent solver rows; see `Agentic/Plans/physics-terrain-shared-row-pipeline-plan.md`. |
 | Scene parser command dispatch | Partially implemented with directive tables in `SkullbonezTestSceneParser.cpp`; UI tab and water reflection value aliases now share a compact typed option helper. Remaining work is diagnostics, more typed helpers, and less prefix/token glue. |
 | Config and CLI parsing | Config settings are table-driven, CLI value/flag handling has directive-table footholds, renderer selection and generated-object overrides use option tables, physics debug component flags and ranged float overrides use directive tables, and suite-file scene lists use scoped file IO. Remaining parser pressure is mostly resolved-config reporting and shrinking the specialized physics/scene argument helpers. |
-| Runtime file split | `SkullbonezRun` behavior has been split across focused `.cpp` files, with capture serialization, renderer resource phases, and scene-queue lookup now behind small named helper boundaries. The runtime is still one broad facade rather than owned subsystems. |
+| Runtime file split | `SkullbonezRun` behavior has been split across focused `.cpp` files, with capture serialization, renderer resource phases, scene-queue lookup, and scene reset snapshot/restore now behind small named helper boundaries. The runtime is still one broad facade rather than owned subsystems. |
 | Physics commentary | Core physics-facing files now have layman-oriented comments explaining collision, solver, terrain, and visualizer behavior. |
 | GL-era render resource names | Remaining runtime/helper/model/skybox/world reset methods now use backend-neutral `ResetRenderResources()` naming. |
 | Render backend capabilities | A compatibility-preserving `RenderCapabilities` query now centralizes GPU timer, DXR, debug line, instancing, capture, and dynamic-VB support checks; capture-dependent and debug-line overlay callers now honor the relevant capability boundaries. |
@@ -46,7 +46,7 @@ Remaining implementation scope for this branch:
 | Item | Implement on this branch? | Validation expectation |
 |------|---------------------------|------------------------|
 | Neutral render resource lifetime names and registry prep | Complete for current runtime hot-switch paths; full `IRenderResource` ownership is still part of render pipeline/resource registry extraction | `tools\validate_renderers.bat` if future render-resource code changes. |
-| `SkullbonezRun` subsystem extraction | Yes, one subsystem at a time; capture facade, renderer resource phase helpers, and scene-queue lookup helpers are started | `tools\validate_full.bat` for runtime code movement. |
+| `SkullbonezRun` subsystem extraction | Yes, one subsystem at a time; capture facade, renderer resource phase helpers, scene-queue lookup helpers, and reset snapshot/restore helpers are started | `tools\validate_full.bat` for runtime code movement. |
 | Render backend capability split | Partly done through `RenderCapabilities`; capture and debug-line callers now use the capability boundary, while deeper interface split remains | `tools\validate_renderers.bat` plus DX12 validation log check. |
 | Render pipeline/pass extraction | Yes, incremental facade-first extraction | `tools\validate_renderers.bat`. |
 | `PhysicsWorld` boundary | Yes, adapter-first extraction only | `tools\validate_physics.bat`; add `tools\validate_perf.bat` if hot storage changes. |
@@ -167,7 +167,7 @@ Recommended split:
 
 Do this as extraction, not rewrite. Move one cohesive chunk at a time and keep `SkullbonezRun` as the facade until the final shape is clear.
 
-Branch progress: `CaptureSystem` owns backbuffer-to-BMP serialization, renderer hot-switch prep is organized through named resource phase tables, and scene queue access now goes through helper methods instead of repeated direct bounds checks. The next `SceneRuntime` slice should move load/reset/advance policy behind a facade while keeping `SkullbonezRun` as the caller-facing coordinator.
+Branch progress: `CaptureSystem` owns backbuffer-to-BMP serialization, renderer hot-switch prep is organized through named resource phase tables, scene queue access now goes through helper methods instead of repeated direct bounds checks, and reset-time runtime state capture/restore is isolated from the main `LoadScene` flow. The next `SceneRuntime` slice should move more load/reset/advance policy behind a facade while keeping `SkullbonezRun` as the caller-facing coordinator.
 
 Priority: High. Effort: Medium-high. Risk: Medium, because it touches broad runtime behavior.
 
@@ -547,7 +547,7 @@ expect {
 
 1. Rename GL-era render resource methods to backend-neutral names. Done for the visible runtime/helper/model/skybox/world reset paths; renderer-switch resource prep now uses an ordered table of named release/rebuild steps.
 2. Extract `CaptureSystem` from `SkullbonezRun`. Seeded through the backbuffer capture helper; screenshot trigger policy still lives in runtime.
-3. Extract `SceneRuntime` load/reset/advance state from `SkullbonezRun`. Scene-queue lookup is now centralized as a helper foothold; the owned runtime subsystem still needs to be extracted.
+3. Extract `SceneRuntime` load/reset/advance state from `SkullbonezRun`. Scene-queue lookup and reset snapshot/restore are now centralized as helper footholds; the owned runtime subsystem still needs to be extracted.
 4. Make scene/config parsing table-driven. Config and CLI have table-driven footholds, including renderer-option parsing, generated-object override parsing, physics debug component switch parsing, and ranged physics debug float parsing; scene parser has directive tables plus typed value-option helpers for selected aliases, and still needs richer directive diagnostics and serializer-friendly schemas.
 5. Remove `using namespace std` and broad namespace imports from headers. Done for current source headers; keep it from regressing.
 
