@@ -33,21 +33,28 @@ Resolved or mostly resolved:
 | Config parsing | Largely table-driven now; remaining parser pressure is mostly CLI token handling and resolved-config reporting. |
 | Runtime file split | `SkullbonezRun` behavior has been split across focused `.cpp` files, but the runtime is still one broad facade rather than owned subsystems. |
 | Physics commentary | Core physics-facing files now have layman-oriented comments explaining collision, solver, terrain, and visualizer behavior. |
+| GL-era render resource names | Remaining runtime/helper/model/skybox/world reset methods now use backend-neutral `ResetRenderResources()` naming. |
+| Render backend capabilities | A compatibility-preserving `RenderCapabilities` query now centralizes GPU timer, DXR, debug line, instancing, capture, and dynamic-VB support checks. |
+| Source asset scaffold | `Assets::AssetSystem` exists as source-asset/path-resolution scaffolding; GPU resource ownership is still separate. |
+| Capture subsystem seed | Backbuffer-to-BMP serialization now lives behind `CaptureSystem`, while `SkullbonezRun::SaveScreenshot()` remains the runtime facade. |
+| File-handle RAII | Config loading, GL shader source loading, terrain raw loading, scene parsing, text atlas IO, and backbuffer capture now use scoped ownership rather than manual close paths. |
+| Header namespace cleanup | `using namespace std` is gone from headers; shader and skybox headers no longer export broad math/render/texture namespaces. |
+| Renderer switch resource phases | Backend-owned release/rebuild sequences are now named helpers, giving the future resource registry a clear replacement point. |
 
 Remaining implementation scope for this branch:
 
 | Item | Implement on this branch? | Validation expectation |
 |------|---------------------------|------------------------|
 | Neutral render resource lifetime names and registry prep | Yes | `tools\validate_renderers.bat` if render-resource code changes. |
-| `SkullbonezRun` subsystem extraction | Yes, one subsystem at a time | `tools\validate_full.bat` for runtime code movement. |
-| Render backend capability split | Yes, in small compatibility-preserving steps | `tools\validate_renderers.bat` plus DX12 validation log check. |
+| `SkullbonezRun` subsystem extraction | Yes, one subsystem at a time; capture facade and renderer resource phase helpers are started | `tools\validate_full.bat` for runtime code movement. |
+| Render backend capability split | Partly done through `RenderCapabilities`; deeper interface split remains | `tools\validate_renderers.bat` plus DX12 validation log check. |
 | Render pipeline/pass extraction | Yes, incremental facade-first extraction | `tools\validate_renderers.bat`. |
 | `PhysicsWorld` boundary | Yes, adapter-first extraction only | `tools\validate_physics.bat`; add `tools\validate_perf.bat` if hot storage changes. |
 | CLI parser cleanup | Yes | `tools\validate_fast.bat`; use broader validation if launch behavior changes. |
 | Scene parser cleanup | Yes, targeted cleanup only | `tools\validate_fast.bat`; use `tools\validate_full.bat` if scene loading semantics change. |
-| Header namespace cleanup | Yes, mechanical and focused | `tools\validate_full.bat` if many headers change. |
-| RAII cleanup | Yes, preferably one resource family at a time | Renderer-specific validation for COM/resource changes. |
-| Asset system | Yes, start with path/cache/lifetime scaffolding | `tools\validate_renderers.bat` when renderer assets are touched. |
+| Header namespace cleanup | In progress; shader/skybox header leakage is fixed, broader geometry/math/game headers remain | `tools\validate_full.bat` if many headers change. |
+| RAII cleanup | In progress; file handles/source buffers are improved, COM resources remain | Renderer-specific validation for COM/resource changes. |
+| Asset system | Scaffold started with source records/path resolution; cache and GPU lifetime integration remain | `tools\validate_renderers.bat` when renderer assets are touched. |
 | Worker system implementation | No | Design notes only; primary design lives in `Agentic/Plans/worker-system-plan.md`. |
 | Replay/debug implementation | No | Design notes only. |
 | Standout/stretch feature implementation | No | Design notes only. |
