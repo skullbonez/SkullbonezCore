@@ -137,6 +137,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="SkullbonezSource\SkullbonezAssetSystem.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezBoundingBox.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezBoundingSphere.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.cpp" />
@@ -220,6 +221,7 @@
     <ClCompile Include="SkullbonezSource\SkullbonezSBTDX12.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="SkullbonezSource\SkullbonezAssetSystem.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingBox.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingSphere.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.h" />

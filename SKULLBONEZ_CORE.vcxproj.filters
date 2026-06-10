@@ -54,6 +54,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="SkullbonezSource\SkullbonezAssetSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezBoundingSphere.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -299,6 +302,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="SkullbonezSource\SkullbonezAssetSystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingSphere.h">
       <Filter>Header Files</Filter>
     </ClInclude>
