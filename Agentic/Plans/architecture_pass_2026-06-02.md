@@ -38,7 +38,7 @@ Resolved or mostly resolved:
 | Source asset scaffold | `Assets::AssetSystem` exists as source-asset/path-resolution scaffolding; GPU resource ownership is still separate. |
 | Capture subsystem seed | Backbuffer-to-BMP serialization now lives behind `CaptureSystem`, while `SkullbonezRun::SaveScreenshot()` remains the runtime facade. |
 | File-handle RAII | Config loading, GL shader source loading, terrain raw loading, scene parsing, text atlas IO, and backbuffer capture now use scoped ownership rather than manual close paths. |
-| Header namespace cleanup | `using namespace std` is gone from headers; shader and skybox headers no longer export broad math/render/texture namespaces. |
+| Header namespace cleanup | Complete for `SkullbonezSource/*.h`: broad `using namespace` imports have been removed from source headers, with implementation shorthand kept local to `.cpp` files or internal runtime glue. |
 | Renderer switch resource phases | Backend-owned release/rebuild sequences are now named helpers, giving the future resource registry a clear replacement point. |
 
 Remaining implementation scope for this branch:
@@ -52,7 +52,7 @@ Remaining implementation scope for this branch:
 | `PhysicsWorld` boundary | Yes, adapter-first extraction only | `tools\validate_physics.bat`; add `tools\validate_perf.bat` if hot storage changes. |
 | CLI parser cleanup | Yes | `tools\validate_fast.bat`; use broader validation if launch behavior changes. |
 | Scene parser cleanup | Yes, targeted cleanup only | `tools\validate_fast.bat`; use `tools\validate_full.bat` if scene loading semantics change. |
-| Header namespace cleanup | In progress; shader/skybox header leakage is fixed, broader geometry/math/game headers remain | `tools\validate_full.bat` if many headers change. |
+| Header namespace cleanup | Complete for current source headers; preserve this as a guardrail for future headers | `tools\validate_full.bat` if future header ownership changes cross subsystem boundaries. |
 | RAII cleanup | In progress; file handles/source buffers are improved, COM resources remain | Renderer-specific validation for COM/resource changes. |
 | Asset system | Scaffold started with source records/path resolution; cache and GPU lifetime integration remain | `tools\validate_renderers.bat` when renderer assets are touched. |
 | Worker system implementation | No | Design notes only; primary design lives in `Agentic/Plans/worker-system-plan.md`. |
@@ -543,11 +543,11 @@ expect {
 
 ### Phase 1: Stabilize The Boundaries
 
-1. Rename GL-era render resource methods to backend-neutral names.
-2. Extract `CaptureSystem` from `SkullbonezRun`.
+1. Rename GL-era render resource methods to backend-neutral names. Done for the visible runtime/helper/model/skybox/world reset paths; registry work remains.
+2. Extract `CaptureSystem` from `SkullbonezRun`. Seeded through the backbuffer capture helper; screenshot trigger policy still lives in runtime.
 3. Extract `SceneRuntime` load/reset/advance state from `SkullbonezRun`.
-4. Make scene/config parsing table-driven.
-5. Remove `using namespace std` and broad namespace imports from headers.
+4. Make scene/config parsing table-driven. Config and CLI have table-driven footholds; scene parser still needs richer directive diagnostics and serializer-friendly schemas.
+5. Remove `using namespace std` and broad namespace imports from headers. Done for current source headers; keep it from regressing.
 
 Why first: these changes reduce future blast radius without changing the engine's output.
 
