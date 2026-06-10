@@ -18,6 +18,10 @@ namespace Physics
 //   Skullbonez shape-pair manifolds that feed Catto-style rows: sphere/sphere,
 //   sphere/OBB, and OBB/OBB. Feature IDs are deterministic local encodings so
 //   warm-started impulses can be matched across frames.
+// LAYMAN VERSION:
+//   A manifold is a small contact report. It says "these two bodies are touching
+//   here, push along this direction, and this is how deep the overlap is." The
+//   solver later turns each point in the report into one rule it can enforce.
 struct ObjectContactPoint
 {
     Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR; // World-space representative contact point.

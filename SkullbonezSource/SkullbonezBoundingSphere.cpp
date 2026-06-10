@@ -21,6 +21,14 @@ BoundingSphere::BoundingSphere( float fRadius,
 {
 }
 
+// This file contains two different levels of sphere collision:
+//   1. Broadphase-style swept tests: cheap "could these shapes meet this tick?"
+//      checks that return a time value.
+//   2. Shape facts: radius, volume, area, drag, and render matrix.
+//
+// The precise resting/contact response is not here. If a broadphase test says
+// "possible hit", GameModelCollection later asks the narrowphase manifold code
+// for exact contact points and lets the shared Catto-style row solver respond.
 
 /* --- Swept Sphere vs Sphere Collision Test (Continuous Collision Detection) ---
  *
@@ -101,6 +109,8 @@ float BoundingSphere::TestCollision( const BoundingSphere& target,
                                      const Ray& targetRay,
                                      const Ray& focusRay ) const
 {
+    // Public wrapper kept so CollisionShape's std::visit dispatch can call the
+    // same member name for every shape pair.
     return CollisionDetect( target, targetRay, focusRay );
 }
 
@@ -176,6 +186,9 @@ float BoundingSphere::GetVolume() const
 
 float BoundingSphere::GetSubmergedVolumePercent( float m_fluidSurfaceHeight ) const
 {
+    // Buoyancy needs "how much of this sphere is under the water line?" Full
+    // above/below cases are simple; the middle case is the spherical-cap formula
+    // for a ball sliced by a flat plane.
     // Compare the sphere's bottom (center.y - r) and top (center.y + r) against the fluid surface.
     if ( m_position.y - m_radius >= m_fluidSurfaceHeight )
     {
@@ -227,6 +240,9 @@ float BoundingSphere::GetProjectedSurfaceArea() const
 // Precise OBB-sphere tests are done in the narrowphase collision response.
 float BoundingSphere::TestCollision( const BoundingBox& target, const Ray& targetRay, const Ray& focusRay ) const
 {
+    // This intentionally overestimates a box as a sphere that reaches its
+    // farthest corner. Broadphase prefers false positives over false negatives:
+    // it is fine to do one extra narrowphase test, but not fine to miss a hit.
     float combinedRadius = m_radius + target.GetBoundingRadius();
     float combinedRadiusSq = combinedRadius * combinedRadius;
 

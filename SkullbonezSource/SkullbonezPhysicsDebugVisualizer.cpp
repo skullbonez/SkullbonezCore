@@ -22,6 +22,8 @@ constexpr int PIPELINE_STAGE_COUNT = static_cast<int>( PhysicsPipelineStage::Cou
 
 float ShapeAxisLength( GameModel& model, int axis )
 {
+    // Scale local-axis arrows to the shape. Boxes use their true half-extent on
+    // the selected axis; spheres use bounding radius for all axes.
     const CollisionShape& shape = model.GetCollisionShape();
     if ( const BoundingBox* box = std::get_if<BoundingBox>( &shape ) )
     {
@@ -34,6 +36,8 @@ float ShapeAxisLength( GameModel& model, int axis )
 
 void PipelineStageColor( PhysicsPipelineStage stage, float& r, float& g, float& b )
 {
+    // Stable colors make pipeline stepping readable across frames. These colors
+    // are diagnostic labels only; they do not encode any solver math.
     switch ( stage )
     {
     case PhysicsPipelineStage::BroadphaseCandidate:
@@ -279,6 +283,9 @@ void PhysicsDebugVisualizer::EmitObjectAxes( GameModelCollection& models )
 
 void PhysicsDebugVisualizer::EmitContacts( GameModelCollection& models )
 {
+    // Yellow cross = contact point. Cyan arrow = normal push direction. Orange
+    // lines = the two sideways friction axes. A gray body-to-body line helps
+    // locate which pair produced the row.
     for ( const TrackedContact& tracked : m_trackedContacts )
     {
         const PhysicsDebugContact& contact = tracked.contact;
@@ -300,6 +307,9 @@ void PhysicsDebugVisualizer::EmitContacts( GameModelCollection& models )
 
 void PhysicsDebugVisualizer::EmitSleepState( GameModelCollection& models )
 {
+    // Purple marks sleeping bodies, green marks credible support, and orange
+    // marks sleep inhibition. This helps distinguish "touching" from "allowed
+    // to sleep," which are intentionally different policies.
     const std::vector<uint8_t>& sleepStates = models.GetSleepStates();
     const std::vector<uint8_t>& supportedStates = models.GetSleepSupportedStates();
     const std::vector<uint8_t>& inhibitedStates = models.GetSleepInhibitedStates();

@@ -14,6 +14,9 @@ class GameModelCollection;
 
 namespace Physics
 {
+// Debug flags select which physics overlays are drawn. These are visualization
+// layers only; toggling them must never alter collision response, sleep policy,
+// or solver ordering.
 enum PhysicsDebugFlags : uint32_t
 {
     PHYSICS_DEBUG_NONE = 0u,
@@ -26,6 +29,9 @@ enum PhysicsDebugFlags : uint32_t
 
 enum class PhysicsPipelineStage : uint8_t
 {
+    // Ordered list of major physics pipeline events recorded during a tick.
+    // The visualizer can show one stage at a time so a reader can inspect the
+    // broadphase, manifold, warm-start, solve, writeback, and sleep decisions.
     BroadphaseCandidate,
     SleepPrunedPair,
     WakeDecision,
@@ -47,6 +53,9 @@ enum class PhysicsPipelineStage : uint8_t
 
 struct PhysicsPipelineRecord
 {
+    // One compact breadcrumb from a physics tick. scalarA/B/C intentionally mean
+    // different things per stage; see emit sites for exact meaning. Keeping the
+    // payload small makes debug drawing and SkullScope summaries cheap.
     PhysicsPipelineStage stage = PhysicsPipelineStage::BroadphaseCandidate;
     int bodyA = -1;
     int bodyB = -1;
@@ -63,6 +72,8 @@ const char* PhysicsPipelineStageName( PhysicsPipelineStage stage );
 
 struct PhysicsDebugContact
 {
+    // Solver contact row captured for drawing: point, push direction, friction
+    // directions, overlap depth, and the normal impulse that was accumulated.
     int bodyA = -1;
     int bodyB = -1;
     uint32_t featureId = 0;
@@ -79,6 +90,8 @@ class PhysicsDebugVisualizer
   private:
     struct TrackedContact
     {
+        // Contact visuals linger briefly after the solver row disappears so a
+        // human can actually see a one-frame impact. This is display-only state.
         PhysicsDebugContact contact;
         float remainingSeconds = 0.0f;
         float lifetimeSeconds = 0.0f;

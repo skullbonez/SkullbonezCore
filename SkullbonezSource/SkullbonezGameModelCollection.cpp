@@ -24,6 +24,17 @@ static constexpr int SHADOW_INSTANCE_FLOATS = 17;
 static constexpr size_t MAX_PIPELINE_TRACE_RECORDS = 4096;
 static constexpr int TERRAIN_BODY_INDEX = -1;
 
+// High-level physics pipeline in this file:
+//   1. RunPhysics clears per-step scratch buffers and preserves persistent state.
+//   2. RunSolverPhysics applies forces, finds broadphase pairs, handles CCD hit
+//      timing, gathers terrain manifolds, and then calls the shared row solver.
+//   3. SolvePersistentObjectContacts turns object and terrain manifolds into
+//      Catto-style rows, warm-starts them, iterates impulses, writes velocity
+//      back, fixes residual penetration, and stores next-frame cache entries.
+//   4. Sleep support is propagated through contact islands after response, so a
+//      quiet stack can sleep only when it is rooted in credible terrain/fixed
+//      support.
+
 GameModelCollection::GameModelCollection()
     : m_spatialGrid( Cfg().broadphaseCell )
 {
@@ -867,6 +878,9 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
 
     auto conservativeContactRadius = []( const GameModel& model ) -> float
     {
+        // Broadphase radii must include any local shape offset. If a shape is
+        // not centered on the body origin, the "safe maybe touching" sphere has
+        // to reach from the origin all the way to the farthest shifted point.
         const CollisionShape& shape = model.GetCollisionShape();
         float radius = GetShapeBoundingRadius( shape );
         const Vector3& offset = GetShapePosition( shape );
@@ -1882,6 +1896,9 @@ void GameModelCollection::RunSolverPhysics( float dt )
 
     auto hasObjectContactAtTime = [&]( int a, int b, float time ) -> bool
     {
+        // Temporarily place both bodies at a candidate time, ask the exact
+        // narrowphase whether they touch there, then restore positions. This is
+        // a query only; it must leave the world exactly as it found it.
         const Vector3 startA = m_gameModels[a].GetPosition();
         const Vector3 startB = m_gameModels[b].GetPosition();
         m_gameModels[a].SetPosition( startA + m_gameModels[a].GetVelocity() * time );
@@ -1902,6 +1919,10 @@ void GameModelCollection::RunSolverPhysics( float dt )
 
     auto refineObjectSweepContactTime = [&]( int a, int b, float coarseTime, float availableTime ) -> float
     {
+        // The broad sweep can give a conservative first time. Refinement walks
+        // forward until exact manifold contact appears, then binary-searches the
+        // edge of that contact window. This keeps fast objects from advancing
+        // too far into each other before persistent rows solve the response.
         if ( coarseTime <= 0.0f || coarseTime >= availableTime )
         {
             return coarseTime;
@@ -2239,6 +2260,9 @@ void GameModelCollection::RunSolverPhysics( float dt )
 
     auto findIsland = [&]( int index ) -> int
     {
+        // Union-find lookup with path compression. In plain terms: every body in
+        // a connected contact group points to the same representative root, so
+        // the sleep system can make one decision for the whole group.
         int root = index;
         while ( m_sleepIslandParent[root] != root )
         {
@@ -2255,6 +2279,8 @@ void GameModelCollection::RunSolverPhysics( float dt )
 
     auto unionIslands = [&]( int a, int b )
     {
+        // Merge two contact groups. Rank keeps the tree shallow so repeated
+        // findIsland calls stay cheap during large stacks.
         int rootA = findIsland( a );
         int rootB = findIsland( b );
         if ( rootA == rootB )

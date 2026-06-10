@@ -48,6 +48,9 @@ BoundingBox::BoundingBox( const Vector3& halfExtents, const Vector3& position )
 {
 }
 
+// The box class stores only local shape data. Current world orientation lives on
+// the owning RigidBody/GameModel, so any exact box-vs-box contact work must
+// combine this shape with the body's quaternion later in the narrowphase.
 
 // Compute model matrix: T(worldPos) * R * S(halfExtents)
 // The shader renders a unit cube [-1,1]³ scaled by half-extents.
@@ -72,6 +75,10 @@ float BoundingBox::GetVolume() const
 // Compute fraction of that height below fluidSurfaceHeight.
 float BoundingBox::GetSubmergedVolumePercent( float fluidSurfaceHeight ) const
 {
+    // This is a deliberately rough buoyancy approximation: it treats the box as
+    // an upright vertical slab. The exact submerged volume of a rotated box would
+    // need clipping against the water plane and is more expensive than this path
+    // currently wants.
     float totalHeight = m_halfExtents.y * 2.0f;
     float bottom = m_position.y - m_halfExtents.y;
     float top = m_position.y + m_halfExtents.y;
@@ -151,6 +158,8 @@ const Vector3& BoundingBox::GetHalfExtents() const
 // Box vs Sphere swept test: approximate box as bounding sphere for broadphase
 float BoundingBox::TestCollision( const BoundingSphere& target, const Ray& targetRay, const Ray& focusRay ) const
 {
+    // Cheap candidate test only. A later OBB/sphere manifold uses the real box
+    // axes and closest point, so this broadphase test is allowed to be generous.
     // Approximate this box as a sphere of bounding radius for the swept test
     float combinedRadius = GetBoundingRadius() + target.GetRadius();
     float combinedRadiusSq = combinedRadius * combinedRadius;
@@ -196,6 +205,9 @@ float BoundingBox::TestCollision( const BoundingSphere& target, const Ray& targe
 // Box vs Box swept test: approximate both as bounding spheres for broadphase
 float BoundingBox::TestCollision( const BoundingBox& target, const Ray& targetRay, const Ray& focusRay ) const
 {
+    // Two oriented boxes can be expensive to sweep exactly. This conservative
+    // radius test asks only whether their bounding balls could touch this tick.
+    // Exact face/edge/corner contacts are built by ObjectContactManifold.cpp.
     float combinedRadius = GetBoundingRadius() + target.GetBoundingRadius();
     float combinedRadiusSq = combinedRadius * combinedRadius;
 

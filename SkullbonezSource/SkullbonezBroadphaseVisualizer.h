@@ -23,6 +23,11 @@ namespace Physics
     Real-time debug overlay for the spatial grid broadphase collision system.
     Renders grid cell boundaries as wireframe cubes with per-cell coloring:
 
+    Layman version:
+      This draws the invisible grid used to decide which object pairs are worth
+      testing. A red cell means "objects here became collision candidates or
+      produced narrowphase contact"; it does not mean the grid solved physics.
+
     - White:        empty cell (no objects)
     - Yellow→Blue:  ball just entered (fades over 0.5s)
     - Blue:         occupied (steady state)

@@ -28,6 +28,12 @@ namespace CollisionDetection
     generation stamping (no per-frame clearing) and a flat index pool with linked lists per cell.  Pair deduplication
     via triangular bit array.  Complexity: O(n + k) where n = objects and k = candidate pairs.
     No heap allocations after construction.
+
+    Layman version:
+      Instead of asking every object about every other object, the world is cut
+      into invisible boxes. Objects only become candidate collision pairs when
+      they share one of those invisible boxes. This is the cheap first filter;
+      it never decides the final collision response.
 -------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class SpatialGrid
 {
@@ -53,16 +59,16 @@ class SpatialGrid
 
     struct Entry
     {
-        int objectIndex;
-        int next; // index into entries[], -1 = end of list
+        int objectIndex; // GameModel index stored in one occupied grid cell.
+        int next;        // Linked-list index into entries[], -1 = end of list.
     };
 
     struct Bucket
     {
-        int64_t key;
-        uint32_t generation;
-        int head; // index into entries[], -1 = empty
-        int count;
+        int64_t key;         // Packed/hashable grid coordinate identity.
+        uint32_t generation; // Current frame stamp; old stamps behave as empty.
+        int head;            // Linked-list head in entries[], -1 = empty.
+        int count;           // Number of object entries in this cell.
         int16_t ix, iy, iz; // Cell grid coordinates (stored for visualization)
     };
 

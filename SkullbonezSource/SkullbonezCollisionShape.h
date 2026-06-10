@@ -18,6 +18,10 @@ namespace CollisionDetection
     Replaces the old DynamicsObject inheritance hierarchy with compile-time
     exhaustive dispatch via std::visit. Adding a new shape type to this
     variant will cause compiler errors at every unhandled dispatch site.
+
+    Layman version: this is the engine's tagged box saying "this model's
+    collision volume is either a sphere or a box." Callers do not ask through a
+    base class; they visit the tag and run the shape-specific code directly.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 using CollisionShape = std::variant<BoundingSphere, BoundingBox>;
 
@@ -96,6 +100,9 @@ inline Transformation::Matrix4 GetShapeModelMatrix( const CollisionShape& shape,
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline float TestShapeCollision( const CollisionShape& focus, const CollisionShape& target, const Ray& focusRay, const Ray& targetRay )
 {
+    // Double visit is the collision-shape switchboard. If focus is a sphere and
+    // target is a box, the compiler chooses BoundingSphere::TestCollision(box).
+    // If both are boxes, it chooses BoundingBox::TestCollision(box), and so on.
     return std::visit( [&]( const auto& f, const auto& t )
                        { return f.TestCollision( t, targetRay, focusRay ); },
                        focus,

@@ -26,6 +26,10 @@ class WorldEnvironment;
 } // namespace Environment
 namespace Physics
 {
+// A TerrainContactPoint is one exact place where a moving model is touching
+// the terrain. Think of it as a thumbtack on the object: the solver will push
+// at this thumbtack, not at the object's center. rA is the lever arm from the
+// body center to the thumbtack, so the same push can also create spin.
 struct TerrainContactPoint
 {
     Math::Vector::Vector3 point = Math::Vector::ZERO_VECTOR;
@@ -34,6 +38,11 @@ struct TerrainContactPoint
     uint32_t featureId = 0;
 };
 
+// A TerrainContactManifold is the full "touching terrain" report for one body
+// during one physics tick. Spheres usually have one point; boxes can have
+// several corners touching at once. This struct is only geometry and policy
+// metadata. The actual velocity response happens later in GameModelCollection's
+// shared contact-row solver.
 struct TerrainContactManifold
 {
     int bodyA = -1;
@@ -66,6 +75,10 @@ class GameModel
   private:
     struct BallPhysicsCache
     {
+        // This cache is named for the original sphere-only code path, but it now
+        // stores the hot scalar properties for both spheres and boxes. For boxes,
+        // radius means conservative bounding radius: the distance from center to
+        // the farthest corner, used for cheap broadphase checks.
         float radius;                 // Sphere radius
         float radiusSq;               // Sphere radius squared
         float volume;                 // Sphere volume
@@ -78,11 +91,17 @@ class GameModel
         Vector3 invRotationalInertia; // Component-wise 1 / inertia
     };
 
+    // Authoritative collision shape. Broadphase may use cached radii for speed,
+    // but narrowphase and solver-row setup come back to this variant so boxes,
+    // spheres, and future shapes can each provide their real contact geometry.
     CollisionShape m_boundingVolume;                    // Bounding volume (variant, inline)
     BallPhysicsCache m_ballPhysics;                     // Immutable per-ball physics cache for hot loops
     RigidBody m_physicsInfo;                            // Physics information for the game object
     Environment::WorldEnvironment* m_worldEnvironment;  // Pointer to the world environment settings
     Geometry::Terrain* m_terrain;                       // Pointer to the world m_terrain
+    // Temporary terrain-hit mailbox. CollisionDetectTerrain writes where and
+    // when a terrain hit happened; BuildTerrainContactManifold reads it and
+    // converts it into solver-neutral contact points. It is not the solver.
     Physics::ResponseInformation m_responseInformation; // Information regarding a collision response that needs to be reacted to
     float m_projectedSurfaceArea;                       // 2d surface area approximation based on dynamics object list
     float m_dragCoefficient;                            // Calculated based on the average drag coefficient of all dynamics objects

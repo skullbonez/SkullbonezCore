@@ -143,6 +143,10 @@ void Terrain::BuildTerrain()
 
 void Terrain::BuildCollisionCache()
 {
+    // Precompute the two triangle planes for every terrain quad. At runtime, a
+    // physics query only needs to find the quad and choose triangle A or B, then
+    // read its plane/normal directly. This turns repeated terrain collision
+    // lookups into cheap table reads instead of geometry rebuilds.
     if ( m_isFlatSlope )
     {
         m_cachedCollisionData.clear();
@@ -240,6 +244,9 @@ void Terrain::QueryCollisionDataUnchecked( float xPosition,
                                            Vector3* outNormal,
                                            Plane* outPlane )
 {
+    // This is the main physics terrain lookup. It returns the Y height and, if
+    // requested, the contact normal or full plane at a given X/Z point. Callers
+    // that already checked bounds use this unchecked version in hot paths.
     if ( m_isFlatSlope )
     {
         outHeight = m_slopeBaseY + m_slopeX * xPosition + m_slopeZ * zPosition;

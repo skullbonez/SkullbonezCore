@@ -15,6 +15,15 @@ using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math;
 using namespace SkullbonezCore::Environment;
 
+// GameModel is the per-object physics bridge:
+//   - RigidBody stores motion state such as position, velocity, spin, and mass.
+//   - CollisionShape stores the local sphere/box used for collision geometry.
+//   - Terrain detection records a hit in m_responseInformation.
+//   - GameModelCollection later consumes that hit, builds contact rows, and
+//     applies the actual shared solver response.
+//
+// In short: GameModel can detect and describe contacts, but the collection owns
+// the final multi-body response because contacts often involve several objects.
 
 GameModel::GameModel( WorldEnvironment* pWorldEnv,
                       const Vector3& vPosition,
@@ -69,6 +78,10 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
 
 void GameModel::BuildSpherePhysicsCache( float radius )
 {
+    // These values never change after the shape is chosen, so cache them once.
+    // The fixed-step physics loop reads radius, volume, and drag constantly; a
+    // simple scalar load is cheaper and easier to reason about than recomputing
+    // the same formulas in every force/collision path.
     if ( radius <= 0.0f )
     {
         throw std::runtime_error( "Bounding sphere radius must be greater than zero.  (GameModel::BuildSpherePhysicsCache)" );
@@ -106,6 +119,9 @@ void GameModel::SetFixed( bool isFixed )
     m_isFixed = isFixed;
     if ( m_isFixed )
     {
+        // Fixed bodies are immovable collision participants. They can be hit and
+        // shown in debug visuals, but they do not accumulate forces, velocity, or
+        // pending terrain responses.
         m_physicsInfo.SetLinearVelocity( Vector::ZERO_VECTOR );
         m_physicsInfo.SetAngularVelocity( Vector::ZERO_VECTOR );
         m_physicsInfo.SetWorldForce( Vector::ZERO_VECTOR, Vector::ZERO_VECTOR );
@@ -283,6 +299,8 @@ void GameModel::AddBoundingBox( const Vector3& halfExtents )
     }
 
     // Compute box inertia tensor: I_xx = m/3 * (hy² + hz²) for half-extents
+    // Inertia is "rotational mass": a long box is harder to spin around some
+    // axes than others, so boxes need three separate inertia values.
     float mass = m_physicsInfo.GetMass();
     float hx2 = halfExtents.x * halfExtents.x;
     float hy2 = halfExtents.y * halfExtents.y;
@@ -293,6 +311,9 @@ void GameModel::AddBoundingBox( const Vector3& halfExtents )
                      mOver3 * ( hx2 + hy2 ) );
 
     // Populate physics cache using bounding radius as "radius" (for broadphase)
+    // Use the center-to-corner distance as the broadphase radius. That preserves
+    // the cheap old sphere-style culling while exact box contact geometry remains
+    // in the narrowphase manifold code.
     float boundRadius = sqrtf( hx2 + hy2 + hz2 );
     m_ballPhysics.radius = boundRadius;
     m_ballPhysics.radiusSq = boundRadius * boundRadius;
@@ -604,6 +625,9 @@ float GameModel::GetTerrainCollisionTime( float changeInTime )
         // Closed-form lowest-vertex Y offset. For an OBB, the maximum downward extent
         // from centre is dot(abs(rotationRow_Y), halfExtents). This replaces the naive
         // 8-vertex loop with 3 abs + 3 multiply-adds (>10× faster for boxes).
+        // Layman version: ask "how far below the box center can any rotated
+        // corner be?" without checking all eight corners. This is only an
+        // early-out aid; exact terrain contact below still samples real vertices.
         const BoundingBox& box = std::get<BoundingBox>( m_boundingVolume );
         const Vector3& he = box.GetHalfExtents();
         Transformation::RotationMatrix rotMat = m_physicsInfo.GetOrientationMatrix();
@@ -747,6 +771,9 @@ float GameModel::GetTerrainCollisionTime( float changeInTime )
 
 float GameModel::CollisionDetectTerrain( float changeInTime )
 {
+    // This answers "how many seconds can this body move before it hits terrain?"
+    // If a hit occurs, it records a response-required flag and stores the
+    // plane/ray details. It does not push the body or change velocity.
     // ensure m_terrain pointer is valid
     if ( !m_terrain )
     {
@@ -934,6 +961,9 @@ bool GameModel::BuildTerrainContactManifold( int bodyIndex, float timeOfImpact, 
 GameModel::ObjectSweepResult GameModel::SweepGameModel( GameModel& collisionTarget,
                                                         float changeInTime )
 {
+    // Object/object sweep is the continuous-collision-detection front door. It
+    // returns a hit time so callers can move bodies up to first contact. The
+    // actual bounce/friction response is still handled by persistent rows.
     ObjectSweepResult result;
     result.collisionTime = changeInTime;
 

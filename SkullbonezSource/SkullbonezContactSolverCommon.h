@@ -11,6 +11,10 @@ namespace Physics
 namespace ContactSolver
 {
 
+// Shared contact-solver math used by object/object and object/terrain rows.
+// A "row" is one tiny rule such as "do not move into the wall along this normal"
+// or "slow sideways sliding along this tangent." Keeping the math here helps the
+// terrain and object paths agree about directions, effective mass, and friction.
 inline void BuildContactTangents( const Math::Vector::Vector3& normal, Math::Vector::Vector3& tangent1, Math::Vector::Vector3& tangent2 )
 {
     // Catto-style 3D contact solving treats friction as two scalar tangent rows

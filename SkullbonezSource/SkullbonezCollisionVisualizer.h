@@ -23,6 +23,10 @@ namespace Physics
     Solid-colour debug renderer for collision and sleep state. The visualizer is intentionally
     separate from the normal textured model renderer so the runtime can switch between the two
     without changing production materials.
+
+    Layman version:
+      This draws what the physics system thinks the collision volumes are. It is
+      a read-only view over solver state, not an alternate collision system.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class CollisionVisualizer
 {

@@ -9,6 +9,12 @@ namespace SkullbonezCore
 {
 namespace Physics
 {
+// Terrain support classification is not the collision response itself. It is a
+// safety check for the sleep/resting layer: "is this terrain contact stable
+// enough that the body may be treated as supported?" A box can collide with
+// terrain on one corner, and the solver should still push it out, but that
+// corner contact should not let the body go to sleep as if it were lying flat.
+
 // These terrain-support constants are intentionally kept beside the classifier
 // instead of buried inside a terrain response routine. They are not Catto solver row
 // constants; they describe Skullbonez policy for deciding whether a box/terrain
@@ -59,6 +65,9 @@ struct BoxTerrainSupportClassification
 
 inline Math::Vector::Vector3 GetBoxTerrainLocalCorner( const Math::Vector::Vector3& halfExtents, int cornerIndex )
 {
+    // cornerIndex uses three bits as signs: bit 0 chooses +/-X, bit 1 chooses
+    // +/-Y, and bit 2 chooses +/-Z. This compactly enumerates all eight box
+    // corners without a table.
     return Math::Vector::Vector3( ( cornerIndex & 1 ) ? halfExtents.x : -halfExtents.x, ( cornerIndex & 2 ) ? halfExtents.y : -halfExtents.y, ( cornerIndex & 4 ) ? halfExtents.z : -halfExtents.z );
 }
 
@@ -103,6 +112,10 @@ inline float ComputeBoxTerrainBestFaceNormalDot( const Math::Transformation::Rot
 
 inline BoxTerrainVertexSupportProbe ProbeBoxTerrainVerticesImpl( const Math::CollisionDetection::BoundingBox& box, const Math::Vector::Vector3& position, const Math::Transformation::RotationMatrix& orientation, Geometry::Terrain& terrain, float contactEpsilon )
 {
+    // Sample visible box corners against the heightfield. The solver may have a
+    // contact row from the terrain plane, but sleep support needs a footprint:
+    // enough real corners close to terrain that a human would say the box is
+    // resting, not balanced on a single point.
     BoxTerrainVertexSupportProbe result;
     const Math::Vector::Vector3& halfExtents = box.GetHalfExtents();
 

@@ -22,6 +22,10 @@ using namespace SkullbonezCore::Physics;
 //   This file is Skullbonez narrowphase policy, not Catto's 2D box clipping
 //   implementation. It supplies exact sphere/sphere, closest-point sphere/OBB,
 //   and SAT plus clipped OBB/OBB contacts for the existing 3D engine.
+// LAYMAN VERSION:
+//   Broadphase has already said "these two objects are close enough to inspect."
+//   This file answers the expensive geometry question: exactly where are they
+//   touching, and which direction should the solver push to separate them?
 namespace
 {
 // ENGINE-SPECIFIC / NOVEL:
@@ -223,6 +227,9 @@ bool BuildSphereSphere( const GameModel& a,
 
 int ChooseDominantFace( const Vector3& localPoint, const Vector3& halfExtents, float& signOut )
 {
+    // When a sphere is inside or right against a box, several faces can look
+    // plausible. Choose the face whose normalized coordinate is closest to the
+    // box surface so the contact normal does not jump around frame to frame.
     float best = -FLT_MAX;
     int bestAxis = 0;
     float coords[3] = { localPoint.x, localPoint.y, localPoint.z };
@@ -325,6 +332,9 @@ bool BuildSphereBoxOrdered( const GameModel& sphereModel,
 
 float ProjectBoxRadius( const BoxWorld& box, const Vector3& axis )
 {
+    // Imagine shining a light along "axis" and measuring the box's shadow on
+    // that line. The projected radius is half the length of that shadow. SAT
+    // uses this to ask whether two box shadows overlap on every possible axis.
     return box.halfExtents.x * fabsf( box.axes[0] * axis ) +
            box.halfExtents.y * fabsf( box.axes[1] * axis ) +
            box.halfExtents.z * fabsf( box.axes[2] * axis );
@@ -456,6 +466,9 @@ int ClipPolygonAgainstPlane( const ClipVertex* input,
                              float contactSkin,
                              ClipVertex* output )
 {
+    // Keep only the portion of an incident face that lies inside one boundary
+    // plane of the reference face. Repeating this for all four side planes trims
+    // the touching face down to the actual contact patch.
     if ( inputCount <= 0 )
     {
         return 0;
@@ -654,6 +667,8 @@ bool BuildBoxFaceContact( const GameModel& aModel,
 
 uint32_t EdgeId( int edgeAxis, int sign0, int sign1 )
 {
+    // A box has four edges running in each local axis direction. The two side
+    // signs identify which of those four edges participated in an edge contact.
     int s0 = sign0 > 0 ? 1 : 0;
     int s1 = sign1 > 0 ? 1 : 0;
     return static_cast<uint32_t>( edgeAxis * 4 + s0 * 2 + s1 );
@@ -667,6 +682,9 @@ void BuildEdgeSegment( const BoxWorld& box,
                        Vector3& p1,
                        uint32_t& edgeId )
 {
+    // Build the world-space line segment for the edge most exposed in the
+    // contact direction. Edge/edge contacts need the actual two endpoints so the
+    // closest-points calculation can find the single representative touch point.
     int side0 = ( edgeAxis + 1 ) % 3;
     int side1 = ( edgeAxis + 2 ) % 3;
     int sign0 = ( box.axes[side0] * towardNormal >= 0.0f ) ? 1 : -1;
@@ -829,6 +847,10 @@ bool SkullbonezCore::Physics::BuildObjectContactManifold( const GameModel& a,
                                                           float contactSkin,
                                                           ObjectContactManifold& out )
 {
+    // Shape dispatch is intentionally explicit. The solver wants one uniform
+    // manifold shape, but the geometry needed to produce it differs a lot:
+    // sphere/sphere is center distance, sphere/box is closest point, and box/box
+    // is SAT plus face clipping or edge fallback.
     out = ObjectContactManifold();
     out.bodyA = bodyA;
     out.bodyB = bodyB;

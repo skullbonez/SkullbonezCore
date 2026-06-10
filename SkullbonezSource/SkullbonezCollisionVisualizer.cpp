@@ -163,6 +163,8 @@ void CollisionVisualizer::AppendInstance( std::vector<float>& out, const Matrix4
 
 void CollisionVisualizer::Update( float dt, GameModelCollection& models )
 {
+    // This mirrors per-frame contact/sleep state into a visual fade cache. The
+    // cache is for rendering only; the solver never reads these values back.
     // GameModelCollection records whether each object contacted another object
     // during the current physics step. This visualizer keeps a small amount of
     // temporal state so contact flashes do not disappear in a single frame.

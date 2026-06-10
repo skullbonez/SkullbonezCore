@@ -212,6 +212,9 @@ void BroadphaseVisualizer::Update( float dt, const SpatialGrid::ActiveCell* acti
         return;
     }
 
+    // The broadphase grid changes every physics tick, but a one-frame cell is
+    // hard to see. This visual tracker gives cells enter/collide/fade lifetimes
+    // purely for display, without changing pair generation.
     // Mark all existing cells as inactive for this frame
     for ( int i = 0; i < m_cellCount; ++i )
     {

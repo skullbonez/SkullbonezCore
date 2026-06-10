@@ -16,7 +16,17 @@ namespace Physics
 {
 /* -- ResponseInformation ----------------------------------------------------------------------------------------------------------------------------------------
 
-    Contains information related to collision responses
+    Contains the short-lived terrain hit information passed from terrain
+    detection to manifold creation.
+
+    Layman version:
+      - testingRay/testingPlane are the question: "if the object keeps moving,
+        does this path cross this terrain plane?"
+      - collidedRay/collidedPlane are the answer captured when a hit is found.
+      - collisionTime is the fraction of the current sweep where the hit occurs.
+
+    The shared solver does not read this struct directly. GameModel turns it
+    into TerrainContactManifold rows first, then GameModelCollection solves them.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 struct ResponseInformation
 {

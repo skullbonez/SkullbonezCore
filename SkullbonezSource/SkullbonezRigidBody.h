@@ -21,6 +21,15 @@ namespace Physics
 
     A representation for a physical objects velocity, acceleration and position acted upon by an externally applied force.
     Takes orientation, angular velocity, angular acceleration, rotational intertia and torque into account.
+
+    Layman map:
+      - Position and linear velocity say where the body is and how fast it is
+        sliding through the world.
+      - Orientation and angular velocity say how it is rotated and how fast it
+        is spinning.
+      - Mass resists sliding changes; rotational inertia resists spin changes.
+      - Forces are accumulated by the world/collision code, then integrated into
+        velocity and position by the fixed-step physics loop.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class RigidBody
 {

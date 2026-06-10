@@ -126,6 +126,9 @@ int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
 
 void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
 {
+    // The same object can overlap a cell through multiple sampled bounds during
+    // a swept insert. Before appending, scan this bucket's linked list so one
+    // object contributes at most once to a cell's candidate-pair list.
     const int64_t key = ( int64_t( ix ) * 73856093 ) ^ ( int64_t( iy ) * 19349663 ) ^ ( int64_t( iz ) * 83492791 );
     const int bi = FindOrCreate( key, (int16_t)ix, (int16_t)iy, (int16_t)iz );
     if ( bi < 0 || bi >= TABLE_SIZE )
@@ -223,6 +226,8 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
 
     if ( cellCount <= MAX_SWEPT_AABB_CELLS )
     {
+        // For normal fast movers, the swept bounding box is still small enough
+        // to insert exactly. That covers every cell touched between start and end.
         InsertBounds( index, minBounds, maxBounds );
         return;
     }
@@ -239,6 +244,9 @@ void SpatialGrid::InsertSwept( int index, const Vector3& position, const Vector3
     int steps = static_cast<int>( ceilf( distance / stepLength ) );
     steps = (std::max)( 1, (std::min)( steps, MAX_SWEPT_SAMPLE_STEPS ) );
 
+    // If the swept AABB would flood the fixed entry pool, sample along the path
+    // instead. This is conservative for projectiles without letting one extreme
+    // move consume the entire broadphase grid.
     for ( int sample = 0; sample <= steps; ++sample )
     {
         const float t = static_cast<float>( sample ) / static_cast<float>( steps );

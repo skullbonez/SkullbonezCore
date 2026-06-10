@@ -35,6 +35,12 @@ namespace GameObjects
 /* -- Game Model Collection --------------------------------------------------------------------------------------------------------------------------------------
 
     Represents a collection of game models and operations to assist in managing the collection.
+
+    Physics layman map:
+      This is the "traffic controller" for physics. Individual GameModels know
+      their own shape and motion, but the collection sees all bodies at once, so
+      it can find pairs, wake sleepers, collect terrain hits, solve contacts, and
+      decide which connected groups may sleep together.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class GameModelCollection
 {
@@ -119,11 +125,11 @@ class GameModelCollection
         float accT2 = 0.0f;             // Total friction push accumulated along tangent 2.
         bool warmStarted = false;       // True when this row reused a previous-frame cached impulse.
         bool isTerrain = false;         // True when bodyB is the static terrain sentinel.
-        bool supportsRestingPolicy = true;
-        bool inhibitsSleep = false;
-        uint8_t manifoldPointCount = 1;
+        bool supportsRestingPolicy = true; // True when this row may seed rest/sleep policy, not just collision response.
+        bool inhibitsSleep = false;        // True for edge/point terrain contacts that should keep the body awake.
+        uint8_t manifoldPointCount = 1;    // Number of points in the source manifold; used to divide impact bias.
         Vector3 terrainNormal = ZERO_VECTOR; // Surface normal; row normal is opposite because it points A -> terrain.
-        float terrainWarmStart = 0.0f;
+        float terrainWarmStart = 0.0f;        // Gravity-sized initial support impulse for stable terrain contacts.
     };
 
     // The previous frame's solution is a very good first guess for this frame.

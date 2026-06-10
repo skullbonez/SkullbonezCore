@@ -25,6 +25,12 @@ namespace Geometry
 /* -- Terrain ----------------------------------------------------------------------------------------------------------------------------------------------------
 
     Represents a texturable terrain geometry that must be loaded from a .RAW file.  Also provides information to assist with collision detection.
+
+    Layman physics map:
+      Terrain is both render mesh and collision surface. Physics code queries
+      height, normal, and plane at an X/Z location, then builds contact rows
+      against that surface. The cached collision data exists so the physics loop
+      does not rebuild triangle planes every tick.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Terrain
 {
@@ -61,8 +67,8 @@ class Terrain
   private:
     struct CachedTriangleData
     {
-        Plane m_plane;
-        Vector3 m_normal;
+        Plane m_plane;    // Plane equation for one terrain triangle.
+        Vector3 m_normal; // Cached upward normal for contact/friction directions.
     };
 
     struct CachedQuadData
