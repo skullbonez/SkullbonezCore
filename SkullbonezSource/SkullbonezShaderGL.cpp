@@ -5,6 +5,8 @@
 
 
 // --- Usings ---
+using namespace SkullbonezCore::Math::Transformation;
+using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Rendering;
 
 

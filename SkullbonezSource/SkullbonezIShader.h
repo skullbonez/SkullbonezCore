@@ -7,11 +7,6 @@
 #include "SkullbonezMatrix4.h"
 
 
-// --- Usings ---
-using namespace SkullbonezCore::Math::Vector;
-using namespace SkullbonezCore::Math::Transformation;
-
-
 namespace SkullbonezCore
 {
 namespace Rendering
@@ -30,10 +25,10 @@ class IShader
     virtual void Use() const = 0;
     virtual void SetInt( const char* name, int value ) const = 0;
     virtual void SetFloat( const char* name, float value ) const = 0;
-    virtual void SetVec3( const char* name, const Vector3& v ) const = 0;
+    virtual void SetVec3( const char* name, const Math::Vector::Vector3& v ) const = 0;
     virtual void SetVec3( const char* name, float x, float y, float z ) const = 0;
     virtual void SetVec4( const char* name, float x, float y, float z, float w ) const = 0;
-    virtual void SetMat4( const char* name, const Matrix4& mat ) const = 0;
+    virtual void SetMat4( const char* name, const Math::Transformation::Matrix4& mat ) const = 0;
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

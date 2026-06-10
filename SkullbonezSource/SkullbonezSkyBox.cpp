@@ -6,6 +6,7 @@
 
 // --- Usings ---
 using namespace SkullbonezCore::Geometry;
+using namespace SkullbonezCore::Math::Transformation;
 
 
 SkyBox::SkyBox( int m_xMin,

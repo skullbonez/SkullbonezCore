@@ -45,10 +45,10 @@ class SkyBox
     void BuildMeshes();                                                   // Build VBO meshes for each face
 
   public:
-    static SkyBox* Instance( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax ); // Request for singleton instance
-    static void Destroy();                                                                 // Destroy singleton instance
-    void Render( const Matrix4& view, const Matrix4& proj );                               // Render the sky box
-    void ResetRenderResources();                                                           // Rebuild meshes/shader after renderer reset/switch
+    static SkyBox* Instance( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax );               // Request for singleton instance
+    static void Destroy();                                                                               // Destroy singleton instance
+    void Render( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj ); // Render the sky box
+    void ResetRenderResources();                                                                         // Rebuild meshes/shader after renderer reset/switch
 };
 } // namespace Geometry
 } // namespace SkullbonezCore
