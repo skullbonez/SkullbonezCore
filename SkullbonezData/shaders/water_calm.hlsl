@@ -33,7 +33,12 @@ cbuffer Uniforms : register(b0)
     float4   uColorTint;           // Base water color (dark blue-green)
     float    uReflectionStrength;  // Reflection blend factor (0=tint, 1=mirror)
     int      uNoReflect;           // 1 = skip reflection, output flat tint
-    float2   _pad0;                // Cbuffer alignment padding
+    float    uCinematicMode;       // 1 = warm sunset response
+    float    uSunGlintStrength;
+    float3   uSunColor;
+    float4   uBasinMask;
+    float    uBasinMaskFeather;
+    float3   _pad0;
 };
 
 Texture2D    uReflectionTex : register(t1);  // Scene rendered from reflected camera
@@ -66,14 +71,37 @@ VS_OUT main_vs(VS_IN input)
 
 float4 main_ps(VS_OUT input) : SV_TARGET
 {
+    float basinMask = 1.0f;
+    if (uCinematicMode > 0.5f)
+    {
+        // Cinematic mode turns the calm water into an oval pool in the basin.
+        // Outside the oval we discard pixels so the old broad water plane does
+        // not cover the shot.
+        float2 basinOffset = (input.worldXZ - uBasinMask.xy) / max(uBasinMask.zw, float2(1.0f, 1.0f));
+        float basinDistance = length(basinOffset);
+        basinMask = 1.0f - smoothstep(max(0.0f, 1.0f - uBasinMaskFeather), 1.0f, basinDistance);
+        clip(basinMask - 0.01f);
+    }
+
     // When reflection is disabled, output flat tint to match ocean behaviour.
     if (uNoReflect != 0)
-        return uColorTint;
+        return float4(uColorTint.rgb, uColorTint.a * basinMask);
     // Projective texture mapping: clip → NDC → UV.
     float2 reflUV = (input.reflectClipPos.xy / input.reflectClipPos.w) * 0.5 + 0.5;
     reflUV.y = 1.0 - reflUV.y;  // DX texture Y-flip (top-left origin)
     // Sample undistorted reflection — perfect mirror.
     float4 reflection = uReflectionTex.Sample(sSampler1, reflUV);
-    return lerp(uColorTint, reflection, uReflectionStrength);
+    float3 waterColor = lerp(uColorTint.rgb, reflection.rgb, uReflectionStrength);
+    if (uCinematicMode > 0.5f)
+    {
+        // Add a fake sunset glint where the reflected sun column would land.
+        // This is deliberately screen/reflection-space, so it is stable and easy
+        // to tune without building a full physical water lighting model.
+        float sunColumn = pow(max(0.0f, 1.0f - abs(reflUV.x - 0.28f) * 4.6f), 3.0f);
+        float horizonLine = pow(max(0.0f, 1.0f - abs(reflUV.y - 0.54f) * 9.0f), 2.0f);
+        float glint = sunColumn * horizonLine * uSunGlintStrength;
+        waterColor = lerp(waterColor * float3(0.72f, 0.58f, 0.42f), float3(0.58f, 0.24f, 0.065f), 0.14f);
+        waterColor += uSunColor * glint;
+    }
+    return float4(waterColor, uColorTint.a * basinMask);
 }
-

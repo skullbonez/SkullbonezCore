@@ -60,6 +60,8 @@ cbuffer Uniforms : register(b0)
     float4   uLightDiffuse;     // Light diffuse color
     float4   uMaterialAmbient;  // Material ambient response
     float4   uMaterialDiffuse;  // Material diffuse response
+    float4   uCinematicTerrain; // enable, relief, basin depth, rim lift
+    float4   uCinematicBasin;   // center x/z, radius x/z
 };
 
 // Texture + sampler (equivalent to GLSL's uniform sampler2D).
@@ -84,7 +86,36 @@ struct VS_OUT
     float3 viewPos   : TEXCOORD0;       // Position in view/camera space (for lighting)
     float3 normal    : TEXCOORD1;       // Normal in view space (for lighting)
     float2 texCoord  : TEXCOORD2;       // UV passed through to pixel shader
+    float3 worldPos  : TEXCOORD3;       // World-space position for cinematic terrain shaping
 };
+
+float BasinDistance(float2 xz)
+{
+    // Normalize world x/z into an oval basin space. A return value near 0 is the
+    // basin center; near 1 is the rim. This is visual-only and does not affect
+    // CPU-side terrain collision.
+    float2 radius = max(uCinematicBasin.zw, float2(1.0f, 1.0f));
+    return length((xz - uCinematicBasin.xy) / radius);
+}
+
+float CinematicTerrainOffset(float2 xz)
+{
+    if (uCinematicTerrain.x < 0.5f || uCinematicTerrain.y <= 0.0f)
+    {
+        // Relief defaults to off. Returning 0 here means the rendered terrain
+        // matches the real terrain exactly.
+        return 0.0f;
+    }
+
+    // Visual-only morph: lower the middle of an oval basin, raise a soft rim,
+    // and add a little roughness on the slopes. Physics data is not changed.
+    float d = BasinDistance(xz);
+    float bowl = 1.0f - smoothstep(0.10f, 0.94f, d);
+    float rim = exp(-pow((d - 1.04f) * 3.1f, 2.0f));
+    float slopeTexture = smoothstep(0.32f, 0.92f, d) * (1.0f - smoothstep(1.02f, 1.55f, d));
+    float rough = (sin(xz.x * 0.045f + xz.y * 0.011f) + sin(xz.y * 0.052f - xz.x * 0.017f)) * 0.5f;
+    return uCinematicTerrain.y * (-uCinematicTerrain.z * bowl + uCinematicTerrain.w * rim + rough * 1.6f * slopeTexture);
+}
 
 // VERTEX SHADER: transform vertices and prepare lighting data.
 VS_OUT main_vs(VS_IN input)
@@ -93,17 +124,38 @@ VS_OUT main_vs(VS_IN input)
 
     // Combine Model and View into one matrix, then transform position to view space.
     float4x4 modelView = mul(uView, uModel);
-    float4 viewPos     = mul(modelView, float4(input.position, 1.0));
+    float4 worldPos    = mul(uModel, float4(input.position, 1.0));
+    worldPos.y += CinematicTerrainOffset(worldPos.xz);
+    float4 viewPos     = mul(uView, worldPos);
     // Apply perspective projection to get final screen position.
     output.position    = mul(uProjection, viewPos);
 
     // Clip distance: dot product with clip plane in WORLD space.
     // Positive = keep fragment; Negative = discard (used for water reflection clipping).
-    output.clipDist = dot(mul(uModel, float4(input.position, 1.0)), uClipPlane);
+    output.clipDist = dot(worldPos, uClipPlane);
 
     // Pass view-space position and transformed normal for per-pixel lighting.
     output.viewPos  = viewPos.xyz;
-    output.normal   = mul((float3x3)modelView, input.normal);
+    output.worldPos = worldPos.xyz;
+    if (uCinematicTerrain.x > 0.5f && uCinematicTerrain.y > 0.0f)
+    {
+        // When we visually bend the terrain, the original mesh normals no longer
+        // describe the apparent surface. Sample nearby offsets to estimate a new
+        // slope normal so lighting follows the morphed basin.
+        float eps = 8.0f;
+        float dx = CinematicTerrainOffset(worldPos.xz + float2(eps, 0.0f)) -
+                   CinematicTerrainOffset(worldPos.xz - float2(eps, 0.0f));
+        float dz = CinematicTerrainOffset(worldPos.xz + float2(0.0f, eps)) -
+                   CinematicTerrainOffset(worldPos.xz - float2(0.0f, eps));
+        float3 reliefNormal = normalize(float3(-dx, eps * 2.0f, -dz));
+        float3 baseWorldNormal = normalize(mul((float3x3)uModel, input.normal));
+        float3 worldNormal = normalize(lerp(baseWorldNormal, reliefNormal, saturate(uCinematicTerrain.y)));
+        output.normal = mul((float3x3)uView, worldNormal);
+    }
+    else
+    {
+        output.normal = mul((float3x3)modelView, input.normal);
+    }
     output.texCoord = input.texCoord;
 
     return output;
@@ -137,6 +189,38 @@ float4 main_ps(VS_OUT input) : SV_TARGET
 
     // tex.Sample() is the HLSL equivalent of GLSL's texture().
     float4 texColor = uTexture.Sample(sSampler0, input.texCoord);
+
+    if (uLightPosition.w == 0.0f)
+    {
+        // w=0 is how the C++ render path tells this shader "cinematic sun mode".
+        // The terrain then gets a warmer, more photographic grade instead of the
+        // neutral gameplay Phong lighting.
+        float warmWrap = saturate(dot(N, L) * 0.5f + 0.5f);
+        float grazing = pow(saturate(1.0f - abs(dot(N, L))), 1.5f);
+        float rim = pow(1.0f - saturate(dot(N, V)), 3.0f) * (0.25f + warmWrap * 0.75f);
+        float3 earthBase = texColor.rgb * float3(0.78f, 0.60f, 0.38f);
+        if (uCinematicTerrain.x > 0.5f)
+        {
+            // If visual terrain relief is enabled, darken the basin center and
+            // add a subtle warm lift near the rim. This helps the bowl read even
+            // before the height exaggeration slider is turned up high.
+            float relief = clamp(uCinematicTerrain.y, 0.0f, 1.5f);
+            float d = BasinDistance(input.worldPos.xz);
+            float bowlShade = (1.0f - smoothstep(0.16f, 0.88f, d)) * relief;
+            float rimShade = exp(-pow((d - 1.03f) * 3.2f, 2.0f)) * relief;
+            earthBase = lerp(earthBase, earthBase * float3(0.62f, 0.47f, 0.34f), bowlShade * 0.55f);
+            earthBase += float3(0.20f, 0.09f, 0.02f) * rimShade * 0.10f;
+        }
+        // Grade the texture into a sunset palette: brown shadow tone, orange lit
+        // tone, and a tiny ridge highlight where the view/light angle catches.
+        float3 shadowTone = earthBase * float3(0.42f, 0.28f, 0.18f);
+        float3 litTone = earthBase * float3(1.28f, 0.72f, 0.34f);
+        float3 gradedBase = lerp(shadowTone, litTone, saturate(diff * 0.85f + warmWrap * 0.12f));
+        float3 warmAmbient = gradedBase * uLightAmbient.rgb * (0.95f + max(N.y, 0.0f) * 0.35f);
+        float3 directSun = gradedBase * uLightDiffuse.rgb * (diff * 0.42f + grazing * 0.08f);
+        float3 ridgeLight = uLightDiffuse.rgb * (rim * 0.045f + spec * 0.035f);
+        return float4(warmAmbient + directSun + ridgeLight, 1.0f);
+    }
+
     return float4((ambient + diffuse) * texColor.rgb + specular, 1.0);
 }
-

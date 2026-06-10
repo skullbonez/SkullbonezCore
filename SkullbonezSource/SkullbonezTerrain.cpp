@@ -90,6 +90,8 @@ void Terrain::InitialiseTerrainShader()
     m_terrainShader->SetVec4( "uLightDiffuse", light.colorR, light.colorG, light.colorB, light.colorA );
     m_terrainShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
     m_terrainShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
+    m_terrainShader->SetVec4( "uCinematicTerrain", 0.0f, 0.0f, 0.0f, 0.0f );
+    m_terrainShader->SetVec4( "uCinematicBasin", 620.0f, 615.0f, 285.0f, 205.0f );
     m_terrainShader->SetInt( "uTexture", 0 );
 }
 
@@ -311,7 +313,7 @@ void Terrain::LoadTerrainData( const char* sFileName )
 }
 
 
-void Terrain::Render( const Matrix4& view, const Matrix4& projection, const float* lightPosition )
+void Terrain::Render( const Matrix4& view, const Matrix4& projection, const float* lightPosition, const SkullbonezCore::Basics::CinematicRenderConfig* cinematicOverride )
 {
     m_terrainShader->Use();
 
@@ -326,6 +328,42 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, const floa
     float ly = view.m[1] * lightPosition[0] + view.m[5] * lightPosition[1] + view.m[9] * lightPosition[2] + view.m[13] * lightPosition[3];
     float lz = view.m[2] * lightPosition[0] + view.m[6] * lightPosition[1] + view.m[10] * lightPosition[2] + view.m[14] * lightPosition[3];
     float lw = lightPosition[3];
+    if ( lw == 0.0f )
+    {
+        // w=0 means the render path is using a directional sun instead of the
+        // normal point light. Treat that as cinematic mode for terrain shading:
+        // warmer light, more amber material response, and optional visual relief.
+        const SkullbonezCore::Basics::CinematicRenderConfig& cinematic = cinematicOverride ? *cinematicOverride : Cfg().cinematicRender;
+        m_terrainShader->SetVec4( "uLightAmbient", 0.20f, 0.11f, 0.055f, 1.0f );
+        m_terrainShader->SetVec4( "uLightDiffuse",
+                                  cinematic.sunColorR * 1.45f,
+                                  cinematic.sunColorG * 1.45f,
+                                  cinematic.sunColorB * 1.45f,
+                                  1.0f );
+        m_terrainShader->SetVec4( "uMaterialAmbient", 0.34f, 0.28f, 0.20f, 1.0f );
+        m_terrainShader->SetVec4( "uMaterialDiffuse", 0.74f, 0.62f, 0.42f, 1.0f );
+
+        // These uniforms are read by the terrain vertex/fragment shaders. The
+        // relief value is a visual morph slider only: it changes rendered vertex
+        // height and lighting normals on the GPU, but it does not move the CPU
+        // collision terrain or the balls sitting on it.
+        m_terrainShader->SetVec4( "uCinematicTerrain",
+                                  cinematic.terrainReliefEnabled ? 1.0f : 0.0f,
+                                  cinematic.terrainRelief,
+                                  cinematic.basinDepth,
+                                  cinematic.basinRimLift );
+        m_terrainShader->SetVec4( "uCinematicBasin", 620.0f, 615.0f, 285.0f, 205.0f );
+    }
+    else
+    {
+        const auto& light = Cfg().sceneLight;
+        m_terrainShader->SetVec4( "uLightAmbient", light.colorR, light.colorG, light.colorB, light.colorA );
+        m_terrainShader->SetVec4( "uLightDiffuse", light.colorR, light.colorG, light.colorB, light.colorA );
+        m_terrainShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
+        m_terrainShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
+        m_terrainShader->SetVec4( "uCinematicTerrain", 0.0f, 0.0f, 0.0f, 0.0f );
+        m_terrainShader->SetVec4( "uCinematicBasin", 620.0f, 615.0f, 285.0f, 205.0f );
+    }
     m_terrainShader->SetVec4( "uLightPosition", lx, ly, lz, lw );
 
     m_terrainMesh->Draw();

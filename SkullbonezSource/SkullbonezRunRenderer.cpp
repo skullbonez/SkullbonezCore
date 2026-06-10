@@ -67,6 +67,7 @@ void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
         m_systems.reflectionFBO->ResetResources();
         m_systems.reflectionFBO.reset();
     }
+    ResetCinematicRenderResources();
     Text2d::DeleteFont();
     m_cGameModelCollection.ResetGLResources();
     SkullbonezHelper::ResetGLResources();
@@ -215,6 +216,7 @@ void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
     int fboW = Gfx().GetWidth() * 2;
     int fboH = Gfx().GetHeight() * 2;
     m_systems.reflectionFBO = Gfx().CreateFramebuffer( fboW, fboH );
+    EnsureCinematicRenderResources();
 
     Text2d::BuildFont( "Verdana" );
 

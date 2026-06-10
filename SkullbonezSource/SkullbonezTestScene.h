@@ -3,6 +3,7 @@
 
 // --- Includes ---
 #include "SkullbonezCommon.h"
+#include "SkullbonezConfig.h"
 #include "SkullbonezPhysicsDebugVisualizer.h"
 #include "SkullbonezVector3.h"
 #include <vector>
@@ -68,6 +69,59 @@ struct SceneBox
     bool isFixed;
 };
 
+enum SceneCinematicOverrideBits : uint64_t
+{
+    // Scene files may specify any subset of cinematic_* directives. Each bit says
+    // "this exact field was authored in the scene." That lets the loader merge
+    // scene-specific values over engine.cfg without wiping unspecified defaults.
+    SCENE_CINE_RENDERING = 1ull << 0,
+    SCENE_CINE_SKY_ATMOSPHERE = 1ull << 1,
+    SCENE_CINE_CLOUDS = 1ull << 2,
+    SCENE_CINE_GOD_RAYS = 1ull << 3,
+    SCENE_CINE_VOLUMETRIC_LIGHTING = 1ull << 4,
+    SCENE_CINE_BLOOM = 1ull << 5,
+    SCENE_CINE_FOG = 1ull << 6,
+    SCENE_CINE_TERRAIN_RELIEF_ENABLED = 1ull << 7,
+    SCENE_CINE_EXPOSURE = 1ull << 8,
+    SCENE_CINE_GAMMA = 1ull << 9,
+    SCENE_CINE_SUN_SCREEN_X = 1ull << 10,
+    SCENE_CINE_SUN_SCREEN_Y = 1ull << 11,
+    SCENE_CINE_SUN_COLOR_R = 1ull << 12,
+    SCENE_CINE_SUN_COLOR_G = 1ull << 13,
+    SCENE_CINE_SUN_COLOR_B = 1ull << 14,
+    SCENE_CINE_SUN_INTENSITY = 1ull << 15,
+    SCENE_CINE_SKY_HORIZON_R = 1ull << 16,
+    SCENE_CINE_SKY_HORIZON_G = 1ull << 17,
+    SCENE_CINE_SKY_HORIZON_B = 1ull << 18,
+    SCENE_CINE_SKY_ZENITH_R = 1ull << 19,
+    SCENE_CINE_SKY_ZENITH_G = 1ull << 20,
+    SCENE_CINE_SKY_ZENITH_B = 1ull << 21,
+    SCENE_CINE_SKY_GLOW_STRENGTH = 1ull << 22,
+    SCENE_CINE_CLOUD_COVERAGE = 1ull << 23,
+    SCENE_CINE_CLOUD_SOFTNESS = 1ull << 24,
+    SCENE_CINE_CLOUD_SCALE = 1ull << 25,
+    SCENE_CINE_CLOUD_INTENSITY = 1ull << 26,
+    SCENE_CINE_SUN_SHAFT_STRENGTH = 1ull << 27,
+    SCENE_CINE_SUN_SHAFT_FALLOFF = 1ull << 28,
+    SCENE_CINE_VOLUMETRIC_STRENGTH = 1ull << 29,
+    SCENE_CINE_VOLUMETRIC_DENSITY = 1ull << 30,
+    SCENE_CINE_VOLUMETRIC_DECAY = 1ull << 31,
+    SCENE_CINE_BLOOM_THRESHOLD = 1ull << 32,
+    SCENE_CINE_BLOOM_KNEE = 1ull << 33,
+    SCENE_CINE_BLOOM_STRENGTH = 1ull << 34,
+    SCENE_CINE_BLOOM_RADIUS = 1ull << 35,
+    SCENE_CINE_TERRAIN_RELIEF = 1ull << 36,
+    SCENE_CINE_BASIN_DEPTH = 1ull << 37,
+    SCENE_CINE_BASIN_RIM_LIFT = 1ull << 38,
+    SCENE_CINE_FOG_COLOR_R = 1ull << 39,
+    SCENE_CINE_FOG_COLOR_G = 1ull << 40,
+    SCENE_CINE_FOG_COLOR_B = 1ull << 41,
+    SCENE_CINE_FOG_START = 1ull << 42,
+    SCENE_CINE_FOG_END = 1ull << 43,
+    SCENE_CINE_FOG_DENSITY = 1ull << 44,
+    SCENE_CINE_FOG_MAX_OPACITY = 1ull << 45,
+};
+
 struct SceneOptions
 {
     bool isPhysicsEnabled = true;
@@ -94,6 +148,14 @@ struct SceneOptions
     int waterReflectionMode = 0;                              // 0=FBO, 1=DXR, 2=None
     bool waterHidden = false;                                 // Suppress water rendering (for clean texture comparison)
     bool terrainHidden = false;                               // Suppress terrain rendering
+    bool hasCinematicRenderingOverride = false;               // Scene explicitly toggles cinematic HDR/post rendering
+    bool cinematicRendering = false;                          // Cinematic HDR/post rendering scene override
+    bool hasCinematicExposure = false;                        // Scene explicitly sets tonemap exposure
+    float cinematicExposure = 1.0f;                           // Scene tonemap exposure
+    bool hasCinematicGamma = false;                           // Scene explicitly sets output gamma
+    float cinematicGamma = 2.2f;                              // Scene output gamma
+    uint64_t cinematicOverrideMask = 0;                       // Per-field overrides from cinematic_* directives
+    CinematicRenderConfig cinematicRender;                    // Scene-authored cinematic values for overridden fields
 };
 
 struct SceneCaptureOptions
@@ -247,6 +309,14 @@ class TestScene
     int GetWaterReflectionMode() const;
     bool IsWaterHidden() const;
     bool IsTerrainHidden() const;
+    bool HasCinematicRenderingOverride() const;
+    bool IsCinematicRenderingEnabled() const;
+    bool HasCinematicExposure() const;
+    float GetCinematicExposure() const;
+    bool HasCinematicGamma() const;
+    float GetCinematicGamma() const;
+    uint64_t GetCinematicOverrideMask() const;
+    const CinematicRenderConfig& GetCinematicRenderConfig() const;
     bool HasFlatSlope() const; // True when scene specifies flat analytic slope terrain
     float GetFlatBaseY() const;
     float GetFlatSlopeX() const;

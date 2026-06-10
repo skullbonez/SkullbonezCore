@@ -18,6 +18,8 @@ This file holds details that are useful during debugging or manual testing but t
 | `--seed` | positive integer | Override the RNG seed for every loaded scene, including generated demo mode. Useful with nudge repro snapshots. |
 | `--no-water` | flag | Start the fluid surface below the active terrain. Page Up can raise it during runtime. |
 | `--no-sleep` | flag | Keep movable physics bodies awake for solver diagnostics and sleep/no-sleep performance comparisons. |
+| `--cinematic` | optional `on`, `off` | Force cinematic HDR/post rendering on or off for every loaded scene. Bare flag means `on`. Alias: `--cinematic-rendering`. |
+| `--interactive` | optional `on`, `off` | Keep scene automation from quitting the app so a screenshot/validation scene can be inspected live. Bare flag means `on`. Alias: `--hold`. |
 | `--profiler` | flag | Start with the timer/profiler HUD visible. Alias: `--show-profiler`. |
 | `--hide-top-text` | flag | Hide the always-on top HUD rows while leaving profiler/key overlays available. Alias: `--no-top-text`. |
 | `--broadphase-visualizer` | flag | Start with the broadphase spatial grid visualizer enabled. Alias: `--broadphase-overlay`. |
@@ -37,6 +39,37 @@ This file holds details that are useful during debugging or manual testing but t
 | `--gen-atlas` | optional path | Generate the SDF font atlas and exit before GPU init. |
 
 Physics debug command-line arguments also accept underscore spellings matching scene directives, for example `--physics_debug all` and `--physics_debug_contact_linger 0.75`.
+
+## Cinematic Rendering
+
+Launch the authored cinematic look-dev scene with:
+
+```bat
+Profile\SKULLBONEZ_CORE.exe --renderer gl --scene SkullbonezData\scenes\cinematic_volumetric.scene --cinematic --hold
+```
+
+The in-game UI has a `Cine` tab with feature toggles and sliders. Feature toggles are backed by `engine.cfg` keys:
+
+| Key | Description |
+|-----|-------------|
+| `cinematic_sky_atmosphere` | Use the procedural sunset sky instead of the legacy skybox while cinematic mode is active. |
+| `cinematic_clouds` | Enable procedural cloud silhouettes and their ray-occlusion mask. |
+| `cinematic_god_rays` | Enable screen-space sun shafts and radial god rays. |
+| `cinematic_volumetric_lighting` | Enable the half-resolution volumetric light accumulation pass. |
+| `cinematic_bloom` | Enable tonemap-stage bloom sampling. |
+| `cinematic_fog` | Enable depth fog and basin haze in the tonemap pass. |
+| `cinematic_terrain_relief_enabled` | Enable render-only cinematic basin relief on terrain. Physics terrain is unchanged. |
+
+Scene files may override any `cinematic_*` key with the same spelling and a space-separated value, for example:
+
+```text
+cinematic_rendering on
+cinematic_clouds off
+cinematic_bloom_strength 0.30
+cinematic_exposure 0.85
+```
+
+Scene overrides are merged into a per-run active cinematic config. They do not write back to `engine.cfg`, and `--cinematic on/off` remains the top-level command-line override for the rendering stack.
 
 ## Scene Directives
 

@@ -94,11 +94,11 @@ class GameModel
     // Authoritative collision shape. Broadphase may use cached radii for speed,
     // but narrowphase and solver-row setup come back to this variant so boxes,
     // spheres, and future shapes can each provide their real contact geometry.
-    CollisionShape m_boundingVolume;                    // Bounding volume (variant, inline)
-    BallPhysicsCache m_ballPhysics;                     // Immutable per-ball physics cache for hot loops
-    RigidBody m_physicsInfo;                            // Physics information for the game object
-    Environment::WorldEnvironment* m_worldEnvironment;  // Pointer to the world environment settings
-    Geometry::Terrain* m_terrain;                       // Pointer to the world m_terrain
+    CollisionShape m_boundingVolume;                   // Bounding volume (variant, inline)
+    BallPhysicsCache m_ballPhysics;                    // Immutable per-ball physics cache for hot loops
+    RigidBody m_physicsInfo;                           // Physics information for the game object
+    Environment::WorldEnvironment* m_worldEnvironment; // Pointer to the world environment settings
+    Geometry::Terrain* m_terrain;                      // Pointer to the world m_terrain
     // Temporary terrain-hit mailbox. CollisionDetectTerrain writes where and
     // when a terrain hit happened; BuildTerrainContactManifold reads it and
     // converts it into solver-neutral contact points. It is not the solver.

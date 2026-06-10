@@ -518,6 +518,9 @@ struct ParsedArgs
     unsigned int seedOverride = 0; // 0 = not set
     bool noWater = false;
     bool noSleep = false;
+    bool hasCinematicRenderingOverride = false;
+    bool cinematicRendering = false;
+    bool interactiveRun = false;
     int frameCountOverride = -1;
     bool sceneLoadOnly = false;
     bool uiStress = false;
@@ -1112,6 +1115,35 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
         fprintf( stdout, "[time-scale] Override: %.4f\n", ts );
     }
 
+    const char* cinematicArg = FindOptionValue( commandLine, "--cinematic", "--cinematic-rendering" );
+    if ( cinematicArg )
+    {
+        bool enabled = false;
+        if ( !ParseOptionalOnOffValue( cinematicArg, enabled ) )
+        {
+            return FailCommandLineParse( "--cinematic expects optional on|off." );
+        }
+        out.hasCinematicRenderingOverride = true;
+        out.cinematicRendering = enabled;
+        fprintf( stdout, "[cinematic] Rendering %s via command line.\n", enabled ? "enabled" : "disabled" );
+    }
+
+    const char* interactiveArg = FindOptionValue( commandLine, "--interactive", "--hold" );
+    if ( interactiveArg )
+    {
+        bool enabled = false;
+        if ( !ParseOptionalOnOffValue( interactiveArg, enabled ) )
+        {
+            return FailCommandLineParse( "--interactive expects optional on|off." );
+        }
+        out.interactiveRun = enabled;
+        out.suppressExitDialog = out.suppressExitDialog || enabled;
+        if ( enabled )
+        {
+            fprintf( stdout, "[scene] Interactive hold enabled; scene automation will not quit the app.\n" );
+        }
+    }
+
     ApplyCliFlagDirectives( commandLine, out );
 
 #ifdef _DEBUG
@@ -1291,6 +1323,14 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         if ( args.noSleep )
         {
             cRun.SetNoSleepOverride();
+        }
+        if ( args.hasCinematicRenderingOverride )
+        {
+            cRun.SetCinematicRenderingOverride( args.cinematicRendering );
+        }
+        if ( args.interactiveRun )
+        {
+            cRun.SetInteractiveRunOverride();
         }
         if ( args.frameCountOverride > 0 )
         {

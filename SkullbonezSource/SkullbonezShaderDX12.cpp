@@ -94,8 +94,9 @@ bool ShaderDX12::Compile( const char* hlslPath )
         errors->Release();
     }
 
-    // Reflect VS cbuffer
+    // Reflect both stages so PS-only post/sky uniforms are visible to SetFloat/SetVec*.
     ReflectCB( m_vsBlob );
+    ReflectCB( m_psBlob );
 
     return true;
 }

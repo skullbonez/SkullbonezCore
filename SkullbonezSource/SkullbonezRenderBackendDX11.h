@@ -240,7 +240,7 @@ class RenderBackendDX11 : public IRenderBackend
 
     std::unique_ptr<IShader> CreateShader( const char* baseName ) override;
     std::unique_ptr<IMesh> CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords ) override;
-    std::unique_ptr<IFramebuffer> CreateFramebuffer( int width, int height ) override;
+    std::unique_ptr<IFramebuffer> CreateFramebuffer( int width, int height, FramebufferColorFormat colorFormat = FramebufferColorFormat::RGBA8 ) override;
 
     uint32_t CreateTexture2D( const uint8_t* data, int w, int h, int channels, bool generateMips, bool linearFilter ) override;
     void BindTexture( uint32_t handle, int slot ) override;

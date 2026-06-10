@@ -87,7 +87,35 @@ VS_OUT main_vs(VS_IN input)
     return output;
 }
 
-// Pixel shader is identical to the non-instanced version (same Phong lighting).
+// Cinematic scenes use a procedural beach-ball color so the red/yellow panels stay crisp.
+float3 ProceduralBeachBallColor(float2 uv)
+{
+    // The original source texture is intentionally low-res, which becomes blurry
+    // when a ball is close to the camera. In cinematic mode we still use the mesh
+    // UVs, but we choose the red/yellow color in shader math so the edges stay
+    // razor crisp at any resolution.
+    uv = frac(uv);
+
+    // uv.x is the wrap around the object. Multiplying by 2 creates two vertical
+    // panels around the circumference. uv.y chooses the top/bottom half, and the
+    // hemisphere offset flips the color order so the total object reads as two
+    // red panels and two yellow panels, not a repeated 4-and-4 pattern.
+    float longitudePanel = floor(uv.x * 2.0f);
+    float hemisphere = step(0.5f, uv.y);
+    float redPanel = fmod(longitudePanel + hemisphere, 2.0f);
+    float3 yellow = float3(1.0f, 0.78f, 0.0f);
+    float3 red = float3(0.96f, 0.06f, 0.0f);
+    float3 color = lerp(yellow, red, redPanel);
+
+    // Add a narrow warm seam on panel borders. It is still generated from UVs,
+    // so it stays sharp and does not depend on the texture image resolution.
+    float panelCoord = frac(uv.x * 2.0f);
+    float seamU = min(panelCoord, 1.0f - panelCoord);
+    float seamV = abs(uv.y - 0.5f);
+    float seam = 1.0f - smoothstep(0.0f, 0.014f, min(seamU, seamV));
+    return lerp(color, float3(1.0f, 0.62f, 0.02f), seam * 0.28f);
+}
+
 float4 main_ps(VS_OUT input) : SV_TARGET
 {
     float3 N = normalize(input.normal);
@@ -109,7 +137,30 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float3 specular = uLightDiffuse.rgb * spec * 0.1;
 
     float4 texColor = uTexture.Sample(sSampler0, input.texCoord);
+    bool cinematicMode = uLightPosition.w == 0.0f;
+    if (uLightPosition.w == 0.0f)
+    {
+        // Directional light means cinematic sun mode, so replace the sampled
+        // texture with the procedural red/yellow panel color described above.
+        texColor.rgb = ProceduralBeachBallColor(input.texCoord);
+    }
     float3 materialColor = lerp(texColor.rgb * input.tint.rgb, input.tint.rgb, saturate(input.tint.a));
+
+    if (cinematicMode)
+    {
+        // The cinematic ball lighting is warmer and softer than the normal Phong
+        // path: wrap light fills the shadow side, rim light outlines the silhouette,
+        // and glint gives glossy sunset highlights.
+        float warmWrap = saturate(dot(N, L) * 0.5f + 0.5f);
+        float rim = pow(1.0f - saturate(dot(N, V)), 2.25f) * (0.35f + warmWrap * 0.65f);
+        float glint = pow(max(dot(V, R), 0.0f), 96.0f);
+        float3 warmAmbient = materialColor * uLightAmbient.rgb * 1.15f;
+        float3 directSun = materialColor * uLightDiffuse.rgb * (diff * 0.62f + warmWrap * 0.18f);
+        float3 rimLight = uLightDiffuse.rgb * rim * 0.18f;
+        float3 specularSun = uLightDiffuse.rgb * glint * 0.24f;
+        return float4(warmAmbient + directSun + rimLight + specularSun, 1.0f);
+    }
+
     float3 litColor = (ambient + diffuse) * materialColor + specular;
     return float4(litColor, 1.0);
 }

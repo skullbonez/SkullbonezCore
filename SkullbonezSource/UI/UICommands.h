@@ -7,6 +7,66 @@ namespace SkullbonezCore
 namespace UI
 {
 
+enum class UICinematicParam
+{
+    // Each enum value maps one Cine-tab slider to one CinematicRenderConfig field.
+    // The run loop receives this id, clamps the value, and applies it live.
+    None = -1,
+    Exposure,
+    Gamma,
+    SunX,
+    SunY,
+    SunBrightness,
+    SunRed,
+    SunGreen,
+    SunBlue,
+    SkyGlow,
+    HorizonRed,
+    HorizonGreen,
+    HorizonBlue,
+    ZenithRed,
+    ZenithGreen,
+    ZenithBlue,
+    CloudCoverage,
+    CloudSoftness,
+    CloudScale,
+    CloudIntensity,
+    ShaftStrength,
+    ShaftFalloff,
+    VolumetricStrength,
+    VolumetricDensity,
+    VolumetricDecay,
+    BloomThreshold,
+    BloomKnee,
+    BloomStrength,
+    BloomRadius,
+    TerrainRelief,
+    BasinDepth,
+    BasinRimLift,
+    FogDensity,
+    FogOpacity,
+    FogStart,
+    FogEnd,
+    FogRed,
+    FogGreen,
+    FogBlue,
+    Count
+};
+
+enum class UICinematicFeature
+{
+    // Each enum value maps one Cine-tab toggle to a render pass or visual feature.
+    None = -1,
+    Sky,
+    Clouds,
+    GodRays,
+    VolumetricLight,
+    Bloom,
+    Fog,
+    TerrainRelief,
+    Count
+};
+
 struct UIOnlyCommands
 {
     bool userInteracted = false;
@@ -71,6 +131,16 @@ struct UIRunCommands
     int requestedSolverBoxCount = -1;
 };
 
+struct UICinematicCommands
+{
+    // UI output for one frame. These are requests, not state: the render loop
+    // consumes them and mutates the real CinematicRenderConfig.
+    bool toggleRendering = false;
+    UICinematicFeature requestedFeature = UICinematicFeature::None;
+    UICinematicParam requestedParam = UICinematicParam::None;
+    float requestedValue = 0.0f;
+};
+
 struct InGameUICommands
 {
     UIOnlyCommands ui;
@@ -80,6 +150,7 @@ struct InGameUICommands
     UISceneOptionCommands sceneOptions;
     UIWaterCommands water;
     UIRunCommands run;
+    UICinematicCommands cinematic;
 };
 
 struct InGameUIInputResult

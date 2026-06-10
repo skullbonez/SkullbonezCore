@@ -1,0 +1,27 @@
+# UI cinematic override capture: verifies scene-authored Cine values reach the UI.
+seed 4242
+physics off
+text on
+vsync off
+pipeline_sync on
+fixed_step
+water_hidden off
+terrain_hidden on
+cinematic_rendering on
+cinematic_clouds off
+cinematic_bloom off
+cinematic_fog off
+cinematic_exposure 1.42
+cinematic_gamma 1.80
+cinematic_sun_screen_x 0.420
+frames 24
+ui tab cine
+ui rect 34 56 860 620
+ui blur on
+ui renderer_combo closed
+ui profiler_expand none
+ui mouse 120 300
+ui_test_pattern on
+screenshot Profile/ui_cinematic_overrides.bmp frame 20
+
+camera main 500 60 650  600 33 600  0 1 0

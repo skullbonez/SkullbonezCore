@@ -3,6 +3,7 @@
 
 // --- Includes ---
 #include "SkullbonezCommon.h"
+#include "SkullbonezConfig.h"
 #include "SkullbonezGameModel.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezMatrix4.h"
@@ -58,16 +59,16 @@ class WorldEnvironment
     WorldEnvironment( WorldEnvironment&& ) noexcept = default;                                             // Move constructor
     WorldEnvironment& operator=( WorldEnvironment&& ) noexcept = default;                                  // Move assignment
 
-    void SetTerrainBounds( float xMin, float xMax, float zMin, float zMax );                                                                                                    // Must be called before first render; drives calm/ocean mesh split
-    void RenderFluid( const Matrix4& view, const Matrix4& proj, const Matrix4& reflectVP, float time, uint32_t reflectionTex, bool flatWater = false, bool noReflect = false ); // Renders the water in the scene
-    void ResetGLResources();                                                                                                                                                    // Rebuilds GPU resources after GL context recreation
-    float GetFluidSurfaceHeight();                                                                                                                                              // Returns the fluid surface height
-    void SetFluidSurfaceHeight( float height );                                                                                                                                 // Sets the fluid surface height
-    float GetGravity() const;                                                                                                                                                   // Returns the gravity value (m/s^2)
-    void SetGravity( float gravity );                                                                                                                                           // Sets the gravity value (m/s^2)
-    float GetFluidDensity() const;                                                                                                                                              // Returns the fluid density (kg/m^3)
-    void SetFluidDensity( float density );                                                                                                                                      // Sets the fluid density (kg/m^3)
-    void AddWorldForces( GameObjects::GameModel& target, float changeInTime );                                                                                                  // Adds world forces to the referenced game model
+    void SetTerrainBounds( float xMin, float xMax, float zMin, float zMax );                                                                                                                                                                                            // Must be called before first render; drives calm/ocean mesh split
+    void RenderFluid( const Matrix4& view, const Matrix4& proj, const Matrix4& reflectVP, float time, uint32_t reflectionTex, bool flatWater = false, bool noReflect = false, bool cinematic = false, const Basics::CinematicRenderConfig* cinematicConfig = nullptr ); // Renders the water in the scene
+    void ResetGLResources();                                                                                                                                                                                                                                            // Rebuilds GPU resources after GL context recreation
+    float GetFluidSurfaceHeight();                                                                                                                                                                                                                                      // Returns the fluid surface height
+    void SetFluidSurfaceHeight( float height );                                                                                                                                                                                                                         // Sets the fluid surface height
+    float GetGravity() const;                                                                                                                                                                                                                                           // Returns the gravity value (m/s^2)
+    void SetGravity( float gravity );                                                                                                                                                                                                                                   // Sets the gravity value (m/s^2)
+    float GetFluidDensity() const;                                                                                                                                                                                                                                      // Returns the fluid density (kg/m^3)
+    void SetFluidDensity( float density );                                                                                                                                                                                                                              // Sets the fluid density (kg/m^3)
+    void AddWorldForces( GameObjects::GameModel& target, float changeInTime );                                                                                                                                                                                          // Adds world forces to the referenced game model
 
   private:
     float m_fluidSurfaceHeight; // World-space Y of the fluid surface (m).  Objects below this are submerged

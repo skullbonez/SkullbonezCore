@@ -1009,9 +1009,9 @@ std::unique_ptr<IMesh> RenderBackendDX11::CreateMesh( const float* data, int ver
 }
 
 
-std::unique_ptr<IFramebuffer> RenderBackendDX11::CreateFramebuffer( int width, int height )
+std::unique_ptr<IFramebuffer> RenderBackendDX11::CreateFramebuffer( int width, int height, FramebufferColorFormat colorFormat )
 {
-    auto fbo = std::make_unique<FramebufferDX11>( this, m_device, m_context );
+    auto fbo = std::make_unique<FramebufferDX11>( this, m_device, m_context, colorFormat );
     fbo->Create( width, height );
     return fbo;
 }

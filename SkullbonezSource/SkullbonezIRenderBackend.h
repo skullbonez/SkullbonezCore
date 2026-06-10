@@ -93,7 +93,10 @@ class IRenderBackend
     // Each backend resolves the full path and appends the appropriate extension(s).
     virtual std::unique_ptr<IShader> CreateShader( const char* baseName ) = 0;
     virtual std::unique_ptr<IMesh> CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords ) = 0;
-    virtual std::unique_ptr<IFramebuffer> CreateFramebuffer( int width, int height ) = 0;
+    // colorFormat defaults to ordinary RGBA8 for existing reflection buffers.
+    // Cinematic rendering asks for RGBA16F so the off-screen scene can hold
+    // over-bright sunlight/bloom data before the final tonemap pass.
+    virtual std::unique_ptr<IFramebuffer> CreateFramebuffer( int width, int height, FramebufferColorFormat colorFormat = FramebufferColorFormat::RGBA8 ) = 0;
 
 
     // --- Textures (opaque uint32_t handles) ---

@@ -69,7 +69,7 @@ class SpatialGrid
         uint32_t generation; // Current frame stamp; old stamps behave as empty.
         int head;            // Linked-list head in entries[], -1 = empty.
         int count;           // Number of object entries in this cell.
-        int16_t ix, iy, iz; // Cell grid coordinates (stored for visualization)
+        int16_t ix, iy, iz;  // Cell grid coordinates (stored for visualization)
     };
 
     float cellSize;

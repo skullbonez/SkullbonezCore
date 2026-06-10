@@ -204,6 +204,67 @@ inline const char* WaterReflectionDirectiveValue( bool noReflect, bool rtReflect
     return rtReflect ? "dxr" : "fbo";
 }
 
+inline void ApplyCinematicSceneOverrides( CinematicRenderConfig& target, uint64_t mask, const CinematicRenderConfig& source )
+{
+    // Scene files do not have to specify every cinematic value. The mask says
+    // which fields were actually present, so loading a scene only replaces those
+    // values and keeps all other defaults from engine.cfg.
+#define APPLY_CINEMATIC_OVERRIDE( bit, field ) \
+    if ( ( mask & ( bit ) ) != 0 )             \
+    {                                          \
+        target.field = source.field;           \
+    }
+
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_RENDERING, enabled )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_ATMOSPHERE, skyAtmosphereEnabled )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_CLOUDS, cloudsEnabled )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_GOD_RAYS, godRaysEnabled )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_VOLUMETRIC_LIGHTING, volumetricLightingEnabled )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BLOOM, bloomEnabled )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG, fogEnabled )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_RELIEF_ENABLED, terrainReliefEnabled )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_EXPOSURE, exposure )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_GAMMA, gamma )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_SCREEN_X, sunScreenX )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_SCREEN_Y, sunScreenY )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_COLOR_R, sunColorR )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_COLOR_G, sunColorG )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_COLOR_B, sunColorB )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_INTENSITY, sunIntensity )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_HORIZON_R, skyHorizonR )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_HORIZON_G, skyHorizonG )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_HORIZON_B, skyHorizonB )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_ZENITH_R, skyZenithR )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_ZENITH_G, skyZenithG )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_ZENITH_B, skyZenithB )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SKY_GLOW_STRENGTH, skyGlowStrength )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_CLOUD_COVERAGE, cloudCoverage )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_CLOUD_SOFTNESS, cloudSoftness )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_CLOUD_SCALE, cloudScale )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_CLOUD_INTENSITY, cloudIntensity )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_SHAFT_STRENGTH, sunShaftStrength )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_SUN_SHAFT_FALLOFF, sunShaftFalloff )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_VOLUMETRIC_STRENGTH, volumetricStrength )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_VOLUMETRIC_DENSITY, volumetricDensity )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_VOLUMETRIC_DECAY, volumetricDecay )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BLOOM_THRESHOLD, bloomThreshold )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BLOOM_KNEE, bloomKnee )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BLOOM_STRENGTH, bloomStrength )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BLOOM_RADIUS, bloomRadius )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_RELIEF, terrainRelief )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_DEPTH, basinDepth )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_RIM_LIFT, basinRimLift )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_COLOR_R, fogColorR )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_COLOR_G, fogColorG )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_COLOR_B, fogColorB )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_START, fogStart )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_END, fogEnd )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_DENSITY, fogDensity )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_MAX_OPACITY, fogMaxOpacity )
+
+#undef APPLY_CINEMATIC_OVERRIDE
+}
+
 inline const char* FileNameFromPath( const char* path )
 {
     if ( !path )
@@ -263,6 +324,14 @@ struct SceneRuntimeResetSnapshot
     float worldGravity = 0.0f;          // Live world/environment sliders
     float worldFluidHeight = 0.0f;
     float worldFluidDensity = 0.0f;
+    bool hasCinematicRenderingOverride = false;
+    bool isCinematicRenderingEnabled = false;
+    bool hasCinematicExposure = false;
+    float cinematicExposure = 1.0f;
+    bool hasCinematicGamma = false;
+    float cinematicGamma = 2.2f;
+    uint64_t cinematicOverrideMask = 0;
+    CinematicRenderConfig cinematicRender;
     float uiTimeScaleOverride = 0.0f; // UI overrides feed object setup during reload, so they must survive before the scene rebuilds
     int uiModelCountOverride = -1;
     int uiSolverBallCountOverride = -1;

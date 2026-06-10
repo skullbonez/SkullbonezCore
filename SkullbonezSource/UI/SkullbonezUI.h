@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../SkullbonezCommon.h"
+#include "../SkullbonezConfig.h"
 #include "UIButton.h"
 #include "UICheckBox.h"
 #include "UIComboBox.h"
@@ -30,6 +31,7 @@ enum class InGameUITab
     Physics,
     Options,
     Keys,
+    Cinematic,
     Count
 };
 
@@ -96,6 +98,8 @@ struct InGameUIFrameData
     bool cameraMouseActive = false;
     bool nativeCursorVisible = false;
     bool canSaveSceneDefaults = false;
+    bool cinematicRendering = false;
+    Basics::CinematicRenderConfig cinematic;
 };
 
 class InGameUI
@@ -147,6 +151,9 @@ class InGameUI
     UIComboBox m_rendererCombo;
     UIComboBox m_reflectionCombo;
     UIComboBox m_sceneCombo;
+    UICheckBox m_cinematicMasterToggle;
+    UICheckBox m_cinematicFeatureToggles[static_cast<int>( UICinematicFeature::Count )];
+    UISlider m_cinematicSliders[static_cast<int>( UICinematicParam::Count )];
     UIBackdropBlur m_backdropBlur;
     UICacheState m_cache;
     UIScrollBar m_scrollBar;

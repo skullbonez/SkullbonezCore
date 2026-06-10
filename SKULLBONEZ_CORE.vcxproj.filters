@@ -682,6 +682,33 @@
     <None Include="SkullbonezData\shaders\lit_textured_instanced.hlsl">
       <Filter>Resource Files\DirectX</Filter>
     </None>
+    <None Include="SkullbonezData\shaders\post_volumetric_light.frag">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\post_volumetric_light.hlsl">
+      <Filter>Resource Files\DirectX</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\post_volumetric_light.vert">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\post_tonemap.frag">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\post_tonemap.hlsl">
+      <Filter>Resource Files\DirectX</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\post_tonemap.vert">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\sky_atmosphere.frag">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\sky_atmosphere.hlsl">
+      <Filter>Resource Files\DirectX</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\sky_atmosphere.vert">
+      <Filter>Resource Files\OpenGL</Filter>
+    </None>
     <None Include="SkullbonezData\scenes\at_rest.scene">
       <Filter>Scene Files</Filter>
     </None>
@@ -707,6 +734,15 @@
       <Filter>Scene Files</Filter>
     </None>
     <None Include="SkullbonezData\scenes\cardinal_roll_test.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\cinematic_volumetric.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\ui_cinematic_controls.scene">
+      <Filter>Scene Files</Filter>
+    </None>
+    <None Include="SkullbonezData\scenes\ui_cinematic_overrides.scene">
       <Filter>Scene Files</Filter>
     </None>
     <None Include="SkullbonezData\scenes\collision_demo.sUIte">
