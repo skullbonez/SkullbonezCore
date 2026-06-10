@@ -20,22 +20,12 @@ using Microsoft::WRL::ComPtr;
 
 
 ShaderDX12::ShaderDX12()
-    : m_vsBlob( nullptr ), m_psBlob( nullptr ), m_cbSize( 0 ), m_cbDirty( false )
+    : m_cbSize( 0 ), m_cbDirty( false )
 {
 }
 
 
-ShaderDX12::~ShaderDX12()
-{
-    if ( m_vsBlob )
-    {
-        m_vsBlob->Release();
-    }
-    if ( m_psBlob )
-    {
-        m_psBlob->Release();
-    }
-}
+ShaderDX12::~ShaderDX12() = default;
 
 
 bool ShaderDX12::Compile( const char* hlslPath )
@@ -60,7 +50,7 @@ bool ShaderDX12::Compile( const char* hlslPath )
     // D3D_COMPILE_STANDARD_FILE_INCLUDE enables #include directives in the shader source.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompile
     ComPtr<ID3DBlob> errors;
-    HRESULT hr = D3DCompile( source.c_str(), source.size(), hlslPath, nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "main_vs", "vs_5_0", flags, 0, &m_vsBlob, errors.GetAddressOf() );
+    HRESULT hr = D3DCompile( source.c_str(), source.size(), hlslPath, nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "main_vs", "vs_5_0", flags, 0, m_vsBlob.ReleaseAndGetAddressOf(), errors.GetAddressOf() );
     if ( FAILED( hr ) )
     {
         std::string msg = "VS compile failed: ";
@@ -75,7 +65,7 @@ bool ShaderDX12::Compile( const char* hlslPath )
     // Compile the pixel shader from the same HLSL file. The "ps_5_0" target means Pixel Shader
     // Model 5.0. Both VS and PS live in the same .hlsl file with different entry points.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3dcompiler/nf-d3dcompiler-d3dcompile
-    hr = D3DCompile( source.c_str(), source.size(), hlslPath, nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "main_ps", "ps_5_0", flags, 0, &m_psBlob, errors.GetAddressOf() );
+    hr = D3DCompile( source.c_str(), source.size(), hlslPath, nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "main_ps", "ps_5_0", flags, 0, m_psBlob.ReleaseAndGetAddressOf(), errors.GetAddressOf() );
     if ( FAILED( hr ) )
     {
         std::string msg = "PS compile failed: ";
@@ -88,8 +78,8 @@ bool ShaderDX12::Compile( const char* hlslPath )
     errors.Reset();
 
     // Reflect both stages so PS-only post/sky uniforms are visible to SetFloat/SetVec*.
-    ReflectCB( m_vsBlob );
-    ReflectCB( m_psBlob );
+    ReflectCB( m_vsBlob.Get() );
+    ReflectCB( m_psBlob.Get() );
 
     return true;
 }

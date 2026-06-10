@@ -5,6 +5,7 @@
 #include "SkullbonezIShader.h"
 #include <d3d12.h>
 #include <d3dcompiler.h>
+#include <wrl/client.h>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -27,8 +28,8 @@ class ShaderDX12 : public IShader
 {
 
   private:
-    ID3DBlob* m_vsBlob;
-    ID3DBlob* m_psBlob;
+    Microsoft::WRL::ComPtr<ID3DBlob> m_vsBlob;
+    Microsoft::WRL::ComPtr<ID3DBlob> m_psBlob;
 
     // Uniform reflection
     struct UniformInfo
