@@ -119,16 +119,16 @@ vec3 ApplyMaterialMode(int mode, vec3 materialColor, vec3 N, vec3 V, vec3 L, vec
         float sunBand = LowPolySunBand(qDiff);
         float hemiT = clamp(qN.y * 0.5 + 0.5, 0.0, 1.0);
         float leafTier = floor(clamp(vTexCoord.y + qN.y * 0.22, 0.0, 1.0) * 4.0) / 4.0;
-        vec3 topLeaf = mix(materialColor, vec3(0.40, 0.58, 0.18), 0.38);
-        vec3 underside = mix(materialColor * vec3(0.36, 0.52, 0.32), vec3(0.05, 0.20, 0.06), 0.42);
+        vec3 topLeaf = mix(materialColor, vec3(0.50, 0.66, 0.18), 0.42);
+        vec3 underside = mix(materialColor * vec3(0.40, 0.58, 0.34), vec3(0.06, 0.22, 0.06), 0.36);
         vec3 leaf = mix(underside, topLeaf, hemiT);
-        leaf *= 0.72 + leafTier * 0.22 + sunBand * 0.06;
-        vec3 skyAmbient = vec3(0.24, 0.36, 0.52);
-        vec3 groundAmbient = vec3(0.12, 0.22, 0.08);
+        leaf *= 0.78 + leafTier * 0.20 + sunBand * 0.10;
+        vec3 skyAmbient = vec3(0.26, 0.38, 0.52);
+        vec3 groundAmbient = vec3(0.14, 0.24, 0.07);
         vec3 hemiAmbient = mix(groundAmbient, skyAmbient, hemiT);
         vec3 warmSun = lightColor * vec3(1.02, 0.88, 0.54);
         float rim = pow(1.0 - clamp(dot(qN, V), 0.0, 1.0), 2.1);
-        return leaf * (hemiAmbient * 0.54 + warmSun * (0.16 + sunBand * 0.34)) + warmSun * rim * 0.030;
+        return leaf * (hemiAmbient * 0.52 + warmSun * (0.18 + sunBand * 0.38)) + warmSun * rim * 0.034;
     }
     if (mode == 13)
     {
