@@ -16,6 +16,7 @@
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::Basics;
+using SkullbonezCore::Math::Orientation::Quaternion;
 namespace Vector = SkullbonezCore::Math::Vector;
 
 

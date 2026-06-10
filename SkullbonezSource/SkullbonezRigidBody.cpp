@@ -55,6 +55,9 @@
 // --- Usings ---
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Math;
+using namespace SkullbonezCore::Math::Vector;
+using namespace SkullbonezCore::Math::Orientation;
+using namespace SkullbonezCore::Math::Transformation;
 
 
 RigidBody::RigidBody()

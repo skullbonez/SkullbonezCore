@@ -183,7 +183,7 @@ class GameModel
     void StaticOverlapResponseGameModel( GameModel& overlapTarget );                                                                  // Deprecated object overlap projection; persistent rows own object cleanup
     float GetBoundingRadius();                                                                                                        // Returns the radius of the bounding sphere
     Vector3 GetOrientationUp();                                                                                                       // Returns local Y axis (0,1,0) rotated into world space by the visual orientation
-    const Quaternion& GetOrientation() const;                                                                                         // Returns the orientation quaternion (passthrough to RigidBody)
+    const Math::Orientation::Quaternion& GetOrientation() const;                                                                      // Returns the orientation quaternion (passthrough to RigidBody)
     const Vector3& GetRotationalInertia();                                                                                            // Returns the rotational inertia (passthrough to RigidBody)
     const Vector3& GetInvertedRotationalInertia();                                                                                    // Returns component-wise inverse rotational inertia (cached immutable)
     float GetCoefficientRestitution();                                                                                                // Returns the coefficient of restitution (passthrough to RigidBody)
@@ -191,7 +191,7 @@ class GameModel
     void SetLinearVelocity( const Vector3& v );                                                                                       // Sets the linear velocity (passthrough to RigidBody)
     void SetAngularVelocity( const Vector3& v );                                                                                      // Sets the angular velocity (passthrough to RigidBody)
     void SetPosition( const Vector3& pos );                                                                                           // Teleports the model to a world position (passthrough to RigidBody)
-    void SetOrientation( const Quaternion& q );                                                                                       // Sets the orientation quaternion (passthrough to RigidBody)
+    void SetOrientation( const Math::Orientation::Quaternion& q );                                                                    // Sets the orientation quaternion (passthrough to RigidBody)
 };
 } // namespace GameObjects
 } // namespace SkullbonezCore
