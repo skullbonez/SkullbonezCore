@@ -11,14 +11,26 @@ namespace SkullbonezCore
 namespace UI
 {
 
+enum class UIBackdropBlurInvalidationReason : uint8_t
+{
+    Unknown,
+    Visibility,
+    WindowState,
+    Bounds,
+    Content,
+    Toggle,
+    ResourceReset
+};
+
 class UIBackdropBlur
 {
   public:
     ~UIBackdropBlur();
 
     void Draw( const UIDrawContext& draw, const UIRect& bounds, int screenW, int screenH, int currentFrame, double now, bool enabled );
-    void Invalidate();
+    void Invalidate( UIBackdropBlurInvalidationReason reason = UIBackdropBlurInvalidationReason::Unknown );
     void ResetResources();
+    UIBackdropBlurInvalidationReason LastInvalidationReason() const;
 
   private:
     void EnsureDrawResources();
@@ -38,6 +50,7 @@ class UIBackdropBlur
     int m_lastW = 0;
     int m_lastH = 0;
     bool m_invalidated = true;
+    UIBackdropBlurInvalidationReason m_lastInvalidationReason = UIBackdropBlurInvalidationReason::Unknown;
 };
 
 } // namespace UI

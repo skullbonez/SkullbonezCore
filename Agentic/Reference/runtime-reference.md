@@ -11,6 +11,7 @@ This file holds details that are useful during debugging or manual testing but t
 | `--suite` | path | Load a `.suite` file with one scene path per line. |
 | `--scene-load-only` | flag | Load queued scene files and exit before the frame loop. Alias: `--load-scenes-only`. Used by `tools\validate_scene_loads.bat`. |
 | `--vsync` | `on`, `off` | Override vsync from `engine.cfg`. |
+| `--dump-config` | flag | Print the resolved startup config after `engine.cfg` and command-line overrides. |
 | `--switch-interval` | seconds | Cycle renderers at runtime. |
 | `--time-scale` | float | Override simulation time multiplier. |
 | `--fixed-step` | flag | Run one deterministic physics tick per rendered frame. |

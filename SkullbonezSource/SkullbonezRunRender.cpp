@@ -1,0 +1,694 @@
+// --- Includes ---
+#include "SkullbonezRunInternal.h"
+
+// --- Usings ---
+using namespace SkullbonezCore::Basics;
+using namespace SkullbonezCore::Math::CollisionDetection;
+using namespace SkullbonezCore::Math::Orientation;
+using namespace SkullbonezCore::Math::Transformation;
+using namespace SkullbonezCore::Physics;
+using namespace SkullbonezCore::Basics::RunInternal;
+
+void SkullbonezRun::Render()
+{
+    // Clear screen pixel and depth into buffers
+    Gfx().Clear( true, true );
+
+    // In text_only mode all 3D rendering is skipped ? DrawWindowText handles the display
+    if ( m_debug.isTextOnly )
+    {
+        return;
+    }
+
+    // renders camera views etc
+    SetViewingOrientation();
+
+    // set the camera into its m_position
+    m_systems.cameras->SetCamera();
+
+    // now camera rotation has been done, draw OpenGL primitives
+    DrawPrimitives();
+}
+
+
+void SkullbonezRun::DrawPrimitives()
+{
+    float lightPosition[] = { 200.0f, 400.0f, 1200.0f, 1.0f };
+
+    // Get view and projection matrices from camera/window
+    Matrix4 baseView = m_systems.cameras->GetViewMatrix();
+    Matrix4 proj = m_systems.window->GetProjectionMatrix();
+    Matrix4 reflVP;
+
+    PROFILE_BEGIN( "Frame/Render/PrepareModels" );
+    m_cGameModelCollection.PrepareRenderStreams();
+    PROFILE_END( "Frame/Render/PrepareModels" );
+
+    const bool physicsDebugTransparent = m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE && m_debug.isPhysicsDebugTransparent;
+    const float collisionVisualizerAlphaOverride = physicsDebugTransparent ? m_debug.physicsDebugAlpha : -1.0f;
+
+    // Camera m_position for skybox placement.  During camera transitions the
+    // selected camera is already the destination, but SetCamera() renders from
+    // the interpolated tween camera.  Reflection math must use the same render
+    // camera as baseView; otherwise the mirror pass is generated from the
+    // destination camera while the water surface samples it from the in-between
+    // camera, which stretches reflected balls during transitions.
+    Vector3 eye = m_systems.cameras->GetRenderCameraTranslation();
+
+    // render skybox ------------------------------
+    PROFILE_GPU_BEGIN( "Frame/Render/Skybox" );
+    Matrix4 skyView = baseView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
+    m_systems.skyBox->Render( skyView, proj );
+    PROFILE_GPU_END( "Frame/Render/Skybox" );
+
+    // reflection pre-pass: render above-water scene from mirrored camera into FBO (or DXR dispatch)
+    PROFILE_GPU_BEGIN( "Frame/Render/Reflection" );
+    float waterY = m_cWorldEnvironment.GetFluidSurfaceHeight();
+    Vector3 center = m_systems.cameras->GetRenderCameraView();
+
+    // Mirror eye and look-at target about the water plane; flip up vector
+    Vector3 reflEye( eye.x, 2.0f * waterY - eye.y, eye.z );
+    Vector3 reflCenter( center.x, 2.0f * waterY - center.y, center.z );
+    Vector3 up = m_systems.cameras->GetRenderCameraUp();
+    Vector3 reflUp( up.x, -up.y, up.z );
+    Matrix4 reflView = Matrix4::LookAt( reflEye, reflCenter, reflUp );
+    reflVP = proj * reflView;
+
+    if ( Gfx().IsDXRSupported() && m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect && !m_debug.isCollisionVisualizer )
+    {
+        // DXR path: rebuild TLAS with current ball positions, then dispatch rays
+        int ballCount = m_cGameModelCollection.GetModelCount();
+        std::vector<float> transforms( (size_t)ballCount * 16 );
+        for ( int i = 0; i < ballCount; ++i )
+        {
+            Matrix4 mdlMat = m_cGameModelCollection.GetModelAtIndex( i ).GetModelMatrix();
+            memcpy( transforms.data() + i * 16, mdlMat.Data(), 16 * sizeof( float ) );
+        }
+
+        Gfx().BuildTLAS( transforms.data(), ballCount, 0, 0 ); // BLAS VAs retrieved internally
+
+        // Compute inverse VP matrix for ray reconstruction
+        Matrix4 vp = proj * baseView;
+        Matrix4 invVP = vp.Inverse();
+        float cameraPos[3] = { eye.x, eye.y, eye.z };
+        float simTime = static_cast<float>( m_timers.simulationTimer.GetTotalTime() );
+
+        uint32_t sphereHandle = m_systems.textures->GetTextureHandle( TEXTURE_BOUNDING_SPHERE );
+        uint32_t terrainHandle = m_systems.textures->GetTextureHandle( TEXTURE_GROUND );
+        uint32_t skyUpHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_UP );
+        uint32_t skyDownHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_DOWN );
+        uint32_t skyRightHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_RIGHT );
+        uint32_t skyLeftHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_LEFT );
+        uint32_t skyFrontHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_FRONT );
+        uint32_t skyBackHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_BACK );
+        Gfx().DispatchReflectionRays( invVP.Data(), cameraPos, waterY, simTime, lightPosition, m_systems.window->m_sWindowDimensions.x * 2, m_systems.window->m_sWindowDimensions.y * 2, sphereHandle, terrainHandle, skyUpHandle, skyDownHandle, skyRightHandle, skyLeftHandle, skyFrontHandle, skyBackHandle );
+    }
+    else
+    {
+        // FBO mirror-camera path (GL, DX11, or DXR fallback)
+        m_systems.reflectionFBO->Bind();
+        Gfx().SetViewport( 0, 0, m_systems.reflectionFBO->GetWidth(), m_systems.reflectionFBO->GetHeight() );
+        Gfx().Clear( true, true );
+
+        // Skybox reflected (XZ follows eye; Y anchored at Cfg().skyboxRenderHeight)
+        PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Skybox" );
+        Matrix4 skyReflView = reflView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
+        m_systems.skyBox->Render( skyReflView, proj );
+        PROFILE_GPU_END( "Frame/Render/Reflection/Skybox" );
+
+        // Game models reflected ? clip at water surface (above-water portion only)
+        PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
+        Gfx().SetClipPlane( 0, true );
+        SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -waterY );
+        m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -waterY );
+        if ( m_debug.isCollisionVisualizer )
+        {
+            m_collisionVisualizer.SetAlphaOverride( collisionVisualizerAlphaOverride );
+            m_collisionVisualizer.Render( m_cGameModelCollection, reflView, proj, lightPosition );
+            m_collisionVisualizer.SetAlphaOverride( -1.0f );
+        }
+        else
+        {
+            m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+            m_cGameModelCollection.RenderModels( reflView, proj, lightPosition );
+        }
+        Gfx().SetClipPlane( 0, false );
+        SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
+        m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
+        PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
+
+        m_systems.reflectionFBO->Unbind();
+        Gfx().SetViewport( 0, 0, m_systems.window->m_sWindowDimensions.x, m_systems.window->m_sWindowDimensions.y );
+    }
+    PROFILE_GPU_END( "Frame/Render/Reflection" );
+
+    // render game models -----------------------------
+    PROFILE_GPU_BEGIN( "Frame/Render/Balls" );
+    if ( m_debug.isCollisionVisualizer || physicsDebugTransparent )
+    {
+        m_collisionVisualizer.SetAlphaOverride( collisionVisualizerAlphaOverride );
+        m_collisionVisualizer.Render( m_cGameModelCollection, baseView, proj, lightPosition );
+        m_collisionVisualizer.SetAlphaOverride( -1.0f );
+    }
+    else
+    {
+        m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+        m_cGameModelCollection.RenderModels( baseView, proj, lightPosition );
+    }
+    PROFILE_GPU_END( "Frame/Render/Balls" );
+
+    // render m_terrain ------------------------------
+    if ( !m_debug.isTerrainHidden )
+    {
+        PROFILE_GPU_BEGIN( "Frame/Render/Terrain" );
+        m_systems.textures->SelectTexture( TEXTURE_GROUND );
+        m_systems.terrain->Render( baseView, proj, lightPosition );
+        PROFILE_GPU_END( "Frame/Render/Terrain" );
+    }
+
+    // render ground shadows on top of m_terrain
+    if ( !m_debug.isTerrainHidden )
+    {
+        PROFILE_GPU_BEGIN( "Frame/Render/Shadows" );
+        m_cGameModelCollection.RenderShadows( m_systems.terrain.get(), baseView, proj, waterY );
+        PROFILE_GPU_END( "Frame/Render/Shadows" );
+    }
+
+    // render the fluid ---------------------------
+    if ( !m_debug.isWaterHidden )
+    {
+        PROFILE_GPU_BEGIN( "Frame/Render/Water" );
+        float waterTime = m_debug.isWaterFreezeDebug
+                              ? m_debug.frozenWaterTime
+                              : static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
+        uint32_t reflTex = ( Gfx().IsDXRSupported() && m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect && !m_debug.isCollisionVisualizer )
+                               ? Gfx().GetReflectionUAVTexture()
+                               : m_systems.reflectionFBO->GetColorTextureHandle();
+        // DXR reflection texture is in main-camera screen space, so sample it
+        // using the main VP — not the mirror VP used by the FBO path.
+        Matrix4 waterSampleVP = ( Gfx().IsDXRSupported() && m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect && !m_debug.isCollisionVisualizer )
+                                    ? proj * baseView
+                                    : reflVP;
+        m_cWorldEnvironment.RenderFluid( baseView, proj, waterSampleVP, waterTime, reflTex, m_debug.isWaterFlatDebug, m_debug.isWaterNoReflect );
+        PROFILE_GPU_END( "Frame/Render/Water" );
+    }
+
+    // Broadphase spatial grid overlay (G key toggle)
+    if ( m_debug.isBroadphaseOverlay )
+    {
+        Matrix4 viewProj = proj * baseView;
+        m_broadphaseVisualizer.Render( viewProj );
+    }
+
+    if ( m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE )
+    {
+        Matrix4 viewProj = proj * baseView;
+        m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
+        m_physicsDebugVisualizer.SetPipelineStageCursor( m_debug.physicsDebugPipelineStageCursor );
+        m_physicsDebugVisualizer.Render( m_cGameModelCollection, viewProj );
+    }
+}
+
+
+void SkullbonezRun::SetUpCameras()
+{
+    m_systems.cameras = CameraCollection::Instance();
+
+    m_systems.cameras->AddCamera( Vector3( 321.0f, 110.0f, 557.0f ), // Position
+                                  Vector3( 581.0f, 40.0f, 633.0f ),  // View
+                                  Vector3( 0.0f, 1.0f, 0.0f ),       // Up
+                                  CAMERA_GAME_MODEL_1 );
+
+    m_systems.cameras->AddCamera( Vector3( 730.0f, 100.0f, 380.0f ), // Position
+                                  Vector3( 709.0f, 92.0f, 482.0f ),  // View
+                                  Vector3( 0.0f, 1.0f, 0.0f ),       // Up
+                                  CAMERA_GAME_MODEL_2 );
+
+    m_systems.cameras->AddCamera( Vector3( 900.0f, 110.0f, 900.0f ), // Position
+                                  Vector3( 313.0f, 31.0f, 282.0f ),  // View
+                                  Vector3( 0.0f, 1.0f, 0.0f ),       // Up
+                                  CAMERA_FREE );
+
+    // set the camera m_boundaries
+    m_systems.cameras->SetCameraXZBounds( m_systems.terrain->GetXZBounds() );
+
+    // set the m_terrain
+    m_systems.cameras->SetTerrain( m_systems.terrain.get() );
+
+    // lock the m_cameras
+    m_systems.cameras->SetLockedMode( true );
+}
+
+
+void SkullbonezRun::SetInitialOpenGlState()
+{
+    SkullbonezHelper::ResetGLResources();
+
+    // load m_textures
+    const SkullbonezConfig& cfg = Cfg();
+    m_systems.textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.terrainTexture ).c_str(), TEXTURE_GROUND );
+    m_systems.textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.sphereTexture ).c_str(), TEXTURE_BOUNDING_SPHERE );
+}
+
+
+void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
+{
+    // Update rolling timers — runs every frame regardless of overlay state
+    m_timers.updateTimer.StopTimer();
+    m_timers.timeSinceLastRender += static_cast<float>( m_timers.updateTimer.GetElapsedTime() );
+    m_timers.updateTimer.StartTimer();
+
+    const double currentSceneEnergy = m_cGameModelCollection.GetSceneKineticEnergy();
+    m_timers.sceneEnergyAccumulator += currentSceneEnergy;
+    ++m_timers.sceneEnergySampleCount;
+
+    if ( m_timers.timeSinceLastRender > 0.5f )
+    {
+        if ( dSecondsPerFrame )
+        {
+            m_timers.rollingFpsTime = 1.0f / static_cast<float>( dSecondsPerFrame );
+            m_timers.rollingPhysicsTime = m_timers.physicsTime;
+            m_timers.rollingRenderTime = m_timers.renderTime;
+        }
+        if ( m_timers.sceneEnergySampleCount > 0 )
+        {
+            m_timers.rollingSceneEnergy = static_cast<float>( m_timers.sceneEnergyAccumulator / static_cast<double>( m_timers.sceneEnergySampleCount ) );
+            m_timers.sceneEnergyAccumulator = 0.0;
+            m_timers.sceneEnergySampleCount = 0;
+        }
+        m_timers.timeSinceLastRender = 0.0f;
+    }
+
+    float sceneEnergyForDisplay = m_timers.rollingSceneEnergy;
+    if ( m_timers.sceneEnergySampleCount > 0 && sceneEnergyForDisplay == 0.0f )
+    {
+        sceneEnergyForDisplay = static_cast<float>( m_timers.sceneEnergyAccumulator / static_cast<double>( m_timers.sceneEnergySampleCount ) );
+    }
+
+    const char* rendererName = Gfx().GetRendererName();
+
+    // text_only mode: solid background + full-screen pangram, no HUD/profiler
+    if ( m_debug.isTextOnly )
+    {
+        // Dark background covering the full viewport
+        Text2d::Render2dQuad( -0.55f, -0.45f, 0.55f, 0.45f, 0.08f, 0.08f, 0.12f, 1.0f );
+
+        // Three rows of the pangram — each line uses a slightly different colour
+        // so hue/brightness fringing artefacts are visible on all channel combinations
+        const float sz = 0.09f;
+        Text2d::Render2dTextColor( -0.46f, 0.22f, sz, 1.00f, 1.00f, 1.00f, "The quick brown fox" );
+        Text2d::Render2dTextColor( -0.46f, 0.07f, sz, 1.00f, 0.90f, 0.20f, "jumps over the" );
+        Text2d::Render2dTextColor( -0.46f, -0.08f, sz, 0.40f, 0.90f, 1.00f, "lazy dog" );
+
+        // Renderer name in small text at bottom so we know which backend we're looking at
+        Text2d::Render2dTextColor( -0.46f, -0.38f, 0.015f, 0.60f, 0.60f, 0.60f, "renderer: %s", rendererName );
+
+        Text2d::FlushText();
+        return;
+    }
+
+    const float hw = Text2d::HalfW();
+    const float hh = Text2d::HalfH();
+    const float mX = 0.022f; // horizontal inset from left/right edge
+    const float mY = 0.015f; // vertical inset from top/bottom edge
+
+    // Crosshair — always visible when nudge mode is active, regardless of overlay state.
+    // A tiny center gap keeps the target visible instead of covering it.
+    if ( m_camera.isNudgeMode )
+    {
+        const float cArm = 0.020f;
+        const float cGap = 0.004f;
+        const float cHalf = 0.00045f;
+        const float cShadowHalf = 0.00080f;
+        Text2d::Render2dQuad( -cArm, -cShadowHalf, -cGap, cShadowHalf, 0.0f, 0.0f, 0.0f, 0.40f );
+        Text2d::Render2dQuad( cGap, -cShadowHalf, cArm, cShadowHalf, 0.0f, 0.0f, 0.0f, 0.40f );
+        Text2d::Render2dQuad( -cShadowHalf, -cArm, cShadowHalf, -cGap, 0.0f, 0.0f, 0.0f, 0.40f );
+        Text2d::Render2dQuad( -cShadowHalf, cGap, cShadowHalf, cArm, 0.0f, 0.0f, 0.0f, 0.40f );
+        Text2d::Render2dQuad( -cArm, -cHalf, -cGap, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
+        Text2d::Render2dQuad( cGap, -cHalf, cArm, cHalf, 0.80f, 0.96f, 1.0f, 0.88f );
+        Text2d::Render2dQuad( -cHalf, -cArm, cHalf, -cGap, 0.80f, 0.96f, 1.0f, 0.88f );
+        Text2d::Render2dQuad( -cHalf, cGap, cHalf, cArm, 0.80f, 0.96f, 1.0f, 0.88f );
+#ifdef _DEBUG
+        if ( m_debug.reproSnapshotMessage[0] != '\0' &&
+             m_timers.simulationTimer.GetTimeSinceLastStart() <= m_debug.reproSnapshotMessageUntil )
+        {
+            const float msgSz = 0.014f;
+            float msgW = Text2d::MeasureText( msgSz, m_debug.reproSnapshotMessage );
+            Text2d::Render2dTextColor( -msgW * 0.5f,
+                                       -0.065f,
+                                       msgSz,
+                                       0.65f,
+                                       0.92f,
+                                       1.0f,
+                                       "%s",
+                                       m_debug.reproSnapshotMessage );
+        }
+#endif
+    }
+
+    const char* sceneName = "";
+    if ( m_scene.isSceneMode && m_scene.currentSceneIndex >= 0 && m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() ) )
+    {
+        sceneName = FileNameFromPath( m_sceneQueue[m_scene.currentSceneIndex].c_str() );
+    }
+
+    if ( m_UI.IsVisible() )
+    {
+        InGameUIFrameData UIData;
+        UIData.screenW = m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.x ) : Cfg().window.screenX;
+        UIData.screenH = m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.y ) : Cfg().window.screenY;
+        if ( m_debug.isUITestPattern )
+        {
+            DrawUITestPattern( UIData.screenW, UIData.screenH );
+        }
+        UIData.rendererName = rendererName;
+        UIData.sceneName = sceneName;
+        UIData.sceneOptions = m_sceneBrowserNamePtrs.empty() ? nullptr : m_sceneBrowserNamePtrs.data();
+        UIData.sceneOptionCount = static_cast<int>( m_sceneBrowserNamePtrs.size() );
+        UIData.selectedSceneOption = CurrentSceneBrowserIndex();
+        UIData.UIDrawCalls = m_timers.lastUIDrawCalls;
+        UIData.fps = m_timers.rollingFpsTime > 0.0f ? m_timers.rollingFpsTime : ( dSecondsPerFrame > 0.0 ? 1.0f / static_cast<float>( dSecondsPerFrame ) : 0.0f );
+        UIData.renderMs = ( m_timers.rollingRenderTime > 0.0f ? m_timers.rollingRenderTime : m_timers.renderTime ) * 1000.0f;
+        UIData.physicsMs = ( m_timers.rollingPhysicsTime > 0.0f ? m_timers.rollingPhysicsTime : m_timers.physicsTime ) * 1000.0f;
+        UIData.cpuFrameMs = m_timers.cpuFrameWorkMs;
+        UIData.gpuFrameMs = m_timers.gpuFrameWorkMs;
+        UIData.modelCount = m_scene.modelCount;
+        UIData.currentFrame = m_scene.currentFrame;
+        UIData.targetFrameCount = m_scene.targetFrameCount;
+        UIData.rngSeed = m_scene.rngSeed;
+        UIData.solverBallCount = m_scene.solverBallCount;
+        UIData.solverBoxCount = m_scene.solverBoxCount;
+        UIData.currentSceneIndex = m_scene.currentSceneIndex;
+        UIData.sceneCount = static_cast<int>( m_sceneQueue.size() );
+        UIData.now = m_timers.simulationTimer.GetTotalTime();
+        UIData.sceneMode = m_scene.isSceneMode;
+        UIData.scenePhysicsEnabled = m_scene.isScenePhysics;
+        UIData.sceneTextEnabled = m_scene.isSceneText;
+        UIData.textOnly = m_debug.isTextOnly;
+        UIData.fixedStep = m_scene.isFixedStep;
+        UIData.exitOnComplete = m_scene.isExitOnComplete;
+        UIData.testComplete = m_scene.isTestComplete;
+        UIData.vsyncEnabled = m_runtimeSettings.isVsyncEnabled;
+        UIData.pipelineSyncEnabled = m_runtimeSettings.isPipelineSyncEnabled;
+        UIData.sceneEnergy = sceneEnergyForDisplay;
+        UIData.timeScale = m_scene.timeScale;
+        UIData.trackHeight = m_camera.trackBallIndex >= 0 ? m_camera.trackHeight : 0.0f;
+        UIData.autoCycleInterval = m_camera.autoCycleInterval > 0.0f ? m_camera.autoCycleInterval : 0.0f;
+        UIData.worldGravity = m_cWorldEnvironment.GetGravity();
+        UIData.worldFluidHeight = m_cWorldEnvironment.GetFluidSurfaceHeight();
+        UIData.worldFluidDensity = m_cWorldEnvironment.GetFluidDensity();
+        UIData.physicsDebugFlags = m_debug.physicsDebugFlags;
+        {
+            const int stageCount = static_cast<int>( PhysicsPipelineStage::Count );
+            int stageIndex = stageCount > 0 ? m_debug.physicsDebugPipelineStageCursor % stageCount : 0;
+            if ( stageIndex < 0 )
+            {
+                stageIndex += stageCount;
+            }
+            UIData.physicsPipelineStageName = PhysicsPipelineStageName( static_cast<PhysicsPipelineStage>( stageIndex ) );
+            UIData.physicsPipelineStageIndex = stageIndex;
+            UIData.physicsPipelineStageCount = stageCount;
+        }
+        UIData.physicsDebugAlpha = m_debug.physicsDebugAlpha;
+        UIData.physicsDebugContactLinger = m_debug.physicsDebugContactLinger;
+        UIData.physicsSleepEnabled = m_runtimeSettings.isPhysicsSleepEnabled;
+        UIData.collisionVisualizer = m_debug.isCollisionVisualizer;
+        UIData.physicsDebugTransparent = m_debug.isPhysicsDebugTransparent;
+        UIData.broadphaseOverlay = m_debug.isBroadphaseOverlay;
+        UIData.waterFreezeDebug = m_debug.isWaterFreezeDebug;
+        UIData.waterFlatDebug = m_debug.isWaterFlatDebug;
+        UIData.terrainHidden = m_debug.isTerrainHidden;
+        UIData.waterHidden = m_debug.isWaterHidden;
+        UIData.waterNoReflect = m_debug.isWaterNoReflect;
+        UIData.waterRTReflect = m_debug.isWaterRTReflect;
+        UIData.nativeCursorVisible = m_camera.isFlyMode && m_UI.WantsNativeMouseCursor();
+        UIData.cameraMouseActive = m_camera.isFlyMode && !m_UI.BlocksCameraMouse() && !UIData.nativeCursorVisible;
+        UIData.canSaveSceneDefaults = m_scene.isSceneMode &&
+                                      m_scene.currentSceneIndex >= 0 &&
+                                      m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() ) &&
+                                      !m_sceneQueue[m_scene.currentSceneIndex].empty();
+
+        Text2d::FlushText();
+        UIData.drawCallsBeforeUI = Gfx().GetFrameDrawCallCount();
+        const int UIDrawCallStart = UIData.drawCallsBeforeUI;
+        PROFILE_GPU_BEGIN( "Frame/UI/Quads" );
+        m_UI.Draw( UIData );
+        PROFILE_GPU_END( "Frame/UI/Quads" );
+        PROFILE_GPU_BEGIN( "Frame/UI/Text" );
+        Text2d::FlushText();
+        PROFILE_GPU_END( "Frame/UI/Text" );
+        const int UIDrawCallEnd = Gfx().GetFrameDrawCallCount();
+        m_timers.lastUIDrawCalls = (std::max)( 0, UIDrawCallEnd - UIDrawCallStart );
+        return;
+    }
+
+    // --- Overlay: None ---
+    if ( m_debug.overlayMode == OverlayMode::None )
+    {
+        Text2d::FlushText();
+        return;
+    }
+
+    // --- Overlay: Scene telemetry ---
+    if ( m_debug.overlayMode == OverlayMode::SceneStats )
+    {
+        const float titleSz = 0.013f;
+        const float entrySz = 0.012f;
+        const float lineH = 0.025f;
+        const float panPad = 0.014f;
+        const float panW = 0.36f;
+        const float panH = panPad * 2.0f + titleSz + lineH * 2.0f;
+        const float panX0 = -( hw - mX );
+        const float panY0 = -( hh - mY );
+        const float panX1 = panX0 + panW;
+        const float panY1 = panY0 + panH;
+
+        Text2d::Render2dQuad( panX0, panY0, panX1, panY1, 0.04f, 0.04f, 0.07f, 0.93f );
+        Text2d::Render2dTextColor( panX0 + panPad, panY1 - panPad - titleSz, titleSz, 1.0f, 0.85f, 0.35f, "SCENE TELEMETRY" );
+        Text2d::Render2dTextColor( panX0 + panPad, panY1 - panPad - titleSz - lineH, entrySz, 0.85f, 0.85f, 0.85f, "Model Count: %d", m_scene.modelCount );
+        Text2d::Render2dTextColor( panX0 + panPad,
+                                   panY1 - panPad - titleSz - lineH * 2.0f,
+                                   entrySz,
+                                   0.85f,
+                                   0.85f,
+                                   0.85f,
+                                   "Scene Energy: %.6f",
+                                   sceneEnergyForDisplay );
+        Text2d::FlushText();
+        return;
+    }
+
+    // --- Overlay: Visual profiler bars (normalized or absolute) ---
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    if ( m_debug.overlayMode == OverlayMode::BarsNormalized || m_debug.overlayMode == OverlayMode::BarsAbsolute )
+    {
+        // Panel anchored bottom-left, filling most of the width. Height kept modest — leave vertical
+        // space above for future multi-core stacked rows.
+        const float panW = ( hw - mX ) * 2.0f * 0.85f; // 85% of screen width
+        const float panH = ( hh - mY ) * 2.0f * 0.22f; // 22% of screen height
+        const float panX = -( hw - mX ) + mX * 0.5f;   // slight left margin
+        const float panY = -( hh - mY ) + mY * 0.5f;   // slight bottom margin
+        const bool absolute = ( m_debug.overlayMode == OverlayMode::BarsAbsolute );
+        Profiler::Instance().RenderBarOverlay( panX, panY, panW, panH, absolute );
+        Text2d::FlushText();
+        return;
+    }
+#endif
+
+    // --- Overlay: Keys reference screen (compact, bottom-left) ---
+    if ( m_debug.overlayMode == OverlayMode::Keys )
+    {
+        const float titleSz = 0.013f;
+        const float entrySz = 0.011f;
+        const float lineH = 0.020f;
+        const int nRows = 12;
+        const float panPad = 0.012f;
+        const float titleGap = 0.016f; // space between title baseline and first entry
+        const float keyW = 0.058f;     // key-name column width
+        const float descW = 0.120f;    // description column width
+        const float colGap = 0.012f;   // gap between the two content columns
+
+        // Panel dimensions — anchored to bottom-left corner
+        const float panH = panPad + titleSz + titleGap + static_cast<float>( nRows ) * lineH + panPad;
+        const float panW = panPad + keyW + descW + colGap + keyW + descW + panPad;
+        const float panX0 = -( hw - mX );
+        const float panY0 = -( hh - mY );
+        const float panX1 = panX0 + panW;
+        const float panY1 = panY0 + panH;
+
+        Text2d::Render2dQuad( panX0, panY0, panX1, panY1, 0.04f, 0.04f, 0.07f, 0.93f );
+
+        // Title left-aligned inside panel
+        const float titleY = panY1 - panPad - titleSz;
+        Text2d::Render2dTextColor( panX0 + panPad, titleY, titleSz, 1.0f, 0.85f, 0.35f, "CONTROL REFERENCE" );
+
+        // Column X positions
+        const float col1Key = panX0 + panPad;
+        const float col1Desc = col1Key + keyW;
+        const float col2Key = col1Desc + descW + colGap;
+        const float col2Desc = col2Key + keyW;
+        const float firstY = titleY - titleGap;
+
+        struct KeyEntry
+        {
+            const char* key;
+            const char* desc;
+        };
+        static const KeyEntry kLeft[nRows] = {
+            { "N", "Nudge mode" },
+            { "Enter", "Dump repro" },
+            { "F", "Fly mode" },
+            { "WASD", "Move camera" },
+            { "Mouse", "Look" },
+            { "Shift", "Sprint (3x speed)" },
+            { "LMB", "Fire silver bullet" },
+            { "Shift+LMB", "Fast bullet" },
+            { "Q", "Cycle renderer" },
+            { "V", "Collision visual" },
+            { "Space", "Step physics" },
+            { "R/Bksp", "Reset scene" },
+        };
+        static const KeyEntry kRight[nRows] = {
+            { "Esc", "Min/expand UI" },
+            { "Esc Esc", "Quit" },
+            { "1", "Freeze water" },
+            { "2", "Reflection mode" },
+            { "3", "Toggle water flat" },
+            { "4", "Toggle terrain" },
+            { "5", "Toggle water" },
+            { "6", "Debug body alpha" },
+            { "G", "Broadphase overlay" },
+            { "C", "Physics debug" },
+            { "PgUp/Dn", "Water height" },
+            { "F3", "Screenshot" },
+        };
+
+        for ( int i = 0; i < nRows; ++i )
+        {
+            float y = firstY - static_cast<float>( i ) * lineH;
+            Text2d::Render2dTextColor( col1Key, y, entrySz, 0.70f, 0.88f, 1.0f, "%s", kLeft[i].key );
+            Text2d::Render2dTextColor( col1Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kLeft[i].desc );
+            Text2d::Render2dTextColor( col2Key, y, entrySz, 0.70f, 0.88f, 1.0f, "%s", kRight[i].key );
+            Text2d::Render2dTextColor( col2Desc, y, entrySz, 0.85f, 0.85f, 0.85f, "%s", kRight[i].desc );
+        }
+
+        Text2d::FlushText();
+        return;
+    }
+
+    // --- Overlay: Timers / HUD (OverlayMode::Timers) ---
+
+    // Profiler overlay — bottom-left anchored.
+    // Compiled out in Release; always shown when overlay is Timers in Debug/Profile.
+#if defined( SKULLBONEZ_PROFILE_ENABLED )
+    {
+        const float lineH = 0.018f;
+        const float profFSz = 0.012f;
+        const float padY = lineH * 1.2f;
+        Profiler::Instance().RenderOverlay( -( hw - mX ), -( hh - mY ) - padY, lineH, profFSz, m_timers.rollingFpsTime );
+    }
+#endif
+
+    Text2d::FlushText();
+}
+
+
+void SkullbonezRun::SetViewingOrientation()
+{
+    // In scene mode, use the first camera without cycling.
+    // If ball-tracking is active, keep the camera locked onto the selected ball.
+    if ( m_scene.isSceneMode )
+    {
+        if ( m_camera.trackBallIndex >= 0 && m_camera.trackBallIndex < m_cGameModelCollection.GetModelCount() )
+        {
+            Vector3 ballPos = m_cGameModelCollection.GetModelPosition( m_camera.trackBallIndex );
+            m_systems.cameras->SetPrimaryPosition( Vector3( ballPos.x, ballPos.y + m_camera.trackHeight, ballPos.z ) );
+            m_systems.cameras->SetViewCoordinates( ballPos );
+        }
+        return;
+    }
+
+    // In fly mode, freeze the cycle clock and keep the free camera
+    if ( m_camera.isFlyMode )
+    {
+        m_camera.cameraTime = 0.0f;
+        m_timers.cameraTimer.StopTimer();
+        m_timers.cameraTimer.StartTimer();
+        return;
+    }
+
+    // set viewing m_orientation
+    /*
+        if(Input::IsKeyDown('1')) m_camera.selectedCamera = 0;
+        if(Input::IsKeyDown('2')) m_camera.selectedCamera = 1;
+        if(Input::IsKeyDown('3')) m_camera.selectedCamera = 2;
+    */
+
+    // maintain the camera timer
+    m_timers.cameraTimer.StopTimer();
+    m_camera.cameraTime += static_cast<float>( m_timers.cameraTimer.GetElapsedTime() );
+    m_timers.cameraTimer.StartTimer();
+
+    // change the viewing camera automatically
+    if ( m_camera.cameraTime > 5.0f )
+    {
+        ++m_camera.selectedCamera;
+        if ( m_camera.selectedCamera == 3 )
+        {
+            m_camera.selectedCamera = 0;
+        }
+        m_camera.cameraTime = 0.0f;
+    }
+
+    // select camera based on input
+    switch ( m_camera.selectedCamera )
+    {
+    case 0:
+        m_systems.cameras->SelectCamera( CAMERA_GAME_MODEL_1, true );
+        break;
+    case 1:
+        m_systems.cameras->SelectCamera( CAMERA_GAME_MODEL_2, true );
+        break;
+    case 2:
+        m_systems.cameras->SelectCamera( CAMERA_FREE, true );
+        break;
+    }
+
+    // set the view m_position of the selected camera based on the game model m_position
+    if ( m_systems.cameras->IsCameraSelected( CAMERA_GAME_MODEL_1 ) )
+    {
+        m_systems.cameras->SetViewCoordinates( m_cGameModelCollection.GetModelPosition( 0 ) );
+    }
+    if ( m_systems.cameras->IsCameraSelected( CAMERA_GAME_MODEL_2 ) )
+    {
+        m_systems.cameras->SetViewCoordinates( m_cGameModelCollection.GetModelPosition( 1 ) );
+    }
+
+    /*
+        // reset relativity when a new request for synchronisation comes in
+        if(m_camera.input.Get( InputState::Aux1 )) m_systems.cameras->ResetRelativity();
+
+        // sync m_cameras if in sync mode
+        if(m_camera.input.Get( InputState::Aux2 ))
+        {
+            // perform the relative update
+            RelativeUpdateCamera(CAMERA_GAME_MODEL_1);
+            RelativeUpdateCamera(CAMERA_GAME_MODEL_2);
+            RelativeUpdateCamera(CAMERA_FREE);
+
+            // reset the relative variable as we have already performed the action on desired m_cameras
+            m_systems.cameras->ResetRelativity();
+        }
+    */
+}
+
+
+void SkullbonezRun::RelativeUpdateCamera( uint32_t hash )
+{
+    if ( !m_systems.cameras->IsCameraSelected( hash ) )
+    {
+        Vector3 translatedCameraPosition = m_systems.cameras->GetCameraTranslation( hash );
+        float minY = m_systems.terrain->GetTerrainHeightAt( translatedCameraPosition.x, translatedCameraPosition.z, true ) + Cfg().minCameraHeight;
+        m_systems.cameras->RelativeUpdate( hash, minY, Cfg().maxCameraHeight );
+    }
+}

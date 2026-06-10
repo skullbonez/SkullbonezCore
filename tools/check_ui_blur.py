@@ -156,7 +156,7 @@ def average_marker_ms(path: Path) -> tuple[dict[str, float], list[str]]:
     values: dict[str, float] = {}
     marker_order: list[str] = []
     for column, name in enumerate(header[2:], start=2):
-        if name.endswith("_gpu"):
+        if name.endswith("_gpu") or name == "Frame/VsyncWait":
             continue
         total = 0.0
         count = 0

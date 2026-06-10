@@ -27,9 +27,10 @@ UIBackdropBlur::~UIBackdropBlur()
 }
 
 
-void UIBackdropBlur::Invalidate()
+void UIBackdropBlur::Invalidate( UIBackdropBlurInvalidationReason reason )
 {
     m_invalidated = true;
+    m_lastInvalidationReason = reason;
 }
 
 
@@ -57,6 +58,13 @@ void UIBackdropBlur::ResetResources()
     m_lastW = 0;
     m_lastH = 0;
     m_invalidated = true;
+    m_lastInvalidationReason = UIBackdropBlurInvalidationReason::ResourceReset;
+}
+
+
+UIBackdropBlurInvalidationReason UIBackdropBlur::LastInvalidationReason() const
+{
+    return m_lastInvalidationReason;
 }
 
 

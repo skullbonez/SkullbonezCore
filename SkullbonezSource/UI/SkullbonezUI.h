@@ -4,10 +4,18 @@
 #include "UIButton.h"
 #include "UICheckBox.h"
 #include "UIComboBox.h"
+#include "UICommands.h"
+#include "UICache.h"
 #include "UIBackdropBlur.h"
 #include "UIScrollBar.h"
 #include "UISlider.h"
+#include "UIState.h"
 #include "UITabBar.h"
+#include "UITabControls.h"
+#include "UITabOptions.h"
+#include "UITabPhysics.h"
+#include "UITabProfiler.h"
+#include "UITabScene.h"
 #include <cstdint>
 
 namespace SkullbonezCore
@@ -90,49 +98,6 @@ struct InGameUIFrameData
     bool canSaveSceneDefaults = false;
 };
 
-// Commands emitted by UI hit-testing for SkullbonezRun to apply.  Booleans are
-// edge-triggered requests from this frame, while requested* fields carry slider
-// or combo values and use sentinel values (-1 / false) when unchanged.
-struct InGameUIInputResult
-{
-    bool userInteracted = false;
-    bool toggleVsync = false;
-    bool toggleCollisionVisualizer = false;
-    bool togglePhysicsSleepPolicy = false;
-    bool togglePhysicsDebugTransparent = false;
-    bool toggleBroadphaseOverlay = false;
-    bool toggleTextOnly = false;
-    bool toggleFixedStep = false;
-    bool toggleTerrainHidden = false;
-    bool toggleWaterHidden = false;
-    bool toggleWaterFreeze = false;
-    bool toggleWaterFlat = false;
-    bool toggleWaterReflection = false;
-    bool resetScene = false;
-    bool resetSceneDefaults = false; // Explicit defaults reload; unlike resetScene, scene/config directives win over live controls
-    bool requestDemoScene = false;
-    bool saveSceneDefaults = false;
-    float requestedTimeScale = -1.0f;
-    float requestedPhysicsDebugAlpha = -1.0f;
-    float requestedPhysicsDebugContactLinger = -1.0f;
-    int requestedModelCount = -1;
-    int requestedSeed = -1;
-    int requestedSolverBallCount = -1;
-    int requestedSolverBoxCount = -1;
-    bool requestWorldGravity = false;
-    bool requestWorldFluidHeight = false;
-    bool requestWorldFluidDensity = false;
-    float requestedWorldGravity = 0.0f;
-    float requestedWorldFluidHeight = 0.0f;
-    float requestedWorldFluidDensity = 0.0f;
-    uint32_t togglePhysicsDebugFlags = 0;
-    bool stepPhysicsPipelinePrevious = false;
-    bool stepPhysicsPipelineNext = false;
-    int requestedRendererIndex = -1; // 0=GL, 1=DX11, 2=DX12, -1=no request
-    int requestedWaterReflectionMode = -1; // 0=FBO, 1=DXR, 2=None, -1=no request
-    int requestedSceneIndex = -1;          // index into sceneOptions, -1=no request
-};
-
 class InGameUI
 {
   public:
@@ -167,37 +132,15 @@ class InGameUI
     // Persistent widget state.  Scene loads may apply SceneUIOptions, but normal
     // simulation resets preserve these values so the UI remains where the user
     // left it while the bodies/timers are rebuilt underneath.
-    bool m_isVisible = true;
-    bool m_isMinimized = true;
-    bool m_isMaximized = false;
-    bool m_leftWasDown = false;
-    bool m_isDragging = false;
-    bool m_isResizing = false;
-    bool m_hasAppliedDefaultPlacement = false;
-    bool m_blocksCameraMouse = false;
+    UIWindowState m_window;
+    UIInteractionState m_interaction;
     bool m_blurPreviewEnabled = false;
-    bool m_profilerTimelineEnabled = false;
-    bool m_performanceHistogramEnabled = false;
     InGameUITab m_activeTab = InGameUITab::Profiler;
     UITabBar m_tabBar;
     UICheckBox m_blurToggle;
     UICheckBox m_vsyncToggle;
     UICheckBox m_timelineToggle;
     UICheckBox m_histogramToggle;
-    UICheckBox m_physicsToggles[8];
-    UIRect m_pipelinePrevButton;
-    UIRect m_pipelineNextButton;
-    UICheckBox m_optionToggles[5];
-    UISlider m_timeScaleSlider;
-    UISlider m_modelCountSlider;
-    UISlider m_physicsAlphaSlider;
-    UISlider m_contactLingerSlider;
-    UISlider m_seedSlider;
-    UISlider m_solverBallSlider;
-    UISlider m_solverBoxSlider;
-    UISlider m_worldGravitySlider;
-    UISlider m_worldFluidHeightSlider;
-    UISlider m_worldFluidDensitySlider;
     UIButton m_resetSceneButton;
     UIButton m_resetDefaultsButton;
     UIButton m_saveDefaultsButton;
@@ -205,22 +148,8 @@ class InGameUI
     UIComboBox m_reflectionCombo;
     UIComboBox m_sceneCombo;
     UIBackdropBlur m_backdropBlur;
+    UICacheState m_cache;
     UIScrollBar m_scrollBar;
-    int m_x = 34;
-    int m_y = 56;
-    int m_width = 760;
-    int m_height = 540;
-    float m_minimizedWidth = 176.0f;
-    int m_restoreX = 34;
-    int m_restoreY = 56;
-    int m_restoreW = 760;
-    int m_restoreH = 540;
-    int m_dragOffsetX = 0;
-    int m_dragOffsetY = 0;
-    int m_resizeStartMouseX = 0;
-    int m_resizeStartMouseY = 0;
-    int m_resizeStartW = 0;
-    int m_resizeStartH = 0;
     int m_mouseX = 0;
     int m_mouseY = 0;
     int m_lastScreenW = 1;
@@ -231,69 +160,18 @@ class InGameUI
     bool m_hasMouseOverride = false;
     int m_mouseOverrideX = 0;
     int m_mouseOverrideY = 0;
-    char m_sceneFilter[64] = {};
-    bool m_sceneFilterKeyWasDown[256] = {};
-    int m_sceneComboScroll = 0;
+    ControlsTab::UIControlsTabState m_controlsTab;
+    OptionsTab::UIOptionsTabState m_optionsTab;
+    PhysicsTab::UIPhysicsTabState m_physicsTab;
+    ProfilerTab::UIProfilerTabState m_profilerTab;
+    SceneTab::UISceneTabState m_sceneTab;
     float m_scrollY = 0.0f;
     double m_scrollbarVisibleUntil = 0.0;
     int m_activeSlider = 0; // 0=none; other values map to Controls/Options sliders in SkullbonezUI.cpp
-    float m_previewTimeScale = -1.0f;
-    int m_previewModelCount = -1;
-    float m_previewPhysicsAlpha = -1.0f;
-    float m_previewContactLinger = -1.0f;
-    int m_previewSolverBallCount = -1;
-    int m_previewSolverBoxCount = -1;
-    uint32_t m_expandedProfilerHashes[64] = {};
-    int m_expandedProfilerHashCount = 0;
-    bool m_expandAllProfilerMarkers = false;
-    bool m_profilerDefaultExpansionApplied = false;
-    bool m_windowAnimationActive = false;
-    bool m_windowAnimationToMinimized = false;
-    double m_windowAnimationStart = 0.0;
-    double m_windowAnimationEnd = 0.0;
-    UIRect m_windowAnimationFrom;
-    UIRect m_windowAnimationTo;
-
-    struct PerformanceHistogramSample
-    {
-        float cpuMs = 0.0f;
-        float gpuMs = 0.0f;
-        float spikeMs = 0.0f;
-    };
-    static constexpr int PERFORMANCE_HISTOGRAM_SAMPLE_COUNT = 120;
-    PerformanceHistogramSample m_performanceHistogramSamples[PERFORMANCE_HISTOGRAM_SAMPLE_COUNT] = {};
-    int m_performanceHistogramHead = 0;
-    int m_performanceHistogramCount = 0;
-    float m_performanceHistogramAxisMs = 16.67f;
-
-    struct ProfilerTimelineSegment
-    {
-        float startMs = 0.0f;
-        float durationMs = 0.0f;
-        bool isFilled = false;
-    };
 
     int ContentHeight() const;
-    int BuildVisibleProfilerRows( int* rows, int maxRows ) const;
-    void BuildProfilerTimelineSegments( const int* rows, int rowCount, ProfilerTimelineSegment* segments ) const;
-    bool IsProfilerMarkerExpanded( uint32_t hash ) const;
-    void ToggleProfilerMarker( uint32_t hash );
-    void ApplyProfilerDefaultExpansion();
-    void ApplyProfilerExpandAll();
-    void PushPerformanceHistogramSample( float cpuMs, float gpuMs );
-    void DrawPerformanceHistogram( const UIDrawContext& draw, const InGameUIFrameData& data ) const;
-    void ApplyDefaultWindowPlacement( int screenW, int screenH );
     void DrawCursor( const UIDrawContext& draw ) const;
-    void BeginWindowAnimation( const UIRect& from, const UIRect& to, double now, bool toMinimized );
-    UIRect CurrentWindowRect( double now );
-    void DrawWindowAnimationShell( const UIDrawContext& draw, const UIRect& bounds ) const;
-    void ClearSceneFilter();
     void CloseSceneCombo();
-    void CaptureSceneFilterKeyState();
-    bool SceneFilterKeyPressed( int virtualKey );
-    void AppendSceneFilterChar( char value );
-    void BackspaceSceneFilter();
-    void UpdateSceneFilterTyping( InGameUIInputResult& result, const char* const* sceneOptions, int sceneOptionCount );
     void SetMaximized( bool maximized, int screenW, int screenH, double now = 0.0 );
 };
 

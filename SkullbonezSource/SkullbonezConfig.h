@@ -2,6 +2,7 @@
 
 
 // --- Includes ---
+#include <cstdio>
 #include <string>
 
 namespace SkullbonezCore
@@ -45,6 +46,7 @@ class SkullbonezConfig
   public:
     static SkullbonezConfig& Instance();
     void Load( const char* path );
+    void Dump( FILE* out ) const;
 
     // Asset paths
     std::string skyFront = "sky1.jpg";
