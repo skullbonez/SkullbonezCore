@@ -39,7 +39,7 @@ cinematic_sky_zenith_b 0.86
 cinematic_terrain_tint 0.46 0.48 0.14
 cinematic_terrain_accent 0.20 0.18 0.06
 cinematic_water_tint 0.028 0.21 0.24
-cinematic_water_profile 0.68 0.52 0.34
+cinematic_water_profile 0.66 0.58 0.44
 
 # Object material look overrides.
 object_material balls 1.00 1.00 1.00 texture
