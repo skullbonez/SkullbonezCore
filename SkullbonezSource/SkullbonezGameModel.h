@@ -11,13 +11,6 @@
 #include "SkullbonezResponseInformation.h"
 
 
-// --- Usings ---
-using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::Geometry;
-using namespace SkullbonezCore::Math::CollisionDetection;
-using namespace SkullbonezCore::Math::Transformation;
-
-
 namespace SkullbonezCore
 {
 namespace Environment
@@ -94,11 +87,11 @@ class GameModel
     // Authoritative collision shape. Broadphase may use cached radii for speed,
     // but narrowphase and solver-row setup come back to this variant so boxes,
     // spheres, and future shapes can each provide their real contact geometry.
-    CollisionShape m_boundingVolume;                   // Bounding volume (variant, inline)
-    BallPhysicsCache m_ballPhysics;                    // Immutable per-ball physics cache for hot loops
-    RigidBody m_physicsInfo;                           // Physics information for the game object
-    Environment::WorldEnvironment* m_worldEnvironment; // Pointer to the world environment settings
-    Geometry::Terrain* m_terrain;                      // Pointer to the world m_terrain
+    Math::CollisionDetection::CollisionShape m_boundingVolume; // Bounding volume (variant, inline)
+    BallPhysicsCache m_ballPhysics;                            // Immutable per-ball physics cache for hot loops
+    Physics::RigidBody m_physicsInfo;                          // Physics information for the game object
+    Environment::WorldEnvironment* m_worldEnvironment;         // Pointer to the world environment settings
+    Geometry::Terrain* m_terrain;                              // Pointer to the world m_terrain
     // Temporary terrain-hit mailbox. CollisionDetectTerrain writes where and
     // when a terrain hit happened; BuildTerrainContactManifold reads it and
     // converts it into solver-neutral contact points. It is not the solver.
@@ -115,8 +108,8 @@ class GameModel
     char m_name[64];                                    // Optional name for logging (empty = unnamed)
 
     void BuildSpherePhysicsCache( float radius );                                  // Precompute immutable sphere data used in hot paths
-    const BoundingSphere& GetBoundingSphere() const;                               // Sphere-only fast path accessor (variant-backed)
-    BoundingSphere& GetBoundingSphere();                                           // Mutable sphere-only fast path accessor (variant-backed)
+    const Math::CollisionDetection::BoundingSphere& GetBoundingSphere() const;     // Sphere-only fast path accessor (variant-backed)
+    Math::CollisionDetection::BoundingSphere& GetBoundingSphere();                 // Mutable sphere-only fast path accessor (variant-backed)
     void CalculateVolume();                                                        // Calculates the volume of the model
     void ApplyWorldForces( float changeInTime );                                   // Apply forces on the body from the world environment
     void UpdateModelInfo();                                                        // Perform this operation every time the model has objects added or removed from its object list
@@ -128,7 +121,7 @@ class GameModel
     // the center-based shortcut can say a box is supported while every real vertex
     // is still visibly above the surface. This helper returns the closest true
     // vertex, the terrain sample under that vertex, and the signed vertical gap.
-    bool GetClosestBoxTerrainVertex( Math::Vector::Vector3& outVertex, float& outTerrainHeight, Plane& outPlane, float& outGap );
+    bool GetClosestBoxTerrainVertex( Math::Vector::Vector3& outVertex, float& outTerrainHeight, Geometry::Plane& outPlane, float& outGap );
     void DEBUG_SetSphereToTerrain(); // Debug routine - ensure sphere does not go through terrain
 
   public:
@@ -143,7 +136,7 @@ class GameModel
     GameModel( GameModel&& ) noexcept = default;            // Move constructor
     GameModel& operator=( GameModel&& ) noexcept = default; // Move assignment
 
-    Matrix4 GetModelMatrix();                                                                                                         // Returns the model matrix for rendering (T*R*T*S)
+    Math::Transformation::Matrix4 GetModelMatrix();                                                                                   // Returns the model matrix for rendering (T*R*T*S)
     bool IsResponseRequired();                                                                                                        // Indicates whether terrain/deprecated response is required
     void ClearResponseRequired();                                                                                                     // Clears the terrain/deprecated response flag after the owner consumes it
     float GetSubmergedVolumePercent();                                                                                                // Returns the percentage of the game model submerged in fluid
@@ -187,7 +180,7 @@ class GameModel
     const Math::Vector::Vector3& GetRotationalInertia();                                                                              // Returns the rotational inertia (passthrough to RigidBody)
     const Math::Vector::Vector3& GetInvertedRotationalInertia();                                                                      // Returns component-wise inverse rotational inertia (cached immutable)
     float GetCoefficientRestitution();                                                                                                // Returns the coefficient of restitution (passthrough to RigidBody)
-    const CollisionShape& GetCollisionShape() const;                                                                                  // Const shape variant for narrowphase manifold dispatch
+    const Math::CollisionDetection::CollisionShape& GetCollisionShape() const;                                                        // Const shape variant for narrowphase manifold dispatch
     void SetLinearVelocity( const Math::Vector::Vector3& v );                                                                         // Sets the linear velocity (passthrough to RigidBody)
     void SetAngularVelocity( const Math::Vector::Vector3& v );                                                                        // Sets the angular velocity (passthrough to RigidBody)
     void SetPosition( const Math::Vector::Vector3& pos );                                                                             // Teleports the model to a world position (passthrough to RigidBody)
