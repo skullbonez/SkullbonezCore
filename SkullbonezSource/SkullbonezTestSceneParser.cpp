@@ -1,5 +1,7 @@
 // --- Includes ---
 #include "SkullbonezTestScene.h"
+#include <cerrno>
+#include <climits>
 #include <cstdarg>
 #include <cstdlib>
 #include <cstring>
@@ -176,6 +178,74 @@ class TestSceneParser
             Fail( "Invalid %s at line %d (expected: %s)", directive, m_lineNumber, expected );
         }
         return args;
+    }
+
+    static bool TryParseInt( const char* value, int& out )
+    {
+        if ( !value || value[0] == '\0' )
+        {
+            return false;
+        }
+
+        errno = 0;
+        char* end = nullptr;
+        const long parsed = strtol( value, &end, 10 );
+        if ( end == value || *end != '\0' || errno == ERANGE || parsed < INT_MIN || parsed > INT_MAX )
+        {
+            return false;
+        }
+
+        out = static_cast<int>( parsed );
+        return true;
+    }
+
+    static bool TryParseFloat( const char* value, float& out )
+    {
+        if ( !value || value[0] == '\0' )
+        {
+            return false;
+        }
+
+        errno = 0;
+        char* end = nullptr;
+        const double parsed = strtod( value, &end );
+        if ( end == value || *end != '\0' || errno == ERANGE )
+        {
+            return false;
+        }
+
+        out = static_cast<float>( parsed );
+        return true;
+    }
+
+    int ParseIntValue( const char* directive, const char* value )
+    {
+        int parsed = 0;
+        if ( !TryParseInt( value, parsed ) )
+        {
+            Fail( "Invalid %s at line %d: %s", directive, m_lineNumber, value ? value : "" );
+        }
+        return parsed;
+    }
+
+    int ParseIntArg( const char* directive, const char* args, const char* expected )
+    {
+        return ParseIntValue( directive, RequireArgs( directive, args, expected ) );
+    }
+
+    float ParseFloatValue( const char* directive, const char* value )
+    {
+        float parsed = 0.0f;
+        if ( !TryParseFloat( value, parsed ) )
+        {
+            Fail( "Invalid %s at line %d: %s", directive, m_lineNumber, value ? value : "" );
+        }
+        return parsed;
+    }
+
+    float ParseFloatArg( const char* directive, const char* args, const char* expected )
+    {
+        return ParseFloatValue( directive, RequireArgs( directive, args, expected ) );
     }
 
     bool ParseOnOffOnly( const char* value, bool& out ) const
@@ -402,7 +472,7 @@ class TestSceneParser
             Fail( "Invalid UI scroll value at line %d", m_lineNumber );
         }
         m_scene.m_UIOptions.hasScrollY = true;
-        m_scene.m_UIOptions.scrollY = ( strcmp( value, "bottom" ) == 0 ) ? 1000000.0f : static_cast<float>( atof( value ) );
+        m_scene.m_UIOptions.scrollY = ( strcmp( value, "bottom" ) == 0 ) ? 1000000.0f : ParseFloatValue( "UI scroll", value );
     }
 
     void ParseUIMouse( const char* args )
@@ -429,7 +499,7 @@ class TestSceneParser
 
     void ParseUIStressSeed( const char* args )
     {
-        const int seed = atoi( args );
+        const int seed = ParseIntArg( "UI stress_seed", args, "UI stress_seed <N>" );
         if ( seed <= 0 )
         {
             Fail( "Invalid UI stress_seed value at line %d: %s", m_lineNumber, args );
@@ -440,7 +510,7 @@ class TestSceneParser
 
     void ParseUIStressActions( const char* args )
     {
-        const int actions = atoi( args );
+        const int actions = ParseIntArg( "UI stress_actions", args, "UI stress_actions <N>" );
         if ( actions <= 0 )
         {
             Fail( "Invalid UI stress_actions value at line %d: %s", m_lineNumber, args );
@@ -466,7 +536,7 @@ class TestSceneParser
             return;
         }
 
-        m_scene.m_sceneOptions.frameCount = atoi( args );
+        m_scene.m_sceneOptions.frameCount = ParseIntValue( "frames", args );
         if ( m_scene.m_sceneOptions.frameCount <= 0 && strcmp( args, "-1" ) != 0 )
         {
             Fail( "Invalid frame count at line %d: %s", m_lineNumber, args );
@@ -515,7 +585,7 @@ class TestSceneParser
 
     void ParseSeed( const char* args )
     {
-        m_scene.m_sceneOptions.seed = static_cast<unsigned int>( atoi( RequireArgs( "seed", args, "seed <N>" ) ) );
+        m_scene.m_sceneOptions.seed = static_cast<unsigned int>( ParseIntArg( "seed", args, "seed <N>" ) );
         if ( m_scene.m_sceneOptions.seed == 0 )
         {
             Fail( "Invalid seed at line %d (must be > 0)", m_lineNumber );
@@ -534,7 +604,7 @@ class TestSceneParser
 
     void ParsePerfLogFlushInterval( const char* args )
     {
-        m_scene.m_loggingOptions.perfLogFlushInterval = atoi( RequireArgs( "perf_log_flush_interval", args, "perf_log_flush_interval <N>" ) );
+        m_scene.m_loggingOptions.perfLogFlushInterval = ParseIntArg( "perf_log_flush_interval", args, "perf_log_flush_interval <N>" );
         if ( m_scene.m_loggingOptions.perfLogFlushInterval < 0 )
         {
             Fail( "Invalid perf_log_flush_interval at line %d (must be >= 0)", m_lineNumber );
@@ -769,7 +839,7 @@ class TestSceneParser
 
     void ParseTimeScale( const char* args )
     {
-        const float val = static_cast<float>( atof( RequireArgs( "time_scale", args, "time_scale <value>" ) ) );
+        const float val = ParseFloatArg( "time_scale", args, "time_scale <value>" );
         if ( val <= 0.0f )
         {
             Fail( "Invalid time_scale at line %d (must be > 0)", m_lineNumber );
@@ -856,7 +926,7 @@ class TestSceneParser
 
     void ParsePhysicsDebugAlpha( const char* args )
     {
-        const float val = static_cast<float>( atof( RequireArgs( "physics_debug_alpha", args, "physics_debug_alpha <0.05..1.0>" ) ) );
+        const float val = ParseFloatArg( "physics_debug_alpha", args, "physics_debug_alpha <0.05..1.0>" );
         if ( val < 0.05f || val > 1.0f )
         {
             Fail( "Invalid physics_debug_alpha at line %d (expected 0.05..1.0)", m_lineNumber );
@@ -866,7 +936,7 @@ class TestSceneParser
 
     void ParsePhysicsDebugContactLinger( const char* args )
     {
-        const float val = static_cast<float>( atof( RequireArgs( "physics_debug_contact_linger", args, "physics_debug_contact_linger <0.0..5.0>" ) ) );
+        const float val = ParseFloatArg( "physics_debug_contact_linger", args, "physics_debug_contact_linger <0.0..5.0>" );
         if ( val < 0.0f || val > 5.0f )
         {
             Fail( "Invalid physics_debug_contact_linger at line %d (expected 0.0..5.0 seconds)", m_lineNumber );
@@ -876,7 +946,7 @@ class TestSceneParser
 
     void ParseTrackHeight( const char* args )
     {
-        const float val = static_cast<float>( atof( RequireArgs( "track_height", args, "track_height <height>" ) ) );
+        const float val = ParseFloatArg( "track_height", args, "track_height <height>" );
         if ( val <= 0.0f )
         {
             Fail( "Invalid track_height at line %d (must be > 0)", m_lineNumber );
@@ -886,7 +956,7 @@ class TestSceneParser
 
     void ParseAutoCycleInterval( const char* args )
     {
-        const float val = static_cast<float>( atof( RequireArgs( "auto_cycle_interval", args, "auto_cycle_interval <seconds>" ) ) );
+        const float val = ParseFloatArg( "auto_cycle_interval", args, "auto_cycle_interval <seconds>" );
         if ( val <= 0.0f )
         {
             Fail( "Invalid auto_cycle_interval at line %d (must be > 0)", m_lineNumber );
@@ -975,7 +1045,7 @@ class TestSceneParser
 
     void ParseSolverBalls( const char* args )
     {
-        m_scene.m_sceneOptions.solverBallCount = atoi( RequireArgs( "solver_balls", args, "solver_balls <count>" ) );
+        m_scene.m_sceneOptions.solverBallCount = ParseIntArg( "solver_balls", args, "solver_balls <count>" );
         if ( m_scene.m_sceneOptions.solverBallCount < 0 )
         {
             Fail( "Invalid solver_balls count at line %d (must be >= 0)", m_lineNumber );
@@ -984,7 +1054,7 @@ class TestSceneParser
 
     void ParseSolverBoxes( const char* args )
     {
-        m_scene.m_sceneOptions.solverBoxCount = atoi( RequireArgs( "solver_boxes", args, "solver_boxes <count>" ) );
+        m_scene.m_sceneOptions.solverBoxCount = ParseIntArg( "solver_boxes", args, "solver_boxes <count>" );
         if ( m_scene.m_sceneOptions.solverBoxCount < 0 )
         {
             Fail( "Invalid solver_boxes count at line %d (must be >= 0)", m_lineNumber );
@@ -1102,7 +1172,7 @@ class TestSceneParser
         {
             if ( strcmp( key, directive.name ) == 0 )
             {
-                const float parsedValue = static_cast<float>( atof( value ) );
+                const float parsedValue = ParseFloatValue( key, value );
                 if ( parsedValue < directive.minValue || parsedValue > directive.maxValue )
                 {
                     Fail( "Invalid %s at line %d (expected %.3f..%.3f)", key, m_lineNumber, directive.minValue, directive.maxValue );
