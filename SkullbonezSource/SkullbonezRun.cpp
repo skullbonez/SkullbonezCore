@@ -390,8 +390,8 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     }
 
     CreateDirectoryA( "Debug", nullptr );
-    FILE* f = nullptr;
-    if ( fopen_s( &f, NUDGE_REPRO_SNAPSHOT_PATH, "a" ) != 0 || !f )
+    FILE* rawFile = nullptr;
+    if ( fopen_s( &rawFile, NUDGE_REPRO_SNAPSHOT_PATH, "a" ) != 0 || !rawFile )
     {
         sprintf_s( m_debug.reproSnapshotMessage,
                    sizeof( m_debug.reproSnapshotMessage ),
@@ -399,6 +399,8 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
         m_debug.reproSnapshotMessageUntil = m_timers.simulationTimer.GetTimeSinceLastStart() + NUDGE_REPRO_MESSAGE_SECONDS;
         return;
     }
+    std::unique_ptr<FILE, decltype( &fclose )> file( rawFile, fclose );
+    FILE* f = file.get();
 
     GameModel& model = m_cGameModelCollection.GetModelAtIndex( targetIndex );
     const Vector3& pos = model.GetPosition();
@@ -649,7 +651,6 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
     }
     fprintf( f, "\n" );
     fprintf( f, "=== END NUDGE REPRO SNAPSHOT ===\n" );
-    fclose( f );
 
     sprintf_s( m_debug.reproSnapshotMessage,
                sizeof( m_debug.reproSnapshotMessage ),
