@@ -4,6 +4,8 @@
 
 // --- Usings ---
 using namespace SkullbonezCore::Math::Orientation;
+using namespace SkullbonezCore::Math::Transformation;
+using namespace SkullbonezCore::Math::Vector;
 
 
 Quaternion::Quaternion()

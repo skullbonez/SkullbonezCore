@@ -8,11 +8,6 @@
 #include <immintrin.h> // SSE4.1 intrinsics for LoadSSE
 #endif
 
-
-// --- Usings ---
-using namespace SkullbonezCore::Math::Vector;
-
-
 namespace SkullbonezCore
 {
 namespace Math
@@ -30,14 +25,14 @@ class RotationMatrix
     RotationMatrix();                                                                                                    // Default constructor
     RotationMatrix( float f11, float f12, float f13, float f21, float f22, float f23, float f31, float f32, float f33 ); // Overloaded constructor
     ~RotationMatrix() = default;
-    void Identity();                                     // Sets the matrix back to the identity value
-    Vector3 operator*( const Vector3& v ) const;         // Rotation matrix multiplied by vector
-    Vector3 operator*=( const Vector3& v ) const;        // *= overload
-    Vector3 TransposeMultiply( const Vector3& v ) const; // R^T * v (inverse rotation for orthogonal matrices)
+    void Identity();                                                     // Sets the matrix back to the identity value
+    Vector::Vector3 operator*( const Vector::Vector3& v ) const;         // Rotation matrix multiplied by vector
+    Vector::Vector3 operator*=( const Vector::Vector3& v ) const;        // *= overload
+    Vector::Vector3 TransposeMultiply( const Vector::Vector3& v ) const; // R^T * v (inverse rotation for orthogonal matrices)
 
     // Returns dot(abs(row_Y), v) — the maximum downward extent of an OBB with half-extents v.
     // Used for closed-form terrain bottom offset: avoids iterating all 8 vertices.
-    float SupportExtentY( const Vector3& halfExtents ) const
+    float SupportExtentY( const Vector::Vector3& halfExtents ) const
     {
         return fabsf( m21 ) * halfExtents.x + fabsf( m22 ) * halfExtents.y + fabsf( m23 ) * halfExtents.z;
     }
@@ -64,10 +59,10 @@ class RotationMatrix
 const RotationMatrix IDENTITY_MATRIX( 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f ); // Identity matrix
 
 // Returns the rotated point (vPoint AFTER rotation) rotated about the arbitrary axis defined by vAxis, by quantity fRadians
-inline Vector3 RotatePointAboutArbitrary( float fRadians, const Vector3& vAxis, const Vector3& vPoint )
+inline Vector::Vector3 RotatePointAboutArbitrary( float fRadians, const Vector::Vector3& vAxis, const Vector::Vector3& vPoint )
 {
     // temp vector to store rotated view vector
-    Vector3 vResult;
+    Vector::Vector3 vResult;
 
     // break rotation amount into vertical and horizontal components to
     // prepare for applying arbitrary 3d rotation matrix
