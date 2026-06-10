@@ -580,6 +580,13 @@ struct PhysicsDebugComponentDirective
     uint32_t flag;
 };
 
+struct GeneratedObjectOverrideDirective
+{
+    const char* optionName;
+    GeneratedObjectTypeOverride objectType;
+    const char* message;
+};
+
 bool HasFlagDirective( const CommandLineView& commandLine, const CliFlagDirective& directive )
 {
     return HasOption( commandLine, directive.name ) || ( directive.alias && HasOption( commandLine, directive.alias ) );
@@ -1097,6 +1104,35 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
     return ApplyCliValueDirectives( commandLine, out, kValues );
 }
 
+bool ApplyGeneratedObjectOverride( const CommandLineView& commandLine, ParsedArgs& out )
+{
+    static const GeneratedObjectOverrideDirective kOverrides[] = {
+        { "--all-balls", GeneratedObjectTypeOverride::AllBalls, "[objects] Generated objects forced to balls." },
+        { "--all-boxes", GeneratedObjectTypeOverride::AllBoxes, "[objects] Generated objects forced to boxes." },
+    };
+
+    const GeneratedObjectOverrideDirective* selected = nullptr;
+    for ( const GeneratedObjectOverrideDirective& directive : kOverrides )
+    {
+        if ( !HasOption( commandLine, directive.optionName ) )
+        {
+            continue;
+        }
+        if ( selected )
+        {
+            return FailCommandLineParse( "--all-balls and --all-boxes are mutually exclusive." );
+        }
+        selected = &directive;
+    }
+
+    if ( selected )
+    {
+        out.objectTypeOverride = selected->objectType;
+        fprintf( stdout, "%s\n", selected->message );
+    }
+    return true;
+}
+
 // Guards --physics-regression-log against use in non-Debug builds.
 // Returns false if startup should abort.
 bool ValidatePhysicsRegressionLog( const CommandLineView& commandLine )
@@ -1287,21 +1323,9 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
         fprintf( stdout, "[ui-stress] Enabled seed=%u actions=%d.\n", out.uiStressSeed, out.uiStressActions );
     }
 
-    const bool allBalls = HasOption( commandLine, "--all-balls" );
-    const bool allBoxes = HasOption( commandLine, "--all-boxes" );
-    if ( allBalls && allBoxes )
+    if ( !ApplyGeneratedObjectOverride( commandLine, out ) )
     {
-        return FailCommandLineParse( "--all-balls and --all-boxes are mutually exclusive." );
-    }
-    if ( allBalls )
-    {
-        out.objectTypeOverride = GeneratedObjectTypeOverride::AllBalls;
-        fprintf( stdout, "[objects] Generated objects forced to balls.\n" );
-    }
-    else if ( allBoxes )
-    {
-        out.objectTypeOverride = GeneratedObjectTypeOverride::AllBoxes;
-        fprintf( stdout, "[objects] Generated objects forced to boxes.\n" );
+        return false;
     }
 
     if ( !ParsePhysicsDebugOverrides( commandLine, out ) )
