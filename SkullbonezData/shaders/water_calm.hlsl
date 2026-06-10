@@ -113,14 +113,14 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         float wedge = frac(angle * 2.86479f + basinDistance * 0.30f + 0.5f);
         float panelEdge = 1.0f - smoothstep(0.0f, 0.040f, min(wedge, 1.0f - wedge));
         waterColor = lerp(waterColor, waterColor * float3(0.72f, 0.88f, 0.96f), panelEdge * 0.22f);
-        waterColor = lerp(waterColor, reflection.rgb, min(uReflectionStrength, 0.07f));
+        waterColor = lerp(waterColor, reflection.rgb, min(uReflectionStrength, 0.12f));
         float rimLine = smoothstep(0.70f, 0.91f, basinDistance) * (1.0f - smoothstep(0.94f, 1.0f, basinDistance));
         float innerRim = smoothstep(0.52f, 0.72f, basinDistance) * (1.0f - smoothstep(0.76f, 0.88f, basinDistance));
         waterColor += float3(0.46f, 0.50f, 0.24f) * rimLine;
         waterColor += float3(0.08f, 0.22f, 0.18f) * innerRim;
         float sunShard = pow(max(0.0f, 1.0f - abs(reflUV.x - 0.64f) * 6.0f), 3.0f) *
                          pow(max(0.0f, 1.0f - abs(reflUV.y - 0.48f) * 8.0f), 2.0f);
-        waterColor += uSunColor * sunShard * 0.018f;
+        waterColor += uSunColor * sunShard * 0.040f;
     }
     if (uCinematicMode > 0.5f)
     {

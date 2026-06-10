@@ -88,14 +88,14 @@ void main()
         float wedge = fract(angle * 2.86479 + basinDistance * 0.30 + 0.5);
         float panelEdge = 1.0 - smoothstep(0.0, 0.040, min(wedge, 1.0 - wedge));
         waterColor = mix(waterColor, waterColor * vec3(0.72, 0.88, 0.96), panelEdge * 0.22);
-        waterColor = mix(waterColor, reflection.rgb, min(uReflectionStrength, 0.07));
+        waterColor = mix(waterColor, reflection.rgb, min(uReflectionStrength, 0.12));
         float rimLine = smoothstep(0.70, 0.91, basinDistance) * (1.0 - smoothstep(0.94, 1.0, basinDistance));
         float innerRim = smoothstep(0.52, 0.72, basinDistance) * (1.0 - smoothstep(0.76, 0.88, basinDistance));
         waterColor += vec3(0.46, 0.50, 0.24) * rimLine;
         waterColor += vec3(0.08, 0.22, 0.18) * innerRim;
         float sunShard = pow(max(0.0, 1.0 - abs(reflUV.x - 0.64) * 6.0), 3.0) *
                          pow(max(0.0, 1.0 - abs(reflUV.y - 0.48) * 8.0), 2.0);
-        waterColor += uSunColor * sunShard * 0.018;
+        waterColor += uSunColor * sunShard * 0.040;
     }
     if (uCinematicMode > 0.5)
     {
