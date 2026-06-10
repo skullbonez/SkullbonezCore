@@ -27,18 +27,6 @@
 #include "UI/SkullbonezUI.h"
 
 
-// --- Usings ---
-using namespace SkullbonezCore::Environment;
-using namespace SkullbonezCore::Hardware;
-using namespace SkullbonezCore::Textures;
-using namespace SkullbonezCore::Text;
-using namespace SkullbonezCore::Geometry;
-using namespace SkullbonezCore::Math;
-using namespace SkullbonezCore::GameObjects;
-using namespace SkullbonezCore::Physics;
-using namespace SkullbonezCore::UI;
-
-
 namespace SkullbonezCore
 {
 namespace Basics
@@ -80,11 +68,11 @@ struct RunRuntimeSettings
 
 struct RunTimerState
 {
-    Timer frameTimer;
-    Timer workTimer;
-    Timer updateTimer;
-    Timer cameraTimer;
-    Timer simulationTimer;
+    Environment::Timer frameTimer;
+    Environment::Timer workTimer;
+    Environment::Timer updateTimer;
+    Environment::Timer cameraTimer;
+    Environment::Timer simulationTimer;
 
     float physicsTime = 0.0f;        // Last frame physics time (seconds)
     float rollingPhysicsTime = 0.0f; // Smoothed physics time accumulator
@@ -104,7 +92,7 @@ struct RunTimerState
 
 struct RunSubsystemState
 {
-    std::unique_ptr<Terrain> terrain;
+    std::unique_ptr<Geometry::Terrain> terrain;
     bool isFlatSlopeTerrain = false;
     std::unique_ptr<Rendering::IFramebuffer> reflectionFBO;
 
@@ -119,15 +107,15 @@ struct RunSubsystemState
     std::unique_ptr<Rendering::IShader> tonemapShader;
     uint32_t postQuadVB = 0;
 
-    CameraCollection* cameras = nullptr;
-    TextureCollection* textures = nullptr;
+    Environment::CameraCollection* cameras = nullptr;
+    Textures::TextureCollection* textures = nullptr;
     SkullbonezWindow* window = nullptr;
-    SkyBox* skyBox = nullptr;
+    Geometry::SkyBox* skyBox = nullptr;
 };
 
 struct RunCameraState
 {
-    InputState input = {}; // Current frame input state
+    Hardware::InputState input = {}; // Current frame input state
 
     int selectedCamera = 0;          // Keeps track of which camera is selected
     bool isFlyMode = false;          // Free-fly camera mode active (toggle with F)
@@ -294,7 +282,7 @@ class SkullbonezRun
     int m_UISolverBallCountOverride = -1;
     int m_UISolverBoxCountOverride = -1;
     bool m_cmdHasPhysicsDebugFlagsOverride = false;
-    uint32_t m_cmdPhysicsDebugFlagsOverride = PHYSICS_DEBUG_NONE;
+    uint32_t m_cmdPhysicsDebugFlagsOverride = Physics::PHYSICS_DEBUG_NONE;
     bool m_cmdHasPhysicsDebugTransparentOverride = false;
     bool m_cmdPhysicsDebugTransparentOverride = false;
     bool m_cmdHasPhysicsDebugAlphaOverride = false;
@@ -306,21 +294,21 @@ class SkullbonezRun
 #ifdef _DEBUG
     RunPhysicsDiagnosticsState m_physicsDiagnostics; // Queryable model-facing physics diagnostic trace
 #endif
-    RunRuntimeSettings m_runtimeSettings;            // Scene/app runtime swap policy toggles
-    RunTimerState m_timers;                          // Frame/simulation timers and rolling timing values
-    RunSubsystemState m_systems;                     // Window, camera, texture, terrain, and reflection handles
-    RunCameraState m_camera;                         // Camera/input state and ball-tracking settings
-    RunSceneState m_scene;                           // Scene-mode execution state
-    RunScreenshotState m_screenshot;                 // Screenshot trigger and capture state
-    InGameUI m_UI;                                   // Encapsulated in-game diagnostics window
-    RunDebugState m_debug;                           // Runtime debug/overlay toggles
-    RunFireState m_fire;                             // Runtime silver bullet pool state
-    RunUIStressState m_uiStress;                     // Deterministic UI stress run state
-    BroadphaseVisualizer m_broadphaseVisualizer;     // Spatial grid debug overlay (G key toggle)
-    CollisionVisualizer m_collisionVisualizer;       // Solid collision/sleep model visualizer (V key toggle)
-    PhysicsDebugVisualizer m_physicsDebugVisualizer; // Line overlay for object axes, contact manifolds, and sleep state
-    WorldEnvironment m_cWorldEnvironment;            // SkullbonezCore::Environment::WorldEnvironment class
-    GameModelCollection m_cGameModelCollection;      // SkullbonezCore::GameObjects::GameModelCollection class
+    RunRuntimeSettings m_runtimeSettings;                     // Scene/app runtime swap policy toggles
+    RunTimerState m_timers;                                   // Frame/simulation timers and rolling timing values
+    RunSubsystemState m_systems;                              // Window, camera, texture, terrain, and reflection handles
+    RunCameraState m_camera;                                  // Camera/input state and ball-tracking settings
+    RunSceneState m_scene;                                    // Scene-mode execution state
+    RunScreenshotState m_screenshot;                          // Screenshot trigger and capture state
+    UI::InGameUI m_UI;                                        // Encapsulated in-game diagnostics window
+    RunDebugState m_debug;                                    // Runtime debug/overlay toggles
+    RunFireState m_fire;                                      // Runtime silver bullet pool state
+    RunUIStressState m_uiStress;                              // Deterministic UI stress run state
+    Physics::BroadphaseVisualizer m_broadphaseVisualizer;     // Spatial grid debug overlay (G key toggle)
+    Physics::CollisionVisualizer m_collisionVisualizer;       // Solid collision/sleep model visualizer (V key toggle)
+    Physics::PhysicsDebugVisualizer m_physicsDebugVisualizer; // Line overlay for object axes, contact manifolds, and sleep state
+    Environment::WorldEnvironment m_cWorldEnvironment;        // SkullbonezCore::Environment::WorldEnvironment class
+    GameObjects::GameModelCollection m_cGameModelCollection;  // SkullbonezCore::GameObjects::GameModelCollection class
 
     inline static int sPerfPass = 0;
     void Render();                                                                                                                     // Main render method

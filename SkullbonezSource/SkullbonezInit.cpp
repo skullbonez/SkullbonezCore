@@ -32,6 +32,7 @@ using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
+using namespace SkullbonezCore::Physics;
 
 
 namespace
