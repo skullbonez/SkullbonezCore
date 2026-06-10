@@ -31,6 +31,11 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
+namespace RunInternal
+{
+struct SceneRuntimeResetSnapshot;
+}
+
 struct RunPerfLogState
 {
     bool isPerfTest = false;            // Performance logging mode
@@ -346,6 +351,9 @@ class SkullbonezRun
     bool HasSceneQueueEntry( int index ) const;                                                                                        // True when index points at a queued scene/demo entry
     bool HasCurrentSceneQueueEntry() const;                                                                                            // True when currentSceneIndex points at a queued entry
     const std::string* CurrentSceneQueuePath() const;                                                                                  // Current queued scene path, or nullptr if no current entry
+    RunInternal::SceneRuntimeResetSnapshot CaptureSceneRuntimeResetSnapshot();                                                         // Captures live runtime controls before a scene reset rebuilds objects
+    void RestoreSceneRuntimeResetSnapshot( const RunInternal::SceneRuntimeResetSnapshot& snapshot, bool suppressExitOnComplete );      // Restores preserved live controls after scene file/defaults rebuild
+    void ClearSceneRuntimeUIOverrides();                                                                                               // Clears UI rebuild overrides when a new scene/defaults should be authoritative
     void LogPerfMemory( const char* checkpoint );                                                                                      // Log memory usage to perf CSV
     void LoadScene( int index, bool preserveUIState = false, bool suppressExitOnComplete = false, bool preserveRuntimeState = false ); // Resets scene-specific state and loads a scene by queue index
     void ResetCurrentScene( bool preserveUIState = false, bool suppressExitOnComplete = false, bool preserveRuntimeState = true );     // User-triggered reset/reload of current scene or generated demo mode
