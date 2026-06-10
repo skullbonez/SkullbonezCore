@@ -580,6 +580,18 @@ struct PhysicsDebugComponentDirective
     uint32_t flag;
 };
 
+struct PhysicsDebugFloatDirective
+{
+    const char* dashedName;
+    const char* underscoredName;
+    bool ParsedArgs::* hasOverride;
+    float ParsedArgs::* value;
+    float minValue;
+    float maxValue;
+    const char* errorMessage;
+    bool enableTransparentBodies;
+};
+
 struct GeneratedObjectOverrideDirective
 {
     const char* optionName;
@@ -766,6 +778,30 @@ bool ApplyPhysicsDebugComponentOverride( const CommandLineView& commandLine, con
     return true;
 }
 
+bool ApplyPhysicsDebugFloatOverride( const CommandLineView& commandLine, const PhysicsDebugFloatDirective& directive, ParsedArgs& out )
+{
+    const char* value = FindOptionValue( commandLine, directive.dashedName, directive.underscoredName );
+    if ( !value )
+    {
+        return true;
+    }
+
+    float parsed = 0.0f;
+    if ( !ParseFloatToken( value, parsed ) || parsed < directive.minValue || parsed > directive.maxValue )
+    {
+        return FailCommandLineParse( directive.errorMessage );
+    }
+
+    out.*( directive.hasOverride ) = true;
+    out.*( directive.value ) = parsed;
+    if ( directive.enableTransparentBodies && !out.hasPhysicsDebugTransparentOverride )
+    {
+        out.hasPhysicsDebugTransparentOverride = true;
+        out.physicsDebugTransparentOverride = true;
+    }
+    return true;
+}
+
 bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs& out )
 {
     const char* modeValue = FindOptionValue( commandLine, "--physics-debug", "--physics_debug" );
@@ -802,41 +838,16 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
         out.hasPhysicsDebugTransparentOverride = true;
     }
 
-    const char* alphaValue = FindOptionValue( commandLine, "--physics-debug-alpha", "--physics_debug_alpha" );
-    if ( alphaValue )
+    static const PhysicsDebugFloatDirective kFloatOverrides[] = {
+        { "--physics-debug-alpha", "--physics_debug_alpha", &ParsedArgs::hasPhysicsDebugAlphaOverride, &ParsedArgs::physicsDebugAlphaOverride, 0.05f, 1.0f, "--physics-debug-alpha expects 0.05..1.0.", true },
+        { "--physics-debug-contact-linger", "--physics_debug_contact_linger", &ParsedArgs::hasPhysicsDebugContactLingerOverride, &ParsedArgs::physicsDebugContactLingerOverride, 0.0f, 5.0f, "--physics-debug-contact-linger expects 0.0..5.0 seconds.", false },
+    };
+    for ( const PhysicsDebugFloatDirective& directive : kFloatOverrides )
     {
-        float alpha = 0.0f;
-        if ( !ParseFloatToken( alphaValue, alpha ) )
+        if ( !ApplyPhysicsDebugFloatOverride( commandLine, directive, out ) )
         {
-            return FailCommandLineParse( "--physics-debug-alpha expects 0.05..1.0." );
+            return false;
         }
-        if ( alpha < 0.05f || alpha > 1.0f )
-        {
-            return FailCommandLineParse( "--physics-debug-alpha expects 0.05..1.0." );
-        }
-        out.hasPhysicsDebugAlphaOverride = true;
-        out.physicsDebugAlphaOverride = alpha;
-        if ( !out.hasPhysicsDebugTransparentOverride )
-        {
-            out.hasPhysicsDebugTransparentOverride = true;
-            out.physicsDebugTransparentOverride = true;
-        }
-    }
-
-    const char* lingerValue = FindOptionValue( commandLine, "--physics-debug-contact-linger", "--physics_debug_contact_linger" );
-    if ( lingerValue )
-    {
-        float linger = 0.0f;
-        if ( !ParseFloatToken( lingerValue, linger ) )
-        {
-            return FailCommandLineParse( "--physics-debug-contact-linger expects 0.0..5.0 seconds." );
-        }
-        if ( linger < 0.0f || linger > 5.0f )
-        {
-            return FailCommandLineParse( "--physics-debug-contact-linger expects 0.0..5.0 seconds." );
-        }
-        out.hasPhysicsDebugContactLingerOverride = true;
-        out.physicsDebugContactLingerOverride = linger;
     }
 
     if ( out.hasPhysicsDebugFlagsOverride )
