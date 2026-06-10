@@ -16,6 +16,7 @@
 #include <cstring>
 #include <cstdarg>
 #include <cstdint>
+#include <fstream>
 #include <vector>
 #include <string>
 #include <io.h>
@@ -874,23 +875,21 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
         std::string suitePath( suiteArg );
 
         // Read suite file: one scene path per line, # comments ignored
-        FILE* f = nullptr;
-        if ( fopen_s( &f, suitePath.c_str(), "r" ) == 0 && f )
+        std::ifstream suiteFile( suitePath );
+        if ( suiteFile )
         {
-            char line[512];
-            while ( fgets( line, sizeof( line ), f ) )
+            std::string line;
+            while ( std::getline( suiteFile, line ) )
             {
-                size_t len = strlen( line );
-                while ( len > 0 && ( line[len - 1] == '\r' || line[len - 1] == '\n' || line[len - 1] == ' ' ) )
+                while ( !line.empty() && ( line.back() == '\r' || line.back() == ' ' ) )
                 {
-                    line[--len] = '\0';
+                    line.pop_back();
                 }
-                if ( len > 0 && line[0] != '#' )
+                if ( !line.empty() && line[0] != '#' )
                 {
                     sceneList.push_back( line );
                 }
             }
-            fclose( f );
         }
         else
         {
