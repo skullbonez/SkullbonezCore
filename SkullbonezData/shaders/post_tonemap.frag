@@ -34,6 +34,7 @@ uniform vec4 uSunShaftParams; // x/y screen position, strength, falloff
 uniform vec3 uSunColor;
 uniform vec4 uBloomParams; // threshold, knee, strength, radius
 uniform vec4 uCloudParams; // coverage, softness, scale, intensity
+uniform vec4 uStyleGrade;  // saturation, contrast, vignette floor, sky mode
 
 out vec4 FragColor;
 
@@ -269,9 +270,9 @@ void main()
     float safeGamma = max(uGamma, 0.001);
     mapped = pow(mapped, vec3(1.0 / safeGamma));
     float luminance = dot(mapped, vec3(0.2126, 0.7152, 0.0722));
-    mapped = mix(vec3(luminance), mapped, 1.08);
-    mapped = clamp((mapped - 0.5) * 1.08 + 0.5, 0.0, 1.0);
+    mapped = mix(vec3(luminance), mapped, max(uStyleGrade.x, 0.0));
+    mapped = clamp((mapped - 0.5) * max(uStyleGrade.y, 0.0) + 0.5, 0.0, 1.0);
     float vignette = 1.0 - smoothstep(0.28, 0.86, distance(vTexCoord, vec2(0.52, 0.48)));
-    mapped *= mix(0.76, 1.0, vignette);
+    mapped *= mix(clamp(uStyleGrade.z, 0.0, 1.0), 1.0, vignette);
     FragColor = vec4(mapped, 1.0);
 }

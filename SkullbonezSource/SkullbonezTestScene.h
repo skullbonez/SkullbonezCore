@@ -115,6 +115,23 @@ enum SceneCinematicOverrideBits : uint64_t
     SCENE_CINE_FOG_END = 1ull << 43,
     SCENE_CINE_FOG_DENSITY = 1ull << 44,
     SCENE_CINE_FOG_MAX_OPACITY = 1ull << 45,
+    SCENE_CINE_STYLE_MODES = 1ull << 46,
+    SCENE_CINE_STYLE_GRADE = 1ull << 47,
+    SCENE_CINE_TERRAIN_TINT = 1ull << 48,
+    SCENE_CINE_TERRAIN_ACCENT = 1ull << 49,
+    SCENE_CINE_TERRAIN_GRID = 1ull << 50,
+    SCENE_CINE_WATER_TINT = 1ull << 51,
+    SCENE_CINE_WATER_PROFILE = 1ull << 52,
+    SCENE_CINE_BASIN_MASK = 1ull << 53,
+};
+
+struct SceneObjectMaterialOverride
+{
+    char target[64];
+    float tintR = 1.0f;
+    float tintG = 1.0f;
+    float tintB = 1.0f;
+    float materialMode = 1.0f;
 };
 
 struct SceneOptions
@@ -255,6 +272,7 @@ class TestScene
     std::vector<SceneBall> m_balls;
     std::vector<SceneBallState> m_ballStates;
     std::vector<SceneBox> m_boxes;
+    std::vector<SceneObjectMaterialOverride> m_objectMaterials;
 
     SceneOptions m_sceneOptions;
     SceneCaptureOptions m_captureOptions;
@@ -324,6 +342,8 @@ class TestScene
     const SceneBallState& GetBallState( int index ) const;
     int GetBoxCount() const;
     const SceneBox& GetBox( int index ) const;
+    int GetObjectMaterialOverrideCount() const;
+    const SceneObjectMaterialOverride& GetObjectMaterialOverride( int index ) const;
     bool HasWorldOverride() const;
     float GetWorldGravity() const;
     float GetWorldFluidHeight() const;

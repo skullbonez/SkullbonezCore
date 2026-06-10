@@ -1,0 +1,27 @@
+# 18. Nordic Winter
+seed 1018
+physics off
+text off
+vsync off
+pipeline_sync on
+fixed_step
+frames unlimited
+water_reflection none
+world -30.0 25.0 1.0
+look nordic_winter
+camera main 650 155 920  610 48 610  0 1 0
+
+object_material balls 0.92 0.98 1.0 beachball
+object_material prefix:ice 0.62 0.82 1.00 glass
+object_material prefix:snow 0.94 0.97 1.00 matte
+floating_box snow_drift_l 430 42 670  85 8 24  3000 0.05  0 10 0
+floating_box snow_drift_r 785 40 640  100 8 24  3000 0.05  0 -12 0
+floating_box ice_ridge 615 55 515  125 14 16  3000 0.05  0 0 0
+ball hero 620 54 650 27 108 25 0.42 0 24 0
+ball snow_01 470 60 705 15 62 14 0.38 0 70 0
+ball snow_02 760 56 690 16 66 15 0.38 0 130 0
+ball ice_01 390 74 585 8 32 8 0.34 0 20 0
+ball ice_02 520 68 545 7 28 7 0.34 0 60 0
+ball ice_03 675 66 540 7 28 7 0.34 0 100 0
+ball ice_04 825 78 570 8 32 8 0.34 0 140 0
+ball cold_sky 860 170 505 10 34 9 0.32 0 160 0

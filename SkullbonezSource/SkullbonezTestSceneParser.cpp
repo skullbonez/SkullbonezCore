@@ -353,6 +353,39 @@ class TestSceneParser
         }
     }
 
+    float ParseMaterialModeValue( const char* directive, const char* value )
+    {
+        float parsed = 0.0f;
+        if ( TryParseFloat( value, parsed ) )
+        {
+            return parsed;
+        }
+
+        static const SceneIntOption kMaterialModes[] = {
+            { "texture", -1 },
+            { "beachball", -1 },
+            { "matte", 1 },
+            { "solid", 1 },
+            { "metal", 2 },
+            { "chrome", 2 },
+            { "emissive", 3 },
+            { "neon", 3 },
+            { "glass", 4 },
+            { "toon", 5 },
+            { "pixar", 5 },
+            { "lowpoly", 6 },
+            { "shadow", 7 },
+            { "black", 7 },
+        };
+        int mode = 0;
+        if ( TryParseIntOption( value, kMaterialModes, mode ) )
+        {
+            return static_cast<float>( mode );
+        }
+
+        Fail( "Invalid %s material mode at line %d: %s", directive, m_lineNumber, value ? value : "" );
+    }
+
     void ParsePhysics( const char* args )
     {
         ParseStrictOnOff( "physics", RequireArgs( "physics", args, "physics on|off" ), m_scene.m_sceneOptions.isPhysicsEnabled );
@@ -1081,6 +1114,548 @@ class TestSceneParser
         ParseStrictOnOff( "terrain_hidden", RequireArgs( "terrain_hidden", args, "terrain_hidden on|off" ), m_scene.m_sceneOptions.terrainHidden );
     }
 
+    static uint64_t ConceptLookOverrideMask()
+    {
+        return SCENE_CINE_RENDERING |
+               SCENE_CINE_SKY_ATMOSPHERE |
+               SCENE_CINE_CLOUDS |
+               SCENE_CINE_GOD_RAYS |
+               SCENE_CINE_VOLUMETRIC_LIGHTING |
+               SCENE_CINE_BLOOM |
+               SCENE_CINE_FOG |
+               SCENE_CINE_TERRAIN_RELIEF_ENABLED |
+               SCENE_CINE_EXPOSURE |
+               SCENE_CINE_GAMMA |
+               SCENE_CINE_SUN_SCREEN_X |
+               SCENE_CINE_SUN_SCREEN_Y |
+               SCENE_CINE_SUN_COLOR_R |
+               SCENE_CINE_SUN_COLOR_G |
+               SCENE_CINE_SUN_COLOR_B |
+               SCENE_CINE_SUN_INTENSITY |
+               SCENE_CINE_SKY_HORIZON_R |
+               SCENE_CINE_SKY_HORIZON_G |
+               SCENE_CINE_SKY_HORIZON_B |
+               SCENE_CINE_SKY_ZENITH_R |
+               SCENE_CINE_SKY_ZENITH_G |
+               SCENE_CINE_SKY_ZENITH_B |
+               SCENE_CINE_SKY_GLOW_STRENGTH |
+               SCENE_CINE_CLOUD_COVERAGE |
+               SCENE_CINE_CLOUD_SOFTNESS |
+               SCENE_CINE_CLOUD_SCALE |
+               SCENE_CINE_CLOUD_INTENSITY |
+               SCENE_CINE_SUN_SHAFT_STRENGTH |
+               SCENE_CINE_SUN_SHAFT_FALLOFF |
+               SCENE_CINE_VOLUMETRIC_STRENGTH |
+               SCENE_CINE_VOLUMETRIC_DENSITY |
+               SCENE_CINE_VOLUMETRIC_DECAY |
+               SCENE_CINE_BLOOM_THRESHOLD |
+               SCENE_CINE_BLOOM_KNEE |
+               SCENE_CINE_BLOOM_STRENGTH |
+               SCENE_CINE_BLOOM_RADIUS |
+               SCENE_CINE_TERRAIN_RELIEF |
+               SCENE_CINE_BASIN_DEPTH |
+               SCENE_CINE_BASIN_RIM_LIFT |
+               SCENE_CINE_FOG_COLOR_R |
+               SCENE_CINE_FOG_COLOR_G |
+               SCENE_CINE_FOG_COLOR_B |
+               SCENE_CINE_FOG_START |
+               SCENE_CINE_FOG_END |
+               SCENE_CINE_FOG_DENSITY |
+               SCENE_CINE_FOG_MAX_OPACITY |
+               SCENE_CINE_STYLE_MODES |
+               SCENE_CINE_STYLE_GRADE |
+               SCENE_CINE_TERRAIN_TINT |
+               SCENE_CINE_TERRAIN_ACCENT |
+               SCENE_CINE_TERRAIN_GRID |
+               SCENE_CINE_WATER_TINT |
+               SCENE_CINE_WATER_PROFILE |
+               SCENE_CINE_BASIN_MASK;
+    }
+
+    static void SetLookColors( CinematicRenderConfig& c,
+                               float sunR,
+                               float sunG,
+                               float sunB,
+                               float horizonR,
+                               float horizonG,
+                               float horizonB,
+                               float zenithR,
+                               float zenithG,
+                               float zenithB,
+                               float terrainR,
+                               float terrainG,
+                               float terrainB,
+                               float accentR,
+                               float accentG,
+                               float accentB )
+    {
+        c.sunColorR = sunR;
+        c.sunColorG = sunG;
+        c.sunColorB = sunB;
+        c.skyHorizonR = horizonR;
+        c.skyHorizonG = horizonG;
+        c.skyHorizonB = horizonB;
+        c.skyZenithR = zenithR;
+        c.skyZenithG = zenithG;
+        c.skyZenithB = zenithB;
+        c.terrainTintR = terrainR;
+        c.terrainTintG = terrainG;
+        c.terrainTintB = terrainB;
+        c.terrainAccentR = accentR;
+        c.terrainAccentG = accentG;
+        c.terrainAccentB = accentB;
+    }
+
+    static void SetLookWater( CinematicRenderConfig& c, int mode, float r, float g, float b, float alpha, float reflection, float glint )
+    {
+        c.waterMode = mode;
+        c.waterTintR = r;
+        c.waterTintG = g;
+        c.waterTintB = b;
+        c.waterAlpha = alpha;
+        c.waterReflectionStrength = reflection;
+        c.waterGlintStrength = glint;
+    }
+
+    void ParseLook( const char* args )
+    {
+        const char* name = RequireArgs( "look", args, "look <concept_name>" );
+
+        CinematicRenderConfig c;
+        c.enabled = true;
+        c.skyAtmosphereEnabled = true;
+        c.cloudsEnabled = true;
+        c.godRaysEnabled = true;
+        c.volumetricLightingEnabled = true;
+        c.bloomEnabled = true;
+        c.fogEnabled = true;
+        c.terrainReliefEnabled = true;
+        c.terrainRelief = 0.18f;
+        c.basinDepth = 44.0f;
+        c.basinRimLift = 30.0f;
+        c.basinCenterX = 620.0f;
+        c.basinCenterZ = 615.0f;
+        c.basinRadiusX = 220.0f;
+        c.basinRadiusZ = 150.0f;
+        c.basinFeather = 0.20f;
+        c.terrainGridScale = 42.0f;
+        c.terrainGridStrength = 0.0f;
+
+        if ( strcmp( name, "golden_hour_realism" ) == 0 )
+        {
+            c.skyMode = 0;
+            c.terrainMode = 0;
+            c.objectStyle = 0;
+            c.exposure = 0.70f;
+            c.gamma = 2.05f;
+            c.sunScreenX = 0.28f;
+            c.sunScreenY = 0.76f;
+            c.sunIntensity = 23.0f;
+            c.styleSaturation = 1.10f;
+            c.styleContrast = 1.08f;
+            c.styleVignette = 0.74f;
+            SetLookColors( c, 1.00f, 0.68f, 0.32f, 0.88f, 0.34f, 0.08f, 0.26f, 0.13f, 0.12f, 0.78f, 0.60f, 0.38f, 0.20f, 0.09f, 0.02f );
+            SetLookWater( c, 1, 0.24f, 0.13f, 0.055f, 0.94f, 0.25f, 0.32f );
+        }
+        else if ( strcmp( name, "brutal_industrial" ) == 0 )
+        {
+            c.skyMode = 1;
+            c.terrainMode = 1;
+            c.objectStyle = 0;
+            c.exposure = 0.58f;
+            c.gamma = 2.15f;
+            c.sunScreenX = 0.42f;
+            c.sunScreenY = 0.82f;
+            c.sunIntensity = 16.0f;
+            c.styleSaturation = 0.42f;
+            c.styleContrast = 1.34f;
+            c.styleVignette = 0.66f;
+            c.cloudCoverage = 0.84f;
+            c.cloudIntensity = 1.05f;
+            c.fogDensity = 0.0011f;
+            c.fogMaxOpacity = 0.48f;
+            SetLookColors( c, 0.74f, 0.70f, 0.62f, 0.42f, 0.42f, 0.38f, 0.10f, 0.11f, 0.12f, 0.42f, 0.42f, 0.39f, 0.15f, 0.15f, 0.13f );
+            SetLookWater( c, 1, 0.055f, 0.060f, 0.058f, 0.90f, 0.38f, 0.10f );
+        }
+        else if ( strcmp( name, "studio_lighting_showcase" ) == 0 )
+        {
+            c.skyMode = 2;
+            c.terrainMode = 2;
+            c.objectStyle = 2;
+            c.exposure = 0.90f;
+            c.gamma = 2.05f;
+            c.sunScreenX = 0.70f;
+            c.sunScreenY = 0.76f;
+            c.sunIntensity = 14.0f;
+            c.styleSaturation = 1.02f;
+            c.styleContrast = 1.16f;
+            c.styleVignette = 0.82f;
+            c.cloudsEnabled = false;
+            c.fogEnabled = false;
+            SetLookColors( c, 1.00f, 0.96f, 0.88f, 0.42f, 0.45f, 0.48f, 0.025f, 0.027f, 0.030f, 0.88f, 0.89f, 0.90f, 0.86f, 0.90f, 1.00f );
+            SetLookWater( c, 1, 0.68f, 0.70f, 0.72f, 0.78f, 0.78f, 0.08f );
+        }
+        else if ( strcmp( name, "neon_cyberpunk" ) == 0 )
+        {
+            c.skyMode = 3;
+            c.terrainMode = 3;
+            c.objectStyle = 3;
+            c.exposure = 0.82f;
+            c.gamma = 1.92f;
+            c.sunScreenX = 0.58f;
+            c.sunScreenY = 0.70f;
+            c.sunIntensity = 12.0f;
+            c.styleSaturation = 1.55f;
+            c.styleContrast = 1.24f;
+            c.styleVignette = 0.60f;
+            c.bloomThreshold = 0.45f;
+            c.bloomStrength = 1.45f;
+            c.bloomRadius = 6.4f;
+            c.terrainGridScale = 28.0f;
+            c.terrainGridStrength = 1.25f;
+            SetLookColors( c, 0.30f, 0.95f, 1.80f, 0.05f, 0.02f, 0.16f, 0.00f, 0.01f, 0.05f, 0.02f, 0.05f, 0.12f, 0.10f, 0.95f, 1.00f );
+            SetLookWater( c, 1, 0.035f, 0.05f, 0.11f, 0.92f, 0.62f, 0.68f );
+        }
+        else if ( strcmp( name, "alien_planet" ) == 0 )
+        {
+            c.skyMode = 4;
+            c.terrainMode = 4;
+            c.objectStyle = 0;
+            c.exposure = 0.76f;
+            c.gamma = 2.00f;
+            c.sunScreenX = 0.22f;
+            c.sunScreenY = 0.70f;
+            c.sunIntensity = 18.0f;
+            c.styleSaturation = 1.28f;
+            c.styleContrast = 1.10f;
+            c.styleVignette = 0.72f;
+            SetLookColors( c, 0.95f, 0.46f, 1.35f, 0.48f, 0.18f, 0.72f, 0.12f, 0.04f, 0.20f, 0.50f, 0.18f, 0.68f, 0.10f, 0.95f, 0.62f );
+            SetLookWater( c, 1, 0.16f, 0.06f, 0.26f, 0.88f, 0.34f, 0.42f );
+        }
+        else if ( strcmp( name, "desert_storm" ) == 0 )
+        {
+            c.skyMode = 5;
+            c.terrainMode = 5;
+            c.objectStyle = 1;
+            c.exposure = 0.72f;
+            c.gamma = 2.18f;
+            c.sunScreenX = 0.36f;
+            c.sunScreenY = 0.64f;
+            c.sunIntensity = 26.0f;
+            c.styleSaturation = 0.92f;
+            c.styleContrast = 1.18f;
+            c.styleVignette = 0.68f;
+            c.cloudCoverage = 0.94f;
+            c.cloudIntensity = 1.30f;
+            c.fogDensity = 0.0042f;
+            c.fogMaxOpacity = 0.82f;
+            c.fogStart = 18.0f;
+            c.fogEnd = 820.0f;
+            SetLookColors( c, 1.20f, 0.72f, 0.28f, 0.76f, 0.48f, 0.20f, 0.18f, 0.13f, 0.08f, 0.84f, 0.52f, 0.24f, 0.36f, 0.18f, 0.05f );
+            SetLookWater( c, 0, 0.08f, 0.06f, 0.04f, 0.0f, 0.0f, 0.0f );
+        }
+        else if ( strcmp( name, "painterly" ) == 0 )
+        {
+            c.skyMode = 6;
+            c.terrainMode = 6;
+            c.objectStyle = 5;
+            c.exposure = 0.86f;
+            c.gamma = 2.02f;
+            c.sunScreenX = 0.68f;
+            c.sunScreenY = 0.78f;
+            c.sunIntensity = 18.0f;
+            c.styleSaturation = 1.30f;
+            c.styleContrast = 0.96f;
+            c.styleVignette = 0.82f;
+            SetLookColors( c, 1.00f, 0.70f, 0.48f, 0.72f, 0.48f, 0.74f, 0.24f, 0.44f, 0.78f, 0.58f, 0.68f, 0.34f, 0.80f, 0.44f, 0.28f );
+            SetLookWater( c, 1, 0.18f, 0.42f, 0.50f, 0.82f, 0.20f, 0.18f );
+        }
+        else if ( strcmp( name, "retro_future_2005" ) == 0 )
+        {
+            c.skyMode = 7;
+            c.terrainMode = 9;
+            c.objectStyle = 0;
+            c.exposure = 1.04f;
+            c.gamma = 1.88f;
+            c.sunScreenX = 0.72f;
+            c.sunScreenY = 0.82f;
+            c.sunIntensity = 31.0f;
+            c.styleSaturation = 1.48f;
+            c.styleContrast = 1.20f;
+            c.styleVignette = 0.72f;
+            c.bloomThreshold = 0.62f;
+            c.bloomStrength = 1.20f;
+            c.bloomRadius = 8.2f;
+            SetLookColors( c, 1.00f, 0.76f, 0.42f, 0.95f, 0.44f, 0.16f, 0.02f, 0.10f, 0.16f, 0.54f, 0.58f, 0.48f, 0.92f, 0.60f, 0.22f );
+            SetLookWater( c, 2, 0.03f, 0.18f, 0.30f, 0.92f, 0.44f, 0.62f );
+        }
+        else if ( strcmp( name, "atmospheric_fog_world" ) == 0 )
+        {
+            c.skyMode = 8;
+            c.terrainMode = 8;
+            c.objectStyle = 7;
+            c.exposure = 0.62f;
+            c.gamma = 2.12f;
+            c.sunScreenX = 0.56f;
+            c.sunScreenY = 0.86f;
+            c.sunIntensity = 10.0f;
+            c.styleSaturation = 0.46f;
+            c.styleContrast = 0.92f;
+            c.styleVignette = 0.58f;
+            c.fogDensity = 0.0070f;
+            c.fogMaxOpacity = 0.90f;
+            c.fogStart = 8.0f;
+            c.fogEnd = 620.0f;
+            SetLookColors( c, 0.70f, 0.84f, 0.88f, 0.56f, 0.62f, 0.62f, 0.22f, 0.28f, 0.32f, 0.36f, 0.44f, 0.44f, 0.16f, 0.20f, 0.20f );
+            SetLookWater( c, 1, 0.05f, 0.12f, 0.14f, 0.78f, 0.20f, 0.05f );
+        }
+        else if ( strcmp( name, "ocean_world" ) == 0 )
+        {
+            c.skyMode = 9;
+            c.terrainMode = 9;
+            c.objectStyle = 0;
+            c.exposure = 0.82f;
+            c.gamma = 2.00f;
+            c.sunScreenX = 0.50f;
+            c.sunScreenY = 0.70f;
+            c.sunIntensity = 25.0f;
+            c.styleSaturation = 1.12f;
+            c.styleContrast = 1.04f;
+            c.styleVignette = 0.78f;
+            c.fogDensity = 0.0010f;
+            c.fogMaxOpacity = 0.28f;
+            SetLookColors( c, 1.00f, 0.72f, 0.36f, 0.88f, 0.58f, 0.28f, 0.08f, 0.22f, 0.42f, 0.25f, 0.32f, 0.35f, 0.75f, 0.54f, 0.24f );
+            SetLookWater( c, 2, 0.02f, 0.20f, 0.32f, 0.96f, 0.48f, 0.72f );
+        }
+        else if ( strcmp( name, "scifi_test_chamber" ) == 0 )
+        {
+            c.skyMode = 10;
+            c.terrainMode = 10;
+            c.objectStyle = 4;
+            c.exposure = 0.88f;
+            c.gamma = 2.05f;
+            c.sunScreenX = 0.50f;
+            c.sunScreenY = 0.84f;
+            c.sunIntensity = 11.0f;
+            c.styleSaturation = 0.72f;
+            c.styleContrast = 1.12f;
+            c.styleVignette = 0.86f;
+            c.cloudsEnabled = false;
+            c.fogEnabled = false;
+            c.terrainGridScale = 52.0f;
+            c.terrainGridStrength = 0.55f;
+            SetLookColors( c, 0.86f, 0.98f, 1.00f, 0.16f, 0.18f, 0.20f, 0.02f, 0.025f, 0.03f, 0.80f, 0.82f, 0.84f, 0.72f, 0.88f, 1.00f );
+            SetLookWater( c, 1, 0.72f, 0.78f, 0.82f, 0.62f, 0.54f, 0.12f );
+        }
+        else if ( strcmp( name, "low_poly_art_style" ) == 0 )
+        {
+            c.skyMode = 11;
+            c.terrainMode = 7;
+            c.objectStyle = 6;
+            c.exposure = 0.92f;
+            c.gamma = 2.02f;
+            c.sunScreenX = 0.64f;
+            c.sunScreenY = 0.78f;
+            c.sunIntensity = 17.0f;
+            c.styleSaturation = 1.26f;
+            c.styleContrast = 1.02f;
+            c.styleVignette = 0.86f;
+            c.cloudIntensity = 0.38f;
+            SetLookColors( c, 1.00f, 0.78f, 0.52f, 0.52f, 0.72f, 0.96f, 0.12f, 0.38f, 0.78f, 0.36f, 0.64f, 0.34f, 0.18f, 0.48f, 0.22f );
+            SetLookWater( c, 1, 0.12f, 0.46f, 0.56f, 0.82f, 0.14f, 0.10f );
+        }
+        else if ( strcmp( name, "massive_scale" ) == 0 )
+        {
+            c.skyMode = 12;
+            c.terrainMode = 8;
+            c.objectStyle = 1;
+            c.exposure = 0.66f;
+            c.gamma = 2.18f;
+            c.sunScreenX = 0.18f;
+            c.sunScreenY = 0.72f;
+            c.sunIntensity = 15.0f;
+            c.styleSaturation = 0.78f;
+            c.styleContrast = 1.18f;
+            c.styleVignette = 0.58f;
+            c.fogDensity = 0.0018f;
+            c.fogMaxOpacity = 0.62f;
+            c.fogStart = 60.0f;
+            c.fogEnd = 2200.0f;
+            SetLookColors( c, 0.68f, 0.78f, 1.00f, 0.55f, 0.62f, 0.72f, 0.006f, 0.008f, 0.020f, 0.50f, 0.54f, 0.56f, 0.20f, 0.24f, 0.32f );
+            SetLookWater( c, 2, 0.08f, 0.12f, 0.18f, 0.86f, 0.26f, 0.12f );
+        }
+        else if ( strcmp( name, "storm_front" ) == 0 )
+        {
+            c.skyMode = 13;
+            c.terrainMode = 1;
+            c.objectStyle = 2;
+            c.exposure = 0.56f;
+            c.gamma = 2.22f;
+            c.sunScreenX = 0.48f;
+            c.sunScreenY = 0.82f;
+            c.sunIntensity = 19.0f;
+            c.styleSaturation = 0.58f;
+            c.styleContrast = 1.36f;
+            c.styleVignette = 0.56f;
+            c.cloudCoverage = 0.96f;
+            c.cloudIntensity = 1.40f;
+            c.bloomThreshold = 0.72f;
+            c.bloomStrength = 1.10f;
+            c.fogDensity = 0.0030f;
+            c.fogMaxOpacity = 0.72f;
+            SetLookColors( c, 0.90f, 0.96f, 1.65f, 0.22f, 0.25f, 0.28f, 0.03f, 0.04f, 0.05f, 0.30f, 0.32f, 0.32f, 0.68f, 0.82f, 1.00f );
+            SetLookWater( c, 1, 0.035f, 0.05f, 0.06f, 0.92f, 0.58f, 0.20f );
+        }
+        else if ( strcmp( name, "photogrammetry_ground" ) == 0 )
+        {
+            c.skyMode = 0;
+            c.terrainMode = 12;
+            c.objectStyle = 0;
+            c.exposure = 0.78f;
+            c.gamma = 2.10f;
+            c.sunScreenX = 0.62f;
+            c.sunScreenY = 0.76f;
+            c.sunIntensity = 19.0f;
+            c.styleSaturation = 0.98f;
+            c.styleContrast = 1.10f;
+            c.styleVignette = 0.78f;
+            c.cloudCoverage = 0.42f;
+            c.fogDensity = 0.0008f;
+            c.fogMaxOpacity = 0.22f;
+            SetLookColors( c, 0.95f, 0.90f, 0.78f, 0.70f, 0.72f, 0.68f, 0.22f, 0.30f, 0.34f, 0.62f, 0.58f, 0.48f, 0.18f, 0.24f, 0.16f );
+            SetLookWater( c, 0, 0.10f, 0.12f, 0.10f, 0.0f, 0.0f, 0.0f );
+        }
+        else if ( strcmp( name, "tron_grid" ) == 0 )
+        {
+            c.skyMode = 15;
+            c.terrainMode = 3;
+            c.objectStyle = 7;
+            c.exposure = 0.62f;
+            c.gamma = 1.90f;
+            c.sunScreenX = 0.50f;
+            c.sunScreenY = 0.34f;
+            c.sunIntensity = 9.0f;
+            c.styleSaturation = 1.45f;
+            c.styleContrast = 1.48f;
+            c.styleVignette = 0.40f;
+            c.bloomThreshold = 0.30f;
+            c.bloomStrength = 1.70f;
+            c.bloomRadius = 6.8f;
+            c.fogDensity = 0.0006f;
+            c.fogMaxOpacity = 0.28f;
+            c.terrainGridScale = 36.0f;
+            c.terrainGridStrength = 1.85f;
+            SetLookColors( c, 0.00f, 0.80f, 1.80f, 0.00f, 0.02f, 0.05f, 0.00f, 0.00f, 0.01f, 0.00f, 0.02f, 0.05f, 0.00f, 0.75f, 1.00f );
+            SetLookWater( c, 0, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f );
+        }
+        else if ( strcmp( name, "dreamscape" ) == 0 )
+        {
+            c.skyMode = 16;
+            c.terrainMode = 4;
+            c.objectStyle = 5;
+            c.exposure = 0.92f;
+            c.gamma = 1.96f;
+            c.sunScreenX = 0.42f;
+            c.sunScreenY = 0.80f;
+            c.sunIntensity = 22.0f;
+            c.styleSaturation = 1.34f;
+            c.styleContrast = 1.02f;
+            c.styleVignette = 0.72f;
+            c.bloomThreshold = 0.70f;
+            c.bloomStrength = 0.98f;
+            c.cloudCoverage = 0.62f;
+            c.cloudIntensity = 0.86f;
+            SetLookColors( c, 1.00f, 0.58f, 1.18f, 0.94f, 0.58f, 0.82f, 0.36f, 0.22f, 0.70f, 0.64f, 0.34f, 0.72f, 0.32f, 0.86f, 1.00f );
+            SetLookWater( c, 1, 0.22f, 0.14f, 0.32f, 0.78f, 0.26f, 0.30f );
+        }
+        else if ( strcmp( name, "nordic_winter" ) == 0 )
+        {
+            c.skyMode = 17;
+            c.terrainMode = 11;
+            c.objectStyle = 4;
+            c.exposure = 0.86f;
+            c.gamma = 2.12f;
+            c.sunScreenX = 0.60f;
+            c.sunScreenY = 0.74f;
+            c.sunIntensity = 16.0f;
+            c.styleSaturation = 0.78f;
+            c.styleContrast = 1.14f;
+            c.styleVignette = 0.78f;
+            c.cloudCoverage = 0.38f;
+            c.fogDensity = 0.0009f;
+            c.fogMaxOpacity = 0.30f;
+            SetLookColors( c, 0.72f, 0.84f, 1.00f, 0.78f, 0.86f, 0.96f, 0.36f, 0.56f, 0.82f, 0.88f, 0.94f, 1.00f, 0.42f, 0.60f, 0.82f );
+            SetLookWater( c, 0, 0.58f, 0.74f, 0.86f, 0.0f, 0.0f, 0.0f );
+        }
+        else if ( strcmp( name, "abstract_render_showcase" ) == 0 )
+        {
+            c.skyMode = 18;
+            c.terrainMode = 13;
+            c.objectStyle = 2;
+            c.exposure = 0.84f;
+            c.gamma = 2.04f;
+            c.sunScreenX = 0.66f;
+            c.sunScreenY = 0.80f;
+            c.sunIntensity = 17.0f;
+            c.styleSaturation = 1.10f;
+            c.styleContrast = 1.08f;
+            c.styleVignette = 0.84f;
+            c.cloudsEnabled = false;
+            c.fogEnabled = false;
+            SetLookColors( c, 0.92f, 0.92f, 0.88f, 0.60f, 0.60f, 0.62f, 0.25f, 0.25f, 0.27f, 0.76f, 0.76f, 0.76f, 0.18f, 0.16f, 0.15f );
+            SetLookWater( c, 1, 0.58f, 0.58f, 0.60f, 0.70f, 0.58f, 0.08f );
+        }
+        else if ( strcmp( name, "pixar_inspired" ) == 0 )
+        {
+            c.skyMode = 19;
+            c.terrainMode = 14;
+            c.objectStyle = 5;
+            c.exposure = 0.92f;
+            c.gamma = 2.00f;
+            c.sunScreenX = 0.62f;
+            c.sunScreenY = 0.76f;
+            c.sunIntensity = 18.0f;
+            c.styleSaturation = 1.22f;
+            c.styleContrast = 0.96f;
+            c.styleVignette = 0.88f;
+            c.cloudCoverage = 0.46f;
+            c.cloudIntensity = 0.52f;
+            SetLookColors( c, 1.00f, 0.78f, 0.48f, 0.92f, 0.68f, 0.46f, 0.36f, 0.68f, 1.00f, 0.48f, 0.72f, 0.32f, 0.94f, 0.70f, 0.34f );
+            SetLookWater( c, 1, 0.18f, 0.46f, 0.56f, 0.78f, 0.18f, 0.18f );
+        }
+        else
+        {
+            Fail( "Unknown look '%s' at line %d", name, m_lineNumber );
+        }
+
+        m_scene.m_sceneOptions.cinematicRender = c;
+        m_scene.m_sceneOptions.cinematicOverrideMask |= ConceptLookOverrideMask();
+        m_scene.m_sceneOptions.hasCinematicRenderingOverride = true;
+        m_scene.m_sceneOptions.cinematicRendering = true;
+    }
+
+    void ParseObjectMaterial( const char* args )
+    {
+        const char* expected = "object_material <name|all|balls|boxes|prefix:...> <r> <g> <b> <mode>";
+        const char* cursor = RequireArgs( "object_material", args, expected );
+
+        SceneObjectMaterialOverride material;
+        memset( &material, 0, sizeof( material ) );
+        material.tintR = 1.0f;
+        material.tintG = 1.0f;
+        material.tintB = 1.0f;
+        material.materialMode = 1.0f;
+
+        char mode[64] = {};
+        ParseNextToken( "object_material", cursor, material.target, sizeof( material.target ), expected );
+        material.tintR = ParseNextFloatToken( "object_material", cursor, expected );
+        material.tintG = ParseNextFloatToken( "object_material", cursor, expected );
+        material.tintB = ParseNextFloatToken( "object_material", cursor, expected );
+        ParseNextToken( "object_material", cursor, mode, sizeof( mode ), expected );
+        material.materialMode = ParseMaterialModeValue( "object_material", mode );
+        m_scene.m_objectMaterials.push_back( material );
+    }
+
     void ParseSolverBalls( const char* args )
     {
         m_scene.m_sceneOptions.solverBallCount = ParseIntArg( "solver_balls", args, "solver_balls <count>" );
@@ -1104,9 +1679,100 @@ class TestSceneParser
         // Cinematic scene directives all share the cinematic_ prefix. Keeping
         // them in one parser function makes it easy to compare the scene-file
         // names with CinematicRenderConfig fields.
+        const char* lookArgs = nullptr;
+        if ( MatchDirective( line, "cinematic_look", lookArgs ) )
+        {
+            ParseLook( lookArgs );
+            return true;
+        }
+
         if ( strncmp( line, "cinematic_", 10 ) != 0 )
         {
             return false;
+        }
+
+        const char* multiArgs = nullptr;
+        if ( MatchDirective( line, "cinematic_style_modes", multiArgs ) )
+        {
+            const char* expected = "cinematic_style_modes <sky> <terrain> <object> <water>";
+            const char* cursor = RequireArgs( "cinematic_style_modes", multiArgs, expected );
+            m_scene.m_sceneOptions.cinematicRender.skyMode = ParseNextIntToken( "cinematic_style_modes", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.terrainMode = ParseNextIntToken( "cinematic_style_modes", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.objectStyle = ParseNextIntToken( "cinematic_style_modes", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.waterMode = ParseNextIntToken( "cinematic_style_modes", cursor, expected );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_STYLE_MODES;
+            return true;
+        }
+        if ( MatchDirective( line, "cinematic_style_grade", multiArgs ) )
+        {
+            const char* expected = "cinematic_style_grade <saturation> <contrast> <vignette>";
+            const char* cursor = RequireArgs( "cinematic_style_grade", multiArgs, expected );
+            m_scene.m_sceneOptions.cinematicRender.styleSaturation = ParseNextFloatToken( "cinematic_style_grade", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.styleContrast = ParseNextFloatToken( "cinematic_style_grade", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.styleVignette = ParseNextFloatToken( "cinematic_style_grade", cursor, expected );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_STYLE_GRADE;
+            return true;
+        }
+        if ( MatchDirective( line, "cinematic_terrain_tint", multiArgs ) )
+        {
+            const char* expected = "cinematic_terrain_tint <r> <g> <b>";
+            const char* cursor = RequireArgs( "cinematic_terrain_tint", multiArgs, expected );
+            m_scene.m_sceneOptions.cinematicRender.terrainTintR = ParseNextFloatToken( "cinematic_terrain_tint", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.terrainTintG = ParseNextFloatToken( "cinematic_terrain_tint", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.terrainTintB = ParseNextFloatToken( "cinematic_terrain_tint", cursor, expected );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_TERRAIN_TINT;
+            return true;
+        }
+        if ( MatchDirective( line, "cinematic_terrain_accent", multiArgs ) )
+        {
+            const char* expected = "cinematic_terrain_accent <r> <g> <b>";
+            const char* cursor = RequireArgs( "cinematic_terrain_accent", multiArgs, expected );
+            m_scene.m_sceneOptions.cinematicRender.terrainAccentR = ParseNextFloatToken( "cinematic_terrain_accent", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.terrainAccentG = ParseNextFloatToken( "cinematic_terrain_accent", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.terrainAccentB = ParseNextFloatToken( "cinematic_terrain_accent", cursor, expected );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_TERRAIN_ACCENT;
+            return true;
+        }
+        if ( MatchDirective( line, "cinematic_terrain_grid", multiArgs ) )
+        {
+            const char* expected = "cinematic_terrain_grid <scale> <strength>";
+            const char* cursor = RequireArgs( "cinematic_terrain_grid", multiArgs, expected );
+            m_scene.m_sceneOptions.cinematicRender.terrainGridScale = ParseNextFloatToken( "cinematic_terrain_grid", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.terrainGridStrength = ParseNextFloatToken( "cinematic_terrain_grid", cursor, expected );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_TERRAIN_GRID;
+            return true;
+        }
+        if ( MatchDirective( line, "cinematic_water_tint", multiArgs ) )
+        {
+            const char* expected = "cinematic_water_tint <r> <g> <b>";
+            const char* cursor = RequireArgs( "cinematic_water_tint", multiArgs, expected );
+            m_scene.m_sceneOptions.cinematicRender.waterTintR = ParseNextFloatToken( "cinematic_water_tint", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.waterTintG = ParseNextFloatToken( "cinematic_water_tint", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.waterTintB = ParseNextFloatToken( "cinematic_water_tint", cursor, expected );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_WATER_TINT;
+            return true;
+        }
+        if ( MatchDirective( line, "cinematic_water_profile", multiArgs ) )
+        {
+            const char* expected = "cinematic_water_profile <alpha> <reflection> <glint>";
+            const char* cursor = RequireArgs( "cinematic_water_profile", multiArgs, expected );
+            m_scene.m_sceneOptions.cinematicRender.waterAlpha = ParseNextFloatToken( "cinematic_water_profile", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.waterReflectionStrength = ParseNextFloatToken( "cinematic_water_profile", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.waterGlintStrength = ParseNextFloatToken( "cinematic_water_profile", cursor, expected );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_WATER_PROFILE;
+            return true;
+        }
+        if ( MatchDirective( line, "cinematic_basin_mask", multiArgs ) )
+        {
+            const char* expected = "cinematic_basin_mask <centerX> <centerZ> <radiusX> <radiusZ> <feather>";
+            const char* cursor = RequireArgs( "cinematic_basin_mask", multiArgs, expected );
+            m_scene.m_sceneOptions.cinematicRender.basinCenterX = ParseNextFloatToken( "cinematic_basin_mask", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.basinCenterZ = ParseNextFloatToken( "cinematic_basin_mask", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.basinRadiusX = ParseNextFloatToken( "cinematic_basin_mask", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.basinRadiusZ = ParseNextFloatToken( "cinematic_basin_mask", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.basinFeather = ParseNextFloatToken( "cinematic_basin_mask", cursor, expected );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_BASIN_MASK;
+            return true;
         }
 
         const char* cursor = line;
@@ -1286,6 +1952,8 @@ class TestSceneParser
             { "world", &TestSceneParser::ParseWorld, "world <gravity> <fluidHeight> <fluidDensity>" },
             { "water_hidden", &TestSceneParser::ParseWaterHidden, "water_hidden on|off" },
             { "terrain_hidden", &TestSceneParser::ParseTerrainHidden, "terrain_hidden on|off" },
+            { "look", &TestSceneParser::ParseLook, "look <concept_name>" },
+            { "object_material", &TestSceneParser::ParseObjectMaterial, "object_material <target> <r> <g> <b> <mode>" },
             { "solver_balls", &TestSceneParser::ParseSolverBalls, "solver_balls <count>" },
             { "solver_boxes", &TestSceneParser::ParseSolverBoxes, "solver_boxes <count>" },
         };

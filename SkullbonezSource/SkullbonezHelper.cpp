@@ -50,6 +50,11 @@ static void ApplyBatchLightUniforms( IShader& shader, const float lightPos[4], c
     ApplySceneLightUniforms( shader );
 }
 
+static int ObjectStyleForShader( const CinematicRenderConfig* cinematicOverride )
+{
+    return cinematicOverride ? cinematicOverride->objectStyle : Cfg().cinematicRender.objectStyle;
+}
+
 void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
 {
     sClipPlane[0] = x;
@@ -139,6 +144,7 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
     sphereShader->SetMat4( "uProjection", proj );
     sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
     sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
+    sphereShader->SetInt( "uObjectStyle", ObjectStyleForShader( cinematic ) );
     sphereInstanceData.clear();
 }
 
@@ -231,6 +237,7 @@ void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& pr
     sphereShader->SetMat4( "uProjection", proj );
     sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
     sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
+    sphereShader->SetInt( "uObjectStyle", ObjectStyleForShader( cinematic ) );
     boxInstanceData.clear();
 }
 

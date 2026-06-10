@@ -34,6 +34,7 @@ cbuffer Uniforms : register(b0)
     float    uReflectionStrength;  // Reflection blend factor (0=tint, 1=mirror)
     int      uNoReflect;           // 1 = skip reflection, output flat tint
     float    uCinematicMode;       // 1 = warm sunset response
+    int      uWaterMode;           // 1 = basin pool, 2 = full calm plane
     float    uSunGlintStrength;
     float3   uSunColor;
     float4   uBasinMask;
@@ -72,7 +73,7 @@ VS_OUT main_vs(VS_IN input)
 float4 main_ps(VS_OUT input) : SV_TARGET
 {
     float basinMask = 1.0f;
-    if (uCinematicMode > 0.5f)
+    if (uCinematicMode > 0.5f && uWaterMode == 1)
     {
         // Cinematic mode turns the calm water into an oval pool in the basin.
         // Outside the oval we discard pixels so the old broad water plane does

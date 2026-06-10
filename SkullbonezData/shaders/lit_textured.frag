@@ -46,6 +46,10 @@ in vec2 vTexCoord;
 uniform sampler2D uTexture;
 uniform vec4 uCinematicTerrain; // enable, relief, basin depth, rim lift
 uniform vec4 uCinematicBasin;   // center x/z, radius x/z
+uniform vec4 uStyleModes;       // sky, terrain, object, water
+uniform vec4 uTerrainTint;      // rgb tint
+uniform vec4 uTerrainAccent;    // rgb accent
+uniform vec4 uTerrainGrid;      // scale, strength, unused, unused
 
 // Light properties (view space, w=0 directional, w=1 positional)
 uniform vec4 uLightPosition;
@@ -65,6 +69,83 @@ float BasinDistance(vec2 xz)
     // middle and warmer on the rim.
     vec2 radius = max(uCinematicBasin.zw, vec2(1.0));
     return length((xz - uCinematicBasin.xy) / radius);
+}
+
+float GridLine(vec2 xz, float scale)
+{
+    vec2 g = abs(fract(xz / max(scale, 0.001)) - 0.5);
+    float lineDistance = min(g.x, g.y);
+    return 1.0 - smoothstep(0.470, 0.498, lineDistance);
+}
+
+vec3 TerrainModeColor(int mode, vec3 texColor, vec3 N, vec3 worldPos)
+{
+    vec3 base = texColor * max(uTerrainTint.rgb, vec3(0.001));
+    if (mode == 1)
+    {
+        float wear = sin(worldPos.x * 0.035) * sin(worldPos.z * 0.041) * 0.08;
+        base = vec3(0.34, 0.35, 0.34) + wear + texColor * vec3(0.14);
+    }
+    else if (mode == 2)
+    {
+        base = vec3(0.58, 0.60, 0.61) + texColor * vec3(0.08);
+    }
+    else if (mode == 3)
+    {
+        float grid = GridLine(worldPos.xz, max(uTerrainGrid.x, 8.0));
+        base = vec3(0.006, 0.012, 0.020) + uTerrainAccent.rgb * grid * max(uTerrainGrid.y, 0.0);
+    }
+    else if (mode == 4)
+    {
+        float veins = sin(worldPos.x * 0.026 + sin(worldPos.z * 0.021) * 2.0) * 0.5 + 0.5;
+        base = mix(vec3(0.18, 0.08, 0.24), uTerrainTint.rgb, veins * 0.55) + uTerrainAccent.rgb * pow(veins, 5.0) * 0.45;
+    }
+    else if (mode == 5)
+    {
+        base = texColor * uTerrainTint.rgb + vec3(0.20, 0.10, 0.02) * (1.0 - max(N.y, 0.0));
+    }
+    else if (mode == 6)
+    {
+        base = floor((texColor * uTerrainTint.rgb + uTerrainAccent.rgb * 0.08) * 5.0) / 5.0;
+    }
+    else if (mode == 7)
+    {
+        float bands = floor(max(N.y, 0.0) * 3.0) / 3.0;
+        base = uTerrainTint.rgb * (0.35 + bands * 0.85);
+    }
+    else if (mode == 8)
+    {
+        base = mix(vec3(0.08, 0.09, 0.10), uTerrainTint.rgb, 0.55) + texColor * 0.05;
+    }
+    else if (mode == 9)
+    {
+        base = mix(vec3(0.80, 0.84, 0.88), vec3(0.35, 0.42, 0.48), clamp(1.0 - N.y, 0.0, 1.0)) + texColor * 0.06;
+    }
+    else if (mode == 10)
+    {
+        float grid = GridLine(worldPos.xz, max(uTerrainGrid.x, 18.0));
+        base = vec3(0.055, 0.060, 0.066) + grid * uTerrainAccent.rgb * max(uTerrainGrid.y, 0.0);
+    }
+    else if (mode == 11)
+    {
+        base = mix(vec3(0.76, 0.82, 0.88), vec3(0.96, 0.98, 1.0), max(N.y, 0.0)) + uTerrainAccent.rgb * 0.05;
+    }
+    else if (mode == 12)
+    {
+        base = texColor * uTerrainTint.rgb * vec3(0.92, 1.02, 0.88);
+    }
+    else if (mode == 13)
+    {
+        vec3 bands = 0.5 + 0.5 * cos(vec3(0.0, 2.1, 4.2) + worldPos.x * 0.018 + worldPos.z * 0.023);
+        base = mix(uTerrainTint.rgb, uTerrainAccent.rgb, bands);
+    }
+    else if (mode == 14)
+    {
+        base = mix(uTerrainTint.rgb, vec3(0.90, 0.92, 0.84), 0.35 + max(N.y, 0.0) * 0.25);
+    }
+    float authoredGrid = GridLine(worldPos.xz, max(uTerrainGrid.x, 8.0)) * max(uTerrainGrid.y, 0.0);
+    base += uTerrainAccent.rgb * authoredGrid;
+    return base;
 }
 
 void main()
@@ -114,7 +195,8 @@ void main()
         float warmWrap = clamp(dot(N, L) * 0.5 + 0.5, 0.0, 1.0);
         float grazing = pow(clamp(1.0 - abs(dot(N, L)), 0.0, 1.0), 1.5);
         float rim = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 3.0) * (0.25 + warmWrap * 0.75);
-        vec3 earthBase = texColor.rgb * vec3(0.78, 0.60, 0.38);
+        int terrainMode = int(floor(uStyleModes.y + 0.5));
+        vec3 earthBase = TerrainModeColor(terrainMode, texColor.rgb, N, vWorldPos);
         if (uCinematicTerrain.x > 0.5)
         {
             // If visual terrain relief is enabled, darken the basin center and

@@ -9,6 +9,39 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
 
+namespace
+{
+bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const GameModel& model )
+{
+    if ( strcmp( material.target, "all" ) == 0 )
+    {
+        return true;
+    }
+    if ( strcmp( material.target, "balls" ) == 0 )
+    {
+        return !model.IsBox();
+    }
+    if ( strcmp( material.target, "boxes" ) == 0 )
+    {
+        return model.IsBox();
+    }
+    if ( strncmp( material.target, "prefix:", 7 ) == 0 )
+    {
+        return strncmp( model.GetName(), material.target + 7, strlen( material.target + 7 ) ) == 0;
+    }
+    return strcmp( material.target, model.GetName() ) == 0;
+}
+
+bool IsCineScenePath( const std::string& path )
+{
+    const char* name = FileNameFromPath( path.c_str() );
+    return strncmp( name, "concept_", 8 ) == 0 ||
+           strncmp( name, "cinematic_", 10 ) == 0 ||
+           strstr( name, "_cine_" ) != nullptr ||
+           strstr( name, "cine_" ) == name;
+}
+} // namespace
+
 void SkullbonezRun::SetUpGameModels( int count )
 {
     m_scene.modelCount = count;
@@ -297,6 +330,19 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
         gameModel.SetFixed( box.isFixed );
 
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
+    }
+
+    for ( int materialIndex = 0; materialIndex < scene.GetObjectMaterialOverrideCount(); ++materialIndex )
+    {
+        const SceneObjectMaterialOverride& material = scene.GetObjectMaterialOverride( materialIndex );
+        for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
+        {
+            GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
+            if ( SceneMaterialTargetMatches( material, model ) )
+            {
+                model.SetRenderTint( material.tintR, material.tintG, material.tintB, material.materialMode );
+            }
+        }
     }
 }
 
@@ -1221,13 +1267,59 @@ void SkullbonezRun::LoadDemoSceneFromUI()
 
 void SkullbonezRun::LoadAdjacentSceneFromBrowser( int direction )
 {
+    if ( direction == 0 )
+    {
+        return;
+    }
+
+    if ( HasCurrentSceneQueueEntry() && m_sceneQueue.size() > 1 )
+    {
+        bool queueIsCinematicDeck = true;
+        for ( const std::string& queuedPath : m_sceneQueue )
+        {
+            queueIsCinematicDeck = queueIsCinematicDeck && !queuedPath.empty() && IsCineScenePath( queuedPath );
+        }
+        if ( queueIsCinematicDeck )
+        {
+            const int queueCount = static_cast<int>( m_sceneQueue.size() );
+            const int nextQueueIndex = ( m_scene.currentSceneIndex + ( direction < 0 ? -1 : 1 ) + queueCount ) % queueCount;
+            LoadScene( nextQueueIndex, true, true );
+            return;
+        }
+    }
+
     const int sceneCount = static_cast<int>( m_sceneBrowserPaths.size() );
-    if ( sceneCount <= 0 || direction == 0 )
+    if ( sceneCount <= 0 )
     {
         return;
     }
 
     const int currentIndex = CurrentSceneBrowserIndex();
+    if ( currentIndex >= 0 && IsCineScenePath( m_sceneBrowserPaths[currentIndex] ) )
+    {
+        std::vector<int> cineIndices;
+        cineIndices.reserve( m_sceneBrowserPaths.size() );
+        int currentCinePosition = -1;
+        for ( int i = 0; i < sceneCount; ++i )
+        {
+            if ( IsCineScenePath( m_sceneBrowserPaths[i] ) )
+            {
+                if ( i == currentIndex )
+                {
+                    currentCinePosition = static_cast<int>( cineIndices.size() );
+                }
+                cineIndices.push_back( i );
+            }
+        }
+        if ( !cineIndices.empty() && currentCinePosition >= 0 )
+        {
+            const int cineCount = static_cast<int>( cineIndices.size() );
+            const int nextCinePosition = ( currentCinePosition + ( direction < 0 ? -1 : 1 ) + cineCount ) % cineCount;
+            LoadSceneFromBrowserIndex( cineIndices[nextCinePosition] );
+            return;
+        }
+    }
+
     int nextIndex = 0;
     if ( currentIndex < 0 )
     {

@@ -149,6 +149,7 @@ void SkullbonezRun::RenderCinematicSky()
     m_systems.skyAtmosphereShader->SetVec3( "uSunColor", cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
     m_systems.skyAtmosphereShader->SetVec3( "uHorizonColor", cinematic.skyHorizonR, cinematic.skyHorizonG, cinematic.skyHorizonB );
     m_systems.skyAtmosphereShader->SetVec3( "uZenithColor", cinematic.skyZenithR, cinematic.skyZenithG, cinematic.skyZenithB );
+    m_systems.skyAtmosphereShader->SetInt( "uSkyMode", cinematic.skyMode );
     m_systems.skyAtmosphereShader->SetVec4( "uCloudParams",
                                             cinematic.cloudCoverage,
                                             cinematic.cloudSoftness,
@@ -335,6 +336,11 @@ void SkullbonezRun::ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound,
                                       cinematic.cloudSoftness,
                                       cinematic.cloudScale,
                                       cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
+    m_systems.tonemapShader->SetVec4( "uStyleGrade",
+                                      cinematic.styleSaturation,
+                                      cinematic.styleContrast,
+                                      cinematic.styleVignette,
+                                      static_cast<float>( cinematic.skyMode ) );
     m_systems.tonemapShader->SetFloat( "uVolumetricCompositeStrength", volumetricReady && cinematic.volumetricLightingEnabled ? 1.0f : 0.0f );
     // Slot 0 is the bright HDR scene, slot 1 is its depth buffer, and slot 2 is
     // either the volumetric-light texture or a harmless fallback when that pass
@@ -611,7 +617,7 @@ void SkullbonezRun::DrawPrimitives()
     }
 
     // render the fluid ---------------------------
-    if ( !m_debug.isWaterHidden )
+    if ( !m_debug.isWaterHidden && ( !cinematicRender || ActiveCinematicConfig().waterMode != 0 ) )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Water" );
         float waterTime = m_debug.isWaterFreezeDebug

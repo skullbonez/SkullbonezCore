@@ -151,6 +151,7 @@ class InGameUI
     UIComboBox m_rendererCombo;
     UIComboBox m_reflectionCombo;
     UIComboBox m_sceneCombo;
+    UIComboBox m_cineSceneCombo;
     UICheckBox m_cinematicMasterToggle;
     UICheckBox m_cinematicFeatureToggles[static_cast<int>( UICinematicFeature::Count )];
     UISlider m_cinematicSliders[static_cast<int>( UICinematicParam::Count )];

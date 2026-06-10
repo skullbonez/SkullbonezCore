@@ -1,0 +1,26 @@
+# 15. Photogrammetry Ground
+seed 1015
+physics off
+text off
+vsync off
+pipeline_sync on
+fixed_step
+frames unlimited
+water_reflection none
+world -30.0 25.0 1.0
+look photogrammetry_ground
+camera main 675 155 910  610 42 610  0 1 0
+
+object_material balls 1.0 1.0 1.0 beachball
+object_material prefix:stone 0.46 0.44 0.36 matte
+floating_box stone_slab_01 430 42 660  52 7 34  2200 0.08  0 18 0
+floating_box stone_slab_02 795 38 625  64 6 30  2200 0.08  0 -14 0
+floating_box stone_slab_03 610 48 520  72 8 22  2200 0.08  0 0 0
+ball hero 620 54 650 27 108 25 0.45 0 24 0
+ball photo_01 470 60 705 15 62 14 0.40 0 70 0
+ball photo_02 760 54 690 16 66 15 0.40 0 130 0
+ball detail_01 380 68 585 8 32 8 0.36 0 20 0
+ball detail_02 500 62 545 7 28 7 0.36 0 60 0
+ball detail_03 655 58 535 7 28 7 0.36 0 100 0
+ball detail_04 815 70 570 8 32 8 0.36 0 140 0
+ball far_01 910 98 480 5 20 5 0.32 0 0 0

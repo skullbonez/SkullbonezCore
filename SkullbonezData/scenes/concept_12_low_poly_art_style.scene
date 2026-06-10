@@ -1,0 +1,27 @@
+# 12. Low Poly Art Style
+seed 1012
+physics off
+text off
+vsync off
+pipeline_sync on
+fixed_step
+frames unlimited
+water_reflection fbo
+world -30.0 25.0 1.0
+look low_poly_art_style
+camera main 650 170 970  610 60 610  0 1 0
+
+object_material balls 1.0 1.0 1.0 beachball
+object_material prefix:tree 0.18 0.52 0.22 lowpoly
+object_material prefix:rock 0.38 0.42 0.36 lowpoly
+floating_box tree_01 455 78 575  18 26 18  2000 0.08  0 25 0
+floating_box tree_02 760 76 560  16 24 16  2000 0.08  0 -20 0
+floating_box rock_01 400 45 680  28 10 18  2000 0.08  0 18 0
+floating_box rock_02 815 42 650  32 9 20  2000 0.08  0 -16 0
+ball hero 620 58 650 27 108 25 0.44 0 20 0
+ball low_01 470 64 705 14 58 13 0.40 0 68 0
+ball low_02 760 58 690 15 62 14 0.40 0 128 0
+ball low_03 390 80 555 8 32 8 0.36 0 20 0
+ball low_04 520 74 530 7 28 7 0.36 0 60 0
+ball low_05 675 70 535 7 28 7 0.36 0 100 0
+ball sky_01 860 178 500 10 34 9 0.34 0 140 0

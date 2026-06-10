@@ -19,6 +19,8 @@ cbuffer Uniforms : register(b0)
     float3 uZenithColor;
     float _padding2;
     float4 uCloudParams; // coverage, softness, scale, intensity
+    int    uSkyMode;
+    float3 _padding3;
 };
 
 struct VS_IN
@@ -174,5 +176,76 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float sunOcclusion = cloudAmount * smoothstep(0.42f, 0.04f, sunDistance);
     sun *= 1.0f - saturate(sunOcclusion * 0.72f + cloudAmount * 0.20f);
 
-    return float4(skyColor + sun, 1.0f);
+    int mode = uSkyMode;
+    float3 finalSky = skyColor + sun;
+    if (mode == 1)
+    {
+        finalSky = lerp(float3(0.15f, 0.16f, 0.15f), float3(0.46f, 0.43f, 0.36f), pow(1.0f - height, 1.8f)) + cloudMask * float3(0.10f, 0.09f, 0.07f);
+    }
+    else if (mode == 2)
+    {
+        finalSky = lerp(float3(0.035f, 0.038f, 0.042f), float3(0.42f, 0.45f, 0.48f), pow(1.0f - height, 2.2f));
+    }
+    else if (mode == 3 || mode == 15)
+    {
+        float scan = pow(max(0.0f, 1.0f - abs(input.texCoord.y - 0.18f) * 8.0f), 2.0f);
+        finalSky = float3(0.004f, 0.008f, 0.018f) + float3(0.0f, 0.80f, 1.0f) * scan * 0.45f + float3(1.0f, 0.0f, 0.75f) * pow(max(0.0f, 1.0f - abs(input.texCoord.x - 0.75f) * 3.0f), 4.0f) * 0.20f;
+    }
+    else if (mode == 4)
+    {
+        float secondSun = exp(-distance(input.texCoord, float2(0.74f, 0.68f)) * 8.0f);
+        finalSky = lerp(float3(0.12f, 0.04f, 0.20f), float3(0.48f, 0.18f, 0.72f), 1.0f - height) + float3(0.20f, 1.20f, 0.72f) * secondSun;
+    }
+    else if (mode == 5)
+    {
+        finalSky = lerp(float3(0.18f, 0.13f, 0.08f), float3(0.76f, 0.48f, 0.20f), pow(1.0f - height, 1.1f)) + cloudMask * float3(0.20f, 0.12f, 0.04f);
+    }
+    else if (mode == 6 || mode == 11)
+    {
+        finalSky = floor(finalSky * 5.0f) / 5.0f;
+    }
+    else if (mode == 7)
+    {
+        finalSky = lerp(float3(0.02f, 0.08f, 0.13f), float3(0.95f, 0.38f, 0.16f), pow(1.0f - height, 1.35f)) + sun * 0.35f;
+    }
+    else if (mode == 8)
+    {
+        finalSky = lerp(float3(0.26f, 0.32f, 0.36f), float3(0.58f, 0.62f, 0.62f), 1.0f - height) + cloudMask * float3(0.08f, 0.08f, 0.08f);
+    }
+    else if (mode == 9)
+    {
+        finalSky = lerp(float3(0.02f, 0.18f, 0.38f), float3(0.62f, 0.82f, 1.0f), pow(1.0f - height, 1.4f)) + sun * 0.25f;
+    }
+    else if (mode == 10)
+    {
+        finalSky = lerp(float3(0.020f, 0.023f, 0.026f), float3(0.10f, 0.12f, 0.14f), 1.0f - height);
+    }
+    else if (mode == 12)
+    {
+        float planet = 1.0f - smoothstep(0.19f, 0.205f, distance(input.texCoord, float2(0.76f, 0.72f)));
+        finalSky = float3(0.006f, 0.008f, 0.020f) + float3(0.38f, 0.48f, 0.72f) * planet + sun * 0.18f;
+    }
+    else if (mode == 13)
+    {
+        float storm = cloudMask + ValueNoise(input.texCoord * 12.0f) * 0.25f;
+        finalSky = lerp(float3(0.045f, 0.050f, 0.055f), float3(0.26f, 0.30f, 0.34f), storm) + uSunColor * sunDisk * 0.8f;
+    }
+    else if (mode == 16)
+    {
+        finalSky = lerp(float3(0.42f, 0.24f, 0.70f), float3(1.0f, 0.58f, 0.82f), 1.0f - height) + float3(0.38f, 0.86f, 1.0f) * outerGlow * 0.28f;
+    }
+    else if (mode == 17)
+    {
+        finalSky = lerp(float3(0.55f, 0.68f, 0.82f), float3(0.94f, 0.96f, 0.98f), pow(1.0f - height, 1.6f));
+    }
+    else if (mode == 18)
+    {
+        finalSky = 0.5f + 0.5f * cos(float3(0.0f, 2.0f, 4.0f) + input.texCoord.x * 7.0f + input.texCoord.y * 5.0f);
+    }
+    else if (mode == 19)
+    {
+        finalSky = lerp(float3(0.42f, 0.72f, 1.0f), float3(1.0f, 0.74f, 0.42f), pow(1.0f - height, 1.8f)) + sun * 0.18f;
+    }
+
+    return float4(finalSky, 1.0f);
 }

@@ -62,6 +62,10 @@ cbuffer Uniforms : register(b0)
     float4   uMaterialDiffuse;  // Material diffuse response
     float4   uCinematicTerrain; // enable, relief, basin depth, rim lift
     float4   uCinematicBasin;   // center x/z, radius x/z
+    float4   uStyleModes;       // sky, terrain, object, water
+    float4   uTerrainTint;      // rgb tint
+    float4   uTerrainAccent;    // rgb accent
+    float4   uTerrainGrid;      // scale, strength, unused, unused
 };
 
 // Texture + sampler (equivalent to GLSL's uniform sampler2D).
@@ -115,6 +119,83 @@ float CinematicTerrainOffset(float2 xz)
     float slopeTexture = smoothstep(0.32f, 0.92f, d) * (1.0f - smoothstep(1.02f, 1.55f, d));
     float rough = (sin(xz.x * 0.045f + xz.y * 0.011f) + sin(xz.y * 0.052f - xz.x * 0.017f)) * 0.5f;
     return uCinematicTerrain.y * (-uCinematicTerrain.z * bowl + uCinematicTerrain.w * rim + rough * 1.6f * slopeTexture);
+}
+
+float GridLine(float2 xz, float scale)
+{
+    float2 g = abs(frac(xz / max(scale, 0.001f)) - 0.5f);
+    float lineDistance = min(g.x, g.y);
+    return 1.0f - smoothstep(0.470f, 0.498f, lineDistance);
+}
+
+float3 TerrainModeColor(int mode, float3 texColor, float3 N, float3 worldPos)
+{
+    float3 base = texColor * max(uTerrainTint.rgb, float3(0.001f, 0.001f, 0.001f));
+    if (mode == 1)
+    {
+        float wear = sin(worldPos.x * 0.035f) * sin(worldPos.z * 0.041f) * 0.08f;
+        base = float3(0.34f, 0.35f, 0.34f) + wear + texColor * float3(0.14f, 0.14f, 0.14f);
+    }
+    else if (mode == 2)
+    {
+        base = float3(0.58f, 0.60f, 0.61f) + texColor * float3(0.08f, 0.08f, 0.08f);
+    }
+    else if (mode == 3)
+    {
+        float grid = GridLine(worldPos.xz, max(uTerrainGrid.x, 8.0f));
+        base = float3(0.006f, 0.012f, 0.020f) + uTerrainAccent.rgb * grid * max(uTerrainGrid.y, 0.0f);
+    }
+    else if (mode == 4)
+    {
+        float veins = sin(worldPos.x * 0.026f + sin(worldPos.z * 0.021f) * 2.0f) * 0.5f + 0.5f;
+        base = lerp(float3(0.18f, 0.08f, 0.24f), uTerrainTint.rgb, veins * 0.55f) + uTerrainAccent.rgb * pow(veins, 5.0f) * 0.45f;
+    }
+    else if (mode == 5)
+    {
+        base = texColor * uTerrainTint.rgb + float3(0.20f, 0.10f, 0.02f) * (1.0f - max(N.y, 0.0f));
+    }
+    else if (mode == 6)
+    {
+        base = floor((texColor * uTerrainTint.rgb + uTerrainAccent.rgb * 0.08f) * 5.0f) / 5.0f;
+    }
+    else if (mode == 7)
+    {
+        float bands = floor(max(N.y, 0.0f) * 3.0f) / 3.0f;
+        base = uTerrainTint.rgb * (0.35f + bands * 0.85f);
+    }
+    else if (mode == 8)
+    {
+        base = lerp(float3(0.08f, 0.09f, 0.10f), uTerrainTint.rgb, 0.55f) + texColor * 0.05f;
+    }
+    else if (mode == 9)
+    {
+        base = lerp(float3(0.80f, 0.84f, 0.88f), float3(0.35f, 0.42f, 0.48f), saturate(1.0f - N.y)) + texColor * 0.06f;
+    }
+    else if (mode == 10)
+    {
+        float grid = GridLine(worldPos.xz, max(uTerrainGrid.x, 18.0f));
+        base = float3(0.055f, 0.060f, 0.066f) + grid * uTerrainAccent.rgb * max(uTerrainGrid.y, 0.0f);
+    }
+    else if (mode == 11)
+    {
+        base = lerp(float3(0.76f, 0.82f, 0.88f), float3(0.96f, 0.98f, 1.0f), max(N.y, 0.0f)) + uTerrainAccent.rgb * 0.05f;
+    }
+    else if (mode == 12)
+    {
+        base = texColor * uTerrainTint.rgb * float3(0.92f, 1.02f, 0.88f);
+    }
+    else if (mode == 13)
+    {
+        float3 bands = 0.5f + 0.5f * cos(float3(0.0f, 2.1f, 4.2f) + worldPos.x * 0.018f + worldPos.z * 0.023f);
+        base = lerp(uTerrainTint.rgb, uTerrainAccent.rgb, bands);
+    }
+    else if (mode == 14)
+    {
+        base = lerp(uTerrainTint.rgb, float3(0.90f, 0.92f, 0.84f), 0.35f + max(N.y, 0.0f) * 0.25f);
+    }
+    float authoredGrid = GridLine(worldPos.xz, max(uTerrainGrid.x, 8.0f)) * max(uTerrainGrid.y, 0.0f);
+    base += uTerrainAccent.rgb * authoredGrid;
+    return base;
 }
 
 // VERTEX SHADER: transform vertices and prepare lighting data.
@@ -198,7 +279,8 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         float warmWrap = saturate(dot(N, L) * 0.5f + 0.5f);
         float grazing = pow(saturate(1.0f - abs(dot(N, L))), 1.5f);
         float rim = pow(1.0f - saturate(dot(N, V)), 3.0f) * (0.25f + warmWrap * 0.75f);
-        float3 earthBase = texColor.rgb * float3(0.78f, 0.60f, 0.38f);
+        int terrainMode = (int)floor(uStyleModes.y + 0.5f);
+        float3 earthBase = TerrainModeColor(terrainMode, texColor.rgb, N, input.worldPos);
         if (uCinematicTerrain.x > 0.5f)
         {
             // If visual terrain relief is enabled, darken the basin center and

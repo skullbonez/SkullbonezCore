@@ -1,0 +1,26 @@
+# 6. Desert Storm
+seed 1006
+physics off
+text off
+vsync off
+pipeline_sync on
+fixed_step
+frames unlimited
+water_reflection none
+world -30.0 25.0 1.0
+look desert_storm
+camera main 575 118 870  610 45 610  0 1 0
+
+object_material balls 0.95 0.74 0.42 matte
+object_material prefix:dune 0.70 0.42 0.18 matte
+floating_box dune_ridge_l 430 38 665  92 8 18  3000 0.05  0 8 0
+floating_box dune_ridge_r 780 36 625  120 7 17  3000 0.05  0 -12 0
+ball hero 610 50 650 27 108 25 0.40 0 18 0
+ball storm_01 470 54 690 15 62 14 0.35 0 56 0
+ball storm_02 745 50 680 17 68 15 0.35 0 118 0
+ball dust_01 390 70 580 8 34 8 0.30 0 0 0
+ball dust_02 500 64 545 7 30 7 0.30 0 0 0
+ball dust_03 640 60 530 7 30 7 0.30 0 0 0
+ball dust_04 805 72 560 8 34 8 0.30 0 0 0
+ball silhouette_01 540 126 505 6 24 6 0.25 0 0 0
+ball silhouette_02 800 170 520 9 30 8 0.25 0 0 0

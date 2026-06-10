@@ -38,6 +38,8 @@ cbuffer Uniforms : register(b0)
     float4   uLightDiffuse;
     float4   uMaterialAmbient;
     float4   uMaterialDiffuse;
+    int      uObjectStyle;
+    float3   _objectStylePad;
 };
 
 Texture2D    uTexture  : register(t0);
@@ -116,6 +118,45 @@ float3 ProceduralBeachBallColor(float2 uv)
     return lerp(color, float3(1.0f, 0.62f, 0.02f), seam * 0.28f);
 }
 
+float3 ApplyMaterialMode(int mode, float3 materialColor, float3 N, float3 V, float3 L, float3 lightColor, float diff, float spec, float2 uv)
+{
+    float3 R = reflect(-L, N);
+    if (mode == 2)
+    {
+        float metalSpec = pow(max(dot(V, R), 0.0f), 140.0f);
+        float3 reflected = lerp(float3(0.10f, 0.12f, 0.14f), lightColor * 1.4f, metalSpec);
+        return materialColor * (0.12f + diff * 0.32f) + reflected * (0.35f + metalSpec * 0.75f);
+    }
+    if (mode == 3)
+    {
+        float pulse = 0.70f + 0.30f * sin(uv.x * 24.0f + uv.y * 18.0f);
+        return materialColor * (1.5f + pulse * 1.2f) + lightColor * spec * 0.22f;
+    }
+    if (mode == 4)
+    {
+        float fresnel = pow(1.0f - saturate(dot(N, V)), 2.6f);
+        return materialColor * (0.18f + diff * 0.22f) + lightColor * (fresnel * 0.85f + spec * 0.48f);
+    }
+    if (mode == 5)
+    {
+        float bands = diff > 0.72f ? 1.0f : (diff > 0.34f ? 0.58f : 0.24f);
+        float rim = pow(1.0f - saturate(dot(N, V)), 3.0f);
+        return materialColor * (0.18f + bands * 0.95f) + lightColor * rim * 0.16f;
+    }
+    if (mode == 6)
+    {
+        float bands = floor(saturate(diff) * 3.0f) / 2.0f;
+        float3 poster = floor(materialColor * 4.0f) / 4.0f;
+        return poster * (0.25f + bands * 0.95f);
+    }
+    if (mode == 7)
+    {
+        float rim = pow(1.0f - saturate(dot(N, V)), 1.8f);
+        return float3(0.006f, 0.010f, 0.018f) + materialColor * rim * 0.16f + lightColor * spec * 0.05f;
+    }
+    return materialColor * (0.16f + diff * 0.92f) + lightColor * spec * 0.12f;
+}
+
 float4 main_ps(VS_OUT input) : SV_TARGET
 {
     float3 N = normalize(input.normal);
@@ -138,13 +179,23 @@ float4 main_ps(VS_OUT input) : SV_TARGET
 
     float4 texColor = uTexture.Sample(sSampler0, input.texCoord);
     bool cinematicMode = uLightPosition.w == 0.0f;
-    if (uLightPosition.w == 0.0f)
+    int materialMode;
+    if (input.tint.a < -0.5f)
+        materialMode = 0;
+    else if (input.tint.a > 1.25f)
+        materialMode = (int)floor(input.tint.a + 0.5f);
+    else if (input.tint.a > 0.5f)
+        materialMode = 1;
+    else
+        materialMode = uObjectStyle;
+
+    if (cinematicMode && materialMode == 0)
     {
         // Directional light means cinematic sun mode, so replace the sampled
         // texture with the procedural red/yellow panel color described above.
         texColor.rgb = ProceduralBeachBallColor(input.texCoord);
     }
-    float3 materialColor = lerp(texColor.rgb * input.tint.rgb, input.tint.rgb, saturate(input.tint.a));
+    float3 materialColor = materialMode == 0 ? texColor.rgb * input.tint.rgb : input.tint.rgb;
 
     if (cinematicMode)
     {
@@ -158,9 +209,12 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         float3 directSun = materialColor * uLightDiffuse.rgb * (diff * 0.62f + warmWrap * 0.18f);
         float3 rimLight = uLightDiffuse.rgb * rim * 0.18f;
         float3 specularSun = uLightDiffuse.rgb * glint * 0.24f;
-        return float4(warmAmbient + directSun + rimLight + specularSun, 1.0f);
+        float3 styled = ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, glint, input.texCoord);
+        float3 beachBall = warmAmbient + directSun + rimLight + specularSun;
+        return float4(materialMode == 0 ? beachBall : styled + rimLight * 0.35f, 1.0f);
     }
 
-    float3 litColor = (ambient + diffuse) * materialColor + specular;
+    float3 litColor = materialMode == 0 ? (ambient + diffuse) * materialColor + specular
+                                        : ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, spec, input.texCoord);
     return float4(litColor, 1.0);
 }

@@ -1,0 +1,29 @@
+# 2. Brutal Industrial
+seed 1002
+physics off
+text off
+vsync off
+pipeline_sync on
+fixed_step
+frames unlimited
+water_reflection fbo
+world -30.0 25.0 1.0
+look brutal_industrial
+camera main 590 170 990  610 54 610  0 1 0
+
+object_material balls 1.0 1.0 1.0 beachball
+object_material boxes 0.30 0.31 0.30 matte
+floating_box slab_left 410 42 620  82 8 18  2000 0.05  0 8 0
+floating_box slab_right 790 42 610  96 8 18  2000 0.05  0 -10 0
+floating_box bunker_back 610 70 470  210 26 12  3000 0.05  0 0 0
+floating_box pillar_01 485 84 540  10 42 10  2000 0.05  0 0 0
+floating_box pillar_02 720 82 535  10 40 10  2000 0.05  0 0 0
+ball hero 610 58 655 26 110 25 0.50 0 26 0
+ball wet_01 465 66 690 15 68 14 0.45 0 66 0
+ball wet_02 720 56 700 16 70 15 0.45 0 116 0
+ball grit_01 395 86 560 9 42 9 0.42 0 30 0
+ball grit_02 515 78 525 8 38 8 0.42 0 70 0
+ball grit_03 650 70 520 8 38 8 0.42 0 110 0
+ball grit_04 815 86 560 9 42 9 0.42 0 150 0
+ball far_01 350 80 455 5 25 5 0.40 0 0 0
+ball far_02 870 92 470 5 25 5 0.40 0 0 0

@@ -31,6 +31,7 @@ uniform sampler2D uReflectionTex;      // Texture containing the reflected scene
 uniform float     uReflectionStrength; // 0=pure tint, 1=pure reflection
 uniform int       uNoReflect;          // 1 = skip reflection, output flat tint
 uniform float     uCinematicMode;      // 1 = warm sunset response
+uniform int       uWaterMode;          // 1 = basin pool, 2 = full calm plane
 uniform vec3      uSunColor;
 uniform float     uSunGlintStrength;
 uniform vec4      uBasinMask;          // center xz, radius xz for cinematic pool mask
@@ -41,7 +42,7 @@ out vec4 FragColor;
 void main()
 {
     float basinMask = 1.0;
-    if (uCinematicMode > 0.5)
+    if (uCinematicMode > 0.5 && uWaterMode == 1)
     {
         // Cinematic mode turns the calm water into an oval pool in the basin.
         // Outside the oval we discard pixels so the old broad water plane does

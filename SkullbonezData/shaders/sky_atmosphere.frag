@@ -19,6 +19,7 @@ uniform vec3 uSunColor;
 uniform vec3 uHorizonColor;
 uniform vec3 uZenithColor;
 uniform vec4 uCloudParams; // coverage, softness, scale, intensity
+uniform int uSkyMode;
 
 out vec4 FragColor;
 
@@ -151,5 +152,76 @@ void main()
     float sunOcclusion = cloudAmount * smoothstep(0.42, 0.04, sunDistance);
     sun *= 1.0 - clamp(sunOcclusion * 0.72 + cloudAmount * 0.20, 0.0, 0.86);
 
-    FragColor = vec4(skyColor + sun, 1.0);
+    int mode = uSkyMode;
+    vec3 finalSky = skyColor + sun;
+    if (mode == 1)
+    {
+        finalSky = mix(vec3(0.15, 0.16, 0.15), vec3(0.46, 0.43, 0.36), pow(1.0 - height, 1.8)) + cloudMask * vec3(0.10, 0.09, 0.07);
+    }
+    else if (mode == 2)
+    {
+        finalSky = mix(vec3(0.035, 0.038, 0.042), vec3(0.42, 0.45, 0.48), pow(1.0 - height, 2.2));
+    }
+    else if (mode == 3 || mode == 15)
+    {
+        float scan = pow(max(0.0, 1.0 - abs(vTexCoord.y - 0.18) * 8.0), 2.0);
+        finalSky = vec3(0.004, 0.008, 0.018) + vec3(0.0, 0.80, 1.0) * scan * 0.45 + vec3(1.0, 0.0, 0.75) * pow(max(0.0, 1.0 - abs(vTexCoord.x - 0.75) * 3.0), 4.0) * 0.20;
+    }
+    else if (mode == 4)
+    {
+        float secondSun = exp(-distance(vTexCoord, vec2(0.74, 0.68)) * 8.0);
+        finalSky = mix(vec3(0.12, 0.04, 0.20), vec3(0.48, 0.18, 0.72), 1.0 - height) + vec3(0.20, 1.20, 0.72) * secondSun;
+    }
+    else if (mode == 5)
+    {
+        finalSky = mix(vec3(0.18, 0.13, 0.08), vec3(0.76, 0.48, 0.20), pow(1.0 - height, 1.1)) + cloudMask * vec3(0.20, 0.12, 0.04);
+    }
+    else if (mode == 6 || mode == 11)
+    {
+        finalSky = floor(finalSky * 5.0) / 5.0;
+    }
+    else if (mode == 7)
+    {
+        finalSky = mix(vec3(0.02, 0.08, 0.13), vec3(0.95, 0.38, 0.16), pow(1.0 - height, 1.35)) + sun * 0.35;
+    }
+    else if (mode == 8)
+    {
+        finalSky = mix(vec3(0.26, 0.32, 0.36), vec3(0.58, 0.62, 0.62), 1.0 - height) + cloudMask * vec3(0.08);
+    }
+    else if (mode == 9)
+    {
+        finalSky = mix(vec3(0.02, 0.18, 0.38), vec3(0.62, 0.82, 1.0), pow(1.0 - height, 1.4)) + sun * 0.25;
+    }
+    else if (mode == 10)
+    {
+        finalSky = mix(vec3(0.020, 0.023, 0.026), vec3(0.10, 0.12, 0.14), 1.0 - height);
+    }
+    else if (mode == 12)
+    {
+        float planet = 1.0 - smoothstep(0.19, 0.205, distance(vTexCoord, vec2(0.76, 0.72)));
+        finalSky = vec3(0.006, 0.008, 0.020) + vec3(0.38, 0.48, 0.72) * planet + sun * 0.18;
+    }
+    else if (mode == 13)
+    {
+        float storm = cloudMask + ValueNoise(vTexCoord * 12.0) * 0.25;
+        finalSky = mix(vec3(0.045, 0.050, 0.055), vec3(0.26, 0.30, 0.34), storm) + uSunColor * sunDisk * 0.8;
+    }
+    else if (mode == 16)
+    {
+        finalSky = mix(vec3(0.42, 0.24, 0.70), vec3(1.0, 0.58, 0.82), 1.0 - height) + vec3(0.38, 0.86, 1.0) * outerGlow * 0.28;
+    }
+    else if (mode == 17)
+    {
+        finalSky = mix(vec3(0.55, 0.68, 0.82), vec3(0.94, 0.96, 0.98), pow(1.0 - height, 1.6));
+    }
+    else if (mode == 18)
+    {
+        finalSky = 0.5 + 0.5 * cos(vec3(0.0, 2.0, 4.0) + vTexCoord.x * 7.0 + vTexCoord.y * 5.0);
+    }
+    else if (mode == 19)
+    {
+        finalSky = mix(vec3(0.42, 0.72, 1.0), vec3(1.0, 0.74, 0.42), pow(1.0 - height, 1.8)) + sun * 0.18;
+    }
+
+    FragColor = vec4(finalSky, 1.0);
 }

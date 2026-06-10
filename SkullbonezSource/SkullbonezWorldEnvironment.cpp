@@ -62,6 +62,10 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
         BuildFluidMesh();
     }
     const SkullbonezCore::Basics::CinematicRenderConfig& cinematicStyle = cinematicConfig ? *cinematicConfig : Cfg().cinematicRender;
+    if ( cinematic && cinematicStyle.waterMode == 0 )
+    {
+        return;
+    }
 
     Gfx().SetBlend( true );
 
@@ -78,8 +82,8 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
     m_calmShader->SetMat4( "uReflectVP", reflectVP );
     if ( cinematic )
     {
-        m_calmShader->SetVec4( "uColorTint", 0.24f, 0.13f, 0.055f, 0.94f );
-        m_calmShader->SetFloat( "uReflectionStrength", 0.22f );
+        m_calmShader->SetVec4( "uColorTint", cinematicStyle.waterTintR, cinematicStyle.waterTintG, cinematicStyle.waterTintB, cinematicStyle.waterAlpha );
+        m_calmShader->SetFloat( "uReflectionStrength", cinematicStyle.waterReflectionStrength );
     }
     else
     {
@@ -88,17 +92,18 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
     }
     m_calmShader->SetInt( "uNoReflect", noReflect ? 1 : 0 );
     m_calmShader->SetFloat( "uCinematicMode", cinematic ? 1.0f : 0.0f );
+    m_calmShader->SetInt( "uWaterMode", cinematic ? cinematicStyle.waterMode : 2 );
     m_calmShader->SetVec3( "uSunColor", cinematicStyle.sunColorR, cinematicStyle.sunColorG, cinematicStyle.sunColorB );
-    m_calmShader->SetFloat( "uSunGlintStrength", cinematic ? 0.28f : 0.0f );
+    m_calmShader->SetFloat( "uSunGlintStrength", cinematic ? cinematicStyle.waterGlintStrength : 0.0f );
 
     // In cinematic mode the reference look has a small reflective pool inside
     // the basin, not a full ocean plane cutting through the whole scene. The
     // shader uses this oval mask to discard calm-water pixels outside the pool.
-    m_calmShader->SetVec4( "uBasinMask", 620.0f, 615.0f, 205.0f, 145.0f );
-    m_calmShader->SetFloat( "uBasinMaskFeather", cinematic ? 0.18f : 1.0f );
+    m_calmShader->SetVec4( "uBasinMask", cinematicStyle.basinCenterX, cinematicStyle.basinCenterZ, cinematicStyle.basinRadiusX, cinematicStyle.basinRadiusZ );
+    m_calmShader->SetFloat( "uBasinMaskFeather", cinematic ? cinematicStyle.basinFeather : 1.0f );
     m_calmMesh->Draw();
 
-    if ( cinematic )
+    if ( cinematic && cinematicStyle.waterMode != 2 )
     {
         // Cinematic preview stops after the calm basin pool. Skipping the outer
         // ocean avoids a giant water sheet behind the shot and keeps attention on
@@ -117,8 +122,8 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
     m_oceanShader->SetFloat( "uPerturbStrength", Cfg().oceanPerturbStrength );
     if ( cinematic )
     {
-        m_oceanShader->SetVec4( "uColorTint", 0.20f, 0.10f, 0.045f, 0.96f );
-        m_oceanShader->SetFloat( "uReflectionStrength", 0.18f );
+        m_oceanShader->SetVec4( "uColorTint", cinematicStyle.waterTintR, cinematicStyle.waterTintG, cinematicStyle.waterTintB, cinematicStyle.waterAlpha );
+        m_oceanShader->SetFloat( "uReflectionStrength", cinematicStyle.waterReflectionStrength );
     }
     else
     {
@@ -129,7 +134,7 @@ void WorldEnvironment::RenderFluid( const Matrix4& view,
     m_oceanShader->SetInt( "uFlatWater", flatWater ? 1 : 0 );
     m_oceanShader->SetFloat( "uCinematicMode", cinematic ? 1.0f : 0.0f );
     m_oceanShader->SetVec3( "uSunColor", cinematicStyle.sunColorR, cinematicStyle.sunColorG, cinematicStyle.sunColorB );
-    m_oceanShader->SetFloat( "uSunGlintStrength", cinematic ? 0.22f : 0.0f );
+    m_oceanShader->SetFloat( "uSunGlintStrength", cinematic ? cinematicStyle.waterGlintStrength : 0.0f );
     m_oceanMesh->Draw();
 
     Gfx().SetBlend( false );
@@ -245,6 +250,7 @@ void WorldEnvironment::BuildFluidMesh()
     m_calmShader->SetFloat( "uReflectionStrength", 0.35f );
     m_calmShader->SetInt( "uReflectionTex", 1 );
     m_calmShader->SetFloat( "uCinematicMode", 0.0f );
+    m_calmShader->SetInt( "uWaterMode", 2 );
     m_calmShader->SetVec3( "uSunColor", Cfg().cinematicRender.sunColorR, Cfg().cinematicRender.sunColorG, Cfg().cinematicRender.sunColorB );
     m_calmShader->SetFloat( "uSunGlintStrength", 0.0f );
     m_calmShader->SetVec4( "uBasinMask", 620.0f, 615.0f, 205.0f, 145.0f );

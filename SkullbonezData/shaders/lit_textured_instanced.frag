@@ -25,6 +25,7 @@ uniform vec4 uLightDiffuse;
 uniform vec4 uMaterialAmbient;
 uniform vec4 uMaterialDiffuse;
 uniform sampler2D uTexture;
+uniform int uObjectStyle;
 
 in vec3 vViewPos;
 in vec3 vNormal;
@@ -61,6 +62,45 @@ vec3 ProceduralBeachBallColor(vec2 uv)
     return mix(color, vec3(1.0, 0.62, 0.02), seam * 0.28);
 }
 
+vec3 ApplyMaterialMode(int mode, vec3 materialColor, vec3 N, vec3 V, vec3 L, vec3 lightColor, float diff, float spec)
+{
+    vec3 R = reflect(-L, N);
+    if (mode == 2)
+    {
+        float metalSpec = pow(max(dot(V, R), 0.0), 140.0);
+        vec3 reflected = mix(vec3(0.10, 0.12, 0.14), lightColor * 1.4, metalSpec);
+        return materialColor * (0.12 + diff * 0.32) + reflected * (0.35 + metalSpec * 0.75);
+    }
+    if (mode == 3)
+    {
+        float pulse = 0.70 + 0.30 * sin(vTexCoord.x * 24.0 + vTexCoord.y * 18.0);
+        return materialColor * (1.5 + pulse * 1.2) + lightColor * spec * 0.22;
+    }
+    if (mode == 4)
+    {
+        float fresnel = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 2.6);
+        return materialColor * (0.18 + diff * 0.22) + lightColor * (fresnel * 0.85 + spec * 0.48);
+    }
+    if (mode == 5)
+    {
+        float bands = diff > 0.72 ? 1.0 : (diff > 0.34 ? 0.58 : 0.24);
+        float rim = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 3.0);
+        return materialColor * (0.18 + bands * 0.95) + lightColor * rim * 0.16;
+    }
+    if (mode == 6)
+    {
+        float bands = floor(clamp(diff, 0.0, 1.0) * 3.0) / 2.0;
+        vec3 poster = floor(materialColor * 4.0) / 4.0;
+        return poster * (0.25 + bands * 0.95);
+    }
+    if (mode == 7)
+    {
+        float rim = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 1.8);
+        return vec3(0.006, 0.010, 0.018) + materialColor * rim * 0.16 + lightColor * spec * 0.05;
+    }
+    return materialColor * (0.16 + diff * 0.92) + lightColor * spec * 0.12;
+}
+
 void main()
 {
     // Re-normalize the interpolated normal (interpolation can denormalize it).
@@ -90,13 +130,31 @@ void main()
     // Combine lighting with texture or explicit instance color; specular is added on top.
     vec4 texColor = texture(uTexture, vTexCoord);
     bool cinematicMode = uLightPosition.w == 0.0;
-    if (uLightPosition.w == 0.0)
+    int materialMode = int(floor(vTint.a + 0.5));
+    if (vTint.a < -0.5)
+    {
+        materialMode = 0;
+    }
+    else if (vTint.a > 1.25)
+    {
+        materialMode = int(floor(vTint.a + 0.5));
+    }
+    else if (vTint.a > 0.5)
+    {
+        materialMode = 1;
+    }
+    else
+    {
+        materialMode = uObjectStyle;
+    }
+
+    if (cinematicMode && materialMode == 0)
     {
         // Directional light means cinematic sun mode, so replace the sampled
         // texture with the procedural red/yellow panel color described above.
         texColor.rgb = ProceduralBeachBallColor(vTexCoord);
     }
-    vec3 materialColor = mix(texColor.rgb * vTint.rgb, vTint.rgb, clamp(vTint.a, 0.0, 1.0));
+    vec3 materialColor = materialMode == 0 ? texColor.rgb * vTint.rgb : vTint.rgb;
 
     if (cinematicMode)
     {
@@ -110,10 +168,13 @@ void main()
         vec3 directSun = materialColor * uLightDiffuse.rgb * (diff * 0.62 + warmWrap * 0.18);
         vec3 rimLight = uLightDiffuse.rgb * rim * 0.18;
         vec3 specularSun = uLightDiffuse.rgb * glint * 0.24;
-        FragColor = vec4(warmAmbient + directSun + rimLight + specularSun, 1.0);
+        vec3 styled = ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, glint);
+        vec3 beachBall = warmAmbient + directSun + rimLight + specularSun;
+        FragColor = vec4(materialMode == 0 ? beachBall : styled + rimLight * 0.35, 1.0);
         return;
     }
 
-    vec3 litColor = (ambient + diffuse) * materialColor + specular;
+    vec3 litColor = materialMode == 0 ? (ambient + diffuse) * materialColor + specular
+                                      : ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, spec);
     FragColor = vec4(litColor, 1.0);
 }
