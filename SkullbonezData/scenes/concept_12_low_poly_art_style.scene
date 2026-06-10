@@ -107,7 +107,7 @@ floating_ball flower_pond_right_02 828 59 802  3.2 12.0 4.2 0.20 0 225 0
 ball hero 620 58 650 27 108 25 0.44 0 20 0
 ball game_left 430 66 724 10 42 9 0.44 0 52 0
 ball game_right 740 74 760 8 34 7 0.44 0 116 0
-box game_box_01 536 54 794  5.5 5.5 5.5  45 0.36  0 28 0
+box game_box_01 580 54 792  5.5 5.5 5.5  45 0.36  0 28 0
 floating_ball low_01 470 64 705 14 58 13 0.40 0 68 0
 floating_ball low_02 760 58 690 15 62 14 0.40 0 128 0
 floating_ball low_03 390 80 555 8 32 8 0.36 0 20 0
