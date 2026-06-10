@@ -9,7 +9,7 @@ frames unlimited
 water_reflection fbo
 world -30.0 25.0 1.0
 style low_poly_art_style
-camera main 650 118 895  610 55 650  0 1 0
+camera main 650 128 955  610 60 650  0 1 0
 
 floating_box ridge_left 250 58 500  120 16 18  2000 0.08  0 -8 0
 floating_box ridge_right 980 60 505  130 17 18  2000 0.08  0 10 0
