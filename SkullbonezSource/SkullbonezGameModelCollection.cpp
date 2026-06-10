@@ -209,6 +209,7 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
     }
     SkullbonezHelper::DrawSphereBatchEnd();
 
+    bool hasPineVisualModels = false;
     auto appendBoxLikeModels = [&]( bool pineVisualPass )
     {
         for ( int x = 0; x < modelCount; ++x )
@@ -220,7 +221,12 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
                 float tintB = 1.0f;
                 float colorOverride = 0.0f;
                 m_gameModels[x].GetRenderTint( tintR, tintG, tintB, colorOverride );
-                if ( IsPineVisualMaterial( colorOverride ) != pineVisualPass )
+                const bool isPineVisual = IsPineVisualMaterial( colorOverride );
+                if ( isPineVisual )
+                {
+                    hasPineVisualModels = true;
+                }
+                if ( isPineVisual != pineVisualPass )
                 {
                     continue;
                 }
@@ -258,9 +264,12 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
     appendBoxLikeModels( false );
     SkullbonezHelper::DrawBoxBatchEnd();
 
-    SkullbonezHelper::DrawPineBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes, cinematic );
-    appendBoxLikeModels( true );
-    SkullbonezHelper::DrawPineBatchEnd();
+    if ( hasPineVisualModels )
+    {
+        SkullbonezHelper::DrawPineBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes, cinematic );
+        appendBoxLikeModels( true );
+        SkullbonezHelper::DrawPineBatchEnd();
+    }
 }
 
 
