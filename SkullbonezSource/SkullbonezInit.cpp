@@ -557,9 +557,40 @@ struct CliFlagDirective
     const char* message;
 };
 
+struct CliValueDirective
+{
+    const char* name;
+    const char* alias;
+    bool ( *apply )( const char* value, ParsedArgs& args );
+};
+
 bool HasFlagDirective( const CommandLineView& commandLine, const CliFlagDirective& directive )
 {
     return HasOption( commandLine, directive.name ) || ( directive.alias && HasOption( commandLine, directive.alias ) );
+}
+
+const char* FindValueDirective( const CommandLineView& commandLine, const CliValueDirective& directive )
+{
+    const char* value = FindOptionValue( commandLine, directive.name );
+    if ( value || !directive.alias )
+    {
+        return value;
+    }
+    return FindOptionValue( commandLine, directive.alias );
+}
+
+template <size_t N>
+bool ApplyCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out, const CliValueDirective ( &directives )[N] )
+{
+    for ( const CliValueDirective& directive : directives )
+    {
+        const char* value = FindValueDirective( commandLine, directive );
+        if ( value && !directive.apply( value, out ) )
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out )
@@ -922,23 +953,127 @@ bool ApplyVsyncOverride( const CommandLineView& commandLine )
     return true;
 }
 
-bool ParseSwitchInterval( const CommandLineView& commandLine, float& out )
+bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out )
 {
-    const char* switchArg = FindOptionValue( commandLine, "--switch-interval" );
-    if ( !switchArg )
-    {
-        out = -1.0f;
-        return true;
-    }
+    static const CliValueDirective kValues[] = {
+        { "--switch-interval", nullptr, []( const char* value, ParsedArgs& args ) -> bool
+          {
+              float interval = 0.0f;
+              if ( !ParseFloatToken( value, interval ) || interval <= 0.0f )
+              {
+                  return FailCommandLineParse( "--switch-interval expects a positive float." );
+              }
+              args.switchInterval = interval;
+              return true;
+          } },
+        { "--time-scale", nullptr, []( const char* value, ParsedArgs& args ) -> bool
+          {
+              float timeScale = 0.0f;
+              if ( !ParseFloatToken( value, timeScale ) || timeScale <= 0.0f )
+              {
+                  return FailCommandLineParse( "--time-scale expects a positive float." );
+              }
+              args.timeScaleOverride = timeScale;
+              fprintf( stdout, "[time-scale] Override: %.4f\n", timeScale );
+              return true;
+          } },
+        { "--cinematic", "--cinematic-rendering", []( const char* value, ParsedArgs& args ) -> bool
+          {
+              bool enabled = false;
+              if ( !ParseOptionalOnOffValue( value, enabled ) )
+              {
+                  return FailCommandLineParse( "--cinematic expects optional on|off." );
+              }
+              args.hasCinematicRenderingOverride = true;
+              args.cinematicRendering = enabled;
+              fprintf( stdout, "[cinematic] Rendering %s via command line.\n", enabled ? "enabled" : "disabled" );
+              return true;
+          } },
+        { "--interactive", "--hold", []( const char* value, ParsedArgs& args ) -> bool
+          {
+              bool enabled = false;
+              if ( !ParseOptionalOnOffValue( value, enabled ) )
+              {
+                  return FailCommandLineParse( "--interactive expects optional on|off." );
+              }
+              args.interactiveRun = enabled;
+              args.suppressExitDialog = args.suppressExitDialog || enabled;
+              if ( enabled )
+              {
+                  fprintf( stdout, "[scene] Interactive hold enabled; scene automation will not quit the app.\n" );
+              }
+              return true;
+          } },
+    };
 
-    float interval = 0.0f;
-    if ( !ParseFloatToken( switchArg, interval ) || interval <= 0.0f )
-    {
-        return FailCommandLineParse( "--switch-interval expects a positive float." );
-    }
+    out.switchInterval = -1.0f;
+    return ApplyCliValueDirectives( commandLine, out, kValues );
+}
 
-    out = interval;
-    return true;
+bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out )
+{
+    static const CliValueDirective kValues[] = {
+        { "--seed", nullptr, []( const char* value, ParsedArgs& args ) -> bool
+          {
+              unsigned int seed = 0;
+              if ( !ParseUnsignedIntToken( value, seed ) || seed == 0 )
+              {
+                  return FailCommandLineParse( "--seed expects a positive 32-bit integer." );
+              }
+              args.seedOverride = seed;
+              fprintf( stdout, "[seed] Override: %u\n", args.seedOverride );
+              return true;
+          } },
+        { "--frames", nullptr, []( const char* value, ParsedArgs& args ) -> bool
+          {
+              int frames = 0;
+              if ( !ParseIntToken( value, frames ) || frames <= 0 )
+              {
+                  return FailCommandLineParse( "--frames expects a positive integer." );
+              }
+              args.frameCountOverride = frames;
+              args.suppressExitDialog = true;
+              fprintf( stdout, "[frames] Exit after %d frames.\n", args.frameCountOverride );
+              return true;
+          } },
+        { "--ui-stress", "--ui_stress", []( const char* value, ParsedArgs& args ) -> bool
+          {
+              bool enabled = false;
+              if ( !ParseOptionalOnOffValue( value, enabled ) )
+              {
+                  return FailCommandLineParse( "--ui-stress expects optional on|off." );
+              }
+              args.uiStress = enabled;
+              args.suppressExitDialog = args.suppressExitDialog || enabled;
+              return true;
+          } },
+        { "--ui-stress-seed", "--ui_stress_seed", []( const char* value, ParsedArgs& args ) -> bool
+          {
+              unsigned int seed = 0;
+              if ( !ParseUnsignedIntToken( value, seed ) || seed == 0 )
+              {
+                  return FailCommandLineParse( "--ui-stress-seed expects a positive 32-bit integer." );
+              }
+              args.uiStress = true;
+              args.uiStressSeed = seed;
+              args.suppressExitDialog = true;
+              return true;
+          } },
+        { "--ui-stress-actions", "--ui_stress_actions", []( const char* value, ParsedArgs& args ) -> bool
+          {
+              int actions = 0;
+              if ( !ParseIntToken( value, actions ) || actions <= 0 || actions > 32 )
+              {
+                  return FailCommandLineParse( "--ui-stress-actions expects 1..32." );
+              }
+              args.uiStress = true;
+              args.uiStressActions = actions;
+              args.suppressExitDialog = true;
+              return true;
+          } },
+    };
+
+    return ApplyCliValueDirectives( commandLine, out, kValues );
 }
 
 // Guards --physics-regression-log against use in non-Debug builds.
@@ -1097,51 +1232,9 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
     out.physicsDiagnosticsRequested = out.physicsDiagnosticsPath[0] != '\0';
 #endif
 
-    if ( !ParseSwitchInterval( commandLine, out.switchInterval ) )
+    if ( !ApplyStartupCliValueDirectives( commandLine, out ) )
     {
         return false;
-    }
-
-    // --time-scale <F>: positive float, 0 = not set
-    const char* tsArg = FindOptionValue( commandLine, "--time-scale" );
-    if ( tsArg )
-    {
-        float ts = 0.0f;
-        if ( !ParseFloatToken( tsArg, ts ) || ts <= 0.0f )
-        {
-            return FailCommandLineParse( "--time-scale expects a positive float." );
-        }
-        out.timeScaleOverride = ts;
-        fprintf( stdout, "[time-scale] Override: %.4f\n", ts );
-    }
-
-    const char* cinematicArg = FindOptionValue( commandLine, "--cinematic", "--cinematic-rendering" );
-    if ( cinematicArg )
-    {
-        bool enabled = false;
-        if ( !ParseOptionalOnOffValue( cinematicArg, enabled ) )
-        {
-            return FailCommandLineParse( "--cinematic expects optional on|off." );
-        }
-        out.hasCinematicRenderingOverride = true;
-        out.cinematicRendering = enabled;
-        fprintf( stdout, "[cinematic] Rendering %s via command line.\n", enabled ? "enabled" : "disabled" );
-    }
-
-    const char* interactiveArg = FindOptionValue( commandLine, "--interactive", "--hold" );
-    if ( interactiveArg )
-    {
-        bool enabled = false;
-        if ( !ParseOptionalOnOffValue( interactiveArg, enabled ) )
-        {
-            return FailCommandLineParse( "--interactive expects optional on|off." );
-        }
-        out.interactiveRun = enabled;
-        out.suppressExitDialog = out.suppressExitDialog || enabled;
-        if ( enabled )
-        {
-            fprintf( stdout, "[scene] Interactive hold enabled; scene automation will not quit the app.\n" );
-        }
     }
 
     ApplyCliFlagDirectives( commandLine, out );
@@ -1163,68 +1256,9 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
     }
 #endif
 
-    // --seed <N>: positive unsigned integer, 0 = not set.
-    const char* seedArg = FindOptionValue( commandLine, "--seed" );
-    if ( seedArg )
+    if ( !ApplyRunCliValueDirectives( commandLine, out ) )
     {
-        unsigned int seed = 0;
-        if ( !ParseUnsignedIntToken( seedArg, seed ) || seed == 0 )
-        {
-            return FailCommandLineParse( "--seed expects a positive 32-bit integer." );
-        }
-        out.seedOverride = seed;
-        fprintf( stdout, "[seed] Override: %u\n", out.seedOverride );
-    }
-
-    const char* framesArg = FindOptionValue( commandLine, "--frames" );
-    if ( framesArg )
-    {
-        int frames = 0;
-        if ( !ParseIntToken( framesArg, frames ) || frames <= 0 )
-        {
-            return FailCommandLineParse( "--frames expects a positive integer." );
-        }
-        out.frameCountOverride = frames;
-        out.suppressExitDialog = true;
-        fprintf( stdout, "[frames] Exit after %d frames.\n", out.frameCountOverride );
-    }
-
-    const char* uiStressArg = FindOptionValue( commandLine, "--ui-stress", "--ui_stress" );
-    if ( uiStressArg )
-    {
-        bool enabled = false;
-        if ( !ParseOptionalOnOffValue( uiStressArg, enabled ) )
-        {
-            return FailCommandLineParse( "--ui-stress expects optional on|off." );
-        }
-        out.uiStress = enabled;
-        out.suppressExitDialog = out.suppressExitDialog || enabled;
-    }
-
-    const char* uiStressSeedArg = FindOptionValue( commandLine, "--ui-stress-seed", "--ui_stress_seed" );
-    if ( uiStressSeedArg )
-    {
-        unsigned int seed = 0;
-        if ( !ParseUnsignedIntToken( uiStressSeedArg, seed ) || seed == 0 )
-        {
-            return FailCommandLineParse( "--ui-stress-seed expects a positive 32-bit integer." );
-        }
-        out.uiStress = true;
-        out.uiStressSeed = seed;
-        out.suppressExitDialog = true;
-    }
-
-    const char* uiStressActionsArg = FindOptionValue( commandLine, "--ui-stress-actions", "--ui_stress_actions" );
-    if ( uiStressActionsArg )
-    {
-        int actions = 0;
-        if ( !ParseIntToken( uiStressActionsArg, actions ) || actions <= 0 || actions > 32 )
-        {
-            return FailCommandLineParse( "--ui-stress-actions expects 1..32." );
-        }
-        out.uiStress = true;
-        out.uiStressActions = actions;
-        out.suppressExitDialog = true;
+        return false;
     }
 
     if ( out.uiStress )
