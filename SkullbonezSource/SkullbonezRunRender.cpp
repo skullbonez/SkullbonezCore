@@ -690,7 +690,7 @@ void SkullbonezRun::SetUpCameras()
 
 void SkullbonezRun::SetInitialOpenGlState()
 {
-    SkullbonezHelper::ResetGLResources();
+    SkullbonezHelper::ResetRenderResources();
 
     // load m_textures
     const SkullbonezConfig& cfg = Cfg();

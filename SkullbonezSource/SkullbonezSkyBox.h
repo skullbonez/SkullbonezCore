@@ -48,7 +48,7 @@ class SkyBox
     static SkyBox* Instance( int xMin, int xMax, int yMin, int yMax, int zMin, int zMax ); // Request for singleton instance
     static void Destroy();                                                                 // Destroy singleton instance
     void Render( const Matrix4& view, const Matrix4& proj );                               // Render the sky box
-    void ResetGLResources();                                                               // Rebuild meshes/shader after GL context recreated
+    void ResetRenderResources();                                                           // Rebuild meshes/shader after renderer reset/switch
 };
 } // namespace Geometry
 } // namespace SkullbonezCore

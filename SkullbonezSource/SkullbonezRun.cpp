@@ -37,19 +37,19 @@ SkullbonezRun::~SkullbonezRun()
         Gfx().FlushGPU();
     }
 
-    // Clean up GL resources while context is still alive.
-    // WorldEnvironment::ResetGLResources() rebuilds fluid meshes (records GPU upload commands
+    // Clean up backend-owned render resources while the current backend is still alive.
+    // WorldEnvironment::ResetRenderResources() rebuilds fluid meshes (records GPU upload commands
     // and leaves the DX12 command list open). Flush immediately after so subsequent resource
     // releases don't trigger "ID3D12Resource deleted before command list close" validation
     // errors — resources must not be freed while any open command list could reference them.
-    m_cWorldEnvironment.ResetGLResources();
+    m_cWorldEnvironment.ResetRenderResources();
     if ( IsGfxReady() )
     {
         Gfx().FlushGPU();
     }
 
-    SkullbonezHelper::ResetGLResources();
-    m_cGameModelCollection.ResetGLResources();
+    SkullbonezHelper::ResetRenderResources();
+    m_cGameModelCollection.ResetRenderResources();
     m_collisionVisualizer.ResetResources();
     m_UI.ResetResources();
     ResetCinematicRenderResources();
@@ -252,7 +252,7 @@ void SkullbonezRun::Initialise()
 
     // Init SkyBox (m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax)
     m_systems.skyBox = SkyBox::Instance( -250, 300, -300, 300, -250, 300 );
-    m_systems.skyBox->ResetGLResources();
+    m_systems.skyBox->ResetRenderResources();
 
     // Init world environment
     {

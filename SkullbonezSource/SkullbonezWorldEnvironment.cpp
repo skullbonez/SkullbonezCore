@@ -261,7 +261,7 @@ void WorldEnvironment::BuildFluidMesh()
 }
 
 
-void WorldEnvironment::ResetGLResources()
+void WorldEnvironment::ResetRenderResources()
 {
     m_calmMesh.reset();
     m_calmShader.reset();

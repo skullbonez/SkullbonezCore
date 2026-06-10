@@ -69,8 +69,8 @@ void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
     }
     ResetCinematicRenderResources();
     Text2d::DeleteFont();
-    m_cGameModelCollection.ResetGLResources();
-    SkullbonezHelper::ResetGLResources();
+    m_cGameModelCollection.ResetRenderResources();
+    SkullbonezHelper::ResetRenderResources();
     m_collisionVisualizer.ResetResources();
     m_UI.ResetResources();
     if ( m_systems.textures )
@@ -209,9 +209,9 @@ void SkullbonezRun::SwitchRenderer( RuntimeRendererType target )
     }
     if ( m_systems.skyBox )
     {
-        m_systems.skyBox->ResetGLResources();
+        m_systems.skyBox->ResetRenderResources();
     }
-    m_cWorldEnvironment.ResetGLResources();
+    m_cWorldEnvironment.ResetRenderResources();
 
     int fboW = Gfx().GetWidth() * 2;
     int fboH = Gfx().GetHeight() * 2;

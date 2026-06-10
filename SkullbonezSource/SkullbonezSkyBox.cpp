@@ -303,7 +303,7 @@ void SkyBox::Destroy()
 }
 
 
-void SkyBox::ResetGLResources()
+void SkyBox::ResetRenderResources()
 {
     for ( int i = 0; i < 6; ++i )
     {

@@ -2562,7 +2562,7 @@ void GameModelCollection::BuildShadowMesh()
 }
 
 
-void GameModelCollection::ResetGLResources()
+void GameModelCollection::ResetRenderResources()
 {
     m_shadowShader.reset();
     if ( m_shadowInstMesh )

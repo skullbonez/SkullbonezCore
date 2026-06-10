@@ -25,7 +25,7 @@ struct CinematicRenderConfig;
 
 /* -- Skullbonez Helper ------------------------------------------------------------------------------------------------------------------------------------------
 
-    Static helper to assist in OpenGL state setup.
+    Static helper for shared primitive render resources and initial GL state setup.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class SkullbonezHelper
 {
@@ -52,7 +52,7 @@ class SkullbonezHelper
     static void DrawBoxBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent = false, const CinematicRenderConfig* cinematic = nullptr );    // Set up box instanced draw
     static void DrawBoxBatchModel( const Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f );                                       // Append box model matrix and tint/override to instance buffer
     static void DrawBoxBatchEnd();                                                                                                                                                       // Upload box instance data and issue single instanced draw
-    static void ResetGLResources();                                                                                                                                                      // Call after GL context recreated to invalidate cached GL objects
+    static void ResetRenderResources();                                                                                                                                                  // Invalidate cached backend-owned meshes and shaders
     static void EnsureSphereMesh();                                                                                                                                                      // Ensure sphere instanced mesh is created (for DXR BLAS init)
     static uint32_t GetSphereInstMeshHandle()
     {
