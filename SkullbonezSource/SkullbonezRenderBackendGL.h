@@ -118,6 +118,12 @@ class RenderBackendGL : public IRenderBackend
     {
         return "OpenGL 3.3";
     }
+    RenderCapabilities GetCapabilities() const override
+    {
+        RenderCapabilities capabilities;
+        capabilities.supportsDebugLines = true;
+        return capabilities;
+    }
     void ResetFrameDrawCallCount() override
     {
         m_frameDrawCallCount = 0;

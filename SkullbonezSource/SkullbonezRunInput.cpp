@@ -376,7 +376,7 @@ void SkullbonezRun::TakeInput()
             {
                 if ( !m_debug.isWaterRTReflect && !m_debug.isWaterNoReflect )
                 {
-                    if ( Gfx().IsDXRSupported() )
+                    if ( Gfx().GetCapabilities().supportsDxrReflection )
                     {
                         m_debug.isWaterRTReflect = true; // FBO → DXR
                     }

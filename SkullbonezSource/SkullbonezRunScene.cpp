@@ -924,13 +924,14 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
 
     // Initialize DXR raytracing on first scene load (requires terrain + sphere meshes to exist)
     // Force sphere mesh creation (normally lazy-init on first render)
-    if ( Gfx().IsDXRSupported() && SkullbonezHelper::GetSphereInstMeshHandle() == 0 )
+    const auto renderCapabilities = Gfx().GetCapabilities();
+    if ( renderCapabilities.supportsDxrReflection && SkullbonezHelper::GetSphereInstMeshHandle() == 0 )
     {
         SkullbonezHelper::EnsureSphereMesh();
     }
     {
     }
-    if ( Gfx().IsDXRSupported() && m_systems.terrain && m_systems.terrain->GetMesh() )
+    if ( renderCapabilities.supportsDxrReflection && m_systems.terrain && m_systems.terrain->GetMesh() )
     {
         IMesh* terrainMesh = m_systems.terrain->GetMesh();
         uint64_t terrainVBVA = terrainMesh->GetVertexBufferGPUVA();

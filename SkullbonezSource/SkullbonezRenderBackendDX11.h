@@ -270,6 +270,13 @@ class RenderBackendDX11 : public IRenderBackend
     {
         return "DirectX 11";
     }
+    RenderCapabilities GetCapabilities() const override
+    {
+        RenderCapabilities capabilities;
+        capabilities.supportsGpuTimers = SupportsGpuTimers();
+        capabilities.supportsDebugLines = true;
+        return capabilities;
+    }
 
     bool IsDXRSupported() const override
     {

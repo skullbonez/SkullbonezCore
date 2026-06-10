@@ -25,6 +25,16 @@ enum class BlendFactor
     OneMinusSrcAlpha
 };
 
+struct RenderCapabilities
+{
+    bool supportsBackbufferCapture = true;
+    bool supportsGpuTimers = false;
+    bool supportsDxrReflection = false;
+    bool supportsDebugLines = false;
+    bool supportsDynamicVertexBuffers = true;
+    bool supportsInstancedMeshes = true;
+};
+
 
 /* -- IRenderBackend ---------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -127,6 +137,7 @@ class IRenderBackend
 
     virtual bool UsesZeroToOneDepth() const = 0; // true for DX11/DX12 [0,1]; false for GL [-1,1]
     virtual const char* GetRendererName() const = 0;
+    virtual RenderCapabilities GetCapabilities() const = 0;
 
 
     // --- Frame Diagnostics ---

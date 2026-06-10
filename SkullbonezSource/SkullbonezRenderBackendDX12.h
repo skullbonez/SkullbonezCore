@@ -304,6 +304,14 @@ class RenderBackendDX12 : public IRenderBackend
     {
         return "DirectX 12";
     }
+    RenderCapabilities GetCapabilities() const override
+    {
+        RenderCapabilities capabilities;
+        capabilities.supportsGpuTimers = SupportsGpuTimers();
+        capabilities.supportsDxrReflection = m_dxrSupported;
+        capabilities.supportsDebugLines = true;
+        return capabilities;
+    }
 
     void ResetFrameDrawCallCount() override
     {
