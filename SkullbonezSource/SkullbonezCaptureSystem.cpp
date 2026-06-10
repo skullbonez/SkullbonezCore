@@ -46,6 +46,13 @@ void WriteExact( FILE* file, const void* data, size_t size, const char* path )
 
 void CaptureSystem::SaveBackbufferBmp( Rendering::IRenderBackend& backend, const char* path )
 {
+    if ( !backend.GetCapabilities().supportsBackbufferCapture )
+    {
+        char msg[512];
+        sprintf_s( msg, sizeof( msg ), "Renderer does not support backbuffer capture for file: %s  (CaptureSystem::SaveBackbufferBmp)", path );
+        throw std::runtime_error( msg );
+    }
+
     int width = 0;
     int height = 0;
     std::vector<uint8_t> pixels = backend.CaptureBackbuffer( width, height );
