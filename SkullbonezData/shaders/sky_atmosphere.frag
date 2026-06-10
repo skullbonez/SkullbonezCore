@@ -204,10 +204,10 @@ void main()
         vec3 middle = clamp(mix(horizon, zenith, 0.44) + vec3(0.05, 0.04, 0.02), 0.0, 1.8);
         vec3 lowPolySky = mix(horizon, middle, smoothstep(0.08, 0.55, height));
         lowPolySky = mix(lowPolySky, zenith, smoothstep(0.50, 1.0, height));
-        float band = floor(height * 7.0) / 7.0;
+        float band = floor(height * 9.0) / 9.0;
         vec3 bandedSky = mix(horizon, middle, smoothstep(0.08, 0.55, band));
         bandedSky = mix(bandedSky, zenith, smoothstep(0.50, 1.0, band));
-        lowPolySky = mix(lowPolySky, bandedSky, 0.32);
+        lowPolySky = mix(lowPolySky, bandedSky, 0.18);
 
         float farRidge = LowPolyRidgeHeight(vTexCoord.x, 0.60, 0.18, 2.25, 0.11);
         float midRidge = LowPolyRidgeHeight(vTexCoord.x, 0.55, 0.16, 3.35, 0.37);

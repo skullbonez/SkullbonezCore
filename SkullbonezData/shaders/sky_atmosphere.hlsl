@@ -228,10 +228,10 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         float3 middle = clamp(lerp(horizon, zenith, 0.44f) + float3(0.05f, 0.04f, 0.02f), 0.0f, 1.8f);
         float3 lowPolySky = lerp(horizon, middle, smoothstep(0.08f, 0.55f, height));
         lowPolySky = lerp(lowPolySky, zenith, smoothstep(0.50f, 1.0f, height));
-        float band = floor(height * 7.0f) / 7.0f;
+        float band = floor(height * 9.0f) / 9.0f;
         float3 bandedSky = lerp(horizon, middle, smoothstep(0.08f, 0.55f, band));
         bandedSky = lerp(bandedSky, zenith, smoothstep(0.50f, 1.0f, band));
-        lowPolySky = lerp(lowPolySky, bandedSky, 0.32f);
+        lowPolySky = lerp(lowPolySky, bandedSky, 0.18f);
 
         float farRidge = LowPolyRidgeHeight(input.texCoord.x, 0.60f, 0.18f, 2.25f, 0.11f);
         float midRidge = LowPolyRidgeHeight(input.texCoord.x, 0.55f, 0.16f, 3.35f, 0.37f);
