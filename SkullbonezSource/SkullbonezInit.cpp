@@ -572,6 +572,13 @@ struct CliValueDirective
     bool ( *apply )( const char* value, ParsedArgs& args );
 };
 
+struct PhysicsDebugComponentDirective
+{
+    const char* dashedName;
+    const char* underscoredName;
+    uint32_t flag;
+};
+
 bool HasFlagDirective( const CommandLineView& commandLine, const CliFlagDirective& directive )
 {
     return HasOption( commandLine, directive.name ) || ( directive.alias && HasOption( commandLine, directive.alias ) );
@@ -763,12 +770,18 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
         out.hasPhysicsDebugFlagsOverride = true;
     }
 
-    if ( !ApplyPhysicsDebugComponentOverride( commandLine, "--physics-debug-axes", "--physics_debug_axes", PHYSICS_DEBUG_AXES, out ) ||
-         !ApplyPhysicsDebugComponentOverride( commandLine, "--physics-debug-contacts", "--physics_debug_contacts", PHYSICS_DEBUG_CONTACTS, out ) ||
-         !ApplyPhysicsDebugComponentOverride( commandLine, "--physics-debug-sleep", "--physics_debug_sleep", PHYSICS_DEBUG_SLEEP, out ) ||
-         !ApplyPhysicsDebugComponentOverride( commandLine, "--physics-debug-pipeline", "--physics_debug_pipeline", PHYSICS_DEBUG_PIPELINE, out ) )
+    static const PhysicsDebugComponentDirective kComponentOverrides[] = {
+        { "--physics-debug-axes", "--physics_debug_axes", PHYSICS_DEBUG_AXES },
+        { "--physics-debug-contacts", "--physics_debug_contacts", PHYSICS_DEBUG_CONTACTS },
+        { "--physics-debug-sleep", "--physics_debug_sleep", PHYSICS_DEBUG_SLEEP },
+        { "--physics-debug-pipeline", "--physics_debug_pipeline", PHYSICS_DEBUG_PIPELINE },
+    };
+    for ( const PhysicsDebugComponentDirective& component : kComponentOverrides )
     {
-        return false;
+        if ( !ApplyPhysicsDebugComponentOverride( commandLine, component.dashedName, component.underscoredName, component.flag, out ) )
+        {
+            return false;
+        }
     }
 
     const char* transparentValue = FindOptionValue( commandLine, "--physics-debug-transparent", "--physics_debug_transparent" );
