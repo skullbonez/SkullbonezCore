@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include "SkullbonezCommon.h"
+#include "SkullbonezAssetSystem.h"
 #include "SkullbonezCameraCollection.h"
 #include "SkullbonezTimer.h"
 #include "SkullbonezInput.h"
@@ -97,6 +98,7 @@ struct RunTimerState
 
 struct RunSubsystemState
 {
+    Assets::AssetSystem assets;
     std::unique_ptr<Geometry::Terrain> terrain;
     bool isFlatSlopeTerrain = false;
     std::unique_ptr<Rendering::IFramebuffer> reflectionFBO;
@@ -326,6 +328,7 @@ class SkullbonezRun
     void SetUpGameModels( int count );                                                                                                 // Game model init for generated mixed-object mode
     void SetUpSolverObjects( int balls, int boxes );                                                                                   // Game model init: exact N solver balls + M solver boxes
     void SetUpGameModelsFromScene( const TestScene& scene );                                                                           // Game model init from scene file
+    std::string ResolveSourceAssetPath( Assets::AssetKind kind, const char* logicalName, const std::string& relativePath );            // Registers and resolves a source asset under DATA_ROOT
     void DrawPrimitives();                                                                                                             // Draw OpenGL primitives here
     CinematicRenderConfig& ActiveCinematicConfig();                                                                                    // Mutable cinematic style config for the active scene/run
     const CinematicRenderConfig& ActiveCinematicConfig() const;                                                                        // Read-only cinematic style config for the active scene/run

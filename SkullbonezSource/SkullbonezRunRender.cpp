@@ -699,8 +699,10 @@ void SkullbonezRun::SetInitialOpenGlState()
 
     // load m_textures
     const SkullbonezConfig& cfg = Cfg();
-    m_systems.textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.terrainTexture ).c_str(), TEXTURE_GROUND );
-    m_systems.textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.sphereTexture ).c_str(), TEXTURE_BOUNDING_SPHERE );
+    const std::string terrainTexturePath = ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Texture, "texture.terrain", cfg.terrainTexture );
+    const std::string sphereTexturePath = ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Texture, "texture.sphere", cfg.sphereTexture );
+    m_systems.textures->CreateJpegTexture( terrainTexturePath.c_str(), TEXTURE_GROUND );
+    m_systems.textures->CreateJpegTexture( sphereTexturePath.c_str(), TEXTURE_BOUNDING_SPHERE );
 }
 
 

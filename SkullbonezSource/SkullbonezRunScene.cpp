@@ -1354,7 +1354,8 @@ void SkullbonezRun::UseDefaultTerrain()
         {
             Gfx().FlushGPU();
         }
-        m_systems.terrain = std::make_unique<Terrain>( ( std::string( DATA_ROOT ) + Cfg().terrainRaw ).c_str(), 256, 8, 15 );
+        const std::string terrainRawPath = ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", Cfg().terrainRaw );
+        m_systems.terrain = std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15 );
         m_systems.isFlatSlopeTerrain = false;
     }
 

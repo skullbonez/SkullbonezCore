@@ -68,6 +68,13 @@ SkullbonezRun::~SkullbonezRun()
 }
 
 
+std::string SkullbonezRun::ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind kind, const char* logicalName, const std::string& relativePath )
+{
+    const SkullbonezCore::Assets::SourceAssetRecord& record = m_systems.assets.RegisterSourceAsset( kind, logicalName, relativePath.c_str() );
+    return record.resolvedPath;
+}
+
+
 void SkullbonezRun::SetRendererSwitchInterval( float seconds )
 {
     m_debug.rendererSwitchInterval = seconds;
@@ -247,7 +254,8 @@ void SkullbonezRun::Initialise()
 
     // Init m_terrain
     // path to m_height map | map size pixels | step size | times to wrap texture
-    m_systems.terrain = std::make_unique<Terrain>( ( std::string( DATA_ROOT ) + Cfg().terrainRaw ).c_str(), 256, 8, 15 );
+    const std::string terrainRawPath = ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Terrain, "terrain.raw", Cfg().terrainRaw );
+    m_systems.terrain = std::make_unique<Terrain>( terrainRawPath.c_str(), 256, 8, 15 );
     m_systems.isFlatSlopeTerrain = false;
 
     // Init SkyBox (m_xMin, m_xMax, yMin, yMax, m_zMin, m_zMax)
