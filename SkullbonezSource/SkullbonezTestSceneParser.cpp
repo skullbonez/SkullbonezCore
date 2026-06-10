@@ -15,6 +15,31 @@ namespace Basics
 {
 namespace
 {
+struct SceneIntOption
+{
+    const char* name;
+    int value;
+};
+
+template <size_t N>
+bool TryParseIntOption( const char* token, const SceneIntOption ( &options )[N], int& out )
+{
+    if ( !token )
+    {
+        return false;
+    }
+
+    for ( const SceneIntOption& option : options )
+    {
+        if ( strcmp( token, option.name ) == 0 )
+        {
+            out = option.value;
+            return true;
+        }
+    }
+    return false;
+}
+
 bool ParseOnOff( const char* value, bool& out )
 {
     if ( strcmp( value, "on" ) == 0 || strcmp( value, "open" ) == 0 || strcmp( value, "all" ) == 0 )
@@ -33,37 +58,23 @@ bool ParseOnOff( const char* value, bool& out )
 
 bool ParseUITab( const char* value, int& outTab )
 {
-    if ( strcmp( value, "profiler" ) == 0 || strcmp( value, "profile" ) == 0 )
-    {
-        outTab = 0;
-        return true;
-    }
-    if ( strcmp( value, "scene" ) == 0 || strcmp( value, "overview" ) == 0 || strcmp( value, "info" ) == 0 )
-    {
-        outTab = 1;
-        return true;
-    }
-    if ( strcmp( value, "physics" ) == 0 )
-    {
-        outTab = 2;
-        return true;
-    }
-    if ( strcmp( value, "options" ) == 0 || strcmp( value, "params" ) == 0 || strcmp( value, "renderer" ) == 0 )
-    {
-        outTab = 3;
-        return true;
-    }
-    if ( strcmp( value, "keys" ) == 0 || strcmp( value, "controls" ) == 0 )
-    {
-        outTab = 4;
-        return true;
-    }
-    if ( strcmp( value, "cinematic" ) == 0 || strcmp( value, "cine" ) == 0 || strcmp( value, "look" ) == 0 )
-    {
-        outTab = 5;
-        return true;
-    }
-    return false;
+    static const SceneIntOption kTabs[] = {
+        { "profiler", 0 },
+        { "profile", 0 },
+        { "scene", 1 },
+        { "overview", 1 },
+        { "info", 1 },
+        { "physics", 2 },
+        { "options", 3 },
+        { "params", 3 },
+        { "renderer", 3 },
+        { "keys", 4 },
+        { "controls", 4 },
+        { "cinematic", 5 },
+        { "cine", 5 },
+        { "look", 5 },
+    };
+    return TryParseIntOption( value, kTabs, outTab );
 }
 
 struct FileCloser
@@ -712,22 +723,20 @@ class TestSceneParser
     void ParseWaterReflection( const char* args )
     {
         const char* value = RequireArgs( "water_reflection", args, "water_reflection fbo|dxr|none" );
-        if ( strcmp( value, "fbo" ) == 0 || strcmp( value, "on" ) == 0 )
-        {
-            m_scene.m_sceneOptions.waterReflectionMode = 0;
-        }
-        else if ( strcmp( value, "dxr" ) == 0 || strcmp( value, "rt" ) == 0 )
-        {
-            m_scene.m_sceneOptions.waterReflectionMode = 1;
-        }
-        else if ( strcmp( value, "none" ) == 0 || strcmp( value, "off" ) == 0 )
-        {
-            m_scene.m_sceneOptions.waterReflectionMode = 2;
-        }
-        else
+        static const SceneIntOption kWaterReflectionModes[] = {
+            { "fbo", 0 },
+            { "on", 0 },
+            { "dxr", 1 },
+            { "rt", 1 },
+            { "none", 2 },
+            { "off", 2 },
+        };
+        int mode = 0;
+        if ( !TryParseIntOption( value, kWaterReflectionModes, mode ) )
         {
             Fail( "Invalid water_reflection value at line %d", m_lineNumber );
         }
+        m_scene.m_sceneOptions.waterReflectionMode = mode;
     }
 
     void ParseScreenshotInterval( const char* args )
