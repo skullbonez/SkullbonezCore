@@ -127,8 +127,10 @@ float3 ProceduralBeachBallColor(float2 uv)
     float panelCoord = frac(uv.x * 2.0f);
     float seamU = min(panelCoord, 1.0f - panelCoord);
     float seamV = abs(uv.y - 0.5f);
-    float seam = 1.0f - smoothstep(0.0f, 0.014f, min(seamU, seamV));
-    return lerp(color, float3(1.0f, 0.62f, 0.02f), seam * 0.28f);
+    float panelFootprint = max(abs(ddx(uv.x * 2.0f)) + abs(ddy(uv.x * 2.0f)), abs(ddx(uv.y)) + abs(ddy(uv.y)));
+    float seamWidth = max(0.014f, panelFootprint * 1.25f);
+    float seam = 1.0f - smoothstep(0.0f, seamWidth, min(seamU, seamV));
+    return lerp(color, float3(1.0f, 0.62f, 0.02f), seam * 0.34f);
 }
 
 float3 QuantizedLowPolyNormal(float3 N)
@@ -388,11 +390,11 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         float warmWrap = saturate(dot(N, L) * 0.5f + 0.5f);
         float shadowFactor = ShadowVisibility(SphereShadowReceiverWorldPos(input.worldPos, input.sphereShadowInfo), N, L);
         float rim = pow(1.0f - saturate(dot(N, V)), 2.25f) * (0.35f + warmWrap * 0.65f);
-        float glint = pow(max(dot(V, R), 0.0f), 96.0f);
+        float glint = pow(max(dot(V, R), 0.0f), 72.0f);
         float3 warmAmbient = materialColor * uLightAmbient.rgb * 1.15f;
         float3 directSun = materialColor * uLightDiffuse.rgb * (diff * 0.62f + warmWrap * 0.18f) * shadowFactor;
         float3 rimLight = uLightDiffuse.rgb * rim * 0.18f;
-        float3 specularSun = uLightDiffuse.rgb * glint * 0.24f * shadowFactor;
+        float3 specularSun = uLightDiffuse.rgb * glint * 0.30f * shadowFactor;
         float3 styled = ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, glint, input.texCoord);
         styled *= shadowFactor;
         float3 beachBall = warmAmbient + directSun + rimLight + specularSun;
@@ -400,8 +402,22 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     }
 
     float shadowFactor = ShadowVisibility(SphereShadowReceiverWorldPos(input.worldPos, input.sphereShadowInfo), N, L);
-    float3 litColor = materialMode == 0 ? (ambient + diffuse) * materialColor + specular
-                                        : ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, spec, input.texCoord);
-    litColor *= shadowFactor;
+    float3 litColor;
+    if (materialMode == 0)
+    {
+        float ballWrap = saturate(dot(N, L) * 0.5f + 0.5f);
+        float rim = pow(1.0f - saturate(dot(N, V)), 2.15f);
+        float ballSpec = pow(max(dot(V, R), 0.0f), 44.0f);
+        float3 ambientFloor = ambient * materialColor * 1.05f;
+        float3 directDiffuse = diffuse * materialColor;
+        float3 softFill = uLightDiffuse.rgb * uMaterialDiffuse.rgb * materialColor * (ballWrap * 0.07f);
+        float3 rimLight = uLightDiffuse.rgb * rim * 0.045f;
+        float3 specularGlint = uLightDiffuse.rgb * ballSpec * 0.22f;
+        litColor = ambientFloor + (directDiffuse + softFill + rimLight + specularGlint) * shadowFactor;
+    }
+    else
+    {
+        litColor = ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, spec, input.texCoord) * shadowFactor;
+    }
     return float4(litColor, 1.0);
 }
