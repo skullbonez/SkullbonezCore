@@ -1,0 +1,1 @@
+capture "C:\SkullbonezCore\Agentic\style-harness\shots\low_poly_touchup_final_candidate.bmp"
