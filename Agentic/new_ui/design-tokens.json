@@ -1,0 +1,65 @@
+{
+  "name": "Skullbonez Graphite Overlay",
+  "intent": "Matte graphite UI with low-glow borders, soft rounded corners, off-white text, and quiet sage accents.",
+  "radiiPx": {
+    "window": 8,
+    "control": 6,
+    "smallButton": 6,
+    "switch": 999
+  },
+  "alpha": {
+    "windowFill": 0.86,
+    "titleFill": 0.72,
+    "tabFill": 0.48,
+    "controlFill": 0.06,
+    "controlHoverFill": 0.10,
+    "border": 0.12,
+    "innerBorder": 0.08,
+    "shadow": 0.30
+  },
+  "colorsHex": {
+    "page": "#151617",
+    "window": "#272827",
+    "windowRaised": "#333431",
+    "windowSubtle": "#20211f",
+    "control": "#383b37",
+    "controlHover": "#43463f",
+    "textPrimary": "#f3f3f0",
+    "textSecondary": "#b9bcb8",
+    "textMuted": "#8f948f",
+    "border": "#ffffff",
+    "lineSoft": "#ffffff",
+    "accent": "#9aa58f",
+    "accentStrong": "#d7dccf",
+    "warningAccent": "#b59f7b"
+  },
+  "colorsFloatRgb": {
+    "window": [0.153, 0.157, 0.153],
+    "windowRaised": [0.200, 0.204, 0.192],
+    "windowSubtle": [0.125, 0.129, 0.122],
+    "control": [0.220, 0.231, 0.216],
+    "controlHover": [0.263, 0.275, 0.247],
+    "textPrimary": [0.953, 0.953, 0.941],
+    "textSecondary": [0.725, 0.737, 0.722],
+    "textMuted": [0.561, 0.580, 0.561],
+    "accent": [0.604, 0.647, 0.561],
+    "accentStrong": [0.843, 0.863, 0.812],
+    "warningAccent": [0.710, 0.624, 0.482]
+  },
+  "type": {
+    "titlePx": 13.0,
+    "tabPx": 11.0,
+    "labelPx": 10.5,
+    "sectionPx": 13.0,
+    "valuePx": 10.5
+  },
+  "layoutPx": {
+    "titleHeight": 43,
+    "tabHeight": 44,
+    "contentPadding": 15,
+    "rowGap": 8,
+    "sliderTrackHeight": 6,
+    "switchWidth": 30,
+    "switchHeight": 16
+  }
+}

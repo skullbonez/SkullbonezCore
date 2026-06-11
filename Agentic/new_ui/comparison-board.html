@@ -1,0 +1,756 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skullbonez Core Timeless Grey UI Mockups</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --page: #151617;
+      --paper: #efefed;
+      --ink: #f3f3f0;
+      --muted: #a6aaa8;
+      --line: rgba(255, 255, 255, 0.12);
+      --soft-line: rgba(255, 255, 255, 0.08);
+      --shadow: 0 18px 45px rgba(0, 0, 0, 0.34);
+      --radius: 8px;
+      --accent: #9aa58f;
+      --accent-2: #b59f7b;
+      --focus: #c6ccd0;
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--page);
+      color: var(--ink);
+      font-family: var(--font);
+      letter-spacing: 0;
+    }
+
+    .page {
+      width: min(1440px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 32px 0 42px;
+    }
+
+    .intro {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+      gap: 28px;
+      align-items: end;
+      margin-bottom: 24px;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      max-width: 760px;
+      font-size: clamp(30px, 4vw, 52px);
+      line-height: 1.02;
+      font-weight: 650;
+      letter-spacing: 0;
+    }
+
+    .intro p {
+      color: #b9bbb7;
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .mockup-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .mockup-card {
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      border-radius: var(--radius);
+      background: #202122;
+      box-shadow: var(--shadow);
+    }
+
+    .mockup-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: #262728;
+    }
+
+    .mockup-meta h2 {
+      font-size: 15px;
+      font-weight: 650;
+    }
+
+    .mockup-meta span {
+      align-self: center;
+      color: #adafaa;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .screen {
+      position: relative;
+      min-height: 560px;
+      overflow: hidden;
+      background:
+        linear-gradient(rgba(17, 18, 18, 0.16), rgba(17, 18, 18, 0.30)),
+        url("../sceneshots/style_12_low_poly_art_style.png") center / cover;
+    }
+
+    .screen::after {
+      position: absolute;
+      inset: 0;
+      content: "";
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.16));
+    }
+
+    .panel {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 18px;
+      z-index: 1;
+      overflow: hidden;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.30);
+      backdrop-filter: blur(14px);
+    }
+
+    .panel.graphite {
+      background: rgba(39, 40, 39, 0.86);
+    }
+
+    .panel.steel {
+      background: rgba(54, 55, 54, 0.88);
+    }
+
+    .panel.light {
+      color: #202222;
+      border-color: rgba(0, 0, 0, 0.12);
+      background: rgba(237, 237, 234, 0.90);
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
+    }
+
+    .titlebar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      min-height: 43px;
+      padding: 8px 10px 8px 15px;
+      border-bottom: 1px solid var(--soft-line);
+    }
+
+    .light .titlebar {
+      border-color: rgba(0, 0, 0, 0.08);
+    }
+
+    .title {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .window-buttons {
+      display: flex;
+      gap: 6px;
+    }
+
+    .icon-button {
+      display: grid;
+      place-items: center;
+      width: 27px;
+      height: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #d9dcd7;
+      font-size: 12px;
+      line-height: 1;
+    }
+
+    .light .icon-button {
+      border-color: rgba(0, 0, 0, 0.12);
+      background: rgba(255, 255, 255, 0.48);
+      color: #303231;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+      padding: 8px;
+      border-bottom: 1px solid var(--soft-line);
+    }
+
+    .light .tabs {
+      border-color: rgba(0, 0, 0, 0.08);
+    }
+
+    .tab {
+      min-width: 0;
+      padding: 8px 6px;
+      border-radius: 6px;
+      color: #b9bcb8;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .tab.active {
+      color: #f7f7f3;
+      background: rgba(255, 255, 255, 0.10);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.10);
+    }
+
+    .light .tab {
+      color: #5f6462;
+    }
+
+    .light .tab.active {
+      color: #1f2221;
+      background: rgba(255, 255, 255, 0.72);
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+    }
+
+    .content {
+      padding: 14px 15px 12px;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+      margin-bottom: 12px;
+      color: #f5f5f0;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .light .section-head {
+      color: #222423;
+    }
+
+    .section-head span {
+      color: #a9aca7;
+      font-size: 11px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .light .section-head span {
+      color: #686d69;
+    }
+
+    .scene-row,
+    .footer {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .field {
+      min-width: 0;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 9px 0 10px;
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #eceee9;
+      font-size: 12px;
+    }
+
+    .light .field {
+      border-color: rgba(0, 0, 0, 0.10);
+      background: rgba(255, 255, 255, 0.64);
+      color: #252827;
+    }
+
+    .field span:first-child {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .button {
+      height: 32px;
+      padding: 0 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #f1f2ee;
+      font-size: 12px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .light .button {
+      border-color: rgba(0, 0, 0, 0.12);
+      background: rgba(255, 255, 255, 0.70);
+      color: #262927;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin: 13px 0 14px;
+    }
+
+    .toggle-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      min-height: 33px;
+      padding: 7px 9px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      color: #d7dad5;
+      font-size: 11px;
+    }
+
+    .light .toggle-row {
+      border-color: rgba(0, 0, 0, 0.08);
+      background: rgba(255, 255, 255, 0.50);
+      color: #373b39;
+    }
+
+    .switch {
+      position: relative;
+      width: 30px;
+      height: 16px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.14);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.10);
+    }
+
+    .switch::before {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 10px;
+      height: 10px;
+      content: "";
+      border-radius: 999px;
+      background: #d2d5cf;
+    }
+
+    .switch.on {
+      background: color-mix(in srgb, var(--accent) 58%, #2f332f);
+    }
+
+    .switch.on::before {
+      left: 17px;
+      background: #f3f5ef;
+    }
+
+    .slider-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .slider-row {
+      display: grid;
+      grid-template-columns: 84px minmax(0, 1fr) 42px;
+      gap: 9px;
+      align-items: center;
+      color: #cdd1cb;
+      font-size: 11px;
+    }
+
+    .light .slider-row {
+      color: #4d5350;
+    }
+
+    .track {
+      position: relative;
+      height: 6px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .light .track {
+      background: rgba(0, 0, 0, 0.10);
+    }
+
+    .fill {
+      width: var(--value);
+      height: 100%;
+      border-radius: inherit;
+      background: var(--accent);
+    }
+
+    .value {
+      text-align: right;
+      color: #f5f5f1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .light .value {
+      color: #252827;
+    }
+
+    .footer {
+      margin-top: 14px;
+      padding-top: 11px;
+      border-top: 1px solid var(--soft-line);
+    }
+
+    .light .footer {
+      border-color: rgba(0, 0, 0, 0.08);
+    }
+
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .stat {
+      min-width: 68px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      font-size: 10px;
+      color: #969b95;
+    }
+
+    .light .stat {
+      background: rgba(0, 0, 0, 0.05);
+      color: #6b716d;
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 2px;
+      color: #eff0ec;
+      font-size: 12px;
+      font-weight: 650;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .light .stat strong {
+      color: #272a28;
+    }
+
+    .mini-toolbar {
+      display: flex;
+      gap: 6px;
+    }
+
+    .palette {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .swatch {
+      height: 24px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: var(--swatch);
+    }
+
+    .notes {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 20px;
+    }
+
+    .note {
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      border-radius: var(--radius);
+      background: #202122;
+      color: #c5c8c3;
+    }
+
+    .note h3 {
+      margin-bottom: 8px;
+      color: #f1f1ed;
+      font-size: 14px;
+    }
+
+    .note p {
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1120px) {
+      .mockup-grid,
+      .notes {
+        grid-template-columns: 1fr;
+      }
+
+      .screen {
+        min-height: 500px;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .page {
+        width: min(100vw - 20px, 680px);
+        padding-top: 20px;
+      }
+
+      .intro {
+        grid-template-columns: 1fr;
+      }
+
+      .feature-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .slider-row {
+        grid-template-columns: 74px minmax(0, 1fr) 38px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="intro">
+      <h1>Grey, smoother, quieter UI directions for Skullbonez Core.</h1>
+      <p>These mockups keep the current diagnostic layout, but move away from neon sci-fi chrome. The target is matte, calm, legible, and modern enough to last.</p>
+    </section>
+
+    <section class="mockup-grid" aria-label="UI mockup directions">
+      <article class="mockup-card">
+        <div class="mockup-meta">
+          <h2>Graphite Overlay</h2>
+          <span>dark neutral</span>
+        </div>
+        <div class="screen">
+          <div class="panel graphite" style="--accent: #9aa58f;">
+            <div class="titlebar">
+              <div class="title">cinematic_volumetric.scene  frame 248</div>
+              <div class="window-buttons">
+                <div class="icon-button">-</div>
+                <div class="icon-button">[]</div>
+                <div class="icon-button">x</div>
+              </div>
+            </div>
+            <div class="tabs">
+              <div class="tab">Scene</div>
+              <div class="tab">Physics</div>
+              <div class="tab active">Cine</div>
+              <div class="tab">Profiler</div>
+              <div class="tab">Options</div>
+            </div>
+            <div class="content">
+              <div class="section-head">Cinematic Look <span>scene local</span></div>
+              <div class="scene-row">
+                <div class="field"><span>Low Poly Art Style</span><span>v</span></div>
+                <button class="button">Save</button>
+              </div>
+              <div class="feature-grid">
+                <div class="toggle-row"><span>Sky atmosphere</span><span class="switch on"></span></div>
+                <div class="toggle-row"><span>Clouds</span><span class="switch"></span></div>
+                <div class="toggle-row"><span>Volumetric light</span><span class="switch on"></span></div>
+                <div class="toggle-row"><span>Bloom</span><span class="switch"></span></div>
+              </div>
+              <div class="section-head">Tone <span>balanced</span></div>
+              <div class="slider-list">
+                <div class="slider-row"><span>Exposure</span><span class="track"><span class="fill" style="--value: 62%;"></span></span><span class="value">0.84</span></div>
+                <div class="slider-row"><span>Contrast</span><span class="track"><span class="fill" style="--value: 48%;"></span></span><span class="value">1.10</span></div>
+                <div class="slider-row"><span>Fog</span><span class="track"><span class="fill" style="--value: 28%;"></span></span><span class="value">0.18</span></div>
+              </div>
+              <div class="footer">
+                <div class="stats">
+                  <div class="stat">FPS<strong>60.0</strong></div>
+                  <div class="stat">CPU<strong>6.7 ms</strong></div>
+                  <div class="stat">GPU<strong>5.9 ms</strong></div>
+                </div>
+                <div class="mini-toolbar">
+                  <div class="icon-button">G</div>
+                  <div class="icon-button">P</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="mockup-card">
+        <div class="mockup-meta">
+          <h2>Warm Grey Tool</h2>
+          <span>softer utility</span>
+        </div>
+        <div class="screen">
+          <div class="panel steel" style="--accent: #b59f7b;">
+            <div class="titlebar">
+              <div class="title">Skullbonez Core</div>
+              <div class="window-buttons">
+                <div class="icon-button">-</div>
+                <div class="icon-button">[]</div>
+                <div class="icon-button">x</div>
+              </div>
+            </div>
+            <div class="tabs">
+              <div class="tab active">Scene</div>
+              <div class="tab">Physics</div>
+              <div class="tab">Cine</div>
+              <div class="tab">Profiler</div>
+              <div class="tab">Options</div>
+            </div>
+            <div class="content">
+              <div class="section-head">Scene Control <span>12 scenes</span></div>
+              <div class="scene-row">
+                <div class="field"><span>water_ball_test.scene</span><span>v</span></div>
+                <button class="button">Reset</button>
+              </div>
+              <div class="feature-grid">
+                <div class="toggle-row"><span>Text overlay</span><span class="switch on"></span></div>
+                <div class="toggle-row"><span>Fixed step</span><span class="switch on"></span></div>
+                <div class="toggle-row"><span>Water hidden</span><span class="switch"></span></div>
+                <div class="toggle-row"><span>Terrain hidden</span><span class="switch"></span></div>
+              </div>
+              <div class="section-head">World <span>simulation</span></div>
+              <div class="slider-list">
+                <div class="slider-row"><span>Time scale</span><span class="track"><span class="fill" style="--value: 50%;"></span></span><span class="value">1.00</span></div>
+                <div class="slider-row"><span>Gravity</span><span class="track"><span class="fill" style="--value: 36%;"></span></span><span class="value">9.80</span></div>
+                <div class="slider-row"><span>Fluid</span><span class="track"><span class="fill" style="--value: 44%;"></span></span><span class="value">0.95</span></div>
+              </div>
+              <div class="footer">
+                <div class="stats">
+                  <div class="stat">Renderer<strong>DX12</strong></div>
+                  <div class="stat">Draws<strong>128</strong></div>
+                  <div class="stat">Models<strong>42</strong></div>
+                </div>
+                <div class="mini-toolbar">
+                  <div class="icon-button">R</div>
+                  <div class="icon-button">S</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="mockup-card">
+        <div class="mockup-meta">
+          <h2>Light Studio Dock</h2>
+          <span>bright scenes</span>
+        </div>
+        <div class="screen">
+          <div class="panel light" style="--accent: #748273;">
+            <div class="titlebar">
+              <div class="title">solver_smoke.scene  complete</div>
+              <div class="window-buttons">
+                <div class="icon-button">-</div>
+                <div class="icon-button">[]</div>
+                <div class="icon-button">x</div>
+              </div>
+            </div>
+            <div class="tabs">
+              <div class="tab">Scene</div>
+              <div class="tab active">Physics</div>
+              <div class="tab">Cine</div>
+              <div class="tab">Profiler</div>
+              <div class="tab">Options</div>
+            </div>
+            <div class="content">
+              <div class="section-head">Physics Debug <span>deterministic</span></div>
+              <div class="scene-row">
+                <div class="field"><span>Pipeline stage: solve contacts</span><span>v</span></div>
+                <button class="button">Next</button>
+              </div>
+              <div class="feature-grid">
+                <div class="toggle-row"><span>Contacts</span><span class="switch on"></span></div>
+                <div class="toggle-row"><span>Broadphase</span><span class="switch on"></span></div>
+                <div class="toggle-row"><span>Sleeping</span><span class="switch"></span></div>
+                <div class="toggle-row"><span>Transparent</span><span class="switch on"></span></div>
+              </div>
+              <div class="section-head">Debug Draw <span>readable</span></div>
+              <div class="slider-list">
+                <div class="slider-row"><span>Body alpha</span><span class="track"><span class="fill" style="--value: 64%;"></span></span><span class="value">0.65</span></div>
+                <div class="slider-row"><span>Contact linger</span><span class="track"><span class="fill" style="--value: 20%;"></span></span><span class="value">1.00</span></div>
+                <div class="slider-row"><span>Time scale</span><span class="track"><span class="fill" style="--value: 50%;"></span></span><span class="value">1.00</span></div>
+              </div>
+              <div class="footer">
+                <div class="stats">
+                  <div class="stat">Bodies<strong>96</strong></div>
+                  <div class="stat">Pairs<strong>184</strong></div>
+                  <div class="stat">Energy<strong>0.04</strong></div>
+                </div>
+                <div class="mini-toolbar">
+                  <div class="icon-button">&lt;</div>
+                  <div class="icon-button">&gt;</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="notes" aria-label="design notes">
+      <article class="note">
+        <h3>Color Language</h3>
+        <p>Replace cyan glow with neutral greys, off-white type, and one quiet accent per mode. Use accents for selected state and filled slider values only.</p>
+        <div class="palette">
+          <div class="swatch" style="--swatch: #272827;"></div>
+          <div class="swatch" style="--swatch: #3a3b3a;"></div>
+          <div class="swatch" style="--swatch: #9aa58f;"></div>
+          <div class="swatch" style="--swatch: #f3f3f0;"></div>
+        </div>
+      </article>
+      <article class="note">
+        <h3>Shape System</h3>
+        <p>Use 8px outer corners, 6px controls, and pill switches. Avoid hard neon outlines; prefer 1px borders and soft shadows for depth.</p>
+        <div class="palette">
+          <div class="swatch" style="--swatch: #efefed;"></div>
+          <div class="swatch" style="--swatch: #c8c8c3;"></div>
+          <div class="swatch" style="--swatch: #748273;"></div>
+          <div class="swatch" style="--swatch: #262927;"></div>
+        </div>
+      </article>
+      <article class="note">
+        <h3>Implementation Fit</h3>
+        <p>The mockups map onto existing draw calls: window frame, title buttons, tabs, combo boxes, toggles, sliders, and footer stats can be restyled without changing app flow.</p>
+        <div class="palette">
+          <div class="swatch" style="--swatch: #363736;"></div>
+          <div class="swatch" style="--swatch: #555650;"></div>
+          <div class="swatch" style="--swatch: #b59f7b;"></div>
+          <div class="swatch" style="--swatch: #eceae4;"></div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
