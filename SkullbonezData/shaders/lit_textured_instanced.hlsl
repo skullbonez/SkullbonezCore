@@ -101,9 +101,9 @@ VS_OUT main_vs(VS_IN input)
 float3 ProceduralBeachBallColor(float2 uv)
 {
     // The original source texture is intentionally low-res, which becomes blurry
-    // when a ball is close to the camera. In cinematic mode we still use the mesh
-    // UVs, but we choose the red/yellow color in shader math so the edges stay
-    // razor crisp at any resolution.
+    // when a ball is close to the camera. The beachball material now uses mesh
+    // UVs plus shader math for the red/yellow panels in every render mode, so the
+    // edges stay razor crisp at any resolution.
     uv = frac(uv);
 
     // uv.x is the wrap around the object. Multiplying by 2 creates two vertical
@@ -341,7 +341,6 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float spec = pow(max(dot(V, R), 0.0), 64.0);
     float3 specular = uLightDiffuse.rgb * spec * 0.1;
 
-    float4 texColor = uTexture.Sample(sSampler0, input.texCoord);
     bool cinematicMode = uLightPosition.w == 0.0f;
     int materialMode;
     if (input.tint.a < -0.5f)
@@ -353,13 +352,11 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     else
         materialMode = uObjectStyle;
 
-    if (cinematicMode && materialMode == 0)
+    float3 materialColor = input.tint.rgb;
+    if (materialMode == 0)
     {
-        // Directional light means cinematic sun mode, so replace the sampled
-        // texture with the procedural red/yellow panel color described above.
-        texColor.rgb = ProceduralBeachBallColor(input.texCoord);
+        materialColor = ProceduralBeachBallColor(input.texCoord) * input.tint.rgb;
     }
-    float3 materialColor = materialMode == 0 ? texColor.rgb * input.tint.rgb : input.tint.rgb;
 
     if (cinematicMode)
     {
