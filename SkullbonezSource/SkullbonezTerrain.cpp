@@ -1004,12 +1004,18 @@ void Terrain::BuildMesh()
             const TerrainPost& p01 = m_postData[idx + m_postsPerSide];
             const TerrainPost& p11 = m_postData[idx + m_postsPerSide + 1];
 
-            // Helper lambda: push m_position (int-truncated) + m_normal + texcoord
+            // Helper lambda: push the same floating-point world position that
+            // collision queries use. The original fixed-function display list
+            // used glVertex3i, but preserving that truncation in the shader mesh
+            // made the rendered terrain sit below the solver heightfield by up
+            // to 0.75 world units. Real shadow maps land on rendered terrain, so
+            // resting balls/boxes looked like they were rolling above their
+            // shadows even though the terrain solver was keeping them supported.
             auto pushVertex = [&]( const TerrainPost& p, float s, float t )
             {
-                vertexData.push_back( static_cast<float>( static_cast<int>( p.vPosition.x ) ) );
-                vertexData.push_back( static_cast<float>( static_cast<int>( p.vPosition.y ) ) );
-                vertexData.push_back( static_cast<float>( static_cast<int>( p.vPosition.z ) ) );
+                vertexData.push_back( p.vPosition.x );
+                vertexData.push_back( p.vPosition.y );
+                vertexData.push_back( p.vPosition.z );
                 vertexData.push_back( p.vNormal.x );
                 vertexData.push_back( p.vNormal.y );
                 vertexData.push_back( p.vNormal.z );

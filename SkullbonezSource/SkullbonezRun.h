@@ -463,7 +463,7 @@ class SkullbonezRun
     void SetNoWaterOverride();                                          // Start scenes with fluid below terrain (CLI --no-water)
     void SetNoSleepOverride();                                          // Disable physics sleeping for every scene loaded (CLI --no-sleep)
     void SetCinematicRenderingOverride( bool enabled );                 // Force cinematic HDR/post rendering on/off for every scene loaded
-    void SetCinematicShadowsOverride( bool enabled );                   // Force cinematic shadow maps on/off for every scene loaded
+    void SetCinematicShadowsOverride( bool enabled );                   // Force shadow maps on/off for every scene loaded
     void SetDemoHeroStyleOverride();                                    // Run generated demo mode with the low-poly hero rendering style
     void SetInteractiveRunOverride();                                   // Keep scene automation from quitting the app (CLI --interactive/--hold)
     void SetLiveStyleControlDirectory( const char* path );              // Enable live .style/capture harness in a control folder
