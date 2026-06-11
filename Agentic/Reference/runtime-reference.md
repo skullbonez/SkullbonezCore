@@ -77,10 +77,11 @@ Scene overrides are merged into a per-run active cinematic config. They do not w
 Use this to boot the low-poly hero scene with physics running, unlimited frames, and the balls/cubes bouncing:
 
 ```bat
+Profile\SKULLBONEZ_CORE.exe --renderer gl --hero
 Profile\SKULLBONEZ_CORE.exe --renderer gl --scene hero
 ```
 
-The aliases `hero`, `low_poly_hero`, and `low-poly-hero` resolve to `SkullbonezData\scenes\concept_12_low_poly_art_style.scene`. Bare scene names also resolve through `SkullbonezData\scenes\`, so `--scene stacking` loads `SkullbonezData\scenes\stacking.scene` when it exists.
+The dedicated `--hero` flag and the `--scene` aliases `hero`, `low_poly_hero`, and `low-poly-hero` resolve to `SkullbonezData\scenes\concept_12_low_poly_art_style.scene`. The hero scene is a live scene with physics on, `fixed_step`, and unlimited frames, so it keeps running until the window is closed. Bare scene names also resolve through `SkullbonezData\scenes\`, so `--scene stacking` loads `SkullbonezData\scenes\stacking.scene` when it exists.
 
 ## Live Style Harness
 

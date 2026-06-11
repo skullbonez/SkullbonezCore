@@ -733,6 +733,12 @@ bool FileExistsForLaunch( const std::string& path )
 }
 
 
+std::string HeroSceneLaunchPath()
+{
+    return std::string( DATA_ROOT ) + "scenes/concept_12_low_poly_art_style.scene";
+}
+
+
 std::string ResolveSceneLaunchPath( const char* rawSceneArg )
 {
     std::string sceneArg( rawSceneArg );
@@ -745,7 +751,7 @@ std::string ResolveSceneLaunchPath( const char* rawSceneArg )
          _stricmp( sceneArg.c_str(), "low_poly_hero" ) == 0 ||
          _stricmp( sceneArg.c_str(), "low-poly-hero" ) == 0 )
     {
-        return std::string( DATA_ROOT ) + "scenes/concept_12_low_poly_art_style.scene";
+        return HeroSceneLaunchPath();
     }
 
     const std::string sceneDir = std::string( DATA_ROOT ) + "scenes/";
@@ -935,13 +941,20 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
 {
     const char* suiteArg = FindOptionValue( commandLine, "--suite" );
     const char* sceneArg = FindOptionValue( commandLine, "--scene" );
+    const bool heroArg = HasOption( commandLine, "--hero" );
 
-    if ( suiteArg && sceneArg )
+    if ( ( suiteArg && sceneArg ) || ( heroArg && ( suiteArg || sceneArg ) ) )
     {
-        return FailCommandLineParse( "--suite and --scene are mutually exclusive." );
+        return FailCommandLineParse( "--hero, --suite, and --scene are mutually exclusive." );
     }
 
-    if ( suiteArg )
+    if ( heroArg )
+    {
+        sceneList.push_back( HeroSceneLaunchPath() );
+        isSuiteOrSceneMode = true;
+        fprintf( stdout, "[scene] Hero scene selected.\n" );
+    }
+    else if ( suiteArg )
     {
         if ( IsOptionValueMissing( suiteArg ) )
         {
