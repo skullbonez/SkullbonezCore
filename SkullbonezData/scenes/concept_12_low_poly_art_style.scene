@@ -7,7 +7,7 @@ pipeline_sync on
 fixed_step
 frames unlimited
 water_reflection fbo
-world -30.0 25.0 1.0
+world -30.0 25.0 0.0
 style low_poly_art_style
 camera main 640 122 940  610 57 650  0 1 0
 

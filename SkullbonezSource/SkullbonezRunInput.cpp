@@ -608,6 +608,7 @@ void SkullbonezRun::TakeInput()
                 }
                 m_camera.input.xMove = 0;
                 m_camera.input.yMove = 0;
+                m_camera.needsMouseLookReset = true;
             }
             else
             {
@@ -620,6 +621,7 @@ void SkullbonezRun::TakeInput()
                 m_camera.cameraTime = 0.0f;
                 // Exiting fly mode also exits nudge mode
                 m_camera.isNudgeMode = false;
+                m_camera.needsMouseLookReset = true;
             }
         }
 
@@ -1081,6 +1083,7 @@ void SkullbonezRun::TakeInput()
     {
         m_camera.input.xMove = 0;
         m_camera.input.yMove = 0;
+        m_camera.needsMouseLookReset = true;
         m_camera.input.Set( InputState::Up, false );
         m_camera.input.Set( InputState::Down, false );
         m_camera.input.Set( InputState::Left, false );
@@ -1161,26 +1164,58 @@ void SkullbonezRun::TakeInput()
     {
         // Expanded diagnostics UI owns the native cursor in fly/nudge mode.
         // Otherwise mouse-look keeps using recentered OS coordinates internally.
-        if ( UIWantsReleasedMouse() )
+        if ( !Input::IsAppFocused() )
+        {
+            m_camera.input.xMove = 0;
+            m_camera.input.yMove = 0;
+            m_camera.needsMouseLookReset = true;
+        }
+        else if ( UIWantsReleasedMouse() )
         {
             Input::SetSystemCursorVisible( true );
             m_camera.input.xMove = 0;
             m_camera.input.yMove = 0;
+            m_camera.needsMouseLookReset = true;
         }
         else if ( m_UI.BlocksCameraMouse() )
         {
             Input::SetSystemCursorVisible( false );
             m_camera.input.xMove = 0;
             m_camera.input.yMove = 0;
+            m_camera.needsMouseLookReset = true;
         }
         else
         {
             Input::SetSystemCursorVisible( false );
-            POINT currentCoords = Input::GetMouseCoordinates();
-            Input::CentreMouseCoordinates();
-            POINT centreCoords = Input::GetMouseCoordinates();
-            m_camera.input.xMove = currentCoords.x - centreCoords.x;
-            m_camera.input.yMove = currentCoords.y - centreCoords.y;
+            if ( m_camera.needsMouseLookReset )
+            {
+                Input::CentreMouseCoordinates();
+                m_camera.input.xMove = 0;
+                m_camera.input.yMove = 0;
+                m_camera.needsMouseLookReset = false;
+            }
+            else
+            {
+                POINT currentCoords = Input::GetMouseCoordinates();
+                Input::CentreMouseCoordinates();
+                POINT centreCoords = Input::GetMouseCoordinates();
+
+                const long rawX = currentCoords.x - centreCoords.x;
+                const long rawY = currentCoords.y - centreCoords.y;
+                const long absX = rawX < 0 ? -rawX : rawX;
+                const long absY = rawY < 0 ? -rawY : rawY;
+
+                if ( absX > CAMERA_MOUSE_SPIKE_DELTA_PIXELS || absY > CAMERA_MOUSE_SPIKE_DELTA_PIXELS )
+                {
+                    m_camera.input.xMove = 0;
+                    m_camera.input.yMove = 0;
+                }
+                else
+                {
+                    m_camera.input.xMove = std::clamp( rawX, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
+                    m_camera.input.yMove = std::clamp( rawY, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
+                }
+            }
         }
 
         // WASD movement
@@ -1193,6 +1228,7 @@ void SkullbonezRun::TakeInput()
     {
         m_camera.input.xMove = 0;
         m_camera.input.yMove = 0;
+        m_camera.needsMouseLookReset = true;
         m_camera.input.Set( InputState::Up, false );
         m_camera.input.Set( InputState::Down, false );
         m_camera.input.Set( InputState::Left, false );

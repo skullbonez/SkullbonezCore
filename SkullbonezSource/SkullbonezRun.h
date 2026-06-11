@@ -127,6 +127,7 @@ struct RunCameraState
     int selectedCamera = 0;          // Keeps track of which camera is selected
     bool isFlyMode = false;          // Free-fly camera mode active (toggle with F)
     bool isNudgeMode = false;        // Nudge mode: free camera + live simulation (toggle with N)
+    bool needsMouseLookReset = true; // Discard stale absolute mouse deltas after UI/focus/fly transitions
     float cameraTime = 0.0f;         // Camera helper clock
     int trackBallIndex = -1;         // Index of ball to track with camera (-1 = no tracking)
     float trackHeight = 300.0f;      // Camera height above tracked ball
