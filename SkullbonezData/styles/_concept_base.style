@@ -1,0 +1,55 @@
+# Shared baseline for concept style descriptors.
+cinematic_rendering on
+cinematic_sky_atmosphere on
+cinematic_clouds on
+cinematic_god_rays on
+cinematic_volumetric_lighting on
+cinematic_bloom on
+cinematic_fog on
+cinematic_terrain_relief_enabled off
+cinematic_exposure 0.68
+cinematic_gamma 2.05
+cinematic_sun_screen_x 0.28
+cinematic_sun_screen_y 0.76
+cinematic_sun_color_r 1.00
+cinematic_sun_color_g 0.68
+cinematic_sun_color_b 0.32
+cinematic_sun_intensity 22.0
+cinematic_sky_horizon_r 0.88
+cinematic_sky_horizon_g 0.34
+cinematic_sky_horizon_b 0.08
+cinematic_sky_zenith_r 0.26
+cinematic_sky_zenith_g 0.13
+cinematic_sky_zenith_b 0.12
+cinematic_sky_glow_strength 2.85
+cinematic_cloud_coverage 0.66
+cinematic_cloud_softness 0.19
+cinematic_cloud_scale 5.4
+cinematic_cloud_intensity 0.62
+cinematic_sun_shaft_strength 2.28
+cinematic_sun_shaft_falloff 1.92
+cinematic_volumetric_strength 1.28
+cinematic_volumetric_density 1.25
+cinematic_volumetric_decay 0.955
+cinematic_bloom_threshold 1.05
+cinematic_bloom_knee 0.55
+cinematic_bloom_strength 0.62
+cinematic_bloom_radius 4.2
+cinematic_terrain_relief 0.0
+cinematic_basin_depth 0.0
+cinematic_basin_rim_lift 0.0
+cinematic_fog_color_r 0.86
+cinematic_fog_color_g 0.34
+cinematic_fog_color_b 0.12
+cinematic_fog_start 70.0
+cinematic_fog_end 1550.0
+cinematic_fog_density 0.00145
+cinematic_fog_max_opacity 0.54
+cinematic_style_modes 0 0 0 1
+cinematic_style_grade 1.08 1.08 0.76
+cinematic_terrain_tint 0.78 0.60 0.38
+cinematic_terrain_accent 0.20 0.09 0.02
+cinematic_terrain_grid 42.0 0.0
+cinematic_water_tint 0.24 0.13 0.055
+cinematic_water_profile 0.94 0.22 0.28
+cinematic_basin_mask 620.0 615.0 220.0 150.0 0.20

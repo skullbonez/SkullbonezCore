@@ -1,0 +1,24 @@
+# 17. Dreamscape
+seed 1017
+physics off
+text off
+vsync off
+pipeline_sync on
+fixed_step
+frames unlimited
+water_reflection fbo
+world -30.0 25.0 1.0
+style dreamscape
+camera main 630 205 1030  615 72 610  0 1 0
+
+floating_box island_left 420 130 520  58 16 34  3000 0.08  4 12 18
+floating_box island_right 815 148 540  64 18 38  3000 0.08  -6 -12 -16
+floating_box glow_crystal 610 115 500  9 42 9  2000 0.08  0 24 0
+ball hero 615 60 650 27 108 25 0.44 0 24 0
+ball dream_01 465 72 705 15 62 14 0.40 0 70 0
+ball dream_02 760 68 690 16 66 15 0.40 0 130 0
+ball drift_01 390 108 570 8 32 8 0.36 0 20 0
+ball drift_02 520 126 520 7 28 7 0.36 0 60 0
+ball drift_03 700 118 530 7 28 7 0.36 0 100 0
+ball drift_04 845 138 575 8 32 8 0.36 0 140 0
+ball moonlet 870 210 485 10 34 9 0.34 0 160 0

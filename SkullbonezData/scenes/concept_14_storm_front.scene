@@ -1,0 +1,25 @@
+# 14. Storm Front
+seed 1014
+physics off
+text off
+vsync off
+pipeline_sync on
+fixed_step
+frames unlimited
+water_reflection fbo
+world -30.0 25.0 1.0
+style storm_front
+camera main 610 142 930  610 48 610  0 1 0
+
+floating_box lightning_a 590 150 500  3 90 3  3000 0.05  0 0 24
+floating_box lightning_b 635 115 515  3 62 3  3000 0.05  0 0 -32
+floating_box debris_01 440 88 555  24 7 15  2000 0.05  8 20 16
+floating_box debris_02 790 86 545  28 8 17  2000 0.05  -8 -25 12
+ball hero 615 52 650 26 104 24 0.36 0 24 0
+ball rain_01 470 58 695 14 58 13 0.32 0 66 0
+ball rain_02 755 56 680 15 60 14 0.32 0 126 0
+ball rain_03 390 74 585 8 32 8 0.30 0 10 0
+ball rain_04 520 68 545 7 28 7 0.30 0 50 0
+ball rain_05 690 66 540 7 28 7 0.30 0 90 0
+ball rain_06 825 78 580 8 32 8 0.30 0 130 0
+ball cloud_ball 860 175 505 10 34 9 0.30 0 160 0

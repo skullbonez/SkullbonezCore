@@ -113,6 +113,10 @@ void Terrain::InitialiseTerrainShader()
     m_terrainShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
     m_terrainShader->SetVec4( "uCinematicTerrain", 0.0f, 0.0f, 0.0f, 0.0f );
     m_terrainShader->SetVec4( "uCinematicBasin", 620.0f, 615.0f, 285.0f, 205.0f );
+    m_terrainShader->SetVec4( "uStyleModes", 0.0f, 0.0f, 0.0f, 1.0f );
+    m_terrainShader->SetVec4( "uTerrainTint", 0.78f, 0.60f, 0.38f, 1.0f );
+    m_terrainShader->SetVec4( "uTerrainAccent", 0.20f, 0.09f, 0.02f, 0.0f );
+    m_terrainShader->SetVec4( "uTerrainGrid", 46.0f, 0.0f, 0.0f, 0.0f );
     m_terrainShader->SetInt( "uTexture", 0 );
 }
 
@@ -371,7 +375,11 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, const floa
                                   cinematic.terrainRelief,
                                   cinematic.basinDepth,
                                   cinematic.basinRimLift );
-        m_terrainShader->SetVec4( "uCinematicBasin", 620.0f, 615.0f, 285.0f, 205.0f );
+        m_terrainShader->SetVec4( "uCinematicBasin", cinematic.basinCenterX, cinematic.basinCenterZ, cinematic.basinRadiusX + 80.0f, cinematic.basinRadiusZ + 60.0f );
+        m_terrainShader->SetVec4( "uStyleModes", static_cast<float>( cinematic.skyMode ), static_cast<float>( cinematic.terrainMode ), static_cast<float>( cinematic.objectStyle ), static_cast<float>( cinematic.waterMode ) );
+        m_terrainShader->SetVec4( "uTerrainTint", cinematic.terrainTintR, cinematic.terrainTintG, cinematic.terrainTintB, 1.0f );
+        m_terrainShader->SetVec4( "uTerrainAccent", cinematic.terrainAccentR, cinematic.terrainAccentG, cinematic.terrainAccentB, 1.0f );
+        m_terrainShader->SetVec4( "uTerrainGrid", cinematic.terrainGridScale, cinematic.terrainGridStrength, 0.0f, 0.0f );
     }
     else
     {
@@ -382,6 +390,10 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, const floa
         m_terrainShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
         m_terrainShader->SetVec4( "uCinematicTerrain", 0.0f, 0.0f, 0.0f, 0.0f );
         m_terrainShader->SetVec4( "uCinematicBasin", 620.0f, 615.0f, 285.0f, 205.0f );
+        m_terrainShader->SetVec4( "uStyleModes", 0.0f, 0.0f, 0.0f, 1.0f );
+        m_terrainShader->SetVec4( "uTerrainTint", 0.78f, 0.60f, 0.38f, 1.0f );
+        m_terrainShader->SetVec4( "uTerrainAccent", 0.20f, 0.09f, 0.02f, 0.0f );
+        m_terrainShader->SetVec4( "uTerrainGrid", 46.0f, 0.0f, 0.0f, 0.0f );
     }
     m_terrainShader->SetVec4( "uLightPosition", lx, ly, lz, lw );
 

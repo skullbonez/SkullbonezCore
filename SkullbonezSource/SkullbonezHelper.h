@@ -28,13 +28,23 @@ class SkullbonezHelper
     static uint32_t sphereInstMesh;                                   // Instanced mesh handle (via Gfx())
     static int sphereVertexCount;                                     // Per-sphere vertex count
     static std::vector<float> sphereInstanceData;                     // Staging buffer for model matrices + tint/override
+    static uint32_t lowPolySphereInstMesh;                            // Faceted sphere mesh for low-poly cinematic styles
+    static int lowPolySphereVertexCount;                              // Per-low-poly-sphere vertex count
+    static uint32_t activeSphereInstMesh;                             // Mesh selected for the current sphere batch
+    static int activeSphereVertexCount;                               // Vertex count selected for the current sphere batch
     static uint32_t boxInstMesh;                                      // Instanced mesh handle for box
     static int boxVertexCount;                                        // Per-box vertex count
     static std::vector<float> boxInstanceData;                        // Staging buffer for box model matrices + tint/override
+    static uint32_t pineInstMesh;                                     // Instanced mesh handle for low-poly pine foliage tiers
+    static int pineVertexCount;                                       // Per-pine-tier vertex count
+    static std::vector<float> pineInstanceData;                       // Staging buffer for pine model matrices + tint/override
     inline static float sClipPlane[4] = { 0.0f, 1.0f, 0.0f, 1.0e9f }; // default: always pass (GL_CLIP_DISTANCE0 disabled)
 
-    static void BuildSphereMesh( int slices, int stacks ); // Generate UV sphere instanced mesh
-    static void BuildBoxMesh();                            // Generate unit cube instanced mesh
+    static void EnsureSphereShader();                             // Create shared instanced lighting shader
+    static void BuildSphereMesh( int slices, int stacks );        // Generate UV sphere instanced mesh
+    static void BuildLowPolySphereMesh( int slices, int stacks ); // Generate faceted sphere instanced mesh
+    static void BuildBoxMesh();                                   // Generate unit cube instanced mesh
+    static void BuildPineMesh();                                  // Generate unit low-poly pine tier mesh
 
   public:
     static void StateSetup();                                                                                                                                                                                                        // Assists in setting up initial open gl state
@@ -45,6 +55,9 @@ class SkullbonezHelper
     static void DrawBoxBatchBegin( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], bool isTransparent = false, const CinematicRenderConfig* cinematic = nullptr );    // Set up box instanced draw
     static void DrawBoxBatchModel( const Math::Transformation::Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f );                                                             // Append box model matrix and tint/override to instance buffer
     static void DrawBoxBatchEnd();                                                                                                                                                                                                   // Upload box instance data and issue single instanced draw
+    static void DrawPineBatchBegin( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], bool isTransparent = false, const CinematicRenderConfig* cinematic = nullptr );   // Set up low-poly pine instanced draw
+    static void DrawPineBatchModel( const Math::Transformation::Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f );                                                            // Append pine model matrix and tint/override to instance buffer
+    static void DrawPineBatchEnd();                                                                                                                                                                                                  // Upload pine instance data and issue single instanced draw
     static void ResetRenderResources();                                                                                                                                                                                              // Invalidate cached backend-owned meshes and shaders
     static void EnsureSphereMesh();                                                                                                                                                                                                  // Ensure sphere instanced mesh is created (for DXR BLAS init)
     static uint32_t GetSphereInstMeshHandle()

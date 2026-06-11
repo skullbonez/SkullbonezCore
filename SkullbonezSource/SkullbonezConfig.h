@@ -122,6 +122,40 @@ struct CinematicRenderConfig
     float fogEnd = 1550.0f;
     float fogDensity = 0.00145f;
     float fogMaxOpacity = 0.54f;
+
+    // Art-direction presets used by the concept scene pack. These extend the
+    // original golden-hour cinematic controls without turning the renderer into a
+    // full material graph. Modes are consumed by reusable shaders.
+    int skyMode = 0;     // 0=sun sky, 1=industrial, 2=studio, 3=neon, 4=alien, ...
+    int terrainMode = 0; // 0=warm terrain, 1=industrial, 2=studio, 3=grid, ...
+    int objectStyle = 0; // 0=beach ball, 1=matte, 2=metal, 3=emissive, ...
+    int waterMode = 1;   // 0=off/none, 1=basin pool, 2=ocean, 3=wet floor
+
+    float styleSaturation = 1.08f;
+    float styleContrast = 1.08f;
+    float styleVignette = 0.76f;
+
+    float terrainTintR = 0.78f;
+    float terrainTintG = 0.60f;
+    float terrainTintB = 0.38f;
+    float terrainAccentR = 0.20f;
+    float terrainAccentG = 0.09f;
+    float terrainAccentB = 0.02f;
+    float terrainGridScale = 46.0f;
+    float terrainGridStrength = 0.0f;
+
+    float waterTintR = 0.24f;
+    float waterTintG = 0.13f;
+    float waterTintB = 0.055f;
+    float waterAlpha = 0.94f;
+    float waterReflectionStrength = 0.22f;
+    float waterGlintStrength = 0.28f;
+
+    float basinCenterX = 620.0f;
+    float basinCenterZ = 615.0f;
+    float basinRadiusX = 205.0f;
+    float basinRadiusZ = 145.0f;
+    float basinFeather = 0.18f;
 };
 
 class SkullbonezConfig

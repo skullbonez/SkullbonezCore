@@ -62,6 +62,10 @@ cbuffer Uniforms : register(b0)
     float4   uMaterialDiffuse;  // Material diffuse response
     float4   uCinematicTerrain; // enable, relief, basin depth, rim lift
     float4   uCinematicBasin;   // center x/z, radius x/z
+    float4   uStyleModes;       // sky, terrain, object, water
+    float4   uTerrainTint;      // rgb tint
+    float4   uTerrainAccent;    // rgb accent
+    float4   uTerrainGrid;      // scale, strength, unused, unused
 };
 
 // Texture + sampler (equivalent to GLSL's uniform sampler2D).
@@ -115,6 +119,109 @@ float CinematicTerrainOffset(float2 xz)
     float slopeTexture = smoothstep(0.32f, 0.92f, d) * (1.0f - smoothstep(1.02f, 1.55f, d));
     float rough = (sin(xz.x * 0.045f + xz.y * 0.011f) + sin(xz.y * 0.052f - xz.x * 0.017f)) * 0.5f;
     return uCinematicTerrain.y * (-uCinematicTerrain.z * bowl + uCinematicTerrain.w * rim + rough * 1.6f * slopeTexture);
+}
+
+float GridLine(float2 xz, float scale)
+{
+    float2 g = abs(frac(xz / max(scale, 0.001f)) - 0.5f);
+    float lineDistance = min(g.x, g.y);
+    return 1.0f - smoothstep(0.470f, 0.498f, lineDistance);
+}
+
+float3 FacetNormalFromDerivatives(float3 viewPos, float3 fallbackNormal)
+{
+    float3 dx = ddx(viewPos);
+    float3 dy = ddy(viewPos);
+    float3 faceN = normalize(cross(dy, dx));
+    return dot(faceN, fallbackNormal) < 0.0f ? -faceN : faceN;
+}
+
+float3 TerrainModeColor(int mode, float3 texColor, float3 N, float3 worldPos)
+{
+    float3 base = texColor * max(uTerrainTint.rgb, float3(0.001f, 0.001f, 0.001f));
+    if (mode == 1)
+    {
+        float wear = sin(worldPos.x * 0.035f) * sin(worldPos.z * 0.041f) * 0.08f;
+        base = float3(0.34f, 0.35f, 0.34f) + wear + texColor * float3(0.14f, 0.14f, 0.14f);
+    }
+    else if (mode == 2)
+    {
+        base = float3(0.58f, 0.60f, 0.61f) + texColor * float3(0.08f, 0.08f, 0.08f);
+    }
+    else if (mode == 3)
+    {
+        float grid = GridLine(worldPos.xz, max(uTerrainGrid.x, 8.0f));
+        base = float3(0.006f, 0.012f, 0.020f) + uTerrainAccent.rgb * grid * max(uTerrainGrid.y, 0.0f);
+    }
+    else if (mode == 4)
+    {
+        float veins = sin(worldPos.x * 0.026f + sin(worldPos.z * 0.021f) * 2.0f) * 0.5f + 0.5f;
+        base = lerp(float3(0.18f, 0.08f, 0.24f), uTerrainTint.rgb, veins * 0.55f) + uTerrainAccent.rgb * pow(veins, 5.0f) * 0.45f;
+    }
+    else if (mode == 5)
+    {
+        base = texColor * uTerrainTint.rgb + float3(0.20f, 0.10f, 0.02f) * (1.0f - max(N.y, 0.0f));
+    }
+    else if (mode == 6)
+    {
+        base = floor((texColor * uTerrainTint.rgb + uTerrainAccent.rgb * 0.08f) * 5.0f) / 5.0f;
+    }
+    else if (mode == 7)
+    {
+        float heightT = saturate((worldPos.y - 28.0f) / 115.0f);
+        float terrace = floor(heightT * 5.0f) / 5.0f;
+        float3 lowColor = lerp(float3(0.18f, 0.34f, 0.09f), uTerrainAccent.rgb, 0.24f);
+        float3 midColor = lerp(float3(0.38f, 0.54f, 0.16f), uTerrainTint.rgb, 0.32f);
+        float3 highColor = float3(0.60f, 0.56f, 0.24f);
+        base = lerp(lowColor, midColor, smoothstep(0.08f, 0.58f, heightT));
+        base = lerp(base, highColor, smoothstep(0.58f, 1.0f, heightT));
+        float slope = saturate(1.0f - max(N.y, 0.0f));
+        float3 slopeColor = lerp(float3(0.28f, 0.25f, 0.12f), uTerrainAccent.rgb, 0.30f);
+        base = lerp(base, slopeColor, slope * 0.42f);
+        float2 patchCell = floor(worldPos.xz / 64.0f);
+        float patchSeed = frac(sin(dot(patchCell, float2(12.9898f, 78.233f))) * 43758.5453f);
+        float patchBand = floor(patchSeed * 4.0f) / 3.0f;
+        float3 coolPatch = lerp(float3(0.14f, 0.30f, 0.08f), uTerrainAccent.rgb, 0.12f);
+        float3 warmPatch = float3(0.48f, 0.50f, 0.18f);
+        base = lerp(base, lerp(coolPatch, warmPatch, patchBand), 0.16f);
+        float basinT = saturate(1.0f - BasinDistance(worldPos.xz));
+        base *= 1.0f - basinT * 0.055f;
+        float facet = floor(max(N.y, 0.0f) * 4.0f) / 4.0f;
+        base *= 0.72f + facet * 0.34f + terrace * 0.08f;
+    }
+    else if (mode == 8)
+    {
+        base = lerp(float3(0.08f, 0.09f, 0.10f), uTerrainTint.rgb, 0.55f) + texColor * 0.05f;
+    }
+    else if (mode == 9)
+    {
+        base = lerp(float3(0.80f, 0.84f, 0.88f), float3(0.35f, 0.42f, 0.48f), saturate(1.0f - N.y)) + texColor * 0.06f;
+    }
+    else if (mode == 10)
+    {
+        float grid = GridLine(worldPos.xz, max(uTerrainGrid.x, 18.0f));
+        base = float3(0.055f, 0.060f, 0.066f) + grid * uTerrainAccent.rgb * max(uTerrainGrid.y, 0.0f);
+    }
+    else if (mode == 11)
+    {
+        base = lerp(float3(0.76f, 0.82f, 0.88f), float3(0.96f, 0.98f, 1.0f), max(N.y, 0.0f)) + uTerrainAccent.rgb * 0.05f;
+    }
+    else if (mode == 12)
+    {
+        base = texColor * uTerrainTint.rgb * float3(0.92f, 1.02f, 0.88f);
+    }
+    else if (mode == 13)
+    {
+        float3 bands = 0.5f + 0.5f * cos(float3(0.0f, 2.1f, 4.2f) + worldPos.x * 0.018f + worldPos.z * 0.023f);
+        base = lerp(uTerrainTint.rgb, uTerrainAccent.rgb, bands);
+    }
+    else if (mode == 14)
+    {
+        base = lerp(uTerrainTint.rgb, float3(0.90f, 0.92f, 0.84f), 0.35f + max(N.y, 0.0f) * 0.25f);
+    }
+    float authoredGrid = GridLine(worldPos.xz, max(uTerrainGrid.x, 8.0f)) * max(uTerrainGrid.y, 0.0f);
+    base += uTerrainAccent.rgb * authoredGrid;
+    return base;
 }
 
 // VERTEX SHADER: transform vertices and prepare lighting data.
@@ -195,10 +302,18 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         // w=0 is how the C++ render path tells this shader "cinematic sun mode".
         // The terrain then gets a warmer, more photographic grade instead of the
         // neutral gameplay Phong lighting.
-        float warmWrap = saturate(dot(N, L) * 0.5f + 0.5f);
-        float grazing = pow(saturate(1.0f - abs(dot(N, L))), 1.5f);
-        float rim = pow(1.0f - saturate(dot(N, V)), 3.0f) * (0.25f + warmWrap * 0.75f);
-        float3 earthBase = texColor.rgb * float3(0.78f, 0.60f, 0.38f);
+        int terrainMode = (int)floor(uStyleModes.y + 0.5f);
+        float3 terrainN = N;
+        if (terrainMode == 7)
+        {
+            terrainN = normalize(lerp(N, FacetNormalFromDerivatives(input.viewPos, N), 0.86f));
+        }
+        float terrainDot = dot(terrainN, L);
+        float terrainDiff = max(terrainDot, 0.0f);
+        float warmWrap = saturate(terrainDot * 0.5f + 0.5f);
+        float grazing = pow(saturate(1.0f - abs(terrainDot)), 1.5f);
+        float rim = pow(1.0f - saturate(dot(terrainN, V)), 3.0f) * (0.25f + warmWrap * 0.75f);
+        float3 earthBase = TerrainModeColor(terrainMode, texColor.rgb, terrainN, input.worldPos);
         if (uCinematicTerrain.x > 0.5f)
         {
             // If visual terrain relief is enabled, darken the basin center and
@@ -211,13 +326,29 @@ float4 main_ps(VS_OUT input) : SV_TARGET
             earthBase = lerp(earthBase, earthBase * float3(0.62f, 0.47f, 0.34f), bowlShade * 0.55f);
             earthBase += float3(0.20f, 0.09f, 0.02f) * rimShade * 0.10f;
         }
+        if (terrainMode == 7)
+        {
+            // Low-poly art mode: no texture dependency, just height-colored
+            // terrain, hemisphere ambient, warm sun bands, and readable facets.
+            float hemiT = saturate(terrainN.y * 0.5f + 0.5f);
+            float3 skyAmbient = float3(0.34f, 0.50f, 0.72f);
+            float3 groundAmbient = float3(0.16f, 0.24f, 0.08f);
+            float3 hemiAmbient = lerp(groundAmbient, skyAmbient, hemiT);
+            float sunBand = terrainDiff > 0.72f ? 1.0f : (terrainDiff > 0.34f ? 0.62f : 0.30f);
+            float softFill = warmWrap * 0.10f;
+            float3 warmSun = uLightDiffuse.rgb * float3(0.96f, 0.78f, 0.50f);
+            float3 color = earthBase * (hemiAmbient * 0.58f + warmSun * (sunBand * 0.26f + softFill * 0.82f));
+            color += warmSun * (rim * 0.036f + grazing * 0.018f);
+            return float4(color, 1.0f);
+        }
+
         // Grade the texture into a sunset palette: brown shadow tone, orange lit
         // tone, and a tiny ridge highlight where the view/light angle catches.
         float3 shadowTone = earthBase * float3(0.42f, 0.28f, 0.18f);
         float3 litTone = earthBase * float3(1.28f, 0.72f, 0.34f);
-        float3 gradedBase = lerp(shadowTone, litTone, saturate(diff * 0.85f + warmWrap * 0.12f));
-        float3 warmAmbient = gradedBase * uLightAmbient.rgb * (0.95f + max(N.y, 0.0f) * 0.35f);
-        float3 directSun = gradedBase * uLightDiffuse.rgb * (diff * 0.42f + grazing * 0.08f);
+        float3 gradedBase = lerp(shadowTone, litTone, saturate(terrainDiff * 0.85f + warmWrap * 0.12f));
+        float3 warmAmbient = gradedBase * uLightAmbient.rgb * (0.95f + max(terrainN.y, 0.0f) * 0.35f);
+        float3 directSun = gradedBase * uLightDiffuse.rgb * (terrainDiff * 0.42f + grazing * 0.08f);
         float3 ridgeLight = uLightDiffuse.rgb * (rim * 0.045f + spec * 0.035f);
         return float4(warmAmbient + directSun + ridgeLight, 1.0f);
     }

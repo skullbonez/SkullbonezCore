@@ -127,6 +127,9 @@ struct RunCameraState
     int selectedCamera = 0;          // Keeps track of which camera is selected
     bool isFlyMode = false;          // Free-fly camera mode active (toggle with F)
     bool isNudgeMode = false;        // Nudge mode: free camera + live simulation (toggle with N)
+    bool needsMouseLookReset = true; // Discard stale absolute mouse deltas after UI/focus/fly transitions
+    bool hasMouseLookLastClient = false;
+    POINT mouseLookLastClient = {};
     float cameraTime = 0.0f;         // Camera helper clock
     int trackBallIndex = -1;         // Index of ball to track with camera (-1 = no tracking)
     float trackHeight = 300.0f;      // Camera height above tracked ball
@@ -166,6 +169,7 @@ struct RunSceneState
     bool hasCinematicGamma = false;
     float cinematicGamma = 2.2f;
     uint64_t cinematicOverrideMask = 0;
+    uint64_t uiCinematicOverrideMask = 0; // Cine-tab values edited by sliders/toggles and eligible for Save Defaults
     CinematicRenderConfig cinematicRender;
 };
 
@@ -179,6 +183,21 @@ struct RunScreenshotState
     int screenshotInterval = -1;      // Save screenshot every N frames (-1 = disabled)
     int intervalCaptureCount = 0;     // Sequential counter for interval captures
     char screenshotDir[256] = {};     // Output directory for interval captures
+};
+
+struct RunLiveStyleControlState
+{
+    bool enabled = false;                 // Polls a small control folder for live .style and screenshot requests
+    char directory[260] = {};             // Folder containing live.style, capture.txt, and status.txt
+    char stylePath[300] = {};             // Style descriptor applied without reloading the scene
+    char capturePath[300] = {};           // Text command file used to request one screenshot
+    char statusPath[300] = {};            // Latest harness status for scripts/humans
+    char pendingScreenshotPath[512] = {}; // Screenshot path requested by capture.txt
+    uint64_t styleStamp = 0;              // Last applied live.style write stamp
+    uint64_t captureStamp = 0;            // Last consumed capture.txt write stamp
+    int styleApplyCount = 0;              // Successful live style applications
+    int captureCount = 0;                 // Successful live screenshots
+    bool hasPendingScreenshot = false;    // Capture should run after render/UI this frame
 };
 
 enum class OverlayMode
@@ -278,11 +297,14 @@ class SkullbonezRun
     bool m_cmdNoSleep = false;           // Startup CLI --no-sleep request; the live policy can still be toggled from the Physics tab
     bool m_cmdHasCinematicRenderingOverride = false;
     bool m_cmdCinematicRendering = false;
-    bool m_cmdInteractiveSceneRun = false; // CLI --interactive/--hold keeps scene automation from quitting the app
-    int m_cmdFrameCountOverride = -1;      // CLI --frames override applied after each scene load
-    bool m_cmdUIStress = false;            // CLI --ui-stress enables generated/demo stress without a scene file
-    unsigned int m_cmdUIStressSeed = 0;    // CLI --ui-stress-seed
-    int m_cmdUIStressActions = 5;          // CLI --ui-stress-actions
+    bool m_cmdDemoHeroStyle = false;               // CLI --demohero applies the low-poly hero look to generated demo mode
+    bool m_cmdInteractiveSceneRun = false;          // CLI --interactive/--hold keeps scene automation from quitting the app
+    int m_cmdFrameCountOverride = -1;               // CLI --frames override applied after each scene load
+    bool m_cmdUIStress = false;                     // CLI --ui-stress enables generated/demo stress without a scene file
+    unsigned int m_cmdUIStressSeed = 0;             // CLI --ui-stress-seed
+    int m_cmdUIStressActions = 5;                   // CLI --ui-stress-actions
+    int m_selectedCineModeSceneIndex = -1;          // -1=Demo/default look, otherwise scene-browser index of live cine/concept look
+    CinematicRenderConfig m_defaultCinematicRender; // engine.cfg cinematic baseline restored by the Demo Scene cine mode
     GeneratedObjectTypeOverride m_generatedObjectTypeOverride = GeneratedObjectTypeOverride::Mixed;
     float m_UITimeScaleOverride = 0.0f;
     int m_UIModelCountOverride = -1;
@@ -307,6 +329,7 @@ class SkullbonezRun
     RunCameraState m_camera;                                  // Camera/input state and ball-tracking settings
     RunSceneState m_scene;                                    // Scene-mode execution state
     RunScreenshotState m_screenshot;                          // Screenshot trigger and capture state
+    RunLiveStyleControlState m_liveStyle;                     // Live style tweak/capture harness state
     UI::InGameUI m_UI;                                        // Encapsulated in-game diagnostics window
     RunDebugState m_debug;                                    // Runtime debug/overlay toggles
     RunFireState m_fire;                                      // Runtime silver bullet pool state
@@ -335,7 +358,7 @@ class SkullbonezRun
     bool IsCinematicRenderingEnabled() const;                                                                                          // True when the HDR/post stack should wrap the main scene
     void EnsureCinematicRenderResources();                                                                                             // Lazily builds/resizes HDR scene target and post resources
     void ResetCinematicRenderResources();                                                                                              // Releases HDR/post resources before backend teardown
-    void RenderCinematicSky();                                                                                                         // Draws procedural HDR sunset sky into the active cinematic target
+    void RenderCinematicSky( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection );             // Draws procedural HDR sunset sky into the active cinematic target
     bool RenderCinematicVolumetricLight();                                                                                             // Renders depth-aware low-resolution light shafts into the volumetric buffer
     void ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound, bool volumetricReady );                                          // Tonemaps HDR scene target to the backbuffer
     void SetInitialOpenGlState();                                                                                                      // Sets the initial state of the OpenGL evironment
@@ -347,6 +370,10 @@ class SkullbonezRun
     int CurrentSceneBrowserIndex() const;                                                                                              // Returns current scene index within the discovered scene dropdown list
     void LoadSceneFromBrowserIndex( int index );                                                                                       // Loads a scene selected from the in-game scene dropdown
     void LoadDemoSceneFromUI();                                                                                                        // Loads the generated demo scene from the in-game Scene tab
+    bool ApplyCinematicModeFromBrowserIndex( int index );                                                                              // Applies a cine/concept look live without rebuilding the scene
+    bool ApplyAdjacentCinematicMode( int direction );                                                                                  // Cycles live cine/concept looks without rebuilding the scene
+    void ApplyLiveStyleScene( const TestScene& styleScene );                                                                           // Applies style-only cinematic/material directives without rebuilding objects
+    void ApplyDemoHeroStyleOverride();                                                                                                  // Applies the low-poly hero style to generated demo mode
     void LoadAdjacentSceneFromBrowser( int direction );                                                                                // Keyboard scene cycling through the discovered scene dropdown list
     void EnterInteractiveSceneRun();                                                                                                   // Locks scene automation into non-quitting interactive mode
     bool CanSceneAutomationQuit() const;                                                                                               // True for CLI suites/tests; false once the user owns scene flow
@@ -397,6 +424,8 @@ class SkullbonezRun
     void TickRendererSwitch( float dt );        // Advance auto-switch timer; cycle backend when interval elapses
     void TickPhysics( double dt );              // Physics dispatch: fixed-step and variable-step accumulator
     bool TickScreenshots();                     // Screenshot triggers; returns true when frame should restart (continue)
+    void TickLiveStyleControl();                // Poll live.style/capture.txt and apply look changes without scene reload
+    void TickLiveStyleControlCapture();         // Save pending harness screenshot after render/UI are drawn
     void TickAutoCycle();                       // Auto-cycle ball capture; posts WM_QUIT when all balls captured
     void TickPerfLog();                         // Write per-frame perf CSV row and periodic memory checkpoint
     bool TickSceneAdvance();                    // Frame count, exit/hold on completion, restarts; returns true to continue
@@ -425,7 +454,9 @@ class SkullbonezRun
     void SetNoWaterOverride();                                          // Start scenes with fluid below terrain (CLI --no-water)
     void SetNoSleepOverride();                                          // Disable physics sleeping for every scene loaded (CLI --no-sleep)
     void SetCinematicRenderingOverride( bool enabled );                 // Force cinematic HDR/post rendering on/off for every scene loaded
+    void SetDemoHeroStyleOverride();                                    // Run generated demo mode with the low-poly hero rendering style
     void SetInteractiveRunOverride();                                   // Keep scene automation from quitting the app (CLI --interactive/--hold)
+    void SetLiveStyleControlDirectory( const char* path );              // Enable live .style/capture harness in a control folder
     void SetFrameCountOverride( int frames );                           // Stop scene/demo automation after N frames (CLI --frames)
     void SetUIStressOverride( unsigned int seed, int actionsPerFrame ); // Enable deterministic UI stress from CLI
     void SetInitialOverlayMode( OverlayMode mode );

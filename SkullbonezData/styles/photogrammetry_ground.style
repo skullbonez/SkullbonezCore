@@ -1,0 +1,29 @@
+# 15. Photogrammetry Ground
+style _concept_base
+cinematic_style_modes 0 12 0 0
+cinematic_exposure 0.78
+cinematic_gamma 2.10
+cinematic_sun_screen_x 0.62
+cinematic_sun_screen_y 0.76
+cinematic_sun_intensity 19.0
+cinematic_style_grade 0.98 1.10 0.78
+cinematic_cloud_coverage 0.42
+cinematic_fog_density 0.0008
+cinematic_fog_max_opacity 0.22
+cinematic_sun_color_r 0.95
+cinematic_sun_color_g 0.90
+cinematic_sun_color_b 0.78
+cinematic_sky_horizon_r 0.70
+cinematic_sky_horizon_g 0.72
+cinematic_sky_horizon_b 0.68
+cinematic_sky_zenith_r 0.22
+cinematic_sky_zenith_g 0.30
+cinematic_sky_zenith_b 0.34
+cinematic_terrain_tint 0.62 0.58 0.48
+cinematic_terrain_accent 0.18 0.24 0.16
+cinematic_water_tint 0.10 0.12 0.10
+cinematic_water_profile 0.0 0.0 0.0
+
+# Object material look overrides.
+object_material balls 1.0 1.0 1.0 beachball
+object_material prefix:stone 0.46 0.44 0.36 matte

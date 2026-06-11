@@ -1,0 +1,24 @@
+# 9. Atmospheric Fog World
+seed 1009
+physics off
+text off
+vsync off
+pipeline_sync on
+fixed_step
+frames unlimited
+water_reflection fbo
+world -30.0 25.0 1.0
+style atmospheric_fog_world
+camera main 620 126 820  610 44 600  0 1 0
+
+ball hero 620 52 640 26 104 24 0.38 0 24 0
+ball ghost_near 485 58 690 14 56 13 0.34 0 70 0
+ball ghost_right 750 56 675 14 56 13 0.34 0 120 0
+ball mist_01 410 74 590 8 32 8 0.30 0 0 0
+ball mist_02 520 68 550 7 28 7 0.30 0 0 0
+ball mist_03 640 64 535 7 28 7 0.30 0 0 0
+ball mist_04 780 76 565 8 32 8 0.30 0 0 0
+ball far_01 360 96 480 5 20 5 0.25 0 0 0
+ball far_02 520 102 435 4 18 4 0.25 0 0 0
+ball far_03 720 102 450 4 18 4 0.25 0 0 0
+ball far_04 890 98 495 5 20 5 0.25 0 0 0

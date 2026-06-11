@@ -63,7 +63,14 @@ Nudge/free-mode left-click bullets still only work reliably some of the time in 
 
 Physics tab sliders are reported as having hitboxes that are incorrect and way too low. Verify each slider's rendered track/thumb bounds against mouse hit testing, especially while the diagnostics window is opening, minimized/restored, or moved.
 
+## TODO: Fix ugly mouse cursor
+
+
 ## PHYSICS BUGS
+
+## TODO: Catto debug visuals
+
+UI next prev buttons busted, should be a combo box anyway, also I want to create a scene that shows a collision with a catto step by step
 
 ## TODO: DX12 physics difference
 

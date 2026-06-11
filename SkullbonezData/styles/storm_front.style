@@ -1,0 +1,33 @@
+# 14. Storm Front
+style _concept_base
+cinematic_style_modes 13 1 2 1
+cinematic_exposure 0.56
+cinematic_gamma 2.22
+cinematic_sun_screen_x 0.48
+cinematic_sun_screen_y 0.82
+cinematic_sun_intensity 19.0
+cinematic_style_grade 0.58 1.36 0.56
+cinematic_cloud_coverage 0.96
+cinematic_cloud_intensity 1.40
+cinematic_bloom_threshold 0.72
+cinematic_bloom_strength 1.10
+cinematic_fog_density 0.0030
+cinematic_fog_max_opacity 0.72
+cinematic_sun_color_r 0.90
+cinematic_sun_color_g 0.96
+cinematic_sun_color_b 1.65
+cinematic_sky_horizon_r 0.22
+cinematic_sky_horizon_g 0.25
+cinematic_sky_horizon_b 0.28
+cinematic_sky_zenith_r 0.03
+cinematic_sky_zenith_g 0.04
+cinematic_sky_zenith_b 0.05
+cinematic_terrain_tint 0.30 0.32 0.32
+cinematic_terrain_accent 0.68 0.82 1.00
+cinematic_water_tint 0.035 0.05 0.06
+cinematic_water_profile 0.92 0.58 0.20
+
+# Object material look overrides.
+object_material balls 0.78 0.66 0.66 beachball
+object_material prefix:lightning 0.74 0.88 1.00 neon
+object_material prefix:debris 0.12 0.12 0.13 matte

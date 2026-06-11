@@ -16,6 +16,7 @@ SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
     RefreshSceneBrowserList();
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
     m_runtimeSettings.isPipelineSyncEnabled = Cfg().runtimeRender.forcePipelineSync;
+    m_defaultCinematicRender = Cfg().cinematicRender;
 }
 
 
@@ -117,6 +118,12 @@ void SkullbonezRun::SetCinematicRenderingOverride( bool enabled )
 {
     m_cmdHasCinematicRenderingOverride = true;
     m_cmdCinematicRendering = enabled;
+}
+
+
+void SkullbonezRun::SetDemoHeroStyleOverride()
+{
+    m_cmdDemoHeroStyle = true;
 }
 
 

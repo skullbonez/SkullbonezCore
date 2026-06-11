@@ -1,0 +1,27 @@
+# 1. Golden Hour Realism
+seed 1001
+physics off
+text off
+vsync off
+pipeline_sync on
+fixed_step
+frames unlimited
+water_reflection fbo
+world -30.0 25.0 1.0
+style golden_hour_realism
+camera main 620 210 1035  610 72 610  0 1 0
+
+ball hero 620 56 630 28 115 26 0.55 0 22 0
+ball near_left 460 72 690 18 82 18 0.55 0 70 8
+ball near_right 795 62 680 20 86 20 0.55 4 132 0
+ball foreground 330 96 650 16 74 16 0.50 0 210 6
+ball glint_01 500 73 570 11 48 10 0.50 0 40 0
+ball glint_02 560 58 555 10 44 10 0.50 0 80 0
+ball glint_03 675 48 575 12 50 11 0.50 0 130 0
+ball glint_04 720 44 625 9 40 9 0.50 0 170 0
+ball depth_01 390 92 500 7 34 7 0.45 0 25 0
+ball depth_02 470 86 455 6 30 6 0.45 0 65 0
+ball depth_03 565 76 445 6 30 6 0.45 0 105 0
+ball depth_04 665 62 480 7 34 7 0.45 0 145 0
+ball float_01 510 124 505 8 32 8 0.45 0 30 0
+ball float_02 710 142 545 6 28 6 0.45 0 150 0

@@ -28,6 +28,7 @@ cbuffer Uniforms : register(b0)
     float _padding2;
     float4 uBloomParams; // threshold, knee, strength, radius
     float4 uCloudParams; // coverage, softness, scale, intensity
+    float4 uStyleGrade;  // saturation, contrast, vignette floor, sky mode
 };
 
 Texture2D    uSceneTex : register(t0);
@@ -293,9 +294,16 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float safeGamma = max(uGamma, 0.001f);
     mapped = pow(mapped, 1.0f / safeGamma);
     float luminance = dot(mapped, float3(0.2126f, 0.7152f, 0.0722f));
-    mapped = lerp(float3(luminance, luminance, luminance), mapped, 1.08f);
-    mapped = saturate((mapped - 0.5f) * 1.08f + 0.5f);
+    mapped = lerp(float3(luminance, luminance, luminance), mapped, max(uStyleGrade.x, 0.0f));
+    mapped = saturate((mapped - 0.5f) * max(uStyleGrade.y, 0.0f) + 0.5f);
     float vignette = 1.0f - smoothstep(0.28f, 0.86f, distance(screenUV, float2(0.52f, 0.48f)));
-    mapped *= lerp(0.76f, 1.0f, vignette);
+    mapped *= lerp(saturate(uStyleGrade.z), 1.0f, vignette);
+    int styleMode = (int)floor(uStyleGrade.w + 0.5f);
+    if (styleMode == 11)
+    {
+        float3 pastel = pow(mapped, float3(0.94f, 0.94f, 0.94f)) * float3(1.00f, 1.03f, 0.99f) + float3(0.006f, 0.012f, 0.018f);
+        float3 poster = floor(saturate(pastel) * 18.0f + 0.5f) / 18.0f;
+        mapped = lerp(mapped, poster, 0.26f);
+    }
     return float4(mapped, 1.0f);
 }
