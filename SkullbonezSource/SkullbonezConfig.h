@@ -114,9 +114,12 @@ struct CinematicRenderConfig
     float basinRimLift = 32.0f;
 
     // Real shadow-map controls. The feature defaults off so legacy scenes keep
-    // using the cheap contact-disc pass until they explicitly opt in.
+    // using the cheap contact-disc pass until they explicitly opt in. Once real
+    // shadows are enabled, legacyShadowDiscs defaults off so boxes, balls, and
+    // terrain silhouettes come from the depth map instead of a second fake blob
+    // layer. It can still be turned on for debug/contact emphasis.
     bool shadowsEnabled = false;
-    bool legacyShadowDiscs = true;
+    bool legacyShadowDiscs = false;
     bool shadowTerrainCasts = true;
     bool shadowObjectsCast = true;
     bool shadowTerrainReceives = true;

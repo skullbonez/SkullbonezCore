@@ -281,9 +281,17 @@ void GameModelCollection::RenderShadowCasters( const Matrix4& view, const Matrix
         return;
     }
 
+    // The shadow pass writes only depth, but it still needs to draw the same
+    // silhouettes as the visible forward pass. Keep the caster batches split by
+    // mesh type (sphere, box, pine-style box visual) so each shape uses its real
+    // vertex data instead of falling back to an approximate blob. This is the
+    // path that makes rectangular boxes cast rectangular/oriented shadows.
     EnsureSoAModelMatrices();
     const int modelCount = static_cast<int>( m_gameModels.size() );
 
+    // Non-box bodies are rendered with the sphere mesh. The helper may choose
+    // the high-poly or low-poly sphere variant from the active visual style so
+    // the shadow silhouette matches the visible object.
     SkullbonezHelper::DrawShadowDepthSphereBatchBegin( view, proj, cinematic );
     for ( int x = 0; x < modelCount; ++x )
     {
@@ -297,6 +305,10 @@ void GameModelCollection::RenderShadowCasters( const Matrix4& view, const Matrix
     bool hasPineVisualModels = false;
     auto appendBoxLikeModels = [&]( bool pineVisualPass )
     {
+        // Boxes and pine visuals both start from box physics objects, but some
+        // authored materials display a low-poly pine mesh instead of the cube.
+        // Split them into two depth batches so tree-like visuals cast a tree-like
+        // silhouette and ordinary boxes cast a box silhouette.
         for ( int x = 0; x < modelCount; ++x )
         {
             if ( !m_soaIsBox[x] )
@@ -334,6 +346,9 @@ void GameModelCollection::RenderShadowCasters( const Matrix4& view, const Matrix
 
     if ( hasPineVisualModels )
     {
+        // Only pay for the pine depth batch when at least one box was styled as
+        // a pine/tree visual. Most physics and benchmark scenes are boxes/balls
+        // only, so they skip this extra draw call.
         SkullbonezHelper::DrawShadowDepthPineBatchBegin( view, proj );
         appendBoxLikeModels( true );
         SkullbonezHelper::DrawShadowDepthPineBatchEnd();

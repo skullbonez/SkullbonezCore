@@ -179,7 +179,7 @@ void Draw( UIOptionsTabState& state,
     DrawContentToggle( draw, contentY, contentH, state.toggles[2], col1, scrolledY + 72.0f, colW, "Hide water", data.waterHidden );
     DrawContentToggle( draw, contentY, contentH, state.toggles[3], col2, scrolledY + 72.0f, colW, "Freeze water", data.waterFreezeDebug );
     DrawContentToggle( draw, contentY, contentH, state.toggles[4], col1, scrolledY + 102.0f, colW, "Flat water", data.waterFlatDebug );
-    DrawContentToggle( draw, contentY, contentH, state.toggles[5], col2, scrolledY + 102.0f, colW, "Shadows", data.cinematicRendering && data.cinematic.shadowsEnabled );
+    DrawContentToggle( draw, contentY, contentH, state.toggles[5], col2, scrolledY + 102.0f, colW, "Shadows", data.cinematic.shadowsEnabled );
     snprintf( buf, sizeof( buf ), "%.2fx", displayTimeScale );
     state.timeScaleSlider.SetBounds( contentX, scrolledY + 168.0f, contentW, 34.0f );
     if ( IsRowVisible( contentY, contentH, scrolledY + 168.0f, 34.0f ) )

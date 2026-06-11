@@ -20,7 +20,7 @@ This file holds details that are useful during debugging or manual testing but t
 | `--no-water` | flag | Start the fluid surface below the active terrain. Page Up can raise it during runtime. |
 | `--no-sleep` | flag | Keep movable physics bodies awake for solver diagnostics and sleep/no-sleep performance comparisons. |
 | `--cinematic` | optional `on`, `off` | Force cinematic HDR/post rendering on or off for every loaded scene. Bare flag means `on`. Alias: `--cinematic-rendering`. |
-| `--shadows` | optional `on`, `off` | Force cinematic shadow maps on or off for every loaded scene. Bare flag means `on`; enabling shadows also enables cinematic rendering. Aliases: `--shadow-maps`, `--cinematic-shadows`, `--cinematic_shadows`. |
+| `--shadows` | optional `on`, `off` | Force directional shadow maps on or off for every loaded scene. Bare flag means `on`; shadows work in normal and cinematic rendering. Aliases: `--shadow-maps`, `--cinematic-shadows`, `--cinematic_shadows`. |
 | `--interactive` | optional `on`, `off` | Keep scene automation from quitting the app so a screenshot/validation scene can be inspected live. Bare flag means `on`. Alias: `--hold`. |
 | `--live-style-control` | directory | Watch `<directory>\live.style` and `<directory>\capture.txt` while the scene keeps running. Applies style-only descriptors without reloading physics and saves requested screenshots after the current frame is drawn. Aliases: `--style-harness`, `--live_style_control`, `--style_harness`. |
 | `--profiler` | flag | Start with the timer/profiler HUD visible. Alias: `--show-profiler`. |
@@ -62,19 +62,18 @@ The in-game UI has a `Cine` tab with feature toggles and sliders. Feature toggle
 | `cinematic_bloom` | Enable tonemap-stage bloom sampling. |
 | `cinematic_fog` | Enable depth fog and basin haze in the tonemap pass. |
 | `cinematic_terrain_relief_enabled` | Enable render-only cinematic basin relief on terrain. Physics terrain is unchanged. |
-| `cinematic_shadows` | Enable directional shadow maps while cinematic mode is active. Scene files can also use `shadows on|off`; `shadows on` enables cinematic rendering for that scene. |
+| `cinematic_shadows` | Enable directional shadow maps. Scene files can also use `shadows on|off`; shadows work in normal and cinematic rendering. |
 
 Scene files may override any `cinematic_*` key with the same spelling and a space-separated value, for example:
 
 ```text
-cinematic_rendering on
 shadows on
 cinematic_clouds off
 cinematic_bloom_strength 0.30
 cinematic_exposure 0.85
 ```
 
-Scene overrides are merged into a per-run active cinematic config. They do not write back to `engine.cfg`, and `--cinematic on/off` remains the top-level command-line override for the rendering stack.
+Scene overrides are merged into a per-run active cinematic config. They do not write back to `engine.cfg`, and `--cinematic on/off` remains the top-level command-line override for the HDR/post rendering stack. Shadow-map controls use the same config object but are independent of the cinematic master switch.
 
 ## Interactive Hero Scene
 

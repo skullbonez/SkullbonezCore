@@ -118,6 +118,10 @@ void SkullbonezHelper::EnsureShadowDepthShader()
 {
     if ( !shadowDepthShader )
     {
+        // One shared instanced depth shader is enough for balls, boxes, and pine
+        // visuals because all three meshes expose the same static attributes and
+        // per-instance model/tint layout. The fragment output is irrelevant; the
+        // depth attachment is the shadow map product.
         shadowDepthShader = Gfx().CreateShader( "shaders/shadow_depth_instanced" );
     }
 }
@@ -243,6 +247,9 @@ void SkullbonezHelper::DrawSphereBatchEnd()
 
 void SkullbonezHelper::DrawShadowDepthSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const CinematicRenderConfig* cinematic )
 {
+    // Match the visible sphere mesh selection. If a low-poly style is active,
+    // the depth pass also uses the faceted mesh, which prevents a smooth sphere
+    // shadow from appearing under a visibly low-poly ball.
     const bool useLowPolySphereMesh = ObjectStyleForShader( cinematic ) == 6;
     if ( useLowPolySphereMesh )
     {
@@ -265,6 +272,10 @@ void SkullbonezHelper::DrawShadowDepthSphereBatchBegin( const Matrix4& view, con
 
     EnsureShadowDepthShader();
     shadowDepthShader->Use();
+    // These are light-space view/projection matrices, not the camera matrices.
+    // The shader transforms each instance into the light's clip space and writes
+    // normal depth, which later receivers compare against their own light-space
+    // fragment depth.
     shadowDepthShader->SetMat4( "uView", view );
     shadowDepthShader->SetMat4( "uProjection", proj );
     shadowDepthShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
@@ -283,6 +294,9 @@ void SkullbonezHelper::DrawShadowDepthSphereBatchEnd()
     int instanceCount = static_cast<int>( sphereInstanceData.size() ) / INSTANCE_FLOATS;
     if ( instanceCount > 0 && activeSphereInstMesh != 0 )
     {
+        // Upload only the compact per-instance stream, then issue one instanced
+        // draw for every sphere caster. This keeps the shadow pass draw-call
+        // count predictable even in scenes with hundreds of balls.
         Gfx().UploadInstanceData( activeSphereInstMesh, sphereInstanceData.data(), static_cast<int>( sphereInstanceData.size() ) );
         Gfx().DrawInstancedMesh( activeSphereInstMesh, activeSphereVertexCount, instanceCount );
     }
@@ -383,6 +397,9 @@ void SkullbonezHelper::DrawShadowDepthBoxBatchBegin( const Matrix4& view, const 
     }
     EnsureShadowDepthShader();
     shadowDepthShader->Use();
+    // Box casters use the same unit-cube mesh and model matrices as the visible
+    // box pass. Rotation and half-extents are already baked into the model matrix,
+    // so the shadow-map silhouette naturally follows tilted or elongated boxes.
     shadowDepthShader->SetMat4( "uView", view );
     shadowDepthShader->SetMat4( "uProjection", proj );
     shadowDepthShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
@@ -401,6 +418,9 @@ void SkullbonezHelper::DrawShadowDepthBoxBatchEnd()
     int instanceCount = static_cast<int>( boxInstanceData.size() ) / INSTANCE_FLOATS;
     if ( instanceCount > 0 && boxInstMesh != 0 )
     {
+        // This draw is the box-caster fix point: if a scene has boxes and shadow
+        // maps are active, their depth is written here before terrain/objects
+        // sample the map in the forward pass.
         Gfx().UploadInstanceData( boxInstMesh, boxInstanceData.data(), static_cast<int>( boxInstanceData.size() ) );
         Gfx().DrawInstancedMesh( boxInstMesh, boxVertexCount, instanceCount );
     }
@@ -489,6 +509,9 @@ void SkullbonezHelper::DrawShadowDepthPineBatchBegin( const Matrix4& view, const
     }
     EnsureShadowDepthShader();
     shadowDepthShader->Use();
+    // Pine visuals are authored as box-backed scene objects with a special
+    // material mode. They get their own depth mesh so the shadow map receives
+    // the pointed tree/pyramid silhouette instead of the underlying physics box.
     shadowDepthShader->SetMat4( "uView", view );
     shadowDepthShader->SetMat4( "uProjection", proj );
     shadowDepthShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );

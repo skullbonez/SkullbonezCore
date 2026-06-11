@@ -475,17 +475,14 @@ void ApplyCinematicUIParam( CinematicRenderConfig& cinematic, RunSceneState& sce
 
 void SetCinematicShadowsEnabledFromUI( CinematicRenderConfig& cinematic, RunSceneState& scene, bool enabled )
 {
+    // Shadow maps are configured next to the cinematic controls because the
+    // original implementation grew from that renderer work, but the depth pass
+    // now feeds normal rendering too. Toggling shadows from either the Options
+    // tab or the Cine tab must therefore only touch the shadow flag and scene
+    // override bits; it must not silently enable the HDR/post-processing stack.
     cinematic.shadowsEnabled = enabled;
     scene.cinematicOverrideMask |= SCENE_CINE_SHADOWS;
     scene.uiCinematicOverrideMask |= SCENE_CINE_SHADOWS;
-    if ( enabled )
-    {
-        cinematic.enabled = true;
-        scene.hasCinematicRenderingOverride = true;
-        scene.isCinematicRenderingEnabled = true;
-        scene.cinematicOverrideMask |= SCENE_CINE_RENDERING;
-        scene.uiCinematicOverrideMask |= SCENE_CINE_RENDERING;
-    }
 }
 
 
@@ -985,12 +982,8 @@ void SkullbonezRun::TakeInput()
         }
         if ( uiCommands.sceneOptions.toggleShadows )
         {
-            const bool shadowsActive = IsCinematicRenderingEnabled() && ActiveCinematicConfig().shadowsEnabled;
+            const bool shadowsActive = ActiveCinematicConfig().shadowsEnabled;
             m_cmdHasCinematicShadowsOverride = false;
-            if ( !shadowsActive )
-            {
-                m_cmdHasCinematicRenderingOverride = false;
-            }
             SetCinematicShadowsEnabledFromUI( ActiveCinematicConfig(), m_scene, !shadowsActive );
         }
         if ( uiCommands.water.toggleWaterReflection )
@@ -1080,10 +1073,6 @@ void SkullbonezRun::TakeInput()
             if ( uiCommands.cinematic.requestedFeature == UICinematicFeature::Shadows )
             {
                 m_cmdHasCinematicShadowsOverride = false;
-                if ( !cinematic.shadowsEnabled )
-                {
-                    m_cmdHasCinematicRenderingOverride = false;
-                }
             }
             ToggleCinematicUIFeature( cinematic, m_scene, uiCommands.cinematic.requestedFeature );
         }

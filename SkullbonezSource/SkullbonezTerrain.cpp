@@ -407,11 +407,18 @@ void Terrain::RenderShadowDepth( const Matrix4& lightView, const Matrix4& lightP
 {
     if ( !m_shadowDepthShader )
     {
+        // Terrain is not instanced, so it uses the non-instanced shadow_depth
+        // shader. It still writes into the same framebuffer/depth map as object
+        // casters, which lets hills self-shadow and lets balls/boxes disappear
+        // behind terrain from the light's point of view.
         m_shadowDepthShader = Gfx().CreateShader( "shaders/shadow_depth" );
     }
 
     m_shadowDepthShader->Use();
 
+    // Terrain vertices are already stored in world coordinates, so the model
+    // matrix remains identity. The supplied view/projection are the light-space
+    // matrices built by SkullbonezRun::BuildShadowFrameData.
     Matrix4 model;
     m_shadowDepthShader->SetMat4( "uModel", model );
     m_shadowDepthShader->SetMat4( "uView", lightView );
@@ -420,6 +427,10 @@ void Terrain::RenderShadowDepth( const Matrix4& lightView, const Matrix4& lightP
 
     if ( cinematicOverride )
     {
+        // If the visible terrain is using render-only cinematic relief, the
+        // shadow caster must apply the same vertex offset. Otherwise shadow edges
+        // would be produced by the flat CPU terrain while the visible terrain is
+        // displaced in the vertex shader.
         const SkullbonezCore::Basics::CinematicRenderConfig& cinematic = *cinematicOverride;
         m_shadowDepthShader->SetVec4( "uCinematicTerrain",
                                       cinematic.terrainReliefEnabled ? 1.0f : 0.0f,
@@ -430,6 +441,9 @@ void Terrain::RenderShadowDepth( const Matrix4& lightView, const Matrix4& lightP
     }
     else
     {
+        // Normal render mode has no visual terrain relief, but the shader still
+        // receives deterministic defaults so no stale uniforms leak in from a
+        // prior cinematic scene.
         m_shadowDepthShader->SetVec4( "uCinematicTerrain", 0.0f, 0.0f, 0.0f, 0.0f );
         m_shadowDepthShader->SetVec4( "uCinematicBasin", 620.0f, 615.0f, 285.0f, 205.0f );
     }

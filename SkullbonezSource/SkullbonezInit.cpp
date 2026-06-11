@@ -1087,15 +1087,9 @@ bool ApplyCinematicShadowsOverride( const char* value, ParsedArgs& args )
 
     args.hasCinematicShadowsOverride = true;
     args.cinematicShadows = enabled;
-    if ( enabled )
-    {
-        args.hasCinematicRenderingOverride = true;
-        args.cinematicRendering = true;
-    }
     fprintf( stdout,
-             "[shadows] Cinematic shadow maps %s via command line.%s\n",
-             enabled ? "enabled" : "disabled",
-             enabled ? " Cinematic rendering enabled." : "" );
+             "[shadows] Shadow maps %s via command line.\n",
+             enabled ? "enabled" : "disabled" );
     return true;
 }
 

@@ -12,11 +12,27 @@ inline constexpr int SHADOW_TEXTURE_SLOT = 3;
 
 struct ShadowFrameData
 {
+    // Light-space camera used by the shadow pass. The depth pass renders casters
+    // with lightView/lightProjection, while receivers use lightViewProjection to
+    // transform their world-space fragment position back into the same clip
+    // space before sampling the depth texture.
     Math::Transformation::Matrix4 lightView;
     Math::Transformation::Matrix4 lightProjection;
     Math::Transformation::Matrix4 lightViewProjection;
+
+    // Direction from the scene toward the light source. This is stored in world
+    // space because receivers already have world positions and can derive their
+    // own view-space lighting vectors separately.
     Math::Vector::Vector3 lightDirectionWorld;
+
+    // Opaque backend texture handle for the framebuffer depth attachment. GL,
+    // DX11, and DX12 all expose different native resource types, so render code
+    // passes this neutral handle back to IRenderBackend::BindTexture.
     uint32_t depthTextureHandle = 0;
+
+    // Sampling controls copied from the active config for this frame. `texelSize`
+    // is 1/mapSize, and shader code multiplies it by softness to spread PCF
+    // taps without having to know the texture dimensions.
     int mapSize = 0;
     int pcfRadius = 1;
     float strength = 0.0f;
@@ -32,6 +48,10 @@ struct ShadowFrameData
 
 inline void ApplyShadowReceiverUniforms( IShader& shader, const ShadowFrameData* shadow, bool receive )
 {
+    // Receivers call this unconditionally, even when shadows are disabled. That
+    // keeps all lit shaders using the same uniform layout and avoids stale GPU
+    // state: disabled receivers get identity matrices, zero strength, and an
+    // enabled flag of 0, so their shader returns full visibility.
     const bool enabled = shadow && shadow->valid && receive && shadow->depthTextureHandle != 0;
     Math::Transformation::Matrix4 identity;
     shader.SetMat4( "uShadowViewProj", enabled ? shadow->lightViewProjection : identity );
@@ -41,6 +61,9 @@ inline void ApplyShadowReceiverUniforms( IShader& shader, const ShadowFrameData*
     shader.SetInt( "uShadowMap", SHADOW_TEXTURE_SLOT );
     if ( enabled )
     {
+        // Bind only when enabled. Disabled shaders still receive the sampler
+        // uniform index, but leaving the previous texture bound is harmless
+        // because uShadowFlags.x tells the shader not to sample it.
         Gfx().BindTexture( shadow->depthTextureHandle, SHADOW_TEXTURE_SLOT );
     }
 }
