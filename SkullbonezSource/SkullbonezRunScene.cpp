@@ -755,6 +755,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         {
             SetUpGameModels( m_UIModelCountOverride >= 0 ? m_UIModelCountOverride : DEFAULT_GAME_MODELS );
         }
+        ApplyDemoHeroStyleOverride();
         const char* rendererName = Gfx().GetRendererName();
         char titleText[256];
         sprintf_s( titleText, "%s [%s]", TITLE_TEXT, rendererName );
@@ -1498,6 +1499,20 @@ void SkullbonezRun::ApplyLiveStyleScene( const TestScene& styleScene )
         m_scene.uiCinematicOverrideMask = 0;
     }
     m_selectedCineModeSceneIndex = -1;
+}
+
+
+void SkullbonezRun::ApplyDemoHeroStyleOverride()
+{
+    if ( !m_cmdDemoHeroStyle || m_scene.isSceneMode )
+    {
+        return;
+    }
+
+    const std::string stylePath = std::string( DATA_ROOT ) + "styles/low_poly_art_style.style";
+    const TestScene styleScene = TestScene::LoadStyleFromFile( stylePath.c_str() );
+    ApplyLiveStyleScene( styleScene );
+    printf( "[scene] Applied low-poly hero rendering mode to generated demo scene.\n" );
 }
 
 

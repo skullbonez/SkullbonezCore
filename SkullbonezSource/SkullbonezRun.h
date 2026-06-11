@@ -297,6 +297,7 @@ class SkullbonezRun
     bool m_cmdNoSleep = false;           // Startup CLI --no-sleep request; the live policy can still be toggled from the Physics tab
     bool m_cmdHasCinematicRenderingOverride = false;
     bool m_cmdCinematicRendering = false;
+    bool m_cmdDemoHeroStyle = false;               // CLI --demohero applies the low-poly hero look to generated demo mode
     bool m_cmdInteractiveSceneRun = false;          // CLI --interactive/--hold keeps scene automation from quitting the app
     int m_cmdFrameCountOverride = -1;               // CLI --frames override applied after each scene load
     bool m_cmdUIStress = false;                     // CLI --ui-stress enables generated/demo stress without a scene file
@@ -372,6 +373,7 @@ class SkullbonezRun
     bool ApplyCinematicModeFromBrowserIndex( int index );                                                                              // Applies a cine/concept look live without rebuilding the scene
     bool ApplyAdjacentCinematicMode( int direction );                                                                                  // Cycles live cine/concept looks without rebuilding the scene
     void ApplyLiveStyleScene( const TestScene& styleScene );                                                                           // Applies style-only cinematic/material directives without rebuilding objects
+    void ApplyDemoHeroStyleOverride();                                                                                                  // Applies the low-poly hero style to generated demo mode
     void LoadAdjacentSceneFromBrowser( int direction );                                                                                // Keyboard scene cycling through the discovered scene dropdown list
     void EnterInteractiveSceneRun();                                                                                                   // Locks scene automation into non-quitting interactive mode
     bool CanSceneAutomationQuit() const;                                                                                               // True for CLI suites/tests; false once the user owns scene flow
@@ -452,6 +454,7 @@ class SkullbonezRun
     void SetNoWaterOverride();                                          // Start scenes with fluid below terrain (CLI --no-water)
     void SetNoSleepOverride();                                          // Disable physics sleeping for every scene loaded (CLI --no-sleep)
     void SetCinematicRenderingOverride( bool enabled );                 // Force cinematic HDR/post rendering on/off for every scene loaded
+    void SetDemoHeroStyleOverride();                                    // Run generated demo mode with the low-poly hero rendering style
     void SetInteractiveRunOverride();                                   // Keep scene automation from quitting the app (CLI --interactive/--hold)
     void SetLiveStyleControlDirectory( const char* path );              // Enable live .style/capture harness in a control folder
     void SetFrameCountOverride( int frames );                           // Stop scene/demo automation after N frames (CLI --frames)

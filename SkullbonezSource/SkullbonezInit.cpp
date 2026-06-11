@@ -532,6 +532,7 @@ struct ParsedArgs
     bool interactiveRun = false;
     int frameCountOverride = -1;
     bool sceneLoadOnly = false;
+    bool demoHeroStyle = false;
     bool uiStress = false;
     unsigned int uiStressSeed = 0x7F4A7C15u;
     int uiStressActions = 5;
@@ -647,6 +648,12 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
               args.suppressExitDialog = true;
           },
           "[scene-load-only] Load queued scenes without running frames." },
+        { "--demohero", "--demo-hero", []( ParsedArgs& args )
+          {
+              args.demoHeroStyle = true;
+              args.suppressExitDialog = true;
+          },
+          "[scene] Generated demo scene will use the low-poly hero rendering mode." },
         { "--profiler", "--show-profiler", []( ParsedArgs& args )
           { args.showProfiler = true; },
           "[overlay] Profiler HUD enabled at startup." },
@@ -942,10 +949,13 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
     const char* suiteArg = FindOptionValue( commandLine, "--suite" );
     const char* sceneArg = FindOptionValue( commandLine, "--scene" );
     const bool heroArg = HasOption( commandLine, "--hero" );
+    const bool demoHeroArg = HasOption( commandLine, "--demohero" ) || HasOption( commandLine, "--demo-hero" );
 
-    if ( ( suiteArg && sceneArg ) || ( heroArg && ( suiteArg || sceneArg ) ) )
+    if ( ( suiteArg && sceneArg ) ||
+         ( heroArg && ( suiteArg || sceneArg ) ) ||
+         ( demoHeroArg && ( suiteArg || sceneArg || heroArg ) ) )
     {
-        return FailCommandLineParse( "--hero, --suite, and --scene are mutually exclusive." );
+        return FailCommandLineParse( "--demohero, --hero, --suite, and --scene are mutually exclusive." );
     }
 
     if ( heroArg )
@@ -1511,6 +1521,10 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         if ( args.hasCinematicRenderingOverride )
         {
             cRun.SetCinematicRenderingOverride( args.cinematicRendering );
+        }
+        if ( args.demoHeroStyle )
+        {
+            cRun.SetDemoHeroStyleOverride();
         }
         if ( args.interactiveRun )
         {

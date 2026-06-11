@@ -9,6 +9,7 @@ This file holds details that are useful during debugging or manual testing but t
 | `--renderer` | `gl`, `dx11`, `dx12` | Select render backend. Default is `gl`. |
 | `--scene` | path | Load one scene file. Quoted paths are supported. |
 | `--suite` | path | Load a `.suite` file with one scene path per line. |
+| `--demohero` | flag | Run generated demo mode with the low-poly hero rendering/style stack applied. Alias: `--demo-hero`. |
 | `--scene-load-only` | flag | Load queued scene files and exit before the frame loop. Alias: `--load-scenes-only`. Used by `tools\validate_scene_loads.bat`. |
 | `--vsync` | `on`, `off` | Override vsync from `engine.cfg`. |
 | `--dump-config` | flag | Print the resolved startup config after `engine.cfg` and command-line overrides. |
@@ -82,6 +83,14 @@ Profile\SKULLBONEZ_CORE.exe --renderer gl --scene hero
 ```
 
 The dedicated `--hero` flag and the `--scene` aliases `hero`, `low_poly_hero`, and `low-poly-hero` resolve to `SkullbonezData\scenes\concept_12_low_poly_art_style.scene`. The hero scene is a live scene with physics on, `fixed_step`, and unlimited frames, so it keeps running until the window is closed. Bare scene names also resolve through `SkullbonezData\scenes\`, so `--scene stacking` loads `SkullbonezData\scenes\stacking.scene` when it exists.
+
+Use this to keep the generated demo scene and physics population, but render it with the same low-poly hero style:
+
+```bat
+Profile\SKULLBONEZ_CORE.exe --renderer gl --demohero
+```
+
+`--demohero` is mutually exclusive with `--hero`, `--scene`, and `--suite`. It only applies `SkullbonezData\styles\low_poly_art_style.style` after generated demo objects are created, so it does not import the hero scene's camera, world settings, fixed set dressing, or object list.
 
 ## Live Style Harness
 

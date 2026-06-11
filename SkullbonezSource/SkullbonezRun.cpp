@@ -121,6 +121,12 @@ void SkullbonezRun::SetCinematicRenderingOverride( bool enabled )
 }
 
 
+void SkullbonezRun::SetDemoHeroStyleOverride()
+{
+    m_cmdDemoHeroStyle = true;
+}
+
+
 void SkullbonezRun::SetInteractiveRunOverride()
 {
     m_cmdInteractiveSceneRun = true;
