@@ -11,6 +11,22 @@ using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 
+namespace
+{
+float ClampAngularDragTorqueAxis( float torque, float angularVelocity, float inertia, float changeInTime )
+{
+    if ( fabsf( angularVelocity ) <= TOLERANCE ||
+         inertia <= TOLERANCE ||
+         changeInTime <= TOLERANCE )
+    {
+        return torque;
+    }
+
+    const float maxDampingTorque = fabsf( angularVelocity ) * inertia / changeInTime;
+    return (std::clamp)( torque, -maxDampingTorque, maxDampingTorque );
+}
+} // namespace
+
 
 WorldEnvironment::WorldEnvironment()
     : m_fluidSurfaceHeight( 0.0f ),
@@ -366,9 +382,15 @@ void WorldEnvironment::AddWorldForces( GameModel& target, float changeInTime )
     {
         float radius = target.GetBoundingRadius();
         float avgDensity = ( m_gasDensity * ( 1.0f - submergedVolumePercent ) ) +
-                           ( m_fluidDensity * submergedVolumePercent );
+                           ( m_fluidDensity * submergedVolumePercent * Cfg().fluidAngularDragMultiplier );
         float angularDragCoeff = m_dragCoefficient * avgDensity * radius * radius * radius;
-        m_worldTorque += angularVel * ( -angularDragCoeff );
+        Vector3 angularDragTorque = angularVel * ( -angularDragCoeff );
+
+        const Vector3& inertia = target.GetRotationalInertia();
+        angularDragTorque.x = ClampAngularDragTorqueAxis( angularDragTorque.x, angularVel.x, inertia.x, changeInTime );
+        angularDragTorque.y = ClampAngularDragTorqueAxis( angularDragTorque.y, angularVel.y, inertia.y, changeInTime );
+        angularDragTorque.z = ClampAngularDragTorqueAxis( angularDragTorque.z, angularVel.z, inertia.z, changeInTime );
+        m_worldTorque += angularDragTorque;
     }
 
     // scale and then set the world force and m_torque

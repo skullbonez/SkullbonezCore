@@ -363,6 +363,7 @@ const ConfigSetting* ConfigSettings( size_t& outCount )
         CONFIG_FLOAT( "gas_density", gasDensity, 0.0, 1000000.0 ),
         CONFIG_FLOAT( "velocity_limit", velocityLimit, 0.0, 1000000.0 ),
         CONFIG_FLOAT( "sphere_drag_coeff", sphereDragCoeff, 0.0, 1000000.0 ),
+        CONFIG_FLOAT( "fluid_angular_drag_multiplier", fluidAngularDragMultiplier, 0.0, 1000000.0 ),
         CONFIG_FLOAT( "friction_coeff", frictionCoeff, 0.0, 1000000.0 ),
         CONFIG_FLOAT( "rolling_friction_coeff", rollingFrictionCoeff, 0.0, 1000000.0 ),
         CONFIG_FLOAT( "spin_friction_coeff", spinFrictionCoeff, 0.0, 1000000.0 ),
