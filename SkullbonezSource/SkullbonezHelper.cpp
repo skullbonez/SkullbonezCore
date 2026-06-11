@@ -33,6 +33,8 @@ std::vector<float> SkullbonezHelper::pineInstanceData;
 static constexpr int INSTANCE_MATRIX_FLOATS = 16;
 static constexpr int INSTANCE_TINT_FLOATS = 4;
 static constexpr int INSTANCE_FLOATS = INSTANCE_MATRIX_FLOATS + INSTANCE_TINT_FLOATS;
+static constexpr int PRIMITIVE_SHAPE_MESH = 0;
+static constexpr int PRIMITIVE_SHAPE_SPHERE = 1;
 
 static void ApplySceneLightUniforms( IShader& shader )
 {
@@ -218,6 +220,7 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
     sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
     sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
     sphereShader->SetInt( "uObjectStyle", objectStyle );
+    sphereShader->SetInt( "uPrimitiveShape", PRIMITIVE_SHAPE_SPHERE );
 
     // Low-poly spheres still cast real shadows onto terrain, but they do not
     // receive object shadows. The shadow map is single and terrain-sized, so
@@ -368,6 +371,7 @@ void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& pr
     sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
     sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
     sphereShader->SetInt( "uObjectStyle", ObjectStyleForShader( cinematic ) );
+    sphereShader->SetInt( "uPrimitiveShape", PRIMITIVE_SHAPE_MESH );
     ApplyShadowReceiverUniforms( *sphereShader, shadow, shadow ? shadow->objectsReceive : false, true );
     boxInstanceData.clear();
 }
@@ -480,6 +484,7 @@ void SkullbonezHelper::DrawPineBatchBegin( const Matrix4& view, const Matrix4& p
     sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
     sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
     sphereShader->SetInt( "uObjectStyle", ObjectStyleForShader( cinematic ) );
+    sphereShader->SetInt( "uPrimitiveShape", PRIMITIVE_SHAPE_MESH );
     ApplyShadowReceiverUniforms( *sphereShader, shadow, shadow ? shadow->objectsReceive : false, true );
     pineInstanceData.clear();
 }

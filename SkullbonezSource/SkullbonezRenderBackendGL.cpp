@@ -493,7 +493,7 @@ void RenderBackendGL::SetPolygonOffset( bool enable, float factor, float units )
     {
         // Enable polygon offset — nudges the depth value of filled triangles by a small amount.
         // This prevents "z-fighting" (shimmering pixel noise) when two surfaces are at nearly
-        // the same depth (e.g. a shadow decal on the ground). The offset is calculated as:
+        // the same depth. The offset is calculated as:
         //   offset = factor × slope + units × minimum_depth_step
         // Docs: https://registry.khronos.org/OpenGL-Refpages/gl4/html/glEnable.xhtml
         glEnable( GL_POLYGON_OFFSET_FILL );
@@ -887,7 +887,7 @@ uint32_t RenderBackendGL::CreateInstancedMesh( const float* staticData, int stat
     }
     else
     {
-        // Legacy: single attribute at location 0 (shadow disc compatibility)
+        // Single static attribute at location 0 for simple position-only meshes.
         glEnableVertexAttribArray( 0 );
         glVertexAttribPointer( 0, staticFloatsPerVert, GL_FLOAT, GL_FALSE, staticFloatsPerVert * static_cast<int>( sizeof( float ) ), nullptr );
     }

@@ -568,15 +568,6 @@
     <None Include="SkullbonezData\shaders\lit_textured.vert">
       <Filter>Resource Files\OpenGL</Filter>
     </None>
-    <None Include="SkullbonezData\shaders\shadow.frag">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\shadow.hlsl">
-      <Filter>Resource Files\DirectX</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\shadow.vert">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
     <None Include="SkullbonezData\shaders\solid_color.frag">
       <Filter>Resource Files\OpenGL</Filter>
     </None>

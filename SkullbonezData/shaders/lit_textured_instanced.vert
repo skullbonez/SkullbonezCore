@@ -50,6 +50,7 @@ out vec3 vNormal;
 out vec3 vWorldPos;
 out vec2 vTexCoord;
 out vec4 vTint;
+flat out vec4 vSphereShadowInfo;
 
 void main()
 {
@@ -67,4 +68,5 @@ void main()
     vWorldPos = worldPos.xyz;
     vTexCoord = aTexCoord;
     vTint     = aTint;
+    vSphereShadowInfo = vec4(aModel[3].xyz, length(aModel[0].xyz));
 }

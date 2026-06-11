@@ -1380,6 +1380,15 @@ class TestSceneParser
         {
             Fail( "Invalid cinematic directive at line %d", m_lineNumber );
         }
+        if ( strcmp( key, "cinematic_legacy_shadow_discs" ) == 0 )
+        {
+            bool ignoredValue = false;
+            if ( !ParseOnOff( value, ignoredValue ) )
+            {
+                Fail( "Invalid %s value at line %d: %s", key, m_lineNumber, value );
+            }
+            return true;
+        }
 
         struct BoolDirective
         {
@@ -1403,7 +1412,6 @@ class TestSceneParser
             { "cinematic_terrain_relief_enabled", &CinematicRenderConfig::terrainReliefEnabled, SCENE_CINE_TERRAIN_RELIEF_ENABLED },
             { "cinematic_shadows", &CinematicRenderConfig::shadowsEnabled, SCENE_CINE_SHADOWS },
             { "shadows", &CinematicRenderConfig::shadowsEnabled, SCENE_CINE_SHADOWS },
-            { "cinematic_legacy_shadow_discs", &CinematicRenderConfig::legacyShadowDiscs, SCENE_CINE_LEGACY_SHADOW_DISCS },
         };
         for ( const BoolDirective& directive : kBoolDirectives )
         {

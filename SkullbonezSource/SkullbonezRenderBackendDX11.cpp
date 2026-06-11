@@ -150,8 +150,8 @@ void RenderBackendDX11::CreateStateObjects()
 
     // Create a depth-test-on, depth-write-off state. Depth testing is still performed (geometry
     // behind already-drawn closer geometry is correctly occluded), but successful fragments do NOT
-    // update the depth buffer. Used for shadow decals: they respect terrain depth but must not
-    // overwrite it, so the water surface (drawn after) can still pass the depth test.
+    // update the depth buffer. Used by transparent/debug passes that must test against depth while
+    // preserving it for later draws.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createdepthstencilstate
     hr = m_device->CreateDepthStencilState( &dsDesc, &m_dsDepthOnWriteOff );
     ThrowIfFailed( hr, "CreateDepthStencilState (depth on, write off) failed" );
@@ -874,7 +874,7 @@ void RenderBackendDX11::ApplyDepthState()
     // Select the depth-stencil state based on the combination of depth test and depth write flags.
     // DX11 uses immutable pre-baked state objects, so both flags must be encoded into the chosen object.
     //   depthTest=ON,  depthWrite=ON  → m_dsDepthOn          (normal opaque geometry)
-    //   depthTest=ON,  depthWrite=OFF → m_dsDepthOnWriteOff   (shadow decals: test but don't overwrite)
+    //   depthTest=ON,  depthWrite=OFF → m_dsDepthOnWriteOff   (transparent/debug: test but don't overwrite)
     //   depthTest=OFF                 → m_dsDepthOff          (UI/overlays: ignore depth entirely)
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11devicecontext-omsetdepthstencilstate
     ID3D11DepthStencilState* state;

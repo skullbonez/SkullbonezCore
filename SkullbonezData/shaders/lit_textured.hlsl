@@ -133,30 +133,6 @@ float GridLine(float2 xz, float scale)
     return 1.0f - smoothstep(0.470f, 0.498f, lineDistance);
 }
 
-float EllipseShadow(float2 xz, float2 center, float2 radius)
-{
-    float2 q = (xz - center) / max(radius, float2(1.0f, 1.0f));
-    float d = dot(q, q);
-    return 1.0f - smoothstep(0.34f, 1.0f, d);
-}
-
-float LowPolyHeroContactShadow(float2 xz)
-{
-    float shadow = 0.0f;
-    shadow = max(shadow, EllipseShadow(xz, float2(620.0f, 650.0f), float2(34.0f, 24.0f)) * 0.70f);
-    shadow = max(shadow, EllipseShadow(xz, float2(480.0f, 716.0f), float2(24.0f, 18.0f)) * 0.46f);
-    shadow = max(shadow, EllipseShadow(xz, float2(764.0f, 724.0f), float2(26.0f, 19.0f)) * 0.48f);
-    shadow = max(shadow, EllipseShadow(xz, float2(780.0f, 762.0f), float2(30.0f, 24.0f)) * 0.54f);
-    shadow = max(shadow, EllipseShadow(xz, float2(890.0f, 760.0f), float2(26.0f, 22.0f)) * 0.42f);
-    shadow = max(shadow, EllipseShadow(xz, float2(812.0f, 836.0f), float2(26.0f, 22.0f)) * 0.40f);
-    shadow = max(shadow, EllipseShadow(xz, float2(900.0f, 800.0f), float2(34.0f, 18.0f)) * 0.30f);
-    shadow = max(shadow, EllipseShadow(xz, float2(455.0f, 575.0f), float2(34.0f, 32.0f)) * 0.40f);
-    shadow = max(shadow, EllipseShadow(xz, float2(760.0f, 560.0f), float2(34.0f, 32.0f)) * 0.42f);
-    shadow = max(shadow, EllipseShadow(xz, float2(350.0f, 760.0f), float2(38.0f, 34.0f)) * 0.36f);
-    shadow = max(shadow, EllipseShadow(xz, float2(835.0f, 748.0f), float2(38.0f, 34.0f)) * 0.34f);
-    return saturate(shadow);
-}
-
 float3 FacetNormalFromDerivatives(float3 viewPos, float3 fallbackNormal)
 {
     float3 dx = ddx(viewPos);
@@ -269,7 +245,6 @@ float3 TerrainModeColor(int mode, float3 texColor, float3 N, float3 worldPos)
         base = lerp(base, lerp(coolPatch, warmPatch, patchBand), 0.13f);
         float basinT = saturate(1.0f - BasinDistance(worldPos.xz));
         base *= 1.0f - basinT * 0.055f;
-        base *= 1.0f - LowPolyHeroContactShadow(worldPos.xz) * 0.30f;
         float facet = floor(max(N.y, 0.0f) * 4.0f) / 4.0f;
         base *= 0.72f + facet * 0.34f + terrace * 0.08f;
     }

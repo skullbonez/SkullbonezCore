@@ -30,14 +30,33 @@ uniform mat4 uShadowViewProj;
 uniform vec4 uShadowParams;
 uniform vec4 uShadowFlags;
 uniform int uObjectStyle;
+uniform int uPrimitiveShape;
 
 in vec3 vViewPos;
 in vec3 vNormal;
 in vec3 vWorldPos;
 in vec2 vTexCoord;
 in vec4 vTint;
+flat in vec4 vSphereShadowInfo;
 
 out vec4 FragColor;
+
+vec3 SphereShadowReceiverWorldPos(vec3 worldPos)
+{
+    if (uPrimitiveShape != 1 || vSphereShadowInfo.w <= 0.0)
+    {
+        return worldPos;
+    }
+
+    vec3 radial = worldPos - vSphereShadowInfo.xyz;
+    float lenSq = dot(radial, radial);
+    if (lenSq <= 0.000001)
+    {
+        return worldPos;
+    }
+
+    return vSphereShadowInfo.xyz + radial * (vSphereShadowInfo.w * inversesqrt(lenSq));
+}
 
 float ShadowVisibility(vec3 worldPos, vec3 normalView, vec3 lightView)
 {
@@ -321,7 +340,7 @@ void main()
         // path: wrap light fills the shadow side, rim light outlines the silhouette,
         // and glint gives glossy sunset highlights.
         float warmWrap = clamp(dot(N, L) * 0.5 + 0.5, 0.0, 1.0);
-        float shadowFactor = ShadowVisibility(vWorldPos, N, L);
+        float shadowFactor = ShadowVisibility(SphereShadowReceiverWorldPos(vWorldPos), N, L);
         float rim = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 2.25) * (0.35 + warmWrap * 0.65);
         float glint = pow(max(dot(V, R), 0.0), 96.0);
         vec3 warmAmbient = materialColor * uLightAmbient.rgb * 1.15;
@@ -335,7 +354,7 @@ void main()
         return;
     }
 
-    float shadowFactor = ShadowVisibility(vWorldPos, N, L);
+    float shadowFactor = ShadowVisibility(SphereShadowReceiverWorldPos(vWorldPos), N, L);
     vec3 litColor = materialMode == 0 ? (ambient + diffuse) * materialColor + specular
                                       : ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, spec);
     litColor *= shadowFactor;

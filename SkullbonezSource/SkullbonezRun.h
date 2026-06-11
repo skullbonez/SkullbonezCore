@@ -116,6 +116,8 @@ struct RunSubsystemState
     uint32_t postQuadVB = 0;
     std::unique_ptr<Rendering::IFramebuffer> shadowFBO;
     Rendering::ShadowFrameData shadowFrame;
+    std::unique_ptr<Rendering::IFramebuffer> objectShadowFBO;
+    Rendering::ShadowFrameData objectShadowFrame;
 
     Environment::CameraCollection* cameras = nullptr;
     Textures::TextureCollection* textures = nullptr;
@@ -366,7 +368,6 @@ class SkullbonezRun
     void EnsureShadowRenderResources( const CinematicRenderConfig& cinematic );                                                                        // Lazily builds/resizes the directional shadow-map target
     void ResetShadowRenderResources();                                                                                                                 // Releases shadow-map resources before backend teardown
     Rendering::ShadowFrameData BuildShadowFrameData( const CinematicRenderConfig& cinematic, const Math::Vector::Vector3& lightDirectionWorld ) const; // Builds a stable light-space frame for shadow mapping
-    void RenderShadowMap( const Rendering::ShadowFrameData& shadowFrame, const CinematicRenderConfig& cinematic );                                     // Renders terrain and model depth from the sun view
     void RenderCinematicSky( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection );                             // Draws procedural HDR sunset sky into the active cinematic target
     bool RenderCinematicVolumetricLight();                                                                                                             // Renders depth-aware low-resolution light shafts into the volumetric buffer
     void ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound, bool volumetricReady );                                                          // Tonemaps HDR scene target to the backbuffer
@@ -406,6 +407,10 @@ class SkullbonezRun
     bool AdvanceScene();                                                                                                                               // Advances to the next scene in the queue (returns false if done)
     void MoveCamera( float keyMovementQty, float mouseMovemementQty );                                                                                 // Moves the camera
     RuntimeRendererType GetCurrentRendererType() const;                                                                                                // Detect active backend type from Gfx renderer identity
+    // Builds a tight light-space frame for nearby object receivers.
+    Rendering::ShadowFrameData BuildObjectShadowFrameData( const CinematicRenderConfig& cinematic, const Math::Vector::Vector3& lightDirectionWorld, const Math::Vector::Vector3& focusHint );
+    // Renders requested depth casters from the sun view.
+    void RenderShadowMap( Rendering::IFramebuffer& target, const Rendering::ShadowFrameData& shadowFrame, const CinematicRenderConfig& cinematic, bool renderTerrain, bool renderObjects );
     RuntimeRendererType GetNextRendererType( RuntimeRendererType current ) const;
     void ReleaseBackendOwnedResourcesForSwitch();        // Releases GPU-visible resources while the old backend is still alive
     void RebuildBackendOwnedResourcesAfterSwitch();      // Rebuilds GPU-visible resources after the new backend is active

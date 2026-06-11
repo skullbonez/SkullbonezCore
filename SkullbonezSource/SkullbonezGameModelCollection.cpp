@@ -6,6 +6,7 @@
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezContactSolverCommon.h"
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -27,8 +28,6 @@ using SkullbonezCore::Rendering::ShadowFrameData;
 namespace Vector = SkullbonezCore::Math::Vector;
 
 
-// Per-instance data layout: mat4 (16 floats) + alpha (1 float)
-static constexpr int SHADOW_INSTANCE_FLOATS = 17;
 static constexpr size_t MAX_PIPELINE_TRACE_RECORDS = 4096;
 static constexpr int TERRAIN_BODY_INDEX = -1;
 static constexpr int PINE_VISUAL_MATERIAL_MODE = 13;
@@ -73,7 +72,6 @@ GameModelCollection::GameModelCollection()
     m_physicsDebugContacts.reserve( MAX_GAME_MODELS * 4 );
     m_physicsPipelineTrace.reserve( MAX_PIPELINE_TRACE_RECORDS );
     m_terrainContactManifolds.reserve( MAX_GAME_MODELS );
-    m_shadowInstanceData.reserve( MAX_GAME_MODELS * SHADOW_INSTANCE_FLOATS );
 };
 
 void GameModelCollection::AddGameModel( GameModel gameModel )
@@ -356,111 +354,71 @@ void GameModelCollection::RenderShadowCasters( const Matrix4& view, const Matrix
 }
 
 
-void GameModelCollection::RenderShadows( Geometry::Terrain* m_terrain,
-                                         const Matrix4& view,
-                                         const Matrix4& proj,
-                                         float waterSurfaceY )
+bool GameModelCollection::GetObjectShadowBounds( const Vector3& focus,
+                                                 float maxDistance,
+                                                 Vector3& outCenter,
+                                                 float& outRadius,
+                                                 float& outHeightRange )
 {
-    if ( !m_terrain )
+    if ( m_gameModels.empty() )
     {
-        return;
+        return false;
     }
 
-    if ( !m_shadowInstMesh )
-    {
-        BuildShadowMesh();
-    }
-
-    // Build per-instance data: model matrix (16 floats) + alpha (1 float).
-    // Pre-size once and write by index so we avoid repeated end-insert growth work.
     if ( !m_soaBodyDataValid )
     {
         RefreshSoABodyData();
     }
-    int modelCount = static_cast<int>( m_gameModels.size() );
-    m_shadowInstanceData.resize( modelCount * SHADOW_INSTANCE_FLOATS );
-    int writeOffset = 0;
+
+    const float queryDistance = (std::max)( maxDistance, 1.0f );
+    const int modelCount = static_cast<int>( m_gameModels.size() );
+    float minX = FLT_MAX;
+    float minY = FLT_MAX;
+    float minZ = FLT_MAX;
+    float maxX = -FLT_MAX;
+    float maxY = -FLT_MAX;
+    float maxZ = -FLT_MAX;
+    bool found = false;
+
     for ( int i = 0; i < modelCount; ++i )
     {
         const Vector3& pos = m_soaPositions[i];
-        float radius = m_soaBoundingRadii[i];
-
-        if ( !m_terrain->IsInBounds( pos.x, pos.z ) )
+        const float radius = m_soaBoundingRadii[i];
+        const float includeDistance = queryDistance + radius;
+        const float dx = pos.x - focus.x;
+        const float dz = pos.z - focus.z;
+        if ( dx * dx + dz * dz > includeDistance * includeDistance )
         {
             continue;
         }
 
-        float groundY;
-        Vector3 N;
-        m_terrain->GetTerrainHeightAndNormalAt( pos.x, pos.z, groundY, N );
-
-        // Fast-out: model origin is over fully submerged terrain, so no visible shadow is needed.
-        if ( groundY <= waterSurfaceY )
-        {
-            continue;
-        }
-
-        float height = pos.y - groundY - radius;
-        if ( height < 0.0f )
-        {
-            height = 0.0f;
-        }
-        if ( height >= Cfg().shadowMaxHeight )
-        {
-            continue;
-        }
-
-        float alpha = Cfg().shadowMaxAlpha * ( 1.0f - height / Cfg().shadowMaxHeight );
-        float shadowRadius = radius * Cfg().shadowScale;
-
-        // Fused T(pos)*RotFromUpToN*Scale(shadowRadius) — no acosf/cosf/sinf, no Matrix4 products
-        Matrix4 model = Matrix4::ShadowFromNormal( pos.x, groundY + Cfg().shadowOffset, pos.z, N, shadowRadius );
-
-        // Write mat4 (16 floats) + alpha (1 float) at the current packed slot.
-        const float* md = model.Data();
-        memcpy( &m_shadowInstanceData[writeOffset], md, sizeof( float ) * 16 );
-        m_shadowInstanceData[writeOffset + 16] = alpha;
-        writeOffset += SHADOW_INSTANCE_FLOATS;
+        minX = (std::min)( minX, pos.x - radius );
+        minY = (std::min)( minY, pos.y - radius );
+        minZ = (std::min)( minZ, pos.z - radius );
+        maxX = (std::max)( maxX, pos.x + radius );
+        maxY = (std::max)( maxY, pos.y + radius );
+        maxZ = (std::max)( maxZ, pos.z + radius );
+        found = true;
     }
 
-    if ( writeOffset == 0 )
+    if ( !found )
     {
-        m_shadowInstanceData.clear();
-        return;
+        return false;
     }
 
-    m_shadowInstanceData.resize( writeOffset );
-    int instanceCount = writeOffset / SHADOW_INSTANCE_FLOATS;
-    if ( instanceCount == 0 )
-    {
-        return;
-    }
+    outCenter = Vector3( ( minX + maxX ) * 0.5f,
+                         ( minY + maxY ) * 0.5f,
+                         ( minZ + maxZ ) * 0.5f );
 
-    // Upload instance data
-    Gfx().UploadInstanceData( m_shadowInstMesh, m_shadowInstanceData.data(), static_cast<int>( m_shadowInstanceData.size() ) );
+    const float halfX = ( maxX - minX ) * 0.5f;
+    const float halfY = ( maxY - minY ) * 0.5f;
+    const float halfZ = ( maxZ - minZ ) * 0.5f;
+    const float clusterRadius = sqrtf( halfX * halfX + halfY * halfY + halfZ * halfZ );
+    const float padding = 36.0f;
 
-    // Render all shadows in one instanced draw call
-    Gfx().SetBlend( true );
-    Gfx().SetBlendFunc( SkullbonezCore::Rendering::BlendFactor::SrcAlpha, SkullbonezCore::Rendering::BlendFactor::OneMinusSrcAlpha );
-    Gfx().SetPolygonOffset( true, -1.0f, -1.0f );
-    Gfx().SetCullFace( false );
-
-    m_shadowShader->Use();
-    m_shadowShader->SetMat4( "uView", view );
-    m_shadowShader->SetMat4( "uProjection", proj );
-
-    // Disable depth writes for shadow rendering. Shadow discs sit at groundY + offset which can
-    // be above the water plane near shorelines. If they wrote to the depth buffer, the water
-    // (drawn after) would fail the depth test at those pixels and disappear. With depth writes off,
-    // terrain depth values are preserved and water renders correctly over the shoreline.
-    // Depth testing remains ON so shadows still respect terrain occlusion.
-    Gfx().SetDepthWrite( false );
-    Gfx().DrawInstancedMesh( m_shadowInstMesh, m_shadowDiscVertexCount, instanceCount );
-    Gfx().SetDepthWrite( true );
-
-    Gfx().SetPolygonOffset( false );
-    Gfx().SetCullFace( true );
-    Gfx().SetBlend( false );
+    outRadius = std::clamp( clusterRadius + padding, 48.0f, queryDistance + padding );
+    outHeightRange = (std::max)( maxY - minY + padding * 2.0f, 64.0f );
+    return true;
 }
 
 
@@ -2657,64 +2615,8 @@ void GameModelCollection::RunSolverPhysics( float dt )
 }
 
 
-void GameModelCollection::BuildShadowMesh()
-{
-    // Shadow disc rendered as a single quad (-1..+1 in XZ, Y=0).
-    // The fragment shader discards pixels outside the unit circle (length(uv) > 1.0)
-    // and applies a smooth per-pixel radial fade — no triangle fan needed.
-    //
-    // 2 triangles = 6 vertices (vs the old 16-segment fan = 48 vertices).
-    // At 300 shadowed models this saves 4,200 triangles per frame.
-    //
-    //  (-1,0,-1)-------(1,0,-1)
-    //      |          /    |
-    //      |        /      |
-    //      |      /        |
-    //  (-1,0, 1)-------(1,0, 1)
-    //
-    static const float verts[] =
-        {
-            // Triangle 1
-            -1.0f,
-            0.0f,
-            -1.0f,
-            1.0f,
-            0.0f,
-            -1.0f,
-            -1.0f,
-            0.0f,
-            1.0f,
-            // Triangle 2
-            1.0f,
-            0.0f,
-            -1.0f,
-            1.0f,
-            0.0f,
-            1.0f,
-            -1.0f,
-            0.0f,
-            1.0f,
-        };
-    m_shadowDiscVertexCount = 6;
-
-    // Instance layout: 5 attributes (4×vec4 for mat4 + 1×float for alpha), starting at location 3
-    int instanceAttribSizes[] = { 4, 4, 4, 4, 1 };
-    m_shadowInstMesh = Gfx().CreateInstancedMesh( verts, m_shadowDiscVertexCount, 3, MAX_GAME_MODELS, SHADOW_INSTANCE_FLOATS, 3, instanceAttribSizes, 5 );
-
-    // Create shader
-    m_shadowShader = Gfx().CreateShader( "shaders/shadow" );
-}
-
-
 void GameModelCollection::ResetRenderResources()
 {
-    m_shadowShader.reset();
-    if ( m_shadowInstMesh )
-    {
-        Gfx().DestroyInstancedMesh( m_shadowInstMesh );
-        m_shadowInstMesh = 0;
-    }
-    m_shadowDiscVertexCount = 0;
 }
 
 
@@ -2726,7 +2628,7 @@ bool GameModelCollection::SaveSceneSnapshot( const char* path, bool physicsOn, b
         return false;
     }
 
-    fprintf( f, "# Snapshot — %d balls\n", static_cast<int>( m_gameModels.size() ) );
+    fprintf( f, "# Snapshot â€” %d balls\n", static_cast<int>( m_gameModels.size() ) );
     fprintf( f, "physics %s\n", physicsOn ? "on" : "off" );
     fprintf( f, "text %s\n", textOn ? "on" : "off" );
     fprintf( f, "frames unlimited\n" );

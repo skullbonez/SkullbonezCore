@@ -172,10 +172,6 @@ class GameModelCollection
     std::vector<Physics::PhysicsDebugContact> m_physicsDebugContacts;       // Last solver contact rows for visual debugging
     std::vector<Physics::PhysicsPipelineRecord> m_physicsPipelineTrace;     // Bounded per-step Catto pipeline records for visual/debug stage stepping
     std::vector<Physics::TerrainContactManifold> m_terrainContactManifolds; // Current-step terrain manifolds feeding shared rows
-    std::unique_ptr<Rendering::IShader> m_shadowShader;                     // Shadow decal shader (instanced)
-    uint32_t m_shadowInstMesh = 0;                                          // Instanced mesh handle (via Gfx())
-    int m_shadowDiscVertexCount = 0;                                        // Disc triangle vertex count
-    std::vector<float> m_shadowInstanceData;                                // Retained-capacity staging buffer (mat4 + alpha per instance)
     std::vector<int64_t> m_collisionCellKeys;                               // Cells where narrowphase collisions occurred this frame
 
 #ifdef _DEBUG
@@ -190,7 +186,6 @@ class GameModelCollection
     SkullScope m_skullScope; // Queryable model-facing physics diagnostics trace writer
 #endif
 
-    void BuildShadowMesh();                         // Builds the shadow disc VAO with instanced attributes
     void RunSolverPhysics( float dt );              // Physics tick: unified impulse solver (all objects)
     void SolvePersistentObjectContacts( float dt ); // PGS contact-force pass for resting/stacked object contacts
 #ifdef _DEBUG
@@ -220,7 +215,7 @@ class GameModelCollection
     void RenderModels( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], const Basics::CinematicRenderConfig* cinematic = nullptr, const Rendering::ShadowFrameData* shadow = nullptr ); // Renders the game models
     void RenderShadowCasters( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const Basics::CinematicRenderConfig* cinematic = nullptr );                                                                       // Renders game model depth into shadow map
     void PrepareRenderStreams();                                                                                                                                                                                                                      // Builds cached SoA render streams once for the upcoming frame
-    void RenderShadows( Geometry::Terrain* terrain, const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, float waterSurfaceY );                                                                                      // Renders ground shadows beneath all models
+    bool GetObjectShadowBounds( const Math::Vector::Vector3& focus, float maxDistance, Math::Vector::Vector3& outCenter, float& outRadius, float& outHeightRange );                                                                                   // Bounds nearby object casters/receivers for a tight shadow map
     void ResetRenderResources();                                                                                                                                                                                                                      // Releases backend-owned GPU resources for renderer reset/switch
     bool SaveSceneSnapshot( const char* path, bool physicsOn, bool textOn, Environment::WorldEnvironment& worldEnv, const Math::Vector::Vector3& camEye, const Math::Vector::Vector3& camView, const Math::Vector::Vector3& camUp );                  // Saves full scene state to a .scene file; returns true on success
     Math::Vector::Vector3 GetModelPosition( int index );                                                                                                                                                                                              // Returns the position of the specified game model

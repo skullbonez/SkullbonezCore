@@ -41,7 +41,7 @@ struct DynamicVBDX12
 };
 
 
-// Instanced mesh (shadow decals)
+// Instanced mesh
 struct InstancedMeshDX12
 {
     ID3D12Resource* staticVB;

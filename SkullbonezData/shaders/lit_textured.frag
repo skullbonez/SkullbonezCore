@@ -136,30 +136,6 @@ float GridLine(vec2 xz, float scale)
     return 1.0 - smoothstep(0.470, 0.498, lineDistance);
 }
 
-float EllipseShadow(vec2 xz, vec2 center, vec2 radius)
-{
-    vec2 q = (xz - center) / max(radius, vec2(1.0));
-    float d = dot(q, q);
-    return 1.0 - smoothstep(0.34, 1.0, d);
-}
-
-float LowPolyHeroContactShadow(vec2 xz)
-{
-    float shadow = 0.0;
-    shadow = max(shadow, EllipseShadow(xz, vec2(620.0, 650.0), vec2(34.0, 24.0)) * 0.70);
-    shadow = max(shadow, EllipseShadow(xz, vec2(480.0, 716.0), vec2(24.0, 18.0)) * 0.46);
-    shadow = max(shadow, EllipseShadow(xz, vec2(764.0, 724.0), vec2(26.0, 19.0)) * 0.48);
-    shadow = max(shadow, EllipseShadow(xz, vec2(780.0, 762.0), vec2(30.0, 24.0)) * 0.54);
-    shadow = max(shadow, EllipseShadow(xz, vec2(890.0, 760.0), vec2(26.0, 22.0)) * 0.42);
-    shadow = max(shadow, EllipseShadow(xz, vec2(812.0, 836.0), vec2(26.0, 22.0)) * 0.40);
-    shadow = max(shadow, EllipseShadow(xz, vec2(900.0, 800.0), vec2(34.0, 18.0)) * 0.30);
-    shadow = max(shadow, EllipseShadow(xz, vec2(455.0, 575.0), vec2(34.0, 32.0)) * 0.40);
-    shadow = max(shadow, EllipseShadow(xz, vec2(760.0, 560.0), vec2(34.0, 32.0)) * 0.42);
-    shadow = max(shadow, EllipseShadow(xz, vec2(350.0, 760.0), vec2(38.0, 34.0)) * 0.36);
-    shadow = max(shadow, EllipseShadow(xz, vec2(835.0, 748.0), vec2(38.0, 34.0)) * 0.34);
-    return clamp(shadow, 0.0, 1.0);
-}
-
 vec3 FacetNormalFromDerivatives(vec3 viewPos, vec3 fallbackNormal)
 {
     vec3 dx = dFdx(viewPos);
@@ -218,7 +194,6 @@ vec3 TerrainModeColor(int mode, vec3 texColor, vec3 N, vec3 worldPos)
         base = mix(base, mix(coolPatch, warmPatch, patchBand), 0.13);
         float basinT = clamp(1.0 - BasinDistance(worldPos.xz), 0.0, 1.0);
         base *= 1.0 - basinT * 0.055;
-        base *= 1.0 - LowPolyHeroContactShadow(worldPos.xz) * 0.30;
         float facet = floor(max(N.y, 0.0) * 4.0) / 4.0;
         base *= 0.72 + facet * 0.34 + terrace * 0.08;
     }

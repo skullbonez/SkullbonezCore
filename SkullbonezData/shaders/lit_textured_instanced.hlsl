@@ -39,7 +39,8 @@ cbuffer Uniforms : register(b0)
     float4   uMaterialAmbient;
     float4   uMaterialDiffuse;
     int      uObjectStyle;
-    float3   _objectStylePad;
+    int      uPrimitiveShape;
+    float2   _objectStylePad;
     float4x4 uShadowViewProj;
     float4   uShadowParams;
     float4   uShadowFlags;
@@ -71,6 +72,7 @@ struct VS_OUT
     float2 texCoord  : TEXCOORD2;
     float4 tint      : TEXCOORD3;
     float3 worldPos  : TEXCOORD4;
+    nointerpolation float4 sphereShadowInfo : TEXCOORD5;
 };
 
 VS_OUT main_vs(VS_IN input)
@@ -93,6 +95,9 @@ VS_OUT main_vs(VS_IN input)
     output.texCoord = input.texCoord;
     output.tint     = input.tint;
     output.worldPos = worldPos.xyz;
+    float3 sphereCenter = mul(model, float4(0.0f, 0.0f, 0.0f, 1.0f)).xyz;
+    float3 sphereAxis = mul(model, float4(1.0f, 0.0f, 0.0f, 1.0f)).xyz - sphereCenter;
+    output.sphereShadowInfo = float4(sphereCenter, length(sphereAxis));
 
     return output;
 }
@@ -189,6 +194,23 @@ float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
 
     float visibility = samples > 0.0f ? visible / samples : 1.0f;
     return lerp(1.0f - uShadowParams.x, 1.0f, visibility);
+}
+
+float3 SphereShadowReceiverWorldPos(float3 worldPos, float4 sphereShadowInfo)
+{
+    if (uPrimitiveShape != 1 || sphereShadowInfo.w <= 0.0f)
+    {
+        return worldPos;
+    }
+
+    float3 radial = worldPos - sphereShadowInfo.xyz;
+    float lenSq = dot(radial, radial);
+    if (lenSq <= 0.000001f)
+    {
+        return worldPos;
+    }
+
+    return sphereShadowInfo.xyz + radial * (sphereShadowInfo.w * rsqrt(lenSq));
 }
 
 float3 ApplyMaterialMode(int mode, float3 materialColor, float3 N, float3 V, float3 L, float3 lightColor, float diff, float spec, float2 uv)
@@ -364,7 +386,7 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         // path: wrap light fills the shadow side, rim light outlines the silhouette,
         // and glint gives glossy sunset highlights.
         float warmWrap = saturate(dot(N, L) * 0.5f + 0.5f);
-        float shadowFactor = ShadowVisibility(input.worldPos, N, L);
+        float shadowFactor = ShadowVisibility(SphereShadowReceiverWorldPos(input.worldPos, input.sphereShadowInfo), N, L);
         float rim = pow(1.0f - saturate(dot(N, V)), 2.25f) * (0.35f + warmWrap * 0.65f);
         float glint = pow(max(dot(V, R), 0.0f), 96.0f);
         float3 warmAmbient = materialColor * uLightAmbient.rgb * 1.15f;
@@ -377,7 +399,7 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         return float4(materialMode == 0 ? beachBall : styled + rimLight * 0.35f, 1.0f);
     }
 
-    float shadowFactor = ShadowVisibility(input.worldPos, N, L);
+    float shadowFactor = ShadowVisibility(SphereShadowReceiverWorldPos(input.worldPos, input.sphereShadowInfo), N, L);
     float3 litColor = materialMode == 0 ? (ambient + diffuse) * materialColor + specular
                                         : ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, spec, input.texCoord);
     litColor *= shadowFactor;

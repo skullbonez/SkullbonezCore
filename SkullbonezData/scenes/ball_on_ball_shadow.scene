@@ -1,0 +1,47 @@
+# ball_on_ball_shadow.scene
+# Interactive repro for ball-on-ball shadow receiver quality.
+# No capture/exit directives: use F fly mode while tuning camera and light.
+
+seed 6211
+physics off
+text off
+vsync off
+pipeline_sync off
+fixed_step
+water_hidden on
+terrain_hidden on
+cinematic_rendering on
+cinematic_sky_atmosphere on
+cinematic_clouds off
+cinematic_god_rays off
+cinematic_volumetric_lighting off
+cinematic_bloom off
+cinematic_fog off
+cinematic_style_modes 0 0 0 0
+cinematic_exposure 0.80
+cinematic_gamma 2.05
+cinematic_sun_color_r 1.00
+cinematic_sun_color_g 0.74
+cinematic_sun_color_b 0.45
+cinematic_sun_intensity 18.0
+shadows on
+cinematic_shadow_map_size 4096
+cinematic_shadow_pcf_radius 2
+cinematic_shadow_strength 0.82
+cinematic_shadow_softness 1.0
+cinematic_shadow_depth_bias 0.00003
+cinematic_shadow_slope_bias 0.00005
+cinematic_shadow_max_distance 900.0
+world -30.0 -500.0 1.0
+
+camera main 620 150 940  620 72 650  0 1 0
+
+floating_ball grid_ball_00 532 72 562 22.0 80.0 16.0 0.40 0 0 0
+floating_ball grid_ball_01 620 72 562 22.0 80.0 16.0 0.40 0 0 0
+floating_ball grid_ball_02 708 72 562 22.0 80.0 16.0 0.40 0 0 0
+floating_ball grid_ball_10 532 72 650 22.0 80.0 16.0 0.40 0 0 0
+floating_ball grid_ball_11 620 72 650 22.0 80.0 16.0 0.40 0 0 0
+floating_ball grid_ball_12 708 72 650 22.0 80.0 16.0 0.40 0 0 0
+floating_ball grid_ball_20 532 72 738 22.0 80.0 16.0 0.40 0 0 0
+floating_ball grid_ball_21 620 72 738 22.0 80.0 16.0 0.40 0 0 0
+floating_ball grid_ball_22 708 72 738 22.0 80.0 16.0 0.40 0 0 0

@@ -99,7 +99,7 @@ class IRenderBackend
 
     // --- Resource Creation ---
 
-    // baseName is relative to DATA_ROOT with no extension, e.g. "shaders/shadow"
+    // baseName is relative to DATA_ROOT with no extension, e.g. "shaders/lit_textured"
     // Each backend resolves the full path and appends the appropriate extension(s).
     virtual std::unique_ptr<IShader> CreateShader( const char* baseName ) = 0;
     virtual std::unique_ptr<IMesh> CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords ) = 0;
@@ -223,7 +223,7 @@ class IRenderBackend
     }
 
 
-    // --- Instanced Mesh (hardware instancing: shadow decals, sphere batches) ---
+    // --- Instanced Mesh (hardware instancing: sphere, box, and diagnostic batches) ---
     // staticData: per-vertex geometry  |  instance data uploaded per frame
     // staticAttribSizes/numStaticAttribs: component counts per static vertex attribute (e.g. {3,3,2} = pos+normal+uv)
     //   If numStaticAttribs==0, all floats go into a single attribute at location 0.

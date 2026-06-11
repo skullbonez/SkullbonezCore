@@ -312,7 +312,6 @@ const ConfigSetting* ConfigSettings( size_t& outCount )
         CONFIG_FLOAT( "cinematic_basin_depth", cinematicRender.basinDepth, 0.0, 256.0 ),
         CONFIG_FLOAT( "cinematic_basin_rim_lift", cinematicRender.basinRimLift, 0.0, 256.0 ),
         CONFIG_BOOL( "cinematic_shadows", cinematicRender.shadowsEnabled ),
-        CONFIG_BOOL( "cinematic_legacy_shadow_discs", cinematicRender.legacyShadowDiscs ),
         CONFIG_BOOL( "cinematic_shadow_terrain_casts", cinematicRender.shadowTerrainCasts ),
         CONFIG_BOOL( "cinematic_shadow_objects_cast", cinematicRender.shadowObjectsCast ),
         CONFIG_BOOL( "cinematic_shadow_terrain_receives", cinematicRender.shadowTerrainReceives ),

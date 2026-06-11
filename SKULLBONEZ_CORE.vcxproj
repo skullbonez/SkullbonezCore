@@ -429,9 +429,6 @@
     <None Include="SkullbonezData\shaders\sky_atmosphere.frag" />
     <None Include="SkullbonezData\shaders\sky_atmosphere.hlsl" />
     <None Include="SkullbonezData\shaders\sky_atmosphere.vert" />
-    <None Include="SkullbonezData\shaders\shadow.frag" />
-    <None Include="SkullbonezData\shaders\shadow.hlsl" />
-    <None Include="SkullbonezData\shaders\shadow.vert" />
     <None Include="SkullbonezData\shaders\solid_color.frag" />
     <None Include="SkullbonezData\shaders\solid_color.hlsl" />
     <None Include="SkullbonezData\shaders\solid_color.vert" />
@@ -488,11 +485,6 @@
     <None Include="SkullbonezData\shaders\collision_visualizer.hlsl" />
     <None Include="SkullbonezData\shaders\grid_line.hlsl" />
     <None Include="SkullbonezData\shaders\lit_textured_instanced.hlsl" />
-  </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="SkullbonezData\shaders\shadow_depth.hlsl" />
-    <FxCompile Include="SkullbonezData\shaders\shadow_depth_instanced.hlsl" />
-    <FxCompile Include="SkullbonezData\shaders\UITextured.hlsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

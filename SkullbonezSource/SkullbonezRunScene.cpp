@@ -110,7 +110,6 @@ void SetTouchedCinematicSceneDirectives( std::vector<std::string>& lines, uint64
     writeFloat( SCENE_CINE_BASIN_DEPTH, "cinematic_basin_depth", c.basinDepth, "%s %.2f" );
     writeFloat( SCENE_CINE_BASIN_RIM_LIFT, "cinematic_basin_rim_lift", c.basinRimLift, "%s %.2f" );
     writeBool( SCENE_CINE_SHADOWS, "cinematic_shadows", c.shadowsEnabled );
-    writeBool( SCENE_CINE_LEGACY_SHADOW_DISCS, "cinematic_legacy_shadow_discs", c.legacyShadowDiscs );
     writeInt( SCENE_CINE_SHADOW_MAP_SIZE, "cinematic_shadow_map_size", c.shadowMapSize );
     writeInt( SCENE_CINE_SHADOW_PCF_RADIUS, "cinematic_shadow_pcf_radius", c.shadowPcfRadius );
     writeFloat( SCENE_CINE_SHADOW_STRENGTH, "cinematic_shadow_strength", c.shadowStrength, "%s %.3f" );

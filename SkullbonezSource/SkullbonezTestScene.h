@@ -126,7 +126,7 @@ enum SceneCinematicOverrideBits : uint64_t
     SCENE_CINE_WATER_PROFILE = 1ull << 52,
     SCENE_CINE_BASIN_MASK = 1ull << 53,
     SCENE_CINE_SHADOWS = 1ull << 54,
-    SCENE_CINE_LEGACY_SHADOW_DISCS = 1ull << 55,
+    SCENE_CINE_RESERVED_55 = 1ull << 55,
     SCENE_CINE_SHADOW_MAP_SIZE = 1ull << 56,
     SCENE_CINE_SHADOW_PCF_RADIUS = 1ull << 57,
     SCENE_CINE_SHADOW_STRENGTH = 1ull << 58,
