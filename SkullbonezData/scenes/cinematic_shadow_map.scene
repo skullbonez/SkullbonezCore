@@ -7,8 +7,11 @@ text on
 vsync off
 pipeline_sync off
 fixed_step
-frames 2
-screenshot Profile/cinematic_shadow_map.bmp frame 2
+frames 40
+screenshot Profile/cinematic_shadow_map.bmp frame 40
+perf_log Profile/cinematic_shadow_map_perf_log.csv
+perf_log_flush off
+perf_log_flush_interval 0
 exit_on_complete
 water_hidden on
 cinematic_rendering on

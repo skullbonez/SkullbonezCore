@@ -578,12 +578,12 @@ void SkullbonezRun::DrawPrimitives()
     const CinematicRenderConfig* activeCinematic = cinematicRender ? &ActiveCinematicConfig() : nullptr;
     if ( cinematicRender && activeCinematic && activeCinematic->shadowsEnabled )
     {
-        PROFILE_GPU_BEGIN( "Frame/Render/ShadowMap" );
+        PROFILE_GPU_BEGIN( "Frame/Render/Shadows/ShadowMap" );
         Vector3 lightDirection( lightPosition[0], lightPosition[1], lightPosition[2] );
         EnsureShadowRenderResources( *activeCinematic );
         m_systems.shadowFrame = BuildShadowFrameData( *activeCinematic, lightDirection );
         RenderShadowMap( m_systems.shadowFrame, *activeCinematic );
-        PROFILE_GPU_END( "Frame/Render/ShadowMap" );
+        PROFILE_GPU_END( "Frame/Render/Shadows/ShadowMap" );
     }
     const Rendering::ShadowFrameData* shadowFrame = m_systems.shadowFrame.valid ? &m_systems.shadowFrame : nullptr;
 
