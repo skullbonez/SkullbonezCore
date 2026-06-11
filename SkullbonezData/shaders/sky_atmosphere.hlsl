@@ -364,6 +364,26 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         float3 heroCloudColor = lerp(heroCloudShadow, heroCloudLight, saturate(sunLit * 0.46f + 0.42f));
         lowPolySky = lerp(lowPolySky, heroCloudColor, clamp(heroCloud * uCloudParams.w * 0.48f, 0.0f, 0.54f));
 
+        float skylineFar = LowPolyRidgeHeight(skyCoord.x, 0.55f, 0.11f, 3.20f, 0.19f);
+        float skylineMid = LowPolyRidgeHeight(skyCoord.x, 0.50f, 0.10f, 4.70f, 0.43f);
+        float skylineNear = LowPolyRidgeHeight(skyCoord.x, 0.45f, 0.085f, 6.10f, 0.71f);
+        float skylineGate = smoothstep(0.30f, 0.40f, height) * (1.0f - smoothstep(0.70f, 0.82f, height));
+        float skylineFarMask = (1.0f - smoothstep(skylineFar - 0.010f, skylineFar + 0.020f, height)) *
+                               smoothstep(skylineFar - 0.22f, skylineFar - 0.08f, height) * skylineGate;
+        float skylineMidMask = (1.0f - smoothstep(skylineMid - 0.010f, skylineMid + 0.020f, height)) *
+                               smoothstep(skylineMid - 0.20f, skylineMid - 0.07f, height) * skylineGate;
+        float skylineNearMask = (1.0f - smoothstep(skylineNear - 0.010f, skylineNear + 0.018f, height)) *
+                                smoothstep(skylineNear - 0.18f, skylineNear - 0.06f, height) * skylineGate;
+        skylineFarMask = floor(skylineFarMask * 4.0f + 0.5f) / 4.0f;
+        skylineMidMask = floor(skylineMidMask * 4.0f + 0.5f) / 4.0f;
+        skylineNearMask = floor(skylineNearMask * 4.0f + 0.5f) / 4.0f;
+        float3 skylineFarColor = clamp(lerp(float3(0.30f, 0.40f, 0.70f), horizon, 0.24f), 0.0f, 1.5f);
+        float3 skylineMidColor = clamp(lerp(float3(0.42f, 0.36f, 0.62f), horizon, 0.20f), 0.0f, 1.5f);
+        float3 skylineNearColor = clamp(lerp(float3(0.27f, 0.28f, 0.43f), uSunColor, 0.07f), 0.0f, 1.5f);
+        lowPolySky = lerp(lowPolySky, skylineFarColor, clamp(skylineFarMask * 0.70f, 0.0f, 0.70f));
+        lowPolySky = lerp(lowPolySky, skylineMidColor, clamp(skylineMidMask * 0.76f, 0.0f, 0.76f));
+        lowPolySky = lerp(lowPolySky, skylineNearColor, clamp(skylineNearMask * 0.82f, 0.0f, 0.82f));
+
         float lowPolySunDisk = 1.0f - smoothstep(0.014f, 0.034f, sunDistance);
         float lowPolyInnerGlow = exp(-sunDistance * 38.0f);
         float lowPolyOuterGlow = exp(-sunDistance * 12.0f);

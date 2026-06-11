@@ -340,6 +340,26 @@ void main()
         vec3 heroCloudColor = mix(heroCloudShadow, heroCloudLight, clamp(sunLit * 0.46 + 0.42, 0.0, 1.0));
         lowPolySky = mix(lowPolySky, heroCloudColor, clamp(heroCloud * uCloudParams.w * 0.48, 0.0, 0.54));
 
+        float skylineFar = LowPolyRidgeHeight(skyCoord.x, 0.55, 0.11, 3.20, 0.19);
+        float skylineMid = LowPolyRidgeHeight(skyCoord.x, 0.50, 0.10, 4.70, 0.43);
+        float skylineNear = LowPolyRidgeHeight(skyCoord.x, 0.45, 0.085, 6.10, 0.71);
+        float skylineGate = smoothstep(0.30, 0.40, height) * (1.0 - smoothstep(0.70, 0.82, height));
+        float skylineFarMask = (1.0 - smoothstep(skylineFar - 0.010, skylineFar + 0.020, height)) *
+                               smoothstep(skylineFar - 0.22, skylineFar - 0.08, height) * skylineGate;
+        float skylineMidMask = (1.0 - smoothstep(skylineMid - 0.010, skylineMid + 0.020, height)) *
+                               smoothstep(skylineMid - 0.20, skylineMid - 0.07, height) * skylineGate;
+        float skylineNearMask = (1.0 - smoothstep(skylineNear - 0.010, skylineNear + 0.018, height)) *
+                                smoothstep(skylineNear - 0.18, skylineNear - 0.06, height) * skylineGate;
+        skylineFarMask = floor(skylineFarMask * 4.0 + 0.5) / 4.0;
+        skylineMidMask = floor(skylineMidMask * 4.0 + 0.5) / 4.0;
+        skylineNearMask = floor(skylineNearMask * 4.0 + 0.5) / 4.0;
+        vec3 skylineFarColor = clamp(mix(vec3(0.30, 0.40, 0.70), horizon, 0.24), 0.0, 1.5);
+        vec3 skylineMidColor = clamp(mix(vec3(0.42, 0.36, 0.62), horizon, 0.20), 0.0, 1.5);
+        vec3 skylineNearColor = clamp(mix(vec3(0.27, 0.28, 0.43), uSunColor, 0.07), 0.0, 1.5);
+        lowPolySky = mix(lowPolySky, skylineFarColor, clamp(skylineFarMask * 0.70, 0.0, 0.70));
+        lowPolySky = mix(lowPolySky, skylineMidColor, clamp(skylineMidMask * 0.76, 0.0, 0.76));
+        lowPolySky = mix(lowPolySky, skylineNearColor, clamp(skylineNearMask * 0.82, 0.0, 0.82));
+
         float lowPolySunDisk = 1.0 - smoothstep(0.014, 0.034, sunDistance);
         float lowPolyInnerGlow = exp(-sunDistance * 38.0);
         float lowPolyOuterGlow = exp(-sunDistance * 12.0);
