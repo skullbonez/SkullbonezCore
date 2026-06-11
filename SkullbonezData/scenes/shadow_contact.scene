@@ -1,0 +1,36 @@
+# shadow_contact.scene
+# Focused shadow-contact scene: all fixed objects sit exactly on analytic flat terrain.
+
+seed 6203
+physics off
+text on
+vsync off
+pipeline_sync off
+fixed_step
+frames 40
+screenshot Profile/shadow_contact.bmp frame 40
+perf_log Profile/shadow_contact_perf_log.csv
+perf_log_flush off
+perf_log_flush_interval 0
+exit_on_complete
+water_hidden on
+shadows on
+cinematic_legacy_shadow_discs off
+cinematic_shadow_map_size 2048
+cinematic_shadow_pcf_radius 1
+cinematic_shadow_strength 0.72
+cinematic_shadow_softness 1.0
+cinematic_shadow_depth_bias 0.0018
+cinematic_shadow_slope_bias 0.0038
+cinematic_shadow_max_distance 1400.0
+world -30.0 -500.0 1.0
+flat_slope 30.0 0.0 0.0
+
+camera main 620 145 900  625 38 625  0 1 0
+
+ball contact_ball_big 535 58 620 28.0 120.0 24.0 0.45 0 36 0
+ball contact_ball_mid 635 50 660 20.0 85.0 18.0 0.45 0 112 0
+ball contact_ball_small 720 43 610 13.0 52.0 10.0 0.45 0 184 0
+floating_box contact_box_tall 470 72 690  15.0 42.0 15.0  2000 0.08  0 22 0
+floating_box contact_box_low 795 39 735  34.0 9.0 24.0  2000 0.08  0 -18 0
+floating_box contact_pillar 650 85 535  10.0 55.0 10.0  2000 0.08  0 0 0
