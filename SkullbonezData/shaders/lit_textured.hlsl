@@ -128,6 +128,30 @@ float GridLine(float2 xz, float scale)
     return 1.0f - smoothstep(0.470f, 0.498f, lineDistance);
 }
 
+float EllipseShadow(float2 xz, float2 center, float2 radius)
+{
+    float2 q = (xz - center) / max(radius, float2(1.0f, 1.0f));
+    float d = dot(q, q);
+    return 1.0f - smoothstep(0.34f, 1.0f, d);
+}
+
+float LowPolyHeroContactShadow(float2 xz)
+{
+    float shadow = 0.0f;
+    shadow = max(shadow, EllipseShadow(xz, float2(620.0f, 650.0f), float2(34.0f, 24.0f)) * 0.70f);
+    shadow = max(shadow, EllipseShadow(xz, float2(480.0f, 716.0f), float2(24.0f, 18.0f)) * 0.46f);
+    shadow = max(shadow, EllipseShadow(xz, float2(764.0f, 724.0f), float2(26.0f, 19.0f)) * 0.48f);
+    shadow = max(shadow, EllipseShadow(xz, float2(780.0f, 762.0f), float2(30.0f, 24.0f)) * 0.54f);
+    shadow = max(shadow, EllipseShadow(xz, float2(890.0f, 760.0f), float2(26.0f, 22.0f)) * 0.42f);
+    shadow = max(shadow, EllipseShadow(xz, float2(812.0f, 836.0f), float2(26.0f, 22.0f)) * 0.40f);
+    shadow = max(shadow, EllipseShadow(xz, float2(900.0f, 800.0f), float2(34.0f, 18.0f)) * 0.30f);
+    shadow = max(shadow, EllipseShadow(xz, float2(455.0f, 575.0f), float2(34.0f, 32.0f)) * 0.40f);
+    shadow = max(shadow, EllipseShadow(xz, float2(760.0f, 560.0f), float2(34.0f, 32.0f)) * 0.42f);
+    shadow = max(shadow, EllipseShadow(xz, float2(350.0f, 760.0f), float2(38.0f, 34.0f)) * 0.36f);
+    shadow = max(shadow, EllipseShadow(xz, float2(835.0f, 748.0f), float2(38.0f, 34.0f)) * 0.34f);
+    return saturate(shadow);
+}
+
 float3 FacetNormalFromDerivatives(float3 viewPos, float3 fallbackNormal)
 {
     float3 dx = ddx(viewPos);
@@ -170,9 +194,9 @@ float3 TerrainModeColor(int mode, float3 texColor, float3 N, float3 worldPos)
     {
         float heightT = saturate((worldPos.y - 28.0f) / 115.0f);
         float terrace = floor(heightT * 5.0f) / 5.0f;
-        float3 lowColor = lerp(float3(0.18f, 0.34f, 0.09f), uTerrainAccent.rgb, 0.24f);
-        float3 midColor = lerp(float3(0.38f, 0.54f, 0.16f), uTerrainTint.rgb, 0.32f);
-        float3 highColor = float3(0.60f, 0.56f, 0.24f);
+        float3 lowColor = lerp(float3(0.15f, 0.32f, 0.10f), uTerrainAccent.rgb, 0.18f);
+        float3 midColor = lerp(float3(0.34f, 0.54f, 0.18f), uTerrainTint.rgb, 0.36f);
+        float3 highColor = float3(0.58f, 0.62f, 0.30f);
         base = lerp(lowColor, midColor, smoothstep(0.08f, 0.58f, heightT));
         base = lerp(base, highColor, smoothstep(0.58f, 1.0f, heightT));
         float slope = saturate(1.0f - max(N.y, 0.0f));
@@ -182,10 +206,11 @@ float3 TerrainModeColor(int mode, float3 texColor, float3 N, float3 worldPos)
         float patchSeed = frac(sin(dot(patchCell, float2(12.9898f, 78.233f))) * 43758.5453f);
         float patchBand = floor(patchSeed * 4.0f) / 3.0f;
         float3 coolPatch = lerp(float3(0.14f, 0.30f, 0.08f), uTerrainAccent.rgb, 0.12f);
-        float3 warmPatch = float3(0.48f, 0.50f, 0.18f);
-        base = lerp(base, lerp(coolPatch, warmPatch, patchBand), 0.16f);
+        float3 warmPatch = float3(0.43f, 0.48f, 0.18f);
+        base = lerp(base, lerp(coolPatch, warmPatch, patchBand), 0.13f);
         float basinT = saturate(1.0f - BasinDistance(worldPos.xz));
         base *= 1.0f - basinT * 0.055f;
+        base *= 1.0f - LowPolyHeroContactShadow(worldPos.xz) * 0.30f;
         float facet = floor(max(N.y, 0.0f) * 4.0f) / 4.0f;
         base *= 0.72f + facet * 0.34f + terrace * 0.08f;
     }
@@ -331,14 +356,14 @@ float4 main_ps(VS_OUT input) : SV_TARGET
             // Low-poly art mode: no texture dependency, just height-colored
             // terrain, hemisphere ambient, warm sun bands, and readable facets.
             float hemiT = saturate(terrainN.y * 0.5f + 0.5f);
-            float3 skyAmbient = float3(0.34f, 0.50f, 0.72f);
-            float3 groundAmbient = float3(0.16f, 0.24f, 0.08f);
+            float3 skyAmbient = float3(0.38f, 0.52f, 0.76f);
+            float3 groundAmbient = float3(0.14f, 0.22f, 0.08f);
             float3 hemiAmbient = lerp(groundAmbient, skyAmbient, hemiT);
             float sunBand = terrainDiff > 0.72f ? 1.0f : (terrainDiff > 0.34f ? 0.62f : 0.30f);
             float softFill = warmWrap * 0.10f;
             float3 warmSun = uLightDiffuse.rgb * float3(0.96f, 0.78f, 0.50f);
-            float3 color = earthBase * (hemiAmbient * 0.58f + warmSun * (sunBand * 0.26f + softFill * 0.82f));
-            color += warmSun * (rim * 0.036f + grazing * 0.018f);
+            float3 color = earthBase * (hemiAmbient * 0.64f + warmSun * (sunBand * 0.26f + softFill * 0.78f));
+            color += warmSun * (rim * 0.042f + grazing * 0.022f);
             return float4(color, 1.0f);
         }
 
