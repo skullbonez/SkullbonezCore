@@ -2,6 +2,15 @@
 
 ## TECH DEBT
 
+## TODO: Extract Cine UI tab from InGameUI facade
+
+The UI code cleanup plan was completed and validated, but the newer Cine UI
+controls were added inline in `SkullbonezSource/UI/SkullbonezUI.cpp`. Move the
+Cine slider specs, feature toggle specs, scene-mode combo handling, content
+height, input handling, and drawing into a dedicated `UITabCinematic.h/.cpp`
+module so `InGameUI` stays a coordinator instead of growing tab-specific logic
+again.
+
 ## DONE: Rewrite CLI argument parsing in SkullbonezInit.cpp
 
 `SkullbonezInit.cpp` now tokenizes the raw Windows command-line string into an argv-style token list, supports `--flag=value` and `--flag value`, and dispatches flag/value options through small directive tables. Remaining CLI work should be tracked as specific feature requests, such as friendly scene aliases or richer help output, rather than another wholesale parser rewrite.
