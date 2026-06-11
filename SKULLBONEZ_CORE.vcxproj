@@ -69,7 +69,7 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>./ThirdPtySource/stb;./ThirdPtySource/GLAD/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_DEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PIX_ENABLED;USE_PIX;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebUIld>false</MinimalRebUIld>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -116,7 +116,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>./ThirdPtySource/stb;./ThirdPtySource/GLAD/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PIX_ENABLED;USE_PIX;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
@@ -207,6 +207,7 @@
     <ClCompile Include="SkullbonezSource\SkullbonezFramebufferGL.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezShaderGL.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezMeshGL.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezPixMarkers.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezProfiler.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezIRenderBackend.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendGL.cpp" />
@@ -289,6 +290,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezFramebufferGL.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezShaderGL.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezMeshGL.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezPixMarkers.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezProfiler.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezIShader.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezIMesh.h" />
@@ -308,6 +310,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezSBTDX12.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="packages.config" />
     <None Include="SkullbonezData\engine.cfg" />
     <None Include="SkullbonezData\scenes\at_rest.scene" />
     <None Include="SkullbonezData\scenes\ball_vs_ball_flight.scene" />
@@ -488,5 +491,6 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets" Condition="Exists('packages\WinPixEventRuntime.1.0.240308001\build\WinPixEventRuntime.targets')" />
   </ImportGroup>
 </Project>

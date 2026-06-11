@@ -191,6 +191,23 @@ class IRenderBackend
     }
 
 
+    // --- PIX-compatible GPU markers ---
+
+    virtual void PixGpuBegin( const char* name, uint32_t hash )
+    {
+        (void)name;
+        (void)hash;
+    }
+    virtual void PixGpuEnd()
+    {
+    }
+    virtual void PixGpuMarker( const char* name, uint32_t hash )
+    {
+        (void)name;
+        (void)hash;
+    }
+
+
     // --- Dynamic Vertex Buffer (per-frame geometry: text quads, HUD overlays) ---
     // attribComponents: component count per attribute (e.g. {2,2} = location0:vec2, location1:vec2)
 
