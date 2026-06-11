@@ -238,7 +238,7 @@ void Profiler::BeginInternal( const char* fullPath, uint32_t hash, bool emitCpuP
     }
     m.openCount = 1;
     m_stackIndices[m_stackTop++] = idx;
-    if ( emitCpuPix )
+    if ( emitCpuPix && PixMarkers::IsEnabled() )
     {
         PixMarkers::CpuBegin( fullPath, hash );
     }
@@ -271,7 +271,7 @@ void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPix
     top.lastEndSecondsThisFrame = static_cast<double>( t.QuadPart - m_frameStartTicks ) / static_cast<double>( m_qpcFrequency );
     top.openCount = 0;
     --m_stackTop;
-    if ( emitCpuPix )
+    if ( emitCpuPix && PixMarkers::IsEnabled() )
     {
         PixMarkers::CpuEnd();
     }
@@ -281,7 +281,7 @@ void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPix
 void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
 {
     BeginInternal( fullPath, hash, false );
-    if ( IsGfxReady() )
+    if ( PixMarkers::IsEnabled() && IsGfxReady() )
     {
         Gfx().PixGpuBegin( fullPath, hash );
     }
@@ -292,7 +292,7 @@ void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
 void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
 {
     EndGpuTimerInternal( fullPath, hash );
-    if ( IsGfxReady() )
+    if ( PixMarkers::IsEnabled() && IsGfxReady() )
     {
         Gfx().PixGpuEnd();
     }
