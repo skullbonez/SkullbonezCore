@@ -798,9 +798,13 @@ void SkullbonezRun::DrawPrimitives()
         PROFILE_GPU_END( "Frame/Render/Terrain" );
     }
 
-    // Legacy shadow discs are a separate, fake contact-shadow system. Keep them
-    // for scenes with real shadow maps disabled, and optionally layer them back
-    // in for debugging/contact emphasis when the config explicitly asks for it.
+    // Legacy shadow discs are a separate contact-shadow system. They do not
+    // replace the real shadow-map pass above: the depth map still supplies the
+    // long directional silhouette from balls, boxes, pines, and terrain. The
+    // disc layer is only a terrain-hugging grounding cue, useful because low-poly
+    // rolling spheres and tilted boxes can be physically supported while the sun
+    // shadow starts far enough away to look like a visual gap. Scenes that need
+    // pure shadow-map output set cinematic_legacy_shadow_discs off.
     if ( !m_debug.isTerrainHidden && ( !shadowFrame || !activeShadowConfig || activeShadowConfig->legacyShadowDiscs ) )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Shadows" );
