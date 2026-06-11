@@ -193,7 +193,7 @@ class RenderBackendDX11 : public IRenderBackend
     bool m_isVsyncEnabled = true;
     bool m_allowTearing = false;
     int m_frameDrawCallCount = 0;
-    int m_pixGpuDepth = 0;
+    int m_platformProfilerGpuDepth = 0;
 
     // Grid line overlay (lazy-init in DrawLinesColored)
     ID3D11Buffer* m_gridLineVB = nullptr;
@@ -363,9 +363,9 @@ class RenderBackendDX11 : public IRenderBackend
     void GpuTimerEnd( int markerIdx ) override;
     void GpuTimerInvalidate() override;
     bool GpuTimerRead( int markerIdx, float& outMs ) override;
-    void PixGpuBegin( const char* name, uint32_t hash ) override;
-    void PixGpuEnd() override;
-    void PixGpuMarker( const char* name, uint32_t hash ) override;
+    void PlatformProfilerGpuBegin( const char* name, uint32_t hash ) override;
+    void PlatformProfilerGpuEnd() override;
+    void PlatformProfilerGpuMarker( const char* name, uint32_t hash ) override;
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

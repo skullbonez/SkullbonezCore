@@ -8,7 +8,7 @@
 #include <cfloat>
 #include <cstring>
 #include <cstdlib>
-#include "SkullbonezPixMarkers.h"
+#include "SkullbonezPlatformProfiler.h"
 #include "SkullbonezText.h"
 
 
@@ -208,7 +208,7 @@ void Profiler::End( const char* fullPath, uint32_t hash )
 }
 
 
-void Profiler::BeginInternal( const char* fullPath, uint32_t hash, bool emitCpuPix )
+void Profiler::BeginInternal( const char* fullPath, uint32_t hash, bool emitCpuPlatformProfiler )
 {
     if ( !m_inFrame )
     {
@@ -238,14 +238,14 @@ void Profiler::BeginInternal( const char* fullPath, uint32_t hash, bool emitCpuP
     }
     m.openCount = 1;
     m_stackIndices[m_stackTop++] = idx;
-    if ( emitCpuPix && PixMarkers::IsEnabled() )
+    if ( emitCpuPlatformProfiler && PlatformProfiler::IsEnabled() )
     {
-        PixMarkers::CpuBegin( fullPath, hash );
+        PlatformProfiler::CpuBegin( fullPath, hash );
     }
 }
 
 
-void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPix )
+void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPlatformProfiler )
 {
     if ( m_stackTop == 0 )
     {
@@ -271,9 +271,9 @@ void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPix
     top.lastEndSecondsThisFrame = static_cast<double>( t.QuadPart - m_frameStartTicks ) / static_cast<double>( m_qpcFrequency );
     top.openCount = 0;
     --m_stackTop;
-    if ( emitCpuPix && PixMarkers::IsEnabled() )
+    if ( emitCpuPlatformProfiler && PlatformProfiler::IsEnabled() )
     {
-        PixMarkers::CpuEnd();
+        PlatformProfiler::CpuEnd();
     }
 }
 
@@ -281,9 +281,9 @@ void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPix
 void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
 {
     BeginInternal( fullPath, hash, false );
-    if ( PixMarkers::IsEnabled() && IsGfxReady() )
+    if ( PlatformProfiler::IsEnabled() && IsGfxReady() )
     {
-        Gfx().PixGpuBegin( fullPath, hash );
+        Gfx().PlatformProfilerGpuBegin( fullPath, hash );
     }
     BeginGpuTimerInternal( fullPath, hash );
 }
@@ -292,9 +292,9 @@ void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
 void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
 {
     EndGpuTimerInternal( fullPath, hash );
-    if ( PixMarkers::IsEnabled() && IsGfxReady() )
+    if ( PlatformProfiler::IsEnabled() && IsGfxReady() )
     {
-        Gfx().PixGpuEnd();
+        Gfx().PlatformProfilerGpuEnd();
     }
     EndInternal( fullPath, hash, false );
 }

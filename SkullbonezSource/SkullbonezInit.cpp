@@ -9,7 +9,7 @@
 #include "SkullbonezRenderBackendGL.h"
 #include "SkullbonezRenderBackendDX11.h"
 #include "SkullbonezRenderBackendDX12.h"
-#include "SkullbonezPixMarkers.h"
+#include "SkullbonezPlatformProfiler.h"
 #include <cerrno>
 #include <float.h>
 #include <climits>
@@ -561,7 +561,7 @@ struct ParsedArgs
     bool physicsDiagnosticsRequested = false;
     bool fixedStepForcedByPhysicsDiagnostics = false;
     bool dumpConfig = false;
-    bool pixMarkers = false;
+    bool platformProfilerMarkers = false;
 };
 
 struct CliFlagDirective
@@ -661,9 +661,12 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
         { "--profiler", "--show-profiler", []( ParsedArgs& args )
           { args.showProfiler = true; },
           "[overlay] Profiler HUD enabled at startup." },
+        { "--platform-profiler-markers", "--platform-profiler", []( ParsedArgs& args )
+          { args.platformProfilerMarkers = true; },
+          "[platform-profiler] Platform profiler marker emission requested." },
         { "--pix-markers", "--pix", []( ParsedArgs& args )
-          { args.pixMarkers = true; },
-          "[pix] PIX marker emission requested." },
+          { args.platformProfilerMarkers = true; },
+          "[platform-profiler] PIX marker compatibility alias requested." },
         { "--hide-top-text", "--no-top-text", []( ParsedArgs& args )
           { args.hideTopText = true; },
           "[overlay] Top HUD text hidden." },
@@ -1467,16 +1470,30 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
 
     ApplyCliFlagDirectives( commandLine, out );
 
+    bool envPlatformProfilerMarkers = false;
+    char* envPlatformProfilerValue = nullptr;
+    size_t envPlatformProfilerValueLen = 0;
+    if ( _dupenv_s( &envPlatformProfilerValue, &envPlatformProfilerValueLen, "SKULLBONEZ_PLATFORM_PROFILER_MARKERS" ) == 0 &&
+         ParseEnvironmentBool( envPlatformProfilerValue, envPlatformProfilerMarkers ) )
+    {
+        out.platformProfilerMarkers = envPlatformProfilerMarkers;
+        if ( envPlatformProfilerMarkers )
+        {
+            fprintf( stdout, "[platform-profiler] Marker emission requested via SKULLBONEZ_PLATFORM_PROFILER_MARKERS.\n" );
+        }
+    }
+    free( envPlatformProfilerValue );
+
     bool envPixMarkers = false;
     char* envPixValue = nullptr;
     size_t envPixValueLen = 0;
     if ( _dupenv_s( &envPixValue, &envPixValueLen, "SKULLBONEZ_PIX_MARKERS" ) == 0 &&
          ParseEnvironmentBool( envPixValue, envPixMarkers ) )
     {
-        out.pixMarkers = envPixMarkers;
+        out.platformProfilerMarkers = envPixMarkers;
         if ( envPixMarkers )
         {
-            fprintf( stdout, "[pix] PIX marker emission requested via SKULLBONEZ_PIX_MARKERS.\n" );
+            fprintf( stdout, "[platform-profiler] Marker emission requested via SKULLBONEZ_PIX_MARKERS compatibility alias.\n" );
         }
     }
     free( envPixValue );
@@ -1523,13 +1540,13 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
         Cfg().Dump( stdout );
     }
 
-    PixMarkers::SetEnabled( out.pixMarkers );
-    if ( out.pixMarkers )
+    PlatformProfiler::SetEnabled( out.platformProfilerMarkers );
+    if ( out.platformProfilerMarkers )
     {
         fprintf( stdout,
-                 PixMarkers::IsAvailable()
-                     ? "[pix] PIX marker emission enabled.\n"
-                     : "[pix] PIX marker emission unavailable in this build; continuing with in-engine profiler markers only.\n" );
+                 PlatformProfiler::IsAvailable()
+                     ? "[platform-profiler] Platform profiler marker emission enabled.\n"
+                     : "[platform-profiler] Platform profiler marker emission unavailable in this build; continuing with in-engine profiler markers only.\n" );
     }
 
     return true;

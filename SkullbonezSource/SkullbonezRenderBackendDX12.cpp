@@ -37,7 +37,7 @@
 #include "SkullbonezShaderDX12.h"
 #include "SkullbonezMeshDX12.h"
 #include "SkullbonezFramebufferDX12.h"
-#include "SkullbonezPixMarkers.h"
+#include "SkullbonezPlatformProfiler.h"
 #include <stdexcept>
 #include <cstdio>
 #include <cstring>
@@ -115,15 +115,15 @@ void RenderBackendDX12::WaitForGpu()
 }
 
 
-void RenderBackendDX12::AssertPixGpuStackClosed( const char* reason ) const
+void RenderBackendDX12::AssertPlatformProfilerGpuStackClosed( const char* reason ) const
 {
-    if ( m_pixGpuDepth == 0 || !SkullbonezCore::Basics::PixMarkers::IsEnabled() )
+    if ( m_platformProfilerGpuDepth == 0 || !SkullbonezCore::Basics::PlatformProfiler::IsEnabled() )
     {
         return;
     }
 
-    Log().WriteEventf( "dx12_pix_open_stack_on_submit reason=%s depth=%d", reason ? reason : "unknown", m_pixGpuDepth );
-    assert( m_pixGpuDepth == 0 );
+    Log().WriteEventf( "dx12_platform_profiler_open_stack_on_submit reason=%s depth=%d", reason ? reason : "unknown", m_platformProfilerGpuDepth );
+    assert( m_platformProfilerGpuDepth == 0 );
 }
 
 
@@ -205,7 +205,7 @@ void RenderBackendDX12::FlushUploadBuffer()
         return;
     }
     // Submit current work and wait for completion (mid-frame flush for upload exhaustion)
-    AssertPixGpuStackClosed( "FlushUploadBuffer" );
+    AssertPlatformProfilerGpuStackClosed( "FlushUploadBuffer" );
     m_commandList->Close();
     m_commandListOpen = false;
     ID3D12CommandList* ppCLs[] = { m_commandList };
@@ -743,7 +743,7 @@ void RenderBackendDX12::Shutdown()
     // Ensure any open command list is closed and submitted before waiting.
     if ( m_commandListOpen )
     {
-        AssertPixGpuStackClosed( "Shutdown" );
+        AssertPlatformProfilerGpuStackClosed( "Shutdown" );
         m_commandList->Close();
         m_commandListOpen = false;
         ID3D12CommandList* ppCLs[] = { m_commandList };
@@ -990,7 +990,7 @@ void RenderBackendDX12::Present()
     // Close the command list — finalizes the recorded commands. A closed command list can be
     // submitted to the GPU. No more commands can be recorded until Reset is called.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-close
-    AssertPixGpuStackClosed( "Present" );
+    AssertPlatformProfilerGpuStackClosed( "Present" );
     m_commandList->Close();
     m_commandListOpen = false;
 
@@ -1056,7 +1056,7 @@ void RenderBackendDX12::Finish()
 {
     if ( m_commandListOpen )
     {
-        AssertPixGpuStackClosed( "Finish" );
+        AssertPlatformProfilerGpuStackClosed( "Finish" );
         m_commandList->Close();
         m_commandListOpen = false;
         ID3D12CommandList* ppCLs[] = { m_commandList };
@@ -1071,7 +1071,7 @@ void RenderBackendDX12::FlushGPU()
 {
     if ( m_commandListOpen )
     {
-        AssertPixGpuStackClosed( "FlushGPU" );
+        AssertPlatformProfilerGpuStackClosed( "FlushGPU" );
         m_commandList->Close();
         m_commandListOpen = false;
         ID3D12CommandList* ppCLs[] = { m_commandList };
@@ -2350,7 +2350,7 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
     TransitionBarrier( m_renderTargets[m_frameIndex], D3D12_RESOURCE_STATE_COPY_SOURCE, backBufferStateBeforeCopy );
 
     // Execute and wait
-    AssertPixGpuStackClosed( "CaptureBackbuffer" );
+    AssertPlatformProfilerGpuStackClosed( "CaptureBackbuffer" );
     m_commandList->Close();
     m_commandListOpen = false;
     ID3D12CommandList* ppCLs[] = { m_commandList };
@@ -3068,7 +3068,7 @@ void RenderBackendDX12::InitDXR( uint64_t terrainVBVA, int terrainVertCount, int
     m_sphereBLAS.Build( m_device5, m_cmdList4, (D3D12_GPU_VIRTUAL_ADDRESS)sphereVBVA, sphereVertCount, sphereStride, DXGI_FORMAT_R32G32B32_FLOAT, false );
 
     // Submit and wait for BLAS builds to complete
-    AssertPixGpuStackClosed( "InitDXR" );
+    AssertPlatformProfilerGpuStackClosed( "InitDXR" );
     m_commandList->Close();
     m_commandListOpen = false;
     ID3D12CommandList* ppCLs[] = { m_commandList };
@@ -3501,22 +3501,22 @@ bool RenderBackendDX12::GpuTimerRead( int markerIdx, float& outMs )
 }
 
 
-void RenderBackendDX12::PixGpuBegin( const char* name, uint32_t hash )
+void RenderBackendDX12::PlatformProfilerGpuBegin( const char* name, uint32_t hash )
 {
-    if ( !SkullbonezCore::Basics::PixMarkers::IsEnabled() )
+    if ( !SkullbonezCore::Basics::PlatformProfiler::IsEnabled() )
     {
         return;
     }
 
-#if SKULLBONEZ_PIX_MARKERS_HAVE_PIX3
+#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
     if ( !m_commandList )
     {
         return;
     }
     EnsureCommandListOpen();
     const char* markerName = name ? name : "(null)";
-    PIXBeginEvent( m_commandList, SkullbonezCore::Basics::PixMarkers::ColorForMarker( markerName, hash ), "%s", markerName );
-    ++m_pixGpuDepth;
+    PIXBeginEvent( m_commandList, SkullbonezCore::Basics::PlatformProfiler::ColorForMarker( markerName, hash ), "%s", markerName );
+    ++m_platformProfilerGpuDepth;
 #else
     (void)name;
     (void)hash;
@@ -3524,45 +3524,45 @@ void RenderBackendDX12::PixGpuBegin( const char* name, uint32_t hash )
 }
 
 
-void RenderBackendDX12::PixGpuEnd()
+void RenderBackendDX12::PlatformProfilerGpuEnd()
 {
-    if ( !SkullbonezCore::Basics::PixMarkers::IsEnabled() )
+    if ( !SkullbonezCore::Basics::PlatformProfiler::IsEnabled() )
     {
         return;
     }
 
-#if SKULLBONEZ_PIX_MARKERS_HAVE_PIX3
-    if ( m_pixGpuDepth <= 0 )
+#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
+    if ( m_platformProfilerGpuDepth <= 0 )
     {
-        Log().WriteEventf( "dx12_pix_gpu_end_without_begin" );
+        Log().WriteEventf( "dx12_platform_profiler_gpu_end_without_begin" );
         return;
     }
     if ( !m_commandList || !m_commandListOpen )
     {
-        Log().WriteEventf( "dx12_pix_gpu_end_without_open_command_list depth=%d", m_pixGpuDepth );
+        Log().WriteEventf( "dx12_platform_profiler_gpu_end_without_open_command_list depth=%d", m_platformProfilerGpuDepth );
         return;
     }
     PIXEndEvent( m_commandList );
-    --m_pixGpuDepth;
+    --m_platformProfilerGpuDepth;
 #endif
 }
 
 
-void RenderBackendDX12::PixGpuMarker( const char* name, uint32_t hash )
+void RenderBackendDX12::PlatformProfilerGpuMarker( const char* name, uint32_t hash )
 {
-    if ( !SkullbonezCore::Basics::PixMarkers::IsEnabled() )
+    if ( !SkullbonezCore::Basics::PlatformProfiler::IsEnabled() )
     {
         return;
     }
 
-#if SKULLBONEZ_PIX_MARKERS_HAVE_PIX3
+#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
     if ( !m_commandList )
     {
         return;
     }
     EnsureCommandListOpen();
     const char* markerName = name ? name : "(null)";
-    PIXSetMarker( m_commandList, SkullbonezCore::Basics::PixMarkers::ColorForMarker( markerName, hash ), "%s", markerName );
+    PIXSetMarker( m_commandList, SkullbonezCore::Basics::PlatformProfiler::ColorForMarker( markerName, hash ), "%s", markerName );
 #else
     (void)name;
     (void)hash;

@@ -1,5 +1,5 @@
 #include "SkullbonezCommon.h"
-#include "SkullbonezPixMarkers.h"
+#include "SkullbonezPlatformProfiler.h"
 
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
 #include <cstring>
@@ -9,7 +9,7 @@ namespace SkullbonezCore
 {
 namespace Basics
 {
-namespace PixMarkers
+namespace PlatformProfiler
 {
 namespace
 {
@@ -33,7 +33,7 @@ uint32_t HashRuntimeName( const char* name )
 
 bool IsAvailable()
 {
-#if defined( SKULLBONEZ_PROFILE_ENABLED ) && SKULLBONEZ_PIX_MARKERS_HAVE_PIX3
+#if defined( SKULLBONEZ_PROFILE_ENABLED ) && SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
     return true;
 #else
     return false;
@@ -70,7 +70,7 @@ void CpuBegin( const char* name, uint32_t hash )
         return;
     }
 
-#if SKULLBONEZ_PIX_MARKERS_HAVE_PIX3
+#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
     const char* markerName = name ? name : "(null)";
     PIXBeginEvent( ColorForMarker( markerName, hash ), "%s", markerName );
     ++g_cpuDepth;
@@ -87,10 +87,10 @@ void CpuEnd()
         return;
     }
 
-#if SKULLBONEZ_PIX_MARKERS_HAVE_PIX3
+#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
     if ( g_cpuDepth <= 0 )
     {
-        Log().WriteEventf( "pix_cpu_end_without_begin" );
+        Log().WriteEventf( "platform_profiler_cpu_end_without_begin" );
         return;
     }
     PIXEndEvent();
@@ -105,7 +105,7 @@ void CpuMarker( const char* name, uint32_t hash )
         return;
     }
 
-#if SKULLBONEZ_PIX_MARKERS_HAVE_PIX3
+#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
     const char* markerName = name ? name : "(null)";
     PIXSetMarker( ColorForMarker( markerName, hash ), "%s", markerName );
 #else
@@ -114,6 +114,6 @@ void CpuMarker( const char* name, uint32_t hash )
 #endif
 }
 
-} // namespace PixMarkers
+} // namespace PlatformProfiler
 } // namespace Basics
 } // namespace SkullbonezCore

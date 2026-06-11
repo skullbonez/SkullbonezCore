@@ -191,17 +191,17 @@ class IRenderBackend
     }
 
 
-    // --- PIX-compatible GPU markers ---
+    // --- Platform profiler GPU markers ---
 
-    virtual void PixGpuBegin( const char* name, uint32_t hash )
+    virtual void PlatformProfilerGpuBegin( const char* name, uint32_t hash )
     {
         (void)name;
         (void)hash;
     }
-    virtual void PixGpuEnd()
+    virtual void PlatformProfilerGpuEnd()
     {
     }
-    virtual void PixGpuMarker( const char* name, uint32_t hash )
+    virtual void PlatformProfilerGpuMarker( const char* name, uint32_t hash )
     {
         (void)name;
         (void)hash;

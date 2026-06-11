@@ -3,7 +3,7 @@
 #include "SkullbonezShaderDX11.h"
 #include "SkullbonezMeshDX11.h"
 #include "SkullbonezFramebufferDX11.h"
-#include "SkullbonezPixMarkers.h"
+#include "SkullbonezPlatformProfiler.h"
 #include <d3d11_1.h>
 #include <stdexcept>
 #include <string>
@@ -425,10 +425,10 @@ void RenderBackendDX11::Shutdown()
 
     if ( m_annotation )
     {
-        while ( m_pixGpuDepth > 0 )
+        while ( m_platformProfilerGpuDepth > 0 )
         {
             m_annotation->EndEvent();
-            --m_pixGpuDepth;
+            --m_platformProfilerGpuDepth;
         }
         m_annotation->Release();
         m_annotation = nullptr;
@@ -1810,10 +1810,10 @@ bool RenderBackendDX11::GpuTimerRead( int markerIdx, float& outMs )
 }
 
 
-void RenderBackendDX11::PixGpuBegin( const char* name, uint32_t hash )
+void RenderBackendDX11::PlatformProfilerGpuBegin( const char* name, uint32_t hash )
 {
     (void)hash;
-    if ( !SkullbonezCore::Basics::PixMarkers::IsEnabled() || !m_annotation )
+    if ( !SkullbonezCore::Basics::PlatformProfiler::IsEnabled() || !m_annotation )
     {
         return;
     }
@@ -1821,31 +1821,31 @@ void RenderBackendDX11::PixGpuBegin( const char* name, uint32_t hash )
     wchar_t wideName[256];
     WidenMarkerName( name, wideName );
     m_annotation->BeginEvent( wideName );
-    ++m_pixGpuDepth;
+    ++m_platformProfilerGpuDepth;
 }
 
 
-void RenderBackendDX11::PixGpuEnd()
+void RenderBackendDX11::PlatformProfilerGpuEnd()
 {
-    if ( !SkullbonezCore::Basics::PixMarkers::IsEnabled() || !m_annotation )
+    if ( !SkullbonezCore::Basics::PlatformProfiler::IsEnabled() || !m_annotation )
     {
         return;
     }
 
-    if ( m_pixGpuDepth <= 0 )
+    if ( m_platformProfilerGpuDepth <= 0 )
     {
-        Log().WriteEventf( "dx11_pix_gpu_end_without_begin" );
+        Log().WriteEventf( "dx11_platform_profiler_gpu_end_without_begin" );
         return;
     }
     m_annotation->EndEvent();
-    --m_pixGpuDepth;
+    --m_platformProfilerGpuDepth;
 }
 
 
-void RenderBackendDX11::PixGpuMarker( const char* name, uint32_t hash )
+void RenderBackendDX11::PlatformProfilerGpuMarker( const char* name, uint32_t hash )
 {
     (void)hash;
-    if ( !SkullbonezCore::Basics::PixMarkers::IsEnabled() || !m_annotation )
+    if ( !SkullbonezCore::Basics::PlatformProfiler::IsEnabled() || !m_annotation )
     {
         return;
     }

@@ -24,7 +24,7 @@ This file holds details that are useful during debugging or manual testing but t
 | `--interactive` | optional `on`, `off` | Keep scene automation from quitting the app so a screenshot/validation scene can be inspected live. Bare flag means `on`. Alias: `--hold`. |
 | `--live-style-control` | directory | Watch `<directory>\live.style` and `<directory>\capture.txt` while the scene keeps running. Applies style-only descriptors without reloading physics and saves requested screenshots after the current frame is drawn. Aliases: `--style-harness`, `--live_style_control`, `--style_harness`. |
 | `--profiler` | flag | Start with the timer/profiler HUD visible. Alias: `--show-profiler`. |
-| `--pix-markers` | flag | Emit existing profiler markers to PIX-compatible CPU/GPU marker APIs when PIX support is available. Alias: `--pix`. Environment fallback: `SKULLBONEZ_PIX_MARKERS=1`. |
+| `--platform-profiler-markers` | flag | Emit existing profiler markers to the platform profiler marker API when support is available. Aliases: `--platform-profiler`, `--pix-markers`, `--pix`. Environment fallback: `SKULLBONEZ_PLATFORM_PROFILER_MARKERS=1`; `SKULLBONEZ_PIX_MARKERS=1` is still accepted as a Windows PIX compatibility alias. |
 | `--hide-top-text` | flag | Hide the always-on top HUD rows while leaving profiler/key overlays available. Alias: `--no-top-text`. |
 | `--broadphase-visualizer` | flag | Start with the broadphase spatial grid visualizer enabled. Alias: `--broadphase-overlay`. |
 | `--all-balls` | flag | Force generated object populations to spawn as balls. |
