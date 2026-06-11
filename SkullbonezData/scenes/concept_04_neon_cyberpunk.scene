@@ -1,0 +1,25 @@
+# 4. Neon Cyberpunk
+seed 1004
+physics off
+text off
+vsync off
+pipeline_sync on
+fixed_step
+frames unlimited
+water_reflection fbo
+world -30.0 25.0 1.0
+style neon_cyberpunk
+camera main 620 135 900  620 42 610  0 1 0
+
+floating_box black_tower_l 420 118 510  18 92 18  3000 0.05
+floating_box black_tower_r 805 124 500  20 98 20  3000 0.05
+floating_box neon_cyan_sign_l 420 180 535  4 34 16  3000 0.05
+floating_box neon_magenta_sign_r 805 188 530  4 38 16  3000 0.05
+floating_box neon_cyan_strip 620 34 690  230 3 5  3000 0.05
+ball hero 620 52 650 26 110 25 0.45 0 32 0
+ball puddle_01 500 42 690 13 58 12 0.45 0 72 0
+ball puddle_02 735 40 690 14 62 13 0.45 0 132 0
+ball crowd_01 430 50 590 8 35 8 0.42 0 20 0
+ball crowd_02 520 46 555 7 32 7 0.42 0 60 0
+ball crowd_03 700 45 550 7 32 7 0.42 0 100 0
+ball crowd_04 820 52 585 8 35 8 0.42 0 140 0

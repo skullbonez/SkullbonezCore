@@ -80,6 +80,7 @@ Profile\SKULLBONEZ_CORE.exe --fixed-step --scene SkullbonezData\scenes\perf_test
 | Solution | `SKULLBONEZ_CORE.sln` |
 | Source | `SkullbonezSource/` |
 | Shaders | `SkullbonezData/shaders/` |
+| Style descriptors | `SkullbonezData/styles/` |
 | Scenes | `SkullbonezData/scenes/` |
 | Baselines | `TestOutput/baselines/` |
 | Validation scripts | `tools/` |

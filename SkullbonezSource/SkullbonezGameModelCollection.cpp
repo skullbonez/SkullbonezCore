@@ -30,6 +30,12 @@ namespace Vector = SkullbonezCore::Math::Vector;
 static constexpr int SHADOW_INSTANCE_FLOATS = 17;
 static constexpr size_t MAX_PIPELINE_TRACE_RECORDS = 4096;
 static constexpr int TERRAIN_BODY_INDEX = -1;
+static constexpr int PINE_VISUAL_MATERIAL_MODE = 13;
+
+static bool IsPineVisualMaterial( float colorOverride )
+{
+    return colorOverride > 1.25f && static_cast<int>( std::floor( colorOverride + 0.5f ) ) == PINE_VISUAL_MATERIAL_MODE;
+}
 
 // High-level physics pipeline in this file:
 //   1. RunPhysics clears per-step scratch buffers and preserves persistent state.
@@ -188,34 +194,82 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
             float tintB = 1.0f;
             float colorOverride = 0.0f;
             m_gameModels[x].GetRenderTint( tintR, tintG, tintB, colorOverride );
+            if ( m_soaIsFixed[x] )
+            {
+                const float hit = m_gameModels[x].GetFixedContactHighlightAlpha();
+                if ( hit > 0.0f )
+                {
+                    tintR = tintR + ( 1.0f - tintR ) * hit;
+                    tintG = tintG * ( 1.0f - hit );
+                    tintB = tintB * ( 1.0f - hit );
+                }
+            }
             SkullbonezHelper::DrawSphereBatchModel( m_soaModelMatrices[x], tintR, tintG, tintB, colorOverride );
         }
     }
     SkullbonezHelper::DrawSphereBatchEnd();
 
-    SkullbonezHelper::DrawBoxBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes, cinematic );
-    for ( int x = 0; x < modelCount; ++x )
+    bool hasPineVisualModels = false;
+    auto appendBoxLikeModels = [&]( bool pineVisualPass )
     {
-        if ( m_soaIsBox[x] )
+        for ( int x = 0; x < modelCount; ++x )
         {
-            float tintR = 1.0f;
-            float tintG = 1.0f;
-            float tintB = 1.0f;
-            float colorOverride = 0.0f;
-            m_gameModels[x].GetRenderTint( tintR, tintG, tintB, colorOverride );
-            if ( m_soaIsFixed[x] )
+            if ( m_soaIsBox[x] )
             {
-                constexpr float fixedBase = 241.0f / 255.0f; // #F1F1F1
-                float hit = m_gameModels[x].GetFixedContactHighlightAlpha();
-                tintR = fixedBase + ( 1.0f - fixedBase ) * hit;
-                tintG = fixedBase * ( 1.0f - hit );
-                tintB = fixedBase * ( 1.0f - hit );
-                colorOverride = 1.0f;
+                float tintR = 1.0f;
+                float tintG = 1.0f;
+                float tintB = 1.0f;
+                float colorOverride = 0.0f;
+                m_gameModels[x].GetRenderTint( tintR, tintG, tintB, colorOverride );
+                const bool isPineVisual = IsPineVisualMaterial( colorOverride );
+                if ( isPineVisual )
+                {
+                    hasPineVisualModels = true;
+                }
+                if ( isPineVisual != pineVisualPass )
+                {
+                    continue;
+                }
+                if ( m_soaIsFixed[x] )
+                {
+                    float hit = m_gameModels[x].GetFixedContactHighlightAlpha();
+                    if ( colorOverride <= 0.5f && colorOverride >= -0.5f )
+                    {
+                        constexpr float fixedBase = 241.0f / 255.0f; // #F1F1F1
+                        tintR = fixedBase + ( 1.0f - fixedBase ) * hit;
+                        tintG = fixedBase * ( 1.0f - hit );
+                        tintB = fixedBase * ( 1.0f - hit );
+                        colorOverride = 1.0f;
+                    }
+                    else if ( hit > 0.0f )
+                    {
+                        tintR = tintR + ( 1.0f - tintR ) * hit;
+                        tintG = tintG * ( 1.0f - hit );
+                        tintB = tintB * ( 1.0f - hit );
+                    }
+                }
+                if ( pineVisualPass )
+                {
+                    SkullbonezHelper::DrawPineBatchModel( m_soaModelMatrices[x], tintR, tintG, tintB, colorOverride );
+                }
+                else
+                {
+                    SkullbonezHelper::DrawBoxBatchModel( m_soaModelMatrices[x], tintR, tintG, tintB, colorOverride );
+                }
             }
-            SkullbonezHelper::DrawBoxBatchModel( m_soaModelMatrices[x], tintR, tintG, tintB, colorOverride );
         }
-    }
+    };
+
+    SkullbonezHelper::DrawBoxBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes, cinematic );
+    appendBoxLikeModels( false );
     SkullbonezHelper::DrawBoxBatchEnd();
+
+    if ( hasPineVisualModels )
+    {
+        SkullbonezHelper::DrawPineBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes, cinematic );
+        appendBoxLikeModels( true );
+        SkullbonezHelper::DrawPineBatchEnd();
+    }
 }
 
 

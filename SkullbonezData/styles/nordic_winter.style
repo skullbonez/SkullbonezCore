@@ -1,0 +1,30 @@
+# 18. Nordic Winter
+style _concept_base
+cinematic_style_modes 17 11 4 0
+cinematic_exposure 0.86
+cinematic_gamma 2.12
+cinematic_sun_screen_x 0.60
+cinematic_sun_screen_y 0.74
+cinematic_sun_intensity 16.0
+cinematic_style_grade 0.78 1.14 0.78
+cinematic_cloud_coverage 0.38
+cinematic_fog_density 0.0009
+cinematic_fog_max_opacity 0.30
+cinematic_sun_color_r 0.72
+cinematic_sun_color_g 0.84
+cinematic_sun_color_b 1.00
+cinematic_sky_horizon_r 0.78
+cinematic_sky_horizon_g 0.86
+cinematic_sky_horizon_b 0.96
+cinematic_sky_zenith_r 0.36
+cinematic_sky_zenith_g 0.56
+cinematic_sky_zenith_b 0.82
+cinematic_terrain_tint 0.88 0.94 1.00
+cinematic_terrain_accent 0.42 0.60 0.82
+cinematic_water_tint 0.58 0.74 0.86
+cinematic_water_profile 0.0 0.0 0.0
+
+# Object material look overrides.
+object_material balls 0.92 0.98 1.0 beachball
+object_material prefix:ice 0.62 0.82 1.00 glass
+object_material prefix:snow 0.94 0.97 1.00 matte

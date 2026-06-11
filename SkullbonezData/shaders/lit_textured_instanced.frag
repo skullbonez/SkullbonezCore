@@ -25,6 +25,7 @@ uniform vec4 uLightDiffuse;
 uniform vec4 uMaterialAmbient;
 uniform vec4 uMaterialDiffuse;
 uniform sampler2D uTexture;
+uniform int uObjectStyle;
 
 in vec3 vViewPos;
 in vec3 vNormal;
@@ -61,6 +62,147 @@ vec3 ProceduralBeachBallColor(vec2 uv)
     return mix(color, vec3(1.0, 0.62, 0.02), seam * 0.28);
 }
 
+vec3 QuantizedLowPolyNormal(vec3 N)
+{
+    vec3 qN = floor(N * 2.5 + 0.5) / 2.5;
+    return normalize(mix(N, qN, 0.88));
+}
+
+float LowPolySunBand(float lightAmount)
+{
+    return lightAmount > 0.72 ? 1.0 : (lightAmount > 0.34 ? 0.62 : 0.30);
+}
+
+vec3 ApplyMaterialMode(int mode, vec3 materialColor, vec3 N, vec3 V, vec3 L, vec3 lightColor, float diff, float spec)
+{
+    vec3 R = reflect(-L, N);
+    if (mode == 2)
+    {
+        float metalSpec = pow(max(dot(V, R), 0.0), 140.0);
+        vec3 reflected = mix(vec3(0.10, 0.12, 0.14), lightColor * 1.4, metalSpec);
+        return materialColor * (0.12 + diff * 0.32) + reflected * (0.35 + metalSpec * 0.75);
+    }
+    if (mode == 3)
+    {
+        float pulse = 0.70 + 0.30 * sin(vTexCoord.x * 24.0 + vTexCoord.y * 18.0);
+        return materialColor * (1.5 + pulse * 1.2) + lightColor * spec * 0.22;
+    }
+    if (mode == 4)
+    {
+        float fresnel = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 2.6);
+        return materialColor * (0.18 + diff * 0.22) + lightColor * (fresnel * 0.85 + spec * 0.48);
+    }
+    if (mode == 5)
+    {
+        float bands = diff > 0.72 ? 1.0 : (diff > 0.34 ? 0.58 : 0.24);
+        float rim = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 3.0);
+        return materialColor * (0.18 + bands * 0.95) + lightColor * rim * 0.16;
+    }
+    if (mode == 6)
+    {
+        vec3 qN = QuantizedLowPolyNormal(N);
+        float qDiff = max(dot(qN, L), 0.0);
+        float sunBand = LowPolySunBand(qDiff);
+        float hemiT = clamp(qN.y * 0.5 + 0.5, 0.0, 1.0);
+        vec3 skyAmbient = vec3(0.34, 0.46, 0.72);
+        vec3 groundAmbient = vec3(0.34, 0.24, 0.13);
+        vec3 hemiAmbient = mix(groundAmbient, skyAmbient, hemiT);
+        vec3 poster = mix(materialColor, floor(materialColor * 4.0 + 0.5) / 4.0, 0.35);
+        float rim = pow(1.0 - clamp(dot(qN, V), 0.0, 1.0), 2.2);
+        vec3 warmSun = lightColor * vec3(1.03, 0.92, 0.68);
+        return poster * (hemiAmbient * 0.50 + warmSun * (0.22 + sunBand * 0.42)) + warmSun * rim * 0.055;
+    }
+    if (mode == 8)
+    {
+        vec3 qN = QuantizedLowPolyNormal(N);
+        float qDiff = max(dot(qN, L), 0.0);
+        float sunBand = LowPolySunBand(qDiff);
+        float hemiT = clamp(qN.y * 0.5 + 0.5, 0.0, 1.0);
+        float leafTier = floor(clamp(vTexCoord.y + qN.y * 0.22, 0.0, 1.0) * 4.0) / 4.0;
+        vec3 topLeaf = mix(materialColor, vec3(0.50, 0.66, 0.18), 0.42);
+        vec3 underside = mix(materialColor * vec3(0.40, 0.58, 0.34), vec3(0.06, 0.22, 0.06), 0.36);
+        vec3 leaf = mix(underside, topLeaf, hemiT);
+        leaf *= 0.78 + leafTier * 0.20 + sunBand * 0.10;
+        vec3 skyAmbient = vec3(0.26, 0.38, 0.52);
+        vec3 groundAmbient = vec3(0.14, 0.24, 0.07);
+        vec3 hemiAmbient = mix(groundAmbient, skyAmbient, hemiT);
+        vec3 warmSun = lightColor * vec3(1.02, 0.88, 0.54);
+        float rim = pow(1.0 - clamp(dot(qN, V), 0.0, 1.0), 2.1);
+        return leaf * (hemiAmbient * 0.52 + warmSun * (0.18 + sunBand * 0.38)) + warmSun * rim * 0.034;
+    }
+    if (mode == 13)
+    {
+        vec3 qN = QuantizedLowPolyNormal(N);
+        float qDiff = max(dot(qN, L), 0.0);
+        float sunBand = LowPolySunBand(qDiff);
+        float hemiT = clamp(qN.y * 0.5 + 0.5, 0.0, 1.0);
+        float heightBand = floor(clamp(vTexCoord.y, 0.0, 1.0) * 3.0) / 3.0;
+        vec3 litNeedle = mix(materialColor, vec3(0.48, 0.64, 0.18), 0.38);
+        vec3 shadowNeedle = mix(materialColor * vec3(0.36, 0.54, 0.34), vec3(0.040, 0.16, 0.045), 0.42);
+        vec3 leaf = mix(shadowNeedle, litNeedle, hemiT);
+        leaf *= 0.74 + heightBand * 0.16 + sunBand * 0.18;
+        vec3 skyAmbient = vec3(0.22, 0.33, 0.48);
+        vec3 groundAmbient = vec3(0.10, 0.18, 0.07);
+        vec3 hemiAmbient = mix(groundAmbient, skyAmbient, hemiT);
+        vec3 warmSun = lightColor * vec3(1.02, 0.86, 0.50);
+        float rim = pow(1.0 - clamp(dot(qN, V), 0.0, 1.0), 2.0);
+        return leaf * (hemiAmbient * 0.58 + warmSun * (0.12 + sunBand * 0.36)) + warmSun * rim * 0.024;
+    }
+    if (mode == 9)
+    {
+        vec3 qN = QuantizedLowPolyNormal(N);
+        float sunBand = LowPolySunBand(max(dot(qN, L), 0.0));
+        float grain = 0.5 + 0.5 * sin(vTexCoord.x * 24.0 + vTexCoord.y * 7.0);
+        vec3 bark = mix(materialColor * vec3(0.72, 0.58, 0.42), materialColor * vec3(1.22, 0.96, 0.62) + vec3(0.05, 0.025, 0.0), grain * 0.28);
+        float hemiT = clamp(qN.y * 0.5 + 0.5, 0.0, 1.0);
+        vec3 hemiAmbient = mix(vec3(0.30, 0.20, 0.11), vec3(0.44, 0.44, 0.32), hemiT);
+        vec3 warmSun = lightColor * vec3(1.02, 0.86, 0.55);
+        return bark * (hemiAmbient * 0.46 + warmSun * (0.14 + sunBand * 0.34));
+    }
+    if (mode == 10)
+    {
+        vec3 qN = QuantizedLowPolyNormal(N);
+        float sunBand = LowPolySunBand(max(dot(qN, L), 0.0));
+        float facet = floor(max(qN.y, 0.0) * 4.0) / 4.0;
+        vec3 stone = mix(materialColor * vec3(0.90, 0.94, 1.04), vec3(0.44, 0.48, 0.56), 0.42);
+        stone *= 0.68 + facet * 0.26 + sunBand * 0.05;
+        float hemiT = clamp(qN.y * 0.5 + 0.5, 0.0, 1.0);
+        vec3 hemiAmbient = mix(vec3(0.22, 0.22, 0.26), vec3(0.46, 0.50, 0.56), hemiT);
+        vec3 warmSun = lightColor * vec3(0.86, 0.78, 0.58);
+        float rim = pow(1.0 - clamp(dot(qN, V), 0.0, 1.0), 2.4);
+        return stone * (hemiAmbient * 0.54 + warmSun * (0.12 + sunBand * 0.24)) + warmSun * rim * 0.014;
+    }
+    if (mode == 11)
+    {
+        vec3 qN = QuantizedLowPolyNormal(N);
+        float sunBand = LowPolySunBand(max(dot(qN, L), 0.0));
+        float hemiT = clamp(qN.y * 0.5 + 0.5, 0.0, 1.0);
+        vec3 ridge = mix(materialColor, vec3(0.70, 0.76, 0.48), 0.38);
+        ridge *= 0.82 + floor(max(qN.y, 0.0) * 3.0) * 0.08;
+        vec3 hazeAmbient = mix(vec3(0.40, 0.44, 0.30), vec3(0.62, 0.70, 0.66), hemiT);
+        vec3 warmSun = lightColor * vec3(0.88, 0.80, 0.58);
+        return ridge * (hazeAmbient * 0.58 + warmSun * (0.10 + sunBand * 0.20));
+    }
+    if (mode == 12)
+    {
+        vec3 qN = QuantizedLowPolyNormal(N);
+        float sunBand = LowPolySunBand(max(dot(qN, L), 0.0));
+        float band = floor(clamp(vTexCoord.y, 0.0, 1.0) * 3.0) / 3.0;
+        vec3 sand = mix(materialColor, vec3(0.84, 0.76, 0.48), 0.44);
+        sand *= 0.86 + band * 0.12;
+        float hemiT = clamp(qN.y * 0.5 + 0.5, 0.0, 1.0);
+        vec3 hemiAmbient = mix(vec3(0.42, 0.34, 0.20), vec3(0.62, 0.66, 0.52), hemiT);
+        vec3 warmSun = lightColor * vec3(1.06, 0.94, 0.64);
+        return sand * (hemiAmbient * 0.50 + warmSun * (0.18 + sunBand * 0.34));
+    }
+    if (mode == 7)
+    {
+        float rim = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 1.8);
+        return vec3(0.006, 0.010, 0.018) + materialColor * rim * 0.16 + lightColor * spec * 0.05;
+    }
+    return materialColor * (0.16 + diff * 0.92) + lightColor * spec * 0.12;
+}
+
 void main()
 {
     // Re-normalize the interpolated normal (interpolation can denormalize it).
@@ -90,13 +232,31 @@ void main()
     // Combine lighting with texture or explicit instance color; specular is added on top.
     vec4 texColor = texture(uTexture, vTexCoord);
     bool cinematicMode = uLightPosition.w == 0.0;
-    if (uLightPosition.w == 0.0)
+    int materialMode = int(floor(vTint.a + 0.5));
+    if (vTint.a < -0.5)
+    {
+        materialMode = 0;
+    }
+    else if (vTint.a > 1.25)
+    {
+        materialMode = int(floor(vTint.a + 0.5));
+    }
+    else if (vTint.a > 0.5)
+    {
+        materialMode = 1;
+    }
+    else
+    {
+        materialMode = uObjectStyle;
+    }
+
+    if (cinematicMode && materialMode == 0)
     {
         // Directional light means cinematic sun mode, so replace the sampled
         // texture with the procedural red/yellow panel color described above.
         texColor.rgb = ProceduralBeachBallColor(vTexCoord);
     }
-    vec3 materialColor = mix(texColor.rgb * vTint.rgb, vTint.rgb, clamp(vTint.a, 0.0, 1.0));
+    vec3 materialColor = materialMode == 0 ? texColor.rgb * vTint.rgb : vTint.rgb;
 
     if (cinematicMode)
     {
@@ -110,10 +270,13 @@ void main()
         vec3 directSun = materialColor * uLightDiffuse.rgb * (diff * 0.62 + warmWrap * 0.18);
         vec3 rimLight = uLightDiffuse.rgb * rim * 0.18;
         vec3 specularSun = uLightDiffuse.rgb * glint * 0.24;
-        FragColor = vec4(warmAmbient + directSun + rimLight + specularSun, 1.0);
+        vec3 styled = ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, glint);
+        vec3 beachBall = warmAmbient + directSun + rimLight + specularSun;
+        FragColor = vec4(materialMode == 0 ? beachBall : styled + rimLight * 0.35, 1.0);
         return;
     }
 
-    vec3 litColor = (ambient + diffuse) * materialColor + specular;
+    vec3 litColor = materialMode == 0 ? (ambient + diffuse) * materialColor + specular
+                                      : ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, spec);
     FragColor = vec4(litColor, 1.0);
 }

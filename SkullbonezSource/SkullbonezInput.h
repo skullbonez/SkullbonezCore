@@ -77,6 +77,10 @@ class Input
     static bool IsSystemCursorVisibleRequested();                    // Last requested native cursor ownership state
     static bool IsKeyDown( const char cKey );                        // Returns true if specified key is pressed (use upper case)
     static bool IsKeyToggled( const char cKey );                     // Returns true if specified key is toggled (use upper case)
+    static bool RegisterRawMouseInput( HWND window );                // Registers the window for relative mouse movement messages
+    static void AccumulateRawMouseDelta( HRAWINPUT rawInput );       // Adds mouse movement from WM_INPUT to the per-frame queue
+    static bool ConsumeRawMouseDelta( long& xMove, long& yMove );    // Returns and clears accumulated raw mouse movement
+    static void ResetMouseLookDeltas();                              // Clears queued raw mouse movement and absolute tracking state
     static POINT GetMouseCoordinates();                              // Returns the coordinates of the mouse cursor
     static POINT GetClientMouseCoordinates();                        // Returns mouse coordinates relative to the app client area
     static void SetMouseCoordinates( const POINT& pNewCoordinates ); // Sets the mouse coordinates

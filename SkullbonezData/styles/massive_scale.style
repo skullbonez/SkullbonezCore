@@ -1,0 +1,30 @@
+# 13. Massive Scale
+style _concept_base
+cinematic_style_modes 12 8 1 2
+cinematic_exposure 0.66
+cinematic_gamma 2.18
+cinematic_sun_screen_x 0.18
+cinematic_sun_screen_y 0.72
+cinematic_sun_intensity 15.0
+cinematic_style_grade 0.78 1.18 0.58
+cinematic_fog_density 0.0018
+cinematic_fog_max_opacity 0.62
+cinematic_fog_start 60.0
+cinematic_fog_end 2200.0
+cinematic_sun_color_r 0.68
+cinematic_sun_color_g 0.78
+cinematic_sun_color_b 1.00
+cinematic_sky_horizon_r 0.55
+cinematic_sky_horizon_g 0.62
+cinematic_sky_horizon_b 0.72
+cinematic_sky_zenith_r 0.006
+cinematic_sky_zenith_g 0.008
+cinematic_sky_zenith_b 0.020
+cinematic_terrain_tint 0.50 0.54 0.56
+cinematic_terrain_accent 0.20 0.24 0.32
+cinematic_water_tint 0.08 0.12 0.18
+cinematic_water_profile 0.86 0.26 0.12
+
+# Object material look overrides.
+object_material balls 0.86 0.80 0.70 matte
+object_material prefix:tiny 1.0 1.0 1.0 beachball

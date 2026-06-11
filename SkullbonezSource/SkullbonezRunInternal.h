@@ -71,6 +71,8 @@ inline constexpr double PERF_TEST_PASS_SECONDS = 2.0;
 inline constexpr float WATER_HEIGHT_CONTROL_SPEED = 20.0f;
 inline constexpr float NO_WATER_TERRAIN_CLEARANCE = 100.0f;
 inline constexpr float CAMERA_MOUSE_REFERENCE_DT = 1.0f / 60.0f;
+inline constexpr long CAMERA_MOUSE_MAX_DELTA_PIXELS = 96;
+inline constexpr long CAMERA_MOUSE_SPIKE_DELTA_PIXELS = 320;
 inline constexpr float CAMERA_PROJECTILE_SPEED = 12000.0f;
 inline constexpr float CAMERA_PROJECTILE_SHIFT_MULTIPLIER = 3.0f;
 inline constexpr float CAMERA_PROJECTILE_RADIUS = 0.25f;
@@ -295,6 +297,32 @@ inline void ApplyCinematicSceneOverrides( CinematicRenderConfig& target, uint64_
     APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_END, fogEnd )
     APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_DENSITY, fogDensity )
     APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_FOG_MAX_OPACITY, fogMaxOpacity )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_MODES, skyMode )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_MODES, terrainMode )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_MODES, objectStyle )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_MODES, waterMode )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_GRADE, styleSaturation )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_GRADE, styleContrast )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_STYLE_GRADE, styleVignette )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_TINT, terrainTintR )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_TINT, terrainTintG )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_TINT, terrainTintB )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_ACCENT, terrainAccentR )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_ACCENT, terrainAccentG )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_ACCENT, terrainAccentB )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_GRID, terrainGridScale )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_TERRAIN_GRID, terrainGridStrength )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_WATER_TINT, waterTintR )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_WATER_TINT, waterTintG )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_WATER_TINT, waterTintB )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_WATER_PROFILE, waterAlpha )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_WATER_PROFILE, waterReflectionStrength )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_WATER_PROFILE, waterGlintStrength )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_MASK, basinCenterX )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_MASK, basinCenterZ )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_MASK, basinRadiusX )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_MASK, basinRadiusZ )
+    APPLY_CINEMATIC_OVERRIDE( SCENE_CINE_BASIN_MASK, basinFeather )
 
 #undef APPLY_CINEMATIC_OVERRIDE
 }
@@ -365,6 +393,7 @@ struct SceneRuntimeResetSnapshot
     bool hasCinematicGamma = false;
     float cinematicGamma = 2.2f;
     uint64_t cinematicOverrideMask = 0;
+    uint64_t uiCinematicOverrideMask = 0;
     CinematicRenderConfig cinematicRender;
     float uiTimeScaleOverride = 0.0f; // UI overrides feed object setup during reload, so they must survive before the scene rebuilds
     int uiModelCountOverride = -1;

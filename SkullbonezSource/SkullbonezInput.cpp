@@ -11,6 +11,13 @@ namespace
 {
 int g_mouseWheelDelta = 0;
 bool g_systemCursorVisibleRequested = false;
+long g_rawMouseDeltaX = 0;
+long g_rawMouseDeltaY = 0;
+bool g_rawMouseHasAbsolutePosition = false;
+long g_rawMouseLastAbsoluteX = 0;
+long g_rawMouseLastAbsoluteY = 0;
+
+constexpr int RAW_MOUSE_ABSOLUTE_RANGE = 65535;
 
 void EnsureShowCursorVisible()
 {
@@ -37,6 +44,16 @@ void EnsureShowCursorHidden()
     {
         ShowCursor( TRUE );
     }
+}
+
+
+long RawAbsoluteToPixels( long value, int extent )
+{
+    if ( extent <= 0 )
+    {
+        return 0;
+    }
+    return static_cast<long>( MulDiv( static_cast<int>( value ), extent, RAW_MOUSE_ABSOLUTE_RANGE ) );
 }
 } // namespace
 
@@ -125,6 +142,106 @@ bool Input::IsKeyToggled( const char cKey )
     // lowest order bit is set to 1 if key is toggled, see Input::IsKeyDown
     // for an explanation on the conditional statement below
     return ( ( GetKeyState( cKey ) & LOWEST_ORDER_BIT_16 ) != 0 );
+}
+
+
+bool Input::RegisterRawMouseInput( HWND window )
+{
+    if ( !window )
+    {
+        return false;
+    }
+
+    RAWINPUTDEVICE device = {};
+    device.usUsagePage = 0x01; // Generic desktop controls
+    device.usUsage = 0x02;     // Mouse
+    device.dwFlags = 0;        // Keep legacy mouse messages for UI hit-testing
+    device.hwndTarget = window;
+
+    if ( !RegisterRawInputDevices( &device, 1, sizeof( device ) ) )
+    {
+        return false;
+    }
+
+    ResetMouseLookDeltas();
+    return true;
+}
+
+
+void Input::AccumulateRawMouseDelta( HRAWINPUT rawInput )
+{
+    if ( !rawInput || !IsAppFocused() )
+    {
+        return;
+    }
+
+    RAWINPUT data = {};
+    UINT dataSize = sizeof( data );
+    const UINT bytesRead = GetRawInputData( rawInput,
+                                            RID_INPUT,
+                                            &data,
+                                            &dataSize,
+                                            sizeof( RAWINPUTHEADER ) );
+    if ( bytesRead == static_cast<UINT>( -1 ) || data.header.dwType != RIM_TYPEMOUSE )
+    {
+        return;
+    }
+
+    const RAWMOUSE& mouse = data.data.mouse;
+    if ( ( mouse.usFlags & MOUSE_MOVE_ABSOLUTE ) != 0 )
+    {
+        const int width = ( mouse.usFlags & MOUSE_VIRTUAL_DESKTOP ) != 0
+                              ? GetSystemMetrics( SM_CXVIRTUALSCREEN )
+                              : GetSystemMetrics( SM_CXSCREEN );
+        const int height = ( mouse.usFlags & MOUSE_VIRTUAL_DESKTOP ) != 0
+                               ? GetSystemMetrics( SM_CYVIRTUALSCREEN )
+                               : GetSystemMetrics( SM_CYSCREEN );
+
+        const long currentX = RawAbsoluteToPixels( mouse.lLastX, width );
+        const long currentY = RawAbsoluteToPixels( mouse.lLastY, height );
+        if ( g_rawMouseHasAbsolutePosition )
+        {
+            g_rawMouseDeltaX += currentX - g_rawMouseLastAbsoluteX;
+            g_rawMouseDeltaY += currentY - g_rawMouseLastAbsoluteY;
+        }
+        g_rawMouseLastAbsoluteX = currentX;
+        g_rawMouseLastAbsoluteY = currentY;
+        g_rawMouseHasAbsolutePosition = true;
+    }
+    else
+    {
+        g_rawMouseDeltaX += mouse.lLastX;
+        g_rawMouseDeltaY += mouse.lLastY;
+        g_rawMouseHasAbsolutePosition = false;
+    }
+}
+
+
+bool Input::ConsumeRawMouseDelta( long& xMove, long& yMove )
+{
+    if ( !IsAppFocused() )
+    {
+        ResetMouseLookDeltas();
+        xMove = 0;
+        yMove = 0;
+        return false;
+    }
+
+    xMove = g_rawMouseDeltaX;
+    yMove = g_rawMouseDeltaY;
+    g_rawMouseDeltaX = 0;
+    g_rawMouseDeltaY = 0;
+    return xMove != 0 || yMove != 0;
+}
+
+
+void Input::ResetMouseLookDeltas()
+{
+    g_rawMouseDeltaX = 0;
+    g_rawMouseDeltaY = 0;
+    g_rawMouseHasAbsolutePosition = false;
+    g_rawMouseLastAbsoluteX = 0;
+    g_rawMouseLastAbsoluteY = 0;
 }
 
 

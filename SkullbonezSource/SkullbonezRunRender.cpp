@@ -124,7 +124,7 @@ void SkullbonezRun::ResetCinematicRenderResources()
 }
 
 
-void SkullbonezRun::RenderCinematicSky()
+void SkullbonezRun::RenderCinematicSky( const Matrix4& view, const Matrix4& projection )
 {
     const CinematicRenderConfig& cinematic = ActiveCinematicConfig();
     if ( !cinematic.skyAtmosphereEnabled || !m_systems.skyAtmosphereShader || m_systems.postQuadVB == 0 )
@@ -149,6 +149,9 @@ void SkullbonezRun::RenderCinematicSky()
     m_systems.skyAtmosphereShader->SetVec3( "uSunColor", cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
     m_systems.skyAtmosphereShader->SetVec3( "uHorizonColor", cinematic.skyHorizonR, cinematic.skyHorizonG, cinematic.skyHorizonB );
     m_systems.skyAtmosphereShader->SetVec3( "uZenithColor", cinematic.skyZenithR, cinematic.skyZenithG, cinematic.skyZenithB );
+    m_systems.skyAtmosphereShader->SetMat4( "uInvView", view.Inverse() );
+    m_systems.skyAtmosphereShader->SetMat4( "uInvProjection", projection.Inverse() );
+    m_systems.skyAtmosphereShader->SetInt( "uSkyMode", cinematic.skyMode );
     m_systems.skyAtmosphereShader->SetVec4( "uCloudParams",
                                             cinematic.cloudCoverage,
                                             cinematic.cloudSoftness,
@@ -335,6 +338,11 @@ void SkullbonezRun::ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound,
                                       cinematic.cloudSoftness,
                                       cinematic.cloudScale,
                                       cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
+    m_systems.tonemapShader->SetVec4( "uStyleGrade",
+                                      cinematic.styleSaturation,
+                                      cinematic.styleContrast,
+                                      cinematic.styleVignette,
+                                      static_cast<float>( cinematic.skyMode ) );
     m_systems.tonemapShader->SetFloat( "uVolumetricCompositeStrength", volumetricReady && cinematic.volumetricLightingEnabled ? 1.0f : 0.0f );
     // Slot 0 is the bright HDR scene, slot 1 is its depth buffer, and slot 2 is
     // either the volumetric-light texture or a harmless fallback when that pass
@@ -521,7 +529,7 @@ void SkullbonezRun::DrawPrimitives()
         PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Skybox" );
         if ( cinematicRender && ActiveCinematicConfig().skyAtmosphereEnabled )
         {
-            RenderCinematicSky();
+            RenderCinematicSky( reflView, proj );
         }
         else
         {
@@ -568,7 +576,7 @@ void SkullbonezRun::DrawPrimitives()
         PROFILE_GPU_BEGIN( "Frame/Render/CinematicSky" );
         if ( ActiveCinematicConfig().skyAtmosphereEnabled )
         {
-            RenderCinematicSky();
+            RenderCinematicSky( baseView, proj );
         }
         else
         {
@@ -611,7 +619,7 @@ void SkullbonezRun::DrawPrimitives()
     }
 
     // render the fluid ---------------------------
-    if ( !m_debug.isWaterHidden )
+    if ( !m_debug.isWaterHidden && ( !cinematicRender || ActiveCinematicConfig().waterMode != 0 ) )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Water" );
         float waterTime = m_debug.isWaterFreezeDebug
@@ -821,6 +829,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         UIData.sceneOptions = m_sceneBrowserNamePtrs.empty() ? nullptr : m_sceneBrowserNamePtrs.data();
         UIData.sceneOptionCount = static_cast<int>( m_sceneBrowserNamePtrs.size() );
         UIData.selectedSceneOption = CurrentSceneBrowserIndex();
+        UIData.selectedCineModeSceneOption = m_selectedCineModeSceneIndex;
         UIData.UIDrawCalls = m_timers.lastUIDrawCalls;
         UIData.fps = m_timers.rollingFpsTime > 0.0f ? m_timers.rollingFpsTime : ( dSecondsPerFrame > 0.0 ? 1.0f / static_cast<float>( dSecondsPerFrame ) : 0.0f );
         UIData.renderMs = ( m_timers.rollingRenderTime > 0.0f ? m_timers.rollingRenderTime : m_timers.renderTime ) * 1000.0f;

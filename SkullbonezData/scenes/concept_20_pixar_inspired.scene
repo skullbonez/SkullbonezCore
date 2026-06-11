@@ -1,0 +1,25 @@
+# 20. Pixar-Inspired
+seed 1020
+physics off
+text off
+vsync off
+pipeline_sync on
+fixed_step
+frames unlimited
+water_reflection fbo
+world -30.0 25.0 1.0
+style pixar_inspired
+camera main 650 155 900  610 52 610  0 1 0
+
+floating_box hill_l 420 48 650  80 14 34  3000 0.08  0 12 0
+floating_box hill_r 805 45 625  95 13 32  3000 0.08  0 -10 0
+floating_box cloud_01 480 155 505  38 10 18  2000 0.08
+floating_box cloud_02 760 168 520  44 10 20  2000 0.08
+ball hero 620 56 650 28 112 26 0.48 0 24 0
+ball cute_01 470 64 705 15 62 14 0.44 0 70 0
+ball cute_02 760 58 690 16 66 15 0.44 0 130 0
+ball cute_03 390 80 585 8 32 8 0.40 0 20 0
+ball cute_04 520 74 545 7 28 7 0.40 0 60 0
+ball cute_05 675 70 540 7 28 7 0.40 0 100 0
+ball cute_06 825 82 575 8 32 8 0.40 0 140 0
+ball sky_buddy 870 178 505 10 34 9 0.38 0 160 0

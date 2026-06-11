@@ -1,0 +1,25 @@
+# 5. Alien Planet
+seed 1005
+physics off
+text off
+vsync off
+pipeline_sync on
+fixed_step
+frames unlimited
+water_reflection fbo
+world -30.0 25.0 1.0
+style alien_planet
+camera main 650 190 1040  615 65 600  0 1 0
+
+floating_box rock_island_01 420 140 500  42 14 24  3000 0.10  8 0 18
+floating_box rock_island_02 785 132 540  34 12 20  3000 0.10  -6 0 -20
+floating_box crystal_spire_01 500 65 570  8 34 8  2000 0.10  0 18 0
+floating_box crystal_spire_02 735 60 585  7 30 7  2000 0.10  0 -16 0
+ball hero 625 58 640 28 112 26 0.50 0 26 0
+ball near_01 470 70 705 15 66 14 0.45 0 76 0
+ball near_02 785 64 690 16 70 15 0.45 0 126 0
+ball mid_01 410 96 560 9 38 8 0.42 0 26 0
+ball mid_02 535 84 520 8 34 8 0.42 0 66 0
+ball mid_03 690 76 525 8 34 8 0.42 0 106 0
+ball float_01 520 168 455 9 32 8 0.42 0 30 0
+ball float_02 880 176 560 7 28 7 0.42 0 130 0

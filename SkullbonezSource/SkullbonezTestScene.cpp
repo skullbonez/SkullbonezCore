@@ -17,6 +17,12 @@ TestScene TestScene::LoadFromFile( const char* path )
 }
 
 
+TestScene TestScene::LoadStyleFromFile( const char* path )
+{
+    return LoadStyleSceneFromFileImpl( path );
+}
+
+
 bool TestScene::IsPhysicsEnabled() const
 {
     return m_sceneOptions.isPhysicsEnabled;
@@ -368,6 +374,23 @@ const SceneBox& TestScene::GetBox( int index ) const
     }
 
     return m_boxes[index];
+}
+
+
+int TestScene::GetObjectMaterialOverrideCount() const
+{
+    return static_cast<int>( m_objectMaterials.size() );
+}
+
+
+const SceneObjectMaterialOverride& TestScene::GetObjectMaterialOverride( int index ) const
+{
+    if ( index < 0 || index >= static_cast<int>( m_objectMaterials.size() ) )
+    {
+        throw std::runtime_error( "Object material override index out of range.  (TestScene::GetObjectMaterialOverride)" );
+    }
+
+    return m_objectMaterials[index];
 }
 
 

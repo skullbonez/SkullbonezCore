@@ -9,6 +9,7 @@ This file holds details that are useful during debugging or manual testing but t
 | `--renderer` | `gl`, `dx11`, `dx12` | Select render backend. Default is `gl`. |
 | `--scene` | path | Load one scene file. Quoted paths are supported. |
 | `--suite` | path | Load a `.suite` file with one scene path per line. |
+| `--demohero` | flag | Run generated demo mode with the low-poly hero rendering/style stack applied. Alias: `--demo-hero`. |
 | `--scene-load-only` | flag | Load queued scene files and exit before the frame loop. Alias: `--load-scenes-only`. Used by `tools\validate_scene_loads.bat`. |
 | `--vsync` | `on`, `off` | Override vsync from `engine.cfg`. |
 | `--dump-config` | flag | Print the resolved startup config after `engine.cfg` and command-line overrides. |
@@ -20,6 +21,7 @@ This file holds details that are useful during debugging or manual testing but t
 | `--no-sleep` | flag | Keep movable physics bodies awake for solver diagnostics and sleep/no-sleep performance comparisons. |
 | `--cinematic` | optional `on`, `off` | Force cinematic HDR/post rendering on or off for every loaded scene. Bare flag means `on`. Alias: `--cinematic-rendering`. |
 | `--interactive` | optional `on`, `off` | Keep scene automation from quitting the app so a screenshot/validation scene can be inspected live. Bare flag means `on`. Alias: `--hold`. |
+| `--live-style-control` | directory | Watch `<directory>\live.style` and `<directory>\capture.txt` while the scene keeps running. Applies style-only descriptors without reloading physics and saves requested screenshots after the current frame is drawn. Aliases: `--style-harness`, `--live_style_control`, `--style_harness`. |
 | `--profiler` | flag | Start with the timer/profiler HUD visible. Alias: `--show-profiler`. |
 | `--hide-top-text` | flag | Hide the always-on top HUD rows while leaving profiler/key overlays available. Alias: `--no-top-text`. |
 | `--broadphase-visualizer` | flag | Start with the broadphase spatial grid visualizer enabled. Alias: `--broadphase-overlay`. |
@@ -71,6 +73,47 @@ cinematic_exposure 0.85
 
 Scene overrides are merged into a per-run active cinematic config. They do not write back to `engine.cfg`, and `--cinematic on/off` remains the top-level command-line override for the rendering stack.
 
+## Interactive Hero Scene
+
+Use this to boot the low-poly hero scene with physics running, unlimited frames, and the balls/cubes bouncing:
+
+```bat
+Profile\SKULLBONEZ_CORE.exe --renderer gl --hero
+Profile\SKULLBONEZ_CORE.exe --renderer gl --scene hero
+```
+
+The dedicated `--hero` flag and the `--scene` aliases `hero`, `low_poly_hero`, and `low-poly-hero` resolve to `SkullbonezData\scenes\concept_12_low_poly_art_style.scene`. The hero scene is a live scene with physics on, `fixed_step`, and unlimited frames, so it keeps running until the window is closed. Bare scene names also resolve through `SkullbonezData\scenes\`, so `--scene stacking` loads `SkullbonezData\scenes\stacking.scene` when it exists.
+
+Use this to keep the generated demo scene and physics population, but render it with the same low-poly hero style:
+
+```bat
+Profile\SKULLBONEZ_CORE.exe --renderer gl --demohero
+```
+
+`--demohero` is mutually exclusive with `--hero`, `--scene`, and `--suite`. It only applies `SkullbonezData\styles\low_poly_art_style.style` after generated demo objects are created, so it does not import the hero scene's camera, world settings, fixed set dressing, or object list.
+
+## Live Style Harness
+
+The live style harness is for look-dev: keep the game window running, edit a `.style` descriptor, then request screenshots without restarting the scene or resetting physics.
+
+```bat
+tools\style_harness.bat init -Style low_poly_art_style
+tools\style_harness.bat launch -Renderer gl -Scene hero
+tools\style_harness.bat setshot -Key cinematic_exposure -Value 0.90 -Name exposure_090
+tools\style_harness.bat setshot -Key cinematic_style_grade -Value "1.35 1.10 0.22" -Name punchy_grade
+tools\style_harness.bat status
+```
+
+The watched folder defaults to `Agentic\style-harness\` and contains:
+
+| File | Purpose |
+|------|---------|
+| `live.style` | The active style descriptor. It may contain `style <name>`, `cinematic_*`, and `object_material` directives. |
+| `capture.txt` | A one-line request such as `capture "C:\SkullbonezCore\Agentic\style-harness\shots\shot.bmp"`. Relative paths are resolved under the harness folder. |
+| `status.txt` | Last app-side status, including whether the style was applied or a screenshot was saved. |
+
+`--live-style-control` automatically enters interactive hold mode. The app only parses/apply styles when `live.style` changes, then captures after render/UI on the next requested frame. It does not rebuild objects, reload cameras, restart frame counters, change simulation time scale, or apply scene directives such as `world`, `flat_slope`, `solver_balls`, or `time_scale`.
+
 ## Scene Directives
 
 Scene files are plain text. Blank lines and lines beginning with `#` are ignored.
@@ -81,12 +124,14 @@ Scene files are plain text. Blank lines and lines beginning with `#` are ignored
 | Capture | `screenshot`, `screenshot_interval` |
 | Logging | `perf_log`, `perf_log_flush`, `perf_log_flush_interval` |
 | Simulation | `physics`, `time_scale`, `seed`, `world` |
-| Objects | `ball`, `box`, `floating_box`, `ball_state`, `solver_balls`, `solver_boxes` |
+| Objects | `ball`, `floating_ball`, `box`, `floating_box`, `ball_state`, `solver_balls`, `solver_boxes` |
 | Camera | `camera`, `track_height`, `auto_cycle_interval` |
-| Rendering | `text`, `text_only`, `physics_debug`, `physics_debug_axes`, `physics_debug_contacts`, `physics_debug_sleep`, `physics_debug_pipeline`, `physics_debug_transparent`, `physics_debug_alpha`, `physics_debug_contact_linger`, `vsync`, `pipeline_sync`, `water_hidden`, `terrain_hidden`, `flat_slope` |
+| Rendering | `style`, `look`, `text`, `text_only`, `physics_debug`, `physics_debug_axes`, `physics_debug_contacts`, `physics_debug_sleep`, `physics_debug_pipeline`, `physics_debug_transparent`, `physics_debug_alpha`, `physics_debug_contact_linger`, `vsync`, `pipeline_sync`, `water_hidden`, `terrain_hidden`, `flat_slope` |
 
 For exact field order, inspect an existing scene in `SkullbonezData/scenes/` and the parser in `SkullbonezSource/SkullbonezTestScene.cpp`.
-`floating_box` uses the same fields as `box`, but the body is fixed in world space and excluded from gravity, impulses, and scene energy.
+`floating_ball` and `floating_box` use the same fields as `ball` and `box`, but the body is fixed in world space and excluded from gravity, impulses, and scene energy.
+`style <name>` includes `SkullbonezData/styles/<name>.style`; explicit paths ending in `.style` are also accepted. Style files hold render-look directives such as `cinematic_*` and `object_material`, can include shared style files with `style <name>`, and are intentionally kept separate from cameras, physics, gameplay objects, and set dressing. Legacy `look <name>` and `cinematic_look <name>` directives are compatibility aliases that load the matching `.style` file instead of using hard-coded presets.
+The in-game Cine tab exposes live sliders for tonemap, style modes, style grade, sky, terrain, water, basin, fog, and related cinematic values. Dragging those sliders mutates the active scene's `CinematicRenderConfig` without restarting physics; Scene tab `Save Defaults` writes only Cine controls changed by the UI as scene-local `cinematic_*` overrides, so `.style` files remain reusable base descriptors.
 
 Physics regression CSV output is command-line only via `--physics-regression-log` and `--physics-collision-time-log`; scene files must not enable it.
 

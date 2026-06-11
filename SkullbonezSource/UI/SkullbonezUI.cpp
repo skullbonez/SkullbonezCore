@@ -92,6 +92,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data, int currentRend
     hash = HashInt( hash, currentRendererIndex );
     hash = HashInt( hash, data.sceneOptionCount );
     hash = HashInt( hash, data.selectedSceneOption );
+    hash = HashInt( hash, data.selectedCineModeSceneOption );
     for ( int i = 0; i < data.sceneOptionCount && data.sceneOptions; ++i )
     {
         hash = HashTextValue( hash, data.sceneOptions[i] );
@@ -188,11 +189,37 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data, int currentRend
     hash = HashFloat( hash, data.cinematic.fogEnd, 10.0f );
     hash = HashFloat( hash, data.cinematic.fogDensity, 100000.0f );
     hash = HashFloat( hash, data.cinematic.fogMaxOpacity, 1000.0f );
+    hash = HashInt( hash, data.cinematic.skyMode );
+    hash = HashInt( hash, data.cinematic.terrainMode );
+    hash = HashInt( hash, data.cinematic.objectStyle );
+    hash = HashInt( hash, data.cinematic.waterMode );
+    hash = HashFloat( hash, data.cinematic.styleSaturation, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.styleContrast, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.styleVignette, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.terrainTintR, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.terrainTintG, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.terrainTintB, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.terrainAccentR, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.terrainAccentG, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.terrainAccentB, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.terrainGridScale, 100.0f );
+    hash = HashFloat( hash, data.cinematic.terrainGridStrength, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.waterTintR, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.waterTintG, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.waterTintB, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.waterAlpha, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.waterReflectionStrength, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.waterGlintStrength, 1000.0f );
+    hash = HashFloat( hash, data.cinematic.basinCenterX, 10.0f );
+    hash = HashFloat( hash, data.cinematic.basinCenterZ, 10.0f );
+    hash = HashFloat( hash, data.cinematic.basinRadiusX, 10.0f );
+    hash = HashFloat( hash, data.cinematic.basinRadiusZ, 10.0f );
+    hash = HashFloat( hash, data.cinematic.basinFeather, 1000.0f );
     return hash;
 }
 
 
-uint32_t BuildUIInteractionSignature( int mouseX, int mouseY, bool rendererOpen, bool reflectionOpen, bool sceneOpen, int activeSlider )
+uint32_t BuildUIInteractionSignature( int mouseX, int mouseY, bool rendererOpen, bool reflectionOpen, bool sceneOpen, bool cineSceneOpen, int activeSlider )
 {
     uint32_t hash = 2166136261u;
     hash = HashInt( hash, mouseX );
@@ -200,6 +227,7 @@ uint32_t BuildUIInteractionSignature( int mouseX, int mouseY, bool rendererOpen,
     hash = HashBool( hash, rendererOpen );
     hash = HashBool( hash, reflectionOpen );
     hash = HashBool( hash, sceneOpen );
+    hash = HashBool( hash, cineSceneOpen );
     hash = HashInt( hash, activeSlider );
     return hash;
 }
@@ -223,9 +251,10 @@ int WaterReflectionModeFromData( const InGameUIFrameData& data )
 }
 
 constexpr int UI_CINEMATIC_SLIDER_BASE = 5000;
-constexpr float UI_CINEMATIC_MASTER_Y = 42.0f;
-constexpr float UI_CINEMATIC_FEATURE_START_Y = 88.0f;
-constexpr float UI_CINEMATIC_START_Y = 258.0f;
+constexpr int UI_CINE_SCENE_MAX_OPTIONS = 32;
+constexpr float UI_CINEMATIC_SCENE_Y = 42.0f;
+constexpr float UI_CINEMATIC_FEATURE_START_Y = 96.0f;
+constexpr float UI_CINEMATIC_START_Y = 266.0f;
 constexpr float UI_CINEMATIC_SECTION_H = 28.0f;
 constexpr float UI_CINEMATIC_ROW_H = 42.0f;
 
@@ -252,6 +281,13 @@ struct CinematicFeatureSpec
 constexpr CinematicSliderSpec kCinematicSliderSpecs[] = {
     { "Tonemap", "Exposure", UICinematicParam::Exposure, 0.05f, 3.00f, 0.01f, "%.2f" },
     { nullptr, "Gamma", UICinematicParam::Gamma, 1.00f, 3.00f, 0.01f, "%.2f" },
+    { "Style", "Sky mode", UICinematicParam::SkyMode, 0.00f, 32.00f, 1.00f, "%.0f" },
+    { nullptr, "Terrain mode", UICinematicParam::TerrainMode, 0.00f, 32.00f, 1.00f, "%.0f" },
+    { nullptr, "Object style", UICinematicParam::ObjectStyle, 0.00f, 32.00f, 1.00f, "%.0f" },
+    { nullptr, "Water mode", UICinematicParam::WaterMode, 0.00f, 4.00f, 1.00f, "%.0f" },
+    { nullptr, "Saturation", UICinematicParam::StyleSaturation, 0.00f, 2.50f, 0.01f, "%.2f" },
+    { nullptr, "Contrast", UICinematicParam::StyleContrast, 0.00f, 2.50f, 0.01f, "%.2f" },
+    { nullptr, "Vignette", UICinematicParam::StyleVignette, 0.00f, 1.00f, 0.01f, "%.2f" },
     { "Sun", "Sun X", UICinematicParam::SunX, 0.00f, 1.00f, 0.005f, "%.3f" },
     { nullptr, "Sun Y", UICinematicParam::SunY, 0.00f, 1.00f, 0.005f, "%.3f" },
     { nullptr, "Brightness", UICinematicParam::SunBrightness, 0.00f, 40.00f, 0.10f, "%.1f" },
@@ -279,6 +315,25 @@ constexpr CinematicSliderSpec kCinematicSliderSpecs[] = {
     { nullptr, "Strength", UICinematicParam::BloomStrength, 0.00f, 2.00f, 0.01f, "%.2f" },
     { nullptr, "Radius", UICinematicParam::BloomRadius, 0.25f, 8.00f, 0.05f, "%.2f" },
     { "Terrain", "Relief", UICinematicParam::TerrainRelief, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Ground R", UICinematicParam::TerrainTintRed, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Ground G", UICinematicParam::TerrainTintGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Ground B", UICinematicParam::TerrainTintBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Accent R", UICinematicParam::TerrainAccentRed, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Accent G", UICinematicParam::TerrainAccentGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Accent B", UICinematicParam::TerrainAccentBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Grid scale", UICinematicParam::TerrainGridScale, 0.10f, 120.00f, 0.10f, "%.1f" },
+    { nullptr, "Grid strength", UICinematicParam::TerrainGridStrength, 0.00f, 4.00f, 0.01f, "%.2f" },
+    { "Water", "Water R", UICinematicParam::WaterTintRed, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Water G", UICinematicParam::WaterTintGreen, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Water B", UICinematicParam::WaterTintBlue, 0.00f, 1.50f, 0.01f, "%.2f" },
+    { nullptr, "Alpha", UICinematicParam::WaterAlpha, 0.00f, 1.00f, 0.01f, "%.2f" },
+    { nullptr, "Reflection", UICinematicParam::WaterReflection, 0.00f, 1.00f, 0.01f, "%.2f" },
+    { nullptr, "Glint", UICinematicParam::WaterGlint, 0.00f, 4.00f, 0.01f, "%.2f" },
+    { "Basin", "Center X", UICinematicParam::BasinCenterX, 0.00f, 1200.00f, 1.00f, "%.0f" },
+    { nullptr, "Center Z", UICinematicParam::BasinCenterZ, 0.00f, 1200.00f, 1.00f, "%.0f" },
+    { nullptr, "Radius X", UICinematicParam::BasinRadiusX, 1.00f, 500.00f, 1.00f, "%.0f" },
+    { nullptr, "Radius Z", UICinematicParam::BasinRadiusZ, 1.00f, 500.00f, 1.00f, "%.0f" },
+    { nullptr, "Feather", UICinematicParam::BasinFeather, 0.00f, 1.00f, 0.01f, "%.2f" },
     { nullptr, "Basin Depth", UICinematicParam::BasinDepth, 0.00f, 80.00f, 1.00f, "%.0f" },
     { nullptr, "Rim Lift", UICinematicParam::BasinRimLift, 0.00f, 60.00f, 1.00f, "%.0f" },
     { "Fog", "Density", UICinematicParam::FogDensity, 0.00000f, 0.00600f, 0.00005f, "%.5f" },
@@ -303,6 +358,52 @@ constexpr CinematicFeatureSpec kCinematicFeatureSpecs[] = {
 };
 static_assert( sizeof( kCinematicFeatureSpecs ) / sizeof( kCinematicFeatureSpecs[0] ) == static_cast<int>( UICinematicFeature::Count ),
                "Cinematic feature specs must match UICinematicFeature." );
+
+bool IsCineSceneOptionName( const char* name )
+{
+    if ( !name )
+    {
+        return false;
+    }
+    return strncmp( name, "concept_", 8 ) == 0 ||
+           strncmp( name, "cinematic_", 10 ) == 0 ||
+           strstr( name, "_cine_" ) != nullptr ||
+           strstr( name, "cine_" ) == name;
+}
+
+int BuildCineSceneOptions( const char* const* sceneOptions,
+                           int sceneOptionCount,
+                           const char* labels[UI_CINE_SCENE_MAX_OPTIONS],
+                           int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS] )
+{
+    int count = 0;
+    labels[count] = SceneTab::DEMO_SCENE_OPTION;
+    sceneIndices[count] = -1;
+    ++count;
+
+    for ( int i = 0; i < sceneOptionCount && sceneOptions && count < UI_CINE_SCENE_MAX_OPTIONS; ++i )
+    {
+        if ( IsCineSceneOptionName( sceneOptions[i] ) )
+        {
+            labels[count] = sceneOptions[i];
+            sceneIndices[count] = i;
+            ++count;
+        }
+    }
+    return count;
+}
+
+int SelectedCineSceneOption( const int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS], int cineOptionCount, int selectedSceneOption )
+{
+    for ( int i = 0; i < cineOptionCount; ++i )
+    {
+        if ( sceneIndices[i] == selectedSceneOption )
+        {
+            return i;
+        }
+    }
+    return 0;
+}
 
 int CinematicSliderIndexFromActiveSlider( int activeSlider )
 {
@@ -356,6 +457,20 @@ float CinematicValueForParam( const CinematicRenderConfig& cinematic, UICinemati
         return cinematic.exposure;
     case UICinematicParam::Gamma:
         return cinematic.gamma;
+    case UICinematicParam::SkyMode:
+        return static_cast<float>( cinematic.skyMode );
+    case UICinematicParam::TerrainMode:
+        return static_cast<float>( cinematic.terrainMode );
+    case UICinematicParam::ObjectStyle:
+        return static_cast<float>( cinematic.objectStyle );
+    case UICinematicParam::WaterMode:
+        return static_cast<float>( cinematic.waterMode );
+    case UICinematicParam::StyleSaturation:
+        return cinematic.styleSaturation;
+    case UICinematicParam::StyleContrast:
+        return cinematic.styleContrast;
+    case UICinematicParam::StyleVignette:
+        return cinematic.styleVignette;
     case UICinematicParam::SunX:
         return cinematic.sunScreenX;
     case UICinematicParam::SunY:
@@ -410,6 +525,44 @@ float CinematicValueForParam( const CinematicRenderConfig& cinematic, UICinemati
         return cinematic.bloomRadius;
     case UICinematicParam::TerrainRelief:
         return cinematic.terrainRelief;
+    case UICinematicParam::TerrainTintRed:
+        return cinematic.terrainTintR;
+    case UICinematicParam::TerrainTintGreen:
+        return cinematic.terrainTintG;
+    case UICinematicParam::TerrainTintBlue:
+        return cinematic.terrainTintB;
+    case UICinematicParam::TerrainAccentRed:
+        return cinematic.terrainAccentR;
+    case UICinematicParam::TerrainAccentGreen:
+        return cinematic.terrainAccentG;
+    case UICinematicParam::TerrainAccentBlue:
+        return cinematic.terrainAccentB;
+    case UICinematicParam::TerrainGridScale:
+        return cinematic.terrainGridScale;
+    case UICinematicParam::TerrainGridStrength:
+        return cinematic.terrainGridStrength;
+    case UICinematicParam::WaterTintRed:
+        return cinematic.waterTintR;
+    case UICinematicParam::WaterTintGreen:
+        return cinematic.waterTintG;
+    case UICinematicParam::WaterTintBlue:
+        return cinematic.waterTintB;
+    case UICinematicParam::WaterAlpha:
+        return cinematic.waterAlpha;
+    case UICinematicParam::WaterReflection:
+        return cinematic.waterReflectionStrength;
+    case UICinematicParam::WaterGlint:
+        return cinematic.waterGlintStrength;
+    case UICinematicParam::BasinCenterX:
+        return cinematic.basinCenterX;
+    case UICinematicParam::BasinCenterZ:
+        return cinematic.basinCenterZ;
+    case UICinematicParam::BasinRadiusX:
+        return cinematic.basinRadiusX;
+    case UICinematicParam::BasinRadiusZ:
+        return cinematic.basinRadiusZ;
+    case UICinematicParam::BasinFeather:
+        return cinematic.basinFeather;
     case UICinematicParam::BasinDepth:
         return cinematic.basinDepth;
     case UICinematicParam::BasinRimLift:
@@ -572,6 +725,7 @@ void InGameUI::SetActiveTab( InGameUITab tab )
     m_rendererCombo.Close();
     m_reflectionCombo.Close();
     CloseSceneCombo();
+    m_cineSceneCombo.Close();
     m_activeSlider = 0;
     OptionsTab::ResetPreviewState( m_optionsTab );
     PhysicsTab::ResetPreviewState( m_physicsTab );
@@ -608,7 +762,7 @@ bool InGameUI::BlocksCameraMouse() const
 
 bool InGameUI::BlocksKeyboard() const
 {
-    return m_window.isVisible && !m_window.isMinimized && m_sceneCombo.IsOpen();
+    return m_window.isVisible && !m_window.isMinimized && ( m_sceneCombo.IsOpen() || m_cineSceneCombo.IsOpen() );
 }
 
 
@@ -656,6 +810,7 @@ void InGameUI::SetRendererComboOpen( bool open )
     {
         m_reflectionCombo.Close();
         CloseSceneCombo();
+        m_cineSceneCombo.Close();
     }
 }
 
@@ -667,6 +822,7 @@ void InGameUI::SetWaterComboOpen( bool open )
     {
         m_rendererCombo.Close();
         CloseSceneCombo();
+        m_cineSceneCombo.Close();
     }
 }
 
@@ -678,6 +834,7 @@ void InGameUI::SetSceneComboOpen( bool open )
     {
         m_rendererCombo.Close();
         m_reflectionCombo.Close();
+        m_cineSceneCombo.Close();
         SceneTab::CaptureFilterKeyState( m_sceneTab );
     }
     else
@@ -887,6 +1044,10 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     m_histogramToggle.SetBounds( perfBounds.x, perfBounds.y, perfBounds.w, perfBounds.h );
     m_timelineToggle.SetBounds( timelineBounds.x, timelineBounds.y, timelineBounds.w, timelineBounds.h );
 
+    const char* cineSceneOptions[UI_CINE_SCENE_MAX_OPTIONS] = {};
+    int cineSceneIndices[UI_CINE_SCENE_MAX_OPTIONS] = {};
+    const int cineSceneOptionCount = BuildCineSceneOptions( sceneOptions, sceneOptionCount, cineSceneOptions, cineSceneIndices );
+
     if ( ( leftNow && ( inside || m_interaction.isDragging || m_interaction.isResizing || m_activeSlider != 0 ) ) ||
          ( wheelDelta != 0 && inside ) )
     {
@@ -977,6 +1138,27 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
+            m_cineSceneCombo.Close();
+        }
+        else if ( m_cineSceneCombo.IsOpen() )
+        {
+            const int option = m_cineSceneCombo.HitOption( m_mouseX, m_mouseY, cineSceneOptionCount );
+            if ( option >= 0 && option < cineSceneOptionCount )
+            {
+                result.commands.cinematic.requestedModeSceneIndex = cineSceneIndices[option];
+                m_cineSceneCombo.Close();
+            }
+            else if ( m_cineSceneCombo.HitBox( m_mouseX, m_mouseY ) )
+            {
+                m_cineSceneCombo.ToggleOpen();
+            }
+            else
+            {
+                m_cineSceneCombo.Close();
+            }
+            m_rendererCombo.Close();
+            m_reflectionCombo.Close();
+            CloseSceneCombo();
         }
         else if ( m_reflectionCombo.IsOpen() )
         {
@@ -997,6 +1179,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
             m_rendererCombo.Close();
             CloseSceneCombo();
+            m_cineSceneCombo.Close();
         }
         else if ( m_rendererCombo.IsOpen() )
         {
@@ -1011,6 +1194,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_rendererCombo.ToggleOpen();
                 m_reflectionCombo.Close();
                 CloseSceneCombo();
+                m_cineSceneCombo.Close();
             }
             else if ( !m_rendererCombo.HitBox( m_mouseX, m_mouseY ) )
             {
@@ -1030,6 +1214,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
             m_rendererCombo.Close();
             CloseSceneCombo();
+            m_cineSceneCombo.Close();
         }
         else if ( inContent && m_activeTab == InGameUITab::Scene )
         {
@@ -1054,6 +1239,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             if ( sceneClickHandled )
             {
                 m_reflectionCombo.Close();
+                m_cineSceneCombo.Close();
             }
         }
         else if ( inContent && m_activeTab == InGameUITab::Physics )
@@ -1073,6 +1259,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 InputControl::BeginMouseCapture( hwnd );
             }
             m_rendererCombo.Close();
+            m_cineSceneCombo.Close();
         }
         else if ( inContent && m_activeTab == InGameUITab::Options )
         {
@@ -1092,6 +1279,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
+            m_cineSceneCombo.Close();
         }
         else if ( inContent && m_activeTab == InGameUITab::Cinematic )
         {
@@ -1101,10 +1289,13 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             const float colW = (std::max)( 148.0f, contentW * 0.46f );
             bool capturedSlider = false;
 
-            m_cinematicMasterToggle.SetBounds( contentX, scrolledY + UI_CINEMATIC_MASTER_Y, contentW, 24.0f );
-            if ( m_cinematicMasterToggle.HitTest( m_mouseX, m_mouseY ) )
+            m_cineSceneCombo.SetBounds( contentX, scrolledY + UI_CINEMATIC_SCENE_Y, contentW, 24.0f );
+            if ( m_cineSceneCombo.HitBox( m_mouseX, m_mouseY ) )
             {
-                result.commands.cinematic.toggleRendering = true;
+                m_cineSceneCombo.ToggleOpen();
+                m_rendererCombo.Close();
+                m_reflectionCombo.Close();
+                CloseSceneCombo();
             }
             else
             {
@@ -1144,6 +1335,10 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
+            if ( capturedSlider )
+            {
+                m_cineSceneCombo.Close();
+            }
         }
         else if ( inContent && m_activeTab == InGameUITab::Keys )
         {
@@ -1165,6 +1360,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
+            m_cineSceneCombo.Close();
         }
         else if ( inside && m_mouseY >= inputY + inputH - bottomH )
         {
@@ -1173,12 +1369,14 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
                 m_rendererCombo.ToggleOpen();
                 m_reflectionCombo.Close();
                 CloseSceneCombo();
+                m_cineSceneCombo.Close();
             }
             else if ( m_reflectionCombo.HitBox( m_mouseX, m_mouseY ) )
             {
                 m_reflectionCombo.ToggleOpen();
                 m_rendererCombo.Close();
                 CloseSceneCombo();
+                m_cineSceneCombo.Close();
             }
             else if ( m_blurToggle.HitTest( m_mouseX, m_mouseY ) )
             {
@@ -1202,6 +1400,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         {
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
+            m_cineSceneCombo.Close();
         }
     }
 
@@ -1398,7 +1597,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     cacheKey.blurEnabled = m_blurPreviewEnabled;
     cacheKey.contentSignature = BuildUIContentSignature( data, currentRendererIndex );
     cacheKey.styleSignature = HashBool( 2166136261u, m_blurPreviewEnabled );
-    cacheKey.interactionSignature = BuildUIInteractionSignature( m_mouseX, m_mouseY, m_rendererCombo.IsOpen(), m_reflectionCombo.IsOpen(), m_sceneCombo.IsOpen(), m_activeSlider );
+    cacheKey.interactionSignature = BuildUIInteractionSignature( m_mouseX, m_mouseY, m_rendererCombo.IsOpen(), m_reflectionCombo.IsOpen(), m_sceneCombo.IsOpen(), m_cineSceneCombo.IsOpen(), m_activeSlider );
     m_cache.BeginFrame( cacheKey );
     PROFILE_END( "Frame/UI/Layout" );
 
@@ -1483,16 +1682,17 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     {
         char buf[128];
         const float colW = (std::max)( 148.0f, contentW * 0.46f );
+        const char* cineSceneOptions[UI_CINE_SCENE_MAX_OPTIONS] = {};
+        int cineSceneIndices[UI_CINE_SCENE_MAX_OPTIONS] = {};
+        const int cineSceneOptionCount = BuildCineSceneOptions( data.sceneOptions, data.sceneOptionCount, cineSceneOptions, cineSceneIndices );
+        const int selectedCineSceneOption = SelectedCineSceneOption( cineSceneIndices, cineSceneOptionCount, data.selectedCineModeSceneOption );
+
         DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 16.0f, 16.0f, "Cine" );
-        DrawContentToggle( draw,
-                           contentY,
-                           contentH,
-                           m_cinematicMasterToggle,
-                           contentX,
-                           scrolledY + UI_CINEMATIC_MASTER_Y,
-                           contentW,
-                           "Cine mode",
-                           data.cinematicRendering );
+        m_cineSceneCombo.SetBounds( contentX, scrolledY + UI_CINEMATIC_SCENE_Y, contentW, 24.0f );
+        if ( IsRowVisible( contentY, contentH, scrolledY + UI_CINEMATIC_SCENE_Y, 24.0f ) )
+        {
+            m_cineSceneCombo.Draw( draw, "Mode", cineSceneOptions, cineSceneOptionCount, selectedCineSceneOption, m_mouseX, m_mouseY );
+        }
         if ( IsRowVisible( contentY, contentH, scrolledY + UI_CINEMATIC_FEATURE_START_Y, 18.0f ) )
         {
             DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + UI_CINEMATIC_FEATURE_START_Y, 12.0f, "Passes" );

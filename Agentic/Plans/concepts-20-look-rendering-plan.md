@@ -682,9 +682,9 @@ Goal:
 
 Tasks:
 
-1. Add a `look <name>` scene directive.
-2. Map `look` names to preset values in C++.
-3. Preserve existing explicit `cinematic_*` overrides as final overrides.
+1. Add a `style <name>` scene directive that loads `SkullbonezData/styles/<name>.style`.
+2. Store look values in parsed `.style` files, not C++ preset tables.
+3. Preserve existing explicit `cinematic_*` overrides as final scene-local overrides.
 4. Add style mode fields needed by shaders:
    - post mode,
    - sky mode,
@@ -726,7 +726,7 @@ Tasks:
    - neon cyan,
    - snow/ice,
    - toon green.
-4. Add `material` directive or hard-coded `look` presets with material tables.
+4. Add style-file material directives or parsed material tables.
 5. Add `object_material <objectName> <materialName>`.
 6. Store material ID in `GameModel`.
 7. Pass material ID/params to instanced object shader.

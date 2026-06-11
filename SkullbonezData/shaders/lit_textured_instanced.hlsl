@@ -38,6 +38,8 @@ cbuffer Uniforms : register(b0)
     float4   uLightDiffuse;
     float4   uMaterialAmbient;
     float4   uMaterialDiffuse;
+    int      uObjectStyle;
+    float3   _objectStylePad;
 };
 
 Texture2D    uTexture  : register(t0);
@@ -116,6 +118,147 @@ float3 ProceduralBeachBallColor(float2 uv)
     return lerp(color, float3(1.0f, 0.62f, 0.02f), seam * 0.28f);
 }
 
+float3 QuantizedLowPolyNormal(float3 N)
+{
+    float3 qN = floor(N * 2.5f + 0.5f) / 2.5f;
+    return normalize(lerp(N, qN, 0.88f));
+}
+
+float LowPolySunBand(float lightAmount)
+{
+    return lightAmount > 0.72f ? 1.0f : (lightAmount > 0.34f ? 0.62f : 0.30f);
+}
+
+float3 ApplyMaterialMode(int mode, float3 materialColor, float3 N, float3 V, float3 L, float3 lightColor, float diff, float spec, float2 uv)
+{
+    float3 R = reflect(-L, N);
+    if (mode == 2)
+    {
+        float metalSpec = pow(max(dot(V, R), 0.0f), 140.0f);
+        float3 reflected = lerp(float3(0.10f, 0.12f, 0.14f), lightColor * 1.4f, metalSpec);
+        return materialColor * (0.12f + diff * 0.32f) + reflected * (0.35f + metalSpec * 0.75f);
+    }
+    if (mode == 3)
+    {
+        float pulse = 0.70f + 0.30f * sin(uv.x * 24.0f + uv.y * 18.0f);
+        return materialColor * (1.5f + pulse * 1.2f) + lightColor * spec * 0.22f;
+    }
+    if (mode == 4)
+    {
+        float fresnel = pow(1.0f - saturate(dot(N, V)), 2.6f);
+        return materialColor * (0.18f + diff * 0.22f) + lightColor * (fresnel * 0.85f + spec * 0.48f);
+    }
+    if (mode == 5)
+    {
+        float bands = diff > 0.72f ? 1.0f : (diff > 0.34f ? 0.58f : 0.24f);
+        float rim = pow(1.0f - saturate(dot(N, V)), 3.0f);
+        return materialColor * (0.18f + bands * 0.95f) + lightColor * rim * 0.16f;
+    }
+    if (mode == 6)
+    {
+        float3 qN = QuantizedLowPolyNormal(N);
+        float qDiff = max(dot(qN, L), 0.0f);
+        float sunBand = LowPolySunBand(qDiff);
+        float hemiT = saturate(qN.y * 0.5f + 0.5f);
+        float3 skyAmbient = float3(0.34f, 0.46f, 0.72f);
+        float3 groundAmbient = float3(0.34f, 0.24f, 0.13f);
+        float3 hemiAmbient = lerp(groundAmbient, skyAmbient, hemiT);
+        float3 poster = lerp(materialColor, floor(materialColor * 4.0f + 0.5f) / 4.0f, 0.35f);
+        float rim = pow(1.0f - saturate(dot(qN, V)), 2.2f);
+        float3 warmSun = lightColor * float3(1.03f, 0.92f, 0.68f);
+        return poster * (hemiAmbient * 0.50f + warmSun * (0.22f + sunBand * 0.42f)) + warmSun * rim * 0.055f;
+    }
+    if (mode == 8)
+    {
+        float3 qN = QuantizedLowPolyNormal(N);
+        float qDiff = max(dot(qN, L), 0.0f);
+        float sunBand = LowPolySunBand(qDiff);
+        float hemiT = saturate(qN.y * 0.5f + 0.5f);
+        float leafTier = floor(saturate(uv.y + qN.y * 0.22f) * 4.0f) / 4.0f;
+        float3 topLeaf = lerp(materialColor, float3(0.50f, 0.66f, 0.18f), 0.42f);
+        float3 underside = lerp(materialColor * float3(0.40f, 0.58f, 0.34f), float3(0.06f, 0.22f, 0.06f), 0.36f);
+        float3 leaf = lerp(underside, topLeaf, hemiT);
+        leaf *= 0.78f + leafTier * 0.20f + sunBand * 0.10f;
+        float3 skyAmbient = float3(0.26f, 0.38f, 0.52f);
+        float3 groundAmbient = float3(0.14f, 0.24f, 0.07f);
+        float3 hemiAmbient = lerp(groundAmbient, skyAmbient, hemiT);
+        float3 warmSun = lightColor * float3(1.02f, 0.88f, 0.54f);
+        float rim = pow(1.0f - saturate(dot(qN, V)), 2.1f);
+        return leaf * (hemiAmbient * 0.52f + warmSun * (0.18f + sunBand * 0.38f)) + warmSun * rim * 0.034f;
+    }
+    if (mode == 13)
+    {
+        float3 qN = QuantizedLowPolyNormal(N);
+        float qDiff = max(dot(qN, L), 0.0f);
+        float sunBand = LowPolySunBand(qDiff);
+        float hemiT = saturate(qN.y * 0.5f + 0.5f);
+        float heightBand = floor(saturate(uv.y) * 3.0f) / 3.0f;
+        float3 litNeedle = lerp(materialColor, float3(0.48f, 0.64f, 0.18f), 0.38f);
+        float3 shadowNeedle = lerp(materialColor * float3(0.36f, 0.54f, 0.34f), float3(0.040f, 0.16f, 0.045f), 0.42f);
+        float3 leaf = lerp(shadowNeedle, litNeedle, hemiT);
+        leaf *= 0.74f + heightBand * 0.16f + sunBand * 0.18f;
+        float3 skyAmbient = float3(0.22f, 0.33f, 0.48f);
+        float3 groundAmbient = float3(0.10f, 0.18f, 0.07f);
+        float3 hemiAmbient = lerp(groundAmbient, skyAmbient, hemiT);
+        float3 warmSun = lightColor * float3(1.02f, 0.86f, 0.50f);
+        float rim = pow(1.0f - saturate(dot(qN, V)), 2.0f);
+        return leaf * (hemiAmbient * 0.58f + warmSun * (0.12f + sunBand * 0.36f)) + warmSun * rim * 0.024f;
+    }
+    if (mode == 9)
+    {
+        float3 qN = QuantizedLowPolyNormal(N);
+        float sunBand = LowPolySunBand(max(dot(qN, L), 0.0f));
+        float grain = 0.5f + 0.5f * sin(uv.x * 24.0f + uv.y * 7.0f);
+        float3 bark = lerp(materialColor * float3(0.72f, 0.58f, 0.42f), materialColor * float3(1.22f, 0.96f, 0.62f) + float3(0.05f, 0.025f, 0.0f), grain * 0.28f);
+        float hemiT = saturate(qN.y * 0.5f + 0.5f);
+        float3 hemiAmbient = lerp(float3(0.30f, 0.20f, 0.11f), float3(0.44f, 0.44f, 0.32f), hemiT);
+        float3 warmSun = lightColor * float3(1.02f, 0.86f, 0.55f);
+        return bark * (hemiAmbient * 0.46f + warmSun * (0.14f + sunBand * 0.34f));
+    }
+    if (mode == 10)
+    {
+        float3 qN = QuantizedLowPolyNormal(N);
+        float sunBand = LowPolySunBand(max(dot(qN, L), 0.0f));
+        float facet = floor(max(qN.y, 0.0f) * 4.0f) / 4.0f;
+        float3 stone = lerp(materialColor * float3(0.90f, 0.94f, 1.04f), float3(0.44f, 0.48f, 0.56f), 0.42f);
+        stone *= 0.68f + facet * 0.26f + sunBand * 0.05f;
+        float hemiT = saturate(qN.y * 0.5f + 0.5f);
+        float3 hemiAmbient = lerp(float3(0.22f, 0.22f, 0.26f), float3(0.46f, 0.50f, 0.56f), hemiT);
+        float3 warmSun = lightColor * float3(0.86f, 0.78f, 0.58f);
+        float rim = pow(1.0f - saturate(dot(qN, V)), 2.4f);
+        return stone * (hemiAmbient * 0.54f + warmSun * (0.12f + sunBand * 0.24f)) + warmSun * rim * 0.014f;
+    }
+    if (mode == 11)
+    {
+        float3 qN = QuantizedLowPolyNormal(N);
+        float sunBand = LowPolySunBand(max(dot(qN, L), 0.0f));
+        float hemiT = saturate(qN.y * 0.5f + 0.5f);
+        float3 ridge = lerp(materialColor, float3(0.70f, 0.76f, 0.48f), 0.38f);
+        ridge *= 0.82f + floor(max(qN.y, 0.0f) * 3.0f) * 0.08f;
+        float3 hazeAmbient = lerp(float3(0.40f, 0.44f, 0.30f), float3(0.62f, 0.70f, 0.66f), hemiT);
+        float3 warmSun = lightColor * float3(0.88f, 0.80f, 0.58f);
+        return ridge * (hazeAmbient * 0.58f + warmSun * (0.10f + sunBand * 0.20f));
+    }
+    if (mode == 12)
+    {
+        float3 qN = QuantizedLowPolyNormal(N);
+        float sunBand = LowPolySunBand(max(dot(qN, L), 0.0f));
+        float band = floor(saturate(uv.y) * 3.0f) / 3.0f;
+        float3 sand = lerp(materialColor, float3(0.84f, 0.76f, 0.48f), 0.44f);
+        sand *= 0.86f + band * 0.12f;
+        float hemiT = saturate(qN.y * 0.5f + 0.5f);
+        float3 hemiAmbient = lerp(float3(0.42f, 0.34f, 0.20f), float3(0.62f, 0.66f, 0.52f), hemiT);
+        float3 warmSun = lightColor * float3(1.06f, 0.94f, 0.64f);
+        return sand * (hemiAmbient * 0.50f + warmSun * (0.18f + sunBand * 0.34f));
+    }
+    if (mode == 7)
+    {
+        float rim = pow(1.0f - saturate(dot(N, V)), 1.8f);
+        return float3(0.006f, 0.010f, 0.018f) + materialColor * rim * 0.16f + lightColor * spec * 0.05f;
+    }
+    return materialColor * (0.16f + diff * 0.92f) + lightColor * spec * 0.12f;
+}
+
 float4 main_ps(VS_OUT input) : SV_TARGET
 {
     float3 N = normalize(input.normal);
@@ -138,13 +281,23 @@ float4 main_ps(VS_OUT input) : SV_TARGET
 
     float4 texColor = uTexture.Sample(sSampler0, input.texCoord);
     bool cinematicMode = uLightPosition.w == 0.0f;
-    if (uLightPosition.w == 0.0f)
+    int materialMode;
+    if (input.tint.a < -0.5f)
+        materialMode = 0;
+    else if (input.tint.a > 1.25f)
+        materialMode = (int)floor(input.tint.a + 0.5f);
+    else if (input.tint.a > 0.5f)
+        materialMode = 1;
+    else
+        materialMode = uObjectStyle;
+
+    if (cinematicMode && materialMode == 0)
     {
         // Directional light means cinematic sun mode, so replace the sampled
         // texture with the procedural red/yellow panel color described above.
         texColor.rgb = ProceduralBeachBallColor(input.texCoord);
     }
-    float3 materialColor = lerp(texColor.rgb * input.tint.rgb, input.tint.rgb, saturate(input.tint.a));
+    float3 materialColor = materialMode == 0 ? texColor.rgb * input.tint.rgb : input.tint.rgb;
 
     if (cinematicMode)
     {
@@ -158,9 +311,12 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         float3 directSun = materialColor * uLightDiffuse.rgb * (diff * 0.62f + warmWrap * 0.18f);
         float3 rimLight = uLightDiffuse.rgb * rim * 0.18f;
         float3 specularSun = uLightDiffuse.rgb * glint * 0.24f;
-        return float4(warmAmbient + directSun + rimLight + specularSun, 1.0f);
+        float3 styled = ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, glint, input.texCoord);
+        float3 beachBall = warmAmbient + directSun + rimLight + specularSun;
+        return float4(materialMode == 0 ? beachBall : styled + rimLight * 0.35f, 1.0f);
     }
 
-    float3 litColor = (ambient + diffuse) * materialColor + specular;
+    float3 litColor = materialMode == 0 ? (ambient + diffuse) * materialColor + specular
+                                        : ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, spec, input.texCoord);
     return float4(litColor, 1.0);
 }

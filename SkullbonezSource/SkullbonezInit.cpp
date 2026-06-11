@@ -532,9 +532,11 @@ struct ParsedArgs
     bool interactiveRun = false;
     int frameCountOverride = -1;
     bool sceneLoadOnly = false;
+    bool demoHeroStyle = false;
     bool uiStress = false;
     unsigned int uiStressSeed = 0x7F4A7C15u;
     int uiStressActions = 5;
+    char liveStyleControlDir[260] = {};
     bool suppressExitDialog = false;
     bool showProfiler = false;
     bool hideTopText = false;
@@ -646,6 +648,12 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
               args.suppressExitDialog = true;
           },
           "[scene-load-only] Load queued scenes without running frames." },
+        { "--demohero", "--demo-hero", []( ParsedArgs& args )
+          {
+              args.demoHeroStyle = true;
+              args.suppressExitDialog = true;
+          },
+          "[scene] Generated demo scene will use the low-poly hero rendering mode." },
         { "--profiler", "--show-profiler", []( ParsedArgs& args )
           { args.showProfiler = true; },
           "[overlay] Profiler HUD enabled at startup." },
@@ -708,6 +716,70 @@ bool ParseOptionalOnOffValue( const char* value, bool& out )
     }
     return ParseOnOffValue( value, out );
 }
+
+
+bool SceneArgHasPathSyntax( const std::string& sceneArg )
+{
+    return sceneArg.find( '/' ) != std::string::npos ||
+           sceneArg.find( '\\' ) != std::string::npos ||
+           sceneArg.find( ':' ) != std::string::npos;
+}
+
+
+bool SceneArgHasExtension( const std::string& sceneArg )
+{
+    const size_t slash = sceneArg.find_last_of( "/\\" );
+    const size_t dot = sceneArg.find_last_of( '.' );
+    return dot != std::string::npos && ( slash == std::string::npos || dot > slash );
+}
+
+
+bool FileExistsForLaunch( const std::string& path )
+{
+    return _access( path.c_str(), 0 ) == 0;
+}
+
+
+std::string HeroSceneLaunchPath()
+{
+    return std::string( DATA_ROOT ) + "scenes/concept_12_low_poly_art_style.scene";
+}
+
+
+std::string ResolveSceneLaunchPath( const char* rawSceneArg )
+{
+    std::string sceneArg( rawSceneArg );
+    if ( sceneArg.empty() || SceneArgHasPathSyntax( sceneArg ) )
+    {
+        return sceneArg;
+    }
+
+    if ( _stricmp( sceneArg.c_str(), "hero" ) == 0 ||
+         _stricmp( sceneArg.c_str(), "low_poly_hero" ) == 0 ||
+         _stricmp( sceneArg.c_str(), "low-poly-hero" ) == 0 )
+    {
+        return HeroSceneLaunchPath();
+    }
+
+    const std::string sceneDir = std::string( DATA_ROOT ) + "scenes/";
+    if ( !SceneArgHasExtension( sceneArg ) )
+    {
+        const std::string sceneCandidate = sceneDir + sceneArg + ".scene";
+        if ( FileExistsForLaunch( sceneCandidate ) )
+        {
+            return sceneCandidate;
+        }
+    }
+
+    const std::string directCandidate = sceneDir + sceneArg;
+    if ( FileExistsForLaunch( directCandidate ) )
+    {
+        return directCandidate;
+    }
+
+    return sceneArg;
+}
+
 
 bool ParsePhysicsDebugMode( const char* value, uint32_t& outFlags )
 {
@@ -876,13 +948,23 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
 {
     const char* suiteArg = FindOptionValue( commandLine, "--suite" );
     const char* sceneArg = FindOptionValue( commandLine, "--scene" );
+    const bool heroArg = HasOption( commandLine, "--hero" );
+    const bool demoHeroArg = HasOption( commandLine, "--demohero" ) || HasOption( commandLine, "--demo-hero" );
 
-    if ( suiteArg && sceneArg )
+    if ( ( suiteArg && sceneArg ) ||
+         ( heroArg && ( suiteArg || sceneArg ) ) ||
+         ( demoHeroArg && ( suiteArg || sceneArg || heroArg ) ) )
     {
-        return FailCommandLineParse( "--suite and --scene are mutually exclusive." );
+        return FailCommandLineParse( "--demohero, --hero, --suite, and --scene are mutually exclusive." );
     }
 
-    if ( suiteArg )
+    if ( heroArg )
+    {
+        sceneList.push_back( HeroSceneLaunchPath() );
+        isSuiteOrSceneMode = true;
+        fprintf( stdout, "[scene] Hero scene selected.\n" );
+    }
+    else if ( suiteArg )
     {
         if ( IsOptionValueMissing( suiteArg ) )
         {
@@ -927,7 +1009,7 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
             // Support both quoted ("path with spaces") and unquoted tokens.
             // Quoted paths stop at the closing '"'; unquoted paths stop at whitespace.
             // This handles launchers (CDB, VS debugger) that wrap paths in quotes.
-            sceneList.push_back( sceneArg );
+            sceneList.push_back( ResolveSceneLaunchPath( sceneArg ) );
             isSuiteOrSceneMode = true;
         }
     }
@@ -1049,6 +1131,26 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
     return ApplyCliValueDirectives( commandLine, out, kValues );
 }
 
+
+bool ApplyLiveStyleControlDir( const char* value, ParsedArgs& args )
+{
+    if ( IsOptionValueMissing( value ) )
+    {
+        return FailCommandLineParse( "--live-style-control expects a directory path." );
+    }
+    if ( strlen( value ) >= sizeof( args.liveStyleControlDir ) )
+    {
+        return FailCommandLineParse( "--live-style-control path is too long." );
+    }
+
+    strcpy_s( args.liveStyleControlDir, sizeof( args.liveStyleControlDir ), value );
+    args.interactiveRun = true;
+    args.suppressExitDialog = true;
+    fprintf( stdout, "[style-harness] Live style control directory: %s\n", args.liveStyleControlDir );
+    return true;
+}
+
+
 bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out )
 {
     static const CliValueDirective kValues[] = {
@@ -1075,6 +1177,8 @@ bool ApplyRunCliValueDirectives( const CommandLineView& commandLine, ParsedArgs&
               fprintf( stdout, "[frames] Exit after %d frames.\n", args.frameCountOverride );
               return true;
           } },
+        { "--live-style-control", "--style-harness", ApplyLiveStyleControlDir },
+        { "--live_style_control", "--style_harness", ApplyLiveStyleControlDir },
         { "--ui-stress", "--ui_stress", []( const char* value, ParsedArgs& args ) -> bool
           {
               bool enabled = false;
@@ -1418,9 +1522,17 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         {
             cRun.SetCinematicRenderingOverride( args.cinematicRendering );
         }
+        if ( args.demoHeroStyle )
+        {
+            cRun.SetDemoHeroStyleOverride();
+        }
         if ( args.interactiveRun )
         {
             cRun.SetInteractiveRunOverride();
+        }
+        if ( args.liveStyleControlDir[0] != '\0' )
+        {
+            cRun.SetLiveStyleControlDirectory( args.liveStyleControlDir );
         }
         if ( args.frameCountOverride > 0 )
         {

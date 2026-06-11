@@ -1,0 +1,33 @@
+# 19. Abstract Render Showcase
+style _concept_base
+cinematic_style_modes 18 13 2 1
+cinematic_exposure 0.84
+cinematic_gamma 2.04
+cinematic_sun_screen_x 0.66
+cinematic_sun_screen_y 0.80
+cinematic_sun_intensity 17.0
+cinematic_style_grade 1.10 1.08 0.84
+cinematic_clouds off
+cinematic_fog off
+cinematic_sun_color_r 0.92
+cinematic_sun_color_g 0.92
+cinematic_sun_color_b 0.88
+cinematic_sky_horizon_r 0.60
+cinematic_sky_horizon_g 0.60
+cinematic_sky_horizon_b 0.62
+cinematic_sky_zenith_r 0.25
+cinematic_sky_zenith_g 0.25
+cinematic_sky_zenith_b 0.27
+cinematic_terrain_tint 0.76 0.76 0.76
+cinematic_terrain_accent 0.18 0.16 0.15
+cinematic_water_tint 0.58 0.58 0.60
+cinematic_water_profile 0.70 0.58 0.08
+
+# Object material look overrides.
+object_material prefix:chrome 0.86 0.88 0.90 chrome
+object_material prefix:gold 1.00 0.66 0.16 metal
+object_material prefix:glass 0.58 0.72 1.00 glass
+object_material prefix:matte 0.92 0.90 0.84 matte
+object_material prefix:neon 0.18 0.78 1.00 neon
+object_material prefix:black 0.02 0.02 0.025 shadow
+object_material prefix:toon 0.42 0.80 0.28 toon

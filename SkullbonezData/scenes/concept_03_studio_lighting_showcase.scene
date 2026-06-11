@@ -1,0 +1,25 @@
+# 3. Studio Lighting Showcase
+seed 1003
+physics off
+text off
+vsync off
+pipeline_sync on
+fixed_step
+frames unlimited
+water_reflection fbo
+world -30.0 25.0 1.0
+style studio_lighting_showcase
+camera main 610 122 830  620 42 615  0 1 0
+
+floating_box sweep_floor 620 22 610  360 4 280  3000 0.02
+ball hero 655 48 640 23 100 22 0.50 0 32 0
+ball chrome_01 540 45 620 14 60 14 0.45 0 0 0
+ball chrome_02 760 46 600 12 50 12 0.45 0 0 0
+ball white_01 480 40 690 10 45 10 0.45 0 0 0
+ball white_02 705 38 715 9 42 9 0.45 0 0 0
+ball bead_01 430 37 590 7 30 7 0.40 0 0 0
+ball bead_02 485 36 540 6 28 6 0.40 0 0 0
+ball bead_03 570 35 520 5 25 5 0.40 0 0 0
+ball bead_04 660 35 515 5 25 5 0.40 0 0 0
+ball bead_05 825 38 535 7 30 7 0.40 0 0 0
+ball float_key 840 155 505 11 38 10 0.40 0 24 0

@@ -47,6 +47,7 @@ struct InGameUIFrameData
     const char* const* sceneOptions = nullptr;
     int sceneOptionCount = 0;
     int selectedSceneOption = -1;
+    int selectedCineModeSceneOption = -1;
     int drawCallsBeforeUI = 0;
     int UIDrawCalls = 0;
     float fps = 0.0f;
@@ -151,6 +152,7 @@ class InGameUI
     UIComboBox m_rendererCombo;
     UIComboBox m_reflectionCombo;
     UIComboBox m_sceneCombo;
+    UIComboBox m_cineSceneCombo;
     UICheckBox m_cinematicMasterToggle;
     UICheckBox m_cinematicFeatureToggles[static_cast<int>( UICinematicFeature::Count )];
     UISlider m_cinematicSliders[static_cast<int>( UICinematicParam::Count )];

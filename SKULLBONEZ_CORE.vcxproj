@@ -163,6 +163,7 @@
     <ClCompile Include="SkullbonezSource\SkullbonezRun.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRunFrame.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRunInput.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRunLiveStyle.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRunRender.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRunRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRunScene.cpp" />

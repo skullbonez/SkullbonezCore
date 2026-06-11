@@ -88,10 +88,12 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         discard;
     }
 
-    // Linear fade from centre (full opacity) to edge (transparent).
-    float alpha = input.alpha * (1.0 - dist);
+    // A tight core grounds the object; the outer skirt fades quickly so the
+    // shadow reads as contact instead of a broad black stain.
+    float contact = 1.0f - smoothstep(0.0f, 0.24f, dist);
+    float skirt = (1.0f - smoothstep(0.20f, 0.92f, dist)) * 0.16f;
+    float alpha = input.alpha * (contact * 0.36f + skirt);
 
-    // Pure black with variable alpha = darkens whatever is underneath via alpha blending.
-    return float4(0.0, 0.0, 0.0, alpha);
+    // A cool green-brown tint reads softer than pure black in pastel scenes.
+    return float4(0.035f, 0.060f, 0.025f, alpha);
 }
-

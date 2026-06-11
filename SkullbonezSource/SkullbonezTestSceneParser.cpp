@@ -114,6 +114,7 @@ class TestSceneParser
     const char* m_path = nullptr;
     SceneFileHandle m_file;
     int m_lineNumber = 0;
+    int m_styleIncludeDepth = 0;
     TestScene m_scene;
 
     static bool IsSpace( char c )
@@ -351,6 +352,52 @@ class TestSceneParser
         {
             Fail( "Invalid %s value at line %d: %s", directive, m_lineNumber, value );
         }
+    }
+
+    float ParseMaterialModeValue( const char* directive, const char* value )
+    {
+        float parsed = 0.0f;
+        if ( TryParseFloat( value, parsed ) )
+        {
+            return parsed;
+        }
+
+        static const SceneIntOption kMaterialModes[] = {
+            { "texture", -1 },
+            { "beachball", -1 },
+            { "matte", 1 },
+            { "solid", 1 },
+            { "metal", 2 },
+            { "chrome", 2 },
+            { "emissive", 3 },
+            { "neon", 3 },
+            { "glass", 4 },
+            { "toon", 5 },
+            { "pixar", 5 },
+            { "lowpoly", 6 },
+            { "shadow", 7 },
+            { "black", 7 },
+            { "foliage", 8 },
+            { "leaf", 8 },
+            { "leaves", 8 },
+            { "bark", 9 },
+            { "trunk", 9 },
+            { "stone", 10 },
+            { "rock", 10 },
+            { "ridge", 11 },
+            { "distant", 11 },
+            { "shore", 12 },
+            { "sand", 12 },
+            { "pine", 13 },
+            { "conifer", 13 },
+        };
+        int mode = 0;
+        if ( TryParseIntOption( value, kMaterialModes, mode ) )
+        {
+            return static_cast<float>( mode );
+        }
+
+        Fail( "Invalid %s material mode at line %d: %s", directive, m_lineNumber, value ? value : "" );
     }
 
     void ParsePhysics( const char* args )
@@ -782,54 +829,145 @@ class TestSceneParser
         m_scene.m_cameras.push_back( cam );
     }
 
-    void ParseBall( const char* args )
+    void IncludeStyleFile( const char* token )
     {
-        const char* expected = "ball <name> <pos> <radius> <mass> <moment> <restitution> [force forcePos] [euler]";
+        if ( m_styleIncludeDepth >= 8 )
+        {
+            Fail( "Style include depth exceeded at line %d", m_lineNumber );
+        }
+
+        char stylePath[300] = {};
+        if ( strchr( token, '/' ) || strchr( token, '\\' ) || strstr( token, ".style" ) )
+        {
+            strcpy_s( stylePath, sizeof( stylePath ), token );
+        }
+        else
+        {
+            sprintf_s( stylePath, sizeof( stylePath ), "SkullbonezData/styles/%s.style", token );
+        }
+
+        FILE* rawStyleFile = nullptr;
+        const errno_t err = fopen_s( &rawStyleFile, stylePath, "r" );
+        if ( err != 0 || !rawStyleFile )
+        {
+            Fail( "Failed to open style file at line %d: %s", m_lineNumber, stylePath );
+        }
+
+        SceneFileHandle styleFile( rawStyleFile );
+        const int parentLineNumber = m_lineNumber;
+        ++m_styleIncludeDepth;
+
+        char line[512];
+        int styleLineNumber = 0;
+        while ( fgets( line, sizeof( line ), styleFile.get() ) )
+        {
+            ++styleLineNumber;
+            m_lineNumber = styleLineNumber;
+
+            size_t len = strlen( line );
+            while ( len > 0 && ( line[len - 1] == '\n' || line[len - 1] == '\r' ) )
+            {
+                line[--len] = '\0';
+            }
+
+            if ( line[0] == '\0' || line[0] == '#' )
+            {
+                continue;
+            }
+
+            if ( !DispatchStyleLine( line ) )
+            {
+                Fail( "Unknown directive in style file %s at line %d: %.64s", stylePath, styleLineNumber, line );
+            }
+        }
+
+        --m_styleIncludeDepth;
+        m_lineNumber = parentLineNumber;
+    }
+
+    void ParseStyleReference( const char* directive, const char* args, const char* expected )
+    {
+        const char* cursor = RequireArgs( directive, args, expected );
+        char token[260] = {};
+        ParseNextToken( directive, cursor, token, sizeof( token ), expected );
+        IncludeStyleFile( token );
+    }
+
+    void ParseStyle( const char* args )
+    {
+        ParseStyleReference( "style", args, "style <name|path>" );
+    }
+
+    void ParseLook( const char* args )
+    {
+        ParseStyleReference( "look", args, "look <name|path>" );
+    }
+
+    void ParseCinematicLook( const char* args )
+    {
+        ParseStyleReference( "cinematic_look", args, "cinematic_look <name|path>" );
+    }
+
+    void ParseBallCommon( const char* args, bool isFixed )
+    {
+        const char* directive = isFixed ? "floating_ball" : "ball";
+        const char* expected = isFixed ? "floating_ball <name> <pos> <radius> <mass> <moment> <restitution> [force forcePos] [euler]" : "ball <name> <pos> <radius> <mass> <moment> <restitution> [force forcePos] [euler]";
         char tokens[17][64] = {};
-        const int parsed = ParseTokenList( "ball", args, expected, tokens, 17 );
+        const int parsed = ParseTokenList( directive, args, expected, tokens, 17 );
         if ( parsed != 8 && parsed != 11 && parsed != 14 && parsed != 17 )
         {
-            Fail( "Invalid ball at line %d (expected 8, 11, 14 or 17 fields, got %d)", m_lineNumber, parsed );
+            Fail( "Invalid %s at line %d (expected 8, 11, 14 or 17 fields, got %d)", directive, m_lineNumber, parsed );
         }
 
         SceneBall ball;
         memset( &ball, 0, sizeof( ball ) );
         ball.hasInitOrient = false;
+        ball.isFixed = isFixed;
 
         strcpy_s( ball.name, sizeof( ball.name ), tokens[0] );
-        ball.posX = ParseFloatValue( "ball", tokens[1] );
-        ball.posY = ParseFloatValue( "ball", tokens[2] );
-        ball.posZ = ParseFloatValue( "ball", tokens[3] );
-        ball.m_radius = ParseFloatValue( "ball", tokens[4] );
-        ball.m_mass = ParseFloatValue( "ball", tokens[5] );
-        ball.moment = ParseFloatValue( "ball", tokens[6] );
-        ball.restitution = ParseFloatValue( "ball", tokens[7] );
+        ball.posX = ParseFloatValue( directive, tokens[1] );
+        ball.posY = ParseFloatValue( directive, tokens[2] );
+        ball.posZ = ParseFloatValue( directive, tokens[3] );
+        ball.m_radius = ParseFloatValue( directive, tokens[4] );
+        ball.m_mass = ParseFloatValue( directive, tokens[5] );
+        ball.moment = ParseFloatValue( directive, tokens[6] );
+        ball.restitution = ParseFloatValue( directive, tokens[7] );
 
         if ( parsed == 11 )
         {
-            ball.eulerX = ParseFloatValue( "ball", tokens[8] );
-            ball.eulerY = ParseFloatValue( "ball", tokens[9] );
-            ball.eulerZ = ParseFloatValue( "ball", tokens[10] );
+            ball.eulerX = ParseFloatValue( directive, tokens[8] );
+            ball.eulerY = ParseFloatValue( directive, tokens[9] );
+            ball.eulerZ = ParseFloatValue( directive, tokens[10] );
             ball.hasInitOrient = true;
         }
         else if ( parsed == 14 || parsed == 17 )
         {
-            ball.forceX = ParseFloatValue( "ball", tokens[8] );
-            ball.forceY = ParseFloatValue( "ball", tokens[9] );
-            ball.forceZ = ParseFloatValue( "ball", tokens[10] );
-            ball.forcePosX = ParseFloatValue( "ball", tokens[11] );
-            ball.forcePosY = ParseFloatValue( "ball", tokens[12] );
-            ball.forcePosZ = ParseFloatValue( "ball", tokens[13] );
+            ball.forceX = ParseFloatValue( directive, tokens[8] );
+            ball.forceY = ParseFloatValue( directive, tokens[9] );
+            ball.forceZ = ParseFloatValue( directive, tokens[10] );
+            ball.forcePosX = ParseFloatValue( directive, tokens[11] );
+            ball.forcePosY = ParseFloatValue( directive, tokens[12] );
+            ball.forcePosZ = ParseFloatValue( directive, tokens[13] );
             if ( parsed == 17 )
             {
-                ball.eulerX = ParseFloatValue( "ball", tokens[14] );
-                ball.eulerY = ParseFloatValue( "ball", tokens[15] );
-                ball.eulerZ = ParseFloatValue( "ball", tokens[16] );
+                ball.eulerX = ParseFloatValue( directive, tokens[14] );
+                ball.eulerY = ParseFloatValue( directive, tokens[15] );
+                ball.eulerZ = ParseFloatValue( directive, tokens[16] );
                 ball.hasInitOrient = true;
             }
         }
 
         m_scene.m_balls.push_back( ball );
+    }
+
+    void ParseBall( const char* args )
+    {
+        ParseBallCommon( args, false );
+    }
+
+    void ParseFloatingBall( const char* args )
+    {
+        ParseBallCommon( args, true );
     }
 
     void ParseBoxCommon( const char* args, bool isFixed )
@@ -1081,6 +1219,28 @@ class TestSceneParser
         ParseStrictOnOff( "terrain_hidden", RequireArgs( "terrain_hidden", args, "terrain_hidden on|off" ), m_scene.m_sceneOptions.terrainHidden );
     }
 
+    void ParseObjectMaterial( const char* args )
+    {
+        const char* expected = "object_material <name|all|balls|boxes|prefix:...> <r> <g> <b> <mode>";
+        const char* cursor = RequireArgs( "object_material", args, expected );
+
+        SceneObjectMaterialOverride material;
+        memset( &material, 0, sizeof( material ) );
+        material.tintR = 1.0f;
+        material.tintG = 1.0f;
+        material.tintB = 1.0f;
+        material.materialMode = 1.0f;
+
+        char mode[64] = {};
+        ParseNextToken( "object_material", cursor, material.target, sizeof( material.target ), expected );
+        material.tintR = ParseNextFloatToken( "object_material", cursor, expected );
+        material.tintG = ParseNextFloatToken( "object_material", cursor, expected );
+        material.tintB = ParseNextFloatToken( "object_material", cursor, expected );
+        ParseNextToken( "object_material", cursor, mode, sizeof( mode ), expected );
+        material.materialMode = ParseMaterialModeValue( "object_material", mode );
+        m_scene.m_objectMaterials.push_back( material );
+    }
+
     void ParseSolverBalls( const char* args )
     {
         m_scene.m_sceneOptions.solverBallCount = ParseIntArg( "solver_balls", args, "solver_balls <count>" );
@@ -1104,9 +1264,100 @@ class TestSceneParser
         // Cinematic scene directives all share the cinematic_ prefix. Keeping
         // them in one parser function makes it easy to compare the scene-file
         // names with CinematicRenderConfig fields.
+        const char* lookArgs = nullptr;
+        if ( MatchDirective( line, "cinematic_look", lookArgs ) )
+        {
+            ParseCinematicLook( lookArgs );
+            return true;
+        }
+
         if ( strncmp( line, "cinematic_", 10 ) != 0 )
         {
             return false;
+        }
+
+        const char* multiArgs = nullptr;
+        if ( MatchDirective( line, "cinematic_style_modes", multiArgs ) )
+        {
+            const char* expected = "cinematic_style_modes <sky> <terrain> <object> <water>";
+            const char* cursor = RequireArgs( "cinematic_style_modes", multiArgs, expected );
+            m_scene.m_sceneOptions.cinematicRender.skyMode = ParseNextIntToken( "cinematic_style_modes", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.terrainMode = ParseNextIntToken( "cinematic_style_modes", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.objectStyle = ParseNextIntToken( "cinematic_style_modes", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.waterMode = ParseNextIntToken( "cinematic_style_modes", cursor, expected );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_STYLE_MODES;
+            return true;
+        }
+        if ( MatchDirective( line, "cinematic_style_grade", multiArgs ) )
+        {
+            const char* expected = "cinematic_style_grade <saturation> <contrast> <vignette>";
+            const char* cursor = RequireArgs( "cinematic_style_grade", multiArgs, expected );
+            m_scene.m_sceneOptions.cinematicRender.styleSaturation = ParseNextFloatToken( "cinematic_style_grade", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.styleContrast = ParseNextFloatToken( "cinematic_style_grade", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.styleVignette = ParseNextFloatToken( "cinematic_style_grade", cursor, expected );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_STYLE_GRADE;
+            return true;
+        }
+        if ( MatchDirective( line, "cinematic_terrain_tint", multiArgs ) )
+        {
+            const char* expected = "cinematic_terrain_tint <r> <g> <b>";
+            const char* cursor = RequireArgs( "cinematic_terrain_tint", multiArgs, expected );
+            m_scene.m_sceneOptions.cinematicRender.terrainTintR = ParseNextFloatToken( "cinematic_terrain_tint", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.terrainTintG = ParseNextFloatToken( "cinematic_terrain_tint", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.terrainTintB = ParseNextFloatToken( "cinematic_terrain_tint", cursor, expected );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_TERRAIN_TINT;
+            return true;
+        }
+        if ( MatchDirective( line, "cinematic_terrain_accent", multiArgs ) )
+        {
+            const char* expected = "cinematic_terrain_accent <r> <g> <b>";
+            const char* cursor = RequireArgs( "cinematic_terrain_accent", multiArgs, expected );
+            m_scene.m_sceneOptions.cinematicRender.terrainAccentR = ParseNextFloatToken( "cinematic_terrain_accent", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.terrainAccentG = ParseNextFloatToken( "cinematic_terrain_accent", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.terrainAccentB = ParseNextFloatToken( "cinematic_terrain_accent", cursor, expected );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_TERRAIN_ACCENT;
+            return true;
+        }
+        if ( MatchDirective( line, "cinematic_terrain_grid", multiArgs ) )
+        {
+            const char* expected = "cinematic_terrain_grid <scale> <strength>";
+            const char* cursor = RequireArgs( "cinematic_terrain_grid", multiArgs, expected );
+            m_scene.m_sceneOptions.cinematicRender.terrainGridScale = ParseNextFloatToken( "cinematic_terrain_grid", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.terrainGridStrength = ParseNextFloatToken( "cinematic_terrain_grid", cursor, expected );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_TERRAIN_GRID;
+            return true;
+        }
+        if ( MatchDirective( line, "cinematic_water_tint", multiArgs ) )
+        {
+            const char* expected = "cinematic_water_tint <r> <g> <b>";
+            const char* cursor = RequireArgs( "cinematic_water_tint", multiArgs, expected );
+            m_scene.m_sceneOptions.cinematicRender.waterTintR = ParseNextFloatToken( "cinematic_water_tint", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.waterTintG = ParseNextFloatToken( "cinematic_water_tint", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.waterTintB = ParseNextFloatToken( "cinematic_water_tint", cursor, expected );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_WATER_TINT;
+            return true;
+        }
+        if ( MatchDirective( line, "cinematic_water_profile", multiArgs ) )
+        {
+            const char* expected = "cinematic_water_profile <alpha> <reflection> <glint>";
+            const char* cursor = RequireArgs( "cinematic_water_profile", multiArgs, expected );
+            m_scene.m_sceneOptions.cinematicRender.waterAlpha = ParseNextFloatToken( "cinematic_water_profile", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.waterReflectionStrength = ParseNextFloatToken( "cinematic_water_profile", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.waterGlintStrength = ParseNextFloatToken( "cinematic_water_profile", cursor, expected );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_WATER_PROFILE;
+            return true;
+        }
+        if ( MatchDirective( line, "cinematic_basin_mask", multiArgs ) )
+        {
+            const char* expected = "cinematic_basin_mask <centerX> <centerZ> <radiusX> <radiusZ> <feather>";
+            const char* cursor = RequireArgs( "cinematic_basin_mask", multiArgs, expected );
+            m_scene.m_sceneOptions.cinematicRender.basinCenterX = ParseNextFloatToken( "cinematic_basin_mask", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.basinCenterZ = ParseNextFloatToken( "cinematic_basin_mask", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.basinRadiusX = ParseNextFloatToken( "cinematic_basin_mask", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.basinRadiusZ = ParseNextFloatToken( "cinematic_basin_mask", cursor, expected );
+            m_scene.m_sceneOptions.cinematicRender.basinFeather = ParseNextFloatToken( "cinematic_basin_mask", cursor, expected );
+            m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_BASIN_MASK;
+            return true;
         }
 
         const char* cursor = line;
@@ -1234,6 +1485,30 @@ class TestSceneParser
         Fail( "Unknown cinematic directive at line %d: %s", m_lineNumber, key );
     }
 
+    bool DispatchStyleLine( const char* line )
+    {
+        if ( TryParseCinematicDirective( line ) )
+        {
+            return true;
+        }
+
+        static const SceneDirective directives[] = {
+            { "style", &TestSceneParser::ParseStyle, "style <name|path>" },
+            { "object_material", &TestSceneParser::ParseObjectMaterial, "object_material <target> <r> <g> <b> <mode>" },
+        };
+
+        const char* args = nullptr;
+        for ( const SceneDirective& directive : directives )
+        {
+            if ( MatchDirective( line, directive.name, args ) )
+            {
+                ( this->*directive.parse )( args );
+                return true;
+            }
+        }
+        return false;
+    }
+
     bool DispatchLine( const char* line )
     {
         if ( TryParseCinematicDirective( line ) )
@@ -1267,6 +1542,7 @@ class TestSceneParser
             { "screenshot_interval", &TestSceneParser::ParseScreenshotInterval, "screenshot_interval <dir> <N>" },
             { "camera", &TestSceneParser::ParseCamera, "camera <name> <pos> <view> <up>" },
             { "ball", &TestSceneParser::ParseBall, "ball <name> ..." },
+            { "floating_ball", &TestSceneParser::ParseFloatingBall, "floating_ball <name> ..." },
             { "box", &TestSceneParser::ParseBox, "box <name> ..." },
             { "floating_box", &TestSceneParser::ParseFloatingBox, "floating_box <name> ..." },
             { "time_scale", &TestSceneParser::ParseTimeScale, "time_scale <value>" },
@@ -1286,6 +1562,9 @@ class TestSceneParser
             { "world", &TestSceneParser::ParseWorld, "world <gravity> <fluidHeight> <fluidDensity>" },
             { "water_hidden", &TestSceneParser::ParseWaterHidden, "water_hidden on|off" },
             { "terrain_hidden", &TestSceneParser::ParseTerrainHidden, "terrain_hidden on|off" },
+            { "style", &TestSceneParser::ParseStyle, "style <name|path>" },
+            { "look", &TestSceneParser::ParseLook, "look <name|path>" },
+            { "object_material", &TestSceneParser::ParseObjectMaterial, "object_material <target> <r> <g> <b> <mode>" },
             { "solver_balls", &TestSceneParser::ParseSolverBalls, "solver_balls <count>" },
             { "solver_boxes", &TestSceneParser::ParseSolverBoxes, "solver_boxes <count>" },
         };
@@ -1353,12 +1632,24 @@ class TestSceneParser
 
         return m_scene;
     }
+
+    TestScene LoadStyle()
+    {
+        IncludeStyleFile( m_path );
+        return m_scene;
+    }
 };
 
 
 TestScene LoadTestSceneFromFileImpl( const char* path )
 {
     return TestSceneParser( path ).Load();
+}
+
+
+TestScene LoadStyleSceneFromFileImpl( const char* path )
+{
+    return TestSceneParser( path ).LoadStyle();
 }
 } // namespace Basics
 } // namespace SkullbonezCore

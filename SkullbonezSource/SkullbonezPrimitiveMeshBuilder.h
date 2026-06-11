@@ -47,6 +47,12 @@ inline constexpr int BoxTriangleVertexCount()
 }
 
 
+inline constexpr int PineTriangleVertexCount()
+{
+    return 18;
+}
+
+
 template <typename EmitVertex>
 inline void EmitUnitSphere( int slices, int stacks, EmitVertex emitVertex )
 {
@@ -85,6 +91,78 @@ inline void EmitUnitSphere( int slices, int stacks, EmitVertex emitVertex )
             emit( x00, y00, z00, u0, v0 );
             emit( x01, y01, z01, u1, v0 );
             emit( x11, y11, z11, u1, v1 );
+        }
+    }
+}
+
+
+template <typename EmitVertex>
+inline void EmitUnitSphereFlat( int slices, int stacks, EmitVertex emitVertex )
+{
+    // Faceted low-poly sphere variant. Positions and UVs match EmitUnitSphere,
+    // but each emitted triangle receives one face normal so lighting exposes the
+    // actual polygon structure instead of smoothing it away.
+    struct LocalVertex
+    {
+        float x, y, z;
+        float u, v;
+    };
+
+    auto normalFor = []( const LocalVertex& a, const LocalVertex& b, const LocalVertex& c, float& nx, float& ny, float& nz )
+    {
+        const float abx = b.x - a.x;
+        const float aby = b.y - a.y;
+        const float abz = b.z - a.z;
+        const float acx = c.x - a.x;
+        const float acy = c.y - a.y;
+        const float acz = c.z - a.z;
+        nx = aby * acz - abz * acy;
+        ny = abz * acx - abx * acz;
+        nz = abx * acy - aby * acx;
+        const float len = sqrtf( nx * nx + ny * ny + nz * nz );
+        if ( len > 0.00001f )
+        {
+            const float invLen = 1.0f / len;
+            nx *= invLen;
+            ny *= invLen;
+            nz *= invLen;
+        }
+        else
+        {
+            nx = a.x;
+            ny = a.y;
+            nz = a.z;
+        }
+    };
+
+    auto emitTri = [&]( const LocalVertex& a, const LocalVertex& b, const LocalVertex& c )
+    {
+        float nx = 0.0f;
+        float ny = 1.0f;
+        float nz = 0.0f;
+        normalFor( a, b, c, nx, ny, nz );
+        emitVertex( VertexPNUV{ a.x, a.y, a.z, nx, ny, nz, a.u, a.v } );
+        emitVertex( VertexPNUV{ b.x, b.y, b.z, nx, ny, nz, b.u, b.v } );
+        emitVertex( VertexPNUV{ c.x, c.y, c.z, nx, ny, nz, c.u, c.v } );
+    };
+
+    for ( int i = 0; i < stacks; ++i )
+    {
+        const float phi0 = _PI * static_cast<float>( i ) / static_cast<float>( stacks );
+        const float phi1 = _PI * static_cast<float>( i + 1 ) / static_cast<float>( stacks );
+
+        for ( int j = 0; j < slices; ++j )
+        {
+            const float theta0 = _2PI * static_cast<float>( j ) / static_cast<float>( slices );
+            const float theta1 = _2PI * static_cast<float>( j + 1 ) / static_cast<float>( slices );
+
+            const LocalVertex v00{ sinf( phi0 ) * sinf( theta0 ), cosf( phi0 ), -sinf( phi0 ) * cosf( theta0 ), static_cast<float>( j ) / static_cast<float>( slices ), static_cast<float>( i ) / static_cast<float>( stacks ) };
+            const LocalVertex v01{ sinf( phi0 ) * sinf( theta1 ), cosf( phi0 ), -sinf( phi0 ) * cosf( theta1 ), static_cast<float>( j + 1 ) / static_cast<float>( slices ), static_cast<float>( i ) / static_cast<float>( stacks ) };
+            const LocalVertex v10{ sinf( phi1 ) * sinf( theta0 ), cosf( phi1 ), -sinf( phi1 ) * cosf( theta0 ), static_cast<float>( j ) / static_cast<float>( slices ), static_cast<float>( i + 1 ) / static_cast<float>( stacks ) };
+            const LocalVertex v11{ sinf( phi1 ) * sinf( theta1 ), cosf( phi1 ), -sinf( phi1 ) * cosf( theta1 ), static_cast<float>( j + 1 ) / static_cast<float>( slices ), static_cast<float>( i + 1 ) / static_cast<float>( stacks ) };
+
+            emitTri( v00, v11, v10 );
+            emitTri( v00, v01, v11 );
         }
     }
 }
@@ -132,6 +210,55 @@ inline void EmitUnitBox( EmitVertex emitVertex )
         emit( v[2], face, uv[2] );
         emit( v[3], face, uv[3] );
     }
+}
+
+
+template <typename EmitVertex>
+inline void EmitUnitPinePyramid( EmitVertex emitVertex )
+{
+    struct LocalVertex
+    {
+        float x, y, z;
+        float u, v;
+    };
+
+    auto emitTri = [&]( const LocalVertex& a, const LocalVertex& b, const LocalVertex& c )
+    {
+        const float abx = b.x - a.x;
+        const float aby = b.y - a.y;
+        const float abz = b.z - a.z;
+        const float acx = c.x - a.x;
+        const float acy = c.y - a.y;
+        const float acz = c.z - a.z;
+        float nx = aby * acz - abz * acy;
+        float ny = abz * acx - abx * acz;
+        float nz = abx * acy - aby * acx;
+        const float len = sqrtf( nx * nx + ny * ny + nz * nz );
+        if ( len > 0.00001f )
+        {
+            const float invLen = 1.0f / len;
+            nx *= invLen;
+            ny *= invLen;
+            nz *= invLen;
+        }
+
+        emitVertex( VertexPNUV{ a.x, a.y, a.z, nx, ny, nz, a.u, a.v } );
+        emitVertex( VertexPNUV{ b.x, b.y, b.z, nx, ny, nz, b.u, b.v } );
+        emitVertex( VertexPNUV{ c.x, c.y, c.z, nx, ny, nz, c.u, c.v } );
+    };
+
+    const LocalVertex apex{ 0.0f, 1.0f, 0.0f, 0.5f, 1.0f };
+    const LocalVertex frontLeft{ -1.0f, -1.0f, 1.0f, 0.0f, 0.0f };
+    const LocalVertex frontRight{ 1.0f, -1.0f, 1.0f, 1.0f, 0.0f };
+    const LocalVertex backRight{ 1.0f, -1.0f, -1.0f, 0.0f, 0.0f };
+    const LocalVertex backLeft{ -1.0f, -1.0f, -1.0f, 1.0f, 0.0f };
+
+    emitTri( frontLeft, frontRight, apex );
+    emitTri( frontRight, backRight, apex );
+    emitTri( backRight, backLeft, apex );
+    emitTri( backLeft, frontLeft, apex );
+    emitTri( backLeft, backRight, frontRight );
+    emitTri( backLeft, frontRight, frontLeft );
 }
 } // namespace PrimitiveMeshes
 } // namespace Rendering

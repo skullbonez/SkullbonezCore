@@ -1,0 +1,24 @@
+# 8. Retro Future 2005
+seed 1008
+physics off
+text off
+vsync off
+pipeline_sync on
+fixed_step
+frames unlimited
+water_reflection fbo
+world -30.0 25.0 1.0
+style retro_future_2005
+camera main 610 152 910  610 46 610  0 1 0
+
+floating_box horizon_plate 620 31 610  300 5 220  3000 0.02
+ball hero 630 52 660 28 112 26 0.48 0 20 0
+ball chrome_satellite 845 170 500 10 34 9 0.38 0 0 0
+ball flare_01 475 52 700 15 64 14 0.42 0 68 0
+ball flare_02 740 48 695 16 68 15 0.42 0 128 0
+ball sparkle_01 390 60 595 8 34 8 0.38 0 18 0
+ball sparkle_02 505 52 555 7 30 7 0.38 0 58 0
+ball sparkle_03 625 48 540 7 30 7 0.38 0 98 0
+ball sparkle_04 775 56 570 8 34 8 0.38 0 138 0
+ball distance_01 350 92 460 5 22 5 0.34 0 0 0
+ball distance_02 910 100 485 5 22 5 0.34 0 0 0

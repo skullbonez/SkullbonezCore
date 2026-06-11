@@ -23,11 +23,10 @@
 //         \___/
 //       Outside (discard)
 //
-// --- Radial Fade ---
+// --- Contact Fade ---
 //
-//  Alpha falls off linearly from centre to edge:
-//    alpha = vAlpha * (1.0 - dist)
-//  Centre: full vAlpha.  Edge: 0. Produces a soft natural shadow.
+//  Alpha has a compact contact core plus a much softer outer skirt. This keeps
+//  objects grounded without creating huge muddy pools under stylized scenes.
 //
 //  The result is blended with the scene:
 //    Final = Black * alpha + Scene * (1 - alpha)
@@ -60,9 +59,12 @@ void main()
         discard;
     }
 
-    // Linear fade from centre (full opacity) to edge (transparent).
-    float alpha = vAlpha * ( 1.0 - dist );
+    // A tight core grounds the object; the outer skirt fades quickly so the
+    // shadow reads as contact instead of a broad black stain.
+    float contact = 1.0 - smoothstep( 0.0, 0.24, dist );
+    float skirt = ( 1.0 - smoothstep( 0.20, 0.92, dist ) ) * 0.16;
+    float alpha = vAlpha * ( contact * 0.36 + skirt );
 
-    // Pure black with variable opacity = darkens whatever is underneath.
-    FragColor = vec4( 0.0, 0.0, 0.0, alpha );
+    // A cool green-brown tint reads softer than pure black in pastel scenes.
+    FragColor = vec4( 0.035, 0.060, 0.025, alpha );
 }

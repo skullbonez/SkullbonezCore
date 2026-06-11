@@ -9,6 +9,149 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Basics::RunInternal;
 
+namespace
+{
+bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const GameModel& model )
+{
+    if ( strcmp( material.target, "all" ) == 0 )
+    {
+        return true;
+    }
+    if ( strcmp( material.target, "balls" ) == 0 )
+    {
+        return !model.IsBox();
+    }
+    if ( strcmp( material.target, "boxes" ) == 0 )
+    {
+        return model.IsBox();
+    }
+    if ( strncmp( material.target, "prefix:", 7 ) == 0 )
+    {
+        return strncmp( model.GetName(), material.target + 7, strlen( material.target + 7 ) ) == 0;
+    }
+    return strcmp( material.target, model.GetName() ) == 0;
+}
+
+bool IsCineScenePath( const std::string& path )
+{
+    const char* name = FileNameFromPath( path.c_str() );
+    return strncmp( name, "concept_", 8 ) == 0 ||
+           strncmp( name, "cinematic_", 10 ) == 0 ||
+           strstr( name, "_cine_" ) != nullptr ||
+           strstr( name, "cine_" ) == name;
+}
+
+void SetTouchedCinematicSceneDirectives( std::vector<std::string>& lines, uint64_t touchedMask, const CinematicRenderConfig& c )
+{
+    char buf[256] = {};
+    const auto writeBool = [&]( uint64_t bit, const char* key, bool value )
+    {
+        if ( ( touchedMask & bit ) != 0 )
+        {
+            snprintf( buf, sizeof( buf ), "%s %s", key, OnOff( value ) );
+            SetSceneDirective( lines, key, buf, true );
+        }
+    };
+    const auto writeFloat = [&]( uint64_t bit, const char* key, float value, const char* format )
+    {
+        if ( ( touchedMask & bit ) != 0 )
+        {
+            snprintf( buf, sizeof( buf ), format, key, value );
+            SetSceneDirective( lines, key, buf, true );
+        }
+    };
+
+    writeBool( SCENE_CINE_RENDERING, "cinematic_rendering", c.enabled );
+    writeBool( SCENE_CINE_SKY_ATMOSPHERE, "cinematic_sky_atmosphere", c.skyAtmosphereEnabled );
+    writeBool( SCENE_CINE_CLOUDS, "cinematic_clouds", c.cloudsEnabled );
+    writeBool( SCENE_CINE_GOD_RAYS, "cinematic_god_rays", c.godRaysEnabled );
+    writeBool( SCENE_CINE_VOLUMETRIC_LIGHTING, "cinematic_volumetric_lighting", c.volumetricLightingEnabled );
+    writeBool( SCENE_CINE_BLOOM, "cinematic_bloom", c.bloomEnabled );
+    writeBool( SCENE_CINE_FOG, "cinematic_fog", c.fogEnabled );
+    writeBool( SCENE_CINE_TERRAIN_RELIEF_ENABLED, "cinematic_terrain_relief_enabled", c.terrainReliefEnabled );
+
+    writeFloat( SCENE_CINE_EXPOSURE, "cinematic_exposure", c.exposure, "%s %.2f" );
+    writeFloat( SCENE_CINE_GAMMA, "cinematic_gamma", c.gamma, "%s %.2f" );
+    writeFloat( SCENE_CINE_SUN_SCREEN_X, "cinematic_sun_screen_x", c.sunScreenX, "%s %.3f" );
+    writeFloat( SCENE_CINE_SUN_SCREEN_Y, "cinematic_sun_screen_y", c.sunScreenY, "%s %.3f" );
+    writeFloat( SCENE_CINE_SUN_COLOR_R, "cinematic_sun_color_r", c.sunColorR, "%s %.2f" );
+    writeFloat( SCENE_CINE_SUN_COLOR_G, "cinematic_sun_color_g", c.sunColorG, "%s %.2f" );
+    writeFloat( SCENE_CINE_SUN_COLOR_B, "cinematic_sun_color_b", c.sunColorB, "%s %.2f" );
+    writeFloat( SCENE_CINE_SUN_INTENSITY, "cinematic_sun_intensity", c.sunIntensity, "%s %.2f" );
+    writeFloat( SCENE_CINE_SKY_HORIZON_R, "cinematic_sky_horizon_r", c.skyHorizonR, "%s %.2f" );
+    writeFloat( SCENE_CINE_SKY_HORIZON_G, "cinematic_sky_horizon_g", c.skyHorizonG, "%s %.2f" );
+    writeFloat( SCENE_CINE_SKY_HORIZON_B, "cinematic_sky_horizon_b", c.skyHorizonB, "%s %.2f" );
+    writeFloat( SCENE_CINE_SKY_ZENITH_R, "cinematic_sky_zenith_r", c.skyZenithR, "%s %.2f" );
+    writeFloat( SCENE_CINE_SKY_ZENITH_G, "cinematic_sky_zenith_g", c.skyZenithG, "%s %.2f" );
+    writeFloat( SCENE_CINE_SKY_ZENITH_B, "cinematic_sky_zenith_b", c.skyZenithB, "%s %.2f" );
+    writeFloat( SCENE_CINE_SKY_GLOW_STRENGTH, "cinematic_sky_glow_strength", c.skyGlowStrength, "%s %.2f" );
+    writeFloat( SCENE_CINE_CLOUD_COVERAGE, "cinematic_cloud_coverage", c.cloudCoverage, "%s %.2f" );
+    writeFloat( SCENE_CINE_CLOUD_SOFTNESS, "cinematic_cloud_softness", c.cloudSoftness, "%s %.2f" );
+    writeFloat( SCENE_CINE_CLOUD_SCALE, "cinematic_cloud_scale", c.cloudScale, "%s %.2f" );
+    writeFloat( SCENE_CINE_CLOUD_INTENSITY, "cinematic_cloud_intensity", c.cloudIntensity, "%s %.2f" );
+    writeFloat( SCENE_CINE_SUN_SHAFT_STRENGTH, "cinematic_sun_shaft_strength", c.sunShaftStrength, "%s %.2f" );
+    writeFloat( SCENE_CINE_SUN_SHAFT_FALLOFF, "cinematic_sun_shaft_falloff", c.sunShaftFalloff, "%s %.2f" );
+    writeFloat( SCENE_CINE_VOLUMETRIC_STRENGTH, "cinematic_volumetric_strength", c.volumetricStrength, "%s %.2f" );
+    writeFloat( SCENE_CINE_VOLUMETRIC_DENSITY, "cinematic_volumetric_density", c.volumetricDensity, "%s %.2f" );
+    writeFloat( SCENE_CINE_VOLUMETRIC_DECAY, "cinematic_volumetric_decay", c.volumetricDecay, "%s %.3f" );
+    writeFloat( SCENE_CINE_BLOOM_THRESHOLD, "cinematic_bloom_threshold", c.bloomThreshold, "%s %.2f" );
+    writeFloat( SCENE_CINE_BLOOM_KNEE, "cinematic_bloom_knee", c.bloomKnee, "%s %.2f" );
+    writeFloat( SCENE_CINE_BLOOM_STRENGTH, "cinematic_bloom_strength", c.bloomStrength, "%s %.2f" );
+    writeFloat( SCENE_CINE_BLOOM_RADIUS, "cinematic_bloom_radius", c.bloomRadius, "%s %.2f" );
+    writeFloat( SCENE_CINE_TERRAIN_RELIEF, "cinematic_terrain_relief", c.terrainRelief, "%s %.2f" );
+    writeFloat( SCENE_CINE_BASIN_DEPTH, "cinematic_basin_depth", c.basinDepth, "%s %.2f" );
+    writeFloat( SCENE_CINE_BASIN_RIM_LIFT, "cinematic_basin_rim_lift", c.basinRimLift, "%s %.2f" );
+    writeFloat( SCENE_CINE_FOG_COLOR_R, "cinematic_fog_color_r", c.fogColorR, "%s %.2f" );
+    writeFloat( SCENE_CINE_FOG_COLOR_G, "cinematic_fog_color_g", c.fogColorG, "%s %.2f" );
+    writeFloat( SCENE_CINE_FOG_COLOR_B, "cinematic_fog_color_b", c.fogColorB, "%s %.2f" );
+    writeFloat( SCENE_CINE_FOG_START, "cinematic_fog_start", c.fogStart, "%s %.2f" );
+    writeFloat( SCENE_CINE_FOG_END, "cinematic_fog_end", c.fogEnd, "%s %.2f" );
+    writeFloat( SCENE_CINE_FOG_DENSITY, "cinematic_fog_density", c.fogDensity, "%s %.5f" );
+    writeFloat( SCENE_CINE_FOG_MAX_OPACITY, "cinematic_fog_max_opacity", c.fogMaxOpacity, "%s %.2f" );
+
+    if ( ( touchedMask & SCENE_CINE_STYLE_MODES ) != 0 )
+    {
+        snprintf( buf, sizeof( buf ), "cinematic_style_modes %d %d %d %d", c.skyMode, c.terrainMode, c.objectStyle, c.waterMode );
+        SetSceneDirective( lines, "cinematic_style_modes", buf, true );
+    }
+    if ( ( touchedMask & SCENE_CINE_STYLE_GRADE ) != 0 )
+    {
+        snprintf( buf, sizeof( buf ), "cinematic_style_grade %.2f %.2f %.2f", c.styleSaturation, c.styleContrast, c.styleVignette );
+        SetSceneDirective( lines, "cinematic_style_grade", buf, true );
+    }
+    if ( ( touchedMask & SCENE_CINE_TERRAIN_TINT ) != 0 )
+    {
+        snprintf( buf, sizeof( buf ), "cinematic_terrain_tint %.2f %.2f %.2f", c.terrainTintR, c.terrainTintG, c.terrainTintB );
+        SetSceneDirective( lines, "cinematic_terrain_tint", buf, true );
+    }
+    if ( ( touchedMask & SCENE_CINE_TERRAIN_ACCENT ) != 0 )
+    {
+        snprintf( buf, sizeof( buf ), "cinematic_terrain_accent %.2f %.2f %.2f", c.terrainAccentR, c.terrainAccentG, c.terrainAccentB );
+        SetSceneDirective( lines, "cinematic_terrain_accent", buf, true );
+    }
+    if ( ( touchedMask & SCENE_CINE_TERRAIN_GRID ) != 0 )
+    {
+        snprintf( buf, sizeof( buf ), "cinematic_terrain_grid %.2f %.2f", c.terrainGridScale, c.terrainGridStrength );
+        SetSceneDirective( lines, "cinematic_terrain_grid", buf, true );
+    }
+    if ( ( touchedMask & SCENE_CINE_WATER_TINT ) != 0 )
+    {
+        snprintf( buf, sizeof( buf ), "cinematic_water_tint %.2f %.2f %.2f", c.waterTintR, c.waterTintG, c.waterTintB );
+        SetSceneDirective( lines, "cinematic_water_tint", buf, true );
+    }
+    if ( ( touchedMask & SCENE_CINE_WATER_PROFILE ) != 0 )
+    {
+        snprintf( buf, sizeof( buf ), "cinematic_water_profile %.2f %.2f %.2f", c.waterAlpha, c.waterReflectionStrength, c.waterGlintStrength );
+        SetSceneDirective( lines, "cinematic_water_profile", buf, true );
+    }
+    if ( ( touchedMask & SCENE_CINE_BASIN_MASK ) != 0 )
+    {
+        snprintf( buf, sizeof( buf ), "cinematic_basin_mask %.2f %.2f %.2f %.2f %.2f", c.basinCenterX, c.basinCenterZ, c.basinRadiusX, c.basinRadiusZ, c.basinFeather );
+        SetSceneDirective( lines, "cinematic_basin_mask", buf, true );
+    }
+}
+} // namespace
+
 void SkullbonezRun::SetUpGameModels( int count )
 {
     m_scene.modelCount = count;
@@ -223,6 +366,7 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
         gameModel.SetTerrain( m_systems.terrain.get() );
         gameModel.SetName( ball.name );
         gameModel.AddBoundingSphere( ball.m_radius );
+        gameModel.SetFixed( ball.isFixed );
 
         // apply initial orientation if specified (euler angles in degrees, XYZ order)
         if ( ball.hasInitOrient )
@@ -231,7 +375,7 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
         }
 
         // apply force if any is specified
-        if ( ball.forceX != 0.0f || ball.forceY != 0.0f || ball.forceZ != 0.0f )
+        if ( !ball.isFixed && ( ball.forceX != 0.0f || ball.forceY != 0.0f || ball.forceZ != 0.0f ) )
         {
             gameModel.SetImpulseForce(
                 Vector3( ball.forceX, ball.forceY, ball.forceZ ),
@@ -298,6 +442,19 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
 
         m_cGameModelCollection.AddGameModel( std::move( gameModel ) );
     }
+
+    for ( int materialIndex = 0; materialIndex < scene.GetObjectMaterialOverrideCount(); ++materialIndex )
+    {
+        const SceneObjectMaterialOverride& material = scene.GetObjectMaterialOverride( materialIndex );
+        for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
+        {
+            GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
+            if ( SceneMaterialTargetMatches( material, model ) )
+            {
+                model.SetRenderTint( material.tintR, material.tintG, material.tintB, material.materialMode );
+            }
+        }
+    }
 }
 
 
@@ -347,6 +504,7 @@ SceneRuntimeResetSnapshot SkullbonezRun::CaptureSceneRuntimeResetSnapshot()
     snapshot.hasCinematicGamma = m_scene.hasCinematicGamma;
     snapshot.cinematicGamma = m_scene.cinematicGamma;
     snapshot.cinematicOverrideMask = m_scene.cinematicOverrideMask;
+    snapshot.uiCinematicOverrideMask = m_scene.uiCinematicOverrideMask;
     snapshot.cinematicRender = m_scene.cinematicRender;
     snapshot.uiTimeScaleOverride = m_UITimeScaleOverride;
     snapshot.uiModelCountOverride = m_UIModelCountOverride;
@@ -383,6 +541,7 @@ void SkullbonezRun::RestoreSceneRuntimeResetSnapshot( const SceneRuntimeResetSna
     m_scene.hasCinematicGamma = snapshot.hasCinematicGamma;
     m_scene.cinematicGamma = snapshot.cinematicGamma;
     m_scene.cinematicOverrideMask = snapshot.cinematicOverrideMask;
+    m_scene.uiCinematicOverrideMask = snapshot.uiCinematicOverrideMask;
     m_scene.cinematicRender = snapshot.cinematicRender;
     m_UITimeScaleOverride = snapshot.uiTimeScaleOverride;
     m_UIModelCountOverride = snapshot.uiModelCountOverride;
@@ -447,6 +606,10 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     m_scene.currentSceneIndex = index;
     ++m_scene.loadCount;
     const std::string& scenePath = m_sceneQueue[index];
+    if ( !shouldPreserveRuntimeState )
+    {
+        m_selectedCineModeSceneIndex = ( !scenePath.empty() && IsCineScenePath( scenePath ) ) ? CurrentSceneBrowserIndex() : -1;
+    }
 
     // Close previous perf log if open
     if ( m_perfLogState.perfLogFile )
@@ -479,6 +642,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     m_scene.hasCinematicGamma = false;
     m_scene.cinematicGamma = Cfg().cinematicRender.gamma;
     m_scene.cinematicOverrideMask = 0;
+    m_scene.uiCinematicOverrideMask = 0;
     m_scene.cinematicRender = Cfg().cinematicRender;
     m_scene.isTestComplete = false;
     m_scene.isFinishLogged = false;
@@ -591,6 +755,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         {
             SetUpGameModels( m_UIModelCountOverride >= 0 ? m_UIModelCountOverride : DEFAULT_GAME_MODELS );
         }
+        ApplyDemoHeroStyleOverride();
         const char* rendererName = Gfx().GetRendererName();
         char titleText[256];
         sprintf_s( titleText, "%s [%s]", TITLE_TEXT, rendererName );
@@ -875,9 +1040,11 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
             uint32_t activeCam = m_systems.cameras->GetSelectedCameraName();
             m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
             Input::SetSystemCursorVisible( false );
-            Input::CentreMouseCoordinates();
             m_camera.input.xMove = 0;
             m_camera.input.yMove = 0;
+            m_camera.hasMouseLookLastClient = false;
+            m_camera.needsMouseLookReset = true;
+            Input::ResetMouseLookDeltas();
         }
     }
 
@@ -1078,6 +1245,7 @@ bool SkullbonezRun::SaveCurrentSceneDefaults()
     }
     snprintf( buf, sizeof( buf ), "world %.2f %.2f %.2f", m_cWorldEnvironment.GetGravity(), m_cWorldEnvironment.GetFluidSurfaceHeight(), m_cWorldEnvironment.GetFluidDensity() );
     SetSceneDirective( lines, "world", buf, true );
+    SetTouchedCinematicSceneDirectives( lines, m_scene.uiCinematicOverrideMask, m_scene.cinematicRender );
 
     if ( m_UIModelCountOverride >= 0 )
     {
@@ -1219,15 +1387,244 @@ void SkullbonezRun::LoadDemoSceneFromUI()
 }
 
 
+bool SkullbonezRun::ApplyCinematicModeFromBrowserIndex( int index )
+{
+    EnterInteractiveSceneRun();
+    m_cmdHasCinematicRenderingOverride = false;
+
+    auto resetObjectMaterials = [&]()
+    {
+        for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
+        {
+            m_cGameModelCollection.GetModelAtIndex( modelIndex ).SetRenderTint( 1.0f, 1.0f, 1.0f, 0.0f );
+        }
+    };
+
+    auto applyObjectMaterials = [&]( const TestScene& styleScene )
+    {
+        resetObjectMaterials();
+        for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )
+        {
+            const SceneObjectMaterialOverride& material = styleScene.GetObjectMaterialOverride( materialIndex );
+            for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
+            {
+                GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
+                if ( SceneMaterialTargetMatches( material, model ) )
+                {
+                    model.SetRenderTint( material.tintR, material.tintG, material.tintB, material.materialMode );
+                }
+            }
+        }
+    };
+
+    CinematicRenderConfig& cinematic = ActiveCinematicConfig();
+    if ( index < 0 )
+    {
+        cinematic = m_defaultCinematicRender;
+        if ( m_scene.isSceneMode )
+        {
+            m_scene.hasCinematicRenderingOverride = false;
+            m_scene.isCinematicRenderingEnabled = cinematic.enabled;
+            m_scene.hasCinematicExposure = false;
+            m_scene.cinematicExposure = cinematic.exposure;
+            m_scene.hasCinematicGamma = false;
+            m_scene.cinematicGamma = cinematic.gamma;
+            m_scene.cinematicOverrideMask = 0;
+            m_scene.uiCinematicOverrideMask = 0;
+        }
+        resetObjectMaterials();
+        m_selectedCineModeSceneIndex = -1;
+        return true;
+    }
+
+    if ( index >= static_cast<int>( m_sceneBrowserPaths.size() ) || !IsCineScenePath( m_sceneBrowserPaths[index] ) )
+    {
+        return false;
+    }
+
+    TestScene lookScene = TestScene::LoadFromFile( m_sceneBrowserPaths[index].c_str() );
+    cinematic = m_defaultCinematicRender;
+    ApplyCinematicSceneOverrides( cinematic, lookScene.GetCinematicOverrideMask(), lookScene.GetCinematicRenderConfig() );
+    if ( m_scene.isSceneMode )
+    {
+        m_scene.hasCinematicRenderingOverride = lookScene.HasCinematicRenderingOverride();
+        m_scene.isCinematicRenderingEnabled = lookScene.IsCinematicRenderingEnabled();
+        m_scene.hasCinematicExposure = lookScene.HasCinematicExposure();
+        m_scene.cinematicExposure = lookScene.GetCinematicExposure();
+        m_scene.hasCinematicGamma = lookScene.HasCinematicGamma();
+        m_scene.cinematicGamma = lookScene.GetCinematicGamma();
+        m_scene.cinematicOverrideMask = lookScene.GetCinematicOverrideMask();
+        m_scene.uiCinematicOverrideMask = 0;
+    }
+    applyObjectMaterials( lookScene );
+    m_selectedCineModeSceneIndex = index;
+    return true;
+}
+
+
+void SkullbonezRun::ApplyLiveStyleScene( const TestScene& styleScene )
+{
+    m_cmdHasCinematicRenderingOverride = false;
+
+    for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
+    {
+        m_cGameModelCollection.GetModelAtIndex( modelIndex ).SetRenderTint( 1.0f, 1.0f, 1.0f, 0.0f );
+    }
+
+    for ( int materialIndex = 0; materialIndex < styleScene.GetObjectMaterialOverrideCount(); ++materialIndex )
+    {
+        const SceneObjectMaterialOverride& material = styleScene.GetObjectMaterialOverride( materialIndex );
+        for ( int modelIndex = 0; modelIndex < m_cGameModelCollection.GetModelCount(); ++modelIndex )
+        {
+            GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
+            if ( SceneMaterialTargetMatches( material, model ) )
+            {
+                model.SetRenderTint( material.tintR, material.tintG, material.tintB, material.materialMode );
+            }
+        }
+    }
+
+    CinematicRenderConfig& cinematic = ActiveCinematicConfig();
+    cinematic = m_defaultCinematicRender;
+    ApplyCinematicSceneOverrides( cinematic, styleScene.GetCinematicOverrideMask(), styleScene.GetCinematicRenderConfig() );
+    if ( m_scene.isSceneMode )
+    {
+        m_scene.hasCinematicRenderingOverride = styleScene.HasCinematicRenderingOverride();
+        m_scene.isCinematicRenderingEnabled = styleScene.IsCinematicRenderingEnabled();
+        m_scene.hasCinematicExposure = styleScene.HasCinematicExposure();
+        m_scene.cinematicExposure = styleScene.GetCinematicExposure();
+        m_scene.hasCinematicGamma = styleScene.HasCinematicGamma();
+        m_scene.cinematicGamma = styleScene.GetCinematicGamma();
+        m_scene.cinematicOverrideMask = styleScene.GetCinematicOverrideMask();
+        m_scene.uiCinematicOverrideMask = 0;
+    }
+    m_selectedCineModeSceneIndex = -1;
+}
+
+
+void SkullbonezRun::ApplyDemoHeroStyleOverride()
+{
+    if ( !m_cmdDemoHeroStyle || m_scene.isSceneMode )
+    {
+        return;
+    }
+
+    const std::string stylePath = std::string( DATA_ROOT ) + "styles/low_poly_art_style.style";
+    const TestScene styleScene = TestScene::LoadStyleFromFile( stylePath.c_str() );
+    ApplyLiveStyleScene( styleScene );
+    printf( "[scene] Applied low-poly hero rendering mode to generated demo scene.\n" );
+}
+
+
+bool SkullbonezRun::ApplyAdjacentCinematicMode( int direction )
+{
+    if ( direction == 0 )
+    {
+        return false;
+    }
+
+    std::vector<int> cineIndices;
+    cineIndices.reserve( m_sceneBrowserPaths.size() );
+    int currentPosition = -1;
+    for ( int i = 0; i < static_cast<int>( m_sceneBrowserPaths.size() ); ++i )
+    {
+        if ( IsCineScenePath( m_sceneBrowserPaths[i] ) )
+        {
+            if ( i == m_selectedCineModeSceneIndex )
+            {
+                currentPosition = static_cast<int>( cineIndices.size() );
+            }
+            cineIndices.push_back( i );
+        }
+    }
+
+    if ( cineIndices.empty() )
+    {
+        return false;
+    }
+
+    const int currentSceneIndex = CurrentSceneBrowserIndex();
+    if ( currentPosition < 0 && currentSceneIndex >= 0 && IsCineScenePath( m_sceneBrowserPaths[currentSceneIndex] ) )
+    {
+        for ( int i = 0; i < static_cast<int>( cineIndices.size() ); ++i )
+        {
+            if ( cineIndices[i] == currentSceneIndex )
+            {
+                currentPosition = i;
+                break;
+            }
+        }
+    }
+
+    const bool cineContext = currentPosition >= 0 || m_selectedCineModeSceneIndex >= 0 || m_UI.GetActiveTab() == InGameUITab::Cinematic;
+    if ( !cineContext )
+    {
+        return false;
+    }
+
+    const int cineCount = static_cast<int>( cineIndices.size() );
+    const int nextPosition = currentPosition < 0
+                                 ? ( direction < 0 ? cineCount - 1 : 0 )
+                                 : ( currentPosition + ( direction < 0 ? -1 : 1 ) + cineCount ) % cineCount;
+    return ApplyCinematicModeFromBrowserIndex( cineIndices[nextPosition] );
+}
+
+
 void SkullbonezRun::LoadAdjacentSceneFromBrowser( int direction )
 {
+    if ( direction == 0 )
+    {
+        return;
+    }
+
+    if ( HasCurrentSceneQueueEntry() && m_sceneQueue.size() > 1 )
+    {
+        bool queueIsCinematicDeck = true;
+        for ( const std::string& queuedPath : m_sceneQueue )
+        {
+            queueIsCinematicDeck = queueIsCinematicDeck && !queuedPath.empty() && IsCineScenePath( queuedPath );
+        }
+        if ( queueIsCinematicDeck )
+        {
+            const int queueCount = static_cast<int>( m_sceneQueue.size() );
+            const int nextQueueIndex = ( m_scene.currentSceneIndex + ( direction < 0 ? -1 : 1 ) + queueCount ) % queueCount;
+            LoadScene( nextQueueIndex, true, true );
+            return;
+        }
+    }
+
     const int sceneCount = static_cast<int>( m_sceneBrowserPaths.size() );
-    if ( sceneCount <= 0 || direction == 0 )
+    if ( sceneCount <= 0 )
     {
         return;
     }
 
     const int currentIndex = CurrentSceneBrowserIndex();
+    if ( currentIndex >= 0 && IsCineScenePath( m_sceneBrowserPaths[currentIndex] ) )
+    {
+        std::vector<int> cineIndices;
+        cineIndices.reserve( m_sceneBrowserPaths.size() );
+        int currentCinePosition = -1;
+        for ( int i = 0; i < sceneCount; ++i )
+        {
+            if ( IsCineScenePath( m_sceneBrowserPaths[i] ) )
+            {
+                if ( i == currentIndex )
+                {
+                    currentCinePosition = static_cast<int>( cineIndices.size() );
+                }
+                cineIndices.push_back( i );
+            }
+        }
+        if ( !cineIndices.empty() && currentCinePosition >= 0 )
+        {
+            const int cineCount = static_cast<int>( cineIndices.size() );
+            const int nextCinePosition = ( currentCinePosition + ( direction < 0 ? -1 : 1 ) + cineCount ) % cineCount;
+            LoadSceneFromBrowserIndex( cineIndices[nextCinePosition] );
+            return;
+        }
+    }
+
     int nextIndex = 0;
     if ( currentIndex < 0 )
     {
