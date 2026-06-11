@@ -223,22 +223,22 @@ void main()
     }
     else if (mode == 11)
     {
-        vec3 horizon = clamp(mix(vec3(1.00, 0.82, 0.60), uHorizonColor, 0.68), 0.0, 1.8);
-        vec3 zenith = clamp(mix(vec3(0.38, 0.72, 1.12), uZenithColor, 0.86), 0.0, 1.8);
-        vec3 middle = clamp(mix(horizon, zenith, 0.58) + vec3(0.02, 0.03, 0.03), 0.0, 1.8);
+        vec3 horizon = clamp(mix(vec3(1.04, 0.78, 0.56), uHorizonColor, 0.60), 0.0, 1.8);
+        vec3 zenith = clamp(mix(vec3(0.30, 0.66, 1.22), uZenithColor, 0.92), 0.0, 1.8);
+        vec3 middle = clamp(mix(horizon, zenith, 0.58) + vec3(0.00, 0.01, 0.06), 0.0, 1.8);
         vec3 lowPolySky = mix(horizon, middle, smoothstep(0.08, 0.50, height));
         lowPolySky = mix(lowPolySky, zenith, smoothstep(0.30, 0.74, height));
         float band = floor(height * 9.0) / 9.0;
         vec3 bandedSky = mix(horizon, middle, smoothstep(0.08, 0.55, band));
         bandedSky = mix(bandedSky, zenith, smoothstep(0.30, 0.74, band));
         lowPolySky = mix(lowPolySky, bandedSky, 0.18);
-        float upperCool = smoothstep(0.40, 0.62, height);
-        lowPolySky = mix(lowPolySky, clamp(zenith * vec3(0.70, 0.95, 1.16), 0.0, 1.8), upperCool * 0.50);
+        float upperCool = smoothstep(0.30, 0.58, height);
+        lowPolySky = mix(lowPolySky, clamp(zenith * vec3(0.66, 0.96, 1.18), 0.0, 1.8), upperCool * 0.66);
 
-        float farRidge = LowPolyRidgeHeight(skyCoord.x, 0.57, 0.12, 4.60, 0.11);
-        float midRidge = LowPolyRidgeHeight(skyCoord.x, 0.52, 0.11, 6.10, 0.37);
-        float nearRidge = LowPolyRidgeHeight(skyCoord.x, 0.48, 0.09, 7.80, 0.68);
-        float ridgeFade = smoothstep(0.39, 0.48, height) * (1.0 - smoothstep(0.60, 0.72, height));
+        float farRidge = LowPolyRidgeHeight(skyCoord.x, 0.54, 0.15, 4.20, 0.11);
+        float midRidge = LowPolyRidgeHeight(skyCoord.x, 0.49, 0.13, 5.80, 0.37);
+        float nearRidge = LowPolyRidgeHeight(skyCoord.x, 0.44, 0.12, 7.30, 0.68);
+        float ridgeFade = smoothstep(0.31, 0.43, height) * (1.0 - smoothstep(0.61, 0.74, height));
         float farMask = (1.0 - smoothstep(farRidge - 0.016, farRidge + 0.024, height)) * ridgeFade;
         float midMask = (1.0 - smoothstep(midRidge - 0.014, midRidge + 0.022, height)) * ridgeFade;
         float nearMask = (1.0 - smoothstep(nearRidge - 0.012, nearRidge + 0.020, height)) * ridgeFade;
@@ -248,28 +248,28 @@ void main()
         farMask = floor(farMask * 4.0 + 0.5) / 4.0;
         midMask = floor(midMask * 4.0 + 0.5) / 4.0;
         nearMask = floor(nearMask * 4.0 + 0.5) / 4.0;
-        vec3 farMountain = clamp(mix(vec3(0.34, 0.39, 0.58), horizon, 0.10), 0.0, 1.4);
-        vec3 midMountain = clamp(mix(vec3(0.43, 0.31, 0.40), horizon, 0.12), 0.0, 1.4);
-        vec3 nearMountain = clamp(mix(vec3(0.28, 0.24, 0.27), uSunColor, 0.08), 0.0, 1.3);
-        lowPolySky = mix(lowPolySky, farMountain, clamp(farMask * 0.72, 0.0, 0.72));
-        lowPolySky = mix(lowPolySky, midMountain, clamp(midMask * 0.74, 0.0, 0.74));
-        lowPolySky = mix(lowPolySky, nearMountain, clamp(nearMask * 0.66, 0.0, 0.66));
+        vec3 farMountain = clamp(mix(vec3(0.30, 0.39, 0.62), horizon, 0.08), 0.0, 1.4);
+        vec3 midMountain = clamp(mix(vec3(0.39, 0.30, 0.48), horizon, 0.09), 0.0, 1.4);
+        vec3 nearMountain = clamp(mix(vec3(0.22, 0.25, 0.33), uSunColor, 0.06), 0.0, 1.3);
+        lowPolySky = mix(lowPolySky, farMountain, clamp(farMask * 0.80, 0.0, 0.80));
+        lowPolySky = mix(lowPolySky, midMountain, clamp(midMask * 0.82, 0.0, 0.82));
+        lowPolySky = mix(lowPolySky, nearMountain, clamp(nearMask * 0.74, 0.0, 0.74));
 
         // Low-poly mode uses deliberate flat cloud cards instead of the broader
         // cinematic cloud bank. This keeps the sky clean and composed.
         float cardCloud = 0.0;
-        cardCloud = max(cardCloud, CloudLobe(skyCoord, vec2(0.16, 0.63), vec2(0.17, 0.052), 3.0));
-        cardCloud = max(cardCloud, CloudLobe(skyCoord, vec2(0.36, 0.68), vec2(0.22, 0.055), 6.0) * 0.92);
-        cardCloud = max(cardCloud, CloudLobe(skyCoord, vec2(0.56, 0.57), vec2(0.20, 0.050), 7.4) * 0.70);
-        cardCloud = max(cardCloud, CloudLobe(skyCoord, vec2(0.76, 0.66), vec2(0.23, 0.055), 9.0) * 0.84);
-        cardCloud = max(cardCloud, CloudLobe(skyCoord, vec2(0.91, 0.53), vec2(0.16, 0.045), 12.0) * 0.64);
-        cardCloud *= smoothstep(0.34, 0.43, height) * (1.0 - smoothstep(0.84, 0.94, height));
-        float cloudBand = smoothstep(0.024, 0.24, cardCloud);
+        cardCloud = max(cardCloud, CloudLobe(skyCoord, vec2(0.14, 0.60), vec2(0.19, 0.058), 3.0));
+        cardCloud = max(cardCloud, CloudLobe(skyCoord, vec2(0.35, 0.66), vec2(0.24, 0.060), 6.0) * 0.98);
+        cardCloud = max(cardCloud, CloudLobe(skyCoord, vec2(0.56, 0.58), vec2(0.23, 0.055), 7.4) * 0.82);
+        cardCloud = max(cardCloud, CloudLobe(skyCoord, vec2(0.77, 0.67), vec2(0.25, 0.060), 9.0) * 0.92);
+        cardCloud = max(cardCloud, CloudLobe(skyCoord, vec2(0.92, 0.55), vec2(0.18, 0.050), 12.0) * 0.78);
+        cardCloud *= smoothstep(0.32, 0.41, height) * (1.0 - smoothstep(0.86, 0.94, height));
+        float cloudBand = smoothstep(0.018, 0.20, cardCloud);
         cloudBand = floor(cloudBand * 3.0 + 0.5) / 3.0;
         vec3 flatCloudShadow = clamp(mix(vec3(0.92, 0.54, 0.64), uHorizonColor * vec3(0.88, 0.46, 0.50), 0.56), 0.0, 1.6);
         vec3 flatCloudLight = clamp(mix(vec3(1.48, 0.88, 0.50), uSunColor * vec3(1.52, 1.00, 0.66), 0.58), 0.0, 1.9);
         vec3 flatCloud = mix(flatCloudShadow, flatCloudLight, clamp(sunLit * 0.58 + 0.42, 0.0, 1.0));
-        lowPolySky = mix(lowPolySky, flatCloud, clamp(cloudBand * 0.98, 0.0, 0.98));
+        lowPolySky = mix(lowPolySky, flatCloud, clamp(cloudBand * 1.06, 0.0, 1.0));
 
         float polyStreak = 0.0;
         polyStreak = max(polyStreak, LowPolyCloudStreak(skyCoord, vec2(0.20, 0.58), vec2(0.24, 0.030), -1.00));
@@ -281,7 +281,7 @@ void main()
         vec3 streakWarm = clamp(mix(vec3(1.34, 0.66, 0.36), uSunColor * vec3(1.18, 0.78, 0.50), 0.66), 0.0, 1.9);
         vec3 streakDust = clamp(mix(vec3(0.80, 0.48, 0.56), uHorizonColor * vec3(0.72, 0.46, 0.50), 0.50), 0.0, 1.6);
         vec3 polyStreakColor = mix(streakDust, streakWarm, clamp(sunLit * 0.36 + 0.44, 0.0, 1.0));
-        lowPolySky = mix(lowPolySky, polyStreakColor, clamp(polyStreak * 0.94, 0.0, 0.94));
+        lowPolySky = mix(lowPolySky, polyStreakColor, clamp(polyStreak * 1.06, 0.0, 1.0));
 
         float sunsetShard = 0.0;
         sunsetShard = max(sunsetShard, LowPolyCloudStreak(skyCoord, vec2(0.19, 0.54), vec2(0.30, 0.025), -0.78));
@@ -298,7 +298,7 @@ void main()
         vec3 sunsetShardShadow = clamp(mix(vec3(0.78, 0.36, 0.50), uHorizonColor * vec3(0.70, 0.34, 0.42), 0.36), 0.0, 1.5);
         vec3 sunsetShardLight = clamp(mix(vec3(1.56, 0.78, 0.38), uSunColor * vec3(1.30, 0.78, 0.48), 0.50), 0.0, 1.9);
         vec3 sunsetShardColor = mix(sunsetShardShadow, sunsetShardLight, clamp(sunLit * 0.44 + 0.38, 0.0, 1.0));
-        lowPolySky = mix(lowPolySky, sunsetShardColor, clamp(sunsetShard * uCloudParams.w * 0.86, 0.0, 0.86));
+        lowPolySky = mix(lowPolySky, sunsetShardColor, clamp(sunsetShard * uCloudParams.w * 0.96, 0.0, 0.96));
 
         float upperShard = 0.0;
         upperShard = max(upperShard, LowPolyCloudStreak(skyCoord, vec2(0.19, 0.80), vec2(0.090, 0.016), -1.85));

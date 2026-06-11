@@ -7,7 +7,7 @@ cinematic_sun_screen_x 0.50
 cinematic_sun_screen_y 0.51
 cinematic_sun_intensity 9.4
 cinematic_sky_glow_strength 0.42
-cinematic_style_grade 1.62 1.23 0.48
+cinematic_style_grade 1.50 1.16 0.58
 cinematic_cloud_coverage 0.56
 cinematic_cloud_softness 0.16
 cinematic_cloud_scale 5.2
@@ -39,7 +39,7 @@ cinematic_sky_zenith_b 1.32
 cinematic_terrain_tint 0.36 0.46 0.12
 cinematic_terrain_accent 0.13 0.22 0.05
 cinematic_water_tint 0.028 0.21 0.24
-cinematic_water_profile 0.74 0.24 0.56
+cinematic_water_profile 0.76 0.22 0.62
 
 # Object material look overrides.
 object_material balls 1.00 1.00 1.00 texture
