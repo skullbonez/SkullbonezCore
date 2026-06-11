@@ -44,6 +44,7 @@ cinematic_water_profile 0.86 0.24 1.08
 # Object material look overrides.
 object_material balls 1.00 1.00 1.00 beachball
 object_material boxes 1.00 1.00 1.00 texture
+object_material prefix:crate 0.56 0.37 0.18 matte
 object_material hero 1.00 1.00 1.00 texture
 object_material prefix:low_ 0.13 0.27 0.09 foliage
 object_material prefix:sky_ 1.00 1.00 1.00 texture

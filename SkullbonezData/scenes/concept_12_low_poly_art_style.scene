@@ -11,85 +11,90 @@ world -30.0 25.0 1.0
 style low_poly_art_style
 camera main 640 122 940  610 57 650  0 1 0
 
-floating_ball shore_left_01 492 50 778  6.0 24 5.2 0.18 0 32 0
-floating_ball shore_left_02 516 49 766  4.8 19 4.2 0.18 0 76 0
-floating_ball shore_right_01 824 50 750  6.0 24 5.2 0.18 0 -28 0
-floating_ball shore_right_02 850 49 738  4.8 19 4.2 0.18 0 -66 0
-floating_ball shore_front_left 520 47 810  5.0 20 4.5 0.18 0 24 0
-floating_ball shore_front_mid 626 46 822  4.2 17 3.8 0.18 0 -10 0
-floating_ball shore_front_right 760 46 800  4.2 17 3.8 0.18 0 -24 0
-floating_ball shore_back_left_01 505 52 614  7.5 30 6.6 0.18 0 -24 0
-floating_ball shore_back_left_02 532 50 606  5.2 21 4.6 0.18 0 18 0
-floating_ball shore_back_mid_01 612 51 608  6.8 27 6.0 0.18 0 4 0
-floating_ball shore_back_mid_02 642 49 602  4.8 19 4.2 0.18 0 -36 0
-floating_ball shore_back_right_01 722 52 606  7.5 30 6.6 0.18 0 22 0
-floating_ball shore_back_right_02 752 50 598  5.2 21 4.6 0.18 0 58 0
-floating_ball shore_chipped_01 570 47 804  3.8 15 3.4 0.18 0 -34 0
-floating_ball shore_chipped_02 690 48 815  4.2 17 3.8 0.18 0 26 0
-floating_ball shore_chipped_03 810 47 754  3.6 14 3.2 0.18 0 42 0
-floating_ball shore_chipped_04 483 49 661  4.0 16 3.6 0.18 0 -48 0
-floating_ball shore_chipped_05 742 49 646  4.2 17 3.8 0.18 0 36 0
-floating_ball shore_chipped_06 602 47 584  3.4 14 3.0 0.18 0 -20 0
-floating_box trunk_left 455 72 575  4.5 22 4.5  2000 0.08  0 25 0
-floating_box pineleaf_left_low 455 98 575  28 13 28  2000 0.08  0 25 0
-floating_box pineleaf_left_mid 455 114 575  21 12 21  2000 0.08  0 25 0
-floating_box pineleaf_left_top 455 129 575  14 12 14  2000 0.08  0 25 0
-floating_box trunk_right 760 71 560  4.5 21 4.5  2000 0.08  0 -20 0
-floating_box pineleaf_right_low 760 96 560  27 13 27  2000 0.08  0 -20 0
-floating_box pineleaf_right_mid 760 112 560  20 12 20  2000 0.08  0 -20 0
-floating_box pineleaf_right_top 760 127 560  13 12 13  2000 0.08  0 -20 0
-floating_box trunk_far 875 67 506  3.5 16 3.5  2000 0.08  0 10 0
-floating_box pineleaf_far_low 875 87 506  22 11 22  2000 0.08  0 10 0
-floating_box pineleaf_far_mid 875 101 506  16 10 16  2000 0.08  0 10 0
-floating_box pineleaf_far_top 875 114 506  11 10 11  2000 0.08  0 10 0
-floating_box trunk_fore 350 71 760  4.5 19 4.5  2000 0.08  0 -12 0
-floating_box pineleaf_fore_low 350 94 760  25 12 25  2000 0.08  0 -12 0
-floating_box pineleaf_fore_mid 350 109 760  18 11 18  2000 0.08  0 -12 0
-floating_box pineleaf_fore_top 350 122 760  12 11 12  2000 0.08  0 -12 0
-floating_box trunk_mid 835 68 748  3.5 15 3.5  2000 0.08  0 16 0
-floating_box pineleaf_mid_low 835 87 748  20 10 20  2000 0.08  0 16 0
-floating_box pineleaf_mid_mid 835 100 748  14 9 14  2000 0.08  0 16 0
-floating_box pineleaf_mid_top 835 112 748  10 9 10  2000 0.08  0 16 0
-floating_box trunk_back_left 292 66 635  3.5 15 3.5  2000 0.08  0 -18 0
-floating_box pineleaf_back_left_low 292 84 635  19 9 19  2000 0.08  0 -18 0
-floating_box pineleaf_back_left_mid 292 96 635  14 9 14  2000 0.08  0 -18 0
-floating_box pineleaf_back_left_top 292 108 635  9 9 9  2000 0.08  0 -18 0
-floating_box trunk_back_mid 604 66 545  3.2 14 3.2  2000 0.08  0 8 0
-floating_box pineleaf_back_mid_low 604 83 545  18 9 18  2000 0.08  0 8 0
-floating_box pineleaf_back_mid_mid 604 95 545  13 8 13  2000 0.08  0 8 0
-floating_box pineleaf_back_mid_top 604 106 545  9 8 9  2000 0.08  0 8 0
-floating_box trunk_back_right 1018 67 626  3.5 15 3.5  2000 0.08  0 22 0
-floating_box pineleaf_back_right_low 1018 85 626  19 9 19  2000 0.08  0 22 0
-floating_box pineleaf_back_right_mid 1018 97 626  14 9 14  2000 0.08  0 22 0
-floating_box pineleaf_back_right_top 1018 109 626  9 9 9  2000 0.08  0 22 0
-floating_box trunk_left_slope 250 69 770  3.2 15 3.2  2000 0.08  0 34 0
-floating_box pineleaf_left_slope_low 250 87 770  18 9 18  2000 0.08  0 34 0
-floating_box pineleaf_left_slope_mid 250 99 770  13 8 13  2000 0.08  0 34 0
-floating_box pineleaf_left_slope_top 250 110 770  9 8 9  2000 0.08  0 34 0
-floating_box trunk_right_slope 970 70 790  3.2 15 3.2  2000 0.08  0 -32 0
-floating_box pineleaf_right_slope_low 970 88 790  18 9 18  2000 0.08  0 -32 0
-floating_box pineleaf_right_slope_mid 970 100 790  13 8 13  2000 0.08  0 -32 0
-floating_box pineleaf_right_slope_top 970 111 790  9 8 9  2000 0.08  0 -32 0
-floating_box trunk_rear_cedar 680 66 528  3.0 13 3.0  2000 0.08  0 -8 0
-floating_box pineleaf_rear_cedar_low 680 82 528  17 8 17  2000 0.08  0 -8 0
-floating_box pineleaf_rear_cedar_mid 680 93 528  12 8 12  2000 0.08  0 -8 0
-floating_box pineleaf_rear_cedar_top 680 104 528  8 8 8  2000 0.08  0 -8 0
-floating_ball rock_01 400 49 680  8 32 7 0.18 0 18 0
-floating_ball rock_02 815 49 650  8 32 7 0.18 0 -16 0
-floating_ball rock_03 555 47 760  6 24 5 0.18 0 34 0
-floating_ball rock_04 920 48 720  7 28 6 0.18 0 -34 0
-floating_ball rock_05 610 46 804  4.8 19 4.2 0.18 0 8 0
-floating_ball rock_06 735 47 790  5.5 22 4.8 0.18 0 -28 0
-floating_ball rock_fore_left 386 48 846  6.5 26 5.5 0.18 0 24 0
-floating_ball rock_fore_right 880 48 838  7 28 6 0.18 0 -31 0
-floating_ball rock_fore_mid_left 520 47 872  5.5 22 4.8 0.18 0 -18 0
-floating_ball rock_fore_mid_right 745 48 866  6.5 26 5.5 0.18 0 22 0
-floating_ball rock_pebble_left_01 300 45 810  3.4 14 3.0 0.18 0 8 0
-floating_ball rock_pebble_left_02 458 45 835  2.8 11 2.5 0.18 0 -18 0
-floating_ball rock_pebble_mid_01 590 45 835  3.2 13 2.8 0.18 0 22 0
-floating_ball rock_pebble_mid_02 704 45 842  2.8 11 2.5 0.18 0 -26 0
-floating_ball rock_pebble_right_01 852 46 824  3.4 14 3.0 0.18 0 18 0
-floating_ball rock_pebble_right_02 1012 46 802  3.0 12 2.6 0.18 0 -12 0
+floating_ball shore_left_01 492 45 778  6.0 24 5.2 0.18 0 32 0
+floating_ball shore_left_02 516 45 766  4.8 19 4.2 0.18 0 76 0
+floating_ball shore_right_01 824 45 750  6.0 24 5.2 0.18 0 -28 0
+floating_ball shore_right_02 850 45 738  4.8 19 4.2 0.18 0 -66 0
+floating_ball shore_front_left 520 43 810  5.0 20 4.5 0.18 0 24 0
+floating_ball shore_front_mid 626 42 822  4.2 17 3.8 0.18 0 -10 0
+floating_ball shore_front_right 760 42 800  4.2 17 3.8 0.18 0 -24 0
+floating_ball shore_back_left_01 505 46 614  7.5 30 6.6 0.18 0 -24 0
+floating_ball shore_back_left_02 532 45 606  5.2 21 4.6 0.18 0 18 0
+floating_ball shore_back_mid_01 612 45 608  6.8 27 6.0 0.18 0 4 0
+floating_ball shore_back_mid_02 642 45 602  4.8 19 4.2 0.18 0 -36 0
+floating_ball shore_back_right_01 722 46 606  7.5 30 6.6 0.18 0 22 0
+floating_ball shore_back_right_02 752 45 598  5.2 21 4.6 0.18 0 58 0
+floating_ball shore_chipped_01 570 43 804  3.8 15 3.4 0.18 0 -34 0
+floating_ball shore_chipped_02 690 43 815  4.2 17 3.8 0.18 0 26 0
+floating_ball shore_chipped_03 810 43 754  3.6 14 3.2 0.18 0 42 0
+floating_ball shore_chipped_04 483 44 661  4.0 16 3.6 0.18 0 -48 0
+floating_ball shore_chipped_05 742 44 646  4.2 17 3.8 0.18 0 36 0
+floating_ball shore_chipped_06 602 43 584  3.4 14 3.0 0.18 0 -20 0
+floating_box trunk_left 455 65 575  4.5 22 4.5  2000 0.08  0 25 0
+floating_box pineleaf_left_low 455 91 575  28 13 28  2000 0.08  0 25 0
+floating_box pineleaf_left_mid 455 107 575  21 12 21  2000 0.08  0 25 0
+floating_box pineleaf_left_top 455 122 575  14 12 14  2000 0.08  0 25 0
+floating_box trunk_right 760 64 560  4.5 21 4.5  2000 0.08  0 -20 0
+floating_box pineleaf_right_low 760 89 560  27 13 27  2000 0.08  0 -20 0
+floating_box pineleaf_right_mid 760 105 560  20 12 20  2000 0.08  0 -20 0
+floating_box pineleaf_right_top 760 120 560  13 12 13  2000 0.08  0 -20 0
+floating_box trunk_far 875 61 506  3.5 16 3.5  2000 0.08  0 10 0
+floating_box pineleaf_far_low 875 81 506  22 11 22  2000 0.08  0 10 0
+floating_box pineleaf_far_mid 875 95 506  16 10 16  2000 0.08  0 10 0
+floating_box pineleaf_far_top 875 108 506  11 10 11  2000 0.08  0 10 0
+floating_box trunk_fore 350 64 760  4.5 19 4.5  2000 0.08  0 -12 0
+floating_box pineleaf_fore_low 350 87 760  25 12 25  2000 0.08  0 -12 0
+floating_box pineleaf_fore_mid 350 102 760  18 11 18  2000 0.08  0 -12 0
+floating_box pineleaf_fore_top 350 115 760  12 11 12  2000 0.08  0 -12 0
+floating_box trunk_mid 835 62 748  3.5 15 3.5  2000 0.08  0 16 0
+floating_box pineleaf_mid_low 835 81 748  20 10 20  2000 0.08  0 16 0
+floating_box pineleaf_mid_mid 835 94 748  14 9 14  2000 0.08  0 16 0
+floating_box pineleaf_mid_top 835 106 748  10 9 10  2000 0.08  0 16 0
+floating_box trunk_back_left 292 60 635  3.5 15 3.5  2000 0.08  0 -18 0
+floating_box pineleaf_back_left_low 292 78 635  19 9 19  2000 0.08  0 -18 0
+floating_box pineleaf_back_left_mid 292 90 635  14 9 14  2000 0.08  0 -18 0
+floating_box pineleaf_back_left_top 292 102 635  9 9 9  2000 0.08  0 -18 0
+floating_box trunk_back_mid 604 60 545  3.2 14 3.2  2000 0.08  0 8 0
+floating_box pineleaf_back_mid_low 604 77 545  18 9 18  2000 0.08  0 8 0
+floating_box pineleaf_back_mid_mid 604 89 545  13 8 13  2000 0.08  0 8 0
+floating_box pineleaf_back_mid_top 604 100 545  9 8 9  2000 0.08  0 8 0
+floating_box trunk_back_right 1018 61 626  3.5 15 3.5  2000 0.08  0 22 0
+floating_box pineleaf_back_right_low 1018 79 626  19 9 19  2000 0.08  0 22 0
+floating_box pineleaf_back_right_mid 1018 91 626  14 9 14  2000 0.08  0 22 0
+floating_box pineleaf_back_right_top 1018 103 626  9 9 9  2000 0.08  0 22 0
+floating_box trunk_left_slope 250 62 770  3.2 15 3.2  2000 0.08  0 34 0
+floating_box pineleaf_left_slope_low 250 80 770  18 9 18  2000 0.08  0 34 0
+floating_box pineleaf_left_slope_mid 250 92 770  13 8 13  2000 0.08  0 34 0
+floating_box pineleaf_left_slope_top 250 103 770  9 8 9  2000 0.08  0 34 0
+floating_box trunk_right_slope 970 63 790  3.2 15 3.2  2000 0.08  0 -32 0
+floating_box pineleaf_right_slope_low 970 81 790  18 9 18  2000 0.08  0 -32 0
+floating_box pineleaf_right_slope_mid 970 93 790  13 8 13  2000 0.08  0 -32 0
+floating_box pineleaf_right_slope_top 970 104 790  9 8 9  2000 0.08  0 -32 0
+floating_box trunk_rear_cedar 680 60 528  3.0 13 3.0  2000 0.08  0 -8 0
+floating_box pineleaf_rear_cedar_low 680 76 528  17 8 17  2000 0.08  0 -8 0
+floating_box pineleaf_rear_cedar_mid 680 87 528  12 8 12  2000 0.08  0 -8 0
+floating_box pineleaf_rear_cedar_top 680 98 528  8 8 8  2000 0.08  0 -8 0
+floating_ball rock_01 400 43 680  8 32 7 0.18 0 18 0
+floating_ball rock_02 815 43 650  8 32 7 0.18 0 -16 0
+floating_ball rock_03 555 42 760  6 24 5 0.18 0 34 0
+floating_ball rock_04 920 42 720  7 28 6 0.18 0 -34 0
+floating_ball rock_05 610 41 804  4.8 19 4.2 0.18 0 8 0
+floating_ball rock_06 735 42 790  5.5 22 4.8 0.18 0 -28 0
+floating_ball rock_fore_left 386 42 846  6.5 26 5.5 0.18 0 24 0
+floating_ball rock_fore_right 880 42 838  7 28 6 0.18 0 -31 0
+floating_ball rock_fore_mid_left 520 42 872  5.5 22 4.8 0.18 0 -18 0
+floating_ball rock_fore_mid_right 745 42 866  6.5 26 5.5 0.18 0 22 0
+floating_ball rock_pebble_left_01 300 41 810  3.4 14 3.0 0.18 0 8 0
+floating_ball rock_pebble_left_02 458 41 835  2.8 11 2.5 0.18 0 -18 0
+floating_ball rock_pebble_mid_01 590 41 835  3.2 13 2.8 0.18 0 22 0
+floating_ball rock_pebble_mid_02 704 41 842  2.8 11 2.5 0.18 0 -26 0
+floating_ball rock_pebble_right_01 852 42 824  3.4 14 3.0 0.18 0 18 0
+floating_ball rock_pebble_right_02 1012 42 802  3.0 12 2.6 0.18 0 -12 0
+floating_box crate_left_bank 530 53 748  5.0 5.0 5.0  2000 0.10  0 -18 0
+floating_box crate_right_bank 780 53 762  5.0 5.0 5.0  2000 0.10  0 22 0
+floating_box crate_front_left 458 53 836  4.5 4.5 4.5  2000 0.10  0 34 8
+floating_box crate_front_right 812 53 836  4.5 4.5 4.5  2000 0.10  0 -26 -8
+floating_box crate_back_mid 650 52 608  4.0 4.0 4.0  2000 0.10  0 12 0
 ball beach_center 620 85 650 8.5 14.0 5.8 0.58 0 12 0
 ball beach_left_bank 480 84 716 5.8 8.0 3.8 0.58 0 42 0
 ball beach_right_bank 764 84 724 6.2 8.5 4.2 0.58 0 84 0
