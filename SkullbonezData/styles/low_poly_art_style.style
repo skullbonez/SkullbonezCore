@@ -11,7 +11,7 @@ cinematic_style_grade 1.46 1.18 0.52
 cinematic_cloud_coverage 0.56
 cinematic_cloud_softness 0.16
 cinematic_cloud_scale 5.2
-cinematic_cloud_intensity 0.78
+cinematic_cloud_intensity 1.12
 cinematic_sun_shaft_strength 0.26
 cinematic_sun_shaft_falloff 2.4
 cinematic_volumetric_strength 0.12

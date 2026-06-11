@@ -269,7 +269,7 @@ void main()
         vec3 flatCloudShadow = clamp(mix(vec3(0.90, 0.58, 0.48), uHorizonColor * vec3(0.84, 0.50, 0.44), 0.56), 0.0, 1.6);
         vec3 flatCloudLight = clamp(mix(vec3(1.48, 0.88, 0.50), uSunColor * vec3(1.52, 1.00, 0.66), 0.58), 0.0, 1.9);
         vec3 flatCloud = mix(flatCloudShadow, flatCloudLight, clamp(sunLit * 0.58 + 0.42, 0.0, 1.0));
-        lowPolySky = mix(lowPolySky, flatCloud, clamp(cloudBand * 1.06, 0.0, 1.0));
+        lowPolySky = mix(lowPolySky, flatCloud, clamp(cloudBand * 1.18, 0.0, 1.0));
 
         float polyStreak = 0.0;
         polyStreak = max(polyStreak, LowPolyCloudStreak(skyCoord, vec2(0.20, 0.58), vec2(0.24, 0.030), -1.00));
@@ -281,7 +281,7 @@ void main()
         vec3 streakWarm = clamp(mix(vec3(1.34, 0.66, 0.36), uSunColor * vec3(1.18, 0.78, 0.50), 0.66), 0.0, 1.9);
         vec3 streakDust = clamp(mix(vec3(0.80, 0.48, 0.56), uHorizonColor * vec3(0.72, 0.46, 0.50), 0.50), 0.0, 1.6);
         vec3 polyStreakColor = mix(streakDust, streakWarm, clamp(sunLit * 0.36 + 0.44, 0.0, 1.0));
-        lowPolySky = mix(lowPolySky, polyStreakColor, clamp(polyStreak * 1.06, 0.0, 1.0));
+        lowPolySky = mix(lowPolySky, polyStreakColor, clamp(polyStreak * 1.36, 0.0, 1.0));
 
         float sunsetShard = 0.0;
         sunsetShard = max(sunsetShard, LowPolyCloudStreak(skyCoord, vec2(0.19, 0.54), vec2(0.30, 0.025), -0.78));
@@ -298,7 +298,7 @@ void main()
         vec3 sunsetShardShadow = clamp(mix(vec3(0.78, 0.36, 0.50), uHorizonColor * vec3(0.70, 0.34, 0.42), 0.36), 0.0, 1.5);
         vec3 sunsetShardLight = clamp(mix(vec3(1.56, 0.78, 0.38), uSunColor * vec3(1.30, 0.78, 0.48), 0.50), 0.0, 1.9);
         vec3 sunsetShardColor = mix(sunsetShardShadow, sunsetShardLight, clamp(sunLit * 0.44 + 0.38, 0.0, 1.0));
-        lowPolySky = mix(lowPolySky, sunsetShardColor, clamp(sunsetShard * uCloudParams.w * 0.96, 0.0, 0.96));
+        lowPolySky = mix(lowPolySky, sunsetShardColor, clamp(sunsetShard * uCloudParams.w * 1.20, 0.0, 0.98));
 
         float upperShard = 0.0;
         upperShard = max(upperShard, LowPolyCloudStreak(skyCoord, vec2(0.19, 0.80), vec2(0.090, 0.016), -1.85));
@@ -311,7 +311,7 @@ void main()
         vec3 shardShadow = clamp(mix(vec3(0.70, 0.56, 0.60), uHorizonColor * vec3(0.62, 0.50, 0.58), 0.46), 0.0, 1.5);
         vec3 shardLight = clamp(mix(vec3(1.38, 0.80, 0.48), uSunColor * vec3(1.22, 0.88, 0.68), 0.56), 0.0, 1.9);
         vec3 shardColor = mix(shardShadow, shardLight, clamp(sunLit * 0.46 + 0.46, 0.0, 1.0));
-        lowPolySky = mix(lowPolySky, shardColor, clamp(upperShard * uCloudParams.w * 0.62, 0.0, 0.62));
+        lowPolySky = mix(lowPolySky, shardColor, clamp(upperShard * uCloudParams.w * 0.82, 0.0, 0.72));
 
         float streakCloud = 0.0;
         streakCloud = max(streakCloud, CloudLobe(skyCoord, vec2(0.17, 0.82), vec2(0.10, 0.026), 31.0));
@@ -323,13 +323,23 @@ void main()
         vec3 streakShadow = clamp(mix(vec3(0.62, 0.62, 0.78), uHorizonColor * vec3(0.66, 0.62, 0.70), 0.62), 0.0, 1.7);
         vec3 streakLight = clamp(mix(vec3(1.28, 0.82, 0.50), uSunColor * vec3(1.22, 0.90, 0.70), 0.62), 0.0, 1.9);
         vec3 streakColor = mix(streakShadow, streakLight, clamp(sunLit * 0.54 + 0.36, 0.0, 1.0));
-        lowPolySky = mix(lowPolySky, streakColor, clamp(streakCloud * uCloudParams.w * 0.46, 0.0, 0.46));
+        lowPolySky = mix(lowPolySky, streakColor, clamp(streakCloud * uCloudParams.w * 0.66, 0.0, 0.58));
 
         float horizonHaze = smoothstep(0.18, 0.36, height) * (1.0 - smoothstep(0.48, 0.62, height));
         lowPolySky = mix(lowPolySky, clamp(uHorizonColor * vec3(0.88, 0.82, 0.74), 0.0, 1.6), horizonHaze * 0.12);
         float screenCool = smoothstep(0.46, 0.96, vTexCoord.y);
         vec3 coolCeiling = clamp(zenith * vec3(0.54, 0.98, 1.18) + vec3(0.00, 0.02, 0.08), 0.0, 1.8);
-        lowPolySky = mix(lowPolySky, coolCeiling, screenCool * 0.56);
+        lowPolySky = mix(lowPolySky, coolCeiling, screenCool * 0.42);
+
+        float heroCloud = HeroCloudMask(skyCoord);
+        heroCloud *= smoothstep(0.46, 0.56, height) * (1.0 - smoothstep(0.91, 0.98, height));
+        heroCloud = smoothstep(0.54, 0.86, heroCloud);
+        heroCloud = floor(heroCloud * 4.0 + 0.5) / 4.0;
+        vec3 heroCloudShadow = clamp(mix(vec3(0.76, 0.54, 0.60), uHorizonColor * vec3(0.70, 0.52, 0.54), 0.48), 0.0, 1.6);
+        vec3 heroCloudLight = clamp(mix(vec3(1.46, 0.88, 0.58), uSunColor * vec3(1.18, 0.88, 0.66), 0.58), 0.0, 1.9);
+        vec3 heroCloudColor = mix(heroCloudShadow, heroCloudLight, clamp(sunLit * 0.46 + 0.42, 0.0, 1.0));
+        lowPolySky = mix(lowPolySky, heroCloudColor, clamp(heroCloud * uCloudParams.w * 0.48, 0.0, 0.54));
+
         float lowPolySunDisk = 1.0 - smoothstep(0.014, 0.034, sunDistance);
         float lowPolyInnerGlow = exp(-sunDistance * 38.0);
         float lowPolyOuterGlow = exp(-sunDistance * 12.0);
