@@ -128,6 +128,8 @@ struct RunCameraState
     bool isFlyMode = false;          // Free-fly camera mode active (toggle with F)
     bool isNudgeMode = false;        // Nudge mode: free camera + live simulation (toggle with N)
     bool needsMouseLookReset = true; // Discard stale absolute mouse deltas after UI/focus/fly transitions
+    bool hasMouseLookLastClient = false;
+    POINT mouseLookLastClient = {};
     float cameraTime = 0.0f;         // Camera helper clock
     int trackBallIndex = -1;         // Index of ball to track with camera (-1 = no tracking)
     float trackHeight = 300.0f;      // Camera height above tracked ball
@@ -355,8 +357,7 @@ class SkullbonezRun
     bool IsCinematicRenderingEnabled() const;                                                                                          // True when the HDR/post stack should wrap the main scene
     void EnsureCinematicRenderResources();                                                                                             // Lazily builds/resizes HDR scene target and post resources
     void ResetCinematicRenderResources();                                                                                              // Releases HDR/post resources before backend teardown
-    void RenderCinematicSky( const Math::Transformation::Matrix4& view,
-                             const Math::Transformation::Matrix4& projection );                                                        // Draws procedural HDR sunset sky into the active cinematic target
+    void RenderCinematicSky( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection );             // Draws procedural HDR sunset sky into the active cinematic target
     bool RenderCinematicVolumetricLight();                                                                                             // Renders depth-aware low-resolution light shafts into the volumetric buffer
     void ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound, bool volumetricReady );                                          // Tonemaps HDR scene target to the backbuffer
     void SetInitialOpenGlState();                                                                                                      // Sets the initial state of the OpenGL evironment

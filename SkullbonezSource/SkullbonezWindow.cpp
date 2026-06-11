@@ -227,6 +227,10 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam )
             }
             break;
 
+        case WM_INPUT:
+            Input::AccumulateRawMouseDelta( reinterpret_cast<HRAWINPUT>( lParam ) );
+            break;
+
         case WM_SETFOCUS:
             Input::SetSystemCursorVisible( Input::IsSystemCursorVisibleRequested() );
             break;
@@ -482,6 +486,7 @@ void SkullbonezWindow::CreateAppWindow( HINSTANCE hInstance, bool isFullScreenMo
     SetFocus( hWnd );                  // Set keyboard focus
                                        // to our window
     Input::SetSystemCursorVisible( false );
+    (void)Input::RegisterRawMouseInput( hWnd );
 
     m_sWindow = hWnd;
 }
@@ -551,6 +556,7 @@ void SkullbonezWindow::RecreateWindow()
     UpdateWindow( hWnd );
     SetFocus( hWnd );
     Input::SetSystemCursorVisible( false );
+    (void)Input::RegisterRawMouseInput( hWnd );
 
     m_sWindow = hWnd;
     m_sDevice = GetDC( hWnd );

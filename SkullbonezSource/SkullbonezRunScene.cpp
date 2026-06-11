@@ -1039,9 +1039,11 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
             uint32_t activeCam = m_systems.cameras->GetSelectedCameraName();
             m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
             Input::SetSystemCursorVisible( false );
-            Input::CentreMouseCoordinates();
             m_camera.input.xMove = 0;
             m_camera.input.yMove = 0;
+            m_camera.hasMouseLookLastClient = false;
+            m_camera.needsMouseLookReset = true;
+            Input::ResetMouseLookDeltas();
         }
     }
 

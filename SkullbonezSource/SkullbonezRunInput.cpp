@@ -11,6 +11,33 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
+void ResetMouseLookInput( RunCameraState& camera )
+{
+    camera.input.xMove = 0;
+    camera.input.yMove = 0;
+    camera.hasMouseLookLastClient = false;
+    camera.needsMouseLookReset = true;
+    Input::ResetMouseLookDeltas();
+}
+
+
+void SetMouseLookDelta( RunCameraState& camera, long rawX, long rawY )
+{
+    const long absX = rawX < 0 ? -rawX : rawX;
+    const long absY = rawY < 0 ? -rawY : rawY;
+
+    if ( absX > CAMERA_MOUSE_SPIKE_DELTA_PIXELS || absY > CAMERA_MOUSE_SPIKE_DELTA_PIXELS )
+    {
+        camera.input.xMove = 0;
+        camera.input.yMove = 0;
+        return;
+    }
+
+    camera.input.xMove = std::clamp( rawX, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
+    camera.input.yMove = std::clamp( rawY, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
+}
+
+
 uint64_t CinematicOverrideMaskForUIParam( UICinematicParam param )
 {
     switch ( param )
@@ -514,6 +541,9 @@ void SkullbonezRun::TakeInput()
     {
         Input::SetSystemCursorVisible( true );
         m_camera.input = {};
+        m_camera.hasMouseLookLastClient = false;
+        m_camera.needsMouseLookReset = true;
+        Input::ResetMouseLookDeltas();
         m_leftSceneCycleWasDown = false;
         m_rightSceneCycleWasDown = false;
         Input::ConsumeMouseWheelDelta();
@@ -535,8 +565,7 @@ void SkullbonezRun::TakeInput()
         if ( UIWantsReleasedMouse() )
         {
             ReleaseCapture();
-            m_camera.input.xMove = 0;
-            m_camera.input.yMove = 0;
+            ResetMouseLookInput( m_camera );
         }
     };
 
@@ -604,11 +633,8 @@ void SkullbonezRun::TakeInput()
                 else
                 {
                     Input::SetSystemCursorVisible( false );
-                    Input::CentreMouseCoordinates();
                 }
-                m_camera.input.xMove = 0;
-                m_camera.input.yMove = 0;
-                m_camera.needsMouseLookReset = true;
+                ResetMouseLookInput( m_camera );
             }
             else
             {
@@ -621,7 +647,7 @@ void SkullbonezRun::TakeInput()
                 m_camera.cameraTime = 0.0f;
                 // Exiting fly mode also exits nudge mode
                 m_camera.isNudgeMode = false;
-                m_camera.needsMouseLookReset = true;
+                ResetMouseLookInput( m_camera );
             }
         }
 
@@ -1081,9 +1107,7 @@ void SkullbonezRun::TakeInput()
 
     if ( m_UI.BlocksKeyboard() )
     {
-        m_camera.input.xMove = 0;
-        m_camera.input.yMove = 0;
-        m_camera.needsMouseLookReset = true;
+        ResetMouseLookInput( m_camera );
         m_camera.input.Set( InputState::Up, false );
         m_camera.input.Set( InputState::Down, false );
         m_camera.input.Set( InputState::Left, false );
@@ -1163,58 +1187,57 @@ void SkullbonezRun::TakeInput()
     if ( m_camera.isFlyMode )
     {
         // Expanded diagnostics UI owns the native cursor in fly/nudge mode.
-        // Otherwise mouse-look keeps using recentered OS coordinates internally.
+        // Otherwise mouse-look consumes raw Win32 deltas, with cursor-position deltas
+        // as a remote-desktop friendly fallback when raw input is unavailable.
         if ( !Input::IsAppFocused() )
         {
-            m_camera.input.xMove = 0;
-            m_camera.input.yMove = 0;
-            m_camera.needsMouseLookReset = true;
+            ResetMouseLookInput( m_camera );
         }
         else if ( UIWantsReleasedMouse() )
         {
             Input::SetSystemCursorVisible( true );
-            m_camera.input.xMove = 0;
-            m_camera.input.yMove = 0;
-            m_camera.needsMouseLookReset = true;
+            ResetMouseLookInput( m_camera );
         }
         else if ( m_UI.BlocksCameraMouse() )
         {
             Input::SetSystemCursorVisible( false );
-            m_camera.input.xMove = 0;
-            m_camera.input.yMove = 0;
-            m_camera.needsMouseLookReset = true;
+            ResetMouseLookInput( m_camera );
         }
         else
         {
             Input::SetSystemCursorVisible( false );
+            long rawX = 0;
+            long rawY = 0;
+            const bool hasRawDelta = Input::ConsumeRawMouseDelta( rawX, rawY );
+            POINT currentClient = Input::GetClientMouseCoordinates();
+
             if ( m_camera.needsMouseLookReset )
             {
-                Input::CentreMouseCoordinates();
                 m_camera.input.xMove = 0;
                 m_camera.input.yMove = 0;
+                m_camera.mouseLookLastClient = currentClient;
+                m_camera.hasMouseLookLastClient = true;
                 m_camera.needsMouseLookReset = false;
+            }
+            else if ( hasRawDelta )
+            {
+                SetMouseLookDelta( m_camera, rawX, rawY );
+                m_camera.mouseLookLastClient = currentClient;
+                m_camera.hasMouseLookLastClient = true;
+            }
+            else if ( !m_camera.hasMouseLookLastClient )
+            {
+                m_camera.input.xMove = 0;
+                m_camera.input.yMove = 0;
+                m_camera.mouseLookLastClient = currentClient;
+                m_camera.hasMouseLookLastClient = true;
             }
             else
             {
-                POINT currentCoords = Input::GetMouseCoordinates();
-                Input::CentreMouseCoordinates();
-                POINT centreCoords = Input::GetMouseCoordinates();
-
-                const long rawX = currentCoords.x - centreCoords.x;
-                const long rawY = currentCoords.y - centreCoords.y;
-                const long absX = rawX < 0 ? -rawX : rawX;
-                const long absY = rawY < 0 ? -rawY : rawY;
-
-                if ( absX > CAMERA_MOUSE_SPIKE_DELTA_PIXELS || absY > CAMERA_MOUSE_SPIKE_DELTA_PIXELS )
-                {
-                    m_camera.input.xMove = 0;
-                    m_camera.input.yMove = 0;
-                }
-                else
-                {
-                    m_camera.input.xMove = std::clamp( rawX, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
-                    m_camera.input.yMove = std::clamp( rawY, -CAMERA_MOUSE_MAX_DELTA_PIXELS, CAMERA_MOUSE_MAX_DELTA_PIXELS );
-                }
+                SetMouseLookDelta( m_camera,
+                                   currentClient.x - m_camera.mouseLookLastClient.x,
+                                   currentClient.y - m_camera.mouseLookLastClient.y );
+                m_camera.mouseLookLastClient = currentClient;
             }
         }
 
@@ -1226,9 +1249,7 @@ void SkullbonezRun::TakeInput()
     }
     else
     {
-        m_camera.input.xMove = 0;
-        m_camera.input.yMove = 0;
-        m_camera.needsMouseLookReset = true;
+        ResetMouseLookInput( m_camera );
         m_camera.input.Set( InputState::Up, false );
         m_camera.input.Set( InputState::Down, false );
         m_camera.input.Set( InputState::Left, false );
