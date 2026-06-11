@@ -41,7 +41,8 @@ Resolved or mostly resolved:
 | Header namespace cleanup | Complete for `SkullbonezSource/*.h`: broad `using namespace` imports have been removed from source headers, with implementation shorthand kept local to `.cpp` files or internal runtime glue. |
 | Renderer switch resource phases | Backend-owned release/rebuild sequences now run through an ordered resource-step table with named hooks for reflection, cinematic targets, text, models, helper caches, collision visualization, UI, textures, terrain, skybox, and world resources. This completes the branch's registry prep while preserving the future `IRenderResource` registry as a deeper render-pipeline step. |
 
-Remaining implementation scope for this branch:
+Remaining implementation scope for this branch. Validation commands listed here
+are targeted pre-commit/PR gates, not commands to run during normal iteration:
 
 | Item | Implement on this branch? | Validation expectation |
 |------|---------------------------|------------------------|
@@ -59,7 +60,9 @@ Remaining implementation scope for this branch:
 | Replay/debug implementation | No | Design notes only. |
 | Standout/stretch feature implementation | No | Design notes only. |
 
-Commit policy for this branch: land one architecture item at a time, validate the touched area, then commit and push that item before moving to the next one.
+Commit policy for this branch: land one architecture item at a time. Before each
+PR-bound feature-branch commit, run the targeted validation for the touched
+area, then commit and push without asking for additional permission.
 
 ## Current Architectural Shape
 

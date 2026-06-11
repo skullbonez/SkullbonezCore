@@ -86,7 +86,8 @@ Total GPT-read SkullScope output: 17,946 chars. Raw trace was not read by GPT.
 
 Documentation-only changes require no validation.
 
-For SkullScope tool or physics diagnostic changes, run:
+For SkullScope tool or physics diagnostic changes, run this as the targeted
+pre-commit/PR validation gate:
 
 ```bat
 tools\validate_physics.bat

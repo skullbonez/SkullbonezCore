@@ -8,13 +8,15 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 |-------|-------|
 | Branch | `codex/cinematic-renderer` in worktree `C:\SkullbonezCore` |
 | Last commit | Branch point from current main before cinematic renderer integration. |
-| Pending work | Cinematic renderer merge, runtime Cine controls, terrain relief default-off polish, validation, then user-approved commit/PR. |
-| Uncommitted changes | See `git status --short`; current changes are intentionally local until commit notes are confirmed. |
+| Pending work | Cinematic renderer merge, runtime Cine controls, terrain relief default-off polish, targeted pre-PR validation, then feature-branch commit/push as needed. |
+| Uncommitted changes | See `git status --short`; feature-branch commits and normal pushes are allowed without confirmation, while `main` remains confirmation-gated. |
 
 ## Active Notes
 
 - This workspace expects Windows x64, VS2022 C++ tools, Python, Pillow, and Git for validation.
 - `git` may not be on PATH in fresh shells. Run `tools\find_git.bat` or use the validation scripts, which call it where needed.
+- Repository validation scripts are pre-commit/PR gates, not as-you-go checks. During implementation, run only targeted builds, launches, focused tests, or inspections that answer the current fix question.
+- Feature-branch commits and normal pushes are allowed without asking. Do not commit or push directly on `main` without explicit confirmation.
 - Do not kill `SKULLBONEZ_CORE.exe` by name. Kill only by PID from a process you launched.
 - Time large work: record wall-clock start/end and report elapsed time for pipeline runs, multi-file features, and debugging sessions.
 - Management demo handoff: `Agentic/Plans/agent-loop/autonomous-agentic-loop-demo-handoff.md`.
@@ -48,7 +50,8 @@ Additional bug notes live in `Agentic/Bugs.md`.
 
 ## Validation Map
 
-Use `AGENTS.md` as the source of truth. Common cases:
+Use `AGENTS.md` as the source of truth. These are targeted pre-commit/PR gates,
+not routine iteration steps. Common cases:
 
 | Change | Validation |
 |--------|------------|

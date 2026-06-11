@@ -24,9 +24,11 @@ Load a skill from `Skills/` only when the current task calls for it.
 | `Bugs.md` | Persistent bug notes. |
 | `Reference/` | Runtime, physics, and external reference material. |
 
-## Validation Habit
+## Pre-Commit/PR Validation
 
-When unsure, run:
+Validation scripts are pre-commit/PR gates, not normal iteration steps. Choose
+the narrowest validation for the fix. When the PR-bound scope is truly unsure,
+run:
 
 ```bat
 tools\agent_validate.bat

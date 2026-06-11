@@ -264,7 +264,7 @@ Validation:
 |------|------------|
 | Reflection sample matrix changes | Keep FBO and DXR sample VP explicit and covered by renderer validation. |
 | Water blending differs by backend | Validate GL/DX11/DX12 together after state changes. |
-| Legacy shader removal breaks hidden path | Search all source/data and validate after removal. |
+| Legacy shader removal breaks hidden path | Search all source/data and validate before committing the removal. |
 | Water bug fix shifts baselines | Use focused scene and intentional baseline update only if approved. |
 | DX12 FBO/depth transitions regress | Keep barriers explicit and inspect validation log. |
 

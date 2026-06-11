@@ -1,13 +1,15 @@
 ---
 name: skore-render-test
-description: Run tri-renderer visual validation and manage renderer screenshot baselines.
+description: Run targeted tri-renderer pre-commit/PR validation and manage renderer screenshot baselines.
 ---
 
 # skore-render-test
 
-Use for shader, renderer, texture, screenshot, or visual-baseline work.
+Use for shader, renderer, texture, screenshot, or visual-baseline work when the
+user explicitly asks for renderer validation or when PR-bound work is ready for
+its targeted gate.
 
-## Validate
+## Pre-Commit/PR Validate
 
 ```bat
 tools\validate_renderers.bat
@@ -42,7 +44,8 @@ tools\archive_validation_artifacts.bat --visuals --require
 - If local pixel comparison fails, convert the relevant BMPs to PNG before visual inspection.
 - Do not send BMPs to image viewers; use PNGs.
 
-The suite is render-only. Performance validation is separate:
+The suite is render-only. Performance validation is a separate pre-commit/PR
+gate:
 
 ```bat
 tools\validate_perf.bat

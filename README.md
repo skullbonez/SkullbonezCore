@@ -44,7 +44,11 @@ Build outputs:
 
 ## Validation
 
-Use the repository scripts instead of retyping long commands:
+Validation scripts are formal pre-commit/PR gates, not routine as-you-go checks.
+During implementation, use targeted builds, launches, or focused tests only when
+they answer a specific question about the fix. Before PR-bound feature-branch
+work is committed or pushed, use the repository scripts instead of retyping long
+commands:
 
 | Change Type | Command |
 |-------------|---------|
@@ -54,9 +58,9 @@ Use the repository scripts instead of retyping long commands:
 | Physics, collision, solver, determinism | `tools\validate_physics.bat` |
 | Hot path or allocation-sensitive work | `tools\validate_perf.bat` |
 | Broad or uncertain scope | `tools\validate_full.bat` |
-| Unsure | `tools\agent_validate.bat` |
+| Unsure at the PR gate | `tools\agent_validate.bat` |
 
-You can also run any subset with one line:
+You can also run any targeted subset with one line:
 
 ```bat
 tools\validate_select.bat fast

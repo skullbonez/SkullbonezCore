@@ -191,7 +191,9 @@ Avoid per-draw or per-object PIX markers initially. They will make captures nois
 
 Planning/documentation only requires no validation.
 
-For the actual implementation, the impact area is renderer backends, profiler infrastructure, runtime flags, and performance-sensitive hot paths. Required validation should be:
+For the actual implementation, the impact area is renderer backends, profiler
+infrastructure, runtime flags, and performance-sensitive hot paths. At the
+pre-commit/PR gate, required validation should be:
 
 ```bat
 tools\validate_full.bat

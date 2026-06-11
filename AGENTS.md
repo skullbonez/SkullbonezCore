@@ -3,7 +3,9 @@
 > Universal contract for any AI agent working on this repository.
 > Framework-agnostic: applies to any current or future AI coding agent.
 
-**Do not** submit, force-push, rebase, or rewrite git history.
+**Do not** merge or submit PRs, force-push, rebase, or rewrite git history.
+Feature-branch commits and normal pushes are allowed without asking. Direct commits
+or pushes on `main` still require explicit user confirmation.
 
 ---
 
@@ -11,14 +13,17 @@
 
 1. Read this file and `README.md`.
 2. Identify your change's impact area: GL, DX11, DX12, physics, scene system, tests, documentation.
-3. State which validation command you will run. For documentation-only changes, state that no validation is required.
+3. State whether validation is required now. For normal implementation work, do not run repository validation scripts while iterating; name the targeted validation command to defer until PR-bound commit/PR prep. For documentation-only changes, state that no validation is required.
 4. On a fresh machine or failed tool lookup, read `FIRST_TIME_SETUP.md`.
 
 ## After Editing
 
-Run the appropriate validation script from the `tools\` directory:
+Do not run validation scripts automatically after every edit. Formal repository
+validation runs only as a pre-commit/PR gate, or when the user explicitly asks
+for it. When preparing PR-bound work, choose the smallest script from `tools\`
+that matches the fix:
 
-| Change Type | Command | Runtime |
+| Change Type | Pre-Commit/PR Command | Runtime |
 |-------------|---------|---------|
 | Documentation only | No validation required | N/A |
 | Small refactor, no render or physics changes | `tools\validate_fast.bat` | ~30s |
@@ -26,11 +31,11 @@ Run the appropriate validation script from the `tools\` directory:
 | Physics, collision, solver, or SkullScope diagnostics | `tools\validate_physics.bat` | ~45s |
 | Performance-sensitive hot path | `tools\validate_perf.bat` | ~1 min |
 | Broad or uncertain scope | `tools\validate_full.bat` | ~3 min |
-| Unsure what to run | `tools\agent_validate.bat` | ~3 min |
+| Unsure what to run at the PR gate | `tools\agent_validate.bat` | ~3 min |
 
 ### File To Validation Mapping
 
-| Files Changed | Required Script |
+| Files Changed | Required Pre-Commit/PR Script |
 |---------------|-----------------|
 | `SkullbonezRenderBackend*.cpp/h` | `validate_renderers` |
 | `SkullbonezData/shaders/*` | `validate_renderers` |
@@ -52,8 +57,9 @@ Run the appropriate validation script from the `tools\` directory:
 
 ## Rules
 
+- **Repository validation scripts are PR/commit gates.** Do not run `tools\validate_*` merely as you go. During iteration, use targeted builds, launches, focused tests, or inspections only when they answer a specific question about the fix.
 - **Never claim validation success without command output.** Paste the validation output when validation is required.
-- **Never skip required validation** for code, tool, scene, shader, baseline, or runtime behavior changes unless the user explicitly says to.
+- **Never skip required pre-commit/PR validation** for code, tool, scene, shader, baseline, or runtime behavior changes unless the user explicitly says to.
 - **Documentation-only changes require no validation.** Do not run `validate_fast` for prose-only edits.
 - **Time all user-requested work.** Record elapsed wall-clock time for every task from the start of work to the final response. Report the time taken in the final answer, and call out timings for substantial sub-runs such as builds, validation scripts, game launches, SkullScope trace generation, or long investigations.
 - **Keep physics debug data cheap for model analysis.** Use SkullScope. Do not paste or ingest whole physics CSV, NDJSON, or SQLite diagnostic files unless the user explicitly requests raw logs. When available, prefer the queryable diagnostics workflow in `Agentic/Reference/physics-query-reference.md` and load `Agentic/Skills/skore-skullscope/skill.md` for the compact runbook: generate a deterministic trace with `--physics-diag`, run `tools\physics_query.bat <trace> summary` and `tools\physics_query.bat <trace> events`, or expand a pre-baked question with `tools\physics_query.bat <trace> questions <name>`, then ask focused frame/body/contact/island queries. The deterministic physics CSV remains the byte-exact validation artifact.
@@ -69,7 +75,7 @@ Run the appropriate validation script from the `tools\` directory:
 
 ## Commit Notes
 
-When the user asks for a commit, write commit notes that are useful future handoff material, not a terse log line.
+When committing, write commit notes that are useful future handoff material, not a terse log line.
 
 - Use a short, action-oriented subject. Conventional prefixes like `docs:`, `fix:`, or `feat:` are fine when they fit.
 - Add a body for anything beyond a trivial single-file cleanup. Explain what changed, why it changed, and the important implementation details by area.
@@ -77,13 +83,16 @@ When the user asks for a commit, write commit notes that are useful future hando
 - Call out baseline, artifact, or session-state updates when they are part of the change.
 - Avoid vague messages such as "Update files", "Fix stuff", "Delete old files", or "misc changes."
 
-Show the proposed commit notes and changed-file summary to the user before committing. Commit only after explicit confirmation.
+On feature branches, commit and push without asking when the work is ready. On
+`main`, show the proposed commit notes and changed-file summary first, then
+commit or push only after explicit confirmation.
 
 ---
 
 ## Danger Zones
 
-Changes to these areas require extra care. Always run the specified validation:
+Changes to these areas require extra care. Before committing PR-bound changes,
+run the specified targeted validation:
 
 | Area | Risk | Required Validation |
 |------|------|---------------------|

@@ -15,6 +15,7 @@ The current scripts are already the source of truth. This plan improves diagnost
 
 From repository instructions:
 
+- Validation scripts are pre-commit/PR gates, not normal as-you-go checks.
 - Documentation only: no validation required.
 - Shader or render backend changes: `tools\validate_renderers.bat`.
 - Broad or uncertain scope: `tools\validate_full.bat`.

@@ -44,15 +44,19 @@ winget --version
 
 ## Validation Scripts
 
-Run validation from the repository root:
+Validation scripts are formal pre-commit/PR gates, or explicit setup smoke
+checks when requested. Do not run full validation during ordinary implementation
+work. When verifying a fresh setup or PR-bound work whose scope is truly
+uncertain, run from the repository root:
 
 ```powershell
 tools\agent_validate.bat
 ```
 
-This delegates to `tools\validate_full.bat`, which runs renderer validation, physics determinism validation, and performance validation.
+This delegates to `tools\validate_full.bat`, which runs renderer validation,
+physics determinism validation, and performance validation.
 
-For smaller checks:
+For targeted pre-commit/PR checks:
 
 ```powershell
 tools\validate_fast.bat
@@ -86,4 +90,4 @@ If the format gate fails, run:
 tools\format_fix.bat
 ```
 
-Then rerun the validation command you originally intended to run.
+Then rerun the targeted validation command you originally intended to run.

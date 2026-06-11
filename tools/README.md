@@ -1,12 +1,15 @@
 # Validation Tools
 
-Scripts for validating SkullbonezCore changes. Run from the repo root or from within this directory.
+Scripts for validating SkullbonezCore changes. These are formal pre-commit/PR
+gates, not routine as-you-go checks. Run from the repo root or from within this
+directory when PR-bound work is ready, or when the user explicitly asks for
+validation.
 
 ## Quick Reference
 
 | Script | Use When | Runtime |
 |--------|----------|---------|
-| `agent_validate.bat` | Unsure what to run, runs everything | ~3 min |
+| `agent_validate.bat` | PR gate when truly unsure, runs everything | ~3 min |
 | `validate_select.bat` | Run any subset of validations by name | ~depends |
 | `validate_fast.bat` | Small code refactors and non-render code edits | ~30s |
 | `validate_renderers.bat` | Shader, texture, render backend changes | ~60s |
@@ -16,13 +19,13 @@ Scripts for validating SkullbonezCore changes. Run from the repo root or from wi
 | `validate_physics.bat` | Physics, collision, solver, rigid body, bullet sweep collision-time baselines | ~45s |
 | `validate_physics_query.bat` | SkullScope query-output baseline check | ~depends |
 | `validate_perf.bat` | Performance-sensitive, hot-path changes | ~1 min |
-| `validate_full.bat` | Broad changes, pre-merge, uncertain scope | ~3 min |
+| `validate_full.bat` | Broad PR-bound changes, pre-merge, uncertain scope | ~3 min |
 | `watch_ui_stress.bat` | Repeated UI stress watcher, finite by default | ~depends |
 | `watch_demo_stress.bat` | Repeated generated demo stress watcher, finite by default | ~depends |
 
 ### Selection Example
 
-Run only what you need:
+Run only the targeted gate you need:
 
 ```bat
 tools\validate_select.bat format

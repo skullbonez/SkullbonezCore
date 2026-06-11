@@ -38,13 +38,13 @@ Scene files can force `fixed_step`, which maps one physics tick to each rendered
 
 ## Validation Expectations
 
-Physics changes must pass:
+Before committing PR-bound physics changes, run:
 
 ```bat
 tools\validate_physics.bat
 ```
 
-Hot-path or broadphase changes usually also need:
+Hot-path or broadphase changes usually also need this targeted PR gate:
 
 ```bat
 tools\validate_perf.bat

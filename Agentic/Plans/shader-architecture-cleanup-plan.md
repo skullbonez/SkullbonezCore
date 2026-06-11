@@ -303,7 +303,8 @@ Backend-specific assets should be documented rather than treated as accidental o
 - `generate_mips.hlsl` is DX12-only.
 - `reflect.rt.hlsl` and `reflect.rt.dxil` are DXR-only.
 
-Do not delete anything until `rg` confirms no source/data reference and `tools\validate_renderers.bat` passes after removal.
+Do not delete anything until `rg` confirms no source/data reference. Before
+committing PR-bound removals, run `tools\validate_renderers.bat`.
 
 ## Target Architecture
 
@@ -900,6 +901,8 @@ Each slice should be small enough that renderer validation failures point to a c
 
 ## Validation Matrix
 
+These commands are targeted pre-commit/PR gates, not as-you-go validation.
+
 | Change Type | Required Validation |
 |-------------|---------------------|
 | This plan or shader inventory docs only | No validation required |
@@ -917,13 +920,13 @@ Each slice should be small enough that renderer validation failures point to a c
 
 | Risk | Why It Matters | Mitigation |
 |------|----------------|------------|
-| Cross-renderer shader drift | GLSL/HLSL are manually duplicated | Add manifests, contract checker, and renderer validation after each shader slice. |
+| Cross-renderer shader drift | GLSL/HLSL are manually duplicated | Add manifests, contract checker, and renderer validation before committing each shader slice. |
 | DX12 root signature churn | Material tables can force descriptor changes | Use packed instance params for material v1. |
 | Instance payload growth | Larger per-instance uploads can hurt perf | Measure with `validate_perf` if object batches change. |
 | Silent missing uniforms | Current setters hide typos and shader drift | Add dev diagnostics before behavior changes. |
 | Style config sprawl | `CinematicRenderConfig` already carries many unrelated settings | Introduce pass/style/material bind structs without breaking existing directives. |
 | One-off concept shaders | Fast short-term, bad long-term | Keep shader count low and data-drive modes. |
-| Deleting active shader assets | Some shaders are backend-specific or indirectly loaded | Run `rg`, document backend-only assets, validate renderer suite after deletion. |
+| Deleting active shader assets | Some shaders are backend-specific or indirectly loaded | Run `rg`, document backend-only assets, validate the renderer suite before committing the deletion. |
 | Renderer-switch resource bugs | Shaders/resources rebuild on backend switch | Tie new pass resources into existing reset sequence and validate hot-switch behavior. |
 
 ## Open Questions For Implementers
@@ -933,7 +936,7 @@ Each slice should be small enough that renderer validation failures point to a c
 3. Should style files define named material presets directly, or only assign existing presets with tint overrides?
 4. Should `CinematicRenderConfig` be renamed/split, or should backward-compatible `RenderStyleConfig` wrap it first?
 5. Should shader manifests be C++ tables first, or data files under `SkullbonezData/shaders`?
-6. Should legacy `water.*` and `UITextured.*` be archived under `Agentic/Plans/Archived` history, or simply removed after validation?
+6. Should legacy `water.*` and `UITextured.*` be archived under `Agentic/Plans/Archived` history, or simply removed after pre-commit validation?
 
 ## Success Criteria
 

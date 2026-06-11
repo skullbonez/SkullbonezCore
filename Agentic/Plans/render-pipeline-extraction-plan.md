@@ -363,7 +363,7 @@ Tasks:
 
 Validation:
 
-- `tools\validate_renderers.bat` after each slice or after a tightly scoped pair.
+- `tools\validate_renderers.bat` before committing each slice or tightly scoped pair.
 
 ### Phase 5: Extract Post Pass Functions
 
@@ -391,6 +391,8 @@ Validation:
 - `tools\validate_full.bat` if renderer switching or runtime resource phases are touched.
 
 ## Validation Matrix
+
+These commands are targeted pre-commit/PR gates, not as-you-go validation.
 
 | Change | Validation |
 |--------|------------|

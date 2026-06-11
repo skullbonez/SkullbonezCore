@@ -20,4 +20,4 @@ This is a design and planning package only. It does not change runtime code.
 
 Validation now: none required for documentation/design artifacts.
 
-Validation when implemented: use `tools\validate_renderers.bat` because the plan adds rounded drawing helpers and changes rendered UI output across the shared draw path.
+Pre-commit/PR validation when implemented: use `tools\validate_renderers.bat` because the plan adds rounded drawing helpers and changes rendered UI output across the shared draw path.

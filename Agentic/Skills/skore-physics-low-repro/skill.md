@@ -129,7 +129,9 @@ and replay.
 
 Documentation-only changes require no validation.
 
-For new or changed detector code that touches `SkullbonezRun*` or physics behavior, use the stricter validation required by `AGENTS.md`; when unsure, run:
+For new or changed detector code that touches `SkullbonezRun*` or physics
+behavior, use the stricter pre-commit/PR validation required by `AGENTS.md`.
+When the PR-bound scope is truly unsure, run:
 
 ```bat
 tools\validate_full.bat

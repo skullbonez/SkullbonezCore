@@ -22,7 +22,8 @@ Impact area: UI rendering and diagnostics UI styling. This should avoid physics,
 
 Current artifact-only work: no validation required.
 
-Implementation validation: run `tools\validate_renderers.bat`.
+Implementation validation: defer repository validation until the pre-commit/PR
+gate, then run `tools\validate_renderers.bat`.
 
 Reason: the likely implementation adds rounded drawing helpers in `UIDraw.*` and changes the renderer-neutral UI draw path. Even though this is not a backend feature, the result is rendered output that should remain stable across GL, DX11, and DX12.
 
@@ -184,7 +185,7 @@ Recommended manual checks before validation:
 6. Minimize, restore, maximize, and resize the UI window.
 7. Check profiler histogram readability if enabled.
 
-Then run:
+Before committing PR-bound implementation work, run:
 
 ```bat
 tools\validate_renderers.bat
@@ -201,7 +202,7 @@ If `UIDrawList` command count is increased, watch the UI draw stats for command 
 5. Convert buttons, toggles, combo boxes, and sliders.
 6. Convert shared footer/stat/pipeline widgets.
 7. Convert tab strip and remaining cyan separators.
-8. Run `tools\validate_renderers.bat`.
+8. Before the PR-bound commit, run `tools\validate_renderers.bat`.
 9. Capture before/after screenshots for handoff if the validation output is clean.
 
 ## Non-Goals For First Pass
