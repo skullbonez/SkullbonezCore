@@ -529,6 +529,8 @@ struct ParsedArgs
     bool noSleep = false;
     bool hasCinematicRenderingOverride = false;
     bool cinematicRendering = false;
+    bool hasCinematicShadowsOverride = false;
+    bool cinematicShadows = false;
     bool interactiveRun = false;
     int frameCountOverride = -1;
     bool sceneLoadOnly = false;
@@ -812,6 +814,15 @@ bool ParsePhysicsDebugMode( const char* value, uint32_t& outFlags )
         outFlags = PHYSICS_DEBUG_PIPELINE;
         return true;
     }
+    if ( _stricmp( value, "terrain" ) == 0 ||
+         _stricmp( value, "terrain_contact" ) == 0 ||
+         _stricmp( value, "terrain-contact" ) == 0 ||
+         _stricmp( value, "terrain_probe" ) == 0 ||
+         _stricmp( value, "terrain-probe" ) == 0 )
+    {
+        outFlags = PHYSICS_DEBUG_TERRAIN_CONTACT;
+        return true;
+    }
     if ( _stricmp( value, "all" ) == 0 || _stricmp( value, "on" ) == 0 )
     {
         outFlags = PHYSICS_DEBUG_ALL;
@@ -881,7 +892,7 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
     {
         if ( !ParsePhysicsDebugMode( modeValue, out.physicsDebugFlagsOverride ) )
         {
-            return FailCommandLineParse( "--physics-debug expects none|axes|contacts|sleep|pipeline|all|on|off." );
+            return FailCommandLineParse( "--physics-debug expects none|axes|contacts|sleep|pipeline|terrain|all|on|off." );
         }
         out.hasPhysicsDebugFlagsOverride = true;
     }
@@ -891,6 +902,7 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
         { "--physics-debug-contacts", "--physics_debug_contacts", PHYSICS_DEBUG_CONTACTS },
         { "--physics-debug-sleep", "--physics_debug_sleep", PHYSICS_DEBUG_SLEEP },
         { "--physics-debug-pipeline", "--physics_debug_pipeline", PHYSICS_DEBUG_PIPELINE },
+        { "--physics-debug-terrain-contact", "--physics_debug_terrain_contact", PHYSICS_DEBUG_TERRAIN_CONTACT },
     };
     for ( const PhysicsDebugComponentDirective& component : kComponentOverrides )
     {
@@ -1074,6 +1086,24 @@ bool ApplyVsyncOverride( const CommandLineView& commandLine )
     return true;
 }
 
+
+bool ApplyCinematicShadowsOverride( const char* value, ParsedArgs& args )
+{
+    bool enabled = false;
+    if ( !ParseOptionalOnOffValue( value, enabled ) )
+    {
+        return FailCommandLineParse( "--shadows expects optional on|off." );
+    }
+
+    args.hasCinematicShadowsOverride = true;
+    args.cinematicShadows = enabled;
+    fprintf( stdout,
+             "[shadows] Shadow maps %s via command line.\n",
+             enabled ? "enabled" : "disabled" );
+    return true;
+}
+
+
 bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out )
 {
     static const CliValueDirective kValues[] = {
@@ -1110,6 +1140,8 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
               fprintf( stdout, "[cinematic] Rendering %s via command line.\n", enabled ? "enabled" : "disabled" );
               return true;
           } },
+        { "--shadows", "--shadow-maps", ApplyCinematicShadowsOverride },
+        { "--cinematic-shadows", "--cinematic_shadows", ApplyCinematicShadowsOverride },
         { "--interactive", "--hold", []( const char* value, ParsedArgs& args ) -> bool
           {
               bool enabled = false;
@@ -1490,7 +1522,7 @@ void InitRenderBackend( RendererType renderer, SkullbonezWindow* window )
 // is deleted — this ensures any OpenGL cleanup calls inside Run still work.
 // ---------------------------------------------------------------------------
 
-void RunApp( SkullbonezWindow* window, ParsedArgs& args )
+int RunApp( SkullbonezWindow* window, ParsedArgs& args )
 {
     {
         SkullbonezRun cRun( std::move( args.sceneList ) );
@@ -1521,6 +1553,10 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         if ( args.hasCinematicRenderingOverride )
         {
             cRun.SetCinematicRenderingOverride( args.cinematicRendering );
+        }
+        if ( args.hasCinematicShadowsOverride )
+        {
+            cRun.SetCinematicShadowsOverride( args.cinematicShadows );
         }
         if ( args.demoHeroStyle )
         {
@@ -1607,13 +1643,18 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         }
         catch ( const std::exception& e )
         {
-#ifdef _DEBUG
             Log().WriteEventf( "fatal_exception message=\"%s\"", e.what() );
-#endif
             fprintf( stderr, "FATAL: %s\n", e.what() );
-            window->MsgBox( e.what(), "Alert!", MB_OK );
+            fflush( stderr );
+            Log().FlushAll();
+            if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
+            {
+                window->MsgBox( e.what(), "Alert!", MB_OK );
+            }
+            return 1;
         }
     } // cRun destroyed here — GL context still alive for proper cleanup
+    return 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -1712,7 +1753,7 @@ int WINAPI WinMain( HINSTANCE hInstance,
     InitRenderBackend( args.renderer, window );
     window->HandleScreenResize();
 
-    RunApp( window, args );
+    const int runExitCode = RunApp( window, args );
 
     CleanupWindow( window, hInstance );
 
@@ -1721,5 +1762,5 @@ int WINAPI WinMain( HINSTANCE hInstance,
     // Write memory leaks to output window
     // _CrtDumpMemoryLeaks();
 
-    return 0;
+    return runExitCode;
 }

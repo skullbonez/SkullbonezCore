@@ -1042,7 +1042,7 @@ class TestSceneParser
 
     void ParsePhysicsDebug( const char* args )
     {
-        const char* value = RequireArgs( "physics_debug", args, "physics_debug none|axes|contacts|sleep|pipeline|all" );
+        const char* value = RequireArgs( "physics_debug", args, "physics_debug none|axes|contacts|sleep|pipeline|terrain|all" );
         if ( strcmp( value, "none" ) == 0 || strcmp( value, "off" ) == 0 )
         {
             m_scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE;
@@ -1062,6 +1062,13 @@ class TestSceneParser
         else if ( strcmp( value, "pipeline" ) == 0 )
         {
             m_scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_PIPELINE;
+        }
+        else if ( strcmp( value, "terrain" ) == 0 ||
+                  strcmp( value, "terrain_contact" ) == 0 ||
+                  strcmp( value, "terrain-probe" ) == 0 ||
+                  strcmp( value, "terrain_probe" ) == 0 )
+        {
+            m_scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_TERRAIN_CONTACT;
         }
         else if ( strcmp( value, "all" ) == 0 || strcmp( value, "on" ) == 0 )
         {
@@ -1105,6 +1112,11 @@ class TestSceneParser
     void ParsePhysicsDebugPipeline( const char* args )
     {
         ParsePhysicsDebugComponent( args, Physics::PHYSICS_DEBUG_PIPELINE );
+    }
+
+    void ParsePhysicsDebugTerrainContact( const char* args )
+    {
+        ParsePhysicsDebugComponent( args, Physics::PHYSICS_DEBUG_TERRAIN_CONTACT );
     }
 
     void ParsePhysicsDebugTransparent( const char* args )
@@ -1261,9 +1273,8 @@ class TestSceneParser
 
     bool TryParseCinematicDirective( const char* line )
     {
-        // Cinematic scene directives all share the cinematic_ prefix. Keeping
-        // them in one parser function makes it easy to compare the scene-file
-        // names with CinematicRenderConfig fields.
+        // Cinematic scene directives normally share the cinematic_ prefix.
+        // "shadows" is a user-facing scene alias that maps to the same config.
         const char* lookArgs = nullptr;
         if ( MatchDirective( line, "cinematic_look", lookArgs ) )
         {
@@ -1271,7 +1282,9 @@ class TestSceneParser
             return true;
         }
 
-        if ( strncmp( line, "cinematic_", 10 ) != 0 )
+        const char* shadowAliasArgs = nullptr;
+        if ( strncmp( line, "cinematic_", 10 ) != 0 &&
+             !MatchDirective( line, "shadows", shadowAliasArgs ) )
         {
             return false;
         }
@@ -1371,7 +1384,10 @@ class TestSceneParser
         struct BoolDirective
         {
             // Boolean directives toggle whole passes/features such as bloom,
-            // fog, clouds, or the master cinematic renderer.
+            // fog, clouds, or the master cinematic renderer. Shadows deliberately
+            // do not force the cinematic renderer: the shadow-map pass is a depth
+            // resource that can feed normal backbuffer rendering as well as the
+            // cinematic HDR/post path.
             const char* name;
             bool CinematicRenderConfig::* field;
             uint64_t bit;
@@ -1385,6 +1401,9 @@ class TestSceneParser
             { "cinematic_bloom", &CinematicRenderConfig::bloomEnabled, SCENE_CINE_BLOOM },
             { "cinematic_fog", &CinematicRenderConfig::fogEnabled, SCENE_CINE_FOG },
             { "cinematic_terrain_relief_enabled", &CinematicRenderConfig::terrainReliefEnabled, SCENE_CINE_TERRAIN_RELIEF_ENABLED },
+            { "cinematic_shadows", &CinematicRenderConfig::shadowsEnabled, SCENE_CINE_SHADOWS },
+            { "shadows", &CinematicRenderConfig::shadowsEnabled, SCENE_CINE_SHADOWS },
+            { "cinematic_legacy_shadow_discs", &CinematicRenderConfig::legacyShadowDiscs, SCENE_CINE_LEGACY_SHADOW_DISCS },
         };
         for ( const BoolDirective& directive : kBoolDirectives )
         {
@@ -1402,6 +1421,33 @@ class TestSceneParser
                     m_scene.m_sceneOptions.hasCinematicRenderingOverride = true;
                     m_scene.m_sceneOptions.cinematicRendering = parsedValue;
                 }
+                return true;
+            }
+        }
+
+        struct IntDirective
+        {
+            const char* name;
+            int CinematicRenderConfig::* field;
+            uint64_t bit;
+            int minValue;
+            int maxValue;
+        };
+        static constexpr IntDirective kIntDirectives[] = {
+            { "cinematic_shadow_map_size", &CinematicRenderConfig::shadowMapSize, SCENE_CINE_SHADOW_MAP_SIZE, 256, 8192 },
+            { "cinematic_shadow_pcf_radius", &CinematicRenderConfig::shadowPcfRadius, SCENE_CINE_SHADOW_PCF_RADIUS, 0, 3 },
+        };
+        for ( const IntDirective& directive : kIntDirectives )
+        {
+            if ( strcmp( key, directive.name ) == 0 )
+            {
+                const int parsedValue = ParseIntValue( key, value );
+                if ( parsedValue < directive.minValue || parsedValue > directive.maxValue )
+                {
+                    Fail( "Invalid %s at line %d (expected %d..%d)", key, m_lineNumber, directive.minValue, directive.maxValue );
+                }
+                m_scene.m_sceneOptions.cinematicRender.*( directive.field ) = parsedValue;
+                m_scene.m_sceneOptions.cinematicOverrideMask |= directive.bit;
                 return true;
             }
         }
@@ -1449,6 +1495,11 @@ class TestSceneParser
             { "cinematic_terrain_relief", &CinematicRenderConfig::terrainRelief, SCENE_CINE_TERRAIN_RELIEF, 0.0f, 4.0f },
             { "cinematic_basin_depth", &CinematicRenderConfig::basinDepth, SCENE_CINE_BASIN_DEPTH, 0.0f, 256.0f },
             { "cinematic_basin_rim_lift", &CinematicRenderConfig::basinRimLift, SCENE_CINE_BASIN_RIM_LIFT, 0.0f, 256.0f },
+            { "cinematic_shadow_strength", &CinematicRenderConfig::shadowStrength, SCENE_CINE_SHADOW_STRENGTH, 0.0f, 1.0f },
+            { "cinematic_shadow_softness", &CinematicRenderConfig::shadowSoftness, SCENE_CINE_SHADOW_SOFTNESS, 0.25f, 4.0f },
+            { "cinematic_shadow_depth_bias", &CinematicRenderConfig::shadowDepthBias, SCENE_CINE_SHADOW_DEPTH_BIAS, 0.0f, 0.05f },
+            { "cinematic_shadow_slope_bias", &CinematicRenderConfig::shadowSlopeBias, SCENE_CINE_SHADOW_SLOPE_BIAS, 0.0f, 0.05f },
+            { "cinematic_shadow_max_distance", &CinematicRenderConfig::shadowMaxDistance, SCENE_CINE_SHADOW_MAX_DISTANCE, 128.0f, 10000.0f },
             { "cinematic_fog_color_r", &CinematicRenderConfig::fogColorR, SCENE_CINE_FOG_COLOR_R, 0.0f, 4.0f },
             { "cinematic_fog_color_g", &CinematicRenderConfig::fogColorG, SCENE_CINE_FOG_COLOR_G, 0.0f, 4.0f },
             { "cinematic_fog_color_b", &CinematicRenderConfig::fogColorB, SCENE_CINE_FOG_COLOR_B, 0.0f, 4.0f },
@@ -1547,11 +1598,12 @@ class TestSceneParser
             { "floating_box", &TestSceneParser::ParseFloatingBox, "floating_box <name> ..." },
             { "time_scale", &TestSceneParser::ParseTimeScale, "time_scale <value>" },
             { "fixed_step", &TestSceneParser::ParseFixedStep, "fixed_step" },
-            { "physics_debug", &TestSceneParser::ParsePhysicsDebug, "physics_debug none|axes|contacts|sleep|pipeline|all" },
+            { "physics_debug", &TestSceneParser::ParsePhysicsDebug, "physics_debug none|axes|contacts|sleep|pipeline|terrain|all" },
             { "physics_debug_axes", &TestSceneParser::ParsePhysicsDebugAxes, "physics_debug_axes on|off" },
             { "physics_debug_contacts", &TestSceneParser::ParsePhysicsDebugContacts, "physics_debug_contacts on|off" },
             { "physics_debug_sleep", &TestSceneParser::ParsePhysicsDebugSleep, "physics_debug_sleep on|off" },
             { "physics_debug_pipeline", &TestSceneParser::ParsePhysicsDebugPipeline, "physics_debug_pipeline on|off" },
+            { "physics_debug_terrain_contact", &TestSceneParser::ParsePhysicsDebugTerrainContact, "physics_debug_terrain_contact on|off" },
             { "physics_debug_transparent", &TestSceneParser::ParsePhysicsDebugTransparent, "physics_debug_transparent on|off" },
             { "physics_debug_alpha", &TestSceneParser::ParsePhysicsDebugAlpha, "physics_debug_alpha <0.05..1.0>" },
             { "physics_debug_contact_linger", &TestSceneParser::ParsePhysicsDebugContactLinger, "physics_debug_contact_linger <0.0..5.0>" },

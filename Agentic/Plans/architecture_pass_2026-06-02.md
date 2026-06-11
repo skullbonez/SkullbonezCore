@@ -478,68 +478,13 @@ Validation: `validate_renderers`.
 
 Status for `codex/architecture-cleanup`: design-only. Do not implement replay recording, time-travel debugging, or new debug tooling on this branch.
 
-The engine already has the ingredients: scene files, seed overrides, fixed-step mode, screenshots, profiler CSVs, and nudge snapshots. Make that a formal replay artifact:
+Expanded standalone plan: `Agentic/Plans/replay-system-plan.md`.
 
-```text
-replay {
-  engine_commit
-  renderer
-  scene
-  seed
-  fixed_step
-  inputs[]
-  camera_events[]
-  expected_screenshots[]
-  expected_physics_hashes[]
-}
-```
-
-This would make bugs easier to preserve and compare across renderers and hardware.
+The engine already has the ingredients: scene files, seed overrides, fixed-step mode, screenshots, profiler CSVs, and nudge snapshots. Make that a formal replay artifact so bugs are easier to preserve, scrub, branch, and compare across renderers and hardware.
 
 Priority: Medium. Effort: Medium. Risk: Low.
 
 Validation: `validate_fast` for artifact format; `validate_full` once integrated.
-
-Future replay/debug architecture:
-
-| Layer | Responsibility |
-|-------|----------------|
-| Replay manifest | Stores engine commit, renderer, scene path, seed, fixed-step settings, config overrides, and expected artifacts. |
-| Input stream | Records high-level runtime commands, camera changes, scene resets, nudges, and renderer switches in frame order. |
-| Physics checkpoints | Stores compact periodic body snapshots plus deterministic per-frame events rather than whole raw diagnostics by default. |
-| Render checkpoints | Stores screenshot references, renderer name, viewport size, and optional per-pass capture IDs. |
-| Debug timeline | Presents frame, contact, island, sleep, nudge, and render-pass events as queryable slices. |
-| Export path | Converts a selected replay segment into a `.scene`, `.suite`, or focused validation case. |
-
-Replay should depend on stable `SceneRuntime`, `SimulationSystem`, `RenderPipeline`, and `PhysicsWorld` boundaries. It should not scrape state from the monolithic runtime.
-
-Suggested artifact sketch:
-
-```text
-replay_version 1
-engine_commit dd860cf
-scene SkullbonezData/scenes/example.scene
-renderer dx12
-fixed_step 1
-seed 12345
-viewport 1280 720
-
-config {
-  vsync 0
-  gravity -9.8
-}
-
-events {
-  frame 00012 key_down R
-  frame 00018 camera_eye 0.0 4.0 -9.5
-  frame 00024 nudge body=3 impulse=0.0,4.0,0.0
-}
-
-expect {
-  screenshot frame=120 path=TestOutput/replays/example_dx12_120.png
-  physics_hash frame=120 value=...
-}
-```
 
 ## Suggested Roadmap
 
@@ -638,26 +583,9 @@ Architecture sketch:
 
 ### 2. A Time-Travel Physics Debugger
 
-The deterministic scene system and fixed-step physics are perfect for rewind. Store compact per-frame snapshots or periodic checkpoints plus input deltas, then allow:
+Expanded standalone plan: `Agentic/Plans/replay-system-plan.md`.
 
-| Feature | Standout value |
-|---------|----------------|
-| Scrub frame-by-frame through contact events | Makes solver behavior inspectable |
-| Show contact normals, accumulated impulses, sleep islands | Turns the solver into an explorable system |
-| Branch from any frame | Try alternate impulses, water height, or object nudges |
-| Export branch as `.scene` | Every interesting moment becomes a regression test |
-
-This would give Skullbonez a "physics lab" flavor rather than just a physics demo.
-
-Architecture sketch:
-
-| Component | Future role |
-|-----------|-------------|
-| `PhysicsTimelineStore` | Stores compact body/contact/island/sleep events keyed by frame. |
-| `CheckpointRing` | Keeps periodic state snapshots so rewind does not require replaying from frame zero every time. |
-| `ContactInspector` | Presents normal, penetration, warm-start impulse, solver row state, and owning bodies. |
-| `BranchController` | Forks from a checkpoint with altered input, force, water, or nudge state. |
-| `RegressionExporter` | Writes the selected branch as a deterministic `.scene`, `.suite`, or replay artifact. |
+The deterministic scene system and fixed-step physics are perfect for a rewind-style debugger backed by checkpoints, compact per-frame samples, and deterministic forward replay. Keep the architecture pass as a concept index; the standalone replay plan owns the implementation details for scrubbing, contact inspection, branch-from-frame, and regression export.
 
 ### 3. Water As The Signature System
 

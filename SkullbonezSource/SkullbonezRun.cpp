@@ -121,6 +121,13 @@ void SkullbonezRun::SetCinematicRenderingOverride( bool enabled )
 }
 
 
+void SkullbonezRun::SetCinematicShadowsOverride( bool enabled )
+{
+    m_cmdHasCinematicShadowsOverride = true;
+    m_cmdCinematicShadows = enabled;
+}
+
+
 void SkullbonezRun::SetDemoHeroStyleOverride()
 {
     m_cmdDemoHeroStyle = true;

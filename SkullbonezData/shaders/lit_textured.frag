@@ -44,6 +44,10 @@ in vec3 vWorldPos;
 in vec2 vTexCoord;
 
 uniform sampler2D uTexture;
+uniform sampler2D uShadowMap;
+uniform mat4 uShadowViewProj;
+uniform vec4 uShadowParams; // strength, depth bias, slope bias, texel step
+uniform vec4 uShadowFlags;  // enabled, receive, pcf radius, zero-to-one depth
 uniform vec4 uCinematicTerrain; // enable, relief, basin depth, rim lift
 uniform vec4 uCinematicBasin;   // center x/z, radius x/z
 uniform vec4 uStyleModes;       // sky, terrain, object, water
@@ -61,6 +65,60 @@ uniform vec4 uMaterialAmbient;
 uniform vec4 uMaterialDiffuse;
 
 out vec4 FragColor;
+
+float ShadowVisibility(vec3 worldPos, vec3 normalView, vec3 lightView)
+{
+    if (uShadowFlags.x < 0.5 || uShadowFlags.y < 0.5 || uShadowParams.x <= 0.0)
+    {
+        return 1.0;
+    }
+
+    vec4 shadowClip = uShadowViewProj * vec4(worldPos, 1.0);
+    if (shadowClip.w <= 0.0)
+    {
+        return 1.0;
+    }
+
+    vec3 ndc = shadowClip.xyz / shadowClip.w;
+    vec2 uv = ndc.xy * 0.5 + 0.5;
+    if (uShadowFlags.w > 0.5)
+    {
+        uv.y = 1.0 - uv.y;
+    }
+    float receiverDepth = uShadowFlags.w > 0.5 ? ndc.z : ndc.z * 0.5 + 0.5;
+
+    if (uv.x <= 0.0 || uv.x >= 1.0 || uv.y <= 0.0 || uv.y >= 1.0 || receiverDepth <= 0.0 || receiverDepth >= 1.0)
+    {
+        return 1.0;
+    }
+
+    float ndotl = max(dot(normalize(normalView), normalize(lightView)), 0.0);
+    float bias = uShadowParams.y + uShadowParams.z * (1.0 - ndotl);
+    int radius = int(floor(uShadowFlags.z + 0.5));
+    float texel = max(uShadowParams.w, 0.00001);
+    float visible = 0.0;
+    float samples = 0.0;
+    for (int y = -3; y <= 3; ++y)
+    {
+        if (abs(y) > radius)
+        {
+            continue;
+        }
+        for (int x = -3; x <= 3; ++x)
+        {
+            if (abs(x) > radius)
+            {
+                continue;
+            }
+            float shadowDepth = textureLod(uShadowMap, uv + vec2(x, y) * texel, 0.0).r;
+            visible += receiverDepth - bias <= shadowDepth ? 1.0 : 0.0;
+            samples += 1.0;
+        }
+    }
+
+    float visibility = samples > 0.0 ? visible / samples : 1.0;
+    return mix(1.0 - uShadowParams.x, 1.0, visibility);
+}
 
 float BasinDistance(vec2 xz)
 {
@@ -251,6 +309,7 @@ void main()
         }
         float terrainDot = dot(terrainN, L);
         float terrainDiff = max(terrainDot, 0.0);
+        float shadowFactor = ShadowVisibility(vWorldPos, terrainN, L);
         float warmWrap = clamp(terrainDot * 0.5 + 0.5, 0.0, 1.0);
         float grazing = pow(clamp(1.0 - abs(terrainDot), 0.0, 1.0), 1.5);
         float rim = pow(1.0 - clamp(dot(terrainN, V), 0.0, 1.0), 3.0) * (0.25 + warmWrap * 0.75);
@@ -278,8 +337,8 @@ void main()
             float sunBand = terrainDiff > 0.72 ? 1.0 : (terrainDiff > 0.34 ? 0.62 : 0.30);
             float softFill = warmWrap * 0.10;
             vec3 warmSun = uLightDiffuse.rgb * vec3(0.96, 0.78, 0.50);
-            vec3 color = earthBase * (hemiAmbient * 0.64 + warmSun * (sunBand * 0.26 + softFill * 0.78));
-            color += warmSun * (rim * 0.042 + grazing * 0.022);
+            vec3 color = earthBase * (hemiAmbient * 0.64 + warmSun * (sunBand * 0.26 + softFill * 0.78) * shadowFactor);
+            color += warmSun * (rim * 0.042 + grazing * 0.022) * shadowFactor;
             FragColor = vec4(color, 1.0);
             return;
         }
@@ -290,13 +349,15 @@ void main()
         vec3 litTone = earthBase * vec3(1.28, 0.72, 0.34);
         vec3 gradedBase = mix(shadowTone, litTone, clamp(terrainDiff * 0.85 + warmWrap * 0.12, 0.0, 1.0));
         vec3 warmAmbient = gradedBase * uLightAmbient.rgb * (0.95 + max(terrainN.y, 0.0) * 0.35);
-        vec3 directSun = gradedBase * uLightDiffuse.rgb * (terrainDiff * 0.42 + grazing * 0.08);
-        vec3 ridgeLight = uLightDiffuse.rgb * (rim * 0.045 + spec * 0.035);
+        vec3 directSun = gradedBase * uLightDiffuse.rgb * (terrainDiff * 0.42 + grazing * 0.08) * shadowFactor;
+        vec3 ridgeLight = uLightDiffuse.rgb * (rim * 0.045 + spec * 0.035) * shadowFactor;
         FragColor = vec4(warmAmbient + directSun + ridgeLight, 1.0);
         return;
     }
 
+    float shadowFactor = ShadowVisibility(vWorldPos, N, L);
+
     // Combine: multiply lighting by texture color, then add specular on top.
     // Specular is added separately because highlights should be the light's color, not tinted by texture.
-    FragColor = vec4((ambient + diffuse) * texColor.rgb + specular, 1.0);
+    FragColor = vec4((ambient + diffuse * shadowFactor) * texColor.rgb + specular * shadowFactor, 1.0);
 }

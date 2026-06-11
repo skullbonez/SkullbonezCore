@@ -111,6 +111,7 @@ void SkullbonezRun::ResetCinematicRenderResources()
 {
     // Renderer resources are backend-owned objects. When the renderer changes or
     // shuts down, release these GPU handles so GL/DX can recreate them cleanly.
+    ResetShadowRenderResources();
     if ( IsGfxReady() && m_systems.postQuadVB != 0 )
     {
         Gfx().DestroyDynamicVB( m_systems.postQuadVB );
@@ -121,6 +122,173 @@ void SkullbonezRun::ResetCinematicRenderResources()
     m_systems.tonemapShader.reset();
     m_systems.volumetricLightFBO.reset();
     m_systems.sceneFBO.reset();
+}
+
+
+void SkullbonezRun::EnsureShadowRenderResources( const CinematicRenderConfig& cinematic )
+{
+    if ( !cinematic.shadowsEnabled || !IsGfxReady() )
+    {
+        return;
+    }
+
+    // The shadow map is a renderer-neutral depth framebuffer. It is intentionally
+    // owned outside the cinematic HDR target because the same light-space depth
+    // texture is useful in normal backbuffer rendering, cinematic rendering, and
+    // screenshot/perf scenes. The cinematic config still supplies map size and
+    // bias/softness values, but the feature itself is no longer gated by the
+    // cinematic post-processing path.
+    const int mapSize = std::clamp( cinematic.shadowMapSize, 256, 8192 );
+    const bool needsShadowTarget = !m_systems.shadowFBO ||
+                                   m_systems.shadowFBO->GetWidth() != mapSize ||
+                                   m_systems.shadowFBO->GetHeight() != mapSize;
+    if ( needsShadowTarget )
+    {
+        m_systems.shadowFBO.reset();
+        m_systems.shadowFBO = Gfx().CreateFramebuffer( mapSize, mapSize );
+    }
+}
+
+
+void SkullbonezRun::ResetShadowRenderResources()
+{
+    // Drop both the backing framebuffer and the per-frame payload. Framebuffer
+    // handles are backend-specific, so renderer switches must force a clean
+    // recreate before the next shadow pass. The payload is reset too so receivers
+    // cannot accidentally sample an old depth texture after the resource dies.
+    if ( m_systems.shadowFBO )
+    {
+        m_systems.shadowFBO->ResetResources();
+    }
+    m_systems.shadowFBO.reset();
+    m_systems.shadowFrame = Rendering::ShadowFrameData();
+}
+
+
+SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::BuildShadowFrameData( const CinematicRenderConfig& cinematic, const Vector3& lightDirectionWorld ) const
+{
+    Rendering::ShadowFrameData shadowFrame;
+    if ( !m_systems.terrain || !m_systems.shadowFBO )
+    {
+        return shadowFrame;
+    }
+
+    // Shadow maps need a stable light-space camera. `lightDirectionWorld` is
+    // treated as the vector from the scene toward the light source. Cinematic
+    // rendering passes the authored sun direction; normal rendering passes the
+    // existing point-light position vector as a directional approximation. That
+    // keeps the feature available everywhere without rewriting the old lighting
+    // model into a true directional-light renderer.
+    Vector3 lightDir = lightDirectionWorld;
+    if ( VectorMag( lightDir ) < 1.0e-5f )
+    {
+        lightDir = Vector3( -0.68f, 0.22f, -0.70f );
+    }
+    lightDir.Normalise();
+
+    const XZBounds terrainBounds = m_systems.terrain->GetXZBounds();
+    const float extentX = (std::max)( terrainBounds.m_xMax - terrainBounds.m_xMin, 1.0f );
+    const float extentZ = (std::max)( terrainBounds.m_zMax - terrainBounds.m_zMin, 1.0f );
+    const float terrainHeightRange = (std::max)( m_systems.terrain->GetMaxHeight() - m_systems.terrain->GetMinHeight(), 64.0f );
+    const float terrainRadius = (std::max)( extentX, extentZ ) * 0.5f;
+    const float shadowRadius = std::clamp( terrainRadius + 180.0f, 128.0f, (std::max)( cinematic.shadowMaxDistance, 128.0f ) );
+
+    // Center the orthographic projection over the whole terrain instead of the
+    // camera. This is a simple single-map v1: it avoids camera-dependent popping
+    // and makes screenshots deterministic, at the cost of spreading resolution
+    // across the authored terrain bounds instead of using cascades.
+    const Vector3 focus( ( terrainBounds.m_xMin + terrainBounds.m_xMax ) * 0.5f,
+                         ( m_systems.terrain->GetMinHeight() + m_systems.terrain->GetMaxHeight() ) * 0.5f,
+                         ( terrainBounds.m_zMin + terrainBounds.m_zMax ) * 0.5f );
+    const float lightBackDistance = shadowRadius + terrainHeightRange + 650.0f;
+    const Vector3 lightEye = focus + lightDir * lightBackDistance;
+    const Vector3 lightUp = fabsf( lightDir.y ) > 0.92f ? Vector3( 0.0f, 0.0f, 1.0f ) : Vector3( 0.0f, 1.0f, 0.0f );
+    const float nearPlane = 1.0f;
+    const float farPlane = lightBackDistance * 2.0f + terrainHeightRange + shadowRadius;
+
+    shadowFrame.lightView = Matrix4::LookAt( lightEye, focus, lightUp );
+    shadowFrame.lightProjection = Gfx().UsesZeroToOneDepth()
+                                      ? Matrix4::OrthoZeroToOne( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane )
+                                      : Matrix4::Ortho( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane );
+    shadowFrame.lightViewProjection = shadowFrame.lightProjection * shadowFrame.lightView;
+    shadowFrame.lightDirectionWorld = lightDir;
+    shadowFrame.depthTextureHandle = m_systems.shadowFBO->GetDepthTextureHandle();
+
+    // Everything below is copied into shader uniforms by ApplyShadowReceiverUniforms.
+    // Keeping the values in one payload makes balls, boxes, terrain, GL, DX11,
+    // and DX12 consume the same shadow decision for the frame.
+    shadowFrame.mapSize = m_systems.shadowFBO->GetWidth();
+    shadowFrame.pcfRadius = std::clamp( cinematic.shadowPcfRadius, 0, 3 );
+    shadowFrame.strength = std::clamp( cinematic.shadowStrength, 0.0f, 1.0f );
+    shadowFrame.depthBias = (std::max)( cinematic.shadowDepthBias, 0.0f );
+    shadowFrame.slopeBias = (std::max)( cinematic.shadowSlopeBias, 0.0f );
+    shadowFrame.texelSize = shadowFrame.mapSize > 0 ? 1.0f / static_cast<float>( shadowFrame.mapSize ) : 0.0f;
+    shadowFrame.softness = (std::max)( cinematic.shadowSoftness, 0.25f );
+    shadowFrame.zeroToOneDepth = Gfx().UsesZeroToOneDepth();
+    shadowFrame.terrainReceives = cinematic.shadowTerrainReceives;
+    shadowFrame.objectsReceive = cinematic.shadowObjectsReceive;
+    shadowFrame.valid = shadowFrame.depthTextureHandle != 0 && shadowFrame.mapSize > 0;
+    return shadowFrame;
+}
+
+
+void SkullbonezRun::RenderShadowMap( const Rendering::ShadowFrameData& shadowFrame, const CinematicRenderConfig& cinematic )
+{
+    if ( !shadowFrame.valid || !m_systems.shadowFBO )
+    {
+        return;
+    }
+    if ( !cinematic.shadowTerrainCasts && !cinematic.shadowObjectsCast )
+    {
+        return;
+    }
+
+    // Render from the light's point of view into the depth attachment. The pass
+    // does not need color output; the framebuffer abstraction still gives us a
+    // color target on some backends, but receivers sample only the depth texture
+    // handle stored in ShadowFrameData.
+    m_systems.shadowFBO->Bind();
+    Gfx().SetViewport( 0, 0, m_systems.shadowFBO->GetWidth(), m_systems.shadowFBO->GetHeight() );
+    Gfx().Clear( true, true );
+
+    // Shadow depth writes must be opaque and depth-only. Save the caller's
+    // blend/depth state because this pass runs in the middle of DrawPrimitives()
+    // before reflection, world rendering, water, UI, and debug overlays.
+    const bool depthWasEnabled = Gfx().IsDepthTestEnabled();
+    const bool blendWasEnabled = Gfx().IsBlendEnabled();
+    Gfx().SetDepthTest( true );
+    Gfx().SetDepthWrite( true );
+    Gfx().SetBlend( false );
+    Gfx().SetCullFace( true );
+
+    // Polygon offset reduces self-shadow acne on terrain and object faces. The
+    // shader-side receiver bias handles comparison precision; this rasterizer
+    // bias handles the depth values written into the map.
+    Gfx().SetPolygonOffset( true, 2.0f, 4.0f );
+
+    if ( cinematic.shadowTerrainCasts && !m_debug.isTerrainHidden && m_systems.terrain )
+    {
+        // Terrain must cast with the same optional render-only relief that the
+        // visible terrain uses. Otherwise cinematic basin relief would receive
+        // shadows from the flat CPU height map and the contact would visibly
+        // detach. With normal rendering the relief amount is zero by default.
+        m_systems.terrain->RenderShadowDepth( shadowFrame.lightView, shadowFrame.lightProjection, &cinematic );
+    }
+
+    if ( cinematic.shadowObjectsCast && !m_debug.isCollisionVisualizer )
+    {
+        // Balls, boxes, and pine-style box visuals all write depth here. The
+        // collection keeps separate instanced batches so each caster shape uses
+        // the same mesh silhouette as the visible forward pass.
+        m_cGameModelCollection.RenderShadowCasters( shadowFrame.lightView, shadowFrame.lightProjection, &cinematic );
+    }
+
+    Gfx().SetPolygonOffset( false );
+    Gfx().SetDepthTest( depthWasEnabled );
+    Gfx().SetDepthWrite( depthWasEnabled );
+    Gfx().SetBlend( blendWasEnabled );
+    m_systems.shadowFBO->Unbind();
+    Gfx().SetViewport( 0, 0, Gfx().GetWidth(), Gfx().GetHeight() );
 }
 
 
@@ -416,6 +584,8 @@ void SkullbonezRun::Render()
 void SkullbonezRun::DrawPrimitives()
 {
     const bool cinematicRender = IsCinematicRenderingEnabled();
+    const CinematicRenderConfig& renderConfig = ActiveCinematicConfig();
+    const bool shadowMapsEnabled = renderConfig.shadowsEnabled && IsGfxReady() && !m_debug.isTextOnly;
 
     // Normal gameplay uses a point light (w = 1). Cinematic mode uses a
     // directional light (w = 0), which behaves like the sun: the same warm light
@@ -448,6 +618,24 @@ void SkullbonezRun::DrawPrimitives()
     PROFILE_BEGIN( "Frame/Render/PrepareModels" );
     m_cGameModelCollection.PrepareRenderStreams();
     PROFILE_END( "Frame/Render/PrepareModels" );
+
+    m_systems.shadowFrame = Rendering::ShadowFrameData();
+    const CinematicRenderConfig* activeCinematic = cinematicRender ? &ActiveCinematicConfig() : nullptr;
+    const CinematicRenderConfig* activeShadowConfig = shadowMapsEnabled ? &renderConfig : nullptr;
+    if ( activeShadowConfig )
+    {
+        // Build the map before any receiver pass. Reflection, main objects, and
+        // terrain all receive the same ShadowFrameData pointer below, so a single
+        // depth pass covers every visible view for the frame. PROFILE_GPU_* emits
+        // both the CPU marker and the matching *_gpu timing column.
+        PROFILE_GPU_BEGIN( "Frame/Render/Shadows/ShadowMap" );
+        Vector3 lightDirection( lightPosition[0], lightPosition[1], lightPosition[2] );
+        EnsureShadowRenderResources( *activeShadowConfig );
+        m_systems.shadowFrame = BuildShadowFrameData( *activeShadowConfig, lightDirection );
+        RenderShadowMap( m_systems.shadowFrame, *activeShadowConfig );
+        PROFILE_GPU_END( "Frame/Render/Shadows/ShadowMap" );
+    }
+    const Rendering::ShadowFrameData* shadowFrame = m_systems.shadowFrame.valid ? &m_systems.shadowFrame : nullptr;
 
     const bool physicsDebugTransparent = m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE && m_debug.isPhysicsDebugTransparent;
     const float collisionVisualizerAlphaOverride = physicsDebugTransparent ? m_debug.physicsDebugAlpha : -1.0f;
@@ -552,7 +740,7 @@ void SkullbonezRun::DrawPrimitives()
         else
         {
             m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-            m_cGameModelCollection.RenderModels( reflView, proj, lightPosition, cinematicRender ? &ActiveCinematicConfig() : nullptr );
+            m_cGameModelCollection.RenderModels( reflView, proj, lightPosition, activeCinematic, shadowFrame );
         }
         Gfx().SetClipPlane( 0, false );
         SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
@@ -597,7 +785,7 @@ void SkullbonezRun::DrawPrimitives()
     else
     {
         m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-        m_cGameModelCollection.RenderModels( baseView, proj, lightPosition, cinematicRender ? &ActiveCinematicConfig() : nullptr );
+        m_cGameModelCollection.RenderModels( baseView, proj, lightPosition, activeCinematic, shadowFrame );
     }
     PROFILE_GPU_END( "Frame/Render/Balls" );
 
@@ -606,12 +794,18 @@ void SkullbonezRun::DrawPrimitives()
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Terrain" );
         m_systems.textures->SelectTexture( TEXTURE_GROUND );
-        m_systems.terrain->Render( baseView, proj, lightPosition, cinematicRender ? &ActiveCinematicConfig() : nullptr );
+        m_systems.terrain->Render( baseView, proj, lightPosition, activeCinematic, shadowFrame );
         PROFILE_GPU_END( "Frame/Render/Terrain" );
     }
 
-    // render ground shadows on top of m_terrain
-    if ( !m_debug.isTerrainHidden )
+    // Legacy shadow discs are a separate contact-shadow system. They do not
+    // replace the real shadow-map pass above: the depth map still supplies the
+    // long directional silhouette from balls, boxes, pines, and terrain. The
+    // disc layer is only a terrain-hugging grounding cue, useful because low-poly
+    // rolling spheres and tilted boxes can be physically supported while the sun
+    // shadow starts far enough away to look like a visual gap. Scenes that need
+    // pure shadow-map output set cinematic_legacy_shadow_discs off.
+    if ( !m_debug.isTerrainHidden && ( !shadowFrame || !activeShadowConfig || activeShadowConfig->legacyShadowDiscs ) )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Shadows" );
         m_cGameModelCollection.RenderShadows( m_systems.terrain.get(), baseView, proj, waterY );
@@ -657,7 +851,7 @@ void SkullbonezRun::DrawPrimitives()
         Matrix4 viewProj = proj * baseView;
         m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
         m_physicsDebugVisualizer.SetPipelineStageCursor( m_debug.physicsDebugPipelineStageCursor );
-        m_physicsDebugVisualizer.Render( m_cGameModelCollection, viewProj );
+        m_physicsDebugVisualizer.Render( m_cGameModelCollection, viewProj, m_systems.terrain.get() );
     }
 
     if ( useCinematicTarget )
@@ -967,7 +1161,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         const float titleSz = 0.013f;
         const float entrySz = 0.011f;
         const float lineH = 0.020f;
-        const int nRows = 12;
+        const int nRows = 13;
         const float panPad = 0.012f;
         const float titleGap = 0.016f; // space between title baseline and first entry
         const float keyW = 0.058f;     // key-name column width
@@ -1013,6 +1207,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "V", "Collision visual" },
             { "Space", "Step physics" },
             { "R/Bksp", "Reset scene" },
+            { "F3", "Screenshot" },
         };
         static const KeyEntry kRight[nRows] = {
             { "Esc", "Min/expand UI" },
@@ -1025,8 +1220,9 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "6", "Debug body alpha" },
             { "G", "Broadphase overlay" },
             { "C", "Physics debug" },
+            { "O", "Terrain probe" },
             { "PgUp/Dn", "Water height" },
-            { "F3", "Screenshot" },
+            { "F7/F8", "Pipeline stage" },
         };
 
         for ( int i = 0; i < nRows; ++i )

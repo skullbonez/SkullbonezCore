@@ -7,6 +7,11 @@
 
 namespace SkullbonezCore
 {
+namespace Geometry
+{
+class Terrain;
+}
+
 namespace GameObjects
 {
 class GameModelCollection;
@@ -24,7 +29,8 @@ enum PhysicsDebugFlags : uint32_t
     PHYSICS_DEBUG_CONTACTS = 1u << 1,
     PHYSICS_DEBUG_SLEEP = 1u << 2,
     PHYSICS_DEBUG_PIPELINE = 1u << 3,
-    PHYSICS_DEBUG_ALL = PHYSICS_DEBUG_AXES | PHYSICS_DEBUG_CONTACTS | PHYSICS_DEBUG_SLEEP | PHYSICS_DEBUG_PIPELINE,
+    PHYSICS_DEBUG_TERRAIN_CONTACT = 1u << 4,
+    PHYSICS_DEBUG_ALL = PHYSICS_DEBUG_AXES | PHYSICS_DEBUG_CONTACTS | PHYSICS_DEBUG_SLEEP | PHYSICS_DEBUG_PIPELINE | PHYSICS_DEBUG_TERRAIN_CONTACT,
 };
 
 enum class PhysicsPipelineStage : uint8_t
@@ -113,6 +119,7 @@ class PhysicsDebugVisualizer
     void EmitContacts( GameObjects::GameModelCollection& models );
     void EmitSleepState( GameObjects::GameModelCollection& models );
     void EmitPipelineStage( GameObjects::GameModelCollection& models );
+    void EmitTerrainContactProbe( GameObjects::GameModelCollection& models, Geometry::Terrain* terrain );
 
   public:
     void SetFlags( uint32_t flags )
@@ -134,7 +141,7 @@ class PhysicsDebugVisualizer
     void SetContactLingerSeconds( float seconds );
     void SetPipelineStageCursor( int cursor );
     void Update( float dt, GameObjects::GameModelCollection& models );
-    void Render( GameObjects::GameModelCollection& models, const Math::Transformation::Matrix4& viewProj );
+    void Render( GameObjects::GameModelCollection& models, const Math::Transformation::Matrix4& viewProj, Geometry::Terrain* terrain = nullptr );
 };
 } // namespace Physics
 } // namespace SkullbonezCore

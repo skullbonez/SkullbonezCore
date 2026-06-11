@@ -21,7 +21,7 @@ constexpr int SLIDER_WORLD_GRAVITY = 11;
 
 struct UIPhysicsTabState
 {
-    UICheckBox toggles[8];
+    UICheckBox toggles[9];
     UIRect pipelinePrevButton;
     UIRect pipelineNextButton;
     UISlider alphaSlider;

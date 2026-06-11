@@ -20,6 +20,7 @@ This file holds details that are useful during debugging or manual testing but t
 | `--no-water` | flag | Start the fluid surface below the active terrain. Page Up can raise it during runtime. |
 | `--no-sleep` | flag | Keep movable physics bodies awake for solver diagnostics and sleep/no-sleep performance comparisons. |
 | `--cinematic` | optional `on`, `off` | Force cinematic HDR/post rendering on or off for every loaded scene. Bare flag means `on`. Alias: `--cinematic-rendering`. |
+| `--shadows` | optional `on`, `off` | Force directional shadow maps on or off for every loaded scene. Bare flag means `on`; shadows work in normal and cinematic rendering. Aliases: `--shadow-maps`, `--cinematic-shadows`, `--cinematic_shadows`. |
 | `--interactive` | optional `on`, `off` | Keep scene automation from quitting the app so a screenshot/validation scene can be inspected live. Bare flag means `on`. Alias: `--hold`. |
 | `--live-style-control` | directory | Watch `<directory>\live.style` and `<directory>\capture.txt` while the scene keeps running. Applies style-only descriptors without reloading physics and saves requested screenshots after the current frame is drawn. Aliases: `--style-harness`, `--live_style_control`, `--style_harness`. |
 | `--profiler` | flag | Start with the timer/profiler HUD visible. Alias: `--show-profiler`. |
@@ -27,11 +28,12 @@ This file holds details that are useful during debugging or manual testing but t
 | `--broadphase-visualizer` | flag | Start with the broadphase spatial grid visualizer enabled. Alias: `--broadphase-overlay`. |
 | `--all-balls` | flag | Force generated object populations to spawn as balls. |
 | `--all-boxes` | flag | Force generated object populations to spawn as boxes and use the solver path for those objects. |
-| `--physics-debug` | `none`, `axes`, `contacts`, `sleep`, `pipeline`, `all`, `on`, `off` | Override physics debug overlay mode for every loaded scene. |
+| `--physics-debug` | `none`, `axes`, `contacts`, `sleep`, `pipeline`, `terrain`, `all`, `on`, `off` | Override physics debug overlay mode for every loaded scene. |
 | `--physics-debug-axes` | optional `on`, `off` | Toggle object local axis debug lines for every loaded scene. Bare flag means `on`. |
 | `--physics-debug-contacts` | optional `on`, `off` | Toggle contact manifold debug lines for every loaded scene. Bare flag means `on`. |
 | `--physics-debug-sleep` | optional `on`, `off` | Toggle sleep/support/inhibition debug markers for every loaded scene. Bare flag means `on`. |
 | `--physics-debug-pipeline` | optional `on`, `off` | Toggle the bounded Catto pipeline stage overlay for every loaded scene. Bare flag means `on`. |
+| `--physics-debug-terrain-contact` | optional `on`, `off` | Toggle the terrain contact probe overlay for every loaded scene. Bare flag means `on`. |
 | `--physics-debug-transparent` | optional `on`, `off` | Toggle translucent debug collision volumes for every loaded scene. Bare flag means `on`. |
 | `--physics-debug-alpha` | float | Override translucent debug body alpha, `0.05` to `1.0`; also enables translucent debug bodies. |
 | `--physics-debug-contact-linger` | seconds | Keep contact manifold visuals visible after contact rows disappear, `0.0` to `5.0`. |
@@ -61,17 +63,18 @@ The in-game UI has a `Cine` tab with feature toggles and sliders. Feature toggle
 | `cinematic_bloom` | Enable tonemap-stage bloom sampling. |
 | `cinematic_fog` | Enable depth fog and basin haze in the tonemap pass. |
 | `cinematic_terrain_relief_enabled` | Enable render-only cinematic basin relief on terrain. Physics terrain is unchanged. |
+| `cinematic_shadows` | Enable directional shadow maps. Scene files can also use `shadows on|off`; shadows work in normal and cinematic rendering. |
 
 Scene files may override any `cinematic_*` key with the same spelling and a space-separated value, for example:
 
 ```text
-cinematic_rendering on
+shadows on
 cinematic_clouds off
 cinematic_bloom_strength 0.30
 cinematic_exposure 0.85
 ```
 
-Scene overrides are merged into a per-run active cinematic config. They do not write back to `engine.cfg`, and `--cinematic on/off` remains the top-level command-line override for the rendering stack.
+Scene overrides are merged into a per-run active cinematic config. They do not write back to `engine.cfg`, and `--cinematic on/off` remains the top-level command-line override for the HDR/post rendering stack. Shadow-map controls use the same config object but are independent of the cinematic master switch.
 
 ## Interactive Hero Scene
 
@@ -126,7 +129,7 @@ Scene files are plain text. Blank lines and lines beginning with `#` are ignored
 | Simulation | `physics`, `time_scale`, `seed`, `world` |
 | Objects | `ball`, `floating_ball`, `box`, `floating_box`, `ball_state`, `solver_balls`, `solver_boxes` |
 | Camera | `camera`, `track_height`, `auto_cycle_interval` |
-| Rendering | `style`, `look`, `text`, `text_only`, `physics_debug`, `physics_debug_axes`, `physics_debug_contacts`, `physics_debug_sleep`, `physics_debug_pipeline`, `physics_debug_transparent`, `physics_debug_alpha`, `physics_debug_contact_linger`, `vsync`, `pipeline_sync`, `water_hidden`, `terrain_hidden`, `flat_slope` |
+| Rendering | `style`, `look`, `text`, `text_only`, `shadows`, `cinematic_*`, `physics_debug`, `physics_debug_axes`, `physics_debug_contacts`, `physics_debug_sleep`, `physics_debug_pipeline`, `physics_debug_terrain_contact`, `physics_debug_transparent`, `physics_debug_alpha`, `physics_debug_contact_linger`, `vsync`, `pipeline_sync`, `water_hidden`, `terrain_hidden`, `flat_slope` |
 
 For exact field order, inspect an existing scene in `SkullbonezData/scenes/` and the parser in `SkullbonezSource/SkullbonezTestScene.cpp`.
 `floating_ball` and `floating_box` use the same fields as `ball` and `box`, but the body is fixed in world space and excluded from gravity, impulses, and scene energy.
@@ -158,6 +161,7 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | Page Up / Page Down | Move the water surface up or down while held. |
 | V | Toggle collision visualiser. |
 | C | Cycle physics debug overlay: none, axes, contacts, sleep, all. |
+| O | Toggle terrain contact probe overlay for rolling sphere terrain inspection. |
 | F7 / F8 | Step the physics pipeline debug overlay to the previous or next Catto stage. |
 | G | Toggle broadphase visualizer, or cycle the tracked ball when ball tracking is active and the visualizer is off. |
 

@@ -90,6 +90,7 @@ enum class UICinematicFeature
     Bloom,
     Fog,
     TerrainRelief,
+    Shadows,
     Count
 };
 
@@ -119,6 +120,7 @@ struct UIPhysicsCommands
     bool togglePhysicsSleepPolicy = false;
     bool togglePhysicsDebugTransparent = false;
     bool toggleBroadphaseOverlay = false;
+    bool toggleTerrainContactProbe = false;
     float requestedPhysicsDebugAlpha = -1.0f;
     float requestedPhysicsDebugContactLinger = -1.0f;
     uint32_t togglePhysicsDebugFlags = 0;
@@ -134,6 +136,7 @@ struct UISceneOptionCommands
     bool toggleWaterHidden = false;
     bool toggleWaterFreeze = false;
     bool toggleWaterFlat = false;
+    bool toggleShadows = false;
     float requestedTimeScale = -1.0f;
     int requestedModelCount = -1;
 };

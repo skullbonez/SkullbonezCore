@@ -15,6 +15,7 @@ using namespace SkullbonezCore::Math::Vector;
 
 
 std::unique_ptr<IShader> SkullbonezHelper::sphereShader;
+std::unique_ptr<IShader> SkullbonezHelper::shadowDepthShader;
 uint32_t SkullbonezHelper::sphereInstMesh = 0;
 int SkullbonezHelper::sphereVertexCount = 0;
 std::vector<float> SkullbonezHelper::sphereInstanceData;
@@ -74,6 +75,7 @@ void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
 void SkullbonezHelper::ResetRenderResources()
 {
     sphereShader.reset();
+    shadowDepthShader.reset();
     if ( sphereInstMesh != 0 )
     {
         Gfx().DestroyInstancedMesh( sphereInstMesh );
@@ -108,6 +110,19 @@ void SkullbonezHelper::EnsureSphereShader()
         ApplySceneLightUniforms( *sphereShader );
         sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
         sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
+    }
+}
+
+
+void SkullbonezHelper::EnsureShadowDepthShader()
+{
+    if ( !shadowDepthShader )
+    {
+        // One shared instanced depth shader is enough for balls, boxes, and pine
+        // visuals because all three meshes expose the same static attributes and
+        // per-instance model/tint layout. The fragment output is irrelevant; the
+        // depth attachment is the shadow map product.
+        shadowDepthShader = Gfx().CreateShader( "shaders/shadow_depth_instanced" );
     }
 }
 
@@ -160,9 +175,10 @@ void SkullbonezHelper::BuildLowPolySphereMesh( int slices, int stacks )
 }
 
 
-void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic )
+void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow )
 {
-    const bool useLowPolySphereMesh = ObjectStyleForShader( cinematic ) == 6;
+    const int objectStyle = ObjectStyleForShader( cinematic );
+    const bool useLowPolySphereMesh = objectStyle == 6;
     if ( useLowPolySphereMesh )
     {
         if ( lowPolySphereInstMesh == 0 )
@@ -201,7 +217,14 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
     sphereShader->SetMat4( "uProjection", proj );
     sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
     sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
-    sphereShader->SetInt( "uObjectStyle", ObjectStyleForShader( cinematic ) );
+    sphereShader->SetInt( "uObjectStyle", objectStyle );
+
+    // Low-poly spheres still cast real shadows onto terrain, but they do not
+    // receive object shadows. The shadow map is single and terrain-sized, so
+    // ball-on-ball receiver shadows alias badly across the large flat facets
+    // used by the low-poly beachball style.
+    const bool receiveSphereShadows = shadow && shadow->objectsReceive && !useLowPolySphereMesh;
+    ApplyShadowReceiverUniforms( *sphereShader, shadow, receiveSphereShadows, true );
     sphereInstanceData.clear();
 }
 
@@ -226,6 +249,64 @@ void SkullbonezHelper::DrawSphereBatchEnd()
         Gfx().DrawInstancedMesh( activeSphereInstMesh, activeSphereVertexCount, instanceCount );
     }
     Gfx().SetBlend( false );
+}
+
+
+void SkullbonezHelper::DrawShadowDepthSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const CinematicRenderConfig* cinematic )
+{
+    // Match the visible sphere mesh selection. If a low-poly style is active,
+    // the depth pass also uses the faceted mesh, which prevents a smooth sphere
+    // shadow from appearing under a visibly low-poly ball.
+    const bool useLowPolySphereMesh = ObjectStyleForShader( cinematic ) == 6;
+    if ( useLowPolySphereMesh )
+    {
+        if ( lowPolySphereInstMesh == 0 )
+        {
+            BuildLowPolySphereMesh( 12, 7 );
+        }
+        activeSphereInstMesh = lowPolySphereInstMesh;
+        activeSphereVertexCount = lowPolySphereVertexCount;
+    }
+    else
+    {
+        if ( sphereInstMesh == 0 )
+        {
+            BuildSphereMesh( 25, 25 );
+        }
+        activeSphereInstMesh = sphereInstMesh;
+        activeSphereVertexCount = sphereVertexCount;
+    }
+
+    EnsureShadowDepthShader();
+    shadowDepthShader->Use();
+    // These are light-space view/projection matrices, not the camera matrices.
+    // The shader transforms each instance into the light's clip space and writes
+    // normal depth, which later receivers compare against their own light-space
+    // fragment depth.
+    shadowDepthShader->SetMat4( "uView", view );
+    shadowDepthShader->SetMat4( "uProjection", proj );
+    shadowDepthShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
+    sphereInstanceData.clear();
+}
+
+
+void SkullbonezHelper::DrawShadowDepthSphereBatchModel( const Matrix4& model )
+{
+    DrawSphereBatchModel( model, 1.0f, 1.0f, 1.0f, 0.0f );
+}
+
+
+void SkullbonezHelper::DrawShadowDepthSphereBatchEnd()
+{
+    int instanceCount = static_cast<int>( sphereInstanceData.size() ) / INSTANCE_FLOATS;
+    if ( instanceCount > 0 && activeSphereInstMesh != 0 )
+    {
+        // Upload only the compact per-instance stream, then issue one instanced
+        // draw for every sphere caster. This keeps the shadow pass draw-call
+        // count predictable even in scenes with hundreds of balls.
+        Gfx().UploadInstanceData( activeSphereInstMesh, sphereInstanceData.data(), static_cast<int>( sphereInstanceData.size() ) );
+        Gfx().DrawInstancedMesh( activeSphereInstMesh, activeSphereVertexCount, instanceCount );
+    }
 }
 
 
@@ -258,7 +339,7 @@ void SkullbonezHelper::BuildBoxMesh()
 }
 
 
-void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic )
+void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow )
 {
     if ( boxInstMesh == 0 )
     {
@@ -287,6 +368,7 @@ void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& pr
     sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
     sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
     sphereShader->SetInt( "uObjectStyle", ObjectStyleForShader( cinematic ) );
+    ApplyShadowReceiverUniforms( *sphereShader, shadow, shadow ? shadow->objectsReceive : false, true );
     boxInstanceData.clear();
 }
 
@@ -314,6 +396,44 @@ void SkullbonezHelper::DrawBoxBatchEnd()
 }
 
 
+void SkullbonezHelper::DrawShadowDepthBoxBatchBegin( const Matrix4& view, const Matrix4& proj )
+{
+    if ( boxInstMesh == 0 )
+    {
+        BuildBoxMesh();
+    }
+    EnsureShadowDepthShader();
+    shadowDepthShader->Use();
+    // Box casters use the same unit-cube mesh and model matrices as the visible
+    // box pass. Rotation and half-extents are already baked into the model matrix,
+    // so the shadow-map silhouette naturally follows tilted or elongated boxes.
+    shadowDepthShader->SetMat4( "uView", view );
+    shadowDepthShader->SetMat4( "uProjection", proj );
+    shadowDepthShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
+    boxInstanceData.clear();
+}
+
+
+void SkullbonezHelper::DrawShadowDepthBoxBatchModel( const Matrix4& model )
+{
+    DrawBoxBatchModel( model, 1.0f, 1.0f, 1.0f, 0.0f );
+}
+
+
+void SkullbonezHelper::DrawShadowDepthBoxBatchEnd()
+{
+    int instanceCount = static_cast<int>( boxInstanceData.size() ) / INSTANCE_FLOATS;
+    if ( instanceCount > 0 && boxInstMesh != 0 )
+    {
+        // This draw is the box-caster fix point: if a scene has boxes and shadow
+        // maps are active, their depth is written here before terrain/objects
+        // sample the map in the forward pass.
+        Gfx().UploadInstanceData( boxInstMesh, boxInstanceData.data(), static_cast<int>( boxInstanceData.size() ) );
+        Gfx().DrawInstancedMesh( boxInstMesh, boxVertexCount, instanceCount );
+    }
+}
+
+
 void SkullbonezHelper::BuildPineMesh()
 {
     std::vector<float> verts;
@@ -332,7 +452,7 @@ void SkullbonezHelper::BuildPineMesh()
 }
 
 
-void SkullbonezHelper::DrawPineBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic )
+void SkullbonezHelper::DrawPineBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow )
 {
     if ( pineInstMesh == 0 )
     {
@@ -360,6 +480,7 @@ void SkullbonezHelper::DrawPineBatchBegin( const Matrix4& view, const Matrix4& p
     sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
     sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
     sphereShader->SetInt( "uObjectStyle", ObjectStyleForShader( cinematic ) );
+    ApplyShadowReceiverUniforms( *sphereShader, shadow, shadow ? shadow->objectsReceive : false, true );
     pineInstanceData.clear();
 }
 
@@ -384,6 +505,41 @@ void SkullbonezHelper::DrawPineBatchEnd()
         Gfx().DrawInstancedMesh( pineInstMesh, pineVertexCount, instanceCount );
     }
     Gfx().SetBlend( false );
+}
+
+
+void SkullbonezHelper::DrawShadowDepthPineBatchBegin( const Matrix4& view, const Matrix4& proj )
+{
+    if ( pineInstMesh == 0 )
+    {
+        BuildPineMesh();
+    }
+    EnsureShadowDepthShader();
+    shadowDepthShader->Use();
+    // Pine visuals are authored as box-backed scene objects with a special
+    // material mode. They get their own depth mesh so the shadow map receives
+    // the pointed tree/pyramid silhouette instead of the underlying physics box.
+    shadowDepthShader->SetMat4( "uView", view );
+    shadowDepthShader->SetMat4( "uProjection", proj );
+    shadowDepthShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
+    pineInstanceData.clear();
+}
+
+
+void SkullbonezHelper::DrawShadowDepthPineBatchModel( const Matrix4& model )
+{
+    DrawPineBatchModel( model, 1.0f, 1.0f, 1.0f, 0.0f );
+}
+
+
+void SkullbonezHelper::DrawShadowDepthPineBatchEnd()
+{
+    int instanceCount = static_cast<int>( pineInstanceData.size() ) / INSTANCE_FLOATS;
+    if ( instanceCount > 0 && pineInstMesh != 0 )
+    {
+        Gfx().UploadInstanceData( pineInstMesh, pineInstanceData.data(), static_cast<int>( pineInstanceData.size() ) );
+        Gfx().DrawInstancedMesh( pineInstMesh, pineVertexCount, instanceCount );
+    }
 }
 
 

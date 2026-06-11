@@ -40,6 +40,8 @@ cinematic_terrain_tint 0.34 0.54 0.16
 cinematic_terrain_accent 0.06 0.18 0.045
 cinematic_water_tint 0.018 0.13 0.18
 cinematic_water_profile 0.92 0.28 1.18
+cinematic_shadow_depth_bias 0.00005
+cinematic_shadow_slope_bias 0.00010
 
 # Object material look overrides.
 object_material balls 1.00 1.00 1.00 beachball

@@ -103,6 +103,26 @@ Matrix4 Matrix4::Ortho( float left, float right, float bottom, float top, float 
 }
 
 
+Matrix4 Matrix4::OrthoZeroToOne( float left, float right, float bottom, float top, float nearPlane, float farPlane )
+{
+    Matrix4 result;
+    for ( int i = 0; i < 16; ++i )
+    {
+        result.m[i] = 0.0f;
+    }
+
+    result.m[0] = 2.0f / ( right - left );
+    result.m[5] = 2.0f / ( top - bottom );
+    result.m[10] = 1.0f / ( nearPlane - farPlane );
+    result.m[12] = -( right + left ) / ( right - left );
+    result.m[13] = -( top + bottom ) / ( top - bottom );
+    result.m[14] = nearPlane / ( nearPlane - farPlane );
+    result.m[15] = 1.0f;
+
+    return result;
+}
+
+
 Matrix4 Matrix4::LookAt( const Vector3& eye, const Vector3& center, const Vector3& up )
 {
     Vector3 f = center - eye;

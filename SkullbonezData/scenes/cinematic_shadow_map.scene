@@ -1,0 +1,53 @@
+# cinematic_shadow_map.scene
+# Focused opt-in scene for the real directional shadow-map pass.
+
+seed 6201
+physics off
+text on
+vsync off
+pipeline_sync off
+fixed_step
+frames 40
+screenshot Profile/cinematic_shadow_map.bmp frame 40
+perf_log Profile/cinematic_shadow_map_perf_log.csv
+perf_log_flush off
+perf_log_flush_interval 0
+exit_on_complete
+water_hidden on
+cinematic_rendering on
+cinematic_sky_atmosphere on
+cinematic_clouds off
+cinematic_god_rays off
+cinematic_volumetric_lighting off
+cinematic_bloom on
+cinematic_fog on
+shadows on
+cinematic_legacy_shadow_discs off
+cinematic_shadow_map_size 2048
+cinematic_shadow_pcf_radius 1
+cinematic_shadow_strength 0.68
+cinematic_shadow_softness 1.2
+cinematic_shadow_depth_bias 0.00005
+cinematic_shadow_slope_bias 0.00010
+cinematic_shadow_max_distance 1400.0
+cinematic_exposure 0.72
+cinematic_gamma 2.05
+cinematic_sun_color_r 1.0
+cinematic_sun_color_g 0.70
+cinematic_sun_color_b 0.38
+cinematic_sun_intensity 18.0
+cinematic_fog_start 180.0
+cinematic_fog_end 1450.0
+cinematic_fog_density 0.00065
+cinematic_fog_max_opacity 0.28
+world -30.0 -500.0 1.0
+
+camera main 620 150 960  625 45 640  0 1 0
+
+# Grounded on the default terrain so contact shadows start at the object bottoms.
+ball shadow_ball_big 565 51.812 630 28.0 120.0 24.0 0.45 0 36 0
+ball shadow_ball_mid 675 28.906 690 20.0 85.0 18.0 0.45 0 112 0
+ball shadow_ball_small 748 40.337 610 13.0 52.0 10.0 0.45 0 184 0
+floating_box shadow_box_tall 485 99.823 690  15.0 42.0 15.0  2000 0.08  0 22 0
+floating_box shadow_box_low 790 75.395 755  34.0 9.0 24.0  2000 0.08  0 -18 7
+floating_box shadow_pillar 640 88.562 545  10.0 55.0 10.0  2000 0.08  0 0 0

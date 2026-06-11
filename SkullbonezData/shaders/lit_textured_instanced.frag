@@ -25,14 +25,73 @@ uniform vec4 uLightDiffuse;
 uniform vec4 uMaterialAmbient;
 uniform vec4 uMaterialDiffuse;
 uniform sampler2D uTexture;
+uniform sampler2D uShadowMap;
+uniform mat4 uShadowViewProj;
+uniform vec4 uShadowParams;
+uniform vec4 uShadowFlags;
 uniform int uObjectStyle;
 
 in vec3 vViewPos;
 in vec3 vNormal;
+in vec3 vWorldPos;
 in vec2 vTexCoord;
 in vec4 vTint;
 
 out vec4 FragColor;
+
+float ShadowVisibility(vec3 worldPos, vec3 normalView, vec3 lightView)
+{
+    if (uShadowFlags.x < 0.5 || uShadowFlags.y < 0.5 || uShadowParams.x <= 0.0)
+    {
+        return 1.0;
+    }
+
+    vec4 shadowClip = uShadowViewProj * vec4(worldPos, 1.0);
+    if (shadowClip.w <= 0.0)
+    {
+        return 1.0;
+    }
+
+    vec3 ndc = shadowClip.xyz / shadowClip.w;
+    vec2 uv = ndc.xy * 0.5 + 0.5;
+    if (uShadowFlags.w > 0.5)
+    {
+        uv.y = 1.0 - uv.y;
+    }
+    float receiverDepth = uShadowFlags.w > 0.5 ? ndc.z : ndc.z * 0.5 + 0.5;
+
+    if (uv.x <= 0.0 || uv.x >= 1.0 || uv.y <= 0.0 || uv.y >= 1.0 || receiverDepth <= 0.0 || receiverDepth >= 1.0)
+    {
+        return 1.0;
+    }
+
+    float ndotl = max(dot(normalize(normalView), normalize(lightView)), 0.0);
+    float bias = uShadowParams.y + uShadowParams.z * (1.0 - ndotl);
+    int radius = int(floor(uShadowFlags.z + 0.5));
+    float texel = max(uShadowParams.w, 0.00001);
+    float visible = 0.0;
+    float samples = 0.0;
+    for (int y = -3; y <= 3; ++y)
+    {
+        if (abs(y) > radius)
+        {
+            continue;
+        }
+        for (int x = -3; x <= 3; ++x)
+        {
+            if (abs(x) > radius)
+            {
+                continue;
+            }
+            float shadowDepth = textureLod(uShadowMap, uv + vec2(x, y) * texel, 0.0).r;
+            visible += receiverDepth - bias <= shadowDepth ? 1.0 : 0.0;
+            samples += 1.0;
+        }
+    }
+
+    float visibility = samples > 0.0 ? visible / samples : 1.0;
+    return mix(1.0 - uShadowParams.x, 1.0, visibility);
+}
 
 vec3 ProceduralBeachBallColor(vec2 uv)
 {
@@ -264,19 +323,23 @@ void main()
         // path: wrap light fills the shadow side, rim light outlines the silhouette,
         // and glint gives glossy sunset highlights.
         float warmWrap = clamp(dot(N, L) * 0.5 + 0.5, 0.0, 1.0);
+        float shadowFactor = ShadowVisibility(vWorldPos, N, L);
         float rim = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 2.25) * (0.35 + warmWrap * 0.65);
         float glint = pow(max(dot(V, R), 0.0), 96.0);
         vec3 warmAmbient = materialColor * uLightAmbient.rgb * 1.15;
-        vec3 directSun = materialColor * uLightDiffuse.rgb * (diff * 0.62 + warmWrap * 0.18);
+        vec3 directSun = materialColor * uLightDiffuse.rgb * (diff * 0.62 + warmWrap * 0.18) * shadowFactor;
         vec3 rimLight = uLightDiffuse.rgb * rim * 0.18;
-        vec3 specularSun = uLightDiffuse.rgb * glint * 0.24;
+        vec3 specularSun = uLightDiffuse.rgb * glint * 0.24 * shadowFactor;
         vec3 styled = ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, glint);
+        styled *= shadowFactor;
         vec3 beachBall = warmAmbient + directSun + rimLight + specularSun;
         FragColor = vec4(materialMode == 0 ? beachBall : styled + rimLight * 0.35, 1.0);
         return;
     }
 
+    float shadowFactor = ShadowVisibility(vWorldPos, N, L);
     vec3 litColor = materialMode == 0 ? (ambient + diffuse) * materialColor + specular
                                       : ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, spec);
+    litColor *= shadowFactor;
     FragColor = vec4(litColor, 1.0);
 }

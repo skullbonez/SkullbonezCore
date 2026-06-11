@@ -6,6 +6,7 @@
 #include "SkullbonezIShader.h"
 #include "SkullbonezIMesh.h"
 #include "SkullbonezMatrix4.h"
+#include "SkullbonezShadow.h"
 #include "SkullbonezVector3.h"
 #include <memory>
 #include <vector>
@@ -25,6 +26,7 @@ class SkullbonezHelper
 
   private:
     static std::unique_ptr<Rendering::IShader> sphereShader;          // Shared lit_textured_instanced shader
+    static std::unique_ptr<Rendering::IShader> shadowDepthShader;     // Shared instanced directional shadow depth shader
     static uint32_t sphereInstMesh;                                   // Instanced mesh handle (via Gfx())
     static int sphereVertexCount;                                     // Per-sphere vertex count
     static std::vector<float> sphereInstanceData;                     // Staging buffer for model matrices + tint/override
@@ -41,25 +43,35 @@ class SkullbonezHelper
     inline static float sClipPlane[4] = { 0.0f, 1.0f, 0.0f, 1.0e9f }; // default: always pass (GL_CLIP_DISTANCE0 disabled)
 
     static void EnsureSphereShader();                             // Create shared instanced lighting shader
+    static void EnsureShadowDepthShader();                        // Create shared instanced depth shader
     static void BuildSphereMesh( int slices, int stacks );        // Generate UV sphere instanced mesh
     static void BuildLowPolySphereMesh( int slices, int stacks ); // Generate faceted sphere instanced mesh
     static void BuildBoxMesh();                                   // Generate unit cube instanced mesh
     static void BuildPineMesh();                                  // Generate unit low-poly pine tier mesh
 
   public:
-    static void StateSetup();                                                                                                                                                                                                        // Assists in setting up initial open gl state
-    static void SetClipPlane( float x, float y, float z, float w );                                                                                                                                                                  // Set sphere shader clip plane (default (0,1,0,1e9) = always pass)
-    static void DrawSphereBatchBegin( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], bool isTransparent = false, const CinematicRenderConfig* cinematic = nullptr ); // Set up instanced shader uniforms and begin collecting instances
-    static void DrawSphereBatchModel( const Math::Transformation::Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f );                                                          // Append model matrix and tint/override to instance buffer
-    static void DrawSphereBatchEnd();                                                                                                                                                                                                // Upload instance data and issue single instanced draw
-    static void DrawBoxBatchBegin( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], bool isTransparent = false, const CinematicRenderConfig* cinematic = nullptr );    // Set up box instanced draw
-    static void DrawBoxBatchModel( const Math::Transformation::Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f );                                                             // Append box model matrix and tint/override to instance buffer
-    static void DrawBoxBatchEnd();                                                                                                                                                                                                   // Upload box instance data and issue single instanced draw
-    static void DrawPineBatchBegin( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], bool isTransparent = false, const CinematicRenderConfig* cinematic = nullptr );   // Set up low-poly pine instanced draw
-    static void DrawPineBatchModel( const Math::Transformation::Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f );                                                            // Append pine model matrix and tint/override to instance buffer
-    static void DrawPineBatchEnd();                                                                                                                                                                                                  // Upload pine instance data and issue single instanced draw
-    static void ResetRenderResources();                                                                                                                                                                                              // Invalidate cached backend-owned meshes and shaders
-    static void EnsureSphereMesh();                                                                                                                                                                                                  // Ensure sphere instanced mesh is created (for DXR BLAS init)
+    static void StateSetup();                                                                                                                                                                                                                                                            // Assists in setting up initial open gl state
+    static void SetClipPlane( float x, float y, float z, float w );                                                                                                                                                                                                                      // Set sphere shader clip plane (default (0,1,0,1e9) = always pass)
+    static void DrawSphereBatchBegin( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], bool isTransparent = false, const CinematicRenderConfig* cinematic = nullptr, const Rendering::ShadowFrameData* shadow = nullptr ); // Set up instanced shader uniforms and begin collecting instances
+    static void DrawSphereBatchModel( const Math::Transformation::Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f );                                                                                                              // Append model matrix and tint/override to instance buffer
+    static void DrawSphereBatchEnd();                                                                                                                                                                                                                                                    // Upload instance data and issue single instanced draw
+    static void DrawBoxBatchBegin( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], bool isTransparent = false, const CinematicRenderConfig* cinematic = nullptr, const Rendering::ShadowFrameData* shadow = nullptr );    // Set up box instanced draw
+    static void DrawBoxBatchModel( const Math::Transformation::Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f );                                                                                                                 // Append box model matrix and tint/override to instance buffer
+    static void DrawBoxBatchEnd();                                                                                                                                                                                                                                                       // Upload box instance data and issue single instanced draw
+    static void DrawPineBatchBegin( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], bool isTransparent = false, const CinematicRenderConfig* cinematic = nullptr, const Rendering::ShadowFrameData* shadow = nullptr );   // Set up low-poly pine instanced draw
+    static void DrawPineBatchModel( const Math::Transformation::Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f );                                                                                                                // Append pine model matrix and tint/override to instance buffer
+    static void DrawPineBatchEnd();                                                                                                                                                                                                                                                      // Upload pine instance data and issue single instanced draw
+    static void DrawShadowDepthSphereBatchBegin( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const CinematicRenderConfig* cinematic = nullptr );
+    static void DrawShadowDepthSphereBatchModel( const Math::Transformation::Matrix4& model );
+    static void DrawShadowDepthSphereBatchEnd();
+    static void DrawShadowDepthBoxBatchBegin( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj );
+    static void DrawShadowDepthBoxBatchModel( const Math::Transformation::Matrix4& model );
+    static void DrawShadowDepthBoxBatchEnd();
+    static void DrawShadowDepthPineBatchBegin( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj );
+    static void DrawShadowDepthPineBatchModel( const Math::Transformation::Matrix4& model );
+    static void DrawShadowDepthPineBatchEnd();
+    static void ResetRenderResources(); // Invalidate cached backend-owned meshes and shaders
+    static void EnsureSphereMesh();     // Ensure sphere instanced mesh is created (for DXR BLAS init)
     static uint32_t GetSphereInstMeshHandle()
     {
         return sphereInstMesh;

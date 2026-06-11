@@ -176,6 +176,8 @@ uint64_t CinematicOverrideMaskForUIFeature( UICinematicFeature feature )
         return SCENE_CINE_FOG;
     case UICinematicFeature::TerrainRelief:
         return SCENE_CINE_TERRAIN_RELIEF_ENABLED;
+    case UICinematicFeature::Shadows:
+        return SCENE_CINE_SHADOWS;
     default:
         return 0;
     }
@@ -470,6 +472,20 @@ void ApplyCinematicUIParam( CinematicRenderConfig& cinematic, RunSceneState& sce
     }
 }
 
+
+void SetCinematicShadowsEnabledFromUI( CinematicRenderConfig& cinematic, RunSceneState& scene, bool enabled )
+{
+    // Shadow maps are configured next to the cinematic controls because the
+    // original implementation grew from that renderer work, but the depth pass
+    // now feeds normal rendering too. Toggling shadows from either the Options
+    // tab or the Cine tab must therefore only touch the shadow flag and scene
+    // override bits; it must not silently enable the HDR/post-processing stack.
+    cinematic.shadowsEnabled = enabled;
+    scene.cinematicOverrideMask |= SCENE_CINE_SHADOWS;
+    scene.uiCinematicOverrideMask |= SCENE_CINE_SHADOWS;
+}
+
+
 void ToggleCinematicUIFeature( CinematicRenderConfig& cinematic, RunSceneState& scene, UICinematicFeature feature )
 {
     // Feature toggles are boolean pass switches: sky on/off, bloom on/off, etc.
@@ -503,6 +519,9 @@ void ToggleCinematicUIFeature( CinematicRenderConfig& cinematic, RunSceneState& 
     case UICinematicFeature::TerrainRelief:
         cinematic.terrainReliefEnabled = !cinematic.terrainReliefEnabled;
         scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_RELIEF_ENABLED;
+        break;
+    case UICinematicFeature::Shadows:
+        SetCinematicShadowsEnabledFromUI( cinematic, scene, !cinematic.shadowsEnabled );
         break;
     default:
         break;
@@ -752,6 +771,17 @@ void SkullbonezRun::TakeInput()
             m_camera.input.Set( InputState::CKeyWasDown, cNow );
         }
 
+        // O key: toggle the terrain polygon/contact probe. It is independent of
+        // the C-key debug cycle so it can be layered over any other physics view.
+        {
+            bool oNow = Input::IsKeyDown( 'O' );
+            if ( oNow && !m_camera.input.Get( InputState::OKeyWasDown ) )
+            {
+                m_debug.physicsDebugFlags ^= PHYSICS_DEBUG_TERRAIN_CONTACT;
+            }
+            m_camera.input.Set( InputState::OKeyWasDown, oNow );
+        }
+
         // F7/F8: step the physics pipeline visualizer through the bounded Catto
         // stage trace from the most recent physics tick. The simulation can be
         // paused with fly mode and advanced separately with Space.
@@ -931,6 +961,10 @@ void SkullbonezRun::TakeInput()
         {
             m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
         }
+        if ( uiCommands.physics.toggleTerrainContactProbe )
+        {
+            m_debug.physicsDebugFlags ^= PHYSICS_DEBUG_TERRAIN_CONTACT;
+        }
         if ( uiCommands.sceneOptions.toggleTextOnly )
         {
             m_debug.isTextOnly = !m_debug.isTextOnly;
@@ -960,6 +994,12 @@ void SkullbonezRun::TakeInput()
         if ( uiCommands.sceneOptions.toggleWaterFlat )
         {
             m_debug.isWaterFlatDebug = !m_debug.isWaterFlatDebug;
+        }
+        if ( uiCommands.sceneOptions.toggleShadows )
+        {
+            const bool shadowsActive = ActiveCinematicConfig().shadowsEnabled;
+            m_cmdHasCinematicShadowsOverride = false;
+            SetCinematicShadowsEnabledFromUI( ActiveCinematicConfig(), m_scene, !shadowsActive );
         }
         if ( uiCommands.water.toggleWaterReflection )
         {
@@ -1045,6 +1085,10 @@ void SkullbonezRun::TakeInput()
         if ( uiCommands.cinematic.requestedFeature != UICinematicFeature::None )
         {
             CinematicRenderConfig& cinematic = ActiveCinematicConfig();
+            if ( uiCommands.cinematic.requestedFeature == UICinematicFeature::Shadows )
+            {
+                m_cmdHasCinematicShadowsOverride = false;
+            }
             ToggleCinematicUIFeature( cinematic, m_scene, uiCommands.cinematic.requestedFeature );
         }
         if ( uiCommands.cinematic.requestedParam != UICinematicParam::None )

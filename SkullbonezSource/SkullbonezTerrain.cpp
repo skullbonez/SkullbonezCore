@@ -125,6 +125,7 @@ void Terrain::ResetRenderResources()
 {
     m_terrainMesh.reset();
     m_terrainShader.reset();
+    m_shadowDepthShader.reset();
 
     if ( m_isFlatSlope )
     {
@@ -336,7 +337,7 @@ void Terrain::LoadTerrainData( const char* sFileName )
 }
 
 
-void Terrain::Render( const Matrix4& view, const Matrix4& projection, const float* lightPosition, const SkullbonezCore::Basics::CinematicRenderConfig* cinematicOverride )
+void Terrain::Render( const Matrix4& view, const Matrix4& projection, const float* lightPosition, const SkullbonezCore::Basics::CinematicRenderConfig* cinematicOverride, const ShadowFrameData* shadow )
 {
     m_terrainShader->Use();
 
@@ -396,6 +397,56 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, const floa
         m_terrainShader->SetVec4( "uTerrainGrid", 46.0f, 0.0f, 0.0f, 0.0f );
     }
     m_terrainShader->SetVec4( "uLightPosition", lx, ly, lz, lw );
+    ApplyShadowReceiverUniforms( *m_terrainShader, shadow, shadow ? shadow->terrainReceives : false );
+
+    m_terrainMesh->Draw();
+}
+
+
+void Terrain::RenderShadowDepth( const Matrix4& lightView, const Matrix4& lightProjection, const SkullbonezCore::Basics::CinematicRenderConfig* cinematicOverride )
+{
+    if ( !m_shadowDepthShader )
+    {
+        // Terrain is not instanced, so it uses the non-instanced shadow_depth
+        // shader. It still writes into the same framebuffer/depth map as object
+        // casters, which lets hills self-shadow and lets balls/boxes disappear
+        // behind terrain from the light's point of view.
+        m_shadowDepthShader = Gfx().CreateShader( "shaders/shadow_depth" );
+    }
+
+    m_shadowDepthShader->Use();
+
+    // Terrain vertices are already stored in world coordinates, so the model
+    // matrix remains identity. The supplied view/projection are the light-space
+    // matrices built by SkullbonezRun::BuildShadowFrameData.
+    Matrix4 model;
+    m_shadowDepthShader->SetMat4( "uModel", model );
+    m_shadowDepthShader->SetMat4( "uView", lightView );
+    m_shadowDepthShader->SetMat4( "uProjection", lightProjection );
+    m_shadowDepthShader->SetVec4( "uClipPlane", 0.0f, 1.0f, 0.0f, 1.0e9f );
+
+    if ( cinematicOverride )
+    {
+        // If the visible terrain is using render-only cinematic relief, the
+        // shadow caster must apply the same vertex offset. Otherwise shadow edges
+        // would be produced by the flat CPU terrain while the visible terrain is
+        // displaced in the vertex shader.
+        const SkullbonezCore::Basics::CinematicRenderConfig& cinematic = *cinematicOverride;
+        m_shadowDepthShader->SetVec4( "uCinematicTerrain",
+                                      cinematic.terrainReliefEnabled ? 1.0f : 0.0f,
+                                      cinematic.terrainRelief,
+                                      cinematic.basinDepth,
+                                      cinematic.basinRimLift );
+        m_shadowDepthShader->SetVec4( "uCinematicBasin", cinematic.basinCenterX, cinematic.basinCenterZ, cinematic.basinRadiusX + 80.0f, cinematic.basinRadiusZ + 60.0f );
+    }
+    else
+    {
+        // Normal render mode has no visual terrain relief, but the shader still
+        // receives deterministic defaults so no stale uniforms leak in from a
+        // prior cinematic scene.
+        m_shadowDepthShader->SetVec4( "uCinematicTerrain", 0.0f, 0.0f, 0.0f, 0.0f );
+        m_shadowDepthShader->SetVec4( "uCinematicBasin", 620.0f, 615.0f, 285.0f, 205.0f );
+    }
 
     m_terrainMesh->Draw();
 }
@@ -953,12 +1004,18 @@ void Terrain::BuildMesh()
             const TerrainPost& p01 = m_postData[idx + m_postsPerSide];
             const TerrainPost& p11 = m_postData[idx + m_postsPerSide + 1];
 
-            // Helper lambda: push m_position (int-truncated) + m_normal + texcoord
+            // Helper lambda: push the same floating-point world position that
+            // collision queries use. The original fixed-function display list
+            // used glVertex3i, but preserving that truncation in the shader mesh
+            // made the rendered terrain sit below the solver heightfield by up
+            // to 0.75 world units. Real shadow maps land on rendered terrain, so
+            // resting balls/boxes looked like they were rolling above their
+            // shadows even though the terrain solver was keeping them supported.
             auto pushVertex = [&]( const TerrainPost& p, float s, float t )
             {
-                vertexData.push_back( static_cast<float>( static_cast<int>( p.vPosition.x ) ) );
-                vertexData.push_back( static_cast<float>( static_cast<int>( p.vPosition.y ) ) );
-                vertexData.push_back( static_cast<float>( static_cast<int>( p.vPosition.z ) ) );
+                vertexData.push_back( p.vPosition.x );
+                vertexData.push_back( p.vPosition.y );
+                vertexData.push_back( p.vPosition.z );
                 vertexData.push_back( p.vNormal.x );
                 vertexData.push_back( p.vNormal.y );
                 vertexData.push_back( p.vNormal.z );

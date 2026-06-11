@@ -40,10 +40,15 @@ cbuffer Uniforms : register(b0)
     float4   uMaterialDiffuse;
     int      uObjectStyle;
     float3   _objectStylePad;
+    float4x4 uShadowViewProj;
+    float4   uShadowParams;
+    float4   uShadowFlags;
 };
 
 Texture2D    uTexture  : register(t0);
+Texture2D    uShadowMap : register(t3);
 SamplerState sSampler0 : register(s0);
+SamplerState sSampler3 : register(s3);
 
 struct VS_IN
 {
@@ -65,6 +70,7 @@ struct VS_OUT
     float3 normal    : TEXCOORD1;
     float2 texCoord  : TEXCOORD2;
     float4 tint      : TEXCOORD3;
+    float3 worldPos  : TEXCOORD4;
 };
 
 VS_OUT main_vs(VS_IN input)
@@ -76,15 +82,17 @@ VS_OUT main_vs(VS_IN input)
     float4x4 model = transpose(float4x4(input.model0, input.model1, input.model2, input.model3));
 
     float4x4 modelView = mul(uView, model);
-    float4 viewPos     = mul(modelView, float4(input.position, 1.0));
+    float4 worldPos    = mul(model, float4(input.position, 1.0));
+    float4 viewPos     = mul(uView, worldPos);
     output.position    = mul(uProjection, viewPos);
 
-    output.clipDist = dot(mul(model, float4(input.position, 1.0)), uClipPlane);
+    output.clipDist = dot(worldPos, uClipPlane);
 
     output.viewPos  = viewPos.xyz;
     output.normal   = mul((float3x3)modelView, input.normal);
     output.texCoord = input.texCoord;
     output.tint     = input.tint;
+    output.worldPos = worldPos.xyz;
 
     return output;
 }
@@ -127,6 +135,60 @@ float3 QuantizedLowPolyNormal(float3 N)
 float LowPolySunBand(float lightAmount)
 {
     return lightAmount > 0.72f ? 1.0f : (lightAmount > 0.34f ? 0.62f : 0.30f);
+}
+
+float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
+{
+    if (uShadowFlags.x < 0.5f || uShadowFlags.y < 0.5f || uShadowParams.x <= 0.0f)
+    {
+        return 1.0f;
+    }
+
+    float4 shadowClip = mul(uShadowViewProj, float4(worldPos, 1.0f));
+    if (shadowClip.w <= 0.0f)
+    {
+        return 1.0f;
+    }
+
+    float3 ndc = shadowClip.xyz / shadowClip.w;
+    float2 uv = ndc.xy * 0.5f + 0.5f;
+    if (uShadowFlags.w > 0.5f)
+    {
+        uv.y = 1.0f - uv.y;
+    }
+    float receiverDepth = uShadowFlags.w > 0.5f ? ndc.z : ndc.z * 0.5f + 0.5f;
+
+    if (uv.x <= 0.0f || uv.x >= 1.0f || uv.y <= 0.0f || uv.y >= 1.0f || receiverDepth <= 0.0f || receiverDepth >= 1.0f)
+    {
+        return 1.0f;
+    }
+
+    float ndotl = max(dot(normalize(normalView), normalize(lightView)), 0.0f);
+    float bias = uShadowParams.y + uShadowParams.z * (1.0f - ndotl);
+    int radius = (int)floor(uShadowFlags.z + 0.5f);
+    float texel = max(uShadowParams.w, 0.00001f);
+    float visible = 0.0f;
+    float samples = 0.0f;
+    for (int y = -3; y <= 3; ++y)
+    {
+        if (abs(y) > radius)
+        {
+            continue;
+        }
+        for (int x = -3; x <= 3; ++x)
+        {
+            if (abs(x) > radius)
+            {
+                continue;
+            }
+            float shadowDepth = uShadowMap.SampleLevel(sSampler3, uv + float2((float)x, (float)y) * texel, 0.0f).r;
+            visible += receiverDepth - bias <= shadowDepth ? 1.0f : 0.0f;
+            samples += 1.0f;
+        }
+    }
+
+    float visibility = samples > 0.0f ? visible / samples : 1.0f;
+    return lerp(1.0f - uShadowParams.x, 1.0f, visibility);
 }
 
 float3 ApplyMaterialMode(int mode, float3 materialColor, float3 N, float3 V, float3 L, float3 lightColor, float diff, float spec, float2 uv)
@@ -305,18 +367,22 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         // path: wrap light fills the shadow side, rim light outlines the silhouette,
         // and glint gives glossy sunset highlights.
         float warmWrap = saturate(dot(N, L) * 0.5f + 0.5f);
+        float shadowFactor = ShadowVisibility(input.worldPos, N, L);
         float rim = pow(1.0f - saturate(dot(N, V)), 2.25f) * (0.35f + warmWrap * 0.65f);
         float glint = pow(max(dot(V, R), 0.0f), 96.0f);
         float3 warmAmbient = materialColor * uLightAmbient.rgb * 1.15f;
-        float3 directSun = materialColor * uLightDiffuse.rgb * (diff * 0.62f + warmWrap * 0.18f);
+        float3 directSun = materialColor * uLightDiffuse.rgb * (diff * 0.62f + warmWrap * 0.18f) * shadowFactor;
         float3 rimLight = uLightDiffuse.rgb * rim * 0.18f;
-        float3 specularSun = uLightDiffuse.rgb * glint * 0.24f;
+        float3 specularSun = uLightDiffuse.rgb * glint * 0.24f * shadowFactor;
         float3 styled = ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, glint, input.texCoord);
+        styled *= shadowFactor;
         float3 beachBall = warmAmbient + directSun + rimLight + specularSun;
         return float4(materialMode == 0 ? beachBall : styled + rimLight * 0.35f, 1.0f);
     }
 
+    float shadowFactor = ShadowVisibility(input.worldPos, N, L);
     float3 litColor = materialMode == 0 ? (ambient + diffuse) * materialColor + specular
                                         : ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, spec, input.texCoord);
+    litColor *= shadowFactor;
     return float4(litColor, 1.0);
 }

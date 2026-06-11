@@ -53,6 +53,17 @@ using Microsoft::WRL::ComPtr;
 
 
 // --- Helpers ---
+static void ReportDX12DescriptorHeapExhausted( const char* heapName, UINT nextIndex, UINT capacity )
+{
+    const char* name = heapName ? heapName : "unknown";
+    fprintf( stderr, "FATAL: DX12 %s heap exhausted (next=%u capacity=%u)\n", name, nextIndex, capacity );
+    fprintf( stdout, "FATAL: DX12 %s heap exhausted (next=%u capacity=%u)\n", name, nextIndex, capacity );
+    fflush( stderr );
+    fflush( stdout );
+    Log().WriteEventf( "dx12_descriptor_heap_exhausted heap=%s next=%u capacity=%u", name, nextIndex, capacity );
+    Log().FlushAll();
+}
+
 static inline void ThrowIfFailed( HRESULT hr, const char* msg )
 {
     if ( FAILED( hr ) )
@@ -408,7 +419,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdescriptorheap
     {
         D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-        desc.NumDescriptors = 16;
+        desc.NumDescriptors = MAX_RTV_DESCRIPTORS;
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
         ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_rtvHeap ) ), "CreateDescriptorHeap (RTV) failed" );
         m_rtvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_RTV );
@@ -417,7 +428,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdescriptorheap
     {
         D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-        desc.NumDescriptors = 4;
+        desc.NumDescriptors = MAX_DSV_DESCRIPTORS;
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
         ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_dsvHeap ) ), "CreateDescriptorHeap (DSV) failed" );
         m_dsvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_DSV );
@@ -566,49 +577,31 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
 
 void RenderBackendDX12::CreateRootSignature()
 {
-    D3D12_DESCRIPTOR_RANGE1 srvRange0 = {};
-    srvRange0.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-    srvRange0.NumDescriptors = 1;
-    srvRange0.BaseShaderRegister = 0;
-    srvRange0.RegisterSpace = 0;
-    srvRange0.OffsetInDescriptorsFromTableStart = 0;
+    D3D12_DESCRIPTOR_RANGE1 srvRanges[TEXTURE_SLOT_COUNT] = {};
+    for ( int slot = 0; slot < TEXTURE_SLOT_COUNT; ++slot )
+    {
+        srvRanges[slot].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+        srvRanges[slot].NumDescriptors = 1;
+        srvRanges[slot].BaseShaderRegister = static_cast<UINT>( slot );
+        srvRanges[slot].RegisterSpace = 0;
+        srvRanges[slot].OffsetInDescriptorsFromTableStart = 0;
+    }
 
-    D3D12_DESCRIPTOR_RANGE1 srvRange1 = {};
-    srvRange1.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-    srvRange1.NumDescriptors = 1;
-    srvRange1.BaseShaderRegister = 1;
-    srvRange1.RegisterSpace = 0;
-    srvRange1.OffsetInDescriptorsFromTableStart = 0;
-
-    D3D12_DESCRIPTOR_RANGE1 srvRange2 = {};
-    srvRange2.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-    srvRange2.NumDescriptors = 1;
-    srvRange2.BaseShaderRegister = 2;
-    srvRange2.RegisterSpace = 0;
-    srvRange2.OffsetInDescriptorsFromTableStart = 0;
-
-    D3D12_ROOT_PARAMETER1 params[4] = {};
+    D3D12_ROOT_PARAMETER1 params[1 + TEXTURE_SLOT_COUNT] = {};
     params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     params[0].Descriptor.ShaderRegister = 0;
     params[0].Descriptor.RegisterSpace = 0;
     params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-    params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    params[1].DescriptorTable.NumDescriptorRanges = 1;
-    params[1].DescriptorTable.pDescriptorRanges = &srvRange0;
-    params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    for ( int slot = 0; slot < TEXTURE_SLOT_COUNT; ++slot )
+    {
+        params[1 + slot].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+        params[1 + slot].DescriptorTable.NumDescriptorRanges = 1;
+        params[1 + slot].DescriptorTable.pDescriptorRanges = &srvRanges[slot];
+        params[1 + slot].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    }
 
-    params[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    params[2].DescriptorTable.NumDescriptorRanges = 1;
-    params[2].DescriptorTable.pDescriptorRanges = &srvRange1;
-    params[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-
-    params[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    params[3].DescriptorTable.NumDescriptorRanges = 1;
-    params[3].DescriptorTable.pDescriptorRanges = &srvRange2;
-    params[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-
-    D3D12_STATIC_SAMPLER_DESC samplers[2] = {};
+    D3D12_STATIC_SAMPLER_DESC samplers[3] = {};
     // s0: linear wrap (most textures — terrain, skybox, sphere)
     samplers[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
     samplers[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
@@ -631,17 +624,28 @@ void RenderBackendDX12::CreateRootSignature()
     samplers[1].ShaderRegister = 1;
     samplers[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
+    // s3: point clamp for manual shadow-map PCF.
+    samplers[2].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+    samplers[2].AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+    samplers[2].AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+    samplers[2].AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+    samplers[2].MaxAnisotropy = 1;
+    samplers[2].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+    samplers[2].MaxLOD = D3D12_FLOAT32_MAX;
+    samplers[2].ShaderRegister = 3;
+    samplers[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
     D3D12_VERSIONED_ROOT_SIGNATURE_DESC rootSigDesc = {};
     rootSigDesc.Version = D3D_ROOT_SIGNATURE_VERSION_1_1;
-    rootSigDesc.Desc_1_1.NumParameters = 4;
+    rootSigDesc.Desc_1_1.NumParameters = 1 + TEXTURE_SLOT_COUNT;
     rootSigDesc.Desc_1_1.pParameters = params;
-    rootSigDesc.Desc_1_1.NumStaticSamplers = 2;
+    rootSigDesc.Desc_1_1.NumStaticSamplers = 3;
     rootSigDesc.Desc_1_1.pStaticSamplers = samplers;
     rootSigDesc.Desc_1_1.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
     // Serialize the root signature description into a binary blob. The root signature defines
-    // what data shaders can access: [0] CBV at b0 (constants), [1] SRV table at t0,
-    // [2] SRV table at t1, [3] SRV table at t2, plus two static samplers.
+    // what data shaders can access: [0] CBV at b0 (constants), [1..4] SRV
+    // tables at t0..t3, plus static samplers for regular, FBO, and shadow reads.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-d3d12serializeversionedrootsignature
     ComPtr<ID3DBlob> signature;
     ComPtr<ID3DBlob> error;
@@ -1587,11 +1591,11 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
     }
 
     // Bind textures by copying their SRV descriptors to the shader-visible heap and pointing
-    // the root descriptor table at them. Root params [1..3] map to texture slots t0..t2.
+    // the root descriptor table at them. Root params [1..4] map to texture slots t0..t3.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootdescriptortable
     if ( m_texBindingsDirty )
     {
-        for ( int slot = 0; slot < 3; ++slot )
+        for ( int slot = 0; slot < TEXTURE_SLOT_COUNT; ++slot )
         {
             UINT srcIdx = m_boundTexSlot[slot];
             if ( srcIdx != UINT_MAX )
@@ -1646,7 +1650,7 @@ void RenderBackendDX12::SetRenderingToFBO( bool rendering, UINT fboSrvIndex, UIN
     {
         // Clear any texture slot still referencing the FBO color texture
         // (it's now in RENDER_TARGET state and cannot be used as SRV)
-        for ( int i = 0; i < 3; ++i )
+        for ( int i = 0; i < TEXTURE_SLOT_COUNT; ++i )
         {
             if ( m_boundTexSlot[i] == fboSrvIndex || m_boundTexSlot[i] == fboDepthSrvIndex )
             {
@@ -1660,8 +1664,9 @@ void RenderBackendDX12::SetRenderingToFBO( bool rendering, UINT fboSrvIndex, UIN
 
 D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::AllocateRTV()
 {
-    if ( m_nextRTV >= 16 )
+    if ( m_nextRTV >= MAX_RTV_DESCRIPTORS )
     {
+        ReportDX12DescriptorHeapExhausted( "RTV", m_nextRTV, MAX_RTV_DESCRIPTORS );
         throw std::runtime_error( "DX12 RTV heap exhausted" );
     }
     return GetRTVHandle( m_nextRTV++ );
@@ -1670,8 +1675,9 @@ D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::AllocateRTV()
 
 D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::AllocateDSV()
 {
-    if ( m_nextDSV >= 4 )
+    if ( m_nextDSV >= MAX_DSV_DESCRIPTORS )
     {
+        ReportDX12DescriptorHeapExhausted( "DSV", m_nextDSV, MAX_DSV_DESCRIPTORS );
         throw std::runtime_error( "DX12 DSV heap exhausted" );
     }
     return GetDSVHandle( m_nextDSV++ );
@@ -2203,7 +2209,7 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
 
 void RenderBackendDX12::BindTexture( uint32_t handle, int slot )
 {
-    if ( slot < 0 || slot > 2 )
+    if ( slot < 0 || slot >= TEXTURE_SLOT_COUNT )
     {
         return;
     }
