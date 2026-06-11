@@ -18,7 +18,7 @@ cinematic_god_rays off
 cinematic_volumetric_lighting off
 cinematic_bloom on
 cinematic_fog on
-cinematic_shadows on
+shadows on
 cinematic_legacy_shadow_discs off
 cinematic_shadow_map_size 2048
 cinematic_shadow_pcf_radius 1

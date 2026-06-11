@@ -39,6 +39,7 @@ void SetContentBounds( SkullbonezCore::UI::OptionsTab::UIOptionsTabState& state,
     SetToggleBounds( state, 2, 1, 0, col1, col2, rowBase, colW );
     SetToggleBounds( state, 3, 1, 1, col1, col2, rowBase, colW );
     SetToggleBounds( state, 4, 2, 0, col1, col2, rowBase, colW );
+    SetToggleBounds( state, 5, 2, 1, col1, col2, rowBase, colW );
     state.timeScaleSlider.SetBounds( contentX, rowBase + 126.0f, contentW, 34.0f );
     state.modelCountSlider.SetBounds( contentX, rowBase + 174.0f, contentW, 34.0f );
 }
@@ -95,6 +96,10 @@ bool HandleContentClick( UIOptionsTabState& state,
     else if ( state.toggles[4].HitTest( mouseX, mouseY ) )
     {
         result.commands.sceneOptions.toggleWaterFlat = true;
+    }
+    else if ( state.toggles[5].HitTest( mouseX, mouseY ) )
+    {
+        result.commands.sceneOptions.toggleShadows = true;
     }
     else if ( state.timeScaleSlider.HitTest( mouseX, mouseY ) )
     {
@@ -174,6 +179,7 @@ void Draw( UIOptionsTabState& state,
     DrawContentToggle( draw, contentY, contentH, state.toggles[2], col1, scrolledY + 72.0f, colW, "Hide water", data.waterHidden );
     DrawContentToggle( draw, contentY, contentH, state.toggles[3], col2, scrolledY + 72.0f, colW, "Freeze water", data.waterFreezeDebug );
     DrawContentToggle( draw, contentY, contentH, state.toggles[4], col1, scrolledY + 102.0f, colW, "Flat water", data.waterFlatDebug );
+    DrawContentToggle( draw, contentY, contentH, state.toggles[5], col2, scrolledY + 102.0f, colW, "Shadows", data.cinematicRendering && data.cinematic.shadowsEnabled );
     snprintf( buf, sizeof( buf ), "%.2fx", displayTimeScale );
     state.timeScaleSlider.SetBounds( contentX, scrolledY + 168.0f, contentW, 34.0f );
     if ( IsRowVisible( contentY, contentH, scrolledY + 168.0f, 34.0f ) )

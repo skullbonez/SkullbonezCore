@@ -20,7 +20,7 @@ constexpr int SLIDER_MODEL_COUNT = 2;
 
 struct UIOptionsTabState
 {
-    UICheckBox toggles[5];
+    UICheckBox toggles[6];
     UISlider timeScaleSlider;
     UISlider modelCountSlider;
     float previewTimeScale = -1.0f;

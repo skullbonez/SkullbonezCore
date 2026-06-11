@@ -1097,6 +1097,11 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
         m_UI.SetVisible( true, m_timers.simulationTimer.GetTotalTime() );
         m_UI.SetMinimized( false, m_timers.simulationTimer.GetTotalTime() );
     }
+    if ( m_cmdHasCinematicShadowsOverride )
+    {
+        ActiveCinematicConfig().shadowsEnabled = m_cmdCinematicShadows;
+        m_scene.cinematicOverrideMask |= SCENE_CINE_SHADOWS;
+    }
     if ( m_cmdHasPhysicsDebugFlagsOverride )
     {
         m_debug.physicsDebugFlags = m_cmdPhysicsDebugFlagsOverride;

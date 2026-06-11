@@ -529,6 +529,8 @@ struct ParsedArgs
     bool noSleep = false;
     bool hasCinematicRenderingOverride = false;
     bool cinematicRendering = false;
+    bool hasCinematicShadowsOverride = false;
+    bool cinematicShadows = false;
     bool interactiveRun = false;
     int frameCountOverride = -1;
     bool sceneLoadOnly = false;
@@ -1074,6 +1076,30 @@ bool ApplyVsyncOverride( const CommandLineView& commandLine )
     return true;
 }
 
+
+bool ApplyCinematicShadowsOverride( const char* value, ParsedArgs& args )
+{
+    bool enabled = false;
+    if ( !ParseOptionalOnOffValue( value, enabled ) )
+    {
+        return FailCommandLineParse( "--shadows expects optional on|off." );
+    }
+
+    args.hasCinematicShadowsOverride = true;
+    args.cinematicShadows = enabled;
+    if ( enabled )
+    {
+        args.hasCinematicRenderingOverride = true;
+        args.cinematicRendering = true;
+    }
+    fprintf( stdout,
+             "[shadows] Cinematic shadow maps %s via command line.%s\n",
+             enabled ? "enabled" : "disabled",
+             enabled ? " Cinematic rendering enabled." : "" );
+    return true;
+}
+
+
 bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedArgs& out )
 {
     static const CliValueDirective kValues[] = {
@@ -1110,6 +1136,8 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
               fprintf( stdout, "[cinematic] Rendering %s via command line.\n", enabled ? "enabled" : "disabled" );
               return true;
           } },
+        { "--shadows", "--shadow-maps", ApplyCinematicShadowsOverride },
+        { "--cinematic-shadows", "--cinematic_shadows", ApplyCinematicShadowsOverride },
         { "--interactive", "--hold", []( const char* value, ParsedArgs& args ) -> bool
           {
               bool enabled = false;
@@ -1521,6 +1549,10 @@ int RunApp( SkullbonezWindow* window, ParsedArgs& args )
         if ( args.hasCinematicRenderingOverride )
         {
             cRun.SetCinematicRenderingOverride( args.cinematicRendering );
+        }
+        if ( args.hasCinematicShadowsOverride )
+        {
+            cRun.SetCinematicShadowsOverride( args.cinematicShadows );
         }
         if ( args.demoHeroStyle )
         {

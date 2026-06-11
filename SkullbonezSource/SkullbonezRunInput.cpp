@@ -472,6 +472,23 @@ void ApplyCinematicUIParam( CinematicRenderConfig& cinematic, RunSceneState& sce
     }
 }
 
+
+void SetCinematicShadowsEnabledFromUI( CinematicRenderConfig& cinematic, RunSceneState& scene, bool enabled )
+{
+    cinematic.shadowsEnabled = enabled;
+    scene.cinematicOverrideMask |= SCENE_CINE_SHADOWS;
+    scene.uiCinematicOverrideMask |= SCENE_CINE_SHADOWS;
+    if ( enabled )
+    {
+        cinematic.enabled = true;
+        scene.hasCinematicRenderingOverride = true;
+        scene.isCinematicRenderingEnabled = true;
+        scene.cinematicOverrideMask |= SCENE_CINE_RENDERING;
+        scene.uiCinematicOverrideMask |= SCENE_CINE_RENDERING;
+    }
+}
+
+
 void ToggleCinematicUIFeature( CinematicRenderConfig& cinematic, RunSceneState& scene, UICinematicFeature feature )
 {
     // Feature toggles are boolean pass switches: sky on/off, bloom on/off, etc.
@@ -507,8 +524,7 @@ void ToggleCinematicUIFeature( CinematicRenderConfig& cinematic, RunSceneState& 
         scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_RELIEF_ENABLED;
         break;
     case UICinematicFeature::Shadows:
-        cinematic.shadowsEnabled = !cinematic.shadowsEnabled;
-        scene.cinematicOverrideMask |= SCENE_CINE_SHADOWS;
+        SetCinematicShadowsEnabledFromUI( cinematic, scene, !cinematic.shadowsEnabled );
         break;
     default:
         break;
@@ -967,6 +983,16 @@ void SkullbonezRun::TakeInput()
         {
             m_debug.isWaterFlatDebug = !m_debug.isWaterFlatDebug;
         }
+        if ( uiCommands.sceneOptions.toggleShadows )
+        {
+            const bool shadowsActive = IsCinematicRenderingEnabled() && ActiveCinematicConfig().shadowsEnabled;
+            m_cmdHasCinematicShadowsOverride = false;
+            if ( !shadowsActive )
+            {
+                m_cmdHasCinematicRenderingOverride = false;
+            }
+            SetCinematicShadowsEnabledFromUI( ActiveCinematicConfig(), m_scene, !shadowsActive );
+        }
         if ( uiCommands.water.toggleWaterReflection )
         {
             if ( m_debug.isWaterNoReflect )
@@ -1051,6 +1077,14 @@ void SkullbonezRun::TakeInput()
         if ( uiCommands.cinematic.requestedFeature != UICinematicFeature::None )
         {
             CinematicRenderConfig& cinematic = ActiveCinematicConfig();
+            if ( uiCommands.cinematic.requestedFeature == UICinematicFeature::Shadows )
+            {
+                m_cmdHasCinematicShadowsOverride = false;
+                if ( !cinematic.shadowsEnabled )
+                {
+                    m_cmdHasCinematicRenderingOverride = false;
+                }
+            }
             ToggleCinematicUIFeature( cinematic, m_scene, uiCommands.cinematic.requestedFeature );
         }
         if ( uiCommands.cinematic.requestedParam != UICinematicParam::None )

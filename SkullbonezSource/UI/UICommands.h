@@ -135,6 +135,7 @@ struct UISceneOptionCommands
     bool toggleWaterHidden = false;
     bool toggleWaterFreeze = false;
     bool toggleWaterFlat = false;
+    bool toggleShadows = false;
     float requestedTimeScale = -1.0f;
     int requestedModelCount = -1;
 };

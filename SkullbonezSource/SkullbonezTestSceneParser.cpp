@@ -1261,9 +1261,8 @@ class TestSceneParser
 
     bool TryParseCinematicDirective( const char* line )
     {
-        // Cinematic scene directives all share the cinematic_ prefix. Keeping
-        // them in one parser function makes it easy to compare the scene-file
-        // names with CinematicRenderConfig fields.
+        // Cinematic scene directives normally share the cinematic_ prefix.
+        // "shadows" is a user-facing scene alias that maps to the same config.
         const char* lookArgs = nullptr;
         if ( MatchDirective( line, "cinematic_look", lookArgs ) )
         {
@@ -1271,7 +1270,9 @@ class TestSceneParser
             return true;
         }
 
-        if ( strncmp( line, "cinematic_", 10 ) != 0 )
+        const char* shadowAliasArgs = nullptr;
+        if ( strncmp( line, "cinematic_", 10 ) != 0 &&
+             !MatchDirective( line, "shadows", shadowAliasArgs ) )
         {
             return false;
         }
@@ -1375,18 +1376,20 @@ class TestSceneParser
             const char* name;
             bool CinematicRenderConfig::* field;
             uint64_t bit;
+            bool enableCinematicWhenOn;
         };
         static constexpr BoolDirective kBoolDirectives[] = {
-            { "cinematic_rendering", &CinematicRenderConfig::enabled, SCENE_CINE_RENDERING },
-            { "cinematic_sky_atmosphere", &CinematicRenderConfig::skyAtmosphereEnabled, SCENE_CINE_SKY_ATMOSPHERE },
-            { "cinematic_clouds", &CinematicRenderConfig::cloudsEnabled, SCENE_CINE_CLOUDS },
-            { "cinematic_god_rays", &CinematicRenderConfig::godRaysEnabled, SCENE_CINE_GOD_RAYS },
-            { "cinematic_volumetric_lighting", &CinematicRenderConfig::volumetricLightingEnabled, SCENE_CINE_VOLUMETRIC_LIGHTING },
-            { "cinematic_bloom", &CinematicRenderConfig::bloomEnabled, SCENE_CINE_BLOOM },
-            { "cinematic_fog", &CinematicRenderConfig::fogEnabled, SCENE_CINE_FOG },
-            { "cinematic_terrain_relief_enabled", &CinematicRenderConfig::terrainReliefEnabled, SCENE_CINE_TERRAIN_RELIEF_ENABLED },
-            { "cinematic_shadows", &CinematicRenderConfig::shadowsEnabled, SCENE_CINE_SHADOWS },
-            { "cinematic_legacy_shadow_discs", &CinematicRenderConfig::legacyShadowDiscs, SCENE_CINE_LEGACY_SHADOW_DISCS },
+            { "cinematic_rendering", &CinematicRenderConfig::enabled, SCENE_CINE_RENDERING, false },
+            { "cinematic_sky_atmosphere", &CinematicRenderConfig::skyAtmosphereEnabled, SCENE_CINE_SKY_ATMOSPHERE, false },
+            { "cinematic_clouds", &CinematicRenderConfig::cloudsEnabled, SCENE_CINE_CLOUDS, false },
+            { "cinematic_god_rays", &CinematicRenderConfig::godRaysEnabled, SCENE_CINE_GOD_RAYS, false },
+            { "cinematic_volumetric_lighting", &CinematicRenderConfig::volumetricLightingEnabled, SCENE_CINE_VOLUMETRIC_LIGHTING, false },
+            { "cinematic_bloom", &CinematicRenderConfig::bloomEnabled, SCENE_CINE_BLOOM, false },
+            { "cinematic_fog", &CinematicRenderConfig::fogEnabled, SCENE_CINE_FOG, false },
+            { "cinematic_terrain_relief_enabled", &CinematicRenderConfig::terrainReliefEnabled, SCENE_CINE_TERRAIN_RELIEF_ENABLED, false },
+            { "cinematic_shadows", &CinematicRenderConfig::shadowsEnabled, SCENE_CINE_SHADOWS, false },
+            { "shadows", &CinematicRenderConfig::shadowsEnabled, SCENE_CINE_SHADOWS, true },
+            { "cinematic_legacy_shadow_discs", &CinematicRenderConfig::legacyShadowDiscs, SCENE_CINE_LEGACY_SHADOW_DISCS, false },
         };
         for ( const BoolDirective& directive : kBoolDirectives )
         {
@@ -1403,6 +1406,13 @@ class TestSceneParser
                 {
                     m_scene.m_sceneOptions.hasCinematicRenderingOverride = true;
                     m_scene.m_sceneOptions.cinematicRendering = parsedValue;
+                }
+                if ( directive.enableCinematicWhenOn && parsedValue )
+                {
+                    m_scene.m_sceneOptions.cinematicRender.enabled = true;
+                    m_scene.m_sceneOptions.cinematicOverrideMask |= SCENE_CINE_RENDERING;
+                    m_scene.m_sceneOptions.hasCinematicRenderingOverride = true;
+                    m_scene.m_sceneOptions.cinematicRendering = true;
                 }
                 return true;
             }
