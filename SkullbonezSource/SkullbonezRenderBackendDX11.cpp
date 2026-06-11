@@ -3,6 +3,8 @@
 #include "SkullbonezShaderDX11.h"
 #include "SkullbonezMeshDX11.h"
 #include "SkullbonezFramebufferDX11.h"
+#include "SkullbonezPixMarkers.h"
+#include <d3d11_1.h>
 #include <stdexcept>
 #include <string>
 #include <algorithm>
@@ -72,6 +74,19 @@ static inline void ThrowIfFailed( HRESULT hr, const char* msg )
     {
         throw std::runtime_error( msg );
     }
+}
+
+
+template <size_t N>
+static void WidenMarkerName( const char* name, wchar_t ( &out )[N] )
+{
+    const char* source = name ? name : "(null)";
+    size_t i = 0;
+    for ( ; i + 1 < N && source[i] != '\0'; ++i )
+    {
+        out[i] = static_cast<wchar_t>( static_cast<unsigned char>( source[i] ) );
+    }
+    out[i] = L'\0';
 }
 
 
@@ -302,6 +317,11 @@ bool RenderBackendDX11::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
                                                 &m_context );
     ThrowIfFailed( hr, "D3D11CreateDeviceAndSwapChain failed" );
 
+    if ( m_context )
+    {
+        m_context->QueryInterface( __uuidof( ID3DUserDefinedAnnotation ), reinterpret_cast<void**>( &m_annotation ) );
+    }
+
 #ifdef _DEBUG
     // Configure ID3D11InfoQueue for debug message filtering
     ComPtr<ID3D11InfoQueue> infoQueue;
@@ -402,6 +422,17 @@ void RenderBackendDX11::Shutdown()
 
     // Release GPU timer query objects before tearing down the device.
     ShutdownGpuTimers();
+
+    if ( m_annotation )
+    {
+        while ( m_pixGpuDepth > 0 )
+        {
+            m_annotation->EndEvent();
+            --m_pixGpuDepth;
+        }
+        m_annotation->Release();
+        m_annotation = nullptr;
+    }
 
     // Flip-model swap chains are destroyed lazily on D3D11. ClearState + Flush ensures
     // all bindings/releases are processed before we destroy this backend so the next
@@ -1776,6 +1807,52 @@ bool RenderBackendDX11::GpuTimerRead( int markerIdx, float& outMs )
     }
     outMs = m_gpuTimers.resultMs[markerIdx];
     return true;
+}
+
+
+void RenderBackendDX11::PixGpuBegin( const char* name, uint32_t hash )
+{
+    (void)hash;
+    if ( !SkullbonezCore::Basics::PixMarkers::IsEnabled() || !m_annotation )
+    {
+        return;
+    }
+
+    wchar_t wideName[256];
+    WidenMarkerName( name, wideName );
+    m_annotation->BeginEvent( wideName );
+    ++m_pixGpuDepth;
+}
+
+
+void RenderBackendDX11::PixGpuEnd()
+{
+    if ( !SkullbonezCore::Basics::PixMarkers::IsEnabled() || !m_annotation )
+    {
+        return;
+    }
+
+    if ( m_pixGpuDepth <= 0 )
+    {
+        Log().WriteEventf( "dx11_pix_gpu_end_without_begin" );
+        return;
+    }
+    m_annotation->EndEvent();
+    --m_pixGpuDepth;
+}
+
+
+void RenderBackendDX11::PixGpuMarker( const char* name, uint32_t hash )
+{
+    (void)hash;
+    if ( !SkullbonezCore::Basics::PixMarkers::IsEnabled() || !m_annotation )
+    {
+        return;
+    }
+
+    wchar_t wideName[256];
+    WidenMarkerName( name, wideName );
+    m_annotation->SetMarker( wideName );
 }
 
 
