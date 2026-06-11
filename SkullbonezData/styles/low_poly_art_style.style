@@ -36,8 +36,8 @@ cinematic_sky_horizon_b 0.56
 cinematic_sky_zenith_r 0.12
 cinematic_sky_zenith_g 0.74
 cinematic_sky_zenith_b 1.50
-cinematic_terrain_tint 0.36 0.46 0.12
-cinematic_terrain_accent 0.13 0.22 0.05
+cinematic_terrain_tint 0.46 0.52 0.14
+cinematic_terrain_accent 0.18 0.26 0.06
 cinematic_water_tint 0.020 0.17 0.22
 cinematic_water_profile 0.88 0.15 0.76
 
