@@ -1,13 +1,13 @@
 # 12. Low Poly Art Style
 style _concept_base
 cinematic_style_modes 11 7 6 4
-cinematic_exposure 0.96
-cinematic_gamma 1.58
+cinematic_exposure 1.02
+cinematic_gamma 1.50
 cinematic_sun_screen_x 0.50
 cinematic_sun_screen_y 0.55
-cinematic_sun_intensity 9.8
-cinematic_sky_glow_strength 0.46
-cinematic_style_grade 1.38 1.22 0.38
+cinematic_sun_intensity 11.2
+cinematic_sky_glow_strength 0.52
+cinematic_style_grade 1.44 1.34 0.34
 cinematic_cloud_coverage 0.56
 cinematic_cloud_softness 0.16
 cinematic_cloud_scale 5.2
@@ -24,8 +24,8 @@ cinematic_fog_color_g 0.66
 cinematic_fog_color_b 0.58
 cinematic_fog_start 360.0
 cinematic_fog_end 1760.0
-cinematic_fog_density 0.00032
-cinematic_fog_max_opacity 0.10
+cinematic_fog_density 0.00038
+cinematic_fog_max_opacity 0.14
 cinematic_basin_mask 620.0 650.0 250.0 170.0 0.16
 cinematic_sun_color_r 1.56
 cinematic_sun_color_g 0.85
@@ -36,15 +36,17 @@ cinematic_sky_horizon_b 0.68
 cinematic_sky_zenith_r 0.16
 cinematic_sky_zenith_g 0.78
 cinematic_sky_zenith_b 1.58
-cinematic_terrain_tint 0.32 0.50 0.16
-cinematic_terrain_accent 0.08 0.20 0.06
-cinematic_water_tint 0.024 0.15 0.17
-cinematic_water_profile 0.86 0.24 1.08
+cinematic_terrain_tint 0.34 0.54 0.16
+cinematic_terrain_accent 0.06 0.18 0.045
+cinematic_water_tint 0.018 0.13 0.18
+cinematic_water_profile 0.92 0.28 1.18
 
 # Object material look overrides.
 object_material balls 1.00 1.00 1.00 beachball
 object_material boxes 1.00 1.00 1.00 texture
 object_material prefix:crate 0.56 0.37 0.18 matte
+object_material prefix:ramp 0.48 0.28 0.11 matte
+object_material prefix:dock 0.46 0.25 0.10 matte
 object_material hero 1.00 1.00 1.00 texture
 object_material prefix:low_ 0.13 0.27 0.09 foliage
 object_material prefix:sky_ 1.00 1.00 1.00 texture

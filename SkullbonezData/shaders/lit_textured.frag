@@ -88,10 +88,13 @@ float EllipseShadow(vec2 xz, vec2 center, vec2 radius)
 float LowPolyHeroContactShadow(vec2 xz)
 {
     float shadow = 0.0;
-    shadow = max(shadow, EllipseShadow(xz, vec2(620.0, 650.0), vec2(62.0, 42.0)) * 0.78);
-    shadow = max(shadow, EllipseShadow(xz, vec2(510.0, 762.0), vec2(34.0, 28.0)) * 0.56);
-    shadow = max(shadow, EllipseShadow(xz, vec2(768.0, 832.0), vec2(32.0, 26.0)) * 0.50);
-    shadow = max(shadow, EllipseShadow(xz, vec2(580.0, 792.0), vec2(30.0, 24.0)) * 0.46);
+    shadow = max(shadow, EllipseShadow(xz, vec2(620.0, 650.0), vec2(34.0, 24.0)) * 0.70);
+    shadow = max(shadow, EllipseShadow(xz, vec2(480.0, 716.0), vec2(24.0, 18.0)) * 0.46);
+    shadow = max(shadow, EllipseShadow(xz, vec2(764.0, 724.0), vec2(26.0, 19.0)) * 0.48);
+    shadow = max(shadow, EllipseShadow(xz, vec2(780.0, 762.0), vec2(30.0, 24.0)) * 0.54);
+    shadow = max(shadow, EllipseShadow(xz, vec2(890.0, 760.0), vec2(26.0, 22.0)) * 0.42);
+    shadow = max(shadow, EllipseShadow(xz, vec2(812.0, 836.0), vec2(26.0, 22.0)) * 0.40);
+    shadow = max(shadow, EllipseShadow(xz, vec2(900.0, 800.0), vec2(34.0, 18.0)) * 0.30);
     shadow = max(shadow, EllipseShadow(xz, vec2(455.0, 575.0), vec2(34.0, 32.0)) * 0.40);
     shadow = max(shadow, EllipseShadow(xz, vec2(760.0, 560.0), vec2(34.0, 32.0)) * 0.42);
     shadow = max(shadow, EllipseShadow(xz, vec2(350.0, 760.0), vec2(38.0, 34.0)) * 0.36);

@@ -138,10 +138,13 @@ float EllipseShadow(float2 xz, float2 center, float2 radius)
 float LowPolyHeroContactShadow(float2 xz)
 {
     float shadow = 0.0f;
-    shadow = max(shadow, EllipseShadow(xz, float2(620.0f, 650.0f), float2(62.0f, 42.0f)) * 0.78f);
-    shadow = max(shadow, EllipseShadow(xz, float2(510.0f, 762.0f), float2(34.0f, 28.0f)) * 0.56f);
-    shadow = max(shadow, EllipseShadow(xz, float2(768.0f, 832.0f), float2(32.0f, 26.0f)) * 0.50f);
-    shadow = max(shadow, EllipseShadow(xz, float2(580.0f, 792.0f), float2(30.0f, 24.0f)) * 0.46f);
+    shadow = max(shadow, EllipseShadow(xz, float2(620.0f, 650.0f), float2(34.0f, 24.0f)) * 0.70f);
+    shadow = max(shadow, EllipseShadow(xz, float2(480.0f, 716.0f), float2(24.0f, 18.0f)) * 0.46f);
+    shadow = max(shadow, EllipseShadow(xz, float2(764.0f, 724.0f), float2(26.0f, 19.0f)) * 0.48f);
+    shadow = max(shadow, EllipseShadow(xz, float2(780.0f, 762.0f), float2(30.0f, 24.0f)) * 0.54f);
+    shadow = max(shadow, EllipseShadow(xz, float2(890.0f, 760.0f), float2(26.0f, 22.0f)) * 0.42f);
+    shadow = max(shadow, EllipseShadow(xz, float2(812.0f, 836.0f), float2(26.0f, 22.0f)) * 0.40f);
+    shadow = max(shadow, EllipseShadow(xz, float2(900.0f, 800.0f), float2(34.0f, 18.0f)) * 0.30f);
     shadow = max(shadow, EllipseShadow(xz, float2(455.0f, 575.0f), float2(34.0f, 32.0f)) * 0.40f);
     shadow = max(shadow, EllipseShadow(xz, float2(760.0f, 560.0f), float2(34.0f, 32.0f)) * 0.42f);
     shadow = max(shadow, EllipseShadow(xz, float2(350.0f, 760.0f), float2(38.0f, 34.0f)) * 0.36f);

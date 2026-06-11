@@ -9,7 +9,7 @@ frames unlimited
 water_reflection fbo
 world -30.0 25.0 1.0
 style low_poly_art_style
-camera main 640 122 940  610 57 650  0 1 0
+camera main 640 100 850  610 54 650  0 1 0
 
 floating_ball shore_left_01 492 45 778  6.0 24 5.2 0.18 0 32 0
 floating_ball shore_left_02 516 45 766  4.8 19 4.2 0.18 0 76 0
@@ -90,11 +90,12 @@ floating_ball rock_pebble_mid_01 590 41 835  3.2 13 2.8 0.18 0 22 0
 floating_ball rock_pebble_mid_02 704 41 842  2.8 11 2.5 0.18 0 -26 0
 floating_ball rock_pebble_right_01 852 42 824  3.4 14 3.0 0.18 0 18 0
 floating_ball rock_pebble_right_02 1012 42 802  3.0 12 2.6 0.18 0 -12 0
-floating_box crate_left_bank 530 53 748  5.0 5.0 5.0  2000 0.10  0 -18 0
 floating_box crate_right_bank 780 53 762  5.0 5.0 5.0  2000 0.10  0 22 0
-floating_box crate_front_left 458 53 836  4.5 4.5 4.5  2000 0.10  0 34 8
 floating_box crate_front_right 812 53 836  4.5 4.5 4.5  2000 0.10  0 -26 -8
 floating_box crate_back_mid 650 52 608  4.0 4.0 4.0  2000 0.10  0 12 0
+floating_box crate_right_stack_low 890 53 760  4.5 4.5 4.5  2000 0.10  0 14 0
+floating_box crate_right_stack_top 888 61 760  3.8 3.8 3.8  2000 0.10  0 -20 0
+floating_box ramp_right 900 49 800  22.0 2.4 9.0  2000 0.08  0 0 9
 ball beach_center 620 85 650 8.5 14.0 5.8 0.58 0 12 0
 ball beach_left_bank 480 84 716 5.8 8.0 3.8 0.58 0 42 0
 ball beach_right_bank 764 84 724 6.2 8.5 4.2 0.58 0 84 0
@@ -108,3 +109,6 @@ ball beach_far_right 946 82 668 4.0 5.0 2.4 0.58 0 62 0
 ball beach_near_splash 692 92 782 5.0 6.5 3.2 0.58 0 112 0
 ball beach_mid_left 392 84 700 4.4 5.5 2.6 0.58 0 152 0
 ball beach_mid_right 858 84 690 4.4 5.5 2.6 0.58 0 236 0
+ball beach_ramp_left 460 84 780 4.8 6.0 3.0 0.58 0 82 0
+ball beach_ramp_right 820 84 782 4.8 6.0 3.0 0.58 0 278 0
+ball beach_dock_roll 655 88 720 4.2 5.0 2.4 0.58 0 322 0
