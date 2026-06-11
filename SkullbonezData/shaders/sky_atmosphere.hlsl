@@ -147,7 +147,7 @@ float2 SkyboxCoord(float2 screenUv)
     // Repeat the painted panorama over a half-turn so the authored cloud and
     // ridge shapes remain visible through a normal gameplay FOV.
     float u = frac(longitude / 3.14159265359f + 0.47f);
-    float v = saturate(dir.y * 0.5f + 0.5f);
+    float v = saturate(dir.y * 0.74f + 0.58f);
     return float2(u, v);
 }
 
@@ -247,17 +247,17 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     }
     else if (mode == 11)
     {
-        float3 horizon = clamp(lerp(float3(1.04f, 0.78f, 0.56f), uHorizonColor, 0.60f), 0.0f, 1.8f);
-        float3 zenith = clamp(lerp(float3(0.30f, 0.66f, 1.22f), uZenithColor, 0.92f), 0.0f, 1.8f);
-        float3 middle = clamp(lerp(horizon, zenith, 0.58f) + float3(0.00f, 0.01f, 0.06f), 0.0f, 1.8f);
+        float3 horizon = clamp(lerp(float3(1.02f, 0.76f, 0.54f), uHorizonColor, 0.54f), 0.0f, 1.8f);
+        float3 zenith = clamp(lerp(float3(0.24f, 0.62f, 1.24f), uZenithColor, 0.96f), 0.0f, 1.8f);
+        float3 middle = clamp(lerp(horizon, zenith, 0.66f) + float3(-0.02f, 0.02f, 0.10f), 0.0f, 1.8f);
         float3 lowPolySky = lerp(horizon, middle, smoothstep(0.08f, 0.50f, height));
         lowPolySky = lerp(lowPolySky, zenith, smoothstep(0.30f, 0.74f, height));
         float band = floor(height * 9.0f) / 9.0f;
         float3 bandedSky = lerp(horizon, middle, smoothstep(0.08f, 0.55f, band));
         bandedSky = lerp(bandedSky, zenith, smoothstep(0.30f, 0.74f, band));
         lowPolySky = lerp(lowPolySky, bandedSky, 0.18f);
-        float upperCool = smoothstep(0.30f, 0.58f, height);
-        lowPolySky = lerp(lowPolySky, clamp(zenith * float3(0.66f, 0.96f, 1.18f), 0.0f, 1.8f), upperCool * 0.66f);
+        float upperCool = smoothstep(0.24f, 0.54f, height);
+        lowPolySky = lerp(lowPolySky, clamp(zenith * float3(0.62f, 0.98f, 1.20f), 0.0f, 1.8f), upperCool * 0.78f);
 
         float farRidge = LowPolyRidgeHeight(skyCoord.x, 0.54f, 0.15f, 4.20f, 0.11f);
         float midRidge = LowPolyRidgeHeight(skyCoord.x, 0.49f, 0.13f, 5.80f, 0.37f);
@@ -351,6 +351,9 @@ float4 main_ps(VS_OUT input) : SV_TARGET
 
         float horizonHaze = smoothstep(0.18f, 0.36f, height) * (1.0f - smoothstep(0.48f, 0.62f, height));
         lowPolySky = lerp(lowPolySky, clamp(uHorizonColor * float3(0.88f, 0.82f, 0.74f), 0.0f, 1.6f), horizonHaze * 0.12f);
+        float screenCool = smoothstep(0.46f, 0.96f, input.texCoord.y);
+        float3 coolCeiling = clamp(zenith * float3(0.54f, 0.98f, 1.18f) + float3(0.00f, 0.02f, 0.08f), 0.0f, 1.8f);
+        lowPolySky = lerp(lowPolySky, coolCeiling, screenCool * 0.34f);
         float lowPolySunDisk = 1.0f - smoothstep(0.014f, 0.034f, sunDistance);
         float lowPolyInnerGlow = exp(-sunDistance * 38.0f);
         float lowPolyOuterGlow = exp(-sunDistance * 12.0f);

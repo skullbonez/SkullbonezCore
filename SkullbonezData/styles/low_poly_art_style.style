@@ -4,7 +4,7 @@ cinematic_style_modes 11 7 6 4
 cinematic_exposure 0.90
 cinematic_gamma 1.62
 cinematic_sun_screen_x 0.50
-cinematic_sun_screen_y 0.51
+cinematic_sun_screen_y 0.57
 cinematic_sun_intensity 8.7
 cinematic_sky_glow_strength 0.36
 cinematic_style_grade 1.46 1.18 0.52
@@ -30,12 +30,12 @@ cinematic_basin_mask 620.0 650.0 250.0 170.0 0.16
 cinematic_sun_color_r 1.56
 cinematic_sun_color_g 0.85
 cinematic_sun_color_b 0.42
-cinematic_sky_horizon_r 1.42
-cinematic_sky_horizon_g 0.78
-cinematic_sky_horizon_b 0.52
-cinematic_sky_zenith_r 0.22
-cinematic_sky_zenith_g 0.68
-cinematic_sky_zenith_b 1.32
+cinematic_sky_horizon_r 1.30
+cinematic_sky_horizon_g 0.74
+cinematic_sky_horizon_b 0.54
+cinematic_sky_zenith_r 0.18
+cinematic_sky_zenith_g 0.70
+cinematic_sky_zenith_b 1.42
 cinematic_terrain_tint 0.36 0.46 0.12
 cinematic_terrain_accent 0.13 0.22 0.05
 cinematic_water_tint 0.028 0.21 0.24

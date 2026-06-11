@@ -124,7 +124,7 @@ vec2 SkyboxCoord(vec2 screenUv)
     // Repeat the painted panorama over a half-turn so the authored cloud and
     // ridge shapes remain visible through a normal gameplay FOV.
     float u = fract(longitude / 3.14159265359 + 0.47);
-    float v = clamp(dir.y * 0.5 + 0.5, 0.0, 1.0);
+    float v = clamp(dir.y * 0.74 + 0.58, 0.0, 1.0);
     return vec2(u, v);
 }
 
@@ -223,17 +223,17 @@ void main()
     }
     else if (mode == 11)
     {
-        vec3 horizon = clamp(mix(vec3(1.04, 0.78, 0.56), uHorizonColor, 0.60), 0.0, 1.8);
-        vec3 zenith = clamp(mix(vec3(0.30, 0.66, 1.22), uZenithColor, 0.92), 0.0, 1.8);
-        vec3 middle = clamp(mix(horizon, zenith, 0.58) + vec3(0.00, 0.01, 0.06), 0.0, 1.8);
+        vec3 horizon = clamp(mix(vec3(1.02, 0.76, 0.54), uHorizonColor, 0.54), 0.0, 1.8);
+        vec3 zenith = clamp(mix(vec3(0.24, 0.62, 1.24), uZenithColor, 0.96), 0.0, 1.8);
+        vec3 middle = clamp(mix(horizon, zenith, 0.66) + vec3(-0.02, 0.02, 0.10), 0.0, 1.8);
         vec3 lowPolySky = mix(horizon, middle, smoothstep(0.08, 0.50, height));
         lowPolySky = mix(lowPolySky, zenith, smoothstep(0.30, 0.74, height));
         float band = floor(height * 9.0) / 9.0;
         vec3 bandedSky = mix(horizon, middle, smoothstep(0.08, 0.55, band));
         bandedSky = mix(bandedSky, zenith, smoothstep(0.30, 0.74, band));
         lowPolySky = mix(lowPolySky, bandedSky, 0.18);
-        float upperCool = smoothstep(0.30, 0.58, height);
-        lowPolySky = mix(lowPolySky, clamp(zenith * vec3(0.66, 0.96, 1.18), 0.0, 1.8), upperCool * 0.66);
+        float upperCool = smoothstep(0.24, 0.54, height);
+        lowPolySky = mix(lowPolySky, clamp(zenith * vec3(0.62, 0.98, 1.20), 0.0, 1.8), upperCool * 0.78);
 
         float farRidge = LowPolyRidgeHeight(skyCoord.x, 0.54, 0.15, 4.20, 0.11);
         float midRidge = LowPolyRidgeHeight(skyCoord.x, 0.49, 0.13, 5.80, 0.37);
@@ -327,6 +327,9 @@ void main()
 
         float horizonHaze = smoothstep(0.18, 0.36, height) * (1.0 - smoothstep(0.48, 0.62, height));
         lowPolySky = mix(lowPolySky, clamp(uHorizonColor * vec3(0.88, 0.82, 0.74), 0.0, 1.6), horizonHaze * 0.12);
+        float screenCool = smoothstep(0.46, 0.96, vTexCoord.y);
+        vec3 coolCeiling = clamp(zenith * vec3(0.54, 0.98, 1.18) + vec3(0.00, 0.02, 0.08), 0.0, 1.8);
+        lowPolySky = mix(lowPolySky, coolCeiling, screenCool * 0.34);
         float lowPolySunDisk = 1.0 - smoothstep(0.014, 0.034, sunDistance);
         float lowPolyInnerGlow = exp(-sunDistance * 38.0);
         float lowPolyOuterGlow = exp(-sunDistance * 12.0);
