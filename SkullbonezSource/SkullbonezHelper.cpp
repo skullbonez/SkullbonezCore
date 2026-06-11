@@ -177,7 +177,8 @@ void SkullbonezHelper::BuildLowPolySphereMesh( int slices, int stacks )
 
 void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow )
 {
-    const bool useLowPolySphereMesh = ObjectStyleForShader( cinematic ) == 6;
+    const int objectStyle = ObjectStyleForShader( cinematic );
+    const bool useLowPolySphereMesh = objectStyle == 6;
     if ( useLowPolySphereMesh )
     {
         if ( lowPolySphereInstMesh == 0 )
@@ -216,8 +217,14 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
     sphereShader->SetMat4( "uProjection", proj );
     sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
     sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
-    sphereShader->SetInt( "uObjectStyle", ObjectStyleForShader( cinematic ) );
-    ApplyShadowReceiverUniforms( *sphereShader, shadow, shadow ? shadow->objectsReceive : false );
+    sphereShader->SetInt( "uObjectStyle", objectStyle );
+
+    // Low-poly spheres still cast real shadows onto terrain, but they do not
+    // receive object shadows. The shadow map is single and terrain-sized, so
+    // ball-on-ball receiver shadows alias badly across the large flat facets
+    // used by the low-poly beachball style.
+    const bool receiveSphereShadows = shadow && shadow->objectsReceive && !useLowPolySphereMesh;
+    ApplyShadowReceiverUniforms( *sphereShader, shadow, receiveSphereShadows, true );
     sphereInstanceData.clear();
 }
 
@@ -361,7 +368,7 @@ void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& pr
     sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
     sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
     sphereShader->SetInt( "uObjectStyle", ObjectStyleForShader( cinematic ) );
-    ApplyShadowReceiverUniforms( *sphereShader, shadow, shadow ? shadow->objectsReceive : false );
+    ApplyShadowReceiverUniforms( *sphereShader, shadow, shadow ? shadow->objectsReceive : false, true );
     boxInstanceData.clear();
 }
 
@@ -473,7 +480,7 @@ void SkullbonezHelper::DrawPineBatchBegin( const Matrix4& view, const Matrix4& p
     sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
     sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
     sphereShader->SetInt( "uObjectStyle", ObjectStyleForShader( cinematic ) );
-    ApplyShadowReceiverUniforms( *sphereShader, shadow, shadow ? shadow->objectsReceive : false );
+    ApplyShadowReceiverUniforms( *sphereShader, shadow, shadow ? shadow->objectsReceive : false, true );
     pineInstanceData.clear();
 }
 

@@ -3,6 +3,7 @@
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezMatrix4.h"
 #include "SkullbonezVector3.h"
+#include <algorithm>
 
 namespace SkullbonezCore
 {
@@ -46,7 +47,7 @@ struct ShadowFrameData
     bool valid = false;
 };
 
-inline void ApplyShadowReceiverUniforms( IShader& shader, const ShadowFrameData* shadow, bool receive )
+inline void ApplyShadowReceiverUniforms( IShader& shader, const ShadowFrameData* shadow, bool receive, bool objectReceiver = false )
 {
     // Receivers call this unconditionally, even when shadows are disabled. That
     // keeps all lit shaders using the same uniform layout and avoids stale GPU
@@ -54,8 +55,14 @@ inline void ApplyShadowReceiverUniforms( IShader& shader, const ShadowFrameData*
     // enabled flag of 0, so their shader returns full visibility.
     const bool enabled = shadow && shadow->valid && receive && shadow->depthTextureHandle != 0;
     Math::Transformation::Matrix4 identity;
+    const float depthBias = enabled
+                                ? ( objectReceiver ? (std::max)( shadow->depthBias, 0.0015f ) : shadow->depthBias )
+                                : 0.0f;
+    const float slopeBias = enabled
+                                ? ( objectReceiver ? (std::max)( shadow->slopeBias, 0.0035f ) : shadow->slopeBias )
+                                : 0.0f;
     shader.SetMat4( "uShadowViewProj", enabled ? shadow->lightViewProjection : identity );
-    shader.SetVec4( "uShadowParams", enabled ? shadow->strength : 0.0f, enabled ? shadow->depthBias : 0.0f, enabled ? shadow->slopeBias : 0.0f, enabled ? shadow->texelSize * shadow->softness : 0.0f );
+    shader.SetVec4( "uShadowParams", enabled ? shadow->strength : 0.0f, depthBias, slopeBias, enabled ? shadow->texelSize * shadow->softness : 0.0f );
     shader.SetVec4( "uShadowFlags", enabled ? 1.0f : 0.0f, receive ? 1.0f : 0.0f, enabled ? static_cast<float>( shadow->pcfRadius ) : 0.0f, enabled && shadow->zeroToOneDepth ? 1.0f : 0.0f );
     shader.SetVec4( "uShadowLightDir", enabled ? shadow->lightDirectionWorld.x : 0.0f, enabled ? shadow->lightDirectionWorld.y : 1.0f, enabled ? shadow->lightDirectionWorld.z : 0.0f, 0.0f );
     shader.SetInt( "uShadowMap", SHADOW_TEXTURE_SLOT );

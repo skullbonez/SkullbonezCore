@@ -27,8 +27,8 @@ cinematic_shadow_map_size 2048
 cinematic_shadow_pcf_radius 1
 cinematic_shadow_strength 0.68
 cinematic_shadow_softness 1.2
-cinematic_shadow_depth_bias 0.0018
-cinematic_shadow_slope_bias 0.0038
+cinematic_shadow_depth_bias 0.00005
+cinematic_shadow_slope_bias 0.00010
 cinematic_shadow_max_distance 1400.0
 cinematic_exposure 0.72
 cinematic_gamma 2.05

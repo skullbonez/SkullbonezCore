@@ -130,8 +130,8 @@ struct CinematicRenderConfig
     int shadowPcfRadius = 1;
     float shadowStrength = 0.58f;
     float shadowSoftness = 1.0f;
-    float shadowDepthBias = 0.0015f;
-    float shadowSlopeBias = 0.0035f;
+    float shadowDepthBias = 0.00005f;
+    float shadowSlopeBias = 0.00010f;
     float shadowMaxDistance = 1500.0f;
 
     // Fog/haze controls. Fog is applied from depth in post-processing, so it can
