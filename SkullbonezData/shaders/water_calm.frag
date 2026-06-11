@@ -79,23 +79,23 @@ void main()
         float angle = atan(basinOffset.y, basinOffset.x);
         float shard = floor(fract(angle * 1.90986 + basinDistance * 2.4 + 0.35) * 4.0) / 4.0;
         float depthBand = floor(clamp(1.0 - basinDistance, 0.0, 1.0) * 5.0 + shard * 0.45) / 5.0;
-        vec3 deep = vec3(0.014, 0.15, 0.23);
-        vec3 mid = vec3(0.038, 0.34, 0.42);
-        vec3 shallow = vec3(0.30, 0.60, 0.55);
-        waterColor = mix(deep, mid, 0.15 + depthBand * 0.54);
-        waterColor = mix(waterColor, shallow, shore * 0.30);
+        vec3 deep = vec3(0.010, 0.12, 0.19);
+        vec3 mid = vec3(0.026, 0.28, 0.36);
+        vec3 shallow = vec3(0.24, 0.50, 0.48);
+        waterColor = mix(deep, mid, 0.14 + depthBand * 0.52);
+        waterColor = mix(waterColor, shallow, shore * 0.28);
         waterColor *= 0.88 + shard * 0.13;
         float wedge = fract(angle * 2.86479 + basinDistance * 0.30 + 0.5);
         float panelEdge = 1.0 - smoothstep(0.0, 0.040, min(wedge, 1.0 - wedge));
         waterColor = mix(waterColor, waterColor * vec3(0.54, 0.76, 0.82), panelEdge * 0.24);
-        waterColor = mix(waterColor, reflection.rgb, min(uReflectionStrength, 0.22));
+        waterColor = mix(waterColor, reflection.rgb, min(uReflectionStrength, 0.18));
         float rimLine = smoothstep(0.70, 0.91, basinDistance) * (1.0 - smoothstep(0.94, 1.0, basinDistance));
         float innerRim = smoothstep(0.52, 0.72, basinDistance) * (1.0 - smoothstep(0.76, 0.88, basinDistance));
         waterColor += vec3(0.48, 0.42, 0.18) * rimLine;
         waterColor += vec3(0.10, 0.20, 0.16) * innerRim;
         float sunShard = pow(max(0.0, 1.0 - abs(reflUV.x - 0.64) * 6.0), 3.0) *
                          pow(max(0.0, 1.0 - abs(reflUV.y - 0.48) * 8.0), 2.0);
-        waterColor += uSunColor * sunShard * 0.135;
+        waterColor += uSunColor * sunShard * 0.16;
     }
     if (uCinematicMode > 0.5)
     {
@@ -109,7 +109,7 @@ void main()
         {
             waterColor = mix(waterColor * vec3(0.72, 0.58, 0.42), vec3(0.58, 0.24, 0.065), 0.14);
         }
-        waterColor += uSunColor * glint;
+        waterColor += uSunColor * glint * (uWaterMode == 4 ? 1.18 : 1.0);
     }
     FragColor = vec4(waterColor, uColorTint.a * basinMask);
 }
