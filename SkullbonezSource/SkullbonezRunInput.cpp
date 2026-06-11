@@ -771,6 +771,17 @@ void SkullbonezRun::TakeInput()
             m_camera.input.Set( InputState::CKeyWasDown, cNow );
         }
 
+        // O key: toggle the terrain polygon/contact probe. It is independent of
+        // the C-key debug cycle so it can be layered over any other physics view.
+        {
+            bool oNow = Input::IsKeyDown( 'O' );
+            if ( oNow && !m_camera.input.Get( InputState::OKeyWasDown ) )
+            {
+                m_debug.physicsDebugFlags ^= PHYSICS_DEBUG_TERRAIN_CONTACT;
+            }
+            m_camera.input.Set( InputState::OKeyWasDown, oNow );
+        }
+
         // F7/F8: step the physics pipeline visualizer through the bounded Catto
         // stage trace from the most recent physics tick. The simulation can be
         // paused with fly mode and advanced separately with Space.
@@ -949,6 +960,10 @@ void SkullbonezRun::TakeInput()
         if ( uiCommands.physics.toggleBroadphaseOverlay )
         {
             m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
+        }
+        if ( uiCommands.physics.toggleTerrainContactProbe )
+        {
+            m_debug.physicsDebugFlags ^= PHYSICS_DEBUG_TERRAIN_CONTACT;
         }
         if ( uiCommands.sceneOptions.toggleTextOnly )
         {

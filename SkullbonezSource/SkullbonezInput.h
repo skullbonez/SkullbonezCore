@@ -42,6 +42,7 @@ struct InputState
         Key4WasDown,
         Key5WasDown,
         EscapeWasDown,
+        OKeyWasDown,
         KEY_COUNT
     };
 

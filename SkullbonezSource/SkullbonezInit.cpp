@@ -814,6 +814,15 @@ bool ParsePhysicsDebugMode( const char* value, uint32_t& outFlags )
         outFlags = PHYSICS_DEBUG_PIPELINE;
         return true;
     }
+    if ( _stricmp( value, "terrain" ) == 0 ||
+         _stricmp( value, "terrain_contact" ) == 0 ||
+         _stricmp( value, "terrain-contact" ) == 0 ||
+         _stricmp( value, "terrain_probe" ) == 0 ||
+         _stricmp( value, "terrain-probe" ) == 0 )
+    {
+        outFlags = PHYSICS_DEBUG_TERRAIN_CONTACT;
+        return true;
+    }
     if ( _stricmp( value, "all" ) == 0 || _stricmp( value, "on" ) == 0 )
     {
         outFlags = PHYSICS_DEBUG_ALL;
@@ -883,7 +892,7 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
     {
         if ( !ParsePhysicsDebugMode( modeValue, out.physicsDebugFlagsOverride ) )
         {
-            return FailCommandLineParse( "--physics-debug expects none|axes|contacts|sleep|pipeline|all|on|off." );
+            return FailCommandLineParse( "--physics-debug expects none|axes|contacts|sleep|pipeline|terrain|all|on|off." );
         }
         out.hasPhysicsDebugFlagsOverride = true;
     }
@@ -893,6 +902,7 @@ bool ParsePhysicsDebugOverrides( const CommandLineView& commandLine, ParsedArgs&
         { "--physics-debug-contacts", "--physics_debug_contacts", PHYSICS_DEBUG_CONTACTS },
         { "--physics-debug-sleep", "--physics_debug_sleep", PHYSICS_DEBUG_SLEEP },
         { "--physics-debug-pipeline", "--physics_debug_pipeline", PHYSICS_DEBUG_PIPELINE },
+        { "--physics-debug-terrain-contact", "--physics_debug_terrain_contact", PHYSICS_DEBUG_TERRAIN_CONTACT },
     };
     for ( const PhysicsDebugComponentDirective& component : kComponentOverrides )
     {

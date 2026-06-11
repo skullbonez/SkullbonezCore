@@ -851,7 +851,7 @@ void SkullbonezRun::DrawPrimitives()
         Matrix4 viewProj = proj * baseView;
         m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
         m_physicsDebugVisualizer.SetPipelineStageCursor( m_debug.physicsDebugPipelineStageCursor );
-        m_physicsDebugVisualizer.Render( m_cGameModelCollection, viewProj );
+        m_physicsDebugVisualizer.Render( m_cGameModelCollection, viewProj, m_systems.terrain.get() );
     }
 
     if ( useCinematicTarget )
@@ -1161,7 +1161,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         const float titleSz = 0.013f;
         const float entrySz = 0.011f;
         const float lineH = 0.020f;
-        const int nRows = 12;
+        const int nRows = 13;
         const float panPad = 0.012f;
         const float titleGap = 0.016f; // space between title baseline and first entry
         const float keyW = 0.058f;     // key-name column width
@@ -1207,6 +1207,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "V", "Collision visual" },
             { "Space", "Step physics" },
             { "R/Bksp", "Reset scene" },
+            { "F3", "Screenshot" },
         };
         static const KeyEntry kRight[nRows] = {
             { "Esc", "Min/expand UI" },
@@ -1219,8 +1220,9 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
             { "6", "Debug body alpha" },
             { "G", "Broadphase overlay" },
             { "C", "Physics debug" },
+            { "O", "Terrain probe" },
             { "PgUp/Dn", "Water height" },
-            { "F3", "Screenshot" },
+            { "F7/F8", "Pipeline stage" },
         };
 
         for ( int i = 0; i < nRows; ++i )

@@ -2,11 +2,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <variant>
 #include "SkullbonezCollisionShape.h"
 #include "SkullbonezGameModel.h"
 #include "SkullbonezGameModelCollection.h"
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezQuaternion.h"
+#include "SkullbonezTerrain.h"
 
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math::CollisionDetection;
@@ -15,6 +17,7 @@ using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Physics;
 using namespace SkullbonezCore::Rendering;
+using namespace SkullbonezCore::Geometry;
 
 namespace
 {
@@ -398,6 +401,58 @@ void PhysicsDebugVisualizer::EmitPipelineStage( GameModelCollection& models )
     }
 }
 
+void PhysicsDebugVisualizer::EmitTerrainContactProbe( GameModelCollection& models, Geometry::Terrain* terrain )
+{
+    if ( !terrain )
+    {
+        return;
+    }
+
+    const int count = models.GetModelCount();
+    for ( int i = 0; i < count; ++i )
+    {
+        GameModel& model = models.GetModelAtIndex( i );
+        if ( !std::holds_alternative<BoundingSphere>( model.GetCollisionShape() ) )
+        {
+            continue;
+        }
+
+        const Vector3 center = model.GetPosition();
+        if ( !terrain->IsInBounds( center.x, center.z ) )
+        {
+            continue;
+        }
+
+        float terrainHeight = 0.0f;
+        Plane terrainPlane;
+        terrain->GetTerrainHeightAndPlaneAt( center.x, center.z, terrainHeight, terrainPlane );
+        if ( terrainPlane.m_normal.y < 0.0f )
+        {
+            terrainPlane.m_normal = terrainPlane.m_normal * -1.0f;
+            terrainPlane.m_distance *= -1.0f;
+        }
+
+        const Triangle polygon = terrain->LocatePolygon( center.x, center.z );
+        const float radius = (std::max)( 1.0f, model.GetBoundingRadius() );
+        const float surfaceLift = std::clamp( radius * 0.035f, 0.12f, 0.65f );
+        const Vector3 lift = terrainPlane.m_normal * surfaceLift;
+        const Vector3 a = polygon.v1 + lift;
+        const Vector3 b = polygon.v2 + lift;
+        const Vector3 c = polygon.v3 + lift;
+        const Vector3 contact( center.x, terrainHeight, center.z );
+        const Vector3 liftedContact = contact + lift;
+
+        // Lime triangle = exact terrain polygon picked by LocatePolygon at the
+        // sphere center X/Z. Magenta line = old vertical sphere-center contact
+        // probe used by the terrain response path. Yellow cross = probe endpoint.
+        EmitLine( a, b, 0.20f, 1.0f, 0.15f );
+        EmitLine( b, c, 0.20f, 1.0f, 0.15f );
+        EmitLine( c, a, 0.20f, 1.0f, 0.15f );
+        EmitLine( center, contact, 1.0f, 0.10f, 0.90f );
+        EmitCross( liftedContact, (std::min)( radius * 0.18f, 2.0f ), 1.0f, 0.95f, 0.05f );
+    }
+}
+
 void PhysicsDebugVisualizer::SetContactLingerSeconds( float seconds )
 {
     m_contactLingerSeconds = (std::max)( 0.0f, (std::min)( seconds, 5.0f ) );
@@ -465,7 +520,7 @@ void PhysicsDebugVisualizer::Update( float dt, GameModelCollection& models )
     }
 }
 
-void PhysicsDebugVisualizer::Render( GameModelCollection& models, const Matrix4& viewProj )
+void PhysicsDebugVisualizer::Render( GameModelCollection& models, const Matrix4& viewProj, Geometry::Terrain* terrain )
 {
     if ( m_flags == PHYSICS_DEBUG_NONE || models.GetModelCount() <= 0 || !Gfx().GetCapabilities().supportsDebugLines )
     {
@@ -491,6 +546,10 @@ void PhysicsDebugVisualizer::Render( GameModelCollection& models, const Matrix4&
     if ( ( m_flags & PHYSICS_DEBUG_PIPELINE ) != 0 )
     {
         EmitPipelineStage( models );
+    }
+    if ( ( m_flags & PHYSICS_DEBUG_TERRAIN_CONTACT ) != 0 )
+    {
+        EmitTerrainContactProbe( models, terrain );
     }
 
     if ( !m_lineData.empty() )

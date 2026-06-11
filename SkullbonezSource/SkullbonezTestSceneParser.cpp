@@ -1042,7 +1042,7 @@ class TestSceneParser
 
     void ParsePhysicsDebug( const char* args )
     {
-        const char* value = RequireArgs( "physics_debug", args, "physics_debug none|axes|contacts|sleep|pipeline|all" );
+        const char* value = RequireArgs( "physics_debug", args, "physics_debug none|axes|contacts|sleep|pipeline|terrain|all" );
         if ( strcmp( value, "none" ) == 0 || strcmp( value, "off" ) == 0 )
         {
             m_scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_NONE;
@@ -1062,6 +1062,13 @@ class TestSceneParser
         else if ( strcmp( value, "pipeline" ) == 0 )
         {
             m_scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_PIPELINE;
+        }
+        else if ( strcmp( value, "terrain" ) == 0 ||
+                  strcmp( value, "terrain_contact" ) == 0 ||
+                  strcmp( value, "terrain-probe" ) == 0 ||
+                  strcmp( value, "terrain_probe" ) == 0 )
+        {
+            m_scene.m_sceneOptions.physicsDebugFlags = Physics::PHYSICS_DEBUG_TERRAIN_CONTACT;
         }
         else if ( strcmp( value, "all" ) == 0 || strcmp( value, "on" ) == 0 )
         {
@@ -1105,6 +1112,11 @@ class TestSceneParser
     void ParsePhysicsDebugPipeline( const char* args )
     {
         ParsePhysicsDebugComponent( args, Physics::PHYSICS_DEBUG_PIPELINE );
+    }
+
+    void ParsePhysicsDebugTerrainContact( const char* args )
+    {
+        ParsePhysicsDebugComponent( args, Physics::PHYSICS_DEBUG_TERRAIN_CONTACT );
     }
 
     void ParsePhysicsDebugTransparent( const char* args )
@@ -1586,11 +1598,12 @@ class TestSceneParser
             { "floating_box", &TestSceneParser::ParseFloatingBox, "floating_box <name> ..." },
             { "time_scale", &TestSceneParser::ParseTimeScale, "time_scale <value>" },
             { "fixed_step", &TestSceneParser::ParseFixedStep, "fixed_step" },
-            { "physics_debug", &TestSceneParser::ParsePhysicsDebug, "physics_debug none|axes|contacts|sleep|pipeline|all" },
+            { "physics_debug", &TestSceneParser::ParsePhysicsDebug, "physics_debug none|axes|contacts|sleep|pipeline|terrain|all" },
             { "physics_debug_axes", &TestSceneParser::ParsePhysicsDebugAxes, "physics_debug_axes on|off" },
             { "physics_debug_contacts", &TestSceneParser::ParsePhysicsDebugContacts, "physics_debug_contacts on|off" },
             { "physics_debug_sleep", &TestSceneParser::ParsePhysicsDebugSleep, "physics_debug_sleep on|off" },
             { "physics_debug_pipeline", &TestSceneParser::ParsePhysicsDebugPipeline, "physics_debug_pipeline on|off" },
+            { "physics_debug_terrain_contact", &TestSceneParser::ParsePhysicsDebugTerrainContact, "physics_debug_terrain_contact on|off" },
             { "physics_debug_transparent", &TestSceneParser::ParsePhysicsDebugTransparent, "physics_debug_transparent on|off" },
             { "physics_debug_alpha", &TestSceneParser::ParsePhysicsDebugAlpha, "physics_debug_alpha <0.05..1.0>" },
             { "physics_debug_contact_linger", &TestSceneParser::ParsePhysicsDebugContactLinger, "physics_debug_contact_linger <0.0..5.0>" },

@@ -120,6 +120,7 @@ struct UIPhysicsCommands
     bool togglePhysicsSleepPolicy = false;
     bool togglePhysicsDebugTransparent = false;
     bool toggleBroadphaseOverlay = false;
+    bool toggleTerrainContactProbe = false;
     float requestedPhysicsDebugAlpha = -1.0f;
     float requestedPhysicsDebugContactLinger = -1.0f;
     uint32_t togglePhysicsDebugFlags = 0;

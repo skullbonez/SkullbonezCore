@@ -44,10 +44,11 @@ void SetContentBounds( SkullbonezCore::UI::PhysicsTab::UIPhysicsTabState& state,
     SetToggleBounds( state, 2, 1, 1, col1, col2, rowBase, colW );
     SetToggleBounds( state, 3, 2, 1, col1, col2, rowBase, colW );
     SetToggleBounds( state, 6, 3, 1, col1, col2, rowBase, colW );
-    SetPipelineStepButtonBounds( state.pipelinePrevButton, state.pipelineNextButton, contentX, contentW, rowBase + 194.0f );
-    state.alphaSlider.SetBounds( contentX, rowBase + 242.0f, contentW, 34.0f );
-    state.contactLingerSlider.SetBounds( contentX, rowBase + 290.0f, contentW, 34.0f );
-    state.worldGravitySlider.SetBounds( contentX, rowBase + 374.0f, contentW, 34.0f );
+    SetToggleBounds( state, 8, 4, 0, col1, col2, rowBase, colW );
+    SetPipelineStepButtonBounds( state.pipelinePrevButton, state.pipelineNextButton, contentX, contentW, rowBase + 224.0f );
+    state.alphaSlider.SetBounds( contentX, rowBase + 272.0f, contentW, 34.0f );
+    state.contactLingerSlider.SetBounds( contentX, rowBase + 320.0f, contentW, 34.0f );
+    state.worldGravitySlider.SetBounds( contentX, rowBase + 404.0f, contentW, 34.0f );
 }
 
 } // namespace
@@ -61,7 +62,7 @@ namespace PhysicsTab
 
 int ContentHeight()
 {
-    return 438;
+    return 468;
 }
 
 
@@ -114,6 +115,10 @@ bool HandleContentClick( UIPhysicsTabState& state,
     else if ( state.toggles[6].HitTest( mouseX, mouseY ) )
     {
         result.commands.physics.togglePhysicsSleepPolicy = true;
+    }
+    else if ( state.toggles[8].HitTest( mouseX, mouseY ) )
+    {
+        result.commands.physics.toggleTerrainContactProbe = true;
     }
     else if ( state.pipelinePrevButton.Contains( mouseX, mouseY ) )
     {
@@ -221,40 +226,41 @@ void Draw( UIPhysicsTabState& state,
     DrawContentToggle( draw, contentY, contentH, state.toggles[2], col2, scrolledY + 72.0f, colW, "Contacts", ( data.physicsDebugFlags & PHYSICS_DEBUG_CONTACTS ) != 0 );
     DrawContentToggle( draw, contentY, contentH, state.toggles[3], col2, scrolledY + 102.0f, colW, "Sleep state", ( data.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0 );
     DrawContentToggle( draw, contentY, contentH, state.toggles[6], col2, scrolledY + 132.0f, colW, "Sleep policy", data.physicsSleepEnabled );
+    DrawContentToggle( draw, contentY, contentH, state.toggles[8], col1, scrolledY + 162.0f, colW, "Terrain probe", ( data.physicsDebugFlags & PHYSICS_DEBUG_TERRAIN_CONTACT ) != 0 );
     snprintf( buf, sizeof( buf ), "0x%04X", data.physicsDebugFlags );
-    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 178.0f, "Debug flags", buf, 0.52f, 0.94f, 1.0f );
+    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 208.0f, "Debug flags", buf, 0.52f, 0.94f, 1.0f );
     snprintf( buf, sizeof( buf ), "%d/%d %s", data.physicsPipelineStageIndex + 1, data.physicsPipelineStageCount, data.physicsPipelineStageName );
-    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 198.0f, "Pipeline stage", buf, 0.52f, 0.94f, 1.0f );
-    SetPipelineStepButtonBounds( state.pipelinePrevButton, state.pipelineNextButton, contentX, contentW, scrolledY + 194.0f );
-    if ( IsRowVisible( contentY, contentH, scrolledY + 194.0f, UI_PIPELINE_STEP_BUTTON_H ) )
+    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 228.0f, "Pipeline stage", buf, 0.52f, 0.94f, 1.0f );
+    SetPipelineStepButtonBounds( state.pipelinePrevButton, state.pipelineNextButton, contentX, contentW, scrolledY + 224.0f );
+    if ( IsRowVisible( contentY, contentH, scrolledY + 224.0f, UI_PIPELINE_STEP_BUTTON_H ) )
     {
         DrawPipelineStepButton( draw, state.pipelinePrevButton, true, state.pipelinePrevButton.Contains( mouseX, mouseY ) );
         DrawPipelineStepButton( draw, state.pipelineNextButton, false, state.pipelineNextButton.Contains( mouseX, mouseY ) );
     }
-    if ( IsRowVisible( contentY, contentH, scrolledY + 216.0f, 18.0f ) )
+    if ( IsRowVisible( contentY, contentH, scrolledY + 246.0f, 18.0f ) )
     {
-        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 216.0f, 12.0f, "Debug Draw" );
+        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 246.0f, 12.0f, "Debug Draw" );
     }
     snprintf( buf, sizeof( buf ), "%.2f", displayAlpha );
-    state.alphaSlider.SetBounds( contentX, scrolledY + 242.0f, contentW, 34.0f );
-    if ( IsRowVisible( contentY, contentH, scrolledY + 242.0f, 34.0f ) )
+    state.alphaSlider.SetBounds( contentX, scrolledY + 272.0f, contentW, 34.0f );
+    if ( IsRowVisible( contentY, contentH, scrolledY + 272.0f, 34.0f ) )
     {
         state.alphaSlider.Draw( draw, "Body alpha", buf, displayAlpha, UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX );
     }
     snprintf( buf, sizeof( buf ), "%.2fs", displayLinger );
-    state.contactLingerSlider.SetBounds( contentX, scrolledY + 290.0f, contentW, 34.0f );
-    if ( IsRowVisible( contentY, contentH, scrolledY + 290.0f, 34.0f ) )
+    state.contactLingerSlider.SetBounds( contentX, scrolledY + 320.0f, contentW, 34.0f );
+    if ( IsRowVisible( contentY, contentH, scrolledY + 320.0f, 34.0f ) )
     {
         state.contactLingerSlider.Draw( draw, "Contact linger", buf, displayLinger, UI_CONTACT_LINGER_MIN, UI_CONTACT_LINGER_MAX );
     }
-    if ( IsRowVisible( contentY, contentH, scrolledY + 348.0f, 18.0f ) )
+    if ( IsRowVisible( contentY, contentH, scrolledY + 378.0f, 18.0f ) )
     {
-        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 348.0f, 12.0f, "World" );
+        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 378.0f, 12.0f, "World" );
     }
     const float displayGravityStrength = GravityStrengthFromWorld( data.worldGravity );
     snprintf( buf, sizeof( buf ), "%.1f", displayGravityStrength );
-    state.worldGravitySlider.SetBounds( contentX, scrolledY + 374.0f, contentW, 34.0f );
-    if ( IsRowVisible( contentY, contentH, scrolledY + 374.0f, 34.0f ) )
+    state.worldGravitySlider.SetBounds( contentX, scrolledY + 404.0f, contentW, 34.0f );
+    if ( IsRowVisible( contentY, contentH, scrolledY + 404.0f, 34.0f ) )
     {
         state.worldGravitySlider.Draw( draw, "Gravity", buf, displayGravityStrength, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX );
     }
