@@ -66,13 +66,18 @@ cbuffer Uniforms : register(b0)
     float4   uTerrainTint;      // rgb tint
     float4   uTerrainAccent;    // rgb accent
     float4   uTerrainGrid;      // scale, strength, unused, unused
+    float4x4 uShadowViewProj;
+    float4   uShadowParams;     // strength, depth bias, slope bias, texel step
+    float4   uShadowFlags;      // enabled, receive, pcf radius, zero-to-one depth
 };
 
 // Texture + sampler (equivalent to GLSL's uniform sampler2D).
 // In DX, textures and samplers are SEPARATE objects bound to different slots.
 // register(t0) = texture slot 0; register(s0) = sampler slot 0.
 Texture2D    uTexture  : register(t0);
+Texture2D    uShadowMap : register(t3);
 SamplerState sSampler0 : register(s0);
+SamplerState sSampler3 : register(s3);
 
 // Vertex shader input — each field maps to a vertex buffer element via its semantic.
 struct VS_IN
@@ -158,6 +163,60 @@ float3 FacetNormalFromDerivatives(float3 viewPos, float3 fallbackNormal)
     float3 dy = ddy(viewPos);
     float3 faceN = normalize(cross(dy, dx));
     return dot(faceN, fallbackNormal) < 0.0f ? -faceN : faceN;
+}
+
+float ShadowVisibility(float3 worldPos, float3 normalView, float3 lightView)
+{
+    if (uShadowFlags.x < 0.5f || uShadowFlags.y < 0.5f || uShadowParams.x <= 0.0f)
+    {
+        return 1.0f;
+    }
+
+    float4 shadowClip = mul(uShadowViewProj, float4(worldPos, 1.0f));
+    if (shadowClip.w <= 0.0f)
+    {
+        return 1.0f;
+    }
+
+    float3 ndc = shadowClip.xyz / shadowClip.w;
+    float2 uv = ndc.xy * 0.5f + 0.5f;
+    if (uShadowFlags.w > 0.5f)
+    {
+        uv.y = 1.0f - uv.y;
+    }
+    float receiverDepth = uShadowFlags.w > 0.5f ? ndc.z : ndc.z * 0.5f + 0.5f;
+
+    if (uv.x <= 0.0f || uv.x >= 1.0f || uv.y <= 0.0f || uv.y >= 1.0f || receiverDepth <= 0.0f || receiverDepth >= 1.0f)
+    {
+        return 1.0f;
+    }
+
+    float ndotl = max(dot(normalize(normalView), normalize(lightView)), 0.0f);
+    float bias = uShadowParams.y + uShadowParams.z * (1.0f - ndotl);
+    int radius = (int)floor(uShadowFlags.z + 0.5f);
+    float texel = max(uShadowParams.w, 0.00001f);
+    float visible = 0.0f;
+    float samples = 0.0f;
+    for (int y = -3; y <= 3; ++y)
+    {
+        if (abs(y) > radius)
+        {
+            continue;
+        }
+        for (int x = -3; x <= 3; ++x)
+        {
+            if (abs(x) > radius)
+            {
+                continue;
+            }
+            float shadowDepth = uShadowMap.SampleLevel(sSampler3, uv + float2((float)x, (float)y) * texel, 0.0f).r;
+            visible += receiverDepth - bias <= shadowDepth ? 1.0f : 0.0f;
+            samples += 1.0f;
+        }
+    }
+
+    float visibility = samples > 0.0f ? visible / samples : 1.0f;
+    return lerp(1.0f - uShadowParams.x, 1.0f, visibility);
 }
 
 float3 TerrainModeColor(int mode, float3 texColor, float3 N, float3 worldPos)
@@ -335,6 +394,7 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         }
         float terrainDot = dot(terrainN, L);
         float terrainDiff = max(terrainDot, 0.0f);
+        float shadowFactor = ShadowVisibility(input.worldPos, terrainN, L);
         float warmWrap = saturate(terrainDot * 0.5f + 0.5f);
         float grazing = pow(saturate(1.0f - abs(terrainDot)), 1.5f);
         float rim = pow(1.0f - saturate(dot(terrainN, V)), 3.0f) * (0.25f + warmWrap * 0.75f);
@@ -362,8 +422,8 @@ float4 main_ps(VS_OUT input) : SV_TARGET
             float sunBand = terrainDiff > 0.72f ? 1.0f : (terrainDiff > 0.34f ? 0.62f : 0.30f);
             float softFill = warmWrap * 0.10f;
             float3 warmSun = uLightDiffuse.rgb * float3(0.96f, 0.78f, 0.50f);
-            float3 color = earthBase * (hemiAmbient * 0.64f + warmSun * (sunBand * 0.26f + softFill * 0.78f));
-            color += warmSun * (rim * 0.042f + grazing * 0.022f);
+            float3 color = earthBase * (hemiAmbient * 0.64f + warmSun * (sunBand * 0.26f + softFill * 0.78f) * shadowFactor);
+            color += warmSun * (rim * 0.042f + grazing * 0.022f) * shadowFactor;
             return float4(color, 1.0f);
         }
 
@@ -373,10 +433,11 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         float3 litTone = earthBase * float3(1.28f, 0.72f, 0.34f);
         float3 gradedBase = lerp(shadowTone, litTone, saturate(terrainDiff * 0.85f + warmWrap * 0.12f));
         float3 warmAmbient = gradedBase * uLightAmbient.rgb * (0.95f + max(terrainN.y, 0.0f) * 0.35f);
-        float3 directSun = gradedBase * uLightDiffuse.rgb * (terrainDiff * 0.42f + grazing * 0.08f);
-        float3 ridgeLight = uLightDiffuse.rgb * (rim * 0.045f + spec * 0.035f);
+        float3 directSun = gradedBase * uLightDiffuse.rgb * (terrainDiff * 0.42f + grazing * 0.08f) * shadowFactor;
+        float3 ridgeLight = uLightDiffuse.rgb * (rim * 0.045f + spec * 0.035f) * shadowFactor;
         return float4(warmAmbient + directSun + ridgeLight, 1.0f);
     }
 
-    return float4((ambient + diffuse) * texColor.rgb + specular, 1.0);
+    float shadowFactor = ShadowVisibility(input.worldPos, N, L);
+    return float4((ambient + diffuse * shadowFactor) * texColor.rgb + specular * shadowFactor, 1.0);
 }

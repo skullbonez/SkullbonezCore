@@ -111,6 +111,7 @@ void SkullbonezRun::ResetCinematicRenderResources()
 {
     // Renderer resources are backend-owned objects. When the renderer changes or
     // shuts down, release these GPU handles so GL/DX can recreate them cleanly.
+    ResetShadowRenderResources();
     if ( IsGfxReady() && m_systems.postQuadVB != 0 )
     {
         Gfx().DestroyDynamicVB( m_systems.postQuadVB );
@@ -121,6 +122,130 @@ void SkullbonezRun::ResetCinematicRenderResources()
     m_systems.tonemapShader.reset();
     m_systems.volumetricLightFBO.reset();
     m_systems.sceneFBO.reset();
+}
+
+
+void SkullbonezRun::EnsureShadowRenderResources( const CinematicRenderConfig& cinematic )
+{
+    if ( !cinematic.shadowsEnabled || !IsGfxReady() )
+    {
+        return;
+    }
+
+    const int mapSize = std::clamp( cinematic.shadowMapSize, 256, 8192 );
+    const bool needsShadowTarget = !m_systems.shadowFBO ||
+                                   m_systems.shadowFBO->GetWidth() != mapSize ||
+                                   m_systems.shadowFBO->GetHeight() != mapSize;
+    if ( needsShadowTarget )
+    {
+        m_systems.shadowFBO.reset();
+        m_systems.shadowFBO = Gfx().CreateFramebuffer( mapSize, mapSize );
+    }
+}
+
+
+void SkullbonezRun::ResetShadowRenderResources()
+{
+    if ( m_systems.shadowFBO )
+    {
+        m_systems.shadowFBO->ResetResources();
+    }
+    m_systems.shadowFBO.reset();
+    m_systems.shadowFrame = Rendering::ShadowFrameData();
+}
+
+
+SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::BuildShadowFrameData( const CinematicRenderConfig& cinematic, const Vector3& lightDirectionWorld ) const
+{
+    Rendering::ShadowFrameData shadowFrame;
+    if ( !m_systems.terrain || !m_systems.shadowFBO )
+    {
+        return shadowFrame;
+    }
+
+    Vector3 lightDir = lightDirectionWorld;
+    if ( VectorMag( lightDir ) < 1.0e-5f )
+    {
+        lightDir = Vector3( -0.68f, 0.22f, -0.70f );
+    }
+    lightDir.Normalise();
+
+    const XZBounds terrainBounds = m_systems.terrain->GetXZBounds();
+    const float extentX = (std::max)( terrainBounds.m_xMax - terrainBounds.m_xMin, 1.0f );
+    const float extentZ = (std::max)( terrainBounds.m_zMax - terrainBounds.m_zMin, 1.0f );
+    const float terrainHeightRange = (std::max)( m_systems.terrain->GetMaxHeight() - m_systems.terrain->GetMinHeight(), 64.0f );
+    const float terrainRadius = (std::max)( extentX, extentZ ) * 0.5f;
+    const float shadowRadius = std::clamp( terrainRadius + 180.0f, 128.0f, (std::max)( cinematic.shadowMaxDistance, 128.0f ) );
+    const Vector3 focus( ( terrainBounds.m_xMin + terrainBounds.m_xMax ) * 0.5f,
+                         ( m_systems.terrain->GetMinHeight() + m_systems.terrain->GetMaxHeight() ) * 0.5f,
+                         ( terrainBounds.m_zMin + terrainBounds.m_zMax ) * 0.5f );
+    const float lightBackDistance = shadowRadius + terrainHeightRange + 650.0f;
+    const Vector3 lightEye = focus + lightDir * lightBackDistance;
+    const Vector3 lightUp = fabsf( lightDir.y ) > 0.92f ? Vector3( 0.0f, 0.0f, 1.0f ) : Vector3( 0.0f, 1.0f, 0.0f );
+    const float nearPlane = 1.0f;
+    const float farPlane = lightBackDistance * 2.0f + terrainHeightRange + shadowRadius;
+
+    shadowFrame.lightView = Matrix4::LookAt( lightEye, focus, lightUp );
+    shadowFrame.lightProjection = Gfx().UsesZeroToOneDepth()
+                                      ? Matrix4::OrthoZeroToOne( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane )
+                                      : Matrix4::Ortho( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane );
+    shadowFrame.lightViewProjection = shadowFrame.lightProjection * shadowFrame.lightView;
+    shadowFrame.lightDirectionWorld = lightDir;
+    shadowFrame.depthTextureHandle = m_systems.shadowFBO->GetDepthTextureHandle();
+    shadowFrame.mapSize = m_systems.shadowFBO->GetWidth();
+    shadowFrame.pcfRadius = std::clamp( cinematic.shadowPcfRadius, 0, 3 );
+    shadowFrame.strength = std::clamp( cinematic.shadowStrength, 0.0f, 1.0f );
+    shadowFrame.depthBias = (std::max)( cinematic.shadowDepthBias, 0.0f );
+    shadowFrame.slopeBias = (std::max)( cinematic.shadowSlopeBias, 0.0f );
+    shadowFrame.texelSize = shadowFrame.mapSize > 0 ? 1.0f / static_cast<float>( shadowFrame.mapSize ) : 0.0f;
+    shadowFrame.softness = (std::max)( cinematic.shadowSoftness, 0.25f );
+    shadowFrame.zeroToOneDepth = Gfx().UsesZeroToOneDepth();
+    shadowFrame.terrainReceives = cinematic.shadowTerrainReceives;
+    shadowFrame.objectsReceive = cinematic.shadowObjectsReceive;
+    shadowFrame.valid = shadowFrame.depthTextureHandle != 0 && shadowFrame.mapSize > 0;
+    return shadowFrame;
+}
+
+
+void SkullbonezRun::RenderShadowMap( const Rendering::ShadowFrameData& shadowFrame, const CinematicRenderConfig& cinematic )
+{
+    if ( !shadowFrame.valid || !m_systems.shadowFBO )
+    {
+        return;
+    }
+    if ( !cinematic.shadowTerrainCasts && !cinematic.shadowObjectsCast )
+    {
+        return;
+    }
+
+    m_systems.shadowFBO->Bind();
+    Gfx().SetViewport( 0, 0, m_systems.shadowFBO->GetWidth(), m_systems.shadowFBO->GetHeight() );
+    Gfx().Clear( true, true );
+
+    const bool depthWasEnabled = Gfx().IsDepthTestEnabled();
+    const bool blendWasEnabled = Gfx().IsBlendEnabled();
+    Gfx().SetDepthTest( true );
+    Gfx().SetDepthWrite( true );
+    Gfx().SetBlend( false );
+    Gfx().SetCullFace( true );
+    Gfx().SetPolygonOffset( true, 2.0f, 4.0f );
+
+    if ( cinematic.shadowTerrainCasts && !m_debug.isTerrainHidden && m_systems.terrain )
+    {
+        m_systems.terrain->RenderShadowDepth( shadowFrame.lightView, shadowFrame.lightProjection, &cinematic );
+    }
+
+    if ( cinematic.shadowObjectsCast && !m_debug.isCollisionVisualizer )
+    {
+        m_cGameModelCollection.RenderShadowCasters( shadowFrame.lightView, shadowFrame.lightProjection, &cinematic );
+    }
+
+    Gfx().SetPolygonOffset( false );
+    Gfx().SetDepthTest( depthWasEnabled );
+    Gfx().SetDepthWrite( depthWasEnabled );
+    Gfx().SetBlend( blendWasEnabled );
+    m_systems.shadowFBO->Unbind();
+    Gfx().SetViewport( 0, 0, Gfx().GetWidth(), Gfx().GetHeight() );
 }
 
 
@@ -449,6 +574,19 @@ void SkullbonezRun::DrawPrimitives()
     m_cGameModelCollection.PrepareRenderStreams();
     PROFILE_END( "Frame/Render/PrepareModels" );
 
+    m_systems.shadowFrame = Rendering::ShadowFrameData();
+    const CinematicRenderConfig* activeCinematic = cinematicRender ? &ActiveCinematicConfig() : nullptr;
+    if ( cinematicRender && activeCinematic && activeCinematic->shadowsEnabled )
+    {
+        PROFILE_GPU_BEGIN( "Frame/Render/ShadowMap" );
+        Vector3 lightDirection( lightPosition[0], lightPosition[1], lightPosition[2] );
+        EnsureShadowRenderResources( *activeCinematic );
+        m_systems.shadowFrame = BuildShadowFrameData( *activeCinematic, lightDirection );
+        RenderShadowMap( m_systems.shadowFrame, *activeCinematic );
+        PROFILE_GPU_END( "Frame/Render/ShadowMap" );
+    }
+    const Rendering::ShadowFrameData* shadowFrame = m_systems.shadowFrame.valid ? &m_systems.shadowFrame : nullptr;
+
     const bool physicsDebugTransparent = m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE && m_debug.isPhysicsDebugTransparent;
     const float collisionVisualizerAlphaOverride = physicsDebugTransparent ? m_debug.physicsDebugAlpha : -1.0f;
 
@@ -552,7 +690,7 @@ void SkullbonezRun::DrawPrimitives()
         else
         {
             m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-            m_cGameModelCollection.RenderModels( reflView, proj, lightPosition, cinematicRender ? &ActiveCinematicConfig() : nullptr );
+            m_cGameModelCollection.RenderModels( reflView, proj, lightPosition, activeCinematic, shadowFrame );
         }
         Gfx().SetClipPlane( 0, false );
         SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
@@ -597,7 +735,7 @@ void SkullbonezRun::DrawPrimitives()
     else
     {
         m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-        m_cGameModelCollection.RenderModels( baseView, proj, lightPosition, cinematicRender ? &ActiveCinematicConfig() : nullptr );
+        m_cGameModelCollection.RenderModels( baseView, proj, lightPosition, activeCinematic, shadowFrame );
     }
     PROFILE_GPU_END( "Frame/Render/Balls" );
 
@@ -606,12 +744,12 @@ void SkullbonezRun::DrawPrimitives()
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Terrain" );
         m_systems.textures->SelectTexture( TEXTURE_GROUND );
-        m_systems.terrain->Render( baseView, proj, lightPosition, cinematicRender ? &ActiveCinematicConfig() : nullptr );
+        m_systems.terrain->Render( baseView, proj, lightPosition, activeCinematic, shadowFrame );
         PROFILE_GPU_END( "Frame/Render/Terrain" );
     }
 
     // render ground shadows on top of m_terrain
-    if ( !m_debug.isTerrainHidden )
+    if ( !m_debug.isTerrainHidden && ( !shadowFrame || !activeCinematic || activeCinematic->legacyShadowDiscs ) )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Shadows" );
         m_cGameModelCollection.RenderShadows( m_systems.terrain.get(), baseView, proj, waterY );

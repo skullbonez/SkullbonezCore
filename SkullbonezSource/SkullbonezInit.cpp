@@ -1490,7 +1490,7 @@ void InitRenderBackend( RendererType renderer, SkullbonezWindow* window )
 // is deleted — this ensures any OpenGL cleanup calls inside Run still work.
 // ---------------------------------------------------------------------------
 
-void RunApp( SkullbonezWindow* window, ParsedArgs& args )
+int RunApp( SkullbonezWindow* window, ParsedArgs& args )
 {
     {
         SkullbonezRun cRun( std::move( args.sceneList ) );
@@ -1607,13 +1607,18 @@ void RunApp( SkullbonezWindow* window, ParsedArgs& args )
         }
         catch ( const std::exception& e )
         {
-#ifdef _DEBUG
             Log().WriteEventf( "fatal_exception message=\"%s\"", e.what() );
-#endif
             fprintf( stderr, "FATAL: %s\n", e.what() );
-            window->MsgBox( e.what(), "Alert!", MB_OK );
+            fflush( stderr );
+            Log().FlushAll();
+            if ( !args.isSuiteOrSceneMode && !args.suppressExitDialog )
+            {
+                window->MsgBox( e.what(), "Alert!", MB_OK );
+            }
+            return 1;
         }
     } // cRun destroyed here — GL context still alive for proper cleanup
+    return 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -1712,7 +1717,7 @@ int WINAPI WinMain( HINSTANCE hInstance,
     InitRenderBackend( args.renderer, window );
     window->HandleScreenResize();
 
-    RunApp( window, args );
+    const int runExitCode = RunApp( window, args );
 
     CleanupWindow( window, hInstance );
 
@@ -1721,5 +1726,5 @@ int WINAPI WinMain( HINSTANCE hInstance,
     // Write memory leaks to output window
     // _CrtDumpMemoryLeaks();
 
-    return 0;
+    return runExitCode;
 }

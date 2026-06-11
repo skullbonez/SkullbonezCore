@@ -47,6 +47,7 @@ uniform vec4 uLightPosition;
 
 out vec3 vViewPos;
 out vec3 vNormal;
+out vec3 vWorldPos;
 out vec2 vTexCoord;
 out vec4 vTint;
 
@@ -54,14 +55,16 @@ void main()
 {
     // Use the per-INSTANCE model matrix (different for each sphere).
     mat4 modelView = uView * aModel;
-    vec4 viewPos   = modelView * vec4(aPosition, 1.0);
+    vec4 worldPos  = aModel * vec4(aPosition, 1.0);
+    vec4 viewPos   = uView * worldPos;
     gl_Position    = uProjection * viewPos;
 
     // Clip distance for water reflection (same concept as non-instanced version).
-    gl_ClipDistance[0] = dot(aModel * vec4(aPosition, 1.0), uClipPlane);
+    gl_ClipDistance[0] = dot(worldPos, uClipPlane);
 
     vViewPos  = viewPos.xyz;
     vNormal   = transpose(inverse(mat3(modelView))) * aNormal;
+    vWorldPos = worldPos.xyz;
     vTexCoord = aTexCoord;
     vTint     = aTint;
 }

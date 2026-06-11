@@ -106,6 +106,8 @@ class RenderBackendDX12 : public IRenderBackend
 
     // Frame management
     static const int FRAME_COUNT = 2;
+    static const UINT MAX_RTV_DESCRIPTORS = 32;
+    static const UINT MAX_DSV_DESCRIPTORS = 16;
     static const UINT MAX_STATIC_SRVS = 128;
     static const UINT MAX_TRANSIENT_SRVS = 2048; // per frame allocator
     static const UINT64 UPLOAD_BUFFER_SIZE = 8 * 1024 * 1024;
@@ -190,8 +192,9 @@ class RenderBackendDX12 : public IRenderBackend
     float m_clearDepth = 1.0f;
     bool m_psoDirty = true;
 
+    static constexpr int TEXTURE_SLOT_COUNT = 4;
     ShaderDX12* m_activeShader = nullptr;
-    UINT m_boundTexSlot[3] = { UINT_MAX, UINT_MAX, UINT_MAX }; // Currently bound SRV indices for t0/t1/t2
+    UINT m_boundTexSlot[TEXTURE_SLOT_COUNT] = { UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX }; // Currently bound SRV indices for t0..t3
 
     // Grid line overlay (lazy-init in DrawLinesColored)
     std::unique_ptr<IShader> m_gridLineShader;

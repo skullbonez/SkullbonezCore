@@ -60,6 +60,14 @@ void SetTouchedCinematicSceneDirectives( std::vector<std::string>& lines, uint64
             SetSceneDirective( lines, key, buf, true );
         }
     };
+    const auto writeInt = [&]( uint64_t bit, const char* key, int value )
+    {
+        if ( ( touchedMask & bit ) != 0 )
+        {
+            snprintf( buf, sizeof( buf ), "%s %d", key, value );
+            SetSceneDirective( lines, key, buf, true );
+        }
+    };
 
     writeBool( SCENE_CINE_RENDERING, "cinematic_rendering", c.enabled );
     writeBool( SCENE_CINE_SKY_ATMOSPHERE, "cinematic_sky_atmosphere", c.skyAtmosphereEnabled );
@@ -101,6 +109,15 @@ void SetTouchedCinematicSceneDirectives( std::vector<std::string>& lines, uint64
     writeFloat( SCENE_CINE_TERRAIN_RELIEF, "cinematic_terrain_relief", c.terrainRelief, "%s %.2f" );
     writeFloat( SCENE_CINE_BASIN_DEPTH, "cinematic_basin_depth", c.basinDepth, "%s %.2f" );
     writeFloat( SCENE_CINE_BASIN_RIM_LIFT, "cinematic_basin_rim_lift", c.basinRimLift, "%s %.2f" );
+    writeBool( SCENE_CINE_SHADOWS, "cinematic_shadows", c.shadowsEnabled );
+    writeBool( SCENE_CINE_LEGACY_SHADOW_DISCS, "cinematic_legacy_shadow_discs", c.legacyShadowDiscs );
+    writeInt( SCENE_CINE_SHADOW_MAP_SIZE, "cinematic_shadow_map_size", c.shadowMapSize );
+    writeInt( SCENE_CINE_SHADOW_PCF_RADIUS, "cinematic_shadow_pcf_radius", c.shadowPcfRadius );
+    writeFloat( SCENE_CINE_SHADOW_STRENGTH, "cinematic_shadow_strength", c.shadowStrength, "%s %.3f" );
+    writeFloat( SCENE_CINE_SHADOW_SOFTNESS, "cinematic_shadow_softness", c.shadowSoftness, "%s %.2f" );
+    writeFloat( SCENE_CINE_SHADOW_DEPTH_BIAS, "cinematic_shadow_depth_bias", c.shadowDepthBias, "%s %.5f" );
+    writeFloat( SCENE_CINE_SHADOW_SLOPE_BIAS, "cinematic_shadow_slope_bias", c.shadowSlopeBias, "%s %.5f" );
+    writeFloat( SCENE_CINE_SHADOW_MAX_DISTANCE, "cinematic_shadow_max_distance", c.shadowMaxDistance, "%s %.2f" );
     writeFloat( SCENE_CINE_FOG_COLOR_R, "cinematic_fog_color_r", c.fogColorR, "%s %.2f" );
     writeFloat( SCENE_CINE_FOG_COLOR_G, "cinematic_fog_color_g", c.fogColorG, "%s %.2f" );
     writeFloat( SCENE_CINE_FOG_COLOR_B, "cinematic_fog_color_b", c.fogColorB, "%s %.2f" );

@@ -125,6 +125,7 @@ void Terrain::ResetRenderResources()
 {
     m_terrainMesh.reset();
     m_terrainShader.reset();
+    m_shadowDepthShader.reset();
 
     if ( m_isFlatSlope )
     {
@@ -336,7 +337,7 @@ void Terrain::LoadTerrainData( const char* sFileName )
 }
 
 
-void Terrain::Render( const Matrix4& view, const Matrix4& projection, const float* lightPosition, const SkullbonezCore::Basics::CinematicRenderConfig* cinematicOverride )
+void Terrain::Render( const Matrix4& view, const Matrix4& projection, const float* lightPosition, const SkullbonezCore::Basics::CinematicRenderConfig* cinematicOverride, const ShadowFrameData* shadow )
 {
     m_terrainShader->Use();
 
@@ -396,6 +397,42 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, const floa
         m_terrainShader->SetVec4( "uTerrainGrid", 46.0f, 0.0f, 0.0f, 0.0f );
     }
     m_terrainShader->SetVec4( "uLightPosition", lx, ly, lz, lw );
+    ApplyShadowReceiverUniforms( *m_terrainShader, shadow, shadow ? shadow->terrainReceives : false );
+
+    m_terrainMesh->Draw();
+}
+
+
+void Terrain::RenderShadowDepth( const Matrix4& lightView, const Matrix4& lightProjection, const SkullbonezCore::Basics::CinematicRenderConfig* cinematicOverride )
+{
+    if ( !m_shadowDepthShader )
+    {
+        m_shadowDepthShader = Gfx().CreateShader( "shaders/shadow_depth" );
+    }
+
+    m_shadowDepthShader->Use();
+
+    Matrix4 model;
+    m_shadowDepthShader->SetMat4( "uModel", model );
+    m_shadowDepthShader->SetMat4( "uView", lightView );
+    m_shadowDepthShader->SetMat4( "uProjection", lightProjection );
+    m_shadowDepthShader->SetVec4( "uClipPlane", 0.0f, 1.0f, 0.0f, 1.0e9f );
+
+    if ( cinematicOverride )
+    {
+        const SkullbonezCore::Basics::CinematicRenderConfig& cinematic = *cinematicOverride;
+        m_shadowDepthShader->SetVec4( "uCinematicTerrain",
+                                      cinematic.terrainReliefEnabled ? 1.0f : 0.0f,
+                                      cinematic.terrainRelief,
+                                      cinematic.basinDepth,
+                                      cinematic.basinRimLift );
+        m_shadowDepthShader->SetVec4( "uCinematicBasin", cinematic.basinCenterX, cinematic.basinCenterZ, cinematic.basinRadiusX + 80.0f, cinematic.basinRadiusZ + 60.0f );
+    }
+    else
+    {
+        m_shadowDepthShader->SetVec4( "uCinematicTerrain", 0.0f, 0.0f, 0.0f, 0.0f );
+        m_shadowDepthShader->SetVec4( "uCinematicBasin", 620.0f, 615.0f, 285.0f, 205.0f );
+    }
 
     m_terrainMesh->Draw();
 }

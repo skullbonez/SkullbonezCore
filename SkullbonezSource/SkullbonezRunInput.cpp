@@ -176,6 +176,8 @@ uint64_t CinematicOverrideMaskForUIFeature( UICinematicFeature feature )
         return SCENE_CINE_FOG;
     case UICinematicFeature::TerrainRelief:
         return SCENE_CINE_TERRAIN_RELIEF_ENABLED;
+    case UICinematicFeature::Shadows:
+        return SCENE_CINE_SHADOWS;
     default:
         return 0;
     }
@@ -503,6 +505,10 @@ void ToggleCinematicUIFeature( CinematicRenderConfig& cinematic, RunSceneState& 
     case UICinematicFeature::TerrainRelief:
         cinematic.terrainReliefEnabled = !cinematic.terrainReliefEnabled;
         scene.cinematicOverrideMask |= SCENE_CINE_TERRAIN_RELIEF_ENABLED;
+        break;
+    case UICinematicFeature::Shadows:
+        cinematic.shadowsEnabled = !cinematic.shadowsEnabled;
+        scene.cinematicOverrideMask |= SCENE_CINE_SHADOWS;
         break;
     default:
         break;

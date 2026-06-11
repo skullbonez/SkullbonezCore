@@ -1385,6 +1385,8 @@ class TestSceneParser
             { "cinematic_bloom", &CinematicRenderConfig::bloomEnabled, SCENE_CINE_BLOOM },
             { "cinematic_fog", &CinematicRenderConfig::fogEnabled, SCENE_CINE_FOG },
             { "cinematic_terrain_relief_enabled", &CinematicRenderConfig::terrainReliefEnabled, SCENE_CINE_TERRAIN_RELIEF_ENABLED },
+            { "cinematic_shadows", &CinematicRenderConfig::shadowsEnabled, SCENE_CINE_SHADOWS },
+            { "cinematic_legacy_shadow_discs", &CinematicRenderConfig::legacyShadowDiscs, SCENE_CINE_LEGACY_SHADOW_DISCS },
         };
         for ( const BoolDirective& directive : kBoolDirectives )
         {
@@ -1402,6 +1404,33 @@ class TestSceneParser
                     m_scene.m_sceneOptions.hasCinematicRenderingOverride = true;
                     m_scene.m_sceneOptions.cinematicRendering = parsedValue;
                 }
+                return true;
+            }
+        }
+
+        struct IntDirective
+        {
+            const char* name;
+            int CinematicRenderConfig::* field;
+            uint64_t bit;
+            int minValue;
+            int maxValue;
+        };
+        static constexpr IntDirective kIntDirectives[] = {
+            { "cinematic_shadow_map_size", &CinematicRenderConfig::shadowMapSize, SCENE_CINE_SHADOW_MAP_SIZE, 256, 8192 },
+            { "cinematic_shadow_pcf_radius", &CinematicRenderConfig::shadowPcfRadius, SCENE_CINE_SHADOW_PCF_RADIUS, 0, 3 },
+        };
+        for ( const IntDirective& directive : kIntDirectives )
+        {
+            if ( strcmp( key, directive.name ) == 0 )
+            {
+                const int parsedValue = ParseIntValue( key, value );
+                if ( parsedValue < directive.minValue || parsedValue > directive.maxValue )
+                {
+                    Fail( "Invalid %s at line %d (expected %d..%d)", key, m_lineNumber, directive.minValue, directive.maxValue );
+                }
+                m_scene.m_sceneOptions.cinematicRender.*( directive.field ) = parsedValue;
+                m_scene.m_sceneOptions.cinematicOverrideMask |= directive.bit;
                 return true;
             }
         }
@@ -1449,6 +1478,11 @@ class TestSceneParser
             { "cinematic_terrain_relief", &CinematicRenderConfig::terrainRelief, SCENE_CINE_TERRAIN_RELIEF, 0.0f, 4.0f },
             { "cinematic_basin_depth", &CinematicRenderConfig::basinDepth, SCENE_CINE_BASIN_DEPTH, 0.0f, 256.0f },
             { "cinematic_basin_rim_lift", &CinematicRenderConfig::basinRimLift, SCENE_CINE_BASIN_RIM_LIFT, 0.0f, 256.0f },
+            { "cinematic_shadow_strength", &CinematicRenderConfig::shadowStrength, SCENE_CINE_SHADOW_STRENGTH, 0.0f, 1.0f },
+            { "cinematic_shadow_softness", &CinematicRenderConfig::shadowSoftness, SCENE_CINE_SHADOW_SOFTNESS, 0.25f, 4.0f },
+            { "cinematic_shadow_depth_bias", &CinematicRenderConfig::shadowDepthBias, SCENE_CINE_SHADOW_DEPTH_BIAS, 0.0f, 0.05f },
+            { "cinematic_shadow_slope_bias", &CinematicRenderConfig::shadowSlopeBias, SCENE_CINE_SHADOW_SLOPE_BIAS, 0.0f, 0.05f },
+            { "cinematic_shadow_max_distance", &CinematicRenderConfig::shadowMaxDistance, SCENE_CINE_SHADOW_MAX_DISTANCE, 128.0f, 10000.0f },
             { "cinematic_fog_color_r", &CinematicRenderConfig::fogColorR, SCENE_CINE_FOG_COLOR_R, 0.0f, 4.0f },
             { "cinematic_fog_color_g", &CinematicRenderConfig::fogColorG, SCENE_CINE_FOG_COLOR_G, 0.0f, 4.0f },
             { "cinematic_fog_color_b", &CinematicRenderConfig::fogColorB, SCENE_CINE_FOG_COLOR_B, 0.0f, 4.0f },

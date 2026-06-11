@@ -23,6 +23,7 @@ using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::ZERO_VECTOR;
 using SkullbonezCore::Rendering::Gfx;
+using SkullbonezCore::Rendering::ShadowFrameData;
 namespace Vector = SkullbonezCore::Math::Vector;
 
 
@@ -173,7 +174,7 @@ void GameModelCollection::PrepareRenderStreams()
 }
 
 
-void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4], const CinematicRenderConfig* cinematic )
+void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4], const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow )
 {
     if ( m_gameModels.empty() )
     {
@@ -184,7 +185,7 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
     const int modelCount = static_cast<int>( m_gameModels.size() );
 
     // Render non-box models through the sphere batch.
-    SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes, cinematic );
+    SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes, cinematic, shadow );
     for ( int x = 0; x < modelCount; ++x )
     {
         if ( !m_soaIsBox[x] )
@@ -260,15 +261,82 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
         }
     };
 
-    SkullbonezHelper::DrawBoxBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes, cinematic );
+    SkullbonezHelper::DrawBoxBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes, cinematic, shadow );
     appendBoxLikeModels( false );
     SkullbonezHelper::DrawBoxBatchEnd();
 
     if ( hasPineVisualModels )
     {
-        SkullbonezHelper::DrawPineBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes, cinematic );
+        SkullbonezHelper::DrawPineBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes, cinematic, shadow );
         appendBoxLikeModels( true );
         SkullbonezHelper::DrawPineBatchEnd();
+    }
+}
+
+
+void GameModelCollection::RenderShadowCasters( const Matrix4& view, const Matrix4& proj, const CinematicRenderConfig* cinematic )
+{
+    if ( m_gameModels.empty() )
+    {
+        return;
+    }
+
+    EnsureSoAModelMatrices();
+    const int modelCount = static_cast<int>( m_gameModels.size() );
+
+    SkullbonezHelper::DrawShadowDepthSphereBatchBegin( view, proj, cinematic );
+    for ( int x = 0; x < modelCount; ++x )
+    {
+        if ( !m_soaIsBox[x] )
+        {
+            SkullbonezHelper::DrawShadowDepthSphereBatchModel( m_soaModelMatrices[x] );
+        }
+    }
+    SkullbonezHelper::DrawShadowDepthSphereBatchEnd();
+
+    bool hasPineVisualModels = false;
+    auto appendBoxLikeModels = [&]( bool pineVisualPass )
+    {
+        for ( int x = 0; x < modelCount; ++x )
+        {
+            if ( !m_soaIsBox[x] )
+            {
+                continue;
+            }
+            float tintR = 1.0f;
+            float tintG = 1.0f;
+            float tintB = 1.0f;
+            float colorOverride = 0.0f;
+            m_gameModels[x].GetRenderTint( tintR, tintG, tintB, colorOverride );
+            const bool isPineVisual = IsPineVisualMaterial( colorOverride );
+            if ( isPineVisual )
+            {
+                hasPineVisualModels = true;
+            }
+            if ( isPineVisual != pineVisualPass )
+            {
+                continue;
+            }
+            if ( pineVisualPass )
+            {
+                SkullbonezHelper::DrawShadowDepthPineBatchModel( m_soaModelMatrices[x] );
+            }
+            else
+            {
+                SkullbonezHelper::DrawShadowDepthBoxBatchModel( m_soaModelMatrices[x] );
+            }
+        }
+    };
+
+    SkullbonezHelper::DrawShadowDepthBoxBatchBegin( view, proj );
+    appendBoxLikeModels( false );
+    SkullbonezHelper::DrawShadowDepthBoxBatchEnd();
+
+    if ( hasPineVisualModels )
+    {
+        SkullbonezHelper::DrawShadowDepthPineBatchBegin( view, proj );
+        appendBoxLikeModels( true );
+        SkullbonezHelper::DrawShadowDepthPineBatchEnd();
     }
 }
 

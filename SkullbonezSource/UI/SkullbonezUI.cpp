@@ -157,6 +157,7 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data, int currentRend
     hash = HashBool( hash, data.cinematic.bloomEnabled );
     hash = HashBool( hash, data.cinematic.fogEnabled );
     hash = HashBool( hash, data.cinematic.terrainReliefEnabled );
+    hash = HashBool( hash, data.cinematic.shadowsEnabled );
     hash = HashFloat( hash, data.cinematic.exposure, 1000.0f );
     hash = HashFloat( hash, data.cinematic.gamma, 1000.0f );
     hash = HashFloat( hash, data.cinematic.sunScreenX, 1000.0f );
@@ -355,6 +356,7 @@ constexpr CinematicFeatureSpec kCinematicFeatureSpecs[] = {
     { "Bloom", UICinematicFeature::Bloom },
     { "Fog", UICinematicFeature::Fog },
     { "Relief", UICinematicFeature::TerrainRelief },
+    { "Shadows", UICinematicFeature::Shadows },
 };
 static_assert( sizeof( kCinematicFeatureSpecs ) / sizeof( kCinematicFeatureSpecs[0] ) == static_cast<int>( UICinematicFeature::Count ),
                "Cinematic feature specs must match UICinematicFeature." );
@@ -620,6 +622,8 @@ bool CinematicFeatureEnabled( const CinematicRenderConfig& cinematic, UICinemati
         return cinematic.fogEnabled;
     case UICinematicFeature::TerrainRelief:
         return cinematic.terrainReliefEnabled;
+    case UICinematicFeature::Shadows:
+        return cinematic.shadowsEnabled;
     default:
         return false;
     }

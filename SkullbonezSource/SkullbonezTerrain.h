@@ -10,6 +10,7 @@
 #include "SkullbonezGeometricMath.h"
 #include "SkullbonezIMesh.h"
 #include "SkullbonezIShader.h"
+#include "SkullbonezShadow.h"
 #include <vector>
 
 
@@ -37,8 +38,9 @@ class Terrain
     Terrain( float slopeBaseY, float slopeX, float slopeZ );                         // Flat analytic slope constructor: y = slopeBaseY + slopeX*x + slopeZ*z
     ~Terrain();                                                                      // Default destructor
 
-    void Render( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection, const float* lightPosition, const Basics::CinematicRenderConfig* cinematic = nullptr ); // Renders the terrain with shader
-    void ResetRenderResources();                                                                                                                                                                     // Rebuild backend-specific mesh/shader after renderer switch
+    void Render( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection, const float* lightPosition, const Basics::CinematicRenderConfig* cinematic = nullptr, const Rendering::ShadowFrameData* shadow = nullptr ); // Renders the terrain with shader
+    void RenderShadowDepth( const Math::Transformation::Matrix4& lightView, const Math::Transformation::Matrix4& lightProjection, const Basics::CinematicRenderConfig* cinematic = nullptr );                                                            // Renders terrain into directional shadow depth
+    void ResetRenderResources();                                                                                                                                                                                                                         // Rebuild backend-specific mesh/shader after renderer switch
     Rendering::IMesh* GetMesh() const
     {
         return m_terrainMesh.get();
@@ -75,8 +77,9 @@ class Terrain
     UINT displayListReference;                           // Reference to the display list (retained for fallback)
     std::unique_ptr<Rendering::IMesh> m_terrainMesh;     // VBO mesh for m_shader rendering
     std::unique_ptr<Rendering::IShader> m_terrainShader; // Lit+textured m_shader program
-    std::vector<TerrainPost> m_postData;                 // Vertices that make up the m_terrain
-    std::vector<BYTE> m_terrainData;                     // Raw m_height map byte data (populated during construction, cleared after build)
+    std::unique_ptr<Rendering::IShader> m_shadowDepthShader;
+    std::vector<TerrainPost> m_postData; // Vertices that make up the m_terrain
+    std::vector<BYTE> m_terrainData;     // Raw m_height map byte data (populated during construction, cleared after build)
     std::vector<CachedQuadData> m_cachedCollisionData;
     int m_mapSize;                // Size of map (pixels length)
     int m_stepSize;               // Steps size between posts

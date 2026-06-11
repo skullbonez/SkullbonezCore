@@ -90,6 +90,7 @@ enum class UICinematicFeature
     Bloom,
     Fog,
     TerrainRelief,
+    Shadows,
     Count
 };
 
