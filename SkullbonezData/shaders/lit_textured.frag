@@ -120,9 +120,9 @@ vec3 TerrainModeColor(int mode, vec3 texColor, vec3 N, vec3 worldPos)
     {
         float heightT = clamp((worldPos.y - 28.0) / 115.0, 0.0, 1.0);
         float terrace = floor(heightT * 5.0) / 5.0;
-        vec3 lowColor = mix(vec3(0.24, 0.40, 0.12), uTerrainAccent.rgb, 0.20);
-        vec3 midColor = mix(vec3(0.48, 0.60, 0.20), uTerrainTint.rgb, 0.38);
-        vec3 highColor = vec3(0.80, 0.68, 0.30);
+        vec3 lowColor = mix(vec3(0.18, 0.34, 0.09), uTerrainAccent.rgb, 0.24);
+        vec3 midColor = mix(vec3(0.38, 0.54, 0.16), uTerrainTint.rgb, 0.32);
+        vec3 highColor = vec3(0.60, 0.56, 0.24);
         base = mix(lowColor, midColor, smoothstep(0.08, 0.58, heightT));
         base = mix(base, highColor, smoothstep(0.58, 1.0, heightT));
         float slope = clamp(1.0 - max(N.y, 0.0), 0.0, 1.0);
@@ -131,9 +131,9 @@ vec3 TerrainModeColor(int mode, vec3 texColor, vec3 N, vec3 worldPos)
         vec2 patchCell = floor(worldPos.xz / 64.0);
         float patchSeed = fract(sin(dot(patchCell, vec2(12.9898, 78.233))) * 43758.5453);
         float patchBand = floor(patchSeed * 4.0) / 3.0;
-        vec3 coolPatch = mix(vec3(0.18, 0.34, 0.09), uTerrainAccent.rgb, 0.10);
-        vec3 warmPatch = vec3(0.62, 0.56, 0.20);
-        base = mix(base, mix(coolPatch, warmPatch, patchBand), 0.20);
+        vec3 coolPatch = mix(vec3(0.14, 0.30, 0.08), uTerrainAccent.rgb, 0.12);
+        vec3 warmPatch = vec3(0.48, 0.50, 0.18);
+        base = mix(base, mix(coolPatch, warmPatch, patchBand), 0.16);
         float basinT = clamp(1.0 - BasinDistance(worldPos.xz), 0.0, 1.0);
         base *= 1.0 - basinT * 0.055;
         float facet = floor(max(N.y, 0.0) * 4.0) / 4.0;
@@ -247,14 +247,14 @@ void main()
             // Low-poly art mode: no texture dependency, just height-colored
             // terrain, hemisphere ambient, warm sun bands, and readable facets.
             float hemiT = clamp(terrainN.y * 0.5 + 0.5, 0.0, 1.0);
-            vec3 skyAmbient = vec3(0.40, 0.54, 0.74);
-            vec3 groundAmbient = vec3(0.22, 0.28, 0.10);
+            vec3 skyAmbient = vec3(0.34, 0.50, 0.72);
+            vec3 groundAmbient = vec3(0.16, 0.24, 0.08);
             vec3 hemiAmbient = mix(groundAmbient, skyAmbient, hemiT);
             float sunBand = terrainDiff > 0.72 ? 1.0 : (terrainDiff > 0.34 ? 0.62 : 0.30);
             float softFill = warmWrap * 0.10;
-            vec3 warmSun = uLightDiffuse.rgb * vec3(1.08, 0.86, 0.54);
-            vec3 color = earthBase * (hemiAmbient * 0.52 + warmSun * (sunBand * 0.32 + softFill));
-            color += warmSun * (rim * 0.045 + grazing * 0.024);
+            vec3 warmSun = uLightDiffuse.rgb * vec3(0.96, 0.78, 0.50);
+            vec3 color = earthBase * (hemiAmbient * 0.58 + warmSun * (sunBand * 0.26 + softFill * 0.82));
+            color += warmSun * (rim * 0.036 + grazing * 0.018);
             FragColor = vec4(color, 1.0);
             return;
         }
