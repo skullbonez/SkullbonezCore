@@ -130,6 +130,14 @@ floating_ball flower_fore_left_01 338 58 858  2.6 10.0 3.6 0.20 0 35 0
 floating_ball flower_fore_left_02 382 58 866  2.4 9.0 3.4 0.20 0 95 0
 floating_ball flower_fore_right_01 896 58 858  2.6 10.0 3.6 0.20 0 155 0
 floating_ball flower_fore_right_02 940 58 866  2.4 9.0 3.4 0.20 0 215 0
+floating_box bladed_show_left_01 526 60 808  6 24 4  2000 0.08  0 34 -7
+floating_box bladel_show_left_02 568 61 818  5 22 4  2000 0.08  0 72 9
+floating_box blade_show_right_01 724 58 804  4 17 3  2000 0.08  0 226 7
+floating_box bladel_show_right_02 762 58 814  4 16 3  2000 0.08  0 268 -8
+floating_ball flowerhot_show_left_01 532 70 810  3.6 11.0 4.4 0.20 0 44 0
+floating_ball flowery_show_left_02 572 70 820  3.2 10.0 4.0 0.20 0 92 0
+floating_ball flowerhot_show_right_01 728 66 806  2.6 8.5 3.4 0.20 0 164 0
+floating_ball flowery_show_right_02 768 66 816  2.4 8.0 3.2 0.20 0 214 0
 floating_ball grassl_pond_left_01 446 50 790  8.0 28 6.8 0.18 0 28 0
 floating_ball grass_pond_left_02 478 50 778  6.8 24 5.8 0.18 0 68 0
 floating_ball grassd_pond_left_03 505 50 802  7.4 26 6.2 0.18 0 108 0
