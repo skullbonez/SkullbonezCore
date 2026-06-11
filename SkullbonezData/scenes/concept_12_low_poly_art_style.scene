@@ -7,15 +7,15 @@ pipeline_sync on
 fixed_step
 frames unlimited
 water_reflection fbo
-world -30.0 25.0 0.0
+world -30.0 25.0 1.0
 style low_poly_art_style
 camera main 640 122 940  610 57 650  0 1 0
 
-floating_box ridge_left 250 58 500  120 16 18  2000 0.08  0 -8 0
-floating_box ridge_right 980 60 505  130 17 18  2000 0.08  0 10 0
-floating_box ridge_mid 640 60 466  170 14 16  2000 0.08  0 1 0
-floating_box ridge_back_left 390 68 445  95 11 13  2000 0.08  0 18 0
-floating_box ridge_back_right 820 70 445  105 12 13  2000 0.08  0 -14 0
+floating_box ridge_left 258 45 512  86 4 12  2000 0.08  0 -8 0
+floating_box ridge_right 986 46 512  94 4 12  2000 0.08  0 10 0
+floating_box ridge_mid 640 46 478  126 4 11  2000 0.08  0 1 0
+floating_box ridge_back_left 390 52 462  72 4 9  2000 0.08  0 18 0
+floating_box ridge_back_right 820 53 462  78 4 9  2000 0.08  0 -14 0
 floating_ball shore_left_01 492 50 778  6.0 24 5.2 0.18 0 32 0
 floating_ball shore_left_02 516 49 766  4.8 19 4.2 0.18 0 76 0
 floating_ball shore_right_01 824 50 750  6.0 24 5.2 0.18 0 -28 0
@@ -135,10 +135,10 @@ floating_box bladed_show_left_01 526 60 808  6 24 4  2000 0.08  0 34 -7
 floating_box bladel_show_left_02 568 61 818  5 22 4  2000 0.08  0 72 9
 floating_box blade_show_right_01 724 58 804  4 17 3  2000 0.08  0 226 7
 floating_box bladel_show_right_02 762 58 814  4 16 3  2000 0.08  0 268 -8
-floating_ball flowerhot_show_left_01 532 70 810  3.6 11.0 4.4 0.20 0 44 0
-floating_ball flowery_show_left_02 572 70 820  3.2 10.0 4.0 0.20 0 92 0
-floating_ball flowerhot_show_right_01 728 66 806  2.6 8.5 3.4 0.20 0 164 0
-floating_ball flowery_show_right_02 768 66 816  2.4 8.0 3.2 0.20 0 214 0
+floating_ball flowerhot_show_left_01 532 66 810  2.4 7.0 3.0 0.20 0 44 0
+floating_ball flowery_show_left_02 572 66 820  2.2 6.5 2.8 0.20 0 92 0
+floating_ball flowerhot_show_right_01 728 63 806  2.0 6.0 2.5 0.20 0 164 0
+floating_ball flowery_show_right_02 768 63 816  1.8 5.6 2.3 0.20 0 214 0
 floating_ball grassl_pond_left_01 446 50 790  8.0 28 6.8 0.18 0 28 0
 floating_ball grass_pond_left_02 478 50 778  6.8 24 5.8 0.18 0 68 0
 floating_ball grassd_pond_left_03 505 50 802  7.4 26 6.2 0.18 0 108 0
@@ -149,17 +149,17 @@ floating_ball grass_pond_right_02 806 50 778  6.8 24 5.8 0.18 0 248 0
 floating_ball grassd_pond_right_03 835 50 802  7.4 26 6.2 0.18 0 288 0
 floating_ball flower_pond_right_01 790 59 790  3.6 13.0 4.6 0.20 0 165 0
 floating_ball flower_pond_right_02 828 59 802  3.2 12.0 4.2 0.20 0 225 0
-floating_ball flowerhot_fore_left_01 302 66 850  5.2 17.0 6.3 0.20 0 25 0
-floating_ball flowery_fore_left_02 340 66 862  4.5 15.5 5.7 0.20 0 75 0
-floating_ball flowerhot_fore_left_03 412 66 856  4.8 16.5 5.9 0.20 0 125 0
-floating_ball flowerhot_near_left_01 270 69 882  6.0 20.0 7.2 0.20 0 55 0
-floating_ball flowery_near_left_02 454 68 886  5.2 17.5 6.4 0.20 0 115 0
-floating_ball flowery_fore_right_01 860 66 854  4.5 15.5 5.7 0.20 0 175 0
-floating_ball flowerhot_fore_right_02 912 66 866  5.2 17.0 6.3 0.20 0 225 0
-floating_ball flowery_near_right_01 834 68 886  5.2 17.5 6.4 0.20 0 175 0
-floating_ball flowerhot_near_right_02 962 69 880  6.0 20.0 7.2 0.20 0 235 0
-floating_ball flowery_pond_left_01 480 66 792  4.4 15.5 5.7 0.20 0 95 0
-floating_ball flowerhot_pond_right_01 806 66 792  4.4 15.5 5.7 0.20 0 195 0
+floating_ball flowerhot_fore_left_01 302 61 850  2.8 9.0 3.4 0.20 0 25 0
+floating_ball flowery_fore_left_02 340 61 862  2.4 8.2 3.0 0.20 0 75 0
+floating_ball flowerhot_fore_left_03 412 61 856  2.6 8.6 3.2 0.20 0 125 0
+floating_ball flowerhot_near_left_01 270 63 882  3.2 10.5 3.8 0.20 0 55 0
+floating_ball flowery_near_left_02 454 63 886  2.8 9.2 3.4 0.20 0 115 0
+floating_ball flowery_fore_right_01 860 61 854  2.4 8.2 3.0 0.20 0 175 0
+floating_ball flowerhot_fore_right_02 912 61 866  2.8 9.0 3.4 0.20 0 225 0
+floating_ball flowery_near_right_01 834 63 886  2.8 9.2 3.4 0.20 0 175 0
+floating_ball flowerhot_near_right_02 962 63 880  3.2 10.5 3.8 0.20 0 235 0
+floating_ball flowery_pond_left_01 480 62 792  2.6 8.4 3.2 0.20 0 95 0
+floating_ball flowerhot_pond_right_01 806 62 792  2.6 8.4 3.2 0.20 0 195 0
 floating_ball flowerhot_hero_left_01 510 67 710  3.8 12.5 4.7 0.20 0 45 0
 floating_ball flowery_hero_left_02 550 66 732  3.4 11.5 4.2 0.20 0 105 0
 floating_ball flowerhot_hero_right_01 772 67 704  3.8 12.5 4.7 0.20 0 165 0
@@ -170,9 +170,5 @@ ball game_right 740 74 760 8 34 7 0.44 0 116 0
 box game_box_left 510 68 762  9.5 9.5 9.5  90 0.42  0 -14 0  3 0 -6
 box game_box_right 768 66 832  9.0 9.0 9.0  86 0.42  0 18 0  1 0 -2
 box game_box_01 580 58 792  8.2 8.2 8.2  62 0.38  0 28 0
-floating_ball low_01 470 64 705 14 58 13 0.40 0 68 0
-floating_ball low_02 760 58 690 15 62 14 0.40 0 128 0
-floating_ball low_03 390 80 555 8 32 8 0.36 0 20 0
-floating_ball low_04 520 74 530 7 28 7 0.36 0 60 0
-floating_ball low_05 675 70 535 7 28 7 0.36 0 100 0
-floating_ball sky_01 820 166 515 10 34 9 0.34 0 140 0
+floating_ball low_01 470 54 705 8 30 7 0.40 0 68 0
+floating_ball low_02 760 54 690 8 30 7 0.40 0 128 0
