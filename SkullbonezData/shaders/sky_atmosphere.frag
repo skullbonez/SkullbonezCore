@@ -235,10 +235,10 @@ void main()
         float upperCool = smoothstep(0.24, 0.54, height);
         lowPolySky = mix(lowPolySky, clamp(zenith * vec3(0.62, 0.98, 1.20), 0.0, 1.8), upperCool * 0.78);
 
-        float farRidge = LowPolyRidgeHeight(skyCoord.x, 0.54, 0.15, 4.20, 0.11);
-        float midRidge = LowPolyRidgeHeight(skyCoord.x, 0.49, 0.13, 5.80, 0.37);
-        float nearRidge = LowPolyRidgeHeight(skyCoord.x, 0.44, 0.12, 7.30, 0.68);
-        float ridgeFade = smoothstep(0.31, 0.43, height) * (1.0 - smoothstep(0.61, 0.74, height));
+        float farRidge = LowPolyRidgeHeight(skyCoord.x, 0.56, 0.18, 4.20, 0.11);
+        float midRidge = LowPolyRidgeHeight(skyCoord.x, 0.51, 0.16, 5.80, 0.37);
+        float nearRidge = LowPolyRidgeHeight(skyCoord.x, 0.46, 0.14, 7.30, 0.68);
+        float ridgeFade = smoothstep(0.24, 0.38, height) * (1.0 - smoothstep(0.66, 0.80, height));
         float farMask = (1.0 - smoothstep(farRidge - 0.016, farRidge + 0.024, height)) * ridgeFade;
         float midMask = (1.0 - smoothstep(midRidge - 0.014, midRidge + 0.022, height)) * ridgeFade;
         float nearMask = (1.0 - smoothstep(nearRidge - 0.012, nearRidge + 0.020, height)) * ridgeFade;
@@ -248,12 +248,12 @@ void main()
         farMask = floor(farMask * 4.0 + 0.5) / 4.0;
         midMask = floor(midMask * 4.0 + 0.5) / 4.0;
         nearMask = floor(nearMask * 4.0 + 0.5) / 4.0;
-        vec3 farMountain = clamp(mix(vec3(0.30, 0.39, 0.62), horizon, 0.08), 0.0, 1.4);
-        vec3 midMountain = clamp(mix(vec3(0.39, 0.30, 0.48), horizon, 0.09), 0.0, 1.4);
-        vec3 nearMountain = clamp(mix(vec3(0.22, 0.25, 0.33), uSunColor, 0.06), 0.0, 1.3);
-        lowPolySky = mix(lowPolySky, farMountain, clamp(farMask * 0.80, 0.0, 0.80));
-        lowPolySky = mix(lowPolySky, midMountain, clamp(midMask * 0.82, 0.0, 0.82));
-        lowPolySky = mix(lowPolySky, nearMountain, clamp(nearMask * 0.74, 0.0, 0.74));
+        vec3 farMountain = clamp(mix(vec3(0.17, 0.29, 0.56), horizon, 0.03), 0.0, 1.4);
+        vec3 midMountain = clamp(mix(vec3(0.27, 0.26, 0.48), horizon, 0.04), 0.0, 1.4);
+        vec3 nearMountain = clamp(mix(vec3(0.16, 0.20, 0.30), uSunColor, 0.03), 0.0, 1.3);
+        lowPolySky = mix(lowPolySky, farMountain, clamp(farMask * 1.00, 0.0, 1.0));
+        lowPolySky = mix(lowPolySky, midMountain, clamp(midMask * 0.96, 0.0, 0.96));
+        lowPolySky = mix(lowPolySky, nearMountain, clamp(nearMask * 0.90, 0.0, 0.90));
 
         // Low-poly mode uses deliberate flat cloud cards instead of the broader
         // cinematic cloud bank. This keeps the sky clean and composed.
