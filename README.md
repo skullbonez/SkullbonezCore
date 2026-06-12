@@ -46,9 +46,10 @@ Build outputs:
 
 Validation scripts are formal pre-commit/PR gates, not routine as-you-go checks.
 During implementation, use targeted builds, launches, or focused tests only when
-they answer a specific question about the fix. Before PR-bound feature-branch
-work is committed or pushed, use the repository scripts instead of retyping long
-commands:
+they answer a specific question about the fix. Successful validation entry
+points finish by rebuilding both `Profile` and `Debug` so the binaries are ready
+for launching or F5 debugging. Before PR-bound feature-branch work is committed
+or pushed, use the repository scripts instead of retyping long commands:
 
 | Change Type | Command |
 |-------------|---------|

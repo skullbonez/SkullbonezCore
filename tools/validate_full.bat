@@ -12,6 +12,9 @@ echo   VALIDATE_FULL - Complete Validation Pipeline
 echo ============================================================
 echo.
 
+set "PREVIOUS_SKIP_READY_BUILDS=%SKULLBONEZ_SKIP_READY_BUILDS%"
+set "SKULLBONEZ_SKIP_READY_BUILDS=1"
+
 echo === Phase 1: Renderer Validation ===
 call "%~dp0validate_renderers.bat"
 if errorlevel 1 (
@@ -37,6 +40,10 @@ if errorlevel 1 (
     echo VALIDATE_FULL: FAILED at performance validation.
     exit /b 3
 )
+
+set "SKULLBONEZ_SKIP_READY_BUILDS=%PREVIOUS_SKIP_READY_BUILDS%"
+call "%~dp0validate_ready_builds.bat"
+if errorlevel 1 exit /b 4
 
 echo.
 echo ============================================================

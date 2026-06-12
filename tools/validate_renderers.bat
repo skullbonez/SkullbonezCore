@@ -105,6 +105,12 @@ if errorlevel 1 (
     exit /b 9
 )
 
+call "%~dp0validate_ready_builds.bat"
+if errorlevel 1 (
+    popd
+    exit /b 10
+)
+
 echo.
 echo ========================================
 echo   VALIDATE_RENDERERS: ALL PASSED

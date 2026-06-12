@@ -8,6 +8,8 @@ if "%~1"=="" (
 )
 
 set "FAILED=0"
+set "PREVIOUS_SKIP_READY_BUILDS=%SKULLBONEZ_SKIP_READY_BUILDS%"
+set "SKULLBONEZ_SKIP_READY_BUILDS=1"
 
 for %%A in (%*) do (
     set "ARG=%%~A"
@@ -82,6 +84,10 @@ if "!FAILED!"=="1" (
     echo VALIDATE_SELECT: one or more validations failed.
     exit /b 1
 )
+
+set "SKULLBONEZ_SKIP_READY_BUILDS=%PREVIOUS_SKIP_READY_BUILDS%"
+call "%ROOT%validate_ready_builds.bat"
+if errorlevel 1 exit /b 2
 
 echo.
 echo VALIDATE_SELECT: all requested validations passed.

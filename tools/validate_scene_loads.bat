@@ -19,5 +19,10 @@ if errorlevel 1 exit /b 1
 echo [2/2] Running load-only scene sweep...
 "%PYTHON_EXE%" "%~dp0validate_scene_loads.py" %*
 if errorlevel 1 exit /b 2
+call "%~dp0validate_ready_builds.bat"
+if errorlevel 1 (
+    popd
+    exit /b 3
+)
 popd
 exit /b 0

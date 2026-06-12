@@ -151,6 +151,12 @@ for %%r in (gl dx11 dx12 physics_bench physics_bench_no_sleep) do (
     )
 )
 
+call "%~dp0validate_ready_builds.bat"
+if errorlevel 1 (
+    popd
+    exit /b 8
+)
+
 echo.
 echo ========================================
 echo   VALIDATE_PERF: COMPLETE

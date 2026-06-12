@@ -23,6 +23,12 @@ if errorlevel 1 (
     exit /b 1
 )
 
+call "%~dp0validate_ready_builds.bat"
+if errorlevel 1 (
+    popd
+    exit /b 2
+)
+
 echo.
 echo ========================================
 echo   VALIDATE_SHADERS: ALL PASSED
