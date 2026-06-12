@@ -54,7 +54,7 @@ void SkullbonezRun::Run()
                 const std::vector<int64_t>& collisionKeys = m_cGameModelCollection.GetCollisionCellKeys();
                 m_broadphaseVisualizer.Update( static_cast<float>( secondsPerFrame ), activeCellBuf, activeCellCount, collisionKeys.data(), static_cast<int>( collisionKeys.size() ) );
             }
-            m_collisionVisualizer.SetEnabled( m_debug.isCollisionVisualizer || ( m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE && m_debug.isPhysicsDebugTransparent ) );
+            m_collisionVisualizer.SetEnabled( m_debug.isCollisionVisualizer );
             m_collisionVisualizer.Update( static_cast<float>( secondsPerFrame ), m_cGameModelCollection );
             m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
             m_physicsDebugVisualizer.SetContactLingerSeconds( m_debug.physicsDebugContactLinger );

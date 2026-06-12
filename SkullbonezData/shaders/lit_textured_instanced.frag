@@ -24,6 +24,7 @@ uniform vec4 uLightAmbient;
 uniform vec4 uLightDiffuse;
 uniform vec4 uMaterialAmbient;
 uniform vec4 uMaterialDiffuse;
+uniform float uMaterialAlpha;
 uniform sampler2D uTexture;
 uniform sampler2D uShadowMap;
 uniform mat4 uShadowViewProj;
@@ -352,7 +353,7 @@ void main()
         vec3 styled = ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, glint);
         styled *= shadowFactor;
         vec3 beachBall = warmAmbient + directSun + rimLight + specularSun;
-        FragColor = vec4(materialMode == 0 ? beachBall : styled + rimLight * 0.35, 1.0);
+        FragColor = vec4(materialMode == 0 ? beachBall : styled + rimLight * 0.35, uMaterialAlpha);
         return;
     }
 
@@ -374,5 +375,5 @@ void main()
     {
         litColor = ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, spec) * shadowFactor;
     }
-    FragColor = vec4(litColor, 1.0);
+    FragColor = vec4(litColor, uMaterialAlpha);
 }

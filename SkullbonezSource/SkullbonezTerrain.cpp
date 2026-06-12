@@ -1,6 +1,7 @@
 // --- Includes ---
 #include "SkullbonezTerrain.h"
 #include "SkullbonezIRenderBackend.h"
+#include "SkullbonezProfiler.h"
 
 #include <memory>
 
@@ -405,6 +406,8 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, const floa
 
 void Terrain::RenderShadowDepth( const Matrix4& lightView, const Matrix4& lightProjection, const SkullbonezCore::Basics::CinematicRenderConfig* cinematicOverride )
 {
+    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters/DepthDraw" );
+
     if ( !m_shadowDepthShader )
     {
         // Terrain is not instanced, so it uses the non-instanced shadow_depth

@@ -144,6 +144,7 @@ void SkullbonezRun::EnsureShadowRenderResources( const CinematicRenderConfig& ci
     {
         return;
     }
+    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/EnsureResources" );
 
     // The shadow map is a renderer-neutral depth framebuffer. It is intentionally
     // owned outside the cinematic HDR target because the same light-space depth
@@ -191,6 +192,8 @@ void SkullbonezRun::ResetShadowRenderResources()
 
 SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::BuildShadowFrameData( const CinematicRenderConfig& cinematic, const Vector3& lightDirectionWorld ) const
 {
+    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildTerrainFrame" );
+
     Rendering::ShadowFrameData shadowFrame;
     if ( !m_systems.terrain || !m_systems.shadowFBO )
     {
@@ -253,6 +256,8 @@ SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::BuildShadowFrameData( 
 
 SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::BuildObjectShadowFrameData( const CinematicRenderConfig& cinematic, const Vector3& lightDirectionWorld, const Vector3& focusHint )
 {
+    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame" );
+
     Rendering::ShadowFrameData shadowFrame;
     if ( !m_systems.objectShadowFBO || !cinematic.shadowObjectsCast || !cinematic.shadowObjectsReceive )
     {
@@ -299,6 +304,8 @@ SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::BuildObjectShadowFrame
 
 void SkullbonezRun::RenderShadowMap( Rendering::IFramebuffer& target, const Rendering::ShadowFrameData& shadowFrame, const CinematicRenderConfig& cinematic, bool renderTerrain, bool renderObjects )
 {
+    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap" );
+
     if ( !shadowFrame.valid )
     {
         return;
@@ -333,6 +340,8 @@ void SkullbonezRun::RenderShadowMap( Rendering::IFramebuffer& target, const Rend
 
     if ( renderTerrain && cinematic.shadowTerrainCasts && !m_debug.isTerrainHidden && m_systems.terrain )
     {
+        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/TerrainCasters" );
+
         // Terrain must cast with the same optional render-only relief that the
         // visible terrain uses. Otherwise cinematic basin relief would receive
         // shadows from the flat CPU height map and the contact would visibly
@@ -342,6 +351,8 @@ void SkullbonezRun::RenderShadowMap( Rendering::IFramebuffer& target, const Rend
 
     if ( renderObjects && cinematic.shadowObjectsCast && !m_debug.isCollisionVisualizer )
     {
+        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters" );
+
         // Balls, boxes, and pine-style box visuals all write depth here. The
         // collection keeps separate instanced batches so each caster shape uses
         // the same mesh silhouette as the visible forward pass.
@@ -695,7 +706,8 @@ void SkullbonezRun::DrawPrimitives()
         // Build shadow maps before any receiver pass. Terrain receives the broad
         // map, while objects receive a second tight map centered on nearby bodies
         // so ball-on-ball shadows have enough texel density.
-        PROFILE_GPU_BEGIN( "Frame/Render/Shadows/ShadowMap" );
+        PROFILE_SCOPED( "Frame/Shadows" );
+        PROFILE_GPU_BEGIN( "Frame/Shadows/ShadowMap" );
         Vector3 lightDirection( lightPosition[0], lightPosition[1], lightPosition[2] );
         EnsureShadowRenderResources( *activeShadowConfig );
         m_systems.shadowFrame = BuildShadowFrameData( *activeShadowConfig, lightDirection );
@@ -708,14 +720,15 @@ void SkullbonezRun::DrawPrimitives()
         {
             RenderShadowMap( *m_systems.objectShadowFBO, m_systems.objectShadowFrame, *activeShadowConfig, false, true );
         }
-        PROFILE_GPU_END( "Frame/Render/Shadows/ShadowMap" );
+        PROFILE_GPU_END( "Frame/Shadows/ShadowMap" );
     }
     const Rendering::ShadowFrameData* terrainShadowFrame = m_systems.shadowFrame.valid ? &m_systems.shadowFrame : nullptr;
     const Rendering::ShadowFrameData* objectShadowFrame = m_systems.objectShadowFrame.valid ? &m_systems.objectShadowFrame : terrainShadowFrame;
 
-    const bool debugBodiesVisible = m_debug.isCollisionVisualizer || m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE;
-    const bool physicsDebugTransparent = debugBodiesVisible && m_debug.isPhysicsDebugTransparent;
-    const float collisionVisualizerAlphaOverride = physicsDebugTransparent ? m_debug.physicsDebugAlpha : -1.0f;
+    const bool collisionStateColorsVisible = m_debug.isCollisionVisualizer;
+    const bool transparentBodyPass = m_debug.isPhysicsDebugTransparent && m_debug.physicsDebugAlpha < 1.0f;
+    const float bodyRenderAlpha = transparentBodyPass ? m_debug.physicsDebugAlpha : 1.0f;
+    const float collisionVisualizerAlphaOverride = transparentBodyPass ? bodyRenderAlpha : -1.0f;
 
     // Camera m_position for skybox placement.  During camera transitions the
     // selected camera is already the destination, but SetCamera() renders from
@@ -739,7 +752,8 @@ void SkullbonezRun::DrawPrimitives()
     const bool useDxrReflection = renderCapabilities.supportsDxrReflection &&
                                   m_debug.isWaterRTReflect &&
                                   !m_debug.isWaterNoReflect &&
-                                  !m_debug.isCollisionVisualizer;
+                                  !collisionStateColorsVisible &&
+                                  !transparentBodyPass;
     // Mirror eye and look-at target about the water plane; flip up vector
     Vector3 reflEye( eye.x, 2.0f * waterY - eye.y, eye.z );
     Vector3 reflCenter( center.x, 2.0f * waterY - center.y, center.z );
@@ -803,7 +817,7 @@ void SkullbonezRun::DrawPrimitives()
         Gfx().SetClipPlane( 0, true );
         SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -waterY );
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -waterY );
-        if ( m_debug.isCollisionVisualizer )
+        if ( collisionStateColorsVisible )
         {
             m_collisionVisualizer.SetAlphaOverride( collisionVisualizerAlphaOverride );
             m_collisionVisualizer.Render( m_cGameModelCollection, reflView, proj, lightPosition );
@@ -812,7 +826,7 @@ void SkullbonezRun::DrawPrimitives()
         else
         {
             m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-            m_cGameModelCollection.RenderModels( reflView, proj, lightPosition, activeCinematic, objectShadowFrame );
+            m_cGameModelCollection.RenderModels( reflView, proj, lightPosition, activeCinematic, objectShadowFrame, bodyRenderAlpha );
         }
         Gfx().SetClipPlane( 0, false );
         SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
@@ -848,16 +862,19 @@ void SkullbonezRun::DrawPrimitives()
 
     // render game models -----------------------------
     PROFILE_GPU_BEGIN( "Frame/Render/Balls" );
-    if ( m_debug.isCollisionVisualizer || physicsDebugTransparent )
+    if ( !transparentBodyPass )
     {
-        m_collisionVisualizer.SetAlphaOverride( collisionVisualizerAlphaOverride );
-        m_collisionVisualizer.Render( m_cGameModelCollection, baseView, proj, lightPosition );
-        m_collisionVisualizer.SetAlphaOverride( -1.0f );
-    }
-    else
-    {
-        m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-        m_cGameModelCollection.RenderModels( baseView, proj, lightPosition, activeCinematic, objectShadowFrame );
+        if ( collisionStateColorsVisible )
+        {
+            m_collisionVisualizer.SetAlphaOverride( collisionVisualizerAlphaOverride );
+            m_collisionVisualizer.Render( m_cGameModelCollection, baseView, proj, lightPosition );
+            m_collisionVisualizer.SetAlphaOverride( -1.0f );
+        }
+        else
+        {
+            m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+            m_cGameModelCollection.RenderModels( baseView, proj, lightPosition, activeCinematic, objectShadowFrame );
+        }
     }
     PROFILE_GPU_END( "Frame/Render/Balls" );
 
@@ -868,6 +885,23 @@ void SkullbonezRun::DrawPrimitives()
         m_systems.textures->SelectTexture( TEXTURE_GROUND );
         m_systems.terrain->Render( baseView, proj, lightPosition, activeCinematic, terrainShadowFrame );
         PROFILE_GPU_END( "Frame/Render/Terrain" );
+    }
+
+    if ( transparentBodyPass )
+    {
+        PROFILE_GPU_BEGIN( "Frame/Render/TransparentBalls" );
+        if ( collisionStateColorsVisible )
+        {
+            m_collisionVisualizer.SetAlphaOverride( collisionVisualizerAlphaOverride );
+            m_collisionVisualizer.Render( m_cGameModelCollection, baseView, proj, lightPosition );
+            m_collisionVisualizer.SetAlphaOverride( -1.0f );
+        }
+        else
+        {
+            m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+            m_cGameModelCollection.RenderModels( baseView, proj, lightPosition, activeCinematic, objectShadowFrame, bodyRenderAlpha );
+        }
+        PROFILE_GPU_END( "Frame/Render/TransparentBalls" );
     }
 
     // render the fluid ---------------------------

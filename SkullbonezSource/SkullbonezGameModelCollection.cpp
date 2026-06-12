@@ -176,7 +176,7 @@ void GameModelCollection::PrepareRenderStreams()
 }
 
 
-void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4], const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow )
+void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj, const float lightPos[4], const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha )
 {
     if ( m_gameModels.empty() )
     {
@@ -185,9 +185,11 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
 
     EnsureSoAModelMatrices();
     const int modelCount = static_cast<int>( m_gameModels.size() );
+    const float clampedMaterialAlpha = std::clamp( materialAlpha, 0.0f, 1.0f );
+    const bool transparentMaterial = Cfg().runtimeRender.renderCollisionVolumes || clampedMaterialAlpha < 1.0f;
 
     // Render non-box models through the sphere batch.
-    SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes, cinematic, shadow );
+    SkullbonezHelper::DrawSphereBatchBegin( view, proj, lightPos, transparentMaterial, cinematic, shadow, clampedMaterialAlpha );
     for ( int x = 0; x < modelCount; ++x )
     {
         if ( !m_soaIsBox[x] )
@@ -263,13 +265,13 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
         }
     };
 
-    SkullbonezHelper::DrawBoxBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes, cinematic, shadow );
+    SkullbonezHelper::DrawBoxBatchBegin( view, proj, lightPos, transparentMaterial, cinematic, shadow, clampedMaterialAlpha );
     appendBoxLikeModels( false );
     SkullbonezHelper::DrawBoxBatchEnd();
 
     if ( hasPineVisualModels )
     {
-        SkullbonezHelper::DrawPineBatchBegin( view, proj, lightPos, Cfg().runtimeRender.renderCollisionVolumes, cinematic, shadow );
+        SkullbonezHelper::DrawPineBatchBegin( view, proj, lightPos, transparentMaterial, cinematic, shadow, clampedMaterialAlpha );
         appendBoxLikeModels( true );
         SkullbonezHelper::DrawPineBatchEnd();
     }
@@ -278,6 +280,8 @@ void GameModelCollection::RenderModels( const Matrix4& view, const Matrix4& proj
 
 void GameModelCollection::RenderShadowCasters( const Matrix4& view, const Matrix4& proj, const CinematicRenderConfig* cinematic )
 {
+    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches" );
+
     if ( m_gameModels.empty() )
     {
         return;
@@ -294,15 +298,19 @@ void GameModelCollection::RenderShadowCasters( const Matrix4& view, const Matrix
     // Non-box bodies are rendered with the sphere mesh. The helper may choose
     // the high-poly or low-poly sphere variant from the active visual style so
     // the shadow silhouette matches the visible object.
-    SkullbonezHelper::DrawShadowDepthSphereBatchBegin( view, proj, cinematic );
-    for ( int x = 0; x < modelCount; ++x )
     {
-        if ( !m_soaIsBox[x] )
+        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/Spheres" );
+
+        SkullbonezHelper::DrawShadowDepthSphereBatchBegin( view, proj, cinematic );
+        for ( int x = 0; x < modelCount; ++x )
         {
-            SkullbonezHelper::DrawShadowDepthSphereBatchModel( m_soaModelMatrices[x] );
+            if ( !m_soaIsBox[x] )
+            {
+                SkullbonezHelper::DrawShadowDepthSphereBatchModel( m_soaModelMatrices[x] );
+            }
         }
+        SkullbonezHelper::DrawShadowDepthSphereBatchEnd();
     }
-    SkullbonezHelper::DrawShadowDepthSphereBatchEnd();
 
     bool hasPineVisualModels = false;
     auto appendBoxLikeModels = [&]( bool pineVisualPass )
@@ -342,12 +350,18 @@ void GameModelCollection::RenderShadowCasters( const Matrix4& view, const Matrix
         }
     };
 
-    SkullbonezHelper::DrawShadowDepthBoxBatchBegin( view, proj );
-    appendBoxLikeModels( false );
-    SkullbonezHelper::DrawShadowDepthBoxBatchEnd();
+    {
+        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/Boxes" );
+
+        SkullbonezHelper::DrawShadowDepthBoxBatchBegin( view, proj );
+        appendBoxLikeModels( false );
+        SkullbonezHelper::DrawShadowDepthBoxBatchEnd();
+    }
 
     if ( hasPineVisualModels )
     {
+        PROFILE_SCOPED( "Frame/Shadows/ShadowMap/RenderMap/ObjectCasters/BuildBatches/Pines" );
+
         // Only pay for the pine depth batch when at least one box was styled as
         // a pine/tree visual. Most physics and benchmark scenes are boxes/balls
         // only, so they skip this extra draw call.
@@ -364,6 +378,8 @@ bool GameModelCollection::GetObjectShadowBounds( const Vector3& focus,
                                                  float& outRadius,
                                                  float& outHeightRange )
 {
+    PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame/ObjectBounds" );
+
     if ( m_gameModels.empty() )
     {
         return false;

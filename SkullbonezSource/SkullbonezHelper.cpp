@@ -4,6 +4,7 @@
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezPrimitiveMeshBuilder.h"
 
+#include <algorithm>
 #include <vector>
 
 
@@ -35,6 +36,28 @@ static constexpr int INSTANCE_TINT_FLOATS = 4;
 static constexpr int INSTANCE_FLOATS = INSTANCE_MATRIX_FLOATS + INSTANCE_TINT_FLOATS;
 static constexpr int PRIMITIVE_SHAPE_MESH = 0;
 static constexpr int PRIMITIVE_SHAPE_SPHERE = 1;
+static bool sSphereBatchTransparent = false;
+static bool sBoxBatchTransparent = false;
+static bool sPineBatchTransparent = false;
+
+static void BeginPrimitiveBatchTransparency( bool isTransparent )
+{
+    if ( isTransparent )
+    {
+        Gfx().SetBlend( true );
+        Gfx().SetBlendFunc( BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha );
+        Gfx().SetDepthWrite( false );
+    }
+}
+
+static void EndPrimitiveBatchTransparency( bool wasTransparent )
+{
+    if ( wasTransparent )
+    {
+        Gfx().SetDepthWrite( true );
+    }
+    Gfx().SetBlend( false );
+}
 
 static void ApplySceneLightUniforms( IShader& shader )
 {
@@ -112,6 +135,7 @@ void SkullbonezHelper::EnsureSphereShader()
         ApplySceneLightUniforms( *sphereShader );
         sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
         sphereShader->SetVec4( "uMaterialDiffuse", 0.8f, 0.8f, 0.8f, 1.0f );
+        sphereShader->SetFloat( "uMaterialAlpha", 1.0f );
     }
 }
 
@@ -177,8 +201,9 @@ void SkullbonezHelper::BuildLowPolySphereMesh( int slices, int stacks )
 }
 
 
-void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow )
+void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha )
 {
+    sSphereBatchTransparent = isTransparent;
     const int objectStyle = ObjectStyleForShader( cinematic );
     const bool useLowPolySphereMesh = objectStyle == 6;
     if ( useLowPolySphereMesh )
@@ -201,10 +226,7 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
     }
     EnsureSphereShader();
 
-    if ( isTransparent )
-    {
-        Gfx().SetBlend( true );
-    }
+    BeginPrimitiveBatchTransparency( isTransparent );
 
     float viewLightPos[4];
     for ( int i = 0; i < 3; ++i )
@@ -221,6 +243,7 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
     sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
     sphereShader->SetInt( "uObjectStyle", objectStyle );
     sphereShader->SetInt( "uPrimitiveShape", PRIMITIVE_SHAPE_SPHERE );
+    sphereShader->SetFloat( "uMaterialAlpha", std::clamp( materialAlpha, 0.0f, 1.0f ) );
 
     // Low-poly spheres still cast real shadows onto terrain, but they do not
     // receive object shadows. The shadow map is single and terrain-sized, so
@@ -251,7 +274,8 @@ void SkullbonezHelper::DrawSphereBatchEnd()
         Gfx().UploadInstanceData( activeSphereInstMesh, sphereInstanceData.data(), static_cast<int>( sphereInstanceData.size() ) );
         Gfx().DrawInstancedMesh( activeSphereInstMesh, activeSphereVertexCount, instanceCount );
     }
-    Gfx().SetBlend( false );
+    EndPrimitiveBatchTransparency( sSphereBatchTransparent );
+    sSphereBatchTransparent = false;
 }
 
 
@@ -342,8 +366,9 @@ void SkullbonezHelper::BuildBoxMesh()
 }
 
 
-void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow )
+void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha )
 {
+    sBoxBatchTransparent = isTransparent;
     if ( boxInstMesh == 0 )
     {
         BuildBoxMesh();
@@ -352,10 +377,7 @@ void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& pr
     // Reuse sphere shader (same vertex layout, same lighting model).
     EnsureSphereShader();
 
-    if ( isTransparent )
-    {
-        Gfx().SetBlend( true );
-    }
+    BeginPrimitiveBatchTransparency( isTransparent );
 
     float viewLightPos[4];
     for ( int i = 0; i < 3; ++i )
@@ -372,6 +394,7 @@ void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& pr
     sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
     sphereShader->SetInt( "uObjectStyle", ObjectStyleForShader( cinematic ) );
     sphereShader->SetInt( "uPrimitiveShape", PRIMITIVE_SHAPE_MESH );
+    sphereShader->SetFloat( "uMaterialAlpha", std::clamp( materialAlpha, 0.0f, 1.0f ) );
     ApplyShadowReceiverUniforms( *sphereShader, shadow, shadow ? shadow->objectsReceive : false, true );
     boxInstanceData.clear();
 }
@@ -396,7 +419,8 @@ void SkullbonezHelper::DrawBoxBatchEnd()
         Gfx().UploadInstanceData( boxInstMesh, boxInstanceData.data(), static_cast<int>( boxInstanceData.size() ) );
         Gfx().DrawInstancedMesh( boxInstMesh, boxVertexCount, instanceCount );
     }
-    Gfx().SetBlend( false );
+    EndPrimitiveBatchTransparency( sBoxBatchTransparent );
+    sBoxBatchTransparent = false;
 }
 
 
@@ -456,8 +480,9 @@ void SkullbonezHelper::BuildPineMesh()
 }
 
 
-void SkullbonezHelper::DrawPineBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow )
+void SkullbonezHelper::DrawPineBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha )
 {
+    sPineBatchTransparent = isTransparent;
     if ( pineInstMesh == 0 )
     {
         BuildPineMesh();
@@ -465,10 +490,7 @@ void SkullbonezHelper::DrawPineBatchBegin( const Matrix4& view, const Matrix4& p
 
     EnsureSphereShader();
 
-    if ( isTransparent )
-    {
-        Gfx().SetBlend( true );
-    }
+    BeginPrimitiveBatchTransparency( isTransparent );
 
     float viewLightPos[4];
     for ( int i = 0; i < 3; ++i )
@@ -485,6 +507,7 @@ void SkullbonezHelper::DrawPineBatchBegin( const Matrix4& view, const Matrix4& p
     sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
     sphereShader->SetInt( "uObjectStyle", ObjectStyleForShader( cinematic ) );
     sphereShader->SetInt( "uPrimitiveShape", PRIMITIVE_SHAPE_MESH );
+    sphereShader->SetFloat( "uMaterialAlpha", std::clamp( materialAlpha, 0.0f, 1.0f ) );
     ApplyShadowReceiverUniforms( *sphereShader, shadow, shadow ? shadow->objectsReceive : false, true );
     pineInstanceData.clear();
 }
@@ -509,7 +532,8 @@ void SkullbonezHelper::DrawPineBatchEnd()
         Gfx().UploadInstanceData( pineInstMesh, pineInstanceData.data(), static_cast<int>( pineInstanceData.size() ) );
         Gfx().DrawInstancedMesh( pineInstMesh, pineVertexCount, instanceCount );
     }
-    Gfx().SetBlend( false );
+    EndPrimitiveBatchTransparency( sPineBatchTransparent );
+    sPineBatchTransparent = false;
 }
 
 

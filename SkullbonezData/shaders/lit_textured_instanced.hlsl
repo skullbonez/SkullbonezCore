@@ -40,7 +40,8 @@ cbuffer Uniforms : register(b0)
     float4   uMaterialDiffuse;
     int      uObjectStyle;
     int      uPrimitiveShape;
-    float2   _objectStylePad;
+    float    uMaterialAlpha;
+    float    _objectStylePad;
     float4x4 uShadowViewProj;
     float4   uShadowParams;
     float4   uShadowFlags;
@@ -398,7 +399,7 @@ float4 main_ps(VS_OUT input) : SV_TARGET
         float3 styled = ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, glint, input.texCoord);
         styled *= shadowFactor;
         float3 beachBall = warmAmbient + directSun + rimLight + specularSun;
-        return float4(materialMode == 0 ? beachBall : styled + rimLight * 0.35f, 1.0f);
+        return float4(materialMode == 0 ? beachBall : styled + rimLight * 0.35f, uMaterialAlpha);
     }
 
     float shadowFactor = ShadowVisibility(SphereShadowReceiverWorldPos(input.worldPos, input.sphereShadowInfo), N, L);
@@ -419,5 +420,5 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     {
         litColor = ApplyMaterialMode(materialMode, materialColor, N, V, L, uLightDiffuse.rgb, diff, spec, input.texCoord) * shadowFactor;
     }
-    return float4(litColor, 1.0);
+    return float4(litColor, uMaterialAlpha);
 }
