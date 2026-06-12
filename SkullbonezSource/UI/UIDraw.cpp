@@ -2,6 +2,7 @@
 
 #include "../SkullbonezText.h"
 #include "UIDrawList.h"
+#include "UIStyle.h"
 
 #include <algorithm>
 #include <cmath>
@@ -83,6 +84,66 @@ void UIDrawContext::Outline( float x, float y, float w, float h, float r, float 
     Rect( x, y + h - 1.0f, w, 1.0f, r, g, b, a );
     Rect( x, y, 1.0f, h, r, g, b, a );
     Rect( x + w - 1.0f, y, 1.0f, h, r, g, b, a );
+}
+
+
+void UIDrawContext::RoundedRect( float x, float y, float w, float h, float radius, float r, float g, float b, float a ) const
+{
+    if ( w <= 0.0f || h <= 0.0f || a <= 0.0f )
+    {
+        return;
+    }
+
+    const float clampedRadius = std::clamp( radius, 0.0f, (std::min)( w, h ) * 0.5f );
+    if ( clampedRadius <= 0.5f )
+    {
+        Rect( x, y, w, h, r, g, b, a );
+        return;
+    }
+
+    Rect( x + clampedRadius, y, w - clampedRadius * 2.0f, h, r, g, b, a );
+    Rect( x, y + clampedRadius, clampedRadius, h - clampedRadius * 2.0f, r, g, b, a );
+    Rect( x + w - clampedRadius, y + clampedRadius, clampedRadius, h - clampedRadius * 2.0f, r, g, b, a );
+
+    constexpr int kSegments = 4;
+    constexpr float kPi = 3.14159265358979323846f;
+    const float centersX[4] = { x + clampedRadius, x + w - clampedRadius, x + w - clampedRadius, x + clampedRadius };
+    const float centersY[4] = { y + clampedRadius, y + clampedRadius, y + h - clampedRadius, y + h - clampedRadius };
+    const float startAngles[4] = { kPi, kPi * 1.5f, 0.0f, kPi * 0.5f };
+
+    for ( int corner = 0; corner < 4; ++corner )
+    {
+        const float cx = centersX[corner];
+        const float cy = centersY[corner];
+        const float start = startAngles[corner];
+        float prevX = cx + std::cos( start ) * clampedRadius;
+        float prevY = cy + std::sin( start ) * clampedRadius;
+        for ( int segment = 1; segment <= kSegments; ++segment )
+        {
+            const float angle = start + ( kPi * 0.5f ) * static_cast<float>( segment ) / static_cast<float>( kSegments );
+            const float nextX = cx + std::cos( angle ) * clampedRadius;
+            const float nextY = cy + std::sin( angle ) * clampedRadius;
+            Triangle( cx, cy, prevX, prevY, nextX, nextY, r, g, b, a );
+            prevX = nextX;
+            prevY = nextY;
+        }
+    }
+}
+
+
+void UIDrawContext::RoundedPanel( const UIRect& bounds, float radius, const Style::UIColor& fill, const Style::UIColor& border ) const
+{
+    RoundedRect( bounds.x, bounds.y, bounds.w, bounds.h, radius, border.r, border.g, border.b, border.a );
+    const float inset = border.a > 0.0f ? 1.0f : 0.0f;
+    RoundedRect( bounds.x + inset,
+                 bounds.y + inset,
+                 (std::max)( 0.0f, bounds.w - inset * 2.0f ),
+                 (std::max)( 0.0f, bounds.h - inset * 2.0f ),
+                 (std::max)( 0.0f, radius - inset ),
+                 fill.r,
+                 fill.g,
+                 fill.b,
+                 fill.a );
 }
 
 

@@ -7,6 +7,11 @@ namespace SkullbonezCore
 namespace UI
 {
 
+namespace Style
+{
+struct UIColor;
+}
+
 struct UIRect
 {
     float x = 0.0f;
@@ -27,6 +32,8 @@ class UIDrawContext
     void Rect( float x, float y, float w, float h, float r, float g, float b, float a ) const;
     void Triangle( float x0, float y0, float x1, float y1, float x2, float y2, float r, float g, float b, float a ) const;
     void Outline( float x, float y, float w, float h, float r, float g, float b, float a ) const;
+    void RoundedRect( float x, float y, float w, float h, float radius, float r, float g, float b, float a ) const;
+    void RoundedPanel( const UIRect& bounds, float radius, const Style::UIColor& fill, const Style::UIColor& border ) const;
     void Text( float x, float y, float pxSize, float r, float g, float b, const char* value ) const;
     float TextX( float x ) const;
     float TextY( float y ) const;

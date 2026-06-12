@@ -1,5 +1,7 @@
 #include "UIScrollBar.h"
 
+#include "UIStyle.h"
+
 #include <algorithm>
 
 namespace SkullbonezCore
@@ -27,10 +29,11 @@ void UIScrollBar::Draw( const UIDrawContext& draw, float contentHeight, float vi
         return;
     }
 
-    draw.Rect( m_track.x, m_track.y, m_track.w, m_track.h, 0.05f, 0.16f, 0.22f, alpha * 0.68f );
+    const Style::UIPalette& palette = Style::Palette();
+    draw.RoundedRect( m_track.x, m_track.y, m_track.w, m_track.h, m_track.w * 0.5f, palette.control.r, palette.control.g, palette.control.b, alpha * 0.52f );
     const float thumbH = (std::max)( 28.0f, viewportHeight * viewportHeight / contentHeight );
     const float thumbY = m_track.y + ( viewportHeight - thumbH ) * ( scrollY / maxScroll );
-    draw.Rect( m_track.x - 1.0f, thumbY, m_track.w + 2.0f, thumbH, 0.32f, 0.88f, 1.0f, alpha );
+    draw.RoundedRect( m_track.x - 1.0f, thumbY, m_track.w + 2.0f, thumbH, ( m_track.w + 2.0f ) * 0.5f, palette.accent.r, palette.accent.g, palette.accent.b, alpha );
 }
 
 } // namespace UI

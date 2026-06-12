@@ -26,6 +26,7 @@ namespace UI
 
 enum class InGameUITab
 {
+    WhatsNew,
     Profiler,
     Scene,
     Physics,
@@ -140,8 +141,10 @@ class InGameUI
     UIWindowState m_window;
     UIInteractionState m_interaction;
     bool m_blurPreviewEnabled = false;
-    InGameUITab m_activeTab = InGameUITab::Profiler;
+    InGameUITab m_activeTab = InGameUITab::WhatsNew;
     UITabBar m_tabBar;
+    UICheckBox m_whatsNewToggles[5];
+    UISlider m_whatsNewSliders[2];
     UICheckBox m_blurToggle;
     UICheckBox m_vsyncToggle;
     UICheckBox m_timelineToggle;

@@ -22,26 +22,17 @@ bool IsRowVisible( float contentY, float contentH, float rowY, float rowH )
 
 void DrawTitleButton( const UIDrawContext& draw, const UIRect& bounds, TitleButtonIcon icon, bool hot, bool active )
 {
-    const float bgR = hot ? 0.050f : ( active ? 0.038f : 0.026f );
-    const float bgG = hot ? 0.210f : ( active ? 0.145f : 0.080f );
-    const float bgB = hot ? 0.285f : ( active ? 0.188f : 0.102f );
-    const float outlineR = hot ? 0.44f : 0.18f;
-    const float outlineG = hot ? 0.92f : 0.40f;
-    const float outlineB = hot ? 1.00f : 0.48f;
-    const float outlineA = hot ? 0.96f : ( active ? 0.90f : 0.58f );
-    const float iconR = icon == TitleButtonIcon::Close && hot ? 0.95f : 0.68f;
-    const float iconG = icon == TitleButtonIcon::Close && hot ? 0.99f : 0.86f;
-    const float iconB = 1.00f;
+    const Style::UIPalette& palette = Style::Palette();
+    const Style::UIColor bg = hot ? palette.controlHover : ( active ? palette.windowRaised : palette.control );
+    const Style::UIColor iconColor = icon == TitleButtonIcon::Close && hot ? palette.warningAccent : palette.textSecondary;
+    const float iconR = iconColor.r;
+    const float iconG = iconColor.g;
+    const float iconB = iconColor.b;
     const float iconA = hot || active ? 0.98f : 0.88f;
     const float cx = bounds.x + bounds.w * 0.5f;
     const float cy = bounds.y + bounds.h * 0.5f;
 
-    draw.Rect( bounds.x, bounds.y, bounds.w, bounds.h, bgR, bgG, bgB, hot ? 0.92f : 0.78f );
-    draw.Outline( bounds.x, bounds.y, bounds.w, bounds.h, outlineR, outlineG, outlineB, outlineA );
-    if ( hot )
-    {
-        draw.Rect( bounds.x + 1.0f, bounds.y + 1.0f, bounds.w - 2.0f, 1.0f, 0.44f, 0.92f, 1.0f, 0.32f );
-    }
+    draw.RoundedPanel( bounds, Style::Radii().smallButton, bg, palette.border );
 
     switch ( icon )
     {
@@ -75,27 +66,24 @@ void DrawTitleButton( const UIDrawContext& draw, const UIRect& bounds, TitleButt
 
 void DrawPipelineStepButton( const UIDrawContext& draw, const UIRect& bounds, bool previous, bool hot )
 {
-    const float bgR = hot ? 0.050f : 0.024f;
-    const float bgG = hot ? 0.235f : 0.108f;
-    const float bgB = hot ? 0.315f : 0.142f;
-    const float outlineR = hot ? 0.44f : 0.24f;
-    const float outlineG = hot ? 0.92f : 0.58f;
-    const float outlineB = hot ? 1.00f : 0.70f;
+    const Style::UIPalette& palette = Style::Palette();
+    const Style::UIColor bg = hot ? palette.controlHover : palette.control;
+    const Style::UIColor icon = hot ? palette.textPrimary : palette.textSecondary;
     const float cx = bounds.x + bounds.w * 0.5f;
     const float cy = bounds.y + bounds.h * 0.5f;
     const float tipX = previous ? cx - 4.0f : cx + 4.0f;
     const float rearX = previous ? cx + 4.0f : cx - 4.0f;
 
-    draw.Rect( bounds.x, bounds.y, bounds.w, bounds.h, bgR, bgG, bgB, hot ? 0.92f : 0.78f );
-    draw.Outline( bounds.x, bounds.y, bounds.w, bounds.h, outlineR, outlineG, outlineB, hot ? 0.96f : 0.78f );
-    draw.Triangle( tipX, cy, rearX, cy - 5.5f, rearX, cy + 5.5f, hot ? 0.96f : 0.78f, hot ? 1.0f : 0.92f, 1.0f, hot ? 0.98f : 0.88f );
+    draw.RoundedPanel( bounds, Style::Radii().smallButton, bg, palette.border );
+    draw.Triangle( tipX, cy, rearX, cy - 5.5f, rearX, cy + 5.5f, icon.r, icon.g, icon.b, hot ? 0.98f : 0.88f );
 }
 
 
 void DrawFooterToggle( const UIDrawContext& draw, const UIRect& bounds, const char* label, bool checked )
 {
     const Style::FooterToggleStyle& style = Style::FooterToggle();
-    const Style::UIColor& accent = Style::AccentCyan();
+    const Style::UIPalette& palette = Style::Palette();
+    const Style::UIColor& accent = Style::Accent();
     const float switchW = style.switchW;
     const float switchH = style.switchH;
     const float switchX = bounds.x + bounds.w - switchW - 2.0f;
@@ -105,21 +93,13 @@ void DrawFooterToggle( const UIDrawContext& draw, const UIRect& bounds, const ch
     const float labelX = bounds.x + (std::max)( 0.0f, ( labelAreaW - labelW ) * 0.5f );
 
     draw.Text( labelX, bounds.y + 4.0f, style.labelTextSize, style.label.r, style.label.g, style.label.b, label );
-    draw.Rect( switchX, switchY, switchW, switchH,
-               checked ? accent.r * 0.32f : 0.05f,
-               checked ? accent.g * 0.32f : 0.08f,
-               checked ? accent.b * 0.32f : 0.09f,
-               0.92f );
-    draw.Outline( switchX, switchY, switchW, switchH,
-                  checked ? accent.r : 0.20f,
-                  checked ? accent.g : 0.30f,
-                  checked ? accent.b : 0.34f,
-                  checked ? 0.82f : 0.58f );
-    draw.Rect( switchX + ( checked ? 14.0f : 2.0f ), bounds.y + 7.0f, style.knobW, style.knobH,
-               checked ? 0.82f : 0.34f,
-               checked ? 0.98f : 0.46f,
-               checked ? 1.0f : 0.52f,
-               0.96f );
+    const Style::UIColor offFill = { palette.control.r, palette.control.g, palette.control.b, 0.78f };
+    draw.RoundedPanel( { switchX, switchY, switchW, switchH }, switchH * 0.5f, checked ? accent : offFill, palette.border );
+    draw.RoundedRect( switchX + ( checked ? switchW - style.knobW - 3.0f : 3.0f ), bounds.y + 8.0f, style.knobW, style.knobH, style.knobW * 0.5f,
+                      checked ? palette.accentStrong.r : palette.textMuted.r,
+                      checked ? palette.accentStrong.g : palette.textMuted.g,
+                      checked ? palette.accentStrong.b : palette.textMuted.b,
+                      0.96f );
 }
 
 
@@ -129,7 +109,8 @@ void DrawLabelValueAt( const UIDrawContext& draw, float contentY, float contentH
     {
         return;
     }
-    draw.Text( tx, rowY, 11.5f, 0.52f, 0.76f, 0.84f, label );
+    const Style::UIPalette& palette = Style::Palette();
+    draw.Text( tx, rowY, 11.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, label );
     draw.Text( tx + 126.0f, rowY, 11.5f, vr, vg, vb, value );
 }
 
@@ -140,7 +121,8 @@ void DrawSectionTitle( const UIDrawContext& draw, float contentX, float contentY
     {
         return;
     }
-    draw.Text( contentX, rowY, textSize, 1.0f, 0.85f, 0.34f, text );
+    const Style::UIColor& section = Style::Palette().textPrimary;
+    draw.Text( contentX, rowY, textSize, section.r, section.g, section.b, text );
 }
 
 
@@ -150,7 +132,7 @@ void DrawContentToggle( const UIDrawContext& draw, float contentY, float content
     {
         return;
     }
-    const Style::UIColor& accent = Style::AccentCyan();
+    const Style::UIColor& accent = Style::Accent();
     toggle.SetBounds( tx, rowY, controlW, 24.0f );
     toggle.DrawToggle( draw, label, checked, accent.r, accent.g, accent.b );
 }
@@ -158,21 +140,24 @@ void DrawContentToggle( const UIDrawContext& draw, float contentY, float content
 
 void DrawFooterStatCell( const UIDrawContext& draw, float tx, float bottomY, const char* name, const char* value, float r, float g, float b )
 {
-    draw.Text( tx, bottomY + 25.0f, 10.0f, 0.67f, 0.74f, 0.77f, name );
+    const Style::UIPalette& palette = Style::Palette();
+    draw.Text( tx, bottomY + 25.0f, 10.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, name );
     draw.Text( tx, bottomY + 47.0f, 11.5f, r, g, b, value );
 }
 
 
 void DrawCompactFooterStat( const UIDrawContext& draw, float statsX, float ty, const char* name, const char* value, float r, float g, float b )
 {
-    draw.Text( statsX + 12.0f, ty, 9.0f, 0.67f, 0.74f, 0.77f, name );
+    const Style::UIPalette& palette = Style::Palette();
+    draw.Text( statsX + 12.0f, ty, 9.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, name );
     draw.Text( statsX + 66.0f, ty, 9.5f, r, g, b, value );
 }
 
 
 void DrawFooterStatDivider( const UIDrawContext& draw, float x, float bottomY )
 {
-    draw.Rect( x, bottomY + 23.0f, 1.0f, 42.0f, 0.28f, 0.38f, 0.42f, 0.78f );
+    const Style::UIColor& line = Style::Palette().lineSoft;
+    draw.Rect( x, bottomY + 23.0f, 1.0f, 42.0f, line.r, line.g, line.b, 0.16f );
 }
 
 } // namespace Widgets

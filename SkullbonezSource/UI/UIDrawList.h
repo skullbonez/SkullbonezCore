@@ -12,7 +12,7 @@ class UIDrawContext;
 class UIDrawList
 {
   public:
-    static constexpr int MAX_COMMANDS = 4096;
+    static constexpr int MAX_COMMANDS = 8192;
     static constexpr int MAX_TEXT_BYTES = 65536;
 
     enum class CommandType : uint8_t

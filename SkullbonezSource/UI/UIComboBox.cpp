@@ -1,5 +1,6 @@
 #include "UIComboBox.h"
 #include "../SkullbonezText.h"
+#include "UIStyle.h"
 
 #include <algorithm>
 
@@ -18,6 +19,7 @@ constexpr float COMBO_OPTION_H = 20.0f;
 
 void DrawComboChevron( const UIDrawContext& draw, const UIRect& field, bool open )
 {
+    const Style::UIPalette& palette = Style::Palette();
     const float cx = field.x + field.w - 12.0f;
     const float cy = field.y + field.h * 0.5f;
     const float step = 2.0f;
@@ -26,8 +28,8 @@ void DrawComboChevron( const UIDrawContext& draw, const UIRect& field, bool open
     {
         const float offset = static_cast<float>( i ) * step;
         const float y = open ? cy + 3.0f - offset : cy - 3.0f + offset;
-        draw.Rect( cx - 4.0f + offset, y, 2.0f, 2.0f, 0.82f, 0.98f, 1.0f, 0.96f );
-        draw.Rect( cx + 2.0f - offset, y, 2.0f, 2.0f, 0.82f, 0.98f, 1.0f, 0.96f );
+        draw.Rect( cx - 4.0f + offset, y, 2.0f, 2.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, 0.96f );
+        draw.Rect( cx + 2.0f - offset, y, 2.0f, 2.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, 0.96f );
     }
 }
 } // namespace
@@ -116,21 +118,22 @@ void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char*
 
 void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char* selectedText, const char* const* options, int optionCount, int selectedIndex, int mouseX, int mouseY, uint32_t disabledOptionMask ) const
 {
+    const Style::UIPalette& palette = Style::Palette();
+    const float radius = Style::Radii().control;
     const UIRect field = FieldRect();
     const UIRect dropdown = DropdownRect( optionCount );
     const bool fieldHovered = field.Contains( mouseX, mouseY );
     const bool selectedDisabled = selectedIndex >= 0 && selectedIndex < 32 && ( disabledOptionMask & ( 1u << selectedIndex ) ) != 0;
-    draw.Text( m_bounds.x, m_bounds.y + 4.0f, 10.5f, 0.74f, 0.82f, 0.84f, label );
-    draw.Rect( field.x, field.y, field.w, field.h, fieldHovered ? 0.130f : 0.040f, fieldHovered ? 0.105f : 0.120f, fieldHovered ? 0.026f : 0.150f, 0.94f );
-    draw.Outline( field.x, field.y, field.w, field.h, fieldHovered ? 1.0f : 0.34f, fieldHovered ? 0.84f : 0.91f, fieldHovered ? 0.34f : 1.0f, fieldHovered ? 0.96f : 0.78f );
+    draw.Text( m_bounds.x, m_bounds.y + 4.0f, 10.5f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, label );
+    draw.RoundedPanel( field, radius, fieldHovered ? palette.controlHover : palette.control, fieldHovered ? palette.innerBorder : palette.border );
     if ( selectedText && selectedText[0] != '\0' )
     {
         draw.Text( field.x + 6.0f,
                    field.y + 3.0f,
                    10.0f,
-                   selectedDisabled ? 0.38f : ( fieldHovered ? 1.0f : 0.86f ),
-                   selectedDisabled ? 0.48f : ( fieldHovered ? 0.88f : 0.98f ),
-                   selectedDisabled ? 0.52f : ( fieldHovered ? 0.42f : 1.0f ),
+                   selectedDisabled ? palette.textMuted.r : ( fieldHovered ? palette.textPrimary.r : palette.textSecondary.r ),
+                   selectedDisabled ? palette.textMuted.g : ( fieldHovered ? palette.textPrimary.g : palette.textSecondary.g ),
+                   selectedDisabled ? palette.textMuted.b : ( fieldHovered ? palette.textPrimary.b : palette.textSecondary.b ),
                    selectedText );
     }
     DrawComboChevron( draw, field, m_isOpen );
@@ -145,9 +148,8 @@ void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char*
     Text::Text2d::FlushQuads();
     Text::Text2d::FlushText();
 
-    draw.Rect( dropdown.x - 3.0f, dropdown.y - 3.0f, dropdown.w + 6.0f, dropdown.h + 6.0f, 0.004f, 0.012f, 0.018f, 1.0f );
-    draw.Rect( dropdown.x, dropdown.y, dropdown.w, dropdown.h, 0.012f, 0.030f, 0.040f, 1.0f );
-    draw.Outline( dropdown.x, dropdown.y, dropdown.w, dropdown.h, 0.34f, 0.91f, 1.0f, 0.86f );
+    draw.RoundedRect( dropdown.x - 4.0f, dropdown.y - 4.0f, dropdown.w + 8.0f, dropdown.h + 8.0f, radius + 2.0f, 0.0f, 0.0f, 0.0f, 0.26f );
+    draw.RoundedPanel( dropdown, radius, palette.windowRaised, palette.border );
     const float optionH = optionCount > 0 ? dropdown.h / static_cast<float>( optionCount ) : 0.0f;
     const int hoveredOption = HitOption( mouseX, mouseY, optionCount );
     for ( int i = 0; i < optionCount; ++i )
@@ -162,16 +164,13 @@ void UIComboBox::Draw( const UIDrawContext& draw, const char* label, const char*
         const bool isHovered = i == hoveredOption && !isDisabled;
         if ( isSelected || isHovered )
         {
-            draw.Rect( dropdown.x + 2.0f, optionY + 2.0f, dropdown.w - 4.0f, optionH - 4.0f,
-                       isDisabled ? 0.026f : ( isHovered ? 0.150f : 0.050f ),
-                       isDisabled ? 0.050f : ( isHovered ? 0.118f : 0.250f ),
-                       isDisabled ? 0.064f : ( isHovered ? 0.032f : 0.330f ),
-                       isDisabled ? 0.70f : ( isHovered ? 0.92f : 0.86f ) );
+            const Style::UIColor rowFill = isDisabled ? palette.windowSubtle : ( isHovered ? palette.controlHover : palette.control );
+            draw.RoundedRect( dropdown.x + 2.0f, optionY + 2.0f, dropdown.w - 4.0f, optionH - 4.0f, radius - 2.0f, rowFill.r, rowFill.g, rowFill.b, rowFill.a );
         }
         draw.Text( dropdown.x + 10.0f, optionY + 4.0f, 10.5f,
-                   isDisabled ? 0.34f : ( isHovered ? 1.0f : ( isSelected ? 0.78f : 0.70f ) ),
-                   isDisabled ? 0.42f : ( isHovered ? 0.88f : ( isSelected ? 0.98f : 0.84f ) ),
-                   isDisabled ? 0.46f : ( isHovered ? 0.38f : ( isSelected ? 1.0f : 0.88f ) ),
+                   isDisabled ? palette.textMuted.r : ( isHovered ? palette.textPrimary.r : ( isSelected ? palette.accentStrong.r : palette.textSecondary.r ) ),
+                   isDisabled ? palette.textMuted.g : ( isHovered ? palette.textPrimary.g : ( isSelected ? palette.accentStrong.g : palette.textSecondary.g ) ),
+                   isDisabled ? palette.textMuted.b : ( isHovered ? palette.textPrimary.b : ( isSelected ? palette.accentStrong.b : palette.textSecondary.b ) ),
                    options[i] );
     }
 }
