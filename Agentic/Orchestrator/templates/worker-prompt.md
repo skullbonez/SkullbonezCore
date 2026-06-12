@@ -32,6 +32,8 @@ needed to complete it.
 
 - Do not merge PRs.
 - Do not submit PRs unless the orchestrator explicitly asks you to.
+- Do not approve your own PR. GitHub rejects self-approval, and approval is not
+  part of the normal owner-created PR flow in this repository.
 - Do not rebase.
 - Do not force-push.
 - Do not rewrite git history.

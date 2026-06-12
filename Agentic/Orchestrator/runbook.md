@@ -126,7 +126,10 @@ If `allow_pr_creation` is true and the branch is ready:
 2. Push the feature branch.
 3. Open or update the PR through the GitHub app or `gh` fallback.
 4. Save PR metadata in `pr.md`.
-5. Post the generated report as a PR comment when the configured channel is
+5. Do not attempt to approve the PR from the same account/token that authored
+   it. GitHub rejects self-approval, and approval is not required unless branch
+   protection explicitly says a separate review is needed.
+6. Post the generated report as a PR comment when the configured channel is
    available.
 
 If `allow_pr_creation` is false, stop after local branch, commit, and report.
@@ -142,6 +145,12 @@ Future merge automation requires both:
 
 Until both exist, the report must say `Merge status: not permitted by repo
 policy`.
+
+If the user grants one-off permission to merge a specific PR before permanent
+merge automation exists, do not insert an approval step. Check mergeability,
+required checks, and the expected head SHA, then merge directly if GitHub allows
+it. If GitHub reports that an approving review is required, stop and report that
+an external reviewer is needed; self-approval will not satisfy that requirement.
 
 ## Reporting
 

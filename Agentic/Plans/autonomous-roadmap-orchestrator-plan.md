@@ -243,6 +243,10 @@ Mode B: policy-gated merge automation
   - required validation/checks are green,
   - the report has been produced,
   - no unresolved review threads remain unless policy permits them.
+- Approval is not part of the normal merge path. GitHub rejects self-approval
+  for PRs authored by the same account/token, so the orchestrator should merge
+  directly when policy/checks allow it and only stop for an external reviewer if
+  branch protection explicitly requires one.
 - The merge action, method, and resulting SHA are recorded in `run.json` and
   `report.md`.
 - After merge, the orchestrator updates the local base branch before starting

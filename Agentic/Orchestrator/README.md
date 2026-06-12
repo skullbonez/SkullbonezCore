@@ -22,6 +22,9 @@ universal agent rules.
 - The orchestrator is disabled by default.
 - PR creation is allowed by policy, but only when the orchestrator is enabled.
 - Merge automation is disabled by default.
+- PR approval is not part of the normal automation path. GitHub rejects
+  self-approval for PRs authored by the same account/token, and this repository
+  does not require approval for ordinary owner-created PRs.
 - `AGENTS.md` still forbids merges and PR submission, so policy alone cannot
   authorize merges.
 - Queue execution is sequential: one active roadmap item at a time.

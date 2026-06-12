@@ -27,6 +27,7 @@
   },
   "merge_safety": {
     "requires_agents_md_permission": true,
+    "attempt_self_approval": false,
     "disallow_main_direct_push": true,
     "disallow_force_push": true,
     "disallow_rebase": true,
