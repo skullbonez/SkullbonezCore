@@ -25,7 +25,7 @@ constexpr UIPalette kPalette = {
     { 0.843f, 0.863f, 0.812f, 1.00f }, // accentStrong
     { 0.710f, 0.624f, 0.482f, 1.00f }  // warningAccent
 };
-constexpr UIRadii kRadii = { 8.0f, 6.0f, 6.0f, 999.0f };
+constexpr UIRadii kRadii = { 12.0f, 8.0f, 7.0f, 999.0f };
 constexpr UITextStyle kText = { 13.0f, 11.0f, 10.5f, 13.0f, 10.5f };
 constexpr UIControlStyle kControl = { 6.0f, 30.0f, 16.0f };
 constexpr FooterToggleStyle kFooterToggle = { 10.5f, { 0.725f, 0.737f, 0.722f, 1.0f }, 30.0f, 16.0f, 10.0f, 10.0f };
