@@ -11,6 +11,14 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
+int NextSceneRand( unsigned int& state )
+{
+    // Match the MSVC CRT sequence so seeded scene layouts stay stable while avoiding
+    // global RNG state.
+    state = state * 214013u + 2531011u;
+    return static_cast<int>( ( state >> 16 ) & 0x7fffu );
+}
+
 bool SceneMaterialTargetMatches( const SceneObjectMaterialOverride& material, const GameModel& model )
 {
     if ( strcmp( material.target, "all" ) == 0 )
@@ -177,14 +185,14 @@ void SkullbonezRun::SetUpGameModels( int count )
     const SkullbonezConfig& cfg = Cfg();
 
     auto randFloat = [&]( float base, int range )
-    { return base + static_cast<float>( rand() % range ); };
+    { return base + static_cast<float>( NextSceneRand( m_scene.rngState ) % range ); };
     auto randSigned = [&]( int range ) -> float
     {
-        float mag = 1.0f + static_cast<float>( rand() % range );
-        return ( rand() % 2 == 0 ) ? mag : -mag;
+        float mag = 1.0f + static_cast<float>( NextSceneRand( m_scene.rngState ) % range );
+        return ( NextSceneRand( m_scene.rngState ) % 2 == 0 ) ? mag : -mag;
     };
-    auto randSign = []() -> float
-    { return ( rand() % 2 == 0 ) ? 1.0f : -1.0f; };
+    auto randSign = [&]() -> float
+    { return ( NextSceneRand( m_scene.rngState ) % 2 == 0 ) ? 1.0f : -1.0f; };
 
     for ( int x = 0; x < m_scene.modelCount; ++x )
     {
@@ -192,7 +200,7 @@ void SkullbonezRun::SetUpGameModels( int count )
         float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
         float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
         float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
-        float restitution = cfg.ballRestitutionMin + static_cast<float>( rand() % cfg.ballRestitutionRange ) / 10.0f;
+        float restitution = cfg.ballRestitutionMin + static_cast<float>( NextSceneRand( m_scene.rngState ) % cfg.ballRestitutionRange ) / 10.0f;
         Vector3 force( randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ) );
         Vector3 forcePos( randSign(), randSign(), randSign() );
 
@@ -209,15 +217,15 @@ void SkullbonezRun::SetUpGameModels( int count )
         {
             // ~30% of generated objects are boxes, giving the default demo a
             // mixed collision workload without requiring explicit scene bodies.
-            makeBox = ( rand() % 10 ) < 3;
+            makeBox = ( NextSceneRand( m_scene.rngState ) % 10 ) < 3;
         }
 
         if ( makeBox )
         {
-            float halfExtent = ( 1.0f + static_cast<float>( rand() % 3 ) ) * 0.6f;
-            float hx = halfExtent * ( 0.7f + static_cast<float>( rand() % 4 ) * 0.2f );
+            float halfExtent = ( 1.0f + static_cast<float>( NextSceneRand( m_scene.rngState ) % 3 ) ) * 0.6f;
+            float hx = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( m_scene.rngState ) % 4 ) * 0.2f );
             float hy = halfExtent;
-            float hz = halfExtent * ( 0.7f + static_cast<float>( rand() % 4 ) * 0.2f );
+            float hz = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( m_scene.rngState ) % 4 ) * 0.2f );
 
             // Box inertia: I = m/3 * (hy² + hz²) etc.
             float hx2 = hx * hx;
@@ -237,7 +245,7 @@ void SkullbonezRun::SetUpGameModels( int count )
         else
         {
             float moment = randFloat( cfg.ballMomentMin, cfg.ballMomentRange );
-            float radius = ( 1.0f + static_cast<float>( rand() % cfg.ballRadiusRange ) ) * 0.5f;
+            float radius = ( 1.0f + static_cast<float>( NextSceneRand( m_scene.rngState ) % cfg.ballRadiusRange ) ) * 0.5f;
 
             GameModel gameModel( &m_cWorldEnvironment, Vector3( posX, posY, posZ ), Vector3( moment, moment, moment ), mass );
             gameModel.SetCoefficientRestitution( restitution );
@@ -277,14 +285,14 @@ void SkullbonezRun::SetUpSolverObjects( int balls, int boxes )
     const SkullbonezConfig& cfg = Cfg();
 
     auto randFloat = [&]( float base, int range )
-    { return base + static_cast<float>( rand() % range ); };
+    { return base + static_cast<float>( NextSceneRand( m_scene.rngState ) % range ); };
     auto randSigned = [&]( int range ) -> float
     {
-        float mag = 1.0f + static_cast<float>( rand() % range );
-        return ( rand() % 2 == 0 ) ? mag : -mag;
+        float mag = 1.0f + static_cast<float>( NextSceneRand( m_scene.rngState ) % range );
+        return ( NextSceneRand( m_scene.rngState ) % 2 == 0 ) ? mag : -mag;
     };
-    auto randSign = []() -> float
-    { return ( rand() % 2 == 0 ) ? 1.0f : -1.0f; };
+    auto randSign = [&]() -> float
+    { return ( NextSceneRand( m_scene.rngState ) % 2 == 0 ) ? 1.0f : -1.0f; };
 
     // --- Sphere pass ---
     for ( int i = 0; i < balls; ++i )
@@ -293,9 +301,9 @@ void SkullbonezRun::SetUpSolverObjects( int balls, int boxes )
         float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
         float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
         float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
-        float restitution = cfg.ballRestitutionMin + static_cast<float>( rand() % cfg.ballRestitutionRange ) / 10.0f;
+        float restitution = cfg.ballRestitutionMin + static_cast<float>( NextSceneRand( m_scene.rngState ) % cfg.ballRestitutionRange ) / 10.0f;
         float moment = randFloat( cfg.ballMomentMin, cfg.ballMomentRange );
-        float radius = ( 1.0f + static_cast<float>( rand() % cfg.ballRadiusRange ) ) * 0.5f;
+        float radius = ( 1.0f + static_cast<float>( NextSceneRand( m_scene.rngState ) % cfg.ballRadiusRange ) ) * 0.5f;
         Vector3 force( randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ) );
         Vector3 forcePos( randSign(), randSign(), randSign() );
 
@@ -318,14 +326,14 @@ void SkullbonezRun::SetUpSolverObjects( int balls, int boxes )
         float posY = randFloat( cfg.spawnYBase, cfg.spawnYRange );
         float posZ = randFloat( cfg.spawnZBase, cfg.spawnZRange );
         float mass = randFloat( cfg.ballMassMin, cfg.ballMassRange );
-        float restitution = cfg.ballRestitutionMin + static_cast<float>( rand() % cfg.ballRestitutionRange ) / 10.0f;
+        float restitution = cfg.ballRestitutionMin + static_cast<float>( NextSceneRand( m_scene.rngState ) % cfg.ballRestitutionRange ) / 10.0f;
         Vector3 force( randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ), randSigned( cfg.ballForceRange ) );
         Vector3 forcePos( randSign(), randSign(), randSign() );
 
-        float halfExtent = ( 1.0f + static_cast<float>( rand() % 3 ) ) * 0.6f;
-        float hx = halfExtent * ( 0.7f + static_cast<float>( rand() % 4 ) * 0.2f );
+        float halfExtent = ( 1.0f + static_cast<float>( NextSceneRand( m_scene.rngState ) % 3 ) ) * 0.6f;
+        float hx = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( m_scene.rngState ) % 4 ) * 0.2f );
         float hy = halfExtent;
-        float hz = halfExtent * ( 0.7f + static_cast<float>( rand() % 4 ) * 0.2f );
+        float hz = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( m_scene.rngState ) % 4 ) * 0.2f );
 
         float hx2 = hx * hx, hy2 = hy * hy, hz2 = hz * hz;
         float m3 = mass / 3.0f;
@@ -751,7 +759,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
             rngSeed = m_cmdSeedOverride;
         }
         m_scene.rngSeed = rngSeed;
-        srand( rngSeed );
+        m_scene.rngState = rngSeed;
         UseDefaultTerrain();
         ApplyNoWaterOverride();
         if ( shouldPreserveRuntimeState )
@@ -985,7 +993,7 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
             rngSeed = m_cmdSeedOverride;
         }
         m_scene.rngSeed = rngSeed;
-        srand( rngSeed );
+        m_scene.rngState = rngSeed;
 
         // Scene terrain is authoritative.  A flat-slope test scene must not leak
         // its analytic terrain into the next height-map scene.
@@ -1324,8 +1332,9 @@ void SkullbonezRun::RefreshSceneBrowserList()
             m_sceneBrowserPaths.push_back( NormalizeScenePath( entry.path().generic_string() ) );
         }
     }
-    catch ( const std::filesystem::filesystem_error& )
+    catch ( const std::filesystem::filesystem_error& e )
     {
+        Log().WriteEventf( "scene_browser_refresh_failed message=\"%s\"", e.what() );
         m_sceneBrowserPaths.clear();
     }
 
@@ -1702,7 +1711,7 @@ void SkullbonezRun::ApplyUIModelCountOverride( int count )
     }
 
     const unsigned int seed = m_scene.rngSeed > 0 ? m_scene.rngSeed : 1u;
-    srand( seed );
+    m_scene.rngState = seed;
     SetUpGameModels( m_UIModelCountOverride );
     if ( m_camera.trackBallIndex >= m_UIModelCountOverride )
     {
@@ -1736,7 +1745,7 @@ void SkullbonezRun::ApplyUISolverObjectCounts( int balls, int boxes )
     m_scene.isTestComplete = false;
 
     const unsigned int seed = m_scene.rngSeed > 0 ? m_scene.rngSeed : 1u;
-    srand( seed );
+    m_scene.rngState = seed;
     SetUpSolverObjects( m_UISolverBallCountOverride, m_UISolverBoxCountOverride );
     if ( m_scene.modelCount <= 0 )
     {

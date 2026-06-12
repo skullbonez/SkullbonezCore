@@ -713,7 +713,8 @@ void SkullbonezRun::DrawPrimitives()
     const Rendering::ShadowFrameData* terrainShadowFrame = m_systems.shadowFrame.valid ? &m_systems.shadowFrame : nullptr;
     const Rendering::ShadowFrameData* objectShadowFrame = m_systems.objectShadowFrame.valid ? &m_systems.objectShadowFrame : terrainShadowFrame;
 
-    const bool physicsDebugTransparent = m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE && m_debug.isPhysicsDebugTransparent;
+    const bool debugBodiesVisible = m_debug.isCollisionVisualizer || m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE;
+    const bool physicsDebugTransparent = debugBodiesVisible && m_debug.isPhysicsDebugTransparent;
     const float collisionVisualizerAlphaOverride = physicsDebugTransparent ? m_debug.physicsDebugAlpha : -1.0f;
 
     // Camera m_position for skybox placement.  During camera transitions the
@@ -749,16 +750,15 @@ void SkullbonezRun::DrawPrimitives()
 
     if ( useDxrReflection )
     {
-        // DXR path: rebuild TLAS with current ball positions, then dispatch rays
+        // DXR path: rebuild TLAS with current model positions, then dispatch rays.
         int ballCount = m_cGameModelCollection.GetModelCount();
-        std::vector<float> transforms( (size_t)ballCount * 16 );
         for ( int i = 0; i < ballCount; ++i )
         {
             Matrix4 mdlMat = m_cGameModelCollection.GetModelAtIndex( i ).GetModelMatrix();
-            memcpy( transforms.data() + i * 16, mdlMat.Data(), 16 * sizeof( float ) );
+            memcpy( m_dxrReflectionTransforms.data() + i * 16, mdlMat.Data(), 16 * sizeof( float ) );
         }
 
-        Gfx().BuildTLAS( transforms.data(), ballCount, 0, 0 ); // BLAS VAs retrieved internally
+        Gfx().BuildTLAS( m_dxrReflectionTransforms.data(), ballCount, 0, 0 ); // BLAS VAs retrieved internally
 
         // Compute inverse VP matrix for ray reconstruction
         Matrix4 vp = proj * baseView;

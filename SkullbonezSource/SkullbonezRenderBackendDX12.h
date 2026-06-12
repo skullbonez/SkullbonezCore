@@ -7,8 +7,10 @@
 #include "SkullbonezBLASDX12.h"
 #include "SkullbonezTLASDX12.h"
 #include "SkullbonezSBTDX12.h"
+#include "SkullbonezCommon.h"
 #include <d3d12.h>
 #include <dxgi1_5.h>
+#include <array>
 #include <unordered_map>
 #include <vector>
 
@@ -223,6 +225,7 @@ class RenderBackendDX12 : public IRenderBackend
     bool m_reflectionInSRVState = false; // True after dispatch (SRV), false initially (UAV)
     ID3D12Resource* m_rtConstantBuffer = nullptr;
     uint8_t* m_rtConstantBufferMapped = nullptr;
+    std::array<D3D12_RAYTRACING_INSTANCE_DESC, MAX_GAME_MODELS + 1> m_tlasInstances = {};
 
     ID3D12PipelineState* m_genMipsPSO = nullptr; // Compute PSO for generate_mips.hlsl
     ID3D12RootSignature* m_genMipsRS = nullptr;  // Root signature: 4 root constants + SRV + 4 UAVs

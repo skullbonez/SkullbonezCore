@@ -58,10 +58,8 @@ namespace GameObjects
 {
 /* -- Game Model -------------------------------------------------------------------------------------------------------------------------------------------------
 
-    Represents the highest level object in the library - a renderable mesh
+    Represents the highest level object in the library: a renderable mesh
     with collision bounds and physics information.
-
-    TODO: 3DS MODEL mesh BELONGS HERE!
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class GameModel
 {
@@ -122,7 +120,7 @@ class GameModel
     // is still visibly above the surface. This helper returns the closest true
     // vertex, the terrain sample under that vertex, and the signed vertical gap.
     bool GetClosestBoxTerrainVertex( Math::Vector::Vector3& outVertex, float& outTerrainHeight, Geometry::Plane& outPlane, float& outGap );
-    void DEBUG_SetSphereToTerrain(); // Debug routine - ensure sphere does not go through terrain
+    void ClampToTerrainSurface(); // Keep residual terrain penetration from leaking past integration
 
   public:
     struct ObjectSweepResult

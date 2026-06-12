@@ -1029,7 +1029,7 @@ void SkullbonezRun::TakeInput()
         if ( uiCommands.run.requestedSeed > 0 )
         {
             m_scene.rngSeed = static_cast<unsigned int>( std::clamp( uiCommands.run.requestedSeed, 1, 999999 ) );
-            srand( m_scene.rngSeed );
+            m_scene.rngState = m_scene.rngSeed;
         }
         if ( uiCommands.physics.requestedPhysicsDebugAlpha >= 0.0f )
         {

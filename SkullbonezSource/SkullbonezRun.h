@@ -157,6 +157,7 @@ struct RunSceneState
     int solverBallCount = 0;       // Exact solver ball count when generated through solver_balls
     int solverBoxCount = 0;        // Exact solver box count when generated through solver_boxes
     unsigned int rngSeed = 0;      // Effective RNG seed used to build the current scene
+    unsigned int rngState = 1;     // Local deterministic generator state for scene object setup
     float timeScale = 1.0f;        // Physics time multiplier
     bool isFixedStep = false;      // One physics tick per render frame at PHYSICS_FIXED_DT (deterministic)
     bool isExitOnComplete = false; // Exit automatically when targetFrameCount is reached
@@ -346,6 +347,7 @@ class SkullbonezRun
     Physics::PhysicsDebugVisualizer m_physicsDebugVisualizer; // Line overlay for object axes, contact manifolds, and sleep state
     Environment::WorldEnvironment m_cWorldEnvironment;        // SkullbonezCore::Environment::WorldEnvironment class
     GameObjects::GameModelCollection m_cGameModelCollection;  // SkullbonezCore::GameObjects::GameModelCollection class
+    std::array<float, MAX_GAME_MODELS * 16> m_dxrReflectionTransforms = {};
 
     inline static int sPerfPass = 0;
     void Render();                                                                                                                                     // Main render method

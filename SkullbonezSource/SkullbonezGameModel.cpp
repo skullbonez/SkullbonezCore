@@ -511,11 +511,10 @@ void GameModel::UpdatePosition( float changeInTime )
         return;
     }
 
-    // update m_position based on airbourne model
+    // Update m_position based on airborne model.
     m_physicsInfo.UpdatePosition( changeInTime );
 
-    // slam the ball to the m_terrain m_height if it has fallen below
-    DEBUG_SetSphereToTerrain();
+    ClampToTerrainSurface();
 }
 
 
@@ -1009,8 +1008,13 @@ const Vector3& GameModel::GetPosition() const
 }
 
 
-void GameModel::DEBUG_SetSphereToTerrain()
+void GameModel::ClampToTerrainSurface()
 {
+    if ( !m_terrain )
+    {
+        return;
+    }
+
     // if we are not in bounds then exit now!
     if ( !m_terrain->IsInBounds( m_physicsInfo.GetPosition().x, m_physicsInfo.GetPosition().z ) )
     {

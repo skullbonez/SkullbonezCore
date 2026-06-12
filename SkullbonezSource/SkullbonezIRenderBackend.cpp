@@ -1,6 +1,7 @@
 // --- Includes ---
 #include "SkullbonezIRenderBackend.h"
 #include <cassert>
+#include <stdexcept>
 
 
 namespace SkullbonezCore
@@ -14,6 +15,10 @@ static std::unique_ptr<IRenderBackend> s_gfxBackend;
 IRenderBackend& Gfx()
 {
     assert( s_gfxBackend && "Gfx() called before SetGfxBackend()" );
+    if ( !s_gfxBackend )
+    {
+        throw std::runtime_error( "Gfx() called before SetGfxBackend()" );
+    }
     return *s_gfxBackend;
 }
 

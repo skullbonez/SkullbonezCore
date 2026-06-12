@@ -124,6 +124,7 @@ void RenderBackendDX12::AssertPlatformProfilerGpuStackClosed( const char* reason
 
     Log().WriteEventf( "dx12_platform_profiler_open_stack_on_submit reason=%s depth=%d", reason ? reason : "unknown", m_platformProfilerGpuDepth );
     assert( m_platformProfilerGpuDepth == 0 );
+    throw std::runtime_error( "DX12 platform profiler GPU stack left open before command submission" );
 }
 
 
@@ -2833,47 +2834,16 @@ void RenderBackendDX12::CreateRTRootSignature()
 
 void RenderBackendDX12::CreateRTPipeline()
 {
-    // Only compile HLSL → DXIL when the cached DXIL is absent.
-    // Delete reflect.rt.dxil to force a recompile after editing the shader.
+    // DXR reflection uses checked-in DXIL. Keep compilation in tools/build
+    // workflows so runtime startup never shells out or depends on SDK paths.
     std::string dxilPath = std::string( DATA_ROOT ) + "shaders/reflect.rt.dxil";
-    std::string rtHlslPath = std::string( DATA_ROOT ) + "shaders/reflect.rt.hlsl";
-
-    FILE* existCheck = nullptr;
-    fopen_s( &existCheck, dxilPath.c_str(), "rb" );
-    const bool dxilMissing = ( existCheck == nullptr );
-    if ( existCheck )
-    {
-        fclose( existCheck );
-    }
-
-    if ( dxilMissing )
-    {
-        std::string cmd1 = "dxc.exe -T lib_6_3 -Fo " + dxilPath + " " + rtHlslPath + " 2>nul";
-        std::string cmd2 = "\"C:/Program Files (x86)/Windows Kits/10/bin/10.0.22621.0/x64/dxc.exe\" -T lib_6_3 -Fo " + dxilPath + " " + rtHlslPath + " 2>nul";
-        std::string cmd3 = "\"C:/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64/dxc.exe\" -T lib_6_3 -Fo " + dxilPath + " " + rtHlslPath + " 2>nul";
-        const char* dxcPaths[] = { cmd1.c_str(), cmd2.c_str(), cmd3.c_str() };
-
-        bool compiled = false;
-        for ( const char* cmd : dxcPaths )
-        {
-            if ( system( cmd ) == 0 )
-            {
-                compiled = true;
-                break;
-            }
-        }
-        if ( !compiled )
-        {
-            throw std::runtime_error( "DXC compilation of reflect.rt.hlsl failed — ensure dxc.exe is in PATH or Windows SDK is installed" );
-        }
-    }
 
     // Load compiled DXIL blob
     FILE* dxilFile = nullptr;
     fopen_s( &dxilFile, dxilPath.c_str(), "rb" );
     if ( !dxilFile )
     {
-        throw std::runtime_error( "Failed to open compiled reflect.rt.dxil" );
+        throw std::runtime_error( "Missing SkullbonezData/shaders/reflect.rt.dxil; rebuild and commit the DXR shader bytecode before using DXR reflection." );
     }
     fseek( dxilFile, 0, SEEK_END );
     long dxilSize = ftell( dxilFile );
@@ -3093,14 +3063,17 @@ void RenderBackendDX12::BuildTLAS( const float* instanceTransforms, int instance
     {
         return;
     }
+    if ( instanceCount < 0 || instanceCount > MAX_GAME_MODELS )
+    {
+        throw std::runtime_error( "DX12 TLAS instance count exceeds MAX_GAME_MODELS" );
+    }
 
     // Build instance descriptors
     // Instance 0: terrain (identity)
     // Instance 1..N: spheres with their world transforms
-    std::vector<D3D12_RAYTRACING_INSTANCE_DESC> instances( (size_t)instanceCount + 1 );
 
     // Terrain instance
-    D3D12_RAYTRACING_INSTANCE_DESC& terrainInst = instances[0];
+    D3D12_RAYTRACING_INSTANCE_DESC& terrainInst = m_tlasInstances[0];
     memset( &terrainInst, 0, sizeof( terrainInst ) );
     terrainInst.Transform[0][0] = 1.0f;
     terrainInst.Transform[1][1] = 1.0f;
@@ -3113,7 +3086,7 @@ void RenderBackendDX12::BuildTLAS( const float* instanceTransforms, int instance
     // Sphere instances
     for ( int i = 0; i < instanceCount; ++i )
     {
-        D3D12_RAYTRACING_INSTANCE_DESC& inst = instances[(size_t)i + 1];
+        D3D12_RAYTRACING_INSTANCE_DESC& inst = m_tlasInstances[(size_t)i + 1];
         memset( &inst, 0, sizeof( inst ) );
 
         // Copy 3x4 transform from the flat float array (row-major 4x4 → DXR 3x4 row-major)
@@ -3138,7 +3111,7 @@ void RenderBackendDX12::BuildTLAS( const float* instanceTransforms, int instance
     }
 
     EnsureCommandListOpen();
-    m_tlas.Build( m_device5, m_cmdList4, instances.data(), (int)instances.size() );
+    m_tlas.Build( m_device5, m_cmdList4, m_tlasInstances.data(), instanceCount + 1 );
 }
 
 

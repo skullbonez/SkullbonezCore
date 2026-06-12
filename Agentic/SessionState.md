@@ -6,10 +6,10 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 
 | Field | Value |
 |-------|-------|
-| Branch | `codex/cinematic-renderer` in worktree `C:\SkullbonezCore` |
-| Last commit | Branch point from current main before cinematic renderer integration. |
-| Pending work | Cinematic renderer merge, runtime Cine controls, terrain relief default-off polish, targeted pre-PR validation, then feature-branch commit/push as needed. |
-| Uncommitted changes | See `git status --short`; feature-branch commits and normal pushes are allowed without confirmation, while `main` remains confirmation-gated. |
+| Branch | `main` in worktree `C:\SkullbonezCore` |
+| Last commit | Current `origin/main` tracking state before repo hygiene/runtime cleanup. |
+| Pending work | Repo hygiene/runtime cleanup requested; do not commit until the user confirms. |
+| Uncommitted changes | See `git status --short`; direct commits and pushes on `main` remain confirmation-gated. |
 
 ## Active Notes
 
@@ -38,7 +38,7 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 | SIMD/SSE math optimization pass | Pending | Reported large wins in matrix and render markers; verify current code before continuing. |
 | Camera tween reflection fix | Recent | Reflection pass should use the exact render camera state during camera transitions. |
 | DX12 GPU timer readback | Recent | Non-blocking readback restored when `pipeline_sync` is off. |
-| Cinematic volumetric rendering | Integrating for PR | Main worktree branch `codex/cinematic-renderer`. Use `Profile\SKULLBONEZ_CORE.exe --renderer gl --scene SkullbonezData\scenes\cinematic_volumetric.scene --cinematic --hold` for interactive look-dev. The implementation includes HDR scene FBOs, shader-readable depth, procedural sky/cloud shader, half-res volumetric light, tonemap/bloom/fog/god-ray composite, crisp shader-sampled red/yellow ball/box pattern, terrain basin relief with default relief `0.0`, `--cinematic` / `--hold`, Cine UI feature toggles/sliders plus master runtime toggle, and scene-file `cinematic_*` overrides. |
+| Cinematic volumetric rendering | Recent | Use `Profile\SKULLBONEZ_CORE.exe --renderer gl --scene SkullbonezData\scenes\cinematic_volumetric.scene --cinematic --hold` for interactive look-dev. |
 
 ## Known Bugs
 

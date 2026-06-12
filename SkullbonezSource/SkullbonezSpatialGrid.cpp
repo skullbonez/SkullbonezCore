@@ -59,6 +59,7 @@
 // --- Includes ---
 #include "SkullbonezSpatialGrid.h"
 #include <algorithm>
+#include <stdexcept>
 
 
 // --- Usings ---
@@ -106,10 +107,11 @@ int SpatialGrid::FindOrCreate( int64_t key, int16_t cx, int16_t cy, int16_t cz )
             b.iy = cy;
             b.iz = cz;
             assert( activeBucketCount < TABLE_SIZE && "activeBuckets overflow" );
-            if ( activeBucketCount < TABLE_SIZE )
+            if ( activeBucketCount >= TABLE_SIZE )
             {
-                activeBuckets[activeBucketCount++] = idx;
+                throw std::runtime_error( "SpatialGrid active bucket capacity exceeded" );
             }
+            activeBuckets[activeBucketCount++] = idx;
             return idx;
         }
 
@@ -141,6 +143,10 @@ void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
     for ( int cur = b.head; cur != -1; cur = entries[cur].next )
     {
         assert( cur >= 0 && cur < MAX_CELL_ENTRIES && "entry chain index OOB" );
+        if ( cur < 0 || cur >= MAX_CELL_ENTRIES )
+        {
+            throw std::runtime_error( "SpatialGrid entry chain index out of bounds" );
+        }
         if ( entries[cur].objectIndex == index )
         {
             return;
@@ -163,9 +169,9 @@ void SpatialGrid::InsertCell( int index, int ix, int iy, int iz )
 void SpatialGrid::InsertBounds( int index, const Vector3& minBounds, const Vector3& maxBounds )
 {
     assert( index >= 0 && "Insert: negative object index" );
-    if ( index >= MAX_GAME_MODELS )
+    if ( index < 0 || index >= MAX_GAME_MODELS )
     {
-        return;
+        throw std::runtime_error( "SpatialGrid object index out of bounds" );
     }
 
     if ( index >= objectCount )
@@ -269,6 +275,10 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
 
     // Clear pair dedup bits
     assert( objectCount >= 0 && objectCount <= MAX_GAME_MODELS && "objectCount OOB" );
+    if ( objectCount < 0 || objectCount > MAX_GAME_MODELS )
+    {
+        throw std::runtime_error( "SpatialGrid object count out of bounds" );
+    }
     int pairBits = objectCount * ( objectCount - 1 ) / 2;
     int wordsNeeded = ( pairBits + 63 ) / 64;
     if ( wordsNeeded > PAIR_WORDS )
@@ -282,6 +292,10 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
     {
         int bi = activeBuckets[activeIndex];
         assert( bi >= 0 && bi < TABLE_SIZE && "active bucket index OOB" );
+        if ( bi < 0 || bi >= TABLE_SIZE )
+        {
+            throw std::runtime_error( "SpatialGrid active bucket index out of bounds" );
+        }
         Bucket& b = buckets[bi];
         if ( b.generation != generation || b.count < 2 )
         {
@@ -295,8 +309,16 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
         while ( cur != -1 )
         {
             assert( cur >= 0 && cur < MAX_CELL_ENTRIES && "entry chain index OOB" );
+            if ( cur < 0 || cur >= MAX_CELL_ENTRIES )
+            {
+                throw std::runtime_error( "SpatialGrid entry chain index out of bounds" );
+            }
             int objIdx = entries[cur].objectIndex;
             assert( objIdx >= 0 && objIdx < MAX_GAME_MODELS && "objectIndex OOB in entry chain" );
+            if ( objIdx < 0 || objIdx >= MAX_GAME_MODELS )
+            {
+                throw std::runtime_error( "SpatialGrid object index out of bounds in entry chain" );
+            }
             if ( cellCount < MAX_GAME_MODELS )
             {
                 cellIndices[cellCount++] = objIdx;
@@ -304,7 +326,7 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
             else
             {
                 assert( false && "cell index staging overflow" );
-                break;
+                throw std::runtime_error( "SpatialGrid cell index staging overflow" );
             }
             cur = entries[cur].next;
         }
@@ -331,9 +353,17 @@ void SpatialGrid::GetCandidatePairs( std::vector<std::pair<int, int>>& outPairs 
 
                 // Triangular index: bIdx*(bIdx-1)/2 + a  (requires a < bIdx)
                 assert( a < bIdx && "pair ordering violated: a must be less than bIdx" );
+                if ( a >= bIdx )
+                {
+                    throw std::runtime_error( "SpatialGrid pair ordering violated" );
+                }
                 int pairIdx = bIdx * ( bIdx - 1 ) / 2 + a;
                 int word = pairIdx >> 6;
                 assert( word >= 0 && word < PAIR_WORDS && "pairSeen word index OOB" );
+                if ( word < 0 || word >= PAIR_WORDS )
+                {
+                    throw std::runtime_error( "SpatialGrid pair dedup index out of bounds" );
+                }
                 uint64_t bit = uint64_t( 1 ) << ( pairIdx & 63 );
 
                 if ( !( pairSeen[word] & bit ) )

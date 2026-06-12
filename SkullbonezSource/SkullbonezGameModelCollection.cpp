@@ -77,6 +77,10 @@ GameModelCollection::GameModelCollection()
 void GameModelCollection::AddGameModel( GameModel gameModel )
 {
     assert( static_cast<int>( m_gameModels.size() ) < MAX_GAME_MODELS && "Exceeded MAX_GAME_MODELS" );
+    if ( static_cast<int>( m_gameModels.size() ) >= MAX_GAME_MODELS )
+    {
+        throw std::runtime_error( "Exceeded MAX_GAME_MODELS" );
+    }
     m_gameModels.push_back( std::move( gameModel ) );
     InvalidateSoA();
 }
@@ -1535,13 +1539,13 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
         // support. That separation keeps unstable edge/corner terrain contacts
         // from gaining rolling damping or sleep privileges just because their
         // impact rows solved successfully.
-        std::vector<uint8_t> terrainRestApplied( modelCount, 0 );
+        std::fill_n( m_terrainRestApplied.begin(), static_cast<size_t>( modelCount ), static_cast<uint8_t>( 0 ) );
         for ( const Physics::TerrainContactManifold& manifold : m_terrainContactManifolds )
         {
             const int bodyIndex = manifold.bodyA;
             if ( bodyIndex < 0 ||
                  bodyIndex >= modelCount ||
-                 terrainRestApplied[bodyIndex] ||
+                 m_terrainRestApplied[bodyIndex] ||
                  !manifold.supportsRestingPolicy ||
                  m_sleepState[bodyIndex] ||
                  m_soaIsFixed[bodyIndex] )
@@ -1549,7 +1553,7 @@ void GameModelCollection::SolvePersistentObjectContacts( float dt )
                 continue;
             }
 
-            terrainRestApplied[bodyIndex] = 1;
+            m_terrainRestApplied[bodyIndex] = 1;
             GameModel& model = m_gameModels[bodyIndex];
             SolverBodyState& body = m_solverBodies[bodyIndex];
             float normalForce = model.GetMass() * fabsf( Cfg().gravity ) * fabsf( manifold.normal.y );
@@ -2628,7 +2632,7 @@ bool GameModelCollection::SaveSceneSnapshot( const char* path, bool physicsOn, b
         return false;
     }
 
-    fprintf( f, "# Snapshot â€” %d balls\n", static_cast<int>( m_gameModels.size() ) );
+    fprintf( f, "# Snapshot - %d models\n", static_cast<int>( m_gameModels.size() ) );
     fprintf( f, "physics %s\n", physicsOn ? "on" : "off" );
     fprintf( f, "text %s\n", textOn ? "on" : "off" );
     fprintf( f, "frames unlimited\n" );

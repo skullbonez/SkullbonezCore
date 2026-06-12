@@ -173,11 +173,12 @@ class GameModelCollection
     std::vector<Physics::PhysicsPipelineRecord> m_physicsPipelineTrace;     // Bounded per-step Catto pipeline records for visual/debug stage stepping
     std::vector<Physics::TerrainContactManifold> m_terrainContactManifolds; // Current-step terrain manifolds feeding shared rows
     std::vector<int64_t> m_collisionCellKeys;                               // Cells where narrowphase collisions occurred this frame
+    std::array<uint8_t, MAX_GAME_MODELS> m_terrainRestApplied = {};         // Scratch flags for terrain rest policy, retained to avoid per-step allocation
 
 #ifdef _DEBUG
     // Deterministic per-body CSV artifact for current-solver regression tests.
-    // TODO: migrate the regression baseline onto SkullScope/SQLite diagnostics,
-    // then retire this row-per-body CSV path.
+    // Keep this legacy row-per-body path until the regression baseline moves
+    // fully onto SkullScope/SQLite diagnostics.
     char m_physicsRegressionLogPath[256] = {}; // Output path for regression CSV (empty = disabled)
     int m_physicsRegressionLogFrame = 0;       // Frame counter reset when path is set
     char m_physicsCollisionTimeLogPath[256] = {};
