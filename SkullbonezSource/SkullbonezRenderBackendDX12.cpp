@@ -1280,12 +1280,30 @@ static D3D12_BLEND MapBlendFactor( BlendFactor f )
 }
 
 
+static INT TranslatePolygonOffsetDepthBiasDX12( float units )
+{
+    return static_cast<INT>( units );
+}
+
+
+static float TranslatePolygonOffsetSlopeBiasDX12( float factor )
+{
+    return factor;
+}
+
+
 size_t RenderBackendDX12::HashPSOKey( const PSOKey12& key )
 {
     size_t h = 0;
     auto hashCombine = []( size_t& seed, size_t val )
     {
         seed ^= val + 0x9e3779b9 + ( seed << 6 ) + ( seed >> 2 );
+    };
+    auto hashFloatBits = []( float value )
+    {
+        uint32_t bits = 0;
+        memcpy( &bits, &value, sizeof( bits ) );
+        return static_cast<size_t>( bits );
     };
     hashCombine( h, (size_t)key.shaderVS );
     hashCombine( h, (size_t)key.shaderPS );
@@ -1298,6 +1316,8 @@ size_t RenderBackendDX12::HashPSOKey( const PSOKey12& key )
     hashCombine( h, (size_t)key.depthWriteEnabled );
     hashCombine( h, (size_t)key.cullEnabled );
     hashCombine( h, (size_t)key.polyOffsetEnabled );
+    hashCombine( h, (size_t)key.polyOffsetDepthBias );
+    hashCombine( h, hashFloatBits( key.polyOffsetSlopeScaledDepthBias ) );
     hashCombine( h, (size_t)key.rtvFormat );
     return h;
 }
@@ -1475,15 +1495,15 @@ ID3D12PipelineState* RenderBackendDX12::CreatePSO( VertexFormat12 format, bool i
     psoDesc.RasterizerState.FrontCounterClockwise = TRUE;
     if ( m_polyOffsetEnabled )
     {
-        psoDesc.RasterizerState.DepthBias = (INT)m_polyOffsetUnits;
-        psoDesc.RasterizerState.SlopeScaledDepthBias = m_polyOffsetFactor;
+        psoDesc.RasterizerState.DepthBias = TranslatePolygonOffsetDepthBiasDX12( m_polyOffsetUnits );
+        psoDesc.RasterizerState.SlopeScaledDepthBias = TranslatePolygonOffsetSlopeBiasDX12( m_polyOffsetFactor );
     }
     psoDesc.RasterizerState.DepthClipEnable = TRUE;
 
     // Depth stencil
     psoDesc.DepthStencilState.DepthEnable = m_depthTestEnabled ? TRUE : FALSE;
     psoDesc.DepthStencilState.DepthWriteMask = m_depthWriteEnabled ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
-    psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+    psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
 
     // Blend
     psoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
@@ -1543,6 +1563,8 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
     key.depthWriteEnabled = m_depthWriteEnabled;
     key.cullEnabled = m_cullEnabled;
     key.polyOffsetEnabled = m_polyOffsetEnabled;
+    key.polyOffsetDepthBias = m_polyOffsetEnabled ? TranslatePolygonOffsetDepthBiasDX12( m_polyOffsetUnits ) : 0;
+    key.polyOffsetSlopeScaledDepthBias = m_polyOffsetEnabled ? TranslatePolygonOffsetSlopeBiasDX12( m_polyOffsetFactor ) : 0.0f;
     key.rtvFormat = m_currentRTVFormat;
 
     size_t psoHash = HashPSOKey( key );
