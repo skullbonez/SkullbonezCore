@@ -18,6 +18,21 @@ for %%A in (%*) do (
     ) else if /I "!ARG!"=="renderers" (
         call "%ROOT%validate_renderers.bat"
         if errorlevel 1 set "FAILED=1"
+    ) else if /I "!ARG!"=="concepts" (
+        call "%ROOT%validate_concepts.bat" smoke
+        if errorlevel 1 set "FAILED=1"
+    ) else if /I "!ARG!"=="concept-smoke" (
+        call "%ROOT%validate_concepts.bat" smoke
+        if errorlevel 1 set "FAILED=1"
+    ) else if /I "!ARG!"=="concept-core" (
+        call "%ROOT%validate_concepts.bat" core
+        if errorlevel 1 set "FAILED=1"
+    ) else if /I "!ARG!"=="concept-full" (
+        call "%ROOT%validate_concepts.bat" full
+        if errorlevel 1 set "FAILED=1"
+    ) else if /I "!ARG!"=="shaders" (
+        call "%ROOT%validate_shaders.bat"
+        if errorlevel 1 set "FAILED=1"
     ) else if /I "!ARG!"=="ui" (
         call "%ROOT%validate_ui.bat"
         if errorlevel 1 set "FAILED=1"
@@ -77,6 +92,11 @@ echo.
 echo Validate one or more targets from this workspace:
 echo   tools\validate_select.bat fast
 echo   tools\validate_select.bat renderers
+echo   tools\validate_select.bat concepts
+echo   tools\validate_select.bat concept-smoke
+echo   tools\validate_select.bat concept-core
+echo   tools\validate_select.bat concept-full
+echo   tools\validate_select.bat shaders
 echo   tools\validate_select.bat ui
 echo   tools\validate_select.bat ui-stress
 echo   tools\validate_select.bat demo-stress

@@ -13,6 +13,8 @@ validation.
 | `validate_select.bat` | Run any subset of validations by name | ~depends |
 | `validate_fast.bat` | Small code refactors and non-render code edits | ~30s |
 | `validate_renderers.bat` | Shader, texture, render backend changes | ~60s |
+| `validate_concepts.bat` | Finite smoke/core/full concept-scene validation tiers | ~depends |
+| `validate_shaders.bat` | Shader stage manifest and contract drift helper | ~depends |
 | `validate_ui.bat` | Optional in-game UI visual screenshots, blur, and control automation | ~depends |
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep | ~10s |
 | `validate_demo_stress.bat` | Generated demo scene plus UI interaction crash sweep | ~depends |
@@ -30,6 +32,8 @@ Run only the targeted gate you need:
 ```bat
 tools\validate_select.bat format
 tools\validate_select.bat renderers physics
+tools\validate_select.bat concepts
+tools\validate_select.bat shaders
 tools\validate_select.bat ui
 tools\validate_select.bat fast build-profile
 ```
@@ -41,6 +45,8 @@ tools\validate_select.bat fast build-profile
 | `validate_format.bat` | Check clang-format compliance without auto-fixing |
 | `format_fix.bat` | Auto-fix formatting in-place |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Release`) |
+| `validate_concepts.bat [smoke\|core\|full] [gl\|dx11\|dx12\|all] [frames]` | Run finite concept-scene tiers and write logs plus JSON under `TestOutput\validation\concepts` |
+| `validate_shaders.bat` | Check shader file contracts from `tools\shader_contracts.json`; incomplete symbol/resource coverage is reported as warnings |
 | `validate_ui.bat` | Optional tri-renderer UI suite that captures UI screenshots and checks blur strength |
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep over a UI backdrop |
 | `validate_demo_stress.bat` | Generated demo scene crash sweep that keeps physics/rendering active while changing UI settings and renderers |
@@ -57,7 +63,7 @@ tools\validate_select.bat fast build-profile
 | `physics_query.py` | SkullScope: import queryable physics NDJSON traces into SQLite and return bounded JSON summaries/events/frame/body/contact/island queries |
 | `check_physics_query_regression.py` | SkullScope baseline checker used by `validate_physics_query.bat` and `validate_physics.bat` |
 | `check_dx12_validation.bat` | Verify DX12 InfoQueue clean |
-| `check_parity.py` | Cross-renderer pixel comparison |
+| `check_parity.py` | Cross-renderer pixel comparison plus manifest, side-by-side, heatmap, and JSON summary artifacts |
 | `check_physics_regression.py` | Byte-exact physics and bullet collision-time CSV diff |
 | `update_baselines.bat` | Copy current Profile visual/perf artifacts into `TestOutput\baselines` |
 | `archive_validation_artifacts.bat` | Archive current Profile artifacts under `TestOutput\NNN_<commit>` |
