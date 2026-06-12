@@ -6,6 +6,7 @@
 #include "UIDrawWidgets.h"
 #include "UIInput.h"
 #include "UILayout.h"
+#include "UIStyle.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -509,19 +510,20 @@ void Draw( UISceneTabState& state,
     if ( !combo.IsOpen() )
     {
         const float sceneCol2 = contentX + (std::max)( 208.0f, contentW * 0.48f );
+        const Style::UIPalette& palette = Style::Palette();
         char statusBuf[64] = {};
         snprintf( statusBuf, sizeof( statusBuf ), "%s / fixed %s", data.testComplete ? "complete" : "running", data.fixedStep ? "on" : "off" );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 82.0f, "Renderer", data.rendererName, 0.60f, 0.90f, 1.0f );
-        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 82.0f, "Status", statusBuf, 0.36f, 0.95f, 0.56f );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 108.0f, "Frame", buf, 0.88f, 0.92f, 0.94f );
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 82.0f, "Renderer", data.rendererName, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
+        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 82.0f, "Status", statusBuf, palette.accent.r, palette.accent.g, palette.accent.b );
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 108.0f, "Frame", buf, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
         snprintf( buf, sizeof( buf ), "%.1f FPS", data.fps );
-        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 108.0f, "Frame rate", buf, 0.52f, 0.94f, 1.0f );
+        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 108.0f, "Frame rate", buf, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
         snprintf( buf, sizeof( buf ), "%d / %d", data.currentSceneIndex + 1, data.sceneCount );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 134.0f, "Scene index", buf, 0.88f, 0.92f, 0.94f );
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 134.0f, "Scene index", buf, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
         snprintf( buf, sizeof( buf ), "%.6f", data.sceneEnergy );
-        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 134.0f, "Kinetic energy", buf, 0.98f, 0.78f, 0.35f );
+        DrawLabelValueAt( draw, contentY, contentH, sceneCol2, scrolledY + 134.0f, "Kinetic energy", buf, palette.warningAccent.r, palette.warningAccent.g, palette.warningAccent.b );
         snprintf( buf, sizeof( buf ), "%d", data.modelCount );
-        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 160.0f, "Model count", buf, 0.88f, 0.92f, 0.94f );
+        DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 160.0f, "Model count", buf, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
     }
     if ( IsRowVisible( contentY, contentH, scrolledY + 42.0f, 24.0f ) )
     {

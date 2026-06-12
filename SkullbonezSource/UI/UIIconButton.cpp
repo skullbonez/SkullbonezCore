@@ -1,4 +1,5 @@
 #include "UIIconButton.h"
+#include "UIStyle.h"
 
 namespace SkullbonezCore
 {
@@ -19,15 +20,15 @@ bool UIIconButton::HitTest( int mouseX, int mouseY ) const
 
 void UIIconButton::DrawExpander( const UIDrawContext& draw, bool expanded ) const
 {
-    draw.Rect( m_bounds.x, m_bounds.y, m_bounds.w, m_bounds.h, 0.03f, 0.16f, 0.20f, 0.86f );
-    draw.Outline( m_bounds.x, m_bounds.y, m_bounds.w, m_bounds.h, 0.28f, 0.82f, 0.95f, 0.74f );
+    const Style::UIPalette& palette = Style::Palette();
+    draw.RoundedPanel( m_bounds, Style::Radii().smallButton, palette.control, palette.border );
 
     const float cx = m_bounds.x + m_bounds.w * 0.5f;
     const float cy = m_bounds.y + m_bounds.h * 0.5f;
-    draw.Rect( cx - 4.0f, cy - 1.0f, 8.0f, 2.0f, 0.82f, 0.98f, 1.0f, 0.96f );
+    draw.Rect( cx - 4.0f, cy - 1.0f, 8.0f, 2.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, 0.96f );
     if ( !expanded )
     {
-        draw.Rect( cx - 1.0f, cy - 4.0f, 2.0f, 8.0f, 0.82f, 0.98f, 1.0f, 0.96f );
+        draw.Rect( cx - 1.0f, cy - 4.0f, 2.0f, 8.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, 0.96f );
     }
 }
 

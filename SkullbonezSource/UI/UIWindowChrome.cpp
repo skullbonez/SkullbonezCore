@@ -3,6 +3,7 @@
 #include "SkullbonezUI.h"
 #include "UIDrawWidgets.h"
 #include "UILayout.h"
+#include "UIStyle.h"
 
 #include <algorithm>
 #include <cmath>
@@ -213,41 +214,39 @@ bool IsResizeHotspot( const UIRect& windowBounds, int mouseX, int mouseY )
 
 void DrawWindowAnimationShell( const UIDrawContext& draw, const UIRect& bounds )
 {
-    draw.Rect( bounds.x - 6.0f, bounds.y - 6.0f, bounds.w + 12.0f, bounds.h + 12.0f, 0.03f, 0.54f, 0.86f, 0.08f );
-    draw.Rect( bounds.x, bounds.y, bounds.w, bounds.h, 0.018f, 0.040f, 0.056f, 0.42f );
-    draw.Outline( bounds.x, bounds.y, bounds.w, bounds.h, 0.39f, 0.88f, 1.0f, 0.76f );
-    draw.Rect( bounds.x + 2.0f, bounds.y + 2.0f, (std::max)( 1.0f, bounds.w - 4.0f ), 8.0f, 0.34f, 0.91f, 1.0f, 0.32f );
+    const Style::UIPalette& palette = Style::Palette();
+    draw.RoundedRect( bounds.x + 4.0f, bounds.y + 6.0f, bounds.w, bounds.h, Style::Radii().window, 0.0f, 0.0f, 0.0f, 0.26f );
+    draw.RoundedPanel( bounds, Style::Radii().window, palette.window, palette.border );
 }
 
 
 void DrawMinimizedWindow( const UIDrawContext& draw, const UIRect& minimized, const char* titleText )
 {
+    const Style::UIPalette& palette = Style::Palette();
     const UIRect restoreButton = { minimized.x + minimized.w - 36.0f, minimized.y + 7.0f, 26.0f, 22.0f };
-    draw.Rect( minimized.x - 5.0f, minimized.y - 5.0f, minimized.w + 10.0f, minimized.h + 10.0f, 0.03f, 0.54f, 0.86f, 0.12f );
-    draw.Rect( minimized.x, minimized.y, minimized.w, minimized.h, 0.018f, 0.040f, 0.056f, 0.76f );
-    draw.Outline( minimized.x, minimized.y, minimized.w, minimized.h, 0.39f, 0.88f, 1.0f, 0.92f );
-    draw.Rect( minimized.x + 10.0f, minimized.y + 12.0f, 12.0f, 12.0f, 0.34f, 0.91f, 1.0f, 0.90f );
-    draw.Rect( restoreButton.x, restoreButton.y, restoreButton.w, restoreButton.h, 0.026f, 0.100f, 0.132f, 0.78f );
-    draw.Outline( restoreButton.x, restoreButton.y, restoreButton.w, restoreButton.h, 0.24f, 0.58f, 0.70f, 0.78f );
-    draw.Text( minimized.x + 32.0f, minimized.y + 11.0f, 12.5f, 0.90f, 0.98f, 1.0f, titleText );
+    draw.RoundedRect( minimized.x + 4.0f, minimized.y + 5.0f, minimized.w, minimized.h, Style::Radii().window, 0.0f, 0.0f, 0.0f, 0.26f );
+    draw.RoundedPanel( minimized, Style::Radii().window, palette.window, palette.border );
+    draw.RoundedRect( minimized.x + 11.0f, minimized.y + 13.0f, 10.0f, 10.0f, 5.0f, palette.accent.r, palette.accent.g, palette.accent.b, 0.90f );
+    draw.RoundedPanel( restoreButton, Style::Radii().smallButton, palette.control, palette.border );
+    draw.Text( minimized.x + 32.0f, minimized.y + 11.0f, 12.5f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, titleText );
     const float plusX = restoreButton.x + restoreButton.w * 0.5f;
     const float plusY = restoreButton.y + restoreButton.h * 0.5f;
-    draw.Rect( plusX - 5.0f, plusY - 1.0f, 10.0f, 2.0f, 0.82f, 0.98f, 1.0f, 0.96f );
-    draw.Rect( plusX - 1.0f, plusY - 5.0f, 2.0f, 10.0f, 0.82f, 0.98f, 1.0f, 0.96f );
+    draw.Rect( plusX - 5.0f, plusY - 1.0f, 10.0f, 2.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, 0.96f );
+    draw.Rect( plusX - 1.0f, plusY - 5.0f, 2.0f, 10.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, 0.96f );
 }
 
 
 void DrawWindowFrame( const UIDrawContext& draw, const UIRect& bounds, float titleH, float tabH, bool blurEnabled, const char* titleText )
 {
-    draw.Rect( bounds.x - 8.0f, bounds.y - 8.0f, bounds.w + 16.0f, bounds.h + 16.0f, 0.03f, 0.54f, 0.86f, 0.10f );
-    draw.Rect( bounds.x - 4.0f, bounds.y - 4.0f, bounds.w + 8.0f, bounds.h + 8.0f, 0.06f, 0.34f, 0.48f, 0.18f );
-    draw.Rect( bounds.x, bounds.y, bounds.w, bounds.h, 0.018f, 0.040f, 0.056f, blurEnabled ? 0.60f : 0.66f );
-    draw.Rect( bounds.x + 2.0f, bounds.y + 2.0f, bounds.w - 4.0f, titleH - 3.0f, 0.040f, 0.100f, 0.132f, 0.74f );
-    draw.Rect( bounds.x + 2.0f, bounds.y + titleH, bounds.w - 4.0f, tabH, 0.026f, 0.060f, 0.078f, 0.58f );
-    draw.Rect( bounds.x + 2.0f, bounds.y + titleH + tabH, bounds.w - 4.0f, 1.0f, 0.26f, 0.82f, 1.0f, 0.38f );
-    draw.Outline( bounds.x, bounds.y, bounds.w, bounds.h, 0.39f, 0.88f, 1.0f, 0.88f );
-    draw.Outline( bounds.x + 2.0f, bounds.y + 2.0f, bounds.w - 4.0f, bounds.h - 4.0f, 0.08f, 0.26f, 0.34f, 0.64f );
-    draw.Text( bounds.x + 20.0f, bounds.y + 12.0f, 15.5f, 0.90f, 0.98f, 1.0f, titleText );
+    const Style::UIPalette& palette = Style::Palette();
+    Style::UIColor windowFill = palette.window;
+    windowFill.a = blurEnabled ? 0.60f : palette.window.a;
+    draw.RoundedRect( bounds.x + 5.0f, bounds.y + 7.0f, bounds.w, bounds.h, Style::Radii().window, 0.0f, 0.0f, 0.0f, 0.28f );
+    draw.RoundedPanel( bounds, Style::Radii().window, windowFill, palette.border );
+    draw.RoundedRect( bounds.x + 2.0f, bounds.y + 2.0f, bounds.w - 4.0f, titleH - 3.0f, Style::Radii().window - 2.0f, palette.windowRaised.r, palette.windowRaised.g, palette.windowRaised.b, 0.72f );
+    draw.Rect( bounds.x + 2.0f, bounds.y + titleH, bounds.w - 4.0f, tabH, palette.windowSubtle.r, palette.windowSubtle.g, palette.windowSubtle.b, 0.58f );
+    draw.Rect( bounds.x + 16.0f, bounds.y + titleH + tabH, bounds.w - 32.0f, 1.0f, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b, 0.14f );
+    draw.Text( bounds.x + 20.0f, bounds.y + 12.0f, 15.5f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, titleText );
 }
 
 

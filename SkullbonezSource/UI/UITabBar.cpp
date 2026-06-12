@@ -1,6 +1,7 @@
 #include "UITabBar.h"
 
 #include "../SkullbonezText.h"
+#include "UIStyle.h"
 
 #include <algorithm>
 
@@ -35,6 +36,8 @@ void UITabBar::Draw( const UIDrawContext& draw, const char* const* labels, int t
     }
 
     const float tabW = m_bounds.w / static_cast<float>( tabCount );
+    const Style::UIPalette& palette = Style::Palette();
+    const float radius = Style::Radii().control;
     for ( int i = 0; i < tabCount; ++i )
     {
         const float tx = m_bounds.x + static_cast<float>( i ) * tabW;
@@ -42,22 +45,29 @@ void UITabBar::Draw( const UIDrawContext& draw, const char* const* labels, int t
         const float pillX = tx + 2.0f;
         const float pillW = tabW - 8.0f;
         const bool active = i == activeIndex;
-        draw.Rect( pillX, ty, pillW, 30.0f,
-                   active ? 0.04f : 0.03f,
-                   active ? 0.30f : 0.07f,
-                   active ? 0.42f : 0.10f,
-                   active ? 0.80f : 0.36f );
         if ( active )
         {
-            draw.Rect( pillX, ty + 30.0f, pillW, 2.0f, 0.34f, 0.91f, 1.0f, 1.0f );
+            draw.RoundedPanel( { pillX, ty, pillW, 30.0f }, radius, palette.windowRaised, palette.innerBorder );
         }
-        const float textSize = 12.5f;
+        else
+        {
+            draw.RoundedRect( pillX, ty, pillW, 30.0f, radius, palette.windowSubtle.r, palette.windowSubtle.g, palette.windowSubtle.b, 0.20f );
+        }
+        if ( active )
+        {
+            draw.Rect( pillX + 8.0f, ty + 29.0f, (std::max)( 1.0f, pillW - 16.0f ), 2.0f, palette.accent.r, palette.accent.g, palette.accent.b, 0.86f );
+        }
+        float textSize = 11.5f;
+        while ( textSize > 8.5f && Text::Text2d::MeasureText( textSize, labels[i] ? labels[i] : "" ) > pillW - 10.0f )
+        {
+            textSize -= 0.5f;
+        }
         const float labelW = Text::Text2d::MeasureText( textSize, labels[i] ? labels[i] : "" );
         const float labelX = pillX + (std::max)( 6.0f, ( pillW - labelW ) * 0.5f );
         draw.Text( labelX, ty + 8.0f, textSize,
-                   active ? 0.94f : 0.62f,
-                   active ? 0.99f : 0.76f,
-                   active ? 1.0f : 0.82f,
+                   active ? palette.textPrimary.r : palette.textSecondary.r,
+                   active ? palette.textPrimary.g : palette.textSecondary.g,
+                   active ? palette.textPrimary.b : palette.textSecondary.b,
                    labels[i] );
     }
 }

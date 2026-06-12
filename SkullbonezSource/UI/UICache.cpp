@@ -7,9 +7,15 @@ namespace SkullbonezCore
 namespace UI
 {
 
+UICacheState::UICacheState()
+    : m_drawList( std::make_unique<UIDrawList>() )
+{
+}
+
+
 void UICacheState::Reset()
 {
-    m_drawList.Clear();
+    m_drawList->Clear();
     m_lastKey = {};
     m_dirtyFlags = UI_DIRTY_CONTENT | UI_DIRTY_LAYOUT | UI_DIRTY_STYLE | UI_DIRTY_INTERACTION | UI_DIRTY_VIEWPORT | UI_DIRTY_BLUR_SOURCE;
     m_hasFrame = false;
@@ -67,7 +73,7 @@ uint32_t UICacheState::BeginFrame( const UICacheFrameKey& key )
 bool UICacheState::CanReplayPositionOnly( const UICacheFrameKey& key ) const
 {
     return m_hasFrame &&
-           !m_drawList.Empty() &&
+           !m_drawList->Empty() &&
            m_dirtyFlags == UI_DIRTY_POSITION &&
            key.screenW == m_lastKey.screenW &&
            key.screenH == m_lastKey.screenH &&
@@ -91,13 +97,13 @@ void UICacheState::StoreFrame( const UICacheFrameKey& key )
 
 UIDrawList& UICacheState::MutableDrawList()
 {
-    return m_drawList;
+    return *m_drawList;
 }
 
 
 const UIDrawList& UICacheState::DrawList() const
 {
-    return m_drawList;
+    return *m_drawList;
 }
 
 

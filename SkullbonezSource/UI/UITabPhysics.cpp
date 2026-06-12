@@ -4,6 +4,7 @@
 #include "SkullbonezUI.h"
 #include "UIDrawWidgets.h"
 #include "UILayout.h"
+#include "UIStyle.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -227,10 +228,11 @@ void Draw( UIPhysicsTabState& state,
     DrawContentToggle( draw, contentY, contentH, state.toggles[3], col2, scrolledY + 102.0f, colW, "Sleep state", ( data.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0 );
     DrawContentToggle( draw, contentY, contentH, state.toggles[6], col2, scrolledY + 132.0f, colW, "Sleep policy", data.physicsSleepEnabled );
     DrawContentToggle( draw, contentY, contentH, state.toggles[8], col1, scrolledY + 162.0f, colW, "Terrain probe", ( data.physicsDebugFlags & PHYSICS_DEBUG_TERRAIN_CONTACT ) != 0 );
+    const Style::UIPalette& palette = Style::Palette();
     snprintf( buf, sizeof( buf ), "0x%04X", data.physicsDebugFlags );
-    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 208.0f, "Debug flags", buf, 0.52f, 0.94f, 1.0f );
+    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 208.0f, "Debug flags", buf, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
     snprintf( buf, sizeof( buf ), "%d/%d %s", data.physicsPipelineStageIndex + 1, data.physicsPipelineStageCount, data.physicsPipelineStageName );
-    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 228.0f, "Pipeline stage", buf, 0.52f, 0.94f, 1.0f );
+    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 228.0f, "Pipeline stage", buf, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
     SetPipelineStepButtonBounds( state.pipelinePrevButton, state.pipelineNextButton, contentX, contentW, scrolledY + 224.0f );
     if ( IsRowVisible( contentY, contentH, scrolledY + 224.0f, UI_PIPELINE_STEP_BUTTON_H ) )
     {

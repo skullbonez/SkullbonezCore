@@ -1,6 +1,7 @@
 #include "UISlider.h"
 
 #include "../SkullbonezText.h"
+#include "UIStyle.h"
 
 #include <algorithm>
 #include <cmath>
@@ -39,9 +40,12 @@ float UISlider::ValueFromMouse( int mouseX, float minValue, float maxValue, floa
 
 void UISlider::Draw( const UIDrawContext& draw, const char* label, const char* valueText, float value, float minValue, float maxValue ) const
 {
+    const Style::UIPalette& palette = Style::Palette();
+    const Style::UIControlStyle& control = Style::Control();
     maxValue = (std::max)( minValue, maxValue );
     const float trackX = TrackX();
     const float trackW = TrackW();
+    const float trackH = control.sliderTrackHeight;
     const float trackY = m_bounds.y + 17.0f;
     const float t = maxValue > minValue ? std::clamp( ( value - minValue ) / ( maxValue - minValue ), 0.0f, 1.0f ) : 0.0f;
     const float knobX = trackX + trackW * t;
@@ -49,13 +53,11 @@ void UISlider::Draw( const UIDrawContext& draw, const char* label, const char* v
     const float valueW = Text::Text2d::MeasureText( textSize, valueText ? valueText : "" );
     const float valueX = m_bounds.x + m_bounds.w - valueW - 4.0f;
 
-    draw.Text( m_bounds.x, m_bounds.y + 1.0f, textSize, 0.74f, 0.82f, 0.84f, label );
-    draw.Text( valueX, m_bounds.y + 1.0f, textSize, 0.76f, 0.96f, 1.0f, valueText );
-    draw.Rect( trackX, trackY, trackW, 3.0f, 0.05f, 0.12f, 0.15f, 0.92f );
-    draw.Rect( trackX, trackY, trackW * t, 3.0f, 0.24f, 0.78f, 0.96f, 0.90f );
-    draw.Outline( trackX, trackY - 2.0f, trackW, 7.0f, 0.16f, 0.32f, 0.38f, 0.70f );
-    draw.Rect( knobX - 5.0f, trackY - 6.0f, 10.0f, 15.0f, 0.58f, 0.94f, 1.0f, 0.98f );
-    draw.Outline( knobX - 5.0f, trackY - 6.0f, 10.0f, 15.0f, 0.86f, 0.99f, 1.0f, 0.96f );
+    draw.Text( m_bounds.x, m_bounds.y + 1.0f, textSize, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, label );
+    draw.Text( valueX, m_bounds.y + 1.0f, textSize, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, valueText );
+    draw.RoundedRect( trackX, trackY, trackW, trackH, trackH * 0.5f, palette.control.r, palette.control.g, palette.control.b, 0.78f );
+    draw.RoundedRect( trackX, trackY, (std::max)( trackH, trackW * t ), trackH, trackH * 0.5f, palette.accent.r, palette.accent.g, palette.accent.b, 0.90f );
+    draw.RoundedPanel( { knobX - 5.0f, trackY - 5.0f, 10.0f, 16.0f }, 5.0f, palette.accentStrong, palette.border );
 }
 
 

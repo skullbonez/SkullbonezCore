@@ -1,6 +1,7 @@
 #include "UIButton.h"
 
 #include "../SkullbonezText.h"
+#include "UIStyle.h"
 
 #include <algorithm>
 
@@ -24,24 +25,17 @@ bool UIButton::HitTest( int mouseX, int mouseY ) const
 void UIButton::Draw( const UIDrawContext& draw, const char* label, int mouseX, int mouseY ) const
 {
     const bool hot = HitTest( mouseX, mouseY );
+    const Style::UIPalette& palette = Style::Palette();
+    const float radius = Style::Radii().control;
     const float textSize = 11.0f;
     const float labelW = Text::Text2d::MeasureText( textSize, label ? label : "" );
     const float labelX = m_bounds.x + (std::max)( 8.0f, ( m_bounds.w - labelW ) * 0.5f );
     const float labelY = m_bounds.y + ( m_bounds.h - textSize ) * 0.5f - 1.0f;
-    draw.Rect( m_bounds.x, m_bounds.y, m_bounds.w, m_bounds.h,
-               hot ? 0.050f : 0.026f,
-               hot ? 0.250f : 0.100f,
-               hot ? 0.330f : 0.132f,
-               hot ? 0.92f : 0.78f );
-    draw.Outline( m_bounds.x, m_bounds.y, m_bounds.w, m_bounds.h,
-                  hot ? 0.44f : 0.24f,
-                  hot ? 0.92f : 0.58f,
-                  hot ? 1.0f : 0.70f,
-                  hot ? 0.96f : 0.78f );
+    draw.RoundedPanel( m_bounds, radius, hot ? palette.controlHover : palette.control, palette.border );
     draw.Text( labelX, labelY, textSize,
-               hot ? 0.96f : 0.78f,
-               hot ? 1.0f : 0.92f,
-               1.0f,
+               hot ? palette.textPrimary.r : palette.textSecondary.r,
+               hot ? palette.textPrimary.g : palette.textSecondary.g,
+               hot ? palette.textPrimary.b : palette.textSecondary.b,
                label );
 }
 

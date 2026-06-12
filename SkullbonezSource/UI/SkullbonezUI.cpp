@@ -12,6 +12,7 @@
 #include "UITabPhysics.h"
 #include "UITabProfiler.h"
 #include "UITabScene.h"
+#include "UIStyle.h"
 #include "UIWindowChrome.h"
 
 #include <algorithm>
@@ -360,6 +361,250 @@ constexpr CinematicFeatureSpec kCinematicFeatureSpecs[] = {
 };
 static_assert( sizeof( kCinematicFeatureSpecs ) / sizeof( kCinematicFeatureSpecs[0] ) == static_cast<int>( UICinematicFeature::Count ),
                "Cinematic feature specs must match UICinematicFeature." );
+
+constexpr int UI_WHATS_NEW_CONTENT_HEIGHT = 780;
+constexpr float UI_WHATS_NEW_CARD_H = 156.0f;
+constexpr float UI_WHATS_NEW_CARD_GAP = 16.0f;
+constexpr float UI_WHATS_NEW_CONTROL_Y = 72.0f;
+constexpr float UI_WHATS_NEW_SLIDER_Y = 102.0f;
+constexpr float UI_WHATS_NEW_SLIDER_DESC_Y = 140.0f;
+constexpr int UI_WHATS_NEW_TOGGLE_BLUR = 0;
+constexpr int UI_WHATS_NEW_TOGGLE_PERF = 1;
+constexpr int UI_WHATS_NEW_TOGGLE_TIMELINE = 2;
+constexpr int UI_WHATS_NEW_TOGGLE_ASSET_REGISTRY = 3;
+constexpr int UI_WHATS_NEW_TOGGLE_DX12_GATE = 4;
+constexpr int UI_WHATS_NEW_SLIDER_TEXTURES = 0;
+constexpr int UI_WHATS_NEW_SLIDER_PARITY = 1;
+
+bool IsBlockVisible( float contentY, float contentH, float blockY, float blockH )
+{
+    return blockY + blockH >= contentY && blockY <= contentY + contentH;
+}
+
+void EllipsizeToWidth( char* text, size_t textSize, float pxSize, float maxWidth )
+{
+    if ( !text || textSize == 0 || Text2d::MeasureText( pxSize, text ) <= maxWidth )
+    {
+        return;
+    }
+
+    size_t len = strlen( text );
+    while ( len > 3 && Text2d::MeasureText( pxSize, text ) > maxWidth )
+    {
+        text[len - 3] = '.';
+        text[len - 2] = '.';
+        text[len - 1] = '.';
+        text[len] = '\0';
+        --len;
+    }
+}
+
+void DrawFittedText( const UIDrawContext& draw, float x, float y, float pxSize, const Style::UIColor& color, const char* value, float maxWidth )
+{
+    char text[192] = {};
+    snprintf( text, sizeof( text ), "%s", value ? value : "" );
+    EllipsizeToWidth( text, sizeof( text ), pxSize, maxWidth );
+    draw.Text( x, y, pxSize, color.r, color.g, color.b, text );
+}
+
+void DrawWhatsNewCard( const UIDrawContext& draw,
+                       float contentY,
+                       float contentH,
+                       float x,
+                       float y,
+                       float w,
+                       float h,
+                       const char* title,
+                       const char* tag,
+                       const char* line1,
+                       const char* line2 )
+{
+    if ( !IsRowVisible( contentY, contentH, y, h ) )
+    {
+        return;
+    }
+
+    const Style::UIPalette& palette = Style::Palette();
+    draw.RoundedPanel( { x, y, w, h }, Style::Radii().window, palette.windowSubtle, palette.border );
+    DrawFittedText( draw, x + 14.0f, y + 12.0f, 12.5f, palette.textPrimary, title, w - 132.0f );
+    DrawFittedText( draw, x + w - 112.0f, y + 13.0f, 9.5f, palette.textMuted, tag, 100.0f );
+    DrawFittedText( draw, x + 14.0f, y + 34.0f, 10.0f, palette.textSecondary, line1, w - 28.0f );
+    DrawFittedText( draw, x + 14.0f, y + 49.0f, 10.0f, palette.textMuted, line2, w - 28.0f );
+}
+
+void DrawWhatsNewDescription( const UIDrawContext& draw, float contentY, float contentH, float x, float y, float w, const char* text )
+{
+    if ( !IsRowVisible( contentY, contentH, y, 14.0f ) )
+    {
+        return;
+    }
+
+    DrawFittedText( draw, x, y, 9.5f, Style::Palette().textMuted, text, w );
+}
+
+void SetWhatsNewControlBounds( UICheckBox toggles[5],
+                               UISlider statusSliders[2],
+                               OptionsTab::UIOptionsTabState& options,
+                               PhysicsTab::UIPhysicsTabState& physics,
+                               float contentX,
+                               float rowBase,
+                               float contentW )
+{
+    const float innerX = contentX + 16.0f;
+    const float innerW = (std::max)( 180.0f, contentW - 32.0f );
+    const float firstCardY = 42.0f;
+    const float secondCardY = firstCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
+    const float thirdCardY = secondCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
+    const float fourthCardY = thirdCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
+
+    toggles[UI_WHATS_NEW_TOGGLE_BLUR].SetBounds( innerX, rowBase + firstCardY + UI_WHATS_NEW_CONTROL_Y, 188.0f, 24.0f );
+    options.timeScaleSlider.SetBounds( innerX, rowBase + firstCardY + UI_WHATS_NEW_SLIDER_Y, innerW, 34.0f );
+
+    toggles[UI_WHATS_NEW_TOGGLE_ASSET_REGISTRY].SetBounds( innerX, rowBase + secondCardY + UI_WHATS_NEW_CONTROL_Y, 188.0f, 24.0f );
+    statusSliders[UI_WHATS_NEW_SLIDER_TEXTURES].SetBounds( innerX, rowBase + secondCardY + UI_WHATS_NEW_SLIDER_Y, innerW, 34.0f );
+
+    toggles[UI_WHATS_NEW_TOGGLE_DX12_GATE].SetBounds( innerX, rowBase + thirdCardY + UI_WHATS_NEW_CONTROL_Y, 188.0f, 24.0f );
+    statusSliders[UI_WHATS_NEW_SLIDER_PARITY].SetBounds( innerX, rowBase + thirdCardY + UI_WHATS_NEW_SLIDER_Y, innerW, 34.0f );
+
+    toggles[UI_WHATS_NEW_TOGGLE_PERF].SetBounds( innerX, rowBase + fourthCardY + UI_WHATS_NEW_CONTROL_Y, 188.0f, 24.0f );
+    toggles[UI_WHATS_NEW_TOGGLE_TIMELINE].SetBounds( innerX + 210.0f, rowBase + fourthCardY + UI_WHATS_NEW_CONTROL_Y, 188.0f, 24.0f );
+    physics.alphaSlider.SetBounds( innerX, rowBase + fourthCardY + UI_WHATS_NEW_SLIDER_Y, innerW, 34.0f );
+    physics.worldGravitySlider.SetBounds( innerX, rowBase + fourthCardY + 150.0f, innerW, 34.0f );
+}
+
+void DrawWhatsNewTab( UICheckBox toggles[5],
+                      UISlider statusSliders[2],
+                      OptionsTab::UIOptionsTabState& options,
+                      PhysicsTab::UIPhysicsTabState& physics,
+                      const UIDrawContext& draw,
+                      const InGameUIFrameData& data,
+                      float contentX,
+                      float contentY,
+                      float contentW,
+                      float contentH,
+                      float scrolledY,
+                      int activeSlider,
+                      bool blurEnabled,
+                      const ProfilerTab::UIProfilerTabState& profilerState )
+{
+    char buf[64];
+    const Style::UIPalette& palette = Style::Palette();
+    const float innerX = contentX + 16.0f;
+    const float descX = innerX + 210.0f;
+    const float descW = (std::max)( 120.0f, contentX + contentW - descX - 16.0f );
+    const float firstCardY = 42.0f;
+    const float secondCardY = firstCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
+    const float thirdCardY = secondCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
+    const float fourthCardY = thirdCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
+    const float displayTimeScale = ( activeSlider == OptionsTab::SLIDER_TIME_SCALE && options.previewTimeScale > 0.0f ) ? options.previewTimeScale : data.timeScale;
+    const float displayAlpha = ( activeSlider == PhysicsTab::SLIDER_ALPHA && physics.previewAlpha >= 0.0f ) ? physics.previewAlpha : data.physicsDebugAlpha;
+    const float displayGravityStrength = GravityStrengthFromWorld( data.worldGravity );
+
+    DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "WHATS NEW" );
+    DrawFittedText( draw,
+                    contentX,
+                    scrolledY + 20.0f,
+                    10.0f,
+                    palette.textSecondary,
+                    "Latest completed work first, with the controls most useful for trying it in the running scene.",
+                    contentW );
+
+    DrawWhatsNewCard( draw,
+                      contentY,
+                      contentH,
+                      contentX,
+                      scrolledY + firstCardY,
+                      contentW,
+                      UI_WHATS_NEW_CARD_H,
+                      "Graphite overlay UI",
+                      "latest",
+                      "The diagnostics panel now uses matte graphite surfaces, rounded controls, and sage accents.",
+                      "Use these controls to preview the overlay and tune simulation speed without leaving this tab." );
+    if ( IsRowVisible( contentY, contentH, scrolledY + firstCardY + UI_WHATS_NEW_CONTROL_Y, 24.0f ) )
+    {
+        toggles[UI_WHATS_NEW_TOGGLE_BLUR].DrawToggle( draw, "Backdrop blur", blurEnabled, palette.accent.r, palette.accent.g, palette.accent.b );
+        DrawWhatsNewDescription( draw, contentY, contentH, descX, scrolledY + firstCardY + UI_WHATS_NEW_CONTROL_Y + 4.0f, descW, "Softens the scene behind the graphite panel." );
+    }
+    snprintf( buf, sizeof( buf ), "%.2fx", displayTimeScale );
+    if ( IsRowVisible( contentY, contentH, scrolledY + firstCardY + UI_WHATS_NEW_SLIDER_Y, 34.0f ) )
+    {
+        options.timeScaleSlider.Draw( draw, "Time scale", buf, displayTimeScale, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX );
+        DrawWhatsNewDescription( draw, contentY, contentH, innerX, scrolledY + firstCardY + UI_WHATS_NEW_SLIDER_DESC_Y, contentW - 32.0f, "Slows or accelerates simulation playback; drag then release to commit." );
+    }
+
+    DrawWhatsNewCard( draw,
+                      contentY,
+                      contentH,
+                      contentX,
+                      scrolledY + secondCardY,
+                      contentW,
+                      UI_WHATS_NEW_CARD_H,
+                      "Asset texture registry",
+                      "2026-06-12",
+                      "Textures now have stable source records while legacy numeric texture hashes keep working.",
+                      "Renderer switches can rebuild registered GPU handles from the source registry." );
+    if ( IsRowVisible( contentY, contentH, scrolledY + secondCardY + UI_WHATS_NEW_CONTROL_Y, 24.0f ) )
+    {
+        toggles[UI_WHATS_NEW_TOGGLE_ASSET_REGISTRY].DrawToggle( draw, "Source records", true, palette.accent.r, palette.accent.g, palette.accent.b );
+        DrawWhatsNewDescription( draw, contentY, contentH, descX, scrolledY + secondCardY + UI_WHATS_NEW_CONTROL_Y + 4.0f, descW, "Indicates built-in texture sources are registered." );
+    }
+    if ( IsRowVisible( contentY, contentH, scrolledY + secondCardY + UI_WHATS_NEW_SLIDER_Y, 34.0f ) )
+    {
+        statusSliders[UI_WHATS_NEW_SLIDER_TEXTURES].Draw( draw, "Built-ins indexed", "8 / 8", 8.0f, 0.0f, 8.0f );
+        DrawWhatsNewDescription( draw, contentY, contentH, innerX, scrolledY + secondCardY + UI_WHATS_NEW_SLIDER_DESC_Y, contentW - 32.0f, "Eight default texture assets are available to dump and rebuild." );
+    }
+
+    DrawWhatsNewCard( draw,
+                      contentY,
+                      contentH,
+                      contentX,
+                      scrolledY + thirdCardY,
+                      contentW,
+                      UI_WHATS_NEW_CARD_H,
+                      "Validation harness upgrade",
+                      "2026-06-12",
+                      "Renderer validation now writes manifests, summaries, heatmaps, and explicit DX12 gate output.",
+                      "The parity budget is visible here so the gate is easy to interpret." );
+    if ( IsRowVisible( contentY, contentH, scrolledY + thirdCardY + UI_WHATS_NEW_CONTROL_Y, 24.0f ) )
+    {
+        toggles[UI_WHATS_NEW_TOGGLE_DX12_GATE].DrawToggle( draw, "DX12 gate", true, palette.accent.r, palette.accent.g, palette.accent.b );
+        DrawWhatsNewDescription( draw, contentY, contentH, descX, scrolledY + thirdCardY + UI_WHATS_NEW_CONTROL_Y + 4.0f, descW, "Clean runs report zero DX12 validation errors." );
+    }
+    if ( IsRowVisible( contentY, contentH, scrolledY + thirdCardY + UI_WHATS_NEW_SLIDER_Y, 34.0f ) )
+    {
+        statusSliders[UI_WHATS_NEW_SLIDER_PARITY].Draw( draw, "Pixel diff budget", "avg < 10", 10.0f, 0.0f, 10.0f );
+        DrawWhatsNewDescription( draw, contentY, contentH, innerX, scrolledY + thirdCardY + UI_WHATS_NEW_SLIDER_DESC_Y, contentW - 32.0f, "Renderer pairs must remain under this average pixel difference." );
+    }
+
+    DrawWhatsNewCard( draw,
+                      contentY,
+                      contentH,
+                      contentX,
+                      scrolledY + fourthCardY,
+                      contentW,
+                      202.0f,
+                      "Profiler and physics controls",
+                      "recent",
+                      "The profiler and debug overlays are surfaced here for quick diagnostics while reviewing new work.",
+                      "Toggle timeline views, then tune debug opacity and world gravity with sliders." );
+    if ( IsRowVisible( contentY, contentH, scrolledY + fourthCardY + UI_WHATS_NEW_CONTROL_Y, 24.0f ) )
+    {
+        toggles[UI_WHATS_NEW_TOGGLE_PERF].DrawToggle( draw, "Perf graph", ProfilerTab::PerformanceHistogramEnabled( profilerState ), palette.accent.r, palette.accent.g, palette.accent.b );
+        toggles[UI_WHATS_NEW_TOGGLE_TIMELINE].DrawToggle( draw, "Timeline", ProfilerTab::TimelineEnabled( profilerState ), palette.accent.r, palette.accent.g, palette.accent.b );
+    }
+    snprintf( buf, sizeof( buf ), "%.2f", displayAlpha );
+    if ( IsRowVisible( contentY, contentH, scrolledY + fourthCardY + UI_WHATS_NEW_SLIDER_Y, 34.0f ) )
+    {
+        physics.alphaSlider.Draw( draw, "Body alpha", buf, displayAlpha, UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX );
+        DrawWhatsNewDescription( draw, contentY, contentH, innerX, scrolledY + fourthCardY + UI_WHATS_NEW_SLIDER_DESC_Y, contentW - 32.0f, "Adjusts transparency for physics body debug overlays." );
+    }
+    snprintf( buf, sizeof( buf ), "%.1f", displayGravityStrength );
+    if ( IsRowVisible( contentY, contentH, scrolledY + fourthCardY + 150.0f, 34.0f ) )
+    {
+        physics.worldGravitySlider.Draw( draw, "Gravity", buf, displayGravityStrength, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX );
+        DrawWhatsNewDescription( draw, contentY, contentH, innerX, scrolledY + fourthCardY + 188.0f, contentW - 32.0f, "Controls downward world force used by the water and physics scene." );
+    }
+}
 
 bool IsCineSceneOptionName( const char* name )
 {
@@ -857,18 +1102,21 @@ void InGameUI::SetSceneFilter( const char* filter )
 void InGameUI::SetProfilerExpandAll( bool expandAll )
 {
     ProfilerTab::SetExpandAll( m_profilerTab, expandAll );
+    m_cache.Reset();
 }
 
 
 void InGameUI::SetProfilerTimelineEnabled( bool enabled )
 {
     ProfilerTab::SetTimelineEnabled( m_profilerTab, enabled );
+    m_cache.Reset();
 }
 
 
 void InGameUI::SetPerformanceHistogramEnabled( bool enabled )
 {
     ProfilerTab::SetPerformanceHistogramEnabled( m_profilerTab, enabled );
+    m_cache.Reset();
 }
 
 
@@ -927,11 +1175,12 @@ void InGameUI::DrawCursor( const UIDrawContext& draw ) const
     const float shadow[] = { 1.7f, 2.0f, 2.1f, 24.2f, 8.5f, 17.3f, 12.9f, 26.5f, 17.5f, 24.2f, 13.0f, 15.9f, 20.8f, 14.8f };
     const float outer[] = { 0.0f, 0.0f, 0.7f, 22.3f, 7.0f, 15.6f, 11.5f, 24.8f, 16.0f, 22.6f, 11.5f, 14.3f, 19.0f, 13.2f };
     const float inner[] = { 3.0f, 4.0f, 3.4f, 15.7f, 7.0f, 12.0f, 10.6f, 20.2f, 12.2f, 19.4f, 8.5f, 11.7f, 13.2f, 11.1f };
+    const Style::UIPalette& palette = Style::Palette();
 
     drawShape( shadow, 0.0f, 0.0f, 0.0f, 0.30f );
-    drawShape( outer, 0.42f, 0.91f, 1.0f, 0.98f );
-    drawShape( inner, 0.014f, 0.064f, 0.102f, 0.98f );
-    draw.Triangle( x + 4.0f, y + 5.0f, x + 4.2f, y + 10.8f, x + 5.9f, y + 9.0f, 0.18f, 0.46f, 0.58f, 0.58f );
+    drawShape( outer, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, 0.98f );
+    drawShape( inner, palette.window.r, palette.window.g, palette.window.b, 0.98f );
+    draw.Triangle( x + 4.0f, y + 5.0f, x + 4.2f, y + 10.8f, x + 5.9f, y + 9.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, 0.58f );
 }
 
 
@@ -939,6 +1188,8 @@ int InGameUI::ContentHeight() const
 {
     switch ( m_activeTab )
     {
+    case InGameUITab::WhatsNew:
+        return UI_WHATS_NEW_CONTENT_HEIGHT;
     case InGameUITab::Keys:
         return ControlsTab::ContentHeight();
     case InGameUITab::Profiler:
@@ -981,12 +1232,12 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     screenH = (std::max)( 1, screenH );
     m_lastScreenW = screenW;
     m_lastScreenH = screenH;
-    const int minW = 430;
+    const int minW = 520;
     const int minH = 250;
     const int margin = 10;
     const int titleH = 44;
-    const int tabH = 54;
-    const int bottomH = 88;
+    const int tabH = 44;
+    const int bottomH = 78;
     const int contentPad = 18;
     const int maxW = (std::max)( minW, screenW - margin * 2 );
     const int maxH = (std::max)( minH, screenH - margin * 2 );
@@ -1204,6 +1455,60 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             {
                 m_rendererCombo.Close();
             }
+        }
+        else if ( inContent && m_activeTab == InGameUITab::WhatsNew )
+        {
+            const float contentX = static_cast<float>( inputX + contentPad );
+            const float rowBase = static_cast<float>( contentY ) - m_scrollY;
+            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
+            SetWhatsNewControlBounds( m_whatsNewToggles, m_whatsNewSliders, m_optionsTab, m_physicsTab, contentX, rowBase, contentW );
+
+            bool capturedSlider = false;
+            if ( m_whatsNewToggles[UI_WHATS_NEW_TOGGLE_BLUR].HitTest( m_mouseX, m_mouseY ) )
+            {
+                SetBlurEnabled( !m_blurPreviewEnabled );
+            }
+            else if ( m_whatsNewToggles[UI_WHATS_NEW_TOGGLE_PERF].HitTest( m_mouseX, m_mouseY ) )
+            {
+                SetPerformanceHistogramEnabled( !ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) );
+            }
+            else if ( m_whatsNewToggles[UI_WHATS_NEW_TOGGLE_TIMELINE].HitTest( m_mouseX, m_mouseY ) )
+            {
+                SetProfilerTimelineEnabled( !ProfilerTab::TimelineEnabled( m_profilerTab ) );
+            }
+            else if ( m_optionsTab.timeScaleSlider.HitTest( m_mouseX, m_mouseY ) )
+            {
+                m_activeSlider = OptionsTab::SLIDER_TIME_SCALE;
+                m_optionsTab.previewTimeScale = m_optionsTab.timeScaleSlider.ValueFromMouse( m_mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
+                result.commands.sceneOptions.requestedTimeScale = m_optionsTab.previewTimeScale;
+                capturedSlider = true;
+            }
+            else if ( m_physicsTab.alphaSlider.HitTest( m_mouseX, m_mouseY ) )
+            {
+                m_activeSlider = PhysicsTab::SLIDER_ALPHA;
+                m_physicsTab.previewAlpha = m_physicsTab.alphaSlider.ValueFromMouse( m_mouseX, UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX, UI_PHYSICS_ALPHA_STEP );
+                result.commands.physics.requestedPhysicsDebugAlpha = m_physicsTab.previewAlpha;
+                capturedSlider = true;
+            }
+            else if ( m_physicsTab.worldGravitySlider.HitTest( m_mouseX, m_mouseY ) )
+            {
+                m_activeSlider = PhysicsTab::SLIDER_WORLD_GRAVITY;
+                result.commands.water.requestWorldGravity = true;
+                result.commands.water.requestedWorldGravity = WorldGravityFromStrength( m_physicsTab.worldGravitySlider.ValueFromMouse( m_mouseX,
+                                                                                                                                        UI_WORLD_GRAVITY_MIN,
+                                                                                                                                        UI_WORLD_GRAVITY_MAX,
+                                                                                                                                        UI_WORLD_GRAVITY_STEP ) );
+                capturedSlider = true;
+            }
+
+            if ( capturedSlider )
+            {
+                InputControl::BeginMouseCapture( hwnd );
+            }
+            m_rendererCombo.Close();
+            m_reflectionCombo.Close();
+            CloseSceneCombo();
+            m_cineSceneCombo.Close();
         }
         else if ( inContent && m_activeTab == InGameUITab::Profiler )
         {
@@ -1566,8 +1871,8 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     const float w = windowBounds.w;
     const float h = windowBounds.h;
     const float titleH = 44.0f;
-    const float tabH = 54.0f;
-    const float bottomH = 88.0f;
+    const float tabH = 44.0f;
+    const float bottomH = 78.0f;
     const float pad = 18.0f;
     const float contentX = x + pad;
     const float contentY = y + titleH + tabH + 12.0f;
@@ -1634,16 +1939,34 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     Chrome::DrawWindowFrame( draw, windowBounds, titleH, tabH, m_blurPreviewEnabled, titleText );
     Chrome::DrawTitleButtons( draw, Chrome::GetTitleButtonRects( windowBounds ), m_window.isMaximized, m_mouseX, m_mouseY );
 
-    static const char* kTabs[] = { "Profile", "Scene", "Physics", "Options", "Controls", "Cine" };
+    static const char* kTabs[] = { "WHATS NEW", "Profile", "Scene", "Physics", "Options", "Controls", "Cine" };
     const int tabCount = static_cast<int>( InGameUITab::Count );
     const float tabPad = 14.0f;
     m_tabBar.SetBounds( x + tabPad, y + titleH, w - tabPad * 2.0f, tabH );
     m_tabBar.Draw( draw, kTabs, tabCount, static_cast<int>( m_activeTab ) );
 
-    draw.Rect( contentX - 10.0f, contentY - 10.0f, contentW + 20.0f, contentH + 12.0f, 0.010f, 0.020f, 0.028f, 0.56f );
-    draw.Outline( contentX - 10.0f, contentY - 10.0f, contentW + 20.0f, contentH + 12.0f, 0.16f, 0.28f, 0.34f, 0.62f );
+    const Style::UIPalette& palette = Style::Palette();
+    draw.RoundedPanel( { contentX - 10.0f, contentY - 10.0f, contentW + 20.0f, contentH + 12.0f }, Style::Radii().window, palette.windowSubtle, palette.innerBorder );
 
-    if ( m_activeTab == InGameUITab::Profiler )
+    if ( m_activeTab == InGameUITab::WhatsNew )
+    {
+        SetWhatsNewControlBounds( m_whatsNewToggles, m_whatsNewSliders, m_optionsTab, m_physicsTab, contentX, scrolledY, contentW );
+        DrawWhatsNewTab( m_whatsNewToggles,
+                         m_whatsNewSliders,
+                         m_optionsTab,
+                         m_physicsTab,
+                         draw,
+                         data,
+                         contentX,
+                         contentY,
+                         contentW,
+                         contentH,
+                         scrolledY,
+                         m_activeSlider,
+                         m_blurPreviewEnabled,
+                         m_profilerTab );
+    }
+    else if ( m_activeTab == InGameUITab::Profiler )
     {
         ProfilerTab::Draw( m_profilerTab, draw, contentX, contentY, contentW, contentH, m_scrollY );
     }
@@ -1743,16 +2066,14 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     m_scrollBar.Draw( draw, static_cast<float>( ContentHeight() ), contentH, m_scrollY, m_scrollbarVisibleUntil, data.now );
 
     const float by = y + h - bottomH;
-    draw.Rect( x + 2.0f, by, w - 4.0f, bottomH - 2.0f, 0.014f, 0.042f, 0.056f, 0.82f );
-    draw.Rect( x + 2.0f, by, w - 4.0f, 1.0f, 0.30f, 0.88f, 1.0f, 0.46f );
+    draw.Rect( x + 16.0f, by, w - 32.0f, 1.0f, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b, 0.14f );
     const float footerPad = 18.0f;
     const float footerGap = 16.0f;
     const float footerX = x + footerPad;
     const float footerW = (std::max)( 120.0f, w - footerPad * 2.0f );
     const bool hasSeparateStats = footerW >= 560.0f;
     const float controlsW = hasSeparateStats ? 414.0f : footerW;
-    draw.Rect( footerX, by + 16.0f, controlsW, 56.0f, 0.018f, 0.030f, 0.038f, 0.66f );
-    draw.Outline( footerX, by + 16.0f, controlsW, 56.0f, 0.18f, 0.30f, 0.34f, 0.68f );
+    draw.RoundedPanel( { footerX, by + 16.0f, controlsW, 56.0f }, Style::Radii().control, palette.windowSubtle, palette.innerBorder );
 
     const UIRect rendererComboBounds = FooterRendererComboBounds( x, by );
     const UIRect waterComboBounds = FooterWaterComboBounds( x, by );
@@ -1794,8 +2115,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     {
         const float statsX = footerX + controlsW + footerGap;
         const float statsW = (std::max)( 120.0f, x + w - footerPad - statsX );
-        draw.Rect( statsX, by + 16.0f, statsW, 56.0f, 0.018f, 0.030f, 0.038f, 0.66f );
-        draw.Outline( statsX, by + 16.0f, statsW, 56.0f, 0.18f, 0.30f, 0.34f, 0.68f );
+        draw.RoundedPanel( { statsX, by + 16.0f, statsW, 56.0f }, Style::Radii().control, palette.windowSubtle, palette.innerBorder );
 
         if ( statsW < 350.0f )
         {
@@ -1805,32 +2125,32 @@ void InGameUI::Draw( const InGameUIFrameData& data )
             snprintf( fpsText, sizeof( fpsText ), "%.0f", data.fps );
             snprintf( frameText, sizeof( frameText ), "%.2f ms", frameDisplayMs );
             snprintf( drawText, sizeof( drawText ), "%d/%d", drawCalls, data.UIDrawCalls );
-            DrawCompactFooterStat( draw, statsX, by + 23.0f, "FPS", fpsText, 0.48f, 0.90f, 0.22f );
-            DrawCompactFooterStat( draw, statsX, by + 41.0f, "Frame", frameText, 0.32f, 0.90f, 1.0f );
-            DrawCompactFooterStat( draw, statsX, by + 59.0f, "Draw/UI", drawText, 0.32f, 0.90f, 1.0f );
+            DrawCompactFooterStat( draw, statsX, by + 23.0f, "FPS", fpsText, palette.accent.r, palette.accent.g, palette.accent.b );
+            DrawCompactFooterStat( draw, statsX, by + 41.0f, "Frame", frameText, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
+            DrawCompactFooterStat( draw, statsX, by + 59.0f, "Draw/UI", drawText, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
         }
         else
         {
-            DrawFooterStatCell( draw, statsX + 18.0f, by, "FPS", status, 0.48f, 0.90f, 0.22f );
+            DrawFooterStatCell( draw, statsX + 18.0f, by, "FPS", status, palette.accent.r, palette.accent.g, palette.accent.b );
             DrawFooterStatDivider( draw, statsX + 78.0f, by );
             snprintf( status, sizeof( status ), "%.2f ms", frameDisplayMs );
-            DrawFooterStatCell( draw, statsX + 100.0f, by, "Frame Time", status, 0.32f, 0.90f, 1.0f );
+            DrawFooterStatCell( draw, statsX + 100.0f, by, "Frame Time", status, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
             DrawFooterStatDivider( draw, statsX + 190.0f, by );
             snprintf( status, sizeof( status ), "%d%%", cpuPercent );
-            DrawFooterStatCell( draw, statsX + 212.0f, by, "CPU", status, 0.48f, 0.90f, 0.22f );
+            DrawFooterStatCell( draw, statsX + 212.0f, by, "CPU", status, palette.accent.r, palette.accent.g, palette.accent.b );
             DrawFooterStatDivider( draw, statsX + 266.0f, by );
             snprintf( status, sizeof( status ), "%d%%", gpuPercent );
-            DrawFooterStatCell( draw, statsX + 288.0f, by, "GPU", status, 0.48f, 0.90f, 0.22f );
+            DrawFooterStatCell( draw, statsX + 288.0f, by, "GPU", status, palette.accent.r, palette.accent.g, palette.accent.b );
             DrawFooterStatDivider( draw, statsX + 342.0f, by );
             snprintf( status, sizeof( status ), "%d / %d", drawCalls, data.UIDrawCalls );
-            DrawFooterStatCell( draw, statsX + statsW - 112.0f, by, "Draws / UI", status, 0.32f, 0.90f, 1.0f );
+            DrawFooterStatCell( draw, statsX + statsW - 112.0f, by, "Draws / UI", status, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b );
         }
     }
     else
     {
         if ( titleStatW > 0.0f && titleStatX + titleStatW < x + w - 116.0f )
         {
-            draw.Text( titleStatX, y + 17.0f, 10.5f, 0.48f, 0.90f, 0.22f, titleStat );
+            draw.Text( titleStatX, y + 17.0f, 10.5f, palette.accent.r, palette.accent.g, palette.accent.b, titleStat );
         }
     }
 
@@ -1839,9 +2159,9 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         ProfilerTab::DrawPerformanceHistogram( m_profilerTab, draw, data );
     }
 
-    draw.Rect( x + w - 24.0f, y + h - 9.0f, 14.0f, 2.0f, 0.34f, 0.91f, 1.0f, 0.88f );
-    draw.Rect( x + w - 18.0f, y + h - 15.0f, 8.0f, 2.0f, 0.34f, 0.91f, 1.0f, 0.72f );
-    draw.Rect( x + w - 12.0f, y + h - 21.0f, 2.0f, 2.0f, 0.34f, 0.91f, 1.0f, 0.60f );
+    draw.Rect( x + w - 24.0f, y + h - 9.0f, 14.0f, 2.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, 0.58f );
+    draw.Rect( x + w - 18.0f, y + h - 15.0f, 8.0f, 2.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, 0.46f );
+    draw.Rect( x + w - 12.0f, y + h - 21.0f, 2.0f, 2.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, 0.38f );
 
     PROFILE_END( "Frame/UI/DrawBuild" );
     m_cache.StoreFrame( cacheKey );

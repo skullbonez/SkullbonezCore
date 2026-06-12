@@ -5,6 +5,7 @@
 #include "SkullbonezUI.h"
 #include "UIDraw.h"
 #include "UIIconButton.h"
+#include "UIStyle.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -411,20 +412,19 @@ void DrawPerformanceHistogram( const UIProfilerTabState& state, const UIDrawCont
     const float baseY = plotY + plotH;
     const float axisMs = (std::max)( 1.0f, state.histogramAxisMs );
 
-    draw.Rect( panelX - 5.0f, panelY - 5.0f, panelW + 10.0f, panelH + 10.0f, 0.03f, 0.54f, 0.86f, 0.10f );
-    draw.Rect( panelX, panelY, panelW, panelH, 0.012f, 0.030f, 0.040f, 0.76f );
-    draw.Outline( panelX, panelY, panelW, panelH, 0.39f, 0.88f, 1.0f, 0.82f );
-    draw.Rect( panelX + 1.0f, panelY + 1.0f, panelW - 2.0f, 1.0f, 0.44f, 0.92f, 1.0f, 0.30f );
-    draw.Text( panelX + 10.0f, panelY + 8.0f, 10.5f, 1.0f, 0.85f, 0.34f, "Frame Time" );
+    const SkullbonezCore::UI::Style::UIPalette& palette = SkullbonezCore::UI::Style::Palette();
+    draw.RoundedRect( panelX + 4.0f, panelY + 5.0f, panelW, panelH, SkullbonezCore::UI::Style::Radii().window, 0.0f, 0.0f, 0.0f, 0.22f );
+    draw.RoundedPanel( { panelX, panelY, panelW, panelH }, SkullbonezCore::UI::Style::Radii().window, palette.windowSubtle, palette.border );
+    draw.Text( panelX + 10.0f, panelY + 8.0f, 10.5f, palette.textPrimary.r, palette.textPrimary.g, palette.textPrimary.b, "Frame Time" );
 
     char text[64] = {};
     snprintf( text, sizeof( text ), "%.0f ms", axisMs );
-    draw.Text( panelX + panelW - 58.0f, panelY + 8.0f, 10.0f, 0.68f, 0.86f, 0.92f, text );
+    draw.Text( panelX + panelW - 58.0f, panelY + 8.0f, 10.0f, palette.textSecondary.r, palette.textSecondary.g, palette.textSecondary.b, text );
 
-    draw.Rect( plotX, plotY, plotW, plotH, 0.005f, 0.014f, 0.020f, 0.68f );
-    draw.Rect( plotX, plotY + plotH * 0.50f, plotW, 1.0f, 0.18f, 0.30f, 0.34f, 0.45f );
-    draw.Rect( plotX, plotY, plotW, 1.0f, 0.18f, 0.30f, 0.34f, 0.62f );
-    draw.Rect( plotX, baseY, plotW, 1.0f, 0.26f, 0.82f, 1.0f, 0.34f );
+    draw.Rect( plotX, plotY, plotW, plotH, palette.window.r, palette.window.g, palette.window.b, 0.58f );
+    draw.Rect( plotX, plotY + plotH * 0.50f, plotW, 1.0f, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b, 0.14f );
+    draw.Rect( plotX, plotY, plotW, 1.0f, palette.lineSoft.r, palette.lineSoft.g, palette.lineSoft.b, 0.18f );
+    draw.Rect( plotX, baseY, plotW, 1.0f, palette.accent.r, palette.accent.g, palette.accent.b, 0.34f );
 
     const float step = plotW / static_cast<float>( HISTOGRAM_SAMPLE_COUNT );
     const float barW = (std::max)( 1.0f, step * 0.42f );
@@ -442,11 +442,11 @@ void DrawPerformanceHistogram( const UIProfilerTabState& state, const UIDrawCont
 
         if ( cpuH > 0.5f )
         {
-            draw.Rect( x, baseY - cpuH, barW, cpuH, 0.48f, 0.90f, 0.22f, 0.66f );
+            draw.Rect( x, baseY - cpuH, barW, cpuH, palette.accent.r, palette.accent.g, palette.accent.b, 0.66f );
         }
         if ( gpuH > 0.5f )
         {
-            draw.Rect( x + barW + 0.5f, baseY - gpuH, barW, gpuH, 0.34f, 0.91f, 1.0f, 0.78f );
+            draw.Rect( x + barW + 0.5f, baseY - gpuH, barW, gpuH, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, 0.78f );
         }
         if ( sample.spikeMs > spikeMs )
         {
@@ -461,16 +461,16 @@ void DrawPerformanceHistogram( const UIProfilerTabState& state, const UIDrawCont
         snprintf( text, sizeof( text ), "%.1f ms", spikeMs );
         const float labelX = ( spikeX + 54.0f < panelX + panelW ) ? spikeX + 4.0f : spikeX - 54.0f;
         const float labelY = (std::max)( plotY + 2.0f, spikeY - 16.0f );
-        draw.Rect( spikeX, plotY, 1.0f, plotH, 1.0f, 0.85f, 0.34f, 0.58f );
-        draw.Text( labelX, labelY, 9.5f, 1.0f, 0.85f, 0.34f, text );
+        draw.Rect( spikeX, plotY, 1.0f, plotH, palette.warningAccent.r, palette.warningAccent.g, palette.warningAccent.b, 0.58f );
+        draw.Text( labelX, labelY, 9.5f, palette.warningAccent.r, palette.warningAccent.g, palette.warningAccent.b, text );
     }
 
     const int newestIndex = ( state.histogramHead - 1 + HISTOGRAM_SAMPLE_COUNT ) % HISTOGRAM_SAMPLE_COUNT;
     const PerformanceHistogramSample& newest = state.histogramSamples[newestIndex];
     snprintf( text, sizeof( text ), "CPU %.2f", newest.cpuMs );
-    draw.Text( panelX + 10.0f, panelY + panelH - 20.0f, 10.0f, 0.48f, 0.90f, 0.22f, text );
+    draw.Text( panelX + 10.0f, panelY + panelH - 20.0f, 10.0f, palette.accent.r, palette.accent.g, palette.accent.b, text );
     snprintf( text, sizeof( text ), "GPU %.2f", newest.gpuMs );
-    draw.Text( panelX + 96.0f, panelY + panelH - 20.0f, 10.0f, 0.34f, 0.91f, 1.0f, text );
+    draw.Text( panelX + 96.0f, panelY + panelH - 20.0f, 10.0f, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, text );
 }
 
 
