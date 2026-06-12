@@ -15,6 +15,12 @@ void UICheckBox::SetBounds( float x, float y, float w, float h )
 }
 
 
+UIRect UICheckBox::Bounds() const
+{
+    return m_bounds;
+}
+
+
 bool UICheckBox::HitTest( int mouseX, int mouseY ) const
 {
     return m_bounds.Contains( mouseX, mouseY );

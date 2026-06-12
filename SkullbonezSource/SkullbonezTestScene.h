@@ -229,7 +229,7 @@ struct SceneUIOptions
     bool hasMinimized = false;
     bool isMinimized = false;
     bool hasActiveTab = false;
-    int activeTab = 0; // 0=Profiler, 1=Scene, 2=Physics, 3=Options, 4=Controls
+    int activeTab = 0; // InGameUITab ordinal.
     bool hasWindowRect = false;
     int windowX = 34;
     int windowY = 56;
@@ -251,6 +251,8 @@ struct SceneUIOptions
     bool profilerTimeline = false;
     bool hasPerformanceHistogram = false;
     bool performanceHistogram = false;
+    bool hasHitboxOverlay = false;
+    bool hitboxOverlay = false;
     bool hasScrollY = false;
     float scrollY = 0.0f;
     bool hasTestPattern = false;

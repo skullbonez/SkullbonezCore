@@ -40,6 +40,18 @@ void UIComboBox::SetBounds( float x, float y, float w, float h )
 }
 
 
+UIRect UIComboBox::Bounds() const
+{
+    return m_bounds;
+}
+
+
+UIRect UIComboBox::DropdownBounds( int optionCount ) const
+{
+    return DropdownRect( optionCount );
+}
+
+
 bool UIComboBox::HitBox( int mouseX, int mouseY ) const
 {
     return m_bounds.Contains( mouseX, mouseY );

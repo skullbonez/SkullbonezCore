@@ -13,6 +13,8 @@ class UIComboBox
 {
   public:
     void SetBounds( float x, float y, float w, float h );
+    UIRect Bounds() const;
+    UIRect DropdownBounds( int optionCount ) const;
     bool HitBox( int mouseX, int mouseY ) const;
     int HitOption( int mouseX, int mouseY, int optionCount ) const;
     bool IsOpen() const;

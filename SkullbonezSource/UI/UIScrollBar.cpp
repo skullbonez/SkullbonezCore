@@ -15,6 +15,12 @@ void UIScrollBar::SetBounds( float x, float y, float w, float h )
 }
 
 
+UIRect UIScrollBar::Bounds() const
+{
+    return m_track;
+}
+
+
 void UIScrollBar::Draw( const UIDrawContext& draw, float contentHeight, float viewportHeight, float scrollY, double visibleUntil, double now ) const
 {
     const float maxScroll = (std::max)( 0.0f, contentHeight - viewportHeight );

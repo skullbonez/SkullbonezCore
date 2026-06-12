@@ -885,6 +885,10 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
             {
                 m_UI.SetPerformanceHistogramEnabled( UIOptions.performanceHistogram );
             }
+            if ( UIOptions.hasHitboxOverlay )
+            {
+                m_UI.SetHitboxOverlayEnabled( UIOptions.hitboxOverlay );
+            }
             if ( UIOptions.hasRendererComboOpen )
             {
                 m_UI.SetRendererComboOpen( UIOptions.rendererComboOpen );
