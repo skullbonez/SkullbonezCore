@@ -44,6 +44,9 @@ Profile/
 # Live style tweak/capture harness scratch files
 Agentic/style-harness/
 
+# Agent/orchestrator run artifacts: reports, screenshots, logs, and worker scratch
+Agentic/Runs/
+
 # Python
 __pycache__/
 *.pyc
