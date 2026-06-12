@@ -31,6 +31,12 @@ if errorlevel 1 (
     exit /b 2
 )
 
+call "%~dp0validate_ready_builds.bat"
+if errorlevel 1 (
+    popd
+    exit /b 3
+)
+
 echo.
 echo ========================================
 echo   VALIDATE_PHYSICS_QUERY: ALL PASSED

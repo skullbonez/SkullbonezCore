@@ -76,6 +76,12 @@ if errorlevel 1 exit /b 9
 "%PYTHON_EXE%" "%~dp0export_screenshot_png.py" "%REPO%\Profile\ui_gl_performance_histogram.bmp" "%REPO%\Profile\ui_gl_performance_histogram.png" --max-width 1080
 if errorlevel 1 exit /b 9
 
+call "%~dp0validate_ready_builds.bat"
+if errorlevel 1 (
+    popd
+    exit /b 10
+)
+
 echo.
 echo ========================================
 echo   VALIDATE_UI: ALL PASSED

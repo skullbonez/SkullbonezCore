@@ -41,6 +41,12 @@ if errorlevel 1 (
     exit /b 3
 )
 
+call "%~dp0validate_ready_builds.bat"
+if errorlevel 1 (
+    popd
+    exit /b 4
+)
+
 echo.
 echo ========================================
 echo   VALIDATE_CONCEPTS: ALL PASSED

@@ -24,6 +24,9 @@ echo [2/2] Building Profile x64...
 call "%~dp0validate_build.bat" Profile
 if errorlevel 1 exit /b 2
 
+call "%~dp0validate_ready_builds.bat"
+if errorlevel 1 exit /b 3
+
 echo.
 echo ========================================
 echo   VALIDATE_FAST: ALL PASSED

@@ -52,6 +52,12 @@ if "%STRESS_LOGS_CLEAN%"=="0" exit /b 4
 call "%~dp0check_dx12_validation.bat"
 if errorlevel 1 exit /b 5
 
+call "%~dp0validate_ready_builds.bat"
+if errorlevel 1 (
+    popd
+    exit /b 6
+)
+
 echo.
 echo ========================================
 echo   VALIDATE_DEMO_STRESS: ALL PASSED
