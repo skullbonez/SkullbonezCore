@@ -571,17 +571,17 @@ void SkullbonezRun::TakeInput()
         return;
     }
 
-    const auto UIWantsReleasedMouse = [&]() -> bool
+    const auto CameraMouseOwnsCursor = [&]() -> bool
     {
-        return m_camera.isFlyMode && m_UI.WantsNativeMouseCursor();
+        return m_camera.isFlyMode && !m_UI.WantsNativeMouseCursor() && !m_UI.BlocksCameraMouse();
     };
     const auto ApplyCursorOwnership = [&]() -> void
     {
-        Input::SetSystemCursorVisible( UIWantsReleasedMouse() );
+        Input::SetSystemCursorVisible( !CameraMouseOwnsCursor() );
     };
     const auto ReleaseMouseToUI = [&]() -> void
     {
-        if ( UIWantsReleasedMouse() )
+        if ( !CameraMouseOwnsCursor() )
         {
             ReleaseCapture();
             ResetMouseLookInput( m_camera );
@@ -644,25 +644,24 @@ void SkullbonezRun::TakeInput()
                 unbounded.m_zMax = 99999.9f;
                 uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
                 m_systems.cameras->SetCameraXZBounds( activeCam, unbounded );
-                if ( UIWantsReleasedMouse() )
+                if ( CameraMouseOwnsCursor() )
                 {
-                    ReleaseMouseToUI();
-                    Input::SetSystemCursorVisible( true );
+                    Input::SetSystemCursorVisible( false );
                 }
                 else
                 {
-                    Input::SetSystemCursorVisible( false );
+                    ReleaseMouseToUI();
+                    Input::SetSystemCursorVisible( true );
                 }
                 ResetMouseLookInput( m_camera );
             }
             else
             {
-                // Exiting fly mode restores terrain bounds and the camera-cycle clock.  The
-                // Windows cursor stays hidden because the diagnostics UI now draws the styled
-                // cursor itself; restoring IDC_ARROW here creates a mismatched second cursor.
+                // Exiting fly mode restores terrain bounds, the camera-cycle clock, and
+                // the stock Windows cursor.
                 uint32_t activeCam = m_scene.isSceneMode ? m_systems.cameras->GetSelectedCameraName() : CAMERA_FREE;
                 m_systems.cameras->SetCameraXZBounds( activeCam, m_systems.terrain->GetXZBounds() );
-                Input::SetSystemCursorVisible( false );
+                Input::SetSystemCursorVisible( true );
                 m_camera.cameraTime = 0.0f;
                 // Exiting fly mode also exits nudge mode
                 m_camera.isNudgeMode = false;
@@ -1230,21 +1229,16 @@ void SkullbonezRun::TakeInput()
 
     if ( m_camera.isFlyMode )
     {
-        // Expanded diagnostics UI owns the native cursor in fly/nudge mode.
-        // Otherwise mouse-look consumes raw Win32 deltas, with cursor-position deltas
-        // as a remote-desktop friendly fallback when raw input is unavailable.
+        // Diagnostics UI owns the native cursor; mouse-look hides it while
+        // consuming raw Win32 deltas, with cursor-position deltas as a
+        // remote-desktop friendly fallback when raw input is unavailable.
         if ( !Input::IsAppFocused() )
         {
             ResetMouseLookInput( m_camera );
         }
-        else if ( UIWantsReleasedMouse() )
+        else if ( !CameraMouseOwnsCursor() )
         {
             Input::SetSystemCursorVisible( true );
-            ResetMouseLookInput( m_camera );
-        }
-        else if ( m_UI.BlocksCameraMouse() )
-        {
-            Input::SetSystemCursorVisible( false );
             ResetMouseLookInput( m_camera );
         }
         else

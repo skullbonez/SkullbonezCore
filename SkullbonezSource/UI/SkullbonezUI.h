@@ -185,7 +185,6 @@ class InGameUI
     bool m_hitboxOverlayEnabled = false;
 
     int ContentHeight() const;
-    void DrawCursor( const UIDrawContext& draw ) const;
     void DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrameData& data, const UIRect& windowBounds, const UIRect& contentBounds, const UIRect& footerBounds ) const;
     void CloseSceneCombo();
     void SetMaximized( bool maximized, int screenW, int screenH, double now = 0.0 );

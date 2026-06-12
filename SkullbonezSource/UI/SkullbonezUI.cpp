@@ -1184,32 +1184,6 @@ void InGameUI::ResetResources()
 }
 
 
-void InGameUI::DrawCursor( const UIDrawContext& draw ) const
-{
-    const float x = static_cast<float>( m_mouseX );
-    const float y = static_cast<float>( m_mouseY );
-
-    auto drawShape = [&]( const float* p, float r, float g, float b, float a )
-    {
-        draw.Triangle( x + p[0], y + p[1], x + p[2], y + p[3], x + p[4], y + p[5], r, g, b, a );
-        draw.Triangle( x + p[0], y + p[1], x + p[4], y + p[5], x + p[12], y + p[13], r, g, b, a );
-        draw.Triangle( x + p[4], y + p[5], x + p[6], y + p[7], x + p[8], y + p[9], r, g, b, a );
-        draw.Triangle( x + p[4], y + p[5], x + p[8], y + p[9], x + p[10], y + p[11], r, g, b, a );
-        draw.Triangle( x + p[4], y + p[5], x + p[10], y + p[11], x + p[12], y + p[13], r, g, b, a );
-    };
-
-    const float shadow[] = { 1.7f, 2.0f, 2.1f, 24.2f, 8.5f, 17.3f, 12.9f, 26.5f, 17.5f, 24.2f, 13.0f, 15.9f, 20.8f, 14.8f };
-    const float outer[] = { 0.0f, 0.0f, 0.7f, 22.3f, 7.0f, 15.6f, 11.5f, 24.8f, 16.0f, 22.6f, 11.5f, 14.3f, 19.0f, 13.2f };
-    const float inner[] = { 3.0f, 4.0f, 3.4f, 15.7f, 7.0f, 12.0f, 10.6f, 20.2f, 12.2f, 19.4f, 8.5f, 11.7f, 13.2f, 11.1f };
-    const Style::UIPalette& palette = Style::Palette();
-
-    drawShape( shadow, 0.0f, 0.0f, 0.0f, 0.30f );
-    drawShape( outer, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, 0.98f );
-    drawShape( inner, palette.window.r, palette.window.g, palette.window.b, 0.98f );
-    draw.Triangle( x + 4.0f, y + 5.0f, x + 4.2f, y + 10.8f, x + 5.9f, y + 9.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, 0.58f );
-}
-
-
 void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrameData& data, const UIRect& windowBounds, const UIRect& contentBounds, const UIRect& footerBounds ) const
 {
     if ( !m_hitboxOverlayEnabled )
@@ -1908,7 +1882,6 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     m_lastSolverBoxCount = std::clamp( data.solverBoxCount, UI_SOLVER_COUNT_MIN, UI_GAME_MODEL_TOTAL_MAX );
     const int currentRendererIndex = GetRendererIndexFromName( data.rendererName );
     m_lastRendererIndex = currentRendererIndex;
-    const bool shouldDrawCursor = !data.cameraMouseActive && !data.nativeCursorVisible;
     if ( ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) )
     {
         ProfilerTab::PushPerformanceHistogramSample( m_profilerTab, data.cpuFrameMs, data.gpuFrameMs );
@@ -1931,12 +1904,6 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                     ProfilerTab::DrawPerformanceHistogram( m_profilerTab, draw, data );
                 }
                 FlushUIDrawList( drawList, screenW, screenH );
-                if ( shouldDrawCursor )
-                {
-                    const UIDrawContext cursorDraw( screenW, screenH );
-                    DrawCursor( cursorDraw );
-                    Text2d::FlushQuads();
-                }
                 return;
             }
         }
@@ -1952,12 +1919,6 @@ void InGameUI::Draw( const InGameUIFrameData& data )
             ProfilerTab::DrawPerformanceHistogram( m_profilerTab, draw, data );
         }
         FlushUIDrawList( drawList, screenW, screenH );
-        if ( shouldDrawCursor )
-        {
-            const UIDrawContext cursorDraw( screenW, screenH );
-            DrawCursor( cursorDraw );
-            Text2d::FlushQuads();
-        }
         return;
     }
 
@@ -2012,12 +1973,6 @@ void InGameUI::Draw( const InGameUIFrameData& data )
         const float replayOffsetX = m_cache.ReplayOffsetX( cacheKey );
         const float replayOffsetY = m_cache.ReplayOffsetY( cacheKey );
         FlushUIDrawList( m_cache.DrawList(), screenW, screenH, replayOffsetX, replayOffsetY );
-        if ( shouldDrawCursor )
-        {
-            const UIDrawContext cursorDraw( screenW, screenH );
-            DrawCursor( cursorDraw );
-            Text2d::FlushQuads();
-        }
         m_cache.StoreFrame( cacheKey );
         return;
     }
@@ -2262,10 +2217,4 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     PROFILE_END( "Frame/UI/DrawBuild" );
     m_cache.StoreFrame( cacheKey );
     FlushUIDrawList( drawList, screenW, screenH );
-    if ( shouldDrawCursor )
-    {
-        const UIDrawContext cursorDraw( screenW, screenH );
-        DrawCursor( cursorDraw );
-        Text2d::FlushQuads();
-    }
 }
