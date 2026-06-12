@@ -9,19 +9,33 @@ set "REPO=%~dp0.."
 set "VAL_FILE=%REPO%\dx12_validation.txt"
 
 if not exist "%VAL_FILE%" (
+    echo DX12 validation status: missing
+    echo DX12 validation errors: unavailable
     echo FAIL: dx12_validation.txt not found.
     echo       DX12 suite may not have run or crashed before writing validation output.
     exit /b 1
 )
 
 REM Read the last line; it should be "0" (error count).
+set "LAST_LINE="
 for /f "usebackq delims=" %%a in ("%VAL_FILE%") do set "LAST_LINE=%%a"
 
+if not defined LAST_LINE (
+    echo DX12 validation status: unreadable
+    echo DX12 validation errors: unavailable
+    echo FAIL: dx12_validation.txt is empty.
+    exit /b 1
+)
+
 if "%LAST_LINE%"=="0" (
+    echo DX12 validation status: available
+    echo DX12 validation errors: 0
     echo PASS: DX12 InfoQueue reported 0 validation errors.
     exit /b 0
 )
 
+echo DX12 validation status: available
+echo DX12 validation errors: %LAST_LINE%
 echo FAIL: DX12 InfoQueue reported %LAST_LINE% validation errors:
 type "%VAL_FILE%"
 exit /b 1

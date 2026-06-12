@@ -72,7 +72,7 @@ if %MISSING% GTR 0 (
     exit /b 6
 )
 
-echo [7/7] Checking stdout/stderr for errors...
+echo [7/8] Checking stdout/stderr and DX12 validation...
 set "STDOUT_CLEAN=1"
 for %%r in (gl dx11 dx12) do (
     findstr /I /C:"error" /C:"warning" /C:"failed" "%REPO%\Profile\%%r_stdout.txt" >nul 2>&1
@@ -97,9 +97,9 @@ call "%~dp0check_dx12_validation.bat"
 if errorlevel 1 exit /b 8
 
 echo.
-echo Checking cross-renderer parity...
+echo [8/8] Checking cross-renderer parity and writing comparison artifacts...
 set "SKORE_REPO=%REPO%"
-"%PYTHON_EXE%" "%~dp0check_parity.py"
+"%PYTHON_EXE%" "%~dp0check_parity.py" --repo "%REPO%" --out-root "%REPO%\TestOutput\validation\renderers"
 if errorlevel 1 (
     echo FAIL: Cross-renderer parity check failed.
     exit /b 9
