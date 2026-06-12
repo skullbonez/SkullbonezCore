@@ -110,6 +110,9 @@ class Profiler
     void Begin( const char* fullPath, uint32_t hash );
     void End( const char* fullPath, uint32_t hash );
 
+    // GPU scopes still record CPU elapsed time internally, but emit platform
+    // profiler GPU annotations through the active backend instead of duplicating
+    // CPU marker ranges.
     void GpuBegin( const char* fullPath, uint32_t hash );
     void GpuEnd( const char* fullPath, uint32_t hash );
 
@@ -155,6 +158,10 @@ class Profiler
     Profiler( const Profiler& ) = delete;
     Profiler& operator=( const Profiler& ) = delete;
 
+    void BeginInternal( const char* fullPath, uint32_t hash, bool emitCpuPlatformProfiler );
+    void EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPlatformProfiler );
+    void BeginGpuTimerInternal( const char* fullPath, uint32_t hash );
+    void EndGpuTimerInternal( const char* fullPath, uint32_t hash );
     int FindOrRegister( const char* fullPath, uint32_t hash );
     void AbortMismatch( const char* msg, const char* details ) const;
     void ReadPendingGpuResults();
@@ -201,13 +208,11 @@ class GpuProfilerScope
     GpuProfilerScope( const char* fullPath, uint32_t hash )
         : m_fullPath( fullPath ), m_hash( hash )
     {
-        Profiler::Instance().Begin( m_fullPath, m_hash );
         Profiler::Instance().GpuBegin( m_fullPath, m_hash );
     }
     ~GpuProfilerScope()
     {
         Profiler::Instance().GpuEnd( m_fullPath, m_hash );
-        Profiler::Instance().End( m_fullPath, m_hash );
     }
     GpuProfilerScope( const GpuProfilerScope& ) = delete;
     GpuProfilerScope& operator=( const GpuProfilerScope& ) = delete;
@@ -247,7 +252,6 @@ class GpuProfilerScope
     do                                                                                                       \
     {                                                                                                        \
         constexpr uint32_t PROFILE_PASTE( _profH_, __LINE__ ) = ::HashStr( name );                           \
-        ::SkullbonezCore::Basics::Profiler::Instance().Begin( name, PROFILE_PASTE( _profH_, __LINE__ ) );    \
         ::SkullbonezCore::Basics::Profiler::Instance().GpuBegin( name, PROFILE_PASTE( _profH_, __LINE__ ) ); \
     } while ( 0 )
 
@@ -256,7 +260,6 @@ class GpuProfilerScope
     {                                                                                                      \
         constexpr uint32_t PROFILE_PASTE( _profH_, __LINE__ ) = ::HashStr( name );                         \
         ::SkullbonezCore::Basics::Profiler::Instance().GpuEnd( name, PROFILE_PASTE( _profH_, __LINE__ ) ); \
-        ::SkullbonezCore::Basics::Profiler::Instance().End( name, PROFILE_PASTE( _profH_, __LINE__ ) );    \
     } while ( 0 )
 
 #define PROFILE_GPU_SCOPED( name )                                              \

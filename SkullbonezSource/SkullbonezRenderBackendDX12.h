@@ -140,6 +140,7 @@ class RenderBackendDX12 : public IRenderBackend
     ID3D12GraphicsCommandList* m_commandList = nullptr;
     ID3D12CommandAllocator* m_commandAllocators[FRAME_COUNT] = {};
     bool m_commandListOpen = false;
+    int m_platformProfilerGpuDepth = 0;
 
     ID3D12Resource* m_renderTargets[FRAME_COUNT] = {};
     UINT m_frameIndex = 0;
@@ -248,6 +249,7 @@ class RenderBackendDX12 : public IRenderBackend
     void CreateReflectionUAV( int width, int height );
     void InitGenMipsPipeline();
     void GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, UINT w, UINT h, UINT numMips );
+    void AssertPlatformProfilerGpuStackClosed( const char* reason ) const;
 
     static void BuildInputLayout( VertexFormat12 format, D3D12_INPUT_ELEMENT_DESC* out, UINT& count );
     static void BuildInstancedInputLayout( const InstancedMeshDX12& im, D3D12_INPUT_ELEMENT_DESC* out, UINT& count );
@@ -349,6 +351,9 @@ class RenderBackendDX12 : public IRenderBackend
     void GpuTimerEnd( int markerIdx ) override;
     void GpuTimerInvalidate() override;
     bool GpuTimerRead( int markerIdx, float& outMs ) override;
+    void PlatformProfilerGpuBegin( const char* name, uint32_t hash ) override;
+    void PlatformProfilerGpuEnd() override;
+    void PlatformProfilerGpuMarker( const char* name, uint32_t hash ) override;
 
     uint32_t CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices ) override;
     void UploadAndDrawDynamicVB( uint32_t handle, const float* data, int vertexCount ) override;

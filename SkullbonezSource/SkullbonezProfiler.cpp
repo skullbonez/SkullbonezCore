@@ -8,6 +8,7 @@
 #include <cfloat>
 #include <cstring>
 #include <cstdlib>
+#include "SkullbonezPlatformProfiler.h"
 #include "SkullbonezText.h"
 
 
@@ -197,6 +198,18 @@ int Profiler::FindOrRegister( const char* fullPath, uint32_t hash )
 
 void Profiler::Begin( const char* fullPath, uint32_t hash )
 {
+    BeginInternal( fullPath, hash, true );
+}
+
+
+void Profiler::End( const char* fullPath, uint32_t hash )
+{
+    EndInternal( fullPath, hash, true );
+}
+
+
+void Profiler::BeginInternal( const char* fullPath, uint32_t hash, bool emitCpuPlatformProfiler )
+{
     if ( !m_inFrame )
     {
         AbortMismatch( "PROFILE_BEGIN called outside frame", fullPath );
@@ -225,10 +238,14 @@ void Profiler::Begin( const char* fullPath, uint32_t hash )
     }
     m.openCount = 1;
     m_stackIndices[m_stackTop++] = idx;
+    if ( emitCpuPlatformProfiler && PlatformProfiler::IsEnabled() )
+    {
+        PlatformProfiler::CpuBegin( fullPath, hash );
+    }
 }
 
 
-void Profiler::End( const char* fullPath, uint32_t hash )
+void Profiler::EndInternal( const char* fullPath, uint32_t hash, bool emitCpuPlatformProfiler )
 {
     if ( m_stackTop == 0 )
     {
@@ -254,10 +271,36 @@ void Profiler::End( const char* fullPath, uint32_t hash )
     top.lastEndSecondsThisFrame = static_cast<double>( t.QuadPart - m_frameStartTicks ) / static_cast<double>( m_qpcFrequency );
     top.openCount = 0;
     --m_stackTop;
+    if ( emitCpuPlatformProfiler && PlatformProfiler::IsEnabled() )
+    {
+        PlatformProfiler::CpuEnd();
+    }
 }
 
 
 void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
+{
+    BeginInternal( fullPath, hash, false );
+    if ( PlatformProfiler::IsEnabled() && IsGfxReady() )
+    {
+        Gfx().PlatformProfilerGpuBegin( fullPath, hash );
+    }
+    BeginGpuTimerInternal( fullPath, hash );
+}
+
+
+void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
+{
+    EndGpuTimerInternal( fullPath, hash );
+    if ( PlatformProfiler::IsEnabled() && IsGfxReady() )
+    {
+        Gfx().PlatformProfilerGpuEnd();
+    }
+    EndInternal( fullPath, hash, false );
+}
+
+
+void Profiler::BeginGpuTimerInternal( const char* fullPath, uint32_t hash )
 {
     // Prefer the render-backend GPU timer path (DX11/DX12) when the active backend
     // supports it. This must take priority over the GL path because on a runtime renderer
@@ -304,7 +347,7 @@ void Profiler::GpuBegin( const char* fullPath, uint32_t hash )
 }
 
 
-void Profiler::GpuEnd( const char* fullPath, uint32_t hash )
+void Profiler::EndGpuTimerInternal( const char* fullPath, uint32_t hash )
 {
     // Same priority rule as GpuBegin: prefer backend timer over GL path.
     if ( IsGfxReady() && Gfx().GetCapabilities().supportsGpuTimers )

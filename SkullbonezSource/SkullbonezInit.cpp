@@ -9,6 +9,7 @@
 #include "SkullbonezRenderBackendGL.h"
 #include "SkullbonezRenderBackendDX11.h"
 #include "SkullbonezRenderBackendDX12.h"
+#include "SkullbonezPlatformProfiler.h"
 #include <cerrno>
 #include <float.h>
 #include <climits>
@@ -560,6 +561,7 @@ struct ParsedArgs
     bool physicsDiagnosticsRequested = false;
     bool fixedStepForcedByPhysicsDiagnostics = false;
     bool dumpConfig = false;
+    bool platformProfilerMarkers = false;
 };
 
 struct CliFlagDirective
@@ -659,6 +661,12 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
         { "--profiler", "--show-profiler", []( ParsedArgs& args )
           { args.showProfiler = true; },
           "[overlay] Profiler HUD enabled at startup." },
+        { "--platform-profiler-markers", "--platform-profiler", []( ParsedArgs& args )
+          { args.platformProfilerMarkers = true; },
+          "[platform-profiler] Platform profiler marker emission requested." },
+        { "--pix-markers", "--pix", []( ParsedArgs& args )
+          { args.platformProfilerMarkers = true; },
+          "[platform-profiler] PIX marker compatibility alias requested." },
         { "--hide-top-text", "--no-top-text", []( ParsedArgs& args )
           { args.hideTopText = true; },
           "[overlay] Top HUD text hidden." },
@@ -704,6 +712,25 @@ bool ParseOnOffValue( const char* value, bool& out )
     if ( ParseIntToken( value, numeric ) )
     {
         out = numeric != 0;
+        return true;
+    }
+    return false;
+}
+
+bool ParseEnvironmentBool( const char* value, bool& out )
+{
+    if ( !value || *value == '\0' )
+    {
+        return false;
+    }
+    if ( _stricmp( value, "1" ) == 0 || _stricmp( value, "on" ) == 0 || _stricmp( value, "true" ) == 0 || _stricmp( value, "yes" ) == 0 )
+    {
+        out = true;
+        return true;
+    }
+    if ( _stricmp( value, "0" ) == 0 || _stricmp( value, "off" ) == 0 || _stricmp( value, "false" ) == 0 || _stricmp( value, "no" ) == 0 )
+    {
+        out = false;
         return true;
     }
     return false;
@@ -1443,6 +1470,34 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
 
     ApplyCliFlagDirectives( commandLine, out );
 
+    bool envPlatformProfilerMarkers = false;
+    char* envPlatformProfilerValue = nullptr;
+    size_t envPlatformProfilerValueLen = 0;
+    if ( _dupenv_s( &envPlatformProfilerValue, &envPlatformProfilerValueLen, "SKULLBONEZ_PLATFORM_PROFILER_MARKERS" ) == 0 &&
+         ParseEnvironmentBool( envPlatformProfilerValue, envPlatformProfilerMarkers ) )
+    {
+        out.platformProfilerMarkers = envPlatformProfilerMarkers;
+        if ( envPlatformProfilerMarkers )
+        {
+            fprintf( stdout, "[platform-profiler] Marker emission requested via SKULLBONEZ_PLATFORM_PROFILER_MARKERS.\n" );
+        }
+    }
+    free( envPlatformProfilerValue );
+
+    bool envPixMarkers = false;
+    char* envPixValue = nullptr;
+    size_t envPixValueLen = 0;
+    if ( _dupenv_s( &envPixValue, &envPixValueLen, "SKULLBONEZ_PIX_MARKERS" ) == 0 &&
+         ParseEnvironmentBool( envPixValue, envPixMarkers ) )
+    {
+        out.platformProfilerMarkers = envPixMarkers;
+        if ( envPixMarkers )
+        {
+            fprintf( stdout, "[platform-profiler] Marker emission requested via SKULLBONEZ_PIX_MARKERS compatibility alias.\n" );
+        }
+    }
+    free( envPixValue );
+
 #ifdef _DEBUG
     if ( out.physicsDiagnosticsRequested )
     {
@@ -1483,6 +1538,15 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
     if ( out.dumpConfig )
     {
         Cfg().Dump( stdout );
+    }
+
+    PlatformProfiler::SetEnabled( out.platformProfilerMarkers );
+    if ( out.platformProfilerMarkers )
+    {
+        fprintf( stdout,
+                 PlatformProfiler::IsAvailable()
+                     ? "[platform-profiler] Platform profiler marker emission enabled.\n"
+                     : "[platform-profiler] Platform profiler marker emission unavailable in this build; continuing with in-engine profiler markers only.\n" );
     }
 
     return true;

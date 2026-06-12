@@ -4,6 +4,9 @@
 *.user
 *.vcxproj.user
 
+# NuGet package restore output
+packages/
+
 # Build output
 Debug/
 Release/
