@@ -12,11 +12,11 @@ This folder collects the design artifacts for the calmer graphite direction.
 | `comparison-board.png` | Desktop render of the comparison board. |
 | `comparison-board-mobile.png` | Narrow viewport render of the comparison board. |
 | `design-tokens.json` | Palette, alpha, radius, and sizing values to translate into `UIStyle`. |
-| `implementation-plan.md` | Step-by-step plan for implementing the graphite UI in the C++ immediate-mode UI. |
+| `../Plans/Done/new-ui-graphite-overlay-implementation-plan.md` | Completed implementation plan for the graphite UI in the C++ immediate-mode UI. |
 
 ## Current Scope
 
-This is a design and planning package only. It does not change runtime code.
+This folder now keeps the design artifacts for the completed graphite UI pass.
 
 Validation now: none required for documentation/design artifacts.
 
