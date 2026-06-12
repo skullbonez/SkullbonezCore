@@ -73,6 +73,7 @@ UIRect FooterRendererComboBounds( float x, float bottomY );
 UIRect FooterWaterComboBounds( float x, float bottomY );
 UIRect FooterBlurBounds( float x, float bottomY );
 UIRect FooterVsyncBounds( float x, float bottomY );
+UIRect FooterHitboxBounds( float x, float bottomY );
 UIRect FooterTimelineBounds( float x, float bottomY );
 UIRect FooterPerfBounds( float x, float bottomY );
 uint32_t ReflectionDisabledMask( int rendererIndex );

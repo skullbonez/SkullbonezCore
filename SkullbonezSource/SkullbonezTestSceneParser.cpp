@@ -451,6 +451,7 @@ class TestSceneParser
             { "profiler_expand", &TestSceneParser::ParseUIProfilerExpand, "ui profiler_expand on|off" },
             { "timeline", &TestSceneParser::ParseUITimeline, "ui timeline on|off" },
             { "histogram", &TestSceneParser::ParseUIHistogram, "ui histogram on|off" },
+            { "hitboxes", &TestSceneParser::ParseUIHitboxes, "ui hitboxes on|off" },
             { "scroll", &TestSceneParser::ParseUIScroll, "ui scroll <y|bottom>" },
             { "mouse", &TestSceneParser::ParseUIMouse, "ui mouse <x> <y>" },
             { "stress", &TestSceneParser::ParseUIStress, "ui stress on|off" },
@@ -584,6 +585,14 @@ class TestSceneParser
         ParseAliasOnOff( "UI histogram", args, parsedValue );
         m_scene.m_UIOptions.hasPerformanceHistogram = true;
         m_scene.m_UIOptions.performanceHistogram = parsedValue;
+    }
+
+    void ParseUIHitboxes( const char* args )
+    {
+        bool parsedValue = false;
+        ParseAliasOnOff( "UI hitboxes", args, parsedValue );
+        m_scene.m_UIOptions.hasHitboxOverlay = true;
+        m_scene.m_UIOptions.hitboxOverlay = parsedValue;
     }
 
     void ParseUIScroll( const char* args )

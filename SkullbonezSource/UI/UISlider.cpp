@@ -17,6 +17,12 @@ void UISlider::SetBounds( float x, float y, float w, float h )
 }
 
 
+UIRect UISlider::Bounds() const
+{
+    return m_bounds;
+}
+
+
 bool UISlider::HitTest( int mouseX, int mouseY ) const
 {
     return m_bounds.Contains( mouseX, mouseY );

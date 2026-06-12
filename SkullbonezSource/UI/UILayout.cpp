@@ -111,25 +111,31 @@ UIRect FooterWaterComboBounds( float x, float bottomY )
 
 UIRect FooterBlurBounds( float x, float bottomY )
 {
-    return { x + 224.0f, bottomY + 22.0f, 94.0f, 24.0f };
+    return { x + 218.0f, bottomY + 22.0f, 86.0f, 24.0f };
 }
 
 
 UIRect FooterVsyncBounds( float x, float bottomY )
 {
-    return { x + 316.0f, bottomY + 22.0f, 94.0f, 24.0f };
+    return { x + 306.0f, bottomY + 22.0f, 86.0f, 24.0f };
+}
+
+
+UIRect FooterHitboxBounds( float x, float bottomY )
+{
+    return { x + 394.0f, bottomY + 22.0f, 86.0f, 24.0f };
 }
 
 
 UIRect FooterTimelineBounds( float x, float bottomY )
 {
-    return { x + 224.0f, bottomY + 48.0f, 94.0f, 24.0f };
+    return { x + 218.0f, bottomY + 48.0f, 86.0f, 24.0f };
 }
 
 
 UIRect FooterPerfBounds( float x, float bottomY )
 {
-    return { x + 316.0f, bottomY + 48.0f, 94.0f, 24.0f };
+    return { x + 306.0f, bottomY + 48.0f, 86.0f, 24.0f };
 }
 
 

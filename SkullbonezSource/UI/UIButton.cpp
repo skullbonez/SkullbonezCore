@@ -16,6 +16,12 @@ void UIButton::SetBounds( float x, float y, float w, float h )
 }
 
 
+UIRect UIButton::Bounds() const
+{
+    return m_bounds;
+}
+
+
 bool UIButton::HitTest( int mouseX, int mouseY ) const
 {
     return m_bounds.Contains( mouseX, mouseY );

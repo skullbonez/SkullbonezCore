@@ -126,6 +126,7 @@ class InGameUI
     void SetProfilerExpandAll( bool expandAll );
     void SetProfilerTimelineEnabled( bool enabled );
     void SetPerformanceHistogramEnabled( bool enabled );
+    void SetHitboxOverlayEnabled( bool enabled );
     void SetScrollY( float scrollY );
     void SetMouseOverride( bool enabled, int x = 0, int y = 0 );
     void CancelInputCapture();
@@ -149,6 +150,7 @@ class InGameUI
     UICheckBox m_vsyncToggle;
     UICheckBox m_timelineToggle;
     UICheckBox m_histogramToggle;
+    UICheckBox m_hitboxToggle;
     UIButton m_resetSceneButton;
     UIButton m_resetDefaultsButton;
     UIButton m_saveDefaultsButton;
@@ -180,9 +182,11 @@ class InGameUI
     float m_scrollY = 0.0f;
     double m_scrollbarVisibleUntil = 0.0;
     int m_activeSlider = 0; // 0=none; other values map to Controls/Options sliders in SkullbonezUI.cpp
+    bool m_hitboxOverlayEnabled = false;
 
     int ContentHeight() const;
     void DrawCursor( const UIDrawContext& draw ) const;
+    void DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrameData& data, const UIRect& windowBounds, const UIRect& contentBounds, const UIRect& footerBounds ) const;
     void CloseSceneCombo();
     void SetMaximized( bool maximized, int screenW, int screenH, double now = 0.0 );
 };

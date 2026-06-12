@@ -16,6 +16,12 @@ void UITabBar::SetBounds( float x, float y, float w, float h )
 }
 
 
+UIRect UITabBar::Bounds() const
+{
+    return m_bounds;
+}
+
+
 int UITabBar::HitTest( int mouseX, int mouseY, int tabCount ) const
 {
     if ( tabCount <= 0 || !m_bounds.Contains( mouseX, mouseY ) )

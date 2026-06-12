@@ -380,6 +380,52 @@ bool IsBlockVisible( float contentY, float contentH, float blockY, float blockH 
     return blockY + blockH >= contentY && blockY <= contentY + contentH;
 }
 
+void DrawHitboxRect( const UIDrawContext& draw, const UIRect& bounds, float r, float g, float b, float fillA = 0.060f, float outlineA = 0.94f )
+{
+    if ( bounds.w <= 0.0f || bounds.h <= 0.0f )
+    {
+        return;
+    }
+
+    draw.Rect( bounds.x, bounds.y, bounds.w, bounds.h, r, g, b, fillA );
+    draw.Outline( bounds.x, bounds.y, bounds.w, bounds.h, r, g, b, outlineA );
+    if ( bounds.w > 4.0f && bounds.h > 4.0f )
+    {
+        draw.Outline( bounds.x + 1.0f, bounds.y + 1.0f, bounds.w - 2.0f, bounds.h - 2.0f, r, g, b, outlineA * 0.42f );
+    }
+}
+
+void DrawComboHitboxes( const UIDrawContext& draw, const UIComboBox& combo, int optionCount, float r, float g, float b )
+{
+    DrawHitboxRect( draw, combo.Bounds(), r, g, b );
+    if ( combo.IsOpen() )
+    {
+        DrawHitboxRect( draw, combo.DropdownBounds( optionCount ), 0.18f, 0.58f, 1.0f, 0.078f, 0.96f );
+    }
+}
+
+void DrawTabHitboxes( const UIDrawContext& draw, const UITabBar& tabBar, int tabCount )
+{
+    const UIRect tabs = tabBar.Bounds();
+    if ( tabCount <= 0 || tabs.w <= 0.0f || tabs.h <= 0.0f )
+    {
+        return;
+    }
+
+    const float tabW = tabs.w / static_cast<float>( tabCount );
+    for ( int i = 0; i < tabCount; ++i )
+    {
+        DrawHitboxRect( draw, { tabs.x + static_cast<float>( i ) * tabW, tabs.y, tabW, tabs.h }, 1.0f, 0.80f, 0.18f, 0.052f, 0.84f );
+    }
+}
+
+int SceneDropdownHitboxOptionCount( const SceneTab::UISceneTabState& state, const InGameUIFrameData& data )
+{
+    const int filteredSceneCount = SceneTab::CountFilteredOptions( data.sceneOptions, data.sceneOptionCount, state.filter );
+    const int sceneVisibleCount = SceneComboVisibleCount( filteredSceneCount );
+    return sceneVisibleCount == 0 && state.filter[0] != '\0' ? 1 : sceneVisibleCount;
+}
+
 void EllipsizeToWidth( char* text, size_t textSize, float pxSize, float maxWidth )
 {
     if ( !text || textSize == 0 || Text2d::MeasureText( pxSize, text ) <= maxWidth )
@@ -1090,6 +1136,16 @@ void InGameUI::SetPerformanceHistogramEnabled( bool enabled )
 }
 
 
+void InGameUI::SetHitboxOverlayEnabled( bool enabled )
+{
+    if ( m_hitboxOverlayEnabled != enabled )
+    {
+        m_hitboxOverlayEnabled = enabled;
+        m_cache.Reset();
+    }
+}
+
+
 void InGameUI::SetScrollY( float scrollY )
 {
     m_scrollY = (std::max)( 0.0f, scrollY );
@@ -1151,6 +1207,118 @@ void InGameUI::DrawCursor( const UIDrawContext& draw ) const
     drawShape( outer, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b, 0.98f );
     drawShape( inner, palette.window.r, palette.window.g, palette.window.b, 0.98f );
     draw.Triangle( x + 4.0f, y + 5.0f, x + 4.2f, y + 10.8f, x + 5.9f, y + 9.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, 0.58f );
+}
+
+
+void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrameData& data, const UIRect& windowBounds, const UIRect& contentBounds, const UIRect& footerBounds ) const
+{
+    if ( !m_hitboxOverlayEnabled )
+    {
+        return;
+    }
+
+    constexpr float chromeR = 0.16f;
+    constexpr float chromeG = 0.86f;
+    constexpr float chromeB = 1.00f;
+    constexpr float contentR = 0.30f;
+    constexpr float contentG = 1.00f;
+    constexpr float contentB = 0.42f;
+    constexpr float footerR = 1.00f;
+    constexpr float footerG = 0.22f;
+    constexpr float footerB = 0.82f;
+    constexpr float buttonR = 1.00f;
+    constexpr float buttonG = 0.62f;
+    constexpr float buttonB = 0.18f;
+
+    DrawHitboxRect( draw, windowBounds, chromeR, chromeG, chromeB, 0.018f, 0.44f );
+
+    const Chrome::TitleButtonRects titleButtons = Chrome::GetTitleButtonRects( windowBounds );
+    DrawHitboxRect( draw, titleButtons.minimize, chromeR, chromeG, chromeB, 0.050f, 0.86f );
+    DrawHitboxRect( draw, titleButtons.maximize, chromeR, chromeG, chromeB, 0.050f, 0.86f );
+    DrawHitboxRect( draw, titleButtons.close, chromeR, chromeG, chromeB, 0.050f, 0.86f );
+    if ( !m_window.isMaximized )
+    {
+        DrawHitboxRect( draw, { windowBounds.x + windowBounds.w - 26.0f, windowBounds.y + windowBounds.h - 26.0f, 26.0f, 26.0f }, chromeR, chromeG, chromeB, 0.050f, 0.86f );
+    }
+
+    DrawTabHitboxes( draw, m_tabBar, static_cast<int>( InGameUITab::Count ) );
+    DrawHitboxRect( draw, contentBounds, contentR, contentG, contentB, 0.018f, 0.48f );
+
+    switch ( m_activeTab )
+    {
+    case InGameUITab::WhatsNew:
+        for ( int i = 0; i < 3; ++i )
+        {
+            DrawHitboxRect( draw, m_whatsNewToggles[i].Bounds(), contentR, contentG, contentB );
+            DrawHitboxRect( draw, m_whatsNewSliders[i].Bounds(), contentR, contentG, contentB );
+        }
+        break;
+    case InGameUITab::Scene:
+        DrawComboHitboxes( draw, m_sceneCombo, SceneDropdownHitboxOptionCount( m_sceneTab, data ), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_resetSceneButton.Bounds(), buttonR, buttonG, buttonB );
+        DrawHitboxRect( draw, m_resetDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
+        DrawHitboxRect( draw, m_saveDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
+        break;
+    case InGameUITab::Physics:
+        for ( int i = 0; i < 9; ++i )
+        {
+            DrawHitboxRect( draw, m_physicsTab.toggles[i].Bounds(), contentR, contentG, contentB );
+        }
+        DrawHitboxRect( draw, m_physicsTab.pipelinePrevButton, buttonR, buttonG, buttonB );
+        DrawHitboxRect( draw, m_physicsTab.pipelineNextButton, buttonR, buttonG, buttonB );
+        DrawHitboxRect( draw, m_physicsTab.alphaSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.contactLingerSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.worldGravitySlider.Bounds(), contentR, contentG, contentB );
+        break;
+    case InGameUITab::Options:
+        for ( int i = 0; i < 6; ++i )
+        {
+            DrawHitboxRect( draw, m_optionsTab.toggles[i].Bounds(), contentR, contentG, contentB );
+        }
+        DrawHitboxRect( draw, m_optionsTab.timeScaleSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_optionsTab.modelCountSlider.Bounds(), contentR, contentG, contentB );
+        break;
+    case InGameUITab::Keys:
+        DrawHitboxRect( draw, m_controlsTab.seedSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_controlsTab.solverBallSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_controlsTab.solverBoxSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_controlsTab.worldFluidHeightSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_controlsTab.worldFluidDensitySlider.Bounds(), contentR, contentG, contentB );
+        break;
+    case InGameUITab::Cinematic:
+        {
+            const char* labels[UI_CINE_SCENE_MAX_OPTIONS] = {};
+            int sceneIndices[UI_CINE_SCENE_MAX_OPTIONS] = {};
+            const int cineSceneOptionCount = BuildCineSceneOptions( data.sceneOptions, data.sceneOptionCount, labels, sceneIndices );
+            DrawComboHitboxes( draw, m_cineSceneCombo, cineSceneOptionCount, contentR, contentG, contentB );
+            for ( int i = 0; i < static_cast<int>( UICinematicFeature::Count ); ++i )
+            {
+                DrawHitboxRect( draw, m_cinematicFeatureToggles[i].Bounds(), contentR, contentG, contentB );
+            }
+            for ( int i = 0; i < static_cast<int>( UICinematicParam::Count ); ++i )
+            {
+                DrawHitboxRect( draw, m_cinematicSliders[i].Bounds(), contentR, contentG, contentB );
+            }
+        }
+        break;
+    case InGameUITab::Profiler:
+    default:
+        break;
+    }
+
+    if ( ContentHeight() > static_cast<int>( contentBounds.h ) )
+    {
+        DrawHitboxRect( draw, m_scrollBar.Bounds(), 0.18f, 0.82f, 0.95f, 0.060f, 0.86f );
+    }
+
+    DrawHitboxRect( draw, footerBounds, footerR, footerG, footerB, 0.020f, 0.54f );
+    DrawComboHitboxes( draw, m_rendererCombo, 3, footerR, footerG, footerB );
+    DrawComboHitboxes( draw, m_reflectionCombo, 3, footerR, footerG, footerB );
+    DrawHitboxRect( draw, m_blurToggle.Bounds(), footerR, footerG, footerB );
+    DrawHitboxRect( draw, m_vsyncToggle.Bounds(), footerR, footerG, footerB );
+    DrawHitboxRect( draw, m_histogramToggle.Bounds(), footerR, footerG, footerB );
+    DrawHitboxRect( draw, m_timelineToggle.Bounds(), footerR, footerG, footerB );
+    DrawHitboxRect( draw, m_hitboxToggle.Bounds(), footerR, footerG, footerB );
 }
 
 
@@ -1258,6 +1426,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     const UIRect waterComboBounds = FooterWaterComboBounds( footerX, footerY );
     const UIRect blurBounds = FooterBlurBounds( footerX, footerY );
     const UIRect vsyncBounds = FooterVsyncBounds( footerX, footerY );
+    const UIRect hitboxBounds = FooterHitboxBounds( footerX, footerY );
     const UIRect timelineBounds = FooterTimelineBounds( footerX, footerY );
     const UIRect perfBounds = FooterPerfBounds( footerX, footerY );
     m_rendererCombo.SetBounds( rendererComboBounds.x, rendererComboBounds.y, rendererComboBounds.w, rendererComboBounds.h );
@@ -1266,6 +1435,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
     m_reflectionCombo.SetDropUp( true );
     m_blurToggle.SetBounds( blurBounds.x, blurBounds.y, blurBounds.w, blurBounds.h );
     m_vsyncToggle.SetBounds( vsyncBounds.x, vsyncBounds.y, vsyncBounds.w, vsyncBounds.h );
+    m_hitboxToggle.SetBounds( hitboxBounds.x, hitboxBounds.y, hitboxBounds.w, hitboxBounds.h );
     m_histogramToggle.SetBounds( perfBounds.x, perfBounds.y, perfBounds.w, perfBounds.h );
     m_timelineToggle.SetBounds( timelineBounds.x, timelineBounds.y, timelineBounds.w, timelineBounds.h );
 
@@ -1619,6 +1789,10 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
             {
                 result.commands.renderer.toggleVsync = true;
             }
+            else if ( m_hitboxToggle.HitTest( m_mouseX, m_mouseY ) )
+            {
+                SetHitboxOverlayEnabled( !m_hitboxOverlayEnabled );
+            }
             else if ( m_histogramToggle.HitTest( m_mouseX, m_mouseY ) )
             {
                 SetPerformanceHistogramEnabled( !ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) );
@@ -1828,7 +2002,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     cacheKey.scrollY = m_scrollY;
     cacheKey.blurEnabled = m_blurPreviewEnabled;
     cacheKey.contentSignature = BuildUIContentSignature( data, currentRendererIndex );
-    cacheKey.styleSignature = HashBool( 2166136261u, m_blurPreviewEnabled );
+    cacheKey.styleSignature = HashBool( HashBool( 2166136261u, m_blurPreviewEnabled ), m_hitboxOverlayEnabled );
     cacheKey.interactionSignature = BuildUIInteractionSignature( m_mouseX, m_mouseY, m_rendererCombo.IsOpen(), m_reflectionCombo.IsOpen(), m_sceneCombo.IsOpen(), m_cineSceneCombo.IsOpen(), m_activeSlider );
     m_cache.BeginFrame( cacheKey );
     PROFILE_END( "Frame/UI/Layout" );
@@ -1989,13 +2163,14 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     const float footerX = x + footerPad;
     const float footerW = (std::max)( 120.0f, w - footerPad * 2.0f );
     const bool hasSeparateStats = footerW >= 560.0f;
-    const float controlsW = hasSeparateStats ? 414.0f : footerW;
+    const float controlsW = hasSeparateStats ? 462.0f : footerW;
     draw.RoundedPanel( { footerX, by + 16.0f, controlsW, 56.0f }, Style::Radii().control, palette.windowSubtle, palette.innerBorder );
 
     const UIRect rendererComboBounds = FooterRendererComboBounds( x, by );
     const UIRect waterComboBounds = FooterWaterComboBounds( x, by );
     const UIRect blurFooterBounds = FooterBlurBounds( x, by );
     const UIRect vsyncFooterBounds = FooterVsyncBounds( x, by );
+    const UIRect hitboxFooterBounds = FooterHitboxBounds( x, by );
     const UIRect timelineFooterBounds = FooterTimelineBounds( x, by );
     const UIRect perfFooterBounds = FooterPerfBounds( x, by );
     m_rendererCombo.SetBounds( rendererComboBounds.x, rendererComboBounds.y, rendererComboBounds.w, rendererComboBounds.h );
@@ -2004,6 +2179,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     m_reflectionCombo.SetDropUp( true );
     m_blurToggle.SetBounds( blurFooterBounds.x, blurFooterBounds.y, blurFooterBounds.w, blurFooterBounds.h );
     m_vsyncToggle.SetBounds( vsyncFooterBounds.x, vsyncFooterBounds.y, vsyncFooterBounds.w, vsyncFooterBounds.h );
+    m_hitboxToggle.SetBounds( hitboxFooterBounds.x, hitboxFooterBounds.y, hitboxFooterBounds.w, hitboxFooterBounds.h );
     m_histogramToggle.SetBounds( perfFooterBounds.x, perfFooterBounds.y, perfFooterBounds.w, perfFooterBounds.h );
     m_timelineToggle.SetBounds( timelineFooterBounds.x, timelineFooterBounds.y, timelineFooterBounds.w, timelineFooterBounds.h );
     static const char* kRendererOptions[] = { "GL", "DX11", "DX12" };
@@ -2011,6 +2187,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     m_rendererCombo.Draw( draw, "Renderer", kRendererOptions, 3, currentRendererIndex, m_mouseX, m_mouseY );
     DrawFooterToggle( draw, blurFooterBounds, "Blur", m_blurPreviewEnabled );
     DrawFooterToggle( draw, vsyncFooterBounds, "VSync", data.vsyncEnabled );
+    DrawFooterToggle( draw, hitboxFooterBounds, "Hitboxes", m_hitboxOverlayEnabled );
     DrawFooterToggle( draw, perfFooterBounds, "Perf", ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) );
     DrawFooterToggle( draw, timelineFooterBounds, "Timeline", ProfilerTab::TimelineEnabled( m_profilerTab ) );
     m_reflectionCombo.Draw( draw,
@@ -2079,6 +2256,8 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     draw.Rect( x + w - 24.0f, y + h - 9.0f, 14.0f, 2.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, 0.58f );
     draw.Rect( x + w - 18.0f, y + h - 15.0f, 8.0f, 2.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, 0.46f );
     draw.Rect( x + w - 12.0f, y + h - 21.0f, 2.0f, 2.0f, palette.textMuted.r, palette.textMuted.g, palette.textMuted.b, 0.38f );
+
+    DrawHitboxOverlay( draw, data, windowBounds, { contentX, contentY, contentW, contentH }, { footerX, by + 16.0f, controlsW, 56.0f } );
 
     PROFILE_END( "Frame/UI/DrawBuild" );
     m_cache.StoreFrame( cacheKey );
