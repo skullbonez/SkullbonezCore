@@ -362,19 +362,18 @@ constexpr CinematicFeatureSpec kCinematicFeatureSpecs[] = {
 static_assert( sizeof( kCinematicFeatureSpecs ) / sizeof( kCinematicFeatureSpecs[0] ) == static_cast<int>( UICinematicFeature::Count ),
                "Cinematic feature specs must match UICinematicFeature." );
 
-constexpr int UI_WHATS_NEW_CONTENT_HEIGHT = 780;
-constexpr float UI_WHATS_NEW_CARD_H = 156.0f;
-constexpr float UI_WHATS_NEW_CARD_GAP = 16.0f;
-constexpr float UI_WHATS_NEW_CONTROL_Y = 72.0f;
-constexpr float UI_WHATS_NEW_SLIDER_Y = 102.0f;
-constexpr float UI_WHATS_NEW_SLIDER_DESC_Y = 140.0f;
-constexpr int UI_WHATS_NEW_TOGGLE_BLUR = 0;
-constexpr int UI_WHATS_NEW_TOGGLE_PERF = 1;
-constexpr int UI_WHATS_NEW_TOGGLE_TIMELINE = 2;
-constexpr int UI_WHATS_NEW_TOGGLE_ASSET_REGISTRY = 3;
-constexpr int UI_WHATS_NEW_TOGGLE_DX12_GATE = 4;
-constexpr int UI_WHATS_NEW_SLIDER_TEXTURES = 0;
-constexpr int UI_WHATS_NEW_SLIDER_PARITY = 1;
+constexpr int UI_WHATS_NEW_CONTENT_HEIGHT = 470;
+constexpr float UI_WHATS_NEW_CARD_H = 134.0f;
+constexpr float UI_WHATS_NEW_CARD_GAP = 8.0f;
+constexpr float UI_WHATS_NEW_CONTROL_Y = 66.0f;
+constexpr float UI_WHATS_NEW_SLIDER_Y = 90.0f;
+constexpr float UI_WHATS_NEW_SLIDER_DESC_Y = 122.0f;
+constexpr int UI_WHATS_NEW_TOGGLE_GRAPHITE = 0;
+constexpr int UI_WHATS_NEW_TOGGLE_ASSET_REGISTRY = 1;
+constexpr int UI_WHATS_NEW_TOGGLE_DX12_GATE = 2;
+constexpr int UI_WHATS_NEW_SLIDER_UI_FILES = 0;
+constexpr int UI_WHATS_NEW_SLIDER_TEXTURES = 1;
+constexpr int UI_WHATS_NEW_SLIDER_PARITY = 2;
 
 bool IsBlockVisible( float contentY, float contentH, float blockY, float blockH )
 {
@@ -405,6 +404,24 @@ void DrawFittedText( const UIDrawContext& draw, float x, float y, float pxSize, 
     snprintf( text, sizeof( text ), "%s", value ? value : "" );
     EllipsizeToWidth( text, sizeof( text ), pxSize, maxWidth );
     draw.Text( x, y, pxSize, color.r, color.g, color.b, text );
+}
+
+void DrawFittedContentText( const UIDrawContext& draw,
+                            float contentY,
+                            float contentH,
+                            float x,
+                            float y,
+                            float pxSize,
+                            const Style::UIColor& color,
+                            const char* value,
+                            float maxWidth )
+{
+    if ( !IsRowVisible( contentY, contentH, y, pxSize + 4.0f ) )
+    {
+        return;
+    }
+
+    DrawFittedText( draw, x, y, pxSize, color, value, maxWidth );
 }
 
 void DrawWhatsNewCard( const UIDrawContext& draw,
@@ -442,10 +459,8 @@ void DrawWhatsNewDescription( const UIDrawContext& draw, float contentY, float c
     DrawFittedText( draw, x, y, 9.5f, Style::Palette().textMuted, text, w );
 }
 
-void SetWhatsNewControlBounds( UICheckBox toggles[5],
-                               UISlider statusSliders[2],
-                               OptionsTab::UIOptionsTabState& options,
-                               PhysicsTab::UIPhysicsTabState& physics,
+void SetWhatsNewControlBounds( UICheckBox toggles[3],
+                               UISlider statusSliders[3],
                                float contentX,
                                float rowBase,
                                float contentW )
@@ -455,39 +470,26 @@ void SetWhatsNewControlBounds( UICheckBox toggles[5],
     const float firstCardY = 42.0f;
     const float secondCardY = firstCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
     const float thirdCardY = secondCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
-    const float fourthCardY = thirdCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
 
-    toggles[UI_WHATS_NEW_TOGGLE_BLUR].SetBounds( innerX, rowBase + firstCardY + UI_WHATS_NEW_CONTROL_Y, 188.0f, 24.0f );
-    options.timeScaleSlider.SetBounds( innerX, rowBase + firstCardY + UI_WHATS_NEW_SLIDER_Y, innerW, 34.0f );
+    toggles[UI_WHATS_NEW_TOGGLE_GRAPHITE].SetBounds( innerX, rowBase + firstCardY + UI_WHATS_NEW_CONTROL_Y, 188.0f, 24.0f );
+    statusSliders[UI_WHATS_NEW_SLIDER_UI_FILES].SetBounds( innerX, rowBase + firstCardY + UI_WHATS_NEW_SLIDER_Y, innerW, 34.0f );
 
     toggles[UI_WHATS_NEW_TOGGLE_ASSET_REGISTRY].SetBounds( innerX, rowBase + secondCardY + UI_WHATS_NEW_CONTROL_Y, 188.0f, 24.0f );
     statusSliders[UI_WHATS_NEW_SLIDER_TEXTURES].SetBounds( innerX, rowBase + secondCardY + UI_WHATS_NEW_SLIDER_Y, innerW, 34.0f );
 
     toggles[UI_WHATS_NEW_TOGGLE_DX12_GATE].SetBounds( innerX, rowBase + thirdCardY + UI_WHATS_NEW_CONTROL_Y, 188.0f, 24.0f );
     statusSliders[UI_WHATS_NEW_SLIDER_PARITY].SetBounds( innerX, rowBase + thirdCardY + UI_WHATS_NEW_SLIDER_Y, innerW, 34.0f );
-
-    toggles[UI_WHATS_NEW_TOGGLE_PERF].SetBounds( innerX, rowBase + fourthCardY + UI_WHATS_NEW_CONTROL_Y, 188.0f, 24.0f );
-    toggles[UI_WHATS_NEW_TOGGLE_TIMELINE].SetBounds( innerX + 210.0f, rowBase + fourthCardY + UI_WHATS_NEW_CONTROL_Y, 188.0f, 24.0f );
-    physics.alphaSlider.SetBounds( innerX, rowBase + fourthCardY + UI_WHATS_NEW_SLIDER_Y, innerW, 34.0f );
-    physics.worldGravitySlider.SetBounds( innerX, rowBase + fourthCardY + 150.0f, innerW, 34.0f );
 }
 
-void DrawWhatsNewTab( UICheckBox toggles[5],
-                      UISlider statusSliders[2],
-                      OptionsTab::UIOptionsTabState& options,
-                      PhysicsTab::UIPhysicsTabState& physics,
+void DrawWhatsNewTab( UICheckBox toggles[3],
+                      UISlider statusSliders[3],
                       const UIDrawContext& draw,
-                      const InGameUIFrameData& data,
                       float contentX,
                       float contentY,
                       float contentW,
                       float contentH,
-                      float scrolledY,
-                      int activeSlider,
-                      bool blurEnabled,
-                      const ProfilerTab::UIProfilerTabState& profilerState )
+                      float scrolledY )
 {
-    char buf[64];
     const Style::UIPalette& palette = Style::Palette();
     const float innerX = contentX + 16.0f;
     const float descX = innerX + 210.0f;
@@ -495,19 +497,17 @@ void DrawWhatsNewTab( UICheckBox toggles[5],
     const float firstCardY = 42.0f;
     const float secondCardY = firstCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
     const float thirdCardY = secondCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
-    const float fourthCardY = thirdCardY + UI_WHATS_NEW_CARD_H + UI_WHATS_NEW_CARD_GAP;
-    const float displayTimeScale = ( activeSlider == OptionsTab::SLIDER_TIME_SCALE && options.previewTimeScale > 0.0f ) ? options.previewTimeScale : data.timeScale;
-    const float displayAlpha = ( activeSlider == PhysicsTab::SLIDER_ALPHA && physics.previewAlpha >= 0.0f ) ? physics.previewAlpha : data.physicsDebugAlpha;
-    const float displayGravityStrength = GravityStrengthFromWorld( data.worldGravity );
 
     DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "WHATS NEW" );
-    DrawFittedText( draw,
-                    contentX,
-                    scrolledY + 20.0f,
-                    10.0f,
-                    palette.textSecondary,
-                    "Latest completed work first, with the controls most useful for trying it in the running scene.",
-                    contentW );
+    DrawFittedContentText( draw,
+                           contentY,
+                           contentH,
+                           contentX,
+                           scrolledY + 20.0f,
+                           10.0f,
+                           palette.textSecondary,
+                           "Latest completed implementation PRs only.",
+                           contentW );
 
     DrawWhatsNewCard( draw,
                       contentY,
@@ -517,19 +517,18 @@ void DrawWhatsNewTab( UICheckBox toggles[5],
                       contentW,
                       UI_WHATS_NEW_CARD_H,
                       "Graphite overlay UI",
-                      "latest",
-                      "The diagnostics panel now uses matte graphite surfaces, rounded controls, and sage accents.",
-                      "Use these controls to preview the overlay and tune simulation speed without leaving this tab." );
+                      "PR #58",
+                      "Matte graphite surfaces, rounded controls, sage accents, and the WHATS NEW landing tab.",
+                      "The shared UI draw path now uses style tokens and rounded panel primitives." );
     if ( IsRowVisible( contentY, contentH, scrolledY + firstCardY + UI_WHATS_NEW_CONTROL_Y, 24.0f ) )
     {
-        toggles[UI_WHATS_NEW_TOGGLE_BLUR].DrawToggle( draw, "Backdrop blur", blurEnabled, palette.accent.r, palette.accent.g, palette.accent.b );
-        DrawWhatsNewDescription( draw, contentY, contentH, descX, scrolledY + firstCardY + UI_WHATS_NEW_CONTROL_Y + 4.0f, descW, "Softens the scene behind the graphite panel." );
+        toggles[UI_WHATS_NEW_TOGGLE_GRAPHITE].DrawToggle( draw, "Graphite restyle", true, palette.accent.r, palette.accent.g, palette.accent.b );
+        DrawWhatsNewDescription( draw, contentY, contentH, descX, scrolledY + firstCardY + UI_WHATS_NEW_CONTROL_Y + 4.0f, descW, "Shows that the overlay styling pass is active." );
     }
-    snprintf( buf, sizeof( buf ), "%.2fx", displayTimeScale );
     if ( IsRowVisible( contentY, contentH, scrolledY + firstCardY + UI_WHATS_NEW_SLIDER_Y, 34.0f ) )
     {
-        options.timeScaleSlider.Draw( draw, "Time scale", buf, displayTimeScale, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX );
-        DrawWhatsNewDescription( draw, contentY, contentH, innerX, scrolledY + firstCardY + UI_WHATS_NEW_SLIDER_DESC_Y, contentW - 32.0f, "Slows or accelerates simulation playback; drag then release to commit." );
+        statusSliders[UI_WHATS_NEW_SLIDER_UI_FILES].Draw( draw, "UI files touched", "22 / 22", 22.0f, 0.0f, 22.0f );
+        DrawWhatsNewDescription( draw, contentY, contentH, innerX, scrolledY + firstCardY + UI_WHATS_NEW_SLIDER_DESC_Y, contentW - 32.0f, "Tracks the graphite PR surface area instead of changing scene state." );
     }
 
     DrawWhatsNewCard( draw,
@@ -540,7 +539,7 @@ void DrawWhatsNewTab( UICheckBox toggles[5],
                       contentW,
                       UI_WHATS_NEW_CARD_H,
                       "Asset texture registry",
-                      "2026-06-12",
+                      "PR #57",
                       "Textures now have stable source records while legacy numeric texture hashes keep working.",
                       "Renderer switches can rebuild registered GPU handles from the source registry." );
     if ( IsRowVisible( contentY, contentH, scrolledY + secondCardY + UI_WHATS_NEW_CONTROL_Y, 24.0f ) )
@@ -562,7 +561,7 @@ void DrawWhatsNewTab( UICheckBox toggles[5],
                       contentW,
                       UI_WHATS_NEW_CARD_H,
                       "Validation harness upgrade",
-                      "2026-06-12",
+                      "PR #56",
                       "Renderer validation now writes manifests, summaries, heatmaps, and explicit DX12 gate output.",
                       "The parity budget is visible here so the gate is easy to interpret." );
     if ( IsRowVisible( contentY, contentH, scrolledY + thirdCardY + UI_WHATS_NEW_CONTROL_Y, 24.0f ) )
@@ -574,35 +573,6 @@ void DrawWhatsNewTab( UICheckBox toggles[5],
     {
         statusSliders[UI_WHATS_NEW_SLIDER_PARITY].Draw( draw, "Pixel diff budget", "avg < 10", 10.0f, 0.0f, 10.0f );
         DrawWhatsNewDescription( draw, contentY, contentH, innerX, scrolledY + thirdCardY + UI_WHATS_NEW_SLIDER_DESC_Y, contentW - 32.0f, "Renderer pairs must remain under this average pixel difference." );
-    }
-
-    DrawWhatsNewCard( draw,
-                      contentY,
-                      contentH,
-                      contentX,
-                      scrolledY + fourthCardY,
-                      contentW,
-                      202.0f,
-                      "Profiler and physics controls",
-                      "recent",
-                      "The profiler and debug overlays are surfaced here for quick diagnostics while reviewing new work.",
-                      "Toggle timeline views, then tune debug opacity and world gravity with sliders." );
-    if ( IsRowVisible( contentY, contentH, scrolledY + fourthCardY + UI_WHATS_NEW_CONTROL_Y, 24.0f ) )
-    {
-        toggles[UI_WHATS_NEW_TOGGLE_PERF].DrawToggle( draw, "Perf graph", ProfilerTab::PerformanceHistogramEnabled( profilerState ), palette.accent.r, palette.accent.g, palette.accent.b );
-        toggles[UI_WHATS_NEW_TOGGLE_TIMELINE].DrawToggle( draw, "Timeline", ProfilerTab::TimelineEnabled( profilerState ), palette.accent.r, palette.accent.g, palette.accent.b );
-    }
-    snprintf( buf, sizeof( buf ), "%.2f", displayAlpha );
-    if ( IsRowVisible( contentY, contentH, scrolledY + fourthCardY + UI_WHATS_NEW_SLIDER_Y, 34.0f ) )
-    {
-        physics.alphaSlider.Draw( draw, "Body alpha", buf, displayAlpha, UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX );
-        DrawWhatsNewDescription( draw, contentY, contentH, innerX, scrolledY + fourthCardY + UI_WHATS_NEW_SLIDER_DESC_Y, contentW - 32.0f, "Adjusts transparency for physics body debug overlays." );
-    }
-    snprintf( buf, sizeof( buf ), "%.1f", displayGravityStrength );
-    if ( IsRowVisible( contentY, contentH, scrolledY + fourthCardY + 150.0f, 34.0f ) )
-    {
-        physics.worldGravitySlider.Draw( draw, "Gravity", buf, displayGravityStrength, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX );
-        DrawWhatsNewDescription( draw, contentY, contentH, innerX, scrolledY + fourthCardY + 188.0f, contentW - 32.0f, "Controls downward world force used by the water and physics scene." );
     }
 }
 
@@ -1458,53 +1428,6 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         }
         else if ( inContent && m_activeTab == InGameUITab::WhatsNew )
         {
-            const float contentX = static_cast<float>( inputX + contentPad );
-            const float rowBase = static_cast<float>( contentY ) - m_scrollY;
-            const float contentW = static_cast<float>( inputW ) - static_cast<float>( contentPad ) * 2.0f - 8.0f;
-            SetWhatsNewControlBounds( m_whatsNewToggles, m_whatsNewSliders, m_optionsTab, m_physicsTab, contentX, rowBase, contentW );
-
-            bool capturedSlider = false;
-            if ( m_whatsNewToggles[UI_WHATS_NEW_TOGGLE_BLUR].HitTest( m_mouseX, m_mouseY ) )
-            {
-                SetBlurEnabled( !m_blurPreviewEnabled );
-            }
-            else if ( m_whatsNewToggles[UI_WHATS_NEW_TOGGLE_PERF].HitTest( m_mouseX, m_mouseY ) )
-            {
-                SetPerformanceHistogramEnabled( !ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) );
-            }
-            else if ( m_whatsNewToggles[UI_WHATS_NEW_TOGGLE_TIMELINE].HitTest( m_mouseX, m_mouseY ) )
-            {
-                SetProfilerTimelineEnabled( !ProfilerTab::TimelineEnabled( m_profilerTab ) );
-            }
-            else if ( m_optionsTab.timeScaleSlider.HitTest( m_mouseX, m_mouseY ) )
-            {
-                m_activeSlider = OptionsTab::SLIDER_TIME_SCALE;
-                m_optionsTab.previewTimeScale = m_optionsTab.timeScaleSlider.ValueFromMouse( m_mouseX, UI_TIME_SCALE_MIN, UI_TIME_SCALE_MAX, UI_TIME_SCALE_STEP );
-                result.commands.sceneOptions.requestedTimeScale = m_optionsTab.previewTimeScale;
-                capturedSlider = true;
-            }
-            else if ( m_physicsTab.alphaSlider.HitTest( m_mouseX, m_mouseY ) )
-            {
-                m_activeSlider = PhysicsTab::SLIDER_ALPHA;
-                m_physicsTab.previewAlpha = m_physicsTab.alphaSlider.ValueFromMouse( m_mouseX, UI_PHYSICS_ALPHA_MIN, UI_PHYSICS_ALPHA_MAX, UI_PHYSICS_ALPHA_STEP );
-                result.commands.physics.requestedPhysicsDebugAlpha = m_physicsTab.previewAlpha;
-                capturedSlider = true;
-            }
-            else if ( m_physicsTab.worldGravitySlider.HitTest( m_mouseX, m_mouseY ) )
-            {
-                m_activeSlider = PhysicsTab::SLIDER_WORLD_GRAVITY;
-                result.commands.water.requestWorldGravity = true;
-                result.commands.water.requestedWorldGravity = WorldGravityFromStrength( m_physicsTab.worldGravitySlider.ValueFromMouse( m_mouseX,
-                                                                                                                                        UI_WORLD_GRAVITY_MIN,
-                                                                                                                                        UI_WORLD_GRAVITY_MAX,
-                                                                                                                                        UI_WORLD_GRAVITY_STEP ) );
-                capturedSlider = true;
-            }
-
-            if ( capturedSlider )
-            {
-                InputControl::BeginMouseCapture( hwnd );
-            }
             m_rendererCombo.Close();
             m_reflectionCombo.Close();
             CloseSceneCombo();
@@ -1950,21 +1873,15 @@ void InGameUI::Draw( const InGameUIFrameData& data )
 
     if ( m_activeTab == InGameUITab::WhatsNew )
     {
-        SetWhatsNewControlBounds( m_whatsNewToggles, m_whatsNewSliders, m_optionsTab, m_physicsTab, contentX, scrolledY, contentW );
+        SetWhatsNewControlBounds( m_whatsNewToggles, m_whatsNewSliders, contentX, scrolledY, contentW );
         DrawWhatsNewTab( m_whatsNewToggles,
                          m_whatsNewSliders,
-                         m_optionsTab,
-                         m_physicsTab,
                          draw,
-                         data,
                          contentX,
                          contentY,
                          contentW,
                          contentH,
-                         scrolledY,
-                         m_activeSlider,
-                         m_blurPreviewEnabled,
-                         m_profilerTab );
+                         scrolledY );
     }
     else if ( m_activeTab == InGameUITab::Profiler )
     {

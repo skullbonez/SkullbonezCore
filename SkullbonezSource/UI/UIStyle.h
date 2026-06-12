@@ -46,9 +46,9 @@ struct UIPalette
 
 struct UIRadii
 {
-    float window = 8.0f;
-    float control = 6.0f;
-    float smallButton = 6.0f;
+    float window = 12.0f;
+    float control = 8.0f;
+    float smallButton = 7.0f;
     float switchPill = 999.0f;
 };
 
