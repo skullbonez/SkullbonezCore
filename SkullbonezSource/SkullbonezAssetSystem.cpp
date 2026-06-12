@@ -1,4 +1,5 @@
 #include "SkullbonezAssetSystem.h"
+#include "SkullbonezIRenderBackend.h"
 
 #include <stdexcept>
 #include <utility>
@@ -71,6 +72,7 @@ const SourceAssetRecord& AssetSystem::RegisterSourceAsset( AssetKind kind, const
     }
 
     SourceAssetRecord record;
+    record.id = m_nextAssetId++;
     record.kind = kind;
     record.logicalName = logicalName;
     record.relativePath = relativePath;
@@ -97,14 +99,204 @@ const SourceAssetRecord* AssetSystem::FindSourceAsset( const char* logicalName )
     return nullptr;
 }
 
+const SourceAssetRecord* AssetSystem::FindSourceAssetById( AssetId id ) const
+{
+    if ( id == 0 )
+    {
+        return nullptr;
+    }
+
+    for ( const SourceAssetRecord& record : m_sourceAssets )
+    {
+        if ( record.id == id )
+        {
+            return &record;
+        }
+    }
+    return nullptr;
+}
+
+const TextureSourceAsset& AssetSystem::RegisterTextureSourceAsset( const char* logicalName,
+                                                                   const char* relativePath,
+                                                                   uint32_t legacyHash,
+                                                                   bool generateMips,
+                                                                   bool linearFilter,
+                                                                   int channelsHint )
+{
+    const SourceAssetRecord& source = RegisterSourceAsset( AssetKind::Texture2D, logicalName, relativePath );
+
+    for ( TextureSourceAsset& texture : m_textureAssets )
+    {
+        if ( texture.id == source.id || texture.logicalName == logicalName || ( legacyHash != 0 && texture.legacyHash == legacyHash ) )
+        {
+            texture.id = source.id;
+            texture.logicalName = logicalName;
+            texture.relativePath = relativePath;
+            texture.resolvedPath = source.resolvedPath;
+            texture.legacyHash = legacyHash;
+            texture.generateMips = generateMips;
+            texture.linearFilter = linearFilter;
+            texture.channelsHint = channelsHint;
+            return texture;
+        }
+    }
+
+    TextureSourceAsset texture;
+    texture.id = source.id;
+    texture.logicalName = logicalName;
+    texture.relativePath = relativePath;
+    texture.resolvedPath = source.resolvedPath;
+    texture.legacyHash = legacyHash;
+    texture.generateMips = generateMips;
+    texture.linearFilter = linearFilter;
+    texture.channelsHint = channelsHint;
+    m_textureAssets.push_back( std::move( texture ) );
+    return m_textureAssets.back();
+}
+
+const TextureSourceAsset* AssetSystem::FindTextureSourceAsset( const char* logicalName ) const
+{
+    if ( !logicalName || logicalName[0] == '\0' )
+    {
+        return nullptr;
+    }
+
+    for ( const TextureSourceAsset& texture : m_textureAssets )
+    {
+        if ( texture.logicalName == logicalName )
+        {
+            return &texture;
+        }
+    }
+    return nullptr;
+}
+
+const TextureSourceAsset* AssetSystem::FindTextureSourceAssetByLegacyHash( uint32_t legacyHash ) const
+{
+    if ( legacyHash == 0 )
+    {
+        return nullptr;
+    }
+
+    for ( const TextureSourceAsset& texture : m_textureAssets )
+    {
+        if ( texture.legacyHash == legacyHash )
+        {
+            return &texture;
+        }
+    }
+    return nullptr;
+}
+
+const TextureSourceAsset* AssetSystem::FindTextureSourceAssetById( AssetId id ) const
+{
+    if ( id == 0 )
+    {
+        return nullptr;
+    }
+
+    for ( const TextureSourceAsset& texture : m_textureAssets )
+    {
+        if ( texture.id == id )
+        {
+            return &texture;
+        }
+    }
+    return nullptr;
+}
+
+const std::vector<TextureSourceAsset>& AssetSystem::GetTextureSourceAssets() const
+{
+    return m_textureAssets;
+}
+
+const ShaderSourceAsset& AssetSystem::RegisterShaderSourceAsset( const char* logicalName,
+                                                                 const char* baseName,
+                                                                 ShaderProgramKind kind,
+                                                                 ShaderProgramContract contract )
+{
+    const SourceAssetRecord& source = RegisterSourceAsset( AssetKind::ShaderProgram, logicalName, baseName );
+
+    for ( ShaderSourceAsset& shader : m_shaderAssets )
+    {
+        if ( shader.id == source.id || shader.logicalName == logicalName || shader.baseName == baseName )
+        {
+            shader.id = source.id;
+            shader.logicalName = logicalName;
+            shader.baseName = baseName;
+            shader.resolvedBasePath = source.resolvedPath;
+            shader.kind = kind;
+            shader.contract = contract;
+            return shader;
+        }
+    }
+
+    ShaderSourceAsset shader;
+    shader.id = source.id;
+    shader.logicalName = logicalName;
+    shader.baseName = baseName;
+    shader.resolvedBasePath = source.resolvedPath;
+    shader.kind = kind;
+    shader.contract = contract;
+    m_shaderAssets.push_back( std::move( shader ) );
+    return m_shaderAssets.back();
+}
+
+const ShaderSourceAsset* AssetSystem::FindShaderSourceAsset( const char* logicalNameOrBaseName ) const
+{
+    if ( !logicalNameOrBaseName || logicalNameOrBaseName[0] == '\0' )
+    {
+        return nullptr;
+    }
+
+    for ( const ShaderSourceAsset& shader : m_shaderAssets )
+    {
+        if ( shader.logicalName == logicalNameOrBaseName || shader.baseName == logicalNameOrBaseName )
+        {
+            return &shader;
+        }
+    }
+    return nullptr;
+}
+
+const std::vector<ShaderSourceAsset>& AssetSystem::GetShaderSourceAssets() const
+{
+    return m_shaderAssets;
+}
+
+std::unique_ptr<Rendering::IShader> AssetSystem::CreateShader( const char* logicalNameOrBaseName ) const
+{
+    if ( !logicalNameOrBaseName || logicalNameOrBaseName[0] == '\0' )
+    {
+        throw std::invalid_argument( "AssetSystem::CreateShader requires a logical name or base name." );
+    }
+
+    const ShaderSourceAsset* shader = FindShaderSourceAsset( logicalNameOrBaseName );
+    return Rendering::Gfx().CreateShader( shader ? shader->baseName.c_str() : logicalNameOrBaseName );
+}
+
 void AssetSystem::Clear()
 {
     m_sourceAssets.clear();
+    m_textureAssets.clear();
+    m_shaderAssets.clear();
+    m_nextAssetId = 1;
+    m_nextGeneration = 1;
 }
 
 size_t AssetSystem::GetSourceAssetCount() const
 {
     return m_sourceAssets.size();
+}
+
+size_t AssetSystem::GetTextureSourceAssetCount() const
+{
+    return m_textureAssets.size();
+}
+
+size_t AssetSystem::GetShaderSourceAssetCount() const
+{
+    return m_shaderAssets.size();
 }
 } // namespace Assets
 } // namespace SkullbonezCore

@@ -94,19 +94,19 @@ void SkullbonezRun::EnsureCinematicRenderResources()
     {
         // Final full-screen pass: combines fog, bloom, god rays, volumetric light,
         // exposure, gamma, and vignette into the backbuffer image.
-        m_systems.tonemapShader = Gfx().CreateShader( "shaders/post_tonemap" );
+        m_systems.tonemapShader = m_systems.assets.CreateShader( "shader.post_tonemap" );
     }
     if ( !m_systems.volumetricLightShader )
     {
         // Half-resolution pass: creates the warm "shafts of light through air"
         // texture that the tonemap pass later adds over the scene.
-        m_systems.volumetricLightShader = Gfx().CreateShader( "shaders/post_volumetric_light" );
+        m_systems.volumetricLightShader = m_systems.assets.CreateShader( "shader.post_volumetric_light" );
     }
     if ( !m_systems.skyAtmosphereShader )
     {
         // Procedural sky pass: draws a generated sunset/cloud backdrop instead
         // of the normal cube-map skybox when cinematic mode is enabled.
-        m_systems.skyAtmosphereShader = Gfx().CreateShader( "shaders/sky_atmosphere" );
+        m_systems.skyAtmosphereShader = m_systems.assets.CreateShader( "shader.sky_atmosphere" );
     }
 
     if ( m_systems.postQuadVB == 0 )
@@ -957,12 +957,9 @@ void SkullbonezRun::SetInitialOpenGlState()
 {
     SkullbonezHelper::ResetRenderResources();
 
-    // load m_textures
-    const SkullbonezConfig& cfg = Cfg();
-    const std::string terrainTexturePath = ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Texture, "texture.terrain", cfg.terrainTexture );
-    const std::string sphereTexturePath = ResolveSourceAssetPath( SkullbonezCore::Assets::AssetKind::Texture, "texture.sphere", cfg.sphereTexture );
-    m_systems.textures->CreateJpegTexture( terrainTexturePath.c_str(), TEXTURE_GROUND );
-    m_systems.textures->CreateJpegTexture( sphereTexturePath.c_str(), TEXTURE_BOUNDING_SPHERE );
+    // Recreate backend texture handles from stable source asset records.
+    RegisterBuiltInAssets();
+    m_systems.textures->RebuildTexturesFromSourceAssets();
 }
 
 

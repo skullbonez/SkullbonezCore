@@ -561,6 +561,7 @@ struct ParsedArgs
     bool physicsDiagnosticsRequested = false;
     bool fixedStepForcedByPhysicsDiagnostics = false;
     bool dumpConfig = false;
+    bool dumpAssets = false;
     bool platformProfilerMarkers = false;
 };
 
@@ -675,6 +676,9 @@ void ApplyCliFlagDirectives( const CommandLineView& commandLine, ParsedArgs& out
           "[overlay] Broadphase visualizer enabled at startup." },
         { "--dump-config", nullptr, []( ParsedArgs& args )
           { args.dumpConfig = true; },
+          nullptr },
+        { "--dump-assets", nullptr, []( ParsedArgs& args )
+          { args.dumpAssets = true; },
           nullptr },
     };
 
@@ -1691,6 +1695,10 @@ int RunApp( SkullbonezWindow* window, ParsedArgs& args )
         try
         {
             cRun.Initialise();
+            if ( args.dumpAssets )
+            {
+                cRun.DumpTextureAssets( stdout );
+            }
             if ( args.sceneLoadOnly )
             {
                 cRun.RunSceneLoadOnly();
