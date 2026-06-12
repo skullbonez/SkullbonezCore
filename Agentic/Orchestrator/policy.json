@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "enabled": false,
+  "base_branch": "main",
+  "branch_prefix": "codex/",
+  "max_active_items": 1,
+  "allow_pr_creation": true,
+  "allow_merge": false,
+  "merge_requires_green_checks": true,
+  "merge_requires_approval": false,
+  "merge_method": "squash",
+  "advance_after_failed_item": false,
+  "stop_after_blocked_item": true,
+  "stop_after_failed_item": true,
+  "report_channels": [
+    "markdown",
+    "pr-comment"
+  ],
+  "email_reports": {
+    "enabled": false,
+    "to": []
+  },
+  "artifact_retention": {
+    "run_root": "Agentic/Runs",
+    "commit_reports": false,
+    "commit_screenshots": false
+  },
+  "merge_safety": {
+    "requires_agents_md_permission": true,
+    "disallow_main_direct_push": true,
+    "disallow_force_push": true,
+    "disallow_rebase": true,
+    "require_report_before_merge": true
+  }
+}
