@@ -62,7 +62,7 @@ are targeted pre-commit/PR gates, not commands to run during normal iteration:
 
 Commit policy for this branch: land one architecture item at a time. Before each
 PR-bound feature-branch commit, run the targeted validation for the touched
-area, then commit and push without asking for additional permission.
+area, then commit and push when ready.
 
 ## Current Architectural Shape
 

@@ -18,8 +18,8 @@ then move to the next eligible item.
 ## Current Constraints
 
 - `AGENTS.md` currently says agents must not merge or submit PRs.
-- Feature-branch commits and normal pushes are allowed without asking.
-- Direct commits or pushes on `main` still require explicit user confirmation.
+- Feature-branch commits, main-branch commits, and normal pushes are allowed
+  when scoped to the requested work.
 - Validation scripts are PR/commit gates, not commands to run repeatedly during
   iteration.
 - The active plan folder contains a mix of implementation plans, architecture

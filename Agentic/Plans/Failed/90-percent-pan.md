@@ -6,7 +6,7 @@ Goal: make the current low-poly renderer screenshot look dramatically more profe
 
 ## Operating Instruction
 
-This plan is authorized for autonomous execution. Agents executing this plan should implement, validate, commit, and push incremental branch changes as they go without asking for additional permission at each milestone.
+This plan is authorized for autonomous execution. Agents executing this plan should implement, validate, commit, and push incremental branch changes as they go at each milestone.
 
 Hard limits still apply:
 - Do not submit a PR unless separately requested.
@@ -86,7 +86,7 @@ Commit bodies should include:
 - exact validation command and meaningful result,
 - screenshot artifact path if generated.
 
-Because this plan contains explicit user authorization, agents executing it should not pause to ask permission before each commit or push.
+Because this plan contains explicit user authorization, agents executing it should commit and push each completed milestone.
 
 ## Phase 0: Lock The Shot
 

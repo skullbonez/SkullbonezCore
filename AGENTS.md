@@ -4,8 +4,9 @@
 > Framework-agnostic: applies to any current or future AI coding agent.
 
 **Do not** merge or submit PRs, force-push, rebase, or rewrite git history.
-Feature-branch commits and normal pushes are allowed without asking. Direct commits
-or pushes on `main` still require explicit user confirmation.
+Feature-branch commits, main-branch commits, and normal pushes are allowed when
+they are scoped to the requested work. Do not force-push, rebase, or rewrite git
+history.
 
 ---
 
@@ -83,9 +84,9 @@ When committing, write commit notes that are useful future handoff material, not
 - Call out baseline, artifact, or session-state updates when they are part of the change.
 - Avoid vague messages such as "Update files", "Fix stuff", "Delete old files", or "misc changes."
 
-On feature branches, commit and push without asking when the work is ready. On
-`main`, show the proposed commit notes and changed-file summary first, then
-commit or push only after explicit confirmation.
+On feature branches and `main`, commit when the work is ready and include useful
+commit notes. Push normal feature branches when ready. Push `main` only when the
+task explicitly includes updating `main`.
 
 ---
 

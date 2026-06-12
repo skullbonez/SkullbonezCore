@@ -9,14 +9,14 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 | Branch | `codex/cinematic-renderer` in worktree `C:\SkullbonezCore` |
 | Last commit | Branch point from current main before cinematic renderer integration. |
 | Pending work | Cinematic renderer merge, runtime Cine controls, terrain relief default-off polish, targeted pre-PR validation, then feature-branch commit/push as needed. |
-| Uncommitted changes | See `git status --short`; feature-branch commits and normal pushes are allowed without confirmation, while `main` remains confirmation-gated. |
+| Uncommitted changes | See `git status --short`; feature-branch commits, main-branch commits, and normal pushes are allowed when scoped to the requested work. |
 
 ## Active Notes
 
 - This workspace expects Windows x64, VS2022 C++ tools, Python, Pillow, and Git for validation.
 - `git` may not be on PATH in fresh shells. Run `tools\find_git.bat` or use the validation scripts, which call it where needed.
 - Repository validation scripts are pre-commit/PR gates, not as-you-go checks. During implementation, run only targeted builds, launches, focused tests, or inspections that answer the current fix question.
-- Feature-branch commits and normal pushes are allowed without asking. Do not commit or push directly on `main` without explicit confirmation.
+- Feature-branch commits, main-branch commits, and normal pushes are allowed when scoped to the requested work. Do not force-push, rebase, or rewrite git history.
 - Do not kill `SKULLBONEZ_CORE.exe` by name. Kill only by PID from a process you launched.
 - Time large work: record wall-clock start/end and report elapsed time for pipeline runs, multi-file features, and debugging sessions.
 - Management demo handoff: `Agentic/Plans/agent-loop/autonomous-agentic-loop-demo-handoff.md`.
