@@ -887,23 +887,6 @@ void SkullbonezRun::DrawPrimitives()
         PROFILE_GPU_END( "Frame/Render/Terrain" );
     }
 
-    if ( transparentBodyPass )
-    {
-        PROFILE_GPU_BEGIN( "Frame/Render/TransparentBalls" );
-        if ( collisionStateColorsVisible )
-        {
-            m_collisionVisualizer.SetAlphaOverride( collisionVisualizerAlphaOverride );
-            m_collisionVisualizer.Render( m_cGameModelCollection, baseView, proj, lightPosition );
-            m_collisionVisualizer.SetAlphaOverride( -1.0f );
-        }
-        else
-        {
-            m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-            m_cGameModelCollection.RenderModels( baseView, proj, lightPosition, activeCinematic, objectShadowFrame, bodyRenderAlpha );
-        }
-        PROFILE_GPU_END( "Frame/Render/TransparentBalls" );
-    }
-
     // render the fluid ---------------------------
     if ( !m_debug.isWaterHidden && ( !cinematicRender || ActiveCinematicConfig().waterMode != 0 ) )
     {
@@ -929,6 +912,23 @@ void SkullbonezRun::DrawPrimitives()
                                          cinematicRender,
                                          cinematicRender ? &ActiveCinematicConfig() : nullptr );
         PROFILE_GPU_END( "Frame/Render/Water" );
+    }
+
+    if ( transparentBodyPass )
+    {
+        PROFILE_GPU_BEGIN( "Frame/Render/TransparentBalls" );
+        if ( collisionStateColorsVisible )
+        {
+            m_collisionVisualizer.SetAlphaOverride( collisionVisualizerAlphaOverride );
+            m_collisionVisualizer.Render( m_cGameModelCollection, baseView, proj, lightPosition );
+            m_collisionVisualizer.SetAlphaOverride( -1.0f );
+        }
+        else
+        {
+            m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+            m_cGameModelCollection.RenderModels( baseView, proj, lightPosition, activeCinematic, objectShadowFrame, bodyRenderAlpha );
+        }
+        PROFILE_GPU_END( "Frame/Render/TransparentBalls" );
     }
 
     // Broadphase spatial grid overlay (G key toggle)
@@ -1168,8 +1168,8 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         UIData.waterHidden = m_debug.isWaterHidden;
         UIData.waterNoReflect = m_debug.isWaterNoReflect;
         UIData.waterRTReflect = m_debug.isWaterRTReflect;
-        UIData.nativeCursorVisible = m_camera.isFlyMode && m_UI.WantsNativeMouseCursor();
-        UIData.cameraMouseActive = m_camera.isFlyMode && !m_UI.BlocksCameraMouse() && !UIData.nativeCursorVisible;
+        UIData.cameraMouseActive = m_camera.isFlyMode && !m_UI.WantsNativeMouseCursor() && !m_UI.BlocksCameraMouse();
+        UIData.nativeCursorVisible = !UIData.cameraMouseActive;
         UIData.canSaveSceneDefaults = m_scene.isSceneMode &&
                                       m_scene.currentSceneIndex >= 0 &&
                                       m_scene.currentSceneIndex < static_cast<int>( m_sceneQueue.size() ) &&
