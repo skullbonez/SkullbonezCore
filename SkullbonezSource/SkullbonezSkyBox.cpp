@@ -32,12 +32,12 @@ void SkyBox::LoadTextures()
 {
     m_textures = TextureCollection::Instance();
     const SkullbonezCore::Basics::SkullbonezConfig& cfg = Cfg();
-    m_textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyLeft ).c_str(), TEXTURE_SKY_LEFT );
-    m_textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyRight ).c_str(), TEXTURE_SKY_RIGHT );
-    m_textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyFront ).c_str(), TEXTURE_SKY_FRONT );
-    m_textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyBack ).c_str(), TEXTURE_SKY_BACK );
-    m_textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyUp ).c_str(), TEXTURE_SKY_UP );
-    m_textures->CreateJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyDown ).c_str(), TEXTURE_SKY_DOWN );
+    m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyLeft ).c_str(), TEXTURE_SKY_LEFT );
+    m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyRight ).c_str(), TEXTURE_SKY_RIGHT );
+    m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyFront ).c_str(), TEXTURE_SKY_FRONT );
+    m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyBack ).c_str(), TEXTURE_SKY_BACK );
+    m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyUp ).c_str(), TEXTURE_SKY_UP );
+    m_textures->EnsureJpegTexture( ( std::string( DATA_ROOT ) + cfg.skyDown ).c_str(), TEXTURE_SKY_DOWN );
 }
 
 

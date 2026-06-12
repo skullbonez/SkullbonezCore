@@ -1,9 +1,9 @@
 # Asset And Texture Registry Plan
 
-Status: planning draft  
+Status: v1 implementation in progress
 Created: 2026-06-11  
 Scope: source asset records, texture registry, shader asset records, backend GPU resource rebuilds, scene/style asset references  
-Implementation status: plan only, no code changes in this pass
+Implementation status: v1 source texture/shader records and renderer-switch texture rebuild implemented; scene/style texture directives intentionally deferred
 
 ## Goal
 
@@ -212,6 +212,10 @@ Validation:
 
 - Parser-only: `tools\validate_fast.bat`.
 - Visible texture changes: `tools\validate_renderers.bat`.
+
+V1 follow-up note:
+
+- Scene/style texture directives are deferred until the scene loader owns texture overrides end-to-end. Adding parser-only fields now would not affect renderer resources, while applying them globally through `engine.cfg` texture names would create visual churn outside the active scene/style.
 
 ### Phase 4: GPU Resource Rebuild From Source Records
 

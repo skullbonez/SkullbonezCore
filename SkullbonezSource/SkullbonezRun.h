@@ -358,6 +358,7 @@ class SkullbonezRun
     void SetUpGameModels( int count );                                                                                                                 // Game model init for generated mixed-object mode
     void SetUpSolverObjects( int balls, int boxes );                                                                                                   // Game model init: exact N solver balls + M solver boxes
     void SetUpGameModelsFromScene( const TestScene& scene );                                                                                           // Game model init from scene file
+    void RegisterBuiltInAssets();                                                                                                                      // Registers built-in texture and shader source records
     std::string ResolveSourceAssetPath( Assets::AssetKind kind, const char* logicalName, const std::string& relativePath );                            // Registers and resolves a source asset under DATA_ROOT
     void DrawPrimitives();                                                                                                                             // Draw OpenGL primitives here
     CinematicRenderConfig& ActiveCinematicConfig();                                                                                                    // Mutable cinematic style config for the active scene/run
@@ -482,6 +483,7 @@ class SkullbonezRun
     void SetPhysicsDebugTransparentOverride( bool transparent );
     void SetPhysicsDebugAlphaOverride( float alpha );
     void SetPhysicsDebugContactLingerOverride( float seconds );
+    void DumpTextureAssets( FILE* out ) const;
 
 #ifdef _DEBUG
     void SetPhysicsRegressionLogOverride( const char* path );                              // Override regression CSV path for all scenes
