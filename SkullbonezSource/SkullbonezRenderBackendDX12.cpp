@@ -169,8 +169,8 @@ void RenderBackendDX12::EnsureCommandListOpen()
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootsignature
     m_commandList->SetGraphicsRootSignature( m_rootSignature );
     m_commandListOpen = true;
-    m_uploadOffset = 0;
-    m_nextTransientSRV = MAX_STATIC_SRVS + ( m_allocatorIndex * MAX_TRANSIENT_SRVS );
+    m_uploadArenas[m_allocatorIndex].ResetFrame();
+    m_srvDescriptors.ResetFrame( m_allocatorIndex );
 
     // All command list state is reset — force full rebind on next draw
     m_lastPSOHash = 0;
@@ -220,8 +220,8 @@ void RenderBackendDX12::FlushUploadBuffer()
     m_commandList->SetDescriptorHeaps( 1, heaps );
     m_commandList->SetGraphicsRootSignature( m_rootSignature );
     m_commandListOpen = true;
-    m_uploadOffset = 0;
-    m_nextTransientSRV = MAX_STATIC_SRVS + ( m_allocatorIndex * MAX_TRANSIENT_SRVS );
+    m_uploadArenas[m_allocatorIndex].ResetFrame();
+    m_srvDescriptors.ResetFrame( m_allocatorIndex );
     m_lastPSOHash = 0;
     m_texBindingsDirty = true;
     m_targetsDirty = true;
@@ -230,68 +230,89 @@ void RenderBackendDX12::FlushUploadBuffer()
 
 void RenderBackendDX12::FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment )
 {
-    UINT64 aligned = ( m_uploadOffset + alignment - 1 ) & ~( alignment - 1 );
-    if ( aligned + size > UPLOAD_BUFFER_SIZE )
+    if ( !m_uploadArenas[m_allocatorIndex].CanAllocate( size, alignment ) )
     {
+        // This is the expensive fallback path. It means the CPU has filled this
+        // frame's upload arena before the frame was submitted, so we must submit
+        // the current command list and wait before reusing the same bytes. The
+        // event log keeps this visible because frequent mid-frame flushes are a
+        // sign that the future Dx12RenderDevice needs larger upload pages or a
+        // different upload strategy for the current workload.
+        const Dx12UploadArenaStats stats = m_uploadArenas[m_allocatorIndex].GetStats();
+        Log().WriteEventf( "dx12_upload_arena_flush frame=%u used_bytes=%llu capacity_bytes=%llu requested_bytes=%llu alignment=%llu",
+                           m_allocatorIndex,
+                           static_cast<unsigned long long>( stats.usedBytes ),
+                           static_cast<unsigned long long>( stats.capacityBytes ),
+                           static_cast<unsigned long long>( size ),
+                           static_cast<unsigned long long>( alignment ) );
         FlushUploadBuffer();
     }
 }
 
 
+void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
+{
+    const Dx12DescriptorAllocatorStats descriptorStats = m_srvDescriptors.GetStats();
+    UINT64 uploadPeakBytes = 0;
+    UINT64 uploadCapacityBytes = 0;
+    for ( int i = 0; i < FRAME_COUNT; ++i )
+    {
+        const Dx12UploadArenaStats uploadStats = m_uploadArenas[i].GetStats();
+        uploadPeakBytes = (std::max)( uploadPeakBytes, uploadStats.peakBytes );
+        uploadCapacityBytes += uploadStats.capacityBytes;
+    }
+
+    // This event is intentionally written at the architecture boundary rather
+    // than in every draw call. It tells a future render-graph/device pass how
+    // much descriptor and upload memory the old backend needed, without turning
+    // the hot path into noisy logging. The numbers are also layman-readable:
+    // "static SRVs" are persistent texture/view slots, "transient SRVs" are
+    // per-frame descriptor copies, and "upload peak" is the largest CPU-written
+    // staging allocation used by any one in-flight frame.
+    Log().WriteEventf( "dx12_render_architecture_stats reason=%s static_srvs=%u/%u transient_srv_peak=%u/%u upload_peak_bytes=%llu upload_capacity_bytes=%llu",
+                       reason ? reason : "unknown",
+                       descriptorStats.staticUsed,
+                       descriptorStats.staticCapacity,
+                       descriptorStats.transientPeakThisRun,
+                       descriptorStats.transientCapacityPerFrame,
+                       static_cast<unsigned long long>( uploadPeakBytes ),
+                       static_cast<unsigned long long>( uploadCapacityBytes ) );
+}
+
+
 D3D12_GPU_VIRTUAL_ADDRESS RenderBackendDX12::SubAllocateUpload( UINT64 size, UINT64 alignment )
 {
-    UINT64 aligned = ( m_uploadOffset + alignment - 1 ) & ~( alignment - 1 );
-    if ( aligned + size > UPLOAD_BUFFER_SIZE )
-    {
-        throw std::runtime_error( "DX12 upload buffer exhausted" );
-    }
-    m_uploadOffset = aligned + size;
-    return m_uploadBuffers[m_allocatorIndex]->GetGPUVirtualAddress() + aligned;
+    return m_uploadArenas[m_allocatorIndex].Allocate( size, alignment );
 }
 
 
 uint8_t* RenderBackendDX12::GetUploadPtr( D3D12_GPU_VIRTUAL_ADDRESS addr )
 {
-    UINT64 offset = addr - m_uploadBuffers[m_allocatorIndex]->GetGPUVirtualAddress();
-    return m_uploadBufferMapped[m_allocatorIndex] + offset;
+    return m_uploadArenas[m_allocatorIndex].GetMappedPtr( addr );
 }
 
 
 UINT RenderBackendDX12::AllocateStaticSRV()
 {
-    if ( m_nextStaticSRV >= MAX_STATIC_SRVS )
-    {
-        throw std::runtime_error( "DX12 static SRV heap exhausted" );
-    }
-    return m_nextStaticSRV++;
+    return m_srvDescriptors.AllocateStatic();
 }
 
 
 UINT RenderBackendDX12::AllocateTransientSRV()
 {
-    UINT transientBase = MAX_STATIC_SRVS + ( m_allocatorIndex * MAX_TRANSIENT_SRVS );
-    UINT transientLimit = transientBase + MAX_TRANSIENT_SRVS;
-    if ( m_nextTransientSRV < transientBase || m_nextTransientSRV >= transientLimit )
-    {
-        throw std::runtime_error( "DX12 transient SRV heap exhausted for current frame allocator" );
-    }
-    return m_nextTransientSRV++;
+    return m_srvDescriptors.AllocateTransient();
 }
 
 
 D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::GetSRVStagingCpuHandle( UINT index )
 {
-    D3D12_CPU_DESCRIPTOR_HANDLE handle = m_srvStagingHeap->GetCPUDescriptorHandleForHeapStart();
-    handle.ptr += (SIZE_T)index * m_srvDescSize;
-    return handle;
+    return m_srvDescriptors.StagingCpuHandle( index );
 }
 
 
 D3D12_GPU_DESCRIPTOR_HANDLE RenderBackendDX12::GetSRVGpuHandle( UINT index )
 {
-    D3D12_GPU_DESCRIPTOR_HANDLE handle = m_srvHeap->GetGPUDescriptorHandleForHeapStart();
-    handle.ptr += (UINT64)index * m_srvDescSize;
-    return handle;
+    return m_srvDescriptors.ShaderVisibleGpuHandle( index );
 }
 
 
@@ -473,6 +494,8 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE; // CPU-only, can be read for copies
         ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvStagingHeap ) ), "CreateDescriptorHeap (staging) failed" );
     }
+    m_srvDescriptors.Init( m_srvHeap, m_srvStagingHeap, m_srvDescSize, MAX_STATIC_SRVS, MAX_TRANSIENT_SRVS, FRAME_COUNT );
+    m_srvDescriptors.ResetFrame( m_allocatorIndex );
 
     // Create Render Target Views for each swap chain buffer. This tells the GPU how to write
     // pixels to the swap chain back buffers during rendering.
@@ -532,6 +555,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
         ThrowIfFailed( m_device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS( &m_uploadBuffers[i] ) ), "CreateCommittedResource (upload) failed" );
         m_uploadBuffers[i]->Map( 0, nullptr, (void**)&m_uploadBufferMapped[i] );
+        m_uploadArenas[i].Init( m_uploadBuffers[i], m_uploadBufferMapped[i], UPLOAD_BUFFER_SIZE );
     }
 
     // Root signature
@@ -768,6 +792,8 @@ void RenderBackendDX12::Shutdown()
     // DXR cleanup
     ShutdownDXR();
 
+    ReportArchitectureStats( "Shutdown" );
+
     // GPU timer cleanup
     if ( m_gpuTimers.readbackBuf )
     {
@@ -872,6 +898,8 @@ void RenderBackendDX12::Shutdown()
             m_uploadBuffers[i]->Release();
             m_uploadBuffers[i] = nullptr;
         }
+        m_uploadBufferMapped[i] = nullptr;
+        m_uploadArenas[i].Reset();
     }
     if ( m_depthStencil )
     {
@@ -915,6 +943,7 @@ void RenderBackendDX12::Shutdown()
     {
         m_srvStagingHeap->Release();
     }
+    m_srvDescriptors.Reset();
     if ( m_dsvHeap )
     {
         m_dsvHeap->Release();
@@ -1642,7 +1671,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
             if ( srcIdx != UINT_MAX )
             {
                 UINT transient = AllocateTransientSRV();
-                D3D12_CPU_DESCRIPTOR_HANDLE dstHandle = { m_srvHeap->GetCPUDescriptorHandleForHeapStart().ptr + (SIZE_T)transient * m_srvDescSize };
+                D3D12_CPU_DESCRIPTOR_HANDLE dstHandle = m_srvDescriptors.ShaderVisibleCpuHandle( transient );
                 m_device->CopyDescriptorsSimple( 1, dstHandle, GetSRVStagingCpuHandle( srcIdx ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
                 m_commandList->SetGraphicsRootDescriptorTable( 1 + slot, GetSRVGpuHandle( transient ) );
             }
@@ -1920,8 +1949,7 @@ void RenderBackendDX12::InitGenMipsPipeline()
     m_device->CreateUnorderedAccessView( nullptr, nullptr, &nullUAVDesc, GetSRVStagingCpuHandle( m_genMipsNullUAV ) );
 
     // Copy to shader-visible heap so it can be referenced by descriptor tables
-    D3D12_CPU_DESCRIPTOR_HANDLE svDst = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
-    svDst.ptr += (SIZE_T)m_genMipsNullUAV * m_srvDescSize;
+    D3D12_CPU_DESCRIPTOR_HANDLE svDst = m_srvDescriptors.ShaderVisibleCpuHandle( m_genMipsNullUAV );
     m_device->CopyDescriptorsSimple( 1, svDst, GetSRVStagingCpuHandle( m_genMipsNullUAV ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
@@ -1982,8 +2010,7 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
             srvDesc.Texture2D.MostDetailedMip = srcMip;
             srvDesc.Texture2D.MipLevels = 1;
 
-            D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
-            cpuHandle.ptr += (SIZE_T)srcSrvIdx * m_srvDescSize;
+            D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = m_srvDescriptors.ShaderVisibleCpuHandle( srcSrvIdx );
             m_device->CreateShaderResourceView( tex, &srvDesc, cpuHandle );
         }
 
@@ -1999,8 +2026,7 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
         for ( UINT i = 0; i < 4; ++i )
         {
             UINT uavIdx = uavBase + i;
-            D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
-            cpuHandle.ptr += (SIZE_T)uavIdx * m_srvDescSize;
+            D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = m_srvDescriptors.ShaderVisibleCpuHandle( uavIdx );
 
             if ( i < mipsToGenerate )
             {
@@ -2533,9 +2559,8 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
     // Upload vertex data to the shared upload buffer
     UINT64 dataSize = (UINT64)vertCount * 6 * sizeof( float );
     FlushUploadBufferIfNeeded( dataSize, 4 );
-    UINT64 vbOffset = m_uploadOffset;
-    memcpy( m_uploadBufferMapped[m_allocatorIndex] + m_uploadOffset, data, (size_t)dataSize );
-    m_uploadOffset += ( dataSize + 255 ) & ~255ULL; // align to 256 bytes
+    D3D12_GPU_VIRTUAL_ADDRESS vbAddress = SubAllocateUpload( dataSize, 256 );
+    memcpy( GetUploadPtr( vbAddress ), data, (size_t)dataSize );
 
     // Set pipeline state and draw
     m_commandList->SetPipelineState( m_gridLinePSO );
@@ -2557,7 +2582,7 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
 
     // Bind vertex buffer view
     D3D12_VERTEX_BUFFER_VIEW vbView = {};
-    vbView.BufferLocation = m_uploadBuffers[m_allocatorIndex]->GetGPUVirtualAddress() + vbOffset;
+    vbView.BufferLocation = vbAddress;
     vbView.SizeInBytes = (UINT)dataSize;
     vbView.StrideInBytes = 6 * sizeof( float );
     m_commandList->IASetVertexBuffers( 0, 1, &vbView );
@@ -2980,8 +3005,7 @@ void RenderBackendDX12::CreateReflectionUAV( int width, int height )
     m_device->CreateUnorderedAccessView( m_reflectionUAV, nullptr, &uavDesc, GetSRVStagingCpuHandle( m_reflectionUAVIndex ) );
 
     // Also copy to shader-visible heap
-    D3D12_CPU_DESCRIPTOR_HANDLE srvHeapCpu = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
-    srvHeapCpu.ptr += (SIZE_T)m_reflectionUAVIndex * m_srvDescSize;
+    D3D12_CPU_DESCRIPTOR_HANDLE srvHeapCpu = m_srvDescriptors.ShaderVisibleCpuHandle( m_reflectionUAVIndex );
     m_device->CopyDescriptorsSimple( 1, srvHeapCpu, GetSRVStagingCpuHandle( m_reflectionUAVIndex ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 
     // Create SRV for sampling in water shader
@@ -2994,8 +3018,7 @@ void RenderBackendDX12::CreateReflectionUAV( int width, int height )
     m_device->CreateShaderResourceView( m_reflectionUAV, &srvDesc, GetSRVStagingCpuHandle( m_reflectionSRVIndex ) );
 
     // Copy SRV to shader-visible heap
-    srvHeapCpu = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
-    srvHeapCpu.ptr += (SIZE_T)m_reflectionSRVIndex * m_srvDescSize;
+    srvHeapCpu = m_srvDescriptors.ShaderVisibleCpuHandle( m_reflectionSRVIndex );
     m_device->CopyDescriptorsSimple( 1, srvHeapCpu, GetSRVStagingCpuHandle( m_reflectionSRVIndex ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
 
@@ -3227,13 +3250,9 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj, const 
             AllocateTransientSRV(); // ensure 8 contiguous slots
         }
 
-        D3D12_CPU_DESCRIPTOR_HANDLE dstBase = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
-        dstBase.ptr += (SIZE_T)slot0 * m_srvDescSize;
-
         for ( int i = 0; i < 8; ++i )
         {
-            D3D12_CPU_DESCRIPTOR_HANDLE dst = dstBase;
-            dst.ptr += (SIZE_T)i * m_srvDescSize;
+            D3D12_CPU_DESCRIPTOR_HANDLE dst = m_srvDescriptors.ShaderVisibleCpuHandle( slot0 + (UINT)i );
             UINT srcIdx = m_textures[texHandles[i] - 1].srvIndex;
             m_device->CopyDescriptorsSimple( 1, dst, GetSRVStagingCpuHandle( srcIdx ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
         }

@@ -3,6 +3,7 @@
 
 // --- Includes ---
 #include "SkullbonezIRenderBackend.h"
+#include "SkullbonezRenderDeviceDX12.h"
 #include "SkullbonezMeshDX12.h"
 #include "SkullbonezBLASDX12.h"
 #include "SkullbonezTLASDX12.h"
@@ -165,8 +166,15 @@ class RenderBackendDX12 : public IRenderBackend
     UINT m_nextRTV = FRAME_COUNT; // Next available RTV slot (0-1 are swap chain)
     UINT m_nextDSV = 1;           // Next available DSV slot (0 is main depth)
 
-    UINT m_nextStaticSRV = 0;
-    UINT m_nextTransientSRV = 0;
+    // First DX12 architecture extraction point:
+    //
+    // The old backend used loose integer counters for descriptor heap slots.
+    // That worked, but it made the lifetime rule implicit. In DX12, a descriptor
+    // is the tiny record a shader follows to find a texture or UAV. If the CPU
+    // overwrites a descriptor while the GPU is still using it, the shader can
+    // sample the wrong texture or trip the validation layer. This allocator
+    // owns the static and per-frame transient ranges so the rule is visible.
+    Dx12DescriptorAllocator m_srvDescriptors;
 
     ID3D12Resource* m_depthStencil = nullptr;
 
@@ -175,7 +183,12 @@ class RenderBackendDX12 : public IRenderBackend
     // partitioning applied to the transient SRV heap.
     ID3D12Resource* m_uploadBuffers[FRAME_COUNT] = {};
     uint8_t* m_uploadBufferMapped[FRAME_COUNT] = {};
-    UINT64 m_uploadOffset = 0;
+
+    // Upload memory is the CPU-written staging area for constants, dynamic
+    // vertices, instance data, and texture rows. Treating each frame allocator
+    // as its own arena makes the fence relationship explicit: reset only after
+    // that frame's GPU work is complete.
+    Dx12UploadArena m_uploadArenas[FRAME_COUNT];
 
     ID3D12RootSignature* m_rootSignature = nullptr;
     int m_width = 0;
@@ -246,6 +259,7 @@ class RenderBackendDX12 : public IRenderBackend
     void TransitionBarrier( ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after );
     void FlushUploadBuffer();
     void FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment );
+    void ReportArchitectureStats( const char* reason ) const;
     size_t HashPSOKey( const PSOKey12& key );
     ID3D12PipelineState* CreatePSO( VertexFormat12 format, bool instanced, const InstancedMeshDX12* im, const DynamicVBDX12* dvb );
     void CheckDXRSupport();
@@ -405,7 +419,7 @@ class RenderBackendDX12 : public IRenderBackend
     uint8_t* GetUploadPtr( D3D12_GPU_VIRTUAL_ADDRESS addr );
     ID3D12Resource* GetUploadBuffer() const
     {
-        return m_uploadBuffers[m_allocatorIndex];
+        return m_uploadArenas[m_allocatorIndex].Resource();
     }
     D3D12_CPU_DESCRIPTOR_HANDLE AllocateRTV();
     D3D12_CPU_DESCRIPTOR_HANDLE AllocateDSV();

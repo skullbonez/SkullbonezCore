@@ -217,6 +217,7 @@
     <ClCompile Include="SkullbonezSource\SkullbonezMeshDX11.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezFramebufferDX11.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderDeviceDX12.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezShaderDX12.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezMeshDX12.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezFramebufferDX12.cpp" />
@@ -304,6 +305,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezMeshDX11.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezFramebufferDX11.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRenderBackendDX12.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezRenderDeviceDX12.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezShaderDX12.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezMeshDX12.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezFramebufferDX12.h" />
