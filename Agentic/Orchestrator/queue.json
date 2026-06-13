@@ -13,69 +13,23 @@
   ],
   "items": [
     {
-      "id": "validation-harness-upgrade",
-      "plan": "Agentic/Plans/Done/validation-harness-upgrade-plan.md",
-      "status": "merged",
+      "id": "dx12-only-engine-architecture",
+      "plan": "Agentic/Plans/dx12-only-engine-architecture-plan.md",
+      "status": "ready",
       "priority": 10,
-      "branch": "codex/validation-harness-upgrade",
+      "branch": "codex/dx12-only-engine-architecture",
       "impact_area": [
-        "tools",
-        "renderer validation",
-        "reporting"
+        "DX12",
+        "render architecture",
+        "rendering"
       ],
-      "validation_gate": "tools\\validate_fast.bat",
-      "validation_notes": "Escalate to tools\\validate_renderers.bat if the implementation changes renderer screenshot behavior, DX12 validation gates, or baseline artifact semantics.",
+      "validation_gate": "tools\\validate_renderers.bat",
+      "validation_notes": "Renderer/backend implementation work requires tools\\validate_renderers.bat as the PR gate, with dx12_validation.txt checked for zero errors. Escalate to tools\\validate_full.bat if the final implementation spans non-render runtime initialization, windowing, or multiple uncertain areas.",
       "screenshot_scenes": [],
       "artifact_commands": [],
       "depends_on": [],
       "merge_policy": "policy-default",
       "report_required": true
-    },
-    {
-      "id": "render-resource-lifetime",
-      "plan": "Agentic/Plans/render-resource-lifetime-plan.md",
-      "status": "blocked",
-      "priority": 20,
-      "branch": "codex/render-resource-lifetime",
-      "impact_area": [
-        "GL",
-        "DX11",
-        "DX12",
-        "rendering"
-      ],
-      "validation_gate": "tools\\validate_renderers.bat",
-      "validation_notes": "Unlock after the first dry-run report proves the queue, prompt, artifact, and PR reporting flow.",
-      "screenshot_scenes": [],
-      "artifact_commands": [],
-      "depends_on": [
-        "validation-harness-upgrade"
-      ],
-      "merge_policy": "policy-default",
-      "report_required": true,
-      "blocked_reason": "Large renderer lifetime scope; hold until the orchestration process has one successful dry run."
-    },
-    {
-      "id": "render-pipeline-extraction",
-      "plan": "Agentic/Plans/render-pipeline-extraction-plan.md",
-      "status": "blocked",
-      "priority": 30,
-      "branch": "codex/render-pipeline-extraction",
-      "impact_area": [
-        "GL",
-        "DX11",
-        "DX12",
-        "rendering"
-      ],
-      "validation_gate": "tools\\validate_renderers.bat",
-      "validation_notes": "Unlock only after render resource lifetime work is either merged or deliberately skipped.",
-      "screenshot_scenes": [],
-      "artifact_commands": [],
-      "depends_on": [
-        "render-resource-lifetime"
-      ],
-      "merge_policy": "policy-default",
-      "report_required": true,
-      "blocked_reason": "Depends on renderer lifetime boundaries to reduce conflict risk."
     }
   ]
 }

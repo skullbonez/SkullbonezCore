@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "enabled": false,
+  "enabled": true,
   "base_branch": "main",
   "branch_prefix": "codex/",
   "max_active_items": 1,
