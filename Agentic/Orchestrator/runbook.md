@@ -181,7 +181,10 @@ Reports must include:
 
 - item id and source plan,
 - branch, commit, and PR link when present,
-- implementation commit and final evidence commit when they differ,
+- implementation commit and final evidence commit when they differ. Because
+  `report.md` is committed inside the evidence commit, the committed report may
+  list the evidence commit as pending and the final response or PR comment
+  should record the actual SHA,
 - started, finished, elapsed, and substantial sub-run timings,
 - a short progress timeline,
 - validation command and output summary,

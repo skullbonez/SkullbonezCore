@@ -133,8 +133,8 @@ that folder so the commit is easy to inspect on GitHub from a phone.
 `report.md` must be concise, scrollable, and useful on a phone. Include:
 
 - item id and source plan,
-- branch, implementation commit, final evidence commit, PR link, and merge SHA
-  if known,
+- branch, implementation commit, final evidence commit if known, PR link, and
+  merge SHA if known,
 - started, finished, elapsed, and substantial sub-run timings,
 - a short progress timeline,
 - implementation summary,
@@ -147,10 +147,11 @@ that folder so the commit is easy to inspect on GitHub from a phone.
 - exact sub-agent result summary and `worker-result.md` path,
 - next queue action.
 
-The report bundle commit happens before merge, so the committed report may list
-merge status as pending. Record the merge SHA afterward in the final response
-and PR comment unless the user explicitly asks for a separate post-merge report
-update.
+The report bundle is inside the final evidence commit, so the committed report
+may list the evidence commit as pending. The report bundle also happens before
+merge, so merge status may be pending. Record the final evidence commit SHA and
+merge SHA afterward in the final response and PR comment unless the user
+explicitly asks for a separate post-merge report update.
 
 ## Final Response
 
