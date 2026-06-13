@@ -169,11 +169,17 @@ class RenderBackendDX12 : public IRenderBackend
     // First DX12 architecture extraction point:
     //
     // The old backend used loose integer counters for descriptor heap slots.
-    // That worked, but it made the lifetime rule implicit. In DX12, a descriptor
-    // is the tiny record a shader follows to find a texture or UAV. If the CPU
-    // overwrites a descriptor while the GPU is still using it, the shader can
-    // sample the wrong texture or trip the validation layer. This allocator
-    // owns the static and per-frame transient ranges so the rule is visible.
+    // That worked, but it made the lifetime rule implicit.
+    //
+    // A descriptor allocator is not a texture allocator. Textures live in GPU
+    // resources. A descriptor allocator hands out numbered rows in a descriptor
+    // heap, which is the table shaders use to find textures and UAVs. In DX12,
+    // the engine must manage those rows itself.
+    //
+    // If the CPU overwrites a descriptor row while the GPU is still following a
+    // handle to that row, the shader can sample the wrong texture or trip the
+    // validation layer. This allocator owns the static and per-frame transient
+    // ranges so that rule is visible at the architecture boundary.
     Dx12DescriptorAllocator m_srvDescriptors;
 
     ID3D12Resource* m_depthStencil = nullptr;
@@ -185,9 +191,13 @@ class RenderBackendDX12 : public IRenderBackend
     uint8_t* m_uploadBufferMapped[FRAME_COUNT] = {};
 
     // Upload memory is the CPU-written staging area for constants, dynamic
-    // vertices, instance data, and texture rows. Treating each frame allocator
-    // as its own arena makes the fence relationship explicit: reset only after
-    // that frame's GPU work is complete.
+    // vertices, instance data, and texture rows. It is the bridge between CPU
+    // code that prepares frame data and GPU commands that read that data later.
+    //
+    // Each frame allocator gets its own arena. That matters because the CPU can
+    // begin preparing a later frame before the GPU has finished an earlier one.
+    // Resetting an arena too early would let the CPU overwrite bytes the GPU has
+    // not read yet. The frame fence is the proof that reset is safe.
     Dx12UploadArena m_uploadArenas[FRAME_COUNT];
 
     ID3D12RootSignature* m_rootSignature = nullptr;

@@ -169,6 +169,17 @@ void RenderBackendDX12::EnsureCommandListOpen()
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootsignature
     m_commandList->SetGraphicsRootSignature( m_rootSignature );
     m_commandListOpen = true;
+
+    // The command allocator, upload arena, and transient descriptor range all
+    // share the same lifetime. We waited for this frame allocator's fence above,
+    // so the GPU is no longer reading:
+    //
+    // - commands recorded into this allocator,
+    // - upload bytes written for those commands,
+    // - temporary descriptors bound by those commands.
+    //
+    // That is why it is safe to reset these two cursors here. Without the fence
+    // wait, these resets could make the CPU overwrite data the GPU still needs.
     m_uploadArenas[m_allocatorIndex].ResetFrame();
     m_srvDescriptors.ResetFrame( m_allocatorIndex );
 
@@ -220,6 +231,11 @@ void RenderBackendDX12::FlushUploadBuffer()
     m_commandList->SetDescriptorHeaps( 1, heaps );
     m_commandList->SetGraphicsRootSignature( m_rootSignature );
     m_commandListOpen = true;
+
+    // FlushUploadBuffer submits and waits for all current GPU work before it
+    // reopens the command list. That blocking wait is expensive, but it gives
+    // the same safety proof as a normal frame-fence wait: the old upload bytes
+    // and temporary descriptors are no longer in use, so the arenas can rewind.
     m_uploadArenas[m_allocatorIndex].ResetFrame();
     m_srvDescriptors.ResetFrame( m_allocatorIndex );
     m_lastPSOHash = 0;
@@ -343,6 +359,12 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
 
     // DXGI Factory
     UINT factoryFlags = 0;
+    // DRED must be enabled before the D3D12 device is created. It is the GPU
+    // failure breadcrumb system: if the driver removes the device later, the
+    // report can include the named command lists and resources involved near
+    // the failure instead of only returning a generic lost-device HRESULT.
+    EnableDx12DeviceRemovedDiagnostics();
+
     // Enable the DX12 debug layer for development builds. This makes the runtime validate every
     // API call and report errors/warnings — essential for catching bugs but has a performance cost.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12sdklayers/nf-d3d12sdklayers-id3d12debug-enabledebuglayer
@@ -387,6 +409,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     {
         throw std::runtime_error( "D3D12CreateDevice failed" );
     }
+    NameDx12Object( m_device, L"Skullbonez DX12 Device" );
 
     // Check DXR capability
     CheckDXRSupport();
@@ -424,6 +447,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     {
         throw std::runtime_error( "CreateCommandQueue failed" );
     }
+    NameDx12Object( m_commandQueue, L"Skullbonez DX12 Graphics Queue" );
 
     // Create the Swap Chain — manages the double-buffered back buffers that are presented to the
     // screen. FLIP_DISCARD means the OS can discard the previous frame's content after presenting
@@ -458,6 +482,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         desc.NumDescriptors = MAX_RTV_DESCRIPTORS;
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
         ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_rtvHeap ) ), "CreateDescriptorHeap (RTV) failed" );
+        NameDx12Object( m_rtvHeap, L"Skullbonez DX12 RTV Heap" );
         m_rtvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_RTV );
     }
     // DSV heap holds Depth Stencil View descriptors (main depth buffer + FBO depth buffers).
@@ -467,6 +492,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         desc.NumDescriptors = MAX_DSV_DESCRIPTORS;
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
         ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_dsvHeap ) ), "CreateDescriptorHeap (DSV) failed" );
+        NameDx12Object( m_dsvHeap, L"Skullbonez DX12 DSV Heap" );
         m_dsvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_DSV );
     }
     // SRV/CBV/UAV heap — SHADER_VISIBLE means the GPU can directly access these descriptors.
@@ -481,6 +507,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
         desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
         ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvHeap ) ), "CreateDescriptorHeap (SRV) failed" );
+        NameDx12Object( m_srvHeap, L"Skullbonez DX12 Shader Visible SRV Heap" );
         m_srvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
     }
     {
@@ -493,7 +520,16 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
         desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE; // CPU-only, can be read for copies
         ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvStagingHeap ) ), "CreateDescriptorHeap (staging) failed" );
+        NameDx12Object( m_srvStagingHeap, L"Skullbonez DX12 SRV Staging Heap" );
     }
+    // The descriptor allocator receives both heaps:
+    //
+    // - m_srvStagingHeap is CPU-only storage for persistent descriptor templates.
+    // - m_srvHeap is shader-visible storage the GPU can read at draw time.
+    //
+    // Static descriptors occupy the first MAX_STATIC_SRVS rows. Temporary rows
+    // come after that, split into one range per frame allocator so the CPU never
+    // rewrites descriptors still referenced by an in-flight frame.
     m_srvDescriptors.Init( m_srvHeap, m_srvStagingHeap, m_srvDescSize, MAX_STATIC_SRVS, MAX_TRANSIENT_SRVS, FRAME_COUNT );
     m_srvDescriptors.ResetFrame( m_allocatorIndex );
 
@@ -503,6 +539,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
         ThrowIfFailed( m_swapChain->GetBuffer( (UINT)i, IID_PPV_ARGS( &m_renderTargets[i] ) ), "SwapChain GetBuffer failed" );
+        NameDx12ObjectIndexed( m_renderTargets[i], L"Skullbonez DX12 Swapchain Backbuffer", (UINT)i );
         m_device->CreateRenderTargetView( m_renderTargets[i], nullptr, GetRTVHandle( (UINT)i ) );
     }
 
@@ -516,6 +553,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
         ThrowIfFailed( m_device->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS( &m_commandAllocators[i] ) ), "CreateCommandAllocator failed" );
+        NameDx12ObjectIndexed( m_commandAllocators[i], L"Skullbonez DX12 Command Allocator", (UINT)i );
     }
 
     // Create the Command List — this is the "recording device" for GPU commands. You record draw
@@ -523,6 +561,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     // Only one command list is needed because we close/reset it between frames.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommandlist
     ThrowIfFailed( m_device->CreateCommandList( 0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocators[0], nullptr, IID_PPV_ARGS( &m_commandList ) ), "CreateCommandList failed" );
+    NameDx12Object( m_commandList, L"Skullbonez DX12 Main Command List" );
     m_commandList->Close();
     m_commandListOpen = false;
     m_allocatorIndex = 0;
@@ -533,6 +572,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     // still reading from a previous frame.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createfence
     ThrowIfFailed( m_device->CreateFence( 0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &m_fence ) ), "CreateFence failed" );
+    NameDx12Object( m_fence, L"Skullbonez DX12 Frame Fence" );
     m_fenceEvent = CreateEvent( nullptr, FALSE, FALSE, nullptr );
 
     // Create per-frame upload buffers — one per FRAME_COUNT allocator. Each holds CPU-writable,
@@ -554,7 +594,12 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         desc.SampleDesc.Count = 1;
         desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
         ThrowIfFailed( m_device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS( &m_uploadBuffers[i] ) ), "CreateCommittedResource (upload) failed" );
+        NameDx12ObjectIndexed( m_uploadBuffers[i], L"Skullbonez DX12 Frame Upload Buffer", (UINT)i );
         m_uploadBuffers[i]->Map( 0, nullptr, (void**)&m_uploadBufferMapped[i] );
+        // Each upload arena wraps one persistently mapped upload buffer. The CPU
+        // writes through m_uploadBufferMapped[i]; command lists bind GPU virtual
+        // addresses from m_uploadBuffers[i]. Keeping the arena object beside the
+        // raw resource makes that CPU/GPU address pairing explicit.
         m_uploadArenas[i].Init( m_uploadBuffers[i], m_uploadBufferMapped[i], UPLOAD_BUFFER_SIZE );
     }
 
@@ -572,6 +617,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         qhDesc.Count = (UINT)TIMER_HEAP_SIZE;
         if ( SUCCEEDED( m_device->CreateQueryHeap( &qhDesc, IID_PPV_ARGS( &m_gpuTimers.queryHeap ) ) ) )
         {
+            NameDx12Object( m_gpuTimers.queryHeap, L"Skullbonez DX12 GPU Timer Query Heap" );
             // Readback buffer — CPU-readable memory where GPU timer results are copied to.
             // The READBACK heap type means the CPU can read from it (but the GPU cannot render to it).
             // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
@@ -597,6 +643,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
             }
             else
             {
+                NameDx12Object( m_gpuTimers.readbackBuf, L"Skullbonez DX12 GPU Timer Readback Buffer" );
                 m_commandQueue->GetTimestampFrequency( &m_gpuTimers.freq );
             }
         }
@@ -707,6 +754,7 @@ void RenderBackendDX12::CreateRootSignature()
     {
         throw std::runtime_error( "CreateRootSignature failed" );
     }
+    NameDx12Object( m_rootSignature, L"Skullbonez DX12 Main Root Signature" );
 }
 
 
@@ -737,6 +785,7 @@ void RenderBackendDX12::CreateDepthStencil( int w, int h )
     {
         throw std::runtime_error( "CreateCommittedResource (depth stencil) failed" );
     }
+    NameDx12Object( m_depthStencil, L"Skullbonez DX12 Main Depth Stencil" );
 
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
     dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
@@ -1139,6 +1188,7 @@ void RenderBackendDX12::Resize( int width, int height )
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
         m_swapChain->GetBuffer( (UINT)i, IID_PPV_ARGS( &m_renderTargets[i] ) );
+        NameDx12ObjectIndexed( m_renderTargets[i], L"Skullbonez DX12 Swapchain Backbuffer", (UINT)i );
         m_device->CreateRenderTargetView( m_renderTargets[i], nullptr, GetRTVHandle( (UINT)i ) );
     }
 
@@ -1670,6 +1720,12 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
             UINT srcIdx = m_boundTexSlot[slot];
             if ( srcIdx != UINT_MAX )
             {
+                // The texture's persistent descriptor lives in the CPU-only
+                // staging heap. For this draw, copy that descriptor into a
+                // per-frame shader-visible row and bind the GPU handle to that
+                // row. This copy looks redundant at first, but it is the safety
+                // mechanism: transient rows are reset only after the frame fence
+                // proves the GPU is done with them.
                 UINT transient = AllocateTransientSRV();
                 D3D12_CPU_DESCRIPTOR_HANDLE dstHandle = m_srvDescriptors.ShaderVisibleCpuHandle( transient );
                 m_device->CopyDescriptorsSimple( 1, dstHandle, GetSRVStagingCpuHandle( srcIdx ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
