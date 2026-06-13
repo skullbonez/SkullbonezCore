@@ -54,6 +54,17 @@ Agentic/Reports/<yyyy-mm-dd>/<item-id>/report.md
 Agentic/Reports/<yyyy-mm-dd>/<item-id>/images/
 ```
 
+A roadmap item is not complete merely because implementation commits were
+pushed. Completion requires both:
+
+- a committed report under `Agentic/Reports/<yyyy-mm-dd>/<item-id>/`, and
+- a terminal queue status: `done`, `pr-open`, `merged`, `blocked`, `failed`, or
+  `skipped`.
+
+Use `done` for successful completed work when no PR or merge is being recorded.
+Do not send a final successful user response until the report path or report web
+URL and the terminal queue status are both known.
+
 The final feature-branch commit for a task is a report-only commit. It must
 contain only `report.md` and image files under `images/` that are referenced by
 relative Markdown links from the report. Do not include run JSON, worker

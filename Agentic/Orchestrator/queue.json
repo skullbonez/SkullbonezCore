@@ -5,6 +5,7 @@
   "statuses": [
     "ready",
     "running",
+    "done",
     "pr-open",
     "merged",
     "blocked",

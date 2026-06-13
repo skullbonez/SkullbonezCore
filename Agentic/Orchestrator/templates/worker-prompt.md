@@ -66,6 +66,11 @@ phone-readable artifact paths, timings for substantial commands, and short code
 snippets worth highlighting. Prefer PNG or JPG screenshots over BMP for
 anything the user should inspect on a phone.
 
+Your implementation handoff is not the terminal roadmap state. The orchestrator
+must still generate the committed report, push the report-only commit, and set
+the queue item to a terminal status such as `done`, `pr-open`, `blocked`,
+`failed`, or `skipped`.
+
 For image evidence, look for screenshots, focused zoom crops of important screen
 regions, heat maps, image diffs, or before/after architectural diagrams. The
 orchestrator will choose the final committed images, but your handoff should

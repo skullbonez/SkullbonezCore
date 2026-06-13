@@ -15,6 +15,8 @@
 - PR: `{{pr_link}}`
 - Merge SHA: `{{merge_sha}}`
 - Final status: `{{final_status}}`
+- Queue status: `{{queue_status}}`
+- Queue/status commit: `{{queue_status_commit_sha}}`
 - Started: `{{started_at}}`
 - Finished: `{{finished_at}}`
 - Elapsed: `{{elapsed}}`
