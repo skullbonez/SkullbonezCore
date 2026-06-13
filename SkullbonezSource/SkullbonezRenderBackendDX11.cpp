@@ -205,21 +205,7 @@ void RenderBackendDX11::CreateStateObjects()
     hr = m_device->CreateRasterizerState( &rsDesc, &m_rsCullOff );
     ThrowIfFailed( hr, "CreateRasterizerState (cull off) failed" );
 
-    rsDesc.CullMode = D3D11_CULL_BACK;
-    rsDesc.DepthBias = -1;
-    rsDesc.SlopeScaledDepthBias = -1.0f;
-
-    // Create a rasterizer state with polygon offset (depth bias). Depth bias nudges depth values
-    // slightly to prevent z-fighting (flickering) when two surfaces are nearly coplanar, such as
-    // decals or shadow projections on terrain.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createrasterizerstate
-    hr = m_device->CreateRasterizerState( &rsDesc, &m_rsCullOnPolyOffset );
-    ThrowIfFailed( hr, "CreateRasterizerState (cull on + poly offset) failed" );
-
-    rsDesc.CullMode = D3D11_CULL_NONE;
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createrasterizerstate
-    hr = m_device->CreateRasterizerState( &rsDesc, &m_rsCullOffPolyOffset );
-    ThrowIfFailed( hr, "CreateRasterizerState (cull off + poly offset) failed" );
+    RecreatePolygonOffsetRasterizerStates();
 
     // Sampler states
     D3D11_SAMPLER_DESC sampDesc = {};
@@ -245,6 +231,38 @@ void RenderBackendDX11::CreateStateObjects()
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createsamplerstate
     hr = m_device->CreateSamplerState( &sampDesc, &m_samplerNearest );
     ThrowIfFailed( hr, "CreateSamplerState (nearest) failed" );
+}
+
+
+void RenderBackendDX11::RecreatePolygonOffsetRasterizerStates()
+{
+    if ( m_rsCullOffPolyOffset )
+    {
+        m_rsCullOffPolyOffset->Release();
+        m_rsCullOffPolyOffset = nullptr;
+    }
+    if ( m_rsCullOnPolyOffset )
+    {
+        m_rsCullOnPolyOffset->Release();
+        m_rsCullOnPolyOffset = nullptr;
+    }
+
+    D3D11_RASTERIZER_DESC rsDesc = {};
+    rsDesc.FillMode = D3D11_FILL_SOLID;
+    rsDesc.CullMode = D3D11_CULL_BACK;
+    rsDesc.FrontCounterClockwise = TRUE;
+    rsDesc.DepthClipEnable = TRUE;
+    rsDesc.DepthBias = static_cast<INT>( m_drawState.polyOffsetUnits );
+    rsDesc.SlopeScaledDepthBias = m_drawState.polyOffsetFactor;
+
+    // D3D11 rasterizer states are immutable, so rebuild the two polygon-offset
+    // variants whenever SetPolygonOffset supplies new bias values.
+    HRESULT hr = m_device->CreateRasterizerState( &rsDesc, &m_rsCullOnPolyOffset );
+    ThrowIfFailed( hr, "CreateRasterizerState (cull on + poly offset) failed" );
+
+    rsDesc.CullMode = D3D11_CULL_NONE;
+    hr = m_device->CreateRasterizerState( &rsDesc, &m_rsCullOffPolyOffset );
+    ThrowIfFailed( hr, "CreateRasterizerState (cull off + poly offset) failed" );
 }
 
 
@@ -1002,11 +1020,20 @@ void RenderBackendDX11::SetCullFace( bool enable )
 }
 
 
-void RenderBackendDX11::SetPolygonOffset( bool enable, float /*factor*/, float /*units*/ )
+void RenderBackendDX11::SetPolygonOffset( bool enable, float factor, float units )
 {
-    if ( m_drawState.polyOffsetEnabled == enable )
+    const bool biasChanged = enable &&
+                             ( m_drawState.polyOffsetFactor != factor ||
+                               m_drawState.polyOffsetUnits != units );
+    if ( m_drawState.polyOffsetEnabled == enable && !biasChanged )
     {
         return;
+    }
+    if ( biasChanged )
+    {
+        m_drawState.polyOffsetFactor = factor;
+        m_drawState.polyOffsetUnits = units;
+        RecreatePolygonOffsetRasterizerStates();
     }
     m_drawState.polyOffsetEnabled = enable;
     ApplyRasterizerState();

@@ -633,13 +633,6 @@ void SkullbonezRun::ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound,
 
 void SkullbonezRun::Render()
 {
-    // Cinematic rendering clears its HDR scene target in DrawPrimitives before
-    // resolving to the backbuffer.
-    if ( !IsCinematicRenderingEnabled() )
-    {
-        Gfx().Clear( true, true );
-    }
-
     // In text_only mode all 3D rendering is skipped. DrawWindowText handles the display.
     if ( m_debug.isTextOnly )
     {
@@ -696,6 +689,13 @@ void SkullbonezRun::DrawPrimitives()
     PROFILE_BEGIN( "Frame/Render/PrepareModels" );
     m_cGameModelCollection.PrepareRenderStreams();
     PROFILE_END( "Frame/Render/PrepareModels" );
+
+    // Defer the first DX12 command-list open until after CPU-side model prep so
+    // allocator waits do not block work that can overlap the previous frame.
+    if ( !cinematicRender )
+    {
+        Gfx().Clear( true, true );
+    }
 
     m_systems.shadowFrame = Rendering::ShadowFrameData();
     m_systems.objectShadowFrame = Rendering::ShadowFrameData();
@@ -1100,6 +1100,7 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
 
     if ( m_UI.IsVisible() )
     {
+        PROFILE_BEGIN( "Frame/UI/BuildData" );
         InGameUIFrameData UIData;
         UIData.screenW = m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.x ) : Cfg().window.screenX;
         UIData.screenH = m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.y ) : Cfg().window.screenY;
@@ -1176,16 +1177,17 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
                                       !m_sceneQueue[m_scene.currentSceneIndex].empty();
         UIData.cinematicRendering = IsCinematicRenderingEnabled();
         UIData.cinematic = ActiveCinematicConfig();
+        PROFILE_END( "Frame/UI/BuildData" );
 
+        PROFILE_BEGIN( "Frame/UI/PreFlushText" );
         Text2d::FlushText();
+        PROFILE_END( "Frame/UI/PreFlushText" );
         UIData.drawCallsBeforeUI = Gfx().GetFrameDrawCallCount();
         const int UIDrawCallStart = UIData.drawCallsBeforeUI;
-        PROFILE_GPU_BEGIN( "Frame/UI/Quads" );
         m_UI.Draw( UIData );
-        PROFILE_GPU_END( "Frame/UI/Quads" );
-        PROFILE_GPU_BEGIN( "Frame/UI/Text" );
+        PROFILE_BEGIN( "Frame/UI/PostFlushText" );
         Text2d::FlushText();
-        PROFILE_GPU_END( "Frame/UI/Text" );
+        PROFILE_END( "Frame/UI/PostFlushText" );
         const int UIDrawCallEnd = Gfx().GetFrameDrawCallCount();
         m_timers.lastUIDrawCalls = (std::max)( 0, UIDrawCallEnd - UIDrawCallStart );
         return;

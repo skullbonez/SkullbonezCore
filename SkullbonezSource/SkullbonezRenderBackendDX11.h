@@ -70,6 +70,8 @@ struct DrawStateTrackingDX11
     float clearDepth = 1.0f;
     bool cullEnabled = true;
     bool polyOffsetEnabled = false;
+    float polyOffsetFactor = 2.0f;
+    float polyOffsetUnits = 4.0f;
 };
 
 struct RenderTargetCacheDX11
@@ -204,6 +206,7 @@ class RenderBackendDX11 : public IRenderBackend
     void CreateStateObjects();
     void ApplyRasterizerState();
     void ApplyDepthState();
+    void RecreatePolygonOffsetRasterizerStates();
     GpuTimerStateDX11 m_gpuTimers;
     void InitGpuTimers();
     void ShutdownGpuTimers();

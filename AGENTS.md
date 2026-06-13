@@ -3,9 +3,10 @@
 > Universal contract for any AI agent working on this repository.
 > Framework-agnostic: applies to any current or future AI coding agent.
 
-**Do not** merge or submit PRs, force-push, rebase, or rewrite git history.
-Feature-branch commits and normal pushes are allowed without asking. Direct commits
-or pushes on `main` still require explicit user confirmation.
+**Do not** force-push, rebase, or rewrite git history. Feature-branch commits
+and normal pushes are allowed without asking. Agents may submit or merge PRs only
+when explicitly requested by the user. Direct commits or pushes on `main` still
+require explicit user confirmation.
 
 ---
 

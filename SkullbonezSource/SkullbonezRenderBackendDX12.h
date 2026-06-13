@@ -76,6 +76,8 @@ struct PSOKey12
     bool depthWriteEnabled;
     bool cullEnabled;
     bool polyOffsetEnabled;
+    INT polyOffsetDepthBias;
+    float polyOffsetSlopeScaledDepthBias;
     DXGI_FORMAT rtvFormat;
 };
 
