@@ -27,6 +27,78 @@ void EnableDx12DeviceRemovedDiagnostics();
 void NameDx12Object( ID3D12Object* object, const wchar_t* name );
 void NameDx12ObjectIndexed( ID3D12Object* object, const wchar_t* prefix, UINT index );
 
+// Compact counters for the frame fence timeline.
+//
+// Plain-language version:
+//
+// The CPU records commands into command lists, then submits those command lists
+// to the GPU. The GPU usually executes them later. That means CPU code can be
+// several frames ahead of the GPU unless we deliberately synchronize.
+//
+// A fence is a GPU-visible counter. The CPU asks the command queue to write a
+// value into the fence after all previously submitted GPU work completes. Later,
+// the CPU reads the fence to answer: "has the GPU reached that point yet?"
+struct Dx12FenceTimelineStats
+{
+    UINT64 lastSignaledValue = 0;
+    UINT64 completedValue = 0;
+};
+
+/* -- Dx12FenceTimeline ------------------------------------------------------------------------------------------------------------------------------------------
+
+    What is a fence timeline?
+
+    A fence timeline is the renderer's ordered list of GPU completion points.
+    Each call to Signal() creates a new point on that timeline:
+
+    1. CPU submits commands to the command queue.
+    2. CPU calls Signal().
+    3. The GPU eventually finishes all earlier commands.
+    4. The command queue writes the signaled value into the fence.
+    5. CPU code can safely reuse resources protected by that value.
+
+    Why does the renderer need this helper?
+
+    DX12 does not automatically protect command allocators, upload buffers, or
+    transient descriptor slots from being reused too early. The engine has to
+    ask the fence whether the GPU is done. Centralizing that logic keeps the
+    rule readable:
+
+    - signal after submitting work,
+    - store the returned value on the frame/resource that must be protected,
+    - wait for that value before resetting the protected memory.
+
+    This class does not own the queue, fence, or Windows event yet. The current
+    backend still creates and releases those raw objects. The class owns the
+    policy for signal values and waits, which is the part future Dx12RenderDevice
+    code should keep.
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+class Dx12FenceTimeline
+{
+  public:
+    void Init( ID3D12CommandQueue* queue, ID3D12Fence* fence, HANDLE eventHandle );
+    void Reset();
+
+    bool IsReady() const;
+    UINT64 Signal();
+    UINT64 SignalAndWait();
+    void WaitForValue( UINT64 value ) const;
+
+    UINT64 CompletedValue() const;
+    UINT64 LastSignaledValue() const
+    {
+        return m_lastSignaledValue;
+    }
+
+    Dx12FenceTimelineStats GetStats() const;
+
+  private:
+    ID3D12CommandQueue* m_queue = nullptr;
+    ID3D12Fence* m_fence = nullptr;
+    HANDLE m_eventHandle = nullptr;
+    UINT64 m_lastSignaledValue = 0;
+};
+
 // Compact counters for the DX12 descriptor allocator.
 //
 // Plain-language version:

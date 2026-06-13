@@ -65,6 +65,112 @@ void NameDx12ObjectIndexed( ID3D12Object* object, const wchar_t* prefix, UINT in
 }
 
 
+void Dx12FenceTimeline::Init( ID3D12CommandQueue* queue, ID3D12Fence* fence, HANDLE eventHandle )
+{
+    // The queue is where GPU work is submitted. The fence is the counter the
+    // queue updates when that work reaches a known completion point. The event
+    // is a normal Windows event used to put the CPU thread to sleep while it
+    // waits for the fence instead of spinning in a loop.
+    m_queue = queue;
+    m_fence = fence;
+    m_eventHandle = eventHandle;
+    m_lastSignaledValue = 0;
+}
+
+
+void Dx12FenceTimeline::Reset()
+{
+    // Reset only forgets the borrowed pointers. The backend/device still owns
+    // and releases the command queue, fence, and event handle.
+    m_queue = nullptr;
+    m_fence = nullptr;
+    m_eventHandle = nullptr;
+    m_lastSignaledValue = 0;
+}
+
+
+bool Dx12FenceTimeline::IsReady() const
+{
+    return m_queue && m_fence && m_eventHandle;
+}
+
+
+UINT64 Dx12FenceTimeline::Signal()
+{
+    if ( !IsReady() )
+    {
+        throw std::runtime_error( "DX12 fence timeline used before Init" );
+    }
+
+    // Signal creates the next completion marker on the GPU timeline. The queue
+    // does not write this value immediately. It writes the value after every
+    // command submitted before this Signal() has finished on the GPU.
+    const UINT64 value = ++m_lastSignaledValue;
+    if ( FAILED( m_queue->Signal( m_fence, value ) ) )
+    {
+        throw std::runtime_error( "DX12 command queue Signal failed" );
+    }
+    return value;
+}
+
+
+UINT64 Dx12FenceTimeline::SignalAndWait()
+{
+    // This is the "drain the GPU" path. It is intentionally blocking: the CPU
+    // asks the GPU to signal a new value, then waits until that exact value is
+    // complete. Use it for shutdown, resize, and rare mid-frame flushes, not for
+    // normal per-draw work.
+    const UINT64 value = Signal();
+    WaitForValue( value );
+    return value;
+}
+
+
+void Dx12FenceTimeline::WaitForValue( UINT64 value ) const
+{
+    if ( value == 0 )
+    {
+        return;
+    }
+    if ( !IsReady() )
+    {
+        throw std::runtime_error( "DX12 fence timeline used before Init" );
+    }
+
+    // GetCompletedValue is the non-blocking check. If the GPU has already
+    // reached this marker, the CPU can continue immediately. Otherwise, ask the
+    // fence to fire the Windows event when it reaches the value and sleep until
+    // that happens.
+    if ( m_fence->GetCompletedValue() < value )
+    {
+        if ( FAILED( m_fence->SetEventOnCompletion( value, m_eventHandle ) ) )
+        {
+            throw std::runtime_error( "DX12 fence SetEventOnCompletion failed" );
+        }
+        WaitForSingleObject( m_eventHandle, INFINITE );
+    }
+}
+
+
+UINT64 Dx12FenceTimeline::CompletedValue() const
+{
+    if ( !m_fence )
+    {
+        return 0;
+    }
+    return m_fence->GetCompletedValue();
+}
+
+
+Dx12FenceTimelineStats Dx12FenceTimeline::GetStats() const
+{
+    Dx12FenceTimelineStats stats;
+    stats.lastSignaledValue = m_lastSignaledValue;
+    stats.completedValue = CompletedValue();
+    return stats;
+}
+
+
 void Dx12DescriptorAllocator::Init( ID3D12DescriptorHeap* shaderVisibleHeap,
                                     ID3D12DescriptorHeap* stagingHeap,
                                     UINT descriptorSize,

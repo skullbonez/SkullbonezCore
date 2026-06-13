@@ -152,7 +152,7 @@ class RenderBackendDX12 : public IRenderBackend
     UINT m_allocatorIndex = 0; // Which allocator is active (alternates 0/1)
 
     ID3D12Fence* m_fence = nullptr;
-    UINT64 m_fenceValue = 0;
+    Dx12FenceTimeline m_frameFence;
     UINT64 m_frameFenceValues[FRAME_COUNT] = {}; // Fence value signaled by each frame's submission
     HANDLE m_fenceEvent = nullptr;
 

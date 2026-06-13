@@ -90,23 +90,17 @@ RenderBackendDX12::RenderBackendDX12()
 
 void RenderBackendDX12::WaitForGpu()
 {
-    if ( !m_commandQueue || !m_fence || !m_fenceEvent )
+    if ( !m_frameFence.IsReady() )
     {
         return;
     }
 
-    // Tell the GPU to signal the fence with an incremented value once all prior work completes.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12commandqueue-signal
-    m_commandQueue->Signal( m_fence, ++m_fenceValue );
+    // Tell the GPU to mark the next fence value after all already-submitted
+    // queue work, then block until that value is complete. In plain terms:
+    // WaitForGpu() means "do not let the CPU continue until the GPU has caught
+    // up to every command we submitted so far."
+    m_frameFence.SignalAndWait();
 
-    // If the GPU hasn't reached our fence value yet, wait. SetEventOnCompletion tells the fence
-    // to fire a Windows event when the value is reached, then we block on it.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12fence-seteventoncompletion
-    if ( m_fence->GetCompletedValue() < m_fenceValue )
-    {
-        m_fence->SetEventOnCompletion( m_fenceValue, m_fenceEvent );
-        WaitForSingleObject( m_fenceEvent, INFINITE );
-    }
     // After full GPU wait, all frame fences are implicitly completed
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
@@ -130,7 +124,7 @@ void RenderBackendDX12::AssertPlatformProfilerGpuStackClosed( const char* reason
 
 void RenderBackendDX12::EnsureCommandListOpen()
 {
-    if ( !m_commandList || !m_commandQueue || !m_fence || !m_fenceEvent || !m_commandAllocators[m_allocatorIndex] )
+    if ( !m_commandList || !m_commandQueue || !m_frameFence.IsReady() || !m_commandAllocators[m_allocatorIndex] )
     {
         throw std::runtime_error( "DX12 backend is not fully initialised (command list/fence unavailable)." );
     }
@@ -141,11 +135,10 @@ void RenderBackendDX12::EnsureCommandListOpen()
     }
 
     // Wait for the GPU to finish with this allocator's previous work
-    UINT64 completedFence = m_fence->GetCompletedValue();
+    UINT64 completedFence = m_frameFence.CompletedValue();
     if ( m_frameFenceValues[m_allocatorIndex] > completedFence )
     {
-        m_fence->SetEventOnCompletion( m_frameFenceValues[m_allocatorIndex], m_fenceEvent );
-        WaitForSingleObject( m_fenceEvent, INFINITE );
+        m_frameFence.WaitForValue( m_frameFenceValues[m_allocatorIndex] );
     }
 
     // Reset the command allocator — frees all memory from previously recorded commands.
@@ -574,6 +567,11 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     ThrowIfFailed( m_device->CreateFence( 0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &m_fence ) ), "CreateFence failed" );
     NameDx12Object( m_fence, L"Skullbonez DX12 Frame Fence" );
     m_fenceEvent = CreateEvent( nullptr, FALSE, FALSE, nullptr );
+    if ( !m_fenceEvent )
+    {
+        throw std::runtime_error( "CreateEvent (frame fence) failed" );
+    }
+    m_frameFence.Init( m_commandQueue, m_fence, m_fenceEvent );
 
     // Create per-frame upload buffers — one per FRAME_COUNT allocator. Each holds CPU-writable,
     // GPU-readable memory for per-frame constant buffers, dynamic vertex buffers, and texture
@@ -958,6 +956,7 @@ void RenderBackendDX12::Shutdown()
     {
         m_rootSignature->Release();
     }
+    m_frameFence.Reset();
     if ( m_fence )
     {
         m_fence->Release();
@@ -1088,12 +1087,12 @@ void RenderBackendDX12::Present()
                                   : 0u;
     m_swapChain->Present( syncInterval, presentFlags );
 
-    // Signal the fence with the current frame's value. When the GPU reaches this point in its
-    // command stream, it will update the fence to this value — letting the CPU know this frame's
-    // allocator memory is safe to reuse (after we check GetCompletedValue >= this value).
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12commandqueue-signal
-    m_frameFenceValues[m_allocatorIndex] = ++m_fenceValue;
-    m_commandQueue->Signal( m_fence, m_fenceValue );
+    // Signal the fence with the current frame's value. When the GPU reaches
+    // this point in its command stream, it updates the fence to that value.
+    // Later, EnsureCommandListOpen asks the timeline helper whether this value
+    // has completed before reusing this frame's command allocator, upload arena,
+    // and transient descriptor range.
+    m_frameFenceValues[m_allocatorIndex] = m_frameFence.Signal();
 
     // Timer readback can be mapped once this frame's signal fence is reached.
     // If there's an unconsumed readback still pending (e.g. fence wasn't ready during the
@@ -1109,7 +1108,7 @@ void RenderBackendDX12::Present()
             m_gpuTimers.readPending = false;
         }
         m_gpuTimers.readPending = true;
-        m_gpuTimers.readFenceValue = m_fenceValue;
+        m_gpuTimers.readFenceValue = m_frameFenceValues[m_allocatorIndex];
     }
 
     // Advance to next frame's allocator and swap chain buffer
@@ -3450,7 +3449,7 @@ void RenderBackendDX12::ShutdownDXR()
 
 void RenderBackendDX12::TryConsumeGpuTimerReadback( bool waitForFence )
 {
-    if ( !m_gpuTimers.queryHeap || !m_gpuTimers.readPending || !m_gpuTimers.readbackBuf || !m_fence )
+    if ( !m_gpuTimers.queryHeap || !m_gpuTimers.readPending || !m_gpuTimers.readbackBuf || !m_frameFence.IsReady() )
     {
         return;
     }
@@ -3459,13 +3458,9 @@ void RenderBackendDX12::TryConsumeGpuTimerReadback( bool waitForFence )
     // PipelineSync is disabled. Blocking mode is only used by Finish()/FlushGPU().
     if ( waitForFence )
     {
-        if ( m_fence->GetCompletedValue() < m_gpuTimers.readFenceValue )
-        {
-            m_fence->SetEventOnCompletion( m_gpuTimers.readFenceValue, m_fenceEvent );
-            WaitForSingleObject( m_fenceEvent, INFINITE );
-        }
+        m_frameFence.WaitForValue( m_gpuTimers.readFenceValue );
     }
-    else if ( m_fence->GetCompletedValue() < m_gpuTimers.readFenceValue )
+    else if ( m_frameFence.CompletedValue() < m_gpuTimers.readFenceValue )
     {
         // The Signal is submitted right after vsync — the GPU needs only nanoseconds to
         // process it, but in optimised builds the CPU can arrive here before it fires.
@@ -3475,12 +3470,12 @@ void RenderBackendDX12::TryConsumeGpuTimerReadback( bool waitForFence )
         for ( int spin = 0; spin < 512; ++spin )
         {
             YieldProcessor();
-            if ( m_fence->GetCompletedValue() >= m_gpuTimers.readFenceValue )
+            if ( m_frameFence.CompletedValue() >= m_gpuTimers.readFenceValue )
             {
                 break;
             }
         }
-        if ( m_fence->GetCompletedValue() < m_gpuTimers.readFenceValue )
+        if ( m_frameFence.CompletedValue() < m_gpuTimers.readFenceValue )
         {
             return; // genuinely not ready — try again next frame
         }
