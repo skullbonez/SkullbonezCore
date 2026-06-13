@@ -106,8 +106,8 @@ struct BlendKeyHashDX11
 };
 
 
-// GPU timer constants — must match Profiler::MAX_MARKERS
-inline constexpr int DX11_TIMER_MARKERS = 64;
+// GPU timer constants — must be >= Profiler::MAX_MARKERS
+inline constexpr int DX11_TIMER_MARKERS = 128;
 inline constexpr int DX11_TIMER_FRAMES = 2; // one-frame-lag double buffer
 
 // Double-buffered D3D11 GPU timestamp query state.
