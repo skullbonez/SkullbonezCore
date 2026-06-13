@@ -78,6 +78,11 @@ enum class RenderGraphQueueType
 // DX12 requires explicit transitions between many of these uses. The graph
 // records intent in engine terms, then the DX12 implementation can map that
 // intent to D3D12_RESOURCE_STATES when it inserts barriers.
+//
+// Unknown is allowed only as a resource's initial state when the graph does not
+// yet know what the backend-owned object is doing before the first pass. Pass
+// reads and writes should use a concrete access value so future barrier output
+// is meaningful.
 enum class RenderGraphResourceAccess
 {
     Unknown,
@@ -126,6 +131,7 @@ struct RenderGraphResourceDesc
 {
     std::string name;
     bool external = true;
+    RenderGraphResourceAccess initialAccess = RenderGraphResourceAccess::Unknown;
 };
 
 // A single declared use of a resource by one pass. For example: "WaterPass reads
@@ -157,12 +163,37 @@ struct RenderGraphPassDesc
     std::vector<RenderGraphResourceUse> writes;
 };
 
+// A graph transition is the API-neutral version of a future DX12 resource
+// barrier.
+//
+// In DX12 terms, a barrier says "before this pass uses the resource, transition
+// it from state A to state B." This struct avoids D3D12_RESOURCE_STATES on
+// purpose. The render graph should speak in engine access concepts; the DX12
+// backend can translate those concepts into concrete D3D12 barrier flags later.
+struct RenderGraphTransitionDesc
+{
+    uint32_t passIndex = 0;
+    RenderGraphResourceHandle resource;
+    RenderGraphResourceAccess before = RenderGraphResourceAccess::Unknown;
+    RenderGraphResourceAccess after = RenderGraphResourceAccess::Unknown;
+};
+
+// Result of the first simple graph compile step.
+//
+// This is intentionally only a transition list for now. Later compile output can
+// add transient texture allocation, last-writer diagnostics, queue ownership,
+// and callback execution order without changing the pass/resource declarations.
+struct RenderGraphCompileResult
+{
+    std::vector<RenderGraphTransitionDesc> transitions;
+};
+
 class RenderGraph
 {
   public:
     void Clear();
 
-    RenderGraphResourceHandle AddExternalResource( const char* name );
+    RenderGraphResourceHandle AddExternalResource( const char* name, RenderGraphResourceAccess initialAccess = RenderGraphResourceAccess::Unknown );
     uint32_t AddPass( const char* name, RenderGraphQueueType queue = RenderGraphQueueType::Graphics );
 
     void AddRead( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access );
@@ -179,10 +210,12 @@ class RenderGraph
     }
 
     std::string DumpText() const;
+    RenderGraphCompileResult Compile() const;
 
   private:
     const RenderGraphResourceDesc& CheckedResource( RenderGraphResourceHandle handle ) const;
     RenderGraphPassDesc& CheckedPass( uint32_t passIndex );
+    void CheckedConcreteAccess( RenderGraphResourceAccess access ) const;
 
     std::vector<RenderGraphResourceDesc> m_resources;
     std::vector<RenderGraphPassDesc> m_passes;

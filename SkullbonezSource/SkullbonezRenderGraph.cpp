@@ -64,14 +64,19 @@ void RenderGraph::Clear()
 }
 
 
-RenderGraphResourceHandle RenderGraph::AddExternalResource( const char* name )
+RenderGraphResourceHandle RenderGraph::AddExternalResource( const char* name, RenderGraphResourceAccess initialAccess )
 {
     // External resources are objects the current renderer already owns, such as
     // the swap-chain back buffer or an existing reflection target. The graph can
     // reason about how passes use them without taking over allocation yet.
+    //
+    // initialAccess is the graph's best knowledge of how the backend-owned
+    // resource starts the frame. For example, a swap-chain backbuffer often
+    // starts as Present, then the first draw pass transitions it to RenderTarget.
     RenderGraphResourceDesc desc;
     desc.name = ( name && name[0] != '\0' ) ? name : "UnnamedResource";
     desc.external = true;
+    desc.initialAccess = initialAccess;
 
     RenderGraphResourceHandle handle;
     handle.index = static_cast<uint32_t>( m_resources.size() );
@@ -101,6 +106,7 @@ void RenderGraph::AddRead( uint32_t passIndex, RenderGraphResourceHandle resourc
     // already exist and be visible to the shader or fixed-function GPU stage.
     // Future graph compilation can compare this read against the previous write
     // and insert the correct barrier before the pass records commands.
+    CheckedConcreteAccess( access );
     CheckedResource( resource );
     RenderGraphPassDesc& pass = CheckedPass( passIndex );
     pass.reads.push_back( { resource, access } );
@@ -114,6 +120,7 @@ void RenderGraph::AddWrite( uint32_t passIndex, RenderGraphResourceHandle resour
     // state, then transition the resource before the next incompatible read or
     // write. This is how scattered hand-written barriers eventually become a
     // single pass/resource scheduling problem.
+    CheckedConcreteAccess( access );
     CheckedResource( resource );
     RenderGraphPassDesc& pass = CheckedPass( passIndex );
     pass.writes.push_back( { resource, access } );
@@ -132,7 +139,8 @@ std::string RenderGraph::DumpText() const
     for ( size_t i = 0; i < m_resources.size(); ++i )
     {
         const RenderGraphResourceDesc& resource = m_resources[i];
-        out << "  [" << i << "] " << resource.name << " external=" << ( resource.external ? "true" : "false" ) << "\n";
+        out << "  [" << i << "] " << resource.name << " external=" << ( resource.external ? "true" : "false" )
+            << " initial=" << ToString( resource.initialAccess ) << "\n";
     }
 
     out << "Passes:\n";
@@ -153,7 +161,79 @@ std::string RenderGraph::DumpText() const
             out << "    write " << resource.name << " as " << ToString( write.access ) << "\n";
         }
     }
+
+    const RenderGraphCompileResult compiled = Compile();
+    out << "Transitions:\n";
+    for ( const RenderGraphTransitionDesc& transition : compiled.transitions )
+    {
+        const RenderGraphResourceDesc& resource = CheckedResource( transition.resource );
+        const RenderGraphPassDesc& pass = m_passes[transition.passIndex];
+        out << "  before pass [" << transition.passIndex << "] " << pass.name << ": " << resource.name << " "
+            << ToString( transition.before ) << " -> " << ToString( transition.after ) << "\n";
+    }
     return out.str();
+}
+
+
+RenderGraphCompileResult RenderGraph::Compile() const
+{
+    // This is the first deliberately simple graph compiler.
+    //
+    // It does not record GPU commands. It does not allocate transient textures.
+    // It does not optimize away barriers or reason about async queues yet.
+    //
+    // What it does:
+    //
+    // 1. Start every resource in its declared initial access state.
+    // 2. Walk passes in the order they were added.
+    // 3. Visit each declared read, then each declared write.
+    // 4. Whenever the desired access differs from the tracked current access,
+    //    emit a transition record before that pass.
+    // 5. Remember the new access as the resource's current state.
+    //
+    // That mirrors the core DX12 barrier problem in API-neutral terms. Once live
+    // passes are declared through the graph, the DX12 backend can translate this
+    // list into ResourceBarrier calls and compare it against hand-coded barriers.
+    RenderGraphCompileResult result;
+    std::vector<RenderGraphResourceAccess> currentAccess;
+    currentAccess.reserve( m_resources.size() );
+    for ( const RenderGraphResourceDesc& resource : m_resources )
+    {
+        currentAccess.push_back( resource.initialAccess );
+    }
+
+    for ( size_t passIndex = 0; passIndex < m_passes.size(); ++passIndex )
+    {
+        const RenderGraphPassDesc& pass = m_passes[passIndex];
+
+        const auto recordUse = [&]( const RenderGraphResourceUse& use )
+        {
+            CheckedConcreteAccess( use.access );
+            CheckedResource( use.resource );
+            RenderGraphResourceAccess& current = currentAccess[use.resource.index];
+            if ( current != use.access )
+            {
+                RenderGraphTransitionDesc transition;
+                transition.passIndex = static_cast<uint32_t>( passIndex );
+                transition.resource = use.resource;
+                transition.before = current;
+                transition.after = use.access;
+                result.transitions.push_back( transition );
+                current = use.access;
+            }
+        };
+
+        for ( const RenderGraphResourceUse& read : pass.reads )
+        {
+            recordUse( read );
+        }
+        for ( const RenderGraphResourceUse& write : pass.writes )
+        {
+            recordUse( write );
+        }
+    }
+
+    return result;
 }
 
 
@@ -181,6 +261,19 @@ RenderGraphPassDesc& RenderGraph::CheckedPass( uint32_t passIndex )
         throw std::runtime_error( "RenderGraph pass index out of range" );
     }
     return m_passes[passIndex];
+}
+
+
+void RenderGraph::CheckedConcreteAccess( RenderGraphResourceAccess access ) const
+{
+    // Unknown is useful as an initial state when legacy backend code still owns
+    // the actual DX12 object. It is not useful as a pass declaration because a
+    // future barrier compiler cannot translate "unknown" into a safe read/write
+    // state for a draw or dispatch.
+    if ( access == RenderGraphResourceAccess::Unknown )
+    {
+        throw std::runtime_error( "RenderGraph pass resource access must be concrete" );
+    }
 }
 
 } // namespace Rendering
