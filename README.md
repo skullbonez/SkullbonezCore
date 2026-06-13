@@ -61,6 +61,12 @@ or pushed, use the repository scripts instead of retyping long commands:
 | Broad or uncertain scope | `tools\validate_full.bat` |
 | Unsure at the PR gate | `tools\agent_validate.bat` |
 
+Physics baseline changes are behavior changes. If a physics CSV or SkullScope
+baseline is intentionally refreshed, update it from the final Debug executable
+and committed scene/config state, then rerun `tools\validate_physics.bat` so the
+new baseline is proven byte-exact. `tools\update_baselines.bat` is for visual
+and perf artifacts, not physics baselines.
+
 You can also run any targeted subset with one line:
 
 ```bat

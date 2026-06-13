@@ -65,8 +65,23 @@ tools\validate_select.bat fast build-profile
 | `check_dx12_validation.bat` | Verify DX12 InfoQueue clean |
 | `check_parity.py` | Cross-renderer pixel comparison plus manifest, side-by-side, heatmap, and JSON summary artifacts |
 | `check_physics_regression.py` | Byte-exact physics and bullet collision-time CSV diff |
-| `update_baselines.bat` | Copy current Profile visual/perf artifacts into `TestOutput\baselines` |
+| `update_baselines.bat` | Copy current Profile visual/perf artifacts into `TestOutput\baselines`; do not use for physics CSV or SkullScope baselines |
 | `archive_validation_artifacts.bat` | Archive current Profile artifacts under `TestOutput\NNN_<commit>` |
+
+## Physics Baselines
+
+Physics CSV and SkullScope JSON baselines are byte-exact behavior artifacts.
+When a physics baseline update is intentional, copy it only from the final Debug
+artifact produced by the same scene/config state that will be committed, then
+rerun:
+
+```bat
+tools\validate_physics.bat
+```
+
+The commit should include both the baseline file and the validation output. A
+copied physics artifact is not considered verified until `validate_physics`
+passes against the committed baseline.
 
 ## Exit Codes
 

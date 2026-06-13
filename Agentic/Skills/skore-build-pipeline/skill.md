@@ -32,6 +32,11 @@ tools\update_baselines.bat --visuals --require
 tools\update_baselines.bat --perf --require
 ```
 
+Do not use `tools\update_baselines.bat` for physics CSV or SkullScope baselines.
+For intentional physics baseline changes, copy the final Debug artifact into
+`TestOutput\baselines`, then rerun `tools\validate_physics.bat` after the copy so
+the committed baseline is proven byte-exact.
+
 When current Profile artifacts should be archived under `TestOutput\NNN_<commit>`:
 
 ```bat
