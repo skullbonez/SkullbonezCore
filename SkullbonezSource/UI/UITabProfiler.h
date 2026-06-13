@@ -13,7 +13,7 @@ struct InGameUIFrameData;
 namespace ProfilerTab
 {
 
-constexpr int MAX_MARKERS = 64;
+constexpr int MAX_MARKERS = 128;
 constexpr int HISTOGRAM_SAMPLE_COUNT = 120;
 
 struct TimelineSegment

@@ -34,6 +34,12 @@ that matches the fix:
 | Broad or uncertain scope | `tools\validate_full.bat` | ~3 min |
 | Unsure what to run at the PR gate | `tools\agent_validate.bat` | ~3 min |
 
+Profiling marker or platform-profiler changes must also run:
+
+```bat
+Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
+```
+
 ### File To Validation Mapping
 
 | Files Changed | Required Pre-Commit/PR Script |

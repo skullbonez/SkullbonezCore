@@ -29,7 +29,7 @@ namespace Basics
 class Profiler
 {
   public:
-    static constexpr int MAX_MARKERS = 64;
+    static constexpr int MAX_MARKERS = 128;
     static constexpr int MAX_DEPTH = 16;
     static constexpr int RING_SIZE = 600;     // ~10 s @ 60 fps
     static constexpr int GPU_QUERY_DEPTH = 4; // pending query ring depth (non-blocking readback)

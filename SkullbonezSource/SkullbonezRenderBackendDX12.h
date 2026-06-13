@@ -81,7 +81,7 @@ struct PSOKey12
     DXGI_FORMAT rtvFormat;
 };
 
-inline constexpr int DX12_TIMER_HEAP_MARKERS = 64;
+inline constexpr int DX12_TIMER_HEAP_MARKERS = 128;
 inline constexpr int DX12_TIMER_HEAP_SIZE = DX12_TIMER_HEAP_MARKERS * 2;
 
 struct GpuTimerStateDX12
