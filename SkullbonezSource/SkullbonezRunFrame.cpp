@@ -43,6 +43,9 @@ void SkullbonezRun::Run()
             m_cGameModelCollection.BeginCollisionVisualFrame();
             TickPhysics( secondsPerFrame );
 
+            PROFILE_BEGIN( "Frame/PostPhysics" );
+
+            PROFILE_BEGIN( "Frame/PostPhysics/BroadphaseVisualizer" );
             // Update broadphase visualizer state (runs even when overlay is hidden so fades are correct)
             {
                 m_broadphaseVisualizer.SetEnabled( m_debug.isBroadphaseOverlay );
@@ -54,38 +57,56 @@ void SkullbonezRun::Run()
                 const std::vector<int64_t>& collisionKeys = m_cGameModelCollection.GetCollisionCellKeys();
                 m_broadphaseVisualizer.Update( static_cast<float>( secondsPerFrame ), activeCellBuf, activeCellCount, collisionKeys.data(), static_cast<int>( collisionKeys.size() ) );
             }
+            PROFILE_END( "Frame/PostPhysics/BroadphaseVisualizer" );
+
+            PROFILE_BEGIN( "Frame/PostPhysics/CollisionVisualizer" );
             m_collisionVisualizer.SetEnabled( m_debug.isCollisionVisualizer );
             m_collisionVisualizer.Update( static_cast<float>( secondsPerFrame ), m_cGameModelCollection );
+            PROFILE_END( "Frame/PostPhysics/CollisionVisualizer" );
+
+            PROFILE_BEGIN( "Frame/PostPhysics/PhysicsDebugVisualizer" );
             m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
             m_physicsDebugVisualizer.SetContactLingerSeconds( m_debug.physicsDebugContactLinger );
             m_physicsDebugVisualizer.SetPipelineStageCursor( m_debug.physicsDebugPipelineStageCursor );
             m_physicsDebugVisualizer.Update( static_cast<float>( secondsPerFrame ), m_cGameModelCollection );
+            PROFILE_END( "Frame/PostPhysics/PhysicsDebugVisualizer" );
+
+            PROFILE_BEGIN( "Frame/PostPhysics/EndCollisionVisualFrame" );
             m_cGameModelCollection.EndCollisionVisualFrame();
+            PROFILE_END( "Frame/PostPhysics/EndCollisionVisualFrame" );
+
+            PROFILE_END( "Frame/PostPhysics" );
 
             if ( m_runtimeSettings.isPipelineSyncEnabled )
             {
+                PROFILE_BEGIN( "Frame/PipelineSync" );
                 Gfx().Finish();
+                PROFILE_END( "Frame/PipelineSync" );
             }
 
-            PROFILE_GPU_BEGIN( "Frame/Render" );
+            PROFILE_BEGIN( "Frame/Render" );
             Render();
-            PROFILE_GPU_END( "Frame/Render" );
+            PROFILE_END( "Frame/Render" );
 
             if ( !m_scene.isSceneMode || m_scene.isSceneText || m_debug.overlayMode != OverlayMode::None || m_UI.IsVisible() )
             {
-                PROFILE_GPU_BEGIN( "Frame/UI" );
+                PROFILE_BEGIN( "Frame/UI" );
                 DrawWindowText( secondsPerFrame );
-                PROFILE_GPU_END( "Frame/UI" );
+                PROFILE_END( "Frame/UI" );
             }
 
+            PROFILE_BEGIN( "Frame/PostDraw/LiveStyleCapture" );
             TickLiveStyleControlCapture();
+            PROFILE_END( "Frame/PostDraw/LiveStyleCapture" );
 
             if ( TickScreenshots() )
             {
                 continue;
             }
 
+            PROFILE_BEGIN( "Frame/PostDraw/AutoCycle" );
             TickAutoCycle();
+            PROFILE_END( "Frame/PostDraw/AutoCycle" );
 
             m_timers.workTimer.StopTimer();
             m_timers.cpuFrameWorkMs = static_cast<float>( std::clamp( m_timers.workTimer.GetElapsedTime(), 0.0, 0.25 ) * 1000.0 );
@@ -102,10 +123,25 @@ void SkullbonezRun::Run()
                 using SkullbonezCore::Basics::Profiler;
                 static constexpr uint32_t kPhysicsHash = ::HashStr( "Frame/Physics" );
                 static constexpr uint32_t kRenderHash = ::HashStr( "Frame/Render" );
-                static constexpr uint32_t kUIHash = ::HashStr( "Frame/UI" );
                 m_timers.physicsTime = Profiler::Instance().LastFrameMsByHash( kPhysicsHash ) * 0.001f;
                 m_timers.renderTime = Profiler::Instance().LastFrameMsByHash( kRenderHash ) * 0.001f;
-                m_timers.gpuFrameWorkMs = Profiler::Instance().LastGpuFrameMsByHash( kRenderHash ) + Profiler::Instance().LastGpuFrameMsByHash( kUIHash );
+                static constexpr uint32_t kRenderGpuHashes[] = {
+                    ::HashStr( "Frame/Shadows/ShadowMap" ),
+                    ::HashStr( "Frame/Render/Skybox" ),
+                    ::HashStr( "Frame/Render/Reflection" ),
+                    ::HashStr( "Frame/Render/CinematicSky" ),
+                    ::HashStr( "Frame/Render/Balls" ),
+                    ::HashStr( "Frame/Render/Terrain" ),
+                    ::HashStr( "Frame/Render/Water" ),
+                    ::HashStr( "Frame/Render/TransparentBalls" ),
+                    ::HashStr( "Frame/UI/Draw" ),
+                };
+                float gpuMs = 0.0f;
+                for ( uint32_t h : kRenderGpuHashes )
+                {
+                    gpuMs += Profiler::Instance().LastGpuFrameMsByHash( h );
+                }
+                m_timers.gpuFrameWorkMs = gpuMs;
             }
 #endif
 
@@ -233,12 +269,15 @@ void SkullbonezRun::HoldCompletedInteractiveScene()
 
 bool SkullbonezRun::TickScreenshots()
 {
+    PROFILE_BEGIN( "Frame/PostDraw/Screenshots" );
+
     // screenshot_and_exit: on frame 0, save <scenename>.bmp to root then quit
     if ( m_scene.isSceneMode && m_screenshot.isScreenshotAndExit && m_scene.currentFrame == 0 )
     {
         const std::string* scenePath = CurrentSceneQueuePath();
         if ( !scenePath )
         {
+            PROFILE_END( "Frame/PostDraw/Screenshots" );
             return false;
         }
         char outPath[256];
@@ -255,6 +294,7 @@ bool SkullbonezRun::TickScreenshots()
         }
         sprintf_s( outPath, sizeof( outPath ), "%s.bmp", stem );
         SaveScreenshot( outPath );
+        PROFILE_END( "Frame/PostDraw/Screenshots" );
         PROFILE_FRAME_END();
 #ifdef _DEBUG
         LogSceneFinished( "screenshot_and_exit" );
@@ -288,6 +328,7 @@ bool SkullbonezRun::TickScreenshots()
         {
             SaveScreenshot( m_screenshot.screenshotPath );
             m_screenshot.isScreenshotSaved = true;
+            PROFILE_END( "Frame/PostDraw/Screenshots" );
             PROFILE_FRAME_END();
 #ifdef _DEBUG
             LogSceneFinished( "screenshot" );
@@ -319,6 +360,7 @@ bool SkullbonezRun::TickScreenshots()
         }
     }
 
+    PROFILE_END( "Frame/PostDraw/Screenshots" );
     return false;
 }
 

@@ -237,10 +237,12 @@ uint32_t BuildUIInteractionSignature( int mouseX, int mouseY, bool rendererOpen,
 
 void FlushUIDrawList( const UIDrawList& drawList, int screenW, int screenH, float offsetX = 0.0f, float offsetY = 0.0f )
 {
+    PROFILE_GPU_BEGIN( "Frame/UI/Draw" );
     const UIDrawContext immediateDraw( screenW, screenH );
     drawList.Flush( immediateDraw, offsetX, offsetY );
     Text2d::FlushQuads();
     Text2d::FlushText();
+    PROFILE_GPU_END( "Frame/UI/Draw" );
 }
 
 int WaterReflectionModeFromData( const InGameUIFrameData& data )
