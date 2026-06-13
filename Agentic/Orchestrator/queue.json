@@ -15,8 +15,8 @@
   "items": [
     {
       "id": "dx12-only-engine-architecture",
-      "plan": "Agentic/Plans/dx12-only-engine-architecture-plan.md",
-      "status": "running",
+      "plan": "Agentic/Plans/Done/dx12-only-engine-architecture-plan.md",
+      "status": "done",
       "priority": 10,
       "branch": "codex/dx12-only-engine-architecture",
       "impact_area": [
