@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "item_id": "generic-roadmap-orchestrator-skill",
+  "source_request": "Make the roadmap orchestrator kickoff prompt generic and require a committed phone-readable report/image evidence folder.",
+  "branch": "main",
+  "base_sync": {
+    "command": "git pull --ff-only",
+    "result": "Already up to date."
+  },
+  "implementation_commits": [
+    "67b37696",
+    "e79e3e84"
+  ],
+  "final_evidence_commit": "pending; recorded in final response after commit",
+  "pr": null,
+  "merge_sha": null,
+  "started_at": "2026-06-13T13:08:00+10:00",
+  "report_generated_at": "2026-06-13T13:21:35+10:00",
+  "validation": {
+    "required_gate": "none",
+    "reason": "Documentation/process-only change.",
+    "commands": [
+      "git diff --check"
+    ],
+    "result": "Passed with no output."
+  },
+  "images": [
+    "screenshots/progress-summary.png",
+    "screenshots/evidence-commit-flow.png"
+  ],
+  "worker": {
+    "spawned": false,
+    "result_path": "worker-result.md"
+  }
+}
