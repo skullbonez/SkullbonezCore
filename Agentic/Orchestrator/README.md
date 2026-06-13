@@ -17,6 +17,9 @@ universal agent rules.
 | `templates/worker-prompt.md` | Prompt template for one implementation worker. |
 | `templates/report.md` | Required report shape for every completed, failed, or blocked item. |
 
+To kick off the loop without pasting a one-off prompt, use
+`Agentic/Skills/skore-roadmap-orchestrator/skill.md`.
+
 ## Current Safety Defaults
 
 - The orchestrator is disabled by default.
@@ -35,4 +38,6 @@ Agentic/Runs/<yyyy-mm-dd>/<item-id>/
 ```
 
 Use that folder for generated prompts, worker results, validation logs,
-screenshots, artifacts, PR notes, and the final report.
+screenshots, artifacts, PR notes, and the final report. The task-named folder
+must be committed as the final feature-branch evidence commit before any
+policy-permitted merge to `main`.

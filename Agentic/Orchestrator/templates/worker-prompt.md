@@ -59,6 +59,12 @@ Artifact commands:
 For physics diagnostics, use SkullScope queries and report query cost instead
 of pasting raw CSV, NDJSON, or SQLite artifacts.
 
+The orchestrator will create a final task-named evidence folder under
+`Agentic/Runs/<yyyy-mm-dd>/<item-id>/` before merge. Help that report by
+returning phone-readable artifact paths, timings for substantial commands, and
+short code snippets worth highlighting. Prefer PNG or JPG screenshots over BMP
+for anything the user should inspect on a phone.
+
 ## Final Worker Response
 
 Return:
@@ -67,6 +73,8 @@ Return:
 - changed files,
 - validation commands run and exact result,
 - screenshots or artifacts produced,
+- substantial timings,
+- interesting code snippets or file/line references worth highlighting,
 - commit SHA if you committed,
 - blockers or risks,
 - anything the orchestrator must do before PR creation.

@@ -59,6 +59,11 @@ screenshots/
 artifacts/
 ```
 
+The `<item-id>` folder name must match the task id. This folder is the durable
+evidence bundle for the item and must be committed on the feature branch as the
+final pre-merge commit. Keep `report.md` and selected phone-readable images in
+this folder so the user can review progress from GitHub on a phone.
+
 Do not ingest large raw diagnostic files into the model. For physics work, use
 SkullScope query output and report the query cost required by `AGENTS.md`.
 
@@ -100,6 +105,8 @@ After the worker returns:
 6. For documentation-only changes, state that no repository validation is
    required.
 7. Preserve validation output in `validation.log` when validation is run.
+8. Record substantial timings, including validation, builds, launches, artifact
+   generation, and long investigations.
 
 Repository validation scripts are PR/commit gates. Do not run them repeatedly
 during iteration.
@@ -118,15 +125,25 @@ Examples:
 
 Store generated files under the run directory.
 
+Prefer PNG or JPG for committed phone-review images. If the runtime produces BMP
+captures, convert selected captures to PNG before embedding them in `report.md`.
+Commit only the useful report bundle and small supporting artifacts; keep bulky
+raw validation outputs out of the commit unless they are necessary evidence.
+
 ## PR Handling
 
 If `allow_pr_creation` is true and the branch is ready:
 
 1. Commit the work with useful commit notes.
-2. Push the feature branch.
-3. Open or update the PR through the GitHub app or `gh` fallback.
-4. Save PR metadata in `pr.md`.
-5. Post the generated report as a PR comment when the configured channel is
+2. Generate or update the task evidence folder, including `report.md`,
+   `run.json`, `worker-result.md`, selected phone-readable images, and any
+   small useful artifacts.
+3. Commit the evidence folder as the final pre-merge commit on the feature
+   branch.
+4. Push the feature branch.
+5. Open or update the PR through the GitHub app or `gh` fallback.
+6. Save PR metadata in `pr.md`.
+7. Post the generated report as a PR comment when the configured channel is
    available.
 
 If `allow_pr_creation` is false, stop after local branch, commit, and report.
@@ -143,6 +160,12 @@ Future merge automation requires both:
 Until both exist, the report must say `Merge status: not permitted by repo
 policy`.
 
+When merge automation is permitted, do not merge until the final evidence commit
+is present on the PR. Because the merge SHA does not exist until after merge,
+the committed report may say merge pending; record the merge SHA in the final
+response and PR comment unless the user explicitly requests a separate
+post-merge report update.
+
 ## Reporting
 
 Generate `report.md` from `Agentic/Orchestrator/templates/report.md` for every
@@ -158,11 +181,17 @@ Reports must include:
 
 - item id and source plan,
 - branch, commit, and PR link when present,
+- implementation commit and final evidence commit when they differ,
+- started, finished, elapsed, and substantial sub-run timings,
+- a short progress timeline,
 - validation command and output summary,
 - screenshot and artifact paths,
+- embedded relative links for selected phone-readable images,
+- short interesting code snippets with file paths,
 - merge status,
 - conflicts and resolutions,
 - residual risk,
+- sub-agent result summary and `worker-result.md` path,
 - next queue action.
 
 ## Queue Update

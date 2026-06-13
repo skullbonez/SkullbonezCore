@@ -1,15 +1,25 @@
 # Roadmap Item Report: {{item_id}}
 
-## Summary
+## Phone Summary
 
 - Source plan: `{{plan_path}}`
 - Branch: `{{branch}}`
-- Commit: `{{commit_sha}}`
+- Implementation commit: `{{commit_sha}}`
+- Final evidence commit: `{{evidence_commit_sha}}`
 - PR: `{{pr_link}}`
+- Merge SHA: `{{merge_sha}}`
 - Final status: `{{final_status}}`
 - Started: `{{started_at}}`
 - Finished: `{{finished_at}}`
 - Elapsed: `{{elapsed}}`
+
+## Progress Timeline
+
+{{progress_timeline}}
+
+## Timings
+
+{{timings}}
 
 ## Implementation
 
@@ -38,6 +48,14 @@
 
 {{artifacts}}
 
+## Phone-Readable Images
+
+{{phone_images}}
+
+## Interesting Code Snippets
+
+{{code_snippets}}
+
 ## PR Status
 
 {{pr_status}}
@@ -53,6 +71,10 @@
 ## Residual Risk
 
 {{residual_risk}}
+
+## Sub-Agent Result Summary
+
+{{sub_agent_summary}}
 
 ## Next Queue Action
 
