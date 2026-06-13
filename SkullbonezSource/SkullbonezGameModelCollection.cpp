@@ -693,6 +693,31 @@ void GameModelCollection::WakeModel( int index )
             m_sleepIslandVisualId[index] = 0;
         }
     }
+
+    const auto cacheEntryReferencesBody = []( const PersistentContactCacheEntry& entry, int bodyIndex ) -> bool
+    {
+        const uint64_t key = static_cast<uint64_t>( entry.key );
+        const uint32_t highBody = static_cast<uint32_t>( ( key >> 48 ) & 0xffffu );
+        if ( highBody == 0xffffu )
+        {
+            const uint32_t terrainBody = static_cast<uint32_t>( ( key >> 16 ) & 0xffffffffu );
+            return terrainBody == static_cast<uint32_t>( bodyIndex );
+        }
+
+        const uint32_t lowBody = static_cast<uint32_t>( ( key >> 40 ) & 0xffffffu );
+        const uint32_t objectHighBody = static_cast<uint32_t>( ( key >> 16 ) & 0xffffffu );
+        return lowBody == static_cast<uint32_t>( bodyIndex ) ||
+               objectHighBody == static_cast<uint32_t>( bodyIndex );
+    };
+
+    m_persistentContactCache.erase(
+        std::remove_if( m_persistentContactCache.begin(),
+                        m_persistentContactCache.end(),
+                        [index, &cacheEntryReferencesBody]( const PersistentContactCacheEntry& entry )
+                        {
+                            return cacheEntryReferencesBody( entry, index );
+                        } ),
+        m_persistentContactCache.end() );
 }
 
 

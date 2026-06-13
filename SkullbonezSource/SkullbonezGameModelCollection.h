@@ -224,7 +224,7 @@ class GameModelCollection
     GameModel& GetModelAtIndex( int index );                                                                                                                                                                                                                                      // Returns a reference to the game model at the given index
     double GetSceneKineticEnergy();                                                                                                                                                                                                                                               // Returns active linear + angular kinetic energy for movable models
 
-    void WakeModel( int index ); // Force a model awake (clears sleep state/counter); call before teleporting/firing a recycled model
+    void WakeModel( int index ); // Force a model awake and clear stale contact cache before teleporting/firing a recycled model
 
     // Toggle only the sleep policy layer. Collision detection and Catto contact
     // solving still run normally when this is false; the difference is that

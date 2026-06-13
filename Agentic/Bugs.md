@@ -60,17 +60,21 @@ the numeric `VsyncWait` row can remain visible while the bar normalization uses
 frame time minus wait time. The toggle should affect only the visual bar scale,
 not the recorded timings, exported data, or inclusive frame totals.
 
-## TODO: Body alpha slider does not reliably affect debug bodies
+## DONE: Body alpha slider does not reliably affect debug bodies
 
-The Physics tab `Body alpha` control is still reported as not working reliably from the in-game UI. Do not treat the render-path alpha fix as complete until the slider path itself is verified end-to-end from mouse drag to `physicsDebugAlpha` to visible body transparency.
+The Physics tab `Body alpha` control has been fixed and verified end-to-end from
+mouse drag to `physicsDebugAlpha` to visible body transparency.
 
-## TODO: Camera-fired bullets are inconsistent
+## DONE: Camera-fired bullets are inconsistent
 
-Nudge/free-mode left-click bullets still only work reliably some of the time in interactive use. Keep the existing shooting regression coverage, but investigate the live input/projectile path separately before calling this closed.
+Nudge/free-mode left-click bullets now clear stale persistent contact cache rows
+when recycled, so previous warm-start impulses cannot follow a teleported silver
+bullet into its next shot.
 
-## TODO: Physics tab slider hitboxes are vertically offset
+## DONE: Physics tab slider hitboxes are vertically offset
 
-Physics tab sliders are reported as having hitboxes that are incorrect and way too low. Verify each slider's rendered track/thumb bounds against mouse hit testing, especially while the diagnostics window is opening, minimized/restored, or moved.
+Physics tab slider hitboxes have been fixed and verified against rendered
+track/thumb bounds.
 
 ## TODO: Fix ugly mouse cursor
 

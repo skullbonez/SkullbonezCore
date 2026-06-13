@@ -7,9 +7,9 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 | Field | Value |
 |-------|-------|
 | Branch | `main` in worktree `C:\SkullbonezCore` |
-| Last commit | Current `origin/main` tracking state before repo hygiene/runtime cleanup. |
-| Pending work | Repo hygiene/runtime cleanup requested; do not commit until the user confirms. |
-| Uncommitted changes | See `git status --short`; direct commits and pushes on `main` remain confirmation-gated. |
+| Last commit | Projectile cache invalidation and bug-note cleanup on `main`. |
+| Pending work | None currently tracked. |
+| Uncommitted changes | None expected after requested commit/push; check `git status --short`. |
 
 ## Active Notes
 
@@ -33,8 +33,8 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 | Item | Status | Notes |
 |------|--------|-------|
 | Catto physics solver finalisation | Recent | Object/object response now belongs to persistent Catto rows with pipeline visualizer and SkullScope `pipeline` query support. User-approved physics CSV and SkullScope query baselines were updated; `tools\validate_full.bat` passed. |
-| Bullet sweep regression | In progress | Adding wall/object/terrain high-speed sweep scenes with Debug collision-time CSV baselines. |
-| Terrain shared row pipeline | In progress | New plan: `Agentic/Plans/physics-terrain-shared-row-pipeline-plan.md`. |
+| Bullet sweep regression | Recent | Wall/object/terrain high-speed sweep scenes and Debug collision-time CSV baselines are wired into `tools\validate_physics.bat`. |
+| Terrain shared row pipeline | Done | Implemented and documented in `Agentic/Plans/Done/physics-terrain-shared-row-pipeline-plan.md`. |
 | SIMD/SSE math optimization pass | Pending | Reported large wins in matrix and render markers; verify current code before continuing. |
 | Camera tween reflection fix | Recent | Reflection pass should use the exact render camera state during camera transitions. |
 | DX12 GPU timer readback | Recent | Non-blocking readback restored when `pipeline_sync` is off. |
