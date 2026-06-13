@@ -3,7 +3,6 @@
 #include "SkullbonezProfiler.h"
 #include "SkullbonezObjectContactManifold.h"
 #include "SkullbonezHelper.h"
-#include "SkullbonezIRenderBackend.h"
 #include "SkullbonezContactSolverCommon.h"
 #include <algorithm>
 #include <cfloat>
@@ -23,7 +22,6 @@ using SkullbonezCore::Math::Orientation::Quaternion;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
 using SkullbonezCore::Math::Vector::ZERO_VECTOR;
-using SkullbonezCore::Rendering::Gfx;
 using SkullbonezCore::Rendering::ShadowFrameData;
 namespace Vector = SkullbonezCore::Math::Vector;
 
@@ -733,6 +731,58 @@ void GameModelCollection::SetPhysicsSleepEnabled( bool enabled )
     std::fill( m_sleepCounter.begin(), m_sleepCounter.end(), static_cast<uint8_t>( 0 ) );
     std::fill( m_sleepIslandVisualId.begin(), m_sleepIslandVisualId.end(), 0 );
     std::fill( m_sleepIslandAssignedVisualId.begin(), m_sleepIslandAssignedVisualId.end(), 0 );
+}
+
+
+void GameModelCollection::ApplyTornadoField( float dt )
+{
+    if ( !m_tornadoField.GetConfig().enabled )
+    {
+        return;
+    }
+
+    PROFILE_SCOPED( "Frame/Physics/TornadoField" );
+    const int modelCount = static_cast<int>( m_gameModels.size() );
+
+    for ( int i = 0; i < modelCount; ++i )
+    {
+        if ( m_soaIsFixed[i] )
+        {
+            continue;
+        }
+
+        const Vector3 acceleration = m_tornadoField.SampleAcceleration( m_gameModels[i].GetPosition() );
+        if ( ( acceleration * acceleration ) <= TOLERANCE * TOLERANCE )
+        {
+            continue;
+        }
+
+        if ( m_sleepState[i] )
+        {
+            m_sleepState[i] = 0;
+            m_sleepCounter[i] = 0;
+            m_sleepIslandVisualId[i] = 0;
+            m_timeRemaining[i] = dt;
+            m_gameModels[i].ApplyForces( dt );
+        }
+
+        Vector3 velocity = m_gameModels[i].GetVelocity();
+        velocity += acceleration * dt;
+        m_gameModels[i].SetLinearVelocity( velocity );
+        m_timeRemaining[i] = (std::max)( m_timeRemaining[i], dt );
+    }
+}
+
+
+void GameModelCollection::SetTornadoFieldConfig( const Physics::TornadoFieldConfig& config )
+{
+    m_tornadoField.SetConfig( config );
+}
+
+
+void GameModelCollection::RenderTornadoFieldVectors( const Matrix4& viewProj )
+{
+    m_tornadoField.RenderVectors( viewProj );
 }
 
 
@@ -1918,6 +1968,8 @@ void GameModelCollection::RunSolverPhysics( float dt )
         m_gameModels[x].ApplyForces( dt );
     }
     PROFILE_END( "Frame/Physics/ApplyForces" );
+
+    ApplyTornadoField( dt );
 
     // Broadphase: build spatial grid from all object positions (include sleeping for wake detection)
     PROFILE_BEGIN( "Frame/Physics/Broadphase" );

@@ -91,6 +91,13 @@ struct InGameUIFrameData
     bool collisionVisualizer = false;
     bool physicsDebugTransparent = false;
     bool broadphaseOverlay = false;
+    bool tornadoEnabled = false;
+    bool tornadoFieldVectors = false;
+    float tornadoRadius = 0.0f;
+    float tornadoHeight = 0.0f;
+    float tornadoInwardAcceleration = 0.0f;
+    float tornadoSwirlAcceleration = 0.0f;
+    float tornadoLiftAcceleration = 0.0f;
     bool waterFreezeDebug = false;
     bool waterFlatDebug = false;
     bool terrainHidden = false;

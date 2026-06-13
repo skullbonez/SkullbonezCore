@@ -1,5 +1,6 @@
 // --- Includes ---
 #include "SkullbonezRunInternal.h"
+#include "UI/UILayout.h"
 
 // --- Usings ---
 using namespace SkullbonezCore::Basics;
@@ -7,6 +8,7 @@ using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Physics;
+using namespace SkullbonezCore::UI::Layout;
 using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
@@ -959,6 +961,46 @@ void SkullbonezRun::TakeInput()
         if ( uiCommands.physics.toggleBroadphaseOverlay )
         {
             m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
+        }
+        bool tornadoFieldChanged = false;
+        if ( uiCommands.physics.toggleTornado )
+        {
+            m_runtimeSettings.tornadoField.enabled = !m_runtimeSettings.tornadoField.enabled;
+            tornadoFieldChanged = true;
+        }
+        if ( uiCommands.physics.toggleTornadoFieldVectors )
+        {
+            m_runtimeSettings.tornadoField.visualizeVelocityField = !m_runtimeSettings.tornadoField.visualizeVelocityField;
+            tornadoFieldChanged = true;
+        }
+        if ( uiCommands.physics.requestTornadoRadius )
+        {
+            m_runtimeSettings.tornadoField.radius = std::clamp( uiCommands.physics.requestedTornadoRadius, UI_TORNADO_RADIUS_MIN, UI_TORNADO_RADIUS_MAX );
+            tornadoFieldChanged = true;
+        }
+        if ( uiCommands.physics.requestTornadoHeight )
+        {
+            m_runtimeSettings.tornadoField.height = std::clamp( uiCommands.physics.requestedTornadoHeight, UI_TORNADO_HEIGHT_MIN, UI_TORNADO_HEIGHT_MAX );
+            tornadoFieldChanged = true;
+        }
+        if ( uiCommands.physics.requestTornadoInward )
+        {
+            m_runtimeSettings.tornadoField.inwardAcceleration = std::clamp( uiCommands.physics.requestedTornadoInward, UI_TORNADO_INWARD_MIN, UI_TORNADO_INWARD_MAX );
+            tornadoFieldChanged = true;
+        }
+        if ( uiCommands.physics.requestTornadoSwirl )
+        {
+            m_runtimeSettings.tornadoField.swirlAcceleration = std::clamp( uiCommands.physics.requestedTornadoSwirl, UI_TORNADO_SWIRL_MIN, UI_TORNADO_SWIRL_MAX );
+            tornadoFieldChanged = true;
+        }
+        if ( uiCommands.physics.requestTornadoLift )
+        {
+            m_runtimeSettings.tornadoField.liftAcceleration = std::clamp( uiCommands.physics.requestedTornadoLift, UI_TORNADO_LIFT_MIN, UI_TORNADO_LIFT_MAX );
+            tornadoFieldChanged = true;
+        }
+        if ( tornadoFieldChanged )
+        {
+            SyncTornadoFieldToPhysics();
         }
         if ( uiCommands.physics.toggleTerrainContactProbe )
         {

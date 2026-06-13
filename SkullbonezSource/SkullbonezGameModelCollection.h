@@ -18,6 +18,7 @@
 #include "SkullbonezShadow.h"
 #include "SkullbonezPhysicsDebugVisualizer.h"
 #include "SkullbonezSkullScope.h"
+#include "SkullbonezTornadoField.h"
 
 
 namespace SkullbonezCore
@@ -174,6 +175,7 @@ class GameModelCollection
     std::vector<Physics::TerrainContactManifold> m_terrainContactManifolds; // Current-step terrain manifolds feeding shared rows
     std::vector<int64_t> m_collisionCellKeys;                               // Cells where narrowphase collisions occurred this frame
     std::array<uint8_t, MAX_GAME_MODELS> m_terrainRestApplied = {};         // Scratch flags for terrain rest policy, retained to avoid per-step allocation
+    Physics::TornadoField m_tornadoField;                                   // Optional vortex force/debug vector field controlled by CLI/UI
 
 #ifdef _DEBUG
     // Deterministic per-body CSV artifact for current-solver regression tests.
@@ -197,6 +199,7 @@ class GameModelCollection
     void EnsureCollisionVisualBuffers( int modelCount );
     void MarkCollisionVisualContact( int index );
     void MarkFixedContact( int index );
+    void ApplyTornadoField( float dt );
     void InvalidateSoA();
     void RefreshSoABodyData();
     void EnsureSoAModelMatrices();
@@ -233,6 +236,12 @@ class GameModelCollection
     void SetPhysicsSleepEnabled( bool enabled );
     void BeginCollisionVisualFrame(); // Clears per-render-frame contact flags before one or more physics substeps
     void EndCollisionVisualFrame();   // Ends contact accumulation for standalone physics callers
+    void SetTornadoFieldConfig( const Physics::TornadoFieldConfig& config );
+    const Physics::TornadoFieldConfig& GetTornadoFieldConfig() const
+    {
+        return m_tornadoField.GetConfig();
+    }
+    void RenderTornadoFieldVectors( const Math::Transformation::Matrix4& viewProj );
 
     // Broadphase visualizer data accessors
     const Math::CollisionDetection::SpatialGrid& GetSpatialGrid() const

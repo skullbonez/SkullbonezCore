@@ -168,6 +168,23 @@ void SkullbonezRun::SetNoSleepOverride()
 }
 
 
+void SkullbonezRun::SetTornadoOverride( bool enabled )
+{
+    m_cmdHasTornadoOverride = true;
+    m_cmdTornadoEnabled = enabled;
+    m_runtimeSettings.tornadoField.enabled = enabled;
+    SyncTornadoFieldToPhysics();
+}
+
+
+void SkullbonezRun::SetTornadoVectorFieldOverride( bool enabled )
+{
+    m_cmdTornadoVectors = enabled;
+    m_runtimeSettings.tornadoField.visualizeVelocityField = enabled;
+    SyncTornadoFieldToPhysics();
+}
+
+
 void SkullbonezRun::SetCinematicRenderingOverride( bool enabled )
 {
     m_cmdHasCinematicRenderingOverride = true;

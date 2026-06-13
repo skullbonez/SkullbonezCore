@@ -938,6 +938,12 @@ void SkullbonezRun::DrawPrimitives()
         m_broadphaseVisualizer.Render( viewProj );
     }
 
+    if ( m_runtimeSettings.tornadoField.visualizeVelocityField )
+    {
+        Matrix4 viewProj = proj * baseView;
+        m_cGameModelCollection.RenderTornadoFieldVectors( viewProj );
+    }
+
     if ( m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE )
     {
         Matrix4 viewProj = proj * baseView;
@@ -1163,6 +1169,13 @@ void SkullbonezRun::DrawWindowText( const double dSecondsPerFrame )
         UIData.collisionVisualizer = m_debug.isCollisionVisualizer;
         UIData.physicsDebugTransparent = m_debug.isPhysicsDebugTransparent;
         UIData.broadphaseOverlay = m_debug.isBroadphaseOverlay;
+        UIData.tornadoEnabled = m_runtimeSettings.tornadoField.enabled;
+        UIData.tornadoFieldVectors = m_runtimeSettings.tornadoField.visualizeVelocityField;
+        UIData.tornadoRadius = m_runtimeSettings.tornadoField.radius;
+        UIData.tornadoHeight = m_runtimeSettings.tornadoField.height;
+        UIData.tornadoInwardAcceleration = m_runtimeSettings.tornadoField.inwardAcceleration;
+        UIData.tornadoSwirlAcceleration = m_runtimeSettings.tornadoField.swirlAcceleration;
+        UIData.tornadoLiftAcceleration = m_runtimeSettings.tornadoField.liftAcceleration;
         UIData.waterFreezeDebug = m_debug.isWaterFreezeDebug;
         UIData.waterFlatDebug = m_debug.isWaterFlatDebug;
         UIData.terrainHidden = m_debug.isTerrainHidden;

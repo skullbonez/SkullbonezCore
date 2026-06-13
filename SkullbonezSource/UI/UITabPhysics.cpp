@@ -17,10 +17,16 @@ namespace
 {
 
 constexpr float PHYSICS_FIRST_TOGGLE_Y = 42.0f;
-constexpr float PHYSICS_PIPELINE_BUTTON_Y = 224.0f;
-constexpr float PHYSICS_ALPHA_SLIDER_Y = 272.0f;
-constexpr float PHYSICS_CONTACT_LINGER_SLIDER_Y = 320.0f;
-constexpr float PHYSICS_WORLD_GRAVITY_SLIDER_Y = 404.0f;
+constexpr float PHYSICS_PIPELINE_BUTTON_Y = 254.0f;
+constexpr float PHYSICS_ALPHA_SLIDER_Y = 302.0f;
+constexpr float PHYSICS_CONTACT_LINGER_SLIDER_Y = 350.0f;
+constexpr float PHYSICS_WORLD_GRAVITY_SLIDER_Y = 434.0f;
+constexpr float PHYSICS_TORNADO_SECTION_Y = 494.0f;
+constexpr float PHYSICS_TORNADO_RADIUS_SLIDER_Y = 520.0f;
+constexpr float PHYSICS_TORNADO_HEIGHT_SLIDER_Y = 560.0f;
+constexpr float PHYSICS_TORNADO_INWARD_SLIDER_Y = 600.0f;
+constexpr float PHYSICS_TORNADO_SWIRL_SLIDER_Y = 640.0f;
+constexpr float PHYSICS_TORNADO_LIFT_SLIDER_Y = 680.0f;
 
 void SetToggleBounds( SkullbonezCore::UI::PhysicsTab::UIPhysicsTabState& state,
                       int index,
@@ -53,10 +59,17 @@ void SetContentBounds( SkullbonezCore::UI::PhysicsTab::UIPhysicsTabState& state,
     SetToggleBounds( state, 3, 2, 1, col1, col2, firstToggleY, colW );
     SetToggleBounds( state, 6, 3, 1, col1, col2, firstToggleY, colW );
     SetToggleBounds( state, 8, 4, 0, col1, col2, firstToggleY, colW );
+    SetToggleBounds( state, 9, 4, 1, col1, col2, firstToggleY, colW );
+    SetToggleBounds( state, 10, 5, 0, col1, col2, firstToggleY, colW );
     SetPipelineStepButtonBounds( state.pipelinePrevButton, state.pipelineNextButton, contentX, contentW, contentBaseY + PHYSICS_PIPELINE_BUTTON_Y );
     state.alphaSlider.SetBounds( contentX, contentBaseY + PHYSICS_ALPHA_SLIDER_Y, contentW, 34.0f );
     state.contactLingerSlider.SetBounds( contentX, contentBaseY + PHYSICS_CONTACT_LINGER_SLIDER_Y, contentW, 34.0f );
     state.worldGravitySlider.SetBounds( contentX, contentBaseY + PHYSICS_WORLD_GRAVITY_SLIDER_Y, contentW, 34.0f );
+    state.tornadoRadiusSlider.SetBounds( contentX, contentBaseY + PHYSICS_TORNADO_RADIUS_SLIDER_Y, contentW, 34.0f );
+    state.tornadoHeightSlider.SetBounds( contentX, contentBaseY + PHYSICS_TORNADO_HEIGHT_SLIDER_Y, contentW, 34.0f );
+    state.tornadoInwardSlider.SetBounds( contentX, contentBaseY + PHYSICS_TORNADO_INWARD_SLIDER_Y, contentW, 34.0f );
+    state.tornadoSwirlSlider.SetBounds( contentX, contentBaseY + PHYSICS_TORNADO_SWIRL_SLIDER_Y, contentW, 34.0f );
+    state.tornadoLiftSlider.SetBounds( contentX, contentBaseY + PHYSICS_TORNADO_LIFT_SLIDER_Y, contentW, 34.0f );
 }
 
 } // namespace
@@ -70,7 +83,7 @@ namespace PhysicsTab
 
 int ContentHeight()
 {
-    return 468;
+    return 728;
 }
 
 
@@ -78,6 +91,11 @@ void ResetPreviewState( UIPhysicsTabState& state )
 {
     state.previewAlpha = -1.0f;
     state.previewContactLinger = -1.0f;
+    state.previewTornadoRadius = -1.0f;
+    state.previewTornadoHeight = -1.0f;
+    state.previewTornadoInward = -1.0f;
+    state.previewTornadoSwirl = -1.0f;
+    state.previewTornadoLift = -1.0f;
 }
 
 
@@ -128,6 +146,14 @@ bool HandleContentClick( UIPhysicsTabState& state,
     {
         result.commands.physics.toggleTerrainContactProbe = true;
     }
+    else if ( state.toggles[9].HitTest( mouseX, mouseY ) )
+    {
+        result.commands.physics.toggleTornado = true;
+    }
+    else if ( state.toggles[10].HitTest( mouseX, mouseY ) )
+    {
+        result.commands.physics.toggleTornadoFieldVectors = true;
+    }
     else if ( state.pipelinePrevButton.Contains( mouseX, mouseY ) )
     {
         result.commands.physics.stepPhysicsPipelinePrevious = true;
@@ -160,6 +186,46 @@ bool HandleContentClick( UIPhysicsTabState& state,
                                                                                                                           UI_WORLD_GRAVITY_STEP ) );
         return true;
     }
+    else if ( state.tornadoRadiusSlider.HitTest( mouseX, mouseY ) )
+    {
+        activeSlider = SLIDER_TORNADO_RADIUS;
+        state.previewTornadoRadius = state.tornadoRadiusSlider.ValueFromMouse( mouseX, UI_TORNADO_RADIUS_MIN, UI_TORNADO_RADIUS_MAX, UI_TORNADO_RADIUS_STEP );
+        result.commands.physics.requestTornadoRadius = true;
+        result.commands.physics.requestedTornadoRadius = state.previewTornadoRadius;
+        return true;
+    }
+    else if ( state.tornadoHeightSlider.HitTest( mouseX, mouseY ) )
+    {
+        activeSlider = SLIDER_TORNADO_HEIGHT;
+        state.previewTornadoHeight = state.tornadoHeightSlider.ValueFromMouse( mouseX, UI_TORNADO_HEIGHT_MIN, UI_TORNADO_HEIGHT_MAX, UI_TORNADO_HEIGHT_STEP );
+        result.commands.physics.requestTornadoHeight = true;
+        result.commands.physics.requestedTornadoHeight = state.previewTornadoHeight;
+        return true;
+    }
+    else if ( state.tornadoInwardSlider.HitTest( mouseX, mouseY ) )
+    {
+        activeSlider = SLIDER_TORNADO_INWARD;
+        state.previewTornadoInward = state.tornadoInwardSlider.ValueFromMouse( mouseX, UI_TORNADO_INWARD_MIN, UI_TORNADO_INWARD_MAX, UI_TORNADO_INWARD_STEP );
+        result.commands.physics.requestTornadoInward = true;
+        result.commands.physics.requestedTornadoInward = state.previewTornadoInward;
+        return true;
+    }
+    else if ( state.tornadoSwirlSlider.HitTest( mouseX, mouseY ) )
+    {
+        activeSlider = SLIDER_TORNADO_SWIRL;
+        state.previewTornadoSwirl = state.tornadoSwirlSlider.ValueFromMouse( mouseX, UI_TORNADO_SWIRL_MIN, UI_TORNADO_SWIRL_MAX, UI_TORNADO_SWIRL_STEP );
+        result.commands.physics.requestTornadoSwirl = true;
+        result.commands.physics.requestedTornadoSwirl = state.previewTornadoSwirl;
+        return true;
+    }
+    else if ( state.tornadoLiftSlider.HitTest( mouseX, mouseY ) )
+    {
+        activeSlider = SLIDER_TORNADO_LIFT;
+        state.previewTornadoLift = state.tornadoLiftSlider.ValueFromMouse( mouseX, UI_TORNADO_LIFT_MIN, UI_TORNADO_LIFT_MAX, UI_TORNADO_LIFT_STEP );
+        result.commands.physics.requestTornadoLift = true;
+        result.commands.physics.requestedTornadoLift = state.previewTornadoLift;
+        return true;
+    }
     return false;
 }
 
@@ -187,6 +253,41 @@ bool UpdateActiveSlider( UIPhysicsTabState& state, int activeSlider, int mouseX,
                                                                                                                           UI_WORLD_GRAVITY_STEP ) );
         return true;
     }
+    if ( activeSlider == SLIDER_TORNADO_RADIUS )
+    {
+        state.previewTornadoRadius = state.tornadoRadiusSlider.ValueFromMouse( mouseX, UI_TORNADO_RADIUS_MIN, UI_TORNADO_RADIUS_MAX, UI_TORNADO_RADIUS_STEP );
+        result.commands.physics.requestTornadoRadius = true;
+        result.commands.physics.requestedTornadoRadius = state.previewTornadoRadius;
+        return true;
+    }
+    if ( activeSlider == SLIDER_TORNADO_HEIGHT )
+    {
+        state.previewTornadoHeight = state.tornadoHeightSlider.ValueFromMouse( mouseX, UI_TORNADO_HEIGHT_MIN, UI_TORNADO_HEIGHT_MAX, UI_TORNADO_HEIGHT_STEP );
+        result.commands.physics.requestTornadoHeight = true;
+        result.commands.physics.requestedTornadoHeight = state.previewTornadoHeight;
+        return true;
+    }
+    if ( activeSlider == SLIDER_TORNADO_INWARD )
+    {
+        state.previewTornadoInward = state.tornadoInwardSlider.ValueFromMouse( mouseX, UI_TORNADO_INWARD_MIN, UI_TORNADO_INWARD_MAX, UI_TORNADO_INWARD_STEP );
+        result.commands.physics.requestTornadoInward = true;
+        result.commands.physics.requestedTornadoInward = state.previewTornadoInward;
+        return true;
+    }
+    if ( activeSlider == SLIDER_TORNADO_SWIRL )
+    {
+        state.previewTornadoSwirl = state.tornadoSwirlSlider.ValueFromMouse( mouseX, UI_TORNADO_SWIRL_MIN, UI_TORNADO_SWIRL_MAX, UI_TORNADO_SWIRL_STEP );
+        result.commands.physics.requestTornadoSwirl = true;
+        result.commands.physics.requestedTornadoSwirl = state.previewTornadoSwirl;
+        return true;
+    }
+    if ( activeSlider == SLIDER_TORNADO_LIFT )
+    {
+        state.previewTornadoLift = state.tornadoLiftSlider.ValueFromMouse( mouseX, UI_TORNADO_LIFT_MIN, UI_TORNADO_LIFT_MAX, UI_TORNADO_LIFT_STEP );
+        result.commands.physics.requestTornadoLift = true;
+        result.commands.physics.requestedTornadoLift = state.previewTornadoLift;
+        return true;
+    }
     return false;
 }
 
@@ -201,6 +302,36 @@ bool CommitActiveSlider( UIPhysicsTabState& state, int activeSlider, InGameUIInp
     if ( activeSlider == SLIDER_CONTACT_LINGER && state.previewContactLinger >= 0.0f )
     {
         result.commands.physics.requestedPhysicsDebugContactLinger = state.previewContactLinger;
+        return true;
+    }
+    if ( activeSlider == SLIDER_TORNADO_RADIUS && state.previewTornadoRadius >= 0.0f )
+    {
+        result.commands.physics.requestTornadoRadius = true;
+        result.commands.physics.requestedTornadoRadius = state.previewTornadoRadius;
+        return true;
+    }
+    if ( activeSlider == SLIDER_TORNADO_HEIGHT && state.previewTornadoHeight >= 0.0f )
+    {
+        result.commands.physics.requestTornadoHeight = true;
+        result.commands.physics.requestedTornadoHeight = state.previewTornadoHeight;
+        return true;
+    }
+    if ( activeSlider == SLIDER_TORNADO_INWARD && state.previewTornadoInward >= 0.0f )
+    {
+        result.commands.physics.requestTornadoInward = true;
+        result.commands.physics.requestedTornadoInward = state.previewTornadoInward;
+        return true;
+    }
+    if ( activeSlider == SLIDER_TORNADO_SWIRL && state.previewTornadoSwirl >= 0.0f )
+    {
+        result.commands.physics.requestTornadoSwirl = true;
+        result.commands.physics.requestedTornadoSwirl = state.previewTornadoSwirl;
+        return true;
+    }
+    if ( activeSlider == SLIDER_TORNADO_LIFT && state.previewTornadoLift >= 0.0f )
+    {
+        result.commands.physics.requestTornadoLift = true;
+        result.commands.physics.requestedTornadoLift = state.previewTornadoLift;
         return true;
     }
     return false;
@@ -225,6 +356,11 @@ void Draw( UIPhysicsTabState& state,
     const float col2 = contentX + colW + 18.0f;
     const float displayAlpha = ( activeSlider == SLIDER_ALPHA && state.previewAlpha >= 0.0f ) ? state.previewAlpha : data.physicsDebugAlpha;
     const float displayLinger = ( activeSlider == SLIDER_CONTACT_LINGER && state.previewContactLinger >= 0.0f ) ? state.previewContactLinger : data.physicsDebugContactLinger;
+    const float displayTornadoRadius = ( activeSlider == SLIDER_TORNADO_RADIUS && state.previewTornadoRadius >= 0.0f ) ? state.previewTornadoRadius : data.tornadoRadius;
+    const float displayTornadoHeight = ( activeSlider == SLIDER_TORNADO_HEIGHT && state.previewTornadoHeight >= 0.0f ) ? state.previewTornadoHeight : data.tornadoHeight;
+    const float displayTornadoInward = ( activeSlider == SLIDER_TORNADO_INWARD && state.previewTornadoInward >= 0.0f ) ? state.previewTornadoInward : data.tornadoInwardAcceleration;
+    const float displayTornadoSwirl = ( activeSlider == SLIDER_TORNADO_SWIRL && state.previewTornadoSwirl >= 0.0f ) ? state.previewTornadoSwirl : data.tornadoSwirlAcceleration;
+    const float displayTornadoLift = ( activeSlider == SLIDER_TORNADO_LIFT && state.previewTornadoLift >= 0.0f ) ? state.previewTornadoLift : data.tornadoLiftAcceleration;
     DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY, 16.0f, "Physics Controls" );
     DrawContentToggle( draw, contentY, contentH, state.toggles[0], col1, scrolledY + PHYSICS_FIRST_TOGGLE_Y, colW, "Collision state", data.collisionVisualizer );
     DrawContentToggle( draw, contentY, contentH, state.toggles[4], col1, scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H, colW, "Transparent", data.physicsDebugTransparent );
@@ -235,20 +371,22 @@ void Draw( UIPhysicsTabState& state,
     DrawContentToggle( draw, contentY, contentH, state.toggles[3], col2, scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 2.0f, colW, "Sleep state", ( data.physicsDebugFlags & PHYSICS_DEBUG_SLEEP ) != 0 );
     DrawContentToggle( draw, contentY, contentH, state.toggles[6], col2, scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 3.0f, colW, "Sleep policy", data.physicsSleepEnabled );
     DrawContentToggle( draw, contentY, contentH, state.toggles[8], col1, scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 4.0f, colW, "Terrain probe", ( data.physicsDebugFlags & PHYSICS_DEBUG_TERRAIN_CONTACT ) != 0 );
+    DrawContentToggle( draw, contentY, contentH, state.toggles[9], col2, scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 4.0f, colW, "Tornado", data.tornadoEnabled );
+    DrawContentToggle( draw, contentY, contentH, state.toggles[10], col1, scrolledY + PHYSICS_FIRST_TOGGLE_Y + CONTENT_TOGGLE_ROW_H * 5.0f, colW, "Field vectors", data.tornadoFieldVectors );
     const Style::UIPalette& palette = Style::Palette();
     snprintf( buf, sizeof( buf ), "0x%04X", data.physicsDebugFlags );
-    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 208.0f, "Debug flags", buf, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
+    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 230.0f, "Debug flags", buf, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
     snprintf( buf, sizeof( buf ), "%d/%d %s", data.physicsPipelineStageIndex + 1, data.physicsPipelineStageCount, data.physicsPipelineStageName );
-    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 228.0f, "Pipeline stage", buf, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
+    DrawLabelValueAt( draw, contentY, contentH, contentX, scrolledY + 250.0f, "Pipeline stage", buf, palette.accentStrong.r, palette.accentStrong.g, palette.accentStrong.b );
     SetPipelineStepButtonBounds( state.pipelinePrevButton, state.pipelineNextButton, contentX, contentW, scrolledY + PHYSICS_PIPELINE_BUTTON_Y );
     if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_PIPELINE_BUTTON_Y, UI_PIPELINE_STEP_BUTTON_H ) )
     {
         DrawPipelineStepButton( draw, state.pipelinePrevButton, true, state.pipelinePrevButton.Contains( mouseX, mouseY ) );
         DrawPipelineStepButton( draw, state.pipelineNextButton, false, state.pipelineNextButton.Contains( mouseX, mouseY ) );
     }
-    if ( IsRowVisible( contentY, contentH, scrolledY + 246.0f, 18.0f ) )
+    if ( IsRowVisible( contentY, contentH, scrolledY + 276.0f, 18.0f ) )
     {
-        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 246.0f, 12.0f, "Debug Draw" );
+        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 276.0f, 12.0f, "Debug Draw" );
     }
     snprintf( buf, sizeof( buf ), "%.2f", displayAlpha );
     state.alphaSlider.SetBounds( contentX, scrolledY + PHYSICS_ALPHA_SLIDER_Y, contentW, 34.0f );
@@ -262,9 +400,9 @@ void Draw( UIPhysicsTabState& state,
     {
         state.contactLingerSlider.Draw( draw, "Contact linger", buf, displayLinger, UI_CONTACT_LINGER_MIN, UI_CONTACT_LINGER_MAX );
     }
-    if ( IsRowVisible( contentY, contentH, scrolledY + 378.0f, 18.0f ) )
+    if ( IsRowVisible( contentY, contentH, scrolledY + 408.0f, 18.0f ) )
     {
-        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 378.0f, 12.0f, "World" );
+        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + 408.0f, 12.0f, "World" );
     }
     const float displayGravityStrength = GravityStrengthFromWorld( data.worldGravity );
     snprintf( buf, sizeof( buf ), "%.1f", displayGravityStrength );
@@ -272,6 +410,40 @@ void Draw( UIPhysicsTabState& state,
     if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_WORLD_GRAVITY_SLIDER_Y, 34.0f ) )
     {
         state.worldGravitySlider.Draw( draw, "Gravity", buf, displayGravityStrength, UI_WORLD_GRAVITY_MIN, UI_WORLD_GRAVITY_MAX );
+    }
+    if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_TORNADO_SECTION_Y, 18.0f ) )
+    {
+        DrawSectionTitle( draw, contentX, contentY, contentH, scrolledY + PHYSICS_TORNADO_SECTION_Y, 12.0f, "Tornado Field" );
+    }
+    snprintf( buf, sizeof( buf ), "%.0f", displayTornadoRadius );
+    state.tornadoRadiusSlider.SetBounds( contentX, scrolledY + PHYSICS_TORNADO_RADIUS_SLIDER_Y, contentW, 34.0f );
+    if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_TORNADO_RADIUS_SLIDER_Y, 34.0f ) )
+    {
+        state.tornadoRadiusSlider.Draw( draw, "Radius", buf, displayTornadoRadius, UI_TORNADO_RADIUS_MIN, UI_TORNADO_RADIUS_MAX );
+    }
+    snprintf( buf, sizeof( buf ), "%.0f", displayTornadoHeight );
+    state.tornadoHeightSlider.SetBounds( contentX, scrolledY + PHYSICS_TORNADO_HEIGHT_SLIDER_Y, contentW, 34.0f );
+    if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_TORNADO_HEIGHT_SLIDER_Y, 34.0f ) )
+    {
+        state.tornadoHeightSlider.Draw( draw, "Height", buf, displayTornadoHeight, UI_TORNADO_HEIGHT_MIN, UI_TORNADO_HEIGHT_MAX );
+    }
+    snprintf( buf, sizeof( buf ), "%.0f", displayTornadoInward );
+    state.tornadoInwardSlider.SetBounds( contentX, scrolledY + PHYSICS_TORNADO_INWARD_SLIDER_Y, contentW, 34.0f );
+    if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_TORNADO_INWARD_SLIDER_Y, 34.0f ) )
+    {
+        state.tornadoInwardSlider.Draw( draw, "Inward force", buf, displayTornadoInward, UI_TORNADO_INWARD_MIN, UI_TORNADO_INWARD_MAX );
+    }
+    snprintf( buf, sizeof( buf ), "%.0f", displayTornadoSwirl );
+    state.tornadoSwirlSlider.SetBounds( contentX, scrolledY + PHYSICS_TORNADO_SWIRL_SLIDER_Y, contentW, 34.0f );
+    if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_TORNADO_SWIRL_SLIDER_Y, 34.0f ) )
+    {
+        state.tornadoSwirlSlider.Draw( draw, "Swirl force", buf, displayTornadoSwirl, UI_TORNADO_SWIRL_MIN, UI_TORNADO_SWIRL_MAX );
+    }
+    snprintf( buf, sizeof( buf ), "%.0f", displayTornadoLift );
+    state.tornadoLiftSlider.SetBounds( contentX, scrolledY + PHYSICS_TORNADO_LIFT_SLIDER_Y, contentW, 34.0f );
+    if ( IsRowVisible( contentY, contentH, scrolledY + PHYSICS_TORNADO_LIFT_SLIDER_Y, 34.0f ) )
+    {
+        state.tornadoLiftSlider.Draw( draw, "Lift force", buf, displayTornadoLift, UI_TORNADO_LIFT_MIN, UI_TORNADO_LIFT_MAX );
     }
 }
 

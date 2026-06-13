@@ -68,9 +68,10 @@ struct RunPhysicsDiagnosticsState
 
 struct RunRuntimeSettings
 {
-    bool isVsyncEnabled = true;         // Swap-chain sync interval (true = vsync)
-    bool isPipelineSyncEnabled = false; // Force CPU/GPU sync via Finish() before render
-    bool isPhysicsSleepEnabled = true;  // Live Catto sleep policy; false keeps bodies awake while leaving collision/solving active
+    bool isVsyncEnabled = true;               // Swap-chain sync interval (true = vsync)
+    bool isPipelineSyncEnabled = false;       // Force CPU/GPU sync via Finish() before render
+    bool isPhysicsSleepEnabled = true;        // Live Catto sleep policy; false keeps bodies awake while leaving collision/solving active
+    Physics::TornadoFieldConfig tornadoField; // Live vortex force/debug vector field controlled by CLI/UI
 };
 
 struct RunTimerState
@@ -301,6 +302,9 @@ class SkullbonezRun
     unsigned int m_cmdSeedOverride = 0;  // CLI --seed override applied after each scene load (0 = not set)
     bool m_cmdNoWater = false;           // CLI --no-water starts fluid below terrain
     bool m_cmdNoSleep = false;           // Startup CLI --no-sleep request; the live policy can still be toggled from the Physics tab
+    bool m_cmdHasTornadoOverride = false;
+    bool m_cmdTornadoEnabled = false;
+    bool m_cmdTornadoVectors = false;
     bool m_cmdHasCinematicRenderingOverride = false;
     bool m_cmdCinematicRendering = false;
     bool m_cmdHasCinematicShadowsOverride = false;
@@ -404,6 +408,8 @@ class SkullbonezRun
     void ApplyUISolverObjectCounts( int balls, int boxes );                                                                                            // Rebuilds generated solver objects from exact UI counts
     void ApplyUIWorldOverride( float gravity, float fluidHeight, float fluidDensity );                                                                 // Applies live world/fluid scalar controls
     void ApplyNoWaterOverride();                                                                                                                       // Pushes fluid surface below the active terrain when requested
+    void ApplyTornadoDefaultsForActiveScene();                                                                                                         // Centers the tornado around the active inner-water/basin region
+    void SyncTornadoFieldToPhysics();                                                                                                                  // Sends live tornado state to the physics collection
     void UseDefaultTerrain();                                                                                                                          // Restores the normal height-map terrain when leaving analytic test scenes
     void UseFlatSlopeTerrain( float baseY, float slopeX, float slopeZ );                                                                               // Activates analytic flat-slope terrain for focused physics scenes
     void UpdateWorldTerrainBounds();                                                                                                                   // Keeps world/fluid helpers aligned with the active terrain bounds
@@ -470,6 +476,8 @@ class SkullbonezRun
     void SetSeedOverride( unsigned int seed );                          // Override RNG seed for every scene loaded (CLI --seed)
     void SetNoWaterOverride();                                          // Start scenes with fluid below terrain (CLI --no-water)
     void SetNoSleepOverride();                                          // Disable physics sleeping for every scene loaded (CLI --no-sleep)
+    void SetTornadoOverride( bool enabled );                            // Enable/disable tornado mode for loaded scenes (CLI --tornado)
+    void SetTornadoVectorFieldOverride( bool enabled );                 // Show/hide tornado velocity vectors at startup
     void SetCinematicRenderingOverride( bool enabled );                 // Force cinematic HDR/post rendering on/off for every scene loaded
     void SetCinematicShadowsOverride( bool enabled );                   // Force shadow maps on/off for every scene loaded
     void SetDemoHeroStyleOverride();                                    // Run generated demo mode with the low-poly hero rendering style

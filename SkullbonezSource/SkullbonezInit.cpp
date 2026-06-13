@@ -528,6 +528,9 @@ struct ParsedArgs
     unsigned int seedOverride = 0; // 0 = not set
     bool noWater = false;
     bool noSleep = false;
+    bool hasTornadoOverride = false;
+    bool tornadoEnabled = false;
+    bool tornadoVectors = false;
     bool hasCinematicRenderingOverride = false;
     bool cinematicRendering = false;
     bool hasCinematicShadowsOverride = false;
@@ -1159,6 +1162,29 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
               fprintf( stdout, "[time-scale] Override: %.4f\n", timeScale );
               return true;
           } },
+        { "--tornado", nullptr, []( const char* value, ParsedArgs& args ) -> bool
+          {
+              bool enabled = false;
+              if ( !ParseOptionalOnOffValue( value, enabled ) )
+              {
+                  return FailCommandLineParse( "--tornado expects optional on|off." );
+              }
+              args.hasTornadoOverride = true;
+              args.tornadoEnabled = enabled;
+              fprintf( stdout, "[tornado] Force field %s via command line.\n", enabled ? "enabled" : "disabled" );
+              return true;
+          } },
+        { "--tornado-vectors", "--tornado-vector-field", []( const char* value, ParsedArgs& args ) -> bool
+          {
+              bool enabled = false;
+              if ( !ParseOptionalOnOffValue( value, enabled ) )
+              {
+                  return FailCommandLineParse( "--tornado-vectors expects optional on|off." );
+              }
+              args.tornadoVectors = enabled;
+              fprintf( stdout, "[tornado] Velocity-field vectors %s via command line.\n", enabled ? "enabled" : "disabled" );
+              return true;
+          } },
         { "--cinematic", "--cinematic-rendering", []( const char* value, ParsedArgs& args ) -> bool
           {
               bool enabled = false;
@@ -1617,6 +1643,14 @@ int RunApp( SkullbonezWindow* window, ParsedArgs& args )
         if ( args.noSleep )
         {
             cRun.SetNoSleepOverride();
+        }
+        if ( args.hasTornadoOverride )
+        {
+            cRun.SetTornadoOverride( args.tornadoEnabled );
+        }
+        if ( args.tornadoVectors )
+        {
+            cRun.SetTornadoVectorFieldOverride( true );
         }
         if ( args.hasCinematicRenderingOverride )
         {

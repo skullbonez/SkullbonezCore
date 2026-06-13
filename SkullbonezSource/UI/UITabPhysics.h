@@ -18,17 +18,32 @@ namespace PhysicsTab
 constexpr int SLIDER_ALPHA = 3;
 constexpr int SLIDER_CONTACT_LINGER = 4;
 constexpr int SLIDER_WORLD_GRAVITY = 11;
+constexpr int SLIDER_TORNADO_RADIUS = 14;
+constexpr int SLIDER_TORNADO_HEIGHT = 15;
+constexpr int SLIDER_TORNADO_INWARD = 16;
+constexpr int SLIDER_TORNADO_SWIRL = 17;
+constexpr int SLIDER_TORNADO_LIFT = 18;
 
 struct UIPhysicsTabState
 {
-    UICheckBox toggles[9];
+    UICheckBox toggles[11];
     UIRect pipelinePrevButton;
     UIRect pipelineNextButton;
     UISlider alphaSlider;
     UISlider contactLingerSlider;
     UISlider worldGravitySlider;
+    UISlider tornadoRadiusSlider;
+    UISlider tornadoHeightSlider;
+    UISlider tornadoInwardSlider;
+    UISlider tornadoSwirlSlider;
+    UISlider tornadoLiftSlider;
     float previewAlpha = -1.0f;
     float previewContactLinger = -1.0f;
+    float previewTornadoRadius = -1.0f;
+    float previewTornadoHeight = -1.0f;
+    float previewTornadoInward = -1.0f;
+    float previewTornadoSwirl = -1.0f;
+    float previewTornadoLift = -1.0f;
 };
 
 int ContentHeight();

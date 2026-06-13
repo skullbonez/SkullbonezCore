@@ -1094,6 +1094,20 @@ void SkullbonezRun::LoadScene( int index, bool preserveUIState, bool suppressExi
     {
         m_scene.isFixedStep = true;
     }
+    if ( !shouldPreserveRuntimeState )
+    {
+        m_runtimeSettings.tornadoField = Physics::TornadoFieldConfig();
+        ApplyTornadoDefaultsForActiveScene();
+    }
+    if ( m_cmdHasTornadoOverride )
+    {
+        m_runtimeSettings.tornadoField.enabled = m_cmdTornadoEnabled;
+    }
+    if ( m_cmdTornadoVectors )
+    {
+        m_runtimeSettings.tornadoField.visualizeVelocityField = true;
+    }
+    SyncTornadoFieldToPhysics();
     m_cGameModelCollection.SetPhysicsSleepEnabled( m_runtimeSettings.isPhysicsSleepEnabled );
     if ( m_cmdFrameCountOverride > 0 )
     {
@@ -1775,6 +1789,30 @@ void SkullbonezRun::ApplyNoWaterOverride()
     }
 
     m_cWorldEnvironment.SetFluidSurfaceHeight( m_systems.terrain->GetMinHeight() - NO_WATER_TERRAIN_CLEARANCE );
+}
+
+
+void SkullbonezRun::ApplyTornadoDefaultsForActiveScene()
+{
+    Physics::TornadoFieldConfig field = m_runtimeSettings.tornadoField;
+    const CinematicRenderConfig& cinematic = ActiveCinematicConfig();
+    const float basinRadius = (std::max)( cinematic.basinRadiusX, cinematic.basinRadiusZ );
+
+    field.center = Vector3( cinematic.basinCenterX,
+                            m_cWorldEnvironment.GetFluidSurfaceHeight(),
+                            cinematic.basinCenterZ );
+    field.radius = std::clamp( basinRadius * 1.08f, 150.0f, 280.0f );
+    field.height = (std::max)( 130.0f, field.radius * 0.66f );
+    field.inwardAcceleration = 120.0f;
+    field.swirlAcceleration = 170.0f;
+    field.liftAcceleration = 78.0f;
+    m_runtimeSettings.tornadoField = field;
+}
+
+
+void SkullbonezRun::SyncTornadoFieldToPhysics()
+{
+    m_cGameModelCollection.SetTornadoFieldConfig( m_runtimeSettings.tornadoField );
 }
 
 

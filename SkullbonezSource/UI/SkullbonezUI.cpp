@@ -140,6 +140,13 @@ uint32_t BuildUIContentSignature( const InGameUIFrameData& data, int currentRend
     hash = HashBool( hash, data.collisionVisualizer );
     hash = HashBool( hash, data.physicsDebugTransparent );
     hash = HashBool( hash, data.broadphaseOverlay );
+    hash = HashBool( hash, data.tornadoEnabled );
+    hash = HashBool( hash, data.tornadoFieldVectors );
+    hash = HashFloat( hash, data.tornadoRadius, 100.0f );
+    hash = HashFloat( hash, data.tornadoHeight, 100.0f );
+    hash = HashFloat( hash, data.tornadoInwardAcceleration, 100.0f );
+    hash = HashFloat( hash, data.tornadoSwirlAcceleration, 100.0f );
+    hash = HashFloat( hash, data.tornadoLiftAcceleration, 100.0f );
     hash = HashBool( hash, data.waterFreezeDebug );
     hash = HashBool( hash, data.waterFlatDebug );
     hash = HashBool( hash, data.terrainHidden );
@@ -1236,7 +1243,7 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
         DrawHitboxRect( draw, m_saveDefaultsButton.Bounds(), buttonR, buttonG, buttonB );
         break;
     case InGameUITab::Physics:
-        for ( int i = 0; i < 9; ++i )
+        for ( int i = 0; i < 11; ++i )
         {
             DrawHitboxRect( draw, m_physicsTab.toggles[i].Bounds(), contentR, contentG, contentB );
         }
@@ -1245,6 +1252,11 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
         DrawHitboxRect( draw, m_physicsTab.alphaSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.contactLingerSlider.Bounds(), contentR, contentG, contentB );
         DrawHitboxRect( draw, m_physicsTab.worldGravitySlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.tornadoRadiusSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.tornadoHeightSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.tornadoInwardSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.tornadoSwirlSlider.Bounds(), contentR, contentG, contentB );
+        DrawHitboxRect( draw, m_physicsTab.tornadoLiftSlider.Bounds(), contentR, contentG, contentB );
         break;
     case InGameUITab::Options:
         for ( int i = 0; i < 6; ++i )
