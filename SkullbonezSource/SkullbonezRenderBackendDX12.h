@@ -24,7 +24,12 @@ namespace Rendering
 class ShaderDX12;
 
 
-// Texture entry for the DX12 SRV registry
+// Texture entry for the DX12 SRV registry.
+//
+// "SRV" means Shader Resource View. It is the descriptor flavor a shader uses
+// when it wants to read a texture. The ID3D12Resource below is the actual image
+// memory. The srvIndex is only a row number in the descriptor heap table that
+// tells the shader how to read that image.
 struct TextureEntryDX12
 {
     ID3D12Resource* resource;
@@ -156,10 +161,23 @@ class RenderBackendDX12 : public IRenderBackend
     UINT64 m_frameFenceValues[FRAME_COUNT] = {}; // Fence value signaled by each frame's submission
     HANDLE m_fenceEvent = nullptr;
 
+    // Descriptor heaps are descriptor tables, not texture arrays.
+    //
+    // Each heap stores one kind of "view" record:
+    //
+    // - RTV: Render Target View. The GPU can write color pixels through it.
+    // - DSV: Depth Stencil View. The GPU can read/write depth and stencil.
+    // - SRV: Shader Resource View. Shaders can read textures/buffers through it.
+    // - UAV: Unordered Access View. Compute/raytracing shaders can write through it.
+    //
+    // This backend currently keeps RTV and DSV heaps as direct counters because
+    // those views are few and long-lived. The high-churn SRV/CBV/UAV heap is
+    // managed by Dx12DescriptorAllocator below because shader-visible slots need
+    // stricter per-frame lifetime tracking.
     ID3D12DescriptorHeap* m_rtvHeap = nullptr;
     ID3D12DescriptorHeap* m_dsvHeap = nullptr;
-    ID3D12DescriptorHeap* m_srvHeap = nullptr;        // GPU-visible (shader-visible) for binding
-    ID3D12DescriptorHeap* m_srvStagingHeap = nullptr; // CPU-only for persistent SRV storage
+    ID3D12DescriptorHeap* m_srvHeap = nullptr;        // GPU-visible table shaders can read during draws/dispatches.
+    ID3D12DescriptorHeap* m_srvStagingHeap = nullptr; // CPU-only table holding persistent descriptor templates.
     UINT m_rtvDescSize = 0;
     UINT m_dsvDescSize = 0;
     UINT m_srvDescSize = 0;
@@ -184,9 +202,14 @@ class RenderBackendDX12 : public IRenderBackend
 
     ID3D12Resource* m_depthStencil = nullptr;
 
-    // One upload buffer per frame allocator. Partitioned so that frame N+1's CPU recording never
-    // overwrites data in the buffer that frame N's GPU is still reading. Mirrors the per-allocator
-    // partitioning applied to the transient SRV heap.
+    // One upload buffer per frame allocator. Partitioned so that frame N+1's
+    // CPU recording never overwrites data in the buffer that frame N's GPU is
+    // still reading. Mirrors the per-allocator partitioning applied to the
+    // transient SRV heap.
+    //
+    // These raw pointers are the actual DX12 resources and CPU Map() pointers.
+    // The Dx12UploadArena below is the safer allocation policy wrapped around
+    // them: it hands out aligned byte ranges and explains when reset is legal.
     ID3D12Resource* m_uploadBuffers[FRAME_COUNT] = {};
     uint8_t* m_uploadBufferMapped[FRAME_COUNT] = {};
 
@@ -222,7 +245,11 @@ class RenderBackendDX12 : public IRenderBackend
 
     static constexpr int TEXTURE_SLOT_COUNT = 4;
     ShaderDX12* m_activeShader = nullptr;
-    UINT m_boundTexSlot[TEXTURE_SLOT_COUNT] = { UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX }; // Currently bound SRV indices for t0..t3
+    // Currently bound persistent SRV descriptor indices for shader texture
+    // slots t0..t3. These are not GPU handles. Before a draw, the backend copies
+    // each persistent descriptor into a transient shader-visible row and binds
+    // that transient GPU handle through the root signature.
+    UINT m_boundTexSlot[TEXTURE_SLOT_COUNT] = { UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX };
 
     // Grid line overlay (lazy-init in DrawLinesColored)
     std::unique_ptr<IShader> m_gridLineShader;

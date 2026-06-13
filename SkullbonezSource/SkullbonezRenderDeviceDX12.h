@@ -190,6 +190,25 @@ struct Dx12DescriptorAllocatorStats
     - Shader-visible heap:
       Descriptor storage the GPU can read through root descriptor tables.
       Descriptors placed here must obey GPU lifetime rules.
+
+    Typical texture binding flow in this renderer:
+
+    1. Texture load creates the actual ID3D12Resource containing image pixels.
+    2. AllocateStatic() reserves a stable descriptor row for that texture.
+    3. CreateShaderResourceView writes an SRV descriptor for the texture into
+       the CPU-only staging heap at that row.
+    4. Before a draw, AllocateTransient() reserves a per-frame shader-visible
+       row.
+    5. CopyDescriptorsSimple copies the staging descriptor into that transient
+       shader-visible row.
+    6. SetGraphicsRootDescriptorTable binds the transient row's GPU handle.
+    7. The pixel shader follows that handle to read the descriptor, then follows
+       the descriptor to sample the texture.
+
+    Step 4 is the reason this class exists. If every draw wrote directly into a
+    single shared shader-visible row, a later CPU draw setup could overwrite the
+    row while an earlier GPU draw is still using it. Splitting temporary rows by
+    frame fence makes that lifetime visible and enforceable.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class Dx12DescriptorAllocator
 {
@@ -214,10 +233,16 @@ class Dx12DescriptorAllocator
 
     // Reserve one long-lived descriptor slot. Use this for descriptors whose
     // index will be stored in texture/render-resource records.
+    //
+    // Plain-language rule: if another object will remember this descriptor
+    // number after the current draw call, it needs a static slot.
     UINT AllocateStatic();
 
     // Reserve one temporary descriptor slot from the current frame's range.
     // Use this for descriptor copies needed while recording this frame.
+    //
+    // Plain-language rule: if this descriptor exists only so the next draw or
+    // dispatch can bind a GPU-visible table row, use a transient slot.
     UINT AllocateTransient();
 
     // CPU handle into the shader-visible heap. The CPU uses this to write or

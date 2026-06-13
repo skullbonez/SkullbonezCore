@@ -33,6 +33,30 @@
 //   Upload Heap       = CPU-writable staging memory for sending data to the GPU
 //   Default Heap      = Fast GPU-only memory (not CPU-accessible)
 //
+// Additional architecture glossary for non-GPU readers:
+//
+//   Descriptor
+//     A small GPU-readable record that describes a resource view. It is not the
+//     texture or buffer itself. It says how a shader should see that resource:
+//     as a texture SRV, writable UAV, render target, depth target, and so on.
+//
+//   Descriptor Heap
+//     A table of descriptors. DX12 makes the engine allocate rows in this table
+//     explicitly. Shaders are given GPU handles that point at rows in a
+//     shader-visible heap.
+//
+//   Descriptor Allocator
+//     This is our table-row allocator for descriptors. It does not allocate GPU
+//     images. It only hands out descriptor indices and makes static-vs-transient
+//     lifetime explicit so the CPU does not overwrite a table row while the GPU
+//     still has a handle pointing at it.
+//
+//   Resource Barrier
+//     A synchronization command that tells the GPU a resource is changing use.
+//     Example: "this texture was a render target; now shaders will sample it."
+//     The future render graph exists so these transitions are declared once
+//     from pass/resource usage instead of hand-coded throughout the backend.
+//
 #include "SkullbonezRenderBackendDX12.h"
 #include "SkullbonezShaderDX12.h"
 #include "SkullbonezMeshDX12.h"
@@ -134,7 +158,13 @@ void RenderBackendDX12::EnsureCommandListOpen()
         return;
     }
 
-    // Wait for the GPU to finish with this allocator's previous work
+    // Wait for the GPU to finish with this allocator's previous work.
+    //
+    // "Allocator" here is easy to misread. It is the command allocator: memory
+    // for recorded GPU commands, not texture memory. This backend also ties the
+    // upload arena and transient descriptor range to the same frame index. The
+    // fence value proves all three pieces of temporary per-frame storage are no
+    // longer being read by the GPU before we reset them.
     UINT64 completedFence = m_frameFence.CompletedValue();
     if ( m_frameFenceValues[m_allocatorIndex] > completedFence )
     {
@@ -466,6 +496,25 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     m_factory->MakeWindowAssociation( hwnd, DXGI_MWA_NO_ALT_ENTER );
     m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
 
+    // Descriptor heap mental model:
+    //
+    // The heap is a table. A descriptor is one row in that table. The actual
+    // texture, depth buffer, or UAV texture is separate GPU memory.
+    //
+    // RTV rows are used when the GPU writes color pixels.
+    // DSV rows are used when the GPU reads/writes depth and stencil.
+    // SRV rows are used when shaders read textures or buffers.
+    // UAV rows are used when compute/raytracing shaders write textures/buffers.
+    //
+    // The high-churn SRV/CBV/UAV heap has two copies of the same idea:
+    //
+    // - staging heap: CPU-only, stable descriptor templates created at load time,
+    // - shader-visible heap: GPU-readable rows bound during draws/dispatches.
+    //
+    // The descriptor allocator below owns row assignment for that pair. It keeps
+    // long-lived static rows separate from short-lived per-frame rows so the CPU
+    // does not overwrite a row while an in-flight command list still points at it.
+
     // Create Descriptor Heaps — these are arrays of "descriptors" (small structs that describe
     // how the GPU should interpret a resource). DX12 requires you to pre-allocate descriptor
     // storage. RTV heap holds Render Target View descriptors (one per swap chain buffer + FBOs).
@@ -661,6 +710,24 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
 
 void RenderBackendDX12::CreateRootSignature()
 {
+    // Root signature mental model:
+    //
+    // A shader cannot freely access arbitrary C++ variables or texture objects.
+    // The root signature is the contract that says which small set of bindings
+    // the command list may provide and which register names the HLSL shader will
+    // use to find them.
+    //
+    // This renderer's main graphics root signature is deliberately simple:
+    //
+    // - root parameter 0: one constant buffer view at b0. Per-draw matrices,
+    //   colors, and scalar shader values are uploaded there.
+    // - root parameters 1..4: one descriptor table each for texture slots t0..t3.
+    //   Each table points at one transient SRV descriptor row prepared by the
+    //   descriptor allocator.
+    // - static samplers: fixed filtering/addressing rules named s0, s1, and s3.
+    //
+    // The future render graph will not replace this shader contract. It will
+    // decide when resources are safe to read/write and which pass binds them.
     D3D12_DESCRIPTOR_RANGE1 srvRanges[TEXTURE_SLOT_COUNT] = {};
     for ( int slot = 0; slot < TEXTURE_SLOT_COUNT; ++slot )
     {
@@ -1714,8 +1781,22 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
         }
     }
 
-    // Bind textures by copying their SRV descriptors to the shader-visible heap and pointing
-    // the root descriptor table at them. Root params [1..4] map to texture slots t0..t3.
+    // Bind textures by copying their SRV descriptors to the shader-visible heap
+    // and pointing the root descriptor table at them. Root params [1..4] map to
+    // texture slots t0..t3.
+    //
+    // Plain-language flow:
+    //
+    // 1. Game/render code chooses a texture handle.
+    // 2. The texture registry resolves that to a persistent SRV descriptor row
+    //    in the CPU-only staging heap.
+    // 3. This draw gets a transient row in the shader-visible heap.
+    // 4. The persistent descriptor is copied into the transient row.
+    // 5. The command list binds the transient row's GPU handle.
+    // 6. When the pixel shader samples t0/t1/t2/t3, the GPU follows that handle.
+    //
+    // DX12 does not bind "the C++ texture object" directly. It binds a descriptor
+    // table row that describes how the shader should read that texture.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootdescriptortable
     if ( m_texBindingsDirty )
     {
@@ -2064,7 +2145,13 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
 
         // ------------------------------------------------------------------
         // Source SRV: single-level view of the source mip.
-        // Create directly in the shader-visible heap (transient slot).
+        //
+        // A mip is one resolution level of a texture. The compute shader reads
+        // one source mip and writes up to four smaller destination mips. This
+        // descriptor says "when the shader reads this SRV, expose only mip N."
+        //
+        // This descriptor is transient because it is useful only while this
+        // command list records the current mip-generation dispatch.
         // ------------------------------------------------------------------
         UINT srcSrvIdx = AllocateTransientSRV();
         {
@@ -2080,8 +2167,14 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
         }
 
         // ------------------------------------------------------------------
-        // UAV slots: 4 consecutive transient slots (u0=base, u1=+1, u2=+2, u3=+3).
-        // Valid mips get real UAVs; unused slots get the null UAV.
+        // UAV slots: 4 consecutive transient slots (u0=base, u1=+1, u2=+2,
+        // u3=+3).
+        //
+        // UAV means Unordered Access View: the shader can write through it.
+        // The generate-mips shader writes up to four destination mips in one
+        // dispatch. The root signature expects four UAV table entries every
+        // time, so unused entries receive a null UAV descriptor rather than a
+        // missing table row.
         // ------------------------------------------------------------------
         UINT uavBase = AllocateTransientSRV(); // u0
         AllocateTransientSRV();                // u1
@@ -3319,6 +3412,13 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj, const 
     }
     if ( allValid )
     {
+        // Root parameter [3] is one descriptor table with eight consecutive SRV
+        // rows. AllocateTransientSRV() returns the first row, then the following
+        // calls reserve row +1 through row +7 so the table is contiguous.
+        //
+        // Contiguous matters because the shader sees this as t0..t7 starting at
+        // one base GPU handle. It does not know about our texture registry or
+        // individual C++ texture handles.
         UINT slot0 = AllocateTransientSRV();
         for ( int i = 1; i < 8; ++i )
         {
