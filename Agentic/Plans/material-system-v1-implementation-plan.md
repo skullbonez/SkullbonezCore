@@ -7,9 +7,9 @@ Implementation status: plan only, no code changes in this pass
 
 ## Goal
 
-Add a small renderer-neutral material system that replaces overloaded tint/mode behavior while preserving existing scenes and styles.
+Add a small backend-neutral material system that replaces overloaded tint/mode behavior while preserving existing scenes and styles.
 
-This is not a full material graph. The target is a compact, deterministic, tri-renderer-friendly material layer that supports the concept scenes and cleans up the shader architecture.
+This is not a full material graph. The target is a compact, deterministic CPU material layer that supports the concept scenes and cleans up the shader architecture. DX12 is the canonical production renderer, but material authoring should stay independent of D3D12 handles so a future Vulkan or Metal backend can consume the same scene/style data.
 
 ## Current Read
 
@@ -34,13 +34,14 @@ This is clever but too implicit:
 
 ## Design Principles
 
-1. Keep material data renderer-neutral.
+1. Keep material data backend-neutral.
 2. Preserve old scene/style syntax at first.
 3. Keep batching intact.
-4. Avoid DX12 root-signature changes in v1.
+4. Avoid DX12 root-signature changes in v1 unless the feature explicitly requires a GPU material table.
 5. Prefer explicit material params over shader hard-codes.
 6. Keep physics materials separate from render materials.
 7. Keep UI/debug shaders out of the material system.
+8. Keep D3D12 descriptors, Vulkan descriptors, and Metal resources out of scene/style authoring.
 
 ## Data Model
 
@@ -181,7 +182,7 @@ Pros:
 
 - No root signature change.
 - No GPU material table.
-- Simple GL/DX11/DX12 implementation.
+- Simple implementation for current backends and a low-risk DX12 migration step.
 - Good for current object counts.
 
 Cons:
@@ -189,7 +190,7 @@ Cons:
 - More instance bandwidth.
 - Repeats material data for many objects with same material.
 
-Recommendation: use this for v1.
+Recommendation: use this for v1 unless profiling or material complexity proves the need for an earlier DX12 GPU material table.
 
 ### Option B: Material Index Plus GPU Table
 
@@ -211,7 +212,7 @@ Cons:
 - More backend-specific work.
 - Likely DX12 root signature/resource contract changes.
 
-Recommendation: defer until v1 proves the need.
+Recommendation: defer until v1 proves the need, then make DX12 the first implementation while keeping the CPU material registry and scene/style syntax unchanged.
 
 ## Shader Mapping
 
@@ -328,8 +329,8 @@ Validation:
 
 | Risk | Mitigation |
 |------|------------|
-| Object batching breaks | Update all GL/DX11/DX12 instanced layouts in one tightly scoped slice. |
-| Cross-renderer material drift | Keep shader contract checks and renderer validation central. |
+| Object batching breaks | Update the active DX12 layout first, and keep any still-supported comparison backend layouts in the same tightly scoped slice. |
+| Material contract leaks DX12 details | Keep D3D12 descriptors and root-signature details inside renderer code, not scene/style material records. |
 | Material data gets mixed into physics | Use render-specific names and avoid existing physics `materialId`. |
 | Payload grows too much | Validate perf, then consider material table v2. |
 | Old style files change appearance | Preserve legacy token mapping and compare baselines. |
@@ -340,4 +341,4 @@ Validation:
 - `lit_textured_instanced` receives explicit material params.
 - Existing material modes remain compatible.
 - Concept scenes can assign multiple visual material families in one scene.
-- GL, DX11, and DX12 remain visually equivalent under renderer validation.
+- DX12 renders the material families consistently under screenshot validation, with GL/DX11 comparison maintained only while those backends remain active.

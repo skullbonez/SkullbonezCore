@@ -11,6 +11,8 @@ Plan the DX12 resource-binding cleanup needed to support future material and pos
 
 This is not the first shader cleanup slice. The first material system should use packed instance params and the existing root signature. This plan describes what to do when the renderer genuinely needs more texture/material resources.
 
+DX12 is now the canonical production renderer, but the engine should still name resource concepts in backend-neutral terms. A pass should ask for frame constants, material data, instance data, global textures, and pass-local resources; the DX12 implementation maps those concepts to root signatures and descriptor heaps. A future Vulkan or Metal backend should be able to map the same concepts to descriptor sets, argument buffers, or equivalent resource tables.
+
 ## Current Read
 
 Current ordinary DX12 raster root signature:
@@ -45,7 +47,8 @@ This works for current passes. It is narrow for material tables, more post textu
 3. Make descriptor allocation frame-scoped where resources are transient.
 4. Keep DX12 validation zero-error.
 5. Avoid bindless until the engine has enough texture/material pressure to justify it.
-6. Keep GL 3.3 parity in mind when designing material data.
+6. Keep material and pass contracts backend-neutral even when the first implementation is DX12-specific.
+7. Prefer resource layouts that can later map to Vulkan descriptors and Metal argument buffers without changing scene/style data.
 
 ## Near-Term Recommendation
 
@@ -58,9 +61,9 @@ For material system v1:
 
 Reason:
 
-- It keeps GL/DX11/DX12 implementation aligned.
 - It reduces risk while material semantics are still being cleaned up.
 - It avoids a DX12-heavy change blocking shader architecture cleanup.
+- It keeps the CPU material model independent from the eventual GPU binding model.
 
 ## Medium-Term Needs
 
@@ -134,7 +137,7 @@ Cons:
 - Requires shader sampling for material params.
 - Precision/format choices matter.
 
-Best first GPU material table option if packed instance params become too costly.
+Best first GPU material table option if packed instance params become too costly and portability matters more than DX12-native structured-buffer ergonomics.
 
 ### Model D: Structured Buffer Material Table
 
@@ -151,7 +154,7 @@ Cons:
 - Requires more backend abstraction.
 - More resource binding changes.
 
-Defer unless GL constraints are relaxed or a compatibility path is designed.
+Good DX12-first option once material semantics are stable. If future Vulkan/Metal support is active at that point, define the engine material-table contract first and map it to each backend deliberately.
 
 ### Model E: Bindless Descriptor Heap
 
@@ -169,6 +172,21 @@ Cons:
 - Requires broader renderer abstraction changes.
 
 Do not do for v1/v2.
+
+### Model F: Engine Resource Binding ABI
+
+Define the binding contract in engine terms before changing root signatures:
+
+- frame/pass constants,
+- material table,
+- instance buffer,
+- mesh/geometry buffers,
+- global texture table,
+- pass-local SRVs/UAVs,
+- sampler set,
+- debug resources.
+
+DX12 mapping should then choose root parameters, descriptor tables, register spaces, and static samplers. Future mappings can choose Vulkan descriptor sets or Metal argument buffers without changing material/style authoring.
 
 ## Descriptor Allocator Plan
 
@@ -327,7 +345,7 @@ Validation:
 
 Tasks:
 
-1. Prefer material texture for tri-renderer portability.
+1. Prefer material texture when backend portability matters more than DX12-native structured-buffer ergonomics.
 2. Add material texture creation/update path.
 3. Instance data carries material index.
 4. Shaders sample material row.
@@ -355,7 +373,7 @@ Validation:
 | Root signature change breaks all PSOs | Change in isolated slice and rebuild PSO cache key. |
 | Descriptor overwrite while GPU reads | Make transient allocation frame-scoped and fence-aware. |
 | Upload buffer overflow causes stalls | Track peaks and grow deliberately. |
-| Material table diverges from GL | Prefer material texture or keep per-instance params. |
+| Material table leaks backend details | Keep the CPU material registry backend-neutral and isolate descriptor/table decisions in renderer code. |
 | Debug counters perturb performance | Compile or gate debug counters appropriately. |
 
 ## Success Criteria

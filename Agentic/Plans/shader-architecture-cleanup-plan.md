@@ -10,11 +10,11 @@ Implementation status: plan only, no code changes in this pass
 The shader architecture is not hopeless, but it is carrying several layers of history at once:
 
 - The old fixed-function migration left a useful but minimal `IShader` abstraction.
-- The tri-renderer work created parallel GL, DX11, and DX12 shader paths that are functional but manually synchronized.
+- The tri-renderer work created parallel GL, DX11, and DX12 shader paths that are functional but manually synchronized. DX12 is now the canonical production path; GL and DX11 should be treated as temporary comparison or migration paths while they exist.
 - The cinematic renderer added HDR, sky, fog, bloom, volumetric light, terrain relief, and water style controls into the same shader family.
 - The 20 concept-look work added style files and object material names, but the runtime still reduces object material data to tint RGB plus one overloaded float mode.
 
-That means the system works, but the contracts are mostly implicit. Shader inputs, texture slots, uniform names, cbuffer packing, instance attributes, and material meanings are spread across C++ call sites and duplicated GLSL/HLSL code. This is exactly the stage where a small material system and explicit shader/pass contracts will pay off. A full node material graph would be too much for this engine right now; a renderer-neutral material table plus pass manifests is the right target.
+That means the system works, but the contracts are mostly implicit. Shader inputs, texture slots, uniform names, cbuffer packing, instance attributes, and material meanings are spread across C++ call sites and duplicated GLSL/HLSL code. This is exactly the stage where a small material system and explicit shader/pass contracts will pay off. A full node material graph would be too much for this engine right now; a backend-neutral CPU material model, DX12-canonical shader metadata, and pass manifests are the right target.
 
 Recommended strategy:
 
@@ -22,8 +22,9 @@ Recommended strategy:
 2. Keep shader count low and make the existing shader families data-driven.
 3. Add a compact `RenderMaterial`/`MaterialParams` layer for objects.
 4. Separate frame/pass/style/material data in C++ even if the backend still uploads one reflected cbuffer per shader at first.
-5. Keep GLSL/HLSL hand-authored for now, but add manifest and validation checks to prevent silent drift.
+5. Make HLSL/DXC reflection the canonical shader contract for production, while keeping current GLSL/HLSL drift visible until old comparison backends are retired.
 6. Defer heavy backend/root-signature changes until the material v1 shape is proven.
+7. Keep shader metadata portable enough that a future Vulkan or Metal backend can map engine contracts to SPIR-V/MSL without changing scene or material authoring.
 
 ## Current Architecture Read
 
@@ -268,7 +269,7 @@ The largest shaders are manually duplicated:
 - `water_calm.frag` and `water_calm.hlsl`
 - `water_ocean.frag` and `water_ocean.hlsl`
 
-Manual duplication is fine for a small engine, but only if there is tooling to compare contracts and validation that catches visual drift. Right now there is no manifest or static check.
+Manual duplication is acceptable only as a transition aid. While GL/DX11 remain in tree, tooling should compare contracts and validation should catch visual drift. Long term, HLSL/DXC reflection should produce the canonical shader metadata, with any future Vulkan/Metal path generated or translated from that contract rather than maintained as a second handwritten source family.
 
 ### 5. Missing Uniforms Are Silent
 
@@ -848,8 +849,8 @@ Validation:
 
 ### Keep
 
-- Keep the tri-renderer shader family model.
-- Keep GL/HLSL parallel sources for now.
+- Keep HLSL as the canonical production shader source.
+- Keep GL/HLSL parallel sources only while GL/DX11 comparison paths remain useful.
 - Keep `IShader` name-based setters as a compatibility layer.
 - Keep current shader families and make them data-driven.
 - Keep collision visualization separate from production materials.
@@ -862,12 +863,13 @@ Validation:
 - Move shader binding into pass-specific helpers.
 - Replace overloaded `tint.a` material modes with explicit material params.
 - Add diagnostics for missing uniforms/resources.
-- Add shader inventory and contract checking.
+- Add shader inventory and contract checking from DXC/reflection-backed metadata.
+- Define shader contracts in engine terms so future Vulkan/Metal mapping is possible without rewriting material/style data.
 
 ### Defer
 
 - Full material graph.
-- Shader language unification through Slang or a custom compiler.
+- Shader language/toolchain unification through Slang, SPIR-V, or MSL translation until HLSL contracts are stable.
 - Bindless textures.
 - DX12 root signature expansion.
 - GPU material tables.
@@ -920,8 +922,9 @@ These commands are targeted pre-commit/PR gates, not as-you-go validation.
 
 | Risk | Why It Matters | Mitigation |
 |------|----------------|------------|
-| Cross-renderer shader drift | GLSL/HLSL are manually duplicated | Add manifests, contract checker, and renderer validation before committing each shader slice. |
+| Legacy shader drift | GLSL/HLSL are manually duplicated while GL/DX11 remain | Add manifests, contract checker, and renderer validation before committing each shader slice; retire duplicate sources when the comparison backends are removed. |
 | DX12 root signature churn | Material tables can force descriptor changes | Use packed instance params for material v1. |
+| Future Vulkan/Metal lockout | DX12 details could leak into scene/material contracts | Keep pass, material, vertex-layout, and shader metadata in engine-owned terms; isolate D3D12-specific binding details in the DX12 device/shader layer. |
 | Instance payload growth | Larger per-instance uploads can hurt perf | Measure with `validate_perf` if object batches change. |
 | Silent missing uniforms | Current setters hide typos and shader drift | Add dev diagnostics before behavior changes. |
 | Style config sprawl | `CinematicRenderConfig` already carries many unrelated settings | Introduce pass/style/material bind structs without breaking existing directives. |
@@ -944,11 +947,11 @@ The cleanup is successful when:
 
 - A new shader pass has an explicit contract before it is used.
 - Material names in style files map to typed render materials, not magic floats.
-- Existing scenes still render through GL, DX11, and DX12 with acceptable pixel diffs.
+- Existing DX12 scenes retain their intended appearance under screenshot validation; GL/DX11 comparison remains useful only while those backends stay active.
 - Material look changes happen in data and compact shader modes, not shader file forks.
 - Missing shader inputs are visible during development.
 - The DX12 root signature is changed only for a clear resource-model reason.
-- The renderer remains a tri-renderer parity testbed rather than an OpenGL look-dev branch with delayed DirectX fixes.
+- Shader/material contracts are DX12-canonical but not hard-wired to D3D12 scene data, leaving a future Vulkan/Metal mapping path open.
 
 ## Final Recommendation
 

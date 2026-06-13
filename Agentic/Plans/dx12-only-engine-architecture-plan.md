@@ -7,9 +7,11 @@ Implementation status: plan only, no code changes in this pass
 
 ## Goal
 
-Describe a clean DirectX 12-only renderer architecture for SkullbonezCore if the engine no longer needed GL and DX11 parity.
+Describe a clean DirectX 12-first renderer architecture for SkullbonezCore now that DX12 is the canonical production graphics API.
 
-This is not the recommended near-term path for the current branch. The active codebase is still a tri-renderer parity testbed, and that parity catches valuable bugs. This plan answers a different question: what the architecture should look like if DX12 became the only production backend and the renderer could embrace explicit GPU resource ownership, descriptor heaps, command lists, shader model 6, and PIX-first diagnostics.
+The old GL/DX11/DX12 parity model is no longer the long-term product contract. GL and DX11 may still catch useful migration bugs while they exist, but new renderer architecture should assume DX12 owns the production path and should embrace explicit GPU resource ownership, descriptor heaps, command lists, shader model 6, and PIX-first diagnostics.
+
+Future Vulkan and Metal support should remain possible, but not by keeping the old `IRenderBackend` shape alive indefinitely. The engine should define its own render-pass, resource, material, shader-metadata, and synchronization contracts. DX12 is the first concrete implementation; Vulkan and Metal can map to those contracts later.
 
 ## Design Position
 
@@ -31,6 +33,13 @@ Current renderer shape to retire or narrow:
 - fixed `t0`, `t1`, `t2` texture-slot thinking,
 - pass resources scattered across `SkullbonezRunRender.cpp`, helper classes, terrain, water, sky, and UI,
 - GL/DX coordinate compatibility constraints inside new DX12 code.
+
+Portability constraint:
+
+- Keep high-level render data API-neutral: passes, resource access, material properties, vertex layouts, and shader reflection metadata should use engine terms.
+- Allow DX12 implementation details inside `Dx12RenderDevice`, root signatures, descriptor heaps, PSOs, barriers, and DXR systems.
+- Do not add a Vulkan/Metal abstraction before the DX12 render graph and material/resource model are stable.
+- When choosing a data model, prefer shapes that can later map to Vulkan descriptors/SPIR-V and Metal argument buffers/MSL without changing scene or material authoring.
 
 ## Architecture Overview
 
@@ -319,7 +328,7 @@ Rules:
 
 ### 6. Shader System
 
-DX12-only means HLSL should become the single shader source.
+DX12-first means HLSL should become the canonical shader source for production. Do not preserve duplicated GLSL/HLSL authoring as a long-term requirement.
 
 Recommended stack:
 
@@ -329,6 +338,13 @@ Recommended stack:
 - optional checked-in DXIL cache only if build speed needs it,
 - reflection output cached as engine metadata,
 - shader PDBs and names for PIX.
+
+Portability rule:
+
+- Treat shader metadata as engine data, not D3D12-only trivia.
+- Keep entry points, vertex layouts, constant buffers, resource bindings, register spaces, and material feature flags explicit enough to cross-compile or translate later.
+- If Vulkan support becomes active, prefer a deliberate HLSL-to-SPIR-V pipeline or a shader language toolchain evaluation over reviving manually synchronized shader pairs.
+- If Metal support becomes active, assume either a native Metal backend with translated shaders or a Vulkan portability route through MoltenVK; do not depend on every Vulkan feature being available on Apple platforms.
 
 Shader artifact metadata:
 
@@ -560,7 +576,7 @@ Object rendering should move toward:
 
 ### 12. Material System
 
-DX12-only can use a real GPU material table earlier than the tri-renderer plan.
+DX12-first can use a real GPU material table earlier than the old tri-renderer plan, but the CPU material model should remain backend-neutral.
 
 CPU material:
 
@@ -816,8 +832,8 @@ If this were pursued, do not rewrite the engine in one jump.
 
 Tasks:
 
-1. Decide that DX12-only is a real product direction.
-2. Freeze tri-renderer behavior with screenshot baselines.
+1. Record that DX12 is the canonical production renderer.
+2. Freeze current visual behavior with screenshot baselines before removing old comparison paths.
 3. Capture current DX12 PIX frames for representative scenes.
 4. Record current perf numbers.
 5. Create `dx12_only` validation scripts.
@@ -985,13 +1001,13 @@ A successful DX12-only architecture has:
 
 ## Final Recommendation
 
-If the engine becomes DX12-only, take the opportunity to become truly DX12-native:
+With DX12 as the canonical graphics API, take the opportunity to become truly DX12-native while keeping future backend portability at the engine-contract level:
 
 1. Keep the current visible frame composition and deterministic validation mindset.
 2. Replace backend abstraction with a `Dx12RenderDevice`.
 3. Put a render graph in charge of pass order, resources, and barriers.
 4. Move materials to GPU tables and descriptor indices.
-5. Use HLSL/DXC/reflection as the single shader contract.
+5. Use HLSL/DXC/reflection as the production shader contract and preserve enough shader metadata for a future SPIR-V/MSL path.
 6. Treat diagnostics, PIX markers, DRED, GBV, and screenshot baselines as core architecture, not optional debugging extras.
 
 Do not start with async compute, bindless everything, or a deferred renderer rewrite. Start with explicit ownership and boring correctness. Once barriers, descriptors, materials, and pass resources are stable, the more ambitious DX12 features will have somewhere sane to land.

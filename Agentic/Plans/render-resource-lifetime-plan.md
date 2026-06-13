@@ -11,13 +11,13 @@ Formalize how renderer-owned resources are created, invalidated, rebuilt, and de
 
 - startup,
 - scene load,
-- renderer hot switch,
 - window resize,
 - fullscreen target resize,
 - style/material reload,
-- future device loss.
+- future device loss,
+- optional renderer/backend migration paths while GL/DX11 remain in tree.
 
-The current code already has careful reset phases. This plan turns that careful procedure into an explicit resource-lifetime architecture so future shader/material work does not add more ad hoc reset paths.
+The current code already has careful reset phases. This plan turns that careful procedure into an explicit resource-lifetime architecture so future shader/material work does not add more ad hoc reset paths. DX12 is now the canonical production renderer, so device-loss, resize, descriptor, upload, and pass-target lifetimes matter more than preserving runtime hot-switching forever.
 
 ## Current Read
 
@@ -63,7 +63,7 @@ Renderer-owned resources are spread across many systems:
   - DXR resources,
   - PSOs and root signatures.
 
-Renderer hot-switching requires CPU source data to survive while GPU resources are rebuilt for the new backend.
+The existing renderer hot-switching path requires CPU source data to survive while GPU resources are rebuilt for another backend. That separation remains valuable even if GL/DX11 are retired: DX12 device loss, resize, shader/material reloads, and future Vulkan/Metal backend work all need clean source-vs-GPU ownership.
 
 ## Main Problems
 
@@ -72,9 +72,9 @@ Renderer hot-switching requires CPU source data to survive while GPU resources a
 Example distinction:
 
 - Source asset: `sky1.jpg`, terrain raw data, shader base name, scene style material name.
-- GPU resource: GL texture ID, DX11 SRV, DX12 SRV descriptor, mesh VB, FBO color texture.
+- GPU resource: DX12 resource/descriptor, GL texture ID, DX11 SRV, future Vulkan image/view, future Metal texture, mesh VB, FBO color texture.
 
-Some systems know both sides. That makes renderer switching harder because only the GPU side should be invalidated.
+Some systems know both sides. That makes renderer switching, device reset, and future backend migration harder because only the GPU side should be invalidated.
 
 ### 2. Reset Order Is Important But Not Fully Encoded
 
@@ -84,18 +84,18 @@ Some resources depend on others:
 - Post passes sample scene/depth/volumetric textures.
 - Text uses font atlas texture and dynamic VBs.
 - DX12 descriptors reference resources that must not be released while in flight.
-- Renderer switch must flush/finish GPU before destroying backend resources.
+- Renderer switch or DX12 device reset must flush/finish GPU before destroying backend resources.
 
 The order exists in runtime code, but the dependency model is not explicit enough.
 
-### 3. Resize And Renderer Switch Are Different Events
+### 3. Resize And Backend/Device Reset Are Different Events
 
 Not every resource should rebuild on every event:
 
-- Shader programs rebuild on renderer switch, not resize.
+- Shader programs rebuild on backend/device reset, not resize.
 - Swapchain-dependent FBOs rebuild on resize.
-- Terrain mesh rebuilds on renderer switch, not resize.
-- Font atlas texture rebuilds on renderer switch, maybe not resize.
+- Terrain mesh rebuilds on backend/device reset, not resize.
+- Font atlas texture rebuilds on backend/device reset, maybe not resize.
 - UI blur cache rebuilds on resize/content change.
 
 The architecture should encode invalidation reasons.
@@ -107,8 +107,8 @@ Introduce a renderer resource registry eventually. Start with explicit resource 
 ```cpp
 enum class RenderResourceInvalidation
 {
-    RendererDestroyed,
-    RendererCreated,
+    BackendDestroyed,
+    BackendCreated,
     WindowResized,
     SceneLoaded,
     StyleReloaded,
@@ -147,7 +147,7 @@ Lifetime:
 
 - Created during backend `Init`.
 - Destroyed during backend `Shutdown`.
-- Recreated during renderer switch.
+- Recreated during renderer switch or DX12 device reset.
 - Backbuffer/depth resized during `Resize`.
 
 ### Source Asset Records
@@ -162,7 +162,7 @@ Owned by future asset registry:
 
 Lifetime:
 
-- Survive renderer switch.
+- Survive renderer switch and DX12 device reset.
 - Survive resize.
 - May reload on source file change or scene/style load.
 
@@ -179,7 +179,7 @@ Examples:
 Lifetime:
 
 - Backend-specific.
-- Invalid on renderer switch.
+- Invalid on renderer switch or DX12 device reset.
 - Usually valid across resize.
 - Rebuilt from source asset records.
 
@@ -195,7 +195,7 @@ Examples:
 Lifetime:
 
 - Backend-specific.
-- Invalid on renderer switch.
+- Invalid on renderer switch or DX12 device reset.
 - Resize-dependent.
 - Format-dependent.
 
@@ -211,7 +211,7 @@ Examples:
 Lifetime:
 
 - Backend-specific.
-- Often invalid on renderer switch.
+- Often invalid on renderer switch or DX12 device reset.
 - Some invalid on style/material mode changes only if shader variants are introduced.
 
 ## Recommended Ownership
@@ -245,7 +245,7 @@ Expected order:
 5. Load scene and create scene CPU state.
 6. Build render resources needed by scene.
 
-### Renderer Switch
+### Renderer Switch Or Backend Migration
 
 Required high-level order:
 
@@ -259,6 +259,8 @@ Required high-level order:
 8. Resume rendering.
 
 No source asset or physics state should be destroyed by renderer switch.
+
+DX12-only production does not require runtime hot-switching as a user-facing feature forever. Keep this lifecycle machinery while GL/DX11 still exist, and preserve the underlying release/rebuild discipline for DX12 device reset and future Vulkan/Metal backend bring-up.
 
 ### Resize
 
@@ -309,7 +311,7 @@ Style reload should not rebuild terrain physics, object physics, or backend core
 
 Tasks:
 
-1. Add or update a reference doc listing current renderer-switch reset order.
+1. Add or update a reference doc listing current backend/device reset order.
 2. For each resource group, mark:
    - source data owner,
    - GPU data owner,
@@ -324,7 +326,7 @@ Validation:
 
 Tasks:
 
-1. Convert renderer-switch release/rebuild calls into a table of named steps if not already complete.
+1. Convert backend/device release/rebuild calls into a table of named steps if not already complete.
 2. Ensure every step logs enough context in debug/dev mode.
 3. Keep the same order.
 
@@ -337,7 +339,7 @@ Validation:
 
 Tasks:
 
-1. Separate renderer-switch invalidation from resize invalidation.
+1. Separate backend/device invalidation from resize invalidation.
 2. Add target-size checks inside FBO owners.
 3. Avoid shader/mesh rebuilds on resize.
 
@@ -373,7 +375,7 @@ Validation:
 
 Tasks:
 
-1. Treat device lost as renderer switch without a renderer type change.
+1. Treat device lost as backend/device reset without a renderer type change.
 2. Reuse the release/rebuild machinery.
 3. Add clear diagnostics for failed rebuild step.
 
@@ -387,7 +389,7 @@ Validation:
 | Change | Validation |
 |--------|------------|
 | Resource lifetime docs | No validation required |
-| Renderer-switch phase table refactor | `tools\validate_renderers.bat` |
+| Backend/device phase table refactor | `tools\validate_renderers.bat` |
 | Resize invalidation changes | `tools\validate_renderers.bat` |
 | Backend resource destruction/rebuild changes | `tools\validate_renderers.bat` and DX12 validation log check |
 | Broad runtime lifecycle changes | `tools\validate_full.bat` |
@@ -397,16 +399,16 @@ Validation:
 
 | Risk | Mitigation |
 |------|------------|
-| Releasing resource while GPU still uses it | Always finish/flush before backend switch destruction; be strict in DX12. |
+| Releasing resource while GPU still uses it | Always finish/flush before backend switch or device-reset destruction; be strict in DX12. |
 | Rebuilding resources in wrong order | Use named ordered tables and logs. |
-| Resize triggers unnecessary rebuild work | Separate resize invalidation from renderer invalidation. |
-| Source data lost during renderer switch | Store source asset records outside backend resources. |
+| Resize triggers unnecessary rebuild work | Separate resize invalidation from backend/device invalidation. |
+| Source data lost during renderer switch or reset | Store source asset records outside backend resources. |
 | New pass resources miss reset hooks | Require every pass to implement or register reset behavior before extraction is accepted. |
 
 ## Success Criteria
 
-- Renderer switch and resize are explicit lifecycle events.
+- Backend/device reset and resize are explicit lifecycle events.
 - Each renderer-owned resource has a documented owner and rebuild trigger.
 - Future material/shader resources can be added without searching the whole runtime for reset paths.
-- Source data survives backend switching.
+- Source data survives backend switching, DX12 device reset, and future backend migration.
 - DX12 resources are never released or reused while GPU work is in flight.
