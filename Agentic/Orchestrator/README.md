@@ -20,6 +20,9 @@ universal agent rules.
 To kick off the loop without pasting a one-off prompt, use
 `Agentic/Skills/skore-roadmap-orchestrator/skill.md`.
 
+Recent setup report:
+[`generic-roadmap-orchestrator-skill`](../Runs/2026-06-13/generic-roadmap-orchestrator-skill/report.md).
+
 ## Current Safety Defaults
 
 - The orchestrator is disabled by default.
