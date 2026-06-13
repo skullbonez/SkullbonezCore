@@ -13,7 +13,7 @@ require explicit user confirmation.
 ## Before Editing
 
 1. Read this file and `README.md`.
-2. Identify your change's impact area: GL, DX11, DX12, physics, scene system, tests, documentation.
+2. Identify your change's impact area: DX12, GL/DX11 parity, physics, scene system, tests, documentation.
 3. State whether validation is required now. For normal implementation work, do not run repository validation scripts while iterating; name the targeted validation command to defer until PR-bound commit/PR prep. For documentation-only changes, state that no validation is required.
 4. On a fresh machine or failed tool lookup, read `FIRST_TIME_SETUP.md`.
 
@@ -80,7 +80,8 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 - **Kill processes by PID only**; never use `taskkill /IM` or `Stop-Process -Name`.
 - **Zero warnings** at `/W4`; no exceptions.
 - **Zero DX12 validation errors**; no exceptions.
-- **All three renderers** must produce visually identical output, with average pixel diff below 10.
+- **DX12 is the official production renderer.** OpenGL and DX11 are legacy parity/reference renderers while they remain in tree.
+- **Parity renderers** must produce visually identical output, with average pixel diff below 10, until the DX12-only validation stack replaces them and they are removed.
 - **Physics must be deterministic**; byte-exact CSV match against baselines.
 
 ---
@@ -109,11 +110,11 @@ run the specified targeted validation:
 | Area | Risk | Required Validation |
 |------|------|---------------------|
 | DX12 resource barriers | GPU hang, corruption, CPU/GPU race | `validate_renderers` + verify `dx12_validation.txt` = 0 |
-| Renderer backend parity | Visual divergence GL vs DX11 vs DX12 | `validate_renderers` cross-renderer pixel diff |
+| Renderer backend parity | Visual divergence across DX12 and legacy parity renderers | `validate_renderers` cross-renderer pixel diff |
 | Per-frame heap allocations | Performance cliff, stall spikes | `validate_perf` + manual hot path review |
 | Visual regression baselines | False passes hide real bugs | `validate_renderers` + intentional baseline update |
 | Physics regression baselines | Stale baselines hide real behavior changes | Update only from final Debug artifacts, then rerun `validate_physics` |
-| Matrix conventions | Entire scene renders incorrectly | `validate_renderers` across all 3 backends |
+| Matrix conventions | Entire scene renders incorrectly | `validate_renderers` across DX12 and active parity backends |
 | Physics determinism | Butterfly-effect divergence over frames | `validate_physics` byte-exact CSV diff |
 | Screenshot timing | Flaky non-deterministic captures | `validate_renderers` |
 | Fixed-step simulation behavior | Physics replay not reproducible | `validate_physics` |

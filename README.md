@@ -1,13 +1,15 @@
 # SkullbonezCore
 
-SkullbonezCore is a Windows x64 C++17 graphics and physics engine originally written in 2005 and modernized into a shader-based tri-renderer testbed.
+SkullbonezCore is a Windows x64 C++17 graphics and physics engine originally written in 2005 and modernized into a DX12-first shader-based engine.
 
-It supports:
-- OpenGL 3.3 Core Profile
-- DirectX 11
+Official production graphics API:
 - DirectX 12 with in-process InfoQueue validation
 
-All three renderers are expected to produce visually equivalent output.
+Legacy parity/reference renderers kept for validation while they remain in tree:
+- OpenGL 3.3 Core Profile
+- DirectX 11
+
+New renderer architecture, shader work, materials, diagnostics, and user-facing features should target DX12 first. OpenGL and DX11 are retained to catch visual drift and convention bugs during the DX12 migration, not as long-term product targets. While the parity renderers exist, they are expected to produce visually equivalent output in the renderer validation suite.
 
 ![SkullbonezCore](https://github.com/skullbonez/SkullbonezCore/blob/main/SkullbonezCore.png)
 
@@ -78,10 +80,12 @@ tools\validate_select.bat format build-profile
 ## Common Launches
 
 ```bat
-Profile\SKULLBONEZ_CORE.exe --renderer gl
-Profile\SKULLBONEZ_CORE.exe --renderer dx11 --scene SkullbonezData\scenes\water_ball_test.scene
 Profile\SKULLBONEZ_CORE.exe --renderer dx12 --suite SkullbonezData\scenes\render_tests.suite --vsync off
 Profile\SKULLBONEZ_CORE.exe --fixed-step --scene SkullbonezData\scenes\perf_test.scene --vsync off
+
+REM Legacy parity/reference paths while they remain in tree:
+Profile\SKULLBONEZ_CORE.exe --renderer gl
+Profile\SKULLBONEZ_CORE.exe --renderer dx11 --scene SkullbonezData\scenes\water_ball_test.scene
 ```
 
 ## Repository Map

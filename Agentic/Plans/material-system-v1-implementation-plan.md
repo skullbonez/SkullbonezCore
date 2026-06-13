@@ -9,7 +9,7 @@ Implementation status: plan only, no code changes in this pass
 
 Add a small backend-neutral material system that replaces overloaded tint/mode behavior while preserving existing scenes and styles.
 
-This is not a full material graph. The target is a compact, deterministic CPU material layer that supports the concept scenes and cleans up the shader architecture. DX12 is the canonical production renderer, but material authoring should stay independent of D3D12 handles so a future Vulkan or Metal backend can consume the same scene/style data.
+This is not a full material graph. The target is a compact, deterministic CPU material layer that supports the concept scenes and cleans up the shader architecture. DX12 is the official production renderer, but material authoring should stay independent of D3D12 handles so a future Vulkan or Metal backend can consume the same scene/style data.
 
 ## Current Read
 
@@ -341,4 +341,4 @@ Validation:
 - `lit_textured_instanced` receives explicit material params.
 - Existing material modes remain compatible.
 - Concept scenes can assign multiple visual material families in one scene.
-- DX12 renders the material families consistently under screenshot validation, with GL/DX11 comparison maintained only while those backends remain active.
+- DX12 renders the material families consistently under screenshot validation, with GL/DX11 parity maintained only while those backends remain active.

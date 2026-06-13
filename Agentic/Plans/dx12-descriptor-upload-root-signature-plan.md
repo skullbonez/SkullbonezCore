@@ -11,7 +11,7 @@ Plan the DX12 resource-binding cleanup needed to support future material and pos
 
 This is not the first shader cleanup slice. The first material system should use packed instance params and the existing root signature. This plan describes what to do when the renderer genuinely needs more texture/material resources.
 
-DX12 is now the canonical production renderer, but the engine should still name resource concepts in backend-neutral terms. A pass should ask for frame constants, material data, instance data, global textures, and pass-local resources; the DX12 implementation maps those concepts to root signatures and descriptor heaps. A future Vulkan or Metal backend should be able to map the same concepts to descriptor sets, argument buffers, or equivalent resource tables.
+DX12 is now the official production renderer, but the engine should still name resource concepts in backend-neutral terms. A pass should ask for frame constants, material data, instance data, global textures, and pass-local resources; the DX12 implementation maps those concepts to root signatures and descriptor heaps. A future Vulkan or Metal backend should be able to map the same concepts to descriptor sets, argument buffers, or equivalent resource tables.
 
 ## Current Read
 

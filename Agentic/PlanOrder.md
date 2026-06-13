@@ -4,9 +4,11 @@ Generated: 2026-06-13
 
 Scope: top-level `Agentic/Plans/*.md` files only. Completed, failed, rejected, and nested historical plans are excluded.
 
-This order reflects the current product direction: DX12 is the canonical production renderer. GL and DX11 can remain useful as temporary comparison backends while they exist, but new render architecture should be designed around DX12-native ownership, diagnostics, and validation.
+This order reflects the current product direction: DX12 is the official production renderer. GL and DX11 are legacy parity/reference backends while they remain in tree; keep using them to catch visual drift and convention bugs, but do not treat them as long-term product targets.
 
 Future Vulkan and Metal support should influence the engine contracts without becoming the near-term implementation target. Express render passes, shader metadata, materials, resources, and synchronization in engine-owned terms first, then map those contracts to DX12 now and Vulkan/Metal later.
+
+Retirement policy: build the DX12-only validation stack before deleting parity backends, retire OpenGL first, and retire DX11 after DX12 screenshot/debug-layer/WARP/GBV/PIX diagnostics can replace cross-renderer parity confidence.
 
 ## Tackle Order
 

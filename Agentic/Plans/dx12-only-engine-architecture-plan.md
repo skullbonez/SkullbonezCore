@@ -7,11 +7,19 @@ Implementation status: plan only, no code changes in this pass
 
 ## Goal
 
-Describe a clean DirectX 12-first renderer architecture for SkullbonezCore now that DX12 is the canonical production graphics API.
+Describe a clean DirectX 12-first renderer architecture for SkullbonezCore now that DX12 is the official production graphics API.
 
-The old GL/DX11/DX12 parity model is no longer the long-term product contract. GL and DX11 may still catch useful migration bugs while they exist, but new renderer architecture should assume DX12 owns the production path and should embrace explicit GPU resource ownership, descriptor heaps, command lists, shader model 6, and PIX-first diagnostics.
+The old GL/DX11/DX12 parity model is no longer the product support contract. DX12 is the official production renderer. GL and DX11 are retained as legacy parity/reference backends while they remain in tree so they can catch useful migration bugs, visual drift, and convention mistakes. New renderer architecture should assume DX12 owns the production path and should embrace explicit GPU resource ownership, descriptor heaps, command lists, shader model 6, and PIX-first diagnostics.
 
 Future Vulkan and Metal support should remain possible, but not by keeping the old `IRenderBackend` shape alive indefinitely. The engine should define its own render-pass, resource, material, shader-metadata, and synchronization contracts. DX12 is the first concrete implementation; Vulkan and Metal can map to those contracts later.
+
+Renderer retirement policy:
+
+- Do not build new features around GL or DX11 unless doing so directly helps DX12 migration or parity diagnosis.
+- Keep GL and DX11 in renderer validation while they remain available.
+- Build DX12-only validation before deleting parity backends: screenshot baselines, zero D3D12 debug-layer errors, WARP sanity where practical, GPU-based validation for representative scenes, DRED/PIX diagnostics, descriptor/upload counters, and repeated DX12 stress runs for barrier/upload changes.
+- Retire OpenGL first because it is least aligned with the future architecture.
+- Retire DX11 after DX12 diagnostics can replace the simpler DirectX reference path.
 
 ## Design Position
 
@@ -790,7 +798,7 @@ These scripts do not exist today. They are part of the DX12-only architecture di
 
 ### 19. Validation Strategy
 
-Without GL/DX11 parity, validation shifts to:
+After GL/DX11 parity is retired, validation shifts to:
 
 - screenshot baselines,
 - deterministic replay scenes,
@@ -832,7 +840,7 @@ If this were pursued, do not rewrite the engine in one jump.
 
 Tasks:
 
-1. Record that DX12 is the canonical production renderer.
+1. Record that DX12 is the official production renderer.
 2. Freeze current visual behavior with screenshot baselines before removing old comparison paths.
 3. Capture current DX12 PIX frames for representative scenes.
 4. Record current perf numbers.

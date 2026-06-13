@@ -15,9 +15,9 @@ Formalize how renderer-owned resources are created, invalidated, rebuilt, and de
 - fullscreen target resize,
 - style/material reload,
 - future device loss,
-- optional renderer/backend migration paths while GL/DX11 remain in tree.
+- optional renderer/backend migration paths while GL/DX11 parity backends remain in tree.
 
-The current code already has careful reset phases. This plan turns that careful procedure into an explicit resource-lifetime architecture so future shader/material work does not add more ad hoc reset paths. DX12 is now the canonical production renderer, so device-loss, resize, descriptor, upload, and pass-target lifetimes matter more than preserving runtime hot-switching forever.
+The current code already has careful reset phases. This plan turns that careful procedure into an explicit resource-lifetime architecture so future shader/material work does not add more ad hoc reset paths. DX12 is now the official production renderer, so device-loss, resize, descriptor, upload, and pass-target lifetimes matter more than preserving runtime hot-switching forever.
 
 ## Current Read
 
@@ -63,7 +63,7 @@ Renderer-owned resources are spread across many systems:
   - DXR resources,
   - PSOs and root signatures.
 
-The existing renderer hot-switching path requires CPU source data to survive while GPU resources are rebuilt for another backend. That separation remains valuable even if GL/DX11 are retired: DX12 device loss, resize, shader/material reloads, and future Vulkan/Metal backend work all need clean source-vs-GPU ownership.
+The existing renderer hot-switching path requires CPU source data to survive while GPU resources are rebuilt for another backend. That separation remains valuable even after GL/DX11 parity backends are retired: DX12 device loss, resize, shader/material reloads, and future Vulkan/Metal backend work all need clean source-vs-GPU ownership.
 
 ## Main Problems
 
@@ -260,7 +260,7 @@ Required high-level order:
 
 No source asset or physics state should be destroyed by renderer switch.
 
-DX12-only production does not require runtime hot-switching as a user-facing feature forever. Keep this lifecycle machinery while GL/DX11 still exist, and preserve the underlying release/rebuild discipline for DX12 device reset and future Vulkan/Metal backend bring-up.
+DX12-only production does not require runtime hot-switching as a user-facing feature forever. Keep this lifecycle machinery while GL/DX11 parity backends still exist, and preserve the underlying release/rebuild discipline for DX12 device reset and future Vulkan/Metal backend bring-up.
 
 ### Resize
 

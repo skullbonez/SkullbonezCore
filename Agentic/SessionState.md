@@ -7,7 +7,7 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 | Field | Value |
 |-------|-------|
 | Branch | `main` in worktree `C:\SkullbonezCore` |
-| Last commit | Projectile cache invalidation and bug-note cleanup on `main`. |
+| Last commit | DX12 renderer planning docs aligned on `main`; DX12 is the official production renderer. |
 | Pending work | None currently tracked. |
 | Uncommitted changes | None expected after requested commit/push; check `git status --short`. |
 
@@ -16,6 +16,7 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 - This workspace expects Windows x64, VS2022 C++ tools, Python, Pillow, and Git for validation.
 - `git` may not be on PATH in fresh shells. Run `tools\find_git.bat` or use the validation scripts, which call it where needed.
 - Repository validation scripts are pre-commit/PR gates, not as-you-go checks. During implementation, run only targeted builds, launches, focused tests, or inspections that answer the current fix question.
+- DX12 is the official production renderer. OpenGL and DX11 are retained as legacy parity/reference backends while they remain in tree; use them to catch visual drift, not as long-term product targets.
 - Feature-branch commits and normal pushes are allowed without asking. Do not commit or push directly on `main` without explicit confirmation.
 - Do not kill `SKULLBONEZ_CORE.exe` by name. Kill only by PID from a process you launched.
 - Time large work: record wall-clock start/end and report elapsed time for pipeline runs, multi-file features, and debugging sessions.

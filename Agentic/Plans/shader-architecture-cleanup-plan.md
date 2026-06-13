@@ -10,7 +10,7 @@ Implementation status: plan only, no code changes in this pass
 The shader architecture is not hopeless, but it is carrying several layers of history at once:
 
 - The old fixed-function migration left a useful but minimal `IShader` abstraction.
-- The tri-renderer work created parallel GL, DX11, and DX12 shader paths that are functional but manually synchronized. DX12 is now the canonical production path; GL and DX11 should be treated as temporary comparison or migration paths while they exist.
+- The tri-renderer work created parallel GL, DX11, and DX12 shader paths that are functional but manually synchronized. DX12 is now the official production path; GL and DX11 should be treated as legacy parity/reference paths while they exist.
 - The cinematic renderer added HDR, sky, fog, bloom, volumetric light, terrain relief, and water style controls into the same shader family.
 - The 20 concept-look work added style files and object material names, but the runtime still reduces object material data to tint RGB plus one overloaded float mode.
 
@@ -22,7 +22,7 @@ Recommended strategy:
 2. Keep shader count low and make the existing shader families data-driven.
 3. Add a compact `RenderMaterial`/`MaterialParams` layer for objects.
 4. Separate frame/pass/style/material data in C++ even if the backend still uploads one reflected cbuffer per shader at first.
-5. Make HLSL/DXC reflection the canonical shader contract for production, while keeping current GLSL/HLSL drift visible until old comparison backends are retired.
+5. Make HLSL/DXC reflection the canonical shader contract for production, while keeping current GLSL/HLSL drift visible until old parity backends are retired.
 6. Defer heavy backend/root-signature changes until the material v1 shape is proven.
 7. Keep shader metadata portable enough that a future Vulkan or Metal backend can map engine contracts to SPIR-V/MSL without changing scene or material authoring.
 
@@ -269,7 +269,7 @@ The largest shaders are manually duplicated:
 - `water_calm.frag` and `water_calm.hlsl`
 - `water_ocean.frag` and `water_ocean.hlsl`
 
-Manual duplication is acceptable only as a transition aid. While GL/DX11 remain in tree, tooling should compare contracts and validation should catch visual drift. Long term, HLSL/DXC reflection should produce the canonical shader metadata, with any future Vulkan/Metal path generated or translated from that contract rather than maintained as a second handwritten source family.
+Manual duplication is acceptable only as a transition aid and parity aid. While GL/DX11 remain in tree, tooling should compare contracts and validation should catch visual drift. Long term, HLSL/DXC reflection should produce the canonical shader metadata, with any future Vulkan/Metal path generated or translated from that contract rather than maintained as a second handwritten source family.
 
 ### 5. Missing Uniforms Are Silent
 
@@ -850,7 +850,7 @@ Validation:
 ### Keep
 
 - Keep HLSL as the canonical production shader source.
-- Keep GL/HLSL parallel sources only while GL/DX11 comparison paths remain useful.
+- Keep GL/HLSL parallel sources only while GL/DX11 parity/reference paths remain useful.
 - Keep `IShader` name-based setters as a compatibility layer.
 - Keep current shader families and make them data-driven.
 - Keep collision visualization separate from production materials.
@@ -947,7 +947,7 @@ The cleanup is successful when:
 
 - A new shader pass has an explicit contract before it is used.
 - Material names in style files map to typed render materials, not magic floats.
-- Existing DX12 scenes retain their intended appearance under screenshot validation; GL/DX11 comparison remains useful only while those backends stay active.
+- Existing DX12 scenes retain their intended appearance under screenshot validation; GL/DX11 parity remains useful only while those backends stay active.
 - Material look changes happen in data and compact shader modes, not shader file forks.
 - Missing shader inputs are visible during development.
 - The DX12 root signature is changed only for a clear resource-model reason.
