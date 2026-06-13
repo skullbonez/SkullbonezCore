@@ -24,7 +24,8 @@ This report closes the current orchestrator queue item. It does not mean the ent
   - `7fcdc527` dump DX12 frame graph skeleton
   - `23618b64` require orchestrator reports before completion
 - Queue/status commit: `ce381d07`
-- Report commit: this report-only commit; exact SHA reported in final response
+- Report commit: `6f22d27a`
+- Diagram update commit: this report diagram commit; exact SHA reported in final response
 - Report web URL: https://github.com/skullbonez/SkullbonezCore/blob/codex/dx12-only-engine-architecture/Agentic/Reports/2026-06-14/dx12-only-engine-architecture/report.md
 - PR: none opened
 - Merge SHA: none
@@ -129,6 +130,8 @@ Orchestrator/reporting files:
 - `Agentic\Orchestrator\templates\worker-prompt.md`
 - `Agentic\Plans\Done\dx12-only-engine-architecture-plan.md`
 - `Agentic\Reports\2026-06-14\dx12-only-engine-architecture\report.md`
+- `Agentic\Reports\2026-06-14\dx12-only-engine-architecture\images\architecture-before.svg`
+- `Agentic\Reports\2026-06-14\dx12-only-engine-architecture\images\architecture-after.svg`
 
 ## Validation
 
@@ -163,7 +166,7 @@ Agentic/Runs/2026-06-13/dx12-only-engine-architecture/validate_renderers_after_f
 
 ## Screenshots And Artifacts
 
-No report images were committed for this architecture/control report.
+Two report diagrams were committed under `images/` and embedded below. No scene screenshots were committed because the work was architecture/control code rather than a visible scene change.
 
 Renderer validation artifacts were generated under:
 
@@ -184,7 +187,15 @@ TestOutput/validation/renderers/20260613T130434Z/solver_smoke_gl_vs_dx12_heatmap
 
 ## Phone-Readable Images
 
-No phone-readable images are embedded in this report. The main deliverable was render architecture code and validation behavior, not a visible scene change. Renderer comparison images remain in `TestOutput/validation/renderers/20260613T130434Z/`.
+The report includes two phone-readable architecture diagrams committed under `images/`.
+
+![Before DX12 architecture diagram](images/architecture-before.svg)
+
+![After DX12 architecture diagram](images/architecture-after.svg)
+
+The before diagram shows the old shape: DX12 production rendering existed beside the legacy GL and DX11 parity backends, but descriptor, upload, fence, barrier, and diagnostic rules were concentrated inside a large backend. The after diagram shows the implementation slice now in the branch: named DX12 helper systems, fail-fast renderer validation behavior, and the render graph contract plus transition compiler that will support later live barrier ownership.
+
+Renderer comparison images remain in `TestOutput/validation/renderers/20260613T130434Z/`.
 
 ## Interesting Code Snippets
 
