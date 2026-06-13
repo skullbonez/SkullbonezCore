@@ -1613,6 +1613,11 @@ ID3D12PipelineState* RenderBackendDX12::CreatePSO( VertexFormat12 format, bool i
     {
         throw std::runtime_error( "CreateGraphicsPipelineState failed" );
     }
+    // A graphics PSO is the compiled bundle of shaders plus fixed GPU state
+    // such as blend, depth, rasterizer, render-target format, and vertex layout.
+    // Naming cached PSOs makes PIX and debug-layer output identify the object as
+    // a Skullbonez graphics pipeline instead of an anonymous D3D12 pointer.
+    NameDx12Object( pso, L"Skullbonez DX12 Cached Graphics PSO" );
     return pso;
 }
 
@@ -1978,6 +1983,7 @@ void RenderBackendDX12::InitGenMipsPipeline()
 
     ThrowIfFailed( m_device->CreateRootSignature( 0, rsBlob->GetBufferPointer(), rsBlob->GetBufferSize(), IID_PPV_ARGS( &m_genMipsRS ) ),
                    "CreateRootSignature (genMips) failed" );
+    NameDx12Object( m_genMipsRS, L"Skullbonez DX12 Generate Mips Root Signature" );
 
     // -------------------------------------------------------------------------
     // Compute PSO
@@ -1988,6 +1994,10 @@ void RenderBackendDX12::InitGenMipsPipeline()
     psoDesc.CS.BytecodeLength = csBlob->GetBufferSize();
     ThrowIfFailed( m_device->CreateComputePipelineState( &psoDesc, IID_PPV_ARGS( &m_genMipsPSO ) ),
                    "CreateComputePipelineState (genMips) failed" );
+    // A compute PSO is the compute-shader version of a pipeline object: it
+    // stores the compiled CS bytecode plus the root signature describing which
+    // descriptors/constants the shader can access.
+    NameDx12Object( m_genMipsPSO, L"Skullbonez DX12 Generate Mips Compute PSO" );
 
     // -------------------------------------------------------------------------
     // Null UAV descriptor — used to pad unused UAV table slots so the
@@ -2437,6 +2447,7 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
     // READBACK buffers are accessed via CPU Map/Unmap — no GPU state barrier is needed.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12
     m_device->CreateCommittedResource( &readbackHeap, D3D12_HEAP_FLAG_NONE, &readbackDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS( &readbackBuffer ) );
+    NameDx12Object( readbackBuffer, L"Skullbonez DX12 Screenshot Readback Buffer" );
 
     // Copy texture to readback buffer
     D3D12_TEXTURE_COPY_LOCATION dstLoc = {};
@@ -2609,6 +2620,7 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
         psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
         psoDesc.SampleDesc.Count = 1;
         m_device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &m_gridLinePSO ) );
+        NameDx12Object( m_gridLinePSO, L"Skullbonez DX12 Debug Line PSO" );
     }
 
     // Upload vertex data to the shared upload buffer
@@ -2931,6 +2943,7 @@ void RenderBackendDX12::CreateRTRootSignature()
     {
         throw std::runtime_error( "CreateRootSignature (RT) failed" );
     }
+    NameDx12Object( m_rtRootSignature, L"Skullbonez DX12 Raytracing Root Signature" );
 }
 
 
@@ -3016,6 +3029,11 @@ void RenderBackendDX12::CreateRTPipeline()
     {
         throw std::runtime_error( "CreateStateObject (RTPSO) failed" );
     }
+    // A raytracing state object is the DXR equivalent of a pipeline. It groups
+    // the ray-generation, miss, and hit shaders with their shared root binding
+    // contract. Naming it makes DRED/PIX output point at the reflection pipeline
+    // rather than a generic state object.
+    NameDx12Object( m_rtPSO, L"Skullbonez DX12 Reflection Raytracing PSO" );
 
     // Query the state object for shader identifier lookup (used when building the SBT).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nn-d3d12-id3d12stateobjectproperties
@@ -3051,6 +3069,7 @@ void RenderBackendDX12::CreateReflectionUAV( int width, int height )
     {
         throw std::runtime_error( "Failed to create DXR reflection UAV texture" );
     }
+    NameDx12Object( m_reflectionUAV, L"Skullbonez DX12 Reflection UAV Texture" );
 
     // Create UAV descriptor
     m_reflectionUAVIndex = AllocateStaticSRV();
@@ -3128,6 +3147,7 @@ void RenderBackendDX12::InitDXR( uint64_t terrainVBVA, int terrainVertCount, int
         {
             throw std::runtime_error( "Failed to create RT constant buffer" );
         }
+        NameDx12Object( m_rtConstantBuffer, L"Skullbonez DX12 Raytracing Constants Upload Buffer" );
         m_rtConstantBuffer->Map( 0, nullptr, (void**)&m_rtConstantBufferMapped );
     }
 
