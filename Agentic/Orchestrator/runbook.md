@@ -15,6 +15,8 @@ The orchestrator owns:
 - artifact and screenshot collection,
 - PR creation when policy allows it,
 - report delivery,
+- final report-only commit creation,
+- source plan archiving for completed items,
 - queue state updates.
 
 The worker owns only the assigned roadmap implementation.
@@ -54,15 +56,46 @@ worker-prompt.md
 worker-result.md
 validation.log
 pr.md
-report.md
 screenshots/
 artifacts/
 ```
 
-The `<item-id>` folder name must match the task id. This folder is the durable
-evidence bundle for the item and must be committed on the feature branch as the
-final pre-merge commit. Keep `report.md` and selected phone-readable images in
-this folder so the user can review progress from GitHub on a phone.
+The `<item-id>` folder name must match the task id. This folder is local
+orchestration state: prompts, worker results, validation logs, raw artifacts,
+PR notes, and any bulky diagnostics. Do not include `Agentic/Runs` files in the
+final report-only commit. Commit run-state files only when explicitly useful
+outside the report, and never in the report-only commit.
+
+## Report Directory
+
+Create the user-facing committed report under:
+
+```text
+Agentic/Reports/<yyyy-mm-dd>/<item-id>/
+  report.md
+  images/
+```
+
+The final report commit must contain only files in this report folder:
+
+- `report.md`,
+- PNG or JPG images under `images/` that are referenced by `report.md`.
+
+Do not put `run.json`, `worker-prompt.md`, `worker-result.md`,
+`validation.log`, `pr.md`, source code, queue updates, source-plan moves, raw
+artifacts, or unreferenced images in the report commit.
+
+Every image committed with the report must be referenced from `report.md` using
+a relative Markdown link, for example:
+
+```markdown
+![Renderer parity](images/renderer-parity.png)
+```
+
+Report images can be screenshots, zoomed-in crops that focus on one relevant
+part of the screen, heat maps, image diffs, and before/after architectural
+diagrams. Choose images that explain what changed or why the result is
+trustworthy, not just whatever artifacts were produced.
 
 Do not ingest large raw diagnostic files into the model. For physics work, use
 SkullScope query output and report the query cost required by `AGENTS.md`.
@@ -122,31 +155,43 @@ Examples:
 - physics work: SkullScope summaries and focused queries,
 - tooling work: command output and dry-run summaries,
 - documentation work: no screenshots unless useful.
+- report images: full-screen screenshots, focused zoom crops, heat maps, image
+  diffs, and before/after architectural diagrams.
 
-Store generated files under the run directory.
+Store generated files under the run directory. Copy only selected
+phone-readable PNG or JPG images into the report directory's `images/` folder.
 
 Prefer PNG or JPG for committed phone-review images. If the runtime produces BMP
 captures, convert selected captures to PNG before embedding them in `report.md`.
-Commit only the useful report bundle and small supporting artifacts; keep bulky
-raw validation outputs out of the commit unless they are necessary evidence.
+Commit only the report Markdown and referenced images in the final report-only
+commit. Keep bulky raw validation outputs and intermediate artifacts out of that
+commit.
 
 ## PR Handling
 
 If `allow_pr_creation` is true and the branch is ready:
 
 1. Commit the work with useful commit notes.
-2. Generate or update the task evidence folder, including `report.md`,
-   `run.json`, `worker-result.md`, selected phone-readable images, and any
-   small useful artifacts.
-3. Commit the evidence folder as the final pre-merge commit on the feature
-   branch.
+2. For a successful item, archive the source plan as described in
+   [Plan Archive](#plan-archive).
+3. Commit any source-plan archive and queue/status updates before the report
+   commit. These are task-state changes, not report files.
 4. Push the feature branch.
 5. Open or update the PR through the GitHub app or `gh` fallback.
-6. Save PR metadata in `pr.md`.
-7. Post the generated report as a PR comment when the configured channel is
-   available.
+6. Save PR metadata in `pr.md` under the run directory.
+7. Generate `Agentic/Reports/<yyyy-mm-dd>/<item-id>/report.md` and copy only
+   referenced PNG/JPG images into `Agentic/Reports/<yyyy-mm-dd>/<item-id>/images/`.
+8. Commit the report directory as the final report-only commit. This commit
+   must contain only `report.md` and images referenced by that Markdown file.
+9. Push the report-only commit.
+10. Post the generated report, including the report web URL, as a PR comment
+    when the configured channel is available.
 
-If `allow_pr_creation` is false, stop after local branch, commit, and report.
+If `allow_pr_creation` is false, successful items still run
+[Plan Archive](#plan-archive) before the final local report commit. The
+orchestrator should still push the report-only commit and provide a web link
+unless policy or the user forbids pushing; if a push is forbidden or fails,
+state that no report web link could be produced.
 
 ## Merge Handling
 
@@ -160,16 +205,16 @@ Future merge automation requires both:
 Until both exist, the report must say `Merge status: not permitted by repo
 policy`.
 
-When merge automation is permitted, do not merge until the final evidence commit
-is present on the PR. Because the merge SHA does not exist until after merge,
-the committed report may say merge pending; record the merge SHA in the final
-response and PR comment unless the user explicitly requests a separate
+When merge automation is permitted, do not merge until the final report-only
+commit is present on the PR. Because the merge SHA does not exist until after
+merge, the committed report may say merge pending; record the merge SHA in the
+final response and PR comment unless the user explicitly requests a separate
 post-merge report update.
 
 ## Reporting
 
-Generate `report.md` from `Agentic/Orchestrator/templates/report.md` for every
-terminal outcome:
+Generate `Agentic/Reports/<yyyy-mm-dd>/<item-id>/report.md` from
+`Agentic/Orchestrator/templates/report.md` for every terminal outcome:
 
 - `pr-open`,
 - `merged`,
@@ -179,23 +224,65 @@ terminal outcome:
 
 Reports must include:
 
+- a first section that explains what was done in plain language for a
+  non-engineer. This section must come before metadata, commits, validation,
+  file lists, or implementation details,
 - item id and source plan,
-- branch, commit, and PR link when present,
-- implementation commit and final evidence commit when they differ. Because
-  `report.md` is committed inside the evidence commit, the committed report may
-  list the evidence commit as pending and the final response or PR comment
-  should record the actual SHA,
+- archived source plan path when the item completed successfully,
+- branch, implementation commit, report commit, PR link, and report web URL
+  when present,
+- a report web URL that opens the committed Markdown file in GitHub. Use the
+  feature-branch URL for PR-open work and the `main` URL after a successful
+  merge,
 - started, finished, elapsed, and substantial sub-run timings,
 - a short progress timeline,
 - validation command and output summary,
 - screenshot and artifact paths,
-- embedded relative links for selected phone-readable images,
+- embedded relative links for selected phone-readable images such as
+  screenshots, focused zoom crops, heat maps, image diffs, or before/after
+  architectural diagrams,
 - short interesting code snippets with file paths,
 - merge status,
 - conflicts and resolutions,
 - residual risk,
 - sub-agent result summary and `worker-result.md` path,
 - next queue action.
+
+The final response must include the report web URL. If the orchestrator cannot
+produce a web URL because pushing is blocked or credentials are unavailable, it
+must say so explicitly and provide the local report path instead.
+
+## Plan Archive
+
+When an item reaches a successful terminal state, move its source plan out of
+the active plan folder so future agents do not confuse completed plans for
+runnable work.
+
+Successful terminal states are:
+
+- `pr-open`, when the implementation and required PR gate passed and the
+  repository policy does not permit merging,
+- `merged`, when policy and repository rules permitted a merge and it
+  succeeded,
+- an explicit user decision that the roadmap item is complete.
+
+Archive rules:
+
+- Move only the assigned source plan, not unrelated plans.
+- Move from `Agentic/Plans/<file>.md` to `Agentic/Plans/Done/<file>.md`.
+- Use `git mv` when possible so the rename is preserved in history.
+- Do not overwrite an existing file in `Agentic/Plans/Done`; stop and report
+  the collision instead.
+- Update the queue entry's `plan` path to the archived path in `queue.json`.
+- Record both the original source plan path and archived path in `run.json` and
+  `report.md`.
+- Commit source-plan moves and queue updates before the report-only commit, not
+  inside it.
+- Keep blocked and failed plans in the active folder unless the user explicitly
+  asks to move them to `Failed` or another archive folder.
+- Do not ask the implementation worker to archive the plan. The orchestrator
+  owns this step because it also owns validation, reports, PR state, and queue
+  state.
 
 ## Queue Update
 

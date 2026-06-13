@@ -22,8 +22,10 @@
   },
   "artifact_retention": {
     "run_root": "Agentic/Runs",
-    "commit_reports": false,
-    "commit_screenshots": false
+    "report_root": "Agentic/Reports",
+    "commit_reports": true,
+    "commit_report_images": true,
+    "commit_run_state": false
   },
   "merge_safety": {
     "requires_agents_md_permission": true,

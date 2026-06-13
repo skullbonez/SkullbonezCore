@@ -59,11 +59,28 @@ Artifact commands:
 For physics diagnostics, use SkullScope queries and report query cost instead
 of pasting raw CSV, NDJSON, or SQLite artifacts.
 
-The orchestrator will create a final task-named evidence folder under
-`Agentic/Runs/<yyyy-mm-dd>/<item-id>/` before merge. Help that report by
-returning phone-readable artifact paths, timings for substantial commands, and
-short code snippets worth highlighting. Prefer PNG or JPG screenshots over BMP
-for anything the user should inspect on a phone.
+The orchestrator will keep run-state files under
+`Agentic/Runs/<yyyy-mm-dd>/<item-id>/`, then create a final report-only commit
+under `Agentic/Reports/<yyyy-mm-dd>/<item-id>/`. Help that report by returning
+phone-readable artifact paths, timings for substantial commands, and short code
+snippets worth highlighting. Prefer PNG or JPG screenshots over BMP for
+anything the user should inspect on a phone.
+
+For image evidence, look for screenshots, focused zoom crops of important screen
+regions, heat maps, image diffs, or before/after architectural diagrams. The
+orchestrator will choose the final committed images, but your handoff should
+name any image evidence that would make the task easy to understand on a phone.
+
+Also provide a short plain-language explanation of what changed, written for a
+non-engineer. The orchestrator uses that as the first section of `report.md`.
+
+Do not add files to `Agentic/Reports` unless the orchestrator explicitly asks
+you to. The final report commit must contain only `report.md` and images
+referenced by that Markdown file.
+
+Do not move the source plan to `Agentic/Plans/Done`. The orchestrator archives
+completed plans after it reviews the worker result, runs the required gate, and
+sets the terminal queue state.
 
 ## Final Worker Response
 
@@ -73,6 +90,9 @@ Return:
 - changed files,
 - validation commands run and exact result,
 - screenshots or artifacts produced,
+- suggested report images, including screenshots, focused zoom crops, heat
+  maps, image diffs, or before/after architectural diagrams,
+- plain-language summary of what changed,
 - substantial timings,
 - interesting code snippets or file/line references worth highlighting,
 - commit SHA if you committed,

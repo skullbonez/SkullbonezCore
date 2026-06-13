@@ -20,7 +20,8 @@ universal agent rules.
 To kick off the loop without pasting a one-off prompt, use
 `Agentic/Skills/skore-roadmap-orchestrator/skill.md`.
 
-Recent setup report:
+Historical setup report from before `Agentic/Reports` became the report
+destination:
 [`generic-roadmap-orchestrator-skill`](../Runs/2026-06-13/generic-roadmap-orchestrator-skill/report.md).
 
 ## Current Safety Defaults
@@ -41,6 +42,27 @@ Agentic/Runs/<yyyy-mm-dd>/<item-id>/
 ```
 
 Use that folder for generated prompts, worker results, validation logs,
-screenshots, artifacts, PR notes, and the final report. The task-named folder
-must be committed as the final feature-branch evidence commit before any
-policy-permitted merge to `main`.
+screenshots, artifacts, PR notes, and local orchestration state. This folder is
+not the user-facing report commit.
+
+## Reports
+
+When the task is done, create the committed report at:
+
+```text
+Agentic/Reports/<yyyy-mm-dd>/<item-id>/report.md
+Agentic/Reports/<yyyy-mm-dd>/<item-id>/images/
+```
+
+The final feature-branch commit for a task is a report-only commit. It must
+contain only `report.md` and image files under `images/` that are referenced by
+relative Markdown links from the report. Do not include run JSON, worker
+prompts, validation logs, PR notes, queue updates, plan moves, source changes,
+raw artifacts, or unreferenced images in that commit.
+
+The first section of `report.md` must explain what was done in plain language
+for a non-engineer. Report images can include screenshots, focused zoom crops,
+heat maps, image diffs, and before/after architectural diagrams.
+
+After pushing the report-only commit, return a GitHub web link to the committed
+`report.md` file.

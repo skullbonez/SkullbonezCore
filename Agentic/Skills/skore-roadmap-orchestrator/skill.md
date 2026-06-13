@@ -49,7 +49,7 @@ the file names.
   - `AGENTS.md` permits the merge path,
   - `policy.json` has `enabled: true` and `allow_merge: true`,
   - required validation/checks are green,
-  - the committed report bundle exists as the final feature-branch commit,
+  - the final report-only commit exists on the feature branch,
   - the merge method matches policy.
 - Stop instead of guessing when a merge conflict, missing credential, failing
   validation, or policy mismatch would make the next action unsafe.
@@ -72,7 +72,9 @@ Run scope:
 - Merge mode: <do not merge | merge only when policy, checks, and user permission allow>
 
 Run the orchestrator loop sequentially, one roadmap item at a time.
-Produce a committed run evidence folder for each item before any merge.
+Produce a final report-only commit under Agentic/Reports for each item before
+any merge. The report commit must contain only report.md and images referenced
+by that Markdown file.
 Stop at the first unsafe, blocked, failed, or policy-forbidden action.
 ```
 
@@ -97,21 +99,37 @@ For each item:
 8. Run validation only at PR/commit readiness, in a visible console window when
    feasible, and save output to `validation.log`.
 9. Capture declared screenshots/artifacts. Prefer PNG or JPG copies for phone
-   review; convert BMP captures to PNG before embedding in reports.
-10. Generate a phone-readable `report.md` from
-    `Agentic/Orchestrator/templates/report.md`.
-11. Commit implementation changes first, then make the final pre-merge commit a
-    task-named run evidence folder commit containing `report.md`, `run.json`,
-    `worker-result.md`, selected images, and any small useful artifacts.
+   review; convert BMP captures to PNG before embedding in reports. Useful
+   report images include screenshots, focused zoom crops, heat maps, image
+   diffs, and before/after architectural diagrams.
+10. If the item reached a successful terminal state, archive the source plan:
+    move `Agentic/Plans/<file>.md` to `Agentic/Plans/Done/<file>.md`, update
+    the queue entry's `plan` path, and record both original and archived paths
+    in `run.json` and `report.md`. Successful terminal states are `pr-open`,
+    `merged`, or explicit user-declared completion. Do not archive blocked or
+    failed plans unless the user explicitly asks for that.
+11. Commit implementation changes, source-plan archive moves, queue updates,
+    and other task-state changes before the report commit.
 12. Push the branch and open/update the PR when permitted.
-13. Merge only after the final evidence commit is present on the PR and all
+13. Generate a phone-readable report from
+    `Agentic/Orchestrator/templates/report.md` under
+    `Agentic/Reports/<yyyy-mm-dd>/<task-id>/report.md`. Copy only PNG/JPG
+    images referenced by the Markdown file into
+    `Agentic/Reports/<yyyy-mm-dd>/<task-id>/images/`.
+14. Make the final feature-branch commit a report-only commit containing only
+    the report Markdown and its referenced images. Do not include `Agentic/Runs`
+    files, logs, queue updates, source-plan moves, source code, raw artifacts,
+    or unreferenced images in this commit.
+15. Push the report-only commit and compute the GitHub web URL for
+    `report.md`.
+16. Merge only after the final report-only commit is present on the PR and all
     merge gates pass.
-14. Sync local `main` after a successful merge and move to the next item only
+17. Sync local `main` after a successful merge and move to the next item only
     when policy allows.
 
-## Run Evidence Folder
+## Run And Report Folders
 
-Use this required shape:
+Use this local run-state shape:
 
 ```text
 Agentic/Runs/<yyyy-mm-dd>/<task-id>/
@@ -120,36 +138,48 @@ Agentic/Runs/<yyyy-mm-dd>/<task-id>/
   worker-result.md
   validation.log
   pr.md
-  report.md
   screenshots/
   artifacts/
 ```
 
-The folder name must match the task id. Keep the report and selected images in
-that folder so the commit is easy to inspect on GitHub from a phone.
+Use this committed user-facing report shape:
+
+```text
+Agentic/Reports/<yyyy-mm-dd>/<task-id>/
+  report.md
+  images/
+```
+
+The report folder name must match the task id. The report-only commit must
+contain just `report.md` and image files under `images/` that are referenced by
+relative Markdown links from `report.md`.
 
 ## Report Expectations
 
 `report.md` must be concise, scrollable, and useful on a phone. Include:
 
+- first, a plain-language explanation of what was done for a non-engineer,
+  before metadata, commits, validation, file lists, or implementation details,
 - item id and source plan,
-- branch, implementation commit, final evidence commit if known, PR link, and
-  merge SHA if known,
+- archived source plan path for completed items,
+- branch, implementation commit, report commit if known, PR link, report web
+  URL, and merge SHA if known,
 - started, finished, elapsed, and substantial sub-run timings,
 - a short progress timeline,
 - implementation summary,
 - changed files by area,
 - validation command and output summary,
-- embedded relative image links for the best screenshots or artifact previews,
+- embedded relative image links for the best screenshots, focused zoom crops,
+  heat maps, image diffs, before/after architectural diagrams, or artifact
+  previews,
 - interesting code snippets with file paths and short excerpts,
 - conflicts and how they were handled,
 - residual risk,
 - exact sub-agent result summary and `worker-result.md` path,
 - next queue action.
 
-The report bundle is inside the final evidence commit, so the committed report
-may list the evidence commit as pending. The report bundle also happens before
-merge, so merge status may be pending. Record the final evidence commit SHA and
+The report-only commit happens before merge, so merge status may be pending in
+the committed report. Record the final report commit SHA, report web URL, and
 merge SHA afterward in the final response and PR comment unless the user
 explicitly asks for a separate post-merge report update.
 
@@ -161,7 +191,9 @@ After the requested run scope finishes or stops, summarize:
 - branch,
 - PR link,
 - implementation commit,
-- final evidence commit,
+- report commit,
+- report web URL,
+- archived plan path when the source plan moved to `Agentic/Plans/Done`,
 - merge SHA or merge blocker,
 - validation result,
 - report path,

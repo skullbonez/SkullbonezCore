@@ -13,7 +13,8 @@ to start the next item, open the PR, gather artifacts, and prepare the handoff.
 
 The orchestrator should run one roadmap item at a time, delegate the actual work
 to a focused sub-agent, verify the result, create a report with useful evidence,
-then move to the next eligible item.
+archive the completed source plan, create a final report-only commit under
+`Agentic/Reports`, then move to the next eligible item.
 
 ## Current Constraints
 
@@ -39,7 +40,13 @@ then move to the next eligible item.
 5. Merge authority is explicit, revocable, and recorded in the repo.
 6. Every completed item leaves a durable report, even if the PR fails or is
    blocked.
-7. Failed items do not poison the queue. They are reported, paused, and the
+7. Completed source plans move to `Agentic/Plans/Done` so active plans stay
+   runnable and uncluttered.
+8. The final report commit contains only `report.md` and images referenced by
+   that Markdown file.
+9. Every report starts with a plain-language explanation of what changed for a
+   non-engineer.
+10. Failed items do not poison the queue. They are reported, paused, and the
    orchestrator only advances according to the configured failure policy.
 
 ## Proposed Repository Additions
@@ -65,6 +72,13 @@ Suggested fields:
   "merge_method": "squash",
   "advance_after_failed_item": false,
   "report_channels": ["markdown"],
+  "artifact_retention": {
+    "run_root": "Agentic/Runs",
+    "report_root": "Agentic/Reports",
+    "commit_reports": true,
+    "commit_report_images": true,
+    "commit_run_state": false
+  },
   "email_reports": {
     "enabled": false,
     "to": []
@@ -129,9 +143,9 @@ Allowed statuses:
 The queue should initially be populated manually from the top-level active plans,
 not from `Done`, `Failed`, or `Rejected`.
 
-### 3. Per-Item Run State
+### 3. Per-Item Run And Report State
 
-Add a run directory per attempt:
+Add a local run directory per attempt:
 
 ```text
 Agentic/Runs/<yyyy-mm-dd>/<item-id>/
@@ -140,14 +154,29 @@ Agentic/Runs/<yyyy-mm-dd>/<item-id>/
   worker-result.md
   validation.log
   pr.md
-  report.md
   screenshots/
   artifacts/
 ```
 
+This folder is orchestration state and raw evidence. It is not the final
+user-facing report commit.
+
+Add a committed report directory per item:
+
+```text
+Agentic/Reports/<yyyy-mm-dd>/<item-id>/
+  report.md
+  images/
+```
+
+The final report commit must contain only `report.md` and images in `images/`
+that are referenced by `report.md`.
+
 `run.json` records machine-readable state:
 
 - item id,
+- original source plan path,
+- archived source plan path for completed items,
 - start/end timestamps,
 - branch,
 - commit SHA,
@@ -189,21 +218,26 @@ Agentic/Orchestrator/templates/report.md
 
 Each item report should include:
 
+- first, a plain-language explanation of what was done for a non-engineer,
 - roadmap item and source plan,
-- branch, commit, and PR link,
+- archived plan path for completed items,
+- branch, implementation commit, report commit, PR link, and report web URL,
 - summary of implementation,
 - changed files by area,
 - validation command output or explicit reason validation was not required,
-- screenshots and artifact links,
+- screenshots and artifact links using relative Markdown links to committed
+  `images/` files. Useful images include screenshots, focused zoom crops, heat
+  maps, image diffs, and before/after architectural diagrams,
 - PR status,
 - merge status,
 - conflicts encountered and how they were resolved,
 - residual risk,
 - next queue item selected or reason the loop stopped.
 
-Reports should be committed into `Agentic/Runs/.../report.md` or uploaded as PR
-artifacts/comments. Markdown is the baseline because it is durable in the repo.
-Email can be added later as a delivery adapter after the report exists.
+Reports should be committed into
+`Agentic/Reports/<yyyy-mm-dd>/<item-id>/report.md` as the final report-only
+commit. Markdown is the baseline because it is durable in the repo. Email can
+be added later as a delivery adapter after the report exists.
 
 ### 6. Screenshot And Artifact Contract
 
@@ -219,9 +253,12 @@ Examples:
 - tooling/docs: command output or rendered docs, no renderer screenshots unless
   relevant,
 - perf: profiler JSON/CSV summary and baseline comparison output.
+- report images: screenshots, zoomed-in crops of important screen regions, heat
+  maps, image diffs, and before/after architectural diagrams.
 
-The report should include file paths for local artifacts and PR-uploaded links
-when available.
+The report should include file paths for local artifacts when useful, but the
+report commit itself should include only the Markdown file and referenced PNG or
+JPG images copied into `Agentic/Reports/<date>/<item-id>/images/`.
 
 ### 7. Merge Policy
 
@@ -255,13 +292,40 @@ or two dry runs prove the reports and queue state are reliable.
 
 Start with durable Markdown:
 
-- write `Agentic/Runs/.../report.md`,
+- write `Agentic/Reports/<yyyy-mm-dd>/<item-id>/report.md`,
+- commit that report in a final report-only commit containing only Markdown and
+  referenced images,
+- return a GitHub web link to the committed report Markdown when the task is
+  done,
 - post the same report as a PR comment,
 - optionally add a final issue comment on a tracking issue.
 
 Add email only after the Markdown report is stable. The email integration should
 send the exact same generated report body plus links to screenshots/artifacts.
 Avoid making email the source of truth.
+
+### 9. Completed Plan Archive
+
+When an item reaches a successful terminal state, the orchestrator moves the
+source plan out of the active folder:
+
+```text
+Agentic/Plans/<plan>.md -> Agentic/Plans/Done/<plan>.md
+```
+
+Successful terminal states are `pr-open`, `merged`, or explicit user-declared
+completion. The move belongs to the orchestrator, not the worker, because the
+orchestrator owns validation, report generation, PR state, and queue state.
+
+Archive requirements:
+
+- use `git mv` when possible,
+- do not overwrite an existing Done plan,
+- update the item's `queue.json` `plan` path to the archived path,
+- record both the original and archived paths in `run.json` and `report.md`,
+- commit source-plan moves and queue updates before the report-only commit,
+- keep blocked or failed plans in the active folder unless the user explicitly
+  asks to move them to `Failed` or another archive folder.
 
 ## Orchestrator Loop
 
@@ -279,14 +343,22 @@ For each queue item:
 10. Review changed files and reject out-of-scope edits.
 11. Run the required pre-commit/PR validation gate in a visible console window.
 12. Capture declared screenshots/artifacts.
-13. Commit and push the feature branch if needed.
-14. Create or update the PR if `allow_pr_creation` is true.
-15. Generate `report.md`.
-16. Deliver the report through configured channels.
-17. If merge mode is enabled, merge only after all policy gates pass.
-18. Update the queue item to `merged`, `pr-open`, `blocked`, or `failed`.
-19. Update local base branch after merge.
-20. Continue to the next item only if policy allows it.
+13. For successful terminal items, move the source plan to
+    `Agentic/Plans/Done` and update queue/report/run state with the archived
+    path.
+14. Commit implementation, queue, and source-plan archive changes before the
+    report commit.
+15. Push the feature branch and create or update the PR if `allow_pr_creation`
+    is true.
+16. Generate `Agentic/Reports/<yyyy-mm-dd>/<item-id>/report.md` and copy only
+    referenced PNG/JPG images into the report `images/` folder.
+17. Commit the report directory as the final report-only commit.
+18. Push the report-only commit and compute the GitHub web link to `report.md`.
+19. Deliver the report web link through configured channels.
+20. If merge mode is enabled, merge only after all policy gates pass.
+21. Update the queue item to `merged`, `pr-open`, `blocked`, or `failed`.
+22. Update local base branch after merge.
+23. Continue to the next item only if policy allows it.
 
 ## Conflict Handling
 
@@ -376,9 +448,11 @@ own self-check command.
 
 ### Phase 4: PR Report Automation
 
-- Generate `report.md` from `run.json`.
+- Generate `Agentic/Reports/<date>/<item-id>/report.md` from run state.
 - Post report as a PR comment when the GitHub app/CLI is available.
-- Keep Markdown file generation as the source of truth.
+- Keep Markdown file generation under `Agentic/Reports` as the source of
+  truth.
+- Make the report commit contain only the Markdown file and referenced images.
 
 Validation at PR gate: `tools\validate_fast.bat`, plus a dry-run report
 generation command.
@@ -387,7 +461,11 @@ generation command.
 
 - Add item-scoped screenshot commands.
 - Store artifacts under `Agentic/Runs/.../screenshots`.
-- Include local paths and PR artifact links in the report.
+- Copy selected PNG/JPG images into
+  `Agentic/Reports/<date>/<item-id>/images/`.
+- Include relative image links in the report.
+- Allow screenshots, focused zoom crops, heat maps, image diffs, and
+  before/after architectural diagrams as report images.
 
 Validation depends on scope:
 
@@ -399,6 +477,7 @@ Validation depends on scope:
 - Enable only after PR-only mode works.
 - Keep revocation as a one-line policy edit.
 - Require green validation/checks and generated report before merge.
+- Require the final report-only commit to be present before merge.
 - Record merge SHA and status.
 
 Validation: documentation/process update is no validation; any tool changes use
@@ -408,12 +487,10 @@ Validation: documentation/process update is no validation; any tool changes use
 
 1. Should the first working version be PR-only, or should the repo policy be
    changed now to permit policy-gated merges?
-2. Should reports be delivered only as Markdown/PR comments first, or should an
-   email adapter be part of the initial implementation?
+2. Should reports also be delivered by email later, or should Markdown/PR
+   comments remain the only delivery channels?
 3. Should blocked/failed items stop the whole loop by default?
 4. Which one or two roadmap items should be used for the first dry run?
-5. Should reports be stored permanently in the repo, or only as PR comments and
-   CI artifacts?
 
 ## Acceptance Criteria
 
@@ -423,7 +500,15 @@ Validation: documentation/process update is no validation; any tool changes use
 - Every item produces a report, including failed or blocked items.
 - Reports include PR status, validation status, screenshots/artifacts when
   relevant, and next-step state.
+- Reports start with a plain-language explanation of what changed before
+  metadata or technical detail.
+- The final report commit contains only the report Markdown and images
+  referenced from that Markdown file under `Agentic/Reports`.
+- The user receives a GitHub web link to the committed report Markdown file
+  when the task is done.
 - Automated merging is impossible unless both `AGENTS.md` and
   `policy.json` explicitly allow it.
 - The next item starts only after the previous item reaches a terminal queue
   state according to policy.
+- Completed item source plans are no longer left in the active
+  `Agentic/Plans` folder.

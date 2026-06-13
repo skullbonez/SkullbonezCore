@@ -14,8 +14,8 @@
   "items": [
     {
       "id": "validation-harness-upgrade",
-      "plan": "Agentic/Plans/validation-harness-upgrade-plan.md",
-      "status": "ready",
+      "plan": "Agentic/Plans/Done/validation-harness-upgrade-plan.md",
+      "status": "merged",
       "priority": 10,
       "branch": "codex/validation-harness-upgrade",
       "impact_area": [
