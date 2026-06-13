@@ -1,6 +1,0 @@
-status capture_saved
-detail C:\SkullbonezCore\Agentic\style-harness\shots\low_poly_touchup_final_candidate.bmp
-style_applies 15
-captures 2
-live_style C:\SkullbonezCore\Agentic\style-harness\live.style
-capture_control C:\SkullbonezCore\Agentic\style-harness\capture.txt

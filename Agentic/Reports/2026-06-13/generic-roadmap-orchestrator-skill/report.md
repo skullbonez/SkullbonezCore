@@ -1,11 +1,23 @@
 # Roadmap Item Report: generic-roadmap-orchestrator-skill
 
-## Phone Summary
+## What Changed, In Plain English
+
+The orchestrator got a reusable instruction set for running roadmap work. Before
+this, the process lived mostly in one-off prompts and local run notes. The new
+skill and runbook tell future agents how to pick one queued task, hand it to a
+worker, validate it, create a phone-readable report, and stop safely when policy
+does not allow the next step.
+
+This report is historical: it was created before the repo switched from
+committed `Agentic/Runs` evidence folders to final report-only commits under
+`Agentic/Reports`.
+
+## At A Glance
 
 - Source request: make the last roadmap-orchestrator prompt generic and add a committed phone-readable report/image bundle requirement.
 - Branch: `main`
 - Implementation commits: `67b37696`, `e79e3e84`
-- Final evidence commit: pending at report generation; recorded in final response after commit exists.
+- Report commit: historical report migrated from `Agentic/Runs`.
 - PR: not opened; user explicitly asked to do this on `main` after pulling.
 - Merge SHA: not applicable.
 - Final status: ready to commit evidence bundle.
@@ -38,12 +50,11 @@ with a reusable workflow. It accepts explicit plans, queue item ids, next-ready
 queue execution, and bounded item counts. It also makes old broad authority
 prompts subordinate to the current `AGENTS.md` and `policy.json`.
 
-The orchestrator runbook and templates now require every roadmap item to close
-with a task-named evidence folder under `Agentic/Runs/<date>/<task-id>/`. That
-folder must include `report.md`, selected phone-readable images, run metadata,
-validation output when applicable, and the exact worker result. It must be
-committed as the final pre-merge feature-branch commit before any policy-
-permitted merge.
+At the time this report was produced, the orchestrator runbook and templates
+required every roadmap item to close with a task-named evidence folder under
+`Agentic/Runs/<date>/<task-id>/`. That policy has since changed: durable
+user-facing reports now live under `Agentic/Reports/<date>/<task-id>/`, and the
+final report commit contains only `report.md` plus images referenced by it.
 
 ## Changed Files
 
@@ -52,7 +63,7 @@ permitted merge.
 - Manual process contract: `Agentic/Orchestrator/runbook.md`
 - Report shape: `Agentic/Orchestrator/templates/report.md`
 - Worker handoff expectations: `Agentic/Orchestrator/templates/worker-prompt.md`
-- This evidence bundle: `Agentic/Runs/2026-06-13/generic-roadmap-orchestrator-skill/`
+- This migrated report: `Agentic/Reports/2026-06-13/generic-roadmap-orchestrator-skill/report.md`
 
 ## Validation
 
@@ -73,17 +84,14 @@ git diff --check: passed with no output.
 
 ## Screenshots And Artifacts
 
-- Report: `Agentic/Runs/2026-06-13/generic-roadmap-orchestrator-skill/report.md`
-- Worker result: `Agentic/Runs/2026-06-13/generic-roadmap-orchestrator-skill/worker-result.md`
-- Run metadata: `Agentic/Runs/2026-06-13/generic-roadmap-orchestrator-skill/run.json`
-- Validation note: `Agentic/Runs/2026-06-13/generic-roadmap-orchestrator-skill/validation.log`
-- PR note: `Agentic/Runs/2026-06-13/generic-roadmap-orchestrator-skill/pr.md`
+- Report: `Agentic/Reports/2026-06-13/generic-roadmap-orchestrator-skill/report.md`
+- Images: `Agentic/Reports/2026-06-13/generic-roadmap-orchestrator-skill/images/`
 
 ## Phone-Readable Images
 
-![Progress summary](screenshots/progress-summary.png)
+![Progress summary](images/progress-summary.png)
 
-![Evidence commit flow](screenshots/evidence-commit-flow.png)
+![Evidence commit flow](images/evidence-commit-flow.png)
 
 ## Interesting Code Snippets
 
@@ -136,7 +144,8 @@ orchestrator runs still need an agent to follow the skill and runbook.
 ## Sub-Agent Result Summary
 
 No sub-agent was spawned for this docs/process task. The current agent performed
-the work directly. See `worker-result.md`.
+the work directly. The original local worker-result file was removed when
+historical run state was purged from source control.
 
 ## Next Queue Action
 

@@ -22,7 +22,7 @@ To kick off the loop without pasting a one-off prompt, use
 
 Historical setup report from before `Agentic/Reports` became the report
 destination:
-[`generic-roadmap-orchestrator-skill`](../Runs/2026-06-13/generic-roadmap-orchestrator-skill/report.md).
+[`generic-roadmap-orchestrator-skill`](../Reports/2026-06-13/generic-roadmap-orchestrator-skill/report.md).
 
 ## Current Safety Defaults
 

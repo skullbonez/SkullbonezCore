@@ -3,7 +3,6 @@
 #include "SkullbonezCollisionShape.h"
 #include "SkullbonezGeometricStructures.h"
 #include "SkullbonezGeometricMath.h"
-#include "SkullbonezObjectContactManifold.h"
 #include "SkullbonezTerrainSupportClassifier.h"
 #include "SkullbonezContactSolverCommon.h"
 #include "SkullbonezProfiler.h"
@@ -378,52 +377,6 @@ float GameModel::GetModelCollisionTime( GameModel& collisionTarget,
 
     // Dispatch collision test via the variant visitor (handles sphere-sphere, sphere-box, box-box)
     return TestShapeCollision( m_boundingVolume, collisionTarget.m_boundingVolume, focusRay, targetRay );
-}
-
-
-void GameModel::StaticOverlapResponseGameModel( GameModel& overlapTarget )
-{
-    // ENGINE-SPECIFIC / NOVEL:
-    //   This is not Catto's velocity-level PGS solve. It is a conservative
-    //   positional cleanup used when the swept collision pass did not schedule a
-    //   one-shot response but the authoritative Skullbonez shape-pair manifold
-    //   says two bodies are already overlapping.
-    //
-    // CATTO CONNECTION:
-    //   The manifold data is still in Catto's contact-row shape: normal plus
-    //   point penetration. We only use the deepest penetration here because this
-    //   routine moves positions directly instead of solving per-row impulses.
-    Physics::ObjectContactManifold manifold;
-    if ( !Physics::BuildObjectContactManifold( *this, overlapTarget, 0, 1, 0.0f, manifold ) )
-    {
-        return;
-    }
-
-    // Objects are overlapping: positional correction only.
-    float maxPenetration = 0.0f;
-    for ( uint8_t i = 0; i < manifold.pointCount; ++i )
-    {
-        maxPenetration = (std::max)( maxPenetration, manifold.points[i].penetration );
-    }
-
-    if ( maxPenetration <= 0.0f )
-    {
-        return;
-    }
-
-    float invMassA = GetInvertedMass();
-    float invMassB = overlapTarget.GetInvertedMass();
-    float totalInvMass = invMassA + invMassB;
-    if ( totalInvMass <= TOLERANCE )
-    {
-        return;
-    }
-
-    // Objects are overlapping: push along the real narrowphase normal, not the
-    // broadphase bounding-radius axis.
-    Vector3 correction = manifold.normal * ( maxPenetration / totalInvMass );
-    m_physicsInfo.SetPosition( m_physicsInfo.GetPosition() - correction * invMassA );
-    overlapTarget.m_physicsInfo.SetPosition( overlapTarget.m_physicsInfo.GetPosition() + correction * invMassB );
 }
 
 

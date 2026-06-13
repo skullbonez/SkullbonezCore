@@ -139,7 +139,7 @@ Terrain:
 Water:
 
 - Current runtime uses `water_calm` and `water_ocean`.
-- Legacy `water.vert`, `water.frag`, and `water.hlsl` appear unreferenced by current source.
+- Legacy `water.vert`, `water.frag`, and `water.hlsl` were removed after confirming no current source references.
 - Water shaders accept reflection texture slot `t1`/sampler `s1`.
 - Calm water carries basin mask and style mode.
 - Ocean water carries time, wave height, perturb strength, cinematic glint, and reflection controls.
@@ -182,8 +182,8 @@ These are powerful but strongly authored. Several visual rules are still hard-co
 | `generate_mips.hlsl` | DX12 compute mip generation | DX12-only compute path; keep separate from raster manifests. |
 | `reflect.rt.hlsl` | DXR reflection shader library | DX12-only raytracing path; needs its own manifest family. |
 | `reflect.rt.dxil` | Precompiled DXR bytecode | Treat as generated/checked-in artifact with explicit rebuild rule. |
-| `water.*` | Legacy/simple water shader | Appears unreferenced; audit before deleting. |
-| `UITextured.*` | Textured UI shader | Appears unreferenced in current source; audit before deleting. |
+| `water.*` | Legacy/simple water shader | Removed after confirming no current source references; keep `water_calm.*` and `water_ocean.*`. |
+| `UITextured.*` | Textured UI shader | Removed after confirming the lowercase `UI_textured.*` family is the active UI path. |
 
 ## Main Problems To Fix
 
@@ -293,7 +293,7 @@ Do not rewrite the pipeline first. But as shader cleanup proceeds, create small 
 
 ### 7. Some Shader Assets Need Lifecycle Decisions
 
-Likely unreferenced assets should be audited:
+Previously likely-unreferenced assets have been removed:
 
 - `water.*`
 - `UITextured.*`
@@ -556,7 +556,7 @@ Tasks:
    - texture slots,
    - vertex layout,
    - pass category.
-2. Mark candidate legacy assets:
+2. Confirm removed legacy assets stay absent:
    - `water.*`,
    - `UITextured.*`.
 3. Mark intentional backend-specific assets:
@@ -939,7 +939,7 @@ These commands are targeted pre-commit/PR gates, not as-you-go validation.
 3. Should style files define named material presets directly, or only assign existing presets with tint overrides?
 4. Should `CinematicRenderConfig` be renamed/split, or should backward-compatible `RenderStyleConfig` wrap it first?
 5. Should shader manifests be C++ tables first, or data files under `SkullbonezData/shaders`?
-6. Should legacy `water.*` and `UITextured.*` be archived under `Agentic/Plans/Archived` history, or simply removed after pre-commit validation?
+6. Should the removed legacy `water.*` and `UITextured.*` history be documented in a final cleanup report after pre-commit validation?
 
 ## Success Criteria
 

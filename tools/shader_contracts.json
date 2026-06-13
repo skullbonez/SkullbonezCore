@@ -95,18 +95,8 @@
       "requiredSymbols": ["uTexture", "uTexelSize", "uProjection"]
     },
     {
-      "name": "UITextured",
-      "status": "active",
-      "stages": ["vert", "frag", "hlsl"]
-    },
-    {
       "name": "unlit_textured",
       "status": "active",
-      "stages": ["vert", "frag", "hlsl"]
-    },
-    {
-      "name": "water",
-      "status": "legacy",
       "stages": ["vert", "frag", "hlsl"]
     },
     {

@@ -20,14 +20,6 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 - Feature-branch commits and normal pushes are allowed without asking. Do not commit or push directly on `main` without explicit confirmation.
 - Do not kill `SKULLBONEZ_CORE.exe` by name. Kill only by PID from a process you launched.
 - Time large work: record wall-clock start/end and report elapsed time for pipeline runs, multi-file features, and debugging sessions.
-- Management demo handoff: `Agentic/Plans/agent-loop/autonomous-agentic-loop-demo-handoff.md`.
-- Broadphase demo design note: `Agentic/Plans/agent-loop/broadphase-plan.md`.
-- For the management demo loop, run only `Agentic\Plans\agent-loop\run_perf_demo_visible.bat`; use `--wait` from Codex when the agent must wait for completion, then inspect `Profile\gl_perf.json` and physics artifacts.
-- Broadphase shadow files live in `Agentic\Plans\agent-loop\shadow-broadphase\SkullbonezSource\` for the recorded restore loop.
-- Do not run screenshot, renderer, full, or general build-pipeline validation during the recorded loop unless explicitly requested.
-- The demo regression step runs with `--broadphase-visualizer`; the OpenGL perf step intentionally does not.
-- When manually inspecting the visible demo, press `G` after launch to toggle the broadphase visualizer.
-- The recorded demo should include honest staged failure beats: an initial compile failure during broadphase reintegration, then a correct but inefficient cache pass, then an optimized cached broadphase recovery.
 
 ## Current Work Items
 

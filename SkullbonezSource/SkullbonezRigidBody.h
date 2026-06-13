@@ -98,7 +98,6 @@ class RigidBody
     void SetOrientation( const Math::Orientation::Quaternion& q );                                                      // Set the initial orientation quaternion directly
     void SetImpulseForce( const Math::Vector::Vector3& vImpulseForce, const Math::Vector::Vector3& vApplicationPoint ); // Set an impulse force to the rigid body
     void SetWorldForce( const Math::Vector::Vector3& vWorldForce, const Math::Vector::Vector3& vWorldTorque );          // Sets the forces being acted upon the object by the world environment
-    void UpdateRollPosition( float changeInTime, float circumference );                                                 // Update the rigid body's position when rolling (supply circumference of the body)
     Math::Transformation::RotationMatrix GetOrientationMatrix( float fTime = 0.0f );                                    // Gets the rotation matrix representing the bodies orientation at the specified time (0.0f returns CURRENT orientation matrix)
 };
 } // namespace Physics

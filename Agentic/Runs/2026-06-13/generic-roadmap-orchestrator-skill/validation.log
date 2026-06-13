@@ -1,9 +1,0 @@
-Documentation/process-only change. No repository validation script is required by AGENTS.md.
-
-Commands:
-
-git pull --ff-only
-Result: Already up to date.
-
-git diff --check
-Result: passed with no output.

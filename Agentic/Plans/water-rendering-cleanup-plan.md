@@ -3,7 +3,7 @@
 Status: planning draft  
 Created: 2026-06-11  
 Scope: water shaders, reflection modes, water material/style data, known water rendering bugs  
-Implementation status: plan only, no code changes in this pass
+Implementation status: planning draft; legacy `water.*` shader files were removed in the cleanup pass
 
 ## Goal
 
@@ -19,7 +19,7 @@ Current water pieces:
 - Current runtime uses:
   - `water_calm.*`,
   - `water_ocean.*`.
-- Legacy `water.*` appears unreferenced by current source and should be audited.
+- Legacy `water.*` was removed after source/data reference checks; `water_calm.*` and `water_ocean.*` remain active.
 - DXR reflection produces a texture that water samples like other reflection textures.
 - The known bug list includes: water renders through back faces of spheres when intersecting the water surface.
 
@@ -70,13 +70,9 @@ Current water style is uniform fields:
 
 This is okay for water v1, but it should be named as `WaterStyleParams` rather than being spread through `CinematicRenderConfig` call sites.
 
-### 4. Legacy Shader Files Need Decision
+### 4. Legacy Shader Files Removed
 
-`water.vert`, `water.frag`, and `water.hlsl` appear to be old/simple water shaders. Do not delete until:
-
-- source search confirms no references,
-- data/search confirms no indirect references,
-- renderer validation passes after removal.
+`water.vert`, `water.frag`, and `water.hlsl` were old/simple water shaders. Cleanup confirmed no current source or data references, then removed the tracked files and project entries. Renderer validation remains a PR-gate requirement after the cleanup is committed.
 
 ## Target Shape
 
@@ -225,8 +221,8 @@ Validation:
 
 Tasks:
 
-1. Remove or archive unreferenced `water.*` only after confirming references.
-2. Update shader inventory.
+1. Keep legacy `water.*` absent unless a new water family deliberately reintroduces it.
+2. Keep shader inventory aligned with `water_calm.*` and `water_ocean.*`.
 
 Validation:
 

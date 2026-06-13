@@ -359,8 +359,6 @@
     <None Include="SkullbonezData\scenes\terrain_contact_probe_debug.scene" />
     <None Include="SkullbonezData\scenes\ui_blur_moved_off.scene" />
     <None Include="SkullbonezData\scenes\ui_blur_moved_on.scene" />
-    <None Include="SkullbonezData\scenes\ui_cinematic_controls.scene" />
-    <None Include="SkullbonezData\scenes\ui_cinematic_overrides.scene" />
     <None Include="SkullbonezData\scenes\cause_effect_marble_run.scene" />
     <None Include="SkullbonezData\scenes\collision_demo.sUIte" />
     <None Include="SkullbonezData\scenes\collision_demo_ball_ball.scene" />
@@ -368,7 +366,6 @@
     <None Include="SkullbonezData\scenes\collision_demo_box_box.scene" />
     <None Include="SkullbonezData\scenes\float_snap_test.scene" />
     <None Include="SkullbonezData\scenes\funnel_roll_test.scene" />
-    <None Include="SkullbonezData\scenes\gpu_timer_test.scene" />
     <None Include="SkullbonezData\scenes\solver_smoke.scene" />
     <None Include="SkullbonezData\scenes\perf_1000.scene" />
     <None Include="SkullbonezData\scenes\perf_test.scene" />
@@ -385,7 +382,6 @@
     <None Include="SkullbonezData\scenes\settle_test.scene" />
     <None Include="SkullbonezData\scenes\stacking.scene" />
     <None Include="SkullbonezData\scenes\standing_box_repro.scene" />
-    <None Include="SkullbonezData\scenes\switch_test.scene" />
     <None Include="SkullbonezData\scenes\terrain_compare.scene" />
     <None Include="SkullbonezData\scenes\UI_blur_off.scene" />
     <None Include="SkullbonezData\scenes\UI_blur_on.scene" />
@@ -443,17 +439,12 @@
     <None Include="SkullbonezData\shaders\UIBackdropBlur.frag" />
     <None Include="SkullbonezData\shaders\UIBackdropBlur.hlsl" />
     <None Include="SkullbonezData\shaders\UIBackdropBlur.vert" />
-    <None Include="SkullbonezData\shaders\UITextured.frag" />
-    <None Include="SkullbonezData\shaders\UITextured.vert" />
     <None Include="SkullbonezData\shaders\UI_textured.frag" />
     <None Include="SkullbonezData\shaders\UI_textured.hlsl" />
     <None Include="SkullbonezData\shaders\UI_textured.vert" />
     <None Include="SkullbonezData\shaders\unlit_textured.frag" />
     <None Include="SkullbonezData\shaders\unlit_textured.hlsl" />
     <None Include="SkullbonezData\shaders\unlit_textured.vert" />
-    <None Include="SkullbonezData\shaders\water.frag" />
-    <None Include="SkullbonezData\shaders\water.hlsl" />
-    <None Include="SkullbonezData\shaders\water.vert" />
     <None Include="SkullbonezData\shaders\water_calm.frag" />
     <None Include="SkullbonezData\shaders\water_calm.hlsl" />
     <None Include="SkullbonezData\shaders\water_calm.vert" />

@@ -26,9 +26,6 @@ archive the completed source plan, create a final report-only commit under
 - The active plan folder contains a mix of implementation plans, architecture
   design notes, failed attempts, rejected plans, and completed work. Directory
   location is not enough to decide what should run.
-- Session state currently references an `Agentic/Plans/agent-loop` demo folder
-  that is not present in the worktree. The orchestrator setup should either
-  restore it intentionally or remove the stale references in a separate cleanup.
 
 ## Design Principles
 

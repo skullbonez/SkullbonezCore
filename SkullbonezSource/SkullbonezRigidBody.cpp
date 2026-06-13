@@ -260,38 +260,6 @@ const Quaternion& RigidBody::GetOrientation() const
 }
 
 
-// Update position using "rolling" mechanics: the ball's circumference determines
-// how far it moves per revolution. Also updates quaternion orientation.
-//
-// --- Rolling Without Slipping ---
-//
-//  A ball that rolls without slipping moves forward by one circumference (2πr)
-//  per full revolution. So: displacement = (ω / 2π) × circumference × dt
-//
-//  This creates physically correct "treadmill" motion where spin directly
-//  drives translation (used for ground contact).
-//
-void RigidBody::UpdateRollPosition( float changeInTime, float circumference )
-{
-    // Convert angular velocity from rad/s to revolutions/s (divide by 2π)
-    Vector3 rollRevolutions = GetRollVelocity() / _2PI;
-
-    // Displacement = revolutions × time × distance_per_revolution
-    Vector3 positionUpdate = rollRevolutions * changeInTime * circumference;
-    m_position += positionUpdate;
-
-    // Update orientation quaternion: rotate about the angular velocity axis
-    // by (|ω| × dt) radians. This avoids gimbal lock that Euler angles cause.
-    Vector3 omega = m_angularVelocity;
-    float omegaMag = sqrtf( omega.x * omega.x + omega.y * omega.y + omega.z * omega.z );
-    if ( omegaMag > 0.0001f )
-    {
-        Vector3 axis( omega.x / omegaMag, omega.y / omegaMag, omega.z / omegaMag );
-        m_orientation.RotateAboutAxis( axis, omegaMag * changeInTime );
-    }
-}
-
-
 // Convert angular velocity to translational (rolling) velocity.
 // For a ball rolling on a flat surface:
 //
