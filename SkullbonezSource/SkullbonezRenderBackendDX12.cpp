@@ -61,6 +61,7 @@
 #include "SkullbonezShaderDX12.h"
 #include "SkullbonezMeshDX12.h"
 #include "SkullbonezFramebufferDX12.h"
+#include "SkullbonezRenderGraph.h"
 #include "SkullbonezPlatformProfiler.h"
 #include <stdexcept>
 #include <cstdio>
@@ -316,6 +317,96 @@ void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
                        descriptorStats.transientCapacityPerFrame,
                        static_cast<unsigned long long>( uploadPeakBytes ),
                        static_cast<unsigned long long>( uploadCapacityBytes ) );
+}
+
+
+void RenderBackendDX12::DumpFrameGraphSkeleton() const
+{
+    // Diagnostic-only render graph sketch.
+    //
+    // This is intentionally not the live renderer yet. The current backend still
+    // records barriers by hand in Clear(), FramebufferDX12::Bind/Unbind(),
+    // DispatchReflectionRays(), GenerateMipsGPU(), screenshot readback, and
+    // Present().
+    //
+    // The purpose of this skeleton is to make the intended frame shape visible
+    // in the same pass/resource language the future render graph will use. It is
+    // a bridge for humans and future code review:
+    //
+    // - resources below are names for existing backend-owned render targets,
+    //   depth buffers, shadow maps, and reflection outputs,
+    // - passes below are the current high-level frame phases, including optional
+    //   cinematic and DXR paths,
+    // - Compile() emits API-neutral transitions that can later be compared with
+    //   hand-written DX12 barriers before those barriers move into the graph.
+    //
+    // This is a superset of possible frame paths. A normal non-cinematic frame
+    // writes directly to the backbuffer; a cinematic frame writes SceneColor and
+    // then tonemaps it to the backbuffer; reflection can be raster FBO or DXR.
+    // Keeping the alternatives explicit is useful while the old renderer is
+    // still being decomposed.
+    RenderGraph graph;
+
+    const RenderGraphResourceHandle backbuffer = graph.AddExternalResource( "SwapchainBackbuffer", RenderGraphResourceAccess::Present );
+    const RenderGraphResourceHandle mainDepth = graph.AddExternalResource( "MainDepthStencil", RenderGraphResourceAccess::DepthWrite );
+    const RenderGraphResourceHandle shadowDepth = graph.AddExternalResource( "TerrainShadowMapDepth", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle objectShadowDepth = graph.AddExternalResource( "ObjectShadowMapDepth", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle reflectionColor = graph.AddExternalResource( "RasterReflectionColor", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle reflectionDepth = graph.AddExternalResource( "RasterReflectionDepth", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle dxrReflection = graph.AddExternalResource( "DxrReflectionTexture", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle sceneColor = graph.AddExternalResource( "CinematicSceneColor", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle sceneDepth = graph.AddExternalResource( "CinematicSceneDepth", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle volumetricLight = graph.AddExternalResource( "VolumetricLight", RenderGraphResourceAccess::PixelShaderResource );
+
+    uint32_t pass = graph.AddPass( "ShadowMapPass" );
+    graph.AddWrite( pass, shadowDepth, RenderGraphResourceAccess::DepthWrite );
+    graph.AddWrite( pass, objectShadowDepth, RenderGraphResourceAccess::DepthWrite );
+
+    pass = graph.AddPass( "RasterReflectionPass" );
+    graph.AddRead( pass, shadowDepth, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, objectShadowDepth, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddWrite( pass, reflectionColor, RenderGraphResourceAccess::RenderTarget );
+    graph.AddWrite( pass, reflectionDepth, RenderGraphResourceAccess::DepthWrite );
+
+    pass = graph.AddPass( "DxrReflectionPass", RenderGraphQueueType::Compute );
+    graph.AddWrite( pass, dxrReflection, RenderGraphResourceAccess::UnorderedAccess );
+
+    pass = graph.AddPass( "BackbufferScenePass" );
+    graph.AddRead( pass, shadowDepth, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, objectShadowDepth, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, reflectionColor, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, dxrReflection, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddWrite( pass, backbuffer, RenderGraphResourceAccess::RenderTarget );
+    graph.AddWrite( pass, mainDepth, RenderGraphResourceAccess::DepthWrite );
+
+    pass = graph.AddPass( "CinematicScenePass" );
+    graph.AddRead( pass, shadowDepth, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, objectShadowDepth, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, reflectionColor, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, dxrReflection, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddWrite( pass, sceneColor, RenderGraphResourceAccess::RenderTarget );
+    graph.AddWrite( pass, sceneDepth, RenderGraphResourceAccess::DepthWrite );
+
+    pass = graph.AddPass( "VolumetricLightPass" );
+    graph.AddRead( pass, sceneColor, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, sceneDepth, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddWrite( pass, volumetricLight, RenderGraphResourceAccess::RenderTarget );
+
+    pass = graph.AddPass( "ToneMapPass" );
+    graph.AddRead( pass, sceneColor, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, sceneDepth, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, volumetricLight, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddWrite( pass, backbuffer, RenderGraphResourceAccess::RenderTarget );
+
+    pass = graph.AddPass( "DebugAndUiPass" );
+    graph.AddWrite( pass, backbuffer, RenderGraphResourceAccess::RenderTarget );
+
+    pass = graph.AddPass( "Present" );
+    graph.AddWrite( pass, backbuffer, RenderGraphResourceAccess::Present );
+
+    const std::string dump = graph.DumpText();
+    Log().Writef( "Debug/dx12_frame_graph_skeleton.txt", "%s\n", dump.c_str() );
+    Log().FlushAll();
 }
 
 
@@ -703,6 +794,8 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     // Set default render targets
     m_currentRTV = GetRTVHandle( m_frameIndex );
     m_currentDSV = GetDSVHandle( 0 );
+
+    DumpFrameGraphSkeleton();
 
     return true;
 }

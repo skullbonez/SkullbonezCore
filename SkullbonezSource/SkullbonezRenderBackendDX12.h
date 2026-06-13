@@ -297,6 +297,7 @@ class RenderBackendDX12 : public IRenderBackend
     void FlushUploadBuffer();
     void FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment );
     void ReportArchitectureStats( const char* reason ) const;
+    void DumpFrameGraphSkeleton() const;
     size_t HashPSOKey( const PSOKey12& key );
     ID3D12PipelineState* CreatePSO( VertexFormat12 format, bool instanced, const InstancedMeshDX12* im, const DynamicVBDX12* dvb );
     void CheckDXRSupport();
