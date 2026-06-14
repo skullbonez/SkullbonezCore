@@ -554,6 +554,252 @@ UINT64 Dx12UploadArena::AlignOffset( UINT64 offset, UINT64 alignment ) const
 }
 
 
+Dx12FrameUploadSystem::~Dx12FrameUploadSystem()
+{
+    Shutdown();
+}
+
+
+bool Dx12FrameUploadSystem::Init( ID3D12Device* device, UINT frameCount, UINT64 capacityBytes, const wchar_t* debugNamePrefix )
+{
+    Shutdown();
+
+    if ( !device || frameCount == 0 || frameCount > MAX_FRAME_COUNT || capacityBytes == 0 )
+    {
+        throw std::runtime_error( "Invalid DX12 frame upload system init description" );
+    }
+
+    m_frameCount = frameCount;
+    m_capacityBytes = capacityBytes;
+
+    const wchar_t* safeName = ( debugNamePrefix && debugNamePrefix[0] != L'\0' ) ? debugNamePrefix : L"Skullbonez DX12 Frame Upload Buffer";
+    for ( UINT i = 0; i < frameCount; ++i )
+    {
+        D3D12_HEAP_PROPERTIES heapProps = {};
+        heapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
+
+        D3D12_RESOURCE_DESC desc = {};
+        desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+        desc.Width = capacityBytes;
+        desc.Height = 1;
+        desc.DepthOrArraySize = 1;
+        desc.MipLevels = 1;
+        desc.SampleDesc.Count = 1;
+        desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+        ThrowIfFailed( device->CreateCommittedResource( &heapProps,
+                                                        D3D12_HEAP_FLAG_NONE,
+                                                        &desc,
+                                                        D3D12_RESOURCE_STATE_GENERIC_READ,
+                                                        nullptr,
+                                                        IID_PPV_ARGS( &m_resources[i] ) ),
+                       "CreateCommittedResource (frame upload) failed" );
+        NameDx12ObjectIndexed( m_resources[i], safeName, i );
+
+        ThrowIfFailed( m_resources[i]->Map( 0, nullptr, reinterpret_cast<void**>( &m_mappedPtrs[i] ) ),
+                       "Map frame upload buffer failed" );
+
+        // The arena owns byte-range accounting for this resource. The system
+        // owns the COM resource and its persistent CPU Map() pointer.
+        m_arenas[i].Init( m_resources[i], m_mappedPtrs[i], capacityBytes );
+    }
+
+    return true;
+}
+
+
+void Dx12FrameUploadSystem::Shutdown()
+{
+    for ( UINT i = 0; i < MAX_FRAME_COUNT; ++i )
+    {
+        if ( m_resources[i] )
+        {
+            m_resources[i]->Unmap( 0, nullptr );
+            m_resources[i]->Release();
+            m_resources[i] = nullptr;
+        }
+        m_mappedPtrs[i] = nullptr;
+        m_arenas[i].Reset();
+    }
+    m_frameCount = 0;
+    m_capacityBytes = 0;
+}
+
+
+void Dx12FrameUploadSystem::ResetFrame( UINT frameIndex )
+{
+    ValidateFrameIndex( frameIndex );
+    m_arenas[frameIndex].ResetFrame();
+}
+
+
+bool Dx12FrameUploadSystem::CanAllocate( UINT frameIndex, UINT64 sizeBytes, UINT64 alignment ) const
+{
+    ValidateFrameIndex( frameIndex );
+    return m_arenas[frameIndex].CanAllocate( sizeBytes, alignment );
+}
+
+
+D3D12_GPU_VIRTUAL_ADDRESS Dx12FrameUploadSystem::Allocate( UINT frameIndex, UINT64 sizeBytes, UINT64 alignment )
+{
+    ValidateFrameIndex( frameIndex );
+    return m_arenas[frameIndex].Allocate( sizeBytes, alignment );
+}
+
+
+uint8_t* Dx12FrameUploadSystem::GetMappedPtr( UINT frameIndex, D3D12_GPU_VIRTUAL_ADDRESS address ) const
+{
+    ValidateFrameIndex( frameIndex );
+    return m_arenas[frameIndex].GetMappedPtr( address );
+}
+
+
+UINT64 Dx12FrameUploadSystem::OffsetFromAddress( UINT frameIndex, D3D12_GPU_VIRTUAL_ADDRESS address ) const
+{
+    ValidateFrameIndex( frameIndex );
+    ID3D12Resource* resource = m_arenas[frameIndex].Resource();
+    if ( !resource )
+    {
+        throw std::runtime_error( "DX12 upload resource unavailable" );
+    }
+
+    const D3D12_GPU_VIRTUAL_ADDRESS base = resource->GetGPUVirtualAddress();
+    if ( address < base )
+    {
+        throw std::runtime_error( "DX12 upload address is before current frame resource" );
+    }
+    const UINT64 offset = address - base;
+    if ( offset >= m_capacityBytes )
+    {
+        throw std::runtime_error( "DX12 upload address is outside current frame resource" );
+    }
+    return offset;
+}
+
+
+ID3D12Resource* Dx12FrameUploadSystem::Resource( UINT frameIndex ) const
+{
+    ValidateFrameIndex( frameIndex );
+    return m_arenas[frameIndex].Resource();
+}
+
+
+Dx12UploadArenaStats Dx12FrameUploadSystem::GetStats( UINT frameIndex ) const
+{
+    ValidateFrameIndex( frameIndex );
+    return m_arenas[frameIndex].GetStats();
+}
+
+
+void Dx12FrameUploadSystem::ValidateFrameIndex( UINT frameIndex ) const
+{
+    if ( frameIndex >= m_frameCount )
+    {
+        throw std::runtime_error( "DX12 frame upload index out of range" );
+    }
+}
+
+
+Dx12ReadbackBuffer::~Dx12ReadbackBuffer()
+{
+    Reset();
+}
+
+
+bool Dx12ReadbackBuffer::InitBuffer( ID3D12Device* device, UINT64 sizeBytes, const wchar_t* debugName )
+{
+    Reset();
+
+    if ( !device || sizeBytes == 0 )
+    {
+        throw std::runtime_error( "Invalid DX12 readback buffer init description" );
+    }
+
+    D3D12_HEAP_PROPERTIES heapProps = {};
+    heapProps.Type = D3D12_HEAP_TYPE_READBACK;
+
+    D3D12_RESOURCE_DESC desc = {};
+    desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    desc.Width = sizeBytes;
+    desc.Height = 1;
+    desc.DepthOrArraySize = 1;
+    desc.MipLevels = 1;
+    desc.SampleDesc.Count = 1;
+    desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+    // Buffers are effectively COMMON on readback heaps. The CPU reads by Map()
+    // after a fence proves the GPU copy/resolve has completed.
+    const HRESULT hr = device->CreateCommittedResource( &heapProps,
+                                                        D3D12_HEAP_FLAG_NONE,
+                                                        &desc,
+                                                        D3D12_RESOURCE_STATE_COMMON,
+                                                        nullptr,
+                                                        IID_PPV_ARGS( &m_resource ) );
+    if ( FAILED( hr ) )
+    {
+        m_resource = nullptr;
+        m_sizeBytes = 0;
+        return false;
+    }
+
+    NameDx12Object( m_resource, debugName ? debugName : L"Skullbonez DX12 Readback Buffer" );
+    m_sizeBytes = sizeBytes;
+    return true;
+}
+
+
+void Dx12ReadbackBuffer::Reset()
+{
+    if ( m_resource )
+    {
+        m_resource->Release();
+        m_resource = nullptr;
+    }
+    m_sizeBytes = 0;
+}
+
+
+void* Dx12ReadbackBuffer::MapRead( UINT64 sizeBytes ) const
+{
+    if ( !m_resource )
+    {
+        throw std::runtime_error( "DX12 readback buffer unavailable" );
+    }
+    if ( sizeBytes > m_sizeBytes )
+    {
+        throw std::runtime_error( "DX12 readback map range exceeds buffer size" );
+    }
+
+    void* mappedData = nullptr;
+    D3D12_RANGE readRange = { 0, static_cast<SIZE_T>( sizeBytes ) };
+    ThrowIfFailed( m_resource->Map( 0, &readRange, &mappedData ), "Map readback buffer failed" );
+    return mappedData;
+}
+
+
+void Dx12ReadbackBuffer::UnmapNoWrite() const
+{
+    if ( !m_resource )
+    {
+        return;
+    }
+
+    // The CPU only reads from this buffer. Passing an empty write range tells
+    // the runtime there are no CPU-written bytes to flush back toward the GPU.
+    D3D12_RANGE writeRange = { 0, 0 };
+    m_resource->Unmap( 0, &writeRange );
+}
+
+
+Dx12ReadbackBufferStats Dx12ReadbackBuffer::GetStats() const
+{
+    Dx12ReadbackBufferStats stats;
+    stats.sizeBytes = m_sizeBytes;
+    stats.ready = m_resource != nullptr;
+    return stats;
+}
+
+
 bool Dx12RenderDevice::Init( const Dx12RenderDeviceInitDesc& desc )
 {
     Shutdown();

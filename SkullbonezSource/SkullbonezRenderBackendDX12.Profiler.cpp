@@ -47,7 +47,7 @@ static inline void ThrowIfFailed( HRESULT hr, const char* msg )
 
 void RenderBackendDX12::TryConsumeGpuTimerReadback( bool waitForFence )
 {
-    if ( !m_gpuTimers.queryHeap || !m_gpuTimers.readPending || !m_gpuTimers.readbackBuf || !m_renderDevice.FrameFence().IsReady() )
+    if ( !m_gpuTimers.queryHeap || !m_gpuTimers.readPending || !m_gpuTimers.readback.IsReady() || !m_renderDevice.FrameFence().IsReady() )
     {
         return;
     }
@@ -79,27 +79,24 @@ void RenderBackendDX12::TryConsumeGpuTimerReadback( bool waitForFence )
         }
     }
 
-    D3D12_RANGE readRange = { 0, (SIZE_T)TIMER_HEAP_SIZE * sizeof( uint64_t ) };
-    uint64_t* pData = nullptr;
-    if ( SUCCEEDED( m_gpuTimers.readbackBuf->Map( 0, &readRange, (void**)&pData ) ) )
+    const UINT64 readbackBytes = static_cast<UINT64>( TIMER_HEAP_SIZE ) * sizeof( uint64_t );
+    const uint64_t* pData = static_cast<const uint64_t*>( m_gpuTimers.readback.MapRead( readbackBytes ) );
+
+    std::memset( m_gpuTimers.resultMs, 0, sizeof( m_gpuTimers.resultMs ) );
+    std::memset( m_gpuTimers.resultValid, 0, sizeof( m_gpuTimers.resultValid ) );
+
+    for ( int i = 0; i < TIMER_HEAP_MARKERS; ++i )
     {
-        std::memset( m_gpuTimers.resultMs, 0, sizeof( m_gpuTimers.resultMs ) );
-        std::memset( m_gpuTimers.resultValid, 0, sizeof( m_gpuTimers.resultValid ) );
-
-        for ( int i = 0; i < TIMER_HEAP_MARKERS; ++i )
+        const uint64_t t0 = pData[i * 2 + 0];
+        const uint64_t t1 = pData[i * 2 + 1];
+        if ( t1 > t0 && m_gpuTimers.freq > 0 )
         {
-            const uint64_t t0 = pData[i * 2 + 0];
-            const uint64_t t1 = pData[i * 2 + 1];
-            if ( t1 > t0 && m_gpuTimers.freq > 0 )
-            {
-                m_gpuTimers.resultMs[i] = static_cast<float>( static_cast<double>( t1 - t0 ) / static_cast<double>( m_gpuTimers.freq ) * 1000.0 );
-                m_gpuTimers.resultValid[i] = true;
-            }
+            m_gpuTimers.resultMs[i] = static_cast<float>( static_cast<double>( t1 - t0 ) / static_cast<double>( m_gpuTimers.freq ) * 1000.0 );
+            m_gpuTimers.resultValid[i] = true;
         }
-
-        D3D12_RANGE writeRange = { 0, 0 };
-        m_gpuTimers.readbackBuf->Unmap( 0, &writeRange );
     }
+
+    m_gpuTimers.readback.UnmapNoWrite();
 
     m_gpuTimers.readPending = false;
 }

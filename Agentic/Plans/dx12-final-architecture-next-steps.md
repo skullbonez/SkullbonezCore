@@ -141,6 +141,9 @@ Expected result:
 
 ## Item 4: Extract Upload And Readback Systems
 
+Status: complete. Renderer validation manifest
+`TestOutput\validation\renderers\20260614T015248Z\manifest.json`.
+
 Goal: separate CPU-written upload memory and GPU-to-CPU readback memory from the
 backend facade.
 

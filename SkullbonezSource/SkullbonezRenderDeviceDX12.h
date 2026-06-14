@@ -469,6 +469,114 @@ class Dx12UploadArena
     UINT64 m_peakBytes = 0;
 };
 
+/* -- Dx12FrameUploadSystem -------------------------------------------------------------------------------------------------------------------------------------
+
+    What is the frame upload system?
+
+    Upload memory is the renderer's "CPU writes it, GPU reads it later" lane.
+    The CPU uses it for things that change during a frame: constants, dynamic
+    vertices, instance data, and texture rows. The GPU cannot safely read from a
+    normal C++ heap pointer, so DX12 gives us upload resources: buffers that the
+    CPU can Map() and the GPU can read by GPU virtual address.
+
+    Why is this more than an array of buffers?
+
+    The CPU and GPU are not synchronized by default. The CPU may start recording
+    frame 2 while the GPU is still executing frame 1. If both frames write into
+    the same upload bytes, frame 1 can accidentally read frame 2's data. The
+    frame upload system gives each in-flight frame allocator its own upload
+    arena and resets that arena only after the frame fence says reuse is safe.
+
+    This class owns the actual upload ID3D12Resource objects and their mapped
+    CPU pointers. Dx12UploadArena remains the per-frame byte allocator wrapped
+    around each resource.
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+class Dx12FrameUploadSystem
+{
+  public:
+    static constexpr UINT MAX_FRAME_COUNT = 4;
+
+    Dx12FrameUploadSystem() = default;
+    ~Dx12FrameUploadSystem();
+    Dx12FrameUploadSystem( const Dx12FrameUploadSystem& ) = delete;
+    Dx12FrameUploadSystem& operator=( const Dx12FrameUploadSystem& ) = delete;
+
+    bool Init( ID3D12Device* device, UINT frameCount, UINT64 capacityBytes, const wchar_t* debugNamePrefix );
+    void Shutdown();
+
+    void ResetFrame( UINT frameIndex );
+    bool CanAllocate( UINT frameIndex, UINT64 sizeBytes, UINT64 alignment ) const;
+    D3D12_GPU_VIRTUAL_ADDRESS Allocate( UINT frameIndex, UINT64 sizeBytes, UINT64 alignment );
+    uint8_t* GetMappedPtr( UINT frameIndex, D3D12_GPU_VIRTUAL_ADDRESS address ) const;
+    UINT64 OffsetFromAddress( UINT frameIndex, D3D12_GPU_VIRTUAL_ADDRESS address ) const;
+    ID3D12Resource* Resource( UINT frameIndex ) const;
+    Dx12UploadArenaStats GetStats( UINT frameIndex ) const;
+
+  private:
+    void ValidateFrameIndex( UINT frameIndex ) const;
+
+    ID3D12Resource* m_resources[MAX_FRAME_COUNT] = {};
+    uint8_t* m_mappedPtrs[MAX_FRAME_COUNT] = {};
+    Dx12UploadArena m_arenas[MAX_FRAME_COUNT];
+    UINT m_frameCount = 0;
+    UINT64 m_capacityBytes = 0;
+};
+
+struct Dx12ReadbackBufferStats
+{
+    UINT64 sizeBytes = 0;
+    bool ready = false;
+};
+
+/* -- Dx12ReadbackBuffer ----------------------------------------------------------------------------------------------------------------------------------------
+
+    What is a readback buffer?
+
+    Most GPU resources live in fast GPU-only memory. The CPU cannot just take a
+    pointer to the back buffer or a query heap and read bytes from it. To bring
+    data back to the CPU, DX12 uses a READBACK heap:
+
+    1. Create a buffer in READBACK memory.
+    2. Record a GPU copy or ResolveQueryData into that buffer.
+    3. Wait for the fence that proves the copy finished.
+    4. Map the readback buffer and copy bytes into normal CPU containers.
+
+    This helper owns that READBACK resource and the Map/Unmap policy. It keeps
+    the important lifetime fact visible: mapping is valid only after the GPU copy
+    has completed. The caller still controls the fence wait because different
+    readbacks have different timing needs. Screenshots block immediately; GPU
+    timer readback usually polls without stalling the frame.
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+class Dx12ReadbackBuffer
+{
+  public:
+    Dx12ReadbackBuffer() = default;
+    ~Dx12ReadbackBuffer();
+    Dx12ReadbackBuffer( const Dx12ReadbackBuffer& ) = delete;
+    Dx12ReadbackBuffer& operator=( const Dx12ReadbackBuffer& ) = delete;
+
+    bool InitBuffer( ID3D12Device* device, UINT64 sizeBytes, const wchar_t* debugName );
+    void Reset();
+
+    bool IsReady() const
+    {
+        return m_resource != nullptr;
+    }
+
+    ID3D12Resource* Resource() const
+    {
+        return m_resource;
+    }
+
+    void* MapRead( UINT64 sizeBytes ) const;
+    void UnmapNoWrite() const;
+    Dx12ReadbackBufferStats GetStats() const;
+
+  private:
+    ID3D12Resource* m_resource = nullptr;
+    UINT64 m_sizeBytes = 0;
+};
+
 struct Dx12RenderDeviceInitDesc
 {
     HWND hwnd = nullptr;

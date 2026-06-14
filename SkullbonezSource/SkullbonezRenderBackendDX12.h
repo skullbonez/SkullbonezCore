@@ -93,7 +93,7 @@ inline constexpr int DX12_TIMER_HEAP_SIZE = DX12_TIMER_HEAP_MARKERS * 2;
 struct GpuTimerStateDX12
 {
     ID3D12QueryHeap* queryHeap = nullptr;
-    ID3D12Resource* readbackBuf = nullptr;
+    Dx12ReadbackBuffer readback;
     float resultMs[DX12_TIMER_HEAP_MARKERS] = {};
     bool resultValid[DX12_TIMER_HEAP_MARKERS] = {};
     uint64_t freq = 1;
@@ -213,17 +213,6 @@ class RenderBackendDX12 : public IRenderBackend
 
     ID3D12Resource* m_depthStencil = nullptr;
 
-    // One upload buffer per frame allocator. Partitioned so that frame N+1's
-    // CPU recording never overwrites data in the buffer that frame N's GPU is
-    // still reading. Mirrors the per-allocator partitioning applied to the
-    // transient SRV heap.
-    //
-    // These raw pointers are the actual DX12 resources and CPU Map() pointers.
-    // The Dx12UploadArena below is the safer allocation policy wrapped around
-    // them: it hands out aligned byte ranges and explains when reset is legal.
-    ID3D12Resource* m_uploadBuffers[FRAME_COUNT] = {};
-    uint8_t* m_uploadBufferMapped[FRAME_COUNT] = {};
-
     // Upload memory is the CPU-written staging area for constants, dynamic
     // vertices, instance data, and texture rows. It is the bridge between CPU
     // code that prepares frame data and GPU commands that read that data later.
@@ -231,8 +220,10 @@ class RenderBackendDX12 : public IRenderBackend
     // Each frame allocator gets its own arena. That matters because the CPU can
     // begin preparing a later frame before the GPU has finished an earlier one.
     // Resetting an arena too early would let the CPU overwrite bytes the GPU has
-    // not read yet. The frame fence is the proof that reset is safe.
-    Dx12UploadArena m_uploadArenas[FRAME_COUNT];
+    // not read yet. Dx12FrameUploadSystem owns the upload resources, their
+    // persistent CPU Map() pointers, and the arena reset policy tied to the
+    // frame fence.
+    Dx12FrameUploadSystem m_uploadSystem;
 
     ID3D12RootSignature* m_rootSignature = nullptr;
     int m_width = 0;
@@ -468,7 +459,7 @@ class RenderBackendDX12 : public IRenderBackend
     uint8_t* GetUploadPtr( D3D12_GPU_VIRTUAL_ADDRESS addr );
     ID3D12Resource* GetUploadBuffer() const
     {
-        return m_uploadArenas[m_allocatorIndex].Resource();
+        return m_uploadSystem.Resource( m_allocatorIndex );
     }
     D3D12_CPU_DESCRIPTOR_HANDLE AllocateRTV();
     D3D12_CPU_DESCRIPTOR_HANDLE AllocateDSV();

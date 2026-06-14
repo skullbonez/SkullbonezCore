@@ -204,7 +204,7 @@ void RenderBackendDX12::EnsureCommandListOpen()
     //
     // That is why it is safe to reset these two cursors here. Without the fence
     // wait, these resets could make the CPU overwrite data the GPU still needs.
-    m_uploadArenas[m_allocatorIndex].ResetFrame();
+    m_uploadSystem.ResetFrame( m_allocatorIndex );
     m_srvDescriptors.ResetFrame( m_allocatorIndex );
 
     // All command list state is reset — force full rebind on next draw
@@ -260,7 +260,7 @@ void RenderBackendDX12::FlushUploadBuffer()
     // reopens the command list. That blocking wait is expensive, but it gives
     // the same safety proof as a normal frame-fence wait: the old upload bytes
     // and temporary descriptors are no longer in use, so the arenas can rewind.
-    m_uploadArenas[m_allocatorIndex].ResetFrame();
+    m_uploadSystem.ResetFrame( m_allocatorIndex );
     m_srvDescriptors.ResetFrame( m_allocatorIndex );
     m_lastPSOHash = 0;
     m_texBindingsDirty = true;
@@ -270,7 +270,7 @@ void RenderBackendDX12::FlushUploadBuffer()
 
 void RenderBackendDX12::FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment )
 {
-    if ( !m_uploadArenas[m_allocatorIndex].CanAllocate( size, alignment ) )
+    if ( !m_uploadSystem.CanAllocate( m_allocatorIndex, size, alignment ) )
     {
         // This is the expensive fallback path. It means the CPU has filled this
         // frame's upload arena before the frame was submitted, so we must submit
@@ -278,7 +278,7 @@ void RenderBackendDX12::FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment
         // event log keeps this visible because frequent mid-frame flushes are a
         // sign that the future Dx12RenderDevice needs larger upload pages or a
         // different upload strategy for the current workload.
-        const Dx12UploadArenaStats stats = m_uploadArenas[m_allocatorIndex].GetStats();
+        const Dx12UploadArenaStats stats = m_uploadSystem.GetStats( m_allocatorIndex );
         Log().WriteEventf( "dx12_upload_arena_flush frame=%u used_bytes=%llu capacity_bytes=%llu requested_bytes=%llu alignment=%llu",
                            m_allocatorIndex,
                            static_cast<unsigned long long>( stats.usedBytes ),
@@ -299,7 +299,7 @@ void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
     UINT64 uploadCapacityBytes = 0;
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
-        const Dx12UploadArenaStats uploadStats = m_uploadArenas[i].GetStats();
+        const Dx12UploadArenaStats uploadStats = m_uploadSystem.GetStats( static_cast<UINT>( i ) );
         uploadPeakBytes = (std::max)( uploadPeakBytes, uploadStats.peakBytes );
         uploadCapacityBytes += uploadStats.capacityBytes;
     }
@@ -419,13 +419,13 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
 
 D3D12_GPU_VIRTUAL_ADDRESS RenderBackendDX12::SubAllocateUpload( UINT64 size, UINT64 alignment )
 {
-    return m_uploadArenas[m_allocatorIndex].Allocate( size, alignment );
+    return m_uploadSystem.Allocate( m_allocatorIndex, size, alignment );
 }
 
 
 uint8_t* RenderBackendDX12::GetUploadPtr( D3D12_GPU_VIRTUAL_ADDRESS addr )
 {
-    return m_uploadArenas[m_allocatorIndex].GetMappedPtr( addr );
+    return m_uploadSystem.GetMappedPtr( m_allocatorIndex, addr );
 }
 
 
@@ -609,27 +609,10 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     // that frame N's GPU is still reading (the per-allocator fence wait in EnsureCommandListOpen
     // guarantees frame N is done before we reuse that allocator's upload buffer on frame N+2).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    for ( int i = 0; i < FRAME_COUNT; ++i )
-    {
-        D3D12_HEAP_PROPERTIES heapProps = {};
-        heapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
-        D3D12_RESOURCE_DESC desc = {};
-        desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-        desc.Width = UPLOAD_BUFFER_SIZE;
-        desc.Height = 1;
-        desc.DepthOrArraySize = 1;
-        desc.MipLevels = 1;
-        desc.SampleDesc.Count = 1;
-        desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-        ThrowIfFailed( m_device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS( &m_uploadBuffers[i] ) ), "CreateCommittedResource (upload) failed" );
-        NameDx12ObjectIndexed( m_uploadBuffers[i], L"Skullbonez DX12 Frame Upload Buffer", (UINT)i );
-        m_uploadBuffers[i]->Map( 0, nullptr, (void**)&m_uploadBufferMapped[i] );
-        // Each upload arena wraps one persistently mapped upload buffer. The CPU
-        // writes through m_uploadBufferMapped[i]; command lists bind GPU virtual
-        // addresses from m_uploadBuffers[i]. Keeping the arena object beside the
-        // raw resource makes that CPU/GPU address pairing explicit.
-        m_uploadArenas[i].Init( m_uploadBuffers[i], m_uploadBufferMapped[i], UPLOAD_BUFFER_SIZE );
-    }
+    // Dx12FrameUploadSystem owns the actual upload resources and their
+    // persistent CPU Map() pointers. RenderBackendDX12 now asks for byte ranges
+    // instead of owning the raw upload-buffer lifecycle itself.
+    m_uploadSystem.Init( m_device, FRAME_COUNT, UPLOAD_BUFFER_SIZE, L"Skullbonez DX12 Frame Upload Buffer" );
 
     // Root signature
     CreateRootSignature();
@@ -649,29 +632,22 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
             // Readback buffer — CPU-readable memory where GPU timer results are copied to.
             // The READBACK heap type means the CPU can read from it (but the GPU cannot render to it).
             // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-            D3D12_HEAP_PROPERTIES hp = {};
-            hp.Type = D3D12_HEAP_TYPE_READBACK;
-            D3D12_RESOURCE_DESC rd = {};
-            rd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-            rd.Width = (UINT64)TIMER_HEAP_SIZE * sizeof( uint64_t );
-            rd.Height = 1;
-            rd.DepthOrArraySize = 1;
-            rd.MipLevels = 1;
-            rd.SampleDesc.Count = 1;
-            rd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+            const UINT64 timerReadbackBytes = static_cast<UINT64>( TIMER_HEAP_SIZE ) * sizeof( uint64_t );
+            // Dx12ReadbackBuffer owns the CPU-readable resource. The backend
+            // still decides when the fence is safe to read, but it no longer
+            // carries the raw COM allocation/release path for timer bytes.
             // Buffers on all heap types are effectively created in COMMON state in D3D12
             // regardless of the specified initial state. For READBACK buffers the runtime
             // accepts any state but always uses COMMON — be explicit to keep the debug layer
             // quiet. CPU Map/Unmap access is independent of the GPU-visible resource state.
             // Docs: https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12#implicit-state-transitions
-            if ( FAILED( m_device->CreateCommittedResource( &hp, D3D12_HEAP_FLAG_NONE, &rd, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS( &m_gpuTimers.readbackBuf ) ) ) )
+            if ( !m_gpuTimers.readback.InitBuffer( m_device, timerReadbackBytes, L"Skullbonez DX12 GPU Timer Readback Buffer" ) )
             {
                 m_gpuTimers.queryHeap->Release();
                 m_gpuTimers.queryHeap = nullptr;
             }
             else
             {
-                NameDx12Object( m_gpuTimers.readbackBuf, L"Skullbonez DX12 GPU Timer Readback Buffer" );
                 m_commandQueue->GetTimestampFrequency( &m_gpuTimers.freq );
             }
         }
@@ -900,11 +876,7 @@ void RenderBackendDX12::Shutdown()
     ReportArchitectureStats( "Shutdown" );
 
     // GPU timer cleanup
-    if ( m_gpuTimers.readbackBuf )
-    {
-        m_gpuTimers.readbackBuf->Release();
-        m_gpuTimers.readbackBuf = nullptr;
-    }
+    m_gpuTimers.readback.Reset();
     if ( m_gpuTimers.queryHeap )
     {
         m_gpuTimers.queryHeap->Release();
@@ -995,17 +967,7 @@ void RenderBackendDX12::Shutdown()
     }
     m_textures.clear();
 
-    for ( int i = 0; i < FRAME_COUNT; ++i )
-    {
-        if ( m_uploadBuffers[i] )
-        {
-            m_uploadBuffers[i]->Unmap( 0, nullptr );
-            m_uploadBuffers[i]->Release();
-            m_uploadBuffers[i] = nullptr;
-        }
-        m_uploadBufferMapped[i] = nullptr;
-        m_uploadArenas[i].Reset();
-    }
+    m_uploadSystem.Shutdown();
     if ( m_depthStencil )
     {
         m_depthStencil->Release();
@@ -1099,7 +1061,7 @@ void RenderBackendDX12::Present()
                 ++i;
             }
             UINT byteOffset = (UINT)( start * sizeof( uint64_t ) );
-            m_commandList->ResolveQueryData( m_gpuTimers.queryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)start, (UINT)( i - start ), m_gpuTimers.readbackBuf, byteOffset );
+            m_commandList->ResolveQueryData( m_gpuTimers.queryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)start, (UINT)( i - start ), m_gpuTimers.readback.Resource(), byteOffset );
             resolvedTimerSlotsThisFrame = true;
         }
         std::memset( m_gpuTimers.slotWritten, 0, sizeof( m_gpuTimers.slotWritten ) ); // reset for next frame

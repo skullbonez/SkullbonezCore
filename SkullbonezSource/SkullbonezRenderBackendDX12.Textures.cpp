@@ -440,7 +440,7 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
 
     FlushUploadBufferIfNeeded( mip0Bytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT );
     D3D12_GPU_VIRTUAL_ADDRESS uploadBase = SubAllocateUpload( mip0Bytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT );
-    const UINT64 baseOffset = uploadBase - m_uploadBuffers[m_allocatorIndex]->GetGPUVirtualAddress();
+    const UINT64 baseOffset = m_uploadSystem.OffsetFromAddress( m_allocatorIndex, uploadBase );
     uint8_t* uploadDst = GetUploadPtr( uploadBase );
 
     const UINT srcRowPitch = static_cast<UINT>( w ) * static_cast<UINT>( bytesPerPixel );
@@ -457,7 +457,7 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
     dstLoc.SubresourceIndex = 0;
 
     D3D12_TEXTURE_COPY_LOCATION srcLoc = {};
-    srcLoc.pResource = m_uploadBuffers[m_allocatorIndex];
+    srcLoc.pResource = m_uploadSystem.Resource( m_allocatorIndex );
     srcLoc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
     srcLoc.PlacedFootprint = fp0;
     srcLoc.PlacedFootprint.Offset = baseOffset + fp0.Offset;

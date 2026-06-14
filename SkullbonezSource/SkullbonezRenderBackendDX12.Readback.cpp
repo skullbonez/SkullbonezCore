@@ -68,29 +68,23 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
     UINT64 totalBytes = 0;
     m_device->GetCopyableFootprints( &bbDesc, 0, 1, 0, &footprint, &numRows, &rowSizeBytes, &totalBytes );
 
-    // Create readback buffer
-    D3D12_HEAP_PROPERTIES readbackHeap = {};
-    readbackHeap.Type = D3D12_HEAP_TYPE_READBACK;
-    D3D12_RESOURCE_DESC readbackDesc = {};
-    readbackDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    readbackDesc.Width = totalBytes;
-    readbackDesc.Height = 1;
-    readbackDesc.DepthOrArraySize = 1;
-    readbackDesc.MipLevels = 1;
-    readbackDesc.SampleDesc.Count = 1;
-    readbackDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-    ID3D12Resource* readbackBuffer = nullptr;
+    // Create a CPU-readable landing buffer for the screenshot. The back buffer
+    // itself lives in GPU-only memory, so the CPU cannot read it directly. The
+    // command list copies pixels into this readback buffer, WaitForGpu proves
+    // that copy has finished, and only then do we Map() the bytes below.
+    Dx12ReadbackBuffer readbackBuffer;
     // Buffers are always created in COMMON state in D3D12 regardless of the initial state
     // specified. Specifying any other state fires warning #1328 (CREATERESOURCE_STATE_IGNORED).
     // READBACK buffers are accessed via CPU Map/Unmap — no GPU state barrier is needed.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12
-    m_device->CreateCommittedResource( &readbackHeap, D3D12_HEAP_FLAG_NONE, &readbackDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS( &readbackBuffer ) );
-    NameDx12Object( readbackBuffer, L"Skullbonez DX12 Screenshot Readback Buffer" );
+    if ( !readbackBuffer.InitBuffer( m_device, totalBytes, L"Skullbonez DX12 Screenshot Readback Buffer" ) )
+    {
+        throw std::runtime_error( "CreateCommittedResource (screenshot readback) failed" );
+    }
 
     // Copy texture to readback buffer
     D3D12_TEXTURE_COPY_LOCATION dstLoc = {};
-    dstLoc.pResource = readbackBuffer;
+    dstLoc.pResource = readbackBuffer.Resource();
     dstLoc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
     dstLoc.PlacedFootprint = footprint;
 
@@ -112,15 +106,13 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
     WaitForGpu();
 
     // Map and read pixels
-    void* mappedData = nullptr;
-    D3D12_RANGE readRange = { 0, (SIZE_T)totalBytes };
-    readbackBuffer->Map( 0, &readRange, &mappedData );
+    const void* mappedData = readbackBuffer.MapRead( totalBytes );
 
     // Convert RGBA top-down → BGR bottom-up (BMP format)
     int rowStride = ( m_width * 3 + 3 ) & ~3;
     std::vector<uint8_t> result( (size_t)rowStride * m_height );
 
-    const uint8_t* src = (const uint8_t*)mappedData;
+    const uint8_t* src = static_cast<const uint8_t*>( mappedData );
     for ( int y = 0; y < m_height; ++y )
     {
         int flippedY = m_height - 1 - y;
@@ -134,9 +126,7 @@ std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& o
         }
     }
 
-    D3D12_RANGE writeRange = { 0, 0 };
-    readbackBuffer->Unmap( 0, &writeRange );
-    readbackBuffer->Release();
+    readbackBuffer.UnmapNoWrite();
 
     return result;
 }
