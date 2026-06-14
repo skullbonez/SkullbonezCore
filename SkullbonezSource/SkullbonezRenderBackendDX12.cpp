@@ -69,6 +69,7 @@
 #include <algorithm>
 #include <string>
 #include <fstream>
+#include <sstream>
 #include <wrl/client.h>
 
 
@@ -95,6 +96,78 @@ static inline void ThrowIfFailed( HRESULT hr, const char* msg )
     if ( FAILED( hr ) )
     {
         throw std::runtime_error( msg );
+    }
+}
+
+static void AppendDx12StateFlag( std::ostringstream& out, bool& wroteAny, D3D12_RESOURCE_STATES state, D3D12_RESOURCE_STATES flag, const char* name )
+{
+    if ( ( state & flag ) != 0 )
+    {
+        if ( wroteAny )
+        {
+            out << "|";
+        }
+        out << name;
+        wroteAny = true;
+    }
+}
+
+static std::string Dx12StateToString( D3D12_RESOURCE_STATES state )
+{
+    if ( state == D3D12_RESOURCE_STATE_COMMON )
+    {
+        return "COMMON";
+    }
+
+    std::ostringstream out;
+    bool wroteAny = false;
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, "VERTEX_AND_CONSTANT_BUFFER" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_INDEX_BUFFER, "INDEX_BUFFER" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_RENDER_TARGET, "RENDER_TARGET" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, "UNORDERED_ACCESS" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_DEPTH_WRITE, "DEPTH_WRITE" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_DEPTH_READ, "DEPTH_READ" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, "NON_PIXEL_SHADER_RESOURCE" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, "PIXEL_SHADER_RESOURCE" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_STREAM_OUT, "STREAM_OUT" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, "INDIRECT_ARGUMENT" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_COPY_DEST, "COPY_DEST" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_COPY_SOURCE, "COPY_SOURCE" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_RESOLVE_DEST, "RESOLVE_DEST" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_RESOLVE_SOURCE, "RESOLVE_SOURCE" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_PRESENT, "PRESENT" );
+    if ( !wroteAny )
+    {
+        out << "UNKNOWN(" << static_cast<unsigned int>( state ) << ")";
+    }
+    return out.str();
+}
+
+static D3D12_RESOURCE_STATES GraphAccessToDx12State( RenderGraphResourceAccess access )
+{
+    switch ( access )
+    {
+    case RenderGraphResourceAccess::RenderTarget:
+        return D3D12_RESOURCE_STATE_RENDER_TARGET;
+    case RenderGraphResourceAccess::DepthRead:
+        return D3D12_RESOURCE_STATE_DEPTH_READ;
+    case RenderGraphResourceAccess::DepthWrite:
+        return D3D12_RESOURCE_STATE_DEPTH_WRITE;
+    case RenderGraphResourceAccess::PixelShaderResource:
+        return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+    case RenderGraphResourceAccess::NonPixelShaderResource:
+        return D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+    case RenderGraphResourceAccess::UnorderedAccess:
+        return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    case RenderGraphResourceAccess::CopySource:
+        return D3D12_RESOURCE_STATE_COPY_SOURCE;
+    case RenderGraphResourceAccess::CopyDest:
+        return D3D12_RESOURCE_STATE_COPY_DEST;
+    case RenderGraphResourceAccess::Present:
+        return D3D12_RESOURCE_STATE_PRESENT;
+    case RenderGraphResourceAccess::Unknown:
+    default:
+        return D3D12_RESOURCE_STATE_COMMON;
     }
 }
 
@@ -216,10 +289,11 @@ void RenderBackendDX12::EnsureCommandListOpen()
 
 void RenderBackendDX12::TransitionBarrier( ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after )
 {
-    if ( before == after )
+    if ( !resource || before == after )
     {
         return;
     }
+    RecordLiveBarrier( "TransitionBarrier", resource, before, after );
     // Record a resource state transition barrier. In DX12, YOU must tell the GPU when a resource
     // changes from one usage to another (e.g. from render target to shader input). The GPU uses
     // this to flush caches and resolve memory hazards. Forgetting barriers causes corruption.
@@ -231,6 +305,32 @@ void RenderBackendDX12::TransitionBarrier( ID3D12Resource* resource, D3D12_RESOU
     barrier.Transition.StateAfter = after;
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
     m_commandList->ResourceBarrier( 1, &barrier );
+}
+
+
+void RenderBackendDX12::RecordLiveBarrier( const char* source, ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after )
+{
+    if ( !resource || before == after )
+    {
+        return;
+    }
+
+    // This is a migration diagnostic, not a hot-path render feature. Keep a
+    // bounded sample of barriers so long validation runs cannot grow the vector
+    // without limit. The first records are the most useful because they show the
+    // early frame shape the render graph must eventually own.
+    constexpr size_t MAX_LIVE_BARRIER_RECORDS = 4096;
+    if ( m_liveBarrierRecords.size() >= MAX_LIVE_BARRIER_RECORDS )
+    {
+        return;
+    }
+
+    LiveBarrierRecordDX12 record;
+    record.resource = resource;
+    record.before = before;
+    record.after = after;
+    record.source = source ? source : "unknown";
+    m_liveBarrierRecords.push_back( record );
 }
 
 
@@ -411,7 +511,93 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
     pass = graph.AddPass( "Present" );
     graph.AddWrite( pass, backbuffer, RenderGraphResourceAccess::Present );
 
-    const std::string dump = graph.DumpText();
+    const RenderGraphCompileResult compiled = graph.Compile();
+    std::vector<bool> liveBarrierMatched( m_liveBarrierRecords.size(), false );
+
+    std::ostringstream out;
+    out << graph.DumpText();
+    out << "\nLiveBackendTransitionBarriers:\n";
+    if ( m_liveBarrierRecords.empty() )
+    {
+        out << "  none recorded yet\n";
+    }
+    for ( size_t i = 0; i < m_liveBarrierRecords.size(); ++i )
+    {
+        const LiveBarrierRecordDX12& live = m_liveBarrierRecords[i];
+        out << "  [" << i << "] source=" << ( live.source ? live.source : "unknown" )
+            << " resource=" << live.resource
+            << " " << Dx12StateToString( live.before )
+            << " -> " << Dx12StateToString( live.after ) << "\n";
+    }
+
+    out << "\nGraphVsLiveTransitionStatePairs:\n";
+    out << "  graph_transition_count=" << compiled.transitions.size() << "\n";
+    out << "  live_transition_barrier_count=" << m_liveBarrierRecords.size() << "\n";
+
+    size_t matchedPairs = 0;
+    size_t graphOnlyDetails = 0;
+    constexpr size_t MAX_COMPARISON_DETAILS = 256;
+    for ( const RenderGraphTransitionDesc& transition : compiled.transitions )
+    {
+        const D3D12_RESOURCE_STATES graphBefore = GraphAccessToDx12State( transition.before );
+        const D3D12_RESOURCE_STATES graphAfter = GraphAccessToDx12State( transition.after );
+
+        bool matched = false;
+        for ( size_t liveIndex = 0; liveIndex < m_liveBarrierRecords.size(); ++liveIndex )
+        {
+            const LiveBarrierRecordDX12& live = m_liveBarrierRecords[liveIndex];
+            if ( !liveBarrierMatched[liveIndex] && live.before == graphBefore && live.after == graphAfter )
+            {
+                liveBarrierMatched[liveIndex] = true;
+                matched = true;
+                ++matchedPairs;
+                break;
+            }
+        }
+
+        if ( !matched && graphOnlyDetails < MAX_COMPARISON_DETAILS )
+        {
+            const RenderGraphResourceDesc& resource = graph.Resources()[transition.resource.index];
+            const RenderGraphPassDesc& passDesc = graph.Passes()[transition.passIndex];
+            out << "  graph_only before pass [" << transition.passIndex << "] " << passDesc.name
+                << ": " << resource.name
+                << " " << ToString( transition.before ) << "/" << Dx12StateToString( graphBefore )
+                << " -> " << ToString( transition.after ) << "/" << Dx12StateToString( graphAfter ) << "\n";
+            ++graphOnlyDetails;
+        }
+    }
+
+    size_t liveOnlyDetails = 0;
+    for ( size_t liveIndex = 0; liveIndex < m_liveBarrierRecords.size(); ++liveIndex )
+    {
+        if ( liveBarrierMatched[liveIndex] )
+        {
+            continue;
+        }
+        const LiveBarrierRecordDX12& live = m_liveBarrierRecords[liveIndex];
+        if ( liveOnlyDetails < MAX_COMPARISON_DETAILS )
+        {
+            out << "  live_only [" << liveIndex << "] source=" << ( live.source ? live.source : "unknown" )
+                << " resource=" << live.resource
+                << " " << Dx12StateToString( live.before )
+                << " -> " << Dx12StateToString( live.after ) << "\n";
+        }
+        ++liveOnlyDetails;
+    }
+
+    out << "  matched_state_pairs=" << matchedPairs << "\n";
+    out << "  graph_only_detail_count=" << graphOnlyDetails << "\n";
+    out << "  live_only_count=" << liveOnlyDetails << "\n";
+    out << "  note=This is a diagnostic comparison by transition state pair. It does not prove resource identity yet; PRESENT and COMMON share a DX12 value.\n";
+
+    const std::string dump = out.str();
+    {
+        std::ofstream file( "Debug/dx12_frame_graph_skeleton.txt", std::ios::binary );
+        if ( file.is_open() )
+        {
+            file << dump << "\n";
+        }
+    }
     Log().Writef( "Debug/dx12_frame_graph_skeleton.txt", "%s\n", dump.c_str() );
     Log().FlushAll();
 }
@@ -501,6 +687,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     m_allocatorIndex = m_renderDevice.AllocatorIndex();
     m_frameIndex = m_renderDevice.FrameIndex();
     m_allowTearing = m_renderDevice.AllowTearing();
+    m_liveBarrierRecords.clear();
 
     // Check DXR capability
     CheckDXRSupport();
@@ -874,6 +1061,7 @@ void RenderBackendDX12::Shutdown()
     ShutdownDXR();
 
     ReportArchitectureStats( "Shutdown" );
+    DumpFrameGraphSkeleton();
 
     // GPU timer cleanup
     m_gpuTimers.readback.Reset();

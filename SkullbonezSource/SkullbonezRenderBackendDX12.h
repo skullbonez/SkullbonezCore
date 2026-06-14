@@ -102,6 +102,22 @@ struct GpuTimerStateDX12
     bool slotWritten[DX12_TIMER_HEAP_SIZE] = {}; // true for each timestamp slot that had EndQuery recorded this frame
 };
 
+// One live DX12 transition barrier observed while the legacy backend records
+// commands.
+//
+// This is diagnostic data for the render-graph migration. It is deliberately a
+// small CPU-side record: resource pointer identity, before/after DX12 states,
+// and a short source label. It does not affect command recording. The goal is
+// to let engineers compare "what the graph thinks should happen" against "what
+// the current backend actually emitted" before the graph starts owning barriers.
+struct LiveBarrierRecordDX12
+{
+    const void* resource = nullptr;
+    D3D12_RESOURCE_STATES before = D3D12_RESOURCE_STATE_COMMON;
+    D3D12_RESOURCE_STATES after = D3D12_RESOURCE_STATE_COMMON;
+    const char* source = nullptr;
+};
+
 
 /* -- RenderBackendDX12 -----------------------------------------------------------------------------------------------------------------------------------------
 
@@ -244,6 +260,7 @@ class RenderBackendDX12 : public IRenderBackend
     float m_clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
     float m_clearDepth = 1.0f;
     bool m_psoDirty = true;
+    std::vector<LiveBarrierRecordDX12> m_liveBarrierRecords;
 
     static constexpr int TEXTURE_SLOT_COUNT = 4;
     ShaderDX12* m_activeShader = nullptr;
@@ -295,6 +312,7 @@ class RenderBackendDX12 : public IRenderBackend
     D3D12_GPU_DESCRIPTOR_HANDLE GetSRVGpuHandle( UINT index );
     D3D12_CPU_DESCRIPTOR_HANDLE GetRTVHandle( UINT index );
     D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle( UINT index );
+    void RecordLiveBarrier( const char* source, ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after );
     void TransitionBarrier( ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after );
     void FlushUploadBuffer();
     void FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment );

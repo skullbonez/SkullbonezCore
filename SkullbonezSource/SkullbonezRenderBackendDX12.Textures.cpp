@@ -198,6 +198,7 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
         b.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
         b.Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
         b.Transition.Subresource = 0;
+        RecordLiveBarrier( "GenerateMipsGPU:mip0", tex, b.Transition.StateBefore, b.Transition.StateAfter );
         m_commandList->ResourceBarrier( 1, &b );
     }
 
@@ -281,6 +282,7 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
             b.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
             b.Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
             b.Transition.Subresource = srcMip + 1 + i;
+            RecordLiveBarrier( "GenerateMipsGPU:copy_to_uav", tex, b.Transition.StateBefore, b.Transition.StateAfter );
             m_commandList->ResourceBarrier( 1, &b );
         }
 
@@ -330,6 +332,7 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
             b.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
             b.Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
             b.Transition.Subresource = srcMip + 1 + i;
+            RecordLiveBarrier( "GenerateMipsGPU:uav_to_srv", tex, b.Transition.StateBefore, b.Transition.StateAfter );
             m_commandList->ResourceBarrier( 1, &b );
         }
 

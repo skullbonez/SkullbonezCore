@@ -1,6 +1,6 @@
 # DX12 Final Architecture Next Steps
 
-Status: active implementation plan  
+Status: first five implementation items complete
 Created: 2026-06-14  
 Branch: `codex/dx12-only-engine-architecture`  
 Scope: DX12 render architecture, backend decomposition, descriptor/upload/readback ownership, render graph validation
@@ -162,6 +162,9 @@ Expected result:
 - the backend stops carrying raw allocation policy directly.
 
 ## Item 5: Compare RenderGraph Transitions Against Live Backend Barriers
+
+Status: complete. Renderer validation manifest
+`TestOutput\validation\renderers\20260614T020056Z\manifest.json`.
 
 Goal: make the render graph useful before it becomes the live barrier owner.
 
