@@ -33,10 +33,35 @@
 //   Upload Heap       = CPU-writable staging memory for sending data to the GPU
 //   Default Heap      = Fast GPU-only memory (not CPU-accessible)
 //
+// Additional architecture glossary for non-GPU readers:
+//
+//   Descriptor
+//     A small GPU-readable record that describes a resource view. It is not the
+//     texture or buffer itself. It says how a shader should see that resource:
+//     as a texture SRV, writable UAV, render target, depth target, and so on.
+//
+//   Descriptor Heap
+//     A table of descriptors. DX12 makes the engine allocate rows in this table
+//     explicitly. Shaders are given GPU handles that point at rows in a
+//     shader-visible heap.
+//
+//   Descriptor Allocator
+//     This is our table-row allocator for descriptors. It does not allocate GPU
+//     images. It only hands out descriptor indices and makes static-vs-transient
+//     lifetime explicit so the CPU does not overwrite a table row while the GPU
+//     still has a handle pointing at it.
+//
+//   Resource Barrier
+//     A synchronization command that tells the GPU a resource is changing use.
+//     Example: "this texture was a render target; now shaders will sample it."
+//     The future render graph exists so these transitions are declared once
+//     from pass/resource usage instead of hand-coded throughout the backend.
+//
 #include "SkullbonezRenderBackendDX12.h"
 #include "SkullbonezShaderDX12.h"
 #include "SkullbonezMeshDX12.h"
 #include "SkullbonezFramebufferDX12.h"
+#include "SkullbonezRenderGraph.h"
 #include "SkullbonezPlatformProfiler.h"
 #include <stdexcept>
 #include <cstdio>
@@ -44,6 +69,7 @@
 #include <algorithm>
 #include <string>
 #include <fstream>
+#include <sstream>
 #include <wrl/client.h>
 
 
@@ -73,6 +99,88 @@ static inline void ThrowIfFailed( HRESULT hr, const char* msg )
     }
 }
 
+static void AppendDx12StateFlag( std::ostringstream& out, bool& wroteAny, D3D12_RESOURCE_STATES state, D3D12_RESOURCE_STATES flag, const char* name )
+{
+    if ( ( state & flag ) != 0 )
+    {
+        if ( wroteAny )
+        {
+            out << "|";
+        }
+        out << name;
+        wroteAny = true;
+    }
+}
+
+static std::string Dx12StateToString( D3D12_RESOURCE_STATES state )
+{
+    if ( state == D3D12_RESOURCE_STATE_COMMON )
+    {
+        return "COMMON";
+    }
+
+    std::ostringstream out;
+    bool wroteAny = false;
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, "VERTEX_AND_CONSTANT_BUFFER" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_INDEX_BUFFER, "INDEX_BUFFER" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_RENDER_TARGET, "RENDER_TARGET" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, "UNORDERED_ACCESS" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_DEPTH_WRITE, "DEPTH_WRITE" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_DEPTH_READ, "DEPTH_READ" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, "NON_PIXEL_SHADER_RESOURCE" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, "PIXEL_SHADER_RESOURCE" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_STREAM_OUT, "STREAM_OUT" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, "INDIRECT_ARGUMENT" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_COPY_DEST, "COPY_DEST" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_COPY_SOURCE, "COPY_SOURCE" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_RESOLVE_DEST, "RESOLVE_DEST" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_RESOLVE_SOURCE, "RESOLVE_SOURCE" );
+    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_PRESENT, "PRESENT" );
+    if ( !wroteAny )
+    {
+        out << "UNKNOWN(" << static_cast<unsigned int>( state ) << ")";
+    }
+    return out.str();
+}
+
+static bool TryGraphAccessToDx12State( RenderGraphResourceAccess access, D3D12_RESOURCE_STATES& outState )
+{
+    switch ( access )
+    {
+    case RenderGraphResourceAccess::RenderTarget:
+        outState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+        return true;
+    case RenderGraphResourceAccess::DepthRead:
+        outState = D3D12_RESOURCE_STATE_DEPTH_READ;
+        return true;
+    case RenderGraphResourceAccess::DepthWrite:
+        outState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+        return true;
+    case RenderGraphResourceAccess::PixelShaderResource:
+        outState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+        return true;
+    case RenderGraphResourceAccess::NonPixelShaderResource:
+        outState = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+        return true;
+    case RenderGraphResourceAccess::UnorderedAccess:
+        outState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        return true;
+    case RenderGraphResourceAccess::CopySource:
+        outState = D3D12_RESOURCE_STATE_COPY_SOURCE;
+        return true;
+    case RenderGraphResourceAccess::CopyDest:
+        outState = D3D12_RESOURCE_STATE_COPY_DEST;
+        return true;
+    case RenderGraphResourceAccess::Present:
+        outState = D3D12_RESOURCE_STATE_PRESENT;
+        return true;
+    case RenderGraphResourceAccess::Unknown:
+    default:
+        outState = D3D12_RESOURCE_STATE_COMMON;
+        return false;
+    }
+}
+
 
 RenderBackendDX12* RenderBackendDX12::s_instance = nullptr;
 
@@ -90,23 +198,17 @@ RenderBackendDX12::RenderBackendDX12()
 
 void RenderBackendDX12::WaitForGpu()
 {
-    if ( !m_commandQueue || !m_fence || !m_fenceEvent )
+    if ( !m_renderDevice.FrameFence().IsReady() )
     {
         return;
     }
 
-    // Tell the GPU to signal the fence with an incremented value once all prior work completes.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12commandqueue-signal
-    m_commandQueue->Signal( m_fence, ++m_fenceValue );
+    // Tell the GPU to mark the next fence value after all already-submitted
+    // queue work, then block until that value is complete. In plain terms:
+    // WaitForGpu() means "do not let the CPU continue until the GPU has caught
+    // up to every command we submitted so far."
+    m_renderDevice.FrameFence().SignalAndWait();
 
-    // If the GPU hasn't reached our fence value yet, wait. SetEventOnCompletion tells the fence
-    // to fire a Windows event when the value is reached, then we block on it.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12fence-seteventoncompletion
-    if ( m_fence->GetCompletedValue() < m_fenceValue )
-    {
-        m_fence->SetEventOnCompletion( m_fenceValue, m_fenceEvent );
-        WaitForSingleObject( m_fenceEvent, INFINITE );
-    }
     // After full GPU wait, all frame fences are implicitly completed
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
@@ -130,7 +232,7 @@ void RenderBackendDX12::AssertPlatformProfilerGpuStackClosed( const char* reason
 
 void RenderBackendDX12::EnsureCommandListOpen()
 {
-    if ( !m_commandList || !m_commandQueue || !m_fence || !m_fenceEvent || !m_commandAllocators[m_allocatorIndex] )
+    if ( !m_commandList || !m_commandQueue || !m_renderDevice.FrameFence().IsReady() || !m_commandAllocators[m_allocatorIndex] )
     {
         throw std::runtime_error( "DX12 backend is not fully initialised (command list/fence unavailable)." );
     }
@@ -140,12 +242,17 @@ void RenderBackendDX12::EnsureCommandListOpen()
         return;
     }
 
-    // Wait for the GPU to finish with this allocator's previous work
-    UINT64 completedFence = m_fence->GetCompletedValue();
+    // Wait for the GPU to finish with this allocator's previous work.
+    //
+    // "Allocator" here is easy to misread. It is the command allocator: memory
+    // for recorded GPU commands, not texture memory. This backend also ties the
+    // upload arena and transient descriptor range to the same frame index. The
+    // fence value proves all three pieces of temporary per-frame storage are no
+    // longer being read by the GPU before we reset them.
+    UINT64 completedFence = m_renderDevice.FrameFence().CompletedValue();
     if ( m_frameFenceValues[m_allocatorIndex] > completedFence )
     {
-        m_fence->SetEventOnCompletion( m_frameFenceValues[m_allocatorIndex], m_fenceEvent );
-        WaitForSingleObject( m_fenceEvent, INFINITE );
+        m_renderDevice.FrameFence().WaitForValue( m_frameFenceValues[m_allocatorIndex] );
     }
 
     // Reset the command allocator — frees all memory from previously recorded commands.
@@ -169,8 +276,19 @@ void RenderBackendDX12::EnsureCommandListOpen()
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootsignature
     m_commandList->SetGraphicsRootSignature( m_rootSignature );
     m_commandListOpen = true;
-    m_uploadOffset = 0;
-    m_nextTransientSRV = MAX_STATIC_SRVS + ( m_allocatorIndex * MAX_TRANSIENT_SRVS );
+
+    // The command allocator, upload arena, and transient descriptor range all
+    // share the same lifetime. We waited for this frame allocator's fence above,
+    // so the GPU is no longer reading:
+    //
+    // - commands recorded into this allocator,
+    // - upload bytes written for those commands,
+    // - temporary descriptors bound by those commands.
+    //
+    // That is why it is safe to reset these two cursors here. Without the fence
+    // wait, these resets could make the CPU overwrite data the GPU still needs.
+    m_uploadSystem.ResetFrame( m_allocatorIndex );
+    m_srvDescriptors.ResetFrame( m_allocatorIndex );
 
     // All command list state is reset — force full rebind on next draw
     m_lastPSOHash = 0;
@@ -181,10 +299,11 @@ void RenderBackendDX12::EnsureCommandListOpen()
 
 void RenderBackendDX12::TransitionBarrier( ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after )
 {
-    if ( before == after )
+    if ( !resource || before == after )
     {
         return;
     }
+    RecordLiveBarrier( "TransitionBarrier", resource, before, after );
     // Record a resource state transition barrier. In DX12, YOU must tell the GPU when a resource
     // changes from one usage to another (e.g. from render target to shader input). The GPU uses
     // this to flush caches and resolve memory hazards. Forgetting barriers causes corruption.
@@ -196,6 +315,32 @@ void RenderBackendDX12::TransitionBarrier( ID3D12Resource* resource, D3D12_RESOU
     barrier.Transition.StateAfter = after;
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
     m_commandList->ResourceBarrier( 1, &barrier );
+}
+
+
+void RenderBackendDX12::RecordLiveBarrier( const char* source, ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after )
+{
+    if ( !resource || before == after )
+    {
+        return;
+    }
+
+    // This is a migration diagnostic, not a hot-path render feature. Keep a
+    // bounded sample of barriers so long validation runs cannot grow the vector
+    // without limit. The first records are the most useful because they show the
+    // early frame shape the render graph must eventually own.
+    constexpr size_t MAX_LIVE_BARRIER_RECORDS = 4096;
+    if ( m_liveBarrierRecords.size() >= MAX_LIVE_BARRIER_RECORDS )
+    {
+        return;
+    }
+
+    LiveBarrierRecordDX12 record;
+    record.resource = resource;
+    record.before = before;
+    record.after = after;
+    record.source = source ? source : "unknown";
+    m_liveBarrierRecords.push_back( record );
 }
 
 
@@ -220,8 +365,13 @@ void RenderBackendDX12::FlushUploadBuffer()
     m_commandList->SetDescriptorHeaps( 1, heaps );
     m_commandList->SetGraphicsRootSignature( m_rootSignature );
     m_commandListOpen = true;
-    m_uploadOffset = 0;
-    m_nextTransientSRV = MAX_STATIC_SRVS + ( m_allocatorIndex * MAX_TRANSIENT_SRVS );
+
+    // FlushUploadBuffer submits and waits for all current GPU work before it
+    // reopens the command list. That blocking wait is expensive, but it gives
+    // the same safety proof as a normal frame-fence wait: the old upload bytes
+    // and temporary descriptors are no longer in use, so the arenas can rewind.
+    m_uploadSystem.ResetFrame( m_allocatorIndex );
+    m_srvDescriptors.ResetFrame( m_allocatorIndex );
     m_lastPSOHash = 0;
     m_texBindingsDirty = true;
     m_targetsDirty = true;
@@ -230,84 +380,367 @@ void RenderBackendDX12::FlushUploadBuffer()
 
 void RenderBackendDX12::FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment )
 {
-    UINT64 aligned = ( m_uploadOffset + alignment - 1 ) & ~( alignment - 1 );
-    if ( aligned + size > UPLOAD_BUFFER_SIZE )
+    if ( !m_uploadSystem.CanAllocate( m_allocatorIndex, size, alignment ) )
     {
+        // This is the expensive fallback path. It means the CPU has filled this
+        // frame's upload arena before the frame was submitted, so we must submit
+        // the current command list and wait before reusing the same bytes. The
+        // event log keeps this visible because frequent mid-frame flushes are a
+        // sign that the future Dx12RenderDevice needs larger upload pages or a
+        // different upload strategy for the current workload.
+        const Dx12UploadArenaStats stats = m_uploadSystem.GetStats( m_allocatorIndex );
+        Log().WriteEventf( "dx12_upload_arena_flush frame=%u used_bytes=%llu capacity_bytes=%llu requested_bytes=%llu alignment=%llu",
+                           m_allocatorIndex,
+                           static_cast<unsigned long long>( stats.usedBytes ),
+                           static_cast<unsigned long long>( stats.capacityBytes ),
+                           static_cast<unsigned long long>( size ),
+                           static_cast<unsigned long long>( alignment ) );
         FlushUploadBuffer();
     }
 }
 
 
+void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
+{
+    const Dx12CpuDescriptorAllocatorStats rtvStats = m_rtvDescriptors.GetStats();
+    const Dx12CpuDescriptorAllocatorStats dsvStats = m_dsvDescriptors.GetStats();
+    const Dx12DescriptorAllocatorStats descriptorStats = m_srvDescriptors.GetStats();
+    UINT64 uploadPeakBytes = 0;
+    UINT64 uploadCapacityBytes = 0;
+    for ( int i = 0; i < FRAME_COUNT; ++i )
+    {
+        const Dx12UploadArenaStats uploadStats = m_uploadSystem.GetStats( static_cast<UINT>( i ) );
+        uploadPeakBytes = (std::max)( uploadPeakBytes, uploadStats.peakBytes );
+        uploadCapacityBytes += uploadStats.capacityBytes;
+    }
+
+    // This event is intentionally written at the architecture boundary rather
+    // than in every draw call. It tells a future render-graph/device pass how
+    // much descriptor and upload memory the old backend needed, without turning
+    // the hot path into noisy logging. The numbers are also layman-readable:
+    // "RTV/DSV descriptors" are CPU-only output/depth target view slots,
+    // "static SRVs" are persistent texture/view slots, "transient SRVs" are
+    // per-frame descriptor copies, and "upload peak" is the largest CPU-written
+    // staging allocation used by any one in-flight frame.
+    Log().WriteEventf( "dx12_render_architecture_stats reason=%s rtv_descriptors=%u/%u dsv_descriptors=%u/%u static_srvs=%u/%u transient_srv_peak=%u/%u upload_peak_bytes=%llu upload_capacity_bytes=%llu",
+                       reason ? reason : "unknown",
+                       rtvStats.used,
+                       rtvStats.capacity,
+                       dsvStats.used,
+                       dsvStats.capacity,
+                       descriptorStats.staticUsed,
+                       descriptorStats.staticCapacity,
+                       descriptorStats.transientPeakThisRun,
+                       descriptorStats.transientCapacityPerFrame,
+                       static_cast<unsigned long long>( uploadPeakBytes ),
+                       static_cast<unsigned long long>( uploadCapacityBytes ) );
+}
+
+
+void RenderBackendDX12::DumpFrameGraphSkeleton() const
+{
+    // Diagnostic-only render graph sketch.
+    //
+    // This is intentionally not the live renderer yet. The current backend still
+    // records barriers by hand in Clear(), FramebufferDX12::Bind/Unbind(),
+    // DispatchReflectionRays(), GenerateMipsGPU(), screenshot readback, and
+    // Present().
+    //
+    // The purpose of this skeleton is to make the intended frame shape visible
+    // in the same pass/resource language the future render graph will use. It is
+    // a bridge for humans and future code review:
+    //
+    // - resources below are names for existing backend-owned render targets,
+    //   depth buffers, shadow maps, and reflection outputs,
+    // - passes below are the current high-level frame phases, including optional
+    //   cinematic and DXR paths,
+    // - Compile() emits API-neutral transitions that can later be compared with
+    //   hand-written DX12 barriers before those barriers move into the graph.
+    //
+    // This is a superset of possible frame paths. A normal non-cinematic frame
+    // writes directly to the backbuffer; a cinematic frame writes SceneColor and
+    // then tonemaps it to the backbuffer; reflection can be raster FBO or DXR.
+    // Keeping the alternatives explicit is useful while the old renderer is
+    // still being decomposed.
+    RenderGraph graph;
+
+    const RenderGraphResourceHandle backbuffer = graph.AddExternalResource( "SwapchainBackbuffer", RenderGraphResourceAccess::Present );
+    const RenderGraphResourceHandle mainDepth = graph.AddExternalResource( "MainDepthStencil", RenderGraphResourceAccess::DepthWrite );
+    const RenderGraphResourceHandle shadowDepth = graph.AddExternalResource( "TerrainShadowMapDepth", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle objectShadowDepth = graph.AddExternalResource( "ObjectShadowMapDepth", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle reflectionColor = graph.AddExternalResource( "RasterReflectionColor", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle reflectionDepth = graph.AddExternalResource( "RasterReflectionDepth", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle dxrReflection = graph.AddExternalResource( "DxrReflectionTexture", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle sceneColor = graph.AddExternalResource( "CinematicSceneColor", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle sceneDepth = graph.AddExternalResource( "CinematicSceneDepth", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle volumetricLight = graph.AddExternalResource( "VolumetricLight", RenderGraphResourceAccess::PixelShaderResource );
+
+    uint32_t pass = graph.AddPass( "ShadowMapPass" );
+    graph.AddWrite( pass, shadowDepth, RenderGraphResourceAccess::DepthWrite );
+    graph.AddWrite( pass, objectShadowDepth, RenderGraphResourceAccess::DepthWrite );
+
+    pass = graph.AddPass( "RasterReflectionPass" );
+    graph.AddRead( pass, shadowDepth, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, objectShadowDepth, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddWrite( pass, reflectionColor, RenderGraphResourceAccess::RenderTarget );
+    graph.AddWrite( pass, reflectionDepth, RenderGraphResourceAccess::DepthWrite );
+
+    pass = graph.AddPass( "DxrReflectionPass", RenderGraphQueueType::Compute );
+    graph.AddWrite( pass, dxrReflection, RenderGraphResourceAccess::UnorderedAccess );
+
+    pass = graph.AddPass( "BackbufferScenePass" );
+    graph.AddRead( pass, shadowDepth, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, objectShadowDepth, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, reflectionColor, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, dxrReflection, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddWrite( pass, backbuffer, RenderGraphResourceAccess::RenderTarget );
+    graph.AddWrite( pass, mainDepth, RenderGraphResourceAccess::DepthWrite );
+
+    pass = graph.AddPass( "CinematicScenePass" );
+    graph.AddRead( pass, shadowDepth, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, objectShadowDepth, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, reflectionColor, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, dxrReflection, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddWrite( pass, sceneColor, RenderGraphResourceAccess::RenderTarget );
+    graph.AddWrite( pass, sceneDepth, RenderGraphResourceAccess::DepthWrite );
+
+    pass = graph.AddPass( "VolumetricLightPass" );
+    graph.AddRead( pass, sceneColor, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, sceneDepth, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddWrite( pass, volumetricLight, RenderGraphResourceAccess::RenderTarget );
+
+    pass = graph.AddPass( "ToneMapPass" );
+    graph.AddRead( pass, sceneColor, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, sceneDepth, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddRead( pass, volumetricLight, RenderGraphResourceAccess::PixelShaderResource );
+    graph.AddWrite( pass, backbuffer, RenderGraphResourceAccess::RenderTarget );
+
+    pass = graph.AddPass( "DebugAndUiPass" );
+    graph.AddWrite( pass, backbuffer, RenderGraphResourceAccess::RenderTarget );
+
+    pass = graph.AddPass( "Present" );
+    graph.AddWrite( pass, backbuffer, RenderGraphResourceAccess::Present );
+
+    const RenderGraphCompileResult compiled = graph.Compile();
+    std::vector<bool> liveBarrierMatched( m_liveBarrierRecords.size(), false );
+    const auto liveResourceLabel = [&]( const void* resource ) -> const char*
+    {
+        if ( !resource )
+        {
+            return nullptr;
+        }
+        for ( int i = 0; i < FRAME_COUNT; ++i )
+        {
+            if ( resource == m_renderTargets[i] )
+            {
+                return "SwapchainBackbuffer";
+            }
+        }
+        if ( resource == m_depthStencil )
+        {
+            return "MainDepthStencil";
+        }
+        if ( resource == m_reflectionUAV )
+        {
+            return "DxrReflectionTexture";
+        }
+        return nullptr;
+    };
+
+    std::ostringstream out;
+    out << graph.DumpText();
+    out << "\nLiveBackendTransitionBarriers:\n";
+    if ( m_liveBarrierRecords.empty() )
+    {
+        out << "  none recorded yet\n";
+    }
+    for ( size_t i = 0; i < m_liveBarrierRecords.size(); ++i )
+    {
+        const LiveBarrierRecordDX12& live = m_liveBarrierRecords[i];
+        const char* resourceLabel = liveResourceLabel( live.resource );
+        out << "  [" << i << "] source=" << ( live.source ? live.source : "unknown" )
+            << " resource=" << live.resource
+            << " label=" << ( resourceLabel ? resourceLabel : "unlabeled" )
+            << " " << Dx12StateToString( live.before )
+            << " -> " << Dx12StateToString( live.after ) << "\n";
+    }
+
+    out << "\nGraphVsLiveTransitionStatePairs:\n";
+    out << "  graph_transition_count=" << compiled.transitions.size() << "\n";
+    out << "  live_transition_barrier_count=" << m_liveBarrierRecords.size() << "\n";
+
+    size_t matchedResourcePairs = 0;
+    size_t matchedStateOnlyPairs = 0;
+    size_t graphOnlyDetails = 0;
+    size_t unknownGraphTransitions = 0;
+    constexpr size_t MAX_COMPARISON_DETAILS = 256;
+    for ( const RenderGraphTransitionDesc& transition : compiled.transitions )
+    {
+        D3D12_RESOURCE_STATES graphBefore = D3D12_RESOURCE_STATE_COMMON;
+        D3D12_RESOURCE_STATES graphAfter = D3D12_RESOURCE_STATE_COMMON;
+        const bool hasConcreteBefore = TryGraphAccessToDx12State( transition.before, graphBefore );
+        const bool hasConcreteAfter = TryGraphAccessToDx12State( transition.after, graphAfter );
+        const RenderGraphResourceDesc& resource = graph.Resources()[transition.resource.index];
+        const RenderGraphPassDesc& passDesc = graph.Passes()[transition.passIndex];
+        if ( !hasConcreteBefore || !hasConcreteAfter )
+        {
+            ++unknownGraphTransitions;
+            if ( graphOnlyDetails < MAX_COMPARISON_DETAILS )
+            {
+                out << "  graph_unknown before pass [" << transition.passIndex << "] " << passDesc.name
+                    << ": " << resource.name
+                    << " " << ToString( transition.before )
+                    << " -> " << ToString( transition.after ) << "\n";
+                ++graphOnlyDetails;
+            }
+            continue;
+        }
+
+        bool matched = false;
+        for ( size_t liveIndex = 0; liveIndex < m_liveBarrierRecords.size(); ++liveIndex )
+        {
+            const LiveBarrierRecordDX12& live = m_liveBarrierRecords[liveIndex];
+            const char* label = liveResourceLabel( live.resource );
+            if ( !liveBarrierMatched[liveIndex] && label && std::strcmp( label, resource.name.c_str() ) == 0 && live.before == graphBefore && live.after == graphAfter )
+            {
+                liveBarrierMatched[liveIndex] = true;
+                matched = true;
+                ++matchedResourcePairs;
+                break;
+            }
+        }
+        if ( !matched )
+        {
+            for ( size_t liveIndex = 0; liveIndex < m_liveBarrierRecords.size(); ++liveIndex )
+            {
+                const LiveBarrierRecordDX12& live = m_liveBarrierRecords[liveIndex];
+                if ( !liveBarrierMatched[liveIndex] && live.before == graphBefore && live.after == graphAfter )
+                {
+                    liveBarrierMatched[liveIndex] = true;
+                    matched = true;
+                    ++matchedStateOnlyPairs;
+                    break;
+                }
+            }
+        }
+
+        if ( !matched && graphOnlyDetails < MAX_COMPARISON_DETAILS )
+        {
+            out << "  graph_only before pass [" << transition.passIndex << "] " << passDesc.name
+                << ": " << resource.name
+                << " " << ToString( transition.before ) << "/" << Dx12StateToString( graphBefore )
+                << " -> " << ToString( transition.after ) << "/" << Dx12StateToString( graphAfter ) << "\n";
+            ++graphOnlyDetails;
+        }
+    }
+
+    size_t liveOnlyDetails = 0;
+    for ( size_t liveIndex = 0; liveIndex < m_liveBarrierRecords.size(); ++liveIndex )
+    {
+        if ( liveBarrierMatched[liveIndex] )
+        {
+            continue;
+        }
+        const LiveBarrierRecordDX12& live = m_liveBarrierRecords[liveIndex];
+        if ( liveOnlyDetails < MAX_COMPARISON_DETAILS )
+        {
+            const char* resourceLabel = liveResourceLabel( live.resource );
+            out << "  live_only [" << liveIndex << "] source=" << ( live.source ? live.source : "unknown" )
+                << " resource=" << live.resource
+                << " label=" << ( resourceLabel ? resourceLabel : "unlabeled" )
+                << " " << Dx12StateToString( live.before )
+                << " -> " << Dx12StateToString( live.after ) << "\n";
+        }
+        ++liveOnlyDetails;
+    }
+
+    out << "  matched_resource_state_pairs=" << matchedResourcePairs << "\n";
+    out << "  matched_state_only_pairs=" << matchedStateOnlyPairs << "\n";
+    out << "  unknown_graph_transition_count=" << unknownGraphTransitions << "\n";
+    out << "  graph_only_detail_count=" << graphOnlyDetails << "\n";
+    out << "  live_only_count=" << liveOnlyDetails << "\n";
+    out << "  note=Resource-labeled matches are stronger than state-only matches. Unlabeled live resources remain telemetry, not proof; PRESENT and COMMON share a DX12 value.\n";
+
+    const std::string dump = out.str();
+    {
+        std::ofstream file( "Debug/dx12_frame_graph_skeleton.txt", std::ios::binary );
+        if ( file.is_open() )
+        {
+            file << dump << "\n";
+        }
+    }
+    Log().Writef( "Debug/dx12_frame_graph_skeleton.txt", "%s\n", dump.c_str() );
+    Log().FlushAll();
+}
+
+
 D3D12_GPU_VIRTUAL_ADDRESS RenderBackendDX12::SubAllocateUpload( UINT64 size, UINT64 alignment )
 {
-    UINT64 aligned = ( m_uploadOffset + alignment - 1 ) & ~( alignment - 1 );
-    if ( aligned + size > UPLOAD_BUFFER_SIZE )
-    {
-        throw std::runtime_error( "DX12 upload buffer exhausted" );
-    }
-    m_uploadOffset = aligned + size;
-    return m_uploadBuffers[m_allocatorIndex]->GetGPUVirtualAddress() + aligned;
+    return m_uploadSystem.Allocate( m_allocatorIndex, size, alignment );
+}
+
+
+D3D12_GPU_VIRTUAL_ADDRESS RenderBackendDX12::ReserveUpload( UINT64 size, UINT64 alignment )
+{
+    // Upload allocation has two inseparable parts:
+    //
+    // 1. Ask whether the current frame arena has enough aligned space.
+    // 2. If not, submit/wait/reset before handing out bytes.
+    //
+    // Keeping that pair in one helper prevents the old failure mode where one
+    // caller probes with one alignment, allocates with another, or skips the
+    // probe entirely. The alignment matters because DX12 constant buffers,
+    // texture rows, and vertex data can each require different byte boundaries.
+    FlushUploadBufferIfNeeded( size, alignment );
+    return SubAllocateUpload( size, alignment );
 }
 
 
 uint8_t* RenderBackendDX12::GetUploadPtr( D3D12_GPU_VIRTUAL_ADDRESS addr )
 {
-    UINT64 offset = addr - m_uploadBuffers[m_allocatorIndex]->GetGPUVirtualAddress();
-    return m_uploadBufferMapped[m_allocatorIndex] + offset;
+    return m_uploadSystem.GetMappedPtr( m_allocatorIndex, addr );
 }
 
 
 UINT RenderBackendDX12::AllocateStaticSRV()
 {
-    if ( m_nextStaticSRV >= MAX_STATIC_SRVS )
-    {
-        throw std::runtime_error( "DX12 static SRV heap exhausted" );
-    }
-    return m_nextStaticSRV++;
+    return m_srvDescriptors.AllocateStatic();
 }
 
 
 UINT RenderBackendDX12::AllocateTransientSRV()
 {
-    UINT transientBase = MAX_STATIC_SRVS + ( m_allocatorIndex * MAX_TRANSIENT_SRVS );
-    UINT transientLimit = transientBase + MAX_TRANSIENT_SRVS;
-    if ( m_nextTransientSRV < transientBase || m_nextTransientSRV >= transientLimit )
-    {
-        throw std::runtime_error( "DX12 transient SRV heap exhausted for current frame allocator" );
-    }
-    return m_nextTransientSRV++;
+    return m_srvDescriptors.AllocateTransient();
+}
+
+
+UINT RenderBackendDX12::AllocateTransientSRVRange( UINT count )
+{
+    return m_srvDescriptors.AllocateTransientRange( count );
 }
 
 
 D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::GetSRVStagingCpuHandle( UINT index )
 {
-    D3D12_CPU_DESCRIPTOR_HANDLE handle = m_srvStagingHeap->GetCPUDescriptorHandleForHeapStart();
-    handle.ptr += (SIZE_T)index * m_srvDescSize;
-    return handle;
+    return m_srvDescriptors.StagingCpuHandle( index );
 }
 
 
 D3D12_GPU_DESCRIPTOR_HANDLE RenderBackendDX12::GetSRVGpuHandle( UINT index )
 {
-    D3D12_GPU_DESCRIPTOR_HANDLE handle = m_srvHeap->GetGPUDescriptorHandleForHeapStart();
-    handle.ptr += (UINT64)index * m_srvDescSize;
-    return handle;
+    return m_srvDescriptors.ShaderVisibleGpuHandle( index );
 }
 
 
 D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::GetRTVHandle( UINT index )
 {
-    D3D12_CPU_DESCRIPTOR_HANDLE handle = m_rtvHeap->GetCPUDescriptorHandleForHeapStart();
-    handle.ptr += (SIZE_T)index * m_rtvDescSize;
-    return handle;
+    return m_rtvDescriptors.CpuHandle( index );
 }
 
 
 D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::GetDSVHandle( UINT index )
 {
-    D3D12_CPU_DESCRIPTOR_HANDLE handle = m_dsvHeap->GetCPUDescriptorHandleForHeapStart();
-    handle.ptr += (SIZE_T)index * m_dsvDescSize;
-    return handle;
+    return m_dsvDescriptors.CpuHandle( index );
 }
 
 
@@ -320,113 +753,56 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     m_width = width;
     m_height = height;
 
-    // DXGI Factory
-    UINT factoryFlags = 0;
-    // Enable the DX12 debug layer for development builds. This makes the runtime validate every
-    // API call and report errors/warnings — essential for catching bugs but has a performance cost.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12sdklayers/nf-d3d12sdklayers-id3d12debug-enabledebuglayer
-    {
-        ID3D12Debug* debugController = nullptr;
-        if ( SUCCEEDED( D3D12GetDebugInterface( IID_PPV_ARGS( &debugController ) ) ) )
-        {
-            debugController->EnableDebugLayer();
-            debugController->Release();
-            factoryFlags = DXGI_CREATE_FACTORY_DEBUG;
-        }
-    }
-    // Create the DXGI Factory — this is the starting point for all DirectX graphics.
-    // DXGI (DirectX Graphics Infrastructure) manages adapters (GPUs), monitors, and swap chains.
-    // The factory is used to enumerate GPUs and create the swap chain for presenting frames.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi1_3/nf-dxgi1_3-createdxgifactory2
-    if ( FAILED( CreateDXGIFactory2( factoryFlags, IID_PPV_ARGS( &m_factory ) ) ) )
-    {
-        throw std::runtime_error( "CreateDXGIFactory2 failed" );
-    }
-    {
-        IDXGIFactory5* factory5 = nullptr;
-        BOOL allowTearing = FALSE;
-        if ( SUCCEEDED( m_factory->QueryInterface( IID_PPV_ARGS( &factory5 ) ) ) )
-        {
-            if ( FAILED( factory5->CheckFeatureSupport( DXGI_FEATURE_PRESENT_ALLOW_TEARING,
-                                                        &allowTearing,
-                                                        sizeof( allowTearing ) ) ) )
-            {
-                allowTearing = FALSE;
-            }
-            factory5->Release();
-        }
-        m_allowTearing = allowTearing == TRUE;
-    }
+    Dx12RenderDeviceInitDesc deviceDesc;
+    deviceDesc.hwnd = hwnd;
+    deviceDesc.width = static_cast<UINT>( width );
+    deviceDesc.height = static_cast<UINT>( height );
+    deviceDesc.frameCount = FRAME_COUNT;
+    deviceDesc.backBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+    m_renderDevice.Init( deviceDesc );
 
-    // Create the DX12 Device — this is the primary interface for creating ALL GPU resources.
-    // The device represents a virtual GPU adapter. Pass nullptr for the first param to use the
-    // default adapter. D3D_FEATURE_LEVEL_11_0 means we need at least DX11-capable hardware.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-d3d12createdevice
-    if ( FAILED( D3D12CreateDevice( nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS( &m_device ) ) ) )
+    // The render device now owns the DXGI/D3D12 platform objects: factory,
+    // device, graphics queue, swap chain, command allocators, command list, and
+    // frame fence. RenderBackendDX12 still acts as the IRenderBackend facade,
+    // so it borrows raw pointers from the device layer while the rest of the
+    // renderer is migrated in small slices.
+    m_factory = m_renderDevice.Factory();
+    m_swapChain = m_renderDevice.SwapChain();
+    m_device = m_renderDevice.Device();
+    m_commandQueue = m_renderDevice.GraphicsQueue();
+    m_commandList = m_renderDevice.CommandList();
+    for ( int i = 0; i < FRAME_COUNT; ++i )
     {
-        throw std::runtime_error( "D3D12CreateDevice failed" );
+        m_commandAllocators[i] = m_renderDevice.CommandAllocator( static_cast<UINT>( i ) );
+        m_frameFenceValues[i] = 0;
     }
+    m_commandListOpen = false;
+    m_allocatorIndex = m_renderDevice.AllocatorIndex();
+    m_frameIndex = m_renderDevice.FrameIndex();
+    m_allowTearing = m_renderDevice.AllowTearing();
+    m_liveBarrierRecords.clear();
 
     // Check DXR capability
     CheckDXRSupport();
 
-    // Configure the debug info queue: break on corruption and errors, suppress INFO-level chatter.
-    {
-        ID3D12InfoQueue* infoQueue = nullptr;
-        if ( SUCCEEDED( m_device->QueryInterface( IID_PPV_ARGS( &infoQueue ) ) ) )
-        {
-            // Break into the debugger immediately on CORRUPTION or ERROR — same policy as DX11.
-            // WARNING messages are logged but do not break; they must be investigated manually.
-            infoQueue->SetBreakOnSeverity( D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE );
-            infoQueue->SetBreakOnSeverity( D3D12_MESSAGE_SEVERITY_ERROR, TRUE );
-
-            // Suppress all INFO-level messages from the debug layer. INFO-level messages are
-            // pure lifecycle chatter (create/destroy resource, heap, command list, fence etc.)
-            // and provide no actionable diagnostic value during development. We only want to
-            // see WARNING and ERROR severity messages in the debug output.
-            D3D12_MESSAGE_SEVERITY denySeverities[] = { D3D12_MESSAGE_SEVERITY_INFO };
-            D3D12_INFO_QUEUE_FILTER filter = {};
-            filter.DenyList.NumSeverities = _countof( denySeverities );
-            filter.DenyList.pSeverityList = denySeverities;
-            infoQueue->PushStorageFilter( &filter );
-            infoQueue->Release();
-        }
-    }
-
-    // Create the Command Queue — this is the submission point for GPU work. Command lists are
-    // recorded on the CPU, then submitted here for the GPU to execute. DIRECT type means it can
-    // run graphics, compute, and copy commands (as opposed to COMPUTE-only or COPY-only queues).
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommandqueue
-    D3D12_COMMAND_QUEUE_DESC queueDesc = {};
-    queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-    if ( FAILED( m_device->CreateCommandQueue( &queueDesc, IID_PPV_ARGS( &m_commandQueue ) ) ) )
-    {
-        throw std::runtime_error( "CreateCommandQueue failed" );
-    }
-
-    // Create the Swap Chain — manages the double-buffered back buffers that are presented to the
-    // screen. FLIP_DISCARD means the OS can discard the previous frame's content after presenting
-    // (most efficient mode). BufferCount=2 gives us two alternating back buffers.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi1_2/nf-dxgi1_2-idxgifactory2-createswapchainforhwnd
-    DXGI_SWAP_CHAIN_DESC1 scDesc = {};
-    scDesc.BufferCount = FRAME_COUNT;
-    scDesc.Width = (UINT)width;
-    scDesc.Height = (UINT)height;
-    scDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    scDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    scDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-    scDesc.SampleDesc.Count = 1;
-    scDesc.Flags = m_allowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
-
-    IDXGISwapChain1* swapChain1 = nullptr;
-    if ( FAILED( m_factory->CreateSwapChainForHwnd( m_commandQueue, hwnd, &scDesc, nullptr, nullptr, &swapChain1 ) ) )
-    {
-        throw std::runtime_error( "CreateSwapChainForHwnd failed" );
-    }
-    swapChain1->QueryInterface( IID_PPV_ARGS( &m_swapChain ) );
-    swapChain1->Release();
-    m_factory->MakeWindowAssociation( hwnd, DXGI_MWA_NO_ALT_ENTER );
-    m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+    // Descriptor heap mental model:
+    //
+    // The heap is a table. A descriptor is one row in that table. The actual
+    // texture, depth buffer, or UAV texture is separate GPU memory.
+    //
+    // RTV rows are used when the GPU writes color pixels.
+    // DSV rows are used when the GPU reads/writes depth and stencil.
+    // SRV rows are used when shaders read textures or buffers.
+    // UAV rows are used when compute/raytracing shaders write textures/buffers.
+    //
+    // The high-churn SRV/CBV/UAV heap has two copies of the same idea:
+    //
+    // - staging heap: CPU-only, stable descriptor templates created at load time,
+    // - shader-visible heap: GPU-readable rows bound during draws/dispatches.
+    //
+    // The descriptor allocator below owns row assignment for that pair. It keeps
+    // long-lived static rows separate from short-lived per-frame rows so the CPU
+    // does not overwrite a row while an in-flight command list still points at it.
 
     // Create Descriptor Heaps — these are arrays of "descriptors" (small structs that describe
     // how the GPU should interpret a resource). DX12 requires you to pre-allocate descriptor
@@ -437,7 +813,9 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         desc.NumDescriptors = MAX_RTV_DESCRIPTORS;
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
         ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_rtvHeap ) ), "CreateDescriptorHeap (RTV) failed" );
+        NameDx12Object( m_rtvHeap, L"Skullbonez DX12 RTV Heap" );
         m_rtvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_RTV );
+        m_rtvDescriptors.Init( m_rtvHeap, m_rtvDescSize, MAX_RTV_DESCRIPTORS, "RTV" );
     }
     // DSV heap holds Depth Stencil View descriptors (main depth buffer + FBO depth buffers).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdescriptorheap
@@ -446,7 +824,9 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         desc.NumDescriptors = MAX_DSV_DESCRIPTORS;
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
         ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_dsvHeap ) ), "CreateDescriptorHeap (DSV) failed" );
+        NameDx12Object( m_dsvHeap, L"Skullbonez DX12 DSV Heap" );
         m_dsvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_DSV );
+        m_dsvDescriptors.Init( m_dsvHeap, m_dsvDescSize, MAX_DSV_DESCRIPTORS, "DSV" );
     }
     // SRV/CBV/UAV heap — SHADER_VISIBLE means the GPU can directly access these descriptors.
     // This single heap holds all texture views (SRVs) and constant buffer views (CBVs) that
@@ -460,6 +840,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
         desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
         ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvHeap ) ), "CreateDescriptorHeap (SRV) failed" );
+        NameDx12Object( m_srvHeap, L"Skullbonez DX12 Shader Visible SRV Heap" );
         m_srvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
     }
     {
@@ -472,7 +853,18 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
         desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE; // CPU-only, can be read for copies
         ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_srvStagingHeap ) ), "CreateDescriptorHeap (staging) failed" );
+        NameDx12Object( m_srvStagingHeap, L"Skullbonez DX12 SRV Staging Heap" );
     }
+    // The descriptor allocator receives both heaps:
+    //
+    // - m_srvStagingHeap is CPU-only storage for persistent descriptor templates.
+    // - m_srvHeap is shader-visible storage the GPU can read at draw time.
+    //
+    // Static descriptors occupy the first MAX_STATIC_SRVS rows. Temporary rows
+    // come after that, split into one range per frame allocator so the CPU never
+    // rewrites descriptors still referenced by an in-flight frame.
+    m_srvDescriptors.Init( m_srvHeap, m_srvStagingHeap, m_srvDescSize, MAX_STATIC_SRVS, MAX_TRANSIENT_SRVS, FRAME_COUNT );
+    m_srvDescriptors.ResetFrame( m_allocatorIndex );
 
     // Create Render Target Views for each swap chain buffer. This tells the GPU how to write
     // pixels to the swap chain back buffers during rendering.
@@ -480,37 +872,16 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
         ThrowIfFailed( m_swapChain->GetBuffer( (UINT)i, IID_PPV_ARGS( &m_renderTargets[i] ) ), "SwapChain GetBuffer failed" );
-        m_device->CreateRenderTargetView( m_renderTargets[i], nullptr, GetRTVHandle( (UINT)i ) );
+        NameDx12ObjectIndexed( m_renderTargets[i], L"Skullbonez DX12 Swapchain Backbuffer", (UINT)i );
+        // Reserve one stable RTV row for each swap-chain buffer. ResizeBuffers
+        // replaces the back-buffer resources later, but the descriptor rows stay
+        // the same and are simply overwritten with new view records.
+        m_backBufferRTVs[i] = m_rtvDescriptors.Allocate().cpuHandle;
+        m_device->CreateRenderTargetView( m_renderTargets[i], nullptr, m_backBufferRTVs[i] );
     }
 
     // Depth stencil
     CreateDepthStencil( width, height );
-
-    // Create Command Allocators — one per frame in flight. A command allocator is the backing
-    // memory pool for command list recordings. You can't reuse an allocator until the GPU has
-    // finished executing the commands that were recorded into it (enforced via fence).
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommandallocator
-    for ( int i = 0; i < FRAME_COUNT; ++i )
-    {
-        ThrowIfFailed( m_device->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS( &m_commandAllocators[i] ) ), "CreateCommandAllocator failed" );
-    }
-
-    // Create the Command List — this is the "recording device" for GPU commands. You record draw
-    // calls, resource transitions, and other operations into it, then submit it to the queue.
-    // Only one command list is needed because we close/reset it between frames.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommandlist
-    ThrowIfFailed( m_device->CreateCommandList( 0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocators[0], nullptr, IID_PPV_ARGS( &m_commandList ) ), "CreateCommandList failed" );
-    m_commandList->Close();
-    m_commandListOpen = false;
-    m_allocatorIndex = 0;
-
-    // Create a Fence — the CPU/GPU synchronization primitive. A fence is essentially a counter:
-    // the GPU signals it after completing work, and the CPU can wait until a specific value is
-    // reached. This is how we ensure we don't overwrite command allocator memory that the GPU is
-    // still reading from a previous frame.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createfence
-    ThrowIfFailed( m_device->CreateFence( 0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &m_fence ) ), "CreateFence failed" );
-    m_fenceEvent = CreateEvent( nullptr, FALSE, FALSE, nullptr );
 
     // Create per-frame upload buffers — one per FRAME_COUNT allocator. Each holds CPU-writable,
     // GPU-readable memory for per-frame constant buffers, dynamic vertex buffers, and texture
@@ -518,21 +889,10 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     // that frame N's GPU is still reading (the per-allocator fence wait in EnsureCommandListOpen
     // guarantees frame N is done before we reuse that allocator's upload buffer on frame N+2).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    for ( int i = 0; i < FRAME_COUNT; ++i )
-    {
-        D3D12_HEAP_PROPERTIES heapProps = {};
-        heapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
-        D3D12_RESOURCE_DESC desc = {};
-        desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-        desc.Width = UPLOAD_BUFFER_SIZE;
-        desc.Height = 1;
-        desc.DepthOrArraySize = 1;
-        desc.MipLevels = 1;
-        desc.SampleDesc.Count = 1;
-        desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-        ThrowIfFailed( m_device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS( &m_uploadBuffers[i] ) ), "CreateCommittedResource (upload) failed" );
-        m_uploadBuffers[i]->Map( 0, nullptr, (void**)&m_uploadBufferMapped[i] );
-    }
+    // Dx12FrameUploadSystem owns the actual upload resources and their
+    // persistent CPU Map() pointers. RenderBackendDX12 now asks for byte ranges
+    // instead of owning the raw upload-buffer lifecycle itself.
+    m_uploadSystem.Init( m_device, FRAME_COUNT, UPLOAD_BUFFER_SIZE, L"Skullbonez DX12 Frame Upload Buffer" );
 
     // Root signature
     CreateRootSignature();
@@ -548,25 +908,20 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         qhDesc.Count = (UINT)TIMER_HEAP_SIZE;
         if ( SUCCEEDED( m_device->CreateQueryHeap( &qhDesc, IID_PPV_ARGS( &m_gpuTimers.queryHeap ) ) ) )
         {
+            NameDx12Object( m_gpuTimers.queryHeap, L"Skullbonez DX12 GPU Timer Query Heap" );
             // Readback buffer — CPU-readable memory where GPU timer results are copied to.
             // The READBACK heap type means the CPU can read from it (but the GPU cannot render to it).
             // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-            D3D12_HEAP_PROPERTIES hp = {};
-            hp.Type = D3D12_HEAP_TYPE_READBACK;
-            D3D12_RESOURCE_DESC rd = {};
-            rd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-            rd.Width = (UINT64)TIMER_HEAP_SIZE * sizeof( uint64_t );
-            rd.Height = 1;
-            rd.DepthOrArraySize = 1;
-            rd.MipLevels = 1;
-            rd.SampleDesc.Count = 1;
-            rd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+            const UINT64 timerReadbackBytes = static_cast<UINT64>( TIMER_HEAP_SIZE ) * sizeof( uint64_t );
+            // Dx12ReadbackBuffer owns the CPU-readable resource. The backend
+            // still decides when the fence is safe to read, but it no longer
+            // carries the raw COM allocation/release path for timer bytes.
             // Buffers on all heap types are effectively created in COMMON state in D3D12
             // regardless of the specified initial state. For READBACK buffers the runtime
             // accepts any state but always uses COMMON — be explicit to keep the debug layer
             // quiet. CPU Map/Unmap access is independent of the GPU-visible resource state.
             // Docs: https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12#implicit-state-transitions
-            if ( FAILED( m_device->CreateCommittedResource( &hp, D3D12_HEAP_FLAG_NONE, &rd, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS( &m_gpuTimers.readbackBuf ) ) ) )
+            if ( !m_gpuTimers.readback.InitBuffer( m_device, timerReadbackBytes, L"Skullbonez DX12 GPU Timer Readback Buffer" ) )
             {
                 m_gpuTimers.queryHeap->Release();
                 m_gpuTimers.queryHeap = nullptr;
@@ -583,8 +938,10 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     m_scissorRect = { 0, 0, (LONG)width, (LONG)height };
 
     // Set default render targets
-    m_currentRTV = GetRTVHandle( m_frameIndex );
-    m_currentDSV = GetDSVHandle( 0 );
+    m_currentRTV = m_backBufferRTVs[m_frameIndex];
+    m_currentDSV = m_mainDSV;
+
+    DumpFrameGraphSkeleton();
 
     return true;
 }
@@ -592,6 +949,24 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
 
 void RenderBackendDX12::CreateRootSignature()
 {
+    // Root signature mental model:
+    //
+    // A shader cannot freely access arbitrary C++ variables or texture objects.
+    // The root signature is the contract that says which small set of bindings
+    // the command list may provide and which register names the HLSL shader will
+    // use to find them.
+    //
+    // This renderer's main graphics root signature is deliberately simple:
+    //
+    // - root parameter 0: one constant buffer view at b0. Per-draw matrices,
+    //   colors, and scalar shader values are uploaded there.
+    // - root parameters 1..4: one descriptor table each for texture slots t0..t3.
+    //   Each table points at one transient SRV descriptor row prepared by the
+    //   descriptor allocator.
+    // - static samplers: fixed filtering/addressing rules named s0, s1, and s3.
+    //
+    // The future render graph will not replace this shader contract. It will
+    // decide when resources are safe to read/write and which pass binds them.
     D3D12_DESCRIPTOR_RANGE1 srvRanges[TEXTURE_SLOT_COUNT] = {};
     for ( int slot = 0; slot < TEXTURE_SLOT_COUNT; ++slot )
     {
@@ -683,6 +1058,7 @@ void RenderBackendDX12::CreateRootSignature()
     {
         throw std::runtime_error( "CreateRootSignature failed" );
     }
+    NameDx12Object( m_rootSignature, L"Skullbonez DX12 Main Root Signature" );
 }
 
 
@@ -713,13 +1089,22 @@ void RenderBackendDX12::CreateDepthStencil( int w, int h )
     {
         throw std::runtime_error( "CreateCommittedResource (depth stencil) failed" );
     }
+    NameDx12Object( m_depthStencil, L"Skullbonez DX12 Main Depth Stencil" );
 
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
     dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
     dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+    if ( m_mainDSV.ptr == 0 )
+    {
+        // The main depth buffer is recreated on resize, but it is always the
+        // same engine concept: "the window depth target." Allocate its DSV row
+        // once, then overwrite that row with the new resource view whenever the
+        // texture is recreated.
+        m_mainDSV = m_dsvDescriptors.Allocate().cpuHandle;
+    }
     // Create a Depth Stencil View for the main depth buffer so it can be bound as the depth target.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdepthstencilview
-    m_device->CreateDepthStencilView( m_depthStencil, &dsvDesc, GetDSVHandle( 0 ) );
+    m_device->CreateDepthStencilView( m_depthStencil, &dsvDesc, m_mainDSV );
 }
 
 
@@ -727,6 +1112,20 @@ void RenderBackendDX12::Shutdown()
 {
     if ( !m_device )
     {
+        // Partial initialisation can fail inside Dx12RenderDevice before the
+        // backend has copied borrowed aliases such as m_device. Even in that
+        // state, the device owner may already hold factory/device/queue/swap
+        // chain objects, so always give it a chance to release them.
+        m_renderDevice.Shutdown();
+        m_factory = nullptr;
+        m_swapChain = nullptr;
+        m_commandQueue = nullptr;
+        m_commandList = nullptr;
+        for ( int i = 0; i < FRAME_COUNT; ++i )
+        {
+            m_commandAllocators[i] = nullptr;
+            m_frameFenceValues[i] = 0;
+        }
         return;
     }
 
@@ -768,12 +1167,11 @@ void RenderBackendDX12::Shutdown()
     // DXR cleanup
     ShutdownDXR();
 
+    ReportArchitectureStats( "Shutdown" );
+    DumpFrameGraphSkeleton();
+
     // GPU timer cleanup
-    if ( m_gpuTimers.readbackBuf )
-    {
-        m_gpuTimers.readbackBuf->Release();
-        m_gpuTimers.readbackBuf = nullptr;
-    }
+    m_gpuTimers.readback.Reset();
     if ( m_gpuTimers.queryHeap )
     {
         m_gpuTimers.queryHeap->Release();
@@ -864,15 +1262,7 @@ void RenderBackendDX12::Shutdown()
     }
     m_textures.clear();
 
-    for ( int i = 0; i < FRAME_COUNT; ++i )
-    {
-        if ( m_uploadBuffers[i] )
-        {
-            m_uploadBuffers[i]->Unmap( 0, nullptr );
-            m_uploadBuffers[i]->Release();
-            m_uploadBuffers[i] = nullptr;
-        }
-    }
+    m_uploadSystem.Shutdown();
     if ( m_depthStencil )
     {
         m_depthStencil->Release();
@@ -880,25 +1270,6 @@ void RenderBackendDX12::Shutdown()
     if ( m_rootSignature )
     {
         m_rootSignature->Release();
-    }
-    if ( m_fence )
-    {
-        m_fence->Release();
-    }
-    if ( m_fenceEvent )
-    {
-        CloseHandle( m_fenceEvent );
-    }
-    if ( m_commandList )
-    {
-        m_commandList->Release();
-    }
-    for ( int i = 0; i < FRAME_COUNT; ++i )
-    {
-        if ( m_commandAllocators[i] )
-        {
-            m_commandAllocators[i]->Release();
-        }
     }
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
@@ -915,33 +1286,39 @@ void RenderBackendDX12::Shutdown()
     {
         m_srvStagingHeap->Release();
     }
+    m_srvDescriptors.Reset();
     if ( m_dsvHeap )
     {
         m_dsvHeap->Release();
+        m_dsvHeap = nullptr;
     }
+    m_dsvDescriptors.Reset();
+    m_mainDSV = {};
     if ( m_rtvHeap )
     {
         m_rtvHeap->Release();
+        m_rtvHeap = nullptr;
     }
-    if ( m_swapChain )
+    m_rtvDescriptors.Reset();
+    for ( int i = 0; i < FRAME_COUNT; ++i )
     {
-        m_swapChain->SetFullscreenState( FALSE, nullptr );
-        m_swapChain->Release();
+        m_backBufferRTVs[i] = {};
     }
-    if ( m_commandQueue )
+    m_renderDevice.Shutdown();
+    m_factory = nullptr;
+    m_swapChain = nullptr;
+    m_device = nullptr;
+    m_commandQueue = nullptr;
+    m_commandList = nullptr;
+    for ( int i = 0; i < FRAME_COUNT; ++i )
     {
-        m_commandQueue->Release();
+        m_commandAllocators[i] = nullptr;
+        m_frameFenceValues[i] = 0;
     }
-    if ( m_device )
-    {
-        m_device->Release();
-        m_device = nullptr;
-    }
-    if ( m_factory )
-    {
-        m_factory->Release();
-        m_factory = nullptr;
-    }
+    m_commandListOpen = false;
+    m_allocatorIndex = 0;
+    m_frameIndex = 0;
+    m_allowTearing = false;
 
     s_instance = nullptr;
 }
@@ -979,7 +1356,7 @@ void RenderBackendDX12::Present()
                 ++i;
             }
             UINT byteOffset = (UINT)( start * sizeof( uint64_t ) );
-            m_commandList->ResolveQueryData( m_gpuTimers.queryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)start, (UINT)( i - start ), m_gpuTimers.readbackBuf, byteOffset );
+            m_commandList->ResolveQueryData( m_gpuTimers.queryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)start, (UINT)( i - start ), m_gpuTimers.readback.Resource(), byteOffset );
             resolvedTimerSlotsThisFrame = true;
         }
         std::memset( m_gpuTimers.slotWritten, 0, sizeof( m_gpuTimers.slotWritten ) ); // reset for next frame
@@ -1010,12 +1387,12 @@ void RenderBackendDX12::Present()
                                   : 0u;
     m_swapChain->Present( syncInterval, presentFlags );
 
-    // Signal the fence with the current frame's value. When the GPU reaches this point in its
-    // command stream, it will update the fence to this value — letting the CPU know this frame's
-    // allocator memory is safe to reuse (after we check GetCompletedValue >= this value).
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12commandqueue-signal
-    m_frameFenceValues[m_allocatorIndex] = ++m_fenceValue;
-    m_commandQueue->Signal( m_fence, m_fenceValue );
+    // Signal the fence with the current frame's value. When the GPU reaches
+    // this point in its command stream, it updates the fence to that value.
+    // Later, EnsureCommandListOpen asks the timeline helper whether this value
+    // has completed before reusing this frame's command allocator, upload arena,
+    // and transient descriptor range.
+    m_frameFenceValues[m_allocatorIndex] = m_renderDevice.FrameFence().Signal();
 
     // Timer readback can be mapped once this frame's signal fence is reached.
     // If there's an unconsumed readback still pending (e.g. fence wasn't ready during the
@@ -1031,13 +1408,13 @@ void RenderBackendDX12::Present()
             m_gpuTimers.readPending = false;
         }
         m_gpuTimers.readPending = true;
-        m_gpuTimers.readFenceValue = m_fenceValue;
+        m_gpuTimers.readFenceValue = m_frameFenceValues[m_allocatorIndex];
     }
 
     // Advance to next frame's allocator and swap chain buffer
-    m_allocatorIndex = ( m_allocatorIndex + 1 ) % FRAME_COUNT;
-    m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
-    m_currentRTV = GetRTVHandle( m_frameIndex );
+    m_allocatorIndex = m_renderDevice.AdvanceAllocatorIndex();
+    m_frameIndex = m_renderDevice.RefreshFrameIndexFromSwapChain();
+    m_currentRTV = m_backBufferRTVs[m_frameIndex];
 }
 
 
@@ -1101,7 +1478,7 @@ void RenderBackendDX12::Resize( int width, int height )
 
     const UINT resizeFlags = m_allowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u;
     m_swapChain->ResizeBuffers( FRAME_COUNT, (UINT)width, (UINT)height, DXGI_FORMAT_R8G8B8A8_UNORM, resizeFlags );
-    m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+    m_frameIndex = m_renderDevice.RefreshFrameIndexFromSwapChain();
 
     // ResizeBuffers puts all back buffers into PRESENT state — reset our tracking flag
     // so the next Clear() correctly transitions to RENDER_TARGET before use.
@@ -1110,7 +1487,8 @@ void RenderBackendDX12::Resize( int width, int height )
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
         m_swapChain->GetBuffer( (UINT)i, IID_PPV_ARGS( &m_renderTargets[i] ) );
-        m_device->CreateRenderTargetView( m_renderTargets[i], nullptr, GetRTVHandle( (UINT)i ) );
+        NameDx12ObjectIndexed( m_renderTargets[i], L"Skullbonez DX12 Swapchain Backbuffer", (UINT)i );
+        m_device->CreateRenderTargetView( m_renderTargets[i], nullptr, m_backBufferRTVs[i] );
     }
 
     CreateDepthStencil( width, height );
@@ -1119,8 +1497,8 @@ void RenderBackendDX12::Resize( int width, int height )
     m_height = height;
     m_viewport = { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
     m_scissorRect = { 0, 0, (LONG)width, (LONG)height };
-    m_currentRTV = GetRTVHandle( m_frameIndex );
-    m_currentDSV = GetDSVHandle( 0 );
+    m_currentRTV = m_backBufferRTVs[m_frameIndex];
+    m_currentDSV = m_mainDSV;
 }
 
 
@@ -1262,522 +1640,7 @@ void RenderBackendDX12::SetClipPlane( int /*index*/, bool /*enable*/ )
 // --- PSO Management ---
 
 
-static D3D12_BLEND MapBlendFactor( BlendFactor f )
-{
-    switch ( f )
-    {
-    case BlendFactor::Zero:
-        return D3D12_BLEND_ZERO;
-    case BlendFactor::One:
-        return D3D12_BLEND_ONE;
-    case BlendFactor::SrcAlpha:
-        return D3D12_BLEND_SRC_ALPHA;
-    case BlendFactor::OneMinusSrcAlpha:
-        return D3D12_BLEND_INV_SRC_ALPHA;
-    default:
-        return D3D12_BLEND_ONE;
-    }
-}
-
-
-static INT TranslatePolygonOffsetDepthBiasDX12( float units )
-{
-    return static_cast<INT>( units );
-}
-
-
-static float TranslatePolygonOffsetSlopeBiasDX12( float factor )
-{
-    return factor;
-}
-
-
-size_t RenderBackendDX12::HashPSOKey( const PSOKey12& key )
-{
-    size_t h = 0;
-    auto hashCombine = []( size_t& seed, size_t val )
-    {
-        seed ^= val + 0x9e3779b9 + ( seed << 6 ) + ( seed >> 2 );
-    };
-    auto hashFloatBits = []( float value )
-    {
-        uint32_t bits = 0;
-        memcpy( &bits, &value, sizeof( bits ) );
-        return static_cast<size_t>( bits );
-    };
-    hashCombine( h, (size_t)key.shaderVS );
-    hashCombine( h, (size_t)key.shaderPS );
-    hashCombine( h, (size_t)key.format );
-    hashCombine( h, (size_t)key.isInstanced );
-    hashCombine( h, (size_t)key.blendEnabled );
-    hashCombine( h, (size_t)key.blendSrc );
-    hashCombine( h, (size_t)key.blendDst );
-    hashCombine( h, (size_t)key.depthEnabled );
-    hashCombine( h, (size_t)key.depthWriteEnabled );
-    hashCombine( h, (size_t)key.cullEnabled );
-    hashCombine( h, (size_t)key.polyOffsetEnabled );
-    hashCombine( h, (size_t)key.polyOffsetDepthBias );
-    hashCombine( h, hashFloatBits( key.polyOffsetSlopeScaledDepthBias ) );
-    hashCombine( h, (size_t)key.rtvFormat );
-    return h;
-}
-
-
-void RenderBackendDX12::BuildInputLayout( VertexFormat12 format, D3D12_INPUT_ELEMENT_DESC* out, UINT& count )
-{
-    count = 0;
-    switch ( format )
-    {
-    case VertexFormat12::Pos3:
-        out[0] = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
-        count = 1;
-        break;
-    case VertexFormat12::Pos3_Tex2:
-        out[0] = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
-        out[1] = { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
-        count = 2;
-        break;
-    case VertexFormat12::Pos3_Norm3_Tex2:
-        out[0] = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
-        out[1] = { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
-        out[2] = { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
-        count = 3;
-        break;
-    case VertexFormat12::Pos2_Tex2:
-        out[0] = { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
-        out[1] = { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 8, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
-        count = 2;
-        break;
-    case VertexFormat12::Pos2:
-        out[0] = { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
-        count = 1;
-        break;
-    }
-}
-
-
-void RenderBackendDX12::BuildInstancedInputLayout( const InstancedMeshDX12& im, D3D12_INPUT_ELEMENT_DESC* out, UINT& count )
-{
-    count = 0;
-
-    // Slot 0: static vertex data
-    if ( im.numStaticAttribs > 0 )
-    {
-        // Multi-attribute layout (e.g. POSITION + NORMAL + TEXCOORD)
-        static const char* staticSemantics[] = { "POSITION", "NORMAL", "TEXCOORD" };
-        UINT staticOffset = 0;
-        for ( int i = 0; i < im.numStaticAttribs; ++i )
-        {
-            DXGI_FORMAT fmt = DXGI_FORMAT_R32_FLOAT;
-            if ( im.staticAttribSizes[i] == 2 )
-            {
-                fmt = DXGI_FORMAT_R32G32_FLOAT;
-            }
-            else if ( im.staticAttribSizes[i] == 3 )
-            {
-                fmt = DXGI_FORMAT_R32G32B32_FLOAT;
-            }
-            else if ( im.staticAttribSizes[i] == 4 )
-            {
-                fmt = DXGI_FORMAT_R32G32B32A32_FLOAT;
-            }
-
-            out[count].SemanticName = staticSemantics[i < 3 ? i : 2];
-            out[count].SemanticIndex = ( i >= 2 ) ? (UINT)( i - 2 ) : 0;
-            out[count].Format = fmt;
-            out[count].InputSlot = 0;
-            out[count].AlignedByteOffset = staticOffset;
-            out[count].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
-            out[count].InstanceDataStepRate = 0;
-            ++count;
-            staticOffset += (UINT)im.staticAttribSizes[i] * sizeof( float );
-        }
-    }
-    else
-    {
-        // Legacy: single POSITION attribute
-        out[count++] = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
-    }
-
-    // Slot 1: per-instance attributes
-    UINT instOffset = 0;
-    for ( int i = 0; i < im.numInstanceAttribs; ++i )
-    {
-        DXGI_FORMAT fmt = DXGI_FORMAT_R32_FLOAT;
-        if ( im.instanceAttribSizes[i] == 2 )
-        {
-            fmt = DXGI_FORMAT_R32G32_FLOAT;
-        }
-        else if ( im.instanceAttribSizes[i] == 3 )
-        {
-            fmt = DXGI_FORMAT_R32G32B32_FLOAT;
-        }
-        else if ( im.instanceAttribSizes[i] == 4 )
-        {
-            fmt = DXGI_FORMAT_R32G32B32A32_FLOAT;
-        }
-
-        out[count].SemanticName = "TEXCOORD";
-        out[count].SemanticIndex = (UINT)( im.instanceStartAttrib + i - 2 );
-        out[count].Format = fmt;
-        out[count].InputSlot = 1;
-        out[count].AlignedByteOffset = instOffset;
-        out[count].InputSlotClass = D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA;
-        out[count].InstanceDataStepRate = 1;
-        ++count;
-        instOffset += (UINT)im.instanceAttribSizes[i] * sizeof( float );
-    }
-}
-
-
-void RenderBackendDX12::BuildDynamicVBInputLayout( const DynamicVBDX12& dvb, D3D12_INPUT_ELEMENT_DESC* out, UINT& count )
-{
-    count = 0;
-    UINT offset = 0;
-    for ( int i = 0; i < dvb.numAttribs; ++i )
-    {
-        DXGI_FORMAT fmt = DXGI_FORMAT_R32_FLOAT;
-        if ( dvb.attribComponents[i] == 2 )
-        {
-            fmt = DXGI_FORMAT_R32G32_FLOAT;
-        }
-        else if ( dvb.attribComponents[i] == 3 )
-        {
-            fmt = DXGI_FORMAT_R32G32B32_FLOAT;
-        }
-        else if ( dvb.attribComponents[i] == 4 )
-        {
-            fmt = DXGI_FORMAT_R32G32B32A32_FLOAT;
-        }
-
-        if ( i == 0 )
-        {
-            out[count] = { "POSITION", 0, fmt, 0, offset, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
-        }
-        else
-        {
-            out[count] = { "TEXCOORD", (UINT)( i - 1 ), fmt, 0, offset, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
-        }
-        ++count;
-        offset += (UINT)dvb.attribComponents[i] * sizeof( float );
-    }
-}
-
-
-ID3D12PipelineState* RenderBackendDX12::CreatePSO( VertexFormat12 format, bool instanced, const InstancedMeshDX12* im, const DynamicVBDX12* dvb )
-{
-    D3D12_INPUT_ELEMENT_DESC elements[16] = {};
-    UINT numElements = 0;
-
-    if ( instanced && im )
-    {
-        BuildInstancedInputLayout( *im, elements, numElements );
-    }
-    else if ( dvb )
-    {
-        BuildDynamicVBInputLayout( *dvb, elements, numElements );
-    }
-    else
-    {
-        BuildInputLayout( format, elements, numElements );
-    }
-
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-    psoDesc.pRootSignature = m_rootSignature;
-    psoDesc.VS = { m_activeShader->GetVSBytecode(), m_activeShader->GetVSBytecodeSize() };
-    psoDesc.PS = { m_activeShader->GetPSBytecode(), m_activeShader->GetPSBytecodeSize() };
-    psoDesc.InputLayout = { elements, numElements };
-    psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-
-    // Rasterizer
-    psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-    psoDesc.RasterizerState.CullMode = m_cullEnabled ? D3D12_CULL_MODE_BACK : D3D12_CULL_MODE_NONE;
-    psoDesc.RasterizerState.FrontCounterClockwise = TRUE;
-    if ( m_polyOffsetEnabled )
-    {
-        psoDesc.RasterizerState.DepthBias = TranslatePolygonOffsetDepthBiasDX12( m_polyOffsetUnits );
-        psoDesc.RasterizerState.SlopeScaledDepthBias = TranslatePolygonOffsetSlopeBiasDX12( m_polyOffsetFactor );
-    }
-    psoDesc.RasterizerState.DepthClipEnable = TRUE;
-
-    // Depth stencil
-    psoDesc.DepthStencilState.DepthEnable = m_depthTestEnabled ? TRUE : FALSE;
-    psoDesc.DepthStencilState.DepthWriteMask = m_depthWriteEnabled ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
-    psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
-
-    // Blend
-    psoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-    if ( m_blendEnabled )
-    {
-        psoDesc.BlendState.RenderTarget[0].BlendEnable = TRUE;
-        psoDesc.BlendState.RenderTarget[0].SrcBlend = MapBlendFactor( m_blendSrc );
-        psoDesc.BlendState.RenderTarget[0].DestBlend = MapBlendFactor( m_blendDst );
-        psoDesc.BlendState.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
-        psoDesc.BlendState.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE;
-        psoDesc.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO;
-        psoDesc.BlendState.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
-    }
-
-    psoDesc.SampleMask = UINT_MAX;
-    psoDesc.NumRenderTargets = 1;
-    psoDesc.RTVFormats[0] = m_currentRTVFormat;
-    psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
-    psoDesc.SampleDesc.Count = 1;
-
-    // Create a Graphics Pipeline State Object (PSO). In DX12, ALL render state is compiled into
-    // one monolithic object: shaders, input layout, rasterizer settings, blend mode, depth test,
-    // etc. This is very different from DX11 where you set each state individually. The PSO is
-    // expensive to create but fast to bind — so we cache them by hash and reuse across frames.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-creategraphicspipelinestate
-    ID3D12PipelineState* pso = nullptr;
-    HRESULT hr = m_device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &pso ) );
-    if ( FAILED( hr ) )
-    {
-        throw std::runtime_error( "CreateGraphicsPipelineState failed" );
-    }
-    return pso;
-}
-
-
-void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, const InstancedMeshDX12* im, const DynamicVBDX12* dvb )
-{
-    EnsureCommandListOpen();
-
-    if ( !m_renderingToFBO && !m_backBufferIsRT )
-    {
-        TransitionBarrier( m_renderTargets[m_frameIndex], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET );
-        m_backBufferIsRT = true;
-        m_targetsDirty = true;
-    }
-
-    // Build PSO key
-    PSOKey12 key = {};
-    key.shaderVS = m_activeShader->GetVSBytecode();
-    key.shaderPS = m_activeShader->GetPSBytecode();
-    key.format = format;
-    key.isInstanced = instanced;
-    key.blendEnabled = m_blendEnabled;
-    key.blendSrc = m_blendSrc;
-    key.blendDst = m_blendDst;
-    key.depthEnabled = m_depthTestEnabled;
-    key.depthWriteEnabled = m_depthWriteEnabled;
-    key.cullEnabled = m_cullEnabled;
-    key.polyOffsetEnabled = m_polyOffsetEnabled;
-    key.polyOffsetDepthBias = m_polyOffsetEnabled ? TranslatePolygonOffsetDepthBiasDX12( m_polyOffsetUnits ) : 0;
-    key.polyOffsetSlopeScaledDepthBias = m_polyOffsetEnabled ? TranslatePolygonOffsetSlopeBiasDX12( m_polyOffsetFactor ) : 0.0f;
-    key.rtvFormat = m_currentRTVFormat;
-
-    size_t psoHash = HashPSOKey( key );
-    if ( dvb )
-    {
-        for ( int i = 0; i < dvb->numAttribs; ++i )
-        {
-            psoHash ^= ( (size_t)dvb->attribComponents[i] << ( i * 4 ) );
-        }
-    }
-
-    // Fast path: if PSO, textures, and targets are all unchanged, only flush the CB
-    bool psoChanged = ( psoHash != m_lastPSOHash );
-
-    if ( !psoChanged && !m_texBindingsDirty && !m_targetsDirty )
-    {
-        // Only the constant buffer has changed (e.g. model matrix per ball)
-        if ( m_activeShader )
-        {
-            D3D12_GPU_VIRTUAL_ADDRESS cbAddr = m_activeShader->FlushCB();
-            if ( cbAddr )
-            {
-                m_commandList->SetGraphicsRootConstantBufferView( 0, cbAddr );
-            }
-        }
-        return;
-    }
-
-    // Full state setup path
-    if ( psoChanged )
-    {
-        auto it = m_psoCache.find( psoHash );
-        ID3D12PipelineState* pso;
-        if ( it != m_psoCache.end() )
-        {
-            pso = it->second;
-        }
-        else
-        {
-            pso = CreatePSO( format, instanced, im, dvb );
-            m_psoCache[psoHash] = pso;
-        }
-
-        // Bind the PSO — sets ALL GPU pipeline state (shaders, blend, depth, rasterizer) in one call.
-        // Unlike DX11 where you set states individually, DX12 switches the entire pipeline at once.
-        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setpipelinestate
-        m_commandList->SetPipelineState( pso );
-
-        // Re-bind root signature after PSO change (required by DX12 spec).
-        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootsignature
-        m_commandList->SetGraphicsRootSignature( m_rootSignature );
-        m_lastPSOHash = psoHash;
-    }
-
-    // Flush constant buffer data and bind it at root parameter [0] — this is where per-draw
-    // shader uniforms (MVP matrix, colors, time, etc.) are uploaded to the GPU each draw call.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootconstantbufferview
-    if ( m_activeShader )
-    {
-        D3D12_GPU_VIRTUAL_ADDRESS cbAddr = m_activeShader->FlushCB();
-        if ( cbAddr )
-        {
-            m_commandList->SetGraphicsRootConstantBufferView( 0, cbAddr );
-        }
-    }
-
-    // Bind textures by copying their SRV descriptors to the shader-visible heap and pointing
-    // the root descriptor table at them. Root params [1..4] map to texture slots t0..t3.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setgraphicsrootdescriptortable
-    if ( m_texBindingsDirty )
-    {
-        for ( int slot = 0; slot < TEXTURE_SLOT_COUNT; ++slot )
-        {
-            UINT srcIdx = m_boundTexSlot[slot];
-            if ( srcIdx != UINT_MAX )
-            {
-                UINT transient = AllocateTransientSRV();
-                D3D12_CPU_DESCRIPTOR_HANDLE dstHandle = { m_srvHeap->GetCPUDescriptorHandleForHeapStart().ptr + (SIZE_T)transient * m_srvDescSize };
-                m_device->CopyDescriptorsSimple( 1, dstHandle, GetSRVStagingCpuHandle( srcIdx ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-                m_commandList->SetGraphicsRootDescriptorTable( 1 + slot, GetSRVGpuHandle( transient ) );
-            }
-        }
-        m_texBindingsDirty = false;
-    }
-
-    // Set viewport/scissor/render targets only when changed
-    if ( m_targetsDirty )
-    {
-        m_commandList->RSSetViewports( 1, &m_viewport );
-        m_commandList->RSSetScissorRects( 1, &m_scissorRect );
-        m_commandList->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
-        m_targetsDirty = false;
-    }
-
-    // Set the primitive topology — tells the Input Assembler how to interpret vertex data.
-    // TRIANGLELIST means every 3 vertices form an independent triangle.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetprimitivetopology
-    m_commandList->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
-    m_psoDirty = false;
-}
-
-
-void RenderBackendDX12::SetActiveShader( ShaderDX12* shader )
-{
-    m_activeShader = shader;
-    m_psoDirty = true;
-}
-
-
-void RenderBackendDX12::SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv )
-{
-    m_currentRTV = rtv;
-    m_currentDSV = dsv;
-    m_targetsDirty = true;
-}
-
-
-void RenderBackendDX12::SetRenderingToFBO( bool rendering, UINT fboSrvIndex, UINT fboDepthSrvIndex, DXGI_FORMAT rtvFormat )
-{
-    m_renderingToFBO = rendering;
-    m_currentRTVFormat = rendering ? rtvFormat : DXGI_FORMAT_R8G8B8A8_UNORM;
-    m_psoDirty = true;
-    if ( rendering )
-    {
-        // Clear any texture slot still referencing the FBO color texture
-        // (it's now in RENDER_TARGET state and cannot be used as SRV)
-        for ( int i = 0; i < TEXTURE_SLOT_COUNT; ++i )
-        {
-            if ( m_boundTexSlot[i] == fboSrvIndex || m_boundTexSlot[i] == fboDepthSrvIndex )
-            {
-                m_boundTexSlot[i] = UINT_MAX;
-                m_texBindingsDirty = true;
-            }
-        }
-    }
-}
-
-
-D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::AllocateRTV()
-{
-    if ( m_nextRTV >= MAX_RTV_DESCRIPTORS )
-    {
-        ReportDX12DescriptorHeapExhausted( "RTV", m_nextRTV, MAX_RTV_DESCRIPTORS );
-        throw std::runtime_error( "DX12 RTV heap exhausted" );
-    }
-    return GetRTVHandle( m_nextRTV++ );
-}
-
-
-D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::AllocateDSV()
-{
-    if ( m_nextDSV >= MAX_DSV_DESCRIPTORS )
-    {
-        ReportDX12DescriptorHeapExhausted( "DSV", m_nextDSV, MAX_DSV_DESCRIPTORS );
-        throw std::runtime_error( "DX12 DSV heap exhausted" );
-    }
-    return GetDSVHandle( m_nextDSV++ );
-}
-
-
 // --- Resource Creation ---
-
-
-std::unique_ptr<IShader> RenderBackendDX12::CreateShader( const char* baseName )
-{
-    std::string hlslPath = std::string( DATA_ROOT ) + baseName + ".hlsl";
-    auto shader = std::make_unique<ShaderDX12>();
-    if ( !shader->Compile( hlslPath.c_str() ) )
-    {
-        throw std::runtime_error( "ShaderDX12 compilation failed: " + hlslPath );
-    }
-    return shader;
-}
-
-
-std::unique_ptr<IMesh> RenderBackendDX12::CreateMesh( const float* data, int vertexCount, bool hasNormals, bool hasTexCoords )
-{
-    VertexFormat12 format;
-    int floatsPerVert;
-    if ( hasNormals && hasTexCoords )
-    {
-        format = VertexFormat12::Pos3_Norm3_Tex2;
-        floatsPerVert = 8;
-    }
-    else if ( hasTexCoords )
-    {
-        format = VertexFormat12::Pos3_Tex2;
-        floatsPerVert = 5;
-    }
-    else
-    {
-        format = VertexFormat12::Pos3;
-        floatsPerVert = 3;
-    }
-
-    EnsureCommandListOpen();
-    UINT64 dataSize = (UINT64)vertexCount * floatsPerVert * sizeof( float );
-    FlushUploadBufferIfNeeded( dataSize, 4 );
-    D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = SubAllocateUpload( dataSize, 4 );
-    uint8_t* uploadPtr = GetUploadPtr( uploadAddr );
-
-    auto mesh = std::make_unique<MeshDX12>();
-    mesh->Create( m_device, m_commandList, data, vertexCount, floatsPerVert, format, uploadAddr, uploadPtr );
-    return mesh;
-}
-
-
-std::unique_ptr<IFramebuffer> RenderBackendDX12::CreateFramebuffer( int width, int height, FramebufferColorFormat colorFormat )
-{
-    auto fbo = std::make_unique<FramebufferDX12>( colorFormat );
-    fbo->Create( width, height );
-    return fbo;
-}
 
 
 // --- Textures ---
@@ -1793,137 +1656,6 @@ std::unique_ptr<IFramebuffer> RenderBackendDX12::CreateFramebuffer( int width, i
 //   Param 2: Descriptor table — 4 UAVs (u0-u3): output mips (unused slots use null UAV)
 //   Static sampler s0: LinearClamp
 // =============================================================================
-void RenderBackendDX12::InitGenMipsPipeline()
-{
-    // -------------------------------------------------------------------------
-    // Compile the compute shader from HLSL source
-    // -------------------------------------------------------------------------
-    std::string csPath = std::string( DATA_ROOT ) + "shaders/generate_mips.hlsl";
-    std::ifstream csFile( csPath, std::ios::binary );
-    if ( !csFile.is_open() )
-    {
-        throw std::runtime_error( "Cannot open generate_mips.hlsl: " + csPath );
-    }
-    std::string csSource( ( std::istreambuf_iterator<char>( csFile ) ),
-                          std::istreambuf_iterator<char>() );
-
-    UINT compileFlags = D3DCOMPILE_ENABLE_STRICTNESS;
-#ifdef _DEBUG
-    compileFlags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#else
-    compileFlags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
-#endif
-
-    ComPtr<ID3DBlob> csBlob;
-    ComPtr<ID3DBlob> errors;
-    HRESULT hr = D3DCompile( csSource.c_str(), csSource.size(), csPath.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE, "main_cs", "cs_5_0", compileFlags, 0, csBlob.GetAddressOf(), errors.GetAddressOf() );
-    if ( FAILED( hr ) )
-    {
-        std::string msg = "generate_mips.hlsl CS compile failed: ";
-        if ( errors )
-        {
-            msg += reinterpret_cast<const char*>( errors->GetBufferPointer() );
-        }
-        throw std::runtime_error( msg );
-    }
-    errors.Reset();
-
-    // -------------------------------------------------------------------------
-    // Root signature
-    // -------------------------------------------------------------------------
-    // Param 0: 4 root constants (b0)
-    D3D12_ROOT_PARAMETER1 params[3] = {};
-    params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-    params[0].Constants.ShaderRegister = 0;
-    params[0].Constants.RegisterSpace = 0;
-    params[0].Constants.Num32BitValues = 4;
-    params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-    // Param 1: SRV descriptor table (t0)
-    D3D12_DESCRIPTOR_RANGE1 srvRange = {};
-    srvRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-    srvRange.NumDescriptors = 1;
-    srvRange.BaseShaderRegister = 0;
-    srvRange.RegisterSpace = 0;
-    srvRange.OffsetInDescriptorsFromTableStart = 0;
-    params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    params[1].DescriptorTable.NumDescriptorRanges = 1;
-    params[1].DescriptorTable.pDescriptorRanges = &srvRange;
-    params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-    // Param 2: UAV descriptor table (u0-u3, 4 consecutive slots)
-    D3D12_DESCRIPTOR_RANGE1 uavRange = {};
-    uavRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-    uavRange.NumDescriptors = 4;
-    uavRange.BaseShaderRegister = 0;
-    uavRange.RegisterSpace = 0;
-    uavRange.OffsetInDescriptorsFromTableStart = 0;
-    params[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    params[2].DescriptorTable.NumDescriptorRanges = 1;
-    params[2].DescriptorTable.pDescriptorRanges = &uavRange;
-    params[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-    // Static LinearClamp sampler at s0
-    D3D12_STATIC_SAMPLER_DESC sampler = {};
-    sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-    sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-    sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-    sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
-    sampler.MipLODBias = 0.0f;
-    sampler.MaxAnisotropy = 1;
-    sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-    sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
-    sampler.MinLOD = 0.0f;
-    sampler.MaxLOD = D3D12_FLOAT32_MAX;
-    sampler.ShaderRegister = 0;
-    sampler.RegisterSpace = 0;
-    sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-    D3D12_VERSIONED_ROOT_SIGNATURE_DESC rsDesc = {};
-    rsDesc.Version = D3D_ROOT_SIGNATURE_VERSION_1_1;
-    rsDesc.Desc_1_1.NumParameters = 3;
-    rsDesc.Desc_1_1.pParameters = params;
-    rsDesc.Desc_1_1.NumStaticSamplers = 1;
-    rsDesc.Desc_1_1.pStaticSamplers = &sampler;
-    rsDesc.Desc_1_1.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
-
-    ComPtr<ID3DBlob> rsBlob;
-    ThrowIfFailed( D3D12SerializeVersionedRootSignature( &rsDesc, rsBlob.GetAddressOf(), errors.GetAddressOf() ),
-                   "GenerateMips root signature serialization failed" );
-    errors.Reset();
-
-    ThrowIfFailed( m_device->CreateRootSignature( 0, rsBlob->GetBufferPointer(), rsBlob->GetBufferSize(), IID_PPV_ARGS( &m_genMipsRS ) ),
-                   "CreateRootSignature (genMips) failed" );
-
-    // -------------------------------------------------------------------------
-    // Compute PSO
-    // -------------------------------------------------------------------------
-    D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
-    psoDesc.pRootSignature = m_genMipsRS;
-    psoDesc.CS.pShaderBytecode = csBlob->GetBufferPointer();
-    psoDesc.CS.BytecodeLength = csBlob->GetBufferSize();
-    ThrowIfFailed( m_device->CreateComputePipelineState( &psoDesc, IID_PPV_ARGS( &m_genMipsPSO ) ),
-                   "CreateComputePipelineState (genMips) failed" );
-
-    // -------------------------------------------------------------------------
-    // Null UAV descriptor — used to pad unused UAV table slots so the
-    // debug layer doesn't complain about unbound descriptors.
-    // -------------------------------------------------------------------------
-    m_genMipsNullUAV = AllocateStaticSRV();
-
-    D3D12_UNORDERED_ACCESS_VIEW_DESC nullUAVDesc = {};
-    nullUAVDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    nullUAVDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-    nullUAVDesc.Texture2D.MipSlice = 0;
-
-    // Create null UAV (null resource = "nothing bound") in staging heap
-    m_device->CreateUnorderedAccessView( nullptr, nullptr, &nullUAVDesc, GetSRVStagingCpuHandle( m_genMipsNullUAV ) );
-
-    // Copy to shader-visible heap so it can be referenced by descriptor tables
-    D3D12_CPU_DESCRIPTOR_HANDLE svDst = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
-    svDst.ptr += (SIZE_T)m_genMipsNullUAV * m_srvDescSize;
-    m_device->CopyDescriptorsSimple( 1, svDst, GetSRVStagingCpuHandle( m_genMipsNullUAV ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-}
 
 
 // =============================================================================
@@ -1940,772 +1672,20 @@ void RenderBackendDX12::InitGenMipsPipeline()
 //        d. UAV barrier, then transitions outputs to NON_PIXEL_SHADER_RESOURCE.
 //   3. Transitions all mips to PIXEL_SHADER_RESOURCE (D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES).
 // =============================================================================
-void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, UINT w, UINT h, UINT numMips )
-{
-    if ( numMips <= 1 )
-    {
-        return;
-    }
-
-    // Transition mip 0 from COPY_DEST to NON_PIXEL_SHADER_RESOURCE so the compute
-    // shader can sample it. (Subsequent source mips are transitioned at end of each batch.)
-    {
-        D3D12_RESOURCE_BARRIER b = {};
-        b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-        b.Transition.pResource = tex;
-        b.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-        b.Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-        b.Transition.Subresource = 0;
-        m_commandList->ResourceBarrier( 1, &b );
-    }
-
-    UINT srcMip = 0;
-    UINT srcMipW = w;
-    UINT srcMipH = h;
-
-    while ( srcMip < numMips - 1 )
-    {
-        UINT mipsToGenerate = (std::min)( numMips - 1 - srcMip, 4u );
-        UINT dstW = (std::max)( srcMipW >> 1, 1u );
-        UINT dstH = (std::max)( srcMipH >> 1, 1u );
-
-        // ------------------------------------------------------------------
-        // Source SRV: single-level view of the source mip.
-        // Create directly in the shader-visible heap (transient slot).
-        // ------------------------------------------------------------------
-        UINT srcSrvIdx = AllocateTransientSRV();
-        {
-            D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-            srvDesc.Format = fmt;
-            srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-            srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-            srvDesc.Texture2D.MostDetailedMip = srcMip;
-            srvDesc.Texture2D.MipLevels = 1;
-
-            D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
-            cpuHandle.ptr += (SIZE_T)srcSrvIdx * m_srvDescSize;
-            m_device->CreateShaderResourceView( tex, &srvDesc, cpuHandle );
-        }
-
-        // ------------------------------------------------------------------
-        // UAV slots: 4 consecutive transient slots (u0=base, u1=+1, u2=+2, u3=+3).
-        // Valid mips get real UAVs; unused slots get the null UAV.
-        // ------------------------------------------------------------------
-        UINT uavBase = AllocateTransientSRV(); // u0
-        AllocateTransientSRV();                // u1
-        AllocateTransientSRV();                // u2
-        AllocateTransientSRV();                // u3
-
-        for ( UINT i = 0; i < 4; ++i )
-        {
-            UINT uavIdx = uavBase + i;
-            D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
-            cpuHandle.ptr += (SIZE_T)uavIdx * m_srvDescSize;
-
-            if ( i < mipsToGenerate )
-            {
-                D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-                uavDesc.Format = fmt;
-                uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-                uavDesc.Texture2D.MipSlice = srcMip + 1 + i;
-                m_device->CreateUnorderedAccessView( tex, nullptr, &uavDesc, cpuHandle );
-            }
-            else
-            {
-                // Pad with null UAV to keep the debug layer happy
-                D3D12_CPU_DESCRIPTOR_HANDLE nullSrc = GetSRVStagingCpuHandle( m_genMipsNullUAV );
-                m_device->CopyDescriptorsSimple( 1, cpuHandle, nullSrc, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-            }
-        }
-
-        // ------------------------------------------------------------------
-        // Transition destination mips COPY_DEST → UNORDERED_ACCESS
-        // ------------------------------------------------------------------
-        for ( UINT i = 0; i < mipsToGenerate; ++i )
-        {
-            D3D12_RESOURCE_BARRIER b = {};
-            b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-            b.Transition.pResource = tex;
-            b.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-            b.Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-            b.Transition.Subresource = srcMip + 1 + i;
-            m_commandList->ResourceBarrier( 1, &b );
-        }
-
-        // ------------------------------------------------------------------
-        // Dispatch the compute shader
-        // ------------------------------------------------------------------
-        struct GenMipsCB
-        {
-            UINT NumMipLevels;
-            UINT SrcDimension;
-            float TexelSizeX;
-            float TexelSizeY;
-        };
-        GenMipsCB cb;
-        cb.NumMipLevels = mipsToGenerate;
-        cb.SrcDimension = ( ( srcMipW & 1 ) ? 1u : 0u ) | ( ( srcMipH & 1 ) ? 2u : 0u );
-        cb.TexelSizeX = 1.0f / static_cast<float>( dstW );
-        cb.TexelSizeY = 1.0f / static_cast<float>( dstH );
-
-        m_commandList->SetComputeRootSignature( m_genMipsRS );
-        m_commandList->SetPipelineState( m_genMipsPSO );
-        m_commandList->SetComputeRoot32BitConstants( 0, 4, &cb, 0 );
-        m_commandList->SetComputeRootDescriptorTable( 1, GetSRVGpuHandle( srcSrvIdx ) );
-        m_commandList->SetComputeRootDescriptorTable( 2, GetSRVGpuHandle( uavBase ) );
-
-        UINT groupsX = ( dstW + 7 ) / 8;
-        UINT groupsY = ( dstH + 7 ) / 8;
-        m_commandList->Dispatch( groupsX, groupsY, 1 );
-
-        // UAV barrier: ensures writes complete before next SRV read or UAV write
-        {
-            D3D12_RESOURCE_BARRIER uavBarrier = {};
-            uavBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-            uavBarrier.UAV.pResource = tex;
-            m_commandList->ResourceBarrier( 1, &uavBarrier );
-        }
-
-        // ------------------------------------------------------------------
-        // Transition output mips UNORDERED_ACCESS → NON_PIXEL_SHADER_RESOURCE
-        // so the next batch can read them as a source SRV.
-        // ------------------------------------------------------------------
-        for ( UINT i = 0; i < mipsToGenerate; ++i )
-        {
-            D3D12_RESOURCE_BARRIER b = {};
-            b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-            b.Transition.pResource = tex;
-            b.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-            b.Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-            b.Transition.Subresource = srcMip + 1 + i;
-            m_commandList->ResourceBarrier( 1, &b );
-        }
-
-        srcMip += mipsToGenerate;
-        srcMipW = (std::max)( srcMipW >> mipsToGenerate, 1u );
-        srcMipH = (std::max)( srcMipH >> mipsToGenerate, 1u );
-    }
-
-    // All mips are now in NON_PIXEL_SHADER_RESOURCE. Transition ALL_SUBRESOURCES
-    // to PIXEL_SHADER_RESOURCE for use in pixel shaders.
-    TransitionBarrier( tex, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE );
-
-    // Force full rebind of graphics state on the next draw call, since we
-    // switched root signatures and PSO for the compute dispatch.
-    m_lastPSOHash = 0;
-    m_texBindingsDirty = true;
-    m_targetsDirty = true;
-}
-
-
-uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, int channels, bool generateMips, bool /*linearFilter*/ )
-{
-    EnsureCommandListOpen();
-
-    // Resolve format and bytes-per-pixel
-    DXGI_FORMAT fmt;
-    int bytesPerPixel;
-    if ( channels == 1 )
-    {
-        fmt = DXGI_FORMAT_R8_UNORM;
-        bytesPerPixel = 1;
-    }
-    else
-    {
-        fmt = DXGI_FORMAT_R8G8B8A8_UNORM;
-        bytesPerPixel = 4;
-    }
-
-    // Convert RGB → RGBA if needed; srcData always has bytesPerPixel channels after this.
-    std::vector<uint8_t> rgba;
-    const uint8_t* srcData = data;
-    if ( channels == 3 )
-    {
-        rgba.resize( (size_t)w * h * 4 );
-        for ( int i = 0; i < w * h; ++i )
-        {
-            rgba[i * 4 + 0] = data[i * 3 + 0];
-            rgba[i * 4 + 1] = data[i * 3 + 1];
-            rgba[i * 4 + 2] = data[i * 3 + 2];
-            rgba[i * 4 + 3] = 255;
-        }
-        srcData = rgba.data();
-        bytesPerPixel = 4;
-    }
-
-    // Compute full mip count (log2 of the larger dimension + 1)
-    UINT numMips = 1;
-    if ( generateMips && m_genMipsPSO )
-    {
-        UINT mw = static_cast<UINT>( w );
-        UINT mh = static_cast<UINT>( h );
-        while ( mw > 1 || mh > 1 )
-        {
-            mw = (std::max)( mw >> 1, 1u );
-            mh = (std::max)( mh >> 1, 1u );
-            ++numMips;
-        }
-    }
-
-    // Create the texture resource on the Default Heap.
-    // ALLOW_UNORDERED_ACCESS is required when generating mips via compute shader.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    D3D12_HEAP_PROPERTIES defaultHeap = {};
-    defaultHeap.Type = D3D12_HEAP_TYPE_DEFAULT;
-
-    D3D12_RESOURCE_DESC texDesc = {};
-    texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    texDesc.Width = static_cast<UINT64>( w );
-    texDesc.Height = static_cast<UINT>( h );
-    texDesc.DepthOrArraySize = 1;
-    texDesc.MipLevels = static_cast<UINT16>( numMips );
-    texDesc.Format = fmt;
-    texDesc.SampleDesc.Count = 1;
-    texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-    texDesc.Flags = ( numMips > 1 )
-                        ? D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS
-                        : D3D12_RESOURCE_FLAG_NONE;
-
-    ID3D12Resource* texResource = nullptr;
-    ThrowIfFailed( m_device->CreateCommittedResource(
-                       &defaultHeap,
-                       D3D12_HEAP_FLAG_NONE,
-                       &texDesc,
-                       D3D12_RESOURCE_STATE_COPY_DEST,
-                       nullptr,
-                       IID_PPV_ARGS( &texResource ) ),
-                   "CreateCommittedResource (texture) failed" );
-
-    // -------------------------------------------------------------------------
-    // Upload mip 0 only. GetCopyableFootprints for 1 subresource gives the
-    // GPU row-pitch-aligned layout we must write to in the upload buffer.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-getcopyablefootprints
-    // -------------------------------------------------------------------------
-    D3D12_PLACED_SUBRESOURCE_FOOTPRINT fp0 = {};
-    UINT rowCount0;
-    UINT64 rowSize0, mip0Bytes;
-    m_device->GetCopyableFootprints( &texDesc, 0, 1, 0, &fp0, &rowCount0, &rowSize0, &mip0Bytes );
-
-    FlushUploadBufferIfNeeded( mip0Bytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT );
-    D3D12_GPU_VIRTUAL_ADDRESS uploadBase = SubAllocateUpload( mip0Bytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT );
-    const UINT64 baseOffset = uploadBase - m_uploadBuffers[m_allocatorIndex]->GetGPUVirtualAddress();
-    uint8_t* uploadDst = GetUploadPtr( uploadBase );
-
-    const UINT srcRowPitch = static_cast<UINT>( w ) * static_cast<UINT>( bytesPerPixel );
-    for ( UINT row = 0; row < rowCount0; ++row )
-    {
-        memcpy( uploadDst + row * fp0.Footprint.RowPitch,
-                srcData + row * srcRowPitch,
-                srcRowPitch );
-    }
-
-    D3D12_TEXTURE_COPY_LOCATION dstLoc = {};
-    dstLoc.pResource = texResource;
-    dstLoc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-    dstLoc.SubresourceIndex = 0;
-
-    D3D12_TEXTURE_COPY_LOCATION srcLoc = {};
-    srcLoc.pResource = m_uploadBuffers[m_allocatorIndex];
-    srcLoc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-    srcLoc.PlacedFootprint = fp0;
-    srcLoc.PlacedFootprint.Offset = baseOffset + fp0.Offset;
-
-    m_commandList->CopyTextureRegion( &dstLoc, 0, 0, 0, &srcLoc, nullptr );
-
-    // -------------------------------------------------------------------------
-    // Generate remaining mips on the GPU (compute shader), or transition
-    // directly to PIXEL_SHADER_RESOURCE for single-mip textures.
-    // -------------------------------------------------------------------------
-    if ( numMips > 1 )
-    {
-        GenerateMipsGPU( texResource, fmt, static_cast<UINT>( w ), static_cast<UINT>( h ), numMips );
-        // GenerateMipsGPU ends with all subresources in PIXEL_SHADER_RESOURCE state.
-    }
-    else
-    {
-        TransitionBarrier( texResource,
-                           D3D12_RESOURCE_STATE_COPY_DEST,
-                           D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE );
-    }
-
-    // Create a Shader Resource View exposing the full mip chain.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createshaderresourceview
-    UINT srvIdx = AllocateStaticSRV();
-    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = fmt;
-    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srvDesc.Texture2D.MipLevels = numMips;
-    m_device->CreateShaderResourceView( texResource, &srvDesc, GetSRVStagingCpuHandle( srvIdx ) );
-
-    // Register in texture array (1-based handle)
-    TextureEntryDX12 entry = {};
-    entry.resource = texResource;
-    entry.srvIndex = srvIdx;
-    entry.owned = true;
-    m_textures.push_back( entry );
-    return static_cast<uint32_t>( m_textures.size() );
-}
-
-
-void RenderBackendDX12::BindTexture( uint32_t handle, int slot )
-{
-    if ( slot < 0 || slot >= TEXTURE_SLOT_COUNT )
-    {
-        return;
-    }
-    UINT newSlot;
-    if ( handle == 0 || handle > (uint32_t)m_textures.size() )
-    {
-        newSlot = UINT_MAX;
-    }
-    else
-    {
-        newSlot = m_textures[handle - 1].srvIndex;
-    }
-    if ( m_boundTexSlot[slot] != newSlot )
-    {
-        m_boundTexSlot[slot] = newSlot;
-        m_texBindingsDirty = true;
-    }
-}
-
-
-void RenderBackendDX12::DeleteTexture( uint32_t handle )
-{
-    if ( handle == 0 || handle > (uint32_t)m_textures.size() )
-    {
-        return;
-    }
-    auto& entry = m_textures[handle - 1];
-    if ( entry.owned && entry.resource )
-    {
-        entry.resource->Release();
-    }
-    entry.resource = nullptr;
-    entry.srvIndex = UINT_MAX;
-    entry.owned = false;
-}
-
-
-UINT RenderBackendDX12::RegisterSRV( UINT srvIndex )
-{
-    TextureEntryDX12 entry = {};
-    entry.resource = nullptr;
-    entry.srvIndex = srvIndex;
-    entry.owned = false;
-    m_textures.push_back( entry );
-    return (uint32_t)m_textures.size(); // 1-based handle
-}
-
-
-void RenderBackendDX12::UnregisterSRV( uint32_t handle )
-{
-    if ( handle == 0 || handle > (uint32_t)m_textures.size() )
-    {
-        return;
-    }
-    auto& entry = m_textures[handle - 1];
-    entry.resource = nullptr;
-    entry.srvIndex = UINT_MAX;
-    entry.owned = false;
-}
 
 
 // --- Screenshot ---
 
 
-std::vector<uint8_t> RenderBackendDX12::CaptureBackbuffer( int& outWidth, int& outHeight )
-{
-    EnsureCommandListOpen();
-    outWidth = m_width;
-    outHeight = m_height;
-
-    // F3 screenshots are taken in input handling before Clear()/Render, so the backbuffer is
-    // usually still in PRESENT state at this point. Scene-driven captures can happen after render
-    // where the backbuffer is in RENDER_TARGET state. Preserve whichever state we're currently in.
-    const D3D12_RESOURCE_STATES backBufferStateBeforeCopy =
-        m_backBufferIsRT ? D3D12_RESOURCE_STATE_RENDER_TARGET : D3D12_RESOURCE_STATE_PRESENT;
-
-    // Transition backbuffer to COPY_SOURCE for readback.
-    TransitionBarrier( m_renderTargets[m_frameIndex], backBufferStateBeforeCopy, D3D12_RESOURCE_STATE_COPY_SOURCE );
-
-    // Get copyable footprint
-    D3D12_RESOURCE_DESC bbDesc = m_renderTargets[m_frameIndex]->GetDesc();
-    D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
-    UINT numRows = 0;
-    UINT64 rowSizeBytes = 0;
-    UINT64 totalBytes = 0;
-    m_device->GetCopyableFootprints( &bbDesc, 0, 1, 0, &footprint, &numRows, &rowSizeBytes, &totalBytes );
-
-    // Create readback buffer
-    D3D12_HEAP_PROPERTIES readbackHeap = {};
-    readbackHeap.Type = D3D12_HEAP_TYPE_READBACK;
-    D3D12_RESOURCE_DESC readbackDesc = {};
-    readbackDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    readbackDesc.Width = totalBytes;
-    readbackDesc.Height = 1;
-    readbackDesc.DepthOrArraySize = 1;
-    readbackDesc.MipLevels = 1;
-    readbackDesc.SampleDesc.Count = 1;
-    readbackDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-    ID3D12Resource* readbackBuffer = nullptr;
-    // Buffers are always created in COMMON state in D3D12 regardless of the initial state
-    // specified. Specifying any other state fires warning #1328 (CREATERESOURCE_STATE_IGNORED).
-    // READBACK buffers are accessed via CPU Map/Unmap — no GPU state barrier is needed.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12
-    m_device->CreateCommittedResource( &readbackHeap, D3D12_HEAP_FLAG_NONE, &readbackDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS( &readbackBuffer ) );
-
-    // Copy texture to readback buffer
-    D3D12_TEXTURE_COPY_LOCATION dstLoc = {};
-    dstLoc.pResource = readbackBuffer;
-    dstLoc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-    dstLoc.PlacedFootprint = footprint;
-
-    D3D12_TEXTURE_COPY_LOCATION srcLoc = {};
-    srcLoc.pResource = m_renderTargets[m_frameIndex];
-    srcLoc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-
-    m_commandList->CopyTextureRegion( &dstLoc, 0, 0, 0, &srcLoc, nullptr );
-
-    // Restore the exact state we found before the capture.
-    TransitionBarrier( m_renderTargets[m_frameIndex], D3D12_RESOURCE_STATE_COPY_SOURCE, backBufferStateBeforeCopy );
-
-    // Execute and wait
-    AssertPlatformProfilerGpuStackClosed( "CaptureBackbuffer" );
-    m_commandList->Close();
-    m_commandListOpen = false;
-    ID3D12CommandList* ppCLs[] = { m_commandList };
-    m_commandQueue->ExecuteCommandLists( 1, ppCLs );
-    WaitForGpu();
-
-    // Map and read pixels
-    void* mappedData = nullptr;
-    D3D12_RANGE readRange = { 0, (SIZE_T)totalBytes };
-    readbackBuffer->Map( 0, &readRange, &mappedData );
-
-    // Convert RGBA top-down → BGR bottom-up (BMP format)
-    int rowStride = ( m_width * 3 + 3 ) & ~3;
-    std::vector<uint8_t> result( (size_t)rowStride * m_height );
-
-    const uint8_t* src = (const uint8_t*)mappedData;
-    for ( int y = 0; y < m_height; ++y )
-    {
-        int flippedY = m_height - 1 - y;
-        const uint8_t* srcRow = src + (size_t)y * footprint.Footprint.RowPitch;
-        uint8_t* dstRow = result.data() + (size_t)flippedY * rowStride;
-        for ( int x = 0; x < m_width; ++x )
-        {
-            dstRow[x * 3 + 0] = srcRow[x * 4 + 2]; // B
-            dstRow[x * 3 + 1] = srcRow[x * 4 + 1]; // G
-            dstRow[x * 3 + 2] = srcRow[x * 4 + 0]; // R
-        }
-    }
-
-    D3D12_RANGE writeRange = { 0, 0 };
-    readbackBuffer->Unmap( 0, &writeRange );
-    readbackBuffer->Release();
-
-    return result;
-}
-
-
 // --- Dynamic VB ---
-
-
-uint32_t RenderBackendDX12::CreateDynamicVB( const int* attribComponents, int numAttribs, int maxVertices )
-{
-    DynamicVBDX12 dvb = {};
-    dvb.numAttribs = numAttribs;
-    dvb.maxVertices = maxVertices;
-    int totalFloats = 0;
-    for ( int i = 0; i < numAttribs && i < 8; ++i )
-    {
-        dvb.attribComponents[i] = attribComponents[i];
-        totalFloats += attribComponents[i];
-    }
-    dvb.floatsPerVertex = totalFloats;
-    dvb.stride = totalFloats * (int)sizeof( float );
-    m_dynamicVBs.push_back( dvb );
-    return (uint32_t)m_dynamicVBs.size(); // 1-based
-}
-
-
-void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle, const float* data, int vertexCount )
-{
-    if ( handle == 0 || handle > (uint32_t)m_dynamicVBs.size() || vertexCount <= 0 )
-    {
-        return;
-    }
-    DynamicVBDX12& dvb = m_dynamicVBs[handle - 1];
-
-    EnsureCommandListOpen();
-
-    // Sub-allocate from upload buffer for vertex data
-    UINT64 dataSize = (UINT64)vertexCount * dvb.stride;
-    D3D12_GPU_VIRTUAL_ADDRESS vbAddr = SubAllocateUpload( dataSize, 4 );
-    memcpy( GetUploadPtr( vbAddr ), data, (size_t)dataSize );
-
-    // Determine vertex format
-    VertexFormat12 fmt = VertexFormat12::Pos2_Tex2;
-    if ( dvb.numAttribs == 2 && dvb.attribComponents[0] == 2 && dvb.attribComponents[1] == 2 )
-    {
-        fmt = VertexFormat12::Pos2_Tex2;
-    }
-
-    PrepareDraw( fmt, false, nullptr, &dvb );
-
-    D3D12_VERTEX_BUFFER_VIEW vbv = {};
-    vbv.BufferLocation = vbAddr;
-    vbv.SizeInBytes = (UINT)dataSize;
-    vbv.StrideInBytes = (UINT)dvb.stride;
-    // Bind and draw the dynamic vertex buffer directly from upload heap memory.
-    // Dynamic VBs (e.g. text quads) change every frame so they're drawn from upload memory
-    // without copying to a default heap buffer — simpler but slightly slower for large batches.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
-    m_commandList->IASetVertexBuffers( 0, 1, &vbv );
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
-    NoteDrawCall();
-    m_commandList->DrawInstanced( (UINT)vertexCount, 1, 0, 0 );
-}
-
-
-void RenderBackendDX12::DestroyDynamicVB( uint32_t /*handle*/ )
-{
-    // No GPU resources to release — upload buffer is shared
-}
 
 
 // Draws per-vertex colored lines. data is interleaved [x,y,z,r,g,b] per vertex (6 floats each).
 // Uses the shared upload buffer to stream vertex data and draws with LINE_LIST topology.
 // Lazy-creates a LINE_LIST PSO on first call.
-void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, const float* viewProjMatrix16 )
-{
-    if ( vertCount <= 0 )
-    {
-        return;
-    }
-
-    EnsureCommandListOpen();
-
-    // Lazy-init shader and LINE_LIST PSO
-    if ( !m_gridLineShader )
-    {
-        m_gridLineShader = CreateShader( "shaders/grid_line" );
-    }
-    if ( !m_gridLinePSO )
-    {
-        ShaderDX12* shader = static_cast<ShaderDX12*>( m_gridLineShader.get() );
-
-        // Input layout: POSITION (float3) + TEXCOORD0 (float3)
-        D3D12_INPUT_ELEMENT_DESC elements[2] = {};
-        elements[0].SemanticName = "POSITION";
-        elements[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;
-        elements[0].AlignedByteOffset = 0;
-        elements[1].SemanticName = "TEXCOORD";
-        elements[1].Format = DXGI_FORMAT_R32G32B32_FLOAT;
-        elements[1].AlignedByteOffset = 12;
-
-        D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-        psoDesc.InputLayout.pInputElementDescs = elements;
-        psoDesc.InputLayout.NumElements = 2;
-        psoDesc.pRootSignature = m_rootSignature;
-        psoDesc.VS.pShaderBytecode = shader->GetVSBytecode();
-        psoDesc.VS.BytecodeLength = shader->GetVSBytecodeSize();
-        psoDesc.PS.pShaderBytecode = shader->GetPSBytecode();
-        psoDesc.PS.BytecodeLength = shader->GetPSBytecodeSize();
-        psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-        psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-        psoDesc.RasterizerState.DepthClipEnable = TRUE;
-        psoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-        psoDesc.DepthStencilState.DepthEnable = FALSE;
-        psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
-        psoDesc.SampleMask = UINT_MAX;
-        psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
-        psoDesc.NumRenderTargets = 1;
-        psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-        psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
-        psoDesc.SampleDesc.Count = 1;
-        m_device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &m_gridLinePSO ) );
-    }
-
-    // Upload vertex data to the shared upload buffer
-    UINT64 dataSize = (UINT64)vertCount * 6 * sizeof( float );
-    FlushUploadBufferIfNeeded( dataSize, 4 );
-    UINT64 vbOffset = m_uploadOffset;
-    memcpy( m_uploadBufferMapped[m_allocatorIndex] + m_uploadOffset, data, (size_t)dataSize );
-    m_uploadOffset += ( dataSize + 255 ) & ~255ULL; // align to 256 bytes
-
-    // Set pipeline state and draw
-    m_commandList->SetPipelineState( m_gridLinePSO );
-    m_commandList->SetGraphicsRootSignature( m_rootSignature );
-    m_commandList->IASetPrimitiveTopology( D3D_PRIMITIVE_TOPOLOGY_LINELIST );
-
-    // Set the viewProj matrix via root constants or CB slot 0
-    ShaderDX12* shader = static_cast<ShaderDX12*>( m_gridLineShader.get() );
-    m_activeShader = shader;
-    m_psoDirty = true; // Force PSO rebind on next normal draw
-
-    Matrix4 vpMat( viewProjMatrix16 );
-    shader->SetMat4( "uViewProj", vpMat );
-    D3D12_GPU_VIRTUAL_ADDRESS cbAddr = shader->FlushCB();
-    if ( cbAddr )
-    {
-        m_commandList->SetGraphicsRootConstantBufferView( 0, cbAddr );
-    }
-
-    // Bind vertex buffer view
-    D3D12_VERTEX_BUFFER_VIEW vbView = {};
-    vbView.BufferLocation = m_uploadBuffers[m_allocatorIndex]->GetGPUVirtualAddress() + vbOffset;
-    vbView.SizeInBytes = (UINT)dataSize;
-    vbView.StrideInBytes = 6 * sizeof( float );
-    m_commandList->IASetVertexBuffers( 0, 1, &vbView );
-
-    // Bind render targets (depth disabled in PSO)
-    m_commandList->OMSetRenderTargets( 1, &m_currentRTV, FALSE, &m_currentDSV );
-    m_commandList->RSSetViewports( 1, &m_viewport );
-    m_commandList->RSSetScissorRects( 1, &m_scissorRect );
-
-    NoteDrawCall();
-    m_commandList->DrawInstanced( (UINT)vertCount, 1, 0, 0 );
-}
 
 
 // --- Instanced mesh ---
-
-
-uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData, int staticVertCount, int staticFloatsPerVert, int /*maxInstances*/, int instanceFloats, int instanceStartAttrib, const int* instanceAttribSizes, int numInstanceAttribs, const int* staticAttribSizes, int numStaticAttribs )
-{
-    EnsureCommandListOpen();
-
-    InstancedMeshDX12 im = {};
-    im.staticFloatsPerVert = staticFloatsPerVert;
-    im.staticStride = staticFloatsPerVert * (int)sizeof( float );
-    im.instanceFloats = instanceFloats;
-    im.instanceStride = instanceFloats * (int)sizeof( float );
-    im.instanceStartAttrib = instanceStartAttrib;
-    im.numInstanceAttribs = numInstanceAttribs;
-    im.numStaticAttribs = numStaticAttribs;
-    for ( int i = 0; i < numInstanceAttribs && i < 8; ++i )
-    {
-        im.instanceAttribSizes[i] = instanceAttribSizes[i];
-    }
-    for ( int i = 0; i < numStaticAttribs && i < 8; ++i )
-    {
-        im.staticAttribSizes[i] = staticAttribSizes[i];
-    }
-
-    // Create the static (shared) vertex buffer on the GPU-only Default Heap.
-    // This holds geometry that doesn't change (sphere mesh) — it's uploaded once and reused.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    // Create static VB on default heap
-    UINT64 dataSize = (UINT64)staticVertCount * staticFloatsPerVert * sizeof( float );
-
-    D3D12_HEAP_PROPERTIES defaultHeap = {};
-    defaultHeap.Type = D3D12_HEAP_TYPE_DEFAULT;
-    D3D12_RESOURCE_DESC bufDesc = {};
-    bufDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-    bufDesc.Width = dataSize;
-    bufDesc.Height = 1;
-    bufDesc.DepthOrArraySize = 1;
-    bufDesc.MipLevels = 1;
-    bufDesc.SampleDesc.Count = 1;
-    bufDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-    // Buffers are always created in COMMON state in D3D12 regardless of what is specified here.
-    // Specifying COPY_DEST fires warning #1328 (CREATERESOURCE_STATE_IGNORED). Use COMMON
-    // explicitly, then rely on implicit promotion to COPY_DEST when CopyBufferRegion executes.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12#implicit-state-transitions
-    m_device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS( &im.staticVB ) );
-
-    // Upload static vertex data from CPU to GPU via the upload buffer, then transition to VB state.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-copybufferregion
-    FlushUploadBufferIfNeeded( dataSize, 4 );
-    D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = SubAllocateUpload( dataSize, 4 );
-    memcpy( GetUploadPtr( uploadAddr ), staticData, (size_t)dataSize );
-    m_commandList->CopyBufferRegion( im.staticVB, 0, m_uploadBuffers[m_allocatorIndex], uploadAddr - m_uploadBuffers[m_allocatorIndex]->GetGPUVirtualAddress(), dataSize );
-    // Transition from COPY_DEST (implicit promotion after CopyBufferRegion) to the
-    // combined read state used for both vertex fetch and DXR BLAS build SRV access.
-    TransitionBarrier( im.staticVB, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE );
-
-    im.staticVBV.BufferLocation = im.staticVB->GetGPUVirtualAddress();
-    im.staticVBV.SizeInBytes = (UINT)dataSize;
-    im.staticVBV.StrideInBytes = (UINT)im.staticStride;
-
-    m_instancedMeshes.push_back( im );
-    return (uint32_t)m_instancedMeshes.size(); // 1-based
-}
-
-
-void RenderBackendDX12::UploadInstanceData( uint32_t handle, const float* data, int floatCount )
-{
-    if ( handle == 0 || handle > (uint32_t)m_instancedMeshes.size() || floatCount <= 0 )
-    {
-        return;
-    }
-    InstancedMeshDX12& im = m_instancedMeshes[handle - 1];
-
-    EnsureCommandListOpen();
-
-    UINT64 dataSize = (UINT64)floatCount * sizeof( float );
-    D3D12_GPU_VIRTUAL_ADDRESS addr = SubAllocateUpload( dataSize, 4 );
-    memcpy( GetUploadPtr( addr ), data, (size_t)dataSize );
-
-    im.instanceDataAddr = addr;
-    im.instanceDataSize = (UINT)dataSize;
-}
-
-
-void RenderBackendDX12::DrawInstancedMesh( uint32_t handle, int staticVertCount, int instanceCount )
-{
-    if ( handle == 0 || handle > (uint32_t)m_instancedMeshes.size() || instanceCount <= 0 )
-    {
-        return;
-    }
-    InstancedMeshDX12& im = m_instancedMeshes[handle - 1];
-
-    if ( im.instanceDataAddr == 0 )
-    {
-        return; // No instance data uploaded yet
-    }
-
-    PrepareDraw( VertexFormat12::Pos3, true, &im, nullptr );
-
-    // Slot 0: static geometry, Slot 1: per-instance data
-    D3D12_VERTEX_BUFFER_VIEW vbvs[2] = {};
-    vbvs[0] = im.staticVBV;
-    vbvs[1].BufferLocation = im.instanceDataAddr;
-    vbvs[1].SizeInBytes = im.instanceDataSize;
-    vbvs[1].StrideInBytes = (UINT)im.instanceStride;
-
-    // Bind two vertex buffer slots: slot 0 has the shared geometry (sphere mesh), slot 1 has
-    // per-instance data (position, color for each ball). The GPU reads slot 0 once per vertex
-    // and slot 1 once per instance, combining them in the vertex shader.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
-    m_commandList->IASetVertexBuffers( 0, 2, vbvs );
-
-    // Draw all instances in one call — renders staticVertCount vertices × instanceCount copies.
-    // This is the key optimization: 300 balls drawn in a single GPU dispatch.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
-    NoteDrawCall();
-    m_commandList->DrawInstanced( (UINT)staticVertCount, (UINT)instanceCount, 0, 0 );
-}
-
-
-void RenderBackendDX12::DestroyInstancedMesh( uint32_t handle )
-{
-    if ( handle == 0 || handle > (uint32_t)m_instancedMeshes.size() )
-    {
-        return;
-    }
-    auto& im = m_instancedMeshes[handle - 1];
-    if ( im.staticVB )
-    {
-        im.staticVB->Release();
-        im.staticVB = nullptr;
-    }
-}
 
 
 // --- Queries ---
@@ -2744,822 +1724,4 @@ bool RenderBackendDX12::UsesZeroToOneDepth() const
 // --- DXR Raytracing ---
 
 
-void RenderBackendDX12::CheckDXRSupport()
-{
-    m_dxrSupported = false;
-    m_device5 = nullptr;
-    m_cmdList4 = nullptr;
-
-    // Check raytracing tier
-    D3D12_FEATURE_DATA_D3D12_OPTIONS5 opts5 = {};
-    if ( FAILED( m_device->CheckFeatureSupport( D3D12_FEATURE_D3D12_OPTIONS5, &opts5, sizeof( opts5 ) ) ) )
-    {
-        return;
-    }
-    if ( opts5.RaytracingTier < D3D12_RAYTRACING_TIER_1_0 )
-    {
-        return;
-    }
-
-    // QueryInterface for DXR interfaces
-    if ( FAILED( m_device->QueryInterface( IID_PPV_ARGS( &m_device5 ) ) ) )
-    {
-        return;
-    }
-
-    m_dxrSupported = true;
-}
-
-
-void RenderBackendDX12::CreateRTRootSignature()
-{
-    // RT root signature layout:
-    // [0] SRV - TLAS (t0, space1) — inline raw descriptor
-    // [1] UAV - output texture (u0) — descriptor table
-    // [2] CBV - RT constants (b1) — inline raw descriptor
-    // [3] SRV - texture table (t0..t7, space0) — 8-descriptor table:
-    //           t0=sphere, t1=terrain, t2=skyUp, t3=skyDown, t4=skyRight, t5=skyLeft, t6=skyFront, t7=skyBack
-    // [s0] Static linear-wrap sampler
-    D3D12_DESCRIPTOR_RANGE1 uavRange = {};
-    uavRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-    uavRange.NumDescriptors = 1;
-    uavRange.BaseShaderRegister = 0;
-    uavRange.RegisterSpace = 0;
-
-    D3D12_DESCRIPTOR_RANGE1 texRange = {};
-    texRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-    texRange.NumDescriptors = 8;
-    texRange.BaseShaderRegister = 0;
-    texRange.RegisterSpace = 0;
-
-    D3D12_ROOT_PARAMETER1 params[4] = {};
-    // Slot 0: TLAS SRV (inline)
-    params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
-    params[0].Descriptor.ShaderRegister = 0;
-    params[0].Descriptor.RegisterSpace = 1;
-    params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-    // Slot 1: UAV descriptor table
-    params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    params[1].DescriptorTable.NumDescriptorRanges = 1;
-    params[1].DescriptorTable.pDescriptorRanges = &uavRange;
-    params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-    // Slot 2: CBV for RT constants
-    params[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    params[2].Descriptor.ShaderRegister = 1;
-    params[2].Descriptor.RegisterSpace = 0;
-    params[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-    // Slot 3: SRV descriptor table for sphere + terrain textures
-    params[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-    params[3].DescriptorTable.NumDescriptorRanges = 1;
-    params[3].DescriptorTable.pDescriptorRanges = &texRange;
-    params[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-    // Static linear-wrap sampler at s0
-    D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
-    samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-    samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    samplerDesc.MaxAnisotropy = 1;
-    samplerDesc.MaxLOD = D3D12_FLOAT32_MAX;
-    samplerDesc.ShaderRegister = 0;
-    samplerDesc.RegisterSpace = 0;
-    samplerDesc.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-    D3D12_VERSIONED_ROOT_SIGNATURE_DESC rootSigDesc = {};
-    rootSigDesc.Version = D3D_ROOT_SIGNATURE_VERSION_1_1;
-    rootSigDesc.Desc_1_1.NumParameters = 4;
-    rootSigDesc.Desc_1_1.pParameters = params;
-    rootSigDesc.Desc_1_1.NumStaticSamplers = 1;
-    rootSigDesc.Desc_1_1.pStaticSamplers = &samplerDesc;
-    rootSigDesc.Desc_1_1.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
-
-    ComPtr<ID3DBlob> signature;
-    ComPtr<ID3DBlob> error;
-    if ( FAILED( D3D12SerializeVersionedRootSignature( &rootSigDesc, signature.GetAddressOf(), error.GetAddressOf() ) ) )
-    {
-        throw std::runtime_error( "RT root signature serialization failed" );
-    }
-
-    // Create the DXR root signature from the serialized blob. Same concept as the raster root
-    // signature, but this one defines bindings for raytracing shaders (TLAS, UAV output, CBV, textures).
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrootsignature
-    if ( FAILED( m_device->CreateRootSignature( 0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS( &m_rtRootSignature ) ) ) )
-    {
-        throw std::runtime_error( "CreateRootSignature (RT) failed" );
-    }
-}
-
-
-void RenderBackendDX12::CreateRTPipeline()
-{
-    // DXR reflection uses checked-in DXIL. Keep compilation in tools/build
-    // workflows so runtime startup never shells out or depends on SDK paths.
-    std::string dxilPath = std::string( DATA_ROOT ) + "shaders/reflect.rt.dxil";
-
-    // Load compiled DXIL blob
-    FILE* dxilFile = nullptr;
-    fopen_s( &dxilFile, dxilPath.c_str(), "rb" );
-    if ( !dxilFile )
-    {
-        throw std::runtime_error( "Missing SkullbonezData/shaders/reflect.rt.dxil; rebuild and commit the DXR shader bytecode before using DXR reflection." );
-    }
-    fseek( dxilFile, 0, SEEK_END );
-    long dxilSize = ftell( dxilFile );
-    fseek( dxilFile, 0, SEEK_SET );
-    std::vector<uint8_t> dxilBlob( (size_t)dxilSize );
-    fread( dxilBlob.data(), 1, (size_t)dxilSize, dxilFile );
-    fclose( dxilFile );
-
-    // Build RTPSO with subobjects
-    // We need: DXIL library, hit groups, shader config, pipeline config, global root signature
-    D3D12_DXIL_LIBRARY_DESC libDesc = {};
-    libDesc.DXILLibrary.pShaderBytecode = dxilBlob.data();
-    libDesc.DXILLibrary.BytecodeLength = dxilBlob.size();
-    libDesc.NumExports = 0; // Export all entry points
-
-    D3D12_HIT_GROUP_DESC terrainHitGroup = {};
-    terrainHitGroup.HitGroupExport = L"TerrainHitGroup";
-    terrainHitGroup.Type = D3D12_HIT_GROUP_TYPE_TRIANGLES;
-    terrainHitGroup.ClosestHitShaderImport = L"ClosestHit";
-
-    D3D12_HIT_GROUP_DESC sphereHitGroup = {};
-    sphereHitGroup.HitGroupExport = L"SphereHitGroup";
-    sphereHitGroup.Type = D3D12_HIT_GROUP_TYPE_TRIANGLES;
-    sphereHitGroup.ClosestHitShaderImport = L"ClosestHit";
-
-    D3D12_RAYTRACING_SHADER_CONFIG shaderConfig = {};
-    shaderConfig.MaxPayloadSizeInBytes = 16;  // float3 color + float hitT
-    shaderConfig.MaxAttributeSizeInBytes = 8; // float2 barycentrics
-
-    D3D12_RAYTRACING_PIPELINE_CONFIG pipelineConfig = {};
-    pipelineConfig.MaxTraceRecursionDepth = 1;
-
-    D3D12_GLOBAL_ROOT_SIGNATURE globalRootSig = {};
-    globalRootSig.pGlobalRootSignature = m_rtRootSignature;
-
-    // Build state object description with subobjects
-    D3D12_STATE_SUBOBJECT subobjects[6] = {};
-
-    subobjects[0].Type = D3D12_STATE_SUBOBJECT_TYPE_DXIL_LIBRARY;
-    subobjects[0].pDesc = &libDesc;
-
-    subobjects[1].Type = D3D12_STATE_SUBOBJECT_TYPE_HIT_GROUP;
-    subobjects[1].pDesc = &terrainHitGroup;
-
-    subobjects[2].Type = D3D12_STATE_SUBOBJECT_TYPE_HIT_GROUP;
-    subobjects[2].pDesc = &sphereHitGroup;
-
-    subobjects[3].Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_SHADER_CONFIG;
-    subobjects[3].pDesc = &shaderConfig;
-
-    subobjects[4].Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_PIPELINE_CONFIG;
-    subobjects[4].pDesc = &pipelineConfig;
-
-    subobjects[5].Type = D3D12_STATE_SUBOBJECT_TYPE_GLOBAL_ROOT_SIGNATURE;
-    subobjects[5].pDesc = &globalRootSig;
-
-    D3D12_STATE_OBJECT_DESC stateObjDesc = {};
-    stateObjDesc.Type = D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE;
-    stateObjDesc.NumSubobjects = 6;
-    stateObjDesc.pSubobjects = subobjects;
-
-    // Create the DXR Raytracing Pipeline State Object (RTPSO). Unlike a graphics PSO, an RTPSO is
-    // built from "subobjects" — a DXIL shader library containing all RT shaders, hit groups that
-    // map geometry types to closest-hit shaders, shader config (payload/attribute sizes), pipeline
-    // config (max recursion), and the root signature. This is more flexible than graphics PSOs.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device5-createstateobject
-    if ( FAILED( m_device5->CreateStateObject( &stateObjDesc, IID_PPV_ARGS( &m_rtPSO ) ) ) )
-    {
-        throw std::runtime_error( "CreateStateObject (RTPSO) failed" );
-    }
-
-    // Query the state object for shader identifier lookup (used when building the SBT).
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nn-d3d12-id3d12stateobjectproperties
-    m_rtPSO->QueryInterface( IID_PPV_ARGS( &m_rtPSOProps ) );
-}
-
-
-void RenderBackendDX12::CreateReflectionUAV( int width, int height )
-{
-    m_reflectionWidth = width;
-    m_reflectionHeight = height;
-    m_reflectionInSRVState = false;
-
-    // Create the reflection UAV texture
-    D3D12_HEAP_PROPERTIES heapProps = {};
-    heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
-
-    D3D12_RESOURCE_DESC texDesc = {};
-    texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    texDesc.Width = (UINT64)width;
-    texDesc.Height = (UINT)height;
-    texDesc.DepthOrArraySize = 1;
-    texDesc.MipLevels = 1;
-    texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    texDesc.SampleDesc.Count = 1;
-    texDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-
-    // Create the reflection UAV texture — this is the output target for DXR ray tracing.
-    // Rays are cast from the water surface and the resulting reflections are written here.
-    // The ALLOW_UNORDERED_ACCESS flag lets the ray generation shader write to arbitrary pixels.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    if ( FAILED( m_device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &texDesc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS( &m_reflectionUAV ) ) ) )
-    {
-        throw std::runtime_error( "Failed to create DXR reflection UAV texture" );
-    }
-
-    // Create UAV descriptor
-    m_reflectionUAVIndex = AllocateStaticSRV();
-    D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-    uavDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-    m_device->CreateUnorderedAccessView( m_reflectionUAV, nullptr, &uavDesc, GetSRVStagingCpuHandle( m_reflectionUAVIndex ) );
-
-    // Also copy to shader-visible heap
-    D3D12_CPU_DESCRIPTOR_HANDLE srvHeapCpu = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
-    srvHeapCpu.ptr += (SIZE_T)m_reflectionUAVIndex * m_srvDescSize;
-    m_device->CopyDescriptorsSimple( 1, srvHeapCpu, GetSRVStagingCpuHandle( m_reflectionUAVIndex ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-
-    // Create SRV for sampling in water shader
-    m_reflectionSRVIndex = AllocateStaticSRV();
-    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srvDesc.Texture2D.MipLevels = 1;
-    m_device->CreateShaderResourceView( m_reflectionUAV, &srvDesc, GetSRVStagingCpuHandle( m_reflectionSRVIndex ) );
-
-    // Copy SRV to shader-visible heap
-    srvHeapCpu = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
-    srvHeapCpu.ptr += (SIZE_T)m_reflectionSRVIndex * m_srvDescSize;
-    m_device->CopyDescriptorsSimple( 1, srvHeapCpu, GetSRVStagingCpuHandle( m_reflectionSRVIndex ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-}
-
-
-void RenderBackendDX12::InitDXR( uint64_t terrainVBVA, int terrainVertCount, int terrainStride, uint64_t sphereVBVA, int sphereVertCount, int sphereStride, int maxInstances )
-{
-    if ( !m_dxrSupported )
-    {
-        return;
-    }
-
-    // Skip re-initialisation if DXR is already set up (scene reload path). The terrain and sphere
-    // meshes (and their BLAS) do not change between scenes — only the TLAS is rebuilt per-frame.
-    // The full init path is only needed once; on renderer switch the backend is destroyed/recreated,
-    // so m_cmdList4 is null and we fall through to the full init below.
-    if ( m_cmdList4 )
-    {
-        return;
-    }
-
-    // Get CmdList4 from command list
-    if ( FAILED( m_commandList->QueryInterface( IID_PPV_ARGS( &m_cmdList4 ) ) ) )
-    {
-        m_dxrSupported = false;
-        return;
-    }
-
-    // Create RT root signature and pipeline
-    CreateRTRootSignature();
-    CreateRTPipeline();
-
-    // Create reflection UAV at 2x viewport
-    CreateReflectionUAV( m_width * 2, m_height * 2 );
-
-    // Create RT constant buffer on the upload heap — holds per-frame raytracing parameters
-    // (inverse VP matrix, camera position, water height, light position, etc.). Persistently
-    // mapped so we can update it every frame without Map/Unmap overhead. 256-byte aligned per DX12 CBV rules.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    {
-        D3D12_HEAP_PROPERTIES heapProps = {};
-        heapProps.Type = D3D12_HEAP_TYPE_UPLOAD;
-        D3D12_RESOURCE_DESC bufDesc = {};
-        bufDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-        bufDesc.Width = 256; // Aligned to 256 bytes for CBV
-        bufDesc.Height = 1;
-        bufDesc.DepthOrArraySize = 1;
-        bufDesc.MipLevels = 1;
-        bufDesc.SampleDesc.Count = 1;
-        bufDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-        if ( FAILED( m_device->CreateCommittedResource( &heapProps, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS( &m_rtConstantBuffer ) ) ) )
-        {
-            throw std::runtime_error( "Failed to create RT constant buffer" );
-        }
-        m_rtConstantBuffer->Map( 0, nullptr, (void**)&m_rtConstantBufferMapped );
-    }
-
-    // Build BLAS for terrain and sphere
-    EnsureCommandListOpen();
-
-    m_terrainBLAS.Build( m_device5, m_cmdList4, (D3D12_GPU_VIRTUAL_ADDRESS)terrainVBVA, terrainVertCount, terrainStride, DXGI_FORMAT_R32G32B32_FLOAT, true );
-    m_sphereBLAS.Build( m_device5, m_cmdList4, (D3D12_GPU_VIRTUAL_ADDRESS)sphereVBVA, sphereVertCount, sphereStride, DXGI_FORMAT_R32G32B32_FLOAT, false );
-
-    // Submit and wait for BLAS builds to complete
-    AssertPlatformProfilerGpuStackClosed( "InitDXR" );
-    m_commandList->Close();
-    m_commandListOpen = false;
-    ID3D12CommandList* ppCLs[] = { m_commandList };
-    m_commandQueue->ExecuteCommandLists( 1, ppCLs );
-    WaitForGpu();
-
-    // Free scratch memory
-    m_terrainBLAS.ReleaseAfterBuild();
-    m_sphereBLAS.ReleaseAfterBuild();
-
-    // Init TLAS (sized for maxInstances: terrain + all balls)
-    m_tlas.Init( m_device5, maxInstances + 1 );
-
-    // Build SBT
-    m_sbt.Build( m_device, m_rtPSOProps, L"RayGen", L"Miss", L"TerrainHitGroup", L"SphereHitGroup" );
-}
-
-
-void RenderBackendDX12::BuildTLAS( const float* instanceTransforms, int instanceCount, uint64_t /*terrainBLAS*/, uint64_t /*sphereBLAS*/ )
-{
-    if ( !m_dxrSupported || !m_cmdList4 )
-    {
-        return;
-    }
-    if ( instanceCount < 0 || instanceCount > MAX_GAME_MODELS )
-    {
-        throw std::runtime_error( "DX12 TLAS instance count exceeds MAX_GAME_MODELS" );
-    }
-
-    // Build instance descriptors
-    // Instance 0: terrain (identity)
-    // Instance 1..N: spheres with their world transforms
-
-    // Terrain instance
-    D3D12_RAYTRACING_INSTANCE_DESC& terrainInst = m_tlasInstances[0];
-    memset( &terrainInst, 0, sizeof( terrainInst ) );
-    terrainInst.Transform[0][0] = 1.0f;
-    terrainInst.Transform[1][1] = 1.0f;
-    terrainInst.Transform[2][2] = 1.0f;
-    terrainInst.InstanceMask = 0xFF;
-    terrainInst.InstanceContributionToHitGroupIndex = 0;
-    terrainInst.AccelerationStructure = m_terrainBLAS.GetResultVA();
-    terrainInst.InstanceID = 0;
-
-    // Sphere instances
-    for ( int i = 0; i < instanceCount; ++i )
-    {
-        D3D12_RAYTRACING_INSTANCE_DESC& inst = m_tlasInstances[(size_t)i + 1];
-        memset( &inst, 0, sizeof( inst ) );
-
-        // Copy 3x4 transform from the flat float array (row-major 4x4 → DXR 3x4 row-major)
-        const float* m = instanceTransforms + i * 16;
-        inst.Transform[0][0] = m[0];
-        inst.Transform[0][1] = m[4];
-        inst.Transform[0][2] = m[8];
-        inst.Transform[0][3] = m[12];
-        inst.Transform[1][0] = m[1];
-        inst.Transform[1][1] = m[5];
-        inst.Transform[1][2] = m[9];
-        inst.Transform[1][3] = m[13];
-        inst.Transform[2][0] = m[2];
-        inst.Transform[2][1] = m[6];
-        inst.Transform[2][2] = m[10];
-        inst.Transform[2][3] = m[14];
-
-        inst.InstanceMask = 0xFF;
-        inst.InstanceContributionToHitGroupIndex = 1; // Sphere hit group
-        inst.AccelerationStructure = m_sphereBLAS.GetResultVA();
-        inst.InstanceID = (UINT)( i + 1 );
-    }
-
-    EnsureCommandListOpen();
-    m_tlas.Build( m_device5, m_cmdList4, m_tlasInstances.data(), instanceCount + 1 );
-}
-
-
-void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj, const float* cameraPos, float waterY, float time, const float* lightPos, int width, int height, uint32_t sphereTexHandle, uint32_t terrainTexHandle, uint32_t skyUpHandle, uint32_t skyDownHandle, uint32_t skyRightHandle, uint32_t skyLeftHandle, uint32_t skyFrontHandle, uint32_t skyBackHandle )
-{
-    if ( !m_dxrSupported || !m_cmdList4 || !m_rtPSO )
-    {
-        return;
-    }
-
-    (void)width;
-    (void)height;
-
-    EnsureCommandListOpen();
-
-    // Transition reflection UAV back to writable state if it was left as SRV from previous frame
-    if ( m_reflectionInSRVState )
-    {
-        TransitionBarrier( m_reflectionUAV, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS );
-    }
-
-    // Update RT constant buffer
-    // Layout: float4x4 invVP, float3 cameraPos, float waterY, float3 lightPos, float time, float3 skyTop, pad, float3 skyBottom, pad
-    struct RTConstants
-    {
-        float invViewProj[16];
-        float cameraPos[3];
-        float waterY;
-        float lightPos[3];
-        float time;
-        float skyColorTop[3];
-        float pad0;
-        float skyColorBottom[3];
-        float pad1;
-    };
-
-    RTConstants cb = {};
-    memcpy( cb.invViewProj, invViewProj, 16 * sizeof( float ) );
-    cb.cameraPos[0] = cameraPos[0];
-    cb.cameraPos[1] = cameraPos[1];
-    cb.cameraPos[2] = cameraPos[2];
-    cb.waterY = waterY;
-    cb.lightPos[0] = lightPos[0];
-    cb.lightPos[1] = lightPos[1];
-    cb.lightPos[2] = lightPos[2];
-    cb.time = time;
-    cb.skyColorTop[0] = 0.4f;
-    cb.skyColorTop[1] = 0.6f;
-    cb.skyColorTop[2] = 0.9f;
-    cb.skyColorBottom[0] = 0.7f;
-    cb.skyColorBottom[1] = 0.8f;
-    cb.skyColorBottom[2] = 0.95f;
-    memcpy( m_rtConstantBufferMapped, &cb, sizeof( cb ) );
-
-    // Set the compute root signature for raytracing. DXR uses the compute pipeline (not graphics)
-    // because ray tracing doesn't use the traditional rasterization pipeline (no vertex/pixel stages).
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setcomputerootsignature
-    m_cmdList4->SetComputeRootSignature( m_rtRootSignature );
-
-    // Bind the DXR raytracing pipeline state object. SetPipelineState1 is the DXR-specific version
-    // that accepts an ID3D12StateObject (RTPSO) instead of a regular ID3D12PipelineState (graphics PSO).
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist4-setpipelinestate1
-    m_cmdList4->SetPipelineState1( m_rtPSO );
-
-    // Bind the shader-visible descriptor heap for DXR (same heap as raster, re-bound after compute).
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setdescriptorheaps
-    ID3D12DescriptorHeap* heaps[] = { m_srvHeap };
-    m_cmdList4->SetDescriptorHeaps( 1, heaps );
-
-    // Root params: [0] TLAS SRV, [1] UAV table, [2] CBV, [3] texture SRV table
-    m_cmdList4->SetComputeRootShaderResourceView( 0, m_tlas.GetResultVA() );
-    m_cmdList4->SetComputeRootDescriptorTable( 1, GetSRVGpuHandle( m_reflectionUAVIndex ) );
-    m_cmdList4->SetComputeRootConstantBufferView( 2, m_rtConstantBuffer->GetGPUVirtualAddress() );
-
-    // Bind sphere + terrain + 6 sky face textures at root param [3] (t0..t7)
-    const uint32_t texHandles[8] = { sphereTexHandle, terrainTexHandle, skyUpHandle, skyDownHandle, skyRightHandle, skyLeftHandle, skyFrontHandle, skyBackHandle };
-    bool allValid = true;
-    for ( int i = 0; i < 8; ++i )
-    {
-        if ( texHandles[i] == 0 || texHandles[i] > (uint32_t)m_textures.size() )
-        {
-            allValid = false;
-            break;
-        }
-    }
-    if ( allValid )
-    {
-        UINT slot0 = AllocateTransientSRV();
-        for ( int i = 1; i < 8; ++i )
-        {
-            AllocateTransientSRV(); // ensure 8 contiguous slots
-        }
-
-        D3D12_CPU_DESCRIPTOR_HANDLE dstBase = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
-        dstBase.ptr += (SIZE_T)slot0 * m_srvDescSize;
-
-        for ( int i = 0; i < 8; ++i )
-        {
-            D3D12_CPU_DESCRIPTOR_HANDLE dst = dstBase;
-            dst.ptr += (SIZE_T)i * m_srvDescSize;
-            UINT srcIdx = m_textures[texHandles[i] - 1].srvIndex;
-            m_device->CopyDescriptorsSimple( 1, dst, GetSRVStagingCpuHandle( srcIdx ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-        }
-
-        m_cmdList4->SetComputeRootDescriptorTable( 3, GetSRVGpuHandle( slot0 ) );
-    }
-
-    // DispatchRays — the DXR equivalent of a draw call. This launches one ray per pixel of the
-    // reflection texture. The GPU executes the ray generation shader, which casts rays into the
-    // scene. When a ray hits geometry, the closest hit shader runs. If nothing is hit, the miss
-    // shader runs. Results are written to the reflection UAV texture. The SBT tells the GPU which
-    // shader to invoke for each case.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist4-dispatchrays
-    D3D12_DISPATCH_RAYS_DESC dispatchDesc = {};
-    dispatchDesc.RayGenerationShaderRecord = m_sbt.RayGenRange();
-    dispatchDesc.MissShaderTable = m_sbt.MissRange();
-    dispatchDesc.HitGroupTable = m_sbt.HitGroupRange();
-    dispatchDesc.Width = (UINT)m_reflectionWidth;
-    dispatchDesc.Height = (UINT)m_reflectionHeight;
-    dispatchDesc.Depth = 1;
-
-    m_cmdList4->DispatchRays( &dispatchDesc );
-
-    // UAV barrier — ensures all ray tracing writes complete before the water shader reads the texture.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
-    D3D12_RESOURCE_BARRIER barrier = {};
-    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-    barrier.UAV.pResource = m_reflectionUAV;
-    m_cmdList4->ResourceBarrier( 1, &barrier );
-
-    // Transition to SRV state for water shader sampling
-    TransitionBarrier( m_reflectionUAV, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE );
-    m_reflectionInSRVState = true;
-
-    // Force re-bind of raster state after compute dispatch
-    m_lastPSOHash = 0;
-    m_texBindingsDirty = true;
-    m_targetsDirty = true;
-}
-
-
-uint32_t RenderBackendDX12::GetReflectionUAVTexture() const
-{
-    // Return a texture handle that maps to the reflection SRV
-    // The water shader will bind this at t1 instead of the FBO texture
-    // We return a handle into the texture registry — but for DXR we just return the SRV index
-    // encoded as a texture handle. The caller can pass this to BindTexture.
-    // Actually, we need to register the SRV in the texture registry.
-    // This is called once, so we can cast-away const for registration.
-    if ( m_reflectionSRVIndex == 0 )
-    {
-        return 0;
-    }
-    // Find if already registered
-    for ( size_t i = 0; i < m_textures.size(); ++i )
-    {
-        if ( m_textures[i].srvIndex == m_reflectionSRVIndex )
-        {
-            return (uint32_t)( i + 1 );
-        }
-    }
-    // Register it (const_cast justified: lazy one-time registration)
-    auto* self = const_cast<RenderBackendDX12*>( this );
-    return self->RegisterSRV( m_reflectionSRVIndex );
-}
-
-
-uint64_t RenderBackendDX12::GetInstancedMeshStaticVBVA( uint32_t handle ) const
-{
-    if ( handle == 0 || handle > (uint32_t)m_instancedMeshes.size() )
-    {
-        return 0;
-    }
-    const auto& im = m_instancedMeshes[handle - 1];
-    return im.staticVB ? im.staticVB->GetGPUVirtualAddress() : 0;
-}
-
-
-int RenderBackendDX12::GetInstancedMeshStaticStride( uint32_t handle ) const
-{
-    if ( handle == 0 || handle > (uint32_t)m_instancedMeshes.size() )
-    {
-        return 0;
-    }
-    return m_instancedMeshes[handle - 1].staticStride;
-}
-
-
-void RenderBackendDX12::ShutdownDXR()
-{
-    m_sbt.Reset();
-    m_tlas.Reset();
-    m_terrainBLAS.Reset();
-    m_sphereBLAS.Reset();
-
-    if ( m_rtConstantBuffer )
-    {
-        m_rtConstantBuffer->Unmap( 0, nullptr );
-        m_rtConstantBuffer->Release();
-        m_rtConstantBuffer = nullptr;
-        m_rtConstantBufferMapped = nullptr;
-    }
-    if ( m_reflectionUAV )
-    {
-        m_reflectionUAV->Release();
-        m_reflectionUAV = nullptr;
-    }
-    if ( m_rtPSOProps )
-    {
-        m_rtPSOProps->Release();
-        m_rtPSOProps = nullptr;
-    }
-    if ( m_rtPSO )
-    {
-        m_rtPSO->Release();
-        m_rtPSO = nullptr;
-    }
-    if ( m_rtRootSignature )
-    {
-        m_rtRootSignature->Release();
-        m_rtRootSignature = nullptr;
-    }
-    if ( m_cmdList4 )
-    {
-        m_cmdList4->Release();
-        m_cmdList4 = nullptr;
-    }
-    if ( m_device5 )
-    {
-        m_device5->Release();
-        m_device5 = nullptr;
-    }
-    m_dxrSupported = false;
-}
-
-
 // --- GPU Timers ---
-
-
-void RenderBackendDX12::TryConsumeGpuTimerReadback( bool waitForFence )
-{
-    if ( !m_gpuTimers.queryHeap || !m_gpuTimers.readPending || !m_gpuTimers.readbackBuf || !m_fence )
-    {
-        return;
-    }
-
-    // Non-blocking mode is used in the normal frame loop so GPU timers keep working even when
-    // PipelineSync is disabled. Blocking mode is only used by Finish()/FlushGPU().
-    if ( waitForFence )
-    {
-        if ( m_fence->GetCompletedValue() < m_gpuTimers.readFenceValue )
-        {
-            m_fence->SetEventOnCompletion( m_gpuTimers.readFenceValue, m_fenceEvent );
-            WaitForSingleObject( m_fenceEvent, INFINITE );
-        }
-    }
-    else if ( m_fence->GetCompletedValue() < m_gpuTimers.readFenceValue )
-    {
-        // The Signal is submitted right after vsync — the GPU needs only nanoseconds to
-        // process it, but in optimised builds the CPU can arrive here before it fires.
-        // Spin briefly (a few hundred pauses ≈ a few microseconds) to catch it without
-        // burning a full WaitForSingleObject kernel call.
-        // Docs: https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-yieldprocessor
-        for ( int spin = 0; spin < 512; ++spin )
-        {
-            YieldProcessor();
-            if ( m_fence->GetCompletedValue() >= m_gpuTimers.readFenceValue )
-            {
-                break;
-            }
-        }
-        if ( m_fence->GetCompletedValue() < m_gpuTimers.readFenceValue )
-        {
-            return; // genuinely not ready — try again next frame
-        }
-    }
-
-    D3D12_RANGE readRange = { 0, (SIZE_T)TIMER_HEAP_SIZE * sizeof( uint64_t ) };
-    uint64_t* pData = nullptr;
-    if ( SUCCEEDED( m_gpuTimers.readbackBuf->Map( 0, &readRange, (void**)&pData ) ) )
-    {
-        std::memset( m_gpuTimers.resultMs, 0, sizeof( m_gpuTimers.resultMs ) );
-        std::memset( m_gpuTimers.resultValid, 0, sizeof( m_gpuTimers.resultValid ) );
-
-        for ( int i = 0; i < TIMER_HEAP_MARKERS; ++i )
-        {
-            const uint64_t t0 = pData[i * 2 + 0];
-            const uint64_t t1 = pData[i * 2 + 1];
-            if ( t1 > t0 && m_gpuTimers.freq > 0 )
-            {
-                m_gpuTimers.resultMs[i] = static_cast<float>( static_cast<double>( t1 - t0 ) / static_cast<double>( m_gpuTimers.freq ) * 1000.0 );
-                m_gpuTimers.resultValid[i] = true;
-            }
-        }
-
-        D3D12_RANGE writeRange = { 0, 0 };
-        m_gpuTimers.readbackBuf->Unmap( 0, &writeRange );
-    }
-
-    m_gpuTimers.readPending = false;
-}
-
-
-void RenderBackendDX12::GpuTimerBegin( int markerIdx )
-{
-    if ( !m_gpuTimers.queryHeap || markerIdx < 0 || markerIdx >= TIMER_HEAP_MARKERS )
-    {
-        return;
-    }
-    EnsureCommandListOpen();
-    int slot = markerIdx * 2 + 0;
-    m_commandList->EndQuery( m_gpuTimers.queryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)slot );
-    m_gpuTimers.slotWritten[slot] = true;
-}
-
-
-void RenderBackendDX12::GpuTimerEnd( int markerIdx )
-{
-    if ( !m_gpuTimers.queryHeap || !m_commandListOpen || markerIdx < 0 || markerIdx >= TIMER_HEAP_MARKERS )
-    {
-        return;
-    }
-    int slot = markerIdx * 2 + 1;
-    m_commandList->EndQuery( m_gpuTimers.queryHeap, D3D12_QUERY_TYPE_TIMESTAMP, (UINT)slot );
-    m_gpuTimers.slotWritten[slot] = true;
-}
-
-
-void RenderBackendDX12::GpuTimerInvalidate()
-{
-    // If there's a pending readback from a previous frame, consume it now (blocking)
-    // before clearing state. This prevents the dangling readPending from causing
-    // stale data to be attributed to newly-registered markers after the reset.
-    if ( m_gpuTimers.readPending )
-    {
-        TryConsumeGpuTimerReadback( true );
-    }
-
-    // resultMs and resultValid are intentionally PRESERVED (same reasoning as DX11):
-    // After a reset, the non-blocking TryConsumeGpuTimerReadback in GpuTimerRead may fail
-    // its 512-spin if the GPU hasn't completed the first post-reset frame yet. Preserving
-    // stale resultValid lets ReadPendingGpuResults immediately see data and keeps the GPU
-    // column visible. The next successful consume overwrites all entries with fresh data.
-    std::memset( m_gpuTimers.slotWritten, 0, sizeof( m_gpuTimers.slotWritten ) );
-    m_gpuTimers.readPending = false;
-    m_gpuTimers.readFenceValue = 0;
-}
-
-
-bool RenderBackendDX12::GpuTimerRead( int markerIdx, float& outMs )
-{
-    TryConsumeGpuTimerReadback( false );
-
-    if ( markerIdx < 0 || markerIdx >= TIMER_HEAP_MARKERS || !m_gpuTimers.resultValid[markerIdx] )
-    {
-        return false;
-    }
-    outMs = m_gpuTimers.resultMs[markerIdx];
-    return true;
-}
-
-
-void RenderBackendDX12::PlatformProfilerGpuBegin( const char* name, uint32_t hash )
-{
-    if ( !SkullbonezCore::Basics::PlatformProfiler::IsEnabled() )
-    {
-        return;
-    }
-
-#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
-    if ( !m_commandList )
-    {
-        return;
-    }
-    EnsureCommandListOpen();
-    const char* markerName = name ? name : "(null)";
-    PIXBeginEvent( m_commandList, SkullbonezCore::Basics::PlatformProfiler::ColorForMarker( markerName, hash ), "%s", markerName );
-    ++m_platformProfilerGpuDepth;
-#else
-    (void)name;
-    (void)hash;
-#endif
-}
-
-
-void RenderBackendDX12::PlatformProfilerGpuEnd()
-{
-    if ( !SkullbonezCore::Basics::PlatformProfiler::IsEnabled() )
-    {
-        return;
-    }
-
-#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
-    if ( m_platformProfilerGpuDepth <= 0 )
-    {
-        Log().WriteEventf( "dx12_platform_profiler_gpu_end_without_begin" );
-        return;
-    }
-    if ( !m_commandList || !m_commandListOpen )
-    {
-        Log().WriteEventf( "dx12_platform_profiler_gpu_end_without_open_command_list depth=%d", m_platformProfilerGpuDepth );
-        return;
-    }
-    PIXEndEvent( m_commandList );
-    --m_platformProfilerGpuDepth;
-#endif
-}
-
-
-void RenderBackendDX12::PlatformProfilerGpuMarker( const char* name, uint32_t hash )
-{
-    if ( !SkullbonezCore::Basics::PlatformProfiler::IsEnabled() )
-    {
-        return;
-    }
-
-#if SKULLBONEZ_PLATFORM_PROFILER_HAVE_PIX3
-    if ( !m_commandList )
-    {
-        return;
-    }
-    EnsureCommandListOpen();
-    const char* markerName = name ? name : "(null)";
-    PIXSetMarker( m_commandList, SkullbonezCore::Basics::PlatformProfiler::ColorForMarker( markerName, hash ), "%s", markerName );
-#else
-    (void)name;
-    (void)hash;
-#endif
-}

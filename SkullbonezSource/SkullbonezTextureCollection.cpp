@@ -3,6 +3,8 @@
 #include "SkullbonezIRenderBackend.h"
 #include "stb_image.h"
 
+#include <memory>
+#include <stdexcept>
 #include <string>
 
 
@@ -11,72 +13,18 @@ using namespace SkullbonezCore::Textures;
 using namespace SkullbonezCore::Rendering;
 
 
-TextureCollection::TextureCollection()
-{
-    m_nextAvailableTextureIndex = 0;
-    m_textureCounter = 0;
-
-    for ( int count = 0; count < TOTAL_TEXTURE_COUNT; ++count )
-    {
-        m_textureArray[count] = 0;
-        m_textureHashes[count] = 0;
-        m_textureSourceIds[count] = 0;
-        m_textureWidths[count] = 0;
-        m_textureHeights[count] = 0;
-        m_textureChannels[count] = 0;
-    }
-}
-
-
 TextureCollection* TextureCollection::Instance()
 {
-    if ( !TextureCollection::pInstance )
-    {
-        static TextureCollection instance;
-        TextureCollection::pInstance = &instance;
-    }
-    return TextureCollection::pInstance;
+    static TextureCollection instance;
+    return &instance;
 }
 
 
 void TextureCollection::Destroy()
 {
-    if ( TextureCollection::pInstance )
-    {
-        TextureCollection::pInstance->DeleteAllTextures();
-        TextureCollection::pInstance->m_assets = nullptr;
-        TextureCollection::pInstance = nullptr;
-    }
-}
-
-
-void TextureCollection::UpdateCounters()
-{
-    // reset the counter
-    m_textureCounter = 0;
-    bool isNextAvailIndexSet = false;
-
-    // iterate through all m_textures
-    for ( int count = 0; count < TOTAL_TEXTURE_COUNT; ++count )
-    {
-        // find the first empty spot
-        if ( !m_textureArray[count] )
-        {
-            if ( !isNextAvailIndexSet )
-            {
-                // set the next available index counter
-                m_nextAvailableTextureIndex = count;
-
-                // do not set this again
-                isNextAvailIndexSet = true;
-            }
-        }
-        else
-        {
-            // for every texture, increment
-            ++m_textureCounter;
-        }
-    }
+    TextureCollection* textures = Instance();
+    textures->DeleteAllTextures();
+    textures->m_assets = nullptr;
 }
 
 
@@ -88,7 +36,9 @@ int TextureCollection::FindIndex( uint32_t hash ) const
         return index;
     }
 
-    throw std::runtime_error( "Texture does not exist.  (TextureCollection::FindIndex)" );
+    char message[128];
+    sprintf_s( message, "Texture 0x%08X does not exist.  (TextureCollection::FindIndex)", hash );
+    throw std::runtime_error( message );
 }
 
 
@@ -99,11 +49,11 @@ int TextureCollection::FindIndexNoThrow( uint32_t hash ) const
         return -1;
     }
 
-    for ( int count = 0; count < TOTAL_TEXTURE_COUNT; ++count )
+    for ( size_t index = 0; index < m_textures.size(); ++index )
     {
-        if ( m_textureHashes[count] == hash )
+        if ( m_textures[index].legacyHash == hash && m_textures[index].IsResident() )
         {
-            return count;
+            return static_cast<int>( index );
         }
     }
 
@@ -111,63 +61,70 @@ int TextureCollection::FindIndexNoThrow( uint32_t hash ) const
 }
 
 
-void TextureCollection::DeleteAllTextures()
+int TextureCollection::FindFreeSlot() const
 {
-    for ( int count = 0; count < TOTAL_TEXTURE_COUNT; ++count )
+    for ( size_t index = 0; index < m_textures.size(); ++index )
     {
-        if ( m_textureArray[count] )
+        if ( !m_textures[index].IsResident() )
         {
-            Gfx().DeleteTexture( m_textureArray[count] );
+            return static_cast<int>( index );
         }
-        m_textureHashes[count] = 0;
-        m_textureArray[count] = 0;
-        m_textureSourceIds[count] = 0;
-        m_textureWidths[count] = 0;
-        m_textureHeights[count] = 0;
-        m_textureChannels[count] = 0;
     }
 
-    UpdateCounters();
+    throw std::runtime_error( "Texture array full!  (TextureCollection::FindFreeSlot)" );
+}
+
+
+void TextureCollection::ReleaseTexture( GpuTextureRecord& texture )
+{
+    if ( texture.backendHandle )
+    {
+        Gfx().DeleteTexture( texture.backendHandle );
+    }
+    texture = {};
+}
+
+
+void TextureCollection::DeleteAllTextures()
+{
+    for ( GpuTextureRecord& texture : m_textures )
+    {
+        ReleaseTexture( texture );
+    }
 }
 
 
 void TextureCollection::DeleteTexture( uint32_t hash )
 {
-    int index = FindIndex( hash );
-
-    m_textureHashes[index] = 0;
-
-    if ( m_textureArray[index] )
-    {
-        Gfx().DeleteTexture( m_textureArray[index] );
-    }
-    m_textureArray[index] = 0;
-    m_textureSourceIds[index] = 0;
-    m_textureWidths[index] = 0;
-    m_textureHeights[index] = 0;
-    m_textureChannels[index] = 0;
-
-    UpdateCounters();
+    ReleaseTexture( m_textures[FindIndex( hash )] );
 }
 
 
-int TextureCollection::NumFreeTextureSpaces()
+int TextureCollection::NumFreeTextureSpaces() const
 {
-    return TOTAL_TEXTURE_COUNT - m_textureCounter;
+    int freeCount = 0;
+    for ( const GpuTextureRecord& texture : m_textures )
+    {
+        if ( !texture.IsResident() )
+        {
+            ++freeCount;
+        }
+    }
+    return freeCount;
 }
 
 
 void TextureCollection::SelectTexture( uint32_t hash )
 {
     EnsureTexture( hash );
-    Gfx().BindTexture( m_textureArray[FindIndex( hash )], 0 );
+    Gfx().BindTexture( m_textures[FindIndex( hash )].backendHandle, 0 );
 }
 
 
 uint32_t TextureCollection::GetTextureHandle( uint32_t hash )
 {
     EnsureTexture( hash );
-    return m_textureArray[FindIndex( hash )];
+    return m_textures[FindIndex( hash )].backendHandle;
 }
 
 
@@ -200,7 +157,11 @@ void TextureCollection::EnsureTexture( uint32_t hash )
         }
     }
 
-    (void)FindIndex( hash );
+    char message[160];
+    sprintf_s( message,
+               "Texture 0x%08X is not resident and has no registered source asset.  (TextureCollection::EnsureTexture)",
+               hash );
+    throw std::runtime_error( message );
 }
 
 
@@ -212,31 +173,44 @@ void TextureCollection::LoadJpegTextureIntoSlot( int slot,
                                                  bool linearFilter,
                                                  int channelsHint )
 {
+    if ( slot < 0 || slot >= static_cast<int>( m_textures.size() ) )
+    {
+        throw std::runtime_error( "Invalid texture slot.  (TextureCollection::LoadJpegTextureIntoSlot)" );
+    }
+    if ( !fileName || fileName[0] == '\0' )
+    {
+        throw std::invalid_argument( "TextureCollection::LoadJpegTextureIntoSlot requires a file path." );
+    }
+
     const int requestedChannels = channelsHint > 0 ? channelsHint : 3;
 
     int width = 0;
     int height = 0;
     int sourceChannels = 0;
-    unsigned char* data = stbi_load( fileName, &width, &height, &sourceChannels, requestedChannels );
+    std::unique_ptr<unsigned char, decltype( &stbi_image_free )> data( stbi_load( fileName, &width, &height, &sourceChannels, requestedChannels ),
+                                                                       stbi_image_free );
 
     if ( !data )
     {
         std::string message = "Image load failed: ";
-        message += fileName ? fileName : "";
+        message += fileName;
         message += "  (TextureCollection::CreateJpegTexture)";
-        throw std::runtime_error( message.c_str() );
+        throw std::runtime_error( message );
     }
 
-    m_textureArray[slot] = Gfx().CreateTexture2D( data, width, height, requestedChannels, generateMips, linearFilter );
-    m_textureHashes[slot] = hash;
-    m_textureSourceIds[slot] = sourceId;
-    m_textureWidths[slot] = width;
-    m_textureHeights[slot] = height;
-    m_textureChannels[slot] = requestedChannels;
+    const uint32_t backendHandle = Gfx().CreateTexture2D( data.get(), width, height, requestedChannels, generateMips, linearFilter );
+    if ( backendHandle == 0 )
+    {
+        throw std::runtime_error( "Backend returned an invalid texture handle.  (TextureCollection::LoadJpegTextureIntoSlot)" );
+    }
 
-    stbi_image_free( data );
-
-    UpdateCounters();
+    GpuTextureRecord& texture = m_textures[slot];
+    texture.legacyHash = hash;
+    texture.backendHandle = backendHandle;
+    texture.sourceId = sourceId;
+    texture.width = width;
+    texture.height = height;
+    texture.channels = requestedChannels;
 }
 
 
@@ -246,38 +220,44 @@ void TextureCollection::CreateTextureFromSourceAsset( const Assets::TextureSourc
     {
         throw std::runtime_error( "Texture source asset is missing a legacy hash.  (TextureCollection::CreateTextureFromSourceAsset)" );
     }
-    CreateJpegTexture( source.resolvedPath.c_str(), source.legacyHash );
+    const int existingIndex = FindIndexNoThrow( source.legacyHash );
+    if ( existingIndex >= 0 )
+    {
+        ReleaseTexture( m_textures[existingIndex] );
+    }
+
+    LoadJpegTextureIntoSlot( FindFreeSlot(),
+                             source.resolvedPath.c_str(),
+                             source.legacyHash,
+                             source.id,
+                             source.generateMips,
+                             source.linearFilter,
+                             source.channelsHint );
 }
 
 
 void TextureCollection::CreateJpegTexture( const char* cFileName,
                                            uint32_t hash )
 {
-    const int existingIndex = FindIndexNoThrow( hash );
-    if ( existingIndex >= 0 )
+    if ( hash == 0 )
     {
-        DeleteTexture( hash );
-    }
-
-    if ( m_textureCounter == TOTAL_TEXTURE_COUNT )
-    {
-        throw std::runtime_error( "Texture array full!  (TextureCollection::CreateJpegTexture)" );
+        throw std::invalid_argument( "TextureCollection::CreateJpegTexture requires a non-zero legacy hash." );
     }
 
     const Assets::TextureSourceAsset* source = m_assets ? m_assets->FindTextureSourceAssetByLegacyHash( hash ) : nullptr;
     if ( source )
     {
-        LoadJpegTextureIntoSlot( m_nextAvailableTextureIndex,
-                                 source->resolvedPath.c_str(),
-                                 hash,
-                                 source->id,
-                                 source->generateMips,
-                                 source->linearFilter,
-                                 source->channelsHint );
+        CreateTextureFromSourceAsset( *source );
         return;
     }
 
-    LoadJpegTextureIntoSlot( m_nextAvailableTextureIndex, cFileName, hash, 0, true, true, 3 );
+    const int existingIndex = FindIndexNoThrow( hash );
+    if ( existingIndex >= 0 )
+    {
+        ReleaseTexture( m_textures[existingIndex] );
+    }
+
+    LoadJpegTextureIntoSlot( FindFreeSlot(), cFileName, hash, 0, true, true, 3 );
 }
 
 
@@ -322,12 +302,14 @@ void TextureCollection::DumpTextureAssets( FILE* out ) const
         for ( const Assets::TextureSourceAsset& source : m_assets->GetTextureSourceAssets() )
         {
             const int index = FindIndexNoThrow( source.legacyHash );
-            const uint32_t backendHandle = index >= 0 ? static_cast<uint32_t>( m_textureArray[index] ) : 0;
-            const int width = index >= 0 ? m_textureWidths[index] : 0;
-            const int height = index >= 0 ? m_textureHeights[index] : 0;
-            const int channels = index >= 0 ? m_textureChannels[index] : source.channelsHint;
+            const GpuTextureRecord* texture = index >= 0 ? &m_textures[index] : nullptr;
+            const uint32_t backendHandle = texture ? texture->backendHandle : 0;
+            const int width = texture ? texture->width : 0;
+            const int height = texture ? texture->height : 0;
+            const int channels = texture ? texture->channels : source.channelsHint;
             fprintf( out,
-                     "texture logical=\"%s\" path=\"%s\" hash=0x%08X backend_handle=%u width=%d height=%d channels=%d\n",
+                     "texture source_id=%u logical=\"%s\" path=\"%s\" hash=0x%08X backend_handle=%u width=%d height=%d channels=%d\n",
+                     source.id,
                      source.logicalName.c_str(),
                      source.resolvedPath.c_str(),
                      source.legacyHash,
@@ -339,18 +321,19 @@ void TextureCollection::DumpTextureAssets( FILE* out ) const
         return;
     }
 
-    for ( int count = 0; count < TOTAL_TEXTURE_COUNT; ++count )
+    for ( const GpuTextureRecord& texture : m_textures )
     {
-        if ( m_textureHashes[count] != 0 )
+        if ( texture.IsResident() )
         {
             fprintf( out,
-                     "texture logical=\"legacy:0x%08X\" path=\"\" hash=0x%08X backend_handle=%u width=%d height=%d channels=%d\n",
-                     m_textureHashes[count],
-                     m_textureHashes[count],
-                     static_cast<uint32_t>( m_textureArray[count] ),
-                     m_textureWidths[count],
-                     m_textureHeights[count],
-                     m_textureChannels[count] );
+                     "texture source_id=%u logical=\"legacy:0x%08X\" path=\"\" hash=0x%08X backend_handle=%u width=%d height=%d channels=%d\n",
+                     texture.sourceId,
+                     texture.legacyHash,
+                     texture.legacyHash,
+                     texture.backendHandle,
+                     texture.width,
+                     texture.height,
+                     texture.channels );
         }
     }
 }

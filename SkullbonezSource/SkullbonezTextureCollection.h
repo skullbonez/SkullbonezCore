@@ -1,39 +1,44 @@
 #pragma once
 
 
-// --- Includes ---
 #include "SkullbonezAssetSystem.h"
 #include "SkullbonezCommon.h"
+
+#include <array>
 
 namespace SkullbonezCore
 {
 namespace Textures
 {
-/* -- Texture Collection -----------------------------------------------------------------------------------------------------------------------------------------
-
-    A singleton class that manages a collection of Open GL textures and mipmaps.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class TextureCollection
 {
 
   private:
-    TextureCollection(); // Constructor
+    struct GpuTextureRecord
+    {
+        uint32_t legacyHash = 0;
+        uint32_t backendHandle = 0;
+        Assets::AssetId sourceId = 0;
+        int width = 0;
+        int height = 0;
+        int channels = 0;
+
+        bool IsResident() const
+        {
+            return backendHandle != 0;
+        }
+    };
+
+    TextureCollection() = default;
     ~TextureCollection() = default;
 
-    inline static TextureCollection* pInstance = nullptr;
-    int m_textureCounter;                          // To keep track of number of m_textures created
-    int m_nextAvailableTextureIndex;               // Tracks the next available index
-    UINT m_textureArray[TOTAL_TEXTURE_COUNT];      // Keeps track of m_textures created by OpenGL
-    uint32_t m_textureHashes[TOTAL_TEXTURE_COUNT]; // Stores hashed texture name keys
-    Assets::AssetId m_textureSourceIds[TOTAL_TEXTURE_COUNT];
-    int m_textureWidths[TOTAL_TEXTURE_COUNT];
-    int m_textureHeights[TOTAL_TEXTURE_COUNT];
-    int m_textureChannels[TOTAL_TEXTURE_COUNT];
+    std::array<GpuTextureRecord, TOTAL_TEXTURE_COUNT> m_textures = {};
     Assets::AssetSystem* m_assets = nullptr;
 
-    int FindIndex( uint32_t hash ) const;        // Returns the index of the specified texture
-    int FindIndexNoThrow( uint32_t hash ) const; // Returns -1 when the texture is not loaded
-    void UpdateCounters();                       // Updates texture counter members
+    int FindIndex( uint32_t hash ) const;
+    int FindIndexNoThrow( uint32_t hash ) const;
+    int FindFreeSlot() const;
+    void ReleaseTexture( GpuTextureRecord& texture );
     void LoadJpegTextureIntoSlot( int slot,
                                   const char* fileName,
                                   uint32_t hash,
@@ -44,20 +49,20 @@ class TextureCollection
     void CreateTextureFromSourceAsset( const Assets::TextureSourceAsset& source );
 
   public:
-    static TextureCollection* Instance();                           // Call to request a pointer to the singleton instance
-    static void Destroy();                                          // Call to destroy the singleton instance
-    void BindAssetSystem( Assets::AssetSystem* assets );            // Sets the source asset registry used to rebuild backend textures
-    bool HasTexture( uint32_t hash ) const;                         // True when the legacy hash currently has a backend handle
-    void EnsureTexture( uint32_t hash );                            // Loads a registered texture if it is not already resident
-    void SelectTexture( uint32_t hash );                            // Selects the texture as the OpenGL target
-    uint32_t GetTextureHandle( uint32_t hash );                     // Returns the backend handle for the texture with the given hash key
-    int NumFreeTextureSpaces();                                     // Returns the number of free texture spaces
-    void DeleteTexture( uint32_t hash );                            // Deletes the texture from OpenGL
-    void DeleteAllTextures();                                       // Deletes all textures from OpenGL
-    void CreateJpegTexture( const char* cFileName, uint32_t hash ); // Creates a new texture from an image file
-    void EnsureJpegTexture( const char* cFileName, uint32_t hash ); // Creates a new texture only when the hash is not already loaded
-    void RebuildTexturesFromSourceAssets();                         // Recreates all registered GPU textures for the active backend
-    void DumpTextureAssets( FILE* out ) const;                      // Diagnostic dump of texture source and backend records
+    static TextureCollection* Instance();
+    static void Destroy();
+    void BindAssetSystem( Assets::AssetSystem* assets );
+    bool HasTexture( uint32_t hash ) const;
+    void EnsureTexture( uint32_t hash );
+    void SelectTexture( uint32_t hash );
+    uint32_t GetTextureHandle( uint32_t hash );
+    int NumFreeTextureSpaces() const;
+    void DeleteTexture( uint32_t hash );
+    void DeleteAllTextures();
+    void CreateJpegTexture( const char* cFileName, uint32_t hash );
+    void EnsureJpegTexture( const char* cFileName, uint32_t hash );
+    void RebuildTexturesFromSourceAssets();
+    void DumpTextureAssets( FILE* out ) const;
 };
 } // namespace Textures
 } // namespace SkullbonezCore

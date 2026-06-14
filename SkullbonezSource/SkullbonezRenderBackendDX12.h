@@ -3,6 +3,7 @@
 
 // --- Includes ---
 #include "SkullbonezIRenderBackend.h"
+#include "SkullbonezRenderDeviceDX12.h"
 #include "SkullbonezMeshDX12.h"
 #include "SkullbonezBLASDX12.h"
 #include "SkullbonezTLASDX12.h"
@@ -23,7 +24,12 @@ namespace Rendering
 class ShaderDX12;
 
 
-// Texture entry for the DX12 SRV registry
+// Texture entry for the DX12 SRV registry.
+//
+// "SRV" means Shader Resource View. It is the descriptor flavor a shader uses
+// when it wants to read a texture. The ID3D12Resource below is the actual image
+// memory. The srvIndex is only a row number in the descriptor heap table that
+// tells the shader how to read that image.
 struct TextureEntryDX12
 {
     ID3D12Resource* resource;
@@ -87,13 +93,29 @@ inline constexpr int DX12_TIMER_HEAP_SIZE = DX12_TIMER_HEAP_MARKERS * 2;
 struct GpuTimerStateDX12
 {
     ID3D12QueryHeap* queryHeap = nullptr;
-    ID3D12Resource* readbackBuf = nullptr;
+    Dx12ReadbackBuffer readback;
     float resultMs[DX12_TIMER_HEAP_MARKERS] = {};
     bool resultValid[DX12_TIMER_HEAP_MARKERS] = {};
     uint64_t freq = 1;
     bool readPending = false;
     UINT64 readFenceValue = 0;                   // fence value that guarantees the latest ResolveQueryData has completed
     bool slotWritten[DX12_TIMER_HEAP_SIZE] = {}; // true for each timestamp slot that had EndQuery recorded this frame
+};
+
+// One live DX12 transition barrier observed while the legacy backend records
+// commands.
+//
+// This is diagnostic data for the render-graph migration. It is deliberately a
+// small CPU-side record: resource pointer identity, before/after DX12 states,
+// and a short source label. It does not affect command recording. The goal is
+// to let engineers compare "what the graph thinks should happen" against "what
+// the current backend actually emitted" before the graph starts owning barriers.
+struct LiveBarrierRecordDX12
+{
+    const void* resource = nullptr;
+    D3D12_RESOURCE_STATES before = D3D12_RESOURCE_STATE_COMMON;
+    D3D12_RESOURCE_STATES after = D3D12_RESOURCE_STATE_COMMON;
+    const char* source = nullptr;
 };
 
 
@@ -136,7 +158,14 @@ class RenderBackendDX12 : public IRenderBackend
     SBT m_sbt;
     GpuTimerStateDX12 m_gpuTimers;
 
-    // Primitives / resource handles
+    // The render device owns the core D3D12 lifetime: factory, device, queue,
+    // swap chain, command allocators, command list, and frame fence. The raw
+    // pointers below are borrowed aliases kept only so the existing backend
+    // methods can be migrated in small slices without changing every call site
+    // at once.
+    Dx12RenderDevice m_renderDevice;
+
+    // Borrowed core device aliases. Do not Release() these in the backend.
     IDXGIFactory4* m_factory = nullptr;
     IDXGISwapChain3* m_swapChain = nullptr;
     ID3D12Device* m_device = nullptr;
@@ -150,32 +179,67 @@ class RenderBackendDX12 : public IRenderBackend
     UINT m_frameIndex = 0;
     UINT m_allocatorIndex = 0; // Which allocator is active (alternates 0/1)
 
-    ID3D12Fence* m_fence = nullptr;
-    UINT64 m_fenceValue = 0;
     UINT64 m_frameFenceValues[FRAME_COUNT] = {}; // Fence value signaled by each frame's submission
-    HANDLE m_fenceEvent = nullptr;
 
+    // Descriptor heaps are descriptor tables, not texture arrays.
+    //
+    // Each heap stores one kind of "view" record:
+    //
+    // - RTV: Render Target View. The GPU can write color pixels through it.
+    // - DSV: Depth Stencil View. The GPU can read/write depth and stencil.
+    // - SRV: Shader Resource View. Shaders can read textures/buffers through it.
+    // - UAV: Unordered Access View. Compute/raytracing shaders can write through it.
+    //
+    // RTV and DSV heaps are CPU-only descriptor tables. They do not need the
+    // per-frame shader-visible lifetime rules that SRVs need, but they still
+    // need named row allocation so the renderer can report usage and fail with
+    // useful heap/capacity diagnostics instead of silently walking past the end
+    // of a descriptor table.
     ID3D12DescriptorHeap* m_rtvHeap = nullptr;
     ID3D12DescriptorHeap* m_dsvHeap = nullptr;
-    ID3D12DescriptorHeap* m_srvHeap = nullptr;        // GPU-visible (shader-visible) for binding
-    ID3D12DescriptorHeap* m_srvStagingHeap = nullptr; // CPU-only for persistent SRV storage
+    ID3D12DescriptorHeap* m_srvHeap = nullptr;        // GPU-visible table shaders can read during draws/dispatches.
+    ID3D12DescriptorHeap* m_srvStagingHeap = nullptr; // CPU-only table holding persistent descriptor templates.
     UINT m_rtvDescSize = 0;
     UINT m_dsvDescSize = 0;
     UINT m_srvDescSize = 0;
-    UINT m_nextRTV = FRAME_COUNT; // Next available RTV slot (0-1 are swap chain)
-    UINT m_nextDSV = 1;           // Next available DSV slot (0 is main depth)
+    D3D12_CPU_DESCRIPTOR_HANDLE m_backBufferRTVs[FRAME_COUNT] = {};
+    D3D12_CPU_DESCRIPTOR_HANDLE m_mainDSV = {};
 
-    UINT m_nextStaticSRV = 0;
-    UINT m_nextTransientSRV = 0;
+    // RTV/DSV descriptor allocators reserve CPU-only table rows. They do not
+    // create the render target or depth texture; they reserve the row where
+    // CreateRenderTargetView/CreateDepthStencilView writes the binding record.
+    Dx12CpuDescriptorAllocator m_rtvDescriptors;
+    Dx12CpuDescriptorAllocator m_dsvDescriptors;
+
+    // First DX12 shader-visible descriptor extraction point:
+    //
+    // The old backend used loose integer counters for descriptor heap slots.
+    // That worked, but it made the lifetime rule implicit.
+    //
+    // A descriptor allocator is not a texture allocator. Textures live in GPU
+    // resources. A descriptor allocator hands out numbered rows in a descriptor
+    // heap, which is the table shaders use to find textures and UAVs. In DX12,
+    // the engine must manage those rows itself.
+    //
+    // If the CPU overwrites a descriptor row while the GPU is still following a
+    // handle to that row, the shader can sample the wrong texture or trip the
+    // validation layer. This allocator owns the static and per-frame transient
+    // ranges so that rule is visible at the architecture boundary.
+    Dx12DescriptorAllocator m_srvDescriptors;
 
     ID3D12Resource* m_depthStencil = nullptr;
 
-    // One upload buffer per frame allocator. Partitioned so that frame N+1's CPU recording never
-    // overwrites data in the buffer that frame N's GPU is still reading. Mirrors the per-allocator
-    // partitioning applied to the transient SRV heap.
-    ID3D12Resource* m_uploadBuffers[FRAME_COUNT] = {};
-    uint8_t* m_uploadBufferMapped[FRAME_COUNT] = {};
-    UINT64 m_uploadOffset = 0;
+    // Upload memory is the CPU-written staging area for constants, dynamic
+    // vertices, instance data, and texture rows. It is the bridge between CPU
+    // code that prepares frame data and GPU commands that read that data later.
+    //
+    // Each frame allocator gets its own arena. That matters because the CPU can
+    // begin preparing a later frame before the GPU has finished an earlier one.
+    // Resetting an arena too early would let the CPU overwrite bytes the GPU has
+    // not read yet. Dx12FrameUploadSystem owns the upload resources, their
+    // persistent CPU Map() pointers, and the arena reset policy tied to the
+    // frame fence.
+    Dx12FrameUploadSystem m_uploadSystem;
 
     ID3D12RootSignature* m_rootSignature = nullptr;
     int m_width = 0;
@@ -196,10 +260,15 @@ class RenderBackendDX12 : public IRenderBackend
     float m_clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
     float m_clearDepth = 1.0f;
     bool m_psoDirty = true;
+    std::vector<LiveBarrierRecordDX12> m_liveBarrierRecords;
 
     static constexpr int TEXTURE_SLOT_COUNT = 4;
     ShaderDX12* m_activeShader = nullptr;
-    UINT m_boundTexSlot[TEXTURE_SLOT_COUNT] = { UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX }; // Currently bound SRV indices for t0..t3
+    // Currently bound persistent SRV descriptor indices for shader texture
+    // slots t0..t3. These are not GPU handles. Before a draw, the backend copies
+    // each persistent descriptor into a transient shader-visible row and binds
+    // that transient GPU handle through the root signature.
+    UINT m_boundTexSlot[TEXTURE_SLOT_COUNT] = { UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX };
 
     // Grid line overlay (lazy-init in DrawLinesColored)
     std::unique_ptr<IShader> m_gridLineShader;
@@ -240,12 +309,17 @@ class RenderBackendDX12 : public IRenderBackend
     void CreateRootSignature();
     void CreateDepthStencil( int w, int h );
     UINT AllocateTransientSRV();
+    UINT AllocateTransientSRVRange( UINT count );
     D3D12_GPU_DESCRIPTOR_HANDLE GetSRVGpuHandle( UINT index );
     D3D12_CPU_DESCRIPTOR_HANDLE GetRTVHandle( UINT index );
     D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle( UINT index );
+    void RecordLiveBarrier( const char* source, ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after );
     void TransitionBarrier( ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after );
     void FlushUploadBuffer();
     void FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment );
+    D3D12_GPU_VIRTUAL_ADDRESS SubAllocateUpload( UINT64 size, UINT64 alignment );
+    void ReportArchitectureStats( const char* reason ) const;
+    void DumpFrameGraphSkeleton() const;
     size_t HashPSOKey( const PSOKey12& key );
     ID3D12PipelineState* CreatePSO( VertexFormat12 format, bool instanced, const InstancedMeshDX12* im, const DynamicVBDX12* dvb );
     void CheckDXRSupport();
@@ -401,11 +475,18 @@ class RenderBackendDX12 : public IRenderBackend
     void SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv );
     void SetRenderingToFBO( bool rendering, UINT fboSrvIndex = UINT_MAX, UINT fboDepthSrvIndex = UINT_MAX, DXGI_FORMAT rtvFormat = DXGI_FORMAT_R8G8B8A8_UNORM );
 
-    D3D12_GPU_VIRTUAL_ADDRESS SubAllocateUpload( UINT64 size, UINT64 alignment );
+    // Reserve CPU-written upload memory for the current command stream.
+    //
+    // This is the safe public upload path. It probes the current frame upload
+    // arena with the exact same size/alignment used for the final allocation.
+    // If the arena is full, it submits the current command list, waits for the
+    // GPU, resets the frame upload arena, and then allocates. Callers should not
+    // call SubAllocateUpload() directly because that bypasses the safety probe.
+    D3D12_GPU_VIRTUAL_ADDRESS ReserveUpload( UINT64 size, UINT64 alignment );
     uint8_t* GetUploadPtr( D3D12_GPU_VIRTUAL_ADDRESS addr );
     ID3D12Resource* GetUploadBuffer() const
     {
-        return m_uploadBuffers[m_allocatorIndex];
+        return m_uploadSystem.Resource( m_allocatorIndex );
     }
     D3D12_CPU_DESCRIPTOR_HANDLE AllocateRTV();
     D3D12_CPU_DESCRIPTOR_HANDLE AllocateDSV();

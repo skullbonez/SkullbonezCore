@@ -54,6 +54,17 @@ Agentic/Reports/<yyyy-mm-dd>/<item-id>/report.md
 Agentic/Reports/<yyyy-mm-dd>/<item-id>/images/
 ```
 
+A roadmap item is not complete merely because implementation commits were
+pushed. Completion requires both:
+
+- a committed report under `Agentic/Reports/<yyyy-mm-dd>/<item-id>/`, and
+- a terminal queue status: `done`, `pr-open`, `merged`, `blocked`, `failed`, or
+  `skipped`.
+
+Use `done` for successful completed work when no PR or merge is being recorded.
+Do not send a final successful user response until the report path or report web
+URL and the terminal queue status are both known.
+
 The final feature-branch commit for a task is a report-only commit. It must
 contain only `report.md` and image files under `images/` that are referenced by
 relative Markdown links from the report. Do not include run JSON, worker
@@ -61,8 +72,11 @@ prompts, validation logs, PR notes, queue updates, plan moves, source changes,
 raw artifacts, or unreferenced images in that commit.
 
 The first section of `report.md` must explain what was done in plain language
-for a non-engineer. Report images can include screenshots, focused zoom crops,
-heat maps, image diffs, and before/after architectural diagrams.
+for a non-engineer. Embed report images and diagrams throughout the report next
+to the text they support instead of collecting them in a dedicated
+standalone image section. Report visuals can include screenshots, focused zoom
+crops, heat maps, image diffs, artifact previews, and before/after architectural
+diagrams; err on the side of more useful visuals rather than fewer.
 
 After pushing the report-only commit, return a GitHub web link to the committed
 `report.md` file.

@@ -174,6 +174,9 @@
     <ClCompile Include="SkullbonezSource\SkullbonezIRenderBackend.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderGraph.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="ThirdPtySource\GLAD\src\gl.c">
       <Filter>External</Filter>
     </ClCompile>
@@ -205,6 +208,30 @@
       <Filter>Source Files\DX11</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.cpp">
+      <Filter>Source Files\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.DXR.cpp">
+      <Filter>Source Files\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.DynamicGeometry.cpp">
+      <Filter>Source Files\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Pipeline.cpp">
+      <Filter>Source Files\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Profiler.cpp">
+      <Filter>Source Files\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Readback.cpp">
+      <Filter>Source Files\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Resources.cpp">
+      <Filter>Source Files\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Textures.cpp">
+      <Filter>Source Files\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderDeviceDX12.cpp">
       <Filter>Source Files\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezShaderDX12.cpp">
@@ -428,6 +455,9 @@
     <ClInclude Include="SkullbonezSource\SkullbonezIRenderBackend.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezRenderGraph.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezFramebufferGL.h">
       <Filter>Header Files\GL</Filter>
     </ClInclude>
@@ -453,6 +483,9 @@
       <Filter>Header Files\DX11</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezRenderBackendDX12.h">
+      <Filter>Header Files\DX12</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezRenderDeviceDX12.h">
       <Filter>Header Files\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezShaderDX12.h">

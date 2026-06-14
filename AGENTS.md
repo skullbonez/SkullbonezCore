@@ -68,6 +68,7 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 ## Rules
 
 - **Repository validation scripts are PR/commit gates.** Do not run `tools\validate_*` merely as you go. During iteration, use targeted builds, launches, focused tests, or inspections only when they answer a specific question about the fix.
+- **Renderer validation must fail fast.** `tools\validate_renderers.bat` builds `Profile` first and must stop before launching GL/DX11/DX12 if compilation fails. Renderer launches in that script use PID-scoped timeouts, then `tools\check_parity.py` handles image comparison artifacts.
 - **Never claim validation success without command output.** Paste the validation output when validation is required.
 - **Never skip required pre-commit/PR validation** for code, tool, scene, shader, baseline, or runtime behavior changes unless the user explicitly says to.
 - **Documentation-only changes require no validation.** Do not run `validate_fast` for prose-only edits.

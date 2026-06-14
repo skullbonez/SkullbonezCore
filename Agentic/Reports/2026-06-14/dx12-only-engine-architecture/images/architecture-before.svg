@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Before DX12 architecture diagram</title>
+  <desc id="desc">Before this implementation slice, the DX12 backend owned many low-level rules directly while GL and DX11 remained parity backends.</desc>
+  <defs>
+    <marker id="arrow-gray" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#64748b"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#c8523a"/>
+    </marker>
+    <style>
+      .page { fill: #f8fafc; }
+      .title { font: 700 42px Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 23px Arial, sans-serif; fill: #475569; }
+      .box-title { font: 700 23px Arial, sans-serif; fill: #0f172a; }
+      .box-text { font: 400 20px Arial, sans-serif; fill: #0f172a; }
+      .key { font: 400 18px Arial, sans-serif; fill: #475569; }
+      .arrow-gray { stroke: #64748b; stroke-width: 5; fill: none; marker-end: url(#arrow-gray); }
+      .arrow-red { stroke: #c8523a; stroke-width: 5; fill: none; marker-end: url(#arrow-red); }
+    </style>
+  </defs>
+
+  <rect class="page" x="0" y="0" width="1600" height="1000"/>
+  <text class="title" x="70" y="78">Before: DX12 Rules Were Hidden Inside A Large Backend</text>
+  <text class="subtitle" x="72" y="118">Architecture report: state before this implementation slice</text>
+
+  <path class="arrow-gray" d="M 372 260 L 458 260"/>
+  <path class="arrow-gray" d="M 744 260 L 850 210"/>
+  <path class="arrow-gray" d="M 744 260 L 850 318"/>
+  <path class="arrow-red" d="M 1060 210 L 1165 260"/>
+  <path class="arrow-red" d="M 1060 318 L 1165 260"/>
+  <path class="arrow-red" d="M 1320 330 L 450 485"/>
+  <path class="arrow-red" d="M 1320 330 L 850 485"/>
+  <path class="arrow-red" d="M 1320 330 L 1290 475"/>
+
+  <rect x="70" y="200" width="300" height="120" rx="8" fill="#e8f1ff" stroke="#6b94d6" stroke-width="3"/>
+  <text class="box-title" x="95" y="238">SkullbonezRun</text>
+  <text class="box-text" x="95" y="274">Owns high-level frame order,</text>
+  <text class="box-text" x="95" y="302">scene setup, and render calls.</text>
+
+  <rect x="460" y="200" width="285" height="120" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="3"/>
+  <text class="box-title" x="485" y="238">Gfx() / IRenderBackend</text>
+  <text class="box-text" x="485" y="274">Old abstraction shared by GL,</text>
+  <text class="box-text" x="485" y="302">DX11, and DX12 renderers.</text>
+
+  <rect x="850" y="160" width="210" height="90" rx="8" fill="#fffbea" stroke="#c7a838" stroke-width="3"/>
+  <text class="box-title" x="875" y="198">OpenGL backend</text>
+  <text class="box-text" x="875" y="226">Legacy parity renderer.</text>
+
+  <rect x="850" y="290" width="210" height="90" rx="8" fill="#fffbea" stroke="#c7a838" stroke-width="3"/>
+  <text class="box-title" x="875" y="328">DX11 backend</text>
+  <text class="box-text" x="875" y="356">Legacy parity renderer.</text>
+
+  <rect x="1165" y="200" width="350" height="120" rx="8" fill="#fff0e9" stroke="#d97757" stroke-width="3"/>
+  <text class="box-title" x="1190" y="238">DX12 backend</text>
+  <text class="box-text" x="1190" y="274">Production path, but too many</text>
+  <text class="box-text" x="1190" y="302">low-level DX12 rules lived here.</text>
+
+  <rect x="100" y="480" width="400" height="190" rx="8" fill="#fff7e8" stroke="#d9993c" stroke-width="3"/>
+  <text class="box-title" x="125" y="520">Manual pass state</text>
+  <text class="box-text" x="125" y="558">Barriers were hand placed in Clear(),</text>
+  <text class="box-text" x="125" y="586">Present(), shadow, reflection, scene,</text>
+  <text class="box-text" x="125" y="614">volumetric fog, screenshot, and DXR</text>
+  <text class="box-text" x="125" y="642">paths. There was no graph owner yet.</text>
+
+  <rect x="560" y="480" width="430" height="190" rx="8" fill="#fff0e9" stroke="#d97757" stroke-width="3"/>
+  <text class="box-title" x="585" y="520">Heap / upload / fence rules</text>
+  <text class="box-text" x="585" y="558">Descriptor rows, CPU upload memory,</text>
+  <text class="box-text" x="585" y="586">and GPU wait points were real rules,</text>
+  <text class="box-text" x="585" y="614">but they were loose backend details,</text>
+  <text class="box-text" x="585" y="642">not named architecture objects.</text>
+
+  <rect x="1070" y="480" width="410" height="165" rx="8" fill="#f2ecff" stroke="#8b6bd6" stroke-width="3"/>
+  <text class="box-title" x="1095" y="520">Diagnostics</text>
+  <text class="box-text" x="1095" y="558">Some validation existed, but object</text>
+  <text class="box-text" x="1095" y="586">names, DRED breadcrumbs, and</text>
+  <text class="box-text" x="1095" y="614">architecture counters were incomplete.</text>
+
+  <rect x="170" y="770" width="1260" height="140" rx="8" fill="#f8fafc" stroke="#64748b" stroke-width="3"/>
+  <text class="box-title" x="200" y="812">Main risk before this slice</text>
+  <text class="box-text" x="200" y="850">DX12 correctness depends on exact descriptor, upload, fence, and barrier lifetime rules.</text>
+  <text class="box-text" x="200" y="878">Those rules were spread across a large backend and helper classes, making future render graph work harder to review.</text>
+
+  <text class="key" x="80" y="960">Color key: blue = game loop, gray = old abstraction, yellow = legacy parity, orange/red = DX12 risk area, purple = diagnostics.</text>
+</svg>

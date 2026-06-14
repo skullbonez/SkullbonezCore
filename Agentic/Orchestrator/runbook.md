@@ -36,7 +36,7 @@ The worker owns only the assigned roadmap implementation.
 
 1. Find the highest-priority item with `status: ready`.
 2. Confirm every item in `depends_on` is terminal and acceptable:
-   `merged`, `skipped`, or explicitly user-approved.
+   `done`, `merged`, `skipped`, or explicitly user-approved.
 3. Confirm no other item is `running`.
 4. Mark the selected item `running` only after the run directory is created.
 
@@ -97,8 +97,41 @@ part of the screen, heat maps, image diffs, and before/after architectural
 diagrams. Choose images that explain what changed or why the result is
 trustworthy, not just whatever artifacts were produced.
 
+Do not collect report visuals in a standalone image section.
+Embed screenshots, diagrams, crops, diffs, heat maps, and artifact previews
+throughout the report beside the text they support. Err on the side of more
+useful visuals rather than fewer when they make the report easier to understand.
+
 Do not ingest large raw diagnostic files into the model. For physics work, use
 SkullScope query output and report the query cost required by `AGENTS.md`.
+
+## Completion Gate
+
+Do not send a final successful response to the user after implementation commits
+alone. The orchestrator is not finished until all required completion artifacts
+exist.
+
+Before the final successful response, verify this checklist:
+
+1. The implementation work is committed and pushed on the item branch.
+2. The required validation gate passed, or the report states why validation was
+   not required for documentation-only work.
+3. `Agentic/Reports/<yyyy-mm-dd>/<item-id>/report.md` exists.
+4. The final report-only commit contains only `report.md` and referenced
+   images under that report directory.
+5. The report-only commit is pushed, unless pushing is explicitly blocked.
+6. The queue item has a terminal status:
+   - `done` for successful completed work with no PR or merge recorded,
+   - `pr-open` when a PR exists and merge is not permitted,
+   - `merged` when policy and repo rules permitted a merge and it succeeded,
+   - `blocked`, `failed`, or `skipped` for non-successful terminal outcomes.
+7. The final response names the terminal queue status and gives the GitHub
+   report web URL. If a web URL cannot be produced, it must say why and provide
+   the local report path.
+
+If any checklist item is missing, continue the orchestration work instead of
+finalizing. If progress is impossible, set the queue item to `blocked` or
+`failed`, generate the corresponding report, and then finalize with that report.
 
 ## Branch Setup
 
@@ -158,10 +191,10 @@ Examples:
 - report images: full-screen screenshots, focused zoom crops, heat maps, image
   diffs, and before/after architectural diagrams.
 
-Store generated files under the run directory. Copy only selected
-phone-readable PNG or JPG images into the report directory's `images/` folder.
+Store generated files under the run directory. Copy selected PNG or JPG report
+images into the report directory's `images/` folder.
 
-Prefer PNG or JPG for committed phone-review images. If the runtime produces BMP
+Prefer PNG or JPG for committed report images. If the runtime produces BMP
 captures, convert selected captures to PNG before embedding them in `report.md`.
 Commit only the report Markdown and referenced images in the final report-only
 commit. Keep bulky raw validation outputs and intermediate artifacts out of that
@@ -172,26 +205,32 @@ commit.
 If `allow_pr_creation` is true and the branch is ready:
 
 1. Commit the work with useful commit notes.
-2. For a successful item, archive the source plan as described in
+2. Push the feature branch.
+3. Open or update the PR through the GitHub app or `gh` fallback when a PR is
+   part of the requested workflow.
+4. Save PR metadata in `pr.md` under the run directory when a PR exists.
+5. For a successful item, archive the source plan as described in
    [Plan Archive](#plan-archive).
-3. Commit any source-plan archive and queue/status updates before the report
+6. Set the queue status to `pr-open` once the PR is open, or to `done` if the
+   successful item is complete without recording a PR.
+7. Commit any source-plan archive and queue/status updates before the report
    commit. These are task-state changes, not report files.
-4. Push the feature branch.
-5. Open or update the PR through the GitHub app or `gh` fallback.
-6. Save PR metadata in `pr.md` under the run directory.
-7. Generate `Agentic/Reports/<yyyy-mm-dd>/<item-id>/report.md` and copy only
+8. Push the queue/status commit.
+9. Generate `Agentic/Reports/<yyyy-mm-dd>/<item-id>/report.md` and copy only
    referenced PNG/JPG images into `Agentic/Reports/<yyyy-mm-dd>/<item-id>/images/`.
-8. Commit the report directory as the final report-only commit. This commit
+10. Commit the report directory as the final report-only commit. This commit
    must contain only `report.md` and images referenced by that Markdown file.
-9. Push the report-only commit.
-10. Post the generated report, including the report web URL, as a PR comment
+11. Push the report-only commit.
+12. Post the generated report, including the report web URL, as a PR comment
     when the configured channel is available.
 
 If `allow_pr_creation` is false, successful items still run
-[Plan Archive](#plan-archive) before the final local report commit. The
-orchestrator should still push the report-only commit and provide a web link
+[Plan Archive](#plan-archive), set the queue status to `done`, commit and push
+the source-plan archive plus queue/status update, then create and push the final
+report-only commit. The orchestrator should still provide a report web link
 unless policy or the user forbids pushing; if a push is forbidden or fails,
-state that no report web link could be produced.
+state that no report web link could be produced and provide the local report
+path.
 
 ## Merge Handling
 
@@ -216,6 +255,7 @@ post-merge report update.
 Generate `Agentic/Reports/<yyyy-mm-dd>/<item-id>/report.md` from
 `Agentic/Orchestrator/templates/report.md` for every terminal outcome:
 
+- `done`,
 - `pr-open`,
 - `merged`,
 - `blocked`,
@@ -231,6 +271,7 @@ Reports must include:
 - archived source plan path when the item completed successfully,
 - branch, implementation commit, report commit, PR link, and report web URL
   when present,
+- queue status and queue/status commit SHA,
 - a report web URL that opens the committed Markdown file in GitHub. Use the
   feature-branch URL for PR-open work and the `main` URL after a successful
   merge,
@@ -238,9 +279,9 @@ Reports must include:
 - a short progress timeline,
 - validation command and output summary,
 - screenshot and artifact paths,
-- embedded relative links for selected phone-readable images such as
-  screenshots, focused zoom crops, heat maps, image diffs, or before/after
-  architectural diagrams,
+- embedded relative image links throughout the relevant report sections, using
+  screenshots, focused zoom crops, heat maps, image diffs, before/after
+  architectural diagrams, or artifact previews wherever they clarify the report,
 - short interesting code snippets with file paths,
 - merge status,
 - conflicts and resolutions,
@@ -260,6 +301,8 @@ runnable work.
 
 Successful terminal states are:
 
+- `done`, when implementation and required validation are complete, no PR or
+  merge is being recorded, and the report-only commit is pushed,
 - `pr-open`, when the implementation and required PR gate passed and the
   repository policy does not permit merging,
 - `merged`, when policy and repository rules permitted a merge and it
@@ -288,6 +331,9 @@ Archive rules:
 
 Set the item status:
 
+- `done` when the implementation is complete, validation passed or was not
+  required, the report-only commit is pushed, and no PR or merge is being
+  recorded,
 - `pr-open` when a PR exists and merge is not permitted,
 - `merged` only when policy and repo rules permitted a merge and it succeeded,
 - `blocked` when user input or external state is required,
