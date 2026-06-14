@@ -1411,10 +1411,18 @@ void RenderBackendDX12::Present()
         m_gpuTimers.readFenceValue = m_frameFenceValues[m_allocatorIndex];
     }
 
-    // Advance to next frame's allocator and swap chain buffer
+    // Advance to next frame's allocator and swap chain buffer.
     m_allocatorIndex = m_renderDevice.AdvanceAllocatorIndex();
     m_frameIndex = m_renderDevice.RefreshFrameIndexFromSwapChain();
     m_currentRTV = m_backBufferRTVs[m_frameIndex];
+
+    // Charge allocator/upload/descriptor pacing to Present/VsyncWait instead of
+    // letting the first render command of the next frame hit this wait mid-frame.
+    const UINT64 nextFrameFenceValue = m_frameFenceValues[m_allocatorIndex];
+    if ( nextFrameFenceValue > m_renderDevice.FrameFence().CompletedValue() )
+    {
+        m_renderDevice.FrameFence().WaitForValue( nextFrameFenceValue );
+    }
 }
 
 
