@@ -2,16 +2,27 @@
 
 ## What Changed, In Plain English
 
-The DX12 renderer now has the first real pieces of a cleaner architecture around it. The work did not replace the whole renderer in one jump. Instead, it pulled several fragile DX12 responsibilities into named helper systems, added very detailed comments for engineers without GPU background, and introduced a render graph contract that can describe frame passes and resource transitions before those transitions are allowed to replace the current hand-written barriers.
+The DX12 renderer is being turned from one very large, hard-to-reason-about backend into a set of named systems with clear jobs. That matters because modern DirectX 12 asks the engine to manage details older render APIs hid: which table row points at a texture, which temporary upload buffer is safe to reuse, which command allocator belongs to the current frame, and exactly when a resource changes from "being rendered into" to "being sampled from" or "being presented on screen."
+
+This report now covers both the original architecture slice and the follow-up five-item pass. The follow-up pass split the huge DX12 backend file into focused implementation files, moved swap-chain/device/queue/fence ownership into `Dx12RenderDevice`, gave render-target and depth-buffer descriptor tables their own allocator, moved upload/readback lifetime into small helper systems, and added a diagnostic comparison between the planned render graph barriers and the barriers the live backend actually emits today.
+
+The old architecture shape concentrated too many responsibilities in one production renderer file:
+
+![Before DX12 architecture diagram](images/architecture-before.svg)
+
+The branch now has a more explicit architecture boundary. DX12 is still the production renderer, while GL and DX11 remain parity references for validation. The render graph is still diagnostic scaffolding, but the backend now exposes enough device, descriptor, upload, readback, and live-barrier structure to move toward graph-owned rendering in smaller, safer steps:
+
+![After DX12 architecture diagram](images/architecture-after.svg)
 
 The validation workflow was also made less brittle. The renderer validation batch now fails fast when the build fails, instead of continuing into renderer launches that can make agents appear stuck. Every implementation slice was committed and pushed in small atomic commits, with renderer parity checks run repeatedly against GL, DX11, and DX12 as requested.
 
-This report closes the current orchestrator queue item. It does not mean the entire long-term DX12-only architecture vision is finished. Remaining follow-up work includes making the graph drive live barriers, moving passes into graph callbacks, replacing name-based shader setters, and building the later material/resource systems described by the source plan.
+This report closes the current orchestrator queue item and records the follow-up architecture pass. It does not claim that the final DX12-only architecture is complete. Remaining work includes making the graph drive live barriers, moving passes into graph callbacks, replacing name-based shader setters, and building the material/resource systems described by the source and follow-up plans.
 
 ## At A Glance
 
 - Source plan: `Agentic/Plans/dx12-only-engine-architecture-plan.md`
 - Archived plan: `Agentic/Plans/Done/dx12-only-engine-architecture-plan.md`
+- Follow-up plan: `Agentic/Plans/dx12-final-architecture-next-steps.md`
 - Branch: `codex/dx12-only-engine-architecture`
 - Implementation commits:
   - `7ff83dad` fix renderer validation fail-fast behavior
@@ -23,17 +34,26 @@ This report closes the current orchestrator queue item. It does not mean the ent
   - `2b57b4e1` compile render graph transitions
   - `7fcdc527` dump DX12 frame graph skeleton
   - `23618b64` require orchestrator reports before completion
+  - `c79c87a4` plan DX12 final architecture steps
+  - `5e4edfa6` split DX12 backend subsystems
+  - `eca2f551` extract DX12 render device owner
+  - `becff60c` allocate DX12 RTV/DSV descriptors
+  - `f75a9218` extract DX12 upload/readback systems
+  - `1d31a430` compare DX12 graph and live barriers
 - Queue/status commit: `ce381d07`
-- Report commit: `6f22d27a`
-- Diagram update commit: this report diagram commit; exact SHA reported in final response
+- Original report commit: `6f22d27a`
+- Diagram update commit: `a94be467`
+- Latest report update commit: this commit; exact SHA reported in final response
 - Report web URL: https://github.com/skullbonez/SkullbonezCore/blob/codex/dx12-only-engine-architecture/Agentic/Reports/2026-06-14/dx12-only-engine-architecture/report.md
 - PR: none opened
 - Merge SHA: none
 - Final status: `done`
 - Queue status: `done`
 - Started: `2026-06-13T21:54:57+10:00`
-- Finished: `2026-06-14T08:59:48+10:00`
-- Elapsed: about 11h 5m wall clock
+- Original report finished: `2026-06-14T08:59:48+10:00`
+- Follow-up architecture pass finished: `2026-06-14T12:12:06+10:00`
+- Report update finished: `2026-06-14T12:27:14+10:00`
+- Elapsed: original orchestrator run about 11h 5m; follow-up five-item architecture pass about 50m 46s; this report update timed separately in the final response
 
 ## Progress Timeline
 
@@ -47,7 +67,13 @@ This report closes the current orchestrator queue item. It does not mean the ent
 - Added a first graph compile step that emits resource transition records.
 - Added a diagnostic DX12 frame graph skeleton dump for current major passes and resources.
 - Updated orchestrator documents so future runs require a committed report plus terminal queue status before finalizing.
-- Archived the source plan and marked the queue item `done`.
+- Archived the original source plan and marked the queue item `done`.
+- Added `Agentic\Plans\dx12-final-architecture-next-steps.md` to capture the next five architecture slices.
+- Split `SkullbonezRenderBackendDX12.cpp` into focused files for DXR, dynamic geometry, pipeline setup, profiling, readback, resources, and textures.
+- Extracted `Dx12RenderDevice` so device, factory, queue, swap chain, command allocators, and frame fence ownership now live behind one device owner.
+- Added CPU-only RTV and DSV descriptor allocators so render-target and depth-stencil table rows are owned explicitly instead of being hand-calculated in the backend.
+- Extracted `Dx12FrameUploadSystem` and `Dx12ReadbackBuffer` so upload memory and CPU-readable GPU result buffers have named lifetime owners.
+- Added live-barrier recording and `GraphVsLiveTransitionStatePairs` diagnostics so the current render graph skeleton can be compared against real backend transitions.
 
 ## Timings
 
@@ -65,7 +91,16 @@ This report closes the current orchestrator queue item. It does not mean the ent
 - `tools\validate_renderers.bat` transition-compiler rerun: 63.4s, passed.
 - `tools\validate_build.bat Profile` after frame graph skeleton: 22.8s, passed.
 - `tools\validate_renderers.bat` after frame graph skeleton: 36.1s, passed.
-- Orchestrator safeguard documentation: not validated by script because it was documentation/control metadata only.
+- Follow-up pass item 2 renderer gate: 46.5s, passed.
+- Follow-up pass item 3 Profile build: 31.7s, passed.
+- Follow-up pass item 3 renderer gate: 44.2s, passed.
+- Follow-up pass item 4 Profile build: 32.0s, passed.
+- Follow-up pass item 4 renderer gate: 44.3s, passed.
+- Follow-up pass item 5 Profile build: 31.1s, passed.
+- Follow-up pass item 5 renderer gate: 44.6s, passed.
+- Follow-up pass item 5 diagnostic rerun after Profile file-write fix: 21.8s, passed.
+- Overall follow-up five-item architecture pass: about 50m 46s wall clock.
+- Orchestrator safeguard documentation and this report update: documentation-only; no validation script required.
 
 ## Implementation
 
@@ -78,13 +113,31 @@ This report closes the current orchestrator queue item. It does not mean the ent
 `SkullbonezRenderDeviceDX12.h/.cpp` now contains:
 
 - `Dx12DescriptorAllocator`, which explains and manages static descriptor slots and per-frame transient descriptor rows.
+- `Dx12CpuDescriptorAllocator`, which owns CPU-only rows for render-target views and depth-stencil views.
 - `Dx12UploadArena`, which explains and manages CPU-written upload memory with fence-safe per-frame reset.
+- `Dx12FrameUploadSystem`, which owns per-frame upload resources and mapped CPU pointers.
+- `Dx12ReadbackBuffer`, which owns CPU-readable GPU result buffers used for profiler and screenshot readback.
 - `Dx12FenceTimeline`, which centralizes fence signaling and waiting.
+- `Dx12RenderDevice`, which now owns the DXGI factory, D3D12 device, command queue, swap chain, command allocators, command list, fence, and fence event.
 - DRED and object-naming helpers so validation and device removal reports point to human-readable objects.
+
+### Backend Decomposition
+
+The DX12 backend is no longer concentrated in a single enormous implementation file. The follow-up pass split it into focused files:
+
+- `SkullbonezRenderBackendDX12.DXR.cpp`
+- `SkullbonezRenderBackendDX12.DynamicGeometry.cpp`
+- `SkullbonezRenderBackendDX12.Pipeline.cpp`
+- `SkullbonezRenderBackendDX12.Profiler.cpp`
+- `SkullbonezRenderBackendDX12.Readback.cpp`
+- `SkullbonezRenderBackendDX12.Resources.cpp`
+- `SkullbonezRenderBackendDX12.Textures.cpp`
+
+This is not just cosmetic. It makes later architecture work safer because pipeline creation, texture handling, readback, dynamic geometry, DXR, and resource helpers can now change independently without turning every edit into a search through the whole renderer.
 
 ### Backend Integration
 
-`SkullbonezRenderBackendDX12.cpp/.h` now uses those helpers for descriptor allocation, upload suballocation, frame allocator waits, full GPU drains, timer readback waits, and architecture usage stats. The backend now also includes a diagnostic-only frame graph skeleton dump.
+`SkullbonezRenderBackendDX12.cpp/.h` now uses the helper systems for descriptor allocation, upload suballocation, frame allocator waits, full GPU drains, timer readback waits, screenshot readback waits, architecture usage stats, and graph-vs-live barrier diagnostics.
 
 ### Render Graph
 
@@ -96,19 +149,19 @@ This report closes the current orchestrator queue item. It does not mean the ent
 - `RenderGraphCompileResult`, which lists transition records before passes.
 - `DumpText()`, which prints resources, passes, and computed transitions.
 
-This is scaffolding only. The current renderer still records live DX12 commands and barriers through the existing backend path.
+This is still scaffolding. The current renderer still records live DX12 commands and barriers through the existing backend path. The important improvement is that the branch can now print both the intended graph transitions and the real backend transitions in one diagnostic file.
 
 ### Comments For Non-GPU Engineers
 
-The render architecture comments now explain descriptor heaps, descriptor allocators, SRVs, UAVs, RTVs, DSVs, upload arenas, fences, root signatures, root descriptor tables, PSOs, resource barriers, and render graph transitions in plain C++ engineering terms.
+The render architecture comments now explain descriptor heaps, descriptor allocators, CPU descriptor allocators, SRVs, UAVs, RTVs, DSVs, upload arenas, readback buffers, fences, command allocators, root signatures, root descriptor tables, PSOs, resource barriers, swap-chain ownership, and render graph transitions in plain C++ engineering terms.
 
 ### Orchestrator Safeguards
 
-The orchestrator documents now explicitly forbid successful finalization after code push alone. A terminal queue status and a committed report are required.
+The orchestrator documents now explicitly forbid successful finalization after code push alone. A terminal queue status and a committed report are required. The report template also asks agents to embed useful visuals near the relevant text, not as unrelated attachments.
 
 ## Changed Files
 
-Important implementation files:
+Important implementation files from the original architecture slice:
 
 - `tools\validate_renderers.bat`
 - `AGENTS.md`
@@ -120,6 +173,23 @@ Important implementation files:
 - `SkullbonezSource\SkullbonezRenderDeviceDX12.h`
 - `SkullbonezSource\SkullbonezRenderGraph.cpp`
 - `SkullbonezSource\SkullbonezRenderGraph.h`
+
+Important implementation files from the follow-up five-item architecture pass:
+
+- `Agentic\Plans\dx12-final-architecture-next-steps.md`
+- `SkullbonezSource\SkullbonezRenderBackendDX12.DXR.cpp`
+- `SkullbonezSource\SkullbonezRenderBackendDX12.DynamicGeometry.cpp`
+- `SkullbonezSource\SkullbonezRenderBackendDX12.Pipeline.cpp`
+- `SkullbonezSource\SkullbonezRenderBackendDX12.Profiler.cpp`
+- `SkullbonezSource\SkullbonezRenderBackendDX12.Readback.cpp`
+- `SkullbonezSource\SkullbonezRenderBackendDX12.Resources.cpp`
+- `SkullbonezSource\SkullbonezRenderBackendDX12.Textures.cpp`
+- `SkullbonezSource\SkullbonezRenderBackendDX12.cpp`
+- `SkullbonezSource\SkullbonezRenderBackendDX12.h`
+- `SkullbonezSource\SkullbonezRenderDeviceDX12.cpp`
+- `SkullbonezSource\SkullbonezRenderDeviceDX12.h`
+- `SKULLBONEZ_CORE.vcxproj`
+- `SKULLBONEZ_CORE.vcxproj.filters`
 
 Orchestrator/reporting files:
 
@@ -133,19 +203,25 @@ Orchestrator/reporting files:
 - `Agentic\Reports\2026-06-14\dx12-only-engine-architecture\images\architecture-before.svg`
 - `Agentic\Reports\2026-06-14\dx12-only-engine-architecture\images\architecture-after.svg`
 
+This report update commit is intentionally report-only and should stage only `Agentic\Reports\2026-06-14\dx12-only-engine-architecture\report.md`.
+
 ## Validation
 
-- Required gate: `tools\validate_renderers.bat`
-- Commands run:
+- Required gate for the render architecture work: `tools\validate_renderers.bat`
+- Validation required for this report-only update: none
+- Commands run during implementation:
 
 ```text
 tools\validate_build.bat Profile
 tools\validate_renderers.bat
 tools\format_fix.bat
 tools\validate_renderers.bat
+tools\validate_build.bat Profile
+tools\validate_renderers.bat
+python tools\check_parity.py --manifest TestOutput\validation\renderers\20260614T020056Z\manifest.json
 ```
 
-- Final renderer result:
+- Latest renderer result:
 
 ```text
 tools\validate_renderers.bat: PASS
@@ -154,63 +230,120 @@ Profile build: PASS
 Debug build: PASS
 DX12 InfoQueue validation errors: 0
 Cross-renderer parity: PASS
+water_ball_test GL vs DX11 avg_diff=2.8648
 water_ball_test GL vs DX12 avg_diff=2.9023
-solver_smoke GL vs DX12 avg_diff=1.2131
+solver_smoke GL vs DX11 avg_diff=1.2577
+solver_smoke GL vs DX12 avg_diff=1.2130
 ```
 
-Representative validation log:
+Representative validation logs and artifacts:
 
 ```text
 Agentic/Runs/2026-06-13/dx12-only-engine-architecture/validate_renderers_after_frame_graph_skeleton.log
+TestOutput/validation/renderers/20260613T130434Z/manifest.json
+TestOutput/validation/renderers/20260614T020056Z/manifest.json
+TestOutput/validation/renderers/20260614T020056Z/summary.json
 ```
 
 ## Screenshots And Artifacts
 
-Two report diagrams were committed under `images/` and embedded below. No scene screenshots were committed because the work was architecture/control code rather than a visible scene change.
+The before/after architecture diagrams are embedded in the plain-language section above because they explain the architecture change directly. They are committed under:
 
-Renderer validation artifacts were generated under:
+```text
+Agentic/Reports/2026-06-14/dx12-only-engine-architecture/images/architecture-before.svg
+Agentic/Reports/2026-06-14/dx12-only-engine-architecture/images/architecture-after.svg
+```
+
+Renderer comparison artifacts from the original report run were generated under:
 
 ```text
 TestOutput/validation/renderers/20260613T130434Z/
 ```
 
-Useful generated files from the final renderer run include:
+Renderer comparison artifacts from the follow-up architecture pass were generated under:
 
 ```text
-TestOutput/validation/renderers/20260613T130434Z/manifest.json
-TestOutput/validation/renderers/20260613T130434Z/summary.json
-TestOutput/validation/renderers/20260613T130434Z/water_ball_test_gl_vs_dx12_side_by_side.png
-TestOutput/validation/renderers/20260613T130434Z/water_ball_test_gl_vs_dx12_heatmap.png
-TestOutput/validation/renderers/20260613T130434Z/solver_smoke_gl_vs_dx12_side_by_side.png
-TestOutput/validation/renderers/20260613T130434Z/solver_smoke_gl_vs_dx12_heatmap.png
+TestOutput/validation/renderers/20260614T020056Z/
 ```
 
-## Phone-Readable Images
+Useful generated files from the latest renderer run include:
 
-The report includes two phone-readable architecture diagrams committed under `images/`.
+```text
+TestOutput/validation/renderers/20260614T020056Z/water_ball_test_gl_vs_dx11_side_by_side.png
+TestOutput/validation/renderers/20260614T020056Z/water_ball_test_gl_vs_dx11_heatmap.png
+TestOutput/validation/renderers/20260614T020056Z/water_ball_test_gl_vs_dx12_side_by_side.png
+TestOutput/validation/renderers/20260614T020056Z/water_ball_test_gl_vs_dx12_heatmap.png
+TestOutput/validation/renderers/20260614T020056Z/solver_smoke_gl_vs_dx11_side_by_side.png
+TestOutput/validation/renderers/20260614T020056Z/solver_smoke_gl_vs_dx11_heatmap.png
+TestOutput/validation/renderers/20260614T020056Z/solver_smoke_gl_vs_dx12_side_by_side.png
+TestOutput/validation/renderers/20260614T020056Z/solver_smoke_gl_vs_dx12_heatmap.png
+```
 
-![Before DX12 architecture diagram](images/architecture-before.svg)
+The follow-up pass also generated this diagnostic file from a Profile renderer run:
 
-![After DX12 architecture diagram](images/architecture-after.svg)
+```text
+Debug/dx12_frame_graph_skeleton.txt
+```
 
-The before diagram shows the old shape: DX12 production rendering existed beside the legacy GL and DX11 parity backends, but descriptor, upload, fence, barrier, and diagnostic rules were concentrated inside a large backend. The after diagram shows the implementation slice now in the branch: named DX12 helper systems, fail-fast renderer validation behavior, and the render graph contract plus transition compiler that will support later live barrier ownership.
+Its latest advisory graph-vs-live comparison summary was:
 
-Renderer comparison images remain in `TestOutput/validation/renderers/20260613T130434Z/`.
+```text
+GraphVsLiveTransitionStatePairs
+graph_transition_count=17
+live_transition_barrier_count=177
+matched_state_pairs=2
+graph_only_detail_count=15
+live_only_count=175
+```
 
 ## Interesting Code Snippets
 
 Descriptor allocator explanation:
 
 ```cpp
-// A descriptor allocator does not allocate textures or GPU memory. It only
-// hands out unused row numbers in that descriptor table and converts those row
-// numbers into the CPU/GPU handles DX12 wants.
+// A descriptor allocator is not a texture allocator. Textures live in GPU
+// resources. A descriptor allocator hands out numbered rows in a descriptor
+// table so later code knows where to write the small CPU/GPU view record.
+```
+
+CPU-only RTV/DSV descriptor allocator:
+
+```cpp
+Dx12CpuDescriptorAllocation Dx12CpuDescriptorAllocator::Allocate()
+```
+
+Device owner boundary:
+
+```cpp
+class Dx12RenderDevice
+```
+
+Per-frame upload owner:
+
+```cpp
+class Dx12FrameUploadSystem
+```
+
+Readback owner:
+
+```cpp
+class Dx12ReadbackBuffer
 ```
 
 Render graph transition compiler:
 
 ```cpp
 RenderGraphCompileResult RenderGraph::Compile() const
+```
+
+Diagnostic live-barrier recording:
+
+```cpp
+void RenderBackendDX12::RecordLiveBarrier(
+    const char* source,
+    ID3D12Resource* resource,
+    D3D12_RESOURCE_STATES before,
+    D3D12_RESOURCE_STATES after )
 ```
 
 Diagnostic frame graph skeleton:
@@ -248,10 +381,14 @@ One formatting issue was encountered during validation:
 - Unrelated formatter line-wrap churn in other headers was reverted before commit.
 - The renderer validation gate then passed.
 
+During this report update, pre-existing uncommitted orchestrator document edits were present in the workspace. They were not staged into this report-only update.
+
 ## Residual Risk
 
 - The render graph is not yet the live barrier owner.
+- The graph-vs-live comparison is advisory. It compares state-pair transitions, not yet fully identified resource lifetimes, and `PRESENT` and `COMMON` share the same DX12 value.
 - The diagnostic frame graph skeleton is a superset of possible paths, not a per-frame branch-specific graph.
+- Some live barriers still come from direct backend behavior; later work needs to make passes declare resources and let graph-owned logic emit barriers.
 - The material system, shader reflection, resource allocator, DX12-only validation scripts, and live pass modules remain future work.
 - GL and DX11 are still in the renderer parity suite as reference backends.
 - No PR was opened, so this branch has not gone through GitHub review.
@@ -268,14 +405,14 @@ Agentic/Runs/2026-06-13/dx12-only-engine-architecture/
 
 ## Next Queue Action
 
-The queue item is now terminal:
+The queue item is terminal:
 
 ```text
 dx12-only-engine-architecture: done
 ```
 
-Recommended follow-up is to create a new queue item for the next live DX12 architecture phase, most likely:
+Recommended follow-up is to create a new queue item for the next live DX12 architecture phase:
 
 ```text
-Move current DX12 pass/resource barriers into RenderGraph-owned diagnostics and then into live barrier emission.
+Promote the diagnostic render graph into resource-identified graph-owned barrier emission, then migrate one low-risk pass into a graph callback while keeping GL/DX11 parity validation green.
 ```
