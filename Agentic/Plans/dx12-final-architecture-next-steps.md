@@ -66,6 +66,9 @@ renderer parity checks, including `tools\check_parity.py`.
 
 ## Item 1: Split `RenderBackendDX12` Into Subsystem Translation Units
 
+Status: complete. Commit `5e4edfa`; renderer validation manifest
+`TestOutput\validation\renderers\20260614T011825Z\manifest.json`.
+
 Goal: reduce the 3,800+ line backend file without changing behavior.
 
 This is a mechanical decomposition. Keep the `RenderBackendDX12` class and public
@@ -86,6 +89,9 @@ Expected result:
 - a safer base for real ownership extraction.
 
 ## Item 2: Extract `Dx12RenderDevice` Ownership From `RenderBackendDX12`
+
+Status: complete. Commit `eca2f551`; renderer validation manifest
+`TestOutput\validation\renderers\20260614T013340Z\manifest.json`.
 
 Goal: make device/swapchain/frame ownership a real DX12 subsystem.
 
@@ -110,6 +116,9 @@ Expected result:
 - future pass systems can ask the device layer for command-list and frame state.
 
 ## Item 3: Add RTV/DSV Descriptor Allocators And Descriptor Diagnostics
+
+Status: complete. Renderer validation manifest
+`TestOutput\validation\renderers\20260614T014040Z\manifest.json`.
 
 Goal: stop treating RTV and DSV descriptors as loose counters.
 

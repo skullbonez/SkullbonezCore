@@ -174,10 +174,11 @@ class RenderBackendDX12 : public IRenderBackend
     // - SRV: Shader Resource View. Shaders can read textures/buffers through it.
     // - UAV: Unordered Access View. Compute/raytracing shaders can write through it.
     //
-    // This backend currently keeps RTV and DSV heaps as direct counters because
-    // those views are few and long-lived. The high-churn SRV/CBV/UAV heap is
-    // managed by Dx12DescriptorAllocator below because shader-visible slots need
-    // stricter per-frame lifetime tracking.
+    // RTV and DSV heaps are CPU-only descriptor tables. They do not need the
+    // per-frame shader-visible lifetime rules that SRVs need, but they still
+    // need named row allocation so the renderer can report usage and fail with
+    // useful heap/capacity diagnostics instead of silently walking past the end
+    // of a descriptor table.
     ID3D12DescriptorHeap* m_rtvHeap = nullptr;
     ID3D12DescriptorHeap* m_dsvHeap = nullptr;
     ID3D12DescriptorHeap* m_srvHeap = nullptr;        // GPU-visible table shaders can read during draws/dispatches.
@@ -185,10 +186,16 @@ class RenderBackendDX12 : public IRenderBackend
     UINT m_rtvDescSize = 0;
     UINT m_dsvDescSize = 0;
     UINT m_srvDescSize = 0;
-    UINT m_nextRTV = FRAME_COUNT; // Next available RTV slot (0-1 are swap chain)
-    UINT m_nextDSV = 1;           // Next available DSV slot (0 is main depth)
+    D3D12_CPU_DESCRIPTOR_HANDLE m_backBufferRTVs[FRAME_COUNT] = {};
+    D3D12_CPU_DESCRIPTOR_HANDLE m_mainDSV = {};
 
-    // First DX12 architecture extraction point:
+    // RTV/DSV descriptor allocators reserve CPU-only table rows. They do not
+    // create the render target or depth texture; they reserve the row where
+    // CreateRenderTargetView/CreateDepthStencilView writes the binding record.
+    Dx12CpuDescriptorAllocator m_rtvDescriptors;
+    Dx12CpuDescriptorAllocator m_dsvDescriptors;
+
+    // First DX12 shader-visible descriptor extraction point:
     //
     // The old backend used loose integer counters for descriptor heap slots.
     // That worked, but it made the lifetime rule implicit.

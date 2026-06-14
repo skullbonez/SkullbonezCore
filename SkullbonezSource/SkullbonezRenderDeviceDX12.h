@@ -100,6 +100,88 @@ class Dx12FenceTimeline
     UINT64 m_lastSignaledValue = 0;
 };
 
+// A CPU descriptor allocation is one row in a CPU-only DX12 descriptor heap.
+//
+// Plain-language version:
+//
+// RTV and DSV descriptors are not read directly by shaders. The CPU records
+// command-list calls that bind those descriptors to the Output Merger stage,
+// which is the fixed-function part of the GPU that writes final color and depth
+// pixels. Because shaders do not follow GPU descriptor-table handles for RTVs
+// and DSVs, these heap rows need CPU handles only.
+struct Dx12CpuDescriptorAllocation
+{
+    UINT index = 0;
+    D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = {};
+};
+
+// Compact counters for CPU-only view descriptor heaps.
+//
+// "Used" is the number of descriptor table rows consumed. It does not mean
+// texture memory was allocated. The actual render-target or depth texture lives
+// in an ID3D12Resource; this allocator only tracks the view records used to bind
+// those resources for rendering.
+struct Dx12CpuDescriptorAllocatorStats
+{
+    const char* heapName = "unknown";
+    UINT capacity = 0;
+    UINT used = 0;
+};
+
+/* -- Dx12CpuDescriptorAllocator -------------------------------------------------------------------------------------------------------------------------------
+
+    What is a CPU descriptor allocator?
+
+    A descriptor heap is a table of small "view records." Each record tells DX12
+    how a resource should be used. For RTV and DSV heaps, those records answer
+    questions such as:
+
+    - "when the pixel shader finishes, write color pixels into this texture"
+    - "use this depth texture for depth testing"
+    - "interpret this resource with this format and view dimension"
+
+    The important split for non-GPU readers:
+
+    - ID3D12Resource is the actual memory, such as a back buffer, reflection
+      color texture, or depth texture.
+    - A descriptor is only the binding description for that memory.
+    - A descriptor allocator does not create textures. It reserves table rows
+      where those binding descriptions can be written.
+
+    Why do RTV/DSV descriptors get their own allocator when they are simple?
+
+    The old backend used loose counters named m_nextRTV and m_nextDSV. That was
+    compact, but it hid the policy: swap-chain buffers take stable RTV rows,
+    the main depth buffer takes a stable DSV row, and framebuffer objects consume
+    additional long-lived rows. Giving those counters a named allocator makes
+    descriptor usage show up in diagnostics and keeps all descriptor row
+    assignment behind one concept.
+
+    This allocator is intentionally simpler than Dx12DescriptorAllocator below.
+    RTV/DSV heaps are CPU-only in this renderer, so there is no GPU-visible
+    handle and no per-frame transient range. Rows are long-lived and are reused
+    only by overwriting the descriptor that already belongs to the same engine
+    object, such as recreating a swap-chain RTV after ResizeBuffers().
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+class Dx12CpuDescriptorAllocator
+{
+  public:
+    void Init( ID3D12DescriptorHeap* heap, UINT descriptorSize, UINT capacity, const char* heapName );
+    void Reset();
+
+    Dx12CpuDescriptorAllocation Allocate();
+    D3D12_CPU_DESCRIPTOR_HANDLE CpuHandle( UINT index ) const;
+
+    Dx12CpuDescriptorAllocatorStats GetStats() const;
+
+  private:
+    ID3D12DescriptorHeap* m_heap = nullptr;
+    UINT m_descriptorSize = 0;
+    UINT m_capacity = 0;
+    UINT m_next = 0;
+    const char* m_heapName = "unknown";
+};
+
 // Compact counters for the DX12 descriptor allocator.
 //
 // Plain-language version:

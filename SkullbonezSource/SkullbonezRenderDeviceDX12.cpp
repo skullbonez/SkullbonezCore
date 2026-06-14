@@ -179,6 +179,82 @@ Dx12FenceTimelineStats Dx12FenceTimeline::GetStats() const
 }
 
 
+void Dx12CpuDescriptorAllocator::Init( ID3D12DescriptorHeap* heap, UINT descriptorSize, UINT capacity, const char* heapName )
+{
+    if ( !heap || descriptorSize == 0 || capacity == 0 )
+    {
+        throw std::runtime_error( "DX12 CPU descriptor allocator received invalid heap geometry" );
+    }
+
+    // RTV and DSV descriptor heaps are tables. The device tells us the byte
+    // stride between table rows because descriptor sizes are implementation
+    // details, not C++ struct sizes the engine can hard-code.
+    m_heap = heap;
+    m_descriptorSize = descriptorSize;
+    m_capacity = capacity;
+    m_next = 0;
+    m_heapName = ( heapName && heapName[0] != '\0' ) ? heapName : "unknown";
+}
+
+
+void Dx12CpuDescriptorAllocator::Reset()
+{
+    m_heap = nullptr;
+    m_descriptorSize = 0;
+    m_capacity = 0;
+    m_next = 0;
+    m_heapName = "unknown";
+}
+
+
+Dx12CpuDescriptorAllocation Dx12CpuDescriptorAllocator::Allocate()
+{
+    if ( !m_heap || m_descriptorSize == 0 )
+    {
+        throw std::runtime_error( "DX12 CPU descriptor allocator used before Init" );
+    }
+    if ( m_next >= m_capacity )
+    {
+        throw std::runtime_error( "DX12 CPU descriptor heap exhausted" );
+    }
+
+    // Allocation means "reserve the next unused row in the descriptor table."
+    // It does not touch the resource itself. The caller will write the actual
+    // view record with CreateRenderTargetView or CreateDepthStencilView.
+    Dx12CpuDescriptorAllocation allocation;
+    allocation.index = m_next++;
+    allocation.cpuHandle = CpuHandle( allocation.index );
+    return allocation;
+}
+
+
+D3D12_CPU_DESCRIPTOR_HANDLE Dx12CpuDescriptorAllocator::CpuHandle( UINT index ) const
+{
+    if ( !m_heap || m_descriptorSize == 0 )
+    {
+        throw std::runtime_error( "DX12 CPU descriptor heap unavailable" );
+    }
+    if ( index >= m_capacity )
+    {
+        throw std::runtime_error( "DX12 CPU descriptor index out of range" );
+    }
+
+    D3D12_CPU_DESCRIPTOR_HANDLE handle = m_heap->GetCPUDescriptorHandleForHeapStart();
+    handle.ptr += static_cast<SIZE_T>( index ) * m_descriptorSize;
+    return handle;
+}
+
+
+Dx12CpuDescriptorAllocatorStats Dx12CpuDescriptorAllocator::GetStats() const
+{
+    Dx12CpuDescriptorAllocatorStats stats;
+    stats.heapName = m_heapName;
+    stats.capacity = m_capacity;
+    stats.used = m_next;
+    return stats;
+}
+
+
 void Dx12DescriptorAllocator::Init( ID3D12DescriptorHeap* shaderVisibleHeap,
                                     ID3D12DescriptorHeap* stagingHeap,
                                     UINT descriptorSize,

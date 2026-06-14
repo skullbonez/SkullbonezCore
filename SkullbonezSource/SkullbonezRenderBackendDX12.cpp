@@ -292,6 +292,8 @@ void RenderBackendDX12::FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment
 
 void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
 {
+    const Dx12CpuDescriptorAllocatorStats rtvStats = m_rtvDescriptors.GetStats();
+    const Dx12CpuDescriptorAllocatorStats dsvStats = m_dsvDescriptors.GetStats();
     const Dx12DescriptorAllocatorStats descriptorStats = m_srvDescriptors.GetStats();
     UINT64 uploadPeakBytes = 0;
     UINT64 uploadCapacityBytes = 0;
@@ -306,11 +308,16 @@ void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
     // than in every draw call. It tells a future render-graph/device pass how
     // much descriptor and upload memory the old backend needed, without turning
     // the hot path into noisy logging. The numbers are also layman-readable:
+    // "RTV/DSV descriptors" are CPU-only output/depth target view slots,
     // "static SRVs" are persistent texture/view slots, "transient SRVs" are
     // per-frame descriptor copies, and "upload peak" is the largest CPU-written
     // staging allocation used by any one in-flight frame.
-    Log().WriteEventf( "dx12_render_architecture_stats reason=%s static_srvs=%u/%u transient_srv_peak=%u/%u upload_peak_bytes=%llu upload_capacity_bytes=%llu",
+    Log().WriteEventf( "dx12_render_architecture_stats reason=%s rtv_descriptors=%u/%u dsv_descriptors=%u/%u static_srvs=%u/%u transient_srv_peak=%u/%u upload_peak_bytes=%llu upload_capacity_bytes=%llu",
                        reason ? reason : "unknown",
+                       rtvStats.used,
+                       rtvStats.capacity,
+                       dsvStats.used,
+                       dsvStats.capacity,
                        descriptorStats.staticUsed,
                        descriptorStats.staticCapacity,
                        descriptorStats.transientPeakThisRun,
@@ -448,17 +455,13 @@ D3D12_GPU_DESCRIPTOR_HANDLE RenderBackendDX12::GetSRVGpuHandle( UINT index )
 
 D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::GetRTVHandle( UINT index )
 {
-    D3D12_CPU_DESCRIPTOR_HANDLE handle = m_rtvHeap->GetCPUDescriptorHandleForHeapStart();
-    handle.ptr += (SIZE_T)index * m_rtvDescSize;
-    return handle;
+    return m_rtvDescriptors.CpuHandle( index );
 }
 
 
 D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::GetDSVHandle( UINT index )
 {
-    D3D12_CPU_DESCRIPTOR_HANDLE handle = m_dsvHeap->GetCPUDescriptorHandleForHeapStart();
-    handle.ptr += (SIZE_T)index * m_dsvDescSize;
-    return handle;
+    return m_dsvDescriptors.CpuHandle( index );
 }
 
 
@@ -532,6 +535,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_rtvHeap ) ), "CreateDescriptorHeap (RTV) failed" );
         NameDx12Object( m_rtvHeap, L"Skullbonez DX12 RTV Heap" );
         m_rtvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_RTV );
+        m_rtvDescriptors.Init( m_rtvHeap, m_rtvDescSize, MAX_RTV_DESCRIPTORS, "RTV" );
     }
     // DSV heap holds Depth Stencil View descriptors (main depth buffer + FBO depth buffers).
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdescriptorheap
@@ -542,6 +546,7 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         ThrowIfFailed( m_device->CreateDescriptorHeap( &desc, IID_PPV_ARGS( &m_dsvHeap ) ), "CreateDescriptorHeap (DSV) failed" );
         NameDx12Object( m_dsvHeap, L"Skullbonez DX12 DSV Heap" );
         m_dsvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_DSV );
+        m_dsvDescriptors.Init( m_dsvHeap, m_dsvDescSize, MAX_DSV_DESCRIPTORS, "DSV" );
     }
     // SRV/CBV/UAV heap — SHADER_VISIBLE means the GPU can directly access these descriptors.
     // This single heap holds all texture views (SRVs) and constant buffer views (CBVs) that
@@ -588,7 +593,11 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     {
         ThrowIfFailed( m_swapChain->GetBuffer( (UINT)i, IID_PPV_ARGS( &m_renderTargets[i] ) ), "SwapChain GetBuffer failed" );
         NameDx12ObjectIndexed( m_renderTargets[i], L"Skullbonez DX12 Swapchain Backbuffer", (UINT)i );
-        m_device->CreateRenderTargetView( m_renderTargets[i], nullptr, GetRTVHandle( (UINT)i ) );
+        // Reserve one stable RTV row for each swap-chain buffer. ResizeBuffers
+        // replaces the back-buffer resources later, but the descriptor rows stay
+        // the same and are simply overwritten with new view records.
+        m_backBufferRTVs[i] = m_rtvDescriptors.Allocate().cpuHandle;
+        m_device->CreateRenderTargetView( m_renderTargets[i], nullptr, m_backBufferRTVs[i] );
     }
 
     // Depth stencil
@@ -673,8 +682,8 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     m_scissorRect = { 0, 0, (LONG)width, (LONG)height };
 
     // Set default render targets
-    m_currentRTV = GetRTVHandle( m_frameIndex );
-    m_currentDSV = GetDSVHandle( 0 );
+    m_currentRTV = m_backBufferRTVs[m_frameIndex];
+    m_currentDSV = m_mainDSV;
 
     DumpFrameGraphSkeleton();
 
@@ -829,9 +838,17 @@ void RenderBackendDX12::CreateDepthStencil( int w, int h )
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
     dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
     dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+    if ( m_mainDSV.ptr == 0 )
+    {
+        // The main depth buffer is recreated on resize, but it is always the
+        // same engine concept: "the window depth target." Allocate its DSV row
+        // once, then overwrite that row with the new resource view whenever the
+        // texture is recreated.
+        m_mainDSV = m_dsvDescriptors.Allocate().cpuHandle;
+    }
     // Create a Depth Stencil View for the main depth buffer so it can be bound as the depth target.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdepthstencilview
-    m_device->CreateDepthStencilView( m_depthStencil, &dsvDesc, GetDSVHandle( 0 ) );
+    m_device->CreateDepthStencilView( m_depthStencil, &dsvDesc, m_mainDSV );
 }
 
 
@@ -1016,10 +1033,19 @@ void RenderBackendDX12::Shutdown()
     if ( m_dsvHeap )
     {
         m_dsvHeap->Release();
+        m_dsvHeap = nullptr;
     }
+    m_dsvDescriptors.Reset();
+    m_mainDSV = {};
     if ( m_rtvHeap )
     {
         m_rtvHeap->Release();
+        m_rtvHeap = nullptr;
+    }
+    m_rtvDescriptors.Reset();
+    for ( int i = 0; i < FRAME_COUNT; ++i )
+    {
+        m_backBufferRTVs[i] = {};
     }
     m_renderDevice.Shutdown();
     m_factory = nullptr;
@@ -1131,7 +1157,7 @@ void RenderBackendDX12::Present()
     // Advance to next frame's allocator and swap chain buffer
     m_allocatorIndex = m_renderDevice.AdvanceAllocatorIndex();
     m_frameIndex = m_renderDevice.RefreshFrameIndexFromSwapChain();
-    m_currentRTV = GetRTVHandle( m_frameIndex );
+    m_currentRTV = m_backBufferRTVs[m_frameIndex];
 }
 
 
@@ -1205,7 +1231,7 @@ void RenderBackendDX12::Resize( int width, int height )
     {
         m_swapChain->GetBuffer( (UINT)i, IID_PPV_ARGS( &m_renderTargets[i] ) );
         NameDx12ObjectIndexed( m_renderTargets[i], L"Skullbonez DX12 Swapchain Backbuffer", (UINT)i );
-        m_device->CreateRenderTargetView( m_renderTargets[i], nullptr, GetRTVHandle( (UINT)i ) );
+        m_device->CreateRenderTargetView( m_renderTargets[i], nullptr, m_backBufferRTVs[i] );
     }
 
     CreateDepthStencil( width, height );
@@ -1214,8 +1240,8 @@ void RenderBackendDX12::Resize( int width, int height )
     m_height = height;
     m_viewport = { 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
     m_scissorRect = { 0, 0, (LONG)width, (LONG)height };
-    m_currentRTV = GetRTVHandle( m_frameIndex );
-    m_currentDSV = GetDSVHandle( 0 );
+    m_currentRTV = m_backBufferRTVs[m_frameIndex];
+    m_currentDSV = m_mainDSV;
 }
 
 

@@ -513,21 +513,23 @@ void RenderBackendDX12::SetRenderingToFBO( bool rendering, UINT fboSrvIndex, UIN
 
 D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::AllocateRTV()
 {
-    if ( m_nextRTV >= MAX_RTV_DESCRIPTORS )
+    const Dx12CpuDescriptorAllocatorStats stats = m_rtvDescriptors.GetStats();
+    if ( stats.used >= stats.capacity )
     {
-        ReportDX12DescriptorHeapExhausted( "RTV", m_nextRTV, MAX_RTV_DESCRIPTORS );
+        ReportDX12DescriptorHeapExhausted( stats.heapName, stats.used, stats.capacity );
         throw std::runtime_error( "DX12 RTV heap exhausted" );
     }
-    return GetRTVHandle( m_nextRTV++ );
+    return m_rtvDescriptors.Allocate().cpuHandle;
 }
 
 
 D3D12_CPU_DESCRIPTOR_HANDLE RenderBackendDX12::AllocateDSV()
 {
-    if ( m_nextDSV >= MAX_DSV_DESCRIPTORS )
+    const Dx12CpuDescriptorAllocatorStats stats = m_dsvDescriptors.GetStats();
+    if ( stats.used >= stats.capacity )
     {
-        ReportDX12DescriptorHeapExhausted( "DSV", m_nextDSV, MAX_DSV_DESCRIPTORS );
+        ReportDX12DescriptorHeapExhausted( stats.heapName, stats.used, stats.capacity );
         throw std::runtime_error( "DX12 DSV heap exhausted" );
     }
-    return GetDSVHandle( m_nextDSV++ );
+    return m_dsvDescriptors.Allocate().cpuHandle;
 }
