@@ -35,6 +35,9 @@ for %%A in (%*) do (
     ) else if /I "!ARG!"=="shaders" (
         call "%ROOT%validate_shaders.bat"
         if errorlevel 1 set "FAILED=1"
+    ) else if /I "!ARG!"=="dx12-arch-tests" (
+        call "%ROOT%validate_dx12_arch_tests.bat"
+        if errorlevel 1 set "FAILED=1"
     ) else if /I "!ARG!"=="ui" (
         call "%ROOT%validate_ui.bat"
         if errorlevel 1 set "FAILED=1"
@@ -103,6 +106,7 @@ echo   tools\validate_select.bat concept-smoke
 echo   tools\validate_select.bat concept-core
 echo   tools\validate_select.bat concept-full
 echo   tools\validate_select.bat shaders
+echo   tools\validate_select.bat dx12-arch-tests
 echo   tools\validate_select.bat ui
 echo   tools\validate_select.bat ui-stress
 echo   tools\validate_select.bat demo-stress
