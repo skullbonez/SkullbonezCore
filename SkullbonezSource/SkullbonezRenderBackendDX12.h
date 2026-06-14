@@ -309,6 +309,7 @@ class RenderBackendDX12 : public IRenderBackend
     void CreateRootSignature();
     void CreateDepthStencil( int w, int h );
     UINT AllocateTransientSRV();
+    UINT AllocateTransientSRVRange( UINT count );
     D3D12_GPU_DESCRIPTOR_HANDLE GetSRVGpuHandle( UINT index );
     D3D12_CPU_DESCRIPTOR_HANDLE GetRTVHandle( UINT index );
     D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle( UINT index );
@@ -316,6 +317,7 @@ class RenderBackendDX12 : public IRenderBackend
     void TransitionBarrier( ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after );
     void FlushUploadBuffer();
     void FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment );
+    D3D12_GPU_VIRTUAL_ADDRESS SubAllocateUpload( UINT64 size, UINT64 alignment );
     void ReportArchitectureStats( const char* reason ) const;
     void DumpFrameGraphSkeleton() const;
     size_t HashPSOKey( const PSOKey12& key );
@@ -473,7 +475,14 @@ class RenderBackendDX12 : public IRenderBackend
     void SetCurrentTargets( D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv );
     void SetRenderingToFBO( bool rendering, UINT fboSrvIndex = UINT_MAX, UINT fboDepthSrvIndex = UINT_MAX, DXGI_FORMAT rtvFormat = DXGI_FORMAT_R8G8B8A8_UNORM );
 
-    D3D12_GPU_VIRTUAL_ADDRESS SubAllocateUpload( UINT64 size, UINT64 alignment );
+    // Reserve CPU-written upload memory for the current command stream.
+    //
+    // This is the safe public upload path. It probes the current frame upload
+    // arena with the exact same size/alignment used for the final allocation.
+    // If the arena is full, it submits the current command list, waits for the
+    // GPU, resets the frame upload arena, and then allocates. Callers should not
+    // call SubAllocateUpload() directly because that bypasses the safety probe.
+    D3D12_GPU_VIRTUAL_ADDRESS ReserveUpload( UINT64 size, UINT64 alignment );
     uint8_t* GetUploadPtr( D3D12_GPU_VIRTUAL_ADDRESS addr );
     ID3D12Resource* GetUploadBuffer() const
     {

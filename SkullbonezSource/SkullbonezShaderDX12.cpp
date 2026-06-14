@@ -218,7 +218,10 @@ D3D12_GPU_VIRTUAL_ADDRESS ShaderDX12::FlushCB() const
         return 0;
     }
 
-    D3D12_GPU_VIRTUAL_ADDRESS addr = backend->SubAllocateUpload( m_cbSize, 256 );
+    // Constant buffers must be 256-byte aligned in DX12. ReserveUpload probes
+    // with that same alignment and flushes/resets the upload arena if needed,
+    // instead of letting a busy frame throw after the arena fills up.
+    D3D12_GPU_VIRTUAL_ADDRESS addr = backend->ReserveUpload( m_cbSize, 256 );
     memcpy( backend->GetUploadPtr( addr ), m_cbData.data(), m_cbSize );
     m_cbDirty = false;
     return addr;

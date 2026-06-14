@@ -328,6 +328,17 @@ class Dx12DescriptorAllocator
     // dispatch can bind a GPU-visible table row, use a transient slot.
     UINT AllocateTransient();
 
+    // Reserve a contiguous temporary descriptor range.
+    //
+    // Some DX12 root descriptor tables are not "one independent descriptor";
+    // they are a compact array starting at one GPU handle. A shader that reads
+    // t0..t7 or u0..u3 expects the next descriptors to live in the next rows of
+    // the same heap. Repeated single-slot allocations happen to be contiguous
+    // today because this allocator is linear, but that invariant belongs in the
+    // API. This method checks the full range before consuming any rows, so an
+    // exhaustion failure cannot leave the caller with a half-reserved table.
+    UINT AllocateTransientRange( UINT count );
+
     // CPU handle into the shader-visible heap. The CPU uses this to write or
     // copy a descriptor into a shader-readable slot.
     D3D12_CPU_DESCRIPTOR_HANDLE ShaderVisibleCpuHandle( UINT index ) const;
@@ -625,6 +636,11 @@ class Dx12RenderDevice
 {
   public:
     static constexpr UINT MAX_FRAME_COUNT = 4;
+
+    Dx12RenderDevice() = default;
+    ~Dx12RenderDevice();
+    Dx12RenderDevice( const Dx12RenderDevice& ) = delete;
+    Dx12RenderDevice& operator=( const Dx12RenderDevice& ) = delete;
 
     bool Init( const Dx12RenderDeviceInitDesc& desc );
     void Shutdown();

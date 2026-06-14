@@ -143,31 +143,41 @@ static std::string Dx12StateToString( D3D12_RESOURCE_STATES state )
     return out.str();
 }
 
-static D3D12_RESOURCE_STATES GraphAccessToDx12State( RenderGraphResourceAccess access )
+static bool TryGraphAccessToDx12State( RenderGraphResourceAccess access, D3D12_RESOURCE_STATES& outState )
 {
     switch ( access )
     {
     case RenderGraphResourceAccess::RenderTarget:
-        return D3D12_RESOURCE_STATE_RENDER_TARGET;
+        outState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+        return true;
     case RenderGraphResourceAccess::DepthRead:
-        return D3D12_RESOURCE_STATE_DEPTH_READ;
+        outState = D3D12_RESOURCE_STATE_DEPTH_READ;
+        return true;
     case RenderGraphResourceAccess::DepthWrite:
-        return D3D12_RESOURCE_STATE_DEPTH_WRITE;
+        outState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+        return true;
     case RenderGraphResourceAccess::PixelShaderResource:
-        return D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+        outState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+        return true;
     case RenderGraphResourceAccess::NonPixelShaderResource:
-        return D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+        outState = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+        return true;
     case RenderGraphResourceAccess::UnorderedAccess:
-        return D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        outState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        return true;
     case RenderGraphResourceAccess::CopySource:
-        return D3D12_RESOURCE_STATE_COPY_SOURCE;
+        outState = D3D12_RESOURCE_STATE_COPY_SOURCE;
+        return true;
     case RenderGraphResourceAccess::CopyDest:
-        return D3D12_RESOURCE_STATE_COPY_DEST;
+        outState = D3D12_RESOURCE_STATE_COPY_DEST;
+        return true;
     case RenderGraphResourceAccess::Present:
-        return D3D12_RESOURCE_STATE_PRESENT;
+        outState = D3D12_RESOURCE_STATE_PRESENT;
+        return true;
     case RenderGraphResourceAccess::Unknown:
     default:
-        return D3D12_RESOURCE_STATE_COMMON;
+        outState = D3D12_RESOURCE_STATE_COMMON;
+        return false;
     }
 }
 
@@ -513,6 +523,29 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
 
     const RenderGraphCompileResult compiled = graph.Compile();
     std::vector<bool> liveBarrierMatched( m_liveBarrierRecords.size(), false );
+    const auto liveResourceLabel = [&]( const void* resource ) -> const char*
+    {
+        if ( !resource )
+        {
+            return nullptr;
+        }
+        for ( int i = 0; i < FRAME_COUNT; ++i )
+        {
+            if ( resource == m_renderTargets[i] )
+            {
+                return "SwapchainBackbuffer";
+            }
+        }
+        if ( resource == m_depthStencil )
+        {
+            return "MainDepthStencil";
+        }
+        if ( resource == m_reflectionUAV )
+        {
+            return "DxrReflectionTexture";
+        }
+        return nullptr;
+    };
 
     std::ostringstream out;
     out << graph.DumpText();
@@ -524,8 +557,10 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
     for ( size_t i = 0; i < m_liveBarrierRecords.size(); ++i )
     {
         const LiveBarrierRecordDX12& live = m_liveBarrierRecords[i];
+        const char* resourceLabel = liveResourceLabel( live.resource );
         out << "  [" << i << "] source=" << ( live.source ? live.source : "unknown" )
             << " resource=" << live.resource
+            << " label=" << ( resourceLabel ? resourceLabel : "unlabeled" )
             << " " << Dx12StateToString( live.before )
             << " -> " << Dx12StateToString( live.after ) << "\n";
     }
@@ -534,31 +569,63 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
     out << "  graph_transition_count=" << compiled.transitions.size() << "\n";
     out << "  live_transition_barrier_count=" << m_liveBarrierRecords.size() << "\n";
 
-    size_t matchedPairs = 0;
+    size_t matchedResourcePairs = 0;
+    size_t matchedStateOnlyPairs = 0;
     size_t graphOnlyDetails = 0;
+    size_t unknownGraphTransitions = 0;
     constexpr size_t MAX_COMPARISON_DETAILS = 256;
     for ( const RenderGraphTransitionDesc& transition : compiled.transitions )
     {
-        const D3D12_RESOURCE_STATES graphBefore = GraphAccessToDx12State( transition.before );
-        const D3D12_RESOURCE_STATES graphAfter = GraphAccessToDx12State( transition.after );
+        D3D12_RESOURCE_STATES graphBefore = D3D12_RESOURCE_STATE_COMMON;
+        D3D12_RESOURCE_STATES graphAfter = D3D12_RESOURCE_STATE_COMMON;
+        const bool hasConcreteBefore = TryGraphAccessToDx12State( transition.before, graphBefore );
+        const bool hasConcreteAfter = TryGraphAccessToDx12State( transition.after, graphAfter );
+        const RenderGraphResourceDesc& resource = graph.Resources()[transition.resource.index];
+        const RenderGraphPassDesc& passDesc = graph.Passes()[transition.passIndex];
+        if ( !hasConcreteBefore || !hasConcreteAfter )
+        {
+            ++unknownGraphTransitions;
+            if ( graphOnlyDetails < MAX_COMPARISON_DETAILS )
+            {
+                out << "  graph_unknown before pass [" << transition.passIndex << "] " << passDesc.name
+                    << ": " << resource.name
+                    << " " << ToString( transition.before )
+                    << " -> " << ToString( transition.after ) << "\n";
+                ++graphOnlyDetails;
+            }
+            continue;
+        }
 
         bool matched = false;
         for ( size_t liveIndex = 0; liveIndex < m_liveBarrierRecords.size(); ++liveIndex )
         {
             const LiveBarrierRecordDX12& live = m_liveBarrierRecords[liveIndex];
-            if ( !liveBarrierMatched[liveIndex] && live.before == graphBefore && live.after == graphAfter )
+            const char* label = liveResourceLabel( live.resource );
+            if ( !liveBarrierMatched[liveIndex] && label && std::strcmp( label, resource.name.c_str() ) == 0 && live.before == graphBefore && live.after == graphAfter )
             {
                 liveBarrierMatched[liveIndex] = true;
                 matched = true;
-                ++matchedPairs;
+                ++matchedResourcePairs;
                 break;
+            }
+        }
+        if ( !matched )
+        {
+            for ( size_t liveIndex = 0; liveIndex < m_liveBarrierRecords.size(); ++liveIndex )
+            {
+                const LiveBarrierRecordDX12& live = m_liveBarrierRecords[liveIndex];
+                if ( !liveBarrierMatched[liveIndex] && live.before == graphBefore && live.after == graphAfter )
+                {
+                    liveBarrierMatched[liveIndex] = true;
+                    matched = true;
+                    ++matchedStateOnlyPairs;
+                    break;
+                }
             }
         }
 
         if ( !matched && graphOnlyDetails < MAX_COMPARISON_DETAILS )
         {
-            const RenderGraphResourceDesc& resource = graph.Resources()[transition.resource.index];
-            const RenderGraphPassDesc& passDesc = graph.Passes()[transition.passIndex];
             out << "  graph_only before pass [" << transition.passIndex << "] " << passDesc.name
                 << ": " << resource.name
                 << " " << ToString( transition.before ) << "/" << Dx12StateToString( graphBefore )
@@ -577,18 +644,22 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
         const LiveBarrierRecordDX12& live = m_liveBarrierRecords[liveIndex];
         if ( liveOnlyDetails < MAX_COMPARISON_DETAILS )
         {
+            const char* resourceLabel = liveResourceLabel( live.resource );
             out << "  live_only [" << liveIndex << "] source=" << ( live.source ? live.source : "unknown" )
                 << " resource=" << live.resource
+                << " label=" << ( resourceLabel ? resourceLabel : "unlabeled" )
                 << " " << Dx12StateToString( live.before )
                 << " -> " << Dx12StateToString( live.after ) << "\n";
         }
         ++liveOnlyDetails;
     }
 
-    out << "  matched_state_pairs=" << matchedPairs << "\n";
+    out << "  matched_resource_state_pairs=" << matchedResourcePairs << "\n";
+    out << "  matched_state_only_pairs=" << matchedStateOnlyPairs << "\n";
+    out << "  unknown_graph_transition_count=" << unknownGraphTransitions << "\n";
     out << "  graph_only_detail_count=" << graphOnlyDetails << "\n";
     out << "  live_only_count=" << liveOnlyDetails << "\n";
-    out << "  note=This is a diagnostic comparison by transition state pair. It does not prove resource identity yet; PRESENT and COMMON share a DX12 value.\n";
+    out << "  note=Resource-labeled matches are stronger than state-only matches. Unlabeled live resources remain telemetry, not proof; PRESENT and COMMON share a DX12 value.\n";
 
     const std::string dump = out.str();
     {
@@ -609,6 +680,22 @@ D3D12_GPU_VIRTUAL_ADDRESS RenderBackendDX12::SubAllocateUpload( UINT64 size, UIN
 }
 
 
+D3D12_GPU_VIRTUAL_ADDRESS RenderBackendDX12::ReserveUpload( UINT64 size, UINT64 alignment )
+{
+    // Upload allocation has two inseparable parts:
+    //
+    // 1. Ask whether the current frame arena has enough aligned space.
+    // 2. If not, submit/wait/reset before handing out bytes.
+    //
+    // Keeping that pair in one helper prevents the old failure mode where one
+    // caller probes with one alignment, allocates with another, or skips the
+    // probe entirely. The alignment matters because DX12 constant buffers,
+    // texture rows, and vertex data can each require different byte boundaries.
+    FlushUploadBufferIfNeeded( size, alignment );
+    return SubAllocateUpload( size, alignment );
+}
+
+
 uint8_t* RenderBackendDX12::GetUploadPtr( D3D12_GPU_VIRTUAL_ADDRESS addr )
 {
     return m_uploadSystem.GetMappedPtr( m_allocatorIndex, addr );
@@ -624,6 +711,12 @@ UINT RenderBackendDX12::AllocateStaticSRV()
 UINT RenderBackendDX12::AllocateTransientSRV()
 {
     return m_srvDescriptors.AllocateTransient();
+}
+
+
+UINT RenderBackendDX12::AllocateTransientSRVRange( UINT count )
+{
+    return m_srvDescriptors.AllocateTransientRange( count );
 }
 
 
@@ -1019,6 +1112,20 @@ void RenderBackendDX12::Shutdown()
 {
     if ( !m_device )
     {
+        // Partial initialisation can fail inside Dx12RenderDevice before the
+        // backend has copied borrowed aliases such as m_device. Even in that
+        // state, the device owner may already hold factory/device/queue/swap
+        // chain objects, so always give it a chance to release them.
+        m_renderDevice.Shutdown();
+        m_factory = nullptr;
+        m_swapChain = nullptr;
+        m_commandQueue = nullptr;
+        m_commandList = nullptr;
+        for ( int i = 0; i < FRAME_COUNT; ++i )
+        {
+            m_commandAllocators[i] = nullptr;
+            m_frameFenceValues[i] = 0;
+        }
         return;
     }
 

@@ -73,9 +73,12 @@ void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle, const float* da
 
     EnsureCommandListOpen();
 
-    // Sub-allocate from upload buffer for vertex data
+    // ReserveUpload is intentionally used instead of raw SubAllocateUpload().
+    // It probes and flushes with the same alignment used for allocation, so a
+    // burst of dynamic UI/debug vertices can recover by submitting current work
+    // instead of throwing "DX12 upload buffer exhausted."
     UINT64 dataSize = (UINT64)vertexCount * dvb.stride;
-    D3D12_GPU_VIRTUAL_ADDRESS vbAddr = SubAllocateUpload( dataSize, 4 );
+    D3D12_GPU_VIRTUAL_ADDRESS vbAddr = ReserveUpload( dataSize, 4 );
     memcpy( GetUploadPtr( vbAddr ), data, (size_t)dataSize );
 
     // Determine vertex format
@@ -159,10 +162,11 @@ void RenderBackendDX12::DrawLinesColored( const float* data, int vertCount, cons
         NameDx12Object( m_gridLinePSO, L"Skullbonez DX12 Debug Line PSO" );
     }
 
-    // Upload vertex data to the shared upload buffer
+    // Upload vertex data to the shared upload buffer. Debug-line vertex data is
+    // read as vertex-buffer bytes, so 4-byte alignment is sufficient here; the
+    // important part is that the probe and final allocation use the same value.
     UINT64 dataSize = (UINT64)vertCount * 6 * sizeof( float );
-    FlushUploadBufferIfNeeded( dataSize, 4 );
-    D3D12_GPU_VIRTUAL_ADDRESS vbAddress = SubAllocateUpload( dataSize, 256 );
+    D3D12_GPU_VIRTUAL_ADDRESS vbAddress = ReserveUpload( dataSize, 4 );
     memcpy( GetUploadPtr( vbAddress ), data, (size_t)dataSize );
 
     // Set pipeline state and draw
@@ -246,8 +250,7 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData, int st
 
     // Upload static vertex data from CPU to GPU via the upload buffer, then transition to VB state.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-copybufferregion
-    FlushUploadBufferIfNeeded( dataSize, 4 );
-    D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = SubAllocateUpload( dataSize, 4 );
+    D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = ReserveUpload( dataSize, 4 );
     memcpy( GetUploadPtr( uploadAddr ), staticData, (size_t)dataSize );
     m_commandList->CopyBufferRegion( im.staticVB, 0, m_uploadSystem.Resource( m_allocatorIndex ), m_uploadSystem.OffsetFromAddress( m_allocatorIndex, uploadAddr ), dataSize );
     // Transition from COPY_DEST (implicit promotion after CopyBufferRegion) to the
@@ -274,7 +277,7 @@ void RenderBackendDX12::UploadInstanceData( uint32_t handle, const float* data, 
     EnsureCommandListOpen();
 
     UINT64 dataSize = (UINT64)floatCount * sizeof( float );
-    D3D12_GPU_VIRTUAL_ADDRESS addr = SubAllocateUpload( dataSize, 4 );
+    D3D12_GPU_VIRTUAL_ADDRESS addr = ReserveUpload( dataSize, 4 );
     memcpy( GetUploadPtr( addr ), data, (size_t)dataSize );
 
     im.instanceDataAddr = addr;

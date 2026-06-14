@@ -18,6 +18,30 @@ static inline void ThrowIfFailed( HRESULT hr, const char* msg )
     }
 }
 
+struct Dx12RenderDeviceInitRollback
+{
+    explicit Dx12RenderDeviceInitRollback( Dx12RenderDevice& device )
+        : target( device )
+    {
+    }
+
+    ~Dx12RenderDeviceInitRollback()
+    {
+        if ( !committed )
+        {
+            target.Shutdown();
+        }
+    }
+
+    void Commit()
+    {
+        committed = true;
+    }
+
+    Dx12RenderDevice& target;
+    bool committed = false;
+};
+
 void EnableDx12DeviceRemovedDiagnostics()
 {
     // DRED is Direct3D's "black box recorder" for device removal. A device can
@@ -352,6 +376,28 @@ UINT Dx12DescriptorAllocator::AllocateTransient()
 
     const UINT index = m_staticCapacity + ( m_currentFrame * m_transientCapacityPerFrame ) + m_nextTransientInFrame;
     ++m_nextTransientInFrame;
+    m_transientPeakThisRun = (std::max)( m_transientPeakThisRun, m_nextTransientInFrame );
+    return index;
+}
+
+
+UINT Dx12DescriptorAllocator::AllocateTransientRange( UINT count )
+{
+    if ( count == 0 )
+    {
+        throw std::runtime_error( "DX12 transient descriptor range count must be greater than zero" );
+    }
+    if ( m_frameCount == 0 )
+    {
+        throw std::runtime_error( "DX12 descriptor allocator used before Init" );
+    }
+    if ( count > m_transientCapacityPerFrame || m_nextTransientInFrame > m_transientCapacityPerFrame - count )
+    {
+        throw std::runtime_error( "DX12 transient SRV range exhausted for current frame allocator" );
+    }
+
+    const UINT index = m_staticCapacity + ( m_currentFrame * m_transientCapacityPerFrame ) + m_nextTransientInFrame;
+    m_nextTransientInFrame += count;
     m_transientPeakThisRun = (std::max)( m_transientPeakThisRun, m_nextTransientInFrame );
     return index;
 }
@@ -800,6 +846,12 @@ Dx12ReadbackBufferStats Dx12ReadbackBuffer::GetStats() const
 }
 
 
+Dx12RenderDevice::~Dx12RenderDevice()
+{
+    Shutdown();
+}
+
+
 bool Dx12RenderDevice::Init( const Dx12RenderDeviceInitDesc& desc )
 {
     Shutdown();
@@ -809,6 +861,7 @@ bool Dx12RenderDevice::Init( const Dx12RenderDeviceInitDesc& desc )
         throw std::runtime_error( "Invalid DX12 render device init description" );
     }
 
+    Dx12RenderDeviceInitRollback rollback( *this );
     m_frameCount = desc.frameCount;
     m_allocatorIndex = 0;
 
@@ -920,6 +973,7 @@ bool Dx12RenderDevice::Init( const Dx12RenderDeviceInitDesc& desc )
     }
     m_frameFence.Init( m_commandQueue, m_fence, m_fenceEvent );
 
+    rollback.Commit();
     return true;
 }
 

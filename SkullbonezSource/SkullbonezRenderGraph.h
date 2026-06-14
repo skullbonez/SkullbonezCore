@@ -193,7 +193,7 @@ class RenderGraph
   public:
     void Clear();
 
-    RenderGraphResourceHandle AddExternalResource( const char* name, RenderGraphResourceAccess initialAccess = RenderGraphResourceAccess::Unknown );
+    RenderGraphResourceHandle AddExternalResource( const char* name, RenderGraphResourceAccess initialAccess );
     uint32_t AddPass( const char* name, RenderGraphQueueType queue = RenderGraphQueueType::Graphics );
 
     void AddRead( uint32_t passIndex, RenderGraphResourceHandle resource, RenderGraphResourceAccess access );

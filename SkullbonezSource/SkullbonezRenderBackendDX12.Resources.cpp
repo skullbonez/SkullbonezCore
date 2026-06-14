@@ -79,8 +79,7 @@ std::unique_ptr<IMesh> RenderBackendDX12::CreateMesh( const float* data, int ver
 
     EnsureCommandListOpen();
     UINT64 dataSize = (UINT64)vertexCount * floatsPerVert * sizeof( float );
-    FlushUploadBufferIfNeeded( dataSize, 4 );
-    D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = SubAllocateUpload( dataSize, 4 );
+    D3D12_GPU_VIRTUAL_ADDRESS uploadAddr = ReserveUpload( dataSize, 4 );
     uint8_t* uploadPtr = GetUploadPtr( uploadAddr );
 
     auto mesh = std::make_unique<MeshDX12>();

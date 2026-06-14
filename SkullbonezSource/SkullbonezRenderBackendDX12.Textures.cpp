@@ -245,10 +245,7 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
         // time, so unused entries receive a null UAV descriptor rather than a
         // missing table row.
         // ------------------------------------------------------------------
-        UINT uavBase = AllocateTransientSRV(); // u0
-        AllocateTransientSRV();                // u1
-        AllocateTransientSRV();                // u2
-        AllocateTransientSRV();                // u3
+        UINT uavBase = AllocateTransientSRVRange( 4 ); // u0..u3, checked as one contiguous table range
 
         for ( UINT i = 0; i < 4; ++i )
         {
@@ -441,8 +438,7 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
     UINT64 rowSize0, mip0Bytes;
     m_device->GetCopyableFootprints( &texDesc, 0, 1, 0, &fp0, &rowCount0, &rowSize0, &mip0Bytes );
 
-    FlushUploadBufferIfNeeded( mip0Bytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT );
-    D3D12_GPU_VIRTUAL_ADDRESS uploadBase = SubAllocateUpload( mip0Bytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT );
+    D3D12_GPU_VIRTUAL_ADDRESS uploadBase = ReserveUpload( mip0Bytes, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT );
     const UINT64 baseOffset = m_uploadSystem.OffsetFromAddress( m_allocatorIndex, uploadBase );
     uint8_t* uploadDst = GetUploadPtr( uploadBase );
 

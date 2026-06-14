@@ -529,17 +529,13 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj, const 
     if ( allValid )
     {
         // Root parameter [3] is one descriptor table with eight consecutive SRV
-        // rows. AllocateTransientSRV() returns the first row, then the following
-        // calls reserve row +1 through row +7 so the table is contiguous.
+        // rows. AllocateTransientSRVRange() checks and reserves all eight rows
+        // at once, so an exhausted heap cannot leave a partially reserved table.
         //
         // Contiguous matters because the shader sees this as t0..t7 starting at
         // one base GPU handle. It does not know about our texture registry or
         // individual C++ texture handles.
-        UINT slot0 = AllocateTransientSRV();
-        for ( int i = 1; i < 8; ++i )
-        {
-            AllocateTransientSRV(); // ensure 8 contiguous slots
-        }
+        UINT slot0 = AllocateTransientSRVRange( 8 );
 
         for ( int i = 0; i < 8; ++i )
         {

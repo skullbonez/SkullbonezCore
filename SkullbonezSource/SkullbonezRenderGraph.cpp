@@ -211,6 +211,16 @@ RenderGraphCompileResult RenderGraph::Compile() const
             CheckedConcreteAccess( use.access );
             CheckedResource( use.resource );
             RenderGraphResourceAccess& current = currentAccess[use.resource.index];
+            if ( current == RenderGraphResourceAccess::Unknown )
+            {
+                // Unknown means "legacy code still owns the real initial DX12
+                // state." It is useful as a diagnostic marker, but it is not a
+                // real barrier source state. Do not emit Unknown -> X
+                // transitions because the DX12 dump would otherwise be tempted
+                // to translate Unknown into COMMON and count a fake match.
+                current = use.access;
+                return;
+            }
             if ( current != use.access )
             {
                 RenderGraphTransitionDesc transition;
