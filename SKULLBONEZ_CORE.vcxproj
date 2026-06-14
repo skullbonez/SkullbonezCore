@@ -218,6 +218,13 @@
     <ClCompile Include="SkullbonezSource\SkullbonezMeshDX11.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezFramebufferDX11.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.DXR.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.DynamicGeometry.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Pipeline.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Profiler.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Readback.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Resources.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Textures.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRenderDeviceDX12.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezShaderDX12.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezMeshDX12.cpp" />

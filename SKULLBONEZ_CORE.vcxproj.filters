@@ -210,6 +210,27 @@
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.cpp">
       <Filter>Source Files\DX12</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.DXR.cpp">
+      <Filter>Source Files\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.DynamicGeometry.cpp">
+      <Filter>Source Files\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Pipeline.cpp">
+      <Filter>Source Files\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Profiler.cpp">
+      <Filter>Source Files\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Readback.cpp">
+      <Filter>Source Files\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Resources.cpp">
+      <Filter>Source Files\DX12</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Textures.cpp">
+      <Filter>Source Files\DX12</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRenderDeviceDX12.cpp">
       <Filter>Source Files\DX12</Filter>
     </ClCompile>
