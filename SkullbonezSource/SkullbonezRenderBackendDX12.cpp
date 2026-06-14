@@ -115,7 +115,7 @@ RenderBackendDX12::RenderBackendDX12()
 
 void RenderBackendDX12::WaitForGpu()
 {
-    if ( !m_frameFence.IsReady() )
+    if ( !m_renderDevice.FrameFence().IsReady() )
     {
         return;
     }
@@ -124,7 +124,7 @@ void RenderBackendDX12::WaitForGpu()
     // queue work, then block until that value is complete. In plain terms:
     // WaitForGpu() means "do not let the CPU continue until the GPU has caught
     // up to every command we submitted so far."
-    m_frameFence.SignalAndWait();
+    m_renderDevice.FrameFence().SignalAndWait();
 
     // After full GPU wait, all frame fences are implicitly completed
     for ( int i = 0; i < FRAME_COUNT; ++i )
@@ -149,7 +149,7 @@ void RenderBackendDX12::AssertPlatformProfilerGpuStackClosed( const char* reason
 
 void RenderBackendDX12::EnsureCommandListOpen()
 {
-    if ( !m_commandList || !m_commandQueue || !m_frameFence.IsReady() || !m_commandAllocators[m_allocatorIndex] )
+    if ( !m_commandList || !m_commandQueue || !m_renderDevice.FrameFence().IsReady() || !m_commandAllocators[m_allocatorIndex] )
     {
         throw std::runtime_error( "DX12 backend is not fully initialised (command list/fence unavailable)." );
     }
@@ -166,10 +166,10 @@ void RenderBackendDX12::EnsureCommandListOpen()
     // upload arena and transient descriptor range to the same frame index. The
     // fence value proves all three pieces of temporary per-frame storage are no
     // longer being read by the GPU before we reset them.
-    UINT64 completedFence = m_frameFence.CompletedValue();
+    UINT64 completedFence = m_renderDevice.FrameFence().CompletedValue();
     if ( m_frameFenceValues[m_allocatorIndex] > completedFence )
     {
-        m_frameFence.WaitForValue( m_frameFenceValues[m_allocatorIndex] );
+        m_renderDevice.FrameFence().WaitForValue( m_frameFenceValues[m_allocatorIndex] );
     }
 
     // Reset the command allocator — frees all memory from previously recorded commands.
@@ -471,121 +471,36 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     m_width = width;
     m_height = height;
 
-    // DXGI Factory
-    UINT factoryFlags = 0;
-    // DRED must be enabled before the D3D12 device is created. It is the GPU
-    // failure breadcrumb system: if the driver removes the device later, the
-    // report can include the named command lists and resources involved near
-    // the failure instead of only returning a generic lost-device HRESULT.
-    EnableDx12DeviceRemovedDiagnostics();
+    Dx12RenderDeviceInitDesc deviceDesc;
+    deviceDesc.hwnd = hwnd;
+    deviceDesc.width = static_cast<UINT>( width );
+    deviceDesc.height = static_cast<UINT>( height );
+    deviceDesc.frameCount = FRAME_COUNT;
+    deviceDesc.backBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+    m_renderDevice.Init( deviceDesc );
 
-    // Enable the DX12 debug layer for development builds. This makes the runtime validate every
-    // API call and report errors/warnings — essential for catching bugs but has a performance cost.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12sdklayers/nf-d3d12sdklayers-id3d12debug-enabledebuglayer
+    // The render device now owns the DXGI/D3D12 platform objects: factory,
+    // device, graphics queue, swap chain, command allocators, command list, and
+    // frame fence. RenderBackendDX12 still acts as the IRenderBackend facade,
+    // so it borrows raw pointers from the device layer while the rest of the
+    // renderer is migrated in small slices.
+    m_factory = m_renderDevice.Factory();
+    m_swapChain = m_renderDevice.SwapChain();
+    m_device = m_renderDevice.Device();
+    m_commandQueue = m_renderDevice.GraphicsQueue();
+    m_commandList = m_renderDevice.CommandList();
+    for ( int i = 0; i < FRAME_COUNT; ++i )
     {
-        ID3D12Debug* debugController = nullptr;
-        if ( SUCCEEDED( D3D12GetDebugInterface( IID_PPV_ARGS( &debugController ) ) ) )
-        {
-            debugController->EnableDebugLayer();
-            debugController->Release();
-            factoryFlags = DXGI_CREATE_FACTORY_DEBUG;
-        }
+        m_commandAllocators[i] = m_renderDevice.CommandAllocator( static_cast<UINT>( i ) );
+        m_frameFenceValues[i] = 0;
     }
-    // Create the DXGI Factory — this is the starting point for all DirectX graphics.
-    // DXGI (DirectX Graphics Infrastructure) manages adapters (GPUs), monitors, and swap chains.
-    // The factory is used to enumerate GPUs and create the swap chain for presenting frames.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi1_3/nf-dxgi1_3-createdxgifactory2
-    if ( FAILED( CreateDXGIFactory2( factoryFlags, IID_PPV_ARGS( &m_factory ) ) ) )
-    {
-        throw std::runtime_error( "CreateDXGIFactory2 failed" );
-    }
-    {
-        IDXGIFactory5* factory5 = nullptr;
-        BOOL allowTearing = FALSE;
-        if ( SUCCEEDED( m_factory->QueryInterface( IID_PPV_ARGS( &factory5 ) ) ) )
-        {
-            if ( FAILED( factory5->CheckFeatureSupport( DXGI_FEATURE_PRESENT_ALLOW_TEARING,
-                                                        &allowTearing,
-                                                        sizeof( allowTearing ) ) ) )
-            {
-                allowTearing = FALSE;
-            }
-            factory5->Release();
-        }
-        m_allowTearing = allowTearing == TRUE;
-    }
-
-    // Create the DX12 Device — this is the primary interface for creating ALL GPU resources.
-    // The device represents a virtual GPU adapter. Pass nullptr for the first param to use the
-    // default adapter. D3D_FEATURE_LEVEL_11_0 means we need at least DX11-capable hardware.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-d3d12createdevice
-    if ( FAILED( D3D12CreateDevice( nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS( &m_device ) ) ) )
-    {
-        throw std::runtime_error( "D3D12CreateDevice failed" );
-    }
-    NameDx12Object( m_device, L"Skullbonez DX12 Device" );
+    m_commandListOpen = false;
+    m_allocatorIndex = m_renderDevice.AllocatorIndex();
+    m_frameIndex = m_renderDevice.FrameIndex();
+    m_allowTearing = m_renderDevice.AllowTearing();
 
     // Check DXR capability
     CheckDXRSupport();
-
-    // Configure the debug info queue: break on corruption and errors, suppress INFO-level chatter.
-    {
-        ID3D12InfoQueue* infoQueue = nullptr;
-        if ( SUCCEEDED( m_device->QueryInterface( IID_PPV_ARGS( &infoQueue ) ) ) )
-        {
-            // Break into the debugger immediately on CORRUPTION or ERROR — same policy as DX11.
-            // WARNING messages are logged but do not break; they must be investigated manually.
-            infoQueue->SetBreakOnSeverity( D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE );
-            infoQueue->SetBreakOnSeverity( D3D12_MESSAGE_SEVERITY_ERROR, TRUE );
-
-            // Suppress all INFO-level messages from the debug layer. INFO-level messages are
-            // pure lifecycle chatter (create/destroy resource, heap, command list, fence etc.)
-            // and provide no actionable diagnostic value during development. We only want to
-            // see WARNING and ERROR severity messages in the debug output.
-            D3D12_MESSAGE_SEVERITY denySeverities[] = { D3D12_MESSAGE_SEVERITY_INFO };
-            D3D12_INFO_QUEUE_FILTER filter = {};
-            filter.DenyList.NumSeverities = _countof( denySeverities );
-            filter.DenyList.pSeverityList = denySeverities;
-            infoQueue->PushStorageFilter( &filter );
-            infoQueue->Release();
-        }
-    }
-
-    // Create the Command Queue — this is the submission point for GPU work. Command lists are
-    // recorded on the CPU, then submitted here for the GPU to execute. DIRECT type means it can
-    // run graphics, compute, and copy commands (as opposed to COMPUTE-only or COPY-only queues).
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommandqueue
-    D3D12_COMMAND_QUEUE_DESC queueDesc = {};
-    queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-    if ( FAILED( m_device->CreateCommandQueue( &queueDesc, IID_PPV_ARGS( &m_commandQueue ) ) ) )
-    {
-        throw std::runtime_error( "CreateCommandQueue failed" );
-    }
-    NameDx12Object( m_commandQueue, L"Skullbonez DX12 Graphics Queue" );
-
-    // Create the Swap Chain — manages the double-buffered back buffers that are presented to the
-    // screen. FLIP_DISCARD means the OS can discard the previous frame's content after presenting
-    // (most efficient mode). BufferCount=2 gives us two alternating back buffers.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi1_2/nf-dxgi1_2-idxgifactory2-createswapchainforhwnd
-    DXGI_SWAP_CHAIN_DESC1 scDesc = {};
-    scDesc.BufferCount = FRAME_COUNT;
-    scDesc.Width = (UINT)width;
-    scDesc.Height = (UINT)height;
-    scDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    scDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    scDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-    scDesc.SampleDesc.Count = 1;
-    scDesc.Flags = m_allowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
-
-    IDXGISwapChain1* swapChain1 = nullptr;
-    if ( FAILED( m_factory->CreateSwapChainForHwnd( m_commandQueue, hwnd, &scDesc, nullptr, nullptr, &swapChain1 ) ) )
-    {
-        throw std::runtime_error( "CreateSwapChainForHwnd failed" );
-    }
-    swapChain1->QueryInterface( IID_PPV_ARGS( &m_swapChain ) );
-    swapChain1->Release();
-    m_factory->MakeWindowAssociation( hwnd, DXGI_MWA_NO_ALT_ENTER );
-    m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
 
     // Descriptor heap mental model:
     //
@@ -678,40 +593,6 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
 
     // Depth stencil
     CreateDepthStencil( width, height );
-
-    // Create Command Allocators — one per frame in flight. A command allocator is the backing
-    // memory pool for command list recordings. You can't reuse an allocator until the GPU has
-    // finished executing the commands that were recorded into it (enforced via fence).
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommandallocator
-    for ( int i = 0; i < FRAME_COUNT; ++i )
-    {
-        ThrowIfFailed( m_device->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS( &m_commandAllocators[i] ) ), "CreateCommandAllocator failed" );
-        NameDx12ObjectIndexed( m_commandAllocators[i], L"Skullbonez DX12 Command Allocator", (UINT)i );
-    }
-
-    // Create the Command List — this is the "recording device" for GPU commands. You record draw
-    // calls, resource transitions, and other operations into it, then submit it to the queue.
-    // Only one command list is needed because we close/reset it between frames.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommandlist
-    ThrowIfFailed( m_device->CreateCommandList( 0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocators[0], nullptr, IID_PPV_ARGS( &m_commandList ) ), "CreateCommandList failed" );
-    NameDx12Object( m_commandList, L"Skullbonez DX12 Main Command List" );
-    m_commandList->Close();
-    m_commandListOpen = false;
-    m_allocatorIndex = 0;
-
-    // Create a Fence — the CPU/GPU synchronization primitive. A fence is essentially a counter:
-    // the GPU signals it after completing work, and the CPU can wait until a specific value is
-    // reached. This is how we ensure we don't overwrite command allocator memory that the GPU is
-    // still reading from a previous frame.
-    // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createfence
-    ThrowIfFailed( m_device->CreateFence( 0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &m_fence ) ), "CreateFence failed" );
-    NameDx12Object( m_fence, L"Skullbonez DX12 Frame Fence" );
-    m_fenceEvent = CreateEvent( nullptr, FALSE, FALSE, nullptr );
-    if ( !m_fenceEvent )
-    {
-        throw std::runtime_error( "CreateEvent (frame fence) failed" );
-    }
-    m_frameFence.Init( m_commandQueue, m_fence, m_fenceEvent );
 
     // Create per-frame upload buffers — one per FRAME_COUNT allocator. Each holds CPU-writable,
     // GPU-readable memory for per-frame constant buffers, dynamic vertex buffers, and texture
@@ -1116,26 +997,6 @@ void RenderBackendDX12::Shutdown()
     {
         m_rootSignature->Release();
     }
-    m_frameFence.Reset();
-    if ( m_fence )
-    {
-        m_fence->Release();
-    }
-    if ( m_fenceEvent )
-    {
-        CloseHandle( m_fenceEvent );
-    }
-    if ( m_commandList )
-    {
-        m_commandList->Release();
-    }
-    for ( int i = 0; i < FRAME_COUNT; ++i )
-    {
-        if ( m_commandAllocators[i] )
-        {
-            m_commandAllocators[i]->Release();
-        }
-    }
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
         if ( m_renderTargets[i] )
@@ -1160,25 +1021,21 @@ void RenderBackendDX12::Shutdown()
     {
         m_rtvHeap->Release();
     }
-    if ( m_swapChain )
+    m_renderDevice.Shutdown();
+    m_factory = nullptr;
+    m_swapChain = nullptr;
+    m_device = nullptr;
+    m_commandQueue = nullptr;
+    m_commandList = nullptr;
+    for ( int i = 0; i < FRAME_COUNT; ++i )
     {
-        m_swapChain->SetFullscreenState( FALSE, nullptr );
-        m_swapChain->Release();
+        m_commandAllocators[i] = nullptr;
+        m_frameFenceValues[i] = 0;
     }
-    if ( m_commandQueue )
-    {
-        m_commandQueue->Release();
-    }
-    if ( m_device )
-    {
-        m_device->Release();
-        m_device = nullptr;
-    }
-    if ( m_factory )
-    {
-        m_factory->Release();
-        m_factory = nullptr;
-    }
+    m_commandListOpen = false;
+    m_allocatorIndex = 0;
+    m_frameIndex = 0;
+    m_allowTearing = false;
 
     s_instance = nullptr;
 }
@@ -1252,7 +1109,7 @@ void RenderBackendDX12::Present()
     // Later, EnsureCommandListOpen asks the timeline helper whether this value
     // has completed before reusing this frame's command allocator, upload arena,
     // and transient descriptor range.
-    m_frameFenceValues[m_allocatorIndex] = m_frameFence.Signal();
+    m_frameFenceValues[m_allocatorIndex] = m_renderDevice.FrameFence().Signal();
 
     // Timer readback can be mapped once this frame's signal fence is reached.
     // If there's an unconsumed readback still pending (e.g. fence wasn't ready during the
@@ -1272,8 +1129,8 @@ void RenderBackendDX12::Present()
     }
 
     // Advance to next frame's allocator and swap chain buffer
-    m_allocatorIndex = ( m_allocatorIndex + 1 ) % FRAME_COUNT;
-    m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+    m_allocatorIndex = m_renderDevice.AdvanceAllocatorIndex();
+    m_frameIndex = m_renderDevice.RefreshFrameIndexFromSwapChain();
     m_currentRTV = GetRTVHandle( m_frameIndex );
 }
 
@@ -1338,7 +1195,7 @@ void RenderBackendDX12::Resize( int width, int height )
 
     const UINT resizeFlags = m_allowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u;
     m_swapChain->ResizeBuffers( FRAME_COUNT, (UINT)width, (UINT)height, DXGI_FORMAT_R8G8B8A8_UNORM, resizeFlags );
-    m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+    m_frameIndex = m_renderDevice.RefreshFrameIndexFromSwapChain();
 
     // ResizeBuffers puts all back buffers into PRESENT state — reset our tracking flag
     // so the next Clear() correctly transitions to RENDER_TARGET before use.

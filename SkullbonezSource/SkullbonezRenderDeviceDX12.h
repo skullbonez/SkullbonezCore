@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <d3d12.h>
+#include <dxgi1_5.h>
 
 namespace SkullbonezCore
 {
@@ -384,6 +385,139 @@ class Dx12UploadArena
     UINT64 m_capacityBytes = 0;
     UINT64 m_currentOffset = 0;
     UINT64 m_peakBytes = 0;
+};
+
+struct Dx12RenderDeviceInitDesc
+{
+    HWND hwnd = nullptr;
+    UINT width = 0;
+    UINT height = 0;
+    UINT frameCount = 0;
+    DXGI_FORMAT backBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+};
+
+/* -- Dx12RenderDevice ------------------------------------------------------------------------------------------------------------------------------------------
+
+    What is the render device layer?
+
+    This is the owner for the "engine talks to DirectX" objects that every DX12
+    renderer needs before it can draw a triangle:
+
+    - DXGI factory: talks to Windows about adapters, monitors, and swap chains.
+    - D3D12 device: creates GPU resources, descriptor heaps, PSOs, fences, and
+      command objects.
+    - command queue: submits recorded command lists to the GPU.
+    - swap chain: owns the presentable back buffers shown by the window.
+    - command allocators and command list: CPU-side command recording storage.
+    - frame fence and event: proves when the GPU is done with submitted work.
+
+    Why split this out of RenderBackendDX12?
+
+    RenderBackendDX12 is the public IRenderBackend facade. It knows about engine
+    concepts such as textures, meshes, framebuffers, draw state, screenshots,
+    DXR reflection, and UI/debug drawing. The low-level DX12 device objects have
+    a different job: they establish and retire the GPU timeline.
+
+    Keeping device ownership here gives the renderer a clear boundary:
+
+    - this class owns raw COM lifetime for factory/device/queue/swapchain/fence,
+    - the backend may borrow those pointers through accessors,
+    - future render graph and pass modules can ask for the command list and
+      queues without inheriting swap-chain setup code,
+    - shutdown has one place to release the core DX12 objects in a safe order.
+
+    This is not yet the final renderer device from the architecture plan. It is
+    the first ownership extraction: enough to remove device/swapchain/fence
+    creation and release from the backend facade while preserving current draw
+    behavior.
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+class Dx12RenderDevice
+{
+  public:
+    static constexpr UINT MAX_FRAME_COUNT = 4;
+
+    bool Init( const Dx12RenderDeviceInitDesc& desc );
+    void Shutdown();
+
+    bool IsReady() const
+    {
+        return m_device != nullptr;
+    }
+
+    IDXGIFactory4* Factory() const
+    {
+        return m_factory;
+    }
+
+    IDXGISwapChain3* SwapChain() const
+    {
+        return m_swapChain;
+    }
+
+    ID3D12Device* Device() const
+    {
+        return m_device;
+    }
+
+    ID3D12CommandQueue* GraphicsQueue() const
+    {
+        return m_commandQueue;
+    }
+
+    ID3D12GraphicsCommandList* CommandList() const
+    {
+        return m_commandList;
+    }
+
+    ID3D12CommandAllocator* CommandAllocator( UINT index ) const;
+
+    Dx12FenceTimeline& FrameFence()
+    {
+        return m_frameFence;
+    }
+
+    const Dx12FenceTimeline& FrameFence() const
+    {
+        return m_frameFence;
+    }
+
+    UINT FrameCount() const
+    {
+        return m_frameCount;
+    }
+
+    UINT FrameIndex() const
+    {
+        return m_frameIndex;
+    }
+
+    UINT AllocatorIndex() const
+    {
+        return m_allocatorIndex;
+    }
+
+    UINT AdvanceAllocatorIndex();
+    UINT RefreshFrameIndexFromSwapChain();
+
+    bool AllowTearing() const
+    {
+        return m_allowTearing;
+    }
+
+  private:
+    IDXGIFactory4* m_factory = nullptr;
+    IDXGISwapChain3* m_swapChain = nullptr;
+    ID3D12Device* m_device = nullptr;
+    ID3D12CommandQueue* m_commandQueue = nullptr;
+    ID3D12GraphicsCommandList* m_commandList = nullptr;
+    ID3D12CommandAllocator* m_commandAllocators[MAX_FRAME_COUNT] = {};
+    ID3D12Fence* m_fence = nullptr;
+    HANDLE m_fenceEvent = nullptr;
+    Dx12FenceTimeline m_frameFence;
+    UINT m_frameCount = 0;
+    UINT m_frameIndex = 0;
+    UINT m_allocatorIndex = 0;
+    bool m_allowTearing = false;
 };
 
 } // namespace Rendering

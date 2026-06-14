@@ -142,7 +142,14 @@ class RenderBackendDX12 : public IRenderBackend
     SBT m_sbt;
     GpuTimerStateDX12 m_gpuTimers;
 
-    // Primitives / resource handles
+    // The render device owns the core D3D12 lifetime: factory, device, queue,
+    // swap chain, command allocators, command list, and frame fence. The raw
+    // pointers below are borrowed aliases kept only so the existing backend
+    // methods can be migrated in small slices without changing every call site
+    // at once.
+    Dx12RenderDevice m_renderDevice;
+
+    // Borrowed core device aliases. Do not Release() these in the backend.
     IDXGIFactory4* m_factory = nullptr;
     IDXGISwapChain3* m_swapChain = nullptr;
     ID3D12Device* m_device = nullptr;
@@ -156,10 +163,7 @@ class RenderBackendDX12 : public IRenderBackend
     UINT m_frameIndex = 0;
     UINT m_allocatorIndex = 0; // Which allocator is active (alternates 0/1)
 
-    ID3D12Fence* m_fence = nullptr;
-    Dx12FenceTimeline m_frameFence;
     UINT64 m_frameFenceValues[FRAME_COUNT] = {}; // Fence value signaled by each frame's submission
-    HANDLE m_fenceEvent = nullptr;
 
     // Descriptor heaps are descriptor tables, not texture arrays.
     //

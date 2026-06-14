@@ -47,7 +47,7 @@ static inline void ThrowIfFailed( HRESULT hr, const char* msg )
 
 void RenderBackendDX12::TryConsumeGpuTimerReadback( bool waitForFence )
 {
-    if ( !m_gpuTimers.queryHeap || !m_gpuTimers.readPending || !m_gpuTimers.readbackBuf || !m_frameFence.IsReady() )
+    if ( !m_gpuTimers.queryHeap || !m_gpuTimers.readPending || !m_gpuTimers.readbackBuf || !m_renderDevice.FrameFence().IsReady() )
     {
         return;
     }
@@ -56,9 +56,9 @@ void RenderBackendDX12::TryConsumeGpuTimerReadback( bool waitForFence )
     // PipelineSync is disabled. Blocking mode is only used by Finish()/FlushGPU().
     if ( waitForFence )
     {
-        m_frameFence.WaitForValue( m_gpuTimers.readFenceValue );
+        m_renderDevice.FrameFence().WaitForValue( m_gpuTimers.readFenceValue );
     }
-    else if ( m_frameFence.CompletedValue() < m_gpuTimers.readFenceValue )
+    else if ( m_renderDevice.FrameFence().CompletedValue() < m_gpuTimers.readFenceValue )
     {
         // The Signal is submitted right after vsync — the GPU needs only nanoseconds to
         // process it, but in optimised builds the CPU can arrive here before it fires.
@@ -68,12 +68,12 @@ void RenderBackendDX12::TryConsumeGpuTimerReadback( bool waitForFence )
         for ( int spin = 0; spin < 512; ++spin )
         {
             YieldProcessor();
-            if ( m_frameFence.CompletedValue() >= m_gpuTimers.readFenceValue )
+            if ( m_renderDevice.FrameFence().CompletedValue() >= m_gpuTimers.readFenceValue )
             {
                 break;
             }
         }
-        if ( m_frameFence.CompletedValue() < m_gpuTimers.readFenceValue )
+        if ( m_renderDevice.FrameFence().CompletedValue() < m_gpuTimers.readFenceValue )
         {
             return; // genuinely not ready — try again next frame
         }

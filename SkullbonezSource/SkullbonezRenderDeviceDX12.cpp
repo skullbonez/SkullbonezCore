@@ -10,6 +10,14 @@ namespace SkullbonezCore
 namespace Rendering
 {
 
+static inline void ThrowIfFailed( HRESULT hr, const char* msg )
+{
+    if ( FAILED( hr ) )
+    {
+        throw std::runtime_error( msg );
+    }
+}
+
 void EnableDx12DeviceRemovedDiagnostics()
 {
     // DRED is Direct3D's "black box recorder" for device removal. A device can
@@ -467,6 +475,219 @@ UINT64 Dx12UploadArena::AlignOffset( UINT64 offset, UINT64 alignment ) const
         return offset;
     }
     return ( ( offset + alignment - 1 ) / alignment ) * alignment;
+}
+
+
+bool Dx12RenderDevice::Init( const Dx12RenderDeviceInitDesc& desc )
+{
+    Shutdown();
+
+    if ( !desc.hwnd || desc.width == 0 || desc.height == 0 || desc.frameCount == 0 || desc.frameCount > MAX_FRAME_COUNT )
+    {
+        throw std::runtime_error( "Invalid DX12 render device init description" );
+    }
+
+    m_frameCount = desc.frameCount;
+    m_allocatorIndex = 0;
+
+    // DRED must be enabled before the D3D12 device is created. Think of DRED as
+    // the GPU crash recorder: if the driver removes the device, the report can
+    // include breadcrumbs for named queues, command lists, and resources.
+    EnableDx12DeviceRemovedDiagnostics();
+
+    UINT factoryFlags = 0;
+    {
+        ID3D12Debug* debugController = nullptr;
+        if ( SUCCEEDED( D3D12GetDebugInterface( IID_PPV_ARGS( &debugController ) ) ) )
+        {
+            debugController->EnableDebugLayer();
+            debugController->Release();
+            factoryFlags = DXGI_CREATE_FACTORY_DEBUG;
+        }
+    }
+
+    // The DXGI factory is the Windows-facing graphics object. It creates the
+    // swap chain and answers platform questions such as "can this swap chain
+    // present without VSync tearing restrictions?"
+    ThrowIfFailed( CreateDXGIFactory2( factoryFlags, IID_PPV_ARGS( &m_factory ) ), "CreateDXGIFactory2 failed" );
+
+    {
+        IDXGIFactory5* factory5 = nullptr;
+        BOOL allowTearing = FALSE;
+        if ( SUCCEEDED( m_factory->QueryInterface( IID_PPV_ARGS( &factory5 ) ) ) )
+        {
+            if ( FAILED( factory5->CheckFeatureSupport( DXGI_FEATURE_PRESENT_ALLOW_TEARING,
+                                                        &allowTearing,
+                                                        sizeof( allowTearing ) ) ) )
+            {
+                allowTearing = FALSE;
+            }
+            factory5->Release();
+        }
+        m_allowTearing = allowTearing == TRUE;
+    }
+
+    // The D3D12 device is the factory for GPU resources, descriptor heaps, root
+    // signatures, PSOs, fences, and command objects. The backend borrows this
+    // pointer, but this device layer owns its COM lifetime.
+    ThrowIfFailed( D3D12CreateDevice( nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS( &m_device ) ), "D3D12CreateDevice failed" );
+    NameDx12Object( m_device, L"Skullbonez DX12 Device" );
+
+    {
+        ID3D12InfoQueue* infoQueue = nullptr;
+        if ( SUCCEEDED( m_device->QueryInterface( IID_PPV_ARGS( &infoQueue ) ) ) )
+        {
+            infoQueue->SetBreakOnSeverity( D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE );
+            infoQueue->SetBreakOnSeverity( D3D12_MESSAGE_SEVERITY_ERROR, TRUE );
+
+            D3D12_MESSAGE_SEVERITY denySeverities[] = { D3D12_MESSAGE_SEVERITY_INFO };
+            D3D12_INFO_QUEUE_FILTER filter = {};
+            filter.DenyList.NumSeverities = _countof( denySeverities );
+            filter.DenyList.pSeverityList = denySeverities;
+            infoQueue->PushStorageFilter( &filter );
+            infoQueue->Release();
+        }
+    }
+
+    // The graphics queue is where finished command lists are submitted. The CPU
+    // records work into a command list; the queue is the doorway to the GPU.
+    D3D12_COMMAND_QUEUE_DESC queueDesc = {};
+    queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+    ThrowIfFailed( m_device->CreateCommandQueue( &queueDesc, IID_PPV_ARGS( &m_commandQueue ) ), "CreateCommandQueue failed" );
+    NameDx12Object( m_commandQueue, L"Skullbonez DX12 Graphics Queue" );
+
+    DXGI_SWAP_CHAIN_DESC1 scDesc = {};
+    scDesc.BufferCount = desc.frameCount;
+    scDesc.Width = desc.width;
+    scDesc.Height = desc.height;
+    scDesc.Format = desc.backBufferFormat;
+    scDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    scDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+    scDesc.SampleDesc.Count = 1;
+    scDesc.Flags = m_allowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
+
+    IDXGISwapChain1* swapChain1 = nullptr;
+    ThrowIfFailed( m_factory->CreateSwapChainForHwnd( m_commandQueue, desc.hwnd, &scDesc, nullptr, nullptr, &swapChain1 ),
+                   "CreateSwapChainForHwnd failed" );
+    ThrowIfFailed( swapChain1->QueryInterface( IID_PPV_ARGS( &m_swapChain ) ), "SwapChain QueryInterface failed" );
+    swapChain1->Release();
+    m_factory->MakeWindowAssociation( desc.hwnd, DXGI_MWA_NO_ALT_ENTER );
+    m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+
+    for ( UINT i = 0; i < m_frameCount; ++i )
+    {
+        // A command allocator is the memory backing one batch of recorded GPU
+        // commands. It must not be reset until the frame fence proves the GPU
+        // has finished executing commands recorded into it.
+        ThrowIfFailed( m_device->CreateCommandAllocator( D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS( &m_commandAllocators[i] ) ),
+                       "CreateCommandAllocator failed" );
+        NameDx12ObjectIndexed( m_commandAllocators[i], L"Skullbonez DX12 Command Allocator", i );
+    }
+
+    ThrowIfFailed( m_device->CreateCommandList( 0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocators[0], nullptr, IID_PPV_ARGS( &m_commandList ) ),
+                   "CreateCommandList failed" );
+    NameDx12Object( m_commandList, L"Skullbonez DX12 Main Command List" );
+    m_commandList->Close();
+
+    ThrowIfFailed( m_device->CreateFence( 0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS( &m_fence ) ), "CreateFence failed" );
+    NameDx12Object( m_fence, L"Skullbonez DX12 Frame Fence" );
+    m_fenceEvent = CreateEvent( nullptr, FALSE, FALSE, nullptr );
+    if ( !m_fenceEvent )
+    {
+        throw std::runtime_error( "CreateEvent (frame fence) failed" );
+    }
+    m_frameFence.Init( m_commandQueue, m_fence, m_fenceEvent );
+
+    return true;
+}
+
+
+void Dx12RenderDevice::Shutdown()
+{
+    m_frameFence.Reset();
+
+    if ( m_fence )
+    {
+        m_fence->Release();
+        m_fence = nullptr;
+    }
+    if ( m_fenceEvent )
+    {
+        CloseHandle( m_fenceEvent );
+        m_fenceEvent = nullptr;
+    }
+    if ( m_commandList )
+    {
+        m_commandList->Release();
+        m_commandList = nullptr;
+    }
+    for ( UINT i = 0; i < MAX_FRAME_COUNT; ++i )
+    {
+        if ( m_commandAllocators[i] )
+        {
+            m_commandAllocators[i]->Release();
+            m_commandAllocators[i] = nullptr;
+        }
+    }
+    if ( m_swapChain )
+    {
+        m_swapChain->SetFullscreenState( FALSE, nullptr );
+        m_swapChain->Release();
+        m_swapChain = nullptr;
+    }
+    if ( m_commandQueue )
+    {
+        m_commandQueue->Release();
+        m_commandQueue = nullptr;
+    }
+    if ( m_device )
+    {
+        m_device->Release();
+        m_device = nullptr;
+    }
+    if ( m_factory )
+    {
+        m_factory->Release();
+        m_factory = nullptr;
+    }
+
+    m_frameCount = 0;
+    m_frameIndex = 0;
+    m_allocatorIndex = 0;
+    m_allowTearing = false;
+}
+
+
+ID3D12CommandAllocator* Dx12RenderDevice::CommandAllocator( UINT index ) const
+{
+    if ( index >= m_frameCount )
+    {
+        return nullptr;
+    }
+    return m_commandAllocators[index];
+}
+
+
+UINT Dx12RenderDevice::AdvanceAllocatorIndex()
+{
+    if ( m_frameCount == 0 )
+    {
+        return 0;
+    }
+    m_allocatorIndex = ( m_allocatorIndex + 1 ) % m_frameCount;
+    return m_allocatorIndex;
+}
+
+
+UINT Dx12RenderDevice::RefreshFrameIndexFromSwapChain()
+{
+    if ( !m_swapChain )
+    {
+        m_frameIndex = 0;
+        return m_frameIndex;
+    }
+    m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+    return m_frameIndex;
 }
 
 } // namespace Rendering
