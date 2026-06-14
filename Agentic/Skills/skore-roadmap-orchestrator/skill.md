@@ -1,6 +1,6 @@
 ---
 name: skore-roadmap-orchestrator
-description: Kick off and run the SkullbonezCore roadmap orchestrator generically for one or more queued roadmap plans, including branch setup, worker delegation, validation gates, committed phone-readable run reports, PR handling, and policy-gated merge handling.
+description: Kick off and run the SkullbonezCore roadmap orchestrator generically for one or more queued roadmap plans, including branch setup, worker delegation, validation gates, committed visual-rich run reports, PR handling, and policy-gated merge handling.
 ---
 
 # skore-roadmap-orchestrator
@@ -98,10 +98,10 @@ For each item:
    required PR-gate validation from `AGENTS.md`.
 8. Run validation only at PR/commit readiness, in a visible console window when
    feasible, and save output to `validation.log`.
-9. Capture declared screenshots/artifacts. Prefer PNG or JPG copies for phone
-   review; convert BMP captures to PNG before embedding in reports. Useful
-   report images include screenshots, focused zoom crops, heat maps, image
-   diffs, and before/after architectural diagrams.
+9. Capture declared screenshots/artifacts. Prefer PNG or JPG copies for report
+   embeds; convert BMP captures to PNG before embedding in reports. Useful
+   report visuals include screenshots, focused zoom crops, heat maps, image
+   diffs, artifact previews, and before/after architectural diagrams.
 10. If the item reached a successful terminal state, archive the source plan:
     move `Agentic/Plans/<file>.md` to `Agentic/Plans/Done/<file>.md`, update
     the queue entry's `plan` path, and record both original and archived paths
@@ -111,7 +111,7 @@ For each item:
 11. Commit implementation changes, source-plan archive moves, queue updates,
     and other task-state changes before the report commit.
 12. Push the branch and open/update the PR when permitted.
-13. Generate a phone-readable report from
+13. Generate a visual-rich report from
     `Agentic/Orchestrator/templates/report.md` under
     `Agentic/Reports/<yyyy-mm-dd>/<task-id>/report.md`. Copy only PNG/JPG
     images referenced by the Markdown file into
@@ -156,7 +156,7 @@ relative Markdown links from `report.md`.
 
 ## Report Expectations
 
-`report.md` must be concise, scrollable, and useful on a phone. Include:
+`report.md` must be concise, visual-rich, and easy to scan. Include:
 
 - first, a plain-language explanation of what was done for a non-engineer,
   before metadata, commits, validation, file lists, or implementation details,
@@ -169,9 +169,11 @@ relative Markdown links from `report.md`.
 - implementation summary,
 - changed files by area,
 - validation command and output summary,
-- embedded relative image links for the best screenshots, focused zoom crops,
-  heat maps, image diffs, before/after architectural diagrams, or artifact
-  previews,
+- embedded relative image links throughout the relevant report sections for the
+  best screenshots, focused zoom crops, heat maps, image diffs, before/after
+  architectural diagrams, or artifact previews. Do not collect visuals in a
+  standalone image section; err on the side of more useful images and diagrams
+  rather than fewer,
 - interesting code snippets with file paths and short excerpts,
 - conflicts and how they were handled,
 - residual risk,

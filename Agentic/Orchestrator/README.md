@@ -72,8 +72,11 @@ prompts, validation logs, PR notes, queue updates, plan moves, source changes,
 raw artifacts, or unreferenced images in that commit.
 
 The first section of `report.md` must explain what was done in plain language
-for a non-engineer. Report images can include screenshots, focused zoom crops,
-heat maps, image diffs, and before/after architectural diagrams.
+for a non-engineer. Embed report images and diagrams throughout the report next
+to the text they support instead of collecting them in a dedicated
+standalone image section. Report visuals can include screenshots, focused zoom
+crops, heat maps, image diffs, artifact previews, and before/after architectural
+diagrams; err on the side of more useful visuals rather than fewer.
 
 After pushing the report-only commit, return a GitHub web link to the committed
 `report.md` file.

@@ -97,6 +97,11 @@ part of the screen, heat maps, image diffs, and before/after architectural
 diagrams. Choose images that explain what changed or why the result is
 trustworthy, not just whatever artifacts were produced.
 
+Do not collect report visuals in a standalone image section.
+Embed screenshots, diagrams, crops, diffs, heat maps, and artifact previews
+throughout the report beside the text they support. Err on the side of more
+useful visuals rather than fewer when they make the report easier to understand.
+
 Do not ingest large raw diagnostic files into the model. For physics work, use
 SkullScope query output and report the query cost required by `AGENTS.md`.
 
@@ -186,10 +191,10 @@ Examples:
 - report images: full-screen screenshots, focused zoom crops, heat maps, image
   diffs, and before/after architectural diagrams.
 
-Store generated files under the run directory. Copy only selected
-phone-readable PNG or JPG images into the report directory's `images/` folder.
+Store generated files under the run directory. Copy selected PNG or JPG report
+images into the report directory's `images/` folder.
 
-Prefer PNG or JPG for committed phone-review images. If the runtime produces BMP
+Prefer PNG or JPG for committed report images. If the runtime produces BMP
 captures, convert selected captures to PNG before embedding them in `report.md`.
 Commit only the report Markdown and referenced images in the final report-only
 commit. Keep bulky raw validation outputs and intermediate artifacts out of that
@@ -274,9 +279,9 @@ Reports must include:
 - a short progress timeline,
 - validation command and output summary,
 - screenshot and artifact paths,
-- embedded relative links for selected phone-readable images such as
-  screenshots, focused zoom crops, heat maps, image diffs, or before/after
-  architectural diagrams,
+- embedded relative image links throughout the relevant report sections, using
+  screenshots, focused zoom crops, heat maps, image diffs, before/after
+  architectural diagrams, or artifact previews wherever they clarify the report,
 - short interesting code snippets with file paths,
 - merge status,
 - conflicts and resolutions,

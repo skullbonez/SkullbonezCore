@@ -1,5 +1,14 @@
 # Roadmap Item Report: {{item_id}}
 
+<!--
+Embed visual evidence inline throughout the report wherever it helps explain the
+work: screenshots, focused crops, heat maps, image diffs, artifact previews, and
+before/after architectural diagrams. Do not collect visuals in a standalone
+image section. Err on the side of more useful images and diagrams rather than
+fewer. Every committed image must live under images/ beside this Markdown file
+and be referenced with a relative Markdown link.
+-->
+
 ## What Changed, In Plain English
 
 {{layman_summary}}
@@ -55,17 +64,6 @@
 ## Screenshots And Artifacts
 
 {{artifacts}}
-
-## Phone-Readable Images
-
-Images in this section must be committed under `images/` beside this Markdown
-file and referenced with relative Markdown links.
-
-Useful report images can include screenshots, zoomed-in crops that focus on one
-important screen area, heat maps, image diffs, and before/after architectural
-diagrams.
-
-{{phone_images}}
 
 ## Interesting Code Snippets
 
