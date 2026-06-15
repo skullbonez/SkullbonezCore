@@ -5,12 +5,9 @@ SkullbonezCore is a Windows x64 C++17 graphics and physics engine originally wri
 Official production graphics API:
 - DirectX 12 with in-process InfoQueue validation
 
-Legacy parity/reference renderers kept for validation while they remain in tree
-(feature work frozen except final parity-retirement fixes):
-- OpenGL 3.3 Core Profile
-- DirectX 11
-
-New renderer architecture, shader work, materials, diagnostics, and user-facing features should target DX12 first. OpenGL and DX11 are retained to catch visual drift and convention bugs until the DX12-only validation stack replaces them, not as long-term product targets. While the parity renderers exist, they are expected to produce visually equivalent output in the renderer validation suite.
+OpenGL and DX11 final parity evidence has been archived on the DX12-only
+retirement branch. Runtime launches now use DX12 only; `--renderer dx12` remains
+accepted as a compatibility alias, while GL/DX11 runtime choices are retired.
 
 ![SkullbonezCore](https://github.com/skullbonez/SkullbonezCore/blob/main/SkullbonezCore.png)
 
@@ -58,8 +55,7 @@ or pushed, use the repository scripts instead of retyping long commands:
 |-------------|---------|
 | Documentation only | No validation required |
 | Small refactor, no render or physics changes | `tools\validate_fast.bat` |
-| Renderer, shader, texture, screenshot behavior while GL/DX11 parity remains | `tools\validate_renderers.bat` |
-| DX12-only renderer regression gate during retirement | `tools\validate_dx12_renderer.bat` |
+| Renderer, shader, texture, screenshot behavior | `tools\validate_dx12_renderer.bat` |
 | Physics, collision, solver, determinism | `tools\validate_physics.bat` |
 | Hot path or allocation-sensitive work | `tools\validate_perf.bat` |
 | Broad or uncertain scope | `tools\validate_full.bat` |
@@ -76,19 +72,16 @@ You can also run any targeted subset with one line:
 ```bat
 tools\validate_select.bat fast
 tools\validate_select.bat dx12-renderer
-tools\validate_select.bat physics renderers
+tools\validate_select.bat physics dx12-renderer
 tools\validate_select.bat format build-profile
 ```
 
 ## Common Launches
 
 ```bat
-Profile\SKULLBONEZ_CORE.exe --renderer dx12 --suite SkullbonezData\scenes\render_tests.suite --vsync off
+Profile\SKULLBONEZ_CORE.exe --suite SkullbonezData\scenes\render_tests.suite --vsync off
+Profile\SKULLBONEZ_CORE.exe --renderer dx12 --scene SkullbonezData\scenes\water_ball_test.scene --vsync off
 Profile\SKULLBONEZ_CORE.exe --fixed-step --scene SkullbonezData\scenes\perf_test.scene --vsync off
-
-REM Frozen legacy parity/reference paths while they remain in tree:
-Profile\SKULLBONEZ_CORE.exe --renderer gl
-Profile\SKULLBONEZ_CORE.exe --renderer dx11 --scene SkullbonezData\scenes\water_ball_test.scene
 ```
 
 ## Repository Map

@@ -832,12 +832,12 @@ void SkullbonezRun::TakeInput()
             m_camera.input.Set( InputState::Key6WasDown, key6Now );
         }
 
-        // Q key: cycle render backend at runtime while preserving current simulation state (GL → DX11 → DX12 → GL).
+        // Q key used to cycle legacy renderers; it now reports that DX12 is the only runtime renderer.
         {
             bool isQNow = Input::IsKeyDown( 'Q' );
             if ( isQNow && !m_camera.input.Get( InputState::QKeyWasDown ) )
             {
-                SwitchRenderer( GetNextRendererType( GetCurrentRendererType() ) );
+                fprintf( stderr, "Renderer switch ignored: DX12 is the only runtime renderer.\n" );
             }
             m_camera.input.Set( InputState::QKeyWasDown, isQNow );
         }
@@ -1173,19 +1173,6 @@ void SkullbonezRun::TakeInput()
         if ( uiCommands.scene.saveSceneDefaults )
         {
             SaveCurrentSceneDefaults();
-        }
-        if ( uiCommands.renderer.requestedRendererIndex >= 0 )
-        {
-            RuntimeRendererType requestedRenderer = RuntimeRendererType::OpenGL;
-            if ( uiCommands.renderer.requestedRendererIndex == 1 )
-            {
-                requestedRenderer = RuntimeRendererType::DX11;
-            }
-            else if ( uiCommands.renderer.requestedRendererIndex == 2 )
-            {
-                requestedRenderer = RuntimeRendererType::DX12;
-            }
-            SwitchRenderer( requestedRenderer );
         }
         if ( uiCommands.scene.requestedSceneIndex >= 0 )
         {

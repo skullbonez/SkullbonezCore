@@ -277,27 +277,36 @@ each small slice.
 
 Tasks:
 
-1. Remove or deprecate command-line choices:
+1. [x] Remove or deprecate command-line choices:
    - `--renderer gl`,
    - `--renderer dx11`.
-2. Keep `--renderer dx12` accepted as a no-op or compatibility alias for one
+2. [x] Keep `--renderer dx12` accepted as a no-op or compatibility alias for one
    release window if useful.
-3. Remove UI renderer-switch controls or make them display-only DX12 state.
-4. Remove runtime hot-switch behavior that exists only for GL/DX11.
-5. Preserve device reset/resource rebuild concepts for DX12 resize, device loss,
+3. [x] Remove UI renderer-switch controls or make them display-only DX12 state.
+4. [x] Remove runtime hot-switch behavior that exists only for GL/DX11.
+5. [x] Preserve device reset/resource rebuild concepts for DX12 resize, device loss,
    shader reload, and future backend bring-up.
-6. Update runtime reference docs and examples.
+6. [x] Update runtime reference docs and examples.
 
 Validation:
 
-- `tools\validate_full.bat` at PR gate because this touches runtime launch and
-  renderer lifecycle behavior.
+- `tools\validate_fast.bat` passed on 2026-06-15 after validation-tool updates.
+- `tools\validate_full.bat` passed on 2026-06-15.
+  - DX12 renderer manifest:
+    `TestOutput\validation\dx12_renderer\20260615T034906Z\manifest.json`
+  - DX12 InfoQueue validation errors: 0.
+  - Physics CSV baselines were byte-exact.
+  - SkullScope query baseline now records `DirectX 12` as the renderer.
+  - Perf validation runs DX12-only scenes.
 
 Acceptance:
 
 - The app starts in DX12 without renderer selection ambiguity.
-- Old renderer CLI requests fail clearly or map to DX12 with an explicit warning.
-- DX12 resource reset and resize still work.
+- Old renderer CLI requests fail clearly; `--renderer dx12` remains a
+  compatibility alias.
+- The in-game renderer selector is display-only DX12 state.
+- Runtime renderer hot-switching is removed.
+- DX12 resource reset/rebuild concepts remain isolated for later cleanup.
 
 ### Phase 4: Remove GL And DX11 Backends
 

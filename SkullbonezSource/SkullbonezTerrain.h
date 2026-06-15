@@ -69,7 +69,7 @@ class Terrain
 
     void Render( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection, const float* lightPosition, const Basics::CinematicRenderConfig* cinematic = nullptr, const Rendering::ShadowFrameData* shadow = nullptr ); // Renders the terrain with shader
     void RenderShadowDepth( const Math::Transformation::Matrix4& lightView, const Math::Transformation::Matrix4& lightProjection, const Basics::CinematicRenderConfig* cinematic = nullptr );                                                            // Renders terrain into directional shadow depth
-    void ResetRenderResources();                                                                                                                                                                                                                         // Rebuild backend-specific mesh/shader after renderer switch
+    void ResetRenderResources();                                                                                                                                                                                                                         // Rebuild backend-specific mesh/shader resources after a device reset or resize
     Rendering::IMesh* GetMesh() const
     {
         return m_terrainMesh.get();

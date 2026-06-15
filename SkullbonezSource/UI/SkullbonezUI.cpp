@@ -104,7 +104,7 @@ int GetRendererIndexFromName( const char* rendererName )
     {
         return RENDERER_DX11;
     }
-    return RENDERER_GL;
+    return RENDERER_DX12;
 }
 
 
@@ -619,7 +619,7 @@ void DrawWhatsNewTab( UICheckBox toggles[3],
                       "Asset texture registry",
                       "PR #57",
                       "Textures now have stable source records while legacy numeric texture hashes keep working.",
-                      "Renderer switches can rebuild registered GPU handles from the source registry." );
+                      "DX12 resource rebuilds can restore registered GPU handles from the source registry." );
     if ( IsRowVisible( contentY, contentH, scrolledY + secondCardY + UI_WHATS_NEW_CONTROL_Y, 24.0f ) )
     {
         toggles[UI_WHATS_NEW_TOGGLE_ASSET_REGISTRY].DrawToggle( draw, "Source records", true, palette.accent.r, palette.accent.g, palette.accent.b );
@@ -1589,10 +1589,9 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         }
         else if ( m_rendererCombo.IsOpen() )
         {
-            const int option = m_rendererCombo.HitOption( m_mouseX, m_mouseY, 3 );
-            if ( option >= 0 && option < 3 )
+            const int option = m_rendererCombo.HitOption( m_mouseX, m_mouseY, 1 );
+            if ( option == 0 )
             {
-                result.commands.renderer.requestedRendererIndex = option;
                 m_rendererCombo.Close();
             }
             else if ( m_rendererCombo.HitBox( m_mouseX, m_mouseY ) )
@@ -2174,9 +2173,9 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     m_hitboxToggle.SetBounds( hitboxFooterBounds.x, hitboxFooterBounds.y, hitboxFooterBounds.w, hitboxFooterBounds.h );
     m_histogramToggle.SetBounds( perfFooterBounds.x, perfFooterBounds.y, perfFooterBounds.w, perfFooterBounds.h );
     m_timelineToggle.SetBounds( timelineFooterBounds.x, timelineFooterBounds.y, timelineFooterBounds.w, timelineFooterBounds.h );
-    static const char* kRendererOptions[] = { "GL", "DX11", "DX12" };
+    static const char* kRendererOptions[] = { "DX12" };
     static const char* kReflectionOptions[] = { "FBO", "DXR", "None" };
-    m_rendererCombo.Draw( draw, "Renderer", kRendererOptions, 3, currentRendererIndex, m_mouseX, m_mouseY );
+    m_rendererCombo.Draw( draw, "Renderer", kRendererOptions, 1, 0, m_mouseX, m_mouseY );
     DrawFooterToggle( draw, blurFooterBounds, "Blur", m_blurPreviewEnabled );
     DrawFooterToggle( draw, vsyncFooterBounds, "VSync", data.vsyncEnabled );
     DrawFooterToggle( draw, hitboxFooterBounds, "Hitboxes", m_hitboxOverlayEnabled );

@@ -196,9 +196,10 @@ void SkullbonezRun::EnsureShadowRenderResources( const CinematicRenderConfig& ci
 void SkullbonezRun::ResetShadowRenderResources()
 {
     // Drop both the backing framebuffer and the per-frame payload. Framebuffer
-    // handles are backend-specific, so renderer switches must force a clean
-    // recreate before the next shadow pass. The payload is reset too so receivers
-    // cannot accidentally sample an old depth texture after the resource dies.
+    // handles are owned by the current device/backend, so any device reset,
+    // resize rebuild, or future backend bring-up must force a clean recreate
+    // before the next shadow pass. The payload is reset too so receivers cannot
+    // accidentally sample an old depth texture after the resource dies.
     if ( m_systems.shadowFBO )
     {
         m_systems.shadowFBO->ResetResources();
@@ -261,8 +262,8 @@ SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::BuildShadowFrameData( 
     shadowFrame.depthTextureHandle = m_systems.shadowFBO->GetDepthTextureHandle();
 
     // Everything below is copied into shader uniforms by ApplyShadowReceiverUniforms.
-    // Keeping the values in one payload makes balls, boxes, terrain, GL, DX11,
-    // and DX12 consume the same shadow decision for the frame.
+    // Keeping the values in one payload makes balls, boxes, terrain, and any
+    // future backend consume the same shadow decision for the frame.
     shadowFrame.mapSize = m_systems.shadowFBO->GetWidth();
     shadowFrame.pcfRadius = std::clamp( cinematic.shadowPcfRadius, 0, 3 );
     shadowFrame.strength = std::clamp( cinematic.shadowStrength, 0.0f, 1.0f );

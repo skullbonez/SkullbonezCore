@@ -78,11 +78,6 @@ void SkullbonezRun::RunUIStressActions()
         const int boxes = NextUIStressInt( 1000 - balls + 1 );
         ApplyUISolverObjectCounts( balls, boxes );
     }
-    if ( m_uiStress.framesRun % 34 == 0 )
-    {
-        SwitchRenderer( GetNextRendererType( GetCurrentRendererType() ) );
-    }
-
     const int actionCount = std::clamp( m_uiStress.actionsPerFrame, 1, 32 );
     for ( int i = 0; i < actionCount; ++i )
     {
@@ -154,7 +149,7 @@ void SkullbonezRun::RunUIStressActions()
             break;
         case 18:
         {
-            const int mode = GetCurrentRendererType() == RuntimeRendererType::DX12 ? NextUIStressInt( 3 ) : ( NextUIStressInt( 2 ) == 0 ? 0 : 2 );
+            const int mode = NextUIStressInt( 3 );
             m_debug.isWaterRTReflect = mode == 1;
             m_debug.isWaterNoReflect = mode == 2;
             break;

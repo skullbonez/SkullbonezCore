@@ -137,7 +137,7 @@ struct UIOnlyCommands
 struct UIRendererCommands
 {
     bool toggleVsync = false;
-    int requestedRendererIndex = -1; // 0=GL, 1=DX11, 2=DX12, -1=no request
+    int requestedRendererIndex = -1; // Retired compatibility field; DX12 is the only runtime renderer.
 };
 
 struct UISceneCommands

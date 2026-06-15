@@ -7,16 +7,16 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 | Field | Value |
 |-------|-------|
 | Branch | `codex/dx12-only-renderer-retirement` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Phase 1 DX12-only validation gate is committed and pushed on `codex/dx12-only-renderer-retirement`. |
-| Pending work | DX12-only renderer retirement Phase 3. Remove runtime renderer selection while keeping DX12 resource reset semantics. |
-| Uncommitted changes | Phase 2 final legacy parity report and plan/session updates until the next commit lands. |
+| Last committed milestone | Phase 3 runtime renderer-selection removal is committed and pushed on `codex/dx12-only-renderer-retirement`. |
+| Pending work | DX12-only renderer retirement Phase 4. Delete GL/DX11 backend files and project references. |
+| Uncommitted changes | None expected after the Phase 3 commit; next implementation slice starts backend deletion. |
 
 ## Active Notes
 
 - This workspace expects Windows x64, VS2022 C++ tools, Python, Pillow, and Git for validation.
 - `git` may not be on PATH in fresh shells. Run `tools\find_git.bat` or use the validation scripts, which call it where needed.
 - Repository validation scripts are pre-commit/PR gates, not as-you-go checks. During implementation, run only targeted builds, launches, focused tests, or inspections that answer the current fix question.
-- DX12 is the official production renderer. OpenGL and DX11 are frozen for new feature work; while they remain in tree, touch them only for final parity validation fixes needed before retirement.
+- DX12 is the only runtime renderer. OpenGL and DX11 final parity evidence has been archived; while backend files remain in tree, do not add new runtime dependencies on them.
 - Feature-branch commits and normal pushes are allowed without asking. Do not commit or push directly on `main` without explicit confirmation.
 - Do not kill `SKULLBONEZ_CORE.exe` by name. Kill only by PID from a process you launched.
 - Time large work: record wall-clock start/end and report elapsed time for pipeline runs, multi-file features, and debugging sessions.
@@ -25,14 +25,14 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 
 | Item | Status | Notes |
 |------|--------|-------|
-| DX12-only renderer retirement | Active | Phase 2 final legacy parity evidence is captured. Next remove runtime renderer selection before deleting GL/DX11 backend files. |
+| DX12-only renderer retirement | Active | Phase 3 runtime renderer selection removal is validated. Next delete GL/DX11 backend files and project references. |
 | Catto physics solver finalisation | Recent | Object/object response now belongs to persistent Catto rows with pipeline visualizer and SkullScope `pipeline` query support. User-approved physics CSV and SkullScope query baselines were updated; `tools\validate_full.bat` passed. |
 | Bullet sweep regression | Recent | Wall/object/terrain high-speed sweep scenes and Debug collision-time CSV baselines are wired into `tools\validate_physics.bat`. |
 | Terrain shared row pipeline | Done | Implemented and documented in `Agentic/Plans/Done/physics-terrain-shared-row-pipeline-plan.md`. |
 | SIMD/SSE math optimization pass | Pending | Reported large wins in matrix and render markers; verify current code before continuing. |
 | Camera tween reflection fix | Recent | Reflection pass should use the exact render camera state during camera transitions. |
 | DX12 GPU timer readback | Recent | Non-blocking readback restored when `pipeline_sync` is off. |
-| Cinematic volumetric rendering | Recent | Use `Profile\SKULLBONEZ_CORE.exe --renderer gl --scene SkullbonezData\scenes\cinematic_volumetric.scene --cinematic --hold` for interactive look-dev. |
+| Cinematic volumetric rendering | Recent | Use `Profile\SKULLBONEZ_CORE.exe --renderer dx12 --scene SkullbonezData\scenes\cinematic_volumetric.scene --cinematic --hold` for interactive look-dev. |
 
 ## Known Bugs
 
@@ -51,8 +51,8 @@ not routine iteration steps. Common cases:
 |--------|------------|
 | Documentation-only | No validation required |
 | Small non-render code refactor | `tools\validate_fast.bat` |
-| Renderer backend, shaders, screenshots, visual baselines while GL/DX11 parity remains | `tools\validate_renderers.bat` |
-| DX12-only renderer gate or retirement validation tooling | `tools\validate_fast.bat`, then `tools\validate_dx12_renderer.bat` |
+| Renderer backend, shaders, screenshots, visual baselines | `tools\validate_dx12_renderer.bat` |
+| DX12 renderer gate or validation tooling | `tools\validate_fast.bat`, then `tools\validate_dx12_renderer.bat` |
 | Physics, collision, solver, determinism | `tools\validate_physics.bat` |
 | Performance-sensitive hot path | `tools\validate_perf.bat` |
 | Broad or uncertain scope | `tools\validate_full.bat` |

@@ -13,7 +13,7 @@ require explicit user confirmation.
 ## Before Editing
 
 1. Read this file and `README.md`.
-2. Identify your change's impact area: DX12, GL/DX11 parity, physics, scene system, tests, documentation.
+2. Identify your change's impact area: DX12, physics, scene system, tests, documentation.
 3. State whether validation is required now. For normal implementation work, do not run repository validation scripts while iterating; name the targeted validation command to defer until PR-bound commit/PR prep. For documentation-only changes, state that no validation is required.
 4. On a fresh machine or failed tool lookup, read `FIRST_TIME_SETUP.md`.
 
@@ -28,8 +28,8 @@ that matches the fix:
 |-------------|---------|---------|
 | Documentation only | No validation required | N/A |
 | Small refactor, no render or physics changes | `tools\validate_fast.bat` | ~30s |
-| Shader or render backend | `tools\validate_renderers.bat` | ~90s |
-| DX12-only renderer validation tooling | `tools\validate_fast.bat`, then `tools\validate_dx12_renderer.bat` | ~2 min |
+| Shader or render backend | `tools\validate_dx12_renderer.bat` | ~2 min |
+| DX12 renderer validation tooling | `tools\validate_fast.bat`, then `tools\validate_dx12_renderer.bat` | ~2 min |
 | Physics, collision, solver, or SkullScope diagnostics | `tools\validate_physics.bat` | ~45s |
 | Performance-sensitive hot path | `tools\validate_perf.bat` | ~1 min |
 | Broad or uncertain scope | `tools\validate_full.bat` | ~3 min |
@@ -45,15 +45,15 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 
 | Files Changed | Required Pre-Commit/PR Script |
 |---------------|-----------------|
-| `SkullbonezRenderBackend*.cpp/h` | `validate_renderers` |
-| `SkullbonezData/shaders/*` | `validate_renderers` |
+| `SkullbonezRenderBackend*.cpp/h` | `validate_dx12_renderer` |
+| `SkullbonezData/shaders/*` | `validate_dx12_renderer` |
 | `SkullbonezRigidBody*` | `validate_physics` |
 | `SkullbonezGameModelCollection*` physics solver changes | `validate_physics` |
 | `SkullbonezBoundingSphere*` | `validate_physics` |
 | `SkullbonezDynamicsObject*` | `validate_physics` |
 | `SkullbonezWorldEnvironment*` | `validate_physics` |
 | `SkullbonezSpatialGrid*` | `validate_physics` + `validate_perf` |
-| `SkullbonezGameModelCollection*` | `validate_renderers` + `validate_perf` |
+| `SkullbonezGameModelCollection*` | `validate_dx12_renderer` + `validate_perf` |
 | `SkullbonezConfig*`, `SkullbonezData/engine.cfg` physics defaults such as gravity, fluid, drag, friction, sleep, solver, or broadphase values | `validate_physics` |
 | `TestOutput/baselines/*.csv`, `TestOutput/baselines/physics_query*.json` | `validate_physics` |
 | `SkullbonezCommon.h` | `validate_full` |
@@ -69,8 +69,8 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 ## Rules
 
 - **Repository validation scripts are PR/commit gates.** Do not run `tools\validate_*` merely as you go. During iteration, use targeted builds, launches, focused tests, or inspections only when they answer a specific question about the fix.
-- **Renderer validation must fail fast.** `tools\validate_renderers.bat` builds `Profile` first and must stop before launching GL/DX11/DX12 if compilation fails. Renderer launches in that script use PID-scoped timeouts, then `tools\check_parity.py` handles image comparison artifacts.
-- **DX12-only validation is the retirement safety net.** `tools\validate_dx12_renderer.bat` builds `Profile`, launches only DX12, checks `dx12_validation.txt`, and compares captures against committed DX12 baselines before GL/DX11 are removed.
+- **Renderer validation must fail fast.** `tools\validate_dx12_renderer.bat` builds `Profile` first and must stop before launching DX12 if compilation fails. Renderer launches in that script use PID-scoped timeouts, then `tools\check_dx12_baselines.py` handles image comparison artifacts.
+- **DX12-only validation is the production safety net.** `tools\validate_dx12_renderer.bat` builds `Profile`, launches only DX12, checks `dx12_validation.txt`, and compares captures against committed DX12 baselines.
 - **Never claim validation success without command output.** Paste the validation output when validation is required.
 - **Never skip required pre-commit/PR validation** for code, tool, scene, shader, baseline, or runtime behavior changes unless the user explicitly says to.
 - **Documentation-only changes require no validation.** Do not run `validate_fast` for prose-only edits.
@@ -83,8 +83,8 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 - **Kill processes by PID only**; never use `taskkill /IM` or `Stop-Process -Name`.
 - **Zero warnings** at `/W4`; no exceptions.
 - **Zero DX12 validation errors**; no exceptions.
-- **DX12 is the official production renderer.** OpenGL and DX11 are legacy parity/reference renderers while they remain in tree. New GL/DX11 feature work is frozen; touch those paths only for final parity validation fixes needed before retirement.
-- **Parity renderers** must produce visually identical output, with average pixel diff below 10, until the DX12-only validation stack replaces them and they are removed.
+- **DX12 is the only runtime renderer.** OpenGL and DX11 final parity evidence has been archived; do not add new runtime dependencies on those backends.
+- **Renderer regression** is measured with DX12 screenshots plus zero DX12 validation errors, not GL/DX11 parity.
 - **Physics must be deterministic**; byte-exact CSV match against baselines.
 
 ---
@@ -112,18 +112,18 @@ run the specified targeted validation:
 
 | Area | Risk | Required Validation |
 |------|------|---------------------|
-| DX12 resource barriers | GPU hang, corruption, CPU/GPU race | `validate_renderers` + verify `dx12_validation.txt` = 0 |
-| Renderer backend parity | Visual divergence across DX12 and legacy parity renderers | `validate_renderers` cross-renderer pixel diff |
-| DX12-only renderer gate | Future visual regressions after parity removal | `validate_dx12_renderer` + verify `dx12_validation.txt` = 0 |
+| DX12 resource barriers | GPU hang, corruption, CPU/GPU race | `validate_dx12_renderer` + verify `dx12_validation.txt` = 0 |
+| Renderer backend regression | Visual divergence from committed DX12 references | `validate_dx12_renderer` screenshot diff |
+| DX12 renderer gate | Future visual regressions after parity removal | `validate_dx12_renderer` + verify `dx12_validation.txt` = 0 |
 | Per-frame heap allocations | Performance cliff, stall spikes | `validate_perf` + manual hot path review |
-| Visual regression baselines | False passes hide real bugs | `validate_renderers` + intentional baseline update |
+| Visual regression baselines | False passes hide real bugs | `validate_dx12_renderer` + intentional baseline update |
 | Physics regression baselines | Stale baselines hide real behavior changes | Update only from final Debug artifacts, then rerun `validate_physics` |
-| Matrix conventions | Entire scene renders incorrectly | `validate_renderers` across DX12 and active parity backends |
+| Matrix conventions | Entire scene renders incorrectly | `validate_dx12_renderer` |
 | Physics determinism | Butterfly-effect divergence over frames | `validate_physics` byte-exact CSV diff |
-| Screenshot timing | Flaky non-deterministic captures | `validate_renderers` |
+| Screenshot timing | Flaky non-deterministic captures | `validate_dx12_renderer` |
 | Fixed-step simulation behavior | Physics replay not reproducible | `validate_physics` |
-| GL/DX coordinate conventions | Upside-down textures, clip-space bugs | `validate_renderers` cross-renderer parity |
-| Upload buffer / frame allocator | DX12 CPU overwrites in-flight GPU data | `validate_renderers` + run 3 consecutive times |
+| Coordinate conventions | Upside-down textures, clip-space bugs | `validate_dx12_renderer` |
+| Upload buffer / frame allocator | DX12 CPU overwrites in-flight GPU data | `validate_dx12_renderer` + run 3 consecutive times |
 | Singleton lifecycle | Use-after-destroy, double-init crash | `validate_full` |
 | Broadphase spatial grid | Missed collisions, perf regression | `validate_physics` + `validate_perf` |
 

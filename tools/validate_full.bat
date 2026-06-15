@@ -38,11 +38,11 @@ echo.
 set "PREVIOUS_SKIP_READY_BUILDS=%SKULLBONEZ_SKIP_READY_BUILDS%"
 set "SKULLBONEZ_SKIP_READY_BUILDS=1"
 
-echo === Phase 1: Renderer Validation ===
-call "%~dp0validate_renderers.bat"
+echo === Phase 1: DX12 Renderer Validation ===
+call "%~dp0validate_dx12_renderer.bat"
 if errorlevel 1 (
     echo.
-    echo VALIDATE_FULL: FAILED at renderer validation.
+    echo VALIDATE_FULL: FAILED at DX12 renderer validation.
     exit /b 1
 )
 

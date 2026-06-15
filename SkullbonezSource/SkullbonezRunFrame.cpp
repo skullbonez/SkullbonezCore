@@ -55,7 +55,6 @@ void SkullbonezRun::Run()
             TickLiveStyleControl();
             PROFILE_END( "Frame/Input" );
 
-            TickRendererSwitch( static_cast<float>( secondsPerFrame ) );
             m_cGameModelCollection.BeginCollisionVisualFrame();
             TickPhysics( secondsPerFrame );
 
@@ -168,21 +167,6 @@ void SkullbonezRun::Run()
                 continue;
             }
         }
-    }
-}
-
-
-void SkullbonezRun::TickRendererSwitch( float dt )
-{
-    if ( m_debug.rendererSwitchInterval <= 0.0f )
-    {
-        return;
-    }
-    m_debug.rendererSwitchAccum += dt;
-    if ( m_debug.rendererSwitchAccum >= m_debug.rendererSwitchInterval )
-    {
-        m_debug.rendererSwitchAccum = 0.0f;
-        SwitchRenderer( GetNextRendererType( GetCurrentRendererType() ) );
     }
 }
 

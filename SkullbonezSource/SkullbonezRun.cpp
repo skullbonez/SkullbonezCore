@@ -155,12 +155,6 @@ void SkullbonezRun::DumpTextureAssets( FILE* out ) const
 }
 
 
-void SkullbonezRun::SetRendererSwitchInterval( float seconds )
-{
-    m_debug.rendererSwitchInterval = seconds;
-}
-
-
 void SkullbonezRun::SetTimeScaleOverride( float scale )
 {
     m_cmdTimeScaleOverride = scale;
@@ -545,17 +539,8 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
         }
     }
 
-    const char* rendererName = IsGfxReady() ? Gfx().GetRendererName() : "<uninitialised>";
-    const RuntimeRendererType rendererType = IsGfxReady() ? GetCurrentRendererType() : RuntimeRendererType::OpenGL;
-    const char* rendererArg = "gl";
-    if ( rendererType == RuntimeRendererType::DX11 )
-    {
-        rendererArg = "dx11";
-    }
-    else if ( rendererType == RuntimeRendererType::DX12 )
-    {
-        rendererArg = "dx12";
-    }
+    const char* rendererName = IsGfxReady() ? Gfx().GetRendererName() : "DirectX 12";
+    const char* rendererArg = "dx12";
     const char* generatedObjectOverride = "mixed";
     const char* generatedObjectArg = "";
     if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )
