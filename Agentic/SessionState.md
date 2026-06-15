@@ -7,9 +7,9 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 | Field | Value |
 |-------|-------|
 | Branch | `codex/dx12-only-renderer-retirement` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Phase 0 renderer-retirement roadmap/session docs are committed and pushed; Phase 1 DX12-only validation gate is the current commit slice. |
-| Pending work | DX12-only renderer retirement Phase 2. Capture the final legacy parity evidence before deleting GL/DX11. |
-| Uncommitted changes | Run `git status -sb`; expected next clean point is after the Phase 1 validation-gate commit. |
+| Last committed milestone | Phase 1 DX12-only validation gate is committed and pushed on `codex/dx12-only-renderer-retirement`. |
+| Pending work | DX12-only renderer retirement Phase 3. Remove runtime renderer selection while keeping DX12 resource reset semantics. |
+| Uncommitted changes | Phase 2 final legacy parity report and plan/session updates until the next commit lands. |
 
 ## Active Notes
 
@@ -25,7 +25,7 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 
 | Item | Status | Notes |
 |------|--------|-------|
-| DX12-only renderer retirement | Active | Phase 1 validation gate is ready on `codex/dx12-only-renderer-retirement`. Do not remove GL/DX11 until one final parity archive is captured in Phase 2. |
+| DX12-only renderer retirement | Active | Phase 2 final legacy parity evidence is captured. Next remove runtime renderer selection before deleting GL/DX11 backend files. |
 | Catto physics solver finalisation | Recent | Object/object response now belongs to persistent Catto rows with pipeline visualizer and SkullScope `pipeline` query support. User-approved physics CSV and SkullScope query baselines were updated; `tools\validate_full.bat` passed. |
 | Bullet sweep regression | Recent | Wall/object/terrain high-speed sweep scenes and Debug collision-time CSV baselines are wired into `tools\validate_physics.bat`. |
 | Terrain shared row pipeline | Done | Implemented and documented in `Agentic/Plans/Done/physics-terrain-shared-row-pipeline-plan.md`. |

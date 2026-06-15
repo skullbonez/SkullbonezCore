@@ -3,7 +3,7 @@
 Status: active
 Created: 2026-06-15
 Scope: retire OpenGL/DX11, make DX12 validation independent, clean DX12 architecture, preserve future Vulkan/Metal portability
-Implementation status: Phase 1 complete on branch `codex/dx12-only-renderer-retirement`; final legacy parity archive is next
+Implementation status: Phase 2 complete on branch `codex/dx12-only-renderer-retirement`; runtime renderer selection removal is next
 
 ## Goal
 
@@ -244,9 +244,9 @@ Retain one durable reference showing where GL/DX11 ended.
 
 Tasks:
 
-1. Run the current full renderer parity gate before deletion.
-2. Store the manifest path and summary in the retirement PR notes.
-3. Optionally add a short report under `Agentic/Reports` or `Agentic/Audits`
+1. [x] Run the current full renderer parity gate before deletion.
+2. [x] Store the manifest path and summary in the retirement PR notes.
+3. [x] Optionally add a short report under `Agentic/Reports` or `Agentic/Audits`
    with:
    - date,
    - commit SHA,
@@ -254,11 +254,15 @@ Tasks:
    - average pixel diffs,
    - DX12 validation log status,
    - known acceptable differences.
-4. Do not keep GL/DX11 code solely to regenerate this artifact later.
+4. [x] Do not keep GL/DX11 code solely to regenerate this artifact later.
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_renderers.bat` passed on 2026-06-15.
+
+Report:
+
+- `Agentic/Reports/2026-06-15/final-legacy-renderer-parity/report.md`
 
 Acceptance:
 
