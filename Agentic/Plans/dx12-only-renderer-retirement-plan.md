@@ -3,7 +3,7 @@
 Status: active
 Created: 2026-06-15
 Scope: retire OpenGL/DX11, make DX12 validation independent, clean DX12 architecture, preserve future Vulkan/Metal portability
-Implementation status: Phase 2 complete on branch `codex/dx12-only-renderer-retirement`; runtime renderer selection removal is next
+Implementation status: Phase 5 complete on branch `codex/dx12-only-renderer-retirement`; renderer validation documentation and baseline cleanup is next
 
 ## Goal
 
@@ -316,23 +316,29 @@ Delete the retired implementations and their project/build references.
 
 Tasks:
 
-1. Remove backend files:
+1. [x] Remove backend files:
    - `SkullbonezRenderBackendGL.*`,
    - `SkullbonezRenderBackendDX11.*`,
    - GL/DX11-only helper files if any.
-2. Remove GLAD and OpenGL-specific third-party source if no longer used.
-3. Remove DX11-specific includes, libraries, annotations, and project entries.
-4. Remove backend factory cases for GL/DX11.
-5. Remove no-op compatibility methods that existed only because `IRenderBackend`
+2. [x] Remove GLAD and OpenGL-specific third-party source if no longer used.
+3. [x] Remove DX11-specific includes, libraries, annotations, and project entries.
+4. [x] Remove backend factory cases for GL/DX11.
+5. [x] Remove no-op compatibility methods that existed only because `IRenderBackend`
    had to serve three backends.
-6. Keep backend-neutral names such as `ResetRenderResources` and
+6. [x] Keep backend-neutral names such as `ResetRenderResources` and
    `RenderCapabilities` where they still describe real concepts.
-7. Remove dead renderer-switch tests and scenes only if they have no DX12 value.
-8. Update `.vcxproj` and `.vcxproj.filters` carefully.
+7. [x] Remove dead renderer-switch tests and scenes only if they have no DX12 value.
+8. [x] Update `.vcxproj` and `.vcxproj.filters` carefully.
 
 Validation:
 
-- `tools\validate_full.bat` at PR gate.
+- `tools\validate_full.bat` passed on 2026-06-15 after replacing the accidental
+  `d3d11.lib` shader-reflection dependency with `dxguid.lib`.
+  - DX12 renderer manifest:
+    `TestOutput\validation\dx12_renderer\20260615T040700Z\manifest.json`
+  - DX12 InfoQueue validation errors: 0.
+  - DX12 screenshots matched committed baselines.
+  - Physics, SkullScope, and perf phases passed.
 
 Acceptance:
 
@@ -348,25 +354,32 @@ Stop maintaining GLSL and DX11-only shader duplicates.
 
 Tasks:
 
-1. Inventory every shader file before deletion.
-2. Remove active GLSL files once GL is gone:
+1. [x] Inventory every shader file before deletion.
+2. [x] Remove active GLSL files once GL is gone:
    - `.vert`,
    - `.frag`,
    - GL-only debug shader families.
-3. Keep HLSL files needed by DX12:
+3. [x] Keep HLSL files needed by DX12:
    - raster HLSL,
    - `generate_mips.hlsl`,
    - `reflect.rt.hlsl`,
    - checked-in DXIL artifacts with documented rebuild rules.
-4. Remove DX11-only shader assumptions if they differ from DX12.
-5. Update shader inventory docs so HLSL is canonical production source.
-6. Add or preserve shader contract metadata in engine terms, not D3D12 terms.
+4. [x] Remove DX11-only shader assumptions if they differ from DX12.
+5. [x] Update shader inventory docs so HLSL is canonical production source.
+6. [x] Add or preserve shader contract metadata in engine terms, not D3D12 terms.
 
 Validation:
 
-- `tools\validate_dx12_renderer.bat` or the updated renderer gate.
-- `tools\validate_full.bat` if shader loading paths or project files change
-  broadly.
+- `python tools\validate_shaders.py` passed on 2026-06-15 with 0 errors and 7
+  existing contract-completeness warnings.
+- `tools\validate_dx12_renderer.bat` passed on 2026-06-15.
+  - DX12 renderer manifest:
+    `TestOutput\validation\dx12_renderer\20260615T041546Z\manifest.json`
+  - DX12 InfoQueue validation errors: 0.
+  - `water_ball_test`: avg_diff=0.0000, max_diff=0, pixels_over_10=0.
+  - `solver_smoke`: avg_diff=0.0006, max_diff=170, pixels_over_10=7.
+- `tools\validate_fast.bat` passed on 2026-06-15 because
+  `tools\shader_contracts.json` changed.
 
 Acceptance:
 

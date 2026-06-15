@@ -27,7 +27,7 @@ Related:
 // =============================================================================
 //
 // PURPOSE: Simple MVP transform + texture sample, no lighting. Used for skybox.
-// HLSL equivalent of unlit_textured.vert + unlit_textured.frag.
+// This is the canonical DX12 unlit textured shader.
 //
 // The skybox texture already contains "baked" lighting (it's a photograph of
 // the sky), so we don't apply any Phong lighting calculations.
@@ -82,4 +82,3 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     // Sample texture and apply color tint. No lighting calculations.
     return uTexture.Sample(sSampler0, input.texCoord) * uColorTint;
 }
-

@@ -31,18 +31,18 @@ Related:
 // =============================================================================
 //
 // PURPOSE: Transform geometry with MVP matrices and apply Phong lighting + texture.
-// This is the HLSL (Direct3D) equivalent of lit_textured.vert + lit_textured.frag.
+// This is the canonical DX12 terrain/object shader for non-instanced geometry.
 //
-// --- HLSL vs GLSL Key Differences ---
+// --- HLSL Binding Notes ---
 //
-//  | Concept             | GLSL                     | HLSL                           |
-//  |---------------------|--------------------------|--------------------------------|
-//  | Constant data       | uniform mat4 uModel;     | cbuffer { float4x4 uModel; }  |
-//  | Texture sampling    | texture(sampler, uv)     | tex.Sample(sampler, uv)        |
-//  | Input/output        | layout(location=N) in    | struct with SEMANTICS          |
-//  | Position output     | gl_Position              | SV_POSITION semantic           |
-//  | Clip distance       | gl_ClipDistance[0]       | SV_ClipDistance0 semantic      |
-//  | Matrix multiply     | mat * vec (operator*)    | mul(mat, vec) intrinsic        |
+//  | Concept             | HLSL form                      |
+//  |---------------------|--------------------------------|
+//  | Constant data       | cbuffer { float4x4 uModel; }   |
+//  | Texture sampling    | tex.Sample(sampler, uv)        |
+//  | Input/output        | structs with SEMANTICS         |
+//  | Position output     | SV_POSITION semantic           |
+//  | Clip distance       | SV_ClipDistance0 semantic      |
+//  | Matrix multiply     | mul(mat, vec) intrinsic        |
 //
 // --- cbuffer (Constant Buffer) ---
 //
@@ -99,8 +99,7 @@ cbuffer Uniforms : register(b0)
     float4   uShadowFlags;      // enabled, receive, pcf radius, zero-to-one depth
 };
 
-// Texture + sampler (equivalent to GLSL's uniform sampler2D).
-// In DX, textures and samplers are SEPARATE objects bound to different slots.
+// Texture and sampler bindings are separate DX12 objects bound to different slots.
 // register(t0) = texture slot 0; register(s0) = sampler slot 0.
 Texture2D    uTexture  : register(t0);
 Texture2D    uShadowMap : register(t3);
@@ -355,8 +354,7 @@ VS_OUT main_vs(VS_IN input)
     return output;
 }
 
-// PIXEL SHADER: compute Phong lighting and apply texture.
-// (Identical logic to the GLSL version — see lit_textured.frag for detailed explanation.)
+// PIXEL SHADER: compute Phong lighting, apply texture, and fold in cinematic style controls.
 float4 main_ps(VS_OUT input) : SV_TARGET
 {
     float3 N = normalize(input.normal);
@@ -381,7 +379,7 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float spec = pow(max(dot(V, R), 0.0), 64.0);
     float3 specular = uLightDiffuse.rgb * spec * 0.1;
 
-    // tex.Sample() is the HLSL equivalent of GLSL's texture().
+    // Sample the base color texture through the shader's bound sampler.
     float4 texColor = uTexture.Sample(sSampler0, input.texCoord);
 
     if (uLightPosition.w == 0.0f)

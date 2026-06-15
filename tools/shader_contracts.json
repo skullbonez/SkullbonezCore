@@ -5,13 +5,7 @@
     {
       "name": "collision_visualizer",
       "status": "active",
-      "stages": ["vert", "frag", "hlsl"]
-    },
-    {
-      "name": "debug_line",
-      "status": "active",
-      "backend": "gl",
-      "stages": ["vert", "frag"]
+      "stages": ["hlsl"]
     },
     {
       "name": "generate_mips",
@@ -23,30 +17,30 @@
     {
       "name": "grid_line",
       "status": "active",
-      "stages": ["vert", "frag", "hlsl"]
+      "stages": ["hlsl"]
     },
     {
       "name": "lit_textured",
       "status": "active",
-      "stages": ["vert", "frag", "hlsl"],
+      "stages": ["hlsl"],
       "requiredSymbols": ["uModel", "uView", "uProjection", "uTexture", "uShadowMap"]
     },
     {
       "name": "lit_textured_instanced",
       "status": "active",
-      "stages": ["vert", "frag", "hlsl"],
+      "stages": ["hlsl"],
       "requiredSymbols": ["uView", "uProjection", "uTexture", "uShadowMap", "uPrimitiveShape"]
     },
     {
       "name": "post_tonemap",
       "status": "active",
-      "stages": ["vert", "frag", "hlsl"],
+      "stages": ["hlsl"],
       "requiredSymbols": ["uSceneTex", "uDepthTex", "uVolumetricTex", "uExposure", "uGamma"]
     },
     {
       "name": "post_volumetric_light",
       "status": "active",
-      "stages": ["vert", "frag", "hlsl"],
+      "stages": ["hlsl"],
       "requiredSymbols": ["uSceneTex", "uDepthTex", "uDepthParams", "uSunShaftParams", "uVolumetricParams"]
     },
     {
@@ -58,57 +52,57 @@
     {
       "name": "shadow_depth",
       "status": "active",
-      "stages": ["vert", "frag", "hlsl"],
+      "stages": ["hlsl"],
       "requiredSymbols": ["uModel", "uView", "uProjection", "uClipPlane"]
     },
     {
       "name": "shadow_depth_instanced",
       "status": "active",
-      "stages": ["vert", "frag", "hlsl"],
+      "stages": ["hlsl"],
       "requiredSymbols": ["uView", "uProjection", "uClipPlane"]
     },
     {
       "name": "sky_atmosphere",
       "status": "active",
-      "stages": ["vert", "frag", "hlsl"],
+      "stages": ["hlsl"],
       "requiredSymbols": ["uSunParams", "uSunColor", "uCloudParams", "uSkyMode"]
     },
     {
       "name": "solid_color",
       "status": "active",
-      "stages": ["vert", "frag", "hlsl"]
+      "stages": ["hlsl"]
     },
     {
       "name": "solid_color_batch",
       "status": "active",
-      "stages": ["vert", "frag", "hlsl"]
+      "stages": ["hlsl"]
     },
     {
       "name": "text",
       "status": "active",
-      "stages": ["vert", "frag", "hlsl"]
+      "stages": ["hlsl"]
     },
     {
       "name": "UIBackdropBlur",
       "status": "active",
-      "stages": ["vert", "frag", "hlsl"],
+      "stages": ["hlsl"],
       "requiredSymbols": ["uTexture", "uTexelSize", "uProjection"]
     },
     {
       "name": "unlit_textured",
       "status": "active",
-      "stages": ["vert", "frag", "hlsl"]
+      "stages": ["hlsl"]
     },
     {
       "name": "water_calm",
       "status": "active",
-      "stages": ["vert", "frag", "hlsl"],
+      "stages": ["hlsl"],
       "requiredSymbols": ["uModel", "uView", "uProjection", "uReflectVP", "uReflectionTex"]
     },
     {
       "name": "water_ocean",
       "status": "active",
-      "stages": ["vert", "frag", "hlsl"],
+      "stages": ["hlsl"],
       "requiredSymbols": ["uModel", "uView", "uProjection", "uReflectVP", "uReflectionTex"]
     }
   ]

@@ -26,8 +26,8 @@ Related:
 // CINEMATIC SKY ATMOSPHERE SHADER (DirectX)
 // =============================================================================
 //
-// This is the DirectX version of sky_atmosphere.frag. It draws the sunset sky as
-// a procedural full-screen background: horizon-to-zenith color, bright sun disk,
+// This is the canonical DX12 sky pass. It draws the sunset sky as a procedural
+// full-screen background: horizon-to-zenith color, bright sun disk,
 // warm glow, and hand-placed cloud banks.
 // =============================================================================
 

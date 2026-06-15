@@ -11,8 +11,6 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
-  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
-  engine migrates to DX12.
   HLSL (High Level Shader Language): Shader language compiled for Direct3D
   render, compute, and raytracing stages.
   Descriptor: Small binding record that tells a renderer how to interpret a
@@ -31,7 +29,7 @@ Related:
 // =============================================================================
 //
 // PURPOSE: Draw per-vertex colored line segments in 3D world space.
-// HLSL equivalent of grid_line.vert + grid_line.frag for DX11/DX12 backends.
+// This is the canonical DX12 grid-line shader.
 //
 // Used by the broadphase spatial grid visualizer to render cell boundaries
 // with colors indicating occupancy and collision state.

@@ -27,7 +27,7 @@ Related:
 // =============================================================================
 //
 // PURPOSE: Animate the OUTER water zone with sine waves and shimmering reflection.
-// HLSL equivalent of water_ocean.vert + water_ocean.frag.
+// This is the canonical DX12 ocean-water shader.
 //
 // --- Wave + Shimmer Architecture ---
 //

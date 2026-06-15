@@ -26,8 +26,8 @@ Related:
 // CINEMATIC TONEMAP / FINAL COMPOSITE SHADER (DirectX)
 // =============================================================================
 //
-// This is the DirectX version of post_tonemap.frag. It runs after the world has
-// already been rendered into an HDR scene texture. Its job is to turn that bright
+// This is the canonical DX12 tonemap pass. It runs after the world has already
+// been rendered into an HDR scene texture. Its job is to turn that bright
 // off-screen image into the final window image by layering fog, god rays,
 // volumetric light, bloom, exposure, gamma, and a subtle vignette.
 //

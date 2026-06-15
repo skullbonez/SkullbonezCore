@@ -9,8 +9,6 @@ Mental model:
   the declarations in this file.
 
 Glossary:
-  OpenGL: Legacy parity renderer used as a reference path for visual output.
-  GL (OpenGL): Legacy parity renderer path.
   HLSL (High Level Shader Language): Shader language compiled for Direct3D
   render, compute, and raytracing stages.
   Descriptor: Small binding record that tells a renderer how to interpret a
@@ -32,16 +30,14 @@ Related:
 // Instead of a single uModel matrix in the cbuffer, each instance provides its
 // own 4×4 model matrix via per-instance vertex attributes (TEXCOORD1-4).
 //
-// --- Instancing in DirectX ---
+// --- Instancing In DX12 ---
 //
-//  DX instancing works similarly to OpenGL:
 //  - Per-vertex data (position, normal, UV) is in one vertex buffer with step rate 0
 //  - Per-instance data (model matrix, etc.) is in another buffer with step rate 1
 //  - The input assembler automatically advances instance data every N vertices
 //
-//  The only difference from GL is the semantic labeling:
-//  GLSL: layout(location = 3) in mat4 aModel;  (locations 3-6, divisor=1)
-//  HLSL: float4 model0-3 : TEXCOORD1-4;        (per-instance step rate in input layout)
+//  HLSL names those streams with semantics:
+//  float4 model0-3 : TEXCOORD1-4; (per-instance step rate in the input layout)
 //
 // --- Matrix Transpose Issue ---
 //

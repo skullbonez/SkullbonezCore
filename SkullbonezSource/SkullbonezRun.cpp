@@ -129,7 +129,6 @@ void SkullbonezRun::RegisterBuiltInAssets()
     m_systems.assets.RegisterShaderSourceAsset( "shader.water_calm", "shaders/water_calm", Assets::ShaderProgramKind::Water, contract( true, true, false, false, false ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.water_ocean", "shaders/water_ocean", Assets::ShaderProgramKind::Water, contract( true, true, false, false, false ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.collision_visualizer", "shaders/collision_visualizer", Assets::ShaderProgramKind::Collision, contract( false, true, true, false, false ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.debug_line", "shaders/debug_line", Assets::ShaderProgramKind::DebugLine, contract( false, false, false, false, false ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.grid_line", "shaders/grid_line", Assets::ShaderProgramKind::DebugLine, contract( false, false, false, false, false ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.ui_backdrop_blur", "shaders/UIBackdropBlur", Assets::ShaderProgramKind::UI, contract( true, false, false, false, true ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.reflect_rt", "shaders/reflect.rt", Assets::ShaderProgramKind::RayTracing, contract( true, false, false, false, false ) );

@@ -31,11 +31,10 @@ Related:
 // =============================================================================
 //
 // PURPOSE: Render 2D text quads with a font atlas texture.
-// HLSL equivalent of text.vert + text.frag.
+// This is the canonical DX12 text shader.
 //
 // --- How It Works ---
 //
-//  Same concept as the GLSL version:
 //  1. CPU generates quads (4 vertices each) for each character
 //  2. Each quad's UV coordinates point at the character's cell in the font atlas
 //  3. Orthographic projection positions quads at exact pixel coordinates
@@ -104,4 +103,3 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     float alpha = smoothstep(0.5 - fw, 0.5 + fw, sdf);
     return float4(input.color, alpha);
 }
-
