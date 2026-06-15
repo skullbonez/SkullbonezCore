@@ -542,6 +542,39 @@ void SkullbonezRun::RenderShadowMap( Rendering::IFramebuffer& target, const Rend
 }
 
 
+SkullbonezRun::ShadowPassOutput SkullbonezRun::RenderShadowPass( const ShadowPassInputs& inputs )
+{
+    m_systems.shadowFrame = Rendering::ShadowFrameData();
+    m_systems.objectShadowFrame = Rendering::ShadowFrameData();
+    if ( inputs.cinematic )
+    {
+        // Build shadow maps before any receiver pass. Terrain receives the broad
+        // map, while objects receive a second tight map centered on nearby bodies
+        // so ball-on-ball shadows have enough texel density.
+        PROFILE_SCOPED( "Frame/Shadows" );
+        PROFILE_GPU_BEGIN( "Frame/Shadows/ShadowMap" );
+        Vector3 lightDirection( inputs.frame.lightPosition[0], inputs.frame.lightPosition[1], inputs.frame.lightPosition[2] );
+        EnsureShadowRenderResources( *inputs.cinematic );
+        m_systems.shadowFrame = BuildShadowFrameData( *inputs.cinematic, lightDirection );
+        if ( m_systems.shadowFBO )
+        {
+            RenderShadowMap( *m_systems.shadowFBO, m_systems.shadowFrame, *inputs.cinematic, true, true );
+        }
+        m_systems.objectShadowFrame = BuildObjectShadowFrameData( *inputs.cinematic, lightDirection, inputs.frame.eye );
+        if ( m_systems.objectShadowFBO )
+        {
+            RenderShadowMap( *m_systems.objectShadowFBO, m_systems.objectShadowFrame, *inputs.cinematic, false, true );
+        }
+        PROFILE_GPU_END( "Frame/Shadows/ShadowMap" );
+    }
+
+    ShadowPassOutput output;
+    output.terrainShadow = m_systems.shadowFrame.valid ? &m_systems.shadowFrame : nullptr;
+    output.objectShadow = m_systems.objectShadowFrame.valid ? &m_systems.objectShadowFrame : output.terrainShadow;
+    return output;
+}
+
+
 void SkullbonezRun::RenderCinematicSky( const Matrix4& view, const Matrix4& projection )
 {
     const CinematicRenderConfig& cinematic = ActiveCinematicConfig();
@@ -1090,33 +1123,11 @@ void SkullbonezRun::DrawPrimitives()
         Gfx().Clear( true, true );
     }
 
-    m_systems.shadowFrame = Rendering::ShadowFrameData();
-    m_systems.objectShadowFrame = Rendering::ShadowFrameData();
     const CinematicRenderConfig* activeCinematic = frame.cinematic;
     const CinematicRenderConfig* activeShadowConfig = shadowMapsEnabled ? &renderConfig : nullptr;
-    if ( activeShadowConfig )
-    {
-        // Build shadow maps before any receiver pass. Terrain receives the broad
-        // map, while objects receive a second tight map centered on nearby bodies
-        // so ball-on-ball shadows have enough texel density.
-        PROFILE_SCOPED( "Frame/Shadows" );
-        PROFILE_GPU_BEGIN( "Frame/Shadows/ShadowMap" );
-        Vector3 lightDirection( frame.lightPosition[0], frame.lightPosition[1], frame.lightPosition[2] );
-        EnsureShadowRenderResources( *activeShadowConfig );
-        m_systems.shadowFrame = BuildShadowFrameData( *activeShadowConfig, lightDirection );
-        if ( m_systems.shadowFBO )
-        {
-            RenderShadowMap( *m_systems.shadowFBO, m_systems.shadowFrame, *activeShadowConfig, true, true );
-        }
-        m_systems.objectShadowFrame = BuildObjectShadowFrameData( *activeShadowConfig, lightDirection, frame.eye );
-        if ( m_systems.objectShadowFBO )
-        {
-            RenderShadowMap( *m_systems.objectShadowFBO, m_systems.objectShadowFrame, *activeShadowConfig, false, true );
-        }
-        PROFILE_GPU_END( "Frame/Shadows/ShadowMap" );
-    }
-    const Rendering::ShadowFrameData* terrainShadowFrame = m_systems.shadowFrame.valid ? &m_systems.shadowFrame : nullptr;
-    const Rendering::ShadowFrameData* objectShadowFrame = m_systems.objectShadowFrame.valid ? &m_systems.objectShadowFrame : terrainShadowFrame;
+    ShadowPassOutput shadowPass = RenderShadowPass( { frame, activeShadowConfig } );
+    const Rendering::ShadowFrameData* terrainShadowFrame = shadowPass.terrainShadow;
+    const Rendering::ShadowFrameData* objectShadowFrame = shadowPass.objectShadow;
 
     const bool collisionStateColorsVisible = m_debug.isCollisionVisualizer;
     const bool transparentBodyPass = m_debug.isPhysicsDebugTransparent && m_debug.physicsDebugAlpha < 1.0f;

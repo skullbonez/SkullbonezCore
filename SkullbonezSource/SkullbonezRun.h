@@ -399,6 +399,18 @@ class SkullbonezRun
         const RenderFrameContext& frame;
     };
 
+    struct ShadowPassInputs
+    {
+        const RenderFrameContext& frame;
+        const CinematicRenderConfig* cinematic;
+    };
+
+    struct ShadowPassOutput
+    {
+        const Rendering::ShadowFrameData* terrainShadow = nullptr;
+        const Rendering::ShadowFrameData* objectShadow = nullptr;
+    };
+
     std::vector<std::string> m_sceneQueue; // Ordered list of scene paths ("" = generated demo scene)
     std::vector<std::string> m_sceneBrowserPaths;
     std::vector<std::string> m_sceneBrowserNames;
@@ -487,6 +499,7 @@ class SkullbonezRun
     void EnsureShadowRenderResources( const CinematicRenderConfig& cinematic );                                                                        // Lazily builds/resizes the directional shadow-map target
     void ResetShadowRenderResources();                                                                                                                 // Releases shadow-map resources before backend teardown
     Rendering::ShadowFrameData BuildShadowFrameData( const CinematicRenderConfig& cinematic, const Math::Vector::Vector3& lightDirectionWorld ) const; // Builds a stable light-space frame for shadow mapping
+    ShadowPassOutput RenderShadowPass( const ShadowPassInputs& inputs );                                                                                 // Builds shadow maps and returns the receiver frames for terrain/objects
     void RenderCinematicSky( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection );                             // Draws procedural HDR sunset sky into the active cinematic target
     void RenderSkyPass( const RenderFrameContext& frame, const Math::Transformation::Matrix4& view, SkyPassMode mode );                                // Draws cube-map or procedural sky into the current render target
     ReflectionPassOutput RenderReflectionPass( const ReflectionPassInputs& inputs );                                                                    // Produces the reflection texture and sample matrix consumed by water
