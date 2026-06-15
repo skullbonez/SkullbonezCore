@@ -1,25 +1,44 @@
 # DX12-Only Engine Architecture Plan
 
-Status: planning draft  
-Created: 2026-06-11  
-Scope: render architecture, DX12 device layer, render graph, materials, resources, diagnostics  
-Implementation status: plan only, no code changes in this pass
+Status: done, historical architecture direction
+Created: 2026-06-11
+Last reconciled: 2026-06-15 after shader contract and DX12 binding ABI cleanup
+Scope: render architecture, DX12 device layer, render graph, materials, resources, diagnostics
+Implementation status: implemented through smaller roadmap slices; this document is no longer a direct work queue
+
+## Current Stack Reconciliation
+
+Read this plan as the umbrella direction, not as a fresh implementation request.
+Since it was written, the DX12-only renderer retirement removed the OpenGL and
+DX11 runtime backends, shader architecture cleanup added a CPU `RenderMaterial`
+bridge plus Debug shader contract diagnostics, and descriptor/upload/root-
+signature cleanup named the current ordinary raster ABI in
+`Agentic/Reference/dx12-binding-abi.md`.
+
+The current stack intentionally keeps the ordinary raster root signature small:
+CBV `b0`, SRV texture slots `t0..t3`, and static samplers `s0`, `s1`, and `s3`.
+Treat the global material table, descriptor indexing, and expanded root-shape
+sections below as future gates. They should be revisited only when a scoped
+runtime feature needs them, not as cleanup work.
 
 ## Goal
 
 Describe a clean DirectX 12-first renderer architecture for SkullbonezCore now that DX12 is the official production graphics API.
 
-The old GL/DX11/DX12 parity model is no longer the product support contract. DX12 is the official production renderer. GL and DX11 are retained as legacy parity/reference backends while they remain in tree so they can catch useful migration bugs, visual drift, and convention mistakes. New renderer architecture should assume DX12 owns the production path and should embrace explicit GPU resource ownership, descriptor heaps, command lists, shader model 6, and PIX-first diagnostics.
+The old GL/DX11/DX12 parity model is no longer the product support contract. DX12 is the official production renderer. GL and DX11 were useful legacy parity/reference backends during migration, but the current runtime has retired them. New renderer architecture should assume DX12 owns the production path and should embrace explicit GPU resource ownership, descriptor heaps, command lists, shader model 6, and PIX-first diagnostics.
 
 Future Vulkan and Metal support should remain possible, but not by keeping the old `IRenderBackend` shape alive indefinitely. The engine should define its own render-pass, resource, material, shader-metadata, and synchronization contracts. DX12 is the first concrete implementation; Vulkan and Metal can map to those contracts later.
 
 Renderer retirement policy:
 
-- Do not build new features around GL or DX11 unless doing so directly helps DX12 migration or parity diagnosis.
-- Keep GL and DX11 in renderer validation while they remain available.
-- Build DX12-only validation before deleting parity backends: screenshot baselines, zero D3D12 debug-layer errors, WARP sanity where practical, GPU-based validation for representative scenes, DRED/PIX diagnostics, descriptor/upload counters, and repeated DX12 stress runs for barrier/upload changes.
-- Retire OpenGL first because it is least aligned with the future architecture.
-- Retire DX11 after DX12 diagnostics can replace the simpler DirectX reference path.
+- Do not restore GL or DX11 as new feature, validation, or portability surfaces.
+- Treat archived GL/DX11 parity evidence as historical migration context only.
+- Keep strengthening the DX12 safety net: screenshot baselines, zero D3D12
+  debug-layer errors, WARP sanity where practical, GPU-based validation for
+  representative scenes, DRED/PIX diagnostics, descriptor/upload counters, and
+  repeated DX12 stress runs for barrier/upload changes.
+- Preserve future Vulkan/Metal portability at the engine contract layer rather
+  than by reviving retired renderer APIs.
 
 ## Design Position
 
@@ -38,7 +57,8 @@ Current renderer shape to retire or narrow:
 - global `Gfx()` as the main API boundary,
 - per-backend shader abstraction,
 - name-based shader setters as the hot-path interface,
-- fixed `t0`, `t1`, `t2` texture-slot thinking,
+- unnamed fixed texture-slot thinking; the current `t0..t3` ABI is documented,
+  but should not silently grow,
 - pass resources scattered across `SkullbonezRunRender.cpp`, helper classes, terrain, water, sky, and UI,
 - GL/DX coordinate compatibility constraints inside new DX12 code.
 
@@ -295,18 +315,25 @@ struct BufferHandle
 };
 ```
 
-For the first DX12-only version, prefer descriptor indexing through a global texture table:
+For a later material/resource version, prefer descriptor indexing through a global texture table:
 
 - `Texture2D gTextures[] : register(t0, space1);`
 - material stores texture descriptor indices,
 - instance stores material index,
 - pass constants store graph texture indices for scene color/depth/post inputs.
 
-Keep explicit bound descriptors for special render graph resources if descriptor indexing creates too much initial risk. The architecture should still be able to migrate to descriptor indexing cleanly.
+The current DX12 binding ABI keeps explicit `t0..t3` texture slots so the shader
+contract and descriptor lifetime work can stay small. The architecture should
+still be able to migrate to descriptor indexing cleanly when material or graph
+resource requirements justify it.
 
 ### 5. Root Signature Strategy
 
 Use a small number of stable root signatures, not one root signature per pass.
+
+Current status: `Agentic/Reference/dx12-binding-abi.md` documents the ordinary
+raster root signature that exists today. The shape below is a future expansion
+target, not a reason to grow the root signature during cleanup.
 
 Recommended v1 root shape:
 
@@ -836,6 +863,14 @@ Core gates:
 
 If this were pursued, do not rewrite the engine in one jump.
 
+Reconciled 2026-06-15 status: DX12-only retirement, render resource lifetime,
+shader architecture cleanup, and descriptor/upload/root-signature cleanup have
+already completed or opened PRs for parts of this migration. `tools\validate_renderers.bat`
+and GL/DX11 parity notes in the historical phase list refer to the branch state
+when the plan was first implemented. Current renderer behavior gates should use
+`tools\validate_dx12_renderer.bat` unless a broader runtime change requires
+`tools\validate_full.bat`.
+
 #### Phase 0: Decision And Baseline
 
 Tasks:
@@ -848,7 +883,8 @@ Tasks:
 
 Validation:
 
-- current `tools\validate_renderers.bat`,
+- historical `tools\validate_renderers.bat`; current equivalent is
+  `tools\validate_dx12_renderer.bat`,
 - current `tools\validate_perf.bat`,
 - current DX12 validation log zero.
 
@@ -857,14 +893,16 @@ Validation:
 Tasks:
 
 1. Extract DX12 device/swap chain/queues/fences from `SkullbonezRenderBackendDX12`.
-2. Keep the old backend working.
+2. Historical migration step: keep the old backend working during extraction.
+   Current cleanup must not restore retired backends.
 3. Add debug naming and DRED setup.
 4. Add descriptor/upload counters.
 5. Keep output identical.
 
 Validation:
 
-- `tools\validate_renderers.bat`,
+- historical `tools\validate_renderers.bat`; current equivalent is
+  `tools\validate_dx12_renderer.bat`,
 - inspect `dx12_validation.txt`.
 
 #### Phase 2: Add Render Graph In Front Of Existing Draws
@@ -984,8 +1022,8 @@ This is not free. DX12-only is cleaner only if the engine accepts the explicit r
 |------|----------------|------------|
 | Losing parity masks visual bugs | GL/DX11 no longer catch convention drift | Strengthen screenshot baselines, WARP, GBV, pass captures, shader reflection checks. |
 | Render graph overbuild | Too much abstraction can slow the work | Start with one queue, no aliasing, one command list, explicit graph resources. |
-| Descriptor indexing bugs | Invalid indices can render garbage or fault | Add debug material validation, sentinel textures, descriptor bounds checks where possible. |
-| Root signature churn | PSO rebuilds and shader incompatibility | Use stable root signatures and explicit PSO keys. |
+| Descriptor indexing bugs | Invalid indices can render garbage or fault | Keep the current `t0..t3` ABI until a scoped material/resource feature justifies descriptor indexing; add debug material validation, sentinel textures, and descriptor bounds checks when it lands. |
+| Root signature churn | PSO rebuilds and shader incompatibility | Use stable root signatures and explicit PSO keys; do not expand the ordinary raster root signature opportunistically. |
 | Upload lifetime bugs | CPU can overwrite GPU-read data | Fence every frame allocator and expose peak/overflow counters. |
 | Barrier mistakes | GPU corruption, hangs, validation errors | Centralize barriers in the graph and keep manual transitions rare. |
 | Device removal | Hard to diagnose without breadcrumbs | Enable DRED, debug names, and PIX markers from phase 1. |
@@ -1007,14 +1045,22 @@ A successful DX12-only architecture has:
 - No D3D12 debug layer errors.
 - No routine GPU stalls for upload, readback, descriptor reset, or timer queries.
 
+Current stack status: shader contracts, HLSL inventory cleanup, the CPU
+`RenderMaterial` bridge, and the documented `b0`/`t0..t3` ordinary raster ABI
+are already in the stacked PR path. GPU material tables, descriptor indexing,
+graph-owned live barriers, and broad pass callback migration remain future
+features.
+
 ## Final Recommendation
 
 With DX12 as the canonical graphics API, take the opportunity to become truly DX12-native while keeping future backend portability at the engine-contract level:
 
 1. Keep the current visible frame composition and deterministic validation mindset.
-2. Replace backend abstraction with a `Dx12RenderDevice`.
+2. Continue consolidating explicit DX12 ownership behind `Dx12RenderDevice`.
 3. Put a render graph in charge of pass order, resources, and barriers.
-4. Move materials to GPU tables and descriptor indices.
+4. Move materials to GPU tables and descriptor indices only after the current
+   CPU material bridge and binding ABI stop being sufficient for a scoped
+   feature.
 5. Use HLSL/DXC/reflection as the production shader contract and preserve enough shader metadata for a future SPIR-V/MSL path.
 6. Treat diagnostics, PIX markers, DRED, GBV, and screenshot baselines as core architecture, not optional debugging extras.
 

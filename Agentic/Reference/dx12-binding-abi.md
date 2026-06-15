@@ -95,7 +95,7 @@ Deferred binding models remain:
 
 - expanded fixed SRV slots;
 - a single contiguous SRV descriptor table;
-- material texture;
+- material texture table or material descriptor indirection;
 - structured-buffer material table;
 - bindless descriptors;
 - broad render graph/resource-barrier migration.

@@ -10,13 +10,23 @@ The old architecture shape concentrated too many responsibilities in one product
 
 ![Before DX12 architecture diagram](images/architecture-before.svg)
 
-The branch now has a more explicit architecture boundary. DX12 is still the production renderer, while GL and DX11 remain parity references for validation. The render graph is still diagnostic scaffolding, but the backend now exposes enough device, descriptor, upload, readback, and live-barrier structure to move toward graph-owned rendering in smaller, safer steps:
+The branch created a more explicit architecture boundary. At the time, DX12 was the production renderer while GL and DX11 still remained parity references for validation; current stacked work has since retired those runtime paths. The render graph is still diagnostic scaffolding, but the backend now exposes enough device, descriptor, upload, readback, and live-barrier structure to move toward graph-owned rendering in smaller, safer steps:
 
 ![After DX12 architecture diagram](images/architecture-after.svg)
 
-The validation workflow was also made less brittle. The renderer validation batch now fails fast when the build fails, instead of continuing into renderer launches that can make agents appear stuck. Every implementation slice was committed and pushed in small atomic commits, with renderer parity checks run repeatedly against GL, DX11, and DX12 as requested.
+The historical validation workflow was also made less brittle. The renderer validation batch then used by this branch fails fast when the build fails, instead of continuing into renderer launches that can make agents appear stuck. Every implementation slice was committed and pushed in small atomic commits, with renderer parity checks run repeatedly against GL, DX11, and DX12 as requested.
 
 This report closes the current orchestrator queue item and records the follow-up architecture pass. It does not claim that the final DX12-only architecture is complete. Remaining work includes making the graph drive live barriers, moving passes into graph callbacks, replacing name-based shader setters, and building the material/resource systems described by the source and follow-up plans.
+
+## 2026-06-15 Cleanup Note
+
+Read the validation and GL/DX11 references below as historical evidence from
+the original architecture branch. The current stack has since added DX12-only
+renderer retirement, Debug shader contract diagnostics, a CPU `RenderMaterial`
+bridge, and the documented ordinary raster binding ABI (`b0`, `t0..t3`, static
+samplers `s0`, `s1`, and `s3`). Current renderer PR gates should use
+`tools\validate_dx12_renderer.bat`; GL/DX11 parity is archived context, not an
+active runtime safety net.
 
 ## At A Glance
 
@@ -207,7 +217,9 @@ This report update commit is intentionally report-only and should stage only `Ag
 
 ## Validation
 
-- Required gate for the render architecture work: `tools\validate_renderers.bat`
+- Required gate for the render architecture work at the time:
+  `tools\validate_renderers.bat`; current DX12-only renderer equivalent:
+  `tools\validate_dx12_renderer.bat`
 - Validation required for this report-only update: none
 - Commands run during implementation:
 
@@ -221,7 +233,7 @@ tools\validate_renderers.bat
 python tools\check_parity.py --manifest TestOutput\validation\renderers\20260614T020056Z\manifest.json
 ```
 
-- Latest renderer result:
+- Latest historical renderer result from that branch:
 
 ```text
 tools\validate_renderers.bat: PASS
@@ -389,8 +401,12 @@ During this report update, pre-existing uncommitted orchestrator document edits 
 - The graph-vs-live comparison is advisory. It compares state-pair transitions, not yet fully identified resource lifetimes, and `PRESENT` and `COMMON` share the same DX12 value.
 - The diagnostic frame graph skeleton is a superset of possible paths, not a per-frame branch-specific graph.
 - Some live barriers still come from direct backend behavior; later work needs to make passes declare resources and let graph-owned logic emit barriers.
-- The material system, shader reflection, resource allocator, DX12-only validation scripts, and live pass modules remain future work.
-- GL and DX11 are still in the renderer parity suite as reference backends.
+- GPU material tables, descriptor indexing, a broader resource allocator, and
+  live pass modules remain future work.
+- Shader contract diagnostics and the current binding ABI have since landed in
+  the stacked PR path; do not duplicate that work in this cleanup.
+- GL/DX11 parity evidence is archived historical context. The active safety net
+  is DX12 screenshot/debug-layer validation and related diagnostics.
 - No PR was opened, so this branch has not gone through GitHub review.
 
 ## Sub-Agent Result Summary
@@ -411,8 +427,12 @@ The queue item is terminal:
 dx12-only-engine-architecture: done
 ```
 
-Recommended follow-up is to create a new queue item for the next live DX12 architecture phase:
+Recommended follow-up after the shader and binding ABI stack is reviewed is a
+small concrete render slice, not another umbrella architecture rewrite. Good
+next candidates are `water-rendering-cleanup-plan.md` or, if material scope is
+explicitly approved, `material-system-v1-implementation-plan.md`. Any render
+graph promotion should target current DX12 validation, not GL/DX11 parity:
 
 ```text
-Promote the diagnostic render graph into resource-identified graph-owned barrier emission, then migrate one low-risk pass into a graph callback while keeping GL/DX11 parity validation green.
+Promote the diagnostic render graph into resource-identified graph-owned barrier emission, then migrate one low-risk pass into a graph callback behind tools\validate_dx12_renderer.bat.
 ```
