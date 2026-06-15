@@ -192,6 +192,24 @@ class RenderBackendDX12 : public IRenderBackend
     static const int TIMER_HEAP_MARKERS = DX12_TIMER_HEAP_MARKERS; // must be >= Profiler::MAX_MARKERS
     static const int TIMER_HEAP_SIZE = DX12_TIMER_HEAP_SIZE;       // begin + end per marker
 
+    // Ordinary raster binding ABI:
+    //
+    // This is the public shader/resource layout for the current graphics root
+    // signature. Keep BindTexture(handle, slot) mapped directly to SRV register
+    // t<slot> until a concrete material/pass contract requires a new root
+    // signature. Future material-table work should update this block, HLSL
+    // registers, and shader contract docs together.
+    static constexpr UINT ROOT_PARAMETER_FRAME_CONSTANTS = 0; // CBV b0
+    static constexpr UINT ROOT_PARAMETER_FIRST_TEXTURE = 1;   // t0 descriptor table
+    static constexpr UINT SHADER_REGISTER_FRAME_CONSTANTS = 0;
+    static constexpr UINT SHADER_REGISTER_FIRST_TEXTURE = 0;
+    static constexpr UINT SAMPLER_REGISTER_LINEAR_WRAP = 0;        // s0
+    static constexpr UINT SAMPLER_REGISTER_LINEAR_CLAMP = 1;       // s1
+    static constexpr UINT SAMPLER_REGISTER_SHADOW_POINT_CLAMP = 3; // s3
+    static constexpr int TEXTURE_SLOT_COUNT = 4;                   // SRV slots t0..t3
+    static constexpr UINT ORDINARY_RASTER_ROOT_PARAMETER_COUNT = ROOT_PARAMETER_FIRST_TEXTURE + TEXTURE_SLOT_COUNT;
+    static_assert( TEXTURE_SLOT_COUNT == 4, "Ordinary raster ABI intentionally exposes SRV slots t0..t3." );
+
     // CPU-side registries. These are not GPU resources by themselves; they are
     // lookup tables the backend uses to find cached GPU objects and descriptor
     // rows while translating engine draw calls into command-list operations.
@@ -318,7 +336,6 @@ class RenderBackendDX12 : public IRenderBackend
     bool m_psoDirty = true;
     std::vector<LiveBarrierRecordDX12> m_liveBarrierRecords;
 
-    static constexpr int TEXTURE_SLOT_COUNT = 4;
     ShaderDX12* m_activeShader = nullptr;
     // Currently bound persistent SRV descriptor indices for shader texture
     // slots t0..t3. These are not GPU handles. Before a draw, the backend copies

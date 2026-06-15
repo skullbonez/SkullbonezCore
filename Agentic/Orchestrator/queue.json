@@ -36,7 +36,7 @@
     {
       "id": "dx12-descriptor-upload-root-signature",
       "plan": "Agentic/Plans/dx12-descriptor-upload-root-signature-plan.md",
-      "status": "ready",
+      "status": "pr-open",
       "priority": 21,
       "branch": "codex/dx12-descriptor-upload-root-signature",
       "impact_area": [
@@ -59,7 +59,7 @@
     {
       "id": "dx12-only-engine-architecture-cleanup",
       "plan": "Agentic/Plans/Done/dx12-only-engine-architecture-plan.md",
-      "status": "ready",
+      "status": "pr-open",
       "priority": 22,
       "branch": "codex/dx12-only-engine-architecture-cleanup",
       "impact_area": [

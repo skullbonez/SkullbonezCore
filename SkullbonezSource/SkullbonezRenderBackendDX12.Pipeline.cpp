@@ -460,7 +460,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
         D3D12_GPU_VIRTUAL_ADDRESS cbAddr = m_activeShader->FlushCB();
         if ( cbAddr )
         {
-            m_commandList->SetGraphicsRootConstantBufferView( 0, cbAddr );
+            m_commandList->SetGraphicsRootConstantBufferView( ROOT_PARAMETER_FRAME_CONSTANTS, cbAddr );
         }
     }
 
@@ -497,7 +497,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
                 UINT transient = AllocateTransientSRV();
                 D3D12_CPU_DESCRIPTOR_HANDLE dstHandle = m_srvDescriptors.ShaderVisibleCpuHandle( transient );
                 m_device->CopyDescriptorsSimple( 1, dstHandle, GetSRVStagingCpuHandle( srcIdx ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
-                m_commandList->SetGraphicsRootDescriptorTable( 1 + slot, GetSRVGpuHandle( transient ) );
+                m_commandList->SetGraphicsRootDescriptorTable( ROOT_PARAMETER_FIRST_TEXTURE + static_cast<UINT>( slot ), GetSRVGpuHandle( transient ) );
             }
         }
         m_texBindingsDirty = false;

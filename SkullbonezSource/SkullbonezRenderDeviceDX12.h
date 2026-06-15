@@ -390,6 +390,10 @@ class Dx12DescriptorAllocator
     Dx12DescriptorAllocatorStats GetStats() const;
 
   private:
+    UINT ShaderVisibleCapacity() const;
+    void ValidateShaderVisibleIndex( UINT index, const char* context ) const;
+    void ValidateStagingIndex( UINT index, const char* context ) const;
+
     ID3D12DescriptorHeap* m_shaderVisibleHeap = nullptr;
     ID3D12DescriptorHeap* m_stagingHeap = nullptr;
     UINT m_descriptorSize = 0;

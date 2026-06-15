@@ -1,9 +1,9 @@
 # DX12 Descriptor Upload Root Signature Plan
 
-Status: planning draft  
-Created: 2026-06-11  
-Scope: DX12 descriptor management, upload allocation, root signature strategy, material-system readiness  
-Implementation status: plan only, no code changes in this pass
+Status: implementation slice complete; future expansion deferred
+Created: 2026-06-11
+Scope: DX12 descriptor management, upload allocation, root signature strategy, material-system readiness
+Implementation status: current ABI documented and named in code; descriptor/upload helper systems are in place; no root-signature expansion in this pass
 
 ## Goal
 
@@ -21,8 +21,10 @@ Current ordinary DX12 raster root signature:
 - root parameter 1: SRV descriptor table for `t0`,
 - root parameter 2: SRV descriptor table for `t1`,
 - root parameter 3: SRV descriptor table for `t2`,
+- root parameter 4: SRV descriptor table for `t3`,
 - static sampler `s0`: linear wrap,
-- static sampler `s1`: linear clamp.
+- static sampler `s1`: linear clamp,
+- static sampler `s3`: point clamp for shadow sampling.
 
 Current descriptor model:
 
@@ -30,15 +32,59 @@ Current descriptor model:
 - Shader-visible heap for bound/transient descriptors.
 - Static SRV allocation for textures/FBO registered SRVs.
 - Transient SRV allocation copied into shader-visible heap.
-- Bound texture slots are tracked for `t0`, `t1`, `t2`.
+- Bound texture slots are tracked for `t0`, `t1`, `t2`, and `t3`.
+- Descriptor stats report static SRV use/capacity, per-frame transient capacity,
+  transient peak use, and current transient use.
 
 Current upload model:
 
 - Per-frame upload buffers exist.
 - Constant buffers are suballocated from upload space.
 - Shader `FlushCB()` uploads reflected cbuffer data to a 256-byte-aligned allocation.
+- Upload stats report per-frame capacity, used bytes, and peak bytes.
+- Upload arenas reset with the command allocator and transient descriptor range
+  only after the frame allocator fence is complete.
 
 This works for current passes. It is narrow for material tables, more post textures, texture arrays, and debug capture buffers.
+
+## Implementation Update: 2026-06-15
+
+The near-term cleanup is implemented without expanding the ordinary raster root
+signature:
+
+- `RenderBackendDX12` now names the ordinary raster binding ABI in constants:
+  root parameter 0 is CBV `b0`, root parameters 1..4 are SRV slots `t0..t3`,
+  and static samplers are `s0`, `s1`, and `s3`.
+- Debug builds log a one-time `dx12_ordinary_raster_binding_abi` event when the
+  main root signature is created.
+- `ReportArchitectureStats()` now includes the root-parameter count and ordinary
+  raster SRV slot span alongside descriptor/upload stats.
+- `BindTexture(handle, slot)` remains the public compatibility path and still
+  maps `slot` directly to HLSL register `t<slot>`. Invalid slots remain ignored
+  for compatibility, with a Debug diagnostic event.
+- `Dx12DescriptorAllocator` now validates initialization geometry, reports
+  static/transient exhaustion with used/capacity numbers, and checks
+  shader-visible vs staging descriptor index ranges before returning handles.
+- The frame upload arena and transient descriptor reset policy was confirmed to
+  be explicit and fence-aligned. No rewrite was needed.
+
+Documentation added:
+
+- `Agentic/Reference/dx12-binding-abi.md` records the current root signature,
+  sampler set, descriptor lifetime, upload lifetime, shader contract
+  implications, and deferred expansion gates.
+- `Agentic/Reference/shader-inventory.md` links shader resource slots to the
+  binding ABI.
+- `Agentic/Reference/render-backend-portability-contract.md` records the current
+  DX12 ABI as the mapping for the engine-level shader program concept.
+
+Deferred:
+
+- root signature expansion;
+- material texture/table or structured-buffer material table;
+- bindless descriptors;
+- broad render graph/resource-barrier migration;
+- upload allocation strategy changes beyond clearer diagnostics.
 
 ## Design Principles
 
@@ -290,6 +336,8 @@ Run renderer validation and inspect DX12 validation log.
 
 ### Phase 1: Instrument Current DX12 Resource Binding
 
+Status: implemented in the architecture pass plus the 2026-06-15 cleanup.
+
 Tasks:
 
 1. Add debug counters for transient/static descriptors.
@@ -302,6 +350,9 @@ Validation:
 - `tools\validate_dx12_renderer.bat`.
 
 ### Phase 2: Make Transient Descriptor Reset Explicit
+
+Status: implemented before this slice and confirmed during the 2026-06-15
+cleanup.
 
 Tasks:
 
@@ -316,6 +367,8 @@ Validation:
 
 ### Phase 3: Batch Descriptor Tables
 
+Status: deferred.
+
 Tasks:
 
 1. Prepare for one descriptor table range without changing public API.
@@ -327,6 +380,9 @@ Validation:
 - `tools\validate_dx12_renderer.bat`.
 
 ### Phase 4: Root Signature Expansion If Needed
+
+Status: deferred. No concrete runtime need was found in this slice; material v1
+continues to use packed instance parameters.
 
 Tasks:
 
@@ -342,6 +398,8 @@ Validation:
 - Run DX12-heavy scene three consecutive times if resource barriers/uploads are touched.
 
 ### Phase 5: Material Table If Needed
+
+Status: deferred.
 
 Tasks:
 
