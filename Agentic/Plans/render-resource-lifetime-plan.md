@@ -372,6 +372,14 @@ Validation:
 
 - `tools\validate_dx12_renderer.bat`.
 
+Status:
+
+- Done on branch `codex/render-resource-lifetime-dx12`.
+- The existing `Assets::AssetSystem` remains the source owner for texture paths and shader base names.
+- Added an active asset-system bridge so legacy render helpers can resolve logical shader names without taking ownership of the run-level asset registry.
+- Routed helper, terrain, skybox, water, text, collision visualizer, and UI blur shader creation through source records while leaving GPU shader handles in their existing owners.
+- Material/style GPU records are not introduced yet because there is no material GPU table in this plan slice; style data still remains CPU-side scene/config state.
+
 ### Phase 5: Pass-Owned Resources
 
 Tasks:

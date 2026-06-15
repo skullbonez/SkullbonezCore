@@ -17,6 +17,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezSkyBox.h"
+#include "SkullbonezAssetSystem.h"
 #include "SkullbonezIRenderBackend.h"
 #include <vector>
 
@@ -290,7 +291,7 @@ void SkyBox::BuildMeshes()
     }
 
     // Load m_shader
-    m_shader = Gfx().CreateShader( "shaders/unlit_textured" );
+    m_shader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.unlit_textured" );
     m_shader->Use();
     m_shader->SetMat4( "uModel", Matrix4() );
     m_shader->SetVec4( "uColorTint", 1.0f, 1.0f, 1.0f, 1.0f );

@@ -41,7 +41,8 @@ Important split:
 
 - Source records are registered in `AssetSystem`.
 - GPU texture handles are rebuilt by `TextureCollection::RebuildTexturesFromSourceAssets`.
-- Pass-specific frame targets and shaders remain owned by `SkullbonezRun::RunSubsystemState`.
+- Shader source records are resolved through the active `AssetSystem` bridge, while GPU shader handles remain owned by their current systems.
+- Pass-specific frame targets remain owned by `SkullbonezRun::RunSubsystemState`.
 
 ## Current Shutdown Order
 
@@ -95,7 +96,7 @@ Phase 3 update:
 | Resource group | Source owner | GPU owner | Rebuild trigger today | Notes |
 |----------------|--------------|-----------|-----------------------|-------|
 | Built-in texture paths | `AssetSystem` texture source records | `TextureCollection` plus `RenderBackendDX12` texture entries | Startup, `RebuildRegisteredRenderResources`, lazy `EnsureTexture` | Good source/GPU split already exists. |
-| Built-in shader base names | `AssetSystem` shader source records | Per-system `unique_ptr<IShader>` or backend PSO cache | Lazy creation after reset | Source records exist, but shader handles are scattered by pass/system. |
+| Built-in shader base names | `AssetSystem` shader source records | Per-system `unique_ptr<IShader>` or backend PSO cache | Lazy creation after reset | GPU handles are still scattered, but shader creation now resolves logical source records first. |
 | Reflection FBO | Window dimensions and water reflection mode | `RunSubsystemState::reflectionFBO` | Startup, lazy ensure, window-size check, shutdown/reset | Uses a 2x back-buffer target and recreates only when dimensions or color format differ. |
 | Cinematic scene FBO | Window dimensions, cinematic enabled state | `RunSubsystemState::sceneFBO` | Lazy ensure, size/format check | Correctly resize-aware. |
 | Volumetric light FBO | Window dimensions, cinematic enabled state | `RunSubsystemState::volumetricLightFBO` | Lazy ensure, half-size/format check | Correctly resize-aware. |
@@ -136,3 +137,4 @@ Use these names in comments, logs, and future code:
 5. Reset frame payloads when their underlying GPU texture is released.
 6. Log named lifecycle phases before broad reset/rebuild work.
 7. Treat device loss as a backend rebuild from source records, not as a scene reload.
+8. Use logical shader names such as `shader.water_ocean` at system call sites; let `AssetSystem` translate them to backend shader base paths.

@@ -44,6 +44,7 @@ Related:
 
 
 #include "SkullbonezCollisionVisualizer.h"
+#include "SkullbonezAssetSystem.h"
 #include "SkullbonezGameModelCollection.h"
 #include "SkullbonezGameModel.h"
 #include "SkullbonezIRenderBackend.h"
@@ -157,7 +158,7 @@ void CollisionVisualizer::EnsureResources()
     // frame, then reused until ResetResources() is called.
     if ( !m_shader )
     {
-        m_shader = Gfx().CreateShader( "shaders/collision_visualizer" );
+        m_shader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.collision_visualizer" );
     }
     if ( m_sphereInstMesh == 0 )
     {

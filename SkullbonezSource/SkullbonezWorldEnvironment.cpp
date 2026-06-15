@@ -25,6 +25,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezWorldEnvironment.h"
+#include "SkullbonezAssetSystem.h"
 #include "SkullbonezIRenderBackend.h"
 #include <vector>
 
@@ -283,7 +284,7 @@ void WorldEnvironment::BuildFluidMesh()
     m_calmMesh = Gfx().CreateMesh( calmVerts.data(), calmCount, false, false );
     m_oceanMesh = Gfx().CreateMesh( oceanVerts.data(), oceanCount, false, false );
 
-    m_calmShader = Gfx().CreateShader( "shaders/water_calm" );
+    m_calmShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.water_calm" );
     m_calmShader->Use();
     m_calmShader->SetMat4( "uModel", Matrix4() );
     m_calmShader->SetVec4( "uColorTint", 0.05f, 0.15f, 0.42f, 0.65f );
@@ -296,7 +297,7 @@ void WorldEnvironment::BuildFluidMesh()
     m_calmShader->SetVec4( "uBasinMask", 620.0f, 615.0f, 205.0f, 145.0f );
     m_calmShader->SetFloat( "uBasinMaskFeather", 1.0f );
 
-    m_oceanShader = Gfx().CreateShader( "shaders/water_ocean" );
+    m_oceanShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.water_ocean" );
     m_oceanShader->Use();
     m_oceanShader->SetMat4( "uModel", Matrix4() );
     m_oceanShader->SetVec4( "uColorTint", 0.02f, 0.10f, 0.35f, 0.72f );

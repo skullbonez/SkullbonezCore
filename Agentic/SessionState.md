@@ -26,7 +26,7 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 | Item | Status | Notes |
 |------|--------|-------|
 | DX12-only renderer retirement | Done | Retired GL/DX11 backends and shader families, added DX12-only validation, archived final parity evidence, simplified active render contracts, named DX12 diagnostic resources, and added the future backend portability contract. |
-| Render resource lifetime | Active | Phase 1 current-lifetime reference captured, Phase 2 named lifecycle phases added, and Phase 3 reflection FBO resize invalidation split implemented. |
+| Render resource lifetime | Active | Phases 1-4 done: current-lifetime reference, named lifecycle phases, reflection FBO resize invalidation split, and shader source-record creation bridge. |
 | Catto physics solver finalisation | Recent | Object/object response now belongs to persistent Catto rows with pipeline visualizer and SkullScope `pipeline` query support. User-approved physics CSV and SkullScope query baselines were updated; `tools\validate_full.bat` passed. |
 | Bullet sweep regression | Recent | Wall/object/terrain high-speed sweep scenes and Debug collision-time CSV baselines are wired into `tools\validate_physics.bat`. |
 | Terrain shared row pipeline | Done | Implemented and documented in `Agentic/Plans/Done/physics-terrain-shared-row-pipeline-plan.md`. |

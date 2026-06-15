@@ -164,6 +164,8 @@ SkullbonezRun::~SkullbonezRun()
             Gfx().FlushGPU();
         }
     }
+
+    SkullbonezCore::Assets::BindActiveAssetSystem( nullptr );
 }
 
 
@@ -441,6 +443,7 @@ void SkullbonezRun::Initialise()
     // Init m_textures
     m_systems.textures = TextureCollection::Instance();
     m_systems.textures->BindAssetSystem( &m_systems.assets );
+    SkullbonezCore::Assets::BindActiveAssetSystem( &m_systems.assets );
     RegisterBuiltInAssets();
 
     // Build renderer-owned resources from source asset records.
