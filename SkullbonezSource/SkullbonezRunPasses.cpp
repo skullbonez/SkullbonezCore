@@ -65,6 +65,18 @@ void ClearAllRenderTextureSlots()
     ClearRenderTextureSlotsExcept( 0u );
 }
 
+void BindRenderTextureSlots( uint32_t slot0, uint32_t slot1, uint32_t slot2, uint32_t slot3 )
+{
+    // Contract: ordinary raster shaders expose exactly t0..t3 today. Fullscreen
+    // passes often need a complete slot tuple, including zeros for unused
+    // inputs, so stale texture descriptors cannot bleed from an earlier pass.
+    const uint32_t handles[RENDER_TEXTURE_SLOT_COUNT] = { slot0, slot1, slot2, slot3 };
+    for ( int slot = 0; slot < RENDER_TEXTURE_SLOT_COUNT; ++slot )
+    {
+        Gfx().BindTexture( handles[slot], slot );
+    }
+}
+
 Vector3 NormalizeShadowLightDirection( Vector3 lightDirectionWorld )
 {
     // Why: scene/config data can omit or zero the sun vector. Shadows still need
@@ -1076,10 +1088,10 @@ bool SkullbonezRun::VolumetricPass::Render( const RenderFrameContext& /*frame*/ 
     // Pass contract: texture slot 0 is rendered color, slot 1 is rendered
     // depth. The shader uses depth to tell sky pixels from solid geometry so
     // rays pass through sky and fade when they cross hills/balls.
-    Gfx().BindTexture( scene.hdrTarget->GetColorTextureHandle(), 0 );
-    Gfx().BindTexture( scene.hdrTarget->GetDepthTextureHandle(), 1 );
-    Gfx().BindTexture( 0, 2 );
-    Gfx().BindTexture( 0, 3 );
+    BindRenderTextureSlots( scene.hdrTarget->GetColorTextureHandle(),
+                            scene.hdrTarget->GetDepthTextureHandle(),
+                            0,
+                            0 );
     DrawFullscreenQuad( fullscreen.quadVB );
 
     Gfx().SetDepthTest( depthWasEnabled );
@@ -1146,10 +1158,10 @@ void SkullbonezRun::TonemapPass::Render( const RenderFrameContext& /*frame*/, bo
     // Pass contract: slot 0 is the bright HDR scene, slot 1 is its depth buffer,
     // and slot 2 is either the volumetric-light texture or a harmless fallback
     // when that pass is disabled.
-    Gfx().BindTexture( scene.hdrTarget->GetColorTextureHandle(), 0 );
-    Gfx().BindTexture( scene.hdrTarget->GetDepthTextureHandle(), 1 );
-    Gfx().BindTexture( volumetricReady && volumetric.target ? volumetric.target->GetColorTextureHandle() : scene.hdrTarget->GetColorTextureHandle(), 2 );
-    Gfx().BindTexture( 0, 3 );
+    BindRenderTextureSlots( scene.hdrTarget->GetColorTextureHandle(),
+                            scene.hdrTarget->GetDepthTextureHandle(),
+                            volumetricReady && volumetric.target ? volumetric.target->GetColorTextureHandle() : scene.hdrTarget->GetColorTextureHandle(),
+                            0 );
     DrawFullscreenQuad( fullscreen.quadVB );
 
     Gfx().SetDepthTest( depthWasEnabled );
