@@ -78,6 +78,12 @@ class ShaderDX12 : public IShader
     mutable bool m_cbDirty;
     const ShaderProgramDesc* m_contract;
 #ifdef _DEBUG
+    struct ResourceInfo
+    {
+        UINT bindPoint;
+        D3D_SHADER_INPUT_TYPE type;
+    };
+    std::unordered_map<std::string, ResourceInfo> m_resourceMap;
     mutable std::vector<uint8_t> m_contractUniformsSet;
     mutable std::vector<uint8_t> m_contractMissingRequiredLogged;
     mutable std::vector<std::string> m_missingUniformWarnings;

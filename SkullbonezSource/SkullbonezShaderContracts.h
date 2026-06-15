@@ -102,6 +102,17 @@ inline const char* ShaderValueTypeName( ShaderValueType type )
     }
 }
 
+inline const char* ShaderResourceKindName( ShaderResourceKind kind )
+{
+    switch ( kind )
+    {
+    case ShaderResourceKind::Texture2D:
+        return "Texture2D";
+    default:
+        return "unknown";
+    }
+}
+
 inline bool ShaderContractNameEquals( const char* left, const char* right )
 {
     return left && right && std::strcmp( left, right ) == 0;

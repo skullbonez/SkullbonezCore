@@ -61,6 +61,9 @@ ShaderDX12::~ShaderDX12() = default;
 bool ShaderDX12::Compile( const char* hlslPath )
 {
     m_contract = FindShaderProgramDesc( hlslPath );
+#ifdef _DEBUG
+    m_resourceMap.clear();
+#endif
 
     // Read file
     std::ifstream file( hlslPath, std::ios::binary );
@@ -141,6 +144,18 @@ void ShaderDX12::ReflectCB( ID3DBlob* blob )
     D3D11_SHADER_DESC shaderDesc = {};
     reflect->GetDesc( &shaderDesc );
 
+#ifdef _DEBUG
+    for ( UINT i = 0; i < shaderDesc.BoundResources; ++i )
+    {
+        D3D11_SHADER_INPUT_BIND_DESC bindDesc = {};
+        reflect->GetResourceBindingDesc( i, &bindDesc );
+        if ( bindDesc.Name && bindDesc.Name[0] != '\0' )
+        {
+            m_resourceMap[bindDesc.Name] = { bindDesc.BindPoint, bindDesc.Type };
+        }
+    }
+#endif
+
     for ( UINT i = 0; i < shaderDesc.ConstantBuffers; ++i )
     {
         ID3D11ShaderReflectionConstantBuffer* cb = reflect->GetConstantBufferByIndex( i );
@@ -213,6 +228,40 @@ ShaderValueType ShaderValueTypeForSetter( const char* setterName )
         return ShaderValueType::Vec4;
     }
     return ShaderValueType::Mat4;
+}
+
+const char* ShaderInputTypeName( D3D_SHADER_INPUT_TYPE type )
+{
+    switch ( type )
+    {
+    case D3D_SIT_CBUFFER:
+        return "CBUFFER";
+    case D3D_SIT_TBUFFER:
+        return "TBUFFER";
+    case D3D_SIT_TEXTURE:
+        return "TEXTURE";
+    case D3D_SIT_SAMPLER:
+        return "SAMPLER";
+    case D3D_SIT_UAV_RWTYPED:
+        return "UAV_RWTYPED";
+    case D3D_SIT_STRUCTURED:
+        return "STRUCTURED";
+    case D3D_SIT_UAV_RWSTRUCTURED:
+        return "UAV_RWSTRUCTURED";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+bool ShaderResourceInputTypeMatches( ShaderResourceKind kind, D3D_SHADER_INPUT_TYPE reflectedType )
+{
+    switch ( kind )
+    {
+    case ShaderResourceKind::Texture2D:
+        return reflectedType == D3D_SIT_TEXTURE;
+    default:
+        return false;
+    }
 }
 } // namespace
 
@@ -341,6 +390,42 @@ void ShaderDX12::ReportContractReflectionMismatch() const
                                m_contract->baseName,
                                uniform.name,
                                ShaderValueTypeName( uniform.type ) );
+        }
+    }
+
+    for ( size_t i = 0; i < m_contract->resourceCount; ++i )
+    {
+        const ShaderResourceDecl& resource = m_contract->resources[i];
+        const auto reflected = m_resourceMap.find( resource.name );
+        if ( reflected == m_resourceMap.end() )
+        {
+            if ( resource.required )
+            {
+                Log().WriteEventf( "shader_contract_required_resource_not_reflected shader=%s resource=%s slot=t%d expected_kind=%s",
+                                   m_contract->baseName,
+                                   resource.name,
+                                   resource.slot,
+                                   ShaderResourceKindName( resource.kind ) );
+            }
+            continue;
+        }
+
+        if ( !ShaderResourceInputTypeMatches( resource.kind, reflected->second.type ) )
+        {
+            Log().WriteEventf( "shader_contract_resource_kind_mismatch shader=%s resource=%s expected_kind=%s reflected_type=%s",
+                               m_contract->baseName,
+                               resource.name,
+                               ShaderResourceKindName( resource.kind ),
+                               ShaderInputTypeName( reflected->second.type ) );
+        }
+
+        if ( reflected->second.bindPoint != static_cast<UINT>( resource.slot ) )
+        {
+            Log().WriteEventf( "shader_contract_resource_slot_mismatch shader=%s resource=%s expected=t%d reflected=t%u",
+                               m_contract->baseName,
+                               resource.name,
+                               resource.slot,
+                               reflected->second.bindPoint );
         }
     }
 }
