@@ -797,6 +797,30 @@ void SkullbonezRun::RenderTerrainPass( const TerrainPassInputs& inputs )
 }
 
 
+void SkullbonezRun::RenderWaterPass( const WaterPassInputs& inputs )
+{
+    if ( inputs.waterHidden || ( inputs.frame.cinematicEnabled && inputs.cinematic && inputs.cinematic->waterMode == 0 ) )
+    {
+        return;
+    }
+
+    PROFILE_GPU_BEGIN( "Frame/Render/Water" );
+    float waterTime = inputs.freezeTime
+                          ? inputs.frozenTime
+                          : static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
+    m_cWorldEnvironment.RenderFluid( inputs.frame.baseView,
+                                     inputs.frame.projection,
+                                     inputs.reflection.reflectionSampleViewProjection,
+                                     waterTime,
+                                     inputs.reflection.reflectionTextureHandle,
+                                     inputs.flatWater,
+                                     inputs.noReflection,
+                                     inputs.frame.cinematicEnabled,
+                                     inputs.cinematic );
+    PROFILE_GPU_END( "Frame/Render/Water" );
+}
+
+
 bool SkullbonezRun::RenderCinematicVolumetricLight()
 {
     const CinematicRenderConfig& cinematic = ActiveCinematicConfig();
@@ -1128,23 +1152,14 @@ void SkullbonezRun::DrawPrimitives()
     RenderTerrainPass( { frame, activeCinematic, terrainShadowFrame } );
 
     // render the fluid ---------------------------
-    if ( !m_debug.isWaterHidden && ( !cinematicRender || ActiveCinematicConfig().waterMode != 0 ) )
-    {
-        PROFILE_GPU_BEGIN( "Frame/Render/Water" );
-        float waterTime = m_debug.isWaterFreezeDebug
-                              ? m_debug.frozenWaterTime
-                              : static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
-        m_cWorldEnvironment.RenderFluid( frame.baseView,
-                                         frame.projection,
-                                         reflection.reflectionSampleViewProjection,
-                                         waterTime,
-                                         reflection.reflectionTextureHandle,
-                                         m_debug.isWaterFlatDebug,
-                                         m_debug.isWaterNoReflect,
-                                         cinematicRender,
-                                         cinematicRender ? &ActiveCinematicConfig() : nullptr );
-        PROFILE_GPU_END( "Frame/Render/Water" );
-    }
+    RenderWaterPass( { frame,
+                       reflection,
+                       activeCinematic,
+                       m_debug.isWaterHidden,
+                       m_debug.isWaterFlatDebug,
+                       m_debug.isWaterNoReflect,
+                       m_debug.isWaterFreezeDebug,
+                       m_debug.frozenWaterTime } );
 
     if ( transparentBodyPass )
     {
