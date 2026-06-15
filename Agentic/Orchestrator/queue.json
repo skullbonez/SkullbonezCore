@@ -36,7 +36,7 @@
     {
       "id": "dx12-descriptor-upload-root-signature",
       "plan": "Agentic/Plans/dx12-descriptor-upload-root-signature-plan.md",
-      "status": "ready",
+      "status": "running",
       "priority": 21,
       "branch": "codex/dx12-descriptor-upload-root-signature",
       "impact_area": [

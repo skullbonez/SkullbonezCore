@@ -464,8 +464,11 @@ void RenderBackendDX12::ReportArchitectureStats( const char* reason ) const
     // "static SRVs" are persistent texture/view slots, "transient SRVs" are
     // per-frame descriptor copies, and "upload peak" is the largest CPU-written
     // staging allocation used by any one in-flight frame.
-    Log().WriteEventf( "dx12_render_architecture_stats reason=%s rtv_descriptors=%u/%u dsv_descriptors=%u/%u static_srvs=%u/%u transient_srv_peak=%u/%u upload_peak_bytes=%llu upload_capacity_bytes=%llu",
+    Log().WriteEventf( "dx12_render_architecture_stats reason=%s root_parameters=%u ordinary_raster_srv_slots=t%u..t%u rtv_descriptors=%u/%u dsv_descriptors=%u/%u static_srvs=%u/%u transient_srv_peak=%u/%u upload_peak_bytes=%llu upload_capacity_bytes=%llu",
                        reason ? reason : "unknown",
+                       ORDINARY_RASTER_ROOT_PARAMETER_COUNT,
+                       SHADER_REGISTER_FIRST_TEXTURE,
+                       SHADER_REGISTER_FIRST_TEXTURE + static_cast<UINT>( TEXTURE_SLOT_COUNT - 1 ),
                        rtvStats.used,
                        rtvStats.capacity,
                        dsvStats.used,
@@ -1089,23 +1092,24 @@ void RenderBackendDX12::CreateRootSignature()
     {
         srvRanges[slot].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
         srvRanges[slot].NumDescriptors = 1;
-        srvRanges[slot].BaseShaderRegister = static_cast<UINT>( slot );
+        srvRanges[slot].BaseShaderRegister = SHADER_REGISTER_FIRST_TEXTURE + static_cast<UINT>( slot );
         srvRanges[slot].RegisterSpace = 0;
         srvRanges[slot].OffsetInDescriptorsFromTableStart = 0;
     }
 
-    D3D12_ROOT_PARAMETER1 params[1 + TEXTURE_SLOT_COUNT] = {};
-    params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-    params[0].Descriptor.ShaderRegister = 0;
-    params[0].Descriptor.RegisterSpace = 0;
-    params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+    D3D12_ROOT_PARAMETER1 params[ORDINARY_RASTER_ROOT_PARAMETER_COUNT] = {};
+    params[ROOT_PARAMETER_FRAME_CONSTANTS].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    params[ROOT_PARAMETER_FRAME_CONSTANTS].Descriptor.ShaderRegister = SHADER_REGISTER_FRAME_CONSTANTS;
+    params[ROOT_PARAMETER_FRAME_CONSTANTS].Descriptor.RegisterSpace = 0;
+    params[ROOT_PARAMETER_FRAME_CONSTANTS].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
     for ( int slot = 0; slot < TEXTURE_SLOT_COUNT; ++slot )
     {
-        params[1 + slot].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-        params[1 + slot].DescriptorTable.NumDescriptorRanges = 1;
-        params[1 + slot].DescriptorTable.pDescriptorRanges = &srvRanges[slot];
-        params[1 + slot].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+        const UINT rootParameter = ROOT_PARAMETER_FIRST_TEXTURE + static_cast<UINT>( slot );
+        params[rootParameter].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+        params[rootParameter].DescriptorTable.NumDescriptorRanges = 1;
+        params[rootParameter].DescriptorTable.pDescriptorRanges = &srvRanges[slot];
+        params[rootParameter].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     }
 
     D3D12_STATIC_SAMPLER_DESC samplers[3] = {};
@@ -1117,7 +1121,7 @@ void RenderBackendDX12::CreateRootSignature()
     samplers[0].MaxAnisotropy = 1;
     samplers[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
     samplers[0].MaxLOD = D3D12_FLOAT32_MAX; // allow all mip levels (default 0 = mip 0 only!)
-    samplers[0].ShaderRegister = 0;
+    samplers[0].ShaderRegister = SAMPLER_REGISTER_LINEAR_WRAP;
     samplers[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
     // s1: linear clamp (FBO / reflection textures)
@@ -1128,7 +1132,7 @@ void RenderBackendDX12::CreateRootSignature()
     samplers[1].MaxAnisotropy = 1;
     samplers[1].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
     samplers[1].MaxLOD = D3D12_FLOAT32_MAX;
-    samplers[1].ShaderRegister = 1;
+    samplers[1].ShaderRegister = SAMPLER_REGISTER_LINEAR_CLAMP;
     samplers[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
     // s3: point clamp for manual shadow-map PCF.
@@ -1139,12 +1143,12 @@ void RenderBackendDX12::CreateRootSignature()
     samplers[2].MaxAnisotropy = 1;
     samplers[2].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
     samplers[2].MaxLOD = D3D12_FLOAT32_MAX;
-    samplers[2].ShaderRegister = 3;
+    samplers[2].ShaderRegister = SAMPLER_REGISTER_SHADOW_POINT_CLAMP;
     samplers[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
     D3D12_VERSIONED_ROOT_SIGNATURE_DESC rootSigDesc = {};
     rootSigDesc.Version = D3D_ROOT_SIGNATURE_VERSION_1_1;
-    rootSigDesc.Desc_1_1.NumParameters = 1 + TEXTURE_SLOT_COUNT;
+    rootSigDesc.Desc_1_1.NumParameters = ORDINARY_RASTER_ROOT_PARAMETER_COUNT;
     rootSigDesc.Desc_1_1.pParameters = params;
     rootSigDesc.Desc_1_1.NumStaticSamplers = 3;
     rootSigDesc.Desc_1_1.pStaticSamplers = samplers;
@@ -1176,6 +1180,17 @@ void RenderBackendDX12::CreateRootSignature()
         throw std::runtime_error( "CreateRootSignature failed" );
     }
     NameDx12Object( m_rootSignature, L"Skullbonez DX12 Main Root Signature" );
+#ifdef _DEBUG
+    Log().WriteEventf( "dx12_ordinary_raster_binding_abi root_parameters=%u cbv=b%u srv_slots=t%u..t%u samplers=s%u,s%u,s%u bind_texture_slots=%d material_payload=packed_instance_params",
+                       ORDINARY_RASTER_ROOT_PARAMETER_COUNT,
+                       SHADER_REGISTER_FRAME_CONSTANTS,
+                       SHADER_REGISTER_FIRST_TEXTURE,
+                       SHADER_REGISTER_FIRST_TEXTURE + static_cast<UINT>( TEXTURE_SLOT_COUNT - 1 ),
+                       SAMPLER_REGISTER_LINEAR_WRAP,
+                       SAMPLER_REGISTER_LINEAR_CLAMP,
+                       SAMPLER_REGISTER_SHADOW_POINT_CLAMP,
+                       TEXTURE_SLOT_COUNT );
+#endif
 }
 
 
