@@ -757,14 +757,14 @@ SkullbonezRun::ReflectionPassOutput SkullbonezRun::ReflectionPass::Render( const
         float cameraPos[3] = { inputs.frame.eye.x, inputs.frame.eye.y, inputs.frame.eye.z };
         float simTime = static_cast<float>( m_run.m_timers.simulationTimer.GetTotalTime() );
 
-        uint32_t sphereHandle = m_run.m_systems.textures->GetTextureHandle( TEXTURE_BOUNDING_SPHERE );
-        uint32_t terrainHandle = m_run.m_systems.textures->GetTextureHandle( TEXTURE_GROUND );
-        uint32_t skyUpHandle = m_run.m_systems.textures->GetTextureHandle( TEXTURE_SKY_UP );
-        uint32_t skyDownHandle = m_run.m_systems.textures->GetTextureHandle( TEXTURE_SKY_DOWN );
-        uint32_t skyRightHandle = m_run.m_systems.textures->GetTextureHandle( TEXTURE_SKY_RIGHT );
-        uint32_t skyLeftHandle = m_run.m_systems.textures->GetTextureHandle( TEXTURE_SKY_LEFT );
-        uint32_t skyFrontHandle = m_run.m_systems.textures->GetTextureHandle( TEXTURE_SKY_FRONT );
-        uint32_t skyBackHandle = m_run.m_systems.textures->GetTextureHandle( TEXTURE_SKY_BACK );
+        uint32_t sphereHandle = m_run.TextureHandle( TEXTURE_BOUNDING_SPHERE );
+        uint32_t terrainHandle = m_run.TextureHandle( TEXTURE_GROUND );
+        uint32_t skyUpHandle = m_run.TextureHandle( TEXTURE_SKY_UP );
+        uint32_t skyDownHandle = m_run.TextureHandle( TEXTURE_SKY_DOWN );
+        uint32_t skyRightHandle = m_run.TextureHandle( TEXTURE_SKY_RIGHT );
+        uint32_t skyLeftHandle = m_run.TextureHandle( TEXTURE_SKY_LEFT );
+        uint32_t skyFrontHandle = m_run.TextureHandle( TEXTURE_SKY_FRONT );
+        uint32_t skyBackHandle = m_run.TextureHandle( TEXTURE_SKY_BACK );
         Gfx().DispatchReflectionRays( invVP.Data(),
                                       cameraPos,
                                       inputs.frame.waterY,
@@ -820,7 +820,7 @@ SkullbonezRun::ReflectionPassOutput SkullbonezRun::ReflectionPass::Render( const
             // Pass contract: reflected lit models read material color from slot
             // 0 and optional shadow depth from slot 3.
             ClearRenderTextureSlotsExcept( RENDER_TEXTURE_SLOT_0 | ( inputs.objectShadow && inputs.objectShadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
-            m_run.m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+            m_run.SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
             m_run.m_cGameModelCollection.RenderModels( inputs.frame.reflectionView,
                                                        inputs.frame.projection,
                                                        inputs.frame.lightPosition,
@@ -861,7 +861,7 @@ void SkullbonezRun::ObjectPass::Render( const ObjectPassInputs& inputs )
         // Pass contract: lit model shaders read the material texture in slot 0
         // and optionally the shadow depth texture in slot 3.
         ClearRenderTextureSlotsExcept( RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
-        m_run.m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+        m_run.SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
         m_run.m_cGameModelCollection.RenderModels( inputs.frame.baseView,
                                                    inputs.frame.projection,
                                                    inputs.frame.lightPosition,
@@ -898,7 +898,7 @@ void SkullbonezRun::TerrainPass::Render( const TerrainPassInputs& inputs )
     // Pass contract: terrain reads ground albedo from slot 0 and optional
     // shadow depth from slot 3.
     ClearRenderTextureSlotsExcept( RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
-    m_run.m_systems.textures->SelectTexture( TEXTURE_GROUND );
+    m_run.SelectRenderTexture( TEXTURE_GROUND );
     m_run.m_systems.terrain->Render( inputs.frame.baseView, inputs.frame.projection, inputs.frame.lightPosition, inputs.cinematic, inputs.shadow );
     PROFILE_GPU_END( "Frame/Render/Terrain" );
 }
