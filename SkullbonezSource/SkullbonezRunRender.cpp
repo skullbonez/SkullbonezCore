@@ -631,6 +631,59 @@ void SkullbonezRun::RenderSkyPass( const RenderFrameContext& frame, const Matrix
 }
 
 
+void SkullbonezRun::RenderObjectPass( const ObjectPassInputs& inputs )
+{
+    if ( inputs.mode == ObjectPassMode::Transparent )
+    {
+        PROFILE_GPU_BEGIN( "Frame/Render/TransparentBalls" );
+    }
+    else
+    {
+        PROFILE_GPU_BEGIN( "Frame/Render/Balls" );
+    }
+
+    if ( inputs.collisionStateColorsVisible )
+    {
+        m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
+        m_collisionVisualizer.Render( m_cGameModelCollection, inputs.frame.baseView, inputs.frame.projection, inputs.frame.lightPosition );
+        m_collisionVisualizer.SetAlphaOverride( -1.0f );
+    }
+    else
+    {
+        m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+        m_cGameModelCollection.RenderModels( inputs.frame.baseView,
+                                             inputs.frame.projection,
+                                             inputs.frame.lightPosition,
+                                             inputs.cinematic,
+                                             inputs.shadow,
+                                             inputs.bodyAlpha );
+    }
+
+    if ( inputs.mode == ObjectPassMode::Transparent )
+    {
+        PROFILE_GPU_END( "Frame/Render/TransparentBalls" );
+    }
+    else
+    {
+        PROFILE_GPU_END( "Frame/Render/Balls" );
+    }
+}
+
+
+void SkullbonezRun::RenderTerrainPass( const TerrainPassInputs& inputs )
+{
+    if ( m_debug.isTerrainHidden )
+    {
+        return;
+    }
+
+    PROFILE_GPU_BEGIN( "Frame/Render/Terrain" );
+    m_systems.textures->SelectTexture( TEXTURE_GROUND );
+    m_systems.terrain->Render( inputs.frame.baseView, inputs.frame.projection, inputs.frame.lightPosition, inputs.cinematic, inputs.shadow );
+    PROFILE_GPU_END( "Frame/Render/Terrain" );
+}
+
+
 bool SkullbonezRun::RenderCinematicVolumetricLight()
 {
     const CinematicRenderConfig& cinematic = ActiveCinematicConfig();
@@ -1023,31 +1076,19 @@ void SkullbonezRun::DrawPrimitives()
     }
 
     // render game models -----------------------------
-    PROFILE_GPU_BEGIN( "Frame/Render/Balls" );
     if ( !transparentBodyPass )
     {
-        if ( collisionStateColorsVisible )
-        {
-            m_collisionVisualizer.SetAlphaOverride( collisionVisualizerAlphaOverride );
-            m_collisionVisualizer.Render( m_cGameModelCollection, frame.baseView, frame.projection, frame.lightPosition );
-            m_collisionVisualizer.SetAlphaOverride( -1.0f );
-        }
-        else
-        {
-            m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-            m_cGameModelCollection.RenderModels( frame.baseView, frame.projection, frame.lightPosition, activeCinematic, objectShadowFrame );
-        }
+        RenderObjectPass( { frame,
+                            ObjectPassMode::Opaque,
+                            activeCinematic,
+                            objectShadowFrame,
+                            collisionStateColorsVisible,
+                            collisionVisualizerAlphaOverride,
+                            1.0f } );
     }
-    PROFILE_GPU_END( "Frame/Render/Balls" );
 
     // render m_terrain ------------------------------
-    if ( !m_debug.isTerrainHidden )
-    {
-        PROFILE_GPU_BEGIN( "Frame/Render/Terrain" );
-        m_systems.textures->SelectTexture( TEXTURE_GROUND );
-        m_systems.terrain->Render( frame.baseView, frame.projection, frame.lightPosition, activeCinematic, terrainShadowFrame );
-        PROFILE_GPU_END( "Frame/Render/Terrain" );
-    }
+    RenderTerrainPass( { frame, activeCinematic, terrainShadowFrame } );
 
     // render the fluid ---------------------------
     if ( !m_debug.isWaterHidden && ( !cinematicRender || ActiveCinematicConfig().waterMode != 0 ) )
@@ -1078,19 +1119,13 @@ void SkullbonezRun::DrawPrimitives()
 
     if ( transparentBodyPass )
     {
-        PROFILE_GPU_BEGIN( "Frame/Render/TransparentBalls" );
-        if ( collisionStateColorsVisible )
-        {
-            m_collisionVisualizer.SetAlphaOverride( collisionVisualizerAlphaOverride );
-            m_collisionVisualizer.Render( m_cGameModelCollection, frame.baseView, frame.projection, frame.lightPosition );
-            m_collisionVisualizer.SetAlphaOverride( -1.0f );
-        }
-        else
-        {
-            m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-            m_cGameModelCollection.RenderModels( frame.baseView, frame.projection, frame.lightPosition, activeCinematic, objectShadowFrame, bodyRenderAlpha );
-        }
-        PROFILE_GPU_END( "Frame/Render/TransparentBalls" );
+        RenderObjectPass( { frame,
+                            ObjectPassMode::Transparent,
+                            activeCinematic,
+                            objectShadowFrame,
+                            collisionStateColorsVisible,
+                            collisionVisualizerAlphaOverride,
+                            bodyRenderAlpha } );
     }
 
     // Broadphase spatial grid overlay (G key toggle)
