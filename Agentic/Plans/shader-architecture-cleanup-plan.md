@@ -1,9 +1,12 @@
 # Shader Architecture Cleanup Plan
 
-Status: analysis and implementation plan  
-Created: 2026-06-11  
-Scope: render architecture, shader contracts, shader source hygiene, style data, material system v1  
-Implementation status: plan only, no code changes in this pass
+Status: partially implemented on `codex/shader-architecture-cleanup`
+Created: 2026-06-11
+Scope: render architecture, shader contracts, shader source hygiene, style data, material system v1
+Implementation status: shader inventory, high-risk runtime contract diagnostics,
+pass binder cleanup, and CPU render-material compatibility mapping are in
+progress. DX12 root-signature changes, descriptor/upload changes, and expanded
+instance material payloads remain deferred.
 
 ## Executive Summary
 
@@ -558,6 +561,13 @@ Acceptance:
 
 - A future agent can tell whether a shader is active, legacy, or backend-specific without guessing.
 
+2026-06-15 implementation note:
+
+- `Agentic/Reference/shader-inventory.md` now lists the DX12-only shader set and
+  high-risk runtime contract summary.
+- `SkullbonezSource/SkullbonezShaderContracts.h` is the runtime-facing table for
+  the first high-risk shader families.
+
 Validation:
 
 - Documentation-only inventory: no validation required.
@@ -585,6 +595,16 @@ Acceptance:
 
 - Current scenes render the same.
 - Missing or stale shader parameters produce actionable logs in dev mode.
+
+2026-06-15 implementation note:
+
+- `ShaderDX12` now looks up high-risk contracts, reports required uniform versus
+  HLSL reflection drift, logs stale uniform setters, logs old texture resources
+  still being set through uniform APIs, and reports required uniforms not set
+  between `Use()` and cbuffer upload.
+- Diagnostics are bounded and development-only where they inspect pass
+  activation state; release/profile behavior still tolerates missing reflected
+  names.
 
 Validation:
 
@@ -615,6 +635,12 @@ Acceptance:
 - Uniform binding is centralized by pass.
 - The render order stays unchanged.
 - Future material params have one clear insertion point.
+
+2026-06-15 implementation note:
+
+- Instanced object batch setup now uses a shared primitive batch binder.
+- Fullscreen sky, volumetric-light, and tonemap passes now use local binder
+  helpers in `SkullbonezRunPasses.cpp`.
 
 Validation:
 
@@ -658,6 +684,16 @@ Acceptance:
 - Existing styles still work.
 - Object material intent is typed in C++.
 - No shader visual behavior has to change yet.
+
+2026-06-15 implementation note:
+
+- `RenderMaterialKind` and `RenderMaterial` now exist as backend-neutral CPU
+  data.
+- `GameModel::SetRenderTint` still supports the compatibility path while
+  mirroring tint/mode into `RenderMaterial`.
+- Existing `object_material` style/scene directives now create typed render
+  materials and apply them through `GameModel::SetRenderMaterial`, which still
+  packs the old tint/mode bridge for current shaders.
 
 Validation:
 

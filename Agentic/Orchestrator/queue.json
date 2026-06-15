@@ -14,6 +14,72 @@
   ],
   "items": [
     {
+      "id": "shader-architecture-cleanup",
+      "plan": "Agentic/Plans/shader-architecture-cleanup-plan.md",
+      "status": "pr-open",
+      "priority": 20,
+      "branch": "codex/shader-architecture-cleanup",
+      "impact_area": [
+        "DX12",
+        "render architecture",
+        "shaders",
+        "materials"
+      ],
+      "validation_gate": "tools\\validate_dx12_renderer.bat",
+      "validation_notes": "Renderer, shader, and material rendering changes require tools\\validate_dx12_renderer.bat at PR/commit readiness. Add tools\\validate_perf.bat if the final patch materially grows per-instance uploads or hot-path batch preparation.",
+      "screenshot_scenes": [],
+      "artifact_commands": [],
+      "depends_on": [],
+      "merge_policy": "policy-default",
+      "report_required": true
+    },
+    {
+      "id": "dx12-descriptor-upload-root-signature",
+      "plan": "Agentic/Plans/dx12-descriptor-upload-root-signature-plan.md",
+      "status": "ready",
+      "priority": 21,
+      "branch": "codex/dx12-descriptor-upload-root-signature",
+      "impact_area": [
+        "DX12",
+        "render architecture",
+        "descriptor management",
+        "upload lifetime",
+        "root signatures"
+      ],
+      "validation_gate": "tools\\validate_dx12_renderer.bat",
+      "validation_notes": "Descriptor, upload, or root signature changes require tools\\validate_dx12_renderer.bat and dx12_validation.txt checked for zero errors. Add tools\\validate_perf.bat if upload or descriptor hot paths materially change.",
+      "screenshot_scenes": [],
+      "artifact_commands": [],
+      "depends_on": [
+        "shader-architecture-cleanup"
+      ],
+      "merge_policy": "policy-default",
+      "report_required": true
+    },
+    {
+      "id": "dx12-only-engine-architecture-cleanup",
+      "plan": "Agentic/Plans/Done/dx12-only-engine-architecture-plan.md",
+      "status": "ready",
+      "priority": 22,
+      "branch": "codex/dx12-only-engine-architecture-cleanup",
+      "impact_area": [
+        "DX12",
+        "render architecture",
+        "documentation",
+        "cleanup"
+      ],
+      "validation_gate": "tools\\validate_dx12_renderer.bat",
+      "validation_notes": "Use this as a cleanup pass only for items that make sense after shader and descriptor work. Documentation-only cleanup needs no validation; renderer/backend implementation cleanup requires tools\\validate_dx12_renderer.bat, escalating to tools\\validate_full.bat for broad runtime lifecycle changes.",
+      "screenshot_scenes": [],
+      "artifact_commands": [],
+      "depends_on": [
+        "shader-architecture-cleanup",
+        "dx12-descriptor-upload-root-signature"
+      ],
+      "merge_policy": "policy-default",
+      "report_required": true
+    },
+    {
       "id": "dx12-only-engine-architecture",
       "plan": "Agentic/Plans/Done/dx12-only-engine-architecture-plan.md",
       "status": "done",

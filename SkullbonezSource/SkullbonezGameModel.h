@@ -23,6 +23,7 @@ Related:
 #include <cstdint>
 #include "SkullbonezWorldEnvironment.h"
 #include "SkullbonezCommon.h"
+#include "SkullbonezRenderMaterial.h"
 #include "SkullbonezRigidBody.h"
 #include "SkullbonezCollisionShape.h"
 #include "SkullbonezTerrain.h"
@@ -119,6 +120,7 @@ class GameModel
     float m_renderTintG;                                // Per-instance render tint green channel
     float m_renderTintB;                                // Per-instance render tint blue channel
     float m_renderColorOverride;                        // 1 = render with tint as material color, 0 = material tint multiplier
+    Rendering::RenderMaterial m_renderMaterial;         // Render-only material intent, mirrored to the current tint bridge
     bool m_isResponseRequired;                          // Terrain detection handoff flag; shared terrain rows consume generated manifolds
     bool m_isFixed;                                     // True for immovable collision bodies such as floating ramps
     char m_name[64];                                    // Optional name for logging (empty = unnamed)
@@ -180,6 +182,8 @@ class GameModel
     const char* GetName() const;                                                                                                      // Returns the ball's log name
     void SetRenderTint( float tintR, float tintG, float tintB, float colorOverride );                                                 // Sets per-instance render tint/override
     void GetRenderTint( float& tintR, float& tintG, float& tintB, float& colorOverride ) const;                                       // Returns per-instance render tint/override
+    void SetRenderMaterial( const Rendering::RenderMaterial& material );                                                              // Sets render-only material intent
+    const Rendering::RenderMaterial& GetRenderMaterial() const;                                                                       // Returns render-only material intent
     void AddBoundingSphere( float fRadius );                                                                                          // Add a bounding sphere to the game model
     void AddBoundingBox( const Math::Vector::Vector3& halfExtents );                                                                  // Add a bounding box to the game model
     bool IsBox() const;                                                                                                               // True if bounding volume is a BoundingBox

@@ -38,6 +38,7 @@ using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 using namespace SkullbonezCore::Physics;
+namespace Rendering = SkullbonezCore::Rendering;
 
 // GameModel is the per-object physics bridge:
 //   - RigidBody stores motion state such as position, velocity, spin, and mass.
@@ -94,6 +95,7 @@ GameModel::GameModel( WorldEnvironment* pWorldEnv,
     m_renderTintG = 1.0f;
     m_renderTintB = 1.0f;
     m_renderColorOverride = 0.0f;
+    m_renderMaterial = Rendering::MakeRenderMaterialFromLegacyTint( m_renderTintR, m_renderTintG, m_renderTintB, m_renderColorOverride );
     m_isResponseRequired = false;
     m_isFixed = false;
     m_name[0] = '\0';
@@ -268,6 +270,7 @@ void GameModel::SetRenderTint( float tintR, float tintG, float tintB, float colo
     m_renderTintG = tintG;
     m_renderTintB = tintB;
     m_renderColorOverride = colorOverride;
+    m_renderMaterial = Rendering::MakeRenderMaterialFromLegacyTint( tintR, tintG, tintB, colorOverride );
 }
 
 
@@ -277,6 +280,22 @@ void GameModel::GetRenderTint( float& tintR, float& tintG, float& tintB, float& 
     tintG = m_renderTintG;
     tintB = m_renderTintB;
     colorOverride = m_renderColorOverride;
+}
+
+
+void GameModel::SetRenderMaterial( const Rendering::RenderMaterial& material )
+{
+    m_renderMaterial = material;
+    m_renderTintR = material.baseColor[0];
+    m_renderTintG = material.baseColor[1];
+    m_renderTintB = material.baseColor[2];
+    m_renderColorOverride = Rendering::RenderMaterialLegacyInstanceMode( material );
+}
+
+
+const Rendering::RenderMaterial& GameModel::GetRenderMaterial() const
+{
+    return m_renderMaterial;
 }
 
 

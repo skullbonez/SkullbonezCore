@@ -106,12 +106,55 @@ static int ObjectStyleForShader( const CinematicRenderConfig* cinematicOverride 
     return cinematicOverride ? cinematicOverride->objectStyle : Cfg().cinematicRender.objectStyle;
 }
 
+struct PrimitiveBatchShaderParams
+{
+    const Matrix4& view;
+    const Matrix4& projection;
+    const float* lightPosition;
+    const float* clipPlane;
+    const CinematicRenderConfig* cinematic;
+    const ShadowFrameData* shadow;
+    int primitiveShape;
+    bool receiveShadows;
+    float materialAlpha;
+};
+
+static void BindPrimitiveBatchShader( IShader& shader, const PrimitiveBatchShaderParams& params )
+{
+    float viewLightPos[4];
+    for ( int i = 0; i < 3; ++i )
+    {
+        viewLightPos[i] = params.view.m[i] * params.lightPosition[0] +
+                          params.view.m[i + 4] * params.lightPosition[1] +
+                          params.view.m[i + 8] * params.lightPosition[2] +
+                          params.view.m[i + 12] * params.lightPosition[3];
+    }
+    viewLightPos[3] = params.lightPosition[3];
+
+    shader.Use();
+    ApplyBatchLightUniforms( shader, params.lightPosition, params.cinematic );
+    shader.SetMat4( "uView", params.view );
+    shader.SetMat4( "uProjection", params.projection );
+    shader.SetVec4( "uClipPlane", params.clipPlane[0], params.clipPlane[1], params.clipPlane[2], params.clipPlane[3] );
+    shader.SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
+    shader.SetInt( "uObjectStyle", ObjectStyleForShader( params.cinematic ) );
+    shader.SetInt( "uPrimitiveShape", params.primitiveShape );
+    shader.SetFloat( "uMaterialAlpha", std::clamp( params.materialAlpha, 0.0f, 1.0f ) );
+    ApplyShadowReceiverUniforms( shader, params.shadow, params.receiveShadows, true );
+}
+
 void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
 {
     sClipPlane[0] = x;
     sClipPlane[1] = y;
     sClipPlane[2] = z;
     sClipPlane[3] = w;
+}
+
+
+const float* SkullbonezHelper::GetClipPlane()
+{
+    return sClipPlane;
 }
 
 
@@ -246,29 +289,21 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
 
     BeginPrimitiveBatchTransparency( isTransparent );
 
-    float viewLightPos[4];
-    for ( int i = 0; i < 3; ++i )
-    {
-        viewLightPos[i] = view.m[i] * lightPos[0] + view.m[i + 4] * lightPos[1] + view.m[i + 8] * lightPos[2] + view.m[i + 12] * lightPos[3];
-    }
-    viewLightPos[3] = lightPos[3];
-
-    sphereShader->Use();
-    ApplyBatchLightUniforms( *sphereShader, lightPos, cinematic );
-    sphereShader->SetMat4( "uView", view );
-    sphereShader->SetMat4( "uProjection", proj );
-    sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
-    sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
-    sphereShader->SetInt( "uObjectStyle", objectStyle );
-    sphereShader->SetInt( "uPrimitiveShape", PRIMITIVE_SHAPE_SPHERE );
-    sphereShader->SetFloat( "uMaterialAlpha", std::clamp( materialAlpha, 0.0f, 1.0f ) );
-
     // Low-poly spheres still cast real shadows onto terrain, but they do not
     // receive object shadows. The shadow map is single and terrain-sized, so
     // ball-on-ball receiver shadows alias badly across the large flat facets
     // used by the low-poly beachball style.
     const bool receiveSphereShadows = shadow && shadow->objectsReceive && !useLowPolySphereMesh;
-    ApplyShadowReceiverUniforms( *sphereShader, shadow, receiveSphereShadows, true );
+    BindPrimitiveBatchShader( *sphereShader,
+                              { view,
+                                proj,
+                                lightPos,
+                                sClipPlane,
+                                cinematic,
+                                shadow,
+                                PRIMITIVE_SHAPE_SPHERE,
+                                receiveSphereShadows,
+                                materialAlpha } );
     sphereInstanceData.clear();
 }
 
@@ -397,23 +432,16 @@ void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& pr
 
     BeginPrimitiveBatchTransparency( isTransparent );
 
-    float viewLightPos[4];
-    for ( int i = 0; i < 3; ++i )
-    {
-        viewLightPos[i] = view.m[i] * lightPos[0] + view.m[i + 4] * lightPos[1] + view.m[i + 8] * lightPos[2] + view.m[i + 12] * lightPos[3];
-    }
-    viewLightPos[3] = lightPos[3];
-
-    sphereShader->Use();
-    ApplyBatchLightUniforms( *sphereShader, lightPos, cinematic );
-    sphereShader->SetMat4( "uView", view );
-    sphereShader->SetMat4( "uProjection", proj );
-    sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
-    sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
-    sphereShader->SetInt( "uObjectStyle", ObjectStyleForShader( cinematic ) );
-    sphereShader->SetInt( "uPrimitiveShape", PRIMITIVE_SHAPE_MESH );
-    sphereShader->SetFloat( "uMaterialAlpha", std::clamp( materialAlpha, 0.0f, 1.0f ) );
-    ApplyShadowReceiverUniforms( *sphereShader, shadow, shadow ? shadow->objectsReceive : false, true );
+    BindPrimitiveBatchShader( *sphereShader,
+                              { view,
+                                proj,
+                                lightPos,
+                                sClipPlane,
+                                cinematic,
+                                shadow,
+                                PRIMITIVE_SHAPE_MESH,
+                                shadow ? shadow->objectsReceive : false,
+                                materialAlpha } );
     boxInstanceData.clear();
 }
 
@@ -510,23 +538,16 @@ void SkullbonezHelper::DrawPineBatchBegin( const Matrix4& view, const Matrix4& p
 
     BeginPrimitiveBatchTransparency( isTransparent );
 
-    float viewLightPos[4];
-    for ( int i = 0; i < 3; ++i )
-    {
-        viewLightPos[i] = view.m[i] * lightPos[0] + view.m[i + 4] * lightPos[1] + view.m[i + 8] * lightPos[2] + view.m[i + 12] * lightPos[3];
-    }
-    viewLightPos[3] = lightPos[3];
-
-    sphereShader->Use();
-    ApplyBatchLightUniforms( *sphereShader, lightPos, cinematic );
-    sphereShader->SetMat4( "uView", view );
-    sphereShader->SetMat4( "uProjection", proj );
-    sphereShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
-    sphereShader->SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
-    sphereShader->SetInt( "uObjectStyle", ObjectStyleForShader( cinematic ) );
-    sphereShader->SetInt( "uPrimitiveShape", PRIMITIVE_SHAPE_MESH );
-    sphereShader->SetFloat( "uMaterialAlpha", std::clamp( materialAlpha, 0.0f, 1.0f ) );
-    ApplyShadowReceiverUniforms( *sphereShader, shadow, shadow ? shadow->objectsReceive : false, true );
+    BindPrimitiveBatchShader( *sphereShader,
+                              { view,
+                                proj,
+                                lightPos,
+                                sClipPlane,
+                                cinematic,
+                                shadow,
+                                PRIMITIVE_SHAPE_MESH,
+                                shadow ? shadow->objectsReceive : false,
+                                materialAlpha } );
     pineInstanceData.clear();
 }
 

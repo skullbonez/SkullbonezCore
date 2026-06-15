@@ -313,8 +313,10 @@
     <ClInclude Include="SkullbonezSource\SkullbonezIFramebuffer.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezIRenderBackend.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRenderGraph.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezRenderMaterial.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRenderBackendDX12.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRenderDeviceDX12.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezShaderContracts.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezShaderDX12.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezMeshDX12.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezFramebufferDX12.h" />

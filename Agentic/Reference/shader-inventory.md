@@ -10,7 +10,24 @@ programs by base name through `RenderBackendDX12::CreateShader`, which resolves
 
 GLSL `.vert` and `.frag` files were removed with the retired OpenGL backend.
 DX11-only shader paths were removed with the retired DX11 backend. Future shader
-work should update the HLSL contract and `tools/shader_contracts.json`.
+work should update the HLSL contract, `SkullbonezSource/SkullbonezShaderContracts.h`,
+and `tools/shader_contracts.json`.
+
+## Runtime Contract Diagnostics
+
+`SkullbonezSource/SkullbonezShaderContracts.h` is the runtime-facing contract
+table for high-risk shaders. DX12 shader compilation looks up the table by
+shader base name, compares required uniforms against HLSL reflection, and in
+Debug logs bounded events when:
+
+- C++ sets a uniform that is not in the contract.
+- C++ still sets a texture resource through the old uniform API.
+- A contract-required uniform is not reflected by the compiled HLSL.
+- A contract-required uniform is not set between `Use()` and constant-buffer
+  upload.
+
+Release/Profile behavior remains tolerant: missing reflected uniforms still
+return without failing the draw.
 
 ## Raster And Post Shaders
 
@@ -32,6 +49,18 @@ work should update the HLSL contract and `tools/shader_contracts.json`.
 | `unlit_textured.hlsl` | Unlit textured skybox/simple textured pass. |
 | `water_calm.hlsl` | Inner flat reflective water zone. |
 | `water_ocean.hlsl` | Outer animated reflective ocean zone. |
+
+## High-Risk Contract Summary
+
+| Shader | Pass Category | Vertex Layout | Resources |
+|--------|---------------|---------------|-----------|
+| `lit_textured_instanced.hlsl` | objects | `P3_N3_UV2_I4x4_Material4` | `t0 uTexture`, optional `t3 uShadowMap` |
+| `lit_textured.hlsl` | terrain | `P3_N3_UV2` | `t0 uTexture`, optional `t3 uShadowMap` |
+| `water_calm.hlsl` | water | `P3` | `t1 uReflectionTex` |
+| `water_ocean.hlsl` | water | `P3` | `t1 uReflectionTex` |
+| `sky_atmosphere.hlsl` | sky | `FullscreenP2_UV2` | none |
+| `post_tonemap.hlsl` | post | `FullscreenP2_UV2` | `t0 uSceneTex`, `t1 uDepthTex`, `t2 uVolumetricTex` |
+| `post_volumetric_light.hlsl` | post | `FullscreenP2_UV2` | `t0 uSceneTex`, `t1 uDepthTex` |
 
 ## DX12 Utility Shaders
 

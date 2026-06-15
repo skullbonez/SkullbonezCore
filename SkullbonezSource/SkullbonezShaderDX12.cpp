@@ -30,6 +30,7 @@ Related:
 */
 #include "SkullbonezShaderDX12.h"
 #include "SkullbonezRenderBackendDX12.h"
+#include "SkullbonezShaderContracts.h"
 #include <d3d11shader.h>
 #include <stdexcept>
 #include <string>
@@ -39,6 +40,7 @@ Related:
 #include <cstring>
 #include <d3dcompiler.h>
 #include <wrl/client.h>
+#include <algorithm>
 
 
 using namespace SkullbonezCore::Rendering;
@@ -48,7 +50,7 @@ using Microsoft::WRL::ComPtr;
 
 
 ShaderDX12::ShaderDX12()
-    : m_cbSize( 0 ), m_cbDirty( false )
+    : m_cbSize( 0 ), m_cbDirty( false ), m_contract( nullptr )
 {
 }
 
@@ -58,6 +60,8 @@ ShaderDX12::~ShaderDX12() = default;
 
 bool ShaderDX12::Compile( const char* hlslPath )
 {
+    m_contract = FindShaderProgramDesc( hlslPath );
+
     // Read file
     std::ifstream file( hlslPath, std::ios::binary );
     if ( !file.is_open() )
@@ -108,6 +112,14 @@ bool ShaderDX12::Compile( const char* hlslPath )
     // Reflect both stages so PS-only post/sky uniforms are visible to SetFloat/SetVec*.
     ReflectCB( m_vsBlob.Get() );
     ReflectCB( m_psBlob.Get() );
+#ifdef _DEBUG
+    if ( m_contract )
+    {
+        m_contractUniformsSet.assign( m_contract->uniformCount, static_cast<uint8_t>( 0 ) );
+        m_contractMissingRequiredLogged.assign( m_contract->uniformCount, static_cast<uint8_t>( 0 ) );
+        ReportContractReflectionMismatch();
+    }
+#endif
 
     return true;
 }
@@ -161,14 +173,216 @@ void ShaderDX12::Use() const
     {
         backend->SetActiveShader( const_cast<ShaderDX12*>( this ) );
     }
+#ifdef _DEBUG
+    ResetContractActivation();
+#endif
 }
+
+
+#ifdef _DEBUG
+namespace
+{
+bool ContainsWarningKey( const std::vector<std::string>& warnings, const std::string& key )
+{
+    for ( const std::string& warning : warnings )
+    {
+        if ( warning == key )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+ShaderValueType ShaderValueTypeForSetter( const char* setterName )
+{
+    if ( std::strcmp( setterName, "SetInt" ) == 0 )
+    {
+        return ShaderValueType::Int;
+    }
+    if ( std::strcmp( setterName, "SetFloat" ) == 0 )
+    {
+        return ShaderValueType::Float;
+    }
+    if ( std::strcmp( setterName, "SetVec3" ) == 0 )
+    {
+        return ShaderValueType::Vec3;
+    }
+    if ( std::strcmp( setterName, "SetVec4" ) == 0 )
+    {
+        return ShaderValueType::Vec4;
+    }
+    return ShaderValueType::Mat4;
+}
+} // namespace
+
+
+void ShaderDX12::ResetContractActivation() const
+{
+    if ( !m_contract )
+    {
+        return;
+    }
+    if ( m_contractUniformsSet.size() != m_contract->uniformCount )
+    {
+        m_contractUniformsSet.assign( m_contract->uniformCount, static_cast<uint8_t>( 0 ) );
+    }
+    else
+    {
+        std::fill( m_contractUniformsSet.begin(), m_contractUniformsSet.end(), static_cast<uint8_t>( 0 ) );
+    }
+}
+
+
+void ShaderDX12::MarkContractUniformSet( const char* name, const char* setterName ) const
+{
+    if ( !m_contract || !name )
+    {
+        return;
+    }
+
+    size_t uniformIndex = static_cast<size_t>( -1 );
+    const ShaderUniformDecl* uniform = FindShaderUniformDecl( *m_contract, name, &uniformIndex );
+    if ( !uniform )
+    {
+        for ( size_t i = 0; i < m_contract->resourceCount; ++i )
+        {
+            const ShaderResourceDecl& resource = m_contract->resources[i];
+            if ( ShaderContractNameEquals( resource.name, name ) )
+            {
+                const std::string key = std::string( name ) + ":" + setterName + ":resource_via_uniform_api";
+                if ( !ContainsWarningKey( m_missingUniformWarnings, key ) )
+                {
+                    m_missingUniformWarnings.push_back( key );
+                    Log().WriteEventf( "shader_contract_resource_set_with_uniform_api shader=%s resource=%s slot=%d setter=%s",
+                                       m_contract->baseName,
+                                       name,
+                                       resource.slot,
+                                       setterName );
+                }
+                return;
+            }
+        }
+
+        const std::string key = std::string( name ) + ":" + setterName + ":not_in_contract";
+        if ( !ContainsWarningKey( m_missingUniformWarnings, key ) )
+        {
+            m_missingUniformWarnings.push_back( key );
+            Log().WriteEventf( "shader_contract_stale_uniform shader=%s uniform=%s setter=%s reason=not_in_contract",
+                               m_contract->baseName,
+                               name,
+                               setterName );
+        }
+        return;
+    }
+
+    const ShaderValueType setterType = ShaderValueTypeForSetter( setterName );
+    if ( uniform->type != setterType )
+    {
+        const std::string key = std::string( name ) + ":" + setterName + ":type_mismatch";
+        if ( !ContainsWarningKey( m_typeMismatchWarnings, key ) )
+        {
+            m_typeMismatchWarnings.push_back( key );
+            Log().WriteEventf( "shader_contract_uniform_type_mismatch shader=%s uniform=%s setter=%s expected=%s",
+                               m_contract->baseName,
+                               name,
+                               setterName,
+                               ShaderValueTypeName( uniform->type ) );
+        }
+    }
+
+    if ( uniformIndex < m_contractUniformsSet.size() )
+    {
+        m_contractUniformsSet[uniformIndex] = static_cast<uint8_t>( 1 );
+    }
+}
+
+
+void ShaderDX12::ReportMissingRequiredContractUniforms() const
+{
+    if ( !m_contract || m_contractUniformsSet.size() != m_contract->uniformCount )
+    {
+        return;
+    }
+
+    if ( m_contractMissingRequiredLogged.size() != m_contract->uniformCount )
+    {
+        m_contractMissingRequiredLogged.assign( m_contract->uniformCount, static_cast<uint8_t>( 0 ) );
+    }
+
+    for ( size_t i = 0; i < m_contract->uniformCount; ++i )
+    {
+        const ShaderUniformDecl& uniform = m_contract->uniforms[i];
+        if ( uniform.required && m_contractUniformsSet[i] == static_cast<uint8_t>( 0 ) && m_contractMissingRequiredLogged[i] == static_cast<uint8_t>( 0 ) )
+        {
+            m_contractMissingRequiredLogged[i] = static_cast<uint8_t>( 1 );
+            Log().WriteEventf( "shader_contract_required_uniform_not_set shader=%s uniform=%s pass=%s",
+                               m_contract->baseName,
+                               uniform.name,
+                               m_contract->passCategory ? m_contract->passCategory : "unknown" );
+        }
+    }
+}
+
+
+void ShaderDX12::ReportContractReflectionMismatch() const
+{
+    if ( !m_contract )
+    {
+        return;
+    }
+
+    for ( size_t i = 0; i < m_contract->uniformCount; ++i )
+    {
+        const ShaderUniformDecl& uniform = m_contract->uniforms[i];
+        if ( uniform.required && m_uniformMap.find( uniform.name ) == m_uniformMap.end() )
+        {
+            Log().WriteEventf( "shader_contract_required_uniform_not_reflected shader=%s uniform=%s expected=%s",
+                               m_contract->baseName,
+                               uniform.name,
+                               ShaderValueTypeName( uniform.type ) );
+        }
+    }
+}
+
+
+void ShaderDX12::ReportUniformNotReflected( const char* name, const char* setterName ) const
+{
+    if ( !m_contract )
+    {
+        return;
+    }
+    if ( !FindShaderUniformDecl( *m_contract, name ) )
+    {
+        return;
+    }
+    const char* shaderName = m_contract ? m_contract->baseName : "<unmanifested>";
+    const std::string key = std::string( shaderName ) + ":" + ( name ? name : "" ) + ":" + setterName + ":not_reflected";
+    if ( ContainsWarningKey( m_missingUniformWarnings, key ) )
+    {
+        return;
+    }
+
+    m_missingUniformWarnings.push_back( key );
+    Log().WriteEventf( "shader_uniform_not_reflected shader=%s uniform=%s setter=%s",
+                       shaderName,
+                       name ? name : "<null>",
+                       setterName );
+}
+#endif
 
 
 void ShaderDX12::SetInt( const char* name, int value ) const
 {
+#ifdef _DEBUG
+    MarkContractUniformSet( name, "SetInt" );
+#endif
     auto it = m_uniformMap.find( name );
     if ( it == m_uniformMap.end() )
     {
+#ifdef _DEBUG
+        ReportUniformNotReflected( name, "SetInt" );
+#endif
         return;
     }
     memcpy( m_cbData.data() + it->second.offset, &value, sizeof( int ) );
@@ -178,9 +392,15 @@ void ShaderDX12::SetInt( const char* name, int value ) const
 
 void ShaderDX12::SetFloat( const char* name, float value ) const
 {
+#ifdef _DEBUG
+    MarkContractUniformSet( name, "SetFloat" );
+#endif
     auto it = m_uniformMap.find( name );
     if ( it == m_uniformMap.end() )
     {
+#ifdef _DEBUG
+        ReportUniformNotReflected( name, "SetFloat" );
+#endif
         return;
     }
     memcpy( m_cbData.data() + it->second.offset, &value, sizeof( float ) );
@@ -190,9 +410,15 @@ void ShaderDX12::SetFloat( const char* name, float value ) const
 
 void ShaderDX12::SetVec3( const char* name, float x, float y, float z ) const
 {
+#ifdef _DEBUG
+    MarkContractUniformSet( name, "SetVec3" );
+#endif
     auto it = m_uniformMap.find( name );
     if ( it == m_uniformMap.end() )
     {
+#ifdef _DEBUG
+        ReportUniformNotReflected( name, "SetVec3" );
+#endif
         return;
     }
     float v[3] = { x, y, z };
@@ -209,9 +435,15 @@ void ShaderDX12::SetVec3( const char* name, const Vector3& v ) const
 
 void ShaderDX12::SetVec4( const char* name, float x, float y, float z, float w ) const
 {
+#ifdef _DEBUG
+    MarkContractUniformSet( name, "SetVec4" );
+#endif
     auto it = m_uniformMap.find( name );
     if ( it == m_uniformMap.end() )
     {
+#ifdef _DEBUG
+        ReportUniformNotReflected( name, "SetVec4" );
+#endif
         return;
     }
     float v[4] = { x, y, z, w };
@@ -222,9 +454,15 @@ void ShaderDX12::SetVec4( const char* name, float x, float y, float z, float w )
 
 void ShaderDX12::SetMat4( const char* name, const Matrix4& m ) const
 {
+#ifdef _DEBUG
+    MarkContractUniformSet( name, "SetMat4" );
+#endif
     auto it = m_uniformMap.find( name );
     if ( it == m_uniformMap.end() )
     {
+#ifdef _DEBUG
+        ReportUniformNotReflected( name, "SetMat4" );
+#endif
         return;
     }
     // HLSL uses #pragma pack_matrix(column_major) — send data as-is
@@ -239,6 +477,10 @@ D3D12_GPU_VIRTUAL_ADDRESS ShaderDX12::FlushCB() const
     {
         return 0;
     }
+
+#ifdef _DEBUG
+    ReportMissingRequiredContractUniforms();
+#endif
 
     auto* backend = RenderBackendDX12::Get();
     if ( !backend )

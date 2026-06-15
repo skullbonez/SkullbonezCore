@@ -501,7 +501,7 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
             GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
             if ( SceneMaterialTargetMatches( material, model ) )
             {
-                model.SetRenderTint( material.tintR, material.tintG, material.tintB, material.materialMode );
+                model.SetRenderMaterial( material.material );
             }
         }
     }
@@ -1486,7 +1486,7 @@ bool SkullbonezRun::ApplyCinematicModeFromBrowserIndex( int index )
                 GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
                 if ( SceneMaterialTargetMatches( material, model ) )
                 {
-                    model.SetRenderTint( material.tintR, material.tintG, material.tintB, material.materialMode );
+                    model.SetRenderMaterial( material.material );
                 }
             }
         }
@@ -1554,7 +1554,7 @@ void SkullbonezRun::ApplyLiveStyleScene( const TestScene& styleScene )
             GameModel& model = m_cGameModelCollection.GetModelAtIndex( modelIndex );
             if ( SceneMaterialTargetMatches( material, model ) )
             {
-                model.SetRenderTint( material.tintR, material.tintG, material.tintB, material.materialMode );
+                model.SetRenderMaterial( material.material );
             }
         }
     }

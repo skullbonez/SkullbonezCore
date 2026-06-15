@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="520" viewBox="0 0 1280 520" role="img" aria-labelledby="title desc">
+  <title id="title">Shader architecture cleanup flow</title>
+  <desc id="desc">A flow diagram showing style material directives becoming typed render materials, then legacy instance data, while shader contracts validate pass bindings.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 6; }
+      .accent { fill: #e0f2fe; stroke: #0369a1; stroke-width: 2; rx: 6; }
+      .diagnostic { fill: #fef3c7; stroke: #b45309; stroke-width: 2; rx: 6; }
+      .title { font-family: Segoe UI, Arial, sans-serif; font-size: 24px; font-weight: 700; fill: #0f172a; }
+      .label { font-family: Segoe UI, Arial, sans-serif; font-size: 20px; font-weight: 600; fill: #0f172a; }
+      .small { font-family: Segoe UI, Arial, sans-serif; font-size: 16px; fill: #334155; }
+      .arrow { stroke: #475569; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#475569" />
+    </marker>
+  </defs>
+  <rect class="bg" width="1280" height="520" />
+  <text class="title" x="48" y="56">Shader Architecture Cleanup: Contract First, Same Pixels</text>
+
+  <rect class="box" x="48" y="110" width="230" height="125" />
+  <text class="label" x="74" y="150">object_material</text>
+  <text class="small" x="74" y="184">style/scene directives</text>
+  <text class="small" x="74" y="210">names like metal, glass, toon</text>
+
+  <rect class="accent" x="360" y="110" width="245" height="125" />
+  <text class="label" x="388" y="150">RenderMaterial</text>
+  <text class="small" x="388" y="184">typed CPU material intent</text>
+  <text class="small" x="388" y="210">separate from physics ids</text>
+
+  <rect class="box" x="687" y="110" width="245" height="125" />
+  <text class="label" x="715" y="150">GameModel Bridge</text>
+  <text class="small" x="715" y="184">SetRenderMaterial mirrors</text>
+  <text class="small" x="715" y="210">legacy tint/mode payload</text>
+
+  <rect class="box" x="1014" y="110" width="218" height="125" />
+  <text class="label" x="1041" y="150">Instanced Shader</text>
+  <text class="small" x="1041" y="184">current mat4 + tint4</text>
+  <text class="small" x="1041" y="210">root signature unchanged</text>
+
+  <path class="arrow" d="M 278 172 L 348 172" />
+  <path class="arrow" d="M 605 172 L 675 172" />
+  <path class="arrow" d="M 932 172 L 1002 172" />
+
+  <rect class="diagnostic" x="190" y="320" width="900" height="120" />
+  <text class="label" x="222" y="360">ShaderContracts + Debug DX12 Diagnostics</text>
+  <text class="small" x="222" y="394">High-risk shader manifests check required uniforms against HLSL reflection and pass binders.</text>
+  <text class="small" x="222" y="420">Stale setters and missing required bindings now log in Debug while Profile/Release stay tolerant.</text>
+</svg>
