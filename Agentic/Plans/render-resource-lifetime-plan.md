@@ -353,6 +353,13 @@ Validation:
 
 - `tools\validate_dx12_renderer.bat`.
 
+Status:
+
+- Done on branch `codex/render-resource-lifetime-dx12`.
+- Reflection FBO now has an explicit `EnsureReflectionRenderResources` size check and `ResetReflectionRenderResources` teardown path.
+- Startup and render-time reflection target creation now share the same lazy owner check.
+- Pure resize remains limited to swap-chain/depth/projection plus size-dependent FBO recreation; shaders and meshes are not rebuilt for resize.
+
 ### Phase 4: Add Source Asset Records
 
 Tasks:

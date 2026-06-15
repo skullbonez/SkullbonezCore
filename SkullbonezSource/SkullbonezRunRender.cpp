@@ -72,6 +72,44 @@ bool SkullbonezRun::IsCinematicRenderingEnabled() const
 }
 
 
+void SkullbonezRun::EnsureReflectionRenderResources()
+{
+    if ( !IsGfxReady() )
+    {
+        return;
+    }
+
+    const int fboW = (std::max)( 1, Gfx().GetWidth() * 2 );
+    const int fboH = (std::max)( 1, Gfx().GetHeight() * 2 );
+    const bool needsReflectionTarget = !m_systems.reflectionFBO ||
+                                       m_systems.reflectionFBO->GetWidth() != fboW ||
+                                       m_systems.reflectionFBO->GetHeight() != fboH ||
+                                       m_systems.reflectionFBO->GetColorFormat() != SkullbonezCore::Rendering::FramebufferColorFormat::RGBA8;
+
+    if ( needsReflectionTarget )
+    {
+        LogRenderResourceLifecycleStep( "window_resize", "reflection_fbo_recreate_if_needed" );
+        if ( m_systems.reflectionFBO )
+        {
+            m_systems.reflectionFBO->ResetResources();
+        }
+        m_systems.reflectionFBO.reset();
+        m_systems.reflectionFBO = Gfx().CreateFramebuffer( fboW, fboH );
+    }
+}
+
+
+void SkullbonezRun::ResetReflectionRenderResources()
+{
+    LogRenderResourceLifecycleStep( "reflection_reset", "reflection_fbo" );
+    if ( m_systems.reflectionFBO )
+    {
+        m_systems.reflectionFBO->ResetResources();
+    }
+    m_systems.reflectionFBO.reset();
+}
+
+
 void SkullbonezRun::EnsureCinematicRenderResources()
 {
     if ( !IsCinematicRenderingEnabled() )
@@ -831,6 +869,7 @@ void SkullbonezRun::DrawPrimitives()
     const bool transparentBodyPass = m_debug.isPhysicsDebugTransparent && m_debug.physicsDebugAlpha < 1.0f;
     const float bodyRenderAlpha = transparentBodyPass ? m_debug.physicsDebugAlpha : 1.0f;
     const float collisionVisualizerAlphaOverride = transparentBodyPass ? bodyRenderAlpha : -1.0f;
+    EnsureReflectionRenderResources();
 
     // Camera m_position for skybox placement.  During camera transitions the
     // selected camera is already the destination, but SetCamera() renders from

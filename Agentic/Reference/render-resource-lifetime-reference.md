@@ -31,7 +31,7 @@ The active startup path lives in `SkullbonezRun::Initialise`.
 5. Create terrain from the CPU terrain source path.
 6. Create the skybox singleton and reset its render resources.
 7. Create `WorldEnvironment` CPU state and align it to terrain bounds.
-8. Create the reflection FBO at 2x the current back-buffer size.
+8. Ensure the reflection FBO at 2x the current back-buffer size.
 9. Lazily create cinematic render resources if cinematic rendering is enabled.
 10. Build the text font atlas and text shaders.
 11. Acquire the camera singleton.
@@ -85,9 +85,10 @@ Current lazy resize behavior:
 - Cinematic scene and volumetric FBOs check size in `EnsureCinematicRenderResources`.
 - Shadow FBOs check configured shadow map size in `EnsureShadowRenderResources`.
 
-Current gap:
+Phase 3 update:
 
-- Reflection FBO is created during startup at 2x window size and does not have an explicit resize invalidation/check in the reflection path. This should be fixed before broader pass extraction.
+- Reflection FBO now uses `EnsureReflectionRenderResources`, the same lazy size-check pattern used by cinematic and shadow targets.
+- Pure resize does not rebuild shaders, meshes, textures, terrain, or physics state.
 
 ## Current Resource Ownership
 
@@ -95,7 +96,7 @@ Current gap:
 |----------------|--------------|-----------|-----------------------|-------|
 | Built-in texture paths | `AssetSystem` texture source records | `TextureCollection` plus `RenderBackendDX12` texture entries | Startup, `RebuildRegisteredRenderResources`, lazy `EnsureTexture` | Good source/GPU split already exists. |
 | Built-in shader base names | `AssetSystem` shader source records | Per-system `unique_ptr<IShader>` or backend PSO cache | Lazy creation after reset | Source records exist, but shader handles are scattered by pass/system. |
-| Reflection FBO | Window dimensions and water reflection mode | `RunSubsystemState::reflectionFBO` | Startup only, shutdown/reset | Needs explicit resize invalidation. |
+| Reflection FBO | Window dimensions and water reflection mode | `RunSubsystemState::reflectionFBO` | Startup, lazy ensure, window-size check, shutdown/reset | Uses a 2x back-buffer target and recreates only when dimensions or color format differ. |
 | Cinematic scene FBO | Window dimensions, cinematic enabled state | `RunSubsystemState::sceneFBO` | Lazy ensure, size/format check | Correctly resize-aware. |
 | Volumetric light FBO | Window dimensions, cinematic enabled state | `RunSubsystemState::volumetricLightFBO` | Lazy ensure, half-size/format check | Correctly resize-aware. |
 | Shadow FBOs | Cinematic shadow config | `RunSubsystemState::shadowFBO`, `objectShadowFBO` | Lazy ensure, shadow-map size check | Reset clears frame payloads so receivers cannot sample stale depth. |
@@ -135,4 +136,3 @@ Use these names in comments, logs, and future code:
 5. Reset frame payloads when their underlying GPU texture is released.
 6. Log named lifecycle phases before broad reset/rebuild work.
 7. Treat device loss as a backend rebuild from source records, not as a scene reload.
-

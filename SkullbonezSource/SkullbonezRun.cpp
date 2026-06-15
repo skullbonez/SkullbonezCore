@@ -128,10 +128,7 @@ SkullbonezRun::~SkullbonezRun()
             ResetCinematicRenderResources();
             break;
         case ShutdownResourceStep::ReflectionFBO:
-            if ( m_systems.reflectionFBO )
-            {
-                m_systems.reflectionFBO->ResetResources();
-            }
+            ResetReflectionRenderResources();
             break;
         case ShutdownResourceStep::ProfilerQueries:
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
@@ -467,10 +464,10 @@ void SkullbonezRun::Initialise()
         m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
     }
 
-    // Init reflection FBO at the current viewport size
-    int fboW = Gfx().GetWidth() * 2;
-    int fboH = Gfx().GetHeight() * 2;
-    m_systems.reflectionFBO = Gfx().CreateFramebuffer( fboW, fboH );
+    // Init size-dependent frame targets at the current viewport size. These
+    // helpers use the same checks as the render loop, so startup and resize
+    // follow one lifetime path instead of drifting apart.
+    EnsureReflectionRenderResources();
     EnsureCinematicRenderResources();
 
     // Init font (HDC, font)

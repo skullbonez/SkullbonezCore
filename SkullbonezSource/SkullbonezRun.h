@@ -392,6 +392,8 @@ class SkullbonezRun
     CinematicRenderConfig& ActiveCinematicConfig();                                                                                                    // Mutable cinematic style config for the active scene/run
     const CinematicRenderConfig& ActiveCinematicConfig() const;                                                                                        // Read-only cinematic style config for the active scene/run
     bool IsCinematicRenderingEnabled() const;                                                                                                          // True when the HDR/post stack should wrap the main scene
+    void EnsureReflectionRenderResources();                                                                                                            // Lazily builds/resizes the planar reflection target
+    void ResetReflectionRenderResources();                                                                                                             // Releases the planar reflection target before backend teardown
     void EnsureCinematicRenderResources();                                                                                                             // Lazily builds/resizes HDR scene target and post resources
     void ResetCinematicRenderResources();                                                                                                              // Releases HDR/post resources before backend teardown
     void EnsureShadowRenderResources( const CinematicRenderConfig& cinematic );                                                                        // Lazily builds/resizes the directional shadow-map target
