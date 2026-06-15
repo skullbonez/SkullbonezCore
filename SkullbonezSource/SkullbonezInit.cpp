@@ -11,10 +11,8 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
-  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
-  engine migrates to DX12.
-  OpenGL: Legacy parity renderer used as a reference path for visual output.
-  GL (OpenGL): Legacy parity renderer path.
+  DX11/OpenGL: Retired runtime renderer choices. The parser names them only to
+  explain why old command lines are rejected.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
   SDF (Signed Distance Field): Texture representation used for crisp scalable
@@ -1619,8 +1617,8 @@ void InitRenderBackend( RendererType renderer, SkullbonezWindow* window )
 
 // ---------------------------------------------------------------------------
 // Main run
-// SkullbonezRun is scoped here so its destructor fires BEFORE the GL context
-// is deleted — this ensures any OpenGL cleanup calls inside Run still work.
+// SkullbonezRun is scoped here so its destructor releases render-owned resources
+// before the DX12 backend and the Win32 window are torn down.
 // ---------------------------------------------------------------------------
 
 int RunApp( SkullbonezWindow* window, ParsedArgs& args )
@@ -1762,7 +1760,7 @@ int RunApp( SkullbonezWindow* window, ParsedArgs& args )
             }
             return 1;
         }
-    } // cRun destroyed here — GL context still alive for proper cleanup
+    } // cRun destroyed here before backend/window cleanup
     return 0;
 }
 
@@ -1773,15 +1771,6 @@ int RunApp( SkullbonezWindow* window, ParsedArgs& args )
 void CleanupWindow( SkullbonezWindow* window, HINSTANCE hInstance )
 {
     DestroyGfxBackend();
-
-    // GL context cleanup — must happen after SkullbonezRun is destroyed.
-    // Hot-switching can create an OpenGL context even when startup renderer was DX.
-    if ( window->m_sRenderContext )
-    {
-        wglMakeCurrent( nullptr, nullptr );
-        wglDeleteContext( window->m_sRenderContext );
-        window->m_sRenderContext = nullptr;
-    }
 
     if ( window->m_sDevice )
     {

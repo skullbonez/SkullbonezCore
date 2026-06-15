@@ -10,9 +10,8 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
-  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
-  engine migrates to DX12.
-  GL (OpenGL): Legacy parity renderer path.
+  DX11/OpenGL: Retired runtime renderers. The render path now targets DX12
+  through the renderer abstraction.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
   CPU (Central Processing Unit): Host processor running engine code and
@@ -828,7 +827,7 @@ void SkullbonezRun::DrawPrimitives()
     }
     else
     {
-        // FBO mirror-camera path (GL, DX11, or DXR fallback)
+        // Off-screen mirror-camera path for planar reflections.
         m_systems.reflectionFBO->Bind();
         Gfx().SetViewport( 0, 0, m_systems.reflectionFBO->GetWidth(), m_systems.reflectionFBO->GetHeight() );
         Gfx().Clear( true, true );
@@ -1029,7 +1028,7 @@ void SkullbonezRun::SetUpCameras()
 }
 
 
-void SkullbonezRun::SetInitialOpenGlState()
+void SkullbonezRun::RebuildRegisteredRenderResources()
 {
     SkullbonezHelper::ResetRenderResources();
 

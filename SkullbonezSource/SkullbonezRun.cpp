@@ -11,12 +11,10 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
-  OpenGL: Legacy parity renderer used as a reference path for visual output.
-  GL (OpenGL): Legacy parity renderer path.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
-  FBO (Framebuffer Object): OpenGL-style off-screen render target concept used
-  by parity and reflection code.
+  FBO (Framebuffer Object): Engine shorthand for an off-screen render target
+  exposed through the renderer abstraction.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -355,8 +353,8 @@ void SkullbonezRun::Initialise()
     m_systems.textures->BindAssetSystem( &m_systems.assets );
     RegisterBuiltInAssets();
 
-    // Init OpenGL
-    SetInitialOpenGlState();
+    // Build renderer-owned resources from source asset records.
+    RebuildRegisteredRenderResources();
 
     // Init m_terrain
     // path to m_height map | map size pixels | step size | times to wrap texture

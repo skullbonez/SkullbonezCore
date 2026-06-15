@@ -9,7 +9,6 @@ Mental model:
   when that state changes.
 
 Glossary:
-  GL (OpenGL): Legacy parity renderer path.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
   CPU (Central Processing Unit): Host processor running engine code and
@@ -27,8 +26,6 @@ Related:
 #pragma once
 
 
-#include <glad/gl.h>
-#pragma comment( lib, "opengl32.lib" )
 #include "SkullbonezCommon.h"
 
 namespace SkullbonezCore
@@ -43,7 +40,7 @@ namespace Basics
     undefined.
 
     CPU timing uses QueryPerformanceCounter (wall-clock).
-    GPU timing uses GL_TIMESTAMP queries (double-buffered, non-blocking readback).
+    GPU timing uses the active render backend's non-blocking timestamp readback.
 
     Use the macros:
       PROFILE_BEGIN / PROFILE_END / PROFILE_SCOPED         — CPU-only timing
@@ -117,15 +114,11 @@ class Profiler
         float maxMs;             // session-wide maximum
 
         // GPU timestamp query state
-        bool hasGpu;                           // true if this marker uses GPU timing
-        bool gpuAllocated;                     // true if glGenQueries has been called
-        bool gpuWrittenThisFrame;              // set by GpuBegin, cleared at FrameEnd
-        GLuint gpuQueries[GPU_QUERY_DEPTH][2]; // [slot][0=begin, 1=end] timestamp query IDs
-        int gpuWriteCursor;                    // next write slot (mod GPU_QUERY_DEPTH)
-        int gpuReadCursor;                     // oldest unread slot (mod GPU_QUERY_DEPTH)
-        float gpuLastFrameMs;                  // most recent GPU sample
-        float gpuAvgMs;                        // GPU moving average
-        float gpuRingMs[RING_SIZE];            // GPU ring buffer
+        bool hasGpu;                // true if this marker uses GPU timing
+        bool gpuWrittenThisFrame;   // set by GpuBegin, cleared at FrameEnd
+        float gpuLastFrameMs;       // most recent GPU sample
+        float gpuAvgMs;             // GPU moving average
+        float gpuRingMs[RING_SIZE]; // GPU ring buffer
         int gpuRingFilled;
         int gpuRingHead;
     };

@@ -68,7 +68,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>./ThirdPtySource/stb;./ThirdPtySource/GLAD/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./ThirdPtySource/stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebUIld>false</MinimalRebUIld>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
@@ -81,7 +81,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>legacy_stdio_definitions.lib;psapi.lib;d3d11.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>LIBC;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
@@ -92,7 +92,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>./ThirdPtySource/stb;./ThirdPtySource/GLAD/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./ThirdPtySource/stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -104,7 +104,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d11.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -115,7 +115,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>./ThirdPtySource/stb;./ThirdPtySource/GLAD/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./ThirdPtySource/stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;SKULLBONEZ_PROFILE_ENABLED;SKULLBONEZ_PLATFORM_PROFILER_PIX;USE_PIX;_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -127,7 +127,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d11.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libcmt.lib;legacy_stdio_definitions.lib;psapi.lib;d3d12.lib;dxgi.lib;dxguid.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)SKULLBONEZ_CORE.exe</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -172,7 +172,6 @@
     <ClCompile Include="SkullbonezSource\SkullbonezRunInput.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRunLiveStyle.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRunRender.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezRunRenderer.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRunScene.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRunStress.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezSkyBox.cpp" />
@@ -207,23 +206,14 @@
     <ClCompile Include="SkullbonezSource\UI\UITabProfiler.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UITabScene.cpp" />
     <ClCompile Include="SkullbonezSource\UI\UIWindowChrome.cpp" />
-    <ClCompile Include="ThirdPtySource\GLAD\src\gl.c" />
     <ClCompile Include="ThirdPtySource\stb\stb_image.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezMatrix4.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezTestScene.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezTestSceneParser.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezFramebufferGL.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezShaderGL.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezMeshGL.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezPlatformProfiler.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezProfiler.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezIRenderBackend.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRenderGraph.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendGL.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX11.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezShaderDX11.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezMeshDX11.cpp" />
-    <ClCompile Include="SkullbonezSource\SkullbonezFramebufferDX11.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.DXR.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.DynamicGeometry.cpp" />
@@ -314,9 +304,6 @@
     <ClInclude Include="SkullbonezSource\UI\UIWindowChrome.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezMatrix4.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezTestScene.h" />
-    <ClInclude Include="SkullbonezSource\SkullbonezFramebufferGL.h" />
-    <ClInclude Include="SkullbonezSource\SkullbonezShaderGL.h" />
-    <ClInclude Include="SkullbonezSource\SkullbonezMeshGL.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezPlatformProfiler.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezProfiler.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezIShader.h" />
@@ -324,11 +311,6 @@
     <ClInclude Include="SkullbonezSource\SkullbonezIFramebuffer.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezIRenderBackend.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRenderGraph.h" />
-    <ClInclude Include="SkullbonezSource\SkullbonezRenderBackendGL.h" />
-    <ClInclude Include="SkullbonezSource\SkullbonezRenderBackendDX11.h" />
-    <ClInclude Include="SkullbonezSource\SkullbonezShaderDX11.h" />
-    <ClInclude Include="SkullbonezSource\SkullbonezMeshDX11.h" />
-    <ClInclude Include="SkullbonezSource\SkullbonezFramebufferDX11.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRenderBackendDX12.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRenderDeviceDX12.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezShaderDX12.h" />

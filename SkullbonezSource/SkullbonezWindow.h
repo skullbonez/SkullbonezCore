@@ -9,8 +9,6 @@ Mental model:
   when that state changes.
 
 Glossary:
-  OpenGL: Legacy parity renderer used as a reference path for visual output.
-  GL (OpenGL): Legacy parity renderer path.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -22,8 +20,6 @@ Related:
 #pragma once
 
 
-#include <glad/gl.h>
-#pragma comment( lib, "opengl32.lib" )
 #include "SkullbonezCommon.h"
 #include "SkullbonezMatrix4.h"
 
@@ -47,20 +43,15 @@ class SkullbonezWindow
   public:
     HWND m_sWindow;            // Handle to window
     HDC m_sDevice;             // Handle to device context
-    HGLRC m_sRenderContext;    // Handle to rendering context
     POINT m_sWindowDimensions; // Window m_width and m_height
     bool m_fIsFullScreenMode;  // Flag for fullscreen mode
-    bool m_isRecreatingWindow; // Suppresses PostQuitMessage during deliberate window recreation
 
     Math::Transformation::Matrix4 projectionMatrix; // Current perspective projection matrix
 
     static SkullbonezWindow* Instance();    // Call to request a pointer to the singleton instance
     static void Destroy();                  // Call to destroy the singleton instance
-    void HandleScreenResize();              // Reset OpenGL drawing boundaries and aspect ratio when the screen is resized
-    bool SetupPixelFormat();                // Prepares pixel format of back and front buffer
-    void InitialiseOpenGL();                // For all OpenGL API initialisation code (after the window has been created)
+    void HandleScreenResize();              // Resize the active renderer and projection when the client area changes
     void SetTitleText( const char* cText ); // Draws text to title bar of window
-    void RecreateWindow();                  // Destroy and recreate HWND (required after DXGI taints GDI surface)
     const Math::Transformation::Matrix4& GetProjectionMatrix() const
     {
         return projectionMatrix;

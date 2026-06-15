@@ -11,18 +11,16 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
-  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
-  engine migrates to DX12.
-  OpenGL: Legacy parity renderer used as a reference path for visual output.
-  GL (OpenGL): Legacy parity renderer path.
+  DX11/OpenGL: Retired runtime renderers. Their source backends have been
+  removed; old command-line values now fail early.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
   CPU (Central Processing Unit): Host processor running engine code and
   recording GPU commands.
-  FBO (Framebuffer Object): OpenGL-style off-screen render target concept used
-  by parity and reflection code.
+  FBO (Framebuffer Object): Engine shorthand for an off-screen render target
+  exposed through the renderer abstraction.
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
   CLI (Command-Line Interface): Text arguments or scripts used to launch
   validation and tooling paths.
@@ -390,7 +388,7 @@ class SkullbonezRun
     void SetUpGameModelsFromScene( const TestScene& scene );                                                                                           // Game model init from scene file
     void RegisterBuiltInAssets();                                                                                                                      // Registers built-in texture and shader source records
     std::string ResolveSourceAssetPath( Assets::AssetKind kind, const char* logicalName, const std::string& relativePath );                            // Registers and resolves a source asset under DATA_ROOT
-    void DrawPrimitives();                                                                                                                             // Draw OpenGL primitives here
+    void DrawPrimitives();                                                                                                                             // Draws terrain, objects, helpers, and scene effects
     CinematicRenderConfig& ActiveCinematicConfig();                                                                                                    // Mutable cinematic style config for the active scene/run
     const CinematicRenderConfig& ActiveCinematicConfig() const;                                                                                        // Read-only cinematic style config for the active scene/run
     bool IsCinematicRenderingEnabled() const;                                                                                                          // True when the HDR/post stack should wrap the main scene
@@ -402,7 +400,7 @@ class SkullbonezRun
     void RenderCinematicSky( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection );                             // Draws procedural HDR sunset sky into the active cinematic target
     bool RenderCinematicVolumetricLight();                                                                                                             // Renders depth-aware low-resolution light shafts into the volumetric buffer
     void ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound, bool volumetricReady );                                                          // Tonemaps HDR scene target to the backbuffer
-    void SetInitialOpenGlState();                                                                                                                      // Sets the initial state of the OpenGL evironment
+    void RebuildRegisteredRenderResources();                                                                                                           // Recreates renderer resources from source asset records
     void SetViewingOrientation();                                                                                                                      // Renders camera views etc
     void DrawWindowText( const double dSecondsPerFrame );                                                                                              // Renders text to the window
     void SaveScreenshot( const char* path );                                                                                                           // Saves current backbuffer to a BMP file
@@ -443,22 +441,6 @@ class SkullbonezRun
     Rendering::ShadowFrameData BuildObjectShadowFrameData( const CinematicRenderConfig& cinematic, const Math::Vector::Vector3& lightDirectionWorld, const Math::Vector::Vector3& focusHint );
     // Renders requested depth casters from the sun view.
     void RenderShadowMap( Rendering::IFramebuffer& target, const Rendering::ShadowFrameData& shadowFrame, const CinematicRenderConfig& cinematic, bool renderTerrain, bool renderObjects );
-    void ReleaseBackendOwnedResourcesForSwitch();        // Retired switch helper retained until resource-reset cleanup
-    void RebuildBackendOwnedResourcesAfterSwitch();      // Retired switch helper retained until resource-reset cleanup
-    void RunRendererSwitchResourceReleaseSteps();        // Ordered backend-resource release registry retained for cleanup
-    void RunRendererSwitchResourceRebuildSteps();        // Ordered backend-resource rebuild registry retained for cleanup
-    void ReleaseReflectionResourcesForSwitch();          // Releases reflection framebuffer ownership before backend teardown
-    void RebuildReflectionResourcesAfterSwitch();        // Recreates reflection framebuffer ownership after backend startup
-    void ReleaseTextResourcesForSwitch();                // Releases text renderer GPU resources before backend teardown
-    void RebuildTextResourcesAfterSwitch();              // Recreates text renderer GPU resources after backend startup
-    void ReleaseModelCollectionResourcesForSwitch();     // Releases game-model collection GPU resources before backend teardown
-    void ReleaseHelperResourcesForSwitch();              // Releases helper-owned cached render resources before backend teardown
-    void ReleaseCollisionVisualizerResourcesForSwitch(); // Releases collision visualizer GPU resources before backend teardown
-    void ReleaseUIResourcesForSwitch();                  // Releases in-game UI GPU resources before backend teardown
-    void ReleaseTextureResourcesForSwitch();             // Clears texture collection GPU resources before backend teardown
-    void RebuildTerrainResourcesAfterSwitch();           // Recreates active terrain GPU resources after backend startup
-    void RebuildSkyBoxResourcesAfterSwitch();            // Recreates active skybox GPU resources after backend startup
-    void RebuildWorldResourcesAfterSwitch();             // Recreates world/fluid GPU resources after backend startup
     unsigned int NextUIStressRandom();
     int NextUIStressInt( int maxExclusive );
     float NextUIStressFloat( float minValue, float maxValue );
