@@ -442,6 +442,24 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
         }
         else
         {
+            // Diagnostics: a cache miss means the renderer discovered a new
+            // pipeline shape. That is expected during warm-up, but unexpected
+            // misses in validation/perf runs can reveal root-signature churn,
+            // render-target format drift, or state toggles happening in hot
+            // loops.
+            Log().WriteEventf( "dx12_pso_cache_miss hash=%llu cache_size=%llu root_signature=%p vs=%p ps=%p format=%u instanced=%d blend=%d depth=%d depth_write=%d cull=%d rtv_format=%u",
+                               static_cast<unsigned long long>( psoHash ),
+                               static_cast<unsigned long long>( m_psoCache.size() ),
+                               key.rootSignature,
+                               key.shaderVS,
+                               key.shaderPS,
+                               static_cast<unsigned int>( key.format ),
+                               key.isInstanced ? 1 : 0,
+                               key.blendEnabled ? 1 : 0,
+                               key.depthEnabled ? 1 : 0,
+                               key.depthWriteEnabled ? 1 : 0,
+                               key.cullEnabled ? 1 : 0,
+                               static_cast<unsigned int>( key.rtvFormat ) );
             pso = CreatePSO( format, instanced, im, dvb );
             m_psoCache[psoHash] = pso;
         }
