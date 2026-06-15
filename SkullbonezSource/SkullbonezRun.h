@@ -312,6 +312,34 @@ class SkullbonezRun
 {
 
   private:
+    enum class SkyPassMode
+    {
+        CubemapOnly,
+        CinematicIfEnabled
+    };
+
+    struct RenderFrameContext
+    {
+        // Shared inputs for the ordered world-render passes. Keeping these
+        // names stable lets pass extraction move code without rediscovering
+        // camera and lighting ownership at every call site.
+        Math::Transformation::Matrix4 baseView;
+        Math::Transformation::Matrix4 projection;
+        Math::Transformation::Matrix4 viewProjection;
+        Math::Transformation::Matrix4 reflectionView;
+        Math::Transformation::Matrix4 reflectionViewProjection;
+        Math::Vector::Vector3 eye;
+        Math::Vector::Vector3 viewCenter;
+        Math::Vector::Vector3 up;
+        Math::Vector::Vector3 reflectionEye;
+        Math::Vector::Vector3 reflectionCenter;
+        Math::Vector::Vector3 reflectionUp;
+        float lightPosition[4] = { 200.0f, 400.0f, 1200.0f, 1.0f };
+        float waterY = 0.0f;
+        bool cinematicEnabled = false;
+        const CinematicRenderConfig* cinematic = nullptr;
+    };
+
     std::vector<std::string> m_sceneQueue; // Ordered list of scene paths ("" = generated demo scene)
     std::vector<std::string> m_sceneBrowserPaths;
     std::vector<std::string> m_sceneBrowserNames;
@@ -389,6 +417,7 @@ class SkullbonezRun
     void RegisterBuiltInAssets();                                                                                                                      // Registers built-in texture and shader source records
     std::string ResolveSourceAssetPath( Assets::AssetKind kind, const char* logicalName, const std::string& relativePath );                            // Registers and resolves a source asset under DATA_ROOT
     void DrawPrimitives();                                                                                                                             // Draws terrain, objects, helpers, and scene effects
+    RenderFrameContext BuildRenderFrameContext( bool cinematicRender, const CinematicRenderConfig& renderConfig );                                     // Names per-frame camera/light inputs consumed by render passes
     CinematicRenderConfig& ActiveCinematicConfig();                                                                                                    // Mutable cinematic style config for the active scene/run
     const CinematicRenderConfig& ActiveCinematicConfig() const;                                                                                        // Read-only cinematic style config for the active scene/run
     bool IsCinematicRenderingEnabled() const;                                                                                                          // True when the HDR/post stack should wrap the main scene
@@ -400,6 +429,7 @@ class SkullbonezRun
     void ResetShadowRenderResources();                                                                                                                 // Releases shadow-map resources before backend teardown
     Rendering::ShadowFrameData BuildShadowFrameData( const CinematicRenderConfig& cinematic, const Math::Vector::Vector3& lightDirectionWorld ) const; // Builds a stable light-space frame for shadow mapping
     void RenderCinematicSky( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection );                             // Draws procedural HDR sunset sky into the active cinematic target
+    void RenderSkyPass( const RenderFrameContext& frame, const Math::Transformation::Matrix4& view, SkyPassMode mode );                                // Draws cube-map or procedural sky into the current render target
     bool RenderCinematicVolumetricLight();                                                                                                             // Renders depth-aware low-resolution light shafts into the volumetric buffer
     void ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound, bool volumetricReady );                                                          // Tonemaps HDR scene target to the backbuffer
     void ReleaseBackendOwnedRenderResources( const char* phaseName );                                                                                  // Runs the ordered GPU-resource release hooks while the backend is alive

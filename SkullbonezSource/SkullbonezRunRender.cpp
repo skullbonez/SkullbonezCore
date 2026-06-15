@@ -42,28 +42,6 @@ Vector3 NormalizeShadowLightDirection( Vector3 lightDirectionWorld )
     return lightDirectionWorld;
 }
 
-
-struct RenderFrameContext
-{
-    // Shared inputs for the ordered world-render passes. Keeping these names
-    // stable lets pass extraction move code without rediscovering camera and
-    // lighting ownership at every call site.
-    Matrix4 baseView;
-    Matrix4 projection;
-    Matrix4 viewProjection;
-    Matrix4 reflectionView;
-    Matrix4 reflectionViewProjection;
-    Vector3 eye;
-    Vector3 viewCenter;
-    Vector3 up;
-    Vector3 reflectionEye;
-    Vector3 reflectionCenter;
-    Vector3 reflectionUp;
-    float lightPosition[4] = { 200.0f, 400.0f, 1200.0f, 1.0f };
-    float waterY = 0.0f;
-    bool cinematicEnabled = false;
-    const CinematicRenderConfig* cinematic = nullptr;
-};
 } // namespace
 
 // The cinematic settings can come from two places:
@@ -92,6 +70,42 @@ bool SkullbonezRun::IsCinematicRenderingEnabled() const
     // Text-only mode deliberately skips all 3D rendering, so cinematic mode must
     // also stay off there. The UI text renderer handles that path by itself.
     return enabled && IsGfxReady() && !m_debug.isTextOnly;
+}
+
+
+SkullbonezRun::RenderFrameContext SkullbonezRun::BuildRenderFrameContext( bool cinematicRender, const CinematicRenderConfig& renderConfig )
+{
+    RenderFrameContext frame;
+    frame.cinematicEnabled = cinematicRender;
+    frame.cinematic = cinematicRender ? &renderConfig : nullptr;
+
+    // Normal gameplay uses a point light (w = 1). Cinematic mode uses a
+    // directional light (w = 0), which behaves like the sun: the same warm light
+    // direction hits every object no matter where it is in the world.
+    if ( frame.cinematicEnabled )
+    {
+        frame.lightPosition[0] = -0.68f;
+        frame.lightPosition[1] = 0.22f;
+        frame.lightPosition[2] = -0.70f;
+        frame.lightPosition[3] = 0.0f;
+    }
+
+    // Frame camera and reflection data are the first named pass contract. Later
+    // slices can pass this context into extracted render passes without changing
+    // which camera, light, or water plane the current frame uses.
+    frame.baseView = m_systems.cameras->GetViewMatrix();
+    frame.projection = m_systems.window->GetProjectionMatrix();
+    frame.viewProjection = frame.projection * frame.baseView;
+    frame.eye = m_systems.cameras->GetRenderCameraTranslation();
+    frame.viewCenter = m_systems.cameras->GetRenderCameraView();
+    frame.up = m_systems.cameras->GetRenderCameraUp();
+    frame.waterY = m_cWorldEnvironment.GetFluidSurfaceHeight();
+    frame.reflectionEye = Vector3( frame.eye.x, 2.0f * frame.waterY - frame.eye.y, frame.eye.z );
+    frame.reflectionCenter = Vector3( frame.viewCenter.x, 2.0f * frame.waterY - frame.viewCenter.y, frame.viewCenter.z );
+    frame.reflectionUp = Vector3( frame.up.x, -frame.up.y, frame.up.z );
+    frame.reflectionView = Matrix4::LookAt( frame.reflectionEye, frame.reflectionCenter, frame.reflectionUp );
+    frame.reflectionViewProjection = frame.projection * frame.reflectionView;
+    return frame;
 }
 
 
@@ -599,6 +613,24 @@ void SkullbonezRun::RenderCinematicSky( const Matrix4& view, const Matrix4& proj
 }
 
 
+void SkullbonezRun::RenderSkyPass( const RenderFrameContext& frame, const Matrix4& view, SkyPassMode mode )
+{
+    const bool useCinematicAtmosphere = mode == SkyPassMode::CinematicIfEnabled &&
+                                        frame.cinematic &&
+                                        frame.cinematic->skyAtmosphereEnabled;
+    if ( useCinematicAtmosphere )
+    {
+        RenderCinematicSky( view, frame.projection );
+        return;
+    }
+
+    // The cube-map sky follows camera X/Z so the box feels infinitely far away,
+    // while its Y stays authored by config to preserve the long-standing horizon.
+    Matrix4 skyView = view * Matrix4::Translate( frame.eye.x, Cfg().skyboxRenderHeight, frame.eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
+    m_systems.skyBox->Render( skyView, frame.projection );
+}
+
+
 bool SkullbonezRun::RenderCinematicVolumetricLight()
 {
     const CinematicRenderConfig& cinematic = ActiveCinematicConfig();
@@ -819,19 +851,6 @@ void SkullbonezRun::DrawPrimitives()
     const CinematicRenderConfig& renderConfig = ActiveCinematicConfig();
     const bool shadowMapsEnabled = renderConfig.shadowsEnabled && IsGfxReady() && !m_debug.isTextOnly;
 
-    RenderFrameContext frame;
-    frame.cinematicEnabled = cinematicRender;
-    frame.cinematic = cinematicRender ? &renderConfig : nullptr;
-    // Normal gameplay uses a point light (w = 1). Cinematic mode uses a
-    // directional light (w = 0), which behaves like the sun: the same warm light
-    // direction hits every object no matter where it is in the world.
-    if ( frame.cinematicEnabled )
-    {
-        frame.lightPosition[0] = -0.68f;
-        frame.lightPosition[1] = 0.22f;
-        frame.lightPosition[2] = -0.70f;
-        frame.lightPosition[3] = 0.0f;
-    }
     if ( cinematicRender )
     {
         EnsureCinematicRenderResources();
@@ -844,21 +863,7 @@ void SkullbonezRun::DrawPrimitives()
         Gfx().Clear( true, true );
     }
 
-    // Frame camera and reflection data are the first named pass contract. Later
-    // slices can pass this context into extracted render passes without changing
-    // which camera, light, or water plane the current frame uses.
-    frame.baseView = m_systems.cameras->GetViewMatrix();
-    frame.projection = m_systems.window->GetProjectionMatrix();
-    frame.viewProjection = frame.projection * frame.baseView;
-    frame.eye = m_systems.cameras->GetRenderCameraTranslation();
-    frame.viewCenter = m_systems.cameras->GetRenderCameraView();
-    frame.up = m_systems.cameras->GetRenderCameraUp();
-    frame.waterY = m_cWorldEnvironment.GetFluidSurfaceHeight();
-    frame.reflectionEye = Vector3( frame.eye.x, 2.0f * frame.waterY - frame.eye.y, frame.eye.z );
-    frame.reflectionCenter = Vector3( frame.viewCenter.x, 2.0f * frame.waterY - frame.viewCenter.y, frame.viewCenter.z );
-    frame.reflectionUp = Vector3( frame.up.x, -frame.up.y, frame.up.z );
-    frame.reflectionView = Matrix4::LookAt( frame.reflectionEye, frame.reflectionCenter, frame.reflectionUp );
-    frame.reflectionViewProjection = frame.projection * frame.reflectionView;
+    RenderFrameContext frame = BuildRenderFrameContext( cinematicRender, renderConfig );
 
     PROFILE_BEGIN( "Frame/Render/PrepareModels" );
     m_cGameModelCollection.PrepareRenderStreams();
@@ -915,8 +920,7 @@ void SkullbonezRun::DrawPrimitives()
     if ( !cinematicRender )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Skybox" );
-        Matrix4 skyView = frame.baseView * Matrix4::Translate( frame.eye.x, Cfg().skyboxRenderHeight, frame.eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
-        m_systems.skyBox->Render( skyView, frame.projection );
+        RenderSkyPass( frame, frame.baseView, SkyPassMode::CubemapOnly );
         PROFILE_GPU_END( "Frame/Render/Skybox" );
     }
 
@@ -975,15 +979,7 @@ void SkullbonezRun::DrawPrimitives()
         // Cinematic mode can reflect the generated sunset sky into the water
         // instead of the usual cube-map sky.
         PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Skybox" );
-        if ( cinematicRender && ActiveCinematicConfig().skyAtmosphereEnabled )
-        {
-            RenderCinematicSky( frame.reflectionView, frame.projection );
-        }
-        else
-        {
-            Matrix4 skyReflView = frame.reflectionView * Matrix4::Translate( frame.eye.x, Cfg().skyboxRenderHeight, frame.eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
-            m_systems.skyBox->Render( skyReflView, frame.projection );
-        }
+        RenderSkyPass( frame, frame.reflectionView, SkyPassMode::CinematicIfEnabled );
         PROFILE_GPU_END( "Frame/Render/Reflection/Skybox" );
 
         // Game models reflected: clip at water surface (above-water portion only).
@@ -1022,15 +1018,7 @@ void SkullbonezRun::DrawPrimitives()
         Gfx().Clear( true, true );
 
         PROFILE_GPU_BEGIN( "Frame/Render/CinematicSky" );
-        if ( ActiveCinematicConfig().skyAtmosphereEnabled )
-        {
-            RenderCinematicSky( frame.baseView, frame.projection );
-        }
-        else
-        {
-            Matrix4 skyView = frame.baseView * Matrix4::Translate( frame.eye.x, Cfg().skyboxRenderHeight, frame.eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
-            m_systems.skyBox->Render( skyView, frame.projection );
-        }
+        RenderSkyPass( frame, frame.baseView, SkyPassMode::CinematicIfEnabled );
         PROFILE_GPU_END( "Frame/Render/CinematicSky" );
     }
 
