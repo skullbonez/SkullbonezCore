@@ -89,10 +89,14 @@ inline void ApplyShadowReceiverUniforms( IShader& shader, const ShadowFrameData*
     shader.SetInt( "uShadowMap", SHADOW_TEXTURE_SLOT );
     if ( enabled )
     {
-        // Bind only when enabled. Disabled shaders still receive the sampler
-        // uniform index, but leaving the previous texture bound is harmless
-        // because uShadowFlags.x tells the shader not to sample it.
         Gfx().BindTexture( shadow->depthTextureHandle, SHADOW_TEXTURE_SLOT );
+    }
+    else
+    {
+        // Pass contract: disabled receivers must not inherit an old shadow map
+        // binding. The shader would skip sampling, but clearing the slot keeps
+        // descriptor lifetime visible to the backend.
+        Gfx().BindTexture( 0, SHADOW_TEXTURE_SLOT );
     }
 }
 } // namespace Rendering

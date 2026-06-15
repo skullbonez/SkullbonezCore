@@ -7,9 +7,9 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 | Field | Value |
 |-------|-------|
 | Branch | `codex/render-pipeline-extraction` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Render pipeline extraction Phase 6 is implemented, validated with `tools\validate_full.bat`, and refreshed with a comment-style audit pass. |
+| Last committed milestone | Render pipeline extraction Phase 6 is implemented; pass texture-slot contracts and DX12 SRV invalidation were hardened after a skybox descriptor crash report. |
 | Pending work | Render pipeline extraction is ready for handoff/PR prep; shader architecture cleanup should happen on a separate follow-up branch if requested. |
-| Uncommitted changes | None expected after the Phase 6 commit; check `git status` before continuing. |
+| Uncommitted changes | None expected after the texture-slot crash-fix commit; check `git status` before continuing. |
 
 ## Active Notes
 
@@ -27,7 +27,7 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 |------|--------|-------|
 | DX12-only renderer retirement | Done | Retired GL/DX11 backends and shader families, added DX12-only validation, archived final parity evidence, simplified active render contracts, named DX12 diagnostic resources, and added the future backend portability contract. |
 | Render resource lifetime | Done | Phases 1-6 implemented: current-lifetime reference, named lifecycle phases, reflection FBO resize split, shader source-record bridge, reusable release hook table, and DX12 device-lost diagnostics/recovery prep. |
-| Render pipeline extraction | Active | Phases 1-6 implemented: named frame/pass contracts, sky/object/terrain/reflection/water/debug/shadow/cinematic pass facades, and pass-owned resource structs wired into reset hooks. Comment-style audit refreshed struct/pass/lifecycle comments after Phase 6. `tools\validate_full.bat` passed before the comment-only audit. |
+| Render pipeline extraction | Active | Phases 1-6 implemented: named frame/pass contracts, sky/object/terrain/reflection/water/debug/shadow/cinematic pass facades, and pass-owned resource structs wired into reset hooks. Comment-style audit refreshed struct/pass/lifecycle comments after Phase 6. A follow-up crash fix clears invalidated DX12 SRV bindings and makes each pass clear texture slots it does not own; `tools\validate_full.bat` passed afterward. |
 | Catto physics solver finalisation | Recent | Object/object response now belongs to persistent Catto rows with pipeline visualizer and SkullScope `pipeline` query support. User-approved physics CSV and SkullScope query baselines were updated; `tools\validate_full.bat` passed. |
 | Bullet sweep regression | Recent | Wall/object/terrain high-speed sweep scenes and Debug collision-time CSV baselines are wired into `tools\validate_physics.bat`. |
 | Terrain shared row pipeline | Done | Implemented and documented in `Agentic/Plans/Done/physics-terrain-shared-row-pipeline-plan.md`. |

@@ -52,6 +52,28 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
+constexpr int RENDER_TEXTURE_SLOT_COUNT = 4;
+constexpr unsigned int RENDER_TEXTURE_SLOT_0 = 1u << 0;
+constexpr unsigned int RENDER_TEXTURE_SLOT_1 = 1u << 1;
+constexpr unsigned int RENDER_TEXTURE_SLOT_2 = 1u << 2;
+constexpr unsigned int RENDER_TEXTURE_SLOT_3 = 1u << 3;
+
+void ClearRenderTextureSlotsExcept( unsigned int keptSlots )
+{
+    for ( int slot = 0; slot < RENDER_TEXTURE_SLOT_COUNT; ++slot )
+    {
+        if ( ( keptSlots & ( 1u << slot ) ) == 0u )
+        {
+            Gfx().BindTexture( 0, slot );
+        }
+    }
+}
+
+void ClearAllRenderTextureSlots()
+{
+    ClearRenderTextureSlotsExcept( 0u );
+}
+
 Vector3 NormalizeShadowLightDirection( Vector3 lightDirectionWorld )
 {
     // Why: scene/config data can omit or zero the sun vector. Shadows still need
@@ -556,6 +578,10 @@ void SkullbonezRun::RenderShadowMap( Rendering::IFramebuffer& target, const Rend
     // shader-side receiver bias handles comparison precision; this rasterizer
     // bias handles the depth values written into the map.
     Gfx().SetPolygonOffset( true, 2.0f, 4.0f );
+    // Pass contract: shadow depth shaders write depth only and sample no
+    // textures. Clear inherited slots so descriptor state from the visible
+    // scene cannot leak into this off-screen pass.
+    ClearAllRenderTextureSlots();
 
     if ( renderTerrain && cinematic.shadowTerrainCasts && !m_debug.isTerrainHidden && m_systems.terrain )
     {
@@ -642,6 +668,10 @@ void SkullbonezRun::RenderCinematicSky( const Matrix4& view, const Matrix4& proj
     Gfx().SetDepthWrite( false );
     Gfx().SetBlend( false );
 
+    // Pass contract: this generated sky samples no textures. Clear inherited
+    // SRV slots before the fullscreen draw so stale pass inputs cannot be
+    // recopied by the backend while the sky shader is active.
+    ClearAllRenderTextureSlots();
     sky.atmosphereShader->Use();
     sky.atmosphereShader->SetVec4( "uSunParams",
                                    cinematic.sunScreenX,
@@ -711,6 +741,9 @@ void SkullbonezRun::RenderSkyPass( const RenderFrameContext& frame, const Matrix
     // The cube-map sky follows camera X/Z so the box feels infinitely far away,
     // while its Y stays authored by config to preserve the long-standing horizon.
     Matrix4 skyView = view * Matrix4::Translate( frame.eye.x, Cfg().skyboxRenderHeight, frame.eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
+    // Pass contract: cube-map skybox faces sample only slot 0. Slots owned by
+    // water, post, or shadows must not leak into these six mesh draws.
+    ClearRenderTextureSlotsExcept( RENDER_TEXTURE_SLOT_0 );
     m_systems.skyBox->Render( skyView, frame.projection );
 }
 
@@ -821,12 +854,18 @@ SkullbonezRun::ReflectionPassOutput SkullbonezRun::RenderReflectionPass( const R
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
         if ( inputs.collisionStateColorsVisible )
         {
+            // Pass contract: collision-state solids are vertex-colored and do
+            // not sample textures.
+            ClearAllRenderTextureSlots();
             m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
             m_collisionVisualizer.Render( m_cGameModelCollection, inputs.frame.reflectionView, inputs.frame.projection, inputs.frame.lightPosition );
             m_collisionVisualizer.SetAlphaOverride( -1.0f );
         }
         else
         {
+            // Pass contract: reflected lit models read material color from slot
+            // 0 and optional shadow depth from slot 3.
+            ClearRenderTextureSlotsExcept( RENDER_TEXTURE_SLOT_0 | ( inputs.objectShadow && inputs.objectShadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
             m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
             m_cGameModelCollection.RenderModels( inputs.frame.reflectionView,
                                                  inputs.frame.projection,
@@ -856,12 +895,18 @@ void SkullbonezRun::RenderObjectPass( const ObjectPassInputs& inputs )
 
     if ( inputs.collisionStateColorsVisible )
     {
+        // Pass contract: collision-state solids are vertex-colored and do not
+        // sample textures.
+        ClearAllRenderTextureSlots();
         m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
         m_collisionVisualizer.Render( m_cGameModelCollection, inputs.frame.baseView, inputs.frame.projection, inputs.frame.lightPosition );
         m_collisionVisualizer.SetAlphaOverride( -1.0f );
     }
     else
     {
+        // Pass contract: lit model shaders read the material texture in slot 0
+        // and optionally the shadow depth texture in slot 3.
+        ClearRenderTextureSlotsExcept( RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
         m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
         m_cGameModelCollection.RenderModels( inputs.frame.baseView,
                                              inputs.frame.projection,
@@ -883,6 +928,9 @@ void SkullbonezRun::RenderTerrainPass( const TerrainPassInputs& inputs )
     }
 
     PROFILE_GPU_BEGIN( "Frame/Render/Terrain" );
+    // Pass contract: terrain reads ground albedo from slot 0 and optional
+    // shadow depth from slot 3.
+    ClearRenderTextureSlotsExcept( RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
     m_systems.textures->SelectTexture( TEXTURE_GROUND );
     m_systems.terrain->Render( inputs.frame.baseView, inputs.frame.projection, inputs.frame.lightPosition, inputs.cinematic, inputs.shadow );
     PROFILE_GPU_END( "Frame/Render/Terrain" );
@@ -897,6 +945,8 @@ void SkullbonezRun::RenderWaterPass( const WaterPassInputs& inputs )
     }
 
     PROFILE_GPU_BEGIN( "Frame/Render/Water" );
+    // Pass contract: water samples only the reflection texture in slot 1.
+    ClearRenderTextureSlotsExcept( RENDER_TEXTURE_SLOT_1 );
     float waterTime = inputs.freezeTime
                           ? inputs.frozenTime
                           : static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
@@ -992,6 +1042,8 @@ bool SkullbonezRun::RenderCinematicVolumetricLight()
     // rays pass through sky and fade when they cross hills/balls.
     Gfx().BindTexture( scene.hdrTarget->GetColorTextureHandle(), 0 );
     Gfx().BindTexture( scene.hdrTarget->GetDepthTextureHandle(), 1 );
+    Gfx().BindTexture( 0, 2 );
+    Gfx().BindTexture( 0, 3 );
 
     // Same full-screen rectangle pattern as the sky and tonemap passes.
     const float verts[] = {
@@ -1099,6 +1151,7 @@ void SkullbonezRun::ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound,
     Gfx().BindTexture( scene.hdrTarget->GetColorTextureHandle(), 0 );
     Gfx().BindTexture( scene.hdrTarget->GetDepthTextureHandle(), 1 );
     Gfx().BindTexture( volumetricReady && volumetric.target ? volumetric.target->GetColorTextureHandle() : scene.hdrTarget->GetColorTextureHandle(), 2 );
+    Gfx().BindTexture( 0, 3 );
 
     // Draw one rectangle over the backbuffer. The fragment shader runs once per
     // window pixel and decides the final visible color.
