@@ -547,9 +547,9 @@ Document what a future modern backend must implement without adding it now.
 
 Tasks:
 
-1. Add a reference doc such as:
+1. [x] Add a reference doc such as:
    `Agentic/Reference/render-backend-portability-contract.md`.
-2. Define engine-level concepts:
+2. [x] Define engine-level concepts:
    - resource handles,
    - texture/buffer descriptions,
    - shader program descriptions,
@@ -559,22 +559,29 @@ Tasks:
    - synchronization/barrier intent,
    - debug markers,
    - capture/readback support.
-3. Include mapping notes:
+3. [x] Include mapping notes:
    - DX12: root signatures, descriptor heaps, barriers, command lists.
    - Vulkan: descriptor sets, pipeline layouts, image layouts, command buffers.
    - Metal: argument buffers/resources, render encoders, command buffers.
-4. Mark optional features:
+4. [x] Mark optional features:
    - raytracing,
    - GPU timers,
    - debug lines,
    - screenshots/readback,
    - compute mip generation.
-5. State that future backend support must start from this contract, not from
+5. [x] State that future backend support must start from this contract, not from
    resurrecting GL/DX11 code.
+
+Implementation notes:
+
+- Added `Agentic/Reference/render-backend-portability-contract.md`.
+- Linked it from `Agentic/README.md` so fresh agents can find it from the
+  reference index.
 
 Validation:
 
 - Documentation only: no validation required.
+- `git diff --check` passed on 2026-06-15.
 
 Acceptance:
 
