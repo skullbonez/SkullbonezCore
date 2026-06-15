@@ -402,6 +402,7 @@ class SkullbonezRun
     void RenderCinematicSky( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection );                             // Draws procedural HDR sunset sky into the active cinematic target
     bool RenderCinematicVolumetricLight();                                                                                                             // Renders depth-aware low-resolution light shafts into the volumetric buffer
     void ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound, bool volumetricReady );                                                          // Tonemaps HDR scene target to the backbuffer
+    void ReleaseBackendOwnedRenderResources( const char* phaseName );                                                                                  // Runs the ordered GPU-resource release hooks while the backend is alive
     void RebuildRegisteredRenderResources();                                                                                                           // Recreates renderer resources from source asset records
     void LogRenderResourceLifecycleStep( const char* phase, const char* step ) const;                                                                  // Writes a named resource-lifetime phase to the debug event log
     void SetViewingOrientation();                                                                                                                      // Renders camera views etc

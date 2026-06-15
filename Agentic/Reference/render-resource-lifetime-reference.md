@@ -46,7 +46,7 @@ Important split:
 
 ## Current Shutdown Order
 
-The active shutdown path lives in `SkullbonezRun::~SkullbonezRun`.
+The active shutdown path lives in `SkullbonezRun::~SkullbonezRun`, which calls the reusable `SkullbonezRun::ReleaseBackendOwnedRenderResources` table while the backend is still alive.
 
 1. End debug physics diagnostics.
 2. Close perf logging.
@@ -127,6 +127,17 @@ Use these names in comments, logs, and future code:
 | `SceneLoaded` | Scene CPU state, terrain source if changed, object instances, material/style values, some GPU streams. | Backend device and swap-chain resources. |
 | `StyleReloaded` | Cinematic/material/style values and dependent shader constants or textures. | Backend device, physics bodies, terrain physics, most meshes. |
 | `DeviceLost` | Same as backend rebuild, with stronger diagnostics and failure reporting. | CPU source records and scene state if recovery succeeds. |
+
+## Device Lost Diagnostics
+
+DX12 device removal is detected at `Present` and `ResizeBuffers`, where the runtime usually reports `DXGI_ERROR_DEVICE_REMOVED`, `DXGI_ERROR_DEVICE_RESET`, or `DXGI_ERROR_DRIVER_INTERNAL_ERROR`.
+
+When that happens, `RenderBackendDX12::ReportDeviceLost` writes:
+
+- `Debug/events.log` rows for `dx12_device_lost` and DRED details,
+- `dx12_device_lost.txt` with the triggering context, HRESULTs, DRED breadcrumb head, and DRED page-fault allocation heads when the runtime exposes them.
+
+This is diagnostic/recovery-prep, not full hot recovery. The reusable release table and source records now give recovery somewhere to attach, but actual in-frame recovery should wait until render passes own their rebuild hooks.
 
 ## Rules For Future Edits
 

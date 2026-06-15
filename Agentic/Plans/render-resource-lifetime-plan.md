@@ -392,6 +392,13 @@ Validation:
 
 - `tools\validate_full.bat` if pass ownership changes runtime lifecycle.
 
+Status:
+
+- Done for the current non-extracted renderer shape on branch `codex/render-resource-lifetime-dx12`.
+- The ordered release hook table now lives in `SkullbonezRun::ReleaseBackendOwnedRenderResources` instead of being destructor-local.
+- Future pass modules can move from table rows to pass-owned hooks without changing the high-level release/rebuild order.
+- No render pass ownership move was attempted here because pass extraction is tracked separately in `render-pipeline-extraction-plan.md`.
+
 ### Phase 6: Future Device-Lost Path
 
 Tasks:
@@ -404,6 +411,12 @@ Validation:
 
 - Manual fault injection if possible.
 - `tools\validate_full.bat`.
+
+Status:
+
+- Done as a diagnostic/recovery-prep slice on branch `codex/render-resource-lifetime-dx12`.
+- `Present` and `ResizeBuffers` now check device-removal HRESULTs, write `dx12_device_lost.txt`, emit event-log rows, and capture DRED breadcrumb/page-fault heads when available.
+- Device-lost live hot recovery is not enabled yet; the release/rebuild machinery is now reusable, and real in-frame recovery should be added after pass extraction gives each pass explicit rebuild hooks.
 
 ## Validation Matrix
 
