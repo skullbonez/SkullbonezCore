@@ -24,8 +24,8 @@
         "render architecture",
         "rendering"
       ],
-      "validation_gate": "tools\\validate_renderers.bat",
-      "validation_notes": "Renderer/backend implementation work requires tools\\validate_renderers.bat as the PR gate, with dx12_validation.txt checked for zero errors. Escalate to tools\\validate_full.bat if the final implementation spans non-render runtime initialization, windowing, or multiple uncertain areas.",
+      "validation_gate": "tools\\validate_dx12_renderer.bat",
+      "validation_notes": "Renderer/backend implementation work requires tools\\validate_dx12_renderer.bat as the PR gate, with dx12_validation.txt checked for zero errors. Escalate to tools\\validate_full.bat if the final implementation spans non-render runtime initialization, windowing, or multiple uncertain areas.",
       "screenshot_scenes": [],
       "artifact_commands": [],
       "depends_on": [],

@@ -64,17 +64,11 @@ from pathlib import Path
 
 
 VISUALS = [
-    ("gl_screenshot.bmp", "gl_water_ball_test.png"),
-    ("gl_solver_smoke.bmp", "gl_solver_smoke.png"),
-    ("dx11_screenshot.bmp", "dx11_water_ball_test.png"),
-    ("dx11_solver_smoke.bmp", "dx11_solver_smoke.png"),
     ("dx12_screenshot.bmp", "dx12_water_ball_test.png"),
     ("dx12_solver_smoke.bmp", "dx12_solver_smoke.png"),
 ]
 
 PERF = [
-    "gl_perf.json",
-    "dx11_perf.json",
     "dx12_perf.json",
     "physics_bench_perf.json",
     "physics_bench_no_sleep_perf.json",

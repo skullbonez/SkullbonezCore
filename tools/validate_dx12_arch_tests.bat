@@ -36,7 +36,7 @@ REM
 REM  These tests do not create a D3D12 device. They are fast checks for the
 REM  renderer architecture rules that can be verified before GPU execution:
 REM  descriptor table allocation policy and render-graph transition semantics.
-REM  Use validate_renderers.bat for the real GPU crash/parity gate.
+REM  Use validate_dx12_renderer.bat for the real GPU crash/screenshot gate.
 REM ===============================================================
 
 set "REPO=%~dp0.."

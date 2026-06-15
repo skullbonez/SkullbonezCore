@@ -113,12 +113,12 @@ Suggested entry shape:
   "status": "ready",
   "priority": 10,
   "branch": "codex/pix-profiling-integration",
-  "impact_area": ["DX11", "DX12", "rendering", "tooling"],
+  "impact_area": ["DX12", "rendering", "tooling"],
   "validation_gate": "tools\\validate_full.bat",
   "screenshot_scenes": [
     {
-      "name": "perf-test-gl",
-      "command": "Profile\\SKULLBONEZ_CORE.exe --renderer gl --scene SkullbonezData\\scenes\\perf_test.scene --screenshot"
+      "name": "perf-test-dx12",
+      "command": "Profile\\SKULLBONEZ_CORE.exe --renderer dx12 --scene SkullbonezData\\scenes\\perf_test.scene --screenshot"
     }
   ],
   "depends_on": [],
@@ -467,7 +467,7 @@ generation command.
 Validation depends on scope:
 
 - docs/tooling-only changes: `tools\validate_fast.bat`,
-- renderer screenshot harness changes: `tools\validate_renderers.bat`.
+- renderer screenshot harness changes: `tools\validate_dx12_renderer.bat`.
 
 ### Phase 6: Optional Merge Automation
 

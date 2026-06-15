@@ -266,7 +266,7 @@ After physics works, add a small visual indicator:
 - Debug-only first, tied to physics debug or tornado enabled state.
 - No shader-heavy vortex until behavior is tuned.
 
-If a production visual effect is added, renderer validation becomes required because GL, DX11, and DX12 parity matters.
+If a production visual effect is added, renderer validation becomes required because DX12 screenshot baselines and validation logs must stay clean.
 
 ## Validation Plan
 
@@ -282,14 +282,12 @@ tools\validate_perf.bat
 Add this if visual tornado rendering or shader work is included:
 
 ```bat
-tools\validate_renderers.bat
+tools\validate_dx12_renderer.bat
 ```
 
 Manual smoke launches during development:
 
 ```bat
-Profile\SKULLBONEZ_CORE.exe --renderer gl --tornado --interactive
-Profile\SKULLBONEZ_CORE.exe --renderer dx11 --tornado --interactive
 Profile\SKULLBONEZ_CORE.exe --renderer dx12 --tornado --interactive
 ```
 

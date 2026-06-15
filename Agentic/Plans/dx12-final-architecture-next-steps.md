@@ -11,8 +11,8 @@ This plan turns the current DX12 architecture direction into small implementatio
 
 The renderer is not being rewritten in one jump. The goal is to move from a large
 `RenderBackendDX12` translation unit toward a DX12-first renderer where ownership
-is explicit, reviewable, and testable. Each slice must leave GL, DX11, and DX12
-renderer parity intact while the legacy parity backends remain in the repository.
+is explicit, reviewable, and testable. Each slice must leave the DX12 screenshot
+gate and validation log clean.
 
 ## Reference Model
 
@@ -53,20 +53,20 @@ Useful references:
 ## Validation Rule For This Plan
 
 Every implementation slice in this plan touches render architecture. Each slice
-must run renderer parity validation against GL, DX11, and DX12 before commit.
+must run DX12 renderer validation before commit.
 
 Preferred validation command:
 
 ```bat
-tools\validate_renderers.bat
+tools\validate_dx12_renderer.bat
 ```
 
-That script builds the renderer validation binaries and runs the repository
-renderer parity checks, including `tools\check_parity.py`.
+That script builds Profile, runs the DX12 render-test suite, compares screenshots
+against DX12 baselines, and checks the DX12 validation log.
 
 ## Item 1: Split `RenderBackendDX12` Into Subsystem Translation Units
 
-Status: complete. Commit `5e4edfa`; renderer validation manifest
+Status: complete. Commit `5e4edfa`; historical parity manifest
 `TestOutput\validation\renderers\20260614T011825Z\manifest.json`.
 
 Goal: reduce the 3,800+ line backend file without changing behavior.
@@ -90,7 +90,7 @@ Expected result:
 
 ## Item 2: Extract `Dx12RenderDevice` Ownership From `RenderBackendDX12`
 
-Status: complete. Commit `eca2f551`; renderer validation manifest
+Status: complete. Commit `eca2f551`; historical parity manifest
 `TestOutput\validation\renderers\20260614T013340Z\manifest.json`.
 
 Goal: make device/swapchain/frame ownership a real DX12 subsystem.
@@ -117,7 +117,7 @@ Expected result:
 
 ## Item 3: Add RTV/DSV Descriptor Allocators And Descriptor Diagnostics
 
-Status: complete. Renderer validation manifest
+Status: complete. Historical parity manifest
 `TestOutput\validation\renderers\20260614T014040Z\manifest.json`.
 
 Goal: stop treating RTV and DSV descriptors as loose counters.
@@ -141,7 +141,7 @@ Expected result:
 
 ## Item 4: Extract Upload And Readback Systems
 
-Status: complete. Renderer validation manifest
+Status: complete. Historical parity manifest
 `TestOutput\validation\renderers\20260614T015248Z\manifest.json`.
 
 Goal: separate CPU-written upload memory and GPU-to-CPU readback memory from the
@@ -163,7 +163,7 @@ Expected result:
 
 ## Item 5: Compare RenderGraph Transitions Against Live Backend Barriers
 
-Status: complete. Renderer validation manifest
+Status: complete. Historical parity manifest
 `TestOutput\validation\renderers\20260614T020056Z\manifest.json`.
 
 Goal: make the render graph useful before it becomes the live barrier owner.
@@ -184,7 +184,7 @@ Expected result:
 
 - graph diagnostics become a safety net,
 - future graph-owned barriers can be migrated pass by pass,
-- current renderer parity remains protected by GL/DX11/DX12 validation.
+- current renderer behavior remains protected by DX12 screenshot validation.
 
 ## Later Item: Move A First Real Pass Under Graph-Owned Barriers
 
@@ -203,10 +203,10 @@ Recommended first candidate:
 The first five items are complete when:
 
 - each item has its own atomic commit,
-- each implementation commit records renderer parity validation,
+- each implementation commit records DX12 renderer validation,
 - `RenderBackendDX12` is split and easier to review,
 - device/frame ownership is meaningfully extracted,
 - descriptor allocation policy covers SRV/CBV/UAV, RTV, and DSV descriptors,
 - upload and readback policy live outside the backend facade,
 - render graph transition diagnostics compare against live backend barriers,
-- GL/DX11/DX12 renderer parity remains passing.
+- DX12 renderer validation remains passing.

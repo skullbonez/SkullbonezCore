@@ -1,4 +1,4 @@
-# UI renderer capture: bottom-bar renderer combo opened without mouse input.
+# UI DX12 renderer status capture: bottom-bar renderer combo opened without mouse input.
 seed 4242
 physics off
 text off
@@ -6,7 +6,7 @@ vsync off
 water_hidden on
 terrain_hidden on
 frames 24
-ui tab renderer
+ui tab scene
 ui rect 34 56 760 540
 ui blur on
 ui renderer_combo open

@@ -7,16 +7,16 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 | Field | Value |
 |-------|-------|
 | Branch | `codex/dx12-only-renderer-retirement` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | Phase 3 runtime renderer-selection removal is committed and pushed on `codex/dx12-only-renderer-retirement`. |
-| Pending work | DX12-only renderer retirement Phase 4. Delete GL/DX11 backend files and project references. |
-| Uncommitted changes | None expected after the Phase 3 commit; next implementation slice starts backend deletion. |
+| Last committed milestone | Phase 6 validation/docs/baseline cleanup is ready to commit on `codex/dx12-only-renderer-retirement`. |
+| Pending work | DX12-only renderer retirement Phase 7: simplify `IRenderBackend` into a DX12-facing render device while preserving future backend seams. |
+| Uncommitted changes | Phase 6 cleanup pending final commit and push. |
 
 ## Active Notes
 
 - This workspace expects Windows x64, VS2022 C++ tools, Python, Pillow, and Git for validation.
 - `git` may not be on PATH in fresh shells. Run `tools\find_git.bat` or use the validation scripts, which call it where needed.
 - Repository validation scripts are pre-commit/PR gates, not as-you-go checks. During implementation, run only targeted builds, launches, focused tests, or inspections that answer the current fix question.
-- DX12 is the only runtime renderer. OpenGL and DX11 final parity evidence has been archived; while backend files remain in tree, do not add new runtime dependencies on them.
+- DX12 is the only runtime renderer. OpenGL and DX11 backend files and GLSL shader families have been removed; final parity evidence is archived under `Agentic/Reports/2026-06-15/final-legacy-renderer-parity/`.
 - Feature-branch commits and normal pushes are allowed without asking. Do not commit or push directly on `main` without explicit confirmation.
 - Do not kill `SKULLBONEZ_CORE.exe` by name. Kill only by PID from a process you launched.
 - Time large work: record wall-clock start/end and report elapsed time for pipeline runs, multi-file features, and debugging sessions.
@@ -25,7 +25,7 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 
 | Item | Status | Notes |
 |------|--------|-------|
-| DX12-only renderer retirement | Active | Phase 3 runtime renderer selection removal is validated. Next delete GL/DX11 backend files and project references. |
+| DX12-only renderer retirement | Active | Phase 6 validation/docs/baseline cleanup passed `tools\validate_full.bat`. Next start Phase 7 render-device interface cleanup. |
 | Catto physics solver finalisation | Recent | Object/object response now belongs to persistent Catto rows with pipeline visualizer and SkullScope `pipeline` query support. User-approved physics CSV and SkullScope query baselines were updated; `tools\validate_full.bat` passed. |
 | Bullet sweep regression | Recent | Wall/object/terrain high-speed sweep scenes and Debug collision-time CSV baselines are wired into `tools\validate_physics.bat`. |
 | Terrain shared row pipeline | Done | Implemented and documented in `Agentic/Plans/Done/physics-terrain-shared-row-pipeline-plan.md`. |

@@ -27,7 +27,7 @@
 setlocal
 REM ===============================================================
 REM  validate_concepts.bat - Finite concept-scene validation tiers.
-REM  Usage: tools\validate_concepts.bat [smoke|core|full] [gl|dx11|dx12|all] [frames]
+REM  Usage: tools\validate_concepts.bat [smoke|core|full] [dx12] [frames]
 REM ===============================================================
 
 if /I "%~1"=="--help" goto :help
@@ -35,7 +35,7 @@ if /I "%~1"=="/?" goto :help
 
 set "REPO=%~dp0.."
 set "TIER=smoke"
-set "RENDERER=gl"
+set "RENDERER=dx12"
 set "FRAMES=2"
 if not "%~1"=="" set "TIER=%~1"
 if not "%~2"=="" set "RENDERER=%~2"
@@ -80,8 +80,8 @@ popd
 exit /b 0
 
 :help
-echo Usage: tools\validate_concepts.bat [smoke^|core^|full] [gl^|dx11^|dx12^|all] [frames]
+echo Usage: tools\validate_concepts.bat [smoke^|core^|full] [dx12] [frames]
 echo.
-echo Defaults to: smoke gl 2
+echo Defaults to: smoke dx12 2
 echo Writes logs and JSON under TestOutput\validation\concepts\^<run-id^>.
 exit /b 0

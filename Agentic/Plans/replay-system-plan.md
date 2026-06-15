@@ -45,7 +45,7 @@ Initial use cases:
 | Step through contact solver stages | Make impulses, manifolds, and sleep decisions visible. |
 | Branch from a suspicious frame | Try a different nudge, water height, force, or renderer state. |
 | Export a bug moment | Turn a visual or physics surprise into a regression case. |
-| Compare GL, DX11, and DX12 on the same frame | Anchor renderer parity to one recorded timeline. |
+| Compare DX12 captures from the same recorded frame | Anchor visual regressions to one recorded timeline. |
 
 ## Non-Goals
 
@@ -71,7 +71,7 @@ The engine already has most of the foundations:
 | SkullScope physics diagnostics | Emits queryable frame/contact/island/solver data. |
 | Pipeline debug overlay | Already has a stage cursor stepped with F7/F8. |
 | Profiler timeline | Provides a UI precedent for per-frame/timeline visualization. |
-| Screenshot and renderer validation | Provides render checkpoints and parity comparison artifacts. |
+| Screenshot and renderer validation | Provides DX12 render checkpoints and baseline comparison artifacts. |
 
 The missing piece is a first-class replay owner that records these ingredients
 as one coherent timeline instead of one-off debug files.
@@ -96,7 +96,7 @@ SkullbonezRun
 | `ReplayRecorder` | Samples runtime state after each committed fixed tick and records high-level events. |
 | `ReplayPlayback` | Restores checkpoints, replays events forward, and presents historical frames. |
 | `CheckpointRing` | Keeps bounded authoritative snapshots so rewind never starts from frame zero. |
-| `ReplayEventStream` | Stores frame-ordered runtime commands, input-derived actions, camera changes, resets, nudges, and renderer switches. |
+| `ReplayEventStream` | Stores frame-ordered runtime commands, input-derived actions, camera changes, resets, nudges, and render-setting changes. |
 | `PhysicsTimelineStore` | Stores compact per-frame body/contact/island/sleep/solver records for UI and SkullScope-style queries. |
 | `RenderCheckpointStore` | Stores screenshot references, viewport size, renderer name, and optional pass capture IDs. |
 | `ReplayExporter` | Writes selected frames or branches as `.scene`, `.suite`, `.skreplay`, or validation cases. |
@@ -171,7 +171,7 @@ Playback of a saved `.skreplay` should force deterministic settings:
 | RNG seed/state | Restore from the manifest and checkpoints. |
 | Wall-clock time | Ignored for deterministic simulation. |
 | Vsync | Not part of physics replay; may be overridden for presentation. |
-| Renderer | Can default to recorded renderer, but may be overridden for parity tests. |
+| Renderer | Recorded as `dx12`; future backend overrides belong to a later portability effort. |
 
 ## Data Model
 
@@ -226,7 +226,6 @@ frame 18 camera_pose eye=0.0,4.0,-9.5 view=0.0,-0.3,1.0 up=0.0,1.0,0.0
 frame 24 nudge body=box_03 impulse=0.0,4.0,0.0
 frame 33 projectile_fire origin=1.0,3.0,-5.0 dir=0.0,0.0,1.0 speed=80.0
 frame 40 world fluid_height=2.5
-frame 55 renderer dx11
 frame 72 ui time_scale=0.25
 ```
 
@@ -239,7 +238,7 @@ Minimum event types:
 | Camera pose and tracking changes | Replay screenshots and branch context. |
 | Nudge/projectile fire | Reproduce manual interactions. |
 | Water/gravity/time-scale changes | Reproduce runtime simulation edits. |
-| Renderer switch | Reproduce render parity/debug sessions. |
+| Render settings | Reproduce visual debug sessions. |
 | Physics debug mode changes | Reproduce contact/pipeline inspector state. |
 | UI command summaries | Replay slider/toggle edits independent of raw mouse coordinates. |
 
@@ -376,7 +375,7 @@ So the default design should be tiered:
 | Timeline records | Bounded per frame, with caps for contact/solver rows. |
 | Screenshots/pass captures | Explicit bookmarks only, not every frame. |
 
-OpenGL/DX render resources should never be serialized into replay checkpoints.
+GPU render resources should never be serialized into replay checkpoints.
 Rebuild GPU resources from scene/assets and replay only source-level state.
 
 ## UI Plan
@@ -563,7 +562,7 @@ tools\validate_full.bat
 If renderer screenshots are added:
 
 ```bat
-tools\validate_renderers.bat
+tools\validate_dx12_renderer.bat
 ```
 
 ### Phase 6: Physics Timeline And Contact Inspector
@@ -611,14 +610,14 @@ Acceptance:
 
 | Check | Expected result |
 |-------|-----------------|
-| Capture frame N in GL/DX11/DX12 | Images align to the same replay frame. |
+| Capture frame N in DX12 | Images align to the same replay frame. |
 | Select profiler spike | UI can jump to the replay frame and show relevant scene state. |
 | Export render regression | Generated suite/captures can be validated later. |
 
 Validation:
 
 ```bat
-tools\validate_renderers.bat
+tools\validate_dx12_renderer.bat
 tools\validate_perf.bat
 ```
 
@@ -646,7 +645,7 @@ Validation:
 
 ```bat
 tools\validate_full.bat
-tools\validate_renderers.bat
+tools\validate_dx12_renderer.bat
 tools\validate_physics.bat
 ```
 
@@ -700,7 +699,6 @@ A complete replay system is done when:
 4. Contact, sleep, island, and solver timeline data are inspectable for selected
    frames.
 5. Selected frames can be exported as deterministic scenes or replay artifacts.
-6. Renderer captures can be tied to exact replay frames for GL/DX11/DX12 parity.
+6. DX12 renderer captures can be tied to exact replay frames for regression checks.
 7. Replay memory and hot-path overhead are bounded and validated.
 8. Runtime documentation explains the command-line and UI workflow.
-

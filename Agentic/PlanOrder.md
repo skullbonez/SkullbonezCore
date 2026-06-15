@@ -4,16 +4,16 @@ Generated: 2026-06-15
 
 Scope: top-level `Agentic/Plans/*.md` files only. Completed, failed, rejected, and nested historical plans are excluded.
 
-This order reflects the current product direction: DX12 is the official production renderer. GL and DX11 are legacy parity/reference backends while they remain in tree, but feature work for those backends is now frozen except final parity validation fixes needed before retirement.
+This order reflects the current product direction: DX12 is the official production renderer. GL and DX11 have been retired from runtime code; their final parity evidence is historical context only.
 
 Future Vulkan and Metal support should influence the engine contracts without becoming the near-term implementation target. Express render passes, shader metadata, materials, resources, and synchronization in engine-owned terms first, then map those contracts to DX12 now and Vulkan/Metal later.
 
-Retirement policy: build the DX12-only validation stack before deleting parity backends, retire OpenGL first, and retire DX11 after DX12 screenshot/debug-layer/WARP/GBV/PIX diagnostics can replace cross-renderer parity confidence.
+Retirement policy: keep DX12 screenshot/debug-layer/WARP/GBV/PIX diagnostics as the replacement confidence stack for the retired cross-renderer parity checks.
 
 ## Tackle Order
 
 1. [`dx12-only-renderer-retirement-plan.md`](Plans/dx12-only-renderer-retirement-plan.md)
-   - Active branch: `codex/dx12-only-renderer-retirement`. Build the DX12-only renderer validation gate and archive one final parity run before deleting OpenGL or DX11.
+   - Active branch: `codex/dx12-only-renderer-retirement`. Backend and shader retirement is complete; finish the active documentation, baseline, and validation-tool cleanup.
 
 2. [`dx12-only-engine-architecture-plan.md`](Plans/dx12-only-engine-architecture-plan.md)
    - Use as the umbrella architecture direction. Do not implement it as one rewrite; let it guide the smaller render/shader/resource slices below.
@@ -53,4 +53,4 @@ Retirement policy: build the DX12-only validation stack before deleting parity b
 
 ## Immediate Recommendation
 
-Start with `dx12-only-renderer-retirement-plan.md` Phase 1: create the DX12-only renderer validation gate. Do not delete OpenGL or DX11 until that gate exists and one final legacy parity archive is captured.
+Continue `dx12-only-renderer-retirement-plan.md` Phase 6: make active docs, baselines, and validation helpers consistently point at the DX12-only renderer gate.

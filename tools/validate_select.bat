@@ -41,7 +41,8 @@ for %%A in (%*) do (
         call "%ROOT%validate_fast.bat"
         if errorlevel 1 set "FAILED=1"
     ) else if /I "!ARG!"=="renderers" (
-        call "%ROOT%validate_renderers.bat"
+        echo INFO: "renderers" is a retired compatibility target; running dx12-renderer.
+        call "%ROOT%validate_dx12_renderer.bat"
         if errorlevel 1 set "FAILED=1"
     ) else if /I "!ARG!"=="dx12-renderer" (
         call "%ROOT%validate_dx12_renderer.bat"
@@ -129,7 +130,6 @@ exit /b 0
 echo.
 echo Validate one or more targets from this workspace:
 echo   tools\validate_select.bat fast
-echo   tools\validate_select.bat renderers
 echo   tools\validate_select.bat dx12-renderer
 echo   tools\validate_select.bat dx12
 echo   tools\validate_select.bat concepts
@@ -152,5 +152,8 @@ echo   tools\validate_select.bat build-profile
 echo   tools\validate_select.bat build-release
 echo.
 echo You can pass several targets in one command:
-echo   tools\validate_select.bat format renderers physics
+echo   tools\validate_select.bat format dx12-renderer physics
+echo.
+echo Legacy alias:
+echo   tools\validate_select.bat renderers
 exit /b 0

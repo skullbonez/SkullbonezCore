@@ -4,6 +4,7 @@ physics on
 text on
 vsync off
 pipeline_sync on
+shadows off
 fixed_step
 time_scale 1.50
 water_hidden off

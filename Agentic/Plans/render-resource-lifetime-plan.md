@@ -2,7 +2,7 @@
 
 Status: planning draft  
 Created: 2026-06-11  
-Scope: renderer-owned resources, hot switching, resize, shader/mesh/FBO lifetime, future device loss  
+Scope: renderer-owned resources, resize, shader/mesh/FBO lifetime, future device loss
 Implementation status: plan only, no code changes in this pass
 
 ## Goal
@@ -15,9 +15,9 @@ Formalize how renderer-owned resources are created, invalidated, rebuilt, and de
 - fullscreen target resize,
 - style/material reload,
 - future device loss,
-- optional renderer/backend migration paths while GL/DX11 parity backends remain in tree.
+- future Vulkan/Metal backend migration paths.
 
-The current code already has careful reset phases. This plan turns that careful procedure into an explicit resource-lifetime architecture so future shader/material work does not add more ad hoc reset paths. DX12 is now the official production renderer, so device-loss, resize, descriptor, upload, and pass-target lifetimes matter more than preserving runtime hot-switching forever.
+The current code already has careful reset phases. This plan turns that careful procedure into an explicit resource-lifetime architecture so future shader/material work does not add more ad hoc reset paths. DX12 is now the only runtime renderer, so device-loss, resize, descriptor, upload, and pass-target lifetimes are the active concerns.
 
 ## Current Read
 
@@ -63,7 +63,7 @@ Renderer-owned resources are spread across many systems:
   - DXR resources,
   - PSOs and root signatures.
 
-The existing renderer hot-switching path requires CPU source data to survive while GPU resources are rebuilt for another backend. That separation remains valuable even after GL/DX11 parity backends are retired: DX12 device loss, resize, shader/material reloads, and future Vulkan/Metal backend work all need clean source-vs-GPU ownership.
+The retired renderer hot-switching path proved that CPU source data must survive while GPU resources are rebuilt. That separation remains valuable: DX12 device loss, resize, shader/material reloads, and future Vulkan/Metal backend work all need clean source-vs-GPU ownership.
 
 ## Main Problems
 
@@ -72,9 +72,9 @@ The existing renderer hot-switching path requires CPU source data to survive whi
 Example distinction:
 
 - Source asset: `sky1.jpg`, terrain raw data, shader base name, scene style material name.
-- GPU resource: DX12 resource/descriptor, GL texture ID, DX11 SRV, future Vulkan image/view, future Metal texture, mesh VB, FBO color texture.
+- GPU resource: DX12 resource/descriptor, future Vulkan image/view, future Metal texture, mesh VB, FBO color texture.
 
-Some systems know both sides. That makes renderer switching, device reset, and future backend migration harder because only the GPU side should be invalidated.
+Some systems know both sides. That makes device reset and future backend migration harder because only the GPU side should be invalidated.
 
 ### 2. Reset Order Is Important But Not Fully Encoded
 
@@ -245,7 +245,7 @@ Expected order:
 5. Load scene and create scene CPU state.
 6. Build render resources needed by scene.
 
-### Renderer Switch Or Backend Migration
+### Device Reset Or Backend Migration
 
 Required high-level order:
 
@@ -258,9 +258,9 @@ Required high-level order:
 7. Rebind scene textures/materials.
 8. Resume rendering.
 
-No source asset or physics state should be destroyed by renderer switch.
+No source asset or physics state should be destroyed by DX12 device reset or future backend migration.
 
-DX12-only production does not require runtime hot-switching as a user-facing feature forever. Keep this lifecycle machinery while GL/DX11 parity backends still exist, and preserve the underlying release/rebuild discipline for DX12 device reset and future Vulkan/Metal backend bring-up.
+DX12-only production has retired runtime hot-switching. Preserve the underlying release/rebuild discipline for DX12 device reset and future Vulkan/Metal backend bring-up.
 
 ### Resize
 
@@ -332,7 +332,7 @@ Tasks:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 - `tools\validate_full.bat` if runtime switching behavior changes broadly.
 
 ### Phase 3: Split Resize Invalidations
@@ -345,7 +345,7 @@ Tasks:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 
 ### Phase 4: Add Source Asset Records
 
@@ -357,7 +357,7 @@ Tasks:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 
 ### Phase 5: Pass-Owned Resources
 
@@ -389,9 +389,9 @@ Validation:
 | Change | Validation |
 |--------|------------|
 | Resource lifetime docs | No validation required |
-| Backend/device phase table refactor | `tools\validate_renderers.bat` |
-| Resize invalidation changes | `tools\validate_renderers.bat` |
-| Backend resource destruction/rebuild changes | `tools\validate_renderers.bat` and DX12 validation log check |
+| Backend/device phase table refactor | `tools\validate_dx12_renderer.bat` |
+| Resize invalidation changes | `tools\validate_dx12_renderer.bat` |
+| Backend resource destruction/rebuild changes | `tools\validate_dx12_renderer.bat` and DX12 validation log check |
 | Broad runtime lifecycle changes | `tools\validate_full.bat` |
 | Hot-path resource cache changes | `tools\validate_perf.bat` in addition to render validation |
 

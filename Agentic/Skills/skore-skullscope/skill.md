@@ -34,7 +34,7 @@ tools\validate_build.bat Debug
 2. Generate a deterministic trace:
 
 ```bat
-Debug\SKULLBONEZ_CORE.exe --renderer gl --scene SkullbonezData\scenes\scene.scene --physics-diag Debug\scene.physicsdiag.ndjson --vsync off
+Debug\SKULLBONEZ_CORE.exe --renderer dx12 --scene SkullbonezData\scenes\scene.scene --physics-diag Debug\scene.physicsdiag.ndjson --vsync off
 ```
 
 3. Measure raw artifacts:

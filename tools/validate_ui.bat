@@ -11,9 +11,6 @@
 @rem Glossary:
 @rem   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
 @rem   descriptor, and command-list control.
-@rem   DX11 (DirectX 11): Legacy parity renderer used to compare output while the
-@rem   engine migrates to DX12.
-@rem   GL (OpenGL): Legacy parity renderer path.
 @rem   Validation gate: Repository script that proves a class of changes before
 @rem   commit or PR.
 @rem
@@ -41,38 +38,30 @@ echo   VALIDATE_UI - Optional UI Suite
 echo ========================================
 echo.
 
-echo [1/9] Checking formatting...
+echo [1/7] Checking formatting...
 call "%~dp0validate_format.bat"
 if errorlevel 1 exit /b 1
 call "%~dp0find_python.bat"
 if errorlevel 1 exit /b 1
 
-echo [2/9] Building Profile x64...
+echo [2/7] Building Profile x64...
 call "%~dp0validate_build.bat" Profile
 if errorlevel 1 exit /b 2
 
-echo [3/9] Cleaning old UI artifacts...
+echo [3/7] Cleaning old UI artifacts...
 del /q "%REPO%\Profile\ui_*.bmp" 2>nul
 del /q "%REPO%\Profile\ui_*_perf.csv" 2>nul
 del /q "%REPO%\Profile\ui_*_stdout.txt" 2>nul
 del /q "%REPO%\Profile\ui_*_stderr.txt" 2>nul
 del /q "%REPO%\dx12_validation.txt" 2>nul
 
-echo [4/9] Running GL UI suite...
-call :run_renderer gl ""
+echo [4/7] Running DX12 UI suite...
+call :run_renderer dx12 "--renderer dx12"
 if errorlevel 1 exit /b 3
 
-echo [5/9] Running DX11 UI suite...
-call :run_renderer dx11 "--renderer dx11"
-if errorlevel 1 exit /b 4
-
-echo [6/9] Running DX12 UI suite...
-call :run_renderer dx12 "--renderer dx12"
-if errorlevel 1 exit /b 5
-
-echo [7/9] Checking logs and DX12 validation...
+echo [5/7] Checking logs and DX12 validation...
 set "STDOUT_CLEAN=1"
-for %%r in (gl dx11 dx12) do (
+for %%r in (dx12) do (
     findstr /I /C:"error" /C:"warning" /C:"failed" "%REPO%\Profile\ui_%%r_stdout.txt" >nul 2>&1
     if not errorlevel 1 (
         echo   FAIL [%%r]: Unexpected error/warning in stdout:
@@ -88,26 +77,26 @@ for %%r in (gl dx11 dx12) do (
 )
 if "%STDOUT_CLEAN%"=="0" (
     echo FAIL: One or more UI suite runs produced error/warning output.
-    exit /b 6
+    exit /b 4
 )
 call "%~dp0check_dx12_validation.bat"
-if errorlevel 1 exit /b 7
+if errorlevel 1 exit /b 5
 
-echo [8/9] Checking UI screenshots and blur metrics...
+echo [6/7] Checking UI screenshots and blur metrics...
 set "SKORE_REPO=%REPO%"
 "%PYTHON_EXE%" "%~dp0check_ui_blur.py"
-if errorlevel 1 exit /b 8
+if errorlevel 1 exit /b 6
 
-echo [9/9] Exporting shareable UI PNG artifact...
-"%PYTHON_EXE%" "%~dp0export_screenshot_png.py" "%REPO%\Profile\ui_gl_profiler_timeline.bmp" "%REPO%\Profile\ui_gl_profiler_timeline.png" --max-width 1080
-if errorlevel 1 exit /b 9
-"%PYTHON_EXE%" "%~dp0export_screenshot_png.py" "%REPO%\Profile\ui_gl_performance_histogram.bmp" "%REPO%\Profile\ui_gl_performance_histogram.png" --max-width 1080
-if errorlevel 1 exit /b 9
+echo [7/7] Exporting shareable UI PNG artifact...
+"%PYTHON_EXE%" "%~dp0export_screenshot_png.py" "%REPO%\Profile\ui_dx12_profiler_timeline.bmp" "%REPO%\Profile\ui_dx12_profiler_timeline.png" --max-width 1080
+if errorlevel 1 exit /b 7
+"%PYTHON_EXE%" "%~dp0export_screenshot_png.py" "%REPO%\Profile\ui_dx12_performance_histogram.bmp" "%REPO%\Profile\ui_dx12_performance_histogram.png" --max-width 1080
+if errorlevel 1 exit /b 7
 
 call "%~dp0validate_ready_builds.bat"
 if errorlevel 1 (
     popd
-    exit /b 10
+    exit /b 8
 )
 
 echo.

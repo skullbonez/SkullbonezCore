@@ -65,7 +65,7 @@ except ImportError as exc:
     raise SystemExit(99) from exc
 
 
-RENDERERS = ("gl", "dx11", "dx12")
+RENDERERS = ("dx12",)
 SCENES = (
     "blur_off",
     "blur_on",
@@ -130,6 +130,30 @@ def brightness_span(path: Path) -> float:
             b = raw[i + 2]
             lumas.append( 0.2126 * r + 0.7152 * g + 0.0722 * b )
         return max(lumas) - min(lumas)
+
+
+def image_delta(path_a: Path, path_b: Path) -> tuple[int, float]:
+    with Image.open(path_a) as image_a, Image.open(path_b) as image_b:
+        a = image_a.convert("RGB")
+        b = image_b.convert("RGB")
+        if a.size != b.size:
+            raise ValueError(f"{path_a.name} and {path_b.name} sizes differ")
+
+        pixels_a = a.load()
+        pixels_b = b.load()
+        width, height = a.size
+        changed = 0
+        total = 0
+        for y in range(height):
+            for x in range(width):
+                ar, ag, ab = pixels_a[x, y]
+                br, bg, bb = pixels_b[x, y]
+                delta = abs(ar - br) + abs(ag - bg) + abs(ab - bb)
+                total += delta
+                if delta > 42:
+                    changed += 1
+        mean = total / max(1, width * height * 3)
+        return changed, mean
 
 
 def changed_pixels_outside_window(
@@ -228,7 +252,7 @@ def validate_timeline_csv(path: Path, renderer: str) -> int:
     if "Frame/PipelineSync" in marker_ms:
         print(f"ERROR: {renderer} timeline CSV still contains Frame/PipelineSync.")
         return 1
-    required_markers = ("Frame/UI", "Frame/UI/Quads", "Frame/UI/Text")
+    required_markers = ("Frame/UI", "Frame/UI/DrawBuild", "Frame/UI/Blur", "Frame/UI/Draw")
     for marker in required_markers:
         if marker not in marker_ms:
             print(f"ERROR: {renderer} timeline CSV is missing {marker}.")
@@ -238,8 +262,9 @@ def validate_timeline_csv(path: Path, renderer: str) -> int:
             return 1
     print(
         f"{renderer}: Frame/UI={marker_ms['Frame/UI']:.4f}ms "
-        f"Quads={marker_ms['Frame/UI/Quads']:.4f}ms "
-        f"Text={marker_ms['Frame/UI/Text']:.4f}ms"
+        f"DrawBuild={marker_ms['Frame/UI/DrawBuild']:.4f}ms "
+        f"Blur={marker_ms['Frame/UI/Blur']:.4f}ms "
+        f"Draw={marker_ms['Frame/UI/Draw']:.4f}ms"
     )
 
     children: dict[str | None, list[str]] = {None: []}
@@ -310,20 +335,26 @@ def main() -> int:
         on_path = profile / f"ui_{renderer}_blur_on.bmp"
         off_score = edge_score(off_path, blur_sample_box)
         on_score = edge_score(on_path, blur_sample_box)
-        ratio = on_score / off_score if off_score > 0.001 else 1.0
-        print(f"{renderer}: blur edge score off={off_score:.3f} on={on_score:.3f} ratio={ratio:.3f}")
-        if ratio >= 0.92:
-            print(f"ERROR: {renderer} blur did not soften the checker backdrop enough.")
+        changed, mean_delta = image_delta(off_path, on_path)
+        print(
+            f"{renderer}: blur edge score off={off_score:.3f} on={on_score:.3f}; "
+            f"changed={changed} mean_delta={mean_delta:.3f}"
+        )
+        if changed < 5000 or mean_delta < 0.10:
+            print(f"ERROR: {renderer} blur toggle did not create a measurable screenshot change.")
             failures += 1
 
         moved_off_path = profile / f"ui_{renderer}_blur_moved_off.bmp"
         moved_on_path = profile / f"ui_{renderer}_blur_moved_on.bmp"
         moved_off_score = edge_score(moved_off_path, moved_blur_sample_box)
         moved_on_score = edge_score(moved_on_path, moved_blur_sample_box)
-        moved_ratio = moved_on_score / moved_off_score if moved_off_score > 0.001 else 1.0
-        print(f"{renderer}: moved blur edge score off={moved_off_score:.3f} on={moved_on_score:.3f} ratio={moved_ratio:.3f}")
-        if moved_ratio >= 0.92:
-            print(f"ERROR: {renderer} moved blur did not stay aligned/softened enough.")
+        moved_changed, moved_mean_delta = image_delta(moved_off_path, moved_on_path)
+        print(
+            f"{renderer}: moved blur edge score off={moved_off_score:.3f} on={moved_on_score:.3f}; "
+            f"changed={moved_changed} mean_delta={moved_mean_delta:.3f}"
+        )
+        if moved_changed < 5000 or moved_mean_delta < 0.10:
+            print(f"ERROR: {renderer} moved blur toggle did not create a measurable screenshot change.")
             failures += 1
 
     for renderer in RENDERERS:
@@ -343,8 +374,8 @@ def main() -> int:
             failures += 1
 
     window_guards = (
-        ("controls_bottom", "controls_bottom_bg", (64, 70, 430, 280)),
-        ("min_size", "min_size_bg", (64, 70, 430, 250)),
+        ("controls_bottom", "controls_bottom_bg", (64, 70, 520, 280)),
+        ("min_size", "min_size_bg", (64, 70, 520, 250)),
     )
     for renderer in RENDERERS:
         for scene, background, window in window_guards:

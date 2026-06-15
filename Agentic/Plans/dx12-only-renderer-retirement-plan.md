@@ -3,7 +3,7 @@
 Status: active
 Created: 2026-06-15
 Scope: retire OpenGL/DX11, make DX12 validation independent, clean DX12 architecture, preserve future Vulkan/Metal portability
-Implementation status: Phase 5 complete on branch `codex/dx12-only-renderer-retirement`; renderer validation documentation and baseline cleanup is next
+Implementation status: Phase 6 complete on branch `codex/dx12-only-renderer-retirement`; next work starts Phase 7 render-device interface cleanup
 
 ## Goal
 
@@ -395,26 +395,31 @@ Make repository instructions match the new renderer reality.
 
 Tasks:
 
-1. Update `AGENTS.md`:
+1. [x] Update `AGENTS.md`:
    - DX12 is the only active renderer.
    - Remove GL/DX11 parity language.
    - Replace parity validation requirements with DX12 screenshot and validation
      log requirements.
    - Keep strict rules for DX12 resource barriers, descriptors, uploads, and
      shader changes.
-2. Update `README.md` launch examples.
-3. Update `Agentic/SessionState.md`.
-4. Update validation table mappings:
+2. [x] Update `README.md` launch examples.
+3. [x] Update `Agentic/SessionState.md`.
+4. [x] Update validation table mappings:
    - renderer backend/shader changes use the new DX12 renderer gate,
    - broad runtime changes still use `tools\validate_full.bat`,
    - performance changes still use `tools\validate_perf.bat`.
-5. Remove obsolete GL/DX11 baselines or archive them under a final parity report.
-6. Rename validation artifacts from parity language to DX12 regression language.
+5. [x] Remove obsolete GL/DX11 baselines or archive them under a final parity report.
+6. [x] Rename validation artifacts from parity language to DX12 regression language.
 
 Validation:
 
-- Documentation-only pieces need no validation.
-- Tool/script changes require `tools\validate_fast.bat` plus the changed script.
+- `python -m py_compile tools\archive_validation_artifacts.py tools\update_baselines.py tools\validate_concepts.py tools\check_ui_blur.py` passed on 2026-06-15.
+- `git diff --check` passed on 2026-06-15.
+- `tools\capture_ui_screenshot.bat dx12 Profile\codex_ui_capture_phase6.png 720` passed on 2026-06-15.
+- `tools\validate_fast.bat` passed on 2026-06-15.
+- `tools\validate_ui.bat`, `tools\validate_ui_stress.bat`, and
+  `tools\validate_demo_stress.bat` passed on 2026-06-15.
+- `tools\validate_full.bat` passed on 2026-06-15.
 
 Acceptance:
 

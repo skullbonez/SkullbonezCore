@@ -327,7 +327,7 @@ Tasks:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 
 ### Phase 2: Extract Bind Helpers
 
@@ -340,7 +340,7 @@ Tasks:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 
 ### Phase 3: Extract Reflection Pass Function
 
@@ -352,7 +352,7 @@ Tasks:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 - Manually check water reflection scene if validation does not cover enough.
 
 ### Phase 4: Extract Scene Pass Functions
@@ -367,7 +367,7 @@ Tasks:
 
 Validation:
 
-- `tools\validate_renderers.bat` before committing each slice or tightly scoped pair.
+- `tools\validate_dx12_renderer.bat` before committing each slice or tightly scoped pair.
 
 ### Phase 5: Extract Post Pass Functions
 
@@ -379,7 +379,7 @@ Tasks:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 - DX12 validation log must remain zero-error.
 
 ### Phase 6: Introduce Pass Resource Objects
@@ -388,11 +388,11 @@ Tasks:
 
 1. Move pass-specific shader/FBO handles into pass structs.
 2. Add reset/rebuild hooks.
-3. Integrate with renderer-switch resource reset order.
+3. Integrate with DX12 device/resource reset order.
 
 Validation:
 
-- `tools\validate_full.bat` if renderer switching or runtime resource phases are touched.
+- `tools\validate_full.bat` if runtime resource phases, scene lifecycle, or window reset behavior are touched.
 
 ## Validation Matrix
 
@@ -401,12 +401,12 @@ These commands are targeted pre-commit/PR gates, not as-you-go validation.
 | Change | Validation |
 |--------|------------|
 | Documentation only | No validation required |
-| Frame context only | `tools\validate_renderers.bat` |
-| Shader bind helper extraction | `tools\validate_renderers.bat` |
-| Reflection pass extraction | `tools\validate_renderers.bat` |
-| Post pass extraction | `tools\validate_renderers.bat` |
+| Frame context only | `tools\validate_dx12_renderer.bat` |
+| Shader bind helper extraction | `tools\validate_dx12_renderer.bat` |
+| Reflection pass extraction | `tools\validate_dx12_renderer.bat` |
+| Post pass extraction | `tools\validate_dx12_renderer.bat` |
 | Pass-owned resource lifecycle | `tools\validate_full.bat` |
-| DX12 target/barrier changes | `tools\validate_renderers.bat` and verify `dx12_validation.txt` is zero |
+| DX12 target/barrier changes | `tools\validate_dx12_renderer.bat` and verify `dx12_validation.txt` is zero |
 
 ## Risks
 
@@ -416,7 +416,7 @@ These commands are targeted pre-commit/PR gates, not as-you-go validation.
 | State restore bugs | Add pass-level state save/restore helpers for depth, blend, viewport, and targets. |
 | Reflection uses wrong camera | Build reflection matrices from `RenderFrameContext` render camera fields only. |
 | DX12 resource transitions regress | Avoid backend resource changes during pass extraction; validate separately. |
-| Runtime renderer switching breaks pass resources | Delay resource ownership move until reset hooks are planned. |
+| DX12 device/resource reset breaks pass resources | Delay resource ownership move until reset hooks are planned. |
 
 ## Success Criteria
 

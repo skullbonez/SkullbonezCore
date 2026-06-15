@@ -12,8 +12,8 @@ validation.
 | `agent_validate.bat` | PR gate when truly unsure, runs everything | ~3 min |
 | `validate_select.bat` | Run any subset of validations by name | ~depends |
 | `validate_fast.bat` | Small code refactors and non-render code edits | ~30s |
-| `validate_renderers.bat` | Legacy final parity archive only; runtime validation now uses DX12 | ~60s |
 | `validate_dx12_renderer.bat` | DX12-only screenshot regression and InfoQueue gate | ~2 min |
+| `validate_renderers.bat` | Retired compatibility alias that runs `validate_dx12_renderer.bat` | ~2 min |
 | `validate_concepts.bat` | Finite smoke/core/full concept-scene validation tiers | ~depends |
 | `validate_shaders.bat` | Shader stage manifest and contract drift helper | ~depends |
 | `validate_ui.bat` | Optional in-game UI visual screenshots, blur, and control automation | ~depends |
@@ -32,8 +32,8 @@ Run only the targeted gate you need:
 
 ```bat
 tools\validate_select.bat format
-tools\validate_select.bat dx12-renderer physics
 tools\validate_select.bat dx12-renderer
+tools\validate_select.bat dx12-renderer physics
 tools\validate_select.bat concepts
 tools\validate_select.bat shaders
 tools\validate_select.bat ui
@@ -47,15 +47,15 @@ tools\validate_select.bat fast build-profile
 | `validate_format.bat` | Check clang-format compliance without auto-fixing |
 | `format_fix.bat` | Auto-fix formatting in-place |
 | `validate_build.bat <Config>` | Build a specific configuration (`Debug`, `Profile`, `Release`) |
-| `validate_concepts.bat [smoke\|core\|full] [gl\|dx11\|dx12\|all] [frames]` | Run finite concept-scene tiers and write logs plus JSON under `TestOutput\validation\concepts` |
+| `validate_concepts.bat [smoke\|core\|full] [dx12] [frames]` | Run finite concept-scene tiers and write logs plus JSON under `TestOutput\validation\concepts` |
 | `validate_shaders.bat` | Check shader file contracts from `tools\shader_contracts.json`; incomplete symbol/resource coverage is reported as warnings |
-| `validate_ui.bat` | Optional tri-renderer UI suite that captures UI screenshots and checks blur strength |
+| `validate_ui.bat` | Optional DX12 UI suite that captures UI screenshots and checks blur strength |
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep over a UI backdrop |
-| `validate_demo_stress.bat` | Generated demo scene crash sweep that keeps physics/rendering active while changing UI settings and renderers |
+| `validate_demo_stress.bat` | Generated demo scene crash sweep that keeps physics/rendering active while changing UI settings |
 | `validate_dx12_renderer.bat` | Build Profile, run only DX12 render-test scenes, check InfoQueue, and compare screenshots against DX12 baselines |
 | `watch_ui_stress.bat [--test ui\|demo] [--iterations N] [--sleep N] [--forever]` | Repeated stress watcher; defaults to a finite 25-lap UI-only run and requires `--forever` for an intentional soak |
 | `watch_demo_stress.bat [--iterations N] [--sleep N] [--forever]` | Convenience wrapper for repeated generated demo interaction stress |
-| `capture_ui_screenshot.bat [gl\|dx11\|dx12] [output.png] [max_width]` | Capture the profiler UI scene and export a phone-friendly PNG |
+| `capture_ui_screenshot.bat [dx12] [output.png] [max_width]` | Capture the profiler UI scene and export a phone-friendly PNG |
 | `export_screenshot_png.py <input.bmp> <output.png>` | Convert an engine BMP capture to an optimized PNG |
 | `validate_physics_query.bat` | Generate the varied physics diagnostic trace and compare SkullScope query output to `TestOutput/baselines/physics_query_varied.json` |
 | `find_clang_format.bat` | Locate clang-format, called by format scripts |
@@ -67,7 +67,6 @@ tools\validate_select.bat fast build-profile
 | `check_physics_query_regression.py` | SkullScope baseline checker used by `validate_physics_query.bat` and `validate_physics.bat` |
 | `check_dx12_validation.bat` | Verify DX12 InfoQueue clean |
 | `check_dx12_baselines.py` | Compare DX12 captures with committed DX12 baselines and write manifest/summary artifacts |
-| `check_parity.py` | Legacy cross-renderer pixel comparison retained for the archived final parity run |
 | `check_physics_regression.py` | Byte-exact physics and bullet collision-time CSV diff |
 | `update_baselines.bat` | Copy current Profile visual/perf artifacts into `TestOutput\baselines`; do not use for physics CSV or SkullScope baselines |
 | `archive_validation_artifacts.bat` | Archive current Profile artifacts under `TestOutput\NNN_<commit>` |

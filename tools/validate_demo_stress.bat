@@ -50,7 +50,7 @@ echo [3/4] Running generated demo interaction stress...
 del /q "%REPO%\Profile\demo_stress_stdout.txt" 2>nul
 del /q "%REPO%\Profile\demo_stress_stderr.txt" 2>nul
 del /q "%REPO%\dx12_validation.txt" 2>nul
-"%REPO%\Profile\SKULLBONEZ_CORE.exe" --renderer gl --vsync off --seed 9001 --frames 360 --ui-stress --ui-stress-seed 1357911 --ui-stress-actions 8 >"%REPO%\Profile\demo_stress_stdout.txt" 2>"%REPO%\Profile\demo_stress_stderr.txt"
+"%REPO%\Profile\SKULLBONEZ_CORE.exe" --renderer dx12 --vsync off --seed 9001 --frames 360 --ui-stress --ui-stress-seed 1357911 --ui-stress-actions 8 >"%REPO%\Profile\demo_stress_stdout.txt" 2>"%REPO%\Profile\demo_stress_stderr.txt"
 if errorlevel 1 (
     echo FAIL: Generated demo stress exited with error.
     type "%REPO%\Profile\demo_stress_stdout.txt"
