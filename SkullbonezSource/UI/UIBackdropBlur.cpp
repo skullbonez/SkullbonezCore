@@ -23,6 +23,7 @@ Related:
 */
 #include "UIBackdropBlur.h"
 
+#include "../SkullbonezAssetSystem.h"
 #include "../SkullbonezIRenderBackend.h"
 #include "../SkullbonezMatrix4.h"
 
@@ -95,7 +96,7 @@ void UIBackdropBlur::EnsureDrawResources()
 {
     if ( !m_shader )
     {
-        m_shader = Gfx().CreateShader( "shaders/UIBackdropBlur" );
+        m_shader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.ui_backdrop_blur" );
         m_shader->Use();
         m_shader->SetInt( "uTexture", 0 );
     }
@@ -242,12 +243,30 @@ void UIBackdropBlur::Draw( const UIDrawContext& draw, const UIRect& bounds, int 
     const float top = draw.TextY( drawY0 );
     const float bottom = draw.TextY( drawY1 );
     const float verts[] = {
-        left,  bottom, uvLeft,  uvBottom,
-        right, bottom, uvRight, uvBottom,
-        right, top,    uvRight, uvTop,
-        left,  bottom, uvLeft,  uvBottom,
-        right, top,    uvRight, uvTop,
-        left,  top,    uvLeft,  uvTop,
+        left,
+        bottom,
+        uvLeft,
+        uvBottom,
+        right,
+        bottom,
+        uvRight,
+        uvBottom,
+        right,
+        top,
+        uvRight,
+        uvTop,
+        left,
+        bottom,
+        uvLeft,
+        uvBottom,
+        right,
+        top,
+        uvRight,
+        uvTop,
+        left,
+        top,
+        uvLeft,
+        uvTop,
     };
 
     const Matrix4 proj = Matrix4::Ortho( -draw.HalfW(), draw.HalfW(), -draw.HalfH(), draw.HalfH(), -1.0f, 1.0f );

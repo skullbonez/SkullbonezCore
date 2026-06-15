@@ -6,10 +6,10 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 
 | Field | Value |
 |-------|-------|
-| Branch | `codex/dx12-only-renderer-retirement` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | DX12-only renderer retirement Phases 1-9 are committed and pushed on `codex/dx12-only-renderer-retirement`. |
-| Pending work | Follow `Agentic/PlanOrder.md`: resume DX12-only engine architecture, render resource lifetime, shader architecture, render pipeline extraction, and water/material cleanup as separate plans. |
-| Uncommitted changes | None expected after the closure doc commit. |
+| Branch | `codex/render-resource-lifetime-dx12` in worktree `C:\SkullbonezCore` |
+| Last committed milestone | DX12-only renderer retirement Phases 1-9 are committed and pushed on `codex/dx12-only-renderer-retirement`; draft PR #66 is open for review. |
+| Pending work | Complete `Agentic/Plans/render-resource-lifetime-plan.md` on the resource-lifetime branch, then continue with shader architecture, descriptor/upload/root-signature cleanup, and water/material cleanup as separate plans. |
+| Uncommitted changes | Resource lifetime work is active; check `git status` for the current slice. |
 
 ## Active Notes
 
@@ -26,6 +26,7 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 | Item | Status | Notes |
 |------|--------|-------|
 | DX12-only renderer retirement | Done | Retired GL/DX11 backends and shader families, added DX12-only validation, archived final parity evidence, simplified active render contracts, named DX12 diagnostic resources, and added the future backend portability contract. |
+| Render resource lifetime | Active | Phases 1-6 implemented: current-lifetime reference, named lifecycle phases, reflection FBO resize split, shader source-record bridge, reusable release hook table, and DX12 device-lost diagnostics/recovery prep. |
 | Catto physics solver finalisation | Recent | Object/object response now belongs to persistent Catto rows with pipeline visualizer and SkullScope `pipeline` query support. User-approved physics CSV and SkullScope query baselines were updated; `tools\validate_full.bat` passed. |
 | Bullet sweep regression | Recent | Wall/object/terrain high-speed sweep scenes and Debug collision-time CSV baselines are wired into `tools\validate_physics.bat`. |
 | Terrain shared row pipeline | Done | Implemented and documented in `Agentic/Plans/Done/physics-terrain-shared-row-pipeline-plan.md`. |

@@ -20,6 +20,7 @@ Related:
 #include "SkullbonezAssetSystem.h"
 #include "SkullbonezIRenderBackend.h"
 
+#include <cstring>
 #include <stdexcept>
 #include <utility>
 
@@ -29,6 +30,52 @@ namespace Assets
 {
 namespace
 {
+AssetSystem* g_activeAssetSystem = nullptr;
+
+const char* BuiltInShaderBaseNameForLogicalName( const char* logicalName )
+{
+    struct BuiltInShaderName
+    {
+        const char* logicalName;
+        const char* baseName;
+    };
+
+    static constexpr BuiltInShaderName builtInShaders[] = {
+        { "shader.lit_textured", "shaders/lit_textured" },
+        { "shader.lit_textured_instanced", "shaders/lit_textured_instanced" },
+        { "shader.unlit_textured", "shaders/unlit_textured" },
+        { "shader.shadow_depth", "shaders/shadow_depth" },
+        { "shader.shadow_depth_instanced", "shaders/shadow_depth_instanced" },
+        { "shader.post_tonemap", "shaders/post_tonemap" },
+        { "shader.post_volumetric_light", "shaders/post_volumetric_light" },
+        { "shader.sky_atmosphere", "shaders/sky_atmosphere" },
+        { "shader.text", "shaders/text" },
+        { "shader.solid_color", "shaders/solid_color" },
+        { "shader.solid_color_batch", "shaders/solid_color_batch" },
+        { "shader.water_calm", "shaders/water_calm" },
+        { "shader.water_ocean", "shaders/water_ocean" },
+        { "shader.collision_visualizer", "shaders/collision_visualizer" },
+        { "shader.grid_line", "shaders/grid_line" },
+        { "shader.ui_backdrop_blur", "shaders/UIBackdropBlur" },
+        { "shader.reflect_rt", "shaders/reflect.rt" },
+        { "shader.generate_mips", "shaders/generate_mips" },
+    };
+
+    if ( !logicalName || logicalName[0] == '\0' )
+    {
+        return nullptr;
+    }
+
+    for ( const BuiltInShaderName& shader : builtInShaders )
+    {
+        if ( std::strcmp( shader.logicalName, logicalName ) == 0 )
+        {
+            return shader.baseName;
+        }
+    }
+    return nullptr;
+}
+
 bool IsAbsolutePath( const std::string& path )
 {
     return ( path.size() >= 2 && path[1] == ':' ) ||
@@ -316,6 +363,26 @@ size_t AssetSystem::GetTextureSourceAssetCount() const
 size_t AssetSystem::GetShaderSourceAssetCount() const
 {
     return m_shaderAssets.size();
+}
+
+void BindActiveAssetSystem( AssetSystem* assets )
+{
+    g_activeAssetSystem = assets;
+}
+
+AssetSystem* ActiveAssetSystem()
+{
+    return g_activeAssetSystem;
+}
+
+std::unique_ptr<Rendering::IShader> CreateShaderFromActiveAssets( const char* logicalNameOrBaseName )
+{
+    if ( g_activeAssetSystem )
+    {
+        return g_activeAssetSystem->CreateShader( logicalNameOrBaseName );
+    }
+    const char* fallbackBaseName = BuiltInShaderBaseNameForLogicalName( logicalNameOrBaseName );
+    return Rendering::Gfx().CreateShader( fallbackBaseName ? fallbackBaseName : logicalNameOrBaseName );
 }
 } // namespace Assets
 } // namespace SkullbonezCore

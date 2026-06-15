@@ -134,6 +134,13 @@ static inline void ThrowIfFailed( HRESULT hr, const char* msg )
     }
 }
 
+static bool IsDx12DeviceLostResult( HRESULT hr )
+{
+    return hr == DXGI_ERROR_DEVICE_REMOVED ||
+           hr == DXGI_ERROR_DEVICE_RESET ||
+           hr == DXGI_ERROR_DRIVER_INTERNAL_ERROR;
+}
+
 static void AppendDx12StateFlag( std::ostringstream& out, bool& wroteAny, D3D12_RESOURCE_STATES state, D3D12_RESOURCE_STATES flag, const char* name )
 {
     if ( ( state & flag ) != 0 )
@@ -706,6 +713,71 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
     }
     Log().Writef( "Debug/dx12_frame_graph_skeleton.txt", "%s\n", dump.c_str() );
     Log().FlushAll();
+}
+
+
+void RenderBackendDX12::ReportDeviceLost( const char* context, HRESULT result ) const
+{
+    const HRESULT removedReason = m_device ? m_device->GetDeviceRemovedReason() : result;
+    Log().WriteEventf( "dx12_device_lost context=%s result=0x%08lX removed_reason=0x%08lX",
+                       context ? context : "unknown",
+                       static_cast<unsigned long>( result ),
+                       static_cast<unsigned long>( removedReason ) );
+
+    FILE* fp = nullptr;
+    fopen_s( &fp, "dx12_device_lost.txt", "a" );
+    if ( fp )
+    {
+        fprintf( fp,
+                 "context=%s result=0x%08lX removed_reason=0x%08lX\n",
+                 context ? context : "unknown",
+                 static_cast<unsigned long>( result ),
+                 static_cast<unsigned long>( removedReason ) );
+    }
+
+    if ( m_device )
+    {
+        ID3D12DeviceRemovedExtendedData* dred = nullptr;
+        if ( SUCCEEDED( m_device->QueryInterface( IID_PPV_ARGS( &dred ) ) ) )
+        {
+            D3D12_DRED_AUTO_BREADCRUMBS_OUTPUT breadcrumbs = {};
+            D3D12_DRED_PAGE_FAULT_OUTPUT pageFault = {};
+            const HRESULT breadcrumbResult = dred->GetAutoBreadcrumbsOutput( &breadcrumbs );
+            const HRESULT pageFaultResult = dred->GetPageFaultAllocationOutput( &pageFault );
+
+            Log().WriteEventf( "dx12_dred context=%s breadcrumbs_hr=0x%08lX breadcrumbs_head=%p page_fault_hr=0x%08lX page_fault_va=0x%llX existing_allocations=%p recent_freed_allocations=%p",
+                               context ? context : "unknown",
+                               static_cast<unsigned long>( breadcrumbResult ),
+                               breadcrumbs.pHeadAutoBreadcrumbNode,
+                               static_cast<unsigned long>( pageFaultResult ),
+                               static_cast<unsigned long long>( pageFault.PageFaultVA ),
+                               pageFault.pHeadExistingAllocationNode,
+                               pageFault.pHeadRecentFreedAllocationNode );
+
+            if ( fp )
+            {
+                fprintf( fp,
+                         "dred breadcrumbs_hr=0x%08lX breadcrumbs_head=%p page_fault_hr=0x%08lX page_fault_va=0x%llX existing_allocations=%p recent_freed_allocations=%p\n",
+                         static_cast<unsigned long>( breadcrumbResult ),
+                         breadcrumbs.pHeadAutoBreadcrumbNode,
+                         static_cast<unsigned long>( pageFaultResult ),
+                         static_cast<unsigned long long>( pageFault.PageFaultVA ),
+                         pageFault.pHeadExistingAllocationNode,
+                         pageFault.pHeadRecentFreedAllocationNode );
+            }
+            dred->Release();
+        }
+        else if ( fp )
+        {
+            fprintf( fp, "dred unavailable\n" );
+        }
+    }
+
+    if ( fp )
+    {
+        fprintf( fp, "---\n" );
+        fclose( fp );
+    }
 }
 
 
@@ -1434,7 +1506,13 @@ void RenderBackendDX12::Present()
     const UINT presentFlags = ( !m_isVsyncEnabled && m_allowTearing )
                                   ? DXGI_PRESENT_ALLOW_TEARING
                                   : 0u;
-    m_swapChain->Present( syncInterval, presentFlags );
+    const HRESULT presentResult = m_swapChain->Present( syncInterval, presentFlags );
+    if ( IsDx12DeviceLostResult( presentResult ) )
+    {
+        ReportDeviceLost( "Present", presentResult );
+        throw std::runtime_error( "DX12 device lost during Present; see dx12_device_lost.txt" );
+    }
+    ThrowIfFailed( presentResult, "SwapChain Present failed" );
 
     // Signal the fence with the current frame's value. When the GPU reaches
     // this point in its command stream, it updates the fence to that value.
@@ -1534,7 +1612,13 @@ void RenderBackendDX12::Resize( int width, int height )
     m_depthStencil = nullptr;
 
     const UINT resizeFlags = m_allowTearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u;
-    m_swapChain->ResizeBuffers( FRAME_COUNT, (UINT)width, (UINT)height, DXGI_FORMAT_R8G8B8A8_UNORM, resizeFlags );
+    const HRESULT resizeResult = m_swapChain->ResizeBuffers( FRAME_COUNT, (UINT)width, (UINT)height, DXGI_FORMAT_R8G8B8A8_UNORM, resizeFlags );
+    if ( IsDx12DeviceLostResult( resizeResult ) )
+    {
+        ReportDeviceLost( "ResizeBuffers", resizeResult );
+        throw std::runtime_error( "DX12 device lost during ResizeBuffers; see dx12_device_lost.txt" );
+    }
+    ThrowIfFailed( resizeResult, "SwapChain ResizeBuffers failed" );
     m_frameIndex = m_renderDevice.RefreshFrameIndexFromSwapChain();
 
     // ResizeBuffers puts all back buffers into PRESENT state — reset our tracking flag
@@ -1543,7 +1627,7 @@ void RenderBackendDX12::Resize( int width, int height )
 
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
-        m_swapChain->GetBuffer( (UINT)i, IID_PPV_ARGS( &m_renderTargets[i] ) );
+        ThrowIfFailed( m_swapChain->GetBuffer( (UINT)i, IID_PPV_ARGS( &m_renderTargets[i] ) ), "SwapChain GetBuffer after resize failed" );
         NameDx12ObjectIndexed( m_renderTargets[i], L"Skullbonez DX12 Swapchain Backbuffer", (UINT)i );
         m_device->CreateRenderTargetView( m_renderTargets[i], nullptr, m_backBufferRTVs[i] );
     }

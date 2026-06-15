@@ -147,5 +147,11 @@ class AssetSystem
     AssetId m_nextAssetId = 1;
     uint32_t m_nextGeneration = 1;
 };
+
+// Transitional bridge for legacy singleton-style render helpers. The run loop
+// owns the real AssetSystem, while helpers still own their GPU shader handles.
+void BindActiveAssetSystem( AssetSystem* assets );
+AssetSystem* ActiveAssetSystem();
+std::unique_ptr<Rendering::IShader> CreateShaderFromActiveAssets( const char* logicalNameOrBaseName );
 } // namespace Assets
 } // namespace SkullbonezCore

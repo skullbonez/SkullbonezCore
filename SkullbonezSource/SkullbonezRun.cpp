@@ -66,29 +66,112 @@ SkullbonezRun::~SkullbonezRun()
     // and leaves the DX12 command list open). Flush immediately after so subsequent resource
     // releases don't trigger "ID3D12Resource deleted before command list close" validation
     // errors — resources must not be freed while any open command list could reference them.
-    m_cWorldEnvironment.ResetRenderResources();
-    if ( IsGfxReady() )
-    {
-        Gfx().FlushGPU();
-    }
+    ReleaseBackendOwnedRenderResources( "shutdown_release" );
 
-    SkullbonezHelper::ResetRenderResources();
-    m_cGameModelCollection.ResetRenderResources();
-    m_collisionVisualizer.ResetResources();
-    m_UI.ResetResources();
-    ResetCinematicRenderResources();
-    if ( m_systems.reflectionFBO )
+    SkullbonezCore::Assets::BindActiveAssetSystem( nullptr );
+}
+
+
+void SkullbonezRun::ReleaseBackendOwnedRenderResources( const char* phaseName )
+{
+    enum class BackendResourceStep
     {
-        m_systems.reflectionFBO->ResetResources();
-    }
+        WorldEnvironment,
+        HelperResources,
+        GameModelResources,
+        CollisionVisualizer,
+        UIResources,
+        CinematicResources,
+        ReflectionFBO,
+        ProfilerQueries,
+        TextFont,
+        TextureCollection,
+        CameraCollection,
+        SkyBox
+    };
+
+    struct BackendResourcePhase
+    {
+        const char* name;
+        BackendResourceStep step;
+        bool flushAfter;
+    };
+
+    const BackendResourcePhase releaseSteps[] = {
+        { "world_environment", BackendResourceStep::WorldEnvironment, true },
+        { "helper_resources", BackendResourceStep::HelperResources, false },
+        { "game_model_resources", BackendResourceStep::GameModelResources, false },
+        { "collision_visualizer", BackendResourceStep::CollisionVisualizer, false },
+        { "ui_resources", BackendResourceStep::UIResources, false },
+        { "cinematic_resources", BackendResourceStep::CinematicResources, false },
+        { "reflection_fbo", BackendResourceStep::ReflectionFBO, false },
+        { "profiler_queries", BackendResourceStep::ProfilerQueries, false },
+        { "text_font", BackendResourceStep::TextFont, false },
+        { "texture_collection", BackendResourceStep::TextureCollection, false },
+        { "camera_collection", BackendResourceStep::CameraCollection, false },
+        { "skybox_singleton", BackendResourceStep::SkyBox, false },
+    };
+
+    for ( const BackendResourcePhase& phase : releaseSteps )
+    {
+        LogRenderResourceLifecycleStep( phaseName, phase.name );
+        switch ( phase.step )
+        {
+        case BackendResourceStep::WorldEnvironment:
+            m_cWorldEnvironment.ResetRenderResources();
+            break;
+        case BackendResourceStep::HelperResources:
+            SkullbonezHelper::ResetRenderResources();
+            break;
+        case BackendResourceStep::GameModelResources:
+            m_cGameModelCollection.ResetRenderResources();
+            break;
+        case BackendResourceStep::CollisionVisualizer:
+            m_collisionVisualizer.ResetResources();
+            break;
+        case BackendResourceStep::UIResources:
+            m_UI.ResetResources();
+            break;
+        case BackendResourceStep::CinematicResources:
+            ResetCinematicRenderResources();
+            break;
+        case BackendResourceStep::ReflectionFBO:
+            ResetReflectionRenderResources();
+            break;
+        case BackendResourceStep::ProfilerQueries:
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    Profiler::Instance().InvalidateGpuQueries();
+            Profiler::Instance().InvalidateGpuQueries();
 #endif
-    Text2d::DeleteFont();
+            break;
+        case BackendResourceStep::TextFont:
+            Text2d::DeleteFont();
+            break;
+        case BackendResourceStep::TextureCollection:
+            if ( m_systems.textures )
+            {
+                m_systems.textures->Destroy();
+            }
+            break;
+        case BackendResourceStep::CameraCollection:
+            if ( m_systems.cameras )
+            {
+                m_systems.cameras->Destroy();
+            }
+            break;
+        case BackendResourceStep::SkyBox:
+            if ( m_systems.skyBox )
+            {
+                m_systems.skyBox->Destroy();
+            }
+            break;
+        }
 
-    m_systems.textures->Destroy();
-    m_systems.cameras->Destroy();
-    m_systems.skyBox->Destroy();
+        if ( phase.flushAfter && IsGfxReady() )
+        {
+            LogRenderResourceLifecycleStep( phaseName, "flush_after_world_environment" );
+            Gfx().FlushGPU();
+        }
+    }
 }
 
 
@@ -149,6 +232,22 @@ void SkullbonezRun::DumpTextureAssets( FILE* out ) const
     {
         m_systems.textures->DumpTextureAssets( out );
     }
+}
+
+
+void SkullbonezRun::LogRenderResourceLifecycleStep( const char* phase, const char* step ) const
+{
+    const bool gfxReady = IsGfxReady();
+    const int backendWidth = gfxReady ? Gfx().GetWidth() : 0;
+    const int backendHeight = gfxReady ? Gfx().GetHeight() : 0;
+    Log().WriteEventf( "render_resource_lifecycle phase=%s step=%s gfx_ready=%d backend_width=%d backend_height=%d scene_index=%d load=%d",
+                       phase ? phase : "unknown",
+                       step ? step : "unknown",
+                       gfxReady ? 1 : 0,
+                       backendWidth,
+                       backendHeight,
+                       m_scene.currentSceneIndex,
+                       m_scene.loadCount );
 }
 
 
@@ -350,6 +449,7 @@ void SkullbonezRun::Initialise()
     // Init m_textures
     m_systems.textures = TextureCollection::Instance();
     m_systems.textures->BindAssetSystem( &m_systems.assets );
+    SkullbonezCore::Assets::BindActiveAssetSystem( &m_systems.assets );
     RegisterBuiltInAssets();
 
     // Build renderer-owned resources from source asset records.
@@ -373,10 +473,10 @@ void SkullbonezRun::Initialise()
         m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
     }
 
-    // Init reflection FBO at the current viewport size
-    int fboW = Gfx().GetWidth() * 2;
-    int fboH = Gfx().GetHeight() * 2;
-    m_systems.reflectionFBO = Gfx().CreateFramebuffer( fboW, fboH );
+    // Init size-dependent frame targets at the current viewport size. These
+    // helpers use the same checks as the render loop, so startup and resize
+    // follow one lifetime path instead of drifting apart.
+    EnsureReflectionRenderResources();
     EnsureCinematicRenderResources();
 
     // Init font (HDC, font)

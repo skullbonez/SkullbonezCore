@@ -381,6 +381,7 @@ class RenderBackendDX12 : public IRenderBackend
     D3D12_GPU_VIRTUAL_ADDRESS SubAllocateUpload( UINT64 size, UINT64 alignment );
     void ReportArchitectureStats( const char* reason ) const;
     void DumpFrameGraphSkeleton() const;
+    void ReportDeviceLost( const char* context, HRESULT result ) const;
     size_t HashPSOKey( const PSOKey12& key );
     ID3D12PipelineState* CreatePSO( VertexFormat12 format, bool instanced, const InstancedMeshDX12* im, const DynamicVBDX12* dvb );
     void CheckDXRSupport();

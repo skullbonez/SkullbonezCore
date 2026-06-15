@@ -25,6 +25,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezText.h"
+#include "SkullbonezAssetSystem.h"
 #include "SkullbonezIRenderBackend.h"
 
 #include <memory>
@@ -530,15 +531,15 @@ void Text2d::BuildFont( const char* cFontName )
     Text2d::quadBatchVB = Gfx().CreateDynamicVB( quadBatchAttribs, 2, QUAD_BATCH_MAX_QUADS * QUAD_BATCH_VERTS_PER_QUAD );
 
     // Compile the text shader and bind the atlas sampler slot once.
-    Text2d::pTextShader = Gfx().CreateShader( "shaders/text" );
+    Text2d::pTextShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.text" );
     Text2d::pTextShader->Use();
     Text2d::pTextShader->SetInt( "uFontTexture", 0 );
 
     // Compile the solid-colour HUD quad shader (used by Render2dQuad — immediate, one draw per call)
-    Text2d::pSolidShader = Gfx().CreateShader( "shaders/solid_color" );
+    Text2d::pSolidShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.solid_color" );
 
     // Compile the batched per-vertex-RGBA quad shader (used by FlushQuads — one draw for all quads)
-    Text2d::pSolidBatchShader = Gfx().CreateShader( "shaders/solid_color_batch" );
+    Text2d::pSolidBatchShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.solid_color_batch" );
 
     // Build the initial orthographic projection from the config dimensions.
     // RebuildProjection() must be called whenever the window is resized so the

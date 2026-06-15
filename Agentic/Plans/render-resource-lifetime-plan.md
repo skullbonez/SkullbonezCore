@@ -1,9 +1,9 @@
 # Render Resource Lifetime Plan
 
-Status: planning draft  
+Status: active implementation
 Created: 2026-06-11  
 Scope: renderer-owned resources, resize, shader/mesh/FBO lifetime, future device loss
-Implementation status: plan only, no code changes in this pass
+Implementation status: Phase 1 current-lifetime reference is now captured in `Agentic/Reference/render-resource-lifetime-reference.md`.
 
 ## Goal
 
@@ -322,6 +322,12 @@ Validation:
 
 - Documentation only: no validation required.
 
+Status:
+
+- Done on branch `codex/render-resource-lifetime-dx12`.
+- Reference: `Agentic/Reference/render-resource-lifetime-reference.md`.
+- Noted concrete follow-up: reflection FBO needs an explicit resize invalidation/check.
+
 ### Phase 2: Add Named Resource Phase Table
 
 Tasks:
@@ -347,6 +353,13 @@ Validation:
 
 - `tools\validate_dx12_renderer.bat`.
 
+Status:
+
+- Done on branch `codex/render-resource-lifetime-dx12`.
+- Reflection FBO now has an explicit `EnsureReflectionRenderResources` size check and `ResetReflectionRenderResources` teardown path.
+- Startup and render-time reflection target creation now share the same lazy owner check.
+- Pure resize remains limited to swap-chain/depth/projection plus size-dependent FBO recreation; shaders and meshes are not rebuilt for resize.
+
 ### Phase 4: Add Source Asset Records
 
 Tasks:
@@ -358,6 +371,14 @@ Tasks:
 Validation:
 
 - `tools\validate_dx12_renderer.bat`.
+
+Status:
+
+- Done on branch `codex/render-resource-lifetime-dx12`.
+- The existing `Assets::AssetSystem` remains the source owner for texture paths and shader base names.
+- Added an active asset-system bridge so legacy render helpers can resolve logical shader names without taking ownership of the run-level asset registry.
+- Routed helper, terrain, skybox, water, text, collision visualizer, and UI blur shader creation through source records while leaving GPU shader handles in their existing owners.
+- Material/style GPU records are not introduced yet because there is no material GPU table in this plan slice; style data still remains CPU-side scene/config state.
 
 ### Phase 5: Pass-Owned Resources
 
@@ -371,6 +392,13 @@ Validation:
 
 - `tools\validate_full.bat` if pass ownership changes runtime lifecycle.
 
+Status:
+
+- Done for the current non-extracted renderer shape on branch `codex/render-resource-lifetime-dx12`.
+- The ordered release hook table now lives in `SkullbonezRun::ReleaseBackendOwnedRenderResources` instead of being destructor-local.
+- Future pass modules can move from table rows to pass-owned hooks without changing the high-level release/rebuild order.
+- No render pass ownership move was attempted here because pass extraction is tracked separately in `render-pipeline-extraction-plan.md`.
+
 ### Phase 6: Future Device-Lost Path
 
 Tasks:
@@ -383,6 +411,12 @@ Validation:
 
 - Manual fault injection if possible.
 - `tools\validate_full.bat`.
+
+Status:
+
+- Done as a diagnostic/recovery-prep slice on branch `codex/render-resource-lifetime-dx12`.
+- `Present` and `ResizeBuffers` now check device-removal HRESULTs, write `dx12_device_lost.txt`, emit event-log rows, and capture DRED breadcrumb/page-fault heads when available.
+- Device-lost live hot recovery is not enabled yet; the release/rebuild machinery is now reusable, and real in-frame recovery should be added after pass extraction gives each pass explicit rebuild hooks.
 
 ## Validation Matrix
 

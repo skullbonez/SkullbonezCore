@@ -72,6 +72,44 @@ bool SkullbonezRun::IsCinematicRenderingEnabled() const
 }
 
 
+void SkullbonezRun::EnsureReflectionRenderResources()
+{
+    if ( !IsGfxReady() )
+    {
+        return;
+    }
+
+    const int fboW = (std::max)( 1, Gfx().GetWidth() * 2 );
+    const int fboH = (std::max)( 1, Gfx().GetHeight() * 2 );
+    const bool needsReflectionTarget = !m_systems.reflectionFBO ||
+                                       m_systems.reflectionFBO->GetWidth() != fboW ||
+                                       m_systems.reflectionFBO->GetHeight() != fboH ||
+                                       m_systems.reflectionFBO->GetColorFormat() != SkullbonezCore::Rendering::FramebufferColorFormat::RGBA8;
+
+    if ( needsReflectionTarget )
+    {
+        LogRenderResourceLifecycleStep( "window_resize", "reflection_fbo_recreate_if_needed" );
+        if ( m_systems.reflectionFBO )
+        {
+            m_systems.reflectionFBO->ResetResources();
+        }
+        m_systems.reflectionFBO.reset();
+        m_systems.reflectionFBO = Gfx().CreateFramebuffer( fboW, fboH );
+    }
+}
+
+
+void SkullbonezRun::ResetReflectionRenderResources()
+{
+    LogRenderResourceLifecycleStep( "reflection_reset", "reflection_fbo" );
+    if ( m_systems.reflectionFBO )
+    {
+        m_systems.reflectionFBO->ResetResources();
+    }
+    m_systems.reflectionFBO.reset();
+}
+
+
 void SkullbonezRun::EnsureCinematicRenderResources()
 {
     if ( !IsCinematicRenderingEnabled() )
@@ -146,17 +184,65 @@ void SkullbonezRun::ResetCinematicRenderResources()
     // Renderer resources are device-owned objects. Before the DX12 backend
     // shuts down or rebuilds, release these GPU handles so the device can
     // recreate them cleanly.
-    ResetShadowRenderResources();
-    if ( IsGfxReady() && m_systems.postQuadVB != 0 )
+    enum class CinematicResetStep
     {
-        Gfx().DestroyDynamicVB( m_systems.postQuadVB );
+        ShadowResources,
+        PostQuadVB,
+        SkyAtmosphereShader,
+        VolumetricLightShader,
+        TonemapShader,
+        VolumetricFBO,
+        SceneFBO
+    };
+
+    struct CinematicResetPhase
+    {
+        const char* name;
+        CinematicResetStep step;
+    };
+
+    const CinematicResetPhase resetSteps[] = {
+        { "shadow_resources", CinematicResetStep::ShadowResources },
+        { "post_quad_vb", CinematicResetStep::PostQuadVB },
+        { "sky_atmosphere_shader", CinematicResetStep::SkyAtmosphereShader },
+        { "volumetric_light_shader", CinematicResetStep::VolumetricLightShader },
+        { "tonemap_shader", CinematicResetStep::TonemapShader },
+        { "volumetric_fbo", CinematicResetStep::VolumetricFBO },
+        { "scene_fbo", CinematicResetStep::SceneFBO },
+    };
+
+    for ( const CinematicResetPhase& phase : resetSteps )
+    {
+        LogRenderResourceLifecycleStep( "cinematic_reset", phase.name );
+        switch ( phase.step )
+        {
+        case CinematicResetStep::ShadowResources:
+            ResetShadowRenderResources();
+            break;
+        case CinematicResetStep::PostQuadVB:
+            if ( IsGfxReady() && m_systems.postQuadVB != 0 )
+            {
+                Gfx().DestroyDynamicVB( m_systems.postQuadVB );
+            }
+            m_systems.postQuadVB = 0;
+            break;
+        case CinematicResetStep::SkyAtmosphereShader:
+            m_systems.skyAtmosphereShader.reset();
+            break;
+        case CinematicResetStep::VolumetricLightShader:
+            m_systems.volumetricLightShader.reset();
+            break;
+        case CinematicResetStep::TonemapShader:
+            m_systems.tonemapShader.reset();
+            break;
+        case CinematicResetStep::VolumetricFBO:
+            m_systems.volumetricLightFBO.reset();
+            break;
+        case CinematicResetStep::SceneFBO:
+            m_systems.sceneFBO.reset();
+            break;
+        }
     }
-    m_systems.postQuadVB = 0;
-    m_systems.skyAtmosphereShader.reset();
-    m_systems.volumetricLightShader.reset();
-    m_systems.tonemapShader.reset();
-    m_systems.volumetricLightFBO.reset();
-    m_systems.sceneFBO.reset();
 }
 
 
@@ -198,18 +284,50 @@ void SkullbonezRun::ResetShadowRenderResources()
     // resize rebuild, or future backend bring-up must force a clean recreate
     // before the next shadow pass. The payload is reset too so receivers cannot
     // accidentally sample an old depth texture after the resource dies.
-    if ( m_systems.shadowFBO )
+    enum class ShadowResetStep
     {
-        m_systems.shadowFBO->ResetResources();
-    }
-    if ( m_systems.objectShadowFBO )
+        TerrainShadowFBO,
+        ObjectShadowFBO,
+        FramePayloads
+    };
+
+    struct ShadowResetPhase
     {
-        m_systems.objectShadowFBO->ResetResources();
+        const char* name;
+        ShadowResetStep step;
+    };
+
+    const ShadowResetPhase resetSteps[] = {
+        { "terrain_shadow_fbo", ShadowResetStep::TerrainShadowFBO },
+        { "object_shadow_fbo", ShadowResetStep::ObjectShadowFBO },
+        { "shadow_frame_payloads", ShadowResetStep::FramePayloads },
+    };
+
+    for ( const ShadowResetPhase& phase : resetSteps )
+    {
+        LogRenderResourceLifecycleStep( "shadow_reset", phase.name );
+        switch ( phase.step )
+        {
+        case ShadowResetStep::TerrainShadowFBO:
+            if ( m_systems.shadowFBO )
+            {
+                m_systems.shadowFBO->ResetResources();
+            }
+            m_systems.shadowFBO.reset();
+            break;
+        case ShadowResetStep::ObjectShadowFBO:
+            if ( m_systems.objectShadowFBO )
+            {
+                m_systems.objectShadowFBO->ResetResources();
+            }
+            m_systems.objectShadowFBO.reset();
+            break;
+        case ShadowResetStep::FramePayloads:
+            m_systems.shadowFrame = Rendering::ShadowFrameData();
+            m_systems.objectShadowFrame = Rendering::ShadowFrameData();
+            break;
+        }
     }
-    m_systems.shadowFBO.reset();
-    m_systems.objectShadowFBO.reset();
-    m_systems.shadowFrame = Rendering::ShadowFrameData();
-    m_systems.objectShadowFrame = Rendering::ShadowFrameData();
 }
 
 
@@ -751,6 +869,7 @@ void SkullbonezRun::DrawPrimitives()
     const bool transparentBodyPass = m_debug.isPhysicsDebugTransparent && m_debug.physicsDebugAlpha < 1.0f;
     const float bodyRenderAlpha = transparentBodyPass ? m_debug.physicsDebugAlpha : 1.0f;
     const float collisionVisualizerAlphaOverride = transparentBodyPass ? bodyRenderAlpha : -1.0f;
+    EnsureReflectionRenderResources();
 
     // Camera m_position for skybox placement.  During camera transitions the
     // selected camera is already the destination, but SetCamera() renders from
@@ -1025,11 +1144,42 @@ void SkullbonezRun::SetUpCameras()
 
 void SkullbonezRun::RebuildRegisteredRenderResources()
 {
-    SkullbonezHelper::ResetRenderResources();
+    enum class RebuildStep
+    {
+        ResetHelperCache,
+        RegisterBuiltInSources,
+        RebuildTextures
+    };
 
-    // Recreate backend texture handles from stable source asset records.
-    RegisterBuiltInAssets();
-    m_systems.textures->RebuildTexturesFromSourceAssets();
+    struct RebuildPhase
+    {
+        const char* name;
+        RebuildStep step;
+    };
+
+    const RebuildPhase rebuildSteps[] = {
+        { "reset_helper_cache", RebuildStep::ResetHelperCache },
+        { "register_builtin_source_records", RebuildStep::RegisterBuiltInSources },
+        { "rebuild_textures_from_source_assets", RebuildStep::RebuildTextures },
+    };
+
+    for ( const RebuildPhase& phase : rebuildSteps )
+    {
+        LogRenderResourceLifecycleStep( "backend_rebuild", phase.name );
+        switch ( phase.step )
+        {
+        case RebuildStep::ResetHelperCache:
+            SkullbonezHelper::ResetRenderResources();
+            break;
+        case RebuildStep::RegisterBuiltInSources:
+            RegisterBuiltInAssets();
+            break;
+        case RebuildStep::RebuildTextures:
+            // Recreate backend texture handles from stable source asset records.
+            m_systems.textures->RebuildTexturesFromSourceAssets();
+            break;
+        }
+    }
 }
 
 

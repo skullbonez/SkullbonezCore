@@ -392,6 +392,8 @@ class SkullbonezRun
     CinematicRenderConfig& ActiveCinematicConfig();                                                                                                    // Mutable cinematic style config for the active scene/run
     const CinematicRenderConfig& ActiveCinematicConfig() const;                                                                                        // Read-only cinematic style config for the active scene/run
     bool IsCinematicRenderingEnabled() const;                                                                                                          // True when the HDR/post stack should wrap the main scene
+    void EnsureReflectionRenderResources();                                                                                                            // Lazily builds/resizes the planar reflection target
+    void ResetReflectionRenderResources();                                                                                                             // Releases the planar reflection target before backend teardown
     void EnsureCinematicRenderResources();                                                                                                             // Lazily builds/resizes HDR scene target and post resources
     void ResetCinematicRenderResources();                                                                                                              // Releases HDR/post resources before backend teardown
     void EnsureShadowRenderResources( const CinematicRenderConfig& cinematic );                                                                        // Lazily builds/resizes the directional shadow-map target
@@ -400,7 +402,9 @@ class SkullbonezRun
     void RenderCinematicSky( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection );                             // Draws procedural HDR sunset sky into the active cinematic target
     bool RenderCinematicVolumetricLight();                                                                                                             // Renders depth-aware low-resolution light shafts into the volumetric buffer
     void ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound, bool volumetricReady );                                                          // Tonemaps HDR scene target to the backbuffer
+    void ReleaseBackendOwnedRenderResources( const char* phaseName );                                                                                  // Runs the ordered GPU-resource release hooks while the backend is alive
     void RebuildRegisteredRenderResources();                                                                                                           // Recreates renderer resources from source asset records
+    void LogRenderResourceLifecycleStep( const char* phase, const char* step ) const;                                                                  // Writes a named resource-lifetime phase to the debug event log
     void SetViewingOrientation();                                                                                                                      // Renders camera views etc
     void DrawWindowText( const double dSecondsPerFrame );                                                                                              // Renders text to the window
     void SaveScreenshot( const char* path );                                                                                                           // Saves current backbuffer to a BMP file

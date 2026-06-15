@@ -18,6 +18,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezHelper.h"
+#include "SkullbonezAssetSystem.h"
 #include "SkullbonezProfiler.h"
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezPrimitiveMeshBuilder.h"
@@ -147,7 +148,7 @@ void SkullbonezHelper::EnsureSphereShader()
 {
     if ( !sphereShader )
     {
-        sphereShader = Gfx().CreateShader( "shaders/lit_textured_instanced" );
+        sphereShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.lit_textured_instanced" );
         sphereShader->Use();
         ApplySceneLightUniforms( *sphereShader );
         sphereShader->SetVec4( "uMaterialAmbient", 0.2f, 0.2f, 0.2f, 1.0f );
@@ -165,7 +166,7 @@ void SkullbonezHelper::EnsureShadowDepthShader()
         // visuals because all three meshes expose the same static attributes and
         // per-instance model/tint layout. The fragment output is irrelevant; the
         // depth attachment is the shadow map product.
-        shadowDepthShader = Gfx().CreateShader( "shaders/shadow_depth_instanced" );
+        shadowDepthShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.shadow_depth_instanced" );
     }
 }
 

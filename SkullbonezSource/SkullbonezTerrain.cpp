@@ -29,6 +29,7 @@ Related:
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezTerrain.h"
+#include "SkullbonezAssetSystem.h"
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezProfiler.h"
 
@@ -133,7 +134,7 @@ Terrain::~Terrain()
 
 void Terrain::InitialiseTerrainShader()
 {
-    m_terrainShader = Gfx().CreateShader( "shaders/lit_textured" );
+    m_terrainShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.lit_textured" );
     m_terrainShader->Use();
     const auto& light = Cfg().sceneLight;
     m_terrainShader->SetVec4( "uLightAmbient", light.colorR, light.colorG, light.colorB, light.colorA );
@@ -442,7 +443,7 @@ void Terrain::RenderShadowDepth( const Matrix4& lightView, const Matrix4& lightP
         // shader. It still writes into the same framebuffer/depth map as object
         // casters, which lets hills self-shadow and lets balls/boxes disappear
         // behind terrain from the light's point of view.
-        m_shadowDepthShader = Gfx().CreateShader( "shaders/shadow_depth" );
+        m_shadowDepthShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.shadow_depth" );
     }
 
     m_shadowDepthShader->Use();
