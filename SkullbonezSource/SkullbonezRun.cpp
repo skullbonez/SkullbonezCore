@@ -82,7 +82,7 @@ void SkullbonezRun::ReleaseBackendOwnedRenderResources( const char* phaseName )
         CollisionVisualizer,
         UIResources,
         CinematicResources,
-        ReflectionFBO,
+        ReflectionResources,
         ProfilerQueries,
         TextFont,
         TextureCollection,
@@ -104,7 +104,7 @@ void SkullbonezRun::ReleaseBackendOwnedRenderResources( const char* phaseName )
         { "collision_visualizer", BackendResourceStep::CollisionVisualizer, false },
         { "ui_resources", BackendResourceStep::UIResources, false },
         { "cinematic_resources", BackendResourceStep::CinematicResources, false },
-        { "reflection_fbo", BackendResourceStep::ReflectionFBO, false },
+        { "reflection_resources", BackendResourceStep::ReflectionResources, false },
         { "profiler_queries", BackendResourceStep::ProfilerQueries, false },
         { "text_font", BackendResourceStep::TextFont, false },
         { "texture_collection", BackendResourceStep::TextureCollection, false },
@@ -135,7 +135,7 @@ void SkullbonezRun::ReleaseBackendOwnedRenderResources( const char* phaseName )
         case BackendResourceStep::CinematicResources:
             ResetCinematicRenderResources();
             break;
-        case BackendResourceStep::ReflectionFBO:
+        case BackendResourceStep::ReflectionResources:
             ResetReflectionRenderResources();
             break;
         case BackendResourceStep::ProfilerQueries:

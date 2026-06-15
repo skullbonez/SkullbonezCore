@@ -116,34 +116,36 @@ void SkullbonezRun::EnsureReflectionRenderResources()
         return;
     }
 
+    ReflectionPassResources& reflection = m_systems.renderPasses.reflection;
     const int fboW = (std::max)( 1, Gfx().GetWidth() * 2 );
     const int fboH = (std::max)( 1, Gfx().GetHeight() * 2 );
-    const bool needsReflectionTarget = !m_systems.reflectionFBO ||
-                                       m_systems.reflectionFBO->GetWidth() != fboW ||
-                                       m_systems.reflectionFBO->GetHeight() != fboH ||
-                                       m_systems.reflectionFBO->GetColorFormat() != SkullbonezCore::Rendering::FramebufferColorFormat::RGBA8;
+    const bool needsReflectionTarget = !reflection.target ||
+                                       reflection.target->GetWidth() != fboW ||
+                                       reflection.target->GetHeight() != fboH ||
+                                       reflection.target->GetColorFormat() != SkullbonezCore::Rendering::FramebufferColorFormat::RGBA8;
 
     if ( needsReflectionTarget )
     {
-        LogRenderResourceLifecycleStep( "window_resize", "reflection_fbo_recreate_if_needed" );
-        if ( m_systems.reflectionFBO )
+        LogRenderResourceLifecycleStep( "window_resize", "reflection_target_recreate_if_needed" );
+        if ( reflection.target )
         {
-            m_systems.reflectionFBO->ResetResources();
+            reflection.target->ResetResources();
         }
-        m_systems.reflectionFBO.reset();
-        m_systems.reflectionFBO = Gfx().CreateFramebuffer( fboW, fboH );
+        reflection.target.reset();
+        reflection.target = Gfx().CreateFramebuffer( fboW, fboH );
     }
 }
 
 
 void SkullbonezRun::ResetReflectionRenderResources()
 {
-    LogRenderResourceLifecycleStep( "reflection_reset", "reflection_fbo" );
-    if ( m_systems.reflectionFBO )
+    ReflectionPassResources& reflection = m_systems.renderPasses.reflection;
+    LogRenderResourceLifecycleStep( "reflection_reset", "reflection_target" );
+    if ( reflection.target )
     {
-        m_systems.reflectionFBO->ResetResources();
+        reflection.target->ResetResources();
     }
-    m_systems.reflectionFBO.reset();
+    reflection.target.reset();
 }
 
 
@@ -166,52 +168,57 @@ void SkullbonezRun::EnsureCinematicRenderResources()
     // RGBA16F is a floating-point color format. It can store values brighter
     // than "monitor white", which is what bloom, god rays, and sunset tonemapping
     // need before the final pass squeezes the image back onto the screen.
-    const bool needsSceneTarget = !m_systems.sceneFBO ||
-                                  m_systems.sceneFBO->GetWidth() != w ||
-                                  m_systems.sceneFBO->GetHeight() != h ||
-                                  m_systems.sceneFBO->GetColorFormat() != SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F;
-    const bool needsVolumetricTarget = !m_systems.volumetricLightFBO ||
-                                       m_systems.volumetricLightFBO->GetWidth() != volW ||
-                                       m_systems.volumetricLightFBO->GetHeight() != volH ||
-                                       m_systems.volumetricLightFBO->GetColorFormat() != SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F;
+    CinematicScenePassResources& scene = m_systems.renderPasses.cinematicScene;
+    VolumetricLightPassResources& volumetric = m_systems.renderPasses.volumetricLight;
+    TonemapPassResources& tonemap = m_systems.renderPasses.tonemap;
+    SkyPassResources& sky = m_systems.renderPasses.sky;
+    FullscreenPassResources& fullscreen = m_systems.renderPasses.fullscreen;
+    const bool needsSceneTarget = !scene.hdrTarget ||
+                                  scene.hdrTarget->GetWidth() != w ||
+                                  scene.hdrTarget->GetHeight() != h ||
+                                  scene.hdrTarget->GetColorFormat() != SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F;
+    const bool needsVolumetricTarget = !volumetric.target ||
+                                       volumetric.target->GetWidth() != volW ||
+                                       volumetric.target->GetHeight() != volH ||
+                                       volumetric.target->GetColorFormat() != SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F;
 
     if ( needsSceneTarget )
     {
-        m_systems.sceneFBO.reset();
-        m_systems.sceneFBO = Gfx().CreateFramebuffer( w, h, SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F );
+        scene.hdrTarget.reset();
+        scene.hdrTarget = Gfx().CreateFramebuffer( w, h, SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F );
     }
     if ( needsVolumetricTarget )
     {
-        m_systems.volumetricLightFBO.reset();
-        m_systems.volumetricLightFBO = Gfx().CreateFramebuffer( volW, volH, SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F );
+        volumetric.target.reset();
+        volumetric.target = Gfx().CreateFramebuffer( volW, volH, SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F );
     }
 
-    if ( !m_systems.tonemapShader )
+    if ( !tonemap.shader )
     {
         // Final full-screen pass: combines fog, bloom, god rays, volumetric light,
         // exposure, gamma, and vignette into the backbuffer image.
-        m_systems.tonemapShader = m_systems.assets.CreateShader( "shader.post_tonemap" );
+        tonemap.shader = m_systems.assets.CreateShader( "shader.post_tonemap" );
     }
-    if ( !m_systems.volumetricLightShader )
+    if ( !volumetric.shader )
     {
         // Half-resolution pass: creates the warm "shafts of light through air"
         // texture that the tonemap pass later adds over the scene.
-        m_systems.volumetricLightShader = m_systems.assets.CreateShader( "shader.post_volumetric_light" );
+        volumetric.shader = m_systems.assets.CreateShader( "shader.post_volumetric_light" );
     }
-    if ( !m_systems.skyAtmosphereShader )
+    if ( !sky.atmosphereShader )
     {
         // Procedural sky pass: draws a generated sunset/cloud backdrop instead
         // of the normal cube-map skybox when cinematic mode is enabled.
-        m_systems.skyAtmosphereShader = m_systems.assets.CreateShader( "shader.sky_atmosphere" );
+        sky.atmosphereShader = m_systems.assets.CreateShader( "shader.sky_atmosphere" );
     }
 
-    if ( m_systems.postQuadVB == 0 )
+    if ( fullscreen.quadVB == 0 )
     {
         // Post-processing shaders do not draw a 3D model. They draw one rectangle
         // that covers the whole screen, then each pixel samples textures from the
         // previous passes. Each vertex stores: screen position xy + texture uv.
         const int attribs[] = { 2, 2 };
-        m_systems.postQuadVB = Gfx().CreateDynamicVB( attribs, 2, 6 );
+        fullscreen.quadVB = Gfx().CreateDynamicVB( attribs, 2, 6 );
     }
 }
 
@@ -224,12 +231,12 @@ void SkullbonezRun::ResetCinematicRenderResources()
     enum class CinematicResetStep
     {
         ShadowResources,
-        PostQuadVB,
+        FullscreenQuad,
         SkyAtmosphereShader,
         VolumetricLightShader,
         TonemapShader,
-        VolumetricFBO,
-        SceneFBO
+        VolumetricTarget,
+        SceneTarget
     };
 
     struct CinematicResetPhase
@@ -240,14 +247,15 @@ void SkullbonezRun::ResetCinematicRenderResources()
 
     const CinematicResetPhase resetSteps[] = {
         { "shadow_resources", CinematicResetStep::ShadowResources },
-        { "post_quad_vb", CinematicResetStep::PostQuadVB },
+        { "fullscreen_quad_vb", CinematicResetStep::FullscreenQuad },
         { "sky_atmosphere_shader", CinematicResetStep::SkyAtmosphereShader },
         { "volumetric_light_shader", CinematicResetStep::VolumetricLightShader },
         { "tonemap_shader", CinematicResetStep::TonemapShader },
-        { "volumetric_fbo", CinematicResetStep::VolumetricFBO },
-        { "scene_fbo", CinematicResetStep::SceneFBO },
+        { "volumetric_target", CinematicResetStep::VolumetricTarget },
+        { "cinematic_scene_target", CinematicResetStep::SceneTarget },
     };
 
+    RunRenderPassResources& passes = m_systems.renderPasses;
     for ( const CinematicResetPhase& phase : resetSteps )
     {
         LogRenderResourceLifecycleStep( "cinematic_reset", phase.name );
@@ -256,27 +264,27 @@ void SkullbonezRun::ResetCinematicRenderResources()
         case CinematicResetStep::ShadowResources:
             ResetShadowRenderResources();
             break;
-        case CinematicResetStep::PostQuadVB:
-            if ( IsGfxReady() && m_systems.postQuadVB != 0 )
+        case CinematicResetStep::FullscreenQuad:
+            if ( IsGfxReady() && passes.fullscreen.quadVB != 0 )
             {
-                Gfx().DestroyDynamicVB( m_systems.postQuadVB );
+                Gfx().DestroyDynamicVB( passes.fullscreen.quadVB );
             }
-            m_systems.postQuadVB = 0;
+            passes.fullscreen.quadVB = 0;
             break;
         case CinematicResetStep::SkyAtmosphereShader:
-            m_systems.skyAtmosphereShader.reset();
+            passes.sky.atmosphereShader.reset();
             break;
         case CinematicResetStep::VolumetricLightShader:
-            m_systems.volumetricLightShader.reset();
+            passes.volumetricLight.shader.reset();
             break;
         case CinematicResetStep::TonemapShader:
-            m_systems.tonemapShader.reset();
+            passes.tonemap.shader.reset();
             break;
-        case CinematicResetStep::VolumetricFBO:
-            m_systems.volumetricLightFBO.reset();
+        case CinematicResetStep::VolumetricTarget:
+            passes.volumetricLight.target.reset();
             break;
-        case CinematicResetStep::SceneFBO:
-            m_systems.sceneFBO.reset();
+        case CinematicResetStep::SceneTarget:
+            passes.cinematicScene.hdrTarget.reset();
             break;
         }
     }
@@ -309,8 +317,9 @@ void SkullbonezRun::EnsureShadowRenderResources( const CinematicRenderConfig& ci
             target = Gfx().CreateFramebuffer( mapSize, mapSize );
         }
     };
-    ensureTarget( m_systems.shadowFBO );
-    ensureTarget( m_systems.objectShadowFBO );
+    ShadowPassResources& shadows = m_systems.renderPasses.shadows;
+    ensureTarget( shadows.terrainTarget );
+    ensureTarget( shadows.objectTarget );
 }
 
 
@@ -335,33 +344,34 @@ void SkullbonezRun::ResetShadowRenderResources()
     };
 
     const ShadowResetPhase resetSteps[] = {
-        { "terrain_shadow_fbo", ShadowResetStep::TerrainShadowFBO },
-        { "object_shadow_fbo", ShadowResetStep::ObjectShadowFBO },
+        { "terrain_shadow_target", ShadowResetStep::TerrainShadowFBO },
+        { "object_shadow_target", ShadowResetStep::ObjectShadowFBO },
         { "shadow_frame_payloads", ShadowResetStep::FramePayloads },
     };
 
+    ShadowPassResources& shadows = m_systems.renderPasses.shadows;
     for ( const ShadowResetPhase& phase : resetSteps )
     {
         LogRenderResourceLifecycleStep( "shadow_reset", phase.name );
         switch ( phase.step )
         {
         case ShadowResetStep::TerrainShadowFBO:
-            if ( m_systems.shadowFBO )
+            if ( shadows.terrainTarget )
             {
-                m_systems.shadowFBO->ResetResources();
+                shadows.terrainTarget->ResetResources();
             }
-            m_systems.shadowFBO.reset();
+            shadows.terrainTarget.reset();
             break;
         case ShadowResetStep::ObjectShadowFBO:
-            if ( m_systems.objectShadowFBO )
+            if ( shadows.objectTarget )
             {
-                m_systems.objectShadowFBO->ResetResources();
+                shadows.objectTarget->ResetResources();
             }
-            m_systems.objectShadowFBO.reset();
+            shadows.objectTarget.reset();
             break;
         case ShadowResetStep::FramePayloads:
-            m_systems.shadowFrame = Rendering::ShadowFrameData();
-            m_systems.objectShadowFrame = Rendering::ShadowFrameData();
+            shadows.terrainFrame = Rendering::ShadowFrameData();
+            shadows.objectFrame = Rendering::ShadowFrameData();
             break;
         }
     }
@@ -373,7 +383,8 @@ SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::BuildShadowFrameData( 
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildTerrainFrame" );
 
     Rendering::ShadowFrameData shadowFrame;
-    if ( !m_systems.terrain || !m_systems.shadowFBO )
+    const ShadowPassResources& shadows = m_systems.renderPasses.shadows;
+    if ( !m_systems.terrain || !shadows.terrainTarget )
     {
         return shadowFrame;
     }
@@ -410,12 +421,12 @@ SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::BuildShadowFrameData( 
     shadowFrame.lightProjection = Matrix4::OrthoZeroToOne( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane );
     shadowFrame.lightViewProjection = shadowFrame.lightProjection * shadowFrame.lightView;
     shadowFrame.lightDirectionWorld = lightDir;
-    shadowFrame.depthTextureHandle = m_systems.shadowFBO->GetDepthTextureHandle();
+    shadowFrame.depthTextureHandle = shadows.terrainTarget->GetDepthTextureHandle();
 
     // Everything below is copied into shader uniforms by ApplyShadowReceiverUniforms.
     // Keeping the values in one payload makes balls, boxes, terrain, and any
     // future backend consume the same shadow decision for the frame.
-    shadowFrame.mapSize = m_systems.shadowFBO->GetWidth();
+    shadowFrame.mapSize = shadows.terrainTarget->GetWidth();
     shadowFrame.pcfRadius = std::clamp( cinematic.shadowPcfRadius, 0, 3 );
     shadowFrame.strength = std::clamp( cinematic.shadowStrength, 0.0f, 1.0f );
     shadowFrame.depthBias = (std::max)( cinematic.shadowDepthBias, 0.0f );
@@ -435,7 +446,8 @@ SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::BuildObjectShadowFrame
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/BuildObjectFrame" );
 
     Rendering::ShadowFrameData shadowFrame;
-    if ( !m_systems.objectShadowFBO || !cinematic.shadowObjectsCast || !cinematic.shadowObjectsReceive )
+    ShadowPassResources& shadows = m_systems.renderPasses.shadows;
+    if ( !shadows.objectTarget || !cinematic.shadowObjectsCast || !cinematic.shadowObjectsReceive )
     {
         return shadowFrame;
     }
@@ -460,8 +472,8 @@ SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::BuildObjectShadowFrame
     shadowFrame.lightProjection = Matrix4::OrthoZeroToOne( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane );
     shadowFrame.lightViewProjection = shadowFrame.lightProjection * shadowFrame.lightView;
     shadowFrame.lightDirectionWorld = lightDir;
-    shadowFrame.depthTextureHandle = m_systems.objectShadowFBO->GetDepthTextureHandle();
-    shadowFrame.mapSize = m_systems.objectShadowFBO->GetWidth();
+    shadowFrame.depthTextureHandle = shadows.objectTarget->GetDepthTextureHandle();
+    shadowFrame.mapSize = shadows.objectTarget->GetWidth();
     shadowFrame.pcfRadius = std::clamp( cinematic.shadowPcfRadius, 0, 3 );
     shadowFrame.strength = std::clamp( cinematic.shadowStrength, 0.0f, 1.0f );
     shadowFrame.depthBias = (std::max)( cinematic.shadowDepthBias, 0.0f );
@@ -544,8 +556,9 @@ void SkullbonezRun::RenderShadowMap( Rendering::IFramebuffer& target, const Rend
 
 SkullbonezRun::ShadowPassOutput SkullbonezRun::RenderShadowPass( const ShadowPassInputs& inputs )
 {
-    m_systems.shadowFrame = Rendering::ShadowFrameData();
-    m_systems.objectShadowFrame = Rendering::ShadowFrameData();
+    ShadowPassResources& shadows = m_systems.renderPasses.shadows;
+    shadows.terrainFrame = Rendering::ShadowFrameData();
+    shadows.objectFrame = Rendering::ShadowFrameData();
     if ( inputs.cinematic )
     {
         // Build shadow maps before any receiver pass. Terrain receives the broad
@@ -555,22 +568,22 @@ SkullbonezRun::ShadowPassOutput SkullbonezRun::RenderShadowPass( const ShadowPas
         PROFILE_GPU_BEGIN( "Frame/Shadows/ShadowMap" );
         Vector3 lightDirection( inputs.frame.lightPosition[0], inputs.frame.lightPosition[1], inputs.frame.lightPosition[2] );
         EnsureShadowRenderResources( *inputs.cinematic );
-        m_systems.shadowFrame = BuildShadowFrameData( *inputs.cinematic, lightDirection );
-        if ( m_systems.shadowFBO )
+        shadows.terrainFrame = BuildShadowFrameData( *inputs.cinematic, lightDirection );
+        if ( shadows.terrainTarget )
         {
-            RenderShadowMap( *m_systems.shadowFBO, m_systems.shadowFrame, *inputs.cinematic, true, true );
+            RenderShadowMap( *shadows.terrainTarget, shadows.terrainFrame, *inputs.cinematic, true, true );
         }
-        m_systems.objectShadowFrame = BuildObjectShadowFrameData( *inputs.cinematic, lightDirection, inputs.frame.eye );
-        if ( m_systems.objectShadowFBO )
+        shadows.objectFrame = BuildObjectShadowFrameData( *inputs.cinematic, lightDirection, inputs.frame.eye );
+        if ( shadows.objectTarget )
         {
-            RenderShadowMap( *m_systems.objectShadowFBO, m_systems.objectShadowFrame, *inputs.cinematic, false, true );
+            RenderShadowMap( *shadows.objectTarget, shadows.objectFrame, *inputs.cinematic, false, true );
         }
         PROFILE_GPU_END( "Frame/Shadows/ShadowMap" );
     }
 
     ShadowPassOutput output;
-    output.terrainShadow = m_systems.shadowFrame.valid ? &m_systems.shadowFrame : nullptr;
-    output.objectShadow = m_systems.objectShadowFrame.valid ? &m_systems.objectShadowFrame : output.terrainShadow;
+    output.terrainShadow = shadows.terrainFrame.valid ? &shadows.terrainFrame : nullptr;
+    output.objectShadow = shadows.objectFrame.valid ? &shadows.objectFrame : output.terrainShadow;
     return output;
 }
 
@@ -578,7 +591,9 @@ SkullbonezRun::ShadowPassOutput SkullbonezRun::RenderShadowPass( const ShadowPas
 void SkullbonezRun::RenderCinematicSky( const Matrix4& view, const Matrix4& projection )
 {
     const CinematicRenderConfig& cinematic = ActiveCinematicConfig();
-    if ( !cinematic.skyAtmosphereEnabled || !m_systems.skyAtmosphereShader || m_systems.postQuadVB == 0 )
+    SkyPassResources& sky = m_systems.renderPasses.sky;
+    FullscreenPassResources& fullscreen = m_systems.renderPasses.fullscreen;
+    if ( !cinematic.skyAtmosphereEnabled || !sky.atmosphereShader || fullscreen.quadVB == 0 )
     {
         return;
     }
@@ -591,23 +606,23 @@ void SkullbonezRun::RenderCinematicSky( const Matrix4& view, const Matrix4& proj
     Gfx().SetDepthWrite( false );
     Gfx().SetBlend( false );
 
-    m_systems.skyAtmosphereShader->Use();
-    m_systems.skyAtmosphereShader->SetVec4( "uSunParams",
-                                            cinematic.sunScreenX,
-                                            cinematic.sunScreenY,
-                                            cinematic.sunIntensity,
-                                            cinematic.skyGlowStrength );
-    m_systems.skyAtmosphereShader->SetVec3( "uSunColor", cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
-    m_systems.skyAtmosphereShader->SetVec3( "uHorizonColor", cinematic.skyHorizonR, cinematic.skyHorizonG, cinematic.skyHorizonB );
-    m_systems.skyAtmosphereShader->SetVec3( "uZenithColor", cinematic.skyZenithR, cinematic.skyZenithG, cinematic.skyZenithB );
-    m_systems.skyAtmosphereShader->SetMat4( "uInvView", view.Inverse() );
-    m_systems.skyAtmosphereShader->SetMat4( "uInvProjection", projection.Inverse() );
-    m_systems.skyAtmosphereShader->SetInt( "uSkyMode", cinematic.skyMode );
-    m_systems.skyAtmosphereShader->SetVec4( "uCloudParams",
-                                            cinematic.cloudCoverage,
-                                            cinematic.cloudSoftness,
-                                            cinematic.cloudScale,
-                                            cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
+    sky.atmosphereShader->Use();
+    sky.atmosphereShader->SetVec4( "uSunParams",
+                                   cinematic.sunScreenX,
+                                   cinematic.sunScreenY,
+                                   cinematic.sunIntensity,
+                                   cinematic.skyGlowStrength );
+    sky.atmosphereShader->SetVec3( "uSunColor", cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
+    sky.atmosphereShader->SetVec3( "uHorizonColor", cinematic.skyHorizonR, cinematic.skyHorizonG, cinematic.skyHorizonB );
+    sky.atmosphereShader->SetVec3( "uZenithColor", cinematic.skyZenithR, cinematic.skyZenithG, cinematic.skyZenithB );
+    sky.atmosphereShader->SetMat4( "uInvView", view.Inverse() );
+    sky.atmosphereShader->SetMat4( "uInvProjection", projection.Inverse() );
+    sky.atmosphereShader->SetInt( "uSkyMode", cinematic.skyMode );
+    sky.atmosphereShader->SetVec4( "uCloudParams",
+                                   cinematic.cloudCoverage,
+                                   cinematic.cloudSoftness,
+                                   cinematic.cloudScale,
+                                   cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
 
     // Two triangles make a screen-sized rectangle. The first two numbers are
     // clip-space position (-1..1), and the second two are the UV used by the
@@ -638,7 +653,7 @@ void SkullbonezRun::RenderCinematicSky( const Matrix4& view, const Matrix4& proj
         0.0f,
         1.0f,
     };
-    Gfx().UploadAndDrawDynamicVB( m_systems.postQuadVB, verts, 6 );
+    Gfx().UploadAndDrawDynamicVB( fullscreen.quadVB, verts, 6 );
 
     Gfx().SetDepthTest( depthWasEnabled );
     Gfx().SetDepthWrite( depthWasEnabled );
@@ -669,8 +684,9 @@ void SkullbonezRun::BeginCinematicScenePass( const RenderFrameContext& frame )
     // From this point onward, draw the world into the HDR scene texture instead
     // of directly into the window. The post pass later moves it to the
     // backbuffer with the cinematic effects applied.
-    m_systems.sceneFBO->Bind();
-    Gfx().SetViewport( 0, 0, m_systems.sceneFBO->GetWidth(), m_systems.sceneFBO->GetHeight() );
+    CinematicScenePassResources& scene = m_systems.renderPasses.cinematicScene;
+    scene.hdrTarget->Bind();
+    Gfx().SetViewport( 0, 0, scene.hdrTarget->GetWidth(), scene.hdrTarget->GetHeight() );
     Gfx().Clear( true, true );
 
     PROFILE_GPU_BEGIN( "Frame/Render/CinematicSky" );
@@ -745,8 +761,9 @@ SkullbonezRun::ReflectionPassOutput SkullbonezRun::RenderReflectionPass( const R
     else
     {
         // Off-screen mirror-camera path for planar reflections.
-        m_systems.reflectionFBO->Bind();
-        Gfx().SetViewport( 0, 0, m_systems.reflectionFBO->GetWidth(), m_systems.reflectionFBO->GetHeight() );
+        ReflectionPassResources& reflectionResources = m_systems.renderPasses.reflection;
+        reflectionResources.target->Bind();
+        Gfx().SetViewport( 0, 0, reflectionResources.target->GetWidth(), reflectionResources.target->GetHeight() );
         Gfx().Clear( true, true );
 
         // Skybox reflected (XZ follows eye; Y anchored at Cfg().skyboxRenderHeight).
@@ -782,9 +799,9 @@ SkullbonezRun::ReflectionPassOutput SkullbonezRun::RenderReflectionPass( const R
         m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
         PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
 
-        m_systems.reflectionFBO->Unbind();
+        reflectionResources.target->Unbind();
         Gfx().SetViewport( 0, 0, m_systems.window->m_sWindowDimensions.x, m_systems.window->m_sWindowDimensions.y );
-        output.reflectionTextureHandle = m_systems.reflectionFBO->GetColorTextureHandle();
+        output.reflectionTextureHandle = reflectionResources.target->GetColorTextureHandle();
         output.reflectionSampleViewProjection = inputs.frame.reflectionViewProjection;
     }
     PROFILE_GPU_END( "Frame/Render/Reflection" );
@@ -882,11 +899,14 @@ void SkullbonezRun::RenderDebugOverlayPass( const DebugOverlayPassInputs& inputs
 bool SkullbonezRun::RenderCinematicVolumetricLight()
 {
     const CinematicRenderConfig& cinematic = ActiveCinematicConfig();
+    CinematicScenePassResources& scene = m_systems.renderPasses.cinematicScene;
+    VolumetricLightPassResources& volumetric = m_systems.renderPasses.volumetricLight;
+    FullscreenPassResources& fullscreen = m_systems.renderPasses.fullscreen;
     if ( !cinematic.volumetricLightingEnabled ||
-         !m_systems.sceneFBO ||
-         !m_systems.volumetricLightFBO ||
-         !m_systems.volumetricLightShader ||
-         m_systems.postQuadVB == 0 )
+         !scene.hdrTarget ||
+         !volumetric.target ||
+         !volumetric.shader ||
+         fullscreen.quadVB == 0 )
     {
         return false;
     }
@@ -894,9 +914,9 @@ bool SkullbonezRun::RenderCinematicVolumetricLight()
     // We first unbind the full-size scene target, then bind the small light
     // target. This pass reads the finished scene/depth textures and writes a
     // separate soft orange light texture.
-    m_systems.sceneFBO->Unbind();
-    m_systems.volumetricLightFBO->Bind();
-    Gfx().SetViewport( 0, 0, m_systems.volumetricLightFBO->GetWidth(), m_systems.volumetricLightFBO->GetHeight() );
+    scene.hdrTarget->Unbind();
+    volumetric.target->Bind();
+    Gfx().SetViewport( 0, 0, volumetric.target->GetWidth(), volumetric.target->GetHeight() );
 
     // This is another screen-space effect, so depth testing and blending are
     // disabled while the full-screen quad is generated.
@@ -906,31 +926,31 @@ bool SkullbonezRun::RenderCinematicVolumetricLight()
     Gfx().SetDepthWrite( false );
     Gfx().SetBlend( false );
 
-    m_systems.volumetricLightShader->Use();
-    m_systems.volumetricLightShader->SetInt( "uSceneTex", 0 );
-    m_systems.volumetricLightShader->SetInt( "uDepthTex", 1 );
-    m_systems.volumetricLightShader->SetVec4( "uDepthParams", Cfg().frustumNear, Cfg().frustumFar, 0.0f, 0.0f );
-    m_systems.volumetricLightShader->SetVec4( "uSunShaftParams",
-                                              cinematic.sunScreenX,
-                                              cinematic.sunScreenY,
-                                              cinematic.godRaysEnabled ? cinematic.sunShaftStrength : 0.0f,
-                                              cinematic.sunShaftFalloff );
-    m_systems.volumetricLightShader->SetVec3( "uSunColor", cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
-    m_systems.volumetricLightShader->SetVec4( "uVolumetricParams",
-                                              cinematic.volumetricStrength,
-                                              cinematic.volumetricDensity,
-                                              cinematic.volumetricDecay,
-                                              cinematic.fogDensity );
-    m_systems.volumetricLightShader->SetVec4( "uCloudParams",
-                                              cinematic.cloudCoverage,
-                                              cinematic.cloudSoftness,
-                                              cinematic.cloudScale,
-                                              cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
+    volumetric.shader->Use();
+    volumetric.shader->SetInt( "uSceneTex", 0 );
+    volumetric.shader->SetInt( "uDepthTex", 1 );
+    volumetric.shader->SetVec4( "uDepthParams", Cfg().frustumNear, Cfg().frustumFar, 0.0f, 0.0f );
+    volumetric.shader->SetVec4( "uSunShaftParams",
+                                cinematic.sunScreenX,
+                                cinematic.sunScreenY,
+                                cinematic.godRaysEnabled ? cinematic.sunShaftStrength : 0.0f,
+                                cinematic.sunShaftFalloff );
+    volumetric.shader->SetVec3( "uSunColor", cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
+    volumetric.shader->SetVec4( "uVolumetricParams",
+                                cinematic.volumetricStrength,
+                                cinematic.volumetricDensity,
+                                cinematic.volumetricDecay,
+                                cinematic.fogDensity );
+    volumetric.shader->SetVec4( "uCloudParams",
+                                cinematic.cloudCoverage,
+                                cinematic.cloudSoftness,
+                                cinematic.cloudScale,
+                                cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
     // Texture slot 0: rendered color. Slot 1: rendered depth. The shader uses
     // depth to tell sky pixels from solid geometry so rays pass through sky and
     // fade when they cross hills/balls.
-    Gfx().BindTexture( m_systems.sceneFBO->GetColorTextureHandle(), 0 );
-    Gfx().BindTexture( m_systems.sceneFBO->GetDepthTextureHandle(), 1 );
+    Gfx().BindTexture( scene.hdrTarget->GetColorTextureHandle(), 0 );
+    Gfx().BindTexture( scene.hdrTarget->GetDepthTextureHandle(), 1 );
 
     // Same full-screen rectangle pattern as the sky and tonemap passes.
     const float verts[] = {
@@ -959,12 +979,12 @@ bool SkullbonezRun::RenderCinematicVolumetricLight()
         0.0f,
         1.0f,
     };
-    Gfx().UploadAndDrawDynamicVB( m_systems.postQuadVB, verts, 6 );
+    Gfx().UploadAndDrawDynamicVB( fullscreen.quadVB, verts, 6 );
 
     Gfx().SetDepthTest( depthWasEnabled );
     Gfx().SetDepthWrite( depthWasEnabled );
     Gfx().SetBlend( blendWasEnabled );
-    m_systems.volumetricLightFBO->Unbind();
+    volumetric.target->Unbind();
     Gfx().SetViewport( 0, 0, Gfx().GetWidth(), Gfx().GetHeight() );
     return true;
 }
@@ -972,14 +992,18 @@ bool SkullbonezRun::RenderCinematicVolumetricLight()
 
 void SkullbonezRun::ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound, bool volumetricReady )
 {
-    if ( !m_systems.sceneFBO || !m_systems.tonemapShader || m_systems.postQuadVB == 0 )
+    CinematicScenePassResources& scene = m_systems.renderPasses.cinematicScene;
+    VolumetricLightPassResources& volumetric = m_systems.renderPasses.volumetricLight;
+    TonemapPassResources& tonemap = m_systems.renderPasses.tonemap;
+    FullscreenPassResources& fullscreen = m_systems.renderPasses.fullscreen;
+    if ( !scene.hdrTarget || !tonemap.shader || fullscreen.quadVB == 0 )
     {
         return;
     }
 
     if ( !sceneAlreadyUnbound )
     {
-        m_systems.sceneFBO->Unbind();
+        scene.hdrTarget->Unbind();
     }
     Gfx().SetViewport( 0, 0, Gfx().GetWidth(), Gfx().GetHeight() );
 
@@ -992,48 +1016,48 @@ void SkullbonezRun::ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound,
     // "Resolve" means "turn our off-screen cinematic render target into the
     // final image on the window." This is where the HDR scene becomes normal
     // display color and where bloom/fog/rays are layered in.
-    m_systems.tonemapShader->Use();
-    m_systems.tonemapShader->SetInt( "uSceneTex", 0 );
-    m_systems.tonemapShader->SetInt( "uDepthTex", 1 );
-    m_systems.tonemapShader->SetInt( "uVolumetricTex", 2 );
+    tonemap.shader->Use();
+    tonemap.shader->SetInt( "uSceneTex", 0 );
+    tonemap.shader->SetInt( "uDepthTex", 1 );
+    tonemap.shader->SetInt( "uVolumetricTex", 2 );
     const CinematicRenderConfig& cinematic = ActiveCinematicConfig();
-    m_systems.tonemapShader->SetFloat( "uExposure", cinematic.exposure );
-    m_systems.tonemapShader->SetFloat( "uGamma", cinematic.gamma );
-    m_systems.tonemapShader->SetVec4( "uDepthParams", Cfg().frustumNear, Cfg().frustumFar, 0.0f, 0.0f );
-    m_systems.tonemapShader->SetVec4( "uFogParams",
-                                      cinematic.fogStart,
-                                      cinematic.fogEnd,
-                                      cinematic.fogEnabled ? cinematic.fogDensity : 0.0f,
-                                      cinematic.fogEnabled ? cinematic.fogMaxOpacity : 0.0f );
-    m_systems.tonemapShader->SetVec3( "uFogColor", cinematic.fogColorR, cinematic.fogColorG, cinematic.fogColorB );
-    m_systems.tonemapShader->SetVec4( "uSunShaftParams",
-                                      cinematic.sunScreenX,
-                                      cinematic.sunScreenY,
-                                      cinematic.godRaysEnabled ? cinematic.sunShaftStrength : 0.0f,
-                                      cinematic.sunShaftFalloff );
-    m_systems.tonemapShader->SetVec3( "uSunColor", cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
-    m_systems.tonemapShader->SetVec4( "uBloomParams",
-                                      cinematic.bloomThreshold,
-                                      cinematic.bloomKnee,
-                                      cinematic.bloomEnabled ? cinematic.bloomStrength : 0.0f,
-                                      cinematic.bloomRadius );
-    m_systems.tonemapShader->SetVec4( "uCloudParams",
-                                      cinematic.cloudCoverage,
-                                      cinematic.cloudSoftness,
-                                      cinematic.cloudScale,
-                                      cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
-    m_systems.tonemapShader->SetVec4( "uStyleGrade",
-                                      cinematic.styleSaturation,
-                                      cinematic.styleContrast,
-                                      cinematic.styleVignette,
-                                      static_cast<float>( cinematic.skyMode ) );
-    m_systems.tonemapShader->SetFloat( "uVolumetricCompositeStrength", volumetricReady && cinematic.volumetricLightingEnabled ? 1.0f : 0.0f );
+    tonemap.shader->SetFloat( "uExposure", cinematic.exposure );
+    tonemap.shader->SetFloat( "uGamma", cinematic.gamma );
+    tonemap.shader->SetVec4( "uDepthParams", Cfg().frustumNear, Cfg().frustumFar, 0.0f, 0.0f );
+    tonemap.shader->SetVec4( "uFogParams",
+                             cinematic.fogStart,
+                             cinematic.fogEnd,
+                             cinematic.fogEnabled ? cinematic.fogDensity : 0.0f,
+                             cinematic.fogEnabled ? cinematic.fogMaxOpacity : 0.0f );
+    tonemap.shader->SetVec3( "uFogColor", cinematic.fogColorR, cinematic.fogColorG, cinematic.fogColorB );
+    tonemap.shader->SetVec4( "uSunShaftParams",
+                             cinematic.sunScreenX,
+                             cinematic.sunScreenY,
+                             cinematic.godRaysEnabled ? cinematic.sunShaftStrength : 0.0f,
+                             cinematic.sunShaftFalloff );
+    tonemap.shader->SetVec3( "uSunColor", cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
+    tonemap.shader->SetVec4( "uBloomParams",
+                             cinematic.bloomThreshold,
+                             cinematic.bloomKnee,
+                             cinematic.bloomEnabled ? cinematic.bloomStrength : 0.0f,
+                             cinematic.bloomRadius );
+    tonemap.shader->SetVec4( "uCloudParams",
+                             cinematic.cloudCoverage,
+                             cinematic.cloudSoftness,
+                             cinematic.cloudScale,
+                             cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
+    tonemap.shader->SetVec4( "uStyleGrade",
+                             cinematic.styleSaturation,
+                             cinematic.styleContrast,
+                             cinematic.styleVignette,
+                             static_cast<float>( cinematic.skyMode ) );
+    tonemap.shader->SetFloat( "uVolumetricCompositeStrength", volumetricReady && cinematic.volumetricLightingEnabled ? 1.0f : 0.0f );
     // Slot 0 is the bright HDR scene, slot 1 is its depth buffer, and slot 2 is
     // either the volumetric-light texture or a harmless fallback when that pass
     // is disabled.
-    Gfx().BindTexture( m_systems.sceneFBO->GetColorTextureHandle(), 0 );
-    Gfx().BindTexture( m_systems.sceneFBO->GetDepthTextureHandle(), 1 );
-    Gfx().BindTexture( volumetricReady && m_systems.volumetricLightFBO ? m_systems.volumetricLightFBO->GetColorTextureHandle() : m_systems.sceneFBO->GetColorTextureHandle(), 2 );
+    Gfx().BindTexture( scene.hdrTarget->GetColorTextureHandle(), 0 );
+    Gfx().BindTexture( scene.hdrTarget->GetDepthTextureHandle(), 1 );
+    Gfx().BindTexture( volumetricReady && volumetric.target ? volumetric.target->GetColorTextureHandle() : scene.hdrTarget->GetColorTextureHandle(), 2 );
 
     // Draw one rectangle over the backbuffer. The fragment shader runs once per
     // window pixel and decides the final visible color.
@@ -1063,7 +1087,7 @@ void SkullbonezRun::ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound,
         0.0f,
         1.0f,
     };
-    Gfx().UploadAndDrawDynamicVB( m_systems.postQuadVB, verts, 6 );
+    Gfx().UploadAndDrawDynamicVB( fullscreen.quadVB, verts, 6 );
 
     Gfx().SetDepthTest( depthWasEnabled );
     Gfx().SetDepthWrite( depthWasEnabled );
@@ -1113,7 +1137,7 @@ void SkullbonezRun::DrawPrimitives()
     {
         EnsureCinematicRenderResources();
     }
-    const bool useCinematicTarget = cinematicRender && m_systems.sceneFBO != nullptr;
+    const bool useCinematicTarget = cinematicRender && m_systems.renderPasses.cinematicScene.hdrTarget != nullptr;
     if ( cinematicRender && !useCinematicTarget )
     {
         // If the cinematic target could not be created, fall back to the normal
