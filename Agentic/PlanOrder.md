@@ -15,17 +15,17 @@ Retirement policy: keep DX12 screenshot/debug-layer/WARP/GBV/PIX diagnostics as 
 1. [`dx12-only-renderer-retirement-plan.md`](Plans/dx12-only-renderer-retirement-plan.md)
    - Complete on branch: `codex/dx12-only-renderer-retirement`. Use as the retirement history and validation reference.
 
-2. [`dx12-only-engine-architecture-plan.md`](Plans/dx12-only-engine-architecture-plan.md)
-   - Use as the umbrella architecture direction. Do not implement it as one rewrite; let it guide the smaller render/shader/resource slices below.
+2. [`dx12-only-engine-architecture-plan.md`](Plans/Done/dx12-only-engine-architecture-plan.md)
+   - Use as the umbrella architecture direction. The implementation now lives in smaller render/shader/resource slices rather than one rewrite.
 
 3. [`render-resource-lifetime-plan.md`](Plans/render-resource-lifetime-plan.md)
    - Follow immediately because resize, framebuffer, shader, mesh, descriptor, and eventual device-loss lifetimes are pressure points for DX12-only visual/runtime weirdness. Keep source-vs-GPU separation because it also preserves a future Vulkan/Metal path.
 
 4. [`shader-architecture-cleanup-plan.md`](Plans/shader-architecture-cleanup-plan.md)
-   - Draft PR #69 implements the first cleanup slice: shader inputs, texture slots, uniform names, pass contracts, and the CPU `RenderMaterial` bridge. Treat HLSL/DXC reflection as canonical, while keeping metadata portable enough for later SPIR-V/MSL mapping.
+   - Merged through PR #69/#72: shader inputs, texture slots, uniform names, pass contracts, and the CPU `RenderMaterial` bridge. Treat HLSL/DXC reflection as canonical, while keeping metadata portable enough for later SPIR-V/MSL mapping.
 
 5. [`dx12-descriptor-upload-root-signature-plan.md`](Plans/dx12-descriptor-upload-root-signature-plan.md)
-   - Draft PR #70 documents the current ordinary raster binding ABI and descriptor/upload lifetime constraints. Do not expand root signatures opportunistically; use this plan again only when a concrete material table, descriptor, or upload lifetime issue appears.
+   - Merged through PR #70/#72: current ordinary raster binding ABI and descriptor/upload lifetime constraints. Do not expand root signatures opportunistically; use this plan again only when a concrete material table, descriptor, or upload lifetime issue appears.
 
 6. [`water-rendering-cleanup-plan.md`](Plans/water-rendering-cleanup-plan.md)
    - Defer code-heavy work until after the DX12-only validation gate. Water cleanup should no longer expand GL/DX11 paths.
@@ -50,9 +50,8 @@ Retirement policy: keep DX12 screenshot/debug-layer/WARP/GBV/PIX diagnostics as 
 
 ## Immediate Recommendation
 
-Review the stacked shader, binding ABI, and architecture-cleanup work first.
-After that stack is ready, the next concrete render slice should usually come
-from `water-rendering-cleanup-plan.md`. Choose
+After `codex/engine-cleanup`, the next concrete render slice should usually
+come from `water-rendering-cleanup-plan.md`. Choose
 `material-system-v1-implementation-plan.md` only if the orchestrator explicitly
 wants material payload/root-signature expansion next. Keep changes small and
 validate renderer work with `tools\validate_dx12_renderer.bat`; use

@@ -6,10 +6,10 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 
 | Field | Value |
 |-------|-------|
-| Branch | `codex/dx12-only-engine-architecture-cleanup` in worktree `C:\SkullbonezCore` |
-| Last committed milestone | DX12 descriptor/upload/root-signature cleanup is open as draft PR #70 on top of shader architecture cleanup draft PR #69. |
-| Pending work | DX12-only architecture cleanup is open as draft PR #71 on top of the descriptor/upload/root-signature cleanup. The requested three-item stack is now represented by draft PRs #69, #70, and #71. |
-| Uncommitted changes | Queue/report updates may be present during orchestration; do not revert unrelated edits and check `git status` before continuing. |
+| Branch | `codex/engine-cleanup` in worktree `C:\SkullbonezCore` |
+| Last committed milestone | Shader architecture, DX12 binding ABI, and DX12-only architecture cleanup landed on `main` through PRs #69 and #72. |
+| Pending work | `codex/engine-cleanup` is preparing a follow-up PR with comment pass fixes, shader/resource reflection checks, PSO cache diagnostics, and small run/pass cleanup. |
+| Uncommitted changes | Check `git status` before continuing; docs and validation artifacts may still be in progress until the PR is opened. |
 
 ## Active Notes
 
@@ -28,9 +28,9 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 | DX12-only renderer retirement | Done | Retired GL/DX11 backends and shader families, added DX12-only validation, archived final parity evidence, simplified active render contracts, named DX12 diagnostic resources, and added the future backend portability contract. |
 | Render resource lifetime | Done | Phases 1-6 implemented: current-lifetime reference, named lifecycle phases, reflection FBO resize split, shader source-record bridge, reusable release hook table, and DX12 device-lost diagnostics/recovery prep. |
 | Render pipeline extraction | Done | `SkullbonezRunRender.cpp` now owns frame orchestration only, while `SkullbonezRunPasses.cpp` and `SkullbonezRunUiTextPass.cpp` own named pass resource creation, release, and render bodies directly. The old central cinematic shader factory/private pass hook layer has been removed. `tools\validate_full.bat` passed with DX12 validation errors 0, matching screenshot baselines, and byte-exact physics CSVs. |
-| Shader architecture cleanup | PR open | Draft PR #69 adds a runtime high-risk shader contract table, Debug-only DX12 shader contract diagnostics, object/fullscreen binder helpers, and a CPU `RenderMaterial` bridge that preserves current tint/mode shader packing. `tools\validate_dx12_renderer.bat` passed with DX12 validation errors 0; `tools\validate_shaders.bat` also passed after the Debug C4244 fix. |
-| DX12 descriptor/upload/root-signature cleanup | PR open | Draft PR #70 names and documents the ordinary raster ABI (`b0`, `t0..t3`, samplers `s0`, `s1`, `s3`), tightens descriptor allocator diagnostics, confirms fence-aligned transient descriptor/upload resets, and keeps `BindTexture(handle, slot)` compatibility. `tools\validate_dx12_renderer.bat` passed with DX12 validation errors 0. |
-| DX12-only engine architecture cleanup | PR open | Draft PR #71 performs documentation-only reconciliation of the done umbrella plan, historical architecture report, plan order, and session handoff with the shader contract and binding ABI stack outcomes. No validation required because it is docs-only. |
+| Shader architecture cleanup | Done | PR #69/#72 landed a runtime high-risk shader contract table, Debug-only DX12 shader contract diagnostics, object/fullscreen binder helpers, and a CPU `RenderMaterial` bridge that preserves current tint/mode shader packing. |
+| DX12 descriptor/upload/root-signature cleanup | Done | PR #70/#72 landed the ordinary raster ABI docs/code (`b0`, `t0..t3`, samplers `s0`, `s1`, `s3`), descriptor allocator diagnostics, fence-aligned transient descriptor/upload resets, and `BindTexture(handle, slot)` compatibility. |
+| DX12-only engine architecture cleanup | Active follow-up | `codex/engine-cleanup` adds the requested comment pass, root-signature-aware PSO keys, PSO cache-miss events, Debug texture resource slot reflection, and run/pass accessor cleanup. Final PR validation should use `tools\validate_full.bat` because `SkullbonezRun*` and renderer files changed. |
 | Catto physics solver finalisation | Recent | Object/object response now belongs to persistent Catto rows with pipeline visualizer and SkullScope `pipeline` query support. User-approved physics CSV and SkullScope query baselines were updated; `tools\validate_full.bat` passed. |
 | Bullet sweep regression | Recent | Wall/object/terrain high-speed sweep scenes and Debug collision-time CSV baselines are wired into `tools\validate_physics.bat`. |
 | Terrain shared row pipeline | Done | Implemented and documented in `Agentic/Plans/Done/physics-terrain-shared-row-pipeline-plan.md`. |

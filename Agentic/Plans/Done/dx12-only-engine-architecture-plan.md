@@ -2,9 +2,9 @@
 
 Status: done, historical architecture direction
 Created: 2026-06-11
-Last reconciled: 2026-06-15 after shader contract and DX12 binding ABI cleanup
+Last reconciled: 2026-06-15 after engine cleanup implementation pass
 Scope: render architecture, DX12 device layer, render graph, materials, resources, diagnostics
-Implementation status: implemented through smaller roadmap slices; this document is no longer a direct work queue
+Implementation status: implemented through smaller roadmap slices; use this document as architecture direction and status, not as one rewrite queue
 
 ## Current Stack Reconciliation
 
@@ -20,6 +20,34 @@ CBV `b0`, SRV texture slots `t0..t3`, and static samplers `s0`, `s1`, and `s3`.
 Treat the global material table, descriptor indexing, and expanded root-shape
 sections below as future gates. They should be revisited only when a scoped
 runtime feature needs them, not as cleanup work.
+
+### 2026-06-15 Engine Cleanup Pass
+
+The `codex/engine-cleanup` pass implemented the parts of this umbrella plan
+that were still sensible at the current abstraction boundary:
+
+- Comment/style debt from the shader architecture stack was addressed for the
+  new material and shader-contract headers.
+- Graphics PSO cache keys now include root signature identity, so future
+  specialized root signatures cannot reuse a pipeline compiled against a
+  different binding contract.
+- DX12 PSO cache misses now emit `dx12_pso_cache_miss` diagnostics with the
+  root signature, shader bytecode pointers, render-state toggles, and render
+  target format.
+- Debug shader contract reflection now validates required texture resources,
+  reflected resource kinds, and `tN` slot numbers against the contract table.
+- Render-pass cleanup added `SkullbonezRun` accessors for texture handles,
+  texture selection, and window dimensions, then centralized fullscreen t0..t3
+  texture-slot binding.
+
+Still not ready in this pass:
+
+- GPU material tables and descriptor indexing remain future work until a scoped
+  material feature needs the extra payload.
+- Graph-owned live barriers remain future work; the current graph skeleton and
+  live barrier comparison are diagnostic scaffolding only.
+- Broad pass callback migration, mesh-system extraction, async compute, WARP/GBV
+  script expansion, and DXR quality work should stay separate roadmap slices.
 
 ## Goal
 
@@ -361,6 +389,11 @@ Rules:
 - Shader reflection must fail loudly if shader resource bindings do not match the root contract.
 - Do not use root descriptors for anything with complicated lifetime.
 
+Current status: the ordinary raster root signature is documented as `b0` plus
+`t0..t3`; graphics PSO keys include the active root signature pointer; Debug
+shader contract diagnostics validate required uniform reflection and required
+texture resource kind/slot reflection.
+
 ### 6. Shader System
 
 DX12-first means HLSL should become the canonical shader source for production. Do not preserve duplicated GLSL/HLSL authoring as a long-term requirement.
@@ -436,6 +469,11 @@ The PSO cache should:
 - optionally serialize pipeline libraries later.
 
 No pass should hand-build a PSO ad hoc. Passes request a known PSO through a descriptor.
+
+Current status: DX12 graphics PSOs are still created lazily by the backend, are
+named for PIX/debug output, include root signature identity in the cache key, and
+emit `dx12_pso_cache_miss` events. Validation preload and serialized pipeline
+libraries remain future optimization work.
 
 ### 8. Render Graph
 
@@ -928,6 +966,12 @@ Tasks:
 3. Move pass binders to typed CBV uploads.
 4. Keep compatibility wrappers only for old helper paths.
 
+Current status: this phase is partially implemented. Pass binders exist for the
+high-risk object/fullscreen paths, and Debug reflection now validates required
+uniforms plus texture resource kind/slot declarations. Typed constant structs
+and typed CBV uploads remain future work because the current shader setter
+compatibility wrappers still serve old helper paths.
+
 Validation:
 
 - shader contract checks,
@@ -958,6 +1002,11 @@ Tasks:
 2. Move helper-owned mesh caches into mesh system.
 3. Move water/terrain/post resources into their passes.
 4. Remove pass target ownership from `SkullbonezRun`.
+
+Current status: named pass classes own the visible pass contracts and much of
+the lazy shader/target lifecycle, but `SkullbonezRun` still owns the aggregate
+system storage. This pass only reduced pass-layer subsystem indirection; moving
+ownership further should be a dedicated resource-ownership slice.
 
 Validation:
 
@@ -1046,10 +1095,11 @@ A successful DX12-only architecture has:
 - No routine GPU stalls for upload, readback, descriptor reset, or timer queries.
 
 Current stack status: shader contracts, HLSL inventory cleanup, the CPU
-`RenderMaterial` bridge, and the documented `b0`/`t0..t3` ordinary raster ABI
-are already in the stacked PR path. GPU material tables, descriptor indexing,
-graph-owned live barriers, and broad pass callback migration remain future
-features.
+`RenderMaterial` bridge, the documented `b0`/`t0..t3` ordinary raster ABI,
+root-signature-aware graphics PSO keys, PSO cache-miss diagnostics, and Debug
+texture resource slot reflection are implemented. GPU material tables,
+descriptor indexing, graph-owned live barriers, typed CBV uploads, and broad
+pass callback migration remain future features.
 
 ## Final Recommendation
 
