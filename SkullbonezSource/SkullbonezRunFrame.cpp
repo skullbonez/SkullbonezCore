@@ -103,10 +103,10 @@ void SkullbonezRun::Run()
             Render();
             PROFILE_END( "Frame/Render" );
 
-            if ( !m_scene.isSceneMode || m_scene.isSceneText || m_debug.overlayMode != OverlayMode::None || m_UI.IsVisible() )
+            if ( m_uiTextPass.ShouldRender() )
             {
                 PROFILE_BEGIN( "Frame/UI" );
-                DrawWindowText( secondsPerFrame );
+                m_uiTextPass.Render( secondsPerFrame );
                 PROFILE_END( "Frame/UI" );
             }
 
