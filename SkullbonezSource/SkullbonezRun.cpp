@@ -66,29 +66,107 @@ SkullbonezRun::~SkullbonezRun()
     // and leaves the DX12 command list open). Flush immediately after so subsequent resource
     // releases don't trigger "ID3D12Resource deleted before command list close" validation
     // errors — resources must not be freed while any open command list could reference them.
-    m_cWorldEnvironment.ResetRenderResources();
-    if ( IsGfxReady() )
+    enum class ShutdownResourceStep
     {
-        Gfx().FlushGPU();
-    }
+        WorldEnvironment,
+        HelperResources,
+        GameModelResources,
+        CollisionVisualizer,
+        UIResources,
+        CinematicResources,
+        ReflectionFBO,
+        ProfilerQueries,
+        TextFont,
+        TextureCollection,
+        CameraCollection,
+        SkyBox
+    };
 
-    SkullbonezHelper::ResetRenderResources();
-    m_cGameModelCollection.ResetRenderResources();
-    m_collisionVisualizer.ResetResources();
-    m_UI.ResetResources();
-    ResetCinematicRenderResources();
-    if ( m_systems.reflectionFBO )
+    struct ShutdownResourcePhase
     {
-        m_systems.reflectionFBO->ResetResources();
-    }
+        const char* name;
+        ShutdownResourceStep step;
+        bool flushAfter;
+    };
+
+    const ShutdownResourcePhase shutdownSteps[] = {
+        { "world_environment", ShutdownResourceStep::WorldEnvironment, true },
+        { "helper_resources", ShutdownResourceStep::HelperResources, false },
+        { "game_model_resources", ShutdownResourceStep::GameModelResources, false },
+        { "collision_visualizer", ShutdownResourceStep::CollisionVisualizer, false },
+        { "ui_resources", ShutdownResourceStep::UIResources, false },
+        { "cinematic_resources", ShutdownResourceStep::CinematicResources, false },
+        { "reflection_fbo", ShutdownResourceStep::ReflectionFBO, false },
+        { "profiler_queries", ShutdownResourceStep::ProfilerQueries, false },
+        { "text_font", ShutdownResourceStep::TextFont, false },
+        { "texture_collection", ShutdownResourceStep::TextureCollection, false },
+        { "camera_collection", ShutdownResourceStep::CameraCollection, false },
+        { "skybox_singleton", ShutdownResourceStep::SkyBox, false },
+    };
+
+    for ( const ShutdownResourcePhase& phase : shutdownSteps )
+    {
+        LogRenderResourceLifecycleStep( "shutdown_release", phase.name );
+        switch ( phase.step )
+        {
+        case ShutdownResourceStep::WorldEnvironment:
+            m_cWorldEnvironment.ResetRenderResources();
+            break;
+        case ShutdownResourceStep::HelperResources:
+            SkullbonezHelper::ResetRenderResources();
+            break;
+        case ShutdownResourceStep::GameModelResources:
+            m_cGameModelCollection.ResetRenderResources();
+            break;
+        case ShutdownResourceStep::CollisionVisualizer:
+            m_collisionVisualizer.ResetResources();
+            break;
+        case ShutdownResourceStep::UIResources:
+            m_UI.ResetResources();
+            break;
+        case ShutdownResourceStep::CinematicResources:
+            ResetCinematicRenderResources();
+            break;
+        case ShutdownResourceStep::ReflectionFBO:
+            if ( m_systems.reflectionFBO )
+            {
+                m_systems.reflectionFBO->ResetResources();
+            }
+            break;
+        case ShutdownResourceStep::ProfilerQueries:
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
-    Profiler::Instance().InvalidateGpuQueries();
+            Profiler::Instance().InvalidateGpuQueries();
 #endif
-    Text2d::DeleteFont();
+            break;
+        case ShutdownResourceStep::TextFont:
+            Text2d::DeleteFont();
+            break;
+        case ShutdownResourceStep::TextureCollection:
+            if ( m_systems.textures )
+            {
+                m_systems.textures->Destroy();
+            }
+            break;
+        case ShutdownResourceStep::CameraCollection:
+            if ( m_systems.cameras )
+            {
+                m_systems.cameras->Destroy();
+            }
+            break;
+        case ShutdownResourceStep::SkyBox:
+            if ( m_systems.skyBox )
+            {
+                m_systems.skyBox->Destroy();
+            }
+            break;
+        }
 
-    m_systems.textures->Destroy();
-    m_systems.cameras->Destroy();
-    m_systems.skyBox->Destroy();
+        if ( phase.flushAfter && IsGfxReady() )
+        {
+            LogRenderResourceLifecycleStep( "shutdown_release", "flush_after_world_environment" );
+            Gfx().FlushGPU();
+        }
+    }
 }
 
 
@@ -149,6 +227,22 @@ void SkullbonezRun::DumpTextureAssets( FILE* out ) const
     {
         m_systems.textures->DumpTextureAssets( out );
     }
+}
+
+
+void SkullbonezRun::LogRenderResourceLifecycleStep( const char* phase, const char* step ) const
+{
+    const bool gfxReady = IsGfxReady();
+    const int backendWidth = gfxReady ? Gfx().GetWidth() : 0;
+    const int backendHeight = gfxReady ? Gfx().GetHeight() : 0;
+    Log().WriteEventf( "render_resource_lifecycle phase=%s step=%s gfx_ready=%d backend_width=%d backend_height=%d scene_index=%d load=%d",
+                       phase ? phase : "unknown",
+                       step ? step : "unknown",
+                       gfxReady ? 1 : 0,
+                       backendWidth,
+                       backendHeight,
+                       m_scene.currentSceneIndex,
+                       m_scene.loadCount );
 }
 
 

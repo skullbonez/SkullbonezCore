@@ -401,6 +401,7 @@ class SkullbonezRun
     bool RenderCinematicVolumetricLight();                                                                                                             // Renders depth-aware low-resolution light shafts into the volumetric buffer
     void ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound, bool volumetricReady );                                                          // Tonemaps HDR scene target to the backbuffer
     void RebuildRegisteredRenderResources();                                                                                                           // Recreates renderer resources from source asset records
+    void LogRenderResourceLifecycleStep( const char* phase, const char* step ) const;                                                                  // Writes a named resource-lifetime phase to the debug event log
     void SetViewingOrientation();                                                                                                                      // Renders camera views etc
     void DrawWindowText( const double dSecondsPerFrame );                                                                                              // Renders text to the window
     void SaveScreenshot( const char* path );                                                                                                           // Saves current backbuffer to a BMP file
