@@ -1,4 +1,4 @@
-# UI water combo capture: bottom-left water combo opened over the renderer row.
+# UI water combo capture: bottom-left water combo opened beside the fixed DX12 renderer row.
 seed 4242
 physics off
 text off
@@ -6,7 +6,7 @@ vsync off
 water_hidden on
 terrain_hidden on
 frames 24
-ui tab renderer
+ui tab options
 ui rect 34 56 760 540
 ui blur on
 ui renderer_combo closed

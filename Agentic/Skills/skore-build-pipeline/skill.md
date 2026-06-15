@@ -18,7 +18,7 @@ is truly unsure, run the full pipeline.
 |--------|---------|
 | Documentation only | No validation required |
 | Small non-render code refactor | `tools\validate_fast.bat` |
-| Renderer backend, shaders, screenshots, visual baselines | `tools\validate_renderers.bat` |
+| Renderer backend, shaders, screenshots, visual baselines | `tools\validate_dx12_renderer.bat` |
 | Physics, collision, solver, determinism | `tools\validate_physics.bat` |
 | Hot path, allocation-sensitive, performance work | `tools\validate_perf.bat` |
 | Broad or uncertain scope | `tools\validate_full.bat` |

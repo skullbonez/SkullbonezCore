@@ -9,7 +9,8 @@ Mental model:
   when that state changes.
 
 Glossary:
-  GL (OpenGL): Legacy parity renderer path.
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
   BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
@@ -42,7 +43,8 @@ struct CinematicRenderConfig;
 
 /* -- Skullbonez Helper ------------------------------------------------------------------------------------------------------------------------------------------
 
-    Static helper for shared primitive render resources and initial GL state setup.
+    Static helper for shared primitive render resources, especially instanced
+    sphere/box/pine batches used by normal rendering and shadow passes.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class SkullbonezHelper
 {
@@ -73,7 +75,7 @@ class SkullbonezHelper
     static void BuildPineMesh();                                  // Generate unit low-poly pine tier mesh
 
   public:
-    static void StateSetup();                                                                                                                                                                                                                                                                                        // Assists in setting up initial open gl state
+    static void StateSetup();                                                                                                                                                                                                                                                                                        // Extension point for helper-level setup after renderer init
     static void SetClipPlane( float x, float y, float z, float w );                                                                                                                                                                                                                                                  // Set sphere shader clip plane (default (0,1,0,1e9) = always pass)
     static void DrawSphereBatchBegin( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], bool isTransparent = false, const CinematicRenderConfig* cinematic = nullptr, const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f ); // Set up instanced shader uniforms and begin collecting instances
     static void DrawSphereBatchModel( const Math::Transformation::Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f );                                                                                                                                          // Append model matrix and tint/override to instance buffer

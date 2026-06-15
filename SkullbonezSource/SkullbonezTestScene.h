@@ -11,8 +11,8 @@ Mental model:
 Glossary:
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
-  FBO (Framebuffer Object): OpenGL-style off-screen render target concept used
-  by parity and reflection code.
+  FBO (Framebuffer Object): Engine shorthand for an off-screen render target
+  exposed through the renderer abstraction.
   CSV (Comma-Separated Values): Text table format used for byte-exact physics
   regression output.
   Validation gate: Repository script that proves a class of changes before

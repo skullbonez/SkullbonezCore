@@ -127,7 +127,7 @@ Use a 1D/2D texture to store material params.
 
 Pros:
 
-- Portable to GL 3.3, DX11, DX12.
+- Portable enough for future backend concepts because material rows stay data-oriented.
 - Instance only carries material row/index.
 - Avoids structured buffers.
 
@@ -150,7 +150,7 @@ Pros:
 
 Cons:
 
-- GL 3.3 compatibility is awkward.
+- Future backend compatibility is awkward.
 - Requires more backend abstraction.
 - More resource binding changes.
 
@@ -168,7 +168,7 @@ Pros:
 Cons:
 
 - Big architecture jump.
-- Not aligned with GL 3.3.
+- Not aligned with the current compact DX12 material path.
 - Requires broader renderer abstraction changes.
 
 Do not do for v1/v2.
@@ -280,7 +280,7 @@ Internally, DX12 can map it to new descriptor model.
 
 ### Gate 4: Update Shaders
 
-Update HLSL register bindings and GLSL sampler conventions together.
+Update HLSL register bindings and shader contract metadata together.
 
 ### Gate 5: Validate Aggressively
 
@@ -299,7 +299,7 @@ Tasks:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 
 ### Phase 2: Make Transient Descriptor Reset Explicit
 
@@ -311,7 +311,7 @@ Tasks:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 - Verify `dx12_validation.txt` is zero.
 
 ### Phase 3: Batch Descriptor Tables
@@ -324,7 +324,7 @@ Tasks:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 
 ### Phase 4: Root Signature Expansion If Needed
 
@@ -337,7 +337,7 @@ Tasks:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 - Verify `dx12_validation.txt` is zero.
 - Run DX12-heavy scene three consecutive times if resource barriers/uploads are touched.
 
@@ -352,7 +352,7 @@ Tasks:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 - `tools\validate_perf.bat`.
 
 ## Validation Matrix
@@ -360,11 +360,11 @@ Validation:
 | Change | Validation |
 |--------|------------|
 | Plan/docs only | No validation required |
-| DX12 debug counters | `tools\validate_renderers.bat` |
-| Descriptor allocator behavior | `tools\validate_renderers.bat`, DX12 log zero |
-| Upload allocation behavior | `tools\validate_renderers.bat`, DX12 log zero, perf if hot |
-| Root signature change | `tools\validate_renderers.bat`, DX12 log zero |
-| Material texture/table | `tools\validate_renderers.bat` plus `tools\validate_perf.bat` |
+| DX12 debug counters | `tools\validate_dx12_renderer.bat` |
+| Descriptor allocator behavior | `tools\validate_dx12_renderer.bat`, DX12 log zero |
+| Upload allocation behavior | `tools\validate_dx12_renderer.bat`, DX12 log zero, perf if hot |
+| Root signature change | `tools\validate_dx12_renderer.bat`, DX12 log zero |
+| Material texture/table | `tools\validate_dx12_renderer.bat` plus `tools\validate_perf.bat` |
 
 ## Risks
 

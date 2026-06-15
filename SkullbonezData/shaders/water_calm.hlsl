@@ -27,7 +27,7 @@ Related:
 // =============================================================================
 //
 // PURPOSE: Render the INNER water zone as a perfectly flat mirror surface.
-// HLSL equivalent of water_calm.vert + water_calm.frag.
+// This is the canonical DX12 calm-water shader.
 //
 // --- Why a Separate Calm Shader? ---
 //

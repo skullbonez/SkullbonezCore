@@ -1,21 +1,20 @@
 /*
 File: SkullbonezSource/SkullbonezIRenderBackend.h
 Purpose:
-  Declares the renderer abstraction shared by GL, DX11, and DX12 backends.
+  Declares the engine-facing render device contract implemented by DX12.
 
 Mental model:
-  Renderer-facing code translates engine concepts into backend resources, draw
-  calls, shader bindings, and validation artifacts.
+  Renderer-facing code asks for engine concepts such as textures, shaders,
+  framebuffers, draw calls, captures, and diagnostics. The DX12 backend maps
+  those requests to descriptors, resources, command lists, and fences.
 
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
-  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
-  engine migrates to DX12.
-  OpenGL: Legacy parity renderer used as a reference path for visual output.
-  GL (OpenGL): Legacy parity renderer path.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
+  Render device: Engine-facing object that owns the active GPU backend and its
+  resources.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
@@ -59,21 +58,18 @@ struct RenderCapabilities
     bool supportsGpuTimers = false;
     bool supportsDxrReflection = false;
     bool supportsDebugLines = false;
-    bool supportsDynamicVertexBuffers = true;
-    bool supportsInstancedMeshes = true;
 };
 
 
 /* -- IRenderBackend ---------------------------------------------------------------------------------------------------------------------------------------------
 
-    Abstract render backend interface. Owns GPU state and resource creation.
-    Concrete implementations: RenderBackendGL (OpenGL 3.3), RenderBackendDX11 (DirectX 11),
-    and RenderBackendDX12 (DirectX 12).
-    One global instance is set during init and accessed via Gfx().
+    Engine-facing render device interface. It owns GPU state and resource creation
+    for the active DX12 backend. One global instance is set during init and
+    accessed via Gfx().
 
-    Backend parity depends on these calls having the same visible behavior across
-    GL/DX11/DX12 even when the underlying API state model differs.  State queries
-    below report the engine's tracked state, not slow readbacks from the graphics API.
+    Keep this surface in engine terms. DX12 concepts such as descriptor handles,
+    root parameters, command allocator fences, and D3D12 barrier structs belong
+    in RenderBackendDX12 and its helper subsystems, not in callers.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class IRenderBackend
 {
@@ -161,9 +157,8 @@ class IRenderBackend
     virtual bool IsBlendEnabled() const = 0;
 
 
-    // --- Depth Range Convention ---
-
-    virtual bool UsesZeroToOneDepth() const = 0; // true for DX11/DX12 [0,1]; false for GL [-1,1]
+    // Runtime identity and optional feature flags. DX12 is the only renderer,
+    // but the UI and diagnostics still consume this compact description.
     virtual const char* GetRendererName() const = 0;
     virtual RenderCapabilities GetCapabilities() const = 0;
 
@@ -184,7 +179,6 @@ class IRenderBackend
 
     // --- DXR Raytracing Support ---
 
-    virtual bool IsDXRSupported() const = 0;
     virtual void InitDXR( uint64_t terrainVBVA, int terrainVertCount, int terrainStride, uint64_t sphereVBVA, int sphereVertCount, int sphereStride, int maxInstances ) = 0;
     virtual void DispatchReflectionRays( const float* invViewProj, const float* cameraPos, float waterY, float time, const float* lightPos, int width, int height, uint32_t sphereTexHandle, uint32_t terrainTexHandle, uint32_t skyUpHandle, uint32_t skyDownHandle, uint32_t skyRightHandle, uint32_t skyLeftHandle, uint32_t skyFrontHandle, uint32_t skyBackHandle ) = 0;
     virtual void BuildTLAS( const float* instanceTransforms, int instanceCount, uint64_t terrainBLAS, uint64_t sphereBLAS ) = 0;
@@ -194,12 +188,8 @@ class IRenderBackend
     virtual int GetInstancedMeshStaticStride( uint32_t handle ) const = 0;
 
 
-    // --- GPU Timers (profiler overlay — DX11 and DX12) ---
+    // --- GPU Timers (profiler overlay) ---
 
-    virtual bool SupportsGpuTimers() const
-    {
-        return false;
-    }
     virtual void GpuTimerBegin( int markerIdx )
     {
         (void)markerIdx;
@@ -245,19 +235,6 @@ class IRenderBackend
 
 
     // --- Debug Line Rendering ---
-    // Draws world-space line segments. verts is a flat array of vec3 pairs (2 × vec3 per line).
-    // vertCount is the total number of vertices (2 × number of lines).
-    // No-op on backends that do not support it.
-    virtual void DrawLines( const float* verts, int vertCount, float r, float g, float b, const float* viewProjMatrix16 )
-    {
-        (void)verts;
-        (void)vertCount;
-        (void)r;
-        (void)g;
-        (void)b;
-        (void)viewProjMatrix16;
-    }
-
     // Draws per-vertex colored line segments. data is interleaved [x,y,z,r,g,b] per vertex.
     // vertCount is the total number of vertices (2 per line segment).
     virtual void DrawLinesColored( const float* data, int vertCount, const float* viewProjMatrix16 )

@@ -10,7 +10,7 @@ Implementation status: plan only, no code changes in this pass
 The shader architecture is not hopeless, but it is carrying several layers of history at once:
 
 - The old fixed-function migration left a useful but minimal `IShader` abstraction.
-- The tri-renderer work created parallel GL, DX11, and DX12 shader paths that are functional but manually synchronized. DX12 is now the official production path; GL and DX11 should be treated as legacy parity/reference paths while they exist.
+- The retired tri-renderer work left useful lessons about contracts, but active shader work is now HLSL/DXC-first for DX12.
 - The cinematic renderer added HDR, sky, fog, bloom, volumetric light, terrain relief, and water style controls into the same shader family.
 - The 20 concept-look work added style files and object material names, but the runtime still reduces object material data to tint RGB plus one overloaded float mode.
 
@@ -22,7 +22,7 @@ Recommended strategy:
 2. Keep shader count low and make the existing shader families data-driven.
 3. Add a compact `RenderMaterial`/`MaterialParams` layer for objects.
 4. Separate frame/pass/style/material data in C++ even if the backend still uploads one reflected cbuffer per shader at first.
-5. Make HLSL/DXC reflection the canonical shader contract for production, while keeping current GLSL/HLSL drift visible until old parity backends are retired.
+5. Make HLSL/DXC reflection the canonical shader contract for production.
 6. Defer heavy backend/root-signature changes until the material v1 shape is proven.
 7. Keep shader metadata portable enough that a future Vulkan or Metal backend can map engine contracts to SPIR-V/MSL without changing scene or material authoring.
 
@@ -35,15 +35,11 @@ The render API is centered on `IRenderBackend` and a global `Gfx()` accessor. Th
 Relevant anchors:
 
 - `SkullbonezSource/SkullbonezIRenderBackend.h`
-- `SkullbonezSource/SkullbonezRenderBackendGL.cpp`
-- `SkullbonezSource/SkullbonezRenderBackendDX11.cpp`
 - `SkullbonezSource/SkullbonezRenderBackendDX12.cpp`
 - `Agentic/Plans/architecture_pass_2026-06-02.md`
 
-Shader creation is backend-specific:
+Shader creation is DX12-specific today:
 
-- GL resolves `baseName.vert` plus `baseName.frag`.
-- DX11 resolves `baseName.hlsl` and compiles `main_vs`/`main_ps`.
 - DX12 resolves `baseName.hlsl` and compiles `main_vs`/`main_ps`.
 - DXR reflection is separate through `reflect.rt.hlsl` and checked-in `reflect.rt.dxil`.
 
@@ -63,18 +59,15 @@ class IShader
 
 This is simple and useful, but it is not a contract. It does not know which uniforms are required, which texture slots are valid, which vertex layout a shader expects, or which pass owns which state.
 
-### Backend Uniform Behavior
+### Shader Upload Behavior
 
-Current upload behavior differs by backend:
+Current upload behavior is DX12-oriented:
 
-- GL caches `glGetUniformLocation` and calls `glUniform*`.
-- DX11 compiles HLSL, reflects constant-buffer variables, writes name-based offsets into one CPU-side cbuffer shadow, and uploads it on draw.
 - DX12 compiles HLSL, reflects constant-buffer variables, writes into one CPU-side cbuffer shadow, and suballocates/upload-binds it through root parameter 0.
 
 Important behavior:
 
-- Missing uniforms on DX11/DX12 are silently ignored because `Set*` returns when the reflected name is absent.
-- Missing uniforms on GL are cached as location `-1` and `glUniform*` effectively does nothing.
+- Missing uniforms on DX12 are silently ignored because `Set*` returns when the reflected name is absent.
 - That behavior keeps older call sites tolerant, but it hides stale names, typoed names, or backend-only divergence.
 
 ### DX12 Ordinary Raster Contract
@@ -158,22 +151,21 @@ These are powerful but strongly authored. Several visual rules are still hard-co
 
 | Shader | Current Role | Notes |
 |--------|--------------|-------|
-| `lit_textured.*` | Terrain and non-instanced lit textured mesh path | Carries terrain relief and terrain style logic. |
-| `lit_textured_instanced.*` | Spheres, boxes, pine visuals | Carries object material mode logic and procedural beach-ball override. |
-| `unlit_textured.*` | Skybox cube faces | Small, stable. |
-| `water_calm.*` | Basin/calm water | Uses reflection texture and style water controls. |
-| `water_ocean.*` | Ocean/wave water | Uses animated waves and reflection perturbation. |
-| `sky_atmosphere.*` | Fullscreen procedural sky | Large style-mode shader. |
-| `post_tonemap.*` | Final cinematic resolve | Large post stack: tonemap, fog, bloom, god rays, grade. |
-| `post_volumetric_light.*` | Half-res light shafts | Duplicates some cloud/noise/depth ideas with tonemap and sky. |
-| `shadow.*` | Instanced projected shadows | Small, stable. |
-| `collision_visualizer.*` | Physics/collision debug geometry | Intentionally separate from normal materials. |
-| `grid_line.*` | Colored line/grid overlay path | Used by DX11/DX12 and GL grid-line path. |
-| `debug_line.vert/.frag` | GL debug line path | GL-only asset. |
-| `text.*` | Text rendering | Stable UI/text shader. |
-| `solid_color.*` | Immediate solid 2D quad | Stable UI primitive. |
-| `solid_color_batch.*` | Batched per-vertex color UI quads | Stable UI primitive. |
-| `UIBackdropBlur.*` | UI blur texture shader | Renderer-adjacent UI path. |
+| `lit_textured.hlsl` | Terrain and non-instanced lit textured mesh path | Carries terrain relief and terrain style logic. |
+| `lit_textured_instanced.hlsl` | Spheres, boxes, pine visuals | Carries object material mode logic and procedural beach-ball override. |
+| `unlit_textured.hlsl` | Skybox cube faces | Small, stable. |
+| `water_calm.hlsl` | Basin/calm water | Uses reflection texture and style water controls. |
+| `water_ocean.hlsl` | Ocean/wave water | Uses animated waves and reflection perturbation. |
+| `sky_atmosphere.hlsl` | Fullscreen procedural sky | Large style-mode shader. |
+| `post_tonemap.hlsl` | Final cinematic resolve | Large post stack: tonemap, fog, bloom, god rays, grade. |
+| `post_volumetric_light.hlsl` | Half-res light shafts | Duplicates some cloud/noise/depth ideas with tonemap and sky. |
+| `shadow_depth.hlsl`, `shadow_depth_instanced.hlsl` | Depth-only shadow passes | Small, stable. |
+| `collision_visualizer.hlsl` | Physics/collision debug geometry | Intentionally separate from normal materials. |
+| `grid_line.hlsl` | Colored line/grid overlay path | DX12 overlay path. |
+| `text.hlsl` | Text rendering | Stable UI/text shader. |
+| `solid_color.hlsl` | Immediate solid 2D quad | Stable UI primitive. |
+| `solid_color_batch.hlsl` | Batched per-vertex color UI quads | Stable UI primitive. |
+| `UIBackdropBlur.hlsl` | UI blur texture shader | Renderer-adjacent UI path. |
 
 ### Special Or Candidate Legacy Assets
 
@@ -257,19 +249,15 @@ That is acceptable as a transitional config, but future code should distinguish:
 
 Keep backward-compatible `cinematic_*` directives, but stop adding every new visual idea directly to one giant config shape.
 
-### 4. GLSL/HLSL Drift Risk Is High
+### 4. Shader Inventory Drift Must Stay Visible
 
-The largest shaders are manually duplicated:
+The GLSL and DX11-era duplicate shader families have been removed. The active
+risk is now quieter: HLSL files, DXIL artifacts, project entries, and shader
+contract metadata can drift apart if a future pass changes only one of them.
 
-- `lit_textured.frag` and `lit_textured.hlsl`
-- `lit_textured_instanced.frag` and `lit_textured_instanced.hlsl`
-- `sky_atmosphere.frag` and `sky_atmosphere.hlsl`
-- `post_tonemap.frag` and `post_tonemap.hlsl`
-- `post_volumetric_light.frag` and `post_volumetric_light.hlsl`
-- `water_calm.frag` and `water_calm.hlsl`
-- `water_ocean.frag` and `water_ocean.hlsl`
-
-Manual duplication is acceptable only as a transition aid and parity aid. While GL/DX11 remain in tree, tooling should compare contracts and validation should catch visual drift. Long term, HLSL/DXC reflection should produce the canonical shader metadata, with any future Vulkan/Metal path generated or translated from that contract rather than maintained as a second handwritten source family.
+HLSL/DXC reflection should produce the canonical shader metadata, with any
+future Vulkan/Metal path generated or translated from that contract rather than
+maintained as a second handwritten source family.
 
 ### 5. Missing Uniforms Are Silent
 
@@ -305,7 +293,7 @@ Backend-specific assets should be documented rather than treated as accidental o
 - `reflect.rt.hlsl` and `reflect.rt.dxil` are DXR-only.
 
 Do not delete anything until `rg` confirms no source/data reference. Before
-committing PR-bound removals, run `tools\validate_renderers.bat`.
+committing PR-bound removals, run `tools\validate_dx12_renderer.bat`.
 
 ## Target Architecture
 
@@ -573,7 +561,7 @@ Acceptance:
 Validation:
 
 - Documentation-only inventory: no validation required.
-- If any shader files are removed or renamed: `tools\validate_renderers.bat`.
+- If any shader files are removed or renamed: `tools\validate_dx12_renderer.bat`.
 
 ### Phase 1: Shader Contract Diagnostics
 
@@ -590,10 +578,8 @@ Tasks:
    - required texture slot not bound before draw.
 3. Keep existing tolerant behavior by default.
 4. Add a config/debug flag for strict shader contract checks if needed.
-5. Make DX11/DX12 reflection mismatch visible:
-   - if manifest says `uFogParams` exists but reflection does not find it, log shader/renderer name.
-6. Make GL inactive uniform behavior visible:
-   - if manifest-required uniform resolves to `-1`, log shader/renderer name.
+5. Make DX12 reflection mismatch visible:
+   - if manifest says `uFogParams` exists but reflection does not find it, log shader name.
 
 Acceptance:
 
@@ -602,7 +588,7 @@ Acceptance:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 
 ### Phase 2: Pass Binder Helpers
 
@@ -632,7 +618,7 @@ Acceptance:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 - If this touches broad `SkullbonezRun*` behavior, prefer `tools\validate_full.bat`.
 
 ### Phase 3: Material System V1 CPU Model
@@ -676,7 +662,7 @@ Acceptance:
 Validation:
 
 - Parser-only plumbing: `tools\validate_fast.bat`.
-- If object rendering output changes in same slice: `tools\validate_renderers.bat`.
+- If object rendering output changes in same slice: `tools\validate_dx12_renderer.bat`.
 
 ### Phase 4: Material Instance Payload
 
@@ -690,12 +676,10 @@ Tasks:
 2. Move from `mat4 + tint4` to either:
    - `mat4 + material0 + material1`, or
    - `mat4 + material0 + material1 + material2`.
-3. Update GL instanced attribute setup.
-4. Update DX11 input layout creation for instanced mesh.
-5. Update DX12 `BuildInstancedInputLayout`.
-6. Update `lit_textured_instanced.vert` and `.hlsl` VS input structs.
-7. Keep a compatibility path for old `SetRenderTint` until call sites are migrated.
-8. Do not add material texture arrays in this phase.
+3. Update DX12 `BuildInstancedInputLayout`.
+4. Update `lit_textured_instanced.hlsl` VS input structs.
+5. Keep a compatibility path for old `SetRenderTint` until call sites are migrated.
+6. Do not add material texture arrays in this phase.
 
 Acceptance:
 
@@ -705,7 +689,7 @@ Acceptance:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 - `tools\validate_perf.bat` if instance payload growth or batch preparation shows measurable hot-path cost.
 
 ### Phase 5: Shader Generalization
@@ -738,7 +722,7 @@ Acceptance:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 - Manual visual review of representative concept scenes in GL first, then renderer validation.
 
 ### Phase 6: Shader Source Hygiene
@@ -771,7 +755,7 @@ Acceptance:
 Validation:
 
 - Changed tooling: `tools\validate_fast.bat`, then run the changed script directly.
-- Shader source changes: `tools\validate_renderers.bat`.
+- Shader source changes: `tools\validate_dx12_renderer.bat`.
 
 ### Phase 7: Render Pipeline Extraction
 
@@ -796,18 +780,18 @@ Tasks:
    - dynamic full-screen geometry if needed,
    - pass binder call,
    - pass capability checks.
-4. Tie pass resources into the existing renderer-switch reset sequence.
+4. Tie pass resources into the existing DX12 device/resource reset sequence.
 5. Do not mix this with the first material shader behavior change.
 
 Acceptance:
 
 - `DrawPrimitives()` reads as pass scheduling, not detailed shader setup.
-- Renderer hot-switch resource rebuild remains deterministic.
+- DX12 resource rebuild remains deterministic.
 
 Validation:
 
-- `tools\validate_renderers.bat`.
-- `tools\validate_full.bat` if `SkullbonezRun*`, renderer switching, scene lifecycle, or window/resource reset behavior changes broadly.
+- `tools\validate_dx12_renderer.bat`.
+- `tools\validate_full.bat` if `SkullbonezRun*`, scene lifecycle, or window/resource reset behavior changes broadly.
 
 ### Phase 8: Optional GPU Material Table
 
@@ -820,19 +804,18 @@ Do this only after v1 proves material needs.
 Possible designs:
 
 1. Small fixed material array in cbuffer:
-   - easy for DX11/DX12/GL if array size is small,
+   - simple for DX12 if array size is small,
    - instance carries material index,
    - limited by cbuffer size and packing complexity.
 2. Structured buffer/material buffer:
    - better scaling,
    - requires backend API additions,
    - requires DX12 root signature changes,
-   - GL 3.3 support is less direct.
 3. Material texture:
    - portable enough,
    - stores material rows in a 1D texture,
    - instance carries material row index,
-   - awkward but practical for GL 3.3 and DX.
+   - awkward but practical if future backends need texture-backed indirection.
 
 Recommendation:
 
@@ -841,7 +824,7 @@ Recommendation:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 - DX12 validation log must stay at zero errors.
 - `tools\validate_perf.bat` if material lookup changes hot object rendering.
 
@@ -850,7 +833,6 @@ Validation:
 ### Keep
 
 - Keep HLSL as the canonical production shader source.
-- Keep GL/HLSL parallel sources only while GL/DX11 parity/reference paths remain useful.
 - Keep `IShader` name-based setters as a compatibility layer.
 - Keep current shader families and make them data-driven.
 - Keep collision visualization separate from production materials.
@@ -879,8 +861,8 @@ Validation:
 ### Avoid
 
 - Do not add one shader per concept scene.
-- Do not let GL become the only correct path.
-- Do not delete legacy-looking shader files without source/data search and renderer validation.
+- Do not reintroduce a second handwritten shader language family without a concrete backend plan.
+- Do not delete active HLSL/DXIL shader files without source/data search and renderer validation.
 - Do not make missing uniforms fatal across the whole engine in the first slice.
 - Do not mix material model changes with DX12 descriptor/root-signature changes unless necessary.
 
@@ -908,13 +890,13 @@ These commands are targeted pre-commit/PR gates, not as-you-go validation.
 | Change Type | Required Validation |
 |-------------|---------------------|
 | This plan or shader inventory docs only | No validation required |
-| Shader manifest diagnostics only | `tools\validate_renderers.bat` |
-| Pass binder refactor with same behavior | `tools\validate_renderers.bat` |
+| Shader manifest diagnostics only | `tools\validate_dx12_renderer.bat` |
+| Pass binder refactor with same behavior | `tools\validate_dx12_renderer.bat` |
 | Scene/style parser material plumbing only | `tools\validate_fast.bat` |
-| Object shader or instance payload change | `tools\validate_renderers.bat` |
-| Terrain/water/post shader change | `tools\validate_renderers.bat` |
-| DX12 root signature, descriptors, barriers, or upload changes | `tools\validate_renderers.bat`, verify `dx12_validation.txt` is zero, and run three consecutive DX12-heavy checks if barriers/uploads are involved |
-| Renderer hot path allocation or batch payload changes | `tools\validate_renderers.bat` plus `tools\validate_perf.bat` |
+| Object shader or instance payload change | `tools\validate_dx12_renderer.bat` |
+| Terrain/water/post shader change | `tools\validate_dx12_renderer.bat` |
+| DX12 root signature, descriptors, barriers, or upload changes | `tools\validate_dx12_renderer.bat`, verify `dx12_validation.txt` is zero, and run three consecutive DX12-heavy checks if barriers/uploads are involved |
+| Renderer hot path allocation or batch payload changes | `tools\validate_dx12_renderer.bat` plus `tools\validate_perf.bat` |
 | Broad `SkullbonezRun*` render pipeline extraction | `tools\validate_full.bat` |
 | Tooling changes under `tools/*` | `tools\validate_fast.bat`, then run the changed script |
 
@@ -922,7 +904,7 @@ These commands are targeted pre-commit/PR gates, not as-you-go validation.
 
 | Risk | Why It Matters | Mitigation |
 |------|----------------|------------|
-| Legacy shader drift | GLSL/HLSL are manually duplicated while GL/DX11 remain | Add manifests, contract checker, and renderer validation before committing each shader slice; retire duplicate sources when the comparison backends are removed. |
+| Shader contract drift | HLSL, DXIL artifacts, project entries, and manifests can drift apart | Add manifests, contract checker, and DX12 renderer validation before committing each shader slice. |
 | DX12 root signature churn | Material tables can force descriptor changes | Use packed instance params for material v1. |
 | Future Vulkan/Metal lockout | DX12 details could leak into scene/material contracts | Keep pass, material, vertex-layout, and shader metadata in engine-owned terms; isolate D3D12-specific binding details in the DX12 device/shader layer. |
 | Instance payload growth | Larger per-instance uploads can hurt perf | Measure with `validate_perf` if object batches change. |
@@ -930,7 +912,7 @@ These commands are targeted pre-commit/PR gates, not as-you-go validation.
 | Style config sprawl | `CinematicRenderConfig` already carries many unrelated settings | Introduce pass/style/material bind structs without breaking existing directives. |
 | One-off concept shaders | Fast short-term, bad long-term | Keep shader count low and data-drive modes. |
 | Deleting active shader assets | Some shaders are backend-specific or indirectly loaded | Run `rg`, document backend-only assets, validate the renderer suite before committing the deletion. |
-| Renderer-switch resource bugs | Shaders/resources rebuild on backend switch | Tie new pass resources into existing reset sequence and validate hot-switch behavior. |
+| DX12 reset resource bugs | Shaders/resources rebuild after device/resource reset | Tie new pass resources into existing reset sequence and validate full lifecycle behavior. |
 
 ## Open Questions For Implementers
 
@@ -947,7 +929,7 @@ The cleanup is successful when:
 
 - A new shader pass has an explicit contract before it is used.
 - Material names in style files map to typed render materials, not magic floats.
-- Existing DX12 scenes retain their intended appearance under screenshot validation; GL/DX11 parity remains useful only while those backends stay active.
+- Existing DX12 scenes retain their intended appearance under screenshot validation.
 - Material look changes happen in data and compact shader modes, not shader file forks.
 - Missing shader inputs are visible during development.
 - The DX12 root signature is changed only for a clear resource-model reason.

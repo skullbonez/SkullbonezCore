@@ -58,11 +58,9 @@ flowchart TB
         SkullScope["SkullScope\nqueryable physics diagnostics"]
     end
 
-    subgraph Rendering["Rendering facade and backends"]
+    subgraph Rendering["Rendering facade and DX12 backend"]
         Gfx["Gfx() global backend accessor"]
         IRenderBackend["IRenderBackend"]
-        RenderBackendGL["RenderBackendGL"]
-        RenderBackendDX11["RenderBackendDX11"]
         RenderBackendDX12["RenderBackendDX12"]
         IShader["IShader"]
         IMesh["IMesh"]
@@ -112,8 +110,6 @@ flowchart TB
     App -.-> Gfx
 
     Gfx --> IRenderBackend
-    RenderBackendGL -. implements .-> IRenderBackend
-    RenderBackendDX11 -. implements .-> IRenderBackend
     RenderBackendDX12 -. implements .-> IRenderBackend
     IRenderBackend -. creates .-> IShader
     IRenderBackend -. creates .-> IMesh
@@ -157,7 +153,7 @@ flowchart TB
 ## Runtime Harness
 
 `SkullbonezRun` is the orchestration class. It owns the long-lived runtime
-state, loads scenes, switches renderers, runs physics ticks, renders frames,
+state, loads scenes, initializes DX12, runs physics ticks, renders frames,
 drives the UI, captures screenshots, and coordinates validation/test modes.
 
 ```mermaid
@@ -168,7 +164,6 @@ class SkullbonezRun {
   +Initialise()
   +RunSceneLoadOnly()
   +Run()
-  +SwitchRenderer(target)
 }
 
 class RunPerfLogState
@@ -224,11 +219,12 @@ SkullbonezRun *-- CollisionVisualizer
 SkullbonezRun *-- PhysicsDebugVisualizer
 ```
 
-## Rendering Interfaces And Backend Families
+## Rendering Interfaces And Backend Family
 
-`IRenderBackend` is the engine-facing renderer facade. GL and DX11 remain legacy
-parity/reference implementations. DX12 is the production renderer and now owns
-the clearest architectural boundary.
+`IRenderBackend` is the engine-facing renderer facade. DX12 is now the only
+runtime implementation. The interface still carries some broad, backend-shaped
+names because Phase 7 of the retirement plan will decide what becomes a clean
+future backend contract and what should move behind DX12-owned subsystem types.
 
 ```mermaid
 classDiagram
@@ -246,50 +242,28 @@ class IRenderBackend {
   +CaptureBackbuffer(outWidth, outHeight)
 }
 
-class RenderBackendGL
-class RenderBackendDX11
 class RenderBackendDX12
 class IShader {
   <<interface>>
 }
-class ShaderGL
-class ShaderDX11
 class ShaderDX12
 class IMesh {
   <<interface>>
 }
-class MeshGL
-class MeshDX11
 class MeshDX12
 class IFramebuffer {
   <<interface>>
 }
-class FramebufferGL
-class FramebufferDX11
 class FramebufferDX12
 
-IRenderBackend <|-- RenderBackendGL
-IRenderBackend <|-- RenderBackendDX11
 IRenderBackend <|-- RenderBackendDX12
 
-IShader <|-- ShaderGL
-IShader <|-- ShaderDX11
 IShader <|-- ShaderDX12
 
-IMesh <|-- MeshGL
-IMesh <|-- MeshDX11
 IMesh <|-- MeshDX12
 
-IFramebuffer <|-- FramebufferGL
-IFramebuffer <|-- FramebufferDX11
 IFramebuffer <|-- FramebufferDX12
 
-RenderBackendGL ..> ShaderGL
-RenderBackendGL ..> MeshGL
-RenderBackendGL ..> FramebufferGL
-RenderBackendDX11 ..> ShaderDX11
-RenderBackendDX11 ..> MeshDX11
-RenderBackendDX11 ..> FramebufferDX11
 RenderBackendDX12 ..> ShaderDX12
 RenderBackendDX12 ..> MeshDX12
 RenderBackendDX12 ..> FramebufferDX12
@@ -654,7 +628,6 @@ subsystem rather than by dependency edge.
 - `RunFireState`
 - `RunUIStressState`
 - `SceneRuntimeResetSnapshot`
-- `RuntimeRendererType`
 - `GeneratedObjectTypeOverride`
 - `OverlayMode`
 - `SkullbonezWindow`
@@ -675,7 +648,7 @@ subsystem rather than by dependency edge.
 - `SkullbonezHelper`
 - `ResponseInformation`
 
-### Rendering Interfaces And Cross-Backend Types
+### Rendering Interfaces And Render Types
 
 - `IRenderBackend`
 - `RenderCapabilities`
@@ -686,33 +659,6 @@ subsystem rather than by dependency edge.
 - `FramebufferColorFormat`
 - `ShadowFrameData`
 - Global backend functions: `Gfx()`, `IsGfxReady()`, `SetGfxBackend()`, `DestroyGfxBackend()`
-
-### OpenGL Backend
-
-- `RenderBackendGL`
-- `ShaderGL`
-- `MeshGL`
-- `FramebufferGL`
-- `DynamicVBGL`
-- `InstancedMesh`
-- `GLStateTracking`
-
-### DirectX 11 Backend
-
-- `RenderBackendDX11`
-- `ShaderDX11`
-- `MeshDX11`
-- `FramebufferDX11`
-- `TextureEntryDX`
-- `DynamicVBDX`
-- `InstancedMeshDX`
-- `DrawStateTrackingDX11`
-- `RenderTargetCacheDX11`
-- `CaptureReadbackStateDX11`
-- `BlendKeyDX11`
-- `BlendKeyHashDX11`
-- `GpuTimerStateDX11`
-- `VertexFormatDX`
 
 ### DirectX 12 Backend And DXR
 
@@ -888,8 +834,8 @@ subsystem rather than by dependency edge.
 - `CollisionShape` is a `std::variant<BoundingSphere, BoundingBox>`, not a base
   class hierarchy.
 - `TextureCollection` and `SkyBox` are singleton-style classes.
-- `Gfx()` hides the active backend behind `IRenderBackend`; `SkullbonezRun`
-  selects GL, DX11, or DX12 at runtime.
+- `Gfx()` hides the active DX12 implementation behind `IRenderBackend`; runtime
+  renderer switching has been retired.
 - `RenderBackendDX12` is split across multiple `.cpp` files but remains one
   class in `SkullbonezRenderBackendDX12.h`.
 - `RenderGraph` is currently diagnostic scaffolding. Live rendering still

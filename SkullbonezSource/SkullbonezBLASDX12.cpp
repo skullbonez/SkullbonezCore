@@ -50,6 +50,7 @@ Related:
 //  allows the same geometry (BLAS) to appear multiple times at different positions (instances).
 //
 #include "SkullbonezBLASDX12.h"
+#include "SkullbonezRenderDeviceDX12.h"
 #include <stdexcept>
 
 
@@ -130,6 +131,7 @@ void BLAS::Build( ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, D3
     {
         throw std::runtime_error( "BLAS: Failed to create scratch buffer" );
     }
+    NameDx12Object( m_scratch, preferFastTrace ? L"Skullbonez DX12 Terrain BLAS Scratch Buffer" : L"Skullbonez DX12 Mesh BLAS Scratch Buffer" );
 
     // The result buffer is the BLAS itself. Unlike scratch memory, it must stay
     // alive for as long as rays can hit this mesh.
@@ -145,6 +147,7 @@ void BLAS::Build( ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, D3
     {
         throw std::runtime_error( "BLAS: Failed to create result buffer" );
     }
+    NameDx12Object( m_result, preferFastTrace ? L"Skullbonez DX12 Terrain BLAS Result Buffer" : L"Skullbonez DX12 Mesh BLAS Result Buffer" );
 
     // Build command: connect the immutable build inputs with the temporary
     // scratch buffer and the persistent result buffer.

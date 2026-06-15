@@ -35,7 +35,7 @@ namespace Text
 /* -- Text 2d ----------------------------------------------------------------------------------------------------------------------------------------------------
 
     Provides a series of static methods to draw 2D text to the screen using a shader-based
-    font atlas. Replaces the legacy wglUseFontOutlines / display list approach.
+    font atlas. Replaces the old display-list font approach.
 
     Coordinate space matches the legacy system: x/y positions are in the frustum-unit space
     at the near clip plane (FOV=45 degrees, aspect=screen_x/screen_y from engine.cfg).

@@ -11,10 +11,8 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
-  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
-  engine migrates to DX12.
-  OpenGL: Legacy parity renderer used as a reference path for visual output.
-  GL (OpenGL): Legacy parity renderer path.
+  DX11/OpenGL: Retired runtime renderer choices. The parser names them only to
+  explain why old command lines are rejected.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
   SDF (Signed Distance Field): Texture representation used for crisp scalable
@@ -33,8 +31,6 @@ Related:
 #include "SkullbonezInput.h"
 #include "SkullbonezTimer.h"
 #include "SkullbonezIRenderBackend.h"
-#include "SkullbonezRenderBackendGL.h"
-#include "SkullbonezRenderBackendDX11.h"
 #include "SkullbonezRenderBackendDX12.h"
 #include "SkullbonezPlatformProfiler.h"
 #include <cerrno>
@@ -529,18 +525,10 @@ bool HandleGenAtlas( const CommandLineView& commandLine, int& outExitCode )
 // Command-line parsing
 // ---------------------------------------------------------------------------
 
-enum class RendererType
-{
-    OpenGL,
-    DX11,
-    DX12
-};
-
 struct RendererOption
 {
     const char* name;
     const char* alias;
-    RendererType type;
 };
 
 struct ParsedArgs
@@ -550,8 +538,6 @@ struct ParsedArgs
     // omitted flags producing these exact policies.
     std::vector<std::string> sceneList;
     bool isSuiteOrSceneMode = false;
-    RendererType renderer = RendererType::OpenGL;
-    float switchInterval = -1.0f;
     float timeScaleOverride = 0.0f; // 0 = not set
     bool fixedStep = false;
     unsigned int seedOverride = 0; // 0 = not set
@@ -1103,24 +1089,21 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
     return true;
 }
 
-bool ParseRendererArg( const CommandLineView& commandLine, RendererType& out )
+bool ParseRendererArg( const CommandLineView& commandLine )
 {
     static const RendererOption kRenderers[] = {
-        { "gl", "opengl", RendererType::OpenGL },
-        { "dx11", "d3d11", RendererType::DX11 },
-        { "dx12", "d3d12", RendererType::DX12 },
+        { "dx12", "d3d12" },
     };
 
     const char* rendererArg = FindOptionValue( commandLine, "--renderer" );
     if ( !rendererArg )
     {
-        out = RendererType::OpenGL;
         return true;
     }
 
     if ( IsOptionValueMissing( rendererArg ) )
     {
-        return FailCommandLineParse( "--renderer expects gl|dx11|dx12." );
+        return FailCommandLineParse( "--renderer expects dx12. GL and DX11 are retired runtime choices." );
     }
 
     for ( const RendererOption& renderer : kRenderers )
@@ -1128,12 +1111,11 @@ bool ParseRendererArg( const CommandLineView& commandLine, RendererType& out )
         if ( _stricmp( rendererArg, renderer.name ) == 0 ||
              ( renderer.alias && _stricmp( rendererArg, renderer.alias ) == 0 ) )
         {
-            out = renderer.type;
             return true;
         }
     }
 
-    return FailCommandLineParse( "--renderer expects gl|dx11|dx12." );
+    return FailCommandLineParse( "--renderer expects dx12. GL and DX11 are retired runtime choices." );
 }
 
 // Applies --vsync on|off to the already-loaded Cfg() singleton.
@@ -1179,13 +1161,9 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
     static const CliValueDirective kValues[] = {
         { "--switch-interval", nullptr, []( const char* value, ParsedArgs& args ) -> bool
           {
-              float interval = 0.0f;
-              if ( !ParseFloatToken( value, interval ) || interval <= 0.0f )
-              {
-                  return FailCommandLineParse( "--switch-interval expects a positive float." );
-              }
-              args.switchInterval = interval;
-              return true;
+              static_cast<void>( value );
+              static_cast<void>( args );
+              return FailCommandLineParse( "--switch-interval is retired because DX12 is the only runtime renderer." );
           } },
         { "--time-scale", nullptr, []( const char* value, ParsedArgs& args ) -> bool
           {
@@ -1252,7 +1230,6 @@ bool ApplyStartupCliValueDirectives( const CommandLineView& commandLine, ParsedA
           } },
     };
 
-    out.switchInterval = -1.0f;
     return ApplyCliValueDirectives( commandLine, out, kValues );
 }
 
@@ -1489,7 +1466,7 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
     {
         return false;
     }
-    if ( !ParseRendererArg( commandLine, out.renderer ) )
+    if ( !ParseRendererArg( commandLine ) )
     {
         return false;
     }
@@ -1622,44 +1599,23 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
 // Render backend
 // ---------------------------------------------------------------------------
 
-void InitRenderBackend( RendererType renderer, SkullbonezWindow* window )
+void InitRenderBackend( SkullbonezWindow* window )
 {
-    if ( renderer == RendererType::OpenGL )
-    {
-        // Init OpenGL (single context for entire lifetime)
-        window->InitialiseOpenGL();
-        auto backend = std::make_unique<RenderBackendGL>();
-        backend->Init( window->m_sWindow, window->m_sDevice, window->m_sWindowDimensions.x, window->m_sWindowDimensions.y );
-        SetGfxBackend( std::move( backend ) );
-    }
-    else if ( renderer == RendererType::DX12 )
-    {
-        auto backend = std::make_unique<RenderBackendDX12>();
-        backend->Init( window->m_sWindow, window->m_sDevice, window->m_sWindowDimensions.x, window->m_sWindowDimensions.y );
-        SetGfxBackend( std::move( backend ) );
-    }
-    else
-    {
-        auto backend = std::make_unique<RenderBackendDX11>();
-        backend->Init( window->m_sWindow, window->m_sDevice, window->m_sWindowDimensions.x, window->m_sWindowDimensions.y );
-        SetGfxBackend( std::move( backend ) );
-    }
+    auto backend = std::make_unique<RenderBackendDX12>();
+    backend->Init( window->m_sWindow, window->m_sDevice, window->m_sWindowDimensions.x, window->m_sWindowDimensions.y );
+    SetGfxBackend( std::move( backend ) );
 }
 
 // ---------------------------------------------------------------------------
 // Main run
-// SkullbonezRun is scoped here so its destructor fires BEFORE the GL context
-// is deleted — this ensures any OpenGL cleanup calls inside Run still work.
+// SkullbonezRun is scoped here so its destructor releases render-owned resources
+// before the DX12 backend and the Win32 window are torn down.
 // ---------------------------------------------------------------------------
 
 int RunApp( SkullbonezWindow* window, ParsedArgs& args )
 {
     {
         SkullbonezRun cRun( std::move( args.sceneList ) );
-        if ( args.switchInterval > 0.0f )
-        {
-            cRun.SetRendererSwitchInterval( args.switchInterval );
-        }
         if ( args.timeScaleOverride > 0.0f )
         {
             cRun.SetTimeScaleOverride( args.timeScaleOverride );
@@ -1795,7 +1751,7 @@ int RunApp( SkullbonezWindow* window, ParsedArgs& args )
             }
             return 1;
         }
-    } // cRun destroyed here — GL context still alive for proper cleanup
+    } // cRun destroyed here before backend/window cleanup
     return 0;
 }
 
@@ -1806,15 +1762,6 @@ int RunApp( SkullbonezWindow* window, ParsedArgs& args )
 void CleanupWindow( SkullbonezWindow* window, HINSTANCE hInstance )
 {
     DestroyGfxBackend();
-
-    // GL context cleanup — must happen after SkullbonezRun is destroyed.
-    // Hot-switching can create an OpenGL context even when startup renderer was DX.
-    if ( window->m_sRenderContext )
-    {
-        wglMakeCurrent( nullptr, nullptr );
-        wglDeleteContext( window->m_sRenderContext );
-        window->m_sRenderContext = nullptr;
-    }
 
     if ( window->m_sDevice )
     {
@@ -1892,7 +1839,7 @@ int WINAPI WinMain( HINSTANCE hInstance,
     window->CreateAppWindow( hInstance, Cfg().window.fullscreen );
     window->m_sDevice = GetDC( window->m_sWindow );
 
-    InitRenderBackend( args.renderer, window );
+    InitRenderBackend( window );
     window->HandleScreenResize();
 
     const int runExitCode = RunApp( window, args );

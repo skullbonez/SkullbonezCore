@@ -11,10 +11,6 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
-  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
-  engine migrates to DX12.
-  OpenGL: Legacy parity renderer used as a reference path for visual output.
-  GL (OpenGL): Legacy parity renderer path.
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
   CLI (Command-Line Interface): Text arguments or scripts used to launch
   validation and tooling paths.
@@ -33,9 +29,6 @@ Related:
 #include "SkullbonezGameModel.h"
 #include "SkullbonezProfiler.h"
 #include "SkullbonezIRenderBackend.h"
-#include "SkullbonezRenderBackendGL.h"
-#include "SkullbonezRenderBackendDX11.h"
-#include "SkullbonezRenderBackendDX12.h"
 #include "SkullbonezTerrainSupportClassifier.h"
 #include "UI/UIDraw.h"
 
@@ -50,9 +43,6 @@ Related:
 #include <string>
 #include <time.h>
 #include <vector>
-#include <dwmapi.h>
-
-#pragma comment( lib, "dwmapi.lib" )
 
 using SkullbonezCore::Basics::CinematicRenderConfig;
 using SkullbonezCore::Environment::Camera;
@@ -76,9 +66,6 @@ using SkullbonezCore::Rendering::Gfx;
 using SkullbonezCore::Rendering::IMesh;
 using SkullbonezCore::Rendering::IRenderBackend;
 using SkullbonezCore::Rendering::IsGfxReady;
-using SkullbonezCore::Rendering::RenderBackendDX11;
-using SkullbonezCore::Rendering::RenderBackendDX12;
-using SkullbonezCore::Rendering::RenderBackendGL;
 using SkullbonezCore::Text::Text2d;
 using SkullbonezCore::Textures::TextureCollection;
 using SkullbonezCore::UI::InGameUICommands;
@@ -377,21 +364,6 @@ inline const char* FileNameFromPath( const char* path )
         separator = backslash;
     }
     return separator ? separator + 1 : path;
-}
-
-inline const char* RuntimeRendererTypeName( RuntimeRendererType type )
-{
-    switch ( type )
-    {
-    case RuntimeRendererType::OpenGL:
-        return "OpenGL";
-    case RuntimeRendererType::DX11:
-        return "DX11";
-    case RuntimeRendererType::DX12:
-        return "DX12";
-    default:
-        return "unknown";
-    }
 }
 
 inline std::string NormalizeScenePath( const std::string& path )

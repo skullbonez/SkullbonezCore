@@ -56,7 +56,7 @@ Validation: documentation-only; no repository validation required.
 ### Problem
 
 The root `AGENTS.md` is strong, but it must cover many risk profiles at once:
-DX12 rendering, legacy parity renderers, shaders, physics determinism, tools,
+DX12 rendering, shaders, physics determinism, tools,
 docs, and agent orchestration. Agents editing one area should receive local
 rules without rereading every unrelated danger zone.
 
@@ -83,7 +83,7 @@ Each file should be short and area-specific:
 Candidate examples:
 
 - `SkullbonezData/shaders/AGENTS.md`: shader contract expectations,
-  renderer parity gate, no silent baseline updates.
+  DX12 renderer gate, no silent baseline updates.
 - `tools/AGENTS.md`: changed scripts require `tools\validate_fast.bat` plus the
   changed script's own focused check.
 - `Agentic/AGENTS.md`: documentation/process changes require no validation
@@ -184,7 +184,7 @@ tools\agent_contract_check.bat --self-test
 
 ### Problem
 
-The engine has validation scripts for runtime behavior, renderer parity,
+The engine has validation scripts for runtime behavior, DX12 renderer regression,
 physics determinism, and performance. The agent workflow itself is not yet
 evaluated. That leaves important process failures as instruction-only risks:
 

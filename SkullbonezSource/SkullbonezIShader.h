@@ -8,8 +8,8 @@ Mental model:
   calls, shader bindings, and validation artifacts.
 
 Glossary:
-  OpenGL: Legacy parity renderer used as a reference path for visual output.
-  GL (OpenGL): Legacy parity renderer path.
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
   HLSL (High Level Shader Language): Shader language compiled for Direct3D
   render, compute, and raytracing stages.
   Descriptor: Small binding record that tells a renderer how to interpret a
@@ -33,8 +33,8 @@ namespace Rendering
 {
 /* -- IShader ----------------------------------------------------------------------------------------------------------------------------------------------------
 
-    Abstract shader interface. Concrete implementations handle GLSL (OpenGL) or HLSL (DirectX).
-    Uniform setters write shader constants — the backend handles how they're uploaded.
+    Engine-facing shader interface. Uniform setters write shader constants; the
+    DX12 backend handles how those constants are uploaded and bound.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class IShader
 {

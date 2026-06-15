@@ -11,8 +11,6 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
-  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
-  engine migrates to DX12.
   SRV (Shader Resource View): Descriptor row used when shaders read textures
   or buffers.
   PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
@@ -342,10 +340,11 @@ ID3D12PipelineState* RenderBackendDX12::CreatePSO( VertexFormat12 format, bool i
     psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
     psoDesc.SampleDesc.Count = 1;
 
-    // Create a Graphics Pipeline State Object (PSO). In DX12, ALL render state is compiled into
-    // one monolithic object: shaders, input layout, rasterizer settings, blend mode, depth test,
-    // etc. This is very different from DX11 where you set each state individually. The PSO is
-    // expensive to create but fast to bind — so we cache them by hash and reuse across frames.
+    // Create a Graphics Pipeline State Object (PSO). In DX12, all render state
+    // is compiled into one monolithic object: shaders, input layout, rasterizer
+    // settings, blend mode, depth test, and render-target formats. The PSO is
+    // expensive to create but fast to bind, so we cache them by hash and reuse
+    // across frames.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-creategraphicspipelinestate
     ID3D12PipelineState* pso = nullptr;
     HRESULT hr = m_device->CreateGraphicsPipelineState( &psoDesc, IID_PPV_ARGS( &pso ) );
@@ -442,8 +441,8 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
             m_psoCache[psoHash] = pso;
         }
 
-        // Bind the PSO — sets ALL GPU pipeline state (shaders, blend, depth, rasterizer) in one call.
-        // Unlike DX11 where you set states individually, DX12 switches the entire pipeline at once.
+        // Bind the PSO. This sets the whole GPU pipeline recipe (shaders,
+        // blend, depth, rasterizer, render-target formats) in one call.
         // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-setpipelinestate
         m_commandList->SetPipelineState( pso );
 

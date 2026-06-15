@@ -83,12 +83,7 @@ TIERS = {
     ],
 }
 
-RENDERERS = {
-    "gl": ["gl"],
-    "dx11": ["dx11"],
-    "dx12": ["dx12"],
-    "all": ["gl", "dx11", "dx12"],
-}
+RENDERERS = {"dx12": ["dx12"]}
 
 LOG_NEEDLES = ("error", "warning", "failed")
 
@@ -217,7 +212,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--tier", choices=["smoke", "core", "full"], default="smoke")
-    parser.add_argument("--renderer", choices=sorted(RENDERERS), default="gl")
+    parser.add_argument("--renderer", choices=sorted(RENDERERS), default="dx12")
     parser.add_argument("--frames", type=int, default=2)
     parser.add_argument("--run-id", default=run_id())
     args = parser.parse_args()

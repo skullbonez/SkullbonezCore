@@ -409,7 +409,7 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
         bytesPerPixel = 4;
     }
 
-    // Convert RGB → RGBA if needed; srcData always has bytesPerPixel channels after this.
+    // Convert RGB to RGBA if needed; srcData always has bytesPerPixel channels after this.
     std::vector<uint8_t> rgba;
     const uint8_t* srcData = data;
     if ( channels == 3 )
@@ -523,6 +523,7 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
     // Create a Shader Resource View exposing the full mip chain.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createshaderresourceview
     UINT srvIdx = AllocateStaticSRV();
+    NameDx12ObjectIndexed( texResource, L"Skullbonez DX12 Texture2D", srvIdx );
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Format = fmt;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;

@@ -340,12 +340,7 @@ class Dx12DescriptorAllocator
     // Bind the allocator to the two descriptor heaps it manages. The allocator
     // does not own the COM objects; the backend/device owns and releases them.
     // The allocator owns the slot accounting policy for those heaps.
-    void Init( ID3D12DescriptorHeap* shaderVisibleHeap,
-               ID3D12DescriptorHeap* stagingHeap,
-               UINT descriptorSize,
-               UINT staticCapacity,
-               UINT transientCapacityPerFrame,
-               UINT frameCount );
+    void Init( ID3D12DescriptorHeap* shaderVisibleHeap, ID3D12DescriptorHeap* stagingHeap, UINT descriptorSize, UINT staticCapacity, UINT transientCapacityPerFrame, UINT frameCount );
 
     // Drop all heap pointers and counters during shutdown. After Reset(), any
     // allocation or handle lookup is invalid until Init() runs again.

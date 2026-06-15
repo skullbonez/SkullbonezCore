@@ -142,7 +142,11 @@ def generate_trace(trace, extra_args):
     run_checked(
         [
             str(EXE),
+            "--renderer",
+            "dx12",
             "--vsync",
+            "off",
+            "--shadows",
             "off",
             "--scene",
             SCENE_ARG,

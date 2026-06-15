@@ -203,7 +203,7 @@ void UIBackdropBlur::Draw( const UIDrawContext& draw, const UIRect& bounds, int 
     (void)now;
 
     const RenderCapabilities capabilities = Gfx().GetCapabilities();
-    if ( !capabilities.supportsBackbufferCapture || !capabilities.supportsDynamicVertexBuffers )
+    if ( !capabilities.supportsBackbufferCapture )
     {
         return;
     }

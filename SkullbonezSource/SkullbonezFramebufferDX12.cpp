@@ -11,9 +11,6 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
-  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
-  engine migrates to DX12.
-  GL (OpenGL): Legacy parity renderer path.
   RTV (Render Target View): Descriptor row used when the GPU writes color
   pixels into a texture or back buffer.
   DSV (Depth Stencil View): Descriptor row used when the GPU reads or writes
@@ -22,8 +19,8 @@ Glossary:
   or buffers.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
-  FBO (Framebuffer Object): OpenGL-style off-screen render target concept used
-  by parity and reflection code.
+  FBO (Framebuffer Object): Engine shorthand for an off-screen render target
+  exposed through the renderer abstraction.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -107,7 +104,11 @@ void FramebufferDX12::Create( int width, int height )
     // "Committed" means this texture gets its own dedicated GPU memory allocation. The initial
     // state is PIXEL_SHADER_RESOURCE because when not actively rendering to it, shaders read it.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &colorDesc, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &colorClear, IID_PPV_ARGS( &m_colorTexture ) );
+    if ( FAILED( device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &colorDesc, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &colorClear, IID_PPV_ARGS( &m_colorTexture ) ) ) )
+    {
+        throw std::runtime_error( "FramebufferDX12: Failed to create color texture" );
+    }
+    NameDx12Object( m_colorTexture, L"Skullbonez DX12 Framebuffer Color Texture" );
 
     // Depth texture
     D3D12_RESOURCE_DESC depthDesc = {};
@@ -130,7 +131,11 @@ void FramebufferDX12::Create( int width, int height )
     // This stores per-pixel depth values so the GPU knows which objects are in front of others.
     // Initial state is DEPTH_WRITE because we clear and write depth whenever this FBO is bound.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &depthDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &depthClear, IID_PPV_ARGS( &m_depthTexture ) );
+    if ( FAILED( device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &depthDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &depthClear, IID_PPV_ARGS( &m_depthTexture ) ) ) )
+    {
+        throw std::runtime_error( "FramebufferDX12: Failed to create depth texture" );
+    }
+    NameDx12Object( m_depthTexture, L"Skullbonez DX12 Framebuffer Depth Texture" );
 
     // Allocate descriptor rows from the backend heaps. The color/depth textures
     // are the resources; RTV/DSV are the binding records that let the output
@@ -219,8 +224,8 @@ void FramebufferDX12::Bind() const
 
     if ( m_depthState != D3D12_RESOURCE_STATE_DEPTH_WRITE )
     {
-        // Unlike DX11/GL, DX12 requires us to explicitly say when a texture stops
-        // being sampled by shaders and starts being written as a depth buffer.
+        // DX12 requires us to explicitly say when a texture stops being sampled
+        // by shaders and starts being written as a depth buffer.
         D3D12_RESOURCE_BARRIER depthBarrier = {};
         depthBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
         depthBarrier.Transition.pResource = m_depthTexture;

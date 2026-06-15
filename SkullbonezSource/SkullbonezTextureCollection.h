@@ -57,13 +57,7 @@ class TextureCollection
     int FindIndexNoThrow( uint32_t hash ) const;
     int FindFreeSlot() const;
     void ReleaseTexture( GpuTextureRecord& texture );
-    void LoadJpegTextureIntoSlot( int slot,
-                                  const char* fileName,
-                                  uint32_t hash,
-                                  Assets::AssetId sourceId,
-                                  bool generateMips,
-                                  bool linearFilter,
-                                  int channelsHint );
+    void LoadJpegTextureIntoSlot( int slot, const char* fileName, uint32_t hash, Assets::AssetId sourceId, bool generateMips, bool linearFilter, int channelsHint );
     void CreateTextureFromSourceAsset( const Assets::TextureSourceAsset& source );
 
   public:

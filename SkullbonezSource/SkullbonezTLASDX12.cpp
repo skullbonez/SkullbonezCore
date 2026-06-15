@@ -53,6 +53,7 @@ Related:
 //  PREFER_FAST_BUILD flag is used because we rebuild every frame (speed > quality tradeoff).
 //
 #include "SkullbonezTLASDX12.h"
+#include "SkullbonezRenderDeviceDX12.h"
 #include <stdexcept>
 #include <cstring>
 
@@ -99,6 +100,7 @@ void TLAS::Init( ID3D12Device5* device, int maxInstances )
     {
         throw std::runtime_error( "TLAS: Failed to create instance desc buffer" );
     }
+    NameDx12Object( m_instanceDescs, L"Skullbonez DX12 TLAS Instance Descriptors" );
 
     // Prebuild info to determine scratch/result sizes (for max instance count)
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
@@ -126,6 +128,7 @@ void TLAS::Init( ID3D12Device5* device, int maxInstances )
     {
         throw std::runtime_error( "TLAS: Failed to create scratch buffer" );
     }
+    NameDx12Object( m_scratch, L"Skullbonez DX12 TLAS Scratch Buffer" );
 
     // Allocate result buffer
     bufDesc.Width = prebuild.ResultDataMaxSizeInBytes;
@@ -136,6 +139,7 @@ void TLAS::Init( ID3D12Device5* device, int maxInstances )
     {
         throw std::runtime_error( "TLAS: Failed to create result buffer" );
     }
+    NameDx12Object( m_result, L"Skullbonez DX12 TLAS Result Buffer" );
 }
 
 

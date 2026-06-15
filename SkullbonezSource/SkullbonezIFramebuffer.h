@@ -8,16 +8,16 @@ Mental model:
   calls, shader bindings, and validation artifacts.
 
 Glossary:
-  OpenGL: Legacy parity renderer used as a reference path for visual output.
-  GL (OpenGL): Legacy parity renderer path.
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
   RTV (Render Target View): Descriptor row used when the GPU writes color
   pixels into a texture or back buffer.
   DSV (Depth Stencil View): Descriptor row used when the GPU reads or writes
   depth/stencil data for depth testing.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
-  FBO (Framebuffer Object): OpenGL-style off-screen render target concept used
-  by parity and reflection code.
+  FBO (Framebuffer Object): Engine shorthand for an off-screen render target
+  exposed through the renderer abstraction.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -43,8 +43,9 @@ enum class FramebufferColorFormat
 
 /* -- IFramebuffer -----------------------------------------------------------------------------------------------------------------------------------------------
 
-    Abstract framebuffer interface. Concrete implementations handle FBO (OpenGL) or RTV/DSV (DirectX).
-    GetColorTextureHandle returns an opaque handle — pass it to IRenderBackend::BindTexture().
+    Engine-facing off-screen render target interface. The DX12 implementation
+    owns the RTV/DSV descriptors, while callers pass only opaque texture handles
+    back into IRenderBackend::BindTexture().
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class IFramebuffer
 {

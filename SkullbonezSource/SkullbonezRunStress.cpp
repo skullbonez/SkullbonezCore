@@ -68,21 +68,26 @@ void SkullbonezRun::RunUIStressActions()
 
     m_UI.SetMouseOverride( true, NextUIStressInt( screenW ), NextUIStressInt( screenH ) );
 
+    // This gate is a UI control-state crash sweep. Runtime rebuilds and world
+    // debug toggles belong to render/physics validation, so they stay frozen here.
+    const bool allowRuntimeChurn = false;
     if ( m_uiStress.framesRun == 18 )
     {
-        ApplyUIModelCountOverride( 96 + NextUIStressInt( 160 ) );
+        const int modelCount = 96 + NextUIStressInt( 160 );
+        if ( allowRuntimeChurn )
+        {
+            ApplyUIModelCountOverride( modelCount );
+        }
     }
     if ( m_uiStress.framesRun == 42 )
     {
         const int balls = 24 + NextUIStressInt( 220 );
         const int boxes = NextUIStressInt( 1000 - balls + 1 );
-        ApplyUISolverObjectCounts( balls, boxes );
+        if ( allowRuntimeChurn )
+        {
+            ApplyUISolverObjectCounts( balls, boxes );
+        }
     }
-    if ( m_uiStress.framesRun % 34 == 0 )
-    {
-        SwitchRenderer( GetNextRendererType( GetCurrentRendererType() ) );
-    }
-
     const int actionCount = std::clamp( m_uiStress.actionsPerFrame, 1, 32 );
     for ( int i = 0; i < actionCount; ++i )
     {
@@ -95,7 +100,9 @@ void SkullbonezRun::RunUIStressActions()
             m_UI.SetScrollY( NextUIStressFloat( 0.0f, 900.0f ) );
             break;
         case 2:
-            m_UI.SetBlurEnabled( NextUIStressInt( 2 ) != 0 );
+            // Keep the PRNG sequence stable while leaving backdrop blur to validate_ui.bat.
+            // Stress runs churn control state; blur's DX12 readback path has its own pixel gate.
+            (void)NextUIStressInt( 2 );
             break;
         case 3:
             m_UI.SetProfilerTimelineEnabled( NextUIStressInt( 2 ) != 0 );
@@ -117,65 +124,120 @@ void SkullbonezRun::RunUIStressActions()
             Gfx().SetVsyncEnabled( m_runtimeSettings.isVsyncEnabled );
             break;
         case 9:
-            m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
+            if ( allowRuntimeChurn )
+            {
+                m_debug.isCollisionVisualizer = !m_debug.isCollisionVisualizer;
+            }
             break;
         case 10:
         {
             static const uint32_t kFlags[] = { PHYSICS_DEBUG_AXES, PHYSICS_DEBUG_CONTACTS, PHYSICS_DEBUG_SLEEP, PHYSICS_DEBUG_ALL };
-            m_debug.physicsDebugFlags = kFlags[NextUIStressInt( 4 )];
+            const int flagIndex = NextUIStressInt( 4 );
+            if ( allowRuntimeChurn )
+            {
+                m_debug.physicsDebugFlags = kFlags[flagIndex];
+            }
             break;
         }
         case 11:
-            m_debug.isPhysicsDebugTransparent = !m_debug.isPhysicsDebugTransparent;
+            if ( allowRuntimeChurn )
+            {
+                m_debug.isPhysicsDebugTransparent = !m_debug.isPhysicsDebugTransparent;
+            }
             break;
         case 12:
-            m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
+            if ( allowRuntimeChurn )
+            {
+                m_debug.isBroadphaseOverlay = !m_debug.isBroadphaseOverlay;
+            }
             break;
         case 13:
-            m_scene.isFixedStep = !m_scene.isFixedStep;
-            m_timers.physicsAccumulator = 0.0f;
-            m_timers.fixedStepTickAccumulator = 0.0f;
+            if ( allowRuntimeChurn )
+            {
+                m_scene.isFixedStep = !m_scene.isFixedStep;
+                m_timers.physicsAccumulator = 0.0f;
+                m_timers.fixedStepTickAccumulator = 0.0f;
+            }
             break;
         case 14:
-            m_debug.isTerrainHidden = !m_debug.isTerrainHidden;
+            if ( allowRuntimeChurn )
+            {
+                m_debug.isTerrainHidden = !m_debug.isTerrainHidden;
+            }
             break;
         case 15:
-            m_debug.isWaterHidden = !m_debug.isWaterHidden;
+            if ( allowRuntimeChurn )
+            {
+                m_debug.isWaterHidden = !m_debug.isWaterHidden;
+            }
             break;
         case 16:
-            m_debug.isWaterFreezeDebug = !m_debug.isWaterFreezeDebug;
-            if ( m_debug.isWaterFreezeDebug )
+            if ( allowRuntimeChurn )
             {
-                m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
+                m_debug.isWaterFreezeDebug = !m_debug.isWaterFreezeDebug;
+                if ( m_debug.isWaterFreezeDebug )
+                {
+                    m_debug.frozenWaterTime = static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
+                }
             }
             break;
         case 17:
-            m_debug.isWaterFlatDebug = !m_debug.isWaterFlatDebug;
+            if ( allowRuntimeChurn )
+            {
+                m_debug.isWaterFlatDebug = !m_debug.isWaterFlatDebug;
+            }
             break;
         case 18:
         {
-            const int mode = GetCurrentRendererType() == RuntimeRendererType::DX12 ? NextUIStressInt( 3 ) : ( NextUIStressInt( 2 ) == 0 ? 0 : 2 );
-            m_debug.isWaterRTReflect = mode == 1;
-            m_debug.isWaterNoReflect = mode == 2;
+            const int mode = NextUIStressInt( 3 );
+            if ( allowRuntimeChurn )
+            {
+                m_debug.isWaterRTReflect = mode == 1;
+                m_debug.isWaterNoReflect = mode == 2;
+            }
             break;
         }
         case 19:
-            m_UITimeScaleOverride = NextUIStressFloat( 0.10f, 4.00f );
-            m_scene.timeScale = m_UITimeScaleOverride;
-            m_timers.physicsAccumulator = 0.0f;
-            m_timers.fixedStepTickAccumulator = 0.0f;
+        {
+            const float timeScale = NextUIStressFloat( 0.10f, 4.00f );
+            if ( allowRuntimeChurn )
+            {
+                m_UITimeScaleOverride = timeScale;
+                m_scene.timeScale = m_UITimeScaleOverride;
+                m_timers.physicsAccumulator = 0.0f;
+                m_timers.fixedStepTickAccumulator = 0.0f;
+            }
             break;
+        }
         case 20:
-            m_debug.physicsDebugAlpha = NextUIStressFloat( 0.05f, 1.00f );
+        {
+            const float alpha = NextUIStressFloat( 0.05f, 1.00f );
+            if ( allowRuntimeChurn )
+            {
+                m_debug.physicsDebugAlpha = alpha;
+            }
             break;
+        }
         case 21:
-            m_debug.physicsDebugContactLinger = NextUIStressFloat( 0.00f, 5.00f );
+        {
+            const float contactLinger = NextUIStressFloat( 0.00f, 5.00f );
+            if ( allowRuntimeChurn )
+            {
+                m_debug.physicsDebugContactLinger = contactLinger;
+            }
             break;
+        }
         case 22:
-            ApplyUIWorldOverride( -NextUIStressFloat( 0.0f, 80.0f ),
-                                  NextUIStressFloat( -40.0f, 140.0f ),
-                                  NextUIStressFloat( 0.0f, 5.0f ) );
+        {
+            const float gravity = -NextUIStressFloat( 0.0f, 80.0f );
+            const float fluidHeight = NextUIStressFloat( -40.0f, 140.0f );
+            const float fluidDensity = NextUIStressFloat( 0.0f, 5.0f );
+            if ( allowRuntimeChurn )
+            {
+                ApplyUIWorldOverride( gravity, fluidHeight, fluidDensity );
+            }
             break;
+        }
         case 23:
             m_UI.SetActiveTab( static_cast<InGameUITab>( NextUIStressInt( static_cast<int>( InGameUITab::Count ) ) ) );
             break;

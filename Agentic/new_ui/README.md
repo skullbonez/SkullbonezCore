@@ -20,4 +20,4 @@ This folder now keeps the design artifacts for the completed graphite UI pass.
 
 Validation now: none required for documentation/design artifacts.
 
-Pre-commit/PR validation when implemented: use `tools\validate_renderers.bat` because the plan adds rounded drawing helpers and changes rendered UI output across the shared draw path.
+Pre-commit/PR validation when implemented: use `tools\validate_dx12_renderer.bat` because the plan adds rounded drawing helpers and changes rendered UI output across the shared draw path.

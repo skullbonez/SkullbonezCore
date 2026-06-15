@@ -130,8 +130,9 @@ void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle, const float* da
     vbv.SizeInBytes = (UINT)dataSize;
     vbv.StrideInBytes = (UINT)dvb.stride;
     // Bind and draw the dynamic vertex buffer directly from upload heap memory.
-    // Dynamic VBs (e.g. text quads) change every frame so they're drawn from upload memory
-    // without copying to a default heap buffer — simpler but slightly slower for large batches.
+    // Dynamic VBs (for example text quads) change every frame, so they are
+    // drawn from upload memory without copying to a default-heap buffer. That
+    // is simpler but slightly slower for large batches.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
     m_commandList->IASetVertexBuffers( 0, 1, &vbv );
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
@@ -142,7 +143,7 @@ void RenderBackendDX12::UploadAndDrawDynamicVB( uint32_t handle, const float* da
 
 void RenderBackendDX12::DestroyDynamicVB( uint32_t /*handle*/ )
 {
-    // No GPU resources to release — upload buffer is shared
+    // No GPU resources to release; upload memory is shared by the frame arena.
 }
 
 
@@ -260,8 +261,9 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData, int st
         im.staticAttribSizes[i] = staticAttribSizes[i];
     }
 
-    // Create the static (shared) vertex buffer on the GPU-only Default Heap.
-    // This holds geometry that doesn't change (sphere mesh) — it's uploaded once and reused.
+    // Create the static (shared) vertex buffer on the GPU-only default heap.
+    // This holds geometry that does not change, such as sphere or box mesh
+    // vertices. It is uploaded once and reused across instance batches.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
     // Create static VB on default heap
     UINT64 dataSize = (UINT64)staticVertCount * staticFloatsPerVert * sizeof( float );
@@ -281,7 +283,9 @@ uint32_t RenderBackendDX12::CreateInstancedMesh( const float* staticData, int st
     // Specifying COPY_DEST fires warning #1328 (CREATERESOURCE_STATE_IGNORED). Use COMMON
     // explicitly, then rely on implicit promotion to COPY_DEST when CopyBufferRegion executes.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12#implicit-state-transitions
-    m_device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS( &im.staticVB ) );
+    ThrowIfFailed( m_device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &bufDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS( &im.staticVB ) ),
+                   "CreateCommittedResource (instanced static vertex buffer) failed" );
+    NameDx12ObjectIndexed( im.staticVB, L"Skullbonez DX12 Instanced Static Vertex Buffer", static_cast<UINT>( m_instancedMeshes.size() + 1 ) );
 
     // Upload static vertex data from CPU to GPU via the upload buffer, then transition to VB state.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-copybufferregion
@@ -348,7 +352,8 @@ void RenderBackendDX12::DrawInstancedMesh( uint32_t handle, int staticVertCount,
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-iasetvertexbuffers
     m_commandList->IASetVertexBuffers( 0, 2, vbvs );
 
-    // Draw all instances in one call — renders staticVertCount vertices × instanceCount copies.
+    // Draw all instances in one call. This renders staticVertCount vertices
+    // multiplied by instanceCount copies.
     // This is the key optimization: 300 balls drawn in a single GPU dispatch.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-drawinstanced
     NoteDrawCall();

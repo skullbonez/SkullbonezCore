@@ -5,6 +5,10 @@ Created: 2026-06-11
 Scope: render material data, scene/style material directives, object shader inputs, compatibility migration  
 Implementation status: plan only, no code changes in this pass
 
+Retirement dependency: defer code-heavy material implementation until the
+DX12-only renderer validation gate exists. Material authoring must remain
+backend-neutral, but new feature work should not add OpenGL or DX11 surface area.
+
 ## Goal
 
 Add a small backend-neutral material system that replaces overloaded tint/mode behavior while preserving existing scenes and styles.
@@ -261,21 +265,19 @@ Tasks:
 Validation:
 
 - `tools\validate_fast.bat`.
-- `tools\validate_renderers.bat` if rendering uses the new fields.
+- `tools\validate_dx12_renderer.bat` if rendering uses the new fields.
 
 ### Phase 3: Instance Payload Expansion
 
 Tasks:
 
 1. Update object instance data builders.
-2. Update GL instanced attribute layout.
-3. Update DX11 instanced input layout.
-4. Update DX12 instanced input layout.
-5. Update `lit_textured_instanced.vert` and `.hlsl`.
+2. Update DX12 instanced input layout.
+3. Update `lit_textured_instanced.hlsl`.
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 - `tools\validate_perf.bat` if instance upload/batch cost changes materially.
 
 ### Phase 4: Object Shader Material Params
@@ -290,7 +292,7 @@ Tasks:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 
 ### Phase 5: Style Authoring Upgrade
 
@@ -304,7 +306,7 @@ Tasks:
 Validation:
 
 - `tools\validate_fast.bat` for parser-only work.
-- `tools\validate_renderers.bat` if authored visual output changes.
+- `tools\validate_dx12_renderer.bat` if authored visual output changes.
 
 ## Compatibility Requirements
 
@@ -321,15 +323,15 @@ Validation:
 | Docs only | No validation required |
 | Parser token mapping only | `tools\validate_fast.bat` |
 | GameModel render fields only | `tools\validate_fast.bat` unless visible output changes |
-| Instance layout changes | `tools\validate_renderers.bat` |
-| Shader material behavior | `tools\validate_renderers.bat` |
-| Instance upload/batch hot path changes | `tools\validate_renderers.bat` plus `tools\validate_perf.bat` |
+| Instance layout changes | `tools\validate_dx12_renderer.bat` |
+| Shader material behavior | `tools\validate_dx12_renderer.bat` |
+| Instance upload/batch hot path changes | `tools\validate_dx12_renderer.bat` plus `tools\validate_perf.bat` |
 
 ## Risks
 
 | Risk | Mitigation |
 |------|------------|
-| Object batching breaks | Update the active DX12 layout first, and keep any still-supported comparison backend layouts in the same tightly scoped slice. |
+| Object batching breaks | Update the active DX12 layout in a tightly scoped slice and validate screenshots/perf. |
 | Material contract leaks DX12 details | Keep D3D12 descriptors and root-signature details inside renderer code, not scene/style material records. |
 | Material data gets mixed into physics | Use render-specific names and avoid existing physics `materialId`. |
 | Payload grows too much | Validate perf, then consider material table v2. |
@@ -341,4 +343,4 @@ Validation:
 - `lit_textured_instanced` receives explicit material params.
 - Existing material modes remain compatible.
 - Concept scenes can assign multiple visual material families in one scene.
-- DX12 renders the material families consistently under screenshot validation, with GL/DX11 parity maintained only while those backends remain active.
+- DX12 renders the material families consistently under screenshot validation.

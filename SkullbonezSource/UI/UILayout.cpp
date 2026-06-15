@@ -162,9 +162,9 @@ UIRect FooterPerfBounds( float x, float bottomY )
 }
 
 
-uint32_t ReflectionDisabledMask( int rendererIndex )
+uint32_t ReflectionDisabledMask()
 {
-    return rendererIndex == RENDERER_DX12 ? 0u : ( 1u << 1 );
+    return 0u;
 }
 
 

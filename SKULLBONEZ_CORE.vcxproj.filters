@@ -17,13 +17,9 @@
       <UniqueIdentifier>{B1E6F7A2-2F4C-4C1A-9D6B-3A2E4F7C9D11}</UniqueIdentifier>
       <Extensions>c;cpp;h;hpp</Extensions>
     </Filter>
-    <Filter Include="Resource Files\OpenGL">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD02}</UniqueIdentifier>
-      <Extensions>vert;frag</Extensions>
-    </Filter>
-    <Filter Include="Resource Files\DirectX">
+    <Filter Include="Resource Files\HLSL">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD03}</UniqueIdentifier>
-      <Extensions>hlsl</Extensions>
+      <Extensions>hlsl;dxil</Extensions>
     </Filter>
     <Filter Include="Source Files\Core">
       <UniqueIdentifier>{947BB0B3-1C18-4F5B-97CA-0F85E2A2BE01}</UniqueIdentifier>
@@ -42,12 +38,6 @@
     </Filter>
     <Filter Include="Source Files\Rendering">
       <UniqueIdentifier>{D96252B2-F91C-4D79-B28C-66CB9E6E7C2B}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\Rendering\GL">
-      <UniqueIdentifier>{CD55E542-CC53-48B7-90CA-AE76F30638E0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\Rendering\DX11">
-      <UniqueIdentifier>{48305BFD-7B6D-4FAE-BA28-08804F256640}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\Rendering\DX12">
       <UniqueIdentifier>{9467F69A-657B-4B6E-876C-AB6E6A628D9E}</UniqueIdentifier>
@@ -75,12 +65,6 @@
     </Filter>
     <Filter Include="Header Files\Rendering">
       <UniqueIdentifier>{1541386D-A2BA-4E01-92CF-2922814D47F4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\Rendering\GL">
-      <UniqueIdentifier>{559F9006-8981-4E03-AC33-A44EBBECB1F1}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\Rendering\DX11">
-      <UniqueIdentifier>{7773862B-8BF0-491D-893E-066FD302C4F0}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\Rendering\DX12">
       <UniqueIdentifier>{0B69E6EE-2014-4D20-A21F-CA6C0DB6E5E4}</UniqueIdentifier>
@@ -183,9 +167,6 @@
     <ClCompile Include="SkullbonezSource\SkullbonezRunRender.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
-    <ClCompile Include="SkullbonezSource\SkullbonezRunRenderer.cpp">
-      <Filter>Source Files\Core</Filter>
-    </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRunScene.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
@@ -243,35 +224,8 @@
     <ClCompile Include="SkullbonezSource\SkullbonezRenderGraph.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
-    <ClCompile Include="ThirdPtySource\GLAD\src\gl.c">
-      <Filter>External</Filter>
-    </ClCompile>
     <ClCompile Include="ThirdPtySource\stb\stb_image.cpp">
       <Filter>External</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\SkullbonezFramebufferGL.cpp">
-      <Filter>Source Files\Rendering\GL</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\SkullbonezShaderGL.cpp">
-      <Filter>Source Files\Rendering\GL</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\SkullbonezMeshGL.cpp">
-      <Filter>Source Files\Rendering\GL</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendGL.cpp">
-      <Filter>Source Files\Rendering\GL</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX11.cpp">
-      <Filter>Source Files\Rendering\DX11</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\SkullbonezShaderDX11.cpp">
-      <Filter>Source Files\Rendering\DX11</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\SkullbonezMeshDX11.cpp">
-      <Filter>Source Files\Rendering\DX11</Filter>
-    </ClCompile>
-    <ClCompile Include="SkullbonezSource\SkullbonezFramebufferDX11.cpp">
-      <Filter>Source Files\Rendering\DX11</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.cpp">
       <Filter>Source Files\Rendering\DX12</Filter>
@@ -554,30 +508,6 @@
     <ClInclude Include="SkullbonezSource\SkullbonezRenderGraph.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
-    <ClInclude Include="SkullbonezSource\SkullbonezFramebufferGL.h">
-      <Filter>Header Files\Rendering\GL</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\SkullbonezShaderGL.h">
-      <Filter>Header Files\Rendering\GL</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\SkullbonezMeshGL.h">
-      <Filter>Header Files\Rendering\GL</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\SkullbonezRenderBackendGL.h">
-      <Filter>Header Files\Rendering\GL</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\SkullbonezRenderBackendDX11.h">
-      <Filter>Header Files\Rendering\DX11</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\SkullbonezShaderDX11.h">
-      <Filter>Header Files\Rendering\DX11</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\SkullbonezMeshDX11.h">
-      <Filter>Header Files\Rendering\DX11</Filter>
-    </ClInclude>
-    <ClInclude Include="SkullbonezSource\SkullbonezFramebufferDX11.h">
-      <Filter>Header Files\Rendering\DX11</Filter>
-    </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezRenderBackendDX12.h">
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
@@ -694,152 +624,62 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="SkullbonezData\shaders\lit_textured.frag">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\lit_textured.hlsl">
-      <Filter>Resource Files\DirectX</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\lit_textured.vert">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\solid_color.frag">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\solid_color.hlsl">
-      <Filter>Resource Files\DirectX</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\solid_color.vert">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\text.frag">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\text.hlsl">
-      <Filter>Resource Files\DirectX</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\text.vert">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\unlit_textured.frag">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\unlit_textured.hlsl">
-      <Filter>Resource Files\DirectX</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\unlit_textured.vert">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\water_calm.frag">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\water_calm.hlsl">
-      <Filter>Resource Files\DirectX</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\water_calm.vert">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\water_ocean.frag">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\water_ocean.hlsl">
-      <Filter>Resource Files\DirectX</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\water_ocean.vert">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\debug_line.frag">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\debug_line.vert">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\collision_visualizer.frag">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\collision_visualizer.vert">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\grid_line.frag">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\grid_line.vert">
-      <Filter>Resource Files\OpenGL</Filter>
+    <None Include="SkullbonezData\shaders\collision_visualizer.hlsl">
+      <Filter>Resource Files\HLSL</Filter>
     </None>
     <None Include="SkullbonezData\shaders\generate_mips.hlsl">
-      <Filter>Resource Files\DirectX</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\lit_textured_instanced.frag">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\lit_textured_instanced.vert">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\reflect.rt.hlsl">
-      <Filter>Resource Files\DirectX</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\solid_color_batch.vert">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\solid_color_batch.frag">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\solid_color_batch.hlsl">
-      <Filter>Resource Files\DirectX</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\UI_textured.frag">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\UI_textured.hlsl">
-      <Filter>Resource Files\DirectX</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\UI_textured.vert">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\UIBackdropBlur.frag">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\UIBackdropBlur.hlsl">
-      <Filter>Resource Files\DirectX</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\UIBackdropBlur.vert">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\collision_visualizer.hlsl">
-      <Filter>Resource Files\DirectX</Filter>
+      <Filter>Resource Files\HLSL</Filter>
     </None>
     <None Include="SkullbonezData\shaders\grid_line.hlsl">
-      <Filter>Resource Files\DirectX</Filter>
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\lit_textured.hlsl">
+      <Filter>Resource Files\HLSL</Filter>
     </None>
     <None Include="SkullbonezData\shaders\lit_textured_instanced.hlsl">
-      <Filter>Resource Files\DirectX</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\post_volumetric_light.frag">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\post_volumetric_light.hlsl">
-      <Filter>Resource Files\DirectX</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\post_volumetric_light.vert">
-      <Filter>Resource Files\OpenGL</Filter>
-    </None>
-    <None Include="SkullbonezData\shaders\post_tonemap.frag">
-      <Filter>Resource Files\OpenGL</Filter>
+      <Filter>Resource Files\HLSL</Filter>
     </None>
     <None Include="SkullbonezData\shaders\post_tonemap.hlsl">
-      <Filter>Resource Files\DirectX</Filter>
+      <Filter>Resource Files\HLSL</Filter>
     </None>
-    <None Include="SkullbonezData\shaders\post_tonemap.vert">
-      <Filter>Resource Files\OpenGL</Filter>
+    <None Include="SkullbonezData\shaders\post_volumetric_light.hlsl">
+      <Filter>Resource Files\HLSL</Filter>
     </None>
-    <None Include="SkullbonezData\shaders\sky_atmosphere.frag">
-      <Filter>Resource Files\OpenGL</Filter>
+    <None Include="SkullbonezData\shaders\reflect.rt.dxil">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\reflect.rt.hlsl">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\shadow_depth.hlsl">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\shadow_depth_instanced.hlsl">
+      <Filter>Resource Files\HLSL</Filter>
     </None>
     <None Include="SkullbonezData\shaders\sky_atmosphere.hlsl">
-      <Filter>Resource Files\DirectX</Filter>
+      <Filter>Resource Files\HLSL</Filter>
     </None>
-    <None Include="SkullbonezData\shaders\sky_atmosphere.vert">
-      <Filter>Resource Files\OpenGL</Filter>
+    <None Include="SkullbonezData\shaders\solid_color.hlsl">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\solid_color_batch.hlsl">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\text.hlsl">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\UIBackdropBlur.hlsl">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\unlit_textured.hlsl">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\water_calm.hlsl">
+      <Filter>Resource Files\HLSL</Filter>
+    </None>
+    <None Include="SkullbonezData\shaders\water_ocean.hlsl">
+      <Filter>Resource Files\HLSL</Filter>
     </None>
     <None Include="SkullbonezData\scenes\at_rest.scene">
       <Filter>Scene Files</Filter>

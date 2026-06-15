@@ -8,7 +8,8 @@ Mental model:
   calls, shader bindings, and validation artifacts.
 
 Glossary:
-  GL (OpenGL): Legacy parity renderer path.
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
   CPU (Central Processing Unit): Host processor running engine code and
@@ -274,11 +275,11 @@ bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath
     const float INF = 1e20f;
 
     // =========================================================================
-    // Phase 1 — render glyphs into a hi-res GDI memory bitmap
+    // Phase 1: render glyphs into a hi-res GDI memory bitmap
     // =========================================================================
     //
     // CreateCompatibleDC(NULL) creates a DC compatible with the display without
-    // requiring an existing window, so this runs before any GL/DX context.
+    // requiring an existing window, so this runs before renderer startup.
     // Ref: https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-createcompatibledc
     HDC memDC = CreateCompatibleDC( NULL );
     if ( !memDC )
@@ -287,7 +288,8 @@ bool Text2d::GenerateSdfAtlasToFile( const char* cFontName, const char* cOutPath
     }
 
     // Top-down 32bpp DIB: ~25 MB, allocated once for the whole atlas.
-    // Negative biHeight → scan-line 0 is the topmost row (matches GL convention).
+    // Negative biHeight means scan-line 0 is the topmost row, matching the
+    // texture upload orientation expected by the text renderer.
     BITMAPINFO bmi = {};
     bmi.bmiHeader.biSize = sizeof( BITMAPINFOHEADER );
     bmi.bmiHeader.biWidth = ATLAS_W_HI;

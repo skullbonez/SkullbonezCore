@@ -27,6 +27,8 @@ Load a skill from `Skills/` only when the current task calls for it.
 ## Comment Quality
 
 - `Reference/comment-style-guide.md` defines the repository comment standard.
+- `Reference/render-backend-portability-contract.md` defines the future
+  Vulkan/Metal portability seam now that DX12 is the only active renderer.
 - `Skills/comment-style-audit/skill.md` is the repeatable pass for checking
   touched files, or the full repository when explicitly requested.
 

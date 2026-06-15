@@ -1,9 +1,9 @@
 # DX12-Only Renderer Retirement Plan
 
-Status: planning draft
+Status: active
 Created: 2026-06-15
 Scope: retire OpenGL/DX11, make DX12 validation independent, clean DX12 architecture, preserve future Vulkan/Metal portability
-Implementation status: plan only, no code changes in this pass
+Implementation status: Phase 6 complete on branch `codex/dx12-only-renderer-retirement`; next work starts Phase 7 render-device interface cleanup
 
 ## Goal
 
@@ -185,14 +185,14 @@ the metadata clean enough that the decision remains open.
 
 Tasks:
 
-1. Add this plan to the active roadmap.
-2. Declare GL/DX11 feature work frozen except for final parity validation fixes.
-3. Update `Agentic/SessionState.md` to say renderer retirement is the next
+1. [x] Add this plan to the active roadmap.
+2. [x] Declare GL/DX11 feature work frozen except for final parity validation fixes.
+3. [x] Update `Agentic/SessionState.md` to say renderer retirement is the next
    render architecture milestone once approved.
-4. Update water/material/render-pipeline plans to defer code-heavy phases until
+4. [x] Update water/material/render-pipeline plans to defer code-heavy phases until
    after DX12-only validation exists.
-5. Record the branch name for implementation, for example:
-   `codex/dx12-renderer-retirement`.
+5. [x] Record the branch name for implementation:
+   `codex/dx12-only-renderer-retirement`.
 
 Validation:
 
@@ -206,12 +206,12 @@ DX12 must be testable without GL/DX11.
 
 Tasks:
 
-1. Add or update a validation entry point such as:
+1. [x] Add or update a validation entry point such as:
    - `tools\validate_dx12_renderer.bat`, or
    - a `dx12` mode in `tools\validate_select.bat`.
-2. Keep `tools\validate_renderers.bat` temporarily as the legacy parity gate
+2. [x] Keep `tools\validate_renderers.bat` temporarily as the legacy parity gate
    until final removal.
-3. Make the DX12 gate:
+3. [x] Make the DX12 gate:
    - build `Profile`,
    - launch DX12 render scenes,
    - capture screenshots,
@@ -219,15 +219,16 @@ Tasks:
    - save an artifact manifest,
    - collect `dx12_validation.txt`,
    - fail if DX12 validation errors are non-zero.
-4. Rename or supplement `tools\check_parity.py` with a DX12 baseline comparator
+4. [x] Rename or supplement `tools\check_parity.py` with a DX12 baseline comparator
    if the current script assumes GL/DX11 comparison.
-5. Ensure renderer launch timeouts stay PID-scoped.
-6. Add a compact summary that can be pasted into commit notes.
+5. [x] Ensure renderer launch timeouts stay PID-scoped.
+6. [x] Add a compact summary that can be pasted into commit notes.
 
 Validation:
 
-- At PR gate for this phase: `tools\validate_fast.bat`, then the new DX12
-  renderer validation command.
+- `tools\validate_fast.bat` passed on 2026-06-15.
+- `tools\validate_dx12_renderer.bat` passed on 2026-06-15 after refreshing the
+  two DX12 baselines to the current `engine.cfg` capture size.
 
 Acceptance:
 
@@ -243,9 +244,9 @@ Retain one durable reference showing where GL/DX11 ended.
 
 Tasks:
 
-1. Run the current full renderer parity gate before deletion.
-2. Store the manifest path and summary in the retirement PR notes.
-3. Optionally add a short report under `Agentic/Reports` or `Agentic/Audits`
+1. [x] Run the current full renderer parity gate before deletion.
+2. [x] Store the manifest path and summary in the retirement PR notes.
+3. [x] Optionally add a short report under `Agentic/Reports` or `Agentic/Audits`
    with:
    - date,
    - commit SHA,
@@ -253,11 +254,15 @@ Tasks:
    - average pixel diffs,
    - DX12 validation log status,
    - known acceptable differences.
-4. Do not keep GL/DX11 code solely to regenerate this artifact later.
+4. [x] Do not keep GL/DX11 code solely to regenerate this artifact later.
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_renderers.bat` passed on 2026-06-15.
+
+Report:
+
+- `Agentic/Reports/2026-06-15/final-legacy-renderer-parity/report.md`
 
 Acceptance:
 
@@ -272,27 +277,36 @@ each small slice.
 
 Tasks:
 
-1. Remove or deprecate command-line choices:
+1. [x] Remove or deprecate command-line choices:
    - `--renderer gl`,
    - `--renderer dx11`.
-2. Keep `--renderer dx12` accepted as a no-op or compatibility alias for one
+2. [x] Keep `--renderer dx12` accepted as a no-op or compatibility alias for one
    release window if useful.
-3. Remove UI renderer-switch controls or make them display-only DX12 state.
-4. Remove runtime hot-switch behavior that exists only for GL/DX11.
-5. Preserve device reset/resource rebuild concepts for DX12 resize, device loss,
+3. [x] Remove UI renderer-switch controls or make them display-only DX12 state.
+4. [x] Remove runtime hot-switch behavior that exists only for GL/DX11.
+5. [x] Preserve device reset/resource rebuild concepts for DX12 resize, device loss,
    shader reload, and future backend bring-up.
-6. Update runtime reference docs and examples.
+6. [x] Update runtime reference docs and examples.
 
 Validation:
 
-- `tools\validate_full.bat` at PR gate because this touches runtime launch and
-  renderer lifecycle behavior.
+- `tools\validate_fast.bat` passed on 2026-06-15 after validation-tool updates.
+- `tools\validate_full.bat` passed on 2026-06-15.
+  - DX12 renderer manifest:
+    `TestOutput\validation\dx12_renderer\20260615T034906Z\manifest.json`
+  - DX12 InfoQueue validation errors: 0.
+  - Physics CSV baselines were byte-exact.
+  - SkullScope query baseline now records `DirectX 12` as the renderer.
+  - Perf validation runs DX12-only scenes.
 
 Acceptance:
 
 - The app starts in DX12 without renderer selection ambiguity.
-- Old renderer CLI requests fail clearly or map to DX12 with an explicit warning.
-- DX12 resource reset and resize still work.
+- Old renderer CLI requests fail clearly; `--renderer dx12` remains a
+  compatibility alias.
+- The in-game renderer selector is display-only DX12 state.
+- Runtime renderer hot-switching is removed.
+- DX12 resource reset/rebuild concepts remain isolated for later cleanup.
 
 ### Phase 4: Remove GL And DX11 Backends
 
@@ -302,23 +316,29 @@ Delete the retired implementations and their project/build references.
 
 Tasks:
 
-1. Remove backend files:
+1. [x] Remove backend files:
    - `SkullbonezRenderBackendGL.*`,
    - `SkullbonezRenderBackendDX11.*`,
    - GL/DX11-only helper files if any.
-2. Remove GLAD and OpenGL-specific third-party source if no longer used.
-3. Remove DX11-specific includes, libraries, annotations, and project entries.
-4. Remove backend factory cases for GL/DX11.
-5. Remove no-op compatibility methods that existed only because `IRenderBackend`
+2. [x] Remove GLAD and OpenGL-specific third-party source if no longer used.
+3. [x] Remove DX11-specific includes, libraries, annotations, and project entries.
+4. [x] Remove backend factory cases for GL/DX11.
+5. [x] Remove no-op compatibility methods that existed only because `IRenderBackend`
    had to serve three backends.
-6. Keep backend-neutral names such as `ResetRenderResources` and
+6. [x] Keep backend-neutral names such as `ResetRenderResources` and
    `RenderCapabilities` where they still describe real concepts.
-7. Remove dead renderer-switch tests and scenes only if they have no DX12 value.
-8. Update `.vcxproj` and `.vcxproj.filters` carefully.
+7. [x] Remove dead renderer-switch tests and scenes only if they have no DX12 value.
+8. [x] Update `.vcxproj` and `.vcxproj.filters` carefully.
 
 Validation:
 
-- `tools\validate_full.bat` at PR gate.
+- `tools\validate_full.bat` passed on 2026-06-15 after replacing the accidental
+  `d3d11.lib` shader-reflection dependency with `dxguid.lib`.
+  - DX12 renderer manifest:
+    `TestOutput\validation\dx12_renderer\20260615T040700Z\manifest.json`
+  - DX12 InfoQueue validation errors: 0.
+  - DX12 screenshots matched committed baselines.
+  - Physics, SkullScope, and perf phases passed.
 
 Acceptance:
 
@@ -334,25 +354,32 @@ Stop maintaining GLSL and DX11-only shader duplicates.
 
 Tasks:
 
-1. Inventory every shader file before deletion.
-2. Remove active GLSL files once GL is gone:
+1. [x] Inventory every shader file before deletion.
+2. [x] Remove active GLSL files once GL is gone:
    - `.vert`,
    - `.frag`,
    - GL-only debug shader families.
-3. Keep HLSL files needed by DX12:
+3. [x] Keep HLSL files needed by DX12:
    - raster HLSL,
    - `generate_mips.hlsl`,
    - `reflect.rt.hlsl`,
    - checked-in DXIL artifacts with documented rebuild rules.
-4. Remove DX11-only shader assumptions if they differ from DX12.
-5. Update shader inventory docs so HLSL is canonical production source.
-6. Add or preserve shader contract metadata in engine terms, not D3D12 terms.
+4. [x] Remove DX11-only shader assumptions if they differ from DX12.
+5. [x] Update shader inventory docs so HLSL is canonical production source.
+6. [x] Add or preserve shader contract metadata in engine terms, not D3D12 terms.
 
 Validation:
 
-- `tools\validate_dx12_renderer.bat` or the updated renderer gate.
-- `tools\validate_full.bat` if shader loading paths or project files change
-  broadly.
+- `python tools\validate_shaders.py` passed on 2026-06-15 with 0 errors and 7
+  existing contract-completeness warnings.
+- `tools\validate_dx12_renderer.bat` passed on 2026-06-15.
+  - DX12 renderer manifest:
+    `TestOutput\validation\dx12_renderer\20260615T041546Z\manifest.json`
+  - DX12 InfoQueue validation errors: 0.
+  - `water_ball_test`: avg_diff=0.0000, max_diff=0, pixels_over_10=0.
+  - `solver_smoke`: avg_diff=0.0006, max_diff=170, pixels_over_10=7.
+- `tools\validate_fast.bat` passed on 2026-06-15 because
+  `tools\shader_contracts.json` changed.
 
 Acceptance:
 
@@ -368,26 +395,31 @@ Make repository instructions match the new renderer reality.
 
 Tasks:
 
-1. Update `AGENTS.md`:
+1. [x] Update `AGENTS.md`:
    - DX12 is the only active renderer.
    - Remove GL/DX11 parity language.
    - Replace parity validation requirements with DX12 screenshot and validation
      log requirements.
    - Keep strict rules for DX12 resource barriers, descriptors, uploads, and
      shader changes.
-2. Update `README.md` launch examples.
-3. Update `Agentic/SessionState.md`.
-4. Update validation table mappings:
+2. [x] Update `README.md` launch examples.
+3. [x] Update `Agentic/SessionState.md`.
+4. [x] Update validation table mappings:
    - renderer backend/shader changes use the new DX12 renderer gate,
    - broad runtime changes still use `tools\validate_full.bat`,
    - performance changes still use `tools\validate_perf.bat`.
-5. Remove obsolete GL/DX11 baselines or archive them under a final parity report.
-6. Rename validation artifacts from parity language to DX12 regression language.
+5. [x] Remove obsolete GL/DX11 baselines or archive them under a final parity report.
+6. [x] Rename validation artifacts from parity language to DX12 regression language.
 
 Validation:
 
-- Documentation-only pieces need no validation.
-- Tool/script changes require `tools\validate_fast.bat` plus the changed script.
+- `python -m py_compile tools\archive_validation_artifacts.py tools\update_baselines.py tools\validate_concepts.py tools\check_ui_blur.py` passed on 2026-06-15.
+- `git diff --check` passed on 2026-06-15.
+- `tools\capture_ui_screenshot.bat dx12 Profile\codex_ui_capture_phase6.png 720` passed on 2026-06-15.
+- `tools\validate_fast.bat` passed on 2026-06-15.
+- `tools\validate_ui.bat`, `tools\validate_ui_stress.bat`, and
+  `tools\validate_demo_stress.bat` passed on 2026-06-15.
+- `tools\validate_full.bat` passed on 2026-06-15.
 
 Acceptance:
 
@@ -402,29 +434,50 @@ Remove abstraction scars while preserving future backend seams.
 
 Tasks:
 
-1. Review every method on `IRenderBackend`.
-2. Classify each method:
+1. [x] Review every method on `IRenderBackend`.
+2. [x] Classify each method:
    - core engine render contract,
    - DX12 implementation detail,
    - legacy GL/DX11 compatibility leftover,
    - future-backend useful concept.
-3. Delete legacy-only no-ops and compatibility flags.
-4. Rename the surviving engine-facing surface if useful:
+3. [x] Delete legacy-only no-ops and compatibility flags.
+4. [x] Rename the surviving engine-facing surface if useful:
    - `IRenderBackend` can stay if it remains clean,
    - or split into `RenderDevice`, `RenderResourceManager`, and pass-specific
      services if the interface is still too broad.
-5. Move DX12-only operations behind DX12-owned subsystem types:
+5. [x] Move DX12-only operations behind DX12-owned subsystem types:
    - device/frame,
    - descriptors,
    - uploads/readbacks,
    - pipeline states,
    - render graph/barrier diagnostics,
    - DXR reflection.
-6. Keep pass code using engine-level handles and descriptions.
+6. [x] Keep pass code using engine-level handles and descriptions.
+
+Implementation notes:
+
+- Kept `IRenderBackend` as the engine-facing render device name for now.
+- Removed the dead depth-convention query, DXR support query, GPU-timer support
+  query, dynamic/instancing capability flags, and the legacy uncolored debug-line
+  no-op.
+- Simplified runtime projection and shadow code around the DX12 `[0,1]` depth
+  convention.
+- Removed the single-value startup renderer enum while preserving `--renderer
+  dx12` / `--renderer d3d12` as compatibility aliases.
+- Collapsed the UI renderer index/disabled-mask logic to the single DX12 option.
+- Updated active source/tool comments that still taught GL/DX11-era assumptions.
 
 Validation:
 
-- `tools\validate_full.bat` for broad render API movement.
+- `python -m py_compile tools\validate_scene_loads.py` passed on 2026-06-15.
+- `git diff --check` passed on 2026-06-15.
+- `tools\validate_full.bat` passed on 2026-06-15 in 218.2s.
+  - DX12 renderer manifest:
+    `TestOutput\validation\dx12_renderer\20260615T053407Z\manifest.json`
+  - DX12 InfoQueue validation errors: `0`.
+  - Physics query baseline: `physics_query_varied.json` exact match.
+  - Performance phase completed with the existing
+    `physics_bench_no_sleep` warning; the full gate still exited `0`.
 
 Acceptance:
 
@@ -441,7 +494,7 @@ Use the retirement to make DX12 cleaner, not just smaller.
 
 Tasks:
 
-1. Confirm DX12 resource ownership is split into focused subsystems:
+1. [x] Confirm DX12 resource ownership is split into focused subsystems:
    - `Dx12RenderDevice`,
    - descriptor allocators,
    - upload allocator,
@@ -449,22 +502,37 @@ Tasks:
    - PSO/root-signature cache,
    - render graph diagnostics,
    - DXR reflection resources.
-2. Make transient descriptor reset and upload allocator reset explicitly
+2. [x] Make transient descriptor reset and upload allocator reset explicitly
    frame/fence safe.
-3. Keep render graph transition diagnostics active until graph-owned barriers
+3. [x] Keep render graph transition diagnostics active until graph-owned barriers
    replace hand-written barriers pass by pass.
-4. Record DX12 object names for all important resources.
-5. Keep DRED and InfoQueue diagnostics easy to find in artifacts.
-6. Remove GL/DX11-oriented workaround code from matrix, sampler, texture, and
+4. [x] Record DX12 object names for all important resources.
+5. [x] Keep DRED and InfoQueue diagnostics easy to find in artifacts.
+6. [x] Remove GL/DX11-oriented workaround code from matrix, sampler, texture, and
    shader paths.
-7. Replace old parity comments with DX12 validation comments where needed.
+7. [x] Replace old parity comments with DX12 validation comments where needed.
+
+Implementation notes:
+
+- Existing DX12 ownership is already split across `Dx12RenderDevice`,
+  descriptor allocators, frame upload arenas, readback helpers, pipeline caches,
+  render-graph diagnostics, and DXR resources.
+- Added diagnostic names for mesh vertex buffers, framebuffer color/depth
+  textures, Texture2D resources, instanced static vertex buffers, BLAS/TLAS
+  buffers, and the shader binding table.
+- Checked framebuffer resource creation before writing RTV/DSV/SRV descriptors.
+- Cleaned active DX12 comments that still described behavior by comparison to
+  retired renderers.
 
 Validation:
 
-- `tools\validate_dx12_renderer.bat` or updated renderer gate.
-- `tools\validate_perf.bat` if upload/descriptor/render hot paths change.
-- Run DX12-heavy scenes three consecutive times if barriers, upload lifetime, or
-  descriptor lifetime are touched.
+- `git diff --check` passed on 2026-06-15.
+- `tools\validate_dx12_renderer.bat` passed on 2026-06-15 in 24.8s.
+  - DX12 renderer manifest:
+    `TestOutput\validation\dx12_renderer\20260615T054221Z\manifest.json`
+  - DX12 InfoQueue validation errors: `0`.
+  - No upload lifetime, descriptor lifetime, or barrier behavior changed, so the
+    three-run DX12-heavy scene loop was not required for this naming-only slice.
 
 Acceptance:
 
@@ -479,9 +547,9 @@ Document what a future modern backend must implement without adding it now.
 
 Tasks:
 
-1. Add a reference doc such as:
+1. [x] Add a reference doc such as:
    `Agentic/Reference/render-backend-portability-contract.md`.
-2. Define engine-level concepts:
+2. [x] Define engine-level concepts:
    - resource handles,
    - texture/buffer descriptions,
    - shader program descriptions,
@@ -491,22 +559,29 @@ Tasks:
    - synchronization/barrier intent,
    - debug markers,
    - capture/readback support.
-3. Include mapping notes:
+3. [x] Include mapping notes:
    - DX12: root signatures, descriptor heaps, barriers, command lists.
    - Vulkan: descriptor sets, pipeline layouts, image layouts, command buffers.
    - Metal: argument buffers/resources, render encoders, command buffers.
-4. Mark optional features:
+4. [x] Mark optional features:
    - raytracing,
    - GPU timers,
    - debug lines,
    - screenshots/readback,
    - compute mip generation.
-5. State that future backend support must start from this contract, not from
+5. [x] State that future backend support must start from this contract, not from
    resurrecting GL/DX11 code.
+
+Implementation notes:
+
+- Added `Agentic/Reference/render-backend-portability-contract.md`.
+- Linked it from `Agentic/README.md` so fresh agents can find it from the
+  reference index.
 
 Validation:
 
 - Documentation only: no validation required.
+- `git diff --check` passed on 2026-06-15.
 
 Acceptance:
 
@@ -540,6 +615,15 @@ Recommended order after retirement:
    - reflection/sky/object/terrain/shadow/water/post passes.
 5. Render graph ownership:
    - move the first low-risk pass under graph-owned barriers.
+
+Status:
+
+- Retirement is complete. Phase 10 is a handoff point, not a request to fold
+  water, shader architecture, materials, pass extraction, and render graph
+  ownership into this retirement branch.
+- The follow-up order now lives in `Agentic/PlanOrder.md`.
+- Each follow-up item should be implemented as its own bounded plan/branch so
+  validation remains clear and commit history stays reviewable.
 
 Validation:
 
@@ -617,25 +701,22 @@ The retirement is complete when:
 - Water/material/render-pipeline cleanup can proceed without legacy renderer
   parity overhead.
 
-## Recommended First Implementation Slice
+## Implementation History Summary
 
-Start with Phase 1, not deletion.
+Implemented on `codex/dx12-only-renderer-retirement`:
 
-The first PR should add a DX12-only validation gate while the old renderers still
-exist. That gives the project a safety net before the bridge is removed.
+1. Added the DX12-only renderer validation gate.
+2. Archived final GL/DX11/DX12 parity evidence.
+3. Made DX12 the only runtime renderer.
+4. Removed legacy OpenGL and DX11 backend source from the project.
+5. Removed retired GLSL and DX11-only shader families.
+6. Cleaned active docs, validation helpers, baselines, and session state around
+   the DX12-only validation model.
+7. Simplified the active render interface into a DX12-facing render device
+   contract.
+8. Named important DX12 diagnostic resources and confirmed DRED/InfoQueue
+   artifact visibility.
+9. Added the future Vulkan/Metal render backend portability contract.
 
-Suggested branch:
-
-```text
-codex/dx12-only-validation-gate
-```
-
-Suggested deliverables:
-
-- a DX12-only renderer validation command,
-- DX12 screenshot/baseline artifact manifest,
-- DX12 validation log zero-error check,
-- documentation explaining how this replaces parity after retirement.
-
-After that gate works, run the final legacy parity archive, then remove GL/DX11
-in a separate branch.
+The retirement branch is now ready to hand off to the post-retirement rendering
+plans listed in `Agentic/PlanOrder.md`.

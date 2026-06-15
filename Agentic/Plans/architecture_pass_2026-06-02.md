@@ -8,9 +8,9 @@ Scope: current `main` worktree review of `SkullbonezSource/`, `Agentic/Reference
 
 ## Executive Summary
 
-SkullbonezCore has a strong identity already: it is not just an old graphics demo with modern wrappers, but a tri-renderer parity testbed with deterministic scene playback, physics regression hooks, runtime renderer switching, profiling, debug visualization, and an increasingly serious rigid-body solver. Those are rare and valuable foundations.
+SkullbonezCore has a strong identity already: it is not just an old graphics demo with modern wrappers, but a DX12 production renderer with deterministic scene playback, physics regression hooks, profiling, debug visualization, and an increasingly serious rigid-body solver. Those are rare and valuable foundations.
 
-The biggest architectural pressure is concentration of responsibility. `SkullbonezRun` is the application coordinator, scene loader, input handler, renderer pass scheduler, hot-switch manager, screenshot/perf harness, HUD driver, and water control surface. `GameModelCollection` owns object storage, rendering, shadows, legacy physics, solver physics, persistent contacts, sleep state, visualizer state, and physics CSV logging. The engine works, but these two classes are now carrying most of the system shape.
+The biggest architectural pressure is concentration of responsibility. `SkullbonezRun` is the application coordinator, scene loader, input handler, renderer pass scheduler, screenshot/perf harness, HUD driver, and water control surface. `GameModelCollection` owns object storage, rendering, shadows, legacy physics, solver physics, persistent contacts, sleep state, visualizer state, and physics CSV logging. The engine works, but these two classes are now carrying most of the system shape.
 
 The highest-leverage improvement is not another feature. It is to carve clear subsystems around the good work already present:
 
@@ -18,7 +18,7 @@ The highest-leverage improvement is not another feature. It is to carve clear su
 2. Split render backend capabilities so the core draw API is not tied to DXR, debug lines, dynamic VBs, GPU timers, and instancing all at once.
 3. Promote physics into a `PhysicsWorld` with separate body/collider/render entity data.
 4. Replace manual parser/config chains with table-driven schemas that still preserve deterministic text scenes.
-5. Add a resource/device lifetime layer so backend hot-switching is robust by construction.
+5. Add a resource/device lifetime layer so DX12 reset and future backend bring-up are robust by construction.
 
 ### 2026-06-10 Branch Scope Update
 
@@ -37,25 +37,25 @@ Resolved or mostly resolved:
 | Render backend capabilities | A compatibility-preserving `RenderCapabilities` query now centralizes GPU timer, DXR, debug line, instancing, capture, and dynamic-VB support checks; capture-dependent and debug-line overlay callers now honor the relevant capability boundaries. |
 | Source asset scaffold | `Assets::AssetSystem` exists as source-asset/path-resolution scaffolding and is now wired into runtime terrain/core texture path resolution; GPU resource ownership is still separate. |
 | Capture subsystem seed | Backbuffer-to-BMP serialization now lives behind `CaptureSystem`, while `SkullbonezRun::SaveScreenshot()` remains the runtime facade. |
-| File-handle and temporary-resource RAII | Config loading, GL shader source loading, terrain raw loading, scene parsing, suite-file startup parsing, nudge repro snapshot writing, text atlas IO, backbuffer capture, DX11/DX12 shader compile blobs, DX12 root-signature/generate-mips temporary blobs, and selected DX11 factory/info-queue/backbuffer temporaries now use scoped ownership rather than manual close/release paths. |
+| File-handle and temporary-resource RAII | Config loading, terrain raw loading, scene parsing, suite-file startup parsing, nudge repro snapshot writing, text atlas IO, backbuffer capture, DX12 shader compile blobs, and DX12 root-signature/generate-mips temporary blobs now use scoped ownership rather than manual close/release paths. |
 | Header namespace cleanup | Complete for `SkullbonezSource/*.h`: broad `using namespace` imports have been removed from source headers, with implementation shorthand kept local to `.cpp` files or internal runtime glue. |
-| Renderer switch resource phases | Backend-owned release/rebuild sequences now run through an ordered resource-step table with named hooks for reflection, cinematic targets, text, models, helper caches, collision visualization, UI, textures, terrain, skybox, and world resources. This completes the branch's registry prep while preserving the future `IRenderResource` registry as a deeper render-pipeline step. |
+| DX12 resource reset phases | Backend-owned release/rebuild sequences now run through an ordered resource-step table with named hooks for reflection, cinematic targets, text, models, helper caches, collision visualization, UI, textures, terrain, skybox, and world resources. This completes the branch's registry prep while preserving the future `IRenderResource` registry as a deeper render-pipeline step. |
 
 Remaining implementation scope for this branch. Validation commands listed here
 are targeted pre-commit/PR gates, not commands to run during normal iteration:
 
 | Item | Implement on this branch? | Validation expectation |
 |------|---------------------------|------------------------|
-| Neutral render resource lifetime names and registry prep | Complete for current runtime hot-switch paths; full `IRenderResource` ownership is still part of render pipeline/resource registry extraction | `tools\validate_renderers.bat` if future render-resource code changes. |
+| Neutral render resource lifetime names and registry prep | Complete for current DX12 reset paths; full `IRenderResource` ownership is still part of render pipeline/resource registry extraction | `tools\validate_dx12_renderer.bat` if future render-resource code changes. |
 | `SkullbonezRun` subsystem extraction | Yes, one subsystem at a time; capture facade, renderer resource phase helpers, scene-queue lookup helpers, and reset snapshot/restore helpers are started | `tools\validate_full.bat` for runtime code movement. |
-| Render backend capability split | Partly done through `RenderCapabilities`; capture and debug-line callers now use the capability boundary, while deeper interface split remains | `tools\validate_renderers.bat` plus DX12 validation log check. |
-| Render pipeline/pass extraction | Yes, incremental facade-first extraction | `tools\validate_renderers.bat`. |
+| Render backend capability split | Partly done through `RenderCapabilities`; capture and debug-line callers now use the capability boundary, while deeper interface split remains | `tools\validate_dx12_renderer.bat` plus DX12 validation log check. |
+| Render pipeline/pass extraction | Yes, incremental facade-first extraction | `tools\validate_dx12_renderer.bat`. |
 | `PhysicsWorld` boundary | Yes, adapter-first extraction only | `tools\validate_physics.bat`; add `tools\validate_perf.bat` if hot storage changes. |
 | CLI parser cleanup | In progress; renderer selection and generated-object overrides are table-driven, value/flag directive tables are in place, physics debug component switches and ranged float overrides are table-driven, suite-file loading uses scoped IO, and specialized physics/scene helpers remain | `tools\validate_fast.bat`; use broader validation if launch behavior changes or `SkullbonezInit*` changes. |
 | Scene parser cleanup | In progress; directive tables and shared value-option parsing are in place for selected directives | `tools\validate_fast.bat`; use `tools\validate_full.bat` if scene loading semantics change. |
 | Header namespace cleanup | Complete for current source headers; preserve this as a guardrail for future headers | `tools\validate_full.bat` if future header ownership changes cross subsystem boundaries. |
-| RAII cleanup | In progress; file handles/source buffers plus selected DX11/DX12 shader/root-signature/backbuffer temporaries are improved, including suite parsing and nudge repro snapshot writing, while broader backend-owned COM resources remain | Renderer-specific validation for COM/resource changes. |
-| Asset system | Scaffold started with source records/path resolution and runtime terrain/core texture paths now register through it; cache and GPU lifetime integration remain | `tools\validate_renderers.bat` when renderer assets are touched; `tools\validate_full.bat` if routed through `SkullbonezRun*`. |
+| RAII cleanup | In progress; file handles/source buffers plus selected DX12 shader/root-signature/backbuffer temporaries are improved, including suite parsing and nudge repro snapshot writing, while broader backend-owned COM resources remain | Renderer-specific validation for COM/resource changes. |
+| Asset system | Scaffold started with source records/path resolution and runtime terrain/core texture paths now register through it; cache and GPU lifetime integration remain | `tools\validate_dx12_renderer.bat` when renderer assets are touched; `tools\validate_full.bat` if routed through `SkullbonezRun*`. |
 | Worker system implementation | No | Design notes only; primary design lives in `Agentic/Plans/worker-system-plan.md`. |
 | Replay/debug implementation | No | Design notes only. |
 | Standout/stretch feature implementation | No | Design notes only. |
@@ -72,7 +72,7 @@ The app starts in `SkullbonezInit.cpp`, manually parses command-line flags, crea
 
 | Responsibility | Current anchor |
 |----------------|----------------|
-| Renderer hot-switch | `SkullbonezSource/SkullbonezRun.cpp:221` |
+| DX12 resource reset | `SkullbonezSource/SkullbonezRun.cpp:221` |
 | Main frame loop | `SkullbonezSource/SkullbonezRun.cpp:592` |
 | Physics timestep policy | `SkullbonezSource/SkullbonezRun.cpp:706` |
 | Render pass ordering | `SkullbonezSource/SkullbonezRun.cpp:1329` |
@@ -93,7 +93,7 @@ The render abstraction is centered on a global `IRenderBackend` instance:
 | DX12 backend | `SkullbonezSource/SkullbonezRenderBackendDX12.h:100` |
 | DX12 frame resources | `SkullbonezSource/SkullbonezRenderBackendDX12.h:107`, `SkullbonezSource/SkullbonezRenderBackendDX12.h:137`, `SkullbonezSource/SkullbonezRenderBackendDX12.h:167` |
 
-The current code has already fixed several older audit concerns. GL has a debug callback and resource cleanup. DX11 uses a flip-discard swap chain and broad HRESULT checking. DX12 has frame-indexed command allocators and per-frame upload buffers. These are important strengths.
+The current code has already fixed several older audit concerns. DX12 has frame-indexed command allocators and per-frame upload buffers. These are important strengths.
 
 The pressure point is interface breadth. `IRenderBackend` is a render device, swap chain, texture registry, shader factory, mesh factory, FBO factory, screenshot capture service, state machine, DXR dispatcher, GPU timer provider, dynamic vertex buffer manager, debug line renderer, and instancing API. This makes every backend implement no-op feature methods, and it makes high-level systems know too much about backend mechanics.
 
@@ -127,17 +127,17 @@ The scene system is plain text and deterministic, which is exactly right for reg
 | Config singleton | `SkullbonezSource/SkullbonezConfig.h:35` |
 | Config parser | `SkullbonezSource/SkullbonezConfig.cpp:20` |
 
-The validation culture is excellent. The `tools/` scripts create a clear contract for render parity, physics determinism, performance, and fast documentation checks. That discipline should be preserved as a first-class architectural feature.
+The validation culture is excellent. The `tools/` scripts create a clear contract for DX12 renderer regression, physics determinism, performance, and fast documentation checks. That discipline should be preserved as a first-class architectural feature.
 
 ## Strengths To Preserve
 
-### Tri-Renderer Parity
+### DX12 Validation Confidence
 
-Maintaining GL, DX11, and DX12 output parity is a standout differentiator. Many engines hide backend differences behind abstraction; this engine actively tests and compares them. Keep that expectation central.
+Maintaining DX12 screenshot baselines, zero DX12 validation errors, and focused manifests is now the renderer confidence model. Keep that expectation central.
 
-### Runtime Renderer Switching
+### DX12 Resource Reset Discipline
 
-Hot-switching renderers is difficult, especially across GL and DXGI ownership of the same window. The current implementation knows about the real window lifetime hazards and rebuilds render resources carefully. This deserves a more formal lifecycle layer rather than removal.
+The retired renderer hot-switch path taught the code how to release and rebuild render resources carefully. Preserve that lifecycle discipline for DX12 device reset, resize, shader reloads, and future backend bring-up.
 
 ### Deterministic Test Scenes
 
@@ -170,7 +170,7 @@ Recommended split:
 
 Do this as extraction, not rewrite. Move one cohesive chunk at a time and keep `SkullbonezRun` as the facade until the final shape is clear.
 
-Branch progress: `CaptureSystem` owns backbuffer-to-BMP serialization, renderer hot-switch prep is organized through named resource phase tables, scene queue access now goes through helper methods instead of repeated direct bounds checks, and reset-time runtime state capture/restore is isolated from the main `LoadScene` flow. The next `SceneRuntime` slice should move more load/reset/advance policy behind a facade while keeping `SkullbonezRun` as the caller-facing coordinator.
+Branch progress: `CaptureSystem` owns backbuffer-to-BMP serialization, DX12 resource reset prep is organized through named resource phase tables, scene queue access now goes through helper methods instead of repeated direct bounds checks, and reset-time runtime state capture/restore is isolated from the main `LoadScene` flow. The next `SceneRuntime` slice should move more load/reset/advance policy behind a facade while keeping `SkullbonezRun` as the caller-facing coordinator.
 
 Priority: High. Effort: Medium-high. Risk: Medium, because it touches broad runtime behavior.
 
@@ -199,9 +199,9 @@ class IDxrReflectionBackend { /* TLAS/reflection API */ };
 
 Callers can query capabilities and downcast through explicit accessors instead of relying on no-op methods. This will also make non-DX12 backends feel complete rather than partially fake.
 
-Priority: High. Effort: Medium. Risk: Medium-high, because validation must prove all three backends stay visually identical.
+Priority: High. Effort: Medium. Risk: Medium-high, because validation must prove DX12 stays visually stable.
 
-Validation: `validate_renderers`, plus DX12 validation log check.
+Validation: `validate_dx12_renderer`, plus DX12 validation log check.
 
 ### 3. Introduce A Render Pipeline Layer
 
@@ -241,7 +241,7 @@ This sets the engine up for render graph work later, but does not require a full
 
 Priority: High. Effort: Medium. Risk: Medium.
 
-Validation: `validate_renderers`.
+Validation: `validate_dx12_renderer`.
 
 ### 4. Formalize Resource Lifetime For Backend Switching
 
@@ -263,11 +263,11 @@ Add a small resource registry owned by the runtime or render pipeline:
 2. After backend creation: `CreateRenderResources()` in dependency order.
 3. On resize: notify only resources that depend on dimensions.
 
-This would make renderer hot-switching and future device-lost handling less bespoke.
+This would make DX12 device reset and future device-lost handling less bespoke.
 
 Priority: High. Effort: Medium. Risk: Medium.
 
-Validation: `validate_renderers`, ideally three consecutive DX12/GL switches in a targeted scene.
+Validation: `validate_dx12_renderer`, ideally three consecutive DX12-heavy runs for reset/lifetime-sensitive changes.
 
 ### 5. Promote Physics To `PhysicsWorld`
 
@@ -442,7 +442,7 @@ Validation: `validate_full` if many headers change.
 
 ### 13. Adopt RAII For COM And File Handles
 
-DX11 and DX12 have many manual `Release()` paths. Current code is careful, but this is fragile during refactors.
+DX12 still has many manual COM lifetime paths. Current code is careful, but this is fragile during refactors.
 
 Recommended:
 
@@ -475,7 +475,7 @@ Keep backend resources separate from source assets. On renderer switch, source a
 
 Priority: Medium. Effort: Medium-high. Risk: Medium.
 
-Validation: `validate_renderers`.
+Validation: `validate_dx12_renderer`.
 
 ### 15. Add A Render/Physics Replay Recorder
 
@@ -493,7 +493,7 @@ Validation: `validate_fast` for artifact format; `validate_full` once integrated
 
 ### Phase 1: Stabilize The Boundaries
 
-1. Rename GL-era render resource methods to backend-neutral names. Done for the visible runtime/helper/model/skybox/world reset paths; renderer-switch resource prep now uses an ordered table of named release/rebuild steps.
+1. Rename legacy render resource methods to backend-neutral names. Done for the visible runtime/helper/model/skybox/world reset paths; DX12 reset prep now uses an ordered table of named release/rebuild steps.
 2. Extract `CaptureSystem` from `SkullbonezRun`. Seeded through the backbuffer capture helper; screenshot trigger policy still lives in runtime.
 3. Extract `SceneRuntime` load/reset/advance state from `SkullbonezRun`. Scene-queue lookup and reset snapshot/restore are now centralized as helper footholds; the owned runtime subsystem still needs to be extracted.
 4. Make scene/config parsing table-driven. Config and CLI have table-driven footholds, including renderer-option parsing, generated-object override parsing, physics debug component switch parsing, and ranged physics debug float parsing; scene parser has directive tables plus typed value-option helpers for selected aliases, and still needs richer directive diagnostics and serializer-friendly schemas.
@@ -506,10 +506,10 @@ Why first: these changes reduce future blast radius without changing the engine'
 1. Split `IRenderBackend` into core device plus capabilities.
 2. Extract `RenderPipeline` and pass classes.
 3. Add render resource registry for backend switch/rebuild.
-4. Add shader bytecode/cache layer for DX11/DX12 and source-change detection for GL.
+4. Add shader bytecode/cache layer for DX12 and source-change detection for HLSL/DXIL assets.
 5. Add explicit resource state tracking helpers for DX12 resources.
 
-Why second: rendering is the engine's public identity, and these changes make tri-renderer parity easier to preserve as features grow.
+Why second: rendering is the engine's public identity, and these changes make DX12 validation confidence easier to preserve as features grow.
 
 ### Phase 3: Physics World
 
@@ -539,8 +539,8 @@ Why fourth: these features become easier once the engine has clear systems to ob
 |--------|----------------------|
 | Docs or architecture notes | No validation required when documentation-only |
 | Runtime extraction from `SkullbonezRun` | `tools\validate_full.bat` |
-| Render backend interface or render pass changes | `tools\validate_renderers.bat` |
-| DX12 resource lifetime/barriers | `tools\validate_renderers.bat` plus `dx12_validation.txt` equals zero errors |
+| Render backend interface or render pass changes | `tools\validate_dx12_renderer.bat` |
+| DX12 resource lifetime/barriers | `tools\validate_dx12_renderer.bat` plus `dx12_validation.txt` equals zero errors |
 | Physics world or solver storage | `tools\validate_physics.bat` |
 | Spatial grid, worker pool, hot path storage | `tools\validate_physics.bat` plus `tools\validate_perf.bat` |
 | Scene parser/config behavior | `tools\validate_fast.bat` for pure parser cleanup, `tools\validate_full.bat` if scenes can load differently |
@@ -561,16 +561,16 @@ Shared architecture gates before any stretch implementation:
 | `AssetSystem` source/GPU split | Scene forge and hot reload need source assets that survive backend switches. |
 | Replay artifact format | Standout debugging tools should export reproducible cases, not one-off screenshots. |
 
-### 1. The Cross-API Truth Engine
+### 1. The Render Truth Engine
 
-Lean fully into the tri-renderer identity. Make SkullbonezCore the engine that can show GL, DX11, and DX12 rendering the same scene, then produce an in-engine difference heatmap when they diverge. Add a "parity microscope" mode:
+Lean fully into deterministic DX12 visual evidence. Make SkullbonezCore the engine that can show current and baseline captures for the same scene, then produce an in-engine difference heatmap when they diverge. Add a "regression microscope" mode:
 
 | Feature | Standout value |
 |---------|----------------|
-| Split-screen GL/DX11/DX12 | Makes backend differences visible instantly |
+| Split-screen baseline/current DX12 | Makes visual regressions visible instantly |
 | Pixel-diff heatmap overlay | Turns validation into a visual tool |
 | Click a divergent pixel | Shows pass, material, depth, normal, texture, and backend state |
-| Auto-save repro scene | Captures camera, seed, renderer state, and screenshot artifacts |
+| Auto-save repro scene | Captures camera, seed, render state, and screenshot artifacts |
 
 This would make the engine genuinely unusual: part renderer, part graphics-debug laboratory.
 
@@ -632,7 +632,7 @@ Architecture sketch:
 |-----------|-------------|
 | `SceneRecipe` | Typed generator description with seed, parameters, and expected outputs. |
 | `SceneForge` | Expands recipes into `.scene` files and optional `.suite` entries. |
-| `ExpectationBuilder` | Records screenshot, physics hash, perf budget, and renderer parity thresholds. |
+| `ExpectationBuilder` | Records screenshot, physics hash, perf budget, and DX12 regression thresholds. |
 | `RecipeLibrary` | Stores named generators such as stack tests, reflection galleries, and terrain roll suites. |
 | `ArtifactPublisher` | Writes generated scenes and baselines into predictable validation folders. |
 
@@ -645,7 +645,7 @@ The profiler is already strong. Make it more spatial and explanatory:
 | Click a profiler bar to highlight objects/passes responsible | Connects time cost to scene content |
 | Per-pass GPU thumbnails | Shows what each pass rendered |
 | Frame capture bookmarks | Save "slow frame" with scene/replay metadata |
-| Backend comparison timeline | Shows where DX11, DX12, and GL spend time differently |
+| DX12 validation timeline | Shows where current DX12 frame cost diverges from baselines |
 
 This would make performance tuning feel like navigating the engine, not reading CSVs.
 
@@ -656,7 +656,7 @@ Architecture sketch:
 | `ProfilerFrameModel` | Aggregates CPU, GPU, pass, worker, and scene-object timing for a frame. |
 | `ProfilerSelectionBridge` | Maps a profiler bar back to render pass, object IDs, physics island, or asset names. |
 | `PassThumbnailCache` | Stores tiny per-pass captures for the selected frame. |
-| `BackendTimelineCompare` | Aligns GL, DX11, and DX12 timings for the same replay frame. |
+| `Dx12ValidationTimelineCompare` | Aligns current and baseline DX12 timings for the same replay frame. |
 | `SlowFrameBookmark` | Saves scene, replay event, profiler slice, and artifacts for future investigation. |
 
 ### 6. A Retro-Modern Engine Aesthetic

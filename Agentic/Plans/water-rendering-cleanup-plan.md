@@ -5,6 +5,9 @@ Created: 2026-06-11
 Scope: water shaders, reflection modes, water material/style data, known water rendering bugs  
 Implementation status: planning draft; legacy `water.*` shader files were removed in the cleanup pass
 
+Retirement note: code-heavy water cleanup should use the DX12-only renderer
+validation gate. Do not reintroduce OpenGL or DX11 water paths.
+
 ## Goal
 
 Clean up the water rendering architecture so calm water, ocean water, FBO reflections, DXR reflections, cinematic/style water modes, and future water material controls have a clear owner and validation path.
@@ -190,7 +193,7 @@ Tasks:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 
 ### Phase 3: Water Style Params Binder
 
@@ -203,7 +206,7 @@ Tasks:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 
 ### Phase 4: Water Pass Extraction
 
@@ -215,7 +218,7 @@ Tasks:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 
 ### Phase 5: Legacy Shader Cleanup
 
@@ -226,20 +229,20 @@ Tasks:
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 
 ### Phase 6: Water Bug Investigation
 
 Tasks:
 
 1. Create a focused scene for sphere/water intersection.
-2. Capture GL/DX11/DX12 screenshots.
+2. Capture DX12 screenshots and compare against committed baselines.
 3. Check depth/blend states around water pass.
 4. Test candidate fix behind a narrow change.
 
 Validation:
 
-- `tools\validate_renderers.bat`.
+- `tools\validate_dx12_renderer.bat`.
 - Add or update visual baseline only with explicit intent.
 
 ## Validation Matrix
@@ -247,19 +250,19 @@ Validation:
 | Change | Validation |
 |--------|------------|
 | Docs/inventory only | No validation required |
-| Reflection contract refactor | `tools\validate_renderers.bat` |
-| Water uniform binder | `tools\validate_renderers.bat` |
-| Water pass extraction | `tools\validate_renderers.bat` |
-| Shader removal | `tools\validate_renderers.bat` |
-| Water visual bug fix | `tools\validate_renderers.bat` |
-| DXR reflection changes | `tools\validate_renderers.bat`, DX12 validation log zero |
+| Reflection contract refactor | `tools\validate_dx12_renderer.bat` |
+| Water uniform binder | `tools\validate_dx12_renderer.bat` |
+| Water pass extraction | `tools\validate_dx12_renderer.bat` |
+| Shader removal | `tools\validate_dx12_renderer.bat` |
+| Water visual bug fix | `tools\validate_dx12_renderer.bat` |
+| DXR reflection changes | `tools\validate_dx12_renderer.bat`, DX12 validation log zero |
 
 ## Risks
 
 | Risk | Mitigation |
 |------|------------|
 | Reflection sample matrix changes | Keep FBO and DXR sample VP explicit and covered by renderer validation. |
-| Water blending differs by backend | Validate GL/DX11/DX12 together after state changes. |
+| Water blending/depth order drifts | Validate DX12 focused scenes and inspect baseline diffs after state changes. |
 | Legacy shader removal breaks hidden path | Search all source/data and validate before committing the removal. |
 | Water bug fix shifts baselines | Use focused scene and intentional baseline update only if approved. |
 | DX12 FBO/depth transitions regress | Keep barriers explicit and inspect validation log. |

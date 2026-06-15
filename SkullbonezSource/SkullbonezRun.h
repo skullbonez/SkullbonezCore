@@ -11,18 +11,16 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
-  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
-  engine migrates to DX12.
-  OpenGL: Legacy parity renderer used as a reference path for visual output.
-  GL (OpenGL): Legacy parity renderer path.
+  DX11/OpenGL: Retired runtime renderers. Their source backends have been
+  removed; old command-line values now fail early.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
   CPU (Central Processing Unit): Host processor running engine code and
   recording GPU commands.
-  FBO (Framebuffer Object): OpenGL-style off-screen render target concept used
-  by parity and reflection code.
+  FBO (Framebuffer Object): Engine shorthand for an off-screen render target
+  exposed through the renderer abstraction.
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
   CLI (Command-Line Interface): Text arguments or scripts used to launch
   validation and tooling paths.
@@ -270,8 +268,6 @@ struct RunDebugState
     bool isTopTextHidden = false;                             // Hide top-left HUD text while leaving other overlays active
     bool isBroadphaseOverlay = false;                         // Broadphase spatial grid visualizer overlay (toggle with G)
     float frozenWaterTime = 0.0f;                             // Simulation time captured when freeze was toggled on
-    float rendererSwitchInterval = -1.0f;                     // Auto-switch renderer every N seconds (-1 = disabled)
-    float rendererSwitchAccum = 0.0f;                         // Accumulated time since last auto-switch
 #ifdef _DEBUG
     char reproSnapshotMessage[128] = {};    // Short HUD confirmation after nudge-mode repro dump
     double reproSnapshotMessageUntil = 0.0; // Simulation timer value after which the HUD message expires
@@ -299,13 +295,6 @@ struct RunUIStressState
     unsigned int randomState = 0x7F4A7C15u; // LCG state, seeded from scene UI options
     int actionsPerFrame = 4;                // Cheap UI state mutations per rendered frame
     int framesRun = 0;                      // Stress-run frame counter independent of scene resets
-};
-
-enum class RuntimeRendererType
-{
-    OpenGL,
-    DX11,
-    DX12
 };
 
 enum class GeneratedObjectTypeOverride
@@ -399,7 +388,7 @@ class SkullbonezRun
     void SetUpGameModelsFromScene( const TestScene& scene );                                                                                           // Game model init from scene file
     void RegisterBuiltInAssets();                                                                                                                      // Registers built-in texture and shader source records
     std::string ResolveSourceAssetPath( Assets::AssetKind kind, const char* logicalName, const std::string& relativePath );                            // Registers and resolves a source asset under DATA_ROOT
-    void DrawPrimitives();                                                                                                                             // Draw OpenGL primitives here
+    void DrawPrimitives();                                                                                                                             // Draws terrain, objects, helpers, and scene effects
     CinematicRenderConfig& ActiveCinematicConfig();                                                                                                    // Mutable cinematic style config for the active scene/run
     const CinematicRenderConfig& ActiveCinematicConfig() const;                                                                                        // Read-only cinematic style config for the active scene/run
     bool IsCinematicRenderingEnabled() const;                                                                                                          // True when the HDR/post stack should wrap the main scene
@@ -411,7 +400,7 @@ class SkullbonezRun
     void RenderCinematicSky( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection );                             // Draws procedural HDR sunset sky into the active cinematic target
     bool RenderCinematicVolumetricLight();                                                                                                             // Renders depth-aware low-resolution light shafts into the volumetric buffer
     void ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound, bool volumetricReady );                                                          // Tonemaps HDR scene target to the backbuffer
-    void SetInitialOpenGlState();                                                                                                                      // Sets the initial state of the OpenGL evironment
+    void RebuildRegisteredRenderResources();                                                                                                           // Recreates renderer resources from source asset records
     void SetViewingOrientation();                                                                                                                      // Renders camera views etc
     void DrawWindowText( const double dSecondsPerFrame );                                                                                              // Renders text to the window
     void SaveScreenshot( const char* path );                                                                                                           // Saves current backbuffer to a BMP file
@@ -448,36 +437,16 @@ class SkullbonezRun
     void UpdateWorldTerrainBounds();                                                                                                                   // Keeps world/fluid helpers aligned with the active terrain bounds
     bool AdvanceScene();                                                                                                                               // Advances to the next scene in the queue (returns false if done)
     void MoveCamera( float keyMovementQty, float mouseMovemementQty );                                                                                 // Moves the camera
-    RuntimeRendererType GetCurrentRendererType() const;                                                                                                // Detect active backend type from Gfx renderer identity
     // Builds a tight light-space frame for nearby object receivers.
     Rendering::ShadowFrameData BuildObjectShadowFrameData( const CinematicRenderConfig& cinematic, const Math::Vector::Vector3& lightDirectionWorld, const Math::Vector::Vector3& focusHint );
     // Renders requested depth casters from the sun view.
     void RenderShadowMap( Rendering::IFramebuffer& target, const Rendering::ShadowFrameData& shadowFrame, const CinematicRenderConfig& cinematic, bool renderTerrain, bool renderObjects );
-    RuntimeRendererType GetNextRendererType( RuntimeRendererType current ) const;
-    void ReleaseBackendOwnedResourcesForSwitch();        // Releases GPU-visible resources while the old backend is still alive
-    void RebuildBackendOwnedResourcesAfterSwitch();      // Rebuilds GPU-visible resources after the new backend is active
-    void RunRendererSwitchResourceReleaseSteps();        // Ordered backend-resource release registry for renderer switches
-    void RunRendererSwitchResourceRebuildSteps();        // Ordered backend-resource rebuild registry for renderer switches
-    void ReleaseReflectionResourcesForSwitch();          // Releases reflection framebuffer ownership before backend teardown
-    void RebuildReflectionResourcesAfterSwitch();        // Recreates reflection framebuffer ownership after backend startup
-    void ReleaseTextResourcesForSwitch();                // Releases text renderer GPU resources before backend teardown
-    void RebuildTextResourcesAfterSwitch();              // Recreates text renderer GPU resources after backend startup
-    void ReleaseModelCollectionResourcesForSwitch();     // Releases game-model collection GPU resources before backend teardown
-    void ReleaseHelperResourcesForSwitch();              // Releases helper-owned cached render resources before backend teardown
-    void ReleaseCollisionVisualizerResourcesForSwitch(); // Releases collision visualizer GPU resources before backend teardown
-    void ReleaseUIResourcesForSwitch();                  // Releases in-game UI GPU resources before backend teardown
-    void ReleaseTextureResourcesForSwitch();             // Clears texture collection GPU resources before backend teardown
-    void RebuildTerrainResourcesAfterSwitch();           // Recreates active terrain GPU resources after backend startup
-    void RebuildSkyBoxResourcesAfterSwitch();            // Recreates active skybox GPU resources after backend startup
-    void RebuildWorldResourcesAfterSwitch();             // Recreates world/fluid GPU resources after backend startup
-    void SwitchRenderer( RuntimeRendererType target );   // Rebuild render backend/resources while preserving simulation state
     unsigned int NextUIStressRandom();
     int NextUIStressInt( int maxExclusive );
     float NextUIStressFloat( float minValue, float maxValue );
     void RunUIStressActions();
 
     // --- Per-frame tick helpers (called from Run()) ---
-    void TickRendererSwitch( float dt );        // Advance auto-switch timer; cycle backend when interval elapses
     void TickPhysics( double dt );              // Physics dispatch: fixed-step and variable-step accumulator
     bool TickScreenshots();                     // Screenshot triggers; returns true when frame should restart (continue)
     void TickLiveStyleControl();                // Poll live.style/capture.txt and apply look changes without scene reload
@@ -498,12 +467,11 @@ class SkullbonezRun
 #endif
 
   public:
-    SkullbonezRun( std::vector<std::string> sceneQueue ); // Constructor (scene queue; empty string = generated demo scene)
-    ~SkullbonezRun();                                     // Default destructor
-    void Initialise();                                    // Initialises shared resources and loads first scene
-    void RunSceneLoadOnly();                              // Loads every queued scene once, then returns without entering the frame loop
-    void Run();                                           // Runs all scenes in sequence — main message loop
-    void SetRendererSwitchInterval( float seconds );
+    SkullbonezRun( std::vector<std::string> sceneQueue );               // Constructor (scene queue; empty string = generated demo scene)
+    ~SkullbonezRun();                                                   // Default destructor
+    void Initialise();                                                  // Initialises shared resources and loads first scene
+    void RunSceneLoadOnly();                                            // Loads every queued scene once, then returns without entering the frame loop
+    void Run();                                                         // Runs all scenes in sequence — main message loop
     void SetTimeScaleOverride( float scale );                           // Override timeScale for every scene loaded (CLI --time-scale)
     void SetFixedStepOverride();                                        // Force fixed-step for every scene loaded (CLI --fixed-step)
     void SetSeedOverride( unsigned int seed );                          // Override RNG seed for every scene loaded (CLI --seed)

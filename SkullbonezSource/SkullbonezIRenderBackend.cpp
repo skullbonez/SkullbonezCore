@@ -1,11 +1,12 @@
 /*
 File: SkullbonezSource/SkullbonezIRenderBackend.cpp
 Purpose:
-  Implements the renderer abstraction shared by GL, DX11, and DX12 backends.
+  Stores and exposes the active engine render device.
 
 Mental model:
-  Renderer-facing code translates engine concepts into backend resources, draw
-  calls, shader bindings, and validation artifacts.
+  Runtime systems call Gfx() when they need the active renderer. SetGfxBackend()
+  installs the DX12 device during startup; DestroyGfxBackend() releases it
+  during shutdown.
 
 Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a

@@ -6,14 +6,14 @@ This file holds details that are useful during debugging or manual testing but t
 
 | Argument | Values | Description |
 |----------|--------|-------------|
-| `--renderer` | `gl`, `dx11`, `dx12` | Select render backend. Default is `gl`. |
+| `--renderer` | `dx12` | Compatibility alias for the only runtime renderer. Omit it for normal launches. GL and DX11 are retired runtime choices. |
 | `--scene` | path | Load one scene file. Quoted paths are supported. |
 | `--suite` | path | Load a `.suite` file with one scene path per line. |
 | `--demohero` | flag | Run generated demo mode with the low-poly hero rendering/style stack applied. Alias: `--demo-hero`. |
 | `--scene-load-only` | flag | Load queued scene files and exit before the frame loop. Alias: `--load-scenes-only`. Used by `tools\validate_scene_loads.bat`. |
 | `--vsync` | `on`, `off` | Override vsync from `engine.cfg`. |
 | `--dump-config` | flag | Print the resolved startup config after `engine.cfg` and command-line overrides. |
-| `--switch-interval` | seconds | Cycle renderers at runtime. |
+| `--switch-interval` | retired | Rejected because DX12 is the only runtime renderer. |
 | `--time-scale` | float | Override simulation time multiplier. |
 | `--fixed-step` | flag | Run one deterministic physics tick per rendered frame. |
 | `--seed` | positive integer | Override the RNG seed for every loaded scene, including generated demo mode. Useful with nudge repro snapshots. |
@@ -52,7 +52,7 @@ Physics debug command-line arguments also accept underscore spellings matching s
 Launch the authored cinematic look-dev scene with:
 
 ```bat
-Profile\SKULLBONEZ_CORE.exe --renderer gl --scene SkullbonezData\scenes\cinematic_volumetric.scene --cinematic --hold
+Profile\SKULLBONEZ_CORE.exe --scene SkullbonezData\scenes\cinematic_volumetric.scene --cinematic --hold
 ```
 
 The in-game UI has a `Cine` tab with feature toggles and sliders. Feature toggles are backed by `engine.cfg` keys:
@@ -84,8 +84,8 @@ Scene overrides are merged into a per-run active cinematic config. They do not w
 Use this to boot the low-poly hero scene with physics running, unlimited frames, and the balls/cubes bouncing:
 
 ```bat
-Profile\SKULLBONEZ_CORE.exe --renderer gl --hero
-Profile\SKULLBONEZ_CORE.exe --renderer gl --scene hero
+Profile\SKULLBONEZ_CORE.exe --hero
+Profile\SKULLBONEZ_CORE.exe --scene hero
 ```
 
 The dedicated `--hero` flag and the `--scene` aliases `hero`, `low_poly_hero`, and `low-poly-hero` resolve to `SkullbonezData\scenes\concept_12_low_poly_art_style.scene`. The hero scene is a live scene with physics on, `fixed_step`, and unlimited frames, so it keeps running until the window is closed. Bare scene names also resolve through `SkullbonezData\scenes\`, so `--scene stacking` loads `SkullbonezData\scenes\stacking.scene` when it exists.
@@ -93,7 +93,7 @@ The dedicated `--hero` flag and the `--scene` aliases `hero`, `low_poly_hero`, a
 Use this to keep the generated demo scene and physics population, but render it with the same low-poly hero style:
 
 ```bat
-Profile\SKULLBONEZ_CORE.exe --renderer gl --demohero
+Profile\SKULLBONEZ_CORE.exe --demohero
 ```
 
 `--demohero` is mutually exclusive with `--hero`, `--scene`, and `--suite`. It only applies `SkullbonezData\styles\low_poly_art_style.style` after generated demo objects are created, so it does not import the hero scene's camera, world settings, fixed set dressing, or object list.
@@ -104,7 +104,7 @@ The live style harness is for look-dev: keep the game window running, edit a `.s
 
 ```bat
 tools\style_harness.bat init -Style low_poly_art_style
-tools\style_harness.bat launch -Renderer gl -Scene hero
+tools\style_harness.bat launch -Renderer dx12 -Scene hero
 tools\style_harness.bat setshot -Key cinematic_exposure -Value 0.90 -Name exposure_090
 tools\style_harness.bat setshot -Key cinematic_style_grade -Value "1.35 1.10 0.22" -Name punchy_grade
 tools\style_harness.bat status
@@ -150,7 +150,6 @@ Physics regression CSV output is command-line only via `--physics-regression-log
 | N | Toggle nudge mode. Free camera with live simulation. |
 | Left Click | In nudge mode, fire a pooled high-speed silver bullet from the camera. Shift increases speed. |
 | Enter | In nudge mode, write Debug-build repro data for the object under the crosshair to `Debug/nudge_repro_snapshots.txt`. |
-| Q | Cycle render backend: GL to DX11 to DX12 to GL. |
 | R | Reset or rerun the current scene/generated demo while preserving live controls. |
 | F2 | Save a scene snapshot. |
 | F3 | Save a screenshot. |
@@ -176,7 +175,7 @@ Fly and nudge mode use WASD, mouse look, Shift for faster movement, and Space to
 |-------|---------|
 | `SkullbonezData/scenes/water_ball_test.scene` | Visual regression for terrain, skybox, sphere, water, and shadow. |
 | `SkullbonezData/scenes/solver_smoke.scene` | Smoke test with 300 generated balls. |
-| `SkullbonezData/scenes/perf_test.scene` | Tri-renderer performance regression scene. |
+| `SkullbonezData/scenes/perf_test.scene` | DX12 performance regression scene. |
 | `SkullbonezData/scenes/physics_roll.scene` | Physics rolling validation. |
 | `SkullbonezData/scenes/cause_effect_marble_run.scene` | Fixed floating ramp, scene-energy telemetry, and cube-tower cause/effect demo. |
 | `SkullbonezData/scenes/physics_regression_solver.scene` | Byte-exact Debug physics CSV regression. |
@@ -193,13 +192,13 @@ Use `Log().Writef()` for debug-only diagnostic output:
 
 ```cpp
 Log().Writef( "Debug/physics.csv", "frame,%d,x,%.3f,y,%.3f,z,%.3f\n", frame, x, y, z );
-Log().WriteEventf( "renderer_changed from=%s to=%s", oldName, newName );
+Log().WriteEventf( "renderer_switch_ignored target=%s reason=dx12_only_runtime", targetName );
 ```
 
 The log singleton lazily opens files and compiles out in Release/Profile where the implementation is guarded by `_DEBUG`.
 
-Runtime lifecycle events go to `Debug/runtime_events.log` in Debug builds. The engine records process start, scene start, scene finish, renderer changes, fatal exceptions, and unhandled crash stack traces in that file.
+Runtime lifecycle events go to `Debug/runtime_events.log` in Debug builds. The engine records process start, scene start, scene finish, ignored retired renderer switches, fatal exceptions, and unhandled crash stack traces in that file.
 Use `Debug\SKULLBONEZ_CORE.exe --debug-crash-test` to intentionally exercise the crash stack logger.
 
-Debug builds also support nudge-mode repro snapshots. Press `N`, centre an object in the crosshair, then press Enter. Each snapshot appends the scene, frame, active RNG seed, fixed-step mode, renderer, camera pose, object transform, velocities, shape data, sleep/contact state, and terrain support probes to `Debug/nudge_repro_snapshots.txt`.
-Snapshots also include scene load/reset counts and a `--seed` replay hint so an object found after repeated Q resets can be reproduced from a fresh process.
+Debug builds also support nudge-mode repro snapshots. Press `N`, centre an object in the crosshair, then press Enter. Each snapshot appends the scene, frame, active RNG seed, fixed-step mode, DX12 renderer name, camera pose, object transform, velocities, shape data, sleep/contact state, and terrain support probes to `Debug/nudge_repro_snapshots.txt`.
+Snapshots also include scene load/reset counts and a `--seed` replay hint so an object can be reproduced from a fresh process.

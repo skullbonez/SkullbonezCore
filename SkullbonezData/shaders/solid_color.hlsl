@@ -28,7 +28,7 @@ Related:
 // =============================================================================
 //
 // PURPOSE: Render flat-colored 2D quads for HUD backgrounds.
-// HLSL equivalent of solid_color.vert + solid_color.frag.
+// This is the canonical DX12 solid-color shader.
 //
 // Used to draw semi-transparent rectangles behind text panels so the text
 // is always readable regardless of the 3D scene behind it.
@@ -69,4 +69,3 @@ float4 main_ps(VS_OUT input) : SV_TARGET
     // Every pixel in the quad gets the exact same color (alpha blending does the rest).
     return uColor;
 }
-

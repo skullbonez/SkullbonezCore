@@ -84,6 +84,7 @@ void MeshDX12::Create( ID3D12Device* device, ID3D12GraphicsCommandList* cmdList,
     {
         throw std::runtime_error( "MeshDX12: CreateCommittedResource failed" );
     }
+    NameDx12Object( m_vertexBuffer, L"Skullbonez DX12 Mesh Vertex Buffer" );
 
     // Copy vertex data to upload buffer
     memcpy( uploadPtr, data, (size_t)dataSize );

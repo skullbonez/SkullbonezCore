@@ -1736,6 +1736,10 @@ void SkullbonezRun::ApplyUIModelCountOverride( int count )
         return;
     }
 
+    if ( IsGfxReady() )
+    {
+        Gfx().FlushGPU();
+    }
     m_cGameModelCollection.Clear();
     ResetProjectilePool();
     m_timers.physicsAccumulator = 0.0f;
@@ -1777,6 +1781,10 @@ void SkullbonezRun::ApplyUISolverObjectCounts( int balls, int boxes )
         return;
     }
 
+    if ( IsGfxReady() )
+    {
+        Gfx().FlushGPU();
+    }
     m_cGameModelCollection.Clear();
     ResetProjectilePool();
     m_timers.physicsAccumulator = 0.0f;

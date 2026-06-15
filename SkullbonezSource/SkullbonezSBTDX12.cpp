@@ -47,6 +47,7 @@ Related:
 //  InstanceContributionToHitGroupIndex set in each TLAS instance descriptor.
 //
 #include "SkullbonezSBTDX12.h"
+#include "SkullbonezRenderDeviceDX12.h"
 #include <stdexcept>
 #include <cstring>
 
@@ -119,6 +120,7 @@ void SBT::Build( ID3D12Device* device, ID3D12StateObjectProperties* props, const
     {
         throw std::runtime_error( "SBT: Failed to create buffer" );
     }
+    NameDx12Object( m_buffer, L"Skullbonez DX12 Shader Binding Table" );
 
     // Map the SBT buffer and write the shader identifiers into their respective sections.
     // GetShaderIdentifier retrieves the opaque 32-byte handle that the GPU uses to locate each

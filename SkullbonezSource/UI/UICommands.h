@@ -10,13 +10,10 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
-  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
-  engine migrates to DX12.
-  GL (OpenGL): Legacy parity renderer path.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
-  FBO (Framebuffer Object): OpenGL-style off-screen render target concept used
-  by parity and reflection code.
+  FBO (Framebuffer Object): Engine off-screen render target abstraction used by
+  reflection and post-processing code.
   Draw command: Lightweight record describing a UI shape or text batch to
   render later in the frame.
   Hit box: Screen-space rectangle used to decide whether mouse input targets a
@@ -137,7 +134,7 @@ struct UIOnlyCommands
 struct UIRendererCommands
 {
     bool toggleVsync = false;
-    int requestedRendererIndex = -1; // 0=GL, 1=DX11, 2=DX12, -1=no request
+    int requestedRendererIndex = -1; // Retired compatibility field; DX12 is the only runtime renderer.
 };
 
 struct UISceneCommands

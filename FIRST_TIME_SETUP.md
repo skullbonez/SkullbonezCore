@@ -26,7 +26,7 @@ Refresh the current shell's PATH after installing Python:
 $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH','User') + ';' + [System.Environment]::GetEnvironmentVariable('PATH','Machine')
 ```
 
-Install the Python image dependency used by renderer parity checks:
+Install the Python image dependency used by DX12 screenshot checks:
 
 ```powershell
 python -m pip install Pillow
@@ -60,7 +60,7 @@ For targeted pre-commit/PR checks:
 
 ```powershell
 tools\validate_fast.bat
-tools\validate_renderers.bat
+tools\validate_dx12_renderer.bat
 tools\validate_physics.bat
 tools\validate_perf.bat
 ```
@@ -80,7 +80,7 @@ If `clang-format` is reported missing, install the Visual Studio LLVM tools comp
 
 If `py` or `python` opens the Microsoft Store or says Python was not found, install Python with the `winget` command above and refresh PATH in the current shell.
 
-If Pillow is missing, renderer parity checks will fail with `ModuleNotFoundError: No module named 'PIL'`. Run `python -m pip install Pillow`.
+If Pillow is missing, renderer screenshot checks will fail with `ModuleNotFoundError: No module named 'PIL'`. Run `python -m pip install Pillow`.
 
 If perf analysis fails because `git` is missing, install Git with the `winget` command above. In the same shell, refresh PATH or open a new terminal.
 

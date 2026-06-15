@@ -11,12 +11,10 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
-  OpenGL: Legacy parity renderer used as a reference path for visual output.
-  GL (OpenGL): Legacy parity renderer path.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
-  FBO (Framebuffer Object): OpenGL-style off-screen render target concept used
-  by parity and reflection code.
+  FBO (Framebuffer Object): Engine shorthand for an off-screen render target
+  exposed through the renderer abstraction.
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
@@ -131,7 +129,6 @@ void SkullbonezRun::RegisterBuiltInAssets()
     m_systems.assets.RegisterShaderSourceAsset( "shader.water_calm", "shaders/water_calm", Assets::ShaderProgramKind::Water, contract( true, true, false, false, false ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.water_ocean", "shaders/water_ocean", Assets::ShaderProgramKind::Water, contract( true, true, false, false, false ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.collision_visualizer", "shaders/collision_visualizer", Assets::ShaderProgramKind::Collision, contract( false, true, true, false, false ) );
-    m_systems.assets.RegisterShaderSourceAsset( "shader.debug_line", "shaders/debug_line", Assets::ShaderProgramKind::DebugLine, contract( false, false, false, false, false ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.grid_line", "shaders/grid_line", Assets::ShaderProgramKind::DebugLine, contract( false, false, false, false, false ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.ui_backdrop_blur", "shaders/UIBackdropBlur", Assets::ShaderProgramKind::UI, contract( true, false, false, false, true ) );
     m_systems.assets.RegisterShaderSourceAsset( "shader.reflect_rt", "shaders/reflect.rt", Assets::ShaderProgramKind::RayTracing, contract( true, false, false, false, false ) );
@@ -152,12 +149,6 @@ void SkullbonezRun::DumpTextureAssets( FILE* out ) const
     {
         m_systems.textures->DumpTextureAssets( out );
     }
-}
-
-
-void SkullbonezRun::SetRendererSwitchInterval( float seconds )
-{
-    m_debug.rendererSwitchInterval = seconds;
 }
 
 
@@ -361,8 +352,8 @@ void SkullbonezRun::Initialise()
     m_systems.textures->BindAssetSystem( &m_systems.assets );
     RegisterBuiltInAssets();
 
-    // Init OpenGL
-    SetInitialOpenGlState();
+    // Build renderer-owned resources from source asset records.
+    RebuildRegisteredRenderResources();
 
     // Init m_terrain
     // path to m_height map | map size pixels | step size | times to wrap texture
@@ -545,17 +536,8 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
         }
     }
 
-    const char* rendererName = IsGfxReady() ? Gfx().GetRendererName() : "<uninitialised>";
-    const RuntimeRendererType rendererType = IsGfxReady() ? GetCurrentRendererType() : RuntimeRendererType::OpenGL;
-    const char* rendererArg = "gl";
-    if ( rendererType == RuntimeRendererType::DX11 )
-    {
-        rendererArg = "dx11";
-    }
-    else if ( rendererType == RuntimeRendererType::DX12 )
-    {
-        rendererArg = "dx12";
-    }
+    const char* rendererName = IsGfxReady() ? Gfx().GetRendererName() : "DirectX 12";
+    const char* rendererArg = "dx12";
     const char* generatedObjectOverride = "mixed";
     const char* generatedObjectArg = "";
     if ( m_generatedObjectTypeOverride == GeneratedObjectTypeOverride::AllBalls )

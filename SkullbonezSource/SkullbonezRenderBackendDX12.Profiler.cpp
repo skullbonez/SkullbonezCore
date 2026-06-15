@@ -11,8 +11,6 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
-  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
-  engine migrates to DX12.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
   CPU (Central Processing Unit): Host processor running engine code and
@@ -166,7 +164,7 @@ void RenderBackendDX12::GpuTimerInvalidate()
         TryConsumeGpuTimerReadback( true );
     }
 
-    // resultMs and resultValid are intentionally PRESERVED (same reasoning as DX11):
+    // resultMs and resultValid are intentionally preserved:
     // After a reset, the non-blocking TryConsumeGpuTimerReadback in GpuTimerRead may fail
     // its 512-spin if the GPU hasn't completed the first post-reset frame yet. Preserving
     // stale resultValid lets ReadPendingGpuResults immediately see data and keeps the GPU

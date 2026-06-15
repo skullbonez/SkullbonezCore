@@ -10,9 +10,6 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
-  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
-  engine migrates to DX12.
-  GL (OpenGL): Legacy parity renderer path.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
   CPU (Central Processing Unit): Host processor running engine code and
@@ -146,8 +143,9 @@ void SkullbonezRun::EnsureCinematicRenderResources()
 
 void SkullbonezRun::ResetCinematicRenderResources()
 {
-    // Renderer resources are backend-owned objects. When the renderer changes or
-    // shuts down, release these GPU handles so GL/DX can recreate them cleanly.
+    // Renderer resources are device-owned objects. Before the DX12 backend
+    // shuts down or rebuilds, release these GPU handles so the device can
+    // recreate them cleanly.
     ResetShadowRenderResources();
     if ( IsGfxReady() && m_systems.postQuadVB != 0 )
     {
@@ -196,9 +194,10 @@ void SkullbonezRun::EnsureShadowRenderResources( const CinematicRenderConfig& ci
 void SkullbonezRun::ResetShadowRenderResources()
 {
     // Drop both the backing framebuffer and the per-frame payload. Framebuffer
-    // handles are backend-specific, so renderer switches must force a clean
-    // recreate before the next shadow pass. The payload is reset too so receivers
-    // cannot accidentally sample an old depth texture after the resource dies.
+    // handles are owned by the current device/backend, so any device reset,
+    // resize rebuild, or future backend bring-up must force a clean recreate
+    // before the next shadow pass. The payload is reset too so receivers cannot
+    // accidentally sample an old depth texture after the resource dies.
     if ( m_systems.shadowFBO )
     {
         m_systems.shadowFBO->ResetResources();
@@ -253,16 +252,14 @@ SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::BuildShadowFrameData( 
     const float farPlane = lightBackDistance * 2.0f + terrainHeightRange + shadowRadius;
 
     shadowFrame.lightView = Matrix4::LookAt( lightEye, focus, lightUp );
-    shadowFrame.lightProjection = Gfx().UsesZeroToOneDepth()
-                                      ? Matrix4::OrthoZeroToOne( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane )
-                                      : Matrix4::Ortho( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane );
+    shadowFrame.lightProjection = Matrix4::OrthoZeroToOne( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane );
     shadowFrame.lightViewProjection = shadowFrame.lightProjection * shadowFrame.lightView;
     shadowFrame.lightDirectionWorld = lightDir;
     shadowFrame.depthTextureHandle = m_systems.shadowFBO->GetDepthTextureHandle();
 
     // Everything below is copied into shader uniforms by ApplyShadowReceiverUniforms.
-    // Keeping the values in one payload makes balls, boxes, terrain, GL, DX11,
-    // and DX12 consume the same shadow decision for the frame.
+    // Keeping the values in one payload makes balls, boxes, terrain, and any
+    // future backend consume the same shadow decision for the frame.
     shadowFrame.mapSize = m_systems.shadowFBO->GetWidth();
     shadowFrame.pcfRadius = std::clamp( cinematic.shadowPcfRadius, 0, 3 );
     shadowFrame.strength = std::clamp( cinematic.shadowStrength, 0.0f, 1.0f );
@@ -270,7 +267,7 @@ SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::BuildShadowFrameData( 
     shadowFrame.slopeBias = (std::max)( cinematic.shadowSlopeBias, 0.0f );
     shadowFrame.texelSize = shadowFrame.mapSize > 0 ? 1.0f / static_cast<float>( shadowFrame.mapSize ) : 0.0f;
     shadowFrame.softness = (std::max)( cinematic.shadowSoftness, 0.25f );
-    shadowFrame.zeroToOneDepth = Gfx().UsesZeroToOneDepth();
+    shadowFrame.zeroToOneDepth = true;
     shadowFrame.terrainReceives = cinematic.shadowTerrainReceives;
     shadowFrame.objectsReceive = cinematic.shadowObjectsReceive;
     shadowFrame.valid = shadowFrame.depthTextureHandle != 0 && shadowFrame.mapSize > 0;
@@ -305,9 +302,7 @@ SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::BuildObjectShadowFrame
     const float farPlane = lightBackDistance * 2.0f + heightRange + shadowRadius;
 
     shadowFrame.lightView = Matrix4::LookAt( lightEye, focus, lightUp );
-    shadowFrame.lightProjection = Gfx().UsesZeroToOneDepth()
-                                      ? Matrix4::OrthoZeroToOne( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane )
-                                      : Matrix4::Ortho( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane );
+    shadowFrame.lightProjection = Matrix4::OrthoZeroToOne( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane );
     shadowFrame.lightViewProjection = shadowFrame.lightProjection * shadowFrame.lightView;
     shadowFrame.lightDirectionWorld = lightDir;
     shadowFrame.depthTextureHandle = m_systems.objectShadowFBO->GetDepthTextureHandle();
@@ -318,7 +313,7 @@ SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::BuildObjectShadowFrame
     shadowFrame.slopeBias = (std::max)( cinematic.shadowSlopeBias, 0.0f );
     shadowFrame.texelSize = shadowFrame.mapSize > 0 ? 1.0f / static_cast<float>( shadowFrame.mapSize ) : 0.0f;
     shadowFrame.softness = (std::max)( cinematic.shadowSoftness, 0.25f );
-    shadowFrame.zeroToOneDepth = Gfx().UsesZeroToOneDepth();
+    shadowFrame.zeroToOneDepth = true;
     shadowFrame.terrainReceives = false;
     shadowFrame.objectsReceive = cinematic.shadowObjectsReceive;
     shadowFrame.valid = shadowFrame.depthTextureHandle != 0 && shadowFrame.mapSize > 0;
@@ -827,7 +822,7 @@ void SkullbonezRun::DrawPrimitives()
     }
     else
     {
-        // FBO mirror-camera path (GL, DX11, or DXR fallback)
+        // Off-screen mirror-camera path for planar reflections.
         m_systems.reflectionFBO->Bind();
         Gfx().SetViewport( 0, 0, m_systems.reflectionFBO->GetWidth(), m_systems.reflectionFBO->GetHeight() );
         Gfx().Clear( true, true );
@@ -1028,7 +1023,7 @@ void SkullbonezRun::SetUpCameras()
 }
 
 
-void SkullbonezRun::SetInitialOpenGlState()
+void SkullbonezRun::RebuildRegisteredRenderResources()
 {
     SkullbonezHelper::ResetRenderResources();
 

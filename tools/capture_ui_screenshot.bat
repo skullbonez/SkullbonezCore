@@ -25,25 +25,23 @@
 setlocal enabledelayedexpansion
 REM ===============================================================
 REM  capture_ui_screenshot.bat - Capture the in-game UI as a PNG.
-REM  Usage: tools\capture_ui_screenshot.bat [gl|dx11|dx12] [output.png] [max_width]
+REM  Usage: tools\capture_ui_screenshot.bat [dx12] [output.png] [max_width]
 REM ===============================================================
 
 set "REPO=%~dp0.."
 pushd "%REPO%"
 
 set "RENDERER=%~1"
-if "%RENDERER%"=="" set "RENDERER=gl"
+if "%RENDERER%"=="" set "RENDERER=dx12"
 set "OUTPUT=%~2"
 if "%OUTPUT%"=="" set "OUTPUT=%REPO%\Profile\codex_ui_capture.png"
 set "MAX_WIDTH=%~3"
 if "%MAX_WIDTH%"=="" set "MAX_WIDTH=1080"
 
 set "RENDER_ARGS="
-if /I "%RENDERER%"=="gl" set "RENDER_ARGS="
-if /I "%RENDERER%"=="dx11" set "RENDER_ARGS=--renderer dx11"
 if /I "%RENDERER%"=="dx12" set "RENDER_ARGS=--renderer dx12"
-if /I not "%RENDERER%"=="gl" if /I not "%RENDERER%"=="dx11" if /I not "%RENDERER%"=="dx12" (
-    echo ERROR: Unknown renderer "%RENDERER%". Expected gl, dx11, or dx12.
+if /I not "%RENDERER%"=="dx12" (
+    echo ERROR: Unknown renderer "%RENDERER%". DX12 is the only runtime renderer.
     popd
     exit /b 1
 )

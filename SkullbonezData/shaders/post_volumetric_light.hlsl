@@ -26,7 +26,7 @@ Related:
 // CINEMATIC VOLUMETRIC LIGHT SHADER (DirectX)
 // =============================================================================
 //
-// This is the DirectX version of post_volumetric_light.frag. It builds a soft
+// This is the canonical DX12 volumetric-light pass. It builds a soft
 // half-resolution light texture by marching from each pixel toward the sun and
 // measuring how much bright, unblocked sky is along that path. The final tonemap
 // pass composites this warm texture over the scene.
