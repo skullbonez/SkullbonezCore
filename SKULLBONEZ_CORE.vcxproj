@@ -171,9 +171,11 @@
     <ClCompile Include="SkullbonezSource\SkullbonezRunFrame.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRunInput.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRunLiveStyle.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRunPasses.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRunRender.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRunScene.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRunStress.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezRunUiTextPass.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezSkyBox.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezSpatialGrid.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezTerrain.cpp" />

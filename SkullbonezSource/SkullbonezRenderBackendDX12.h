@@ -376,6 +376,9 @@ class RenderBackendDX12 : public IRenderBackend
     D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle( UINT index );
     void RecordLiveBarrier( const char* source, ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after );
     void TransitionBarrier( ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after );
+    // Keeps cached texture-slot state from pointing at an SRV descriptor row
+    // whose owning resource is being deleted or unregistered.
+    void ClearBoundTextureSlotsForSrv( UINT srvIndex );
     void FlushUploadBuffer();
     void FlushUploadBufferIfNeeded( UINT64 size, UINT64 alignment );
     D3D12_GPU_VIRTUAL_ADDRESS SubAllocateUpload( UINT64 size, UINT64 alignment );

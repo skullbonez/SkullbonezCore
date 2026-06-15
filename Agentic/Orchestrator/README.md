@@ -32,6 +32,10 @@ destination:
 - `AGENTS.md` still forbids merges and PR submission, so policy alone cannot
   authorize merges.
 - Queue execution is sequential: one active roadmap item at a time.
+- Chained roadmap items use stacked child branches. If the user asks for tasks
+  1-3 as one chain, task 1 branches from `main`, task 2 branches from task 1,
+  and task 3 branches from task 2. Review each child PR against its parent until
+  the parent branch lands.
 
 ## Run Artifacts
 

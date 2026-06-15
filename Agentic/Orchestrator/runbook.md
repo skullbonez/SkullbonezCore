@@ -135,12 +135,44 @@ finalizing. If progress is impossible, set the queue item to `blocked` or
 
 ## Branch Setup
 
-1. Start from `policy.base_branch`, normally `main`.
-2. Fetch the base branch.
-3. Create or switch to the item's configured branch.
-4. Do not rebase.
-5. Do not force-push.
-6. Do not push directly to `main`.
+1. Start from `policy.base_branch`, normally `main`, for the first independent
+   roadmap item.
+2. For chained roadmap items, use stacked child branches:
+   - task 1 branch starts from `policy.base_branch`,
+   - task 2 branch starts from task 1's branch,
+   - task 3 branch starts from task 2's branch,
+   - continue the chain in that pattern until the requested chain ends.
+3. Record each item's parent branch in `run.json`, the generated
+   `worker-prompt.md`, and any PR notes. For a queue entry, prefer an explicit
+   parent field such as `parent_branch` or `stack_base_branch` when the item is
+   part of a chain.
+4. Fetch the required base or parent branch before creating the child branch.
+5. Create or switch to the item's configured branch from that exact parent tip.
+6. Do not rebase.
+7. Do not force-push.
+8. Do not push directly to `main`.
+
+Stacked branch example:
+
+```text
+main
+  \
+   codex/task-1
+       \
+        codex/task-2
+            \
+             codex/task-3
+```
+
+If a parent branch changes after a child branch exists, update the child by
+merging the parent branch into the child branch and pushing normally. Do not
+rebase the child branch onto the parent, and do not rewrite already-pushed child
+history.
+
+For stacked PRs, open each child PR against its parent branch while the parent
+is still unmerged. After the parent branch lands in `main`, retarget the child
+PR to `main` or merge the updated `main` into the child branch, whichever keeps
+the diff clear without rewriting history.
 
 ## Worker Delegation
 

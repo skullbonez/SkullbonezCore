@@ -549,14 +549,8 @@ void RenderBackendDX12::SetRenderingToFBO( bool rendering, UINT fboSrvIndex, UIN
         // reading, but not at the same time in this pass. Clear any texture slot
         // still pointing at the FBO color/depth SRV before the resource is used
         // as a render target again.
-        for ( int i = 0; i < TEXTURE_SLOT_COUNT; ++i )
-        {
-            if ( m_boundTexSlot[i] == fboSrvIndex || m_boundTexSlot[i] == fboDepthSrvIndex )
-            {
-                m_boundTexSlot[i] = UINT_MAX;
-                m_texBindingsDirty = true;
-            }
-        }
+        ClearBoundTextureSlotsForSrv( fboSrvIndex );
+        ClearBoundTextureSlotsForSrv( fboDepthSrvIndex );
     }
 }
 

@@ -3,6 +3,13 @@
   "enabled": true,
   "base_branch": "main",
   "branch_prefix": "codex/",
+  "branching": {
+    "chained_items_use_stacked_branches": true,
+    "first_item_base": "policy.base_branch",
+    "child_item_base": "previous_item_branch",
+    "update_child_with_parent_by_merge": true,
+    "disallow_child_rebase": true
+  },
   "max_active_items": 1,
   "allow_pr_creation": true,
   "allow_merge": false,

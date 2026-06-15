@@ -377,7 +377,7 @@ Likely code areas:
 
 Coordinate with:
 
-- `Agentic/Plans/render-pipeline-extraction-plan.md`
+- `Agentic/Plans/Done/render-pipeline-extraction-plan.md`
 - `Agentic/Plans/renderer-parity-debugging-plan.md`
 - `Agentic/Plans/render-resource-lifetime-plan.md`
 - `Agentic/Plans/shader-architecture-cleanup-plan.md`

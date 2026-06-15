@@ -164,6 +164,9 @@
     <ClCompile Include="SkullbonezSource\SkullbonezRunLiveStyle.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRunPasses.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRunRender.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
@@ -171,6 +174,9 @@
       <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRunStress.cpp">
+      <Filter>Source Files\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezRunUiTextPass.cpp">
       <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezSkyBox.cpp">

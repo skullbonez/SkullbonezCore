@@ -541,6 +541,34 @@ uint32_t RenderBackendDX12::CreateTexture2D( const uint8_t* data, int w, int h, 
 }
 
 
+void RenderBackendDX12::ClearBoundTextureSlotsForSrv( UINT srvIndex )
+{
+    // Lifetime: m_boundTexSlot stores descriptor row indices, not texture
+    // handles. When an FBO or texture unregisters an SRV, clear any cached slot
+    // that still names that row before the backend can copy a dead descriptor
+    // into the shader-visible heap on a later draw.
+    if ( srvIndex == UINT_MAX )
+    {
+        return;
+    }
+
+    bool cleared = false;
+    for ( int slot = 0; slot < TEXTURE_SLOT_COUNT; ++slot )
+    {
+        if ( m_boundTexSlot[slot] == srvIndex )
+        {
+            m_boundTexSlot[slot] = UINT_MAX;
+            cleared = true;
+        }
+    }
+
+    if ( cleared )
+    {
+        m_texBindingsDirty = true;
+    }
+}
+
+
 void RenderBackendDX12::BindTexture( uint32_t handle, int slot )
 {
     if ( slot < 0 || slot >= TEXTURE_SLOT_COUNT )
@@ -571,6 +599,7 @@ void RenderBackendDX12::DeleteTexture( uint32_t handle )
         return;
     }
     auto& entry = m_textures[handle - 1];
+    ClearBoundTextureSlotsForSrv( entry.srvIndex );
     if ( entry.owned && entry.resource )
     {
         entry.resource->Release();
@@ -599,6 +628,7 @@ void RenderBackendDX12::UnregisterSRV( uint32_t handle )
         return;
     }
     auto& entry = m_textures[handle - 1];
+    ClearBoundTextureSlotsForSrv( entry.srvIndex );
     entry.resource = nullptr;
     entry.srvIndex = UINT_MAX;
     entry.owned = false;

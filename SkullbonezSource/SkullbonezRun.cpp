@@ -18,8 +18,15 @@ Glossary:
   Validation gate: Repository script that proves a class of changes before
   commit or PR.
 
+Invariants:
+  - Backend-owned render resources must be released while the renderer backend
+    is still alive, after a GPU flush, and in the explicit release order below.
+  - WorldEnvironment reset can record upload commands; flush after that step
+    before later resources are released.
+
 Related:
   - SkullbonezSource/SkullbonezRun.h
+  - SkullbonezSource/SkullbonezRunRender.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -34,7 +41,19 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 
 SkullbonezRun::SkullbonezRun( std::vector<std::string> sceneQueue )
-    : m_sceneQueue( std::move( sceneQueue ) )
+    : m_sceneQueue( std::move( sceneQueue ) ),
+      m_fullscreenQuadPass( *this ),
+      m_skyPass( *this ),
+      m_sceneTargetPass( *this ),
+      m_shadowPass( *this ),
+      m_reflectionPass( *this ),
+      m_objectPass( *this ),
+      m_terrainPass( *this ),
+      m_waterPass( *this ),
+      m_debugOverlayPass( *this ),
+      m_volumetricPass( *this ),
+      m_tonemapPass( *this ),
+      m_uiTextPass( *this )
 {
     RefreshSceneBrowserList();
     m_runtimeSettings.isVsyncEnabled = Cfg().runtimeRender.vsyncEnabled;
@@ -55,17 +74,19 @@ SkullbonezRun::~SkullbonezRun()
         m_perfLogState.perfLogFile = nullptr;
     }
 
-    // Flush GPU before destroying resources to avoid use-after-free
+    // Hazard: backend resources can still be referenced by queued GPU work.
+    // Flush before releasing the runtime's owning pointers so teardown cannot
+    // free memory while the device is still reading it.
     if ( IsGfxReady() )
     {
         Gfx().FlushGPU();
     }
 
-    // Clean up backend-owned render resources while the current backend is still alive.
-    // WorldEnvironment::ResetRenderResources() rebuilds fluid meshes (records GPU upload commands
-    // and leaves the DX12 command list open). Flush immediately after so subsequent resource
-    // releases don't trigger "ID3D12Resource deleted before command list close" validation
-    // errors — resources must not be freed while any open command list could reference them.
+    // Lifetime: clean up backend-owned render resources while the current
+    // backend is still alive. WorldEnvironment::ResetRenderResources() rebuilds
+    // fluid meshes, records GPU upload commands, and leaves the DX12 command
+    // list open. Flush immediately after that step so later releases cannot hit
+    // "ID3D12Resource deleted before command list close" validation errors.
     ReleaseBackendOwnedRenderResources( "shutdown_release" );
 
     SkullbonezCore::Assets::BindActiveAssetSystem( nullptr );
@@ -81,10 +102,8 @@ void SkullbonezRun::ReleaseBackendOwnedRenderResources( const char* phaseName )
         GameModelResources,
         CollisionVisualizer,
         UIResources,
-        CinematicResources,
-        ReflectionFBO,
+        RenderPassResources,
         ProfilerQueries,
-        TextFont,
         TextureCollection,
         CameraCollection,
         SkyBox
@@ -103,10 +122,8 @@ void SkullbonezRun::ReleaseBackendOwnedRenderResources( const char* phaseName )
         { "game_model_resources", BackendResourceStep::GameModelResources, false },
         { "collision_visualizer", BackendResourceStep::CollisionVisualizer, false },
         { "ui_resources", BackendResourceStep::UIResources, false },
-        { "cinematic_resources", BackendResourceStep::CinematicResources, false },
-        { "reflection_fbo", BackendResourceStep::ReflectionFBO, false },
+        { "render_pass_resources", BackendResourceStep::RenderPassResources, false },
         { "profiler_queries", BackendResourceStep::ProfilerQueries, false },
-        { "text_font", BackendResourceStep::TextFont, false },
         { "texture_collection", BackendResourceStep::TextureCollection, false },
         { "camera_collection", BackendResourceStep::CameraCollection, false },
         { "skybox_singleton", BackendResourceStep::SkyBox, false },
@@ -132,19 +149,23 @@ void SkullbonezRun::ReleaseBackendOwnedRenderResources( const char* phaseName )
         case BackendResourceStep::UIResources:
             m_UI.ResetResources();
             break;
-        case BackendResourceStep::CinematicResources:
-            ResetCinematicRenderResources();
-            break;
-        case BackendResourceStep::ReflectionFBO:
-            ResetReflectionRenderResources();
+        case BackendResourceStep::RenderPassResources:
+            // Lifetime: release pass-owned GPU resources while the renderer
+            // backend is still alive. The order keeps consumers ahead of their
+            // producers, so cached handles are invalidated before targets die.
+            m_tonemapPass.ReleaseGpuResources();
+            m_volumetricPass.ReleaseGpuResources();
+            m_sceneTargetPass.ReleaseGpuResources();
+            m_shadowPass.ReleaseGpuResources();
+            m_reflectionPass.ReleaseGpuResources();
+            m_skyPass.ReleaseGpuResources();
+            m_fullscreenQuadPass.ReleaseGpuResources();
+            m_uiTextPass.ReleaseGpuResources();
             break;
         case BackendResourceStep::ProfilerQueries:
 #if defined( SKULLBONEZ_PROFILE_ENABLED )
             Profiler::Instance().InvalidateGpuQueries();
 #endif
-            break;
-        case BackendResourceStep::TextFont:
-            Text2d::DeleteFont();
             break;
         case BackendResourceStep::TextureCollection:
             if ( m_systems.textures )
@@ -473,14 +494,8 @@ void SkullbonezRun::Initialise()
         m_cWorldEnvironment.SetTerrainBounds( tb.m_xMin, tb.m_xMax, tb.m_zMin, tb.m_zMax );
     }
 
-    // Init size-dependent frame targets at the current viewport size. These
-    // helpers use the same checks as the render loop, so startup and resize
-    // follow one lifetime path instead of drifting apart.
-    EnsureReflectionRenderResources();
-    EnsureCinematicRenderResources();
-
     // Init font (HDC, font)
-    Text2d::BuildFont( "Verdana" );
+    m_uiTextPass.EnsureGpuResources();
 
     // Init cameras singleton (shared across scenes, Reset() between loads)
     m_systems.cameras = CameraCollection::Instance();

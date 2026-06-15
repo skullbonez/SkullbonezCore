@@ -397,7 +397,7 @@ Status:
 - Done for the current non-extracted renderer shape on branch `codex/render-resource-lifetime-dx12`.
 - The ordered release hook table now lives in `SkullbonezRun::ReleaseBackendOwnedRenderResources` instead of being destructor-local.
 - Future pass modules can move from table rows to pass-owned hooks without changing the high-level release/rebuild order.
-- No render pass ownership move was attempted here because pass extraction is tracked separately in `render-pipeline-extraction-plan.md`.
+- No render pass ownership move was attempted here because pass extraction was tracked separately in `Agentic/Plans/Done/render-pipeline-extraction-plan.md`.
 
 ### Phase 6: Future Device-Lost Path
 
