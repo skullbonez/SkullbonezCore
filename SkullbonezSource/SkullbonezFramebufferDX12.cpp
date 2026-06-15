@@ -104,7 +104,11 @@ void FramebufferDX12::Create( int width, int height )
     // "Committed" means this texture gets its own dedicated GPU memory allocation. The initial
     // state is PIXEL_SHADER_RESOURCE because when not actively rendering to it, shaders read it.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &colorDesc, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &colorClear, IID_PPV_ARGS( &m_colorTexture ) );
+    if ( FAILED( device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &colorDesc, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, &colorClear, IID_PPV_ARGS( &m_colorTexture ) ) ) )
+    {
+        throw std::runtime_error( "FramebufferDX12: Failed to create color texture" );
+    }
+    NameDx12Object( m_colorTexture, L"Skullbonez DX12 Framebuffer Color Texture" );
 
     // Depth texture
     D3D12_RESOURCE_DESC depthDesc = {};
@@ -127,7 +131,11 @@ void FramebufferDX12::Create( int width, int height )
     // This stores per-pixel depth values so the GPU knows which objects are in front of others.
     // Initial state is DEPTH_WRITE because we clear and write depth whenever this FBO is bound.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
-    device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &depthDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &depthClear, IID_PPV_ARGS( &m_depthTexture ) );
+    if ( FAILED( device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &depthDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &depthClear, IID_PPV_ARGS( &m_depthTexture ) ) ) )
+    {
+        throw std::runtime_error( "FramebufferDX12: Failed to create depth texture" );
+    }
+    NameDx12Object( m_depthTexture, L"Skullbonez DX12 Framebuffer Depth Texture" );
 
     // Allocate descriptor rows from the backend heaps. The color/depth textures
     // are the resources; RTV/DSV are the binding records that let the output

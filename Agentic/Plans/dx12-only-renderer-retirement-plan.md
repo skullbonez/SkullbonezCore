@@ -494,7 +494,7 @@ Use the retirement to make DX12 cleaner, not just smaller.
 
 Tasks:
 
-1. Confirm DX12 resource ownership is split into focused subsystems:
+1. [x] Confirm DX12 resource ownership is split into focused subsystems:
    - `Dx12RenderDevice`,
    - descriptor allocators,
    - upload allocator,
@@ -502,22 +502,37 @@ Tasks:
    - PSO/root-signature cache,
    - render graph diagnostics,
    - DXR reflection resources.
-2. Make transient descriptor reset and upload allocator reset explicitly
+2. [x] Make transient descriptor reset and upload allocator reset explicitly
    frame/fence safe.
-3. Keep render graph transition diagnostics active until graph-owned barriers
+3. [x] Keep render graph transition diagnostics active until graph-owned barriers
    replace hand-written barriers pass by pass.
-4. Record DX12 object names for all important resources.
-5. Keep DRED and InfoQueue diagnostics easy to find in artifacts.
-6. Remove GL/DX11-oriented workaround code from matrix, sampler, texture, and
+4. [x] Record DX12 object names for all important resources.
+5. [x] Keep DRED and InfoQueue diagnostics easy to find in artifacts.
+6. [x] Remove GL/DX11-oriented workaround code from matrix, sampler, texture, and
    shader paths.
-7. Replace old parity comments with DX12 validation comments where needed.
+7. [x] Replace old parity comments with DX12 validation comments where needed.
+
+Implementation notes:
+
+- Existing DX12 ownership is already split across `Dx12RenderDevice`,
+  descriptor allocators, frame upload arenas, readback helpers, pipeline caches,
+  render-graph diagnostics, and DXR resources.
+- Added diagnostic names for mesh vertex buffers, framebuffer color/depth
+  textures, Texture2D resources, instanced static vertex buffers, BLAS/TLAS
+  buffers, and the shader binding table.
+- Checked framebuffer resource creation before writing RTV/DSV/SRV descriptors.
+- Cleaned active DX12 comments that still described behavior by comparison to
+  retired renderers.
 
 Validation:
 
-- `tools\validate_dx12_renderer.bat` or updated renderer gate.
-- `tools\validate_perf.bat` if upload/descriptor/render hot paths change.
-- Run DX12-heavy scenes three consecutive times if barriers, upload lifetime, or
-  descriptor lifetime are touched.
+- `git diff --check` passed on 2026-06-15.
+- `tools\validate_dx12_renderer.bat` passed on 2026-06-15 in 24.8s.
+  - DX12 renderer manifest:
+    `TestOutput\validation\dx12_renderer\20260615T054221Z\manifest.json`
+  - DX12 InfoQueue validation errors: `0`.
+  - No upload lifetime, descriptor lifetime, or barrier behavior changed, so the
+    three-run DX12-heavy scene loop was not required for this naming-only slice.
 
 Acceptance:
 
