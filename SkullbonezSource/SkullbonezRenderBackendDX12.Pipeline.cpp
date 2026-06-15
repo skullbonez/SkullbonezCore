@@ -121,6 +121,7 @@ size_t RenderBackendDX12::HashPSOKey( const PSOKey12& key )
         memcpy( &bits, &value, sizeof( bits ) );
         return static_cast<size_t>( bits );
     };
+    hashCombine( h, (size_t)key.rootSignature );
     hashCombine( h, (size_t)key.shaderVS );
     hashCombine( h, (size_t)key.shaderPS );
     hashCombine( h, (size_t)key.format );
@@ -379,7 +380,11 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
     // blend/depth/cull state, polygon offset, instancing mode, and render-target
     // format all participate in the Pipeline State Object. If any of those
     // values changes, the cached PSO may no longer describe the draw correctly.
+    // Include the root signature too: today ordinary raster draws share one
+    // signature, but future fullscreen, material-table, or graph-local resource
+    // signatures must not accidentally reuse an incompatible cached PSO.
     PSOKey12 key = {};
+    key.rootSignature = m_rootSignature;
     key.shaderVS = m_activeShader->GetVSBytecode();
     key.shaderPS = m_activeShader->GetPSBytecode();
     key.format = format;

@@ -116,6 +116,7 @@ struct InstancedMeshDX12
 // instead of compiling a new one for every draw.
 struct PSOKey12
 {
+    const void* rootSignature;
     const void* shaderVS;
     const void* shaderPS;
     VertexFormat12 format;
