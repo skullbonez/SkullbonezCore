@@ -16,7 +16,7 @@
     {
       "id": "shader-architecture-cleanup",
       "plan": "Agentic/Plans/shader-architecture-cleanup-plan.md",
-      "status": "running",
+      "status": "pr-open",
       "priority": 20,
       "branch": "codex/shader-architecture-cleanup",
       "impact_area": [
