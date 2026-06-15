@@ -616,6 +616,15 @@ Recommended order after retirement:
 5. Render graph ownership:
    - move the first low-risk pass under graph-owned barriers.
 
+Status:
+
+- Retirement is complete. Phase 10 is a handoff point, not a request to fold
+  water, shader architecture, materials, pass extraction, and render graph
+  ownership into this retirement branch.
+- The follow-up order now lives in `Agentic/PlanOrder.md`.
+- Each follow-up item should be implemented as its own bounded plan/branch so
+  validation remains clear and commit history stays reviewable.
+
 Validation:
 
 - Renderer and shader changes use the new DX12 renderer gate.
@@ -692,25 +701,22 @@ The retirement is complete when:
 - Water/material/render-pipeline cleanup can proceed without legacy renderer
   parity overhead.
 
-## Recommended First Implementation Slice
+## Implementation History Summary
 
-Start with Phase 1, not deletion.
+Implemented on `codex/dx12-only-renderer-retirement`:
 
-The first PR should add a DX12-only validation gate while the old renderers still
-exist. That gives the project a safety net before the bridge is removed.
+1. Added the DX12-only renderer validation gate.
+2. Archived final GL/DX11/DX12 parity evidence.
+3. Made DX12 the only runtime renderer.
+4. Removed legacy OpenGL and DX11 backend source from the project.
+5. Removed retired GLSL and DX11-only shader families.
+6. Cleaned active docs, validation helpers, baselines, and session state around
+   the DX12-only validation model.
+7. Simplified the active render interface into a DX12-facing render device
+   contract.
+8. Named important DX12 diagnostic resources and confirmed DRED/InfoQueue
+   artifact visibility.
+9. Added the future Vulkan/Metal render backend portability contract.
 
-Suggested branch:
-
-```text
-codex/dx12-only-validation-gate
-```
-
-Suggested deliverables:
-
-- a DX12-only renderer validation command,
-- DX12 screenshot/baseline artifact manifest,
-- DX12 validation log zero-error check,
-- documentation explaining how this replaces parity after retirement.
-
-After that gate works, run the final legacy parity archive, then remove GL/DX11
-in a separate branch.
+The retirement branch is now ready to hand off to the post-retirement rendering
+plans listed in `Agentic/PlanOrder.md`.

@@ -13,7 +13,7 @@ Retirement policy: keep DX12 screenshot/debug-layer/WARP/GBV/PIX diagnostics as 
 ## Tackle Order
 
 1. [`dx12-only-renderer-retirement-plan.md`](Plans/dx12-only-renderer-retirement-plan.md)
-   - Active branch: `codex/dx12-only-renderer-retirement`. Backend and shader retirement is complete; finish the active documentation, baseline, and validation-tool cleanup.
+   - Complete on branch: `codex/dx12-only-renderer-retirement`. Use as the retirement history and validation reference.
 
 2. [`dx12-only-engine-architecture-plan.md`](Plans/dx12-only-engine-architecture-plan.md)
    - Use as the umbrella architecture direction. Do not implement it as one rewrite; let it guide the smaller render/shader/resource slices below.
@@ -53,4 +53,7 @@ Retirement policy: keep DX12 screenshot/debug-layer/WARP/GBV/PIX diagnostics as 
 
 ## Immediate Recommendation
 
-Continue `dx12-only-renderer-retirement-plan.md` Phase 6: make active docs, baselines, and validation helpers consistently point at the DX12-only renderer gate.
+Start the next post-retirement slice from `dx12-only-engine-architecture-plan.md`
+or `render-resource-lifetime-plan.md`. Keep changes small and validate renderer
+work with `tools\validate_dx12_renderer.bat`; use `tools\validate_full.bat` for
+broad runtime/pass extraction.
