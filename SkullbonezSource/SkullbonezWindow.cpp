@@ -93,24 +93,14 @@ void SkullbonezWindow::HandleScreenResize()
     // Without this, text stretches when the window is resized or maximized.
     Text::Text2d::RebuildProjection( w, h );
 
-    // Build projection matrix with the correct depth range for the active backend
+    // DX12 clip-space depth is [0,1], so the perspective matrix must use the
+    // matching projection convention after every resize.
     float aspect = static_cast<float>( w ) / static_cast<float>( h );
-    if ( Gfx().UsesZeroToOneDepth() )
-    {
-        cWindow->projectionMatrix = Math::Transformation::Matrix4::PerspectiveZeroToOne(
-            45.0f,
-            aspect,
-            Cfg().frustumNear,
-            Cfg().frustumFar );
-    }
-    else
-    {
-        cWindow->projectionMatrix = Math::Transformation::Matrix4::Perspective(
-            45.0f,
-            aspect,
-            Cfg().frustumNear,
-            Cfg().frustumFar );
-    }
+    cWindow->projectionMatrix = Math::Transformation::Matrix4::PerspectiveZeroToOne(
+        45.0f,
+        aspect,
+        Cfg().frustumNear,
+        Cfg().frustumFar );
 }
 
 

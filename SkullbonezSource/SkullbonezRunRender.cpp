@@ -10,8 +10,6 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
-  DX11/OpenGL: Retired runtime renderers. The render path now targets DX12
-  through the renderer abstraction.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
   CPU (Central Processing Unit): Host processor running engine code and
@@ -145,8 +143,9 @@ void SkullbonezRun::EnsureCinematicRenderResources()
 
 void SkullbonezRun::ResetCinematicRenderResources()
 {
-    // Renderer resources are backend-owned objects. When the renderer changes or
-    // shuts down, release these GPU handles so GL/DX can recreate them cleanly.
+    // Renderer resources are device-owned objects. Before the DX12 backend
+    // shuts down or rebuilds, release these GPU handles so the device can
+    // recreate them cleanly.
     ResetShadowRenderResources();
     if ( IsGfxReady() && m_systems.postQuadVB != 0 )
     {
@@ -253,9 +252,7 @@ SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::BuildShadowFrameData( 
     const float farPlane = lightBackDistance * 2.0f + terrainHeightRange + shadowRadius;
 
     shadowFrame.lightView = Matrix4::LookAt( lightEye, focus, lightUp );
-    shadowFrame.lightProjection = Gfx().UsesZeroToOneDepth()
-                                      ? Matrix4::OrthoZeroToOne( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane )
-                                      : Matrix4::Ortho( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane );
+    shadowFrame.lightProjection = Matrix4::OrthoZeroToOne( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane );
     shadowFrame.lightViewProjection = shadowFrame.lightProjection * shadowFrame.lightView;
     shadowFrame.lightDirectionWorld = lightDir;
     shadowFrame.depthTextureHandle = m_systems.shadowFBO->GetDepthTextureHandle();
@@ -270,7 +267,7 @@ SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::BuildShadowFrameData( 
     shadowFrame.slopeBias = (std::max)( cinematic.shadowSlopeBias, 0.0f );
     shadowFrame.texelSize = shadowFrame.mapSize > 0 ? 1.0f / static_cast<float>( shadowFrame.mapSize ) : 0.0f;
     shadowFrame.softness = (std::max)( cinematic.shadowSoftness, 0.25f );
-    shadowFrame.zeroToOneDepth = Gfx().UsesZeroToOneDepth();
+    shadowFrame.zeroToOneDepth = true;
     shadowFrame.terrainReceives = cinematic.shadowTerrainReceives;
     shadowFrame.objectsReceive = cinematic.shadowObjectsReceive;
     shadowFrame.valid = shadowFrame.depthTextureHandle != 0 && shadowFrame.mapSize > 0;
@@ -305,9 +302,7 @@ SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::BuildObjectShadowFrame
     const float farPlane = lightBackDistance * 2.0f + heightRange + shadowRadius;
 
     shadowFrame.lightView = Matrix4::LookAt( lightEye, focus, lightUp );
-    shadowFrame.lightProjection = Gfx().UsesZeroToOneDepth()
-                                      ? Matrix4::OrthoZeroToOne( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane )
-                                      : Matrix4::Ortho( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane );
+    shadowFrame.lightProjection = Matrix4::OrthoZeroToOne( -shadowRadius, shadowRadius, -shadowRadius, shadowRadius, nearPlane, farPlane );
     shadowFrame.lightViewProjection = shadowFrame.lightProjection * shadowFrame.lightView;
     shadowFrame.lightDirectionWorld = lightDir;
     shadowFrame.depthTextureHandle = m_systems.objectShadowFBO->GetDepthTextureHandle();
@@ -318,7 +313,7 @@ SkullbonezCore::Rendering::ShadowFrameData SkullbonezRun::BuildObjectShadowFrame
     shadowFrame.slopeBias = (std::max)( cinematic.shadowSlopeBias, 0.0f );
     shadowFrame.texelSize = shadowFrame.mapSize > 0 ? 1.0f / static_cast<float>( shadowFrame.mapSize ) : 0.0f;
     shadowFrame.softness = (std::max)( cinematic.shadowSoftness, 0.25f );
-    shadowFrame.zeroToOneDepth = Gfx().UsesZeroToOneDepth();
+    shadowFrame.zeroToOneDepth = true;
     shadowFrame.terrainReceives = false;
     shadowFrame.objectsReceive = cinematic.shadowObjectsReceive;
     shadowFrame.valid = shadowFrame.depthTextureHandle != 0 && shadowFrame.mapSize > 0;

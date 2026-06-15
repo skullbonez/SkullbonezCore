@@ -434,29 +434,50 @@ Remove abstraction scars while preserving future backend seams.
 
 Tasks:
 
-1. Review every method on `IRenderBackend`.
-2. Classify each method:
+1. [x] Review every method on `IRenderBackend`.
+2. [x] Classify each method:
    - core engine render contract,
    - DX12 implementation detail,
    - legacy GL/DX11 compatibility leftover,
    - future-backend useful concept.
-3. Delete legacy-only no-ops and compatibility flags.
-4. Rename the surviving engine-facing surface if useful:
+3. [x] Delete legacy-only no-ops and compatibility flags.
+4. [x] Rename the surviving engine-facing surface if useful:
    - `IRenderBackend` can stay if it remains clean,
    - or split into `RenderDevice`, `RenderResourceManager`, and pass-specific
      services if the interface is still too broad.
-5. Move DX12-only operations behind DX12-owned subsystem types:
+5. [x] Move DX12-only operations behind DX12-owned subsystem types:
    - device/frame,
    - descriptors,
    - uploads/readbacks,
    - pipeline states,
    - render graph/barrier diagnostics,
    - DXR reflection.
-6. Keep pass code using engine-level handles and descriptions.
+6. [x] Keep pass code using engine-level handles and descriptions.
+
+Implementation notes:
+
+- Kept `IRenderBackend` as the engine-facing render device name for now.
+- Removed the dead depth-convention query, DXR support query, GPU-timer support
+  query, dynamic/instancing capability flags, and the legacy uncolored debug-line
+  no-op.
+- Simplified runtime projection and shadow code around the DX12 `[0,1]` depth
+  convention.
+- Removed the single-value startup renderer enum while preserving `--renderer
+  dx12` / `--renderer d3d12` as compatibility aliases.
+- Collapsed the UI renderer index/disabled-mask logic to the single DX12 option.
+- Updated active source/tool comments that still taught GL/DX11-era assumptions.
 
 Validation:
 
-- `tools\validate_full.bat` for broad render API movement.
+- `python -m py_compile tools\validate_scene_loads.py` passed on 2026-06-15.
+- `git diff --check` passed on 2026-06-15.
+- `tools\validate_full.bat` passed on 2026-06-15 in 218.2s.
+  - DX12 renderer manifest:
+    `TestOutput\validation\dx12_renderer\20260615T053407Z\manifest.json`
+  - DX12 InfoQueue validation errors: `0`.
+  - Physics query baseline: `physics_query_varied.json` exact match.
+  - Performance phase completed with the existing
+    `physics_bench_no_sleep` warning; the full gate still exited `0`.
 
 Acceptance:
 

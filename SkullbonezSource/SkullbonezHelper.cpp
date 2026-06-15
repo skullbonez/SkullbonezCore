@@ -591,6 +591,7 @@ void SkullbonezHelper::DrawShadowDepthPineBatchEnd()
 
 void SkullbonezHelper::StateSetup()
 {
-    // Initial GL state is now set by RenderBackendGL::Init()
-    // This method is retained for any additional state setup needed after backend init
+    // Initial render state is owned by the DX12 backend. This hook remains as a
+    // small extension point for any helper-level setup that must happen after
+    // the renderer has initialized.
 }

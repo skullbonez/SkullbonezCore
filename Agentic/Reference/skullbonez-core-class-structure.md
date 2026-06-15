@@ -628,7 +628,6 @@ subsystem rather than by dependency edge.
 - `RunFireState`
 - `RunUIStressState`
 - `SceneRuntimeResetSnapshot`
-- `RuntimeRendererType`
 - `GeneratedObjectTypeOverride`
 - `OverlayMode`
 - `SkullbonezWindow`

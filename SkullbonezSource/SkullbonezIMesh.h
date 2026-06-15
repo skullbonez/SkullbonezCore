@@ -8,10 +8,8 @@ Mental model:
   calls, shader bindings, and validation artifacts.
 
 Glossary:
-  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
-  engine migrates to DX12.
-  OpenGL: Legacy parity renderer used as a reference path for visual output.
-  GL (OpenGL): Legacy parity renderer path.
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
   reflection dispatch.
   Descriptor: Small binding record that tells a renderer how to interpret a
@@ -33,7 +31,8 @@ namespace Rendering
 {
 /* -- IMesh ------------------------------------------------------------------------------------------------------------------------------------------------------
 
-    Abstract mesh interface. Concrete implementations handle VAO/VBO (OpenGL) or ID3D11Buffer (DirectX).
+    Engine-facing mesh interface. The active DX12 implementation owns GPU
+    buffers; callers only ask the mesh to draw or expose data needed by DXR.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class IMesh
 {
@@ -47,8 +46,7 @@ class IMesh
     virtual int GetStride() const = 0;
 
     // DXR needs the GPU virtual address of mesh vertex data when building
-    // acceleration structures. Legacy GL/DX11 meshes do not expose DX12 GPU
-    // addresses, so they return 0.
+    // acceleration structures.
     virtual uint64_t GetVertexBufferGPUVA() const = 0;
 };
 } // namespace Rendering

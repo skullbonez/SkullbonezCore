@@ -4,8 +4,8 @@ param(
     [string]$Root = "Agentic\style-harness",
     [string]$Style = "low_poly_art_style",
     [string]$Scene = "SkullbonezData\scenes\concept_12_low_poly_art_style.scene",
-    [ValidateSet("gl", "dx11", "dx12")]
-    [string]$Renderer = "gl",
+    [ValidateSet("dx12")]
+    [string]$Renderer = "dx12",
     [string]$Key = "",
     [string]$Value = "",
     [string]$Name = "",

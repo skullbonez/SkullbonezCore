@@ -525,11 +525,6 @@ bool HandleGenAtlas( const CommandLineView& commandLine, int& outExitCode )
 // Command-line parsing
 // ---------------------------------------------------------------------------
 
-enum class RendererType
-{
-    DX12
-};
-
 struct RendererOption
 {
     const char* name;
@@ -543,7 +538,6 @@ struct ParsedArgs
     // omitted flags producing these exact policies.
     std::vector<std::string> sceneList;
     bool isSuiteOrSceneMode = false;
-    RendererType renderer = RendererType::DX12;
     float timeScaleOverride = 0.0f; // 0 = not set
     bool fixedStep = false;
     unsigned int seedOverride = 0; // 0 = not set
@@ -1095,7 +1089,7 @@ bool ParseSceneArgs( const CommandLineView& commandLine, std::vector<std::string
     return true;
 }
 
-bool ParseRendererArg( const CommandLineView& commandLine, RendererType& out )
+bool ParseRendererArg( const CommandLineView& commandLine )
 {
     static const RendererOption kRenderers[] = {
         { "dx12", "d3d12" },
@@ -1104,7 +1098,6 @@ bool ParseRendererArg( const CommandLineView& commandLine, RendererType& out )
     const char* rendererArg = FindOptionValue( commandLine, "--renderer" );
     if ( !rendererArg )
     {
-        out = RendererType::DX12;
         return true;
     }
 
@@ -1118,7 +1111,6 @@ bool ParseRendererArg( const CommandLineView& commandLine, RendererType& out )
         if ( _stricmp( rendererArg, renderer.name ) == 0 ||
              ( renderer.alias && _stricmp( rendererArg, renderer.alias ) == 0 ) )
         {
-            out = RendererType::DX12;
             return true;
         }
     }
@@ -1474,7 +1466,7 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
     {
         return false;
     }
-    if ( !ParseRendererArg( commandLine, out.renderer ) )
+    if ( !ParseRendererArg( commandLine ) )
     {
         return false;
     }
@@ -1607,9 +1599,8 @@ bool ParseCommandLine( const CommandLineView& commandLine, ParsedArgs& out )
 // Render backend
 // ---------------------------------------------------------------------------
 
-void InitRenderBackend( RendererType renderer, SkullbonezWindow* window )
+void InitRenderBackend( SkullbonezWindow* window )
 {
-    static_cast<void>( renderer );
     auto backend = std::make_unique<RenderBackendDX12>();
     backend->Init( window->m_sWindow, window->m_sDevice, window->m_sWindowDimensions.x, window->m_sWindowDimensions.y );
     SetGfxBackend( std::move( backend ) );
@@ -1848,7 +1839,7 @@ int WINAPI WinMain( HINSTANCE hInstance,
     window->CreateAppWindow( hInstance, Cfg().window.fullscreen );
     window->m_sDevice = GetDC( window->m_sWindow );
 
-    InitRenderBackend( args.renderer, window );
+    InitRenderBackend( window );
     window->HandleScreenResize();
 
     const int runExitCode = RunApp( window, args );

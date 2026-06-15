@@ -137,7 +137,7 @@ class Profiler
     void FrameBegin();
     void FrameEnd(); // commits per-frame totals; recomputes p50/p99; refreshes moving avg every 500 ms
 
-    // Call when GL context is destroyed/recreated to invalidate all GPU query state
+    // Call when the renderer device is destroyed/recreated to invalidate GPU query state.
     void InvalidateGpuQueries();
 
     // Wipes the marker registry at the start of the next frame so stale markers disappear.

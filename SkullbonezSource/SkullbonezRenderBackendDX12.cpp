@@ -11,8 +11,6 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
-  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
-  engine migrates to DX12.
   SRV (Shader Resource View): Descriptor row used when shaders read textures
   or buffers.
   UAV (Unordered Access View): Descriptor row used when compute or raytracing
@@ -38,15 +36,14 @@ Related:
   - Agentic/Reference/skullbonez-core-class-structure.md
   - Agentic/Reference/comment-style-guide.md
 */
-// --- DX12 vs DX11 Architecture ---
+// --- DX12 Architecture ---
 //
-// DX11 (high-level, driver manages everything):
-//   App -> DeviceContext -> Driver -> GPU
-//   (The driver batches, reorders, and optimizes commands automatically)
+// DX12 is explicit: the engine records command lists, submits them to queues,
+// manages resource states, and waits on fences before reusing memory.
 //
-// DX12 (low-level, app manages everything):
+// Core flow:
 //   App -> CommandList -> CommandQueue -> GPU
-//   (YOU manage memory, synchronization, resource states, and command recording)
+//   (the engine manages memory, synchronization, resource states, and command recording)
 //
 // DX12 Frame Lifecycle:
 //   1. Wait for GPU to finish frame N-2 (via Fence)
@@ -1203,8 +1200,8 @@ void RenderBackendDX12::Shutdown()
 
     // Drain the DXGI flip queue. DX12's WaitForGpu only waits on the command queue fence,
     // but DXGI's flip-model present queue is separate. Without draining it, DWM may still
-    // hold references to this swap chain's backbuffers after Release(), preventing GDI
-    // (OpenGL SwapBuffers) from reclaiming the window's composition surface.
+    // hold references to this swap chain's backbuffers after Release(), delaying the
+    // window/compositor surface cleanup.
     // Present an empty frame with sync-interval 0 to flush the flip queue, then wait again.
     if ( m_swapChain )
     {
@@ -1693,7 +1690,7 @@ void RenderBackendDX12::SetPolygonOffset( bool enable, float factor, float units
 
 void RenderBackendDX12::SetClipPlane( int /*index*/, bool /*enable*/ )
 {
-    // Clip planes handled via shader constants (same as DX11)
+    // Clip planes are handled through shader constants.
 }
 
 
@@ -1772,12 +1769,6 @@ bool RenderBackendDX12::IsDepthTestEnabled() const
 bool RenderBackendDX12::IsBlendEnabled() const
 {
     return m_blendEnabled;
-}
-
-
-bool RenderBackendDX12::UsesZeroToOneDepth() const
-{
-    return true; // DX12 uses [0,1] depth range like DX11
 }
 
 

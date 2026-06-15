@@ -198,7 +198,6 @@ class InGameUI
     int m_mouseY = 0;
     int m_lastScreenW = 1;
     int m_lastScreenH = 1;
-    int m_lastRendererIndex = 0;
     int m_lastSolverBallCount = 0;
     int m_lastSolverBoxCount = 0;
     bool m_hasMouseOverride = false;

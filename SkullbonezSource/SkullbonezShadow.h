@@ -10,9 +10,6 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
-  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
-  engine migrates to DX12.
-  GL (OpenGL): Legacy parity renderer path.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
   Descriptor: Small binding record that tells a renderer how to interpret a
@@ -50,9 +47,9 @@ struct ShadowFrameData
     // own view-space lighting vectors separately.
     Math::Vector::Vector3 lightDirectionWorld;
 
-    // Opaque backend texture handle for the framebuffer depth attachment. GL,
-    // DX11, and DX12 all expose different native resource types, so render code
-    // passes this neutral handle back to IRenderBackend::BindTexture.
+    // Opaque texture handle for the framebuffer depth attachment. Render code
+    // passes this neutral handle back to IRenderBackend::BindTexture instead
+    // of seeing the native DX12 resource or descriptor row.
     uint32_t depthTextureHandle = 0;
 
     // Sampling controls copied from the active config for this frame. `texelSize`

@@ -34,12 +34,6 @@ namespace UI
 namespace Layout
 {
 
-// The diagnostics UI uses fixed pixel constants. These values define hit boxes
-// and draw boxes together, so layout helpers keep input and rendering aligned.
-constexpr int RENDERER_GL = 0;
-constexpr int RENDERER_DX11 = 1;
-constexpr int RENDERER_DX12 = 2;
-
 constexpr float CONTENT_TOGGLE_ROW_H = 30.0f;
 constexpr float UI_TIME_SCALE_MIN = 0.10f;
 constexpr float UI_TIME_SCALE_MAX = 10.00f;
@@ -114,7 +108,7 @@ UIRect FooterVsyncBounds( float x, float bottomY );
 UIRect FooterHitboxBounds( float x, float bottomY );
 UIRect FooterTimelineBounds( float x, float bottomY );
 UIRect FooterPerfBounds( float x, float bottomY );
-uint32_t ReflectionDisabledMask( int rendererIndex );
+uint32_t ReflectionDisabledMask();
 
 float SmoothStep( float t );
 UIRect LerpRect( const UIRect& from, const UIRect& to, float t );

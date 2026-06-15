@@ -11,9 +11,6 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
-  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
-  engine migrates to DX12.
-  GL (OpenGL): Legacy parity renderer path.
   RTV (Render Target View): Descriptor row used when the GPU writes color
   pixels into a texture or back buffer.
   DSV (Depth Stencil View): Descriptor row used when the GPU reads or writes
@@ -22,8 +19,8 @@ Glossary:
   or buffers.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
-  FBO (Framebuffer Object): OpenGL-style off-screen render target concept used
-  by parity and reflection code.
+  FBO (Framebuffer Object): Engine shorthand for an off-screen render target
+  exposed through the renderer abstraction.
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
@@ -219,8 +216,8 @@ void FramebufferDX12::Bind() const
 
     if ( m_depthState != D3D12_RESOURCE_STATE_DEPTH_WRITE )
     {
-        // Unlike DX11/GL, DX12 requires us to explicitly say when a texture stops
-        // being sampled by shaders and starts being written as a depth buffer.
+        // DX12 requires us to explicitly say when a texture stops being sampled
+        // by shaders and starts being written as a depth buffer.
         D3D12_RESOURCE_BARRIER depthBarrier = {};
         depthBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
         depthBarrier.Transition.pResource = m_depthTexture;

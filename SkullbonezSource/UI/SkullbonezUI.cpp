@@ -94,26 +94,11 @@ uint32_t HashFloat( uint32_t seed, float value, float scale = 100.0f )
 }
 
 
-int GetRendererIndexFromName( const char* rendererName )
-{
-    if ( rendererName && strstr( rendererName, "12" ) )
-    {
-        return RENDERER_DX12;
-    }
-    if ( rendererName && strstr( rendererName, "11" ) )
-    {
-        return RENDERER_DX11;
-    }
-    return RENDERER_DX12;
-}
-
-
-uint32_t BuildUIContentSignature( const InGameUIFrameData& data, int currentRendererIndex )
+uint32_t BuildUIContentSignature( const InGameUIFrameData& data )
 {
     uint32_t hash = 2166136261u;
     hash = HashTextValue( hash, data.rendererName );
     hash = HashTextValue( hash, data.sceneName );
-    hash = HashInt( hash, currentRendererIndex );
     hash = HashInt( hash, data.sceneOptionCount );
     hash = HashInt( hash, data.selectedSceneOption );
     hash = HashInt( hash, data.selectedCineModeSceneOption );
@@ -641,7 +626,7 @@ void DrawWhatsNewTab( UICheckBox toggles[3],
                       "Validation harness upgrade",
                       "PR #56",
                       "Renderer validation now writes manifests, summaries, heatmaps, and explicit DX12 gate output.",
-                      "The parity budget is visible here so the gate is easy to interpret." );
+                      "The screenshot diff budget is visible here so the gate is easy to interpret." );
     if ( IsRowVisible( contentY, contentH, scrolledY + thirdCardY + UI_WHATS_NEW_CONTROL_Y, 24.0f ) )
     {
         toggles[UI_WHATS_NEW_TOGGLE_DX12_GATE].DrawToggle( draw, "DX12 gate", true, palette.accent.r, palette.accent.g, palette.accent.b );
@@ -650,7 +635,7 @@ void DrawWhatsNewTab( UICheckBox toggles[3],
     if ( IsRowVisible( contentY, contentH, scrolledY + thirdCardY + UI_WHATS_NEW_SLIDER_Y, 34.0f ) )
     {
         statusSliders[UI_WHATS_NEW_SLIDER_PARITY].Draw( draw, "Pixel diff budget", "avg < 10", 10.0f, 0.0f, 10.0f );
-        DrawWhatsNewDescription( draw, contentY, contentH, innerX, scrolledY + thirdCardY + UI_WHATS_NEW_SLIDER_DESC_Y, contentW - 32.0f, "Renderer pairs must remain under this average pixel difference." );
+        DrawWhatsNewDescription( draw, contentY, contentH, innerX, scrolledY + thirdCardY + UI_WHATS_NEW_SLIDER_DESC_Y, contentW - 32.0f, "DX12 screenshots must remain under this average pixel difference." );
     }
 }
 
@@ -1323,7 +1308,7 @@ void InGameUI::DrawHitboxOverlay( const UIDrawContext& draw, const InGameUIFrame
     }
 
     DrawHitboxRect( draw, footerBounds, footerR, footerG, footerB, 0.020f, 0.54f );
-    DrawComboHitboxes( draw, m_rendererCombo, 3, footerR, footerG, footerB );
+    DrawComboHitboxes( draw, m_rendererCombo, 1, footerR, footerG, footerB );
     DrawComboHitboxes( draw, m_reflectionCombo, 3, footerR, footerG, footerB );
     DrawHitboxRect( draw, m_blurToggle.Bounds(), footerR, footerG, footerB );
     DrawHitboxRect( draw, m_vsyncToggle.Bounds(), footerR, footerG, footerB );
@@ -1569,8 +1554,7 @@ InGameUIInputResult InGameUI::UpdateInput( HWND hwnd, int screenW, int screenH, 
         else if ( m_reflectionCombo.IsOpen() )
         {
             const int option = m_reflectionCombo.HitOption( m_mouseX, m_mouseY, 3 );
-            const bool isDXRDisabled = option == 1 && m_lastRendererIndex != RENDERER_DX12;
-            if ( option >= 0 && option < 3 && !isDXRDisabled )
+            if ( option >= 0 && option < 3 )
             {
                 result.commands.water.requestedWaterReflectionMode = option;
                 m_reflectionCombo.Close();
@@ -1916,8 +1900,6 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     m_lastScreenH = screenH;
     m_lastSolverBallCount = std::clamp( data.solverBallCount, UI_SOLVER_COUNT_MIN, UI_GAME_MODEL_TOTAL_MAX );
     m_lastSolverBoxCount = std::clamp( data.solverBoxCount, UI_SOLVER_COUNT_MIN, UI_GAME_MODEL_TOTAL_MAX );
-    const int currentRendererIndex = GetRendererIndexFromName( data.rendererName );
-    m_lastRendererIndex = currentRendererIndex;
     if ( ProfilerTab::PerformanceHistogramEnabled( m_profilerTab ) )
     {
         ProfilerTab::PushPerformanceHistogramSample( m_profilerTab, data.cpuFrameMs, data.gpuFrameMs );
@@ -1998,7 +1980,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
     cacheKey.activeTab = static_cast<int>( m_activeTab );
     cacheKey.scrollY = m_scrollY;
     cacheKey.blurEnabled = m_blurPreviewEnabled;
-    cacheKey.contentSignature = BuildUIContentSignature( data, currentRendererIndex );
+    cacheKey.contentSignature = BuildUIContentSignature( data );
     cacheKey.styleSignature = HashBool( HashBool( 2166136261u, m_blurPreviewEnabled ), m_hitboxOverlayEnabled );
     cacheKey.interactionSignature = BuildUIInteractionSignature( m_mouseX, m_mouseY, m_rendererCombo.IsOpen(), m_reflectionCombo.IsOpen(), m_sceneCombo.IsOpen(), m_cineSceneCombo.IsOpen(), m_activeSlider );
     m_cache.BeginFrame( cacheKey );
@@ -2188,7 +2170,7 @@ void InGameUI::Draw( const InGameUIFrameData& data )
                             WaterReflectionModeFromData( data ),
                             m_mouseX,
                             m_mouseY,
-                            ReflectionDisabledMask( currentRendererIndex ) );
+                            ReflectionDisabledMask() );
 
     char status[128];
     const float frameDisplayMs = data.fps > 0.0f ? 1000.0f / data.fps : 0.0f;

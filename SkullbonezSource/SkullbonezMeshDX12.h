@@ -9,6 +9,8 @@ Mental model:
   ordering are the important ideas.
 
 Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
   PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
   state that DX12 binds before drawing or dispatching.
   Descriptor: Small binding record that tells a renderer how to interpret a
@@ -53,7 +55,8 @@ enum class VertexFormat12
 
 /* -- MeshDX12 ---------------------------------------------------------------------------------------------------------------------------------------------------
 
-    DirectX 12 static MeshGL implementation. Holds a committed vertex buffer resource on the DEFAULT heap.
+    DX12 static mesh implementation. Holds a committed vertex buffer resource on
+    the default heap and exposes the vertex buffer view used by draw calls.
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 class MeshDX12 : public IMesh
 {

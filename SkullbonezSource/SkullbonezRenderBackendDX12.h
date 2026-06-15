@@ -166,12 +166,12 @@ struct LiveBarrierRecordDX12
 
 // Concept: RenderBackendDX12 is the engine-facing facade over explicit DX12 state.
 //
-// The public IRenderBackend API still looks like the older GL/DX11 renderer:
-// set a shader, set textures, draw meshes, present the frame. Internally, DX12
-// requires the backend to make every hidden GPU concept explicit: descriptor
-// table rows, command allocators, resource states, fences, upload memory, and
-// compiled pipeline state. This class is the compatibility layer between the
-// simple engine contract and that explicit DX12 machinery.
+// The public IRenderBackend API uses engine verbs: set a shader, set textures,
+// draw meshes, present the frame. Internally, DX12 requires the backend to make
+// every hidden GPU concept explicit: descriptor table rows, command allocators,
+// resource states, fences, upload memory, and compiled pipeline state. This
+// class is the bridge between the simple engine contract and that explicit DX12
+// machinery.
 class RenderBackendDX12 : public IRenderBackend
 {
 
@@ -444,7 +444,6 @@ class RenderBackendDX12 : public IRenderBackend
 
     bool IsDepthTestEnabled() const override;
     bool IsBlendEnabled() const override;
-    bool UsesZeroToOneDepth() const override;
     const char* GetRendererName() const override
     {
         return "DirectX 12";
@@ -452,7 +451,7 @@ class RenderBackendDX12 : public IRenderBackend
     RenderCapabilities GetCapabilities() const override
     {
         RenderCapabilities capabilities;
-        capabilities.supportsGpuTimers = SupportsGpuTimers();
+        capabilities.supportsGpuTimers = m_gpuTimers.queryHeap != nullptr;
         capabilities.supportsDxrReflection = m_dxrSupported;
         capabilities.supportsDebugLines = true;
         return capabilities;
@@ -471,10 +470,6 @@ class RenderBackendDX12 : public IRenderBackend
         return m_frameDrawCallCount;
     }
 
-    bool IsDXRSupported() const override
-    {
-        return m_dxrSupported;
-    }
     void InitDXR( uint64_t terrainVBVA, int terrainVertCount, int terrainStride, uint64_t sphereVBVA, int sphereVertCount, int sphereStride, int maxInstances ) override;
     void DispatchReflectionRays( const float* invViewProj, const float* cameraPos, float waterY, float time, const float* lightPos, int width, int height, uint32_t sphereTexHandle, uint32_t terrainTexHandle, uint32_t skyUpHandle, uint32_t skyDownHandle, uint32_t skyRightHandle, uint32_t skyLeftHandle, uint32_t skyFrontHandle, uint32_t skyBackHandle ) override;
     void BuildTLAS( const float* instanceTransforms, int instanceCount, uint64_t terrainBLAS, uint64_t sphereBLAS ) override;
@@ -483,10 +478,6 @@ class RenderBackendDX12 : public IRenderBackend
     uint64_t GetInstancedMeshStaticVBVA( uint32_t handle ) const override;
     int GetInstancedMeshStaticStride( uint32_t handle ) const override;
 
-    bool SupportsGpuTimers() const override
-    {
-        return m_gpuTimers.queryHeap != nullptr;
-    }
     void GpuTimerBegin( int markerIdx ) override;
     void GpuTimerEnd( int markerIdx ) override;
     void GpuTimerInvalidate() override;
@@ -506,8 +497,8 @@ class RenderBackendDX12 : public IRenderBackend
     void DrawInstancedMesh( uint32_t handle, int staticVertCount, int instanceCount ) override;
     void DestroyInstancedMesh( uint32_t handle ) override;
 
-    // DX12-specific helpers for MeshGL/ShaderGL/FramebufferGL classes
-    void SetActiveShader( ShaderDX12* ShaderGL );
+    // DX12-specific helpers for mesh, shader, and framebuffer classes.
+    void SetActiveShader( ShaderDX12* shader );
     ShaderDX12* GetActiveShader() const
     {
         return m_activeShader;

@@ -95,7 +95,7 @@ def run_scene(scene: Path, index: int, count: int, timeout: float, renderer: str
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--timeout", type=float, default=20.0, help="Seconds allowed per scene load.")
-    parser.add_argument("--renderer", default="gl", choices=["gl", "dx11", "dx12"], help="Renderer used for the boot sweep.")
+    parser.add_argument("--renderer", default="dx12", choices=["dx12"], help="Renderer used for the boot sweep.")
     args = parser.parse_args()
 
     if not EXE.exists():
