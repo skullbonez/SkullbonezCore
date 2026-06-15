@@ -502,6 +502,7 @@ class SkullbonezRun
     ShadowPassOutput RenderShadowPass( const ShadowPassInputs& inputs );                                                                                 // Builds shadow maps and returns the receiver frames for terrain/objects
     void RenderCinematicSky( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection );                             // Draws procedural HDR sunset sky into the active cinematic target
     void RenderSkyPass( const RenderFrameContext& frame, const Math::Transformation::Matrix4& view, SkyPassMode mode );                                // Draws cube-map or procedural sky into the current render target
+    void BeginCinematicScenePass( const RenderFrameContext& frame );                                                                                     // Binds the HDR scene target and draws its sky background
     ReflectionPassOutput RenderReflectionPass( const ReflectionPassInputs& inputs );                                                                    // Produces the reflection texture and sample matrix consumed by water
     void RenderObjectPass( const ObjectPassInputs& inputs );                                                                                            // Draws production bodies or collision-state solids into the current target
     void RenderTerrainPass( const TerrainPassInputs& inputs );                                                                                          // Draws terrain into the current target when terrain is visible
@@ -509,6 +510,7 @@ class SkullbonezRun
     void RenderDebugOverlayPass( const DebugOverlayPassInputs& inputs );                                                                                  // Draws world-space debug overlays after production geometry
     bool RenderCinematicVolumetricLight();                                                                                                             // Renders depth-aware low-resolution light shafts into the volumetric buffer
     void ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound, bool volumetricReady );                                                          // Tonemaps HDR scene target to the backbuffer
+    void RenderCinematicPostPasses();                                                                                                                    // Runs cinematic volumetric and tonemap passes back to the window
     void ReleaseBackendOwnedRenderResources( const char* phaseName );                                                                                  // Runs the ordered GPU-resource release hooks while the backend is alive
     void RebuildRegisteredRenderResources();                                                                                                           // Recreates renderer resources from source asset records
     void LogRenderResourceLifecycleStep( const char* phase, const char* step ) const;                                                                  // Writes a named resource-lifetime phase to the debug event log

@@ -664,6 +664,21 @@ void SkullbonezRun::RenderSkyPass( const RenderFrameContext& frame, const Matrix
 }
 
 
+void SkullbonezRun::BeginCinematicScenePass( const RenderFrameContext& frame )
+{
+    // From this point onward, draw the world into the HDR scene texture instead
+    // of directly into the window. The post pass later moves it to the
+    // backbuffer with the cinematic effects applied.
+    m_systems.sceneFBO->Bind();
+    Gfx().SetViewport( 0, 0, m_systems.sceneFBO->GetWidth(), m_systems.sceneFBO->GetHeight() );
+    Gfx().Clear( true, true );
+
+    PROFILE_GPU_BEGIN( "Frame/Render/CinematicSky" );
+    RenderSkyPass( frame, frame.baseView, SkyPassMode::CinematicIfEnabled );
+    PROFILE_GPU_END( "Frame/Render/CinematicSky" );
+}
+
+
 SkullbonezRun::ReflectionPassOutput SkullbonezRun::RenderReflectionPass( const ReflectionPassInputs& inputs )
 {
     ReflectionPassOutput output;
@@ -1070,6 +1085,16 @@ void SkullbonezRun::ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound,
 }
 
 
+void SkullbonezRun::RenderCinematicPostPasses()
+{
+    // Once all normal world geometry has been rendered into the HDR target,
+    // generate the optional volumetric texture and resolve everything back to
+    // the real window backbuffer.
+    const bool volumetricReady = RenderCinematicVolumetricLight();
+    ResolveCinematicSceneToBackbuffer( volumetricReady, volumetricReady );
+}
+
+
 void SkullbonezRun::Render()
 {
     // In text_only mode all 3D rendering is skipped. DrawWindowText handles the display.
@@ -1159,16 +1184,7 @@ void SkullbonezRun::DrawPrimitives()
 
     if ( useCinematicTarget )
     {
-        // From this point onward, draw the world into the HDR scene texture
-        // instead of directly into the window. The final tonemap pass later moves
-        // it to the backbuffer with the cinematic effects applied.
-        m_systems.sceneFBO->Bind();
-        Gfx().SetViewport( 0, 0, m_systems.sceneFBO->GetWidth(), m_systems.sceneFBO->GetHeight() );
-        Gfx().Clear( true, true );
-
-        PROFILE_GPU_BEGIN( "Frame/Render/CinematicSky" );
-        RenderSkyPass( frame, frame.baseView, SkyPassMode::CinematicIfEnabled );
-        PROFILE_GPU_END( "Frame/Render/CinematicSky" );
+        BeginCinematicScenePass( frame );
     }
 
     // render game models -----------------------------
@@ -1211,11 +1227,7 @@ void SkullbonezRun::DrawPrimitives()
 
     if ( useCinematicTarget )
     {
-        // Once all normal world geometry has been rendered into the HDR target,
-        // generate the optional volumetric texture and resolve everything back to
-        // the real window backbuffer.
-        const bool volumetricReady = RenderCinematicVolumetricLight();
-        ResolveCinematicSceneToBackbuffer( volumetricReady, volumetricReady );
+        RenderCinematicPostPasses();
     }
 }
 
