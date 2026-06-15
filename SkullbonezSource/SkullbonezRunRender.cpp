@@ -8,8 +8,12 @@ Mental model:
   calls, shader bindings, and validation artifacts.
 
 Glossary:
+  Render pass: Named slice of DrawPrimitives() with explicit inputs, outputs,
+  and resource ownership.
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
+  DXR (DirectX Raytracing): DX12 API used here for optional raytraced water
+  reflection dispatch.
   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
   and raytracing commands asynchronously from the CPU.
   CPU (Central Processing Unit): Host processor running engine code and
@@ -17,8 +21,24 @@ Glossary:
   Descriptor: Small binding record that tells a renderer how to interpret a
   resource.
   Back buffer: Swap-chain image that will be presented to the window.
+  HDR (High Dynamic Range): Floating-point scene color that preserves bright
+  lighting until the tonemap pass resolves it to display color.
+  FBO (Framebuffer Object): Engine-neutral off-screen render target wrapper.
+  BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
+  mesh or procedural object owned by the DX12 backend.
+  TLAS (Top-Level Acceleration Structure): Raytracing scene-instance table built
+  before reflection rays are dispatched.
+
+Invariants:
+  - DrawPrimitives() owns pass order. Pass helpers may bind targets and restore
+    local render state, but they must not present or advance the frame.
+  - Pass resource reset hooks run while the renderer backend is alive, because
+    framebuffers, shaders, and dynamic vertex buffers can own backend objects.
+  - Pass input/output structs borrow data for one frame only. Do not cache
+    pointers returned from ShadowPassOutput or ReflectionPassOutput consumers.
 
 Related:
+  - SkullbonezSource/SkullbonezRun.h declares pass contracts and resources.
   - Agentic/Reference/comment-style-guide.md
 */
 #include "SkullbonezRunInternal.h"
@@ -34,6 +54,9 @@ namespace
 {
 Vector3 NormalizeShadowLightDirection( Vector3 lightDirectionWorld )
 {
+    // Why: scene/config data can omit or zero the sun vector. Shadows still need
+    // a normalized direction so matrix construction cannot divide by a zero
+    // length vector.
     if ( VectorMag( lightDirectionWorld ) < 1.0e-5f )
     {
         lightDirectionWorld = Vector3( -0.68f, 0.22f, -0.70f );
@@ -90,9 +113,10 @@ SkullbonezRun::RenderFrameContext SkullbonezRun::BuildRenderFrameContext( bool c
         frame.lightPosition[3] = 0.0f;
     }
 
-    // Frame camera and reflection data are the first named pass contract. Later
-    // slices can pass this context into extracted render passes without changing
-    // which camera, light, or water plane the current frame uses.
+    // Invariant: build the pass context after SetCamera(). During camera
+    // transitions, the selected camera and render camera can differ; all passes
+    // must consume the interpolated render camera so reflection, sky, and water
+    // sample the same view.
     frame.baseView = m_systems.cameras->GetViewMatrix();
     frame.projection = m_systems.window->GetProjectionMatrix();
     frame.viewProjection = frame.projection * frame.baseView;
@@ -117,6 +141,9 @@ void SkullbonezRun::EnsureReflectionRenderResources()
     }
 
     ReflectionPassResources& reflection = m_systems.renderPasses.reflection;
+    // Why: the reflection texture is intentionally supersampled relative to the
+    // window. Water can then sample it at grazing angles without making the
+    // mirrored scene look blocky.
     const int fboW = (std::max)( 1, Gfx().GetWidth() * 2 );
     const int fboH = (std::max)( 1, Gfx().GetHeight() * 2 );
     const bool needsReflectionTarget = !reflection.target ||
@@ -141,6 +168,8 @@ void SkullbonezRun::ResetReflectionRenderResources()
 {
     ReflectionPassResources& reflection = m_systems.renderPasses.reflection;
     LogRenderResourceLifecycleStep( "reflection_reset", "reflection_target" );
+    // Lifetime: ResetResources gives the backend a chance to release device
+    // objects before the unique_ptr destructor drops the renderer-neutral shell.
     if ( reflection.target )
     {
         reflection.target->ResetResources();
@@ -159,15 +188,16 @@ void SkullbonezRun::EnsureCinematicRenderResources()
     const int w = (std::max)( 1, Gfx().GetWidth() );
     const int h = (std::max)( 1, Gfx().GetHeight() );
 
-    // The main scene target is full size because it holds the real image. The
-    // volumetric target is half size because light shafts are naturally soft,
-    // so the cheaper blurred texture still looks right after it is composited.
+    // Why: the main scene target is full size because it holds the real image.
+    // The volumetric target is half size because light shafts are naturally
+    // soft, so the cheaper texture still looks right after compositing.
     const int volW = (std::max)( 1, w / 2 );
     const int volH = (std::max)( 1, h / 2 );
 
-    // RGBA16F is a floating-point color format. It can store values brighter
-    // than "monitor white", which is what bloom, god rays, and sunset tonemapping
-    // need before the final pass squeezes the image back onto the screen.
+    // Concept: RGBA16F is a floating-point color format. It can store values
+    // brighter than "monitor white", which bloom, god rays, and sunset
+    // tonemapping need before the final pass squeezes the image back onto the
+    // screen.
     CinematicScenePassResources& scene = m_systems.renderPasses.cinematicScene;
     VolumetricLightPassResources& volumetric = m_systems.renderPasses.volumetricLight;
     TonemapPassResources& tonemap = m_systems.renderPasses.tonemap;
@@ -184,6 +214,8 @@ void SkullbonezRun::EnsureCinematicRenderResources()
 
     if ( needsSceneTarget )
     {
+        // Lifetime: these targets are recreated on resize. The reset path owns
+        // backend teardown, while this ensure path owns dimensions and format.
         scene.hdrTarget.reset();
         scene.hdrTarget = Gfx().CreateFramebuffer( w, h, SkullbonezCore::Rendering::FramebufferColorFormat::RGBA16F );
     }
@@ -225,9 +257,9 @@ void SkullbonezRun::EnsureCinematicRenderResources()
 
 void SkullbonezRun::ResetCinematicRenderResources()
 {
-    // Renderer resources are device-owned objects. Before the DX12 backend
-    // shuts down or rebuilds, release these GPU handles so the device can
-    // recreate them cleanly.
+    // Lifetime: cinematic resources are device-owned objects grouped by pass.
+    // The ordered table makes teardown auditable and keeps future pass
+    // extraction from hiding backend reset work inside destructors.
     enum class CinematicResetStep
     {
         ShadowResources,
@@ -299,12 +331,12 @@ void SkullbonezRun::EnsureShadowRenderResources( const CinematicRenderConfig& ci
     }
     PROFILE_SCOPED( "Frame/Shadows/ShadowMap/EnsureResources" );
 
-    // The shadow map is a renderer-neutral depth framebuffer. It is intentionally
-    // owned outside the cinematic HDR target because the same light-space depth
-    // texture is useful in normal backbuffer rendering, cinematic rendering, and
-    // screenshot/perf scenes. The cinematic config still supplies map size and
-    // bias/softness values, but the feature itself is no longer gated by the
-    // cinematic post-processing path.
+    // Concept: the shadow map is a renderer-neutral depth framebuffer. It is
+    // intentionally owned outside the cinematic HDR target because the same
+    // light-space depth texture is useful in normal backbuffer rendering,
+    // cinematic rendering, and screenshot/perf scenes. The cinematic config
+    // still supplies map size and bias/softness values, but the feature itself
+    // is no longer gated by the cinematic post-processing path.
     const int mapSize = std::clamp( cinematic.shadowMapSize, 256, 8192 );
     auto ensureTarget = [&]( std::unique_ptr<Rendering::IFramebuffer>& target )
     {
@@ -325,11 +357,12 @@ void SkullbonezRun::EnsureShadowRenderResources( const CinematicRenderConfig& ci
 
 void SkullbonezRun::ResetShadowRenderResources()
 {
-    // Drop both the backing framebuffer and the per-frame payload. Framebuffer
-    // handles are owned by the current device/backend, so any device reset,
-    // resize rebuild, or future backend bring-up must force a clean recreate
-    // before the next shadow pass. The payload is reset too so receivers cannot
-    // accidentally sample an old depth texture after the resource dies.
+    // Lifetime: drop both the backing framebuffer and the per-frame payload.
+    // Framebuffer handles are owned by the current device/backend, so any
+    // device reset, resize rebuild, or future backend bring-up must force a
+    // clean recreate before the next shadow pass. The payload is reset too so
+    // receivers cannot accidentally sample an old depth texture after the
+    // resource dies.
     enum class ShadowResetStep
     {
         TerrainShadowFBO,
@@ -557,6 +590,9 @@ void SkullbonezRun::RenderShadowMap( Rendering::IFramebuffer& target, const Rend
 SkullbonezRun::ShadowPassOutput SkullbonezRun::RenderShadowPass( const ShadowPassInputs& inputs )
 {
     ShadowPassResources& shadows = m_systems.renderPasses.shadows;
+    // Invariant: always clear the receiver payloads at the start of the pass.
+    // If shadows are disabled, downstream terrain/object passes must see null
+    // outputs instead of last frame's depth texture handles.
     shadows.terrainFrame = Rendering::ShadowFrameData();
     shadows.objectFrame = Rendering::ShadowFrameData();
     if ( inputs.cinematic )
@@ -681,9 +717,9 @@ void SkullbonezRun::RenderSkyPass( const RenderFrameContext& frame, const Matrix
 
 void SkullbonezRun::BeginCinematicScenePass( const RenderFrameContext& frame )
 {
-    // From this point onward, draw the world into the HDR scene texture instead
-    // of directly into the window. The post pass later moves it to the
-    // backbuffer with the cinematic effects applied.
+    // Invariant: from this point onward, draw the world into the HDR scene
+    // target instead of directly into the window. The post pass later moves it
+    // to the backbuffer with the cinematic effects applied.
     CinematicScenePassResources& scene = m_systems.renderPasses.cinematicScene;
     scene.hdrTarget->Bind();
     Gfx().SetViewport( 0, 0, scene.hdrTarget->GetWidth(), scene.hdrTarget->GetHeight() );
@@ -699,9 +735,10 @@ SkullbonezRun::ReflectionPassOutput SkullbonezRun::RenderReflectionPass( const R
 {
     ReflectionPassOutput output;
 
-    // The legacy path renders the above-water scene from a mirrored camera into
-    // an FBO. The DXR path rebuilds the raytracing TLAS and writes a screen-space
-    // reflection texture directly. Both feed the same water shader later.
+    // Concept: two implementations, one water-pass contract. The planar path
+    // renders the above-water scene from a mirrored camera into an FBO. The DXR
+    // path rebuilds the raytracing TLAS and writes a screen-space reflection
+    // texture directly. Both feed the same water shader later.
     PROFILE_GPU_BEGIN( "Frame/Render/Reflection" );
     const auto renderCapabilities = Gfx().GetCapabilities();
     const bool useDxrReflection = renderCapabilities.supportsDxrReflection &&
@@ -713,8 +750,9 @@ SkullbonezRun::ReflectionPassOutput SkullbonezRun::RenderReflectionPass( const R
 
     if ( useDxrReflection )
     {
-        // DXR path: rebuild the scene instance table with current model
-        // transforms, then dispatch one reflection ray per texture pixel.
+        // Lifetime: the DX12 backend owns the raytracing acceleration
+        // structures. The runtime only streams current per-model transforms into
+        // the TLAS before dispatching one reflection ray per texture pixel.
         int ballCount = m_cGameModelCollection.GetModelCount();
         for ( int i = 0; i < ballCount; ++i )
         {
@@ -760,7 +798,8 @@ SkullbonezRun::ReflectionPassOutput SkullbonezRun::RenderReflectionPass( const R
     }
     else
     {
-        // Off-screen mirror-camera path for planar reflections.
+        // Invariant: the planar path binds only its own reflection target and
+        // restores the viewport to the window size before water renders.
         ReflectionPassResources& reflectionResources = m_systems.renderPasses.reflection;
         reflectionResources.target->Bind();
         Gfx().SetViewport( 0, 0, reflectionResources.target->GetWidth(), reflectionResources.target->GetHeight() );
@@ -773,7 +812,9 @@ SkullbonezRun::ReflectionPassOutput SkullbonezRun::RenderReflectionPass( const R
         RenderSkyPass( inputs.frame, inputs.frame.reflectionView, SkyPassMode::CinematicIfEnabled );
         PROFILE_GPU_END( "Frame/Render/Reflection/Skybox" );
 
-        // Game models reflected: clip at water surface (above-water portion only).
+        // Why: clip at the water surface so the reflection texture contains only
+        // the above-water portion of models. The water shader supplies the
+        // below-surface visual from the main scene.
         PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
         Gfx().SetClipPlane( 0, true );
         SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
@@ -911,9 +952,9 @@ bool SkullbonezRun::RenderCinematicVolumetricLight()
         return false;
     }
 
-    // We first unbind the full-size scene target, then bind the small light
-    // target. This pass reads the finished scene/depth textures and writes a
-    // separate soft orange light texture.
+    // Invariant: unbind the full-size scene target before sampling it. The
+    // volumetric pass reads scene color/depth and writes a separate soft light
+    // texture, so read and write targets must be different resources.
     scene.hdrTarget->Unbind();
     volumetric.target->Bind();
     Gfx().SetViewport( 0, 0, volumetric.target->GetWidth(), volumetric.target->GetHeight() );
@@ -946,9 +987,9 @@ bool SkullbonezRun::RenderCinematicVolumetricLight()
                                 cinematic.cloudSoftness,
                                 cinematic.cloudScale,
                                 cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
-    // Texture slot 0: rendered color. Slot 1: rendered depth. The shader uses
-    // depth to tell sky pixels from solid geometry so rays pass through sky and
-    // fade when they cross hills/balls.
+    // Pass contract: texture slot 0 is rendered color, slot 1 is rendered
+    // depth. The shader uses depth to tell sky pixels from solid geometry so
+    // rays pass through sky and fade when they cross hills/balls.
     Gfx().BindTexture( scene.hdrTarget->GetColorTextureHandle(), 0 );
     Gfx().BindTexture( scene.hdrTarget->GetDepthTextureHandle(), 1 );
 
@@ -1013,9 +1054,9 @@ void SkullbonezRun::ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound,
     Gfx().SetDepthWrite( false );
     Gfx().SetBlend( false );
 
-    // "Resolve" means "turn our off-screen cinematic render target into the
-    // final image on the window." This is where the HDR scene becomes normal
-    // display color and where bloom/fog/rays are layered in.
+    // Concept: "resolve" means "turn our off-screen cinematic render target
+    // into the final image on the window." This is where the HDR scene becomes
+    // normal display color and where bloom/fog/rays are layered in.
     tonemap.shader->Use();
     tonemap.shader->SetInt( "uSceneTex", 0 );
     tonemap.shader->SetInt( "uDepthTex", 1 );
@@ -1052,9 +1093,9 @@ void SkullbonezRun::ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound,
                              cinematic.styleVignette,
                              static_cast<float>( cinematic.skyMode ) );
     tonemap.shader->SetFloat( "uVolumetricCompositeStrength", volumetricReady && cinematic.volumetricLightingEnabled ? 1.0f : 0.0f );
-    // Slot 0 is the bright HDR scene, slot 1 is its depth buffer, and slot 2 is
-    // either the volumetric-light texture or a harmless fallback when that pass
-    // is disabled.
+    // Pass contract: slot 0 is the bright HDR scene, slot 1 is its depth buffer,
+    // and slot 2 is either the volumetric-light texture or a harmless fallback
+    // when that pass is disabled.
     Gfx().BindTexture( scene.hdrTarget->GetColorTextureHandle(), 0 );
     Gfx().BindTexture( scene.hdrTarget->GetDepthTextureHandle(), 1 );
     Gfx().BindTexture( volumetricReady && volumetric.target ? volumetric.target->GetColorTextureHandle() : scene.hdrTarget->GetColorTextureHandle(), 2 );
@@ -1097,9 +1138,9 @@ void SkullbonezRun::ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound,
 
 void SkullbonezRun::RenderCinematicPostPasses()
 {
-    // Once all normal world geometry has been rendered into the HDR target,
-    // generate the optional volumetric texture and resolve everything back to
-    // the real window backbuffer.
+    // Invariant: post passes run only after all world geometry has been rendered
+    // into the HDR target. Volumetric light depends on completed scene depth;
+    // tonemap depends on both scene color and the optional volumetric texture.
     const bool volumetricReady = RenderCinematicVolumetricLight();
     ResolveCinematicSceneToBackbuffer( volumetricReady, volumetricReady );
 }
@@ -1135,6 +1176,9 @@ void SkullbonezRun::DrawPrimitives()
 
     if ( cinematicRender )
     {
+        // Lifetime: cinematic resources are lazy. A window resize or backend
+        // rebuild drops them; the next cinematic frame recreates the targets and
+        // shader objects with the current window dimensions.
         EnsureCinematicRenderResources();
     }
     const bool useCinematicTarget = cinematicRender && m_systems.renderPasses.cinematicScene.hdrTarget != nullptr;
@@ -1145,6 +1189,8 @@ void SkullbonezRun::DrawPrimitives()
         Gfx().Clear( true, true );
     }
 
+    // Build the shared pass contract once, after camera update and before any
+    // pass can bind targets. All extracted passes consume this same frame view.
     RenderFrameContext frame = BuildRenderFrameContext( cinematicRender, renderConfig );
 
     PROFILE_BEGIN( "Frame/Render/PrepareModels" );
@@ -1168,6 +1214,9 @@ void SkullbonezRun::DrawPrimitives()
     const bool transparentBodyPass = m_debug.isPhysicsDebugTransparent && m_debug.physicsDebugAlpha < 1.0f;
     const float bodyRenderAlpha = transparentBodyPass ? m_debug.physicsDebugAlpha : 1.0f;
     const float collisionVisualizerAlphaOverride = transparentBodyPass ? bodyRenderAlpha : -1.0f;
+    // Reflection is needed even when water later decides not to draw; keeping
+    // resource creation here preserves the historical frame sequence and avoids
+    // coupling water visibility to target lifetime.
     EnsureReflectionRenderResources();
 
     // Camera m_position for skybox placement.  During camera transitions the

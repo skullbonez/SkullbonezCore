@@ -11,6 +11,10 @@ Mental model:
 Glossary:
   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
   descriptor, and command-list control.
+  Render pass: A named slice of DrawPrimitives() with explicit inputs,
+  outputs, and resource ownership.
+  Render target: Texture the renderer draws into before another pass samples or
+  presents it.
   DX11/OpenGL: Retired runtime renderers. Their source backends have been
   removed; old command-line values now fail early.
   DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
@@ -21,12 +25,25 @@ Glossary:
   recording GPU commands.
   FBO (Framebuffer Object): Engine shorthand for an off-screen render target
   exposed through the renderer abstraction.
+  HDR (High Dynamic Range): Floating-point scene color that can hold values
+  brighter than display white until tonemapping resolves it.
+  Shadow frame: Per-frame light-space matrices, depth texture handle, and
+  filtering constants consumed by shadow receiver shaders.
   HUD (Heads-Up Display): On-screen diagnostics and control overlay.
   CLI (Command-Line Interface): Text arguments or scripts used to launch
   validation and tooling paths.
 
+Invariants:
+  - RunRenderPassResources owns backend/device resources and must be reset
+    while the renderer backend is still alive.
+  - Pass input structs borrow frame data only for the current DrawPrimitives()
+    call; no pass may store those references after it returns.
+  - Shadow receiver pointers are valid only until the next shadow reset or the
+    next frame rebuilds ShadowPassResources.
+
 Related:
   - SkullbonezSource/SkullbonezRun.cpp
+  - SkullbonezSource/SkullbonezRunRender.cpp
   - Agentic/Reference/runtime-reference.md
   - Agentic/Reference/comment-style-guide.md
 */
@@ -129,47 +146,77 @@ struct RunTimerState
     float fixedStepTickAccumulator = 0.0f; // Fractional fixed ticks owed by time_scale in fixed-step mode
 };
 
+// Concept: pass resource structs name ownership before the frame graph exists.
+//
+// These structs are intentionally small. They do not implement rendering; they
+// make lifetime and ownership visible so each pass can later move behind a
+// cleaner interface without rediscovering which framebuffer, shader, or
+// per-frame payload belongs to it.
 struct ReflectionPassResources
 {
-    std::unique_ptr<Rendering::IFramebuffer> target; // High-resolution mirror target sampled by the water pass.
+    // Lifetime: this render target is backend/device-owned. Resize and backend
+    // teardown must reset it before the renderer releases the underlying GPU
+    // resource memory.
+    std::unique_ptr<Rendering::IFramebuffer> target;
 };
 
 struct SkyPassResources
 {
-    std::unique_ptr<Rendering::IShader> atmosphereShader; // Cinematic procedural sky shader used by sky/reflection passes.
+    // The cube-map skybox is owned by the shared skybox subsystem. This pass
+    // owns only the procedural cinematic atmosphere shader used when cinematic
+    // mode asks the sky pass to draw a generated background.
+    std::unique_ptr<Rendering::IShader> atmosphereShader;
 };
 
 struct CinematicScenePassResources
 {
-    std::unique_ptr<Rendering::IFramebuffer> hdrTarget; // Full-resolution RGBA16F scene target resolved by post passes.
+    // Full-resolution floating-point scene color/depth. World geometry renders
+    // here first so volumetric light and tonemap can sample the completed scene.
+    std::unique_ptr<Rendering::IFramebuffer> hdrTarget;
 };
 
 struct VolumetricLightPassResources
 {
-    std::unique_ptr<Rendering::IFramebuffer> target; // Half-resolution RGBA16F light-shaft texture.
-    std::unique_ptr<Rendering::IShader> shader;      // Depth-aware full-screen light-shaft shader.
+    // Half-resolution because light shafts are intentionally soft. The shader
+    // samples the HDR scene and depth, then writes a texture the tonemap pass can
+    // composite over the final image.
+    std::unique_ptr<Rendering::IFramebuffer> target;
+    std::unique_ptr<Rendering::IShader> shader;
 };
 
 struct TonemapPassResources
 {
-    std::unique_ptr<Rendering::IShader> shader; // Final HDR scene-to-backbuffer resolve shader.
+    // Final full-screen resolve from HDR scene color to the window backbuffer.
+    // This is also where fog, bloom, grade, and optional volumetric light meet.
+    std::unique_ptr<Rendering::IShader> shader;
 };
 
 struct FullscreenPassResources
 {
-    uint32_t quadVB = 0; // Shared screen-covering rectangle for sky, volumetric, and tonemap passes.
+    // Shared dynamic vertex buffer for two-triangle full-screen passes. It
+    // stores only clip-space position and UV; each shader decides what to sample.
+    uint32_t quadVB = 0;
 };
 
 struct ShadowPassResources
 {
-    std::unique_ptr<Rendering::IFramebuffer> terrainTarget; // Broad terrain/object shadow map target.
-    Rendering::ShadowFrameData terrainFrame;                // Receiver payload for terrain/world shadows.
-    std::unique_ptr<Rendering::IFramebuffer> objectTarget;  // Tight nearby-object shadow map target.
-    Rendering::ShadowFrameData objectFrame;                 // Receiver payload for object-on-object shadows.
+    // Terrain target: broad map centered on terrain bounds. Object target:
+    // tighter map centered near the camera so nearby body shadows keep detail.
+    std::unique_ptr<Rendering::IFramebuffer> terrainTarget;
+    std::unique_ptr<Rendering::IFramebuffer> objectTarget;
+
+    // Lifetime: these payloads borrow texture handles from the targets above.
+    // Reset both payloads whenever either target is destroyed, and rebuild them
+    // every frame before terrain/object receivers read the pointers.
+    Rendering::ShadowFrameData terrainFrame;
+    Rendering::ShadowFrameData objectFrame;
 };
 
 struct RunRenderPassResources
 {
+    // Ownership map for pass-owned renderer resources. Runtime subsystems keep
+    // long-lived world state elsewhere; this aggregate is only for resources
+    // created by named render passes and released through pass reset hooks.
     ReflectionPassResources reflection;
     SkyPassResources sky;
     CinematicScenePassResources cinematicScene;
@@ -184,7 +231,10 @@ struct RunSubsystemState
     Assets::AssetSystem assets;
     std::unique_ptr<Geometry::Terrain> terrain;
     bool isFlatSlopeTerrain = false;
-    RunRenderPassResources renderPasses; // Device-owned pass resources released before backend teardown/rebuild.
+    // Lifetime: all pass resources are released before backend teardown/rebuild
+    // and lazily recreated by the ensure hooks that own their target size and
+    // shader contracts.
+    RunRenderPassResources renderPasses;
 
     Environment::CameraCollection* cameras = nullptr;
     Textures::TextureCollection* textures = nullptr;
@@ -347,23 +397,29 @@ class SkullbonezRun
 {
 
   private:
+    // Concept: these private pass contracts are the extraction boundary.
+    //
+    // DrawPrimitives() still owns pass order, but each pass receives a named
+    // input bundle and returns only the data later passes need. References and
+    // pointers here are borrowed for one frame; long-lived GPU resources live in
+    // RunRenderPassResources instead.
     enum class SkyPassMode
     {
-        CubemapOnly,
-        CinematicIfEnabled
+        CubemapOnly,       // Force the authored cube-map skybox path.
+        CinematicIfEnabled // Allow the procedural cinematic sky when the active config requests it.
     };
 
     enum class ObjectPassMode
     {
-        Opaque,
-        Transparent
+        Opaque,     // Normal body draw before water.
+        Transparent // Debug alpha body draw after water so overlays remain readable.
     };
 
     struct RenderFrameContext
     {
-        // Shared inputs for the ordered world-render passes. Keeping these
-        // names stable lets pass extraction move code without rediscovering
-        // camera and lighting ownership at every call site.
+        // Shared inputs for the ordered world-render passes. This is a borrowed
+        // per-frame contract: every value is rebuilt after SetCamera(), consumed
+        // during DrawPrimitives(), and discarded before the next frame.
         Math::Transformation::Matrix4 baseView;
         Math::Transformation::Matrix4 projection;
         Math::Transformation::Matrix4 viewProjection;
@@ -375,25 +431,38 @@ class SkullbonezRun
         Math::Vector::Vector3 reflectionEye;
         Math::Vector::Vector3 reflectionCenter;
         Math::Vector::Vector3 reflectionUp;
+
+        // Invariant: lightPosition.w preserves the old shader contract.
+        // 1 means point light for normal rendering; 0 means directional sun for
+        // cinematic rendering and shadow-map construction.
         float lightPosition[4] = { 200.0f, 400.0f, 1200.0f, 1.0f };
-        float waterY = 0.0f;
+        float waterY = 0.0f; // World-space fluid surface height used by reflection clipping and water shading.
+
+        // Non-null only when cinematic rendering wraps this frame. Passes use
+        // the pointer as an opt-in contract, not as ownership.
         bool cinematicEnabled = false;
         const CinematicRenderConfig* cinematic = nullptr;
     };
 
     struct ObjectPassInputs
     {
+        // Draws the body collection into the current render target. It can act
+        // as the opaque pass or the transparent debug pass, but it must not own
+        // target binding; the caller decides where the pass renders.
         const RenderFrameContext& frame;
+        // Documents where this object pass sits in the frame ordering.
         ObjectPassMode mode;
         const CinematicRenderConfig* cinematic;
         const Rendering::ShadowFrameData* shadow;
-        bool collisionStateColorsVisible;
-        float collisionVisualizerAlphaOverride;
-        float bodyAlpha;
+        bool collisionStateColorsVisible;       // Route bodies through collision-state visualization instead of materials.
+        float collisionVisualizerAlphaOverride; // -1 keeps visualizer defaults; otherwise overrides debug alpha.
+        float bodyAlpha;                        // 1 for opaque bodies; debug alpha for the transparent object pass.
     };
 
     struct TerrainPassInputs
     {
+        // Terrain reads the same camera/light contract as objects, plus the
+        // terrain shadow frame when shadows were built for the current frame.
         const RenderFrameContext& frame;
         const CinematicRenderConfig* cinematic;
         const Rendering::ShadowFrameData* shadow;
@@ -401,47 +470,65 @@ class SkullbonezRun
 
     struct ReflectionPassInputs
     {
+        // Produces the texture sampled by water. The pass may choose the DXR
+        // raytraced path or the mirrored-camera render-target path, but both
+        // must return a texture handle and matching sample transform.
         const RenderFrameContext& frame;
         const CinematicRenderConfig* cinematic;
         const Rendering::ShadowFrameData* objectShadow;
-        bool collisionStateColorsVisible;
+        bool collisionStateColorsVisible; // Reflection must match the selected body visualization mode.
+        // Disables DXR reflection because the mirrored raster path can honor
+        // debug alpha and collision-state rendering.
         bool transparentBodyPass;
-        float collisionVisualizerAlphaOverride;
-        float bodyAlpha;
+        float collisionVisualizerAlphaOverride; // Forwarded to reflected collision-state geometry.
+        float bodyAlpha;                        // Forwarded to reflected production body rendering.
     };
 
     struct ReflectionPassOutput
     {
-        uint32_t reflectionTextureHandle = 0;
+        uint32_t reflectionTextureHandle = 0; // Engine texture handle consumed by WorldEnvironment::RenderFluid.
+        // Matrix used by water to project the current surface pixel into the
+        // reflection texture returned by this pass.
         Math::Transformation::Matrix4 reflectionSampleViewProjection;
-        bool usedDxr = false;
+        bool usedDxr = false; // True when the texture came from the DXR dispatch instead of the planar target.
     };
 
     struct WaterPassInputs
     {
+        // Water is deliberately downstream of reflection. It must not rebuild
+        // reflection itself; it only receives the texture/sample transform that
+        // the reflection pass produced for this frame.
         const RenderFrameContext& frame;
         const ReflectionPassOutput& reflection;
         const CinematicRenderConfig* cinematic;
-        bool waterHidden;
-        bool flatWater;
-        bool noReflection;
-        bool freezeTime;
-        float frozenTime;
+        bool waterHidden;  // Caller-controlled debug visibility; reflection resources stay outside this flag.
+        bool flatWater;    // Debug water style: flat shading instead of animated waves.
+        bool noReflection; // Debug override: keep water visible but force the no-reflection shader path.
+        bool freezeTime;   // Debug override: hold wave animation at frozenTime.
+        float frozenTime;  // Simulation time captured when water animation was frozen.
     };
 
     struct DebugOverlayPassInputs
     {
+        // Debug overlays draw after production geometry and use the final world
+        // view-projection. They do not participate in material or pass-resource
+        // ownership.
         const RenderFrameContext& frame;
     };
 
     struct ShadowPassInputs
     {
+        // Shadows are optional. A null cinematic pointer means no shadow maps
+        // should be built and receivers should get null shadow outputs.
         const RenderFrameContext& frame;
         const CinematicRenderConfig* cinematic;
     };
 
     struct ShadowPassOutput
     {
+        // Borrowed pointers into ShadowPassResources. Receivers must consume
+        // them during the same DrawPrimitives() call; ResetShadowRenderResources
+        // and the next frame both invalidate them.
         const Rendering::ShadowFrameData* terrainShadow = nullptr;
         const Rendering::ShadowFrameData* objectShadow = nullptr;
     };
@@ -493,7 +580,7 @@ class SkullbonezRun
 #endif
     RunRuntimeSettings m_runtimeSettings;                     // Scene/app runtime swap policy toggles
     RunTimerState m_timers;                                   // Frame/simulation timers and rolling timing values
-    RunSubsystemState m_systems;                              // Window, camera, texture, terrain, and reflection handles
+    RunSubsystemState m_systems;                              // Window, camera, texture, terrain, and pass resource ownership
     RunCameraState m_camera;                                  // Camera/input state and ball-tracking settings
     RunSceneState m_scene;                                    // Scene-mode execution state
     RunScreenshotState m_screenshot;                          // Screenshot trigger and capture state
