@@ -1,7 +1,36 @@
+/*
+File: SkullbonezSource/SkullbonezSpatialGrid.h
+Purpose:
+  Partitions space into broadphase cells so physics can test nearby objects cheaply.
+
+Mental model:
+  Physics is deterministic fixed-step state update. Units, contact ownership,
+  solver stages, sleep policy, and baseline-sensitive behavior are the key
+  reading anchors.
+
+Glossary:
+  CCD (Continuous Collision Detection): Swept test that asks whether moving
+  bodies collide during a tick.
+  AABB (Axis-Aligned Bounding Box): Box aligned to world axes, often used for
+  cheap broadphase overlap tests.
+  Broadphase: Cheap collision pass that finds object pairs worth testing more
+  precisely.
+  Narrowphase: Precise collision pass that computes contact points, normals,
+  and penetration.
+  Manifold: Set of contact points and normals describing one colliding pair.
+
+Invariants:
+  - Physics-visible behavior must remain deterministic; byte-exact baselines
+  are the validation contract.
+
+Related:
+  - SkullbonezSource/SkullbonezSpatialGrid.cpp
+  - Agentic/Reference/physics-overview.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include <vector>
 #include <utility>
 #include <cstdint>

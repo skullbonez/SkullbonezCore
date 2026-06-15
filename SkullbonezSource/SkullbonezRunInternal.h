@@ -1,3 +1,30 @@
+/*
+File: SkullbonezSource/SkullbonezRunInternal.h
+Purpose:
+  Shares private run-loop data structures between split runtime implementation files.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
+  engine migrates to DX12.
+  OpenGL: Legacy parity renderer used as a reference path for visual output.
+  GL (OpenGL): Legacy parity renderer path.
+  HUD (Heads-Up Display): On-screen diagnostics and control overlay.
+  CLI (Command-Line Interface): Text arguments or scripts used to launch
+  validation and tooling paths.
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 #include "SkullbonezRun.h"

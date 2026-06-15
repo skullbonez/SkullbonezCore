@@ -1,4 +1,32 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezRenderBackendDX12.Readback.cpp
+Purpose:
+  Reads GPU-rendered image data back to the CPU for screenshots and validation.
+
+Mental model:
+  DX12 separates resource memory, descriptor rows, command recording, and GPU
+  execution. Ownership, state transitions, descriptor lifetime, and fence
+  ordering are the important ideas.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - DX12 object lifetime, resource states, descriptor rows, and fence ordering
+  must stay explicit.
+
+Related:
+  - Agentic/Reference/skullbonez-core-class-structure.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezRenderBackendDX12.h"
 #include "SkullbonezShaderDX12.h"
 #include "SkullbonezMeshDX12.h"
@@ -16,7 +44,6 @@
 #include <wrl/client.h>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;

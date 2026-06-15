@@ -1,3 +1,27 @@
+/*
+File: SkullbonezData/shaders/water_calm.hlsl
+Purpose:
+  Runs the water_calm HLSL shader program used by the renderer.
+
+Mental model:
+  Shaders are GPU programs. Constant buffers provide per-frame data, shader
+  stages transform or shade inputs, and CPU-side renderer bindings must match
+  the declarations in this file.
+
+Glossary:
+  HLSL (High Level Shader Language): Shader language compiled for Direct3D
+  render, compute, and raytracing stages.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - CPU-side root signatures, input layouts, and descriptor bindings must
+  match this shader exactly.
+
+Related:
+  - Agentic/Reference/comment-style-guide.md
+*/
 // =============================================================================
 // CALM WATER SHADER — HLSL 5.0 (Combined VS+PS)
 // =============================================================================

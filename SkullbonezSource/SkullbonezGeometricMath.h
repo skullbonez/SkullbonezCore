@@ -1,7 +1,24 @@
+/*
+File: SkullbonezSource/SkullbonezGeometricMath.h
+Purpose:
+  Provides geometric helper functions for collision, projection, and intersection tests.
+
+Mental model:
+  Math code is shared infrastructure. Coordinate conventions, units,
+  handedness, and simplifications matter because subtle assumptions spread
+  through rendering and physics.
+
+Glossary:
+  Engine module: A source file with one focused responsibility inside the
+  SkullbonezCore runtime.
+
+Related:
+  - SkullbonezSource/SkullbonezGeometricMath.cpp
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezTerrain.h"
 

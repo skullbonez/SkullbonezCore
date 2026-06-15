@@ -1,7 +1,30 @@
+/*
+File: SkullbonezSource/SkullbonezShaderDX11.h
+Purpose:
+  Compiles and binds shaders for the DX11 parity renderer.
+
+Mental model:
+  DX11 is a legacy parity renderer. It follows the renderer interface while
+  staying close enough to DX12 and OpenGL output for visual comparison.
+
+Glossary:
+  HLSL (High Level Shader Language): Shader language compiled for Direct3D
+  render, compute, and raytracing stages.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - Parity renderer output should stay visually aligned with the DX12
+  production path while these backends remain.
+
+Related:
+  - SkullbonezSource/SkullbonezShaderDX11.cpp
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include "SkullbonezIShader.h"
 #include <d3d11.h>
 #include <d3dcompiler.h>

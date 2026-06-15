@@ -1,3 +1,28 @@
+#
+# File: tools/physics_query.py
+# Purpose:
+#   Documents and runs the physics_query.py developer/validation helper script.
+#
+# Mental model:
+#   Tools are command-line guardrails around builds, validation, screenshots,
+#   diagnostics, and artifact handling. They make the safe path repeatable and
+#   keep output bounded for humans and agents.
+#
+# Glossary:
+#   SQLite: Local embedded database used as a bounded query cache for large
+#   diagnostics traces.
+#   Validation gate: Repository script that proves a class of changes before
+#   commit or PR.
+#
+# Invariants:
+#   - Tool output should be bounded and readable because agents and humans use
+#   it for decisions.
+#
+# Related:
+#   - AGENTS.md
+#   - Agentic/Reference/comment-style-guide.md
+#
+#
 """
 Queryable physics diagnostics for SkullbonezCore.
 
@@ -109,6 +134,14 @@ def json_response(payload, pretty=False):
 
 
 def create_schema(conn):
+    # Concept: import raw NDJSON once, then answer bounded questions from SQLite.
+    #
+    # SkullScope traces can be large and noisy. The schema below turns the raw
+    # event stream into indexed tables for the specific questions agents and
+    # humans ask most often: frame summaries, body trajectories, contacts,
+    # islands, support edges, broadphase stats, solver stats, pipeline stage
+    # counts, and notable events. Query commands should print small JSON/text
+    # answers rather than dumping raw trace files into the model context.
     conn.executescript(
         """
         create table metadata(
@@ -434,6 +467,10 @@ def ensure_db(trace_arg):
 
 
 def import_trace(conn, trace_path):
+    # Import is deliberately tolerant of bad individual lines. A partially
+    # written or interrupted diagnostic run should still be queryable up to the
+    # last valid JSON object, and the bad-line count is recorded in metadata so
+    # final reports can disclose trace quality.
     bad_lines = 0
     imported = {
         "run": 0,

@@ -1,3 +1,24 @@
+/*
+File: SkullbonezSource/SkullbonezPrimitiveMeshBuilder.h
+Purpose:
+  Builds simple procedural meshes used by debug rendering and generated scenes.
+
+Mental model:
+  Renderer-facing code translates engine concepts into backend resources, draw
+  calls, shader bindings, and validation artifacts.
+
+Glossary:
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Related:
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 #include "SkullbonezCommon.h"

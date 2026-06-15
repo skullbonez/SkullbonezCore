@@ -1,3 +1,27 @@
+/*
+File: SkullbonezSource/SkullbonezShadow.h
+Purpose:
+  Defines shadow-map frame data shared by renderers and scene objects.
+
+Mental model:
+  Renderer-facing code translates engine concepts into backend resources, draw
+  calls, shader bindings, and validation artifacts.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
+  engine migrates to DX12.
+  GL (OpenGL): Legacy parity renderer path.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Related:
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 #include "SkullbonezIRenderBackend.h"

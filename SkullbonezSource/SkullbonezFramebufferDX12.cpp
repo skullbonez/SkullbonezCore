@@ -1,10 +1,47 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezFramebufferDX12.cpp
+Purpose:
+  Implements off-screen framebuffer resources and descriptor views for the DX12 renderer.
+
+Mental model:
+  DX12 separates resource memory, descriptor rows, command recording, and GPU
+  execution. Ownership, state transitions, descriptor lifetime, and fence
+  ordering are the important ideas.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
+  engine migrates to DX12.
+  GL (OpenGL): Legacy parity renderer path.
+  RTV (Render Target View): Descriptor row used when the GPU writes color
+  pixels into a texture or back buffer.
+  DSV (Depth Stencil View): Descriptor row used when the GPU reads or writes
+  depth/stencil data for depth testing.
+  SRV (Shader Resource View): Descriptor row used when shaders read textures
+  or buffers.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  FBO (Framebuffer Object): OpenGL-style off-screen render target concept used
+  by parity and reflection code.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - DX12 object lifetime, resource states, descriptor rows, and fence ordering
+  must stay explicit.
+
+Related:
+  - SkullbonezSource/SkullbonezFramebufferDX12.h
+  - Agentic/Reference/skullbonez-core-class-structure.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezFramebufferDX12.h"
 #include "SkullbonezRenderBackendDX12.h"
 #include <stdexcept>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Rendering;
 
 
@@ -95,11 +132,13 @@ void FramebufferDX12::Create( int width, int height )
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createcommittedresource
     device->CreateCommittedResource( &defaultHeap, D3D12_HEAP_FLAG_NONE, &depthDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &depthClear, IID_PPV_ARGS( &m_depthTexture ) );
 
-    // Allocate RTV and DSV from backend's heaps
+    // Allocate descriptor rows from the backend heaps. The color/depth textures
+    // are the resources; RTV/DSV are the binding records that let the output
+    // merger write into those resources.
     m_rtvHandle = backend->AllocateRTV();
-    // Create a Render Target View (RTV) — this is a "descriptor" that tells the GPU how to
-    // interpret the color texture when writing pixels to it during rendering. Without this view,
-    // the GPU cannot use the texture as a render target.
+    // Create a Render Target View (RTV). This descriptor tells the GPU how to
+    // interpret the color texture when writing pixels to it during rendering.
+    // Without this view, the GPU cannot use the texture as a render target.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrendertargetview
     device->CreateRenderTargetView( m_colorTexture, nullptr, m_rtvHandle );
 
@@ -107,25 +146,29 @@ void FramebufferDX12::Create( int width, int height )
     D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
     dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
     dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-    // Create a Depth Stencil View (DSV) — this descriptor tells the GPU how to read/write
-    // the depth texture during depth testing. Pixels that fail the depth test are discarded.
+    // Create a Depth Stencil View (DSV). This descriptor tells the GPU how to
+    // read/write the depth texture during depth testing. Pixels that fail the
+    // depth test are discarded.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdepthstencilview
     device->CreateDepthStencilView( m_depthTexture, &dsvDesc, m_dsvHandle );
 
-    // Create SRV for color texture
+    // Create the SRV used after Unbind() when shaders sample the finished color
+    // texture.
     m_srvIndex = backend->AllocateStaticSRV();
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Format = colorFormat;
     srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.Texture2D.MipLevels = 1;
-    // Create a Shader Resource View (SRV) — this descriptor allows shaders to sample/read the
-    // color texture (e.g. the water shader reads the reflection FBO as a texture input).
-    // The same GPU resource can have multiple views: RTV for writing, SRV for reading.
+    // Create a Shader Resource View (SRV). This descriptor allows shaders to
+    // sample/read the color texture. The same GPU resource can have multiple
+    // views: RTV for writing, SRV for reading.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createshaderresourceview
     device->CreateShaderResourceView( m_colorTexture, &srvDesc, backend->GetSRVStagingCpuHandle( m_srvIndex ) );
 
-    // Register SRV so GetColorTextureHandle() returns a valid texture handle
+    // Register the SRV with the normal backend texture registry so renderer code
+    // can bind this framebuffer with a texture handle instead of a raw descriptor
+    // index.
     m_texHandle = backend->RegisterSRV( m_srvIndex );
 
     // Depth SRV: the tonemap/volumetric shaders sample this to know where solid
@@ -150,11 +193,14 @@ void FramebufferDX12::Bind() const
         return;
     }
 
-    // Save current targets
+    // Save the previously active targets so Unbind() can restore the caller's
+    // render destination.
     m_savedRTV = backend->GetCurrentRTV();
     m_savedDSV = backend->GetCurrentDSV();
 
-    // Clear stale texture bindings for the FBO textures before transition
+    // Clear stale texture bindings for these FBO textures before the state
+    // transition. A texture cannot be sampled and written as a target at the
+    // same time.
     backend->SetRenderingToFBO( true, m_srvIndex, m_depthSrvIndex, ToDX12ColorFormat( m_colorFormat ) );
 
     // Transition color texture from SRV to render target.

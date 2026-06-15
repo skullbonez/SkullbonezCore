@@ -1,7 +1,35 @@
+/*
+File: SkullbonezSource/SkullbonezIRenderBackend.h
+Purpose:
+  Declares the renderer abstraction shared by GL, DX11, and DX12 backends.
+
+Mental model:
+  Renderer-facing code translates engine concepts into backend resources, draw
+  calls, shader bindings, and validation artifacts.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
+  engine migrates to DX12.
+  OpenGL: Legacy parity renderer used as a reference path for visual output.
+  GL (OpenGL): Legacy parity renderer path.
+  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  reflection dispatch.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  HUD (Heads-Up Display): On-screen diagnostics and control overlay.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Related:
+  - SkullbonezSource/SkullbonezIRenderBackend.cpp
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include <cstdint>
 #include <memory>
 #include <vector>

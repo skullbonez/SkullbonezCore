@@ -1,3 +1,31 @@
+/*
+File: SkullbonezSource/SkullbonezPhysicsWorld.h
+Purpose:
+  Owns per-scene physics working state shared by broadphase, solver, and diagnostics.
+
+Mental model:
+  Physics is deterministic fixed-step state update. Units, contact ownership,
+  solver stages, sleep policy, and baseline-sensitive behavior are the key
+  reading anchors.
+
+Glossary:
+  SkullScope: Queryable physics diagnostics workflow backed by bounded trace
+  output and local queries.
+  Broadphase: Cheap collision pass that finds object pairs worth testing more
+  precisely.
+  Narrowphase: Precise collision pass that computes contact points, normals,
+  and penetration.
+  Manifold: Set of contact points and normals describing one colliding pair.
+
+Invariants:
+  - Physics-visible behavior must remain deterministic; byte-exact baselines
+  are the validation contract.
+
+Related:
+  - SkullbonezSource/SkullbonezPhysicsWorld.cpp
+  - Agentic/Reference/physics-overview.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 #include <array>
@@ -26,19 +54,38 @@ namespace Physics
 class PhysicsWorld
 {
   private:
+    // These helpers are allowed to touch the raw physics arrays because this
+    // type is the per-scene physics working set. Keeping mutation centralized
+    // here makes deterministic validation easier to reason about: one object
+    // owns the arrays, and each helper owns one stage of the pipeline.
     friend class GameObjects::SkullScope;
     friend class PhysicsDiagnosticsSink;
     friend class PersistentContactSolver;
     friend class SleepIslandSystem;
 
+    // Broadphase output for the current fixed tick.
+    //
+    // SpatialGrid bins objects into cells, m_candidatePairs stores object pairs
+    // that might collide, and m_timeRemaining tracks how much of the fixed step
+    // each body still has after swept movement/impact handling.
     Math::CollisionDetection::SpatialGrid m_spatialGrid;
     std::vector<std::pair<int, int>> m_candidatePairs;
     std::vector<float> m_timeRemaining;
 
+    // Sleep policy state.
+    //
+    // Sleeping is a performance and stability optimization: bodies that are
+    // supported and quiet can stop integrating until something wakes them. The
+    // "supported" and "inhibited" arrays are rebuilt each frame from contacts;
+    // m_sleepState/m_sleepCounter persist across frames.
     std::vector<uint8_t> m_sleepSupportedThisFrame;
     std::vector<uint8_t> m_sleepInhibitedThisFrame;
     std::vector<uint8_t> m_sleepState;
     std::vector<uint8_t> m_sleepCounter;
+
+    // Debug visualization state. These arrays intentionally mirror model index
+    // order so render/debug code can look up one byte/id per GameModel without
+    // doing map lookups in the overlay path.
     std::vector<uint8_t> m_collisionVisualContacts;
     std::vector<int> m_sleepIslandVisualId;
     std::vector<int> m_sleepIslandAssignedVisualId;
@@ -46,6 +93,10 @@ class PhysicsWorld
     bool m_sleepEnabled = true;
     bool m_collisionVisualFrameActive = false;
 
+    // Sleep islands are connected components of "this body is safely supported
+    // by that body" edges. If an entire island is quiet and has a stable anchor,
+    // all of it may sleep together; if one member wakes, the island should not
+    // leave neighbors suspended in mid-air.
     std::vector<std::pair<int, int>> m_sleepSupportEdges;
     std::vector<int> m_sleepIslandParent;
     std::vector<uint8_t> m_sleepIslandRank;
@@ -56,6 +107,9 @@ class PhysicsWorld
 
     struct PersistentContact
     {
+        // One solver row for one contact point. bodyB == -1 means static
+        // terrain. accN/accT1/accT2 are accumulated impulses reused by warm
+        // starting; they are cache-sensitive and therefore validation-sensitive.
         int bodyA = -1;
         int bodyB = -1;
         uint32_t featureId = 0;
@@ -85,6 +139,9 @@ class PhysicsWorld
 
     struct PersistentContactCacheEntry
     {
+        // Previous-frame impulse cache. The key encodes the bodies plus feature
+        // id so a contact can find last tick's converged impulse even if rows
+        // are rebuilt from fresh manifolds this tick.
         int64_t key = 0;
         float accN = 0.0f;
         float accT1 = 0.0f;
@@ -93,6 +150,9 @@ class PhysicsWorld
 
     struct PersistentContactSolverStats
     {
+        // Bounded per-frame counters for SkullScope, profiler overlays, and
+        // regression diagnostics. These explain what the solver did without
+        // forcing agents to ingest full raw CSV/NDJSON artifacts.
         int rowCount = 0;
         int cachePreviousRows = 0;
         int cacheHits = 0;
@@ -106,6 +166,9 @@ class PhysicsWorld
 
     struct SolverBodyState
     {
+        // Solver scratch copy of dynamic body state. Rows iterate over this
+        // compact representation first, then the final velocities are written
+        // back to GameModel/RigidBody storage after the solve.
         Math::Vector::Vector3 linearVelocity = Math::Vector::ZERO_VECTOR;
         Math::Vector::Vector3 angularVelocity = Math::Vector::ZERO_VECTOR;
         Math::Vector::Vector3 invInertia = Math::Vector::ZERO_VECTOR;
@@ -114,6 +177,9 @@ class PhysicsWorld
         bool useWorldInertia = false;
     };
 
+    // Persistent rows and diagnostics produced during the current fixed tick.
+    // Terrain manifolds are appended into the same row solver as object/object
+    // contacts so velocity response has one owner.
     std::vector<PersistentContact> m_persistentContacts;
     std::vector<PersistentContactCacheEntry> m_persistentContactCache;
     PersistentContactSolverStats m_persistentContactSolverStats;

@@ -1,3 +1,22 @@
+/*
+File: SkullbonezSource/SkullbonezAssetSystem.h
+Purpose:
+  Loads, owns, and resolves reusable runtime assets for scenes and render code.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - SkullbonezSource/SkullbonezAssetSystem.cpp
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 #include "SkullbonezCommon.h"

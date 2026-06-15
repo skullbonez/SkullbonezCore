@@ -1,7 +1,34 @@
+/*
+File: SkullbonezSource/SkullbonezBLASDX12.h
+Purpose:
+  Builds and owns DX12 raytracing bottom-level acceleration structures for mesh geometry.
+
+Mental model:
+  DX12 separates resource memory, descriptor rows, command recording, and GPU
+  execution. Ownership, state transitions, descriptor lifetime, and fence
+  ordering are the important ideas.
+
+Glossary:
+  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  reflection dispatch.
+  BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
+  mesh's triangles.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - DX12 object lifetime, resource states, descriptor rows, and fence ordering
+  must stay explicit.
+
+Related:
+  - SkullbonezSource/SkullbonezBLASDX12.cpp
+  - Agentic/Reference/skullbonez-core-class-structure.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include <d3d12.h>
 
 
@@ -27,7 +54,9 @@ class BLAS
 
     void Build( ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, D3D12_GPU_VIRTUAL_ADDRESS vbVA, int vertexCount, int vertexStride, DXGI_FORMAT vertexPosFormat, bool preferFastTrace );
     D3D12_GPU_VIRTUAL_ADDRESS GetResultVA() const;
-    void ReleaseAfterBuild(); // Free scratch, keep result
+    // Release the temporary build workspace while keeping the finished BLAS
+    // result buffer alive for TLAS instances and ray traversal.
+    void ReleaseAfterBuild();
     void Reset();
 };
 } // namespace Rendering

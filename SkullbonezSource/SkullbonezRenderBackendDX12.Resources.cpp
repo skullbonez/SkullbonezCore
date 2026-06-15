@@ -1,4 +1,28 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezRenderBackendDX12.Resources.cpp
+Purpose:
+  Creates, transitions, and names DX12 resources used by the renderer.
+
+Mental model:
+  DX12 separates resource memory, descriptor rows, command recording, and GPU
+  execution. Ownership, state transitions, descriptor lifetime, and fence
+  ordering are the important ideas.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - DX12 object lifetime, resource states, descriptor rows, and fence ordering
+  must stay explicit.
+
+Related:
+  - Agentic/Reference/skullbonez-core-class-structure.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezRenderBackendDX12.h"
 #include "SkullbonezShaderDX12.h"
 #include "SkullbonezMeshDX12.h"
@@ -16,7 +40,6 @@
 #include <wrl/client.h>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;

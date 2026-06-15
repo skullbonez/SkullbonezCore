@@ -1,4 +1,37 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezSBTDX12.cpp
+Purpose:
+  Builds the DX12 raytracing shader binding table that maps ray records to shaders.
+
+Mental model:
+  DX12 separates resource memory, descriptor rows, command recording, and GPU
+  execution. Ownership, state transitions, descriptor lifetime, and fence
+  ordering are the important ideas.
+
+Glossary:
+  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  reflection dispatch.
+  TLAS (Top-Level Acceleration Structure): Raytracing spatial index for scene
+  instances that point at BLAS geometry.
+  SBT (Shader Binding Table): DXR table that maps ray records to
+  ray-generation, miss, and hit shaders.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - DX12 object lifetime, resource states, descriptor rows, and fence ordering
+  must stay explicit.
+
+Related:
+  - SkullbonezSource/SkullbonezSBTDX12.h
+  - Agentic/Reference/skullbonez-core-class-structure.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 // --- DXR Ray Tracing: Shader Binding Table (SBT) ---
 //
 //  The SBT maps ray interactions to shader code. When a ray hits geometry, the GPU uses the SBT
@@ -18,7 +51,6 @@
 #include <cstring>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Rendering;
 
 

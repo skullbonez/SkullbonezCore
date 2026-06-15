@@ -1,11 +1,27 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezRunLiveStyle.cpp
+Purpose:
+  Applies live style-harness updates without restarting physics or scene state.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezRunInternal.h"
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;

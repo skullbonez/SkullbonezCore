@@ -1,7 +1,34 @@
+/*
+File: SkullbonezSource/SkullbonezSBTDX12.h
+Purpose:
+  Builds the DX12 raytracing shader binding table that maps ray records to shaders.
+
+Mental model:
+  DX12 separates resource memory, descriptor rows, command recording, and GPU
+  execution. Ownership, state transitions, descriptor lifetime, and fence
+  ordering are the important ideas.
+
+Glossary:
+  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  reflection dispatch.
+  SBT (Shader Binding Table): DXR table that maps ray records to
+  ray-generation, miss, and hit shaders.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - DX12 object lifetime, resource states, descriptor rows, and fence ordering
+  must stay explicit.
+
+Related:
+  - SkullbonezSource/SkullbonezSBTDX12.cpp
+  - Agentic/Reference/skullbonez-core-class-structure.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include <d3d12.h>
 
 

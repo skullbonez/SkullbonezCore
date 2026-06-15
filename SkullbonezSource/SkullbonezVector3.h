@@ -1,7 +1,24 @@
+/*
+File: SkullbonezSource/SkullbonezVector3.h
+Purpose:
+  Declares the engine 3D vector type and vector math operations.
+
+Mental model:
+  Math code is shared infrastructure. Coordinate conventions, units,
+  handedness, and simplifications matter because subtle assumptions spread
+  through rendering and physics.
+
+Glossary:
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+
+Related:
+  - SkullbonezSource/SkullbonezVector3.cpp
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include "SkullbonezCommon.h"
 
 namespace SkullbonezCore

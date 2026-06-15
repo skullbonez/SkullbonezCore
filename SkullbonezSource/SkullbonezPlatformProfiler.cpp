@@ -1,3 +1,22 @@
+/*
+File: SkullbonezSource/SkullbonezPlatformProfiler.cpp
+Purpose:
+  Bridges engine profiler markers to platform tools such as PIX when available.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - SkullbonezSource/SkullbonezPlatformProfiler.h
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezCommon.h"
 #include "SkullbonezPlatformProfiler.h"
 

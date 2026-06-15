@@ -1,7 +1,27 @@
+/*
+File: SkullbonezSource/SkullbonezTimer.h
+Purpose:
+  Measures elapsed time for frame pacing and simulation updates.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - SkullbonezSource/SkullbonezTimer.cpp
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include "SkullbonezCommon.h"
 
 namespace SkullbonezCore

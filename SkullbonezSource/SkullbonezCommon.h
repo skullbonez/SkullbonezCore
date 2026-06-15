@@ -1,3 +1,21 @@
+/*
+File: SkullbonezSource/SkullbonezCommon.h
+Purpose:
+  Defines shared constants, enums, and small cross-subsystem engine types.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 /*-----------------------------------------------------------------------------------
                                   THE SKULLBONEZ CORE
                                         _______
@@ -22,7 +40,6 @@
 #pragma once
 
 
-// --- Includes ---
 #define WIN32_LEAN_AND_MEAN
 
 #include <windows.h> // Windows

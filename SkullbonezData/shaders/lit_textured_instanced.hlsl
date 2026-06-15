@@ -1,3 +1,29 @@
+/*
+File: SkullbonezData/shaders/lit_textured_instanced.hlsl
+Purpose:
+  Runs the lit_textured_instanced HLSL shader program used by the renderer.
+
+Mental model:
+  Shaders are GPU programs. Constant buffers provide per-frame data, shader
+  stages transform or shade inputs, and CPU-side renderer bindings must match
+  the declarations in this file.
+
+Glossary:
+  OpenGL: Legacy parity renderer used as a reference path for visual output.
+  GL (OpenGL): Legacy parity renderer path.
+  HLSL (High Level Shader Language): Shader language compiled for Direct3D
+  render, compute, and raytracing stages.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - CPU-side root signatures, input layouts, and descriptor bindings must
+  match this shader exactly.
+
+Related:
+  - Agentic/Reference/comment-style-guide.md
+*/
 // =============================================================================
 // INSTANCED LIT TEXTURED SHADER — HLSL 5.0 (Combined VS+PS)
 // =============================================================================

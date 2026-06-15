@@ -1,4 +1,24 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezGameModel.cpp
+Purpose:
+  Defines one renderable and optionally simulated object in the scene.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
+  collision tests.
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - SkullbonezSource/SkullbonezGameModel.h
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezGameModel.h"
 #include "SkullbonezCollisionShape.h"
 #include "SkullbonezGeometricStructures.h"
@@ -9,7 +29,6 @@
 #include <type_traits>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::GameObjects;
 using namespace SkullbonezCore::Math;
 using namespace SkullbonezCore::Environment;

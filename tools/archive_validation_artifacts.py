@@ -1,4 +1,57 @@
+#
+# File: tools/archive_validation_artifacts.py
+# Purpose:
+#   Documents and runs the archive_validation_artifacts.py developer/validation helper script.
+#
+# Mental model:
+#   Tools are command-line guardrails around builds, validation, screenshots,
+#   diagnostics, and artifact handling. They make the safe path repeatable and
+#   keep output bounded for humans and agents.
+#
+# Glossary:
+#   Validation gate: Repository script that proves a class of changes before
+#   commit or PR.
+#
+# Invariants:
+#   - Tool output should be bounded and readable because agents and humans use
+#   it for decisions.
+#
+# Related:
+#   - AGENTS.md
+#   - Agentic/Reference/comment-style-guide.md
+#
+#
 #!/usr/bin/env python3
+#
+# File: tools/archive_validation_artifacts.py
+# Purpose:
+#   Documents and runs the archive_validation_artifacts.py developer/validation helper script.
+#
+# Mental model:
+#   Tools are command-line guardrails around builds, validation, screenshots,
+#   diagnostics, and artifact handling. They make the safe path repeatable and
+#   keep output bounded for humans and agents.
+#
+# Glossary:
+#   Broadphase: Cheap collision pass that finds object pairs worth testing more
+#   precisely.
+#   Narrowphase: Precise collision pass that computes contact points, normals,
+#   and penetration.
+#   Manifold: Set of contact points and normals describing one colliding pair.
+#   Validation gate: Repository script that proves a class of changes before
+#   commit or PR.
+#
+# Invariants:
+#   - Physics-visible behavior must remain deterministic; byte-exact baselines
+#   are the validation contract.
+#   - Tool output should be bounded and readable because agents and humans use
+#   it for decisions.
+#
+# Related:
+#   - AGENTS.md
+#   - Agentic/Reference/comment-style-guide.md
+#
+#
 """Archive current Profile validation artifacts into TestOutput/NNN_commit."""
 
 from __future__ import annotations

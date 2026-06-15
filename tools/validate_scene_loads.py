@@ -1,3 +1,26 @@
+#
+# File: tools/validate_scene_loads.py
+# Purpose:
+#   Documents and runs the validate_scene_loads.py developer/validation helper script.
+#
+# Mental model:
+#   Tools are command-line guardrails around builds, validation, screenshots,
+#   diagnostics, and artifact handling. They make the safe path repeatable and
+#   keep output bounded for humans and agents.
+#
+# Glossary:
+#   Validation gate: Repository script that proves a class of changes before
+#   commit or PR.
+#
+# Invariants:
+#   - Tool output should be bounded and readable because agents and humans use
+#   it for decisions.
+#
+# Related:
+#   - AGENTS.md
+#   - Agentic/Reference/comment-style-guide.md
+#
+#
 """Load-only sweep for every Skullbonez scene file."""
 
 from __future__ import annotations

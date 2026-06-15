@@ -1,3 +1,29 @@
+/*
+File: SkullbonezSource/SkullbonezSleepIslandSystem.cpp
+Purpose:
+  Groups supported bodies into sleep islands and decides when islands may sleep.
+
+Mental model:
+  Physics is deterministic fixed-step state update. Units, contact ownership,
+  solver stages, sleep policy, and baseline-sensitive behavior are the key
+  reading anchors.
+
+Glossary:
+  Broadphase: Cheap collision pass that finds object pairs worth testing more
+  precisely.
+  Narrowphase: Precise collision pass that computes contact points, normals,
+  and penetration.
+  Manifold: Set of contact points and normals describing one colliding pair.
+
+Invariants:
+  - Physics-visible behavior must remain deterministic; byte-exact baselines
+  are the validation contract.
+
+Related:
+  - SkullbonezSource/SkullbonezSleepIslandSystem.h
+  - Agentic/Reference/physics-overview.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezSleepIslandSystem.h"
 
 #include "SkullbonezGameModelCollection.h"
@@ -9,6 +35,12 @@ using namespace SkullbonezCore::Physics;
 
 void SleepIslandSystem::PropagateSupport( PhysicsWorld& world, GameModelCollection& collection )
 {
+    // Concept: support propagates upward through a stack.
+    //
+    // If object B is resting on object A, and A is fixed/asleep/supported, then
+    // B can be considered supported too. Repeating that rule lets a whole tower
+    // become one stable sleep island instead of requiring every object to touch
+    // terrain directly.
     auto& m_gameModels = collection.m_gameModels;
     auto& m_sleepState = world.m_sleepState;
     auto& m_sleepSupportEdges = world.m_sleepSupportEdges;
@@ -22,6 +54,10 @@ void SleepIslandSystem::PropagateSupport( PhysicsWorld& world, GameModelCollecti
 
     for ( int pass = 0; pass < modelCount; ++pass )
     {
+        // This is a bounded fixed-point solve over support edges. At most
+        // modelCount passes are needed because each successful pass marks at
+        // least one additional body supported; early exit keeps the normal case
+        // cheap.
         bool changed = false;
         for ( const auto& edge : m_sleepSupportEdges )
         {

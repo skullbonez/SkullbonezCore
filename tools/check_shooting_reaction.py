@@ -1,3 +1,28 @@
+#
+# File: tools/check_shooting_reaction.py
+# Purpose:
+#   Documents and runs the check_shooting_reaction.py developer/validation helper script.
+#
+# Mental model:
+#   Tools are command-line guardrails around builds, validation, screenshots,
+#   diagnostics, and artifact handling. They make the safe path repeatable and
+#   keep output bounded for humans and agents.
+#
+# Glossary:
+#   CSV (Comma-Separated Values): Text table format used for byte-exact physics
+#   regression output.
+#   Validation gate: Repository script that proves a class of changes before
+#   commit or PR.
+#
+# Invariants:
+#   - Tool output should be bounded and readable because agents and humans use
+#   it for decisions.
+#
+# Related:
+#   - AGENTS.md
+#   - Agentic/Reference/comment-style-guide.md
+#
+#
 """
 Semantic regression check for shooting_reaction_volley.scene.
 

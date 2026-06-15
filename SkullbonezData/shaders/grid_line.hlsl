@@ -1,3 +1,31 @@
+/*
+File: SkullbonezData/shaders/grid_line.hlsl
+Purpose:
+  Runs the grid_line HLSL shader program used by the renderer.
+
+Mental model:
+  Shaders are GPU programs. Constant buffers provide per-frame data, shader
+  stages transform or shade inputs, and CPU-side renderer bindings must match
+  the declarations in this file.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
+  engine migrates to DX12.
+  HLSL (High Level Shader Language): Shader language compiled for Direct3D
+  render, compute, and raytracing stages.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - CPU-side root signatures, input layouts, and descriptor bindings must
+  match this shader exactly.
+
+Related:
+  - Agentic/Reference/comment-style-guide.md
+*/
 // =============================================================================
 // GRID LINE SHADER — HLSL 5.0 (Combined VS+PS)
 // =============================================================================

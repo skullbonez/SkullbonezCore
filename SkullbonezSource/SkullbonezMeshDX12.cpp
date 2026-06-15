@@ -1,11 +1,39 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezMeshDX12.cpp
+Purpose:
+  Implements mesh buffers, upload flow, and draw binding for the DX12 renderer.
+
+Mental model:
+  DX12 separates resource memory, descriptor rows, command recording, and GPU
+  execution. Ownership, state transitions, descriptor lifetime, and fence
+  ordering are the important ideas.
+
+Glossary:
+  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  reflection dispatch.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - DX12 object lifetime, resource states, descriptor rows, and fence ordering
+  must stay explicit.
+
+Related:
+  - SkullbonezSource/SkullbonezMeshDX12.h
+  - Agentic/Reference/skullbonez-core-class-structure.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezMeshDX12.h"
 #include "SkullbonezRenderBackendDX12.h"
 #include <stdexcept>
 #include <cstring>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Rendering;
 
 

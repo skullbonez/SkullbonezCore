@@ -1,7 +1,23 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezRunFrame.cpp
+Purpose:
+  Runs one frame of input, simulation, rendering, profiling, and presentation.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezRunInternal.h"
 
-// --- Usings ---
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;

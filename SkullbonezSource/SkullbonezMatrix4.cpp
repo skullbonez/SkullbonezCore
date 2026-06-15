@@ -1,11 +1,27 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezMatrix4.cpp
+Purpose:
+  Implements the engine matrix type and common transform operations.
+
+Mental model:
+  Math code is shared infrastructure. Coordinate conventions, units,
+  handedness, and simplifications matter because subtle assumptions spread
+  through rendering and physics.
+
+Glossary:
+  Engine module: A source file with one focused responsibility inside the
+  SkullbonezCore runtime.
+
+Related:
+  - SkullbonezSource/SkullbonezMatrix4.h
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezMatrix4.h"
 #include "SkullbonezQuaternion.h"
 #include <cmath>
 #include <immintrin.h> // SSE intrinsics (_mm_loadu_ps, _mm_set1_ps, _mm_mul_ps, _mm_add_ps, _mm_storeu_ps)
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Orientation;
 using namespace SkullbonezCore::Math::Vector;

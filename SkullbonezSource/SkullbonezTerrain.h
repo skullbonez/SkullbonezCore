@@ -1,7 +1,36 @@
+/*
+File: SkullbonezSource/SkullbonezTerrain.h
+Purpose:
+  Stores terrain mesh, height queries, and terrain rendering resources.
+
+Mental model:
+  Physics is deterministic fixed-step state update. Units, contact ownership,
+  solver stages, sleep policy, and baseline-sensitive behavior are the key
+  reading anchors.
+
+Glossary:
+  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  reflection dispatch.
+  BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
+  mesh's triangles.
+  Broadphase: Cheap collision pass that finds object pairs worth testing more
+  precisely.
+  Narrowphase: Precise collision pass that computes contact points, normals,
+  and penetration.
+  Manifold: Set of contact points and normals describing one colliding pair.
+
+Invariants:
+  - Physics-visible behavior must remain deterministic; byte-exact baselines
+  are the validation contract.
+
+Related:
+  - SkullbonezSource/SkullbonezTerrain.cpp
+  - Agentic/Reference/physics-overview.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezConfig.h"
 #include "SkullbonezVector3.h"

@@ -1,3 +1,30 @@
+/*
+File: SkullbonezSource/UI/UITabProfiler.cpp
+Purpose:
+  Implements UI TabProfiler widgets, layout, drawing, or UI state for the in-engine controls.
+
+Mental model:
+  The UI is immediate-mode-style: each frame reads engine state, computes hit
+  boxes, emits draw commands, and returns requests for the run loop to apply.
+
+Glossary:
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+  Draw command: Lightweight record describing a UI shape or text batch to
+  render later in the frame.
+  Hit box: Screen-space rectangle used to decide whether mouse input targets a
+  widget.
+
+Invariants:
+  - Draw geometry and hit testing must be derived from the same layout
+  constants.
+
+Related:
+  - SkullbonezSource/UI/UITabProfiler.h
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "UITabProfiler.h"
 
 #include "../SkullbonezCommon.h"

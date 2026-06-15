@@ -1,7 +1,24 @@
+/*
+File: SkullbonezSource/SkullbonezQuaternion.h
+Purpose:
+  Declares quaternion orientation math for rigid bodies and cameras.
+
+Mental model:
+  Math code is shared infrastructure. Coordinate conventions, units,
+  handedness, and simplifications matter because subtle assumptions spread
+  through rendering and physics.
+
+Glossary:
+  Engine module: A source file with one focused responsibility inside the
+  SkullbonezCore runtime.
+
+Related:
+  - SkullbonezSource/SkullbonezQuaternion.cpp
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezRotationMatrix.h"

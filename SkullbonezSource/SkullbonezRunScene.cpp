@@ -1,7 +1,27 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezRunScene.cpp
+Purpose:
+  Loads, resets, and advances authored and generated scenes.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Invariants:
+  - Command-line and scene-file spellings are user-facing compatibility
+  surface.
+
+Related:
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezRunInternal.h"
 
-// --- Usings ---
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
@@ -51,6 +71,12 @@ bool IsCineScenePath( const std::string& path )
 
 void SetTouchedCinematicSceneDirectives( std::vector<std::string>& lines, uint64_t touchedMask, const CinematicRenderConfig& c )
 {
+    // Concept: save only values the UI actually touched.
+    //
+    // Scene files can include reusable style files plus a few local overrides.
+    // The touched mask prevents "Save Defaults" from expanding every engine.cfg
+    // or style default into the scene file. That keeps authored intent readable:
+    // only the controls changed in the UI are written back as scene directives.
     char buf[256] = {};
     const auto writeBool = [&]( uint64_t bit, const char* key, bool value )
     {

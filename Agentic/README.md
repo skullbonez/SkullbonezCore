@@ -24,6 +24,12 @@ Load a skill from `Skills/` only when the current task calls for it.
 | `Bugs.md` | Persistent bug notes. |
 | `Reference/` | Runtime, physics, and external reference material. |
 
+## Comment Quality
+
+- `Reference/comment-style-guide.md` defines the repository comment standard.
+- `Skills/comment-style-audit/skill.md` is the repeatable pass for checking
+  touched files, or the full repository when explicitly requested.
+
 ## Pre-Commit/PR Validation
 
 Validation scripts are pre-commit/PR gates, not normal iteration steps. Choose

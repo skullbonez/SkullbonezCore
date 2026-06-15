@@ -1,3 +1,26 @@
+/*
+File: SkullbonezSource/SkullbonezSceneSnapshotWriter.h
+Purpose:
+  Serializes the current scene state back into a scene file.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Invariants:
+  - Command-line and scene-file spellings are user-facing compatibility
+  surface.
+
+Related:
+  - SkullbonezSource/SkullbonezSceneSnapshotWriter.cpp
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 #include "SkullbonezVector3.h"

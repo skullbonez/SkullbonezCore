@@ -1,4 +1,21 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezTextureCollection.cpp
+Purpose:
+  Loads texture files and hands renderer-neutral texture ids to draw code.
+
+Mental model:
+  Renderer-facing code translates engine concepts into backend resources, draw
+  calls, shader bindings, and validation artifacts.
+
+Glossary:
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Related:
+  - SkullbonezSource/SkullbonezTextureCollection.h
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezTextureCollection.h"
 #include "SkullbonezIRenderBackend.h"
 #include "stb_image.h"
@@ -8,7 +25,6 @@
 #include <string>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Textures;
 using namespace SkullbonezCore::Rendering;
 

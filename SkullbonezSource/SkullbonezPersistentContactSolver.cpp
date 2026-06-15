@@ -1,3 +1,33 @@
+/*
+File: SkullbonezSource/SkullbonezPersistentContactSolver.cpp
+Purpose:
+  Solves object/object and object/terrain persistent contact rows.
+
+Mental model:
+  Physics is deterministic fixed-step state update. Units, contact ownership,
+  solver stages, sleep policy, and baseline-sensitive behavior are the key
+  reading anchors.
+
+Glossary:
+  OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
+  collision tests.
+  PGS (Projected Gauss-Seidel): Iterative constraint-solver method used for
+  bounded contact impulses.
+  Broadphase: Cheap collision pass that finds object pairs worth testing more
+  precisely.
+  Narrowphase: Precise collision pass that computes contact points, normals,
+  and penetration.
+  Manifold: Set of contact points and normals describing one colliding pair.
+
+Invariants:
+  - Physics-visible behavior must remain deterministic; byte-exact baselines
+  are the validation contract.
+
+Related:
+  - SkullbonezSource/SkullbonezPersistentContactSolver.h
+  - Agentic/Reference/physics-overview.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezPersistentContactSolver.h"
 
 #include "SkullbonezConfig.h"
@@ -55,7 +85,14 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
     { world.MarkFixedContact( collection, index ); };
     PROFILE_SCOPED( "Frame/Physics/Narrowphase/PersistentContacts" );
 
-    // CATTO REF:
+    // Concept: persistent contact rows solve the quiet resting case.
+    //
+    // One-shot collision impulses are good for impacts but poor at support:
+    // bodies already touching each other would have to rediscover "the floor is
+    // pushing back" from zero every tick. Catto's temporal coherence caches the
+    // previous solution so resting contacts start near their converged impulse.
+    //
+    // Catto reference:
     //   This whole pass is the engine's closest match to Catto 2005,
     //   Agentic/Reference/ErinCatto_IterativeDynamics_GDC2005.pdf:
     //     - Section 4, PDF p. 9: contact point + normal model.
@@ -65,21 +102,11 @@ void PersistentContactSolver::Solve( PhysicsWorld& world, GameModelCollection& c
     //       over bounded lambda values.
     //     - Section 8, PDF pp. 18-19, Algorithm 5: cache lambda per contact
     //       identifier and reuse it as the next frame's initial guess.
-    // REASON:
-    //   One-shot collision impulses are good for impacts but poor at quiet
-    //   support. Catto's temporal coherence lets resting contacts remember the
-    //   support impulse they converged to last frame, so stacks and touching
-    //   bodies do not rediscover support from zero every tick.
     //
-    // ENGINE-SPECIFIC:
+    // Engine-specific policy:
     //   Object-object narrowphase uses Skullbonez shape-pair manifold builders
     //   for the row geometry. The cache and PGS row shape are Catto; the exact
     //   sphere/box/OBB feature encodings are local engine policy.
-    // This pass handles the quiet case that one-shot impact impulses are bad at:
-    // dynamic bodies already touching each other, especially one body resting on another.
-    // Instead of waiting for a fresh "impact", we build contact rules for pairs
-    // that are touching or nearly touching, then solve those rules like tiny springs
-    // with hard limits: push apart along the normal, resist sliding along tangents.
     const int modelCount = static_cast<int>( m_gameModels.size() );
     m_persistentContactSolverStats = PersistentContactSolverStats();
     m_persistentContactSolverStats.cachePreviousRows = static_cast<int>( m_persistentContactCache.size() );

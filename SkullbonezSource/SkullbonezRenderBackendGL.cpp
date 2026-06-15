@@ -1,4 +1,31 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezRenderBackendGL.cpp
+Purpose:
+  Implements the legacy OpenGL parity renderer.
+
+Mental model:
+  OpenGL is a legacy parity renderer. It provides a reference path for visual
+  comparison while DX12 remains the production renderer.
+
+Glossary:
+  OpenGL: Legacy parity renderer used as a reference path for visual output.
+  GL (OpenGL): Legacy parity renderer path.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - Parity renderer output should stay visually aligned with the DX12
+  production path while these backends remain.
+
+Related:
+  - SkullbonezSource/SkullbonezRenderBackendGL.h
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezRenderBackendGL.h"
 #include "SkullbonezShaderGL.h"
 #include "SkullbonezMeshGL.h"

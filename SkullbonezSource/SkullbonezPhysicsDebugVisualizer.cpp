@@ -1,3 +1,29 @@
+/*
+File: SkullbonezSource/SkullbonezPhysicsDebugVisualizer.cpp
+Purpose:
+  Draws physics contacts, axes, sleep state, and pipeline diagnostics.
+
+Mental model:
+  Physics is deterministic fixed-step state update. Units, contact ownership,
+  solver stages, sleep policy, and baseline-sensitive behavior are the key
+  reading anchors.
+
+Glossary:
+  Broadphase: Cheap collision pass that finds object pairs worth testing more
+  precisely.
+  Narrowphase: Precise collision pass that computes contact points, normals,
+  and penetration.
+  Manifold: Set of contact points and normals describing one colliding pair.
+
+Invariants:
+  - Physics-visible behavior must remain deterministic; byte-exact baselines
+  are the validation contract.
+
+Related:
+  - SkullbonezSource/SkullbonezPhysicsDebugVisualizer.h
+  - Agentic/Reference/physics-overview.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezPhysicsDebugVisualizer.h"
 
 #include <algorithm>

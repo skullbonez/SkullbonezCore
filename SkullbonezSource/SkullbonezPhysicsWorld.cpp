@@ -1,3 +1,31 @@
+/*
+File: SkullbonezSource/SkullbonezPhysicsWorld.cpp
+Purpose:
+  Owns per-scene physics working state shared by broadphase, solver, and diagnostics.
+
+Mental model:
+  Physics is deterministic fixed-step state update. Units, contact ownership,
+  solver stages, sleep policy, and baseline-sensitive behavior are the key
+  reading anchors.
+
+Glossary:
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+  Broadphase: Cheap collision pass that finds object pairs worth testing more
+  precisely.
+  Narrowphase: Precise collision pass that computes contact points, normals,
+  and penetration.
+  Manifold: Set of contact points and normals describing one colliding pair.
+
+Invariants:
+  - Physics-visible behavior must remain deterministic; byte-exact baselines
+  are the validation contract.
+
+Related:
+  - SkullbonezSource/SkullbonezPhysicsWorld.h
+  - Agentic/Reference/physics-overview.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezPhysicsWorld.h"
 
 #include "SkullbonezConfig.h"
@@ -148,6 +176,18 @@ void PhysicsWorld::EndCollisionVisualFrame()
 
 void PhysicsWorld::RunPhysics( GameModelCollection& collection, float fChangeInTime )
 {
+    // Concept: one fixed physics tick has a predictable data flow.
+    //
+    // 1. Resize/clear per-frame arrays so every model index has a slot.
+    // 2. Reset debug, sleep-support, pipeline, and terrain-manifold output.
+    // 3. Refresh the SoA cache from GameModel/RigidBody state for hot loops.
+    // 4. Run broadphase, swept movement, terrain manifold generation, and the
+    //    persistent Catto-style contact solver.
+    // 5. Emit bounded Debug diagnostics, then invalidate cached render/physics
+    //    SoA data because solver writeback may have changed body state.
+    //
+    // Determinism note: changing this ordering can change byte-exact physics
+    // baselines even when the final scene "looks" similar.
     auto& m_gameModels = collection.m_gameModels;
     const int modelCount = static_cast<int>( m_gameModels.size() );
     EnsureCollisionVisualBuffers( modelCount );
@@ -234,6 +274,10 @@ void PhysicsWorld::WakeModel( GameModelCollection& collection, int index )
         }
     }
 
+    // Hazard: waking a body must also forget any cached contact impulses that
+    // involve that body. Warm-start impulses are great for resting contact, but
+    // stale impulses after a manual wake or external force can push the body as
+    // if an old support contact still existed.
     const auto cacheEntryReferencesBody = []( const PersistentContactCacheEntry& entry, int bodyIndex ) -> bool
     {
         const uint64_t key = static_cast<uint64_t>( entry.key );

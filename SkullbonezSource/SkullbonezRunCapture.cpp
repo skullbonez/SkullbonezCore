@@ -1,8 +1,23 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezRunCapture.cpp
+Purpose:
+  Handles runtime screenshot and capture requests.
+
+Mental model:
+  Renderer-facing code translates engine concepts into backend resources, draw
+  calls, shader bindings, and validation artifacts.
+
+Glossary:
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Related:
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezCaptureSystem.h"
 #include "SkullbonezRunInternal.h"
 
-// --- Usings ---
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;

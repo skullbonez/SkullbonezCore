@@ -1,4 +1,36 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezRenderBackendDX12.Textures.cpp
+Purpose:
+  Loads, registers, and binds textures for the DX12 renderer.
+
+Mental model:
+  DX12 separates resource memory, descriptor rows, command recording, and GPU
+  execution. Ownership, state transitions, descriptor lifetime, and fence
+  ordering are the important ideas.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  HLSL (High Level Shader Language): Shader language compiled for Direct3D
+  render, compute, and raytracing stages.
+  SRV (Shader Resource View): Descriptor row used when shaders read textures
+  or buffers.
+  UAV (Unordered Access View): Descriptor row used when compute or raytracing
+  shaders write textures or buffers.
+  PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
+  state that DX12 binds before drawing or dispatching.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - DX12 object lifetime, resource states, descriptor rows, and fence ordering
+  must stay explicit.
+
+Related:
+  - Agentic/Reference/skullbonez-core-class-structure.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezRenderBackendDX12.h"
 #include "SkullbonezShaderDX12.h"
 #include "SkullbonezMeshDX12.h"
@@ -16,7 +48,6 @@
 #include <wrl/client.h>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;
@@ -47,9 +78,11 @@ static inline void ThrowIfFailed( HRESULT hr, const char* msg )
 
 void RenderBackendDX12::InitGenMipsPipeline()
 {
-    // -------------------------------------------------------------------------
-    // Compile the compute shader from HLSL source
-    // -------------------------------------------------------------------------
+    // Concept: mip generation is a tiny compute pipeline owned by the backend.
+    //
+    // Runtime texture loading copies only the original image into mip 0. This
+    // compute shader downsamples that image into smaller mip levels on the GPU
+    // so minified textures stay stable and do not shimmer at distance.
     std::string csPath = std::string( DATA_ROOT ) + "shaders/generate_mips.hlsl";
     std::ifstream csFile( csPath, std::ios::binary );
     if ( !csFile.is_open() )
@@ -80,9 +113,13 @@ void RenderBackendDX12::InitGenMipsPipeline()
     }
     errors.Reset();
 
-    // -------------------------------------------------------------------------
-    // Root signature
-    // -------------------------------------------------------------------------
+    // Concept: this root signature is the binding contract for generate_mips.hlsl.
+    //
+    // Root parameter [0] is four inline constants. Parameter [1] is the source
+    // SRV table, and parameter [2] is a UAV table with up to four destination
+    // mip rows. The compute shader and C++ setup must agree exactly on these
+    // slots.
+    //
     // Param 0: 4 root constants (b0)
     D3D12_ROOT_PARAMETER1 params[3] = {};
     params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
@@ -148,9 +185,9 @@ void RenderBackendDX12::InitGenMipsPipeline()
                    "CreateRootSignature (genMips) failed" );
     NameDx12Object( m_genMipsRS, L"Skullbonez DX12 Generate Mips Root Signature" );
 
-    // -------------------------------------------------------------------------
-    // Compute PSO
-    // -------------------------------------------------------------------------
+    // Compute PSO: compiled compute shader plus the root signature above. It is
+    // separate from graphics PSOs because no vertex/pixel/raster state exists
+    // for a pure compute dispatch.
     D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
     psoDesc.pRootSignature = m_genMipsRS;
     psoDesc.CS.pShaderBytecode = csBlob->GetBufferPointer();
@@ -162,10 +199,10 @@ void RenderBackendDX12::InitGenMipsPipeline()
     // descriptors/constants the shader can access.
     NameDx12Object( m_genMipsPSO, L"Skullbonez DX12 Generate Mips Compute PSO" );
 
-    // -------------------------------------------------------------------------
-    // Null UAV descriptor — used to pad unused UAV table slots so the
-    // debug layer doesn't complain about unbound descriptors.
-    // -------------------------------------------------------------------------
+    // Hazard: the UAV descriptor table always exposes four rows, but the last
+    // dispatch batch may generate fewer than four mips. Fill unused rows with a
+    // typed null UAV so the debug layer sees a complete descriptor table and
+    // the shader never follows an uninitialized descriptor.
     m_genMipsNullUAV = AllocateStaticSRV();
 
     D3D12_UNORDERED_ACCESS_VIEW_DESC nullUAVDesc = {};
@@ -173,10 +210,12 @@ void RenderBackendDX12::InitGenMipsPipeline()
     nullUAVDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
     nullUAVDesc.Texture2D.MipSlice = 0;
 
-    // Create null UAV (null resource = "nothing bound") in staging heap
+    // The null resource means "nothing bound", but the descriptor row itself is
+    // valid. Store the template in the CPU-only staging heap first.
     m_device->CreateUnorderedAccessView( nullptr, nullptr, &nullUAVDesc, GetSRVStagingCpuHandle( m_genMipsNullUAV ) );
 
-    // Copy to shader-visible heap so it can be referenced by descriptor tables
+    // Copy the null descriptor to a shader-visible row so dispatches can bind it
+    // in the same table as real destination mips.
     D3D12_CPU_DESCRIPTOR_HANDLE svDst = m_srvDescriptors.ShaderVisibleCpuHandle( m_genMipsNullUAV );
     m_device->CopyDescriptorsSimple( 1, svDst, GetSRVStagingCpuHandle( m_genMipsNullUAV ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
@@ -309,7 +348,9 @@ void RenderBackendDX12::GenerateMipsGPU( ID3D12Resource* tex, DXGI_FORMAT fmt, U
         UINT groupsY = ( dstH + 7 ) / 8;
         m_commandList->Dispatch( groupsX, groupsY, 1 );
 
-        // UAV barrier: ensures writes complete before next SRV read or UAV write
+        // Hazard: mip N may be written as a UAV in this dispatch and sampled as
+        // an SRV in the next dispatch. The UAV barrier orders those writes
+        // before any later read/write work continues.
         {
             D3D12_RESOURCE_BARRIER uavBarrier = {};
             uavBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;

@@ -1,3 +1,28 @@
+/*
+File: SkullbonezSource/UI/UITabScene.cpp
+Purpose:
+  Implements UI TabScene widgets, layout, drawing, or UI state for the in-engine controls.
+
+Mental model:
+  The UI is immediate-mode-style: each frame reads engine state, computes hit
+  boxes, emits draw commands, and returns requests for the run loop to apply.
+
+Glossary:
+  Draw command: Lightweight record describing a UI shape or text batch to
+  render later in the frame.
+  Hit box: Screen-space rectangle used to decide whether mouse input targets a
+  widget.
+
+Invariants:
+  - Command-line and scene-file spellings are user-facing compatibility
+  surface.
+  - Draw geometry and hit testing must be derived from the same layout
+  constants.
+
+Related:
+  - SkullbonezSource/UI/UITabScene.h
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "UITabScene.h"
 
 #include "SkullbonezUI.h"

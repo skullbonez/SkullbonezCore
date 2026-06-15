@@ -1,4 +1,43 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezRenderBackendDX12.cpp
+Purpose:
+  Implements the production DX12 renderer and its frame, resource, and pipeline state.
+
+Mental model:
+  DX12 separates resource memory, descriptor rows, command recording, and GPU
+  execution. Ownership, state transitions, descriptor lifetime, and fence
+  ordering are the important ideas.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
+  engine migrates to DX12.
+  SRV (Shader Resource View): Descriptor row used when shaders read textures
+  or buffers.
+  UAV (Unordered Access View): Descriptor row used when compute or raytracing
+  shaders write textures or buffers.
+  CBV (Constant Buffer View): Descriptor row used when shaders read a packed
+  block of constants.
+  PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
+  state that DX12 binds before drawing or dispatching.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - DX12 object lifetime, resource states, descriptor rows, and fence ordering
+  must stay explicit.
+
+Related:
+  - SkullbonezSource/SkullbonezRenderBackendDX12.h
+  - Agentic/Reference/skullbonez-core-class-structure.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 // --- DX12 vs DX11 Architecture ---
 //
 // DX11 (high-level, driver manages everything):
@@ -73,7 +112,6 @@
 #include <wrl/client.h>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;
@@ -804,9 +842,16 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     // long-lived static rows separate from short-lived per-frame rows so the CPU
     // does not overwrite a row while an in-flight command list still points at it.
 
-    // Create Descriptor Heaps — these are arrays of "descriptors" (small structs that describe
-    // how the GPU should interpret a resource). DX12 requires you to pre-allocate descriptor
-    // storage. RTV heap holds Render Target View descriptors (one per swap chain buffer + FBOs).
+    // Concept: create the three descriptor tables used by this backend.
+    //
+    // A descriptor heap is storage for descriptor rows. The row describes a
+    // resource; it does not own the resource. RTV and DSV rows are CPU-only
+    // because the output-merger stage receives CPU descriptor handles directly.
+    // SRV/CBV/UAV rows need a shader-visible heap because shaders follow GPU
+    // descriptor handles at draw/dispatch time.
+    //
+    // This first heap holds RTV rows: swap-chain back buffers and FBO color
+    // targets that the GPU can write color pixels into.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdescriptorheap
     {
         D3D12_DESCRIPTOR_HEAP_DESC desc = {};
@@ -817,7 +862,8 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         m_rtvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_RTV );
         m_rtvDescriptors.Init( m_rtvHeap, m_rtvDescSize, MAX_RTV_DESCRIPTORS, "RTV" );
     }
-    // DSV heap holds Depth Stencil View descriptors (main depth buffer + FBO depth buffers).
+    // DSV rows describe depth/stencil targets: the main window depth buffer and
+    // any off-screen depth buffers used by framebuffer passes.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdescriptorheap
     {
         D3D12_DESCRIPTOR_HEAP_DESC desc = {};
@@ -828,11 +874,11 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
         m_dsvDescSize = m_device->GetDescriptorHandleIncrementSize( D3D12_DESCRIPTOR_HEAP_TYPE_DSV );
         m_dsvDescriptors.Init( m_dsvHeap, m_dsvDescSize, MAX_DSV_DESCRIPTORS, "DSV" );
     }
-    // SRV/CBV/UAV heap — SHADER_VISIBLE means the GPU can directly access these descriptors.
-    // This single heap holds all texture views (SRVs) and constant buffer views (CBVs) that
-    // shaders reference at draw time. Must be bound with SetDescriptorHeaps before drawing.
-    // Transient descriptors are partitioned per in-flight frame allocator to avoid writing over
-    // descriptor slots that are still referenced by queued command lists.
+    // SRV/CBV/UAV rows are shader-visible. "Shader-visible" means the GPU can
+    // index these rows directly when a shader samples a texture, reads a
+    // constant buffer, or writes a UAV. Transient rows are partitioned per
+    // in-flight frame allocator to avoid rewriting descriptor slots that queued
+    // command lists may still reference.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createdescriptorheap
     {
         D3D12_DESCRIPTOR_HEAP_DESC desc = {};
@@ -866,8 +912,10 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     m_srvDescriptors.Init( m_srvHeap, m_srvStagingHeap, m_srvDescSize, MAX_STATIC_SRVS, MAX_TRANSIENT_SRVS, FRAME_COUNT );
     m_srvDescriptors.ResetFrame( m_allocatorIndex );
 
-    // Create Render Target Views for each swap chain buffer. This tells the GPU how to write
-    // pixels to the swap chain back buffers during rendering.
+    // Lifetime: swap-chain images are replaced on resize, but the engine keeps
+    // one stable RTV descriptor row per back buffer index. ResizeBuffers swaps
+    // the image memory; CreateRenderTargetView overwrites the existing row with
+    // a view record for the new image.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12device-createrendertargetview
     for ( int i = 0; i < FRAME_COUNT; ++i )
     {
@@ -1164,7 +1212,10 @@ void RenderBackendDX12::Shutdown()
         WaitForGpu();
     }
 
-    // DXR cleanup
+    // DXR resources hang off newer D3D12 interfaces and contain GPU-side
+    // acceleration structures. Release them before the shared renderer objects
+    // below so no raytracing object outlives the device/command-list aliases it
+    // was created from.
     ShutdownDXR();
 
     ReportArchitectureStats( "Shutdown" );
@@ -1226,7 +1277,8 @@ void RenderBackendDX12::Shutdown()
         }
     }
 
-    // PSO cache
+    // Cached PSOs are backend-owned COM objects. They are shared across draws
+    // while the backend lives, then released as one cache at shutdown.
     for ( auto& pair : m_psoCache )
     {
         pair.second->Release();

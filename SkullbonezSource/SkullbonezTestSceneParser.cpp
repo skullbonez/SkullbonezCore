@@ -1,4 +1,25 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezTestSceneParser.cpp
+Purpose:
+  Parses plain-text .scene files into TestScene directives.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Invariants:
+  - Command-line and scene-file spellings are user-facing compatibility
+  surface.
+
+Related:
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezTestScene.h"
 #include <cerrno>
 #include <climits>
@@ -99,6 +120,13 @@ class TestSceneParser
   private:
     using ParseFn = void ( TestSceneParser::* )( const char* args );
 
+    // Concept: scene parsing is table-driven command dispatch.
+    //
+    // Each plain-text directive name maps to one parser member function and an
+    // "expected" string used in error messages. That keeps scene-file syntax
+    // visible in one table instead of scattering strcmp chains throughout the
+    // parser. These names are user-facing compatibility surface; changing a
+    // spelling can break checked-in scenes and validation suites.
     struct SceneDirective
     {
         const char* name;
@@ -116,6 +144,9 @@ class TestSceneParser
     const char* m_path = nullptr;
     SceneFileHandle m_file;
     int m_lineNumber = 0;
+
+    // Style files may include other style files. Keep a depth counter so a bad
+    // include loop reports a clean parser error instead of recursing forever.
     int m_styleIncludeDepth = 0;
     TestScene m_scene;
 
@@ -182,6 +213,9 @@ class TestSceneParser
 
     [[noreturn]] void Fail( const char* fmt, ... )
     {
+        // Fail closes the file before throwing so Windows does not keep a stale
+        // handle open after parser errors. The line number is intentionally part
+        // of most messages because scene files are hand-authored text.
         if ( m_file )
         {
             m_file.reset();

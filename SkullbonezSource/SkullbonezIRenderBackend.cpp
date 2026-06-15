@@ -1,4 +1,21 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezIRenderBackend.cpp
+Purpose:
+  Implements the renderer abstraction shared by GL, DX11, and DX12 backends.
+
+Mental model:
+  Renderer-facing code translates engine concepts into backend resources, draw
+  calls, shader bindings, and validation artifacts.
+
+Glossary:
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Related:
+  - SkullbonezSource/SkullbonezIRenderBackend.h
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezIRenderBackend.h"
 #include <cassert>
 #include <stdexcept>

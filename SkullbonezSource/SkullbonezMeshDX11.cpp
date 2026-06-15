@@ -1,11 +1,35 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezMeshDX11.cpp
+Purpose:
+  Implements mesh buffers and draw binding for the DX11 parity renderer.
+
+Mental model:
+  DX11 is a legacy parity renderer. It follows the renderer interface while
+  staying close enough to DX12 and OpenGL output for visual comparison.
+
+Glossary:
+  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
+  engine migrates to DX12.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - Parity renderer output should stay visually aligned with the DX12
+  production path while these backends remain.
+
+Related:
+  - SkullbonezSource/SkullbonezMeshDX11.h
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezMeshDX11.h"
 #include "SkullbonezRenderBackendDX11.h"
 #include "SkullbonezShaderDX11.h"
 #include <stdexcept>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Rendering;
 
 

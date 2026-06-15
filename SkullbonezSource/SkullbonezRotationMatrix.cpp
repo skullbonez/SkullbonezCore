@@ -1,8 +1,24 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezRotationMatrix.cpp
+Purpose:
+  Implements rotation matrix helpers used by transforms and collision code.
+
+Mental model:
+  Math code is shared infrastructure. Coordinate conventions, units,
+  handedness, and simplifications matter because subtle assumptions spread
+  through rendering and physics.
+
+Glossary:
+  Engine module: A source file with one focused responsibility inside the
+  SkullbonezCore runtime.
+
+Related:
+  - SkullbonezSource/SkullbonezRotationMatrix.h
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezRotationMatrix.h"
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;
 

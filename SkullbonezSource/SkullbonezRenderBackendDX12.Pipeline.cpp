@@ -1,4 +1,40 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezRenderBackendDX12.Pipeline.cpp
+Purpose:
+  Builds and binds DX12 pipeline state, render targets, and descriptors.
+
+Mental model:
+  DX12 separates resource memory, descriptor rows, command recording, and GPU
+  execution. Ownership, state transitions, descriptor lifetime, and fence
+  ordering are the important ideas.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
+  engine migrates to DX12.
+  SRV (Shader Resource View): Descriptor row used when shaders read textures
+  or buffers.
+  PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
+  state that DX12 binds before drawing or dispatching.
+  PIX: Microsoft GPU debugger/profiler that can read engine markers and DX12
+  object names.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - DX12 object lifetime, resource states, descriptor rows, and fence ordering
+  must stay explicit.
+
+Related:
+  - Agentic/Reference/skullbonez-core-class-structure.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezRenderBackendDX12.h"
 #include "SkullbonezShaderDX12.h"
 #include "SkullbonezMeshDX12.h"
@@ -16,7 +52,6 @@
 #include <wrl/client.h>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;
@@ -338,7 +373,13 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
         m_targetsDirty = true;
     }
 
-    // Build PSO key
+    // Concept: the PSO cache key is the complete "shape" of a draw pipeline.
+    //
+    // DX12 cannot cheaply toggle individual pieces of fixed-function state the
+    // way old immediate renderers did. The vertex layout, shader bytecode,
+    // blend/depth/cull state, polygon offset, instancing mode, and render-target
+    // format all participate in the Pipeline State Object. If any of those
+    // values changes, the cached PSO may no longer describe the draw correctly.
     PSOKey12 key = {};
     key.shaderVS = m_activeShader->GetVSBytecode();
     key.shaderPS = m_activeShader->GetPSBytecode();
@@ -364,7 +405,10 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
         }
     }
 
-    // Fast path: if PSO, textures, and targets are all unchanged, only flush the CB
+    // Fast path: if PSO, texture descriptor bindings, and render targets are
+    // unchanged, the only per-draw work left is uploading the constant buffer.
+    // This is the common path for many objects sharing the same mesh/shader
+    // shape, such as generated balls or boxes.
     bool psoChanged = ( psoHash != m_lastPSOHash );
 
     if ( !psoChanged && !m_texBindingsDirty && !m_targetsDirty )
@@ -381,7 +425,9 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
         return;
     }
 
-    // Full state setup path
+    // Full state setup path: at least one expensive binding category changed,
+    // so rebuild/reuse the PSO, rebind the root signature, refresh constants,
+    // copy texture descriptors, and update output targets.
     if ( psoChanged )
     {
         auto it = m_psoCache.find( psoHash );
@@ -497,8 +543,13 @@ void RenderBackendDX12::SetRenderingToFBO( bool rendering, UINT fboSrvIndex, UIN
     m_psoDirty = true;
     if ( rendering )
     {
-        // Clear any texture slot still referencing the FBO color texture
-        // (it's now in RENDER_TARGET state and cannot be used as SRV)
+        // Hazard: an FBO texture cannot be sampled while it is also the active
+        // render target.
+        //
+        // The same image can have an RTV view for writing and an SRV view for
+        // reading, but not at the same time in this pass. Clear any texture slot
+        // still pointing at the FBO color/depth SRV before the resource is used
+        // as a render target again.
         for ( int i = 0; i < TEXTURE_SLOT_COUNT; ++i )
         {
             if ( m_boundTexSlot[i] == fboSrvIndex || m_boundTexSlot[i] == fboDepthSrvIndex )

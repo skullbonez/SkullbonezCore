@@ -1,7 +1,27 @@
+/*
+File: SkullbonezSource/SkullbonezIShader.h
+Purpose:
+  Declares the renderer-neutral shader interface.
+
+Mental model:
+  Renderer-facing code translates engine concepts into backend resources, draw
+  calls, shader bindings, and validation artifacts.
+
+Glossary:
+  OpenGL: Legacy parity renderer used as a reference path for visual output.
+  GL (OpenGL): Legacy parity renderer path.
+  HLSL (High Level Shader Language): Shader language compiled for Direct3D
+  render, compute, and raytracing stages.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Related:
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezMatrix4.h"

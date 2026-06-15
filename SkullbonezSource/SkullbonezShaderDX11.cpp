@@ -1,4 +1,35 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezShaderDX11.cpp
+Purpose:
+  Compiles and binds shaders for the DX11 parity renderer.
+
+Mental model:
+  DX11 is a legacy parity renderer. It follows the renderer interface while
+  staying close enough to DX12 and OpenGL output for visual comparison.
+
+Glossary:
+  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
+  engine migrates to DX12.
+  OpenGL: Legacy parity renderer used as a reference path for visual output.
+  GL (OpenGL): Legacy parity renderer path.
+  HLSL (High Level Shader Language): Shader language compiled for Direct3D
+  render, compute, and raytracing stages.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - Parity renderer output should stay visually aligned with the DX12
+  production path while these backends remain.
+
+Related:
+  - SkullbonezSource/SkullbonezShaderDX11.h
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezShaderDX11.h"
 #include "SkullbonezRenderBackendDX11.h"
 #include "SkullbonezVector3.h"
@@ -11,7 +42,6 @@
 #pragma comment( lib, "dxguid.lib" )
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;

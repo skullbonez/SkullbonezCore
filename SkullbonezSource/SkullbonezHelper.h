@@ -1,7 +1,30 @@
+/*
+File: SkullbonezSource/SkullbonezHelper.h
+Purpose:
+  Collects legacy helper routines that bridge engine subsystems.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  GL (OpenGL): Legacy parity renderer path.
+  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  reflection dispatch.
+  BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
+  mesh's triangles.
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - SkullbonezSource/SkullbonezHelper.cpp
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezIShader.h"
 #include "SkullbonezIMesh.h"
@@ -71,15 +94,22 @@ class SkullbonezHelper
     static void DrawShadowDepthPineBatchModel( const Math::Transformation::Matrix4& model );
     static void DrawShadowDepthPineBatchEnd();
     static void ResetRenderResources(); // Invalidate cached backend-owned meshes and shaders
-    static void EnsureSphereMesh();     // Ensure sphere instanced mesh is created (for DXR BLAS init)
+    static void EnsureSphereMesh();     // Create the shared sphere mesh before DXR BLAS construction needs its vertex data.
+
+    // DXR reflection reuses the same sphere vertex buffer as raster rendering.
+    // The backend asks for the instanced mesh handle so it can find the static
+    // vertex buffer and build the sphere BLAS.
     static uint32_t GetSphereInstMeshHandle()
     {
         return sphereInstMesh;
-    } // DXR: returns instanced mesh handle for sphere VB access
+    }
+
+    // Vertex count is part of the BLAS geometry description. The raytracing
+    // build needs triangle-count information even though it does not draw here.
     static int GetSphereVertexCount()
     {
         return sphereVertexCount;
-    } // DXR: returns per-sphere vertex count
+    }
 };
 } // namespace Basics
 } // namespace SkullbonezCore

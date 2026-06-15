@@ -1,3 +1,44 @@
+/*
+File: SkullbonezSource/SkullbonezRenderDeviceDX12.h
+Purpose:
+  Owns low-level DX12 device objects, fences, command allocators, and frame pacing.
+
+Mental model:
+  DX12 separates resource memory, descriptor rows, command recording, and GPU
+  execution. Ownership, state transitions, descriptor lifetime, and fence
+  ordering are the important ideas.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  reflection dispatch.
+  RTV (Render Target View): Descriptor row used when the GPU writes color
+  pixels into a texture or back buffer.
+  DSV (Depth Stencil View): Descriptor row used when the GPU reads or writes
+  depth/stencil data for depth testing.
+  SRV (Shader Resource View): Descriptor row used when shaders read textures
+  or buffers.
+  UAV (Unordered Access View): Descriptor row used when compute or raytracing
+  shaders write textures or buffers.
+  DRED (Device Removed Extended Data): DX12 diagnostic report for GPU device
+  loss, breadcrumbs, and page-fault clues.
+  PIX: Microsoft GPU debugger/profiler that can read engine markers and DX12
+  object names.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+
+Invariants:
+  - DX12 object lifetime, resource states, descriptor rows, and fence ordering
+  must stay explicit.
+
+Related:
+  - SkullbonezSource/SkullbonezRenderDeviceDX12.cpp
+  - Agentic/Reference/skullbonez-core-class-structure.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 #include <cstdint>

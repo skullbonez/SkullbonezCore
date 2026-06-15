@@ -1,3 +1,23 @@
+/*
+File: Agentic/Tests/Dx12ArchUnitTests/Dx12ArchUnitTests.cpp
+Purpose:
+  Contains DX12 architecture checks that guard renderer ownership and dependency boundaries.
+
+Mental model:
+  This module is one piece of the engine contract. Read the glossary and
+  invariants first, then follow ownership and call direction through the
+  related files.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - AGENTS.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezRenderDeviceDX12.h"
 #include "SkullbonezRenderGraph.h"
 

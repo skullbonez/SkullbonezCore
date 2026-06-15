@@ -1,3 +1,26 @@
+/*
+File: SkullbonezSource/UI/UIDrawList.h
+Purpose:
+  Implements UI DrawList widgets, layout, drawing, or UI state for the in-engine controls.
+
+Mental model:
+  The UI is immediate-mode-style: each frame reads engine state, computes hit
+  boxes, emits draw commands, and returns requests for the run loop to apply.
+
+Glossary:
+  Draw command: Lightweight record describing a UI shape or text batch to
+  render later in the frame.
+  Hit box: Screen-space rectangle used to decide whether mouse input targets a
+  widget.
+
+Invariants:
+  - Draw geometry and hit testing must be derived from the same layout
+  constants.
+
+Related:
+  - SkullbonezSource/UI/UIDrawList.cpp
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 #include <cstdint>
@@ -12,6 +35,12 @@ class UIDrawContext;
 class UIDrawList
 {
   public:
+    // Concept: widgets record drawing intent, then Flush emits backend calls.
+    //
+    // This keeps layout/input code independent from the renderer. Widgets can
+    // push rectangles, triangles, and text in UI order; the final draw context
+    // translates those records to the active render backend after hit testing
+    // has already used the same layout numbers.
     static constexpr int MAX_COMMANDS = 8192;
     static constexpr int MAX_TEXT_BYTES = 65536;
 

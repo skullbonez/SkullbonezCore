@@ -1,7 +1,32 @@
+/*
+File: SkullbonezSource/SkullbonezMeshDX12.h
+Purpose:
+  Declares mesh buffers, upload flow, and draw binding for the DX12 renderer.
+
+Mental model:
+  DX12 separates resource memory, descriptor rows, command recording, and GPU
+  execution. Ownership, state transitions, descriptor lifetime, and fence
+  ordering are the important ideas.
+
+Glossary:
+  PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
+  state that DX12 binds before drawing or dispatching.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - DX12 object lifetime, resource states, descriptor rows, and fence ordering
+  must stay explicit.
+
+Related:
+  - SkullbonezSource/SkullbonezMeshDX12.cpp
+  - Agentic/Reference/skullbonez-core-class-structure.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include "SkullbonezIMesh.h"
 #include <d3d12.h>
 #include <cstdint>

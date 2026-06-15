@@ -1,4 +1,22 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezHelper.cpp
+Purpose:
+  Collects legacy helper routines that bridge engine subsystems.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - SkullbonezSource/SkullbonezHelper.h
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezHelper.h"
 #include "SkullbonezProfiler.h"
 #include "SkullbonezIRenderBackend.h"
@@ -8,7 +26,6 @@
 #include <vector>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;

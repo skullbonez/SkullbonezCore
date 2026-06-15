@@ -1,3 +1,22 @@
+/*
+File: SkullbonezSource/SkullbonezGameModelCollection.cpp
+Purpose:
+  Owns all scene models and delegates rendering, physics, and snapshots.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - SkullbonezSource/SkullbonezGameModelCollection.h
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezGameModelCollection.h"
 
 #include "SkullbonezGameModelRenderer.h"
@@ -17,6 +36,10 @@ using SkullbonezCore::Rendering::ShadowFrameData;
 
 GameModelCollection::GameModelCollection()
 {
+    // The collection is the stable owner of model order. Physics arrays,
+    // render batches, debug overlays, and scene snapshots all index into this
+    // vector, so preserving deterministic order matters even when the work is
+    // delegated to renderer/physics helper classes.
     m_gameModels.reserve( MAX_GAME_MODELS );
 }
 
@@ -43,6 +66,9 @@ void GameModelCollection::Clear()
 
 void GameModelCollection::InvalidateSoA()
 {
+    // SoA caches are derived data. Any direct access to a GameModel can mutate
+    // body/render state, so mark the cache dirty and let the next hot-path user
+    // rebuild it from the authoritative vector.
     m_soaCache.Invalidate();
 }
 

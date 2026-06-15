@@ -1,7 +1,33 @@
+/*
+File: SkullbonezSource/SkullbonezConfig.h
+Purpose:
+  Loads, stores, and exposes engine configuration values from files and command-line overrides.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  PGS (Projected Gauss-Seidel): Iterative constraint-solver method used for
+  bounded contact impulses.
+  SkullScope: Queryable physics diagnostics workflow backed by bounded trace
+  output and local queries.
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Invariants:
+  - Command-line and scene-file spellings are user-facing compatibility
+  surface.
+
+Related:
+  - SkullbonezSource/SkullbonezConfig.cpp
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include <cstdio>
 #include <string>
 

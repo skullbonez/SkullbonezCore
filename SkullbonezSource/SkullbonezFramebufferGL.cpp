@@ -1,9 +1,33 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezFramebufferGL.cpp
+Purpose:
+  Implements off-screen framebuffer resources for the OpenGL parity renderer.
+
+Mental model:
+  OpenGL is a legacy parity renderer. It provides a reference path for visual
+  comparison while DX12 remains the production renderer.
+
+Glossary:
+  OpenGL: Legacy parity renderer used as a reference path for visual output.
+  GL (OpenGL): Legacy parity renderer path.
+  FBO (Framebuffer Object): OpenGL-style off-screen render target concept used
+  by parity and reflection code.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - Parity renderer output should stay visually aligned with the DX12
+  production path while these backends remain.
+
+Related:
+  - SkullbonezSource/SkullbonezFramebufferGL.h
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezFramebufferGL.h"
 #include <stdexcept>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Rendering;
 
 

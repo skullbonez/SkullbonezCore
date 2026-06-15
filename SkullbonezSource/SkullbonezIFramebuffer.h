@@ -1,3 +1,30 @@
+/*
+File: SkullbonezSource/SkullbonezIFramebuffer.h
+Purpose:
+  Declares the renderer-neutral off-screen framebuffer interface.
+
+Mental model:
+  Renderer-facing code translates engine concepts into backend resources, draw
+  calls, shader bindings, and validation artifacts.
+
+Glossary:
+  OpenGL: Legacy parity renderer used as a reference path for visual output.
+  GL (OpenGL): Legacy parity renderer path.
+  RTV (Render Target View): Descriptor row used when the GPU writes color
+  pixels into a texture or back buffer.
+  DSV (Depth Stencil View): Descriptor row used when the GPU reads or writes
+  depth/stencil data for depth testing.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  FBO (Framebuffer Object): OpenGL-style off-screen render target concept used
+  by parity and reflection code.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Related:
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 

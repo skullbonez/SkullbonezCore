@@ -1,4 +1,31 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezInit.cpp
+Purpose:
+  Bootstraps the Windows process, parses command-line options, and starts the run loop.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
+  engine migrates to DX12.
+  OpenGL: Legacy parity renderer used as a reference path for visual output.
+  GL (OpenGL): Legacy parity renderer path.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  SDF (Signed Distance Field): Texture representation used for crisp scalable
+  text rendering.
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezCommon.h"
 #include "SkullbonezRun.h"
 #include "SkullbonezText.h"
@@ -29,7 +56,6 @@
 #endif
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Rendering;
@@ -519,6 +545,9 @@ struct RendererOption
 
 struct ParsedArgs
 {
+    // Parsed command-line state. Defaults here are part of startup behavior:
+    // validation scripts, desktop shortcuts, and scene automation all rely on
+    // omitted flags producing these exact policies.
     std::vector<std::string> sceneList;
     bool isSuiteOrSceneMode = false;
     RendererType renderer = RendererType::OpenGL;
@@ -574,6 +603,9 @@ struct ParsedArgs
 
 struct CliFlagDirective
 {
+    // Table-driven flag parsing keeps aliases beside the canonical spelling.
+    // That matters because command-line options are user-facing compatibility
+    // surface, not private implementation detail.
     const char* name;
     const char* alias;
     void ( *apply )( ParsedArgs& args );

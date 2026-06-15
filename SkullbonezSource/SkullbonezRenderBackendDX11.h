@@ -1,7 +1,37 @@
+/*
+File: SkullbonezSource/SkullbonezRenderBackendDX11.h
+Purpose:
+  Declares the legacy DX11 parity renderer.
+
+Mental model:
+  DX11 is a legacy parity renderer. It follows the renderer interface while
+  staying close enough to DX12 and OpenGL output for visual comparison.
+
+Glossary:
+  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
+  engine migrates to DX12.
+  SRV (Shader Resource View): Descriptor row used when shaders read textures
+  or buffers.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  FBO (Framebuffer Object): OpenGL-style off-screen render target concept used
+  by parity and reflection code.
+  HUD (Heads-Up Display): On-screen diagnostics and control overlay.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - Parity renderer output should stay visually aligned with the DX12
+  production path while these backends remain.
+
+Related:
+  - SkullbonezSource/SkullbonezRenderBackendDX11.cpp
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include "SkullbonezIRenderBackend.h"
 #include <d3d11.h>
 #include <dxgi1_5.h>

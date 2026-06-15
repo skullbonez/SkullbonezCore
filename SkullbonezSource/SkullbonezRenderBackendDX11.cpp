@@ -1,4 +1,39 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezRenderBackendDX11.cpp
+Purpose:
+  Implements the legacy DX11 parity renderer.
+
+Mental model:
+  DX11 is a legacy parity renderer. It follows the renderer interface while
+  staying close enough to DX12 and OpenGL output for visual comparison.
+
+Glossary:
+  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
+  engine migrates to DX12.
+  OpenGL: Legacy parity renderer used as a reference path for visual output.
+  GL (OpenGL): Legacy parity renderer path.
+  RTV (Render Target View): Descriptor row used when the GPU writes color
+  pixels into a texture or back buffer.
+  DSV (Depth Stencil View): Descriptor row used when the GPU reads or writes
+  depth/stencil data for depth testing.
+  SRV (Shader Resource View): Descriptor row used when shaders read textures
+  or buffers.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - Parity renderer output should stay visually aligned with the DX12
+  production path while these backends remain.
+
+Related:
+  - SkullbonezSource/SkullbonezRenderBackendDX11.h
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezRenderBackendDX11.h"
 #include "SkullbonezShaderDX11.h"
 #include "SkullbonezMeshDX11.h"
@@ -61,7 +96,6 @@
 //   Pipeline States     = Pre-baked GPU configurations (rasterizer, blend, depth-stencil states)
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Rendering;
 using namespace SkullbonezCore::Math::Transformation;
 using Microsoft::WRL::ComPtr;

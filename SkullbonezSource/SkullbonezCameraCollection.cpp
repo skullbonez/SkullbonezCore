@@ -1,8 +1,25 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezCameraCollection.cpp
+Purpose:
+  Owns scene cameras and camera cycling state.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - SkullbonezSource/SkullbonezCameraCollection.h
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezCameraCollection.h"
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Environment;
 using namespace SkullbonezCore::Math;
 using namespace SkullbonezCore::Math::Transformation;

@@ -1,8 +1,29 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezTestScene.cpp
+Purpose:
+  Stores parsed test-scene directives and applies them to runtime scene state.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Invariants:
+  - Command-line and scene-file spellings are user-facing compatibility
+  surface.
+
+Related:
+  - SkullbonezSource/SkullbonezTestScene.h
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezTestScene.h"
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Basics;
 
 

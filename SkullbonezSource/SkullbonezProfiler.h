@@ -1,7 +1,32 @@
+/*
+File: SkullbonezSource/SkullbonezProfiler.h
+Purpose:
+  Records hierarchical CPU/GPU timing markers for runtime diagnostics.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  GL (OpenGL): Legacy parity renderer path.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+  CSV (Comma-Separated Values): Text table format used for byte-exact physics
+  regression output.
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - SkullbonezSource/SkullbonezProfiler.cpp
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include <glad/gl.h>
 #pragma comment( lib, "opengl32.lib" )
 #include "SkullbonezCommon.h"

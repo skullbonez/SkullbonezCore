@@ -1,7 +1,24 @@
+/*
+File: SkullbonezSource/SkullbonezRotationMatrix.h
+Purpose:
+  Declares rotation matrix helpers used by transforms and collision code.
+
+Mental model:
+  Math code is shared infrastructure. Coordinate conventions, units,
+  handedness, and simplifications matter because subtle assumptions spread
+  through rendering and physics.
+
+Glossary:
+  OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
+  collision tests.
+
+Related:
+  - SkullbonezSource/SkullbonezRotationMatrix.cpp
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezVector3.h"
 #if SKULLBONEZ_INTRINSICS

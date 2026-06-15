@@ -1,7 +1,23 @@
+/*
+File: SkullbonezSource/SkullbonezGeometricStructures.h
+Purpose:
+  Defines small geometry structs used by math, collision, and rendering code.
+
+Mental model:
+  Math code is shared infrastructure. Coordinate conventions, units,
+  handedness, and simplifications matter because subtle assumptions spread
+  through rendering and physics.
+
+Glossary:
+  Engine module: A source file with one focused responsibility inside the
+  SkullbonezCore runtime.
+
+Related:
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include "SkullbonezVector3.h"
 
 namespace SkullbonezCore

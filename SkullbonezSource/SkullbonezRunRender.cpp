@@ -1,7 +1,31 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezRunRender.cpp
+Purpose:
+  Coordinates render passes for the active scene.
+
+Mental model:
+  Renderer-facing code translates engine concepts into backend resources, draw
+  calls, shader bindings, and validation artifacts.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
+  engine migrates to DX12.
+  GL (OpenGL): Legacy parity renderer path.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Related:
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezRunInternal.h"
 
-// --- Usings ---
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
@@ -639,13 +663,16 @@ void SkullbonezRun::Render()
         return;
     }
 
-    // renders camera views etc
+    // Update the active camera selection and any transition/tween state before
+    // rendering asks for view matrices.
     SetViewingOrientation();
 
-    // set the camera into its m_position
+    // Apply the selected camera to the camera collection so render code below
+    // reads one coherent eye/view/up triple for this frame.
     m_systems.cameras->SetCamera();
 
-    // now camera rotation has been done, draw OpenGL primitives
+    // Despite the old name, DrawPrimitives is the renderer-neutral frame body:
+    // shadows, reflection, terrain, objects, water, overlays, and post passes.
     DrawPrimitives();
 }
 
@@ -745,7 +772,11 @@ void SkullbonezRun::DrawPrimitives()
         PROFILE_GPU_END( "Frame/Render/Skybox" );
     }
 
-    // reflection pre-pass: render above-water scene from mirrored camera into FBO (or DXR dispatch)
+    // Reflection pre-pass.
+    //
+    // The legacy path renders the above-water scene from a mirrored camera into
+    // an FBO. The DXR path rebuilds the raytracing TLAS and writes a screen-space
+    // reflection texture directly. Both feed the same water shader later.
     PROFILE_GPU_BEGIN( "Frame/Render/Reflection" );
     float waterY = m_cWorldEnvironment.GetFluidSurfaceHeight();
     const auto renderCapabilities = Gfx().GetCapabilities();
@@ -764,7 +795,8 @@ void SkullbonezRun::DrawPrimitives()
 
     if ( useDxrReflection )
     {
-        // DXR path: rebuild TLAS with current model positions, then dispatch rays.
+        // DXR path: rebuild the scene instance table with current model
+        // transforms, then dispatch one reflection ray per texture pixel.
         int ballCount = m_cGameModelCollection.GetModelCount();
         for ( int i = 0; i < ballCount; ++i )
         {
@@ -772,9 +804,12 @@ void SkullbonezRun::DrawPrimitives()
             memcpy( m_dxrReflectionTransforms.data() + i * 16, mdlMat.Data(), 16 * sizeof( float ) );
         }
 
-        Gfx().BuildTLAS( m_dxrReflectionTransforms.data(), ballCount, 0, 0 ); // BLAS VAs retrieved internally
+        // Terrain/sphere BLAS objects are owned by the DX12 backend, so the
+        // runtime supplies only per-instance sphere transforms here.
+        Gfx().BuildTLAS( m_dxrReflectionTransforms.data(), ballCount, 0, 0 );
 
-        // Compute inverse VP matrix for ray reconstruction
+        // Ray generation reconstructs world-space rays from screen pixels, so
+        // it needs the inverse of the main camera view-projection matrix.
         Matrix4 vp = proj * baseView;
         Matrix4 invVP = vp.Inverse();
         float cameraPos[3] = { eye.x, eye.y, eye.z };

@@ -1,4 +1,56 @@
+#
+# File: tools/validate_concepts.py
+# Purpose:
+#   Documents and runs the validate_concepts.py developer/validation helper script.
+#
+# Mental model:
+#   Tools are command-line guardrails around builds, validation, screenshots,
+#   diagnostics, and artifact handling. They make the safe path repeatable and
+#   keep output bounded for humans and agents.
+#
+# Glossary:
+#   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+#   descriptor, and command-list control.
+#   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+#   and raytracing commands asynchronously from the CPU.
+#   Validation gate: Repository script that proves a class of changes before
+#   commit or PR.
+#
+# Invariants:
+#   - Tool output should be bounded and readable because agents and humans use
+#   it for decisions.
+#
+# Related:
+#   - AGENTS.md
+#   - Agentic/Reference/comment-style-guide.md
+#
+#
 #!/usr/bin/env python3
+#
+# File: tools/validate_concepts.py
+# Purpose:
+#   Documents and runs the validate_concepts.py developer/validation helper script.
+#
+# Mental model:
+#   Tools are command-line guardrails around builds, validation, screenshots,
+#   diagnostics, and artifact handling. They make the safe path repeatable and
+#   keep output bounded for humans and agents.
+#
+# Glossary:
+#   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+#   descriptor, and command-list control.
+#   Validation gate: Repository script that proves a class of changes before
+#   commit or PR.
+#
+# Invariants:
+#   - Tool output should be bounded and readable because agents and humans use
+#   it for decisions.
+#
+# Related:
+#   - AGENTS.md
+#   - Agentic/Reference/comment-style-guide.md
+#
+#
 """Run finite concept-scene validation tiers and write concise artifacts."""
 
 from __future__ import annotations

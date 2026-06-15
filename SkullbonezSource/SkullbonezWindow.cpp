@@ -1,4 +1,26 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezWindow.cpp
+Purpose:
+  Creates and owns the Win32 window and message pump integration.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  OpenGL: Legacy parity renderer used as a reference path for visual output.
+  GL (OpenGL): Legacy parity renderer path.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - SkullbonezSource/SkullbonezWindow.h
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezWindow.h"
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezInput.h"
@@ -7,7 +29,6 @@
 #include <algorithm>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Hardware;
 using namespace SkullbonezCore::Rendering;

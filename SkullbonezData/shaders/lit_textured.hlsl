@@ -1,3 +1,31 @@
+/*
+File: SkullbonezData/shaders/lit_textured.hlsl
+Purpose:
+  Runs the lit_textured HLSL shader program used by the renderer.
+
+Mental model:
+  Shaders are GPU programs. Constant buffers provide per-frame data, shader
+  stages transform or shade inputs, and CPU-side renderer bindings must match
+  the declarations in this file.
+
+Glossary:
+  HLSL (High Level Shader Language): Shader language compiled for Direct3D
+  render, compute, and raytracing stages.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - CPU-side root signatures, input layouts, and descriptor bindings must
+  match this shader exactly.
+
+Related:
+  - Agentic/Reference/comment-style-guide.md
+*/
 // =============================================================================
 // LIT TEXTURED SHADER — HLSL 5.0 (Combined Vertex + Pixel Shader)
 // =============================================================================

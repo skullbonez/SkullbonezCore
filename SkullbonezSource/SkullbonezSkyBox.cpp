@@ -1,10 +1,26 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezSkyBox.cpp
+Purpose:
+  Builds and renders the skybox or sky backdrop for scene rendering.
+
+Mental model:
+  Renderer-facing code translates engine concepts into backend resources, draw
+  calls, shader bindings, and validation artifacts.
+
+Glossary:
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Related:
+  - SkullbonezSource/SkullbonezSkyBox.h
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezSkyBox.h"
 #include "SkullbonezIRenderBackend.h"
 #include <vector>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Geometry;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;

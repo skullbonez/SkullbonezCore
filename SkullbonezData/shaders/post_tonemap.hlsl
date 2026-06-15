@@ -1,3 +1,25 @@
+/*
+File: SkullbonezData/shaders/post_tonemap.hlsl
+Purpose:
+  Runs the post_tonemap HLSL shader program used by the renderer.
+
+Mental model:
+  Shaders are GPU programs. Constant buffers provide per-frame data, shader
+  stages transform or shade inputs, and CPU-side renderer bindings must match
+  the declarations in this file.
+
+Glossary:
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - CPU-side root signatures, input layouts, and descriptor bindings must
+  match this shader exactly.
+
+Related:
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma pack_matrix(column_major)
 
 // =============================================================================

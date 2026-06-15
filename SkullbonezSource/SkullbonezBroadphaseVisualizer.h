@@ -1,7 +1,24 @@
+/*
+File: SkullbonezSource/SkullbonezBroadphaseVisualizer.h
+Purpose:
+  Draws the physics broadphase grid as an explanatory debug overlay.
+
+Mental model:
+  This module is one piece of the engine contract. Read the glossary and
+  invariants first, then follow ownership and call direction through the
+  related files.
+
+Glossary:
+  Engine module: A source file with one focused responsibility inside the
+  SkullbonezCore runtime.
+
+Related:
+  - SkullbonezSource/SkullbonezBroadphaseVisualizer.cpp
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include <cstdint>
 #include <vector>
 #include "SkullbonezCommon.h"

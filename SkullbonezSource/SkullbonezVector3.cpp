@@ -1,9 +1,25 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezVector3.cpp
+Purpose:
+  Implements the engine 3D vector type and vector math operations.
+
+Mental model:
+  Math code is shared infrastructure. Coordinate conventions, units,
+  handedness, and simplifications matter because subtle assumptions spread
+  through rendering and physics.
+
+Glossary:
+  Engine module: A source file with one focused responsibility inside the
+  SkullbonezCore runtime.
+
+Related:
+  - SkullbonezSource/SkullbonezVector3.h
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezVector3.h"
 #include <limits>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Math::Vector;
 
 

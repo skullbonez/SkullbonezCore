@@ -1,7 +1,30 @@
+/*
+File: SkullbonezSource/SkullbonezFramebufferDX11.h
+Purpose:
+  Declares off-screen framebuffer resources for the DX11 parity renderer.
+
+Mental model:
+  DX11 is a legacy parity renderer. It follows the renderer interface while
+  staying close enough to DX12 and OpenGL output for visual comparison.
+
+Glossary:
+  SRV (Shader Resource View): Descriptor row used when shaders read textures
+  or buffers.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - Parity renderer output should stay visually aligned with the DX12
+  production path while these backends remain.
+
+Related:
+  - SkullbonezSource/SkullbonezFramebufferDX11.cpp
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include "SkullbonezIFramebuffer.h"
 #include <d3d11.h>
 

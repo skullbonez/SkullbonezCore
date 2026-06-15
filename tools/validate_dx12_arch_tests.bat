@@ -1,3 +1,32 @@
+@rem
+@rem File: tools/validate_dx12_arch_tests.bat
+@rem Purpose:
+@rem   Documents and runs the validate_dx12_arch_tests.bat developer/validation helper script.
+@rem
+@rem Mental model:
+@rem   Tools are command-line guardrails around builds, validation, screenshots,
+@rem   diagnostics, and artifact handling. They make the safe path repeatable and
+@rem   keep output bounded for humans and agents.
+@rem
+@rem Glossary:
+@rem   DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+@rem   descriptor, and command-list control.
+@rem   GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+@rem   and raytracing commands asynchronously from the CPU.
+@rem   CPU (Central Processing Unit): Host processor running engine code and
+@rem   recording GPU commands.
+@rem   Validation gate: Repository script that proves a class of changes before
+@rem   commit or PR.
+@rem
+@rem Invariants:
+@rem   - Tool output should be bounded and readable because agents and humans use
+@rem   it for decisions.
+@rem
+@rem Related:
+@rem   - AGENTS.md
+@rem   - Agentic/Reference/comment-style-guide.md
+@rem
+@rem
 @echo off
 setlocal enabledelayedexpansion
 REM ===============================================================

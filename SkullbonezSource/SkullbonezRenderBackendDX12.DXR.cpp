@@ -1,4 +1,43 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezRenderBackendDX12.DXR.cpp
+Purpose:
+  Implements DX12 raytracing setup and dispatch for reflection rendering.
+
+Mental model:
+  DX12 separates resource memory, descriptor rows, command recording, and GPU
+  execution. Ownership, state transitions, descriptor lifetime, and fence
+  ordering are the important ideas.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  reflection dispatch.
+  BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
+  mesh's triangles.
+  TLAS (Top-Level Acceleration Structure): Raytracing spatial index for scene
+  instances that point at BLAS geometry.
+  SBT (Shader Binding Table): DXR table that maps ray records to
+  ray-generation, miss, and hit shaders.
+  SRV (Shader Resource View): Descriptor row used when shaders read textures
+  or buffers.
+  UAV (Unordered Access View): Descriptor row used when compute or raytracing
+  shaders write textures or buffers.
+  CBV (Constant Buffer View): Descriptor row used when shaders read a packed
+  block of constants.
+  PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
+  state that DX12 binds before drawing or dispatching.
+  DRED (Device Removed Extended Data): DX12 diagnostic report for GPU device
+  loss, breadcrumbs, and page-fault clues.
+
+Invariants:
+  - DX12 object lifetime, resource states, descriptor rows, and fence ordering
+  must stay explicit.
+
+Related:
+  - Agentic/Reference/skullbonez-core-class-structure.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezRenderBackendDX12.h"
 #include "SkullbonezShaderDX12.h"
 #include "SkullbonezMeshDX12.h"
@@ -16,7 +55,6 @@
 #include <wrl/client.h>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Rendering;
 using Microsoft::WRL::ComPtr;
@@ -51,7 +89,9 @@ void RenderBackendDX12::CheckDXRSupport()
     m_device5 = nullptr;
     m_cmdList4 = nullptr;
 
-    // Check raytracing tier
+    // DXR support is optional. The renderer can still run rasterized scenes on
+    // DX12 hardware without raytracing, so failing any capability query simply
+    // leaves m_dxrSupported false.
     D3D12_FEATURE_DATA_D3D12_OPTIONS5 opts5 = {};
     if ( FAILED( m_device->CheckFeatureSupport( D3D12_FEATURE_D3D12_OPTIONS5, &opts5, sizeof( opts5 ) ) ) )
     {
@@ -62,7 +102,8 @@ void RenderBackendDX12::CheckDXRSupport()
         return;
     }
 
-    // QueryInterface for DXR interfaces
+    // Device5/command-list4 expose the DXR entry points. QueryInterface is the
+    // COM way to ask whether this device object also supports that newer API.
     if ( FAILED( m_device->QueryInterface( IID_PPV_ARGS( &m_device5 ) ) ) )
     {
         return;
@@ -74,13 +115,17 @@ void RenderBackendDX12::CheckDXRSupport()
 
 void RenderBackendDX12::CreateRTRootSignature()
 {
-    // RT root signature layout:
-    // [0] SRV - TLAS (t0, space1) — inline raw descriptor
-    // [1] UAV - output texture (u0) — descriptor table
-    // [2] CBV - RT constants (b1) — inline raw descriptor
-    // [3] SRV - texture table (t0..t7, space0) — 8-descriptor table:
-    //           t0=sphere, t1=terrain, t2=skyUp, t3=skyDown, t4=skyRight, t5=skyLeft, t6=skyFront, t7=skyBack
-    // [s0] Static linear-wrap sampler
+    // Concept: the raytracing root signature is the binding contract for
+    // reflect.rt.hlsl.
+    //
+    // [0] TLAS SRV: acceleration structure traversed by ray hardware.
+    // [1] output UAV: reflection texture written by the ray-generation shader.
+    // [2] constants CBV: camera, water plane, and per-dispatch values.
+    // [3] texture SRV table: sphere/terrain/sky textures for hit/miss shaders.
+    // [s0] sampler: linear wrap sampling for the texture table.
+    //
+    // Inline descriptors point directly at one GPU virtual address. Descriptor
+    // tables point at rows in a shader-visible descriptor heap.
     D3D12_DESCRIPTOR_RANGE1 uavRange = {};
     uavRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
     uavRange.NumDescriptors = 1;
@@ -176,8 +221,13 @@ void RenderBackendDX12::CreateRTPipeline()
     fread( dxilBlob.data(), 1, (size_t)dxilSize, dxilFile );
     fclose( dxilFile );
 
-    // Build RTPSO with subobjects
-    // We need: DXIL library, hit groups, shader config, pipeline config, global root signature
+    // Concept: an RTPSO is assembled from subobjects instead of one flat
+    // graphics-pipeline description.
+    //
+    // The DXIL library supplies shader functions. Hit groups name which closest
+    // hit shader handles a geometry category. Shader config declares payload and
+    // attribute sizes. Pipeline config caps recursion. The global root signature
+    // is the binding contract shared by all those raytracing shaders.
     D3D12_DXIL_LIBRARY_DESC libDesc = {};
     libDesc.DXILLibrary.pShaderBytecode = dxilBlob.data();
     libDesc.DXILLibrary.BytecodeLength = dxilBlob.size();
@@ -256,7 +306,8 @@ void RenderBackendDX12::CreateReflectionUAV( int width, int height )
     m_reflectionHeight = height;
     m_reflectionInSRVState = false;
 
-    // Create the reflection UAV texture
+    // The reflection texture is the off-screen image written by DXR. It starts
+    // in UAV state because the ray-generation shader writes pixels into it.
     D3D12_HEAP_PROPERTIES heapProps = {};
     heapProps.Type = D3D12_HEAP_TYPE_DEFAULT;
 
@@ -280,7 +331,8 @@ void RenderBackendDX12::CreateReflectionUAV( int width, int height )
     }
     NameDx12Object( m_reflectionUAV, L"Skullbonez DX12 Reflection UAV Texture" );
 
-    // Create UAV descriptor
+    // Create the UAV descriptor row used by DispatchRays while writing the
+    // reflection texture.
     m_reflectionUAVIndex = AllocateStaticSRV();
     D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
     uavDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -291,7 +343,8 @@ void RenderBackendDX12::CreateReflectionUAV( int width, int height )
     D3D12_CPU_DESCRIPTOR_HANDLE srvHeapCpu = m_srvDescriptors.ShaderVisibleCpuHandle( m_reflectionUAVIndex );
     m_device->CopyDescriptorsSimple( 1, srvHeapCpu, GetSRVStagingCpuHandle( m_reflectionUAVIndex ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 
-    // Create SRV for sampling in water shader
+    // Create a second descriptor over the same texture for the water shader.
+    // Same resource, different view: UAV for writes, SRV for reads.
     m_reflectionSRVIndex = AllocateStaticSRV();
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -300,7 +353,8 @@ void RenderBackendDX12::CreateReflectionUAV( int width, int height )
     srvDesc.Texture2D.MipLevels = 1;
     m_device->CreateShaderResourceView( m_reflectionUAV, &srvDesc, GetSRVStagingCpuHandle( m_reflectionSRVIndex ) );
 
-    // Copy SRV to shader-visible heap
+    // Copy the SRV template into the shader-visible heap so raster draws can
+    // sample the completed reflection texture.
     srvHeapCpu = m_srvDescriptors.ShaderVisibleCpuHandle( m_reflectionSRVIndex );
     m_device->CopyDescriptorsSimple( 1, srvHeapCpu, GetSRVStagingCpuHandle( m_reflectionSRVIndex ), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV );
 }
@@ -322,18 +376,21 @@ void RenderBackendDX12::InitDXR( uint64_t terrainVBVA, int terrainVertCount, int
         return;
     }
 
-    // Get CmdList4 from command list
+    // Query the command list for the DXR-capable interface. If the runtime
+    // cannot provide it, keep raster rendering alive and disable DXR reflection.
     if ( FAILED( m_commandList->QueryInterface( IID_PPV_ARGS( &m_cmdList4 ) ) ) )
     {
         m_dxrSupported = false;
         return;
     }
 
-    // Create RT root signature and pipeline
+    // Create the raytracing binding contract and pipeline before building any
+    // scene acceleration structures.
     CreateRTRootSignature();
     CreateRTPipeline();
 
-    // Create reflection UAV at 2x viewport
+    // Render reflections at 2x viewport size so water distortion has extra
+    // detail to sample before the final screen pass.
     CreateReflectionUAV( m_width * 2, m_height * 2 );
 
     // Create RT constant buffer on the upload heap — holds per-frame raytracing parameters
@@ -360,7 +417,8 @@ void RenderBackendDX12::InitDXR( uint64_t terrainVBVA, int terrainVertCount, int
         m_rtConstantBuffer->Map( 0, nullptr, (void**)&m_rtConstantBufferMapped );
     }
 
-    // Build BLAS for terrain and sphere
+    // Build the static BLAS objects once. The terrain BLAS holds terrain
+    // triangles; the sphere BLAS is reused by every moving sphere instance.
     EnsureCommandListOpen();
 
     m_terrainBLAS.Build( m_device5, m_cmdList4, (D3D12_GPU_VIRTUAL_ADDRESS)terrainVBVA, terrainVertCount, terrainStride, DXGI_FORMAT_R32G32B32_FLOAT, true );
@@ -374,14 +432,19 @@ void RenderBackendDX12::InitDXR( uint64_t terrainVBVA, int terrainVertCount, int
     m_commandQueue->ExecuteCommandLists( 1, ppCLs );
     WaitForGpu();
 
-    // Free scratch memory
+    // Lifetime: scratch buffers are temporary GPU workspaces used only while
+    // building acceleration structures. The BLAS result buffers remain alive for
+    // ray traversal; scratch can be released after the command list completes.
     m_terrainBLAS.ReleaseAfterBuild();
     m_sphereBLAS.ReleaseAfterBuild();
 
-    // Init TLAS (sized for maxInstances: terrain + all balls)
+    // TLAS capacity includes one terrain instance plus all sphere instances.
+    // Individual spheres reuse the same sphere BLAS with different transforms.
     m_tlas.Init( m_device5, maxInstances + 1 );
 
-    // Build SBT
+    // The SBT is the raytracing dispatch table. It maps the RayGen, Miss,
+    // TerrainHitGroup, and SphereHitGroup shader identifiers into GPU-readable
+    // records that DispatchRays can follow.
     m_sbt.Build( m_device, m_rtPSOProps, L"RayGen", L"Miss", L"TerrainHitGroup", L"SphereHitGroup" );
 }
 
@@ -397,9 +460,12 @@ void RenderBackendDX12::BuildTLAS( const float* instanceTransforms, int instance
         throw std::runtime_error( "DX12 TLAS instance count exceeds MAX_GAME_MODELS" );
     }
 
-    // Build instance descriptors
-    // Instance 0: terrain (identity)
-    // Instance 1..N: spheres with their world transforms
+    // Concept: a TLAS is a scene-level table of instances.
+    //
+    // Instance 0 is always terrain and uses an identity transform because the
+    // terrain BLAS already lives in world space. Instances 1..N are spheres:
+    // they all point at the same sphere BLAS, but each descriptor supplies a
+    // different world transform and hit-group index.
 
     // Terrain instance
     D3D12_RAYTRACING_INSTANCE_DESC& terrainInst = m_tlasInstances[0];
@@ -418,7 +484,9 @@ void RenderBackendDX12::BuildTLAS( const float* instanceTransforms, int instance
         D3D12_RAYTRACING_INSTANCE_DESC& inst = m_tlasInstances[(size_t)i + 1];
         memset( &inst, 0, sizeof( inst ) );
 
-        // Copy 3x4 transform from the flat float array (row-major 4x4 → DXR 3x4 row-major)
+        // DXR instance transforms store only the upper 3 rows of a 4x4 matrix.
+        // The engine matrix arrives as a flat 4x4; copy rotation/scale plus
+        // translation into DXR's 3x4 row-major instance layout.
         const float* m = instanceTransforms + i * 16;
         inst.Transform[0][0] = m[0];
         inst.Transform[0][1] = m[4];
@@ -456,7 +524,9 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj, const 
 
     EnsureCommandListOpen();
 
-    // Transition reflection UAV back to writable state if it was left as SRV from previous frame
+    // Hazard: the reflection texture alternates between a writable UAV during
+    // DispatchRays and a readable SRV while the water shader samples it. DX12
+    // will not infer that transition for us; record it explicitly each frame.
     if ( m_reflectionInSRVState )
     {
         TransitionBarrier( m_reflectionUAV, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS );
@@ -510,12 +580,15 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj, const 
     ID3D12DescriptorHeap* heaps[] = { m_srvHeap };
     m_cmdList4->SetDescriptorHeaps( 1, heaps );
 
-    // Root params: [0] TLAS SRV, [1] UAV table, [2] CBV, [3] texture SRV table
+    // Bind the root parameters declared in CreateRTRootSignature():
+    // [0] TLAS SRV, [1] output UAV table, [2] constants CBV,
+    // [3] texture SRV table.
     m_cmdList4->SetComputeRootShaderResourceView( 0, m_tlas.GetResultVA() );
     m_cmdList4->SetComputeRootDescriptorTable( 1, GetSRVGpuHandle( m_reflectionUAVIndex ) );
     m_cmdList4->SetComputeRootConstantBufferView( 2, m_rtConstantBuffer->GetGPUVirtualAddress() );
 
-    // Bind sphere + terrain + 6 sky face textures at root param [3] (t0..t7)
+    // Root parameter [3] is the material/environment texture table. The shader
+    // reads it as t0=sphere, t1=terrain, and t2..t7=sky cube faces.
     const uint32_t texHandles[8] = { sphereTexHandle, terrainTexHandle, skyUpHandle, skyDownHandle, skyRightHandle, skyLeftHandle, skyFrontHandle, skyBackHandle };
     bool allValid = true;
     for ( int i = 0; i < 8; ++i )
@@ -563,18 +636,23 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj, const 
 
     m_cmdList4->DispatchRays( &dispatchDesc );
 
-    // UAV barrier — ensures all ray tracing writes complete before the water shader reads the texture.
+    // Hazard: a UAV barrier is an ordering point, not a layout transition. It
+    // makes every raytracing write visible before the next pass samples the
+    // reflection texture through its SRV descriptor.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
     barrier.UAV.pResource = m_reflectionUAV;
     m_cmdList4->ResourceBarrier( 1, &barrier );
 
-    // Transition to SRV state for water shader sampling
+    // After ordering the writes, transition the texture into SRV state so the
+    // raster water shader can read it.
     TransitionBarrier( m_reflectionUAV, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE );
     m_reflectionInSRVState = true;
 
-    // Force re-bind of raster state after compute dispatch
+    // DXR uses the compute root signature/pipeline path. Mark raster state
+    // dirty so the next draw restores graphics bindings instead of inheriting
+    // raytracing state.
     m_lastPSOHash = 0;
     m_texBindingsDirty = true;
     m_targetsDirty = true;
@@ -583,17 +661,15 @@ void RenderBackendDX12::DispatchReflectionRays( const float* invViewProj, const 
 
 uint32_t RenderBackendDX12::GetReflectionUAVTexture() const
 {
-    // Return a texture handle that maps to the reflection SRV
-    // The water shader will bind this at t1 instead of the FBO texture
-    // We return a handle into the texture registry — but for DXR we just return the SRV index
-    // encoded as a texture handle. The caller can pass this to BindTexture.
-    // Actually, we need to register the SRV in the texture registry.
-    // This is called once, so we can cast-away const for registration.
+    // The water renderer speaks in texture handles, not raw descriptor indices.
+    // Lazily register the reflection SRV in the normal DX12 texture registry so
+    // the DXR output can be bound exactly like an FBO texture.
     if ( m_reflectionSRVIndex == 0 )
     {
         return 0;
     }
-    // Find if already registered
+    // Reuse an existing registry handle when the reflection SRV has already
+    // been exposed to the water path.
     for ( size_t i = 0; i < m_textures.size(); ++i )
     {
         if ( m_textures[i].srvIndex == m_reflectionSRVIndex )
@@ -601,7 +677,9 @@ uint32_t RenderBackendDX12::GetReflectionUAVTexture() const
             return (uint32_t)( i + 1 );
         }
     }
-    // Register it (const_cast justified: lazy one-time registration)
+    // const_cast is local to this lazy registration path: externally this query
+    // remains a handle lookup, while internally the texture registry gains one
+    // derived entry for the reflection SRV.
     auto* self = const_cast<RenderBackendDX12*>( this );
     return self->RegisterSRV( m_reflectionSRVIndex );
 }

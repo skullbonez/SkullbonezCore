@@ -1,4 +1,41 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezTLASDX12.cpp
+Purpose:
+  Builds and owns the DX12 raytracing top-level scene acceleration structure.
+
+Mental model:
+  DX12 separates resource memory, descriptor rows, command recording, and GPU
+  execution. Ownership, state transitions, descriptor lifetime, and fence
+  ordering are the important ideas.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  reflection dispatch.
+  BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
+  mesh's triangles.
+  TLAS (Top-Level Acceleration Structure): Raytracing spatial index for scene
+  instances that point at BLAS geometry.
+  UAV (Unordered Access View): Descriptor row used when compute or raytracing
+  shaders write textures or buffers.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Invariants:
+  - DX12 object lifetime, resource states, descriptor rows, and fence ordering
+  must stay explicit.
+
+Related:
+  - SkullbonezSource/SkullbonezTLASDX12.h
+  - Agentic/Reference/skullbonez-core-class-structure.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 // --- DXR Ray Tracing: Top-Level Acceleration Structure (TLAS) ---
 //
 //  The TLAS represents the entire scene for ray tracing. It contains "instances" — each instance
@@ -20,7 +57,6 @@
 #include <cstring>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Rendering;
 
 
@@ -120,7 +156,9 @@ void TLAS::Build( ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, co
     memcpy( mapped, instances, (size_t)instanceCount * sizeof( D3D12_RAYTRACING_INSTANCE_DESC ) );
     m_instanceDescs->Unmap( 0, nullptr );
 
-    // Build TLAS
+    // Build inputs tell DXR where the per-instance table lives and how many
+    // rows are valid this frame. The result buffer was allocated for the
+    // maximum scene size, but each frame may rebuild only a smaller prefix.
     D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
     inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
     inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_BUILD;
@@ -139,8 +177,9 @@ void TLAS::Build( ID3D12Device5* device, ID3D12GraphicsCommandList4* cmdList, co
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist4-buildraytracingaccelerationstructure
     cmdList->BuildRaytracingAccelerationStructure( &buildDesc, 0, nullptr );
 
-    // UAV barrier — ensures the TLAS build completes before DispatchRays uses it.
-    // Without this, rays could traverse an incomplete or corrupted acceleration structure.
+    // Hazard: BuildRaytracingAccelerationStructure writes through UAV-style
+    // memory. This barrier orders those writes before DispatchRays reads the
+    // TLAS, preventing rays from traversing a partially rebuilt hierarchy.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-id3d12graphicscommandlist-resourcebarrier
     D3D12_RESOURCE_BARRIER barrier = {};
     barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;

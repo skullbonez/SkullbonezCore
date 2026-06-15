@@ -1,3 +1,30 @@
+#
+# File: tools/check_physics_query_regression.py
+# Purpose:
+#   Documents and runs the check_physics_query_regression.py developer/validation helper script.
+#
+# Mental model:
+#   Tools are command-line guardrails around builds, validation, screenshots,
+#   diagnostics, and artifact handling. They make the safe path repeatable and
+#   keep output bounded for humans and agents.
+#
+# Glossary:
+#   SkullScope: Queryable physics diagnostics workflow backed by bounded trace
+#   output and local queries.
+#   JSON (JavaScript Object Notation): Structured text format used by
+#   diagnostics, baselines, and tool reports.
+#   Validation gate: Repository script that proves a class of changes before
+#   commit or PR.
+#
+# Invariants:
+#   - Tool output should be bounded and readable because agents and humans use
+#   it for decisions.
+#
+# Related:
+#   - AGENTS.md
+#   - Agentic/Reference/comment-style-guide.md
+#
+#
 """
 Regression check for SkullScope queryable physics diagnostics.
 

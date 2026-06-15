@@ -1,8 +1,24 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezRunInput.cpp
+Purpose:
+  Translates input and UI commands into runtime state changes.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezRunInternal.h"
 #include "UI/UILayout.h"
 
-// --- Usings ---
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
@@ -682,7 +698,10 @@ void SkullbonezRun::TakeInput()
             }
         }
         m_camera.input.Set( InputState::Key1WasDown, key1Now );
-        // Key '2' cycles reflection mode: FBO (default) → DXR ray-traced (if supported) → none → FBO
+        // Key '2' cycles water reflection modes in a predictable loop:
+        // FBO mirror rendering, then DXR raytraced reflection when supported,
+        // then no reflection, then back to FBO. Machines without DXR skip the
+        // unsupported mode instead of leaving the toggle in a dead state.
         {
             static bool s_key2WasDown = false;
             bool s_key2Now = ( Input::IsKeyDown( '2' ) != 0 );
@@ -692,21 +711,21 @@ void SkullbonezRun::TakeInput()
                 {
                     if ( Gfx().GetCapabilities().supportsDxrReflection )
                     {
-                        m_debug.isWaterRTReflect = true; // FBO → DXR
+                        m_debug.isWaterRTReflect = true;
                     }
                     else
                     {
-                        m_debug.isWaterNoReflect = true; // DXR not available, skip to none
+                        m_debug.isWaterNoReflect = true;
                     }
                 }
                 else if ( m_debug.isWaterRTReflect )
                 {
                     m_debug.isWaterRTReflect = false;
-                    m_debug.isWaterNoReflect = true; // DXR → none
+                    m_debug.isWaterNoReflect = true;
                 }
                 else
                 {
-                    m_debug.isWaterNoReflect = false; // none → FBO
+                    m_debug.isWaterNoReflect = false;
                 }
             }
             s_key2WasDown = s_key2Now;

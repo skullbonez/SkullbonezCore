@@ -1,3 +1,26 @@
+/*
+File: SkullbonezSource/SkullbonezGameModelCollection.h
+Purpose:
+  Owns all scene models and delegates rendering, physics, and snapshots.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  SoA (Structure of Arrays): Cache layout that stores each field in its own
+  contiguous array for faster iteration.
+  SkullScope: Queryable physics diagnostics workflow backed by bounded trace
+  output and local queries.
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - SkullbonezSource/SkullbonezGameModelCollection.cpp
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 #include <cstdint>

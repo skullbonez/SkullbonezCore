@@ -1,3 +1,21 @@
+/*
+File: SkullbonezSource/SkullbonezSkullScope.h
+Purpose:
+  Defines compact physics diagnostics records emitted for SkullScope queries.
+
+Mental model:
+  This module is one piece of the engine contract. Read the glossary and
+  invariants first, then follow ownership and call direction through the
+  related files.
+
+Glossary:
+  SkullScope: Queryable physics diagnostics workflow backed by bounded trace
+  output and local queries.
+
+Related:
+  - SkullbonezSource/SkullbonezSkullScope.cpp
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 

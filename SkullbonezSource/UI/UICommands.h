@@ -1,3 +1,34 @@
+/*
+File: SkullbonezSource/UI/UICommands.h
+Purpose:
+  Implements UI Commands widgets, layout, drawing, or UI state for the in-engine controls.
+
+Mental model:
+  The UI is immediate-mode-style: each frame reads engine state, computes hit
+  boxes, emits draw commands, and returns requests for the run loop to apply.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  DX11 (DirectX 11): Legacy parity renderer used to compare output while the
+  engine migrates to DX12.
+  GL (OpenGL): Legacy parity renderer path.
+  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  reflection dispatch.
+  FBO (Framebuffer Object): OpenGL-style off-screen render target concept used
+  by parity and reflection code.
+  Draw command: Lightweight record describing a UI shape or text batch to
+  render later in the frame.
+  Hit box: Screen-space rectangle used to decide whether mouse input targets a
+  widget.
+
+Invariants:
+  - Draw geometry and hit testing must be derived from the same layout
+  constants.
+
+Related:
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 #include <cstdint>
@@ -96,6 +127,10 @@ enum class UICinematicFeature
 
 struct UIOnlyCommands
 {
+    // Commands are one-frame requests, not durable state. The UI sets them
+    // while handling input; SkullbonezRun consumes them and mutates the engine.
+    // This prevents UI widgets from directly owning renderer, scene, or physics
+    // state.
     bool userInteracted = false;
 };
 

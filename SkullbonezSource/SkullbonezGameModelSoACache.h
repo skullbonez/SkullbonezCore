@@ -1,3 +1,24 @@
+/*
+File: SkullbonezSource/SkullbonezGameModelSoACache.h
+Purpose:
+  Caches model state in structure-of-arrays form for render and physics hot paths.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  SoA (Structure of Arrays): Cache layout that stores each field in its own
+  contiguous array for faster iteration.
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - SkullbonezSource/SkullbonezGameModelSoACache.cpp
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 #include <array>
@@ -16,6 +37,13 @@ namespace GameObjects
 class GameModelSoACache
 {
   public:
+    // Concept: this cache mirrors selected GameModel fields in hot-loop order.
+    //
+    // GameModel is convenient for ownership, but tight render/physics loops
+    // repeatedly need "all positions", "all radii", or "all fixed flags".
+    // Structure-of-arrays storage keeps those fields contiguous and cheap to
+    // scan. GameModel remains authoritative; this cache is disposable derived
+    // data and must be invalidated after mutations.
     std::array<Math::Vector::Vector3, MAX_GAME_MODELS> positions;
     std::array<float, MAX_GAME_MODELS> boundingRadii;
     std::array<uint8_t, MAX_GAME_MODELS> isBox;

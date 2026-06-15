@@ -1,7 +1,29 @@
+/*
+File: SkullbonezSource/SkullbonezText.h
+Purpose:
+  Builds and draws bitmap/SDF text for HUD and diagnostics.
+
+Mental model:
+  Renderer-facing code translates engine concepts into backend resources, draw
+  calls, shader bindings, and validation artifacts.
+
+Glossary:
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  SDF (Signed Distance Field): Texture representation used for crisp scalable
+  text rendering.
+  HUD (Heads-Up Display): On-screen diagnostics and control overlay.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Related:
+  - SkullbonezSource/SkullbonezText.cpp
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezIShader.h"
 #include "SkullbonezMatrix4.h"

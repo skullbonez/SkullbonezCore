@@ -1,4 +1,33 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezTerrain.cpp
+Purpose:
+  Stores terrain mesh, height queries, and terrain rendering resources.
+
+Mental model:
+  Physics is deterministic fixed-step state update. Units, contact ownership,
+  solver stages, sleep policy, and baseline-sensitive behavior are the key
+  reading anchors.
+
+Glossary:
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+  Broadphase: Cheap collision pass that finds object pairs worth testing more
+  precisely.
+  Narrowphase: Precise collision pass that computes contact points, normals,
+  and penetration.
+  Manifold: Set of contact points and normals describing one colliding pair.
+
+Invariants:
+  - Physics-visible behavior must remain deterministic; byte-exact baselines
+  are the validation contract.
+
+Related:
+  - SkullbonezSource/SkullbonezTerrain.h
+  - Agentic/Reference/physics-overview.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezTerrain.h"
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezProfiler.h"
@@ -6,7 +35,6 @@
 #include <memory>
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Geometry;
 using namespace SkullbonezCore::Math;
 using namespace SkullbonezCore::Math::Vector;

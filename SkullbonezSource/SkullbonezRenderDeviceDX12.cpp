@@ -1,3 +1,44 @@
+/*
+File: SkullbonezSource/SkullbonezRenderDeviceDX12.cpp
+Purpose:
+  Owns low-level DX12 device objects, fences, command allocators, and frame pacing.
+
+Mental model:
+  DX12 separates resource memory, descriptor rows, command recording, and GPU
+  execution. Ownership, state transitions, descriptor lifetime, and fence
+  ordering are the important ideas.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  RTV (Render Target View): Descriptor row used when the GPU writes color
+  pixels into a texture or back buffer.
+  DSV (Depth Stencil View): Descriptor row used when the GPU reads or writes
+  depth/stencil data for depth testing.
+  SRV (Shader Resource View): Descriptor row used when shaders read textures
+  or buffers.
+  UAV (Unordered Access View): Descriptor row used when compute or raytracing
+  shaders write textures or buffers.
+  DRED (Device Removed Extended Data): DX12 diagnostic report for GPU device
+  loss, breadcrumbs, and page-fault clues.
+  PIX: Microsoft GPU debugger/profiler that can read engine markers and DX12
+  object names.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+
+Invariants:
+  - DX12 object lifetime, resource states, descriptor rows, and fence ordering
+  must stay explicit.
+
+Related:
+  - SkullbonezSource/SkullbonezRenderDeviceDX12.h
+  - Agentic/Reference/skullbonez-core-class-structure.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezRenderDeviceDX12.h"
 
 #include <algorithm>
@@ -210,8 +251,12 @@ void Dx12CpuDescriptorAllocator::Init( ID3D12DescriptorHeap* heap, UINT descript
         throw std::runtime_error( "DX12 CPU descriptor allocator received invalid heap geometry" );
     }
 
-    // RTV and DSV descriptor heaps are tables. The device tells us the byte
-    // stride between table rows because descriptor sizes are implementation
+    // Concept: RTV and DSV descriptor heaps are CPU-side tables of view rows.
+    //
+    // RTV means Render Target View: a row that lets the output merger write
+    // color pixels into a texture. DSV means Depth Stencil View: a row that lets
+    // depth testing read/write depth and stencil data. The device tells us the
+    // byte stride between rows because descriptor sizes are implementation
     // details, not C++ struct sizes the engine can hard-code.
     m_heap = heap;
     m_descriptorSize = descriptorSize;

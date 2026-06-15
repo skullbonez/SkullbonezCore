@@ -1,7 +1,24 @@
+/*
+File: SkullbonezSource/SkullbonezMatrix4.h
+Purpose:
+  Declares the engine matrix type and common transform operations.
+
+Mental model:
+  Math code is shared infrastructure. Coordinate conventions, units,
+  handedness, and simplifications matter because subtle assumptions spread
+  through rendering and physics.
+
+Glossary:
+  OpenGL: Legacy parity renderer used as a reference path for visual output.
+  GL (OpenGL): Legacy parity renderer path.
+
+Related:
+  - SkullbonezSource/SkullbonezMatrix4.cpp
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezVector3.h"
 

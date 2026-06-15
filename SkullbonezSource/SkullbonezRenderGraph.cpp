@@ -1,3 +1,27 @@
+/*
+File: SkullbonezSource/SkullbonezRenderGraph.cpp
+Purpose:
+  Records intended render passes and resource transitions for the DX12 migration.
+
+Mental model:
+  Renderer-facing code translates engine concepts into backend resources, draw
+  calls, shader bindings, and validation artifacts.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+  CPU (Central Processing Unit): Host processor running engine code and
+  recording GPU commands.
+  Descriptor: Small binding record that tells a renderer how to interpret a
+  resource.
+  Back buffer: Swap-chain image that will be presented to the window.
+
+Related:
+  - SkullbonezSource/SkullbonezRenderGraph.h
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezRenderGraph.h"
 
 #include <sstream>

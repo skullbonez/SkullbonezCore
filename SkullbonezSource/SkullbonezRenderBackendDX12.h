@@ -1,7 +1,47 @@
+/*
+File: SkullbonezSource/SkullbonezRenderBackendDX12.h
+Purpose:
+  Declares the production DX12 renderer and its frame, resource, and pipeline state.
+
+Mental model:
+  DX12 separates resource memory, descriptor rows, command recording, and GPU
+  execution. Ownership, state transitions, descriptor lifetime, and fence
+  ordering are the important ideas.
+
+Glossary:
+  DX12 (DirectX 12): Production renderer API used for explicit GPU resource,
+  descriptor, and command-list control.
+  BLAS (Bottom-Level Acceleration Structure): Raytracing spatial index for one
+  mesh's triangles.
+  TLAS (Top-Level Acceleration Structure): Raytracing spatial index for scene
+  instances that point at BLAS geometry.
+  SBT (Shader Binding Table): DXR table that maps ray records to
+  ray-generation, miss, and hit shaders.
+  RTV (Render Target View): Descriptor row used when the GPU writes color
+  pixels into a texture or back buffer.
+  DSV (Depth Stencil View): Descriptor row used when the GPU reads or writes
+  depth/stencil data for depth testing.
+  SRV (Shader Resource View): Descriptor row used when shaders read textures
+  or buffers.
+  UAV (Unordered Access View): Descriptor row used when compute or raytracing
+  shaders write textures or buffers.
+  PSO (Pipeline State Object): Precompiled bundle of shaders and fixed render
+  state that DX12 binds before drawing or dispatching.
+  GPU (Graphics Processing Unit): Processor that executes rendering, compute,
+  and raytracing commands asynchronously from the CPU.
+
+Invariants:
+  - DX12 object lifetime, resource states, descriptor rows, and fence ordering
+  must stay explicit.
+
+Related:
+  - SkullbonezSource/SkullbonezRenderBackendDX12.cpp
+  - Agentic/Reference/skullbonez-core-class-structure.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezRenderDeviceDX12.h"
 #include "SkullbonezMeshDX12.h"
@@ -68,7 +108,12 @@ struct InstancedMeshDX12
 };
 
 
-// PSO cache key
+// PSO cache key.
+//
+// A graphics PSO is expensive to create and must match the exact shader pair,
+// vertex layout, blend/depth/cull flags, polygon offset, and render-target
+// format. This key is the "recipe fingerprint" used to reuse compatible PSOs
+// instead of compiling a new one for every draw.
 struct PSOKey12
 {
     const void* shaderVS;
@@ -119,18 +164,25 @@ struct LiveBarrierRecordDX12
 };
 
 
-/* -- RenderBackendDX12 -----------------------------------------------------------------------------------------------------------------------------------------
-
-    DirectX 12 implementation of the render backend interface.
-    Manages D3D12 device, command queue, swap chain, descriptor heaps, and all rendering state.
------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+// Concept: RenderBackendDX12 is the engine-facing facade over explicit DX12 state.
+//
+// The public IRenderBackend API still looks like the older GL/DX11 renderer:
+// set a shader, set textures, draw meshes, present the frame. Internally, DX12
+// requires the backend to make every hidden GPU concept explicit: descriptor
+// table rows, command allocators, resource states, fences, upload memory, and
+// compiled pipeline state. This class is the compatibility layer between the
+// simple engine contract and that explicit DX12 machinery.
 class RenderBackendDX12 : public IRenderBackend
 {
 
   private:
     static RenderBackendDX12* s_instance;
 
-    // Frame management
+    // Frame management:
+    //
+    // Two frames can be in flight. Each frame owns its own command allocator,
+    // upload arena, transient descriptors, and fence value so the CPU never
+    // overwrites memory or descriptor rows still being read by the GPU.
     static const int FRAME_COUNT = 2;
     static const UINT MAX_RTV_DESCRIPTORS = 32;
     static const UINT MAX_DSV_DESCRIPTORS = 16;
@@ -140,13 +192,17 @@ class RenderBackendDX12 : public IRenderBackend
     static const int TIMER_HEAP_MARKERS = DX12_TIMER_HEAP_MARKERS; // must be >= Profiler::MAX_MARKERS
     static const int TIMER_HEAP_SIZE = DX12_TIMER_HEAP_SIZE;       // begin + end per marker
 
-    // Containers
+    // CPU-side registries. These are not GPU resources by themselves; they are
+    // lookup tables the backend uses to find cached GPU objects and descriptor
+    // rows while translating engine draw calls into command-list operations.
     std::unordered_map<size_t, ID3D12PipelineState*> m_psoCache;
     std::vector<TextureEntryDX12> m_textures; // Texture registry (1-based, index 0 unused)
     std::vector<DynamicVBDX12> m_dynamicVBs;
     std::vector<InstancedMeshDX12> m_instancedMeshes;
 
-    // Struct state
+    // Currently bound render state. DX12 does not remember high-level engine
+    // intent for us, so the backend tracks the desired state and emits concrete
+    // command-list binds only when the state becomes dirty.
     D3D12_VIEWPORT m_viewport = {};
     D3D12_RECT m_scissorRect = {};
     D3D12_CPU_DESCRIPTOR_HANDLE m_currentRTV = {};
@@ -289,11 +345,16 @@ class RenderBackendDX12 : public IRenderBackend
     ID3D12StateObjectProperties* m_rtPSOProps = nullptr;
     ID3D12RootSignature* m_rtRootSignature = nullptr;
     ID3D12Resource* m_reflectionUAV = nullptr;
-    UINT m_reflectionUAVIndex = 0; // UAV descriptor index in SRV heap
-    UINT m_reflectionSRVIndex = 0; // SRV for water shader sampling
+    // Descriptor rows for the DXR reflection texture. The same resource is a
+    // UAV while rays write pixels and an SRV when the water shader samples the
+    // finished reflection.
+    UINT m_reflectionUAVIndex = 0;
+    UINT m_reflectionSRVIndex = 0;
     int m_reflectionWidth = 0;
     int m_reflectionHeight = 0;
-    bool m_reflectionInSRVState = false; // True after dispatch (SRV), false initially (UAV)
+    // Tracks the current resource state of m_reflectionUAV so DispatchRays and
+    // the water pass can transition between write/read usage explicitly.
+    bool m_reflectionInSRVState = false;
     ID3D12Resource* m_rtConstantBuffer = nullptr;
     uint8_t* m_rtConstantBufferMapped = nullptr;
     std::array<D3D12_RAYTRACING_INSTANCE_DESC, MAX_GAME_MODELS + 1> m_tlasInstances = {};

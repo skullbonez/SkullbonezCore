@@ -1,10 +1,36 @@
-// --- Includes ---
+/*
+File: SkullbonezSource/SkullbonezBoundingSphere.cpp
+Purpose:
+  Defines sphere collision geometry, swept tests, volume facts, and render transforms.
+
+Mental model:
+  Physics is deterministic fixed-step state update. Units, contact ownership,
+  solver stages, sleep policy, and baseline-sensitive behavior are the key
+  reading anchors.
+
+Glossary:
+  OBB (Oriented Bounding Box): Box with rotation, used for exact object-space
+  collision tests.
+  Broadphase: Cheap collision pass that finds object pairs worth testing more
+  precisely.
+  Narrowphase: Precise collision pass that computes contact points, normals,
+  and penetration.
+  Manifold: Set of contact points and normals describing one colliding pair.
+
+Invariants:
+  - Physics-visible behavior must remain deterministic; byte-exact baselines
+  are the validation contract.
+
+Related:
+  - SkullbonezSource/SkullbonezBoundingSphere.h
+  - Agentic/Reference/physics-overview.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #include "SkullbonezBoundingSphere.h"
 #include "SkullbonezBoundingBox.h"
 #include <immintrin.h> // SSE intrinsics for scale pass in GetModelMatrix
 
 
-// --- Usings ---
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Transformation;
 using namespace SkullbonezCore::Math::Vector;

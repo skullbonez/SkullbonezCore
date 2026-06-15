@@ -1,7 +1,35 @@
+/*
+File: SkullbonezSource/SkullbonezTestScene.h
+Purpose:
+  Stores parsed test-scene directives and applies them to runtime scene state.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  DXR (DirectX Raytracing): DX12 API used for hardware ray traversal and
+  reflection dispatch.
+  FBO (Framebuffer Object): OpenGL-style off-screen render target concept used
+  by parity and reflection code.
+  CSV (Comma-Separated Values): Text table format used for byte-exact physics
+  regression output.
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Invariants:
+  - Command-line and scene-file spellings are user-facing compatibility
+  surface.
+
+Related:
+  - SkullbonezSource/SkullbonezTestScene.cpp
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include "SkullbonezCommon.h"
 #include "SkullbonezConfig.h"
 #include "SkullbonezPhysicsDebugVisualizer.h"

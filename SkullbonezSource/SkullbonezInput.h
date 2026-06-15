@@ -1,7 +1,27 @@
+/*
+File: SkullbonezSource/SkullbonezInput.h
+Purpose:
+  Collects keyboard and mouse state for the run loop and UI.
+
+Mental model:
+  Runtime code connects authored scene data, input, simulation, render
+  backends, and validation-oriented launch modes. Follow who owns state and
+  when that state changes.
+
+Glossary:
+  Win32: Windows desktop API used for the app window, messages, and process
+  integration.
+  Validation gate: Repository script that proves a class of changes before
+  commit or PR.
+
+Related:
+  - SkullbonezSource/SkullbonezInput.cpp
+  - Agentic/Reference/runtime-reference.md
+  - Agentic/Reference/comment-style-guide.md
+*/
 #pragma once
 
 
-// --- Includes ---
 #include "SkullbonezCommon.h"
 
 namespace SkullbonezCore
