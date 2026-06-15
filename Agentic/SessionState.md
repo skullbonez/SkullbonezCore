@@ -8,7 +8,7 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 |-------|-------|
 | Branch | `codex/dx12-only-engine-architecture-cleanup` in worktree `C:\SkullbonezCore` |
 | Last committed milestone | DX12 descriptor/upload/root-signature cleanup is open as draft PR #70 on top of shader architecture cleanup draft PR #69. |
-| Pending work | Worker 3 docs-only architecture cleanup reconciles the done umbrella plan/report with shader contracts and the current DX12 binding ABI. Orchestrator owns review, report creation, PR creation, and any central gate. |
+| Pending work | DX12-only architecture cleanup is open as draft PR #71 on top of the descriptor/upload/root-signature cleanup. The requested three-item stack is now represented by draft PRs #69, #70, and #71. |
 | Uncommitted changes | Queue/report updates may be present during orchestration; do not revert unrelated edits and check `git status` before continuing. |
 
 ## Active Notes
@@ -30,7 +30,7 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 | Render pipeline extraction | Done | `SkullbonezRunRender.cpp` now owns frame orchestration only, while `SkullbonezRunPasses.cpp` and `SkullbonezRunUiTextPass.cpp` own named pass resource creation, release, and render bodies directly. The old central cinematic shader factory/private pass hook layer has been removed. `tools\validate_full.bat` passed with DX12 validation errors 0, matching screenshot baselines, and byte-exact physics CSVs. |
 | Shader architecture cleanup | PR open | Draft PR #69 adds a runtime high-risk shader contract table, Debug-only DX12 shader contract diagnostics, object/fullscreen binder helpers, and a CPU `RenderMaterial` bridge that preserves current tint/mode shader packing. `tools\validate_dx12_renderer.bat` passed with DX12 validation errors 0; `tools\validate_shaders.bat` also passed after the Debug C4244 fix. |
 | DX12 descriptor/upload/root-signature cleanup | PR open | Draft PR #70 names and documents the ordinary raster ABI (`b0`, `t0..t3`, samplers `s0`, `s1`, `s3`), tightens descriptor allocator diagnostics, confirms fence-aligned transient descriptor/upload resets, and keeps `BindTexture(handle, slot)` compatibility. `tools\validate_dx12_renderer.bat` passed with DX12 validation errors 0. |
-| DX12-only engine architecture cleanup | Worker patch ready | Documentation-only reconciliation of the done umbrella plan, historical architecture report, plan order, and session handoff with the shader contract and binding ABI stack outcomes. No validation required unless the orchestrator adds code changes. |
+| DX12-only engine architecture cleanup | PR open | Draft PR #71 performs documentation-only reconciliation of the done umbrella plan, historical architecture report, plan order, and session handoff with the shader contract and binding ABI stack outcomes. No validation required because it is docs-only. |
 | Catto physics solver finalisation | Recent | Object/object response now belongs to persistent Catto rows with pipeline visualizer and SkullScope `pipeline` query support. User-approved physics CSV and SkullScope query baselines were updated; `tools\validate_full.bat` passed. |
 | Bullet sweep regression | Recent | Wall/object/terrain high-speed sweep scenes and Debug collision-time CSV baselines are wired into `tools\validate_physics.bat`. |
 | Terrain shared row pipeline | Done | Implemented and documented in `Agentic/Plans/Done/physics-terrain-shared-row-pipeline-plan.md`. |

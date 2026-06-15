@@ -59,7 +59,7 @@
     {
       "id": "dx12-only-engine-architecture-cleanup",
       "plan": "Agentic/Plans/Done/dx12-only-engine-architecture-plan.md",
-      "status": "running",
+      "status": "pr-open",
       "priority": 22,
       "branch": "codex/dx12-only-engine-architecture-cleanup",
       "impact_area": [
