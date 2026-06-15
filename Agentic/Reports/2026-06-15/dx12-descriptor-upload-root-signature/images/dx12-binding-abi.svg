@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="520" viewBox="0 0 1280 520" role="img" aria-labelledby="title desc">
+  <title id="title">DX12 ordinary raster binding ABI</title>
+  <desc id="desc">Diagram of the current DX12 ordinary raster root signature: constants at b0, texture slots t0 through t3, and static samplers s0, s1, and s3.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .box { fill: #ffffff; stroke: #334155; stroke-width: 2; rx: 6; }
+      .cbv { fill: #dcfce7; stroke: #15803d; stroke-width: 2; rx: 6; }
+      .srv { fill: #dbeafe; stroke: #1d4ed8; stroke-width: 2; rx: 6; }
+      .sampler { fill: #fef3c7; stroke: #b45309; stroke-width: 2; rx: 6; }
+      .title { font-family: Segoe UI, Arial, sans-serif; font-size: 24px; font-weight: 700; fill: #0f172a; }
+      .label { font-family: Segoe UI, Arial, sans-serif; font-size: 20px; font-weight: 700; fill: #0f172a; }
+      .small { font-family: Segoe UI, Arial, sans-serif; font-size: 16px; fill: #334155; }
+      .arrow { stroke: #475569; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#475569" />
+    </marker>
+  </defs>
+  <rect class="bg" width="1280" height="520" />
+  <text class="title" x="48" y="56">DX12 Ordinary Raster Binding ABI</text>
+
+  <rect class="box" x="48" y="105" width="270" height="300" />
+  <text class="label" x="78" y="145">Engine Calls</text>
+  <text class="small" x="78" y="185">ShaderDX12::FlushCB()</text>
+  <text class="small" x="78" y="220">BindTexture(handle, slot)</text>
+  <text class="small" x="78" y="255">slot is valid from 0 to 3</text>
+  <text class="small" x="78" y="320">Material v1 stays in</text>
+  <text class="small" x="78" y="346">packed instance params</text>
+
+  <rect class="cbv" x="420" y="105" width="230" height="80" />
+  <text class="label" x="452" y="140">Root 0</text>
+  <text class="small" x="452" y="166">CBV b0 constants</text>
+
+  <rect class="srv" x="420" y="215" width="230" height="80" />
+  <text class="label" x="452" y="250">Roots 1..4</text>
+  <text class="small" x="452" y="276">SRV tables t0..t3</text>
+
+  <rect class="sampler" x="420" y="325" width="230" height="80" />
+  <text class="label" x="452" y="360">Static Samplers</text>
+  <text class="small" x="452" y="386">s0 wrap, s1 clamp, s3 shadow</text>
+
+  <rect class="box" x="760" y="105" width="430" height="300" />
+  <text class="label" x="795" y="145">Why This Branch Matters</text>
+  <text class="small" x="795" y="185">The ABI is named in code and docs.</text>
+  <text class="small" x="795" y="220">Descriptor errors include row counts.</text>
+  <text class="small" x="795" y="255">Debug logs print current binding shape.</text>
+  <text class="small" x="795" y="320">Deferred: material table, bindless,</text>
+  <text class="small" x="795" y="346">or root expansion until needed.</text>
+
+  <path class="arrow" d="M 318 235 L 402 145" />
+  <path class="arrow" d="M 318 235 L 402 255" />
+  <path class="arrow" d="M 650 255 L 742 255" />
+</svg>
