@@ -41,6 +41,29 @@ Vector3 NormalizeShadowLightDirection( Vector3 lightDirectionWorld )
     lightDirectionWorld.Normalise();
     return lightDirectionWorld;
 }
+
+
+struct RenderFrameContext
+{
+    // Shared inputs for the ordered world-render passes. Keeping these names
+    // stable lets pass extraction move code without rediscovering camera and
+    // lighting ownership at every call site.
+    Matrix4 baseView;
+    Matrix4 projection;
+    Matrix4 viewProjection;
+    Matrix4 reflectionView;
+    Matrix4 reflectionViewProjection;
+    Vector3 eye;
+    Vector3 viewCenter;
+    Vector3 up;
+    Vector3 reflectionEye;
+    Vector3 reflectionCenter;
+    Vector3 reflectionUp;
+    float lightPosition[4] = { 200.0f, 400.0f, 1200.0f, 1.0f };
+    float waterY = 0.0f;
+    bool cinematicEnabled = false;
+    const CinematicRenderConfig* cinematic = nullptr;
+};
 } // namespace
 
 // The cinematic settings can come from two places:
@@ -796,16 +819,18 @@ void SkullbonezRun::DrawPrimitives()
     const CinematicRenderConfig& renderConfig = ActiveCinematicConfig();
     const bool shadowMapsEnabled = renderConfig.shadowsEnabled && IsGfxReady() && !m_debug.isTextOnly;
 
+    RenderFrameContext frame;
+    frame.cinematicEnabled = cinematicRender;
+    frame.cinematic = cinematicRender ? &renderConfig : nullptr;
     // Normal gameplay uses a point light (w = 1). Cinematic mode uses a
     // directional light (w = 0), which behaves like the sun: the same warm light
     // direction hits every object no matter where it is in the world.
-    float lightPosition[] = { 200.0f, 400.0f, 1200.0f, 1.0f };
-    if ( cinematicRender )
+    if ( frame.cinematicEnabled )
     {
-        lightPosition[0] = -0.68f;
-        lightPosition[1] = 0.22f;
-        lightPosition[2] = -0.70f;
-        lightPosition[3] = 0.0f;
+        frame.lightPosition[0] = -0.68f;
+        frame.lightPosition[1] = 0.22f;
+        frame.lightPosition[2] = -0.70f;
+        frame.lightPosition[3] = 0.0f;
     }
     if ( cinematicRender )
     {
@@ -819,12 +844,21 @@ void SkullbonezRun::DrawPrimitives()
         Gfx().Clear( true, true );
     }
 
-    // Get view and projection matrices from camera/window
-    Matrix4 baseView = m_systems.cameras->GetViewMatrix();
-    Matrix4 proj = m_systems.window->GetProjectionMatrix();
-    Matrix4 reflVP;
-    Vector3 eye = m_systems.cameras->GetRenderCameraTranslation();
-    Vector3 center = m_systems.cameras->GetRenderCameraView();
+    // Frame camera and reflection data are the first named pass contract. Later
+    // slices can pass this context into extracted render passes without changing
+    // which camera, light, or water plane the current frame uses.
+    frame.baseView = m_systems.cameras->GetViewMatrix();
+    frame.projection = m_systems.window->GetProjectionMatrix();
+    frame.viewProjection = frame.projection * frame.baseView;
+    frame.eye = m_systems.cameras->GetRenderCameraTranslation();
+    frame.viewCenter = m_systems.cameras->GetRenderCameraView();
+    frame.up = m_systems.cameras->GetRenderCameraUp();
+    frame.waterY = m_cWorldEnvironment.GetFluidSurfaceHeight();
+    frame.reflectionEye = Vector3( frame.eye.x, 2.0f * frame.waterY - frame.eye.y, frame.eye.z );
+    frame.reflectionCenter = Vector3( frame.viewCenter.x, 2.0f * frame.waterY - frame.viewCenter.y, frame.viewCenter.z );
+    frame.reflectionUp = Vector3( frame.up.x, -frame.up.y, frame.up.z );
+    frame.reflectionView = Matrix4::LookAt( frame.reflectionEye, frame.reflectionCenter, frame.reflectionUp );
+    frame.reflectionViewProjection = frame.projection * frame.reflectionView;
 
     PROFILE_BEGIN( "Frame/Render/PrepareModels" );
     m_cGameModelCollection.PrepareRenderStreams();
@@ -839,7 +873,7 @@ void SkullbonezRun::DrawPrimitives()
 
     m_systems.shadowFrame = Rendering::ShadowFrameData();
     m_systems.objectShadowFrame = Rendering::ShadowFrameData();
-    const CinematicRenderConfig* activeCinematic = cinematicRender ? &ActiveCinematicConfig() : nullptr;
+    const CinematicRenderConfig* activeCinematic = frame.cinematic;
     const CinematicRenderConfig* activeShadowConfig = shadowMapsEnabled ? &renderConfig : nullptr;
     if ( activeShadowConfig )
     {
@@ -848,14 +882,14 @@ void SkullbonezRun::DrawPrimitives()
         // so ball-on-ball shadows have enough texel density.
         PROFILE_SCOPED( "Frame/Shadows" );
         PROFILE_GPU_BEGIN( "Frame/Shadows/ShadowMap" );
-        Vector3 lightDirection( lightPosition[0], lightPosition[1], lightPosition[2] );
+        Vector3 lightDirection( frame.lightPosition[0], frame.lightPosition[1], frame.lightPosition[2] );
         EnsureShadowRenderResources( *activeShadowConfig );
         m_systems.shadowFrame = BuildShadowFrameData( *activeShadowConfig, lightDirection );
         if ( m_systems.shadowFBO )
         {
             RenderShadowMap( *m_systems.shadowFBO, m_systems.shadowFrame, *activeShadowConfig, true, true );
         }
-        m_systems.objectShadowFrame = BuildObjectShadowFrameData( *activeShadowConfig, lightDirection, eye );
+        m_systems.objectShadowFrame = BuildObjectShadowFrameData( *activeShadowConfig, lightDirection, frame.eye );
         if ( m_systems.objectShadowFBO )
         {
             RenderShadowMap( *m_systems.objectShadowFBO, m_systems.objectShadowFrame, *activeShadowConfig, false, true );
@@ -881,8 +915,8 @@ void SkullbonezRun::DrawPrimitives()
     if ( !cinematicRender )
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Skybox" );
-        Matrix4 skyView = baseView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
-        m_systems.skyBox->Render( skyView, proj );
+        Matrix4 skyView = frame.baseView * Matrix4::Translate( frame.eye.x, Cfg().skyboxRenderHeight, frame.eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
+        m_systems.skyBox->Render( skyView, frame.projection );
         PROFILE_GPU_END( "Frame/Render/Skybox" );
     }
 
@@ -892,20 +926,12 @@ void SkullbonezRun::DrawPrimitives()
     // an FBO. The DXR path rebuilds the raytracing TLAS and writes a screen-space
     // reflection texture directly. Both feed the same water shader later.
     PROFILE_GPU_BEGIN( "Frame/Render/Reflection" );
-    float waterY = m_cWorldEnvironment.GetFluidSurfaceHeight();
     const auto renderCapabilities = Gfx().GetCapabilities();
     const bool useDxrReflection = renderCapabilities.supportsDxrReflection &&
                                   m_debug.isWaterRTReflect &&
                                   !m_debug.isWaterNoReflect &&
                                   !collisionStateColorsVisible &&
                                   !transparentBodyPass;
-    // Mirror eye and look-at target about the water plane; flip up vector
-    Vector3 reflEye( eye.x, 2.0f * waterY - eye.y, eye.z );
-    Vector3 reflCenter( center.x, 2.0f * waterY - center.y, center.z );
-    Vector3 up = m_systems.cameras->GetRenderCameraUp();
-    Vector3 reflUp( up.x, -up.y, up.z );
-    Matrix4 reflView = Matrix4::LookAt( reflEye, reflCenter, reflUp );
-    reflVP = proj * reflView;
 
     if ( useDxrReflection )
     {
@@ -924,9 +950,8 @@ void SkullbonezRun::DrawPrimitives()
 
         // Ray generation reconstructs world-space rays from screen pixels, so
         // it needs the inverse of the main camera view-projection matrix.
-        Matrix4 vp = proj * baseView;
-        Matrix4 invVP = vp.Inverse();
-        float cameraPos[3] = { eye.x, eye.y, eye.z };
+        Matrix4 invVP = frame.viewProjection.Inverse();
+        float cameraPos[3] = { frame.eye.x, frame.eye.y, frame.eye.z };
         float simTime = static_cast<float>( m_timers.simulationTimer.GetTotalTime() );
 
         uint32_t sphereHandle = m_systems.textures->GetTextureHandle( TEXTURE_BOUNDING_SPHERE );
@@ -937,7 +962,7 @@ void SkullbonezRun::DrawPrimitives()
         uint32_t skyLeftHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_LEFT );
         uint32_t skyFrontHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_FRONT );
         uint32_t skyBackHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_BACK );
-        Gfx().DispatchReflectionRays( invVP.Data(), cameraPos, waterY, simTime, lightPosition, m_systems.window->m_sWindowDimensions.x * 2, m_systems.window->m_sWindowDimensions.y * 2, sphereHandle, terrainHandle, skyUpHandle, skyDownHandle, skyRightHandle, skyLeftHandle, skyFrontHandle, skyBackHandle );
+        Gfx().DispatchReflectionRays( invVP.Data(), cameraPos, frame.waterY, simTime, frame.lightPosition, m_systems.window->m_sWindowDimensions.x * 2, m_systems.window->m_sWindowDimensions.y * 2, sphereHandle, terrainHandle, skyUpHandle, skyDownHandle, skyRightHandle, skyLeftHandle, skyFrontHandle, skyBackHandle );
     }
     else
     {
@@ -952,30 +977,30 @@ void SkullbonezRun::DrawPrimitives()
         PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Skybox" );
         if ( cinematicRender && ActiveCinematicConfig().skyAtmosphereEnabled )
         {
-            RenderCinematicSky( reflView, proj );
+            RenderCinematicSky( frame.reflectionView, frame.projection );
         }
         else
         {
-            Matrix4 skyReflView = reflView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
-            m_systems.skyBox->Render( skyReflView, proj );
+            Matrix4 skyReflView = frame.reflectionView * Matrix4::Translate( frame.eye.x, Cfg().skyboxRenderHeight, frame.eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
+            m_systems.skyBox->Render( skyReflView, frame.projection );
         }
         PROFILE_GPU_END( "Frame/Render/Reflection/Skybox" );
 
-        // Game models reflected ? clip at water surface (above-water portion only)
+        // Game models reflected: clip at water surface (above-water portion only).
         PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
         Gfx().SetClipPlane( 0, true );
-        SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -waterY );
-        m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -waterY );
+        SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -frame.waterY );
+        m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -frame.waterY );
         if ( collisionStateColorsVisible )
         {
             m_collisionVisualizer.SetAlphaOverride( collisionVisualizerAlphaOverride );
-            m_collisionVisualizer.Render( m_cGameModelCollection, reflView, proj, lightPosition );
+            m_collisionVisualizer.Render( m_cGameModelCollection, frame.reflectionView, frame.projection, frame.lightPosition );
             m_collisionVisualizer.SetAlphaOverride( -1.0f );
         }
         else
         {
             m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-            m_cGameModelCollection.RenderModels( reflView, proj, lightPosition, activeCinematic, objectShadowFrame, bodyRenderAlpha );
+            m_cGameModelCollection.RenderModels( frame.reflectionView, frame.projection, frame.lightPosition, activeCinematic, objectShadowFrame, bodyRenderAlpha );
         }
         Gfx().SetClipPlane( 0, false );
         SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
@@ -999,12 +1024,12 @@ void SkullbonezRun::DrawPrimitives()
         PROFILE_GPU_BEGIN( "Frame/Render/CinematicSky" );
         if ( ActiveCinematicConfig().skyAtmosphereEnabled )
         {
-            RenderCinematicSky( baseView, proj );
+            RenderCinematicSky( frame.baseView, frame.projection );
         }
         else
         {
-            Matrix4 skyView = baseView * Matrix4::Translate( eye.x, Cfg().skyboxRenderHeight, eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
-            m_systems.skyBox->Render( skyView, proj );
+            Matrix4 skyView = frame.baseView * Matrix4::Translate( frame.eye.x, Cfg().skyboxRenderHeight, frame.eye.z ) * Matrix4::Scale( Cfg().skyboxScale );
+            m_systems.skyBox->Render( skyView, frame.projection );
         }
         PROFILE_GPU_END( "Frame/Render/CinematicSky" );
     }
@@ -1016,13 +1041,13 @@ void SkullbonezRun::DrawPrimitives()
         if ( collisionStateColorsVisible )
         {
             m_collisionVisualizer.SetAlphaOverride( collisionVisualizerAlphaOverride );
-            m_collisionVisualizer.Render( m_cGameModelCollection, baseView, proj, lightPosition );
+            m_collisionVisualizer.Render( m_cGameModelCollection, frame.baseView, frame.projection, frame.lightPosition );
             m_collisionVisualizer.SetAlphaOverride( -1.0f );
         }
         else
         {
             m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-            m_cGameModelCollection.RenderModels( baseView, proj, lightPosition, activeCinematic, objectShadowFrame );
+            m_cGameModelCollection.RenderModels( frame.baseView, frame.projection, frame.lightPosition, activeCinematic, objectShadowFrame );
         }
     }
     PROFILE_GPU_END( "Frame/Render/Balls" );
@@ -1032,7 +1057,7 @@ void SkullbonezRun::DrawPrimitives()
     {
         PROFILE_GPU_BEGIN( "Frame/Render/Terrain" );
         m_systems.textures->SelectTexture( TEXTURE_GROUND );
-        m_systems.terrain->Render( baseView, proj, lightPosition, activeCinematic, terrainShadowFrame );
+        m_systems.terrain->Render( frame.baseView, frame.projection, frame.lightPosition, activeCinematic, terrainShadowFrame );
         PROFILE_GPU_END( "Frame/Render/Terrain" );
     }
 
@@ -1047,12 +1072,12 @@ void SkullbonezRun::DrawPrimitives()
                                ? Gfx().GetReflectionUAVTexture()
                                : m_systems.reflectionFBO->GetColorTextureHandle();
         // DXR reflection texture is in main-camera screen space, so sample it
-        // using the main VP — not the mirror VP used by the FBO path.
+        // with the main VP instead of the mirror VP used by the FBO path.
         Matrix4 waterSampleVP = useDxrReflection
-                                    ? proj * baseView
-                                    : reflVP;
-        m_cWorldEnvironment.RenderFluid( baseView,
-                                         proj,
+                                    ? frame.viewProjection
+                                    : frame.reflectionViewProjection;
+        m_cWorldEnvironment.RenderFluid( frame.baseView,
+                                         frame.projection,
                                          waterSampleVP,
                                          waterTime,
                                          reflTex,
@@ -1069,13 +1094,13 @@ void SkullbonezRun::DrawPrimitives()
         if ( collisionStateColorsVisible )
         {
             m_collisionVisualizer.SetAlphaOverride( collisionVisualizerAlphaOverride );
-            m_collisionVisualizer.Render( m_cGameModelCollection, baseView, proj, lightPosition );
+            m_collisionVisualizer.Render( m_cGameModelCollection, frame.baseView, frame.projection, frame.lightPosition );
             m_collisionVisualizer.SetAlphaOverride( -1.0f );
         }
         else
         {
             m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-            m_cGameModelCollection.RenderModels( baseView, proj, lightPosition, activeCinematic, objectShadowFrame, bodyRenderAlpha );
+            m_cGameModelCollection.RenderModels( frame.baseView, frame.projection, frame.lightPosition, activeCinematic, objectShadowFrame, bodyRenderAlpha );
         }
         PROFILE_GPU_END( "Frame/Render/TransparentBalls" );
     }
@@ -1083,22 +1108,19 @@ void SkullbonezRun::DrawPrimitives()
     // Broadphase spatial grid overlay (G key toggle)
     if ( m_debug.isBroadphaseOverlay )
     {
-        Matrix4 viewProj = proj * baseView;
-        m_broadphaseVisualizer.Render( viewProj );
+        m_broadphaseVisualizer.Render( frame.viewProjection );
     }
 
     if ( m_runtimeSettings.tornadoField.visualizeVelocityField )
     {
-        Matrix4 viewProj = proj * baseView;
-        m_cGameModelCollection.RenderTornadoFieldVectors( viewProj );
+        m_cGameModelCollection.RenderTornadoFieldVectors( frame.viewProjection );
     }
 
     if ( m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE )
     {
-        Matrix4 viewProj = proj * baseView;
         m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
         m_physicsDebugVisualizer.SetPipelineStageCursor( m_debug.physicsDebugPipelineStageCursor );
-        m_physicsDebugVisualizer.Render( m_cGameModelCollection, viewProj, m_systems.terrain.get() );
+        m_physicsDebugVisualizer.Render( m_cGameModelCollection, frame.viewProjection, m_systems.terrain.get() );
     }
 
     if ( useCinematicTarget )
