@@ -794,14 +794,7 @@ SkullbonezRun::ReflectionPassOutput SkullbonezRun::RenderReflectionPass( const R
 
 void SkullbonezRun::RenderObjectPass( const ObjectPassInputs& inputs )
 {
-    if ( inputs.mode == ObjectPassMode::Transparent )
-    {
-        PROFILE_GPU_BEGIN( "Frame/Render/TransparentBalls" );
-    }
-    else
-    {
-        PROFILE_GPU_BEGIN( "Frame/Render/Balls" );
-    }
+    PROFILE_GPU_BEGIN( "Frame/Render/Balls" );
 
     if ( inputs.collisionStateColorsVisible )
     {
@@ -820,14 +813,7 @@ void SkullbonezRun::RenderObjectPass( const ObjectPassInputs& inputs )
                                              inputs.bodyAlpha );
     }
 
-    if ( inputs.mode == ObjectPassMode::Transparent )
-    {
-        PROFILE_GPU_END( "Frame/Render/TransparentBalls" );
-    }
-    else
-    {
-        PROFILE_GPU_END( "Frame/Render/Balls" );
-    }
+    PROFILE_GPU_END( "Frame/Render/Balls" );
 }
 
 
