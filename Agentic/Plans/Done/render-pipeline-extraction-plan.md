@@ -1,9 +1,20 @@
 # Render Pipeline Extraction Plan
 
-Status: planning draft  
-Created: 2026-06-11  
-Scope: render pass scheduling, shader binding ownership, renderer-neutral pass structure  
-Implementation status: plan only, no code changes in this pass
+Status: done
+Created: 2026-06-11
+Scope: render pass scheduling, shader binding ownership, renderer-neutral pass structure
+Implementation status: completed on `codex/render-pipeline-extraction`
+
+Completion note:
+
+- `SkullbonezRunRender.cpp` now builds the frame context and orchestrates named
+  passes instead of owning the render guts.
+- `SkullbonezRunPasses.cpp` owns pass resource hooks and render bodies for sky,
+  scene target, shadows, reflection, objects, terrain, water, debug overlays,
+  volumetric light, and tonemap.
+- `SkullbonezRunUiTextPass.cpp` owns UI/Text font lifetime and late-frame HUD/UI
+  rendering.
+- `tools\validate_full.bat` passed after extraction.
 
 Retirement dependency: keep render-pass extraction behind the DX12-only renderer
 validation gate unless a small preparatory slice directly supports that gate.

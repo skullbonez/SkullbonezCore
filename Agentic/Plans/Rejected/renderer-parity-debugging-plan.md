@@ -138,7 +138,7 @@ This requires render IDs or pass debug buffers later. Do not start here.
 
 ### Named Passes
 
-Renderer parity debugging benefits from `render-pipeline-extraction-plan.md`.
+Renderer parity debugging benefits from `Agentic/Plans/Done/render-pipeline-extraction-plan.md`.
 
 Each pass should have a stable name:
 

@@ -391,13 +391,12 @@ could include:
 1. `pix-profiling-integration-plan.md`
 2. `validation-harness-upgrade-plan.md`
 3. `render-resource-lifetime-plan.md`
-4. `render-pipeline-extraction-plan.md`
-5. `shader-architecture-cleanup-plan.md`
-6. `asset-texture-registry-plan.md`
-7. `material-system-v1-implementation-plan.md`
-8. `water-rendering-cleanup-plan.md`
-9. `replay-system-plan.md`
-10. `worker-system-plan.md`
+4. `shader-architecture-cleanup-plan.md`
+5. `asset-texture-registry-plan.md`
+6. `material-system-v1-implementation-plan.md`
+7. `water-rendering-cleanup-plan.md`
+8. `replay-system-plan.md`
+9. `worker-system-plan.md`
 
 These should not all be marked `ready` immediately. Several are large and
 overlapping. The first queue pass should pick a narrow, low-risk item that tests
