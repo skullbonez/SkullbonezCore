@@ -2,7 +2,7 @@
 
 Date: 2026-06-02
 
-Status update: 2026-06-10
+Status update: 2026-06-15
 
 Scope: current `main` worktree review of `SkullbonezSource/`, `Agentic/Reference/`, existing audits/plans, renderer interfaces, scene loading, physics, validation, and runtime architecture. This report is based on source inspection only; it does not include runtime profiling beyond the existing profiler/validation infrastructure.
 
@@ -20,112 +20,140 @@ The highest-leverage improvement is not another feature. It is to carve clear su
 4. Replace manual parser/config chains with table-driven schemas that still preserve deterministic text scenes.
 5. Add a resource/device lifetime layer so DX12 reset and future backend bring-up are robust by construction.
 
-### 2026-06-10 Branch Scope Update
+### 2026-06-15 Current Branch Assessment
 
-This plan is now being used as the backlog for the `codex/architecture-cleanup` branch. Several items from the original pass have been partly or fully addressed since 2026-06-02, so the current branch should focus on the remaining boundaries rather than re-solving fixed work.
+Assessment target: clean `main` branch in `C:\SkullbonezCore`. This pass is based
+on source inspection only. It did not run validation because the update is
+documentation-only.
 
-Resolved or mostly resolved:
+Several items from the original architecture pass are now complete enough to
+stop treating them as open backlog:
 
-| Area | Current status |
-|------|----------------|
-| Terrain/object solver unification | Implemented through shared persistent solver rows; see `Agentic/Plans/physics-terrain-shared-row-pipeline-plan.md`. |
-| Scene parser command dispatch | Partially implemented with directive tables in `SkullbonezTestSceneParser.cpp`; UI tab and water reflection value aliases now share a compact typed option helper. Remaining work is diagnostics, more typed helpers, and less prefix/token glue. |
-| Config and CLI parsing | Config settings are table-driven, CLI value/flag handling has directive-table footholds, renderer selection and generated-object overrides use option tables, physics debug component flags and ranged float overrides use directive tables, and suite-file scene lists use scoped file IO. Remaining parser pressure is mostly resolved-config reporting and shrinking the specialized physics/scene argument helpers. |
-| Runtime file split | `SkullbonezRun` behavior has been split across focused `.cpp` files, with capture serialization, renderer resource phases, scene-queue lookup, and scene reset snapshot/restore now behind small named helper boundaries. The runtime is still one broad facade rather than owned subsystems. |
-| Physics commentary | Core physics-facing files now have layman-oriented comments explaining collision, solver, terrain, and visualizer behavior. |
-| GL-era render resource names | Remaining runtime/helper/model/skybox/world reset methods now use backend-neutral `ResetRenderResources()` naming. |
-| Render backend capabilities | A compatibility-preserving `RenderCapabilities` query now centralizes GPU timer, DXR, debug line, instancing, capture, and dynamic-VB support checks; capture-dependent and debug-line overlay callers now honor the relevant capability boundaries. |
-| Source asset scaffold | `Assets::AssetSystem` exists as source-asset/path-resolution scaffolding and is now wired into runtime terrain/core texture path resolution; GPU resource ownership is still separate. |
-| Capture subsystem seed | Backbuffer-to-BMP serialization now lives behind `CaptureSystem`, while `SkullbonezRun::SaveScreenshot()` remains the runtime facade. |
-| File-handle and temporary-resource RAII | Config loading, terrain raw loading, scene parsing, suite-file startup parsing, nudge repro snapshot writing, text atlas IO, backbuffer capture, DX12 shader compile blobs, and DX12 root-signature/generate-mips temporary blobs now use scoped ownership rather than manual close/release paths. |
-| Header namespace cleanup | Complete for `SkullbonezSource/*.h`: broad `using namespace` imports have been removed from source headers, with implementation shorthand kept local to `.cpp` files or internal runtime glue. |
-| DX12 resource reset phases | Backend-owned release/rebuild sequences now run through an ordered resource-step table with named hooks for reflection, cinematic targets, text, models, helper caches, collision visualization, UI, textures, terrain, skybox, and world resources. This completes the branch's registry prep while preserving the future `IRenderResource` registry as a deeper render-pipeline step. |
+| Area | Current status on `main` |
+|------|--------------------------|
+| DX12-only renderer retirement | Done. Runtime GL/DX11 choices and legacy shader families are gone; DX12 is the production renderer and validation target. |
+| Render resource lifetime prep | Done for the current architecture. Backend-owned release/rebuild uses named lifecycle steps, pass resources have explicit release hooks, source asset records rebuild textures/shaders, and DX12 device-lost diagnostics write actionable reports. Live in-frame recovery is still deferred. |
+| Render pipeline/pass extraction | Done. `DrawPrimitives()` is now a short frame-order orchestrator; `SkullbonezRunPasses.cpp` and `SkullbonezRunUiTextPass.cpp` own named pass bodies, pass inputs/outputs, and pass GPU resource lifetimes. |
+| `PhysicsWorld` adapter boundary | Done. `PhysicsWorld` owns broadphase, sleep, persistent contact, solver scratch, debug trace, and diagnostics state while `GameModelCollection` delegates physics to it. |
+| Terrain/object solver unification | Done through shared persistent solver rows and the Catto-style terrain row pipeline. |
+| Config and CLI parsing footholds | Mostly done. Config settings are metadata-driven, CLI flags/values use directive tables, and `--dump-config`/`--dump-assets` exist. |
+| Scene parser dispatch | Mostly done. Scene files use directive tables and UI subdirective tables, but many directive bodies still use bespoke token parsing. |
+| Header namespace cleanup | Done for current source headers. Keep `.cpp`-local shorthand local. |
+| DX12 descriptor/upload foundation | Partly done. `Dx12DescriptorAllocator`, CPU descriptor allocators, and `Dx12FrameUploadSystem` exist, with descriptor/upload accounting. The root signature remains intentionally narrow. |
+| Asset system scaffold | Partly done. Source asset and shader source records exist, with a transitional active-asset bridge for legacy helpers. Runtime GPU cache/material/mesh integration is not complete. |
 
-Remaining implementation scope for this branch. Validation commands listed here
-are targeted pre-commit/PR gates, not commands to run during normal iteration:
+Current remaining implementation scope. Validation commands listed here are
+targeted pre-commit/PR gates, not commands to run during normal iteration:
 
-| Item | Implement on this branch? | Validation expectation |
-|------|---------------------------|------------------------|
-| Neutral render resource lifetime names and registry prep | Complete for current DX12 reset paths; full `IRenderResource` ownership is still part of render pipeline/resource registry extraction | `tools\validate_dx12_renderer.bat` if future render-resource code changes. |
-| `SkullbonezRun` subsystem extraction | Yes, one subsystem at a time; capture facade, renderer resource phase helpers, scene-queue lookup helpers, and reset snapshot/restore helpers are started | `tools\validate_full.bat` for runtime code movement. |
-| Render backend capability split | Partly done through `RenderCapabilities`; capture and debug-line callers now use the capability boundary, while deeper interface split remains | `tools\validate_dx12_renderer.bat` plus DX12 validation log check. |
-| Render pipeline/pass extraction | Yes, incremental facade-first extraction | `tools\validate_dx12_renderer.bat`. |
-| `PhysicsWorld` boundary | Yes, adapter-first extraction only | `tools\validate_physics.bat`; add `tools\validate_perf.bat` if hot storage changes. |
-| CLI parser cleanup | In progress; renderer selection and generated-object overrides are table-driven, value/flag directive tables are in place, physics debug component switches and ranged float overrides are table-driven, suite-file loading uses scoped IO, and specialized physics/scene helpers remain | `tools\validate_fast.bat`; use broader validation if launch behavior changes or `SkullbonezInit*` changes. |
-| Scene parser cleanup | In progress; directive tables and shared value-option parsing are in place for selected directives | `tools\validate_fast.bat`; use `tools\validate_full.bat` if scene loading semantics change. |
-| Header namespace cleanup | Complete for current source headers; preserve this as a guardrail for future headers | `tools\validate_full.bat` if future header ownership changes cross subsystem boundaries. |
-| RAII cleanup | In progress; file handles/source buffers plus selected DX12 shader/root-signature/backbuffer temporaries are improved, including suite parsing and nudge repro snapshot writing, while broader backend-owned COM resources remain | Renderer-specific validation for COM/resource changes. |
-| Asset system | Scaffold started with source records/path resolution and runtime terrain/core texture paths now register through it; cache and GPU lifetime integration remain | `tools\validate_dx12_renderer.bat` when renderer assets are touched; `tools\validate_full.bat` if routed through `SkullbonezRun*`. |
-| Worker system implementation | No | Design notes only; primary design lives in `Agentic/Plans/worker-system-plan.md`. |
-| Replay/debug implementation | No | Design notes only. |
-| Standout/stretch feature implementation | No | Design notes only. |
+| Priority | Area | What remains | Validation expectation |
+|----------|------|--------------|------------------------|
+| High | Shader architecture and material v1 | Continue on the separate shader-architecture task. Current pass boundaries give good insertion points, but shader contracts, texture slots, uniform requirements, material data, and style/material semantics are still mostly implicit. Do not mix code changes from this architecture update with the parallel shader branch. | `tools\validate_dx12_renderer.bat`; add `tools\validate_perf.bat` if object instance payloads or hot material paths change. |
+| High | Runtime subsystem extraction | `SkullbonezRun` is split across focused files and has pass objects, but it still owns scene loading, simulation policy, input command handling, diagnostics, UI command application, and capture orchestration. Next slices should extract `SceneRuntime`, then `SimulationSystem`, then `RuntimeDiagnostics`/`InputController` as facades first. | `tools\validate_full.bat` for runtime movement. |
+| High | Physics data boundary | `PhysicsWorld` exists, but the real body store is still `std::vector<GameModel>` inside `GameModelCollection`, and render/collider/rigid-body data are still coupled through `GameModel`. Next slices should split body/collider/render snapshots, isolate legacy solver behavior behind a solver strategy, and move toward data-oriented body arrays only after adapter behavior is stable. | `tools\validate_physics.bat`; add `tools\validate_perf.bat` for storage/hot-loop changes. |
+| High | Render graph/resource-state ownership | `RenderGraph` is a diagnostic skeleton and the live DX12 backend still records barriers manually in clears, framebuffer bind/unbind, DXR reflection, mip generation, readback, and present paths. The next render-architecture step is to use graph declarations to validate or drive resource transitions, not to add another pass extraction. | `tools\validate_dx12_renderer.bat`; verify `dx12_validation.txt` stays zero-error. |
+| Medium-high | Render backend interface split | `RenderCapabilities` exists, but `IRenderBackend` still exposes DXR, GPU timers, dynamic VBs, debug lines, capture, instancing, textures, meshes, framebuffers, and state control in one interface. Split only when a future backend, render graph, or tooling slice needs the sharper boundary. | `tools\validate_dx12_renderer.bat`. |
+| Medium | Asset system maturation | Source records and logical shader names exist. Remaining work is cache/invalidation policy, material/mesh records, hot reload hooks, and explicit source-vs-GPU lifetime integration with pass/resource ownership. | `tools\validate_dx12_renderer.bat` for renderer assets; `tools\validate_full.bat` if routed through runtime lifecycle. |
+| Medium | Scene/config schema cleanup | CLI/config are much better, and scene dispatch is table-driven, but object, physics, cinematic, and style directives still rely on specialized token helpers and fixed arrays. Add richer diagnostics, typed directive schemas, and serializer-friendly metadata only in focused parser slices. | `tools\validate_fast.bat`; use `tools\validate_full.bat` if launch or scene-load semantics can change. |
+| Medium | RAII and DX12 ownership | Many file handles now have scoped wrappers and shader blobs use `ComPtr`, but broad backend-owned DX12 resources, BLAS/TLAS/SBT resources, framebuffers, PSO caches, and several log/live-style file paths still use manual lifetime. Convert one ownership family at a time. | Renderer-specific changes need `tools\validate_dx12_renderer.bat`; broad lifetime changes may need `tools\validate_full.bat`. |
+| Medium | DX12 binding/root-signature cleanup | Descriptor and upload allocators exist, but the ordinary raster root signature is still one CBV plus fixed SRV slots. Keep it until material/post/water work proves more slots or tables are needed; then use `Agentic/Plans/dx12-descriptor-upload-root-signature-plan.md`. | `tools\validate_dx12_renderer.bat`; add `tools\validate_perf.bat` for hot binding changes. |
+| Medium | Water cleanup and known bug | `WaterPass` is extracted, but `WorldEnvironment` still owns most water shader setup and water style binding. The known bug where water renders through intersecting sphere back faces remains open. | `tools\validate_dx12_renderer.bat`; use focused water scenes before PR validation. |
+| Medium | Global coupling / `EngineContext` | New pass/runtime code still reaches through `Gfx()`, `Cfg()`, window, camera, texture, skybox, profiler, and active asset globals. Do not try to remove all globals at once; pass explicit context into new extracted systems so the web stops growing. | Depends on touched subsystem. |
+| Deferred | Worker system | Still design-only. Do not implement workers until `SimulationSystem` and the next `PhysicsWorld` data boundary exist. | Future worker work needs `tools\validate_physics.bat`, `tools\validate_perf.bat`, and explicit single-thread vs multi-thread deterministic comparison. |
+| Deferred | Replay/debug tooling and standout features | Still design-only. Replay, render truth tools, profiler spatialization, scene forge, and water signature work should consume stable runtime/render/physics/asset boundaries rather than adding more logic to `SkullbonezRun` or `GameModelCollection`. | Depends on feature; start with narrow docs or `validate_fast`, then broaden when integrated. |
 
-Commit policy for this branch: land one architecture item at a time. Before each
-PR-bound feature-branch commit, run the targeted validation for the touched
-area, then commit and push without asking for additional permission.
+The short version: the old Phase 1 boundary work, render resource lifetime prep,
+render pipeline extraction, and adapter-first `PhysicsWorld` are no longer the
+main backlog. The remaining core architecture work is now shader/material
+contracts, runtime scene/simulation ownership, physics data separation, and
+turning the diagnostic render graph into real DX12 resource-state ownership.
 
 ## Current Architectural Shape
 
 ### Runtime and App Flow
 
-The app starts in `SkullbonezInit.cpp`, manually parses command-line flags, creates the window/backend, constructs `SkullbonezRun`, and then enters a single-threaded frame loop. `SkullbonezRun` is the central runtime object:
+The app starts in `SkullbonezInit.cpp`, tokenizes and parses command-line
+flags, creates the window/backend, constructs `SkullbonezRun`, and then enters
+a single-threaded frame loop. `SkullbonezRun` is still the central runtime
+object, but its behavior is now split across focused implementation files and
+named render pass objects:
 
 | Responsibility | Current anchor |
 |----------------|----------------|
-| DX12 resource reset | `SkullbonezSource/SkullbonezRun.cpp:221` |
-| Main frame loop | `SkullbonezSource/SkullbonezRun.cpp:592` |
-| Physics timestep policy | `SkullbonezSource/SkullbonezRun.cpp:706` |
-| Render pass ordering | `SkullbonezSource/SkullbonezRun.cpp:1329` |
-| Scene load/reset state | `SkullbonezSource/SkullbonezRun.cpp:2612` |
-| Runtime state storage | `SkullbonezSource/SkullbonezRun.h:41`, `SkullbonezSource/SkullbonezRun.h:195` |
+| Command-line parse | `SkullbonezSource/SkullbonezInit.cpp:1463` |
+| Backend-owned resource release order | `SkullbonezSource/SkullbonezRun.cpp:96` |
+| Runtime initialization | `SkullbonezSource/SkullbonezRun.cpp:459` |
+| Main frame loop | `SkullbonezSource/SkullbonezRunFrame.cpp:28` |
+| Render pass ordering | `SkullbonezSource/SkullbonezRunRender.cpp:142` |
+| Scene load/reset state | `SkullbonezSource/SkullbonezRunScene.cpp:624` |
+| Per-frame render contract | `SkullbonezSource/SkullbonezRun.h:418` |
 
-This is understandable for an engine that grew from a demo harness. It is also the main maintainability limiter now.
+This is a healthier shape than the 2026-06-02 baseline, but `SkullbonezRun` is
+still the facade for scene lifecycle, simulation timing, UI commands,
+diagnostics, capture behavior, and render orchestration. The next runtime work
+is owned subsystem extraction, not more file splitting.
 
 ### Rendering
 
-The render abstraction is centered on a global `IRenderBackend` instance:
+The render abstraction is centered on a global `IRenderBackend` instance, with
+DX12 as the only active implementation. Pass extraction is complete enough for
+day-to-day work, while backend binding and resource-state ownership are still
+the next deep renderer boundaries.
 
 | Area | Current anchor |
 |------|----------------|
-| Backend interface | `SkullbonezSource/SkullbonezIRenderBackend.h:35` |
+| Capabilities query | `SkullbonezSource/SkullbonezIRenderBackend.h:55` |
+| Backend interface | `SkullbonezSource/SkullbonezIRenderBackend.h:74` |
 | Global accessor | `SkullbonezSource/SkullbonezIRenderBackend.cpp:14` |
-| DXR methods on backend interface | `SkullbonezSource/SkullbonezIRenderBackend.h:124` |
-| DX12 backend | `SkullbonezSource/SkullbonezRenderBackendDX12.h:100` |
-| DX12 frame resources | `SkullbonezSource/SkullbonezRenderBackendDX12.h:107`, `SkullbonezSource/SkullbonezRenderBackendDX12.h:137`, `SkullbonezSource/SkullbonezRenderBackendDX12.h:167` |
+| Pass objects and pass inputs | `SkullbonezSource/SkullbonezRun.h:402` |
+| Pass implementations | `SkullbonezSource/SkullbonezRunPasses.cpp:118` |
+| UI/text pass | `SkullbonezSource/SkullbonezRunUiTextPass.cpp:28` |
+| DX12 descriptor/upload helpers | `SkullbonezSource/SkullbonezRenderDeviceDX12.h:337`, `SkullbonezSource/SkullbonezRenderDeviceDX12.h:541` |
+| Diagnostic render graph | `SkullbonezSource/SkullbonezRenderGraph.h:217`, `SkullbonezSource/SkullbonezRenderBackendDX12.cpp:482` |
 
-The current code has already fixed several older audit concerns. DX12 has frame-indexed command allocators and per-frame upload buffers. These are important strengths.
-
-The pressure point is interface breadth. `IRenderBackend` is a render device, swap chain, texture registry, shader factory, mesh factory, FBO factory, screenshot capture service, state machine, DXR dispatcher, GPU timer provider, dynamic vertex buffer manager, debug line renderer, and instancing API. This makes every backend implement no-op feature methods, and it makes high-level systems know too much about backend mechanics.
+The current code has already fixed several older audit concerns. DX12 has
+frame-indexed command allocators, descriptor allocators, per-frame upload
+arenas, named pass objects, and pass-owned GPU resource release hooks. The
+pressure point is now the live backend contract: `IRenderBackend` is still a
+render device, swap chain, texture registry, shader factory, mesh factory, FBO
+factory, screenshot capture service, state machine, DXR dispatcher, GPU timer
+provider, dynamic vertex buffer manager, debug line renderer, and instancing
+API. The render graph is also diagnostic-only; hand-written DX12 barriers remain
+the production path.
 
 ### Physics and Game Objects
 
-Physics is the most interesting subsystem, but its boundary is blurry:
+Physics now has a real `PhysicsWorld`, but the entity/data split is not done:
 
 | Area | Current anchor |
 |------|----------------|
-| `GameModelCollection` owner | `SkullbonezSource/SkullbonezGameModelCollection.h:35` |
-| Physics dispatch | `SkullbonezSource/SkullbonezGameModelCollection.cpp:301` |
-| Legacy solver | `SkullbonezSource/SkullbonezGameModelCollection.cpp:407` |
-| Persistent contact solver | `SkullbonezSource/SkullbonezGameModelCollection.cpp:533` |
-| Impulse solver path | `SkullbonezSource/SkullbonezGameModelCollection.cpp:1140` |
-| Contact rows and warm-start state | `SkullbonezSource/SkullbonezGameModelCollection.h:79`, `SkullbonezSource/SkullbonezGameModelCollection.h:104` |
+| `GameModelCollection` facade/store | `SkullbonezSource/SkullbonezGameModelCollection.h:55` |
+| `PhysicsWorld` owner | `SkullbonezSource/SkullbonezPhysicsWorld.h:54` |
+| Physics step entry | `SkullbonezSource/SkullbonezPhysicsWorld.cpp:177` |
+| Persistent contact/sleep/solver state | `SkullbonezSource/SkullbonezPhysicsWorld.h:79`, `SkullbonezSource/SkullbonezPhysicsWorld.h:182` |
 | Collision shape variant | `SkullbonezSource/SkullbonezCollisionShape.h:22` |
 | Game model friend access | `SkullbonezSource/SkullbonezGameModel.h:41`, `SkullbonezSource/SkullbonezGameModel.h:43` |
 
-The variant-backed collision shape is a strong modern choice: adding a shape forces dispatch sites to compile-check completeness. The spatial grid is also a good specialized structure for the fixed object cap. The weak point is that renderable object, rigid body, collider, solver scratch, sleep island, and debug state are all still tied together.
+The variant-backed collision shape remains a strong modern choice, and
+`PhysicsWorld` now owns the solver working set. The weak point is that the
+actual object store, render-facing model data, collider access, and rigid-body
+state still flow through `GameModel`/`GameModelCollection`. The next physics
+architecture pass should separate body/collider/render snapshots without
+changing solver behavior in the same slice.
 
 ### Scenes, Config, and Validation
 
-The scene system is plain text and deterministic, which is exactly right for regression scenes. The parser, however, is a long chain of `strncmp`/`sscanf_s` cases:
+The scene system is plain text and deterministic, which is exactly right for
+regression scenes. Dispatch is now table-driven, but directive bodies still use
+manual token and field parsing:
 
 | Area | Current anchor |
 |------|----------------|
 | Scene data structs | `SkullbonezSource/SkullbonezTestScene.h:65`, `SkullbonezSource/SkullbonezTestScene.h:138` |
-| Scene parser entry | `SkullbonezSource/SkullbonezTestScene.h:156` |
-| Directive chain starts | `SkullbonezSource/SkullbonezTestScene.cpp:53` |
-| Complex object parsing | `SkullbonezSource/SkullbonezTestScene.cpp:386`, `SkullbonezSource/SkullbonezTestScene.cpp:422`, `SkullbonezSource/SkullbonezTestScene.cpp:546` |
+| Scene directive table | `SkullbonezSource/SkullbonezTestSceneParser.cpp:130` |
+| Scene parser load loop | `SkullbonezSource/SkullbonezTestSceneParser.cpp:1699` |
 | Config singleton | `SkullbonezSource/SkullbonezConfig.h:35` |
-| Config parser | `SkullbonezSource/SkullbonezConfig.cpp:20` |
+| Config metadata | `SkullbonezSource/SkullbonezConfig.cpp:46` |
+| Asset source registry | `SkullbonezSource/SkullbonezAssetSystem.h:114` |
 
 The validation culture is excellent. The `tools/` scripts create a clear contract for DX12 renderer regression, physics determinism, performance, and fast documentation checks. That discipline should be preserved as a first-class architectural feature.
 
@@ -170,7 +198,11 @@ Recommended split:
 
 Do this as extraction, not rewrite. Move one cohesive chunk at a time and keep `SkullbonezRun` as the facade until the final shape is clear.
 
-Branch progress: `CaptureSystem` owns backbuffer-to-BMP serialization, DX12 resource reset prep is organized through named resource phase tables, scene queue access now goes through helper methods instead of repeated direct bounds checks, and reset-time runtime state capture/restore is isolated from the main `LoadScene` flow. The next `SceneRuntime` slice should move more load/reset/advance policy behind a facade while keeping `SkullbonezRun` as the caller-facing coordinator.
+Current status: render-pass extraction and backend resource lifetime cleanup are
+done, but runtime ownership is still concentrated. The next `SceneRuntime` slice
+should move more load/reset/advance policy behind a facade while keeping
+`SkullbonezRun` as the caller-facing coordinator. After that, extract
+`SimulationSystem` for timestep and fixed-step policy.
 
 Priority: High. Effort: Medium-high. Risk: Medium, because it touches broad runtime behavior.
 
@@ -205,9 +237,16 @@ Validation: `validate_dx12_renderer`, plus DX12 validation log check.
 
 ### 3. Introduce A Render Pipeline Layer
 
-`DrawPrimitives()` schedules skybox, reflection, model rendering, terrain, shadows, water, and debug visualization directly. The render pass order is real architecture, but it is represented as one large function.
+Current status: the first render-pipeline layer is implemented. `DrawPrimitives()`
+is now a short ordered list of named pass objects with explicit input/output
+bundles. Do not reopen this as another mechanical pass extraction task.
 
-Recommended shape:
+The remaining render architecture work is to move from named pass order to
+explicit resource-state ownership. `RenderGraph` currently describes pass and
+resource intent, but the live DX12 backend still owns command recording and
+barriers manually.
+
+The longer-term shape is still:
 
 ```cpp
 struct RenderFrameContext
@@ -225,7 +264,7 @@ class RenderPipeline
 };
 ```
 
-Then extract passes:
+The first pass extraction produced the practical versions of these passes:
 
 | Pass | Notes |
 |------|-------|
@@ -237,17 +276,24 @@ Then extract passes:
 | WaterPass | FBO or DXR reflection texture input |
 | DebugOverlayPass | Collision and broadphase visualizers |
 
-This sets the engine up for render graph work later, but does not require a full graph immediately.
+This now sets the engine up for live render graph work. The next slice should
+compare graph transitions against the current hand-written DX12 barriers before
+moving barriers or command recording into the graph.
 
-Priority: High. Effort: Medium. Risk: Medium.
+Priority: High for graph/resource-state ownership. Effort: Medium-high. Risk:
+High, because barrier mistakes are GPU correctness bugs.
 
-Validation: `validate_dx12_renderer`.
+Validation: `validate_dx12_renderer`, plus `dx12_validation.txt` zero-error.
 
 ### 4. Formalize Resource Lifetime For Backend Switching
 
-The current `ResetGLResources()` name is doing more than GL now. Terrain uses `ResetRenderResources()`, while helper/skybox/world/model collection still use GL-era naming.
+Current status: backend-neutral reset naming and ordered release/rebuild phases
+are done for the active DX12 architecture. Pass resources have explicit
+`EnsureGpuResources()` / `ReleaseGpuResources()` hooks, and backend-owned
+release order is table-driven.
 
-Recommended shape:
+The deeper optional shape remains useful if render resources move out of the
+runtime facade:
 
 ```cpp
 class IRenderResource
@@ -257,13 +303,14 @@ class IRenderResource
 };
 ```
 
-Add a small resource registry owned by the runtime or render pipeline:
+If needed, add a small resource registry owned by the runtime or render graph:
 
 1. Before backend destruction: `ReleaseRenderResources()` in dependency order.
 2. After backend creation: `CreateRenderResources()` in dependency order.
 3. On resize: notify only resources that depend on dimensions.
 
-This would make DX12 device reset and future device-lost handling less bespoke.
+DX12 device-lost diagnostics are present, but live in-frame recovery is not
+enabled. Real recovery should wait until pass/resource graph ownership is clear.
 
 Priority: High. Effort: Medium. Risk: Medium.
 
@@ -271,7 +318,9 @@ Validation: `validate_dx12_renderer`, ideally three consecutive DX12-heavy runs 
 
 ### 5. Promote Physics To `PhysicsWorld`
 
-`GameModelCollection` should eventually stop being both a render collection and a physics world. A better shape:
+Current status: adapter-first `PhysicsWorld` exists and owns solver/contact/sleep
+working state. `GameModelCollection` should still eventually stop being both a
+render collection and the owner of the model/body store. A better final shape:
 
 ```cpp
 struct EntityId { uint32_t index; uint32_t generation; };
@@ -287,7 +336,9 @@ class PhysicsWorld
 };
 ```
 
-Keep `GameModel` temporarily as an adapter, then phase it into separate body/collider/render data. This will make worker parallelism, island decomposition, new shape types, and replay easier.
+Keep `GameModel` temporarily as an adapter, then phase it into separate
+body/collider/render data. This will make worker parallelism, island
+decomposition, new shape types, and replay easier.
 
 Priority: High. Effort: High. Risk: High.
 
@@ -333,7 +384,8 @@ Validation: `validate_physics` and `validate_perf`.
 
 ### 8. Implement The Worker Plan Conservatively
 
-Status for `codex/architecture-cleanup`: design-only. Do not implement worker infrastructure on this branch.
+Status: design-only. Do not implement worker infrastructure until
+`SimulationSystem` and the next `PhysicsWorld` data boundary exist.
 
 `Agentic/Plans/worker-system-plan.md` is directionally sound. The safest first step is not full island decomposition; it is a deterministic worker pool with parallel stages that have independent per-index writes.
 
@@ -362,11 +414,15 @@ Design integration notes for the future worker branch:
 | Configuration | `worker_threads`, `physics_parallel`, and any amortized-task toggles belong in config metadata and CLI tables. |
 | Validation | Every worker implementation step must compare single-thread and multi-thread deterministic physics output. |
 
-The worker branch should not start until `PhysicsWorld` and runtime simulation boundaries exist, because those boundaries define which data workers may touch.
+The worker branch should not start until `PhysicsWorld` data ownership and
+runtime simulation boundaries exist, because those boundaries define which data
+workers may touch.
 
 ### 9. Make Scene Parsing Table-Driven
 
-The current parser is readable in the small, but it is becoming a long command interpreter. Keep the plain text format, but move directive definitions into a table:
+Current status: directive dispatch tables exist for scene commands and UI
+subcommands. Keep the plain text format, but move the remaining directive bodies
+toward typed parsing/schema metadata:
 
 ```cpp
 struct SceneDirective
@@ -391,14 +447,17 @@ Validation: `validate_fast` if parser tests are not changed; `validate_full` if 
 
 ### 10. Strengthen Config And CLI Parsing
 
-The config loader and command-line parser use manual string scanning. This is fine for a small harness, but engine configuration will keep expanding.
+Current status: config settings are metadata-driven, command-line tokens are
+parsed once, flag/value directive tables exist, and `--dump-config` is present.
+Remaining work is mostly resolved-config reporting quality, shrinking specialized
+physics/scene helpers, and keeping new options in the tables.
 
 Recommended:
 
-1. Parse command-line tokens once, respecting quotes.
-2. Use a directive table for CLI flags, just like scenes.
-3. Give config keys typed metadata: name, type, default, min/max, target field.
-4. Add `--dump-config` to print the resolved config after file, scene, and CLI overrides.
+1. Keep command-line aliases in directive tables.
+2. Keep config keys typed with metadata: name, type, default, min/max, target field.
+3. Improve resolved config reporting after file, scene, and CLI overrides.
+4. Avoid adding new one-off parser helpers unless a focused directive needs them.
 
 Priority: Medium. Effort: Medium. Risk: Low.
 
@@ -428,15 +487,18 @@ Validation: depends on touched area.
 
 ### 12. Clean Namespace Pollution In Headers
 
-Many headers use `using namespace`, including `using namespace std` in `SkullbonezGameModelCollection.h`. That leaks names into every translation unit that includes them.
+Current status: complete for current source headers. Broad `using namespace`
+imports are `.cpp`-local or internal glue only. Preserve this as a guardrail for
+future headers.
 
 Recommended:
 
-1. Remove `using namespace std` from headers first.
-2. Prefer fully-qualified names in headers.
-3. Keep local `using` declarations in `.cpp` files only.
+1. Prefer fully-qualified names in headers.
+2. Keep local `using` declarations in `.cpp` files only.
+3. Treat any new header-level broad namespace import as a regression.
 
-Priority: Medium. Effort: Medium, but mechanical. Risk: Medium due to broad compile impact.
+Priority: Guardrail. Effort: Low unless new broad header work regresses it.
+Risk: Medium if it regresses across subsystem boundaries.
 
 Validation: `validate_full` if many headers change.
 
@@ -448,7 +510,7 @@ Recommended:
 
 | Resource | Replacement |
 |----------|-------------|
-| `ID3D11*` / `ID3D12*` raw pointers | `Microsoft::WRL::ComPtr<T>` |
+| `ID3D12*` raw owners | `Microsoft::WRL::ComPtr<T>` or a focused owner type |
 | `FILE*` with manual close | Small `FileHandle` RAII wrapper or `std::ofstream` where binary compatibility allows |
 | Manual `new[]` shader source | `std::vector<char>` or `std::string` |
 
@@ -456,11 +518,15 @@ Priority: Medium. Effort: Medium-high. Risk: Medium.
 
 Validation: renderer-specific scripts for COM refactors.
 
-### 14. Add A Small Asset System
+### 14. Mature The Asset System
 
-Assets are currently loaded through texture collection, shader creation by path, terrain raw loading, font atlas handling, and scene strings. A small asset system would centralize path resolution, caching, invalidation on backend switch, and eventually hot reload.
+Current status: `AssetSystem` exists and owns source records for logical
+textures/shaders plus path resolution. Runtime initialization registers built-in
+assets and rebuilds texture/shader resources from those records. Remaining work
+is to grow this from a source-record registry into cache/invalidation, mesh and
+material records, hot reload, and clearer source-vs-GPU lifetime ownership.
 
-Start with:
+The longer-term shape can still look like:
 
 ```cpp
 class AssetSystem
@@ -471,7 +537,8 @@ class AssetSystem
 };
 ```
 
-Keep backend resources separate from source assets. On renderer switch, source asset records survive; GPU resources rebuild.
+Keep backend resources separate from source assets. On renderer or device
+rebuild, source asset records should survive while GPU resources rebuild.
 
 Priority: Medium. Effort: Medium-high. Risk: Medium.
 
@@ -479,7 +546,9 @@ Validation: `validate_dx12_renderer`.
 
 ### 15. Add A Render/Physics Replay Recorder
 
-Status for `codex/architecture-cleanup`: design-only. Do not implement replay recording, time-travel debugging, or new debug tooling on this branch.
+Status: design-only. Do not implement replay recording, time-travel debugging,
+or new debug tooling until scene, simulation, physics snapshot, and render graph
+capture boundaries are stable enough to consume.
 
 Expanded standalone plan: `Agentic/Plans/replay-system-plan.md`.
 
@@ -491,63 +560,86 @@ Validation: `validate_fast` for artifact format; `validate_full` once integrated
 
 ## Suggested Roadmap
 
-### Phase 1: Stabilize The Boundaries
+### Phase 1: Finish Shader/Material Contracts
 
-1. Rename legacy render resource methods to backend-neutral names. Done for the visible runtime/helper/model/skybox/world reset paths; DX12 reset prep now uses an ordered table of named release/rebuild steps.
-2. Extract `CaptureSystem` from `SkullbonezRun`. Seeded through the backbuffer capture helper; screenshot trigger policy still lives in runtime.
-3. Extract `SceneRuntime` load/reset/advance state from `SkullbonezRun`. Scene-queue lookup and reset snapshot/restore are now centralized as helper footholds; the owned runtime subsystem still needs to be extracted.
-4. Make scene/config parsing table-driven. Config and CLI have table-driven footholds, including renderer-option parsing, generated-object override parsing, physics debug component switch parsing, and ranged physics debug float parsing; scene parser has directive tables plus typed value-option helpers for selected aliases, and still needs richer directive diagnostics and serializer-friendly schemas.
-5. Remove `using namespace std` and broad namespace imports from headers. Done for current source headers; keep it from regressing.
+This is active parallel work, so do not mix code changes from this architecture
+note into that branch. The pass extraction now gives shader cleanup a better
+home: object, terrain, water, sky, reflection, volumetric, tonemap, and UI/text
+passes have named binding points. Use that to make shader contracts, material
+intent, texture slots, and style data explicit before changing DX12 binding
+shape.
 
-Why first: these changes reduce future blast radius without changing the engine's output.
+Why first: shader/material contracts affect water, object rendering, style data,
+asset records, and future root-signature choices.
 
-### Phase 2: Render Architecture
+### Phase 2: Extract Runtime Ownership
 
-1. Split `IRenderBackend` into core device plus capabilities.
-2. Extract `RenderPipeline` and pass classes.
-3. Add render resource registry for backend switch/rebuild.
-4. Add shader bytecode/cache layer for DX12 and source-change detection for HLSL/DXIL assets.
-5. Add explicit resource state tracking helpers for DX12 resources.
+1. Extract `SceneRuntime` as a facade for active scene index, scene queue,
+   generated-scene selection, load/reset policy, and scene override application.
+2. Extract `SimulationSystem` for timestep policy, fixed-step accumulator,
+   pause/fly/nudge stepping, and simulation-to-render handoff.
+3. Extract `RuntimeDiagnostics` and `InputController` only after scene and
+   simulation ownership are stable.
 
-Why second: rendering is the engine's public identity, and these changes make DX12 validation confidence easier to preserve as features grow.
+Why second: `SkullbonezRun` is now readable around rendering, so the remaining
+runtime risk is scene/simulation/control ownership.
 
-### Phase 3: Physics World
+### Phase 3: Split Physics Data From Render Entities
 
-1. Introduce `PhysicsWorld` behind `GameModelCollection`.
-2. Move solver scratch/contact/sleep data into `PhysicsWorld`.
-3. Split render instances from rigid-body/collider state.
-4. Isolate legacy solver as a solver strategy.
-5. Prepare worker-safe data boundaries, but do not implement workers on this branch.
+1. Keep the current `PhysicsWorld` adapter stable.
+2. Split rigid-body state and collider state from `GameModel`.
+3. Give rendering a read-only render snapshot or instance stream.
+4. Isolate legacy solver behavior behind a solver strategy only after the data
+   boundary is explicit.
+5. Prepare worker-safe body arrays, but do not implement workers yet.
 
-Why third: this is the highest-risk work and should happen after runtime/render boundaries are cleaner.
+Why third: this is the highest-risk behavior area because deterministic physics
+baselines can diverge from small storage/order changes.
 
-### Phase 4: Deferred Tooling And Standout Features
+### Phase 4: Make Render Resource State Explicit
 
-These are design-only for `codex/architecture-cleanup`. They should become separate implementation branches after the lower-level runtime, render, asset, and physics boundaries are stable.
+1. Use the existing `RenderGraph` declarations to compare expected pass/resource
+   transitions with the hand-written DX12 barriers.
+2. Move barrier ownership into the graph only after diagnostics prove parity.
+3. Split `IRenderBackend` capability interfaces when a graph/backend/tooling
+   slice needs that narrower contract.
+4. Revisit descriptor/root-signature layout only when material/post/water work
+   proves the existing fixed SRV slots are insufficient.
 
-1. Formal replay artifacts.
-2. Side-by-side cross-renderer diff view.
-3. Physics contact/manifold timeline debugger.
-4. Asset hot reload.
-5. Scene authoring helpers that generate deterministic tests automatically.
+Why fourth: pass ownership is now clear enough to move from "named frame story"
+to actual resource-state ownership.
 
-Why fourth: these features become easier once the engine has clear systems to observe.
+### Phase 5: Mature Assets, Water, Replay, And Workers
+
+1. Extend `AssetSystem` into cache/invalidation, material/mesh records, and hot
+   reload only after shader/material contracts settle.
+2. Finish water style binding and investigate the sphere/water intersection bug
+   from the extracted `WaterPass`.
+3. Start replay/debug tooling once `SceneRuntime`, `SimulationSystem`,
+   `PhysicsWorld` snapshots, and render graph capture points are stable.
+4. Start deterministic worker work only after physics data ownership is clear.
+
+Why fifth: these features should consume stable boundaries rather than adding
+more responsibility to `SkullbonezRun` or `GameModelCollection`.
 
 ## Validation Guidance For Future Work
 
 | Change | Suggested validation |
 |--------|----------------------|
 | Docs or architecture notes | No validation required when documentation-only |
+| Shader, material, water, or pass binding behavior | `tools\validate_dx12_renderer.bat`; add `tools\validate_perf.bat` for hot object/material paths |
 | Runtime extraction from `SkullbonezRun` | `tools\validate_full.bat` |
-| Render backend interface or render pass changes | `tools\validate_dx12_renderer.bat` |
-| DX12 resource lifetime/barriers | `tools\validate_dx12_renderer.bat` plus `dx12_validation.txt` equals zero errors |
-| Physics world or solver storage | `tools\validate_physics.bat` |
+| Render backend interface, render graph, root signature, descriptors, uploads, or barriers | `tools\validate_dx12_renderer.bat` plus `dx12_validation.txt` equals zero errors |
+| Pass-owned resource lifetime or device/reset behavior | `tools\validate_full.bat` if runtime lifecycle is touched; otherwise `tools\validate_dx12_renderer.bat` |
+| Physics world data ownership or solver storage | `tools\validate_physics.bat` |
 | Spatial grid, worker pool, hot path storage | `tools\validate_physics.bat` plus `tools\validate_perf.bat` |
 | Scene parser/config behavior | `tools\validate_fast.bat` for pure parser cleanup, `tools\validate_full.bat` if scenes can load differently |
+| Asset cache/source-record changes | `tools\validate_dx12_renderer.bat`; use `tools\validate_full.bat` if runtime lifecycle or scene loading changes |
 
 ## Creative Directions That Could Make Skullbonez Stand Out
 
-Status for `codex/architecture-cleanup`: design-only. Do not implement these stretch systems on this branch.
+Status: design-only. Do not implement these stretch systems until the lower-level
+runtime, render, asset, replay, and physics boundaries are stable.
 
 These ideas are intentionally parked until the engine has clearer system boundaries. Treat each one as a future product slice that consumes stable runtime, render, asset, replay, and physics APIs rather than adding more logic to `SkullbonezRun` or `GameModelCollection`.
 
