@@ -25,26 +25,68 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD03}</UniqueIdentifier>
       <Extensions>hlsl</Extensions>
     </Filter>
-    <Filter Include="Source Files\GL">
+    <Filter Include="Source Files\Core">
+      <UniqueIdentifier>{947BB0B3-1C18-4F5B-97CA-0F85E2A2BE01}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Assets">
+      <UniqueIdentifier>{0C8A9D4B-751B-42A4-B88A-AE3370B5F0D2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Maths">
+      <UniqueIdentifier>{9D54DB4F-A0BB-4351-8CC6-F9F76CF3C4BB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\GameObjects">
+      <UniqueIdentifier>{7A9E59BA-4C36-4D31-8F89-45A343079C9A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Physics">
+      <UniqueIdentifier>{7CEB98A0-75E7-40AD-91E5-E4075BE077F5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Rendering">
+      <UniqueIdentifier>{D96252B2-F91C-4D79-B28C-66CB9E6E7C2B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Rendering\GL">
       <UniqueIdentifier>{CD55E542-CC53-48B7-90CA-AE76F30638E0}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\DX11">
+    <Filter Include="Source Files\Rendering\DX11">
       <UniqueIdentifier>{48305BFD-7B6D-4FAE-BA28-08804F256640}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\DX12">
+    <Filter Include="Source Files\Rendering\DX12">
       <UniqueIdentifier>{9467F69A-657B-4B6E-876C-AB6E6A628D9E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Scene">
+      <UniqueIdentifier>{80FCA4B1-88B9-4F76-A6E7-070719B1124F}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\UI">
       <UniqueIdentifier>{2C90B792-6D8E-4A99-9C43-D956A32AFBE1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\GL">
+    <Filter Include="Header Files\Core">
+      <UniqueIdentifier>{4F0C1F7C-3528-438F-843C-9254D5F879E3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Assets">
+      <UniqueIdentifier>{6A6E00A4-473F-4992-A78A-5B18F4D3E767}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Maths">
+      <UniqueIdentifier>{7A9FA734-4718-4E61-870D-F1683365AEB2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\GameObjects">
+      <UniqueIdentifier>{97DDA76D-6055-480F-9064-FA05F3332B8A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Physics">
+      <UniqueIdentifier>{A5899E12-4DBE-4DCA-810A-B68F7BDE8517}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Rendering">
+      <UniqueIdentifier>{1541386D-A2BA-4E01-92CF-2922814D47F4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Rendering\GL">
       <UniqueIdentifier>{559F9006-8981-4E03-AC33-A44EBBECB1F1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\DX11">
+    <Filter Include="Header Files\Rendering\DX11">
       <UniqueIdentifier>{7773862B-8BF0-491D-893E-066FD302C4F0}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\DX12">
+    <Filter Include="Header Files\Rendering\DX12">
       <UniqueIdentifier>{0B69E6EE-2014-4D20-A21F-CA6C0DB6E5E4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Scene">
+      <UniqueIdentifier>{FA147077-59C8-4AF9-B4A0-FF932697FE45}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\UI">
       <UniqueIdentifier>{4E809482-4DB4-42F5-8751-17F3D7E08639}</UniqueIdentifier>
@@ -55,127 +97,151 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SkullbonezSource\SkullbonezAssetSystem.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Assets</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezBoundingSphere.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezCamera.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezCameraCollection.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezGameModel.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\GameObjects</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezGameModelCollection.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\GameObjects</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezGameModelRenderer.cpp">
+      <Filter>Source Files\Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezGameModelSoACache.cpp">
+      <Filter>Source Files\GameObjects</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezPersistentContactSolver.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezPhysicsDiagnosticsSink.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezPhysicsWorld.cpp">
+      <Filter>Source Files\Physics</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezSceneSnapshotWriter.cpp">
+      <Filter>Source Files\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezSleepIslandSystem.cpp">
+      <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezSkullScope.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezGeometricMath.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Maths</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezHelper.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezInit.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezInput.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezLog.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezQuaternion.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Maths</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRigidBody.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRotationMatrix.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Maths</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezConfig.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRunCapture.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRun.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRunFrame.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRunInput.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRunLiveStyle.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRunRender.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRunRenderer.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRunScene.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRunStress.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezSkyBox.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezSpatialGrid.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezTerrain.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezText.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezTextureCollection.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Assets</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezTimer.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezTornadoField.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezVector3.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Maths</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezWindow.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezWorldEnvironment.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezMatrix4.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Maths</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezTestScene.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Scene</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezTestSceneParser.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezPlatformProfiler.cpp">
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezProfiler.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezIRenderBackend.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRenderGraph.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Rendering</Filter>
     </ClCompile>
     <ClCompile Include="ThirdPtySource\GLAD\src\gl.c">
       <Filter>External</Filter>
@@ -184,91 +250,91 @@
       <Filter>External</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezFramebufferGL.cpp">
-      <Filter>Source Files\GL</Filter>
+      <Filter>Source Files\Rendering\GL</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezShaderGL.cpp">
-      <Filter>Source Files\GL</Filter>
+      <Filter>Source Files\Rendering\GL</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezMeshGL.cpp">
-      <Filter>Source Files\GL</Filter>
+      <Filter>Source Files\Rendering\GL</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendGL.cpp">
-      <Filter>Source Files\GL</Filter>
+      <Filter>Source Files\Rendering\GL</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX11.cpp">
-      <Filter>Source Files\DX11</Filter>
+      <Filter>Source Files\Rendering\DX11</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezShaderDX11.cpp">
-      <Filter>Source Files\DX11</Filter>
+      <Filter>Source Files\Rendering\DX11</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezMeshDX11.cpp">
-      <Filter>Source Files\DX11</Filter>
+      <Filter>Source Files\Rendering\DX11</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezFramebufferDX11.cpp">
-      <Filter>Source Files\DX11</Filter>
+      <Filter>Source Files\Rendering\DX11</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.cpp">
-      <Filter>Source Files\DX12</Filter>
+      <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.DXR.cpp">
-      <Filter>Source Files\DX12</Filter>
+      <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.DynamicGeometry.cpp">
-      <Filter>Source Files\DX12</Filter>
+      <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Pipeline.cpp">
-      <Filter>Source Files\DX12</Filter>
+      <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Profiler.cpp">
-      <Filter>Source Files\DX12</Filter>
+      <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Readback.cpp">
-      <Filter>Source Files\DX12</Filter>
+      <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Resources.cpp">
-      <Filter>Source Files\DX12</Filter>
+      <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.Textures.cpp">
-      <Filter>Source Files\DX12</Filter>
+      <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezRenderDeviceDX12.cpp">
-      <Filter>Source Files\DX12</Filter>
+      <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezShaderDX12.cpp">
-      <Filter>Source Files\DX12</Filter>
+      <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezMeshDX12.cpp">
-      <Filter>Source Files\DX12</Filter>
+      <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezFramebufferDX12.cpp">
-      <Filter>Source Files\DX12</Filter>
+      <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezBoundingBox.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezCaptureSystem.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Core</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezCollisionVisualizer.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezObjectContactManifold.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezPhysicsDebugVisualizer.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Physics</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezBLASDX12.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezTLASDX12.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\SkullbonezSBTDX12.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Rendering\DX12</Filter>
     </ClCompile>
     <ClCompile Include="SkullbonezSource\UI\SkullbonezUI.cpp">
       <Filter>Source Files\UI</Filter>
@@ -339,190 +405,220 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SkullbonezSource\SkullbonezAssetSystem.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Assets</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingSphere.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezCamera.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezCameraCollection.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezCollisionShape.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezCommon.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezContactSolverCommon.h">
+      <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezGameModel.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\GameObjects</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezGameModelCollection.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\GameObjects</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezGameModelRenderer.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezGameModelSoACache.h">
+      <Filter>Header Files\GameObjects</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezPersistentContactSolver.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezPhysicsDiagnosticsSink.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezPhysicsWorld.h">
+      <Filter>Header Files\Physics</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezSceneSnapshotWriter.h">
+      <Filter>Header Files\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezSleepIslandSystem.h">
+      <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezSkullScope.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezGeometricMath.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Maths</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezGeometricStructures.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Maths</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezHelper.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezInput.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezLog.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezPrimitiveMeshBUIlder.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezQuaternion.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Maths</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezResponseInformation.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezRigidBody.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezRotationMatrix.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Maths</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezConfig.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezRun.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezRunInternal.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezSkyBox.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezSpatialGrid.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezTerrain.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezTerrainSupportClassifier.h">
+      <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezText.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezTextureCollection.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Assets</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezTimer.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezTornadoField.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezVector3.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Maths</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezWindow.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezWorldEnvironment.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezMatrix4.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Maths</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezTestScene.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezPlatformProfiler.h">
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezProfiler.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezIShader.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezIMesh.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezIFramebuffer.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezIRenderBackend.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezRenderGraph.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Rendering</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezFramebufferGL.h">
-      <Filter>Header Files\GL</Filter>
+      <Filter>Header Files\Rendering\GL</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezShaderGL.h">
-      <Filter>Header Files\GL</Filter>
+      <Filter>Header Files\Rendering\GL</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezMeshGL.h">
-      <Filter>Header Files\GL</Filter>
+      <Filter>Header Files\Rendering\GL</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezRenderBackendGL.h">
-      <Filter>Header Files\GL</Filter>
+      <Filter>Header Files\Rendering\GL</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezRenderBackendDX11.h">
-      <Filter>Header Files\DX11</Filter>
+      <Filter>Header Files\Rendering\DX11</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezShaderDX11.h">
-      <Filter>Header Files\DX11</Filter>
+      <Filter>Header Files\Rendering\DX11</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezMeshDX11.h">
-      <Filter>Header Files\DX11</Filter>
+      <Filter>Header Files\Rendering\DX11</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezFramebufferDX11.h">
-      <Filter>Header Files\DX11</Filter>
+      <Filter>Header Files\Rendering\DX11</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezRenderBackendDX12.h">
-      <Filter>Header Files\DX12</Filter>
+      <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezRenderDeviceDX12.h">
-      <Filter>Header Files\DX12</Filter>
+      <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezShaderDX12.h">
-      <Filter>Header Files\DX12</Filter>
+      <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezMeshDX12.h">
-      <Filter>Header Files\DX12</Filter>
+      <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezFramebufferDX12.h">
-      <Filter>Header Files\DX12</Filter>
+      <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezBoundingBox.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezBroadphaseVisualizer.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezCaptureSystem.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Core</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezCollisionVisualizer.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezObjectContactManifold.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezPhysicsDebugVisualizer.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Physics</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezBLASDX12.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezTLASDX12.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezSBTDX12.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\UI\SkullbonezUI.h">
       <Filter>Header Files\UI</Filter>

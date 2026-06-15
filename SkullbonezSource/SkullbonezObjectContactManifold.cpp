@@ -18,7 +18,7 @@ using namespace SkullbonezCore::Physics;
 //   normals, penetration, and feature identifiers for temporal coherence. The
 //   persistent solver maps every ObjectContactPoint below into one Catto-style
 //   constraint row.
-// ENGINE-SPECIFIC / NOVEL:
+// ENGINE-SPECIFIC:
 //   This file is Skullbonez narrowphase policy, not Catto's 2D box clipping
 //   implementation. It supplies exact sphere/sphere, closest-point sphere/OBB,
 //   and SAT plus clipped OBB/OBB contacts for the existing 3D engine.
@@ -28,7 +28,7 @@ using namespace SkullbonezCore::Physics;
 //   touching, and which direction should the solver push to separate them?
 namespace
 {
-// ENGINE-SPECIFIC / NOVEL:
+// ENGINE-SPECIFIC:
 //   Feature IDs are compact and deterministic because the warm-start cache only
 //   keeps the low 16 bits in GameModelCollection::makeKey. The kind bits make
 //   sphere/box, face/face, and edge/edge contacts distinct even for the same
@@ -37,7 +37,7 @@ constexpr uint32_t FEATURE_KIND_SPHERE_BOX = 1u;
 constexpr uint32_t FEATURE_KIND_BOX_FACE = 2u;
 constexpr uint32_t FEATURE_KIND_BOX_EDGE = 3u;
 
-// ENGINE-SPECIFIC / NOVEL:
+// ENGINE-SPECIFIC:
 //   BoxWorld caches the OBB basis in world space. Catto's solver later needs
 //   world-space r vectors and normals; doing this conversion once in narrowphase
 //   avoids mixing local and world terms inside the PGS row solve.
@@ -53,7 +53,7 @@ struct BoxWorld
 
 struct SatResult
 {
-    // ENGINE-SPECIFIC / NOVEL:
+    // ENGINE-SPECIFIC:
     //   Stores the winning SAT axis. Catto's solver does not care how the axis
     //   was found; it only receives the final normal and contact rows.
     Vector3 normal = ZERO_VECTOR;
@@ -63,7 +63,7 @@ struct SatResult
     int axisB = -1;
 };
 
-// ENGINE-SPECIFIC / NOVEL:
+// ENGINE-SPECIFIC:
 //   ClipVertex keeps a small incident-face vertex ID through clipping. That ID
 //   becomes part of the feature key, letting the Catto warm-start cache match
 //   individual face-contact rows instead of treating a whole box pair as one
@@ -100,7 +100,7 @@ float ClampFloat( float value, float lo, float hi )
 
 BoxWorld MakeBoxWorld( const GameModel& model, const BoundingBox& box )
 {
-    // ENGINE-SPECIFIC / NOVEL:
+    // ENGINE-SPECIFIC:
     //   Convert the engine's local box shape plus body orientation into an OBB
     //   basis. Catto's equations downstream operate in world space; this is the
     //   bridge from Skullbonez render/shape state to solver row geometry.
@@ -136,7 +136,7 @@ uint32_t FaceId( int axis, float sign )
 
 uint32_t EncodeSphereBoxFeature( bool boxIsA, uint32_t faceId )
 {
-    // ENGINE-SPECIFIC / NOVEL:
+    // ENGINE-SPECIFIC:
     //   A sphere/box row is identified by which body owns the box and which box
     //   face the sphere is touching. Catto requires stable identifiers for
     //   contact caching; the bit layout is Skullbonez policy.
@@ -146,7 +146,7 @@ uint32_t EncodeSphereBoxFeature( bool boxIsA, uint32_t faceId )
 
 uint32_t EncodeBoxFaceFeature( bool referenceIsA, uint32_t referenceFace, uint32_t incidentFace, uint32_t pointId )
 {
-    // ENGINE-SPECIFIC / NOVEL:
+    // ENGINE-SPECIFIC:
     //   Face contacts include reference face, incident face, and clipped vertex
     //   ID so each row in a four-point manifold can warm start independently.
     uint32_t refCode = ( referenceIsA ? 0u : 8u ) + referenceFace;
@@ -159,7 +159,7 @@ uint32_t EncodeBoxFaceFeature( bool referenceIsA, uint32_t referenceFace, uint32
 
 uint32_t EncodeBoxEdgeFeature( uint32_t edgeA, uint32_t edgeB )
 {
-    // ENGINE-SPECIFIC / NOVEL:
+    // ENGINE-SPECIFIC:
     //   Edge contacts use the two participating OBB edge IDs. There is only one
     //   row for edge-edge, but the ID still needs to survive across frames for
     //   Catto Section 8 temporal coherence.
@@ -195,7 +195,7 @@ void AddContactPoint( const GameModel& a,
 // CATTO REF:
 //   The result is Catto's simplest contact model: one point, one normal, and one
 //   penetration value. rA/rB are filled in AddContactPoint for Equations 9-11.
-// ENGINE-SPECIFIC / NOVEL:
+// ENGINE-SPECIFIC:
 //   Sphere centers may include local shape offsets, so SphereCenter applies the
 //   current orientation before using the classic center-to-center normal.
 bool BuildSphereSphere( const GameModel& a,
@@ -249,7 +249,7 @@ int ChooseDominantFace( const Vector3& localPoint, const Vector3& halfExtents, f
     return bestAxis;
 }
 
-// ENGINE-SPECIFIC / NOVEL:
+// ENGINE-SPECIFIC:
 //   Sphere/OBB uses the closest point on the oriented box in box-local space.
 //   When the sphere center is inside the box, the closest point is ambiguous; we
 //   choose the nearest face so the normal and feature ID stay deterministic.
@@ -340,7 +340,7 @@ float ProjectBoxRadius( const BoxWorld& box, const Vector3& axis )
            box.halfExtents.z * fabsf( box.axes[2] * axis );
 }
 
-// ENGINE-SPECIFIC / NOVEL:
+// ENGINE-SPECIFIC:
 //   OBB/OBB detection uses the 15-axis separating-axis test: three face normals
 //   from A, three from B, and nine edge cross-products. Catto consumes the final
 //   manifold rows, but this SAT selection is local 3D narrowphase policy. Ties
@@ -392,7 +392,7 @@ bool AcceptSatAxis( const BoxWorld& a,
     return true;
 }
 
-// ENGINE-SPECIFIC / NOVEL:
+// ENGINE-SPECIFIC:
 //   Full SAT pass for oriented boxes. Returning the minimum-overlap axis gives a
 //   stable contact normal for the later face clipping or edge-edge fallback.
 bool BoxBoxSat( const BoxWorld& a, const BoxWorld& b, float contactSkin, SatResult& out )
@@ -430,7 +430,7 @@ bool BoxBoxSat( const BoxWorld& a, const BoxWorld& b, float contactSkin, SatResu
     return out.overlap < FLT_MAX;
 }
 
-// ENGINE-SPECIFIC / NOVEL:
+// ENGINE-SPECIFIC:
 //   Builds the four world-space vertices of one OBB face. The winding is stable
 //   and deterministic so clipped contact point feature IDs do not reshuffle
 //   across frames.
@@ -454,7 +454,7 @@ void BuildFaceVertices( const BoxWorld& box, int faceAxis, float faceSign, ClipV
     }
 }
 
-// ENGINE-SPECIFIC / NOVEL:
+// ENGINE-SPECIFIC:
 //   Sutherland-Hodgman clipping against one side plane of the reference face.
 //   Catto discusses clipped box manifolds in 2D; this is the 3D Skullbonez
 //   extension that clips an incident OBB face against the side planes of the
@@ -512,7 +512,7 @@ int ClipPolygonAgainstPlane( const ClipVertex* input,
     return outputCount;
 }
 
-// ENGINE-SPECIFIC / NOVEL:
+// ENGINE-SPECIFIC:
 //   Clip the incident face to the four side planes surrounding the reference
 //   face. The surviving polygon vertices are the multi-point face manifold that
 //   the persistent Catto-style solver can warm start independently.
@@ -566,7 +566,7 @@ int ClipIncidentFaceToReference( const BoxWorld& refBox,
     return count;
 }
 
-// ENGINE-SPECIFIC / NOVEL:
+// ENGINE-SPECIFIC:
 //   Pick the incident face most anti-parallel to the reference normal. This is
 //   the standard clipping-manifold choice, but the exact tie behavior is local
 //   policy to keep deterministic feature IDs.
@@ -608,7 +608,7 @@ int ChooseIncidentFace( const BoxWorld& incidentBox, const Vector3& refNormal, f
 // CATTO REF:
 //   Produces up to four contact points compatible with Catto Section 4 rows and
 //   Section 8 warm-start identifiers.
-// ENGINE-SPECIFIC / NOVEL:
+// ENGINE-SPECIFIC:
 //   Reference/incident face clipping is the engine's 3D OBB manifold generator.
 //   Contact points are placed halfway through the residual separation so the
 //   solver receives centered rA/rB arms for shallow overlap.
@@ -704,7 +704,7 @@ void BuildEdgeSegment( const BoxWorld& box,
     edgeId = EdgeId( edgeAxis, sign0, sign1 );
 }
 
-// ENGINE-SPECIFIC / NOVEL:
+// ENGINE-SPECIFIC:
 //   Segment-segment closest points are used only for SAT edge-edge axes, where a
 //   clipped face manifold would be under-constrained. The midpoint becomes one
 //   Catto-style contact row with an edge-pair feature ID.
@@ -769,7 +769,7 @@ void ClosestPointsOnSegments( const Vector3& p1,
     c2 = p2 + d2 * t;
 }
 
-// ENGINE-SPECIFIC / NOVEL:
+// ENGINE-SPECIFIC:
 //   Edge contacts are the fallback for cross-product SAT axes. They intentionally
 //   produce a single row because two OBB edges touching do not have a contact
 //   patch to clip.
@@ -801,7 +801,7 @@ bool BuildBoxEdgeContact( const GameModel& aModel,
     return out.pointCount > 0;
 }
 
-// ENGINE-SPECIFIC / NOVEL:
+// ENGINE-SPECIFIC:
 //   Box/box first chooses the SAT minimum-overlap axis, then maps face axes to a
 //   clipped four-point manifold and edge axes to a one-point edge manifold. The
 //   persistent solver downstream is Catto-style; this shape dispatch is local.
@@ -836,7 +836,7 @@ bool BuildBoxBox( const GameModel& aModel,
 // CATTO REF:
 //   Public entry point that returns the contact rows Catto's iterative solver
 //   expects: normal, rA/rB, penetration, and stable contact IDs.
-// ENGINE-SPECIFIC / NOVEL:
+// ENGINE-SPECIFIC:
 //   Dispatches Skullbonez collision shapes to the local 3D manifold builders.
 //   The normal is always oriented from body A toward body B so the solver can use
 //   one impulse sign convention for every pair.

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "SkullbonezCommon.h"
+#include "SkullbonezVector3.h"
 
 #include <cmath>
 

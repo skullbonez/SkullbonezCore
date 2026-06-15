@@ -108,22 +108,23 @@ void SkullScope::EmitFrame( GameModelCollection& collection, float dt )
     }
 
     auto& m_gameModels = collection.m_gameModels;
-    auto& m_persistentContacts = collection.m_persistentContacts;
-    auto& m_persistentContactSolverStats = collection.m_persistentContactSolverStats;
-    auto& m_sleepIslandParent = collection.m_sleepIslandParent;
-    auto& m_sleepSupportedThisFrame = collection.m_sleepSupportedThisFrame;
-    auto& m_sleepInhibitedThisFrame = collection.m_sleepInhibitedThisFrame;
-    auto& m_sleepState = collection.m_sleepState;
-    auto& m_sleepCounter = collection.m_sleepCounter;
-    auto& m_sleepIslandEligible = collection.m_sleepIslandEligible;
-    auto& m_sleepIslandCanSleep = collection.m_sleepIslandCanSleep;
-    auto& m_spatialGrid = collection.m_spatialGrid;
-    auto& m_candidatePairs = collection.m_candidatePairs;
-    auto& m_collisionCellKeys = collection.m_collisionCellKeys;
-    auto& m_sleepSupportEdges = collection.m_sleepSupportEdges;
-    auto& m_sleepIslandVisualId = collection.m_sleepIslandVisualId;
-    auto& m_physicsPipelineTrace = collection.m_physicsPipelineTrace;
-    auto& m_terrainContactManifolds = collection.m_terrainContactManifolds;
+    auto& physicsWorld = collection.m_physicsWorld;
+    auto& m_persistentContacts = physicsWorld.m_persistentContacts;
+    auto& m_persistentContactSolverStats = physicsWorld.m_persistentContactSolverStats;
+    auto& m_sleepIslandParent = physicsWorld.m_sleepIslandParent;
+    auto& m_sleepSupportedThisFrame = physicsWorld.m_sleepSupportedThisFrame;
+    auto& m_sleepInhibitedThisFrame = physicsWorld.m_sleepInhibitedThisFrame;
+    auto& m_sleepState = physicsWorld.m_sleepState;
+    auto& m_sleepCounter = physicsWorld.m_sleepCounter;
+    auto& m_sleepIslandEligible = physicsWorld.m_sleepIslandEligible;
+    auto& m_sleepIslandCanSleep = physicsWorld.m_sleepIslandCanSleep;
+    auto& m_spatialGrid = physicsWorld.m_spatialGrid;
+    auto& m_candidatePairs = physicsWorld.m_candidatePairs;
+    auto& m_collisionCellKeys = physicsWorld.m_collisionCellKeys;
+    auto& m_sleepSupportEdges = physicsWorld.m_sleepSupportEdges;
+    auto& m_sleepIslandVisualId = physicsWorld.m_sleepIslandVisualId;
+    auto& m_physicsPipelineTrace = physicsWorld.m_physicsPipelineTrace;
+    auto& m_terrainContactManifolds = physicsWorld.m_terrainContactManifolds;
 
     // Frame rows summarize the whole physics island graph, not just individual
     // bodies.  The query layer uses these aggregate maxima/counts to decide which

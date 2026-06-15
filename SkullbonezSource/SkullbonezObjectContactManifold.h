@@ -13,7 +13,7 @@ namespace Physics
 //   world-space contact point, a normal, penetration/separation, and the rA/rB
 //   arms from each body center to the contact point. The iterative solver in
 //   GameModelCollection consumes exactly that row shape.
-// ENGINE-SPECIFIC / NOVEL:
+// ENGINE-SPECIFIC:
 //   Catto does not prescribe this engine's 3D narrowphase. This file builds the
 //   Skullbonez shape-pair manifolds that feed Catto-style rows: sphere/sphere,
 //   sphere/OBB, and OBB/OBB. Feature IDs are deterministic local encodings so
