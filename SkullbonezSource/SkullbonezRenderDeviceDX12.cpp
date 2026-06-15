@@ -44,6 +44,7 @@ Related:
 #include <algorithm>
 #include <cwchar>
 #include <d3d12sdklayers.h>
+#include <sstream>
 #include <stdexcept>
 
 namespace SkullbonezCore
@@ -331,6 +332,27 @@ void Dx12DescriptorAllocator::Init( ID3D12DescriptorHeap* shaderVisibleHeap,
                                     UINT transientCapacityPerFrame,
                                     UINT frameCount )
 {
+    const UINT64 shaderVisibleCapacity = static_cast<UINT64>( staticCapacity ) +
+                                         ( static_cast<UINT64>( transientCapacityPerFrame ) * frameCount );
+    if ( !shaderVisibleHeap ||
+         !stagingHeap ||
+         descriptorSize == 0 ||
+         staticCapacity == 0 ||
+         transientCapacityPerFrame == 0 ||
+         frameCount == 0 ||
+         shaderVisibleCapacity > 0xffffffffull )
+    {
+        std::ostringstream msg;
+        msg << "Invalid DX12 descriptor allocator init description"
+            << " (descriptor_size=" << descriptorSize
+            << " static_capacity=" << staticCapacity
+            << " transient_capacity_per_frame=" << transientCapacityPerFrame
+            << " frame_count=" << frameCount
+            << " shader_visible_capacity=" << shaderVisibleCapacity
+            << ")";
+        throw std::runtime_error( msg.str() );
+    }
+
     // The allocator only stores borrowed heap pointers and the table geometry.
     // "descriptorSize" is the byte stride between heap rows. Different heap
     // types can have different descriptor sizes, so DX12 requires us to query it
@@ -396,7 +418,12 @@ UINT Dx12DescriptorAllocator::AllocateStatic()
     // longer-lived engine record, such as TextureEntryDX12::srvIndex.
     if ( m_nextStatic >= m_staticCapacity )
     {
-        throw std::runtime_error( "DX12 static SRV heap exhausted" );
+        std::ostringstream msg;
+        msg << "DX12 static SRV heap exhausted"
+            << " (used=" << m_nextStatic
+            << " capacity=" << m_staticCapacity
+            << ")";
+        throw std::runtime_error( msg.str() );
     }
     return m_nextStatic++;
 }
@@ -416,7 +443,13 @@ UINT Dx12DescriptorAllocator::AllocateTransient()
     // for the draw or dispatch being recorded.
     if ( m_nextTransientInFrame >= m_transientCapacityPerFrame )
     {
-        throw std::runtime_error( "DX12 transient SRV heap exhausted for current frame allocator" );
+        std::ostringstream msg;
+        msg << "DX12 transient SRV heap exhausted for current frame allocator"
+            << " (frame=" << m_currentFrame
+            << " used=" << m_nextTransientInFrame
+            << " capacity_per_frame=" << m_transientCapacityPerFrame
+            << ")";
+        throw std::runtime_error( msg.str() );
     }
 
     const UINT index = m_staticCapacity + ( m_currentFrame * m_transientCapacityPerFrame ) + m_nextTransientInFrame;
@@ -438,13 +471,61 @@ UINT Dx12DescriptorAllocator::AllocateTransientRange( UINT count )
     }
     if ( count > m_transientCapacityPerFrame || m_nextTransientInFrame > m_transientCapacityPerFrame - count )
     {
-        throw std::runtime_error( "DX12 transient SRV range exhausted for current frame allocator" );
+        std::ostringstream msg;
+        msg << "DX12 transient SRV range exhausted for current frame allocator"
+            << " (frame=" << m_currentFrame
+            << " requested=" << count
+            << " used=" << m_nextTransientInFrame
+            << " capacity_per_frame=" << m_transientCapacityPerFrame
+            << ")";
+        throw std::runtime_error( msg.str() );
     }
 
     const UINT index = m_staticCapacity + ( m_currentFrame * m_transientCapacityPerFrame ) + m_nextTransientInFrame;
     m_nextTransientInFrame += count;
     m_transientPeakThisRun = (std::max)( m_transientPeakThisRun, m_nextTransientInFrame );
     return index;
+}
+
+
+UINT Dx12DescriptorAllocator::ShaderVisibleCapacity() const
+{
+    return static_cast<UINT>( static_cast<UINT64>( m_staticCapacity ) +
+                              ( static_cast<UINT64>( m_transientCapacityPerFrame ) * m_frameCount ) );
+}
+
+
+void Dx12DescriptorAllocator::ValidateShaderVisibleIndex( UINT index, const char* context ) const
+{
+    const UINT capacity = ShaderVisibleCapacity();
+    if ( index >= capacity )
+    {
+        std::ostringstream msg;
+        msg << "DX12 shader-visible descriptor index out of range"
+            << " (context=" << ( context ? context : "unknown" )
+            << " index=" << index
+            << " capacity=" << capacity
+            << " static_capacity=" << m_staticCapacity
+            << " transient_capacity_per_frame=" << m_transientCapacityPerFrame
+            << " frame_count=" << m_frameCount
+            << ")";
+        throw std::runtime_error( msg.str() );
+    }
+}
+
+
+void Dx12DescriptorAllocator::ValidateStagingIndex( UINT index, const char* context ) const
+{
+    if ( index >= m_staticCapacity )
+    {
+        std::ostringstream msg;
+        msg << "DX12 staging descriptor index out of range"
+            << " (context=" << ( context ? context : "unknown" )
+            << " index=" << index
+            << " static_capacity=" << m_staticCapacity
+            << ")";
+        throw std::runtime_error( msg.str() );
+    }
 }
 
 
@@ -461,6 +542,7 @@ D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorAllocator::ShaderVisibleCpuHandle( UIN
     {
         throw std::runtime_error( "DX12 shader-visible descriptor heap unavailable" );
     }
+    ValidateShaderVisibleIndex( index, "shader-visible CPU handle" );
 
     D3D12_CPU_DESCRIPTOR_HANDLE handle = m_shaderVisibleHeap->GetCPUDescriptorHandleForHeapStart();
     handle.ptr += static_cast<SIZE_T>( index ) * m_descriptorSize;
@@ -481,6 +563,7 @@ D3D12_GPU_DESCRIPTOR_HANDLE Dx12DescriptorAllocator::ShaderVisibleGpuHandle( UIN
     {
         throw std::runtime_error( "DX12 shader-visible descriptor heap unavailable" );
     }
+    ValidateShaderVisibleIndex( index, "shader-visible GPU handle" );
 
     D3D12_GPU_DESCRIPTOR_HANDLE handle = m_shaderVisibleHeap->GetGPUDescriptorHandleForHeapStart();
     handle.ptr += static_cast<UINT64>( index ) * m_descriptorSize;
@@ -498,6 +581,7 @@ D3D12_CPU_DESCRIPTOR_HANDLE Dx12DescriptorAllocator::StagingCpuHandle( UINT inde
     {
         throw std::runtime_error( "DX12 staging descriptor heap unavailable" );
     }
+    ValidateStagingIndex( index, "staging CPU handle" );
 
     D3D12_CPU_DESCRIPTOR_HANDLE handle = m_stagingHeap->GetCPUDescriptorHandleForHeapStart();
     handle.ptr += static_cast<SIZE_T>( index ) * m_descriptorSize;

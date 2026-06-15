@@ -13,6 +13,11 @@ DX11-only shader paths were removed with the retired DX11 backend. Future shader
 work should update the HLSL contract, `SkullbonezSource/SkullbonezShaderContracts.h`,
 and `tools/shader_contracts.json`.
 
+The current ordinary raster binding ABI is documented in
+`Agentic/Reference/dx12-binding-abi.md`: CBV `b0`, SRV texture slots `t0..t3`,
+and static samplers `s0`, `s1`, and `s3`. Resource slots in the runtime shader
+contract table map directly to `BindTexture(handle, slot)`.
+
 ## Runtime Contract Diagnostics
 
 `SkullbonezSource/SkullbonezShaderContracts.h` is the runtime-facing contract
@@ -61,6 +66,10 @@ return without failing the draw.
 | `sky_atmosphere.hlsl` | sky | `FullscreenP2_UV2` | none |
 | `post_tonemap.hlsl` | post | `FullscreenP2_UV2` | `t0 uSceneTex`, `t1 uDepthTex`, `t2 uVolumetricTex` |
 | `post_volumetric_light.hlsl` | post | `FullscreenP2_UV2` | `t0 uSceneTex`, `t1 uDepthTex` |
+
+Material v1 does not add a material texture/table binding. Runtime
+`RenderMaterial` data still reaches object shaders through the packed instance
+payload, so the ordinary raster root signature remains unchanged.
 
 ## DX12 Utility Shaders
 

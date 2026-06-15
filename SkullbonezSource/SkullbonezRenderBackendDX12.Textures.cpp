@@ -573,6 +573,12 @@ void RenderBackendDX12::BindTexture( uint32_t handle, int slot )
 {
     if ( slot < 0 || slot >= TEXTURE_SLOT_COUNT )
     {
+#ifdef _DEBUG
+        Log().WriteEventf( "dx12_bind_texture_slot_out_of_range handle=%u slot=%d valid_slots=t0..t%d",
+                           handle,
+                           slot,
+                           TEXTURE_SLOT_COUNT - 1 );
+#endif
         return;
     }
     UINT newSlot;

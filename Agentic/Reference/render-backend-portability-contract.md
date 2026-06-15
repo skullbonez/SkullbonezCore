@@ -99,6 +99,17 @@ DX12 mapping:
 - CBV/SRV/UAV descriptor ranges
 - graphics, compute, or raytracing PSOs
 
+Current ordinary raster DX12 ABI:
+
+- one per-draw constant buffer at `b0`;
+- texture SRV slots `t0..t3`, mapped from `BindTexture(handle, slot)`;
+- static samplers `s0`, `s1`, and `s3`;
+- material v1 data packed through instance payloads rather than a material
+  descriptor table.
+
+See `Agentic/Reference/dx12-binding-abi.md` for the current slot table and
+deferred expansion gates.
+
 Vulkan mapping:
 
 - SPIR-V modules
@@ -232,4 +243,3 @@ A future backend design is ready to prototype when it can answer:
 - How are pass inputs and outputs declared?
 - Where do validation messages, object names, screenshots, and timing artifacts appear?
 - Which optional features are supported, and what fallback path is used when they are not?
-

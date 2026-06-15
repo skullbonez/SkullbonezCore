@@ -50,6 +50,10 @@ struct ShaderUniformDecl
 struct ShaderResourceDecl
 {
     const char* name;
+    // Ordinary raster resources use the current DX12 binding ABI: slot N means
+    // SRV register tN, bound through BindTexture(handle, N). The ABI currently
+    // exposes t0..t3; material v1 keeps using packed instance parameters instead
+    // of adding a material descriptor table.
     int slot;
     ShaderResourceKind kind;
     bool required;
