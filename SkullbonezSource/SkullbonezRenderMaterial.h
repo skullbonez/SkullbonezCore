@@ -7,6 +7,15 @@ Mental model:
   Render materials describe visual intent before a backend packs that intent
   into shader constants, instance streams, or future material tables.
 
+Glossary:
+  Material kind: Small render-facing category that chooses the current object
+  shader's visual branch, such as matte, metal, foliage, or shore.
+  Legacy tint bridge: Temporary path that packs render intent into the existing
+  per-instance tint.rgb and tint.a payload while material-table work is still
+  future architecture.
+  Backend-neutral: Data that belongs to engine rendering intent, not to a DX12
+  descriptor, root parameter, shader register, or GPU buffer layout.
+
 Invariants:
   - Render materials are separate from physics/contact material ids.
   - The compatibility textureMode value preserves the existing tint.a shader
@@ -47,6 +56,10 @@ struct RenderMaterial
     char name[32] = {};
     RenderMaterialKind kind = RenderMaterialKind::Textured;
 
+    // Compatibility payload: object shaders still receive the color through
+    // the existing instance tint fields. Future GPU material tables should move
+    // these values into a structured material buffer without changing scene
+    // authoring again.
     float baseColor[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
     float emissiveColor[3] = { 0.0f, 0.0f, 0.0f };
     float emissiveStrength = 0.0f;
@@ -61,6 +74,8 @@ struct RenderMaterial
     uint32_t flags = 0;
 };
 
+// Returns the stable scene-file spelling for a material category. These names
+// are authoring surface, so keep old spellings valid when adding new categories.
 inline const char* RenderMaterialKindName( RenderMaterialKind kind )
 {
     switch ( kind )
@@ -98,6 +113,9 @@ inline const char* RenderMaterialKindName( RenderMaterialKind kind )
     }
 }
 
+// Converts the old tint.a material mode into the new CPU material kind. The
+// negative textured sentinel and positive solid-material values are preserved
+// so existing scenes keep rendering the same while the bridge is in place.
 inline RenderMaterialKind RenderMaterialKindFromLegacyMode( float legacyMode )
 {
     if ( legacyMode < -0.5f )
@@ -119,6 +137,8 @@ inline RenderMaterialKind RenderMaterialKindFromLegacyMode( float legacyMode )
     return RenderMaterialKind::Textured;
 }
 
+// Converts a material kind back to the packed tint.a value consumed by the
+// current object instance stream.
 inline float RenderMaterialKindLegacyMode( RenderMaterialKind kind )
 {
     if ( kind == RenderMaterialKind::Textured )
@@ -128,6 +148,9 @@ inline float RenderMaterialKindLegacyMode( RenderMaterialKind kind )
     return static_cast<float>( static_cast<int>( kind ) );
 }
 
+// Builds render intent from the current shader-facing object payload. Callers
+// should prefer explicit RenderMaterial data when they have it, but this helper
+// keeps legacy scene directives and generated objects on the same path.
 inline RenderMaterial MakeRenderMaterialFromLegacyTint( float tintR, float tintG, float tintB, float legacyMode )
 {
     RenderMaterial material;
@@ -140,6 +163,9 @@ inline RenderMaterial MakeRenderMaterialFromLegacyTint( float tintR, float tintG
     return material;
 }
 
+// Returns the material mode value that still has to be mirrored into tint.a.
+// This is deliberately narrow: when material v1 expands the GPU payload, this
+// function is the compatibility point to retire.
 inline float RenderMaterialLegacyInstanceMode( const RenderMaterial& material )
 {
     return material.textureMode;

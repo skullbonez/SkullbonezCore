@@ -253,7 +253,7 @@ void SkullbonezRun::SetUpGameModels( int count )
             float hy = halfExtent;
             float hz = halfExtent * ( 0.7f + static_cast<float>( NextSceneRand( m_scene.rngState ) % 4 ) * 0.2f );
 
-            // Box inertia: I = m/3 * (hy² + hz²) etc.
+            // Box inertia: I = m/3 * (hy^2 + hz^2) etc.
             float hx2 = hx * hx;
             float hy2 = hy * hy;
             float hz2 = hz * hz;
@@ -343,8 +343,8 @@ void SkullbonezRun::SetUpSolverObjects( int balls, int boxes )
 
     // --- Box pass ---
     // Box inertia tensor (solid cuboid about centre of mass):
-    //   Ix = m/12 * (hy² + hz²),  Iy = m/12 * (hx² + hz²),  Iz = m/12 * (hx² + hy²)
-    // where hx, hy, hz are the full extents (2 × half-extents).
+    //   Ix = m/12 * (hy^2 + hz^2),  Iy = m/12 * (hx^2 + hz^2),  Iz = m/12 * (hx^2 + hy^2)
+    // where hx, hy, hz are the full extents (2 * half-extents).
     // The spawn code uses half-extents internally, so the factor is m/3 (= m/12 * 4).
     for ( int i = 0; i < boxes; ++i )
     {
@@ -461,7 +461,7 @@ void SkullbonezRun::SetUpGameModelsFromScene( const TestScene& scene )
     {
         const SceneBox& box = scene.GetBox( i );
 
-        // Box inertia: I = m/3 * (hy² + hz²) etc. for half-extents
+        // Box inertia: I = m/3 * (hy^2 + hz^2) etc. for half-extents
         float hx2 = box.halfX * box.halfX;
         float hy2 = box.halfY * box.halfY;
         float hz2 = box.halfZ * box.halfZ;
