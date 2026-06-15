@@ -5,6 +5,10 @@ Created: 2026-06-11
 Scope: render pass scheduling, shader binding ownership, renderer-neutral pass structure  
 Implementation status: plan only, no code changes in this pass
 
+Retirement dependency: keep render-pass extraction behind the DX12-only renderer
+validation gate unless a small preparatory slice directly supports that gate.
+Do not add new OpenGL or DX11 pass behavior during retirement.
+
 ## Goal
 
 Extract the current frame rendering flow into named render passes without changing output. The first objective is not a new renderer. It is to make the existing order explicit, move shader setup into pass-owned binders, and reduce `SkullbonezRun::DrawPrimitives()` from detailed rendering logic to orchestration.

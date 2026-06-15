@@ -6,17 +6,17 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 
 | Field | Value |
 |-------|-------|
-| Branch | `main` in worktree `C:\SkullbonezCore` |
-| Last commit | DX12 renderer planning docs aligned on `main`; DX12 is the official production renderer. |
-| Pending work | None currently tracked. |
-| Uncommitted changes | None expected after requested commit/push; check `git status --short`. |
+| Branch | `codex/dx12-only-renderer-retirement` in worktree `C:\SkullbonezCore` |
+| Last commit | `21027f1a` on `main`: source comments and comment-audit skill committed and pushed. |
+| Pending work | DX12-only renderer retirement Phase 0/1. Build the DX12-only validation gate before deleting GL/DX11. |
+| Uncommitted changes | Phase 0 roadmap/session documentation for renderer retirement. |
 
 ## Active Notes
 
 - This workspace expects Windows x64, VS2022 C++ tools, Python, Pillow, and Git for validation.
 - `git` may not be on PATH in fresh shells. Run `tools\find_git.bat` or use the validation scripts, which call it where needed.
 - Repository validation scripts are pre-commit/PR gates, not as-you-go checks. During implementation, run only targeted builds, launches, focused tests, or inspections that answer the current fix question.
-- DX12 is the official production renderer. OpenGL and DX11 are retained as legacy parity/reference backends while they remain in tree; use them to catch visual drift, not as long-term product targets.
+- DX12 is the official production renderer. OpenGL and DX11 are frozen for new feature work; while they remain in tree, touch them only for final parity validation fixes needed before retirement.
 - Feature-branch commits and normal pushes are allowed without asking. Do not commit or push directly on `main` without explicit confirmation.
 - Do not kill `SKULLBONEZ_CORE.exe` by name. Kill only by PID from a process you launched.
 - Time large work: record wall-clock start/end and report elapsed time for pipeline runs, multi-file features, and debugging sessions.
@@ -25,6 +25,7 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 
 | Item | Status | Notes |
 |------|--------|-------|
+| DX12-only renderer retirement | Active | Phase 0 started on `codex/dx12-only-renderer-retirement`. Do not remove GL/DX11 until a DX12-only renderer validation gate exists and one final parity archive is captured. |
 | Catto physics solver finalisation | Recent | Object/object response now belongs to persistent Catto rows with pipeline visualizer and SkullScope `pipeline` query support. User-approved physics CSV and SkullScope query baselines were updated; `tools\validate_full.bat` passed. |
 | Bullet sweep regression | Recent | Wall/object/terrain high-speed sweep scenes and Debug collision-time CSV baselines are wired into `tools\validate_physics.bat`. |
 | Terrain shared row pipeline | Done | Implemented and documented in `Agentic/Plans/Done/physics-terrain-shared-row-pipeline-plan.md`. |

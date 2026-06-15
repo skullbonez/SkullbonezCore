@@ -5,6 +5,11 @@ Created: 2026-06-11
 Scope: water shaders, reflection modes, water material/style data, known water rendering bugs  
 Implementation status: planning draft; legacy `water.*` shader files were removed in the cleanup pass
 
+Retirement dependency: code-heavy water cleanup is deferred until the
+DX12-only renderer validation gate exists. Do not expand OpenGL or DX11 water
+paths except for final parity validation fixes needed before renderer
+retirement.
+
 ## Goal
 
 Clean up the water rendering architecture so calm water, ocean water, FBO reflections, DXR reflections, cinematic/style water modes, and future water material controls have a clear owner and validation path.

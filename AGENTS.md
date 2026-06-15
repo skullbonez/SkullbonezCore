@@ -81,7 +81,7 @@ Profile\SKULLBONEZ_CORE.exe --platform-profiler-markers
 - **Kill processes by PID only**; never use `taskkill /IM` or `Stop-Process -Name`.
 - **Zero warnings** at `/W4`; no exceptions.
 - **Zero DX12 validation errors**; no exceptions.
-- **DX12 is the official production renderer.** OpenGL and DX11 are legacy parity/reference renderers while they remain in tree.
+- **DX12 is the official production renderer.** OpenGL and DX11 are legacy parity/reference renderers while they remain in tree. New GL/DX11 feature work is frozen; touch those paths only for final parity validation fixes needed before retirement.
 - **Parity renderers** must produce visually identical output, with average pixel diff below 10, until the DX12-only validation stack replaces them and they are removed.
 - **Physics must be deterministic**; byte-exact CSV match against baselines.
 

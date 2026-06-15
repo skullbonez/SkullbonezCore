@@ -5,6 +5,10 @@ Created: 2026-06-11
 Scope: render material data, scene/style material directives, object shader inputs, compatibility migration  
 Implementation status: plan only, no code changes in this pass
 
+Retirement dependency: defer code-heavy material implementation until the
+DX12-only renderer validation gate exists. Material authoring must remain
+backend-neutral, but new feature work should not add OpenGL or DX11 surface area.
+
 ## Goal
 
 Add a small backend-neutral material system that replaces overloaded tint/mode behavior while preserving existing scenes and styles.

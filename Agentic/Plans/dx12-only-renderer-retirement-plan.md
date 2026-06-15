@@ -1,9 +1,9 @@
 # DX12-Only Renderer Retirement Plan
 
-Status: planning draft
+Status: active
 Created: 2026-06-15
 Scope: retire OpenGL/DX11, make DX12 validation independent, clean DX12 architecture, preserve future Vulkan/Metal portability
-Implementation status: plan only, no code changes in this pass
+Implementation status: Phase 0 started on branch `codex/dx12-only-renderer-retirement`; no renderer code removed yet
 
 ## Goal
 
@@ -185,14 +185,14 @@ the metadata clean enough that the decision remains open.
 
 Tasks:
 
-1. Add this plan to the active roadmap.
-2. Declare GL/DX11 feature work frozen except for final parity validation fixes.
-3. Update `Agentic/SessionState.md` to say renderer retirement is the next
+1. [x] Add this plan to the active roadmap.
+2. [x] Declare GL/DX11 feature work frozen except for final parity validation fixes.
+3. [x] Update `Agentic/SessionState.md` to say renderer retirement is the next
    render architecture milestone once approved.
-4. Update water/material/render-pipeline plans to defer code-heavy phases until
+4. [x] Update water/material/render-pipeline plans to defer code-heavy phases until
    after DX12-only validation exists.
-5. Record the branch name for implementation, for example:
-   `codex/dx12-renderer-retirement`.
+5. [x] Record the branch name for implementation:
+   `codex/dx12-only-renderer-retirement`.
 
 Validation:
 
