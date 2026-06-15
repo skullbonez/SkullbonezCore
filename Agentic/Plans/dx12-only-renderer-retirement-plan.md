@@ -3,7 +3,7 @@
 Status: active
 Created: 2026-06-15
 Scope: retire OpenGL/DX11, make DX12 validation independent, clean DX12 architecture, preserve future Vulkan/Metal portability
-Implementation status: Phase 0 started on branch `codex/dx12-only-renderer-retirement`; no renderer code removed yet
+Implementation status: Phase 1 complete on branch `codex/dx12-only-renderer-retirement`; final legacy parity archive is next
 
 ## Goal
 
@@ -206,12 +206,12 @@ DX12 must be testable without GL/DX11.
 
 Tasks:
 
-1. Add or update a validation entry point such as:
+1. [x] Add or update a validation entry point such as:
    - `tools\validate_dx12_renderer.bat`, or
    - a `dx12` mode in `tools\validate_select.bat`.
-2. Keep `tools\validate_renderers.bat` temporarily as the legacy parity gate
+2. [x] Keep `tools\validate_renderers.bat` temporarily as the legacy parity gate
    until final removal.
-3. Make the DX12 gate:
+3. [x] Make the DX12 gate:
    - build `Profile`,
    - launch DX12 render scenes,
    - capture screenshots,
@@ -219,15 +219,16 @@ Tasks:
    - save an artifact manifest,
    - collect `dx12_validation.txt`,
    - fail if DX12 validation errors are non-zero.
-4. Rename or supplement `tools\check_parity.py` with a DX12 baseline comparator
+4. [x] Rename or supplement `tools\check_parity.py` with a DX12 baseline comparator
    if the current script assumes GL/DX11 comparison.
-5. Ensure renderer launch timeouts stay PID-scoped.
-6. Add a compact summary that can be pasted into commit notes.
+5. [x] Ensure renderer launch timeouts stay PID-scoped.
+6. [x] Add a compact summary that can be pasted into commit notes.
 
 Validation:
 
-- At PR gate for this phase: `tools\validate_fast.bat`, then the new DX12
-  renderer validation command.
+- `tools\validate_fast.bat` passed on 2026-06-15.
+- `tools\validate_dx12_renderer.bat` passed on 2026-06-15 after refreshing the
+  two DX12 baselines to the current `engine.cfg` capture size.
 
 Acceptance:
 

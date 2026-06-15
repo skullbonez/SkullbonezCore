@@ -7,9 +7,9 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 | Field | Value |
 |-------|-------|
 | Branch | `codex/dx12-only-renderer-retirement` in worktree `C:\SkullbonezCore` |
-| Last commit | `21027f1a` on `main`: source comments and comment-audit skill committed and pushed. |
-| Pending work | DX12-only renderer retirement Phase 0/1. Build the DX12-only validation gate before deleting GL/DX11. |
-| Uncommitted changes | Phase 0 roadmap/session documentation for renderer retirement. |
+| Last committed milestone | Phase 0 renderer-retirement roadmap/session docs are committed and pushed; Phase 1 DX12-only validation gate is the current commit slice. |
+| Pending work | DX12-only renderer retirement Phase 2. Capture the final legacy parity evidence before deleting GL/DX11. |
+| Uncommitted changes | Run `git status -sb`; expected next clean point is after the Phase 1 validation-gate commit. |
 
 ## Active Notes
 
@@ -25,7 +25,7 @@ Keep this file short. Put detailed history in a task-specific plan only when it 
 
 | Item | Status | Notes |
 |------|--------|-------|
-| DX12-only renderer retirement | Active | Phase 0 started on `codex/dx12-only-renderer-retirement`. Do not remove GL/DX11 until a DX12-only renderer validation gate exists and one final parity archive is captured. |
+| DX12-only renderer retirement | Active | Phase 1 validation gate is ready on `codex/dx12-only-renderer-retirement`. Do not remove GL/DX11 until one final parity archive is captured in Phase 2. |
 | Catto physics solver finalisation | Recent | Object/object response now belongs to persistent Catto rows with pipeline visualizer and SkullScope `pipeline` query support. User-approved physics CSV and SkullScope query baselines were updated; `tools\validate_full.bat` passed. |
 | Bullet sweep regression | Recent | Wall/object/terrain high-speed sweep scenes and Debug collision-time CSV baselines are wired into `tools\validate_physics.bat`. |
 | Terrain shared row pipeline | Done | Implemented and documented in `Agentic/Plans/Done/physics-terrain-shared-row-pipeline-plan.md`. |
@@ -51,7 +51,8 @@ not routine iteration steps. Common cases:
 |--------|------------|
 | Documentation-only | No validation required |
 | Small non-render code refactor | `tools\validate_fast.bat` |
-| Renderer backend, shaders, screenshots, visual baselines | `tools\validate_renderers.bat` |
+| Renderer backend, shaders, screenshots, visual baselines while GL/DX11 parity remains | `tools\validate_renderers.bat` |
+| DX12-only renderer gate or retirement validation tooling | `tools\validate_fast.bat`, then `tools\validate_dx12_renderer.bat` |
 | Physics, collision, solver, determinism | `tools\validate_physics.bat` |
 | Performance-sensitive hot path | `tools\validate_perf.bat` |
 | Broad or uncertain scope | `tools\validate_full.bat` |

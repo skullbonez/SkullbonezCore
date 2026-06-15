@@ -13,6 +13,7 @@ validation.
 | `validate_select.bat` | Run any subset of validations by name | ~depends |
 | `validate_fast.bat` | Small code refactors and non-render code edits | ~30s |
 | `validate_renderers.bat` | Shader, texture, render backend changes | ~60s |
+| `validate_dx12_renderer.bat` | DX12-only screenshot regression and InfoQueue gate | ~2 min |
 | `validate_concepts.bat` | Finite smoke/core/full concept-scene validation tiers | ~depends |
 | `validate_shaders.bat` | Shader stage manifest and contract drift helper | ~depends |
 | `validate_ui.bat` | Optional in-game UI visual screenshots, blur, and control automation | ~depends |
@@ -32,6 +33,7 @@ Run only the targeted gate you need:
 ```bat
 tools\validate_select.bat format
 tools\validate_select.bat renderers physics
+tools\validate_select.bat dx12-renderer
 tools\validate_select.bat concepts
 tools\validate_select.bat shaders
 tools\validate_select.bat ui
@@ -50,6 +52,7 @@ tools\validate_select.bat fast build-profile
 | `validate_ui.bat` | Optional tri-renderer UI suite that captures UI screenshots and checks blur strength |
 | `validate_ui_stress.bat` | Single deterministic UI-only stress crash sweep over a UI backdrop |
 | `validate_demo_stress.bat` | Generated demo scene crash sweep that keeps physics/rendering active while changing UI settings and renderers |
+| `validate_dx12_renderer.bat` | Build Profile, run only DX12 render-test scenes, check InfoQueue, and compare screenshots against DX12 baselines |
 | `watch_ui_stress.bat [--test ui\|demo] [--iterations N] [--sleep N] [--forever]` | Repeated stress watcher; defaults to a finite 25-lap UI-only run and requires `--forever` for an intentional soak |
 | `watch_demo_stress.bat [--iterations N] [--sleep N] [--forever]` | Convenience wrapper for repeated generated demo interaction stress |
 | `capture_ui_screenshot.bat [gl\|dx11\|dx12] [output.png] [max_width]` | Capture the profiler UI scene and export a phone-friendly PNG |
@@ -63,6 +66,7 @@ tools\validate_select.bat fast build-profile
 | `physics_query.py` | SkullScope: import queryable physics NDJSON traces into SQLite and return bounded JSON summaries/events/frame/body/contact/island queries |
 | `check_physics_query_regression.py` | SkullScope baseline checker used by `validate_physics_query.bat` and `validate_physics.bat` |
 | `check_dx12_validation.bat` | Verify DX12 InfoQueue clean |
+| `check_dx12_baselines.py` | Compare DX12 captures with committed DX12 baselines and write manifest/summary artifacts |
 | `check_parity.py` | Cross-renderer pixel comparison plus manifest, side-by-side, heatmap, and JSON summary artifacts |
 | `check_physics_regression.py` | Byte-exact physics and bullet collision-time CSV diff |
 | `update_baselines.bat` | Copy current Profile visual/perf artifacts into `TestOutput\baselines`; do not use for physics CSV or SkullScope baselines |

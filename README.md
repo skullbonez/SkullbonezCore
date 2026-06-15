@@ -58,7 +58,8 @@ or pushed, use the repository scripts instead of retyping long commands:
 |-------------|---------|
 | Documentation only | No validation required |
 | Small refactor, no render or physics changes | `tools\validate_fast.bat` |
-| Renderer, shader, texture, screenshot behavior | `tools\validate_renderers.bat` |
+| Renderer, shader, texture, screenshot behavior while GL/DX11 parity remains | `tools\validate_renderers.bat` |
+| DX12-only renderer regression gate during retirement | `tools\validate_dx12_renderer.bat` |
 | Physics, collision, solver, determinism | `tools\validate_physics.bat` |
 | Hot path or allocation-sensitive work | `tools\validate_perf.bat` |
 | Broad or uncertain scope | `tools\validate_full.bat` |
@@ -74,6 +75,7 @@ You can also run any targeted subset with one line:
 
 ```bat
 tools\validate_select.bat fast
+tools\validate_select.bat dx12-renderer
 tools\validate_select.bat physics renderers
 tools\validate_select.bat format build-profile
 ```

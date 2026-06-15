@@ -43,6 +43,12 @@ for %%A in (%*) do (
     ) else if /I "!ARG!"=="renderers" (
         call "%ROOT%validate_renderers.bat"
         if errorlevel 1 set "FAILED=1"
+    ) else if /I "!ARG!"=="dx12-renderer" (
+        call "%ROOT%validate_dx12_renderer.bat"
+        if errorlevel 1 set "FAILED=1"
+    ) else if /I "!ARG!"=="dx12" (
+        call "%ROOT%validate_dx12_renderer.bat"
+        if errorlevel 1 set "FAILED=1"
     ) else if /I "!ARG!"=="concepts" (
         call "%ROOT%validate_concepts.bat" smoke
         if errorlevel 1 set "FAILED=1"
@@ -124,6 +130,8 @@ echo.
 echo Validate one or more targets from this workspace:
 echo   tools\validate_select.bat fast
 echo   tools\validate_select.bat renderers
+echo   tools\validate_select.bat dx12-renderer
+echo   tools\validate_select.bat dx12
 echo   tools\validate_select.bat concepts
 echo   tools\validate_select.bat concept-smoke
 echo   tools\validate_select.bat concept-core
