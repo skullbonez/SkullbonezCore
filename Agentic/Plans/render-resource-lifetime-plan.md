@@ -1,9 +1,9 @@
 # Render Resource Lifetime Plan
 
-Status: planning draft  
+Status: active implementation
 Created: 2026-06-11  
 Scope: renderer-owned resources, resize, shader/mesh/FBO lifetime, future device loss
-Implementation status: plan only, no code changes in this pass
+Implementation status: Phase 1 current-lifetime reference is now captured in `Agentic/Reference/render-resource-lifetime-reference.md`.
 
 ## Goal
 
@@ -321,6 +321,12 @@ Tasks:
 Validation:
 
 - Documentation only: no validation required.
+
+Status:
+
+- Done on branch `codex/render-resource-lifetime-dx12`.
+- Reference: `Agentic/Reference/render-resource-lifetime-reference.md`.
+- Noted concrete follow-up: reflection FBO needs an explicit resize invalidation/check.
 
 ### Phase 2: Add Named Resource Phase Table
 
