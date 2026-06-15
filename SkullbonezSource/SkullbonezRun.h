@@ -364,6 +364,24 @@ class SkullbonezRun
         const Rendering::ShadowFrameData* shadow;
     };
 
+    struct ReflectionPassInputs
+    {
+        const RenderFrameContext& frame;
+        const CinematicRenderConfig* cinematic;
+        const Rendering::ShadowFrameData* objectShadow;
+        bool collisionStateColorsVisible;
+        bool transparentBodyPass;
+        float collisionVisualizerAlphaOverride;
+        float bodyAlpha;
+    };
+
+    struct ReflectionPassOutput
+    {
+        uint32_t reflectionTextureHandle = 0;
+        Math::Transformation::Matrix4 reflectionSampleViewProjection;
+        bool usedDxr = false;
+    };
+
     std::vector<std::string> m_sceneQueue; // Ordered list of scene paths ("" = generated demo scene)
     std::vector<std::string> m_sceneBrowserPaths;
     std::vector<std::string> m_sceneBrowserNames;
@@ -454,6 +472,7 @@ class SkullbonezRun
     Rendering::ShadowFrameData BuildShadowFrameData( const CinematicRenderConfig& cinematic, const Math::Vector::Vector3& lightDirectionWorld ) const; // Builds a stable light-space frame for shadow mapping
     void RenderCinematicSky( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& projection );                             // Draws procedural HDR sunset sky into the active cinematic target
     void RenderSkyPass( const RenderFrameContext& frame, const Math::Transformation::Matrix4& view, SkyPassMode mode );                                // Draws cube-map or procedural sky into the current render target
+    ReflectionPassOutput RenderReflectionPass( const ReflectionPassInputs& inputs );                                                                    // Produces the reflection texture and sample matrix consumed by water
     void RenderObjectPass( const ObjectPassInputs& inputs );                                                                                            // Draws production bodies or collision-state solids into the current target
     void RenderTerrainPass( const TerrainPassInputs& inputs );                                                                                          // Draws terrain into the current target when terrain is visible
     bool RenderCinematicVolumetricLight();                                                                                                             // Renders depth-aware low-resolution light shafts into the volumetric buffer

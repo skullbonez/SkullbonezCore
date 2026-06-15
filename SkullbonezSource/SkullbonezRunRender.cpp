@@ -631,6 +631,119 @@ void SkullbonezRun::RenderSkyPass( const RenderFrameContext& frame, const Matrix
 }
 
 
+SkullbonezRun::ReflectionPassOutput SkullbonezRun::RenderReflectionPass( const ReflectionPassInputs& inputs )
+{
+    ReflectionPassOutput output;
+
+    // The legacy path renders the above-water scene from a mirrored camera into
+    // an FBO. The DXR path rebuilds the raytracing TLAS and writes a screen-space
+    // reflection texture directly. Both feed the same water shader later.
+    PROFILE_GPU_BEGIN( "Frame/Render/Reflection" );
+    const auto renderCapabilities = Gfx().GetCapabilities();
+    const bool useDxrReflection = renderCapabilities.supportsDxrReflection &&
+                                  m_debug.isWaterRTReflect &&
+                                  !m_debug.isWaterNoReflect &&
+                                  !inputs.collisionStateColorsVisible &&
+                                  !inputs.transparentBodyPass;
+    output.usedDxr = useDxrReflection;
+
+    if ( useDxrReflection )
+    {
+        // DXR path: rebuild the scene instance table with current model
+        // transforms, then dispatch one reflection ray per texture pixel.
+        int ballCount = m_cGameModelCollection.GetModelCount();
+        for ( int i = 0; i < ballCount; ++i )
+        {
+            Matrix4 mdlMat = m_cGameModelCollection.GetModelAtIndex( i ).GetModelMatrix();
+            memcpy( m_dxrReflectionTransforms.data() + i * 16, mdlMat.Data(), 16 * sizeof( float ) );
+        }
+
+        // Terrain/sphere BLAS objects are owned by the DX12 backend, so the
+        // runtime supplies only per-instance sphere transforms here.
+        Gfx().BuildTLAS( m_dxrReflectionTransforms.data(), ballCount, 0, 0 );
+
+        // Ray generation reconstructs world-space rays from screen pixels, so
+        // it needs the inverse of the main camera view-projection matrix.
+        Matrix4 invVP = inputs.frame.viewProjection.Inverse();
+        float cameraPos[3] = { inputs.frame.eye.x, inputs.frame.eye.y, inputs.frame.eye.z };
+        float simTime = static_cast<float>( m_timers.simulationTimer.GetTotalTime() );
+
+        uint32_t sphereHandle = m_systems.textures->GetTextureHandle( TEXTURE_BOUNDING_SPHERE );
+        uint32_t terrainHandle = m_systems.textures->GetTextureHandle( TEXTURE_GROUND );
+        uint32_t skyUpHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_UP );
+        uint32_t skyDownHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_DOWN );
+        uint32_t skyRightHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_RIGHT );
+        uint32_t skyLeftHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_LEFT );
+        uint32_t skyFrontHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_FRONT );
+        uint32_t skyBackHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_BACK );
+        Gfx().DispatchReflectionRays( invVP.Data(),
+                                      cameraPos,
+                                      inputs.frame.waterY,
+                                      simTime,
+                                      inputs.frame.lightPosition,
+                                      m_systems.window->m_sWindowDimensions.x * 2,
+                                      m_systems.window->m_sWindowDimensions.y * 2,
+                                      sphereHandle,
+                                      terrainHandle,
+                                      skyUpHandle,
+                                      skyDownHandle,
+                                      skyRightHandle,
+                                      skyLeftHandle,
+                                      skyFrontHandle,
+                                      skyBackHandle );
+        output.reflectionTextureHandle = Gfx().GetReflectionUAVTexture();
+        output.reflectionSampleViewProjection = inputs.frame.viewProjection;
+    }
+    else
+    {
+        // Off-screen mirror-camera path for planar reflections.
+        m_systems.reflectionFBO->Bind();
+        Gfx().SetViewport( 0, 0, m_systems.reflectionFBO->GetWidth(), m_systems.reflectionFBO->GetHeight() );
+        Gfx().Clear( true, true );
+
+        // Skybox reflected (XZ follows eye; Y anchored at Cfg().skyboxRenderHeight).
+        // Cinematic mode can reflect the generated sunset sky into the water
+        // instead of the usual cube-map sky.
+        PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Skybox" );
+        RenderSkyPass( inputs.frame, inputs.frame.reflectionView, SkyPassMode::CinematicIfEnabled );
+        PROFILE_GPU_END( "Frame/Render/Reflection/Skybox" );
+
+        // Game models reflected: clip at water surface (above-water portion only).
+        PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
+        Gfx().SetClipPlane( 0, true );
+        SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
+        m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -inputs.frame.waterY );
+        if ( inputs.collisionStateColorsVisible )
+        {
+            m_collisionVisualizer.SetAlphaOverride( inputs.collisionVisualizerAlphaOverride );
+            m_collisionVisualizer.Render( m_cGameModelCollection, inputs.frame.reflectionView, inputs.frame.projection, inputs.frame.lightPosition );
+            m_collisionVisualizer.SetAlphaOverride( -1.0f );
+        }
+        else
+        {
+            m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+            m_cGameModelCollection.RenderModels( inputs.frame.reflectionView,
+                                                 inputs.frame.projection,
+                                                 inputs.frame.lightPosition,
+                                                 inputs.cinematic,
+                                                 inputs.objectShadow,
+                                                 inputs.bodyAlpha );
+        }
+        Gfx().SetClipPlane( 0, false );
+        SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
+        m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
+        PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
+
+        m_systems.reflectionFBO->Unbind();
+        Gfx().SetViewport( 0, 0, m_systems.window->m_sWindowDimensions.x, m_systems.window->m_sWindowDimensions.y );
+        output.reflectionTextureHandle = m_systems.reflectionFBO->GetColorTextureHandle();
+        output.reflectionSampleViewProjection = inputs.frame.reflectionViewProjection;
+    }
+    PROFILE_GPU_END( "Frame/Render/Reflection" );
+    return output;
+}
+
+
 void SkullbonezRun::RenderObjectPass( const ObjectPassInputs& inputs )
 {
     if ( inputs.mode == ObjectPassMode::Transparent )
@@ -977,89 +1090,13 @@ void SkullbonezRun::DrawPrimitives()
         PROFILE_GPU_END( "Frame/Render/Skybox" );
     }
 
-    // Reflection pre-pass.
-    //
-    // The legacy path renders the above-water scene from a mirrored camera into
-    // an FBO. The DXR path rebuilds the raytracing TLAS and writes a screen-space
-    // reflection texture directly. Both feed the same water shader later.
-    PROFILE_GPU_BEGIN( "Frame/Render/Reflection" );
-    const auto renderCapabilities = Gfx().GetCapabilities();
-    const bool useDxrReflection = renderCapabilities.supportsDxrReflection &&
-                                  m_debug.isWaterRTReflect &&
-                                  !m_debug.isWaterNoReflect &&
-                                  !collisionStateColorsVisible &&
-                                  !transparentBodyPass;
-
-    if ( useDxrReflection )
-    {
-        // DXR path: rebuild the scene instance table with current model
-        // transforms, then dispatch one reflection ray per texture pixel.
-        int ballCount = m_cGameModelCollection.GetModelCount();
-        for ( int i = 0; i < ballCount; ++i )
-        {
-            Matrix4 mdlMat = m_cGameModelCollection.GetModelAtIndex( i ).GetModelMatrix();
-            memcpy( m_dxrReflectionTransforms.data() + i * 16, mdlMat.Data(), 16 * sizeof( float ) );
-        }
-
-        // Terrain/sphere BLAS objects are owned by the DX12 backend, so the
-        // runtime supplies only per-instance sphere transforms here.
-        Gfx().BuildTLAS( m_dxrReflectionTransforms.data(), ballCount, 0, 0 );
-
-        // Ray generation reconstructs world-space rays from screen pixels, so
-        // it needs the inverse of the main camera view-projection matrix.
-        Matrix4 invVP = frame.viewProjection.Inverse();
-        float cameraPos[3] = { frame.eye.x, frame.eye.y, frame.eye.z };
-        float simTime = static_cast<float>( m_timers.simulationTimer.GetTotalTime() );
-
-        uint32_t sphereHandle = m_systems.textures->GetTextureHandle( TEXTURE_BOUNDING_SPHERE );
-        uint32_t terrainHandle = m_systems.textures->GetTextureHandle( TEXTURE_GROUND );
-        uint32_t skyUpHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_UP );
-        uint32_t skyDownHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_DOWN );
-        uint32_t skyRightHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_RIGHT );
-        uint32_t skyLeftHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_LEFT );
-        uint32_t skyFrontHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_FRONT );
-        uint32_t skyBackHandle = m_systems.textures->GetTextureHandle( TEXTURE_SKY_BACK );
-        Gfx().DispatchReflectionRays( invVP.Data(), cameraPos, frame.waterY, simTime, frame.lightPosition, m_systems.window->m_sWindowDimensions.x * 2, m_systems.window->m_sWindowDimensions.y * 2, sphereHandle, terrainHandle, skyUpHandle, skyDownHandle, skyRightHandle, skyLeftHandle, skyFrontHandle, skyBackHandle );
-    }
-    else
-    {
-        // Off-screen mirror-camera path for planar reflections.
-        m_systems.reflectionFBO->Bind();
-        Gfx().SetViewport( 0, 0, m_systems.reflectionFBO->GetWidth(), m_systems.reflectionFBO->GetHeight() );
-        Gfx().Clear( true, true );
-
-        // Skybox reflected (XZ follows eye; Y anchored at Cfg().skyboxRenderHeight).
-        // Cinematic mode can reflect the generated sunset sky into the water
-        // instead of the usual cube-map sky.
-        PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Skybox" );
-        RenderSkyPass( frame, frame.reflectionView, SkyPassMode::CinematicIfEnabled );
-        PROFILE_GPU_END( "Frame/Render/Reflection/Skybox" );
-
-        // Game models reflected: clip at water surface (above-water portion only).
-        PROFILE_GPU_BEGIN( "Frame/Render/Reflection/Balls" );
-        Gfx().SetClipPlane( 0, true );
-        SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, -frame.waterY );
-        m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, -frame.waterY );
-        if ( collisionStateColorsVisible )
-        {
-            m_collisionVisualizer.SetAlphaOverride( collisionVisualizerAlphaOverride );
-            m_collisionVisualizer.Render( m_cGameModelCollection, frame.reflectionView, frame.projection, frame.lightPosition );
-            m_collisionVisualizer.SetAlphaOverride( -1.0f );
-        }
-        else
-        {
-            m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
-            m_cGameModelCollection.RenderModels( frame.reflectionView, frame.projection, frame.lightPosition, activeCinematic, objectShadowFrame, bodyRenderAlpha );
-        }
-        Gfx().SetClipPlane( 0, false );
-        SkullbonezHelper::SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
-        m_collisionVisualizer.SetClipPlane( 0.0f, 1.0f, 0.0f, 1.0e9f );
-        PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
-
-        m_systems.reflectionFBO->Unbind();
-        Gfx().SetViewport( 0, 0, m_systems.window->m_sWindowDimensions.x, m_systems.window->m_sWindowDimensions.y );
-    }
-    PROFILE_GPU_END( "Frame/Render/Reflection" );
+    ReflectionPassOutput reflection = RenderReflectionPass( { frame,
+                                                              activeCinematic,
+                                                              objectShadowFrame,
+                                                              collisionStateColorsVisible,
+                                                              transparentBodyPass,
+                                                              collisionVisualizerAlphaOverride,
+                                                              bodyRenderAlpha } );
 
     if ( useCinematicTarget )
     {
@@ -1097,19 +1134,11 @@ void SkullbonezRun::DrawPrimitives()
         float waterTime = m_debug.isWaterFreezeDebug
                               ? m_debug.frozenWaterTime
                               : static_cast<float>( m_timers.simulationTimer.GetTimeSinceLastStart() );
-        uint32_t reflTex = useDxrReflection
-                               ? Gfx().GetReflectionUAVTexture()
-                               : m_systems.reflectionFBO->GetColorTextureHandle();
-        // DXR reflection texture is in main-camera screen space, so sample it
-        // with the main VP instead of the mirror VP used by the FBO path.
-        Matrix4 waterSampleVP = useDxrReflection
-                                    ? frame.viewProjection
-                                    : frame.reflectionViewProjection;
         m_cWorldEnvironment.RenderFluid( frame.baseView,
                                          frame.projection,
-                                         waterSampleVP,
+                                         reflection.reflectionSampleViewProjection,
                                          waterTime,
-                                         reflTex,
+                                         reflection.reflectionTextureHandle,
                                          m_debug.isWaterFlatDebug,
                                          m_debug.isWaterNoReflect,
                                          cinematicRender,
