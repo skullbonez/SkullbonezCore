@@ -394,6 +394,11 @@ class SkullbonezRun
         float frozenTime;
     };
 
+    struct DebugOverlayPassInputs
+    {
+        const RenderFrameContext& frame;
+    };
+
     std::vector<std::string> m_sceneQueue; // Ordered list of scene paths ("" = generated demo scene)
     std::vector<std::string> m_sceneBrowserPaths;
     std::vector<std::string> m_sceneBrowserNames;
@@ -488,6 +493,7 @@ class SkullbonezRun
     void RenderObjectPass( const ObjectPassInputs& inputs );                                                                                            // Draws production bodies or collision-state solids into the current target
     void RenderTerrainPass( const TerrainPassInputs& inputs );                                                                                          // Draws terrain into the current target when terrain is visible
     void RenderWaterPass( const WaterPassInputs& inputs );                                                                                               // Draws calm/ocean water using the reflection pass output
+    void RenderDebugOverlayPass( const DebugOverlayPassInputs& inputs );                                                                                  // Draws world-space debug overlays after production geometry
     bool RenderCinematicVolumetricLight();                                                                                                             // Renders depth-aware low-resolution light shafts into the volumetric buffer
     void ResolveCinematicSceneToBackbuffer( bool sceneAlreadyUnbound, bool volumetricReady );                                                          // Tonemaps HDR scene target to the backbuffer
     void ReleaseBackendOwnedRenderResources( const char* phaseName );                                                                                  // Runs the ordered GPU-resource release hooks while the backend is alive

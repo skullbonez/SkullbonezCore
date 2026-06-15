@@ -821,6 +821,30 @@ void SkullbonezRun::RenderWaterPass( const WaterPassInputs& inputs )
 }
 
 
+void SkullbonezRun::RenderDebugOverlayPass( const DebugOverlayPassInputs& inputs )
+{
+    // Debug overlays intentionally stay out of the object/material pass. They
+    // draw diagnostic geometry over the final world view and should not inherit
+    // production material binding assumptions.
+    if ( m_debug.isBroadphaseOverlay )
+    {
+        m_broadphaseVisualizer.Render( inputs.frame.viewProjection );
+    }
+
+    if ( m_runtimeSettings.tornadoField.visualizeVelocityField )
+    {
+        m_cGameModelCollection.RenderTornadoFieldVectors( inputs.frame.viewProjection );
+    }
+
+    if ( m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE )
+    {
+        m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
+        m_physicsDebugVisualizer.SetPipelineStageCursor( m_debug.physicsDebugPipelineStageCursor );
+        m_physicsDebugVisualizer.Render( m_cGameModelCollection, inputs.frame.viewProjection, m_systems.terrain.get() );
+    }
+}
+
+
 bool SkullbonezRun::RenderCinematicVolumetricLight()
 {
     const CinematicRenderConfig& cinematic = ActiveCinematicConfig();
@@ -1172,23 +1196,7 @@ void SkullbonezRun::DrawPrimitives()
                             bodyRenderAlpha } );
     }
 
-    // Broadphase spatial grid overlay (G key toggle)
-    if ( m_debug.isBroadphaseOverlay )
-    {
-        m_broadphaseVisualizer.Render( frame.viewProjection );
-    }
-
-    if ( m_runtimeSettings.tornadoField.visualizeVelocityField )
-    {
-        m_cGameModelCollection.RenderTornadoFieldVectors( frame.viewProjection );
-    }
-
-    if ( m_debug.physicsDebugFlags != PHYSICS_DEBUG_NONE )
-    {
-        m_physicsDebugVisualizer.SetFlags( m_debug.physicsDebugFlags );
-        m_physicsDebugVisualizer.SetPipelineStageCursor( m_debug.physicsDebugPipelineStageCursor );
-        m_physicsDebugVisualizer.Render( m_cGameModelCollection, frame.viewProjection, m_systems.terrain.get() );
-    }
+    RenderDebugOverlayPass( { frame } );
 
     if ( useCinematicTarget )
     {
