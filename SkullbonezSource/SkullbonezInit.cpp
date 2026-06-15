@@ -565,7 +565,11 @@ struct ParsedArgs
     bool fixedStepForcedByPhysicsDiagnostics = false;
     bool dumpConfig = false;
     bool dumpAssets = false;
+#if defined( SKULLBONEZ_PROFILE_ENABLED ) && defined( SKULLBONEZ_PLATFORM_PROFILER_PIX )
+    bool platformProfilerMarkers = true;
+#else
     bool platformProfilerMarkers = false;
+#endif
 };
 
 struct CliFlagDirective
