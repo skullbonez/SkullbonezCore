@@ -21,6 +21,7 @@ Load only task-relevant skills or reference files.
 - Item id: `{{item_id}}`
 - Source plan: `{{plan_path}}`
 - Branch: `{{branch}}`
+- Parent branch / stack base: `{{parent_branch}}`
 - Impact area: `{{impact_area}}`
 - Validation gate: `{{validation_gate}}`
 - Validation notes: `{{validation_notes}}`
@@ -36,6 +37,9 @@ needed to complete it.
 - Do not force-push.
 - Do not rewrite git history.
 - Do not push directly to `main`.
+- If this is a chained roadmap item, work on the configured child branch that
+  was branched from `{{parent_branch}}`. If the parent branch changes, merge the
+  parent into this child branch; do not rebase.
 - Do not run repository validation scripts during ordinary iteration.
 - Use targeted builds, launches, focused tests, or inspections only when they
   answer a specific implementation question.
