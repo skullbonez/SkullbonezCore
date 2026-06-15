@@ -113,6 +113,87 @@ void DrawFullscreenQuad( uint32_t quadVB )
     Gfx().UploadAndDrawDynamicVB( quadVB, FULLSCREEN_QUAD_VERTS, 6 );
 }
 
+void BindSkyPassParams( SkullbonezCore::Rendering::IShader& shader, const Matrix4& view, const Matrix4& projection, const CinematicRenderConfig& cinematic )
+{
+    shader.SetVec4( "uSunParams",
+                    cinematic.sunScreenX,
+                    cinematic.sunScreenY,
+                    cinematic.sunIntensity,
+                    cinematic.skyGlowStrength );
+    shader.SetVec3( "uSunColor", cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
+    shader.SetVec3( "uHorizonColor", cinematic.skyHorizonR, cinematic.skyHorizonG, cinematic.skyHorizonB );
+    shader.SetVec3( "uZenithColor", cinematic.skyZenithR, cinematic.skyZenithG, cinematic.skyZenithB );
+    shader.SetMat4( "uInvView", view.Inverse() );
+    shader.SetMat4( "uInvProjection", projection.Inverse() );
+    shader.SetInt( "uSkyMode", cinematic.skyMode );
+    shader.SetVec4( "uCloudParams",
+                    cinematic.cloudCoverage,
+                    cinematic.cloudSoftness,
+                    cinematic.cloudScale,
+                    cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
+}
+
+void BindVolumetricPassParams( SkullbonezCore::Rendering::IShader& shader, const CinematicRenderConfig& cinematic )
+{
+    shader.SetInt( "uSceneTex", 0 );
+    shader.SetInt( "uDepthTex", 1 );
+    shader.SetVec4( "uDepthParams", Cfg().frustumNear, Cfg().frustumFar, 0.0f, 0.0f );
+    shader.SetVec4( "uSunShaftParams",
+                    cinematic.sunScreenX,
+                    cinematic.sunScreenY,
+                    cinematic.godRaysEnabled ? cinematic.sunShaftStrength : 0.0f,
+                    cinematic.sunShaftFalloff );
+    shader.SetVec3( "uSunColor", cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
+    shader.SetVec4( "uVolumetricParams",
+                    cinematic.volumetricStrength,
+                    cinematic.volumetricDensity,
+                    cinematic.volumetricDecay,
+                    cinematic.fogDensity );
+    shader.SetVec4( "uCloudParams",
+                    cinematic.cloudCoverage,
+                    cinematic.cloudSoftness,
+                    cinematic.cloudScale,
+                    cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
+}
+
+void BindTonemapPassParams( SkullbonezCore::Rendering::IShader& shader, const CinematicRenderConfig& cinematic, bool volumetricReady )
+{
+    shader.SetInt( "uSceneTex", 0 );
+    shader.SetInt( "uDepthTex", 1 );
+    shader.SetInt( "uVolumetricTex", 2 );
+    shader.SetFloat( "uExposure", cinematic.exposure );
+    shader.SetFloat( "uGamma", cinematic.gamma );
+    shader.SetVec4( "uDepthParams", Cfg().frustumNear, Cfg().frustumFar, 0.0f, 0.0f );
+    shader.SetVec4( "uFogParams",
+                    cinematic.fogStart,
+                    cinematic.fogEnd,
+                    cinematic.fogEnabled ? cinematic.fogDensity : 0.0f,
+                    cinematic.fogEnabled ? cinematic.fogMaxOpacity : 0.0f );
+    shader.SetVec3( "uFogColor", cinematic.fogColorR, cinematic.fogColorG, cinematic.fogColorB );
+    shader.SetVec4( "uSunShaftParams",
+                    cinematic.sunScreenX,
+                    cinematic.sunScreenY,
+                    cinematic.godRaysEnabled ? cinematic.sunShaftStrength : 0.0f,
+                    cinematic.sunShaftFalloff );
+    shader.SetVec3( "uSunColor", cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
+    shader.SetVec4( "uBloomParams",
+                    cinematic.bloomThreshold,
+                    cinematic.bloomKnee,
+                    cinematic.bloomEnabled ? cinematic.bloomStrength : 0.0f,
+                    cinematic.bloomRadius );
+    shader.SetVec4( "uCloudParams",
+                    cinematic.cloudCoverage,
+                    cinematic.cloudSoftness,
+                    cinematic.cloudScale,
+                    cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
+    shader.SetVec4( "uStyleGrade",
+                    cinematic.styleSaturation,
+                    cinematic.styleContrast,
+                    cinematic.styleVignette,
+                    static_cast<float>( cinematic.skyMode ) );
+    shader.SetFloat( "uVolumetricCompositeStrength", volumetricReady && cinematic.volumetricLightingEnabled ? 1.0f : 0.0f );
+}
+
 } // namespace
 
 void SkullbonezRun::FullscreenQuadPass::EnsureGpuResources( const RenderFrameContext& frame )
@@ -591,22 +672,7 @@ void SkullbonezRun::SkyPass::RenderCinematicSky( const RenderFrameContext& frame
     // recopied by the backend while the sky shader is active.
     ClearAllRenderTextureSlots();
     sky.atmosphereShader->Use();
-    sky.atmosphereShader->SetVec4( "uSunParams",
-                                   cinematic.sunScreenX,
-                                   cinematic.sunScreenY,
-                                   cinematic.sunIntensity,
-                                   cinematic.skyGlowStrength );
-    sky.atmosphereShader->SetVec3( "uSunColor", cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
-    sky.atmosphereShader->SetVec3( "uHorizonColor", cinematic.skyHorizonR, cinematic.skyHorizonG, cinematic.skyHorizonB );
-    sky.atmosphereShader->SetVec3( "uZenithColor", cinematic.skyZenithR, cinematic.skyZenithG, cinematic.skyZenithB );
-    sky.atmosphereShader->SetMat4( "uInvView", view.Inverse() );
-    sky.atmosphereShader->SetMat4( "uInvProjection", frame.projection.Inverse() );
-    sky.atmosphereShader->SetInt( "uSkyMode", cinematic.skyMode );
-    sky.atmosphereShader->SetVec4( "uCloudParams",
-                                   cinematic.cloudCoverage,
-                                   cinematic.cloudSoftness,
-                                   cinematic.cloudScale,
-                                   cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
+    BindSkyPassParams( *sky.atmosphereShader, view, frame.projection, cinematic );
     DrawFullscreenQuad( fullscreen.quadVB );
 
     Gfx().SetDepthTest( depthWasEnabled );
@@ -1006,25 +1072,7 @@ bool SkullbonezRun::VolumetricPass::Render( const RenderFrameContext& /*frame*/ 
     Gfx().SetBlend( false );
 
     volumetric.shader->Use();
-    volumetric.shader->SetInt( "uSceneTex", 0 );
-    volumetric.shader->SetInt( "uDepthTex", 1 );
-    volumetric.shader->SetVec4( "uDepthParams", Cfg().frustumNear, Cfg().frustumFar, 0.0f, 0.0f );
-    volumetric.shader->SetVec4( "uSunShaftParams",
-                                cinematic.sunScreenX,
-                                cinematic.sunScreenY,
-                                cinematic.godRaysEnabled ? cinematic.sunShaftStrength : 0.0f,
-                                cinematic.sunShaftFalloff );
-    volumetric.shader->SetVec3( "uSunColor", cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
-    volumetric.shader->SetVec4( "uVolumetricParams",
-                                cinematic.volumetricStrength,
-                                cinematic.volumetricDensity,
-                                cinematic.volumetricDecay,
-                                cinematic.fogDensity );
-    volumetric.shader->SetVec4( "uCloudParams",
-                                cinematic.cloudCoverage,
-                                cinematic.cloudSoftness,
-                                cinematic.cloudScale,
-                                cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
+    BindVolumetricPassParams( *volumetric.shader, cinematic );
     // Pass contract: texture slot 0 is rendered color, slot 1 is rendered
     // depth. The shader uses depth to tell sky pixels from solid geometry so
     // rays pass through sky and fade when they cross hills/balls.
@@ -1093,41 +1141,8 @@ void SkullbonezRun::TonemapPass::Render( const RenderFrameContext& /*frame*/, bo
     // into the final image on the window." This is where the HDR scene becomes
     // normal display color and where bloom/fog/rays are layered in.
     tonemap.shader->Use();
-    tonemap.shader->SetInt( "uSceneTex", 0 );
-    tonemap.shader->SetInt( "uDepthTex", 1 );
-    tonemap.shader->SetInt( "uVolumetricTex", 2 );
     const CinematicRenderConfig& cinematic = m_run.ActiveCinematicConfig();
-    tonemap.shader->SetFloat( "uExposure", cinematic.exposure );
-    tonemap.shader->SetFloat( "uGamma", cinematic.gamma );
-    tonemap.shader->SetVec4( "uDepthParams", Cfg().frustumNear, Cfg().frustumFar, 0.0f, 0.0f );
-    tonemap.shader->SetVec4( "uFogParams",
-                             cinematic.fogStart,
-                             cinematic.fogEnd,
-                             cinematic.fogEnabled ? cinematic.fogDensity : 0.0f,
-                             cinematic.fogEnabled ? cinematic.fogMaxOpacity : 0.0f );
-    tonemap.shader->SetVec3( "uFogColor", cinematic.fogColorR, cinematic.fogColorG, cinematic.fogColorB );
-    tonemap.shader->SetVec4( "uSunShaftParams",
-                             cinematic.sunScreenX,
-                             cinematic.sunScreenY,
-                             cinematic.godRaysEnabled ? cinematic.sunShaftStrength : 0.0f,
-                             cinematic.sunShaftFalloff );
-    tonemap.shader->SetVec3( "uSunColor", cinematic.sunColorR, cinematic.sunColorG, cinematic.sunColorB );
-    tonemap.shader->SetVec4( "uBloomParams",
-                             cinematic.bloomThreshold,
-                             cinematic.bloomKnee,
-                             cinematic.bloomEnabled ? cinematic.bloomStrength : 0.0f,
-                             cinematic.bloomRadius );
-    tonemap.shader->SetVec4( "uCloudParams",
-                             cinematic.cloudCoverage,
-                             cinematic.cloudSoftness,
-                             cinematic.cloudScale,
-                             cinematic.cloudsEnabled ? cinematic.cloudIntensity : 0.0f );
-    tonemap.shader->SetVec4( "uStyleGrade",
-                             cinematic.styleSaturation,
-                             cinematic.styleContrast,
-                             cinematic.styleVignette,
-                             static_cast<float>( cinematic.skyMode ) );
-    tonemap.shader->SetFloat( "uVolumetricCompositeStrength", volumetricReady && cinematic.volumetricLightingEnabled ? 1.0f : 0.0f );
+    BindTonemapPassParams( *tonemap.shader, cinematic, volumetricReady );
     // Pass contract: slot 0 is the bright HDR scene, slot 1 is its depth buffer,
     // and slot 2 is either the volumetric-light texture or a harmless fallback
     // when that pass is disabled.

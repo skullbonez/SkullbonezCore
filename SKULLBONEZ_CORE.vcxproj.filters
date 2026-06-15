@@ -514,10 +514,16 @@
     <ClInclude Include="SkullbonezSource\SkullbonezRenderGraph.h">
       <Filter>Header Files\Rendering</Filter>
     </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezRenderMaterial.h">
+      <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezRenderBackendDX12.h">
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezRenderDeviceDX12.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezShaderContracts.h">
       <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezShaderDX12.h">

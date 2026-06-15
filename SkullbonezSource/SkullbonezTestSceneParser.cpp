@@ -399,33 +399,33 @@ class TestSceneParser
         }
 
         static const SceneIntOption kMaterialModes[] = {
-            { "texture", -1 },
-            { "beachball", -1 },
-            { "matte", 1 },
-            { "solid", 1 },
-            { "metal", 2 },
-            { "chrome", 2 },
-            { "emissive", 3 },
-            { "neon", 3 },
-            { "glass", 4 },
-            { "toon", 5 },
-            { "pixar", 5 },
-            { "lowpoly", 6 },
-            { "shadow", 7 },
-            { "black", 7 },
-            { "foliage", 8 },
-            { "leaf", 8 },
-            { "leaves", 8 },
-            { "bark", 9 },
-            { "trunk", 9 },
-            { "stone", 10 },
-            { "rock", 10 },
-            { "ridge", 11 },
-            { "distant", 11 },
-            { "shore", 12 },
-            { "sand", 12 },
-            { "pine", 13 },
-            { "conifer", 13 },
+            { "texture", static_cast<int>( Rendering::RenderMaterialKindLegacyMode( Rendering::RenderMaterialKind::Textured ) ) },
+            { "beachball", static_cast<int>( Rendering::RenderMaterialKindLegacyMode( Rendering::RenderMaterialKind::Textured ) ) },
+            { "matte", static_cast<int>( Rendering::RenderMaterialKind::Matte ) },
+            { "solid", static_cast<int>( Rendering::RenderMaterialKind::Matte ) },
+            { "metal", static_cast<int>( Rendering::RenderMaterialKind::Metal ) },
+            { "chrome", static_cast<int>( Rendering::RenderMaterialKind::Metal ) },
+            { "emissive", static_cast<int>( Rendering::RenderMaterialKind::Emissive ) },
+            { "neon", static_cast<int>( Rendering::RenderMaterialKind::Emissive ) },
+            { "glass", static_cast<int>( Rendering::RenderMaterialKind::Glass ) },
+            { "toon", static_cast<int>( Rendering::RenderMaterialKind::Toon ) },
+            { "pixar", static_cast<int>( Rendering::RenderMaterialKind::Toon ) },
+            { "lowpoly", static_cast<int>( Rendering::RenderMaterialKind::LowPoly ) },
+            { "shadow", static_cast<int>( Rendering::RenderMaterialKind::Shadow ) },
+            { "black", static_cast<int>( Rendering::RenderMaterialKind::Shadow ) },
+            { "foliage", static_cast<int>( Rendering::RenderMaterialKind::Foliage ) },
+            { "leaf", static_cast<int>( Rendering::RenderMaterialKind::Foliage ) },
+            { "leaves", static_cast<int>( Rendering::RenderMaterialKind::Foliage ) },
+            { "bark", static_cast<int>( Rendering::RenderMaterialKind::Bark ) },
+            { "trunk", static_cast<int>( Rendering::RenderMaterialKind::Bark ) },
+            { "stone", static_cast<int>( Rendering::RenderMaterialKind::Stone ) },
+            { "rock", static_cast<int>( Rendering::RenderMaterialKind::Stone ) },
+            { "ridge", static_cast<int>( Rendering::RenderMaterialKind::Ridge ) },
+            { "distant", static_cast<int>( Rendering::RenderMaterialKind::Ridge ) },
+            { "shore", static_cast<int>( Rendering::RenderMaterialKind::Shore ) },
+            { "sand", static_cast<int>( Rendering::RenderMaterialKind::Shore ) },
+            { "pine", static_cast<int>( Rendering::RenderMaterialKind::Pine ) },
+            { "conifer", static_cast<int>( Rendering::RenderMaterialKind::Pine ) },
         };
         int mode = 0;
         if ( TryParseIntOption( value, kMaterialModes, mode ) )
@@ -1295,6 +1295,8 @@ class TestSceneParser
         material.tintB = ParseNextFloatToken( "object_material", cursor, expected );
         ParseNextToken( "object_material", cursor, mode, sizeof( mode ), expected );
         material.materialMode = ParseMaterialModeValue( "object_material", mode );
+        material.material = Rendering::MakeRenderMaterialFromLegacyTint( material.tintR, material.tintG, material.tintB, material.materialMode );
+        strcpy_s( material.material.name, sizeof( material.material.name ), Rendering::RenderMaterialKindName( material.material.kind ) );
         m_scene.m_objectMaterials.push_back( material );
     }
 

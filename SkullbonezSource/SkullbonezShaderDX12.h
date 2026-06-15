@@ -48,6 +48,7 @@ namespace Rendering
 {
 
 class RenderBackendDX12;
+struct ShaderProgramDesc;
 
 
 /* -- ShaderDX12 -------------------------------------------------------------------------------------------------------------------------------------------------
@@ -75,8 +76,22 @@ class ShaderDX12 : public IShader
     UINT m_cbSize;
     mutable std::vector<uint8_t> m_cbData;
     mutable bool m_cbDirty;
+    const ShaderProgramDesc* m_contract;
+#ifdef _DEBUG
+    mutable std::vector<uint8_t> m_contractUniformsSet;
+    mutable std::vector<uint8_t> m_contractMissingRequiredLogged;
+    mutable std::vector<std::string> m_missingUniformWarnings;
+    mutable std::vector<std::string> m_typeMismatchWarnings;
+#endif
 
     void ReflectCB( ID3DBlob* blob );
+#ifdef _DEBUG
+    void ResetContractActivation() const;
+    void MarkContractUniformSet( const char* name, const char* setterName ) const;
+    void ReportMissingRequiredContractUniforms() const;
+    void ReportContractReflectionMismatch() const;
+    void ReportUniformNotReflected( const char* name, const char* setterName ) const;
+#endif
 
   public:
     ShaderDX12();

@@ -33,6 +33,7 @@ Related:
 #include "SkullbonezCommon.h"
 #include "SkullbonezConfig.h"
 #include "SkullbonezPhysicsDebugVisualizer.h"
+#include "SkullbonezRenderMaterial.h"
 #include "SkullbonezVector3.h"
 #include <vector>
 
@@ -171,6 +172,7 @@ struct SceneObjectMaterialOverride
     float tintG = 1.0f;
     float tintB = 1.0f;
     float materialMode = 1.0f;
+    Rendering::RenderMaterial material;
 };
 
 struct SceneOptions

@@ -30,6 +30,7 @@ Related:
 */
 #include "SkullbonezTerrain.h"
 #include "SkullbonezAssetSystem.h"
+#include "SkullbonezHelper.h"
 #include "SkullbonezIRenderBackend.h"
 #include "SkullbonezProfiler.h"
 
@@ -376,6 +377,8 @@ void Terrain::Render( const Matrix4& view, const Matrix4& projection, const floa
     m_terrainShader->SetMat4( "uModel", model );
     m_terrainShader->SetMat4( "uView", view );
     m_terrainShader->SetMat4( "uProjection", projection );
+    const float* clipPlane = SkullbonezCore::Basics::SkullbonezHelper::GetClipPlane();
+    m_terrainShader->SetVec4( "uClipPlane", clipPlane[0], clipPlane[1], clipPlane[2], clipPlane[3] );
 
     // Transform light position to view space
     float lx = view.m[0] * lightPosition[0] + view.m[4] * lightPosition[1] + view.m[8] * lightPosition[2] + view.m[12] * lightPosition[3];
