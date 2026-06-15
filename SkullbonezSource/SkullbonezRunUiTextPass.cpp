@@ -153,8 +153,8 @@ void SkullbonezRun::UiTextPass::Render( double dSecondsPerFrame )
     {
         PROFILE_BEGIN( "Frame/UI/BuildData" );
         InGameUIFrameData UIData;
-        UIData.screenW = m_run.m_systems.window ? static_cast<int>( m_run.m_systems.window->m_sWindowDimensions.x ) : Cfg().window.screenX;
-        UIData.screenH = m_run.m_systems.window ? static_cast<int>( m_run.m_systems.window->m_sWindowDimensions.y ) : Cfg().window.screenY;
+        UIData.screenW = m_run.WindowScreenWidth();
+        UIData.screenH = m_run.WindowScreenHeight();
         if ( m_run.m_debug.isUITestPattern )
         {
             DrawUITestPattern( UIData.screenW, UIData.screenH );

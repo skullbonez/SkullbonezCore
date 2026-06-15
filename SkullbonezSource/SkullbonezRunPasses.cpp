@@ -770,8 +770,8 @@ SkullbonezRun::ReflectionPassOutput SkullbonezRun::ReflectionPass::Render( const
                                       inputs.frame.waterY,
                                       simTime,
                                       inputs.frame.lightPosition,
-                                      m_run.m_systems.window->m_sWindowDimensions.x * 2,
-                                      m_run.m_systems.window->m_sWindowDimensions.y * 2,
+                                      m_run.WindowScreenWidth() * 2,
+                                      m_run.WindowScreenHeight() * 2,
                                       sphereHandle,
                                       terrainHandle,
                                       skyUpHandle,
@@ -834,7 +834,7 @@ SkullbonezRun::ReflectionPassOutput SkullbonezRun::ReflectionPass::Render( const
         PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
 
         reflectionResources.target->Unbind();
-        Gfx().SetViewport( 0, 0, m_run.m_systems.window->m_sWindowDimensions.x, m_run.m_systems.window->m_sWindowDimensions.y );
+        Gfx().SetViewport( 0, 0, m_run.WindowScreenWidth(), m_run.WindowScreenHeight() );
         output.reflectionTextureHandle = reflectionResources.target->GetColorTextureHandle();
         output.reflectionSampleViewProjection = inputs.frame.reflectionViewProjection;
     }

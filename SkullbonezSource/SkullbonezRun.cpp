@@ -271,6 +271,18 @@ void SkullbonezRun::SelectRenderTexture( uint32_t textureHash )
 }
 
 
+int SkullbonezRun::WindowScreenWidth() const
+{
+    return m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.x ) : Cfg().window.screenX;
+}
+
+
+int SkullbonezRun::WindowScreenHeight() const
+{
+    return m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.y ) : Cfg().window.screenY;
+}
+
+
 void SkullbonezRun::DumpTextureAssets( FILE* out ) const
 {
     if ( m_systems.textures )
