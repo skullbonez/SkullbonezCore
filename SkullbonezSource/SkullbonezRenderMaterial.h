@@ -154,6 +154,18 @@ inline uint32_t RenderMaterialKindIndex( RenderMaterialKind kind )
     return index <= static_cast<uint32_t>( RenderMaterialKind::Pine ) ? index : 0u;
 }
 
+// Returns the material mode value that still has to be mirrored into tint.a.
+// This is deliberately narrow: when material v1 expands the GPU payload, this
+// function is the compatibility point to retire.
+inline float RenderMaterialLegacyInstanceMode( const RenderMaterial& material )
+{
+    if ( material.kind != RenderMaterialKind::Textured )
+    {
+        return RenderMaterialKindLegacyMode( material.kind );
+    }
+    return material.textureMode;
+}
+
 inline void ApplyRenderMaterialDefaults( RenderMaterial& material )
 {
     material.roughness = 0.72f;
@@ -237,7 +249,7 @@ inline RenderMaterialInstancePayload PackRenderMaterialInstancePayload( const Re
     payload.material0[0] = material.baseColor[0];
     payload.material0[1] = material.baseColor[1];
     payload.material0[2] = material.baseColor[2];
-    payload.material0[3] = material.textureMode;
+    payload.material0[3] = RenderMaterialLegacyInstanceMode( material );
 
     payload.material1[0] = material.roughness;
     payload.material1[1] = material.metallic;
@@ -267,12 +279,5 @@ inline RenderMaterial MakeRenderMaterialFromLegacyTint( float tintR, float tintG
     return material;
 }
 
-// Returns the material mode value that still has to be mirrored into tint.a.
-// This is deliberately narrow: when material v1 expands the GPU payload, this
-// function is the compatibility point to retire.
-inline float RenderMaterialLegacyInstanceMode( const RenderMaterial& material )
-{
-    return material.textureMode;
-}
 } // namespace Rendering
 } // namespace SkullbonezCore
