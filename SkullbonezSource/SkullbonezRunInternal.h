@@ -74,6 +74,7 @@ using SkullbonezCore::UI::InGameUIInputResult;
 using SkullbonezCore::UI::InGameUITab;
 using SkullbonezCore::UI::UICinematicFeature;
 using SkullbonezCore::UI::UICinematicParam;
+using SkullbonezCore::UI::UIRenderParam;
 
 namespace SkullbonezCore
 {

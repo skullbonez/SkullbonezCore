@@ -67,6 +67,46 @@ struct SceneLightConfig
     float colorA = 1.0f;
 };
 
+struct OrdinaryRenderConfig
+{
+    float sunIntensity = 1.35f;
+    float sunColorR = 1.0f;
+    float sunColorG = 0.94f;
+    float sunColorB = 0.84f;
+    float ambientStrength = 0.62f;
+    float skyAmbientR = 0.46f;
+    float skyAmbientG = 0.54f;
+    float skyAmbientB = 0.66f;
+    float groundAmbientR = 0.30f;
+    float groundAmbientG = 0.25f;
+    float groundAmbientB = 0.20f;
+
+    bool shadowsEnabled = true;
+    bool shadowTerrainCasts = true;
+    bool shadowObjectsCast = true;
+    bool shadowTerrainReceives = true;
+    bool shadowObjectsReceive = true;
+    int shadowMapSize = 2048;
+    int shadowPcfRadius = 1;
+    float shadowStrength = 0.50f;
+    float shadowSoftness = 1.05f;
+    float shadowDepthBias = 0.00005f;
+    float shadowSlopeBias = 0.00010f;
+    float shadowMaxDistance = 1500.0f;
+
+    float waterTintR = 0.035f;
+    float waterTintG = 0.135f;
+    float waterTintB = 0.265f;
+    float waterAlpha = 0.70f;
+    float waterReflectionStrength = 0.68f;
+    float waterFresnelF0 = 0.025f;
+
+    float ballRoughnessScale = 1.00f;
+    float ballSpecularScale = 1.00f;
+    float boxRoughnessScale = 1.08f;
+    float boxSpecularScale = 0.82f;
+};
+
 struct CinematicRenderConfig
 {
     // Master switch. The UI can toggle this at runtime; command-line overrides
@@ -221,6 +261,7 @@ class SkullbonezConfig
     WindowConfig window;
     RuntimeRenderFlags runtimeRender;
     SceneLightConfig sceneLight;
+    OrdinaryRenderConfig ordinaryRender;
     CinematicRenderConfig cinematicRender;
 
     // Frustum

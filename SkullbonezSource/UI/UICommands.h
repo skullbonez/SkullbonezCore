@@ -122,6 +122,38 @@ enum class UICinematicFeature
     Count
 };
 
+enum class UIRenderParam
+{
+    // Each enum value maps one Render-tab slider to one OrdinaryRenderConfig field.
+    None = -1,
+    SunIntensity,
+    SunRed,
+    SunGreen,
+    SunBlue,
+    AmbientStrength,
+    SkyRed,
+    SkyGreen,
+    SkyBlue,
+    GroundRed,
+    GroundGreen,
+    GroundBlue,
+    ShadowStrength,
+    ShadowSoftness,
+    ShadowDepthBias,
+    ShadowSlopeBias,
+    WaterRed,
+    WaterGreen,
+    WaterBlue,
+    WaterAlpha,
+    WaterReflection,
+    WaterFresnel,
+    BallRoughness,
+    BallSpecular,
+    BoxRoughness,
+    BoxSpecular,
+    Count
+};
+
 struct UIOnlyCommands
 {
     // Commands are one-frame requests, not durable state. The UI sets them
@@ -217,6 +249,13 @@ struct UICinematicCommands
     float requestedValue = 0.0f;
 };
 
+struct UIRenderCommands
+{
+    bool toggleShadows = false;
+    UIRenderParam requestedParam = UIRenderParam::None;
+    float requestedValue = 0.0f;
+};
+
 struct InGameUICommands
 {
     UIOnlyCommands ui;
@@ -226,6 +265,7 @@ struct InGameUICommands
     UISceneOptionCommands sceneOptions;
     UIWaterCommands water;
     UIRunCommands run;
+    UIRenderCommands renderTuning;
     UICinematicCommands cinematic;
 };
 

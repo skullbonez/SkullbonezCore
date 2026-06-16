@@ -477,6 +477,90 @@ void SetCinematicShadowsEnabledFromUI( CinematicRenderConfig& cinematic, RunScen
     scene.uiCinematicOverrideMask |= SCENE_CINE_SHADOWS;
 }
 
+void ApplyOrdinaryRenderUIParam( OrdinaryRenderConfig& ordinary, UIRenderParam param, float rawValue )
+{
+    switch ( param )
+    {
+    case UIRenderParam::SunIntensity:
+        ordinary.sunIntensity = std::clamp( rawValue, 0.0f, 4.0f );
+        break;
+    case UIRenderParam::SunRed:
+        ordinary.sunColorR = std::clamp( rawValue, 0.0f, 2.0f );
+        break;
+    case UIRenderParam::SunGreen:
+        ordinary.sunColorG = std::clamp( rawValue, 0.0f, 2.0f );
+        break;
+    case UIRenderParam::SunBlue:
+        ordinary.sunColorB = std::clamp( rawValue, 0.0f, 2.0f );
+        break;
+    case UIRenderParam::AmbientStrength:
+        ordinary.ambientStrength = std::clamp( rawValue, 0.0f, 1.5f );
+        break;
+    case UIRenderParam::SkyRed:
+        ordinary.skyAmbientR = std::clamp( rawValue, 0.0f, 1.5f );
+        break;
+    case UIRenderParam::SkyGreen:
+        ordinary.skyAmbientG = std::clamp( rawValue, 0.0f, 1.5f );
+        break;
+    case UIRenderParam::SkyBlue:
+        ordinary.skyAmbientB = std::clamp( rawValue, 0.0f, 1.5f );
+        break;
+    case UIRenderParam::GroundRed:
+        ordinary.groundAmbientR = std::clamp( rawValue, 0.0f, 1.5f );
+        break;
+    case UIRenderParam::GroundGreen:
+        ordinary.groundAmbientG = std::clamp( rawValue, 0.0f, 1.5f );
+        break;
+    case UIRenderParam::GroundBlue:
+        ordinary.groundAmbientB = std::clamp( rawValue, 0.0f, 1.5f );
+        break;
+    case UIRenderParam::ShadowStrength:
+        ordinary.shadowStrength = std::clamp( rawValue, 0.0f, 1.0f );
+        break;
+    case UIRenderParam::ShadowSoftness:
+        ordinary.shadowSoftness = std::clamp( rawValue, 0.25f, 4.0f );
+        break;
+    case UIRenderParam::ShadowDepthBias:
+        ordinary.shadowDepthBias = std::clamp( rawValue, 0.0f, 0.005f );
+        break;
+    case UIRenderParam::ShadowSlopeBias:
+        ordinary.shadowSlopeBias = std::clamp( rawValue, 0.0f, 0.005f );
+        break;
+    case UIRenderParam::WaterRed:
+        ordinary.waterTintR = std::clamp( rawValue, 0.0f, 1.5f );
+        break;
+    case UIRenderParam::WaterGreen:
+        ordinary.waterTintG = std::clamp( rawValue, 0.0f, 1.5f );
+        break;
+    case UIRenderParam::WaterBlue:
+        ordinary.waterTintB = std::clamp( rawValue, 0.0f, 1.5f );
+        break;
+    case UIRenderParam::WaterAlpha:
+        ordinary.waterAlpha = std::clamp( rawValue, 0.0f, 1.0f );
+        break;
+    case UIRenderParam::WaterReflection:
+        ordinary.waterReflectionStrength = std::clamp( rawValue, 0.0f, 1.0f );
+        break;
+    case UIRenderParam::WaterFresnel:
+        ordinary.waterFresnelF0 = std::clamp( rawValue, 0.0f, 0.12f );
+        break;
+    case UIRenderParam::BallRoughness:
+        ordinary.ballRoughnessScale = std::clamp( rawValue, 0.25f, 2.0f );
+        break;
+    case UIRenderParam::BallSpecular:
+        ordinary.ballSpecularScale = std::clamp( rawValue, 0.0f, 2.0f );
+        break;
+    case UIRenderParam::BoxRoughness:
+        ordinary.boxRoughnessScale = std::clamp( rawValue, 0.25f, 2.0f );
+        break;
+    case UIRenderParam::BoxSpecular:
+        ordinary.boxSpecularScale = std::clamp( rawValue, 0.0f, 2.0f );
+        break;
+    default:
+        break;
+    }
+}
+
 
 void ToggleCinematicUIFeature( CinematicRenderConfig& cinematic, RunSceneState& scene, UICinematicFeature feature )
 {
@@ -999,9 +1083,24 @@ void SkullbonezRun::TakeInput()
         }
         if ( uiCommands.sceneOptions.toggleShadows )
         {
-            const bool shadowsActive = ActiveCinematicConfig().shadowsEnabled;
-            m_cmdHasCinematicShadowsOverride = false;
-            SetCinematicShadowsEnabledFromUI( ActiveCinematicConfig(), SceneState(), !shadowsActive );
+            if ( IsCinematicRenderingEnabled() )
+            {
+                const bool shadowsActive = ActiveCinematicConfig().shadowsEnabled;
+                m_cmdHasCinematicShadowsOverride = false;
+                SetCinematicShadowsEnabledFromUI( ActiveCinematicConfig(), SceneState(), !shadowsActive );
+            }
+            else
+            {
+                Cfg().ordinaryRender.shadowsEnabled = !Cfg().ordinaryRender.shadowsEnabled;
+            }
+        }
+        if ( uiCommands.renderTuning.toggleShadows )
+        {
+            Cfg().ordinaryRender.shadowsEnabled = !Cfg().ordinaryRender.shadowsEnabled;
+        }
+        if ( uiCommands.renderTuning.requestedParam != UIRenderParam::None )
+        {
+            ApplyOrdinaryRenderUIParam( Cfg().ordinaryRender, uiCommands.renderTuning.requestedParam, uiCommands.renderTuning.requestedValue );
         }
         if ( uiCommands.water.toggleWaterReflection )
         {

@@ -86,9 +86,9 @@ SkullbonezRun::RenderFrameContext SkullbonezRun::BuildRenderFrameContext( bool c
     frame.cinematicEnabled = cinematicRender;
     frame.cinematic = cinematicRender ? &renderConfig : nullptr;
 
-    // Normal gameplay uses a point light (w = 1). Cinematic mode uses a
-    // directional light (w = 0), which behaves like the sun: the same warm light
-    // direction hits every object no matter where it is in the world.
+    // Ordinary and cinematic rendering both use a directional sun (w = 0).
+    // Keeping one sun-vector contract makes direct BRDF lighting and shadow-map
+    // visibility block the same light contribution.
     if ( frame.cinematicEnabled )
     {
         frame.lightPosition[0] = -0.68f;
@@ -143,7 +143,22 @@ void SkullbonezRun::DrawPrimitives()
 {
     const bool cinematicRender = IsCinematicRenderingEnabled();
     const CinematicRenderConfig& renderConfig = ActiveCinematicConfig();
-    const bool shadowMapsEnabled = renderConfig.shadowsEnabled && IsGfxReady() && !m_debug.isTextOnly;
+    const OrdinaryRenderConfig& ordinaryRender = Cfg().ordinaryRender;
+    CinematicRenderConfig ordinaryShadowConfig = renderConfig;
+    ordinaryShadowConfig.shadowsEnabled = ordinaryRender.shadowsEnabled;
+    ordinaryShadowConfig.shadowTerrainCasts = ordinaryRender.shadowTerrainCasts;
+    ordinaryShadowConfig.shadowObjectsCast = ordinaryRender.shadowObjectsCast;
+    ordinaryShadowConfig.shadowTerrainReceives = ordinaryRender.shadowTerrainReceives;
+    ordinaryShadowConfig.shadowObjectsReceive = ordinaryRender.shadowObjectsReceive;
+    ordinaryShadowConfig.shadowMapSize = ordinaryRender.shadowMapSize;
+    ordinaryShadowConfig.shadowPcfRadius = ordinaryRender.shadowPcfRadius;
+    ordinaryShadowConfig.shadowStrength = ordinaryRender.shadowStrength;
+    ordinaryShadowConfig.shadowSoftness = ordinaryRender.shadowSoftness;
+    ordinaryShadowConfig.shadowDepthBias = ordinaryRender.shadowDepthBias;
+    ordinaryShadowConfig.shadowSlopeBias = ordinaryRender.shadowSlopeBias;
+    ordinaryShadowConfig.shadowMaxDistance = ordinaryRender.shadowMaxDistance;
+    const CinematicRenderConfig& activeShadowStyle = cinematicRender ? renderConfig : ordinaryShadowConfig;
+    const bool shadowMapsEnabled = activeShadowStyle.shadowsEnabled && IsGfxReady() && !m_debug.isTextOnly;
 
     if ( cinematicRender )
     {
@@ -189,7 +204,7 @@ void SkullbonezRun::DrawPrimitives()
     }
 
     const CinematicRenderConfig* activeCinematic = frame.cinematic;
-    const CinematicRenderConfig* activeShadowConfig = shadowMapsEnabled ? &renderConfig : nullptr;
+    const CinematicRenderConfig* activeShadowConfig = shadowMapsEnabled ? &activeShadowStyle : nullptr;
     ShadowPassOutput shadowPass = m_shadowPass.Render( { frame, activeShadowConfig } );
     const Rendering::ShadowFrameData* terrainShadowFrame = shadowPass.terrainShadow;
     const Rendering::ShadowFrameData* objectShadowFrame = shadowPass.objectShadow;
