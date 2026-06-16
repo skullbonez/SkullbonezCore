@@ -121,6 +121,7 @@ size_t RenderBackendDX12::HashPSOKey( const PSOKey12& key )
         memcpy( &bits, &value, sizeof( bits ) );
         return static_cast<size_t>( bits );
     };
+    hashCombine( h, (size_t)key.rootSignature );
     hashCombine( h, (size_t)key.shaderVS );
     hashCombine( h, (size_t)key.shaderPS );
     hashCombine( h, (size_t)key.format );
@@ -379,7 +380,11 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
     // blend/depth/cull state, polygon offset, instancing mode, and render-target
     // format all participate in the Pipeline State Object. If any of those
     // values changes, the cached PSO may no longer describe the draw correctly.
+    // Include the root signature too: today ordinary raster draws share one
+    // signature, but future fullscreen, material-table, or graph-local resource
+    // signatures must not accidentally reuse an incompatible cached PSO.
     PSOKey12 key = {};
+    key.rootSignature = m_rootSignature;
     key.shaderVS = m_activeShader->GetVSBytecode();
     key.shaderPS = m_activeShader->GetPSBytecode();
     key.format = format;
@@ -437,6 +442,24 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
         }
         else
         {
+            // Diagnostics: a cache miss means the renderer discovered a new
+            // pipeline shape. That is expected during warm-up, but unexpected
+            // misses in validation/perf runs can reveal root-signature churn,
+            // render-target format drift, or state toggles happening in hot
+            // loops.
+            Log().WriteEventf( "dx12_pso_cache_miss hash=%llu cache_size=%llu root_signature=%p vs=%p ps=%p format=%u instanced=%d blend=%d depth=%d depth_write=%d cull=%d rtv_format=%u",
+                               static_cast<unsigned long long>( psoHash ),
+                               static_cast<unsigned long long>( m_psoCache.size() ),
+                               key.rootSignature,
+                               key.shaderVS,
+                               key.shaderPS,
+                               static_cast<unsigned int>( key.format ),
+                               key.isInstanced ? 1 : 0,
+                               key.blendEnabled ? 1 : 0,
+                               key.depthEnabled ? 1 : 0,
+                               key.depthWriteEnabled ? 1 : 0,
+                               key.cullEnabled ? 1 : 0,
+                               static_cast<unsigned int>( key.rtvFormat ) );
             pso = CreatePSO( format, instanced, im, dvb );
             m_psoCache[psoHash] = pso;
         }
@@ -465,8 +488,8 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
     }
 
     // Bind textures by copying their SRV descriptors to the shader-visible heap
-    // and pointing the root descriptor table at them. Root params [1..4] map to
-    // texture slots t0..t3.
+    // and pointing the root descriptor table at them. Root params [1..5] map to
+    // texture slots t0..t4. The object pass uses t4 for the material table.
     //
     // Plain-language flow:
     //
@@ -476,7 +499,7 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
     // 3. This draw gets a transient row in the shader-visible heap.
     // 4. The persistent descriptor is copied into the transient row.
     // 5. The command list binds the transient row's GPU handle.
-    // 6. When the pixel shader samples t0/t1/t2/t3, the GPU follows that handle.
+    // 6. When the pixel shader samples t0/t1/t2/t3/t4, the GPU follows that handle.
     //
     // DX12 does not bind "the C++ texture object" directly. It binds a descriptor
     // table row that describes how the shader should read that texture.
@@ -486,6 +509,10 @@ void RenderBackendDX12::PrepareDraw( VertexFormat12 format, bool instanced, cons
         for ( int slot = 0; slot < TEXTURE_SLOT_COUNT; ++slot )
         {
             UINT srcIdx = m_boundTexSlot[slot];
+            if ( srcIdx == UINT_MAX )
+            {
+                srcIdx = m_nullTextureSRVIndex;
+            }
             if ( srcIdx != UINT_MAX )
             {
                 // The texture's persistent descriptor lives in the CPU-only

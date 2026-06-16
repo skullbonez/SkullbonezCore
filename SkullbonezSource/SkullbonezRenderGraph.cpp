@@ -88,7 +88,7 @@ void RenderGraph::Clear()
 }
 
 
-RenderGraphResourceHandle RenderGraph::AddExternalResource( const char* name, RenderGraphResourceAccess initialAccess )
+RenderGraphResourceHandle RenderGraph::AddExternalResource( const char* name, RenderGraphResourceAccess initialAccess, const void* nativeResource )
 {
     // External resources are objects the current renderer already owns, such as
     // the swap-chain back buffer or an existing reflection target. The graph can
@@ -101,6 +101,7 @@ RenderGraphResourceHandle RenderGraph::AddExternalResource( const char* name, Re
     desc.name = ( name && name[0] != '\0' ) ? name : "UnnamedResource";
     desc.external = true;
     desc.initialAccess = initialAccess;
+    desc.nativeResource = nativeResource;
 
     RenderGraphResourceHandle handle;
     handle.index = static_cast<uint32_t>( m_resources.size() );
@@ -164,7 +165,8 @@ std::string RenderGraph::DumpText() const
     {
         const RenderGraphResourceDesc& resource = m_resources[i];
         out << "  [" << i << "] " << resource.name << " external=" << ( resource.external ? "true" : "false" )
-            << " initial=" << ToString( resource.initialAccess ) << "\n";
+            << " initial=" << ToString( resource.initialAccess )
+            << " native=" << resource.nativeResource << "\n";
     }
 
     out << "Passes:\n";
@@ -250,6 +252,7 @@ RenderGraphCompileResult RenderGraph::Compile() const
                 RenderGraphTransitionDesc transition;
                 transition.passIndex = static_cast<uint32_t>( passIndex );
                 transition.resource = use.resource;
+                transition.nativeResource = m_resources[use.resource.index].nativeResource;
                 transition.before = current;
                 transition.after = use.access;
                 result.transitions.push_back( transition );

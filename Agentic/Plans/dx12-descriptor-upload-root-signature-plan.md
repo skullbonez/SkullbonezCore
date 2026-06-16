@@ -1,15 +1,23 @@
 # DX12 Descriptor Upload Root Signature Plan
 
-Status: implementation slice complete; future expansion deferred
+Status: implementation complete through object material-table expansion; validated 2026-06-16
 Created: 2026-06-11
 Scope: DX12 descriptor management, upload allocation, root signature strategy, material-system readiness
-Implementation status: current ABI documented and named in code; descriptor/upload helper systems are in place; no root-signature expansion in this pass
+Implementation status: descriptor/upload helper systems are in place; the
+ordinary raster ABI is documented and named in code; the object-material branch
+adds `t4` as the fixed material-table SRV slot while preserving
+`BindTexture(handle, slot)` compatibility.
+Validation: `tools\validate_full.bat` passed with DX12 validation errors 0,
+matching renderer baselines, byte-exact physics, and perf validation.
 
 ## Goal
 
 Plan the DX12 resource-binding cleanup needed to support future material and post-processing growth without destabilizing the current renderer.
 
-This is not the first shader cleanup slice. The first material system should use packed instance params and the existing root signature. This plan describes what to do when the renderer genuinely needs more texture/material resources.
+This is not the first shader cleanup slice. The first material system now uses
+packed instance params plus one fixed material-table texture slot. This plan
+records that concrete binding contract and describes what to do if the renderer
+later needs larger texture/material resource models.
 
 DX12 is now the official production renderer, but the engine should still name resource concepts in backend-neutral terms. A pass should ask for frame constants, material data, instance data, global textures, and pass-local resources; the DX12 implementation maps those concepts to root signatures and descriptor heaps. A future Vulkan or Metal backend should be able to map the same concepts to descriptor sets, argument buffers, or equivalent resource tables.
 
@@ -22,6 +30,8 @@ Current ordinary DX12 raster root signature:
 - root parameter 2: SRV descriptor table for `t1`,
 - root parameter 3: SRV descriptor table for `t2`,
 - root parameter 4: SRV descriptor table for `t3`,
+- root parameter 5: SRV descriptor table for `t4`, reserved for the object
+  material table,
 - static sampler `s0`: linear wrap,
 - static sampler `s1`: linear clamp,
 - static sampler `s3`: point clamp for shadow sampling.
@@ -32,7 +42,7 @@ Current descriptor model:
 - Shader-visible heap for bound/transient descriptors.
 - Static SRV allocation for textures/FBO registered SRVs.
 - Transient SRV allocation copied into shader-visible heap.
-- Bound texture slots are tracked for `t0`, `t1`, `t2`, and `t3`.
+- Bound texture slots are tracked for `t0`, `t1`, `t2`, `t3`, and `t4`.
 - Descriptor stats report static SRV use/capacity, per-frame transient capacity,
   transient peak use, and current transient use.
 
@@ -53,8 +63,8 @@ The near-term cleanup is implemented without expanding the ordinary raster root
 signature:
 
 - `RenderBackendDX12` now names the ordinary raster binding ABI in constants:
-  root parameter 0 is CBV `b0`, root parameters 1..4 are SRV slots `t0..t3`,
-  and static samplers are `s0`, `s1`, and `s3`.
+  root parameter 0 is CBV `b0`, the original fixed SRV span was slots `t0`
+  through `t3`, and static samplers are `s0`, `s1`, and `s3`.
 - Debug builds log a one-time `dx12_ordinary_raster_binding_abi` event when the
   main root signature is created.
 - `ReportArchitectureStats()` now includes the root-parameter count and ordinary
@@ -68,6 +78,23 @@ signature:
 - The frame upload arena and transient descriptor reset policy was confirmed to
   be explicit and fence-aligned. No rewrite was needed.
 
+## Implementation Update: 2026-06-16
+
+The object material-table slice made the first scoped root-signature expansion:
+
+- `RenderBackendDX12` now exposes fixed ordinary raster SRV slots `t0..t4`.
+- Slot `t4` is the shared object material-table texture used by
+  `lit_textured_instanced.hlsl`.
+- `BindTexture(handle, slot)` remains the compatibility API; slot 4 maps
+  directly to HLSL register `t4`.
+- The shader contract table and JSON manifest record `uMaterialTable` at `t4`.
+- No structured buffer, bindless heap, or descriptor-indexing API was added.
+- Typed CBV upload helpers were added for object and shadow-pass constants, but
+  the underlying per-frame upload arena and `b0` root parameter stay unchanged.
+- The render graph diagnostic skeleton now carries native resource pointers in
+  transitions so graph/live barrier comparisons can match real resources before
+  full graph-owned barrier execution.
+
 Documentation added:
 
 - `Agentic/Reference/dx12-binding-abi.md` records the current root signature,
@@ -78,17 +105,18 @@ Documentation added:
 - `Agentic/Reference/render-backend-portability-contract.md` records the current
   DX12 ABI as the mapping for the engine-level shader program concept.
 
-Deferred:
+Still deferred:
 
-- root signature expansion;
-- material texture/table or structured-buffer material table;
+- descriptor indexing;
+- structured-buffer material tables;
 - bindless descriptors;
-- broad render graph/resource-barrier migration;
+- broad render graph/resource-barrier migration and graph-owned live barriers;
 - upload allocation strategy changes beyond clearer diagnostics.
 
 ## Design Principles
 
-1. Keep current root signature until a concrete feature needs more.
+1. Keep the current `b0 + t0..t4` root signature until a concrete feature needs
+   more.
 2. Prefer descriptor-table stability over per-draw descriptor churn.
 3. Make descriptor allocation frame-scoped where resources are transient.
 4. Keep DX12 validation zero-error.
@@ -98,25 +126,29 @@ Deferred:
 
 ## Near-Term Recommendation
 
-For material system v1:
+For material system v1 after the 2026-06-16 object-material slice:
 
-- Do not change the DX12 root signature.
+- Keep the current `t4` material texture table as the only new ordinary raster
+  SRV slot.
 - Do not add structured buffers.
 - Do not add bindless descriptors.
-- Pack material params into instance data.
+- Pack per-instance material params into instance data and use `t4` only for
+  shared material-kind defaults.
 
 Reason:
 
-- It reduces risk while material semantics are still being cleaned up.
-- It avoids a DX12-heavy change blocking shader architecture cleanup.
+- It keeps the root-signature change narrowly tied to a real object-material
+  contract.
+- It avoids a broader DX12-heavy descriptor rewrite while material semantics are
+  still being cleaned up.
 - It keeps the CPU material model independent from the eventual GPU binding model.
 
 ## Medium-Term Needs
 
 The root signature should be revisited when one of these is true:
 
-- More than three pixel SRV slots are required in ordinary raster passes.
-- Material tables are too large for instance data.
+- More than five pixel SRV slots are required in ordinary raster passes.
+- Material tables are too large for the current `t4` material texture.
 - Terrain needs multiple texture layers.
 - Post stack needs more intermediate textures.
 - Per-pass debug buffers need SRV access.
@@ -381,12 +413,12 @@ Validation:
 
 ### Phase 4: Root Signature Expansion If Needed
 
-Status: deferred. No concrete runtime need was found in this slice; material v1
-continues to use packed instance parameters.
+Status: implemented for one extra fixed SRV slot. The current ordinary raster
+ABI is `b0` plus `t0..t4`; broad descriptor-table reshaping remains deferred.
 
 Tasks:
 
-1. Add more SRV slots or one descriptor range.
+1. Add one material-table SRV slot.
 2. Update PSO cache key if root signature variants exist.
 3. Update shader manifests.
 4. Update HLSL register docs.
@@ -399,14 +431,16 @@ Validation:
 
 ### Phase 5: Material Table If Needed
 
-Status: deferred.
+Status: implemented as a small material texture table at `t4`; structured
+buffers and bindless material tables remain deferred.
 
 Tasks:
 
-1. Prefer material texture when backend portability matters more than DX12-native structured-buffer ergonomics.
+1. Use a material texture because backend portability matters more than
+   DX12-native structured-buffer ergonomics.
 2. Add material texture creation/update path.
-3. Instance data carries material index.
-4. Shaders sample material row.
+3. Instance data carries the material table row.
+4. Shaders sample material row through `uMaterialTable`.
 
 Validation:
 
@@ -436,7 +470,8 @@ Validation:
 
 ## Success Criteria
 
-- Current material cleanup does not require DX12 root signature changes.
+- Current material cleanup uses one documented `t4` root-signature expansion
+  for the object material table and no broader descriptor model change.
 - DX12 descriptor/upload usage is measurable.
 - Future root signature changes have a clear gate and validation plan.
 - DX12 validation remains zero-error through all binding changes.

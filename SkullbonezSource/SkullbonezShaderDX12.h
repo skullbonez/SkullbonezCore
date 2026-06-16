@@ -73,11 +73,19 @@ class ShaderDX12 : public IShader
         UINT size;
     };
     std::unordered_map<std::string, UniformInfo> m_uniformMap;
+    UINT m_cbReflectedSize;
     UINT m_cbSize;
     mutable std::vector<uint8_t> m_cbData;
     mutable bool m_cbDirty;
     const ShaderProgramDesc* m_contract;
 #ifdef _DEBUG
+    struct ResourceInfo
+    {
+        UINT bindPoint;
+        D3D_SHADER_INPUT_TYPE type;
+        D3D_SRV_DIMENSION dimension;
+    };
+    std::unordered_map<std::string, ResourceInfo> m_resourceMap;
     mutable std::vector<uint8_t> m_contractUniformsSet;
     mutable std::vector<uint8_t> m_contractMissingRequiredLogged;
     mutable std::vector<std::string> m_missingUniformWarnings;
@@ -106,6 +114,7 @@ class ShaderDX12 : public IShader
     void SetVec3( const char* name, const Math::Vector::Vector3& v ) const override;
     void SetVec4( const char* name, float x, float y, float z, float w ) const override;
     void SetMat4( const char* name, const Math::Transformation::Matrix4& m ) const override;
+    bool SetConstantBufferBytes( const void* data, size_t size, const char* debugName ) const override;
 
     // Flush the dirty constant-buffer bytes into the backend upload arena and
     // return the GPU virtual address used by the root CBV binding.

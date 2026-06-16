@@ -509,13 +509,13 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
     // still being decomposed.
     RenderGraph graph;
 
-    const RenderGraphResourceHandle backbuffer = graph.AddExternalResource( "SwapchainBackbuffer", RenderGraphResourceAccess::Present );
-    const RenderGraphResourceHandle mainDepth = graph.AddExternalResource( "MainDepthStencil", RenderGraphResourceAccess::DepthWrite );
+    const RenderGraphResourceHandle backbuffer = graph.AddExternalResource( "SwapchainBackbuffer", RenderGraphResourceAccess::Present, m_renderTargets[m_frameIndex] );
+    const RenderGraphResourceHandle mainDepth = graph.AddExternalResource( "MainDepthStencil", RenderGraphResourceAccess::DepthWrite, m_depthStencil );
     const RenderGraphResourceHandle shadowDepth = graph.AddExternalResource( "TerrainShadowMapDepth", RenderGraphResourceAccess::PixelShaderResource );
     const RenderGraphResourceHandle objectShadowDepth = graph.AddExternalResource( "ObjectShadowMapDepth", RenderGraphResourceAccess::PixelShaderResource );
     const RenderGraphResourceHandle reflectionColor = graph.AddExternalResource( "RasterReflectionColor", RenderGraphResourceAccess::PixelShaderResource );
     const RenderGraphResourceHandle reflectionDepth = graph.AddExternalResource( "RasterReflectionDepth", RenderGraphResourceAccess::PixelShaderResource );
-    const RenderGraphResourceHandle dxrReflection = graph.AddExternalResource( "DxrReflectionTexture", RenderGraphResourceAccess::PixelShaderResource );
+    const RenderGraphResourceHandle dxrReflection = graph.AddExternalResource( "DxrReflectionTexture", RenderGraphResourceAccess::PixelShaderResource, m_reflectionUAV );
     const RenderGraphResourceHandle sceneColor = graph.AddExternalResource( "CinematicSceneColor", RenderGraphResourceAccess::PixelShaderResource );
     const RenderGraphResourceHandle sceneDepth = graph.AddExternalResource( "CinematicSceneDepth", RenderGraphResourceAccess::PixelShaderResource );
     const RenderGraphResourceHandle volumetricLight = graph.AddExternalResource( "VolumetricLight", RenderGraphResourceAccess::PixelShaderResource );
@@ -646,6 +646,13 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
         {
             const LiveBarrierRecordDX12& live = m_liveBarrierRecords[liveIndex];
             const char* label = liveResourceLabel( live.resource );
+            if ( !liveBarrierMatched[liveIndex] && transition.nativeResource && live.resource == transition.nativeResource && live.before == graphBefore && live.after == graphAfter )
+            {
+                liveBarrierMatched[liveIndex] = true;
+                matched = true;
+                ++matchedResourcePairs;
+                break;
+            }
             if ( !liveBarrierMatched[liveIndex] && label && std::strcmp( label, resource.name.c_str() ) == 0 && live.before == graphBefore && live.after == graphAfter )
             {
                 liveBarrierMatched[liveIndex] = true;
@@ -984,6 +991,18 @@ bool RenderBackendDX12::Init( HWND hwnd, HDC /*hdc*/, int width, int height )
     m_srvDescriptors.Init( m_srvHeap, m_srvStagingHeap, m_srvDescSize, MAX_STATIC_SRVS, MAX_TRANSIENT_SRVS, FRAME_COUNT );
     m_srvDescriptors.ResetFrame( m_allocatorIndex );
 
+    // Cleared ordinary-raster texture slots still need a real descriptor table.
+    // BindTexture(0) maps to this typed null SRV so shaders that sample an
+    // intentionally empty slot read safe zero/default values instead of whatever
+    // descriptor was previously bound to the root parameter.
+    m_nullTextureSRVIndex = AllocateStaticSRV();
+    D3D12_SHADER_RESOURCE_VIEW_DESC nullTextureSrv = {};
+    nullTextureSrv.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    nullTextureSrv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    nullTextureSrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    nullTextureSrv.Texture2D.MipLevels = 1;
+    m_device->CreateShaderResourceView( nullptr, &nullTextureSrv, GetSRVStagingCpuHandle( m_nullTextureSRVIndex ) );
+
     // Lifetime: swap-chain images are replaced on resize, but the engine keeps
     // one stable RTV descriptor row per back buffer index. ResizeBuffers swaps
     // the image memory; CreateRenderTargetView overwrites the existing row with
@@ -1080,9 +1099,9 @@ void RenderBackendDX12::CreateRootSignature()
     //
     // - root parameter 0: one constant buffer view at b0. Per-draw matrices,
     //   colors, and scalar shader values are uploaded there.
-    // - root parameters 1..4: one descriptor table each for texture slots t0..t3.
+    // - root parameters 1..5: one descriptor table each for texture slots t0..t4.
     //   Each table points at one transient SRV descriptor row prepared by the
-    //   descriptor allocator.
+    //   descriptor allocator. Slot t4 is reserved for the object material table.
     // - static samplers: fixed filtering/addressing rules named s0, s1, and s3.
     //
     // The future render graph will not replace this shader contract. It will
@@ -1155,8 +1174,8 @@ void RenderBackendDX12::CreateRootSignature()
     rootSigDesc.Desc_1_1.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
     // Serialize the root signature description into a binary blob. The root signature defines
-    // what data shaders can access: [0] CBV at b0 (constants), [1..4] SRV
-    // tables at t0..t3, plus static samplers for regular, FBO, and shadow reads.
+    // what data shaders can access: [0] CBV at b0 (constants), [1..5] SRV
+    // tables at t0..t4, plus static samplers for regular, FBO, and shadow reads.
     // Docs: https://learn.microsoft.com/en-us/windows/win32/api/d3d12/nf-d3d12-d3d12serializeversionedrootsignature
     ComPtr<ID3DBlob> signature;
     ComPtr<ID3DBlob> error;
@@ -1181,7 +1200,7 @@ void RenderBackendDX12::CreateRootSignature()
     }
     NameDx12Object( m_rootSignature, L"Skullbonez DX12 Main Root Signature" );
 #ifdef _DEBUG
-    Log().WriteEventf( "dx12_ordinary_raster_binding_abi root_parameters=%u cbv=b%u srv_slots=t%u..t%u samplers=s%u,s%u,s%u bind_texture_slots=%d material_payload=packed_instance_params",
+    Log().WriteEventf( "dx12_ordinary_raster_binding_abi root_parameters=%u cbv=b%u srv_slots=t%u..t%u material_table=t4 samplers=s%u,s%u,s%u bind_texture_slots=%d material_payload=packed_instance_params",
                        ORDINARY_RASTER_ROOT_PARAMETER_COUNT,
                        SHADER_REGISTER_FRAME_CONSTANTS,
                        SHADER_REGISTER_FIRST_TEXTURE,
@@ -1423,6 +1442,7 @@ void RenderBackendDX12::Shutdown()
         m_srvStagingHeap->Release();
     }
     m_srvDescriptors.Reset();
+    m_nullTextureSRVIndex = UINT_MAX;
     if ( m_dsvHeap )
     {
         m_dsvHeap->Release();

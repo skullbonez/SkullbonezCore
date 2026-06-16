@@ -31,15 +31,44 @@ using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::GameObjects;
 using SkullbonezCore::Math::Transformation::Matrix4;
 using SkullbonezCore::Math::Vector::Vector3;
+using SkullbonezCore::Rendering::RenderMaterial;
+using SkullbonezCore::Rendering::RenderMaterialKind;
 using SkullbonezCore::Rendering::ShadowFrameData;
 
 namespace
 {
 constexpr int PINE_VISUAL_MATERIAL_MODE = 13;
 
-bool IsPineVisualMaterial( float colorOverride )
+bool IsPineVisualMaterial( const RenderMaterial& material )
 {
-    return colorOverride > 1.25f && static_cast<int>( std::floor( colorOverride + 0.5f ) ) == PINE_VISUAL_MATERIAL_MODE;
+    return material.kind == RenderMaterialKind::Pine ||
+           ( material.textureMode > 1.25f && static_cast<int>( std::floor( material.textureMode + 0.5f ) ) == PINE_VISUAL_MATERIAL_MODE );
+}
+
+RenderMaterial MaterialWithFixedContactHighlight( const GameModel& model, bool box )
+{
+    RenderMaterial material = model.GetRenderMaterial();
+    const float hit = model.GetFixedContactHighlightAlpha();
+    if ( hit <= 0.0f )
+    {
+        return material;
+    }
+
+    if ( box && material.textureMode <= 0.5f && material.textureMode >= -0.5f )
+    {
+        constexpr float fixedBase = 241.0f / 255.0f;
+        material.baseColor[0] = fixedBase + ( 1.0f - fixedBase ) * hit;
+        material.baseColor[1] = fixedBase * ( 1.0f - hit );
+        material.baseColor[2] = fixedBase * ( 1.0f - hit );
+        material.kind = RenderMaterialKind::Matte;
+        material.textureMode = 1.0f;
+        return material;
+    }
+
+    material.baseColor[0] = material.baseColor[0] + ( 1.0f - material.baseColor[0] ) * hit;
+    material.baseColor[1] = material.baseColor[1] * ( 1.0f - hit );
+    material.baseColor[2] = material.baseColor[2] * ( 1.0f - hit );
+    return material;
 }
 } // namespace
 
@@ -66,22 +95,8 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection, const Mat
     {
         if ( !m_soaIsBox[x] )
         {
-            float tintR = 1.0f;
-            float tintG = 1.0f;
-            float tintB = 1.0f;
-            float colorOverride = 0.0f;
-            m_gameModels[x].GetRenderTint( tintR, tintG, tintB, colorOverride );
-            if ( m_soaIsFixed[x] )
-            {
-                const float hit = m_gameModels[x].GetFixedContactHighlightAlpha();
-                if ( hit > 0.0f )
-                {
-                    tintR = tintR + ( 1.0f - tintR ) * hit;
-                    tintG = tintG * ( 1.0f - hit );
-                    tintB = tintB * ( 1.0f - hit );
-                }
-            }
-            SkullbonezHelper::DrawSphereBatchModel( m_soaModelMatrices[x], tintR, tintG, tintB, colorOverride );
+            RenderMaterial material = m_soaIsFixed[x] ? MaterialWithFixedContactHighlight( m_gameModels[x], false ) : m_gameModels[x].GetRenderMaterial();
+            SkullbonezHelper::DrawSphereBatchModel( m_soaModelMatrices[x], material );
         }
     }
     SkullbonezHelper::DrawSphereBatchEnd();
@@ -93,12 +108,8 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection, const Mat
         {
             if ( m_soaIsBox[x] )
             {
-                float tintR = 1.0f;
-                float tintG = 1.0f;
-                float tintB = 1.0f;
-                float colorOverride = 0.0f;
-                m_gameModels[x].GetRenderTint( tintR, tintG, tintB, colorOverride );
-                const bool isPineVisual = IsPineVisualMaterial( colorOverride );
+                RenderMaterial material = m_soaIsFixed[x] ? MaterialWithFixedContactHighlight( m_gameModels[x], true ) : m_gameModels[x].GetRenderMaterial();
+                const bool isPineVisual = IsPineVisualMaterial( material );
                 if ( isPineVisual )
                 {
                     hasPineVisualModels = true;
@@ -107,31 +118,13 @@ void GameModelRenderer::RenderModels( GameModelCollection& collection, const Mat
                 {
                     continue;
                 }
-                if ( m_soaIsFixed[x] )
-                {
-                    float hit = m_gameModels[x].GetFixedContactHighlightAlpha();
-                    if ( colorOverride <= 0.5f && colorOverride >= -0.5f )
-                    {
-                        constexpr float fixedBase = 241.0f / 255.0f;
-                        tintR = fixedBase + ( 1.0f - fixedBase ) * hit;
-                        tintG = fixedBase * ( 1.0f - hit );
-                        tintB = fixedBase * ( 1.0f - hit );
-                        colorOverride = 1.0f;
-                    }
-                    else if ( hit > 0.0f )
-                    {
-                        tintR = tintR + ( 1.0f - tintR ) * hit;
-                        tintG = tintG * ( 1.0f - hit );
-                        tintB = tintB * ( 1.0f - hit );
-                    }
-                }
                 if ( pineVisualPass )
                 {
-                    SkullbonezHelper::DrawPineBatchModel( m_soaModelMatrices[x], tintR, tintG, tintB, colorOverride );
+                    SkullbonezHelper::DrawPineBatchModel( m_soaModelMatrices[x], material );
                 }
                 else
                 {
-                    SkullbonezHelper::DrawBoxBatchModel( m_soaModelMatrices[x], tintR, tintG, tintB, colorOverride );
+                    SkullbonezHelper::DrawBoxBatchModel( m_soaModelMatrices[x], material );
                 }
             }
         }
@@ -189,12 +182,7 @@ void GameModelRenderer::RenderShadowCasters( GameModelCollection& collection, co
             {
                 continue;
             }
-            float tintR = 1.0f;
-            float tintG = 1.0f;
-            float tintB = 1.0f;
-            float colorOverride = 0.0f;
-            m_gameModels[x].GetRenderTint( tintR, tintG, tintB, colorOverride );
-            const bool isPineVisual = IsPineVisualMaterial( colorOverride );
+            const bool isPineVisual = IsPineVisualMaterial( m_gameModels[x].GetRenderMaterial() );
             if ( isPineVisual )
             {
                 hasPineVisualModels = true;

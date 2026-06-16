@@ -50,13 +50,46 @@ int SkullbonezHelper::pineVertexCount = 0;
 std::vector<float> SkullbonezHelper::pineInstanceData;
 
 static constexpr int INSTANCE_MATRIX_FLOATS = 16;
-static constexpr int INSTANCE_TINT_FLOATS = 4;
-static constexpr int INSTANCE_FLOATS = INSTANCE_MATRIX_FLOATS + INSTANCE_TINT_FLOATS;
+static constexpr int INSTANCE_MATERIAL_FLOAT4_COUNT = 3;
+static constexpr int INSTANCE_MATERIAL_FLOATS = INSTANCE_MATERIAL_FLOAT4_COUNT * 4;
+static constexpr int INSTANCE_FLOATS = INSTANCE_MATRIX_FLOATS + INSTANCE_MATERIAL_FLOATS;
 static constexpr int PRIMITIVE_SHAPE_MESH = 0;
 static constexpr int PRIMITIVE_SHAPE_SPHERE = 1;
+static constexpr int MATERIAL_TABLE_WIDTH = 16;
+static constexpr int MATERIAL_TABLE_TEXTURE_SLOT = 4;
 static bool sSphereBatchTransparent = false;
 static bool sBoxBatchTransparent = false;
 static bool sPineBatchTransparent = false;
+static bool sSphereBatchReady = false;
+static bool sBoxBatchReady = false;
+static bool sPineBatchReady = false;
+static uint32_t sMaterialTableTexture = 0;
+
+struct PrimitiveBatchShaderConstants
+{
+    Matrix4 view;
+    Matrix4 projection;
+    float clipPlane[4];
+    float lightPosition[4];
+    float lightAmbient[4];
+    float lightDiffuse[4];
+    float materialAmbient[4];
+    float materialDiffuse[4];
+    int objectStyle;
+    int primitiveShape;
+    float materialAlpha;
+    float objectStylePad;
+    Matrix4 shadowViewProj;
+    float shadowParams[4];
+    float shadowFlags[4];
+};
+
+struct InstancedShadowDepthConstants
+{
+    Matrix4 view;
+    Matrix4 projection;
+    float clipPlane[4];
+};
 
 static void BeginPrimitiveBatchTransparency( bool isTransparent )
 {
@@ -77,6 +110,58 @@ static void EndPrimitiveBatchTransparency( bool wasTransparent )
     Gfx().SetBlend( false );
 }
 
+static uint8_t MaterialByte( float value )
+{
+    return static_cast<uint8_t>( std::clamp( value, 0.0f, 1.0f ) * 255.0f + 0.5f );
+}
+
+static void EnsureMaterialTableTexture()
+{
+    if ( sMaterialTableTexture != 0 )
+    {
+        Gfx().BindTexture( sMaterialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
+        return;
+    }
+
+    uint8_t rows[MATERIAL_TABLE_WIDTH * 4] = {};
+    for ( int i = 0; i < MATERIAL_TABLE_WIDTH; ++i )
+    {
+        RenderMaterial material;
+        material.kind = static_cast<RenderMaterialKind>( std::clamp( i, 0, static_cast<int>( RenderMaterialKind::Pine ) ) );
+        ApplyRenderMaterialDefaults( material );
+        rows[i * 4 + 0] = MaterialByte( material.roughness );
+        rows[i * 4 + 1] = MaterialByte( material.metallic );
+        rows[i * 4 + 2] = MaterialByte( material.specular );
+        rows[i * 4 + 3] = MaterialByte( material.stylization );
+    }
+
+    sMaterialTableTexture = Gfx().CreateTexture2D( rows, MATERIAL_TABLE_WIDTH, 1, 4, false, false );
+    Gfx().BindTexture( sMaterialTableTexture, MATERIAL_TABLE_TEXTURE_SLOT );
+}
+
+static void AppendMaterialInstancePayload( std::vector<float>& out, const Matrix4& model, const RenderMaterial& material )
+{
+    const float* md = model.Data();
+    out.insert( out.end(), md, md + INSTANCE_MATRIX_FLOATS );
+    const RenderMaterialInstancePayload payload = PackRenderMaterialInstancePayload( material );
+    out.insert( out.end(), payload.material0, payload.material0 + 4 );
+    out.insert( out.end(), payload.material1, payload.material1 + 4 );
+    out.insert( out.end(), payload.material2, payload.material2 + 4 );
+}
+
+static void ApplySceneLightConstants( PrimitiveBatchShaderConstants& constants )
+{
+    const auto& light = Cfg().sceneLight;
+    constants.lightAmbient[0] = light.colorR;
+    constants.lightAmbient[1] = light.colorG;
+    constants.lightAmbient[2] = light.colorB;
+    constants.lightAmbient[3] = light.colorA;
+    constants.lightDiffuse[0] = light.colorR;
+    constants.lightDiffuse[1] = light.colorG;
+    constants.lightDiffuse[2] = light.colorB;
+    constants.lightDiffuse[3] = light.colorA;
+}
+
 static void ApplySceneLightUniforms( IShader& shader )
 {
     const auto& light = Cfg().sceneLight;
@@ -84,26 +169,51 @@ static void ApplySceneLightUniforms( IShader& shader )
     shader.SetVec4( "uLightDiffuse", light.colorR, light.colorG, light.colorB, light.colorA );
 }
 
-static void ApplyBatchLightUniforms( IShader& shader, const float lightPos[4], const CinematicRenderConfig* cinematicOverride )
+static void ApplyBatchLightConstants( PrimitiveBatchShaderConstants& constants, const float lightPos[4], const CinematicRenderConfig* cinematicOverride )
 {
     if ( lightPos[3] == 0.0f )
     {
         const CinematicRenderConfig& cinematic = cinematicOverride ? *cinematicOverride : Cfg().cinematicRender;
-        shader.SetVec4( "uLightAmbient", 0.28f, 0.15f, 0.06f, 1.0f );
-        shader.SetVec4( "uLightDiffuse",
-                        cinematic.sunColorR * 2.35f,
-                        cinematic.sunColorG * 2.35f,
-                        cinematic.sunColorB * 2.35f,
-                        1.0f );
+        constants.lightAmbient[0] = 0.28f;
+        constants.lightAmbient[1] = 0.15f;
+        constants.lightAmbient[2] = 0.06f;
+        constants.lightAmbient[3] = 1.0f;
+        constants.lightDiffuse[0] = cinematic.sunColorR * 2.35f;
+        constants.lightDiffuse[1] = cinematic.sunColorG * 2.35f;
+        constants.lightDiffuse[2] = cinematic.sunColorB * 2.35f;
+        constants.lightDiffuse[3] = 1.0f;
         return;
     }
 
-    ApplySceneLightUniforms( shader );
+    ApplySceneLightConstants( constants );
 }
 
 static int ObjectStyleForShader( const CinematicRenderConfig* cinematicOverride )
 {
     return cinematicOverride ? cinematicOverride->objectStyle : Cfg().cinematicRender.objectStyle;
+}
+
+static void FillShadowReceiverConstants( PrimitiveBatchShaderConstants& constants, const ShadowFrameData* shadow, bool receive, bool objectReceiver )
+{
+    const bool enabled = shadow && shadow->valid && receive && shadow->depthTextureHandle != 0;
+    Matrix4 identity;
+    constants.shadowViewProj = enabled ? shadow->lightViewProjection : identity;
+    const float depthBias = enabled
+                                ? ( objectReceiver ? (std::max)( shadow->depthBias, 0.0015f ) : shadow->depthBias )
+                                : 0.0f;
+    const float slopeBias = enabled
+                                ? ( objectReceiver ? (std::max)( shadow->slopeBias, 0.0035f ) : shadow->slopeBias )
+                                : 0.0f;
+    constants.shadowParams[0] = enabled ? shadow->strength : 0.0f;
+    constants.shadowParams[1] = depthBias;
+    constants.shadowParams[2] = slopeBias;
+    constants.shadowParams[3] = enabled ? shadow->texelSize * shadow->softness : 0.0f;
+    constants.shadowFlags[0] = enabled ? 1.0f : 0.0f;
+    constants.shadowFlags[1] = receive ? 1.0f : 0.0f;
+    constants.shadowFlags[2] = enabled ? static_cast<float>( shadow->pcfRadius ) : 0.0f;
+    constants.shadowFlags[3] = enabled && shadow->zeroToOneDepth ? 1.0f : 0.0f;
+
+    Gfx().BindTexture( enabled ? shadow->depthTextureHandle : 0, SHADOW_TEXTURE_SLOT );
 }
 
 struct PrimitiveBatchShaderParams
@@ -119,8 +229,10 @@ struct PrimitiveBatchShaderParams
     float materialAlpha;
 };
 
-static void BindPrimitiveBatchShader( IShader& shader, const PrimitiveBatchShaderParams& params )
+static bool BindPrimitiveBatchShader( IShader& shader, const PrimitiveBatchShaderParams& params )
 {
+    EnsureMaterialTableTexture();
+
     float viewLightPos[4];
     for ( int i = 0; i < 3; ++i )
     {
@@ -132,15 +244,32 @@ static void BindPrimitiveBatchShader( IShader& shader, const PrimitiveBatchShade
     viewLightPos[3] = params.lightPosition[3];
 
     shader.Use();
-    ApplyBatchLightUniforms( shader, params.lightPosition, params.cinematic );
-    shader.SetMat4( "uView", params.view );
-    shader.SetMat4( "uProjection", params.projection );
-    shader.SetVec4( "uClipPlane", params.clipPlane[0], params.clipPlane[1], params.clipPlane[2], params.clipPlane[3] );
-    shader.SetVec4( "uLightPosition", viewLightPos[0], viewLightPos[1], viewLightPos[2], viewLightPos[3] );
-    shader.SetInt( "uObjectStyle", ObjectStyleForShader( params.cinematic ) );
-    shader.SetInt( "uPrimitiveShape", params.primitiveShape );
-    shader.SetFloat( "uMaterialAlpha", std::clamp( params.materialAlpha, 0.0f, 1.0f ) );
-    ApplyShadowReceiverUniforms( shader, params.shadow, params.receiveShadows, true );
+    PrimitiveBatchShaderConstants constants = {};
+    constants.view = params.view;
+    constants.projection = params.projection;
+    constants.clipPlane[0] = params.clipPlane[0];
+    constants.clipPlane[1] = params.clipPlane[1];
+    constants.clipPlane[2] = params.clipPlane[2];
+    constants.clipPlane[3] = params.clipPlane[3];
+    constants.lightPosition[0] = viewLightPos[0];
+    constants.lightPosition[1] = viewLightPos[1];
+    constants.lightPosition[2] = viewLightPos[2];
+    constants.lightPosition[3] = viewLightPos[3];
+    constants.materialAmbient[0] = 0.2f;
+    constants.materialAmbient[1] = 0.2f;
+    constants.materialAmbient[2] = 0.2f;
+    constants.materialAmbient[3] = 1.0f;
+    constants.materialDiffuse[0] = 0.8f;
+    constants.materialDiffuse[1] = 0.8f;
+    constants.materialDiffuse[2] = 0.8f;
+    constants.materialDiffuse[3] = 1.0f;
+    constants.objectStyle = ObjectStyleForShader( params.cinematic );
+    constants.primitiveShape = params.primitiveShape;
+    constants.materialAlpha = std::clamp( params.materialAlpha, 0.0f, 1.0f );
+    constants.objectStylePad = 0.0f;
+    ApplyBatchLightConstants( constants, params.lightPosition, params.cinematic );
+    FillShadowReceiverConstants( constants, params.shadow, params.receiveShadows, true );
+    return shader.SetConstantBufferBytes( &constants, sizeof( constants ), "PrimitiveBatchShaderConstants" );
 }
 
 void SkullbonezHelper::SetClipPlane( float x, float y, float z, float w )
@@ -182,6 +311,11 @@ void SkullbonezHelper::ResetRenderResources()
         Gfx().DestroyInstancedMesh( pineInstMesh );
         pineInstMesh = 0;
     }
+    if ( sMaterialTableTexture != 0 )
+    {
+        Gfx().DeleteTexture( sMaterialTableTexture );
+        sMaterialTableTexture = 0;
+    }
     activeSphereInstMesh = 0;
     activeSphereVertexCount = 0;
 }
@@ -207,7 +341,7 @@ void SkullbonezHelper::EnsureShadowDepthShader()
     {
         // One shared instanced depth shader is enough for balls, boxes, and pine
         // visuals because all three meshes expose the same static attributes and
-        // per-instance model/tint layout. The fragment output is irrelevant; the
+        // per-instance material layout. The fragment output is irrelevant; the
         // depth attachment is the shadow map product.
         shadowDepthShader = SkullbonezCore::Assets::CreateShaderFromActiveAssets( "shader.shadow_depth_instanced" );
     }
@@ -236,9 +370,9 @@ void SkullbonezHelper::BuildSphereMesh( int slices, int stacks )
 
     // Static layout: 3 attributes (pos3, normal3, uv2) at locations 0-2
     int staticAttribSizes[] = { 3, 3, 2 };
-    // Instance layout: 4 attributes for mat4 plus RGBA tint/override, starting at location 3.
-    int instanceAttribSizes[] = { 4, 4, 4, 4, 4 };
-    sphereInstMesh = Gfx().CreateInstancedMesh( verts.data(), sphereVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 5, staticAttribSizes, 3 );
+    // Instance layout: model matrix plus three float4 material rows, starting at location 3.
+    int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4 };
+    sphereInstMesh = Gfx().CreateInstancedMesh( verts.data(), sphereVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 7, staticAttribSizes, 3 );
 
     sphereInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
@@ -255,8 +389,8 @@ void SkullbonezHelper::BuildLowPolySphereMesh( int slices, int stacks )
     lowPolySphereVertexCount = PrimitiveMeshes::SphereTriangleVertexCount( slices, stacks );
 
     int staticAttribSizes[] = { 3, 3, 2 };
-    int instanceAttribSizes[] = { 4, 4, 4, 4, 4 };
-    lowPolySphereInstMesh = Gfx().CreateInstancedMesh( verts.data(), lowPolySphereVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 5, staticAttribSizes, 3 );
+    int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4 };
+    lowPolySphereInstMesh = Gfx().CreateInstancedMesh( verts.data(), lowPolySphereVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 7, staticAttribSizes, 3 );
 
     sphereInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
@@ -265,6 +399,7 @@ void SkullbonezHelper::BuildLowPolySphereMesh( int slices, int stacks )
 void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha )
 {
     sSphereBatchTransparent = isTransparent;
+    sSphereBatchReady = false;
     const int objectStyle = ObjectStyleForShader( cinematic );
     const bool useLowPolySphereMesh = objectStyle == 6;
     if ( useLowPolySphereMesh )
@@ -294,28 +429,29 @@ void SkullbonezHelper::DrawSphereBatchBegin( const Matrix4& view, const Matrix4&
     // ball-on-ball receiver shadows alias badly across the large flat facets
     // used by the low-poly beachball style.
     const bool receiveSphereShadows = shadow && shadow->objectsReceive && !useLowPolySphereMesh;
-    BindPrimitiveBatchShader( *sphereShader,
-                              { view,
-                                proj,
-                                lightPos,
-                                sClipPlane,
-                                cinematic,
-                                shadow,
-                                PRIMITIVE_SHAPE_SPHERE,
-                                receiveSphereShadows,
-                                materialAlpha } );
+    sSphereBatchReady = BindPrimitiveBatchShader( *sphereShader,
+                                                  { view,
+                                                    proj,
+                                                    lightPos,
+                                                    sClipPlane,
+                                                    cinematic,
+                                                    shadow,
+                                                    PRIMITIVE_SHAPE_SPHERE,
+                                                    receiveSphereShadows,
+                                                    materialAlpha } );
     sphereInstanceData.clear();
+}
+
+
+void SkullbonezHelper::DrawSphereBatchModel( const Matrix4& model, const RenderMaterial& material )
+{
+    AppendMaterialInstancePayload( sphereInstanceData, model, material );
 }
 
 
 void SkullbonezHelper::DrawSphereBatchModel( const Matrix4& model, float tintR, float tintG, float tintB, float colorOverride )
 {
-    const float* md = model.Data();
-    sphereInstanceData.insert( sphereInstanceData.end(), md, md + INSTANCE_MATRIX_FLOATS );
-    sphereInstanceData.push_back( tintR );
-    sphereInstanceData.push_back( tintG );
-    sphereInstanceData.push_back( tintB );
-    sphereInstanceData.push_back( colorOverride );
+    DrawSphereBatchModel( model, MakeRenderMaterialFromLegacyTint( tintR, tintG, tintB, colorOverride ) );
 }
 
 
@@ -324,16 +460,21 @@ void SkullbonezHelper::DrawSphereBatchEnd()
     int instanceCount = static_cast<int>( sphereInstanceData.size() ) / INSTANCE_FLOATS;
     if ( instanceCount > 0 && activeSphereInstMesh != 0 )
     {
-        Gfx().UploadInstanceData( activeSphereInstMesh, sphereInstanceData.data(), static_cast<int>( sphereInstanceData.size() ) );
-        Gfx().DrawInstancedMesh( activeSphereInstMesh, activeSphereVertexCount, instanceCount );
+        if ( sSphereBatchReady )
+        {
+            Gfx().UploadInstanceData( activeSphereInstMesh, sphereInstanceData.data(), static_cast<int>( sphereInstanceData.size() ) );
+            Gfx().DrawInstancedMesh( activeSphereInstMesh, activeSphereVertexCount, instanceCount );
+        }
     }
     EndPrimitiveBatchTransparency( sSphereBatchTransparent );
     sSphereBatchTransparent = false;
+    sSphereBatchReady = false;
 }
 
 
 void SkullbonezHelper::DrawShadowDepthSphereBatchBegin( const Matrix4& view, const Matrix4& proj, const CinematicRenderConfig* cinematic )
 {
+    sSphereBatchReady = false;
     // Match the visible sphere mesh selection. If a low-poly style is active,
     // the depth pass also uses the faceted mesh, which prevents a smooth sphere
     // shadow from appearing under a visibly low-poly ball.
@@ -359,13 +500,14 @@ void SkullbonezHelper::DrawShadowDepthSphereBatchBegin( const Matrix4& view, con
 
     EnsureShadowDepthShader();
     shadowDepthShader->Use();
-    // These are light-space view/projection matrices, not the camera matrices.
-    // The shader transforms each instance into the light's clip space and writes
-    // normal depth, which later receivers compare against their own light-space
-    // fragment depth.
-    shadowDepthShader->SetMat4( "uView", view );
-    shadowDepthShader->SetMat4( "uProjection", proj );
-    shadowDepthShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
+    InstancedShadowDepthConstants constants = {};
+    constants.view = view;
+    constants.projection = proj;
+    constants.clipPlane[0] = sClipPlane[0];
+    constants.clipPlane[1] = sClipPlane[1];
+    constants.clipPlane[2] = sClipPlane[2];
+    constants.clipPlane[3] = sClipPlane[3];
+    sSphereBatchReady = shadowDepthShader->SetConstantBufferBytes( &constants, sizeof( constants ), "InstancedShadowDepthConstants" );
     sphereInstanceData.clear();
 }
 
@@ -379,7 +521,7 @@ void SkullbonezHelper::DrawShadowDepthSphereBatchModel( const Matrix4& model )
 void SkullbonezHelper::DrawShadowDepthSphereBatchEnd()
 {
     int instanceCount = static_cast<int>( sphereInstanceData.size() ) / INSTANCE_FLOATS;
-    if ( instanceCount > 0 && activeSphereInstMesh != 0 )
+    if ( sSphereBatchReady && instanceCount > 0 && activeSphereInstMesh != 0 )
     {
         // Upload only the compact per-instance stream, then issue one instanced
         // draw for every sphere caster. This keeps the shadow pass draw-call
@@ -387,6 +529,7 @@ void SkullbonezHelper::DrawShadowDepthSphereBatchEnd()
         Gfx().UploadInstanceData( activeSphereInstMesh, sphereInstanceData.data(), static_cast<int>( sphereInstanceData.size() ) );
         Gfx().DrawInstancedMesh( activeSphereInstMesh, activeSphereVertexCount, instanceCount );
     }
+    sSphereBatchReady = false;
 }
 
 
@@ -412,8 +555,8 @@ void SkullbonezHelper::BuildBoxMesh()
     boxVertexCount = PrimitiveMeshes::BoxTriangleVertexCount();
 
     int staticAttribSizes[] = { 3, 3, 2 };
-    int instanceAttribSizes[] = { 4, 4, 4, 4, 4 };
-    boxInstMesh = Gfx().CreateInstancedMesh( verts.data(), boxVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 5, staticAttribSizes, 3 );
+    int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4 };
+    boxInstMesh = Gfx().CreateInstancedMesh( verts.data(), boxVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 7, staticAttribSizes, 3 );
 
     boxInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
@@ -422,6 +565,7 @@ void SkullbonezHelper::BuildBoxMesh()
 void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha )
 {
     sBoxBatchTransparent = isTransparent;
+    sBoxBatchReady = false;
     if ( boxInstMesh == 0 )
     {
         BuildBoxMesh();
@@ -432,58 +576,63 @@ void SkullbonezHelper::DrawBoxBatchBegin( const Matrix4& view, const Matrix4& pr
 
     BeginPrimitiveBatchTransparency( isTransparent );
 
-    BindPrimitiveBatchShader( *sphereShader,
-                              { view,
-                                proj,
-                                lightPos,
-                                sClipPlane,
-                                cinematic,
-                                shadow,
-                                PRIMITIVE_SHAPE_MESH,
-                                shadow ? shadow->objectsReceive : false,
-                                materialAlpha } );
+    sBoxBatchReady = BindPrimitiveBatchShader( *sphereShader,
+                                               { view,
+                                                 proj,
+                                                 lightPos,
+                                                 sClipPlane,
+                                                 cinematic,
+                                                 shadow,
+                                                 PRIMITIVE_SHAPE_MESH,
+                                                 shadow ? shadow->objectsReceive : false,
+                                                 materialAlpha } );
     boxInstanceData.clear();
+}
+
+
+void SkullbonezHelper::DrawBoxBatchModel( const Matrix4& model, const RenderMaterial& material )
+{
+    AppendMaterialInstancePayload( boxInstanceData, model, material );
 }
 
 
 void SkullbonezHelper::DrawBoxBatchModel( const Matrix4& model, float tintR, float tintG, float tintB, float colorOverride )
 {
-    const float* md = model.Data();
-    boxInstanceData.insert( boxInstanceData.end(), md, md + INSTANCE_MATRIX_FLOATS );
-    boxInstanceData.push_back( tintR );
-    boxInstanceData.push_back( tintG );
-    boxInstanceData.push_back( tintB );
-    boxInstanceData.push_back( colorOverride );
+    DrawBoxBatchModel( model, MakeRenderMaterialFromLegacyTint( tintR, tintG, tintB, colorOverride ) );
 }
 
 
 void SkullbonezHelper::DrawBoxBatchEnd()
 {
     int instanceCount = static_cast<int>( boxInstanceData.size() ) / INSTANCE_FLOATS;
-    if ( instanceCount > 0 )
+    if ( sBoxBatchReady && instanceCount > 0 )
     {
         Gfx().UploadInstanceData( boxInstMesh, boxInstanceData.data(), static_cast<int>( boxInstanceData.size() ) );
         Gfx().DrawInstancedMesh( boxInstMesh, boxVertexCount, instanceCount );
     }
     EndPrimitiveBatchTransparency( sBoxBatchTransparent );
     sBoxBatchTransparent = false;
+    sBoxBatchReady = false;
 }
 
 
 void SkullbonezHelper::DrawShadowDepthBoxBatchBegin( const Matrix4& view, const Matrix4& proj )
 {
+    sBoxBatchReady = false;
     if ( boxInstMesh == 0 )
     {
         BuildBoxMesh();
     }
     EnsureShadowDepthShader();
     shadowDepthShader->Use();
-    // Box casters use the same unit-cube mesh and model matrices as the visible
-    // box pass. Rotation and half-extents are already baked into the model matrix,
-    // so the shadow-map silhouette naturally follows tilted or elongated boxes.
-    shadowDepthShader->SetMat4( "uView", view );
-    shadowDepthShader->SetMat4( "uProjection", proj );
-    shadowDepthShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
+    InstancedShadowDepthConstants constants = {};
+    constants.view = view;
+    constants.projection = proj;
+    constants.clipPlane[0] = sClipPlane[0];
+    constants.clipPlane[1] = sClipPlane[1];
+    constants.clipPlane[2] = sClipPlane[2];
+    constants.clipPlane[3] = sClipPlane[3];
+    sBoxBatchReady = shadowDepthShader->SetConstantBufferBytes( &constants, sizeof( constants ), "InstancedShadowDepthConstants" );
     boxInstanceData.clear();
 }
 
@@ -497,7 +646,7 @@ void SkullbonezHelper::DrawShadowDepthBoxBatchModel( const Matrix4& model )
 void SkullbonezHelper::DrawShadowDepthBoxBatchEnd()
 {
     int instanceCount = static_cast<int>( boxInstanceData.size() ) / INSTANCE_FLOATS;
-    if ( instanceCount > 0 && boxInstMesh != 0 )
+    if ( sBoxBatchReady && instanceCount > 0 && boxInstMesh != 0 )
     {
         // This draw is the box-caster fix point: if a scene has boxes and shadow
         // maps are active, their depth is written here before terrain/objects
@@ -505,6 +654,7 @@ void SkullbonezHelper::DrawShadowDepthBoxBatchEnd()
         Gfx().UploadInstanceData( boxInstMesh, boxInstanceData.data(), static_cast<int>( boxInstanceData.size() ) );
         Gfx().DrawInstancedMesh( boxInstMesh, boxVertexCount, instanceCount );
     }
+    sBoxBatchReady = false;
 }
 
 
@@ -519,8 +669,8 @@ void SkullbonezHelper::BuildPineMesh()
     pineVertexCount = PrimitiveMeshes::PineTriangleVertexCount();
 
     int staticAttribSizes[] = { 3, 3, 2 };
-    int instanceAttribSizes[] = { 4, 4, 4, 4, 4 };
-    pineInstMesh = Gfx().CreateInstancedMesh( verts.data(), pineVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 5, staticAttribSizes, 3 );
+    int instanceAttribSizes[] = { 4, 4, 4, 4, 4, 4, 4 };
+    pineInstMesh = Gfx().CreateInstancedMesh( verts.data(), pineVertexCount, 8, MAX_GAME_MODELS, INSTANCE_FLOATS, 3, instanceAttribSizes, 7, staticAttribSizes, 3 );
 
     pineInstanceData.reserve( MAX_GAME_MODELS * INSTANCE_FLOATS );
 }
@@ -529,6 +679,7 @@ void SkullbonezHelper::BuildPineMesh()
 void SkullbonezHelper::DrawPineBatchBegin( const Matrix4& view, const Matrix4& proj, const float lightPos[4], bool isTransparent, const CinematicRenderConfig* cinematic, const ShadowFrameData* shadow, float materialAlpha )
 {
     sPineBatchTransparent = isTransparent;
+    sPineBatchReady = false;
     if ( pineInstMesh == 0 )
     {
         BuildPineMesh();
@@ -538,58 +689,63 @@ void SkullbonezHelper::DrawPineBatchBegin( const Matrix4& view, const Matrix4& p
 
     BeginPrimitiveBatchTransparency( isTransparent );
 
-    BindPrimitiveBatchShader( *sphereShader,
-                              { view,
-                                proj,
-                                lightPos,
-                                sClipPlane,
-                                cinematic,
-                                shadow,
-                                PRIMITIVE_SHAPE_MESH,
-                                shadow ? shadow->objectsReceive : false,
-                                materialAlpha } );
+    sPineBatchReady = BindPrimitiveBatchShader( *sphereShader,
+                                                { view,
+                                                  proj,
+                                                  lightPos,
+                                                  sClipPlane,
+                                                  cinematic,
+                                                  shadow,
+                                                  PRIMITIVE_SHAPE_MESH,
+                                                  shadow ? shadow->objectsReceive : false,
+                                                  materialAlpha } );
     pineInstanceData.clear();
+}
+
+
+void SkullbonezHelper::DrawPineBatchModel( const Matrix4& model, const RenderMaterial& material )
+{
+    AppendMaterialInstancePayload( pineInstanceData, model, material );
 }
 
 
 void SkullbonezHelper::DrawPineBatchModel( const Matrix4& model, float tintR, float tintG, float tintB, float colorOverride )
 {
-    const float* md = model.Data();
-    pineInstanceData.insert( pineInstanceData.end(), md, md + INSTANCE_MATRIX_FLOATS );
-    pineInstanceData.push_back( tintR );
-    pineInstanceData.push_back( tintG );
-    pineInstanceData.push_back( tintB );
-    pineInstanceData.push_back( colorOverride );
+    DrawPineBatchModel( model, MakeRenderMaterialFromLegacyTint( tintR, tintG, tintB, colorOverride ) );
 }
 
 
 void SkullbonezHelper::DrawPineBatchEnd()
 {
     int instanceCount = static_cast<int>( pineInstanceData.size() ) / INSTANCE_FLOATS;
-    if ( instanceCount > 0 )
+    if ( sPineBatchReady && instanceCount > 0 )
     {
         Gfx().UploadInstanceData( pineInstMesh, pineInstanceData.data(), static_cast<int>( pineInstanceData.size() ) );
         Gfx().DrawInstancedMesh( pineInstMesh, pineVertexCount, instanceCount );
     }
     EndPrimitiveBatchTransparency( sPineBatchTransparent );
     sPineBatchTransparent = false;
+    sPineBatchReady = false;
 }
 
 
 void SkullbonezHelper::DrawShadowDepthPineBatchBegin( const Matrix4& view, const Matrix4& proj )
 {
+    sPineBatchReady = false;
     if ( pineInstMesh == 0 )
     {
         BuildPineMesh();
     }
     EnsureShadowDepthShader();
     shadowDepthShader->Use();
-    // Pine visuals are authored as box-backed scene objects with a special
-    // material mode. They get their own depth mesh so the shadow map receives
-    // the pointed tree/pyramid silhouette instead of the underlying physics box.
-    shadowDepthShader->SetMat4( "uView", view );
-    shadowDepthShader->SetMat4( "uProjection", proj );
-    shadowDepthShader->SetVec4( "uClipPlane", sClipPlane[0], sClipPlane[1], sClipPlane[2], sClipPlane[3] );
+    InstancedShadowDepthConstants constants = {};
+    constants.view = view;
+    constants.projection = proj;
+    constants.clipPlane[0] = sClipPlane[0];
+    constants.clipPlane[1] = sClipPlane[1];
+    constants.clipPlane[2] = sClipPlane[2];
+    constants.clipPlane[3] = sClipPlane[3];
+    sPineBatchReady = shadowDepthShader->SetConstantBufferBytes( &constants, sizeof( constants ), "InstancedShadowDepthConstants" );
     pineInstanceData.clear();
 }
 
@@ -603,11 +759,12 @@ void SkullbonezHelper::DrawShadowDepthPineBatchModel( const Matrix4& model )
 void SkullbonezHelper::DrawShadowDepthPineBatchEnd()
 {
     int instanceCount = static_cast<int>( pineInstanceData.size() ) / INSTANCE_FLOATS;
-    if ( instanceCount > 0 && pineInstMesh != 0 )
+    if ( sPineBatchReady && instanceCount > 0 && pineInstMesh != 0 )
     {
         Gfx().UploadInstanceData( pineInstMesh, pineInstanceData.data(), static_cast<int>( pineInstanceData.size() ) );
         Gfx().DrawInstancedMesh( pineInstMesh, pineVertexCount, instanceCount );
     }
+    sPineBatchReady = false;
 }
 
 

@@ -1,12 +1,17 @@
 # Shader Architecture Cleanup Plan
 
-Status: partially implemented on `codex/shader-architecture-cleanup`
+Status: implementation complete on `codex/engine-cleanup`; validated 2026-06-16
 Created: 2026-06-11
 Scope: render architecture, shader contracts, shader source hygiene, style data, material system v1
 Implementation status: shader inventory, high-risk runtime contract diagnostics,
-pass binder cleanup, and CPU render-material compatibility mapping are in
-progress. DX12 root-signature changes, descriptor/upload changes, and expanded
-instance material payloads remain deferred.
+pass binder cleanup, CPU render-material compatibility mapping, expanded
+instance material payloads, typed object/shadow CBV upload paths, object GPU
+material table sampling, shader contract checking, and graph/native-resource
+transition diagnostics are implemented on the follow-up branch.
+Validation: `tools\validate_shaders.bat` passed with 0 errors and 7 known
+manifest-coverage warnings; `tools\validate_full.bat` passed with DX12
+validation errors 0, matching renderer baselines, byte-exact physics, and perf
+validation.
 
 ## Executive Summary
 
@@ -26,7 +31,8 @@ Recommended strategy:
 3. Add a compact `RenderMaterial`/`MaterialParams` layer for objects.
 4. Separate frame/pass/style/material data in C++ even if the backend still uploads one reflected cbuffer per shader at first.
 5. Make HLSL/DXC reflection the canonical shader contract for production.
-6. Defer heavy backend/root-signature changes until the material v1 shape is proven.
+6. Change backend/root-signature contracts only for concrete material/resource
+   needs, and document the binding ABI at the same time.
 7. Keep shader metadata portable enough that a future Vulkan or Metal backend can map engine contracts to SPIR-V/MSL without changing scene or material authoring.
 
 ## Current Architecture Read
@@ -728,6 +734,19 @@ Validation:
 - `tools\validate_dx12_renderer.bat`.
 - `tools\validate_perf.bat` if instance payload growth or batch preparation shows measurable hot-path cost.
 
+2026-06-16 implementation note:
+
+- The instanced object payload now packs `mat4 + material0 + material1 +
+  material2` instead of `mat4 + tint4`.
+- Spheres, boxes, and pine batches accept typed `RenderMaterial` data while the
+  old tint overloads still translate through `MakeRenderMaterialFromLegacyTint`.
+- `lit_textured_instanced.hlsl` consumes the expanded material rows, and
+  `shadow_depth_instanced.hlsl` carries the same input layout so shared meshes
+  remain compatible.
+- The object renderer now reads `GameModel::GetRenderMaterial()` directly and
+  keeps the fixed-contact highlight by temporarily overriding the render
+  material color.
+
 ### Phase 5: Shader Generalization
 
 Goal:
@@ -759,7 +778,18 @@ Acceptance:
 Validation:
 
 - `tools\validate_dx12_renderer.bat`.
-- Manual visual review of representative concept scenes in GL first, then renderer validation.
+- Manual visual review of representative concept scenes in DX12 first, then
+  renderer validation.
+
+2026-06-16 implementation note:
+
+- Object material behavior is now driven by typed material rows and a material
+  table sample rather than only by overloaded `tint.a` values.
+- The legacy beachball, solid tint, and floor-material modes still resolve
+  through a compatibility helper so existing scenes keep their intended look.
+- Object-style fallback remains available for old content, but the shader now
+  has explicit roughness, metallic, specular, emissive, stylization, and
+  material-row inputs for the general material families.
 
 ### Phase 6: Shader Source Hygiene
 
@@ -792,6 +822,16 @@ Validation:
 
 - Changed tooling: `tools\validate_fast.bat`, then run the changed script directly.
 - Shader source changes: `tools\validate_dx12_renderer.bat`.
+
+2026-06-16 implementation note:
+
+- `tools\validate_shaders.py` now parses HLSL cbuffer uniforms and
+  `t/u/s` resource declarations, then compares them with
+  `tools\shader_contracts.json`.
+- High-risk shader contracts now list required uniform names and texture
+  resources, including the object material table at `t4`.
+- The checker reports missing required uniforms/resources and resource register
+  drift before runtime visual comparison.
 
 ### Phase 7: Render Pipeline Extraction
 
@@ -835,7 +875,9 @@ Goal:
 
 - Scale beyond per-instance packed material params if needed.
 
-Do this only after v1 proves material needs.
+This branch implements the small material-texture version because the expanded
+object material rows need one shared GPU-visible lookup without introducing a
+structured-buffer material API.
 
 Possible designs:
 
@@ -853,10 +895,15 @@ Possible designs:
    - instance carries material row index,
    - awkward but practical if future backends need texture-backed indirection.
 
-Recommendation:
+2026-06-16 implementation note:
 
-- Do not start here.
-- If required, use a material texture before committing to broad structured-buffer APIs, because GL 3.3 compatibility matters for this engine.
+- The ordinary raster ABI now exposes `t4` for a tiny object material table.
+- `SkullbonezHelper.cpp` builds a 16x1 RGBA8 material table from the engine
+  `RenderMaterialKind` defaults and binds it through `BindTexture(..., 4)`.
+- `lit_textured_instanced.hlsl` samples `uMaterialTable` at `t4` with the
+  existing point-clamp sampler `s3`.
+- This is intentionally a fixed texture-table slice, not bindless descriptors
+  or a structured-buffer material system.
 
 Validation:
 
@@ -882,6 +929,8 @@ Validation:
 - Replace overloaded `tint.a` material modes with explicit material params.
 - Add diagnostics for missing uniforms/resources.
 - Add shader inventory and contract checking from DXC/reflection-backed metadata.
+- Add typed CBV upload paths where pass constants are already known as structs.
+- Add the small object material table and `t4` binding contract.
 - Define shader contracts in engine terms so future Vulkan/Metal mapping is possible without rewriting material/style data.
 
 ### Defer
@@ -889,10 +938,13 @@ Validation:
 - Full material graph.
 - Shader language/toolchain unification through Slang, SPIR-V, or MSL translation until HLSL contracts are stable.
 - Bindless textures.
-- DX12 root signature expansion.
-- GPU material tables.
+- Descriptor indexing and broad bindless material textures.
+- Structured-buffer material tables.
 - Shader file physical reorganization.
 - Broad render pipeline rewrite.
+- Full graph-owned barrier execution; this branch records native resources in
+  graph transitions and uses them for diagnostics, but live barriers remain in
+  the DX12 backend.
 
 ### Avoid
 
@@ -915,9 +967,15 @@ This is the safest commit sequence for another agent:
 7. Terrain/water/post style parameter cleanup.
 8. Shader source hygiene tooling.
 9. Pass extraction if the scheduler remains too broad.
-10. GPU material table only if v1 cannot support desired scenes.
+10. Material texture table when the object shader needs shared GPU-visible
+    defaults.
 
 Each slice should be small enough that renderer validation failures point to a clear cause.
+
+Current completion state on `codex/engine-cleanup`: items 1-6 and 8/10 are
+implemented for the object-material path. Terrain, water, and post style
+parameter cleanup plus broader pass/resource ownership remain separate future
+slices.
 
 ## Validation Matrix
 
@@ -941,7 +999,7 @@ These commands are targeted pre-commit/PR gates, not as-you-go validation.
 | Risk | Why It Matters | Mitigation |
 |------|----------------|------------|
 | Shader contract drift | HLSL, DXIL artifacts, project entries, and manifests can drift apart | Add manifests, contract checker, and DX12 renderer validation before committing each shader slice. |
-| DX12 root signature churn | Material tables can force descriptor changes | Use packed instance params for material v1. |
+| DX12 root signature churn | Material tables can force descriptor changes | Keep the `t4` material-table expansion small, documented, and covered by renderer validation. |
 | Future Vulkan/Metal lockout | DX12 details could leak into scene/material contracts | Keep pass, material, vertex-layout, and shader metadata in engine-owned terms; isolate D3D12-specific binding details in the DX12 device/shader layer. |
 | Instance payload growth | Larger per-instance uploads can hurt perf | Measure with `validate_perf` if object batches change. |
 | Silent missing uniforms | Current setters hide typos and shader drift | Add dev diagnostics before behavior changes. |
@@ -952,8 +1010,8 @@ These commands are targeted pre-commit/PR gates, not as-you-go validation.
 
 ## Open Questions For Implementers
 
-1. Should `RenderMaterial` live on `GameModel`, or should rendering read a separate render snapshot to keep physics/game object data cleaner?
-2. Is per-instance packed material data good enough for the expected object counts, or should material table work come sooner?
+1. Should `RenderMaterial` remain on `GameModel`, or should rendering read a separate render snapshot to keep physics/game object data cleaner?
+2. Is the current hybrid `material rows + t4 defaults table` good enough for the expected object counts, or should material IDs become the primary instance payload later?
 3. Should style files define named material presets directly, or only assign existing presets with tint overrides?
 4. Should `CinematicRenderConfig` be renamed/split, or should backward-compatible `RenderStyleConfig` wrap it first?
 5. Should shader manifests be C++ tables first, or data files under `SkullbonezData/shaders`?
@@ -969,6 +1027,8 @@ The cleanup is successful when:
 - Material look changes happen in data and compact shader modes, not shader file forks.
 - Missing shader inputs are visible during development.
 - The DX12 root signature is changed only for a clear resource-model reason.
+- The object material table binding is explicit in code, shader contracts, and
+  reference docs.
 - Shader/material contracts are DX12-canonical but not hard-wired to D3D12 scene data, leaving a future Vulkan/Metal mapping path open.
 
 ## Final Recommendation

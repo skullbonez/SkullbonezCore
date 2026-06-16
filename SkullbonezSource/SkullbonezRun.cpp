@@ -32,6 +32,8 @@ Related:
 */
 #include "SkullbonezRunInternal.h"
 
+#include <stdexcept>
+
 using namespace SkullbonezCore::Basics;
 using namespace SkullbonezCore::Math::CollisionDetection;
 using namespace SkullbonezCore::Math::Orientation;
@@ -244,6 +246,40 @@ std::string SkullbonezRun::ResolveSourceAssetPath( SkullbonezCore::Assets::Asset
 {
     const SkullbonezCore::Assets::SourceAssetRecord& record = m_systems.assets.RegisterSourceAsset( kind, logicalName, relativePath.c_str() );
     return record.resolvedPath;
+}
+
+
+TextureCollection& SkullbonezRun::Textures()
+{
+    if ( !m_systems.textures )
+    {
+        throw std::runtime_error( "Texture collection is not initialised." );
+    }
+    return *m_systems.textures;
+}
+
+
+uint32_t SkullbonezRun::TextureHandle( uint32_t textureHash )
+{
+    return Textures().GetTextureHandle( textureHash );
+}
+
+
+void SkullbonezRun::SelectRenderTexture( uint32_t textureHash )
+{
+    Textures().SelectTexture( textureHash );
+}
+
+
+int SkullbonezRun::WindowScreenWidth() const
+{
+    return m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.x ) : Cfg().window.screenX;
+}
+
+
+int SkullbonezRun::WindowScreenHeight() const
+{
+    return m_systems.window ? static_cast<int>( m_systems.window->m_sWindowDimensions.y ) : Cfg().window.screenY;
 }
 
 

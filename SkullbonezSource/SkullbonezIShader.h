@@ -25,6 +25,7 @@ Related:
 #include "SkullbonezCommon.h"
 #include "SkullbonezVector3.h"
 #include "SkullbonezMatrix4.h"
+#include <cstddef>
 
 
 namespace SkullbonezCore
@@ -49,6 +50,7 @@ class IShader
     virtual void SetVec3( const char* name, float x, float y, float z ) const = 0;
     virtual void SetVec4( const char* name, float x, float y, float z, float w ) const = 0;
     virtual void SetMat4( const char* name, const Math::Transformation::Matrix4& mat ) const = 0;
+    virtual bool SetConstantBufferBytes( const void* data, size_t size, const char* debugName ) const = 0;
 };
 } // namespace Rendering
 } // namespace SkullbonezCore

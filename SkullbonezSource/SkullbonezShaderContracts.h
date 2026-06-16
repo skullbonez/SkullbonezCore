@@ -7,6 +7,18 @@ Mental model:
   Shader contracts name the uniforms, resources, texture slots, and vertex
   layout each pass expects. They are diagnostics, not a new binding backend.
 
+Glossary:
+  HLSL (High Level Shader Language): Shader language compiled for Direct3D
+  render, compute, and raytracing stages.
+  Uniform: Named shader constant set by engine code before drawing.
+  Resource: Shader-visible texture or buffer binding declared by a shader.
+  SRV (Shader Resource View): Descriptor row used when shaders read textures
+  or buffers.
+  ABI (Application Binary Interface): The compiled binding contract between
+  C++ root parameters, shader registers, and draw-time texture slots.
+  Vertex layout: Ordered per-vertex and per-instance data shape consumed by a
+  shader program.
+
 Invariants:
   - These contracts must not encode native D3D12 descriptors or root-signature
     implementation details.
@@ -50,10 +62,11 @@ struct ShaderUniformDecl
 struct ShaderResourceDecl
 {
     const char* name;
-    // Ordinary raster resources use the current DX12 binding ABI: slot N means
-    // SRV register tN, bound through BindTexture(handle, N). The ABI currently
-    // exposes t0..t3; material v1 keeps using packed instance parameters instead
-    // of adding a material descriptor table.
+    // Contract: ordinary raster resources use the current DX12 binding ABI.
+    //
+    // Slot N means SRV register tN, bound through BindTexture(handle, N). The
+    // ABI currently exposes t0..t4; t4 is the object material table while the
+    // per-instance stream still carries the draw-local material payload.
     int slot;
     ShaderResourceKind kind;
     bool required;
@@ -89,11 +102,25 @@ inline const char* ShaderValueTypeName( ShaderValueType type )
     }
 }
 
+inline const char* ShaderResourceKindName( ShaderResourceKind kind )
+{
+    switch ( kind )
+    {
+    case ShaderResourceKind::Texture2D:
+        return "Texture2D";
+    default:
+        return "unknown";
+    }
+}
+
 inline bool ShaderContractNameEquals( const char* left, const char* right )
 {
     return left && right && std::strcmp( left, right ) == 0;
 }
 
+// Looks up a uniform by authoring name. The optional index lets runtime
+// diagnostics mark exactly which required uniforms were set during the current
+// activation without duplicating the contract table.
 inline const ShaderUniformDecl* FindShaderUniformDecl( const ShaderProgramDesc& desc, const char* name, size_t* outIndex = nullptr )
 {
     if ( outIndex )
@@ -118,6 +145,9 @@ inline const ShaderUniformDecl* FindShaderUniformDecl( const ShaderProgramDesc& 
     return nullptr;
 }
 
+// Normalizes either "foo.hlsl" or ".../foo.hlsl" to the base shader family name.
+// Contract tables use base names because asset manifests and debug output may
+// pass either a path or a logical shader id.
 inline const char* ShaderBaseNameFromPath( const char* path, size_t& outLength )
 {
     const char* start = path ? path : "";
@@ -148,6 +178,10 @@ inline bool ShaderContractMatchesBaseName( const char* baseName, const char* pat
            std::strncmp( baseName, candidate, candidateLength ) == 0;
 }
 
+// Returns the high-risk shader families that get runtime contract diagnostics.
+// This is intentionally a curated table, not a full reflection cache; the goal
+// is to catch stale hand-written setters around passes that are expensive to
+// debug visually.
 inline const ShaderProgramDesc* HighRiskShaderContracts()
 {
     static constexpr ShaderUniformDecl litTexturedInstancedUniforms[] = {
@@ -169,6 +203,7 @@ inline const ShaderProgramDesc* HighRiskShaderContracts()
     static constexpr ShaderResourceDecl litTexturedInstancedResources[] = {
         { "uTexture", 0, ShaderResourceKind::Texture2D, true },
         { "uShadowMap", 3, ShaderResourceKind::Texture2D, false },
+        { "uMaterialTable", 4, ShaderResourceKind::Texture2D, true },
     };
 
     static constexpr ShaderUniformDecl litTexturedUniforms[] = {
@@ -275,7 +310,7 @@ inline const ShaderProgramDesc* HighRiskShaderContracts()
     };
 
     static constexpr ShaderProgramDesc contracts[] = {
-        { "lit_textured_instanced", "objects", "P3_N3_UV2_I4x4_Material4", litTexturedInstancedUniforms, sizeof( litTexturedInstancedUniforms ) / sizeof( litTexturedInstancedUniforms[0] ), litTexturedInstancedResources, sizeof( litTexturedInstancedResources ) / sizeof( litTexturedInstancedResources[0] ) },
+        { "lit_textured_instanced", "objects", "P3_N3_UV2_I4x4_Material4x3", litTexturedInstancedUniforms, sizeof( litTexturedInstancedUniforms ) / sizeof( litTexturedInstancedUniforms[0] ), litTexturedInstancedResources, sizeof( litTexturedInstancedResources ) / sizeof( litTexturedInstancedResources[0] ) },
         { "lit_textured", "terrain", "P3_N3_UV2", litTexturedUniforms, sizeof( litTexturedUniforms ) / sizeof( litTexturedUniforms[0] ), litTexturedResources, sizeof( litTexturedResources ) / sizeof( litTexturedResources[0] ) },
         { "water_calm", "water", "P3", waterCalmUniforms, sizeof( waterCalmUniforms ) / sizeof( waterCalmUniforms[0] ), waterResources, sizeof( waterResources ) / sizeof( waterResources[0] ) },
         { "water_ocean", "water", "P3", waterOceanUniforms, sizeof( waterOceanUniforms ) / sizeof( waterOceanUniforms[0] ), waterResources, sizeof( waterResources ) / sizeof( waterResources[0] ) },

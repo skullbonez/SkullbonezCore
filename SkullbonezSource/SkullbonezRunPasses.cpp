@@ -43,7 +43,7 @@ using namespace SkullbonezCore::Basics::RunInternal;
 
 namespace
 {
-constexpr int RENDER_TEXTURE_SLOT_COUNT = 4;
+constexpr int RENDER_TEXTURE_SLOT_COUNT = 5;
 constexpr unsigned int RENDER_TEXTURE_SLOT_0 = 1u << 0;
 constexpr unsigned int RENDER_TEXTURE_SLOT_1 = 1u << 1;
 constexpr unsigned int RENDER_TEXTURE_SLOT_2 = 1u << 2;
@@ -63,6 +63,19 @@ void ClearRenderTextureSlotsExcept( unsigned int keptSlots )
 void ClearAllRenderTextureSlots()
 {
     ClearRenderTextureSlotsExcept( 0u );
+}
+
+void BindRenderTextureSlots( uint32_t slot0, uint32_t slot1, uint32_t slot2, uint32_t slot3, uint32_t slot4 = 0 )
+{
+    // Contract: ordinary raster shaders expose t0..t4. Slot t4 is reserved for
+    // the object material table, but pass hygiene still clears it to the typed
+    // null SRV; object batches bind the material table again immediately before
+    // drawing.
+    const uint32_t handles[RENDER_TEXTURE_SLOT_COUNT] = { slot0, slot1, slot2, slot3, slot4 };
+    for ( int slot = 0; slot < RENDER_TEXTURE_SLOT_COUNT; ++slot )
+    {
+        Gfx().BindTexture( handles[slot], slot );
+    }
 }
 
 Vector3 NormalizeShadowLightDirection( Vector3 lightDirectionWorld )
@@ -757,21 +770,21 @@ SkullbonezRun::ReflectionPassOutput SkullbonezRun::ReflectionPass::Render( const
         float cameraPos[3] = { inputs.frame.eye.x, inputs.frame.eye.y, inputs.frame.eye.z };
         float simTime = static_cast<float>( m_run.m_timers.simulationTimer.GetTotalTime() );
 
-        uint32_t sphereHandle = m_run.m_systems.textures->GetTextureHandle( TEXTURE_BOUNDING_SPHERE );
-        uint32_t terrainHandle = m_run.m_systems.textures->GetTextureHandle( TEXTURE_GROUND );
-        uint32_t skyUpHandle = m_run.m_systems.textures->GetTextureHandle( TEXTURE_SKY_UP );
-        uint32_t skyDownHandle = m_run.m_systems.textures->GetTextureHandle( TEXTURE_SKY_DOWN );
-        uint32_t skyRightHandle = m_run.m_systems.textures->GetTextureHandle( TEXTURE_SKY_RIGHT );
-        uint32_t skyLeftHandle = m_run.m_systems.textures->GetTextureHandle( TEXTURE_SKY_LEFT );
-        uint32_t skyFrontHandle = m_run.m_systems.textures->GetTextureHandle( TEXTURE_SKY_FRONT );
-        uint32_t skyBackHandle = m_run.m_systems.textures->GetTextureHandle( TEXTURE_SKY_BACK );
+        uint32_t sphereHandle = m_run.TextureHandle( TEXTURE_BOUNDING_SPHERE );
+        uint32_t terrainHandle = m_run.TextureHandle( TEXTURE_GROUND );
+        uint32_t skyUpHandle = m_run.TextureHandle( TEXTURE_SKY_UP );
+        uint32_t skyDownHandle = m_run.TextureHandle( TEXTURE_SKY_DOWN );
+        uint32_t skyRightHandle = m_run.TextureHandle( TEXTURE_SKY_RIGHT );
+        uint32_t skyLeftHandle = m_run.TextureHandle( TEXTURE_SKY_LEFT );
+        uint32_t skyFrontHandle = m_run.TextureHandle( TEXTURE_SKY_FRONT );
+        uint32_t skyBackHandle = m_run.TextureHandle( TEXTURE_SKY_BACK );
         Gfx().DispatchReflectionRays( invVP.Data(),
                                       cameraPos,
                                       inputs.frame.waterY,
                                       simTime,
                                       inputs.frame.lightPosition,
-                                      m_run.m_systems.window->m_sWindowDimensions.x * 2,
-                                      m_run.m_systems.window->m_sWindowDimensions.y * 2,
+                                      m_run.WindowScreenWidth() * 2,
+                                      m_run.WindowScreenHeight() * 2,
                                       sphereHandle,
                                       terrainHandle,
                                       skyUpHandle,
@@ -820,7 +833,7 @@ SkullbonezRun::ReflectionPassOutput SkullbonezRun::ReflectionPass::Render( const
             // Pass contract: reflected lit models read material color from slot
             // 0 and optional shadow depth from slot 3.
             ClearRenderTextureSlotsExcept( RENDER_TEXTURE_SLOT_0 | ( inputs.objectShadow && inputs.objectShadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
-            m_run.m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+            m_run.SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
             m_run.m_cGameModelCollection.RenderModels( inputs.frame.reflectionView,
                                                        inputs.frame.projection,
                                                        inputs.frame.lightPosition,
@@ -834,7 +847,7 @@ SkullbonezRun::ReflectionPassOutput SkullbonezRun::ReflectionPass::Render( const
         PROFILE_GPU_END( "Frame/Render/Reflection/Balls" );
 
         reflectionResources.target->Unbind();
-        Gfx().SetViewport( 0, 0, m_run.m_systems.window->m_sWindowDimensions.x, m_run.m_systems.window->m_sWindowDimensions.y );
+        Gfx().SetViewport( 0, 0, m_run.WindowScreenWidth(), m_run.WindowScreenHeight() );
         output.reflectionTextureHandle = reflectionResources.target->GetColorTextureHandle();
         output.reflectionSampleViewProjection = inputs.frame.reflectionViewProjection;
     }
@@ -861,7 +874,7 @@ void SkullbonezRun::ObjectPass::Render( const ObjectPassInputs& inputs )
         // Pass contract: lit model shaders read the material texture in slot 0
         // and optionally the shadow depth texture in slot 3.
         ClearRenderTextureSlotsExcept( RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
-        m_run.m_systems.textures->SelectTexture( TEXTURE_BOUNDING_SPHERE );
+        m_run.SelectRenderTexture( TEXTURE_BOUNDING_SPHERE );
         m_run.m_cGameModelCollection.RenderModels( inputs.frame.baseView,
                                                    inputs.frame.projection,
                                                    inputs.frame.lightPosition,
@@ -898,7 +911,7 @@ void SkullbonezRun::TerrainPass::Render( const TerrainPassInputs& inputs )
     // Pass contract: terrain reads ground albedo from slot 0 and optional
     // shadow depth from slot 3.
     ClearRenderTextureSlotsExcept( RENDER_TEXTURE_SLOT_0 | ( inputs.shadow && inputs.shadow->valid ? RENDER_TEXTURE_SLOT_3 : 0u ) );
-    m_run.m_systems.textures->SelectTexture( TEXTURE_GROUND );
+    m_run.SelectRenderTexture( TEXTURE_GROUND );
     m_run.m_systems.terrain->Render( inputs.frame.baseView, inputs.frame.projection, inputs.frame.lightPosition, inputs.cinematic, inputs.shadow );
     PROFILE_GPU_END( "Frame/Render/Terrain" );
 }
@@ -1076,10 +1089,10 @@ bool SkullbonezRun::VolumetricPass::Render( const RenderFrameContext& /*frame*/ 
     // Pass contract: texture slot 0 is rendered color, slot 1 is rendered
     // depth. The shader uses depth to tell sky pixels from solid geometry so
     // rays pass through sky and fade when they cross hills/balls.
-    Gfx().BindTexture( scene.hdrTarget->GetColorTextureHandle(), 0 );
-    Gfx().BindTexture( scene.hdrTarget->GetDepthTextureHandle(), 1 );
-    Gfx().BindTexture( 0, 2 );
-    Gfx().BindTexture( 0, 3 );
+    BindRenderTextureSlots( scene.hdrTarget->GetColorTextureHandle(),
+                            scene.hdrTarget->GetDepthTextureHandle(),
+                            0,
+                            0 );
     DrawFullscreenQuad( fullscreen.quadVB );
 
     Gfx().SetDepthTest( depthWasEnabled );
@@ -1146,10 +1159,10 @@ void SkullbonezRun::TonemapPass::Render( const RenderFrameContext& /*frame*/, bo
     // Pass contract: slot 0 is the bright HDR scene, slot 1 is its depth buffer,
     // and slot 2 is either the volumetric-light texture or a harmless fallback
     // when that pass is disabled.
-    Gfx().BindTexture( scene.hdrTarget->GetColorTextureHandle(), 0 );
-    Gfx().BindTexture( scene.hdrTarget->GetDepthTextureHandle(), 1 );
-    Gfx().BindTexture( volumetricReady && volumetric.target ? volumetric.target->GetColorTextureHandle() : scene.hdrTarget->GetColorTextureHandle(), 2 );
-    Gfx().BindTexture( 0, 3 );
+    BindRenderTextureSlots( scene.hdrTarget->GetColorTextureHandle(),
+                            scene.hdrTarget->GetDepthTextureHandle(),
+                            volumetricReady && volumetric.target ? volumetric.target->GetColorTextureHandle() : scene.hdrTarget->GetColorTextureHandle(),
+                            0 );
     DrawFullscreenQuad( fullscreen.quadVB );
 
     Gfx().SetDepthTest( depthWasEnabled );

@@ -30,6 +30,7 @@ Related:
 #include "SkullbonezIShader.h"
 #include "SkullbonezIMesh.h"
 #include "SkullbonezMatrix4.h"
+#include "SkullbonezRenderMaterial.h"
 #include "SkullbonezShadow.h"
 #include "SkullbonezVector3.h"
 #include <memory>
@@ -54,17 +55,17 @@ class SkullbonezHelper
     static std::unique_ptr<Rendering::IShader> shadowDepthShader;     // Shared instanced directional shadow depth shader
     static uint32_t sphereInstMesh;                                   // Instanced mesh handle (via Gfx())
     static int sphereVertexCount;                                     // Per-sphere vertex count
-    static std::vector<float> sphereInstanceData;                     // Staging buffer for model matrices + tint/override
+    static std::vector<float> sphereInstanceData;                     // Staging buffer for model matrices + material payload
     static uint32_t lowPolySphereInstMesh;                            // Faceted sphere mesh for low-poly cinematic styles
     static int lowPolySphereVertexCount;                              // Per-low-poly-sphere vertex count
     static uint32_t activeSphereInstMesh;                             // Mesh selected for the current sphere batch
     static int activeSphereVertexCount;                               // Vertex count selected for the current sphere batch
     static uint32_t boxInstMesh;                                      // Instanced mesh handle for box
     static int boxVertexCount;                                        // Per-box vertex count
-    static std::vector<float> boxInstanceData;                        // Staging buffer for box model matrices + tint/override
+    static std::vector<float> boxInstanceData;                        // Staging buffer for box model matrices + material payload
     static uint32_t pineInstMesh;                                     // Instanced mesh handle for low-poly pine foliage tiers
     static int pineVertexCount;                                       // Per-pine-tier vertex count
-    static std::vector<float> pineInstanceData;                       // Staging buffer for pine model matrices + tint/override
+    static std::vector<float> pineInstanceData;                       // Staging buffer for pine model matrices + material payload
     inline static float sClipPlane[4] = { 0.0f, 1.0f, 0.0f, 1.0e9f }; // default: always pass (GL_CLIP_DISTANCE0 disabled)
 
     static void EnsureSphereShader();                             // Create shared instanced lighting shader
@@ -79,13 +80,16 @@ class SkullbonezHelper
     static void SetClipPlane( float x, float y, float z, float w );                                                                                                                                                                                                                                                  // Set sphere shader clip plane (default (0,1,0,1e9) = always pass)
     static const float* GetClipPlane();                                                                                                                                                                                                                                                                              // Returns current shared render clip plane
     static void DrawSphereBatchBegin( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], bool isTransparent = false, const CinematicRenderConfig* cinematic = nullptr, const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f ); // Set up instanced shader uniforms and begin collecting instances
-    static void DrawSphereBatchModel( const Math::Transformation::Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f );                                                                                                                                          // Append model matrix and tint/override to instance buffer
+    static void DrawSphereBatchModel( const Math::Transformation::Matrix4& model, const Rendering::RenderMaterial& material );                                                                                                                                                                                       // Append model matrix and material payload to instance buffer
+    static void DrawSphereBatchModel( const Math::Transformation::Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f );                                                                                                                                          // Compatibility bridge for old tint/override callers
     static void DrawSphereBatchEnd();                                                                                                                                                                                                                                                                                // Upload instance data and issue single instanced draw
     static void DrawBoxBatchBegin( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], bool isTransparent = false, const CinematicRenderConfig* cinematic = nullptr, const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f );    // Set up box instanced draw
-    static void DrawBoxBatchModel( const Math::Transformation::Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f );                                                                                                                                             // Append box model matrix and tint/override to instance buffer
+    static void DrawBoxBatchModel( const Math::Transformation::Matrix4& model, const Rendering::RenderMaterial& material );                                                                                                                                                                                          // Append box model matrix and material payload to instance buffer
+    static void DrawBoxBatchModel( const Math::Transformation::Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f );                                                                                                                                             // Compatibility bridge for old tint/override callers
     static void DrawBoxBatchEnd();                                                                                                                                                                                                                                                                                   // Upload box instance data and issue single instanced draw
     static void DrawPineBatchBegin( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const float lightPos[4], bool isTransparent = false, const CinematicRenderConfig* cinematic = nullptr, const Rendering::ShadowFrameData* shadow = nullptr, float materialAlpha = 1.0f );   // Set up low-poly pine instanced draw
-    static void DrawPineBatchModel( const Math::Transformation::Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f );                                                                                                                                            // Append pine model matrix and tint/override to instance buffer
+    static void DrawPineBatchModel( const Math::Transformation::Matrix4& model, const Rendering::RenderMaterial& material );                                                                                                                                                                                         // Append pine model matrix and material payload to instance buffer
+    static void DrawPineBatchModel( const Math::Transformation::Matrix4& model, float tintR = 1.0f, float tintG = 1.0f, float tintB = 1.0f, float colorOverride = 0.0f );                                                                                                                                            // Compatibility bridge for old tint/override callers
     static void DrawPineBatchEnd();                                                                                                                                                                                                                                                                                  // Upload pine instance data and issue single instanced draw
     static void DrawShadowDepthSphereBatchBegin( const Math::Transformation::Matrix4& view, const Math::Transformation::Matrix4& proj, const CinematicRenderConfig* cinematic = nullptr );
     static void DrawShadowDepthSphereBatchModel( const Math::Transformation::Matrix4& model );

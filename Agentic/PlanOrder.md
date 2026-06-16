@@ -15,23 +15,23 @@ Retirement policy: keep DX12 screenshot/debug-layer/WARP/GBV/PIX diagnostics as 
 1. [`dx12-only-renderer-retirement-plan.md`](Plans/dx12-only-renderer-retirement-plan.md)
    - Complete on branch: `codex/dx12-only-renderer-retirement`. Use as the retirement history and validation reference.
 
-2. [`dx12-only-engine-architecture-plan.md`](Plans/dx12-only-engine-architecture-plan.md)
-   - Use as the umbrella architecture direction. Do not implement it as one rewrite; let it guide the smaller render/shader/resource slices below.
+2. [`dx12-only-engine-architecture-plan.md`](Plans/Done/dx12-only-engine-architecture-plan.md)
+   - Use as the umbrella architecture direction. The implementation now lives in smaller render/shader/resource slices rather than one rewrite.
 
 3. [`render-resource-lifetime-plan.md`](Plans/render-resource-lifetime-plan.md)
    - Follow immediately because resize, framebuffer, shader, mesh, descriptor, and eventual device-loss lifetimes are pressure points for DX12-only visual/runtime weirdness. Keep source-vs-GPU separation because it also preserves a future Vulkan/Metal path.
 
 4. [`shader-architecture-cleanup-plan.md`](Plans/shader-architecture-cleanup-plan.md)
-   - Draft PR #69 implements the first cleanup slice: shader inputs, texture slots, uniform names, pass contracts, and the CPU `RenderMaterial` bridge. Treat HLSL/DXC reflection as canonical, while keeping metadata portable enough for later SPIR-V/MSL mapping.
+   - Merged through PR #69/#72 and completed further on `codex/engine-cleanup`: shader inputs, texture slots, uniform names, pass contracts, the CPU `RenderMaterial` bridge, expanded object material payloads, typed object/shadow CBV uploads, shader contract checking, and the `t4` material table. Treat HLSL/DXC reflection as canonical, while keeping metadata portable enough for later SPIR-V/MSL mapping.
 
 5. [`dx12-descriptor-upload-root-signature-plan.md`](Plans/dx12-descriptor-upload-root-signature-plan.md)
-   - Draft PR #70 documents the current ordinary raster binding ABI and descriptor/upload lifetime constraints. Do not expand root signatures opportunistically; use this plan again only when a concrete material table, descriptor, or upload lifetime issue appears.
+   - Merged through PR #70/#72 and completed further on `codex/engine-cleanup`: ordinary raster binding ABI and descriptor/upload lifetime constraints, now `b0 + t0..t4` with `t4` scoped to the object material table. Do not expand root signatures opportunistically; use this plan again only when a concrete descriptor-indexing, structured-buffer, or upload lifetime issue appears.
 
 6. [`water-rendering-cleanup-plan.md`](Plans/water-rendering-cleanup-plan.md)
    - Defer code-heavy work until after the DX12-only validation gate. Water cleanup should no longer expand GL/DX11 paths.
 
 7. [`material-system-v1-implementation-plan.md`](Plans/material-system-v1-implementation-plan.md)
-   - Add the material layer after shader contracts are clearer and the DX12-only gate exists. Keep the CPU material model backend-neutral without adding new GL/DX11 feature surface.
+   - Object-material v1 is implemented on `codex/engine-cleanup`. Use this plan next only for named material definitions, material asset records, terrain/water/post material unification, or a deliberate material-resource-model expansion.
 
 8. [`architecture_pass_2026-06-02.md`](Plans/architecture_pass_2026-06-02.md)
    - Use as the broader checkpoint after the render-focused slices, then pull the next concrete runtime or physics boundary from it.
@@ -50,10 +50,11 @@ Retirement policy: keep DX12 screenshot/debug-layer/WARP/GBV/PIX diagnostics as 
 
 ## Immediate Recommendation
 
-Review the stacked shader, binding ABI, and architecture-cleanup work first.
-After that stack is ready, the next concrete render slice should usually come
-from `water-rendering-cleanup-plan.md`. Choose
+After `codex/engine-cleanup`, the next concrete render slice should usually
+come from `water-rendering-cleanup-plan.md` or the remaining runtime/resource
+ownership work in `architecture_pass_2026-06-02.md`. Choose
 `material-system-v1-implementation-plan.md` only if the orchestrator explicitly
-wants material payload/root-signature expansion next. Keep changes small and
-validate renderer work with `tools\validate_dx12_renderer.bat`; use
-`tools\validate_full.bat` for broad runtime/pass changes.
+wants named material authoring, terrain/water/post material unification, or a
+larger material resource model. Keep changes small and validate renderer work
+with `tools\validate_dx12_renderer.bat`; use `tools\validate_full.bat` for
+broad runtime/pass changes.

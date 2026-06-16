@@ -898,6 +898,11 @@ class SkullbonezRun
     void ReleaseBackendOwnedRenderResources( const char* phaseName );                                                                  // Runs the ordered GPU-resource release hooks while the backend is alive
     void RebuildRegisteredRenderResources();                                                                                           // Recreates renderer resources from source asset records
     void LogRenderResourceLifecycleStep( const char* phase, const char* step ) const;                                                  // Writes a named resource-lifetime phase to the debug event log
+    Textures::TextureCollection& Textures();                                                                                           // Runtime texture registry accessor used by render passes
+    uint32_t TextureHandle( uint32_t textureHash );                                                                                    // Resolves a runtime texture hash to a renderer handle
+    void SelectRenderTexture( uint32_t textureHash );                                                                                  // Binds a runtime texture hash to the default draw texture slot
+    int WindowScreenWidth() const;                                                                                                     // Current window width, or config fallback before window init
+    int WindowScreenHeight() const;                                                                                                    // Current window height, or config fallback before window init
     void SetViewingOrientation();                                                                                                      // Renders camera views etc
     void SaveScreenshot( const char* path );                                                                                           // Saves current backbuffer to a BMP file
     bool SaveCurrentSceneDefaults();                                                                                                   // Writes UI-controlled defaults back to the active scene file

@@ -1,9 +1,15 @@
 # Material System V1 Implementation Plan
 
-Status: planning draft  
+Status: object-material implementation complete on `codex/engine-cleanup`; validated 2026-06-16
 Created: 2026-06-11  
 Scope: render material data, scene/style material directives, object shader inputs, compatibility migration  
-Implementation status: plan only, no code changes in this pass
+Implementation status: CPU `RenderMaterial` data, compatibility tint mapping,
+expanded object instance material payloads, shader material rows, and the small
+DX12 `t4` material-table texture are implemented for instanced objects. Named
+material definition syntax, material asset records, and terrain/water/post
+material unification remain future work.
+Validation: `tools\validate_shaders.bat` and `tools\validate_full.bat` passed
+for the object-material implementation slice.
 
 Retirement dependency: defer code-heavy material implementation until the
 DX12-only renderer validation gate exists. Material authoring must remain
@@ -41,7 +47,8 @@ This is clever but too implicit:
 1. Keep material data backend-neutral.
 2. Preserve old scene/style syntax at first.
 3. Keep batching intact.
-4. Avoid DX12 root-signature changes in v1 unless the feature explicitly requires a GPU material table.
+4. Keep DX12 binding changes narrow; v1 uses one fixed `t4` material-table
+   texture rather than broad descriptor indexing or structured buffers.
 5. Prefer explicit material params over shader hard-codes.
 6. Keep physics materials separate from render materials.
 7. Keep UI/debug shaders out of the material system.
@@ -184,8 +191,8 @@ vec4 material2  // emissive rgb, flags/style
 
 Pros:
 
-- No root signature change.
-- No GPU material table.
+- No broad root signature or descriptor model change.
+- The only GPU table is the small shared material-kind texture at `t4`.
 - Simple implementation for current backends and a low-risk DX12 migration step.
 - Good for current object counts.
 
@@ -194,7 +201,9 @@ Cons:
 - More instance bandwidth.
 - Repeats material data for many objects with same material.
 
-Recommendation: use this for v1 unless profiling or material complexity proves the need for an earlier DX12 GPU material table.
+Current status: implemented for instanced object rendering as
+`mat4 + material0 + material1 + material2`, paired with the `t4`
+material-kind table for shared defaults.
 
 ### Option B: Material Index Plus GPU Table
 
@@ -216,7 +225,8 @@ Cons:
 - More backend-specific work.
 - Likely DX12 root signature/resource contract changes.
 
-Recommendation: defer until v1 proves the need, then make DX12 the first implementation while keeping the CPU material registry and scene/style syntax unchanged.
+Recommendation: keep this deferred until profiling or material complexity proves
+that the current hybrid material rows plus `t4` texture table are not enough.
 
 ## Shader Mapping
 

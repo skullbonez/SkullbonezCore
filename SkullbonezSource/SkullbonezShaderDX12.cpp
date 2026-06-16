@@ -50,7 +50,7 @@ using Microsoft::WRL::ComPtr;
 
 
 ShaderDX12::ShaderDX12()
-    : m_cbSize( 0 ), m_cbDirty( false ), m_contract( nullptr )
+    : m_cbReflectedSize( 0 ), m_cbSize( 0 ), m_cbDirty( false ), m_contract( nullptr )
 {
 }
 
@@ -61,6 +61,13 @@ ShaderDX12::~ShaderDX12() = default;
 bool ShaderDX12::Compile( const char* hlslPath )
 {
     m_contract = FindShaderProgramDesc( hlslPath );
+    m_uniformMap.clear();
+    m_cbReflectedSize = 0;
+    m_cbSize = 0;
+    m_cbData.clear();
+#ifdef _DEBUG
+    m_resourceMap.clear();
+#endif
 
     // Read file
     std::ifstream file( hlslPath, std::ios::binary );
@@ -141,15 +148,27 @@ void ShaderDX12::ReflectCB( ID3DBlob* blob )
     D3D11_SHADER_DESC shaderDesc = {};
     reflect->GetDesc( &shaderDesc );
 
+#ifdef _DEBUG
+    for ( UINT i = 0; i < shaderDesc.BoundResources; ++i )
+    {
+        D3D11_SHADER_INPUT_BIND_DESC bindDesc = {};
+        reflect->GetResourceBindingDesc( i, &bindDesc );
+        if ( bindDesc.Name && bindDesc.Name[0] != '\0' )
+        {
+            m_resourceMap[bindDesc.Name] = { bindDesc.BindPoint, bindDesc.Type, bindDesc.Dimension };
+        }
+    }
+#endif
+
     for ( UINT i = 0; i < shaderDesc.ConstantBuffers; ++i )
     {
         ID3D11ShaderReflectionConstantBuffer* cb = reflect->GetConstantBufferByIndex( i );
         D3D11_SHADER_BUFFER_DESC bufDesc = {};
         cb->GetDesc( &bufDesc );
 
-        if ( bufDesc.Size > m_cbSize )
+        if ( bufDesc.Size > m_cbReflectedSize )
         {
-            m_cbSize = bufDesc.Size;
+            m_cbReflectedSize = bufDesc.Size;
         }
 
         for ( UINT v = 0; v < bufDesc.Variables; ++v )
@@ -161,7 +180,7 @@ void ShaderDX12::ReflectCB( ID3DBlob* blob )
         }
     }
     // Align CB size to 256 bytes (DX12 requirement)
-    m_cbSize = ( m_cbSize + 255 ) & ~255u;
+    m_cbSize = ( m_cbReflectedSize + 255 ) & ~255u;
     m_cbData.resize( m_cbSize, 0 );
 }
 
@@ -213,6 +232,71 @@ ShaderValueType ShaderValueTypeForSetter( const char* setterName )
         return ShaderValueType::Vec4;
     }
     return ShaderValueType::Mat4;
+}
+
+const char* ShaderInputTypeName( D3D_SHADER_INPUT_TYPE type )
+{
+    switch ( type )
+    {
+    case D3D_SIT_CBUFFER:
+        return "CBUFFER";
+    case D3D_SIT_TBUFFER:
+        return "TBUFFER";
+    case D3D_SIT_TEXTURE:
+        return "TEXTURE";
+    case D3D_SIT_SAMPLER:
+        return "SAMPLER";
+    case D3D_SIT_UAV_RWTYPED:
+        return "UAV_RWTYPED";
+    case D3D_SIT_STRUCTURED:
+        return "STRUCTURED";
+    case D3D_SIT_UAV_RWSTRUCTURED:
+        return "UAV_RWSTRUCTURED";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+const char* ShaderInputDimensionName( D3D_SRV_DIMENSION dimension )
+{
+    switch ( dimension )
+    {
+    case D3D_SRV_DIMENSION_UNKNOWN:
+        return "UNKNOWN";
+    case D3D_SRV_DIMENSION_BUFFER:
+        return "BUFFER";
+    case D3D_SRV_DIMENSION_TEXTURE1D:
+        return "TEXTURE1D";
+    case D3D_SRV_DIMENSION_TEXTURE1DARRAY:
+        return "TEXTURE1DARRAY";
+    case D3D_SRV_DIMENSION_TEXTURE2D:
+        return "TEXTURE2D";
+    case D3D_SRV_DIMENSION_TEXTURE2DARRAY:
+        return "TEXTURE2DARRAY";
+    case D3D_SRV_DIMENSION_TEXTURE2DMS:
+        return "TEXTURE2DMS";
+    case D3D_SRV_DIMENSION_TEXTURE2DMSARRAY:
+        return "TEXTURE2DMSARRAY";
+    case D3D_SRV_DIMENSION_TEXTURE3D:
+        return "TEXTURE3D";
+    case D3D_SRV_DIMENSION_TEXTURECUBE:
+        return "TEXTURECUBE";
+    case D3D_SRV_DIMENSION_TEXTURECUBEARRAY:
+        return "TEXTURECUBEARRAY";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+bool ShaderResourceKindMatches( ShaderResourceKind kind, D3D_SHADER_INPUT_TYPE reflectedType, D3D_SRV_DIMENSION reflectedDimension )
+{
+    switch ( kind )
+    {
+    case ShaderResourceKind::Texture2D:
+        return reflectedType == D3D_SIT_TEXTURE && reflectedDimension == D3D_SRV_DIMENSION_TEXTURE2D;
+    default:
+        return false;
+    }
 }
 } // namespace
 
@@ -343,6 +427,43 @@ void ShaderDX12::ReportContractReflectionMismatch() const
                                ShaderValueTypeName( uniform.type ) );
         }
     }
+
+    for ( size_t i = 0; i < m_contract->resourceCount; ++i )
+    {
+        const ShaderResourceDecl& resource = m_contract->resources[i];
+        const auto reflected = m_resourceMap.find( resource.name );
+        if ( reflected == m_resourceMap.end() )
+        {
+            if ( resource.required )
+            {
+                Log().WriteEventf( "shader_contract_required_resource_not_reflected shader=%s resource=%s slot=t%d expected_kind=%s",
+                                   m_contract->baseName,
+                                   resource.name,
+                                   resource.slot,
+                                   ShaderResourceKindName( resource.kind ) );
+            }
+            continue;
+        }
+
+        if ( !ShaderResourceKindMatches( resource.kind, reflected->second.type, reflected->second.dimension ) )
+        {
+            Log().WriteEventf( "shader_contract_resource_kind_mismatch shader=%s resource=%s expected_kind=%s reflected_type=%s reflected_dimension=%s",
+                               m_contract->baseName,
+                               resource.name,
+                               ShaderResourceKindName( resource.kind ),
+                               ShaderInputTypeName( reflected->second.type ),
+                               ShaderInputDimensionName( reflected->second.dimension ) );
+        }
+
+        if ( reflected->second.bindPoint != static_cast<UINT>( resource.slot ) )
+        {
+            Log().WriteEventf( "shader_contract_resource_slot_mismatch shader=%s resource=%s expected=t%d reflected=t%u",
+                               m_contract->baseName,
+                               resource.name,
+                               resource.slot,
+                               reflected->second.bindPoint );
+        }
+    }
 }
 
 
@@ -468,6 +589,48 @@ void ShaderDX12::SetMat4( const char* name, const Matrix4& m ) const
     // HLSL uses #pragma pack_matrix(column_major) — send data as-is
     memcpy( m_cbData.data() + it->second.offset, m.Data(), 64 );
     m_cbDirty = true;
+}
+
+
+bool ShaderDX12::SetConstantBufferBytes( const void* data, size_t size, const char* debugName ) const
+{
+    (void)debugName;
+    if ( !data || size == 0 || m_cbSize == 0 )
+    {
+        return false;
+    }
+    if ( size != m_cbReflectedSize )
+    {
+#ifdef _DEBUG
+        Log().WriteEventf( "shader_typed_cbuffer_size_mismatch shader=%s block=%s bytes=%llu reflected_bytes=%u aligned_bytes=%u",
+                           m_contract ? m_contract->baseName : "<unmanifested>",
+                           debugName ? debugName : "<unnamed>",
+                           static_cast<unsigned long long>( size ),
+                           m_cbReflectedSize,
+                           m_cbSize );
+#endif
+        return false;
+    }
+
+    std::fill( m_cbData.begin(), m_cbData.end(), static_cast<uint8_t>( 0 ) );
+    memcpy( m_cbData.data(), data, size );
+    m_cbDirty = true;
+
+#ifdef _DEBUG
+    if ( m_contract )
+    {
+        if ( m_contractUniformsSet.size() != m_contract->uniformCount )
+        {
+            m_contractUniformsSet.assign( m_contract->uniformCount, static_cast<uint8_t>( 1 ) );
+        }
+        else
+        {
+            std::fill( m_contractUniformsSet.begin(), m_contractUniformsSet.end(), static_cast<uint8_t>( 1 ) );
+        }
+    }
+#endif
+
+    return true;
 }
 
 
