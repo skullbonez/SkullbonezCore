@@ -48,6 +48,7 @@ Related:
 #include "SkullbonezBLASDX12.h"
 #include "SkullbonezTLASDX12.h"
 #include "SkullbonezSBTDX12.h"
+#include "SkullbonezRenderGraph.h"
 #include "SkullbonezCommon.h"
 #include <d3d12.h>
 #include <dxgi1_5.h>
@@ -164,7 +165,7 @@ struct LiveBarrierRecordDX12
     const void* resource = nullptr;
     D3D12_RESOURCE_STATES before = D3D12_RESOURCE_STATE_COMMON;
     D3D12_RESOURCE_STATES after = D3D12_RESOURCE_STATE_COMMON;
-    const char* source = nullptr;
+    char source[64] = {};
 };
 
 
@@ -399,6 +400,7 @@ class RenderBackendDX12 : public IRenderBackend
     D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle( UINT index );
     void RecordLiveBarrier( const char* source, ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after );
     void TransitionBarrier( ID3D12Resource* resource, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after );
+    void ExecuteGraphTransitionBarrier( const char* passName, const char* resourceName, ID3D12Resource* resource, RenderGraphResourceAccess before, RenderGraphResourceAccess after );
     // Keeps cached texture-slot state from pointing at an SRV descriptor row
     // whose owning resource is being deleted or unregistered.
     void ClearBoundTextureSlotsForSrv( UINT srvIndex );

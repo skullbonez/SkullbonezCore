@@ -248,6 +248,9 @@
     <ClCompile Include="SkullbonezSource\SkullbonezRenderGraph.cpp">
       <Filter>Source Files\Rendering</Filter>
     </ClCompile>
+    <ClCompile Include="SkullbonezSource\SkullbonezDx12RenderGraphExecutor.cpp">
+      <Filter>Source Files\Rendering\DX12</Filter>
+    </ClCompile>
     <ClCompile Include="ThirdPtySource\stb\stb_image.cpp">
       <Filter>External</Filter>
     </ClCompile>
@@ -549,6 +552,9 @@
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezRenderGraph.h">
       <Filter>Header Files\Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="SkullbonezSource\SkullbonezDx12RenderGraphExecutor.h">
+      <Filter>Header Files\Rendering\DX12</Filter>
     </ClInclude>
     <ClInclude Include="SkullbonezSource\SkullbonezRenderMaterial.h">
       <Filter>Header Files\Rendering</Filter>

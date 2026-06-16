@@ -98,6 +98,7 @@ Related:
 #include "SkullbonezMeshDX12.h"
 #include "SkullbonezFramebufferDX12.h"
 #include "SkullbonezRenderGraph.h"
+#include "SkullbonezDx12RenderGraphExecutor.h"
 #include "SkullbonezPlatformProfiler.h"
 #include <stdexcept>
 #include <cstdio>
@@ -140,89 +141,6 @@ static bool IsDx12DeviceLostResult( HRESULT hr )
            hr == DXGI_ERROR_DEVICE_RESET ||
            hr == DXGI_ERROR_DRIVER_INTERNAL_ERROR;
 }
-
-static void AppendDx12StateFlag( std::ostringstream& out, bool& wroteAny, D3D12_RESOURCE_STATES state, D3D12_RESOURCE_STATES flag, const char* name )
-{
-    if ( ( state & flag ) != 0 )
-    {
-        if ( wroteAny )
-        {
-            out << "|";
-        }
-        out << name;
-        wroteAny = true;
-    }
-}
-
-static std::string Dx12StateToString( D3D12_RESOURCE_STATES state )
-{
-    if ( state == D3D12_RESOURCE_STATE_COMMON )
-    {
-        return "COMMON";
-    }
-
-    std::ostringstream out;
-    bool wroteAny = false;
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, "VERTEX_AND_CONSTANT_BUFFER" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_INDEX_BUFFER, "INDEX_BUFFER" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_RENDER_TARGET, "RENDER_TARGET" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, "UNORDERED_ACCESS" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_DEPTH_WRITE, "DEPTH_WRITE" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_DEPTH_READ, "DEPTH_READ" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, "NON_PIXEL_SHADER_RESOURCE" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, "PIXEL_SHADER_RESOURCE" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_STREAM_OUT, "STREAM_OUT" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, "INDIRECT_ARGUMENT" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_COPY_DEST, "COPY_DEST" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_COPY_SOURCE, "COPY_SOURCE" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_RESOLVE_DEST, "RESOLVE_DEST" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_RESOLVE_SOURCE, "RESOLVE_SOURCE" );
-    AppendDx12StateFlag( out, wroteAny, state, D3D12_RESOURCE_STATE_PRESENT, "PRESENT" );
-    if ( !wroteAny )
-    {
-        out << "UNKNOWN(" << static_cast<unsigned int>( state ) << ")";
-    }
-    return out.str();
-}
-
-static bool TryGraphAccessToDx12State( RenderGraphResourceAccess access, D3D12_RESOURCE_STATES& outState )
-{
-    switch ( access )
-    {
-    case RenderGraphResourceAccess::RenderTarget:
-        outState = D3D12_RESOURCE_STATE_RENDER_TARGET;
-        return true;
-    case RenderGraphResourceAccess::DepthRead:
-        outState = D3D12_RESOURCE_STATE_DEPTH_READ;
-        return true;
-    case RenderGraphResourceAccess::DepthWrite:
-        outState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
-        return true;
-    case RenderGraphResourceAccess::PixelShaderResource:
-        outState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-        return true;
-    case RenderGraphResourceAccess::NonPixelShaderResource:
-        outState = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-        return true;
-    case RenderGraphResourceAccess::UnorderedAccess:
-        outState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-        return true;
-    case RenderGraphResourceAccess::CopySource:
-        outState = D3D12_RESOURCE_STATE_COPY_SOURCE;
-        return true;
-    case RenderGraphResourceAccess::CopyDest:
-        outState = D3D12_RESOURCE_STATE_COPY_DEST;
-        return true;
-    case RenderGraphResourceAccess::Present:
-        outState = D3D12_RESOURCE_STATE_PRESENT;
-        return true;
-    case RenderGraphResourceAccess::Unknown:
-    default:
-        outState = D3D12_RESOURCE_STATE_COMMON;
-        return false;
-    }
-}
-
 
 RenderBackendDX12* RenderBackendDX12::s_instance = nullptr;
 
@@ -381,8 +299,37 @@ void RenderBackendDX12::RecordLiveBarrier( const char* source, ID3D12Resource* r
     record.resource = resource;
     record.before = before;
     record.after = after;
-    record.source = source ? source : "unknown";
+    strncpy_s( record.source, source ? source : "unknown", _TRUNCATE );
     m_liveBarrierRecords.push_back( record );
+}
+
+
+void RenderBackendDX12::ExecuteGraphTransitionBarrier( const char* passName, const char* resourceName, ID3D12Resource* resource, RenderGraphResourceAccess before, RenderGraphResourceAccess after )
+{
+    if ( !resource || before == after )
+    {
+        return;
+    }
+    (void)resourceName;
+
+    Dx12RenderGraphSingleTransitionDesc desc;
+    desc.commandList = m_commandList;
+    desc.resource = resource;
+    desc.before = before;
+    desc.after = after;
+    const Dx12RenderGraphSingleTransitionResult result = EmitDx12RenderGraphTransitionBarrier( desc );
+    if ( !result.hasConcreteStates ||
+         !result.hasNativeResource ||
+         result.missingCommandList ||
+         result.skippedSameState ||
+         !result.emitted )
+    {
+        throw std::runtime_error( "DX12 graph-owned transition did not emit exactly one concrete barrier" );
+    }
+
+    char source[64] = {};
+    snprintf( source, sizeof( source ), "GraphOwned:%s", ( passName && passName[0] != '\0' ) ? passName : "UnnamedPass" );
+    RecordLiveBarrier( source, resource, result.beforeState, result.afterState );
 }
 
 
@@ -594,6 +541,34 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
 
     std::ostringstream out;
     out << graph.DumpText();
+    Dx12RenderGraphExecutionDesc graphDryRunDesc;
+    graphDryRunDesc.mode = Dx12RenderGraphExecutionMode::DryRun;
+    graphDryRunDesc.sourcePrefix = "GraphDryRun";
+    const Dx12RenderGraphExecutionResult graphDryRun = ExecuteDx12RenderGraphTransitions( graph, compiled, graphDryRunDesc );
+
+    out << "\nGraphDryRunTransitionBarriers:\n";
+    out << "  candidate_count=" << graphDryRun.barriers.size() << "\n";
+    out << "  concrete_transition_count=" << graphDryRun.transitionBarrierCount << "\n";
+    out << "  emitted_transition_count=" << graphDryRun.emittedTransitionBarrierCount << "\n";
+    out << "  skipped_same_state_count=" << graphDryRun.skippedSameStateCount << "\n";
+    out << "  unknown_state_transition_count=" << graphDryRun.unknownStateTransitionCount << "\n";
+    out << "  missing_native_resource_count=" << graphDryRun.missingNativeResourceTransitionCount << "\n";
+    out << "  missing_command_list_emit_count=" << graphDryRun.missingCommandListEmissionCount << "\n";
+    out << "  uav_access_transition_count=" << graphDryRun.uavAccessTransitionCount << "\n";
+    for ( size_t i = 0; i < graphDryRun.barriers.size(); ++i )
+    {
+        const Dx12RenderGraphBarrierRecord& barrier = graphDryRun.barriers[i];
+        out << "  [" << i << "] source=" << barrier.source
+            << " pass=" << barrier.passName
+            << " resource=" << barrier.nativeResource
+            << " name=" << barrier.resourceName
+            << " " << ToString( barrier.beforeAccess ) << "/" << Dx12ResourceStateToString( barrier.beforeState )
+            << " -> " << ToString( barrier.afterAccess ) << "/" << Dx12ResourceStateToString( barrier.afterState )
+            << " native=" << ( barrier.hasNativeResource ? "true" : "false" )
+            << " uav_review=" << ( barrier.requiresUavOrderingReview ? "true" : "false" )
+            << " emitted=" << ( barrier.emitted ? "true" : "false" ) << "\n";
+    }
+
     out << "\nLiveBackendTransitionBarriers:\n";
     if ( m_liveBarrierRecords.empty() )
     {
@@ -603,11 +578,11 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
     {
         const LiveBarrierRecordDX12& live = m_liveBarrierRecords[i];
         const char* resourceLabel = liveResourceLabel( live.resource );
-        out << "  [" << i << "] source=" << ( live.source ? live.source : "unknown" )
+        out << "  [" << i << "] source=" << ( live.source[0] != '\0' ? live.source : "unknown" )
             << " resource=" << live.resource
             << " label=" << ( resourceLabel ? resourceLabel : "unlabeled" )
-            << " " << Dx12StateToString( live.before )
-            << " -> " << Dx12StateToString( live.after ) << "\n";
+            << " " << Dx12ResourceStateToString( live.before )
+            << " -> " << Dx12ResourceStateToString( live.after ) << "\n";
     }
 
     out << "\nGraphVsLiveTransitionStatePairs:\n";
@@ -624,8 +599,8 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
     {
         D3D12_RESOURCE_STATES graphBefore = D3D12_RESOURCE_STATE_COMMON;
         D3D12_RESOURCE_STATES graphAfter = D3D12_RESOURCE_STATE_COMMON;
-        const bool hasConcreteBefore = TryGraphAccessToDx12State( transition.before, graphBefore );
-        const bool hasConcreteAfter = TryGraphAccessToDx12State( transition.after, graphAfter );
+        const bool hasConcreteBefore = TryDx12RenderGraphAccessToResourceState( transition.before, graphBefore );
+        const bool hasConcreteAfter = TryDx12RenderGraphAccessToResourceState( transition.after, graphAfter );
         const RenderGraphResourceDesc& resource = graph.Resources()[transition.resource.index];
         const RenderGraphPassDesc& passDesc = graph.Passes()[transition.passIndex];
         if ( passDesc.barrierPolicy == RenderGraphBarrierPolicy::HandoffValidated )
@@ -685,8 +660,8 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
         {
             out << "  graph_only before pass [" << transition.passIndex << "] " << passDesc.name
                 << ": " << resource.name
-                << " " << ToString( transition.before ) << "/" << Dx12StateToString( graphBefore )
-                << " -> " << ToString( transition.after ) << "/" << Dx12StateToString( graphAfter ) << "\n";
+                << " " << ToString( transition.before ) << "/" << Dx12ResourceStateToString( graphBefore )
+                << " -> " << ToString( transition.after ) << "/" << Dx12ResourceStateToString( graphAfter ) << "\n";
             ++graphOnlyDetails;
         }
     }
@@ -702,11 +677,11 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
         if ( liveOnlyDetails < MAX_COMPARISON_DETAILS )
         {
             const char* resourceLabel = liveResourceLabel( live.resource );
-            out << "  live_only [" << liveIndex << "] source=" << ( live.source ? live.source : "unknown" )
+            out << "  live_only [" << liveIndex << "] source=" << ( live.source[0] != '\0' ? live.source : "unknown" )
                 << " resource=" << live.resource
                 << " label=" << ( resourceLabel ? resourceLabel : "unlabeled" )
-                << " " << Dx12StateToString( live.before )
-                << " -> " << Dx12StateToString( live.after ) << "\n";
+                << " " << Dx12ResourceStateToString( live.before )
+                << " -> " << Dx12ResourceStateToString( live.after ) << "\n";
         }
         ++liveOnlyDetails;
     }
@@ -717,7 +692,7 @@ void RenderBackendDX12::DumpFrameGraphSkeleton() const
     out << "  unknown_graph_transition_count=" << unknownGraphTransitions << "\n";
     out << "  graph_only_detail_count=" << graphOnlyDetails << "\n";
     out << "  live_only_count=" << liveOnlyDetails << "\n";
-    out << "  note=Resource-labeled matches are stronger than state-only matches. Unlabeled live resources remain telemetry, not proof; PRESENT and COMMON share a DX12 value. Handoff transitions are reviewed declarations only; live DX12 barriers still own execution.\n";
+    out << "  note=Resource-labeled matches are stronger than state-only matches. Unlabeled live resources remain telemetry, not proof; PRESENT and COMMON share a DX12 value. GraphDryRun records production-shaped candidates only; live DX12 barriers still own execution.\n";
 
     const std::string dump = out.str();
     {
@@ -1293,7 +1268,7 @@ void RenderBackendDX12::Shutdown()
     if ( !m_renderingToFBO && m_backBufferIsRT && m_swapChain && m_renderTargets[m_frameIndex] )
     {
         EnsureCommandListOpen();
-        TransitionBarrier( m_renderTargets[m_frameIndex], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT );
+        ExecuteGraphTransitionBarrier( "ShutdownBackbufferPresent", "SwapchainBackbuffer", m_renderTargets[m_frameIndex], RenderGraphResourceAccess::RenderTarget, RenderGraphResourceAccess::Present );
         m_backBufferIsRT = false;
     }
 
@@ -1524,7 +1499,7 @@ void RenderBackendDX12::Present()
         std::memset( m_gpuTimers.slotWritten, 0, sizeof( m_gpuTimers.slotWritten ) ); // reset for next frame
     }
 
-    TransitionBarrier( m_renderTargets[m_frameIndex], D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT );
+    ExecuteGraphTransitionBarrier( "PresentBackbuffer", "SwapchainBackbuffer", m_renderTargets[m_frameIndex], RenderGraphResourceAccess::RenderTarget, RenderGraphResourceAccess::Present );
     m_backBufferIsRT = false;
 
     // Close the command list — finalizes the recorded commands. A closed command list can be
@@ -1701,7 +1676,7 @@ void RenderBackendDX12::Clear( bool color, bool depth )
 
     if ( !m_renderingToFBO && !m_backBufferIsRT )
     {
-        TransitionBarrier( m_renderTargets[m_frameIndex], D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET );
+        ExecuteGraphTransitionBarrier( "ClearBackbuffer", "SwapchainBackbuffer", m_renderTargets[m_frameIndex], RenderGraphResourceAccess::Present, RenderGraphResourceAccess::RenderTarget );
         m_backBufferIsRT = true;
     }
     // Bind the render target and depth buffer to the Output Merger (OM) stage — this tells the

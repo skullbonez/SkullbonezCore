@@ -222,6 +222,7 @@
     <ClCompile Include="SkullbonezSource\SkullbonezProfiler.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezIRenderBackend.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRenderGraph.cpp" />
+    <ClCompile Include="SkullbonezSource\SkullbonezDx12RenderGraphExecutor.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.DXR.cpp" />
     <ClCompile Include="SkullbonezSource\SkullbonezRenderBackendDX12.DynamicGeometry.cpp" />
@@ -325,6 +326,7 @@
     <ClInclude Include="SkullbonezSource\SkullbonezIFramebuffer.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezIRenderBackend.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRenderGraph.h" />
+    <ClInclude Include="SkullbonezSource\SkullbonezDx12RenderGraphExecutor.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRenderMaterial.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRenderBackendDX12.h" />
     <ClInclude Include="SkullbonezSource\SkullbonezRenderDeviceDX12.h" />

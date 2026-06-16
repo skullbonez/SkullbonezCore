@@ -20,7 +20,9 @@ Related:
 */
 #include "SkullbonezRenderDeviceDX12.h"
 #include "SkullbonezRenderGraph.h"
+#include "SkullbonezDx12RenderGraphExecutor.h"
 
+#include <cstdint>
 #include <exception>
 #include <functional>
 #include <iostream>
@@ -216,6 +218,112 @@ void TestRenderGraphRejectsBadHandles()
     EXPECT_THROWS( graph.AddWrite( pass + 100u, texture, RenderGraphResourceAccess::RenderTarget ) );
 }
 
+void TestDx12RenderGraphAccessMapsToDx12States()
+{
+    D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COMMON;
+
+    EXPECT_TRUE( TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess::Present, state ) );
+    EXPECT_TRUE( state == D3D12_RESOURCE_STATE_PRESENT );
+
+    EXPECT_TRUE( TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess::RenderTarget, state ) );
+    EXPECT_TRUE( state == D3D12_RESOURCE_STATE_RENDER_TARGET );
+
+    EXPECT_TRUE( TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess::PixelShaderResource, state ) );
+    EXPECT_TRUE( state == D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE );
+
+    EXPECT_TRUE( !TryDx12RenderGraphAccessToResourceState( RenderGraphResourceAccess::Unknown, state ) );
+}
+
+void TestDx12RenderGraphExecutorDryRunBackbufferTransitions()
+{
+    const void* fakeBackbuffer = reinterpret_cast<const void*>( static_cast<uintptr_t>( 0x1000u ) );
+
+    RenderGraph graph;
+    const RenderGraphResourceHandle backbuffer = graph.AddExternalResource( "Backbuffer", RenderGraphResourceAccess::Present, fakeBackbuffer );
+
+    const uint32_t drawPass = graph.AddPass( "Draw" );
+    graph.AddWrite( drawPass, backbuffer, RenderGraphResourceAccess::RenderTarget );
+
+    const uint32_t presentPass = graph.AddPass( "Present" );
+    graph.AddWrite( presentPass, backbuffer, RenderGraphResourceAccess::Present );
+
+    const RenderGraphCompileResult compiled = graph.Compile();
+    Dx12RenderGraphExecutionDesc desc;
+    desc.mode = Dx12RenderGraphExecutionMode::DryRun;
+    desc.sourcePrefix = "GraphDryRun";
+
+    const Dx12RenderGraphExecutionResult result = ExecuteDx12RenderGraphTransitions( graph, compiled, desc );
+
+    EXPECT_EQ( result.barriers.size(), static_cast<size_t>( 2 ) );
+    EXPECT_EQ( result.transitionBarrierCount, static_cast<size_t>( 2 ) );
+    EXPECT_EQ( result.emittedTransitionBarrierCount, static_cast<size_t>( 0 ) );
+    EXPECT_EQ( result.missingNativeResourceTransitionCount, static_cast<size_t>( 0 ) );
+
+    EXPECT_TRUE( result.barriers[0].beforeState == D3D12_RESOURCE_STATE_PRESENT );
+    EXPECT_TRUE( result.barriers[0].afterState == D3D12_RESOURCE_STATE_RENDER_TARGET );
+    EXPECT_TRUE( !result.barriers[0].emitted );
+    EXPECT_EQ( result.barriers[0].source, std::string( "GraphDryRun:Draw" ) );
+
+    EXPECT_TRUE( result.barriers[1].beforeState == D3D12_RESOURCE_STATE_RENDER_TARGET );
+    EXPECT_TRUE( result.barriers[1].afterState == D3D12_RESOURCE_STATE_PRESENT );
+    EXPECT_EQ( result.barriers[1].source, std::string( "GraphDryRun:Present" ) );
+}
+
+void TestDx12RenderGraphExecutorSkipsUnknownInitialAccess()
+{
+    RenderGraph graph;
+    const RenderGraphResourceHandle legacyTarget = graph.AddExternalResource( "LegacyTarget", RenderGraphResourceAccess::Unknown, reinterpret_cast<const void*>( static_cast<uintptr_t>( 0x2000u ) ) );
+
+    const uint32_t firstWriter = graph.AddPass( "FirstWriter" );
+    graph.AddWrite( firstWriter, legacyTarget, RenderGraphResourceAccess::RenderTarget );
+
+    const RenderGraphCompileResult compiled = graph.Compile();
+    Dx12RenderGraphExecutionDesc desc;
+    const Dx12RenderGraphExecutionResult result = ExecuteDx12RenderGraphTransitions( graph, compiled, desc );
+
+    EXPECT_EQ( compiled.transitions.size(), static_cast<size_t>( 0 ) );
+    EXPECT_EQ( result.barriers.size(), static_cast<size_t>( 0 ) );
+    EXPECT_EQ( result.unknownStateTransitionCount, static_cast<size_t>( 0 ) );
+}
+
+void TestDx12RenderGraphExecutorIdentifiesUavAccess()
+{
+    RenderGraph graph;
+    const RenderGraphResourceHandle reflection = graph.AddExternalResource( "Reflection", RenderGraphResourceAccess::PixelShaderResource, reinterpret_cast<const void*>( static_cast<uintptr_t>( 0x3000u ) ) );
+
+    const uint32_t dispatchPass = graph.AddPass( "DispatchReflection", RenderGraphQueueType::Compute );
+    graph.AddWrite( dispatchPass, reflection, RenderGraphResourceAccess::UnorderedAccess );
+
+    const RenderGraphCompileResult compiled = graph.Compile();
+    Dx12RenderGraphExecutionDesc desc;
+    const Dx12RenderGraphExecutionResult result = ExecuteDx12RenderGraphTransitions( graph, compiled, desc );
+
+    EXPECT_EQ( result.barriers.size(), static_cast<size_t>( 1 ) );
+    EXPECT_EQ( result.uavAccessTransitionCount, static_cast<size_t>( 1 ) );
+    EXPECT_TRUE( result.barriers[0].requiresUavOrderingReview );
+    EXPECT_TRUE( result.barriers[0].beforeState == D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE );
+    EXPECT_TRUE( result.barriers[0].afterState == D3D12_RESOURCE_STATE_UNORDERED_ACCESS );
+}
+
+void TestDx12SingleTransitionRequiresCommandListForEmit()
+{
+    Dx12RenderGraphSingleTransitionDesc desc;
+    desc.commandList = nullptr;
+    desc.resource = reinterpret_cast<ID3D12Resource*>( static_cast<uintptr_t>( 0x4000u ) );
+    desc.before = RenderGraphResourceAccess::Present;
+    desc.after = RenderGraphResourceAccess::RenderTarget;
+
+    const Dx12RenderGraphSingleTransitionResult result = EmitDx12RenderGraphTransitionBarrier( desc );
+
+    EXPECT_TRUE( result.hasNativeResource );
+    EXPECT_TRUE( result.hasConcreteStates );
+    EXPECT_TRUE( result.missingCommandList );
+    EXPECT_TRUE( !result.skippedSameState );
+    EXPECT_TRUE( !result.emitted );
+    EXPECT_TRUE( result.beforeState == D3D12_RESOURCE_STATE_PRESENT );
+    EXPECT_TRUE( result.afterState == D3D12_RESOURCE_STATE_RENDER_TARGET );
+}
+
 const TestCase kTests[] = {
     { "Descriptor transient ranges are contiguous", TestDescriptorTransientRangeIsContiguous },
     { "Descriptor transient range failures are atomic", TestDescriptorTransientRangeFailureIsAtomic },
@@ -223,6 +331,11 @@ const TestCase kTests[] = {
     { "Render graph emits explicit initial-state transitions", TestRenderGraphExplicitInitialStateTransitions },
     { "Render graph rejects Unknown pass access", TestRenderGraphRejectsUnknownPassAccess },
     { "Render graph rejects bad handles", TestRenderGraphRejectsBadHandles },
+    { "DX12 render graph access maps to DX12 states", TestDx12RenderGraphAccessMapsToDx12States },
+    { "DX12 render graph executor dry-runs backbuffer transitions", TestDx12RenderGraphExecutorDryRunBackbufferTransitions },
+    { "DX12 render graph executor skips Unknown initial access", TestDx12RenderGraphExecutorSkipsUnknownInitialAccess },
+    { "DX12 render graph executor identifies UAV access", TestDx12RenderGraphExecutorIdentifiesUavAccess },
+    { "DX12 single transition requires command list for emit", TestDx12SingleTransitionRequiresCommandListForEmit },
 };
 
 } // namespace
