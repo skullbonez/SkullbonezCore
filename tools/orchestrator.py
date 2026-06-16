@@ -50,6 +50,28 @@ VERIFIER_TEMPLATE = ORCH_DIR / "templates" / "verifier-prompt.md"
 WORKER_SCHEMA = ORCH_DIR / "schemas" / "worker-result.schema.json"
 VERIFIER_SCHEMA = ORCH_DIR / "schemas" / "verifier-result.schema.json"
 REPORT_TEMPLATE = ORCH_DIR / "templates" / "report.md"
+WORKER_RESULT_FIELDS = {
+    "status",
+    "summary",
+    "changed_files",
+    "validation",
+    "artifacts",
+    "timings",
+    "plain_language_summary",
+    "commit_sha",
+    "blockers",
+    "risks",
+}
+VERIFIER_RESULT_FIELDS = {
+    "verdict",
+    "blocking_findings",
+    "non_blocking_suggestions",
+    "missing_evidence",
+    "validation_assessment",
+    "artifact_assessment",
+    "feedback_for_worker",
+    "another_round_required",
+}
 
 
 class OrchestratorError(RuntimeError):
@@ -94,6 +116,64 @@ def load_json(path: Path) -> dict[str, Any]:
 def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def tail_lines(text: str, max_lines: int = 30, max_chars: int = 4000) -> str:
+    lines = text.strip().splitlines()
+    if len(lines) > max_lines:
+        lines = lines[-max_lines:]
+    tail = "\n".join(lines)
+    if len(tail) > max_chars:
+        tail = tail[-max_chars:]
+    return tail
+
+
+def codex_exec_log_paths(output_path: Path) -> tuple[Path, Path]:
+    return (
+        output_path.with_name(output_path.name + ".stdout.log"),
+        output_path.with_name(output_path.name + ".stderr.log"),
+    )
+
+
+def codex_exec_artifacts(repo: Path, output_path: Path) -> list[str]:
+    raw_path = output_path.with_name(output_path.name + ".raw")
+    paths = [path for path in (*codex_exec_log_paths(output_path), raw_path) if path.exists()]
+    return [repo_relative(repo, path) for path in paths]
+
+
+def codex_exec_failure_detail(output_path: Path) -> str:
+    stdout_log, stderr_log = codex_exec_log_paths(output_path)
+    for path in (stderr_log, stdout_log):
+        if path.exists():
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            detail = tail_lines(text)
+            if detail:
+                return detail
+    return ""
+
+
+def result_json_has_fields(path: Path, required_fields: set[str]) -> bool:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return False
+    return isinstance(payload, dict) and required_fields.issubset(payload.keys())
+
+
+def preserve_result_before_overwrite(path: Path) -> None:
+    if not path.exists():
+        return
+    raw_path = path.with_name(path.name + ".raw")
+    if raw_path.exists():
+        return
+    shutil.copyfile(path, raw_path)
+
+
+def ensure_result_payload(path: Path, payload: dict[str, Any], required_fields: set[str]) -> None:
+    if result_json_has_fields(path, required_fields):
+        return
+    preserve_result_before_overwrite(path)
+    write_json(path, payload)
 
 
 def normalize_state(state: str) -> str:
@@ -475,12 +555,16 @@ def template_values(
             path = run_dir / subdir
             if path.exists():
                 artifact_paths.extend(repo_relative(repo, child) for child in sorted(path.rglob("*")) if child.is_file())
+    run_state = load_run_state(run_dir) if run_dir and (run_dir / "run.json").exists() else {}
+    parent_branch = item.get("parent_branch", item.get("stack_base_branch", ""))
+    if not parent_branch and isinstance(run_state, dict):
+        parent_branch = run_state.get("parent_branch", "")
 
     return {
         "item_id": item_id,
         "plan_path": item.get("plan", ""),
         "branch": item.get("branch", ""),
-        "parent_branch": item.get("parent_branch", item.get("stack_base_branch", "")),
+        "parent_branch": parent_branch,
         "impact_area": ", ".join(str(area) for area in item.get("impact_area", [])),
         "validation_gate": item.get("validation_gate", ""),
         "validation_notes": item.get("validation_notes", ""),
@@ -573,7 +657,6 @@ def command_start(args: argparse.Namespace) -> int:
         previous = item_state(item)
         set_item_state(item, "running")
         write_json(args.repo / QUEUE_PATH, queue)
-        prompt_path = write_worker_prompt(args.repo, policy, queue, item, run_dir)
         run_state = {
             "schema_version": 1,
             "item_id": args.item_id,
@@ -595,8 +678,10 @@ def command_start(args: argparse.Namespace) -> int:
             "baseline_git_status": git_status(args.repo),
             "policy_snapshot": deepcopy(policy),
             "queue_item_snapshot": deepcopy(item),
-            "worker_prompt": repo_relative(args.repo, prompt_path),
         }
+        save_run_state(run_dir, run_state)
+        prompt_path = write_worker_prompt(args.repo, policy, queue, item, run_dir)
+        run_state["worker_prompt"] = repo_relative(args.repo, prompt_path)
         save_run_state(run_dir, run_state)
     except KeyError:
         print(f"ERROR: Unknown item: {args.item_id}")
@@ -896,10 +981,30 @@ def run_codex_exec(
     if schema_path:
         command.extend(["--output-schema", str(schema_path)])
     command.append("-")
+    stdout_log, stderr_log = codex_exec_log_paths(output_path)
     try:
-        result = subprocess.run(command, input=prompt, text=True, cwd=repo, check=False, timeout=timeout_seconds)
+        result = subprocess.run(
+            command,
+            input=prompt,
+            text=True,
+            cwd=repo,
+            check=False,
+            capture_output=True,
+            timeout=timeout_seconds,
+        )
     except subprocess.TimeoutExpired as exc:
         raise OrchestratorError(f"codex exec timed out after {timeout_seconds}s using sandbox {sandbox}.") from exc
+    stdout_log.write_text(result.stdout or "", encoding="utf-8")
+    stderr_log.write_text(result.stderr or "", encoding="utf-8")
+    if result.returncode != 0:
+        print(f"codex exec exited {result.returncode}.")
+        print(f"  stdout: {repo_relative(repo, stdout_log)}")
+        print(f"  stderr: {repo_relative(repo, stderr_log)}")
+        detail = codex_exec_failure_detail(output_path)
+        if detail:
+            print("Last codex output:")
+            for line in detail.splitlines():
+                print(f"  {line}")
     return result.returncode
 
 
@@ -955,6 +1060,27 @@ def command_run_worker(args: argparse.Namespace) -> int:
         print(f"ERROR: {exc}")
         return 1
     print(f"Worker result: {repo_relative(args.repo, output)}")
+    if code != 0 and not args.no_schema:
+        detail = codex_exec_failure_detail(output)
+        blockers = [f"codex exec returned {code}"]
+        if detail:
+            blockers.append("Last codex output:\n" + detail)
+        ensure_result_payload(
+            output,
+            {
+                "status": "failed",
+                "summary": f"codex exec returned {code}.",
+                "changed_files": git_changed_files(args.repo),
+                "validation": {"commands": [], "result": "not run"},
+                "artifacts": codex_exec_artifacts(args.repo, output),
+                "timings": [],
+                "plain_language_summary": "The implementation worker did not complete.",
+                "commit_sha": None,
+                "blockers": blockers,
+                "risks": [],
+            },
+            WORKER_RESULT_FIELDS,
+        )
     return code
 
 
@@ -975,6 +1101,26 @@ def command_run_verifier(args: argparse.Namespace) -> int:
         print(f"ERROR: {exc}")
         return 1
     print(f"Verifier result: {repo_relative(args.repo, output)}")
+    if code != 0 and not args.no_schema:
+        detail = codex_exec_failure_detail(output)
+        findings = [f"codex exec returned {code}"]
+        if detail:
+            findings.append("Last codex output:\n" + detail)
+        artifacts = codex_exec_artifacts(args.repo, output)
+        ensure_result_payload(
+            output,
+            {
+                "verdict": "blocked",
+                "blocking_findings": findings,
+                "non_blocking_suggestions": [],
+                "missing_evidence": [],
+                "validation_assessment": "not assessed",
+                "artifact_assessment": "Codex stdout/stderr logs: " + ", ".join(artifacts),
+                "feedback_for_worker": "Verifier did not complete.",
+                "another_round_required": True,
+            },
+            VERIFIER_RESULT_FIELDS,
+        )
     return code
 
 
@@ -1429,23 +1575,26 @@ def command_run_loop(args: argparse.Namespace) -> int:
                 )
                 print(f"Worker result: {repo_relative(args.repo, worker_output)}")
                 if code != 0:
-                    if not worker_output.exists():
-                        worker_output.write_text(
-                            json.dumps(
-                                {
-                                    "status": "failed",
-                                    "summary": f"codex exec returned {code}.",
-                                    "changed_files": git_changed_files(args.repo),
-                                    "validation": {"commands": [], "result": "not run"},
-                                    "plain_language_summary": "The implementation worker did not complete.",
-                                    "blockers": [f"codex exec returned {code}"],
-                                    "risks": [],
-                                },
-                                indent=2,
-                            )
-                            + "\n",
-                            encoding="utf-8",
-                        )
+                    detail = codex_exec_failure_detail(worker_output)
+                    blockers = [f"codex exec returned {code}"]
+                    if detail:
+                        blockers.append("Last codex output:\n" + detail)
+                    ensure_result_payload(
+                        worker_output,
+                        {
+                            "status": "failed",
+                            "summary": f"codex exec returned {code}.",
+                            "changed_files": git_changed_files(args.repo),
+                            "validation": {"commands": [], "result": "not run"},
+                            "artifacts": codex_exec_artifacts(args.repo, worker_output),
+                            "timings": [],
+                            "plain_language_summary": "The implementation worker did not complete.",
+                            "commit_sha": None,
+                            "blockers": blockers,
+                            "risks": [],
+                        },
+                        WORKER_RESULT_FIELDS,
+                    )
                     transition_and_print(args.repo, item_id, "worker_failed", worker_output, run_date_text=args.run_date)
                     return code or 1
                 worker_result = read_result_json(worker_output)
@@ -1476,24 +1625,25 @@ def command_run_loop(args: argparse.Namespace) -> int:
                 )
                 print(f"Verifier result: {repo_relative(args.repo, verifier_output)}")
                 if code != 0:
-                    if not verifier_output.exists():
-                        verifier_output.write_text(
-                            json.dumps(
-                                {
-                                    "verdict": "blocked",
-                                    "blocking_findings": [f"codex exec returned {code}"],
-                                    "non_blocking_suggestions": [],
-                                    "missing_evidence": [],
-                                    "validation_assessment": "not assessed",
-                                    "artifact_assessment": "not assessed",
-                                    "feedback_for_worker": "Verifier did not complete.",
-                                    "another_round_required": True,
-                                },
-                                indent=2,
-                            )
-                            + "\n",
-                            encoding="utf-8",
-                        )
+                    detail = codex_exec_failure_detail(verifier_output)
+                    findings = [f"codex exec returned {code}"]
+                    if detail:
+                        findings.append("Last codex output:\n" + detail)
+                    ensure_result_payload(
+                        verifier_output,
+                        {
+                            "verdict": "blocked",
+                            "blocking_findings": findings,
+                            "non_blocking_suggestions": [],
+                            "missing_evidence": [],
+                            "validation_assessment": "not assessed",
+                            "artifact_assessment": "Codex stdout/stderr logs: "
+                            + ", ".join(codex_exec_artifacts(args.repo, verifier_output)),
+                            "feedback_for_worker": "Verifier did not complete.",
+                            "another_round_required": True,
+                        },
+                        VERIFIER_RESULT_FIELDS,
+                    )
                     transition_and_print(args.repo, item_id, "blocked", verifier_output, run_date_text=args.run_date)
                     return code or 1
                 verifier_result = read_result_json(verifier_output)
