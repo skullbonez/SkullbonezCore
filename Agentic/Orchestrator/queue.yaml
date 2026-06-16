@@ -43,7 +43,7 @@ items:
     depends_on: []
     report_required: false
 
-  - id: orchestration-framework-yaml-foundation
+  - id: orchestrator-yaml-foundation
     plan: Agentic/Plans/orchestration-framework-fix-plan.md
     state: done
     priority: 6
@@ -60,10 +60,46 @@ items:
     archive_deferred:
       reason: "The YAML foundation is implemented, but the same source plan still tracks future checker, state-advance, report-commit, role, hook, and eval tooling phases."
 
+  - id: orchestrator-executable-loop
+    plan: Agentic/Plans/orchestration-framework-fix-plan.md
+    state: done
+    priority: 25
+    branch: main
+    impact_area:
+      - tools
+      - orchestrator config
+      - agent process
+    validation_gate: tools\validate_fast.bat
+    validation_notes: "Tooling changes require tools\\validate_fast.bat plus tools\\orchestrator.bat check --self-test."
+    depends_on:
+      - orchestrator-yaml-foundation
+    report_required: false
+    archive_deferred:
+      reason: "Future orchestrator phases remain in the same source plan."
+
+  - id: tornado-mode-ui-cli
+    plan: Agentic/Plans/tornado-mode-ui-cli-plan.md
+    state: running
+    priority: 30
+    branch: codex/tornado-mode-ui-cli
+    impact_area:
+      - physics
+      - UI
+      - CLI
+      - runtime
+    validation_gate: tools\validate_full.bat
+    validation_notes: "Tornado work touches runtime input, UI, and physics application paths; use the full gate unless the implemented slice is proven narrower."
+    depends_on:
+      - orchestrator-executable-loop
+    dependency_mode: normal
+    report_required: true
+    artifact_commands: []
+    screenshot_scenes: []
+
   - id: water-rendering-cleanup
     plan: Agentic/Plans/water-rendering-cleanup-plan.md
     state: ready
-    priority: 30
+    priority: 40
     branch: codex/water-rendering-cleanup
     impact_area:
       - DX12
@@ -72,7 +108,26 @@ items:
     validation_gate: tools\validate_dx12_renderer.bat
     validation_notes: "Renderer water work requires the DX12 renderer gate and intentional visual review."
     depends_on:
-      - orchestration-framework-yaml-foundation
+      - tornado-mode-ui-cli
+    dependency_mode: normal
+    report_required: true
+    artifact_commands: []
+    screenshot_scenes: []
+
+  - id: draw-call-trace-tree
+    plan: Agentic/Plans/draw-call-trace-tree-plan.md
+    state: ready
+    priority: 50
+    branch: codex/draw-call-trace-tree
+    impact_area:
+      - DX12
+      - renderer diagnostics
+      - profiler UI
+      - performance
+    validation_gate: tools\validate_dx12_renderer.bat && tools\validate_perf.bat
+    validation_notes: "Draw-call tracing touches draw hot paths and profiler UI; run renderer and perf gates."
+    depends_on:
+      - water-rendering-cleanup
     dependency_mode: normal
     report_required: true
     artifact_commands: []
@@ -81,7 +136,7 @@ items:
   - id: dx12-render-graph-completion
     plan: Agentic/Plans/dx12-render-graph-completion-plan.md
     state: ready
-    priority: 40
+    priority: 60
     branch: codex/dx12-render-graph-completion
     impact_area:
       - DX12
@@ -90,26 +145,7 @@ items:
     validation_gate: tools\validate_dx12_renderer.bat
     validation_notes: "Render graph/resource-state ownership requires DX12 validation and dx12_validation.txt checked for zero errors. Add tools\\validate_perf.bat for hot barrier scheduling changes."
     depends_on:
-      - water-rendering-cleanup
-    dependency_mode: normal
-    report_required: true
-    artifact_commands: []
-    screenshot_scenes: []
-
-  - id: architecture-pass-follow-up
-    plan: Agentic/Plans/architecture_pass_2026-06-02.md
-    state: ready
-    priority: 50
-    branch: codex/architecture-pass-follow-up
-    impact_area:
-      - runtime architecture
-      - physics data boundary
-      - assets
-      - parser schemas
-    validation_gate: tools\validate_full.bat
-    validation_notes: "Use this broad plan only to select a smaller concrete slice; validation depends on the selected files."
-    depends_on:
-      - dx12-render-graph-completion
+      - draw-call-trace-tree
     dependency_mode: normal
     report_required: true
     artifact_commands: []
