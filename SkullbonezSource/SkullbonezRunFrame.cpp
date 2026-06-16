@@ -335,29 +335,12 @@ void SkullbonezRun::TickAutoCycle()
 
 void SkullbonezRun::TickPerfLog()
 {
-    if ( !m_perfLogState.isPerfTest || !m_perfLogState.perfLogFile )
-    {
-        return;
-    }
-
-#if defined( SKULLBONEZ_PROFILE_ENABLED )
-    if ( !m_perfLogState.perfHeaderWritten )
-    {
-        Profiler::Instance().WritePerfCSVHeader( m_perfLogState.perfLogFile );
-        m_perfLogState.perfHeaderWritten = true;
-    }
-    Profiler::Instance().WritePerfCSVRow( m_perfLogState.perfLogFile, sPerfPass + 1, SceneState().currentFrame + 1 );
-#else
-    fprintf( m_perfLogState.perfLogFile, "%d,%d,%.4f,%.4f\n", sPerfPass + 1, SceneState().currentFrame + 1, m_timers.physicsTime * 1000.0f, m_timers.renderTime * 1000.0f );
-#endif
-
-    ++m_perfLogState.perfLogWritesSinceFlush;
-    if ( m_perfLogState.isPerfLogFlushEnabled ||
-         ( m_perfLogState.perfLogFlushInterval > 0 && m_perfLogState.perfLogWritesSinceFlush >= m_perfLogState.perfLogFlushInterval ) )
-    {
-        fflush( m_perfLogState.perfLogFile );
-        m_perfLogState.perfLogWritesSinceFlush = 0;
-    }
+    RuntimeDiagnostics::TickPerfLog( m_perfLogState,
+                                     RuntimePerfTickContext{
+                                         sPerfPass + 1,
+                                         SceneState().currentFrame + 1,
+                                         m_timers.physicsTime,
+                                         m_timers.renderTime } );
 
     if ( ( SceneState().currentFrame + 1 ) % 60 == 0 )
     {

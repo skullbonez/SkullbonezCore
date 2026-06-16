@@ -29,6 +29,7 @@ flowchart TB
         Timers["Timer / RunTimerState"]
         Config["SkullbonezConfig\nWindowConfig / render flags / cinematic config"]
         Capture["CaptureSystem"]
+        RuntimeDiagnostics["RuntimeDiagnostics"]
         Text["Text2d"]
         Profiler["Profiler / ProfilerScope / GpuProfilerScope"]
         PlatformProfiler["PlatformProfiler"]
@@ -104,6 +105,7 @@ flowchart TB
     App -.-> TestScene
     App -.-> Input
     App -.-> Capture
+    App -.-> RuntimeDiagnostics
     App -.-> Text
     App -.-> Profiler
     App -.-> PlatformProfiler
@@ -174,6 +176,7 @@ class RunSubsystemState
 class RunCameraState
 class SceneRuntime
 class SimulationSystem
+class RuntimeDiagnostics
 class RunSceneState
 class RunScreenshotState
 class RunLiveStyleControlState
@@ -202,6 +205,7 @@ SkullbonezRun *-- RunSubsystemState
 SkullbonezRun *-- RunCameraState
 SkullbonezRun *-- SceneRuntime
 SkullbonezRun *-- SimulationSystem
+SkullbonezRun ..> RuntimeDiagnostics
 SceneRuntime *-- RunSceneState
 SkullbonezRun *-- RunScreenshotState
 SkullbonezRun *-- RunLiveStyleControlState
@@ -226,11 +230,12 @@ SkullbonezRun *-- PhysicsDebugVisualizer
 `SceneRuntime` is now an owned runtime subsystem for scene queue/index state and
 `RunSceneState`. `SimulationSystem` owns timestep policy and the physics
 accumulators for fixed-step and variable-step playback. `CaptureSystem` owns
-BMP backbuffer readback plus scene screenshot/autocycle policy; `SkullbonezRun`
+BMP backbuffer readback plus scene screenshot/autocycle policy. `RuntimeDiagnostics`
+owns perf CSV, scene-finished, and SkullScope run logging policy. `SkullbonezRun`
 still applies capture completion actions such as scene advance, quit, or
-interactive hold. `SkullbonezRun` still coordinates the heavier load/reset side
-effects around that state, including object construction, terrain, cameras, UI
-defaults, diagnostics, and renderer setup.
+interactive hold and coordinates the heavier load/reset side effects around
+that state, including object construction, terrain, cameras, UI defaults,
+diagnostics context, and renderer setup.
 
 ## Rendering Interfaces And Backend Family
 
@@ -641,6 +646,8 @@ subsystem rather than by dependency edge.
 - `RunFireState`
 - `RunUIStressState`
 - `SceneRuntimeResetSnapshot`
+- `RuntimeDiagnostics`
+- `RuntimePerfTickContext`
 - `GeneratedObjectTypeOverride`
 - `OverlayMode`
 - `SkullbonezWindow`

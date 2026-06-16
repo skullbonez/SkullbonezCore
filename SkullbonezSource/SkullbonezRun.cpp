@@ -82,11 +82,7 @@ SkullbonezRun::~SkullbonezRun()
     EndPhysicsDiagnosticsRun( "process_end" );
 #endif
 
-    if ( m_perfLogState.perfLogFile )
-    {
-        fclose( m_perfLogState.perfLogFile );
-        m_perfLogState.perfLogFile = nullptr;
-    }
+    RuntimeDiagnostics::ClosePerfLog( m_perfLogState );
 
     // Hazard: backend resources can still be referenced by queued GPU work.
     // Flush before releasing the runtime's owning pointers so teardown cannot
@@ -484,22 +480,19 @@ void SkullbonezRun::SetPhysicsDebugContactLingerOverride( float seconds )
 #ifdef _DEBUG
 void SkullbonezRun::SetPhysicsRegressionLogOverride( const char* path )
 {
-    strcpy_s( m_perfLogState.physicsRegressionLogOverride, sizeof( m_perfLogState.physicsRegressionLogOverride ), path );
+    RuntimeDiagnostics::SetPhysicsRegressionLogOverride( m_perfLogState, path );
 }
 
 
 void SkullbonezRun::SetPhysicsCollisionTimeLogOverride( const char* path )
 {
-    strcpy_s( m_perfLogState.physicsCollisionTimeLogOverride, sizeof( m_perfLogState.physicsCollisionTimeLogOverride ), path );
+    RuntimeDiagnostics::SetPhysicsCollisionTimeLogOverride( m_perfLogState, path );
 }
 
 
 void SkullbonezRun::SetPhysicsDiagnosticsPath( const char* path, bool fixedStepForcedByDiagnostics )
 {
-    strcpy_s( m_physicsDiagnostics.path, sizeof( m_physicsDiagnostics.path ), path );
-    m_physicsDiagnostics.isEnabled = m_physicsDiagnostics.path[0] != '\0';
-    m_physicsDiagnostics.fixedStepForcedByDiagnostics = fixedStepForcedByDiagnostics;
-    m_cGameModelCollection.SetPhysicsDiagnosticsPath( m_physicsDiagnostics.path );
+    RuntimeDiagnostics::SetPhysicsDiagnosticsPath( m_physicsDiagnostics, m_cGameModelCollection, path, fixedStepForcedByDiagnostics );
 }
 #endif
 
@@ -921,11 +914,6 @@ void SkullbonezRun::WriteNudgeReproSnapshot()
 #ifdef _DEBUG
 void SkullbonezRun::LogSceneFinished( const char* reason )
 {
-    if ( SceneState().isFinishLogged )
-    {
-        return;
-    }
-
     const char* scenePath = "generated";
     const std::string* currentScenePath = CurrentSceneQueuePath();
     if ( currentScenePath && !currentScenePath->empty() )
@@ -933,92 +921,23 @@ void SkullbonezRun::LogSceneFinished( const char* reason )
         scenePath = currentScenePath->c_str();
     }
 
-    Log().WriteEventf( "scene_finished index=%d load=%d path=\"%s\" reason=%s frame=%d target_frames=%d renderer=\"%s\" models=%d test_complete=%d",
-                       SceneState().currentSceneIndex,
-                       SceneState().loadCount,
-                       scenePath,
-                       reason && reason[0] != '\0' ? reason : "unknown",
-                       SceneState().currentFrame,
-                       SceneState().targetFrameCount,
-                       IsGfxReady() ? Gfx().GetRendererName() : "unknown",
-                       SceneState().modelCount,
-                       SceneState().isTestComplete ? 1 : 0 );
-
-    SceneState().isFinishLogged = true;
+    RuntimeDiagnostics::LogSceneFinished( SceneState(), scenePath, IsGfxReady() ? Gfx().GetRendererName() : "unknown", reason );
 }
 
 
 void SkullbonezRun::BeginPhysicsDiagnosticsRun( const char* scenePath )
 {
-    if ( !m_physicsDiagnostics.isEnabled )
-    {
-        return;
-    }
-
-    ++m_physicsDiagnostics.runSequence;
-    sprintf_s( m_physicsDiagnostics.currentRunId,
-               sizeof( m_physicsDiagnostics.currentRunId ),
-               "run_%04d",
-               m_physicsDiagnostics.runSequence );
-    m_physicsDiagnostics.isRunActive = true;
-    m_cGameModelCollection.SetPhysicsDiagnosticsRunId( m_physicsDiagnostics.currentRunId );
-
-    const char* rendererName = IsGfxReady() ? Gfx().GetRendererName() : "unknown";
-    const char* solverName = "solver";
-    std::string escapedScene = JsonEscape( scenePath && scenePath[0] != '\0' ? scenePath : "generated" );
-    std::string escapedRenderer = JsonEscape( rendererName );
-    std::string escapedSolver = JsonEscape( solverName );
-
-    Log().Writef( m_physicsDiagnostics.path,
-                  "{\"kind\":\"run\",\"run\":\"%s\",\"scene\":\"%s\",\"scene_index\":%d,\"load_count\":%d,\"manual_reset_count\":%d,\"renderer\":\"%s\",\"solver\":\"%s\",\"seed\":%u,\"fixed_step\":%d,\"fixed_step_forced_by_diag\":%d,\"target_frames\":%d,\"model_count\":%d,\"config\":{\"gravity\":%.6f,\"contact_epsilon\":%.6f,\"contact_restitution_threshold\":%.6f,\"friction_coeff\":%.6f,\"rolling_friction_coeff\":%.6f,\"spin_friction_coeff\":%.6f,\"broadphase_cell\":%.6f,\"persistent_contact_slop\":%.6f,\"persistent_contact_baumgarte_beta\":%.6f,\"persistent_contact_position_correction_percent\":%.6f,\"persistent_contact_solver_iterations\":%d,\"terrain_contact_threshold\":%.6f,\"terrain_contact_slop\":%.6f,\"terrain_contact_baumgarte_beta\":%.6f,\"terrain_max_baumgarte_bias\":%.6f,\"physics_sleep_linear_speed\":%.6f,\"physics_sleep_angular_speed\":%.6f,\"physics_sleep_frames\":%d}}\n",
-                  m_physicsDiagnostics.currentRunId,
-                  escapedScene.c_str(),
-                  SceneState().currentSceneIndex,
-                  SceneState().loadCount,
-                  SceneState().manualResetCount,
-                  escapedRenderer.c_str(),
-                  escapedSolver.c_str(),
-                  SceneState().rngSeed,
-                  SceneState().isFixedStep ? 1 : 0,
-                  m_physicsDiagnostics.fixedStepForcedByDiagnostics ? 1 : 0,
-                  SceneState().targetFrameCount,
-                  SceneState().modelCount,
-                  Cfg().gravity,
-                  Cfg().contactEpsilon,
-                  Cfg().contactRestitutionThreshold,
-                  Cfg().frictionCoeff,
-                  Cfg().rollingFrictionCoeff,
-                  Cfg().spinFrictionCoeff,
-                  Cfg().broadphaseCell,
-                  Cfg().persistentContactSlop,
-                  Cfg().persistentContactBaumgarteBeta,
-                  Cfg().persistentContactPositionCorrectionPercent,
-                  Cfg().persistentContactSolverIterations,
-                  Cfg().terrainContactThreshold,
-                  Cfg().terrainContactSlop,
-                  Cfg().terrainContactBaumgarteBeta,
-                  Cfg().terrainMaxBaumgarteBias,
-                  Cfg().physicsSleepLinearSpeed,
-                  Cfg().physicsSleepAngularSpeed,
-                  Cfg().physicsSleepFrames );
+    RuntimeDiagnostics::BeginPhysicsDiagnosticsRun( m_physicsDiagnostics,
+                                                    m_cGameModelCollection,
+                                                    SceneState(),
+                                                    Cfg(),
+                                                    scenePath,
+                                                    IsGfxReady() ? Gfx().GetRendererName() : "unknown" );
 }
 
 
 void SkullbonezRun::EndPhysicsDiagnosticsRun( const char* status )
 {
-    if ( !m_physicsDiagnostics.isEnabled || !m_physicsDiagnostics.isRunActive )
-    {
-        return;
-    }
-
-    std::string escapedStatus = JsonEscape( status && status[0] != '\0' ? status : "ended" );
-    Log().Writef( m_physicsDiagnostics.path,
-                  "{\"kind\":\"end\",\"run\":\"%s\",\"frame\":%d,\"status\":\"%s\"}\n",
-                  m_physicsDiagnostics.currentRunId,
-                  SceneState().currentFrame,
-                  escapedStatus.c_str() );
-    Log().FlushAll();
-
-    m_physicsDiagnostics.isRunActive = false;
+    RuntimeDiagnostics::EndPhysicsDiagnosticsRun( m_physicsDiagnostics, SceneState(), status );
 }
 #endif
